@@ -1,0 +1,17 @@
+# .NET build output
+**/bin/
+**/obj/
+
+# Frontend dependencies and build output
+frontend/node_modules/
+frontend/dist/
+
+# Local environment and IDE files
+*.user
+*.suo
+.vs/
+.idea/
+
+# Logs and local secrets
+*.log
+appsettings.Development.json

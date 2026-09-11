@@ -1,0 +1,333 @@
+// ============================================================================
+// IMSERP Global Design System & Responsive Mobile Layout Engine
+// Standard Font: Plus Jakarta Sans
+// Supported Viewports: Mobile (<600px), Tablet (600px-960px), Laptop/Desktop (>960px)
+// ============================================================================
+
+@import '@angular/material/prebuilt-themes/indigo-pink.css';
+
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: #f5f7fa;
+  color: #1e293b;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+// Global Typography Enforcement (excluding mat-icon)
+body, p, span, h1, h2, h3, h4, h5, h6, a, button, input, select, textarea,
+.mat-typography, .mat-mdc-button, .mat-mdc-card, .mat-mdc-table, .mat-mdc-dialog-container,
+.mdc-button, .mdc-card, .mdc-data-table {
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+}
+
+// CRITICAL: Protect Angular Material Icons Font Family
+.material-icons, mat-icon, .mat-icon, .mat-icon-no-color, .mat-icon-inline {
+  font-family: 'Material Icons' !important;
+  font-style: normal;
+  font-weight: normal;
+  text-transform: none;
+  line-height: 1;
+  letter-spacing: normal;
+  word-wrap: normal;
+  white-space: nowrap;
+  direction: ltr;
+  display: inline-block;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'liga';
+}
+
+.spacer {
+  flex: 1 1 auto;
+}
+
+.full-width {
+  width: 100%;
+}
+
+// Card Grid Responsiveness (Dashboard Stats, Cards)
+.card-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+
+  @media (max-width: 600px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+// Global Table Responsiveness Engine
+.table-responsive, .table-container {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+
+  /* Custom Clean Scrollbar */
+  &::-webkit-scrollbar {
+    height: 6px;
+    width: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    background: #f1f5f9;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
+
+  table, .mat-mdc-table {
+    width: 100%;
+    min-width: 650px; /* Ensures grid columns remain readable on mobile without crunching */
+  }
+}
+
+.mat-column-actions, td.mat-column-actions, th.mat-column-actions {
+  width: 130px !important;
+  min-width: 130px !important;
+  white-space: nowrap !important;
+  text-align: right !important;
+
+  button, .mat-mdc-icon-button {
+    display: inline-inline-flex !important;
+    vertical-align: middle !important;
+  }
+}
+
+.action-buttons, .action-cell {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  white-space: nowrap !important;
+  gap: 4px !important;
+}
+
+// Global Filter Toolbar Responsiveness
+.filter-toolbar {
+  padding: 16px 20px 0 20px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+
+  .search-field, .batch-filter, .status-filter, .session-filter {
+    flex: 1 1 auto;
+    min-width: 240px;
+  }
+
+  @media (max-width: 768px) {
+    padding: 12px 12px 0 12px !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+
+    .search-field, .batch-filter, .status-filter, .session-filter {
+      width: 100% !important;
+      min-width: 100% !important;
+    }
+  }
+}
+
+// Page Header Responsiveness
+.page-header, .header-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+
+  .page-title, h2 {
+    font-size: 1.4rem;
+    font-weight: 700;
+    margin: 0;
+    color: #0f172a;
+
+    @media (max-width: 600px) {
+      font-size: 1.2rem;
+    }
+  }
+
+  .page-subtitle, p {
+    color: #64748b;
+    margin: 4px 0 0 0;
+    font-size: 0.85rem;
+  }
+
+  @media (max-width: 600px) {
+    flex-direction: column;
+    align-items: stretch;
+
+    .add-btn, button[mat-raised-button] {
+      width: 100%;
+    }
+  }
+}
+
+// Modal / Dialog Responsiveness
+.cdk-overlay-pane {
+  @media (max-width: 600px) {
+    max-width: 94vw !important;
+    width: 94vw !important;
+  }
+}
+
+.mat-mdc-dialog-container {
+  .dialog-content {
+    @media (max-width: 600px) {
+      min-width: auto !important;
+      padding: 12px !important;
+    }
+  }
+
+  .form-grid {
+    @media (max-width: 600px) {
+      flex-direction: column !important;
+      display: flex !important;
+      .half-width {
+        width: 100% !important;
+      }
+    }
+  }
+}
+
+// Status Badges
+.status-badge {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 0.78rem;
+
+  &.paid { background-color: #dcfce7; color: #166534; }
+  &.partial { background-color: #ffedd5; color: #9a3412; }
+  &.pending { background-color: #f3e8ff; color: #6b21a8; }
+  &.overdue { background-color: #fee2e2; color: #991b1b; }
+}
+
+.whatsapp-btn {
+  background-color: #25d366 !important;
+  color: white !important;
+}
+
+// Utility Chips Styling
+.mat-mdc-chip {
+  font-weight: 600;
+  border-radius: 6px !important;
+}
+
+// Multi-line Rich Tooltips for Analytics (Sharp Sleek Dark Design)
+.cdk-overlay-pane.mat-mdc-tooltip-panel {
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  border: none !important;
+}
+
+.mat-mdc-tooltip {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+.multiline-tooltip .mdc-tooltip__surface,
+.mdc-tooltip__surface.multiline-tooltip,
+.mat-mdc-tooltip-surface.multiline-tooltip,
+.multiline-tooltip.mat-mdc-tooltip-surface {
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+  border-radius: 8px !important;
+  padding: 12px 16px !important;
+  font-size: 0.82rem !important;
+  line-height: 1.55 !important;
+  white-space: pre-line !important;
+  max-width: 300px !important;
+  box-shadow: 0 12px 28px -4px rgba(0, 0, 0, 0.45), 0 4px 12px -2px rgba(0, 0, 0, 0.3) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+
+// Account Header Dropdown Menu Styling
+.account-dropdown-panel {
+  border-radius: 12px !important;
+  min-width: 250px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+
+  .account-menu-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+    background: #f8fafc;
+    cursor: default;
+
+    .user-avatar-circle {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      flex-shrink: 0;
+      box-shadow: 0 4px 10px rgba(25, 118, 210, 0.25);
+
+      mat-icon {
+        font-size: 26px;
+        width: 26px;
+        height: 26px;
+      }
+    }
+
+    .user-info-text {
+      display: flex;
+      flex-direction: column;
+
+      .user-name {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: #0f172a;
+        line-height: 1.2;
+      }
+      .user-role {
+        font-size: 0.78rem;
+        color: #2563eb;
+        font-weight: 600;
+        margin-top: 2px;
+      }
+      .user-inst {
+        font-size: 0.72rem;
+        color: #64748b;
+        margin-top: 1px;
+      }
+    }
+  }
+
+  .logout-item {
+    .text-warn {
+      color: #dc2626;
+      font-weight: 600;
+    }
+  }
+}
+
+// Hide visible scrollbars for dialogs and tab-content while preserving smooth mouse wheel scrolling
+.tab-content,
+.ledger-dialog-container,
+.mat-mdc-dialog-container,
+.cdk-overlay-pane {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+
+  &::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
+}
