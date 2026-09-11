@@ -320,10 +320,14 @@ export interface CalendarDayItem {
             </td>
             <td>{{a.remarks || '—'}}</td>
             <td class="actions-col">
-              <button mat-icon-button color="primary" (click)="editRecord(a)" matTooltip="Edit record">
+              <button mat-icon-button color="primary" (click)="editRecord(a)"
+                [disabled]="isPublicHolidayOrSunday(a.attendanceDate) && !canEditPublicHolidayOrSunday"
+                matTooltip="Edit record">
                 <mat-icon>edit</mat-icon>
               </button>
-              <button mat-icon-button color="warn" (click)="deleteRecord(a.id)" matTooltip="Delete record">
+              <button mat-icon-button color="warn" (click)="deleteRecord(a.id)"
+                [disabled]="isPublicHolidayOrSunday(a.attendanceDate) && !canEditPublicHolidayOrSunday"
+                matTooltip="Delete record">
                 <mat-icon>delete_outline</mat-icon>
               </button>
             </td>
@@ -539,6 +543,7 @@ export class TeacherAttendanceComponent implements OnInit {
   loading = false;
   saving = false;
   showMarkForm = false;
+  canEditPublicHolidayOrSunday = false;
 
   attMonth = new Date().getMonth() + 1;
   attYear = new Date().getFullYear();
@@ -571,7 +576,15 @@ export class TeacherAttendanceComponent implements OnInit {
 
   onTeacherSelected(t: TeacherDto) {
     this.selectedTeacher = t;
+    this.loadPublicHolidaySundayPermission();
     this.loadAttendance();
+  }
+
+  loadPublicHolidaySundayPermission() {
+    this.http.get<{ canEdit: boolean }>(`${this.api}/teachers/attendance/ph-sun-edit-permission`).subscribe({
+      next: result => this.canEditPublicHolidayOrSunday = result.canEdit,
+      error: () => this.canEditPublicHolidayOrSunday = false
+    });
   }
 
   loadAttendance() {
@@ -703,6 +716,11 @@ export class TeacherAttendanceComponent implements OnInit {
   }
 
   onDayCellClick(d: CalendarDayItem) {
+    if (this.isPublicHolidayOrSunday(d.dateStr) && !this.canEditPublicHolidayOrSunday) {
+      this.confirmDialog.alert('Editing Disabled', 'PH/SUN attendance editing is disabled for your role.', 'warning');
+      return;
+    }
+
     this.markData.attendanceDate = d.dateStr;
     if (d.record) {
       this.markData.status = d.record.status;
@@ -884,6 +902,11 @@ export class TeacherAttendanceComponent implements OnInit {
   saveAttendance() {
     if (!this.selectedTeacher || !this.markData.attendanceDate) return;
 
+    if (this.isPublicHolidayOrSunday(this.markData.attendanceDate) && !this.canEditPublicHolidayOrSunday) {
+      this.confirmDialog.alert('Editing Disabled', 'PH/SUN attendance editing is disabled for your role.', 'warning');
+      return;
+    }
+
     this.saving = true;
 
     // Normalize check-in and check-out to 24-hour format seamlessly
@@ -941,7 +964,13 @@ export class TeacherAttendanceComponent implements OnInit {
   }
 
   editRecord(record: AttendanceDto) {
-    this.markData.attendanceDate = record.attendanceDate.split('T')[0];
+    const date = record.attendanceDate.split('T')[0];
+    if (this.isPublicHolidayOrSunday(date) && !this.canEditPublicHolidayOrSunday) {
+      this.confirmDialog.alert('Editing Disabled', 'PH/SUN attendance editing is disabled for your role.', 'warning');
+      return;
+    }
+
+    this.markData.attendanceDate = date;
     this.markData.checkInTime = record.checkInTime || '';
     this.markData.checkOutTime = record.checkOutTime || '';
     this.markData.status = this.getEffectiveStatus(record);
@@ -950,6 +979,12 @@ export class TeacherAttendanceComponent implements OnInit {
   }
 
   deleteRecord(id: string) {
+    const record = this.records.find(item => item.id === id);
+    if (record && this.isPublicHolidayOrSunday(record.attendanceDate.split('T')[0]) && !this.canEditPublicHolidayOrSunday) {
+      this.confirmDialog.alert('Editing Disabled', 'PH/SUN attendance editing is disabled for your role.', 'warning');
+      return;
+    }
+
     this.confirmDialog.danger(
       'Delete Attendance Record',
       'Are you sure you want to delete this attendance log? This will update the monthly summary and payroll calculations.',
@@ -966,6 +1001,18 @@ export class TeacherAttendanceComponent implements OnInit {
           }
         });
       }
+    });
+  }
+
+  isPublicHolidayOrSunday(dateValue: string): boolean {
+    const dateOnly = dateValue.split('T')[0];
+    const date = new Date(`${dateOnly}T00:00:00`);
+    if (date.getDay() === 0) return true;
+
+    return this.holidays.some(h => {
+      const start = h.startDate.split('T')[0];
+      const end = h.endDate.split('T')[0];
+      return dateOnly >= start && dateOnly <= end;
     });
   }
 }

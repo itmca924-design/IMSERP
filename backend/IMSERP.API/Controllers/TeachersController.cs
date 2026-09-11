@@ -30,6 +30,31 @@ public class TeachersController : ControllerBase
         t.WhatsAppPhone, t.Email, t.Address, t.PhotoUrl,
         t.JoiningDate, t.LeavingDate, t.IsActive, t.CreatedAt, batchCount);
 
+    private async Task<bool> CanEditPublicHolidayOrSundayAsync()
+    {
+        if (_currentUser.UserId == Guid.Empty) return false;
+
+        var user = await _db.Users.AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
+        if (user?.RoleId == null) return false;
+
+        return await _db.RolePermissions.AsNoTracking()
+            .Where(rp => rp.RoleId == user.RoleId && rp.CanEdit)
+            .Join(_db.MenuItems,
+                permission => permission.MenuItemId,
+                menu => menu.Id,
+                (permission, menu) => menu.RouteUrl)
+            .AnyAsync(route => route == "/teachers/attendance/ph-sun-edit");
+    }
+
+    private async Task<bool> IsPublicHolidayOrSundayAsync(DateTime date)
+    {
+        if (date.DayOfWeek == DayOfWeek.Sunday) return true;
+
+        return await _db.Holidays.AsNoTracking()
+            .AnyAsync(h => h.IsActive && h.StartDate.Date <= date.Date && h.EndDate.Date >= date.Date);
+    }
+
     // ─── Teacher CRUD ─────────────────────────────────────────
 
     /// <summary>
@@ -438,6 +463,12 @@ public class TeachersController : ControllerBase
 
     // ─── Attendance ───────────────────────────────────────────
 
+    [HttpGet("attendance/ph-sun-edit-permission")]
+    public async Task<ActionResult<object>> GetPublicHolidaySundayEditPermission()
+    {
+        return Ok(new { canEdit = await CanEditPublicHolidayOrSundayAsync() });
+    }
+
     [HttpGet("{id}/attendance")]
     public async Task<ActionResult<IEnumerable<TeacherAttendanceDto>>> GetAttendance(
         Guid id,
@@ -544,6 +575,9 @@ public class TeachersController : ControllerBase
     [HttpPost("attendance/bulk")]
     public async Task<IActionResult> BulkMarkAttendance([FromBody] BulkMarkAttendanceDto dto)
     {
+        if (!await CanEditPublicHolidayOrSundayAsync() && await IsPublicHolidayOrSundayAsync(dto.AttendanceDate))
+            return Forbid();
+
         var markedBy = _currentUser.UserId.ToString();
         foreach (var entry in dto.Entries)
         {
@@ -593,6 +627,9 @@ public class TeachersController : ControllerBase
 
         var smartStatus = EvaluateSmartAttendanceStatus(status, dto.CheckInTime, dto.CheckOutTime);
         var date = dto.AttendanceDate.Date;
+        if (!await CanEditPublicHolidayOrSundayAsync() && await IsPublicHolidayOrSundayAsync(date))
+            return Forbid();
+
         var existing = await _db.TeacherAttendances
             .FirstOrDefaultAsync(a => a.TeacherId == id && a.AttendanceDate.Date == date);
 
@@ -634,6 +671,9 @@ public class TeachersController : ControllerBase
     {
         var record = await _db.TeacherAttendances.FindAsync(attendanceId);
         if (record == null) return NotFound();
+
+        if (!await CanEditPublicHolidayOrSundayAsync() && await IsPublicHolidayOrSundayAsync(record.AttendanceDate))
+            return Forbid();
 
         _db.TeacherAttendances.Remove(record);
         await _db.SaveChangesAsync();

@@ -12,8 +12,10 @@ import { MatExpansionModule } from '@angular/material/expansion';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../core/services/auth.service';
 import { MenuService, MenuItem } from '../core/services/menu.service';
+import { API_BASE, HolidayDto } from '../features/teachers/teacher.models';
 import { FooterComponent } from './footer/footer.component';
 
 @Component({
@@ -97,16 +99,43 @@ import { FooterComponent } from './footer/footer.component';
           </mat-accordion>
         </div>
 
-        <div class="user-footer">
-          <div class="user-details">
-            <span class="user-name">{{ currentUser()?.fullName }}</span>
-            <mat-chip-option [selectable]="false" color="accent" selected class="role-chip">
-              {{ currentUser()?.role }}
-            </mat-chip-option>
+        <div class="sidebar-calendar">
+          <div class="calendar-title-row">
+            <strong><mat-icon>event</mat-icon> Holiday Calendar</strong>
+            <span>{{ calendarYear }}</span>
           </div>
-          <button mat-icon-button color="warn" (click)="logout()" title="Logout">
-            <mat-icon>logout</mat-icon>
-          </button>
+          <div class="calendar-controls">
+            <button mat-icon-button type="button" (click)="changeCalendarMonth(-1)" matTooltip="Previous month">
+              <mat-icon>chevron_left</mat-icon>
+            </button>
+            <strong>{{ calendarMonths[calendarMonth] }}</strong>
+            <button mat-icon-button type="button" (click)="changeCalendarMonth(1)" matTooltip="Next month">
+              <mat-icon>chevron_right</mat-icon>
+            </button>
+          </div>
+          <div class="calendar-weekdays">
+            <span *ngFor="let day of calendarWeekdays">{{ day }}</span>
+          </div>
+          <div class="calendar-grid">
+            <span *ngFor="let blank of calendarLeadingBlanks"></span>
+            <button
+              *ngFor="let day of calendarDays"
+              type="button"
+              class="calendar-day"
+              [class.today]="day.isToday"
+              [class.saturday]="day.isSaturday"
+              [class.sunday]="day.isSunday"
+              [class.holiday]="day.holiday"
+              [matTooltip]="getCalendarDayTooltip(day)"
+              matTooltipPosition="right">
+              {{ day.day }}
+            </button>
+          </div>
+          <div class="calendar-legend">
+            <span><i class="holiday-dot"></i> Holiday</span>
+            <span><i class="sunday-dot"></i> Sun</span>
+            <span><i class="saturday-dot"></i> Sat</span>
+          </div>
         </div>
       </mat-sidenav>
 
@@ -225,11 +254,21 @@ import { FooterComponent } from './footer/footer.component';
     .menu-accordion {
       display: block;
       width: 100%;
+      overflow: hidden;
       mat-expansion-panel {
         background: transparent;
         box-shadow: none !important;
         margin: 0 !important;
         border-radius: 0 !important;
+        transition: background-color 180ms ease, transform 180ms ease;
+
+        &:hover {
+          background: #f8fafc;
+        }
+
+        &.mat-expanded {
+          background: #f8fafc;
+        }
       }
       .accordion-title {
         display: flex;
@@ -237,20 +276,53 @@ import { FooterComponent } from './footer/footer.component';
         gap: 12px;
         font-weight: 600;
         color: #334155;
+        transition: color 180ms ease;
 
         .menu-icon {
           color: #1976d2;
+          transition: transform 220ms ease, color 180ms ease;
         }
+      }
+      mat-expansion-panel-header {
+        transition: background-color 180ms ease, padding-left 180ms ease;
+
+        &:hover {
+          background: #eef6ff !important;
+          padding-left: 20px;
+        }
+      }
+      mat-expansion-panel.mat-expanded .menu-icon {
+        transform: rotate(-5deg) scale(1.08);
+        color: #0284c7;
       }
     }
     .sub-nav-list {
       padding-left: 12px;
       padding-top: 0;
+      overflow: hidden;
 
       .sub-icon {
         font-size: 20px;
         width: 20px;
         height: 20px;
+        transition: transform 180ms ease, color 180ms ease;
+      }
+
+      a[mat-list-item] {
+        border-radius: 7px;
+        margin: 2px 8px 2px 0;
+        transition: background-color 180ms ease, color 180ms ease, transform 180ms ease, padding-left 180ms ease;
+
+        &:hover {
+          background: #f0f7ff;
+          transform: translateX(3px);
+          padding-left: 4px;
+        }
+
+        &:hover .sub-icon {
+          transform: scale(1.08);
+          color: #0284c7;
+        }
       }
     }
     .direct-nav-list, .sub-nav-list {
@@ -258,31 +330,81 @@ import { FooterComponent } from './footer/footer.component';
         background-color: #e0f2fe !important;
         color: #0284c7 !important;
         font-weight: 600;
+        box-shadow: inset 3px 0 0 #0284c7;
 
         mat-icon {
           color: #0284c7 !important;
+          transform: scale(1.05);
         }
       }
     }
     .user-footer {
-      padding: 16px;
+      display: none;
+    }
+    .sidebar-calendar {
       border-top: 1px solid #e2e8f0;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+      padding: 10px 12px 12px;
+      background: #f8fafc;
+      flex-shrink: 0;
 
-      .user-details {
+      .calendar-title-row, .calendar-controls, .calendar-weekdays, .calendar-legend {
         display: flex;
-        flex-direction: column;
-        gap: 4px;
-        .user-name {
-          font-weight: 600;
-          font-size: 0.88rem;
-        }
-        .role-chip {
-          font-size: 0.7rem;
-          height: 20px;
-        }
+        align-items: center;
+      }
+      .calendar-title-row {
+        justify-content: space-between;
+        color: #334155;
+        font-size: 0.76rem;
+        margin-bottom: 4px;
+        strong { display: flex; align-items: center; gap: 5px; }
+        mat-icon { color: #1976d2; font-size: 17px; width: 17px; height: 17px; }
+        span { color: #64748b; font-weight: 600; }
+      }
+      .calendar-controls {
+        justify-content: space-between;
+        color: #1e3a8a;
+        font-size: 0.78rem;
+        button { width: 24px; height: 24px; line-height: 24px; padding: 0; }
+        mat-icon { font-size: 18px; width: 18px; height: 18px; line-height: 18px; }
+      }
+      .calendar-weekdays, .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 3px;
+      }
+      .calendar-weekdays {
+        margin: 4px 0 3px;
+        text-align: center;
+        color: #94a3b8;
+        font-size: 0.62rem;
+        font-weight: 700;
+      }
+      .calendar-day {
+        min-width: 0;
+        height: 25px;
+        border: 1px solid transparent;
+        border-radius: 5px;
+        background: #ffffff;
+        color: #334155;
+        font-size: 0.68rem;
+        cursor: default;
+        padding: 0;
+        &.today { border-color: #2563eb; font-weight: 800; }
+        &.holiday { background: #fef3c7; color: #b45309; border-color: #fbbf24; font-weight: 700; }
+        &.sunday { background: #ffe4e6; color: #be123c; }
+        &.saturday { background: #e0e7ff; color: #4338ca; }
+        &.holiday.sunday, &.holiday.saturday { border-width: 2px; }
+      }
+      .calendar-legend {
+        gap: 8px;
+        margin-top: 7px;
+        color: #64748b;
+        font-size: 0.59rem;
+        span { display: inline-flex; align-items: center; gap: 3px; }
+        i { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+        .holiday-dot { background: #f59e0b; }
+        .sunday-dot { background: #e11d48; }
+        .saturday-dot { background: #6366f1; }
       }
     }
     .header-toolbar {
@@ -375,6 +497,13 @@ export class LayoutComponent implements OnInit {
   currentUser = this.authService.currentUser;
   menuTree = signal<MenuItem[]>([]);
   isMobile = signal<boolean>(false);
+  calendarMonths = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  calendarWeekdays = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+  calendarMonth = new Date().getMonth();
+  calendarYear = new Date().getFullYear();
+  calendarLeadingBlanks: number[] = [];
+  calendarDays: Array<{ day: number; date: string; isToday: boolean; isSaturday: boolean; isSunday: boolean; holiday?: HolidayDto }> = [];
+  calendarHolidays: HolidayDto[] = [];
 
   @ViewChild('drawer') drawer!: MatSidenav;
 
@@ -390,6 +519,64 @@ export class LayoutComponent implements OnInit {
     });
 
     this.loadMenu();
+    this.loadCalendarHolidays();
+  }
+
+  changeCalendarMonth(offset: number): void {
+    const next = new Date(this.calendarYear, this.calendarMonth + offset, 1);
+    this.calendarMonth = next.getMonth();
+    this.calendarYear = next.getFullYear();
+    this.loadCalendarHolidays();
+  }
+
+  loadCalendarHolidays(): void {
+    this.menuService.getHolidayCalendar(this.calendarYear, this.calendarMonth + 1).subscribe({
+      next: holidays => {
+        this.calendarHolidays = holidays || [];
+        this.buildCalendar();
+      },
+      error: () => {
+        this.calendarHolidays = [];
+        this.buildCalendar();
+      }
+    });
+  }
+
+  buildCalendar(): void {
+    const firstDay = new Date(this.calendarYear, this.calendarMonth, 1);
+    const daysInMonth = new Date(this.calendarYear, this.calendarMonth + 1, 0).getDate();
+    const today = new Date();
+    this.calendarLeadingBlanks = Array.from({ length: firstDay.getDay() }, (_, index) => index);
+    this.calendarDays = Array.from({ length: daysInMonth }, (_, index) => {
+      const day = index + 1;
+      const date = `${this.calendarYear}-${String(this.calendarMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const dateObject = new Date(this.calendarYear, this.calendarMonth, day);
+      return {
+        day,
+        date,
+        isToday: today.getFullYear() === this.calendarYear && today.getMonth() === this.calendarMonth && today.getDate() === day,
+        isSaturday: dateObject.getDay() === 6,
+        isSunday: dateObject.getDay() === 0,
+        holiday: this.calendarHolidays.find(holiday => date >= holiday.startDate.split('T')[0] && date <= holiday.endDate.split('T')[0])
+      };
+    });
+  }
+
+  getCalendarDayTooltip(day: { date: string; isSaturday: boolean; isSunday: boolean; holiday?: HolidayDto }): string {
+    const parts: string[] = [];
+    if (day.holiday) {
+      parts.push(`${day.holiday.title} (${day.holiday.holidayType})`);
+      if (day.holiday.description) parts.push(day.holiday.description);
+      parts.push(`From ${this.formatCalendarDate(day.holiday.startDate)} to ${this.formatCalendarDate(day.holiday.endDate)}`);
+    }
+    if (day.isSunday) parts.push('Sunday Weekly Off');
+    if (day.isSaturday) parts.push('Saturday');
+    return parts.length > 0 ? parts.join(' | ') : this.formatCalendarDate(day.date);
+  }
+
+  formatCalendarDate(value: string): string {
+    const date = new Date(`${value.split('T')[0]}T00:00:00`);
+    return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
   onNavClick(drawer: MatSidenav): void {

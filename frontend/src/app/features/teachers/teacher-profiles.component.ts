@@ -146,23 +146,28 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
 
   <!-- ── SEARCH & FILTER ── -->
   <mat-card class="filter-card mat-elevation-z1" *ngIf="!showForm">
-    <mat-form-field appearance="outline" class="search-field">
-      <mat-label>Teachers search karo...</mat-label>
-      <mat-icon matPrefix>search</mat-icon>
-      <input matInput [(ngModel)]="searchTerm" (ngModelChange)="onSearch()" placeholder="Name, code, specialization...">
-      <button mat-icon-button matSuffix *ngIf="searchTerm" (click)="searchTerm=''; loadTeachers()">
-        <mat-icon>clear</mat-icon>
-      </button>
-    </mat-form-field>
-    <mat-form-field appearance="outline" style="width:160px">
-      <mat-label>Status</mat-label>
-      <mat-select [(ngModel)]="filterActive" (ngModelChange)="loadTeachers()">
-        <mat-option [value]="null">Sab Teachers</mat-option>
-        <mat-option [value]="true">Active Only</mat-option>
-        <mat-option [value]="false">Inactive Only</mat-option>
-      </mat-select>
-    </mat-form-field>
-    <span class="total-count">Total: {{totalCount}} teachers</span>
+    <div class="filter-heading">
+      <div class="filter-title"><mat-icon>filter_list</mat-icon><strong>Teacher Directory</strong></div>
+      <span class="total-count">{{totalCount}} teachers</span>
+    </div>
+    <div class="filter-controls">
+      <mat-form-field appearance="outline" class="search-field">
+        <mat-label>Teachers search karo...</mat-label>
+        <mat-icon matPrefix>search</mat-icon>
+        <input matInput [(ngModel)]="searchTerm" (ngModelChange)="onSearch()" placeholder="Name, code, specialization...">
+        <button mat-icon-button matSuffix *ngIf="searchTerm" (click)="searchTerm=''; loadTeachers()">
+          <mat-icon>clear</mat-icon>
+        </button>
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="status-field">
+        <mat-label>Status</mat-label>
+        <mat-select [(ngModel)]="filterActive" (ngModelChange)="loadTeachers()">
+          <mat-option [value]="null">Sab Teachers</mat-option>
+          <mat-option [value]="true">Active Only</mat-option>
+          <mat-option [value]="false">Inactive Only</mat-option>
+        </mat-select>
+      </mat-form-field>
+    </div>
   </mat-card>
 
   <!-- ── SELECTED TEACHER PROFILE VIEW ── -->
@@ -287,8 +292,17 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
     .form-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:0 16px; }
     .full-width { grid-column:1/-1; }
     .form-actions { display:flex; justify-content:flex-end; gap:12px; margin-top:8px; }
-    .filter-card { padding:16px; border-radius:10px; display:flex; gap:16px; align-items:center; flex-wrap:wrap; }
-    .search-field { flex:1; min-width:260px; }
+    .filter-card { padding:14px 18px 8px; border-radius:10px; display:flex; flex-direction:column; gap:6px; }
+    .filter-heading { display:flex; align-items:center; justify-content:space-between; min-height:24px; }
+    .filter-title { display:flex; align-items:center; gap:7px; color:#1e3a8a; font-size:.9rem; }
+    .filter-title mat-icon { font-size:19px; width:19px; height:19px; color:#2563eb; }
+    .total-count { color:#64748b; font-size:.78rem; font-weight:600; }
+    .filter-controls { display:grid; grid-template-columns:minmax(260px, 1fr) 180px; gap:14px; align-items:center; }
+    .search-field, .status-field { width:100%; }
+
+    @media (max-width: 640px) {
+      .filter-controls { grid-template-columns:1fr; gap:4px; }
+    }
     .total-count { font-size:.85rem; color:#64748b; margin-left:auto; }
     /* Profile View */
     .profile-view { }

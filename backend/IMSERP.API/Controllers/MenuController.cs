@@ -31,7 +31,7 @@ public class MenuController : ControllerBase
 
         var allMenuItems = await _dbContext.MenuItems
             .AsNoTracking()
-            .Where(m => m.IsActive)
+            .Where(m => m.IsActive && m.RouteUrl != "/teachers/attendance/ph-sun-edit")
             .OrderBy(m => m.SortOrder)
             .ToListAsync();
 
