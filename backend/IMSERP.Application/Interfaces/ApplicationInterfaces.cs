@@ -15,6 +15,7 @@ public interface IIMSERPDbContext
     DbSet<RolePermission> RolePermissions { get; }
     DbSet<Batch> Batches { get; }
     DbSet<Student> Students { get; }
+    DbSet<StudentAttendance> StudentAttendances { get; }
     DbSet<FeeInvoice> FeeInvoices { get; }
     DbSet<FeePayment> FeePayments { get; }
     DbSet<Test> Tests { get; }

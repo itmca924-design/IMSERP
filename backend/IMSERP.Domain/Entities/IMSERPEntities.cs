@@ -115,6 +115,21 @@ public class Student
     public Batch? Batch { get; set; }
     public ICollection<FeeInvoice> FeeInvoices { get; set; } = new List<FeeInvoice>();
     public ICollection<TestMarks> TestMarks { get; set; } = new List<TestMarks>();
+    public ICollection<StudentAttendance> Attendances { get; set; } = new List<StudentAttendance>();
+}
+
+public class StudentAttendance
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid StudentId { get; set; }
+    public DateTime AttendanceDate { get; set; }
+    public TeacherAttendanceStatus Status { get; set; } = TeacherAttendanceStatus.Present;
+    public string? Remarks { get; set; }
+    public string? MarkedBy { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    public Student? Student { get; set; }
 }
 
 public class FeeInvoice

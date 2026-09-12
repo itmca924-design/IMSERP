@@ -45,6 +45,59 @@ public record CreateStudentDto(
     string Address
 );
 
+public record StudentAttendanceDto(
+    Guid Id,
+    Guid StudentId,
+    string StudentName,
+    string RollNumber,
+    DateTime AttendanceDate,
+    string Status,
+    string? Remarks
+);
+
+public record StudentAttendanceSummaryDto(
+    int PresentDays,
+    int AbsentDays,
+    int LateDays,
+    int HalfDays,
+    int HolidayDays,
+    int TotalWorkingDays,
+    decimal AttendancePercentage
+);
+
+public record MarkStudentAttendanceDto(
+    DateTime AttendanceDate,
+    string Status,
+    string? Remarks
+);
+
+public record AttendanceReportRowDto(
+    Guid PersonId,
+    string PersonName,
+    string Code,
+    string GroupName,
+    int PresentDays,
+    int AbsentDays,
+    int LateDays,
+    int HalfDays,
+    int HolidayDays,
+    int TotalWorkingDays,
+    decimal AttendancePercentage
+);
+
+public record AttendanceReportDto(
+    string ReportType,
+    int Month,
+    int Year,
+    int TotalPeople,
+    int TotalPresentDays,
+    int TotalAbsentDays,
+    int TotalLateDays,
+    int TotalHalfDays,
+    int TotalHolidayDays,
+    List<AttendanceReportRowDto> Rows
+);
+
 public record BatchDto(
     Guid Id,
     string Name,

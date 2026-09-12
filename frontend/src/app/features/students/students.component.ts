@@ -2,6 +2,7 @@ import { Component, OnInit, OnDestroy, ViewChild } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { CommonModule } from '@angular/common';
+import { RouterModule } from '@angular/router';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators, FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatTableModule } from '@angular/material/table';
@@ -23,6 +24,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
   standalone: true,
   imports: [
     CommonModule,
+    RouterModule,
     ReactiveFormsModule,
     FormsModule,
     MatCardModule,
@@ -192,6 +194,9 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
               <th mat-header-cell *matHeaderCellDef class="text-right">Actions</th>
               <td mat-cell *matCellDef="let s" class="text-right">
                 <div class="action-buttons">
+                  <a mat-icon-button color="primary" [routerLink]="['/students/attendance']" [queryParams]="{studentId: s.id}" matTooltip="Student Attendance">
+                    <mat-icon>event_available</mat-icon>
+                  </a>
                   <button mat-icon-button color="primary" (click)="editStudent(s)" matTooltip="Edit Student">
                     <mat-icon>edit</mat-icon>
                   </button>

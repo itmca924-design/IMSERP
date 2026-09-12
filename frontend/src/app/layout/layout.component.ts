@@ -146,17 +146,40 @@ import { FooterComponent } from './footer/footer.component';
           </button>
 
           <span class="app-header-title">Coaching Management Dashboard</span>
-          
+          <div class="header-tools">
+            <div class="header-search" [class.open]="headerSearchFocused">
+              <mat-icon>search</mat-icon>
+              <input type="search" placeholder="Search pages..." [value]="headerSearch" (input)="onHeaderSearch($event)" (focus)="headerSearchFocused = true" (blur)="closeHeaderSearch()" aria-label="Search pages">
+              <div class="search-results" *ngIf="headerSearchFocused && headerSearchResults.length > 0">
+                <a *ngFor="let result of headerSearchResults" [routerLink]="result.route" (mousedown)="$event.preventDefault()" (click)="headerSearch = ''; headerSearchFocused = false">
+                  <mat-icon>{{ result.icon }}</mat-icon><span>{{ result.title }}</span>
+                </a>
+              </div>
+            </div>
+
+            <button mat-icon-button [matMenuTriggerFor]="notificationMenu" class="header-tool-button" matTooltip="Notifications" aria-label="Notifications">
+              <mat-icon>notifications_none</mat-icon><span class="notification-dot"></span>
+            </button>
+            <mat-menu #notificationMenu="matMenu" xPosition="before">
+              <div class="menu-section-title">Notifications</div>
+              <button mat-menu-item routerLink="/holidays"><mat-icon color="primary">event</mat-icon><span>View Holiday Calendar</span></button>
+              <button mat-menu-item routerLink="/fees"><mat-icon color="warn">payments</mat-icon><span>Review Fee Collection</span></button>
+              <button mat-menu-item routerLink="/attendance/reports"><mat-icon color="accent">summarize</mat-icon><span>Open Attendance Reports</span></button>
+            </mat-menu>
+
+            <button mat-stroked-button [matMenuTriggerFor]="quickActionsMenu" class="quick-actions-button" matTooltip="Quick actions">
+              <mat-icon>bolt</mat-icon><span>Quick Actions</span>
+            </button>
+            <mat-menu #quickActionsMenu="matMenu" xPosition="before">
+              <div class="menu-section-title">Quick Actions</div>
+              <button mat-menu-item routerLink="/students"><mat-icon>person_add</mat-icon><span>Add Student</span></button>
+              <button mat-menu-item routerLink="/teachers"><mat-icon>badge</mat-icon><span>Add Teacher</span></button>
+              <button mat-menu-item routerLink="/attendance/reports"><mat-icon>summarize</mat-icon><span>Attendance Reports</span></button>
+              <button mat-menu-item routerLink="/fees"><mat-icon>payments</mat-icon><span>Open Fee Collection</span></button>
+            </mat-menu>
+          </div>
           <span class="spacer"></span>
           
-          <a
-            routerLink="/whatsapp"
-            class="whatsapp-status-badge"
-            title="WhatsApp Gateway Active — Click to view live delivery logs">
-            <mat-icon class="wa-icon">check_circle</mat-icon>
-            <span class="wa-text">WhatsApp Gateway Active</span>
-          </a>
-
           <!-- User Account Menu Trigger Button -->
           <button mat-icon-button [matMenuTriggerFor]="accountMenu" class="account-btn" matTooltip="My Profile &amp; Settings">
             <mat-icon class="account-icon">account_circle</mat-icon>
@@ -429,6 +452,24 @@ import { FooterComponent } from './footer/footer.component';
         }
       }
     }
+    .header-tools { display:flex; align-items:center; gap:6px; margin-left:18px; }
+    .header-search { position:relative; display:flex; align-items:center; width:190px; height:34px; padding:0 10px; gap:7px; border:1px solid rgba(255,255,255,.35); border-radius:18px; background:rgba(255,255,255,.12); transition:width 180ms ease, background 180ms ease; }
+    .header-search.open { width:250px; background:#fff; color:#334155; }
+    .header-search > mat-icon { font-size:18px; width:18px; height:18px; color:inherit; }
+    .header-search input { width:100%; border:0; outline:0; background:transparent; color:inherit; font:inherit; font-size:.78rem; }
+    .header-search input::placeholder { color:rgba(255,255,255,.82); }
+    .header-search.open input::placeholder { color:#94a3b8; }
+    .search-results { position:absolute; top:40px; left:0; right:0; z-index:20; padding:5px; background:#fff; border:1px solid #e2e8f0; border-radius:8px; box-shadow:0 8px 22px rgba(15,23,42,.16); }
+    .search-results a { display:flex; align-items:center; gap:8px; padding:8px; border-radius:5px; color:#334155; text-decoration:none; font-size:.78rem; }
+    .search-results a:hover { background:#eff6ff; color:#2563eb; }
+    .search-results mat-icon { font-size:18px; width:18px; height:18px; color:#2563eb; }
+    .header-tool-button { position:relative; color:#fff; }
+    .notification-dot { position:absolute; top:9px; right:9px; width:6px; height:6px; border-radius:50%; background:#fbbf24; border:1px solid #3f51b5; }
+    .quick-actions-button { height:34px; color:#fff; border-color:rgba(255,255,255,.5); font-size:.76rem; }
+    .quick-actions-button mat-icon { font-size:17px; width:17px; height:17px; margin-right:3px; }
+    .menu-section-title { padding:10px 16px 6px; color:#64748b; font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.5px; }
+    @media (max-width: 900px) { .header-search { width:36px; padding:0 9px; } .header-search input { display:none; } .header-search.open { width:210px; } .header-search.open input { display:block; } .quick-actions-button span { display:none; } .quick-actions-button { min-width:36px; padding:0 8px; } }
+    @media (max-width: 600px) { .header-tools { margin-left:6px; gap:2px; } .header-search.open { position:absolute; left:58px; right:58px; width:auto; } }
     .spacer {
       flex: 1 1 auto;
     }
@@ -497,6 +538,23 @@ export class LayoutComponent implements OnInit {
   currentUser = this.authService.currentUser;
   menuTree = signal<MenuItem[]>([]);
   isMobile = signal<boolean>(false);
+  headerSearch = '';
+  headerSearchFocused = false;
+  headerSearchResults: Array<{ title: string; route: string; icon: string }> = [];
+  private readonly searchablePages = [
+    { title: 'Dashboard', route: '/dashboard', icon: 'dashboard' },
+    { title: 'Students', route: '/students', icon: 'people' },
+    { title: 'Student Attendance', route: '/students/attendance', icon: 'event_available' },
+    { title: 'Batches', route: '/batches', icon: 'class' },
+    { title: 'Subjects', route: '/subjects', icon: 'menu_book' },
+    { title: 'Holiday Calendar', route: '/holidays', icon: 'event' },
+    { title: 'Teacher Profiles', route: '/teachers', icon: 'badge' },
+    { title: 'Teacher Attendance', route: '/teachers/attendance', icon: 'event_available' },
+    { title: 'Attendance Reports', route: '/attendance/reports', icon: 'summarize' },
+    { title: 'Fee Collection', route: '/fees', icon: 'payments' },
+    { title: 'Tests & Report Cards', route: '/tests', icon: 'assignment' },
+    { title: 'Roles & Permissions', route: '/roles', icon: 'admin_panel_settings' }
+  ];
   calendarMonths = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   calendarWeekdays = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
   calendarMonth = new Date().getMonth();
@@ -512,6 +570,18 @@ export class LayoutComponent implements OnInit {
     private menuService: MenuService,
     private breakpointObserver: BreakpointObserver
   ) {}
+
+  onHeaderSearch(event: Event): void {
+    this.headerSearch = (event.target as HTMLInputElement).value;
+    const query = this.headerSearch.trim().toLowerCase();
+    this.headerSearchResults = query
+      ? this.searchablePages.filter(page => page.title.toLowerCase().includes(query)).slice(0, 6)
+      : [];
+  }
+
+  closeHeaderSearch(): void {
+    setTimeout(() => this.headerSearchFocused = false, 120);
+  }
 
   ngOnInit(): void {
     this.breakpointObserver.observe(['(max-width: 960px)']).subscribe((result) => {

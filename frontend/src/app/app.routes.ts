@@ -5,6 +5,7 @@ import { DashboardComponent } from './features/dashboard/dashboard.component';
 import { BatchesComponent } from './features/batches/batches.component';
 import { SubjectsComponent } from './features/subjects/subjects.component';
 import { StudentsComponent } from './features/students/students.component';
+import { StudentAttendanceComponent } from './features/students/student-attendance.component';
 import { RolesComponent } from './features/roles/roles.component';
 import { UsersComponent } from './features/users/users.component';
 import { FeesComponent } from './features/fees/fees.component';
@@ -18,6 +19,7 @@ import { TeacherPaymentsComponent } from './features/teachers/teacher-payments.c
 import { TeacherAdvancesComponent } from './features/teachers/teacher-advances.component';
 import { TeacherLeavesComponent } from './features/teachers/teacher-leaves.component';
 import { HolidaysComponent } from './features/holidays/holidays.component';
+import { AttendanceReportsComponent } from './features/attendance/attendance-reports.component';
 import { authGuard } from './core/guards/auth.guard';
 
 export const routes: Routes = [
@@ -34,7 +36,9 @@ export const routes: Routes = [
       { path: 'batches', component: BatchesComponent },
       { path: 'subjects', component: SubjectsComponent },
       { path: 'students', component: StudentsComponent },
+      { path: 'students/attendance', component: StudentAttendanceComponent },
       { path: 'holidays', component: HolidaysComponent },
+      { path: 'attendance/reports', component: AttendanceReportsComponent },
 
       // Teacher Module – 7 dedicated pages
       { path: 'teachers', component: TeacherProfilesComponent },

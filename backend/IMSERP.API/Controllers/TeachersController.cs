@@ -469,6 +469,55 @@ public class TeachersController : ControllerBase
         return Ok(new { canEdit = await CanEditPublicHolidayOrSundayAsync() });
     }
 
+    [HttpGet("attendance/report")]
+    public async Task<ActionResult<AttendanceReportDto>> GetAttendanceReport(
+        [FromQuery] int month = 0, [FromQuery] int year = 0)
+    {
+        if (month == 0) month = DateTime.UtcNow.Month;
+        if (year == 0) year = DateTime.UtcNow.Year;
+
+        var monthStart = new DateTime(year, month, 1);
+        var monthEnd = new DateTime(year, month, DateTime.DaysInMonth(year, month));
+        var offDates = await GetAttendanceOffDates(monthStart, monthEnd);
+        var teachers = await _db.Teachers.AsNoTracking().Where(t => t.IsActive).OrderBy(t => t.FullName).ToListAsync();
+        var teacherIds = teachers.Select(t => t.Id).ToList();
+        var records = await _db.TeacherAttendances.AsNoTracking()
+            .Where(a => teacherIds.Contains(a.TeacherId) && a.AttendanceDate >= monthStart && a.AttendanceDate <= monthEnd)
+            .ToListAsync();
+
+        var rows = teachers.Select(teacher =>
+        {
+            var personRecords = records.Where(record => record.TeacherId == teacher.Id).ToList();
+            var statuses = personRecords.Select(record => EvaluateSmartAttendanceStatus(record.Status, record.CheckInTime, record.CheckOutTime)).ToList();
+            var present = statuses.Count(status => status == TeacherAttendanceStatus.Present);
+            var absent = statuses.Count(status => status == TeacherAttendanceStatus.Absent);
+            var late = statuses.Count(status => status == TeacherAttendanceStatus.Late);
+            var half = statuses.Count(status => status == TeacherAttendanceStatus.HalfDay);
+            var evaluated = present + absent + late + half;
+            return new AttendanceReportRowDto(teacher.Id, teacher.FullName, teacher.EmployeeCode, "Faculty", present, absent, late, half, offDates.Count, Math.Max(0, DateTime.DaysInMonth(year, month) - offDates.Count), evaluated == 0 ? 0 : Math.Round(((present + late + half * 0.5m) / evaluated) * 100, 1));
+        }).ToList();
+
+        return Ok(new AttendanceReportDto("Teacher", month, year, rows.Count, rows.Sum(row => row.PresentDays), rows.Sum(row => row.AbsentDays), rows.Sum(row => row.LateDays), rows.Sum(row => row.HalfDays), rows.Sum(row => row.HolidayDays), rows));
+    }
+
+    private async Task<HashSet<DateTime>> GetAttendanceOffDates(DateTime monthStart, DateTime monthEnd)
+    {
+        var offDates = new HashSet<DateTime>();
+        for (var date = monthStart; date <= monthEnd; date = date.AddDays(1))
+            if (date.DayOfWeek == DayOfWeek.Sunday) offDates.Add(date.Date);
+
+        var holidays = await _db.Holidays.AsNoTracking()
+            .Where(holiday => holiday.IsActive && holiday.StartDate.Date <= monthEnd && holiday.EndDate.Date >= monthStart)
+            .ToListAsync();
+        foreach (var holiday in holidays)
+        {
+            var start = holiday.StartDate.Date < monthStart ? monthStart : holiday.StartDate.Date;
+            var end = holiday.EndDate.Date > monthEnd ? monthEnd : holiday.EndDate.Date;
+            for (var date = start; date <= end; date = date.AddDays(1)) offDates.Add(date.Date);
+        }
+        return offDates;
+    }
+
     [HttpGet("{id}/attendance")]
     public async Task<ActionResult<IEnumerable<TeacherAttendanceDto>>> GetAttendance(
         Guid id,
