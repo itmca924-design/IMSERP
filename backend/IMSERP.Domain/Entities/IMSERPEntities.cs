@@ -292,6 +292,41 @@ public class AttendanceSettings
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }
 
+public class BiometricDevice
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? Brand { get; set; }
+    public string? Model { get; set; }
+    public string? SerialNumber { get; set; }
+    public string? IpAddress { get; set; }
+    public int Port { get; set; } = 80;
+    public string ConnectionMode { get; set; } = "PendingAdapter";
+    public bool IsActive { get; set; } = true;
+    public string Status { get; set; } = "NotConfigured";
+    public DateTime? LastSeenAt { get; set; }
+    public DateTime? LastSyncAt { get; set; }
+    public string? LastError { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}
+
+public class BiometricEventLog
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? DeviceId { get; set; }
+    public string PersonType { get; set; } = string.Empty;
+    public string BiometricUserId { get; set; } = string.Empty;
+    public DateTime EventTime { get; set; }
+    public string? DeviceEventId { get; set; }
+    public string? RawPayload { get; set; }
+    public string Status { get; set; } = "Received";
+    public string? ErrorMessage { get; set; }
+    public Guid? AttendanceId { get; set; }
+    public DateTime ReceivedAt { get; set; } = DateTime.UtcNow;
+}
+
 public class TeacherSalary
 {
     public Guid Id { get; set; } = Guid.NewGuid();

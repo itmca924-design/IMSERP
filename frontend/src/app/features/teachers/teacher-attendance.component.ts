@@ -15,6 +15,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { TeacherSelectorComponent } from './teacher-selector.component';
 import { API_BASE, AttendancePermissionsDto, AttendanceSettingsDto, TeacherDto, AttendanceDto, AttendanceSummaryDto, HolidayDto } from './teacher.models';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
+import { LocalDatetimePipe } from '../../shared/pipes/local-datetime.pipe';
 
 export interface CalendarDayItem {
   dayNumber: number;
@@ -35,7 +36,7 @@ export interface CalendarDayItem {
   imports: [
     CommonModule, FormsModule, MatCardModule, MatButtonModule, MatIconModule,
     MatInputModule, MatFormFieldModule, MatSelectModule, MatProgressBarModule,
-    MatDialogModule, MatTooltipModule, TeacherSelectorComponent
+    MatDialogModule, MatTooltipModule, TeacherSelectorComponent, LocalDatetimePipe
   ],
   template: `
 <div class="page-container">
@@ -290,8 +291,8 @@ export interface CalendarDayItem {
             <th>Day</th>
             <th>Status</th>
             <th>Source</th>
-            <th>Check-in</th>
-            <th>Check-out</th>
+            <th>Check-in (IST)</th>
+            <th>Check-out (IST)</th>
             <th>Work Duration</th>
             <th>Remarks</th>
             <th class="actions-col">Action</th>
@@ -304,14 +305,20 @@ export interface CalendarDayItem {
             <td><span class="status-badge" [ngClass]="getEffectiveStatus(a).toLowerCase()">{{getEffectiveStatus(a) === 'HalfDay' ? 'Half Day' : getEffectiveStatus(a)}}</span></td>
             <td>{{ a.captureSource || 'Manual' }}</td>
             <td>
-              <span>{{ a.checkInTime || '—' }}</span>
-              <small class="time-sub" *ngIf="formatDisplayTime(a.checkInTime) && formatDisplayTime(a.checkInTime) !== a.checkInTime">
+              <span>{{ a.captureSource === 'Biometric' && a.capturedAt ? (a.capturedAt | localDatetime:'time24') : (a.checkInTime || '—') }}</span>
+              <small class="time-sub" *ngIf="a.captureSource === 'Biometric' && a.capturedAt">
+                ({{ a.capturedAt | localDatetime:'time' }})
+              </small>
+              <small class="time-sub" *ngIf="a.captureSource !== 'Biometric' && formatDisplayTime(a.checkInTime) && formatDisplayTime(a.checkInTime) !== a.checkInTime">
                 ({{ formatDisplayTime(a.checkInTime) }})
               </small>
             </td>
             <td>
-              <span>{{ a.checkOutTime || '—' }}</span>
-              <small class="time-sub" *ngIf="formatDisplayTime(a.checkOutTime) && formatDisplayTime(a.checkOutTime) !== a.checkOutTime">
+              <span>{{ a.captureSource === 'Biometric' && a.checkOutTime && a.capturedAt ? (a.capturedAt | localDatetime:'time24') : (a.checkOutTime || '—') }}</span>
+              <small class="time-sub" *ngIf="a.captureSource === 'Biometric' && a.checkOutTime && a.capturedAt">
+                ({{ a.capturedAt | localDatetime:'time' }})
+              </small>
+              <small class="time-sub" *ngIf="a.captureSource !== 'Biometric' && formatDisplayTime(a.checkOutTime) && formatDisplayTime(a.checkOutTime) !== a.checkOutTime">
                 ({{ formatDisplayTime(a.checkOutTime) }})
               </small>
             </td>

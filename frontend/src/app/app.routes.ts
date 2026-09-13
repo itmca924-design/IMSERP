@@ -20,6 +20,7 @@ import { TeacherAdvancesComponent } from './features/teachers/teacher-advances.c
 import { TeacherLeavesComponent } from './features/teachers/teacher-leaves.component';
 import { HolidaysComponent } from './features/holidays/holidays.component';
 import { AttendanceReportsComponent } from './features/attendance/attendance-reports.component';
+import { BiometricDevicesComponent } from './features/attendance/biometric-devices.component';
 import { authGuard } from './core/guards/auth.guard';
 
 export const routes: Routes = [
@@ -39,6 +40,7 @@ export const routes: Routes = [
       { path: 'students/attendance', component: StudentAttendanceComponent },
       { path: 'holidays', component: HolidaysComponent },
       { path: 'attendance/reports', component: AttendanceReportsComponent },
+      { path: 'attendance/devices', component: BiometricDevicesComponent },
 
       // Teacher Module – 7 dedicated pages
       { path: 'teachers', component: TeacherProfilesComponent },

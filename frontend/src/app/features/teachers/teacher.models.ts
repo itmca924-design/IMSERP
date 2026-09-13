@@ -15,7 +15,7 @@ export interface BatchAssignmentDto {
 }
 export interface AttendanceDto {
   id: string; teacherId: string; teacherName: string; employeeCode: string;
-  attendanceDate: string; status: string; checkInTime?: string; checkOutTime?: string; remarks?: string; captureSource?: string;
+  attendanceDate: string; status: string; checkInTime?: string; checkOutTime?: string; remarks?: string; captureSource?: string; capturedAt?: string;
 }
 export interface AttendanceSettingsDto { studentMode: 'Manual' | 'Biometric' | 'Both'; teacherMode: 'Manual' | 'Biometric' | 'Both'; }
 export interface AttendancePermissionsDto {

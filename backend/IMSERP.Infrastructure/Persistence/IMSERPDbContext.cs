@@ -25,6 +25,8 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
     public DbSet<Student> Students => Set<Student>();
     public DbSet<StudentAttendance> StudentAttendances => Set<StudentAttendance>();
     public DbSet<AttendanceSettings> AttendanceSettings => Set<AttendanceSettings>();
+    public DbSet<BiometricDevice> BiometricDevices => Set<BiometricDevice>();
+    public DbSet<BiometricEventLog> BiometricEventLogs => Set<BiometricEventLog>();
     public DbSet<FeeInvoice> FeeInvoices => Set<FeeInvoice>();
     public DbSet<FeePayment> FeePayments => Set<FeePayment>();
     public DbSet<Test> Tests => Set<Test>();
@@ -53,6 +55,8 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
         modelBuilder.Entity<Student>().HasQueryFilter(x => currentTenantId == Guid.Empty || x.TenantId == currentTenantId);
         modelBuilder.Entity<StudentAttendance>().HasQueryFilter(x => currentTenantId == Guid.Empty || x.TenantId == currentTenantId);
         modelBuilder.Entity<AttendanceSettings>().HasQueryFilter(x => currentTenantId == Guid.Empty || x.TenantId == currentTenantId);
+        modelBuilder.Entity<BiometricDevice>().HasQueryFilter(x => currentTenantId == Guid.Empty || x.TenantId == currentTenantId);
+        modelBuilder.Entity<BiometricEventLog>().HasQueryFilter(x => currentTenantId == Guid.Empty || x.TenantId == currentTenantId);
         modelBuilder.Entity<FeeInvoice>().HasQueryFilter(x => currentTenantId == Guid.Empty || x.TenantId == currentTenantId);
         modelBuilder.Entity<FeePayment>().HasQueryFilter(x => currentTenantId == Guid.Empty || x.TenantId == currentTenantId);
         modelBuilder.Entity<Test>().HasQueryFilter(x => currentTenantId == Guid.Empty || x.TenantId == currentTenantId);
@@ -151,6 +155,16 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
         modelBuilder.Entity<AttendanceSettings>()
             .HasIndex(x => x.TenantId)
             .IsUnique();
+
+        modelBuilder.Entity<BiometricDevice>()
+            .HasIndex(x => new { x.TenantId, x.SerialNumber })
+            .IsUnique()
+            .HasFilter("[SerialNumber] IS NOT NULL");
+
+        modelBuilder.Entity<BiometricEventLog>()
+            .HasIndex(x => new { x.TenantId, x.DeviceEventId })
+            .IsUnique()
+            .HasFilter("[DeviceEventId] IS NOT NULL");
 
         // Unique index: one salary payment per teacher per month/year
         modelBuilder.Entity<TeacherSalaryPayment>()

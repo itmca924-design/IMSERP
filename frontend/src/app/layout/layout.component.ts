@@ -551,6 +551,7 @@ export class LayoutComponent implements OnInit {
     { title: 'Teacher Profiles', route: '/teachers', icon: 'badge' },
     { title: 'Teacher Attendance', route: '/teachers/attendance', icon: 'event_available' },
     { title: 'Attendance Reports', route: '/attendance/reports', icon: 'summarize' },
+    { title: 'Biometric Devices', route: '/attendance/devices', icon: 'fingerprint' },
     { title: 'Fee Collection', route: '/fees', icon: 'payments' },
     { title: 'Tests & Report Cards', route: '/tests', icon: 'assignment' },
     { title: 'Roles & Permissions', route: '/roles', icon: 'admin_panel_settings' }

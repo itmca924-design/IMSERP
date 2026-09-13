@@ -46,6 +46,17 @@ public class AttendanceController : ControllerBase
         return Ok(new AttendanceSettingsDto(settings?.StudentMode ?? "Both", settings?.TeacherMode ?? "Both"));
     }
 
+    [HttpGet("mappings")]
+    public async Task<ActionResult<IEnumerable<BiometricMappingPersonDto>>> GetMappings()
+    {
+        if (!await HasPermissionAsync(MappingRoute, PermissionAction.Edit)) return Forbid();
+        var students = await _db.Students.AsNoTracking().Where(s => s.IsActive)
+            .Select(s => new BiometricMappingPersonDto(s.Id, "Student", s.StudentName, s.RollNumber, s.BiometricUserId, s.Batch != null ? s.Batch.Name : null)).ToListAsync();
+        var teachers = await _db.Teachers.AsNoTracking().Where(t => t.IsActive)
+            .Select(t => new BiometricMappingPersonDto(t.Id, "Teacher", t.FullName, t.EmployeeCode, t.BiometricUserId, null)).ToListAsync();
+        return Ok(students.Concat(teachers).OrderBy(x => x.Name));
+    }
+
     [HttpPut("settings")]
     public async Task<ActionResult<AttendanceSettingsDto>> UpdateSettings([FromBody] AttendanceSettingsDto dto)
     {
@@ -86,10 +97,29 @@ public class AttendanceController : ControllerBase
         if (string.Equals(mode, "Manual", StringComparison.OrdinalIgnoreCase))
             return Conflict(new { message = "Biometric attendance is disabled for this person type." });
 
+        var eventLog = new BiometricEventLog
+        {
+            TenantId = _currentUser.TenantId,
+            DeviceId = Guid.TryParse(dto.DeviceId, out var parsedDeviceId) ? parsedDeviceId : null,
+            PersonType = personType,
+            BiometricUserId = dto.BiometricUserId,
+            EventTime = dto.EventTime,
+            DeviceEventId = dto.EventId,
+            Status = "Received"
+        };
+        _db.BiometricEventLogs.Add(eventLog);
+        await _db.SaveChangesAsync();
+
         if (personType == "student")
         {
             var student = await _db.Students.FirstOrDefaultAsync(s => s.BiometricUserId == dto.BiometricUserId);
-            if (student == null) return NotFound(new { message = "No student is mapped to this biometric user ID." });
+            if (student == null)
+            {
+                eventLog.Status = "Failed";
+                eventLog.ErrorMessage = "No student is mapped to this biometric user ID.";
+                await _db.SaveChangesAsync();
+                return NotFound(new { message = eventLog.ErrorMessage });
+            }
 
             var record = await _db.StudentAttendances.FirstOrDefaultAsync(a =>
                 (dto.EventId != null && a.BiometricEventId == dto.EventId) ||
@@ -105,12 +135,20 @@ public class AttendanceController : ControllerBase
             record.BiometricEventId = dto.EventId;
             record.CapturedAt = dto.EventTime;
             record.MarkedBy = "biometric-device";
+            eventLog.Status = "Processed";
+            eventLog.AttendanceId = record.Id;
             await _db.SaveChangesAsync();
             return Ok(new { message = "Student biometric attendance captured.", attendanceId = record.Id });
         }
 
         var teacher = await _db.Teachers.FirstOrDefaultAsync(t => t.BiometricUserId == dto.BiometricUserId);
-        if (teacher == null) return NotFound(new { message = "No teacher is mapped to this biometric user ID." });
+        if (teacher == null)
+        {
+            eventLog.Status = "Failed";
+            eventLog.ErrorMessage = "No teacher is mapped to this biometric user ID.";
+            await _db.SaveChangesAsync();
+            return NotFound(new { message = eventLog.ErrorMessage });
+        }
 
         var teacherRecord = await _db.TeacherAttendances.FirstOrDefaultAsync(a =>
             (dto.EventId != null && a.BiometricEventId == dto.EventId) ||
@@ -127,11 +165,16 @@ public class AttendanceController : ControllerBase
         teacherRecord.BiometricEventId = dto.EventId;
         teacherRecord.CapturedAt = dto.EventTime;
         teacherRecord.MarkedBy = "biometric-device";
+        var indiaTime = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(
+            DateTime.SpecifyKind(dto.EventTime, DateTimeKind.Utc), "India Standard Time");
         if (dto.IsCheckOut)
-            teacherRecord.CheckOutTime = dto.EventTime.ToString("HH:mm");
+            teacherRecord.CheckOutTime = indiaTime.ToString("HH:mm");
         else
-            teacherRecord.CheckInTime ??= dto.EventTime.ToString("HH:mm");
+            teacherRecord.CheckInTime ??= indiaTime.ToString("HH:mm");
 
+        await _db.SaveChangesAsync();
+        eventLog.Status = "Processed";
+        eventLog.AttendanceId = teacherRecord.Id;
         await _db.SaveChangesAsync();
         return Ok(new { message = "Teacher biometric attendance captured.", attendanceId = teacherRecord.Id });
     }
@@ -164,6 +207,19 @@ public class AttendanceController : ControllerBase
 
         await _db.SaveChangesAsync();
         return NoContent();
+    }
+
+    [HttpPost("biometric-events/{eventId:guid}/retry")]
+    public async Task<IActionResult> RetryBiometricEvent(Guid eventId)
+    {
+        if (!await HasPermissionAsync(BiometricRoute, PermissionAction.Create)) return Forbid();
+        var failed = await _db.BiometricEventLogs.FirstOrDefaultAsync(e => e.Id == eventId);
+        if (failed == null) return NotFound(new { message = "Biometric event not found." });
+        if (!string.Equals(failed.Status, "Failed", StringComparison.OrdinalIgnoreCase))
+            return Conflict(new { message = "Only failed biometric events can be retried." });
+        var request = new BiometricAttendanceEventDto(failed.PersonType, failed.BiometricUserId, failed.EventTime,
+            failed.DeviceId?.ToString(), $"{failed.DeviceEventId}-RETRY-{DateTime.UtcNow.Ticks}");
+        return await ReceiveBiometricEvent(request);
     }
 
     private static bool IsValidMode(string mode) =>

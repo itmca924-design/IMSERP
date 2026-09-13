@@ -7,7 +7,7 @@ import { Pipe, PipeTransform } from '@angular/core';
 export class LocalDatetimePipe implements PipeTransform {
   transform(
     value: string | Date | null | undefined,
-    format: 'datetime' | 'date' | 'time' | 'shortTime' | 'timeWithSeconds' = 'datetime',
+    format: 'datetime' | 'date' | 'time' | 'shortTime' | 'time24' | 'timeWithSeconds' = 'datetime',
     timeZone?: string
   ): string {
     if (!value) return '';
@@ -51,6 +51,15 @@ export class LocalDatetimePipe implements PipeTransform {
         hour: '2-digit',
         minute: '2-digit',
         hour12: true
+      });
+    }
+
+    if (format === 'time24') {
+      return dateObj.toLocaleTimeString('en-GB', {
+        timeZone: tz,
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
       });
     }
 

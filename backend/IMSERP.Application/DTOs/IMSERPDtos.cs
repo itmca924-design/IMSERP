@@ -520,7 +520,8 @@ public record TeacherAttendanceDto(
     string? CheckInTime,
     string? CheckOutTime,
     string? Remarks,
-    string CaptureSource
+    string CaptureSource,
+    DateTime? CapturedAt
 );
 
 public record MarkTeacherAttendanceDto(
@@ -551,6 +552,25 @@ public record AttendancePermissionsDto(
     bool CanMapBiometric,
     bool CanCorrectAttendance
 );
+
+public record BiometricDeviceDto(
+    Guid Id, string Name, string? Brand, string? Model, string? SerialNumber,
+    string? IpAddress, int Port, string ConnectionMode, bool IsActive,
+    string Status, DateTime? LastSeenAt, DateTime? LastSyncAt, string? LastError
+);
+
+public record SaveBiometricDeviceDto(
+    string Name, string? Brand, string? Model, string? SerialNumber,
+    string? IpAddress, int Port, string ConnectionMode, bool IsActive
+);
+
+public record BiometricEventLogDto(
+    Guid Id, Guid? DeviceId, string PersonType, string BiometricUserId,
+    DateTime EventTime, string? DeviceEventId, string Status, string? ErrorMessage,
+    Guid? AttendanceId, DateTime ReceivedAt
+);
+
+public record BiometricMappingPersonDto(Guid Id, string PersonType, string Name, string Code, string? BiometricUserId, string? BatchName);
 
 public record BulkAttendanceEntryItem(
     Guid TeacherId,

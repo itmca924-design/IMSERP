@@ -555,7 +555,7 @@ public class TeachersController : ControllerBase
         var list = rawList.Select(a => new TeacherAttendanceDto(
             a.Id, a.TeacherId, teacher.FullName, teacher.EmployeeCode,
             a.AttendanceDate, EvaluateSmartAttendanceStatus(a.Status, a.CheckInTime, a.CheckOutTime).ToString(),
-            a.CheckInTime, a.CheckOutTime, a.Remarks, a.CaptureSource)).ToList();
+            a.CheckInTime, a.CheckOutTime, a.Remarks, a.CaptureSource, a.CapturedAt)).ToList();
 
         return Ok(list);
     }
@@ -757,7 +757,7 @@ public class TeachersController : ControllerBase
         return Ok(new TeacherAttendanceDto(
             existing.Id, existing.TeacherId, teacher.FullName, teacher.EmployeeCode,
             existing.AttendanceDate, existing.Status.ToString(),
-            existing.CheckInTime, existing.CheckOutTime, existing.Remarks, existing.CaptureSource));
+            existing.CheckInTime, existing.CheckOutTime, existing.Remarks, existing.CaptureSource, existing.CapturedAt));
     }
 
     [HttpDelete("attendance/{attendanceId}")]

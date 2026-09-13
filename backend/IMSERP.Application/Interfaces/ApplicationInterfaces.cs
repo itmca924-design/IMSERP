@@ -17,6 +17,8 @@ public interface IIMSERPDbContext
     DbSet<Student> Students { get; }
     DbSet<StudentAttendance> StudentAttendances { get; }
     DbSet<AttendanceSettings> AttendanceSettings { get; }
+    DbSet<BiometricDevice> BiometricDevices { get; }
+    DbSet<BiometricEventLog> BiometricEventLogs { get; }
     DbSet<FeeInvoice> FeeInvoices { get; }
     DbSet<FeePayment> FeePayments { get; }
     DbSet<Test> Tests { get; }
