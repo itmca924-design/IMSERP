@@ -24,6 +24,7 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
     public DbSet<Batch> Batches => Set<Batch>();
     public DbSet<Student> Students => Set<Student>();
     public DbSet<StudentAttendance> StudentAttendances => Set<StudentAttendance>();
+    public DbSet<AttendanceSettings> AttendanceSettings => Set<AttendanceSettings>();
     public DbSet<FeeInvoice> FeeInvoices => Set<FeeInvoice>();
     public DbSet<FeePayment> FeePayments => Set<FeePayment>();
     public DbSet<Test> Tests => Set<Test>();
@@ -51,6 +52,7 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
         modelBuilder.Entity<Batch>().HasQueryFilter(x => currentTenantId == Guid.Empty || x.TenantId == currentTenantId);
         modelBuilder.Entity<Student>().HasQueryFilter(x => currentTenantId == Guid.Empty || x.TenantId == currentTenantId);
         modelBuilder.Entity<StudentAttendance>().HasQueryFilter(x => currentTenantId == Guid.Empty || x.TenantId == currentTenantId);
+        modelBuilder.Entity<AttendanceSettings>().HasQueryFilter(x => currentTenantId == Guid.Empty || x.TenantId == currentTenantId);
         modelBuilder.Entity<FeeInvoice>().HasQueryFilter(x => currentTenantId == Guid.Empty || x.TenantId == currentTenantId);
         modelBuilder.Entity<FeePayment>().HasQueryFilter(x => currentTenantId == Guid.Empty || x.TenantId == currentTenantId);
         modelBuilder.Entity<Test>().HasQueryFilter(x => currentTenantId == Guid.Empty || x.TenantId == currentTenantId);
@@ -144,6 +146,10 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
 
         modelBuilder.Entity<StudentAttendance>()
             .HasIndex(t => new { t.StudentId, t.AttendanceDate })
+            .IsUnique();
+
+        modelBuilder.Entity<AttendanceSettings>()
+            .HasIndex(x => x.TenantId)
             .IsUnique();
 
         // Unique index: one salary payment per teacher per month/year

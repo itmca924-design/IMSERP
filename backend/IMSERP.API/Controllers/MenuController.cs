@@ -29,9 +29,19 @@ public class MenuController : ControllerBase
             .Include(u => u.AssignedRole)
             .FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
 
+        var permissionOnlyRoutes = new[]
+        {
+            "/teachers/attendance/ph-sun-edit",
+            "/attendance/permissions/mode-settings",
+            "/attendance/permissions/manual",
+            "/attendance/permissions/biometric",
+            "/attendance/permissions/biometric-mapping",
+            "/attendance/permissions/correction"
+        };
+
         var allMenuItems = await _dbContext.MenuItems
             .AsNoTracking()
-            .Where(m => m.IsActive && m.RouteUrl != "/teachers/attendance/ph-sun-edit")
+            .Where(m => m.IsActive && !permissionOnlyRoutes.Contains(m.RouteUrl!))
             .OrderBy(m => m.SortOrder)
             .ToListAsync();
 

@@ -13,7 +13,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatDialogModule } from '@angular/material/dialog';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TeacherSelectorComponent } from './teacher-selector.component';
-import { API_BASE, TeacherDto, AttendanceDto, AttendanceSummaryDto, HolidayDto } from './teacher.models';
+import { API_BASE, AttendancePermissionsDto, AttendanceSettingsDto, TeacherDto, AttendanceDto, AttendanceSummaryDto, HolidayDto } from './teacher.models';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 
 export interface CalendarDayItem {
@@ -88,11 +88,12 @@ export interface CalendarDayItem {
 
       <div class="toolbar-right">
         <!-- Quick 1-Click Today Action -->
-        <button mat-stroked-button color="accent" class="quick-today-btn" (click)="quickMarkTodayPresent()" matTooltip="Mark Present for today with 1-click">
+        <mat-form-field appearance="outline" class="mode-select"><mat-label>Teacher Attendance Mode</mat-label><mat-select [(ngModel)]="attendanceMode" (selectionChange)="saveAttendanceMode()" [disabled]="!attendancePermissions.canChangeMode"><mat-option value="Both">Manual + Biometric</mat-option><mat-option value="Manual">Manual Only</mat-option><mat-option value="Biometric">Biometric Only</mat-option></mat-select></mat-form-field>
+        <button mat-stroked-button color="accent" class="quick-today-btn" (click)="quickMarkTodayPresent()" [disabled]="!attendancePermissions.canManualMark || attendanceMode === 'Biometric'" matTooltip="Manual marking is disabled by permission or mode">
           <mat-icon>verified</mat-icon> Today Present
         </button>
 
-        <button mat-raised-button color="primary" class="mark-btn" (click)="showMarkForm = !showMarkForm">
+        <button mat-raised-button color="primary" class="mark-btn" (click)="showMarkForm = !showMarkForm" [disabled]="!attendancePermissions.canManualMark || attendanceMode === 'Biometric'">
           <mat-icon>{{showMarkForm ? 'close' : 'add_task'}}</mat-icon>
           {{showMarkForm ? 'Close Form' : 'Mark Attendance'}}
         </button>
@@ -288,6 +289,7 @@ export interface CalendarDayItem {
             <th>Date</th>
             <th>Day</th>
             <th>Status</th>
+            <th>Source</th>
             <th>Check-in</th>
             <th>Check-out</th>
             <th>Work Duration</th>
@@ -300,6 +302,7 @@ export interface CalendarDayItem {
             <td><strong>{{a.attendanceDate | date:'dd MMM yyyy'}}</strong></td>
             <td><span class="day-label">{{a.attendanceDate | date:'EEEE'}}</span></td>
             <td><span class="status-badge" [ngClass]="getEffectiveStatus(a).toLowerCase()">{{getEffectiveStatus(a) === 'HalfDay' ? 'Half Day' : getEffectiveStatus(a)}}</span></td>
+            <td>{{ a.captureSource || 'Manual' }}</td>
             <td>
               <span>{{ a.checkInTime || '—' }}</span>
               <small class="time-sub" *ngIf="formatDisplayTime(a.checkInTime) && formatDisplayTime(a.checkInTime) !== a.checkInTime">
@@ -321,12 +324,12 @@ export interface CalendarDayItem {
             <td>{{a.remarks || '—'}}</td>
             <td class="actions-col">
               <button mat-icon-button color="primary" (click)="editRecord(a)"
-                [disabled]="isPublicHolidayOrSunday(a.attendanceDate) && !canEditPublicHolidayOrSunday"
+                [disabled]="!attendancePermissions.canCorrectAttendance || attendanceMode === 'Biometric' || (isPublicHolidayOrSunday(a.attendanceDate) && !canEditPublicHolidayOrSunday)"
                 matTooltip="Edit record">
                 <mat-icon>edit</mat-icon>
               </button>
               <button mat-icon-button color="warn" (click)="deleteRecord(a.id)"
-                [disabled]="isPublicHolidayOrSunday(a.attendanceDate) && !canEditPublicHolidayOrSunday"
+                [disabled]="!attendancePermissions.canCorrectAttendance || attendanceMode === 'Biometric' || (isPublicHolidayOrSunday(a.attendanceDate) && !canEditPublicHolidayOrSunday)"
                 matTooltip="Delete record">
                 <mat-icon>delete_outline</mat-icon>
               </button>
@@ -544,6 +547,9 @@ export class TeacherAttendanceComponent implements OnInit {
   saving = false;
   showMarkForm = false;
   canEditPublicHolidayOrSunday = false;
+  attendanceMode: AttendanceSettingsDto['teacherMode'] = 'Both';
+  private attendanceSettings: AttendanceSettingsDto = { studentMode: 'Both', teacherMode: 'Both' };
+  attendancePermissions: AttendancePermissionsDto = { canChangeMode: false, canManualMark: false, canBiometricCapture: false, canMapBiometric: false, canCorrectAttendance: false };
 
   attMonth = new Date().getMonth() + 1;
   attYear = new Date().getFullYear();
@@ -571,7 +577,24 @@ export class TeacherAttendanceComponent implements OnInit {
   ) {}
 
   ngOnInit() {
+    this.loadAttendanceSettings();
+    this.http.get<AttendancePermissionsDto>(`${this.api}/attendance/permissions`).subscribe({ next: permissions => this.attendancePermissions = permissions });
     this.route.queryParams.subscribe(p => { if (p['teacherId']) this.preSelectId = p['teacherId']; });
+  }
+
+  loadAttendanceSettings() {
+    this.http.get<AttendanceSettingsDto>(`${this.api}/attendance/settings`).subscribe({
+      next: settings => { this.attendanceSettings = settings; this.attendanceMode = settings.teacherMode; },
+      error: () => { this.attendanceMode = 'Both'; }
+    });
+  }
+
+  saveAttendanceMode() {
+    this.attendanceSettings.teacherMode = this.attendanceMode;
+    this.http.put<AttendanceSettingsDto>(`${this.api}/attendance/settings`, this.attendanceSettings).subscribe({
+      next: settings => this.attendanceSettings = settings,
+      error: err => { this.attendanceMode = this.attendanceSettings.teacherMode; this.confirmDialog.alert('Error', err?.error?.message || 'Failed to update attendance mode.', 'danger'); }
+    });
   }
 
   onTeacherSelected(t: TeacherDto) {
@@ -901,6 +924,14 @@ export class TeacherAttendanceComponent implements OnInit {
 
   saveAttendance() {
     if (!this.selectedTeacher || !this.markData.attendanceDate) return;
+    if (!this.attendancePermissions.canManualMark) {
+      this.confirmDialog.alert('Permission Denied', 'You do not have permission to mark manual attendance.', 'warning');
+      return;
+    }
+    if (this.attendanceMode === 'Biometric') {
+      this.confirmDialog.alert('Biometric Mode', 'Manual teacher attendance is disabled in Biometric Only mode.', 'warning');
+      return;
+    }
 
     if (this.isPublicHolidayOrSunday(this.markData.attendanceDate) && !this.canEditPublicHolidayOrSunday) {
       this.confirmDialog.alert('Editing Disabled', 'PH/SUN attendance editing is disabled for your role.', 'warning');

@@ -111,6 +111,7 @@ public class Student
     public string? Address { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime JoiningDate { get; set; } = DateTime.UtcNow;
+    public string? BiometricUserId { get; set; }
 
     public Batch? Batch { get; set; }
     public ICollection<FeeInvoice> FeeInvoices { get; set; } = new List<FeeInvoice>();
@@ -127,6 +128,10 @@ public class StudentAttendance
     public TeacherAttendanceStatus Status { get; set; } = TeacherAttendanceStatus.Present;
     public string? Remarks { get; set; }
     public string? MarkedBy { get; set; }
+    public string CaptureSource { get; set; } = "Manual";
+    public string? BiometricDeviceId { get; set; }
+    public string? BiometricEventId { get; set; }
+    public DateTime? CapturedAt { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public Student? Student { get; set; }
@@ -232,6 +237,7 @@ public class Teacher
     public DateTime? LeavingDate { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public string? BiometricUserId { get; set; }
 
     public ICollection<TeacherBatchAssignment> BatchAssignments { get; set; } = new List<TeacherBatchAssignment>();
     public ICollection<TeacherAttendance> Attendances { get; set; } = new List<TeacherAttendance>();
@@ -268,9 +274,22 @@ public class TeacherAttendance
     public string? CheckOutTime { get; set; }
     public string? Remarks { get; set; }
     public string? MarkedBy { get; set; }
+    public string CaptureSource { get; set; } = "Manual";
+    public string? BiometricDeviceId { get; set; }
+    public string? BiometricEventId { get; set; }
+    public DateTime? CapturedAt { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public Teacher? Teacher { get; set; }
+}
+
+public class AttendanceSettings
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public string StudentMode { get; set; } = "Both";
+    public string TeacherMode { get; set; } = "Both";
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }
 
 public class TeacherSalary

@@ -52,7 +52,8 @@ public record StudentAttendanceDto(
     string RollNumber,
     DateTime AttendanceDate,
     string Status,
-    string? Remarks
+    string? Remarks,
+    string CaptureSource
 );
 
 public record StudentAttendanceSummaryDto(
@@ -518,7 +519,8 @@ public record TeacherAttendanceDto(
     string Status,
     string? CheckInTime,
     string? CheckOutTime,
-    string? Remarks
+    string? Remarks,
+    string CaptureSource
 );
 
 public record MarkTeacherAttendanceDto(
@@ -527,6 +529,27 @@ public record MarkTeacherAttendanceDto(
     string? CheckInTime,
     string? CheckOutTime,
     string? Remarks
+);
+
+public record AttendanceSettingsDto(string StudentMode, string TeacherMode);
+
+public record BiometricAttendanceEventDto(
+    string PersonType,
+    string BiometricUserId,
+    DateTime EventTime,
+    string? DeviceId,
+    string? EventId,
+    bool IsCheckOut = false
+);
+
+public record BiometricMappingDto(string BiometricUserId);
+
+public record AttendancePermissionsDto(
+    bool CanChangeMode,
+    bool CanManualMark,
+    bool CanBiometricCapture,
+    bool CanMapBiometric,
+    bool CanCorrectAttendance
 );
 
 public record BulkAttendanceEntryItem(

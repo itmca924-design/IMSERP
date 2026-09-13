@@ -39,7 +39,25 @@ public class StudentsController : ControllerBase
         student.RollNumber,
         attendance.AttendanceDate,
         attendance.Status.ToString(),
-        attendance.Remarks);
+        attendance.Remarks,
+        attendance.CaptureSource);
+
+    private async Task<bool> IsManualAttendanceAllowedAsync()
+    {
+        var settings = await _dbContext.AttendanceSettings.AsNoTracking()
+            .FirstOrDefaultAsync(s => s.TenantId == _currentUser.TenantId);
+        return !string.Equals(settings?.StudentMode, "Biometric", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private async Task<bool> HasAttendancePermissionAsync(string route, bool edit)
+    {
+        var user = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
+        if (user?.RoleId == null) return false;
+        return await _dbContext.RolePermissions.AsNoTracking()
+            .Where(permission => permission.RoleId == user.RoleId && (edit ? permission.CanEdit : permission.CanCreate))
+            .Join(_dbContext.MenuItems, permission => permission.MenuItemId, menu => menu.Id, (permission, menu) => menu.RouteUrl)
+            .AnyAsync(routeUrl => routeUrl == route);
+    }
 
     private async Task<bool> CanEditPublicHolidayOrSundayAsync()
     {
@@ -246,6 +264,12 @@ public class StudentsController : ControllerBase
     public async Task<ActionResult<StudentAttendanceDto>> MarkAttendance(
         Guid id, [FromBody] MarkStudentAttendanceDto dto)
     {
+        if (!await HasAttendancePermissionAsync("/attendance/permissions/manual", false))
+            return Forbid();
+
+        if (!await IsManualAttendanceAllowedAsync())
+            return Conflict(new { message = "Manual student attendance is disabled. Current mode is Biometric." });
+
         var student = await _dbContext.Students.FirstOrDefaultAsync(s => s.Id == id);
         if (student == null) return NotFound(new { message = "Student not found." });
         if (!TryParseAttendanceStatus(dto.Status, out var status))
@@ -257,6 +281,9 @@ public class StudentsController : ControllerBase
 
         var record = await _dbContext.StudentAttendances
             .FirstOrDefaultAsync(a => a.StudentId == id && a.AttendanceDate == date);
+
+        if (record != null && !await HasAttendancePermissionAsync("/attendance/permissions/correction", true))
+            return Forbid();
 
         if (record == null)
         {
@@ -273,6 +300,10 @@ public class StudentsController : ControllerBase
         record.Status = status;
         record.Remarks = dto.Remarks;
         record.MarkedBy = _currentUser.UserId.ToString();
+        record.CaptureSource = "Manual";
+        record.BiometricDeviceId = null;
+        record.BiometricEventId = null;
+        record.CapturedAt = null;
         await _dbContext.SaveChangesAsync();
 
         return Ok(MapStudentAttendance(record, student));
@@ -281,6 +312,12 @@ public class StudentsController : ControllerBase
     [HttpDelete("attendance/{attendanceId}")]
     public async Task<IActionResult> DeleteAttendance(Guid attendanceId)
     {
+        if (!await HasAttendancePermissionAsync("/attendance/permissions/correction", true))
+            return Forbid();
+
+        if (!await IsManualAttendanceAllowedAsync())
+            return Conflict(new { message = "Manual student attendance changes are disabled in Biometric Only mode." });
+
         var record = await _dbContext.StudentAttendances.FindAsync(attendanceId);
         if (record == null) return NotFound();
 

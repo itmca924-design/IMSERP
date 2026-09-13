@@ -55,6 +55,23 @@ public class TeachersController : ControllerBase
             .AnyAsync(h => h.IsActive && h.StartDate.Date <= date.Date && h.EndDate.Date >= date.Date);
     }
 
+    private async Task<bool> IsManualAttendanceAllowedAsync()
+    {
+        var settings = await _db.AttendanceSettings.AsNoTracking()
+            .FirstOrDefaultAsync(s => s.TenantId == _currentUser.TenantId);
+        return !string.Equals(settings?.TeacherMode, "Biometric", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private async Task<bool> HasAttendancePermissionAsync(string route, bool edit)
+    {
+        var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
+        if (user?.RoleId == null) return false;
+        return await _db.RolePermissions.AsNoTracking()
+            .Where(permission => permission.RoleId == user.RoleId && (edit ? permission.CanEdit : permission.CanCreate))
+            .Join(_db.MenuItems, permission => permission.MenuItemId, menu => menu.Id, (permission, menu) => menu.RouteUrl)
+            .AnyAsync(routeUrl => routeUrl == route);
+    }
+
     // ─── Teacher CRUD ─────────────────────────────────────────
 
     /// <summary>
@@ -538,7 +555,7 @@ public class TeachersController : ControllerBase
         var list = rawList.Select(a => new TeacherAttendanceDto(
             a.Id, a.TeacherId, teacher.FullName, teacher.EmployeeCode,
             a.AttendanceDate, EvaluateSmartAttendanceStatus(a.Status, a.CheckInTime, a.CheckOutTime).ToString(),
-            a.CheckInTime, a.CheckOutTime, a.Remarks)).ToList();
+            a.CheckInTime, a.CheckOutTime, a.Remarks, a.CaptureSource)).ToList();
 
         return Ok(list);
     }
@@ -624,6 +641,12 @@ public class TeachersController : ControllerBase
     [HttpPost("attendance/bulk")]
     public async Task<IActionResult> BulkMarkAttendance([FromBody] BulkMarkAttendanceDto dto)
     {
+        if (!await HasAttendancePermissionAsync("/attendance/permissions/manual", false))
+            return Forbid();
+
+        if (!await IsManualAttendanceAllowedAsync())
+            return Conflict(new { message = "Manual teacher attendance is disabled. Current mode is Biometric." });
+
         if (!await CanEditPublicHolidayOrSundayAsync() && await IsPublicHolidayOrSundayAsync(dto.AttendanceDate))
             return Forbid();
 
@@ -636,6 +659,9 @@ public class TeachersController : ControllerBase
             var existing = await _db.TeacherAttendances
                 .FirstOrDefaultAsync(a => a.TeacherId == entry.TeacherId && a.AttendanceDate.Date == dto.AttendanceDate.Date);
 
+            if (existing != null && !await HasAttendancePermissionAsync("/attendance/permissions/correction", true))
+                return Forbid();
+
             var smartStatus = EvaluateSmartAttendanceStatus(status, entry.CheckInTime, entry.CheckOutTime);
             if (existing != null)
             {
@@ -643,6 +669,10 @@ public class TeachersController : ControllerBase
                 existing.CheckInTime = entry.CheckInTime;
                 existing.CheckOutTime = entry.CheckOutTime;
                 existing.Remarks = entry.Remarks;
+                existing.CaptureSource = "Manual";
+                existing.BiometricDeviceId = null;
+                existing.BiometricEventId = null;
+                existing.CapturedAt = null;
             }
             else
             {
@@ -655,6 +685,7 @@ public class TeachersController : ControllerBase
                     CheckInTime = entry.CheckInTime,
                     CheckOutTime = entry.CheckOutTime,
                     Remarks = entry.Remarks,
+                    CaptureSource = "Manual",
                     MarkedBy = markedBy,
                     CreatedAt = DateTime.UtcNow
                 });
@@ -668,6 +699,12 @@ public class TeachersController : ControllerBase
     [HttpPost("{id}/attendance")]
     public async Task<ActionResult<TeacherAttendanceDto>> MarkAttendance(Guid id, [FromBody] MarkTeacherAttendanceDto dto)
     {
+        if (!await HasAttendancePermissionAsync("/attendance/permissions/manual", false))
+            return Forbid();
+
+        if (!await IsManualAttendanceAllowedAsync())
+            return Conflict(new { message = "Manual teacher attendance is disabled. Current mode is Biometric." });
+
         var teacher = await _db.Teachers.FindAsync(id);
         if (teacher == null) return NotFound(new { message = "Teacher not found." });
 
@@ -682,6 +719,9 @@ public class TeachersController : ControllerBase
         var existing = await _db.TeacherAttendances
             .FirstOrDefaultAsync(a => a.TeacherId == id && a.AttendanceDate.Date == date);
 
+        if (existing != null && !await HasAttendancePermissionAsync("/attendance/permissions/correction", true))
+            return Forbid();
+
         if (existing != null)
         {
             existing.Status = smartStatus;
@@ -689,6 +729,10 @@ public class TeachersController : ControllerBase
             existing.CheckOutTime = dto.CheckOutTime;
             existing.Remarks = dto.Remarks;
             existing.MarkedBy = _currentUser.UserId.ToString();
+            existing.CaptureSource = "Manual";
+            existing.BiometricDeviceId = null;
+            existing.BiometricEventId = null;
+            existing.CapturedAt = null;
         }
         else
         {
@@ -701,6 +745,7 @@ public class TeachersController : ControllerBase
                 CheckInTime = dto.CheckInTime,
                 CheckOutTime = dto.CheckOutTime,
                 Remarks = dto.Remarks,
+                CaptureSource = "Manual",
                 MarkedBy = _currentUser.UserId.ToString(),
                 CreatedAt = DateTime.UtcNow
             };
@@ -712,12 +757,18 @@ public class TeachersController : ControllerBase
         return Ok(new TeacherAttendanceDto(
             existing.Id, existing.TeacherId, teacher.FullName, teacher.EmployeeCode,
             existing.AttendanceDate, existing.Status.ToString(),
-            existing.CheckInTime, existing.CheckOutTime, existing.Remarks));
+            existing.CheckInTime, existing.CheckOutTime, existing.Remarks, existing.CaptureSource));
     }
 
     [HttpDelete("attendance/{attendanceId}")]
     public async Task<IActionResult> DeleteAttendance(Guid attendanceId)
     {
+        if (!await HasAttendancePermissionAsync("/attendance/permissions/correction", true))
+            return Forbid();
+
+        if (!await IsManualAttendanceAllowedAsync())
+            return Conflict(new { message = "Manual teacher attendance changes are disabled in Biometric Only mode." });
+
         var record = await _db.TeacherAttendances.FindAsync(attendanceId);
         if (record == null) return NotFound();
 

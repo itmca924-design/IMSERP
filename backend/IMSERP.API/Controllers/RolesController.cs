@@ -133,14 +133,15 @@ public class RolesController : ControllerBase
         foreach (var menu in allMenuItems)
         {
             var pDto = dto.Permissions?.FirstOrDefault(p => p.MenuItemId == menu.Id);
+            var isAttendancePermission = menu.RouteUrl?.StartsWith("/attendance/permissions/", StringComparison.OrdinalIgnoreCase) == true;
             role.RolePermissions.Add(new RolePermission
             {
                 RoleId = role.Id,
                 MenuItemId = menu.Id,
-                CanView = pDto?.CanView ?? true,
-                CanCreate = pDto?.CanCreate ?? true,
-                CanEdit = pDto?.CanEdit ?? true,
-                CanDelete = pDto?.CanDelete ?? true
+                CanView = pDto?.CanView ?? !isAttendancePermission,
+                CanCreate = pDto?.CanCreate ?? !isAttendancePermission,
+                CanEdit = pDto?.CanEdit ?? !isAttendancePermission,
+                CanDelete = pDto?.CanDelete ?? !isAttendancePermission
             });
         }
 
