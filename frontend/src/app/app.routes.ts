@@ -35,6 +35,7 @@ export const routes: Routes = [
 
       // Master Management
       { path: 'batches', component: BatchesComponent },
+      { path: 'rooms', loadComponent: () => import('./features/rooms/rooms.component').then(m => m.RoomsComponent) },
       { path: 'subjects', component: SubjectsComponent },
       { path: 'students', component: StudentsComponent },
       { path: 'students/attendance', component: StudentAttendanceComponent },
@@ -59,6 +60,8 @@ export const routes: Routes = [
       // Admin Settings
       { path: 'roles', component: RolesComponent },
       { path: 'users', component: UsersComponent },
+      { path: 'admin/tenants', loadComponent: () => import('./features/tenants/tenants.component').then(m => m.TenantsComponent) },
+      { path: 'tenants', redirectTo: 'admin/tenants', pathMatch: 'full' },
     ]
   },
   { path: '**', redirectTo: 'dashboard' }

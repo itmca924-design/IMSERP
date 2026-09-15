@@ -10,6 +10,8 @@ export interface UserDto {
   phoneNumber?: string;
   roleName: string;
   roleId?: string;
+  branchId?: string | null;
+  branchName?: string | null;
   isActive: boolean;
   createdAt: string;
 }
@@ -21,6 +23,7 @@ export interface CreateUserDto {
   email?: string;
   phoneNumber?: string;
   roleId: string;
+  branchId?: string | null;
   isActive: boolean;
 }
 

@@ -9,6 +9,11 @@ export interface BatchDto {
   academicYear: string;
   standardMonthlyFee: number;
   studentCount: number;
+  branchId?: string | null;
+  branchName?: string | null;
+  roomId?: string | null;
+  roomNumber?: string | null;
+  roomName?: string | null;
 }
 
 export interface CreateBatchDto {
@@ -16,6 +21,8 @@ export interface CreateBatchDto {
   subject: string;
   academicYear: string;
   standardMonthlyFee: number;
+  branchId?: string | null;
+  roomId?: string | null;
 }
 
 export interface PagedResult<T> {

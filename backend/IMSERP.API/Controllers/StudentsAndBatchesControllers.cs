@@ -538,13 +538,19 @@ public class BatchesController : ControllerBase
     {
         var list = await _dbContext.Batches
             .AsNoTracking()
+            .Include(b => b.Branch)
+            .Include(b => b.Room)
             .Select(b => new BatchDto(
                 b.Id,
                 b.Name,
                 b.Subject,
                 b.AcademicYear,
                 b.StandardMonthlyFee,
-                b.Students.Count
+                b.Students.Count,
+                b.BranchId,
+                b.Branch != null ? b.Branch.Name : null,
+                b.RoomId,
+                b.Room != null ? b.Room.RoomNumber : null
             )).ToListAsync();
 
         return Ok(list);
@@ -559,7 +565,11 @@ public class BatchesController : ControllerBase
         [FromQuery] bool sortDescending = false,
         [FromQuery] string? academicYear = null)
     {
-        var query = _dbContext.Batches.AsNoTracking();
+        var query = _dbContext.Batches
+            .AsNoTracking()
+            .Include(b => b.Branch)
+            .Include(b => b.Room)
+            .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(academicYear))
         {
@@ -593,7 +603,11 @@ public class BatchesController : ControllerBase
                 b.Subject,
                 b.AcademicYear,
                 b.StandardMonthlyFee,
-                b.Students.Count
+                b.Students.Count,
+                b.BranchId,
+                b.Branch != null ? b.Branch.Name : null,
+                b.RoomId,
+                b.Room != null ? b.Room.RoomNumber : null
             )).ToListAsync();
 
         return Ok(new PagedResult<BatchDto>(items, totalCount, pageNumber, pageSize));
@@ -603,20 +617,43 @@ public class BatchesController : ControllerBase
     public async Task<ActionResult<BatchDto>> GetBatchById(Guid id)
     {
         var batch = await _dbContext.Batches
+            .AsNoTracking()
             .Include(b => b.Students)
+            .Include(b => b.Branch)
+            .Include(b => b.Room)
             .FirstOrDefaultAsync(b => b.Id == id);
 
         if (batch == null) return NotFound();
 
-        return Ok(new BatchDto(batch.Id, batch.Name, batch.Subject, batch.AcademicYear, batch.StandardMonthlyFee, batch.Students.Count));
+        return Ok(new BatchDto(
+            batch.Id,
+            batch.Name,
+            batch.Subject,
+            batch.AcademicYear,
+            batch.StandardMonthlyFee,
+            batch.Students.Count,
+            batch.BranchId,
+            batch.Branch?.Name,
+            batch.RoomId,
+            batch.Room?.RoomNumber
+        ));
     }
 
     [HttpPost]
     public async Task<ActionResult<BatchDto>> CreateBatch([FromBody] CreateBatchDto dto)
     {
+        var targetBranchId = dto.BranchId ?? _currentUser.BranchId;
+        if (!targetBranchId.HasValue || targetBranchId.Value == Guid.Empty)
+        {
+            var mainBranch = await _dbContext.Branches.AsNoTracking().FirstOrDefaultAsync(b => b.IsMainBranch);
+            targetBranchId = mainBranch?.Id;
+        }
+
         var batch = new Batch
         {
             TenantId = _currentUser.TenantId,
+            BranchId = targetBranchId,
+            RoomId = dto.RoomId,
             Name = dto.Name,
             Subject = dto.Subject,
             AcademicYear = dto.AcademicYear,
@@ -626,7 +663,21 @@ public class BatchesController : ControllerBase
         _dbContext.Batches.Add(batch);
         await _dbContext.SaveChangesAsync();
 
-        return Ok(new BatchDto(batch.Id, batch.Name, batch.Subject, batch.AcademicYear, batch.StandardMonthlyFee, 0));
+        var branchName = (await _dbContext.Branches.AsNoTracking().FirstOrDefaultAsync(b => b.Id == batch.BranchId))?.Name;
+        var roomNumber = batch.RoomId.HasValue ? (await _dbContext.Rooms.AsNoTracking().FirstOrDefaultAsync(r => r.Id == batch.RoomId))?.RoomNumber : null;
+
+        return Ok(new BatchDto(
+            batch.Id,
+            batch.Name,
+            batch.Subject,
+            batch.AcademicYear,
+            batch.StandardMonthlyFee,
+            0,
+            batch.BranchId,
+            branchName,
+            batch.RoomId,
+            roomNumber
+        ));
     }
 
     [HttpPut("{id}")]
@@ -639,11 +690,27 @@ public class BatchesController : ControllerBase
         batch.Subject = dto.Subject;
         batch.AcademicYear = dto.AcademicYear;
         batch.StandardMonthlyFee = dto.StandardMonthlyFee;
+        if (dto.BranchId.HasValue && dto.BranchId.Value != Guid.Empty) batch.BranchId = dto.BranchId.Value;
+        batch.RoomId = dto.RoomId;
 
         await _dbContext.SaveChangesAsync();
 
         var studentCount = await _dbContext.Students.CountAsync(s => s.BatchId == id);
-        return Ok(new BatchDto(batch.Id, batch.Name, batch.Subject, batch.AcademicYear, batch.StandardMonthlyFee, studentCount));
+        var branchName = (await _dbContext.Branches.AsNoTracking().FirstOrDefaultAsync(b => b.Id == batch.BranchId))?.Name;
+        var roomNumber = batch.RoomId.HasValue ? (await _dbContext.Rooms.AsNoTracking().FirstOrDefaultAsync(r => r.Id == batch.RoomId))?.RoomNumber : null;
+
+        return Ok(new BatchDto(
+            batch.Id,
+            batch.Name,
+            batch.Subject,
+            batch.AcademicYear,
+            batch.StandardMonthlyFee,
+            studentCount,
+            batch.BranchId,
+            branchName,
+            batch.RoomId,
+            roomNumber
+        ));
     }
 
     [HttpDelete("{id}")]

@@ -72,6 +72,20 @@ import { UserDialogComponent } from './user-dialog.component';
               </td>
             </ng-container>
 
+            <ng-container matColumnDef="branchName">
+              <th mat-header-cell *matHeaderCellDef> Assigned Branch </th>
+              <td mat-cell *matCellDef="let element">
+                <span class="branch-tag" *ngIf="element.branchName">
+                  <mat-icon class="inline-icon">store</mat-icon>
+                  {{ element.branchName }}
+                </span>
+                <span class="head-office-tag" *ngIf="!element.branchName">
+                  <mat-icon class="inline-icon">corporate_fare</mat-icon>
+                  All Branches (HQ)
+                </span>
+              </td>
+            </ng-container>
+
             <ng-container matColumnDef="contact">
               <th mat-header-cell *matHeaderCellDef> Contact Info </th>
               <td mat-cell *matCellDef="let element">
@@ -168,13 +182,40 @@ import { UserDialogComponent } from './user-dialog.component';
     .inactive-text {
       color: #c62828;
     }
+    .branch-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.78rem;
+      font-weight: 500;
+      color: #0369a1;
+      background: #e0f2fe;
+      padding: 3px 8px;
+      border-radius: 6px;
+    }
+    .head-office-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.78rem;
+      font-weight: 500;
+      color: #475569;
+      background: #f1f5f9;
+      padding: 3px 8px;
+      border-radius: 6px;
+    }
+    .inline-icon {
+      font-size: 15px;
+      width: 15px;
+      height: 15px;
+    }
     .text-right {
       text-align: right;
     }
   `]
 })
 export class UsersComponent implements OnInit {
-  displayedColumns: string[] = ['username', 'fullName', 'roleName', 'contact', 'status', 'actions'];
+  displayedColumns: string[] = ['username', 'fullName', 'roleName', 'branchName', 'contact', 'status', 'actions'];
   users: UserDto[] = [];
   loading = false;
 
@@ -200,7 +241,7 @@ export class UsersComponent implements OnInit {
 
   openUserModal(user?: UserDto): void {
     const dialogRef = this.dialog.open(UserDialogComponent, {
-      width: '520px',
+      width: '560px',
       data: user ? { ...user } : undefined
     });
 

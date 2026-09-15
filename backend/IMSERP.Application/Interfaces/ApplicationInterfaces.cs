@@ -30,6 +30,8 @@ public interface IIMSERPDbContext
     DbSet<TeacherSalary> TeacherSalaries { get; }
     DbSet<TeacherSalaryPayment> TeacherSalaryPayments { get; }
     DbSet<TeacherSalaryAdvance> TeacherSalaryAdvances { get; }
+    DbSet<Branch> Branches { get; }
+    DbSet<Room> Rooms { get; }
     DbSet<TeacherLeave> TeacherLeaves { get; }
     DbSet<Holiday> Holidays { get; }
 
@@ -46,6 +48,8 @@ public interface IWhatsAppService
 public interface ICurrentUserService
 {
     Guid TenantId { get; }
+    Guid? BranchId { get; }
+    string? BranchName { get; }
     Guid UserId { get; }
     string UserRole { get; }
 }

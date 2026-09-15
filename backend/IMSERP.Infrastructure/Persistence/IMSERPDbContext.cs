@@ -38,6 +38,8 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
     public DbSet<TeacherSalary> TeacherSalaries => Set<TeacherSalary>();
     public DbSet<TeacherSalaryPayment> TeacherSalaryPayments => Set<TeacherSalaryPayment>();
     public DbSet<TeacherSalaryAdvance> TeacherSalaryAdvances => Set<TeacherSalaryAdvance>();
+    public DbSet<Branch> Branches => Set<Branch>();
+    public DbSet<Room> Rooms => Set<Room>();
     public DbSet<TeacherLeave> TeacherLeaves => Set<TeacherLeave>();
     public DbSet<Holiday> Holidays => Set<Holiday>();
 
@@ -45,31 +47,56 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
     {
         base.OnModelCreating(modelBuilder);
 
-        // Global Multi-Tenant Query Filters
-        var currentTenantId = _currentUserService.TenantId;
+        // Dynamic Global Multi-Tenant & Multi-Branch Query Filters
+        modelBuilder.Entity<Branch>().HasQueryFilter(x => _currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId);
+        modelBuilder.Entity<Room>().HasQueryFilter(x => 
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+            (_currentUserService.BranchId == null || x.BranchId == _currentUserService.BranchId));
 
-        modelBuilder.Entity<User>().HasQueryFilter(x => currentTenantId == Guid.Empty || x.TenantId == currentTenantId);
-        modelBuilder.Entity<RoleEntity>().HasQueryFilter(x => currentTenantId == Guid.Empty || x.TenantId == currentTenantId);
-        modelBuilder.Entity<SubjectEntity>().HasQueryFilter(x => currentTenantId == Guid.Empty || x.TenantId == currentTenantId);
-        modelBuilder.Entity<Batch>().HasQueryFilter(x => currentTenantId == Guid.Empty || x.TenantId == currentTenantId);
-        modelBuilder.Entity<Student>().HasQueryFilter(x => currentTenantId == Guid.Empty || x.TenantId == currentTenantId);
-        modelBuilder.Entity<StudentAttendance>().HasQueryFilter(x => currentTenantId == Guid.Empty || x.TenantId == currentTenantId);
-        modelBuilder.Entity<AttendanceSettings>().HasQueryFilter(x => currentTenantId == Guid.Empty || x.TenantId == currentTenantId);
-        modelBuilder.Entity<BiometricDevice>().HasQueryFilter(x => currentTenantId == Guid.Empty || x.TenantId == currentTenantId);
-        modelBuilder.Entity<BiometricEventLog>().HasQueryFilter(x => currentTenantId == Guid.Empty || x.TenantId == currentTenantId);
-        modelBuilder.Entity<FeeInvoice>().HasQueryFilter(x => currentTenantId == Guid.Empty || x.TenantId == currentTenantId);
-        modelBuilder.Entity<FeePayment>().HasQueryFilter(x => currentTenantId == Guid.Empty || x.TenantId == currentTenantId);
-        modelBuilder.Entity<Test>().HasQueryFilter(x => currentTenantId == Guid.Empty || x.TenantId == currentTenantId);
-        modelBuilder.Entity<TestMarks>().HasQueryFilter(x => currentTenantId == Guid.Empty || x.TenantId == currentTenantId);
-        modelBuilder.Entity<WhatsAppLog>().HasQueryFilter(x => currentTenantId == Guid.Empty || x.TenantId == currentTenantId);
-        modelBuilder.Entity<Teacher>().HasQueryFilter(x => currentTenantId == Guid.Empty || x.TenantId == currentTenantId);
-        modelBuilder.Entity<TeacherBatchAssignment>().HasQueryFilter(x => currentTenantId == Guid.Empty || x.TenantId == currentTenantId);
-        modelBuilder.Entity<TeacherAttendance>().HasQueryFilter(x => currentTenantId == Guid.Empty || x.TenantId == currentTenantId);
-        modelBuilder.Entity<TeacherSalary>().HasQueryFilter(x => currentTenantId == Guid.Empty || x.TenantId == currentTenantId);
-        modelBuilder.Entity<TeacherSalaryPayment>().HasQueryFilter(x => currentTenantId == Guid.Empty || x.TenantId == currentTenantId);
-        modelBuilder.Entity<TeacherSalaryAdvance>().HasQueryFilter(x => currentTenantId == Guid.Empty || x.TenantId == currentTenantId);
-        modelBuilder.Entity<TeacherLeave>().HasQueryFilter(x => currentTenantId == Guid.Empty || x.TenantId == currentTenantId);
-        modelBuilder.Entity<Holiday>().HasQueryFilter(x => currentTenantId == Guid.Empty || x.TenantId == currentTenantId);
+        modelBuilder.Entity<User>().HasQueryFilter(x => 
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<RoleEntity>().HasQueryFilter(x => _currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId);
+        modelBuilder.Entity<SubjectEntity>().HasQueryFilter(x => _currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId);
+        modelBuilder.Entity<Batch>().HasQueryFilter(x => 
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<Student>().HasQueryFilter(x => 
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<StudentAttendance>().HasQueryFilter(x => 
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<AttendanceSettings>().HasQueryFilter(x => 
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<BiometricDevice>().HasQueryFilter(x => 
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<BiometricEventLog>().HasQueryFilter(x => _currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId);
+        modelBuilder.Entity<FeeInvoice>().HasQueryFilter(x => 
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<FeePayment>().HasQueryFilter(x => 
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<Test>().HasQueryFilter(x => 
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<TestMarks>().HasQueryFilter(x => _currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId);
+        modelBuilder.Entity<WhatsAppLog>().HasQueryFilter(x => _currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId);
+        modelBuilder.Entity<Teacher>().HasQueryFilter(x => 
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<TeacherBatchAssignment>().HasQueryFilter(x => _currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId);
+        modelBuilder.Entity<TeacherAttendance>().HasQueryFilter(x => 
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<TeacherSalary>().HasQueryFilter(x => _currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId);
+        modelBuilder.Entity<TeacherSalaryPayment>().HasQueryFilter(x => _currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId);
+        modelBuilder.Entity<TeacherSalaryAdvance>().HasQueryFilter(x => _currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId);
+        modelBuilder.Entity<TeacherLeave>().HasQueryFilter(x => _currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId);
+        modelBuilder.Entity<Holiday>().HasQueryFilter(x => _currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId);
 
         modelBuilder.Entity<User>()
             .HasOne(u => u.AssignedRole)
@@ -82,6 +109,18 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
             .WithMany(r => r.RolePermissions)
             .HasForeignKey(rp => rp.RoleId)
             .IsRequired(false);
+
+        modelBuilder.Entity<Branch>()
+            .HasOne(b => b.Tenant)
+            .WithMany(t => t.Branches)
+            .HasForeignKey(b => b.TenantId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<Room>()
+            .HasOne(r => r.Branch)
+            .WithMany(b => b.Rooms)
+            .HasForeignKey(r => r.BranchId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<Batch>().Property(b => b.StandardMonthlyFee).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<FeeInvoice>().Property(f => f.TotalAmount).HasColumnType("decimal(18,2)");
@@ -497,5 +536,26 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
                 Remarks = "Good effort, work on numericals"
             }
         );
+    }
+
+    public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        var tenantId = _currentUserService.TenantId;
+        if (tenantId != Guid.Empty)
+        {
+            foreach (var entry in ChangeTracker.Entries())
+            {
+                if (entry.State == EntityState.Added)
+                {
+                    var prop = entry.Properties.FirstOrDefault(p => p.Metadata.Name == "TenantId");
+                    if (prop != null && prop.CurrentValue != null && (Guid)prop.CurrentValue == Guid.Empty)
+                    {
+                        prop.CurrentValue = tenantId;
+                    }
+                }
+            }
+        }
+
+        return await base.SaveChangesAsync(cancellationToken);
     }
 }

@@ -2,16 +2,82 @@ using IMSERP.Domain.Enums;
 
 namespace IMSERP.Application.DTOs;
 
-public record LoginRequestDto(string Username, string Password);
+public record LoginRequestDto(string TenantCode, string Username, string Password);
 
 public record LoginResponseDto(
     string Token,
+    string RefreshToken,
+    Guid UserId,
     string Username,
     string FullName,
     string Role,
     Guid TenantId,
-    string InstituteName
+    string InstituteName,
+    string TenantCode,
+    string? ProfilePhoto,
+    Guid? BranchId = null,
+    string? BranchName = null,
+    List<BranchDto>? Branches = null
 );
+
+public record BranchDto(
+    Guid Id,
+    Guid TenantId,
+    string Name,
+    string Code,
+    string? Address,
+    string? ContactPhone,
+    bool IsMainBranch,
+    bool IsActive,
+    DateTime CreatedAt,
+    int StudentCount = 0,
+    int BatchCount = 0,
+    int RoomCount = 0
+);
+
+public record CreateBranchDto(
+    string Name,
+    string Code,
+    string? Address,
+    string? ContactPhone,
+    bool IsMainBranch = false
+);
+
+public record UpdateBranchDto(
+    string Name,
+    string? Address,
+    string? ContactPhone,
+    bool IsActive
+);
+
+public record RoomDto(
+    Guid Id,
+    Guid TenantId,
+    Guid BranchId,
+    string? BranchName,
+    string RoomNumber,
+    int Capacity,
+    string? Floor,
+    bool IsActive,
+    DateTime CreatedAt,
+    int ActiveBatchCount = 0
+);
+
+public record CreateRoomDto(
+    Guid BranchId,
+    string RoomNumber,
+    int Capacity,
+    string? Floor
+);
+
+public record UpdateRoomDto(
+    string RoomNumber,
+    int Capacity,
+    string? Floor,
+    bool IsActive
+);
+
+public record RefreshTokenRequestDto(string Token, string RefreshToken);
 
 public record RegisterInstituteDto(
     string InstituteName,
@@ -20,7 +86,44 @@ public record RegisterInstituteDto(
     string AdminUsername,
     string AdminPassword,
     string Phone,
-    string Address
+    string Address,
+    string? ProfilePhoto = null
+);
+
+public record TenantDto(
+    Guid Id,
+    string Name,
+    string Code,
+    string? ContactPhone,
+    string? Address,
+    string? ProfilePhoto,
+    string? WhatsAppPhoneId,
+    bool IsActive,
+    DateTime CreatedAt,
+    int StudentCount,
+    int BatchCount
+);
+
+public record CreateTenantDto(
+    string Name,
+    string Code,
+    string? ContactPhone,
+    string? Address,
+    string? ProfilePhoto,
+    string? WhatsAppPhoneId,
+    string? WhatsAppAccessToken,
+    string AdminUsername,
+    string AdminPassword,
+    string AdminFullName
+);
+
+public record UpdateTenantDto(
+    string Name,
+    string? ContactPhone,
+    string? Address,
+    string? ProfilePhoto,
+    string? WhatsAppPhoneId,
+    string? WhatsAppAccessToken
 );
 
 public record StudentDto(
@@ -105,14 +208,20 @@ public record BatchDto(
     string Subject,
     string AcademicYear,
     decimal StandardMonthlyFee,
-    int StudentCount
+    int StudentCount,
+    Guid? BranchId = null,
+    string? BranchName = null,
+    Guid? RoomId = null,
+    string? RoomNumber = null
 );
 
 public record CreateBatchDto(
     string Name,
     string Subject,
     string AcademicYear,
-    decimal StandardMonthlyFee
+    decimal StandardMonthlyFee,
+    Guid? BranchId = null,
+    Guid? RoomId = null
 );
 
 public record FeeInvoiceDto(
@@ -303,7 +412,9 @@ public record UserDto(
     string RoleName,
     Guid? RoleId,
     bool IsActive,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    Guid? BranchId = null,
+    string? BranchName = null
 );
 
 public record CreateUserDto(
@@ -313,7 +424,8 @@ public record CreateUserDto(
     string? Email,
     string? PhoneNumber,
     Guid RoleId,
-    bool IsActive
+    bool IsActive,
+    Guid? BranchId = null
 );
 
 public record BatchPagedQueryDto(

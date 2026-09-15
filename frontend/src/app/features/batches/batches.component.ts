@@ -86,6 +86,27 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
               </td>
             </ng-container>
 
+            <ng-container matColumnDef="branchName">
+              <th mat-header-cell *matHeaderCellDef mat-sort-header="branch"> Branch Campus </th>
+              <td mat-cell *matCellDef="let element">
+                <span class="branch-tag">
+                  <mat-icon class="inline-icon">store</mat-icon>
+                  {{ element.branchName || 'Main Branch' }}
+                </span>
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="roomName">
+              <th mat-header-cell *matHeaderCellDef> Classroom </th>
+              <td mat-cell *matCellDef="let element">
+                <span class="room-tag" *ngIf="element.roomNumber">
+                  <mat-icon class="inline-icon">meeting_room</mat-icon>
+                  Room {{ element.roomNumber }}
+                </span>
+                <span class="unassigned-tag" *ngIf="!element.roomNumber">Unassigned</span>
+              </td>
+            </ng-container>
+
             <ng-container matColumnDef="subject">
               <th mat-header-cell *matHeaderCellDef mat-sort-header="subject"> Subjects Covered </th>
               <td mat-cell *matCellDef="let element">
@@ -231,6 +252,38 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
         margin-right: 4px;
       }
     }
+    .branch-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: #0369a1;
+      background: #e0f2fe;
+      padding: 3px 8px;
+      border-radius: 6px;
+    }
+    .room-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: #047857;
+      background: #d1fae5;
+      padding: 3px 8px;
+      border-radius: 6px;
+    }
+    .unassigned-tag {
+      font-size: 0.75rem;
+      color: #94a3b8;
+      font-style: italic;
+    }
+    .inline-icon {
+      font-size: 15px;
+      width: 15px;
+      height: 15px;
+    }
     .text-right {
       text-align: right;
     }
@@ -253,7 +306,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
   `]
 })
 export class BatchesComponent implements OnInit {
-  displayedColumns: string[] = ['name', 'subject', 'academicYear', 'standardMonthlyFee', 'studentCount', 'actions'];
+  displayedColumns: string[] = ['name', 'branchName', 'roomName', 'subject', 'academicYear', 'standardMonthlyFee', 'studentCount', 'actions'];
   batches: BatchDto[] = [];
   
   loading = false;
@@ -331,7 +384,7 @@ export class BatchesComponent implements OnInit {
 
   openBatchModal(batch?: BatchDto): void {
     const dialogRef = this.dialog.open(BatchDialogComponent, {
-      width: '520px',
+      width: '560px',
       data: batch ? { ...batch } : undefined
     });
 

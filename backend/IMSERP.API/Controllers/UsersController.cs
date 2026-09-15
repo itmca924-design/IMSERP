@@ -30,6 +30,7 @@ public class UsersController : ControllerBase
         var users = await _dbContext.Users
             .AsNoTracking()
             .Include(u => u.AssignedRole)
+            .Include(u => u.Branch)
             .OrderByDescending(u => u.CreatedAt)
             .ToListAsync();
 
@@ -42,7 +43,9 @@ public class UsersController : ControllerBase
             u.AssignedRole?.Name ?? u.Role.ToString(),
             u.RoleId,
             u.IsActive,
-            u.CreatedAt
+            u.CreatedAt,
+            u.BranchId,
+            u.Branch?.Name
         )).ToList();
 
         return Ok(dtos);
@@ -54,7 +57,7 @@ public class UsersController : ControllerBase
         var existing = await _dbContext.Users.AnyAsync(u => u.Username.ToLower() == dto.Username.Trim().ToLower());
         if (existing)
         {
-            return BadRequest(new { message = "Username already exists." });
+            return BadRequest(new { message = "Username already exists in this institute." });
         }
 
         var role = await _dbContext.Roles.FindAsync(dto.RoleId);
@@ -63,9 +66,19 @@ public class UsersController : ControllerBase
             return BadRequest(new { message = "Selected Role is invalid." });
         }
 
+        if (dto.BranchId.HasValue && dto.BranchId.Value != Guid.Empty)
+        {
+            var branchExists = await _dbContext.Branches.AnyAsync(b => b.Id == dto.BranchId.Value);
+            if (!branchExists)
+            {
+                return BadRequest(new { message = "Selected Branch is invalid." });
+            }
+        }
+
         var user = new User
         {
             TenantId = _currentUser.TenantId,
+            BranchId = dto.BranchId,
             Username = dto.Username.Trim(),
             PasswordHash = _passwordHasher.HashPassword(dto.Password),
             FullName = dto.FullName.Trim(),
@@ -80,6 +93,8 @@ public class UsersController : ControllerBase
         _dbContext.Users.Add(user);
         await _dbContext.SaveChangesAsync();
 
+        var branchName = dto.BranchId.HasValue ? (await _dbContext.Branches.AsNoTracking().FirstOrDefaultAsync(b => b.Id == dto.BranchId.Value))?.Name : null;
+
         return Ok(new UserDto(
             user.Id,
             user.Username,
@@ -89,7 +104,9 @@ public class UsersController : ControllerBase
             role.Name,
             role.Id,
             user.IsActive,
-            user.CreatedAt
+            user.CreatedAt,
+            user.BranchId,
+            branchName
         ));
     }
 
@@ -110,6 +127,7 @@ public class UsersController : ControllerBase
         user.PhoneNumber = dto.PhoneNumber?.Trim();
         user.RoleId = dto.RoleId;
         user.IsActive = dto.IsActive;
+        user.BranchId = dto.BranchId;
 
         if (!string.IsNullOrWhiteSpace(dto.Password))
         {
@@ -117,6 +135,8 @@ public class UsersController : ControllerBase
         }
 
         await _dbContext.SaveChangesAsync();
+
+        var branchName = user.BranchId.HasValue ? (await _dbContext.Branches.AsNoTracking().FirstOrDefaultAsync(b => b.Id == user.BranchId.Value))?.Name : null;
 
         return Ok(new UserDto(
             user.Id,
@@ -127,7 +147,9 @@ public class UsersController : ControllerBase
             role.Name,
             role.Id,
             user.IsActive,
-            user.CreatedAt
+            user.CreatedAt,
+            user.BranchId,
+            branchName
         ));
     }
 

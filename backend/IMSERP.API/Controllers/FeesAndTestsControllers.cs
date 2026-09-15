@@ -707,7 +707,7 @@ public class TestsController : ControllerBase
                 test.MaxMarks > 0 ? (m.MarksObtained / test.MaxMarks) * 100 : 0,
                 index + 1,
                 m.IsAbsent,
-                m.Remarks
+                m.Remarks ?? ""
             )).ToList();
 
         return Ok(new TestReportCardDto(test.Id, test.Title, test.Subject, test.MaxMarks, rankedList));

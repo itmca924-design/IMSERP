@@ -11,6 +11,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { UserDto, UsersService } from '../../core/services/users.service';
 import { RoleDto, RolesService } from '../../core/services/roles.service';
+import { BranchDto, BranchService } from '../../core/services/branch.service';
 
 @Component({
   selector: 'app-user-dialog',
@@ -52,10 +53,23 @@ import { RoleDto, RolesService } from '../../core/services/roles.service';
             <mat-error *ngIf="userForm.get('roleId')?.hasError('required')">Role selection is required</mat-error>
           </mat-form-field>
 
-          <mat-form-field appearance="outline" class="full-width">
+          <mat-form-field appearance="outline" class="half-width">
             <mat-label>Full Name</mat-label>
             <input matInput formControlName="fullName" placeholder="e.g. Prof. Rajesh Sharma" />
             <mat-error *ngIf="userForm.get('fullName')?.hasError('required')">Full name is required</mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="half-width">
+            <mat-label>Assigned Branch Campus</mat-label>
+            <mat-select formControlName="branchId" placeholder="Select Branch (Optional)">
+              <mat-option [value]="null">
+                <em>All Branches / Head Office (Global)</em>
+              </mat-option>
+              <mat-option *ngFor="let branch of branches" [value]="branch.id">
+                <mat-icon color="primary">store</mat-icon>
+                <span>{{ branch.name }} ({{ branch.code }})</span>
+              </mat-option>
+            </mat-select>
           </mat-form-field>
 
           <mat-form-field appearance="outline" class="half-width">
@@ -132,11 +146,13 @@ export class UserDialogComponent implements OnInit {
   saving = false;
   hidePassword = true;
   roles: RoleDto[] = [];
+  branches: BranchDto[] = [];
 
   constructor(
     private fb: FormBuilder,
     private usersService: UsersService,
     private rolesService: RolesService,
+    private branchService: BranchService,
     private dialogRef: MatDialogRef<UserDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data?: UserDto
   ) {}
@@ -150,6 +166,7 @@ export class UserDialogComponent implements OnInit {
       email: [this.data?.email || '', [Validators.email]],
       phoneNumber: [this.data?.phoneNumber || ''],
       roleId: [this.data?.roleId || '', [Validators.required]],
+      branchId: [this.data?.branchId || null],
       password: [this.isEditMode ? '' : 'admin123', this.isEditMode ? [] : [Validators.required]],
       isActive: [this.data?.isActive ?? true]
     });
@@ -157,6 +174,12 @@ export class UserDialogComponent implements OnInit {
     this.rolesService.getRoles().subscribe({
       next: (roleList) => {
         this.roles = roleList;
+      }
+    });
+
+    this.branchService.getBranches().subscribe({
+      next: (branchList) => {
+        this.branches = branchList;
       }
     });
   }

@@ -1,4 +1,4 @@
-import { Component, OnInit, signal, ViewChild } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
@@ -13,8 +13,9 @@ import { MatDividerModule } from '@angular/material/divider';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { HttpClient } from '@angular/common/http';
-import { AuthService } from '../core/services/auth.service';
+import { AuthService, BranchInfo } from '../core/services/auth.service';
 import { MenuService, MenuItem } from '../core/services/menu.service';
+import { IdleTimeoutService } from '../core/services/idle-timeout.service';
 import { API_BASE, HolidayDto } from '../features/teachers/teacher.models';
 import { FooterComponent } from './footer/footer.component';
 
@@ -45,12 +46,13 @@ import { FooterComponent } from './footer/footer.component';
         [opened]="!isMobile()">
 
         <div class="brand-section">
-          <div class="brand-logo-badge">
+          <div class="brand-logo-badge" *ngIf="!currentUser()?.profilePhoto">
             <mat-icon class="brand-icon">school</mat-icon>
           </div>
+          <img *ngIf="currentUser()?.profilePhoto" [src]="getPhotoUrl(currentUser()?.profilePhoto)" class="brand-logo-img" alt="Logo">
           <div class="brand-titles">
             <span class="brand-name">{{ currentUser()?.instituteName || 'Apex Coaching Academy' }}</span>
-            <span class="brand-sub">Vertical Micro-SaaS</span>
+            <span class="brand-sub">{{ currentUser()?.tenantCode || 'APEX' }} &bull; Multi-Tenant SaaS</span>
           </div>
           <button *ngIf="isMobile()" mat-icon-button class="close-drawer-btn" (click)="drawer.close()">
             <mat-icon>close</mat-icon>
@@ -148,11 +150,11 @@ import { FooterComponent } from './footer/footer.component';
 
       <mat-sidenav-content>
         <mat-toolbar color="primary" class="header-toolbar">
-          <button type="button" mat-icon-button (click)="drawer.toggle()" aria-label="Toggle navigation">
+          <button type="button" mat-icon-button (click)="drawer.toggle()" class="menu-toggle-btn" aria-label="Toggle navigation">
             <mat-icon>menu</mat-icon>
           </button>
 
-          <span class="app-header-title">Coaching Management Dashboard</span>
+          <span class="app-header-title">Coaching Dashboard</span>
           <div class="header-tools">
             <div class="header-search" [class.open]="headerSearchFocused">
               <mat-icon>search</mat-icon>
@@ -186,6 +188,31 @@ import { FooterComponent } from './footer/footer.component';
             </mat-menu>
           </div>
           <span class="spacer"></span>
+
+          <!-- Branch Switcher Dropdown Button -->
+          <button mat-stroked-button [matMenuTriggerFor]="branchMenu" class="branch-selector-button" *ngIf="branches.length > 0" [matTooltip]="'Branch: ' + getCurrentBranchLabel()">
+            <span class="branch-btn-content">
+              <mat-icon class="branch-btn-icon">storefront</mat-icon>
+              <span class="branch-name-full">{{ getCurrentBranchLabel() }}</span>
+              <span class="branch-name-short">{{ getCurrentBranchCode() }}</span>
+              <mat-icon class="dropdown-chevron">expand_more</mat-icon>
+            </span>
+          </button>
+
+          <mat-menu #branchMenu="matMenu" xPosition="before" class="branch-dropdown-panel">
+            <div class="menu-section-title">Active Branch Scope</div>
+            <button mat-menu-item (click)="onSelectBranch(null)" [class.active-branch-item]="!selectedBranchId()">
+              <mat-icon [color]="!selectedBranchId() ? 'primary' : ''">corporate_fare</mat-icon>
+              <span>All Branches / Head Office</span>
+              <mat-icon *ngIf="!selectedBranchId()" class="branch-check-icon">check</mat-icon>
+            </button>
+            <mat-divider></mat-divider>
+            <button mat-menu-item *ngFor="let b of branches" (click)="onSelectBranch(b.id)" [class.active-branch-item]="selectedBranchId() === b.id">
+              <mat-icon [color]="selectedBranchId() === b.id ? 'primary' : ''">store</mat-icon>
+              <span>{{ b.name }} ({{ b.code }})</span>
+              <mat-icon *ngIf="selectedBranchId() === b.id" class="branch-check-icon">check</mat-icon>
+            </button>
+          </mat-menu>
           
           <!-- User Account Menu Trigger Button -->
           <button mat-icon-button [matMenuTriggerFor]="accountMenu" class="account-btn" matTooltip="My Profile &amp; Settings">
@@ -200,7 +227,7 @@ import { FooterComponent } from './footer/footer.component';
               </div>
               <div class="user-info-text">
                 <span class="user-name">{{ currentUser()?.fullName || currentUser()?.username || 'Administrator' }}</span>
-                <span class="user-role">{{ currentUser()?.role || 'Admin' }}</span>
+                <span class="user-role">{{ currentUser()?.role || 'Admin' }} &bull; {{ getCurrentBranchLabel() }}</span>
                 <span class="user-inst">{{ currentUser()?.instituteName || 'Apex Coaching Academy' }}</span>
               </div>
             </div>
@@ -212,9 +239,19 @@ import { FooterComponent } from './footer/footer.component';
               <span>User Profile &amp; Staff</span>
             </button>
 
+            <button mat-menu-item routerLink="/rooms">
+              <mat-icon style="color: #0284c7;">meeting_room</mat-icon>
+              <span>Classrooms Master</span>
+            </button>
+
             <button mat-menu-item routerLink="/roles">
               <mat-icon style="color: #6366f1;">admin_panel_settings</mat-icon>
               <span>Roles &amp; Permissions</span>
+            </button>
+
+            <button mat-menu-item routerLink="/admin/tenants">
+              <mat-icon style="color: #059669;">corporate_fare</mat-icon>
+              <span>Institutes &amp; Tenants</span>
             </button>
 
             <mat-divider></mat-divider>
@@ -255,6 +292,16 @@ import { FooterComponent } from './footer/footer.component';
       position: relative;
       background: #080d1a;
       border-bottom: 1px solid #1e293b;
+
+      .brand-logo-img {
+        width: 42px;
+        height: 42px;
+        border-radius: 10px;
+        object-fit: cover;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+        flex-shrink: 0;
+      }
 
       .brand-logo-badge {
         width: 42px;
@@ -611,28 +658,92 @@ import { FooterComponent } from './footer/footer.component';
       box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
       display: flex;
       align-items: center;
-      gap: 8px;
-      padding: 0 12px;
+      gap: 6px;
+      padding: 0 14px;
       flex-shrink: 0;
       z-index: 10;
+      overflow: visible;
+      flex-wrap: nowrap;
+
+      @media (max-width: 600px) {
+        padding: 0 6px;
+        gap: 3px;
+      }
+
+      .menu-toggle-btn {
+        flex-shrink: 0;
+        color: #ffffff;
+      }
 
       .app-header-title {
         font-weight: 600;
-        font-size: 1.1rem;
+        font-size: 1.05rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        flex-shrink: 1;
 
-        @media (max-width: 600px) {
-          font-size: 0.95rem;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
+        @media (max-width: 1200px) {
           max-width: 180px;
+          font-size: 0.92rem;
+        }
+
+        @media (max-width: 900px) {
+          display: none !important;
         }
       }
     }
-    .header-tools { display:flex; align-items:center; gap:6px; margin-left:18px; }
-    .header-search { position:relative; display:flex; align-items:center; width:190px; height:34px; padding:0 10px; gap:7px; border:1px solid rgba(255,255,255,.35); border-radius:18px; background:rgba(255,255,255,.12); transition:width 180ms ease, background 180ms ease; }
-    .header-search.open { width:250px; background:#fff; color:#334155; }
-    .header-search > mat-icon { font-size:18px; width:18px; height:18px; color:inherit; }
+    .header-tools {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-left: 10px;
+      flex-shrink: 0;
+
+      @media (max-width: 900px) {
+        margin-left: 0;
+        gap: 3px;
+      }
+    }
+    .header-search {
+      position: relative;
+      display: flex;
+      align-items: center;
+      width: 180px;
+      height: 34px;
+      padding: 0 10px;
+      gap: 7px;
+      border: 1px solid rgba(255,255,255,.35);
+      border-radius: 18px;
+      background: rgba(255,255,255,.12);
+      transition: width 180ms ease, background 180ms ease;
+      flex-shrink: 0;
+
+      @media (max-width: 800px) {
+        width: 34px;
+        padding: 0 8px;
+        input {
+          display: none;
+        }
+      }
+    }
+    .header-search.open {
+      width: 230px;
+      background: #fff;
+      color: #334155;
+
+      @media (max-width: 600px) {
+        position: absolute;
+        left: 50px;
+        right: 50px;
+        width: auto;
+        z-index: 50;
+      }
+      input {
+        display: block !important;
+      }
+    }
+    .header-search > mat-icon { font-size:18px; width:18px; height:18px; color:inherit; flex-shrink: 0; }
     .header-search input { width:100%; border:0; outline:0; background:transparent; color:inherit; font:inherit; font-size:.78rem; }
     .header-search input::placeholder { color:rgba(255,255,255,.82); }
     .header-search.open input::placeholder { color:#94a3b8; }
@@ -640,15 +751,148 @@ import { FooterComponent } from './footer/footer.component';
     .search-results a { display:flex; align-items:center; gap:8px; padding:8px; border-radius:5px; color:#334155; text-decoration:none; font-size:.78rem; }
     .search-results a:hover { background:#eff6ff; color:#2563eb; }
     .search-results mat-icon { font-size:18px; width:18px; height:18px; color:#2563eb; }
-    .header-tool-button { position:relative; color:#fff; }
+    .header-tool-button { position:relative; color:#fff; flex-shrink: 0; }
     .notification-dot { position:absolute; top:9px; right:9px; width:6px; height:6px; border-radius:50%; background:#fbbf24; border:1px solid #3f51b5; }
-    .quick-actions-button { height:34px; color:#fff; border-color:rgba(255,255,255,.5); font-size:.76rem; }
+    .quick-actions-button {
+      height: 34px;
+      color: #fff;
+      border-color: rgba(255,255,255,.5);
+      font-size: .76rem;
+      flex-shrink: 0;
+
+      @media (max-width: 992px) {
+        span { display: none; }
+        min-width: 36px;
+        padding: 0 8px;
+      }
+      @media (max-width: 650px) {
+        display: none !important;
+      }
+    }
     .quick-actions-button mat-icon { font-size:17px; width:17px; height:17px; margin-right:3px; }
     .menu-section-title { padding:10px 16px 6px; color:#64748b; font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.5px; }
-    @media (max-width: 900px) { .header-search { width:36px; padding:0 9px; } .header-search input { display:none; } .header-search.open { width:210px; } .header-search.open input { display:block; } .quick-actions-button span { display:none; } .quick-actions-button { min-width:36px; padding:0 8px; } }
-    @media (max-width: 600px) { .header-tools { margin-left:6px; gap:2px; } .header-search.open { position:absolute; left:58px; right:58px; width:auto; } }
     .spacer {
       flex: 1 1 auto;
+      min-width: 8px;
+    }
+    .branch-selector-button {
+      height: 38px;
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      background: rgba(255, 255, 255, 0.14);
+      border-radius: 8px;
+      padding: 0 10px !important;
+      margin-right: 8px;
+      font-size: 0.84rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      flex-shrink: 0;
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.24);
+        border-color: rgba(255, 255, 255, 0.75);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+      }
+
+      ::ng-deep .mdc-button__label {
+        display: inline-flex !important;
+        align-items: center !important;
+        height: 100% !important;
+        padding: 0 !important;
+      }
+
+      .branch-btn-content {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .branch-btn-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        color: #93c5fd;
+        margin: 0 !important;
+        flex-shrink: 0;
+      }
+
+      .branch-name-full {
+        max-width: 320px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-weight: 500;
+        margin: 0;
+        line-height: normal;
+
+        @media (max-width: 1200px) {
+          max-width: 200px;
+        }
+        @media (max-width: 768px) {
+          display: none !important;
+        }
+      }
+
+      .branch-name-short {
+        display: none;
+        font-weight: 600;
+        font-size: 0.75rem;
+        letter-spacing: 0.5px;
+        margin: 0;
+        line-height: normal;
+
+        @media (max-width: 768px) {
+          display: inline-block !important;
+        }
+        @media (max-width: 400px) {
+          display: none !important;
+        }
+      }
+
+      .dropdown-chevron {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        opacity: 0.85;
+        margin: 0 !important;
+        flex-shrink: 0;
+      }
+
+      @media (max-width: 680px) {
+        height: 34px;
+        padding: 0 6px !important;
+        margin-right: 4px;
+
+        .branch-btn-content {
+          gap: 4px;
+        }
+      }
+    }
+
+    ::ng-deep .branch-dropdown-panel {
+      min-width: 300px !important;
+      max-width: 400px !important;
+      border-radius: 10px !important;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25) !important;
+
+      .mat-mdc-menu-item {
+        font-size: 0.85rem !important;
+        height: 44px !important;
+      }
+    }
+
+    .branch-check-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      color: #2563eb;
+      margin-left: auto;
+    }
+    .active-branch-item {
+      background-color: #eff6ff !important;
+      font-weight: 600;
+      color: #1d4ed8;
     }
     .whatsapp-status-badge {
       display: flex;
@@ -731,8 +975,38 @@ export class LayoutComponent implements OnInit {
     { title: 'Biometric Devices', route: '/attendance/devices', icon: 'fingerprint' },
     { title: 'Fee Collection', route: '/fees', icon: 'payments' },
     { title: 'Tests & Report Cards', route: '/tests', icon: 'assignment' },
-    { title: 'Roles & Permissions', route: '/roles', icon: 'admin_panel_settings' }
+    { title: 'Classrooms (Rooms)', route: '/rooms', icon: 'meeting_room' },
+    { title: 'Roles & Permissions', route: '/roles', icon: 'admin_panel_settings' },
+    { title: 'Institutes & Tenants', route: '/admin/tenants', icon: 'corporate_fare' }
   ];
+  selectedBranchId = this.authService.selectedBranchId;
+
+  get branches(): BranchInfo[] {
+    return this.currentUser()?.branches || [];
+  }
+
+  getCurrentBranchLabel(): string {
+    const selectedId = this.selectedBranchId();
+    if (selectedId) {
+      const b = this.branches.find(x => x.id === selectedId);
+      if (b) return `${b.name} (${b.code})`;
+    }
+    return this.currentUser()?.branchName || 'All Branches / Head Office';
+  }
+
+  getCurrentBranchCode(): string {
+    const selectedId = this.selectedBranchId();
+    if (selectedId) {
+      const b = this.branches.find(x => x.id === selectedId);
+      if (b) return b.code || b.name.substring(0, 4).toUpperCase();
+    }
+    return this.currentUser()?.branchName ? 'MAIN' : 'ALL';
+  }
+
+  onSelectBranch(branchId: string | null): void {
+    this.authService.switchBranch(branchId);
+    window.location.reload();
+  }
   calendarMonths = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   calendarWeekdays = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
   calendarMonth = new Date().getMonth();
@@ -746,8 +1020,9 @@ export class LayoutComponent implements OnInit {
   constructor(
     private authService: AuthService,
     private menuService: MenuService,
+    private idleTimeout: IdleTimeoutService,
     private breakpointObserver: BreakpointObserver
-  ) {}
+  ) { }
 
   onHeaderSearch(event: Event): void {
     this.headerSearch = (event.target as HTMLInputElement).value;
@@ -768,6 +1043,11 @@ export class LayoutComponent implements OnInit {
 
     this.loadMenu();
     this.loadCalendarHolidays();
+    this.idleTimeout.startMonitoring();
+  }
+
+  ngOnDestroy(): void {
+    this.idleTimeout.stopMonitoring();
   }
 
   changeCalendarMonth(offset: number): void {
@@ -827,6 +1107,14 @@ export class LayoutComponent implements OnInit {
     return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
+  getPhotoUrl(photo?: string | null): string {
+    if (!photo) return '';
+    if (photo.startsWith('/uploads/')) {
+      return `http://localhost:5000${photo}`;
+    }
+    return photo;
+  }
+
   onNavClick(drawer: MatSidenav): void {
     if (this.isMobile()) {
       drawer.close();
@@ -855,9 +1143,10 @@ export class LayoutComponent implements OnInit {
         id: '2', title: 'Master Management', routeUrl: '', icon: 'category', sortOrder: 2, module: 'Master', isActive: true,
         children: [
           { id: '21', title: 'Batches Master', routeUrl: '/batches', icon: 'class', sortOrder: 1, module: 'Master', isActive: true, children: [] },
-          { id: '22', title: 'Subject Master', routeUrl: '/subjects', icon: 'menu_book', sortOrder: 2, module: 'Master', isActive: true, children: [] },
-          { id: '23', title: 'Students Master', routeUrl: '/students', icon: 'people', sortOrder: 3, module: 'Master', isActive: true, children: [] },
-          { id: '24', title: 'Holiday Master', routeUrl: '/holidays', icon: 'event', sortOrder: 4, module: 'Master', isActive: true, children: [] }
+          { id: '22', title: 'Classrooms Master', routeUrl: '/rooms', icon: 'meeting_room', sortOrder: 2, module: 'Master', isActive: true, children: [] },
+          { id: '23', title: 'Subject Master', routeUrl: '/subjects', icon: 'menu_book', sortOrder: 3, module: 'Master', isActive: true, children: [] },
+          { id: '24', title: 'Students Master', routeUrl: '/students', icon: 'people', sortOrder: 4, module: 'Master', isActive: true, children: [] },
+          { id: '25', title: 'Holiday Master', routeUrl: '/holidays', icon: 'event', sortOrder: 5, module: 'Master', isActive: true, children: [] }
         ]
       },
       {
@@ -884,7 +1173,9 @@ export class LayoutComponent implements OnInit {
         id: '5', title: 'Admin Settings', routeUrl: '', icon: 'settings', sortOrder: 5, module: 'Admin', isActive: true,
         children: [
           { id: '51', title: 'Roles & Permissions', routeUrl: '/roles', icon: 'admin_panel_settings', sortOrder: 1, module: 'Admin', isActive: true, children: [] },
-          { id: '52', title: 'User Management', routeUrl: '/users', icon: 'person_add', sortOrder: 2, module: 'Admin', isActive: true, children: [] }
+          { id: '52', title: 'User Management', routeUrl: '/users', icon: 'person_add', sortOrder: 2, module: 'Admin', isActive: true, children: [] },
+          { id: '53', title: 'Biometric Devices', routeUrl: '/attendance/devices', icon: 'fingerprint', sortOrder: 3, module: 'Admin', isActive: true, children: [] },
+          { id: '54', title: 'Institutes & Tenants', routeUrl: '/admin/tenants', icon: 'corporate_fare', sortOrder: 4, module: 'Admin', isActive: true, children: [] }
         ]
       }
     ]);

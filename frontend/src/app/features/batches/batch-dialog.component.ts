@@ -12,6 +12,8 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatIconModule } from '@angular/material/icon';
 import { BatchDto, BatchesService } from '../../core/services/batches.service';
 import { SubjectDto, SubjectsService } from '../../core/services/subjects.service';
+import { BranchDto, BranchService } from '../../core/services/branch.service';
+import { RoomDto, RoomService } from '../../core/services/room.service';
 
 @Component({
   selector: 'app-batch-dialog',
@@ -95,6 +97,27 @@ import { SubjectDto, SubjectsService } from '../../core/services/subjects.servic
               </mat-option>
             </mat-select>
             <mat-error *ngIf="batchForm.get('selectedSubjects')?.hasError('required')">At least one subject is required</mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="half-width">
+            <mat-label>Branch Campus</mat-label>
+            <mat-select formControlName="branchId" (selectionChange)="onBranchChange($event.value)" placeholder="Select Branch">
+              <mat-option *ngFor="let b of availableBranches" [value]="b.id">
+                <mat-icon color="primary" class="option-icon">store</mat-icon>
+                <span>{{ b.name }} ({{ b.code }})</span>
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="half-width">
+            <mat-label>Assigned Classroom (Room)</mat-label>
+            <mat-select formControlName="roomId" placeholder="Select Room (Optional)">
+              <mat-option [value]="null"><em>None / Unassigned</em></mat-option>
+              <mat-option *ngFor="let r of filteredRooms" [value]="r.id">
+                <mat-icon color="primary" class="option-icon">meeting_room</mat-icon>
+                <span>Room {{ r.roomNumber }} (Cap: {{ r.capacity }}{{ r.floor ? ', ' + r.floor : '' }})</span>
+              </mat-option>
+            </mat-select>
           </mat-form-field>
 
           <mat-form-field appearance="outline" class="half-width">
@@ -219,12 +242,17 @@ export class BatchDialogComponent implements OnInit {
   isEditMode = false;
   saving = false;
   availableSubjects: SubjectDto[] = [];
+  availableBranches: BranchDto[] = [];
+  availableRooms: RoomDto[] = [];
+  filteredRooms: RoomDto[] = [];
   subjectSearchTerm = '';
 
   constructor(
     private fb: FormBuilder,
     private batchesService: BatchesService,
     private subjectsService: SubjectsService,
+    private branchService: BranchService,
+    private roomService: RoomService,
     private dialogRef: MatDialogRef<BatchDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data?: BatchDto
   ) {}
@@ -240,6 +268,8 @@ export class BatchDialogComponent implements OnInit {
     this.batchForm = this.fb.group({
       name: [this.data?.name || '', [Validators.required, Validators.maxLength(200)]],
       selectedSubjects: [initialSubjectList, [Validators.required]],
+      branchId: [this.data?.branchId || null],
+      roomId: [this.data?.roomId || null],
       academicYear: [this.data?.academicYear || '2026-2027', [Validators.required]],
       standardMonthlyFee: [this.data?.standardMonthlyFee || 3500, [Validators.required, Validators.min(0)]]
     });
@@ -249,6 +279,45 @@ export class BatchDialogComponent implements OnInit {
         this.availableSubjects = subjects;
       }
     });
+
+    this.branchService.getBranches().subscribe({
+      next: (branches) => {
+        this.availableBranches = branches;
+        // If creating new batch and no branch selected yet, auto-select main branch if available
+        if (!this.data?.id && !this.batchForm.get('branchId')?.value && branches.length > 0) {
+          const mainBranch = branches.find(b => b.isMainBranch) || branches[0];
+          this.batchForm.patchValue({ branchId: mainBranch.id });
+          this.filterRooms();
+        }
+      }
+    });
+
+    this.roomService.getRooms().subscribe({
+      next: (rooms) => {
+        this.availableRooms = rooms;
+        this.filterRooms();
+      }
+    });
+  }
+
+  onBranchChange(branchId: string): void {
+    const currentRoomId = this.batchForm.get('roomId')?.value;
+    if (currentRoomId) {
+      const room = this.availableRooms.find(r => r.id === currentRoomId);
+      if (room && room.branchId !== branchId) {
+        this.batchForm.patchValue({ roomId: null });
+      }
+    }
+    this.filterRooms();
+  }
+
+  filterRooms(): void {
+    const selectedBranch = this.batchForm.get('branchId')?.value;
+    if (!selectedBranch) {
+      this.filteredRooms = this.availableRooms;
+    } else {
+      this.filteredRooms = this.availableRooms.filter(r => r.branchId === selectedBranch);
+    }
   }
 
   getFilteredSubjects(): SubjectDto[] {
@@ -309,7 +378,9 @@ export class BatchDialogComponent implements OnInit {
       name: formVal.name,
       subject: subjectsArray.join(', '),
       academicYear: formVal.academicYear,
-      standardMonthlyFee: formVal.standardMonthlyFee
+      standardMonthlyFee: formVal.standardMonthlyFee,
+      branchId: formVal.branchId || null,
+      roomId: formVal.roomId || null
     };
 
     if (this.isEditMode && this.data?.id) {

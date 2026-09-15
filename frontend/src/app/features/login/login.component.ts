@@ -1,7 +1,7 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -32,18 +32,30 @@ import { AuthService } from '../../core/services/auth.service';
             <mat-icon color="primary">school</mat-icon>
           </div>
           <mat-card-title class="title">IMSERP Vertical SaaS</mat-card-title>
-          <mat-card-subtitle>Coaching & Tuition Management Portal</mat-card-subtitle>
+          <mat-card-subtitle>Multi-Tenant Coaching Management ERP</mat-card-subtitle>
         </mat-card-header>
 
         <mat-card-content>
           <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
+
+            <!-- Institute / Tenant Code -->
             <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Institute Code</mat-label>
+              <input matInput formControlName="tenantCode" placeholder="e.g. APEX" (input)="onTenantCodeInput($event)">
+              <mat-icon matSuffix>corporate_fare</mat-icon>
+              <mat-hint>Assigned code for your coaching institute</mat-hint>
+              <mat-error *ngIf="loginForm.get('tenantCode')?.hasError('required')">Institute Code is required</mat-error>
+            </mat-form-field>
+
+            <!-- Username -->
+            <mat-form-field appearance="outline" class="full-width" style="margin-top: 6px;">
               <mat-label>Username</mat-label>
-              <input matInput formControlName="username" placeholder="e.g. admin, teacher, accountant">
+              <input matInput formControlName="username" placeholder="e.g. admin, faculty, accountant">
               <mat-icon matSuffix>person</mat-icon>
               <mat-error *ngIf="loginForm.get('username')?.hasError('required')">Username is required</mat-error>
             </mat-form-field>
 
+            <!-- Password -->
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Password</mat-label>
               <input matInput [type]="hidePassword ? 'password' : 'text'" formControlName="password">
@@ -53,6 +65,12 @@ import { AuthService } from '../../core/services/auth.service';
               <mat-error *ngIf="loginForm.get('password')?.hasError('required')">Password is required</mat-error>
             </mat-form-field>
 
+            <!-- Session Notice or Error Banner -->
+            <div *ngIf="sessionNotice" class="info-banner">
+              <mat-icon>schedule</mat-icon>
+              <span>{{ sessionNotice }}</span>
+            </div>
+
             <div *ngIf="errorMessage" class="error-banner">
               <mat-icon color="warn">error</mat-icon>
               <span>{{ errorMessage }}</span>
@@ -60,18 +78,9 @@ import { AuthService } from '../../core/services/auth.service';
 
             <button mat-raised-button color="primary" class="full-width submit-btn" type="submit" [disabled]="loginForm.invalid || loading">
               <mat-spinner diameter="20" *ngIf="loading" style="display:inline-block; margin-right:8px;"></mat-spinner>
-              <span>Sign In</span>
+              <span>Sign In to Institute</span>
             </button>
           </form>
-
-          <div class="quick-demo-roles">
-            <p><strong>Demo Roles Quick Login:</strong></p>
-            <div class="role-buttons">
-              <button mat-stroked-button (click)="fillCredentials('admin', 'admin123')">Director (Admin)</button>
-              <button mat-stroked-button (click)="fillCredentials('teacher', 'teacher123')">Faculty (Teacher)</button>
-              <button mat-stroked-button (click)="fillCredentials('accountant', 'account123')">Accountant</button>
-            </div>
-          </div>
         </mat-card-content>
       </mat-card>
     </div>
@@ -82,36 +91,39 @@ import { AuthService } from '../../core/services/auth.service';
       display: flex;
       align-items: center;
       justify-content: center;
-      background: linear-gradient(135deg, #1e88e5 0%, #1565c0 100%);
+      background: linear-gradient(135deg, #0b1329 0%, #1e3a8a 100%);
     }
     .login-card {
       width: 100%;
       max-width: 420px;
       padding: 24px;
       border-radius: 16px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.2) !important;
+      box-shadow: 0 12px 36px rgba(0,0,0,0.35) !important;
+      background: #ffffff;
     }
     .login-header {
       display: flex;
       flex-direction: column;
       align-items: center;
       text-align: center;
-      margin-bottom: 24px;
+      margin-bottom: 22px;
       padding: 0;
     }
     .brand-badge {
-      background-color: #e3f2fd;
+      background-color: #eff6ff;
       padding: 12px;
       border-radius: 50%;
       margin-bottom: 12px;
       display: flex;
       align-items: center;
       justify-content: center;
+      border: 1px solid #bfdbfe;
     }
     .title {
-      font-size: 1.5rem;
-      font-weight: 700;
-      color: #1976d2;
+      font-size: 1.45rem;
+      font-weight: 800;
+      color: #1e3a8a;
+      letter-spacing: -0.02em;
     }
     .full-width {
       width: 100%;
@@ -121,9 +133,23 @@ import { AuthService } from '../../core/services/auth.service';
       padding: 12px;
       font-size: 1rem;
       font-weight: 600;
-      margin-top: 12px;
+      margin-top: 14px;
       height: 48px;
       border-radius: 8px;
+    }
+    .info-banner {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background-color: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      font-weight: 500;
+      margin-bottom: 12px;
+      mat-icon { font-size: 19px; width: 19px; height: 19px; }
     }
     .error-banner {
       display: flex;
@@ -136,64 +162,70 @@ import { AuthService } from '../../core/services/auth.service';
       font-size: 0.9rem;
       margin-bottom: 12px;
     }
-    .quick-demo-roles {
-      margin-top: 24px;
-      padding-top: 16px;
-      border-top: 1px solid #eee;
-      text-align: center;
-      font-size: 0.85rem;
-      color: #666;
-    }
-    .role-buttons {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      justify-content: center;
-      margin-top: 8px;
-
-      button {
-        font-size: 0.75rem;
-      }
-    }
   `]
 })
-export class LoginComponent {
+export class LoginComponent implements OnInit {
   loginForm: FormGroup;
   hidePassword = true;
   loading = false;
   errorMessage = '';
+  sessionNotice = '';
 
   constructor(
     private fb: FormBuilder,
     private authService: AuthService,
-    private router: Router
+    private router: Router,
+    private route: ActivatedRoute
   ) {
+    const defaultCode = this.authService.getLastTenantCode();
     this.loginForm = this.fb.group({
+      tenantCode: [defaultCode, [Validators.required]],
       username: ['admin', [Validators.required]],
       password: ['admin123', [Validators.required]]
     });
   }
 
-  fillCredentials(user: string, pass: string) {
-    this.loginForm.patchValue({ username: user, password: pass });
-    this.errorMessage = '';
+  ngOnInit(): void {
+    const reason = this.route.snapshot.queryParams['reason'];
+    if (reason === 'idle_timeout') {
+      this.sessionNotice = 'Your session expired due to inactivity. Please sign in again.';
+    } else if (reason === 'session_expired') {
+      this.sessionNotice = 'Your security session has expired. Please sign in again.';
+    }
   }
 
-  onSubmit() {
+  onTenantCodeInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (input) {
+      input.value = input.value.toUpperCase();
+      this.loginForm.get('tenantCode')?.setValue(input.value, { emitEvent: false });
+    }
+  }
+
+  onSubmit(): void {
     if (this.loginForm.invalid) return;
 
     this.loading = true;
     this.errorMessage = '';
+    this.sessionNotice = '';
 
-    this.authService.login(this.loginForm.value).subscribe({
+    const val = this.loginForm.value;
+    const credentials = {
+      tenantCode: (val.tenantCode || '').trim().toUpperCase(),
+      username: (val.username || '').trim(),
+      password: val.password
+    };
+
+    this.authService.login(credentials).subscribe({
       next: () => {
         this.loading = false;
         this.router.navigate(['/dashboard']);
       },
       error: (err) => {
         this.loading = false;
-        this.errorMessage = err?.error?.message || 'Authentication failed. Please check credentials.';
+        this.errorMessage = err?.error?.message || 'Authentication failed. Please check Institute Code and credentials.';
       }
     });
   }
 }
+

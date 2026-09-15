@@ -10,16 +10,55 @@ public class Tenant
     public string Code { get; set; } = string.Empty;
     public string? ContactPhone { get; set; }
     public string? Address { get; set; }
+    public string? ProfilePhoto { get; set; }
     public string? WhatsAppPhoneId { get; set; }
     public string? WhatsAppAccessToken { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    public ICollection<Branch> Branches { get; set; } = new List<Branch>();
+}
+
+public class Branch
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string Code { get; set; } = string.Empty;
+    public string? Address { get; set; }
+    public string? ContactPhone { get; set; }
+    public bool IsMainBranch { get; set; } = false;
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    public Tenant? Tenant { get; set; }
+    public ICollection<Room> Rooms { get; set; } = new List<Room>();
+    public ICollection<User> Users { get; set; } = new List<User>();
+    public ICollection<Batch> Batches { get; set; } = new List<Batch>();
+    public ICollection<Student> Students { get; set; } = new List<Student>();
+    public ICollection<Teacher> Teachers { get; set; } = new List<Teacher>();
+}
+
+public class Room
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid BranchId { get; set; }
+    public string RoomNumber { get; set; } = string.Empty;
+    public int Capacity { get; set; } = 40;
+    public string? Floor { get; set; }
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    public Branch? Branch { get; set; }
+    public ICollection<Batch> Batches { get; set; } = new List<Batch>();
 }
 
 public class User
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
     public string Username { get; set; } = string.Empty;
     public string PasswordHash { get; set; } = string.Empty;
     public string FullName { get; set; } = string.Empty;
@@ -30,7 +69,13 @@ public class User
     
     [ForeignKey("RoleId")]
     public RoleEntity? AssignedRole { get; set; }
+
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+
     public bool IsActive { get; set; } = true;
+    public string? RefreshToken { get; set; }
+    public DateTime? RefreshTokenExpiryTime { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
 
@@ -90,11 +135,19 @@ public class Batch
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid? RoomId { get; set; }
     public string Name { get; set; } = string.Empty;
     public string Subject { get; set; } = string.Empty;
     public string AcademicYear { get; set; } = string.Empty;
     public decimal StandardMonthlyFee { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+
+    [ForeignKey("RoomId")]
+    public Room? Room { get; set; }
 
     public ICollection<Student> Students { get; set; } = new List<Student>();
 }
@@ -103,6 +156,7 @@ public class Student
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
     public Guid BatchId { get; set; }
     public string RollNumber { get; set; } = string.Empty;
     public string StudentName { get; set; } = string.Empty;
@@ -112,6 +166,9 @@ public class Student
     public bool IsActive { get; set; } = true;
     public DateTime JoiningDate { get; set; } = DateTime.UtcNow;
     public string? BiometricUserId { get; set; }
+
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
 
     public Batch? Batch { get; set; }
     public ICollection<FeeInvoice> FeeInvoices { get; set; } = new List<FeeInvoice>();
@@ -123,6 +180,7 @@ public class StudentAttendance
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
     public Guid StudentId { get; set; }
     public DateTime AttendanceDate { get; set; }
     public TeacherAttendanceStatus Status { get; set; } = TeacherAttendanceStatus.Present;
@@ -134,6 +192,9 @@ public class StudentAttendance
     public DateTime? CapturedAt { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+
     public Student? Student { get; set; }
 }
 
@@ -141,6 +202,7 @@ public class FeeInvoice
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
     public Guid StudentId { get; set; }
     public string InvoiceNumber { get; set; } = string.Empty;
     public string Title { get; set; } = string.Empty;
@@ -153,6 +215,9 @@ public class FeeInvoice
     public DateTime? CancelledAt { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+
     public Student? Student { get; set; }
     public ICollection<FeePayment> Payments { get; set; } = new List<FeePayment>();
 }
@@ -161,6 +226,7 @@ public class FeePayment
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
     public Guid InvoiceId { get; set; }
     public string ReceiptNumber { get; set; } = string.Empty;
     public decimal AmountPaid { get; set; }
@@ -169,6 +235,9 @@ public class FeePayment
     public DateTime PaymentDate { get; set; } = DateTime.UtcNow;
     public string? Remarks { get; set; }
 
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+
     public FeeInvoice? Invoice { get; set; }
 }
 
@@ -176,12 +245,16 @@ public class Test
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
     public Guid BatchId { get; set; }
     public string Title { get; set; } = string.Empty;
     public string Subject { get; set; } = string.Empty;
     public decimal MaxMarks { get; set; }
     public DateTime TestDate { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
 
     public Batch? Batch { get; set; }
     public ICollection<TestMarks> MarksList { get; set; } = new List<TestMarks>();
@@ -220,6 +293,7 @@ public class Teacher
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
     public string EmployeeCode { get; set; } = string.Empty;
     public string FullName { get; set; } = string.Empty;
     public string? FatherName { get; set; }
@@ -238,6 +312,9 @@ public class Teacher
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public string? BiometricUserId { get; set; }
+
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
 
     public ICollection<TeacherBatchAssignment> BatchAssignments { get; set; } = new List<TeacherBatchAssignment>();
     public ICollection<TeacherAttendance> Attendances { get; set; } = new List<TeacherAttendance>();
@@ -267,6 +344,7 @@ public class TeacherAttendance
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
     public Guid TeacherId { get; set; }
     public DateTime AttendanceDate { get; set; }
     public TeacherAttendanceStatus Status { get; set; } = TeacherAttendanceStatus.Present;
@@ -280,6 +358,9 @@ public class TeacherAttendance
     public DateTime? CapturedAt { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+
     public Teacher? Teacher { get; set; }
 }
 
@@ -287,15 +368,20 @@ public class AttendanceSettings
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
     public string StudentMode { get; set; } = "Both";
     public string TeacherMode { get; set; } = "Both";
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
 }
 
 public class BiometricDevice
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? Brand { get; set; }
     public string? Model { get; set; }
@@ -305,6 +391,9 @@ public class BiometricDevice
     public string ConnectionMode { get; set; } = "PendingAdapter";
     public bool IsActive { get; set; } = true;
     public string Status { get; set; } = "NotConfigured";
+
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
     public DateTime? LastSeenAt { get; set; }
     public DateTime? LastSyncAt { get; set; }
     public string? LastError { get; set; }
