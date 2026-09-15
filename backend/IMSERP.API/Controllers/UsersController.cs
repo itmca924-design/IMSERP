@@ -75,6 +75,20 @@ public class UsersController : ControllerBase
             }
         }
 
+        var mappedRole = UserRole.Teacher;
+        if (Enum.TryParse<UserRole>(role.Name.Replace(" ", ""), true, out var parsedRole))
+        {
+            mappedRole = parsedRole;
+        }
+        else if (role.Name.Contains("Admin", StringComparison.OrdinalIgnoreCase))
+        {
+            mappedRole = UserRole.InstituteAdmin;
+        }
+        else if (role.Name.Contains("Account", StringComparison.OrdinalIgnoreCase))
+        {
+            mappedRole = UserRole.Accountant;
+        }
+
         var user = new User
         {
             TenantId = _currentUser.TenantId,
@@ -85,7 +99,7 @@ public class UsersController : ControllerBase
             Email = dto.Email?.Trim(),
             PhoneNumber = dto.PhoneNumber?.Trim(),
             RoleId = dto.RoleId,
-            Role = UserRole.InstituteAdmin,
+            Role = mappedRole,
             IsActive = dto.IsActive,
             CreatedAt = DateTime.UtcNow
         };
@@ -128,6 +142,26 @@ public class UsersController : ControllerBase
         user.RoleId = dto.RoleId;
         user.IsActive = dto.IsActive;
         user.BranchId = dto.BranchId;
+
+        if (user.Role != UserRole.SuperAdmin)
+        {
+            if (Enum.TryParse<UserRole>(role.Name.Replace(" ", ""), true, out var parsedRole))
+            {
+                user.Role = parsedRole;
+            }
+            else if (role.Name.Contains("Admin", StringComparison.OrdinalIgnoreCase))
+            {
+                user.Role = UserRole.InstituteAdmin;
+            }
+            else if (role.Name.Contains("Account", StringComparison.OrdinalIgnoreCase))
+            {
+                user.Role = UserRole.Accountant;
+            }
+            else
+            {
+                user.Role = UserRole.Teacher;
+            }
+        }
 
         if (!string.IsNullOrWhiteSpace(dto.Password))
         {

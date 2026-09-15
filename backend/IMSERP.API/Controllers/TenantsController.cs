@@ -138,34 +138,75 @@ public class TenantsController : ControllerBase
 
         _dbContext.Tenants.Add(tenant);
 
-        // Auto-provision initial Main Branch for this tenant
-        var mainBranch = new Branch
-        {
-            Id = Guid.NewGuid(),
-            TenantId = tenant.Id,
-            Name = $"{tenant.Name} - Main Branch",
-            Code = "MAIN",
-            Address = tenant.Address,
-            ContactPhone = tenant.ContactPhone,
-            IsMainBranch = true,
-            IsActive = true,
-            CreatedAt = DateTime.UtcNow
-        };
-        _dbContext.Branches.Add(mainBranch);
+        // Provision branches for this tenant (bulk or default single main branch)
+        var branchesToCreate = new List<Branch>();
 
-        // Auto-provision default Room for this main branch
-        var defaultRoom = new Room
+        if (dto.Branches != null && dto.Branches.Count > 0)
         {
-            Id = Guid.NewGuid(),
-            TenantId = tenant.Id,
-            BranchId = mainBranch.Id,
-            RoomNumber = "Room 101",
-            Capacity = 40,
-            Floor = "Ground Floor",
-            IsActive = true,
-            CreatedAt = DateTime.UtcNow
-        };
-        _dbContext.Rooms.Add(defaultRoom);
+            bool hasMain = dto.Branches.Any(b => b.IsMainBranch);
+            for (int i = 0; i < dto.Branches.Count; i++)
+            {
+                var bDto = dto.Branches[i];
+                if (string.IsNullOrWhiteSpace(bDto.Name)) continue;
+
+                var isMain = bDto.IsMainBranch || (!hasMain && i == 0);
+                var branchCode = !string.IsNullOrWhiteSpace(bDto.Code)
+                    ? bDto.Code.Trim().ToUpper()
+                    : (isMain ? "MAIN" : $"BR{i + 1}");
+
+                var branch = new Branch
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenant.Id,
+                    Name = bDto.Name.Trim(),
+                    Code = branchCode,
+                    Address = !string.IsNullOrWhiteSpace(bDto.Address) ? bDto.Address.Trim() : tenant.Address,
+                    ContactPhone = !string.IsNullOrWhiteSpace(bDto.ContactPhone) ? bDto.ContactPhone.Trim() : tenant.ContactPhone,
+                    IsMainBranch = isMain,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                };
+                branchesToCreate.Add(branch);
+            }
+        }
+
+        if (branchesToCreate.Count == 0)
+        {
+            // Default single main branch fallback
+            branchesToCreate.Add(new Branch
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenant.Id,
+                Name = $"{tenant.Name} - Main Branch",
+                Code = "MAIN",
+                Address = tenant.Address,
+                ContactPhone = tenant.ContactPhone,
+                IsMainBranch = true,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            });
+        }
+
+        _dbContext.Branches.AddRange(branchesToCreate);
+
+        var mainBranch = branchesToCreate.FirstOrDefault(b => b.IsMainBranch) ?? branchesToCreate.First();
+
+        // Auto-provision default Room for each created branch
+        foreach (var br in branchesToCreate)
+        {
+            var defaultRoom = new Room
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenant.Id,
+                BranchId = br.Id,
+                RoomNumber = "Room 101",
+                Capacity = 40,
+                Floor = "Ground Floor",
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            };
+            _dbContext.Rooms.Add(defaultRoom);
+        }
 
         // Auto-provision initial administrator user
         if (!string.IsNullOrWhiteSpace(dto.AdminUsername) && !string.IsNullOrWhiteSpace(dto.AdminPassword))

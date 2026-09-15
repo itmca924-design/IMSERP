@@ -40,8 +40,12 @@ export class BranchService {
 
   constructor(private http: HttpClient) {}
 
-  getBranches(): Observable<BranchDto[]> {
+  getAllBranches(): Observable<BranchDto[]> {
     return this.http.get<BranchDto[]>(this.API_URL);
+  }
+
+  getBranches(): Observable<BranchDto[]> {
+    return this.getAllBranches();
   }
 
   getBranchById(id: string): Observable<BranchDto> {
@@ -52,11 +56,11 @@ export class BranchService {
     return this.http.post<BranchDto>(this.API_URL, dto);
   }
 
-  updateBranch(id: string, dto: UpdateBranchDto): Observable<{ message: string }> {
-    return this.http.put<{ message: string }>(`${this.API_URL}/${id}`, dto);
+  updateBranch(id: string, dto: UpdateBranchDto): Observable<BranchDto> {
+    return this.http.put<BranchDto>(`${this.API_URL}/${id}`, dto);
   }
 
-  toggleBranchStatus(id: string): Observable<{ message: string; isActive: boolean }> {
-    return this.http.patch<{ message: string; isActive: boolean }>(`${this.API_URL}/${id}/toggle-status`, {});
+  deleteBranch(id: string): Observable<any> {
+    return this.http.delete(`${this.API_URL}/${id}`);
   }
 }

@@ -34,6 +34,7 @@ export const routes: Routes = [
       { path: 'dashboard', component: DashboardComponent },
 
       // Master Management
+      { path: 'branches', loadComponent: () => import('./features/branches/branches.component').then(m => m.BranchesComponent) },
       { path: 'batches', component: BatchesComponent },
       { path: 'rooms', loadComponent: () => import('./features/rooms/rooms.component').then(m => m.RoomsComponent) },
       { path: 'subjects', component: SubjectsComponent },

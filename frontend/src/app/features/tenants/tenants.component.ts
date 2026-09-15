@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, FormArray, Validators } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -295,6 +295,58 @@ import { AuthService } from '../../core/services/auth.service';
                   <mat-icon matSuffix>lock</mat-icon>
                   <mat-error *ngIf="tenantForm.get('adminPassword')?.hasError('required')">Password required</mat-error>
                 </mat-form-field>
+              </div>
+            </div>
+
+            <!-- Initial Branches Provisioning (Only on Create) -->
+            <div *ngIf="!isEditing" class="branches-setup-block">
+              <div class="block-title-row">
+                <h4 class="block-title">
+                  <mat-icon>store</mat-icon>
+                  <span>Institute Branches (Multi-Branch Setup)</span>
+                </h4>
+                <button type="button" mat-stroked-button color="primary" class="add-branch-btn" (click)="addBranchRow(false)">
+                  <mat-icon>add</mat-icon>
+                  <span>Add Branch</span>
+                </button>
+              </div>
+              <p class="block-desc">Configure the initial branches for this institute (e.g. Main Branch, Delhi, Patna). You can add more later.</p>
+
+              <div formArrayName="branches" class="branches-list">
+                <div *ngFor="let br of branchesFormArray.controls; let i = index" [formGroupName]="i" class="branch-row-card">
+                  <div class="branch-row-header">
+                    <span class="branch-row-badge" [class.main-badge]="br.get('isMainBranch')?.value">
+                      <mat-icon>{{ br.get('isMainBranch')?.value ? 'star' : 'apartment' }}</mat-icon>
+                      {{ br.get('isMainBranch')?.value ? 'Main Branch (HQ)' : 'Branch #' + (i + 1) }}
+                    </span>
+                    <button type="button" mat-icon-button color="warn" (click)="removeBranchRow(i)" *ngIf="branchesFormArray.length > 1" matTooltip="Remove branch">
+                      <mat-icon>delete_outline</mat-icon>
+                    </button>
+                  </div>
+                  <div class="form-grid">
+                    <mat-form-field appearance="outline" class="span-1">
+                      <mat-label>Branch Name *</mat-label>
+                      <input matInput formControlName="name" placeholder="e.g. Delhi Branch">
+                      <mat-error *ngIf="br.get('name')?.hasError('required')">Branch name required</mat-error>
+                    </mat-form-field>
+
+                    <mat-form-field appearance="outline" class="span-1">
+                      <mat-label>Branch Code *</mat-label>
+                      <input matInput formControlName="code" placeholder="e.g. DEL" (input)="onBranchCodeInput($event, i)">
+                      <mat-error *ngIf="br.get('code')?.hasError('required')">Code required</mat-error>
+                    </mat-form-field>
+
+                    <mat-form-field appearance="outline" class="span-1">
+                      <mat-label>Contact Phone</mat-label>
+                      <input matInput formControlName="contactPhone" placeholder="Branch phone">
+                    </mat-form-field>
+
+                    <mat-form-field appearance="outline" class="span-1">
+                      <mat-label>Branch Address</mat-label>
+                      <input matInput formControlName="address" placeholder="e.g. Connaught Place, New Delhi">
+                    </mat-form-field>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -730,6 +782,86 @@ import { AuthService } from '../../core/services/auth.service';
       }
     }
 
+    .branches-setup-block {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 12px;
+      padding: 16px;
+
+      .block-title-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 4px;
+
+        .block-title {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 0.88rem;
+          font-weight: 700;
+          color: #1e40af;
+          margin: 0;
+          mat-icon { font-size: 18px; width: 18px; height: 18px; }
+        }
+
+        .add-branch-btn {
+          height: 32px;
+          font-size: 0.78rem;
+          font-weight: 600;
+          border-radius: 6px;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          mat-icon { font-size: 16px; width: 16px; height: 16px; }
+        }
+      }
+
+      .block-desc {
+        font-size: 0.8rem;
+        color: #64748b;
+        margin: 0 0 14px;
+      }
+
+      .branches-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .branch-row-card {
+        background: #ffffff;
+        border: 1px solid #dbeafe;
+        border-radius: 10px;
+        padding: 12px 14px;
+
+        .branch-row-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 10px;
+
+          .branch-row-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 2px 10px;
+            border-radius: 20px;
+            background: #e2e8f0;
+            color: #475569;
+            mat-icon { font-size: 14px; width: 14px; height: 14px; }
+
+            &.main-badge {
+              background: #dbeafe;
+              color: #1d4ed8;
+            }
+          }
+        }
+      }
+    }
+
     .modal-error {
       display: flex;
       align-items: center;
@@ -806,12 +938,44 @@ export class TenantsComponent implements OnInit {
       whatsAppAccessToken: [''],
       adminUsername: ['admin', Validators.required],
       adminPassword: ['admin123', Validators.required],
-      adminFullName: ['']
+      adminFullName: [''],
+      branches: this.fb.array([])
     });
   }
 
+  get branchesFormArray(): FormArray {
+    return this.tenantForm.get('branches') as FormArray;
+  }
+
+  addBranchRow(isMain = false): void {
+    const defaultName = isMain ? 'Main Branch' : '';
+    const defaultCode = isMain ? 'MAIN' : '';
+    this.branchesFormArray.push(this.fb.group({
+      name: [defaultName, Validators.required],
+      code: [defaultCode, Validators.required],
+      contactPhone: [''],
+      address: [''],
+      isMainBranch: [isMain]
+    }));
+  }
+
+  removeBranchRow(index: number): void {
+    if (this.branchesFormArray.length > 1) {
+      this.branchesFormArray.removeAt(index);
+    }
+  }
+
+  onBranchCodeInput(event: Event, index: number): void {
+    const input = event.target as HTMLInputElement;
+    if (input) {
+      input.value = input.value.toUpperCase().replace(/[^A-Z0-9_-]/g, '');
+      this.branchesFormArray.at(index).get('code')?.setValue(input.value, { emitEvent: false });
+    }
+  }
+
   get isSuperAdmin(): boolean {
-    return this.authService.currentUser()?.role === 'SuperAdmin';
+    const role = this.authService.currentUser()?.role;
+    return role === 'SuperAdmin' || role === 'InstituteAdmin';
   }
 
   get activeCount(): number {
@@ -871,6 +1035,8 @@ export class TenantsComponent implements OnInit {
       adminPassword: 'password123',
       adminFullName: ''
     });
+    this.branchesFormArray.clear();
+    this.addBranchRow(true);
     this.tenantForm.get('code')?.enable();
     this.showModal = true;
   }
@@ -880,6 +1046,7 @@ export class TenantsComponent implements OnInit {
     this.editingId = tenant.id;
     this.formError = '';
     this.profilePhotoPreview = tenant.profilePhoto || null;
+    this.branchesFormArray.clear();
     this.tenantForm.patchValue({
       name: tenant.name,
       code: tenant.code,
@@ -1009,6 +1176,16 @@ export class TenantsComponent implements OnInit {
         }
       });
     } else {
+      const branchesList = (this.branchesFormArray.value || [])
+        .filter((b: any) => b.name && b.name.trim().length > 0)
+        .map((b: any) => ({
+          name: b.name.trim(),
+          code: (b.code || 'MAIN').trim().toUpperCase(),
+          contactPhone: b.contactPhone?.trim() || null,
+          address: b.address?.trim() || null,
+          isMainBranch: !!b.isMainBranch
+        }));
+
       const createDto: CreateTenantDto = {
         name: val.name.trim(),
         code: val.code.trim().toUpperCase(),
@@ -1019,7 +1196,8 @@ export class TenantsComponent implements OnInit {
         whatsAppAccessToken: val.whatsAppAccessToken?.trim() || null,
         adminUsername: val.adminUsername.trim(),
         adminPassword: val.adminPassword,
-        adminFullName: val.adminFullName?.trim() || `${val.name.trim()} Administrator`
+        adminFullName: val.adminFullName?.trim() || `${val.name.trim()} Administrator`,
+        branches: branchesList
       };
 
       this.tenantService.createTenant(createDto).subscribe({

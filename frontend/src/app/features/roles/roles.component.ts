@@ -13,6 +13,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { RolesService, RoleDto, RolePermissionDto } from '../../core/services/roles.service';
+import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 
 interface ModuleGroup {
   moduleName: string;
@@ -456,7 +457,11 @@ export class RolesComponent implements OnInit {
   saving = false;
   isNewRole = false;
 
-  constructor(private fb: FormBuilder, private rolesService: RolesService) {}
+  constructor(
+    private fb: FormBuilder,
+    private rolesService: RolesService,
+    private confirmDialog: ConfirmDialogService
+  ) {}
 
   ngOnInit(): void {
     this.loadRoles();
@@ -628,6 +633,7 @@ export class RolesComponent implements OnInit {
 
     this.saving = true;
     const formVal = this.roleForm.value;
+    const roleName = formVal.name?.trim() || 'Role';
 
     if (this.isNewRole) {
       this.rolesService.createRole(formVal).subscribe({
@@ -635,10 +641,19 @@ export class RolesComponent implements OnInit {
           this.saving = false;
           this.loadRoles();
           this.selectRole(created);
+          this.confirmDialog.alert(
+            'Role Created Successfully!',
+            `The new role "${roleName}" and its granular page permissions have been created.`,
+            'success'
+          );
         },
         error: (err) => {
           this.saving = false;
-          alert(err?.error?.message || 'Error creating role.');
+          this.confirmDialog.alert(
+            'Failed to Create Role',
+            err?.error?.message || 'Error creating role.',
+            'danger'
+          );
         }
       });
     } else {
@@ -646,10 +661,19 @@ export class RolesComponent implements OnInit {
         next: () => {
           this.saving = false;
           this.loadRoles();
+          this.confirmDialog.alert(
+            'Permissions Saved Successfully!',
+            `Hierarchical permissions and settings for role "${roleName}" have been saved successfully.`,
+            'success'
+          );
         },
         error: (err) => {
           this.saving = false;
-          alert(err?.error?.message || 'Error updating role.');
+          this.confirmDialog.alert(
+            'Failed to Save Permissions',
+            err?.error?.message || 'Error updating role permissions.',
+            'danger'
+          );
         }
       });
     }

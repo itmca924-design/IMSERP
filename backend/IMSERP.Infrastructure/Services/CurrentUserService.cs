@@ -43,19 +43,32 @@ public class CurrentUserService : ICurrentUserService
     {
         get
         {
+            var roleClaim = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.Role)?.Value;
+            var isStaff = !string.IsNullOrEmpty(roleClaim) &&
+                          !roleClaim.Equals("SuperAdmin", StringComparison.OrdinalIgnoreCase) &&
+                          !roleClaim.Equals("InstituteAdmin", StringComparison.OrdinalIgnoreCase);
+
+            var branchClaim = _httpContextAccessor.HttpContext?.User?.FindFirst("BranchId")?.Value;
+            Guid? claimBranchId = null;
+            if (Guid.TryParse(branchClaim, out var parsedClaimId))
+            {
+                claimBranchId = parsedClaimId;
+            }
+
+            // Staff users (Teacher, Accountant, etc.) are strictly locked to their assigned branch
+            if (isStaff && claimBranchId.HasValue)
+            {
+                return claimBranchId;
+            }
+
+            // SuperAdmin & InstituteAdmin can switch branch via X-Branch-Id header
             var branchHeader = _httpContextAccessor.HttpContext?.Request?.Headers["X-Branch-Id"].ToString();
             if (!string.IsNullOrWhiteSpace(branchHeader) && Guid.TryParse(branchHeader, out var headerBranchId))
             {
                 return headerBranchId;
             }
 
-            var branchClaim = _httpContextAccessor.HttpContext?.User?.FindFirst("BranchId")?.Value;
-            if (Guid.TryParse(branchClaim, out var claimBranchId))
-            {
-                return claimBranchId;
-            }
-
-            return null;
+            return claimBranchId;
         }
     }
 

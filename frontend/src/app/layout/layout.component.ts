@@ -189,8 +189,8 @@ import { FooterComponent } from './footer/footer.component';
           </div>
           <span class="spacer"></span>
 
-          <!-- Branch Switcher Dropdown Button -->
-          <button mat-stroked-button [matMenuTriggerFor]="branchMenu" class="branch-selector-button" *ngIf="branches.length > 0" [matTooltip]="'Branch: ' + getCurrentBranchLabel()">
+          <!-- Branch Switcher Dropdown Button (Only for Admins) -->
+          <button mat-stroked-button [matMenuTriggerFor]="branchMenu" class="branch-selector-button" *ngIf="branches.length > 0 && canSwitchBranches" [matTooltip]="'Branch: ' + getCurrentBranchLabel()">
             <span class="branch-btn-content">
               <mat-icon class="branch-btn-icon">storefront</mat-icon>
               <span class="branch-name-full">{{ getCurrentBranchLabel() }}</span>
@@ -198,6 +198,14 @@ import { FooterComponent } from './footer/footer.component';
               <mat-icon class="dropdown-chevron">expand_more</mat-icon>
             </span>
           </button>
+
+          <!-- Branch Locked Badge for Staff / Teachers -->
+          <div class="branch-locked-badge" *ngIf="branches.length > 0 && !canSwitchBranches" [matTooltip]="'Assigned Branch: ' + getCurrentBranchLabel()">
+            <mat-icon class="branch-btn-icon">storefront</mat-icon>
+            <span class="branch-name-full">{{ getCurrentBranchLabel() }}</span>
+            <span class="branch-name-short">{{ getCurrentBranchCode() }}</span>
+            <mat-icon class="lock-icon">lock</mat-icon>
+          </div>
 
           <mat-menu #branchMenu="matMenu" xPosition="before" class="branch-dropdown-panel">
             <div class="menu-section-title">Active Branch Scope</div>
@@ -870,6 +878,52 @@ import { FooterComponent } from './footer/footer.component';
       }
     }
 
+    .branch-locked-badge {
+      height: 36px;
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 0 12px;
+      margin-right: 8px;
+      font-size: 0.84rem;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+
+      .branch-btn-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        color: #93c5fd;
+      }
+
+      .branch-name-full {
+        max-width: 240px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        @media (max-width: 900px) { display: none; }
+      }
+
+      .branch-name-short {
+        display: none;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        @media (max-width: 900px) { display: inline-block; }
+      }
+
+      .lock-icon {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
+        color: #e2e8f0;
+        opacity: 0.85;
+      }
+    }
+
     ::ng-deep .branch-dropdown-panel {
       min-width: 300px !important;
       max-width: 400px !important;
@@ -976,10 +1030,16 @@ export class LayoutComponent implements OnInit {
     { title: 'Fee Collection', route: '/fees', icon: 'payments' },
     { title: 'Tests & Report Cards', route: '/tests', icon: 'assignment' },
     { title: 'Classrooms (Rooms)', route: '/rooms', icon: 'meeting_room' },
+    { title: 'Branches Master', route: '/branches', icon: 'store' },
     { title: 'Roles & Permissions', route: '/roles', icon: 'admin_panel_settings' },
     { title: 'Institutes & Tenants', route: '/admin/tenants', icon: 'corporate_fare' }
   ];
   selectedBranchId = this.authService.selectedBranchId;
+
+  get canSwitchBranches(): boolean {
+    const role = this.currentUser()?.role;
+    return role === 'SuperAdmin' || role === 'InstituteAdmin';
+  }
 
   get branches(): BranchInfo[] {
     return this.currentUser()?.branches || [];

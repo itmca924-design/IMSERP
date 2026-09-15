@@ -72,6 +72,14 @@ public class AuthController : ControllerBase
             .Select(b => new BranchDto(b.Id, b.TenantId, b.Name, b.Code, b.Address, b.ContactPhone, b.IsMainBranch, b.IsActive, b.CreatedAt, 0, 0, 0))
             .ToListAsync();
 
+        if (user.Role != UserRole.SuperAdmin && user.Role != UserRole.InstituteAdmin)
+        {
+            if (user.BranchId.HasValue)
+            {
+                branches = branches.Where(b => b.Id == user.BranchId.Value).ToList();
+            }
+        }
+
         // 3. Generate Access Token (30 min) + Refresh Token (7 days)
         var accessToken = GenerateJwtToken(user, tenant.Name, tenant.Code);
         var refreshToken = GenerateRefreshToken();
@@ -138,6 +146,14 @@ public class AuthController : ControllerBase
             .ThenBy(b => b.Name)
             .Select(b => new BranchDto(b.Id, b.TenantId, b.Name, b.Code, b.Address, b.ContactPhone, b.IsMainBranch, b.IsActive, b.CreatedAt, 0, 0, 0))
             .ToListAsync();
+
+        if (user.Role != UserRole.SuperAdmin && user.Role != UserRole.InstituteAdmin)
+        {
+            if (user.BranchId.HasValue)
+            {
+                branches = branches.Where(b => b.Id == user.BranchId.Value).ToList();
+            }
+        }
 
         // Token Rotation: issue brand new access token and refresh token
         var newAccessToken = GenerateJwtToken(user, tenant?.Name ?? "Coaching Institute", tenant?.Code ?? "");

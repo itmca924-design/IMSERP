@@ -114,7 +114,8 @@ public record CreateTenantDto(
     string? WhatsAppAccessToken,
     string AdminUsername,
     string AdminPassword,
-    string AdminFullName
+    string AdminFullName,
+    List<CreateBranchDto>? Branches = null
 );
 
 public record UpdateTenantDto(

@@ -16,6 +16,14 @@ export interface TenantDto {
   batchCount: number;
 }
 
+export interface CreateBranchItemDto {
+  name: string;
+  code: string;
+  address?: string | null;
+  contactPhone?: string | null;
+  isMainBranch?: boolean;
+}
+
 export interface CreateTenantDto {
   name: string;
   code: string;
@@ -27,6 +35,7 @@ export interface CreateTenantDto {
   adminUsername: string;
   adminPassword: string;
   adminFullName: string;
+  branches?: CreateBranchItemDto[];
 }
 
 export interface UpdateTenantDto {
