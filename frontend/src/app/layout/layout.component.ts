@@ -45,17 +45,17 @@ import { FooterComponent } from './footer/footer.component';
         [opened]="!isMobile()">
 
         <div class="brand-section">
-          <mat-icon color="primary" class="brand-icon">school</mat-icon>
+          <div class="brand-logo-badge">
+            <mat-icon class="brand-icon">school</mat-icon>
+          </div>
           <div class="brand-titles">
-            <span class="brand-name">{{ currentUser()?.instituteName || 'Apex Coaching' }}</span>
+            <span class="brand-name">{{ currentUser()?.instituteName || 'Apex Coaching Academy' }}</span>
             <span class="brand-sub">Vertical Micro-SaaS</span>
           </div>
           <button *ngIf="isMobile()" mat-icon-button class="close-drawer-btn" (click)="drawer.close()">
             <mat-icon>close</mat-icon>
           </button>
         </div>
-
-        <mat-divider></mat-divider>
 
         <div class="nav-container">
           <mat-accordion class="menu-accordion" [multi]="false">
@@ -64,23 +64,27 @@ import { FooterComponent } from './footer/footer.component';
               <mat-expansion-panel *ngIf="item.children && item.children.length > 0" class="mat-elevation-z0" [expanded]="false">
                 <mat-expansion-panel-header [matTooltip]="item.title" matTooltipPosition="right">
                   <mat-panel-title class="accordion-title">
-                    <mat-icon class="menu-icon">{{ item.icon || 'category' }}</mat-icon>
-                    <span>{{ item.title }}</span>
+                    <span class="menu-icon-badge" [ngClass]="'badge-' + ((item.module || '') | lowercase)">
+                      <mat-icon class="menu-icon">{{ item.icon || 'category' }}</mat-icon>
+                    </span>
+                    <span class="module-title">{{ item.title }}</span>
                   </mat-panel-title>
                 </mat-expansion-panel-header>
 
-                <mat-nav-list class="sub-nav-list">
-                  <a *ngFor="let sub of item.children"
-                     mat-list-item
-                     [routerLink]="sub.routeUrl"
-                     routerLinkActive="active-link"
-                     [matTooltip]="sub.title"
-                     matTooltipPosition="right"
-                     (click)="onNavClick(drawer)">
-                    <mat-icon matListItemIcon class="sub-icon">{{ sub.icon || 'star' }}</mat-icon>
-                    <span matListItemTitle>{{ sub.title }}</span>
-                  </a>
-                </mat-nav-list>
+                <div class="sub-nav-wrapper">
+                  <mat-nav-list class="sub-nav-list">
+                    <a *ngFor="let sub of item.children"
+                       mat-list-item
+                       [routerLink]="sub.routeUrl"
+                       routerLinkActive="active-link"
+                       [matTooltip]="sub.title"
+                       matTooltipPosition="right"
+                       (click)="onNavClick(drawer)">
+                      <mat-icon matListItemIcon class="sub-icon">{{ sub.icon || 'star' }}</mat-icon>
+                      <span matListItemTitle class="sub-title-text">{{ sub.title }}</span>
+                    </a>
+                  </mat-nav-list>
+                </div>
               </mat-expansion-panel>
 
               <!-- Direct item without children (e.g. Dashboard) -->
@@ -91,8 +95,10 @@ import { FooterComponent } from './footer/footer.component';
                    [matTooltip]="item.title"
                    matTooltipPosition="right"
                    (click)="onNavClick(drawer)">
-                  <mat-icon matListItemIcon>{{ item.icon || 'folder' }}</mat-icon>
-                  <span matListItemTitle>{{ item.title }}</span>
+                  <span class="menu-icon-badge badge-main" matListItemIcon>
+                    <mat-icon>{{ item.icon || 'space_dashboard' }}</mat-icon>
+                  </span>
+                  <span matListItemTitle class="direct-title-text">{{ item.title }}</span>
                 </a>
               </mat-nav-list>
             </ng-container>
@@ -233,141 +239,302 @@ import { FooterComponent } from './footer/footer.component';
       height: 100vh;
     }
     .sidenav {
-      width: 280px;
-      background-color: #ffffff;
-      border-right: 1px solid #e2e8f0;
+      width: 295px !important;
+      background-color: #0b1329 !important;
+      border-right: 1px solid #1e293b;
       display: flex;
       flex-direction: column;
+      box-shadow: 4px 0 24px rgba(0, 0, 0, 0.25);
     }
     .brand-section {
-      padding: 16px 16px;
+      padding: 16px 18px;
       display: flex;
       align-items: center;
       gap: 12px;
       position: relative;
+      background: #080d1a;
+      border-bottom: 1px solid #1e293b;
 
-      .brand-icon {
-        font-size: 32px;
-        width: 32px;
-        height: 32px;
+      .brand-logo-badge {
+        width: 42px;
+        height: 42px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 14px rgba(37, 99, 235, 0.45);
+        flex-shrink: 0;
+
+        .brand-icon {
+          font-size: 24px;
+          width: 24px;
+          height: 24px;
+          color: #ffffff;
+        }
       }
       .brand-titles {
         display: flex;
         flex-direction: column;
         flex: 1;
+        overflow: hidden;
+
         .brand-name {
           font-weight: 700;
-          font-size: 1rem;
-          color: #1976d2;
+          font-size: 0.98rem;
+          color: #f8fafc;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          letter-spacing: -0.01em;
         }
         .brand-sub {
-          font-size: 0.75rem;
-          color: #64748b;
+          font-size: 0.7rem;
+          color: #38bdf8;
+          font-weight: 600;
+          letter-spacing: 0.05em;
+          text-transform: uppercase;
         }
       }
       .close-drawer-btn {
         margin-left: auto;
+        color: #94a3b8;
       }
     }
     .nav-container {
       flex: 1;
       overflow-y: auto;
-      padding-top: 8px;
+      padding: 10px 8px;
+
+      &::-webkit-scrollbar {
+        width: 4px;
+      }
+      &::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      &::-webkit-scrollbar-thumb {
+        background: #1e293b;
+        border-radius: 2px;
+      }
     }
     .menu-accordion {
       display: block;
       width: 100%;
       overflow: hidden;
-      mat-expansion-panel {
-        background: transparent;
+
+      ::ng-deep .mat-expansion-panel-body {
+        padding: 0 !important;
+      }
+
+      ::ng-deep mat-expansion-panel {
+        background: transparent !important;
         box-shadow: none !important;
-        margin: 0 !important;
-        border-radius: 0 !important;
-        transition: background-color 180ms ease, transform 180ms ease;
+        margin: 0 0 4px 0 !important;
+        border-radius: 8px !important;
+        transition: background-color 180ms ease;
 
         &:hover {
-          background: #f8fafc;
+          background: rgba(255, 255, 255, 0.04) !important;
         }
 
         &.mat-expanded {
-          background: #f8fafc;
+          background: rgba(255, 255, 255, 0.02) !important;
         }
       }
+
+      ::ng-deep mat-expansion-panel-header {
+        height: 44px !important;
+        padding: 0 12px !important;
+        border-radius: 8px !important;
+        background: transparent !important;
+        transition: background-color 180ms ease;
+
+        &:hover {
+          background: rgba(255, 255, 255, 0.06) !important;
+        }
+
+        .mat-expansion-indicator::after {
+          color: #94a3b8 !important;
+        }
+      }
+
       .accordion-title {
         display: flex;
         align-items: center;
-        gap: 12px;
+        gap: 10px;
         font-weight: 600;
-        color: #334155;
-        transition: color 180ms ease;
+        color: #e2e8f0;
+        font-size: 0.88rem;
 
-        .menu-icon {
-          color: #1976d2;
-          transition: transform 220ms ease, color 180ms ease;
+        .module-title {
+          letter-spacing: 0.01em;
         }
-      }
-      mat-expansion-panel-header {
-        transition: background-color 180ms ease, padding-left 180ms ease;
-
-        &:hover {
-          background: #eef6ff !important;
-          padding-left: 20px;
-        }
-      }
-      mat-expansion-panel.mat-expanded .menu-icon {
-        transform: rotate(-5deg) scale(1.08);
-        color: #0284c7;
       }
     }
-    .sub-nav-list {
-      padding-left: 12px;
-      padding-top: 0;
-      overflow: hidden;
 
-      .sub-icon {
-        font-size: 20px;
-        width: 20px;
-        height: 20px;
-        transition: transform 180ms ease, color 180ms ease;
+    .menu-icon-badge {
+      width: 28px;
+      height: 28px;
+      border-radius: 7px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+
+      .menu-icon, mat-icon {
+        font-size: 17px;
+        width: 17px;
+        height: 17px;
+        color: #ffffff;
       }
+
+      &.badge-main {
+        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+        box-shadow: 0 2px 8px rgba(59, 130, 246, 0.35);
+      }
+      &.badge-master {
+        background: linear-gradient(135deg, #06b6d4 0%, #0284c7 100%);
+        box-shadow: 0 2px 8px rgba(6, 182, 212, 0.35);
+      }
+      &.badge-teachers {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        box-shadow: 0 2px 8px rgba(16, 185, 129, 0.35);
+      }
+      &.badge-academic {
+        background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%);
+        box-shadow: 0 2px 8px rgba(168, 85, 247, 0.35);
+      }
+      &.badge-admin {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        box-shadow: 0 2px 8px rgba(245, 158, 11, 0.35);
+      }
+    }
+
+    .sub-nav-wrapper {
+      margin-left: 20px;
+      padding-left: 10px;
+      border-left: 2px solid rgba(255, 255, 255, 0.08);
+      margin-top: 2px;
+      margin-bottom: 6px;
+    }
+
+    .sub-nav-list {
+      padding: 0;
 
       a[mat-list-item] {
+        height: 38px;
+        min-height: 38px;
         border-radius: 7px;
-        margin: 2px 8px 2px 0;
-        transition: background-color 180ms ease, color 180ms ease, transform 180ms ease, padding-left 180ms ease;
+        margin: 2px 0;
+        padding: 0 10px;
+        transition: all 180ms ease;
+
+        .sub-icon {
+          font-size: 18px;
+          width: 18px;
+          height: 18px;
+          color: #64748b;
+          margin-right: 10px;
+          transition: transform 180ms ease, color 180ms ease;
+        }
+
+        .sub-title-text {
+          font-size: 0.84rem;
+          font-weight: 500;
+          color: #cbd5e1;
+          letter-spacing: 0.01em;
+          white-space: nowrap !important;
+          overflow: visible !important;
+          text-overflow: clip !important;
+        }
 
         &:hover {
-          background: #f0f7ff;
+          background: rgba(255, 255, 255, 0.06);
           transform: translateX(3px);
-          padding-left: 4px;
+
+          .sub-title-text {
+            color: #ffffff;
+          }
+          .sub-icon {
+            color: #38bdf8;
+            transform: scale(1.1);
+          }
         }
 
-        &:hover .sub-icon {
-          transform: scale(1.08);
-          color: #0284c7;
+        &.active-link {
+          background: linear-gradient(90deg, rgba(56, 189, 248, 0.18) 0%, rgba(56, 189, 248, 0.04) 100%) !important;
+          border-left: 3px solid #38bdf8;
+          box-shadow: none;
+
+          .sub-title-text {
+            color: #38bdf8 !important;
+            font-weight: 600;
+          }
+          .sub-icon {
+            color: #38bdf8 !important;
+          }
         }
       }
     }
-    .direct-nav-list, .sub-nav-list {
-      .active-link {
-        background-color: #e0f2fe !important;
-        color: #0284c7 !important;
-        font-weight: 600;
-        box-shadow: inset 3px 0 0 #0284c7;
 
-        mat-icon {
-          color: #0284c7 !important;
-          transform: scale(1.05);
+    .direct-nav-list {
+      padding: 0 4px;
+      margin-bottom: 4px;
+
+      a[mat-list-item] {
+        height: 44px;
+        min-height: 44px;
+        border-radius: 8px;
+        margin: 2px 0;
+        padding: 0 10px;
+        transition: all 180ms ease;
+
+        .direct-title-text {
+          font-size: 0.88rem;
+          font-weight: 600;
+          color: #e2e8f0;
+          margin-left: 10px;
+          letter-spacing: 0.01em;
+          white-space: nowrap !important;
+          overflow: visible !important;
+          text-overflow: clip !important;
+        }
+
+        &:hover {
+          background: rgba(255, 255, 255, 0.06);
+          transform: translateX(3px);
+          .direct-title-text { color: #ffffff; }
+        }
+
+        &.active-link {
+          background: linear-gradient(90deg, rgba(59, 130, 246, 0.22) 0%, rgba(59, 130, 246, 0.06) 100%) !important;
+          border-left: 3px solid #38bdf8;
+
+          .direct-title-text {
+            color: #38bdf8 !important;
+            font-weight: 700;
+          }
         }
       }
     }
+
+    /* Angular Material MDC overrides to eliminate truncation */
+    ::ng-deep .mat-mdc-list-item {
+      .mdc-list-item__primary-text {
+        overflow: visible !important;
+        text-overflow: clip !important;
+        white-space: nowrap !important;
+      }
+    }
+
     .user-footer {
       display: none;
     }
+
     .sidebar-calendar {
-      border-top: 1px solid #e2e8f0;
-      padding: 10px 12px 12px;
-      background: #f8fafc;
+      border-top: 1px solid #1e293b;
+      padding: 12px 14px;
+      background: #080d1a;
       flex-shrink: 0;
 
       .calendar-title-row, .calendar-controls, .calendar-weekdays, .calendar-legend {
@@ -376,18 +543,20 @@ import { FooterComponent } from './footer/footer.component';
       }
       .calendar-title-row {
         justify-content: space-between;
-        color: #334155;
-        font-size: 0.76rem;
-        margin-bottom: 4px;
-        strong { display: flex; align-items: center; gap: 5px; }
-        mat-icon { color: #1976d2; font-size: 17px; width: 17px; height: 17px; }
-        span { color: #64748b; font-weight: 600; }
+        color: #f1f5f9;
+        font-size: 0.78rem;
+        margin-bottom: 6px;
+        strong { display: flex; align-items: center; gap: 6px; font-weight: 600; }
+        mat-icon { color: #38bdf8; font-size: 17px; width: 17px; height: 17px; }
+        span { color: #94a3b8; font-weight: 600; }
       }
       .calendar-controls {
         justify-content: space-between;
-        color: #1e3a8a;
+        color: #cbd5e1;
         font-size: 0.78rem;
-        button { width: 24px; height: 24px; line-height: 24px; padding: 0; }
+        margin-bottom: 4px;
+        button { width: 24px; height: 24px; line-height: 24px; padding: 0; color: #94a3b8; }
+        button:hover { color: #ffffff; background: rgba(255, 255, 255, 0.08); }
         mat-icon { font-size: 18px; width: 18px; height: 18px; line-height: 18px; }
       }
       .calendar-weekdays, .calendar-grid {
@@ -398,7 +567,7 @@ import { FooterComponent } from './footer/footer.component';
       .calendar-weekdays {
         margin: 4px 0 3px;
         text-align: center;
-        color: #94a3b8;
+        color: #64748b;
         font-size: 0.62rem;
         font-weight: 700;
       }
@@ -407,31 +576,35 @@ import { FooterComponent } from './footer/footer.component';
         height: 25px;
         border: 1px solid transparent;
         border-radius: 5px;
-        background: #ffffff;
-        color: #334155;
+        background: #111a2e;
+        color: #cbd5e1;
         font-size: 0.68rem;
         cursor: default;
         padding: 0;
-        &.today { border-color: #2563eb; font-weight: 800; }
-        &.holiday { background: #fef3c7; color: #b45309; border-color: #fbbf24; font-weight: 700; }
-        &.sunday { background: #ffe4e6; color: #be123c; }
-        &.saturday { background: #e0e7ff; color: #4338ca; }
+        transition: background 0.15s ease;
+
+        &.today { border-color: #38bdf8; background: #0c4a6e; color: #38bdf8; font-weight: 800; }
+        &.holiday { background: #78350f; color: #fde68a; border-color: #f59e0b; font-weight: 700; }
+        &.sunday { background: #450a0a; color: #fca5a5; }
+        &.saturday { background: #1e1b4b; color: #c7d2fe; }
         &.holiday.sunday, &.holiday.saturday { border-width: 2px; }
       }
       .calendar-legend {
-        gap: 8px;
-        margin-top: 7px;
-        color: #64748b;
-        font-size: 0.59rem;
-        span { display: inline-flex; align-items: center; gap: 3px; }
+        gap: 10px;
+        margin-top: 8px;
+        color: #94a3b8;
+        font-size: 0.62rem;
+        span { display: inline-flex; align-items: center; gap: 4px; }
         i { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
         .holiday-dot { background: #f59e0b; }
-        .sunday-dot { background: #e11d48; }
-        .saturday-dot { background: #6366f1; }
+        .sunday-dot { background: #ef4444; }
+        .saturday-dot { background: #818cf8; }
       }
     }
     .header-toolbar {
-      box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+      background: linear-gradient(90deg, #0b1329 0%, #1e3a8a 100%) !important;
+      border-bottom: 1px solid #1e293b;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
       display: flex;
       align-items: center;
       gap: 8px;

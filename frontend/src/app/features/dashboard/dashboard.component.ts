@@ -52,65 +52,90 @@ Chart.register(...registerables);
         <div class="card-container">
           <mat-card class="stat-card blue mat-elevation-z2">
             <mat-card-content class="stat-content">
-              <div class="stat-text">
+              <div class="stat-header">
                 <span class="label">Total Active Students</span>
-                <span class="value">{{ summary.totalStudents }}</span>
-                <span class="sub-label">Enrolled in institute</span>
+                <div class="stat-icon-wrap">
+                  <mat-icon class="stat-icon">people</mat-icon>
+                </div>
               </div>
-              <div class="stat-icon-wrap">
-                <mat-icon class="stat-icon">people</mat-icon>
+              <div class="stat-body">
+                <span class="value">{{ summary.totalStudents }}</span>
+                <div class="stat-footer">
+                  <span class="stat-badge-pill">Live Roster</span>
+                  <span class="sub-label">Enrolled in institute</span>
+                </div>
               </div>
             </mat-card-content>
           </mat-card>
 
           <mat-card class="stat-card green mat-elevation-z2">
             <mat-card-content class="stat-content">
-              <div class="stat-text">
+              <div class="stat-header">
                 <span class="label">Monthly Fee Collected</span>
-                <span class="value">₹{{ summary.totalFeeCollectedThisMonth | number:'1.0-0' }}</span>
-                <span class="sub-label">Received this month</span>
+                <div class="stat-icon-wrap">
+                  <mat-icon class="stat-icon">account_balance_wallet</mat-icon>
+                </div>
               </div>
-              <div class="stat-icon-wrap">
-                <mat-icon class="stat-icon">account_balance_wallet</mat-icon>
+              <div class="stat-body">
+                <span class="value">₹{{ summary.totalFeeCollectedThisMonth | number:'1.0-0' }}</span>
+                <div class="stat-footer">
+                  <span class="stat-badge-pill">This Month</span>
+                  <span class="sub-label">Received this month</span>
+                </div>
               </div>
             </mat-card-content>
           </mat-card>
 
           <mat-card class="stat-card orange mat-elevation-z2">
             <mat-card-content class="stat-content">
-              <div class="stat-text">
+              <div class="stat-header">
                 <span class="label">Pending Fees Due</span>
-                <span class="value">₹{{ summary.pendingFeesTotal | number:'1.0-0' }}</span>
-                <span class="sub-label">Outstanding receivables</span>
+                <div class="stat-icon-wrap">
+                  <mat-icon class="stat-icon">warning_amber</mat-icon>
+                </div>
               </div>
-              <div class="stat-icon-wrap">
-                <mat-icon class="stat-icon">warning_amber</mat-icon>
+              <div class="stat-body">
+                <span class="value">₹{{ summary.pendingFeesTotal | number:'1.0-0' }}</span>
+                <div class="stat-footer">
+                  <span class="stat-badge-pill">Receivables</span>
+                  <span class="sub-label">Outstanding balance</span>
+                </div>
               </div>
             </mat-card-content>
           </mat-card>
 
           <mat-card class="stat-card purple mat-elevation-z2">
             <mat-card-content class="stat-content">
-              <div class="stat-text">
+              <div class="stat-header">
                 <span class="label">Tests Conducted</span>
-                <span class="value">{{ summary.totalTestsConducted }}</span>
-                <span class="sub-label">Examinations evaluated</span>
+                <div class="stat-icon-wrap">
+                  <mat-icon class="stat-icon">quiz</mat-icon>
+                </div>
               </div>
-              <div class="stat-icon-wrap">
-                <mat-icon class="stat-icon">quiz</mat-icon>
+              <div class="stat-body">
+                <span class="value">{{ summary.totalTestsConducted }}</span>
+                <div class="stat-footer">
+                  <span class="stat-badge-pill">Academic</span>
+                  <span class="sub-label">Examinations evaluated</span>
+                </div>
               </div>
             </mat-card-content>
           </mat-card>
 
           <mat-card class="stat-card teal mat-elevation-z2">
             <mat-card-content class="stat-content">
-              <div class="stat-text">
+              <div class="stat-header">
                 <span class="label">Active Batches</span>
-                <span class="value">{{ summary.activeBatches }}</span>
-                <span class="sub-label">Academic classrooms</span>
+                <div class="stat-icon-wrap">
+                  <mat-icon class="stat-icon">groups</mat-icon>
+                </div>
               </div>
-              <div class="stat-icon-wrap">
-                <mat-icon class="stat-icon">groups</mat-icon>
+              <div class="stat-body">
+                <span class="value">{{ summary.activeBatches }}</span>
+                <div class="stat-footer">
+                  <span class="stat-badge-pill">Running</span>
+                  <span class="sub-label">Academic classrooms</span>
+                </div>
               </div>
             </mat-card-content>
           </mat-card>
@@ -241,8 +266,11 @@ Chart.register(...registerables);
                   <th mat-header-cell *matHeaderCellDef>Student</th>
                   <td mat-cell *matCellDef="let el">
                     <div class="student-cell">
-                      <strong>{{ el.studentName }}</strong>
-                      <small>{{ el.rollNumber }}</small>
+                      <span class="student-avatar-badge">{{ (el.studentName || 'S').charAt(0).toUpperCase() }}</span>
+                      <div class="student-info">
+                        <strong>{{ el.studentName }}</strong>
+                        <small>{{ el.rollNumber }}</small>
+                      </div>
                     </div>
                   </td>
                 </ng-container>
@@ -423,7 +451,7 @@ Chart.register(...registerables);
       grid-template-columns: repeat(5, 1fr);
       gap: 16px;
 
-      @media (max-width: 1200px) {
+      @media (max-width: 1360px) {
         grid-template-columns: repeat(3, 1fr);
       }
       @media (max-width: 768px) {
@@ -435,72 +463,142 @@ Chart.register(...registerables);
     }
 
     .stat-card {
-      border-radius: 12px;
+      border-radius: 14px;
       border: none;
       color: #ffffff;
       overflow: hidden;
       position: relative;
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease;
 
-      &:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.15) !important;
+      &::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: linear-gradient(90deg, rgba(255, 255, 255, 0.5), transparent);
       }
 
-      &.blue     { background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); }
-      &.green    { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
-      &.orange   { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
-      &.purple   { background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%); }
-      &.whatsapp { background: linear-gradient(135deg, #10b981 0%, #047857 100%); }
-      &.teal     { background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%); }
+      &:hover {
+        transform: translateY(-4px);
+      }
+
+      &.blue {
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 55%, #1e40af 100%);
+        box-shadow: 0 10px 25px -4px rgba(37, 99, 235, 0.45) !important;
+      }
+      &.green {
+        background: linear-gradient(135deg, #10b981 0%, #059669 55%, #047857 100%);
+        box-shadow: 0 10px 25px -4px rgba(16, 185, 129, 0.45) !important;
+      }
+      &.orange {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 55%, #b45309 100%);
+        box-shadow: 0 10px 25px -4px rgba(245, 158, 11, 0.45) !important;
+      }
+      &.purple {
+        background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 55%, #6d28d9 100%);
+        box-shadow: 0 10px 25px -4px rgba(139, 92, 246, 0.45) !important;
+      }
+      &.whatsapp {
+        background: linear-gradient(135deg, #10b981 0%, #047857 100%);
+      }
+      &.teal {
+        background: linear-gradient(135deg, #0d9488 0%, #0f766e 55%, #115e59 100%);
+        box-shadow: 0 10px 25px -4px rgba(13, 148, 136, 0.45) !important;
+      }
     }
 
     .stat-content {
       display: flex;
+      flex-direction: column;
       justify-content: space-between;
-      align-items: center;
-      padding: 18px 20px !important;
+      padding: 11px 14px !important;
+      box-sizing: border-box;
+      width: 100%;
+      height: 100%;
+      min-height: 96px;
     }
 
-    .stat-text {
+    .stat-header {
       display: flex;
-      flex-direction: column;
-      gap: 2px;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 6px;
+      width: 100%;
 
       .label {
-        font-size: 0.8rem;
-        font-weight: 600;
-        opacity: 0.9;
+        font-size: 0.7rem;
+        font-weight: 700;
+        opacity: 0.95;
         text-transform: uppercase;
         letter-spacing: 0.04em;
+        line-height: 1.25;
+        flex: 1;
+        min-width: 0;
       }
-      .value {
-        font-size: 1.7rem;
-        font-weight: 800;
-        letter-spacing: -0.02em;
-        line-height: 1.2;
-      }
-      .sub-label {
-        font-size: 0.75rem;
-        opacity: 0.8;
+
+      .stat-icon-wrap {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.22);
+        backdrop-filter: blur(8px);
+        box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        margin-left: 6px;
+
+        .stat-icon {
+          font-size: 18px;
+          width: 18px;
+          height: 18px;
+          color: #ffffff;
+        }
       }
     }
 
-    .stat-icon-wrap {
-      width: 44px;
-      height: 44px;
-      border-radius: 50%;
-      background: rgba(255, 255, 255, 0.2);
+    .stat-body {
       display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
+      flex-direction: column;
+      margin-top: 4px;
 
-      .stat-icon {
-        font-size: 24px;
-        width: 24px;
-        height: 24px;
-        color: #ffffff;
+      .value {
+        font-size: 1.55rem;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        line-height: 1.1;
+        margin-bottom: 3px;
+      }
+
+      .stat-footer {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        flex-wrap: wrap;
+
+        .stat-badge-pill {
+          font-size: 0.58rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          padding: 1.5px 6px;
+          border-radius: 14px;
+          background: rgba(255, 255, 255, 0.22);
+          backdrop-filter: blur(4px);
+          color: #ffffff;
+          white-space: nowrap;
+        }
+
+        .sub-label {
+          font-size: 0.68rem;
+          opacity: 0.88;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
       }
     }
 
@@ -722,9 +820,10 @@ Chart.register(...registerables);
     }
 
     .table-card {
-      border-radius: 12px;
+      border-radius: 14px;
       border: 1px solid #e2e8f0;
       background: #ffffff;
+      box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05) !important;
       overflow: hidden;
     }
 
@@ -774,25 +873,58 @@ Chart.register(...registerables);
 
     .student-cell {
       display: flex;
-      flex-direction: column;
-      strong { font-size: 0.88rem; color: #0f172a; }
-      small  { font-size: 0.75rem; color: #64748b; }
+      align-items: center;
+      gap: 10px;
+
+      .student-avatar-badge {
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+        color: #ffffff;
+        font-weight: 700;
+        font-size: 0.82rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        box-shadow: 0 2px 6px rgba(99, 102, 241, 0.35);
+      }
+
+      .student-info {
+        display: flex;
+        flex-direction: column;
+        strong { font-size: 0.86rem; color: #0f172a; }
+        small  { font-size: 0.74rem; color: #64748b; }
+      }
     }
 
     .amount-due {
       color: #dc2626;
       font-weight: 700;
+      font-size: 0.92rem;
     }
 
     .wa-remind-btn {
-      background: #25d366 !important;
+      background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%) !important;
       color: white !important;
       font-size: 0.76rem !important;
-      height: 30px !important;
-      line-height: 30px !important;
-      padding: 0 10px !important;
-      border-radius: 6px !important;
-      mat-icon { font-size: 15px; width: 15px; height: 15px; margin-right: 2px; }
+      font-weight: 600 !important;
+      height: 32px !important;
+      line-height: 32px !important;
+      padding: 0 12px !important;
+      border-radius: 20px !important;
+      box-shadow: 0 3px 10px rgba(34, 197, 94, 0.35) !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      gap: 4px !important;
+      transition: transform 0.15s ease, box-shadow 0.15s ease !important;
+
+      &:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 5px 14px rgba(34, 197, 94, 0.5) !important;
+      }
+      mat-icon { font-size: 15px; width: 15px; height: 15px; }
     }
 
     .test-cell {
