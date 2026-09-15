@@ -34,11 +34,21 @@ public class TenantsController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<TenantDto>>> GetAllTenants()
     {
-        // Fetch all tenants
-        var tenants = await _dbContext.Tenants
+        var isSuperAdmin = string.Equals(_currentUser.UserRole, nameof(UserRole.SuperAdmin), StringComparison.OrdinalIgnoreCase);
+
+        // SuperAdmin sees all tenants; other roles (InstituteAdmin etc.) see only their own
+        var query = _dbContext.Tenants
             .AsNoTracking()
+            .IgnoreQueryFilters()
             .OrderByDescending(t => t.CreatedAt)
-            .ToListAsync();
+            .AsQueryable();
+
+        if (!isSuperAdmin)
+        {
+            query = query.Where(t => t.Id == _currentUser.TenantId);
+        }
+
+        var tenants = await query.ToListAsync();
 
         var tenantDtos = new List<TenantDto>();
         foreach (var t in tenants)

@@ -136,7 +136,8 @@ public record StudentDto(
     string ParentWhatsAppPhone,
     bool IsActive,
     DateTime JoiningDate,
-    string? Address
+    string? Address,
+    string? ProfilePhoto
 );
 
 public record CreateStudentDto(
@@ -145,7 +146,8 @@ public record CreateStudentDto(
     string StudentName,
     string ParentName,
     string ParentWhatsAppPhone,
-    string Address
+    string Address,
+    string? ProfilePhoto
 );
 
 public record StudentAttendanceDto(

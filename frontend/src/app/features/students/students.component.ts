@@ -19,6 +19,8 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { CoachingService } from '../../core/services/coaching.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 
+const API_BASE = 'http://localhost:5000';
+
 @Component({
   selector: 'app-students',
   standalone: true,
@@ -44,7 +46,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
     <div class="students-wrapper">
       <div class="header-actions">
         <div>
-          <h2>Student Directory & Batches</h2>
+          <h2>Student Directory &amp; Batches</h2>
           <p>Onboard students, manage parent WhatsApp details, and assign academic batches with server-side pagination.</p>
         </div>
         <button mat-raised-button color="primary" class="add-btn" (click)="toggleForm()">
@@ -62,6 +64,29 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           </div>
 
           <form [formGroup]="studentForm" (ngSubmit)="onSubmitStudent()" class="form-grid">
+
+            <!-- Profile Photo Upload (full-width, centered) -->
+            <div class="photo-upload-area full-span">
+              <div class="photo-preview-wrap">
+                <div class="photo-circle" (click)="triggerFileInput()">
+                  <img *ngIf="photoPreview" [src]="photoPreview" alt="Preview" class="photo-img" />
+                  <div *ngIf="!photoPreview" class="photo-placeholder">
+                    <mat-icon class="photo-placeholder-icon">add_a_photo</mat-icon>
+                    <span>Upload Photo</span>
+                  </div>
+                </div>
+                <div class="photo-actions">
+                  <button mat-stroked-button type="button" color="primary" (click)="triggerFileInput()">
+                    <mat-icon>upload</mat-icon> {{ photoPreview ? 'Change Photo' : 'Upload Photo' }}
+                  </button>
+                  <button mat-icon-button type="button" color="warn" *ngIf="photoPreview" (click)="removePhoto()" matTooltip="Remove photo">
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                </div>
+              </div>
+              <input #fileInput type="file" accept="image/*" style="display:none" (change)="onFileSelected($event)" />
+            </div>
+
             <mat-form-field appearance="outline">
               <mat-label>Academic Batch</mat-label>
               <mat-select formControlName="batchId" panelClass="batch-filter-panel">
@@ -153,6 +178,18 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
 
         <mat-card-content class="table-container">
           <table mat-table [dataSource]="students" matSort (matSortChange)="onSortChange($event)" class="full-width">
+
+            <!-- Photo column -->
+            <ng-container matColumnDef="photo">
+              <th mat-header-cell *matHeaderCellDef></th>
+              <td mat-cell *matCellDef="let s" class="photo-cell">
+                <div class="avatar-wrap">
+                  <img *ngIf="s.profilePhoto" [src]="getPhotoUrl(s.profilePhoto)" alt="{{ s.studentName }}" class="avatar-img" />
+                  <div *ngIf="!s.profilePhoto" class="avatar-initials">{{ getInitials(s.studentName) }}</div>
+                </div>
+              </td>
+            </ng-container>
+
             <ng-container matColumnDef="rollNumber">
               <th mat-header-cell *matHeaderCellDef mat-sort-header="rollNumber">Roll No</th>
               <td mat-cell *matCellDef="let s"><strong>{{ s.rollNumber }}</strong></td>
@@ -269,6 +306,63 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
       gap: 12px;
       margin-top: 8px;
     }
+
+    /* ── Photo upload area ── */
+    .photo-upload-area {
+      display: flex;
+      justify-content: center;
+      padding: 8px 0 4px 0;
+    }
+    .photo-preview-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+    .photo-circle {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      border: 2px dashed #1976d2;
+      overflow: hidden;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #f0f4ff;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      &:hover {
+        border-color: #1565c0;
+        box-shadow: 0 0 0 3px rgba(25,118,210,0.15);
+      }
+    }
+    .photo-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 50%;
+    }
+    .photo-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      color: #1976d2;
+      font-size: 0.72rem;
+      font-weight: 500;
+    }
+    .photo-placeholder-icon {
+      font-size: 28px;
+      width: 28px;
+      height: 28px;
+    }
+    .photo-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* ── Table ── */
     .table-card {
       border-radius: 8px;
       overflow: hidden;
@@ -286,6 +380,34 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
     .grid-loader { margin-top: 4px; }
     .table-container { padding: 0; }
     .full-width { width: 100%; }
+
+    /* Avatar */
+    .photo-cell { padding-right: 0 !important; width: 52px; }
+    .avatar-wrap {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .avatar-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .avatar-initials {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #1976d2, #42a5f5);
+      color: #fff;
+      font-weight: 700;
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
     .student-name-cell { font-weight: 600; color: #2c3e50; }
     .wa-phone {
       display: flex;
@@ -335,7 +457,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
   `]
 })
 export class StudentsComponent implements OnInit, OnDestroy {
-  displayedColumns = ['rollNumber', 'studentName', 'batchName', 'parentName', 'parentWhatsAppPhone', 'joiningDate', 'actions'];
+  displayedColumns = ['photo', 'rollNumber', 'studentName', 'batchName', 'parentName', 'parentWhatsAppPhone', 'joiningDate', 'actions'];
   students: any[] = [];
   batches: any[] = [];
 
@@ -356,12 +478,18 @@ export class StudentsComponent implements OnInit, OnDestroy {
   sortDescending = false;
   selectedBatchFilter = '';
 
+  /** Base64 data-URL for preview; null = no photo selected */
+  photoPreview: string | null = null;
+  /** Raw base64 data-URL to send to the server */
+  private selectedPhotoData: string | null = null;
+
   studentForm: FormGroup;
   private batchIdSub?: Subscription;
   private phoneSub?: Subscription;
 
   @ViewChild(MatPaginator) paginator!: MatPaginator;
   @ViewChild(MatSort) sort!: MatSort;
+  @ViewChild('fileInput') fileInput: any;
 
   constructor(
     private coachingService: CoachingService,
@@ -388,6 +516,48 @@ export class StudentsComponent implements OnInit, OnDestroy {
     this.batchIdSub?.unsubscribe();
     this.phoneSub?.unsubscribe();
   }
+
+  // ── Photo helpers ────────────────────────────────────────
+
+  triggerFileInput(): void {
+    this.fileInput?.nativeElement?.click();
+  }
+
+  onFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input.files?.length) return;
+    const file = input.files[0];
+    const reader = new FileReader();
+    reader.onload = () => {
+      this.photoPreview = reader.result as string;
+      this.selectedPhotoData = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+    // Reset file input so the same file can be re-selected
+    input.value = '';
+  }
+
+  removePhoto(): void {
+    this.photoPreview = null;
+    this.selectedPhotoData = null;
+  }
+
+  /** Returns the full URL for a stored photo path */
+  getPhotoUrl(path: string): string {
+    if (!path) return '';
+    if (path.startsWith('http') || path.startsWith('data:')) return path;
+    return `${API_BASE}${path}`;
+  }
+
+  /** Returns two-letter initials for the avatar fallback */
+  getInitials(name: string): string {
+    if (!name) return '?';
+    const parts = name.trim().split(' ').filter(Boolean);
+    if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+    return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+  }
+
+  // ── Watchers ─────────────────────────────────────────────
 
   private setupBatchIdWatcher(): void {
     this.batchIdSub = this.studentForm.get('batchId')!.valueChanges.subscribe((batchId: string) => {
@@ -428,6 +598,8 @@ export class StudentsComponent implements OnInit, OnDestroy {
       });
     });
   }
+
+  // ── CRUD ─────────────────────────────────────────────────
 
   loadStudents(): void {
     this.loading = true;
@@ -482,6 +654,8 @@ export class StudentsComponent implements OnInit, OnDestroy {
       this.rollNumberLoading = false;
       this.phoneDuplicateError = '';
       this.phoneCheckLoading = false;
+      this.photoPreview = null;
+      this.selectedPhotoData = null;
       this.studentForm.reset();
       this.loadStudents();
     }
@@ -491,6 +665,9 @@ export class StudentsComponent implements OnInit, OnDestroy {
     this.selectedStudent = student;
     this.isEditMode = true;
     this.showForm = true;
+    // Show existing photo (from server path)
+    this.photoPreview = student.profilePhoto ? this.getPhotoUrl(student.profilePhoto) : null;
+    this.selectedPhotoData = null; // no new photo selected yet
     this.studentForm.patchValue({
       batchId: student.batchId,
       rollNumber: student.rollNumber,
@@ -506,14 +683,22 @@ export class StudentsComponent implements OnInit, OnDestroy {
 
     this.saving = true;
     const formVal = this.studentForm.value;
+    const payload = {
+      ...formVal,
+      // Send new base64 photo if user picked one; otherwise send existing path (edit) or null (create)
+      profilePhoto: this.selectedPhotoData
+        ?? (this.isEditMode && this.selectedStudent?.profilePhoto ? this.selectedStudent.profilePhoto : null)
+    };
 
     if (this.isEditMode && this.selectedStudent) {
-      this.coachingService.updateStudent(this.selectedStudent.id, formVal).subscribe({
+      this.coachingService.updateStudent(this.selectedStudent.id, payload).subscribe({
         next: () => {
           this.saving = false;
           this.showForm = false;
           this.isEditMode = false;
           this.selectedStudent = null;
+          this.photoPreview = null;
+          this.selectedPhotoData = null;
           this.studentForm.reset();
           this.loadStudents();
           this.confirmDialog.alert('Student Updated', 'Student record updated successfully!', 'success');
@@ -524,10 +709,12 @@ export class StudentsComponent implements OnInit, OnDestroy {
         }
       });
     } else {
-      this.coachingService.createStudent(formVal).subscribe({
+      this.coachingService.createStudent(payload).subscribe({
         next: () => {
           this.saving = false;
           this.showForm = false;
+          this.photoPreview = null;
+          this.selectedPhotoData = null;
           this.studentForm.reset();
           this.loadStudents();
           this.confirmDialog.alert('Student Created', 'New student onboarding & initial invoice created successfully!', 'success');

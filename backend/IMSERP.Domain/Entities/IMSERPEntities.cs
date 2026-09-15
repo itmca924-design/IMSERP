@@ -163,6 +163,7 @@ public class Student
     public string ParentName { get; set; } = string.Empty;
     public string ParentWhatsAppPhone { get; set; } = string.Empty;
     public string? Address { get; set; }
+    public string? ProfilePhoto { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime JoiningDate { get; set; } = DateTime.UtcNow;
     public string? BiometricUserId { get; set; }

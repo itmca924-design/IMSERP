@@ -13,6 +13,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { TenantService, TenantDto, CreateTenantDto, UpdateTenantDto } from '../../core/services/tenant.service';
+import { AuthService } from '../../core/services/auth.service';
 
 @Component({
   selector: 'app-tenants',
@@ -41,7 +42,7 @@ import { TenantService, TenantDto, CreateTenantDto, UpdateTenantDto } from '../.
           <h2>Coaching Institutes &amp; Tenants</h2>
           <p>Multi-Tenant SaaS provisioning, institute profiles, logos, and branch settings.</p>
         </div>
-        <button mat-raised-button color="primary" class="action-btn" (click)="openCreateModal()">
+        <button mat-raised-button color="primary" class="action-btn" (click)="openCreateModal()" *ngIf="isSuperAdmin">
           <mat-icon>add_business</mat-icon>
           <span>Provision New Institute</span>
         </button>
@@ -793,6 +794,7 @@ export class TenantsComponent implements OnInit {
 
   constructor(
     private tenantService: TenantService,
+    private authService: AuthService,
     private fb: FormBuilder
   ) {
     this.tenantForm = this.fb.group({
@@ -806,6 +808,10 @@ export class TenantsComponent implements OnInit {
       adminPassword: ['admin123', Validators.required],
       adminFullName: ['']
     });
+  }
+
+  get isSuperAdmin(): boolean {
+    return this.authService.currentUser()?.role === 'SuperAdmin';
   }
 
   get activeCount(): number {

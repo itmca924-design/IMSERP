@@ -1,3 +1,4 @@
+using IMSERP.API.Helpers;
 using IMSERP.Application.DTOs;
 using IMSERP.Application.Interfaces;
 using IMSERP.Domain.Entities;
@@ -15,11 +16,13 @@ public class StudentsController : ControllerBase
 {
     private readonly IIMSERPDbContext _dbContext;
     private readonly ICurrentUserService _currentUser;
+    private readonly IWebHostEnvironment _env;
 
-    public StudentsController(IIMSERPDbContext dbContext, ICurrentUserService currentUser)
+    public StudentsController(IIMSERPDbContext dbContext, ICurrentUserService currentUser, IWebHostEnvironment env)
     {
         _dbContext = dbContext;
         _currentUser = currentUser;
+        _env = env;
     }
 
     private static bool TryParseAttendanceStatus(string value, out TeacherAttendanceStatus status)
@@ -104,7 +107,8 @@ public class StudentsController : ControllerBase
             s.ParentWhatsAppPhone,
             s.IsActive,
             s.JoiningDate,
-            s.Address
+            s.Address,
+            s.ProfilePhoto
         )).ToListAsync();
 
         return Ok(list);
@@ -407,7 +411,8 @@ public class StudentsController : ControllerBase
                 s.ParentWhatsAppPhone,
                 s.IsActive,
                 s.JoiningDate,
-                s.Address
+                s.Address,
+                s.ProfilePhoto
             )).ToListAsync();
 
         return Ok(new PagedResult<StudentDto>(items, totalCount, pageNumber, pageSize));
@@ -449,6 +454,10 @@ public class StudentsController : ControllerBase
             _dbContext.Students.Add(student);
             await _dbContext.SaveChangesAsync();
 
+            // Save profile photo after we have the student Id
+            student.ProfilePhoto = ImageStorageHelper.SaveBase64Image(dto.ProfilePhoto, "students", student.Id.ToString(), _env.ContentRootPath);
+            await _dbContext.SaveChangesAsync();
+
             var batch = await _dbContext.Batches.FindAsync(dto.BatchId);
             var feeRate = batch?.StandardMonthlyFee ?? 3500m;
             var now = DateTime.UtcNow;
@@ -482,7 +491,8 @@ public class StudentsController : ControllerBase
                 student.ParentWhatsAppPhone,
                 student.IsActive,
                 student.JoiningDate,
-                student.Address
+                student.Address,
+                student.ProfilePhoto
             ));
         });
     }
@@ -499,6 +509,8 @@ public class StudentsController : ControllerBase
         student.ParentName = dto.ParentName;
         student.ParentWhatsAppPhone = dto.ParentWhatsAppPhone;
         student.Address = dto.Address;
+        student.ProfilePhoto = ImageStorageHelper.SaveBase64Image(dto.ProfilePhoto, "students", student.Id.ToString(), _env.ContentRootPath)
+            ?? student.ProfilePhoto;  // keep existing photo if no new one sent
 
         await _dbContext.SaveChangesAsync();
 
@@ -514,7 +526,8 @@ public class StudentsController : ControllerBase
             student.ParentWhatsAppPhone,
             student.IsActive,
             student.JoiningDate,
-            student.Address
+            student.Address,
+            student.ProfilePhoto
         ));
     }
 }
