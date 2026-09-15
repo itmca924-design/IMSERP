@@ -774,7 +774,7 @@ import { AuthService } from '../../core/services/auth.service';
       border-radius: 8px;
       font-size: 0.85rem;
       margin-top: 14px;
-      mat-icon { font-size: 18px; width: 18px; height: 18px; }
+      mat-icon { font-size: 18px; width: 18px; height: 18px; flex-shrink: 0; }
     }
 
     .modal-footer {

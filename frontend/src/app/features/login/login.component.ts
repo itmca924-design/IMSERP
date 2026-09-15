@@ -139,8 +139,8 @@ import { AuthService } from '../../core/services/auth.service';
     }
     .info-banner {
       display: flex;
-      align-items: center;
-      gap: 8px;
+      align-items: flex-start;
+      gap: 10px;
       background-color: #eff6ff;
       color: #1d4ed8;
       border: 1px solid #bfdbfe;
@@ -149,18 +149,23 @@ import { AuthService } from '../../core/services/auth.service';
       font-size: 0.88rem;
       font-weight: 500;
       margin-bottom: 12px;
-      mat-icon { font-size: 19px; width: 19px; height: 19px; }
+      mat-icon { font-size: 20px; width: 20px; height: 20px; flex-shrink: 0; margin-top: 1px; }
+      span { flex: 1; line-height: 1.4; }
     }
     .error-banner {
       display: flex;
-      align-items: center;
-      gap: 8px;
-      background-color: #ffebee;
-      color: #c62828;
+      align-items: flex-start;
+      gap: 10px;
+      background-color: #fef2f2;
+      color: #b91c1c;
+      border: 1px solid #fecaca;
       padding: 10px 14px;
       border-radius: 8px;
-      font-size: 0.9rem;
+      font-size: 0.88rem;
+      font-weight: 500;
       margin-bottom: 12px;
+      mat-icon { font-size: 20px; width: 20px; height: 20px; flex-shrink: 0; margin-top: 1px; color: #dc2626 !important; }
+      span { flex: 1; line-height: 1.4; }
     }
   `]
 })
