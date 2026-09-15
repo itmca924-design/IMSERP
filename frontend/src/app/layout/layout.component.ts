@@ -88,19 +88,20 @@ import { FooterComponent } from './footer/footer.component';
               </mat-expansion-panel>
 
               <!-- Direct item without children (e.g. Dashboard) -->
-              <mat-nav-list *ngIf="!item.children || item.children.length === 0" class="direct-nav-list">
-                <a mat-list-item
+              <div *ngIf="!item.children || item.children.length === 0" class="direct-nav-item">
+                <a class="direct-nav-link"
                    [routerLink]="item.routeUrl"
                    routerLinkActive="active-link"
+                   [routerLinkActiveOptions]="{ exact: item.routeUrl === '/' || item.routeUrl === '/dashboard' }"
                    [matTooltip]="item.title"
                    matTooltipPosition="right"
                    (click)="onNavClick(drawer)">
-                  <span class="menu-icon-badge badge-main" matListItemIcon>
+                  <span class="menu-icon-badge badge-main">
                     <mat-icon>{{ item.icon || 'space_dashboard' }}</mat-icon>
                   </span>
-                  <span matListItemTitle class="direct-title-text">{{ item.title }}</span>
+                  <span class="direct-title-text">{{ item.title }}</span>
                 </a>
-              </mat-nav-list>
+              </div>
             </ng-container>
           </mat-accordion>
         </div>
@@ -477,23 +478,25 @@ import { FooterComponent } from './footer/footer.component';
       }
     }
 
-    .direct-nav-list {
-      padding: 0 4px;
-      margin-bottom: 4px;
+    .direct-nav-item {
+      margin: 0 0 4px 0;
 
-      a[mat-list-item] {
+      .direct-nav-link {
+        display: flex;
+        align-items: center;
+        gap: 10px;
         height: 44px;
-        min-height: 44px;
+        padding: 0 12px;
         border-radius: 8px;
-        margin: 2px 0;
-        padding: 0 10px;
-        transition: all 180ms ease;
+        text-decoration: none;
+        box-sizing: border-box;
+        cursor: pointer;
+        transition: background-color 180ms ease, transform 180ms ease;
 
         .direct-title-text {
           font-size: 0.88rem;
           font-weight: 600;
           color: #e2e8f0;
-          margin-left: 10px;
           letter-spacing: 0.01em;
           white-space: nowrap !important;
           overflow: visible !important;
@@ -509,6 +512,7 @@ import { FooterComponent } from './footer/footer.component';
         &.active-link {
           background: linear-gradient(90deg, rgba(59, 130, 246, 0.22) 0%, rgba(59, 130, 246, 0.06) 100%) !important;
           border-left: 3px solid #38bdf8;
+          padding-left: 9px;
 
           .direct-title-text {
             color: #38bdf8 !important;

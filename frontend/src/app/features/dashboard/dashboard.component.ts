@@ -10,9 +10,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterModule } from '@angular/router';
 import { CoachingService } from '../../core/services/coaching.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
-import { Chart, registerables } from 'chart.js';
-
-Chart.register(...registerables);
+import ApexCharts from 'apexcharts';
 
 @Component({
   selector: 'app-dashboard',
@@ -176,7 +174,7 @@ Chart.register(...registerables);
               </div>
             </div>
             <mat-card-content class="chart-canvas-box">
-              <canvas #revenueChart></canvas>
+              <div #revenueChart class="apex-chart-wrap"></div>
             </mat-card-content>
           </mat-card>
 
@@ -198,11 +196,7 @@ Chart.register(...registerables);
             </div>
             <mat-card-content class="donut-body">
               <div class="donut-canvas-container">
-                <canvas #feeBreakdownChart></canvas>
-                <div class="donut-inner-stat">
-                  <span class="inner-pct">{{ summary.feeBreakdown?.recoveryPercentage || 0 }}%</span>
-                  <span class="inner-lbl">Recovery</span>
-                </div>
+                <div #feeBreakdownChart class="apex-donut-wrap"></div>
               </div>
               <div class="donut-summary-list">
                 <div class="summary-item">
@@ -239,7 +233,7 @@ Chart.register(...registerables);
             </div>
           </div>
           <mat-card-content class="batch-canvas-box">
-            <canvas #batchChart></canvas>
+            <div #batchChart class="apex-chart-wrap"></div>
           </mat-card-content>
         </mat-card>
 
@@ -346,7 +340,7 @@ Chart.register(...registerables);
                 <ng-container matColumnDef="batchName">
                   <th mat-header-cell *matHeaderCellDef>Batch</th>
                   <td mat-cell *matCellDef="let t">
-                    <span class="batch-badge">{{ t.batchName }}</span>
+                    <span class="batch-badge" [matTooltip]="t.batchName">{{ t.batchName }}</span>
                   </td>
                 </ng-container>
 
@@ -367,8 +361,8 @@ Chart.register(...registerables);
                 </ng-container>
 
                 <ng-container matColumnDef="testDate">
-                  <th mat-header-cell *matHeaderCellDef>Date</th>
-                  <td mat-cell *matCellDef="let t">{{ t.testDate | date:'mediumDate' }}</td>
+                  <th mat-header-cell *matHeaderCellDef class="text-right">Date</th>
+                  <td mat-cell *matCellDef="let t" class="date-cell text-right">{{ t.testDate | date:'dd MMM yyyy' }}</td>
                 </ng-container>
 
                 <tr mat-header-row *matHeaderRowDef="testColumns"></tr>
@@ -940,9 +934,38 @@ Chart.register(...registerables);
       background: #e0f2fe;
       color: #0369a1;
       border-radius: 8px;
-      font-size: 0.76rem;
+      font-size: 0.74rem;
       font-weight: 600;
       white-space: nowrap;
+      max-width: 140px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      vertical-align: middle;
+    }
+
+    th.mat-header-cell, td.mat-cell {
+      padding: 8px 8px !important;
+    }
+
+    .date-cell, th.mat-column-testDate, td.mat-column-testDate {
+      white-space: nowrap !important;
+      padding-right: 18px !important;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #475569;
+    }
+
+    .apex-chart-wrap {
+      width: 100%;
+      height: 100%;
+    }
+
+    .apex-donut-wrap {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
     }
 
     .marks-badge {
@@ -991,13 +1014,13 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   feeColumns = ['studentName', 'invoiceNumber', 'dueAmount', 'dueDate', 'actions'];
   testColumns = ['title', 'batchName', 'maxMarks', 'marksEnteredCount', 'testDate'];
 
-  @ViewChild('revenueChart') revenueChartRef?: ElementRef<HTMLCanvasElement>;
-  @ViewChild('feeBreakdownChart') feeBreakdownChartRef?: ElementRef<HTMLCanvasElement>;
-  @ViewChild('batchChart') batchChartRef?: ElementRef<HTMLCanvasElement>;
+  @ViewChild('revenueChart') revenueChartRef?: ElementRef<HTMLDivElement>;
+  @ViewChild('feeBreakdownChart') feeBreakdownChartRef?: ElementRef<HTMLDivElement>;
+  @ViewChild('batchChart') batchChartRef?: ElementRef<HTMLDivElement>;
 
-  private revenueChart?: Chart;
-  private feeBreakdownChart?: Chart;
-  private batchChart?: Chart;
+  private revenueChart?: ApexCharts;
+  private feeBreakdownChart?: ApexCharts;
+  private batchChart?: ApexCharts;
 
   constructor(
     private coachingService: CoachingService,
@@ -1081,132 +1104,140 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private renderRevenueChart(): void {
     if (!this.revenueChartRef?.nativeElement) return;
-    const ctx = this.revenueChartRef.nativeElement.getContext('2d');
-    if (!ctx) return;
 
     const trends: any[] = this.summary.revenueTrends || [];
     const labels = trends.map(t => t.monthName);
     const billedData = trends.map(t => t.billedAmount);
     const collectedData = trends.map(t => t.collectedAmount);
 
-    this.revenueChart = new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels,
-        datasets: [
-          {
-            label: 'Fees Billed',
-            data: billedData,
-            backgroundColor: 'rgba(99, 102, 241, 0.8)',
-            hoverBackgroundColor: '#6366f1',
-            borderRadius: 6,
-            borderSkipped: false,
-            barPercentage: 0.65,
-            categoryPercentage: 0.6
-          },
-          {
-            label: 'Fees Collected',
-            data: collectedData,
-            backgroundColor: 'rgba(16, 185, 129, 0.85)',
-            hoverBackgroundColor: '#10b981',
-            borderRadius: 6,
-            borderSkipped: false,
-            barPercentage: 0.65,
-            categoryPercentage: 0.6
-          }
-        ]
+    const options: any = {
+      series: [
+        { name: 'Fees Billed', data: billedData },
+        { name: 'Fees Collected', data: collectedData }
+      ],
+      chart: {
+        type: 'bar',
+        height: 250,
+        toolbar: { show: false },
+        fontFamily: 'Inter, system-ui, sans-serif'
       },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: {
-          mode: 'index',
-          intersect: false
-        },
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            backgroundColor: '#0f172a',
-            titleFont: { size: 13, weight: 'bold' },
-            bodyFont: { size: 12 },
-            padding: 12,
-            cornerRadius: 8,
-            callbacks: {
-              label: (item) => ` ${item.dataset.label}: ₹${Number(item.raw || 0).toLocaleString('en-IN')}`
-            }
-          }
-        },
-        scales: {
-          x: {
-            grid: { display: false },
-            ticks: {
-              color: '#64748b',
-              font: { size: 12, weight: 600 }
-            }
-          },
-          y: {
-            grid: { color: '#f1f5f9' },
-            ticks: {
-              color: '#64748b',
-              font: { size: 11 },
-              callback: (val) => '₹' + Number(val).toLocaleString('en-IN')
-            }
-          }
+      colors: ['#6366f1', '#10b981'],
+      plotOptions: {
+        bar: {
+          horizontal: false,
+          columnWidth: '46%',
+          borderRadius: 6,
+          borderRadiusApplication: 'end'
         }
-      }
-    });
+      },
+      dataLabels: { enabled: false },
+      stroke: { show: true, width: 3, colors: ['transparent'] },
+      xaxis: {
+        categories: labels,
+        axisBorder: { show: false },
+        axisTicks: { show: false },
+        labels: {
+          style: { colors: '#64748b', fontSize: '12px', fontWeight: 600 }
+        }
+      },
+      yaxis: {
+        labels: {
+          style: { colors: '#64748b', fontSize: '11px' },
+          formatter: (val: number) => '₹' + Number(val || 0).toLocaleString('en-IN')
+        }
+      },
+      grid: {
+        borderColor: '#f1f5f9',
+        strokeDashArray: 4,
+        padding: { top: 0, right: 10, bottom: 0, left: 10 }
+      },
+      fill: { opacity: 1 },
+      tooltip: {
+        theme: 'dark',
+        y: {
+          formatter: (val: number) => '₹' + Number(val || 0).toLocaleString('en-IN')
+        }
+      },
+      legend: { show: false }
+    };
+
+    this.revenueChart = new ApexCharts(this.revenueChartRef.nativeElement, options);
+    this.revenueChart.render();
   }
 
   private renderFeeBreakdownChart(): void {
     if (!this.feeBreakdownChartRef?.nativeElement) return;
-    const ctx = this.feeBreakdownChartRef.nativeElement.getContext('2d');
-    if (!ctx) return;
 
     const breakdown = this.summary.feeBreakdown;
     const paid = breakdown?.totalPaid || 0;
     const pending = breakdown?.totalPending || 0;
 
     const hasData = paid > 0 || pending > 0;
-    const chartData = hasData ? [paid, pending] : [1];
-    const chartColors = hasData ? ['#10b981', '#f59e0b'] : ['#e2e8f0'];
+    const series = hasData ? [paid, pending] : [1, 0];
+    const labels = hasData ? ['Fees Paid', 'Pending Dues'] : ['No Invoices', ''];
+    const colors = hasData ? ['#10b981', '#f59e0b'] : ['#e2e8f0', '#cbd5e1'];
 
-    this.feeBreakdownChart = new Chart(ctx, {
-      type: 'doughnut',
-      data: {
-        labels: hasData ? ['Fees Paid', 'Pending Dues'] : ['No Data'],
-        datasets: [
-          {
-            data: chartData,
-            backgroundColor: chartColors,
-            borderWidth: 0,
-            hoverOffset: hasData ? 4 : 0
-          }
-        ]
+    const recoveryPct = breakdown?.recoveryPercentage || 0;
+
+    const options: any = {
+      series: series,
+      labels: labels,
+      colors: colors,
+      chart: {
+        type: 'donut',
+        height: 180,
+        fontFamily: 'Inter, system-ui, sans-serif'
       },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        cutout: '74%',
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            enabled: hasData,
-            backgroundColor: '#0f172a',
-            padding: 10,
-            cornerRadius: 8,
-            callbacks: {
-              label: (item) => ` ${item.label}: ₹${Number(item.raw || 0).toLocaleString('en-IN')}`
+      stroke: { width: 2, colors: ['#ffffff'] },
+      dataLabels: { enabled: false },
+      legend: { show: false },
+      plotOptions: {
+        pie: {
+          donut: {
+            size: '76%',
+            labels: {
+              show: true,
+              name: {
+                show: true,
+                fontSize: '11px',
+                fontWeight: 600,
+                color: '#64748b',
+                offsetY: -3
+              },
+              value: {
+                show: true,
+                fontSize: '17px',
+                fontWeight: 800,
+                color: '#0f172a',
+                offsetY: 4,
+                formatter: () => `${recoveryPct}%`
+              },
+              total: {
+                show: true,
+                label: 'Recovery',
+                fontSize: '11px',
+                fontWeight: 600,
+                color: '#64748b',
+                formatter: () => `${recoveryPct}%`
+              }
             }
           }
         }
+      },
+      tooltip: {
+        theme: 'dark',
+        y: {
+          formatter: (val: number) => hasData ? '₹' + Number(val || 0).toLocaleString('en-IN') : 'N/A'
+        }
       }
-    });
+    };
+
+    this.feeBreakdownChart = new ApexCharts(this.feeBreakdownChartRef.nativeElement, options);
+    this.feeBreakdownChart.render();
   }
 
   private renderBatchChart(): void {
     if (!this.batchChartRef?.nativeElement) return;
-    const ctx = this.batchChartRef.nativeElement.getContext('2d');
-    if (!ctx) return;
 
     const batches: any[] = this.summary.batchDistributions || [];
     if (batches.length === 0) return;
@@ -1215,90 +1246,87 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     const studentCounts = batches.map(b => b.studentCount);
     const feeRates = batches.map(b => b.monthlyFeeRate);
 
-    this.batchChart = new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels,
-        datasets: [
-          {
-            label: 'Enrolled Students',
-            data: studentCounts,
-            backgroundColor: 'rgba(59, 130, 246, 0.85)',
-            hoverBackgroundColor: '#2563eb',
-            borderRadius: 6,
-            barPercentage: 0.5,
-            yAxisID: 'y'
-          },
-          {
-            label: 'Monthly Fee Rate (₹)',
-            data: feeRates,
-            backgroundColor: 'rgba(139, 92, 246, 0.45)',
-            hoverBackgroundColor: '#8b5cf6',
-            borderRadius: 6,
-            barPercentage: 0.5,
-            yAxisID: 'y1'
-          }
-        ]
+    const options: any = {
+      series: [
+        { name: 'Enrolled Students', type: 'column', data: studentCounts },
+        { name: 'Monthly Fee Rate (₹)', type: 'column', data: feeRates }
+      ],
+      chart: {
+        height: 200,
+        type: 'bar',
+        toolbar: { show: false },
+        fontFamily: 'Inter, system-ui, sans-serif'
       },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: {
-          mode: 'index',
-          intersect: false
+      colors: ['#3b82f6', '#8b5cf6'],
+      plotOptions: {
+        bar: {
+          horizontal: false,
+          columnWidth: '40%',
+          borderRadius: 6,
+          borderRadiusApplication: 'end'
+        }
+      },
+      dataLabels: { enabled: false },
+      stroke: { show: true, width: 2, colors: ['transparent'] },
+      xaxis: {
+        categories: labels,
+        labels: {
+          style: { colors: '#475569', fontSize: '11px', fontWeight: 600 }
         },
-        plugins: {
-          legend: {
-            display: true,
-            position: 'top',
-            align: 'end',
-            labels: {
-              boxWidth: 12,
-              font: { size: 11, weight: 600 },
-              color: '#475569'
-            }
+        axisBorder: { show: false },
+        axisTicks: { show: false }
+      },
+      yaxis: [
+        {
+          title: {
+            text: 'Students',
+            style: { color: '#2563eb', fontWeight: 700, fontSize: '11px' }
           },
-          tooltip: {
-            backgroundColor: '#0f172a',
-            padding: 12,
-            cornerRadius: 8,
-            callbacks: {
-              label: (item) => item.datasetIndex === 0
-                ? ` Enrolled Students: ${item.raw}`
-                : ` Standard Fee: ₹${Number(item.raw || 0).toLocaleString('en-IN')}/mo`
-            }
+          labels: {
+            style: { colors: '#64748b' },
+            formatter: (val: number) => Number(val).toFixed(0)
           }
         },
-        scales: {
-          x: {
-            grid: { display: false },
-            ticks: {
-              color: '#334155',
-              font: { size: 11, weight: 600 }
-            }
+        {
+          opposite: true,
+          title: {
+            text: 'Fee Rate (₹)',
+            style: { color: '#8b5cf6', fontWeight: 700, fontSize: '11px' }
           },
-          y: {
-            position: 'left',
-            grid: { color: '#f1f5f9' },
-            title: { display: true, text: 'Students', color: '#2563eb', font: { size: 11, weight: 'bold' } },
-            ticks: {
-              stepSize: 1,
-              precision: 0,
-              color: '#64748b'
-            }
-          },
-          y1: {
-            position: 'right',
-            grid: { display: false },
-            title: { display: true, text: 'Fee Rate (₹)', color: '#8b5cf6', font: { size: 11, weight: 'bold' } },
-            ticks: {
-              color: '#64748b',
-              callback: (val) => '₹' + Number(val).toLocaleString('en-IN')
-            }
+          labels: {
+            style: { colors: '#64748b' },
+            formatter: (val: number) => '₹' + Number(val || 0).toLocaleString('en-IN')
           }
         }
+      ],
+      legend: {
+        position: 'top',
+        horizontalAlign: 'right',
+        fontSize: '12px',
+        fontWeight: 600,
+        labels: { colors: '#475569' },
+        markers: { radius: 4 }
+      },
+      grid: {
+        borderColor: '#f1f5f9',
+        strokeDashArray: 4,
+        padding: { top: 0, right: 10, bottom: 0, left: 10 }
+      },
+      tooltip: {
+        theme: 'dark',
+        shared: true,
+        intersect: false,
+        y: {
+          formatter: (val: number, opts: any) =>
+            opts?.seriesIndex === 0
+              ? `${val} students`
+              : '₹' + Number(val || 0).toLocaleString('en-IN') + '/mo'
+        }
       }
-    });
+    };
+
+    this.batchChart = new ApexCharts(this.batchChartRef.nativeElement, options);
+    this.batchChart.render();
   }
 
   sendReminder(invoice: any): void {
