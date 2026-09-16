@@ -34,13 +34,13 @@ import { AuthService } from '../../core/services/auth.service';
   ],
   template: `
     <div class="branches-wrapper">
-      <!-- Header Banner -->
-      <div class="header-banner">
+      <!-- Page Header -->
+      <div class="page-header">
         <div class="header-titles">
-          <h2>Branch Management</h2>
-          <p>Manage multi-branch operations, campus locations, codes, and branch-level statistics.</p>
+          <h2 class="page-title">Branch Management</h2>
+          <p class="page-subtitle">Manage multi-branch operations, campus locations, codes, and branch-level statistics.</p>
         </div>
-        <button mat-raised-button color="primary" class="action-btn" (click)="openCreateModal()" *ngIf="canManageBranches">
+        <button mat-raised-button color="primary" class="add-btn" (click)="openCreateModal()" *ngIf="canManageBranches">
           <mat-icon>add_business</mat-icon>
           <span>Add New Branch</span>
         </button>
@@ -322,40 +322,38 @@ import { AuthService } from '../../core/services/auth.service';
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     }
 
-    /* Header Banner */
-    .header-banner {
+    /* Page Header */
+    .page-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 24px;
+      margin-bottom: 20px;
       flex-wrap: wrap;
       gap: 16px;
 
       .header-titles {
-        h2 {
-          font-size: 1.75rem;
+        .page-title {
+          font-size: 1.5rem;
           font-weight: 700;
-          color: #0f172a;
-          margin: 0 0 4px 0;
-          letter-spacing: -0.02em;
+          color: #1976d2;
+          margin: 0;
+          letter-spacing: -0.01em;
         }
-        p {
+        p, .page-subtitle {
           font-size: 0.9rem;
           color: #64748b;
-          margin: 0;
+          margin: 4px 0 0 0;
         }
       }
 
-      .action-btn {
-        height: 44px;
-        border-radius: 10px;
+      .add-btn {
+        height: 42px;
+        border-radius: 8px;
         font-weight: 600;
-        padding: 0 20px;
+        padding: 0 18px;
         display: inline-flex;
         align-items: center;
-        gap: 8px;
-        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+        gap: 6px;
       }
     }
 

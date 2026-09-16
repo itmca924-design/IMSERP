@@ -35,7 +35,7 @@ public class BiometricDevicesController : ControllerBase
         if (!await HasDevicePermissionAsync()) return Forbid();
         var device = new BiometricDevice
         {
-            TenantId = _currentUser.TenantId, Name = dto.Name.Trim(), Brand = dto.Brand?.Trim(), Model = dto.Model?.Trim(),
+            TenantId = _currentUser.TenantId, BranchId = _currentUser.BranchId, Name = dto.Name.Trim(), Brand = dto.Brand?.Trim(), Model = dto.Model?.Trim(),
             SerialNumber = dto.SerialNumber?.Trim(), IpAddress = dto.IpAddress?.Trim(), Port = dto.Port,
             ConnectionMode = dto.ConnectionMode, IsActive = dto.IsActive, Status = "NotConfigured"
         };

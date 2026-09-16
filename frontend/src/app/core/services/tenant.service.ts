@@ -59,6 +59,10 @@ export class TenantService {
     return this.http.get<TenantDto[]>(this.API_URL);
   }
 
+  getCurrentTenant(): Observable<TenantDto> {
+    return this.http.get<TenantDto>(`${this.API_URL}/current`);
+  }
+
   getTenantById(id: string): Observable<TenantDto> {
     return this.http.get<TenantDto>(`${this.API_URL}/${id}`);
   }

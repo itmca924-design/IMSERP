@@ -264,6 +264,7 @@ public class FeesController : ControllerBase
                 var payment = new FeePayment
                 {
                     TenantId = _currentUser.TenantId,
+                    BranchId = inv.BranchId ?? student.BranchId ?? _currentUser.BranchId,
                     InvoiceId = inv.Id,
                     ReceiptNumber = receiptNo,
                     AmountPaid = allocateForThisInv,
@@ -379,6 +380,7 @@ public class FeesController : ControllerBase
             var invoice = new FeeInvoice
             {
                 TenantId = _currentUser.TenantId,
+                BranchId = s.BranchId ?? s.Batch?.BranchId ?? _currentUser.BranchId,
                 StudentId = s.Id,
                 InvoiceNumber = $"INV-{dto.Year}{dto.Month:D2}-{random.Next(100, 999)}",
                 Title = $"{monthName} Tuition Fee",
@@ -572,9 +574,13 @@ public class TestsController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<TestDto>> CreateTest([FromBody] CreateTestDto dto)
     {
+        var batch = await _dbContext.Batches.FindAsync(dto.BatchId);
+        var targetBranchId = batch?.BranchId ?? _currentUser.BranchId;
+
         var test = new Test
         {
             TenantId = _currentUser.TenantId,
+            BranchId = targetBranchId,
             BatchId = dto.BatchId,
             Title = dto.Title,
             Subject = dto.Subject,
@@ -584,8 +590,6 @@ public class TestsController : ControllerBase
 
         _dbContext.Tests.Add(test);
         await _dbContext.SaveChangesAsync();
-
-        var batch = await _dbContext.Batches.FindAsync(dto.BatchId);
 
         return Ok(new TestDto(test.Id, test.BatchId, batch?.Name ?? "", test.Title, test.Subject, test.MaxMarks, DateTime.SpecifyKind(test.TestDate, DateTimeKind.Utc), 0));
     }
@@ -609,7 +613,7 @@ public class TestsController : ControllerBase
                 var batchIds = dtos.Select(d => d.BatchId).Distinct().ToList();
                 var batches = await _dbContext.Batches
                     .Where(b => batchIds.Contains(b.Id))
-                    .ToDictionaryAsync(b => b.Id, b => b.Name);
+                    .ToDictionaryAsync(b => b.Id, b => b);
 
                 var tenantId = _currentUser.TenantId != Guid.Empty
                     ? _currentUser.TenantId
@@ -618,6 +622,7 @@ public class TestsController : ControllerBase
                 var tests = dtos.Select(dto => new Test
                 {
                     TenantId = tenantId,
+                    BranchId = (batches.TryGetValue(dto.BatchId, out var b) ? b.BranchId : null) ?? _currentUser.BranchId,
                     BatchId = dto.BatchId,
                     Title = string.IsNullOrWhiteSpace(dto.Title) ? "Untitled Exam" : dto.Title.Trim(),
                     Subject = string.IsNullOrWhiteSpace(dto.Subject) ? "General" : dto.Subject.Trim(),
@@ -632,7 +637,7 @@ public class TestsController : ControllerBase
                 return tests.Select(t => new TestDto(
                     t.Id,
                     t.BatchId,
-                    batches.TryGetValue(t.BatchId, out var name) ? name : "",
+                    batches.TryGetValue(t.BatchId, out var b) ? b.Name : "",
                     t.Title,
                     t.Subject,
                     t.MaxMarks,

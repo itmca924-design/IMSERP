@@ -119,16 +119,71 @@ const API_BASE = 'http://localhost:5000';
             </mat-form-field>
 
             <div class="phone-field-wrap">
-              <mat-form-field appearance="outline" class="full-width-field">
-                <mat-label>Parent WhatsApp Phone Number</mat-label>
-                <input matInput formControlName="parentWhatsAppPhone" placeholder="e.g. 9876543210" />
-                <mat-icon matSuffix color="primary" *ngIf="!phoneCheckLoading">chat</mat-icon>
-                <mat-spinner matSuffix diameter="20" *ngIf="phoneCheckLoading" style="margin-right:4px"></mat-spinner>
-                <mat-error *ngIf="studentForm.get('parentWhatsAppPhone')?.hasError('required')">WhatsApp Phone number is required</mat-error>
+              <mat-form-field appearance="outline" class="full-width-field" [class.sibling-field-active]="!!siblingInfo">
+                <mat-label>Parent WhatsApp Phone Number (Optional)</mat-label>
+                <span matPrefix class="phone-prefix">+91 &nbsp;</span>
+                <input
+                  matInput
+                  type="tel"
+                  formControlName="parentWhatsAppPhone"
+                  placeholder="98765 43210"
+                  maxlength="11"
+                  (input)="onPhoneInput($event)"
+                />
+                <mat-icon matSuffix color="primary" *ngIf="!phoneCheckLoading && !siblingInfo">chat</mat-icon>
+                <mat-icon matSuffix class="sibling-suffix-icon" [class.warning]="!isParentNameMatching" *ngIf="!phoneCheckLoading && siblingInfo" [matTooltip]="isParentNameMatching ? 'Family / Sibling Linked' : 'Different Parent Name'">{{ isParentNameMatching ? 'family_restroom' : 'warning_amber' }}</mat-icon>
+                <mat-spinner matSuffix diameter="18" *ngIf="phoneCheckLoading" style="margin-right:6px"></mat-spinner>
+                <mat-error *ngIf="studentForm.get('parentWhatsAppPhone')?.hasError('duplicate')">
+                  {{ phoneDuplicateError }}
+                </mat-error>
+                <mat-error *ngIf="studentForm.get('parentWhatsAppPhone')?.hasError('invalidPhone') && !studentForm.get('parentWhatsAppPhone')?.hasError('duplicate')">
+                  Please enter a valid 10-digit mobile number (e.g. 98765 43210)
+                </mat-error>
               </mat-form-field>
-              <div class="phone-duplicate-error" *ngIf="phoneDuplicateError">
-                <mat-icon class="dup-icon">warning</mat-icon>
-                <span>{{ phoneDuplicateError }}</span>
+
+              <!-- Smart Sibling / Parent Validation Info Card -->
+              <div class="sibling-detected-box" [class.warning]="!isParentNameMatching" *ngIf="siblingInfo">
+                <div class="sibling-header">
+                  <div class="sibling-badge-icon" [class.warning]="!isParentNameMatching">
+                    <mat-icon>{{ isParentNameMatching ? 'family_restroom' : 'warning_amber' }}</mat-icon>
+                  </div>
+                  <div class="sibling-details">
+                    <div class="sibling-title-row">
+                      <span class="sibling-title" [class.warning-title]="!isParentNameMatching">
+                        {{ isParentNameMatching ? 'Sibling / Family Member Detected' : 'Notice: Different Parent Name Detected' }}
+                      </span>
+                      <span class="sibling-status-pill" [class.warning-pill]="!isParentNameMatching">
+                        {{ isParentNameMatching ? 'Sibling Verified ✓' : 'Verify Parent / Number ⚠️' }}
+                      </span>
+                    </div>
+                    <p class="sibling-desc">
+                      Mobile number is registered to student <strong>{{ siblingInfo.studentName }}</strong>
+                      <span *ngIf="siblingInfo.parentName"> with Parent: <strong>{{ siblingInfo.parentName }}</strong></span>.
+                      <span *ngIf="!isParentNameMatching && currentEnteredParentName">
+                        (You entered Parent: <strong>"{{ currentEnteredParentName }}"</strong>)
+                      </span>
+                    </p>
+
+                    <!-- Quick Action if Parent Name differs -->
+                    <div class="sibling-action-row" *ngIf="!isParentNameMatching && siblingInfo.parentName">
+                      <button type="button" mat-stroked-button class="btn-copy-parent" (click)="useLinkedParentName()">
+                        <mat-icon>how_to_reg</mat-icon> Set Parent as "{{ siblingInfo.parentName }}"
+                      </button>
+                      <span class="differ-note">If {{ currentEnteredParentName }} is a guardian/relative or shared phone, you can still save.</span>
+                    </div>
+
+                    <div class="sibling-tags">
+                      <span class="sibling-tag branch" *ngIf="siblingInfo.branchName">
+                        <mat-icon>domain</mat-icon>
+                        <span>Branch: {{ siblingInfo.branchName }}</span>
+                      </span>
+                      <span class="sibling-tag batch" *ngIf="siblingInfo.batchName">
+                        <mat-icon>school</mat-icon>
+                        <span>Batch: {{ siblingInfo.batchName }}</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -438,21 +493,182 @@ const API_BASE = 'http://localhost:5000';
       flex-direction: column;
       gap: 0;
       .full-width-field { width: 100%; }
+      .phone-prefix {
+        color: #64748b;
+        font-weight: 600;
+        font-size: 0.95rem;
+        user-select: none;
+      }
+      .sibling-suffix-icon {
+        color: #059669 !important;
+        &.warning {
+          color: #d97706 !important;
+        }
+      }
     }
-    .phone-duplicate-error {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      color: #d32f2f;
-      font-size: 0.78rem;
-      font-weight: 500;
+
+    .sibling-detected-box {
       margin-top: -10px;
-      padding: 4px 14px 6px 14px;
-      background: #fdecea;
-      border-radius: 0 0 6px 6px;
-      border: 1px solid #f5c6cb;
-      border-top: none;
-      .dup-icon { font-size: 16px; width: 16px; height: 16px; color: #d32f2f; }
+      margin-bottom: 12px;
+      padding: 12px 16px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #f0fdf4 0%, #ecfeff 100%);
+      border: 1px solid #86efac;
+      box-shadow: 0 2px 8px rgba(16, 185, 129, 0.08);
+      transition: all 0.25s ease;
+
+      &.warning {
+        background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+        border: 1px solid #fcd34d;
+        box-shadow: 0 2px 8px rgba(245, 158, 11, 0.1);
+
+        .sibling-badge-icon {
+          background: #f59e0b;
+        }
+
+        .sibling-title.warning-title {
+          color: #92400e;
+        }
+
+        .sibling-status-pill.warning-pill {
+          background: #fef3c7;
+          color: #b45309;
+          border: 1px solid #fde68a;
+        }
+      }
+
+      .sibling-header {
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+      }
+
+      .sibling-badge-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        background: #10b981;
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+
+        mat-icon {
+          font-size: 20px;
+          width: 20px;
+          height: 20px;
+        }
+      }
+
+      .sibling-details {
+        flex: 1;
+
+        .sibling-title-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 8px;
+
+          .sibling-title {
+            font-size: 0.88rem;
+            font-weight: 700;
+            color: #065f46;
+          }
+
+          .sibling-status-pill {
+            font-size: 0.72rem;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 12px;
+            background: #dcfce7;
+            color: #15803d;
+            border: 1px solid #bbf7d0;
+          }
+        }
+
+        .sibling-desc {
+          margin: 4px 0 8px 0;
+          font-size: 0.82rem;
+          color: #334155;
+
+          strong {
+            color: #0f172a;
+          }
+        }
+
+        .sibling-action-row {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin: 6px 0 8px 0;
+          flex-wrap: wrap;
+
+          .btn-copy-parent {
+            font-size: 0.78rem;
+            height: 30px;
+            line-height: 28px;
+            color: #92400e !important;
+            background: #ffffff !important;
+            border-color: #f59e0b !important;
+            font-weight: 600;
+            border-radius: 6px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+
+            mat-icon {
+              font-size: 16px;
+              width: 16px;
+              height: 16px;
+              color: #f59e0b;
+            }
+
+            &:hover {
+              background: #fef3c7 !important;
+            }
+          }
+
+          .differ-note {
+            font-size: 0.78rem;
+            color: #92400e;
+            font-weight: 500;
+          }
+        }
+
+        .sibling-tags {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+
+          .sibling-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+
+            mat-icon {
+              font-size: 14px;
+              width: 14px;
+              height: 14px;
+            }
+
+            &.branch {
+              background: #e0f2fe;
+              color: #0369a1;
+            }
+
+            &.batch {
+              background: #ede9fe;
+              color: #6d28d9;
+            }
+          }
+        }
+      }
     }
   `]
 })
@@ -469,6 +685,12 @@ export class StudentsComponent implements OnInit, OnDestroy {
   rollNumberLoading = false;
   phoneCheckLoading = false;
   phoneDuplicateError = '';
+  siblingInfo: {
+    studentName: string | null;
+    parentName: string | null;
+    batchName: string | null;
+    branchName: string | null;
+  } | null = null;
 
   totalCount = 0;
   pageSize = 10;
@@ -486,6 +708,7 @@ export class StudentsComponent implements OnInit, OnDestroy {
   studentForm: FormGroup;
   private batchIdSub?: Subscription;
   private phoneSub?: Subscription;
+  private studentNameSub?: Subscription;
 
   @ViewChild(MatPaginator) paginator!: MatPaginator;
   @ViewChild(MatSort) sort!: MatSort;
@@ -501,7 +724,7 @@ export class StudentsComponent implements OnInit, OnDestroy {
       rollNumber: ['', Validators.required],
       studentName: ['', Validators.required],
       parentName: ['', Validators.required],
-      parentWhatsAppPhone: ['', Validators.required],
+      parentWhatsAppPhone: [''],
       address: ['']
     });
   }
@@ -515,6 +738,31 @@ export class StudentsComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.batchIdSub?.unsubscribe();
     this.phoneSub?.unsubscribe();
+    this.studentNameSub?.unsubscribe();
+  }
+
+  // ── Sibling & Parent Smart Match Helpers ─────────────────
+
+  get isParentNameMatching(): boolean {
+    if (!this.siblingInfo || !this.siblingInfo.parentName) return true;
+    const currentParent = (this.studentForm?.get('parentName')?.value || '').trim().toLowerCase();
+    const linkedParent = (this.siblingInfo.parentName || '').trim().toLowerCase();
+    if (!currentParent) return true;
+    return currentParent === linkedParent;
+  }
+
+  get currentEnteredParentName(): string {
+    return (this.studentForm?.get('parentName')?.value || '').trim();
+  }
+
+  useLinkedParentName(): void {
+    if (this.siblingInfo?.parentName) {
+      const parentCtrl = this.studentForm?.get('parentName');
+      if (parentCtrl) {
+        parentCtrl.setValue(this.siblingInfo.parentName);
+        parentCtrl.markAsDirty();
+      }
+    }
   }
 
   // ── Photo helpers ────────────────────────────────────────
@@ -578,25 +826,151 @@ export class StudentsComponent implements OnInit, OnDestroy {
       }
     });
 
-    // Phone duplicate watcher
+    // Phone duplicate & sibling watcher
     this.phoneSub = this.studentForm.get('parentWhatsAppPhone')!.valueChanges.pipe(
-      debounceTime(500),
+      debounceTime(400),
       distinctUntilChanged()
     ).subscribe((phone: string) => {
-      this.phoneDuplicateError = '';
-      if (!phone || phone.trim().length < 10) return;
-      this.phoneCheckLoading = true;
-      const excludeId = this.isEditMode && this.selectedStudent ? this.selectedStudent.id : undefined;
-      this.coachingService.checkPhoneDuplicate(phone.trim(), excludeId).subscribe({
-        next: (res) => {
-          this.phoneCheckLoading = false;
-          if (res.isDuplicate) {
-            this.phoneDuplicateError = `Already registered to: ${res.studentName} (${res.batchName})`;
+      const control = this.studentForm.get('parentWhatsAppPhone');
+      if (!control) return;
+
+      const rawDigits = (phone || '').replace(/\D/g, '');
+      if (!rawDigits) {
+        this.phoneDuplicateError = '';
+        this.siblingInfo = null;
+        if (control.hasError('duplicate')) {
+          const errors = { ...control.errors };
+          delete errors['duplicate'];
+          control.setErrors(Object.keys(errors).length ? errors : null);
+        }
+        return;
+      }
+
+      if (rawDigits.length === 10 && /^[6-9]\d{9}$/.test(rawDigits)) {
+        this.phoneCheckLoading = true;
+        const excludeId = this.isEditMode && this.selectedStudent ? this.selectedStudent.id : undefined;
+        const currentStudentName = (this.studentForm.get('studentName')?.value || '').trim();
+
+        this.coachingService.checkPhoneDuplicate(rawDigits, excludeId, currentStudentName).subscribe({
+          next: (res) => {
+            this.phoneCheckLoading = false;
+            if (res.isFound) {
+              if (res.isDuplicate) {
+                // Exact same student name + phone -> duplicate entry error
+                this.phoneDuplicateError = `Duplicate Entry: "${res.studentName}" is already registered in ${res.batchName || 'another batch'}.`;
+                this.siblingInfo = null;
+                control.setErrors({ ...control.errors, duplicate: true });
+                control.markAsTouched();
+              } else {
+                // Different student name + phone -> Sibling / Family match!
+                this.phoneDuplicateError = '';
+                this.siblingInfo = {
+                  studentName: res.studentName,
+                  parentName: res.parentName,
+                  batchName: res.batchName,
+                  branchName: res.branchName
+                };
+                // Auto-fill Parent Name if empty
+                const parentCtrl = this.studentForm.get('parentName');
+                if (parentCtrl && !parentCtrl.value && res.parentName) {
+                  parentCtrl.setValue(res.parentName);
+                  parentCtrl.markAsDirty();
+                }
+                // Clear duplicate error from control so form is VALID
+                if (control.hasError('duplicate')) {
+                  const errors = { ...control.errors };
+                  delete errors['duplicate'];
+                  control.setErrors(Object.keys(errors).length ? errors : null);
+                }
+              }
+            } else {
+              this.phoneDuplicateError = '';
+              this.siblingInfo = null;
+              if (control.hasError('duplicate')) {
+                const errors = { ...control.errors };
+                delete errors['duplicate'];
+                control.setErrors(Object.keys(errors).length ? errors : null);
+              }
+            }
+          },
+          error: () => {
+            this.phoneCheckLoading = false;
           }
-        },
-        error: () => { this.phoneCheckLoading = false; }
-      });
+        });
+      }
     });
+
+    // Watch student name changes to dynamically distinguish duplicate vs sibling
+    this.studentNameSub = this.studentForm.get('studentName')!.valueChanges.pipe(
+      debounceTime(300)
+    ).subscribe((name: string) => {
+      if (this.siblingInfo && name) {
+        if (this.siblingInfo.studentName?.trim().toLowerCase() === name.trim().toLowerCase()) {
+          this.phoneDuplicateError = `Duplicate Entry: "${this.siblingInfo.studentName}" is already registered in ${this.siblingInfo.batchName || 'another batch'}.`;
+          const control = this.studentForm.get('parentWhatsAppPhone');
+          if (control) {
+            control.setErrors({ ...control.errors, duplicate: true });
+            control.markAsTouched();
+          }
+        } else {
+          this.phoneDuplicateError = '';
+          const control = this.studentForm.get('parentWhatsAppPhone');
+          if (control && control.hasError('duplicate')) {
+            const errors = { ...control.errors };
+            delete errors['duplicate'];
+            control.setErrors(Object.keys(errors).length ? errors : null);
+          }
+        }
+      }
+    });
+  }
+
+  onPhoneInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    let rawDigits = input.value.replace(/\D/g, '');
+
+    if (rawDigits.length === 12 && rawDigits.startsWith('91')) {
+      rawDigits = rawDigits.substring(2);
+    }
+    if (rawDigits.length > 10) {
+      rawDigits = rawDigits.substring(0, 10);
+    }
+
+    let formatted = rawDigits;
+    if (rawDigits.length > 5) {
+      formatted = `${rawDigits.substring(0, 5)} ${rawDigits.substring(5)}`;
+    }
+
+    input.value = formatted;
+    this.studentForm.get('parentWhatsAppPhone')?.setValue(formatted, { emitEvent: true });
+    this.validatePhoneNumber(rawDigits);
+  }
+
+  validatePhoneNumber(rawDigits: string): void {
+    const control = this.studentForm.get('parentWhatsAppPhone');
+    if (!control) return;
+
+    if (!rawDigits) {
+      this.phoneDuplicateError = '';
+      if (control.hasError('invalidPhone') || control.hasError('duplicate')) {
+        const errors = { ...control.errors };
+        delete errors['invalidPhone'];
+        delete errors['duplicate'];
+        control.setErrors(Object.keys(errors).length ? errors : null);
+      }
+      return;
+    }
+
+    const isValid = /^[6-9]\d{9}$/.test(rawDigits);
+    if (!isValid) {
+      control.setErrors({ ...control.errors, invalidPhone: true });
+    } else {
+      if (control.hasError('invalidPhone')) {
+        const errors = { ...control.errors };
+        delete errors['invalidPhone'];
+        control.setErrors(Object.keys(errors).length ? errors : null);
+      }
+    }
   }
 
   // ── CRUD ─────────────────────────────────────────────────
@@ -653,6 +1027,7 @@ export class StudentsComponent implements OnInit, OnDestroy {
       this.selectedStudent = null;
       this.rollNumberLoading = false;
       this.phoneDuplicateError = '';
+      this.siblingInfo = null;
       this.phoneCheckLoading = false;
       this.photoPreview = null;
       this.selectedPhotoData = null;
@@ -665,15 +1040,25 @@ export class StudentsComponent implements OnInit, OnDestroy {
     this.selectedStudent = student;
     this.isEditMode = true;
     this.showForm = true;
+    this.siblingInfo = null;
+    this.phoneDuplicateError = '';
     // Show existing photo (from server path)
     this.photoPreview = student.profilePhoto ? this.getPhotoUrl(student.profilePhoto) : null;
     this.selectedPhotoData = null; // no new photo selected yet
+
+    let formattedPhone = student.parentWhatsAppPhone || '';
+    const raw = formattedPhone.replace(/\D/g, '');
+    const cleanDigits = (raw.length === 12 && raw.startsWith('91')) ? raw.substring(2) : raw;
+    if (cleanDigits.length === 10) {
+      formattedPhone = `${cleanDigits.substring(0, 5)} ${cleanDigits.substring(5)}`;
+    }
+
     this.studentForm.patchValue({
       batchId: student.batchId,
       rollNumber: student.rollNumber,
       studentName: student.studentName,
       parentName: student.parentName,
-      parentWhatsAppPhone: student.parentWhatsAppPhone,
+      parentWhatsAppPhone: formattedPhone,
       address: student.address || ''
     });
   }
@@ -683,8 +1068,10 @@ export class StudentsComponent implements OnInit, OnDestroy {
 
     this.saving = true;
     const formVal = this.studentForm.value;
+    const cleanPhone = formVal.parentWhatsAppPhone ? formVal.parentWhatsAppPhone.replace(/\s+/g, '') : '';
     const payload = {
       ...formVal,
+      parentWhatsAppPhone: cleanPhone,
       // Send new base64 photo if user picked one; otherwise send existing path (edit) or null (create)
       profilePhoto: this.selectedPhotoData
         ?? (this.isEditMode && this.selectedStudent?.profilePhoto ? this.selectedStudent.profilePhoto : null)

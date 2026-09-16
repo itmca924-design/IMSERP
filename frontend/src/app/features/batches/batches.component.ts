@@ -101,7 +101,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
               <td mat-cell *matCellDef="let element">
                 <span class="room-tag" *ngIf="element.roomNumber">
                   <mat-icon class="inline-icon">meeting_room</mat-icon>
-                  Room {{ element.roomNumber }}
+                  {{ formatRoomDisplay(element.roomNumber) }}
                 </span>
                 <span class="unassigned-tag" *ngIf="!element.roomNumber">Unassigned</span>
               </td>
@@ -399,6 +399,15 @@ export class BatchesComponent implements OnInit {
   getSubjectChips(subjectStr?: string): string[] {
     if (!subjectStr) return [];
     return subjectStr.split(',').map(s => s.trim()).filter(s => s.length > 0);
+  }
+
+  formatRoomDisplay(roomNumber?: string | null): string {
+    if (!roomNumber) return '';
+    const trimmed = roomNumber.trim();
+    if (trimmed.toLowerCase().startsWith('room')) {
+      return trimmed;
+    }
+    return `Room ${trimmed}`;
   }
 
   deleteBatch(batch: BatchDto): void {

@@ -138,7 +138,9 @@ public record StudentDto(
     bool IsActive,
     DateTime JoiningDate,
     string? Address,
-    string? ProfilePhoto
+    string? ProfilePhoto,
+    Guid? BranchId = null,
+    string? BranchName = null
 );
 
 public record CreateStudentDto(
@@ -148,7 +150,8 @@ public record CreateStudentDto(
     string ParentName,
     string ParentWhatsAppPhone,
     string Address,
-    string? ProfilePhoto
+    string? ProfilePhoto,
+    Guid? BranchId = null
 );
 
 public record StudentAttendanceDto(
@@ -176,6 +179,30 @@ public record MarkStudentAttendanceDto(
     DateTime AttendanceDate,
     string Status,
     string? Remarks
+);
+
+public record BatchStudentAttendanceItemDto(
+    Guid StudentId,
+    string Status,
+    string? Remarks
+);
+
+public record BulkBatchAttendanceDto(
+    Guid BatchId,
+    DateTime AttendanceDate,
+    bool SendWhatsAppAlerts,
+    List<BatchStudentAttendanceItemDto> Items
+);
+
+public record BatchAttendanceStudentRowDto(
+    Guid StudentId,
+    string StudentName,
+    string RollNumber,
+    string? ProfilePhoto,
+    string? ParentWhatsAppPhone,
+    string Status,
+    string? Remarks,
+    Guid? AttendanceId
 );
 
 public record AttendanceReportRowDto(
@@ -572,7 +599,9 @@ public record TeacherDto(
     DateTime? LeavingDate,
     bool IsActive,
     DateTime CreatedAt,
-    int AssignedBatchCount
+    int AssignedBatchCount,
+    Guid? BranchId = null,
+    string? BranchName = null
 );
 
 public record CreateTeacherDto(
@@ -589,7 +618,8 @@ public record CreateTeacherDto(
     string? Email,
     string? Address,
     DateTime JoiningDate,
-    bool IsActive = true
+    bool IsActive = true,
+    Guid? BranchId = null
 );
 
 public record TeacherBatchAssignmentDto(

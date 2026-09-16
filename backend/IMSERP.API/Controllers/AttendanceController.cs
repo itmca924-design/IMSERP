@@ -126,7 +126,7 @@ public class AttendanceController : ControllerBase
                 (a.StudentId == student.Id && a.AttendanceDate == dto.EventTime.Date));
             if (record == null)
             {
-                record = new StudentAttendance { TenantId = _currentUser.TenantId, StudentId = student.Id, AttendanceDate = dto.EventTime.Date };
+                record = new StudentAttendance { TenantId = _currentUser.TenantId, BranchId = student.BranchId ?? _currentUser.BranchId, StudentId = student.Id, AttendanceDate = dto.EventTime.Date };
                 _db.StudentAttendances.Add(record);
             }
             record.Status = TeacherAttendanceStatus.Present;
@@ -155,7 +155,7 @@ public class AttendanceController : ControllerBase
             (a.TeacherId == teacher.Id && a.AttendanceDate == dto.EventTime.Date));
         if (teacherRecord == null)
         {
-            teacherRecord = new TeacherAttendance { TenantId = _currentUser.TenantId, TeacherId = teacher.Id, AttendanceDate = dto.EventTime.Date };
+            teacherRecord = new TeacherAttendance { TenantId = _currentUser.TenantId, BranchId = teacher.BranchId ?? _currentUser.BranchId, TeacherId = teacher.Id, AttendanceDate = dto.EventTime.Date };
             _db.TeacherAttendances.Add(teacherRecord);
         }
 

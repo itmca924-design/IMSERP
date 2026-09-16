@@ -28,7 +28,8 @@ public class TeachersController : ControllerBase
         t.Gender.ToString(), t.DateOfBirth, t.Qualification,
         t.Specialization, t.ExperienceYears, t.PhoneNumber,
         t.WhatsAppPhone, t.Email, t.Address, t.PhotoUrl,
-        t.JoiningDate, t.LeavingDate, t.IsActive, t.CreatedAt, batchCount);
+        t.JoiningDate, t.LeavingDate, t.IsActive, t.CreatedAt, batchCount,
+        t.BranchId, t.Branch?.Name);
 
     private async Task<bool> CanEditPublicHolidayOrSundayAsync()
     {
@@ -139,6 +140,7 @@ public class TeachersController : ControllerBase
     {
         var q = _db.Teachers.AsNoTracking()
             .Include(t => t.BatchAssignments)
+            .Include(t => t.Branch)
             .AsQueryable();
         if (activeOnly) q = q.Where(t => t.IsActive);
 
@@ -159,6 +161,7 @@ public class TeachersController : ControllerBase
     {
         var q = _db.Teachers.AsNoTracking()
             .Include(t => t.BatchAssignments)
+            .Include(t => t.Branch)
             .AsQueryable();
 
         if (isActive.HasValue) q = q.Where(t => t.IsActive == isActive.Value);
@@ -205,6 +208,7 @@ public class TeachersController : ControllerBase
     {
         var t = await _db.Teachers.AsNoTracking()
             .Include(x => x.BatchAssignments)
+            .Include(x => x.Branch)
             .FirstOrDefaultAsync(x => x.Id == id);
         if (t == null) return NotFound();
         return Ok(MapTeacher(t, t.BatchAssignments.Count(a => a.IsActive)));
@@ -219,9 +223,17 @@ public class TeachersController : ControllerBase
         if (!Enum.TryParse<Gender>(dto.Gender, true, out var gender))
             return BadRequest(new { message = "Invalid gender value." });
 
+        var targetBranchId = dto.BranchId ?? _currentUser.BranchId;
+        if (!targetBranchId.HasValue || targetBranchId.Value == Guid.Empty)
+        {
+            var mainBranch = await _db.Branches.AsNoTracking().FirstOrDefaultAsync(b => b.IsMainBranch);
+            targetBranchId = mainBranch?.Id;
+        }
+
         var teacher = new Teacher
         {
             TenantId = _currentUser.TenantId,
+            BranchId = targetBranchId,
             EmployeeCode = dto.EmployeeCode.Trim(),
             FullName = dto.FullName.Trim(),
             FatherName = dto.FatherName?.Trim(),
@@ -241,17 +253,32 @@ public class TeachersController : ControllerBase
 
         _db.Teachers.Add(teacher);
         await _db.SaveChangesAsync();
+
+        if (teacher.BranchId.HasValue)
+        {
+            teacher.Branch = await _db.Branches.AsNoTracking().FirstOrDefaultAsync(b => b.Id == teacher.BranchId);
+        }
+
         return Ok(MapTeacher(teacher, 0));
     }
 
     [HttpPut("{id}")]
     public async Task<ActionResult<TeacherDto>> UpdateTeacher(Guid id, [FromBody] CreateTeacherDto dto)
     {
-        var teacher = await _db.Teachers.Include(t => t.BatchAssignments).FirstOrDefaultAsync(t => t.Id == id);
+        var teacher = await _db.Teachers.Include(t => t.BatchAssignments).Include(t => t.Branch).FirstOrDefaultAsync(t => t.Id == id);
         if (teacher == null) return NotFound();
 
         if (!Enum.TryParse<Gender>(dto.Gender, true, out var gender))
             return BadRequest(new { message = "Invalid gender value." });
+
+        if (dto.BranchId.HasValue && dto.BranchId.Value != Guid.Empty)
+        {
+            teacher.BranchId = dto.BranchId.Value;
+        }
+        else if (!teacher.BranchId.HasValue && _currentUser.BranchId.HasValue)
+        {
+            teacher.BranchId = _currentUser.BranchId;
+        }
 
         teacher.FullName = dto.FullName.Trim();
         teacher.FatherName = dto.FatherName?.Trim();
@@ -268,6 +295,12 @@ public class TeachersController : ControllerBase
         teacher.IsActive = dto.IsActive;
 
         await _db.SaveChangesAsync();
+
+        if (teacher.BranchId.HasValue && teacher.Branch == null)
+        {
+            teacher.Branch = await _db.Branches.AsNoTracking().FirstOrDefaultAsync(b => b.Id == teacher.BranchId);
+        }
+
         return Ok(MapTeacher(teacher, teacher.BatchAssignments.Count(a => a.IsActive)));
     }
 
@@ -724,6 +757,10 @@ public class TeachersController : ControllerBase
 
         if (existing != null)
         {
+            if (!existing.BranchId.HasValue && teacher.BranchId.HasValue)
+            {
+                existing.BranchId = teacher.BranchId;
+            }
             existing.Status = smartStatus;
             existing.CheckInTime = dto.CheckInTime;
             existing.CheckOutTime = dto.CheckOutTime;
@@ -739,6 +776,7 @@ public class TeachersController : ControllerBase
             existing = new TeacherAttendance
             {
                 TenantId = _currentUser.TenantId,
+                BranchId = teacher.BranchId ?? _currentUser.BranchId,
                 TeacherId = id,
                 AttendanceDate = date,
                 Status = smartStatus,

@@ -36,16 +36,13 @@ import { RoomDialogComponent } from './room-dialog.component';
   ],
   template: `
     <div class="rooms-container">
-      <!-- Header Banner -->
-      <div class="header-card">
-        <div class="header-text">
-          <div class="title-row">
-            <mat-icon class="header-icon">meeting_room</mat-icon>
-            <h1>Classrooms & Rooms Master</h1>
-          </div>
-          <p>Manage institute rooms, seat capacities, floors, and branch associations for batch scheduling.</p>
+      <!-- Standard Page Header -->
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Classrooms & Rooms Master</h1>
+          <p class="page-subtitle">Manage institute rooms, seat capacities, floors, and branch associations for batch scheduling.</p>
         </div>
-        <button mat-flat-button class="action-btn-primary" (click)="openAddRoomModal()">
+        <button mat-raised-button color="primary" class="add-btn" (click)="openAddRoomModal()">
           <mat-icon>add</mat-icon>
           <span>Add New Classroom</span>
         </button>
@@ -214,53 +211,37 @@ import { RoomDialogComponent } from './room-dialog.component';
       box-sizing: border-box;
     }
 
-    .header-card {
+    .page-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-      color: white;
-      padding: 24px 28px;
-      border-radius: 16px;
-      box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.3);
       margin-bottom: 20px;
-      gap: 16px;
       flex-wrap: wrap;
+      gap: 16px;
+
+      .page-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin: 0;
+        color: #1976d2;
+      }
+      .page-subtitle {
+        color: #64748b;
+        margin: 4px 0 0 0;
+        font-size: 0.9rem;
+      }
     }
 
-    .title-row {
-      display: flex;
+    .add-btn {
+      font-weight: 600;
+      border-radius: 8px;
+      padding: 0 18px;
+      height: 42px;
+      display: inline-flex;
       align-items: center;
-      gap: 12px;
-      margin-bottom: 6px;
-    }
-
-    .header-icon {
-      font-size: 32px;
-      width: 32px;
-      height: 32px;
-      color: #38bdf8;
+      gap: 6px;
       flex-shrink: 0;
-    }
-
-    .header-text {
-      flex: 1 1 280px;
-      min-width: 0;
-    }
-
-    .header-text h1 {
-      margin: 0;
-      font-size: 24px;
-      font-weight: 700;
-      letter-spacing: -0.02em;
-      word-break: break-word;
-    }
-
-    .header-text p {
-      margin: 0;
-      color: #94a3b8;
-      font-size: 14px;
-      line-height: 1.4;
+      white-space: nowrap;
     }
 
     .action-btn-primary {

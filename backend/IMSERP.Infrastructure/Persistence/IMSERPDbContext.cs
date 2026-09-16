@@ -541,16 +541,30 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         var tenantId = _currentUserService.TenantId;
-        if (tenantId != Guid.Empty)
+        var branchId = _currentUserService.BranchId;
+
+        foreach (var entry in ChangeTracker.Entries())
         {
-            foreach (var entry in ChangeTracker.Entries())
+            if (entry.State == EntityState.Added)
             {
-                if (entry.State == EntityState.Added)
+                if (tenantId != Guid.Empty)
                 {
                     var prop = entry.Properties.FirstOrDefault(p => p.Metadata.Name == "TenantId");
                     if (prop != null && prop.CurrentValue != null && (Guid)prop.CurrentValue == Guid.Empty)
                     {
                         prop.CurrentValue = tenantId;
+                    }
+                }
+
+                if (branchId.HasValue && branchId.Value != Guid.Empty)
+                {
+                    var branchProp = entry.Properties.FirstOrDefault(p => p.Metadata.Name == "BranchId");
+                    if (branchProp != null)
+                    {
+                        if (branchProp.CurrentValue == null || (branchProp.CurrentValue is Guid g && g == Guid.Empty))
+                        {
+                            branchProp.CurrentValue = branchProp.Metadata.ClrType == typeof(Guid) ? (object)branchId.Value : (Guid?)branchId.Value;
+                        }
                     }
                 }
             }

@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, signal, ViewChild } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, effect, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
@@ -15,6 +15,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { HttpClient } from '@angular/common/http';
 import { AuthService, BranchInfo } from '../core/services/auth.service';
 import { MenuService, MenuItem } from '../core/services/menu.service';
+import { TenantService } from '../core/services/tenant.service';
 import { IdleTimeoutService } from '../core/services/idle-timeout.service';
 import { API_BASE, HolidayDto } from '../features/teachers/teacher.models';
 import { FooterComponent } from './footer/footer.component';
@@ -46,12 +47,16 @@ import { FooterComponent } from './footer/footer.component';
         [opened]="!isMobile()">
 
         <div class="brand-section">
-          <div class="brand-logo-badge" *ngIf="!currentUser()?.profilePhoto">
+          <div class="brand-logo-badge" *ngIf="!currentUser()?.profilePhoto || logoImgFailed()">
             <mat-icon class="brand-icon">school</mat-icon>
           </div>
-          <img *ngIf="currentUser()?.profilePhoto" [src]="getPhotoUrl(currentUser()?.profilePhoto)" class="brand-logo-img" alt="Logo">
+          <img *ngIf="currentUser()?.profilePhoto && !logoImgFailed()" 
+               [src]="getPhotoUrl(currentUser()?.profilePhoto)" 
+               (error)="onLogoImgError()"
+               class="brand-logo-img" 
+               alt="Institute Logo">
           <div class="brand-titles">
-            <span class="brand-name">{{ currentUser()?.instituteName || 'Apex Coaching Academy' }}</span>
+            <span class="brand-name" [matTooltip]="currentUser()?.instituteName || 'Apex Coaching Academy'">{{ currentUser()?.instituteName || 'Apex Coaching Academy' }}</span>
             <span class="brand-sub">{{ currentUser()?.tenantCode || 'APEX' }} &bull; Multi-Tenant SaaS</span>
           </div>
           <button *ngIf="isMobile()" mat-icon-button class="close-drawer-btn" (click)="drawer.close()">
@@ -285,36 +290,75 @@ import { FooterComponent } from './footer/footer.component';
       height: 100vh;
     }
     .sidenav {
-      width: 295px !important;
+      width: 300px !important;
       background-color: #0b1329 !important;
       border-right: 1px solid #1e293b;
       display: flex;
       flex-direction: column;
       box-shadow: 4px 0 24px rgba(0, 0, 0, 0.25);
+
+      ::ng-deep .mat-drawer-inner-container {
+        scrollbar-width: thin !important;
+        scrollbar-color: transparent transparent !important;
+        transition: scrollbar-color 0.25s ease !important;
+
+        &::-webkit-scrollbar {
+          width: 6px !important;
+        }
+        &::-webkit-scrollbar-track {
+          background: transparent !important;
+        }
+        &::-webkit-scrollbar-button {
+          display: none !important;
+          width: 0 !important;
+          height: 0 !important;
+        }
+        &::-webkit-scrollbar-thumb {
+          background: transparent !important;
+          border-radius: 6px !important;
+          transition: background-color 0.25s ease !important;
+        }
+      }
+
+      &:hover {
+        ::ng-deep .mat-drawer-inner-container {
+          scrollbar-color: rgba(148, 163, 184, 0.4) transparent !important;
+
+          &::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.4) !important;
+
+            &:hover {
+              background: rgba(148, 163, 184, 0.7) !important;
+            }
+          }
+        }
+      }
     }
     .brand-section {
-      padding: 16px 18px;
+      padding: 14px 14px;
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
       position: relative;
       background: #080d1a;
       border-bottom: 1px solid #1e293b;
+      flex-shrink: 0;
 
       .brand-logo-img {
-        width: 42px;
-        height: 42px;
-        border-radius: 10px;
+        width: 38px;
+        height: 38px;
+        border-radius: 9px;
         object-fit: cover;
         border: 1px solid rgba(255, 255, 255, 0.2);
         box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
         flex-shrink: 0;
+        background: #ffffff;
       }
 
       .brand-logo-badge {
-        width: 42px;
-        height: 42px;
-        border-radius: 10px;
+        width: 38px;
+        height: 38px;
+        border-radius: 9px;
         background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
         display: flex;
         align-items: center;
@@ -323,54 +367,60 @@ import { FooterComponent } from './footer/footer.component';
         flex-shrink: 0;
 
         .brand-icon {
-          font-size: 24px;
-          width: 24px;
-          height: 24px;
+          font-size: 22px;
+          width: 22px;
+          height: 22px;
           color: #ffffff;
         }
       }
       .brand-titles {
         display: flex;
         flex-direction: column;
+        justify-content: center;
         flex: 1;
+        min-width: 0;
         overflow: hidden;
 
         .brand-name {
           font-weight: 700;
-          font-size: 0.98rem;
+          font-size: 0.93rem;
           color: #f8fafc;
-          white-space: nowrap;
+          white-space: nowrap !important;
           overflow: hidden;
           text-overflow: ellipsis;
           letter-spacing: -0.01em;
+          line-height: 1.25;
         }
         .brand-sub {
-          font-size: 0.7rem;
+          font-size: 0.67rem;
           color: #38bdf8;
           font-weight: 600;
-          letter-spacing: 0.05em;
+          letter-spacing: 0.02em;
           text-transform: uppercase;
+          white-space: nowrap !important;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          line-height: 1.25;
+          margin-top: 2px;
         }
       }
       .close-drawer-btn {
         margin-left: auto;
         color: #94a3b8;
+        flex-shrink: 0;
       }
     }
     .nav-container {
       flex: 1;
       overflow-y: auto;
       padding: 10px 8px;
+      scrollbar-width: none !important;
+      -ms-overflow-style: none !important;
 
       &::-webkit-scrollbar {
-        width: 4px;
-      }
-      &::-webkit-scrollbar-track {
-        background: transparent;
-      }
-      &::-webkit-scrollbar-thumb {
-        background: #1e293b;
-        border-radius: 2px;
+        display: none !important;
+        width: 0 !important;
+        height: 0 !important;
       }
     }
     .menu-accordion {
@@ -437,6 +487,9 @@ import { FooterComponent } from './footer/footer.component';
       justify-content: center;
       flex-shrink: 0;
 
+      background: linear-gradient(135deg, #06b6d4 0%, #0284c7 100%);
+      box-shadow: 0 2px 8px rgba(6, 182, 212, 0.35);
+
       .menu-icon, mat-icon {
         font-size: 17px;
         width: 17px;
@@ -451,6 +504,10 @@ import { FooterComponent } from './footer/footer.component';
       &.badge-master {
         background: linear-gradient(135deg, #06b6d4 0%, #0284c7 100%);
         box-shadow: 0 2px 8px rgba(6, 182, 212, 0.35);
+      }
+      &.badge-attendance {
+        background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+        box-shadow: 0 2px 8px rgba(244, 63, 94, 0.35);
       }
       &.badge-teachers {
         background: linear-gradient(135deg, #10b981 0%, #059669 100%);
@@ -1077,12 +1134,38 @@ export class LayoutComponent implements OnInit {
 
   @ViewChild('drawer') drawer!: MatSidenav;
 
+  logoImgFailed = signal(false);
+
   constructor(
     private authService: AuthService,
+    private tenantService: TenantService,
     private menuService: MenuService,
     private idleTimeout: IdleTimeoutService,
     private breakpointObserver: BreakpointObserver
-  ) { }
+  ) {
+    effect(() => {
+      const user = this.currentUser();
+      if (user?.profilePhoto) {
+        this.logoImgFailed.set(false);
+      }
+    });
+  }
+
+  onLogoImgError(): void {
+    this.logoImgFailed.set(true);
+  }
+
+  loadCurrentTenant(): void {
+    this.tenantService.getCurrentTenant().subscribe({
+      next: (t) => {
+        if (t) {
+          this.logoImgFailed.set(false);
+          this.authService.updateTenantProfile(t.profilePhoto, t.name, t.code);
+        }
+      },
+      error: () => {}
+    });
+  }
 
   onHeaderSearch(event: Event): void {
     this.headerSearch = (event.target as HTMLInputElement).value;
@@ -1101,6 +1184,7 @@ export class LayoutComponent implements OnInit {
       this.isMobile.set(result.matches);
     });
 
+    this.loadCurrentTenant();
     this.loadMenu();
     this.loadCalendarHolidays();
     this.idleTimeout.startMonitoring();
@@ -1210,32 +1294,41 @@ export class LayoutComponent implements OnInit {
         ]
       },
       {
-        id: '3', title: 'Teacher Module', routeUrl: '', icon: 'person', sortOrder: 3, module: 'Teachers', isActive: true,
+        id: '3', title: 'Attendance Management', routeUrl: '', icon: 'event_available', sortOrder: 3, module: 'Attendance', isActive: true,
         children: [
-          { id: '31', title: 'Teacher Profiles', routeUrl: '/teachers', icon: 'badge', sortOrder: 1, module: 'Teachers', isActive: true, children: [] },
-          { id: '32', title: 'Batch Assignments', routeUrl: '/teachers/assignments', icon: 'class', sortOrder: 2, module: 'Teachers', isActive: true, children: [] },
-          { id: '33', title: 'Attendance', routeUrl: '/teachers/attendance', icon: 'event_available', sortOrder: 3, module: 'Teachers', isActive: true, children: [] },
-          { id: '34', title: 'Salary Structure', routeUrl: '/teachers/salary', icon: 'account_balance_wallet', sortOrder: 4, module: 'Teachers', isActive: true, children: [] },
-          { id: '35', title: 'Salary Payments', routeUrl: '/teachers/payments', icon: 'payments', sortOrder: 5, module: 'Teachers', isActive: true, children: [] },
-          { id: '36', title: 'Salary Advances', routeUrl: '/teachers/advances', icon: 'currency_rupee', sortOrder: 6, module: 'Teachers', isActive: true, children: [] },
-          { id: '37', title: 'Leave Management', routeUrl: '/teachers/leaves', icon: 'beach_access', sortOrder: 7, module: 'Teachers', isActive: true, children: [] }
+          { id: '301', title: 'Student Attendance', routeUrl: '/students/attendance', icon: 'how_to_reg', sortOrder: 1, module: 'Attendance', isActive: true, children: [] },
+          { id: '302', title: 'Teacher Attendance', routeUrl: '/teachers/attendance', icon: 'co_present', sortOrder: 2, module: 'Attendance', isActive: true, children: [] },
+          { id: '303', title: 'Attendance Reports', routeUrl: '/attendance/reports', icon: 'summarize', sortOrder: 3, module: 'Attendance', isActive: true, children: [] },
+          { id: '304', title: 'Biometric Devices', routeUrl: '/attendance/devices', icon: 'fingerprint', sortOrder: 4, module: 'Attendance', isActive: true, children: [] }
         ]
       },
       {
-        id: '4', title: 'Academic Operations', routeUrl: '', icon: 'school', sortOrder: 4, module: 'Academic', isActive: true,
+        id: '4', title: 'Teacher Module', routeUrl: '', icon: 'person', sortOrder: 4, module: 'Teachers', isActive: true,
         children: [
-          { id: '41', title: 'Fee Collection', routeUrl: '/fees', icon: 'payments', sortOrder: 1, module: 'Academic', isActive: true, children: [] },
-          { id: '42', title: 'Tests & Report Cards', routeUrl: '/tests', icon: 'assignment', sortOrder: 2, module: 'Academic', isActive: true, children: [] },
-          { id: '43', title: 'WhatsApp Logs', routeUrl: '/whatsapp', icon: 'chat', sortOrder: 3, module: 'Academic', isActive: true, children: [] }
+          { id: '41', title: 'Teacher Profiles', routeUrl: '/teachers', icon: 'badge', sortOrder: 1, module: 'Teachers', isActive: true, children: [] },
+          { id: '42', title: 'Batch Assignments', routeUrl: '/teachers/assignments', icon: 'class', sortOrder: 2, module: 'Teachers', isActive: true, children: [] },
+          { id: '43', title: 'Attendance', routeUrl: '/teachers/attendance', icon: 'event_available', sortOrder: 3, module: 'Teachers', isActive: true, children: [] },
+          { id: '44', title: 'Salary Structure', routeUrl: '/teachers/salary', icon: 'account_balance_wallet', sortOrder: 4, module: 'Teachers', isActive: true, children: [] },
+          { id: '45', title: 'Salary Payments', routeUrl: '/teachers/payments', icon: 'payments', sortOrder: 5, module: 'Teachers', isActive: true, children: [] },
+          { id: '46', title: 'Salary Advances', routeUrl: '/teachers/advances', icon: 'currency_rupee', sortOrder: 6, module: 'Teachers', isActive: true, children: [] },
+          { id: '47', title: 'Leave Management', routeUrl: '/teachers/leaves', icon: 'beach_access', sortOrder: 7, module: 'Teachers', isActive: true, children: [] }
         ]
       },
       {
-        id: '5', title: 'Admin Settings', routeUrl: '', icon: 'settings', sortOrder: 5, module: 'Admin', isActive: true,
+        id: '5', title: 'Academic Operations', routeUrl: '', icon: 'school', sortOrder: 5, module: 'Academic', isActive: true,
         children: [
-          { id: '51', title: 'Roles & Permissions', routeUrl: '/roles', icon: 'admin_panel_settings', sortOrder: 1, module: 'Admin', isActive: true, children: [] },
-          { id: '52', title: 'User Management', routeUrl: '/users', icon: 'person_add', sortOrder: 2, module: 'Admin', isActive: true, children: [] },
-          { id: '53', title: 'Biometric Devices', routeUrl: '/attendance/devices', icon: 'fingerprint', sortOrder: 3, module: 'Admin', isActive: true, children: [] },
-          { id: '54', title: 'Institutes & Tenants', routeUrl: '/admin/tenants', icon: 'corporate_fare', sortOrder: 4, module: 'Admin', isActive: true, children: [] }
+          { id: '51', title: 'Fee Collection', routeUrl: '/fees', icon: 'payments', sortOrder: 1, module: 'Academic', isActive: true, children: [] },
+          { id: '52', title: 'Tests & Report Cards', routeUrl: '/tests', icon: 'assignment', sortOrder: 2, module: 'Academic', isActive: true, children: [] },
+          { id: '53', title: 'WhatsApp Logs', routeUrl: '/whatsapp', icon: 'chat', sortOrder: 3, module: 'Academic', isActive: true, children: [] }
+        ]
+      },
+      {
+        id: '6', title: 'Admin Settings', routeUrl: '', icon: 'settings', sortOrder: 6, module: 'Admin', isActive: true,
+        children: [
+          { id: '61', title: 'Roles & Permissions', routeUrl: '/roles', icon: 'admin_panel_settings', sortOrder: 1, module: 'Admin', isActive: true, children: [] },
+          { id: '62', title: 'User Management', routeUrl: '/users', icon: 'person_add', sortOrder: 2, module: 'Admin', isActive: true, children: [] },
+          { id: '63', title: 'Biometric Devices', routeUrl: '/attendance/devices', icon: 'fingerprint', sortOrder: 3, module: 'Admin', isActive: true, children: [] },
+          { id: '64', title: 'Institutes & Tenants', routeUrl: '/admin/tenants', icon: 'corporate_fare', sortOrder: 4, module: 'Admin', isActive: true, children: [] }
         ]
       }
     ]);

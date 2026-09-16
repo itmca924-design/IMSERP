@@ -294,11 +294,16 @@ public class StudentsController : ControllerBase
             record = new StudentAttendance
             {
                 TenantId = _currentUser.TenantId,
+                BranchId = student.BranchId ?? _currentUser.BranchId,
                 StudentId = id,
                 AttendanceDate = date,
                 CreatedAt = DateTime.UtcNow
             };
             _dbContext.StudentAttendances.Add(record);
+        }
+        else if (!record.BranchId.HasValue && student.BranchId.HasValue)
+        {
+            record.BranchId = student.BranchId;
         }
 
         record.Status = status;
@@ -311,6 +316,126 @@ public class StudentsController : ControllerBase
         await _dbContext.SaveChangesAsync();
 
         return Ok(MapStudentAttendance(record, student));
+    }
+
+    [HttpGet("batch/{batchId}/attendance")]
+    public async Task<ActionResult<IEnumerable<BatchAttendanceStudentRowDto>>> GetBatchAttendance(
+        Guid batchId, [FromQuery] DateTime? date = null)
+    {
+        var targetDate = (date ?? DateTime.UtcNow).Date;
+        var tenantId = _currentUser.TenantId;
+
+        var students = await _dbContext.Students
+            .AsNoTracking()
+            .Where(s => s.TenantId == tenantId && s.BatchId == batchId && s.IsActive)
+            .OrderBy(s => s.RollNumber)
+            .ThenBy(s => s.StudentName)
+            .ToListAsync();
+
+        var studentIds = students.Select(s => s.Id).ToList();
+
+        var existingRecords = await _dbContext.StudentAttendances
+            .AsNoTracking()
+            .Where(a => a.TenantId == tenantId && studentIds.Contains(a.StudentId) && a.AttendanceDate == targetDate)
+            .ToDictionaryAsync(a => a.StudentId);
+
+        var result = students.Select(s =>
+        {
+            existingRecords.TryGetValue(s.Id, out var att);
+            return new BatchAttendanceStudentRowDto(
+                s.Id,
+                s.StudentName,
+                s.RollNumber,
+                s.ProfilePhoto,
+                s.ParentWhatsAppPhone,
+                att != null ? att.Status.ToString() : "Present",
+                att?.Remarks,
+                att?.Id
+            );
+        }).ToList();
+
+        return Ok(result);
+    }
+
+    [HttpPost("batch/{batchId}/attendance/bulk")]
+    public async Task<IActionResult> SaveBulkBatchAttendance(
+        Guid batchId, [FromBody] BulkBatchAttendanceDto dto)
+    {
+        if (!await HasAttendancePermissionAsync("/attendance/permissions/manual", false))
+            return Forbid();
+
+        if (!await IsManualAttendanceAllowedAsync())
+            return Conflict(new { message = "Manual student attendance is disabled. Current mode is Biometric." });
+
+        var date = dto.AttendanceDate.Date;
+        if (!await CanEditPublicHolidayOrSundayAsync() && await IsPublicHolidayOrSundayAsync(date))
+            return Forbid();
+
+        var tenantId = _currentUser.TenantId;
+        var batch = await _dbContext.Batches.Include(b => b.Branch).FirstOrDefaultAsync(b => b.Id == batchId && b.TenantId == tenantId);
+        if (batch == null) return NotFound(new { message = "Batch not found." });
+
+        var studentIds = dto.Items.Select(i => i.StudentId).ToList();
+        var students = await _dbContext.Students
+            .Where(s => s.TenantId == tenantId && studentIds.Contains(s.Id))
+            .ToDictionaryAsync(s => s.Id);
+
+        var existingRecords = await _dbContext.StudentAttendances
+            .Where(a => a.TenantId == tenantId && studentIds.Contains(a.StudentId) && a.AttendanceDate == date)
+            .ToDictionaryAsync(a => a.StudentId);
+
+        int presentCount = 0;
+        int absentCount = 0;
+        int lateCount = 0;
+        int halfDayCount = 0;
+
+        foreach (var item in dto.Items)
+        {
+            if (!students.TryGetValue(item.StudentId, out var student)) continue;
+            if (!TryParseAttendanceStatus(item.Status, out var status)) continue;
+
+            if (status == TeacherAttendanceStatus.Present) presentCount++;
+            else if (status == TeacherAttendanceStatus.Absent) absentCount++;
+            else if (status == TeacherAttendanceStatus.Late) lateCount++;
+            else if (status == TeacherAttendanceStatus.HalfDay) halfDayCount++;
+
+            if (existingRecords.TryGetValue(item.StudentId, out var existing))
+            {
+                existing.Status = status;
+                existing.Remarks = item.Remarks;
+                existing.MarkedBy = _currentUser.UserId.ToString();
+                existing.BranchId = student.BranchId ?? batch.BranchId ?? _currentUser.BranchId;
+                existing.CaptureSource = "ManualBulk";
+            }
+            else
+            {
+                var newRecord = new StudentAttendance
+                {
+                    TenantId = tenantId,
+                    BranchId = student.BranchId ?? batch.BranchId ?? _currentUser.BranchId,
+                    StudentId = student.Id,
+                    AttendanceDate = date,
+                    Status = status,
+                    Remarks = item.Remarks,
+                    MarkedBy = _currentUser.UserId.ToString(),
+                    CaptureSource = "ManualBulk",
+                    CreatedAt = DateTime.UtcNow
+                };
+                _dbContext.StudentAttendances.Add(newRecord);
+            }
+        }
+
+        await _dbContext.SaveChangesAsync();
+
+        return Ok(new
+        {
+            message = $"Batch attendance saved successfully for {dto.Items.Count} students.",
+            totalCount = dto.Items.Count,
+            presentCount,
+            absentCount,
+            lateCount,
+            halfDayCount
+        });
     }
 
     [HttpDelete("attendance/{attendanceId}")]
@@ -334,17 +459,26 @@ public class StudentsController : ControllerBase
     }
 
     [HttpGet("check-phone")]
-    public async Task<ActionResult<object>> CheckPhoneDuplicate(
-        [FromQuery] string phone,
-        [FromQuery] Guid? excludeStudentId = null)
+    public async Task<IActionResult> CheckPhoneDuplicate(
+        [FromQuery] string phone, 
+        [FromQuery] Guid? excludeStudentId = null,
+        [FromQuery] string? currentStudentName = null)
     {
         if (string.IsNullOrWhiteSpace(phone))
             return BadRequest(new { message = "phone is required." });
 
+        var tenantId = _currentUser.TenantId;
+        var clean = phone.Trim().Replace(" ", "").Replace("-", "");
+        var withPrefix = clean.StartsWith("+91") ? clean : "+91" + clean;
+        var withoutPrefix = clean.StartsWith("+91") ? clean.Substring(3) : clean;
+
         var query = _dbContext.Students
             .AsNoTracking()
             .Include(s => s.Batch)
-            .Where(s => s.ParentWhatsAppPhone == phone.Trim());
+            .ThenInclude(b => b.Branch)
+            .Include(s => s.Branch)
+            .Where(s => s.TenantId == tenantId)
+            .Where(s => s.ParentWhatsAppPhone == clean || s.ParentWhatsAppPhone == withPrefix || s.ParentWhatsAppPhone == withoutPrefix);
 
         if (excludeStudentId.HasValue && excludeStudentId != Guid.Empty)
             query = query.Where(s => s.Id != excludeStudentId.Value);
@@ -353,14 +487,39 @@ public class StudentsController : ControllerBase
             .Select(s => new
             {
                 s.StudentName,
-                BatchName = s.Batch != null ? s.Batch.Name : ""
+                s.ParentName,
+                BatchName = s.Batch != null ? s.Batch.Name : "",
+                BranchName = s.Branch != null ? s.Branch.Name : (s.Batch != null && s.Batch.Branch != null ? s.Batch.Branch.Name : "")
             })
             .FirstOrDefaultAsync();
 
         if (existing != null)
-            return Ok(new { isDuplicate = true, studentName = existing.StudentName, batchName = existing.BatchName });
+        {
+            var isSameStudent = !string.IsNullOrWhiteSpace(currentStudentName)
+                && string.Equals(existing.StudentName.Trim(), currentStudentName.Trim(), StringComparison.OrdinalIgnoreCase);
 
-        return Ok(new { isDuplicate = false, studentName = (string?)null, batchName = (string?)null });
+            return Ok(new
+            {
+                isFound = true,
+                isDuplicate = isSameStudent,
+                isSibling = !isSameStudent,
+                studentName = existing.StudentName,
+                parentName = existing.ParentName,
+                batchName = existing.BatchName,
+                branchName = existing.BranchName
+            });
+        }
+
+        return Ok(new
+        {
+            isFound = false,
+            isDuplicate = false,
+            isSibling = false,
+            studentName = (string?)null,
+            parentName = (string?)null,
+            batchName = (string?)null,
+            branchName = (string?)null
+        });
     }
 
     [HttpGet("paged")]
@@ -372,7 +531,7 @@ public class StudentsController : ControllerBase
         [FromQuery] bool sortDescending = false,
         [FromQuery] Guid? batchId = null)
     {
-        var query = _dbContext.Students.AsNoTracking().Include(s => s.Batch).AsQueryable();
+        var query = _dbContext.Students.AsNoTracking().Include(s => s.Batch).Include(s => s.Branch).AsQueryable();
 
         if (batchId.HasValue && batchId != Guid.Empty)
         {
@@ -412,7 +571,9 @@ public class StudentsController : ControllerBase
                 s.IsActive,
                 s.JoiningDate,
                 s.Address,
-                s.ProfilePhoto
+                s.ProfilePhoto,
+                s.BranchId,
+                s.Branch != null ? s.Branch.Name : null
             )).ToListAsync();
 
         return Ok(new PagedResult<StudentDto>(items, totalCount, pageNumber, pageSize));
@@ -438,9 +599,18 @@ public class StudentsController : ControllerBase
         {
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
 
+            var batch = await _dbContext.Batches.Include(b => b.Branch).FirstOrDefaultAsync(b => b.Id == dto.BatchId);
+            var targetBranchId = dto.BranchId ?? batch?.BranchId ?? _currentUser.BranchId;
+            if (!targetBranchId.HasValue || targetBranchId.Value == Guid.Empty)
+            {
+                var mainBranch = await _dbContext.Branches.AsNoTracking().FirstOrDefaultAsync(b => b.IsMainBranch);
+                targetBranchId = mainBranch?.Id;
+            }
+
             var student = new Student
             {
                 TenantId = _currentUser.TenantId,
+                BranchId = targetBranchId,
                 BatchId = dto.BatchId,
                 RollNumber = dto.RollNumber,
                 StudentName = dto.StudentName,
@@ -458,7 +628,6 @@ public class StudentsController : ControllerBase
             student.ProfilePhoto = ImageStorageHelper.SaveBase64Image(dto.ProfilePhoto, "students", student.Id.ToString(), _env.ContentRootPath);
             await _dbContext.SaveChangesAsync();
 
-            var batch = await _dbContext.Batches.FindAsync(dto.BatchId);
             var feeRate = batch?.StandardMonthlyFee ?? 3500m;
             var now = DateTime.UtcNow;
 
@@ -466,6 +635,7 @@ public class StudentsController : ControllerBase
             var initialInvoice = new FeeInvoice
             {
                 TenantId = _currentUser.TenantId,
+                BranchId = student.BranchId,
                 StudentId = student.Id,
                 InvoiceNumber = $"INV-{now.Year}{now.Month:D2}-{new Random().Next(100, 999)}",
                 Title = $"{now:MMMM yyyy} Tuition Fee",
@@ -481,6 +651,10 @@ public class StudentsController : ControllerBase
 
             await transaction.CommitAsync();
 
+            var branchName = student.BranchId.HasValue
+                ? (await _dbContext.Branches.AsNoTracking().FirstOrDefaultAsync(b => b.Id == student.BranchId))?.Name
+                : null;
+
             return Ok(new StudentDto(
                 student.Id,
                 student.BatchId,
@@ -492,7 +666,9 @@ public class StudentsController : ControllerBase
                 student.IsActive,
                 student.JoiningDate,
                 student.Address,
-                student.ProfilePhoto
+                student.ProfilePhoto,
+                student.BranchId,
+                branchName
             ));
         });
     }
@@ -502,6 +678,20 @@ public class StudentsController : ControllerBase
     {
         var student = await _dbContext.Students.FindAsync(id);
         if (student == null) return NotFound();
+
+        var batch = await _dbContext.Batches.FindAsync(dto.BatchId);
+        if (dto.BranchId.HasValue && dto.BranchId.Value != Guid.Empty)
+        {
+            student.BranchId = dto.BranchId.Value;
+        }
+        else if (batch?.BranchId.HasValue == true)
+        {
+            student.BranchId = batch.BranchId;
+        }
+        else if (!student.BranchId.HasValue && _currentUser.BranchId.HasValue)
+        {
+            student.BranchId = _currentUser.BranchId;
+        }
 
         student.BatchId = dto.BatchId;
         student.RollNumber = dto.RollNumber;
@@ -514,7 +704,9 @@ public class StudentsController : ControllerBase
 
         await _dbContext.SaveChangesAsync();
 
-        var batch = await _dbContext.Batches.FindAsync(dto.BatchId);
+        var branchName = student.BranchId.HasValue
+            ? (await _dbContext.Branches.AsNoTracking().FirstOrDefaultAsync(b => b.Id == student.BranchId))?.Name
+            : null;
 
         return Ok(new StudentDto(
             student.Id,
@@ -527,7 +719,9 @@ public class StudentsController : ControllerBase
             student.IsActive,
             student.JoiningDate,
             student.Address,
-            student.ProfilePhoto
+            student.ProfilePhoto,
+            student.BranchId,
+            branchName
         ));
     }
 }

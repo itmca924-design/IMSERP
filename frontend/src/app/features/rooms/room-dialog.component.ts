@@ -11,6 +11,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { RoomDto, CreateRoomDto, UpdateRoomDto, RoomService } from '../../core/services/room.service';
 import { BranchDto } from '../../core/services/branch.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
+import { AuthService } from '../../core/services/auth.service';
 
 export interface RoomDialogData {
   isEditing: boolean;
@@ -153,11 +154,17 @@ export class RoomDialogComponent implements OnInit {
     @Inject(MAT_DIALOG_DATA) public data: RoomDialogData,
     private fb: FormBuilder,
     private roomService: RoomService,
+    private authService: AuthService,
     private confirmDialog: ConfirmDialogService
   ) {}
 
   ngOnInit(): void {
-    const defaultBranchId = this.data.branches.find(b => b.isMainBranch)?.id ||
+    const activeBranchId = this.authService.selectedBranchId() || this.authService.currentUser()?.branchId;
+    const matchingBranch = activeBranchId
+      ? this.data.branches.find(b => b.id?.toLowerCase() === activeBranchId.toLowerCase())
+      : null;
+    const defaultBranchId = matchingBranch?.id ||
+      this.data.branches.find(b => b.isMainBranch)?.id ||
       (this.data.branches.length > 0 ? this.data.branches[0].id : '');
 
     this.roomForm = this.fb.group({

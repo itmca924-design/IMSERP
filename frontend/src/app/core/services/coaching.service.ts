@@ -45,10 +45,19 @@ export class CoachingService {
     });
   }
 
-  checkPhoneDuplicate(phone: string, excludeStudentId?: string): Observable<{ isDuplicate: boolean; studentName: string | null; batchName: string | null }> {
+  checkPhoneDuplicate(phone: string, excludeStudentId?: string, currentStudentName?: string): Observable<{
+    isFound: boolean;
+    isDuplicate: boolean;
+    isSibling: boolean;
+    studentName: string | null;
+    parentName: string | null;
+    batchName: string | null;
+    branchName: string | null;
+  }> {
     const params: any = { phone };
     if (excludeStudentId) params.excludeStudentId = excludeStudentId;
-    return this.http.get<{ isDuplicate: boolean; studentName: string | null; batchName: string | null }>(
+    if (currentStudentName) params.currentStudentName = currentStudentName;
+    return this.http.get<any>(
       `${this.BASE_URL}/students/check-phone`, { params }
     );
   }
@@ -67,6 +76,21 @@ export class CoachingService {
 
   getBatches(): Observable<any[]> {
     return this.http.get<any[]>(`${this.BASE_URL}/batches`);
+  }
+
+  getBatchAttendance(batchId: string, date?: string): Observable<any[]> {
+    const params: any = {};
+    if (date) params.date = date;
+    return this.http.get<any[]>(`${this.BASE_URL}/students/batch/${batchId}/attendance`, { params });
+  }
+
+  saveBulkBatchAttendance(batchId: string, payload: {
+    batchId: string;
+    attendanceDate: string;
+    sendWhatsAppAlerts: boolean;
+    items: Array<{ studentId: string; status: string; remarks?: string | null }>;
+  }): Observable<any> {
+    return this.http.post<any>(`${this.BASE_URL}/students/batch/${batchId}/attendance/bulk`, payload);
   }
 
   createBatch(batch: any): Observable<any> {

@@ -578,10 +578,10 @@ import { LocalDatetimePipe } from '../../shared/pipes/local-datetime.pipe';
     }
     .header-text-group h2 {
       margin: 0;
-      font-size: 1.6rem;
-      color: #1e293b;
+      font-size: 1.5rem;
+      color: #1976d2;
       font-weight: 700;
-      letter-spacing: -0.02em;
+      letter-spacing: -0.01em;
     }
     .header-text-group p {
       margin: 4px 0 0;

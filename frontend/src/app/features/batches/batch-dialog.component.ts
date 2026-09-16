@@ -9,11 +9,15 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatIconModule } from '@angular/material/icon';
+import { forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { BatchDto, BatchesService } from '../../core/services/batches.service';
 import { SubjectDto, SubjectsService } from '../../core/services/subjects.service';
 import { BranchDto, BranchService } from '../../core/services/branch.service';
 import { RoomDto, RoomService } from '../../core/services/room.service';
+import { AuthService } from '../../core/services/auth.service';
 
 @Component({
   selector: 'app-batch-dialog',
@@ -30,6 +34,7 @@ import { RoomDto, RoomService } from '../../core/services/room.service';
     MatCheckboxModule,
     MatButtonModule,
     MatProgressSpinnerModule,
+    MatProgressBarModule,
     MatIconModule
   ],
   template: `
@@ -37,6 +42,8 @@ import { RoomDto, RoomService } from '../../core/services/room.service';
       <mat-icon color="primary">{{ isEditMode ? 'edit' : 'add_circle' }}</mat-icon>
       <span>{{ isEditMode ? 'Edit Academic Batch' : 'Create New Academic Batch' }}</span>
     </h2>
+
+    <mat-progress-bar mode="indeterminate" *ngIf="loading" class="dialog-loader"></mat-progress-bar>
 
     <form [formGroup]="batchForm" (ngSubmit)="onSubmit()">
       <mat-dialog-content class="dialog-content">
@@ -115,7 +122,7 @@ import { RoomDto, RoomService } from '../../core/services/room.service';
               <mat-option [value]="null"><em>None / Unassigned</em></mat-option>
               <mat-option *ngFor="let r of filteredRooms" [value]="r.id">
                 <mat-icon color="primary" class="option-icon">meeting_room</mat-icon>
-                <span>Room {{ r.roomNumber }} (Cap: {{ r.capacity }}{{ r.floor ? ', ' + r.floor : '' }})</span>
+                <span>{{ formatRoomDisplay(r.roomNumber) }} (Cap: {{ r.capacity }}{{ r.floor ? ', ' + r.floor : '' }})</span>
               </mat-option>
             </mat-select>
           </mat-form-field>
@@ -137,9 +144,9 @@ import { RoomDto, RoomService } from '../../core/services/room.service';
 
       <mat-dialog-actions align="end" class="dialog-actions">
         <button mat-button type="button" (click)="onCancel()" [disabled]="saving">Cancel</button>
-        <button mat-raised-button color="primary" type="submit" [disabled]="batchForm.invalid || saving">
+        <button mat-raised-button color="primary" type="submit" [disabled]="batchForm.invalid || saving || loading">
           <mat-spinner diameter="20" *ngIf="saving" class="spinner"></mat-spinner>
-          <span>{{ isEditMode ? 'Update Batch' : 'Save Batch' }}</span>
+          <span>{{ saving ? 'Saving...' : (isEditMode ? 'Update Batch' : 'Save Batch') }}</span>
         </button>
       </mat-dialog-actions>
     </form>
@@ -150,6 +157,10 @@ import { RoomDto, RoomService } from '../../core/services/room.service';
       align-items: center;
       gap: 8px;
       font-weight: 600;
+    }
+    .dialog-loader {
+      margin: 0;
+      height: 4px;
     }
     .dialog-content {
       padding-top: 12px;
@@ -241,6 +252,7 @@ export class BatchDialogComponent implements OnInit {
   batchForm!: FormGroup;
   isEditMode = false;
   saving = false;
+  loading = false;
   availableSubjects: SubjectDto[] = [];
   availableBranches: BranchDto[] = [];
   availableRooms: RoomDto[] = [];
@@ -253,6 +265,7 @@ export class BatchDialogComponent implements OnInit {
     private subjectsService: SubjectsService,
     private branchService: BranchService,
     private roomService: RoomService,
+    private authService: AuthService,
     private dialogRef: MatDialogRef<BatchDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data?: BatchDto
   ) {}
@@ -265,37 +278,45 @@ export class BatchDialogComponent implements OnInit {
       initialSubjectList = this.data.subject.split(',').map(s => s.trim()).filter(s => s.length > 0);
     }
 
+    const headerBranchId = this.authService.selectedBranchId() || this.authService.currentUser()?.branchId;
+    const initialBranchId = this.data?.branchId || (!this.isEditMode ? headerBranchId : null);
+
     this.batchForm = this.fb.group({
       name: [this.data?.name || '', [Validators.required, Validators.maxLength(200)]],
       selectedSubjects: [initialSubjectList, [Validators.required]],
-      branchId: [this.data?.branchId || null],
+      branchId: [initialBranchId || null],
       roomId: [this.data?.roomId || null],
       academicYear: [this.data?.academicYear || '2026-2027', [Validators.required]],
       standardMonthlyFee: [this.data?.standardMonthlyFee || 3500, [Validators.required, Validators.min(0)]]
     });
 
-    this.subjectsService.getSubjects(true).subscribe({
-      next: (subjects) => {
+    this.loading = true;
+    forkJoin({
+      subjects: this.subjectsService.getSubjects(true).pipe(catchError(() => of([]))),
+      branches: this.branchService.getBranches().pipe(catchError(() => of([]))),
+      rooms: this.roomService.getRooms().pipe(catchError(() => of([])))
+    }).subscribe({
+      next: ({ subjects, branches, rooms }) => {
         this.availableSubjects = subjects;
-      }
-    });
-
-    this.branchService.getBranches().subscribe({
-      next: (branches) => {
         this.availableBranches = branches;
-        // If creating new batch and no branch selected yet, auto-select main branch if available
-        if (!this.data?.id && !this.batchForm.get('branchId')?.value && branches.length > 0) {
-          const mainBranch = branches.find(b => b.isMainBranch) || branches[0];
-          this.batchForm.patchValue({ branchId: mainBranch.id });
-          this.filterRooms();
-        }
-      }
-    });
-
-    this.roomService.getRooms().subscribe({
-      next: (rooms) => {
         this.availableRooms = rooms;
+
+        // Auto-select header toolbar's selected branch when creating a new batch
+        if (!this.isEditMode) {
+          const matchingBranch = headerBranchId
+            ? branches.find(b => b.id?.toLowerCase() === headerBranchId.toLowerCase())
+            : null;
+          const targetBranch = matchingBranch || branches.find(b => b.isMainBranch) || branches[0];
+          if (targetBranch) {
+            this.batchForm.patchValue({ branchId: targetBranch.id });
+          }
+        }
+
         this.filterRooms();
+        this.loading = false;
+      },
+      error: () => {
+        this.loading = false;
       }
     });
   }
@@ -318,6 +339,15 @@ export class BatchDialogComponent implements OnInit {
     } else {
       this.filteredRooms = this.availableRooms.filter(r => r.branchId === selectedBranch);
     }
+  }
+
+  formatRoomDisplay(roomNumber?: string | null): string {
+    if (!roomNumber) return '';
+    const trimmed = roomNumber.trim();
+    if (trimmed.toLowerCase().startsWith('room')) {
+      return trimmed;
+    }
+    return `Room ${trimmed}`;
   }
 
   getFilteredSubjects(): SubjectDto[] {

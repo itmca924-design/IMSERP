@@ -37,12 +37,12 @@ import { AuthService } from '../../core/services/auth.service';
   template: `
     <div class="tenants-wrapper">
       <!-- Header Section -->
-      <div class="header-banner">
+      <div class="page-header">
         <div class="header-titles">
-          <h2>Coaching Institutes &amp; Tenants</h2>
-          <p>Multi-Tenant SaaS provisioning, institute profiles, logos, and branch settings.</p>
+          <h2 class="page-title">Coaching Institutes &amp; Tenants</h2>
+          <p class="page-subtitle">Multi-Tenant SaaS provisioning, institute profiles, logos, and branch settings.</p>
         </div>
-        <button mat-raised-button color="primary" class="action-btn" (click)="openCreateModal()" *ngIf="isSuperAdmin">
+        <button mat-raised-button color="primary" class="add-btn" (click)="openCreateModal()" *ngIf="isSuperAdmin">
           <mat-icon>add_business</mat-icon>
           <span>Provision New Institute</span>
         </button>
@@ -378,28 +378,32 @@ import { AuthService } from '../../core/services/auth.service';
       font-family: 'Inter', system-ui, sans-serif;
     }
 
-    .header-banner {
+    .page-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      background: linear-gradient(135deg, #0b1329 0%, #1e3a8a 100%);
-      color: #ffffff;
-      padding: 22px 28px;
-      border-radius: 14px;
-      box-shadow: 0 8px 24px rgba(11, 19, 41, 0.25);
+      flex-wrap: wrap;
+      gap: 16px;
 
       .header-titles {
-        h2 { font-size: 1.5rem; font-weight: 800; margin: 0 0 6px; letter-spacing: -0.02em; }
-        p  { font-size: 0.9rem; color: #93c5fd; margin: 0; }
+        .page-title {
+          font-size: 1.5rem;
+          font-weight: 700;
+          margin: 0;
+          color: #1976d2;
+          letter-spacing: -0.01em;
+        }
+        .page-subtitle {
+          color: #64748b;
+          margin: 4px 0 0 0;
+          font-size: 0.9rem;
+        }
       }
 
-      .action-btn {
-        background: #38bdf8 !important;
-        color: #0b1329 !important;
-        font-weight: 700;
-        border-radius: 9px;
-        padding: 0 20px;
-        height: 44px;
+      .add-btn {
+        height: 42px;
+        font-weight: 600;
+        border-radius: 8px;
         display: inline-flex;
         align-items: center;
         gap: 6px;
@@ -1001,6 +1005,11 @@ export class TenantsComponent implements OnInit {
         this.tenants = data || [];
         this.filterTenants();
         this.loading = false;
+        const currentTenantId = this.authService.currentUser()?.tenantId;
+        const current = this.tenants.find(t => t.id === currentTenantId || t.id === this.editingId);
+        if (current && current.profilePhoto) {
+          this.authService.updateTenantProfile(current.profilePhoto, current.name, current.code);
+        }
       },
       error: () => {
         this.loading = false;
@@ -1165,8 +1174,12 @@ export class TenantsComponent implements OnInit {
         whatsAppAccessToken: val.whatsAppAccessToken?.trim() || null
       };
 
+      // Realtime instantaneous reflection on the sidebar header right when clicking Save Changes!
+      this.authService.updateTenantProfile(this.profilePhotoPreview, updateDto.name);
+
       this.tenantService.updateTenant(this.editingId, updateDto).subscribe({
-        next: () => {
+        next: (res: any) => {
+          this.authService.updateTenantProfile(res?.profilePhoto || updateDto.profilePhoto, updateDto.name, res?.code);
           this.closeModal();
           this.loadTenants();
         },

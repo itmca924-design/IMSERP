@@ -79,6 +79,42 @@ public class TenantsController : ControllerBase
         return Ok(tenantDtos);
     }
 
+    [HttpGet("current")]
+    public async Task<ActionResult<TenantDto>> GetCurrentTenant()
+    {
+        var tenantId = _currentUser.TenantId;
+        Tenant? t = null;
+
+        if (tenantId != Guid.Empty)
+        {
+            t = await _dbContext.Tenants.AsNoTracking().FirstOrDefaultAsync(x => x.Id == tenantId);
+        }
+
+        if (t == null)
+        {
+            t = await _dbContext.Tenants.AsNoTracking().FirstOrDefaultAsync(x => x.IsActive);
+        }
+
+        if (t == null) return NotFound(new { message = "Institute tenant not found." });
+
+        var studentCount = await _dbContext.Students.IgnoreQueryFilters().CountAsync(s => s.TenantId == t.Id);
+        var batchCount = await _dbContext.Batches.IgnoreQueryFilters().CountAsync(b => b.TenantId == t.Id);
+
+        return Ok(new TenantDto(
+            t.Id,
+            t.Name,
+            t.Code,
+            t.ContactPhone,
+            t.Address,
+            t.ProfilePhoto,
+            t.WhatsAppPhoneId,
+            t.IsActive,
+            t.CreatedAt,
+            studentCount,
+            batchCount
+        ));
+    }
+
     [HttpGet("{id}")]
     public async Task<ActionResult<TenantDto>> GetTenantById(Guid id)
     {
@@ -261,7 +297,12 @@ public class TenantsController : ControllerBase
 
         await _dbContext.SaveChangesAsync();
 
-        return Ok(new { message = "Institute details updated successfully." });
+        return Ok(new { 
+            message = "Institute details updated successfully.",
+            profilePhoto = tenant.ProfilePhoto,
+            name = tenant.Name,
+            code = tenant.Code
+        });
     }
 
     [HttpPatch("{id}/toggle-status")]

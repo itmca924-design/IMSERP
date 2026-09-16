@@ -103,6 +103,27 @@ export class AuthService {
     this.currentUser.set(res);
   }
 
+  updateTenantProfile(profilePhoto?: string | null, instituteName?: string | null, tenantCode?: string | null): void {
+    const current = this.currentUser();
+    if (!current) return;
+    const updated: LoginResponse = {
+      ...current,
+      profilePhoto: profilePhoto !== undefined ? profilePhoto : current.profilePhoto,
+      instituteName: instituteName || current.instituteName,
+      tenantCode: tenantCode || current.tenantCode
+    };
+    if (updated.profilePhoto) {
+      localStorage.setItem('profilePhoto', updated.profilePhoto);
+    } else {
+      localStorage.removeItem('profilePhoto');
+    }
+    if (updated.instituteName) {
+      localStorage.setItem('instituteName', updated.instituteName);
+    }
+    localStorage.setItem('user_info', JSON.stringify(updated));
+    this.currentUser.set(updated);
+  }
+
   switchBranch(branchId: string | null): void {
     if (branchId) {
       localStorage.setItem('selected_branch_id', branchId);
