@@ -51,7 +51,10 @@ export class CoachingService {
     searchTerm: string = '',
     sortBy: string = 'rollNumber',
     sortDescending: boolean = false,
-    batchId?: string
+    batchId?: string,
+    stream?: string,
+    classId?: string,
+    sectionId?: string
   ): Observable<any> {
     let params: any = {
       pageNumber: pageNumber.toString(),
@@ -62,6 +65,9 @@ export class CoachingService {
 
     if (searchTerm) params.searchTerm = searchTerm;
     if (batchId) params.batchId = batchId;
+    if (stream) params.stream = stream;
+    if (classId) params.classId = classId;
+    if (sectionId) params.sectionId = sectionId;
 
     return this.http.get<any>(`${this.BASE_URL}/students/paged`, { params });
   }

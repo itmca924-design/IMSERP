@@ -99,7 +99,11 @@ public class StudentsController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<StudentDto>>> GetStudents([FromQuery] Guid? batchId)
     {
-        var query = _dbContext.Students.AsNoTracking().Include(s => s.Batch).AsQueryable();
+        var query = _dbContext.Students.AsNoTracking()
+            .Include(s => s.Batch)
+            .Include(s => s.Class)
+            .Include(s => s.Section)
+            .AsQueryable();
 
         if (batchId.HasValue && batchId != Guid.Empty)
         {
@@ -117,7 +121,22 @@ public class StudentsController : ControllerBase
             s.IsActive,
             s.JoiningDate,
             s.Address,
-            s.ProfilePhoto
+            s.ProfilePhoto,
+            s.BranchId,
+            null,
+            s.ClassId,
+            s.Class != null ? s.Class.Name : null,
+            s.SectionId,
+            s.Section != null ? s.Section.Name : null,
+            s.AdmissionNumber,
+            s.SchoolRollNumber,
+            s.CoachingRollNumber,
+            s.IsSchoolStudent,
+            s.IsCoachingStudent,
+            s.MotherName,
+            s.Gender,
+            s.DateOfBirth,
+            s.BloodGroup
         )).ToListAsync();
 
         return Ok(list);
@@ -556,13 +575,43 @@ public class StudentsController : ControllerBase
         [FromQuery] string? searchTerm = null,
         [FromQuery] string? sortBy = "rollNumber",
         [FromQuery] bool sortDescending = false,
-        [FromQuery] Guid? batchId = null)
+        [FromQuery] Guid? batchId = null,
+        [FromQuery] Guid? classId = null,
+        [FromQuery] Guid? sectionId = null,
+        [FromQuery] string? stream = null) // "school", "coaching", or null for all
     {
-        var query = _dbContext.Students.AsNoTracking().Include(s => s.Batch).Include(s => s.Branch).AsQueryable();
+        var query = _dbContext.Students.AsNoTracking()
+            .Include(s => s.Batch)
+            .Include(s => s.Class)
+            .Include(s => s.Section)
+            .Include(s => s.Branch)
+            .AsQueryable();
 
         if (batchId.HasValue && batchId != Guid.Empty)
         {
             query = query.Where(s => s.BatchId == batchId.Value);
+        }
+
+        if (classId.HasValue && classId != Guid.Empty)
+        {
+            query = query.Where(s => s.ClassId == classId.Value);
+        }
+
+        if (sectionId.HasValue && sectionId != Guid.Empty)
+        {
+            query = query.Where(s => s.SectionId == sectionId.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(stream))
+        {
+            if (stream.Equals("school", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(s => s.IsSchoolStudent);
+            }
+            else if (stream.Equals("coaching", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(s => s.IsCoachingStudent);
+            }
         }
 
         if (!string.IsNullOrWhiteSpace(searchTerm))
@@ -571,13 +620,17 @@ public class StudentsController : ControllerBase
             query = query.Where(s => s.RollNumber.ToLower().Contains(term) ||
                                      s.StudentName.ToLower().Contains(term) ||
                                      s.ParentName.ToLower().Contains(term) ||
-                                     s.ParentWhatsAppPhone.ToLower().Contains(term));
+                                     s.ParentWhatsAppPhone.ToLower().Contains(term) ||
+                                     (s.AdmissionNumber != null && s.AdmissionNumber.ToLower().Contains(term)) ||
+                                     (s.SchoolRollNumber != null && s.SchoolRollNumber.ToLower().Contains(term)) ||
+                                     (s.CoachingRollNumber != null && s.CoachingRollNumber.ToLower().Contains(term)));
         }
 
         query = (sortBy?.ToLower()) switch
         {
             "studentname" => sortDescending ? query.OrderByDescending(s => s.StudentName) : query.OrderBy(s => s.StudentName),
             "batchname" => sortDescending ? query.OrderByDescending(s => s.Batch != null ? s.Batch.Name : "") : query.OrderBy(s => s.Batch != null ? s.Batch.Name : ""),
+            "classname" => sortDescending ? query.OrderByDescending(s => s.Class != null ? s.Class.Name : "") : query.OrderBy(s => s.Class != null ? s.Class.Name : ""),
             "parentname" => sortDescending ? query.OrderByDescending(s => s.ParentName) : query.OrderBy(s => s.ParentName),
             "joiningdate" => sortDescending ? query.OrderByDescending(s => s.JoiningDate) : query.OrderBy(s => s.JoiningDate),
             _ => sortDescending ? query.OrderByDescending(s => s.RollNumber) : query.OrderBy(s => s.RollNumber)
@@ -600,7 +653,20 @@ public class StudentsController : ControllerBase
                 s.Address,
                 s.ProfilePhoto,
                 s.BranchId,
-                s.Branch != null ? s.Branch.Name : null
+                s.Branch != null ? s.Branch.Name : null,
+                s.ClassId,
+                s.Class != null ? s.Class.Name : null,
+                s.SectionId,
+                s.Section != null ? s.Section.Name : null,
+                s.AdmissionNumber,
+                s.SchoolRollNumber,
+                s.CoachingRollNumber,
+                s.IsSchoolStudent,
+                s.IsCoachingStudent,
+                s.MotherName,
+                s.Gender,
+                s.DateOfBirth,
+                s.BloodGroup
             )).ToListAsync();
 
         return Ok(new PagedResult<StudentDto>(items, totalCount, pageNumber, pageSize));
@@ -626,7 +692,7 @@ public class StudentsController : ControllerBase
         {
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
 
-            var batch = await _dbContext.Batches.Include(b => b.Branch).FirstOrDefaultAsync(b => b.Id == dto.BatchId);
+            var batch = dto.BatchId.HasValue ? await _dbContext.Batches.Include(b => b.Branch).FirstOrDefaultAsync(b => b.Id == dto.BatchId.Value) : null;
             var targetBranchId = dto.BranchId ?? batch?.BranchId ?? _currentUser.BranchId;
             if (!targetBranchId.HasValue || targetBranchId.Value == Guid.Empty)
             {
@@ -639,10 +705,21 @@ public class StudentsController : ControllerBase
                 TenantId = _currentUser.TenantId,
                 BranchId = targetBranchId,
                 BatchId = dto.BatchId,
-                RollNumber = dto.RollNumber,
+                ClassId = dto.ClassId,
+                SectionId = dto.SectionId,
+                RollNumber = !string.IsNullOrWhiteSpace(dto.RollNumber) ? dto.RollNumber : (dto.SchoolRollNumber ?? dto.CoachingRollNumber ?? "N/A"),
+                SchoolRollNumber = dto.SchoolRollNumber,
+                CoachingRollNumber = dto.CoachingRollNumber ?? dto.RollNumber,
+                AdmissionNumber = dto.AdmissionNumber,
+                IsSchoolStudent = dto.IsSchoolStudent,
+                IsCoachingStudent = dto.IsCoachingStudent,
                 StudentName = dto.StudentName,
                 ParentName = dto.ParentName,
                 ParentWhatsAppPhone = dto.ParentWhatsAppPhone,
+                MotherName = dto.MotherName,
+                Gender = dto.Gender,
+                DateOfBirth = dto.DateOfBirth,
+                BloodGroup = dto.BloodGroup,
                 Address = dto.Address,
                 JoiningDate = DateTime.UtcNow,
                 IsActive = true
@@ -655,31 +732,43 @@ public class StudentsController : ControllerBase
             student.ProfilePhoto = ImageStorageHelper.SaveBase64Image(dto.ProfilePhoto, "students", student.Id.ToString(), _env.ContentRootPath);
             await _dbContext.SaveChangesAsync();
 
-            var feeRate = batch?.StandardMonthlyFee ?? 3500m;
-            var now = DateTime.UtcNow;
-
-            // Auto-generate initial Monthly Fee Invoice for joining month
-            var initialInvoice = new FeeInvoice
+            // Auto-generate initial Monthly Fee Invoice for coaching student if enrolled in batch
+            if (dto.IsCoachingStudent && batch != null)
             {
-                TenantId = _currentUser.TenantId,
-                BranchId = student.BranchId,
-                StudentId = student.Id,
-                InvoiceNumber = $"INV-{now.Year}{now.Month:D2}-{new Random().Next(100, 999)}",
-                Title = $"{now:MMMM yyyy} Tuition Fee",
-                TotalAmount = feeRate,
-                PaidAmount = 0,
-                DueDate = new DateTime(now.Year, now.Month, Math.Min(10, DateTime.DaysInMonth(now.Year, now.Month))),
-                Status = InvoiceStatus.Pending,
-                CreatedAt = now
-            };
+                var feeRate = batch.StandardMonthlyFee;
+                var now = DateTime.UtcNow;
 
-            _dbContext.FeeInvoices.Add(initialInvoice);
-            await _dbContext.SaveChangesAsync();
+                var initialInvoice = new FeeInvoice
+                {
+                    TenantId = _currentUser.TenantId,
+                    BranchId = student.BranchId,
+                    StudentId = student.Id,
+                    InvoiceNumber = $"INV-{now.Year}{now.Month:D2}-{new Random().Next(100, 999)}",
+                    Title = $"{now:MMMM yyyy} Tuition Fee",
+                    InvoiceCategory = "Coaching",
+                    TotalAmount = feeRate,
+                    PaidAmount = 0,
+                    DueDate = new DateTime(now.Year, now.Month, Math.Min(10, DateTime.DaysInMonth(now.Year, now.Month))),
+                    Status = InvoiceStatus.Pending,
+                    CreatedAt = now
+                };
+
+                _dbContext.FeeInvoices.Add(initialInvoice);
+                await _dbContext.SaveChangesAsync();
+            }
 
             await transaction.CommitAsync();
 
             var branchName = student.BranchId.HasValue
                 ? (await _dbContext.Branches.AsNoTracking().FirstOrDefaultAsync(b => b.Id == student.BranchId))?.Name
+                : null;
+
+            var className = student.ClassId.HasValue
+                ? (await _dbContext.SchoolClasses.AsNoTracking().FirstOrDefaultAsync(c => c.Id == student.ClassId))?.Name
+                : null;
+
+            var sectionName = student.SectionId.HasValue
+                ? (await _dbContext.SchoolSections.AsNoTracking().FirstOrDefaultAsync(sec => sec.Id == student.SectionId))?.Name
                 : null;
 
             return Ok(new StudentDto(
@@ -695,7 +784,20 @@ public class StudentsController : ControllerBase
                 student.Address,
                 student.ProfilePhoto,
                 student.BranchId,
-                branchName
+                branchName,
+                student.ClassId,
+                className,
+                student.SectionId,
+                sectionName,
+                student.AdmissionNumber,
+                student.SchoolRollNumber,
+                student.CoachingRollNumber,
+                student.IsSchoolStudent,
+                student.IsCoachingStudent,
+                student.MotherName,
+                student.Gender,
+                student.DateOfBirth,
+                student.BloodGroup
             ));
         });
     }
@@ -706,7 +808,7 @@ public class StudentsController : ControllerBase
         var student = await _dbContext.Students.FindAsync(id);
         if (student == null) return NotFound();
 
-        var batch = await _dbContext.Batches.FindAsync(dto.BatchId);
+        var batch = dto.BatchId.HasValue ? await _dbContext.Batches.FindAsync(dto.BatchId.Value) : null;
         if (dto.BranchId.HasValue && dto.BranchId.Value != Guid.Empty)
         {
             student.BranchId = dto.BranchId.Value;
@@ -721,18 +823,37 @@ public class StudentsController : ControllerBase
         }
 
         student.BatchId = dto.BatchId;
-        student.RollNumber = dto.RollNumber;
+        student.ClassId = dto.ClassId;
+        student.SectionId = dto.SectionId;
+        student.RollNumber = !string.IsNullOrWhiteSpace(dto.RollNumber) ? dto.RollNumber : (dto.SchoolRollNumber ?? dto.CoachingRollNumber ?? student.RollNumber);
+        student.SchoolRollNumber = dto.SchoolRollNumber;
+        student.CoachingRollNumber = dto.CoachingRollNumber;
+        student.AdmissionNumber = dto.AdmissionNumber;
+        student.IsSchoolStudent = dto.IsSchoolStudent;
+        student.IsCoachingStudent = dto.IsCoachingStudent;
         student.StudentName = dto.StudentName;
         student.ParentName = dto.ParentName;
         student.ParentWhatsAppPhone = dto.ParentWhatsAppPhone;
+        student.MotherName = dto.MotherName;
+        student.Gender = dto.Gender;
+        student.DateOfBirth = dto.DateOfBirth;
+        student.BloodGroup = dto.BloodGroup;
         student.Address = dto.Address;
         student.ProfilePhoto = ImageStorageHelper.SaveBase64Image(dto.ProfilePhoto, "students", student.Id.ToString(), _env.ContentRootPath)
-            ?? student.ProfilePhoto;  // keep existing photo if no new one sent
+            ?? student.ProfilePhoto;
 
         await _dbContext.SaveChangesAsync();
 
         var branchName = student.BranchId.HasValue
             ? (await _dbContext.Branches.AsNoTracking().FirstOrDefaultAsync(b => b.Id == student.BranchId))?.Name
+            : null;
+
+        var className = student.ClassId.HasValue
+            ? (await _dbContext.SchoolClasses.AsNoTracking().FirstOrDefaultAsync(c => c.Id == student.ClassId))?.Name
+            : null;
+
+        var sectionName = student.SectionId.HasValue
+            ? (await _dbContext.SchoolSections.AsNoTracking().FirstOrDefaultAsync(sec => sec.Id == student.SectionId))?.Name
             : null;
 
         return Ok(new StudentDto(
@@ -748,7 +869,20 @@ public class StudentsController : ControllerBase
             student.Address,
             student.ProfilePhoto,
             student.BranchId,
-            branchName
+            branchName,
+            student.ClassId,
+            className,
+            student.SectionId,
+            sectionName,
+            student.AdmissionNumber,
+            student.SchoolRollNumber,
+            student.CoachingRollNumber,
+            student.IsSchoolStudent,
+            student.IsCoachingStudent,
+            student.MotherName,
+            student.Gender,
+            student.DateOfBirth,
+            student.BloodGroup
         ));
     }
 }

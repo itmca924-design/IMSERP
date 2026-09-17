@@ -114,10 +114,48 @@ using (var scope = app.Services.CreateScope())
             context.SaveChanges();
             Console.WriteLine("[Database] Demo user passwords automatically hashed and saved to SQL Server.");
         }
-        else
+
+        // Auto-seed 'Classes & Sections' MenuItem under Master Management
+        var masterMenu = context.MenuItems.FirstOrDefault(m => m.Title == "Master Management" && m.ParentId == null);
+        if (masterMenu != null)
         {
-            Console.WriteLine("[Database] IMSERP Database ensured and ready.");
+            var schoolMenu = context.MenuItems.FirstOrDefault(m => m.RouteUrl == "/school/classes");
+            if (schoolMenu == null)
+            {
+                var newMenu = new IMSERP.Domain.Entities.MenuItem
+                {
+                    Id = Guid.NewGuid(),
+                    Title = "Classes & Sections",
+                    RouteUrl = "/school/classes",
+                    Icon = "domain",
+                    ParentId = masterMenu.Id,
+                    SortOrder = 1,
+                    Module = "Master",
+                    IsActive = true
+                };
+                context.MenuItems.Add(newMenu);
+                context.SaveChanges();
+
+                var roles = context.Roles.ToList();
+                foreach (var role in roles)
+                {
+                    context.RolePermissions.Add(new IMSERP.Domain.Entities.RolePermission
+                    {
+                        Id = Guid.NewGuid(),
+                        RoleId = role.Id,
+                        MenuItemId = newMenu.Id,
+                        CanView = true,
+                        CanCreate = true,
+                        CanEdit = true,
+                        CanDelete = true
+                    });
+                }
+                context.SaveChanges();
+                Console.WriteLine("[Database] Auto-seeded 'Classes & Sections' menu item under Master Management.");
+            }
         }
+
+        Console.WriteLine("[Database] IMSERP Database ensured and ready.");
     }
     catch (Exception ex)
     {

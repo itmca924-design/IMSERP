@@ -127,10 +127,75 @@ public record UpdateTenantDto(
     string? WhatsAppAccessToken
 );
 
+public record SchoolClassDto(
+    Guid Id,
+    Guid TenantId,
+    string Name,
+    string? Code,
+    int DisplayOrder,
+    bool IsActive,
+    DateTime CreatedAt,
+    Guid? BranchId = null,
+    int SectionCount = 0,
+    int StudentCount = 0,
+    List<SchoolSectionDto>? Sections = null
+);
+
+public record CreateSchoolClassDto(
+    string Name,
+    string? Code,
+    int DisplayOrder = 0,
+    Guid? BranchId = null
+);
+
+public record UpdateSchoolClassDto(
+    string Name,
+    string? Code,
+    int DisplayOrder,
+    bool IsActive
+);
+
+public record SchoolSectionDto(
+    Guid Id,
+    Guid TenantId,
+    Guid ClassId,
+    string? ClassName,
+    string Name,
+    int MaxCapacity,
+    Guid? RoomId,
+    string? RoomNumber,
+    bool IsActive,
+    DateTime CreatedAt,
+    Guid? BranchId = null,
+    int StudentCount = 0
+);
+
+public record CreateSchoolSectionDto(
+    Guid ClassId,
+    string Name,
+    int MaxCapacity = 45,
+    Guid? RoomId = null,
+    Guid? BranchId = null
+);
+
+public record UpdateSchoolSectionDto(
+    string Name,
+    int MaxCapacity,
+    Guid? RoomId,
+    bool IsActive
+);
+
+public record EnrollSchoolStudentInCoachingDto(
+    Guid StudentId,
+    Guid BatchId,
+    string? CoachingRollNumber,
+    decimal? CustomMonthlyFee = null
+);
+
 public record StudentDto(
     Guid Id,
-    Guid BatchId,
-    string BatchName,
+    Guid? BatchId,
+    string? BatchName,
     string RollNumber,
     string StudentName,
     string ParentName,
@@ -140,18 +205,42 @@ public record StudentDto(
     string? Address,
     string? ProfilePhoto,
     Guid? BranchId = null,
-    string? BranchName = null
+    string? BranchName = null,
+    Guid? ClassId = null,
+    string? ClassName = null,
+    Guid? SectionId = null,
+    string? SectionName = null,
+    string? AdmissionNumber = null,
+    string? SchoolRollNumber = null,
+    string? CoachingRollNumber = null,
+    bool IsSchoolStudent = false,
+    bool IsCoachingStudent = true,
+    string? MotherName = null,
+    string? Gender = null,
+    DateTime? DateOfBirth = null,
+    string? BloodGroup = null
 );
 
 public record CreateStudentDto(
-    Guid BatchId,
-    string RollNumber,
+    Guid? BatchId,
+    string? RollNumber,
     string StudentName,
     string ParentName,
     string ParentWhatsAppPhone,
-    string Address,
+    string? Address,
     string? ProfilePhoto,
-    Guid? BranchId = null
+    Guid? BranchId = null,
+    Guid? ClassId = null,
+    Guid? SectionId = null,
+    string? AdmissionNumber = null,
+    string? SchoolRollNumber = null,
+    string? CoachingRollNumber = null,
+    bool IsSchoolStudent = false,
+    bool IsCoachingStudent = true,
+    string? MotherName = null,
+    string? Gender = null,
+    DateTime? DateOfBirth = null,
+    string? BloodGroup = null
 );
 
 public record StudentAttendanceDto(

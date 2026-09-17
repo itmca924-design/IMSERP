@@ -42,6 +42,8 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
     public DbSet<Room> Rooms => Set<Room>();
     public DbSet<TeacherLeave> TeacherLeaves => Set<TeacherLeave>();
     public DbSet<Holiday> Holidays => Set<Holiday>();
+    public DbSet<SchoolClass> SchoolClasses => Set<SchoolClass>();
+    public DbSet<SchoolSection> SchoolSections => Set<SchoolSection>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -97,6 +99,39 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
         modelBuilder.Entity<TeacherSalaryAdvance>().HasQueryFilter(x => _currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId);
         modelBuilder.Entity<TeacherLeave>().HasQueryFilter(x => _currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId);
         modelBuilder.Entity<Holiday>().HasQueryFilter(x => _currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId);
+        modelBuilder.Entity<SchoolClass>().HasQueryFilter(x => 
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<SchoolSection>().HasQueryFilter(x => 
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+
+        modelBuilder.Entity<SchoolSection>()
+            .HasOne(s => s.Class)
+            .WithMany(c => c.Sections)
+            .HasForeignKey(s => s.ClassId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<Student>()
+            .HasOne(s => s.Class)
+            .WithMany(c => c.Students)
+            .HasForeignKey(s => s.ClassId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Student>()
+            .HasOne(s => s.Section)
+            .WithMany(sec => sec.Students)
+            .HasForeignKey(s => s.SectionId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Student>()
+            .HasOne(s => s.Batch)
+            .WithMany(b => b.Students)
+            .HasForeignKey(s => s.BatchId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<User>()
             .HasOne(u => u.AssignedRole)

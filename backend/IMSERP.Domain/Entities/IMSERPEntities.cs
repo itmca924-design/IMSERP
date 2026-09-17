@@ -152,16 +152,66 @@ public class Batch
     public ICollection<Student> Students { get; set; } = new List<Student>();
 }
 
+public class SchoolClass
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? Code { get; set; }
+    public int DisplayOrder { get; set; } = 0;
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+
+    public ICollection<SchoolSection> Sections { get; set; } = new List<SchoolSection>();
+    public ICollection<Student> Students { get; set; } = new List<Student>();
+}
+
+public class SchoolSection
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid ClassId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public int MaxCapacity { get; set; } = 45;
+    public Guid? RoomId { get; set; }
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("ClassId")]
+    public SchoolClass? Class { get; set; }
+
+    [ForeignKey("RoomId")]
+    public Room? Room { get; set; }
+
+    public ICollection<Student> Students { get; set; } = new List<Student>();
+}
+
 public class Student
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid TenantId { get; set; }
     public Guid? BranchId { get; set; }
-    public Guid BatchId { get; set; }
+    public Guid? BatchId { get; set; }
+    public Guid? ClassId { get; set; }
+    public Guid? SectionId { get; set; }
     public string RollNumber { get; set; } = string.Empty;
+    public string? SchoolRollNumber { get; set; }
+    public string? CoachingRollNumber { get; set; }
+    public string? AdmissionNumber { get; set; }
+    public bool IsSchoolStudent { get; set; } = false;
+    public bool IsCoachingStudent { get; set; } = true;
     public string StudentName { get; set; } = string.Empty;
     public string ParentName { get; set; } = string.Empty;
     public string ParentWhatsAppPhone { get; set; } = string.Empty;
+    public string? MotherName { get; set; }
+    public string? Gender { get; set; }
+    public DateTime? DateOfBirth { get; set; }
+    public string? BloodGroup { get; set; }
     public string? Address { get; set; }
     public string? ProfilePhoto { get; set; }
     public bool IsActive { get; set; } = true;
@@ -171,7 +221,15 @@ public class Student
     [ForeignKey("BranchId")]
     public Branch? Branch { get; set; }
 
+    [ForeignKey("BatchId")]
     public Batch? Batch { get; set; }
+
+    [ForeignKey("ClassId")]
+    public SchoolClass? Class { get; set; }
+
+    [ForeignKey("SectionId")]
+    public SchoolSection? Section { get; set; }
+
     public ICollection<FeeInvoice> FeeInvoices { get; set; } = new List<FeeInvoice>();
     public ICollection<TestMarks> TestMarks { get; set; } = new List<TestMarks>();
     public ICollection<StudentAttendance> Attendances { get; set; } = new List<StudentAttendance>();
@@ -207,6 +265,7 @@ public class FeeInvoice
     public Guid StudentId { get; set; }
     public string InvoiceNumber { get; set; } = string.Empty;
     public string Title { get; set; } = string.Empty;
+    public string InvoiceCategory { get; set; } = "Coaching";
     public decimal TotalAmount { get; set; }
     public decimal PaidAmount { get; set; }
     public decimal DueAmount => TotalAmount - PaidAmount;

@@ -159,7 +159,7 @@ import { FooterComponent } from './footer/footer.component';
             <mat-icon>menu</mat-icon>
           </button>
 
-          <span class="app-header-title">Coaching Dashboard</span>
+          <span class="app-header-title">IMSERP &bull; School + Coaching ERP</span>
           <div class="header-tools">
             <div class="header-search" [class.open]="headerSearchFocused">
               <mat-icon>search</mat-icon>
@@ -1075,6 +1075,7 @@ export class LayoutComponent implements OnInit {
   headerSearchResults: Array<{ title: string; route: string; icon: string }> = [];
   private readonly searchablePages = [
     { title: 'Dashboard', route: '/dashboard', icon: 'dashboard' },
+    { title: 'Classes & Sections (School)', route: '/school/classes', icon: 'domain' },
     { title: 'Students', route: '/students', icon: 'people' },
     { title: 'Student Attendance', route: '/students/attendance', icon: 'event_available' },
     { title: 'Batches', route: '/batches', icon: 'class' },
@@ -1287,11 +1288,12 @@ export class LayoutComponent implements OnInit {
       {
         id: '2', title: 'Master Management', routeUrl: '', icon: 'category', sortOrder: 2, module: 'Master', isActive: true,
         children: [
-          { id: '21', title: 'Batches Master', routeUrl: '/batches', icon: 'class', sortOrder: 1, module: 'Master', isActive: true, children: [] },
-          { id: '22', title: 'Classrooms Master', routeUrl: '/rooms', icon: 'meeting_room', sortOrder: 2, module: 'Master', isActive: true, children: [] },
-          { id: '23', title: 'Subject Master', routeUrl: '/subjects', icon: 'menu_book', sortOrder: 3, module: 'Master', isActive: true, children: [] },
-          { id: '24', title: 'Students Master', routeUrl: '/students', icon: 'people', sortOrder: 4, module: 'Master', isActive: true, children: [] },
-          { id: '25', title: 'Holiday Master', routeUrl: '/holidays', icon: 'event', sortOrder: 5, module: 'Master', isActive: true, children: [] }
+          { id: '20', title: 'Classes & Sections', routeUrl: '/school/classes', icon: 'domain', sortOrder: 1, module: 'Master', isActive: true, children: [] },
+          { id: '21', title: 'Batches Master', routeUrl: '/batches', icon: 'class', sortOrder: 2, module: 'Master', isActive: true, children: [] },
+          { id: '22', title: 'Classrooms Master', routeUrl: '/rooms', icon: 'meeting_room', sortOrder: 3, module: 'Master', isActive: true, children: [] },
+          { id: '23', title: 'Subject Master', routeUrl: '/subjects', icon: 'menu_book', sortOrder: 4, module: 'Master', isActive: true, children: [] },
+          { id: '24', title: 'Students Master', routeUrl: '/students', icon: 'people', sortOrder: 5, module: 'Master', isActive: true, children: [] },
+          { id: '25', title: 'Holiday Master', routeUrl: '/holidays', icon: 'event', sortOrder: 6, module: 'Master', isActive: true, children: [] }
         ]
       },
       {

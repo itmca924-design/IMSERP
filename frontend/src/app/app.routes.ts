@@ -20,6 +20,10 @@ export const routes: Routes = [
 
       // Master Management
       {
+        path: 'school/classes',
+        loadComponent: () => import('./features/school/school-classes.component').then(m => m.SchoolClassesComponent)
+      },
+      {
         path: 'branches',
         loadComponent: () => import('./features/branches/branches.component').then(m => m.BranchesComponent)
       },
