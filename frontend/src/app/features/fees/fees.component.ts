@@ -14,9 +14,12 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatCheckboxModule } from '@angular/material/checkbox';
-import { FeesService, FeeInvoicePagedItem } from '../../core/services/fees.service';
+import { FeesService, FeeInvoicePagedItem, FeePaymentReceipt } from '../../core/services/fees.service';
 import { BatchesService, BatchDto } from '../../core/services/batches.service';
+import { AuthService } from '../../core/services/auth.service';
 import { FeeCollectionDialogComponent } from './fee-collection-dialog.component';
+import { FeeReceiptDialogComponent } from './fee-receipt-dialog.component';
+import { FeeDueReceiptDialogComponent } from './fee-due-receipt-dialog.component';
 import { StudentLedgerDialogComponent } from './student-ledger-dialog.component';
 import { GenerateInvoicesDialogComponent } from './generate-invoices-dialog.component';
 import { CancelInvoiceDialogComponent } from './cancel-invoice-dialog.component';
@@ -194,6 +197,26 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                     <mat-icon>payments</mat-icon> Collect Fee
                   </button>
 
+                  <!-- Due Receipt / Slip: for rows with dueAmount > 0 and not Cancelled -->
+                  <button
+                    *ngIf="inv.dueAmount > 0 && inv.status !== 'Cancelled'"
+                    mat-icon-button
+                    class="due-receipt-btn"
+                    (click)="openDueReceiptModal(inv)"
+                    matTooltip="Print / View Due Slip (बकाया पर्ची)">
+                    <mat-icon>receipt_long</mat-icon>
+                  </button>
+
+                  <!-- View/Print Paid Receipt: for Paid invoices -->
+                  <button
+                    *ngIf="inv.status === 'Paid'"
+                    mat-icon-button
+                    class="view-receipt-btn"
+                    (click)="openReceiptForInvoice(inv)"
+                    matTooltip="Print / View Payment Receipt (फीस रसीद)">
+                    <mat-icon>receipt</mat-icon>
+                  </button>
+
                   <!-- WhatsApp: hide for Cancelled -->
                   <button
                     *ngIf="inv.status !== 'Cancelled'"
@@ -209,7 +232,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                   <!-- Passbook/Ledger always visible -->
                   <button
                     mat-icon-button
-                    color="accent"
+                    class="ledger-btn"
                     (click)="openStudentLedger(inv.studentId)"
                     matTooltip="View Student Passbook & Ledger">
                     <mat-icon>menu_book</mat-icon>
@@ -344,46 +367,81 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
       &.overdue  { background: #fee2e2; color: #991b1b; }
       &.cancelled { background: #f1f5f9; color: #64748b; text-decoration: line-through; }
     }
-    .whatsapp-btn {
-      background-color: #25d366 !important;
-      color: white !important;
-      width: 32px !important;
-      height: 32px !important;
-      line-height: 32px !important;
-      padding: 0 !important;
-      min-width: 32px !important;
-      display: inline-flex !important;
-      align-items: center !important;
-      justify-content: center !important;
-      transition: background-color 0.15s ease, transform 0.15s ease;
-
-      &:hover {
-        background-color: #128c7e !important;
-        transform: scale(1.08);
-      }
-
-      .wa-svg-icon {
-        width: 16px;
-        height: 16px;
-        fill: #ffffff;
-        display: block;
-        flex-shrink: 0;
-      }
-    }
-    .cancel-invoice-btn {
-      color: #94a3b8;
-      transition: color 0.15s ease, transform 0.15s ease;
-      &:hover {
-        color: #dc2626;
-        transform: scale(1.1);
-      }
-    }
     .action-buttons {
       display: inline-flex;
       align-items: center;
       justify-content: flex-end;
       gap: 4px;
       white-space: nowrap;
+
+      button.mat-mdc-icon-button {
+        width: 36px !important;
+        height: 36px !important;
+        min-width: 36px !important;
+        padding: 0 !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        border-radius: 50% !important;
+        background: transparent !important;
+
+        mat-icon {
+          font-size: 20px !important;
+          width: 20px !important;
+          height: 20px !important;
+          line-height: 20px !important;
+        }
+      }
+    }
+    .whatsapp-btn {
+      color: #16a34a !important;
+      transition: color 0.15s ease, transform 0.15s ease, background-color 0.15s ease;
+
+      &:hover {
+        background-color: #dcfce7 !important;
+        transform: scale(1.1);
+      }
+
+      .wa-svg-icon {
+        width: 20px;
+        height: 20px;
+        fill: #16a34a;
+        display: block;
+        flex-shrink: 0;
+      }
+    }
+    .due-receipt-btn {
+      color: #dc2626 !important;
+      transition: color 0.15s ease, transform 0.15s ease, background-color 0.15s ease;
+      &:hover {
+        background-color: #fee2e2 !important;
+        transform: scale(1.1);
+      }
+    }
+    .view-receipt-btn {
+      color: #16a34a !important;
+      transition: color 0.15s ease, transform 0.15s ease, background-color 0.15s ease;
+      &:hover {
+        background-color: #dcfce7 !important;
+        transform: scale(1.1);
+      }
+    }
+    .ledger-btn {
+      color: #e11d48 !important;
+      transition: color 0.15s ease, transform 0.15s ease, background-color 0.15s ease;
+      &:hover {
+        background-color: #ffe4e6 !important;
+        transform: scale(1.1);
+      }
+    }
+    .cancel-invoice-btn {
+      color: #94a3b8 !important;
+      transition: color 0.15s ease, transform 0.15s ease, background-color 0.15s ease;
+      &:hover {
+        color: #dc2626 !important;
+        background-color: #fee2e2 !important;
+        transform: scale(1.1);
+      }
     }
     .empty-cell { padding: 40px; text-align: center; }
     .empty-state {
@@ -654,19 +712,14 @@ export class FeesComponent implements OnInit {
         this.clearSelection();
         this.loadInvoices();
 
-        if (first.parentWhatsAppPhone) {
-          const rawPhone = first.parentWhatsAppPhone.replace(/\D/g, '');
-          const formattedPhone = rawPhone.length === 10 ? '91' + rawPhone : rawPhone;
-          const textMsg = `*FEE RECEIPT ACKNOWLEDGMENT*\nDear Parent, We have received payment of *₹${res.amountPaid}* for *${res.studentName}* (${invCount} Invoices Settled).\n*Receipt No*: #${res.receiptNumber}\n*Remaining Balance Due*: ₹${res.balanceDue}\n\nThank you for choosing Apex Coaching Academy!`;
-          const waUrl = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(textMsg)}`;
-          window.open(waUrl, '_blank');
-        }
-
-        this.confirmDialog.alert(
-          'Multi-Fee Collected',
-          `Payment of ₹${res.amountPaid} collected successfully for ${first.studentName}! Digital WhatsApp Receipt dispatched.`,
-          'success'
-        );
+        // Immediately open official Fee Payment Receipt Dialog
+        this.dialog.open(FeeReceiptDialogComponent, {
+          width: '840px',
+          data: {
+            receipt: res,
+            instituteName: this.authService.currentUser()?.instituteName || 'Saraswati Coaching Classes'
+          }
+        });
       }
     });
   }
@@ -678,6 +731,7 @@ export class FeesComponent implements OnInit {
     private feesService: FeesService,
     private batchesService: BatchesService,
     private confirmDialog: ConfirmDialogService,
+    private authService: AuthService,
     private dialog: MatDialog
   ) {}
 
@@ -758,29 +812,93 @@ export class FeesComponent implements OnInit {
       }
     });
 
-    dialogRef.afterClosed().subscribe((res) => {
+    dialogRef.afterClosed().subscribe((res: FeePaymentReceipt | undefined) => {
       if (res) {
         this.loadInvoices();
 
-        // Dispatch direct WhatsApp Web chat with pre-filled receipt message
-        if (inv.parentWhatsAppPhone) {
-          const rawPhone = inv.parentWhatsAppPhone.replace(/\D/g, '');
-          const formattedPhone = rawPhone.length === 10 ? '91' + rawPhone : rawPhone;
-          const textMsg = `*FEE RECEIPT ACKNOWLEDGMENT*\nDear Parent, We have received payment of *₹${res.amountPaid}* for *${res.studentName}*.\n*Receipt No*: #${res.receiptNumber}\n*Remaining Balance Due*: ₹${res.balanceDue}\n\nThank you for choosing Apex Coaching Academy!`;
-          const waUrl = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(textMsg)}`;
-          window.open(waUrl, '_blank');
-        }
-
-        this.confirmDialog.alert('Fee Collected', `Payment collected successfully & Digital WhatsApp Receipt dispatched to ${inv.parentWhatsAppPhone}!`, 'success');
+        // Immediately open official Fee Payment Receipt Dialog
+        this.dialog.open(FeeReceiptDialogComponent, {
+          width: '840px',
+          maxWidth: '96vw',
+          panelClass: 'receipt-dialog-panel',
+          data: {
+            receipt: res,
+            instituteName: this.authService.currentUser()?.instituteName || 'Saraswati Coaching Classes'
+          }
+        });
       }
+    });
+  }
+
+  openDueReceiptModal(inv: FeeInvoicePagedItem): void {
+    const dialogRef = this.dialog.open(FeeDueReceiptDialogComponent, {
+      width: '840px',
+      maxWidth: '96vw',
+      panelClass: 'receipt-dialog-panel',
+      data: {
+        studentId: inv.studentId,
+        invoiceId: inv.id,
+        studentName: inv.studentName,
+        rollNumber: inv.rollNumber,
+        batchName: inv.batchName,
+        parentWhatsAppPhone: inv.parentWhatsAppPhone,
+        invoice: inv,
+        instituteName: this.authService.currentUser()?.instituteName || 'Saraswati Coaching Classes'
+      }
+    });
+
+    dialogRef.afterClosed().subscribe((action) => {
+      if (action === 'COLLECT_NOW') {
+        this.openCollectFeeModal(inv);
+      }
+    });
+  }
+
+  openReceiptForInvoice(inv: FeeInvoicePagedItem): void {
+    this.feesService.getStudentLedger(inv.studentId).subscribe({
+      next: (ledger) => {
+        const payment = ledger.payments.find(p => p.invoiceNumber === inv.invoiceNumber) || ledger.payments[0];
+        if (payment) {
+          const receiptData: FeePaymentReceipt = {
+            paymentId: payment.paymentId,
+            receiptNumber: payment.receiptNumber,
+            studentName: ledger.studentName,
+            rollNumber: ledger.rollNumber,
+            batchName: ledger.batchName,
+            parentName: ledger.parentName,
+            parentPhone: ledger.parentWhatsAppPhone,
+            invoiceNumber: inv.invoiceNumber,
+            amountPaid: payment.amountPaid,
+            remainingDue: ledger.totalOutstandingDue,
+            paymentDate: payment.paymentDate,
+            mode: payment.mode,
+            transactionRef: payment.transactionRef,
+            remarks: payment.remarks
+          };
+
+          this.dialog.open(FeeReceiptDialogComponent, {
+            width: '840px',
+            maxWidth: '96vw',
+            panelClass: 'receipt-dialog-panel',
+            data: {
+              receipt: receiptData,
+              instituteName: this.authService.currentUser()?.instituteName || 'Saraswati Coaching Classes'
+            }
+          });
+        } else {
+          this.confirmDialog.alert('Receipt', 'No payment receipt record found for this invoice.', 'info');
+        }
+      },
+      error: (err) => console.error('Error fetching ledger for receipt:', err)
     });
   }
 
   openStudentLedger(studentId: string): void {
     this.dialog.open(StudentLedgerDialogComponent, {
-      width: '780px',
-      maxWidth: '95vw',
-      maxHeight: '90vh',
+      width: '980px',
+      maxWidth: '96vw',
+      maxHeight: '92vh',
+      panelClass: 'ledger-dialog-panel',
       data: { studentId }
     });
   }

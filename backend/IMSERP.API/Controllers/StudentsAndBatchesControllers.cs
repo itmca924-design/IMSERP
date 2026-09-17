@@ -35,15 +35,24 @@ public class StudentsController : ControllerBase
             or TeacherAttendanceStatus.Holiday;
     }
 
-    private static StudentAttendanceDto MapStudentAttendance(StudentAttendance attendance, Student student) => new(
-        attendance.Id,
-        attendance.StudentId,
-        student.StudentName,
-        student.RollNumber,
-        attendance.AttendanceDate,
-        attendance.Status.ToString(),
-        attendance.Remarks,
-        attendance.CaptureSource);
+    private static StudentAttendanceDto MapStudentAttendance(StudentAttendance attendance, Student student)
+    {
+        var rawDt = attendance.CapturedAt ?? (attendance.CreatedAt != default ? attendance.CreatedAt : (DateTime?)null);
+        DateTime? capturedUtc = rawDt.HasValue
+            ? DateTime.SpecifyKind(rawDt.Value, DateTimeKind.Utc)
+            : null;
+
+        return new(
+            attendance.Id,
+            attendance.StudentId,
+            student.StudentName,
+            student.RollNumber,
+            attendance.AttendanceDate,
+            attendance.Status.ToString(),
+            attendance.Remarks,
+            attendance.CaptureSource,
+            capturedUtc);
+    }
 
     private async Task<bool> IsManualAttendanceAllowedAsync()
     {
@@ -280,6 +289,12 @@ public class StudentsController : ControllerBase
             return BadRequest(new { message = "Invalid attendance status." });
 
         var date = dto.AttendanceDate.Date;
+        if (date > DateTime.UtcNow.Date)
+            return BadRequest(new { message = "Cannot mark attendance for future dates." });
+
+        if (date < DateTime.UtcNow.Date && !await HasAttendancePermissionAsync("/attendance/permissions/correction", true))
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "Marking or modifying past attendance requires Admin Attendance Correction permission." });
+
         if (!await CanEditPublicHolidayOrSundayAsync() && await IsPublicHolidayOrSundayAsync(date))
             return Forbid();
 
@@ -287,7 +302,7 @@ public class StudentsController : ControllerBase
             .FirstOrDefaultAsync(a => a.StudentId == id && a.AttendanceDate == date);
 
         if (record != null && !await HasAttendancePermissionAsync("/attendance/permissions/correction", true))
-            return Forbid();
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "Modifying existing attendance records requires Admin Attendance Correction permission." });
 
         if (record == null)
         {
@@ -312,7 +327,7 @@ public class StudentsController : ControllerBase
         record.CaptureSource = "Manual";
         record.BiometricDeviceId = null;
         record.BiometricEventId = null;
-        record.CapturedAt = null;
+        record.CapturedAt ??= DateTime.UtcNow;
         await _dbContext.SaveChangesAsync();
 
         return Ok(MapStudentAttendance(record, student));
@@ -342,6 +357,8 @@ public class StudentsController : ControllerBase
         var result = students.Select(s =>
         {
             existingRecords.TryGetValue(s.Id, out var att);
+            DateTime? captured = att?.CapturedAt ?? att?.CreatedAt;
+            DateTime? capturedUtc = captured.HasValue ? DateTime.SpecifyKind(captured.Value, DateTimeKind.Utc) : null;
             return new BatchAttendanceStudentRowDto(
                 s.Id,
                 s.StudentName,
@@ -350,7 +367,9 @@ public class StudentsController : ControllerBase
                 s.ParentWhatsAppPhone,
                 att != null ? att.Status.ToString() : "Present",
                 att?.Remarks,
-                att?.Id
+                att?.Id,
+                capturedUtc,
+                att?.CaptureSource
             );
         }).ToList();
 
@@ -368,6 +387,12 @@ public class StudentsController : ControllerBase
             return Conflict(new { message = "Manual student attendance is disabled. Current mode is Biometric." });
 
         var date = dto.AttendanceDate.Date;
+        if (date > DateTime.UtcNow.Date)
+            return BadRequest(new { message = "Cannot mark attendance for future dates." });
+
+        if (date < DateTime.UtcNow.Date && !await HasAttendancePermissionAsync("/attendance/permissions/correction", true))
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "Marking or modifying past attendance requires Admin Attendance Correction permission." });
+
         if (!await CanEditPublicHolidayOrSundayAsync() && await IsPublicHolidayOrSundayAsync(date))
             return Forbid();
 
@@ -406,6 +431,7 @@ public class StudentsController : ControllerBase
                 existing.MarkedBy = _currentUser.UserId.ToString();
                 existing.BranchId = student.BranchId ?? batch.BranchId ?? _currentUser.BranchId;
                 existing.CaptureSource = "ManualBulk";
+                existing.CapturedAt = DateTime.UtcNow;
             }
             else
             {
@@ -419,6 +445,7 @@ public class StudentsController : ControllerBase
                     Remarks = item.Remarks,
                     MarkedBy = _currentUser.UserId.ToString(),
                     CaptureSource = "ManualBulk",
+                    CapturedAt = DateTime.UtcNow,
                     CreatedAt = DateTime.UtcNow
                 };
                 _dbContext.StudentAttendances.Add(newRecord);

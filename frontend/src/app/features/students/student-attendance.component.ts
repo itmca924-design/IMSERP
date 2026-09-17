@@ -32,6 +32,8 @@ interface BatchStudentRow {
   status: string;
   remarks?: string | null;
   attendanceId?: string | null;
+  capturedAt?: string | null;
+  captureSource?: string | null;
 }
 
 interface StudentAttendance {
@@ -43,6 +45,10 @@ interface StudentAttendance {
   status: string;
   remarks?: string;
   captureSource?: string;
+  capturedAt?: string | null;
+  CapturedAt?: string | null;
+  createdAt?: string | null;
+  CreatedAt?: string | null;
 }
 
 interface AttendanceSummary {
@@ -62,9 +68,11 @@ interface CalendarDay {
   isToday: boolean;
   isSunday: boolean;
   isSaturday: boolean;
+  isFuture: boolean;
   holiday?: HolidayDto;
   record?: StudentAttendance;
   status: string;
+  capturedTime?: string;
 }
 
 @Component({
@@ -125,14 +133,14 @@ interface CalendarDay {
 
         <!-- Date Controls -->
         <div class="date-controls">
-          <button mat-icon-button (click)="prevDay()" matTooltip="Previous Day">
+          <button mat-icon-button (click)="prevDay()" [disabled]="isBatchPastLocked" [matTooltip]="isBatchPastLocked ? 'Past attendance locked (Admin permission required)' : 'Previous Day'">
             <mat-icon>chevron_left</mat-icon>
           </button>
           <mat-form-field appearance="outline" class="date-input">
             <mat-label>Attendance Date</mat-label>
-            <input matInput type="date" [(ngModel)]="selectedBatchDate" (change)="loadBatchAttendance()">
+            <input matInput type="date" [(ngModel)]="selectedBatchDate" [max]="todayStr" [min]="minAttendanceDate" (change)="onBatchDateChanged()">
           </mat-form-field>
-          <button mat-icon-button (click)="nextDay()" matTooltip="Next Day">
+          <button mat-icon-button (click)="nextDay()" [disabled]="selectedBatchDate >= todayStr" matTooltip="Next Day">
             <mat-icon>chevron_right</mat-icon>
           </button>
           <button mat-stroked-button class="today-btn" (click)="setToday()">Today</button>
@@ -157,10 +165,10 @@ interface CalendarDay {
         </div>
 
         <div class="fast-actions">
-          <button mat-stroked-button class="btn-bulk-present" (click)="markAllStatus('Present')" matTooltip="Set all students to Present">
+          <button mat-stroked-button class="btn-bulk-present" (click)="markAllStatus('Present')" [disabled]="isBatchPastLocked" matTooltip="Set all students to Present">
             <mat-icon>done_all</mat-icon> Mark All Present
           </button>
-          <button mat-stroked-button class="btn-bulk-absent" (click)="markAllStatus('Absent')" matTooltip="Set all students to Absent">
+          <button mat-stroked-button class="btn-bulk-absent" (click)="markAllStatus('Absent')" [disabled]="isBatchPastLocked" matTooltip="Set all students to Absent">
             <mat-icon>highlight_off</mat-icon> Mark All Absent
           </button>
         </div>
@@ -211,7 +219,10 @@ interface CalendarDay {
                 </div>
                 <div class="student-meta">
                   <span class="name">{{ s.studentName }}</span>
-                  <span class="sub" *ngIf="s.attendanceId"><mat-icon class="saved-dot">check</mat-icon> Previously Saved</span>
+                  <span class="sub" *ngIf="s.attendanceId">
+                    <mat-icon class="saved-dot">check_circle</mat-icon>
+                    <span>Marked {{ formatCapturedTime(s.capturedAt) }}</span>
+                  </span>
                 </div>
               </td>
               <td><span class="roll-pill">{{ s.rollNumber }}</span></td>
@@ -225,26 +236,26 @@ interface CalendarDay {
               </td>
               <td class="status-cell">
                 <div class="status-btn-group">
-                  <button type="button" class="status-pill p-btn" [class.selected]="s.status === 'Present'" (click)="s.status = 'Present'" matTooltip="Mark Present">
+                  <button type="button" class="status-pill p-btn" [class.selected]="s.status === 'Present'" (click)="setStudentBatchStatus(s, 'Present')" [disabled]="isBatchPastLocked" matTooltip="Mark Present">
                     <span class="badge">P</span>
                     <span class="label">Present</span>
                   </button>
-                  <button type="button" class="status-pill a-btn" [class.selected]="s.status === 'Absent'" (click)="s.status = 'Absent'" matTooltip="Mark Absent">
+                  <button type="button" class="status-pill a-btn" [class.selected]="s.status === 'Absent'" (click)="setStudentBatchStatus(s, 'Absent')" [disabled]="isBatchPastLocked" matTooltip="Mark Absent">
                     <span class="badge">A</span>
                     <span class="label">Absent</span>
                   </button>
-                  <button type="button" class="status-pill l-btn" [class.selected]="s.status === 'Late'" (click)="s.status = 'Late'" matTooltip="Mark Late">
+                  <button type="button" class="status-pill l-btn" [class.selected]="s.status === 'Late'" (click)="setStudentBatchStatus(s, 'Late')" [disabled]="isBatchPastLocked" matTooltip="Mark Late">
                     <span class="badge">L</span>
                     <span class="label">Late</span>
                   </button>
-                  <button type="button" class="status-pill h-btn" [class.selected]="s.status === 'HalfDay'" (click)="s.status = 'HalfDay'" matTooltip="Mark Half Day">
+                  <button type="button" class="status-pill h-btn" [class.selected]="s.status === 'HalfDay'" (click)="setStudentBatchStatus(s, 'HalfDay')" [disabled]="isBatchPastLocked" matTooltip="Mark Half Day">
                     <span class="badge">H</span>
                     <span class="label">Half</span>
                   </button>
                 </div>
               </td>
               <td class="remarks-cell">
-                <input type="text" [(ngModel)]="s.remarks" placeholder="Add note (optional)" class="remarks-input" />
+                <input type="text" [(ngModel)]="s.remarks" [disabled]="isBatchPastLocked" placeholder="Add note (optional)" class="remarks-input" />
               </td>
             </tr>
           </tbody>
@@ -254,7 +265,7 @@ interface CalendarDay {
       <!-- Bottom Save Action Bar -->
       <div class="save-bar">
         <div class="whatsapp-alert-toggle">
-          <mat-checkbox [(ngModel)]="sendWhatsAppAlerts" color="primary">
+          <mat-checkbox [(ngModel)]="sendWhatsAppAlerts" color="primary" [disabled]="isBatchPastLocked">
             <span class="wa-checkbox-label">
               Send WhatsApp attendance SMS / alert to absent students' parents
               <strong *ngIf="absentBatchCount > 0" class="wa-badge">({{ absentBatchCount }} Absent)</strong>
@@ -263,9 +274,13 @@ interface CalendarDay {
         </div>
 
         <div class="save-actions">
-          <button mat-raised-button color="primary" class="btn-save-batch" (click)="saveBatchAttendance()" [disabled]="batchSaving || batchLoading">
-            <mat-icon>save</mat-icon>
-            <span>{{ batchSaving ? 'Saving Attendance...' : 'Save Batch Attendance (' + totalBatchStudents + ' Students)' }}</span>
+          <div *ngIf="isBatchPastLocked" class="batch-locked-badge">
+            <mat-icon>lock</mat-icon>
+            <span>Past Attendance Locked (Admin Permission Required)</span>
+          </div>
+          <button mat-raised-button color="primary" class="btn-save-batch" (click)="saveBatchAttendance()" [disabled]="batchSaving || batchLoading || isBatchPastLocked">
+            <mat-icon>{{ isBatchPastLocked ? 'lock' : 'save' }}</mat-icon>
+            <span>{{ isBatchPastLocked ? 'Locked (Past Date)' : (batchSaving ? 'Saving Attendance...' : 'Save Batch Attendance (' + totalBatchStudents + ' Students)') }}</span>
           </button>
         </div>
       </div>
@@ -308,20 +323,20 @@ interface CalendarDay {
         <button mat-raised-button color="primary" (click)="openNewRecord()" [disabled]="!attendancePermissions.canManualMark || attendanceMode === 'Biometric'" matTooltip="Manual marking is disabled by permission or mode"><mat-icon>add_task</mat-icon> Mark Attendance</button>
       </mat-card>
 
-      <div class="summary-grid" *ngIf="summary">
-        <div class="summary-card present"><mat-icon>check_circle</mat-icon><strong>{{ summary.presentDays }}</strong><small>Present Days</small></div>
-        <div class="summary-card absent"><mat-icon>cancel</mat-icon><strong>{{ summary.absentDays }}</strong><small>Absent Days</small></div>
-        <div class="summary-card late"><mat-icon>schedule</mat-icon><strong>{{ summary.lateDays }}</strong><small>Late Marks</small></div>
-        <div class="summary-card half"><mat-icon>hourglass_bottom</mat-icon><strong>{{ summary.halfDays }}</strong><small>Half Days</small></div>
-        <div class="summary-card holiday"><mat-icon>beach_access</mat-icon><strong>{{ summary.holidayDays }}</strong><small>Holidays / Off</small></div>
-        <div class="summary-card compliance"><mat-icon>analytics</mat-icon><strong>{{ summary.attendancePercentage }}%</strong><small>Compliance</small></div>
-        <div class="summary-card working"><mat-icon>calendar_today</mat-icon><strong>{{ summary.totalWorkingDays }}</strong><small>Working Days</small></div>
+      <div class="summary-grid" *ngIf="effectiveSummary as sum">
+        <div class="summary-card present"><mat-icon>check_circle</mat-icon><strong>{{ sum.presentDays }}</strong><small>Present Days</small></div>
+        <div class="summary-card absent"><mat-icon>cancel</mat-icon><strong>{{ sum.absentDays }}</strong><small>Absent Days</small></div>
+        <div class="summary-card late"><mat-icon>schedule</mat-icon><strong>{{ sum.lateDays }}</strong><small>Late Marks</small></div>
+        <div class="summary-card half"><mat-icon>hourglass_bottom</mat-icon><strong>{{ sum.halfDays }}</strong><small>Half Days</small></div>
+        <div class="summary-card holiday"><mat-icon>beach_access</mat-icon><strong>{{ sum.holidayDays }}</strong><small>Holidays / Off</small></div>
+        <div class="summary-card compliance"><mat-icon>analytics</mat-icon><strong>{{ sum.attendancePercentage }}%</strong><small>Compliance</small></div>
+        <div class="summary-card working"><mat-icon>calendar_today</mat-icon><strong>{{ sum.totalWorkingDays }}</strong><small>Working Days</small></div>
       </div>
 
       <mat-card class="form-card mat-elevation-z1" *ngIf="showForm">
         <div class="form-heading"><div><strong>{{ editingRecordId ? 'Edit Attendance Record' : 'Log Attendance Record' }}</strong><small>Enter date, status, and remarks.</small></div><button mat-icon-button (click)="showForm = false"><mat-icon>close</mat-icon></button></div>
         <div class="form-row">
-          <mat-form-field appearance="outline"><mat-label>Attendance Date</mat-label><input matInput type="date" [(ngModel)]="formData.attendanceDate"></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Attendance Date</mat-label><input matInput type="date" [(ngModel)]="formData.attendanceDate" [min]="minAttendanceDate" [max]="todayStr"></mat-form-field>
           <mat-form-field appearance="outline"><mat-label>Attendance Status</mat-label><mat-select [(ngModel)]="formData.status"><mat-option value="Present">● Present</mat-option><mat-option value="Absent">● Absent</mat-option><mat-option value="Late">● Late</mat-option><mat-option value="HalfDay">● Half Day</mat-option><mat-option value="Holiday">● Holiday / Off</mat-option></mat-select></mat-form-field>
           <mat-form-field appearance="outline" class="remarks-field"><mat-label>Remarks / Notes</mat-label><input matInput [(ngModel)]="formData.remarks" placeholder="e.g. Medical leave"></mat-form-field>
         </div>
@@ -331,13 +346,47 @@ interface CalendarDay {
       <mat-card class="calendar-card mat-elevation-z1">
         <div class="calendar-heading"><strong><mat-icon>calendar_view_month</mat-icon>{{ months[attMonth - 1] }} {{ attYear }} Monthly Day-by-Day Roster</strong><div class="legend"><span class="present-dot">● Present</span><span class="absent-dot">● Absent</span><span class="holiday-dot">★ Public Holiday</span><span class="sunday-dot">● Sunday</span><span class="saturday-dot">● Saturday</span></div></div>
         <div class="calendar-grid">
-          <button *ngFor="let day of calendarDays" type="button" class="day-cell" [class.present]="day.status === 'Present'" [class.absent]="day.status === 'Absent'" [class.late]="day.status === 'Late'" [class.half]="day.status === 'HalfDay'" [class.holiday]="day.holiday && !day.record" [class.sunday]="day.isSunday && !day.record && !day.holiday" [class.saturday]="day.isSaturday && !day.record && !day.holiday" [class.today]="day.isToday" [class.locked]="isPublicHolidayOrSunday(day.dateStr) && !canEditPublicHolidayOrSunday" [matTooltip]="getDayTooltip(day)" (click)="openDay(day)"><span>{{ day.dayNumber }}</span><small>{{ day.dayOfWeek }}</small><b>{{ getShortTag(day) }}</b></button>
+          <button *ngFor="let day of calendarDays" type="button" class="day-cell"
+            [class.present]="day.status === 'Present'"
+            [class.absent]="day.status === 'Absent'"
+            [class.late]="day.status === 'Late'"
+            [class.half]="day.status === 'HalfDay'"
+            [class.holiday]="day.holiday && !day.record"
+            [class.sunday]="day.isSunday && !day.record && !day.holiday"
+            [class.saturday]="day.isSaturday && day.status !== 'Absent' && !day.record && !day.holiday"
+            [class.today]="day.isToday"
+            [class.future]="day.isFuture"
+            [class.locked-past]="!day.isToday && !day.isFuture && !attendancePermissions.canCorrectAttendance"
+            [class.locked]="(isPublicHolidayOrSunday(day.dateStr) && !canEditPublicHolidayOrSunday) || (!day.isToday && !day.isFuture && !attendancePermissions.canCorrectAttendance)"
+            [disabled]="day.isFuture || (!day.isToday && !attendancePermissions.canCorrectAttendance) || (isPublicHolidayOrSunday(day.dateStr) && !canEditPublicHolidayOrSunday)"
+            [matTooltip]="getDayTooltip(day)"
+            (click)="openDay(day)">
+            <span class="day-num">{{ day.dayNumber }}</span>
+            <small class="day-name">{{ day.dayOfWeek }}</small>
+            <b class="day-tag">{{ getShortTag(day) }}</b>
+            <span *ngIf="day.capturedTime" class="day-time">{{ day.capturedTime }}</span>
+          </button>
         </div>
       </mat-card>
 
       <mat-card class="records-card mat-elevation-z1" *ngIf="records.length">
         <div class="records-heading"><strong>Detailed Attendance Register</strong><span>{{ records.length }} Records</span></div>
-        <div class="record-row" *ngFor="let record of records"><div><strong>{{ record.attendanceDate | date:'dd MMM yyyy' }}</strong><small>{{ record.attendanceDate | date:'EEEE' }}</small></div><span class="status" [ngClass]="record.status.toLowerCase()">{{ record.status === 'HalfDay' ? 'Half Day' : record.status }}</span><span class="source-tag">{{ record.captureSource || 'Manual' }}</span><span class="remarks">{{ record.remarks || '—' }}</span><div class="record-actions"><button mat-icon-button color="primary" (click)="editRecord(record)" [disabled]="!attendancePermissions.canCorrectAttendance || attendanceMode === 'Biometric' || (isPublicHolidayOrSunday(record.attendanceDate) && !canEditPublicHolidayOrSunday)" matTooltip="Edit record"><mat-icon>edit</mat-icon></button><button mat-icon-button color="warn" (click)="deleteRecord(record.id)" [disabled]="!attendancePermissions.canCorrectAttendance || attendanceMode === 'Biometric' || (isPublicHolidayOrSunday(record.attendanceDate) && !canEditPublicHolidayOrSunday)" matTooltip="Delete record"><mat-icon>delete_outline</mat-icon></button></div></div>
+        <div class="record-row" *ngFor="let record of records">
+          <div>
+            <strong>{{ record.attendanceDate | date:'dd MMM yyyy' }}</strong>
+            <small>{{ record.attendanceDate | date:'EEEE' }}</small>
+          </div>
+          <span class="status" [ngClass]="record.status.toLowerCase()">{{ record.status === 'HalfDay' ? 'Half Day' : record.status }}</span>
+          <span class="source-tag">
+            {{ record.captureSource || 'Manual' }}
+            <small *ngIf="getRecordCapturedTime(record)" class="time-sub">{{ getRecordCapturedTime(record) }}</small>
+          </span>
+          <span class="remarks">{{ record.remarks || '—' }}</span>
+          <div class="record-actions">
+            <button mat-icon-button color="primary" (click)="editRecord(record)" [disabled]="!attendancePermissions.canCorrectAttendance || attendanceMode === 'Biometric' || (isPublicHolidayOrSunday(record.attendanceDate) && !canEditPublicHolidayOrSunday)" matTooltip="Edit record"><mat-icon>edit</mat-icon></button>
+            <button mat-icon-button color="warn" (click)="deleteRecord(record.id)" [disabled]="!attendancePermissions.canCorrectAttendance || attendanceMode === 'Biometric' || (isPublicHolidayOrSunday(record.attendanceDate) && !canEditPublicHolidayOrSunday)" matTooltip="Delete record"><mat-icon>delete_outline</mat-icon></button>
+          </div>
+        </div>
       </mat-card>
     </div>
   </div>
@@ -502,11 +551,22 @@ interface CalendarDay {
       background: #dc2626; color: #ffffff; padding: 2px 7px;
       border-radius: 12px; font-size: 0.75rem; margin-left: 6px;
     }
+    .save-actions { display: flex; align-items: center; gap: 12px; }
     .btn-save-batch {
       height: 46px; padding: 0 24px !important; font-size: 0.95rem !important;
       font-weight: 600 !important; border-radius: 8px !important; display: inline-flex;
       align-items: center; gap: 8px;
     }
+    .batch-locked-badge {
+      display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px;
+      background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca;
+      border-radius: 8px; font-size: 0.82rem; font-weight: 600;
+    }
+    .batch-locked-badge mat-icon { font-size: 18px; width: 18px; height: 18px; }
+    .status-pill:disabled { opacity: 0.55; cursor: not-allowed; }
+    .status-pill:disabled:hover { background: #ffffff !important; color: #64748b !important; }
+    .status-pill.selected:disabled { opacity: 0.85; cursor: not-allowed; }
+    .remarks-input:disabled { background: #f1f5f9; color: #94a3b8; cursor: not-allowed; }
 
     /* Tab 2 Single Student Styles */
     .selector-card, .period-card {
@@ -514,6 +574,7 @@ interface CalendarDay {
       align-items: center; gap: 16px; padding: 10px 18px; border-radius: 10px;
       min-height: 78px; box-sizing: border-box;
     }
+    .selector-card { margin-bottom: 16px; }
     .selector-icon { font-size: 28px; width: 28px; height: 28px; flex: 0 0 28px; }
     .student-select { flex: 1 1 auto; min-width: 280px; margin: 0; }
     .student-context { display: flex; flex: 0 0 250px; flex-direction: column; gap: 2px; color: #64748b; font-size: .78rem; }
@@ -561,21 +622,50 @@ interface CalendarDay {
     .saturday-dot { color: #4f46e5; }
     .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 9px; }
     .day-cell {
-      min-height: 66px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff;
+      min-height: 74px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
-      gap: 2px; cursor: pointer; color: #334155;
+      gap: 1px; cursor: pointer; color: #334155; padding: 4px 2px; transition: transform 0.15s ease, box-shadow 0.15s ease;
     }
-    .day-cell span { font-weight: 800; }
-    .day-cell small { color: #94a3b8; font-size: .66rem; }
-    .day-cell b { font-size: .66rem; }
+    .day-cell:hover { transform: translateY(-1px); box-shadow: 0 4px 10px rgba(0,0,0,0.06); }
+    .day-cell .day-num { font-weight: 800; font-size: 0.88rem; line-height: 1.1; }
+    .day-cell .day-name { color: #94a3b8; font-size: .64rem; line-height: 1.1; }
+    .day-cell .day-tag { font-size: .72rem; line-height: 1.2; }
+    .day-cell .day-time {
+      font-size: .62rem; font-weight: 700; line-height: 1.1; letter-spacing: -0.01em; opacity: 0.92;
+      margin-top: 1px;
+    }
     .day-cell.present { background: #dcfce7; border-color: #86efac; color: #15803d; }
+    .day-cell.present .day-name { color: #16a34a; }
     .day-cell.absent { background: #fee2e2; border-color: #fca5a5; color: #b91c1c; }
+    .day-cell.absent .day-name { color: #dc2626; }
     .day-cell.late { background: #ffedd5; border-color: #fdba74; color: #c2410c; }
     .day-cell.half { background: #f3e8ff; border-color: #d8b4fe; color: #7e22ce; }
     .day-cell.holiday { background: #fef3c7; border-color: #fbbf24; color: #b45309; }
     .day-cell.sunday { background: #ffe4e6; color: #be123c; }
     .day-cell.saturday { background: #e0e7ff; color: #4338ca; }
     .day-cell.today { box-shadow: 0 0 0 2px #2563eb inset; }
+    .day-cell.locked, .day-cell.locked-past {
+      cursor: not-allowed !important;
+    }
+    .day-cell.locked:hover, .day-cell.locked-past:hover {
+      transform: none !important;
+      box-shadow: none !important;
+    }
+    .day-cell.future {
+      opacity: 0.55;
+      cursor: not-allowed !important;
+      background: #f8fafc !important;
+      border-color: #e2e8f0 !important;
+      color: #94a3b8 !important;
+      box-shadow: none !important;
+      transform: none !important;
+    }
+    .day-cell.future .day-name, .day-cell.future .day-tag { color: #cbd5e1 !important; }
+    .day-cell.future.sunday { background: #fff1f2 !important; border-color: #fecdd3 !important; color: #fda4af !important; }
+    .day-cell.future.saturday { background: #eff6ff !important; border-color: #dbeafe !important; color: #93c5fd !important; }
+    .day-cell.future.holiday { background: #fefce8 !important; border-color: #fef08a !important; color: #fde047 !important; }
+    .record-row .source-tag { display: flex; flex-direction: column; font-size: .78rem; font-weight: 600; color: #475569; }
+    .record-row .source-tag .time-sub { font-size: .7rem; color: #059669; font-weight: 700; }
     .records-heading { padding-bottom: 10px; border-bottom: 1px solid #e2e8f0; }
     .records-heading span { color: #64748b; font-size: .78rem; }
     .record-row {
@@ -739,7 +829,9 @@ export class StudentAttendanceComponent implements OnInit {
           parentWhatsAppPhone: r.parentWhatsAppPhone,
           status: r.status || 'Present',
           remarks: r.remarks || '',
-          attendanceId: r.attendanceId
+          attendanceId: r.attendanceId,
+          capturedAt: r.capturedAt,
+          captureSource: r.captureSource
         }));
         this.batchLoading = false;
       },
@@ -751,6 +843,10 @@ export class StudentAttendanceComponent implements OnInit {
   }
 
   prevDay(): void {
+    if (this.selectedBatchDate <= this.todayStr && !this.attendancePermissions.canCorrectAttendance) {
+      this.confirmDialog.alert('Permission Denied', 'Past date attendance cannot be viewed or modified without Admin Attendance Correction permission.', 'warning');
+      return;
+    }
     const d = new Date(this.selectedBatchDate);
     d.setDate(d.getDate() - 1);
     this.selectedBatchDate = d.toISOString().split('T')[0];
@@ -758,21 +854,47 @@ export class StudentAttendanceComponent implements OnInit {
   }
 
   nextDay(): void {
+    if (this.selectedBatchDate >= this.todayStr) return;
     const d = new Date(this.selectedBatchDate);
     d.setDate(d.getDate() + 1);
-    this.selectedBatchDate = d.toISOString().split('T')[0];
+    const nextStr = d.toISOString().split('T')[0];
+    if (nextStr > this.todayStr) return;
+    this.selectedBatchDate = nextStr;
+    this.loadBatchAttendance();
+  }
+
+  onBatchDateChanged(): void {
+    if (this.selectedBatchDate > this.todayStr) {
+      this.confirmDialog.alert('Future Date', 'Cannot select a future date for attendance.', 'warning');
+      this.selectedBatchDate = this.todayStr;
+    } else if (this.selectedBatchDate < this.todayStr && !this.attendancePermissions.canCorrectAttendance) {
+      this.confirmDialog.alert('Permission Denied', 'Past date attendance cannot be marked or modified without Admin Attendance Correction permission.', 'warning');
+      this.selectedBatchDate = this.todayStr;
+    }
     this.loadBatchAttendance();
   }
 
   setToday(): void {
-    this.selectedBatchDate = new Date().toISOString().split('T')[0];
+    this.selectedBatchDate = this.todayStr;
     this.loadBatchAttendance();
   }
 
   markAllStatus(status: string): void {
+    if (this.isBatchPastLocked) {
+      this.confirmDialog.alert('Permission Denied', 'Past date attendance cannot be marked or modified without Admin Attendance Correction permission.', 'warning');
+      return;
+    }
     for (const student of this.batchStudents) {
       student.status = status;
     }
+  }
+
+  setStudentBatchStatus(student: BatchStudentRow, status: string): void {
+    if (this.isBatchPastLocked) {
+      this.confirmDialog.alert('Permission Denied', 'Past date attendance cannot be marked or modified without Admin Attendance Correction permission.', 'warning');
+      return;
+    }
+    student.status = status;
   }
 
   get totalBatchStudents(): number {
@@ -811,6 +933,14 @@ export class StudentAttendanceComponent implements OnInit {
     }
     if (!this.selectedBatchDate) {
       this.confirmDialog.alert('Date Missing', 'Please select an attendance date.', 'warning');
+      return;
+    }
+    if (this.selectedBatchDate > this.todayStr) {
+      this.confirmDialog.alert('Future Date', 'Cannot save attendance for future dates.', 'warning');
+      return;
+    }
+    if (this.selectedBatchDate < this.todayStr && !this.attendancePermissions.canCorrectAttendance) {
+      this.confirmDialog.alert('Permission Denied', 'Past date batch attendance cannot be marked or modified without Admin Attendance Correction permission.', 'warning');
       return;
     }
     if (!this.attendancePermissions.canManualMark) {
@@ -881,6 +1011,29 @@ export class StudentAttendanceComponent implements OnInit {
     return cleaned;
   }
 
+  formatCapturedTime(isoStr?: string | null): string {
+    if (!isoStr) return 'Previously';
+    try {
+      let str = isoStr.trim();
+      if (str.includes('T') || str.includes(' ')) {
+        const hasTimezone = /[zZ]|[+-]\d{2}(?::?\d{2})?$/.test(str);
+        if (!hasTimezone) {
+          str = str.replace(' ', 'T') + 'Z';
+        }
+      }
+      const d = new Date(str);
+      if (isNaN(d.getTime())) return 'Previously';
+      return 'at ' + d.toLocaleTimeString('en-US', {
+        timeZone: 'Asia/Kolkata',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+    } catch {
+      return 'Previously';
+    }
+  }
+
   // ================= SINGLE STUDENT ATTENDANCE METHODS =================
 
   loadAttendanceSettings(): void {
@@ -934,21 +1087,108 @@ export class StudentAttendanceComponent implements OnInit {
     });
   }
 
+  formatRosterTime(isoStr?: string | null): string {
+    if (!isoStr) return '';
+    try {
+      let str = isoStr.trim();
+      if (str.includes('T') || str.includes(' ')) {
+        const hasTimezone = /[zZ]|[+-]\d{2}(?::?\d{2})?$/.test(str);
+        if (!hasTimezone) {
+          str = str.replace(' ', 'T') + 'Z';
+        }
+      }
+      const d = new Date(str);
+      if (isNaN(d.getTime())) return '';
+      return d.toLocaleTimeString('en-US', {
+        timeZone: 'Asia/Kolkata',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+    } catch {
+      return '';
+    }
+  }
+
+  getRecordCapturedTime(record?: StudentAttendance | null): string {
+    if (!record) return '';
+    const raw = record.capturedAt || record.CapturedAt || record.createdAt || record.CreatedAt;
+    return raw ? this.formatRosterTime(raw) : '';
+  }
+
+  get effectiveSummary(): AttendanceSummary | null {
+    if (!this.summary) return null;
+    const pastUnmarkedAbsents = this.calendarDays.filter(d => d.status === 'Absent' && !d.record).length;
+    if (pastUnmarkedAbsents === 0) return this.summary;
+    const totalAbsent = this.summary.absentDays + pastUnmarkedAbsents;
+    const evaluated = this.summary.presentDays + totalAbsent + this.summary.lateDays + this.summary.halfDays;
+    const percentage = evaluated === 0 ? 0 : Math.round(((this.summary.presentDays + this.summary.lateDays + (this.summary.halfDays * 0.5)) / evaluated) * 100);
+    return {
+      ...this.summary,
+      absentDays: totalAbsent,
+      attendancePercentage: percentage
+    };
+  }
+
+  get todayStr(): string {
+    return new Date().toISOString().split('T')[0];
+  }
+
+  get minAttendanceDate(): string | null {
+    return this.attendancePermissions.canCorrectAttendance ? null : this.todayStr;
+  }
+
+  get isBatchPastLocked(): boolean {
+    return this.selectedBatchDate < this.todayStr && !this.attendancePermissions.canCorrectAttendance;
+  }
+
   buildCalendar(): void {
     const daysInMonth = new Date(this.attYear, this.attMonth, 0).getDate();
-    const today = new Date().toISOString().split('T')[0];
+    const today = this.todayStr;
     const week = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
     this.calendarDays = Array.from({ length: daysInMonth }, (_, index) => {
       const date = new Date(this.attYear, this.attMonth - 1, index + 1);
       const dateStr = `${this.attYear}-${String(this.attMonth).padStart(2, '0')}-${String(index + 1).padStart(2, '0')}`;
       const record = this.records.find(item => item.attendanceDate.split('T')[0] === dateStr);
       const holiday = this.holidays.find(item => dateStr >= item.startDate.split('T')[0] && dateStr <= item.endDate.split('T')[0]);
-      return { dayNumber: index + 1, dateStr, dayOfWeek: week[date.getDay()], isToday: dateStr === today, isSunday: date.getDay() === 0, isSaturday: date.getDay() === 6, holiday, record, status: record?.status || (holiday || date.getDay() === 0 ? 'Holiday' : 'Unmarked') };
+      const capturedTime = this.getRecordCapturedTime(record);
+
+      const isSunday = date.getDay() === 0;
+      const isSaturday = date.getDay() === 6;
+      const isPast = dateStr < today;
+      const isFuture = dateStr > today;
+
+      let status: string;
+      if (record?.status) {
+        status = record.status;
+      } else if (holiday || isSunday) {
+        status = 'Holiday';
+      } else if (isPast) {
+        // Any past working day (Monday through Saturday, coaching is ON) without attendance -> Absent (Red)
+        status = 'Absent';
+      } else {
+        status = 'Unmarked';
+      }
+
+      return {
+        dayNumber: index + 1,
+        dateStr,
+        dayOfWeek: week[date.getDay()],
+        isToday: dateStr === today,
+        isSunday,
+        isSaturday,
+        isFuture,
+        holiday,
+        record,
+        status,
+        capturedTime
+      };
     });
   }
 
   getShortTag(day: CalendarDay): string {
     if (day.record) return day.status === 'HalfDay' ? 'HD' : day.status.substring(0, 1);
+    if (day.status === 'Absent') return 'A';
     if (day.holiday) return 'PH';
     if (day.isSunday) return 'SUN';
     if (day.isSaturday) return 'SAT';
@@ -956,26 +1196,55 @@ export class StudentAttendanceComponent implements OnInit {
   }
 
   getDayTooltip(day: CalendarDay): string {
+    if (day.isFuture) {
+      if (day.holiday) return `${day.dateStr} - ${day.holiday.title} (Future Holiday)`;
+      if (day.isSunday) return `${day.dateStr} - Sunday Weekly Off (Future)`;
+      if (day.isSaturday) return `${day.dateStr} - Saturday (Future - Coaching ON)`;
+      return `${day.dateStr} (${day.dayOfWeek}) - Future Date (Attendance cannot be marked in advance)`;
+    }
     const details: string[] = [];
     if (day.holiday) details.push(`${day.holiday.title} (${day.holiday.holidayType})${day.holiday.description ? ` - ${day.holiday.description}` : ''}`);
     if (day.isSunday) details.push('Sunday Weekly Off');
-    if (day.isSaturday) details.push('Saturday');
-    if (day.record) details.push(`Status: ${day.status}${day.record.remarks ? ` | ${day.record.remarks}` : ''}`);
+    if (day.isSaturday && !day.record && day.status !== 'Absent') details.push('Saturday (Coaching ON)');
+    if (day.record) {
+      const timeStr = day.capturedTime ? ` (${day.capturedTime} IST)` : '';
+      details.push(`Status: ${day.status}${timeStr}${day.record.remarks ? ` | ${day.record.remarks}` : ''}`);
+    } else if (day.status === 'Absent') {
+      const dayType = day.isSaturday ? 'Saturday class' : 'Working day';
+      details.push(`Status: Absent (${dayType} passed without attendance)`);
+    }
+
+    if (!day.isToday && !day.isFuture && !this.attendancePermissions.canCorrectAttendance) {
+      details.push('Locked: Past attendance requires Admin correction permission');
+    }
+
     return details.join(' | ') || `${day.dateStr} - Unmarked`;
   }
 
   openDay(day: CalendarDay): void {
+    if (day.isFuture) {
+      this.confirmDialog.alert('Future Date', 'Advance attendance cannot be marked for future dates.', 'warning');
+      return;
+    }
+    if (!day.isToday && !this.attendancePermissions.canCorrectAttendance) {
+      this.confirmDialog.alert('Permission Denied', 'Past date attendance cannot be marked or modified without Admin Attendance Correction permission.', 'warning');
+      return;
+    }
     if (this.isPublicHolidayOrSunday(day.dateStr) && !this.canEditPublicHolidayOrSunday) {
       this.confirmDialog.alert('Editing Disabled', 'Sunday/Public Holiday attendance editing is disabled for this role.', 'warning');
       return;
     }
-    this.formData = { attendanceDate: day.dateStr, status: day.record?.status || (day.holiday || day.isSunday ? 'Holiday' : 'Present'), remarks: day.record?.remarks || (day.holiday?.title || (day.isSunday ? 'Sunday Weekly Off' : '')) };
+    this.formData = {
+      attendanceDate: day.dateStr,
+      status: day.record?.status || (day.holiday || day.isSunday ? 'Holiday' : (day.status === 'Absent' ? 'Absent' : 'Present')),
+      remarks: day.record?.remarks || (day.holiday?.title || (day.isSunday ? 'Sunday Weekly Off' : ''))
+    };
     this.editingRecordId = day.record?.id || null;
     this.showForm = true;
   }
 
   openNewRecord(): void {
-    this.formData = { attendanceDate: new Date().toISOString().split('T')[0], status: 'Present', remarks: '' };
+    this.formData = { attendanceDate: this.todayStr, status: 'Present', remarks: '' };
     this.editingRecordId = null;
     this.showForm = true;
   }
@@ -993,6 +1262,14 @@ export class StudentAttendanceComponent implements OnInit {
 
   saveAttendance(): void {
     if (!this.selectedStudentId || !this.formData.attendanceDate) return;
+    if (this.formData.attendanceDate > this.todayStr) {
+      this.confirmDialog.alert('Future Date', 'Cannot mark attendance for future dates.', 'warning');
+      return;
+    }
+    if (this.formData.attendanceDate < this.todayStr && !this.attendancePermissions.canCorrectAttendance) {
+      this.confirmDialog.alert('Permission Denied', 'You do not have permission to mark or modify past attendance records.', 'warning');
+      return;
+    }
     if (!this.attendancePermissions.canManualMark) {
       this.confirmDialog.alert('Permission Denied', 'You do not have permission to mark manual attendance.', 'warning');
       return;

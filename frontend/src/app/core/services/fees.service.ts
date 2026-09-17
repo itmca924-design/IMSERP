@@ -84,6 +84,45 @@ export interface GenerateInvoicesResult {
   message: string;
 }
 
+export interface FeePaymentReceipt {
+  paymentId: string;
+  receiptNumber: string;
+  studentName: string;
+  rollNumber: string;
+  batchName: string;
+  parentName: string;
+  parentPhone: string;
+  invoiceNumber: string;
+  amountPaid: number;
+  remainingDue: number;
+  paymentDate: string;
+  mode: number | string;
+  transactionRef?: string;
+  remarks?: string;
+}
+
+export interface FeeDueSlipItem {
+  invoiceId: string;
+  invoiceNumber: string;
+  title: string;
+  dueDate: string;
+  totalAmount: number;
+  paidAmount: number;
+  dueAmount: number;
+}
+
+export interface FeeDueSlip {
+  studentId: string;
+  studentName: string;
+  rollNumber: string;
+  batchName: string;
+  parentName: string;
+  parentPhone: string;
+  totalOutstandingDue: number;
+  generatedDate: string;
+  dueItems: FeeDueSlipItem[];
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -118,8 +157,18 @@ export class FeesService {
     return this.http.get<StudentLedger>(`${this.apiUrl}/student-ledger/${studentId}`);
   }
 
-  collectFeeFifo(payload: CollectFifoFeePayload): Observable<any> {
-    return this.http.post<any>(`${this.apiUrl}/collect-fifo`, payload);
+  collectFeeFifo(payload: CollectFifoFeePayload): Observable<FeePaymentReceipt> {
+    return this.http.post<FeePaymentReceipt>(`${this.apiUrl}/collect-fifo`, payload);
+  }
+
+  getReceiptByNumber(receiptNumber: string): Observable<FeePaymentReceipt> {
+    return this.http.get<FeePaymentReceipt>(`${this.apiUrl}/receipt/${receiptNumber}`);
+  }
+
+  getStudentDueSlip(studentId: string, invoiceId?: string): Observable<FeeDueSlip> {
+    let params = new HttpParams();
+    if (invoiceId) params = params.set('invoiceId', invoiceId);
+    return this.http.get<FeeDueSlip>(`${this.apiUrl}/due-slip/${studentId}`, { params });
   }
 
   sendWhatsAppReminder(invoiceId: string): Observable<any> {

@@ -187,7 +187,7 @@ public class FeesController : ControllerBase
             p.Mode,
             p.TransactionRef,
             p.Remarks,
-            p.PaymentDate
+            DateTime.SpecifyKind(p.PaymentDate, DateTimeKind.Utc)
         )).ToList();
 
         // Calculations exclude Cancelled invoices — cancelled invoices show in ledger but don't affect totals
@@ -302,13 +302,102 @@ public class FeesController : ControllerBase
                 lastPayment?.Id ?? Guid.NewGuid(),
                 receiptNo,
                 student.StudentName,
+                student.RollNumber,
+                student.Batch?.Name ?? "",
+                student.ParentName,
+                student.ParentWhatsAppPhone,
                 "FIFO Multi-Invoice Settlement",
                 dto.AmountPaid,
                 totalOutstandingDue,
                 DateTime.UtcNow,
-                dto.Mode
+                dto.Mode,
+                dto.TransactionRef,
+                dto.Remarks
             ));
         });
+    }
+
+    [HttpGet("receipt/{receiptNumber}")]
+    public async Task<ActionResult<FeePaymentReceiptDto>> GetReceiptByNumber(string receiptNumber)
+    {
+        var payment = await _dbContext.FeePayments
+            .AsNoTracking()
+            .Include(p => p.Invoice)
+                .ThenInclude(i => i!.Student)
+                    .ThenInclude(s => s!.Batch)
+            .FirstOrDefaultAsync(p => p.ReceiptNumber == receiptNumber);
+
+        if (payment == null) return NotFound("Receipt not found");
+
+        var student = payment.Invoice?.Student;
+        var remainingDue = student != null
+            ? await _dbContext.FeeInvoices
+                .Where(i => i.StudentId == student.Id && i.Status != InvoiceStatus.Cancelled)
+                .SumAsync(i => i.TotalAmount - i.PaidAmount)
+            : 0m;
+
+        return Ok(new FeePaymentReceiptDto(
+            payment.Id,
+            payment.ReceiptNumber,
+            student?.StudentName ?? "",
+            student?.RollNumber ?? "",
+            student?.Batch?.Name ?? "",
+            student?.ParentName ?? "",
+            student?.ParentWhatsAppPhone ?? "",
+            payment.Invoice?.InvoiceNumber ?? "",
+            payment.AmountPaid,
+            remainingDue,
+            DateTime.SpecifyKind(payment.PaymentDate, DateTimeKind.Utc),
+            payment.Mode,
+            payment.TransactionRef,
+            payment.Remarks
+        ));
+    }
+
+    [HttpGet("due-slip/{studentId}")]
+    public async Task<ActionResult<FeeDueSlipDto>> GetDueSlip(Guid studentId, [FromQuery] Guid? invoiceId = null)
+    {
+        var student = await _dbContext.Students
+            .AsNoTracking()
+            .Include(s => s.Batch)
+            .FirstOrDefaultAsync(s => s.Id == studentId);
+
+        if (student == null) return NotFound("Student not found");
+
+        var query = _dbContext.FeeInvoices
+            .AsNoTracking()
+            .Where(i => i.StudentId == studentId && i.Status != InvoiceStatus.Cancelled && i.TotalAmount > i.PaidAmount);
+
+        if (invoiceId.HasValue && invoiceId.Value != Guid.Empty)
+        {
+            query = query.Where(i => i.Id == invoiceId.Value);
+        }
+
+        var dueInvoices = await query.OrderBy(i => i.DueDate).ToListAsync();
+
+        var items = dueInvoices.Select(i => new FeeDueSlipItemDto(
+            i.Id,
+            i.InvoiceNumber,
+            i.Title,
+            i.DueDate,
+            i.TotalAmount,
+            i.PaidAmount,
+            i.TotalAmount - i.PaidAmount
+        )).ToList();
+
+        var totalDue = items.Sum(i => i.DueAmount);
+
+        return Ok(new FeeDueSlipDto(
+            student.Id,
+            student.StudentName,
+            student.RollNumber,
+            student.Batch?.Name ?? "",
+            student.ParentName,
+            student.ParentWhatsAppPhone,
+            totalDue,
+            DateTime.UtcNow,
+            items
+        ));
     }
 
     [HttpPost("send-reminder/{invoiceId}")]
@@ -716,6 +805,87 @@ public class TestsController : ControllerBase
             )).ToList();
 
         return Ok(new TestReportCardDto(test.Id, test.Title, test.Subject, test.MaxMarks, rankedList));
+    }
+
+    [HttpGet("{testId}/admit-cards")]
+    public async Task<ActionResult<ExamAdmitCardDto>> GetAdmitCards(Guid testId)
+    {
+        var test = await _dbContext.Tests
+            .AsNoTracking()
+            .Include(t => t.Batch)
+            .Include(t => t.Branch)
+            .FirstOrDefaultAsync(t => t.Id == testId);
+
+        if (test == null) return NotFound("Test not found");
+
+        var students = await _dbContext.Students
+            .AsNoTracking()
+            .Where(s => s.BatchId == test.BatchId && s.IsActive)
+            .OrderBy(s => s.RollNumber)
+            .ToListAsync();
+
+        var studentIds = students.Select(s => s.Id).ToList();
+
+        var duesMap = await _dbContext.FeeInvoices
+            .AsNoTracking()
+            .Where(i => studentIds.Contains(i.StudentId) && i.Status != InvoiceStatus.Cancelled)
+            .GroupBy(i => i.StudentId)
+            .Select(g => new
+            {
+                StudentId = g.Key,
+                TotalDue = g.Sum(i => i.TotalAmount - i.PaidAmount)
+            })
+            .ToDictionaryAsync(x => x.StudentId, x => x.TotalDue);
+
+        var examDateUtc = DateTime.SpecifyKind(test.TestDate, DateTimeKind.Utc);
+        var branchName = test.Branch?.Name ?? "Main Campus";
+
+        TimeZoneInfo istZone;
+        try
+        {
+            istZone = TimeZoneInfo.FindSystemTimeZoneById(OperatingSystem.IsWindows() ? "India Standard Time" : "Asia/Kolkata");
+        }
+        catch
+        {
+            istZone = TimeZoneInfo.CreateCustomTimeZone("IST", TimeSpan.FromHours(5.5), "India Standard Time", "IST");
+        }
+
+        var examDateIst = TimeZoneInfo.ConvertTimeFromUtc(examDateUtc, istZone);
+        var reportingTime = examDateIst.AddMinutes(-15).ToString("hh:mm tt");
+
+        var studentCards = students.Select(s =>
+        {
+            var due = duesMap.TryGetValue(s.Id, out var d) ? d : 0m;
+            var isFeeCleared = due <= 0;
+            var examRoll = $"EXAM-{s.RollNumber}";
+
+            return new StudentAdmitCardItemDto(
+                s.Id,
+                s.StudentName,
+                s.RollNumber,
+                test.Batch?.Name ?? "",
+                s.ParentName,
+                s.ParentWhatsAppPhone,
+                s.ProfilePhoto,
+                due,
+                isFeeCleared,
+                examRoll,
+                branchName,
+                reportingTime,
+                "1 Hour 30 Mins"
+            );
+        }).ToList();
+
+        return Ok(new ExamAdmitCardDto(
+            test.Id,
+            test.Title,
+            test.Subject,
+            examDateUtc,
+            test.MaxMarks,
+            test.Batch?.Name ?? "",
+            branchName,
+            studentCards
+        ));
     }
 
     [HttpPost("bulk-marks")]

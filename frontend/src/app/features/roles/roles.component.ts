@@ -190,11 +190,13 @@ interface ModuleHeaderState {
                   </thead>
                   <tbody formArrayName="permissions">
                     <tr *ngFor="let item of mod.items" [formGroupName]="item.index">
-                      <td class="menu-title-cell">
-                        <mat-icon color="primary" class="menu-icon">{{ item.group.get('icon')?.value || 'web' }}</mat-icon>
-                        <div class="menu-titles">
-                          <strong class="item-title">{{ item.group.get('menuTitle')?.value }}</strong>
-                          <span class="route-subtitle">{{ item.group.get('routeUrl')?.value || 'Folder' }}</span>
+                      <td class="menu-title-cell" style="vertical-align: middle !important;">
+                        <div class="menu-title-wrap" style="display: flex !important; flex-direction: row !important; align-items: center !important; gap: 12px !important;">
+                          <mat-icon color="primary" class="menu-icon" style="font-size: 22px !important; width: 22px !important; height: 22px !important; line-height: 22px !important; margin: 0 !important; padding: 0 !important; flex-shrink: 0 !important; align-self: center !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; vertical-align: middle !important;">{{ item.group.get('icon')?.value || 'web' }}</mat-icon>
+                          <div class="menu-titles" style="display: flex !important; flex-direction: column !important; justify-content: center !important; align-self: center !important;">
+                            <strong class="item-title" style="font-size: 0.9rem !important; color: #1e293b !important; line-height: 1.25 !important; margin: 0 !important; padding: 0 !important;">{{ item.group.get('menuTitle')?.value }}</strong>
+                            <span class="route-subtitle" style="font-size: 0.75rem !important; color: #94a3b8 !important; line-height: 1.2 !important; margin: 0 !important; margin-top: 2px !important; padding: 0 !important;">{{ item.group.get('routeUrl')?.value || 'Folder' }}</span>
+                          </div>
                         </div>
                       </td>
                       <td class="text-center action-col">
@@ -400,6 +402,7 @@ interface ModuleHeaderState {
       th, td {
         padding: 10px 16px;
         border-bottom: 1px solid #f1f5f9;
+        vertical-align: middle;
       }
       th {
         background-color: #f8fafc;
@@ -412,26 +415,48 @@ interface ModuleHeaderState {
       }
     }
     .menu-title-cell {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      .menu-icon {
-        font-size: 22px;
-        width: 22px;
-        height: 22px;
-      }
-      .menu-titles {
-        display: flex;
-        flex-direction: column;
-        .item-title {
-          font-size: 0.9rem;
-          color: #1e293b;
-        }
-        .route-subtitle {
-          font-size: 0.75rem;
-          color: #94a3b8;
-        }
-      }
+      vertical-align: middle !important;
+    }
+    .menu-title-wrap {
+      display: flex !important;
+      flex-direction: row !important;
+      align-items: center !important;
+      gap: 12px !important;
+    }
+    .menu-icon {
+      font-size: 22px !important;
+      width: 22px !important;
+      height: 22px !important;
+      line-height: 22px !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      flex-shrink: 0 !important;
+      align-self: center !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      vertical-align: middle !important;
+    }
+    .menu-titles {
+      display: flex !important;
+      flex-direction: column !important;
+      justify-content: center !important;
+      align-self: center !important;
+    }
+    .item-title {
+      font-size: 0.9rem !important;
+      color: #1e293b !important;
+      line-height: 1.25 !important;
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+    .route-subtitle {
+      font-size: 0.75rem !important;
+      color: #94a3b8 !important;
+      line-height: 1.2 !important;
+      margin: 0 !important;
+      margin-top: 2px !important;
+      padding: 0 !important;
     }
     .page-col {
       width: 340px;

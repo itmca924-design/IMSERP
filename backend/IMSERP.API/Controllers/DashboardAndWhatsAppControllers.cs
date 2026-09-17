@@ -116,6 +116,49 @@ public class DashboardController : ControllerBase
 
         var feeBreakdown = new FeeCollectionBreakdownDto(totalBilledAll, totalPaidAll, totalPendingAll, recoveryRate);
 
+        // 4. Today's Student Attendance Live Summary & Time
+        var today = DateTime.UtcNow.Date;
+        var todayAttendances = await _dbContext.StudentAttendances
+            .AsNoTracking()
+            .Include(a => a.Student)
+            .ThenInclude(s => s!.Batch)
+            .Where(a => a.AttendanceDate == today)
+            .OrderByDescending(a => a.CapturedAt ?? a.CreatedAt)
+            .ToListAsync();
+
+        TodayAttendanceSummaryDto? todayAttendance = null;
+        if (todayAttendances.Any())
+        {
+            int presentCount = todayAttendances.Count(a => a.Status == TeacherAttendanceStatus.Present);
+            int absentCount = todayAttendances.Count(a => a.Status == TeacherAttendanceStatus.Absent);
+            int lateCount = todayAttendances.Count(a => a.Status == TeacherAttendanceStatus.Late);
+            int halfDayCount = todayAttendances.Count(a => a.Status == TeacherAttendanceStatus.HalfDay);
+            int totalMarked = todayAttendances.Count;
+            decimal pct = totalMarked > 0 ? Math.Round((decimal)presentCount / totalMarked * 100m, 1) : 0m;
+
+            var latest = todayAttendances.FirstOrDefault();
+            string? lastTime = null;
+            if (latest != null)
+            {
+                var rawDt = latest.CapturedAt ?? latest.CreatedAt;
+                var utcDt = DateTime.SpecifyKind(rawDt, DateTimeKind.Utc);
+                var istTime = utcDt.AddHours(5).AddMinutes(30);
+                lastTime = istTime.ToString("hh:mm tt");
+            }
+            string? lastBatch = latest?.Student?.Batch?.Name;
+
+            todayAttendance = new TodayAttendanceSummaryDto(
+                totalMarked,
+                presentCount,
+                absentCount,
+                lateCount,
+                halfDayCount,
+                pct,
+                lastTime,
+                lastBatch
+            );
+        }
+
         return Ok(new DashboardSummaryDto(
             totalStudents,
             activeBatches,
@@ -127,7 +170,8 @@ public class DashboardController : ControllerBase
             recentTests,
             revenueTrends,
             batchDistributions,
-            feeBreakdown
+            feeBreakdown,
+            todayAttendance
         ));
     }
 }

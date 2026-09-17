@@ -2,6 +2,33 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
+export interface StudentAdmitCardItemDto {
+  studentId: string;
+  studentName: string;
+  rollNumber: string;
+  batchName: string;
+  parentName: string;
+  parentWhatsAppPhone: string;
+  photoUrl?: string;
+  outstandingDue: number;
+  isFeeCleared: boolean;
+  examRollNumber: string;
+  centerName: string;
+  reportingTime: string;
+  examDuration: string;
+}
+
+export interface ExamAdmitCardDto {
+  testId: string;
+  examTitle: string;
+  subject: string;
+  examDate: string;
+  maxMarks: number;
+  batchName: string;
+  branchName: string;
+  students: StudentAdmitCardItemDto[];
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -146,6 +173,10 @@ export class CoachingService {
 
   getTestMarks(testId: string): Observable<any[]> {
     return this.http.get<any[]>(`${this.BASE_URL}/tests/${testId}/marks`);
+  }
+
+  getTestAdmitCards(testId: string): Observable<ExamAdmitCardDto> {
+    return this.http.get<ExamAdmitCardDto>(`${this.BASE_URL}/tests/${testId}/admit-cards`);
   }
 
   deleteTest(testId: string): Observable<any> {

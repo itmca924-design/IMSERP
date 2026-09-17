@@ -8,6 +8,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { AuthService } from '../../core/services/auth.service';
 
 @Component({
@@ -22,7 +23,8 @@ import { AuthService } from '../../core/services/auth.service';
     MatInputModule,
     MatButtonModule,
     MatIconModule,
-    MatProgressSpinnerModule
+    MatProgressSpinnerModule,
+    MatCheckboxModule
   ],
   template: `
     <div class="login-wrapper">
@@ -64,6 +66,13 @@ import { AuthService } from '../../core/services/auth.service';
               </button>
               <mat-error *ngIf="loginForm.get('password')?.hasError('required')">Password is required</mat-error>
             </mat-form-field>
+
+            <!-- Remember Me Checkbox -->
+            <div class="remember-row">
+              <mat-checkbox formControlName="rememberMe" color="primary">
+                Keep me signed in on this device
+              </mat-checkbox>
+            </div>
 
             <!-- Session Notice or Error Banner -->
             <div *ngIf="sessionNotice" class="info-banner">
@@ -129,11 +138,22 @@ import { AuthService } from '../../core/services/auth.service';
       width: 100%;
       margin-bottom: 8px;
     }
+    .remember-row {
+      margin: -2px 0 10px;
+      display: flex;
+      align-items: center;
+      ::ng-deep .mdc-label {
+        font-size: 0.88rem;
+        color: #475569;
+        font-weight: 500;
+        cursor: pointer;
+      }
+    }
     .submit-btn {
       padding: 12px;
       font-size: 1rem;
       font-weight: 600;
-      margin-top: 14px;
+      margin-top: 6px;
       height: 48px;
       border-radius: 8px;
     }
@@ -186,7 +206,8 @@ export class LoginComponent implements OnInit {
     this.loginForm = this.fb.group({
       tenantCode: [defaultCode, [Validators.required]],
       username: ['admin', [Validators.required]],
-      password: ['admin123', [Validators.required]]
+      password: ['admin123', [Validators.required]],
+      rememberMe: [false]
     });
   }
 
@@ -220,8 +241,9 @@ export class LoginComponent implements OnInit {
       username: (val.username || '').trim(),
       password: val.password
     };
+    const rememberMe = !!val.rememberMe;
 
-    this.authService.login(credentials).subscribe({
+    this.authService.login(credentials, rememberMe).subscribe({
       next: () => {
         this.loading = false;
         this.router.navigate(['/dashboard']);

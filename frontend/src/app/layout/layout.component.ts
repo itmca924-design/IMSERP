@@ -1148,7 +1148,7 @@ export class LayoutComponent implements OnInit {
       if (user?.profilePhoto) {
         this.logoImgFailed.set(false);
       }
-    });
+    }, { allowSignalWrites: true });
   }
 
   onLogoImgError(): void {

@@ -338,8 +338,7 @@ body, p, span, h1, h2, h3, h4, h5, h6, a, button, input, select, textarea,
   }
 }
 
-// Hide visible scrollbars for dialogs and tab-content while preserving smooth mouse wheel scrolling
-.tab-content,
+// Hide visible scrollbars for dialog outer containers while preserving smooth mouse wheel scrolling
 .ledger-dialog-container,
 .mat-mdc-dialog-container,
 .cdk-overlay-pane {
@@ -350,6 +349,29 @@ body, p, span, h1, h2, h3, h4, h5, h6, a, button, input, select, textarea,
     display: none !important;
     width: 0 !important;
     height: 0 !important;
+  }
+}
+
+// Sleek responsive scrollbar for dialog tables & tab content
+.tab-content {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f8fafc;
+
+  &::-webkit-scrollbar {
+    width: 6px !important;
+    height: 6px !important;
+    display: block !important;
+  }
+  &::-webkit-scrollbar-track {
+    background: #f8fafc !important;
+    border-radius: 4px !important;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: #cbd5e1 !important;
+    border-radius: 4px !important;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8 !important;
   }
 }
 
@@ -389,6 +411,133 @@ body, p, span, h1, h2, h3, h4, h5, h6, a, button, input, select, textarea,
           background: rgba(148, 163, 184, 0.7) !important;
         }
       }
+    }
+  }
+}
+
+// ============================================================================
+// Print Media Styles Engine: Strips sidebar, header, footer & backgrounds
+// ============================================================================
+@media print {
+  // Hide layout shell (sidebar, topbar, footer, close buttons)
+  mat-sidenav,
+  .sidenav,
+  mat-toolbar,
+  .header-toolbar,
+  app-footer,
+  .no-print,
+  .close-drawer-btn,
+  .mat-drawer-backdrop {
+    display: none !important;
+    visibility: hidden !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
+
+  // Reset sidenav containers to full width with zero offsets
+  .sidenav-container,
+  mat-sidenav-container,
+  mat-sidenav-content,
+  .mat-drawer-content,
+  .main-content {
+    margin: 0 !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding: 0 !important;
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+    transform: none !important;
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  // Reset page & body background to pure white
+  html, body {
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  // Reset card containers & cards
+  .mat-mdc-card,
+  mat-card {
+    box-shadow: none !important;
+    border: 1px solid #e2e8f0 !important;
+    background: #ffffff !important;
+  }
+
+  @page {
+    size: auto;
+    margin: 10mm 12mm 10mm 12mm;
+  }
+}
+
+// Custom panel for Fee Receipt & Due Slip dialogs - zero out default surface padding
+.receipt-dialog-panel {
+  .mat-mdc-dialog-surface {
+    padding: 0 !important;
+    overflow: hidden !important;
+    border-radius: 12px !important;
+    background: #ffffff !important;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25) !important;
+  }
+}
+
+// Custom panel for Student Ledger Dialog
+.ledger-dialog-panel {
+  max-width: 96vw !important;
+
+  .mat-mdc-dialog-surface {
+    border-radius: 14px !important;
+    background: #ffffff !important;
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.22) !important;
+    overflow: hidden !important;
+  }
+
+  @media (max-width: 600px) {
+    max-width: 98vw !important;
+    width: 98vw !important;
+
+    .mat-mdc-dialog-surface {
+      border-radius: 10px !important;
+      padding: 0 !important;
+    }
+  }
+}
+
+// Custom panel for Exam Admit Card Dialog
+.admit-card-dialog-panel {
+  max-width: 96vw !important;
+  width: 1020px !important;
+
+  .mat-mdc-dialog-surface {
+    border-radius: 12px !important;
+    background: #ffffff !important;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.3) !important;
+    overflow: hidden !important;
+    padding: 0 !important;
+  }
+
+  @media (max-width: 600px) {
+    max-width: 98vw !important;
+    width: 98vw !important;
+
+    .mat-mdc-dialog-surface {
+      border-radius: 10px !important;
+      padding: 0 !important;
     }
   }
 }

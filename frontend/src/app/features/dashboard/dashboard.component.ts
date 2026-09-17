@@ -137,6 +137,34 @@ import ApexCharts from 'apexcharts';
               </div>
             </mat-card-content>
           </mat-card>
+
+          <mat-card class="stat-card emerald mat-elevation-z2" routerLink="/students/attendance" style="cursor: pointer;" matTooltip="Open Student Attendance & Roll Call">
+            <mat-card-content class="stat-content">
+              <div class="stat-header">
+                <span class="label">Today's Attendance</span>
+                <div class="stat-icon-wrap">
+                  <mat-icon class="stat-icon">how_to_reg</mat-icon>
+                </div>
+              </div>
+              <div class="stat-body">
+                <span class="value">{{ summary.todayAttendance ? summary.todayAttendance.attendancePercentage + '%' : 'Pending' }}</span>
+                <div class="stat-footer">
+                  <span class="stat-badge-pill" *ngIf="summary.todayAttendance">
+                    {{ summary.todayAttendance.presentCount }}/{{ summary.todayAttendance.totalMarked }} Present
+                  </span>
+                  <span class="stat-badge-pill" *ngIf="!summary.todayAttendance">
+                    Live Status
+                  </span>
+                  <span class="sub-label" *ngIf="summary.todayAttendance?.lastMarkedTime" matTooltip="Last Batch Attendance Timestamp">
+                    At {{ summary.todayAttendance.lastMarkedTime }}
+                  </span>
+                  <span class="sub-label" *ngIf="!summary.todayAttendance?.lastMarkedTime">
+                    Not marked yet
+                  </span>
+                </div>
+              </div>
+            </mat-card-content>
+          </mat-card>
         </div>
 
         <!-- 2. Dynamic Interactive Charts Row -->
@@ -442,10 +470,10 @@ import ApexCharts from 'apexcharts';
     /* ─── Top KPI Stat Cards ─── */
     .card-container {
       display: grid;
-      grid-template-columns: repeat(5, 1fr);
+      grid-template-columns: repeat(6, 1fr);
       gap: 16px;
 
-      @media (max-width: 1360px) {
+      @media (max-width: 1440px) {
         grid-template-columns: repeat(3, 1fr);
       }
       @media (max-width: 768px) {
@@ -500,6 +528,10 @@ import ApexCharts from 'apexcharts';
       &.teal {
         background: linear-gradient(135deg, #0d9488 0%, #0f766e 55%, #115e59 100%);
         box-shadow: 0 10px 25px -4px rgba(13, 148, 136, 0.45) !important;
+      }
+      &.emerald {
+        background: linear-gradient(135deg, #059669 0%, #047857 55%, #065f46 100%);
+        box-shadow: 0 10px 25px -4px rgba(5, 150, 105, 0.45) !important;
       }
     }
 

@@ -19,10 +19,12 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { CoachingService } from '../../core/services/coaching.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { SubjectsService, SubjectDto } from '../../core/services/subjects.service';
 import { LocalDatetimePipe } from '../../shared/pipes/local-datetime.pipe';
+import { ExamAdmitCardDialogComponent } from './exam-admit-card-dialog.component';
 
 @Component({
   selector: 'app-tests',
@@ -33,6 +35,7 @@ import { LocalDatetimePipe } from '../../shared/pipes/local-datetime.pipe';
     MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule,
     MatSelectModule, MatCheckboxModule, MatProgressBarModule,
     MatTooltipModule, MatChipsModule, MatDividerModule,
+    MatDialogModule, ExamAdmitCardDialogComponent,
     LocalDatetimePipe
   ],
   template: `
@@ -522,6 +525,9 @@ import { LocalDatetimePipe } from '../../shared/pipes/local-datetime.pipe';
                 <th mat-header-cell *matHeaderCellDef class="text-right">Actions</th>
                 <td mat-cell *matCellDef="let t" class="text-right">
                   <div class="action-buttons">
+                    <button mat-stroked-button class="admit-card-btn" (click)="openAdmitCards(t)" matTooltip="Generate &amp; Print Admit Cards / Hall Tickets">
+                      <mat-icon>confirmation_number</mat-icon> Admit Cards
+                    </button>
                     <button mat-raised-button color="primary" (click)="openMarksGrid(t)"
                             class="enter-marks-btn" matTooltip="Enter / Update Marks">
                       <mat-icon>edit_note</mat-icon> Enter Marks
@@ -1405,6 +1411,25 @@ import { LocalDatetimePipe } from '../../shared/pipes/local-datetime.pipe';
       height: 36px;
       padding: 0 12px;
     }
+    .admit-card-btn {
+      font-size: 0.82rem;
+      font-weight: 600;
+      border-radius: 6px;
+      height: 36px;
+      padding: 0 12px;
+      border-color: #6366f1;
+      color: #4f46e5;
+      background: #f5f3ff;
+      mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        margin-right: 4px;
+      }
+      &:hover {
+        background: #ede9fe;
+      }
+    }
     .empty-cell {
       padding: 48px;
       text-align: center;
@@ -1649,9 +1674,23 @@ export class TestsComponent implements OnInit {
     private coachingService: CoachingService,
     private confirmDialog: ConfirmDialogService,
     private subjectsService: SubjectsService,
-    private fb: FormBuilder
+    private fb: FormBuilder,
+    private dialog: MatDialog
   ) {
     this.bulkForm = this.fb.group({ exams: this.fb.array([]) });
+  }
+
+  openAdmitCards(test: any): void {
+    this.dialog.open(ExamAdmitCardDialogComponent, {
+      width: '1020px',
+      maxWidth: '96vw',
+      maxHeight: '92vh',
+      panelClass: 'admit-card-dialog-panel',
+      data: {
+        testId: test.id,
+        testTitle: test.title
+      }
+    });
   }
 
   get examRows(): AbstractControl[] {

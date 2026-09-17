@@ -162,7 +162,8 @@ public record StudentAttendanceDto(
     DateTime AttendanceDate,
     string Status,
     string? Remarks,
-    string CaptureSource
+    string CaptureSource,
+    DateTime? CapturedAt = null
 );
 
 public record StudentAttendanceSummaryDto(
@@ -202,7 +203,9 @@ public record BatchAttendanceStudentRowDto(
     string? ParentWhatsAppPhone,
     string Status,
     string? Remarks,
-    Guid? AttendanceId
+    Guid? AttendanceId,
+    DateTime? CapturedAt = null,
+    string? CaptureSource = null
 );
 
 public record AttendanceReportRowDto(
@@ -289,11 +292,39 @@ public record FeePaymentReceiptDto(
     Guid PaymentId,
     string ReceiptNumber,
     string StudentName,
+    string RollNumber,
+    string BatchName,
+    string ParentName,
+    string ParentPhone,
     string InvoiceNumber,
     decimal AmountPaid,
     decimal RemainingDue,
     DateTime PaymentDate,
-    PaymentMode Mode
+    PaymentMode Mode,
+    string? TransactionRef,
+    string? Remarks
+);
+
+public record FeeDueSlipItemDto(
+    Guid InvoiceId,
+    string InvoiceNumber,
+    string Title,
+    DateTime DueDate,
+    decimal TotalAmount,
+    decimal PaidAmount,
+    decimal DueAmount
+);
+
+public record FeeDueSlipDto(
+    Guid StudentId,
+    string StudentName,
+    string RollNumber,
+    string BatchName,
+    string ParentName,
+    string ParentPhone,
+    decimal TotalOutstandingDue,
+    DateTime GeneratedDate,
+    List<FeeDueSlipItemDto> DueItems
 );
 
 public record TestDto(
@@ -349,6 +380,33 @@ public record StudentRankItem(
     string Remarks
 );
 
+public record ExamAdmitCardDto(
+    Guid TestId,
+    string ExamTitle,
+    string Subject,
+    DateTime ExamDate,
+    decimal MaxMarks,
+    string BatchName,
+    string BranchName,
+    List<StudentAdmitCardItemDto> Students
+);
+
+public record StudentAdmitCardItemDto(
+    Guid StudentId,
+    string StudentName,
+    string RollNumber,
+    string BatchName,
+    string ParentName,
+    string ParentWhatsAppPhone,
+    string? PhotoUrl,
+    decimal OutstandingDue,
+    bool IsFeeCleared,
+    string ExamRollNumber,
+    string CenterName,
+    string ReportingTime,
+    string ExamDuration
+);
+
 public record MonthlyRevenueTrendItemDto(
     string MonthName,
     int Year,
@@ -372,6 +430,17 @@ public record FeeCollectionBreakdownDto(
     decimal RecoveryPercentage
 );
 
+public record TodayAttendanceSummaryDto(
+    int TotalMarked,
+    int PresentCount,
+    int AbsentCount,
+    int LateCount,
+    int HalfDayCount,
+    decimal AttendancePercentage,
+    string? LastMarkedTime,
+    string? LastBatchName
+);
+
 public record DashboardSummaryDto(
     int TotalStudents,
     int ActiveBatches,
@@ -383,7 +452,8 @@ public record DashboardSummaryDto(
     List<TestDto> RecentTests,
     List<MonthlyRevenueTrendItemDto> RevenueTrends,
     List<BatchDistributionItemDto> BatchDistributions,
-    FeeCollectionBreakdownDto FeeBreakdown
+    FeeCollectionBreakdownDto FeeBreakdown,
+    TodayAttendanceSummaryDto? TodayAttendance = null
 );
 
 public record MenuItemDto(
