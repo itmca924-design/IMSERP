@@ -9,7 +9,7 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatIconModule } from '@angular/material/icon';
-import { FeesService } from '../../core/services/fees.service';
+import { FeesService, StudentLibraryDues } from '../../core/services/fees.service';
 
 export interface FeeDialogData {
   studentId: string;
@@ -62,9 +62,55 @@ export interface FeeDialogData {
           </div>
         </div>
 
+        <!-- Library Dues Card (if student has pending library fines) -->
+        <div class="library-fine-box" *ngIf="libraryDues && libraryDues.pendingFineAmount > 0">
+          <div class="fine-header">
+            <div class="fine-badge">
+              <div class="icon-circle">
+                <mat-icon class="book-icon">local_library</mat-icon>
+              </div>
+              <div class="fine-badge-text">
+                <span class="fine-title">Pending Library Overdue Fine</span>
+                <span class="fine-sub">{{ libraryDues.pendingFinesCount }} returned book(s) have unsettled late fines</span>
+              </div>
+            </div>
+            <div class="fine-amt">₹{{ libraryDues.pendingFineAmount | number:'1.2-2' }}</div>
+          </div>
+
+          <div class="fine-books-list">
+            <div *ngFor="let item of libraryDues.pendingFines" class="book-chip">
+              <mat-icon class="chip-icon">menu_book</mat-icon>
+              <span class="book-title">{{ item.bookTitle }}</span>
+              <span class="chip-sep">•</span>
+              <span class="acc-tag">{{ item.accessionNumber }}</span>
+              <span class="chip-sep">•</span>
+              <span class="overdue-tag">{{ item.overdueDays }}d late</span>
+              <span class="unreturned-pill" *ngIf="!item.returnDate">Not Returned Yet</span>
+              <strong class="chip-fine">₹{{ item.fineAmount | number:'1.2-2' }}</strong>
+            </div>
+          </div>
+
+          <div class="include-fine-row">
+            <mat-checkbox formControlName="includeLibraryFine" color="primary" (change)="onIncludeFineToggle($event.checked)">
+              <span class="chk-label">
+                <strong>Collect & Settle Library Fine (₹{{ libraryDues.pendingFineAmount | number:'1.2-2' }})</strong>
+                <small class="chk-subtext">Will be added as a separate line item on the official fee receipt</small>
+              </span>
+            </mat-checkbox>
+          </div>
+        </div>
+
+        <!-- Active Borrowed Overdue Warning (Books not yet returned) -->
+        <div class="active-overdue-alert" *ngIf="libraryDues && libraryDues.activeOverdueBooksCount > 0">
+          <mat-icon class="alert-icon">info</mat-icon>
+          <div class="alert-text">
+            <strong>Advisory:</strong> Student has <strong>{{ libraryDues.activeOverdueBooksCount }} active borrowed book(s) overdue</strong> not yet returned to the library. Accrued late fine till today is computed above. Please remind parent/student to return the physical book to the shelf.
+          </div>
+        </div>
+
         <div class="form-grid">
           <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Amount to Collect (₹)</mat-label>
+            <mat-label>Total Amount to Collect (₹)</mat-label>
             <input matInput type="number" formControlName="amountPaid" placeholder="e.g. 4500" />
             <mat-icon matSuffix color="primary">currency_rupee</mat-icon>
             <mat-error *ngIf="feeForm.get('amountPaid')?.hasError('required')">Amount is required</mat-error>
@@ -116,7 +162,7 @@ export interface FeeDialogData {
       font-weight: 700;
     }
     .dialog-content {
-      min-width: 480px;
+      min-width: 520px;
       padding-top: 12px;
     }
     .student-info-box {
@@ -127,7 +173,7 @@ export interface FeeDialogData {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 16px;
+      margin-bottom: 14px;
 
       .info-details {
         display: flex;
@@ -169,9 +215,159 @@ export interface FeeDialogData {
           color: #64748b;
         }
         .due-amount {
-          font-size: 1.2rem;
+          font-size: 1.25rem;
           color: #dc2626;
         }
+      }
+    }
+    .library-fine-box {
+      background: #fdf4ff;
+      border: 1px solid #f0abfc;
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-bottom: 14px;
+
+      .fine-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+
+        .fine-badge {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+
+          .icon-circle {
+            background: #fae8ff;
+            color: #a21caf;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            .book-icon {
+              font-size: 17px;
+              width: 17px;
+              height: 17px;
+            }
+          }
+
+          .fine-badge-text {
+            display: flex;
+            flex-direction: column;
+            .fine-title {
+              font-size: 0.88rem;
+              font-weight: 700;
+              color: #86198f;
+            }
+            .fine-sub {
+              font-size: 0.74rem;
+              color: #a21caf;
+            }
+          }
+        }
+
+        .fine-amt {
+          font-size: 1.15rem;
+          font-weight: 700;
+          color: #c026d3;
+        }
+      }
+
+      .fine-books-list {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        margin-bottom: 10px;
+
+        .book-chip {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          background: #ffffff;
+          border: 1px solid #f5d0fe;
+          border-radius: 4px;
+          padding: 4px 8px;
+          font-size: 0.78rem;
+          color: #475569;
+
+          .chip-icon {
+            font-size: 14px;
+            width: 14px;
+            height: 14px;
+            color: #a21caf;
+          }
+          .book-title {
+            font-weight: 600;
+            color: #1e293b;
+          }
+          .chip-sep {
+            color: #cbd5e1;
+          }
+          .acc-tag {
+            background: #f1f5f9;
+            padding: 1px 4px;
+            border-radius: 3px;
+            font-size: 0.72rem;
+            color: #64748b;
+          }
+          .overdue-tag {
+            color: #dc2626;
+            font-size: 0.72rem;
+            font-weight: 500;
+          }
+          .unreturned-pill {
+            font-size: 0.68rem;
+            padding: 1px 6px;
+            border-radius: 4px;
+            background: #fef3c7;
+            color: #b45309;
+            font-weight: 600;
+          }
+          .chip-fine {
+            margin-left: auto;
+            color: #a21caf;
+            font-weight: 700;
+          }
+        }
+      }
+
+      .include-fine-row {
+        background: #ffffff;
+        border-radius: 6px;
+        padding: 6px 10px;
+        border: 1px solid #f5d0fe;
+
+        .chk-label {
+          display: flex;
+          flex-direction: column;
+          color: #86198f;
+          .chk-subtext {
+            color: #64748b;
+            font-size: 0.72rem;
+          }
+        }
+      }
+    }
+    .active-overdue-alert {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      border-radius: 6px;
+      padding: 8px 12px;
+      margin-bottom: 14px;
+      font-size: 0.8rem;
+      color: #92400e;
+
+      .alert-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        color: #d97706;
       }
     }
     .form-grid {
@@ -189,6 +385,7 @@ export interface FeeDialogData {
       background: #f8fafc;
       padding: 10px;
       border-radius: 6px;
+      width: 100%;
     }
     .dialog-actions {
       padding: 16px 24px;
@@ -202,6 +399,8 @@ export interface FeeDialogData {
 export class FeeCollectionDialogComponent implements OnInit {
   feeForm!: FormGroup;
   saving = false;
+  libraryDues?: StudentLibraryDues;
+  baseTuitionAmount: number = 0;
 
   constructor(
     private fb: FormBuilder,
@@ -211,7 +410,7 @@ export class FeeCollectionDialogComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    const defaultAmount = this.data.initialAmount !== undefined
+    this.baseTuitionAmount = this.data.initialAmount !== undefined
       ? this.data.initialAmount
       : (this.data.totalOutstandingDue > 0 ? this.data.totalOutstandingDue : 3500);
 
@@ -220,12 +419,49 @@ export class FeeCollectionDialogComponent implements OnInit {
       : 'Fee Payment';
 
     this.feeForm = this.fb.group({
-      amountPaid: [defaultAmount, [Validators.required, Validators.min(1)]],
+      amountPaid: [this.baseTuitionAmount, [Validators.required, Validators.min(1)]],
       mode: [1, [Validators.required]], // Default to UPI
       transactionRef: [''],
       remarks: [defaultRemarks],
-      sendWhatsAppReceipt: [true]
+      sendWhatsAppReceipt: [true],
+      includeLibraryFine: [true]
     });
+
+    // Fetch student's pending library fines in background
+    this.loadStudentLibraryDues();
+  }
+
+  loadStudentLibraryDues(): void {
+    this.feesService.getStudentLibraryDues(this.data.studentId).subscribe({
+      next: (dues) => {
+        console.log('Fetched student library dues:', dues);
+        this.libraryDues = dues;
+        if (dues && dues.pendingFineAmount > 0) {
+          // If library fine exists and toggle is checked, auto-adjust total amount
+          if (this.feeForm.get('includeLibraryFine')?.value) {
+            this.feeForm.patchValue({
+              amountPaid: this.baseTuitionAmount + dues.pendingFineAmount
+            });
+          }
+        }
+      },
+      error: (err) => {
+        console.warn('Library dues endpoint error (backend may need restart):', err);
+      }
+    });
+  }
+
+  onIncludeFineToggle(included: boolean): void {
+    const libFine = this.libraryDues?.pendingFineAmount || 0;
+    if (included) {
+      this.feeForm.patchValue({
+        amountPaid: this.baseTuitionAmount + libFine
+      });
+    } else {
+      this.feeForm.patchValue({
+        amountPaid: this.baseTuitionAmount
+      });
+    }
   }
 
   onSubmit(): void {
@@ -233,6 +469,7 @@ export class FeeCollectionDialogComponent implements OnInit {
 
     this.saving = true;
     const formVal = this.feeForm.value;
+    const includeLibFine = this.libraryDues && this.libraryDues.pendingFineAmount > 0 && formVal.includeLibraryFine;
 
     const payload = {
       studentId: this.data.studentId,
@@ -240,7 +477,9 @@ export class FeeCollectionDialogComponent implements OnInit {
       mode: formVal.mode,
       transactionRef: formVal.transactionRef,
       remarks: formVal.remarks,
-      sendWhatsAppReceipt: formVal.sendWhatsAppReceipt
+      sendWhatsAppReceipt: formVal.sendWhatsAppReceipt,
+      includeLibraryFine: includeLibFine,
+      libraryCirculationIds: includeLibFine && this.libraryDues ? this.libraryDues.pendingFines.map(f => f.circulationId) : []
     };
 
     this.feesService.collectFeeFifo(payload).subscribe({
@@ -259,3 +498,4 @@ export class FeeCollectionDialogComponent implements OnInit {
     this.dialogRef.close();
   }
 }
+

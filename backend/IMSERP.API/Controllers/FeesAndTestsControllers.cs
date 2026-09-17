@@ -199,6 +199,10 @@ public class FeesController : ControllerBase
         var totalPaid = activeInvoices.Sum(i => i.PaidAmount);
         var totalDue = totalCharged - totalPaid;
 
+        var pendingLibFine = await _dbContext.LibraryCirculations
+            .Where(c => c.StudentId == studentId && c.FineStatus == "Pending")
+            .SumAsync(c => c.FineAmount);
+
         return Ok(new StudentLedgerDto(
             student.Id,
             student.StudentName,
@@ -211,7 +215,72 @@ public class FeesController : ControllerBase
             totalPaid,
             totalDue,
             invoiceDtos,
-            paymentDtos
+            paymentDtos,
+            pendingLibFine
+        ));
+    }
+
+    [HttpGet("student/{studentId:guid}/library-dues")]
+    public async Task<ActionResult<StudentLibraryDuesDto>> GetStudentLibraryDues(Guid studentId)
+    {
+        var now = DateTime.UtcNow;
+
+        // 1. Pending fines from already-returned books
+        var returnedPendingList = await _dbContext.LibraryCirculations
+            .AsNoTracking()
+            .Include(c => c.BookCopy)
+                .ThenInclude(bc => bc!.Book)
+            .Where(c => c.StudentId == studentId && c.FineStatus == "Pending" && c.FineAmount > 0)
+            .OrderBy(c => c.DueDate)
+            .ToListAsync();
+
+        var pendingItems = returnedPendingList.Select(c => new StudentPendingFineItemDto(
+            c.Id,
+            c.BookCopy?.AccessionNumber ?? "N/A",
+            c.BookCopy?.Book?.Title ?? "Book",
+            c.OverdueDays,
+            c.FineAmount,
+            c.DueDate,
+            c.ReturnDate
+        )).ToList();
+
+        // 2. Active borrowed books that have passed due date (Unreturned Overdue Books)
+        var activeOverdueList = await _dbContext.LibraryCirculations
+            .AsNoTracking()
+            .Include(c => c.BookCopy)
+                .ThenInclude(bc => bc!.Book)
+            .Where(c => c.StudentId == studentId
+                     && (c.Status == "Issued" || c.Status == "Overdue")
+                     && c.DueDate.Date < now.Date
+                     && c.FineStatus != "Paid")
+            .OrderBy(c => c.DueDate)
+            .ToListAsync();
+
+        foreach (var active in activeOverdueList)
+        {
+            int overdueDays = (int)(now.Date - active.DueDate.Date).TotalDays;
+            decimal finePerDay = active.FinePerDay > 0 ? active.FinePerDay : 2.0m;
+            decimal calculatedFine = overdueDays * finePerDay;
+
+            pendingItems.Add(new StudentPendingFineItemDto(
+                active.Id,
+                active.BookCopy?.AccessionNumber ?? "N/A",
+                active.BookCopy?.Book?.Title ?? "Book",
+                overdueDays,
+                calculatedFine,
+                active.DueDate,
+                null // Still with student
+            ));
+        }
+
+        var totalPendingFine = pendingItems.Sum(x => x.FineAmount);
+
+        return Ok(new StudentLibraryDuesDto(
+            studentId,
+            totalPendingFine,
+            pendingItems.Count,
+            pendingItems,
+            activeOverdueList.Count
         ));
     }
 
@@ -221,6 +290,7 @@ public class FeesController : ControllerBase
         var strategy = _dbContext.Database.CreateExecutionStrategy();
         return await strategy.ExecuteAsync<ActionResult<FeePaymentReceiptDto>>(async () =>
         {
+            var now = DateTime.UtcNow;
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
 
             var student = await _dbContext.Students
@@ -237,49 +307,116 @@ public class FeesController : ControllerBase
                 .OrderBy(i => i.DueDate)
                 .ToListAsync();
 
-            if (unpaidInvoices.Count == 0)
+            // Check student's pending library fines (Both returned pending & active unreturned overdue)
+            var pendingLibCirculations = await _dbContext.LibraryCirculations
+                .Include(c => c.BookCopy)
+                    .ThenInclude(bc => bc!.Book)
+                .Where(c => c.StudentId == dto.StudentId
+                         && (
+                             (c.FineStatus == "Pending" && c.FineAmount > 0) ||
+                             ((c.Status == "Issued" || c.Status == "Overdue") && c.DueDate.Date < now.Date && c.FineStatus != "Paid")
+                         ))
+                .OrderBy(c => c.DueDate)
+                .ToListAsync();
+
+            List<LibraryCirculation> selectedCirculations = new();
+            decimal libraryFineToCollect = 0;
+
+            if (dto.IncludeLibraryFine && pendingLibCirculations.Count > 0)
             {
-                return BadRequest(new { message = "This student has zero outstanding due fees!" });
-            }
-
-            decimal remainingToAllocate = dto.AmountPaid;
-            var receiptNo = "REC-" + DateTime.UtcNow.ToString("yyyyMMddHHmmss");
-            FeePayment? lastPayment = null;
-
-            foreach (var inv in unpaidInvoices)
-            {
-                if (remainingToAllocate <= 0) break;
-
-                decimal invoiceDue = inv.TotalAmount - inv.PaidAmount;
-                decimal allocateForThisInv = Math.Min(remainingToAllocate, invoiceDue);
-
-                inv.PaidAmount += allocateForThisInv;
-                if (inv.PaidAmount >= inv.TotalAmount)
+                if (dto.LibraryCirculationIds != null && dto.LibraryCirculationIds.Count > 0)
                 {
-                    inv.Status = InvoiceStatus.Paid;
+                    selectedCirculations = pendingLibCirculations
+                        .Where(c => dto.LibraryCirculationIds.Contains(c.Id))
+                        .ToList();
                 }
                 else
                 {
-                    inv.Status = InvoiceStatus.Partial;
+                    selectedCirculations = pendingLibCirculations;
                 }
 
-                remainingToAllocate -= allocateForThisInv;
-
-                var payment = new FeePayment
+                foreach (var circ in selectedCirculations)
                 {
-                    TenantId = _currentUser.TenantId,
-                    BranchId = inv.BranchId ?? student.BranchId ?? _currentUser.BranchId,
-                    InvoiceId = inv.Id,
-                    ReceiptNumber = receiptNo,
-                    AmountPaid = allocateForThisInv,
-                    Mode = dto.Mode,
-                    TransactionRef = dto.TransactionRef,
-                    Remarks = dto.Remarks,
-                    PaymentDate = DateTime.UtcNow
-                };
+                    if (circ.Status == "Issued" || circ.Status == "Overdue")
+                    {
+                        int overdueDays = (int)(now.Date - circ.DueDate.Date).TotalDays;
+                        decimal finePerDay = circ.FinePerDay > 0 ? circ.FinePerDay : 2.0m;
+                        circ.OverdueDays = overdueDays;
+                        circ.FineAmount = overdueDays * finePerDay;
+                    }
+                }
 
-                _dbContext.FeePayments.Add(payment);
-                lastPayment = payment;
+                libraryFineToCollect = selectedCirculations.Sum(c => c.FineAmount);
+            }
+
+            if (unpaidInvoices.Count == 0 && libraryFineToCollect == 0)
+            {
+                return BadRequest(new { message = "This student has zero outstanding due fees or library fines!" });
+            }
+
+            decimal totalAmountPaid = dto.AmountPaid;
+            decimal finePaidNow = 0;
+            decimal tuitionToAllocate = totalAmountPaid;
+
+            if (libraryFineToCollect > 0)
+            {
+                finePaidNow = Math.Min(totalAmountPaid, libraryFineToCollect);
+                tuitionToAllocate = totalAmountPaid - finePaidNow;
+            }
+
+            var receiptNo = "REC-" + DateTime.UtcNow.ToString("yyyyMMddHHmmss");
+            FeePayment? lastPayment = null;
+            decimal tuitionAllocatedTotal = 0;
+
+            if (tuitionToAllocate > 0 && unpaidInvoices.Count > 0)
+            {
+                decimal remainingTuition = tuitionToAllocate;
+                foreach (var inv in unpaidInvoices)
+                {
+                    if (remainingTuition <= 0) break;
+
+                    decimal invoiceDue = inv.TotalAmount - inv.PaidAmount;
+                    decimal allocateForThisInv = Math.Min(remainingTuition, invoiceDue);
+
+                    inv.PaidAmount += allocateForThisInv;
+                    tuitionAllocatedTotal += allocateForThisInv;
+                    if (inv.PaidAmount >= inv.TotalAmount)
+                    {
+                        inv.Status = InvoiceStatus.Paid;
+                    }
+                    else
+                    {
+                        inv.Status = InvoiceStatus.Partial;
+                    }
+
+                    remainingTuition -= allocateForThisInv;
+
+                    var payment = new FeePayment
+                    {
+                        TenantId = _currentUser.TenantId,
+                        BranchId = inv.BranchId ?? student.BranchId ?? _currentUser.BranchId,
+                        InvoiceId = inv.Id,
+                        ReceiptNumber = receiptNo,
+                        AmountPaid = allocateForThisInv,
+                        Mode = dto.Mode,
+                        TransactionRef = dto.TransactionRef,
+                        Remarks = dto.Remarks,
+                        PaymentDate = DateTime.UtcNow
+                    };
+
+                    _dbContext.FeePayments.Add(payment);
+                    lastPayment = payment;
+                }
+            }
+
+            if (finePaidNow > 0)
+            {
+                foreach (var circ in selectedCirculations)
+                {
+                    circ.FineStatus = "Paid";
+                    circ.FinePaymentReceiptNumber = receiptNo;
+                    circ.FinePaidAt = DateTime.UtcNow;
+                }
             }
 
             await _dbContext.SaveChangesAsync();
@@ -290,6 +427,38 @@ public class FeesController : ControllerBase
                 .Where(i => i.StudentId == dto.StudentId && i.Status != InvoiceStatus.Cancelled)
                 .SumAsync(i => i.TotalAmount - i.PaidAmount);
 
+            var remainingPendingLibFine = await _dbContext.LibraryCirculations
+                .Where(c => c.StudentId == dto.StudentId && c.FineStatus == "Pending")
+                .SumAsync(c => c.FineAmount);
+
+            // Construct Line Items for Receipt
+            var lineItems = new List<FeeReceiptLineItemDto>();
+            if (tuitionAllocatedTotal > 0)
+            {
+                lineItems.Add(new FeeReceiptLineItemDto(
+                    lineItems.Count + 1,
+                    "Tuition & Coaching Fee Settlement",
+                    dto.Remarks ?? "Standard Monthly Tuition Fee installment",
+                    unpaidInvoices.Count > 1 ? $"FIFO Multi-Invoice ({unpaidInvoices.Count} Invoices)" : (unpaidInvoices.FirstOrDefault()?.InvoiceNumber ?? "Tuition Fee"),
+                    tuitionAllocatedTotal
+                ));
+            }
+
+            string? libraryFineParticulars = null;
+            if (finePaidNow > 0)
+            {
+                var bookTitles = string.Join(", ", selectedCirculations.Select(c => c.BookCopy?.Book?.Title ?? c.BookCopy?.AccessionNumber ?? "Book"));
+                var refAcc = string.Join(", ", selectedCirculations.Select(c => c.BookCopy?.AccessionNumber ?? "ACC"));
+                libraryFineParticulars = $"Late Return Fine ({bookTitles})";
+                lineItems.Add(new FeeReceiptLineItemDto(
+                    lineItems.Count + 1,
+                    "Library Overdue Fine Settlement",
+                    libraryFineParticulars,
+                    refAcc,
+                    finePaidNow
+                ));
+            }
+
             if (dto.SendWhatsAppReceipt && student != null)
             {
                 await _whatsAppService.SendFeeReceiptAsync(
@@ -298,25 +467,30 @@ public class FeesController : ControllerBase
                     student.StudentName,
                     receiptNo,
                     dto.AmountPaid,
-                    totalOutstandingDue
+                    totalOutstandingDue + remainingPendingLibFine
                 );
             }
 
             return Ok(new FeePaymentReceiptDto(
-                lastPayment?.Id ?? Guid.NewGuid(),
+                lastPayment?.Id ?? (selectedCirculations.FirstOrDefault()?.Id ?? Guid.NewGuid()),
                 receiptNo,
                 student.StudentName,
                 student.RollNumber,
                 student.Batch?.Name ?? "",
                 student.ParentName,
                 student.ParentWhatsAppPhone,
-                "FIFO Multi-Invoice Settlement",
+                unpaidInvoices.Count > 1 ? "FIFO Multi-Invoice Settlement" : (unpaidInvoices.FirstOrDefault()?.InvoiceNumber ?? "Library Fine Settlement"),
                 dto.AmountPaid,
                 totalOutstandingDue,
                 DateTime.UtcNow,
                 dto.Mode,
                 dto.TransactionRef,
-                dto.Remarks
+                dto.Remarks,
+                tuitionAllocatedTotal,
+                finePaidNow,
+                libraryFineParticulars,
+                remainingPendingLibFine,
+                lineItems
             ));
         });
     }
@@ -324,37 +498,89 @@ public class FeesController : ControllerBase
     [HttpGet("receipt/{receiptNumber}")]
     public async Task<ActionResult<FeePaymentReceiptDto>> GetReceiptByNumber(string receiptNumber)
     {
-        var payment = await _dbContext.FeePayments
+        var payments = await _dbContext.FeePayments
             .AsNoTracking()
             .Include(p => p.Invoice)
                 .ThenInclude(i => i!.Student)
                     .ThenInclude(s => s!.Batch)
-            .FirstOrDefaultAsync(p => p.ReceiptNumber == receiptNumber);
+            .Where(p => p.ReceiptNumber == receiptNumber)
+            .ToListAsync();
 
-        if (payment == null) return NotFound("Receipt not found");
+        var circulations = await _dbContext.LibraryCirculations
+            .AsNoTracking()
+            .Include(c => c.BookCopy)
+                .ThenInclude(bc => bc!.Book)
+            .Include(c => c.Student)
+                .ThenInclude(s => s!.Batch)
+            .Where(c => c.FinePaymentReceiptNumber == receiptNumber)
+            .ToListAsync();
 
-        var student = payment.Invoice?.Student;
+        if (payments.Count == 0 && circulations.Count == 0) return NotFound("Receipt not found");
+
+        var firstPayment = payments.FirstOrDefault();
+        var student = firstPayment?.Invoice?.Student ?? circulations.FirstOrDefault()?.Student;
+
+        decimal totalTuitionPaid = payments.Sum(p => p.AmountPaid);
+        decimal totalFinePaid = circulations.Sum(c => c.FineAmount);
+        decimal grandTotalPaid = totalTuitionPaid + totalFinePaid;
+
         var remainingDue = student != null
             ? await _dbContext.FeeInvoices
                 .Where(i => i.StudentId == student.Id && i.Status != InvoiceStatus.Cancelled)
                 .SumAsync(i => i.TotalAmount - i.PaidAmount)
             : 0m;
 
+        var remainingLibFine = student != null
+            ? await _dbContext.LibraryCirculations
+                .Where(c => c.StudentId == student.Id && c.FineStatus == "Pending")
+                .SumAsync(c => c.FineAmount)
+            : 0m;
+
+        var lineItems = new List<FeeReceiptLineItemDto>();
+        if (totalTuitionPaid > 0)
+        {
+            lineItems.Add(new FeeReceiptLineItemDto(
+                1,
+                "Tuition & Coaching Fee Settlement",
+                firstPayment?.Remarks ?? "Monthly Tuition Fee installment",
+                payments.Count > 1 ? $"Multi-Invoice ({payments.Count} Invoices)" : (firstPayment?.Invoice?.InvoiceNumber ?? "Tuition Fee"),
+                totalTuitionPaid
+            ));
+        }
+
+        if (totalFinePaid > 0)
+        {
+            var bookTitles = string.Join(", ", circulations.Select(c => c.BookCopy?.Book?.Title ?? c.BookCopy?.AccessionNumber ?? "Book"));
+            var refAcc = string.Join(", ", circulations.Select(c => c.BookCopy?.AccessionNumber ?? "ACC"));
+            lineItems.Add(new FeeReceiptLineItemDto(
+                lineItems.Count + 1,
+                "Library Overdue Fine Settlement",
+                $"Late Return Fine ({bookTitles})",
+                refAcc,
+                totalFinePaid
+            ));
+        }
+
         return Ok(new FeePaymentReceiptDto(
-            payment.Id,
-            payment.ReceiptNumber,
+            firstPayment?.Id ?? (circulations.FirstOrDefault()?.Id ?? Guid.NewGuid()),
+            receiptNumber,
             student?.StudentName ?? "",
             student?.RollNumber ?? "",
             student?.Batch?.Name ?? "",
             student?.ParentName ?? "",
             student?.ParentWhatsAppPhone ?? "",
-            payment.Invoice?.InvoiceNumber ?? "",
-            payment.AmountPaid,
+            payments.Count > 1 ? "FIFO Multi-Invoice Settlement" : (firstPayment?.Invoice?.InvoiceNumber ?? "Library Fine Settlement"),
+            grandTotalPaid,
             remainingDue,
-            DateTime.SpecifyKind(payment.PaymentDate, DateTimeKind.Utc),
-            payment.Mode,
-            payment.TransactionRef,
-            payment.Remarks
+            firstPayment != null ? DateTime.SpecifyKind(firstPayment.PaymentDate, DateTimeKind.Utc) : (circulations.FirstOrDefault()?.FinePaidAt ?? DateTime.UtcNow),
+            firstPayment?.Mode ?? PaymentMode.Cash,
+            firstPayment?.TransactionRef,
+            firstPayment?.Remarks,
+            totalTuitionPaid,
+            totalFinePaid,
+            totalFinePaid > 0 ? string.Join(", ", circulations.Select(c => $"{c.BookCopy?.Book?.Title} ({c.BookCopy?.AccessionNumber})")) : null,
+            remainingLibFine,
+            lineItems
         ));
     }
 
@@ -391,6 +617,13 @@ public class FeesController : ControllerBase
 
         var totalDue = items.Sum(i => i.DueAmount);
 
+        var pendingLibFine = await _dbContext.LibraryCirculations
+            .Where(c => c.StudentId == studentId && c.FineStatus == "Pending")
+            .SumAsync(c => c.FineAmount);
+
+        var activeOverdueCount = await _dbContext.LibraryCirculations
+            .CountAsync(c => c.StudentId == studentId && (c.Status == "Issued" || c.Status == "Overdue") && c.DueDate < DateTime.UtcNow);
+
         return Ok(new FeeDueSlipDto(
             student.Id,
             student.StudentName,
@@ -400,7 +633,9 @@ public class FeesController : ControllerBase
             student.ParentWhatsAppPhone,
             totalDue,
             DateTime.UtcNow,
-            items
+            items,
+            pendingLibFine,
+            activeOverdueCount
         ));
     }
 
@@ -615,6 +850,18 @@ public class FeesController : ControllerBase
 
         // Hard delete the payment record
         _dbContext.FeePayments.Remove(payment);
+
+        // Also revert any associated library circulations paid in this receipt
+        var associatedCircs = await _dbContext.LibraryCirculations
+            .Where(c => c.FinePaymentReceiptNumber == payment.ReceiptNumber)
+            .ToListAsync();
+
+        foreach (var circ in associatedCircs)
+        {
+            circ.FineStatus = "Pending";
+            circ.FinePaymentReceiptNumber = null;
+            circ.FinePaidAt = null;
+        }
 
         await _dbContext.SaveChangesAsync();
 

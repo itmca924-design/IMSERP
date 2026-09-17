@@ -182,6 +182,18 @@ export interface FeeDueReceiptDialogData {
           </div>
         </div>
 
+        <!-- Library Dues Notice Strip (if student has library fine) -->
+        <div class="lib-due-notice-strip" *ngIf="dueSlip.pendingLibraryFine && dueSlip.pendingLibraryFine > 0">
+          <div class="lib-notice-left">
+            <mat-icon class="lib-icon">local_library</mat-icon>
+            <div>
+              <strong>Additional Institutional Dues: Unsettled Library Overdue Fine</strong>
+              <div class="lib-sub">Student has a pending library fine of ₹{{ dueSlip.pendingLibraryFine | number:'1.2-2' }}. Can be settled together at the Fee Counter.</div>
+            </div>
+          </div>
+          <div class="lib-amt">₹{{ dueSlip.pendingLibraryFine | number:'1.2-2' }}</div>
+        </div>
+
         <!-- Payment Instructions Box -->
         <div class="payment-options-box">
           <div class="opt-col">
@@ -588,6 +600,31 @@ export interface FeeDueReceiptDialogData {
         font-size: 0.82rem;
         letter-spacing: 0.05em;
         mat-icon { font-size: 18px; width: 18px; height: 18px; }
+      }
+    }
+
+    .lib-due-notice-strip {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #fdf4ff;
+      border: 1px solid #f0abfc;
+      border-radius: 6px;
+      padding: 10px 16px;
+      margin-bottom: 14px;
+
+      .lib-notice-left {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        .lib-icon { color: #a21caf; font-size: 22px; width: 22px; height: 22px; }
+        strong { color: #86198f; font-size: 0.88rem; }
+        .lib-sub { color: #a21caf; font-size: 0.76rem; }
+      }
+      .lib-amt {
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: #c026d3;
       }
     }
 

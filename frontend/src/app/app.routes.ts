@@ -108,6 +108,17 @@ export const routes: Routes = [
         loadComponent: () => import('./features/whatsapp/whatsapp.component').then(m => m.WhatsAppLogsComponent)
       },
 
+      // Library Management
+      {
+        path: 'library/books',
+        loadComponent: () => import('./features/library/library-books.component').then(m => m.LibraryBooksComponent)
+      },
+      {
+        path: 'library/circulation',
+        loadComponent: () => import('./features/library/library-circulation.component').then(m => m.LibraryCirculationComponent)
+      },
+      { path: 'library', redirectTo: 'library/books', pathMatch: 'full' },
+
       // Admin Settings
       {
         path: 'roles',

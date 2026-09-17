@@ -568,3 +568,86 @@ public class Holiday
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
+
+public class LibraryBook
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string Author { get; set; } = string.Empty;
+    public string? Publisher { get; set; }
+    public string? Edition { get; set; }
+    public string? ISBN { get; set; }
+    public string Category { get; set; } = "General"; // NCERT, JEE Advanced, NEET, Foundation, Reference, Sample Papers
+    public string? Subject { get; set; }
+    public Guid? ClassId { get; set; }
+    public string? Description { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public bool IsActive { get; set; } = true;
+
+    public SchoolClass? Class { get; set; }
+    public ICollection<BookCopy> Copies { get; set; } = new List<BookCopy>();
+}
+
+public class BookCopy
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid BookId { get; set; }
+    public string AccessionNumber { get; set; } = string.Empty;
+    public string? Barcode { get; set; }
+    public string? RackLocation { get; set; }
+    public decimal Price { get; set; }
+    public string Status { get; set; } = "Available"; // Available, Issued, Lost, Damaged, ReferenceOnly
+    public string? ConditionNotes { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public bool IsActive { get; set; } = true;
+
+    public LibraryBook? Book { get; set; }
+    public ICollection<LibraryCirculation> Circulations { get; set; } = new List<LibraryCirculation>();
+}
+
+public class LibraryCirculation
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid BookCopyId { get; set; }
+    public Guid? StudentId { get; set; }
+    public Guid? TeacherId { get; set; }
+    public string MemberType { get; set; } = "Student"; // Student or Teacher
+    public DateTime IssueDate { get; set; } = DateTime.UtcNow;
+    public DateTime DueDate { get; set; }
+    public DateTime? ReturnDate { get; set; }
+    public string Status { get; set; } = "Issued"; // Issued, Returned, Overdue, Lost
+    public int OverdueDays { get; set; } = 0;
+    public decimal FinePerDay { get; set; } = 0;
+    public decimal FineAmount { get; set; } = 0;
+    public string FineStatus { get; set; } = "None"; // None, Pending, Paid, Waived
+    public string? FinePaymentReceiptNumber { get; set; }
+    public DateTime? FinePaidAt { get; set; }
+    public string? Remarks { get; set; }
+    public Guid? IssuedByUserId { get; set; }
+    public Guid? ReceivedByUserId { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    public BookCopy? BookCopy { get; set; }
+    public Student? Student { get; set; }
+    public Teacher? Teacher { get; set; }
+}
+
+public class LibrarySetting
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public int MaxBooksPerStudent { get; set; } = 2;
+    public int MaxBooksPerTeacher { get; set; } = 5;
+    public int StudentIssueDays { get; set; } = 14;
+    public int TeacherIssueDays { get; set; } = 30;
+    public decimal DailyFineRate { get; set; } = 2.00m;
+    public bool AllowFineWaiver { get; set; } = true;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}

@@ -57,6 +57,7 @@ export interface StudentLedger {
   totalOutstandingDue: number;
   invoices: StudentLedgerInvoiceItem[];
   payments: StudentLedgerPaymentItem[];
+  pendingLibraryFine?: number;
 }
 
 export interface PagedResult<T> {
@@ -73,6 +74,8 @@ export interface CollectFifoFeePayload {
   transactionRef?: string;
   remarks?: string;
   sendWhatsAppReceipt: boolean;
+  includeLibraryFine?: boolean;
+  libraryCirculationIds?: string[];
 }
 
 export interface GenerateInvoicesPayload {
@@ -87,6 +90,14 @@ export interface GenerateInvoicesResult {
   generatedCount: number;
   skippedCount: number;
   message: string;
+}
+
+export interface FeeReceiptLineItem {
+  itemIndex: number;
+  particulars: string;
+  subTitle?: string;
+  reference?: string;
+  amount: number;
 }
 
 export interface FeePaymentReceipt {
@@ -104,6 +115,29 @@ export interface FeePaymentReceipt {
   mode: number | string;
   transactionRef?: string;
   remarks?: string;
+  tuitionAmountPaid?: number;
+  libraryFineAmountPaid?: number;
+  libraryFineParticulars?: string;
+  pendingLibraryFine?: number;
+  items?: FeeReceiptLineItem[];
+}
+
+export interface StudentPendingFineItem {
+  circulationId: string;
+  accessionNumber: string;
+  bookTitle: string;
+  overdueDays: number;
+  fineAmount: number;
+  dueDate: string;
+  returnDate?: string;
+}
+
+export interface StudentLibraryDues {
+  studentId: string;
+  pendingFineAmount: number;
+  pendingFinesCount: number;
+  pendingFines: StudentPendingFineItem[];
+  activeOverdueBooksCount: number;
 }
 
 export interface FeeDueSlipItem {
@@ -126,6 +160,8 @@ export interface FeeDueSlip {
   totalOutstandingDue: number;
   generatedDate: string;
   dueItems: FeeDueSlipItem[];
+  pendingLibraryFine?: number;
+  activeOverdueBooksCount?: number;
 }
 
 @Injectable({
@@ -160,6 +196,10 @@ export class FeesService {
 
   getStudentLedger(studentId: string): Observable<StudentLedger> {
     return this.http.get<StudentLedger>(`${this.apiUrl}/student-ledger/${studentId}`);
+  }
+
+  getStudentLibraryDues(studentId: string): Observable<StudentLibraryDues> {
+    return this.http.get<StudentLibraryDues>(`${this.apiUrl}/student/${studentId}/library-dues`);
   }
 
   collectFeeFifo(payload: CollectFifoFeePayload): Observable<FeePaymentReceipt> {

@@ -134,17 +134,46 @@ export interface FeeReceiptDialogData {
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <td class="text-center">1</td>
-                <td>
-                  <strong class="fee-head-title">Tuition & Coaching Fee Settlement</strong>
-                  <div class="fee-head-sub">{{ data.receipt.remarks || 'Standard Monthly Tuition Fee installment' }}</div>
-                </td>
-                <td>{{ data.receipt.invoiceNumber || 'Monthly Invoices' }}</td>
-                <td class="text-right amount-col">
-                  <strong>₹{{ data.receipt.amountPaid | number:'1.2-2' }}</strong>
-                </td>
-              </tr>
+              <!-- Multi-line breakdown (Tuition + Library Fine) -->
+              <ng-container *ngIf="data.receipt.items && data.receipt.items.length > 0; else fallbackReceiptRows">
+                <tr *ngFor="let item of data.receipt.items">
+                  <td class="text-center">{{ item.itemIndex }}</td>
+                  <td>
+                    <strong class="fee-head-title">{{ item.particulars }}</strong>
+                    <div class="fee-head-sub" *ngIf="item.subTitle">{{ item.subTitle }}</div>
+                  </td>
+                  <td>{{ item.reference || '-' }}</td>
+                  <td class="text-right amount-col">
+                    <strong>₹{{ item.amount | number:'1.2-2' }}</strong>
+                  </td>
+                </tr>
+              </ng-container>
+
+              <ng-template #fallbackReceiptRows>
+                <tr>
+                  <td class="text-center">1</td>
+                  <td>
+                    <strong class="fee-head-title">Tuition & Coaching Fee Settlement</strong>
+                    <div class="fee-head-sub">{{ data.receipt.remarks || 'Standard Monthly Tuition Fee installment' }}</div>
+                  </td>
+                  <td>{{ data.receipt.invoiceNumber || 'Monthly Invoices' }}</td>
+                  <td class="text-right amount-col">
+                    <strong>₹{{ (data.receipt.tuitionAmountPaid !== undefined && data.receipt.tuitionAmountPaid > 0 ? data.receipt.tuitionAmountPaid : data.receipt.amountPaid) | number:'1.2-2' }}</strong>
+                  </td>
+                </tr>
+                <tr *ngIf="data.receipt.libraryFineAmountPaid && data.receipt.libraryFineAmountPaid > 0">
+                  <td class="text-center">2</td>
+                  <td>
+                    <strong class="fee-head-title">Library Overdue Fine Settlement</strong>
+                    <div class="fee-head-sub">{{ data.receipt.libraryFineParticulars || 'Late Return Fine Settlement' }}</div>
+                  </td>
+                  <td>Library Clearance</td>
+                  <td class="text-right amount-col">
+                    <strong>₹{{ data.receipt.libraryFineAmountPaid | number:'1.2-2' }}</strong>
+                  </td>
+                </tr>
+              </ng-template>
+
               <tr class="summary-subtotal">
                 <td colspan="3" class="text-right"><strong>Total Amount Received:</strong></td>
                 <td class="text-right grand-paid">₹{{ data.receipt.amountPaid | number:'1.2-2' }}</td>
@@ -181,6 +210,17 @@ export interface FeeReceiptDialogData {
           <div class="due-amount-box">
             <span class="due-lbl">Remaining Balance Due:</span>
             <span class="due-num">₹{{ data.receipt.remainingDue | number:'1.2-2' }}</span>
+          </div>
+        </div>
+
+        <!-- Library Dues Clearance Notice (Printed when student has pending library dues) -->
+        <div class="library-clearance-notice" *ngIf="data.receipt.pendingLibraryFine && data.receipt.pendingLibraryFine > 0">
+          <div class="notice-badge">
+            <mat-icon class="notice-icon">local_library</mat-icon>
+            <span>INSTITUTIONAL CLEARANCE NOTICE:</span>
+          </div>
+          <div class="notice-body">
+            Student has an unsettled Library Fine balance of <strong>₹{{ data.receipt.pendingLibraryFine | number:'1.2-2' }}</strong>. Please clear at the library circulation desk to obtain No-Dues clearance.
           </div>
         </div>
 
@@ -632,6 +672,32 @@ export interface FeeReceiptDialogData {
       .due-amount-box {
         text-align: right;
         .due-lbl { font-size: 0.72rem; color: #64748b; font-weight: 600; text-transform: uppercase; display: block; }
+      }
+    }
+
+    .library-clearance-notice {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #faf5ff;
+      border: 1px dashed #d8b4fe;
+      border-radius: 6px;
+      padding: 8px 14px;
+      margin-bottom: 14px;
+      font-size: 0.8rem;
+      color: #6b21a8;
+
+      .notice-badge {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-weight: 700;
+        white-space: nowrap;
+        color: #7e22ce;
+        .notice-icon { font-size: 17px; width: 17px; height: 17px; color: #a855f7; }
+      }
+      .notice-body {
+        color: #581c87;
       }
     }
 

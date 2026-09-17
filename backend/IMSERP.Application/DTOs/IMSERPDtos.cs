@@ -379,6 +379,14 @@ public record CollectFeeDto(
     bool SendWhatsAppReceipt
 );
 
+public record FeeReceiptLineItemDto(
+    int ItemIndex,
+    string Particulars,
+    string? SubTitle,
+    string? Reference,
+    decimal Amount
+);
+
 public record FeePaymentReceiptDto(
     Guid PaymentId,
     string ReceiptNumber,
@@ -393,7 +401,30 @@ public record FeePaymentReceiptDto(
     DateTime PaymentDate,
     PaymentMode Mode,
     string? TransactionRef,
-    string? Remarks
+    string? Remarks,
+    decimal TuitionAmountPaid = 0,
+    decimal LibraryFineAmountPaid = 0,
+    string? LibraryFineParticulars = null,
+    decimal PendingLibraryFine = 0,
+    List<FeeReceiptLineItemDto>? Items = null
+);
+
+public record StudentPendingFineItemDto(
+    Guid CirculationId,
+    string AccessionNumber,
+    string BookTitle,
+    int OverdueDays,
+    decimal FineAmount,
+    DateTime DueDate,
+    DateTime? ReturnDate
+);
+
+public record StudentLibraryDuesDto(
+    Guid StudentId,
+    decimal PendingFineAmount,
+    int PendingFinesCount,
+    List<StudentPendingFineItemDto> PendingFines,
+    int ActiveOverdueBooksCount
 );
 
 public record ReversePaymentDto(string Reason);
@@ -425,7 +456,9 @@ public record FeeDueSlipDto(
     string ParentPhone,
     decimal TotalOutstandingDue,
     DateTime GeneratedDate,
-    List<FeeDueSlipItemDto> DueItems
+    List<FeeDueSlipItemDto> DueItems,
+    decimal PendingLibraryFine = 0,
+    int ActiveOverdueBooksCount = 0
 );
 
 public record TestDto(
@@ -714,7 +747,8 @@ public record StudentLedgerDto(
     decimal TotalFeesPaid,
     decimal TotalOutstandingDue,
     List<StudentLedgerInvoiceItemDto> Invoices,
-    List<StudentLedgerPaymentItemDto> Payments
+    List<StudentLedgerPaymentItemDto> Payments,
+    decimal PendingLibraryFine = 0
 );
 
 public record CollectFifoFeeDto(
@@ -723,7 +757,9 @@ public record CollectFifoFeeDto(
     PaymentMode Mode,
     string? TransactionRef,
     string? Remarks,
-    bool SendWhatsAppReceipt
+    bool SendWhatsAppReceipt,
+    bool IncludeLibraryFine = false,
+    List<Guid>? LibraryCirculationIds = null
 );
 
 public record WhatsAppLogPagedItemDto(
@@ -1159,5 +1195,167 @@ public record TeacherMonthlyPayrollReportDto(
     decimal TotalAdvancesAdjusted,
     decimal TotalNetPaid,
     List<TeacherSalaryPaymentDto> Payments
+);
+
+// --- Library Management System DTOs ---
+
+public record LibraryBookDto(
+    Guid Id,
+    Guid TenantId,
+    Guid? BranchId,
+    string Title,
+    string Author,
+    string? Publisher,
+    string? Edition,
+    string? ISBN,
+    string Category,
+    string? Subject,
+    Guid? ClassId,
+    string? ClassName,
+    string? Description,
+    int TotalCopies,
+    int AvailableCopies,
+    int IssuedCopies,
+    DateTime CreatedAt,
+    bool IsActive,
+    List<BookCopyDto>? Copies
+);
+
+public record CreateLibraryBookDto(
+    string Title,
+    string Author,
+    string? Publisher,
+    string? Edition,
+    string? ISBN,
+    string Category,
+    string? Subject,
+    Guid? ClassId,
+    string? Description,
+    int InitialCopiesCount,
+    string? InitialRackLocation,
+    decimal InitialPrice
+);
+
+public record UpdateLibraryBookDto(
+    string Title,
+    string Author,
+    string? Publisher,
+    string? Edition,
+    string? ISBN,
+    string Category,
+    string? Subject,
+    Guid? ClassId,
+    string? Description,
+    bool IsActive
+);
+
+public record BookCopyDto(
+    Guid Id,
+    Guid TenantId,
+    Guid? BranchId,
+    Guid BookId,
+    string BookTitle,
+    string Author,
+    string AccessionNumber,
+    string? Barcode,
+    string? RackLocation,
+    decimal Price,
+    string Status,
+    string? ConditionNotes,
+    DateTime CreatedAt,
+    bool IsActive
+);
+
+public record CreateBookCopyDto(
+    Guid BookId,
+    string AccessionNumber,
+    string? Barcode,
+    string? RackLocation,
+    decimal Price,
+    string? ConditionNotes
+);
+
+public record UpdateBookCopyDto(
+    string AccessionNumber,
+    string? Barcode,
+    string? RackLocation,
+    decimal Price,
+    string Status,
+    string? ConditionNotes,
+    bool IsActive
+);
+
+public record IssueBookDto(
+    string AccessionNumber,
+    Guid? StudentId,
+    Guid? TeacherId,
+    string MemberType,
+    int? CustomDueDays,
+    string? Remarks
+);
+
+public record ReturnBookDto(
+    string AccessionNumber,
+    string? Remarks,
+    decimal? CollectedFineAmount,
+    string FinePaymentStatus
+);
+
+public record LibraryCirculationDto(
+    Guid Id,
+    Guid BookCopyId,
+    string AccessionNumber,
+    string BookTitle,
+    string Author,
+    string? RackLocation,
+    Guid? StudentId,
+    string? StudentName,
+    string? StudentRollNumber,
+    string? StudentAdmissionNumber,
+    string? StudentClassName,
+    string? StudentBatchName,
+    string? ParentWhatsAppPhone,
+    Guid? TeacherId,
+    string? TeacherName,
+    string? TeacherEmployeeCode,
+    string MemberType,
+    DateTime IssueDate,
+    DateTime DueDate,
+    DateTime? ReturnDate,
+    string Status,
+    int OverdueDays,
+    decimal FinePerDay,
+    decimal FineAmount,
+    string FineStatus,
+    string? Remarks
+);
+
+public record LibraryStatsDto(
+    int TotalTitles,
+    int TotalCopies,
+    int AvailableCopies,
+    int IssuedCopies,
+    int OverdueCount,
+    decimal TotalFinesCollected,
+    decimal TotalFinesPending
+);
+
+public record LibrarySettingDto(
+    Guid Id,
+    int MaxBooksPerStudent,
+    int MaxBooksPerTeacher,
+    int StudentIssueDays,
+    int TeacherIssueDays,
+    decimal DailyFineRate,
+    bool AllowFineWaiver
+);
+
+public record UpdateLibrarySettingDto(
+    int MaxBooksPerStudent,
+    int MaxBooksPerTeacher,
+    int StudentIssueDays,
+    int TeacherIssueDays,
+    decimal DailyFineRate,
+    bool AllowFineWaiver
 );
 

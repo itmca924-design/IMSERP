@@ -1088,6 +1088,8 @@ export class LayoutComponent implements OnInit {
     { title: 'Biometric Devices', route: '/attendance/devices', icon: 'fingerprint' },
     { title: 'Fee Collection', route: '/fees', icon: 'payments' },
     { title: 'Tests & Report Cards', route: '/tests', icon: 'assignment' },
+    { title: 'Library Books Catalog', route: '/library/books', icon: 'local_library' },
+    { title: 'Book Issue & Return Desk', route: '/library/circulation', icon: 'sync_alt' },
     { title: 'Classrooms (Rooms)', route: '/rooms', icon: 'meeting_room' },
     { title: 'Branches Master', route: '/branches', icon: 'store' },
     { title: 'Roles & Permissions', route: '/roles', icon: 'admin_panel_settings' },
@@ -1324,7 +1326,9 @@ export class LayoutComponent implements OnInit {
         children: [
           { id: '51', title: 'Fee Collection', routeUrl: '/fees', icon: 'payments', sortOrder: 1, module: 'Academic', isActive: true, children: [] },
           { id: '52', title: 'Tests & Report Cards', routeUrl: '/tests', icon: 'assignment', sortOrder: 2, module: 'Academic', isActive: true, children: [] },
-          { id: '53', title: 'WhatsApp Logs', routeUrl: '/whatsapp', icon: 'chat', sortOrder: 3, module: 'Academic', isActive: true, children: [] }
+          { id: '53', title: 'WhatsApp Logs', routeUrl: '/whatsapp', icon: 'chat', sortOrder: 3, module: 'Academic', isActive: true, children: [] },
+          { id: '54', title: 'Library Books', routeUrl: '/library/books', icon: 'local_library', sortOrder: 4, module: 'Academic', isActive: true, children: [] },
+          { id: '55', title: 'Issue & Return Desk', routeUrl: '/library/circulation', icon: 'sync_alt', sortOrder: 5, module: 'Academic', isActive: true, children: [] }
         ]
       },
       {

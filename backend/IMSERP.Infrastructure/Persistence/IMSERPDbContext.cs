@@ -44,6 +44,10 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
     public DbSet<Holiday> Holidays => Set<Holiday>();
     public DbSet<SchoolClass> SchoolClasses => Set<SchoolClass>();
     public DbSet<SchoolSection> SchoolSections => Set<SchoolSection>();
+    public DbSet<LibraryBook> LibraryBooks => Set<LibraryBook>();
+    public DbSet<BookCopy> BookCopies => Set<BookCopy>();
+    public DbSet<LibraryCirculation> LibraryCirculations => Set<LibraryCirculation>();
+    public DbSet<LibrarySetting> LibrarySettings => Set<LibrarySetting>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -105,6 +109,30 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
         modelBuilder.Entity<SchoolSection>().HasQueryFilter(x => 
             (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<LibraryBook>().HasQueryFilter(x => 
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<BookCopy>().HasQueryFilter(x => 
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<LibraryCirculation>().HasQueryFilter(x => 
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<LibrarySetting>().HasQueryFilter(x => 
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+
+        modelBuilder.Entity<BookCopy>()
+            .HasOne(c => c.Book)
+            .WithMany(b => b.Copies)
+            .HasForeignKey(c => c.BookId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<LibraryCirculation>()
+            .HasOne(c => c.BookCopy)
+            .WithMany(bc => bc.Circulations)
+            .HasForeignKey(c => c.BookCopyId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<SchoolSection>()
             .HasOne(s => s.Class)

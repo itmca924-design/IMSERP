@@ -36,6 +36,10 @@ public interface IIMSERPDbContext
     DbSet<Holiday> Holidays { get; }
     DbSet<SchoolClass> SchoolClasses { get; }
     DbSet<SchoolSection> SchoolSections { get; }
+    DbSet<LibraryBook> LibraryBooks { get; }
+    DbSet<BookCopy> BookCopies { get; }
+    DbSet<LibraryCirculation> LibraryCirculations { get; }
+    DbSet<LibrarySetting> LibrarySettings { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

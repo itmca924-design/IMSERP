@@ -86,6 +86,13 @@ import { FeeDueReceiptDialogComponent } from './fee-due-receipt-dialog.component
               </span>
               <strong class="m-value due">₹{{ ledger.totalOutstandingDue | number:'1.2-2' }}</strong>
             </div>
+            <div class="metric-box lib-due-box" *ngIf="ledger.pendingLibraryFine && ledger.pendingLibraryFine > 0">
+              <span class="m-label">
+                <span class="d-only">Library Fine Due:</span>
+                <span class="m-only">Lib Fine</span>
+              </span>
+              <strong class="m-value lib-fine">₹{{ ledger.pendingLibraryFine | number:'1.2-2' }}</strong>
+            </div>
           </div>
         </div>
 
@@ -409,6 +416,11 @@ import { FeeDueReceiptDialogComponent } from './fee-due-receipt-dialog.component
             &.charged { color: #334155; }
             &.paid { color: #16a34a; }
             &.due { color: #dc2626; }
+            &.lib-fine { color: #a21caf; }
+          }
+          &.lib-due-box {
+            background: #fdf4ff;
+            border-color: #f0abfc;
           }
         }
       }
