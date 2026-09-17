@@ -87,3 +87,79 @@ export interface HolidayDto {
   isActive: boolean;
   createdAt?: string;
 }
+
+export interface TeacherWorkloadSummaryItemDto {
+  teacherId: string;
+  teacherName: string;
+  employeeCode: string;
+  qualification?: string;
+  specialization?: string;
+  assignedBatchCount: number;
+  weeklyClassesCount: number;
+  weeklyHours: number;
+  totalStudentReach: number;
+  assignedBatches: BatchAssignmentDto[];
+}
+
+export interface TeacherWorkloadReportDto {
+  totalActiveTeachers: number;
+  totalAssignedBatches: number;
+  totalWeeklyClasses: number;
+  totalWeeklyHours: number;
+  totalStudentsReached: number;
+  teachers: TeacherWorkloadSummaryItemDto[];
+}
+
+export interface TeacherBatchCoverageReportDto {
+  totalBatches: number;
+  assignedBatchesCount: number;
+  unassignedBatchesCount: number;
+  coveragePercentage: number;
+  unassignedBatches: BatchDto[];
+  allAssignments: BatchAssignmentDto[];
+}
+
+export interface TeacherMonthlyPayrollReportDto {
+  month: number;
+  year: number;
+  monthName: string;
+  totalTeachers: number;
+  paidTeachersCount: number;
+  pendingTeachersCount: number;
+  totalGrossAmount: number;
+  totalDeductions: number;
+  totalAdvancesAdjusted: number;
+  totalNetPaid: number;
+  payments: SalaryPaymentDto[];
+}
+
+export interface AttendanceReportRowDto {
+  personId: string;
+  personName: string;
+  name?: string;
+  code: string;
+  groupName?: string;
+  batchOrRoleName?: string;
+  presentDays: number;
+  absentDays: number;
+  lateDays: number;
+  halfDays: number;
+  holidayDays: number;
+  totalWorkingDays: number;
+  attendancePercentage: number;
+  dailyStatuses?: string;
+}
+
+export interface AttendanceReportDto {
+  reportType: string;
+  month: number;
+  year: number;
+  totalRecords: number;
+  totalPresent: number;
+  totalAbsent: number;
+  totalLate: number;
+  totalHalfDays: number;
+  totalHolidays: number;
+  rows: AttendanceReportRowDto[];
+}
+

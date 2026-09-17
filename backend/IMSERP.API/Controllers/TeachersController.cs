@@ -511,7 +511,220 @@ public class TeachersController : ControllerBase
         return NoContent();
     }
 
+    // ─── Teacher Reports & Analytics ──────────────────────────
+
+    [HttpGet("reports/workload")]
+    public async Task<ActionResult<TeacherWorkloadReportDto>> GetWorkloadReport()
+    {
+        var teachers = await _db.Teachers.AsNoTracking()
+            .Where(t => t.IsActive)
+            .OrderBy(t => t.FullName)
+            .ToListAsync();
+
+        var assignments = await _db.TeacherBatchAssignments.AsNoTracking()
+            .Include(a => a.Teacher)
+            .Include(a => a.Batch)
+                .ThenInclude(b => b!.Students)
+            .Where(a => a.IsActive)
+            .ToListAsync();
+
+        var teacherItems = teachers.Select(t =>
+        {
+            var tAssignments = assignments.Where(a => a.TeacherId == t.Id).ToList();
+            var assignedBatchesDto = tAssignments.Select(a => new TeacherBatchAssignmentDto(
+                a.Id, a.TeacherId, t.FullName, a.BatchId,
+                a.Batch?.Name ?? "Unknown Batch", a.Subject, a.DaysOfWeek, a.TimeSlot, a.IsActive, a.AssignedAt
+            )).ToList();
+
+            var weeklyClasses = tAssignments.Sum(a =>
+                string.IsNullOrWhiteSpace(a.DaysOfWeek) ? 0 : a.DaysOfWeek.Split(',', StringSplitOptions.RemoveEmptyEntries).Length);
+
+            var weeklyHours = tAssignments.Sum(a => CalculateWeeklyHours(a.DaysOfWeek, a.TimeSlot));
+
+            var studentCount = tAssignments
+                .Where(a => a.Batch != null)
+                .SelectMany(a => a.Batch!.Students.Where(s => s.IsActive).Select(s => s.Id))
+                .Distinct()
+                .Count();
+
+            return new TeacherWorkloadSummaryItemDto(
+                t.Id,
+                t.FullName,
+                t.EmployeeCode,
+                t.Qualification,
+                t.Specialization,
+                tAssignments.Count,
+                weeklyClasses,
+                weeklyHours,
+                studentCount,
+                assignedBatchesDto
+            );
+        }).ToList();
+
+        var totalTeachers = teachers.Count;
+        var totalAssignedBatches = assignments.Select(a => a.BatchId).Distinct().Count();
+        var totalWeeklyClasses = teacherItems.Sum(i => i.WeeklyClassesCount);
+        var totalWeeklyHours = teacherItems.Sum(i => i.WeeklyHours);
+        var totalStudentsReached = assignments
+            .Where(a => a.Batch != null)
+            .SelectMany(a => a.Batch!.Students.Where(s => s.IsActive).Select(s => s.Id))
+            .Distinct()
+            .Count();
+
+        return Ok(new TeacherWorkloadReportDto(
+            totalTeachers,
+            totalAssignedBatches,
+            totalWeeklyClasses,
+            totalWeeklyHours,
+            totalStudentsReached,
+            teacherItems
+        ));
+    }
+
+    [HttpGet("reports/master-timetable")]
+    public async Task<ActionResult<IEnumerable<TeacherBatchAssignmentDto>>> GetMasterTimetable()
+    {
+        var list = await _db.TeacherBatchAssignments.AsNoTracking()
+            .Include(a => a.Teacher)
+            .Include(a => a.Batch)
+            .Where(a => a.IsActive && a.Teacher != null && a.Teacher.IsActive)
+            .OrderBy(a => a.Teacher!.FullName)
+            .ThenBy(a => a.Batch!.Name)
+            .Select(a => new TeacherBatchAssignmentDto(
+                a.Id, a.TeacherId, a.Teacher!.FullName, a.BatchId,
+                a.Batch!.Name, a.Subject, a.DaysOfWeek, a.TimeSlot, a.IsActive, a.AssignedAt))
+            .ToListAsync();
+
+        return Ok(list);
+    }
+
+    [HttpGet("reports/batch-coverage")]
+    public async Task<ActionResult<TeacherBatchCoverageReportDto>> GetBatchCoverageReport()
+    {
+        var batches = await _db.Batches.AsNoTracking()
+            .Include(b => b.Students)
+            .Include(b => b.Branch)
+            .Include(b => b.Room)
+            .OrderBy(b => b.Name)
+            .ToListAsync();
+
+        var assignments = await _db.TeacherBatchAssignments.AsNoTracking()
+            .Include(a => a.Teacher)
+            .Include(a => a.Batch)
+            .Where(a => a.IsActive)
+            .ToListAsync();
+
+        var assignedBatchIds = assignments.Select(a => a.BatchId).ToHashSet();
+
+        var unassignedBatches = batches
+            .Where(b => !assignedBatchIds.Contains(b.Id))
+            .Select(b => new BatchDto(
+                b.Id,
+                b.Name,
+                b.Subject,
+                b.AcademicYear,
+                b.StandardMonthlyFee,
+                b.Students.Count,
+                b.BranchId,
+                b.Branch != null ? b.Branch.Name : null,
+                b.RoomId,
+                b.Room != null ? b.Room.RoomNumber : null
+            ))
+            .ToList();
+
+        var totalBatches = batches.Count;
+        var assignedCount = assignedBatchIds.Count;
+        var unassignedCount = unassignedBatches.Count;
+        var coveragePct = totalBatches == 0 ? 0m : Math.Round(((decimal)assignedCount / totalBatches) * 100m, 1);
+
+        var allAssignmentsDto = assignments.Select(a => new TeacherBatchAssignmentDto(
+            a.Id, a.TeacherId, a.Teacher?.FullName ?? "Unknown", a.BatchId,
+            a.Batch?.Name ?? "Unknown", a.Subject, a.DaysOfWeek, a.TimeSlot, a.IsActive, a.AssignedAt
+        )).ToList();
+
+        return Ok(new TeacherBatchCoverageReportDto(
+            totalBatches,
+            assignedCount,
+            unassignedCount,
+            coveragePct,
+            unassignedBatches,
+            allAssignmentsDto
+        ));
+    }
+
+    [HttpGet("reports/payroll")]
+    public async Task<ActionResult<TeacherMonthlyPayrollReportDto>> GetMonthlyPayrollReport(
+        [FromQuery] int month = 0, [FromQuery] int year = 0)
+    {
+        if (month == 0) month = DateTime.UtcNow.Month;
+        if (year == 0) year = DateTime.UtcNow.Year;
+
+        var monthName = new DateTime(year, month, 1).ToString("MMMM yyyy");
+
+        var activeTeachers = await _db.Teachers.AsNoTracking()
+            .Where(t => t.IsActive)
+            .ToListAsync();
+
+        var payments = await _db.TeacherSalaryPayments.AsNoTracking()
+            .Include(p => p.Teacher)
+            .Where(p => p.PaymentMonth == month && p.PaymentYear == year)
+            .OrderBy(p => p.Teacher != null ? p.Teacher.FullName : "")
+            .Select(p => new TeacherSalaryPaymentDto(
+                p.Id, p.TeacherId, p.Teacher != null ? p.Teacher.FullName : "Teacher",
+                p.Teacher != null ? p.Teacher.EmployeeCode : "",
+                p.PaymentMonth, p.PaymentYear, monthName,
+                p.PaymentDate, p.GrossAmount, p.Deductions, p.AdvanceAdjusted, p.NetPaid,
+                p.PaymentMode.ToString(), p.TransactionRef, p.ReceiptNumber,
+                p.PresentDays, p.AbsentDays, p.Remarks
+            ))
+            .ToListAsync();
+
+        var paidCount = payments.Count;
+        var totalTeachers = activeTeachers.Count;
+        var pendingCount = Math.Max(0, totalTeachers - paidCount);
+
+        var totalGross = payments.Sum(p => p.GrossAmount);
+        var totalDeductions = payments.Sum(p => p.Deductions);
+        var totalAdvances = payments.Sum(p => p.AdvanceAdjusted);
+        var totalNetPaid = payments.Sum(p => p.NetPaid);
+
+        return Ok(new TeacherMonthlyPayrollReportDto(
+            month,
+            year,
+            monthName,
+            totalTeachers,
+            paidCount,
+            pendingCount,
+            totalGross,
+            totalDeductions,
+            totalAdvances,
+            totalNetPaid,
+            payments
+        ));
+    }
+
+    private static decimal CalculateWeeklyHours(string? daysOfWeek, string? timeSlot)
+    {
+        if (string.IsNullOrWhiteSpace(daysOfWeek)) return 0m;
+        var dayCount = daysOfWeek.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Length;
+        if (dayCount == 0) return 0m;
+
+        decimal hoursPerClass = 1.5m;
+        if (!string.IsNullOrWhiteSpace(timeSlot))
+        {
+            var parts = timeSlot.Split('-', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (parts.Length == 2 && DateTime.TryParse(parts[0], out var start) && DateTime.TryParse(parts[1], out var end))
+            {
+                var diff = (decimal)(end - start).TotalHours;
+                if (diff > 0 && diff < 8) hoursPerClass = Math.Round(diff, 2);
+            }
+        }
+
+        return Math.Round(dayCount * hoursPerClass, 1);
+    }
+
     // ─── Attendance ───────────────────────────────────────────
+
 
     [HttpGet("attendance/ph-sun-edit-permission")]
     public async Task<ActionResult<object>> GetPublicHolidaySundayEditPermission()
@@ -535,6 +748,9 @@ public class TeachersController : ControllerBase
             .Where(a => teacherIds.Contains(a.TeacherId) && a.AttendanceDate >= monthStart && a.AttendanceDate <= monthEnd)
             .ToListAsync();
 
+        var totalDaysInMonth = DateTime.DaysInMonth(year, month);
+        var totalWorkingDays = Math.Max(0, totalDaysInMonth - offDates.Count);
+
         var rows = teachers.Select(teacher =>
         {
             var personRecords = records.Where(record => record.TeacherId == teacher.Id).ToList();
@@ -543,12 +759,64 @@ public class TeachersController : ControllerBase
             var absent = statuses.Count(status => status == TeacherAttendanceStatus.Absent);
             var late = statuses.Count(status => status == TeacherAttendanceStatus.Late);
             var half = statuses.Count(status => status == TeacherAttendanceStatus.HalfDay);
+
+            var dailyMap = new List<string>();
+            for (int day = 1; day <= totalDaysInMonth; day++)
+            {
+                var curDate = new DateTime(year, month, day);
+                if (offDates.Contains(curDate.Date))
+                {
+                    dailyMap.Add($"{day}:OFF");
+                }
+                else
+                {
+                    var rec = personRecords.FirstOrDefault(r => r.AttendanceDate.Date == curDate.Date);
+                    if (rec != null)
+                    {
+                        var st = EvaluateSmartAttendanceStatus(rec.Status, rec.CheckInTime, rec.CheckOutTime);
+                        var code = st switch
+                        {
+                            TeacherAttendanceStatus.Present => "P",
+                            TeacherAttendanceStatus.Absent => "A",
+                            TeacherAttendanceStatus.Late => "L",
+                            TeacherAttendanceStatus.HalfDay => "HD",
+                            _ => "P"
+                        };
+                        dailyMap.Add($"{day}:{code}");
+                    }
+                    else
+                    {
+                        dailyMap.Add($"{day}:-");
+                    }
+                }
+            }
+
+            var attendedWeighted = present + late + (half * 0.5m);
             var evaluated = present + absent + late + half;
-            return new AttendanceReportRowDto(teacher.Id, teacher.FullName, teacher.EmployeeCode, "Faculty", present, absent, late, half, offDates.Count, Math.Max(0, DateTime.DaysInMonth(year, month) - offDates.Count), evaluated == 0 ? 0 : Math.Round(((present + late + half * 0.5m) / evaluated) * 100, 1));
+            var denominator = Math.Max(totalWorkingDays, evaluated);
+            var attendancePercentage = (denominator == 0 || attendedWeighted == 0)
+                ? 0m
+                : Math.Min(100m, Math.Round((attendedWeighted / (decimal)denominator) * 100m, 1));
+
+            return new AttendanceReportRowDto(
+                teacher.Id,
+                teacher.FullName,
+                teacher.EmployeeCode,
+                "Faculty",
+                present,
+                absent,
+                late,
+                half,
+                offDates.Count,
+                totalWorkingDays,
+                attendancePercentage,
+                string.Join(",", dailyMap)
+            );
         }).ToList();
 
         return Ok(new AttendanceReportDto("Teacher", month, year, rows.Count, rows.Sum(row => row.PresentDays), rows.Sum(row => row.AbsentDays), rows.Sum(row => row.LateDays), rows.Sum(row => row.HalfDays), rows.Sum(row => row.HolidayDays), rows));
     }
+
 
     private async Task<HashSet<DateTime>> GetAttendanceOffDates(DateTime monthStart, DateTime monthEnd)
     {

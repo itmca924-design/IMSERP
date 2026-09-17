@@ -1081,6 +1081,7 @@ export class LayoutComponent implements OnInit {
     { title: 'Subjects', route: '/subjects', icon: 'menu_book' },
     { title: 'Holiday Calendar', route: '/holidays', icon: 'event' },
     { title: 'Teacher Profiles', route: '/teachers', icon: 'badge' },
+    { title: 'Teacher Reports', route: '/teachers/reports', icon: 'assessment' },
     { title: 'Teacher Attendance', route: '/teachers/attendance', icon: 'event_available' },
     { title: 'Attendance Reports', route: '/attendance/reports', icon: 'summarize' },
     { title: 'Biometric Devices', route: '/attendance/devices', icon: 'fingerprint' },
@@ -1311,8 +1312,10 @@ export class LayoutComponent implements OnInit {
           { id: '44', title: 'Salary Structure', routeUrl: '/teachers/salary', icon: 'account_balance_wallet', sortOrder: 4, module: 'Teachers', isActive: true, children: [] },
           { id: '45', title: 'Salary Payments', routeUrl: '/teachers/payments', icon: 'payments', sortOrder: 5, module: 'Teachers', isActive: true, children: [] },
           { id: '46', title: 'Salary Advances', routeUrl: '/teachers/advances', icon: 'currency_rupee', sortOrder: 6, module: 'Teachers', isActive: true, children: [] },
-          { id: '47', title: 'Leave Management', routeUrl: '/teachers/leaves', icon: 'beach_access', sortOrder: 7, module: 'Teachers', isActive: true, children: [] }
+          { id: '47', title: 'Leave Management', routeUrl: '/teachers/leaves', icon: 'beach_access', sortOrder: 7, module: 'Teachers', isActive: true, children: [] },
+          { id: '48', title: 'Teacher Reports', routeUrl: '/teachers/reports', icon: 'assessment', sortOrder: 8, module: 'Teachers', isActive: true, children: [] }
         ]
+
       },
       {
         id: '5', title: 'Academic Operations', routeUrl: '', icon: 'school', sortOrder: 5, module: 'Academic', isActive: true,

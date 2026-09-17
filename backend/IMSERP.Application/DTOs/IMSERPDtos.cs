@@ -219,8 +219,10 @@ public record AttendanceReportRowDto(
     int HalfDays,
     int HolidayDays,
     int TotalWorkingDays,
-    decimal AttendancePercentage
+    decimal AttendancePercentage,
+    string? DailyStatuses = null
 );
+
 
 public record AttendanceReportDto(
     string ReportType,
@@ -1008,3 +1010,50 @@ public record UpdateHolidayDto(
     string? Description,
     bool IsActive
 );
+
+// ─── Teacher Reports & Analytics DTOs ──────────────────────────────
+public record TeacherWorkloadSummaryItemDto(
+    Guid TeacherId,
+    string TeacherName,
+    string EmployeeCode,
+    string? Qualification,
+    string? Specialization,
+    int AssignedBatchCount,
+    int WeeklyClassesCount,
+    decimal WeeklyHours,
+    int TotalStudentReach,
+    List<TeacherBatchAssignmentDto> AssignedBatches
+);
+
+public record TeacherWorkloadReportDto(
+    int TotalActiveTeachers,
+    int TotalAssignedBatches,
+    int TotalWeeklyClasses,
+    decimal TotalWeeklyHours,
+    int TotalStudentsReached,
+    List<TeacherWorkloadSummaryItemDto> Teachers
+);
+
+public record TeacherBatchCoverageReportDto(
+    int TotalBatches,
+    int AssignedBatchesCount,
+    int UnassignedBatchesCount,
+    decimal CoveragePercentage,
+    List<BatchDto> UnassignedBatches,
+    List<TeacherBatchAssignmentDto> AllAssignments
+);
+
+public record TeacherMonthlyPayrollReportDto(
+    int Month,
+    int Year,
+    string MonthName,
+    int TotalTeachers,
+    int PaidTeachersCount,
+    int PendingTeachersCount,
+    decimal TotalGrossAmount,
+    decimal TotalDeductions,
+    decimal TotalAdvancesAdjusted,
+    decimal TotalNetPaid,
+    List<TeacherSalaryPaymentDto> Payments
+);
+

@@ -85,6 +85,10 @@ export const routes: Routes = [
         path: 'teachers/leaves',
         loadComponent: () => import('./features/teachers/teacher-leaves.component').then(m => m.TeacherLeavesComponent)
       },
+      {
+        path: 'teachers/reports',
+        loadComponent: () => import('./features/teachers/teacher-reports.component').then(m => m.TeacherReportsComponent)
+      },
 
       // Academic Operations
       {
