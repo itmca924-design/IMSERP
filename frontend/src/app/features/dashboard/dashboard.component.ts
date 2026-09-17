@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, NgZone, signal, computed, effect, inject, DestroyRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
@@ -8,13 +8,17 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterModule } from '@angular/router';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
+import { skip } from 'rxjs';
 import { CoachingService } from '../../core/services/coaching.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
+import { AuthService } from '../../core/services/auth.service';
 import ApexCharts from 'apexcharts';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
     MatCardModule,
@@ -35,16 +39,18 @@ import ApexCharts from 'apexcharts';
           <p>Real-time analytics for Fees, Students, Test Exams, and WhatsApp Notifications.</p>
         </div>
         <button mat-raised-button color="primary" class="refresh-btn" (click)="loadSummary()" matTooltip="Refresh Live Analytics">
-          <mat-icon [class.spin-icon]="loading">sync</mat-icon>
+          <mat-icon [class.spin-icon]="loading()">sync</mat-icon>
           <span>Refresh Analytics</span>
         </button>
       </div>
 
-      <div *ngIf="loading && !summary" class="spinner-center">
-        <mat-spinner diameter="44"></mat-spinner>
-      </div>
+      @if (loading() && !summary()) {
+        <div class="spinner-center">
+          <mat-spinner diameter="44"></mat-spinner>
+        </div>
+      }
 
-      <ng-container *ngIf="summary">
+      @if (summary(); as summary) {
 
         <!-- 1. Top KPI Stat Cards -->
         <div class="card-container">
@@ -184,19 +190,19 @@ import ApexCharts from 'apexcharts';
               </div>
               <div class="chart-legend-pills">
                 <span class="pill pill-billed"
-                      [matTooltip]="getBilledBreakdownTooltip()"
+                      [matTooltip]="billedTooltip()"
                       matTooltipClass="multiline-tooltip"
                       matTooltipPosition="below">
                   <span class="legend-dot dot-billed"></span>
-                  <span>Billed: ₹{{ getTotalBilled() | number:'1.0-0' }}</span>
+                  <span>Billed: ₹{{ totalBilled() | number:'1.0-0' }}</span>
                   <mat-icon class="pill-info-icon">info</mat-icon>
                 </span>
                 <span class="pill pill-collected"
-                      [matTooltip]="getCollectedBreakdownTooltip()"
+                      [matTooltip]="collectedTooltip()"
                       matTooltipClass="multiline-tooltip"
                       matTooltipPosition="below">
                   <span class="legend-dot dot-collected"></span>
-                  <span>Collected: ₹{{ getTotalCollected() | number:'1.0-0' }}</span>
+                  <span>Collected: ₹{{ totalCollected() | number:'1.0-0' }}</span>
                   <mat-icon class="pill-info-icon">info</mat-icon>
                 </span>
               </div>
@@ -353,7 +359,7 @@ import ApexCharts from 'apexcharts';
               </a>
             </div>
             <mat-card-content>
-              <table mat-table [dataSource]="summary.recentTests" class="full-width">
+              <table mat-table [dataSource]="summary.recentTests" class="full-width recent-tests-table">
 
                 <ng-container matColumnDef="title">
                   <th mat-header-cell *matHeaderCellDef>Test Title</th>
@@ -410,7 +416,7 @@ import ApexCharts from 'apexcharts';
 
         </div>
 
-      </ng-container>
+      }
     </div>
   `,
   styles: [`
@@ -851,6 +857,11 @@ import ApexCharts from 'apexcharts';
       background: #ffffff;
       box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05) !important;
       overflow: hidden;
+
+      mat-card-content {
+        padding: 0 10px 14px 10px !important;
+        overflow-x: auto;
+      }
     }
 
     .section-header {
@@ -962,29 +973,50 @@ import ApexCharts from 'apexcharts';
 
     .batch-badge {
       display: inline-block;
-      padding: 2px 8px;
+      padding: 2px 7px;
       background: #e0f2fe;
       color: #0369a1;
       border-radius: 8px;
-      font-size: 0.74rem;
+      font-size: 0.72rem;
       font-weight: 600;
       white-space: nowrap;
-      max-width: 140px;
+      max-width: 120px;
       overflow: hidden;
       text-overflow: ellipsis;
       vertical-align: middle;
     }
 
     th.mat-header-cell, td.mat-cell {
-      padding: 8px 8px !important;
+      padding: 8px 6px !important;
     }
 
-    .date-cell, th.mat-column-testDate, td.mat-column-testDate {
-      white-space: nowrap !important;
-      padding-right: 18px !important;
-      font-size: 0.8rem;
-      font-weight: 600;
-      color: #475569;
+    .recent-tests-table {
+      th.mat-column-title, td.mat-column-title {
+        min-width: 100px;
+      }
+      th.mat-column-batchName, td.mat-column-batchName {
+        max-width: 125px;
+        padding: 8px 4px !important;
+      }
+      th.mat-column-maxMarks, td.mat-column-maxMarks {
+        width: 65px;
+        padding: 8px 4px !important;
+      }
+      th.mat-column-marksEnteredCount, td.mat-column-marksEnteredCount {
+        width: 85px;
+        padding: 8px 4px !important;
+      }
+      th.mat-column-testDate, td.mat-column-testDate {
+        width: 95px;
+        min-width: 95px;
+        padding-left: 4px !important;
+        padding-right: 8px !important;
+        white-space: nowrap !important;
+        text-align: right;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #475569;
+      }
     }
 
     .apex-chart-wrap {
@@ -1040,8 +1072,38 @@ import ApexCharts from 'apexcharts';
   `]
 })
 export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
-  summary: any = null;
-  loading = true;
+  summary = signal<any>(null);
+  loading = signal<boolean>(true);
+
+  totalBilled = computed(() => {
+    const s = this.summary();
+    if (!s?.revenueTrends) return 0;
+    return s.revenueTrends.reduce((sum: number, t: any) => sum + (t.billedAmount || 0), 0);
+  });
+
+  totalCollected = computed(() => {
+    const s = this.summary();
+    if (!s?.revenueTrends) return 0;
+    return s.revenueTrends.reduce((sum: number, t: any) => sum + (t.collectedAmount || 0), 0);
+  });
+
+  billedTooltip = computed(() => {
+    const s = this.summary();
+    if (!s?.revenueTrends) return 'No billing data available.';
+    const activeTrends = s.revenueTrends.filter((t: any) => (t.billedAmount || 0) > 0);
+    if (!activeTrends.length) return 'No invoices billed in the last 6 months.';
+    const lines = activeTrends.map((t: any) => `  • ${t.monthName}: ₹${Number(t.billedAmount).toLocaleString('en-IN')}`);
+    return `6-Month Invoices Billed Breakdown\n\n` + lines.join('\n') + `\n\nTotal Billed: ₹${this.totalBilled().toLocaleString('en-IN')}`;
+  });
+
+  collectedTooltip = computed(() => {
+    const s = this.summary();
+    if (!s?.revenueTrends) return 'No collection data available.';
+    const activeTrends = s.revenueTrends.filter((t: any) => (t.collectedAmount || 0) > 0);
+    if (!activeTrends.length) return 'No fees collected in the last 6 months.';
+    const lines = activeTrends.map((t: any) => `  • ${t.monthName}: ₹${Number(t.collectedAmount).toLocaleString('en-IN')}`);
+    return `6-Month Fee Collections Breakdown\n\n` + lines.join('\n') + `\n\nTotal Collected: ₹${this.totalCollected().toLocaleString('en-IN')}`;
+  });
 
   feeColumns = ['studentName', 'invoiceNumber', 'dueAmount', 'dueDate', 'actions'];
   testColumns = ['title', 'batchName', 'maxMarks', 'marksEnteredCount', 'testDate'];
@@ -1053,11 +1115,25 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   private revenueChart?: ApexCharts;
   private feeBreakdownChart?: ApexCharts;
   private batchChart?: ApexCharts;
+  private destroyRef = inject(DestroyRef);
 
   constructor(
     private coachingService: CoachingService,
-    private confirmDialog: ConfirmDialogService
-  ) {}
+    private confirmDialog: ConfirmDialogService,
+    private authService: AuthService,
+    private ngZone: NgZone,
+    private cdr: ChangeDetectorRef
+  ) {
+    // Reactively refresh dashboard when branch changes after initial load
+    toObservable(this.authService.selectedBranchId)
+      .pipe(
+        skip(1),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe(() => {
+        setTimeout(() => this.loadSummary(), 0);
+      });
+  }
 
   ngOnInit(): void {
     this.loadSummary();
@@ -1070,44 +1146,23 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   loadSummary(): void {
-    this.loading = true;
-    this.coachingService.getDashboardSummary().subscribe({
-      next: (res) => {
-        this.summary = res;
-        this.loading = false;
-        setTimeout(() => this.initCharts(), 50);
-      },
-      error: () => {
-        this.loading = false;
-        this.confirmDialog.alert('Error', 'Failed to load dashboard analytics.', 'danger');
-      }
-    });
-  }
-
-  getTotalBilled(): number {
-    if (!this.summary?.revenueTrends) return 0;
-    return this.summary.revenueTrends.reduce((sum: number, t: any) => sum + (t.billedAmount || 0), 0);
-  }
-
-  getTotalCollected(): number {
-    if (!this.summary?.revenueTrends) return 0;
-    return this.summary.revenueTrends.reduce((sum: number, t: any) => sum + (t.collectedAmount || 0), 0);
-  }
-
-  getBilledBreakdownTooltip(): string {
-    if (!this.summary?.revenueTrends) return 'No billing data available.';
-    const activeTrends = this.summary.revenueTrends.filter((t: any) => (t.billedAmount || 0) > 0);
-    if (!activeTrends.length) return 'No invoices billed in the last 6 months.';
-    const lines = activeTrends.map((t: any) => `  • ${t.monthName}: ₹${Number(t.billedAmount).toLocaleString('en-IN')}`);
-    return `6-Month Invoices Billed Breakdown\n\n` + lines.join('\n') + `\n\nTotal Billed: ₹${this.getTotalBilled().toLocaleString('en-IN')}`;
-  }
-
-  getCollectedBreakdownTooltip(): string {
-    if (!this.summary?.revenueTrends) return 'No collection data available.';
-    const activeTrends = this.summary.revenueTrends.filter((t: any) => (t.collectedAmount || 0) > 0);
-    if (!activeTrends.length) return 'No fees collected in the last 6 months.';
-    const lines = activeTrends.map((t: any) => `  • ${t.monthName}: ₹${Number(t.collectedAmount).toLocaleString('en-IN')}`);
-    return `6-Month Fee Collections Breakdown\n\n` + lines.join('\n') + `\n\nTotal Collected: ₹${this.getTotalCollected().toLocaleString('en-IN')}`;
+    this.loading.set(true);
+    this.cdr.markForCheck();
+    this.coachingService.getDashboardSummary()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (res) => {
+          this.summary.set(res);
+          this.loading.set(false);
+          this.cdr.markForCheck();
+          setTimeout(() => this.initCharts(), 50);
+        },
+        error: () => {
+          this.loading.set(false);
+          this.cdr.markForCheck();
+          this.confirmDialog.alert('Error', 'Failed to load dashboard analytics.', 'danger');
+        }
+      });
   }
 
   private destroyCharts(): void {
@@ -1127,17 +1182,21 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private initCharts(): void {
     this.destroyCharts();
-    if (!this.summary) return;
+    const s = this.summary();
+    if (!s) return;
 
-    this.renderRevenueChart();
-    this.renderFeeBreakdownChart();
-    this.renderBatchChart();
+    // Run chart rendering outside Angular Zone to prevent change detection overhead on mousemove/hover
+    this.ngZone.runOutsideAngular(() => {
+      this.renderRevenueChart(s);
+      this.renderFeeBreakdownChart(s);
+      this.renderBatchChart(s);
+    });
   }
 
-  private renderRevenueChart(): void {
+  private renderRevenueChart(s: any): void {
     if (!this.revenueChartRef?.nativeElement) return;
 
-    const trends: any[] = this.summary.revenueTrends || [];
+    const trends: any[] = s.revenueTrends || [];
     const labels = trends.map(t => t.monthName);
     const billedData = trends.map(t => t.billedAmount);
     const collectedData = trends.map(t => t.collectedAmount);
@@ -1197,10 +1256,10 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     this.revenueChart.render();
   }
 
-  private renderFeeBreakdownChart(): void {
+  private renderFeeBreakdownChart(s: any): void {
     if (!this.feeBreakdownChartRef?.nativeElement) return;
 
-    const breakdown = this.summary.feeBreakdown;
+    const breakdown = s.feeBreakdown;
     const paid = breakdown?.totalPaid || 0;
     const pending = breakdown?.totalPending || 0;
 
@@ -1268,10 +1327,10 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     this.feeBreakdownChart.render();
   }
 
-  private renderBatchChart(): void {
+  private renderBatchChart(s: any): void {
     if (!this.batchChartRef?.nativeElement) return;
 
-    const batches: any[] = this.summary.batchDistributions || [];
+    const batches: any[] = s.batchDistributions || [];
     if (batches.length === 0) return;
 
     const labels = batches.map(b => b.batchName);
