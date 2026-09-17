@@ -60,6 +60,15 @@ export class AuthService {
     return sessionStorage.getItem('selected_branch_id') || localStorage.getItem('selected_branch_id');
   }
 
+  getInstituteLogoUrl(): string | null {
+    const photo = this.currentUser()?.profilePhoto;
+    if (!photo) return null;
+    if (photo.startsWith('/uploads/')) {
+      return `http://localhost:5000${photo}`;
+    }
+    return photo;
+  }
+
   login(credentials: { tenantCode: string; username: string; password: string }, rememberMe: boolean = false): Observable<LoginResponse> {
     return this.http.post<LoginResponse>(`${this.API_URL}/login`, credentials).pipe(
       tap(res => {

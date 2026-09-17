@@ -16,6 +16,16 @@ export interface GenerateInvoicesDialogData {
   defaultBatchId?: string;
 }
 
+interface BillingCycleOption {
+  value: number;
+  label: string;
+  icon: string;
+  description: string;
+  color: string;
+  bgColor: string;
+  borderColor: string;
+}
+
 @Component({
   selector: 'app-generate-invoices-dialog',
   standalone: true,
@@ -37,8 +47,8 @@ export interface GenerateInvoicesDialogData {
           <mat-icon>post_add</mat-icon>
         </div>
         <div class="header-titles">
-          <h2 mat-dialog-title class="main-title">Generate Monthly Fee Invoices</h2>
-          <p class="subtitle">Bulk-bill tuition fees for enrolled students for the upcoming cycle.</p>
+          <h2 mat-dialog-title class="main-title">Generate Fee Invoices</h2>
+          <p class="subtitle">Bulk-bill tuition fees across any billing cycle.</p>
         </div>
         <button mat-icon-button type="button" class="close-btn" (click)="onCancel()" [disabled]="saving">
           <mat-icon>close</mat-icon>
@@ -48,73 +58,111 @@ export interface GenerateInvoicesDialogData {
       <form [formGroup]="form" (ngSubmit)="onSubmit()">
         <mat-dialog-content class="dialog-content">
 
-          <!-- Information Callout -->
+          <!-- Info Callout -->
           <div class="info-callout">
-            <mat-icon class="info-icon">info</mat-icon>
+            <mat-icon class="info-icon">auto_awesome</mat-icon>
             <div class="info-text">
-              <strong>Smart Auto-Billing Engine:</strong> Invoices are generated using each student's assigned batch fee rate. Any student who already has an invoice for the selected month is <strong>automatically skipped</strong> to avoid duplicate billing.
+              <strong>Smart Auto-Billing Engine:</strong> Invoices use each student's batch fee rate multiplied by the selected cycle. Students who already have an invoice for the selected period are <strong>automatically skipped</strong>.
             </div>
           </div>
 
+          <!-- Billing Cycle Selector -->
+          <div class="section-label">
+            <mat-icon class="section-icon">autorenew</mat-icon>
+            <span>Billing Cycle</span>
+          </div>
+          <div class="cycle-grid">
+            <button
+              *ngFor="let c of billingCycles"
+              type="button"
+              class="cycle-tile"
+              [class.selected]="selectedCycle === c.value"
+              [style.--cycle-color]="c.color"
+              [style.--cycle-bg]="c.bgColor"
+              [style.--cycle-border]="c.borderColor"
+              (click)="selectCycle(c.value)"
+            >
+              <mat-icon class="cycle-icon">{{ c.icon }}</mat-icon>
+              <span class="cycle-label">{{ c.label }}</span>
+              <span class="cycle-desc">{{ c.description }}</span>
+            </button>
+          </div>
+
+          <!-- Period & Batch -->
+          <div class="section-label">
+            <mat-icon class="section-icon">calendar_month</mat-icon>
+            <span>Period &amp; Scope</span>
+          </div>
           <div class="form-grid">
-            <!-- Billing Month -->
             <mat-form-field appearance="outline" class="field-month">
-              <mat-label>Billing Month *</mat-label>
+              <mat-label>Starting Month *</mat-label>
               <mat-select formControlName="month" (selectionChange)="onMonthYearChange()">
-                <mat-option *ngFor="let m of months" [value]="m.value">
-                  {{ m.name }}
-                </mat-option>
+                <mat-option *ngFor="let m of months" [value]="m.value">{{ m.name }}</mat-option>
               </mat-select>
               <mat-icon matSuffix color="primary">calendar_month</mat-icon>
               <mat-error *ngIf="form.get('month')?.hasError('required')">Month is required</mat-error>
             </mat-form-field>
 
-            <!-- Billing Year -->
             <mat-form-field appearance="outline" class="field-year">
               <mat-label>Year *</mat-label>
               <mat-select formControlName="year" (selectionChange)="onMonthYearChange()">
-                <mat-option *ngFor="let y of years" [value]="y">
-                  {{ y }}
-                </mat-option>
+                <mat-option *ngFor="let y of years" [value]="y">{{ y }}</mat-option>
               </mat-select>
               <mat-error *ngIf="form.get('year')?.hasError('required')">Year is required</mat-error>
             </mat-form-field>
 
-            <!-- Target Batch -->
             <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Target Academic Batch *</mat-label>
+              <mat-label>Target Academic Batch</mat-label>
               <mat-select formControlName="batchId" panelClass="smart-batch-panel">
                 <mat-option value="">✨ All Active Academic Batches (All Students)</mat-option>
                 <mat-option *ngFor="let b of data.batches" [value]="b.id">
-                  {{ b.name }} (Fee: ₹{{ b.standardMonthlyFee | number:'1.2-2' }}/mo)
+                  {{ b.name }} (₹{{ b.standardMonthlyFee | number:'1.0-0' }}/mo)
                 </mat-option>
               </mat-select>
               <mat-icon matSuffix color="primary">groups</mat-icon>
             </mat-form-field>
 
-            <!-- Due Date -->
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Payment Due Date *</mat-label>
               <input matInput type="date" formControlName="dueDate" />
               <mat-icon matSuffix color="primary">event</mat-icon>
-              <mat-hint>Parents will see this due date on invoices and WhatsApp notifications</mat-hint>
+              <mat-hint>Parents will see this date on invoices and WhatsApp notifications</mat-hint>
               <mat-error *ngIf="form.get('dueDate')?.hasError('required')">Due Date is required</mat-error>
             </mat-form-field>
           </div>
 
-          <!-- Live Preview Summary Card -->
+          <!-- Live Preview -->
           <div class="preview-box">
-            <div class="preview-item">
-              <span class="preview-label">Billing Cycle:</span>
-              <strong class="preview-val">{{ getSelectedMonthName() }} {{ form.get('year')?.value }}</strong>
+            <div class="preview-header">
+              <mat-icon class="preview-header-icon">receipt_long</mat-icon>
+              <span>Invoice Preview</span>
             </div>
-            <div class="preview-item">
-              <span class="preview-label">Target Audience:</span>
-              <span class="preview-val highlight">{{ getSelectedBatchName() }}</span>
-            </div>
-            <div class="preview-item">
-              <span class="preview-label">Initial Invoice Status:</span>
-              <span class="status-pill pending">Pending (FIFO Payable)</span>
+            <div class="preview-body">
+              <div class="preview-item">
+                <span class="preview-label">Billing Cycle:</span>
+                <span
+                  class="cycle-badge"
+                  [style.background]="getSelectedCycleOption()?.bgColor"
+                  [style.color]="getSelectedCycleOption()?.color"
+                  [style.border-color]="getSelectedCycleOption()?.borderColor"
+                >{{ getSelectedCycleOption()?.label }}</span>
+              </div>
+              <div class="preview-item">
+                <span class="preview-label">Period Covered:</span>
+                <strong class="preview-val">{{ getPeriodLabel() }}</strong>
+              </div>
+              <div class="preview-item">
+                <span class="preview-label">Target Audience:</span>
+                <span class="preview-val highlight">{{ getSelectedBatchName() }}</span>
+              </div>
+              <div class="preview-item" *ngIf="getSelectedBatch()">
+                <span class="preview-label">Amount / Student:</span>
+                <strong class="preview-val amount">₹{{ getInvoiceAmount() | number:'1.0-0' }}</strong>
+              </div>
+              <div class="preview-item">
+                <span class="preview-label">Initial Status:</span>
+                <span class="status-pill pending">Pending (FIFO Payable)</span>
+              </div>
             </div>
           </div>
 
@@ -123,7 +171,7 @@ export interface GenerateInvoicesDialogData {
         <mat-dialog-actions align="end" class="dialog-actions">
           <button mat-button type="button" (click)="onCancel()" [disabled]="saving">Cancel</button>
           <button mat-raised-button color="primary" type="submit" [disabled]="form.invalid || saving" class="submit-btn">
-            <mat-spinner diameter="20" *ngIf="saving" class="btn-spinner"></mat-spinner>
+            <mat-spinner diameter="18" *ngIf="saving" class="btn-spinner"></mat-spinner>
             <mat-icon *ngIf="!saving">rocket_launch</mat-icon>
             <span>{{ saving ? 'Generating...' : 'Generate Invoices' }}</span>
           </button>
@@ -135,8 +183,8 @@ export interface GenerateInvoicesDialogData {
     .dialog-wrapper {
       padding: 0;
       box-sizing: border-box;
-      min-width: 460px;
-      max-width: 540px;
+      min-width: 500px;
+      max-width: 580px;
     }
 
     .dialog-header {
@@ -157,7 +205,7 @@ export interface GenerateInvoicesDialogData {
         align-items: center;
         justify-content: center;
         flex-shrink: 0;
-        box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.25);
+        box-shadow: 0 4px 6px -1px rgba(37,99,235,0.25);
         mat-icon { font-size: 24px; width: 24px; height: 24px; }
       }
 
@@ -165,111 +213,172 @@ export interface GenerateInvoicesDialogData {
         flex: 1 1 auto;
         .main-title {
           margin: 0;
-          font-size: 1.25rem;
+          font-size: 1.18rem;
           font-weight: 700;
           color: #1e3a8a;
           line-height: 1.3;
         }
         .subtitle {
-          margin: 4px 0 0;
-          font-size: 0.82rem;
+          margin: 3px 0 0;
+          font-size: 0.79rem;
           color: #3b82f6;
         }
       }
 
-      .close-btn {
-        color: #64748b;
-      }
+      .close-btn { color: #64748b; }
     }
 
     .dialog-content {
-      padding: 20px 24px 10px !important;
+      padding: 18px 24px 10px !important;
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 14px;
+      max-height: 66vh;
+      overflow-y: auto;
     }
 
     .info-callout {
       display: flex;
       align-items: flex-start;
       gap: 10px;
-      padding: 12px 14px;
+      padding: 10px 13px;
       background: #f0fdf4;
       border: 1px solid #bbf7d0;
       border-radius: 8px;
 
-      .info-icon {
-        color: #16a34a;
-        font-size: 20px;
-        width: 20px;
-        height: 20px;
-        margin-top: 1px;
-        flex-shrink: 0;
+      .info-icon { color: #16a34a; font-size: 18px; width: 18px; height: 18px; margin-top: 1px; flex-shrink: 0; }
+      .info-text { font-size: 0.79rem; color: #166534; line-height: 1.45; strong { font-weight: 700; } }
+    }
+
+    .section-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #475569;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      margin-bottom: -4px;
+
+      .section-icon { font-size: 15px; width: 15px; height: 15px; color: #94a3b8; }
+    }
+
+    .cycle-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 9px;
+    }
+
+    .cycle-tile {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      padding: 10px 5px 8px;
+      border: 2px solid #e2e8f0;
+      border-radius: 10px;
+      background: #f8fafc;
+      cursor: pointer;
+      transition: all 0.18s ease;
+      outline: none;
+      user-select: none;
+
+      .cycle-icon { font-size: 22px; width: 22px; height: 22px; color: #94a3b8; transition: color 0.18s; }
+      .cycle-label { font-size: 0.74rem; font-weight: 700; color: #64748b; transition: color 0.18s; }
+      .cycle-desc  { font-size: 0.65rem; color: #94a3b8; text-align: center; line-height: 1.3; }
+
+      &:hover:not(.selected) {
+        border-color: var(--cycle-border, #93c5fd);
+        background: var(--cycle-bg, #eff6ff);
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        .cycle-icon, .cycle-label { color: var(--cycle-color, #2563eb); }
       }
-      .info-text {
-        font-size: 0.82rem;
-        color: #166534;
-        line-height: 1.45;
-        strong { font-weight: 700; }
+
+      &.selected {
+        border-color: var(--cycle-border, #3b82f6);
+        background: var(--cycle-bg, #eff6ff);
+        transform: translateY(-1px);
+        box-shadow: 0 0 0 3px rgba(147,197,253,0.35);
+        .cycle-icon { color: var(--cycle-color, #2563eb); }
+        .cycle-label { color: var(--cycle-color, #2563eb); font-weight: 800; }
+        .cycle-desc  { color: var(--cycle-color, #2563eb); opacity: 0.75; }
       }
     }
 
     .form-grid {
       display: flex;
       flex-wrap: wrap;
-      gap: 14px;
-
-      .field-month {
-        flex: 1 1 240px;
-      }
-      .field-year {
-        flex: 0 0 120px;
-      }
-      .full-width {
-        width: 100%;
-        flex: 1 1 100%;
-      }
+      gap: 12px;
+      .field-month { flex: 1 1 210px; }
+      .field-year  { flex: 0 0 105px; }
+      .full-width  { width: 100%; flex: 1 1 100%; }
     }
 
     .preview-box {
       background: #f8fafc;
       border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      padding: 12px 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
+      border-radius: 10px;
+      overflow: hidden;
+
+      .preview-header {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 14px;
+        background: #f1f5f9;
+        border-bottom: 1px solid #e2e8f0;
+        font-size: 0.73rem;
+        font-weight: 700;
+        color: #475569;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        .preview-header-icon { font-size: 14px; width: 14px; height: 14px; color: #94a3b8; }
+      }
+
+      .preview-body {
+        padding: 10px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
 
       .preview-item {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        font-size: 0.84rem;
-
+        font-size: 0.82rem;
         .preview-label { color: #64748b; }
         .preview-val {
           color: #0f172a;
           font-weight: 600;
           &.highlight { color: #2563eb; }
+          &.amount { color: #059669; font-size: 0.95rem; }
         }
       }
 
+      .cycle-badge {
+        display: inline-block;
+        padding: 2px 9px;
+        border-radius: 20px;
+        border: 1px solid transparent;
+        font-size: 0.72rem;
+        font-weight: 700;
+      }
+
       .status-pill {
-        padding: 3px 8px;
+        padding: 2px 8px;
         border-radius: 6px;
-        font-size: 0.75rem;
+        font-size: 0.71rem;
         font-weight: 700;
         letter-spacing: 0.02em;
-
-        &.pending {
-          background: #fef3c7;
-          color: #b45309;
-        }
+        &.pending { background: #fef3c7; color: #b45309; }
       }
     }
 
     .dialog-actions {
-      padding: 16px 24px 20px;
+      padding: 13px 24px 20px;
       border-top: 1px solid #f1f5f9;
       display: flex;
       align-items: center;
@@ -283,22 +392,15 @@ export interface GenerateInvoicesDialogData {
         align-items: center;
         gap: 6px;
       }
-
-      .btn-spinner {
-        margin-right: 4px;
-      }
+      .btn-spinner { margin-right: 4px; }
     }
 
     @media (max-width: 600px) {
-      .dialog-wrapper {
-        min-width: 100% !important;
-      }
+      .dialog-wrapper { min-width: 100% !important; }
+      .cycle-grid { grid-template-columns: repeat(2, 1fr); }
       .form-grid {
         flex-direction: column;
-        .field-month, .field-year, .full-width {
-          width: 100% !important;
-          flex: 1 1 100% !important;
-        }
+        .field-month, .field-year, .full-width { width: 100% !important; flex: 1 1 100% !important; }
       }
     }
   `]
@@ -306,20 +408,20 @@ export interface GenerateInvoicesDialogData {
 export class GenerateInvoicesDialogComponent implements OnInit {
   form: FormGroup;
   saving = false;
+  selectedCycle = 1;
+
+  billingCycles: BillingCycleOption[] = [
+    { value: 1,  label: 'Monthly',     icon: 'calendar_view_month', description: '1 month',   color: '#2563eb', bgColor: '#eff6ff', borderColor: '#93c5fd' },
+    { value: 3,  label: 'Quarterly',   icon: 'view_week',           description: '3 months',  color: '#7c3aed', bgColor: '#f5f3ff', borderColor: '#c4b5fd' },
+    { value: 6,  label: 'Half-Yearly', icon: 'date_range',          description: '6 months',  color: '#d97706', bgColor: '#fffbeb', borderColor: '#fcd34d' },
+    { value: 12, label: 'Yearly',      icon: 'event_available',     description: '12 months', color: '#059669', bgColor: '#f0fdf4', borderColor: '#6ee7b7' }
+  ];
 
   months = [
-    { value: 1, name: 'January' },
-    { value: 2, name: 'February' },
-    { value: 3, name: 'March' },
-    { value: 4, name: 'April' },
-    { value: 5, name: 'May' },
-    { value: 6, name: 'June' },
-    { value: 7, name: 'July' },
-    { value: 8, name: 'August' },
-    { value: 9, name: 'September' },
-    { value: 10, name: 'October' },
-    { value: 11, name: 'November' },
-    { value: 12, name: 'December' }
+    { value: 1, name: 'January' }, { value: 2, name: 'February' }, { value: 3, name: 'March' },
+    { value: 4, name: 'April' },   { value: 5, name: 'May' },      { value: 6, name: 'June' },
+    { value: 7, name: 'July' },    { value: 8, name: 'August' },   { value: 9, name: 'September' },
+    { value: 10, name: 'October' },{ value: 11, name: 'November' },{ value: 12, name: 'December' }
   ];
 
   years: number[] = [];
@@ -331,74 +433,87 @@ export class GenerateInvoicesDialogComponent implements OnInit {
     @Inject(MAT_DIALOG_DATA) public data: GenerateInvoicesDialogData
   ) {
     const today = new Date();
-    // Default to next month (or October 2026 if current year is 2026 and month is Sept)
     const currentMonth = today.getMonth() + 1;
     const defaultMonth = currentMonth === 12 ? 1 : currentMonth + 1;
-    const defaultYear = currentMonth === 12 ? today.getFullYear() + 1 : today.getFullYear();
-
+    const defaultYear  = currentMonth === 12 ? today.getFullYear() + 1 : today.getFullYear();
     this.years = [defaultYear - 1, defaultYear, defaultYear + 1];
-
     const defaultDueDate = `${defaultYear}-${String(defaultMonth).padStart(2, '0')}-10`;
-
     this.form = this.fb.group({
-      month: [defaultMonth, [Validators.required]],
-      year: [defaultYear, [Validators.required]],
+      month:   [defaultMonth,              [Validators.required]],
+      year:    [defaultYear,               [Validators.required]],
       batchId: [data?.defaultBatchId || ''],
-      dueDate: [defaultDueDate, [Validators.required]]
+      dueDate: [defaultDueDate,            [Validators.required]]
     });
   }
 
   ngOnInit(): void {}
 
+  selectCycle(value: number): void { this.selectedCycle = value; }
+
   onMonthYearChange(): void {
     const month = this.form.get('month')?.value;
-    const year = this.form.get('year')?.value;
+    const year  = this.form.get('year')?.value;
     if (month && year) {
-      const formattedDate = `${year}-${String(month).padStart(2, '0')}-10`;
-      this.form.get('dueDate')?.setValue(formattedDate);
+      this.form.get('dueDate')?.setValue(`${year}-${String(month).padStart(2, '0')}-10`);
     }
   }
 
-  getSelectedMonthName(): string {
-    const monthVal = this.form.get('month')?.value;
-    const m = this.months.find(x => x.value === monthVal);
-    return m ? m.name : '';
+  getSelectedCycleOption(): BillingCycleOption | undefined {
+    return this.billingCycles.find(c => c.value === this.selectedCycle);
+  }
+
+  getPeriodLabel(): string {
+    const month = this.form.get('month')?.value;
+    const year  = this.form.get('year')?.value;
+    if (!month || !year) return '';
+    const start = new Date(year, month - 1, 1);
+    if (this.selectedCycle === 1) {
+      return start.toLocaleString('en-IN', { month: 'long', year: 'numeric' });
+    }
+    const endDate = new Date(year, month - 1 + this.selectedCycle, 0);
+    const s = start.toLocaleString('en-IN', { month: 'short', year: 'numeric' });
+    const e = endDate.toLocaleString('en-IN', { month: 'short', year: 'numeric' });
+    return `${s} – ${e}`;
   }
 
   getSelectedBatchName(): string {
     const batchId = this.form.get('batchId')?.value;
-    if (!batchId) return 'All Active Batches (All Enrolled Students)';
+    if (!batchId) return 'All Active Batches (All Students)';
     const b = this.data.batches.find(x => x.id === batchId);
     return b ? b.name : 'Selected Batch';
   }
 
-  onCancel(): void {
-    this.dialogRef.close(null);
+  getSelectedBatch(): BatchDto | undefined {
+    const batchId = this.form.get('batchId')?.value;
+    if (!batchId) return undefined;
+    return this.data.batches.find(x => x.id === batchId);
   }
+
+  getInvoiceAmount(): number {
+    const batch = this.getSelectedBatch();
+    return batch ? batch.standardMonthlyFee * this.selectedCycle : 0;
+  }
+
+  onCancel(): void { this.dialogRef.close(null); }
 
   onSubmit(): void {
     if (this.form.invalid || this.saving) return;
-
     this.saving = true;
     const val = this.form.value;
-
-    const payload = {
-      year: Number(val.year),
-      month: Number(val.month),
-      batchId: val.batchId ? val.batchId : null,
-      dueDate: val.dueDate
-    };
-
-    this.feesService.generateMonthlyInvoices(payload).subscribe({
-      next: res => {
-        this.saving = false;
-        this.dialogRef.close(res);
-      },
+    this.feesService.generateMonthlyInvoices({
+      year:         Number(val.year),
+      month:        Number(val.month),
+      batchId:      val.batchId ? val.batchId : null,
+      dueDate:      val.dueDate,
+      billingCycle: this.selectedCycle
+    }).subscribe({
+      next: res => { this.saving = false; this.dialogRef.close(res); },
       error: err => {
         this.saving = false;
-        console.error('Failed to generate monthly invoices', err);
-        alert(err.error?.message || err.message || 'Failed to generate monthly invoices');
+        console.error('Failed to generate invoices', err);
+        alert(err.error?.message || err.message || 'Failed to generate invoices');
       }
     });
   }
 }
+

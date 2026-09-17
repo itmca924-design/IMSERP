@@ -91,6 +91,7 @@ interface CalendarDay {
       <p class="page-subtitle">Mark daily batch roll call in bulk or view detailed individual student monthly registers.</p>
     </div>
     <div class="header-actions">
+      <a mat-stroked-button routerLink="/attendance/reports"><mat-icon>summarize</mat-icon> Attendance Reports</a>
       <a mat-stroked-button routerLink="/students"><mat-icon>people</mat-icon> Student Directory</a>
     </div>
   </div>

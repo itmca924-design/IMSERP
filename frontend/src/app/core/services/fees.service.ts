@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, Subject } from 'rxjs';
 
 export interface FeeInvoicePagedItem {
   id: string;
@@ -16,6 +16,8 @@ export interface FeeInvoicePagedItem {
   dueAmount: number;
   dueDate: string;
   status: string;
+  cancellationReason?: string | null;
+  cancelledAt?: string | null;
 }
 
 export interface StudentLedgerInvoiceItem {
@@ -27,6 +29,8 @@ export interface StudentLedgerInvoiceItem {
   dueAmount: number;
   dueDate: string;
   status: string;
+  cancellationReason?: string | null;
+  cancelledAt?: string | null;
 }
 
 export interface StudentLedgerPaymentItem {
@@ -76,6 +80,7 @@ export interface GenerateInvoicesPayload {
   month: number;
   batchId?: string | null;
   dueDate: string;
+  billingCycle?: number; // 1=Monthly, 3=Quarterly, 6=HalfYearly, 12=Yearly
 }
 
 export interface GenerateInvoicesResult {
@@ -181,5 +186,18 @@ export class FeesService {
 
   cancelInvoice(invoiceId: string, reason: string): Observable<any> {
     return this.http.post<any>(`${this.apiUrl}/cancel-invoice/${invoiceId}`, { reason });
+  }
+
+  private _refreshRequired$ = new Subject<void>();
+  public refreshRequired$ = this._refreshRequired$.asObservable();
+
+  notifyRefreshRequired(): void {
+    this._refreshRequired$.next();
+  }
+
+  reversePayment(paymentId: string, reason: string): Observable<any> {
+    return this.http.delete<any>(`${this.apiUrl}/payment/${paymentId}`, {
+      body: { reason }
+    });
   }
 }

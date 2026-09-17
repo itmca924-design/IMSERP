@@ -7,8 +7,10 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { FeesService, StudentLedger, StudentLedgerPaymentItem, FeePaymentReceipt } from '../../core/services/fees.service';
 import { AuthService } from '../../core/services/auth.service';
+import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { FeeCollectionDialogComponent } from './fee-collection-dialog.component';
 import { FeeReceiptDialogComponent } from './fee-receipt-dialog.component';
 import { FeeDueReceiptDialogComponent } from './fee-due-receipt-dialog.component';
@@ -24,7 +26,8 @@ import { FeeDueReceiptDialogComponent } from './fee-due-receipt-dialog.component
     MatButtonModule,
     MatIconModule,
     MatProgressBarModule,
-    MatChipsModule
+    MatChipsModule,
+    MatTooltipModule
   ],
   template: `
     <div class="ledger-dialog-container">
@@ -116,7 +119,7 @@ import { FeeDueReceiptDialogComponent } from './fee-due-receipt-dialog.component
                   <tr *ngFor="let inv of ledger.invoices" [class.cancelled-row]="inv.status === 'Cancelled'">
                     <td class="nowrap-col"><strong>{{ inv.invoiceNumber }}</strong></td>
                     <td>{{ inv.title }}
-                      <span *ngIf="inv.status === 'Cancelled'" class="cancelled-label">VOID</span>
+                      <span *ngIf="inv.status === 'Cancelled'" class="cancelled-label" [matTooltip]="'Cancelled' + (inv.cancelledAt ? ' on ' + (inv.cancelledAt | date:'mediumDate') : '') + (inv.cancellationReason ? ' | Reason: ' + inv.cancellationReason : '')">VOID</span>
                     </td>
                     <td class="nowrap-col">{{ inv.dueDate | date:'mediumDate' }}</td>
                     <td class="text-right amount-col nowrap-col">{{ inv.status === 'Cancelled' ? '—' : ('₹' + (inv.totalAmount | number:'1.2-2')) }}</td>
@@ -125,7 +128,7 @@ import { FeeDueReceiptDialogComponent } from './fee-due-receipt-dialog.component
                       <strong>{{ inv.status === 'Cancelled' ? '—' : ('₹' + (inv.dueAmount | number:'1.2-2')) }}</strong>
                     </td>
                     <td class="text-center nowrap-col">
-                      <span class="status-badge" [ngClass]="inv.status.toLowerCase()">
+                      <span class="status-badge" [ngClass]="inv.status.toLowerCase()" [matTooltip]="inv.status === 'Cancelled' ? ('Cancelled' + (inv.cancelledAt ? ' on ' + (inv.cancelledAt | date:'mediumDate') : '') + (inv.cancellationReason ? ' | Reason: ' + inv.cancellationReason : '')) : ''">
                         {{ inv.status }}
                       </span>
                     </td>
@@ -157,26 +160,69 @@ import { FeeDueReceiptDialogComponent } from './fee-due-receipt-dialog.component
                     <th class="text-right nowrap-col">Amount Paid (₹)</th>
                     <th class="text-left">Remarks</th>
                     <th class="text-center nowrap-col" style="width: 70px;">Print</th>
+                    <th class="text-center nowrap-col" style="width: 90px;">Reverse</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let p of ledger.payments">
-                    <td class="nowrap-col"><strong class="receipt-no-text">{{ p.receiptNumber }}</strong></td>
-                    <td class="nowrap-col date-col">{{ formatToIST(p.paymentDate) }}</td>
-                    <td class="nowrap-col inv-ref-text">{{ p.invoiceNumber || '—' }}</td>
-                    <td class="nowrap-col">
-                      <span class="mode-badge">{{ getPaymentModeName(p.mode) }}</span>
-                    </td>
-                    <td class="text-right text-success nowrap-col amount-text"><strong>₹{{ p.amountPaid | number:'1.2-2' }}</strong></td>
-                    <td class="remarks-cell"><small>{{ p.transactionRef || 'N/A' }} ({{ p.remarks || '-' }})</small></td>
-                    <td class="text-center nowrap-col">
-                      <button mat-icon-button color="primary" (click)="openPaymentReceipt(p)" matTooltip="Print / View Payment Receipt">
-                        <mat-icon>print</mat-icon>
-                      </button>
-                    </td>
-                  </tr>
+                  <ng-container *ngFor="let p of ledger.payments">
+                    <tr [class.reversing-row]="reversingPaymentId === p.paymentId">
+                      <td class="nowrap-col"><strong class="receipt-no-text">{{ p.receiptNumber }}</strong></td>
+                      <td class="nowrap-col date-col">{{ formatToIST(p.paymentDate) }}</td>
+                      <td class="nowrap-col inv-ref-text">{{ p.invoiceNumber || '—' }}</td>
+                      <td class="nowrap-col">
+                        <span class="mode-badge">{{ getPaymentModeName(p.mode) }}</span>
+                      </td>
+                      <td class="text-right text-success nowrap-col amount-text"><strong>₹{{ p.amountPaid | number:'1.2-2' }}</strong></td>
+                      <td class="remarks-cell"><small>{{ p.transactionRef || 'N/A' }} ({{ p.remarks || '-' }})</small></td>
+                      <td class="text-center nowrap-col">
+                        <button mat-icon-button color="primary" (click)="openPaymentReceipt(p)" matTooltip="Print / View Payment Receipt">
+                          <mat-icon>print</mat-icon>
+                        </button>
+                      </td>
+                      <td class="text-center nowrap-col">
+                        <button
+                          mat-icon-button
+                          color="warn"
+                          (click)="startReversePayment(p)"
+                          matTooltip="Reverse / Undo this payment"
+                          *ngIf="reversingPaymentId !== p.paymentId"
+                        >
+                          <mat-icon>undo</mat-icon>
+                        </button>
+                        <button
+                          mat-icon-button
+                          color="warn"
+                          (click)="cancelReverse()"
+                          matTooltip="Cancel reversal"
+                          *ngIf="reversingPaymentId === p.paymentId"
+                        >
+                          <mat-icon>close</mat-icon>
+                        </button>
+                      </td>
+                    </tr>
+                    <!-- Inline confirmation row -->
+                    <tr *ngIf="reversingPaymentId === p.paymentId" class="confirm-reverse-row">
+                      <td colspan="8">
+                        <div class="reverse-confirm-box">
+                          <mat-icon class="rev-warn-icon">warning_amber</mat-icon>
+                          <div class="rev-confirm-text">
+                            <strong>Reverse ₹{{ p.amountPaid | number:'1.2-2' }} ({{ p.receiptNumber }})?</strong>
+                            <span>This payment will be permanently deleted and the invoice balance will be restored to due.</span>
+                          </div>
+                          <div class="rev-confirm-actions">
+                            <button mat-stroked-button (click)="cancelReverse()" [disabled]="reversingInProgress">Cancel</button>
+                            <button mat-raised-button color="warn" (click)="confirmReversePayment(p)" [disabled]="reversingInProgress">
+                              <mat-icon *ngIf="!reversingInProgress">delete_forever</mat-icon>
+                              <mat-icon class="spinning-icon" *ngIf="reversingInProgress">sync</mat-icon>
+                              <span>{{ reversingInProgress ? 'Reversing...' : 'Confirm Reverse' }}</span>
+                            </button>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  </ng-container>
                   <tr *ngIf="ledger.payments.length === 0">
-                    <td colspan="7" class="text-center empty-cell">No payment receipts issued yet.</td>
+                    <td colspan="8" class="text-center empty-cell">No payment receipts issued yet.</td>
                   </tr>
                 </tbody>
               </table>
@@ -602,18 +648,75 @@ import { FeeDueReceiptDialogComponent } from './fee-due-receipt-dialog.component
         }
       }
     }
+
+    .reversing-row td {
+      background: #fff7ed;
+    }
+
+    .confirm-reverse-row td {
+      padding: 0 !important;
+      background: #fff7ed;
+      border-bottom: 2px solid #f97316;
+    }
+
+    .reverse-confirm-box {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 16px;
+      flex-wrap: wrap;
+
+      .rev-warn-icon {
+        color: #f97316;
+        font-size: 22px;
+        width: 22px;
+        height: 22px;
+        flex-shrink: 0;
+      }
+
+      .rev-confirm-text {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        font-size: 0.82rem;
+        color: #7c2d12;
+
+        strong {
+          font-size: 0.9rem;
+        }
+      }
+
+      .rev-confirm-actions {
+        display: flex;
+        gap: 8px;
+        flex-shrink: 0;
+      }
+
+      .spinning-icon {
+        animation: spin 1s linear infinite;
+        display: inline-block;
+      }
+      @keyframes spin {
+        100% { transform: rotate(360deg); }
+      }
+    }
   `]
 })
 export class StudentLedgerDialogComponent implements OnInit {
   ledger?: StudentLedger;
   loading = false;
+  reversingPaymentId: string | null = null;
+  reversingInProgress = false;
+  hasReversedPayment = false;
 
   constructor(
     private feesService: FeesService,
     private authService: AuthService,
     private dialog: MatDialog,
     private dialogRef: MatDialogRef<StudentLedgerDialogComponent>,
-    @Inject(MAT_DIALOG_DATA) public data: { studentId: string }
+    @Inject(MAT_DIALOG_DATA) public data: { studentId: string },
+    private confirmDialog: ConfirmDialogService
   ) {}
 
   ngOnInit(): void {
@@ -629,6 +732,43 @@ export class StudentLedgerDialogComponent implements OnInit {
       },
       error: () => {
         this.loading = false;
+      }
+    });
+  }
+
+  startReversePayment(payment: StudentLedgerPaymentItem): void {
+    this.reversingPaymentId = payment.paymentId;
+  }
+
+  cancelReverse(): void {
+    this.reversingPaymentId = null;
+    this.reversingInProgress = false;
+  }
+
+  confirmReversePayment(payment: StudentLedgerPaymentItem): void {
+    if (this.reversingInProgress) return;
+    this.reversingInProgress = true;
+    this.loading = true;
+
+    this.feesService.reversePayment(payment.paymentId, 'Payment reversed by admin').subscribe({
+      next: (res) => {
+        this.reversingPaymentId = null;
+        this.reversingInProgress = false;
+        this.hasReversedPayment = true;
+
+        // Immediately notify background fees dashboard/grid to refresh with loader
+        this.feesService.notifyRefreshRequired();
+
+        // Reload the ledger data to update cards and payment table
+        this.loadLedger();
+
+        // Show Angular Material success alert
+        this.confirmDialog.alert('Payment Reversed', res.message || 'Payment reversed successfully.', 'success');
+      },
+      error: (err) => {
+        this.loading = false;
+        this.reversingInProgress = false;
+        this.confirmDialog.alert('Reversal Failed', err?.error?.message || 'Failed to reverse payment. Please try again.', 'danger');
       }
     });
   }
@@ -653,16 +793,28 @@ export class StudentLedgerDialogComponent implements OnInit {
     const d = new Date(str);
     if (isNaN(d.getTime())) return String(dateVal);
 
-    return new Intl.DateTimeFormat('en-US', {
+    const parts = new Intl.DateTimeFormat('en-IN', {
       timeZone: 'Asia/Kolkata',
-      month: 'short',
       day: '2-digit',
+      month: 'short',
       year: 'numeric',
-      hour: 'numeric',
+      hour: '2-digit',
       minute: '2-digit',
       second: '2-digit',
       hour12: true
-    }).format(d);
+    }).formatToParts(d);
+
+    let day = '', month = '', year = '', hour = '', minute = '', second = '', dayPeriod = '';
+    for (const p of parts) {
+      if (p.type === 'day') day = p.value;
+      else if (p.type === 'month') month = p.value;
+      else if (p.type === 'year') year = p.value;
+      else if (p.type === 'hour') hour = p.value;
+      else if (p.type === 'minute') minute = p.value;
+      else if (p.type === 'second') second = p.value;
+      else if (p.type === 'dayPeriod') dayPeriod = p.value.toUpperCase();
+    }
+    return `${day} ${month} ${year}, ${hour}:${minute}:${second}\u00A0${dayPeriod}`;
   }
 
   collectFeeModal(): void {
@@ -761,6 +913,6 @@ export class StudentLedgerDialogComponent implements OnInit {
   }
 
   onClose(): void {
-    this.dialogRef.close();
+    this.dialogRef.close({ refreshed: this.hasReversedPayment });
   }
 }

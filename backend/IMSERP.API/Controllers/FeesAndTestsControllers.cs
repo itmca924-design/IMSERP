@@ -129,9 +129,11 @@ public class FeesController : ControllerBase
                 i.Title,
                 i.TotalAmount,
                 i.PaidAmount,
-                i.TotalAmount - i.PaidAmount,
+                i.Status == InvoiceStatus.Cancelled ? 0m : (i.TotalAmount - i.PaidAmount),
                 i.DueDate,
-                i.Status.ToString()
+                i.Status.ToString(),
+                i.CancellationReason,
+                i.CancelledAt
             ))
             .ToListAsync();
 
@@ -174,9 +176,11 @@ public class FeesController : ControllerBase
             i.Title,
             i.TotalAmount,
             i.PaidAmount,
-            i.TotalAmount - i.PaidAmount,
+            i.Status == InvoiceStatus.Cancelled ? 0m : (i.TotalAmount - i.PaidAmount),
             i.DueDate,
-            i.Status.ToString()
+            i.Status.ToString(),
+            i.CancellationReason,
+            i.CancelledAt
         )).ToList();
 
         var paymentDtos = payments.Select(p => new StudentLedgerPaymentItemDto(
@@ -444,15 +448,36 @@ public class FeesController : ControllerBase
             return Ok(new GenerateMonthlyInvoicesResultDto(0, 0, "No active students found for the selected batch."));
         }
 
-        var targetMonthDate = new DateTime(dto.Year, dto.Month, 1);
-        var monthName = targetMonthDate.ToString("MMMM yyyy", System.Globalization.CultureInfo.InvariantCulture);
+        // Determine cycle length in months (enum value equals month multiplier)
+        int cycleMonths = (int)dto.BillingCycle;
 
-        var existingInvoices = await _dbContext.FeeInvoices
-            .Where(i => i.DueDate.Year == dto.Year && i.DueDate.Month == dto.Month)
-            .Select(i => i.StudentId)
-            .ToListAsync();
+        // Build period start/end for the invoice window
+        var periodStart = new DateTime(dto.Year, dto.Month, 1);
+        var periodEnd = periodStart.AddMonths(cycleMonths).AddDays(-1);
 
-        var existingStudentIds = new HashSet<Guid>(existingInvoices);
+        // Build a readable title for the billing cycle period
+        string cycleLabel = dto.BillingCycle switch
+        {
+            BillingCycle.Quarterly   => "Quarterly",
+            BillingCycle.HalfYearly  => "Half-Yearly",
+            BillingCycle.Yearly      => "Yearly",
+            _                        => "Monthly"
+        };
+
+        string periodLabel = cycleMonths == 1
+            ? periodStart.ToString("MMMM yyyy", System.Globalization.CultureInfo.InvariantCulture)
+            : $"{periodStart:MMMM yyyy} – {periodEnd:MMMM yyyy}";
+
+        // Duplicate check: find all student IDs that already have an active invoice
+        // whose DueDate falls within the current billing window (ignore cancelled invoices)
+        var existingStudentIds = new HashSet<Guid>(
+            await _dbContext.FeeInvoices
+                .Where(i => i.DueDate >= periodStart && i.DueDate <= periodEnd && i.Status != InvoiceStatus.Cancelled)
+                .Select(i => i.StudentId)
+                .Distinct()
+                .ToListAsync()
+        );
+
         var newInvoices = new List<FeeInvoice>();
         int skippedCount = 0;
         var random = new Random();
@@ -465,19 +490,30 @@ public class FeesController : ControllerBase
                 continue;
             }
 
-            var feeRate = s.Batch?.StandardMonthlyFee ?? 3500m;
+            var monthlyRate = s.Batch?.StandardMonthlyFee ?? 3500m;
+            var totalAmount = monthlyRate * cycleMonths;
+
+            // Unique invoice number encodes the cycle type
+            var cycleSuffix = dto.BillingCycle switch
+            {
+                BillingCycle.Quarterly  => "Q",
+                BillingCycle.HalfYearly => "H",
+                BillingCycle.Yearly     => "Y",
+                _                       => ""
+            };
+
             var invoice = new FeeInvoice
             {
-                TenantId = _currentUser.TenantId,
-                BranchId = s.BranchId ?? s.Batch?.BranchId ?? _currentUser.BranchId,
-                StudentId = s.Id,
-                InvoiceNumber = $"INV-{dto.Year}{dto.Month:D2}-{random.Next(100, 999)}",
-                Title = $"{monthName} Tuition Fee",
-                TotalAmount = feeRate,
-                PaidAmount = 0,
-                DueDate = dto.DueDate,
-                Status = InvoiceStatus.Pending,
-                CreatedAt = DateTime.UtcNow
+                TenantId      = _currentUser.TenantId,
+                BranchId      = s.BranchId ?? s.Batch?.BranchId ?? _currentUser.BranchId,
+                StudentId     = s.Id,
+                InvoiceNumber = $"INV-{dto.Year}{dto.Month:D2}{cycleSuffix}-{random.Next(100, 999)}",
+                Title         = $"{periodLabel} Tuition Fee ({cycleLabel})",
+                TotalAmount   = totalAmount,
+                PaidAmount    = 0,
+                DueDate       = dto.DueDate,
+                Status        = InvoiceStatus.Pending,
+                CreatedAt     = DateTime.UtcNow
             };
 
             newInvoices.Add(invoice);
@@ -494,15 +530,15 @@ public class FeesController : ControllerBase
 
         if (newInvoices.Count > 0 && skippedCount == 0)
         {
-            msg = $"Successfully generated {newInvoices.Count} {invoiceWord} for {monthName}.";
+            msg = $"Successfully generated {newInvoices.Count} {cycleLabel} {invoiceWord} for {periodLabel}.";
         }
         else if (newInvoices.Count > 0 && skippedCount > 0)
         {
-            msg = $"Successfully generated {newInvoices.Count} {invoiceWord} for {monthName}. ({skippedCount} already existed and were skipped).";
+            msg = $"Successfully generated {newInvoices.Count} {cycleLabel} {invoiceWord} for {periodLabel}. ({skippedCount} already existed and were skipped).";
         }
         else
         {
-            msg = $"All enrolled students already have invoices for {monthName}. No new invoices were needed.";
+            msg = $"All enrolled students already have {cycleLabel} invoices for {periodLabel}. No new invoices were needed.";
         }
 
         return Ok(new GenerateMonthlyInvoicesResultDto(
@@ -543,6 +579,52 @@ public class FeesController : ControllerBase
             reason = invoice.CancellationReason,
             cancelledAt = invoice.CancelledAt
         });
+    }
+
+    [HttpDelete("payment/{paymentId}")]
+    public async Task<ActionResult<ReversePaymentResponseDto>> ReversePayment(Guid paymentId, [FromBody] ReversePaymentDto? dto = null)
+    {
+        // Load payment with its invoice
+        var payment = await _dbContext.FeePayments
+            .Include(p => p.Invoice)
+            .FirstOrDefaultAsync(p => p.Id == paymentId);
+
+        if (payment == null)
+            return NotFound(new { message = "Payment record not found." });
+
+        var invoice = payment.Invoice;
+        if (invoice == null)
+            return NotFound(new { message = "Associated invoice not found." });
+
+        if (invoice.Status == InvoiceStatus.Cancelled)
+            return BadRequest(new { message = "Cannot reverse a payment on a cancelled invoice." });
+
+        // Deduct this payment's amount from invoice
+        invoice.PaidAmount -= payment.AmountPaid;
+
+        // Guard against negative (shouldn't happen, but safety net)
+        if (invoice.PaidAmount < 0) invoice.PaidAmount = 0;
+
+        // Recalculate invoice status
+        if (invoice.PaidAmount <= 0)
+            invoice.Status = InvoiceStatus.Pending;
+        else if (invoice.PaidAmount >= invoice.TotalAmount)
+            invoice.Status = InvoiceStatus.Paid;
+        else
+            invoice.Status = InvoiceStatus.Partial;
+
+        // Hard delete the payment record
+        _dbContext.FeePayments.Remove(payment);
+
+        await _dbContext.SaveChangesAsync();
+
+        return Ok(new ReversePaymentResponseDto(
+            $"Payment {payment.ReceiptNumber} has been reversed successfully. Invoice {invoice.InvoiceNumber} updated.",
+            invoice.InvoiceNumber,
+            invoice.PaidAmount,
+            invoice.TotalAmount - invoice.PaidAmount,
+            invoice.Status.ToString()
+        ));
     }
 }
 

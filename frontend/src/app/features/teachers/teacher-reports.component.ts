@@ -660,7 +660,10 @@ import { AuthService } from '../../core/services/auth.service';
     <!-- Letterhead Header -->
     <div class="print-letterhead">
       <div class="print-brand-left">
-        <div class="print-logo-box">APEX</div>
+        <div class="print-logo-box" [class.has-img]="logoUrl && !logoFailed">
+          <img *ngIf="logoUrl && !logoFailed" [src]="logoUrl" (error)="logoFailed = true" alt="Logo" class="print-logo-img">
+          <span *ngIf="!logoUrl || logoFailed">{{ tenantCode }}</span>
+        </div>
         <div class="print-institute-details">
           <h1 class="print-inst-name">{{instituteName}}</h1>
           <p class="print-inst-tagline">Excellence in Coaching & Competitive Exams • Enterprise Coaching Management ERP</p>
@@ -1110,7 +1113,20 @@ import { AuthService } from '../../core/services/auth.service';
         justify-content: center !important;
         border-radius: 6px !important;
         letter-spacing: 1px !important;
+        overflow: hidden !important;
         -webkit-print-color-adjust: exact !important;
+
+        &.has-img {
+          background: #ffffff !important;
+          border: 1px solid #cbd5e1 !important;
+          padding: 2px !important;
+        }
+
+        .print-logo-img {
+          width: 100% !important;
+          height: 100% !important;
+          object-fit: contain !important;
+        }
       }
 
       .print-inst-name {
@@ -1320,6 +1336,16 @@ export class TeacherReportsComponent implements OnInit {
     private http: HttpClient,
     private authService: AuthService
   ) {}
+
+  logoFailed = false;
+
+  get logoUrl(): string | null {
+    return this.authService.getInstituteLogoUrl();
+  }
+
+  get tenantCode(): string {
+    return this.authService.currentUser()?.tenantCode || 'APEX';
+  }
 
   get instituteName(): string {
     return this.authService.currentUser()?.instituteName || 'Apex Coaching Academy';

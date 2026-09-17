@@ -5,11 +5,13 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDividerModule } from '@angular/material/divider';
 import { FeePaymentReceipt } from '../../core/services/fees.service';
+import { AuthService } from '../../core/services/auth.service';
 
 export interface FeeReceiptDialogData {
   receipt: FeePaymentReceipt;
   instituteName?: string;
   branchName?: string;
+  logoUrl?: string;
 }
 
 @Component({
@@ -51,11 +53,12 @@ export interface FeeReceiptDialogData {
         <!-- Header -->
         <div class="paper-header">
           <div class="inst-info">
-            <div class="logo-mark">
-              <mat-icon>account_balance</mat-icon>
+            <div class="logo-mark" [class.has-img]="logoUrl && !logoFailed">
+              <img *ngIf="logoUrl && !logoFailed" [src]="logoUrl" (error)="logoFailed = true" alt="Logo" class="inst-logo-img">
+              <mat-icon *ngIf="!logoUrl || logoFailed">account_balance</mat-icon>
             </div>
             <div>
-              <h2 class="inst-name">{{ data.instituteName || 'Saraswati Coaching Classes' }}</h2>
+              <h2 class="inst-name">{{ data.instituteName || authService.currentUser()?.instituteName || 'Apex Coaching Academy' }}</h2>
               <p class="inst-subtitle">Premier Center for Academic Excellence & Competitive Coaching</p>
               <p class="inst-branch" *ngIf="data.branchName">Branch: {{ data.branchName }} | Authorized Accounts Department</p>
             </div>
@@ -68,14 +71,14 @@ export interface FeeReceiptDialogData {
         </div>
 
         <!-- Meta Info Strip -->
-        <div class="meta-strip">
+        <div class="meta-strip" [class.has-ref]="!!data.receipt.transactionRef">
           <div class="meta-item">
             <span class="meta-label">Receipt Number:</span>
             <span class="meta-val highlight">{{ data.receipt.receiptNumber }}</span>
           </div>
-          <div class="meta-item">
+          <div class="meta-item time-item">
             <span class="meta-label">Date & Time (IST):</span>
-            <span class="meta-val">{{ formatToIST(data.receipt.paymentDate) }}</span>
+            <span class="meta-val date-time-val">{{ formatToIST(data.receipt.paymentDate) }}</span>
           </div>
           <div class="meta-item">
             <span class="meta-label">Payment Mode:</span>
@@ -378,6 +381,21 @@ export interface FeeReceiptDialogData {
           display: flex;
           align-items: center;
           justify-content: center;
+          overflow: hidden;
+          flex-shrink: 0;
+
+          &.has-img {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            padding: 3px;
+          }
+
+          .inst-logo-img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+          }
+
           mat-icon { font-size: 32px; width: 32px; height: 32px; }
         }
 
@@ -437,7 +455,7 @@ export interface FeeReceiptDialogData {
 
     .meta-strip {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: 1fr 1.4fr 1fr;
       gap: 12px;
       padding: 12px 14px;
       background: #f8fafc;
@@ -445,11 +463,28 @@ export interface FeeReceiptDialogData {
       border-radius: 6px;
       margin: 16px 0;
 
+      &.has-ref {
+        grid-template-columns: 1fr 1.35fr 0.85fr 1fr;
+      }
+
       .meta-item {
         display: flex;
         flex-direction: column;
-        .meta-label { font-size: 0.72rem; color: #64748b; font-weight: 600; text-transform: uppercase; }
-        .meta-val { font-size: 0.88rem; font-weight: 700; color: #1e293b; margin-top: 2px; }
+        min-width: 0;
+        .meta-label {
+          font-size: 0.72rem;
+          color: #64748b;
+          font-weight: 600;
+          text-transform: uppercase;
+          white-space: nowrap;
+        }
+        .meta-val {
+          font-size: 0.88rem;
+          font-weight: 700;
+          color: #1e293b;
+          margin-top: 2px;
+          white-space: nowrap;
+        }
         .meta-val.highlight { color: #1e40af; }
         .mode-pill {
           display: inline-block;
@@ -459,6 +494,7 @@ export interface FeeReceiptDialogData {
           border-radius: 4px;
           width: fit-content;
           font-size: 0.8rem;
+          white-space: nowrap;
         }
       }
     }
@@ -687,9 +723,12 @@ export interface FeeReceiptDialogData {
       }
       .meta-strip {
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 1fr;
         gap: 8px;
         padding: 8px 10px;
+        &.has-ref {
+          grid-template-columns: 1fr;
+        }
       }
       .student-profile-card {
         grid-template-columns: 1fr;
@@ -722,10 +761,16 @@ export interface FeeReceiptDialogData {
   `]
 })
 export class FeeReceiptDialogComponent {
+  logoUrl: string | null = null;
+  logoFailed = false;
+
   constructor(
     public dialogRef: MatDialogRef<FeeReceiptDialogComponent>,
-    @Inject(MAT_DIALOG_DATA) public data: FeeReceiptDialogData
-  ) {}
+    @Inject(MAT_DIALOG_DATA) public data: FeeReceiptDialogData,
+    public authService: AuthService
+  ) {
+    this.logoUrl = data.logoUrl || this.authService.getInstituteLogoUrl();
+  }
 
   getPaymentModeName(mode: number | string): string {
     const m = typeof mode === 'string' ? parseInt(mode, 10) : mode;
@@ -762,7 +807,9 @@ export class FeeReceiptDialogComponent {
             body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; padding: 15mm; color: #0f172a; font-size: 13px; line-height: 1.45; }
             .paper-header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 12px; border-bottom: 2px solid #0f172a; }
             .inst-info { display: flex; align-items: center; gap: 14px; }
-            .logo-mark { width: 44px; height: 44px; border-radius: 8px; background: #1e40af; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 24px; }
+            .logo-mark { width: 48px; height: 48px; border-radius: 8px; background: #1e40af; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 24px; overflow: hidden; flex-shrink: 0; }
+            .logo-mark.has-img { background: #fff; border: 1px solid #e2e8f0; padding: 2px; }
+            .inst-logo-img { width: 100%; height: 100%; object-fit: contain; }
             .inst-name { font-size: 1.35rem; font-weight: 800; color: #0f172a; }
             .inst-subtitle { font-size: 0.8rem; color: #475569; margin-top: 2px; }
             .inst-branch { font-size: 0.74rem; color: #64748b; font-weight: 600; margin-top: 2px; }
@@ -770,11 +817,12 @@ export class FeeReceiptDialogComponent {
             .badge-title { font-size: 1.1rem; font-weight: 800; color: #1e40af; }
             .badge-sub { font-size: 0.78rem; color: #64748b; font-weight: 600; display: block; }
             .copy-tag { display: inline-block; margin-top: 4px; font-size: 0.65rem; font-weight: 700; background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 4px; border: 1px solid #bae6fd; }
-            .meta-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 10px 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; margin: 14px 0; }
-            .meta-label { font-size: 0.7rem; color: #64748b; font-weight: 600; text-transform: uppercase; display: block; }
-            .meta-val { font-size: 0.85rem; font-weight: 700; color: #1e293b; margin-top: 2px; display: block; }
+            .meta-strip { display: grid; grid-template-columns: 1fr 1.4fr 1fr; gap: 10px; padding: 10px 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; margin: 14px 0; }
+            .meta-strip.has-ref { grid-template-columns: 1fr 1.35fr 0.85fr 1fr; }
+            .meta-label { font-size: 0.7rem; color: #64748b; font-weight: 600; text-transform: uppercase; display: block; white-space: nowrap; }
+            .meta-val { font-size: 0.85rem; font-weight: 700; color: #1e293b; margin-top: 2px; display: block; white-space: nowrap; }
             .meta-val.highlight { color: #1e40af; }
-            .mode-pill { display: inline-block; background: #dcfce7; color: #15803d; padding: 1px 8px; border-radius: 4px; font-size: 0.78rem; }
+            .mode-pill { display: inline-block; background: #dcfce7; color: #15803d; padding: 1px 8px; border-radius: 4px; font-size: 0.78rem; white-space: nowrap; }
             .student-profile-card { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 12px 16px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; margin-bottom: 14px; }
             .prof-row { display: flex; font-size: 0.82rem; margin-bottom: 4px; }
             .prof-row .k { width: 140px; color: #475569; font-weight: 600; }
@@ -835,7 +883,7 @@ export class FeeReceiptDialogComponent {
     const d = new Date(str);
     if (isNaN(d.getTime())) return String(dateVal);
 
-    return new Intl.DateTimeFormat('en-IN', {
+    const parts = new Intl.DateTimeFormat('en-IN', {
       timeZone: 'Asia/Kolkata',
       day: '2-digit',
       month: 'short',
@@ -844,7 +892,19 @@ export class FeeReceiptDialogComponent {
       minute: '2-digit',
       second: '2-digit',
       hour12: true
-    }).format(d);
+    }).formatToParts(d);
+
+    let day = '', month = '', year = '', hour = '', minute = '', second = '', dayPeriod = '';
+    for (const p of parts) {
+      if (p.type === 'day') day = p.value;
+      else if (p.type === 'month') month = p.value;
+      else if (p.type === 'year') year = p.value;
+      else if (p.type === 'hour') hour = p.value;
+      else if (p.type === 'minute') minute = p.value;
+      else if (p.type === 'second') second = p.value;
+      else if (p.type === 'dayPeriod') dayPeriod = p.value.toUpperCase();
+    }
+    return `${day} ${month} ${year}, ${hour}:${minute}:${second}\u00A0${dayPeriod}`;
   }
 
   shareWhatsApp(): void {

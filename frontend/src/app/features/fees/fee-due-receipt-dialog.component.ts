@@ -6,6 +6,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { FeesService, FeeDueSlip, FeeDueSlipItem, FeeInvoicePagedItem } from '../../core/services/fees.service';
+import { AuthService } from '../../core/services/auth.service';
 import { FeeCollectionDialogComponent } from './fee-collection-dialog.component';
 
 export interface FeeDueReceiptDialogData {
@@ -18,6 +19,7 @@ export interface FeeDueReceiptDialogData {
   invoice?: FeeInvoicePagedItem;
   instituteName?: string;
   branchName?: string;
+  logoUrl?: string;
 }
 
 @Component({
@@ -65,11 +67,12 @@ export interface FeeDueReceiptDialogData {
         <!-- Header -->
         <div class="paper-header">
           <div class="inst-info">
-            <div class="logo-mark">
-              <mat-icon>account_balance</mat-icon>
+            <div class="logo-mark" [class.has-img]="logoUrl && !logoFailed">
+              <img *ngIf="logoUrl && !logoFailed" [src]="logoUrl" (error)="logoFailed = true" alt="Logo" class="inst-logo-img">
+              <mat-icon *ngIf="!logoUrl || logoFailed">account_balance</mat-icon>
             </div>
             <div>
-              <h2 class="inst-name">{{ data.instituteName || 'Saraswati Coaching Classes' }}</h2>
+              <h2 class="inst-name">{{ data.instituteName || authService.currentUser()?.instituteName || 'Apex Coaching Academy' }}</h2>
               <p class="inst-subtitle">Accounts & Financial Clearance Department | Student Fee Demand Note</p>
               <p class="inst-branch" *ngIf="data.branchName">Branch: {{ data.branchName }} | Official Notice</p>
             </div>
@@ -393,6 +396,21 @@ export interface FeeDueReceiptDialogData {
           display: flex;
           align-items: center;
           justify-content: center;
+          overflow: hidden;
+          flex-shrink: 0;
+
+          &.has-img {
+            background: #ffffff;
+            border: 1px solid #fecaca;
+            padding: 3px;
+          }
+
+          .inst-logo-img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+          }
+
           mat-icon { font-size: 32px; width: 32px; height: 32px; }
         }
 
@@ -724,13 +742,18 @@ export class FeeDueReceiptDialogComponent implements OnInit {
   loading = true;
   dueSlip?: FeeDueSlip;
   noticeNumber = '';
+  logoUrl: string | null = null;
+  logoFailed = false;
 
   constructor(
     public dialogRef: MatDialogRef<FeeDueReceiptDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: FeeDueReceiptDialogData,
     private feesService: FeesService,
-    private dialog: MatDialog
-  ) {}
+    private dialog: MatDialog,
+    public authService: AuthService
+  ) {
+    this.logoUrl = data.logoUrl || this.authService.getInstituteLogoUrl();
+  }
 
   ngOnInit(): void {
     const now = new Date();
@@ -801,7 +824,9 @@ export class FeeDueReceiptDialogComponent implements OnInit {
             body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; padding: 15mm; color: #0f172a; font-size: 13px; line-height: 1.45; }
             .paper-header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 12px; border-bottom: 2px solid #b91c1c; }
             .inst-info { display: flex; align-items: center; gap: 14px; }
-            .logo-mark { width: 44px; height: 44px; border-radius: 8px; background: #b91c1c; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 24px; }
+            .logo-mark { width: 48px; height: 48px; border-radius: 8px; background: #b91c1c; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 24px; overflow: hidden; flex-shrink: 0; }
+            .logo-mark.has-img { background: #fff; border: 1px solid #fecaca; padding: 2px; }
+            .inst-logo-img { width: 100%; height: 100%; object-fit: contain; }
             .inst-name { font-size: 1.35rem; font-weight: 800; color: #0f172a; }
             .inst-subtitle { font-size: 0.8rem; color: #475569; margin-top: 2px; }
             .inst-branch { font-size: 0.74rem; color: #64748b; font-weight: 600; margin-top: 2px; }

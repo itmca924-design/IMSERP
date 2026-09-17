@@ -176,8 +176,9 @@ export interface ExamAdmitCardDialogData {
           <!-- Header -->
           <div class="ticket-header">
             <div class="inst-info">
-              <div class="logo-mark">
-                <mat-icon>school</mat-icon>
+              <div class="logo-mark" [class.has-img]="logoUrl && !logoFailed">
+                <img *ngIf="logoUrl && !logoFailed" [src]="logoUrl" (error)="logoFailed = true" alt="Logo" class="inst-logo-img">
+                <mat-icon *ngIf="!logoUrl || logoFailed">school</mat-icon>
               </div>
               <div class="inst-details">
                 <h2 class="inst-name">{{ instituteName }}</h2>
@@ -725,6 +726,21 @@ export interface ExamAdmitCardDialogData {
           display: flex;
           align-items: center;
           justify-content: center;
+          overflow: hidden;
+          flex-shrink: 0;
+
+          &.has-img {
+            background: #ffffff;
+            border: 1px solid #bae6fd;
+            padding: 2px;
+          }
+
+          .inst-logo-img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+          }
+
           mat-icon { font-size: 28px; width: 28px; height: 28px; }
         }
 
@@ -1098,8 +1114,14 @@ export class ExamAdmitCardDialogComponent implements OnInit {
     this.loadAdmitCards();
   }
 
+  logoFailed = false;
+
+  get logoUrl(): string | null {
+    return this.authService.getInstituteLogoUrl();
+  }
+
   get instituteName(): string {
-    return this.authService.currentUser()?.instituteName || 'Saraswati Coaching Classes';
+    return this.authService.currentUser()?.instituteName || 'Apex Coaching Academy';
   }
 
   get activeStudent(): StudentAdmitCardItemDto | undefined {
@@ -1256,7 +1278,9 @@ export class ExamAdmitCardDialogComponent implements OnInit {
             .ticket-border { border: 2px solid #0284c7; border-radius: 6px; padding: 16px 18px; }
             .ticket-header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 12px; border-bottom: 2px solid #0284c7; }
             .inst-info { display: flex; align-items: center; gap: 14px; }
-            .logo-mark { width: 46px; height: 46px; border-radius: 8px; background: #0284c7; color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; }
+            .logo-mark { width: 46px; height: 46px; border-radius: 8px; background: #0284c7; color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; overflow: hidden; flex-shrink: 0; }
+            .logo-mark.has-img { background: #fff; border: 1px solid #bae6fd; padding: 2px; }
+            .inst-logo-img { width: 100%; height: 100%; object-fit: contain; }
             .inst-name { margin: 0; font-size: 1.35rem; font-weight: 800; color: #0f172a; }
             .inst-sub { margin: 2px 0 0 0; font-size: 0.8rem; color: #475569; }
             .inst-branch { margin: 2px 0 0 0; font-size: 0.74rem; color: #0284c7; font-weight: 600; }

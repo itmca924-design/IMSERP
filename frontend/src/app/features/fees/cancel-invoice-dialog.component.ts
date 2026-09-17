@@ -18,6 +18,7 @@ export interface CancelInvoiceDialogData {
   rollNumber: string;
   batchName: string;
   totalAmount: number;
+  paidAmount: number;
   dueAmount: number;
 }
 
@@ -47,9 +48,11 @@ export interface CancelInvoiceDialogData {
         </div>
       </div>
 
-      <form [formGroup]="cancelForm" (ngSubmit)="onSubmit()">
+      <!-- ═══ BLOCKED STATE: Partial payment exists ═══ -->
+      <ng-container *ngIf="data.paidAmount > 0; else cancelFormTpl">
         <mat-dialog-content class="dialog-content">
-          <!-- Invoice & Student Summary Card -->
+
+          <!-- Invoice Summary -->
           <div class="summary-card">
             <div class="card-row">
               <span class="label">Invoice No:</span>
@@ -68,71 +71,132 @@ export interface CancelInvoiceDialogData {
               <span class="val text-muted">{{ data.batchName }}</span>
             </div>
             <div class="card-divider"></div>
+            <div class="card-row">
+              <span class="label">Total Invoice:</span>
+              <span class="val">₹{{ data.totalAmount | number:'1.2-2' }}</span>
+            </div>
+            <div class="card-row">
+              <span class="label">Already Paid:</span>
+              <span class="val amount-paid">₹{{ data.paidAmount | number:'1.2-2' }}</span>
+            </div>
             <div class="card-row amount-row">
-              <span class="label">Pending Due Amount:</span>
+              <span class="label">Balance Due:</span>
               <span class="val amount-due">₹{{ data.dueAmount | number:'1.2-2' }}</span>
             </div>
           </div>
 
-          <!-- Reason Selection -->
-          <div class="form-section">
-            <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Cancellation Reason</mat-label>
-              <mat-select formControlName="selectedReason">
-                <mat-option *ngFor="let r of predefinedReasons" [value]="r.value">
-                  {{ r.label }}
-                </mat-option>
-              </mat-select>
-              <mat-error *ngIf="cancelForm.get('selectedReason')?.hasError('required')">
-                Please select a reason
-              </mat-error>
-            </mat-form-field>
-
-            <!-- Custom reason textarea if 'Other' is chosen -->
-            <mat-form-field
-              *ngIf="cancelForm.get('selectedReason')?.value === 'Other'"
-              appearance="outline"
-              class="full-width"
-            >
-              <mat-label>Specify Custom Reason Details</mat-label>
-              <textarea
-                matInput
-                rows="2"
-                formControlName="customReason"
-                placeholder="e.g. Student relocated to another city..."
-              ></textarea>
-              <mat-error *ngIf="cancelForm.get('customReason')?.hasError('required')">
-                Please provide details for the reason
-              </mat-error>
-            </mat-form-field>
-          </div>
-
-          <!-- Warning Notice -->
-          <div class="warning-alert">
-            <mat-icon class="warn-icon">warning</mat-icon>
-            <div class="warn-text">
-              <strong>Permanent Action:</strong> This invoice will be permanently marked as <em>VOID</em>. 
-              The pending due of <strong>₹{{ data.dueAmount | number:'1.2-2' }}</strong> will be completely excluded from {{ data.studentName }}'s total outstanding balance.
+          <!-- BLOCKING Error Alert -->
+          <div class="blocked-alert">
+            <div class="blocked-header">
+              <mat-icon class="blocked-icon">lock</mat-icon>
+              <strong>Cancellation Not Allowed</strong>
             </div>
+            <p class="blocked-body">
+              This invoice cannot be cancelled because <strong>₹{{ data.paidAmount | number:'1.2-2' }}</strong>
+              has already been collected from <strong>{{ data.studentName }}</strong>.
+              Cancelling would cause accounting discrepancies.
+            </p>
+            <p class="blocked-steps">
+              <mat-icon class="step-icon">arrow_right</mat-icon>
+              To cancel: first <strong>reverse the payment</strong> via Admin → then retry cancellation.
+            </p>
           </div>
-        </mat-dialog-content>
 
+        </mat-dialog-content>
         <mat-dialog-actions align="end" class="dialog-actions">
-          <button mat-button type="button" (click)="onClose()" [disabled]="submitting">
+          <button mat-raised-button color="primary" type="button" (click)="onClose()">
+            <mat-icon>arrow_back</mat-icon>
             Go Back
           </button>
-          <button
-            mat-raised-button
-            class="btn-danger-confirm"
-            type="submit"
-            [disabled]="cancelForm.invalid || submitting"
-          >
-            <mat-spinner diameter="18" *ngIf="submitting" class="spinner"></mat-spinner>
-            <mat-icon *ngIf="!submitting">block</mat-icon>
-            <span>Confirm & Cancel Invoice</span>
-          </button>
         </mat-dialog-actions>
-      </form>
+      </ng-container>
+
+      <!-- ═══ NORMAL STATE: No payment, allow cancel ═══ -->
+      <ng-template #cancelFormTpl>
+        <form [formGroup]="cancelForm" (ngSubmit)="onSubmit()">
+          <mat-dialog-content class="dialog-content">
+            <!-- Invoice & Student Summary Card -->
+            <div class="summary-card">
+              <div class="card-row">
+                <span class="label">Invoice No:</span>
+                <span class="val inv-badge">{{ data.invoiceNumber }}</span>
+              </div>
+              <div class="card-row">
+                <span class="label">Fee Particular:</span>
+                <span class="val font-semibold">{{ data.title }}</span>
+              </div>
+              <div class="card-row">
+                <span class="label">Student:</span>
+                <span class="val">{{ data.studentName }} (Roll #{{ data.rollNumber }})</span>
+              </div>
+              <div class="card-row">
+                <span class="label">Batch:</span>
+                <span class="val text-muted">{{ data.batchName }}</span>
+              </div>
+              <div class="card-divider"></div>
+              <div class="card-row amount-row">
+                <span class="label">Pending Due Amount:</span>
+                <span class="val amount-due">₹{{ data.dueAmount | number:'1.2-2' }}</span>
+              </div>
+            </div>
+
+            <!-- Reason Selection -->
+            <div class="form-section">
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Cancellation Reason</mat-label>
+                <mat-select formControlName="selectedReason">
+                  <mat-option *ngFor="let r of predefinedReasons" [value]="r.value">
+                    {{ r.label }}
+                  </mat-option>
+                </mat-select>
+                <mat-error *ngIf="cancelForm.get('selectedReason')?.hasError('required')">
+                  Please select a reason
+                </mat-error>
+              </mat-form-field>
+
+              <mat-form-field
+                *ngIf="cancelForm.get('selectedReason')?.value === 'Other'"
+                appearance="outline"
+                class="full-width"
+              >
+                <mat-label>Specify Custom Reason Details</mat-label>
+                <textarea
+                  matInput
+                  rows="2"
+                  formControlName="customReason"
+                  placeholder="e.g. Student relocated to another city..."
+                ></textarea>
+                <mat-error *ngIf="cancelForm.get('customReason')?.hasError('required')">
+                  Please provide details for the reason
+                </mat-error>
+              </mat-form-field>
+            </div>
+
+            <!-- Warning Notice -->
+            <div class="warning-alert">
+              <mat-icon class="warn-icon">warning</mat-icon>
+              <div class="warn-text">
+                <strong>Permanent Action:</strong> This invoice will be permanently marked as <em>VOID</em>.
+                The pending due of <strong>₹{{ data.dueAmount | number:'1.2-2' }}</strong> will be completely excluded from {{ data.studentName }}'s total outstanding balance.
+              </div>
+            </div>
+          </mat-dialog-content>
+
+          <mat-dialog-actions align="end" class="dialog-actions">
+            <button mat-button type="button" (click)="onClose()" [disabled]="submitting">Go Back</button>
+            <button
+              mat-raised-button
+              class="btn-danger-confirm"
+              type="submit"
+              [disabled]="cancelForm.invalid || submitting"
+            >
+              <mat-spinner diameter="18" *ngIf="submitting" class="spinner"></mat-spinner>
+              <mat-icon *ngIf="!submitting">block</mat-icon>
+              <span>Confirm &amp; Cancel Invoice</span>
+            </button>
+          </mat-dialog-actions>
+        </form>
+      </ng-template>
     </div>
   `,
   styles: [`
@@ -230,9 +294,14 @@ export interface CancelInvoiceDialogData {
 
       .amount-row {
         .amount-due {
-          font-size: 1.15rem;
+          font-size: 1.1rem;
           font-weight: 700;
           color: #dc2626;
+        }
+        .amount-paid {
+          font-size: 1.1rem;
+          font-weight: 700;
+          color: #16a34a;
         }
       }
     }
@@ -243,6 +312,59 @@ export interface CancelInvoiceDialogData {
 
     .full-width {
       width: 100%;
+    }
+
+    /* ── Blocking alert when payment already recorded ── */
+    .blocked-alert {
+      background: #fef2f2;
+      border: 1.5px solid #fca5a5;
+      border-radius: 10px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+
+      .blocked-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: #b91c1c;
+
+        .blocked-icon {
+          font-size: 20px;
+          width: 20px;
+          height: 20px;
+        }
+      }
+
+      .blocked-body {
+        margin: 0;
+        font-size: 0.83rem;
+        color: #7f1d1d;
+        line-height: 1.5;
+      }
+
+      .blocked-steps {
+        margin: 0;
+        display: flex;
+        align-items: flex-start;
+        gap: 4px;
+        font-size: 0.8rem;
+        color: #991b1b;
+        background: #fee2e2;
+        border-radius: 6px;
+        padding: 6px 10px;
+
+        .step-icon {
+          font-size: 16px;
+          width: 16px;
+          height: 16px;
+          flex-shrink: 0;
+          margin-top: 1px;
+        }
+      }
     }
 
     .warning-alert {

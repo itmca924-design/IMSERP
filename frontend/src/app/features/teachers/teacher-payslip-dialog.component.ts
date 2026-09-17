@@ -5,11 +5,13 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDividerModule } from '@angular/material/divider';
 import { SalaryPaymentDto, TeacherDto } from './teacher.models';
+import { AuthService } from '../../core/services/auth.service';
 
 export interface PayslipDialogData {
   payment: SalaryPaymentDto;
   teacher: TeacherDto;
   instituteName?: string;
+  logoUrl?: string;
 }
 
 @Component({
@@ -36,9 +38,12 @@ export interface PayslipDialogData {
         <!-- Header -->
         <div class="paper-header">
           <div class="inst-info">
-            <div class="logo-mark"><mat-icon>school</mat-icon></div>
+            <div class="logo-mark" [class.has-img]="logoUrl && !logoFailed">
+              <img *ngIf="logoUrl && !logoFailed" [src]="logoUrl" (error)="logoFailed = true" alt="Logo" class="inst-logo-img">
+              <mat-icon *ngIf="!logoUrl || logoFailed">school</mat-icon>
+            </div>
             <div>
-              <h2 class="inst-name">{{ data.instituteName || 'Apex Coaching Academy' }}</h2>
+              <h2 class="inst-name">{{ data.instituteName || authService.currentUser()?.instituteName || 'Apex Coaching Academy' }}</h2>
               <p class="inst-subtitle">Faculty & Staff Payroll Management | Monthly Pay Advice</p>
             </div>
           </div>
@@ -193,7 +198,9 @@ export interface PayslipDialogData {
       display: flex; align-items: center; gap: 14px;
       .logo-mark {
         width: 48px; height: 48px; border-radius: 10px; background: #1e40af; color: #fff;
-        display: flex; align-items: center; justify-content: center;
+        display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;
+        &.has-img { background: #fff; border: 1px solid #e2e8f0; padding: 2px; }
+        .inst-logo-img { width: 100%; height: 100%; object-fit: contain; }
         mat-icon { font-size: 28px; width: 28px; height: 28px; }
       }
       .inst-name { margin: 0; font-size: 1.35rem; font-weight: 800; color: #0f172a; letter-spacing: -0.5px; }
@@ -279,10 +286,16 @@ export interface PayslipDialogData {
   `]
 })
 export class TeacherPayslipDialogComponent {
+  logoUrl: string | null = null;
+  logoFailed = false;
+
   constructor(
     public dialogRef: MatDialogRef<TeacherPayslipDialogComponent>,
-    @Inject(MAT_DIALOG_DATA) public data: PayslipDialogData
-  ) {}
+    @Inject(MAT_DIALOG_DATA) public data: PayslipDialogData,
+    public authService: AuthService
+  ) {
+    this.logoUrl = data.logoUrl || this.authService.getInstituteLogoUrl();
+  }
 
   printPayslip() {
     const el = document.getElementById('payslip-paper');
@@ -303,7 +316,9 @@ export class TeacherPayslipDialogComponent {
             .payslip-paper { max-width: 780px; margin: 0 auto; }
             .paper-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0f172a; padding-bottom: 16px; margin-bottom: 16px; }
             .inst-info { display: flex; align-items: center; gap: 14px; }
-            .logo-mark { width: 48px; height: 48px; border-radius: 10px; background: #1e40af; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 24px; }
+            .logo-mark { width: 48px; height: 48px; border-radius: 10px; background: #1e40af; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 24px; overflow: hidden; flex-shrink: 0; }
+            .logo-mark.has-img { background: #fff; border: 1px solid #e2e8f0; padding: 2px; }
+            .inst-logo-img { width: 100%; height: 100%; object-fit: contain; }
             .inst-name { font-size: 1.35rem; font-weight: 800; color: #0f172a; }
             .inst-subtitle { font-size: 0.8rem; color: #64748b; margin-top: 2px; }
             .payslip-badge { text-align: right; }

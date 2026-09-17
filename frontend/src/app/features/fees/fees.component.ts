@@ -1,6 +1,7 @@
-import { Component, OnInit, ViewChild } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Subscription } from 'rxjs';
 import { MatCardModule } from '@angular/material/card';
 import { MatTableModule } from '@angular/material/table';
 import { MatPaginatorModule, MatPaginator, PageEvent } from '@angular/material/paginator';
@@ -166,7 +167,14 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
 
             <ng-container matColumnDef="dueAmount">
               <th mat-header-cell *matHeaderCellDef mat-sort-header="dueAmount" class="text-right">Balance Due (₹)</th>
-              <td mat-cell *matCellDef="let inv" class="text-right amount-due"><strong>₹{{ inv.dueAmount | number:'1.2-2' }}</strong></td>
+              <td mat-cell *matCellDef="let inv" class="text-right">
+                <ng-container *ngIf="inv.status !== 'Cancelled'">
+                  <strong class="amount-due">₹{{ inv.dueAmount | number:'1.2-2' }}</strong>
+                </ng-container>
+                <ng-container *ngIf="inv.status === 'Cancelled'">
+                  <span class="cancelled-due" matTooltip="Invoice cancelled (no dues payable)">₹0.00</span>
+                </ng-container>
+              </td>
             </ng-container>
 
             <ng-container matColumnDef="dueDate">
@@ -177,7 +185,10 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             <ng-container matColumnDef="status">
               <th mat-header-cell *matHeaderCellDef mat-sort-header="status" class="text-center">Status</th>
               <td mat-cell *matCellDef="let inv" class="text-center">
-                <span [class]="'status-badge ' + inv.status.toLowerCase()">
+                <span
+                  [class]="'status-badge ' + inv.status.toLowerCase()"
+                  [matTooltip]="inv.status === 'Cancelled' ? ('Cancelled' + (inv.cancelledAt ? ' on ' + (inv.cancelledAt | date:'mediumDate') : '') + (inv.cancellationReason ? ' | Reason: ' + inv.cancellationReason : '')) : ''"
+                  [matTooltipPosition]="'above'">
                   {{ inv.status }}
                 </span>
               </td>
@@ -365,7 +376,14 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
       &.partial  { background: #dbeafe; color: #1e40af; }
       &.paid     { background: #dcfce7; color: #166534; }
       &.overdue  { background: #fee2e2; color: #991b1b; }
-      &.cancelled { background: #f1f5f9; color: #64748b; text-decoration: line-through; }
+      &.cancelled { background: #f1f5f9; color: #64748b; text-decoration: line-through; cursor: help; }
+    }
+    .cancelled-due {
+      color: #94a3b8;
+      font-size: 0.85rem;
+      font-weight: 500;
+      text-decoration: line-through;
+      cursor: help;
     }
     .action-buttons {
       display: inline-flex;
@@ -570,9 +588,11 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
     }
   `]
 })
-export class FeesComponent implements OnInit {
+export class FeesComponent implements OnInit, OnDestroy {
   invoices: FeeInvoicePagedItem[] = [];
   batches: BatchDto[] = [];
+  loading = false;
+  private refreshSub?: Subscription;
 
   pageIndex = 0;
   pageSize = 10;
@@ -582,7 +602,6 @@ export class FeesComponent implements OnInit {
   selectedBatchFilter = '';
   sortBy = 'dueDate';
   sortDescending = true;
-  loading = false;
 
   displayedColumns = [
     'select',
@@ -738,6 +757,14 @@ export class FeesComponent implements OnInit {
   ngOnInit(): void {
     this.loadBatches();
     this.loadInvoices();
+
+    this.refreshSub = this.feesService.refreshRequired$.subscribe(() => {
+      this.loadInvoices();
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.refreshSub?.unsubscribe();
   }
 
   loadBatches(): void {
@@ -894,12 +921,18 @@ export class FeesComponent implements OnInit {
   }
 
   openStudentLedger(studentId: string): void {
-    this.dialog.open(StudentLedgerDialogComponent, {
+    const dialogRef = this.dialog.open(StudentLedgerDialogComponent, {
       width: '980px',
       maxWidth: '96vw',
       maxHeight: '92vh',
       panelClass: 'ledger-dialog-panel',
       data: { studentId }
+    });
+
+    dialogRef.afterClosed().subscribe((res) => {
+      if (res?.refreshed) {
+        this.loadInvoices();
+      }
     });
   }
 
@@ -976,6 +1009,7 @@ export class FeesComponent implements OnInit {
         rollNumber: inv.rollNumber,
         batchName: inv.batchName,
         totalAmount: inv.totalAmount,
+        paidAmount: inv.paidAmount,
         dueAmount: inv.dueAmount
       }
     });

@@ -307,6 +307,16 @@ public record FeePaymentReceiptDto(
     string? Remarks
 );
 
+public record ReversePaymentDto(string Reason);
+
+public record ReversePaymentResponseDto(
+    string Message,
+    string InvoiceNumber,
+    decimal NewPaidAmount,
+    decimal NewDueAmount,
+    string NewInvoiceStatus
+);
+
 public record FeeDueSlipItemDto(
     Guid InvoiceId,
     string InvoiceNumber,
@@ -574,7 +584,9 @@ public record FeeInvoicePagedItemDto(
     decimal PaidAmount,
     decimal DueAmount,
     DateTime DueDate,
-    string Status
+    string Status,
+    string? CancellationReason = null,
+    DateTime? CancelledAt = null
 );
 
 public record StudentLedgerInvoiceItemDto(
@@ -585,7 +597,9 @@ public record StudentLedgerInvoiceItemDto(
     decimal PaidAmount,
     decimal DueAmount,
     DateTime DueDate,
-    string Status
+    string Status,
+    string? CancellationReason = null,
+    DateTime? CancelledAt = null
 );
 
 public record StudentLedgerPaymentItemDto(
@@ -637,7 +651,8 @@ public record GenerateMonthlyInvoicesRequestDto(
     int Year,
     int Month,
     Guid? BatchId,
-    DateTime DueDate
+    DateTime DueDate,
+    BillingCycle BillingCycle = BillingCycle.Monthly
 );
 
 public record GenerateMonthlyInvoicesResultDto(
