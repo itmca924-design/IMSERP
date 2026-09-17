@@ -58,6 +58,107 @@ public class HolidaysController : ControllerBase
         return Ok(list);
     }
 
+    [HttpGet("paged")]
+    public async Task<ActionResult<PagedResult<HolidayDto>>> GetHolidaysPaged(
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] string? searchTerm = null,
+        [FromQuery] int year = 0,
+        [FromQuery] int month = 0,
+        [FromQuery] string? category = null,
+        [FromQuery] string? sortBy = "StartDate",
+        [FromQuery] bool sortDescending = false,
+        [FromQuery] bool? isActive = null)
+    {
+        var query = _db.Holidays.AsNoTracking();
+
+        if (isActive.HasValue)
+        {
+            query = query.Where(h => h.IsActive == isActive.Value);
+        }
+
+        if (year > 0)
+        {
+            query = query.Where(h => h.StartDate.Year == year || h.EndDate.Year == year);
+        }
+
+        if (month > 0)
+        {
+            query = query.Where(h => h.StartDate.Month == month || h.EndDate.Month == month);
+        }
+
+        if (!string.IsNullOrWhiteSpace(category))
+        {
+            var cat = category.Trim().ToLower();
+            query = query.Where(h => h.HolidayType.ToLower() == cat);
+        }
+
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            var term = searchTerm.Trim().ToLower();
+            query = query.Where(h => h.Title.ToLower().Contains(term) ||
+                                     (h.Description != null && h.Description.ToLower().Contains(term)));
+        }
+
+        query = (sortBy?.ToLower()) switch
+        {
+            "title" => sortDescending ? query.OrderByDescending(h => h.Title) : query.OrderBy(h => h.Title),
+            "category" or "holidaytype" => sortDescending ? query.OrderByDescending(h => h.HolidayType) : query.OrderBy(h => h.HolidayType),
+            "description" => sortDescending ? query.OrderByDescending(h => h.Description) : query.OrderBy(h => h.Description),
+            "status" or "isactive" => sortDescending ? query.OrderByDescending(h => h.IsActive) : query.OrderBy(h => h.IsActive),
+            "duration" => sortDescending ? query.OrderByDescending(h => EF.Functions.DateDiffDay(h.StartDate, h.EndDate)) : query.OrderBy(h => EF.Functions.DateDiffDay(h.StartDate, h.EndDate)),
+            _ => sortDescending ? query.OrderByDescending(h => h.StartDate) : query.OrderBy(h => h.StartDate)
+        };
+
+        var totalCount = await query.CountAsync();
+        var items = await query
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .Select(h => new HolidayDto(
+                h.Id,
+                h.Title,
+                h.StartDate,
+                h.EndDate,
+                h.HolidayType,
+                h.Description,
+                h.IsActive,
+                h.CreatedAt))
+            .ToListAsync();
+
+        return Ok(new PagedResult<HolidayDto>(items, totalCount, pageNumber, pageSize));
+    }
+
+    [HttpGet("summary")]
+    public async Task<ActionResult<object>> GetHolidaysSummary(
+        [FromQuery] int year = 0,
+        [FromQuery] int month = 0)
+    {
+        var query = _db.Holidays.AsNoTracking();
+
+        if (year > 0)
+        {
+            query = query.Where(h => h.StartDate.Year == year || h.EndDate.Year == year);
+        }
+
+        if (month > 0)
+        {
+            query = query.Where(h => h.StartDate.Month == month || h.EndDate.Month == month);
+        }
+
+        var total = await query.CountAsync();
+        var national = await query.CountAsync(h => h.HolidayType.ToLower() == "national");
+        var festival = await query.CountAsync(h => h.HolidayType.ToLower() == "festival");
+        var academic = await query.CountAsync(h => h.HolidayType.ToLower() == "academic" || h.HolidayType.ToLower() == "institutional");
+
+        return Ok(new
+        {
+            TotalDeclared = total,
+            NationalHolidays = national,
+            Festivals = festival,
+            AcademicRecess = academic
+        });
+    }
+
     [HttpGet("{id}")]
     public async Task<ActionResult<HolidayDto>> GetHoliday(Guid id)
     {

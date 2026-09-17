@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -9,6 +9,8 @@ import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { MatTableModule } from '@angular/material/table';
+import { MatPaginator, MatPaginatorModule, PageEvent } from '@angular/material/paginator';
+import { MatSort, MatSortModule, Sort } from '@angular/material/sort';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -29,6 +31,8 @@ import { API_BASE, HolidayDto } from '../teachers/teacher.models';
     MatFormFieldModule,
     MatSelectModule,
     MatTableModule,
+    MatPaginatorModule,
+    MatSortModule,
     MatChipsModule,
     MatProgressBarModule,
     MatTooltipModule,
@@ -52,7 +56,7 @@ import { API_BASE, HolidayDto } from '../teachers/teacher.models';
         <div class="kpi-card total">
           <div class="kpi-icon"><mat-icon>calendar_month</mat-icon></div>
           <div class="kpi-data">
-            <span class="val">{{ holidays.length }}</span>
+            <span class="val">{{ summary.totalDeclared }}</span>
             <small>Total Declared</small>
           </div>
         </div>
@@ -60,7 +64,7 @@ import { API_BASE, HolidayDto } from '../teachers/teacher.models';
         <div class="kpi-card national">
           <div class="kpi-icon"><mat-icon>flag</mat-icon></div>
           <div class="kpi-data">
-            <span class="val">{{ countByType('National') }}</span>
+            <span class="val">{{ summary.nationalHolidays }}</span>
             <small>National Holidays</small>
           </div>
         </div>
@@ -68,7 +72,7 @@ import { API_BASE, HolidayDto } from '../teachers/teacher.models';
         <div class="kpi-card festival">
           <div class="kpi-icon"><mat-icon>celebration</mat-icon></div>
           <div class="kpi-data">
-            <span class="val">{{ countByType('Festival') }}</span>
+            <span class="val">{{ summary.festivals }}</span>
             <small>Festivals</small>
           </div>
         </div>
@@ -76,7 +80,7 @@ import { API_BASE, HolidayDto } from '../teachers/teacher.models';
         <div class="kpi-card academic">
           <div class="kpi-icon"><mat-icon>school</mat-icon></div>
           <div class="kpi-data">
-            <span class="val">{{ countByType('Academic') + countByType('Institutional') }}</span>
+            <span class="val">{{ summary.academicRecess }}</span>
             <small>Academic / Recess</small>
           </div>
         </div>
@@ -148,9 +152,9 @@ import { API_BASE, HolidayDto } from '../teachers/teacher.models';
         <!-- Filter Toolbar -->
         <div class="filter-toolbar">
           <div class="filter-group">
-            <mat-form-field appearance="outline" class="filter-select">
+            <mat-form-field appearance="outline" class="filter-select year-filter">
               <mat-label>Academic Year</mat-label>
-              <mat-select [(ngModel)]="selectedYear" (selectionChange)="loadHolidays()">
+              <mat-select [(ngModel)]="selectedYear" (selectionChange)="onFilterChange()">
                 <mat-option [value]="0">All Years</mat-option>
                 <mat-option [value]="2025">2025</mat-option>
                 <mat-option [value]="2026">2026</mat-option>
@@ -158,17 +162,17 @@ import { API_BASE, HolidayDto } from '../teachers/teacher.models';
               </mat-select>
             </mat-form-field>
 
-            <mat-form-field appearance="outline" class="filter-select">
+            <mat-form-field appearance="outline" class="filter-select month-filter">
               <mat-label>Month</mat-label>
-              <mat-select [(ngModel)]="selectedMonth" (selectionChange)="loadHolidays()">
+              <mat-select [(ngModel)]="selectedMonth" (selectionChange)="onFilterChange()">
                 <mat-option [value]="0">All Months</mat-option>
                 <mat-option *ngFor="let m of months; let i = index" [value]="i + 1">{{ m }}</mat-option>
               </mat-select>
             </mat-form-field>
 
-            <mat-form-field appearance="outline" class="filter-select">
+            <mat-form-field appearance="outline" class="filter-select category-filter">
               <mat-label>Category Filter</mat-label>
-              <mat-select [(ngModel)]="selectedType" (selectionChange)="applyFilter()">
+              <mat-select [(ngModel)]="selectedType" (selectionChange)="onFilterChange()">
                 <mat-option value="">All Categories</mat-option>
                 <mat-option value="National">National</mat-option>
                 <mat-option value="Festival">Festival</mat-option>
@@ -181,32 +185,36 @@ import { API_BASE, HolidayDto } from '../teachers/teacher.models';
           <div class="search-wrap">
             <mat-form-field appearance="outline" class="search-input">
               <mat-label>Search holidays...</mat-label>
-              <input matInput [(ngModel)]="searchKeyword" (ngModelChange)="applyFilter()" placeholder="Search by title or description" />
-              <button mat-icon-button matSuffix *ngIf="searchKeyword" (click)="searchKeyword = ''; applyFilter()">
+              <input matInput [(ngModel)]="searchKeyword" (keyup.enter)="onSearch()" (ngModelChange)="onSearchInput()" placeholder="Search by title or description" />
+              <button mat-icon-button matSuffix *ngIf="searchKeyword" (click)="clearSearch()">
                 <mat-icon>close</mat-icon>
+              </button>
+              <button mat-icon-button matSuffix (click)="onSearch()" matTooltip="Search">
+                <mat-icon>search</mat-icon>
               </button>
             </mat-form-field>
           </div>
         </div>
 
-        <mat-progress-bar mode="indeterminate" *ngIf="loading"></mat-progress-bar>
+        <!-- Server-side operation loader -->
+        <mat-progress-bar mode="indeterminate" *ngIf="loading" class="grid-loader"></mat-progress-bar>
 
-        <!-- Table View -->
-        <div class="table-responsive" *ngIf="filteredHolidays.length > 0">
-          <table class="holiday-table">
+        <!-- Table View with Server-Side Sorting -->
+        <div class="table-responsive" *ngIf="holidays.length > 0">
+          <table class="holiday-table" matSort (matSortChange)="onSortChange($event)">
             <thead>
               <tr>
-                <th>Date & Schedule</th>
-                <th>Holiday Title</th>
-                <th>Category</th>
-                <th>Duration</th>
-                <th>Description / Notes</th>
-                <th>Status</th>
+                <th mat-sort-header="startDate">Date &amp; Schedule</th>
+                <th mat-sort-header="title">Holiday Title</th>
+                <th mat-sort-header="category">Category</th>
+                <th mat-sort-header="duration">Duration</th>
+                <th mat-sort-header="description">Description / Notes</th>
+                <th mat-sort-header="status">Status</th>
                 <th class="actions-header">Actions</th>
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let item of filteredHolidays">
+              <tr *ngFor="let item of holidays">
                 <td class="date-cell">
                   <div class="date-box">
                     <span class="day-num">{{ formatDayNum(item.startDate) }}</span>
@@ -251,7 +259,19 @@ import { API_BASE, HolidayDto } from '../teachers/teacher.models';
           </table>
         </div>
 
-        <div class="empty-state" *ngIf="filteredHolidays.length === 0 && !loading">
+        <!-- Server-side Pagination -->
+        <mat-paginator
+          *ngIf="totalCount > 0"
+          [length]="totalCount"
+          [pageSize]="pageSize"
+          [pageIndex]="pageIndex"
+          [pageSizeOptions]="[5, 10, 25, 50]"
+          (page)="onPageChange($event)"
+          showFirstLastButtons
+          class="holiday-paginator">
+        </mat-paginator>
+
+        <div class="empty-state" *ngIf="holidays.length === 0 && !loading">
           <mat-icon>event_busy</mat-icon>
           <h3>No Holidays Found</h3>
           <p>No holiday records matched your filter criteria. Click "Add New Holiday" to declare a holiday or reset your filters.</p>
@@ -309,17 +329,50 @@ import { API_BASE, HolidayDto } from '../teachers/teacher.models';
     .table-card { border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; padding: 0; background: #ffffff; }
     .filter-toolbar {
       padding: 14px 20px; background: #f8fafc; border-bottom: 1px solid #e2e8f0;
-      display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;
+      display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;
     }
-    .filter-group { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-    .filter-select { width: 145px; margin-bottom: -1.25em; }
+    .filter-group { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    
+    /* Dedicated Wide Filters to prevent cutting off or breaking */
+    .filter-select {
+      margin-bottom: -1.25em;
+
+      &.year-filter {
+        width: 170px;
+        min-width: 170px;
+      }
+      &.month-filter {
+        width: 160px;
+        min-width: 160px;
+      }
+      &.category-filter {
+        width: 215px;
+        min-width: 215px;
+      }
+
+      ::ng-deep .mat-mdc-select-value-text,
+      ::ng-deep .mat-mdc-floating-label {
+        white-space: nowrap !important;
+      }
+    }
+
     .search-wrap { margin-bottom: -1.25em; }
-    .search-input { width: 260px; }
+    .search-input { width: 280px; min-width: 240px; }
+    .grid-loader { height: 4px; }
 
     .table-responsive { overflow-x: auto; }
     .holiday-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
     .holiday-table th, .holiday-table td { padding: 14px 18px; border-bottom: 1px solid #f1f5f9; text-align: left; }
-    .holiday-table th { background: #f8fafc; font-weight: 700; color: #64748b; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.4px; }
+    .holiday-table th {
+      background: #f8fafc;
+      font-weight: 700;
+      color: #64748b;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      white-space: nowrap;
+      user-select: none;
+    }
     .holiday-table tr:hover td { background: #fbfcfd; }
 
     .date-box { display: flex; align-items: center; gap: 10px; }
@@ -356,6 +409,8 @@ import { API_BASE, HolidayDto } from '../teachers/teacher.models';
     .actions-header { text-align: right; }
     .actions-cell { text-align: right; white-space: nowrap; }
 
+    .holiday-paginator { border-top: 1px solid #e2e8f0; background: #ffffff; }
+
     .empty-state {
       display: flex; flex-direction: column; align-items: center; text-align: center; padding: 50px 20px; color: #64748b;
       mat-icon { font-size: 52px; width: 52px; height: 52px; color: #cbd5e1; margin-bottom: 12px; }
@@ -367,17 +422,34 @@ import { API_BASE, HolidayDto } from '../teachers/teacher.models';
 export class HolidaysComponent implements OnInit {
   private api = API_BASE;
   holidays: HolidayDto[] = [];
-  filteredHolidays: HolidayDto[] = [];
   loading = false;
   saving = false;
   showForm = false;
   isEditing = false;
   editingId: string | null = null;
 
+  // Pagination & Sorting State
+  totalCount = 0;
+  pageSize = 10;
+  pageIndex = 0;
+  sortBy = 'startDate';
+  sortDescending = false;
+
+  // Filters State
   selectedYear = 2026;
   selectedMonth = 0;
   selectedType = '';
   searchKeyword = '';
+
+  private searchDebounceTimer: any;
+
+  // KPI Summary
+  summary = {
+    totalDeclared: 0,
+    nationalHolidays: 0,
+    festivals: 0,
+    academicRecess: 0
+  };
 
   months = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -393,6 +465,9 @@ export class HolidaysComponent implements OnInit {
     isActive: true
   };
 
+  @ViewChild(MatPaginator) paginator!: MatPaginator;
+  @ViewChild(MatSort) sort!: MatSort;
+
   constructor(
     private http: HttpClient,
     private confirmDialog: ConfirmDialogService
@@ -400,47 +475,101 @@ export class HolidaysComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadHolidays();
+    this.loadSummary();
   }
 
   loadHolidays(): void {
     this.loading = true;
-    const params: any = { activeOnly: false };
+    const params: any = {
+      pageNumber: this.pageIndex + 1,
+      pageSize: this.pageSize,
+      sortBy: this.sortBy,
+      sortDescending: this.sortDescending
+    };
+
     if (this.selectedYear > 0) params.year = this.selectedYear;
     if (this.selectedMonth > 0) params.month = this.selectedMonth;
+    if (this.selectedType) params.category = this.selectedType;
+    if (this.searchKeyword && this.searchKeyword.trim()) {
+      params.searchTerm = this.searchKeyword.trim();
+    }
 
-    this.http.get<HolidayDto[]>(`${this.api}/holidays`, { params }).subscribe({
+    this.http.get<any>(`${this.api}/holidays/paged`, { params }).subscribe({
       next: (res) => {
-        this.holidays = res || [];
-        this.applyFilter();
+        this.holidays = res.items || [];
+        this.totalCount = res.totalCount || 0;
         this.loading = false;
       },
       error: () => {
         this.loading = false;
         this.holidays = [];
-        this.filteredHolidays = [];
+        this.totalCount = 0;
       }
     });
   }
 
-  applyFilter(): void {
-    let list = [...this.holidays];
+  loadSummary(): void {
+    const params: any = {};
+    if (this.selectedYear > 0) params.year = this.selectedYear;
+    if (this.selectedMonth > 0) params.month = this.selectedMonth;
 
-    if (this.selectedType) {
-      list = list.filter((h) => h.holidayType.toLowerCase() === this.selectedType.toLowerCase());
-    }
-
-    if (this.searchKeyword.trim()) {
-      const q = this.searchKeyword.toLowerCase().trim();
-      list = list.filter(
-        (h) => h.title.toLowerCase().includes(q) || (h.description && h.description.toLowerCase().includes(q))
-      );
-    }
-
-    this.filteredHolidays = list;
+    this.http.get<any>(`${this.api}/holidays/summary`, { params }).subscribe({
+      next: (res) => {
+        if (res) {
+          this.summary = {
+            totalDeclared: res.totalDeclared ?? res.TotalDeclared ?? 0,
+            nationalHolidays: res.nationalHolidays ?? res.NationalHolidays ?? 0,
+            festivals: res.festivals ?? res.Festivals ?? 0,
+            academicRecess: res.academicRecess ?? res.AcademicRecess ?? 0
+          };
+        }
+      },
+      error: () => {
+        // Quiet failure on summary
+      }
+    });
   }
 
-  countByType(type: string): number {
-    return this.holidays.filter((h) => h.holidayType.toLowerCase() === type.toLowerCase()).length;
+  onSortChange(sort: Sort): void {
+    if (!sort.active || sort.direction === '') {
+      this.sortBy = 'startDate';
+      this.sortDescending = false;
+    } else {
+      this.sortBy = sort.active;
+      this.sortDescending = sort.direction === 'desc';
+    }
+    this.pageIndex = 0;
+    this.loadHolidays();
+  }
+
+  onPageChange(event: PageEvent): void {
+    this.pageIndex = event.pageIndex;
+    this.pageSize = event.pageSize;
+    this.loadHolidays();
+  }
+
+  onFilterChange(): void {
+    this.pageIndex = 0;
+    this.loadHolidays();
+    this.loadSummary();
+  }
+
+  onSearchInput(): void {
+    clearTimeout(this.searchDebounceTimer);
+    this.searchDebounceTimer = setTimeout(() => {
+      this.onSearch();
+    }, 350);
+  }
+
+  onSearch(): void {
+    this.pageIndex = 0;
+    this.loadHolidays();
+  }
+
+  clearSearch(): void {
+    this.searchKeyword = '';
+    this.pageIndex = 0;
+    this.loadHolidays();
   }
 
   openAddForm(): void {
@@ -488,6 +617,7 @@ export class HolidaysComponent implements OnInit {
     if (!this.formData.title || !this.formData.startDate || !this.formData.endDate) return;
 
     this.saving = true;
+    this.loading = true;
 
     if (this.isEditing && this.editingId) {
       this.http.put(`${this.api}/holidays/${this.editingId}`, this.formData).subscribe({
@@ -495,10 +625,12 @@ export class HolidaysComponent implements OnInit {
           this.saving = false;
           this.closeForm();
           this.loadHolidays();
+          this.loadSummary();
           this.confirmDialog.alert('Holiday Updated', 'Holiday record updated successfully.', 'success');
         },
         error: (err) => {
           this.saving = false;
+          this.loading = false;
           this.confirmDialog.alert('Error', err?.error?.message || 'Failed to update holiday.', 'danger');
         }
       });
@@ -508,10 +640,12 @@ export class HolidaysComponent implements OnInit {
           this.saving = false;
           this.closeForm();
           this.loadHolidays();
+          this.loadSummary();
           this.confirmDialog.alert('Holiday Added', 'New holiday added to the academic calendar.', 'success');
         },
         error: (err) => {
           this.saving = false;
+          this.loading = false;
           this.confirmDialog.alert('Error', err?.error?.message || 'Failed to add holiday.', 'danger');
         }
       });
@@ -527,12 +661,15 @@ export class HolidaysComponent implements OnInit {
       )
       .subscribe((confirmed) => {
         if (confirmed) {
+          this.loading = true;
           this.http.delete(`${this.api}/holidays/${item.id}`).subscribe({
             next: () => {
               this.loadHolidays();
+              this.loadSummary();
               this.confirmDialog.alert('Deleted', 'Holiday removed from calendar.', 'success');
             },
             error: () => {
+              this.loading = false;
               this.confirmDialog.alert('Error', 'Unable to delete holiday.', 'danger');
             }
           });
