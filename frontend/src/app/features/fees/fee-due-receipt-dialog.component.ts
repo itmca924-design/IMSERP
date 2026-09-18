@@ -133,6 +133,10 @@ export interface FeeDueReceiptDialogData {
               <span class="k">Settlement Policy:</span>
               <span class="v">FIFO (Oldest Dues Settled First)</span>
             </div>
+            <div class="prof-row" *ngIf="dueSlip.hostelInfo">
+              <span class="k">🏠 Hostel Facility:</span>
+              <span class="v hostel-info-pill">{{ dueSlip.hostelInfo }}</span>
+            </div>
           </div>
         </div>
 
@@ -536,6 +540,17 @@ export interface FeeDueReceiptDialogData {
           .k { width: 140px; color: #475569; font-weight: 600; flex-shrink: 0; }
           .v { color: #0f172a; flex: 1; }
           .student-highlight { font-weight: 800; color: #991b1b; font-size: 0.95rem; }
+          .hostel-info-pill {
+            display: inline-block;
+            background: #dcfce7;
+            color: #166534;
+            padding: 1px 8px;
+            border-radius: 4px;
+            font-size: 0.76rem;
+            font-weight: 600;
+            width: fit-content;
+            border: 1px solid #bbf7d0;
+          }
         }
       }
     }

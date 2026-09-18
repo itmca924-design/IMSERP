@@ -119,6 +119,10 @@ export interface FeeReceiptDialogData {
               <span class="k">Settlement Type:</span>
               <span class="v status-pill">FIFO Auto-Settlement</span>
             </div>
+            <div class="prof-row" *ngIf="data.receipt.hostelInfo">
+              <span class="k">🏠 Hostel Facility:</span>
+              <span class="v hostel-info-pill">{{ data.receipt.hostelInfo }}</span>
+            </div>
           </div>
         </div>
 
@@ -569,6 +573,17 @@ export interface FeeReceiptDialogData {
             font-size: 0.76rem;
             font-weight: 600;
             width: fit-content;
+          }
+          .hostel-info-pill {
+            display: inline-block;
+            background: #dcfce7;
+            color: #166534;
+            padding: 1px 8px;
+            border-radius: 4px;
+            font-size: 0.76rem;
+            font-weight: 600;
+            width: fit-content;
+            border: 1px solid #bbf7d0;
           }
         }
       }

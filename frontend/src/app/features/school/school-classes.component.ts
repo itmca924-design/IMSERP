@@ -176,7 +176,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             <mat-select [(ngModel)]="sectionFormData.roomId">
               <mat-option [value]="null">-- None / General --</mat-option>
               <mat-option *ngFor="let r of rooms" [value]="r.id">
-                Room {{ r.roomNumber }} (Cap: {{ r.capacity }})
+                {{ r.roomNumber }} (Cap: {{ r.capacity }})
               </mat-option>
             </mat-select>
           </mat-form-field>

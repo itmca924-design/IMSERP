@@ -649,6 +649,9 @@ const API_BASE = 'http://localhost:5000';
 
         <!-- TAB 5: NIGHT ROLL CALL & BIOMETRIC ATTENDANCE -->
         <div class="tab-pane" *ngIf="activeTab === 'rollcall'">
+          <!-- Progress loader on roll call fetch -->
+          <mat-progress-bar *ngIf="isRollCallLoading" mode="indeterminate" class="rc-progress-bar"></mat-progress-bar>
+
           <!-- Top Control Header Bar -->
           <div class="rollcall-header-bar">
             <div class="rollcall-inputs">
@@ -2746,6 +2749,12 @@ const API_BASE = 'http://localhost:5000';
     }
 
     /* ROLL CALL TAB */
+    .rc-progress-bar {
+      height: 3px;
+      margin-bottom: 14px;
+      border-radius: 2px;
+    }
+
     .rollcall-header-bar {
       display: flex;
       justify-content: space-between;
@@ -3410,6 +3419,7 @@ export class HostelManagementComponent implements OnInit {
   gatePassCompletedCount = 0;
   gatePassOverdueCount = 0;
   isGatePassLoading = false;
+  isRollCallLoading = false;
   displayedGatePassColumns: string[] = [
     'passNumber',
     'student',
@@ -3767,13 +3777,17 @@ export class HostelManagementComponent implements OnInit {
 
   loadRollCall(): void {
     if (!this.rollCallHostelId) return;
-    this.loading = true;
+    this.isRollCallLoading = true;
     this.hostelService.getRollCall(this.rollCallHostelId, this.rollCallDate).subscribe({
       next: (students) => {
         this.rollCallStudents = students || [];
+        this.isRollCallLoading = false;
         this.loading = false;
       },
-      error: () => (this.loading = false)
+      error: () => {
+        this.isRollCallLoading = false;
+        this.loading = false;
+      }
     });
   }
 
@@ -4135,6 +4149,10 @@ export class HostelManagementComponent implements OnInit {
       next: () => {
         this.showGatePassModal = false;
         this.loadAllData();
+        if (this.rollCallHostelId) {
+          this.loadRollCall();
+        }
+        this.loading = false;
         this.showSuccessDialog('Gate Pass Issued', 'Gate pass issued successfully with parent consent verified.');
       },
       error: (err) => {
@@ -4157,6 +4175,10 @@ export class HostelManagementComponent implements OnInit {
           next: () => {
             this.loadGatePasses();
             this.loadOverview();
+            this.loadBedMatrix();
+            if (this.rollCallHostelId) {
+              this.loadRollCall();
+            }
             this.loading = false;
             this.showSuccessDialog('Return Recorded', `Student ${g.studentName} has been marked as safely returned.`);
           },

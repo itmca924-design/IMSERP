@@ -413,7 +413,8 @@ public record FeePaymentReceiptDto(
     decimal LibraryFineAmountPaid = 0,
     string? LibraryFineParticulars = null,
     decimal PendingLibraryFine = 0,
-    List<FeeReceiptLineItemDto>? Items = null
+    List<FeeReceiptLineItemDto>? Items = null,
+    string? HostelInfo = null
 );
 
 public record StudentPendingFineItemDto(
@@ -466,7 +467,8 @@ public record FeeDueSlipDto(
     DateTime GeneratedDate,
     List<FeeDueSlipItemDto> DueItems,
     decimal PendingLibraryFine = 0,
-    int ActiveOverdueBooksCount = 0
+    int ActiveOverdueBooksCount = 0,
+    string? HostelInfo = null
 );
 
 public record TestDto(
@@ -717,7 +719,11 @@ public record FeeInvoicePagedItemDto(
     string Status,
     string? CancellationReason = null,
     DateTime? CancelledAt = null,
-    List<FeeInvoiceItemDto>? Items = null
+    List<FeeInvoiceItemDto>? Items = null,
+    string? ClassName = null,
+    string? SectionName = null,
+    bool IsSchoolStudent = false,
+    bool IsCoachingStudent = true
 );
 
 public record StudentLedgerInvoiceItemDto(
@@ -1389,7 +1395,8 @@ public record FeeHeadDto(
     string? Description,
     bool IsActive,
     bool IsDefault,
-    int SortOrder
+    int SortOrder,
+    string ApplicableTo = "Both"
 );
 
 public record CreateFeeHeadDto(
@@ -1400,7 +1407,8 @@ public record CreateFeeHeadDto(
     string? Description,
     int SortOrder = 0,
     bool IsActive = true,
-    bool IsDefault = false
+    bool IsDefault = false,
+    string ApplicableTo = "Both"
 );
 
 public record UpdateFeeHeadDto(
@@ -1411,7 +1419,8 @@ public record UpdateFeeHeadDto(
     string? Description,
     bool IsActive,
     int SortOrder,
-    bool IsDefault = false
+    bool IsDefault = false,
+    string ApplicableTo = "Both"
 );
 
 public record ClassFeeStructureItemDto(
@@ -1427,7 +1436,8 @@ public record ClassFeeStructureItemDto(
     string Frequency,
     decimal Amount,
     int? ApplicableMonth,
-    bool IsActive
+    bool IsActive,
+    string? ApplicableTo = "Both"
 );
 
 public record SaveClassFeeStructureItemDto(

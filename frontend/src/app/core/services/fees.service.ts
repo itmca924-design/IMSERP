@@ -21,6 +21,7 @@ export interface FeeHead {
   isActive: boolean;
   isDefault: boolean;
   sortOrder: number;
+  applicableTo?: string;
 }
 
 export interface CreateFeeHeadPayload {
@@ -32,6 +33,7 @@ export interface CreateFeeHeadPayload {
   sortOrder?: number;
   isActive?: boolean;
   isDefault?: boolean;
+  applicableTo?: string;
 }
 
 export interface UpdateFeeHeadPayload {
@@ -43,6 +45,7 @@ export interface UpdateFeeHeadPayload {
   isActive: boolean;
   sortOrder: number;
   isDefault?: boolean;
+  applicableTo?: string;
 }
 
 export interface PagedFeeHeadResult {
@@ -66,6 +69,7 @@ export interface ClassFeeStructureItem {
   amount: number;
   applicableMonth?: number | null;
   isActive: boolean;
+  applicableTo?: string;
 }
 
 export interface SaveClassFeeStructureItem {
@@ -101,6 +105,10 @@ export interface FeeInvoicePagedItem {
   cancellationReason?: string | null;
   cancelledAt?: string | null;
   items?: FeeInvoiceItem[];
+  className?: string | null;
+  sectionName?: string | null;
+  isSchoolStudent?: boolean;
+  isCoachingStudent?: boolean;
 }
 
 export interface StudentLedgerInvoiceItem {
@@ -204,6 +212,7 @@ export interface FeePaymentReceipt {
   libraryFineParticulars?: string;
   pendingLibraryFine?: number;
   items?: FeeReceiptLineItem[];
+  hostelInfo?: string;
 }
 
 export interface StudentPendingFineItem {
@@ -247,6 +256,7 @@ export interface FeeDueSlip {
   dueItems: FeeDueSlipItem[];
   pendingLibraryFine?: number;
   activeOverdueBooksCount?: number;
+  hostelInfo?: string;
 }
 
 @Injectable({
@@ -262,6 +272,7 @@ export class FeesService {
     pageSize: number = 10,
     searchTerm: string = '',
     batchId: string = '',
+    classId: string = '',
     status: string = '',
     sortBy: string = 'dueDate',
     sortDescending: boolean = true
@@ -273,6 +284,7 @@ export class FeesService {
 
     if (searchTerm) params = params.set('searchTerm', searchTerm);
     if (batchId) params = params.set('batchId', batchId);
+    if (classId) params = params.set('classId', classId);
     if (status) params = params.set('status', status);
     if (sortBy) params = params.set('sortBy', sortBy);
 

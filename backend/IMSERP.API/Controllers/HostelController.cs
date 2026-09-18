@@ -1,6 +1,7 @@
 using IMSERP.Application.DTOs;
 using IMSERP.Application.Interfaces;
 using IMSERP.Domain.Entities;
+using IMSERP.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -469,6 +470,91 @@ public class HostelController : ControllerBase
         _db.HostelAllocations.Add(allocation);
         await _db.SaveChangesAsync();
 
+        // ── Immediate First-Month Invoice ──────────────────────────────────────
+        // Generate a hostel fee invoice for the current month immediately so the
+        // parent can settle at the admission counter without waiting for bulk generation.
+        try
+        {
+            var now = DateTime.UtcNow;
+            var periodStart = new DateTime(now.Year, now.Month, 1);
+            var periodEnd   = periodStart.AddMonths(1).AddDays(-1);
+
+            // Skip if an active invoice already exists this month for this student
+            bool invoiceAlreadyExists = await _db.FeeInvoices.AnyAsync(i =>
+                i.StudentId == student.Id &&
+                i.DueDate >= periodStart &&
+                i.DueDate <= periodEnd &&
+                i.Status != InvoiceStatus.Cancelled);
+
+            if (!invoiceAlreadyExists && (rent > 0 || dto.MonthlyMessFee > 0))
+            {
+                var residentialHeads = await _db.FeeHeads
+                    .AsNoTracking()
+                    .Where(h => h.IsActive && (h.Code == "HOSTEL" || h.Code == "MESS"))
+                    .ToListAsync();
+
+                Guid? hostelHeadId = residentialHeads.FirstOrDefault(h => h.Code == "HOSTEL")?.Id;
+                Guid? messHeadId   = residentialHeads.FirstOrDefault(h => h.Code == "MESS")?.Id;
+
+                var roomNumber = bed.Room?.RoomNumber ?? "Room";
+                var bedCode    = bed.BedCode;
+
+                var hostelItems = new List<FeeInvoiceItem>();
+                decimal hostelTotal = 0;
+
+                if (rent > 0)
+                {
+                    hostelTotal += rent;
+                    hostelItems.Add(new FeeInvoiceItem
+                    {
+                        TenantId  = _currentUser.TenantId,
+                        FeeHeadId = hostelHeadId,
+                        HeadName  = $"Hostel / Accommodation Fee (Rm {roomNumber} - Bed {bedCode})",
+                        Amount    = rent,
+                        PaidAmount = 0
+                    });
+                }
+
+                if (dto.IsMessIncluded && dto.MonthlyMessFee > 0)
+                {
+                    hostelTotal += dto.MonthlyMessFee;
+                    hostelItems.Add(new FeeInvoiceItem
+                    {
+                        TenantId  = _currentUser.TenantId,
+                        FeeHeadId = messHeadId,
+                        HeadName  = $"Mess & Dining Fee ({dto.MessPlan})",
+                        Amount    = dto.MonthlyMessFee,
+                        PaidAmount = 0
+                    });
+                }
+
+                if (hostelTotal > 0)
+                {
+                    var hostelInvoice = new FeeInvoice
+                    {
+                        TenantId      = _currentUser.TenantId,
+                        BranchId      = student.BranchId,
+                        StudentId     = student.Id,
+                        InvoiceNumber = $"INV-HOSTEL-{now.Year}{now.Month:D2}-{new Random().Next(100, 999)}",
+                        Title         = $"{now:MMMM yyyy} Hostel Charges",
+                        TotalAmount   = hostelTotal,
+                        PaidAmount    = 0,
+                        DueDate       = new DateTime(now.Year, now.Month, Math.Min(10, DateTime.DaysInMonth(now.Year, now.Month))),
+                        Status        = InvoiceStatus.Pending,
+                        CreatedAt     = now,
+                        Items         = hostelItems
+                    };
+                    _db.FeeInvoices.Add(hostelInvoice);
+                    await _db.SaveChangesAsync();
+                }
+            }
+        }
+        catch
+        {
+            // Non-critical: invoice generation failure should not block bed allocation
+        }
+        // ─────────────────────────────────────────────────────────────────────────
+
         return Ok(new { message = $"Bed {bed.BedCode} allocated to {student.StudentName} successfully." });
     }
 
@@ -507,7 +593,9 @@ public class HostelController : ControllerBase
     }
 
     [HttpGet("allocations")]
-    public async Task<ActionResult<IEnumerable<HostelAllocationDto>>> GetAllocations([FromQuery] string? status = null)
+    public async Task<ActionResult<IEnumerable<HostelAllocationDto>>> GetAllocations(
+        [FromQuery] string? status = null,
+        [FromQuery] Guid? studentId = null)
     {
         var query = _db.HostelAllocations
             .AsNoTracking()
@@ -523,6 +611,11 @@ public class HostelController : ControllerBase
         if (!string.IsNullOrWhiteSpace(status))
         {
             query = query.Where(a => a.Status == status);
+        }
+
+        if (studentId.HasValue && studentId != Guid.Empty)
+        {
+            query = query.Where(a => a.StudentId == studentId.Value);
         }
 
         var list = await query

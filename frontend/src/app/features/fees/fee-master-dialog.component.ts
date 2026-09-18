@@ -224,6 +224,15 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                   </mat-select>
                 </mat-form-field>
 
+                <mat-form-field appearance="outline" class="field-col">
+                  <mat-label>Applicable To</mat-label>
+                  <mat-select formControlName="applicableTo" panelClass="smooth-dropdown-panel">
+                    <mat-option value="Both">🔄 Both (School &amp; Coaching)</mat-option>
+                    <mat-option value="School">🏫 School Only</mat-option>
+                    <mat-option value="Coaching">🎯 Coaching Only</mat-option>
+                  </mat-select>
+                </mat-form-field>
+
                 <mat-form-field appearance="outline" class="field-col full-width">
                   <mat-label>Description / Note</mat-label>
                   <input matInput formControlName="description" placeholder="Brief description of when this fee is levied" />
@@ -247,6 +256,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                   <tr>
                     <th>Code</th>
                     <th>Fee Head Name</th>
+                    <th>Applicable To</th>
                     <th>Category</th>
                     <th>Frequency</th>
                     <th>Description</th>
@@ -257,6 +267,11 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                   <tr *ngFor="let h of feeHeads">
                     <td><span class="code-pill">{{ h.code }}</span></td>
                     <td><strong>{{ h.name }}</strong></td>
+                    <td>
+                      <span class="scope-badge" [ngClass]="'scope-' + (h.applicableTo || 'both').toLowerCase()">
+                        {{ (h.applicableTo || 'Both') === 'Both' ? '🔄 Both' : ((h.applicableTo === 'School') ? '🏫 School' : '🎯 Coaching') }}
+                      </span>
+                    </td>
                     <td><span class="category-tag" [ngClass]="'cat-' + h.category.toLowerCase()">{{ h.category }}</span></td>
                     <td><span class="freq-tag">{{ h.frequency }}</span></td>
                     <td class="desc-cell">{{ h.description || '—' }}</td>
@@ -268,7 +283,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                     </td>
                   </tr>
                   <tr *ngIf="feeHeads.length === 0">
-                    <td colspan="6" class="empty-state">No fee heads found. Click "Load Standard Fee Presets" above to auto-populate standard school & coaching heads.</td>
+                    <td colspan="7" class="empty-state">No fee heads found. Click "Load Standard Fee Presets" above to auto-populate standard school & coaching heads.</td>
                   </tr>
                 </tbody>
               </table>
@@ -363,7 +378,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                 <tbody>
                   <tr *ngFor="let row of matrixRows" [class.row-disabled]="!row.isActive">
                     <td>
-                      <mat-checkbox [(ngModel)]="row.isActive" (change)="calculateTotals()" color="primary"></mat-checkbox>
+                      <mat-checkbox [(ngModel)]="row.isActive" (change)="onRowActiveChange(row)" color="primary"></mat-checkbox>
                     </td>
                     <td>
                       <strong>{{ row.feeHeadName }}</strong>
@@ -376,7 +391,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                     <td>
                       <mat-form-field appearance="outline" class="inline-amt-field" density="compact">
                         <span matPrefix class="rupee-prefix">₹&nbsp;</span>
-                        <input matInput type="number" [(ngModel)]="row.amount" (input)="calculateTotals()" [disabled]="!row.isActive" min="0" />
+                        <input matInput type="number" [ngModel]="row.isActive ? row.amount : 0" (ngModelChange)="row.amount = $event; onAmountChange(row)" [disabled]="!row.isActive" min="0" />
                       </mat-form-field>
                     </td>
                     <td>
@@ -600,6 +615,19 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
       border: 1px solid #e2e8f0;
       padding: 2px 6px;
       border-radius: 4px;
+    }
+    .scope-badge {
+      font-size: 0.72rem;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      white-space: nowrap;
+
+      &.scope-school { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+      &.scope-coaching { background: #faf5ff; color: #7e22ce; border: 1px solid #e9d5ff; }
+      &.scope-both { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
     }
     .default-badge {
       font-size: 0.68rem;
@@ -872,6 +900,7 @@ export class FeeMasterDialogComponent implements OnInit {
     amount: number;
     applicableMonth: number | null;
     isActive: boolean;
+    applicableTo?: string;
   }> = [];
 
   totalMonthlyAmount: number = 0;
@@ -899,6 +928,7 @@ export class FeeMasterDialogComponent implements OnInit {
       code: ['', Validators.required],
       category: ['Academic', Validators.required],
       frequency: ['Monthly', Validators.required],
+      applicableTo: ['Both', Validators.required],
       description: [''],
       sortOrder: [10]
     });
@@ -908,6 +938,7 @@ export class FeeMasterDialogComponent implements OnInit {
     this.headForm.reset({
       category: 'Academic',
       frequency: 'Monthly',
+      applicableTo: 'Both',
       sortOrder: 10
     });
   }
@@ -998,14 +1029,24 @@ export class FeeMasterDialogComponent implements OnInit {
         const structMap = new Map<string, ClassFeeStructureItem>();
         structures.forEach(s => structMap.set(s.feeHeadId, s));
 
-        // Build a row for every fee head
-        this.matrixRows = this.feeHeads.map(head => {
+        // Filter fee heads relevant to the selected mode (School Class vs Coaching Batch)
+        const relevantHeads = this.feeHeads.filter(head => {
+          const scope = head.applicableTo || 'Both';
+          if (this.targetType === 'class') {
+            return scope === 'School' || scope === 'Both';
+          } else {
+            return scope === 'Coaching' || scope === 'Both';
+          }
+        });
+
+        // Build a row for relevant fee heads
+        this.matrixRows = relevantHeads.map(head => {
           const existing = structMap.get(head.id);
           let defaultAmt = 0;
           let defaultActive = false;
 
           if (existing) {
-            defaultAmt = existing.amount;
+            defaultAmt = existing.isActive ? existing.amount : 0;
             defaultActive = existing.isActive;
           } else {
             // Sensible defaults
@@ -1042,7 +1083,8 @@ export class FeeMasterDialogComponent implements OnInit {
             frequency: head.frequency,
             amount: defaultAmt,
             applicableMonth: appMonth,
-            isActive: defaultActive
+            isActive: defaultActive,
+            applicableTo: head.applicableTo || 'Both'
           };
         });
 
@@ -1050,6 +1092,21 @@ export class FeeMasterDialogComponent implements OnInit {
       },
       error: (err) => console.error('Failed to load structure', err)
     });
+  }
+
+  onRowActiveChange(row: any): void {
+    if (!row.isActive) {
+      row.amount = 0;
+    }
+    this.calculateTotals();
+  }
+
+  onAmountChange(row: any): void {
+    const amt = Number(row.amount) || 0;
+    if (amt > 0 && !row.isActive) {
+      row.isActive = true;
+    }
+    this.calculateTotals();
   }
 
   calculateTotals(): void {
@@ -1139,9 +1196,9 @@ export class FeeMasterDialogComponent implements OnInit {
         classId: classId,
         batchId: batchId,
         feeHeadId: r.feeHeadId,
-        amount: Number(r.amount) || 0,
+        amount: r.isActive ? (Number(r.amount) || 0) : 0,
         applicableMonth: r.applicableMonth,
-        isActive: r.isActive
+        isActive: !!r.isActive
       }))
     };
 

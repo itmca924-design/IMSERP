@@ -22,6 +22,7 @@ export interface FeeDialogData {
   initialAmount?: number;
   selectedInvoicesCount?: number;
   selectedInvoicesDetails?: string;
+  hostelInfo?: string;
 }
 
 @Component({
@@ -52,6 +53,10 @@ export interface FeeDialogData {
           <div class="info-details">
             <span class="st-name">{{ data.studentName }} ({{ data.rollNumber }})</span>
             <span class="st-sub">{{ data.batchName }} | WA: {{ data.parentWhatsAppPhone }}</span>
+            <div *ngIf="data.hostelInfo" class="hostel-badge">
+              <mat-icon class="hostel-icon">home</mat-icon>
+              <span>🏠 Hosteler: <strong>{{ data.hostelInfo }}</strong></span>
+            </div>
             <div *ngIf="data.selectedInvoicesCount && data.selectedInvoicesCount > 1" class="multi-select-pill">
               <mat-icon class="mini-icon">layers</mat-icon>
               <span>Settling <strong>{{ data.selectedInvoicesCount }} Invoices</strong> in this single payment</span>
@@ -187,6 +192,25 @@ export interface FeeDialogData {
         .st-sub {
           font-size: 0.8rem;
           color: #64748b;
+        }
+        .hostel-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          margin-top: 6px;
+          font-size: 0.76rem;
+          color: #166534;
+          background: #dcfce7;
+          padding: 3px 8px;
+          border-radius: 4px;
+          border: 1px solid #bbf7d0;
+          width: fit-content;
+          .hostel-icon {
+            font-size: 15px;
+            width: 15px;
+            height: 15px;
+            color: #16a34a;
+          }
         }
         .multi-select-pill {
           display: inline-flex;

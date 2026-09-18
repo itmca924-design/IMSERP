@@ -268,9 +268,10 @@ export class HostelService {
     return this.http.post(`${this.baseUrl}/vacate`, dto);
   }
 
-  getAllocations(status?: string): Observable<HostelAllocationDto[]> {
+  getAllocations(status?: string, studentId?: string): Observable<HostelAllocationDto[]> {
     let params = new HttpParams();
     if (status) params = params.set('status', status);
+    if (studentId) params = params.set('studentId', studentId);
     return this.http.get<HostelAllocationDto[]>(`${this.baseUrl}/allocations`, { params });
   }
 

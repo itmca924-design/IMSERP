@@ -674,6 +674,7 @@ public class FeeHead
     public string? Description { get; set; }
     public bool IsActive { get; set; } = true;
     public bool IsDefault { get; set; } = false;
+    public string ApplicableTo { get; set; } = "Both";
     public int SortOrder { get; set; } = 0;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

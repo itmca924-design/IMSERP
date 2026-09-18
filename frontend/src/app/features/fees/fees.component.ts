@@ -17,7 +17,9 @@ import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { FeesService, FeeInvoicePagedItem, FeePaymentReceipt } from '../../core/services/fees.service';
 import { BatchesService, BatchDto } from '../../core/services/batches.service';
+import { SchoolService, SchoolClassDto } from '../../core/services/school.service';
 import { AuthService } from '../../core/services/auth.service';
+import { HostelService } from '../../core/services/hostel.service';
 import { FeeCollectionDialogComponent } from './fee-collection-dialog.component';
 import { FeeReceiptDialogComponent } from './fee-receipt-dialog.component';
 import { FeeDueReceiptDialogComponent } from './fee-due-receipt-dialog.component';
@@ -96,12 +98,22 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             </mat-select>
           </mat-form-field>
 
+          <mat-form-field appearance="outline" class="class-filter">
+            <mat-label>Filter by School Class</mat-label>
+            <mat-select [(ngModel)]="selectedClassFilter" (selectionChange)="onFilterChange()" panelClass="class-filter-panel">
+              <mat-option value="">All School Classes</mat-option>
+              <mat-option *ngFor="let c of schoolClasses" [value]="c.id">
+                🏫 {{ c.name }} {{ c.code ? '(' + c.code + ')' : '' }}
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+
           <mat-form-field appearance="outline" class="batch-filter">
-            <mat-label>Filter by Batch</mat-label>
+            <mat-label>Filter by Coaching Batch</mat-label>
             <mat-select [(ngModel)]="selectedBatchFilter" (selectionChange)="onFilterChange()" panelClass="batch-filter-panel">
-              <mat-option value="">All Academic Batches</mat-option>
+              <mat-option value="">All Coaching Batches</mat-option>
               <mat-option *ngFor="let b of batches" [value]="b.id">
-                {{ b.name }}
+                🎯 {{ b.name }}
               </mat-option>
             </mat-select>
           </mat-form-field>
@@ -153,8 +165,22 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             </ng-container>
 
             <ng-container matColumnDef="batchName">
-              <th mat-header-cell *matHeaderCellDef>Assigned Batch</th>
-              <td mat-cell *matCellDef="let inv">{{ inv.batchName }}</td>
+              <th mat-header-cell *matHeaderCellDef>Class &amp; Batch</th>
+              <td mat-cell *matCellDef="let inv">
+                <div class="academic-enrollment-cell">
+                  <div *ngIf="inv.className" class="academic-row school-row" matTooltip="Enrolled School Class">
+                    <span class="badge-icon">🏫</span>
+                    <span class="academic-val">{{ inv.className }}<span *ngIf="inv.sectionName" class="sec-tag"> ({{ inv.sectionName }})</span></span>
+                  </div>
+                  <div *ngIf="inv.batchName" class="academic-row batch-row" matTooltip="Enrolled Coaching Batch">
+                    <span class="badge-icon">🎯</span>
+                    <span class="academic-val">{{ inv.batchName }}</span>
+                  </div>
+                  <div *ngIf="!inv.className && !inv.batchName" class="text-muted" style="font-size: 0.8rem;">
+                    Unassigned
+                  </div>
+                </div>
+              </td>
             </ng-container>
 
             <ng-container matColumnDef="title">
@@ -469,12 +495,54 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
     .filter-toolbar {
       padding: 16px 20px 0 20px;
       display: flex;
-      gap: 16px;
+      gap: 14px;
       align-items: center;
+      flex-wrap: wrap;
 
-      .search-field { width: 300px; }
-      .status-filter { width: 180px; }
-      .batch-filter { width: 360px; }
+      .search-field { width: 260px; }
+      .status-filter { width: 150px; }
+      .class-filter { width: 220px; }
+      .batch-filter { width: 280px; }
+    }
+    .academic-enrollment-cell {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 3px 0;
+
+      .academic-row {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 0.76rem;
+        padding: 2px 7px;
+        border-radius: 6px;
+        width: fit-content;
+        line-height: 1.25;
+
+        &.school-row {
+          background: #eff6ff;
+          color: #1d4ed8;
+          border: 1px solid #dbeafe;
+          font-weight: 600;
+          .sec-tag {
+            color: #3b82f6;
+            font-weight: 500;
+          }
+        }
+
+        &.batch-row {
+          background: #faf5ff;
+          color: #7e22ce;
+          border: 1px solid #f3e8ff;
+          font-weight: 600;
+        }
+
+        .badge-icon {
+          font-size: 0.82rem;
+          line-height: 1;
+        }
+      }
     }
     .grid-loader { margin-top: 4px; }
     .table-container { padding: 0; }
@@ -714,6 +782,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
 export class FeesComponent implements OnInit, OnDestroy {
   invoices: FeeInvoicePagedItem[] = [];
   batches: BatchDto[] = [];
+  schoolClasses: SchoolClassDto[] = [];
   loading = false;
   private refreshSub?: Subscription;
 
@@ -723,6 +792,7 @@ export class FeesComponent implements OnInit, OnDestroy {
   searchTerm = '';
   selectedStatusFilter = '';
   selectedBatchFilter = '';
+  selectedClassFilter = '';
   sortBy = 'dueDate';
   sortDescending = true;
 
@@ -872,13 +942,16 @@ export class FeesComponent implements OnInit, OnDestroy {
   constructor(
     private feesService: FeesService,
     private batchesService: BatchesService,
+    private schoolService: SchoolService,
     private confirmDialog: ConfirmDialogService,
     private authService: AuthService,
+    private hostelService: HostelService,
     private dialog: MatDialog
   ) {}
 
   ngOnInit(): void {
     this.loadBatches();
+    this.loadSchoolClasses();
     this.loadInvoices();
 
     this.refreshSub = this.feesService.refreshRequired$.subscribe(() => {
@@ -914,6 +987,13 @@ export class FeesComponent implements OnInit, OnDestroy {
     });
   }
 
+  loadSchoolClasses(): void {
+    this.schoolService.getClasses().subscribe({
+      next: (data) => (this.schoolClasses = data),
+      error: (err) => console.error('Error fetching school classes:', err)
+    });
+  }
+
   loadInvoices(): void {
     this.loading = true;
     this.feesService
@@ -922,6 +1002,7 @@ export class FeesComponent implements OnInit, OnDestroy {
         this.pageSize,
         this.searchTerm,
         this.selectedBatchFilter,
+        this.selectedClassFilter,
         this.selectedStatusFilter,
         this.sortBy,
         this.sortDescending
@@ -967,30 +1048,70 @@ export class FeesComponent implements OnInit, OnDestroy {
   }
 
   openCollectFeeModal(inv: FeeInvoicePagedItem): void {
-    const dialogRef = this.dialog.open(FeeCollectionDialogComponent, {
-      width: '540px',
-      data: {
-        studentId: inv.studentId,
-        studentName: inv.studentName,
-        rollNumber: inv.rollNumber,
-        batchName: inv.batchName,
-        parentWhatsAppPhone: inv.parentWhatsAppPhone,
-        totalOutstandingDue: inv.dueAmount
-      }
-    });
+    // Lookup active hostel allocation for this student to show bed info in dialog
+    this.hostelService.getAllocations('Active', inv.studentId).subscribe({
+      next: (allocations) => {
+        const alloc = allocations.find(a => a.studentId === inv.studentId);
+        const hostelInfo = alloc
+          ? `${alloc.hostelName} - Rm ${alloc.roomNumber} (Bed ${alloc.bedCode})`
+          : undefined;
 
-    dialogRef.afterClosed().subscribe((res: FeePaymentReceipt | undefined) => {
-      if (res) {
-        this.loadInvoices();
-
-        // Immediately open official Fee Payment Receipt Dialog
-        this.dialog.open(FeeReceiptDialogComponent, {
-          width: '840px',
-          maxWidth: '96vw',
-          panelClass: 'receipt-dialog-panel',
+        const dialogRef = this.dialog.open(FeeCollectionDialogComponent, {
+          width: '540px',
           data: {
-            receipt: res,
-            instituteName: this.authService.currentUser()?.instituteName || 'Saraswati Coaching Classes'
+            studentId: inv.studentId,
+            studentName: inv.studentName,
+            rollNumber: inv.rollNumber,
+            batchName: inv.batchName,
+            parentWhatsAppPhone: inv.parentWhatsAppPhone,
+            totalOutstandingDue: inv.dueAmount,
+            hostelInfo
+          }
+        });
+
+        dialogRef.afterClosed().subscribe((res: FeePaymentReceipt | undefined) => {
+          if (res) {
+            this.loadInvoices();
+
+            // Immediately open official Fee Payment Receipt Dialog
+            this.dialog.open(FeeReceiptDialogComponent, {
+              width: '840px',
+              maxWidth: '96vw',
+              panelClass: 'receipt-dialog-panel',
+              data: {
+                receipt: res,
+                instituteName: this.authService.currentUser()?.instituteName || 'Saraswati Coaching Classes'
+              }
+            });
+          }
+        });
+      },
+      error: () => {
+        // If allocation lookup fails, still open dialog without hostel info
+        const dialogRef = this.dialog.open(FeeCollectionDialogComponent, {
+          width: '540px',
+          data: {
+            studentId: inv.studentId,
+            studentName: inv.studentName,
+            rollNumber: inv.rollNumber,
+            batchName: inv.batchName,
+            parentWhatsAppPhone: inv.parentWhatsAppPhone,
+            totalOutstandingDue: inv.dueAmount
+          }
+        });
+
+        dialogRef.afterClosed().subscribe((res: FeePaymentReceipt | undefined) => {
+          if (res) {
+            this.loadInvoices();
+            this.dialog.open(FeeReceiptDialogComponent, {
+              width: '840px',
+              maxWidth: '96vw',
+              panelClass: 'receipt-dialog-panel',
+              data: {
+                receipt: res,
+                instituteName: this.authService.currentUser()?.instituteName || 'Saraswati Coaching Classes'
+              }
+            });
           }
         });
       }

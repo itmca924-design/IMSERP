@@ -30,15 +30,25 @@ public class FeesController : ControllerBase
         [FromQuery] int pageSize = 10,
         [FromQuery] string? searchTerm = null,
         [FromQuery] Guid? batchId = null,
+        [FromQuery] Guid? classId = null,
         [FromQuery] string? status = null,
         [FromQuery] string? sortBy = "dueDate",
         [FromQuery] bool sortDescending = true)
     {
+        var tenantId = _currentUser.TenantId;
+        // Base query: include navigation properties needed for filtering/sorting.
+        // Do NOT eagerly include Items here — they are projected via Select() below,
+        // which allows EF Core to use AsSplitQuery() and avoid a Cartesian product.
         var query = _dbContext.FeeInvoices
             .AsNoTracking()
+            .Where(i => i.TenantId == tenantId)
             .Include(i => i.Student)
                 .ThenInclude(s => s.Batch)
-            .Include(i => i.Items)
+            .Include(i => i.Student)
+                .ThenInclude(s => s.Class)
+            .Include(i => i.Student)
+                .ThenInclude(s => s.Section)
+            .AsSplitQuery()
             .AsQueryable();
 
         // If no invoices exist yet, auto-seed default invoices for active students starting from their Joining Date
@@ -82,9 +92,14 @@ public class FeesController : ControllerBase
                 await _dbContext.SaveChangesAsync();
                 query = _dbContext.FeeInvoices
                     .AsNoTracking()
+                    .Where(i => i.TenantId == tenantId)
                     .Include(i => i.Student)
                         .ThenInclude(s => s.Batch)
-                    .Include(i => i.Items)
+                    .Include(i => i.Student)
+                        .ThenInclude(s => s.Class)
+                    .Include(i => i.Student)
+                        .ThenInclude(s => s.Section)
+                    .AsSplitQuery()
                     .AsQueryable();
             }
         }
@@ -93,6 +108,11 @@ public class FeesController : ControllerBase
         if (batchId.HasValue && batchId != Guid.Empty)
         {
             query = query.Where(i => i.Student != null && i.Student.BatchId == batchId.Value);
+        }
+
+        if (classId.HasValue && classId != Guid.Empty)
+        {
+            query = query.Where(i => i.Student != null && i.Student.ClassId == classId.Value);
         }
 
         if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<InvoiceStatus>(status, true, out var invoiceStatus))
@@ -144,7 +164,11 @@ public class FeesController : ControllerBase
                 i.Status.ToString(),
                 i.CancellationReason,
                 i.CancelledAt,
-                i.Items.Select(it => new FeeInvoiceItemDto(it.Id, it.InvoiceId, it.FeeHeadId, it.HeadName, it.Amount, it.PaidAmount)).ToList()
+                i.Items.Select(it => new FeeInvoiceItemDto(it.Id, it.InvoiceId, it.FeeHeadId, it.HeadName, it.Amount, it.PaidAmount)).ToList(),
+                i.Student != null && i.Student.Class != null ? i.Student.Class.Name : null,
+                i.Student != null && i.Student.Section != null ? i.Student.Section.Name : null,
+                i.Student != null && i.Student.IsSchoolStudent,
+                i.Student != null && i.Student.IsCoachingStudent
             ))
             .ToListAsync();
 
@@ -542,6 +566,19 @@ public class FeesController : ControllerBase
                 );
             }
 
+            // Resolve hostel bed info for the receipt
+            var hostelAlloc = await _dbContext.HostelAllocations
+                .AsNoTracking()
+                .Include(a => a.Bed)
+                    .ThenInclude(b => b!.Room)
+                        .ThenInclude(r => r!.Hostel)
+                .Where(a => a.StudentId == dto.StudentId && a.Status == "Active")
+                .FirstOrDefaultAsync();
+
+            string? hostelInfo = hostelAlloc != null
+                ? $"{hostelAlloc.Bed?.Room?.Hostel?.Name} - Rm {hostelAlloc.Bed?.Room?.RoomNumber} (Bed {hostelAlloc.Bed?.BedCode})"
+                : null;
+
             return Ok(new FeePaymentReceiptDto(
                 lastPayment?.Id ?? (selectedCirculations.FirstOrDefault()?.Id ?? Guid.NewGuid()),
                 receiptNo,
@@ -561,7 +598,8 @@ public class FeesController : ControllerBase
                 finePaidNow,
                 libraryFineParticulars,
                 remainingPendingLibFine,
-                lineItems
+                lineItems,
+                hostelInfo
             ));
         });
     }
@@ -673,6 +711,23 @@ public class FeesController : ControllerBase
             ));
         }
 
+        // Resolve hostel bed info for the receipt
+        string? receiptHostelInfo = null;
+        if (student != null)
+        {
+            var receiptHostelAlloc = await _dbContext.HostelAllocations
+                .AsNoTracking()
+                .Include(a => a.Bed)
+                    .ThenInclude(b => b!.Room)
+                        .ThenInclude(r => r!.Hostel)
+                .Where(a => a.StudentId == student.Id && a.Status == "Active")
+                .FirstOrDefaultAsync();
+
+            receiptHostelInfo = receiptHostelAlloc != null
+                ? $"{receiptHostelAlloc.Bed?.Room?.Hostel?.Name} - Rm {receiptHostelAlloc.Bed?.Room?.RoomNumber} (Bed {receiptHostelAlloc.Bed?.BedCode})"
+                : null;
+        }
+
         return Ok(new FeePaymentReceiptDto(
             firstPayment?.Id ?? (circulations.FirstOrDefault()?.Id ?? Guid.NewGuid()),
             receiptNumber,
@@ -692,7 +747,8 @@ public class FeesController : ControllerBase
             totalFinePaid,
             totalFinePaid > 0 ? string.Join(", ", circulations.Select(c => $"{c.BookCopy?.Book?.Title} ({c.BookCopy?.AccessionNumber})")) : null,
             remainingLibFine,
-            lineItems
+            lineItems,
+            receiptHostelInfo
         ));
     }
 
@@ -738,6 +794,19 @@ public class FeesController : ControllerBase
         var activeOverdueCount = await _dbContext.LibraryCirculations
             .CountAsync(c => c.StudentId == studentId && (c.Status == "Issued" || c.Status == "Overdue") && c.DueDate < DateTime.UtcNow);
 
+        // Resolve hostel bed info for the due slip
+        var dueSlipHostelAlloc = await _dbContext.HostelAllocations
+            .AsNoTracking()
+            .Include(a => a.Bed)
+                .ThenInclude(b => b!.Room)
+                    .ThenInclude(r => r!.Hostel)
+            .Where(a => a.StudentId == studentId && a.Status == "Active")
+            .FirstOrDefaultAsync();
+
+        string? dueSlipHostelInfo = dueSlipHostelAlloc != null
+            ? $"{dueSlipHostelAlloc.Bed?.Room?.Hostel?.Name} - Rm {dueSlipHostelAlloc.Bed?.Room?.RoomNumber} (Bed {dueSlipHostelAlloc.Bed?.BedCode})"
+            : null;
+
         return Ok(new FeeDueSlipDto(
             student.Id,
             student.StudentName,
@@ -749,7 +818,8 @@ public class FeesController : ControllerBase
             DateTime.UtcNow,
             items,
             pendingLibFine,
-            activeOverdueCount
+            activeOverdueCount,
+            dueSlipHostelInfo
         ));
     }
 
@@ -839,6 +909,32 @@ public class FeesController : ControllerBase
                  (cfs.BatchId.HasValue && batchIds.Contains(cfs.BatchId.Value))))
             .ToListAsync();
 
+        // ── Hostel Fee Engine ────────────────────────────────────────────────
+        // Load all active hostel allocations for these students (bulk, pre-loop)
+        var studentIds = students.Select(s => s.Id).ToList();
+        var activeAllocations = await _dbContext.HostelAllocations
+            .AsNoTracking()
+            .Include(a => a.Bed)
+                .ThenInclude(b => b!.Room)
+                    .ThenInclude(r => r!.Hostel)
+            .Where(a => a.Status == "Active" && studentIds.Contains(a.StudentId))
+            .ToListAsync();
+
+        // Key: StudentId → HostelAllocation (one active allocation per student)
+        var allocationByStudent = activeAllocations
+            .GroupBy(a => a.StudentId)
+            .ToDictionary(g => g.Key, g => g.First());
+
+        // Resolve Residential FeeHead IDs by Code (HOSTEL / MESS)
+        var residentialHeads = await _dbContext.FeeHeads
+            .AsNoTracking()
+            .Where(h => h.IsActive && (h.Code == "HOSTEL" || h.Code == "MESS"))
+            .ToListAsync();
+
+        var hostelFeeHeadId = residentialHeads.FirstOrDefault(h => h.Code == "HOSTEL")?.Id;
+        var messFeeHeadId   = residentialHeads.FirstOrDefault(h => h.Code == "MESS")?.Id;
+        // ────────────────────────────────────────────────────────────────────
+
         var newInvoices = new List<FeeInvoice>();
         int skippedCount = 0;
         var random = new Random();
@@ -893,6 +989,43 @@ public class FeesController : ControllerBase
                     PaidAmount = 0
                 });
             }
+
+            // ── Inject Hostel Charges (if this student has an active bed allocation) ──
+            if (allocationByStudent.TryGetValue(s.Id, out var allocation))
+            {
+                var bedLabel  = allocation.Bed?.BedCode ?? "Bed";
+                var roomLabel = allocation.Bed?.Room?.RoomNumber ?? "Room";
+                var hostelLabel = allocation.Bed?.Room?.Hostel?.Name ?? "Hostel";
+
+                if (allocation.MonthlyRent > 0)
+                {
+                    decimal rentAmount = allocation.MonthlyRent * cycleMonths;
+                    totalAmount += rentAmount;
+                    invoiceItems.Add(new FeeInvoiceItem
+                    {
+                        TenantId  = _currentUser.TenantId,
+                        FeeHeadId = hostelFeeHeadId,
+                        HeadName  = $"Hostel / Accommodation Fee (Rm {roomLabel} - Bed {bedLabel})",
+                        Amount    = rentAmount,
+                        PaidAmount = 0
+                    });
+                }
+
+                if (allocation.IsMessIncluded && allocation.MonthlyMessFee > 0)
+                {
+                    decimal messAmount = allocation.MonthlyMessFee * cycleMonths;
+                    totalAmount += messAmount;
+                    invoiceItems.Add(new FeeInvoiceItem
+                    {
+                        TenantId  = _currentUser.TenantId,
+                        FeeHeadId = messFeeHeadId,
+                        HeadName  = $"Mess & Dining Fee ({allocation.MessPlan})",
+                        Amount    = messAmount,
+                        PaidAmount = 0
+                    });
+                }
+            }
+            // ─────────────────────────────────────────────────────────────────────
 
             // Unique invoice number encodes the cycle type
             var cycleSuffix = dto.BillingCycle switch
@@ -1123,7 +1256,8 @@ public class FeesController : ControllerBase
                 h.Description,
                 h.IsActive,
                 h.IsDefault,
-                h.SortOrder
+                h.SortOrder,
+                h.ApplicableTo ?? "Both"
             ))
             .ToListAsync();
 
@@ -1150,7 +1284,8 @@ public class FeesController : ControllerBase
                 h.Description,
                 h.IsActive,
                 h.IsDefault,
-                h.SortOrder
+                h.SortOrder,
+                h.ApplicableTo ?? "Both"
             ))
             .ToListAsync();
 
@@ -1176,6 +1311,7 @@ public class FeesController : ControllerBase
             existing.SortOrder = dto.SortOrder;
             existing.IsActive = dto.IsActive;
             existing.IsDefault = dto.IsDefault;
+            existing.ApplicableTo = string.IsNullOrWhiteSpace(dto.ApplicableTo) ? "Both" : dto.ApplicableTo.Trim();
             await _dbContext.SaveChangesAsync();
 
             return Ok(new FeeHeadDto(
@@ -1187,7 +1323,8 @@ public class FeesController : ControllerBase
                 existing.Description,
                 existing.IsActive,
                 existing.IsDefault,
-                existing.SortOrder
+                existing.SortOrder,
+                existing.ApplicableTo
             ));
         }
 
@@ -1202,7 +1339,8 @@ public class FeesController : ControllerBase
             Description = dto.Description?.Trim(),
             IsActive = dto.IsActive,
             IsDefault = dto.IsDefault,
-            SortOrder = dto.SortOrder
+            SortOrder = dto.SortOrder,
+            ApplicableTo = string.IsNullOrWhiteSpace(dto.ApplicableTo) ? "Both" : dto.ApplicableTo.Trim()
         };
 
         _dbContext.FeeHeads.Add(newHead);
@@ -1217,7 +1355,8 @@ public class FeesController : ControllerBase
             newHead.Description,
             newHead.IsActive,
             newHead.IsDefault,
-            newHead.SortOrder
+            newHead.SortOrder,
+            newHead.ApplicableTo
         ));
     }
 
@@ -1244,6 +1383,7 @@ public class FeesController : ControllerBase
         head.IsActive = dto.IsActive;
         head.IsDefault = dto.IsDefault;
         head.SortOrder = dto.SortOrder;
+        head.ApplicableTo = string.IsNullOrWhiteSpace(dto.ApplicableTo) ? "Both" : dto.ApplicableTo.Trim();
 
         await _dbContext.SaveChangesAsync();
 
@@ -1256,7 +1396,8 @@ public class FeesController : ControllerBase
             head.Description,
             head.IsActive,
             head.IsDefault,
-            head.SortOrder
+            head.SortOrder,
+            head.ApplicableTo
         ));
     }
 
@@ -1319,7 +1460,6 @@ public class FeesController : ControllerBase
             query = query.Where(s => s.BatchId == batchId.Value);
 
         var list = await query
-            .Where(s => s.IsActive)
             .OrderBy(s => s.FeeHead != null ? s.FeeHead.SortOrder : 0)
             .Select(s => new ClassFeeStructureItemDto(
                 s.Id,
@@ -1334,7 +1474,8 @@ public class FeesController : ControllerBase
                 s.FeeHead != null ? s.FeeHead.Frequency : "Monthly",
                 s.Amount,
                 s.ApplicableMonth,
-                s.IsActive
+                s.IsActive,
+                s.FeeHead != null ? (s.FeeHead.ApplicableTo ?? "Both") : "Both"
             ))
             .ToListAsync();
 
@@ -1349,12 +1490,14 @@ public class FeesController : ControllerBase
 
         foreach (var item in dto.Items)
         {
+            var effectiveAmount = item.IsActive ? item.Amount : 0m;
+
             if (item.Id.HasValue && item.Id.Value != Guid.Empty)
             {
                 var existing = await _dbContext.ClassFeeStructures.FindAsync(item.Id.Value);
                 if (existing != null)
                 {
-                    existing.Amount = item.Amount;
+                    existing.Amount = effectiveAmount;
                     existing.ApplicableMonth = item.ApplicableMonth;
                     existing.IsActive = item.IsActive;
                     continue;
@@ -1368,7 +1511,7 @@ public class FeesController : ControllerBase
 
             if (duplicate != null)
             {
-                duplicate.Amount = item.Amount;
+                duplicate.Amount = effectiveAmount;
                 duplicate.ApplicableMonth = item.ApplicableMonth;
                 duplicate.IsActive = item.IsActive;
             }
@@ -1381,7 +1524,7 @@ public class FeesController : ControllerBase
                     ClassId = dto.ClassId,
                     BatchId = dto.BatchId,
                     FeeHeadId = item.FeeHeadId,
-                    Amount = item.Amount,
+                    Amount = effectiveAmount,
                     ApplicableMonth = item.ApplicableMonth,
                     IsActive = item.IsActive
                 };
