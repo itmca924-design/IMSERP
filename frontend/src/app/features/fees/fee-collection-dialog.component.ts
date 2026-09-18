@@ -10,6 +10,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatIconModule } from '@angular/material/icon';
 import { FeesService, StudentLibraryDues } from '../../core/services/fees.service';
+import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 
 export interface FeeDialogData {
   studentId: string;
@@ -405,6 +406,7 @@ export class FeeCollectionDialogComponent implements OnInit {
   constructor(
     private fb: FormBuilder,
     private feesService: FeesService,
+    private confirmDialog: ConfirmDialogService,
     private dialogRef: MatDialogRef<FeeCollectionDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: FeeDialogData
   ) {}
@@ -489,7 +491,7 @@ export class FeeCollectionDialogComponent implements OnInit {
       },
       error: (err) => {
         this.saving = false;
-        alert(err?.error?.message || 'Error processing fee collection');
+        this.confirmDialog.alert('Collection Failed', err?.error?.message || 'Error processing fee collection', 'danger');
       }
     });
   }

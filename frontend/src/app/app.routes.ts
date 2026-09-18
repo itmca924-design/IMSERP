@@ -100,6 +100,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/fees/fees.component').then(m => m.FeesComponent)
       },
       {
+        path: 'fee-heads',
+        loadComponent: () => import('./features/fee-heads/fee-heads.component').then(m => m.FeeHeadsComponent)
+      },
+      {
         path: 'tests',
         loadComponent: () => import('./features/tests/tests.component').then(m => m.TestsComponent)
       },
@@ -118,6 +122,12 @@ export const routes: Routes = [
         loadComponent: () => import('./features/library/library-circulation.component').then(m => m.LibraryCirculationComponent)
       },
       { path: 'library', redirectTo: 'library/books', pathMatch: 'full' },
+
+      // Hostel & Residential Management (School + Hostel & Coaching + Hostel)
+      {
+        path: 'hostel',
+        loadComponent: () => import('./features/hostel/hostel-management.component').then(m => m.HostelManagementComponent)
+      },
 
       // Admin Settings
       {

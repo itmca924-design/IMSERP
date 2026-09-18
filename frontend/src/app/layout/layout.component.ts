@@ -1325,10 +1325,12 @@ export class LayoutComponent implements OnInit {
         id: '5', title: 'Academic Operations', routeUrl: '', icon: 'school', sortOrder: 5, module: 'Academic', isActive: true,
         children: [
           { id: '51', title: 'Fee Collection', routeUrl: '/fees', icon: 'payments', sortOrder: 1, module: 'Academic', isActive: true, children: [] },
-          { id: '52', title: 'Tests & Report Cards', routeUrl: '/tests', icon: 'assignment', sortOrder: 2, module: 'Academic', isActive: true, children: [] },
-          { id: '53', title: 'WhatsApp Logs', routeUrl: '/whatsapp', icon: 'chat', sortOrder: 3, module: 'Academic', isActive: true, children: [] },
-          { id: '54', title: 'Library Books', routeUrl: '/library/books', icon: 'local_library', sortOrder: 4, module: 'Academic', isActive: true, children: [] },
-          { id: '55', title: 'Issue & Return Desk', routeUrl: '/library/circulation', icon: 'sync_alt', sortOrder: 5, module: 'Academic', isActive: true, children: [] }
+          { id: '511', title: 'Fee Heads Master', routeUrl: '/fee-heads', icon: 'account_tree', sortOrder: 2, module: 'Academic', isActive: true, children: [] },
+          { id: '52', title: 'Tests & Report Cards', routeUrl: '/tests', icon: 'assignment', sortOrder: 3, module: 'Academic', isActive: true, children: [] },
+          { id: '53', title: 'WhatsApp Logs', routeUrl: '/whatsapp', icon: 'chat', sortOrder: 4, module: 'Academic', isActive: true, children: [] },
+          { id: '54', title: 'Library Books', routeUrl: '/library/books', icon: 'local_library', sortOrder: 5, module: 'Academic', isActive: true, children: [] },
+          { id: '55', title: 'Issue & Return Desk', routeUrl: '/library/circulation', icon: 'sync_alt', sortOrder: 6, module: 'Academic', isActive: true, children: [] },
+          { id: '56', title: 'Hostel Management', routeUrl: '/hostel', icon: 'apartment', sortOrder: 7, module: 'Academic', isActive: true, children: [] }
         ]
       },
       {

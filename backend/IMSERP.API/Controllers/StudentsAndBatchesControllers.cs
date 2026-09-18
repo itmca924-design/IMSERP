@@ -612,6 +612,14 @@ public class StudentsController : ControllerBase
             {
                 query = query.Where(s => s.IsCoachingStudent);
             }
+            else if (stream.Equals("hostel", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(s => s.IsHostelStudent);
+            }
+            else if (stream.Equals("dayscholar", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(s => !s.IsHostelStudent);
+            }
         }
 
         if (!string.IsNullOrWhiteSpace(searchTerm))
@@ -628,16 +636,17 @@ public class StudentsController : ControllerBase
 
         query = (sortBy?.ToLower()) switch
         {
-            "studentname" => sortDescending ? query.OrderByDescending(s => s.StudentName) : query.OrderBy(s => s.StudentName),
-            "batchname" => sortDescending ? query.OrderByDescending(s => s.Batch != null ? s.Batch.Name : "") : query.OrderBy(s => s.Batch != null ? s.Batch.Name : ""),
-            "classname" => sortDescending ? query.OrderByDescending(s => s.Class != null ? s.Class.Name : "") : query.OrderBy(s => s.Class != null ? s.Class.Name : ""),
-            "parentname" => sortDescending ? query.OrderByDescending(s => s.ParentName) : query.OrderBy(s => s.ParentName),
+            "name" => sortDescending ? query.OrderByDescending(s => s.StudentName) : query.OrderBy(s => s.StudentName),
+            "rollnumber" => sortDescending ? query.OrderByDescending(s => s.RollNumber) : query.OrderBy(s => s.RollNumber),
             "joiningdate" => sortDescending ? query.OrderByDescending(s => s.JoiningDate) : query.OrderBy(s => s.JoiningDate),
             _ => sortDescending ? query.OrderByDescending(s => s.RollNumber) : query.OrderBy(s => s.RollNumber)
         };
 
         var totalCount = await query.CountAsync();
         var items = await query
+            .Include(s => s.HostelBed)
+                .ThenInclude(b => b.Room)
+                    .ThenInclude(r => r.Hostel)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
             .Select(s => new StudentDto(
@@ -666,7 +675,12 @@ public class StudentsController : ControllerBase
                 s.MotherName,
                 s.Gender,
                 s.DateOfBirth,
-                s.BloodGroup
+                s.BloodGroup,
+                s.IsHostelStudent,
+                s.HostelBedId,
+                s.HostelBed != null && s.HostelBed.Room != null && s.HostelBed.Room.Hostel != null ? s.HostelBed.Room.Hostel.Name : null,
+                s.HostelBed != null && s.HostelBed.Room != null ? s.HostelBed.Room.RoomNumber : null,
+                s.HostelBed != null ? s.HostelBed.BedCode : null
             )).ToListAsync();
 
         return Ok(new PagedResult<StudentDto>(items, totalCount, pageNumber, pageSize));
@@ -713,6 +727,8 @@ public class StudentsController : ControllerBase
                 AdmissionNumber = dto.AdmissionNumber,
                 IsSchoolStudent = dto.IsSchoolStudent,
                 IsCoachingStudent = dto.IsCoachingStudent,
+                IsHostelStudent = dto.IsHostelStudent,
+                HostelBedId = dto.IsHostelStudent ? dto.HostelBedId : null,
                 StudentName = dto.StudentName,
                 ParentName = dto.ParentName,
                 ParentWhatsAppPhone = dto.ParentWhatsAppPhone,
@@ -727,6 +743,28 @@ public class StudentsController : ControllerBase
 
             _dbContext.Students.Add(student);
             await _dbContext.SaveChangesAsync();
+
+            // Reserve bed if hostel student
+            if (dto.IsHostelStudent && dto.HostelBedId.HasValue)
+            {
+                var bed = await _dbContext.HostelBeds.FindAsync(dto.HostelBedId.Value);
+                if (bed != null)
+                {
+                    bed.Status = "Occupied";
+                    bed.CurrentStudentId = student.Id;
+                    _dbContext.HostelAllocations.Add(new HostelAllocation
+                    {
+                        TenantId = _currentUser.TenantId,
+                        BranchId = targetBranchId,
+                        StudentId = student.Id,
+                        BedId = bed.Id,
+                        AllocatedDate = DateTime.UtcNow,
+                        MonthlyRent = bed.MonthlyRent,
+                        IsMessIncluded = true,
+                        Status = "Active"
+                    });
+                }
+            }
 
             // Save profile photo after we have the student Id
             student.ProfilePhoto = ImageStorageHelper.SaveBase64Image(dto.ProfilePhoto, "students", student.Id.ToString(), _env.ContentRootPath);
@@ -829,8 +867,50 @@ public class StudentsController : ControllerBase
         student.SchoolRollNumber = dto.SchoolRollNumber;
         student.CoachingRollNumber = dto.CoachingRollNumber;
         student.AdmissionNumber = dto.AdmissionNumber;
-        student.IsSchoolStudent = dto.IsSchoolStudent;
-        student.IsCoachingStudent = dto.IsCoachingStudent;
+        // Hostel Bed Allocation / Reallocation / Deallocation
+        if (student.IsHostelStudent != dto.IsHostelStudent || student.HostelBedId != dto.HostelBedId)
+        {
+            if (student.HostelBedId.HasValue && (!dto.IsHostelStudent || student.HostelBedId != dto.HostelBedId))
+            {
+                var oldBed = await _dbContext.HostelBeds.FindAsync(student.HostelBedId.Value);
+                if (oldBed != null && oldBed.CurrentStudentId == student.Id)
+                {
+                    oldBed.Status = "Available";
+                    oldBed.CurrentStudentId = null;
+                }
+                var activeAlloc = await _dbContext.HostelAllocations
+                    .FirstOrDefaultAsync(a => a.StudentId == student.Id && a.Status == "Active");
+                if (activeAlloc != null)
+                {
+                    activeAlloc.Status = "Vacated";
+                    activeAlloc.VacatedDate = DateTime.UtcNow;
+                }
+            }
+
+            if (dto.IsHostelStudent && dto.HostelBedId.HasValue && student.HostelBedId != dto.HostelBedId)
+            {
+                var newBed = await _dbContext.HostelBeds.FindAsync(dto.HostelBedId.Value);
+                if (newBed != null)
+                {
+                    newBed.Status = "Occupied";
+                    newBed.CurrentStudentId = student.Id;
+                    _dbContext.HostelAllocations.Add(new HostelAllocation
+                    {
+                        TenantId = _currentUser.TenantId,
+                        BranchId = student.BranchId,
+                        StudentId = student.Id,
+                        BedId = newBed.Id,
+                        AllocatedDate = DateTime.UtcNow,
+                        MonthlyRent = newBed.MonthlyRent,
+                        IsMessIncluded = true,
+                        Status = "Active"
+                    });
+                }
+            }
+        }
+
+        student.IsHostelStudent = dto.IsHostelStudent;
+        student.HostelBedId = dto.IsHostelStudent ? dto.HostelBedId : null;
         student.StudentName = dto.StudentName;
         student.ParentName = dto.ParentName;
         student.ParentWhatsAppPhone = dto.ParentWhatsAppPhone;
@@ -855,6 +935,23 @@ public class StudentsController : ControllerBase
         var sectionName = student.SectionId.HasValue
             ? (await _dbContext.SchoolSections.AsNoTracking().FirstOrDefaultAsync(sec => sec.Id == student.SectionId))?.Name
             : null;
+
+        string? hostelName = null;
+        string? roomNum = null;
+        string? bedCode = null;
+        if (student.HostelBedId.HasValue)
+        {
+            var bedInfo = await _dbContext.HostelBeds
+                .Include(b => b.Room).ThenInclude(r => r.Hostel)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(b => b.Id == student.HostelBedId.Value);
+            if (bedInfo != null)
+            {
+                bedCode = bedInfo.BedCode;
+                roomNum = bedInfo.Room?.RoomNumber;
+                hostelName = bedInfo.Room?.Hostel?.Name;
+            }
+        }
 
         return Ok(new StudentDto(
             student.Id,
@@ -882,7 +979,12 @@ public class StudentsController : ControllerBase
             student.MotherName,
             student.Gender,
             student.DateOfBirth,
-            student.BloodGroup
+            student.BloodGroup,
+            student.IsHostelStudent,
+            student.HostelBedId,
+            hostelName,
+            roomNum,
+            bedCode
         ));
     }
 }

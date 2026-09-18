@@ -19,6 +19,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { CoachingService } from '../../core/services/coaching.service';
 import { SchoolService, SchoolClassDto, SchoolSectionDto } from '../../core/services/school.service';
+import { HostelService, HostelDto, HostelBedDto } from '../../core/services/hostel.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 
 const API_BASE = 'http://localhost:5000';
@@ -108,6 +109,9 @@ const API_BASE = 'http://localhost:5000';
                 <mat-checkbox formControlName="isCoachingStudent" (change)="onStreamCheckChanged()" color="primary">
                   <span class="chk-label">🎯 <strong>Coaching Enrollment</strong> (Batch, Monthly Tuition Fee)</span>
                 </mat-checkbox>
+                <mat-checkbox formControlName="isHostelStudent" (change)="onHostelCheckChanged()" color="accent">
+                  <span class="chk-label">🏨 <strong>Hostel Resident (Optional)</strong> (Room &amp; Bed Allotment)</span>
+                </mat-checkbox>
               </div>
               <div class="stream-hint-warn" *ngIf="!studentForm.value.isSchoolStudent && !studentForm.value.isCoachingStudent">
                 <mat-icon>warning_amber</mat-icon>
@@ -178,6 +182,33 @@ const API_BASE = 'http://localhost:5000';
                 <mat-progress-bar mode="indeterminate" *ngIf="rollNumberLoading" style="position:absolute;bottom:0;left:0;right:0;"></mat-progress-bar>
                 <mat-hint *ngIf="!isEditMode">Auto-generated when batch is selected</mat-hint>
                 <mat-error *ngIf="studentForm.get('rollNumber')?.hasError('required')">Roll number is required</mat-error>
+              </mat-form-field>
+            </ng-container>
+
+            <!-- Hostel Residential Details (if Hostel is checked) -->
+            <ng-container *ngIf="studentForm.value.isHostelStudent">
+              <div class="section-divider-box full-span hostel-sect">
+                <mat-icon>apartment</mat-icon>
+                <span>Hostel Residential &amp; Bed Assignment (Optional Facility)</span>
+              </div>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Hostel Building / Block</mat-label>
+                <mat-select formControlName="hostelId" (selectionChange)="onHostelBuildingChange($event.value)">
+                  <mat-option *ngFor="let h of hostelsList" [value]="h.id">
+                    {{ h.name }} ({{ h.hostelType }}) - {{ h.availableBeds }} beds vacant
+                  </mat-option>
+                </mat-select>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Select Available Bed</mat-label>
+                <mat-select formControlName="hostelBedId" (selectionChange)="onBedSelectionChange($event.value)">
+                  <mat-option *ngFor="let b of availableBedsList" [value]="b.id">
+                    Room {{ b.roomNumber }} - Bed {{ b.bedCode }} (₹{{ b.monthlyRent | number }}/mo)
+                  </mat-option>
+                </mat-select>
+                <mat-hint *ngIf="selectedBedRent">Monthly Bed Rent: ₹{{ selectedBedRent | number }}</mat-hint>
               </mat-form-field>
             </ng-container>
 
@@ -335,6 +366,14 @@ const API_BASE = 'http://localhost:5000';
             <mat-icon>school</mat-icon>
             <span>Coaching Batches</span>
           </button>
+          <button type="button" class="stream-tab hostel-tab" [class.active]="selectedStreamFilter === 'hostel'" (click)="setStreamFilter('hostel')">
+            <mat-icon>apartment</mat-icon>
+            <span>Hostel Residents</span>
+          </button>
+          <button type="button" class="stream-tab dayscholar-tab" [class.active]="selectedStreamFilter === 'dayscholar'" (click)="setStreamFilter('dayscholar')">
+            <mat-icon>directions_walk</mat-icon>
+            <span>Day Scholars</span>
+          </button>
         </div>
 
         <mat-card class="table-card mat-elevation-z2">
@@ -451,13 +490,19 @@ const API_BASE = 'http://localhost:5000';
                     <span class="badge-pill coaching" *ngIf="!s.isSchoolStudent && s.isCoachingStudent">
                       <mat-icon>school</mat-icon> Coaching Only
                     </span>
+                    <span class="badge-pill hostel" *ngIf="s.isHostelStudent">
+                      <mat-icon>apartment</mat-icon> Hosteler
+                    </span>
+                    <span class="badge-pill dayscholar" *ngIf="!s.isHostelStudent">
+                      <mat-icon>directions_walk</mat-icon> Day Scholar
+                    </span>
                   </div>
                 </td>
               </ng-container>
 
               <!-- Academic Allocation: Class & Batch -->
               <ng-container matColumnDef="batchOrClass">
-                <th mat-header-cell *matHeaderCellDef>Academic Assignment</th>
+                <th mat-header-cell *matHeaderCellDef>Academic &amp; Hostel Assignment</th>
                 <td mat-cell *matCellDef="let s">
                   <div class="academic-stack">
                     <div class="school-alloc" *ngIf="s.isSchoolStudent">
@@ -467,6 +512,10 @@ const API_BASE = 'http://localhost:5000';
                     <div class="coaching-alloc" *ngIf="s.isCoachingStudent">
                       <mat-icon class="icon-coaching">school</mat-icon>
                       <span>{{ s.batchName || 'Coaching Batch' }}</span>
+                    </div>
+                    <div class="hostel-alloc" *ngIf="s.isHostelStudent">
+                      <mat-icon class="icon-hostel">hotel</mat-icon>
+                      <span>{{ s.hostelName || 'Hostel' }} - Rm {{ s.roomNumber || '' }} ({{ s.bedCode || 'Bed' }})</span>
                     </div>
                   </div>
                 </td>
@@ -687,6 +736,16 @@ const API_BASE = 'http://localhost:5000';
         border-color: #7c3aed;
         box-shadow: 0 4px 12px rgba(124, 58, 237, 0.2);
       }
+      &.hostel-tab.active {
+        background: #7e22ce;
+        border-color: #7e22ce;
+        box-shadow: 0 4px 12px rgba(126, 34, 206, 0.2);
+      }
+      &.dayscholar-tab.active {
+        background: #475569;
+        border-color: #475569;
+        box-shadow: 0 4px 12px rgba(71, 85, 105, 0.2);
+      }
     }
 
     /* Form Styles */
@@ -775,6 +834,11 @@ const API_BASE = 'http://localhost:5000';
         background: #f1f5f9;
         color: #334155;
         border-left: 4px solid #64748b;
+      }
+      &.hostel-sect {
+        background: #fdf4ff;
+        color: #86198f;
+        border-left: 4px solid #c026d3;
       }
     }
 
@@ -942,6 +1006,16 @@ const API_BASE = 'http://localhost:5000';
         color: #1d4ed8;
         border: 1px solid #bfdbfe;
       }
+      &.hostel {
+        background: #faf5ff;
+        color: #7e22ce;
+        border: 1px solid #d8b4fe;
+      }
+      &.dayscholar {
+        background: #f8fafc;
+        color: #475569;
+        border: 1px solid #cbd5e1;
+      }
     }
 
     /* Academic Allocations */
@@ -964,6 +1038,13 @@ const API_BASE = 'http://localhost:5000';
         gap: 4px;
         color: #4338ca;
         .icon-coaching { font-size: 14px; width: 14px; height: 14px; color: #6366f1; }
+      }
+      .hostel-alloc {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        color: #7e22ce;
+        .icon-hostel { font-size: 14px; width: 14px; height: 14px; color: #a855f7; }
       }
     }
 
@@ -1194,10 +1275,15 @@ export class StudentsComponent implements OnInit, OnDestroy {
   sortBy = 'rollNumber';
   sortDescending = false;
 
-  selectedStreamFilter = 'all'; // 'all', 'school', 'coaching'
+  selectedStreamFilter = 'all'; // 'all', 'school', 'coaching', 'hostel', 'dayscholar'
   selectedBatchFilter = '';
   selectedClassFilter = '';
   selectedSectionFilter = '';
+
+  /** Hostel Support */
+  hostelsList: HostelDto[] = [];
+  availableBedsList: HostelBedDto[] = [];
+  selectedBedRent: number | null = null;
 
   /** 1-Click Coaching Enrollment Dialog */
   enrollCoachingModalOpen = false;
@@ -1222,12 +1308,16 @@ export class StudentsComponent implements OnInit, OnDestroy {
   constructor(
     private coachingService: CoachingService,
     private schoolService: SchoolService,
+    private hostelService: HostelService,
     private confirmDialog: ConfirmDialogService,
     private fb: FormBuilder
   ) {
     this.studentForm = this.fb.group({
       isSchoolStudent: [false],
       isCoachingStudent: [true],
+      isHostelStudent: [false],
+      hostelId: [''],
+      hostelBedId: [''],
       classId: [''],
       sectionId: [''],
       admissionNumber: [''],
@@ -1248,6 +1338,7 @@ export class StudentsComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.coachingService.getBatches().subscribe(b => this.batches = b || []);
     this.schoolService.getClasses(false).subscribe(c => this.schoolClasses = c || []);
+    this.hostelService.getHostels().subscribe(h => this.hostelsList = h || []);
     this.loadStudents();
     this.setupBatchIdWatcher();
   }
@@ -1292,6 +1383,51 @@ export class StudentsComponent implements OnInit, OnDestroy {
     const selected = this.schoolClasses.find(c => c.id === classId);
     this.formSections = selected?.sections || [];
     this.studentForm.get('sectionId')?.setValue(this.formSections.length > 0 ? this.formSections[0].id : '');
+  }
+
+  onHostelCheckChanged(): void {
+    const isHostel = this.studentForm.get('isHostelStudent')?.value;
+    if (isHostel) {
+      if (this.hostelsList.length === 0) {
+        this.hostelService.getHostels().subscribe(h => {
+          this.hostelsList = h || [];
+          if (this.hostelsList.length > 0) {
+            this.studentForm.patchValue({ hostelId: this.hostelsList[0].id });
+            this.onHostelBuildingChange(this.hostelsList[0].id);
+          }
+        });
+      } else if (!this.studentForm.get('hostelId')?.value && this.hostelsList.length > 0) {
+        this.studentForm.patchValue({ hostelId: this.hostelsList[0].id });
+        this.onHostelBuildingChange(this.hostelsList[0].id);
+      }
+    } else {
+      this.studentForm.patchValue({ hostelId: '', hostelBedId: '' });
+      this.availableBedsList = [];
+      this.selectedBedRent = null;
+    }
+  }
+
+  onHostelBuildingChange(hostelId: string): void {
+    if (!hostelId) {
+      this.availableBedsList = [];
+      this.selectedBedRent = null;
+      return;
+    }
+    this.hostelService.getAvailableBeds(hostelId).subscribe(beds => {
+      this.availableBedsList = beds || [];
+      if (this.availableBedsList.length > 0) {
+        this.studentForm.patchValue({ hostelBedId: this.availableBedsList[0].id });
+        this.selectedBedRent = this.availableBedsList[0].monthlyRent;
+      } else {
+        this.studentForm.patchValue({ hostelBedId: '' });
+        this.selectedBedRent = null;
+      }
+    });
+  }
+
+  onBedSelectionChange(bedId: string): void {
+    const bed = this.availableBedsList.find(b => b.id === bedId);
+    this.selectedBedRent = bed ? bed.monthlyRent : null;
   }
 
   // ── Sibling & Parent Smart Match Helpers ─────────────────
@@ -1633,6 +1769,8 @@ export class StudentsComponent implements OnInit, OnDestroy {
     this.studentForm.patchValue({
       isSchoolStudent: !!student.isSchoolStudent,
       isCoachingStudent: student.isCoachingStudent !== false,
+      isHostelStudent: !!student.isHostelStudent,
+      hostelBedId: student.hostelBedId || '',
       classId: student.classId || '',
       sectionId: student.sectionId || '',
       admissionNumber: student.admissionNumber || '',
@@ -1650,6 +1788,12 @@ export class StudentsComponent implements OnInit, OnDestroy {
     });
 
     this.onStreamCheckChanged();
+    if (student.isHostelStudent && student.hostelBedId) {
+      // Find hostel of this bed
+      this.hostelService.getAvailableBeds().subscribe(beds => {
+        this.availableBedsList = beds || [];
+      });
+    }
   }
 
   onSubmitStudent(): void {
@@ -1665,6 +1809,8 @@ export class StudentsComponent implements OnInit, OnDestroy {
     const cleanPhone = formVal.parentWhatsAppPhone ? formVal.parentWhatsAppPhone.replace(/\s+/g, '') : '';
     const payload = {
       ...formVal,
+      isHostelStudent: !!formVal.isHostelStudent,
+      hostelBedId: formVal.isHostelStudent && formVal.hostelBedId ? formVal.hostelBedId : null,
       batchId: formVal.isCoachingStudent && formVal.batchId ? formVal.batchId : null,
       rollNumber: formVal.isCoachingStudent ? formVal.rollNumber : (formVal.schoolRollNumber || formVal.admissionNumber || 'SCH'),
       classId: formVal.isSchoolStudent && formVal.classId ? formVal.classId : null,

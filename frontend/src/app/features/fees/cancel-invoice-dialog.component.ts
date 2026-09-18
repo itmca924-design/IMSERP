@@ -9,6 +9,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatIconModule } from '@angular/material/icon';
 import { FeesService } from '../../core/services/fees.service';
+import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 
 export interface CancelInvoiceDialogData {
   invoiceId: string;
@@ -434,7 +435,8 @@ export class CancelInvoiceDialogComponent implements OnInit {
     private fb: FormBuilder,
     private dialogRef: MatDialogRef<CancelInvoiceDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: CancelInvoiceDialogData,
-    private feesService: FeesService
+    private feesService: FeesService,
+    private confirmDialog: ConfirmDialogService
   ) {}
 
   ngOnInit(): void {
@@ -471,7 +473,7 @@ export class CancelInvoiceDialogComponent implements OnInit {
       },
       error: (err) => {
         this.submitting = false;
-        alert(err?.error?.message || 'Failed to cancel invoice. Please try again.');
+        this.confirmDialog.alert('Cancellation Failed', err?.error?.message || 'Failed to cancel invoice. Please try again.', 'danger');
       }
     });
   }

@@ -218,7 +218,12 @@ public record StudentDto(
     string? MotherName = null,
     string? Gender = null,
     DateTime? DateOfBirth = null,
-    string? BloodGroup = null
+    string? BloodGroup = null,
+    bool IsHostelStudent = false,
+    Guid? HostelBedId = null,
+    string? HostelName = null,
+    string? RoomNumber = null,
+    string? BedCode = null
 );
 
 public record CreateStudentDto(
@@ -240,7 +245,9 @@ public record CreateStudentDto(
     string? MotherName = null,
     string? Gender = null,
     DateTime? DateOfBirth = null,
-    string? BloodGroup = null
+    string? BloodGroup = null,
+    bool IsHostelStudent = false,
+    Guid? HostelBedId = null
 );
 
 public record StudentAttendanceDto(
@@ -444,7 +451,8 @@ public record FeeDueSlipItemDto(
     DateTime DueDate,
     decimal TotalAmount,
     decimal PaidAmount,
-    decimal DueAmount
+    decimal DueAmount,
+    List<FeeInvoiceItemDto>? Breakdown = null
 );
 
 public record FeeDueSlipDto(
@@ -708,7 +716,8 @@ public record FeeInvoicePagedItemDto(
     DateTime DueDate,
     string Status,
     string? CancellationReason = null,
-    DateTime? CancelledAt = null
+    DateTime? CancelledAt = null,
+    List<FeeInvoiceItemDto>? Items = null
 );
 
 public record StudentLedgerInvoiceItemDto(
@@ -721,7 +730,8 @@ public record StudentLedgerInvoiceItemDto(
     DateTime DueDate,
     string Status,
     string? CancellationReason = null,
-    DateTime? CancelledAt = null
+    DateTime? CancelledAt = null,
+    List<FeeInvoiceItemDto>? Items = null
 );
 
 public record StudentLedgerPaymentItemDto(
@@ -889,7 +899,7 @@ public record MarkTeacherAttendanceDto(
     string? Remarks
 );
 
-public record AttendanceSettingsDto(string StudentMode, string TeacherMode);
+public record AttendanceSettingsDto(string StudentMode, string TeacherMode, string HostelMode = "Both");
 
 public record BiometricAttendanceEventDto(
     string PersonType,
@@ -1358,4 +1368,82 @@ public record UpdateLibrarySettingDto(
     decimal DailyFineRate,
     bool AllowFineWaiver
 );
+
+// ─── School Multi-Head Fees & Structure DTOs ────────────────────
+
+public record FeeInvoiceItemDto(
+    Guid Id,
+    Guid InvoiceId,
+    Guid? FeeHeadId,
+    string HeadName,
+    decimal Amount,
+    decimal PaidAmount
+);
+
+public record FeeHeadDto(
+    Guid Id,
+    string Name,
+    string Code,
+    string Category,
+    string Frequency,
+    string? Description,
+    bool IsActive,
+    bool IsDefault,
+    int SortOrder
+);
+
+public record CreateFeeHeadDto(
+    string Name,
+    string Code,
+    string Category,
+    string Frequency,
+    string? Description,
+    int SortOrder = 0,
+    bool IsActive = true,
+    bool IsDefault = false
+);
+
+public record UpdateFeeHeadDto(
+    string Name,
+    string Code,
+    string Category,
+    string Frequency,
+    string? Description,
+    bool IsActive,
+    int SortOrder,
+    bool IsDefault = false
+);
+
+public record ClassFeeStructureItemDto(
+    Guid Id,
+    Guid? ClassId,
+    string? ClassName,
+    Guid? BatchId,
+    string? BatchName,
+    Guid FeeHeadId,
+    string FeeHeadName,
+    string FeeHeadCode,
+    string Category,
+    string Frequency,
+    decimal Amount,
+    int? ApplicableMonth,
+    bool IsActive
+);
+
+public record SaveClassFeeStructureItemDto(
+    Guid? Id,
+    Guid? ClassId,
+    Guid? BatchId,
+    Guid FeeHeadId,
+    decimal Amount,
+    int? ApplicableMonth,
+    bool IsActive = true
+);
+
+public record SaveClassFeeStructureBatchDto(
+    Guid? ClassId,
+    Guid? BatchId,
+    List<SaveClassFeeStructureItemDto> Items
+);
+
 

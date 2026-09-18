@@ -24,6 +24,7 @@ import { FeeDueReceiptDialogComponent } from './fee-due-receipt-dialog.component
 import { StudentLedgerDialogComponent } from './student-ledger-dialog.component';
 import { GenerateInvoicesDialogComponent } from './generate-invoices-dialog.component';
 import { CancelInvoiceDialogComponent } from './cancel-invoice-dialog.component';
+import { FeeMasterDialogComponent } from './fee-master-dialog.component';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 
 @Component({
@@ -54,10 +55,16 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           <h2>Fee Collection & Dues Management</h2>
           <p>Record fee payments with FIFO auto-settlement, issue digital WhatsApp receipts, and track student ledger passbooks.</p>
         </div>
-        <button mat-raised-button color="primary" class="generate-btn" (click)="openGenerateInvoicesModal()">
-          <mat-icon>post_add</mat-icon>
-          <span>Generate Monthly Invoices</span>
-        </button>
+        <div class="header-action-buttons">
+          <button mat-stroked-button class="fee-master-btn" (click)="openFeeMasterModal()">
+            <mat-icon color="primary">tune</mat-icon>
+            <span>Fee Heads & Structure</span>
+          </button>
+          <button mat-raised-button color="primary" class="generate-btn" (click)="openGenerateInvoicesModal()">
+            <mat-icon>post_add</mat-icon>
+            <span>Generate Monthly Invoices</span>
+          </button>
+        </div>
       </div>
 
       <!-- Main Invoices Directory Card -->
@@ -151,8 +158,25 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             </ng-container>
 
             <ng-container matColumnDef="title">
-              <th mat-header-cell *matHeaderCellDef>Billing Period</th>
-              <td mat-cell *matCellDef="let inv">{{ inv.title }}</td>
+              <th mat-header-cell *matHeaderCellDef>Billing Period / Heads</th>
+              <td mat-cell *matCellDef="let inv">
+                <div class="billing-head-container">
+                  <ng-container *ngIf="formatBillingTitle(inv.title) as ft">
+                    <span class="period-badge" [class.is-multiline]="!!ft.line2">
+                      <mat-icon class="period-icon">calendar_month</mat-icon>
+                      <span class="period-lines">
+                        <span class="period-line-1">{{ ft.line1 }}</span>
+                        <span class="period-line-2" *ngIf="ft.line2">{{ ft.line2 }}</span>
+                      </span>
+                    </span>
+                  </ng-container>
+                  <div *ngIf="inv.items && inv.items.length > 0" class="mini-heads-row">
+                    <span *ngFor="let it of inv.items" class="mini-head-chip">
+                      {{ it.headName }}: ₹{{ it.amount | number:'1.0-0' }}
+                    </span>
+                  </div>
+                </div>
+              </td>
             </ng-container>
 
             <ng-container matColumnDef="totalAmount">
@@ -327,6 +351,105 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
       gap: 16px;
       h2 { margin: 0; font-size: 1.5rem; color: #1976d2; font-weight: 700; }
       p { margin: 4px 0 0 0; color: #666; font-size: 0.9rem; }
+    }
+    .header-action-buttons {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+
+      .fee-master-btn {
+        height: 44px;
+        font-weight: 600;
+        border-radius: 8px;
+        border-color: #cbd5e1;
+        background: #ffffff;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: #1e293b;
+        &:hover {
+          background: #f8fafc;
+          border-color: #94a3b8;
+        }
+      }
+    }
+    .billing-head-container {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 4px 0;
+    }
+    .period-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.73rem;
+      font-weight: 600;
+      color: #1e40af;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      padding: 2px 8px;
+      border-radius: 12px;
+      width: fit-content;
+      line-height: 1.25;
+      white-space: nowrap;
+
+      &.is-multiline {
+        align-items: flex-start;
+        padding: 4px 10px;
+        white-space: normal;
+        border-radius: 8px;
+
+        .period-icon {
+          margin-top: 2px;
+        }
+
+        .period-lines {
+          display: flex;
+          flex-direction: column;
+          gap: 1px;
+          line-height: 1.35;
+        }
+
+        .period-line-1 {
+          font-weight: 700;
+          color: #1e3a8a;
+        }
+
+        .period-line-2 {
+          font-weight: 500;
+          color: #2563eb;
+        }
+      }
+
+      .period-icon {
+        font-size: 13px;
+        width: 13px;
+        height: 13px;
+        color: #3b82f6;
+        flex-shrink: 0;
+      }
+    }
+    .mini-heads-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-top: 2px;
+
+      .mini-head-chip {
+        font-size: 0.73rem;
+        background: #f0fdf4;
+        color: #15803d;
+        border: 1px solid #bbf7d0;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        white-space: nowrap;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+      }
     }
     .generate-btn {
       height: 44px;
@@ -763,6 +886,23 @@ export class FeesComponent implements OnInit, OnDestroy {
     });
   }
 
+  formatBillingTitle(title: string): { line1: string; line2?: string } {
+    if (!title) return { line1: '' };
+    // Check if title has a range (dash/hyphen/en-dash) and mentions Quarterly or Half-Yearly
+    const isMultiPeriod = /quarterly|half\s*-?\s*yearly/i.test(title);
+    if (isMultiPeriod) {
+      // Split on en-dash (–), em-dash (—), or hyphen (-)
+      const match = title.match(/^(.+?)\s*([–—-]\s*)(.+)$/);
+      if (match) {
+        return {
+          line1: match[1].trim() + ' –',
+          line2: match[3].trim()
+        };
+      }
+    }
+    return { line1: title };
+  }
+
   ngOnDestroy(): void {
     this.refreshSub?.unsubscribe();
   }
@@ -886,30 +1026,62 @@ export class FeesComponent implements OnInit, OnDestroy {
       next: (ledger) => {
         const payment = ledger.payments.find(p => p.invoiceNumber === inv.invoiceNumber) || ledger.payments[0];
         if (payment) {
-          const receiptData: FeePaymentReceipt = {
-            paymentId: payment.paymentId,
-            receiptNumber: payment.receiptNumber,
-            studentName: ledger.studentName,
-            rollNumber: ledger.rollNumber,
-            batchName: ledger.batchName,
-            parentName: ledger.parentName,
-            parentPhone: ledger.parentWhatsAppPhone,
-            invoiceNumber: inv.invoiceNumber,
-            amountPaid: payment.amountPaid,
-            remainingDue: ledger.totalOutstandingDue,
-            paymentDate: payment.paymentDate,
-            mode: payment.mode,
-            transactionRef: payment.transactionRef,
-            remarks: payment.remarks
-          };
+          this.feesService.getReceiptByNumber(payment.receiptNumber).subscribe({
+            next: (receipt) => {
+              this.dialog.open(FeeReceiptDialogComponent, {
+                width: '840px',
+                maxWidth: '96vw',
+                panelClass: 'receipt-dialog-panel',
+                data: {
+                  receipt,
+                  instituteName: this.authService.currentUser()?.instituteName || 'Apex Coaching Academy'
+                }
+              });
+            },
+            error: () => {
+              const fallbackItems = inv.items && inv.items.length > 0
+                ? inv.items.map((it, idx) => ({
+                    itemIndex: idx + 1,
+                    particulars: it.headName,
+                    subTitle: inv.title,
+                    reference: inv.invoiceNumber,
+                    amount: it.amount
+                  }))
+                : [{
+                    itemIndex: 1,
+                    particulars: inv.title || 'Tuition & Coaching Fee Settlement',
+                    subTitle: 'Fee Payment',
+                    reference: inv.invoiceNumber,
+                    amount: payment.amountPaid
+                  }];
 
-          this.dialog.open(FeeReceiptDialogComponent, {
-            width: '840px',
-            maxWidth: '96vw',
-            panelClass: 'receipt-dialog-panel',
-            data: {
-              receipt: receiptData,
-              instituteName: this.authService.currentUser()?.instituteName || 'Saraswati Coaching Classes'
+              const receiptData: FeePaymentReceipt = {
+                paymentId: payment.paymentId,
+                receiptNumber: payment.receiptNumber,
+                studentName: ledger.studentName,
+                rollNumber: ledger.rollNumber,
+                batchName: ledger.batchName,
+                parentName: ledger.parentName,
+                parentPhone: ledger.parentWhatsAppPhone,
+                invoiceNumber: inv.invoiceNumber,
+                amountPaid: payment.amountPaid,
+                remainingDue: ledger.totalOutstandingDue,
+                paymentDate: payment.paymentDate,
+                mode: payment.mode,
+                transactionRef: payment.transactionRef,
+                remarks: payment.remarks,
+                items: fallbackItems
+              };
+
+              this.dialog.open(FeeReceiptDialogComponent, {
+                width: '840px',
+                maxWidth: '96vw',
+                panelClass: 'receipt-dialog-panel',
+                data: {
+                  receipt: receiptData,
+                  instituteName: this.authService.currentUser()?.instituteName || 'Apex Coaching Academy'
+                }
+              });
             }
           });
         } else {
@@ -955,6 +1127,20 @@ export class FeesComponent implements OnInit, OnDestroy {
         this.pageIndex = 0;
         this.loadInvoices();
       }
+    });
+  }
+
+  openFeeMasterModal(): void {
+    const dialogRef = this.dialog.open(FeeMasterDialogComponent, {
+      width: '920px',
+      maxWidth: '96vw',
+      disableClose: false,
+      autoFocus: false,
+      restoreFocus: false
+    });
+
+    dialogRef.afterClosed().subscribe(() => {
+      this.loadInvoices();
     });
   }
 

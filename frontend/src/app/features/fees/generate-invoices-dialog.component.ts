@@ -10,6 +10,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { FeesService, GenerateInvoicesResult } from '../../core/services/fees.service';
 import { BatchDto } from '../../core/services/batches.service';
+import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 
 export interface GenerateInvoicesDialogData {
   batches: BatchDto[];
@@ -429,6 +430,7 @@ export class GenerateInvoicesDialogComponent implements OnInit {
   constructor(
     private fb: FormBuilder,
     private feesService: FeesService,
+    private confirmDialog: ConfirmDialogService,
     private dialogRef: MatDialogRef<GenerateInvoicesDialogComponent, GenerateInvoicesResult | null>,
     @Inject(MAT_DIALOG_DATA) public data: GenerateInvoicesDialogData
   ) {
@@ -511,7 +513,7 @@ export class GenerateInvoicesDialogComponent implements OnInit {
       error: err => {
         this.saving = false;
         console.error('Failed to generate invoices', err);
-        alert(err.error?.message || err.message || 'Failed to generate invoices');
+        this.confirmDialog.alert('Generation Failed', err.error?.message || err.message || 'Failed to generate invoices', 'danger');
       }
     });
   }

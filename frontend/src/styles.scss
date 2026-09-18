@@ -594,5 +594,286 @@ body, p, span, h1, h2, h3, h4, h5, h6, a, button, input, select, textarea,
   }
 }
 
+// ============================================================================
+// Smooth Material Select Overlays (Fee Heads & Structure Panels)
+// ============================================================================
+.smooth-dropdown-panel.mat-mdc-select-panel {
+  border-radius: 12px !important;
+  border: 1px solid #cbd5e1 !important;
+  box-shadow: 0 16px 36px -4px rgba(15, 23, 42, 0.18), 0 8px 16px -4px rgba(15, 23, 42, 0.08) !important;
+  background: #ffffff !important;
+  padding: 6px 0 !important;
+  max-height: 400px !important;
+
+  .mat-mdc-option {
+    height: auto !important;
+    min-height: 52px !important;
+    padding: 10px 16px !important;
+    border-bottom: 1px solid #f1f5f9;
+    transition: all 0.15s ease-in-out;
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    &:hover:not(.mdc-list-item--disabled) {
+      background: #f8fafc !important;
+    }
+
+    &.mdc-list-item--selected:not(.mdc-list-item--disabled) {
+      background: #eff6ff !important;
+      .mdc-list-item__primary-text {
+        color: #1d4ed8 !important;
+      }
+    }
+
+    .opt-content {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      width: 100%;
+
+      .opt-header-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 600;
+        font-size: 0.88rem;
+        color: #0f172a;
+      }
+
+      .opt-desc {
+        font-size: 0.75rem;
+        color: #64748b;
+        line-height: 1.35;
+      }
+    }
+  }
+}
+
+.target-select-panel.mat-mdc-select-panel {
+  border-radius: 10px !important;
+  border: 1px solid #cbd5e1 !important;
+  box-shadow: 0 12px 28px -4px rgba(0, 0, 0, 0.14) !important;
+  .mat-mdc-option {
+    font-size: 0.92rem;
+    font-weight: 500;
+    padding: 10px 16px;
+    height: auto;
+    min-height: 44px;
+  }
+}
+
+.mat-mdc-select-panel {
+  max-width: none !important;
+  .mat-mdc-option {
+    white-space: nowrap !important;
+    .mdc-list-item__primary-text {
+      white-space: nowrap !important;
+      overflow: visible !important;
+      text-overflow: clip !important;
+    }
+  }
+}
+
+.hostel-block-dropdown-panel {
+  min-width: 520px !important;
+  width: auto !important;
+  max-width: none !important;
+
+  .mat-mdc-option {
+    white-space: nowrap !important;
+
+    .mdc-list-item__primary-text {
+      white-space: nowrap !important;
+      overflow: visible !important;
+      text-overflow: clip !important;
+      display: inline-block !important;
+    }
+  }
+}
+
+// Mess / Food Plan Dropdown Panel - Full visibility, no cut-off
+.mess-plan-dropdown-panel {
+  min-width: 480px !important;
+  width: auto !important;
+  max-width: 640px !important;
+
+  .mat-mdc-option {
+    height: auto !important;
+    min-height: 52px !important;
+    padding: 10px 16px !important;
+    white-space: normal !important;
+
+    .mdc-list-item__primary-text {
+      white-space: normal !important;
+      overflow: visible !important;
+      text-overflow: unset !important;
+      display: block !important;
+      line-height: 1.4 !important;
+    }
+
+    .plan-item-layout {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+
+      strong {
+        font-size: 14px;
+        color: #0f172a;
+        font-weight: 600;
+      }
+      .plan-sub {
+        font-size: 12px;
+        color: #64748b;
+        line-height: 1.3;
+      }
+    }
+  }
+}
+
+// Student Search Dropdown Panel with Group-wise display
+.student-search-dropdown-panel {
+  min-width: 580px !important;
+  max-width: 720px !important;
+  max-height: 400px !important;
+
+  .mat-mdc-optgroup-label {
+    background: #f1f5f9;
+    font-weight: 700 !important;
+    font-size: 12px !important;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: #334155 !important;
+    padding: 8px 16px !important;
+    border-bottom: 1px solid #e2e8f0;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+  }
+
+  .mat-mdc-option.student-opt-item {
+    height: auto !important;
+    min-height: 48px !important;
+    padding: 8px 16px !important;
+    border-bottom: 1px solid #f8fafc;
+
+    .mdc-list-item__primary-text {
+      width: 100%;
+      white-space: normal !important;
+      overflow: visible !important;
+    }
+
+    .opt-student-container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      width: 100%;
+
+      .opt-left {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+
+        .opt-name {
+          font-weight: 600;
+          color: #0f172a;
+          font-size: 13.5px;
+        }
+        .opt-roll {
+          font-size: 12px;
+          color: #475569;
+          background: #e2e8f0;
+          padding: 2px 6px;
+          border-radius: 4px;
+        }
+        .opt-phone {
+          font-size: 12px;
+          color: #64748b;
+        }
+      }
+
+      .opt-right-badges {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-shrink: 0;
+
+        .badge-school {
+          display: inline-flex;
+          align-items: center;
+          gap: 3px;
+          font-size: 11px;
+          font-weight: 600;
+          background: #e0e7ff;
+          color: #3730a3;
+          padding: 2px 8px;
+          border-radius: 12px;
+
+          mat-icon { font-size: 14px; width: 14px; height: 14px; }
+        }
+
+        .badge-coaching {
+          display: inline-flex;
+          align-items: center;
+          gap: 3px;
+          font-size: 11px;
+          font-weight: 600;
+          background: #dbeafe;
+          color: #1e40af;
+          padding: 2px 8px;
+          border-radius: 12px;
+
+          mat-icon { font-size: 14px; width: 14px; height: 14px; }
+        }
+
+        .badge-gender {
+          font-size: 11px;
+          color: #64748b;
+          background: #f1f5f9;
+          padding: 2px 6px;
+          border-radius: 4px;
+        }
+
+        .badge-allocated {
+          display: inline-flex;
+          align-items: center;
+          gap: 3px;
+          font-size: 11px;
+          font-weight: 600;
+          background: #fee2e2;
+          color: #991b1b;
+          padding: 2px 8px;
+          border-radius: 12px;
+
+          mat-icon { font-size: 14px; width: 14px; height: 14px; }
+        }
+      }
+    }
+  }
+}
+
+// Gate Pass Purpose Dropdown Panel - Full visibility, no cut-off
+.purpose-dropdown-panel {
+  min-width: 360px !important;
+  width: auto !important;
+
+  .mat-mdc-option {
+    white-space: nowrap !important;
+
+    .mdc-list-item__primary-text {
+      white-space: nowrap !important;
+      overflow: visible !important;
+      text-overflow: clip !important;
+      display: inline-block !important;
+    }
+  }
+}
+
+
+
+
 
 

@@ -155,6 +155,46 @@ using (var scope = app.Services.CreateScope())
             }
         }
 
+        // Auto-seed 'Fee Heads Master' MenuItem under Academic Operations
+        var academicMenu = context.MenuItems.FirstOrDefault(m => m.Title == "Academic Operations" && m.ParentId == null);
+        if (academicMenu != null)
+        {
+            var feeHeadMenu = context.MenuItems.FirstOrDefault(m => m.RouteUrl == "/fee-heads");
+            if (feeHeadMenu == null)
+            {
+                var newFeeHeadMenu = new IMSERP.Domain.Entities.MenuItem
+                {
+                    Id = Guid.NewGuid(),
+                    Title = "Fee Heads Master",
+                    RouteUrl = "/fee-heads",
+                    Icon = "account_tree",
+                    ParentId = academicMenu.Id,
+                    SortOrder = 2,
+                    Module = "Academic",
+                    IsActive = true
+                };
+                context.MenuItems.Add(newFeeHeadMenu);
+                context.SaveChanges();
+
+                var roles = context.Roles.ToList();
+                foreach (var role in roles)
+                {
+                    context.RolePermissions.Add(new IMSERP.Domain.Entities.RolePermission
+                    {
+                        Id = Guid.NewGuid(),
+                        RoleId = role.Id,
+                        MenuItemId = newFeeHeadMenu.Id,
+                        CanView = true,
+                        CanCreate = true,
+                        CanEdit = true,
+                        CanDelete = true
+                    });
+                }
+                context.SaveChanges();
+                Console.WriteLine("[Database] Auto-seeded 'Fee Heads Master' menu item under Academic Operations.");
+            }
+        }
+
         Console.WriteLine("[Database] IMSERP Database ensured and ready.");
     }
     catch (Exception ex)

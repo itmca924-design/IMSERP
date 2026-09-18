@@ -154,7 +154,14 @@ export interface FeeDueReceiptDialogData {
               <tr *ngFor="let item of dueSlip.dueItems; let i = index">
                 <td class="text-center">{{ i + 1 }}</td>
                 <td><strong>{{ item.invoiceNumber }}</strong></td>
-                <td>{{ item.title }}</td>
+                <td>
+                  <div class="due-item-title">{{ item.title }}</div>
+                  <div class="due-item-heads" *ngIf="item.breakdown && item.breakdown.length > 0">
+                    <span *ngFor="let h of item.breakdown" class="due-head-chip">
+                      {{ h.headName }}: ₹{{ h.amount | number:'1.0-0' }}
+                    </span>
+                  </div>
+                </td>
                 <td>{{ item.dueDate | date:'dd-MMM-yyyy' }}</td>
                 <td class="text-right">₹{{ item.totalAmount | number:'1.2-2' }}</td>
                 <td class="text-right amount-paid">₹{{ item.paidAmount | number:'1.2-2' }}</td>
@@ -558,6 +565,30 @@ export interface FeeDueReceiptDialogData {
         .amount-paid { color: #16a34a; }
         .amount-due { color: #dc2626; font-size: 0.95rem; }
 
+        .due-item-title {
+          font-weight: 600;
+          color: #0f172a;
+        }
+
+        .due-heads-list {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 4px;
+          margin-top: 4px;
+        }
+
+        .due-head-chip {
+          font-size: 0.72rem;
+          background: #fee2e2;
+          color: #991b1b;
+          border: 1px solid #fecaca;
+          padding: 1px 7px;
+          border-radius: 4px;
+          font-weight: 600;
+          display: inline-block;
+          white-space: nowrap;
+        }
+
         .summary-subtotal {
           background: #f8fafc;
           border-top: 2px solid #cbd5e1;
@@ -823,7 +854,8 @@ export class FeeDueReceiptDialogComponent implements OnInit {
               dueDate: this.data.invoice.dueDate,
               totalAmount: this.data.invoice.totalAmount,
               paidAmount: this.data.invoice.paidAmount,
-              dueAmount: this.data.invoice.dueAmount
+              dueAmount: this.data.invoice.dueAmount,
+              breakdown: this.data.invoice.items
             }]
           };
         }
@@ -885,6 +917,9 @@ export class FeeDueReceiptDialogComponent implements OnInit {
             .due-table { width: 100%; border-collapse: collapse; }
             .due-table th { background: #1e293b; color: #fff; padding: 8px 10px; font-size: 0.78rem; font-weight: 700; text-align: left; }
             .due-table td { padding: 9px 10px; border-bottom: 1px solid #e2e8f0; font-size: 0.84rem; }
+            .due-item-title { font-weight: 600; color: #0f172a; }
+            .due-heads-list { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+            .due-head-chip { font-size: 0.72rem; background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; padding: 1px 7px; border-radius: 4px; font-weight: 600; display: inline-block; }
             .amount-paid { color: #16a34a; }
             .amount-due { color: #dc2626; font-size: 0.92rem; }
             .summary-subtotal { background: #f8fafc; border-top: 2px solid #cbd5e1; }

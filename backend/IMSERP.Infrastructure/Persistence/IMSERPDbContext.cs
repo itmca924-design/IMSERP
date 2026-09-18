@@ -48,6 +48,15 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
     public DbSet<BookCopy> BookCopies => Set<BookCopy>();
     public DbSet<LibraryCirculation> LibraryCirculations => Set<LibraryCirculation>();
     public DbSet<LibrarySetting> LibrarySettings => Set<LibrarySetting>();
+    public DbSet<FeeHead> FeeHeads => Set<FeeHead>();
+    public DbSet<ClassFeeStructure> ClassFeeStructures => Set<ClassFeeStructure>();
+    public DbSet<FeeInvoiceItem> FeeInvoiceItems => Set<FeeInvoiceItem>();
+    public DbSet<Hostel> Hostels => Set<Hostel>();
+    public DbSet<HostelRoom> HostelRooms => Set<HostelRoom>();
+    public DbSet<HostelBed> HostelBeds => Set<HostelBed>();
+    public DbSet<HostelAllocation> HostelAllocations => Set<HostelAllocation>();
+    public DbSet<HostelGatePass> HostelGatePasses => Set<HostelGatePass>();
+    public DbSet<HostelAttendance> HostelAttendances => Set<HostelAttendance>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -121,6 +130,69 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
         modelBuilder.Entity<LibrarySetting>().HasQueryFilter(x => 
             (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<FeeHead>().HasQueryFilter(x => 
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<ClassFeeStructure>().HasQueryFilter(x => 
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<FeeInvoiceItem>().HasQueryFilter(x => 
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId));
+
+        modelBuilder.Entity<Hostel>().HasQueryFilter(x => 
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<HostelRoom>().HasQueryFilter(x => 
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<HostelBed>().HasQueryFilter(x => 
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<HostelAllocation>().HasQueryFilter(x => 
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<HostelGatePass>().HasQueryFilter(x => 
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<HostelAttendance>().HasQueryFilter(x => 
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+
+        modelBuilder.Entity<HostelRoom>()
+            .HasOne(r => r.Hostel)
+            .WithMany(h => h.Rooms)
+            .HasForeignKey(r => r.HostelId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<HostelBed>()
+            .HasOne(b => b.Room)
+            .WithMany(r => r.Beds)
+            .HasForeignKey(b => b.RoomId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<HostelAllocation>()
+            .HasOne(a => a.Student)
+            .WithMany(s => s.HostelAllocations)
+            .HasForeignKey(a => a.StudentId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<HostelAllocation>()
+            .HasOne(a => a.Bed)
+            .WithMany(b => b.Allocations)
+            .HasForeignKey(a => a.BedId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<HostelGatePass>()
+            .HasOne(g => g.Student)
+            .WithMany(s => s.HostelGatePasses)
+            .HasForeignKey(g => g.StudentId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<HostelAttendance>()
+            .HasOne(a => a.Student)
+            .WithMany(s => s.HostelAttendances)
+            .HasForeignKey(a => a.StudentId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<BookCopy>()
             .HasOne(c => c.Book)

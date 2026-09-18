@@ -977,12 +977,22 @@ export class FeeReceiptDialogComponent {
     if (!this.data.receipt.parentPhone) return;
     const rawPhone = this.data.receipt.parentPhone.replace(/\D/g, '');
     const formattedPhone = rawPhone.length === 10 ? '91' + rawPhone : rawPhone;
+
+    let headsSection = '';
+    if (this.data.receipt.items && this.data.receipt.items.length > 0) {
+      const list = this.data.receipt.items
+        .map(it => `  • ${it.particulars}: ₹${it.amount.toLocaleString('en-IN')}`)
+        .join('\n');
+      headsSection = `\n*Fee Heads Breakdown*:\n${list}\n`;
+    }
+
     const textMsg = `*OFFICIAL FEE PAYMENT RECEIPT*\n` +
-      `*Institute*: ${this.data.instituteName || 'Saraswati Coaching Classes'}\n` +
+      `*Institute*: ${this.data.instituteName || 'Apex Coaching Academy'}\n` +
       `*Receipt No*: #${this.data.receipt.receiptNumber}\n` +
       `*Date*: ${this.formatToIST(this.data.receipt.paymentDate)}\n\n` +
       `Dear Parent, we have received payment of *₹${this.data.receipt.amountPaid}* for student *${this.data.receipt.studentName}* (${this.data.receipt.batchName || 'General'}).\n` +
       `*Mode*: ${this.getPaymentModeName(this.data.receipt.mode)}\n` +
+      headsSection +
       `*Remaining Balance Due*: ₹${this.data.receipt.remainingDue}\n\n` +
       `Thank you for trusting our academy!`;
     const waUrl = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(textMsg)}`;

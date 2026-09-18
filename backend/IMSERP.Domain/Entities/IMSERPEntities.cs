@@ -205,6 +205,8 @@ public class Student
     public string? AdmissionNumber { get; set; }
     public bool IsSchoolStudent { get; set; } = false;
     public bool IsCoachingStudent { get; set; } = true;
+    public bool IsHostelStudent { get; set; } = false;
+    public Guid? HostelBedId { get; set; }
     public string StudentName { get; set; } = string.Empty;
     public string ParentName { get; set; } = string.Empty;
     public string ParentWhatsAppPhone { get; set; } = string.Empty;
@@ -230,9 +232,15 @@ public class Student
     [ForeignKey("SectionId")]
     public SchoolSection? Section { get; set; }
 
+    [ForeignKey("HostelBedId")]
+    public HostelBed? HostelBed { get; set; }
+
     public ICollection<FeeInvoice> FeeInvoices { get; set; } = new List<FeeInvoice>();
     public ICollection<TestMarks> TestMarks { get; set; } = new List<TestMarks>();
     public ICollection<StudentAttendance> Attendances { get; set; } = new List<StudentAttendance>();
+    public ICollection<HostelAllocation> HostelAllocations { get; set; } = new List<HostelAllocation>();
+    public ICollection<HostelGatePass> HostelGatePasses { get; set; } = new List<HostelGatePass>();
+    public ICollection<HostelAttendance> HostelAttendances { get; set; } = new List<HostelAttendance>();
 }
 
 public class StudentAttendance
@@ -280,6 +288,7 @@ public class FeeInvoice
 
     public Student? Student { get; set; }
     public ICollection<FeePayment> Payments { get; set; } = new List<FeePayment>();
+    public ICollection<FeeInvoiceItem> Items { get; set; } = new List<FeeInvoiceItem>();
 }
 
 public class FeePayment
@@ -431,6 +440,7 @@ public class AttendanceSettings
     public Guid? BranchId { get; set; }
     public string StudentMode { get; set; } = "Both";
     public string TeacherMode { get; set; } = "Both";
+    public string HostelMode { get; set; } = "Both";
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     [ForeignKey("BranchId")]
@@ -651,3 +661,200 @@ public class LibrarySetting
     public bool AllowFineWaiver { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
+
+public class FeeHead
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string Code { get; set; } = string.Empty;
+    public string Category { get; set; } = "Academic";
+    public string Frequency { get; set; } = "Monthly";
+    public string? Description { get; set; }
+    public bool IsActive { get; set; } = true;
+    public bool IsDefault { get; set; } = false;
+    public int SortOrder { get; set; } = 0;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    public Tenant? Tenant { get; set; }
+    public Branch? Branch { get; set; }
+}
+
+public class ClassFeeStructure
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid? ClassId { get; set; }
+    public Guid? BatchId { get; set; }
+    public Guid FeeHeadId { get; set; }
+    public decimal Amount { get; set; } = 0.00m;
+    public int? ApplicableMonth { get; set; }
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    public FeeHead? FeeHead { get; set; }
+    public SchoolClass? Class { get; set; }
+    public Batch? Batch { get; set; }
+}
+
+public class FeeInvoiceItem
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid InvoiceId { get; set; }
+    public Guid? FeeHeadId { get; set; }
+    public string HeadName { get; set; } = string.Empty;
+    public decimal Amount { get; set; } = 0.00m;
+    public decimal PaidAmount { get; set; } = 0.00m;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    public FeeInvoice? Invoice { get; set; }
+    public FeeHead? FeeHead { get; set; }
+}
+
+// ─── Hostel & Residential Management Entities ────────────────
+
+public class Hostel
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string HostelType { get; set; } = "Boys"; // Boys, Girls, Co-ed, Staff
+    public string? Address { get; set; }
+    public string? WardenName { get; set; }
+    public string? WardenPhone { get; set; }
+    public int TotalFloors { get; set; } = 1;
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+
+    public ICollection<HostelRoom> Rooms { get; set; } = new List<HostelRoom>();
+    public ICollection<HostelAttendance> Attendances { get; set; } = new List<HostelAttendance>();
+}
+
+public class HostelRoom
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid HostelId { get; set; }
+    public string RoomNumber { get; set; } = string.Empty;
+    public string Floor { get; set; } = "Ground";
+    public string RoomType { get; set; } = "Double"; // Single, Double, Triple, 4-Bed, Dormitory
+    public int Capacity { get; set; } = 2;
+    public decimal MonthlyRent { get; set; } = 0.00m;
+    public bool HasAC { get; set; } = false;
+    public bool HasAttachedBath { get; set; } = false;
+    public string? Amenities { get; set; }
+    public string Status { get; set; } = "Active"; // Active, UnderMaintenance
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("HostelId")]
+    public Hostel? Hostel { get; set; }
+
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+
+    public ICollection<HostelBed> Beds { get; set; } = new List<HostelBed>();
+}
+
+public class HostelBed
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid RoomId { get; set; }
+    public string BedCode { get; set; } = string.Empty; // e.g. 101-A, 101-B
+    public string Status { get; set; } = "Available"; // Available, Occupied, Maintenance, Reserved
+    public decimal MonthlyRent { get; set; } = 0.00m;
+    public Guid? CurrentStudentId { get; set; }
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("RoomId")]
+    public HostelRoom? Room { get; set; }
+
+    [ForeignKey("CurrentStudentId")]
+    public Student? CurrentStudent { get; set; }
+
+    public ICollection<HostelAllocation> Allocations { get; set; } = new List<HostelAllocation>();
+}
+
+public class HostelAllocation
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid StudentId { get; set; }
+    public Guid BedId { get; set; }
+    public DateTime AllocatedDate { get; set; } = DateTime.UtcNow;
+    public DateTime? VacatedDate { get; set; }
+    public decimal MonthlyRent { get; set; } = 0.00m;
+    public bool IsMessIncluded { get; set; } = true;
+    public string MessPlan { get; set; } = "Full Board";
+    public decimal MonthlyMessFee { get; set; } = 0.00m;
+    public string Status { get; set; } = "Active"; // Active, Vacated, Transferred
+    public string? Remarks { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("StudentId")]
+    public Student? Student { get; set; }
+
+    [ForeignKey("BedId")]
+    public HostelBed? Bed { get; set; }
+}
+
+public class HostelGatePass
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid StudentId { get; set; }
+    public string PassNumber { get; set; } = string.Empty;
+    public DateTime OutDate { get; set; } = DateTime.UtcNow;
+    public DateTime ExpectedReturnDate { get; set; }
+    public DateTime? ActualReturnDate { get; set; }
+    public string Purpose { get; set; } = string.Empty;
+    public bool ParentConsentGiven { get; set; } = true;
+    public string? ParentContactNumber { get; set; }
+    public string WardenApprovalStatus { get; set; } = "Approved"; // Pending, Approved, Rejected, Completed, Overdue
+    public string? ApprovedByWarden { get; set; }
+    public string? Remarks { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("StudentId")]
+    public Student? Student { get; set; }
+}
+
+public class HostelAttendance
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid StudentId { get; set; }
+    public Guid HostelId { get; set; }
+    public DateTime AttendanceDate { get; set; }
+    public string RollCallShift { get; set; } = "Night";
+    public string Status { get; set; } = "Present"; // Present, Absent, OnLeave, Late, GatePass
+    public string CaptureSource { get; set; } = "Manual"; // Manual, Biometric
+    public string? BiometricDeviceId { get; set; }
+    public string? BiometricEventId { get; set; }
+    public DateTime? CapturedAt { get; set; }
+    public string? PunchTime { get; set; }
+    public string? MarkedBy { get; set; }
+    public string? Remarks { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("StudentId")]
+    public Student? Student { get; set; }
+
+    [ForeignKey("HostelId")]
+    public Hostel? Hostel { get; set; }
+}
+

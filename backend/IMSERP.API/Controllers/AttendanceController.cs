@@ -43,7 +43,11 @@ public class AttendanceController : ControllerBase
     {
         var settings = await _db.AttendanceSettings.AsNoTracking()
             .FirstOrDefaultAsync(s => s.TenantId == _currentUser.TenantId);
-        return Ok(new AttendanceSettingsDto(settings?.StudentMode ?? "Both", settings?.TeacherMode ?? "Both"));
+        return Ok(new AttendanceSettingsDto(
+            settings?.StudentMode ?? "Both",
+            settings?.TeacherMode ?? "Both",
+            settings?.HostelMode ?? "Both"
+        ));
     }
 
     [HttpGet("mappings")]
@@ -63,7 +67,7 @@ public class AttendanceController : ControllerBase
         if (!await HasPermissionAsync(ModeSettingsRoute, PermissionAction.Edit))
             return Forbid();
 
-        if (!IsValidMode(dto.StudentMode) || !IsValidMode(dto.TeacherMode))
+        if (!IsValidMode(dto.StudentMode) || !IsValidMode(dto.TeacherMode) || (!string.IsNullOrEmpty(dto.HostelMode) && !IsValidMode(dto.HostelMode)))
             return BadRequest(new { message = "Mode must be Manual, Biometric, or Both." });
 
         var settings = await _db.AttendanceSettings.FirstOrDefaultAsync(s => s.TenantId == _currentUser.TenantId);
@@ -75,9 +79,13 @@ public class AttendanceController : ControllerBase
 
         settings.StudentMode = dto.StudentMode;
         settings.TeacherMode = dto.TeacherMode;
+        if (!string.IsNullOrWhiteSpace(dto.HostelMode))
+        {
+            settings.HostelMode = dto.HostelMode;
+        }
         settings.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
-        return Ok(new AttendanceSettingsDto(settings.StudentMode, settings.TeacherMode));
+        return Ok(new AttendanceSettingsDto(settings.StudentMode, settings.TeacherMode, settings.HostelMode));
     }
 
     [HttpPost("biometric-events")]
@@ -92,8 +100,10 @@ public class AttendanceController : ControllerBase
         var personType = dto.PersonType.Trim().ToLowerInvariant();
         var settings = await _db.AttendanceSettings.AsNoTracking()
             .FirstOrDefaultAsync(s => s.TenantId == _currentUser.TenantId);
-        var mode = personType == "student" ? settings?.StudentMode : personType == "teacher" ? settings?.TeacherMode : null;
-        if (mode == null) return BadRequest(new { message = "PersonType must be Student or Teacher." });
+        var mode = personType == "student" ? settings?.StudentMode :
+                   personType == "teacher" ? settings?.TeacherMode :
+                   (personType == "hostel" || personType == "hostel_student") ? (settings?.HostelMode ?? "Both") : null;
+        if (mode == null) return BadRequest(new { message = "PersonType must be Student, Teacher, or Hostel." });
         if (string.Equals(mode, "Manual", StringComparison.OrdinalIgnoreCase))
             return Conflict(new { message = "Biometric attendance is disabled for this person type." });
 
@@ -109,6 +119,9 @@ public class AttendanceController : ControllerBase
         };
         _db.BiometricEventLogs.Add(eventLog);
         await _db.SaveChangesAsync();
+
+        var indiaTime = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(
+            DateTime.SpecifyKind(dto.EventTime, DateTimeKind.Utc), "India Standard Time");
 
         if (personType == "student")
         {
@@ -141,6 +154,62 @@ public class AttendanceController : ControllerBase
             return Ok(new { message = "Student biometric attendance captured.", attendanceId = record.Id });
         }
 
+        if (personType == "hostel" || personType == "hostel_student")
+        {
+            var student = await _db.Students
+                .Include(s => s.HostelBed)
+                    .ThenInclude(b => b.Room)
+                .FirstOrDefaultAsync(s => s.BiometricUserId == dto.BiometricUserId);
+
+            if (student == null)
+            {
+                eventLog.Status = "Failed";
+                eventLog.ErrorMessage = "No student is mapped to this biometric user ID.";
+                await _db.SaveChangesAsync();
+                return NotFound(new { message = eventLog.ErrorMessage });
+            }
+
+            if (!student.IsHostelStudent || student.HostelBed?.Room?.HostelId == null)
+            {
+                eventLog.Status = "Failed";
+                eventLog.ErrorMessage = "Student is not registered as an active hostel resident.";
+                await _db.SaveChangesAsync();
+                return BadRequest(new { message = eventLog.ErrorMessage });
+            }
+
+            var hostelId = student.HostelBed.Room.HostelId;
+            var record = await _db.HostelAttendances.FirstOrDefaultAsync(a =>
+                (dto.EventId != null && a.BiometricEventId == dto.EventId) ||
+                (a.StudentId == student.Id && a.AttendanceDate == dto.EventTime.Date));
+
+            if (record == null)
+            {
+                record = new HostelAttendance
+                {
+                    TenantId = _currentUser.TenantId,
+                    BranchId = student.BranchId ?? _currentUser.BranchId,
+                    StudentId = student.Id,
+                    HostelId = hostelId,
+                    AttendanceDate = dto.EventTime.Date,
+                    RollCallShift = "Night"
+                };
+                _db.HostelAttendances.Add(record);
+            }
+
+            record.Status = "Present";
+            record.CaptureSource = "Biometric";
+            record.BiometricDeviceId = dto.DeviceId;
+            record.BiometricEventId = dto.EventId;
+            record.CapturedAt = dto.EventTime;
+            record.PunchTime = indiaTime.ToString("HH:mm");
+            record.MarkedBy = "biometric-turnstile";
+
+            eventLog.Status = "Processed";
+            eventLog.AttendanceId = record.Id;
+            await _db.SaveChangesAsync();
+            return Ok(new { message = "Hostel resident biometric attendance captured.", attendanceId = record.Id, student = student.StudentName });
+        }
+
         var teacher = await _db.Teachers.FirstOrDefaultAsync(t => t.BiometricUserId == dto.BiometricUserId);
         if (teacher == null)
         {
@@ -165,8 +234,6 @@ public class AttendanceController : ControllerBase
         teacherRecord.BiometricEventId = dto.EventId;
         teacherRecord.CapturedAt = dto.EventTime;
         teacherRecord.MarkedBy = "biometric-device";
-        var indiaTime = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(
-            DateTime.SpecifyKind(dto.EventTime, DateTimeKind.Utc), "India Standard Time");
         if (dto.IsCheckOut)
             teacherRecord.CheckOutTime = indiaTime.ToString("HH:mm");
         else

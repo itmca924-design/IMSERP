@@ -40,6 +40,15 @@ public interface IIMSERPDbContext
     DbSet<BookCopy> BookCopies { get; }
     DbSet<LibraryCirculation> LibraryCirculations { get; }
     DbSet<LibrarySetting> LibrarySettings { get; }
+    DbSet<FeeHead> FeeHeads { get; }
+    DbSet<ClassFeeStructure> ClassFeeStructures { get; }
+    DbSet<FeeInvoiceItem> FeeInvoiceItems { get; }
+    DbSet<Hostel> Hostels { get; }
+    DbSet<HostelRoom> HostelRooms { get; }
+    DbSet<HostelBed> HostelBeds { get; }
+    DbSet<HostelAllocation> HostelAllocations { get; }
+    DbSet<HostelGatePass> HostelGatePasses { get; }
+    DbSet<HostelAttendance> HostelAttendances { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

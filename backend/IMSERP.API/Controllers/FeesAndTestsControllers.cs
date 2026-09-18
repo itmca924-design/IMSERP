@@ -37,7 +37,8 @@ public class FeesController : ControllerBase
         var query = _dbContext.FeeInvoices
             .AsNoTracking()
             .Include(i => i.Student)
-            .ThenInclude(s => s.Batch)
+                .ThenInclude(s => s.Batch)
+            .Include(i => i.Items)
             .AsQueryable();
 
         // If no invoices exist yet, auto-seed default invoices for active students starting from their Joining Date
@@ -53,8 +54,7 @@ public class FeesController : ControllerBase
                 var joinMonth = s.JoiningDate.Month;
                 var joinYear = s.JoiningDate.Year;
 
-                // Current Month Invoice (from Joining Date)
-                sampleInvoices.Add(new FeeInvoice
+                var inv = new FeeInvoice
                 {
                     TenantId = _currentUser.TenantId,
                     StudentId = s.Id,
@@ -65,7 +65,15 @@ public class FeesController : ControllerBase
                     DueDate = new DateTime(joinYear, joinMonth, Math.Min(10, DateTime.DaysInMonth(joinYear, joinMonth))),
                     Status = InvoiceStatus.Pending,
                     CreatedAt = s.JoiningDate
+                };
+                inv.Items.Add(new FeeInvoiceItem
+                {
+                    TenantId = _currentUser.TenantId,
+                    HeadName = "Tuition Fee",
+                    Amount = feeRate,
+                    PaidAmount = 0
                 });
+                sampleInvoices.Add(inv);
             }
 
             if (sampleInvoices.Count > 0)
@@ -75,7 +83,8 @@ public class FeesController : ControllerBase
                 query = _dbContext.FeeInvoices
                     .AsNoTracking()
                     .Include(i => i.Student)
-                    .ThenInclude(s => s.Batch)
+                        .ThenInclude(s => s.Batch)
+                    .Include(i => i.Items)
                     .AsQueryable();
             }
         }
@@ -99,7 +108,8 @@ public class FeesController : ControllerBase
                 (i.Student != null && i.Student.RollNumber.ToLower().Contains(term)) ||
                 (i.Student != null && i.Student.ParentWhatsAppPhone.Contains(term)) ||
                 i.InvoiceNumber.ToLower().Contains(term) ||
-                i.Title.ToLower().Contains(term)
+                i.Title.ToLower().Contains(term) ||
+                i.Items.Any(it => it.HeadName.ToLower().Contains(term))
             );
         }
 
@@ -133,7 +143,8 @@ public class FeesController : ControllerBase
                 i.DueDate,
                 i.Status.ToString(),
                 i.CancellationReason,
-                i.CancelledAt
+                i.CancelledAt,
+                i.Items.Select(it => new FeeInvoiceItemDto(it.Id, it.InvoiceId, it.FeeHeadId, it.HeadName, it.Amount, it.PaidAmount)).ToList()
             ))
             .ToListAsync();
 
@@ -152,6 +163,7 @@ public class FeesController : ControllerBase
 
         var invoices = await _dbContext.FeeInvoices
             .AsNoTracking()
+            .Include(i => i.Items)
             .Where(i => i.StudentId == studentId)
             .OrderBy(i => i.DueDate)
             .ToListAsync();
@@ -180,7 +192,8 @@ public class FeesController : ControllerBase
             i.DueDate,
             i.Status.ToString(),
             i.CancellationReason,
-            i.CancelledAt
+            i.CancelledAt,
+            i.Items.Select(it => new FeeInvoiceItemDto(it.Id, it.InvoiceId, it.FeeHeadId, it.HeadName, it.Amount, it.PaidAmount)).ToList()
         )).ToList();
 
         var paymentDtos = payments.Select(p => new StudentLedgerPaymentItemDto(
@@ -301,6 +314,7 @@ public class FeesController : ControllerBase
 
             // Fetch unpaid/partial invoices chronologically (FIFO by DueDate) — skip Cancelled
             var unpaidInvoices = await _dbContext.FeeInvoices
+                .Include(i => i.Items)
                 .Where(i => i.StudentId == dto.StudentId
                          && i.Status != InvoiceStatus.Paid
                          && i.Status != InvoiceStatus.Cancelled)
@@ -367,6 +381,7 @@ public class FeesController : ControllerBase
             var receiptNo = "REC-" + DateTime.UtcNow.ToString("yyyyMMddHHmmss");
             FeePayment? lastPayment = null;
             decimal tuitionAllocatedTotal = 0;
+            var allocatedInvoicesList = new List<(FeeInvoice Invoice, decimal AllocatedAmount)>();
 
             if (tuitionToAllocate > 0 && unpaidInvoices.Count > 0)
             {
@@ -377,6 +392,7 @@ public class FeesController : ControllerBase
 
                     decimal invoiceDue = inv.TotalAmount - inv.PaidAmount;
                     decimal allocateForThisInv = Math.Min(remainingTuition, invoiceDue);
+                    if (allocateForThisInv <= 0) continue;
 
                     inv.PaidAmount += allocateForThisInv;
                     tuitionAllocatedTotal += allocateForThisInv;
@@ -389,7 +405,23 @@ public class FeesController : ControllerBase
                         inv.Status = InvoiceStatus.Partial;
                     }
 
+                    // Update invoice items' PaidAmount as well
+                    if (inv.Items != null && inv.Items.Count > 0)
+                    {
+                        decimal itemRemaining = allocateForThisInv;
+                        foreach (var it in inv.Items)
+                        {
+                            if (itemRemaining <= 0) break;
+                            decimal itemDue = it.Amount - it.PaidAmount;
+                            if (itemDue <= 0) continue;
+                            decimal itemAlloc = Math.Min(itemRemaining, itemDue);
+                            it.PaidAmount += itemAlloc;
+                            itemRemaining -= itemAlloc;
+                        }
+                    }
+
                     remainingTuition -= allocateForThisInv;
+                    allocatedInvoicesList.Add((inv, allocateForThisInv));
 
                     var payment = new FeePayment
                     {
@@ -431,17 +463,56 @@ public class FeesController : ControllerBase
                 .Where(c => c.StudentId == dto.StudentId && c.FineStatus == "Pending")
                 .SumAsync(c => c.FineAmount);
 
-            // Construct Line Items for Receipt
+            // Construct Line Items for Receipt with actual Fee Heads
             var lineItems = new List<FeeReceiptLineItemDto>();
             if (tuitionAllocatedTotal > 0)
             {
-                lineItems.Add(new FeeReceiptLineItemDto(
-                    lineItems.Count + 1,
-                    "Tuition & Coaching Fee Settlement",
-                    dto.Remarks ?? "Standard Monthly Tuition Fee installment",
-                    unpaidInvoices.Count > 1 ? $"FIFO Multi-Invoice ({unpaidInvoices.Count} Invoices)" : (unpaidInvoices.FirstOrDefault()?.InvoiceNumber ?? "Tuition Fee"),
-                    tuitionAllocatedTotal
-                ));
+                foreach (var (inv, allocAmt) in allocatedInvoicesList)
+                {
+                    if (inv.Items != null && inv.Items.Count > 0)
+                    {
+                        decimal remainingInvAlloc = allocAmt;
+                        var itemsList = inv.Items.ToList();
+                        for (int idx = 0; idx < itemsList.Count; idx++)
+                        {
+                            var it = itemsList[idx];
+                            decimal itShare;
+                            if (idx == itemsList.Count - 1)
+                            {
+                                itShare = remainingInvAlloc;
+                            }
+                            else
+                            {
+                                itShare = inv.TotalAmount > 0
+                                    ? Math.Round(allocAmt * (it.Amount / inv.TotalAmount), 2)
+                                    : it.Amount;
+                                if (itShare > remainingInvAlloc) itShare = remainingInvAlloc;
+                            }
+                            remainingInvAlloc -= itShare;
+
+                            if (itShare > 0)
+                            {
+                                lineItems.Add(new FeeReceiptLineItemDto(
+                                    lineItems.Count + 1,
+                                    it.HeadName,
+                                    inv.Title,
+                                    inv.InvoiceNumber,
+                                    itShare
+                                ));
+                            }
+                        }
+                    }
+                    else
+                    {
+                        lineItems.Add(new FeeReceiptLineItemDto(
+                            lineItems.Count + 1,
+                            inv.Title ?? "Tuition & Coaching Fee Settlement",
+                            dto.Remarks ?? "Standard Tuition Fee installment",
+                            inv.InvoiceNumber,
+                            allocAmt
+                        ));
+                    }
+                }
             }
 
             string? libraryFineParticulars = null;
@@ -501,6 +572,8 @@ public class FeesController : ControllerBase
         var payments = await _dbContext.FeePayments
             .AsNoTracking()
             .Include(p => p.Invoice)
+                .ThenInclude(i => i!.Items)
+            .Include(p => p.Invoice)
                 .ThenInclude(i => i!.Student)
                     .ThenInclude(s => s!.Batch)
             .Where(p => p.ReceiptNumber == receiptNumber)
@@ -539,13 +612,52 @@ public class FeesController : ControllerBase
         var lineItems = new List<FeeReceiptLineItemDto>();
         if (totalTuitionPaid > 0)
         {
-            lineItems.Add(new FeeReceiptLineItemDto(
-                1,
-                "Tuition & Coaching Fee Settlement",
-                firstPayment?.Remarks ?? "Monthly Tuition Fee installment",
-                payments.Count > 1 ? $"Multi-Invoice ({payments.Count} Invoices)" : (firstPayment?.Invoice?.InvoiceNumber ?? "Tuition Fee"),
-                totalTuitionPaid
-            ));
+            foreach (var p in payments)
+            {
+                if (p.Invoice?.Items != null && p.Invoice.Items.Count > 0)
+                {
+                    decimal remainingAlloc = p.AmountPaid;
+                    var itemsList = p.Invoice.Items.ToList();
+                    for (int idx = 0; idx < itemsList.Count; idx++)
+                    {
+                        var it = itemsList[idx];
+                        decimal itShare;
+                        if (idx == itemsList.Count - 1)
+                        {
+                            itShare = remainingAlloc;
+                        }
+                        else
+                        {
+                            itShare = p.Invoice.TotalAmount > 0
+                                ? Math.Round(p.AmountPaid * (it.Amount / p.Invoice.TotalAmount), 2)
+                                : it.Amount;
+                            if (itShare > remainingAlloc) itShare = remainingAlloc;
+                        }
+                        remainingAlloc -= itShare;
+
+                        if (itShare > 0)
+                        {
+                            lineItems.Add(new FeeReceiptLineItemDto(
+                                lineItems.Count + 1,
+                                it.HeadName,
+                                p.Invoice.Title,
+                                p.Invoice.InvoiceNumber,
+                                itShare
+                            ));
+                        }
+                    }
+                }
+                else
+                {
+                    lineItems.Add(new FeeReceiptLineItemDto(
+                        lineItems.Count + 1,
+                        p.Invoice?.Title ?? "Tuition & Coaching Fee Settlement",
+                        p.Remarks ?? "Monthly Tuition Fee installment",
+                        p.Invoice?.InvoiceNumber ?? "Tuition Fee",
+                        p.AmountPaid
+                    ));
+                }
+            }
         }
 
         if (totalFinePaid > 0)
@@ -596,6 +708,7 @@ public class FeesController : ControllerBase
 
         var query = _dbContext.FeeInvoices
             .AsNoTracking()
+            .Include(i => i.Items)
             .Where(i => i.StudentId == studentId && i.Status != InvoiceStatus.Cancelled && i.TotalAmount > i.PaidAmount);
 
         if (invoiceId.HasValue && invoiceId.Value != Guid.Empty)
@@ -612,7 +725,8 @@ public class FeesController : ControllerBase
             i.DueDate,
             i.TotalAmount,
             i.PaidAmount,
-            i.TotalAmount - i.PaidAmount
+            i.TotalAmount - i.PaidAmount,
+            i.Items.Select(it => new FeeInvoiceItemDto(it.Id, it.InvoiceId, it.FeeHeadId, it.HeadName, it.Amount, it.PaidAmount)).ToList()
         )).ToList();
 
         var totalDue = items.Sum(i => i.DueAmount);
@@ -713,6 +827,18 @@ public class FeesController : ControllerBase
                 .ToListAsync()
         );
 
+        // Load active class / batch fee structures
+        var classIds = students.Where(s => s.ClassId.HasValue).Select(s => s.ClassId!.Value).Distinct().ToList();
+        var batchIds = students.Where(s => s.BatchId.HasValue).Select(s => s.BatchId!.Value).Distinct().ToList();
+
+        var feeStructures = await _dbContext.ClassFeeStructures
+            .AsNoTracking()
+            .Include(cfs => cfs.FeeHead)
+            .Where(cfs => cfs.IsActive &&
+                ((cfs.ClassId.HasValue && classIds.Contains(cfs.ClassId.Value)) ||
+                 (cfs.BatchId.HasValue && batchIds.Contains(cfs.BatchId.Value))))
+            .ToListAsync();
+
         var newInvoices = new List<FeeInvoice>();
         int skippedCount = 0;
         var random = new Random();
@@ -725,8 +851,48 @@ public class FeesController : ControllerBase
                 continue;
             }
 
-            var monthlyRate = s.Batch?.StandardMonthlyFee ?? 3500m;
-            var totalAmount = monthlyRate * cycleMonths;
+            var studentStructures = feeStructures
+                .Where(cfs => (s.ClassId.HasValue && cfs.ClassId == s.ClassId.Value) ||
+                              (s.BatchId.HasValue && cfs.BatchId == s.BatchId.Value))
+                .ToList();
+
+            var applicableHeads = studentStructures
+                .Where(cfs => cfs.ApplicableMonth == null || cfs.ApplicableMonth == dto.Month)
+                .ToList();
+
+            var invoiceItems = new List<FeeInvoiceItem>();
+            decimal totalAmount = 0;
+
+            if (applicableHeads.Count > 0)
+            {
+                foreach (var head in applicableHeads)
+                {
+                    bool isRecurring = head.FeeHead == null || head.FeeHead.Frequency == "Monthly" || head.FeeHead.Frequency == "Quarterly";
+                    decimal headAmount = isRecurring ? (head.Amount * cycleMonths) : head.Amount;
+                    totalAmount += headAmount;
+
+                    invoiceItems.Add(new FeeInvoiceItem
+                    {
+                        TenantId = _currentUser.TenantId,
+                        FeeHeadId = head.FeeHeadId,
+                        HeadName = head.FeeHead?.Name ?? "Fee Head",
+                        Amount = headAmount,
+                        PaidAmount = 0
+                    });
+                }
+            }
+            else
+            {
+                var monthlyRate = s.Batch?.StandardMonthlyFee ?? 3500m;
+                totalAmount = monthlyRate * cycleMonths;
+                invoiceItems.Add(new FeeInvoiceItem
+                {
+                    TenantId = _currentUser.TenantId,
+                    HeadName = "Tuition Fee",
+                    Amount = totalAmount,
+                    PaidAmount = 0
+                });
+            }
 
             // Unique invoice number encodes the cycle type
             var cycleSuffix = dto.BillingCycle switch
@@ -743,12 +909,13 @@ public class FeesController : ControllerBase
                 BranchId      = s.BranchId ?? s.Batch?.BranchId ?? _currentUser.BranchId,
                 StudentId     = s.Id,
                 InvoiceNumber = $"INV-{dto.Year}{dto.Month:D2}{cycleSuffix}-{random.Next(100, 999)}",
-                Title         = $"{periodLabel} Tuition Fee ({cycleLabel})",
+                Title         = $"{periodLabel} Fee ({cycleLabel})",
                 TotalAmount   = totalAmount,
                 PaidAmount    = 0,
                 DueDate       = dto.DueDate,
                 Status        = InvoiceStatus.Pending,
-                CreatedAt     = DateTime.UtcNow
+                CreatedAt     = DateTime.UtcNow,
+                Items         = invoiceItems
             };
 
             newInvoices.Add(invoice);
@@ -819,9 +986,10 @@ public class FeesController : ControllerBase
     [HttpDelete("payment/{paymentId}")]
     public async Task<ActionResult<ReversePaymentResponseDto>> ReversePayment(Guid paymentId, [FromBody] ReversePaymentDto? dto = null)
     {
-        // Load payment with its invoice
+        // Load payment with its invoice and items
         var payment = await _dbContext.FeePayments
             .Include(p => p.Invoice)
+                .ThenInclude(i => i!.Items)
             .FirstOrDefaultAsync(p => p.Id == paymentId);
 
         if (payment == null)
@@ -839,6 +1007,19 @@ public class FeesController : ControllerBase
 
         // Guard against negative (shouldn't happen, but safety net)
         if (invoice.PaidAmount < 0) invoice.PaidAmount = 0;
+
+        // Also revert PaidAmount on invoice items
+        if (invoice.Items != null && invoice.Items.Count > 0)
+        {
+            decimal remainingReverse = payment.AmountPaid;
+            foreach (var it in invoice.Items.OrderByDescending(x => x.PaidAmount))
+            {
+                if (remainingReverse <= 0) break;
+                decimal itReverse = Math.Min(remainingReverse, it.PaidAmount);
+                it.PaidAmount -= itReverse;
+                remainingReverse -= itReverse;
+            }
+        }
 
         // Recalculate invoice status
         if (invoice.PaidAmount <= 0)
@@ -872,6 +1053,344 @@ public class FeesController : ControllerBase
             invoice.TotalAmount - invoice.PaidAmount,
             invoice.Status.ToString()
         ));
+    }
+
+    // ─── Fee Heads Master Endpoints ──────────────────────────────────────────
+
+    [HttpGet("heads/paged")]
+    public async Task<ActionResult<PagedResultDto<FeeHeadDto>>> GetFeeHeadsPaged(
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] string? searchTerm = null,
+        [FromQuery] string? category = null,
+        [FromQuery] string? frequency = null,
+        [FromQuery] bool? isActive = null,
+        [FromQuery] string? sortBy = "sortOrder",
+        [FromQuery] bool sortDescending = false)
+    {
+        var query = _dbContext.FeeHeads.AsNoTracking().AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            var term = searchTerm.Trim().ToLower();
+            query = query.Where(h => h.Name.ToLower().Contains(term) ||
+                                     h.Code.ToLower().Contains(term) ||
+                                     (h.Description != null && h.Description.ToLower().Contains(term)));
+        }
+
+        if (!string.IsNullOrWhiteSpace(category) && category != "All")
+        {
+            query = query.Where(h => h.Category.ToLower() == category.Trim().ToLower());
+        }
+
+        if (!string.IsNullOrWhiteSpace(frequency) && frequency != "All")
+        {
+            query = query.Where(h => h.Frequency.ToLower() == frequency.Trim().ToLower());
+        }
+
+        if (isActive.HasValue)
+        {
+            query = query.Where(h => h.IsActive == isActive.Value);
+        }
+
+        // Sorting
+        query = (sortBy?.ToLower(), sortDescending) switch
+        {
+            ("name", false) => query.OrderBy(h => h.Name),
+            ("name", true) => query.OrderByDescending(h => h.Name),
+            ("code", false) => query.OrderBy(h => h.Code),
+            ("code", true) => query.OrderByDescending(h => h.Code),
+            ("category", false) => query.OrderBy(h => h.Category).ThenBy(h => h.SortOrder),
+            ("category", true) => query.OrderByDescending(h => h.Category).ThenBy(h => h.SortOrder),
+            ("frequency", false) => query.OrderBy(h => h.Frequency).ThenBy(h => h.SortOrder),
+            ("frequency", true) => query.OrderByDescending(h => h.Frequency).ThenBy(h => h.SortOrder),
+            ("isactive", false) => query.OrderBy(h => h.IsActive).ThenBy(h => h.SortOrder),
+            ("isactive", true) => query.OrderByDescending(h => h.IsActive).ThenBy(h => h.SortOrder),
+            ("sortorder", true) => query.OrderByDescending(h => h.SortOrder).ThenBy(h => h.Name),
+            _ => query.OrderBy(h => h.SortOrder).ThenBy(h => h.Name)
+        };
+
+        var totalCount = await query.CountAsync();
+        var items = await query
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .Select(h => new FeeHeadDto(
+                h.Id,
+                h.Name,
+                h.Code,
+                h.Category,
+                h.Frequency,
+                h.Description,
+                h.IsActive,
+                h.IsDefault,
+                h.SortOrder
+            ))
+            .ToListAsync();
+
+        return Ok(new PagedResultDto<FeeHeadDto>(items, totalCount, pageNumber, pageSize));
+    }
+
+    [HttpGet("heads")]
+    public async Task<ActionResult<IEnumerable<FeeHeadDto>>> GetFeeHeads([FromQuery] bool activeOnly = true)
+    {
+        var query = _dbContext.FeeHeads.AsNoTracking().AsQueryable();
+
+        if (activeOnly)
+            query = query.Where(h => h.IsActive);
+
+        var list = await query
+            .OrderBy(h => h.SortOrder)
+            .ThenBy(h => h.Name)
+            .Select(h => new FeeHeadDto(
+                h.Id,
+                h.Name,
+                h.Code,
+                h.Category,
+                h.Frequency,
+                h.Description,
+                h.IsActive,
+                h.IsDefault,
+                h.SortOrder
+            ))
+            .ToListAsync();
+
+        return Ok(list);
+    }
+
+    [HttpPost("heads")]
+    public async Task<ActionResult<FeeHeadDto>> SaveFeeHead([FromBody] CreateFeeHeadDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.Name) || string.IsNullOrWhiteSpace(dto.Code))
+            return BadRequest("Name and Code are required.");
+
+        var trimmedCode = dto.Code.Trim().ToUpper();
+        var existing = await _dbContext.FeeHeads
+            .FirstOrDefaultAsync(h => h.Code.ToUpper() == trimmedCode);
+
+        if (existing != null)
+        {
+            existing.Name = dto.Name.Trim();
+            existing.Category = string.IsNullOrWhiteSpace(dto.Category) ? "Academic" : dto.Category.Trim();
+            existing.Frequency = string.IsNullOrWhiteSpace(dto.Frequency) ? "Monthly" : dto.Frequency.Trim();
+            existing.Description = dto.Description?.Trim();
+            existing.SortOrder = dto.SortOrder;
+            existing.IsActive = dto.IsActive;
+            existing.IsDefault = dto.IsDefault;
+            await _dbContext.SaveChangesAsync();
+
+            return Ok(new FeeHeadDto(
+                existing.Id,
+                existing.Name,
+                existing.Code,
+                existing.Category,
+                existing.Frequency,
+                existing.Description,
+                existing.IsActive,
+                existing.IsDefault,
+                existing.SortOrder
+            ));
+        }
+
+        var newHead = new FeeHead
+        {
+            TenantId = _currentUser.TenantId,
+            BranchId = _currentUser.BranchId,
+            Name = dto.Name.Trim(),
+            Code = trimmedCode,
+            Category = string.IsNullOrWhiteSpace(dto.Category) ? "Academic" : dto.Category.Trim(),
+            Frequency = string.IsNullOrWhiteSpace(dto.Frequency) ? "Monthly" : dto.Frequency.Trim(),
+            Description = dto.Description?.Trim(),
+            IsActive = dto.IsActive,
+            IsDefault = dto.IsDefault,
+            SortOrder = dto.SortOrder
+        };
+
+        _dbContext.FeeHeads.Add(newHead);
+        await _dbContext.SaveChangesAsync();
+
+        return Ok(new FeeHeadDto(
+            newHead.Id,
+            newHead.Name,
+            newHead.Code,
+            newHead.Category,
+            newHead.Frequency,
+            newHead.Description,
+            newHead.IsActive,
+            newHead.IsDefault,
+            newHead.SortOrder
+        ));
+    }
+
+    [HttpPut("heads/{id:guid}")]
+    public async Task<ActionResult<FeeHeadDto>> UpdateFeeHead(Guid id, [FromBody] UpdateFeeHeadDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.Name) || string.IsNullOrWhiteSpace(dto.Code))
+            return BadRequest("Name and Code are required.");
+
+        var head = await _dbContext.FeeHeads.FindAsync(id);
+        if (head == null) return NotFound("Fee head not found.");
+
+        var trimmedCode = dto.Code.Trim().ToUpper();
+        var duplicate = await _dbContext.FeeHeads
+            .AnyAsync(h => h.Id != id && h.Code.ToUpper() == trimmedCode);
+        if (duplicate)
+            return BadRequest($"A fee head with code '{trimmedCode}' already exists.");
+
+        head.Name = dto.Name.Trim();
+        head.Code = trimmedCode;
+        head.Category = string.IsNullOrWhiteSpace(dto.Category) ? "Academic" : dto.Category.Trim();
+        head.Frequency = string.IsNullOrWhiteSpace(dto.Frequency) ? "Monthly" : dto.Frequency.Trim();
+        head.Description = dto.Description?.Trim();
+        head.IsActive = dto.IsActive;
+        head.IsDefault = dto.IsDefault;
+        head.SortOrder = dto.SortOrder;
+
+        await _dbContext.SaveChangesAsync();
+
+        return Ok(new FeeHeadDto(
+            head.Id,
+            head.Name,
+            head.Code,
+            head.Category,
+            head.Frequency,
+            head.Description,
+            head.IsActive,
+            head.IsDefault,
+            head.SortOrder
+        ));
+    }
+
+    [HttpPatch("heads/{id:guid}/toggle-status")]
+    public async Task<ActionResult> ToggleFeeHeadStatus(Guid id)
+    {
+        var head = await _dbContext.FeeHeads.FindAsync(id);
+        if (head == null) return NotFound("Fee head not found.");
+
+        head.IsActive = !head.IsActive;
+        await _dbContext.SaveChangesAsync();
+
+        return Ok(new { message = $"Fee head '{head.Name}' is now {(head.IsActive ? "Active" : "Inactive")}.", isActive = head.IsActive });
+    }
+
+    [HttpDelete("heads/{id:guid}")]
+    public async Task<ActionResult> DeleteFeeHead(Guid id)
+    {
+        var head = await _dbContext.FeeHeads.FindAsync(id);
+        if (head == null) return NotFound("Fee head not found.");
+
+        // Check if head is referenced by class structures or fee invoice items
+        var inStructures = await _dbContext.ClassFeeStructures.AnyAsync(s => s.FeeHeadId == id);
+        var inInvoices = await _dbContext.FeeInvoiceItems.AnyAsync(i => i.FeeHeadId == id);
+
+        if (inStructures || inInvoices)
+        {
+            // Soft-deactivate if in use
+            head.IsActive = false;
+            await _dbContext.SaveChangesAsync();
+            return Ok(new { 
+                message = "Fee head is referenced by fee structures or student invoices. It has been deactivated instead of permanently deleted to preserve financial audit trail.",
+                deactivated = true 
+            });
+        }
+
+        _dbContext.FeeHeads.Remove(head);
+        await _dbContext.SaveChangesAsync();
+        return Ok(new { message = "Fee head deleted permanently.", deactivated = false });
+    }
+
+    // ─── Class / Batch Fee Structure Matrix Endpoints ───────────────────────
+
+    [HttpGet("structures")]
+    public async Task<ActionResult<IEnumerable<ClassFeeStructureItemDto>>> GetClassFeeStructures(
+        [FromQuery] Guid? classId = null,
+        [FromQuery] Guid? batchId = null)
+    {
+        var query = _dbContext.ClassFeeStructures
+            .AsNoTracking()
+            .Include(s => s.FeeHead)
+            .Include(s => s.Class)
+            .Include(s => s.Batch)
+            .AsQueryable();
+
+        if (classId.HasValue && classId.Value != Guid.Empty)
+            query = query.Where(s => s.ClassId == classId.Value);
+
+        if (batchId.HasValue && batchId.Value != Guid.Empty)
+            query = query.Where(s => s.BatchId == batchId.Value);
+
+        var list = await query
+            .Where(s => s.IsActive)
+            .OrderBy(s => s.FeeHead != null ? s.FeeHead.SortOrder : 0)
+            .Select(s => new ClassFeeStructureItemDto(
+                s.Id,
+                s.ClassId,
+                s.Class != null ? s.Class.Name : null,
+                s.BatchId,
+                s.Batch != null ? s.Batch.Name : null,
+                s.FeeHeadId,
+                s.FeeHead != null ? s.FeeHead.Name : "N/A",
+                s.FeeHead != null ? s.FeeHead.Code : "N/A",
+                s.FeeHead != null ? s.FeeHead.Category : "Academic",
+                s.FeeHead != null ? s.FeeHead.Frequency : "Monthly",
+                s.Amount,
+                s.ApplicableMonth,
+                s.IsActive
+            ))
+            .ToListAsync();
+
+        return Ok(list);
+    }
+
+    [HttpPost("structures")]
+    public async Task<ActionResult> SaveClassFeeStructures([FromBody] SaveClassFeeStructureBatchDto dto)
+    {
+        if (dto.Items == null || dto.Items.Count == 0)
+            return BadRequest("No fee structure items provided.");
+
+        foreach (var item in dto.Items)
+        {
+            if (item.Id.HasValue && item.Id.Value != Guid.Empty)
+            {
+                var existing = await _dbContext.ClassFeeStructures.FindAsync(item.Id.Value);
+                if (existing != null)
+                {
+                    existing.Amount = item.Amount;
+                    existing.ApplicableMonth = item.ApplicableMonth;
+                    existing.IsActive = item.IsActive;
+                    continue;
+                }
+            }
+
+            var duplicate = await _dbContext.ClassFeeStructures
+                .FirstOrDefaultAsync(s => s.FeeHeadId == item.FeeHeadId &&
+                    ((dto.ClassId.HasValue && s.ClassId == dto.ClassId.Value) ||
+                     (dto.BatchId.HasValue && s.BatchId == dto.BatchId.Value)));
+
+            if (duplicate != null)
+            {
+                duplicate.Amount = item.Amount;
+                duplicate.ApplicableMonth = item.ApplicableMonth;
+                duplicate.IsActive = item.IsActive;
+            }
+            else
+            {
+                var newStructure = new ClassFeeStructure
+                {
+                    TenantId = _currentUser.TenantId,
+                    BranchId = _currentUser.BranchId,
+                    ClassId = dto.ClassId,
+                    BatchId = dto.BatchId,
+                    FeeHeadId = item.FeeHeadId,
+                    Amount = item.Amount,
+                    ApplicableMonth = item.ApplicableMonth,
+                    IsActive = item.IsActive
+                };
+                _dbContext.ClassFeeStructures.Add(newStructure);
+            }
+        }
+
+        await _dbContext.SaveChangesAsync();
+        return Ok(new { message = "Class fee structures saved successfully." });
     }
 }
 

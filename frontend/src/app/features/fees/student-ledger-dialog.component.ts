@@ -125,7 +125,13 @@ import { FeeDueReceiptDialogComponent } from './fee-due-receipt-dialog.component
                 <tbody>
                   <tr *ngFor="let inv of ledger.invoices" [class.cancelled-row]="inv.status === 'Cancelled'">
                     <td class="nowrap-col"><strong>{{ inv.invoiceNumber }}</strong></td>
-                    <td>{{ inv.title }}
+                    <td>
+                      <div>{{ inv.title }}</div>
+                      <div *ngIf="inv.items && inv.items.length > 0" class="mini-heads-row">
+                        <span *ngFor="let it of inv.items" class="mini-head-chip">
+                          {{ it.headName }}: ₹{{ it.amount | number:'1.0-0' }}
+                        </span>
+                      </div>
                       <span *ngIf="inv.status === 'Cancelled'" class="cancelled-label" [matTooltip]="'Cancelled' + (inv.cancelledAt ? ' on ' + (inv.cancelledAt | date:'mediumDate') : '') + (inv.cancellationReason ? ' | Reason: ' + inv.cancellationReason : '')">VOID</span>
                     </td>
                     <td class="nowrap-col">{{ inv.dueDate | date:'mediumDate' }}</td>
@@ -566,6 +572,25 @@ import { FeeDueReceiptDialogComponent } from './fee-due-receipt-dialog.component
         z-index: 5;
         box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
       }
+
+      .mini-heads-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-top: 4px;
+
+        .mini-head-chip {
+          font-size: 0.7rem;
+          background: #f0f9ff;
+          color: #0369a1;
+          border: 1px solid #bae6fd;
+          padding: 1px 6px;
+          border-radius: 10px;
+          font-weight: 600;
+          display: inline-block;
+          white-space: nowrap;
+        }
+      }
     }
 
     .nowrap-col {
@@ -876,6 +901,23 @@ export class StudentLedgerDialogComponent implements OnInit {
         });
       },
       error: () => {
+        const matchingInvoice = this.ledger?.invoices.find(i => i.invoiceNumber === payment.invoiceNumber);
+        const fallbackItems = matchingInvoice?.items && matchingInvoice.items.length > 0
+          ? matchingInvoice.items.map((it, idx) => ({
+              itemIndex: idx + 1,
+              particulars: it.headName,
+              subTitle: matchingInvoice.title,
+              reference: matchingInvoice.invoiceNumber,
+              amount: it.amount
+            }))
+          : [{
+              itemIndex: 1,
+              particulars: matchingInvoice?.title || 'Tuition & Coaching Fee Settlement',
+              subTitle: 'Fee Payment',
+              reference: payment.invoiceNumber,
+              amount: payment.amountPaid
+            }];
+
         const fallbackReceipt: FeePaymentReceipt = {
           paymentId: payment.paymentId,
           receiptNumber: payment.receiptNumber,
@@ -890,7 +932,8 @@ export class StudentLedgerDialogComponent implements OnInit {
           paymentDate: payment.paymentDate,
           mode: payment.mode,
           transactionRef: payment.transactionRef,
-          remarks: payment.remarks
+          remarks: payment.remarks,
+          items: fallbackItems
         };
 
         this.dialog.open(FeeReceiptDialogComponent, {
@@ -899,7 +942,7 @@ export class StudentLedgerDialogComponent implements OnInit {
           panelClass: 'receipt-dialog-panel',
           data: {
             receipt: fallbackReceipt,
-            instituteName: this.authService.currentUser()?.instituteName || 'Saraswati Coaching Classes'
+            instituteName: this.authService.currentUser()?.instituteName || 'Apex Coaching Academy'
           }
         });
       }
