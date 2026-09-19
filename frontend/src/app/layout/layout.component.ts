@@ -19,6 +19,7 @@ import { TenantService } from '../core/services/tenant.service';
 import { IdleTimeoutService } from '../core/services/idle-timeout.service';
 import { API_BASE, HolidayDto } from '../features/teachers/teacher.models';
 import { FooterComponent } from './footer/footer.component';
+import { QuickSettingsDrawerComponent } from './quick-settings-drawer/quick-settings-drawer.component';
 
 @Component({
   selector: 'app-layout',
@@ -36,7 +37,8 @@ import { FooterComponent } from './footer/footer.component';
     MatDividerModule,
     MatMenuModule,
     MatTooltipModule,
-    FooterComponent
+    FooterComponent,
+    QuickSettingsDrawerComponent
   ],
   template: `
     <mat-sidenav-container class="sidenav-container">
@@ -284,6 +286,9 @@ import { FooterComponent } from './footer/footer.component';
         <app-footer></app-footer>
       </mat-sidenav-content>
     </mat-sidenav-container>
+
+    <!-- Floating Settings Gear & Quick Settings Drawer -->
+    <app-quick-settings-drawer></app-quick-settings-drawer>
   `,
   styles: [`
     .sidenav-container {

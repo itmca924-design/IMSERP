@@ -15,6 +15,10 @@ html, body {
   color: #1e293b;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  // Default ERP theme CSS variables (overridden per theme-* body class)
+  --erp-primary: #4f46e5;
+  --erp-primary-hover: #4338ca;
+  --erp-primary-light: #eff6ff;
 }
 
 // Global Typography Enforcement (excluding mat-icon)
@@ -1255,6 +1259,175 @@ body, p, span, h1, h2, h3, h4, h5, h6, a, button, input, select, textarea,
     }
   }
 }
+
+// ============================================================================
+// IMSERP - Theme Customizer Engine (Accents, Dark Mode & Density)
+// ============================================================================
+
+// 1. Primary Accent Colors
+body.theme-indigo {
+  --erp-primary: #4f46e5;
+  --erp-primary-hover: #4338ca;
+  --erp-primary-light: #eff6ff;
+  .header-toolbar { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%) !important; }
+}
+
+body.theme-emerald {
+  --erp-primary: #059669;
+  --erp-primary-hover: #047857;
+  --erp-primary-light: #ecfdf5;
+  .header-toolbar { background: linear-gradient(135deg, #064e3b 0%, #0f172a 100%) !important; }
+  .btn-primary, button[color="primary"].mat-mdc-raised-button { background-color: #059669 !important; }
+}
+
+body.theme-blue {
+  --erp-primary: #0284c7;
+  --erp-primary-hover: #0369a1;
+  --erp-primary-light: #f0f9ff;
+  .header-toolbar { background: linear-gradient(135deg, #0c4a6e 0%, #0f172a 100%) !important; }
+  .btn-primary, button[color="primary"].mat-mdc-raised-button { background-color: #0284c7 !important; }
+}
+
+body.theme-purple {
+  --erp-primary: #7c3aed;
+  --erp-primary-hover: #6d28d9;
+  --erp-primary-light: #f5f3ff;
+  .header-toolbar { background: linear-gradient(135deg, #4c1d95 0%, #0f172a 100%) !important; }
+  .btn-primary, button[color="primary"].mat-mdc-raised-button { background-color: #7c3aed !important; }
+}
+
+body.theme-amber {
+  --erp-primary: #d97706;
+  --erp-primary-hover: #b45309;
+  --erp-primary-light: #fffbeb;
+  .header-toolbar { background: linear-gradient(135deg, #78350f 0%, #0f172a 100%) !important; }
+  .btn-primary, button[color="primary"].mat-mdc-raised-button { background-color: #d97706 !important; }
+}
+
+body.theme-rose {
+  --erp-primary: #e11d48;
+  --erp-primary-hover: #be123c;
+  --erp-primary-light: #fff1f2;
+  .header-toolbar { background: linear-gradient(135deg, #881337 0%, #0f172a 100%) !important; }
+  .btn-primary, button[color="primary"].mat-mdc-raised-button { background-color: #e11d48 !important; }
+}
+
+body.theme-teal {
+  --erp-primary: #0d9488;
+  --erp-primary-hover: #0f766e;
+  --erp-primary-light: #f0fdfa;
+  .header-toolbar { background: linear-gradient(135deg, #134e4a 0%, #0f172a 100%) !important; }
+  .btn-primary, button[color="primary"].mat-mdc-raised-button { background-color: #0d9488 !important; }
+}
+
+body.theme-cyan {
+  --erp-primary: #0891b2;
+  --erp-primary-hover: #0e7490;
+  --erp-primary-light: #ecfeff;
+  .header-toolbar { background: linear-gradient(135deg, #164e63 0%, #0f172a 100%) !important; }
+  .btn-primary, button[color="primary"].mat-mdc-raised-button { background-color: #0891b2 !important; }
+}
+
+body.theme-orange {
+  --erp-primary: #ea580c;
+  --erp-primary-hover: #c2410c;
+  --erp-primary-light: #fff7ed;
+  .header-toolbar { background: linear-gradient(135deg, #7c2d12 0%, #0f172a 100%) !important; }
+  .btn-primary, button[color="primary"].mat-mdc-raised-button { background-color: #ea580c !important; }
+}
+
+body.theme-lime {
+  --erp-primary: #65a30d;
+  --erp-primary-hover: #4d7c0f;
+  --erp-primary-light: #f7fee7;
+  .header-toolbar { background: linear-gradient(135deg, #365314 0%, #0f172a 100%) !important; }
+  .btn-primary, button[color="primary"].mat-mdc-raised-button { background-color: #65a30d !important; }
+}
+
+body.theme-crimson {
+  --erp-primary: #dc2626;
+  --erp-primary-hover: #b91c1c;
+  --erp-primary-light: #fef2f2;
+  .header-toolbar { background: linear-gradient(135deg, #7f1d1d 0%, #0f172a 100%) !important; }
+  .btn-primary, button[color="primary"].mat-mdc-raised-button { background-color: #dc2626 !important; }
+}
+
+body.theme-slate {
+  --erp-primary: #475569;
+  --erp-primary-hover: #334155;
+  --erp-primary-light: #f8fafc;
+  .header-toolbar { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%) !important; }
+  .btn-primary, button[color="primary"].mat-mdc-raised-button { background-color: #475569 !important; }
+}
+
+
+// 2. Dark Slate Mode
+body.erp-dark-theme {
+  background-color: #090e1a !important;
+  color: #f1f5f9 !important;
+
+  .main-content, .dashboard-container, .page-container {
+    background-color: #090e1a !important;
+    color: #f1f5f9 !important;
+  }
+
+  .stat-card, .metric-card, .chart-card, .data-card, .mat-mdc-card {
+    background-color: #0f172a !important;
+    color: #f1f5f9 !important;
+    border-color: #1e293b !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
+  }
+
+  .mat-mdc-table, table {
+    background-color: #0f172a !important;
+    color: #cbd5e1 !important;
+
+    th.mat-mdc-header-cell {
+      background-color: #1e293b !important;
+      color: #94a3b8 !important;
+      border-bottom-color: #334155 !important;
+    }
+
+    td.mat-mdc-cell {
+      border-bottom-color: #1e293b !important;
+      color: #e2e8f0 !important;
+    }
+
+    tr:hover td.mat-mdc-cell {
+      background-color: #1a243b !important;
+    }
+  }
+
+  .summary-card, .filter-toolbar, .info-box {
+    background-color: #0f172a !important;
+    border-color: #1e293b !important;
+    color: #e2e8f0 !important;
+  }
+
+  input, select, textarea {
+    background-color: #1e293b !important;
+    color: #ffffff !important;
+    border-color: #334155 !important;
+  }
+}
+
+// 3. Compact Mode Density
+body.erp-compact {
+  .mat-mdc-cell, .mat-mdc-header-cell {
+    padding-top: 6px !important;
+    padding-bottom: 6px !important;
+    font-size: 0.8rem !important;
+  }
+
+  .card-container, .metric-grid {
+    gap: 10px !important;
+  }
+
+  .stat-card, .metric-card {
+    padding: 12px 14px !important;
+  }
+}
+
 
 
 

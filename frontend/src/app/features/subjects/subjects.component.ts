@@ -323,7 +323,8 @@ export class SubjectsComponent implements OnInit {
 
   openSubjectModal(subject?: SubjectDto): void {
     const dialogRef = this.dialog.open(SubjectDialogComponent, {
-      width: '480px',
+      width: '540px',
+      maxWidth: '96vw',
       data: subject ? { ...subject } : undefined
     });
 

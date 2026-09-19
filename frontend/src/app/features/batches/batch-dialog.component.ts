@@ -38,168 +38,321 @@ import { AuthService } from '../../core/services/auth.service';
     MatIconModule
   ],
   template: `
-    <h2 mat-dialog-title class="dialog-header">
-      <mat-icon color="primary">{{ isEditMode ? 'edit' : 'add_circle' }}</mat-icon>
-      <span>{{ isEditMode ? 'Edit Academic Batch' : 'Create New Academic Batch' }}</span>
-    </h2>
-
-    <mat-progress-bar mode="indeterminate" *ngIf="loading" class="dialog-loader"></mat-progress-bar>
-
-    <form [formGroup]="batchForm" (ngSubmit)="onSubmit()">
-      <mat-dialog-content class="dialog-content">
-        <div class="form-grid">
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Batch Name</mat-label>
-            <input matInput formControlName="name" placeholder="e.g. Class 10th Science Batch A" />
-            <mat-error *ngIf="batchForm.get('name')?.hasError('required')">Batch name is required</mat-error>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Subjects Covered (Select Chips)</mat-label>
-            <mat-select formControlName="selectedSubjects" multiple placeholder="Select subjects from Master" panelClass="smooth-dropdown-panel subject-multiselect-panel">
-              <mat-select-trigger>
-                <mat-chip-set>
-                  <mat-chip *ngFor="let subj of batchForm.get('selectedSubjects')?.value" selected color="primary" class="selected-chip">
-                    {{ subj }}
-                  </mat-chip>
-                </mat-chip-set>
-              </mat-select-trigger>
-
-              <!-- Sticky Search & Select All Header Box -->
-              <div class="dropdown-header-container" (keydown)="$event.stopPropagation()">
-                <div class="dropdown-search-box">
-                  <mat-icon class="search-icon">search</mat-icon>
-                  <input
-                    type="text"
-                    class="search-input"
-                    placeholder="Search subjects..."
-                    [(ngModel)]="subjectSearchTerm"
-                    [ngModelOptions]="{standalone: true}"
-                    (input)="$event.stopPropagation()"
-                  />
-                  <mat-icon *ngIf="subjectSearchTerm" class="clear-icon" (click)="subjectSearchTerm = ''; $event.stopPropagation()">close</mat-icon>
-                </div>
-                
-                <div class="select-all-box">
-                  <mat-checkbox
-                    color="primary"
-                    [checked]="isAllSubjectsSelected()"
-                    [indeterminate]="isSomeSubjectsSelected()"
-                    (change)="toggleSelectAllSubjects($event.checked)"
-                    (click)="$event.stopPropagation()">
-                    <span class="select-all-label">Select All / Unselect All</span>
-                  </mat-checkbox>
-                </div>
-              </div>
-
-              <!-- Filtered Subject Options -->
-              <mat-option *ngFor="let s of getFilteredSubjects()" [value]="s.name">
-                <mat-icon color="primary" class="option-icon">menu_book</mat-icon>
-                <span>{{ s.name }}</span>
-                <small class="option-code">({{ s.code || 'GEN' }})</small>
-              </mat-option>
-
-              <mat-option *ngIf="getFilteredSubjects().length === 0" disabled>
-                <em>No matching subjects found</em>
-              </mat-option>
-            </mat-select>
-            <mat-error *ngIf="batchForm.get('selectedSubjects')?.hasError('required')">At least one subject is required</mat-error>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="half-width">
-            <mat-label>Branch Campus</mat-label>
-            <mat-select formControlName="branchId" (selectionChange)="onBranchChange($event.value)" placeholder="Select Branch" panelClass="smooth-dropdown-panel batch-select-panel">
-              <mat-select-trigger>
-                {{ getSelectedBranchName() }}
-              </mat-select-trigger>
-              <mat-option *ngFor="let b of availableBranches" [value]="b.id">
-                <div class="batch-opt-row">
-                  <mat-icon color="primary" class="option-icon">store</mat-icon>
-                  <span class="opt-name">{{ b.name }}</span>
-                  <span class="opt-code-badge">{{ b.code }}</span>
-                </div>
-              </mat-option>
-            </mat-select>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="half-width">
-            <mat-label>Assigned Classroom (Room)</mat-label>
-            <mat-select formControlName="roomId" placeholder="Select Room (Optional)" panelClass="smooth-dropdown-panel batch-select-panel">
-              <mat-select-trigger>
-                {{ getSelectedRoomName() }}
-              </mat-select-trigger>
-              <mat-option [value]="null">
-                <div class="batch-opt-row">
-                  <mat-icon class="option-icon text-muted">meeting_room</mat-icon>
-                  <span class="text-muted">None / Unassigned</span>
-                </div>
-              </mat-option>
-              <mat-option *ngFor="let r of filteredRooms" [value]="r.id">
-                <div class="batch-opt-row">
-                  <mat-icon color="primary" class="option-icon">meeting_room</mat-icon>
-                  <span class="opt-name">{{ formatRoomDisplay(r.roomNumber) }}</span>
-                  <span class="opt-badge-pill">Cap: {{ r.capacity }}</span>
-                  <span class="opt-sub-info" *ngIf="r.floor">Floor {{ r.floor }}</span>
-                </div>
-              </mat-option>
-            </mat-select>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="half-width">
-            <mat-label>Academic Session / Year</mat-label>
-            <input matInput formControlName="academicYear" placeholder="e.g. 2026-2027" />
-            <mat-error *ngIf="batchForm.get('academicYear')?.hasError('required')">Academic Year is required</mat-error>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="half-width">
-            <mat-label>Standard Monthly Fee (₹)</mat-label>
-            <input matInput type="number" formControlName="standardMonthlyFee" placeholder="3500" />
-            <mat-error *ngIf="batchForm.get('standardMonthlyFee')?.hasError('required')">Monthly fee is required</mat-error>
-            <mat-error *ngIf="batchForm.get('standardMonthlyFee')?.hasError('min')">Fee must be positive</mat-error>
-          </mat-form-field>
+    <div class="dialog-wrapper">
+      <div class="dialog-header">
+        <div class="header-icon-wrap">
+          <mat-icon>{{ isEditMode ? 'edit_note' : 'add_circle' }}</mat-icon>
         </div>
-      </mat-dialog-content>
-
-      <mat-dialog-actions align="end" class="dialog-actions">
-        <button mat-button type="button" (click)="onCancel()" [disabled]="saving">Cancel</button>
-        <button mat-raised-button color="primary" type="submit" [disabled]="batchForm.invalid || saving || loading">
-          <mat-spinner diameter="20" *ngIf="saving" class="spinner"></mat-spinner>
-          <span>{{ saving ? 'Saving...' : (isEditMode ? 'Update Batch' : 'Save Batch') }}</span>
+        <div class="header-titles">
+          <h2 mat-dialog-title class="main-title">{{ isEditMode ? 'Edit Academic Batch' : 'Create New Academic Batch' }}</h2>
+          <p class="subtitle">{{ isEditMode ? 'Modify batch curriculum, campus, room allocation and fee rate.' : 'Configure a new coaching batch with campus, room assignment and monthly fee.' }}</p>
+        </div>
+        <button mat-icon-button type="button" class="close-btn" (click)="onCancel()" [disabled]="saving">
+          <mat-icon>close</mat-icon>
         </button>
-      </mat-dialog-actions>
-    </form>
+      </div>
+
+      <mat-progress-bar mode="indeterminate" *ngIf="loading" class="dialog-loader"></mat-progress-bar>
+
+      <form [formGroup]="batchForm" (ngSubmit)="onSubmit()">
+        <mat-dialog-content class="dialog-content">
+
+          <!-- Info Callout -->
+          <div class="info-callout">
+            <mat-icon class="info-icon">auto_awesome</mat-icon>
+            <div class="info-text">
+              <strong>Academic Batch Setup:</strong> Link subjects, allocate classroom capacity, and define standard monthly tuition fees for automated student billing.
+            </div>
+          </div>
+
+          <!-- Section: Batch Info & Subjects -->
+          <div class="section-label">
+            <mat-icon class="section-icon">school</mat-icon>
+            <span>Batch &amp; Subject Details</span>
+          </div>
+
+          <div class="form-grid">
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Batch Name *</mat-label>
+              <input matInput formControlName="name" placeholder="e.g. Class 10th (Batch - 1) - Chemistry" />
+              <mat-icon matSuffix color="primary">school</mat-icon>
+              <mat-error *ngIf="batchForm.get('name')?.hasError('required')">Batch name is required</mat-error>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Subjects Covered (Select Chips) *</mat-label>
+              <mat-select formControlName="selectedSubjects" multiple placeholder="Select subjects from Master" panelClass="smooth-dropdown-panel subject-multiselect-panel">
+                <mat-select-trigger>
+                  <mat-chip-set>
+                    <mat-chip *ngFor="let subj of batchForm.get('selectedSubjects')?.value" selected color="primary" class="selected-chip">
+                      {{ subj }}
+                    </mat-chip>
+                  </mat-chip-set>
+                </mat-select-trigger>
+
+                <!-- Sticky Search & Select All Header Box -->
+                <div class="dropdown-header-container" (keydown)="$event.stopPropagation()">
+                  <div class="dropdown-search-box">
+                    <mat-icon class="search-icon">search</mat-icon>
+                    <input
+                      type="text"
+                      class="search-input"
+                      placeholder="Search subjects..."
+                      [(ngModel)]="subjectSearchTerm"
+                      [ngModelOptions]="{standalone: true}"
+                      (input)="$event.stopPropagation()"
+                    />
+                    <mat-icon *ngIf="subjectSearchTerm" class="clear-icon" (click)="subjectSearchTerm = ''; $event.stopPropagation()">close</mat-icon>
+                  </div>
+                  
+                  <div class="select-all-box">
+                    <mat-checkbox
+                      color="primary"
+                      [checked]="isAllSubjectsSelected()"
+                      [indeterminate]="isSomeSubjectsSelected()"
+                      (change)="toggleSelectAllSubjects($event.checked)"
+                      (click)="$event.stopPropagation()">
+                      <span class="select-all-label">Select All / Unselect All</span>
+                    </mat-checkbox>
+                  </div>
+                </div>
+
+                <!-- Filtered Subject Options -->
+                <mat-option *ngFor="let s of getFilteredSubjects()" [value]="s.name">
+                  <mat-icon color="primary" class="option-icon">menu_book</mat-icon>
+                  <span>{{ s.name }}</span>
+                  <small class="option-code">({{ s.code || 'GEN' }})</small>
+                </mat-option>
+
+                <mat-option *ngIf="getFilteredSubjects().length === 0" disabled>
+                  <em>No matching subjects found</em>
+                </mat-option>
+              </mat-select>
+              <mat-icon matSuffix color="primary">category</mat-icon>
+              <mat-error *ngIf="batchForm.get('selectedSubjects')?.hasError('required')">At least one subject is required</mat-error>
+            </mat-form-field>
+          </div>
+
+          <!-- Section: Campus & Room -->
+          <div class="section-label">
+            <mat-icon class="section-icon">storefront</mat-icon>
+            <span>Campus &amp; Classroom Allocation</span>
+          </div>
+
+          <div class="form-grid">
+            <mat-form-field appearance="outline" class="half-width">
+              <mat-label>Branch Campus</mat-label>
+              <mat-select formControlName="branchId" (selectionChange)="onBranchChange($event.value)" placeholder="Select Branch" panelClass="smooth-dropdown-panel batch-select-panel">
+                <mat-select-trigger>
+                  {{ getSelectedBranchName() }}
+                </mat-select-trigger>
+                <mat-option *ngFor="let b of availableBranches" [value]="b.id">
+                  <div class="batch-opt-row">
+                    <mat-icon color="primary" class="option-icon">store</mat-icon>
+                    <span class="opt-name">{{ b.name }}</span>
+                    <span class="opt-code-badge">{{ b.code }}</span>
+                  </div>
+                </mat-option>
+              </mat-select>
+              <mat-icon matSuffix color="primary">storefront</mat-icon>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="half-width">
+              <mat-label>Assigned Classroom (Room)</mat-label>
+              <mat-select formControlName="roomId" placeholder="Select Room (Optional)" panelClass="smooth-dropdown-panel batch-select-panel">
+                <mat-select-trigger>
+                  {{ getSelectedRoomName() }}
+                </mat-select-trigger>
+                <mat-option [value]="null">
+                  <div class="batch-opt-row">
+                    <mat-icon class="option-icon text-muted">meeting_room</mat-icon>
+                    <span class="text-muted">None / Unassigned</span>
+                  </div>
+                </mat-option>
+                <mat-option *ngFor="let r of filteredRooms" [value]="r.id">
+                  <div class="batch-opt-row">
+                    <mat-icon color="primary" class="option-icon">meeting_room</mat-icon>
+                    <span class="opt-name">{{ formatRoomDisplay(r.roomNumber) }}</span>
+                    <span class="opt-badge-pill">Cap: {{ r.capacity }}</span>
+                    <span class="opt-sub-info" *ngIf="r.floor">Floor {{ r.floor }}</span>
+                  </div>
+                </mat-option>
+              </mat-select>
+              <mat-icon matSuffix color="primary">meeting_room</mat-icon>
+            </mat-form-field>
+          </div>
+
+          <!-- Section: Session & Fee -->
+          <div class="section-label">
+            <mat-icon class="section-icon">payments</mat-icon>
+            <span>Academic Session &amp; Tuition Fee Rate</span>
+          </div>
+
+          <div class="form-grid">
+            <mat-form-field appearance="outline" class="half-width">
+              <mat-label>Academic Session / Year *</mat-label>
+              <input matInput formControlName="academicYear" placeholder="e.g. 2026-2027" />
+              <mat-icon matSuffix color="primary">date_range</mat-icon>
+              <mat-error *ngIf="batchForm.get('academicYear')?.hasError('required')">Academic Year is required</mat-error>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="half-width">
+              <mat-label>Standard Monthly Fee (₹) *</mat-label>
+              <input matInput type="number" formControlName="standardMonthlyFee" placeholder="3500" />
+              <mat-icon matSuffix color="primary">payments</mat-icon>
+              <mat-error *ngIf="batchForm.get('standardMonthlyFee')?.hasError('required')">Monthly fee is required</mat-error>
+              <mat-error *ngIf="batchForm.get('standardMonthlyFee')?.hasError('min')">Fee must be positive</mat-error>
+            </mat-form-field>
+          </div>
+
+          <!-- Live Preview Card -->
+          <div class="preview-box">
+            <div class="preview-header">
+              <mat-icon class="preview-header-icon">summarize</mat-icon>
+              <span>Batch Summary Preview</span>
+            </div>
+            <div class="preview-body">
+              <div class="preview-item">
+                <span class="preview-label">Batch Name:</span>
+                <strong class="preview-val highlight">{{ batchForm.get('name')?.value || '—' }}</strong>
+              </div>
+              <div class="preview-item">
+                <span class="preview-label">Covered Subjects:</span>
+                <span class="preview-val">{{ getSelectedSubjects().join(', ') || 'None selected' }}</span>
+              </div>
+              <div class="preview-item">
+                <span class="preview-label">Campus &amp; Room:</span>
+                <span class="preview-val">{{ getSelectedBranchName() || 'All Campuses' }} • {{ getSelectedRoomName() }}</span>
+              </div>
+              <div class="preview-item">
+                <span class="preview-label">Tuition Fee Rate:</span>
+                <strong class="preview-val amount">₹{{ (batchForm.get('standardMonthlyFee')?.value || 0) | number:'1.0-0' }} / mo ({{ batchForm.get('academicYear')?.value || '2026-2027' }})</strong>
+              </div>
+            </div>
+          </div>
+
+        </mat-dialog-content>
+
+        <mat-dialog-actions align="end" class="dialog-actions">
+          <button mat-button type="button" (click)="onCancel()" [disabled]="saving">Cancel</button>
+          <button mat-raised-button color="primary" type="submit" [disabled]="batchForm.invalid || saving || loading" class="submit-btn">
+            <mat-spinner diameter="18" *ngIf="saving" class="btn-spinner"></mat-spinner>
+            <mat-icon *ngIf="!saving">{{ isEditMode ? 'save' : 'add_task' }}</mat-icon>
+            <span>{{ saving ? 'Saving...' : (isEditMode ? 'Update Batch' : 'Create Batch') }}</span>
+          </button>
+        </mat-dialog-actions>
+      </form>
+    </div>
   `,
   styles: [`
+    .dialog-wrapper {
+      padding: 0;
+      box-sizing: border-box;
+      min-width: 520px;
+      max-width: 660px;
+    }
+
     .dialog-header {
       display: flex;
       align-items: center;
-      gap: 8px;
-      font-weight: 600;
+      gap: 14px;
+      padding: 20px 24px 16px;
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+      border-bottom: 1px solid #bfdbfe;
+
+      .header-icon-wrap {
+        width: 44px;
+        height: 44px;
+        border-radius: 10px;
+        background: #2563eb;
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        box-shadow: 0 4px 6px -1px rgba(37,99,235,0.25);
+        mat-icon { font-size: 24px; width: 24px; height: 24px; }
+      }
+
+      .header-titles {
+        flex: 1 1 auto;
+        .main-title {
+          margin: 0;
+          font-size: 1.18rem;
+          font-weight: 700;
+          color: #1e3a8a;
+          line-height: 1.3;
+        }
+        .subtitle {
+          margin: 3px 0 0;
+          font-size: 0.79rem;
+          color: #3b82f6;
+        }
+      }
+
+      .close-btn { color: #64748b; }
     }
+
     .dialog-loader {
       margin: 0;
-      height: 4px;
+      height: 3px;
     }
+
     .dialog-content {
-      padding-top: 14px;
-      min-width: min(680px, 92vw);
+      padding: 18px 24px 10px !important;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      max-height: 68vh;
+      overflow-y: auto;
     }
+
+    .info-callout {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 13px;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 8px;
+
+      .info-icon { color: #16a34a; font-size: 18px; width: 18px; height: 18px; margin-top: 1px; flex-shrink: 0; }
+      .info-text { font-size: 0.79rem; color: #166534; line-height: 1.45; strong { font-weight: 700; } }
+    }
+
+    .section-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #475569;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      margin-bottom: -4px;
+
+      .section-icon { font-size: 15px; width: 15px; height: 15px; color: #94a3b8; }
+    }
+
     .form-grid {
       display: flex;
       flex-wrap: wrap;
-      gap: 14px;
+      gap: 12px;
     }
     .full-width {
       width: 100%;
+      flex: 1 1 100%;
     }
     .half-width {
-      flex: 1 1 calc(50% - 14px);
-      min-width: 280px;
+      flex: 1 1 calc(50% - 6px);
+      min-width: 240px;
     }
+
     .selected-chip {
       font-size: 0.75rem;
       height: 22px;
     }
+
     .dropdown-header-container {
       position: sticky;
       top: 0;
@@ -258,12 +411,99 @@ import { AuthService } from '../../core/services/auth.service';
       color: #888;
       margin-left: 6px;
     }
-    .dialog-actions {
-      padding: 16px 24px;
+    .batch-opt-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      width: 100%;
+      .opt-name { font-weight: 500; }
+      .opt-code-badge, .opt-badge-pill {
+        font-size: 0.72rem;
+        background: #e2e8f0;
+        color: #475569;
+        padding: 1px 6px;
+        border-radius: 4px;
+        margin-left: auto;
+      }
+      .opt-sub-info {
+        font-size: 0.72rem;
+        color: #64748b;
+        margin-left: 4px;
+      }
     }
-    .spinner {
-      display: inline-block;
-      margin-right: 8px;
+
+    .preview-box {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      overflow: hidden;
+
+      .preview-header {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 14px;
+        background: #f1f5f9;
+        border-bottom: 1px solid #e2e8f0;
+        font-size: 0.73rem;
+        font-weight: 700;
+        color: #475569;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        .preview-header-icon { font-size: 14px; width: 14px; height: 14px; color: #94a3b8; }
+      }
+
+      .preview-body {
+        padding: 10px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .preview-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.82rem;
+        .preview-label { color: #64748b; }
+        .preview-val {
+          color: #0f172a;
+          font-weight: 600;
+          max-width: 62%;
+          text-align: right;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          &.highlight { color: #2563eb; }
+          &.amount { color: #059669; font-size: 0.95rem; }
+        }
+      }
+    }
+
+    .dialog-actions {
+      padding: 13px 24px 20px;
+      border-top: 1px solid #f1f5f9;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+
+      .submit-btn {
+        height: 42px;
+        font-weight: 600;
+        padding: 0 20px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .btn-spinner { margin-right: 4px; }
+    }
+
+    @media (max-width: 600px) {
+      .dialog-wrapper { min-width: 100% !important; }
+      .form-grid {
+        flex-direction: column;
+        .half-width, .full-width { width: 100% !important; flex: 1 1 100% !important; }
+      }
     }
   `]
 })

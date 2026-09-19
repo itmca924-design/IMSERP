@@ -1,0 +1,562 @@
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- FLOATING RIGHT-EDGE GEAR TRIGGER (Red Marked Position)        -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div class="floating-trigger-wrapper" [class.hidden]="settingsService.isDrawerOpen()">
+  <button
+    type="button"
+    class="floating-settings-btn"
+    (click)="onToggleDrawer()"
+    matTooltip="Institute ERP Quick Settings & Customizer"
+    matTooltipPosition="left"
+    aria-label="Open ERP Quick Settings">
+    <span class="pulse-ring"></span>
+    <mat-icon class="gear-icon">settings</mat-icon>
+  </button>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- BACKDROP OVERLAY                                             -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div
+  class="drawer-backdrop"
+  [class.active]="settingsService.isDrawerOpen()"
+  (click)="onCloseDrawer()"
+  aria-hidden="true">
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- SLIDE-OVER DRAWER PANEL                                      -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<aside
+  class="quick-settings-drawer"
+  [class.open]="settingsService.isDrawerOpen()"
+  role="dialog"
+  aria-modal="true"
+  aria-label="ERP Quick Settings Panel">
+
+  <!-- Drawer Header -->
+  <div class="drawer-header">
+    <div class="header-main">
+      <div class="header-icon-box">
+        <mat-icon>tune</mat-icon>
+      </div>
+      <div class="header-text">
+        <h3 class="drawer-title">Institute Quick Settings</h3>
+        <p class="drawer-subtitle">ERP Customizer &amp; Smart School Automation</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button
+        type="button"
+        mat-icon-button
+        class="header-btn"
+        (click)="resetDefaults()"
+        matTooltip="Reset settings to default">
+        <mat-icon>restart_alt</mat-icon>
+      </button>
+      <button
+        type="button"
+        mat-icon-button
+        class="header-btn close-btn"
+        (click)="onCloseDrawer()"
+        matTooltip="Close settings (Esc)">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+  </div>
+
+  <!-- Tab Navigation Bar -->
+  <div class="drawer-tabs">
+    <button
+      type="button"
+      class="tab-btn"
+      [class.active]="activeTab === 'general'"
+      (click)="activeTab = 'general'">
+      <mat-icon>school</mat-icon>
+      <span>General</span>
+    </button>
+    <button
+      type="button"
+      class="tab-btn"
+      [class.active]="activeTab === 'automation'"
+      (click)="activeTab = 'automation'">
+      <mat-icon>bolt</mat-icon>
+      <span>Automation</span>
+      <span class="tab-badge">Pro</span>
+    </button>
+    <button
+      type="button"
+      class="tab-btn"
+      [class.active]="activeTab === 'appearance'"
+      (click)="activeTab = 'appearance'">
+      <mat-icon>palette</mat-icon>
+      <span>Theme</span>
+    </button>
+    <button
+      type="button"
+      class="tab-btn"
+      [class.active]="activeTab === 'shortcuts'"
+      (click)="activeTab = 'shortcuts'">
+      <mat-icon>grid_view</mat-icon>
+      <span>Shortcuts</span>
+    </button>
+  </div>
+
+  <!-- Drawer Body -->
+  <div class="drawer-body">
+
+    <!-- ═══════════ TAB 1: GENERAL & SESSION ═══════════ -->
+    <div class="tab-content" *ngIf="activeTab === 'general'">
+      
+      <!-- Academic Session Selector -->
+      <section class="settings-section">
+        <div class="section-title-row">
+          <mat-icon class="section-icon">calendar_month</mat-icon>
+          <div>
+            <h4 class="section-title">Active Academic Session</h4>
+            <p class="section-desc">Current operative school / batch session for records</p>
+          </div>
+        </div>
+
+        <div class="session-grid">
+          <button
+            type="button"
+            *ngFor="let s of academicSessions"
+            class="session-card"
+            [class.selected]="settingsService.academicSession() === s"
+            (click)="setAcademicSession(s)">
+            <div class="session-info">
+              <span class="session-label">{{ s }}</span>
+              <span class="session-tag" *ngIf="s === '2026-2027'">Active Primary</span>
+            </div>
+            <mat-icon class="check-icon" *ngIf="settingsService.academicSession() === s">check_circle</mat-icon>
+          </button>
+        </div>
+      </section>
+
+      <!-- Active Institute & Branch Context -->
+      <section class="settings-section">
+        <div class="section-title-row">
+          <mat-icon class="section-icon">storefront</mat-icon>
+          <div>
+            <h4 class="section-title">Institute &amp; Campus Info</h4>
+            <p class="section-desc">Currently signed-in campus credentials</p>
+          </div>
+        </div>
+
+        <div class="info-card">
+          <div class="info-row">
+            <span class="info-label">Institute Name</span>
+            <span class="info-val font-semibold">{{ authService.currentUser()?.instituteName || 'Apex Coaching Academy' }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Tenant Code</span>
+            <span class="info-badge">{{ authService.currentUser()?.tenantCode || 'APEX' }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Operator</span>
+            <span class="info-val">{{ authService.currentUser()?.fullName || authService.currentUser()?.username || 'Administrator' }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Role</span>
+            <span class="info-tag">{{ authService.currentUser()?.role || 'Admin' }}</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Regional & Formats -->
+      <section class="settings-section">
+        <div class="section-title-row">
+          <mat-icon class="section-icon">language</mat-icon>
+          <div>
+            <h4 class="section-title">Regional Standards</h4>
+            <p class="section-desc">Currency and date display specifications</p>
+          </div>
+        </div>
+
+        <div class="settings-grid-2">
+          <div class="mini-spec-box">
+            <span class="spec-label">Currency Symbol</span>
+            <span class="spec-val">₹ INR (Indian Rupee)</span>
+          </div>
+          <div class="mini-spec-box">
+            <span class="spec-label">Date Format</span>
+            <span class="spec-val">DD/MM/YYYY</span>
+          </div>
+          <div class="mini-spec-box">
+            <span class="spec-label">Timezone</span>
+            <span class="spec-val">IST (UTC+05:30)</span>
+          </div>
+          <div class="mini-spec-box">
+            <span class="spec-label">SMS Sender ID</span>
+            <span class="spec-val text-green">APEXED (Approved)</span>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ═══════════ TAB 2: SMART AUTOMATION ═══════════ -->
+    <div class="tab-content" *ngIf="activeTab === 'automation'">
+      <div class="automation-banner">
+        <mat-icon class="banner-icon">auto_awesome</mat-icon>
+        <div class="banner-text">
+          <strong>School Automation Engine</strong>
+          <span>Toggle real-time alerts, biometric syncing, and automated reminders.</span>
+        </div>
+      </div>
+
+      <div class="toggles-list">
+
+        <!-- WhatsApp Fee Receipt -->
+        <div class="toggle-card">
+          <div class="toggle-icon-wrap wa-icon-wrap">
+            <mat-icon>receipt_long</mat-icon>
+          </div>
+          <div class="toggle-details">
+            <div class="toggle-title-row">
+              <span class="toggle-title">WhatsApp Fee Receipts</span>
+              <span class="status-pill green">Instant</span>
+            </div>
+            <p class="toggle-desc">Automatically send branded PDF fee receipts to parents' WhatsApp on payment collection.</p>
+          </div>
+          <label class="switch">
+            <input
+              type="checkbox"
+              [checked]="settingsService.whatsappFeeAlerts()"
+              (change)="settingsService.toggleWhatsappFee()">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <!-- Absent SMS / WhatsApp Alert -->
+        <div class="toggle-card">
+          <div class="toggle-icon-wrap absent-icon-wrap">
+            <mat-icon>person_off</mat-icon>
+          </div>
+          <div class="toggle-details">
+            <div class="toggle-title-row">
+              <span class="toggle-title">Daily Absentee Alert</span>
+              <span class="status-pill blue">10:30 AM</span>
+            </div>
+            <p class="toggle-desc">Dispatches automated WhatsApp/SMS notifications to parents if student is marked absent.</p>
+          </div>
+          <label class="switch">
+            <input
+              type="checkbox"
+              [checked]="settingsService.absentSmsAlerts()"
+              (change)="settingsService.toggleAbsentSms()">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <!-- Fee Due Reminders -->
+        <div class="toggle-card">
+          <div class="toggle-icon-wrap fee-icon-wrap">
+            <mat-icon>notifications_active</mat-icon>
+          </div>
+          <div class="toggle-details">
+            <div class="toggle-title-row">
+              <span class="toggle-title">Fee Due Auto-Reminders</span>
+              <span class="status-pill amber">3-Days Prior</span>
+            </div>
+            <p class="toggle-desc">Sends automatic payment reminders before invoice due dates to maintain zero overdue balances.</p>
+          </div>
+          <label class="switch">
+            <input
+              type="checkbox"
+              [checked]="settingsService.dueFeeReminders()"
+              (change)="settingsService.toggleDueFeeReminders()">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <!-- Biometric / RFID Device Sync -->
+        <div class="toggle-card">
+          <div class="toggle-icon-wrap rfid-icon-wrap">
+            <mat-icon>fingerprint</mat-icon>
+          </div>
+          <div class="toggle-details">
+            <div class="toggle-title-row">
+              <span class="toggle-title">Biometric / RFID Realtime Sync</span>
+              <span class="status-pill purple">Live</span>
+            </div>
+            <p class="toggle-desc">Polls biometric hardware logs directly at gate entry and auto-marks class attendance.</p>
+          </div>
+          <label class="switch">
+            <input
+              type="checkbox"
+              [checked]="settingsService.biometricSync()"
+              (change)="settingsService.toggleBiometricSync()">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <!-- Late Fee Auto-Calculation -->
+        <div class="toggle-card">
+          <div class="toggle-icon-wrap late-icon-wrap">
+            <mat-icon>update</mat-icon>
+          </div>
+          <div class="toggle-details">
+            <div class="toggle-title-row">
+              <span class="toggle-title">Late Fee Rule Auto-Compute</span>
+              <span class="status-pill">Rules</span>
+            </div>
+            <p class="toggle-desc">Applies institute fine policy automatically to invoices past the defined grace period.</p>
+          </div>
+          <label class="switch">
+            <input
+              type="checkbox"
+              [checked]="settingsService.lateFeeCalc()"
+              (change)="settingsService.toggleLateFeeCalc()">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <!-- Audio Chimes on Fee POS -->
+        <div class="toggle-card">
+          <div class="toggle-icon-wrap audio-icon-wrap">
+            <mat-icon>volume_up</mat-icon>
+          </div>
+          <div class="toggle-details">
+            <div class="toggle-title-row">
+              <span class="toggle-title">POS Audio Feedback Chimes</span>
+              <button type="button" class="test-chime-link" (click)="playTestChime()">Test Sound</button>
+            </div>
+            <p class="toggle-desc">Plays a confirmation audio chime whenever fees are settled or attendance is registered.</p>
+          </div>
+          <label class="switch">
+            <input
+              type="checkbox"
+              [checked]="settingsService.soundEffects()"
+              (change)="settingsService.toggleSoundEffects()">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ═══════════ TAB 3: APPEARANCE & THEME ═══════════ -->
+    <div class="tab-content" *ngIf="activeTab === 'appearance'">
+      
+      <!-- Theme Mode -->
+      <section class="settings-section">
+        <h4 class="section-title">Color Scheme / Mode</h4>
+        <p class="section-desc">Choose between daytime light or modern dark slate theme</p>
+
+        <div class="theme-mode-selector">
+          <button
+            type="button"
+            class="mode-btn"
+            [class.active]="settingsService.theme() === 'light'"
+            (click)="setTheme('light')">
+            <mat-icon>light_mode</mat-icon>
+            <span>Light Mode</span>
+            <mat-icon class="mode-check" *ngIf="settingsService.theme() === 'light'">check_circle</mat-icon>
+          </button>
+
+          <button
+            type="button"
+            class="mode-btn"
+            [class.active]="settingsService.theme() === 'dark'"
+            (click)="setTheme('dark')">
+            <mat-icon>dark_mode</mat-icon>
+            <span>Dark Slate</span>
+            <mat-icon class="mode-check" *ngIf="settingsService.theme() === 'dark'">check_circle</mat-icon>
+          </button>
+
+          <button
+            type="button"
+            class="mode-btn"
+            [class.active]="settingsService.theme() === 'auto'"
+            (click)="setTheme('auto')">
+            <mat-icon>brightness_auto</mat-icon>
+            <span>System Auto</span>
+            <mat-icon class="mode-check" *ngIf="settingsService.theme() === 'auto'">check_circle</mat-icon>
+          </button>
+        </div>
+      </section>
+
+      <!-- Brand Accent Color Palette -->
+      <section class="settings-section">
+        <h4 class="section-title">Primary Brand Accent Palette</h4>
+        <p class="section-desc">Select the primary accent color tailored for your institute's identity</p>
+
+        <div class="accent-palette-grid">
+          <button
+            type="button"
+            *ngFor="let acc of accentOptions"
+            class="accent-pill-btn"
+            [class.selected]="settingsService.accent() === acc.id"
+            (click)="setAccent(acc.id)">
+            <span class="color-swatch" [style.background-color]="acc.hex">
+              <mat-icon *ngIf="settingsService.accent() === acc.id">check</mat-icon>
+            </span>
+            <span class="accent-name">{{ acc.name }}</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- Layout Density -->
+      <section class="settings-section">
+        <h4 class="section-title">Display &amp; Table Density</h4>
+        <p class="section-desc">Optimize interface spacing for high-volume fee registers and roster data</p>
+
+        <div class="density-selector">
+          <button
+            type="button"
+            class="density-btn"
+            [class.active]="settingsService.density() === 'comfortable'"
+            (click)="setDensity('comfortable')">
+            <mat-icon>density_medium</mat-icon>
+            <div>
+              <strong>Comfortable</strong>
+              <span>Default spacious card and table padding</span>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            class="density-btn"
+            [class.active]="settingsService.density() === 'compact'"
+            (click)="setDensity('compact')">
+            <mat-icon>density_small</mat-icon>
+            <div>
+              <strong>Compact Mode</strong>
+              <span>High data density, condensed table rows</span>
+            </div>
+          </button>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- ═══════════ TAB 4: SHORTCUTS & DIAGNOSTICS ═══════════ -->
+    <div class="tab-content" *ngIf="activeTab === 'shortcuts'">
+      
+      <!-- ERP Quick Master Shortcuts -->
+      <section class="settings-section">
+        <h4 class="section-title">Core Management Shortcuts</h4>
+        <p class="section-desc">Instant access to key school configuration modules</p>
+
+        <div class="shortcuts-grid">
+          <a routerLink="/fees" class="shortcut-card" (click)="onCloseDrawer()">
+            <div class="sc-icon-circle sc-fees">
+              <mat-icon>payments</mat-icon>
+            </div>
+            <div class="sc-text">
+              <span class="sc-title">Fee Collection &amp; Invoices</span>
+              <span class="sc-desc">Collect fees, void invoices &amp; dues</span>
+            </div>
+            <mat-icon class="sc-chevron">chevron_right</mat-icon>
+          </a>
+
+          <a routerLink="/students" class="shortcut-card" (click)="onCloseDrawer()">
+            <div class="sc-icon-circle sc-students">
+              <mat-icon>school</mat-icon>
+            </div>
+            <div class="sc-text">
+              <span class="sc-title">Student Admission Roster</span>
+              <span class="sc-desc">Enroll, batches &amp; student profiles</span>
+            </div>
+            <mat-icon class="sc-chevron">chevron_right</mat-icon>
+          </a>
+
+          <a routerLink="/attendance/reports" class="shortcut-card" (click)="onCloseDrawer()">
+            <div class="sc-icon-circle sc-attend">
+              <mat-icon>how_to_reg</mat-icon>
+            </div>
+            <div class="sc-text">
+              <span class="sc-title">Attendance &amp; Reports</span>
+              <span class="sc-desc">Daily marking, absentee audits</span>
+            </div>
+            <mat-icon class="sc-chevron">chevron_right</mat-icon>
+          </a>
+
+          <a routerLink="/teachers" class="shortcut-card" (click)="onCloseDrawer()">
+            <div class="sc-icon-circle sc-teachers">
+              <mat-icon>badge</mat-icon>
+            </div>
+            <div class="sc-text">
+              <span class="sc-title">Faculty &amp; Staff Master</span>
+              <span class="sc-desc">Teachers, salaries &amp; timetables</span>
+            </div>
+            <mat-icon class="sc-chevron">chevron_right</mat-icon>
+          </a>
+
+          <a routerLink="/holidays" class="shortcut-card" (click)="onCloseDrawer()">
+            <div class="sc-icon-circle sc-holidays">
+              <mat-icon>event</mat-icon>
+            </div>
+            <div class="sc-text">
+              <span class="sc-title">Holiday Calendar</span>
+              <span class="sc-desc">Yearly institute calendar events</span>
+            </div>
+            <mat-icon class="sc-chevron">chevron_right</mat-icon>
+          </a>
+
+          <a routerLink="/roles" class="shortcut-card" (click)="onCloseDrawer()">
+            <div class="sc-icon-circle sc-roles">
+              <mat-icon>admin_panel_settings</mat-icon>
+            </div>
+            <div class="sc-text">
+              <span class="sc-title">Roles &amp; Permissions</span>
+              <span class="sc-desc">Staff access control matrix</span>
+            </div>
+            <mat-icon class="sc-chevron">chevron_right</mat-icon>
+          </a>
+        </div>
+      </section>
+
+      <!-- System Status & Cache Maintenance -->
+      <section class="settings-section">
+        <h4 class="section-title">Diagnostics &amp; Cache Maintenance</h4>
+        <p class="section-desc">Check system connectivity and clear local storage</p>
+
+        <div class="diagnostics-card">
+          <div class="diag-row">
+            <span class="diag-label">API Gateway Status</span>
+            <span class="diag-val online-badge">
+              <span class="live-dot"></span> Online (Port 5000)
+            </span>
+          </div>
+          <div class="diag-row">
+            <span class="diag-label">ERP Architecture</span>
+            <span class="diag-val">Multi-Tenant Native Kestrel</span>
+          </div>
+          <div class="diag-row">
+            <span class="diag-label">Software Version</span>
+            <span class="diag-val">IMSERP Pro v2.4.0</span>
+          </div>
+
+          <div class="diag-btn-wrap">
+            <button
+              type="button"
+              class="clear-cache-btn"
+              (click)="clearCacheAndReload()">
+              <mat-icon>delete_sweep</mat-icon>
+              <span>Clear ERP Cache &amp; Refresh</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+  </div>
+
+  <!-- Drawer Footer -->
+  <div class="drawer-footer">
+    <div class="footer-status">
+      <span class="status-indicator"></span>
+      <span class="status-text">All preferences automatically synced</span>
+    </div>
+    <button
+      type="button"
+      class="done-btn"
+      (click)="onCloseDrawer()">
+      Done
+    </button>
+  </div>
+
+</aside>

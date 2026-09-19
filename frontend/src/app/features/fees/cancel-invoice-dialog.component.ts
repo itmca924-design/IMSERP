@@ -44,9 +44,12 @@ export interface CancelInvoiceDialogData {
           <mat-icon>delete_forever</mat-icon>
         </div>
         <div class="header-text">
-          <h2>Cancel / Void Invoice</h2>
-          <p class="subtitle">Select reason for marking this invoice as cancelled</p>
+          <h2 mat-dialog-title>Cancel / Void Fee Invoice</h2>
+          <p class="subtitle">Select reason for marking this invoice as cancelled &amp; voiding dues</p>
         </div>
+        <button mat-icon-button type="button" class="close-btn" (click)="onClose()" [disabled]="submitting">
+          <mat-icon>close</mat-icon>
+        </button>
       </div>
 
       <!-- ═══ BLOCKED STATE: Partial payment exists ═══ -->
@@ -202,24 +205,30 @@ export interface CancelInvoiceDialogData {
   `,
   styles: [`
     .cancel-dialog-container {
-      padding: 8px 4px;
+      padding: 0;
+      box-sizing: border-box;
+      min-width: 480px;
+      max-width: 560px;
     }
     .dialog-header {
       display: flex;
       align-items: center;
       gap: 14px;
-      padding: 12px 24px 8px;
+      padding: 20px 24px 16px;
+      background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+      border-bottom: 1px solid #fecaca;
 
       .icon-circle {
         width: 44px;
         height: 44px;
-        border-radius: 50%;
-        background: #fee2e2;
-        color: #dc2626;
+        border-radius: 10px;
+        background: #dc2626;
+        color: #ffffff;
         display: flex;
         align-items: center;
         justify-content: center;
         flex-shrink: 0;
+        box-shadow: 0 4px 6px -1px rgba(220,38,38,0.25);
 
         mat-icon {
           font-size: 24px;
@@ -229,18 +238,22 @@ export interface CancelInvoiceDialogData {
       }
 
       .header-text {
+        flex: 1 1 auto;
         h2 {
           margin: 0;
-          font-size: 1.25rem;
+          font-size: 1.18rem;
           font-weight: 700;
-          color: #1e293b;
+          color: #991b1b;
+          line-height: 1.3;
         }
         .subtitle {
-          margin: 2px 0 0;
-          font-size: 0.82rem;
-          color: #64748b;
+          margin: 3px 0 0;
+          font-size: 0.79rem;
+          color: #dc2626;
         }
       }
+
+      .close-btn { color: #64748b; }
     }
 
     .dialog-content {
@@ -480,5 +493,9 @@ export class CancelInvoiceDialogComponent implements OnInit {
 
   onClose(): void {
     this.dialogRef.close(null);
+  }
+
+  onCancel(): void {
+    this.onClose();
   }
 }

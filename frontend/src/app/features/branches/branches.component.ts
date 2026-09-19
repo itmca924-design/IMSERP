@@ -241,45 +241,59 @@ import { AuthService } from '../../core/services/auth.service';
         <div class="modal-dialog" (click)="$event.stopPropagation()">
           <div class="modal-header">
             <div class="modal-title-group">
-              <div class="modal-icon-wrap" [class.edit]="isEditing">
+              <div class="modal-icon-wrap">
                 <mat-icon>{{ isEditing ? 'edit_location' : 'add_business' }}</mat-icon>
               </div>
               <div>
                 <h3 class="modal-title">{{ isEditing ? 'Edit Branch Details' : 'Add New Branch' }}</h3>
-                <p class="modal-subtitle">{{ isEditing ? 'Update campus name, code, phone, or address' : 'Register a new campus or regional branch for this institute' }}</p>
+                <p class="modal-subtitle">{{ isEditing ? 'Update campus name, code, phone, or address.' : 'Register a new campus or regional branch for this institute.' }}</p>
               </div>
             </div>
-            <button mat-icon-button (click)="closeModal()" class="close-btn">
+            <button mat-icon-button (click)="closeModal()" class="close-btn" type="button">
               <mat-icon>close</mat-icon>
             </button>
           </div>
 
           <form [formGroup]="branchForm" (ngSubmit)="saveBranch()" class="modal-body">
+            <!-- Info Callout -->
+            <div class="info-callout">
+              <mat-icon class="info-icon">auto_awesome</mat-icon>
+              <div class="info-text">
+                <strong>Multi-Campus Management:</strong> Branches enable localized fee collections, room assignments, and student batch tracking across physical campuses.
+              </div>
+            </div>
+
+            <!-- Section Label -->
+            <div class="section-label">
+              <mat-icon class="section-icon">storefront</mat-icon>
+              <span>Campus Identity &amp; Location</span>
+            </div>
+
             <div class="form-grid">
               <mat-form-field appearance="outline" class="span-2">
                 <mat-label>Branch Name *</mat-label>
                 <input matInput formControlName="name" placeholder="e.g. Patna Boring Road Campus">
-                <mat-icon matSuffix>business</mat-icon>
+                <mat-icon matSuffix color="primary">store</mat-icon>
                 <mat-error *ngIf="branchForm.get('name')?.hasError('required')">Branch name is required</mat-error>
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="span-1">
                 <mat-label>Branch Code *</mat-label>
                 <input matInput formControlName="code" placeholder="e.g. PAT-BR" (input)="onCodeInput($event)">
-                <mat-icon matSuffix>qr_code</mat-icon>
+                <mat-icon matSuffix color="primary">qr_code</mat-icon>
                 <mat-error *ngIf="branchForm.get('code')?.hasError('required')">Code is required</mat-error>
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="span-1">
                 <mat-label>Contact Phone</mat-label>
                 <input matInput formControlName="contactPhone" placeholder="+91 98765 43210">
-                <mat-icon matSuffix>phone</mat-icon>
+                <mat-icon matSuffix color="primary">call</mat-icon>
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="span-2">
                 <mat-label>Address &amp; Landmark</mat-label>
                 <textarea matInput formControlName="address" rows="2" placeholder="Full physical street address, building, or landmark..."></textarea>
-                <mat-icon matSuffix>place</mat-icon>
+                <mat-icon matSuffix color="primary">place</mat-icon>
               </mat-form-field>
 
               <!-- Main Branch Toggle (Only when creating) -->
@@ -297,6 +311,28 @@ import { AuthService } from '../../core/services/auth.service';
               </div>
             </div>
 
+            <!-- Live Preview Card -->
+            <div class="preview-box">
+              <div class="preview-header">
+                <mat-icon class="preview-header-icon">preview</mat-icon>
+                <span>Branch Preview</span>
+              </div>
+              <div class="preview-body">
+                <div class="preview-item">
+                  <span class="preview-label">Branch Name:</span>
+                  <strong class="preview-val highlight">{{ branchForm.get('name')?.value || '—' }}</strong>
+                </div>
+                <div class="preview-item">
+                  <span class="preview-label">Campus Code:</span>
+                  <span class="code-pill">{{ branchForm.get('code')?.value || '—' }}</span>
+                </div>
+                <div class="preview-item" *ngIf="branchForm.get('contactPhone')?.value">
+                  <span class="preview-label">Phone:</span>
+                  <span class="preview-val">{{ branchForm.get('contactPhone')?.value }}</span>
+                </div>
+              </div>
+            </div>
+
             <div *ngIf="formError" class="modal-error">
               <mat-icon>error_outline</mat-icon>
               <span>{{ formError }}</span>
@@ -304,8 +340,9 @@ import { AuthService } from '../../core/services/auth.service';
 
             <div class="modal-footer">
               <button type="button" mat-button (click)="closeModal()">Cancel</button>
-              <button type="submit" mat-raised-button color="primary" [disabled]="branchForm.invalid || formSaving">
-                <mat-spinner diameter="18" *ngIf="formSaving" style="display:inline-block; margin-right:6px;"></mat-spinner>
+              <button type="submit" mat-raised-button color="primary" [disabled]="branchForm.invalid || formSaving" class="submit-btn">
+                <mat-spinner diameter="18" *ngIf="formSaving" class="btn-spinner"></mat-spinner>
+                <mat-icon *ngIf="!formSaving">{{ isEditing ? 'save' : 'add_business' }}</mat-icon>
                 <span>{{ isEditing ? 'Save Changes' : 'Create Branch' }}</span>
               </button>
             </div>
@@ -691,7 +728,7 @@ import { AuthService } from '../../core/services/auth.service';
       background: #ffffff;
       border-radius: 16px;
       width: 100%;
-      max-width: 540px;
+      max-width: 580px;
       max-height: 90vh;
       overflow-y: auto;
       box-shadow: 0 20px 48px rgba(0, 0, 0, 0.25);
@@ -701,47 +738,81 @@ import { AuthService } from '../../core/services/auth.service';
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 20px 24px;
-      border-bottom: 1px solid #f1f5f9;
+      gap: 14px;
+      padding: 20px 24px 16px;
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+      border-bottom: 1px solid #bfdbfe;
 
       .modal-title-group {
         display: flex;
         align-items: center;
-        gap: 12px;
+        gap: 14px;
+        flex: 1 1 auto;
 
         .modal-icon-wrap {
-          width: 42px;
-          height: 42px;
+          width: 44px;
+          height: 44px;
           border-radius: 10px;
-          background: #eff6ff;
-          color: #2563eb;
+          background: #2563eb;
+          color: #ffffff;
           display: flex;
           align-items: center;
           justify-content: center;
-
-          &.edit {
-            background: #fdf2f8;
-            color: #db2777;
-          }
+          flex-shrink: 0;
+          box-shadow: 0 4px 6px -1px rgba(37,99,235,0.25);
+          mat-icon { font-size: 24px; width: 24px; height: 24px; }
         }
 
         .modal-title {
-          font-size: 1.15rem;
+          font-size: 1.18rem;
           font-weight: 700;
-          color: #0f172a;
+          color: #1e3a8a;
           margin: 0;
+          line-height: 1.3;
         }
 
         .modal-subtitle {
-          font-size: 0.8rem;
-          color: #64748b;
-          margin: 2px 0 0;
+          font-size: 0.79rem;
+          color: #3b82f6;
+          margin: 3px 0 0;
         }
       }
+
+      .close-btn { color: #64748b; }
     }
 
     .modal-body {
-      padding: 20px 24px;
+      padding: 18px 24px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+
+      .info-callout {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 10px 13px;
+        background: #f0fdf4;
+        border: 1px solid #bbf7d0;
+        border-radius: 8px;
+
+        .info-icon { color: #16a34a; font-size: 18px; width: 18px; height: 18px; margin-top: 1px; flex-shrink: 0; }
+        .info-text { font-size: 0.79rem; color: #166534; line-height: 1.45; strong { font-weight: 700; } }
+      }
+
+      .section-label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: #475569;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        margin-bottom: -4px;
+
+        .section-icon { font-size: 15px; width: 15px; height: 15px; color: #94a3b8; }
+      }
 
       .form-grid {
         display: grid;
@@ -758,7 +829,58 @@ import { AuthService } from '../../core/services/auth.service';
         border: 1px solid #e2e8f0;
         padding: 10px 14px;
         border-radius: 10px;
-        margin-top: 4px;
+        margin-top: 2px;
+      }
+
+      .preview-box {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        overflow: hidden;
+
+        .preview-header {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 8px 14px;
+          background: #f1f5f9;
+          border-bottom: 1px solid #e2e8f0;
+          font-size: 0.73rem;
+          font-weight: 700;
+          color: #475569;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          .preview-header-icon { font-size: 14px; width: 14px; height: 14px; color: #94a3b8; }
+        }
+
+        .preview-body {
+          padding: 10px 14px;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .preview-item {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          font-size: 0.82rem;
+          .preview-label { color: #64748b; }
+          .preview-val {
+            color: #0f172a;
+            font-weight: 600;
+            &.highlight { color: #2563eb; }
+          }
+          .code-pill {
+            background: #eff6ff;
+            color: #2563eb;
+            border: 1px solid #bfdbfe;
+            font-weight: 700;
+            font-size: 0.75rem;
+            padding: 1px 8px;
+            border-radius: 4px;
+          }
+        }
       }
     }
 
@@ -771,23 +893,27 @@ import { AuthService } from '../../core/services/auth.service';
       padding: 10px 14px;
       border-radius: 8px;
       font-size: 0.85rem;
-      margin-top: 14px;
       mat-icon { font-size: 18px; width: 18px; height: 18px; flex-shrink: 0; }
     }
 
     .modal-footer {
       display: flex;
       justify-content: flex-end;
+      align-items: center;
       gap: 10px;
-      padding-top: 16px;
-      margin-top: 16px;
+      padding-top: 14px;
+      margin-top: 4px;
       border-top: 1px solid #f1f5f9;
 
-      button {
-        height: 40px;
-        border-radius: 8px;
+      .submit-btn {
+        height: 42px;
         font-weight: 600;
+        padding: 0 20px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
       }
+      .btn-spinner { margin-right: 4px; display: inline-block; }
     }
   `]
 })

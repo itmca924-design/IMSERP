@@ -786,7 +786,8 @@ export class RoomsComponent implements OnInit {
 
   openAddRoomModal(): void {
     const dialogRef = this.dialog.open(RoomDialogComponent, {
-      width: '540px',
+      width: '560px',
+      maxWidth: '96vw',
       data: {
         isEditing: false,
         branches: this.branches
@@ -807,7 +808,8 @@ export class RoomsComponent implements OnInit {
 
   openEditRoomModal(room: RoomDto): void {
     const dialogRef = this.dialog.open(RoomDialogComponent, {
-      width: '540px',
+      width: '560px',
+      maxWidth: '96vw',
       data: {
         isEditing: true,
         room: { ...room },

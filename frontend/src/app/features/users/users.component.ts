@@ -241,7 +241,8 @@ export class UsersComponent implements OnInit {
 
   openUserModal(user?: UserDto): void {
     const dialogRef = this.dialog.open(UserDialogComponent, {
-      width: '560px',
+      width: '580px',
+      maxWidth: '96vw',
       data: user ? { ...user } : undefined
     });
 
