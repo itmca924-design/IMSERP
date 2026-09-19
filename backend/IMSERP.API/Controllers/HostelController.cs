@@ -368,13 +368,13 @@ public class HostelController : ControllerBase
     }
 
     [HttpGet("available-beds")]
-    public async Task<ActionResult<IEnumerable<HostelBedDto>>> GetAvailableBeds([FromQuery] Guid? hostelId = null)
+    public async Task<ActionResult<IEnumerable<HostelBedDto>>> GetAvailableBeds([FromQuery] Guid? hostelId = null, [FromQuery] Guid? includeBedId = null)
     {
         var query = _db.HostelBeds
             .AsNoTracking()
             .Include(b => b.Room)
                 .ThenInclude(r => r.Hostel)
-            .Where(b => b.IsActive && b.Status == "Available" && b.Room.IsActive && b.Room.Hostel.IsActive);
+            .Where(b => b.IsActive && b.Room.IsActive && b.Room.Hostel.IsActive && (b.Status == "Available" || (includeBedId.HasValue && b.Id == includeBedId.Value)));
 
         if (hostelId.HasValue && hostelId.Value != Guid.Empty)
         {

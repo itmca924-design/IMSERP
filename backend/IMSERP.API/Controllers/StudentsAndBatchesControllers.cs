@@ -173,6 +173,32 @@ public class StudentsController : ControllerBase
         return Ok(new { rollNumber });
     }
 
+    [HttpGet("next-admission-number")]
+    public async Task<ActionResult<object>> GetNextAdmissionNumber()
+    {
+        var year = DateTime.UtcNow.Year;
+        var count = await _dbContext.Students
+            .AsNoTracking()
+            .CountAsync(s => s.AdmissionNumber != null && s.AdmissionNumber.StartsWith($"ADM-{year}-"));
+        var nextSeq = count + 1;
+        var admissionNumber = $"ADM-{year}-{nextSeq:D4}";
+        return Ok(new { admissionNumber });
+    }
+
+    [HttpGet("next-school-roll-number")]
+    public async Task<ActionResult<object>> GetNextSchoolRollNumber([FromQuery] Guid classId)
+    {
+        if (classId == Guid.Empty)
+            return BadRequest(new { message = "classId is required." });
+
+        // Count all school students in this class (class-wide, not section-wise)
+        // Class 7 → 1,2,3,4... | Class 8 → 1,2,3,4... (each class resets independently)
+        var count = await _dbContext.Students.AsNoTracking()
+            .CountAsync(s => s.ClassId == classId && s.IsSchoolStudent);
+
+        return Ok(new { schoolRollNumber = (count + 1).ToString() });
+    }
+
     [HttpGet("{id}/attendance")]
     public async Task<ActionResult<IEnumerable<StudentAttendanceDto>>> GetAttendance(
         Guid id, [FromQuery] int month = 0, [FromQuery] int year = 0)
@@ -680,7 +706,8 @@ public class StudentsController : ControllerBase
                 s.HostelBedId,
                 s.HostelBed != null && s.HostelBed.Room != null && s.HostelBed.Room.Hostel != null ? s.HostelBed.Room.Hostel.Name : null,
                 s.HostelBed != null && s.HostelBed.Room != null ? s.HostelBed.Room.RoomNumber : null,
-                s.HostelBed != null ? s.HostelBed.BedCode : null
+                s.HostelBed != null ? s.HostelBed.BedCode : null,
+                s.HostelBed != null && s.HostelBed.Room != null ? (Guid?)s.HostelBed.Room.HostelId : null
             )).ToListAsync();
 
         return Ok(new PagedResult<StudentDto>(items, totalCount, pageNumber, pageSize));
@@ -689,10 +716,73 @@ public class StudentsController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteStudent(Guid id)
     {
-        var student = await _dbContext.Students.FindAsync(id);
+        var student = await _dbContext.Students
+            .Include(s => s.FeeInvoices)
+                .ThenInclude(i => i.Payments)
+            .Include(s => s.FeeInvoices)
+                .ThenInclude(i => i.Items)
+            .Include(s => s.TestMarks)
+            .Include(s => s.Attendances)
+            .Include(s => s.HostelAllocations)
+            .Include(s => s.HostelGatePasses)
+            .Include(s => s.HostelAttendances)
+            .FirstOrDefaultAsync(s => s.Id == id);
+
         if (student == null) return NotFound();
 
+        // 1. Free the hostel bed: clear CurrentStudentId and reset Status
+        if (student.HostelBedId.HasValue)
+        {
+            var bed = await _dbContext.HostelBeds.FindAsync(student.HostelBedId.Value);
+            if (bed != null)
+            {
+                bed.CurrentStudentId = null;
+                bed.Status = "Available";
+            }
+            student.HostelBedId = null;
+            student.IsHostelStudent = false;
+        }
+
+        // 2. Also clear any HostelBed rows that still have CurrentStudentId = this student
+        var linkedBeds = await _dbContext.HostelBeds
+            .IgnoreQueryFilters()
+            .Where(b => b.CurrentStudentId == id)
+            .ToListAsync();
+        foreach (var b in linkedBeds)
+        {
+            b.CurrentStudentId = null;
+            b.Status = "Available";
+        }
+
+        // 3. Remove fee invoice payments and items, then invoices
+        foreach (var invoice in student.FeeInvoices)
+        {
+            _dbContext.FeePayments.RemoveRange(invoice.Payments);
+            _dbContext.FeeInvoiceItems.RemoveRange(invoice.Items);
+        }
+        _dbContext.FeeInvoices.RemoveRange(student.FeeInvoices);
+
+        // 4. Remove test marks
+        _dbContext.TestMarks.RemoveRange(student.TestMarks);
+
+        // 5. Remove attendance records
+        _dbContext.StudentAttendances.RemoveRange(student.Attendances);
+
+        // 6. Remove hostel-related records (allocations, gate passes, hostel attendance)
+        _dbContext.HostelAllocations.RemoveRange(student.HostelAllocations);
+        _dbContext.HostelGatePasses.RemoveRange(student.HostelGatePasses);
+        _dbContext.HostelAttendances.RemoveRange(student.HostelAttendances);
+
+        // 7. Remove library circulations referencing this student
+        var circulations = await _dbContext.LibraryCirculations
+            .IgnoreQueryFilters()
+            .Where(c => c.StudentId == id)
+            .ToListAsync();
+        _dbContext.LibraryCirculations.RemoveRange(circulations);
+
+        // 8. Finally delete the student
         _dbContext.Students.Remove(student);
+
         await _dbContext.SaveChangesAsync();
 
         return NoContent();
@@ -916,6 +1006,7 @@ public class StudentsController : ControllerBase
         string? hostelName = null;
         string? roomNum = null;
         string? bedCode = null;
+        Guid? hostelId = null;
         if (student.HostelBedId.HasValue)
         {
             var bedInfo = await _dbContext.HostelBeds
@@ -927,6 +1018,7 @@ public class StudentsController : ControllerBase
                 bedCode = bedInfo.BedCode;
                 roomNum = bedInfo.Room?.RoomNumber;
                 hostelName = bedInfo.Room?.Hostel?.Name;
+                hostelId = bedInfo.Room?.HostelId;
             }
         }
 
@@ -961,7 +1053,8 @@ public class StudentsController : ControllerBase
             student.HostelBedId,
             hostelName,
             roomNum,
-            bedCode
+            bedCode,
+            hostelId
         ));
     }
 }

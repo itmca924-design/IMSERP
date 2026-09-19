@@ -78,6 +78,16 @@ export class CoachingService {
     });
   }
 
+  getNextAdmissionNumber(): Observable<{ admissionNumber: string }> {
+    return this.http.get<{ admissionNumber: string }>(`${this.BASE_URL}/students/next-admission-number`);
+  }
+
+  getNextSchoolRollNumber(classId: string): Observable<{ schoolRollNumber: string }> {
+    return this.http.get<{ schoolRollNumber: string }>(`${this.BASE_URL}/students/next-school-roll-number`, {
+      params: { classId }
+    });
+  }
+
   checkPhoneDuplicate(phone: string, excludeStudentId?: string, currentStudentName?: string): Observable<{
     isFound: boolean;
     isDuplicate: boolean;

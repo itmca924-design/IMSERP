@@ -128,13 +128,14 @@ const API_BASE = 'http://localhost:5000';
 
               <mat-form-field appearance="outline">
                 <mat-label>Admission / SR Number</mat-label>
-                <input matInput formControlName="admissionNumber" placeholder="e.g. ADM-2026-0042" />
-                <mat-hint>Institutional Admission / Scholar Register Number</mat-hint>
+                <input matInput formControlName="admissionNumber" [readonly]="true" style="cursor:default;color:#1e40af;font-weight:600;" />
+                <mat-icon matSuffix matTooltip="Auto-generated on admission">lock</mat-icon>
+                <mat-hint>Auto-generated Institutional Admission / SR Number</mat-hint>
               </mat-form-field>
 
               <mat-form-field appearance="outline">
                 <mat-label>School Class</mat-label>
-                <mat-select formControlName="classId" (selectionChange)="onClassSelectionChange($event.value)">
+                <mat-select formControlName="classId" (selectionChange)="onClassSelectionChange($event.value)" panelClass="batch-filter-panel">
                   <mat-option *ngFor="let c of schoolClasses" [value]="c.id">
                     {{ c.name }}
                   </mat-option>
@@ -144,7 +145,7 @@ const API_BASE = 'http://localhost:5000';
 
               <mat-form-field appearance="outline">
                 <mat-label>Class Section</mat-label>
-                <mat-select formControlName="sectionId">
+                <mat-select formControlName="sectionId" panelClass="batch-filter-panel">
                   <mat-option *ngFor="let s of formSections" [value]="s.id">
                     Section {{ s.name }} (Cap: {{ s.maxCapacity }}{{ s.roomNumber ? ' • Room ' + s.roomNumber : '' }})
                   </mat-option>
@@ -153,8 +154,10 @@ const API_BASE = 'http://localhost:5000';
               </mat-form-field>
 
               <mat-form-field appearance="outline">
-                <mat-label>School Roll Number (Optional)</mat-label>
-                <input matInput formControlName="schoolRollNumber" placeholder="e.g. 15" />
+                <mat-label>School Roll Number</mat-label>
+                <input matInput formControlName="schoolRollNumber" [readonly]="true" style="cursor:default;color:#1e40af;font-weight:600;" />
+                <mat-icon matSuffix matTooltip="Auto-generated based on class">lock</mat-icon>
+                <mat-hint *ngIf="!isEditMode">Auto-generated when class is selected (starts from 1 per class)</mat-hint>
               </mat-form-field>
             </ng-container>
 
@@ -194,7 +197,7 @@ const API_BASE = 'http://localhost:5000';
 
               <mat-form-field appearance="outline">
                 <mat-label>Hostel Building / Block</mat-label>
-                <mat-select formControlName="hostelId" (selectionChange)="onHostelBuildingChange($event.value)">
+                <mat-select formControlName="hostelId" (selectionChange)="onHostelBuildingChange($event.value)" panelClass="batch-filter-panel">
                   <mat-option *ngFor="let h of hostelsList" [value]="h.id">
                     {{ h.name }} ({{ h.hostelType }}) - {{ h.availableBeds }} beds vacant
                   </mat-option>
@@ -203,7 +206,7 @@ const API_BASE = 'http://localhost:5000';
 
               <mat-form-field appearance="outline">
                 <mat-label>Select Available Bed</mat-label>
-                <mat-select formControlName="hostelBedId" (selectionChange)="onBedSelectionChange($event.value)">
+                <mat-select formControlName="hostelBedId" (selectionChange)="onBedSelectionChange($event.value)" panelClass="batch-filter-panel">
                   <mat-option *ngFor="let b of availableBedsList" [value]="b.id">
                     Room {{ b.roomNumber }} - Bed {{ b.bedCode }} (₹{{ b.monthlyRent | number }}/mo)
                   </mat-option>
@@ -235,7 +238,9 @@ const API_BASE = 'http://localhost:5000';
 
             <mat-form-field appearance="outline">
               <mat-label>Date of Birth</mat-label>
-              <input matInput type="date" formControlName="dateOfBirth" />
+              <input matInput type="date" formControlName="dateOfBirth"
+                min="1900-01-01"
+                max="2099-12-31" />
             </mat-form-field>
 
             <mat-form-field appearance="outline">
@@ -264,79 +269,82 @@ const API_BASE = 'http://localhost:5000';
               <input matInput formControlName="motherName" placeholder="e.g. Sunita Sharma" />
             </mat-form-field>
 
-            <div class="phone-field-wrap full-span">
-              <mat-form-field appearance="outline" class="full-width-field" [class.sibling-field-active]="!!siblingInfo">
-                <mat-label>Parent WhatsApp Phone Number (Optional)</mat-label>
-                <span matPrefix class="phone-prefix">+91 &nbsp;</span>
-                <input
-                  matInput
-                  type="tel"
-                  formControlName="parentWhatsAppPhone"
-                  placeholder="98765 43210"
-                  maxlength="11"
-                  (input)="onPhoneInput($event)"
-                />
-                <mat-icon matSuffix color="primary" *ngIf="!phoneCheckLoading && !siblingInfo">chat</mat-icon>
-                <mat-icon matSuffix class="sibling-suffix-icon" [class.warning]="!isParentNameMatching" *ngIf="!phoneCheckLoading && siblingInfo" [matTooltip]="isParentNameMatching ? 'Family / Sibling Linked' : 'Different Parent Name'">{{ isParentNameMatching ? 'family_restroom' : 'warning_amber' }}</mat-icon>
-                <mat-spinner matSuffix diameter="18" *ngIf="phoneCheckLoading" style="margin-right:6px"></mat-spinner>
-                <mat-error *ngIf="studentForm.get('parentWhatsAppPhone')?.hasError('duplicate')">
-                  {{ phoneDuplicateError }}
-                </mat-error>
-                <mat-error *ngIf="studentForm.get('parentWhatsAppPhone')?.hasError('invalidPhone') && !studentForm.get('parentWhatsAppPhone')?.hasError('duplicate')">
-                  Please enter a valid 10-digit mobile number (e.g. 98765 43210)
-                </mat-error>
-              </mat-form-field>
+            <div class="phone-address-row full-span">
+              <div class="phone-field-wrap">
+                <mat-form-field appearance="outline" class="full-width-field" [class.sibling-field-active]="!!siblingInfo">
+                  <mat-label>Parent WhatsApp Phone Number (Optional)</mat-label>
+                  <span matPrefix class="phone-prefix">+91&nbsp;</span>
+                  <input
+                    matInput
+                    type="tel"
+                    formControlName="parentWhatsAppPhone"
+                    placeholder="98765 43210"
+                    maxlength="11"
+                    (input)="onPhoneInput($event)"
+                  />
+                  <mat-icon matSuffix color="primary" *ngIf="!phoneCheckLoading && !siblingInfo">chat</mat-icon>
+                  <mat-icon matSuffix class="sibling-suffix-icon" [class.warning]="!isParentNameMatching" *ngIf="!phoneCheckLoading && siblingInfo" [matTooltip]="isParentNameMatching ? 'Family / Sibling Linked' : 'Different Parent Name'">{{ isParentNameMatching ? 'family_restroom' : 'warning_amber' }}</mat-icon>
+                  <mat-spinner matSuffix diameter="18" *ngIf="phoneCheckLoading" style="margin-right:6px"></mat-spinner>
+                  <mat-error *ngIf="studentForm.get('parentWhatsAppPhone')?.hasError('duplicate')">
+                    {{ phoneDuplicateError }}
+                  </mat-error>
+                  <mat-error *ngIf="studentForm.get('parentWhatsAppPhone')?.hasError('invalidPhone') && !studentForm.get('parentWhatsAppPhone')?.hasError('duplicate')">
+                    Please enter a valid 10-digit mobile number (e.g. 98765 43210)
+                  </mat-error>
+                </mat-form-field>
 
-              <!-- Smart Sibling / Parent Validation Info Card -->
-              <div class="sibling-detected-box" [class.warning]="!isParentNameMatching" *ngIf="siblingInfo">
-                <div class="sibling-header">
-                  <div class="sibling-badge-icon" [class.warning]="!isParentNameMatching">
-                    <mat-icon>{{ isParentNameMatching ? 'family_restroom' : 'warning_amber' }}</mat-icon>
-                  </div>
-                  <div class="sibling-details">
-                    <div class="sibling-title-row">
-                      <span class="sibling-title" [class.warning-title]="!isParentNameMatching">
-                        {{ isParentNameMatching ? 'Sibling / Family Member Detected' : 'Notice: Different Parent Name Detected' }}
-                      </span>
-                      <span class="sibling-status-pill" [class.warning-pill]="!isParentNameMatching">
-                        {{ isParentNameMatching ? 'Sibling Verified ✓' : 'Verify Parent / Number ⚠️' }}
-                      </span>
+                <!-- Smart Sibling / Parent Validation Info Card -->
+                <div class="sibling-detected-box" [class.warning]="!isParentNameMatching" *ngIf="siblingInfo">
+                  <div class="sibling-header">
+                    <div class="sibling-badge-icon" [class.warning]="!isParentNameMatching">
+                      <mat-icon>{{ isParentNameMatching ? 'family_restroom' : 'warning_amber' }}</mat-icon>
                     </div>
-                    <p class="sibling-desc">
-                      Mobile number is registered to student <strong>{{ siblingInfo.studentName }}</strong>
-                      <span *ngIf="siblingInfo.parentName"> with Parent: <strong>{{ siblingInfo.parentName }}</strong></span>.
-                      <span *ngIf="!isParentNameMatching && currentEnteredParentName">
-                        (You entered Parent: <strong>"{{ currentEnteredParentName }}"</strong>)
-                      </span>
-                    </p>
+                    <div class="sibling-details">
+                      <div class="sibling-title-row">
+                        <span class="sibling-title" [class.warning-title]="!isParentNameMatching">
+                          {{ isParentNameMatching ? 'Sibling / Family Member Detected' : 'Notice: Different Parent Name Detected' }}
+                        </span>
+                        <span class="sibling-status-pill" [class.warning-pill]="!isParentNameMatching">
+                          {{ isParentNameMatching ? 'Sibling Verified ✓' : 'Verify Parent / Number ⚠️' }}
+                        </span>
+                      </div>
+                      <p class="sibling-desc">
+                        Mobile number is registered to student <strong>{{ siblingInfo.studentName }}</strong>
+                        <span *ngIf="siblingInfo.parentName"> with Parent: <strong>{{ siblingInfo.parentName }}</strong></span>.
+                        <span *ngIf="!isParentNameMatching && currentEnteredParentName">
+                          (You entered Parent: <strong>"{{ currentEnteredParentName }}"</strong>)
+                        </span>
+                      </p>
 
-                    <!-- Quick Action if Parent Name differs -->
-                    <div class="sibling-action-row" *ngIf="!isParentNameMatching && siblingInfo.parentName">
-                      <button type="button" mat-stroked-button class="btn-copy-parent" (click)="useLinkedParentName()">
-                        <mat-icon>how_to_reg</mat-icon> Set Parent as "{{ siblingInfo.parentName }}"
-                      </button>
-                      <span class="differ-note">If {{ currentEnteredParentName }} is a guardian/relative or shared phone, you can still save.</span>
-                    </div>
+                      <!-- Quick Action if Parent Name differs -->
+                      <div class="sibling-action-row" *ngIf="!isParentNameMatching && siblingInfo.parentName">
+                        <button type="button" mat-stroked-button class="btn-copy-parent" (click)="useLinkedParentName()">
+                          <mat-icon>how_to_reg</mat-icon> Set Parent as "{{ siblingInfo.parentName }}"
+                        </button>
+                        <span class="differ-note">If {{ currentEnteredParentName }} is a guardian/relative or shared phone, you can still save.</span>
+                      </div>
 
-                    <div class="sibling-tags">
-                      <span class="sibling-tag branch" *ngIf="siblingInfo.branchName">
-                        <mat-icon>domain</mat-icon>
-                        <span>Branch: {{ siblingInfo.branchName }}</span>
-                      </span>
-                      <span class="sibling-tag batch" *ngIf="siblingInfo.batchName">
-                        <mat-icon>school</mat-icon>
-                        <span>Batch: {{ siblingInfo.batchName }}</span>
-                      </span>
+                      <div class="sibling-tags">
+                        <span class="sibling-tag branch" *ngIf="siblingInfo.branchName">
+                          <mat-icon>domain</mat-icon>
+                          <span>Branch: {{ siblingInfo.branchName }}</span>
+                        </span>
+                        <span class="sibling-tag batch" *ngIf="siblingInfo.batchName">
+                          <mat-icon>school</mat-icon>
+                          <span>Batch: {{ siblingInfo.batchName }}</span>
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            <mat-form-field appearance="outline" class="full-span">
-              <mat-label>Residential Address</mat-label>
-              <input matInput formControlName="address" placeholder="e.g. Flat 302, Green Park Apartments, New Delhi" />
-            </mat-form-field>
+              <mat-form-field appearance="outline" class="address-field">
+                <mat-label>Residential Address</mat-label>
+                <mat-icon matPrefix style="color:#64748b;margin-right:4px;font-size:18px;width:18px;height:18px;">home</mat-icon>
+                <input matInput formControlName="address" placeholder="e.g. Flat 302, Green Park Apartments, New Delhi" />
+              </mat-form-field>
+            </div>
 
             <div class="form-actions full-span">
               <button mat-button type="button" (click)="toggleForm()" [disabled]="saving">Cancel</button>
@@ -392,17 +400,6 @@ const API_BASE = 'http://localhost:5000';
               </button>
             </mat-form-field>
 
-            <!-- Coaching Batch Filter -->
-            <mat-form-field appearance="outline" class="filter-select" *ngIf="selectedStreamFilter !== 'school'">
-              <mat-label>Filter by Coaching Batch</mat-label>
-              <mat-select [(ngModel)]="selectedBatchFilter" (selectionChange)="onFilterChange()" panelClass="batch-filter-panel">
-                <mat-option value="">All Academic Batches</mat-option>
-                <mat-option *ngFor="let b of batches" [value]="b.id">
-                  {{ b.name }}
-                </mat-option>
-              </mat-select>
-            </mat-form-field>
-
             <!-- School Class Filter -->
             <mat-form-field appearance="outline" class="filter-select" *ngIf="selectedStreamFilter !== 'coaching'">
               <mat-label>Filter by School Class</mat-label>
@@ -410,6 +407,17 @@ const API_BASE = 'http://localhost:5000';
                 <mat-option value="">All School Classes</mat-option>
                 <mat-option *ngFor="let c of schoolClasses" [value]="c.id">
                   {{ c.name }}
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <!-- Coaching Batch Filter -->
+            <mat-form-field appearance="outline" class="filter-select" *ngIf="selectedStreamFilter !== 'school'">
+              <mat-label>Filter by Coaching Batch</mat-label>
+              <mat-select [(ngModel)]="selectedBatchFilter" (selectionChange)="onFilterChange()" panelClass="batch-filter-panel">
+                <mat-option value="">All Academic Batches</mat-option>
+                <mat-option *ngFor="let b of batches" [value]="b.id">
+                  {{ b.name }}
                 </mat-option>
               </mat-select>
             </mat-form-field>
@@ -1159,6 +1167,21 @@ const API_BASE = 'http://localhost:5000';
       }
     }
 
+    /* ── Phone + Address two-column row ── */
+    .phone-address-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      align-items: start;
+    }
+    .phone-field-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .full-width-field { width: 100%; }
+    .address-field { width: 100%; }
+
     /* ── Quick Coaching Enrollment Modal ── */
     .enroll-modal-backdrop {
       position: fixed;
@@ -1374,6 +1397,8 @@ export class StudentsComponent implements OnInit, OnDestroy {
       classCtrl?.clearValidators();
       classCtrl?.setValue('');
       this.studentForm.get('sectionId')?.setValue('');
+      this.studentForm.get('admissionNumber')?.setValue('', { emitEvent: false });
+      this.studentForm.get('schoolRollNumber')?.setValue('', { emitEvent: false });
       this.formSections = [];
     }
     classCtrl?.updateValueAndValidity();
@@ -1382,7 +1407,32 @@ export class StudentsComponent implements OnInit, OnDestroy {
   onClassSelectionChange(classId: string): void {
     const selected = this.schoolClasses.find(c => c.id === classId);
     this.formSections = selected?.sections || [];
-    this.studentForm.get('sectionId')?.setValue(this.formSections.length > 0 ? this.formSections[0].id : '');
+    const firstSection = this.formSections.length > 0 ? this.formSections[0] : null;
+    this.studentForm.get('sectionId')?.setValue(firstSection ? firstSection.id : '');
+
+    if (!this.isEditMode && classId) {
+      // Auto-generate Admission/SR Number
+      if (!this.studentForm.get('admissionNumber')?.value) {
+        this.coachingService.getNextAdmissionNumber().subscribe({
+          next: (res) => this.studentForm.get('admissionNumber')?.setValue(res.admissionNumber, { emitEvent: false }),
+          error: () => { }
+        });
+      }
+      // Auto-generate School Roll Number
+      this.coachingService.getNextSchoolRollNumber(classId).subscribe({
+        next: (res) => this.studentForm.get('schoolRollNumber')?.setValue(res.schoolRollNumber, { emitEvent: false }),
+        error: () => { }
+      });
+    }
+  }
+
+  autoGenerateSchoolRollNumber(classId: string): void {
+    if (!this.isEditMode && classId) {
+      this.coachingService.getNextSchoolRollNumber(classId).subscribe({
+        next: (res) => this.studentForm.get('schoolRollNumber')?.setValue(res.schoolRollNumber, { emitEvent: false }),
+        error: () => { }
+      });
+    }
   }
 
   onHostelCheckChanged(): void {
@@ -1770,6 +1820,7 @@ export class StudentsComponent implements OnInit, OnDestroy {
       isSchoolStudent: !!student.isSchoolStudent,
       isCoachingStudent: student.isCoachingStudent !== false,
       isHostelStudent: !!student.isHostelStudent,
+      hostelId: student.hostelId || '',
       hostelBedId: student.hostelBedId || '',
       classId: student.classId || '',
       sectionId: student.sectionId || '',
@@ -1779,7 +1830,7 @@ export class StudentsComponent implements OnInit, OnDestroy {
       rollNumber: student.coachingRollNumber || student.rollNumber || '',
       studentName: student.studentName,
       gender: student.gender || 'Male',
-      dateOfBirth: student.dateOfBirth ? student.dateOfBirth.split('T')[0] : '',
+      dateOfBirth: this.formatDateForInput(student.dateOfBirth),
       motherName: student.motherName || '',
       bloodGroup: student.bloodGroup || '',
       parentName: student.parentName,
@@ -1788,11 +1839,74 @@ export class StudentsComponent implements OnInit, OnDestroy {
     });
 
     this.onStreamCheckChanged();
-    if (student.isHostelStudent && student.hostelBedId) {
-      // Find hostel of this bed
-      this.hostelService.getAvailableBeds().subscribe(beds => {
-        this.availableBedsList = beds || [];
-      });
+
+    if (student.isHostelStudent) {
+      const bindHostelAndBeds = () => {
+        let targetHostelId = student.hostelId;
+        if (!targetHostelId && student.hostelName && this.hostelsList.length > 0) {
+          const matched = this.hostelsList.find(h => h.name?.toLowerCase().trim() === student.hostelName?.toLowerCase().trim());
+          if (matched) targetHostelId = matched.id;
+        }
+        if (!targetHostelId && this.hostelsList.length > 0) {
+          targetHostelId = this.hostelsList[0].id;
+        }
+
+        this.studentForm.patchValue({
+          hostelId: targetHostelId || '',
+          hostelBedId: student.hostelBedId || ''
+        });
+
+        if (targetHostelId) {
+          this.hostelService.getAvailableBeds(targetHostelId, student.hostelBedId).subscribe(beds => {
+            this.availableBedsList = beds || [];
+            if (student.hostelBedId && !this.availableBedsList.some(b => b.id === student.hostelBedId)) {
+              this.availableBedsList.unshift({
+                id: student.hostelBedId,
+                roomId: '',
+                roomNumber: student.roomNumber || '',
+                hostelId: targetHostelId,
+                hostelName: student.hostelName || '',
+                bedCode: student.bedCode || '',
+                status: 'Occupied',
+                monthlyRent: 0
+              } as any);
+            }
+            this.studentForm.patchValue({
+              hostelId: targetHostelId,
+              hostelBedId: student.hostelBedId || ''
+            });
+            const currentBed = this.availableBedsList.find(b => b.id === student.hostelBedId);
+            this.selectedBedRent = currentBed ? currentBed.monthlyRent : null;
+          });
+        }
+      };
+
+      if (this.hostelsList.length === 0) {
+        this.hostelService.getHostels().subscribe(h => {
+          this.hostelsList = h || [];
+          bindHostelAndBeds();
+        });
+      } else {
+        bindHostelAndBeds();
+      }
+    } else {
+      this.studentForm.patchValue({ hostelId: '', hostelBedId: '' });
+      this.availableBedsList = [];
+      this.selectedBedRent = null;
+    }
+  }
+
+  private formatDateForInput(dateVal: any): string {
+    if (!dateVal) return '';
+    try {
+      const d = new Date(dateVal);
+      if (isNaN(d.getTime())) return '';
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    } catch {
+      return '';
     }
   }
 

@@ -223,7 +223,8 @@ public record StudentDto(
     Guid? HostelBedId = null,
     string? HostelName = null,
     string? RoomNumber = null,
-    string? BedCode = null
+    string? BedCode = null,
+    Guid? HostelId = null
 );
 
 public record CreateStudentDto(

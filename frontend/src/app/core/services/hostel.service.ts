@@ -254,9 +254,10 @@ export class HostelService {
     return this.http.get<any[]>(`${this.baseUrl}/bed-matrix`, { params });
   }
 
-  getAvailableBeds(hostelId?: string): Observable<HostelBedDto[]> {
+  getAvailableBeds(hostelId?: string, includeBedId?: string): Observable<HostelBedDto[]> {
     let params = new HttpParams();
     if (hostelId) params = params.set('hostelId', hostelId);
+    if (includeBedId) params = params.set('includeBedId', includeBedId);
     return this.http.get<HostelBedDto[]>(`${this.baseUrl}/available-beds`, { params });
   }
 
