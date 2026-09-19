@@ -56,7 +56,7 @@ import { AuthService } from '../../core/services/auth.service';
 
           <mat-form-field appearance="outline" class="full-width">
             <mat-label>Subjects Covered (Select Chips)</mat-label>
-            <mat-select formControlName="selectedSubjects" multiple placeholder="Select subjects from Master">
+            <mat-select formControlName="selectedSubjects" multiple placeholder="Select subjects from Master" panelClass="smooth-dropdown-panel subject-multiselect-panel">
               <mat-select-trigger>
                 <mat-chip-set>
                   <mat-chip *ngFor="let subj of batchForm.get('selectedSubjects')?.value" selected color="primary" class="selected-chip">
@@ -108,21 +108,39 @@ import { AuthService } from '../../core/services/auth.service';
 
           <mat-form-field appearance="outline" class="half-width">
             <mat-label>Branch Campus</mat-label>
-            <mat-select formControlName="branchId" (selectionChange)="onBranchChange($event.value)" placeholder="Select Branch">
+            <mat-select formControlName="branchId" (selectionChange)="onBranchChange($event.value)" placeholder="Select Branch" panelClass="smooth-dropdown-panel batch-select-panel">
+              <mat-select-trigger>
+                {{ getSelectedBranchName() }}
+              </mat-select-trigger>
               <mat-option *ngFor="let b of availableBranches" [value]="b.id">
-                <mat-icon color="primary" class="option-icon">store</mat-icon>
-                <span>{{ b.name }} ({{ b.code }})</span>
+                <div class="batch-opt-row">
+                  <mat-icon color="primary" class="option-icon">store</mat-icon>
+                  <span class="opt-name">{{ b.name }}</span>
+                  <span class="opt-code-badge">{{ b.code }}</span>
+                </div>
               </mat-option>
             </mat-select>
           </mat-form-field>
 
           <mat-form-field appearance="outline" class="half-width">
             <mat-label>Assigned Classroom (Room)</mat-label>
-            <mat-select formControlName="roomId" placeholder="Select Room (Optional)">
-              <mat-option [value]="null"><em>None / Unassigned</em></mat-option>
+            <mat-select formControlName="roomId" placeholder="Select Room (Optional)" panelClass="smooth-dropdown-panel batch-select-panel">
+              <mat-select-trigger>
+                {{ getSelectedRoomName() }}
+              </mat-select-trigger>
+              <mat-option [value]="null">
+                <div class="batch-opt-row">
+                  <mat-icon class="option-icon text-muted">meeting_room</mat-icon>
+                  <span class="text-muted">None / Unassigned</span>
+                </div>
+              </mat-option>
               <mat-option *ngFor="let r of filteredRooms" [value]="r.id">
-                <mat-icon color="primary" class="option-icon">meeting_room</mat-icon>
-                <span>{{ formatRoomDisplay(r.roomNumber) }} (Cap: {{ r.capacity }}{{ r.floor ? ', ' + r.floor : '' }})</span>
+                <div class="batch-opt-row">
+                  <mat-icon color="primary" class="option-icon">meeting_room</mat-icon>
+                  <span class="opt-name">{{ formatRoomDisplay(r.roomNumber) }}</span>
+                  <span class="opt-badge-pill">Cap: {{ r.capacity }}</span>
+                  <span class="opt-sub-info" *ngIf="r.floor">Floor {{ r.floor }}</span>
+                </div>
               </mat-option>
             </mat-select>
           </mat-form-field>
@@ -163,19 +181,20 @@ import { AuthService } from '../../core/services/auth.service';
       height: 4px;
     }
     .dialog-content {
-      padding-top: 12px;
-      min-width: 480px;
+      padding-top: 14px;
+      min-width: min(680px, 92vw);
     }
     .form-grid {
       display: flex;
       flex-wrap: wrap;
-      gap: 12px;
+      gap: 14px;
     }
     .full-width {
       width: 100%;
     }
     .half-width {
-      flex: 1 1 45%;
+      flex: 1 1 calc(50% - 14px);
+      min-width: 280px;
     }
     .selected-chip {
       font-size: 0.75rem;
@@ -339,6 +358,21 @@ export class BatchDialogComponent implements OnInit {
     } else {
       this.filteredRooms = this.availableRooms.filter(r => r.branchId === selectedBranch);
     }
+  }
+
+  getSelectedBranchName(): string {
+    const branchId = this.batchForm?.get('branchId')?.value;
+    if (!branchId) return '';
+    const b = this.availableBranches.find(x => x.id === branchId);
+    return b ? `${b.name} (${b.code})` : '';
+  }
+
+  getSelectedRoomName(): string {
+    const roomId = this.batchForm?.get('roomId')?.value;
+    if (!roomId) return 'None / Unassigned';
+    const r = this.filteredRooms.find(x => x.id === roomId);
+    if (!r) return '';
+    return `${this.formatRoomDisplay(r.roomNumber)}${r.capacity ? ' (Cap: ' + r.capacity + ')' : ''}`;
   }
 
   formatRoomDisplay(roomNumber?: string | null): string {

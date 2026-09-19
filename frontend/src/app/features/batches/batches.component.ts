@@ -384,7 +384,8 @@ export class BatchesComponent implements OnInit {
 
   openBatchModal(batch?: BatchDto): void {
     const dialogRef = this.dialog.open(BatchDialogComponent, {
-      width: '560px',
+      width: '740px',
+      maxWidth: '96vw',
       data: batch ? { ...batch } : undefined
     });
 

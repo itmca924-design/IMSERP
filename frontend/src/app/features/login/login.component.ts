@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
@@ -9,6 +9,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatDialog } from '@angular/material/dialog';
 import { AuthService } from '../../core/services/auth.service';
 
 @Component({
@@ -190,6 +191,7 @@ import { AuthService } from '../../core/services/auth.service';
   `]
 })
 export class LoginComponent implements OnInit {
+  private dialog = inject(MatDialog, { optional: true });
   loginForm: FormGroup;
   hidePassword = true;
   loading = false;
@@ -212,6 +214,13 @@ export class LoginComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    // Immediately close any open modal dialogs or popups upon entering login
+    try {
+      this.dialog?.closeAll();
+    } catch (e) {
+      console.warn('Could not close dialogs on login init:', e);
+    }
+
     const reason = this.route.snapshot.queryParams['reason'];
     if (reason === 'idle_timeout') {
       this.sessionNotice = 'Your session expired due to inactivity. Please sign in again.';

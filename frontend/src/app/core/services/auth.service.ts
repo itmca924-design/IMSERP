@@ -1,7 +1,8 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, signal, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { Observable, tap } from 'rxjs';
+import { MatDialog } from '@angular/material/dialog';
 
 export interface BranchInfo {
   id: string;
@@ -39,6 +40,7 @@ export class AuthService {
   
   currentUser = signal<LoginResponse | null>(this.getUserFromStorage());
   selectedBranchId = signal<string | null>(this.getStoredBranchId());
+  private dialog = inject(MatDialog, { optional: true });
 
   constructor(private http: HttpClient, private router: Router) {}
 
@@ -245,6 +247,13 @@ export class AuthService {
   }
 
   logout(reason?: string): void {
+    // Immediately close any open modal dialogs or popups
+    try {
+      this.dialog?.closeAll();
+    } catch (e) {
+      console.warn('Could not close dialogs on logout:', e);
+    }
+
     const token = this.getToken();
     if (token) {
       this.http.post(`${this.API_URL}/revoke-token`, {}).subscribe({

@@ -127,6 +127,12 @@ export class IdleTimeoutService implements OnDestroy {
       this.dialogRef.close();
       this.dialogRef = undefined;
     }
+
+    try {
+      this.dialog.closeAll();
+    } catch (e) {
+      console.warn('Could not close dialogs in stopMonitoring:', e);
+    }
   }
 
   private resetTimer(): void {

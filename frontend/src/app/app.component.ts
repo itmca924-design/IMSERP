@@ -1,9 +1,11 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterOutlet } from '@angular/router';
+import { RouterOutlet, Router, NavigationEnd } from '@angular/router';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatIconModule } from '@angular/material/icon';
+import { MatDialog } from '@angular/material/dialog';
 import { LoadingService } from './core/services/loading.service';
+import { filter } from 'rxjs';
 
 @Component({
   selector: 'app-root',
@@ -111,5 +113,21 @@ import { LoadingService } from './core/services/loading.service';
   `]
 })
 export class AppComponent {
-  constructor(public loadingService: LoadingService) {}
+  private router = inject(Router);
+  private dialog = inject(MatDialog, { optional: true });
+
+  constructor(public loadingService: LoadingService) {
+    this.router.events.pipe(
+      filter((e): e is NavigationEnd => e instanceof NavigationEnd)
+    ).subscribe((e: NavigationEnd) => {
+      const url = e.urlAfterRedirects || e.url || '';
+      if (url.includes('/login')) {
+        try {
+          this.dialog?.closeAll();
+        } catch (err) {
+          console.warn('Error closing dialogs on login navigation:', err);
+        }
+      }
+    });
+  }
 }
