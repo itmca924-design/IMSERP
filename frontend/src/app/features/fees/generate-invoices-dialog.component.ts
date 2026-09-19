@@ -10,11 +10,14 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { FeesService, GenerateInvoicesResult } from '../../core/services/fees.service';
 import { BatchDto } from '../../core/services/batches.service';
+import { SchoolClassDto } from '../../core/services/school.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 
 export interface GenerateInvoicesDialogData {
   batches: BatchDto[];
+  classes?: SchoolClassDto[];
   defaultBatchId?: string;
+  defaultClassId?: string;
 }
 
 interface BillingCycleOption {
@@ -113,11 +116,22 @@ interface BillingCycleOption {
             </mat-form-field>
 
             <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Target Academic Batch</mat-label>
+              <mat-label>Target School Class</mat-label>
+              <mat-select formControlName="classId" panelClass="smart-batch-panel">
+                <mat-option value="">✨ All School Classes (Or Coaching Only)</mat-option>
+                <mat-option *ngFor="let c of data.classes" [value]="c.id">
+                  🏫 {{ c.name }}
+                </mat-option>
+              </mat-select>
+              <mat-icon matSuffix color="primary">school</mat-icon>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Target Coaching Batch</mat-label>
               <mat-select formControlName="batchId" panelClass="smart-batch-panel">
-                <mat-option value="">✨ All Active Academic Batches (All Students)</mat-option>
+                <mat-option value="">✨ All Coaching Batches (Or School Only)</mat-option>
                 <mat-option *ngFor="let b of data.batches" [value]="b.id">
-                  {{ b.name }} (₹{{ b.standardMonthlyFee | number:'1.0-0' }}/mo)
+                  🎯 {{ b.name }} (₹{{ b.standardMonthlyFee | number:'1.0-0' }}/mo)
                 </mat-option>
               </mat-select>
               <mat-icon matSuffix color="primary">groups</mat-icon>
@@ -154,7 +168,7 @@ interface BillingCycleOption {
               </div>
               <div class="preview-item">
                 <span class="preview-label">Target Audience:</span>
-                <span class="preview-val highlight">{{ getSelectedBatchName() }}</span>
+                <span class="preview-val highlight">{{ getSelectedScopeLabel() }}</span>
               </div>
               <div class="preview-item" *ngIf="getSelectedBatch()">
                 <span class="preview-label">Amount / Student:</span>
@@ -443,6 +457,7 @@ export class GenerateInvoicesDialogComponent implements OnInit {
     this.form = this.fb.group({
       month:   [defaultMonth,              [Validators.required]],
       year:    [defaultYear,               [Validators.required]],
+      classId: [data?.defaultClassId || ''],
       batchId: [data?.defaultBatchId || ''],
       dueDate: [defaultDueDate,            [Validators.required]]
     });
@@ -478,11 +493,15 @@ export class GenerateInvoicesDialogComponent implements OnInit {
     return `${s} – ${e}`;
   }
 
-  getSelectedBatchName(): string {
+  getSelectedScopeLabel(): string {
+    const classId = this.form.get('classId')?.value;
     const batchId = this.form.get('batchId')?.value;
-    if (!batchId) return 'All Active Batches (All Students)';
-    const b = this.data.batches.find(x => x.id === batchId);
-    return b ? b.name : 'Selected Batch';
+    const c = classId ? this.data.classes?.find(x => x.id === classId) : null;
+    const b = batchId ? this.data.batches?.find(x => x.id === batchId) : null;
+    if (c && b) return `🏫 ${c.name} + 🎯 ${b.name}`;
+    if (c) return `🏫 ${c.name} (School)`;
+    if (b) return `🎯 ${b.name} (Coaching)`;
+    return '✨ All Students (Universal)';
   }
 
   getSelectedBatch(): BatchDto | undefined {
@@ -505,6 +524,7 @@ export class GenerateInvoicesDialogComponent implements OnInit {
     this.feesService.generateMonthlyInvoices({
       year:         Number(val.year),
       month:        Number(val.month),
+      classId:      val.classId ? val.classId : null,
       batchId:      val.batchId ? val.batchId : null,
       dueDate:      val.dueDate,
       billingCycle: this.selectedCycle

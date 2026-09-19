@@ -767,6 +767,11 @@ public record StudentLedgerDto(
     decimal PendingLibraryFine = 0
 );
 
+public record FeeItemPaymentDto(
+    Guid ItemId,
+    decimal Amount
+);
+
 public record CollectFifoFeeDto(
     Guid StudentId,
     decimal AmountPaid,
@@ -775,7 +780,8 @@ public record CollectFifoFeeDto(
     string? Remarks,
     bool SendWhatsAppReceipt,
     bool IncludeLibraryFine = false,
-    List<Guid>? LibraryCirculationIds = null
+    List<Guid>? LibraryCirculationIds = null,
+    List<FeeItemPaymentDto>? ItemPayments = null
 );
 
 public record WhatsAppLogPagedItemDto(
@@ -793,7 +799,8 @@ public record GenerateMonthlyInvoicesRequestDto(
     int Month,
     Guid? BatchId,
     DateTime DueDate,
-    BillingCycle BillingCycle = BillingCycle.Monthly
+    BillingCycle BillingCycle = BillingCycle.Monthly,
+    Guid? ClassId = null
 );
 
 public record GenerateMonthlyInvoicesResultDto(

@@ -159,6 +159,11 @@ export interface PagedResult<T> {
   pageSize: number;
 }
 
+export interface FeeItemPayment {
+  itemId: string;
+  amount: number;
+}
+
 export interface CollectFifoFeePayload {
   studentId: string;
   amountPaid: number;
@@ -168,12 +173,14 @@ export interface CollectFifoFeePayload {
   sendWhatsAppReceipt: boolean;
   includeLibraryFine?: boolean;
   libraryCirculationIds?: string[];
+  itemPayments?: FeeItemPayment[];
 }
 
 export interface GenerateInvoicesPayload {
   year: number;
   month: number;
   batchId?: string | null;
+  classId?: string | null;
   dueDate: string;
   billingCycle?: number; // 1=Monthly, 3=Quarterly, 6=HalfYearly, 12=Yearly
 }

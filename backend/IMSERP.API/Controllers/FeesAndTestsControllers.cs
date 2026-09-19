@@ -432,15 +432,29 @@ public class FeesController : ControllerBase
                     // Update invoice items' PaidAmount as well
                     if (inv.Items != null && inv.Items.Count > 0)
                     {
-                        decimal itemRemaining = allocateForThisInv;
-                        foreach (var it in inv.Items)
+                        if (dto.ItemPayments != null && dto.ItemPayments.Count > 0)
                         {
-                            if (itemRemaining <= 0) break;
-                            decimal itemDue = it.Amount - it.PaidAmount;
-                            if (itemDue <= 0) continue;
-                            decimal itemAlloc = Math.Min(itemRemaining, itemDue);
-                            it.PaidAmount += itemAlloc;
-                            itemRemaining -= itemAlloc;
+                            var itemPaymentDict = dto.ItemPayments.ToDictionary(p => p.ItemId, p => p.Amount);
+                            foreach (var it in inv.Items)
+                            {
+                                if (itemPaymentDict.TryGetValue(it.Id, out var itPaidAmt) && itPaidAmt > 0)
+                                {
+                                    it.PaidAmount += itPaidAmt;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            decimal itemRemaining = allocateForThisInv;
+                            foreach (var it in inv.Items)
+                            {
+                                if (itemRemaining <= 0) break;
+                                decimal itemDue = it.Amount - it.PaidAmount;
+                                if (itemDue <= 0) continue;
+                                decimal itemAlloc = Math.Min(itemRemaining, itemDue);
+                                it.PaidAmount += itemAlloc;
+                                itemRemaining -= itemAlloc;
+                            }
                         }
                     }
 
@@ -491,38 +505,61 @@ public class FeesController : ControllerBase
             var lineItems = new List<FeeReceiptLineItemDto>();
             if (tuitionAllocatedTotal > 0)
             {
+                var itemPaymentDict = dto.ItemPayments != null && dto.ItemPayments.Count > 0
+                    ? dto.ItemPayments.ToDictionary(p => p.ItemId, p => p.Amount)
+                    : null;
+
                 foreach (var (inv, allocAmt) in allocatedInvoicesList)
                 {
                     if (inv.Items != null && inv.Items.Count > 0)
                     {
-                        decimal remainingInvAlloc = allocAmt;
-                        var itemsList = inv.Items.ToList();
-                        for (int idx = 0; idx < itemsList.Count; idx++)
+                        if (itemPaymentDict != null)
                         {
-                            var it = itemsList[idx];
-                            decimal itShare;
-                            if (idx == itemsList.Count - 1)
+                            foreach (var it in inv.Items)
                             {
-                                itShare = remainingInvAlloc;
+                                if (itemPaymentDict.TryGetValue(it.Id, out var itPaidAmt) && itPaidAmt > 0)
+                                {
+                                    lineItems.Add(new FeeReceiptLineItemDto(
+                                        lineItems.Count + 1,
+                                        it.HeadName,
+                                        inv.Title,
+                                        inv.InvoiceNumber,
+                                        itPaidAmt
+                                    ));
+                                }
                             }
-                            else
+                        }
+                        else
+                        {
+                            decimal remainingInvAlloc = allocAmt;
+                            var itemsList = inv.Items.ToList();
+                            for (int idx = 0; idx < itemsList.Count; idx++)
                             {
-                                itShare = inv.TotalAmount > 0
-                                    ? Math.Round(allocAmt * (it.Amount / inv.TotalAmount), 2)
-                                    : it.Amount;
-                                if (itShare > remainingInvAlloc) itShare = remainingInvAlloc;
-                            }
-                            remainingInvAlloc -= itShare;
+                                var it = itemsList[idx];
+                                decimal itShare;
+                                if (idx == itemsList.Count - 1)
+                                {
+                                    itShare = remainingInvAlloc;
+                                }
+                                else
+                                {
+                                    itShare = inv.TotalAmount > 0
+                                        ? Math.Round(allocAmt * (it.Amount / inv.TotalAmount), 2)
+                                        : it.Amount;
+                                    if (itShare > remainingInvAlloc) itShare = remainingInvAlloc;
+                                }
+                                remainingInvAlloc -= itShare;
 
-                            if (itShare > 0)
-                            {
-                                lineItems.Add(new FeeReceiptLineItemDto(
-                                    lineItems.Count + 1,
-                                    it.HeadName,
-                                    inv.Title,
-                                    inv.InvoiceNumber,
-                                    itShare
-                                ));
+                                if (itShare > 0)
+                                {
+                                    lineItems.Add(new FeeReceiptLineItemDto(
+                                        lineItems.Count + 1,
+                                        it.HeadName,
+                                        inv.Title,
+                                        inv.InvoiceNumber,
+                                        itShare
+                                    ));
+                                }
                             }
                         }
                     }
@@ -854,7 +891,13 @@ public class FeesController : ControllerBase
 
         var studentsQuery = _dbContext.Students
             .Include(s => s.Batch)
+            .Where(s => s.IsActive)
             .AsQueryable();
+
+        if (dto.ClassId.HasValue && dto.ClassId != Guid.Empty)
+        {
+            studentsQuery = studentsQuery.Where(s => s.ClassId == dto.ClassId.Value);
+        }
 
         if (dto.BatchId.HasValue && dto.BatchId != Guid.Empty)
         {
@@ -864,7 +907,7 @@ public class FeesController : ControllerBase
         var students = await studentsQuery.ToListAsync();
         if (students.Count == 0)
         {
-            return Ok(new GenerateMonthlyInvoicesResultDto(0, 0, "No active students found for the selected batch."));
+            return Ok(new GenerateMonthlyInvoicesResultDto(0, 0, "No active students found for the selected criteria."));
         }
 
         // Determine cycle length in months (enum value equals month multiplier)

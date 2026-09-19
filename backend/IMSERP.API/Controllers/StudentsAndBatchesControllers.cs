@@ -770,30 +770,7 @@ public class StudentsController : ControllerBase
             student.ProfilePhoto = ImageStorageHelper.SaveBase64Image(dto.ProfilePhoto, "students", student.Id.ToString(), _env.ContentRootPath);
             await _dbContext.SaveChangesAsync();
 
-            // Auto-generate initial Monthly Fee Invoice for coaching student if enrolled in batch
-            if (dto.IsCoachingStudent && batch != null)
-            {
-                var feeRate = batch.StandardMonthlyFee;
-                var now = DateTime.UtcNow;
 
-                var initialInvoice = new FeeInvoice
-                {
-                    TenantId = _currentUser.TenantId,
-                    BranchId = student.BranchId,
-                    StudentId = student.Id,
-                    InvoiceNumber = $"INV-{now.Year}{now.Month:D2}-{new Random().Next(100, 999)}",
-                    Title = $"{now:MMMM yyyy} Tuition Fee",
-                    InvoiceCategory = "Coaching",
-                    TotalAmount = feeRate,
-                    PaidAmount = 0,
-                    DueDate = new DateTime(now.Year, now.Month, Math.Min(10, DateTime.DaysInMonth(now.Year, now.Month))),
-                    Status = InvoiceStatus.Pending,
-                    CreatedAt = now
-                };
-
-                _dbContext.FeeInvoices.Add(initialInvoice);
-                await _dbContext.SaveChangesAsync();
-            }
 
             await transaction.CommitAsync();
 

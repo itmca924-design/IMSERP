@@ -385,29 +385,7 @@ public class SchoolController : ControllerBase
             student.CoachingRollNumber = $"{batch.Name.Substring(0, Math.Min(3, batch.Name.Length)).ToUpper()}-{(count + 1):D3}";
         }
 
-        // Generate initial coaching monthly fee invoice for the newly enrolled coaching student
-        var invoiceMonth = DateTime.UtcNow.ToString("MMM yyyy");
-        var invoiceNumber = $"INV-{DateTime.UtcNow:yyyyMM}-{Random.Shared.Next(100, 999)}";
-        var amount = dto.CustomMonthlyFee ?? batch.StandardMonthlyFee;
 
-        if (amount > 0)
-        {
-            var invoice = new FeeInvoice
-            {
-                TenantId = student.TenantId,
-                BranchId = student.BranchId,
-                StudentId = student.Id,
-                InvoiceNumber = invoiceNumber,
-                Title = $"Coaching Tuition Fee - {invoiceMonth}",
-                InvoiceCategory = "Coaching",
-                TotalAmount = amount,
-                PaidAmount = 0,
-                DueDate = DateTime.UtcNow.AddDays(10),
-                Status = IMSERP.Domain.Enums.InvoiceStatus.Pending,
-                CreatedAt = DateTime.UtcNow
-            };
-            _db.FeeInvoices.Add(invoice);
-        }
 
         await _db.SaveChangesAsync();
 

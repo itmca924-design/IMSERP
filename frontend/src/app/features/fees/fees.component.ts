@@ -1057,7 +1057,8 @@ export class FeesComponent implements OnInit, OnDestroy {
           : undefined;
 
         const dialogRef = this.dialog.open(FeeCollectionDialogComponent, {
-          width: '540px',
+          width: '680px',
+          maxWidth: '96vw',
           data: {
             studentId: inv.studentId,
             studentName: inv.studentName,
@@ -1065,7 +1066,8 @@ export class FeesComponent implements OnInit, OnDestroy {
             batchName: inv.batchName,
             parentWhatsAppPhone: inv.parentWhatsAppPhone,
             totalOutstandingDue: inv.dueAmount,
-            hostelInfo
+            hostelInfo,
+            items: inv.items
           }
         });
 
@@ -1089,14 +1091,16 @@ export class FeesComponent implements OnInit, OnDestroy {
       error: () => {
         // If allocation lookup fails, still open dialog without hostel info
         const dialogRef = this.dialog.open(FeeCollectionDialogComponent, {
-          width: '540px',
+          width: '680px',
+          maxWidth: '96vw',
           data: {
             studentId: inv.studentId,
             studentName: inv.studentName,
             rollNumber: inv.rollNumber,
             batchName: inv.batchName,
             parentWhatsAppPhone: inv.parentWhatsAppPhone,
-            totalOutstandingDue: inv.dueAmount
+            totalOutstandingDue: inv.dueAmount,
+            items: inv.items
           }
         });
 
@@ -1231,10 +1235,12 @@ export class FeesComponent implements OnInit, OnDestroy {
 
   openGenerateInvoicesModal(): void {
     const dialogRef = this.dialog.open(GenerateInvoicesDialogComponent, {
-      width: '520px',
+      width: '540px',
       data: {
         batches: this.batches,
-        defaultBatchId: this.selectedBatchFilter
+        classes: this.schoolClasses,
+        defaultBatchId: this.selectedBatchFilter,
+        defaultClassId: this.selectedClassFilter
       }
     });
 
