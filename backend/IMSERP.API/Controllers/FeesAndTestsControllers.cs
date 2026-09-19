@@ -1006,6 +1006,20 @@ public class FeesController : ControllerBase
             {
                 foreach (var head in applicableHeads)
                 {
+                    // Fail-Safe 1: Skip HOSTEL and MESS from class matrix because residential charges
+                    // are dynamically and exclusively computed from student's active HostelBed allocation
+                    // (prevents accidental double-charging if someone sets a class-level hostel fee).
+                    if (head.FeeHead != null && (head.FeeHead.Code == "HOSTEL" || head.FeeHead.Code == "MESS"))
+                    {
+                        continue;
+                    }
+
+                    // Fail-Safe 2: Skip non-positive amounts (e.g. ₹0 fee heads) so no empty invoice items are generated
+                    if (head.Amount <= 0)
+                    {
+                        continue;
+                    }
+
                     bool isRecurring = head.FeeHead == null || head.FeeHead.Frequency == "Monthly" || head.FeeHead.Frequency == "Quarterly";
                     decimal headAmount = isRecurring ? (head.Amount * cycleMonths) : head.Amount;
                     totalAmount += headAmount;
