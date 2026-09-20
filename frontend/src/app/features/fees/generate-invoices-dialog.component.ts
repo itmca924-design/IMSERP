@@ -18,6 +18,11 @@ export interface GenerateInvoicesDialogData {
   classes?: SchoolClassDto[];
   defaultBatchId?: string;
   defaultClassId?: string;
+  targetStudentId?: string;
+  targetStudentName?: string;
+  targetRollNumber?: string;
+  defaultMonth?: number;
+  defaultYear?: number;
 }
 
 interface BillingCycleOption {
@@ -62,8 +67,30 @@ interface BillingCycleOption {
       <form [formGroup]="form" (ngSubmit)="onSubmit()">
         <mat-dialog-content class="dialog-content">
 
+          <!-- Target Student Card (if opened for a specific student) -->
+          <div *ngIf="data.targetStudentName" class="target-student-card">
+            <div class="card-icon-pill">
+              <mat-icon>person</mat-icon>
+            </div>
+            <div class="card-content">
+              <div class="st-main">
+                <span class="st-role-badge">NEW ADMISSION</span>
+                <strong class="st-name">{{ data.targetStudentName }}</strong>
+                <span class="st-roll">({{ data.targetRollNumber }})</span>
+              </div>
+              <div class="st-sub-details">
+                <span *ngIf="getSelectedTargetClassName()" class="sub-pill school">
+                  🏫 {{ getSelectedTargetClassName() }}
+                </span>
+                <span *ngIf="getSelectedTargetBatchName()" class="sub-pill batch">
+                  🎯 {{ getSelectedTargetBatchName() }}
+                </span>
+              </div>
+            </div>
+          </div>
+
           <!-- Info Callout -->
-          <div class="info-callout">
+          <div class="info-callout" *ngIf="!data.targetStudentName">
             <mat-icon class="info-icon">auto_awesome</mat-icon>
             <div class="info-text">
               <strong>Smart Auto-Billing Engine:</strong> Invoices use each student's batch fee rate multiplied by the selected cycle. Students who already have an invoice for the selected period are <strong>automatically skipped</strong>.
@@ -188,7 +215,7 @@ interface BillingCycleOption {
           <button mat-raised-button color="primary" type="submit" [disabled]="form.invalid || saving" class="submit-btn">
             <mat-spinner diameter="18" *ngIf="saving" class="btn-spinner"></mat-spinner>
             <mat-icon *ngIf="!saving">rocket_launch</mat-icon>
-            <span>{{ saving ? 'Generating...' : 'Generate Invoices' }}</span>
+            <span>{{ saving ? 'Generating...' : (data.targetStudentName ? 'Generate Invoice for ' + data.targetStudentName : 'Generate Invoices') }}</span>
           </button>
         </mat-dialog-actions>
       </form>
@@ -244,12 +271,96 @@ interface BillingCycleOption {
     }
 
     .dialog-content {
-      padding: 18px 24px 10px !important;
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-      max-height: 66vh;
+      padding: 16px 24px;
+      max-height: 75vh;
       overflow-y: auto;
+    }
+
+    .target-student-card {
+      background: linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%);
+      border: 1.5px solid #93c5fd;
+      border-radius: 10px;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+
+      .card-icon-pill {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        background: #3b82f6;
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+
+        mat-icon {
+          font-size: 20px;
+          width: 20px;
+          height: 20px;
+        }
+      }
+
+      .card-content {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+
+        .st-main {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+
+          .st-role-badge {
+            font-size: 0.65rem;
+            font-weight: 700;
+            background: #dbeafe;
+            color: #1d4ed8;
+            padding: 1px 6px;
+            border-radius: 4px;
+            letter-spacing: 0.5px;
+          }
+
+          .st-name {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #0f172a;
+          }
+
+          .st-roll {
+            font-size: 0.8rem;
+            color: #64748b;
+          }
+        }
+
+        .st-sub-details {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+
+          .sub-pill {
+            font-size: 0.75rem;
+            padding: 1px 8px;
+            border-radius: 4px;
+            font-weight: 500;
+
+            &.school {
+              background: #e0f2fe;
+              color: #0369a1;
+              border: 1px solid #bae6fd;
+            }
+
+            &.batch {
+              background: #ede9fe;
+              color: #6d28d9;
+              border: 1px solid #ddd6fe;
+            }
+          }
+        }
+      }
     }
 
     .info-callout {
@@ -450,8 +561,8 @@ export class GenerateInvoicesDialogComponent implements OnInit {
   ) {
     const today = new Date();
     const currentMonth = today.getMonth() + 1;
-    const defaultMonth = currentMonth === 12 ? 1 : currentMonth + 1;
-    const defaultYear  = currentMonth === 12 ? today.getFullYear() + 1 : today.getFullYear();
+    const defaultMonth = data?.defaultMonth ?? (currentMonth === 12 ? 1 : currentMonth + 1);
+    const defaultYear  = data?.defaultYear ?? (currentMonth === 12 ? today.getFullYear() + 1 : today.getFullYear());
     this.years = [defaultYear - 1, defaultYear, defaultYear + 1];
     const defaultDueDate = `${defaultYear}-${String(defaultMonth).padStart(2, '0')}-10`;
     this.form = this.fb.group({
@@ -461,6 +572,16 @@ export class GenerateInvoicesDialogComponent implements OnInit {
       batchId: [data?.defaultBatchId || ''],
       dueDate: [defaultDueDate,            [Validators.required]]
     });
+  }
+
+  getSelectedTargetClassName(): string {
+    const classId = this.form?.get('classId')?.value || this.data?.defaultClassId;
+    return this.data?.classes?.find(c => c.id === classId)?.name || '';
+  }
+
+  getSelectedTargetBatchName(): string {
+    const batchId = this.form?.get('batchId')?.value || this.data?.defaultBatchId;
+    return this.data?.batches?.find(b => b.id === batchId)?.name || '';
   }
 
   ngOnInit(): void {}
@@ -526,6 +647,7 @@ export class GenerateInvoicesDialogComponent implements OnInit {
       month:        Number(val.month),
       classId:      val.classId ? val.classId : null,
       batchId:      val.batchId ? val.batchId : null,
+      studentId:    this.data?.targetStudentId || null,
       dueDate:      val.dueDate,
       billingCycle: this.selectedCycle
     }).subscribe({

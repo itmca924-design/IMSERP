@@ -251,6 +251,24 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
 
             <!-- Existing Fee Heads Table -->
             <div class="heads-table-wrapper">
+              <div class="heads-toolbar-row">
+                <div class="heads-search-bar">
+                  <mat-icon>search</mat-icon>
+                  <input
+                    type="text"
+                    placeholder="Search fee heads by name, code, category, frequency..."
+                    [(ngModel)]="headSearchQuery"
+                    (input)="filterFeeHeadsMaster()"
+                  />
+                  <button mat-icon-button type="button" class="clear-search-btn" *ngIf="headSearchQuery" (click)="clearHeadSearch()">
+                    <mat-icon>close</mat-icon>
+                  </button>
+                </div>
+                <div class="heads-meta-pill" *ngIf="feeHeads.length > 0">
+                  <span>{{ filteredFeeHeads.length }} of {{ feeHeads.length }} Fee Heads</span>
+                </div>
+              </div>
+
               <table class="styled-table">
                 <thead>
                   <tr>
@@ -264,7 +282,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                   </tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let h of feeHeads">
+                  <tr *ngFor="let h of filteredFeeHeads">
                     <td><span class="code-pill">{{ h.code }}</span></td>
                     <td><strong>{{ h.name }}</strong></td>
                     <td>
@@ -282,8 +300,11 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                       <span class="default-badge" *ngIf="h.isDefault">Default</span>
                     </td>
                   </tr>
+                  <tr *ngIf="filteredFeeHeads.length === 0 && feeHeads.length > 0">
+                    <td colspan="7" class="empty-state">No fee heads found matching "{{ headSearchQuery }}".</td>
+                  </tr>
                   <tr *ngIf="feeHeads.length === 0">
-                    <td colspan="7" class="empty-state">No fee heads found. Click "Load Standard Fee Presets" above to auto-populate standard school & coaching heads.</td>
+                    <td colspan="7" class="empty-state">No fee heads found. Click "Sync Fee Heads from Database" above to auto-populate standard school & coaching heads.</td>
                   </tr>
                 </tbody>
               </table>
@@ -441,7 +462,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
       display: flex;
       flex-direction: column;
       max-height: 90vh;
-      min-width: 820px;
+      min-width: min(1080px, 92vw);
     }
     ::ng-deep .fee-tabs {
       .mat-mdc-tab-header-pagination {
@@ -554,6 +575,72 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           width: 100%;
           justify-content: flex-end;
         }
+      }
+    }
+    .heads-toolbar-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      gap: 12px;
+
+      .heads-search-bar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: #ffffff;
+        border: 1.5px solid #cbd5e1;
+        border-radius: 8px;
+        padding: 5px 12px;
+        width: 380px;
+        max-width: 100%;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+        &:focus-within {
+          border-color: #2563eb;
+          box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+        }
+
+        mat-icon {
+          color: #94a3b8;
+          font-size: 20px;
+          width: 20px;
+          height: 20px;
+        }
+
+        input {
+          border: none;
+          outline: none;
+          background: transparent;
+          font-size: 0.86rem;
+          color: #0f172a;
+          flex: 1;
+        }
+
+        .clear-search-btn {
+          width: 22px;
+          height: 22px;
+          padding: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          mat-icon {
+            font-size: 16px;
+            width: 16px;
+            height: 16px;
+            color: #94a3b8;
+          }
+        }
+      }
+
+      .heads-meta-pill {
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: #475569;
+        background: #f1f5f9;
+        padding: 4px 10px;
+        border-radius: 20px;
+        border: 1px solid #e2e8f0;
       }
     }
     .styled-table {
@@ -879,6 +966,8 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
 })
 export class FeeMasterDialogComponent implements OnInit {
   feeHeads: FeeHead[] = [];
+  filteredFeeHeads: FeeHead[] = [];
+  headSearchQuery = '';
   schoolClasses: SchoolClassDto[] = [];
   batches: BatchDto[] = [];
 
@@ -946,13 +1035,35 @@ export class FeeMasterDialogComponent implements OnInit {
   loadFeeHeads(): void {
     this.feesService.getFeeHeads(true).subscribe({
       next: (heads) => {
-        this.feeHeads = heads;
+        this.feeHeads = heads || [];
+        this.filterFeeHeadsMaster();
         if (this.hasActiveSelection()) {
           this.loadStructureForSelection();
         }
       },
       error: (err) => console.error('Failed to load fee heads', err)
     });
+  }
+
+  filterFeeHeadsMaster(): void {
+    const q = (this.headSearchQuery || '').trim().toLowerCase();
+    if (!q) {
+      this.filteredFeeHeads = [...this.feeHeads];
+      return;
+    }
+    this.filteredFeeHeads = this.feeHeads.filter(h =>
+      (h.name && h.name.toLowerCase().includes(q)) ||
+      (h.code && h.code.toLowerCase().includes(q)) ||
+      (h.category && h.category.toLowerCase().includes(q)) ||
+      (h.frequency && h.frequency.toLowerCase().includes(q)) ||
+      (h.applicableTo && h.applicableTo.toLowerCase().includes(q)) ||
+      (h.description && h.description.toLowerCase().includes(q))
+    );
+  }
+
+  clearHeadSearch(): void {
+    this.headSearchQuery = '';
+    this.filterFeeHeadsMaster();
   }
 
   loadClassesAndBatches(): void {
@@ -1050,17 +1161,18 @@ export class FeeMasterDialogComponent implements OnInit {
             defaultActive = existing.isActive;
           } else {
             // Sensible defaults
-            if (head.code === 'TUI') {
+            if (head.code === 'COACH') {
               if (this.targetType === 'batch') {
                 const currentBatch = this.batches.find(b => b.id === this.selectedBatchId);
                 defaultAmt = currentBatch?.standardMonthlyFee || 2000;
+                defaultActive = true;
               } else {
-                defaultAmt = 1500;
+                defaultAmt = 0;
+                defaultActive = false;
               }
-              defaultActive = true;
-            } else if (head.code === 'COACH') {
-              defaultAmt = this.targetType === 'batch' ? 1500 : 0;
-              defaultActive = this.targetType === 'batch';
+            } else if (head.code === 'TUI') {
+              defaultAmt = 1500;
+              defaultActive = this.targetType === 'class';
             } else if (head.code === 'COMP') {
               defaultAmt = 200;
               defaultActive = this.targetType === 'class';

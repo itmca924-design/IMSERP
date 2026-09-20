@@ -181,6 +181,7 @@ export interface GenerateInvoicesPayload {
   month: number;
   batchId?: string | null;
   classId?: string | null;
+  studentId?: string | null;
   dueDate: string;
   billingCycle?: number; // 1=Monthly, 3=Quarterly, 6=HalfYearly, 12=Yearly
 }
@@ -189,6 +190,19 @@ export interface GenerateInvoicesResult {
   generatedCount: number;
   skippedCount: number;
   message: string;
+}
+
+export interface PendingInvoicingStudent {
+  studentId: string;
+  studentName: string;
+  rollNumber: string;
+  admissionNumber?: string | null;
+  classId?: string | null;
+  className?: string | null;
+  batchId?: string | null;
+  batchName?: string | null;
+  joiningDate: string;
+  estimatedMonthlyFee: number;
 }
 
 export interface FeeReceiptLineItem {
@@ -281,7 +295,7 @@ export class FeesService {
     batchId: string = '',
     classId: string = '',
     status: string = '',
-    sortBy: string = 'dueDate',
+    sortBy: string = 'createdAt',
     sortDescending: boolean = true
   ): Observable<PagedResult<FeeInvoicePagedItem>> {
     let params = new HttpParams()
@@ -326,6 +340,13 @@ export class FeesService {
 
   generateMonthlyInvoices(payload: GenerateInvoicesPayload): Observable<GenerateInvoicesResult> {
     return this.http.post<GenerateInvoicesResult>(`${this.apiUrl}/generate-monthly-invoices`, payload);
+  }
+
+  getPendingInvoicingStudents(month?: number, year?: number): Observable<PendingInvoicingStudent[]> {
+    let params: any = {};
+    if (month) params.month = month.toString();
+    if (year) params.year = year.toString();
+    return this.http.get<PendingInvoicingStudent[]>(`${this.apiUrl}/pending-invoicing-students`, { params });
   }
 
   cancelInvoice(invoiceId: string, reason: string): Observable<any> {
@@ -398,5 +419,17 @@ export class FeesService {
 
   saveClassFeeStructures(payload: SaveClassFeeStructureBatch): Observable<any> {
     return this.http.post<any>(`${this.apiUrl}/structures`, payload);
+  }
+
+  addInvoiceItem(invoiceId: string, payload: { feeHeadId?: string; headName: string; amount: number }): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/invoices/${invoiceId}/items`, payload);
+  }
+
+  deleteInvoiceItem(invoiceId: string, itemId: string): Observable<any> {
+    return this.http.delete<any>(`${this.apiUrl}/invoices/${invoiceId}/items/${itemId}`);
+  }
+
+  updateInvoiceItems(invoiceId: string, items: { feeHeadId?: string; headName: string; amount: number }[]): Observable<any> {
+    return this.http.put<any>(`${this.apiUrl}/invoices/${invoiceId}/items`, { items });
   }
 }

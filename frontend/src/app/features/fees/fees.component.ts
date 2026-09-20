@@ -15,7 +15,8 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatCheckboxModule } from '@angular/material/checkbox';
-import { FeesService, FeeInvoicePagedItem, FeePaymentReceipt } from '../../core/services/fees.service';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { FeesService, FeeInvoicePagedItem, FeePaymentReceipt, PendingInvoicingStudent } from '../../core/services/fees.service';
 import { BatchesService, BatchDto } from '../../core/services/batches.service';
 import { SchoolService, SchoolClassDto } from '../../core/services/school.service';
 import { AuthService } from '../../core/services/auth.service';
@@ -27,6 +28,7 @@ import { StudentLedgerDialogComponent } from './student-ledger-dialog.component'
 import { GenerateInvoicesDialogComponent } from './generate-invoices-dialog.component';
 import { CancelInvoiceDialogComponent } from './cancel-invoice-dialog.component';
 import { FeeMasterDialogComponent } from './fee-master-dialog.component';
+import { EditInvoiceDialogComponent } from './edit-invoice-dialog.component';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 
 @Component({
@@ -47,7 +49,8 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
     MatProgressBarModule,
     MatTooltipModule,
     MatDialogModule,
-    MatCheckboxModule
+    MatCheckboxModule,
+    MatProgressSpinnerModule
   ],
   template: `
     <div class="fees-wrapper">
@@ -69,20 +72,53 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
         </div>
       </div>
 
+      <!-- Smart Alert Banner: New Admissions Awaiting Invoicing -->
+      <div class="pending-invoicing-banner" *ngIf="pendingStudents.length > 0 && !bannerDismissed">
+        <div class="banner-left">
+          <div class="banner-badge-icon">
+            <mat-icon>notification_important</mat-icon>
+          </div>
+          <div class="banner-text">
+            <div class="banner-title-row">
+              <span class="banner-pill">{{ pendingStudents.length }} NEW {{ pendingStudents.length === 1 ? 'ADMISSION' : 'ADMISSIONS' }}</span>
+              <strong class="banner-heading">Awaiting Fee Invoicing for {{ getCurrentMonthYearName() }}</strong>
+            </div>
+            <div class="banner-students-list">
+              <span class="student-item-tag clickable" *ngFor="let s of pendingStudents" (click)="generateForPendingStudent(s)" matTooltip="Click to open invoice generator for {{ s.studentName }}">
+                <strong>{{ s.studentName }}</strong>
+                <span class="sub-info">({{ s.className || s.batchName || 'General' }} • Roll: {{ s.rollNumber }})</span>
+                <mat-icon class="tag-click-icon">open_in_new</mat-icon>
+              </span>
+            </div>
+          </div>
+        </div>
+        <div class="banner-actions">
+          <button mat-raised-button color="accent" class="quick-gen-btn" (click)="pendingStudents.length === 1 ? generateForPendingStudent(pendingStudents[0]) : generateForAllPending()">
+            <mat-icon>post_add</mat-icon>
+            <span *ngIf="pendingStudents.length === 1">Generate Invoice for {{ pendingStudents[0].studentName }}</span>
+            <span *ngIf="pendingStudents.length > 1">Generate Invoices ({{ pendingStudents.length }} Admissions)</span>
+          </button>
+          <button mat-icon-button class="dismiss-btn" (click)="dismissBanner()" matTooltip="Hide alert for now">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+      </div>
+
       <!-- Main Invoices Directory Card -->
       <mat-card class="table-card mat-elevation-z2">
         <!-- Filter Toolbar -->
         <div class="filter-toolbar">
           <mat-form-field appearance="outline" class="search-field">
-            <mat-label>Search Invoices / Students / Phone...</mat-label>
+            <mat-icon matPrefix class="search-prefix-icon">search</mat-icon>
+            <mat-label>Search Invoices, Students, Phone...</mat-label>
             <input
               matInput
               [(ngModel)]="searchTerm"
               (keyup.enter)="onSearch()"
               placeholder="e.g. Mantosh, INV-2026, 95405..."
             />
-            <button mat-icon-button matSuffix (click)="onSearch()" aria-label="Search">
-              <mat-icon>search</mat-icon>
+            <button mat-icon-button matSuffix *ngIf="searchTerm" (click)="searchTerm = ''; onSearch()" aria-label="Clear">
+              <mat-icon>close</mat-icon>
             </button>
           </mat-form-field>
 
@@ -299,6 +335,16 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                     <mat-icon>menu_book</mat-icon>
                   </button>
 
+                  <!-- Edit / Add Fee Heads: for non-cancelled invoices -->
+                  <button
+                    *ngIf="inv.status !== 'Cancelled'"
+                    mat-icon-button
+                    class="edit-invoice-btn"
+                    (click)="openEditInvoiceModal(inv)"
+                    matTooltip="Edit / Add Fee Heads on this Invoice">
+                    <mat-icon>edit_note</mat-icon>
+                  </button>
+
                   <!-- Cancel Invoice: only for Pending/Partial (no partial payment) -->
                   <button
                     *ngIf="inv.status === 'Pending' || inv.status === 'Partial'"
@@ -487,6 +533,161 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
       letter-spacing: 0.02em;
       box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
     }
+    .pending-invoicing-banner {
+      background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+      border: 1.5px solid #fde68a;
+      border-left: 5px solid #f59e0b;
+      border-radius: 10px;
+      padding: 12px 18px;
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      box-shadow: 0 2px 8px rgba(245, 158, 11, 0.12);
+      animation: fadeIn 0.25s ease-in-out;
+
+      .banner-left {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        flex: 1;
+        min-width: 280px;
+
+        .banner-badge-icon {
+          width: 40px;
+          height: 40px;
+          border-radius: 10px;
+          background: #fef3c7;
+          border: 1px solid #fcd34d;
+          color: #d97706;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+
+          mat-icon {
+            font-size: 22px;
+            width: 22px;
+            height: 22px;
+          }
+        }
+
+        .banner-text {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+
+          .banner-title-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+
+            .banner-pill {
+              background: #d97706;
+              color: #ffffff;
+              font-size: 0.68rem;
+              font-weight: 800;
+              letter-spacing: 0.05em;
+              padding: 2px 7px;
+              border-radius: 12px;
+              text-transform: uppercase;
+            }
+
+            .banner-heading {
+              font-size: 0.92rem;
+              color: #92400e;
+            }
+          }
+
+          .banner-students-list {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+
+            .student-item-tag {
+              font-size: 0.82rem;
+              color: #78350f;
+              background: rgba(255, 255, 255, 0.65);
+              padding: 2px 8px;
+              border-radius: 6px;
+              border: 1px solid #fde68a;
+              display: inline-flex;
+              align-items: center;
+              gap: 4px;
+              transition: all 0.15s ease;
+
+              &.clickable {
+                cursor: pointer;
+
+                &:hover {
+                  background: #ffffff;
+                  border-color: #d97706;
+                  box-shadow: 0 2px 5px rgba(217, 119, 6, 0.15);
+                  transform: translateY(-1px);
+                }
+              }
+
+              .tag-click-icon {
+                font-size: 13px;
+                width: 13px;
+                height: 13px;
+                color: #d97706;
+              }
+
+              .sub-info {
+                color: #b45309;
+                margin-left: 4px;
+                font-size: 0.76rem;
+              }
+            }
+          }
+        }
+      }
+
+      .banner-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+
+        .quick-gen-btn {
+          font-weight: 700;
+          border-radius: 8px;
+          height: 38px;
+          padding: 0 16px;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          background: #d97706;
+          color: #ffffff;
+          box-shadow: 0 2px 6px rgba(217, 119, 6, 0.3);
+          transition: all 0.15s ease;
+
+          &:hover {
+            background: #b45309;
+          }
+
+          .btn-spinner {
+            display: inline-block;
+            margin-right: 4px;
+          }
+        }
+
+        .dismiss-btn {
+          color: #92400e;
+          width: 32px;
+          height: 32px;
+          padding: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+      }
+    }
+
     .table-card {
       border-radius: 8px;
       overflow: hidden;
@@ -499,7 +700,13 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
       align-items: center;
       flex-wrap: wrap;
 
-      .search-field { width: 260px; }
+      .search-field { 
+        width: 320px; 
+        .search-prefix-icon {
+          color: #64748b;
+          margin-right: 6px;
+        }
+      }
       .status-filter { width: 150px; }
       .class-filter { width: 220px; }
       .batch-filter { width: 280px; }
@@ -640,6 +847,14 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
       transition: color 0.15s ease, transform 0.15s ease, background-color 0.15s ease;
       &:hover {
         background-color: #ffe4e6 !important;
+        transform: scale(1.1);
+      }
+    }
+    .edit-invoice-btn {
+      color: #7c3aed !important;
+      transition: color 0.15s ease, transform 0.15s ease, background-color 0.15s ease;
+      &:hover {
+        background-color: #f5f3ff !important;
         transform: scale(1.1);
       }
     }
@@ -786,6 +1001,11 @@ export class FeesComponent implements OnInit, OnDestroy {
   loading = false;
   private refreshSub?: Subscription;
 
+  pendingStudents: PendingInvoicingStudent[] = [];
+  loadingPending = false;
+  generatingPending = false;
+  bannerDismissed = false;
+
   pageIndex = 0;
   pageSize = 10;
   totalCount = 0;
@@ -793,7 +1013,7 @@ export class FeesComponent implements OnInit, OnDestroy {
   selectedStatusFilter = '';
   selectedBatchFilter = '';
   selectedClassFilter = '';
-  sortBy = 'dueDate';
+  sortBy = 'createdAt';
   sortDescending = true;
 
   displayedColumns = [
@@ -910,6 +1130,8 @@ export class FeesComponent implements OnInit, OnDestroy {
         studentId: first.studentId,
         studentName: first.studentName,
         rollNumber: first.rollNumber,
+        className: first.className,
+        sectionName: first.sectionName,
         batchName: first.batchName,
         parentWhatsAppPhone: first.parentWhatsAppPhone,
         totalOutstandingDue: totalAmount,
@@ -953,9 +1175,11 @@ export class FeesComponent implements OnInit, OnDestroy {
     this.loadBatches();
     this.loadSchoolClasses();
     this.loadInvoices();
+    this.loadPendingStudents();
 
     this.refreshSub = this.feesService.refreshRequired$.subscribe(() => {
       this.loadInvoices();
+      this.loadPendingStudents();
     });
   }
 
@@ -1035,8 +1259,13 @@ export class FeesComponent implements OnInit, OnDestroy {
   }
 
   onSortChange(sortState: Sort): void {
-    this.sortBy = sortState.active || 'dueDate';
-    this.sortDescending = sortState.direction === 'desc';
+    if (!sortState.direction) {
+      this.sortBy = 'createdAt';
+      this.sortDescending = true;
+    } else {
+      this.sortBy = sortState.active;
+      this.sortDescending = sortState.direction === 'desc';
+    }
     this.pageIndex = 0;
     this.loadInvoices();
   }
@@ -1063,6 +1292,8 @@ export class FeesComponent implements OnInit, OnDestroy {
             studentId: inv.studentId,
             studentName: inv.studentName,
             rollNumber: inv.rollNumber,
+            className: inv.className,
+            sectionName: inv.sectionName,
             batchName: inv.batchName,
             parentWhatsAppPhone: inv.parentWhatsAppPhone,
             totalOutstandingDue: inv.dueAmount,
@@ -1097,6 +1328,8 @@ export class FeesComponent implements OnInit, OnDestroy {
             studentId: inv.studentId,
             studentName: inv.studentName,
             rollNumber: inv.rollNumber,
+            className: inv.className,
+            sectionName: inv.sectionName,
             batchName: inv.batchName,
             parentWhatsAppPhone: inv.parentWhatsAppPhone,
             totalOutstandingDue: inv.dueAmount,
@@ -1233,33 +1466,44 @@ export class FeesComponent implements OnInit, OnDestroy {
     });
   }
 
-  openGenerateInvoicesModal(): void {
+  openGenerateInvoicesModal(targetStudent?: PendingInvoicingStudent): void {
+    const today = new Date();
+    const currentMonth = today.getMonth() + 1;
+    const currentYear = today.getFullYear();
+
     const dialogRef = this.dialog.open(GenerateInvoicesDialogComponent, {
-      width: '540px',
+      width: '560px',
+      maxWidth: '96vw',
       data: {
         batches: this.batches,
         classes: this.schoolClasses,
-        defaultBatchId: this.selectedBatchFilter,
-        defaultClassId: this.selectedClassFilter
+        defaultBatchId: targetStudent?.batchId || this.selectedBatchFilter,
+        defaultClassId: targetStudent?.classId || this.selectedClassFilter,
+        targetStudentId: targetStudent?.studentId,
+        targetStudentName: targetStudent?.studentName,
+        targetRollNumber: targetStudent?.rollNumber,
+        defaultMonth: targetStudent ? currentMonth : undefined,
+        defaultYear: targetStudent ? currentYear : undefined
       }
     });
 
     dialogRef.afterClosed().subscribe((result) => {
       if (result) {
         this.confirmDialog.alert(
-          'Monthly Invoices Generated',
-          result.message || `Successfully generated ${result.generatedCount} monthly invoices.`,
+          'Invoices Generated',
+          result.message || `Successfully generated invoice(s).`,
           'success'
         );
         this.pageIndex = 0;
         this.loadInvoices();
+        this.loadPendingStudents();
       }
     });
   }
 
   openFeeMasterModal(): void {
     const dialogRef = this.dialog.open(FeeMasterDialogComponent, {
-      width: '920px',
+      width: '1150px',
       maxWidth: '96vw',
       disableClose: false,
       autoFocus: false,
@@ -1311,6 +1555,25 @@ export class FeesComponent implements OnInit, OnDestroy {
     });
   }
 
+  openEditInvoiceModal(inv: FeeInvoicePagedItem): void {
+    const studentBatch = this.batches.find(b => b.name === inv.batchName);
+    const dialogRef = this.dialog.open(EditInvoiceDialogComponent, {
+      width: '860px',
+      maxWidth: '96vw',
+      data: {
+        invoice: inv,
+        standardMonthlyFee: studentBatch?.standardMonthlyFee
+      }
+    });
+
+    dialogRef.afterClosed().subscribe((refreshed) => {
+      if (refreshed) {
+        this.loadInvoices();
+        this.loadPendingStudents();
+      }
+    });
+  }
+
   confirmCancelInvoice(inv: FeeInvoicePagedItem): void {
     const dialogRef = this.dialog.open(CancelInvoiceDialogComponent, {
       width: '520px',
@@ -1335,7 +1598,42 @@ export class FeesComponent implements OnInit, OnDestroy {
           'success'
         );
         this.loadInvoices();
+        this.loadPendingStudents();
       }
     });
+  }
+
+  loadPendingStudents(): void {
+    const today = new Date();
+    const currentMonth = today.getMonth() + 1;
+    const currentYear = today.getFullYear();
+    this.loadingPending = true;
+    this.feesService.getPendingInvoicingStudents(currentMonth, currentYear).subscribe({
+      next: (list) => {
+        this.pendingStudents = list || [];
+        this.loadingPending = false;
+      },
+      error: (err) => {
+        console.error('Failed to load pending invoicing students', err);
+        this.loadingPending = false;
+      }
+    });
+  }
+
+  generateForPendingStudent(student: PendingInvoicingStudent): void {
+    this.openGenerateInvoicesModal(student);
+  }
+
+  generateForAllPending(): void {
+    this.openGenerateInvoicesModal();
+  }
+
+  dismissBanner(): void {
+    this.bannerDismissed = true;
+  }
+
+  getCurrentMonthYearName(): string {
+    const today = new Date();
+    return today.toLocaleString('en-IN', { month: 'long', year: 'numeric' });
   }
 }

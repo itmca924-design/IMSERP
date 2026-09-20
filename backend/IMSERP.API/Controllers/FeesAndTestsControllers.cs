@@ -32,7 +32,7 @@ public class FeesController : ControllerBase
         [FromQuery] Guid? batchId = null,
         [FromQuery] Guid? classId = null,
         [FromQuery] string? status = null,
-        [FromQuery] string? sortBy = "dueDate",
+        [FromQuery] string? sortBy = "createdAt",
         [FromQuery] bool sortDescending = true)
     {
         var tenantId = _currentUser.TenantId;
@@ -133,7 +133,7 @@ public class FeesController : ControllerBase
             );
         }
 
-        // Sorting
+        // Sorting: latest created invoices and newly admitted students always appear first at the top
         query = (sortBy?.ToLower()) switch
         {
             "studentname" => sortDescending ? query.OrderByDescending(i => i.Student!.StudentName) : query.OrderBy(i => i.Student!.StudentName),
@@ -141,7 +141,19 @@ public class FeesController : ControllerBase
             "totalamount" => sortDescending ? query.OrderByDescending(i => i.TotalAmount) : query.OrderBy(i => i.TotalAmount),
             "dueamount" => sortDescending ? query.OrderByDescending(i => i.TotalAmount - i.PaidAmount) : query.OrderBy(i => i.TotalAmount - i.PaidAmount),
             "status" => sortDescending ? query.OrderByDescending(i => i.Status) : query.OrderBy(i => i.Status),
-            _ => sortDescending ? query.OrderByDescending(i => i.DueDate) : query.OrderBy(i => i.DueDate)
+            "duedate" => sortDescending
+                ? query.OrderByDescending(i => i.DueDate)
+                       .ThenByDescending(i => i.CreatedAt)
+                       .ThenByDescending(i => i.Student!.JoiningDate)
+                       .ThenByDescending(i => i.Student!.RollNumber)
+                : query.OrderBy(i => i.DueDate)
+                       .ThenBy(i => i.CreatedAt),
+            _ => sortDescending
+                ? query.OrderByDescending(i => i.CreatedAt)
+                       .ThenByDescending(i => i.Student!.JoiningDate)
+                       .ThenByDescending(i => i.Student!.RollNumber)
+                : query.OrderBy(i => i.CreatedAt)
+                       .ThenBy(i => i.Student!.JoiningDate)
         };
 
         var totalCount = await query.CountAsync();
@@ -881,6 +893,52 @@ public class FeesController : ControllerBase
         return Ok(new { message = "WhatsApp Fee Reminder dispatched successfully!" });
     }
 
+    [HttpGet("pending-invoicing-students")]
+    public async Task<ActionResult<IEnumerable<PendingInvoicingStudentDto>>> GetPendingInvoicingStudents(
+        [FromQuery] int? month = null,
+        [FromQuery] int? year = null)
+    {
+        var targetMonth = month ?? DateTime.UtcNow.Month;
+        var targetYear = year ?? DateTime.UtcNow.Year;
+        var tenantId = _currentUser.TenantId;
+
+        // Window for the target month
+        var periodStart = new DateTime(targetYear, targetMonth, 1);
+        var periodEnd = periodStart.AddMonths(1).AddDays(-1);
+
+        // Student IDs that already have an invoice for this month
+        var invoicedStudentIds = await _dbContext.FeeInvoices
+            .Where(i => i.TenantId == tenantId &&
+                        i.DueDate >= periodStart && i.DueDate <= periodEnd &&
+                        i.Status != InvoiceStatus.Cancelled)
+            .Select(i => i.StudentId)
+            .Distinct()
+            .ToListAsync();
+
+        // Active students who DO NOT have an invoice for this month
+        var pendingStudents = await _dbContext.Students
+            .AsNoTracking()
+            .Include(s => s.Class)
+            .Include(s => s.Batch)
+            .Where(s => s.TenantId == tenantId && s.IsActive && !invoicedStudentIds.Contains(s.Id))
+            .OrderByDescending(s => s.JoiningDate)
+            .Select(s => new PendingInvoicingStudentDto(
+                s.Id,
+                s.StudentName,
+                s.RollNumber,
+                s.AdmissionNumber,
+                s.ClassId,
+                s.Class != null ? s.Class.Name : null,
+                s.BatchId,
+                s.Batch != null ? s.Batch.Name : null,
+                s.JoiningDate,
+                s.Batch != null ? s.Batch.StandardMonthlyFee : 3500m
+            ))
+            .ToListAsync();
+
+        return Ok(pendingStudents);
+    }
+
     [HttpPost("generate-monthly-invoices")]
     public async Task<ActionResult<GenerateMonthlyInvoicesResultDto>> GenerateMonthlyInvoices([FromBody] GenerateMonthlyInvoicesRequestDto dto)
     {
@@ -893,6 +951,11 @@ public class FeesController : ControllerBase
             .Include(s => s.Batch)
             .Where(s => s.IsActive)
             .AsQueryable();
+
+        if (dto.StudentId.HasValue && dto.StudentId != Guid.Empty)
+        {
+            studentsQuery = studentsQuery.Where(s => s.Id == dto.StudentId.Value);
+        }
 
         if (dto.ClassId.HasValue && dto.ClassId != Guid.Empty)
         {
@@ -968,14 +1031,16 @@ public class FeesController : ControllerBase
             .GroupBy(a => a.StudentId)
             .ToDictionary(g => g.Key, g => g.First());
 
-        // Resolve Residential FeeHead IDs by Code (HOSTEL / MESS)
-        var residentialHeads = await _dbContext.FeeHeads
+        // Resolve Standard & Residential FeeHead IDs by Code (HOSTEL / MESS / COACH / TUI)
+        var standardHeads = await _dbContext.FeeHeads
             .AsNoTracking()
-            .Where(h => h.IsActive && (h.Code == "HOSTEL" || h.Code == "MESS"))
+            .Where(h => h.IsActive && (h.Code == "HOSTEL" || h.Code == "MESS" || h.Code == "COACH" || h.Code == "TUI"))
             .ToListAsync();
 
-        var hostelFeeHeadId = residentialHeads.FirstOrDefault(h => h.Code == "HOSTEL")?.Id;
-        var messFeeHeadId   = residentialHeads.FirstOrDefault(h => h.Code == "MESS")?.Id;
+        var hostelFeeHeadId = standardHeads.FirstOrDefault(h => h.Code == "HOSTEL")?.Id;
+        var messFeeHeadId   = standardHeads.FirstOrDefault(h => h.Code == "MESS")?.Id;
+        var coachFeeHead    = standardHeads.FirstOrDefault(h => h.Code == "COACH");
+        var tuiFeeHead      = standardHeads.FirstOrDefault(h => h.Code == "TUI");
         // ────────────────────────────────────────────────────────────────────
 
         var newInvoices = new List<FeeInvoice>();
@@ -1036,13 +1101,81 @@ public class FeesController : ControllerBase
             }
             else
             {
-                var monthlyRate = s.Batch?.StandardMonthlyFee ?? 3500m;
-                totalAmount = monthlyRate * cycleMonths;
+                // Fallback: If no fee structure is configured in ClassFeeStructures
+                if (s.ClassId.HasValue && s.BatchId.HasValue)
+                {
+                    // Dual-enrolled: School + Coaching
+                    var schoolRate = 2500m * cycleMonths;
+                    totalAmount += schoolRate;
+                    invoiceItems.Add(new FeeInvoiceItem
+                    {
+                        TenantId = _currentUser.TenantId,
+                        FeeHeadId = tuiFeeHead?.Id,
+                        HeadName = tuiFeeHead?.Name ?? "School Tuition Fee",
+                        Amount = schoolRate,
+                        PaidAmount = 0
+                    });
+
+                    var coachingRate = (s.Batch?.StandardMonthlyFee ?? 1500m) * cycleMonths;
+                    totalAmount += coachingRate;
+                    invoiceItems.Add(new FeeInvoiceItem
+                    {
+                        TenantId = _currentUser.TenantId,
+                        FeeHeadId = coachFeeHead?.Id,
+                        HeadName = coachFeeHead?.Name ?? "Coaching Fee",
+                        Amount = coachingRate,
+                        PaidAmount = 0
+                    });
+                }
+                else
+                {
+                    var isCoaching = s.BatchId.HasValue && !s.ClassId.HasValue;
+                    var fallbackHeadName = isCoaching ? (coachFeeHead?.Name ?? "Coaching Fee") : (tuiFeeHead?.Name ?? "School Tuition Fee");
+                    var fallbackHeadId = isCoaching ? coachFeeHead?.Id : tuiFeeHead?.Id;
+                    var monthlyRate = s.Batch?.StandardMonthlyFee ?? 3500m;
+                    totalAmount = monthlyRate * cycleMonths;
+                    invoiceItems.Add(new FeeInvoiceItem
+                    {
+                        TenantId = _currentUser.TenantId,
+                        FeeHeadId = fallbackHeadId,
+                        HeadName = fallbackHeadName,
+                        Amount = totalAmount,
+                        PaidAmount = 0
+                    });
+                }
+            }
+
+            // Dual-enrollment safeguard: ensure Coaching Fee is present if student is enrolled in a Coaching Batch
+            bool hasCoachingHead = invoiceItems.Any(i => i.HeadName.Contains("Coaching", StringComparison.OrdinalIgnoreCase));
+            if (s.BatchId.HasValue && !hasCoachingHead && (s.Batch?.StandardMonthlyFee ?? 0) > 0)
+            {
+                var coachingRate = (s.Batch?.StandardMonthlyFee ?? 0) * cycleMonths;
+                if (coachingRate > 0)
+                {
+                    totalAmount += coachingRate;
+                    invoiceItems.Add(new FeeInvoiceItem
+                    {
+                        TenantId = _currentUser.TenantId,
+                        FeeHeadId = coachFeeHead?.Id,
+                        HeadName = coachFeeHead?.Name ?? "Coaching Fee",
+                        Amount = coachingRate,
+                        PaidAmount = 0
+                    });
+                }
+            }
+
+            // Dual-enrollment safeguard: ensure School Tuition Fee is present if student is enrolled in a School Class
+            bool hasSchoolHead = invoiceItems.Any(i => i.HeadName.Contains("Tuition", StringComparison.OrdinalIgnoreCase) || i.HeadName.Contains("School", StringComparison.OrdinalIgnoreCase));
+            if (s.ClassId.HasValue && !hasSchoolHead)
+            {
+                var schoolRate = 2500m * cycleMonths;
+                totalAmount += schoolRate;
                 invoiceItems.Add(new FeeInvoiceItem
                 {
                     TenantId = _currentUser.TenantId,
-                    HeadName = "Tuition Fee",
-                    Amount = totalAmount,
+                    FeeHeadId = tuiFeeHead?.Id,
+                    HeadName = tuiFeeHead?.Name ?? "School Tuition Fee",
+                    Amount = schoolRate,
                     PaidAmount = 0
                 });
             }
@@ -1170,6 +1303,158 @@ public class FeesController : ControllerBase
             invoiceId = invoice.Id,
             reason = invoice.CancellationReason,
             cancelledAt = invoice.CancelledAt
+        });
+    }
+
+    [HttpPost("invoices/{invoiceId}/items")]
+    public async Task<ActionResult> AddInvoiceItem(Guid invoiceId, [FromBody] AddFeeInvoiceItemDto dto)
+    {
+        if (dto == null || string.IsNullOrWhiteSpace(dto.HeadName) || dto.Amount <= 0)
+        {
+            return BadRequest(new { message = "Valid fee head name and amount greater than 0 are required." });
+        }
+
+        var invoice = await _dbContext.FeeInvoices
+            .IgnoreQueryFilters()
+            .Include(i => i.Items)
+            .FirstOrDefaultAsync(i => i.Id == invoiceId && i.TenantId == _currentUser.TenantId);
+
+        if (invoice == null) return NotFound("Invoice not found.");
+
+        if (invoice.Status == InvoiceStatus.Cancelled)
+            return BadRequest(new { message = "Cannot modify a cancelled invoice." });
+
+        var newItem = new FeeInvoiceItem
+        {
+            TenantId = _currentUser.TenantId,
+            InvoiceId = invoice.Id,
+            FeeHeadId = dto.FeeHeadId,
+            HeadName = dto.HeadName.Trim(),
+            Amount = dto.Amount,
+            PaidAmount = 0
+        };
+
+        invoice.Items.Add(newItem);
+        invoice.TotalAmount = invoice.Items.Sum(x => x.Amount);
+
+        if (invoice.PaidAmount >= invoice.TotalAmount && invoice.TotalAmount > 0)
+            invoice.Status = InvoiceStatus.Paid;
+        else if (invoice.PaidAmount > 0)
+            invoice.Status = InvoiceStatus.Partial;
+        else
+            invoice.Status = InvoiceStatus.Pending;
+
+        await _dbContext.SaveChangesAsync();
+
+        return Ok(new
+        {
+            message = $"Successfully added {newItem.HeadName} (₹{newItem.Amount:F2}) to invoice {invoice.InvoiceNumber}.",
+            itemId = newItem.Id,
+            invoiceTotal = invoice.TotalAmount,
+            dueAmount = invoice.DueAmount
+        });
+    }
+
+    [HttpDelete("invoices/{invoiceId}/items/{itemId}")]
+    public async Task<ActionResult> DeleteInvoiceItem(Guid invoiceId, Guid itemId)
+    {
+        var invoice = await _dbContext.FeeInvoices
+            .IgnoreQueryFilters()
+            .Include(i => i.Items)
+            .FirstOrDefaultAsync(i => i.Id == invoiceId && i.TenantId == _currentUser.TenantId);
+
+        if (invoice == null) return NotFound("Invoice not found.");
+
+        if (invoice.Status == InvoiceStatus.Cancelled)
+            return BadRequest(new { message = "Cannot modify a cancelled invoice." });
+
+        var item = invoice.Items.FirstOrDefault(it => it.Id == itemId);
+        if (item == null) return NotFound("Invoice item not found.");
+
+        if (item.PaidAmount > 0)
+            return BadRequest(new { message = "Cannot delete a fee item that has already received payments." });
+
+        invoice.Items.Remove(item);
+        _dbContext.FeeInvoiceItems.Remove(item);
+        invoice.TotalAmount = invoice.Items.Sum(x => x.Amount);
+
+        if (invoice.PaidAmount >= invoice.TotalAmount && invoice.TotalAmount > 0)
+            invoice.Status = InvoiceStatus.Paid;
+        else if (invoice.PaidAmount > 0)
+            invoice.Status = InvoiceStatus.Partial;
+        else
+            invoice.Status = InvoiceStatus.Pending;
+
+        await _dbContext.SaveChangesAsync();
+
+        return Ok(new
+        {
+            message = $"Item {item.HeadName} removed successfully.",
+            invoiceTotal = invoice.TotalAmount,
+            dueAmount = invoice.DueAmount
+        });
+    }
+
+    [HttpPut("invoices/{invoiceId}/items")]
+    public async Task<ActionResult> UpdateInvoiceItems(Guid invoiceId, [FromBody] UpdateInvoiceHeadsRequestDto dto)
+    {
+        if (dto == null || dto.Items == null || dto.Items.Count == 0)
+            return BadRequest(new { message = "At least one fee head is required." });
+
+        var invoice = await _dbContext.FeeInvoices
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(i => i.Id == invoiceId && i.TenantId == _currentUser.TenantId);
+
+        if (invoice == null) return NotFound("Invoice not found.");
+
+        if (invoice.Status == InvoiceStatus.Cancelled)
+            return BadRequest(new { message = "Cannot modify a cancelled invoice." });
+
+        if (invoice.PaidAmount > 0)
+            return BadRequest(new { message = "Invoice has recorded payments. Please use the Add Item or Reverse Payment feature instead." });
+
+        // Remove existing items cleanly
+        var existingItems = await _dbContext.FeeInvoiceItems
+            .IgnoreQueryFilters()
+            .Where(it => it.InvoiceId == invoiceId)
+            .ToListAsync();
+
+        _dbContext.FeeInvoiceItems.RemoveRange(existingItems);
+        await _dbContext.SaveChangesAsync();
+
+        // Add new items
+        var newItems = new List<FeeInvoiceItem>();
+        foreach (var itemDto in dto.Items)
+        {
+            if (itemDto.Amount > 0 && !string.IsNullOrWhiteSpace(itemDto.HeadName))
+            {
+                newItems.Add(new FeeInvoiceItem
+                {
+                    TenantId = _currentUser.TenantId,
+                    InvoiceId = invoice.Id,
+                    FeeHeadId = itemDto.FeeHeadId,
+                    HeadName = itemDto.HeadName.Trim(),
+                    Amount = itemDto.Amount,
+                    PaidAmount = 0
+                });
+            }
+        }
+
+        if (newItems.Count > 0)
+        {
+            await _dbContext.FeeInvoiceItems.AddRangeAsync(newItems);
+        }
+
+        invoice.TotalAmount = newItems.Sum(x => x.Amount);
+        invoice.Status = InvoiceStatus.Pending;
+
+        await _dbContext.SaveChangesAsync();
+
+        return Ok(new
+        {
+            message = $"Invoice {invoice.InvoiceNumber} items updated successfully.",
+            invoiceTotal = invoice.TotalAmount,
+            dueAmount = invoice.DueAmount
         });
     }
 

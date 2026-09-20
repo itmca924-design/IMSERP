@@ -18,6 +18,8 @@ export interface FeeDialogData {
   studentName: string;
   rollNumber: string;
   batchName: string;
+  className?: string | null;
+  sectionName?: string | null;
   parentWhatsAppPhone: string;
   totalOutstandingDue: number;
   initialAmount?: number;
@@ -74,7 +76,17 @@ export interface FeeCollectionItemRow {
         <div class="student-info-box">
           <div class="info-details">
             <span class="st-name">{{ data.studentName }} ({{ data.rollNumber }})</span>
-            <span class="st-sub">{{ data.batchName }} | WA: {{ data.parentWhatsAppPhone }}</span>
+            <span class="st-sub">
+              <span *ngIf="data.className" class="st-school-chip">
+                🏫 {{ data.className }}<span *ngIf="data.sectionName"> ({{ data.sectionName }})</span>
+              </span>
+              <span *ngIf="data.className && data.batchName" class="st-sep">•</span>
+              <span *ngIf="data.batchName" class="st-batch-chip">
+                🎯 {{ data.batchName }}
+              </span>
+              <span class="st-sep">|</span>
+              <span class="st-wa-text">WA: {{ data.parentWhatsAppPhone }}</span>
+            </span>
             <div *ngIf="data.hostelInfo" class="hostel-badge">
               <mat-icon class="hostel-icon">home</mat-icon>
               <span>🏠 Hosteler: <strong>{{ data.hostelInfo }}</strong></span>
@@ -203,11 +215,22 @@ export interface FeeCollectionItemRow {
 
         <!-- Payment Details Form Grid -->
         <div class="form-grid">
-          <mat-form-field appearance="outline" class="full-width">
+          <mat-form-field appearance="outline" class="full-width" [class.amount-readonly-field]="itemRows.length > 0">
             <mat-label>Total Amount to Collect (₹)</mat-label>
-            <input matInput type="number" formControlName="amountPaid" placeholder="e.g. 4500" />
-            <mat-icon matSuffix color="primary">currency_rupee</mat-icon>
-            <mat-hint *ngIf="itemRows.length > 0">Automatically computed from selected fee heads above</mat-hint>
+            <input
+              matInput
+              type="number"
+              formControlName="amountPaid"
+              placeholder="e.g. 4500"
+              [readonly]="itemRows.length > 0"
+              [style.cursor]="itemRows.length > 0 ? 'not-allowed' : 'text'" />
+            <mat-icon matSuffix [color]="itemRows.length > 0 ? '' : 'primary'">
+              {{ itemRows.length > 0 ? 'lock' : 'currency_rupee' }}
+            </mat-icon>
+            <mat-hint *ngIf="itemRows.length > 0">
+              🔒 Auto-computed from selected fee heads — select/deselect rows above to adjust
+            </mat-hint>
+            <mat-hint *ngIf="itemRows.length === 0">Enter the total amount to collect</mat-hint>
             <mat-error *ngIf="feeForm.get('amountPaid')?.hasError('required')">Amount is required</mat-error>
             <mat-error *ngIf="feeForm.get('amountPaid')?.hasError('min')">Amount must be greater than 0</mat-error>
           </mat-form-field>
@@ -319,6 +342,45 @@ export interface FeeCollectionItemRow {
         .st-sub {
           font-size: 0.82rem;
           color: #64748b;
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 6px;
+          margin-top: 3px;
+
+          .st-school-chip {
+            color: #0369a1;
+            font-weight: 600;
+            background: #e0f2fe;
+            padding: 1px 6px;
+            border-radius: 4px;
+            border: 1px solid #bae6fd;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+          }
+
+          .st-batch-chip {
+            color: #6d28d9;
+            font-weight: 600;
+            background: #ede9fe;
+            padding: 1px 6px;
+            border-radius: 4px;
+            border: 1px solid #ddd6fe;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+          }
+
+          .st-sep {
+            color: #cbd5e1;
+            font-weight: bold;
+          }
+
+          .st-wa-text {
+            color: #16a34a;
+            font-weight: 500;
+          }
         }
         .hostel-badge {
           display: inline-flex;
@@ -684,6 +746,21 @@ export interface FeeCollectionItemRow {
       .half-width {
         flex: 1 1 calc(50% - 6px);
         min-width: 200px;
+      }
+
+      .amount-readonly-field {
+        .mat-mdc-text-field-wrapper {
+          background: #f8fafc !important;
+        }
+        input {
+          color: #334155 !important;
+          font-weight: 700 !important;
+          font-size: 1.05rem !important;
+          cursor: not-allowed !important;
+        }
+        .mat-mdc-floating-label {
+          color: #64748b !important;
+        }
       }
     }
 

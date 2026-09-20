@@ -820,7 +820,8 @@ public record GenerateMonthlyInvoicesRequestDto(
     Guid? BatchId,
     DateTime DueDate,
     BillingCycle BillingCycle = BillingCycle.Monthly,
-    Guid? ClassId = null
+    Guid? ClassId = null,
+    Guid? StudentId = null
 );
 
 public record GenerateMonthlyInvoicesResultDto(
@@ -829,8 +830,31 @@ public record GenerateMonthlyInvoicesResultDto(
     string Message
 );
 
+public record PendingInvoicingStudentDto(
+    Guid StudentId,
+    string StudentName,
+    string RollNumber,
+    string? AdmissionNumber,
+    Guid? ClassId,
+    string? ClassName,
+    Guid? BatchId,
+    string? BatchName,
+    DateTime JoiningDate,
+    decimal EstimatedMonthlyFee
+);
+
 public record CancelInvoiceDto(
     string Reason
+);
+
+public record AddFeeInvoiceItemDto(
+    Guid? FeeHeadId,
+    string HeadName,
+    decimal Amount
+);
+
+public record UpdateInvoiceHeadsRequestDto(
+    List<AddFeeInvoiceItemDto> Items
 );
 
 // ─── Teacher Module DTOs ──────────────────────────────────────

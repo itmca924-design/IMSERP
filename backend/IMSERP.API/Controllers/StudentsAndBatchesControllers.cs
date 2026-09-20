@@ -110,6 +110,8 @@ public class StudentsController : ControllerBase
             query = query.Where(s => s.BatchId == batchId);
         }
 
+        query = query.OrderByDescending(s => s.JoiningDate).ThenByDescending(s => s.RollNumber);
+
         var list = await query.Select(s => new StudentDto(
             s.Id,
             s.BatchId,
@@ -624,8 +626,8 @@ public class StudentsController : ControllerBase
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10,
         [FromQuery] string? searchTerm = null,
-        [FromQuery] string? sortBy = "rollNumber",
-        [FromQuery] bool sortDescending = false,
+        [FromQuery] string? sortBy = "joiningDate",
+        [FromQuery] bool sortDescending = true,
         [FromQuery] Guid? batchId = null,
         [FromQuery] Guid? classId = null,
         [FromQuery] Guid? sectionId = null,
@@ -687,10 +689,11 @@ public class StudentsController : ControllerBase
 
         query = (sortBy?.ToLower()) switch
         {
-            "name" => sortDescending ? query.OrderByDescending(s => s.StudentName) : query.OrderBy(s => s.StudentName),
-            "rollnumber" => sortDescending ? query.OrderByDescending(s => s.RollNumber) : query.OrderBy(s => s.RollNumber),
+            "name" or "studentname" => sortDescending ? query.OrderByDescending(s => s.StudentName) : query.OrderBy(s => s.StudentName),
+            "parentname" => sortDescending ? query.OrderByDescending(s => s.ParentName) : query.OrderBy(s => s.ParentName),
             "joiningdate" => sortDescending ? query.OrderByDescending(s => s.JoiningDate) : query.OrderBy(s => s.JoiningDate),
-            _ => sortDescending ? query.OrderByDescending(s => s.RollNumber) : query.OrderBy(s => s.RollNumber)
+            "rollnumber" => sortDescending ? query.OrderBy(s => s.RollNumber) : query.OrderByDescending(s => s.JoiningDate).ThenByDescending(s => s.RollNumber),
+            _ => query.OrderByDescending(s => s.JoiningDate).ThenByDescending(s => s.RollNumber)
         };
 
         var totalCount = await query.CountAsync();
