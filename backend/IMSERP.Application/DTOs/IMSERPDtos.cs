@@ -497,7 +497,13 @@ public record StudentMarksEntryItem(
     string RollNumber,
     decimal MarksObtained,
     bool IsAbsent,
-    string Remarks
+    string Remarks,
+    string ClassName = "",
+    string SectionName = "",
+    string BatchName = "",
+    bool IsSchoolStudent = false,
+    bool IsCoachingStudent = false,
+    string EnrollmentType = ""
 );
 
 public record BulkSaveMarksDto(
@@ -511,7 +517,10 @@ public record TestReportCardDto(
     string TestTitle,
     string Subject,
     decimal MaxMarks,
-    List<StudentRankItem> Rankings
+    List<StudentRankItem> Rankings,
+    string BatchName = "",
+    string BranchName = "",
+    DateTime? TestDate = null
 );
 
 public record StudentRankItem(
@@ -522,7 +531,17 @@ public record StudentRankItem(
     decimal Percentage,
     int Rank,
     bool IsAbsent,
-    string Remarks
+    string Remarks,
+    string ParentWhatsAppPhone = "",
+    string ParentName = "",
+    string ClassName = "",
+    string SectionName = "",
+    string BatchName = "",
+    bool IsSchoolStudent = false,
+    bool IsCoachingStudent = false,
+    string EnrollmentType = "",
+    string SchoolRollNumber = "",
+    string CoachingRollNumber = ""
 );
 
 public record ExamAdmitCardDto(

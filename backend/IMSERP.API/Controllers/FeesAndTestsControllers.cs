@@ -1797,14 +1797,24 @@ public class TestsController : ControllerBase
         var marks = await _dbContext.TestMarks
             .AsNoTracking()
             .Where(m => m.TestId == testId)
-            .Include(m => m.Student)
+            .Include(m => m.Student).ThenInclude(s => s!.Class)
+            .Include(m => m.Student).ThenInclude(s => s!.Section)
+            .Include(m => m.Student).ThenInclude(s => s!.Batch)
             .Select(m => new StudentMarksEntryItem(
                 m.StudentId,
                 m.Student != null ? m.Student.StudentName : "",
                 m.Student != null ? m.Student.RollNumber : "",
                 m.MarksObtained,
                 m.IsAbsent,
-                m.Remarks ?? ""
+                m.Remarks ?? "",
+                m.Student != null && m.Student.Class != null ? m.Student.Class.Name : "",
+                m.Student != null && m.Student.Section != null ? m.Student.Section.Name : "",
+                m.Student != null && m.Student.Batch != null ? m.Student.Batch.Name : "",
+                m.Student != null && m.Student.IsSchoolStudent,
+                m.Student != null && m.Student.IsCoachingStudent,
+                (m.Student != null && m.Student.IsSchoolStudent && m.Student.IsCoachingStudent) ? "School + Coaching" :
+                (m.Student != null && m.Student.IsSchoolStudent) ? "School" :
+                (m.Student != null && m.Student.IsCoachingStudent) ? "Coaching" : "General"
             ))
             .ToListAsync();
 
@@ -1836,23 +1846,65 @@ public class TestsController : ControllerBase
     [HttpGet("{testId}/report")]
     public async Task<ActionResult<TestReportCardDto>> GetReportCard(Guid testId)
     {
-        var test = await _dbContext.Tests.Include(t => t.MarksList).ThenInclude(m => m.Student).FirstOrDefaultAsync(t => t.Id == testId);
+        var test = await _dbContext.Tests
+            .AsNoTracking()
+            .Include(t => t.Batch)
+            .Include(t => t.Branch)
+            .Include(t => t.MarksList)
+                .ThenInclude(m => m.Student)
+                    .ThenInclude(s => s!.Class)
+            .Include(t => t.MarksList)
+                .ThenInclude(m => m.Student)
+                    .ThenInclude(s => s!.Section)
+            .Include(t => t.MarksList)
+                .ThenInclude(m => m.Student)
+                    .ThenInclude(s => s!.Batch)
+            .FirstOrDefaultAsync(t => t.Id == testId);
         if (test == null) return NotFound("Test not found");
 
         var rankedList = test.MarksList
             .OrderByDescending(m => m.MarksObtained)
-            .Select((m, index) => new StudentRankItem(
-                m.StudentId,
-                m.Student?.StudentName ?? "",
-                m.Student?.RollNumber ?? "",
-                m.MarksObtained,
-                test.MaxMarks > 0 ? (m.MarksObtained / test.MaxMarks) * 100 : 0,
-                index + 1,
-                m.IsAbsent,
-                m.Remarks ?? ""
-            )).ToList();
+            .Select((m, index) =>
+            {
+                var s = m.Student;
+                var isSchool = s?.IsSchoolStudent ?? false;
+                var isCoaching = s?.IsCoachingStudent ?? false;
+                string enrollmentType = (isSchool && isCoaching) ? "School + Coaching" :
+                                        isSchool ? "School" :
+                                        isCoaching ? "Coaching" : "General";
 
-        return Ok(new TestReportCardDto(test.Id, test.Title, test.Subject, test.MaxMarks, rankedList));
+                return new StudentRankItem(
+                    m.StudentId,
+                    s?.StudentName ?? "",
+                    s?.RollNumber ?? "",
+                    m.MarksObtained,
+                    test.MaxMarks > 0 ? (m.MarksObtained / test.MaxMarks) * 100 : 0,
+                    index + 1,
+                    m.IsAbsent,
+                    m.Remarks ?? "",
+                    s?.ParentWhatsAppPhone ?? "",
+                    s?.ParentName ?? "",
+                    s?.Class?.Name ?? "",
+                    s?.Section?.Name ?? "",
+                    s?.Batch?.Name ?? test.Batch?.Name ?? "",
+                    isSchool,
+                    isCoaching,
+                    enrollmentType,
+                    s?.SchoolRollNumber ?? "",
+                    s?.CoachingRollNumber ?? ""
+                );
+            }).ToList();
+
+        return Ok(new TestReportCardDto(
+            test.Id,
+            test.Title,
+            test.Subject,
+            test.MaxMarks,
+            rankedList,
+            test.Batch?.Name ?? "",
+            test.Branch?.Name ?? "",
+            test.TestDate
+        ));
     }
 
     [HttpGet("{testId}/admit-cards")]

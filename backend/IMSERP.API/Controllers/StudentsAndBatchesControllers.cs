@@ -155,20 +155,45 @@ public class StudentsController : ControllerBase
         if (batch == null)
             return NotFound(new { message = "Batch not found." });
 
-        // Count students already enrolled in this batch
-        var studentCount = await _dbContext.Students
-            .AsNoTracking()
-            .CountAsync(s => s.BatchId == batchId);
-
-        // Build a short batch code from AcademicYear, e.g. "2025-26" => "26"
+        // Build a short batch code from AcademicYear, e.g. "2026-2027" => "2027"
         var ayParts = batch.AcademicYear?.Split('-');
         var ayShort = ayParts != null && ayParts.Length >= 2
             ? ayParts[^1].Trim()
             : (batch.AcademicYear ?? DateTime.UtcNow.Year.ToString());
 
-        // Roll number format: AY{short}-{SEQ:D3}  e.g. AY26-001
-        var nextSeq = studentCount + 1;
-        var rollNumber = $"AY{ayShort}-{nextSeq:D3}";
+        // Anti-duplicate: find existing roll numbers in this batch to determine max sequence
+        var existingRolls = await _dbContext.Students
+            .AsNoTracking()
+            .Where(s => s.BatchId == batchId)
+            .Select(s => new { s.RollNumber, s.CoachingRollNumber })
+            .ToListAsync();
+
+        int maxSeq = 0;
+        foreach (var item in existingRolls)
+        {
+            var rollStr = !string.IsNullOrWhiteSpace(item.CoachingRollNumber) ? item.CoachingRollNumber : item.RollNumber;
+            if (!string.IsNullOrWhiteSpace(rollStr))
+            {
+                var dashIndex = rollStr.LastIndexOf('-');
+                if (dashIndex >= 0 && dashIndex < rollStr.Length - 1)
+                {
+                    if (int.TryParse(rollStr.Substring(dashIndex + 1), out int parsedNum))
+                    {
+                        if (parsedNum > maxSeq) maxSeq = parsedNum;
+                    }
+                }
+            }
+        }
+
+        int nextSeq = Math.Max(maxSeq + 1, existingRolls.Count + 1);
+        var rollNumber = $"CH{ayShort}-{nextSeq:D3}";
+
+        // Guarantee uniqueness across the whole tenant
+        while (await _dbContext.Students.AsNoTracking().AnyAsync(s => s.RollNumber == rollNumber || s.CoachingRollNumber == rollNumber))
+        {
+            nextSeq++;
+            rollNumber = $"CH{ayShort}-{nextSeq:D3}";
+        }
 
         return Ok(new { rollNumber });
     }

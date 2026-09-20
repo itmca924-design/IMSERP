@@ -173,6 +173,7 @@ export interface ExamAdmitCardDialogData {
       <!-- Reusable Single Admit Card Template -->
       <ng-template #admitCardCardTpl let-student="student">
         <div class="ticket-border">
+          <div class="watermark">{{ instituteName }}</div>
           <!-- Header -->
           <div class="ticket-header">
             <div class="inst-info">
@@ -344,17 +345,19 @@ export interface ExamAdmitCardDialogData {
       overflow: hidden;
     }
 
-    /* ── Modal Actions Header ── */
+    /* ── Modal Actions Header (Fee Collection Style Light Header) ── */
     .modal-actions {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 10px 20px;
-      background: #090d16;
-      color: #ffffff;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 12px 20px;
+      background: #f8fafc;
+      color: #0f172a;
+      border-bottom: 1px solid #e2e8f0;
       flex-shrink: 0;
       gap: 16px;
+      min-height: 62px;
+      box-sizing: border-box;
 
       .modal-title {
         display: flex;
@@ -363,18 +366,17 @@ export interface ExamAdmitCardDialogData {
         min-width: 0;
 
         .title-badge {
-          width: 36px;
-          height: 36px;
-          border-radius: 8px;
-          background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
-          border: 1px solid rgba(255, 255, 255, 0.25);
-          box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35);
+          width: 40px;
+          height: 40px;
+          border-radius: 10px;
+          background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%);
+          box-shadow: 0 4px 10px rgba(2, 132, 199, 0.25);
           display: flex;
           align-items: center;
           justify-content: center;
           color: #ffffff;
           flex-shrink: 0;
-          mat-icon { font-size: 20px; width: 20px; height: 20px; }
+          mat-icon { font-size: 22px; width: 22px; height: 22px; }
         }
 
         .title-text-group {
@@ -392,8 +394,8 @@ export interface ExamAdmitCardDialogData {
 
           .main-title {
             font-weight: 700;
-            font-size: 0.98rem;
-            color: #ffffff;
+            font-size: 1.05rem;
+            color: #0f172a;
             letter-spacing: -0.015em;
             white-space: nowrap;
           }
@@ -401,12 +403,12 @@ export interface ExamAdmitCardDialogData {
           .exam-title-badge {
             display: inline-block;
             font-size: 0.72rem;
-            font-weight: 600;
-            color: #93c5fd;
-            background: rgba(59, 130, 246, 0.15);
-            border: 1px solid rgba(96, 165, 250, 0.3);
-            padding: 1px 8px;
-            border-radius: 4px;
+            font-weight: 700;
+            color: #1d4ed8;
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            padding: 2px 8px;
+            border-radius: 5px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -414,8 +416,8 @@ export interface ExamAdmitCardDialogData {
           }
 
           .sub-title {
-            font-size: 0.72rem;
-            color: #94a3b8;
+            font-size: 0.76rem;
+            color: #64748b;
             font-weight: 500;
             white-space: nowrap;
           }
@@ -432,10 +434,10 @@ export interface ExamAdmitCardDialogData {
           display: inline-flex;
           align-items: center;
           gap: 6px;
-          height: 32px;
-          padding: 0 10px;
+          height: 34px;
+          padding: 0 12px;
           border-radius: 6px;
-          font-size: 0.75rem;
+          font-size: 0.76rem;
           font-weight: 600;
           cursor: pointer;
           user-select: none;
@@ -451,76 +453,77 @@ export interface ExamAdmitCardDialogData {
           }
 
           .toggle-icon {
-            font-size: 15px;
-            width: 15px;
-            height: 15px;
-            opacity: 0.7;
+            font-size: 16px;
+            width: 16px;
+            height: 16px;
+            opacity: 0.75;
           }
 
           .chip-icon {
-            font-size: 15px;
-            width: 15px;
-            height: 15px;
+            font-size: 16px;
+            width: 16px;
+            height: 16px;
           }
 
           &.chip-weekly {
-            background: rgba(16, 185, 129, 0.12);
-            border-color: rgba(16, 185, 129, 0.35);
-            color: #34d399;
+            background: #ecfdf5;
+            border-color: #a7f3d0;
+            color: #065f46;
             .indicator-dot {
               background: #10b981;
-              box-shadow: 0 0 6px #10b981;
+              box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
             }
             &:hover {
-              background: rgba(16, 185, 129, 0.2);
-              border-color: rgba(16, 185, 129, 0.55);
+              background: #d1fae5;
+              border-color: #6ee7b7;
             }
           }
 
           &.chip-strict {
-            background: rgba(245, 158, 11, 0.12);
-            border-color: rgba(245, 158, 11, 0.4);
-            color: #fbbf24;
+            background: #fffbeb;
+            border-color: #fde68a;
+            color: #92400e;
             .indicator-dot {
               background: #f59e0b;
-              box-shadow: 0 0 6px #f59e0b;
+              box-shadow: 0 0 6px rgba(245, 158, 11, 0.6);
             }
             &:hover {
-              background: rgba(245, 158, 11, 0.2);
-              border-color: rgba(245, 158, 11, 0.6);
+              background: #fef3c7;
+              border-color: #fcd34d;
             }
           }
 
           &.chip-due-on {
-            background: rgba(99, 102, 241, 0.12);
-            border-color: rgba(99, 102, 241, 0.35);
-            color: #a5b4fc;
+            background: #eff6ff;
+            border-color: #bfdbfe;
+            color: #1e40af;
             &:hover {
-              background: rgba(99, 102, 241, 0.2);
+              background: #dbeafe;
+              border-color: #93c5fd;
             }
           }
 
           &.chip-due-off {
-            background: rgba(148, 163, 184, 0.08);
-            border-color: rgba(148, 163, 184, 0.22);
-            color: #94a3b8;
+            background: #f1f5f9;
+            border-color: #cbd5e1;
+            color: #475569;
             &:hover {
-              background: rgba(148, 163, 184, 0.15);
+              background: #e2e8f0;
             }
           }
         }
 
         .header-divider {
           width: 1px;
-          height: 22px;
-          background: rgba(255, 255, 255, 0.12);
+          height: 24px;
+          background: #e2e8f0;
           margin: 0 2px;
           flex-shrink: 0;
         }
 
         .header-action-btn {
-          height: 32px !important;
-          padding: 0 12px !important;
+          height: 34px !important;
+          padding: 0 14px !important;
           border-radius: 6px !important;
           font-size: 0.78rem !important;
           font-weight: 600 !important;
@@ -535,41 +538,37 @@ export interface ExamAdmitCardDialogData {
 
           &.wa-btn {
             background: #16a34a !important;
-            border: 1px solid #22c55e !important;
+            border: 1px solid #16a34a !important;
             color: #ffffff !important;
-            box-shadow: 0 1px 4px rgba(22, 163, 74, 0.3);
+            box-shadow: 0 1px 4px rgba(22, 163, 74, 0.25);
             .wa-icon { width: 15px; height: 15px; fill: #ffffff; }
             &:hover:not(:disabled) {
               background: #15803d !important;
-              border-color: #16a34a !important;
-              transform: translateY(-1px);
-              box-shadow: 0 2px 8px rgba(22, 163, 74, 0.4);
+              box-shadow: 0 2px 8px rgba(22, 163, 74, 0.35);
             }
           }
 
           &.print-btn {
-            background: #2563eb !important;
-            border: 1px solid #3b82f6 !important;
+            background: #0284c7 !important;
+            border: 1px solid #0284c7 !important;
             color: #ffffff !important;
-            box-shadow: 0 1px 4px rgba(37, 99, 235, 0.3);
+            box-shadow: 0 1px 4px rgba(2, 132, 199, 0.25);
             &:hover:not(:disabled) {
-              background: #1d4ed8 !important;
-              border-color: #2563eb !important;
-              transform: translateY(-1px);
-              box-shadow: 0 2px 8px rgba(37, 99, 235, 0.4);
+              background: #0369a1 !important;
+              box-shadow: 0 2px 8px rgba(2, 132, 199, 0.35);
             }
           }
         }
 
         .header-close-btn {
-          color: #cbd5e1 !important;
-          width: 32px !important;
-          height: 32px !important;
-          min-width: 32px !important;
+          color: #64748b !important;
+          width: 34px !important;
+          height: 34px !important;
+          min-width: 34px !important;
           padding: 0 !important;
           border-radius: 6px !important;
-          border: 1px solid rgba(255, 255, 255, 0.15) !important;
-          background: rgba(255, 255, 255, 0.05) !important;
+          border: 1px solid #e2e8f0 !important;
+          background: #f1f5f9 !important;
           display: inline-flex !important;
           align-items: center !important;
           justify-content: center !important;
@@ -579,9 +578,9 @@ export interface ExamAdmitCardDialogData {
           mat-icon { font-size: 18px; width: 18px; height: 18px; }
 
           &:hover {
-            color: #ffffff !important;
-            background: #ef4444 !important;
-            border-color: #ef4444 !important;
+            color: #dc2626 !important;
+            background: #fee2e2 !important;
+            border-color: #fca5a5 !important;
           }
         }
       }
@@ -699,13 +698,34 @@ export interface ExamAdmitCardDialogData {
     }
 
     .ticket-border {
+      position: relative;
+      overflow: hidden;
       border: 2px solid #0284c7;
       border-radius: 6px;
       padding: 16px 18px;
+      background: #ffffff;
+
+      .watermark {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%) rotate(-25deg);
+        font-size: 42px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: rgba(2, 132, 199, 0.045);
+        white-space: nowrap;
+        pointer-events: none;
+        z-index: 0;
+        user-select: none;
+      }
     }
 
     /* ── Ticket Header ── */
     .ticket-header {
+      position: relative;
+      z-index: 1;
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
@@ -1275,7 +1295,23 @@ export class ExamAdmitCardDialogComponent implements OnInit {
           <style>
             body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 12px; color: #0f172a; }
             .hall-ticket-paper { max-width: 800px; margin: 0 auto 20px auto; }
-            .ticket-border { border: 2px solid #0284c7; border-radius: 6px; padding: 16px 18px; }
+            .ticket-border { position: relative; overflow: hidden; border: 2px solid #0284c7; border-radius: 6px; padding: 16px 18px; background: #ffffff; }
+            .watermark {
+              position: absolute;
+              top: 50%;
+              left: 50%;
+              transform: translate(-50%, -50%) rotate(-25deg);
+              font-size: 42px;
+              font-weight: 900;
+              text-transform: uppercase;
+              letter-spacing: 0.12em;
+              color: rgba(2, 132, 199, 0.045);
+              white-space: nowrap;
+              pointer-events: none;
+              z-index: 0;
+              user-select: none;
+            }
+            .ticket-header, .exam-strip, .candidate-box, .instructions-box, .signatures-strip, .ticket-footer { position: relative; z-index: 1; }
             .ticket-header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 12px; border-bottom: 2px solid #0284c7; }
             .inst-info { display: flex; align-items: center; gap: 14px; }
             .logo-mark { width: 46px; height: 46px; border-radius: 8px; background: #0284c7; color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; overflow: hidden; flex-shrink: 0; }

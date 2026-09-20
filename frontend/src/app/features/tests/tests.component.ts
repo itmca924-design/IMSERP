@@ -24,7 +24,9 @@ import { CoachingService } from '../../core/services/coaching.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { SubjectsService, SubjectDto } from '../../core/services/subjects.service';
 import { LocalDatetimePipe } from '../../shared/pipes/local-datetime.pipe';
+import { AuthService } from '../../core/services/auth.service';
 import { ExamAdmitCardDialogComponent } from './exam-admit-card-dialog.component';
+import { ExamResultDialogComponent } from './exam-result-dialog.component';
 
 @Component({
   selector: 'app-tests',
@@ -35,28 +37,47 @@ import { ExamAdmitCardDialogComponent } from './exam-admit-card-dialog.component
     MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule,
     MatSelectModule, MatCheckboxModule, MatProgressBarModule,
     MatTooltipModule, MatChipsModule, MatDividerModule,
-    MatDialogModule, ExamAdmitCardDialogComponent,
-    LocalDatetimePipe
+    MatDialogModule, LocalDatetimePipe
   ],
   template: `
     <div class="tests-wrapper">
 
+      <!-- Executive Printable Exam Schedule Header (Only visible on print) -->
+      <div class="print-schedule-header print-only">
+        <div class="print-brand-box">
+          <h1 class="print-inst-name">{{ instituteName }}</h1>
+          <h2 class="print-doc-title">EXAMINATION &amp; TEST SCHEDULE TIMETABLE</h2>
+          <div class="print-meta-row">
+            <span><strong>Generated Date:</strong> {{ todayDate | date:'dd MMM yyyy, hh:mm a' }}</span>
+            <span class="meta-sep">&bull;</span>
+            <span><strong>Batch:</strong> {{ activeBatchName }}</span>
+            <span class="meta-sep">&bull;</span>
+            <span><strong>Total Exams:</strong> {{ tests.length }}</span>
+          </div>
+        </div>
+      </div>
+
       <!-- Page Header -->
-      <div class="header-actions">
+      <div class="header-actions no-print">
         <div class="header-text-group">
           <h2>Test Exams &amp; Marks Entry</h2>
           <p>Bulk-schedule exams with date &amp; time, enter marks, and send WhatsApp report cards.</p>
         </div>
-        <button mat-raised-button color="primary" class="add-btn" (click)="toggleBulkPlanner()">
-          <mat-icon>{{ showBulkPlanner ? 'close' : 'add_circle' }}</mat-icon>
-          {{ showBulkPlanner ? 'Close Scheduler' : 'Schedule Exam Session' }}
-        </button>
+        <div class="header-buttons-row">
+          <button mat-stroked-button class="print-schedule-btn" (click)="printSchedule()" matTooltip="Print Exam Schedule Timetable">
+            <mat-icon>print</mat-icon> Print Schedule
+          </button>
+          <button mat-raised-button color="primary" class="add-btn" (click)="toggleBulkPlanner()">
+            <mat-icon>{{ showBulkPlanner ? 'close' : 'add_circle' }}</mat-icon>
+            {{ showBulkPlanner ? 'Close Scheduler' : 'Schedule Exam Session' }}
+          </button>
+        </div>
       </div>
 
       <!-- ════════════════════════════════════════ -->
       <!-- BULK EXAM SCHEDULER PANEL                -->
       <!-- ════════════════════════════════════════ -->
-      <mat-card *ngIf="showBulkPlanner" class="planner-card mat-elevation-z3">
+      <mat-card *ngIf="showBulkPlanner" class="planner-card mat-elevation-z3 no-print">
         <mat-card-content>
 
           <!-- Top row -->
@@ -226,7 +247,7 @@ import { ExamAdmitCardDialogComponent } from './exam-admit-card-dialog.component
       <!-- ════════════════════════════════════════ -->
       <!-- PURE ANGULAR MATERIAL MARKS ENTRY PANEL  -->
       <!-- ════════════════════════════════════════ -->
-      <mat-card *ngIf="selectedTest" class="marks-card mat-elevation-z4">
+      <mat-card *ngIf="selectedTest" class="marks-card mat-elevation-z4 no-print">
         <mat-card-header class="marks-card-header">
           <div class="marks-header-content">
             <div class="marks-title-row">
@@ -237,9 +258,14 @@ import { ExamAdmitCardDialogComponent } from './exam-admit-card-dialog.component
                   <h3 class="marks-main-title">Enter Marks: <strong>{{ selectedTest.title }}</strong></h3>
                 </div>
               </div>
-              <button mat-icon-button color="warn" class="close-btn" (click)="selectedTest = null" matTooltip="Close Marks Entry">
-                <mat-icon>close</mat-icon>
-              </button>
+              <div class="marks-header-right">
+                <button mat-stroked-button class="result-btn" (click)="openResults(selectedTest)" matTooltip="View Leaderboard &amp; Student Result Cards">
+                  <mat-icon>emoji_events</mat-icon> Results &amp; Cards
+                </button>
+                <button mat-icon-button color="warn" class="close-btn" (click)="selectedTest = null" matTooltip="Close Marks Entry">
+                  <mat-icon>close</mat-icon>
+                </button>
+              </div>
             </div>
 
             <!-- Material Chips for Exam Metadata -->
@@ -443,7 +469,7 @@ import { ExamAdmitCardDialogComponent } from './exam-admit-card-dialog.component
       <mat-card *ngIf="!selectedTest && !showBulkPlanner" class="table-card mat-elevation-z2">
 
         <!-- Search and Filter Bar -->
-        <div class="filter-toolbar">
+        <div class="filter-toolbar no-print">
           <mat-form-field appearance="outline" class="search-field" subscriptSizing="dynamic">
             <mat-label>Search Tests / Subject / Batch...</mat-label>
             <input matInput [(ngModel)]="searchTerm" (keyup.enter)="onSearch()" />
@@ -463,7 +489,7 @@ import { ExamAdmitCardDialogComponent } from './exam-admit-card-dialog.component
           </mat-form-field>
         </div>
 
-        <mat-progress-bar mode="indeterminate" *ngIf="loading" class="grid-loader"></mat-progress-bar>
+        <mat-progress-bar mode="indeterminate" *ngIf="loading" class="grid-loader no-print"></mat-progress-bar>
 
         <mat-card-content class="table-container">
           <div class="responsive-table-wrap">
@@ -522,11 +548,14 @@ import { ExamAdmitCardDialogComponent } from './exam-admit-card-dialog.component
 
               <!-- Actions Column -->
               <ng-container matColumnDef="actions">
-                <th mat-header-cell *matHeaderCellDef class="text-right">Actions</th>
-                <td mat-cell *matCellDef="let t" class="text-right">
-                  <div class="action-buttons">
+                <th mat-header-cell *matHeaderCellDef class="text-right no-print">Actions</th>
+                <td mat-cell *matCellDef="let t" class="text-right no-print">
+                  <div class="action-buttons no-print">
                     <button mat-stroked-button class="admit-card-btn" (click)="openAdmitCards(t)" matTooltip="Generate &amp; Print Admit Cards / Hall Tickets">
                       <mat-icon>confirmation_number</mat-icon> Admit Cards
+                    </button>
+                    <button mat-stroked-button class="result-btn" (click)="openResults(t)" matTooltip="View Leaderboard &amp; Student Result Cards">
+                      <mat-icon>emoji_events</mat-icon> Results
                     </button>
                     <button mat-raised-button color="primary" (click)="openMarksGrid(t)"
                             class="enter-marks-btn" matTooltip="Enter / Update Marks">
@@ -554,8 +583,22 @@ import { ExamAdmitCardDialogComponent } from './exam-admit-card-dialog.component
         </mat-card-content>
 
         <mat-paginator [length]="totalCount" [pageSize]="pageSize" [pageSizeOptions]="[5,10,20,50]"
-                       [pageIndex]="pageIndex" (page)="onPageChange($event)" showFirstLastButtons>
+                       [pageIndex]="pageIndex" (page)="onPageChange($event)" showFirstLastButtons
+                       class="no-print">
         </mat-paginator>
+
+        <!-- Printable Footer with Signatures (Only visible on print) -->
+        <div class="print-schedule-footer print-only">
+          <div class="print-sig-col">
+            <div class="sig-line">Exam Coordinator</div>
+          </div>
+          <div class="print-sig-col">
+            <div class="sig-line">Academic Head</div>
+          </div>
+          <div class="print-sig-col">
+            <div class="sig-line">Principal / Director</div>
+          </div>
+        </div>
       </mat-card>
 
     </div>
@@ -1430,6 +1473,30 @@ import { ExamAdmitCardDialogComponent } from './exam-admit-card-dialog.component
         background: #ede9fe;
       }
     }
+    .result-btn {
+      font-size: 0.82rem;
+      font-weight: 600;
+      border-radius: 6px;
+      height: 36px;
+      padding: 0 12px;
+      border-color: #059669;
+      color: #047857;
+      background: #ecfdf5;
+      mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        margin-right: 4px;
+      }
+      &:hover {
+        background: #d1fae5;
+      }
+    }
+    .marks-header-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
     .empty-cell {
       padding: 48px;
       text-align: center;
@@ -1631,6 +1698,223 @@ import { ExamAdmitCardDialogComponent } from './exam-admit-card-dialog.component
       .marks-chips-bar { flex-direction: column; align-items: flex-start; }
       .whatsapp-label { align-items: flex-start; }
     }
+
+    /* Print Header & Schedule Styles */
+    .header-buttons-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .print-schedule-btn {
+      height: 44px;
+      border-radius: 8px;
+      font-weight: 600;
+      color: #334155;
+      border-color: #cbd5e1;
+      mat-icon {
+        color: #2563eb;
+        margin-right: 6px;
+      }
+      &:hover {
+        background-color: #f1f5f9;
+      }
+    }
+
+    .print-only {
+      display: none;
+    }
+
+    @media print {
+      .no-print,
+      .mat-column-actions,
+      .action-buttons,
+      mat-paginator,
+      .filter-toolbar,
+      .header-actions {
+        display: none !important;
+        visibility: hidden !important;
+        height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+
+      .print-only {
+        display: block !important;
+      }
+
+      :host {
+        display: block !important;
+        width: 100% !important;
+      }
+
+      .tests-wrapper {
+        gap: 0 !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        width: 100% !important;
+      }
+
+      .table-card {
+        box-shadow: none !important;
+        border: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        background: transparent !important;
+      }
+
+      .table-container,
+      .responsive-table-wrap {
+        overflow: visible !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        width: 100% !important;
+        border: none !important;
+        box-shadow: none !important;
+      }
+
+      /* Executive Print Header */
+      .print-schedule-header {
+        border-bottom: 2.5px solid #0f172a;
+        padding-bottom: 12px;
+        margin-bottom: 16px;
+
+        .print-inst-name {
+          margin: 0;
+          font-size: 1.4rem;
+          font-weight: 800;
+          text-transform: uppercase;
+          color: #0f172a;
+          letter-spacing: -0.01em;
+        }
+
+        .print-doc-title {
+          margin: 4px 0 0 0;
+          font-size: 1.05rem;
+          font-weight: 700;
+          color: #1e40af;
+          letter-spacing: 0.04em;
+        }
+
+        .print-meta-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-top: 6px;
+          font-size: 0.82rem;
+          color: #475569;
+
+          .meta-sep {
+            color: #94a3b8;
+          }
+        }
+      }
+
+      /* Clean Full-Width Printable Table */
+      table.full-width {
+        width: 100% !important;
+        min-width: 100% !important;
+        border-collapse: collapse !important;
+        border: 1.5px solid #0f172a !important;
+
+        th.mat-header-cell {
+          background-color: #f1f5f9 !important;
+          color: #0f172a !important;
+          font-weight: 800 !important;
+          font-size: 0.78rem !important;
+          text-transform: uppercase !important;
+          padding: 8px 10px !important;
+          border: 1px solid #cbd5e1 !important;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+
+        td.mat-cell {
+          padding: 8px 10px !important;
+          font-size: 0.85rem !important;
+          color: #0f172a !important;
+          border: 1px solid #e2e8f0 !important;
+        }
+
+        .test-title-cell {
+          gap: 0 !important;
+          .title-heading {
+            font-weight: 700 !important;
+            font-size: 0.88rem !important;
+            color: #0f172a !important;
+          }
+          .marks-count {
+            display: none !important;
+          }
+        }
+
+        .batch-name-tag, .subject-tag {
+          background: transparent !important;
+          border: none !important;
+          padding: 0 !important;
+          font-weight: 600 !important;
+          color: #1e293b !important;
+          font-size: 0.84rem !important;
+        }
+
+        .max-marks-badge {
+          background: #f8fafc !important;
+          border: 1px solid #94a3b8 !important;
+          color: #0f172a !important;
+          font-weight: 700 !important;
+          padding: 2px 6px !important;
+          border-radius: 4px !important;
+          font-size: 0.82rem !important;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+
+        .date-cell {
+          display: flex !important;
+          align-items: center !important;
+          gap: 8px !important;
+
+          .date-text {
+            font-weight: 600 !important;
+            color: #0f172a !important;
+            font-size: 0.82rem !important;
+          }
+          .time-badge {
+            background: transparent !important;
+            color: #475569 !important;
+            border: 1px solid #cbd5e1 !important;
+            font-size: 0.75rem !important;
+            padding: 1px 5px !important;
+            border-radius: 3px !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+        }
+      }
+
+      /* Print Footer Signatures */
+      .print-schedule-footer {
+        display: flex !important;
+        justify-content: space-between !important;
+        margin-top: 48px !important;
+        padding-top: 10px !important;
+
+        .print-sig-col {
+          width: 170px;
+          text-align: center;
+        }
+
+        .sig-line {
+          border-top: 1.5px solid #475569;
+          padding-top: 6px;
+          font-size: 0.76rem;
+          font-weight: 700;
+          color: #1e293b;
+          text-transform: uppercase;
+        }
+      }
+    }
   `]
 })
 export class TestsComponent implements OnInit {
@@ -1675,9 +1959,28 @@ export class TestsComponent implements OnInit {
     private confirmDialog: ConfirmDialogService,
     private subjectsService: SubjectsService,
     private fb: FormBuilder,
-    private dialog: MatDialog
+    private dialog: MatDialog,
+    private authService: AuthService
   ) {
     this.bulkForm = this.fb.group({ exams: this.fb.array([]) });
+  }
+
+  get instituteName(): string {
+    return this.authService.currentUser()?.instituteName || 'Apex Coaching Academy';
+  }
+
+  get todayDate(): Date {
+    return new Date();
+  }
+
+  get activeBatchName(): string {
+    if (!this.selectedBatchFilter) return 'All Batches';
+    const b = this.batches.find(x => x.id === this.selectedBatchFilter);
+    return b ? b.name : 'All Batches';
+  }
+
+  printSchedule(): void {
+    window.print();
   }
 
   openAdmitCards(test: any): void {
@@ -1689,6 +1992,23 @@ export class TestsComponent implements OnInit {
       data: {
         testId: test.id,
         testTitle: test.title
+      }
+    });
+  }
+
+  openResults(test: any): void {
+    this.dialog.open(ExamResultDialogComponent, {
+      width: '1240px',
+      maxWidth: '96vw',
+      maxHeight: '92vh',
+      panelClass: 'result-dialog-panel',
+      data: {
+        testId: test.id,
+        testTitle: test.title,
+        subject: test.subject,
+        maxMarks: test.maxMarks,
+        batchName: test.batchName,
+        testDate: test.testDate
       }
     });
   }

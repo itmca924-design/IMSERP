@@ -429,6 +429,10 @@ body, p, span, h1, h2, h3, h4, h5, h6, a, button, input, select, textarea,
   mat-toolbar,
   .header-toolbar,
   app-footer,
+  app-quick-settings-drawer,
+  .floating-trigger-wrapper,
+  .floating-settings-btn,
+  .quick-settings-drawer,
   .no-print,
   .close-drawer-btn,
   .mat-drawer-backdrop {
@@ -546,6 +550,62 @@ body, p, span, h1, h2, h3, h4, h5, h6, a, button, input, select, textarea,
   }
 }
 
+// Custom panel for Exam Result & Report Cards Dialog
+.result-dialog-panel {
+  max-width: 96vw !important;
+  width: 1240px !important;
+
+  .mat-mdc-dialog-surface {
+    border-radius: 12px !important;
+    background: #ffffff !important;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.3) !important;
+    overflow: hidden !important;
+    padding: 0 !important;
+  }
+
+  .mini-wa-btn,
+  .mini-print-btn {
+    &.mat-mdc-icon-button {
+      width: 32px !important;
+      height: 32px !important;
+      min-width: 32px !important;
+      min-height: 32px !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      border-radius: 50% !important;
+
+      .mat-icon {
+        font-size: 18px !important;
+        width: 18px !important;
+        height: 18px !important;
+        line-height: 18px !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+      }
+
+      .mat-mdc-button-touch-target {
+        display: none !important;
+      }
+    }
+  }
+
+  @media (max-width: 600px) {
+    max-width: 98vw !important;
+    width: 98vw !important;
+
+    .mat-mdc-dialog-surface {
+      border-radius: 10px !important;
+      padding: 0 !important;
+    }
+  }
+}
+
 // ============================================================================
 // GLOBAL EXECUTIVE PRINT RULES: Strict isolation for reports, routines & receipts
 // ============================================================================
@@ -572,6 +632,11 @@ body, p, span, h1, h2, h3, h4, h5, h6, a, button, input, select, textarea,
   .sidenav.mat-drawer,
   mat-toolbar,
   app-footer,
+  app-quick-settings-drawer,
+  .floating-trigger-wrapper,
+  .floating-settings-btn,
+  .quick-settings-drawer,
+  .no-print,
   .cdk-overlay-container,
   .global-screen-loader-overlay,
   mat-progress-bar {
@@ -1425,6 +1490,17 @@ body.erp-compact {
 
   .stat-card, .metric-card {
     padding: 12px 14px !important;
+  }
+}
+
+// 4. Examination Dialog Surfaces (Admit Card & Result Modals)
+.admit-card-dialog-panel,
+.result-dialog-panel {
+  .mat-mdc-dialog-surface {
+    padding: 0 !important;
+    border-radius: 12px !important;
+    overflow: hidden !important;
+    background: #ffffff !important;
   }
 }
 

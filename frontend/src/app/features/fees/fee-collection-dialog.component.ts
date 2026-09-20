@@ -722,6 +722,9 @@ export class FeeCollectionDialogComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    // The actual invoice-level outstanding due (ground truth from server)
+    const invoiceDue = this.data.totalOutstandingDue > 0 ? this.data.totalOutstandingDue : 0;
+
     if (this.data.items && this.data.items.length > 0) {
       this.itemRows = this.data.items.map(it => {
         const due = Math.max(0, it.amount - it.paidAmount);
@@ -735,11 +738,61 @@ export class FeeCollectionDialogComponent implements OnInit {
           payingAmount: due
         };
       });
+
+      // Sum of all item-level dues as reported by server
+      const itemsDueSum = this.itemRows.reduce((sum, r) => sum + r.dueAmount, 0);
+
+      // ── PERMANENT FIX ──────────────────────────────────────────────────────
+      // Scenario: Invoice is Partial (e.g. ₹12,000 paid out of ₹13,000 → due ₹1,000).
+      // But item-level PaidAmounts may not be individually broken down yet,
+      // causing ALL items to show dueAmount=0 → itemsDueSum=0 → textbox shows 0.
+      // Fix: If items sum is 0 but invoice still has outstanding due, we
+      // distribute the remaining invoiceDue across item heads using FIFO order.
+      if (itemsDueSum === 0 && invoiceDue > 0) {
+        let remaining = invoiceDue;
+        for (const row of this.itemRows) {
+          if (remaining <= 0) break;
+          // Items that are not yet fully paid at invoice level
+          const headCapacity = Math.max(0, row.amount - row.paidAmount);
+          // Re-derive: treat items proportionally if item paidAmount=0 (old invoices)
+          // Use item total as capacity if no paidAmount tracked
+          const capacity = headCapacity > 0 ? headCapacity : row.amount;
+          if (capacity <= 0) continue;
+          const allocate = Math.min(remaining, capacity);
+          row.dueAmount = allocate;
+          row.selected = true;
+          row.payingAmount = allocate;
+          remaining -= allocate;
+        }
+      } else if (itemsDueSum > 0 && Math.abs(itemsDueSum - invoiceDue) > 0.01) {
+        // Items sum doesn't match invoice due (rounding / sync lag):
+        // Scale the paying amounts proportionally so total matches invoiceDue
+        const scale = invoiceDue / itemsDueSum;
+        let distributed = 0;
+        this.itemRows.forEach((r, idx) => {
+          if (r.selected && r.dueAmount > 0) {
+            if (idx === this.itemRows.length - 1) {
+              // Last selected item gets remainder to avoid rounding drift
+              r.payingAmount = Math.max(0, invoiceDue - distributed);
+            } else {
+              r.payingAmount = Math.round(r.dueAmount * scale * 100) / 100;
+              distributed += r.payingAmount;
+            }
+          }
+        });
+      }
+      // ───────────────────────────────────────────────────────────────────────
+
       this.baseTuitionAmount = this.itemRows.reduce((sum, r) => sum + (r.selected ? r.payingAmount : 0), 0);
+
+      // Safety net: if baseTuitionAmount is still 0 but invoice has a due, bind it directly
+      if (this.baseTuitionAmount === 0 && invoiceDue > 0) {
+        this.baseTuitionAmount = invoiceDue;
+      }
     } else {
       this.baseTuitionAmount = this.data.initialAmount !== undefined
         ? this.data.initialAmount
-        : (this.data.totalOutstandingDue > 0 ? this.data.totalOutstandingDue : 3500);
+        : (invoiceDue > 0 ? invoiceDue : 3500);
     }
 
     const defaultRemarks = this.data.selectedInvoicesCount && this.data.selectedInvoicesCount > 1
@@ -803,9 +856,10 @@ export class FeeCollectionDialogComponent implements OnInit {
     const libFine = (this.libraryDues && this.libraryDues.pendingFineAmount > 0 && this.feeForm.get('includeLibraryFine')?.value)
       ? this.libraryDues.pendingFineAmount
       : 0;
-    this.feeForm.patchValue({
-      amountPaid: tuitionTotal + libFine
-    });
+    // Safety net: if all items are unselected (e.g. user manually unchecked all), don't leave textbox at 0
+    // unless they genuinely set it to 0 deliberately
+    const newAmount = tuitionTotal + libFine;
+    this.feeForm.patchValue({ amountPaid: newAmount }, { emitEvent: false });
   }
 
   getStreamBadgeClass(name: string): string {
