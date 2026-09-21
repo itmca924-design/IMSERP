@@ -249,6 +249,47 @@ public class Student
     public ICollection<HostelAllocation> HostelAllocations { get; set; } = new List<HostelAllocation>();
     public ICollection<HostelGatePass> HostelGatePasses { get; set; } = new List<HostelGatePass>();
     public ICollection<HostelAttendance> HostelAttendances { get; set; } = new List<HostelAttendance>();
+    public ICollection<StudentPromotionHistory> PromotionHistories { get; set; } = new List<StudentPromotionHistory>();
+}
+
+public class StudentPromotionHistory
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid StudentId { get; set; }
+    public Guid FromClassId { get; set; }
+    public Guid? FromSectionId { get; set; }
+    public string? FromRollNumber { get; set; }
+    public string FromAcademicYear { get; set; } = string.Empty;
+    public Guid ToClassId { get; set; }
+    public Guid? ToSectionId { get; set; }
+    public string? ToRollNumber { get; set; }
+    public string ToAcademicYear { get; set; } = string.Empty;
+    public string ResultStatus { get; set; } = "Promoted"; // "Promoted", "Detained", "Passed with Grace", "Double Promoted"
+    public DateTime PromotionDate { get; set; } = DateTime.UtcNow;
+    public string? PromotedBy { get; set; }
+    public string? Remarks { get; set; }
+    public decimal? ExamPercentage { get; set; }
+    public string? ExamTotalMarks { get; set; } // e.g. "450/600"
+    public string? ExamGrade { get; set; } // e.g. "A", "B", "Fail"
+    public string? ExamResultStatus { get; set; } // e.g. "Passed", "Failed", "Passed with Grace"
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("StudentId")]
+    public Student? Student { get; set; }
+
+    [ForeignKey("FromClassId")]
+    public SchoolClass? FromClass { get; set; }
+
+    [ForeignKey("FromSectionId")]
+    public SchoolSection? FromSection { get; set; }
+
+    [ForeignKey("ToClassId")]
+    public SchoolClass? ToClass { get; set; }
+
+    [ForeignKey("ToSectionId")]
+    public SchoolSection? ToSection { get; set; }
 }
 
 public class StudentAttendance
@@ -290,9 +331,19 @@ public class FeeInvoice
     public string? CancellationReason { get; set; }
     public DateTime? CancelledAt { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public Guid? ClassId { get; set; }
+    public Guid? SectionId { get; set; }
+    public string? ClassName { get; set; }
+    public string? SectionName { get; set; }
 
     [ForeignKey("BranchId")]
     public Branch? Branch { get; set; }
+
+    [ForeignKey("ClassId")]
+    public SchoolClass? Class { get; set; }
+
+    [ForeignKey("SectionId")]
+    public SchoolSection? Section { get; set; }
 
     public Student? Student { get; set; }
     public ICollection<FeePayment> Payments { get; set; } = new List<FeePayment>();
@@ -323,10 +374,15 @@ public class Test
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid TenantId { get; set; }
     public Guid? BranchId { get; set; }
-    public Guid BatchId { get; set; }
+    public Guid? BatchId { get; set; }
+    public Guid? ClassId { get; set; }
+    public Guid? SectionId { get; set; }
     public string Title { get; set; } = string.Empty;
     public string Subject { get; set; } = string.Empty;
+    public string ExamType { get; set; } = "Annual Exam"; // "Annual Exam", "Half Yearly", "Term 1", "Unit Test"
+    public string AcademicYear { get; set; } = string.Empty;
     public decimal MaxMarks { get; set; }
+    public decimal PassingMarks { get; set; } = 33;
     public DateTime TestDate { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
@@ -334,6 +390,13 @@ public class Test
     public Branch? Branch { get; set; }
 
     public Batch? Batch { get; set; }
+
+    [ForeignKey("ClassId")]
+    public SchoolClass? Class { get; set; }
+
+    [ForeignKey("SectionId")]
+    public SchoolSection? Section { get; set; }
+
     public ICollection<TestMarks> MarksList { get; set; } = new List<TestMarks>();
 }
 

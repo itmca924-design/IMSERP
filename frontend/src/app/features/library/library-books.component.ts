@@ -273,7 +273,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                   </button>
                 </td>
               </tr>
-              <tr *ngIf="!selectedBookForCopies?.copies || selectedBookForCopies?.copies?.length === 0">
+              <tr *ngIf="!selectedBookForCopies?.copies?.length">
                 <td colspan="6" class="no-copies">No physical copies added yet.</td>
               </tr>
             </tbody>

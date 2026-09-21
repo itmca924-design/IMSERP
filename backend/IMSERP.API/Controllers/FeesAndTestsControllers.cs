@@ -112,7 +112,7 @@ public class FeesController : ControllerBase
 
         if (classId.HasValue && classId != Guid.Empty)
         {
-            query = query.Where(i => i.Student != null && i.Student.ClassId == classId.Value);
+            query = query.Where(i => i.ClassId.HasValue ? i.ClassId == classId.Value : (i.Student != null && i.Student.ClassId == classId.Value));
         }
 
         if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<InvoiceStatus>(status, true, out var invoiceStatus))
@@ -177,10 +177,12 @@ public class FeesController : ControllerBase
                 i.CancellationReason,
                 i.CancelledAt,
                 i.Items.Select(it => new FeeInvoiceItemDto(it.Id, it.InvoiceId, it.FeeHeadId, it.HeadName, it.Amount, it.PaidAmount)).ToList(),
-                i.Student != null && i.Student.Class != null ? i.Student.Class.Name : null,
-                i.Student != null && i.Student.Section != null ? i.Student.Section.Name : null,
+                i.ClassName ?? (i.Student != null && i.Student.Class != null ? i.Student.Class.Name : null),
+                i.SectionName ?? (i.Student != null && i.Student.Section != null ? i.Student.Section.Name : null),
                 i.Student != null && i.Student.IsSchoolStudent,
-                i.Student != null && i.Student.IsCoachingStudent
+                i.Student != null && i.Student.IsCoachingStudent,
+                i.Student != null && i.Student.Class != null ? i.Student.Class.Name : null,
+                i.Student != null && i.Student.Section != null ? i.Student.Section.Name : null
             ))
             .ToListAsync();
 
@@ -949,6 +951,8 @@ public class FeesController : ControllerBase
 
         var studentsQuery = _dbContext.Students
             .Include(s => s.Batch)
+            .Include(s => s.Class)
+            .Include(s => s.Section)
             .Where(s => s.IsActive)
             .AsQueryable();
 
@@ -993,15 +997,12 @@ public class FeesController : ControllerBase
             ? periodStart.ToString("MMMM yyyy", System.Globalization.CultureInfo.InvariantCulture)
             : $"{periodStart:MMMM yyyy} – {periodEnd:MMMM yyyy}";
 
-        // Duplicate check: find all student IDs that already have an active invoice
-        // whose DueDate falls within the current billing window (ignore cancelled invoices)
-        var existingStudentIds = new HashSet<Guid>(
-            await _dbContext.FeeInvoices
-                .Where(i => i.DueDate >= periodStart && i.DueDate <= periodEnd && i.Status != InvoiceStatus.Cancelled)
-                .Select(i => i.StudentId)
-                .Distinct()
-                .ToListAsync()
-        );
+        // Duplicate check: find all active invoices within the current billing window (ignore cancelled invoices)
+        // Check StudentId + ClassId so that promoting a student to a higher class allows fresh billing for the new class
+        var existingStudentInvoices = await _dbContext.FeeInvoices
+            .Where(i => i.DueDate >= periodStart && i.DueDate <= periodEnd && i.Status != InvoiceStatus.Cancelled)
+            .Select(i => new { i.StudentId, i.ClassId })
+            .ToListAsync();
 
         // Load active class / batch fee structures
         var classIds = students.Where(s => s.ClassId.HasValue).Select(s => s.ClassId!.Value).Distinct().ToList();
@@ -1050,7 +1051,8 @@ public class FeesController : ControllerBase
 
         foreach (var s in students)
         {
-            if (existingStudentIds.Contains(s.Id))
+            bool alreadyBilled = existingStudentInvoices.Any(e => e.StudentId == s.Id && (e.ClassId == null || e.ClassId == s.ClassId));
+            if (alreadyBilled)
             {
                 skippedCount++;
                 continue;
@@ -1253,6 +1255,10 @@ public class FeesController : ControllerBase
                 TenantId      = _currentUser.TenantId,
                 BranchId      = s.BranchId ?? s.Batch?.BranchId ?? _currentUser.BranchId,
                 StudentId     = s.Id,
+                ClassId       = s.ClassId,
+                ClassName     = s.Class?.Name,
+                SectionId     = s.SectionId,
+                SectionName   = s.Section?.Name,
                 InvoiceNumber = $"INV-{dto.Year}{dto.Month:D2}{cycleSuffix}-{random.Next(100, 999)}",
                 Title         = $"{periodLabel} Fee ({cycleLabel})",
                 TotalAmount   = totalAmount,
@@ -2066,7 +2072,7 @@ public class TestsController : ControllerBase
                 var tests = dtos.Select(dto => new Test
                 {
                     TenantId = tenantId,
-                    BranchId = (batches.TryGetValue(dto.BatchId, out var b) ? b.BranchId : null) ?? _currentUser.BranchId,
+                    BranchId = (dto.BatchId.HasValue && batches.TryGetValue(dto.BatchId.Value, out var b) ? b.BranchId : null) ?? _currentUser.BranchId,
                     BatchId = dto.BatchId,
                     Title = string.IsNullOrWhiteSpace(dto.Title) ? "Untitled Exam" : dto.Title.Trim(),
                     Subject = string.IsNullOrWhiteSpace(dto.Subject) ? "General" : dto.Subject.Trim(),
@@ -2081,7 +2087,7 @@ public class TestsController : ControllerBase
                 return tests.Select(t => new TestDto(
                     t.Id,
                     t.BatchId,
-                    batches.TryGetValue(t.BatchId, out var b) ? b.Name : "",
+                    t.BatchId.HasValue && batches.ContainsKey(t.BatchId.Value) ? batches[t.BatchId.Value].Name : "",
                     t.Title,
                     t.Subject,
                     t.MaxMarks,

@@ -561,8 +561,8 @@ export class GenerateInvoicesDialogComponent implements OnInit {
   ) {
     const today = new Date();
     const currentMonth = today.getMonth() + 1;
-    const defaultMonth = data?.defaultMonth ?? (currentMonth === 12 ? 1 : currentMonth + 1);
-    const defaultYear  = data?.defaultYear ?? (currentMonth === 12 ? today.getFullYear() + 1 : today.getFullYear());
+    const defaultMonth = data?.defaultMonth ?? currentMonth;
+    const defaultYear  = data?.defaultYear ?? today.getFullYear();
     this.years = [defaultYear - 1, defaultYear, defaultYear + 1];
     const defaultDueDate = `${defaultYear}-${String(defaultMonth).padStart(2, '0')}-10`;
     this.form = this.fb.group({

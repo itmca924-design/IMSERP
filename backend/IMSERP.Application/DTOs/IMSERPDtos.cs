@@ -537,8 +537,8 @@ public record FeeDueSlipDto(
 
 public record TestDto(
     Guid Id,
-    Guid BatchId,
-    string BatchName,
+    Guid? BatchId,
+    string? BatchName,
     string Title,
     string Subject,
     decimal MaxMarks,
@@ -547,11 +547,16 @@ public record TestDto(
 );
 
 public record CreateTestDto(
-    Guid BatchId,
+    Guid? BatchId,
     string Title,
     string Subject,
     decimal MaxMarks,
-    DateTime TestDate
+    DateTime TestDate,
+    Guid? ClassId = null,
+    Guid? SectionId = null,
+    string? ExamType = "Annual Exam",
+    string? AcademicYear = null,
+    decimal PassingMarks = 33
 );
 
 public record StudentMarksEntryItem(
@@ -806,7 +811,9 @@ public record FeeInvoicePagedItemDto(
     string? ClassName = null,
     string? SectionName = null,
     bool IsSchoolStudent = false,
-    bool IsCoachingStudent = true
+    bool IsCoachingStudent = true,
+    string? CurrentClassName = null,
+    string? CurrentSectionName = null
 );
 
 public record StudentLedgerInvoiceItemDto(
@@ -1598,5 +1605,190 @@ public record SaveClassFeeStructureBatchDto(
     Guid? BatchId,
     List<SaveClassFeeStructureItemDto> Items
 );
+
+// ─── Student Promotion & Class Upgrade DTOs ──────────────────────
+
+public record PromotionCandidateDto(
+    Guid StudentId,
+    string StudentName,
+    string AdmissionNumber,
+    string CurrentRollNumber,
+    string? SchoolRollNumber,
+    string? CoachingRollNumber,
+    Guid CurrentClassId,
+    string CurrentClassName,
+    Guid? CurrentSectionId,
+    string? CurrentSectionName,
+    string? ParentName,
+    string? ParentWhatsAppPhone,
+    string? Gender,
+    string? ProfilePhoto,
+    decimal PendingDues,
+    int AttendancePercentage,
+    bool IsCoachingStudent,
+    Guid? CoachingBatchId,
+    string? CoachingBatchName,
+    decimal? ExamMarksObtained = null,
+    decimal? ExamMaxMarks = null,
+    decimal? ExamPercentage = null,
+    string? ExamResultStatus = null, // "Passed", "Failed", "Absent", "No Exam Record"
+    string? ExamGrade = null, // "A+", "A", "B", "C", "D", "F"
+    string? SuggestedStatus = "Promoted" // "Promoted", "Detained"
+);
+
+public record ClassExamDto(
+    Guid Id,
+    string Title,
+    string Subject,
+    string ExamType,
+    string? AcademicYear,
+    decimal MaxMarks,
+    decimal PassingMarks,
+    DateTime TestDate,
+    int EvaluatedCount
+);
+
+public record StudentPromotionItemDto(
+    Guid StudentId,
+    string ResultStatus, // "Promoted", "Detained", "Passed with Grace", "Double Promoted"
+    string? NewRollNumber,
+    string? Remarks,
+    decimal? ExamPercentage = null,
+    string? ExamTotalMarks = null,
+    string? ExamGrade = null,
+    string? ExamResultStatus = null
+);
+
+public record ExecutePromotionRequestDto(
+    Guid FromClassId,
+    Guid? FromSectionId,
+    string FromAcademicYear,
+    Guid ToClassId,
+    Guid? ToSectionId,
+    string ToAcademicYear,
+    List<StudentPromotionItemDto> Promotions
+);
+
+public record PromotionExecutionResultDto(
+    int TotalProcessed,
+    int PromotedCount,
+    int DetainedCount,
+    string Message,
+    List<Guid> PromotedStudentIds
+);
+
+public record StudentPromotionHistoryDto(
+    Guid Id,
+    Guid StudentId,
+    string StudentName,
+    string AdmissionNumber,
+    Guid FromClassId,
+    string FromClassName,
+    Guid? FromSectionId,
+    string? FromSectionName,
+    string? FromRollNumber,
+    string FromAcademicYear,
+    Guid ToClassId,
+    string ToClassName,
+    Guid? ToSectionId,
+    string? ToSectionName,
+    string? ToRollNumber,
+    string ToAcademicYear,
+    string ResultStatus,
+    DateTime PromotionDate,
+    string? PromotedBy,
+    string? Remarks,
+    decimal? ExamPercentage = null,
+    string? ExamTotalMarks = null,
+    string? ExamGrade = null
+);
+
+// ─── School Examination & Marks Entry DTOs ──────────────────────
+
+public record SchoolExamDto(
+    Guid Id,
+    string Title,
+    string Subject,
+    string ExamType,
+    string AcademicYear,
+    Guid ClassId,
+    string ClassName,
+    Guid? SectionId,
+    string? SectionName,
+    decimal MaxMarks,
+    decimal PassingMarks,
+    DateTime TestDate,
+    int TotalStudents,
+    int EvaluatedStudents
+);
+
+public record CreateSchoolExamItemDto(
+    string Subject,
+    string Title,
+    DateTime TestDate,
+    decimal MaxMarks = 100,
+    decimal PassingMarks = 33
+);
+
+public record CreateBulkSchoolExamsDto(
+    Guid ClassId,
+    Guid? SectionId,
+    string AcademicYear,
+    string ExamType,
+    List<CreateSchoolExamItemDto> Exams
+);
+
+public record SchoolExamMarksItemDto(
+    Guid StudentId,
+    string StudentName,
+    string? RollNumber,
+    string? SchoolRollNumber,
+    string AdmissionNumber,
+    string? Gender,
+    decimal MarksObtained,
+    bool IsAbsent,
+    string? Remarks,
+    decimal Percentage,
+    bool IsPassed
+);
+
+public record SaveSchoolExamMarkItemDto(
+    Guid StudentId,
+    decimal MarksObtained,
+    bool IsAbsent = false,
+    string? Remarks = null
+);
+
+public record SaveSchoolExamMarksDto(
+    Guid ExamId,
+    List<SaveSchoolExamMarkItemDto> MarksList
+);
+
+public record ConsolidatedStudentResultDto(
+    Guid StudentId,
+    string StudentName,
+    string RollNumber,
+    string AdmissionNumber,
+    Dictionary<string, decimal?> SubjectMarks,
+    decimal TotalObtained,
+    decimal TotalMax,
+    decimal OverallPercentage,
+    string Grade,
+    string ResultStatus // "Passed", "Failed", "Passed with Grace"
+);
+
+public record ConsolidatedClassResultDto(
+    Guid ClassId,
+    string ClassName,
+    string AcademicYear,
+    string ExamType,
+    List<string> Subjects,
+    decimal PassingPercentage,
+    int TotalStudents,
+    int PassedCount,
+    int FailedCount,
+    List<ConsolidatedStudentResultDto> Students
+);
+
 
 

@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using IMSERP.Application.DTOs;
 using IMSERP.Application.Interfaces;
 using IMSERP.Domain.Entities;
+using IMSERP.Domain.Enums;
 
 namespace IMSERP.API.Controllers;
 
@@ -374,15 +375,59 @@ public class SchoolController : ControllerBase
         student.BatchId = dto.BatchId;
         student.IsCoachingStudent = true;
 
+        // Preserve school roll number if currently in RollNumber
+        if (string.IsNullOrWhiteSpace(student.SchoolRollNumber) && !string.IsNullOrWhiteSpace(student.RollNumber) && !student.RollNumber.StartsWith("CH"))
+        {
+            student.SchoolRollNumber = student.RollNumber;
+        }
+
         if (!string.IsNullOrWhiteSpace(dto.CoachingRollNumber))
         {
             student.CoachingRollNumber = dto.CoachingRollNumber.Trim();
         }
-        else if (string.IsNullOrWhiteSpace(student.CoachingRollNumber))
+        else
         {
-            // Auto generate coaching roll number if missing
-            var count = await _db.Students.CountAsync(s => s.BatchId == dto.BatchId);
-            student.CoachingRollNumber = $"{batch.Name.Substring(0, Math.Min(3, batch.Name.Length)).ToUpper()}-{(count + 1):D3}";
+            // Build batch-wise roll number using AcademicYear (e.g. "2026-2027" => "2027")
+            var ayParts = batch.AcademicYear?.Split('-');
+            var ayShort = ayParts != null && ayParts.Length >= 2
+                ? ayParts[^1].Trim()
+                : (batch.AcademicYear ?? DateTime.UtcNow.Year.ToString());
+
+            // Anti-duplicate: find existing roll numbers in this batch to determine max sequence
+            var existingRolls = await _db.Students
+                .AsNoTracking()
+                .Where(s => s.BatchId == dto.BatchId && s.Id != student.Id)
+                .Select(s => new { s.RollNumber, s.CoachingRollNumber })
+                .ToListAsync();
+
+            int maxSeq = 0;
+            foreach (var item in existingRolls)
+            {
+                var rollStr = !string.IsNullOrWhiteSpace(item.CoachingRollNumber) ? item.CoachingRollNumber : item.RollNumber;
+                if (!string.IsNullOrWhiteSpace(rollStr))
+                {
+                    var dashIndex = rollStr.LastIndexOf('-');
+                    if (dashIndex >= 0 && dashIndex < rollStr.Length - 1)
+                    {
+                        if (int.TryParse(rollStr.Substring(dashIndex + 1), out int parsedNum))
+                        {
+                            if (parsedNum > maxSeq) maxSeq = parsedNum;
+                        }
+                    }
+                }
+            }
+
+            int nextSeq = Math.Max(maxSeq + 1, existingRolls.Count + 1);
+            var rollNumber = $"CH{ayShort}-{nextSeq:D3}";
+
+            // Guarantee uniqueness across the whole tenant
+            while (await _db.Students.AsNoTracking().AnyAsync(s => (s.RollNumber == rollNumber || s.CoachingRollNumber == rollNumber) && s.Id != student.Id))
+            {
+                nextSeq++;
+                rollNumber = $"CH{ayShort}-{nextSeq:D3}";
+            }
+
+            student.CoachingRollNumber = rollNumber;
         }
 
 
@@ -422,4 +467,807 @@ public class SchoolController : ControllerBase
     }
 
     #endregion
+
+    #region Student Promotion & Academic Transition
+
+    [HttpGet("promotions/class-exams")]
+    public async Task<ActionResult<List<ClassExamDto>>> GetClassExams(
+        [FromQuery] Guid classId,
+        [FromQuery] string? academicYear)
+    {
+        if (classId == Guid.Empty)
+            return BadRequest(new { message = "ClassId is required." });
+
+        var query = _db.Tests
+            .AsNoTracking()
+            .Include(t => t.MarksList)
+            .Where(t => t.ClassId == classId);
+
+        if (!string.IsNullOrWhiteSpace(academicYear))
+        {
+            query = query.Where(t => t.AcademicYear == academicYear);
+        }
+
+        var exams = await query
+            .OrderByDescending(t => t.TestDate)
+            .Select(t => new ClassExamDto(
+                t.Id,
+                t.Title,
+                t.Subject,
+                t.ExamType,
+                t.AcademicYear,
+                t.MaxMarks,
+                t.PassingMarks,
+                t.TestDate,
+                t.MarksList.Count
+            ))
+            .ToListAsync();
+
+        return Ok(exams);
+    }
+
+    [HttpGet("promotions/candidates")]
+    public async Task<ActionResult<List<PromotionCandidateDto>>> GetPromotionCandidates(
+        [FromQuery] Guid fromClassId,
+        [FromQuery] Guid? fromSectionId,
+        [FromQuery] string? academicYear,
+        [FromQuery] Guid? examId,
+        [FromQuery] decimal passingPercentage = 33)
+    {
+        if (fromClassId == Guid.Empty)
+            return BadRequest(new { message = "FromClassId is required." });
+
+        var query = _db.Students
+            .AsNoTracking()
+            .Include(s => s.Class)
+            .Include(s => s.Section)
+            .Include(s => s.Batch)
+            .Include(s => s.FeeInvoices)
+            .Include(s => s.Attendances)
+            .Where(s => s.IsActive && s.IsSchoolStudent && s.ClassId == fromClassId);
+
+        if (fromSectionId.HasValue && fromSectionId.Value != Guid.Empty)
+        {
+            query = query.Where(s => s.SectionId == fromSectionId.Value);
+        }
+
+        var students = await query
+            .OrderBy(s => s.SchoolRollNumber != null && s.SchoolRollNumber != "" ? s.SchoolRollNumber : s.RollNumber)
+            .ThenBy(s => s.StudentName)
+            .ToListAsync();
+
+        // Exam evaluation logic
+        List<Test> evaluatedTests = new();
+        if (examId.HasValue && examId.Value != Guid.Empty)
+        {
+            var test = await _db.Tests
+                .AsNoTracking()
+                .Include(t => t.MarksList)
+                .FirstOrDefaultAsync(t => t.Id == examId.Value);
+            if (test != null) evaluatedTests.Add(test);
+        }
+        else if (!string.IsNullOrWhiteSpace(academicYear))
+        {
+            evaluatedTests = await _db.Tests
+                .AsNoTracking()
+                .Include(t => t.MarksList)
+                .Where(t => t.ClassId == fromClassId && t.AcademicYear == academicYear)
+                .ToListAsync();
+        }
+        else
+        {
+            evaluatedTests = await _db.Tests
+                .AsNoTracking()
+                .Include(t => t.MarksList)
+                .Where(t => t.ClassId == fromClassId)
+                .OrderByDescending(t => t.TestDate)
+                .Take(5)
+                .ToListAsync();
+        }
+
+        var result = students.Select(s =>
+        {
+            var totalDues = s.FeeInvoices.Sum(f => f.TotalAmount - f.PaidAmount);
+            var totalAttendances = s.Attendances.Count;
+            var presentAttendances = s.Attendances.Count(a => a.Status == TeacherAttendanceStatus.Present);
+            var attPct = totalAttendances > 0 ? (int)Math.Round((double)presentAttendances / totalAttendances * 100) : 100;
+
+            // Compute exam marks for student
+            decimal? examMarksObtained = null;
+            decimal? examMaxMarks = null;
+            decimal? examPercentage = null;
+            string? examResultStatus = null;
+            string? examGrade = null;
+            string suggestedStatus = "Promoted";
+
+            if (evaluatedTests.Any())
+            {
+                var studentMarks = evaluatedTests
+                    .SelectMany(t => t.MarksList.Where(m => m.StudentId == s.Id).Select(m => new { Test = t, Mark = m }))
+                    .ToList();
+
+                if (studentMarks.Any())
+                {
+                    decimal totalMax = studentMarks.Sum(x => x.Test.MaxMarks);
+                    decimal totalObt = studentMarks.Where(x => !x.Mark.IsAbsent).Sum(x => x.Mark.MarksObtained);
+                    bool hasAbsent = studentMarks.Any(x => x.Mark.IsAbsent);
+
+                    examMarksObtained = totalObt;
+                    examMaxMarks = totalMax;
+                    examPercentage = totalMax > 0 ? Math.Round((totalObt / totalMax) * 100, 1) : 0;
+
+                    // Determine grade
+                    if (examPercentage >= 90) examGrade = "A+";
+                    else if (examPercentage >= 80) examGrade = "A";
+                    else if (examPercentage >= 70) examGrade = "B";
+                    else if (examPercentage >= 60) examGrade = "C";
+                    else if (examPercentage >= passingPercentage) examGrade = "D";
+                    else examGrade = "F";
+
+                    if (hasAbsent && totalObt == 0)
+                    {
+                        examResultStatus = "Absent";
+                        suggestedStatus = "Detained";
+                    }
+                    else if (examPercentage >= passingPercentage)
+                    {
+                        examResultStatus = "Passed";
+                        suggestedStatus = "Promoted";
+                    }
+                    else
+                    {
+                        examResultStatus = "Failed";
+                        suggestedStatus = "Detained";
+                    }
+                }
+                else
+                {
+                    examResultStatus = "No Exam Record";
+                    suggestedStatus = "Promoted";
+                }
+            }
+            else
+            {
+                examResultStatus = "No Exam Record";
+                suggestedStatus = "Promoted";
+            }
+
+            return new PromotionCandidateDto(
+                s.Id,
+                s.StudentName,
+                s.AdmissionNumber ?? "N/A",
+                s.RollNumber,
+                s.SchoolRollNumber,
+                s.CoachingRollNumber,
+                s.ClassId ?? Guid.Empty,
+                s.Class?.Name ?? "Class",
+                s.SectionId,
+                s.Section?.Name,
+                s.ParentName,
+                s.ParentWhatsAppPhone,
+                s.Gender,
+                s.ProfilePhoto,
+                totalDues,
+                attPct,
+                s.IsCoachingStudent,
+                s.BatchId,
+                s.Batch?.Name,
+                examMarksObtained,
+                examMaxMarks,
+                examPercentage,
+                examResultStatus,
+                examGrade,
+                suggestedStatus
+            );
+        }).ToList();
+
+        return Ok(result);
+    }
+
+    [HttpPost("promotions/execute")]
+    public async Task<ActionResult<PromotionExecutionResultDto>> ExecutePromotion([FromBody] ExecutePromotionRequestDto dto)
+    {
+        if (dto.FromClassId == Guid.Empty || dto.ToClassId == Guid.Empty)
+            return BadRequest(new { message = "FromClassId and ToClassId are required." });
+
+        if (dto.Promotions == null || dto.Promotions.Count == 0)
+            return BadRequest(new { message = "No students selected for promotion." });
+
+        var fromClass = await _db.SchoolClasses.FindAsync(dto.FromClassId);
+        var toClass = await _db.SchoolClasses.FindAsync(dto.ToClassId);
+
+        if (fromClass == null || toClass == null)
+            return BadRequest(new { message = "Invalid source or destination class." });
+
+        int fromRank = GetClassRank(fromClass);
+        int toRank = GetClassRank(toClass);
+        if (toRank <= fromRank)
+        {
+            return BadRequest(new { message = $"Destination class '{toClass.Name}' must be a higher grade than source class '{fromClass.Name}'. Promoting into the same or a lower class is not permitted." });
+        }
+
+        int promotedCount = 0;
+        int detainedCount = 0;
+        var promotedIds = new List<Guid>();
+
+        foreach (var item in dto.Promotions)
+        {
+            var student = await _db.Students
+                .Include(s => s.Class)
+                .Include(s => s.Section)
+                .FirstOrDefaultAsync(s => s.Id == item.StudentId);
+
+            if (student == null) continue;
+
+            var oldClassId = student.ClassId ?? dto.FromClassId;
+            var oldSectionId = student.SectionId;
+            var oldRollNumber = !string.IsNullOrWhiteSpace(student.SchoolRollNumber) ? student.SchoolRollNumber : student.RollNumber;
+
+            var history = new StudentPromotionHistory
+            {
+                TenantId = _currentUser.TenantId,
+                BranchId = student.BranchId,
+                StudentId = student.Id,
+                FromClassId = oldClassId,
+                FromSectionId = oldSectionId,
+                FromRollNumber = oldRollNumber,
+                FromAcademicYear = !string.IsNullOrWhiteSpace(dto.FromAcademicYear) ? dto.FromAcademicYear : "2025-2026",
+                ToClassId = dto.ToClassId,
+                ToSectionId = dto.ToSectionId,
+                ToRollNumber = item.NewRollNumber,
+                ToAcademicYear = !string.IsNullOrWhiteSpace(dto.ToAcademicYear) ? dto.ToAcademicYear : "2026-2027",
+                ResultStatus = item.ResultStatus ?? "Promoted",
+                PromotionDate = DateTime.UtcNow,
+                PromotedBy = User.Identity?.Name ?? _currentUser.UserRole ?? "Administrator",
+                Remarks = !string.IsNullOrWhiteSpace(item.Remarks) ? item.Remarks : $"Promoted from {fromClass.Name} to {toClass.Name}",
+                ExamPercentage = item.ExamPercentage,
+                ExamTotalMarks = item.ExamTotalMarks,
+                ExamGrade = item.ExamGrade,
+                ExamResultStatus = item.ExamResultStatus
+            };
+
+            _db.StudentPromotionHistories.Add(history);
+
+            if (item.ResultStatus == "Promoted" || item.ResultStatus == "Passed with Grace" || item.ResultStatus == "Double Promoted")
+            {
+                student.ClassId = dto.ToClassId;
+                student.SectionId = dto.ToSectionId;
+
+                if (!string.IsNullOrWhiteSpace(item.NewRollNumber))
+                {
+                    student.SchoolRollNumber = item.NewRollNumber.Trim();
+                    if (!student.IsCoachingStudent || string.IsNullOrWhiteSpace(student.CoachingRollNumber))
+                    {
+                        student.RollNumber = item.NewRollNumber.Trim();
+                    }
+                }
+
+                promotedCount++;
+                promotedIds.Add(student.Id);
+            }
+            else if (item.ResultStatus == "Detained")
+            {
+                detainedCount++;
+            }
+        }
+
+        await _db.SaveChangesAsync();
+
+        return Ok(new PromotionExecutionResultDto(
+            dto.Promotions.Count,
+            promotedCount,
+            detainedCount,
+            $"Promotion successfully executed! {promotedCount} student(s) promoted to {toClass.Name}, {detainedCount} detained.",
+            promotedIds
+        ));
+    }
+
+    [HttpGet("promotions/history")]
+    public async Task<ActionResult<object>> GetPromotionHistory(
+        [FromQuery] Guid? classId,
+        [FromQuery] string? academicYear,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20)
+    {
+        var query = _db.StudentPromotionHistories
+            .AsNoTracking()
+            .Include(p => p.Student)
+            .Include(p => p.FromClass)
+            .Include(p => p.FromSection)
+            .Include(p => p.ToClass)
+            .Include(p => p.ToSection)
+            .AsQueryable();
+
+        if (classId.HasValue && classId.Value != Guid.Empty)
+        {
+            query = query.Where(p => p.FromClassId == classId.Value || p.ToClassId == classId.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(academicYear))
+        {
+            query = query.Where(p => p.ToAcademicYear == academicYear || p.FromAcademicYear == academicYear);
+        }
+
+        var totalCount = await query.CountAsync();
+
+        var items = await query
+            .OrderByDescending(p => p.PromotionDate)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(p => new StudentPromotionHistoryDto(
+                p.Id,
+                p.StudentId,
+                p.Student != null ? p.Student.StudentName : "Unknown",
+                p.Student != null ? (p.Student.AdmissionNumber ?? "N/A") : "N/A",
+                p.FromClassId,
+                p.FromClass != null ? p.FromClass.Name : "Class",
+                p.FromSectionId,
+                p.FromSection != null ? p.FromSection.Name : null,
+                p.FromRollNumber,
+                p.FromAcademicYear,
+                p.ToClassId,
+                p.ToClass != null ? p.ToClass.Name : "Class",
+                p.ToSectionId,
+                p.ToSection != null ? p.ToSection.Name : null,
+                p.ToRollNumber,
+                p.ToAcademicYear,
+                p.ResultStatus,
+                p.PromotionDate,
+                p.PromotedBy,
+                p.Remarks,
+                p.ExamPercentage,
+                p.ExamTotalMarks,
+                p.ExamGrade
+            ))
+            .ToListAsync();
+
+        return Ok(new
+        {
+            totalCount,
+            page,
+            pageSize,
+            items
+        });
+    }
+
+    [HttpPost("promotions/revert")]
+    public async Task<ActionResult<object>> RevertPromotion([FromBody] List<Guid> historyIds)
+    {
+        if (historyIds == null || historyIds.Count == 0)
+            return BadRequest(new { message = "No promotion records specified for reversion." });
+
+        int revertedCount = 0;
+        foreach (var id in historyIds)
+        {
+            var history = await _db.StudentPromotionHistories
+                .Include(h => h.Student)
+                .FirstOrDefaultAsync(h => h.Id == id);
+
+            if (history == null || history.Student == null) continue;
+
+            history.Student.ClassId = history.FromClassId;
+            history.Student.SectionId = history.FromSectionId;
+            if (!string.IsNullOrWhiteSpace(history.FromRollNumber))
+            {
+                history.Student.SchoolRollNumber = history.FromRollNumber;
+                if (!history.Student.IsCoachingStudent || string.IsNullOrWhiteSpace(history.Student.CoachingRollNumber))
+                {
+                    history.Student.RollNumber = history.FromRollNumber;
+                }
+            }
+
+            _db.StudentPromotionHistories.Remove(history);
+            revertedCount++;
+        }
+
+        await _db.SaveChangesAsync();
+
+        return Ok(new { message = $"Successfully reverted {revertedCount} promotion record(s)." });
+    }
+
+    #endregion
+
+    #region School Examinations & Marks Entry
+
+    [HttpGet("exams")]
+    public async Task<ActionResult<object>> GetSchoolExams(
+        [FromQuery] Guid? classId,
+        [FromQuery] Guid? sectionId,
+        [FromQuery] string? academicYear,
+        [FromQuery] string? examType,
+        [FromQuery] string? searchTerm,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20)
+    {
+        var query = _db.Tests
+            .AsNoTracking()
+            .Include(t => t.Class)
+            .Include(t => t.Section)
+            .Include(t => t.MarksList)
+            .Where(t => t.ClassId != null);
+
+        if (classId.HasValue && classId != Guid.Empty)
+            query = query.Where(t => t.ClassId == classId.Value);
+
+        if (sectionId.HasValue && sectionId != Guid.Empty)
+            query = query.Where(t => t.SectionId == sectionId.Value);
+
+        if (!string.IsNullOrWhiteSpace(academicYear))
+            query = query.Where(t => t.AcademicYear == academicYear);
+
+        if (!string.IsNullOrWhiteSpace(examType))
+            query = query.Where(t => t.ExamType == examType);
+
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            var term = searchTerm.Trim().ToLower();
+            query = query.Where(t => t.Title.ToLower().Contains(term) || t.Subject.ToLower().Contains(term));
+        }
+
+        var totalCount = await query.CountAsync();
+
+        var classIds = await query.Select(t => t.ClassId!.Value).Distinct().ToListAsync();
+        var studentCounts = await _db.Students
+            .AsNoTracking()
+            .Where(s => s.ClassId != null && classIds.Contains(s.ClassId.Value) && s.IsActive && s.IsSchoolStudent)
+            .GroupBy(s => new { ClassId = s.ClassId!.Value, SectionId = s.SectionId })
+            .Select(g => new { g.Key.ClassId, g.Key.SectionId, Count = g.Count() })
+            .ToListAsync();
+
+        var exams = await query
+            .OrderByDescending(t => t.TestDate)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        var items = exams.Select(t =>
+        {
+            int totalInClass = 0;
+            if (t.SectionId.HasValue)
+            {
+                totalInClass = studentCounts.FirstOrDefault(x => x.ClassId == t.ClassId!.Value && x.SectionId == t.SectionId.Value)?.Count ?? 0;
+            }
+            else
+            {
+                totalInClass = studentCounts.Where(x => x.ClassId == t.ClassId!.Value).Sum(x => x.Count);
+            }
+
+            return new SchoolExamDto(
+                t.Id,
+                t.Title,
+                t.Subject,
+                t.ExamType,
+                t.AcademicYear,
+                t.ClassId!.Value,
+                t.Class?.Name ?? "Class",
+                t.SectionId,
+                t.Section?.Name,
+                t.MaxMarks,
+                t.PassingMarks,
+                t.TestDate,
+                totalInClass,
+                t.MarksList.Count
+            );
+        }).ToList();
+
+        return Ok(new
+        {
+            totalCount,
+            page,
+            pageSize,
+            items
+        });
+    }
+
+    [HttpPost("exams/bulk")]
+    public async Task<ActionResult<List<SchoolExamDto>>> CreateBulkSchoolExams([FromBody] CreateBulkSchoolExamsDto dto)
+    {
+        if (dto.ClassId == Guid.Empty)
+            return BadRequest(new { message = "ClassId is required." });
+
+        if (dto.Exams == null || dto.Exams.Count == 0)
+            return BadRequest(new { message = "No exam items specified." });
+
+        var schoolClass = await _db.SchoolClasses.FindAsync(dto.ClassId);
+        if (schoolClass == null)
+            return BadRequest(new { message = "Invalid class specified." });
+
+        var session = !string.IsNullOrWhiteSpace(dto.AcademicYear) ? dto.AcademicYear : "2025-2026";
+        var examType = !string.IsNullOrWhiteSpace(dto.ExamType) ? dto.ExamType : "Annual Exam";
+
+        var entities = dto.Exams.Select(item => new Test
+        {
+            TenantId = _currentUser.TenantId,
+            BranchId = schoolClass.BranchId ?? _currentUser.BranchId,
+            ClassId = dto.ClassId,
+            SectionId = dto.SectionId,
+            Title = string.IsNullOrWhiteSpace(item.Title) ? $"{examType} - {item.Subject}" : item.Title.Trim(),
+            Subject = item.Subject.Trim(),
+            ExamType = examType,
+            AcademicYear = session,
+            MaxMarks = item.MaxMarks > 0 ? item.MaxMarks : 100,
+            PassingMarks = item.PassingMarks > 0 ? item.PassingMarks : 33,
+            TestDate = item.TestDate != default ? item.TestDate : DateTime.UtcNow
+        }).ToList();
+
+        _db.Tests.AddRange(entities);
+        await _db.SaveChangesAsync();
+
+        var result = entities.Select(t => new SchoolExamDto(
+            t.Id,
+            t.Title,
+            t.Subject,
+            t.ExamType,
+            t.AcademicYear,
+            t.ClassId!.Value,
+            schoolClass.Name,
+            t.SectionId,
+            null,
+            t.MaxMarks,
+            t.PassingMarks,
+            t.TestDate,
+            0,
+            0
+        )).ToList();
+
+        return Ok(result);
+    }
+
+    [HttpGet("exams/{id}/marks")]
+    public async Task<ActionResult<List<SchoolExamMarksItemDto>>> GetSchoolExamMarks(Guid id)
+    {
+        var test = await _db.Tests
+            .AsNoTracking()
+            .Include(t => t.Class)
+            .Include(t => t.Section)
+            .Include(t => t.MarksList)
+            .FirstOrDefaultAsync(t => t.Id == id);
+
+        if (test == null)
+            return NotFound(new { message = "Exam not found." });
+
+        var studentsQuery = _db.Students
+            .AsNoTracking()
+            .Where(s => s.IsActive && s.IsSchoolStudent && s.ClassId == test.ClassId);
+
+        if (test.SectionId.HasValue && test.SectionId != Guid.Empty)
+        {
+            studentsQuery = studentsQuery.Where(s => s.SectionId == test.SectionId.Value);
+        }
+
+        var students = await studentsQuery
+            .OrderBy(s => s.SchoolRollNumber != null && s.SchoolRollNumber != "" ? s.SchoolRollNumber : s.RollNumber)
+            .ThenBy(s => s.StudentName)
+            .ToListAsync();
+
+        var marksMap = test.MarksList.ToDictionary(m => m.StudentId, m => m);
+
+        var result = students.Select(s =>
+        {
+            marksMap.TryGetValue(s.Id, out var existingMark);
+            var obtained = existingMark?.MarksObtained ?? 0;
+            var isAbsent = existingMark?.IsAbsent ?? false;
+            var pct = test.MaxMarks > 0 ? Math.Round((obtained / test.MaxMarks) * 100, 1) : 0;
+            var isPassed = !isAbsent && (obtained >= test.PassingMarks || pct >= (test.PassingMarks > 0 && test.PassingMarks <= 100 ? test.PassingMarks : 33));
+
+            return new SchoolExamMarksItemDto(
+                s.Id,
+                s.StudentName,
+                s.RollNumber,
+                s.SchoolRollNumber,
+                s.AdmissionNumber ?? "N/A",
+                s.Gender,
+                obtained,
+                isAbsent,
+                existingMark?.Remarks,
+                pct,
+                isPassed
+            );
+        }).ToList();
+
+        return Ok(result);
+    }
+
+    [HttpPost("exams/bulk-marks")]
+    public async Task<ActionResult<object>> SaveSchoolExamMarks([FromBody] SaveSchoolExamMarksDto dto)
+    {
+        var test = await _db.Tests.FirstOrDefaultAsync(t => t.Id == dto.ExamId);
+        if (test == null)
+            return NotFound(new { message = "Exam not found." });
+
+        var existingMarks = await _db.TestMarks.Where(m => m.TestId == dto.ExamId).ToListAsync();
+        _db.TestMarks.RemoveRange(existingMarks);
+
+        int rank = 1;
+        var sorted = dto.MarksList
+            .OrderByDescending(m => m.IsAbsent ? -1 : m.MarksObtained)
+            .ToList();
+
+        foreach (var item in sorted)
+        {
+            var mark = new TestMarks
+            {
+                TenantId = _currentUser.TenantId,
+                TestId = dto.ExamId,
+                StudentId = item.StudentId,
+                MarksObtained = item.IsAbsent ? 0 : item.MarksObtained,
+                IsAbsent = item.IsAbsent,
+                Remarks = item.Remarks,
+                Rank = item.IsAbsent ? 9999 : rank++
+            };
+            _db.TestMarks.Add(mark);
+        }
+
+        await _db.SaveChangesAsync();
+
+        return Ok(new { message = $"Successfully saved marks for {dto.MarksList.Count} student(s)!" });
+    }
+
+    [HttpGet("exams/consolidated-results")]
+    public async Task<ActionResult<ConsolidatedClassResultDto>> GetConsolidatedResults(
+        [FromQuery] Guid classId,
+        [FromQuery] string academicYear,
+        [FromQuery] string? examType = "Annual Exam",
+        [FromQuery] Guid? sectionId = null,
+        [FromQuery] decimal passingPercentage = 33)
+    {
+        if (classId == Guid.Empty)
+            return BadRequest(new { message = "ClassId is required." });
+
+        var schoolClass = await _db.SchoolClasses.FindAsync(classId);
+        if (schoolClass == null)
+            return BadRequest(new { message = "Class not found." });
+
+        var testsQuery = _db.Tests
+            .AsNoTracking()
+            .Include(t => t.MarksList)
+            .Where(t => t.ClassId == classId && t.AcademicYear == academicYear);
+
+        if (!string.IsNullOrWhiteSpace(examType))
+        {
+            testsQuery = testsQuery.Where(t => t.ExamType == examType);
+        }
+
+        if (sectionId.HasValue && sectionId != Guid.Empty)
+        {
+            testsQuery = testsQuery.Where(t => t.SectionId == null || t.SectionId == sectionId.Value);
+        }
+
+        var tests = await testsQuery.OrderBy(t => t.Subject).ToListAsync();
+        var subjects = tests.Select(t => t.Subject).Distinct().ToList();
+
+        var studentsQuery = _db.Students
+            .AsNoTracking()
+            .Where(s => s.ClassId == classId && s.IsActive && s.IsSchoolStudent);
+
+        if (sectionId.HasValue && sectionId != Guid.Empty)
+        {
+            studentsQuery = studentsQuery.Where(s => s.SectionId == sectionId.Value);
+        }
+
+        var students = await studentsQuery
+            .OrderBy(s => s.SchoolRollNumber != null && s.SchoolRollNumber != "" ? s.SchoolRollNumber : s.RollNumber)
+            .ThenBy(s => s.StudentName)
+            .ToListAsync();
+
+        decimal totalMaxMarksAll = tests.Sum(t => t.MaxMarks);
+        int passedCount = 0;
+        int failedCount = 0;
+
+        var studentResults = students.Select(s =>
+        {
+            var subjectMarks = new Dictionary<string, decimal?>();
+            decimal studentTotalObtained = 0;
+            bool hasAbsent = false;
+
+            foreach (var test in tests)
+            {
+                var mark = test.MarksList.FirstOrDefault(m => m.StudentId == s.Id);
+                if (mark != null)
+                {
+                    if (mark.IsAbsent)
+                    {
+                        hasAbsent = true;
+                        subjectMarks[test.Subject] = null;
+                    }
+                    else
+                    {
+                        subjectMarks[test.Subject] = mark.MarksObtained;
+                        studentTotalObtained += mark.MarksObtained;
+                    }
+                }
+                else
+                {
+                    subjectMarks[test.Subject] = null;
+                }
+            }
+
+            decimal pct = totalMaxMarksAll > 0 ? Math.Round((studentTotalObtained / totalMaxMarksAll) * 100, 1) : 0;
+            string grade;
+            if (pct >= 90) grade = "A+";
+            else if (pct >= 80) grade = "A";
+            else if (pct >= 70) grade = "B";
+            else if (pct >= 60) grade = "C";
+            else if (pct >= passingPercentage) grade = "D";
+            else grade = "F";
+
+            string status;
+            if (hasAbsent && studentTotalObtained == 0)
+            {
+                status = "Absent";
+                failedCount++;
+            }
+            else if (pct >= passingPercentage)
+            {
+                status = "Passed";
+                passedCount++;
+            }
+            else
+            {
+                status = "Failed";
+                failedCount++;
+            }
+
+            return new ConsolidatedStudentResultDto(
+                s.Id,
+                s.StudentName,
+                !string.IsNullOrWhiteSpace(s.SchoolRollNumber) ? s.SchoolRollNumber : (s.RollNumber ?? "N/A"),
+                s.AdmissionNumber ?? "N/A",
+                subjectMarks,
+                studentTotalObtained,
+                totalMaxMarksAll,
+                pct,
+                grade,
+                status
+            );
+        }).ToList();
+
+        return Ok(new ConsolidatedClassResultDto(
+            classId,
+            schoolClass.Name,
+            academicYear,
+            examType ?? "Annual Exam",
+            subjects,
+            passingPercentage,
+            students.Count,
+            passedCount,
+            failedCount,
+            studentResults
+        ));
+    }
+
+    [HttpDelete("exams/{id}")]
+    public async Task<ActionResult> DeleteSchoolExam(Guid id)
+    {
+        var test = await _db.Tests.FirstOrDefaultAsync(t => t.Id == id);
+        if (test == null)
+            return NotFound(new { message = "Exam not found." });
+
+        var marks = await _db.TestMarks.Where(m => m.TestId == id).ToListAsync();
+        _db.TestMarks.RemoveRange(marks);
+        _db.Tests.Remove(test);
+
+        await _db.SaveChangesAsync();
+
+        return Ok(new { message = "School exam and associated marks deleted successfully." });
+    }
+
+    private static int GetClassRank(SchoolClass? cls)
+    {
+        if (cls == null) return 0;
+        var name = (cls.Name ?? "").ToLower().Trim();
+        if (name.Contains("play") || name.Contains("pg")) return -3;
+        if (name.Contains("nursery")) return -2;
+        if (name.Contains("lkg")) return -1;
+        if (name.Contains("ukg") || name.Contains("kg")) return 0;
+        if (name.Contains("10+2") || name.Contains("12")) return 12;
+        if (name.Contains("10+1") || name.Contains("11")) return 11;
+        var match = System.Text.RegularExpressions.Regex.Match(name, @"\d+");
+        if (match.Success && int.TryParse(match.Value, out int num))
+            return num;
+        return cls.DisplayOrder;
+    }
+
+    #endregion
 }
+

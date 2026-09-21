@@ -1665,11 +1665,22 @@ body.erp-dark-theme .mat-mdc-select-panel {
   }
 }
 
+/* Elevate mat-sidenav-content above mat-sidenav when in-page full-screen modal overlays are active */
+mat-sidenav-container {
+  mat-sidenav-content:has(.marks-entry-overlay),
+  mat-sidenav-content:has(.modal-backdrop) {
+    z-index: 1050 !important;
+  }
+}
 
-
-
-
-
-
-
+/* Global Confirm / Alert Dialog Panel */
+.erp-confirm-dialog-panel {
+  .mat-mdc-dialog-surface {
+    border-radius: 14px !important;
+    overflow: hidden !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    box-shadow: 0 20px 30px -10px rgba(15, 23, 42, 0.2), 0 10px 15px -5px rgba(15, 23, 42, 0.1) !important;
+  }
+}
 

@@ -1,0 +1,588 @@
+<div class="school-exams-container">
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="header-left">
+      <div class="header-icon-box">
+        <mat-icon>assignment</mat-icon>
+      </div>
+      <div>
+        <h1 class="page-title">School Examinations & Marks Entry</h1>
+        <p class="page-subtitle">Schedule annual & term exams, record subject-wise marks, generate consolidated marksheets, and prepare for student promotion.</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button mat-stroked-button color="primary" class="action-btn" (click)="activeTabIndex = 1">
+        <mat-icon>add_task</mat-icon> Schedule Bulk Exams
+      </button>
+      <button mat-raised-button color="primary" class="action-btn" (click)="goToPromotion()">
+        <mat-icon>school</mat-icon> Student Promotion
+      </button>
+    </div>
+  </div>
+
+  <!-- Main Tabs -->
+  <mat-tab-group [(selectedIndex)]="activeTabIndex" animationDuration="200ms" class="custom-tabs">
+    
+    <!-- TAB 1: Scheduled Exams List -->
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <mat-icon class="tab-icon">event_note</mat-icon>
+        <span>Exams List</span>
+        <span class="badge" *ngIf="exams.length > 0">{{ exams.length }}</span>
+      </ng-template>
+
+      <div class="tab-content">
+        <!-- Filter Bar -->
+        <mat-card class="filter-card">
+          <div class="filter-grid">
+            <mat-form-field appearance="outline" class="compact-field">
+              <mat-label>Class</mat-label>
+              <mat-select [(value)]="filterClassId" (selectionChange)="onFilterClassChange($event.value)">
+                <mat-option value="">All Classes</mat-option>
+                <mat-option *ngFor="let c of classes" [value]="c.id">{{ c.name }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="compact-field" *ngIf="sections.length > 0">
+              <mat-label>Section</mat-label>
+              <mat-select [(value)]="filterSectionId" (selectionChange)="loadExams()">
+                <mat-option value="">All Sections</mat-option>
+                <mat-option *ngFor="let s of sections" [value]="s.id">{{ s.name }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="compact-field">
+              <mat-label>Academic Session</mat-label>
+              <mat-select [(value)]="filterAcademicYear" (selectionChange)="loadExams()">
+                <mat-option value="2024-2025">2024-2025</mat-option>
+                <mat-option value="2025-2026">2025-2026</mat-option>
+                <mat-option value="2026-2027">2026-2027</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="compact-field">
+              <mat-label>Exam Type</mat-label>
+              <mat-select [(value)]="filterExamType" (selectionChange)="loadExams()">
+                <mat-option value="">All Exam Types</mat-option>
+                <mat-option value="Annual Exam">Annual Exam (Final)</mat-option>
+                <mat-option value="Half-Yearly Exam">Half-Yearly Exam</mat-option>
+                <mat-option value="Unit Test 1">Unit Test 1</mat-option>
+                <mat-option value="Unit Test 2">Unit Test 2</mat-option>
+                <mat-option value="Quarterly Exam">Quarterly Exam</mat-option>
+                <mat-option value="Pre-Board">Pre-Board Exam</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="compact-field search-field">
+              <mat-label>Search Subject / Title</mat-label>
+              <input matInput [(ngModel)]="searchTerm" (keyup.enter)="loadExams()" placeholder="e.g. Maths, Science...">
+              <button mat-icon-button matSuffix *ngIf="searchTerm" (click)="searchTerm=''; loadExams()">
+                <mat-icon>clear</mat-icon>
+              </button>
+            </mat-form-field>
+
+            <div class="filter-actions">
+              <button mat-flat-button color="primary" (click)="loadExams()" [disabled]="loadingExams">
+                <mat-icon *ngIf="!loadingExams">filter_list</mat-icon>
+                <mat-spinner diameter="18" *ngIf="loadingExams"></mat-spinner>
+                <span>Filter</span>
+              </button>
+            </div>
+          </div>
+        </mat-card>
+
+        <!-- Loading Spinner -->
+        <div class="loading-state" *ngIf="loadingExams">
+          <mat-spinner diameter="40"></mat-spinner>
+          <p>Loading scheduled exams...</p>
+        </div>
+
+        <!-- Empty State -->
+        <div class="empty-state" *ngIf="!loadingExams && exams.length === 0">
+          <div class="empty-icon-circle">
+            <mat-icon>school</mat-icon>
+          </div>
+          <h3>No Exams Found</h3>
+          <p>No exams have been scheduled matching your selected filters. Schedule annual final exams across subjects in one click.</p>
+          <button mat-flat-button color="primary" (click)="activeTabIndex = 1">
+            <mat-icon>add</mat-icon> Schedule Bulk Exams Now
+          </button>
+        </div>
+
+        <!-- Exams Grid -->
+        <div class="exams-grid" *ngIf="!loadingExams && exams.length > 0">
+          <mat-card class="exam-card" *ngFor="let exam of exams">
+            <div class="exam-card-header">
+              <div class="exam-badge" [class.badge-annual]="exam.examType === 'Annual Exam'">
+                {{ exam.examType }}
+              </div>
+              <span class="exam-session">{{ exam.academicYear }}</span>
+            </div>
+
+            <div class="exam-card-body">
+              <h3 class="exam-title">{{ exam.title }}</h3>
+              <div class="exam-meta">
+                <div class="meta-item">
+                  <mat-icon>class</mat-icon>
+                  <span>{{ exam.className }} <strong *ngIf="exam.sectionName">({{ exam.sectionName }})</strong></span>
+                </div>
+                <div class="meta-item">
+                  <mat-icon>menu_book</mat-icon>
+                  <span>Subject: <strong>{{ exam.subject }}</strong></span>
+                </div>
+                <div class="meta-item">
+                  <mat-icon>calendar_today</mat-icon>
+                  <span>Date: {{ exam.testDate | date:'mediumDate' }}</span>
+                </div>
+                <div class="meta-item">
+                  <mat-icon>grade</mat-icon>
+                  <span>Marks: <strong>{{ exam.passingMarks }}</strong> / {{ exam.maxMarks }} (Pass / Max)</span>
+                </div>
+              </div>
+
+              <!-- Marks Entry Progress -->
+              <div class="marks-progress-box">
+                <div class="progress-labels">
+                  <span>Marks Evaluated:</span>
+                  <strong>{{ exam.evaluatedStudents }} / {{ exam.totalStudents }} Students</strong>
+                </div>
+                <mat-progress-bar
+                  mode="determinate"
+                  [value]="exam.totalStudents > 0 ? (exam.evaluatedStudents / exam.totalStudents) * 100 : 0"
+                  [color]="exam.evaluatedStudents === exam.totalStudents && exam.totalStudents > 0 ? 'primary' : 'accent'">
+                </mat-progress-bar>
+              </div>
+            </div>
+
+            <mat-divider></mat-divider>
+
+            <div class="exam-card-actions">
+              <button mat-flat-button color="primary" class="enter-marks-btn" (click)="openMarksEntry(exam)">
+                <mat-icon>edit_note</mat-icon>
+                <span>Enter / Edit Marks</span>
+              </button>
+              <button mat-icon-button color="warn" (click)="deleteExam(exam)" matTooltip="Delete Exam">
+                <mat-icon>delete_outline</mat-icon>
+              </button>
+            </div>
+          </mat-card>
+        </div>
+      </div>
+    </mat-tab>
+
+    <!-- TAB 2: Bulk Exam Scheduler -->
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <mat-icon class="tab-icon">playlist_add</mat-icon>
+        <span>Bulk Exam Scheduler</span>
+      </ng-template>
+
+      <div class="tab-content">
+        <mat-card class="form-card">
+          <div class="card-accent-bar"></div>
+          <div class="card-header-inner">
+            <div>
+              <h2 class="section-title">Schedule Multiple Subject Exams in One Go</h2>
+              <p class="section-subtitle">Set up Annual or Term exam papers for an entire class at once. Standard subjects are auto-populated for your convenience.</p>
+            </div>
+          </div>
+
+          <form [formGroup]="scheduleForm" (ngSubmit)="saveBulkSchedule()">
+            <!-- Configuration row -->
+            <div class="scheduler-config-grid">
+              <mat-form-field appearance="outline">
+                <mat-label>Target Class *</mat-label>
+                <mat-select formControlName="classId" (selectionChange)="onScheduleClassChange($event.value)">
+                  <mat-option *ngFor="let c of classes" [value]="c.id">{{ c.name }}</mat-option>
+                </mat-select>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Section (Optional)</mat-label>
+                <mat-select formControlName="sectionId">
+                  <mat-option value="">All Sections</mat-option>
+                  <mat-option *ngFor="let s of sections" [value]="s.id">{{ s.name }}</mat-option>
+                </mat-select>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Academic Session *</mat-label>
+                <mat-select formControlName="academicYear">
+                  <mat-option value="2024-2025">2024-2025</mat-option>
+                  <mat-option value="2025-2026">2025-2026</mat-option>
+                  <mat-option value="2026-2027">2026-2027</mat-option>
+                </mat-select>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Exam Type / Term *</mat-label>
+                <mat-select formControlName="examType">
+                  <mat-option value="Annual Exam">Annual Exam (Final)</mat-option>
+                  <mat-option value="Half-Yearly Exam">Half-Yearly Exam</mat-option>
+                  <mat-option value="Unit Test 1">Unit Test 1</mat-option>
+                  <mat-option value="Unit Test 2">Unit Test 2</mat-option>
+                  <mat-option value="Quarterly Exam">Quarterly Exam</mat-option>
+                  <mat-option value="Pre-Board">Pre-Board Exam</mat-option>
+                </mat-select>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Default Max Marks</mat-label>
+                <input matInput type="number" formControlName="defaultMaxMarks" min="1">
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Default Passing Marks</mat-label>
+                <input matInput type="number" formControlName="defaultPassingMarks" min="1">
+              </mat-form-field>
+            </div>
+
+            <!-- Subject Rows Table -->
+            <div class="subjects-schedule-header">
+              <h3>Subject Exam Papers ({{ examRows.length }})</h3>
+              <button mat-stroked-button type="button" color="primary" (click)="addScheduleRow()">
+                <mat-icon>add</mat-icon> Add Subject
+              </button>
+            </div>
+
+            <div class="subject-rows-container" formArrayName="exams">
+              <div class="subject-row" *ngFor="let row of examRows.controls; let i = index" [formGroupName]="i">
+                <span class="row-num">{{ i + 1 }}</span>
+
+                <mat-form-field appearance="outline" class="sub-field">
+                  <mat-label>Subject Name *</mat-label>
+                  <input matInput formControlName="subject" (change)="onSubjectChange(i, row.get('subject')?.value)" placeholder="e.g. Mathematics">
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="title-field">
+                  <mat-label>Exam Paper Title *</mat-label>
+                  <input matInput formControlName="title" placeholder="e.g. Annual Exam - Mathematics">
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="date-field">
+                  <mat-label>Exam Date *</mat-label>
+                  <input matInput type="date" formControlName="testDate">
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="marks-field">
+                  <mat-label>Max Marks *</mat-label>
+                  <input matInput type="number" formControlName="maxMarks" min="1">
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="marks-field">
+                  <mat-label>Passing Marks *</mat-label>
+                  <input matInput type="number" formControlName="passingMarks" min="1">
+                </mat-form-field>
+
+                <button mat-icon-button color="warn" type="button" (click)="removeScheduleRow(i)" matTooltip="Remove Subject" [disabled]="examRows.length <= 1">
+                  <mat-icon>remove_circle_outline</mat-icon>
+                </button>
+              </div>
+            </div>
+
+            <div class="scheduler-actions">
+              <button mat-button type="button" (click)="activeTabIndex = 0">Cancel</button>
+              <button mat-raised-button color="primary" type="submit" [disabled]="savingSchedule || examRows.length === 0">
+                <mat-spinner diameter="18" *ngIf="savingSchedule"></mat-spinner>
+                <mat-icon *ngIf="!savingSchedule">check_circle</mat-icon>
+                <span>Schedule {{ examRows.length }} Exam Papers</span>
+              </button>
+            </div>
+          </form>
+        </mat-card>
+      </div>
+    </mat-tab>
+
+    <!-- TAB 3: Consolidated Result Sheet -->
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <mat-icon class="tab-icon">analytics</mat-icon>
+        <span>Consolidated Result Sheet</span>
+      </ng-template>
+
+      <div class="tab-content">
+        <!-- Controls Bar -->
+        <mat-card class="filter-card">
+          <div class="filter-grid">
+            <mat-form-field appearance="outline" class="compact-field">
+              <mat-label>Class *</mat-label>
+              <mat-select [(value)]="resultClassId">
+                <mat-option *ngFor="let c of classes" [value]="c.id">{{ c.name }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="compact-field">
+              <mat-label>Academic Session *</mat-label>
+              <mat-select [(value)]="resultAcademicYear">
+                <mat-option value="2024-2025">2024-2025</mat-option>
+                <mat-option value="2025-2026">2025-2026</mat-option>
+                <mat-option value="2026-2027">2026-2027</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="compact-field">
+              <mat-label>Exam Type</mat-label>
+              <mat-select [(value)]="resultExamType">
+                <mat-option value="Annual Exam">Annual Exam (Final)</mat-option>
+                <mat-option value="Half-Yearly Exam">Half-Yearly Exam</mat-option>
+                <mat-option value="Unit Test 1">Unit Test 1</mat-option>
+                <mat-option value="Unit Test 2">Unit Test 2</mat-option>
+                <mat-option value="">All Exam Types</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <div class="filter-actions">
+              <button mat-flat-button color="primary" (click)="loadConsolidatedResults()" [disabled]="loadingResults || !resultClassId">
+                <mat-icon *ngIf="!loadingResults">table_view</mat-icon>
+                <mat-spinner diameter="18" *ngIf="loadingResults"></mat-spinner>
+                <span>View Result Sheet</span>
+              </button>
+            </div>
+          </div>
+        </mat-card>
+
+        <!-- Loading State -->
+        <div class="loading-state" *ngIf="loadingResults">
+          <mat-spinner diameter="40"></mat-spinner>
+          <p>Compiling consolidated marksheet matrix...</p>
+        </div>
+
+        <!-- Initial or Empty State -->
+        <div class="empty-state" *ngIf="!loadingResults && !consolidatedResult">
+          <div class="empty-icon-circle">
+            <mat-icon>leaderboard</mat-icon>
+          </div>
+          <h3>Select Class to View Consolidated Results</h3>
+          <p>Generate a complete student-by-subject annual marksheet matrix with overall percentage, grade, and promotion eligibility.</p>
+        </div>
+
+        <!-- Result Sheet Content -->
+        <div class="result-sheet-container" *ngIf="!loadingResults && consolidatedResult">
+          <!-- Summary Metrics -->
+          <div class="metrics-grid">
+            <div class="metric-card">
+              <span class="metric-label">Total Students</span>
+              <span class="metric-val">{{ consolidatedResult.totalStudents }}</span>
+            </div>
+            <div class="metric-card passed-card">
+              <span class="metric-label">Passed (Eligible for Promotion)</span>
+              <span class="metric-val text-success">{{ consolidatedResult.passedCount }}</span>
+            </div>
+            <div class="metric-card failed-card">
+              <span class="metric-label">Failed / Detained</span>
+              <span class="metric-val text-danger">{{ consolidatedResult.failedCount }}</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">Class Pass Rate</span>
+              <span class="metric-val">{{ consolidatedResult.passingPercentage }}%</span>
+            </div>
+          </div>
+
+          <!-- Marksheet Card -->
+          <mat-card class="matrix-card">
+            <div class="matrix-header">
+              <div class="matrix-title-block">
+                <h2>{{ consolidatedResult.className }} - {{ consolidatedResult.examType || 'Overall' }} Marksheet</h2>
+                <p>Academic Session: {{ consolidatedResult.academicYear }} | Evaluation Benchmark: 33% Subject-wise</p>
+              </div>
+              <div class="matrix-actions-top">
+                <button mat-stroked-button (click)="printResultSheet()">
+                  <mat-icon>print</mat-icon> Print Marksheet
+                </button>
+                <button mat-raised-button color="primary" (click)="goToPromotion()">
+                  <mat-icon>school</mat-icon> Proceed to Student Promotion
+                </button>
+              </div>
+            </div>
+
+            <!-- Matrix Table -->
+            <div class="matrix-table-wrapper">
+              <table class="marksheet-table">
+                <thead>
+                  <tr>
+                    <th class="col-roll">Roll #</th>
+                    <th class="col-adm">Adm #</th>
+                    <th class="col-name">Student Name</th>
+                    <!-- Dynamic Subject Columns -->
+                    <th class="col-sub" *ngFor="let sub of consolidatedResult.subjects">
+                      <div class="sub-header-name">{{ sub }}</div>
+                    </th>
+                    <th class="col-total">Total Marks</th>
+                    <th class="col-pct">%</th>
+                    <th class="col-grade">Grade</th>
+                    <th class="col-status">Final Result</th>
+                    <th class="col-promo-status">Promotion Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let s of consolidatedResult.students" [class.row-failed]="s.resultStatus === 'Failed'">
+                    <td class="col-roll">{{ s.rollNumber || '-' }}</td>
+                    <td class="col-adm">{{ s.admissionNumber }}</td>
+                    <td class="col-name">
+                      <strong>{{ s.studentName }}</strong>
+                    </td>
+
+                    <!-- Dynamic Subject Marks -->
+                    <td class="col-sub" *ngFor="let sub of consolidatedResult.subjects">
+                      <ng-container *ngIf="s.subjectMarks[sub] !== null && s.subjectMarks[sub] !== undefined; else noMark">
+                        <span>{{ s.subjectMarks[sub] }}</span>
+                      </ng-container>
+                      <ng-template #noMark>
+                        <span class="text-muted">-</span>
+                      </ng-template>
+                    </td>
+
+                    <!-- Aggregates -->
+                    <td class="col-total">
+                      <strong>{{ s.totalObtained }}</strong> / {{ s.totalMax }}
+                    </td>
+                    <td class="col-pct">
+                      <strong>{{ s.overallPercentage }}%</strong>
+                    </td>
+                    <td class="col-grade">
+                      <span class="grade-pill grade-{{ s.grade }}">{{ s.grade }}</span>
+                    </td>
+                    <td class="col-status">
+                      <span class="status-badge" [class.status-pass]="s.resultStatus === 'Passed'" [class.status-fail]="s.resultStatus === 'Failed'">
+                        <mat-icon class="status-icon">{{ s.resultStatus === 'Passed' ? 'check_circle' : 'cancel' }}</mat-icon>
+                        {{ s.resultStatus }}
+                      </span>
+                    </td>
+                    <td class="col-promo-status">
+                      <span class="promo-badge" [class.promo-eligible]="s.resultStatus === 'Passed'" [class.promo-detain]="s.resultStatus === 'Failed'">
+                        {{ s.resultStatus === 'Passed' ? 'Promote to Next Grade' : 'Detain in Same Grade' }}
+                      </span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Matrix Footer -->
+            <div class="matrix-footer-actions">
+              <p class="footer-note">
+                <mat-icon>info</mat-icon>
+                <span>Students marked <strong>Passed</strong> will be auto-recommended for promotion to the next class on the Student Promotion screen.</span>
+              </p>
+              <button mat-raised-button color="primary" class="big-action-btn" (click)="goToPromotion()">
+                <mat-icon>arrow_forward</mat-icon>
+                <span>Open Promotion Screen with these Students</span>
+              </button>
+            </div>
+          </mat-card>
+        </div>
+      </div>
+    </mat-tab>
+  </mat-tab-group>
+
+  <!-- MARKS ENTRY OVERLAY MODAL -->
+  <div class="marks-entry-overlay" *ngIf="activeExamForMarks" (click)="closeMarksEntry()">
+    <div class="marks-entry-modal" (click)="$event.stopPropagation()">
+      <!-- Light Blue Gradient Header (Strict UI Rule) -->
+      <div class="modal-header">
+        <div class="modal-header-left">
+          <div class="modal-icon-box">
+            <mat-icon>edit_note</mat-icon>
+          </div>
+          <div>
+            <h2 class="modal-title">Enter Marks: {{ activeExamForMarks.title }}</h2>
+            <div class="modal-subtitle">
+              <span>Class: <strong>{{ activeExamForMarks.className }}</strong></span>
+              <span>Session: <strong>{{ activeExamForMarks.academicYear }}</strong></span>
+              <span>Passing: <strong>{{ activeExamForMarks.passingMarks }} / {{ activeExamForMarks.maxMarks }}</strong></span>
+            </div>
+          </div>
+        </div>
+        <button mat-icon-button class="modal-close-btn" (click)="closeMarksEntry()">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="modal-body">
+        <!-- Search filter inside modal -->
+        <div class="modal-search-bar">
+          <mat-form-field appearance="outline" class="compact-field">
+            <mat-label>Filter Student by Name or Roll #</mat-label>
+            <input matInput [(ngModel)]="marksFilterText" placeholder="Type student name...">
+            <button mat-icon-button matSuffix *ngIf="marksFilterText" (click)="marksFilterText=''">
+              <mat-icon>clear</mat-icon>
+            </button>
+          </mat-form-field>
+          <div class="marks-count-label">
+            Showing {{ filteredMarksList.length }} of {{ marksList.length }} students
+          </div>
+        </div>
+
+        <div class="modal-loading" *ngIf="loadingMarks">
+          <mat-spinner diameter="36"></mat-spinner>
+          <p>Loading student list...</p>
+        </div>
+
+        <!-- Marks Grid -->
+        <div class="modal-marks-table-wrapper" *ngIf="!loadingMarks">
+          <table class="marks-input-table">
+            <thead>
+              <tr>
+                <th style="width: 60px;">Roll #</th>
+                <th style="width: 105px;">Adm #</th>
+                <th style="min-width: 130px;">Student Name</th>
+                <th style="width: 75px; text-align: center;">Absent?</th>
+                <th style="width: 115px; text-align: center;">Marks</th>
+                <th style="width: 65px; text-align: center;">Max</th>
+                <th style="width: 65px; text-align: center;">%</th>
+                <th style="width: 80px; text-align: center;">Status</th>
+                <th style="width: 180px; min-width: 150px;">Remarks</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let item of filteredMarksList" [class.row-absent]="item.isAbsent" [class.row-fail]="!item.isAbsent && !item.isPassed && item.marksObtained !== null">
+                <td>{{ item.schoolRollNumber || '-' }}</td>
+                <td>{{ item.admissionNumber }}</td>
+                <td>
+                  <strong>{{ item.studentName }}</strong>
+                </td>
+                <td style="text-align: center;">
+                  <mat-checkbox [(ngModel)]="item.isAbsent" (change)="onAbsentToggled(item)"></mat-checkbox>
+                </td>
+                <td>
+                  <input
+                    type="number"
+                    class="marks-num-input"
+                    [(ngModel)]="item.marksObtained"
+                    (input)="onMarksChanged(item)"
+                    [disabled]="item.isAbsent"
+                    [min]="0"
+                    [max]="activeExamForMarks.maxMarks"
+                    placeholder="0">
+                </td>
+                <td style="text-align: center;" class="text-muted">{{ activeExamForMarks.maxMarks }}</td>
+                <td style="text-align: center;">
+                  <strong>{{ item.percentage }}%</strong>
+                </td>
+                <td style="text-align: center;">
+                  <span *ngIf="item.isAbsent" class="badge-absent">ABSENT</span>
+                  <span *ngIf="!item.isAbsent && item.isPassed" class="badge-pass">PASS</span>
+                  <span *ngIf="!item.isAbsent && !item.isPassed" class="badge-fail">FAIL</span>
+                </td>
+                <td>
+                  <input type="text" class="remarks-input" [(ngModel)]="item.remarks" placeholder="Optional remark...">
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="modal-footer">
+        <button mat-stroked-button (click)="closeMarksEntry()">Cancel</button>
+        <button mat-flat-button color="primary" (click)="saveAllMarks()" [disabled]="savingMarks || marksList.length === 0">
+          <mat-spinner diameter="18" *ngIf="savingMarks"></mat-spinner>
+          <mat-icon *ngIf="!savingMarks">save</mat-icon>
+          <span>Save All Marks</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

@@ -107,6 +107,8 @@ export interface FeeInvoicePagedItem {
   items?: FeeInvoiceItem[];
   className?: string | null;
   sectionName?: string | null;
+  currentClassName?: string | null;
+  currentSectionName?: string | null;
   isSchoolStudent?: boolean;
   isCoachingStudent?: boolean;
 }

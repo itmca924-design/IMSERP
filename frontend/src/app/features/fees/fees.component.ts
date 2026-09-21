@@ -204,9 +204,13 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
               <th mat-header-cell *matHeaderCellDef>Class &amp; Batch</th>
               <td mat-cell *matCellDef="let inv">
                 <div class="academic-enrollment-cell">
-                  <div *ngIf="inv.className" class="academic-row school-row" matTooltip="Enrolled School Class">
+                  <div *ngIf="inv.className" class="academic-row school-row" matTooltip="Billed School Class">
                     <span class="badge-icon">🏫</span>
                     <span class="academic-val">{{ inv.className }}<span *ngIf="inv.sectionName" class="sec-tag"> ({{ inv.sectionName }})</span></span>
+                  </div>
+                  <div *ngIf="inv.currentClassName && inv.className && inv.currentClassName !== inv.className" class="academic-row current-class-row" matTooltip="Student Promoted to higher class">
+                    <span class="badge-icon">🚀</span>
+                    <span class="academic-val">Now in {{ inv.currentClassName }}<span *ngIf="inv.currentSectionName" class="sec-tag"> ({{ inv.currentSectionName }})</span></span>
                   </div>
                   <div *ngIf="inv.batchName" class="academic-row batch-row" matTooltip="Enrolled Coaching Batch">
                     <span class="badge-icon">🎯</span>
@@ -734,6 +738,18 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           font-weight: 600;
           .sec-tag {
             color: #3b82f6;
+            font-weight: 500;
+          }
+        }
+
+        &.current-class-row {
+          background: #ecfdf5;
+          color: #047857;
+          border: 1px solid #a7f3d0;
+          font-weight: 600;
+          font-size: 0.73rem;
+          .sec-tag {
+            color: #059669;
             font-weight: 500;
           }
         }
@@ -1482,8 +1498,8 @@ export class FeesComponent implements OnInit, OnDestroy {
         targetStudentId: targetStudent?.studentId,
         targetStudentName: targetStudent?.studentName,
         targetRollNumber: targetStudent?.rollNumber,
-        defaultMonth: targetStudent ? currentMonth : undefined,
-        defaultYear: targetStudent ? currentYear : undefined
+        defaultMonth: currentMonth,
+        defaultYear: currentYear
       }
     });
 

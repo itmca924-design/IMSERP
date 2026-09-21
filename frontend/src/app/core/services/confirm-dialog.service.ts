@@ -17,7 +17,9 @@ export class ConfirmDialogService {
     type: 'danger' | 'warning' | 'info' | 'success' = 'info'
   ): Observable<boolean> {
     const dialogRef = this.dialog.open(ConfirmDialogComponent, {
-      width: '420px',
+      width: '500px',
+      maxWidth: '92vw',
+      panelClass: 'erp-confirm-dialog-panel',
       disableClose: true,
       data: {
         title,
@@ -46,7 +48,9 @@ export class ConfirmDialogService {
     type: 'danger' | 'warning' | 'info' | 'success' = 'success'
   ): Observable<boolean> {
     const dialogRef = this.dialog.open(ConfirmDialogComponent, {
-      width: '420px',
+      width: '460px',
+      maxWidth: '92vw',
+      panelClass: 'erp-confirm-dialog-panel',
       disableClose: false,
       data: {
         title,

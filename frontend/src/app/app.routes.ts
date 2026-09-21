@@ -24,6 +24,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/school/school-classes.component').then(m => m.SchoolClassesComponent)
       },
       {
+        path: 'school/exams',
+        loadComponent: () => import('./features/school/school-exams.component').then(m => m.SchoolExamsComponent)
+      },
+      {
         path: 'branches',
         loadComponent: () => import('./features/branches/branches.component').then(m => m.BranchesComponent)
       },
@@ -46,6 +50,10 @@ export const routes: Routes = [
       {
         path: 'students/attendance',
         loadComponent: () => import('./features/students/student-attendance.component').then(m => m.StudentAttendanceComponent)
+      },
+      {
+        path: 'students/promotion',
+        loadComponent: () => import('./features/students/student-promotion.component').then(m => m.StudentPromotionComponent)
       },
       {
         path: 'holidays',

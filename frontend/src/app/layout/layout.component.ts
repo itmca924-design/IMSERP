@@ -1092,7 +1092,9 @@ export class LayoutComponent implements OnInit {
     { title: 'Attendance Reports', route: '/attendance/reports', icon: 'summarize' },
     { title: 'Biometric Devices', route: '/attendance/devices', icon: 'fingerprint' },
     { title: 'Fee Collection', route: '/fees', icon: 'payments' },
-    { title: 'Tests & Report Cards', route: '/tests', icon: 'assignment' },
+    { title: 'School Examinations & Marks', route: '/school/exams', icon: 'assignment' },
+    { title: 'Student Promotion', route: '/students/promotion', icon: 'trending_up' },
+    { title: 'Tests & Report Cards', route: '/tests', icon: 'quiz' },
     { title: 'Library Books Catalog', route: '/library/books', icon: 'local_library' },
     { title: 'Book Issue & Return Desk', route: '/library/circulation', icon: 'sync_alt' },
     { title: 'Library Shifts & Plans', route: '/library/plans', icon: 'schedule' },
@@ -1332,12 +1334,14 @@ export class LayoutComponent implements OnInit {
         children: [
           { id: '51', title: 'Fee Collection', routeUrl: '/fees', icon: 'payments', sortOrder: 1, module: 'Academic', isActive: true, children: [] },
           { id: '511', title: 'Fee Heads Master', routeUrl: '/fee-heads', icon: 'account_tree', sortOrder: 2, module: 'Academic', isActive: true, children: [] },
-          { id: '52', title: 'Tests & Report Cards', routeUrl: '/tests', icon: 'assignment', sortOrder: 3, module: 'Academic', isActive: true, children: [] },
-          { id: '53', title: 'WhatsApp Logs', routeUrl: '/whatsapp', icon: 'chat', sortOrder: 4, module: 'Academic', isActive: true, children: [] },
-          { id: '54', title: 'Library Books', routeUrl: '/library/books', icon: 'local_library', sortOrder: 5, module: 'Academic', isActive: true, children: [] },
-          { id: '55', title: 'Issue & Return Desk', routeUrl: '/library/circulation', icon: 'sync_alt', sortOrder: 6, module: 'Academic', isActive: true, children: [] },
-          { id: '551', title: 'Library Shifts & Plans', routeUrl: '/library/plans', icon: 'schedule', sortOrder: 7, module: 'Academic', isActive: true, children: [] },
-          { id: '56', title: 'Hostel Management', routeUrl: '/hostel', icon: 'apartment', sortOrder: 8, module: 'Academic', isActive: true, children: [] }
+          { id: '52', title: 'School Examinations', routeUrl: '/school/exams', icon: 'assignment', sortOrder: 3, module: 'Academic', isActive: true, children: [] },
+          { id: '521', title: 'Student Promotion', routeUrl: '/students/promotion', icon: 'trending_up', sortOrder: 4, module: 'Academic', isActive: true, children: [] },
+          { id: '522', title: 'Tests & Report Cards', routeUrl: '/tests', icon: 'quiz', sortOrder: 5, module: 'Academic', isActive: true, children: [] },
+          { id: '53', title: 'WhatsApp Logs', routeUrl: '/whatsapp', icon: 'chat', sortOrder: 6, module: 'Academic', isActive: true, children: [] },
+          { id: '54', title: 'Library Books', routeUrl: '/library/books', icon: 'local_library', sortOrder: 7, module: 'Academic', isActive: true, children: [] },
+          { id: '55', title: 'Issue & Return Desk', routeUrl: '/library/circulation', icon: 'sync_alt', sortOrder: 8, module: 'Academic', isActive: true, children: [] },
+          { id: '551', title: 'Library Shifts & Plans', routeUrl: '/library/plans', icon: 'schedule', sortOrder: 9, module: 'Academic', isActive: true, children: [] },
+          { id: '56', title: 'Hostel Management', routeUrl: '/hostel', icon: 'apartment', sortOrder: 10, module: 'Academic', isActive: true, children: [] }
         ]
       },
       {

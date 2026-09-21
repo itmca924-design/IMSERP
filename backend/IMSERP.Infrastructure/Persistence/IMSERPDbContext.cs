@@ -58,6 +58,7 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
     public DbSet<HostelAllocation> HostelAllocations => Set<HostelAllocation>();
     public DbSet<HostelGatePass> HostelGatePasses => Set<HostelGatePass>();
     public DbSet<HostelAttendance> HostelAttendances => Set<HostelAttendance>();
+    public DbSet<StudentPromotionHistory> StudentPromotionHistories => Set<StudentPromotionHistory>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -81,6 +82,9 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
             (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<StudentAttendance>().HasQueryFilter(x => 
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<StudentPromotionHistory>().HasQueryFilter(x => 
             (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<AttendanceSettings>().HasQueryFilter(x => 
@@ -257,6 +261,36 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
             .WithMany(b => b.Rooms)
             .HasForeignKey(r => r.BranchId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<StudentPromotionHistory>()
+            .HasOne(p => p.Student)
+            .WithMany(s => s.PromotionHistories)
+            .HasForeignKey(p => p.StudentId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<StudentPromotionHistory>()
+            .HasOne(p => p.FromClass)
+            .WithMany()
+            .HasForeignKey(p => p.FromClassId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<StudentPromotionHistory>()
+            .HasOne(p => p.ToClass)
+            .WithMany()
+            .HasForeignKey(p => p.ToClassId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<StudentPromotionHistory>()
+            .HasOne(p => p.FromSection)
+            .WithMany()
+            .HasForeignKey(p => p.FromSectionId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<StudentPromotionHistory>()
+            .HasOne(p => p.ToSection)
+            .WithMany()
+            .HasForeignKey(p => p.ToSectionId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<Batch>().Property(b => b.StandardMonthlyFee).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<FeeInvoice>().Property(f => f.TotalAmount).HasColumnType("decimal(18,2)");

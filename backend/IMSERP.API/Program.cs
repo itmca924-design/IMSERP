@@ -98,6 +98,51 @@ using (var scope = app.Services.CreateScope())
                         ALTER TABLE Students ADD LeavingReason NVARCHAR(MAX) NULL;
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Students') AND name = 'TCNumber')
                         ALTER TABLE Students ADD TCNumber NVARCHAR(MAX) NULL;
+
+                    -- Tests table schema updates for School Examination support
+                    IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tests') AND name = 'BatchId' AND is_nullable = 0)
+                        ALTER TABLE Tests ALTER COLUMN BatchId UNIQUEIDENTIFIER NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tests') AND name = 'ClassId')
+                        ALTER TABLE Tests ADD ClassId UNIQUEIDENTIFIER NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tests') AND name = 'SectionId')
+                        ALTER TABLE Tests ADD SectionId UNIQUEIDENTIFIER NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tests') AND name = 'ExamType')
+                        ALTER TABLE Tests ADD ExamType NVARCHAR(MAX) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tests') AND name = 'AcademicYear')
+                        ALTER TABLE Tests ADD AcademicYear NVARCHAR(MAX) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tests') AND name = 'PassingMarks')
+                        ALTER TABLE Tests ADD PassingMarks DECIMAL(18,2) NOT NULL DEFAULT 33;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('FeeInvoices') AND name = 'ClassId')
+                        ALTER TABLE FeeInvoices ADD ClassId UNIQUEIDENTIFIER NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('FeeInvoices') AND name = 'SectionId')
+                        ALTER TABLE FeeInvoices ADD SectionId UNIQUEIDENTIFIER NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('FeeInvoices') AND name = 'ClassName')
+                        ALTER TABLE FeeInvoices ADD ClassName NVARCHAR(100) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('FeeInvoices') AND name = 'SectionName')
+                        ALTER TABLE FeeInvoices ADD SectionName NVARCHAR(50) NULL;
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'StudentPromotionHistories')
+                    BEGIN
+                        CREATE TABLE StudentPromotionHistories (
+                            Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
+                            TenantId UNIQUEIDENTIFIER NOT NULL,
+                            BranchId UNIQUEIDENTIFIER NULL,
+                            StudentId UNIQUEIDENTIFIER NOT NULL,
+                            FromClassId UNIQUEIDENTIFIER NOT NULL,
+                            FromSectionId UNIQUEIDENTIFIER NULL,
+                            FromRollNumber NVARCHAR(MAX) NULL,
+                            FromAcademicYear NVARCHAR(MAX) NOT NULL,
+                            ToClassId UNIQUEIDENTIFIER NOT NULL,
+                            ToSectionId UNIQUEIDENTIFIER NULL,
+                            ToRollNumber NVARCHAR(MAX) NULL,
+                            ToAcademicYear NVARCHAR(MAX) NOT NULL,
+                            ResultStatus NVARCHAR(MAX) NOT NULL,
+                            PromotionDate DATETIME2 NOT NULL,
+                            PromotedBy NVARCHAR(MAX) NULL,
+                            Remarks NVARCHAR(MAX) NULL,
+                            CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
+                        );
+                    END
                 ");
             }
             catch (Exception ex)
@@ -211,6 +256,78 @@ using (var scope = app.Services.CreateScope())
                 }
                 context.SaveChanges();
                 Console.WriteLine("[Database] Auto-seeded 'Fee Heads Master' menu item under Academic Operations.");
+            }
+
+            // Auto-seed 'Student Promotion' MenuItem under Academic Operations
+            var promoMenu = context.MenuItems.FirstOrDefault(m => m.RouteUrl == "/students/promotion");
+            if (promoMenu == null)
+            {
+                var newPromoMenu = new IMSERP.Domain.Entities.MenuItem
+                {
+                    Id = Guid.NewGuid(),
+                    Title = "Student Promotion",
+                    RouteUrl = "/students/promotion",
+                    Icon = "trending_up",
+                    ParentId = academicMenu.Id,
+                    SortOrder = 9,
+                    Module = "Academic",
+                    IsActive = true
+                };
+                context.MenuItems.Add(newPromoMenu);
+                context.SaveChanges();
+
+                var roles = context.Roles.ToList();
+                foreach (var role in roles)
+                {
+                    context.RolePermissions.Add(new IMSERP.Domain.Entities.RolePermission
+                    {
+                        Id = Guid.NewGuid(),
+                        RoleId = role.Id,
+                        MenuItemId = newPromoMenu.Id,
+                        CanView = true,
+                        CanCreate = true,
+                        CanEdit = true,
+                        CanDelete = true
+                    });
+                }
+                context.SaveChanges();
+                Console.WriteLine("[Database] Auto-seeded 'Student Promotion' menu item under Academic Operations.");
+            }
+
+            // Auto-seed 'School Examinations' MenuItem under Academic Operations
+            var schoolExamMenu = context.MenuItems.FirstOrDefault(m => m.RouteUrl == "/school/exams");
+            if (schoolExamMenu == null)
+            {
+                var newSchoolExamMenu = new IMSERP.Domain.Entities.MenuItem
+                {
+                    Id = Guid.NewGuid(),
+                    Title = "School Examinations",
+                    RouteUrl = "/school/exams",
+                    Icon = "assignment",
+                    ParentId = academicMenu.Id,
+                    SortOrder = 3,
+                    Module = "Academic",
+                    IsActive = true
+                };
+                context.MenuItems.Add(newSchoolExamMenu);
+                context.SaveChanges();
+
+                var roles = context.Roles.ToList();
+                foreach (var role in roles)
+                {
+                    context.RolePermissions.Add(new IMSERP.Domain.Entities.RolePermission
+                    {
+                        Id = Guid.NewGuid(),
+                        RoleId = role.Id,
+                        MenuItemId = newSchoolExamMenu.Id,
+                        CanView = true,
+                        CanCreate = true,
+                        CanEdit = true,
+                        CanDelete = true
+                    });
+                }
+                context.SaveChanges();
+                Console.WriteLine("[Database] Auto-seeded 'School Examinations' menu item under Academic Operations.");
             }
         }
 

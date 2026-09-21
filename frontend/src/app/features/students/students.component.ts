@@ -60,6 +60,9 @@ const API_BASE = 'http://localhost:5000';
           <p>Unified admissions for School &amp; Coaching. School students can seamlessly enroll into evening coaching batches.</p>
         </div>
         <div class="header-btns">
+          <a mat-stroked-button routerLink="/students/promotion" class="promotion-link-btn">
+            <mat-icon>trending_up</mat-icon> Promote Students
+          </a>
           <a mat-stroked-button routerLink="/school/classes" class="classes-link-btn">
             <mat-icon>domain</mat-icon> Classes &amp; Sections
           </a>
@@ -741,14 +744,16 @@ const API_BASE = 'http://localhost:5000';
       <div class="enroll-modal-backdrop" *ngIf="enrollCoachingModalOpen" (click)="closeEnrollCoachingModal()">
         <div class="enroll-modal-card mat-elevation-z8" (click)="$event.stopPropagation()">
           <div class="ecc-header">
-            <div class="ecc-title">
-              <mat-icon color="primary">school</mat-icon>
-              <div>
+            <div class="ecc-header-left">
+              <div class="ecc-icon-wrap">
+                <mat-icon>school</mat-icon>
+              </div>
+              <div class="ecc-title">
                 <h3>Enroll School Student into Coaching</h3>
-                <p>Instantly enroll {{ enrollingStudent?.studentName }} into an evening coaching batch.</p>
+                <p>Instantly enroll <strong>{{ enrollingStudent?.studentName }}</strong> into an evening coaching batch.</p>
               </div>
             </div>
-            <button mat-icon-button (click)="closeEnrollCoachingModal()"><mat-icon>close</mat-icon></button>
+            <button mat-icon-button class="close-btn" (click)="closeEnrollCoachingModal()"><mat-icon>close</mat-icon></button>
           </div>
 
           <div class="ecc-body">
@@ -764,11 +769,19 @@ const API_BASE = 'http://localhost:5000';
             <div class="ecc-form">
               <mat-form-field appearance="outline" class="full-width">
                 <mat-label>Select Coaching Batch</mat-label>
-                <mat-select [(ngModel)]="enrollingBatchId">
+                <mat-select [(ngModel)]="enrollingBatchId" (selectionChange)="onEnrollingBatchChange($event.value)">
                   <mat-option *ngFor="let b of batches" [value]="b.id">
                     {{ b.name }} (Standard Fee: ₹{{ b.standardMonthlyFee }}/mo)
                   </mat-option>
                 </mat-select>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Batch-wise Coaching Roll Number</mat-label>
+                <input matInput [(ngModel)]="enrollingCoachingRollNumber" placeholder="Auto-generating..." readonly />
+                <mat-icon matSuffix *ngIf="!enrollingRollNumberLoading" style="color: #64748b; font-size: 20px; width: 20px; height: 20px;">lock</mat-icon>
+                <mat-spinner matSuffix diameter="18" *ngIf="enrollingRollNumberLoading"></mat-spinner>
+                <mat-hint>Auto-generated batch roll sequence for this coaching batch.</mat-hint>
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="full-width">
@@ -809,6 +822,14 @@ const API_BASE = 'http://localhost:5000';
       display: flex;
       align-items: center;
       gap: 10px;
+    }
+    .promotion-link-btn {
+      color: #059669 !important;
+      border-color: #a7f3d0 !important;
+      background: #ecfdf5;
+      font-weight: 600;
+      mat-icon { font-size: 18px; width: 18px; height: 18px; margin-right: 4px; }
+      &:hover { background: #d1fae5; }
     }
     .classes-link-btn {
       color: #2563eb !important;
@@ -1425,25 +1446,47 @@ const API_BASE = 'http://localhost:5000';
       background: #ffffff;
       border-radius: 14px;
       width: 100%;
-      max-width: 520px;
+      max-width: 640px;
       overflow: hidden;
       animation: modalPop 0.2s ease-out;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
 
       .ecc-header {
-        background: #f8fafc;
-        padding: 16px 20px;
-        border-bottom: 1px solid #e2e8f0;
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        padding: 18px 24px;
+        border-bottom: 1px solid #bfdbfe;
         display: flex;
         justify-content: space-between;
         align-items: center;
 
-        .ecc-title {
+        .ecc-header-left {
           display: flex;
           align-items: center;
-          gap: 12px;
-          mat-icon { font-size: 28px; width: 28px; height: 28px; }
-          h3 { margin: 0; font-size: 1.1rem; color: #1e293b; font-weight: 700; }
-          p { margin: 2px 0 0 0; color: #64748b; font-size: 0.82rem; }
+          gap: 14px;
+        }
+
+        .ecc-icon-wrap {
+          width: 44px;
+          height: 44px;
+          border-radius: 10px;
+          background: #2563eb;
+          color: #ffffff;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.25);
+          mat-icon { font-size: 24px; width: 24px; height: 24px; }
+        }
+
+        .ecc-title {
+          h3 { margin: 0; font-size: 1.18rem; color: #1e3a8a; font-weight: 700; line-height: 1.3; }
+          p { margin: 3px 0 0 0; color: #3b82f6; font-size: 0.82rem; strong { color: #1e40af; } }
+        }
+
+        .close-btn {
+          color: #64748b;
+          &:hover { color: #1e293b; }
         }
       }
 
@@ -1540,6 +1583,8 @@ export class StudentsComponent implements OnInit, OnDestroy {
   enrollCoachingModalOpen = false;
   enrollingStudent: any = null;
   enrollingBatchId = '';
+  enrollingCoachingRollNumber = '';
+  enrollingRollNumberLoading = false;
   enrollingCustomFee: number | null = null;
   enrollingLoading = false;
 
@@ -2369,40 +2414,87 @@ export class StudentsComponent implements OnInit, OnDestroy {
     this.enrollingStudent = student;
     this.enrollingBatchId = this.batches.length > 0 ? this.batches[0].id : '';
     this.enrollingCustomFee = null;
+    this.enrollingCoachingRollNumber = '';
     this.enrollCoachingModalOpen = true;
+    if (this.enrollingBatchId) {
+      this.fetchEnrollingCoachingRoll(this.enrollingBatchId);
+    }
+  }
+
+  onEnrollingBatchChange(batchId: string): void {
+    this.enrollingBatchId = batchId;
+    if (batchId) {
+      this.fetchEnrollingCoachingRoll(batchId);
+    } else {
+      this.enrollingCoachingRollNumber = '';
+    }
+  }
+
+  fetchEnrollingCoachingRoll(batchId: string): void {
+    this.enrollingRollNumberLoading = true;
+    this.coachingService.getNextRollNumber(batchId).subscribe({
+      next: (res) => {
+        this.enrollingRollNumberLoading = false;
+        this.enrollingCoachingRollNumber = res.rollNumber;
+      },
+      error: () => {
+        this.enrollingRollNumberLoading = false;
+      }
+    });
   }
 
   closeEnrollCoachingModal(): void {
     this.enrollCoachingModalOpen = false;
     this.enrollingStudent = null;
     this.enrollingBatchId = '';
+    this.enrollingCoachingRollNumber = '';
     this.enrollingCustomFee = null;
   }
 
   confirmEnrollCoaching(): void {
     if (!this.enrollingStudent || !this.enrollingBatchId) return;
 
-    this.enrollingLoading = true;
-    this.schoolService.enrollSchoolStudentInCoaching({
-      studentId: this.enrollingStudent.id,
-      batchId: this.enrollingBatchId,
-      customMonthlyFee: this.enrollingCustomFee || undefined
-    }).subscribe({
-      next: (res: any) => {
-        this.enrollingLoading = false;
-        const studentName = this.enrollingStudent.studentName;
-        this.closeEnrollCoachingModal();
-        this.confirmDialog.alert(
-          'Enrolled into Coaching!',
-          `Student "${studentName}" has been successfully enrolled into ${res.batchName} with Coaching Roll Number: ${res.coachingRollNumber}. Initial monthly fee invoice created.`,
-          'success'
-        );
-        this.loadStudents();
-      },
-      error: (err: any) => {
-        this.enrollingLoading = false;
-        this.confirmDialog.alert('Enrollment Failed', err?.error?.message || 'Failed to enroll student into coaching batch.', 'danger');
-      }
+    const studentName = this.enrollingStudent.studentName;
+    const batch = this.batches.find(b => b.id === this.enrollingBatchId);
+    const batchName = batch ? batch.name : 'Selected Batch';
+    const rollText = this.enrollingCoachingRollNumber
+      ? `Coaching Roll: ${this.enrollingCoachingRollNumber}`
+      : 'Auto-generated Batch Roll';
+    const feeText = (this.enrollingCustomFee != null && this.enrollingCustomFee > 0)
+      ? `Custom Fee: ₹${this.enrollingCustomFee}/month`
+      : `Standard Fee: ₹${batch?.standardMonthlyFee || 0}/month`;
+
+    this.confirmDialog.confirm(
+      'Confirm Coaching Enrollment',
+      `Are you sure you want to enroll student "${studentName}" into coaching batch "${batchName}"?\n• ${rollText}\n• ${feeText}`,
+      'Confirm & Enroll',
+      'Cancel',
+      'info'
+    ).subscribe((confirmed) => {
+      if (!confirmed) return;
+
+      this.enrollingLoading = true;
+      this.schoolService.enrollSchoolStudentInCoaching({
+        studentId: this.enrollingStudent.id,
+        batchId: this.enrollingBatchId,
+        coachingRollNumber: this.enrollingCoachingRollNumber || undefined,
+        customMonthlyFee: this.enrollingCustomFee || undefined
+      }).subscribe({
+        next: (res: any) => {
+          this.enrollingLoading = false;
+          this.closeEnrollCoachingModal();
+          this.confirmDialog.alert(
+            'Enrolled into Coaching!',
+            `Student "${studentName}" has been successfully enrolled into ${res.batchName} with Coaching Roll Number: ${res.coachingRollNumber}. Initial monthly fee invoice created.`,
+            'success'
+          );
+          this.loadStudents();
+        },
+        error: (err: any) => {
+          this.enrollingLoading = false;
+          this.confirmDialog.alert('Enrollment Failed', err?.error?.message || 'Failed to enroll student into coaching batch.', 'danger');
+        }
+      });
     });
   }
 }

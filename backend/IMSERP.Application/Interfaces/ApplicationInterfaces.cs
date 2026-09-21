@@ -50,6 +50,7 @@ public interface IIMSERPDbContext
     DbSet<HostelAllocation> HostelAllocations { get; }
     DbSet<HostelGatePass> HostelGatePasses { get; }
     DbSet<HostelAttendance> HostelAttendances { get; }
+    DbSet<StudentPromotionHistory> StudentPromotionHistories { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
