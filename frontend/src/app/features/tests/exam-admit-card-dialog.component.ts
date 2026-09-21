@@ -184,8 +184,8 @@ export interface ExamAdmitCardDialogData {
               <div class="inst-details">
                 <h2 class="inst-name">{{ instituteName }}</h2>
                 <p class="inst-sub">Center for Academic Excellence & Competitive Coaching</p>
-                <p class="inst-branch" *ngIf="admitCardData?.branchName">
-                  Center / Campus: <strong>{{ admitCardData?.branchName }}</strong> &bull; Examination Division
+                <p class="inst-branch" *ngIf="admitCardData?.branchName as branchName">
+                  Center / Campus: <strong>{{ branchName }}</strong> &bull; Examination Division
                 </p>
               </div>
             </div>

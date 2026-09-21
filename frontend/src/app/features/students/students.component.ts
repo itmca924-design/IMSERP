@@ -17,10 +17,15 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { CoachingService } from '../../core/services/coaching.service';
 import { SchoolService, SchoolClassDto, SchoolSectionDto } from '../../core/services/school.service';
 import { HostelService, HostelDto, HostelBedDto } from '../../core/services/hostel.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
+import { LibraryService, LibraryMembershipPlanDto } from '../../core/services/library.service';
+import { StudentLeavingDialogComponent } from './student-leaving-dialog.component';
+import { StudentReadmissionDialogComponent } from './student-readmission-dialog.component';
+import { ManageLibraryPlansDialogComponent } from '../library/manage-library-plans-dialog.component';
 
 const API_BASE = 'http://localhost:5000';
 
@@ -44,7 +49,8 @@ const API_BASE = 'http://localhost:5000';
     MatProgressBarModule,
     MatProgressSpinnerModule,
     MatTooltipModule,
-    MatCheckboxModule
+    MatCheckboxModule,
+    MatDialogModule
   ],
   template: `
     <div class="students-wrapper">
@@ -111,6 +117,9 @@ const API_BASE = 'http://localhost:5000';
                 </mat-checkbox>
                 <mat-checkbox formControlName="isHostelStudent" (change)="onHostelCheckChanged()" color="accent">
                   <span class="chk-label">🏨 <strong>Hostel Resident (Optional)</strong> (Room &amp; Bed Allotment)</span>
+                </mat-checkbox>
+                <mat-checkbox formControlName="isLibraryMember" (change)="onLibraryCheckChanged()" color="primary">
+                  <span class="chk-label">📚 <strong>Library Membership (Optional)</strong> (Books &amp; Reading Shifts)</span>
                 </mat-checkbox>
               </div>
               <div class="stream-hint-warn" *ngIf="!studentForm.value.isSchoolStudent && !studentForm.value.isCoachingStudent">
@@ -212,6 +221,51 @@ const API_BASE = 'http://localhost:5000';
                   </mat-option>
                 </mat-select>
                 <mat-hint *ngIf="selectedBedRent">Monthly Bed Rent: ₹{{ selectedBedRent | number }}</mat-hint>
+              </mat-form-field>
+            </ng-container>
+
+            <!-- Library Membership Details (if Library is checked) -->
+            <ng-container *ngIf="studentForm.value.isLibraryMember">
+              <div class="section-divider-box full-span library-sect">
+                <mat-icon>local_library</mat-icon>
+                <span>Library Facility &amp; Reading Room Details (Optional Facility)</span>
+              </div>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Membership Type / Shift</mat-label>
+                <mat-select formControlName="libraryMembershipType" (selectionChange)="onLibraryPlanSelectionChange($event.value)" panelClass="batch-filter-panel">
+                  <mat-option *ngFor="let plan of libraryPlans" [value]="plan.planName">
+                    {{ plan.planName }} {{ plan.monthlyFee > 0 ? '(₹' + (plan.monthlyFee | number) + '/mo)' : '(Free / ₹0)' }}
+                  </mat-option>
+                </mat-select>
+                <button mat-icon-button matSuffix type="button" (click)="openManagePlansModal(); $event.stopPropagation()" matTooltip="Configure Shifts & Pricing">
+                  <mat-icon color="primary" style="font-size: 20px; width: 20px; height: 20px;">settings</mat-icon>
+                </button>
+                <button mat-icon-button matSuffix type="button" (click)="loadLibraryPlans(); $event.stopPropagation()" matTooltip="Refresh Shifts List">
+                  <mat-icon style="font-size: 18px; width: 18px; height: 18px; color: #64748b;">refresh</mat-icon>
+                </button>
+                <mat-hint>Select lending or coaching self-study shift</mat-hint>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Library Card / Barcode No.</mat-label>
+                <input matInput formControlName="libraryCardNumber" placeholder="e.g. LIB-2026-1045" />
+                <button mat-icon-button matSuffix type="button" (click)="autoGenerateLibraryCard()" matTooltip="Auto-generate Library Card Number">
+                  <mat-icon color="primary">autorenew</mat-icon>
+                </button>
+                <mat-hint>Library card or barcode identifier</mat-hint>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Max Book Borrow Limit</mat-label>
+                <input matInput type="number" formControlName="maxLibraryBooks" min="1" max="10" />
+                <mat-hint>Max books student can hold at a time (Default: 2)</mat-hint>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Monthly Library Fee (₹)</mat-label>
+                <input matInput type="number" formControlName="monthlyLibraryFee" min="0" />
+                <mat-hint>Keep ₹0 for free lending, or set monthly reading fee</mat-hint>
               </mat-form-field>
             </ng-container>
 
@@ -378,6 +432,10 @@ const API_BASE = 'http://localhost:5000';
             <mat-icon>apartment</mat-icon>
             <span>Hostel Residents</span>
           </button>
+          <button type="button" class="stream-tab library-tab" [class.active]="selectedStreamFilter === 'library'" (click)="setStreamFilter('library')">
+            <mat-icon>local_library</mat-icon>
+            <span>Library Members</span>
+          </button>
           <button type="button" class="stream-tab dayscholar-tab" [class.active]="selectedStreamFilter === 'dayscholar'" (click)="setStreamFilter('dayscholar')">
             <mat-icon>directions_walk</mat-icon>
             <span>Day Scholars</span>
@@ -393,7 +451,7 @@ const API_BASE = 'http://localhost:5000';
                 matInput
                 [(ngModel)]="searchTerm"
                 (keyup.enter)="onSearch()"
-                placeholder="Search by Roll No, Name, Phone, SR No..."
+                placeholder="Search by Roll No, Name, Phone, SR No, Lib Card..."
               />
               <button mat-icon-button matSuffix (click)="onSearch()" aria-label="Search">
                 <mat-icon>search</mat-icon>
@@ -432,6 +490,16 @@ const API_BASE = 'http://localhost:5000';
                 </mat-option>
               </mat-select>
             </mat-form-field>
+
+            <!-- Enrollment Status Filter -->
+            <mat-form-field appearance="outline" class="filter-select status-select">
+              <mat-label>Status</mat-label>
+              <mat-select [(ngModel)]="selectedStatusFilter" (selectionChange)="onFilterChange()" panelClass="batch-filter-panel">
+                <mat-option value="all">All Records</mat-option>
+                <mat-option value="active">Active Enrolled</mat-option>
+                <mat-option value="left">Left / TC Issued</mat-option>
+              </mat-select>
+            </mat-form-field>
           </div>
 
           <mat-progress-bar mode="indeterminate" *ngIf="loading" class="grid-loader"></mat-progress-bar>
@@ -464,6 +532,9 @@ const API_BASE = 'http://localhost:5000';
                     <div class="school-roll-pill" *ngIf="s.isSchoolStudent && s.schoolRollNumber">
                       <span class="lbl">Sec Roll:</span> {{ s.schoolRollNumber }}
                     </div>
+                    <div class="lib-card-pill" *ngIf="s.isLibraryMember && s.libraryCardNumber">
+                      <span class="lbl">Lib:</span> <strong>{{ s.libraryCardNumber }}</strong>
+                    </div>
                   </div>
                 </td>
               </ng-container>
@@ -473,7 +544,17 @@ const API_BASE = 'http://localhost:5000';
                 <th mat-header-cell *matHeaderCellDef mat-sort-header="studentName">Student Name</th>
                 <td mat-cell *matCellDef="let s">
                   <div class="name-cell-wrap">
-                    <span class="student-name-text">{{ s.studentName }}</span>
+                    <div class="name-row-header">
+                      <span class="student-name-text">{{ s.studentName }}</span>
+                      <span class="slc-badge-pill" *ngIf="s.isActive === false && isStudentPassedOut(s)" matTooltip="Terminal Pass-Out Alumnus - SLC: {{ s.tcNumber || 'Issued' }}">
+                        <mat-icon class="tc-icon-mini">school</mat-icon>
+                        <span>{{ s.tcNumber || 'SLC' }}</span>
+                      </span>
+                      <span class="tc-badge-pill" *ngIf="s.isActive === false && !isStudentPassedOut(s)" matTooltip="Left School - TC: {{ s.tcNumber || 'Issued' }}">
+                        <mat-icon class="tc-icon-mini">assignment_turned_in</mat-icon>
+                        <span>{{ s.tcNumber || 'Left' }}</span>
+                      </span>
+                    </div>
                     <div class="student-meta-sub" *ngIf="s.gender || s.dateOfBirth">
                       <span>{{ s.gender }}</span>
                       <span *ngIf="s.gender && s.dateOfBirth">&bull;</span>
@@ -504,13 +585,16 @@ const API_BASE = 'http://localhost:5000';
                     <span class="badge-pill dayscholar" *ngIf="!s.isHostelStudent">
                       <mat-icon>directions_walk</mat-icon> Day Scholar
                     </span>
+                    <span class="badge-pill library" *ngIf="s.isLibraryMember">
+                      <mat-icon>local_library</mat-icon> Library Member
+                    </span>
                   </div>
                 </td>
               </ng-container>
 
               <!-- Academic Allocation: Class & Batch -->
               <ng-container matColumnDef="batchOrClass">
-                <th mat-header-cell *matHeaderCellDef>Academic &amp; Hostel Assignment</th>
+                <th mat-header-cell *matHeaderCellDef>Academic &amp; Facilities</th>
                 <td mat-cell *matCellDef="let s">
                   <div class="academic-stack">
                     <div class="school-alloc" *ngIf="s.isSchoolStudent">
@@ -524,6 +608,10 @@ const API_BASE = 'http://localhost:5000';
                     <div class="hostel-alloc" *ngIf="s.isHostelStudent">
                       <mat-icon class="icon-hostel">hotel</mat-icon>
                       <span>{{ s.hostelName || 'Hostel' }} - Rm {{ s.roomNumber || '' }} ({{ s.bedCode || 'Bed' }})</span>
+                    </div>
+                    <div class="library-alloc" *ngIf="s.isLibraryMember">
+                      <mat-icon class="icon-library">local_library</mat-icon>
+                      <span>{{ s.libraryMembershipType || 'Standard Lending' }} (Limit: {{ s.maxLibraryBooks || 2 }}{{ s.monthlyLibraryFee > 0 ? ' • ₹' + s.monthlyLibraryFee + '/mo' : '' }})</span>
                     </div>
                   </div>
                 </td>
@@ -562,14 +650,56 @@ const API_BASE = 'http://localhost:5000';
                       mat-stroked-button
                       color="primary"
                       class="btn-quick-coaching"
-                      *ngIf="s.isSchoolStudent && !s.isCoachingStudent"
+                      *ngIf="s.isSchoolStudent && !s.isCoachingStudent && s.isActive !== false"
                       (click)="openEnrollCoachingModal(s)"
                       matTooltip="Enroll this school student into Coaching batch">
                       <mat-icon>add_task</mat-icon>
                       <span>+ Coaching</span>
                     </button>
 
-                    <a mat-icon-button color="primary" [routerLink]="['/students/attendance']" [queryParams]="{studentId: s.id}" matTooltip="Student Attendance">
+                    <!-- Active Student: Mark Left / Issue TC Button -->
+                    <button
+                      mat-icon-button
+                      class="btn-tc-action"
+                      *ngIf="s.isActive !== false"
+                      (click)="openStudentLeavingModal(s)"
+                      matTooltip="Student Leaving / Issue Transfer Certificate (TC)">
+                      <mat-icon>exit_to_app</mat-icon>
+                    </button>
+
+                    <!-- Left Student: View/Print Certificate (SLC / TC) -->
+                    <button
+                      mat-icon-button
+                      class="btn-tc-print"
+                      *ngIf="s.isActive === false"
+                      (click)="openStudentLeavingModal(s, true)"
+                      [matTooltip]="isStudentPassedOut(s) ? 'View & Print School Leaving Certificate (SLC)' : 'View & Print Transfer Certificate (TC)'">
+                      <mat-icon>{{ isStudentPassedOut(s) ? 'workspace_premium' : 'description' }}</mat-icon>
+                    </button>
+                    <!-- Re-Admit Button: ONLY for mid-session left students -->
+                    <button
+                      mat-icon-button
+                      class="btn-tc-readmit"
+                      *ngIf="s.isActive === false && !isStudentPassedOut(s)"
+                      (click)="openReAdmitModal(s)"
+                      matTooltip="Re-Admit Student (Structured Workflow)">
+                      <mat-icon>replay</mat-icon>
+                    </button>
+                    <!-- Disabled icon button for passed-out alumni wrapped in span for hover tooltip -->
+                    <span
+                      *ngIf="s.isActive === false && isStudentPassedOut(s)"
+                      matTooltip="Passed-Out Alumnus: Re-admission not permitted (Register fresh admission for higher class)"
+                      style="display: inline-block;">
+                      <button
+                        mat-icon-button
+                        disabled
+                        style="pointer-events: none;">
+                        <mat-icon style="color: #cbd5e1;">block</mat-icon>
+                      </button>
+                    </span>
+
+                    <!-- Active Student: Mark Attendance (Hidden for Left / TC students) -->
+                    <a mat-icon-button color="primary" [routerLink]="['/students/attendance']" [queryParams]="{studentId: s.id}" matTooltip="Student Attendance" *ngIf="s.isActive !== false">
                       <mat-icon>event_available</mat-icon>
                     </a>
                     <button mat-icon-button color="primary" (click)="editStudent(s)" matTooltip="Edit Student">
@@ -749,6 +879,11 @@ const API_BASE = 'http://localhost:5000';
         border-color: #7e22ce;
         box-shadow: 0 4px 12px rgba(126, 34, 206, 0.2);
       }
+      &.library-tab.active {
+        background: #0f766e;
+        border-color: #0f766e;
+        box-shadow: 0 4px 12px rgba(15, 118, 110, 0.2);
+      }
       &.dayscholar-tab.active {
         background: #475569;
         border-color: #475569;
@@ -847,6 +982,11 @@ const API_BASE = 'http://localhost:5000';
         background: #fdf4ff;
         color: #86198f;
         border-left: 4px solid #c026d3;
+      }
+      &.library-sect {
+        background: #f0fdfa;
+        color: #0f766e;
+        border-left: 4px solid #14b8a6;
       }
     }
 
@@ -956,6 +1096,16 @@ const API_BASE = 'http://localhost:5000';
         font-size: 0.75rem;
         color: #64748b;
       }
+      .lib-card-pill {
+        font-size: 0.78rem;
+        color: #0f766e;
+        background: #f0fdfa;
+        padding: 1px 6px;
+        border-radius: 4px;
+        width: fit-content;
+        border: 1px solid #ccfbf1;
+        .lbl { font-size: 0.7rem; color: #0d9488; }
+      }
     }
 
     /* Student Name Column */
@@ -1024,6 +1174,11 @@ const API_BASE = 'http://localhost:5000';
         color: #475569;
         border: 1px solid #cbd5e1;
       }
+      &.library {
+        background: #f0fdfa;
+        color: #0f766e;
+        border: 1px solid #99f6e4;
+      }
     }
 
     /* Academic Allocations */
@@ -1053,6 +1208,13 @@ const API_BASE = 'http://localhost:5000';
         gap: 4px;
         color: #7e22ce;
         .icon-hostel { font-size: 14px; width: 14px; height: 14px; color: #a855f7; }
+      }
+      .library-alloc {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        color: #0f766e;
+        .icon-library { font-size: 14px; width: 14px; height: 14px; color: #14b8a6; }
       }
     }
 
@@ -1094,6 +1256,68 @@ const API_BASE = 'http://localhost:5000';
 
       mat-icon { font-size: 16px; width: 16px; height: 16px; margin-right: 3px; }
       &:hover { background: #f3e8ff !important; }
+    }
+
+    .btn-tc-action {
+      color: #ea580c !important;
+      &:hover { background: #fff7ed !important; }
+    }
+    .btn-tc-print {
+      color: #0284c7 !important;
+      &:hover { background: #f0f9ff !important; }
+    }
+    .btn-tc-readmit {
+      color: #16a34a !important;
+      &:hover { background: #f0fdf4 !important; }
+    }
+
+    .name-row-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .tc-badge-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 10px;
+      background: #fee2e2;
+      color: #b91c1c;
+      border: 1px solid #fca5a5;
+
+      .tc-icon-mini {
+        font-size: 12px;
+        width: 12px;
+        height: 12px;
+      }
+    }
+
+    .slc-badge-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 10px;
+      background: #ede9fe;
+      color: #6d28d9;
+      border: 1px solid #ddd6fe;
+
+      .tc-icon-mini {
+        font-size: 12px;
+        width: 12px;
+        height: 12px;
+      }
+    }
+
+    .status-select {
+      max-width: 160px;
     }
 
     .empty-cell { text-align: center; padding: 36px 0; }
@@ -1299,6 +1523,7 @@ export class StudentsComponent implements OnInit, OnDestroy {
   sortDescending = false;
 
   selectedStreamFilter = 'all'; // 'all', 'school', 'coaching', 'hostel', 'dayscholar'
+  selectedStatusFilter = 'all'; // 'all', 'active', 'left'
   selectedBatchFilter = '';
   selectedClassFilter = '';
   selectedSectionFilter = '';
@@ -1307,6 +1532,9 @@ export class StudentsComponent implements OnInit, OnDestroy {
   hostelsList: HostelDto[] = [];
   availableBedsList: HostelBedDto[] = [];
   selectedBedRent: number | null = null;
+
+  /** Library Membership Support */
+  libraryPlans: LibraryMembershipPlanDto[] = [];
 
   /** 1-Click Coaching Enrollment Dialog */
   enrollCoachingModalOpen = false;
@@ -1332,7 +1560,9 @@ export class StudentsComponent implements OnInit, OnDestroy {
     private coachingService: CoachingService,
     private schoolService: SchoolService,
     private hostelService: HostelService,
+    private libraryService: LibraryService,
     private confirmDialog: ConfirmDialogService,
+    private dialog: MatDialog,
     private fb: FormBuilder
   ) {
     this.studentForm = this.fb.group({
@@ -1341,6 +1571,11 @@ export class StudentsComponent implements OnInit, OnDestroy {
       isHostelStudent: [false],
       hostelId: [''],
       hostelBedId: [''],
+      isLibraryMember: [false],
+      libraryCardNumber: [''],
+      libraryMembershipType: ['Standard Book Lending'],
+      maxLibraryBooks: [2],
+      monthlyLibraryFee: [0],
       classId: [''],
       sectionId: [''],
       admissionNumber: [''],
@@ -1362,8 +1597,31 @@ export class StudentsComponent implements OnInit, OnDestroy {
     this.coachingService.getBatches().subscribe(b => this.batches = b || []);
     this.schoolService.getClasses(false).subscribe(c => this.schoolClasses = c || []);
     this.hostelService.getHostels().subscribe(h => this.hostelsList = h || []);
+    this.loadLibraryPlans();
     this.loadStudents();
     this.setupBatchIdWatcher();
+  }
+
+  loadLibraryPlans(): void {
+    this.libraryService.getMembershipPlans().subscribe({
+      next: (plans) => {
+        this.libraryPlans = plans || [];
+      },
+      error: (err) => console.error('Error loading library membership plans:', err)
+    });
+  }
+
+  openManagePlansModal(): void {
+    const dialogRef = this.dialog.open(ManageLibraryPlansDialogComponent, {
+      width: '840px',
+      maxWidth: '96vw',
+      disableClose: false,
+      panelClass: 'custom-dialog-container'
+    });
+
+    dialogRef.afterClosed().subscribe(() => {
+      this.loadLibraryPlans();
+    });
   }
 
   ngOnDestroy(): void {
@@ -1478,6 +1736,53 @@ export class StudentsComponent implements OnInit, OnDestroy {
   onBedSelectionChange(bedId: string): void {
     const bed = this.availableBedsList.find(b => b.id === bedId);
     this.selectedBedRent = bed ? bed.monthlyRent : null;
+  }
+
+  onLibraryCheckChanged(): void {
+    const isLib = this.studentForm.get('isLibraryMember')?.value;
+    if (isLib) {
+      if (!this.studentForm.get('libraryCardNumber')?.value) {
+        this.autoGenerateLibraryCard();
+      }
+      const currentType = this.studentForm.get('libraryMembershipType')?.value;
+      if (this.libraryPlans && this.libraryPlans.length > 0) {
+        let matched = this.libraryPlans.find(p => p.planName === currentType);
+        if (!matched) {
+          matched = this.libraryPlans[0];
+        }
+        this.studentForm.patchValue({
+          libraryMembershipType: matched.planName,
+          maxLibraryBooks: matched.maxBooks || 2,
+          monthlyLibraryFee: matched.monthlyFee ?? 0
+        });
+      } else {
+        if (!this.studentForm.get('maxLibraryBooks')?.value) {
+          this.studentForm.patchValue({ maxLibraryBooks: 2 });
+        }
+        if (!this.studentForm.get('libraryMembershipType')?.value) {
+          this.studentForm.patchValue({ libraryMembershipType: 'Standard Book Lending' });
+        }
+        if (this.studentForm.get('monthlyLibraryFee')?.value === null || this.studentForm.get('monthlyLibraryFee')?.value === undefined) {
+          this.studentForm.patchValue({ monthlyLibraryFee: 0 });
+        }
+      }
+    }
+  }
+
+  onLibraryPlanSelectionChange(selectedPlanName: string): void {
+    const plan = this.libraryPlans.find(p => p.planName === selectedPlanName);
+    if (plan) {
+      this.studentForm.patchValue({
+        monthlyLibraryFee: plan.monthlyFee,
+        maxLibraryBooks: plan.maxBooks || 2
+      });
+    }
+  }
+
+  autoGenerateLibraryCard(): void {
+    const year = new Date().getFullYear();
+    const rand = Math.floor(1000 + Math.random() * 9000);
+    this.studentForm.patchValue({ libraryCardNumber: `LIB-${year}-${rand}` });
   }
 
   // ── Sibling & Parent Smart Match Helpers ─────────────────
@@ -1756,7 +2061,8 @@ export class StudentsComponent implements OnInit, OnDestroy {
       this.selectedBatchFilter,
       this.selectedStreamFilter === 'all' ? undefined : this.selectedStreamFilter,
       this.selectedClassFilter || undefined,
-      this.selectedSectionFilter || undefined
+      this.selectedSectionFilter || undefined,
+      this.selectedStatusFilter === 'all' ? undefined : this.selectedStatusFilter
     ).subscribe({
       next: (res) => {
         this.students = res.items || [];
@@ -1766,6 +2072,54 @@ export class StudentsComponent implements OnInit, OnDestroy {
       error: (err) => {
         this.loading = false;
         console.error('Error loading paged students:', err);
+      }
+    });
+  }
+
+  // ── Student Leaving / TC Workflow ─────────────────────────
+
+  openStudentLeavingModal(student: any, isViewOnly: boolean = false): void {
+    const dialogRef = this.dialog.open(StudentLeavingDialogComponent, {
+      width: '820px',
+      maxWidth: '95vw',
+      disableClose: false,
+      data: { student, isViewOnly }
+    });
+
+    dialogRef.afterClosed().subscribe((res) => {
+      if (res?.updated) {
+        this.loadStudents();
+      } else if (res?.openReAdmit && res?.student) {
+        this.openReAdmitModal(res.student);
+      }
+    });
+  }
+
+  isStudentPassedOut(student: any): boolean {
+    const reason = student?.leavingReason;
+    return !!(reason && (reason.includes('Passed Out') || reason.includes('Completed')));
+  }
+
+  openReAdmitModal(student: any): void {
+    if (this.isStudentPassedOut(student)) {
+      this.confirmDialog.alert(
+        'Re-Admission Not Permitted',
+        'This student has passed out / graduated from the terminal class. They cannot be re-admitted to the same class. Please register a fresh admission for the higher class or stream.',
+        'info'
+      );
+      return;
+    }
+
+    const dialogRef = this.dialog.open(StudentReadmissionDialogComponent, {
+      width: '660px',
+      maxWidth: '95vw',
+      disableClose: false,
+      data: { student }
+    });
+
+    dialogRef.afterClosed().subscribe((res) => {
+      if (res?.reAdmitted) {
+        this.loadStudents();
       }
     });
   }
@@ -1787,6 +2141,12 @@ export class StudentsComponent implements OnInit, OnDestroy {
       this.studentForm.reset({
         isSchoolStudent: false,
         isCoachingStudent: true,
+        isHostelStudent: false,
+        isLibraryMember: false,
+        libraryCardNumber: '',
+        libraryMembershipType: 'Standard Book Lending',
+        maxLibraryBooks: 2,
+        monthlyLibraryFee: 0,
         gender: 'Male'
       });
       this.loadStudents();
@@ -1822,6 +2182,11 @@ export class StudentsComponent implements OnInit, OnDestroy {
       isHostelStudent: !!student.isHostelStudent,
       hostelId: student.hostelId || '',
       hostelBedId: student.hostelBedId || '',
+      isLibraryMember: !!student.isLibraryMember,
+      libraryCardNumber: student.libraryCardNumber || '',
+      libraryMembershipType: student.libraryMembershipType || 'Standard Book Lending',
+      maxLibraryBooks: student.maxLibraryBooks ?? 2,
+      monthlyLibraryFee: student.monthlyLibraryFee ?? 0,
       classId: student.classId || '',
       sectionId: student.sectionId || '',
       admissionNumber: student.admissionNumber || '',
@@ -1925,6 +2290,11 @@ export class StudentsComponent implements OnInit, OnDestroy {
       ...formVal,
       isHostelStudent: !!formVal.isHostelStudent,
       hostelBedId: formVal.isHostelStudent && formVal.hostelBedId ? formVal.hostelBedId : null,
+      isLibraryMember: !!formVal.isLibraryMember,
+      libraryCardNumber: formVal.isLibraryMember ? (formVal.libraryCardNumber || null) : null,
+      libraryMembershipType: formVal.isLibraryMember ? (formVal.libraryMembershipType || 'Standard Book Lending') : null,
+      maxLibraryBooks: formVal.isLibraryMember ? (formVal.maxLibraryBooks || 2) : 2,
+      monthlyLibraryFee: formVal.isLibraryMember ? (formVal.monthlyLibraryFee || 0) : 0,
       batchId: formVal.isCoachingStudent && formVal.batchId ? formVal.batchId : null,
       rollNumber: formVal.isCoachingStudent ? formVal.rollNumber : (formVal.schoolRollNumber || formVal.admissionNumber || 'SCH'),
       classId: formVal.isSchoolStudent && formVal.classId ? formVal.classId : null,

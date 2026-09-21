@@ -1504,6 +1504,169 @@ body.erp-compact {
   }
 }
 
+// ============================================================================
+// 5. Global Mat-Select & Dropdown Panel Clear Visibility & Elevation
+// ============================================================================
+.cdk-overlay-pane:has(.mat-mdc-select-panel) {
+  min-width: 280px !important;
+  max-width: 520px !important;
+}
+
+.mat-mdc-select-panel {
+  background-color: #ffffff !important;
+  background: #ffffff !important;
+  border: 1.5px solid #94a3b8 !important;
+  border-radius: 10px !important;
+  box-shadow: 0 16px 36px -4px rgba(15, 23, 42, 0.28), 
+              0 6px 16px -2px rgba(15, 23, 42, 0.16),
+              0 0 0 1px rgba(148, 163, 184, 0.25) !important;
+  padding: 6px 0 !important;
+  min-width: 280px !important;
+  max-height: 320px !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+
+  /* Custom Clean Scrollbar */
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    background: #f8fafc;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: #94a3b8;
+    border-radius: 4px;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
+  }
+
+  .mat-mdc-option {
+    min-height: 44px !important;
+    padding: 10px 16px !important;
+    font-size: 0.88rem !important;
+    font-weight: 500 !important;
+    color: #1e293b !important;
+    border-bottom: 1px solid #f1f5f9 !important;
+    transition: background-color 0.15s ease, color 0.15s ease;
+
+    &:last-child {
+      border-bottom: none !important;
+    }
+
+    .mdc-list-item__primary-text {
+      white-space: normal !important;
+      word-break: break-word !important;
+      line-height: 1.4 !important;
+      color: #1e293b !important;
+    }
+
+    /* Hover effect */
+    &:hover:not(.mdc-list-item--disabled) {
+      background-color: #eff6ff !important;
+
+      .mdc-list-item__primary-text {
+        color: #1d4ed8 !important;
+        font-weight: 600 !important;
+      }
+    }
+
+    /* Selected option state */
+    &.mdc-list-item--selected:not(.mdc-list-item--disabled) {
+      background-color: #dbeafe !important;
+
+      .mdc-list-item__primary-text {
+        color: #1e40af !important;
+        font-weight: 700 !important;
+      }
+    }
+
+    /* Focus active state */
+    &.mat-mdc-option-active {
+      background-color: #f1f5f9 !important;
+    }
+  }
+}
+
+.leaving-reason-select-panel {
+  min-width: 320px !important;
+}
+
+/* Dark theme support */
+body.erp-dark-theme .mat-mdc-select-panel {
+  background-color: #1e293b !important;
+  background: #1e293b !important;
+  border-color: #475569 !important;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6) !important;
+
+  .mat-mdc-option {
+    color: #f1f5f9 !important;
+    border-bottom-color: #334155 !important;
+
+    .mdc-list-item__primary-text {
+      color: #f1f5f9 !important;
+    }
+
+    &:hover:not(.mdc-list-item--disabled) {
+      background-color: #334155 !important;
+      .mdc-list-item__primary-text {
+        color: #60a5fa !important;
+      }
+    }
+
+    &.mdc-list-item--selected:not(.mdc-list-item--disabled) {
+      background-color: #1e3a8a !important;
+      .mdc-list-item__primary-text {
+        color: #93c5fd !important;
+      }
+    }
+  }
+}
+
+// 6. Global Print Handler for Transfer Certificate
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  body:has(#printableTcDoc) {
+    app-root,
+    .layout-container,
+    .sidebar,
+    .header-toolbar,
+    .students-wrapper,
+    .tc-dialog-header,
+    .tc-nav-tabs,
+    .tc-doc-actions,
+    .cdk-overlay-backdrop {
+      display: none !important;
+    }
+
+    .cdk-overlay-container,
+    .cdk-global-overlay-wrapper,
+    .cdk-overlay-pane,
+    .mat-mdc-dialog-container,
+    .mat-mdc-dialog-surface,
+    .tc-dialog-wrapper,
+    .tc-dialog-body,
+    .tab-pane,
+    #printableTcDoc {
+      display: block !important;
+      visibility: visible !important;
+      position: static !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      border: none !important;
+      box-shadow: none !important;
+      overflow: visible !important;
+    }
+  }
+}
+
+
+
 
 
 

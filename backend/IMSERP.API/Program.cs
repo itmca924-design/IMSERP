@@ -87,6 +87,25 @@ using (var scope = app.Services.CreateScope())
         
         context.Database.EnsureCreated();
 
+        if (!string.IsNullOrEmpty(connectionString))
+        {
+            try
+            {
+                context.Database.ExecuteSqlRaw(@"
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Students') AND name = 'LeavingDate')
+                        ALTER TABLE Students ADD LeavingDate DATETIME2 NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Students') AND name = 'LeavingReason')
+                        ALTER TABLE Students ADD LeavingReason NVARCHAR(MAX) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Students') AND name = 'TCNumber')
+                        ALTER TABLE Students ADD TCNumber NVARCHAR(MAX) NULL;
+                ");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Database Migration Warning] {ex.Message}");
+            }
+        }
+
         var users = context.Users.ToList();
         bool updated = false;
 

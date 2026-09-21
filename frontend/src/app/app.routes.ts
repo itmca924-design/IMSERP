@@ -121,6 +121,10 @@ export const routes: Routes = [
         path: 'library/circulation',
         loadComponent: () => import('./features/library/library-circulation.component').then(m => m.LibraryCirculationComponent)
       },
+      {
+        path: 'library/plans',
+        loadComponent: () => import('./features/library/library-plans.component').then(m => m.LibraryPlansComponent)
+      },
       { path: 'library', redirectTo: 'library/books', pathMatch: 'full' },
 
       // Hostel & Residential Management (School + Hostel & Coaching + Hostel)

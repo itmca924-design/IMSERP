@@ -155,6 +155,18 @@ export interface LibrarySettingDto {
   allowFineWaiver: boolean;
 }
 
+export interface LibraryMembershipPlanDto {
+  id: string;
+  tenantId: string;
+  branchId?: string | null;
+  planName: string;
+  shiftTiming?: string | null;
+  monthlyFee: number;
+  maxBooks: number;
+  isActive: boolean;
+  sortOrder: number;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -209,6 +221,14 @@ export class LibraryService {
     return this.http.get<BookCopyDto>(`${this.apiUrl}/copies/lookup`, { params: { query } });
   }
 
+  getAvailableCopies(searchTerm?: string): Observable<BookCopyDto[]> {
+    let params = new HttpParams();
+    if (searchTerm && searchTerm.trim()) {
+      params = params.set('searchTerm', searchTerm.trim());
+    }
+    return this.http.get<BookCopyDto[]>(`${this.apiUrl}/copies/available`, { params });
+  }
+
   createCopy(dto: CreateBookCopyDto): Observable<BookCopyDto> {
     return this.http.post<BookCopyDto>(`${this.apiUrl}/copies`, dto);
   }
@@ -254,5 +274,36 @@ export class LibraryService {
 
   updateSettings(dto: Partial<LibrarySettingDto>): Observable<any> {
     return this.http.put(`${this.apiUrl}/settings`, dto);
+  }
+
+  getMembershipPlans(activeOnly: boolean = true): Observable<LibraryMembershipPlanDto[]> {
+    return this.http.get<LibraryMembershipPlanDto[]>(`${this.apiUrl}/membership-plans`, {
+      params: { activeOnly: activeOnly.toString() }
+    });
+  }
+
+  createMembershipPlan(dto: {
+    planName: string;
+    shiftTiming?: string | null;
+    monthlyFee: number;
+    maxBooks: number;
+    sortOrder: number;
+  }): Observable<LibraryMembershipPlanDto> {
+    return this.http.post<LibraryMembershipPlanDto>(`${this.apiUrl}/membership-plans`, dto);
+  }
+
+  updateMembershipPlan(id: string, dto: {
+    planName: string;
+    shiftTiming?: string | null;
+    monthlyFee: number;
+    maxBooks: number;
+    isActive: boolean;
+    sortOrder: number;
+  }): Observable<any> {
+    return this.http.put(`${this.apiUrl}/membership-plans/${id}`, dto);
+  }
+
+  deleteMembershipPlan(id: string): Observable<any> {
+    return this.http.delete(`${this.apiUrl}/membership-plans/${id}`);
   }
 }

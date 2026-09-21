@@ -47,6 +47,9 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           </p>
         </div>
         <div class="header-actions">
+          <a mat-stroked-button routerLink="/library/plans" class="circ-link-btn">
+            <mat-icon>schedule</mat-icon> Shifts &amp; Plans
+          </a>
           <a mat-stroked-button routerLink="/library/circulation" class="circ-link-btn">
             <mat-icon>sync_alt</mat-icon> Issue &amp; Return Counter
           </a>

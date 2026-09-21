@@ -289,6 +289,48 @@ public class LibraryController : ControllerBase
         return Ok(dto);
     }
 
+    [HttpGet("copies/available")]
+    public async Task<ActionResult<IEnumerable<BookCopyDto>>> GetAvailableCopies([FromQuery] string? searchTerm = null)
+    {
+        var query = _db.BookCopies
+            .AsNoTracking()
+            .Include(c => c.Book)
+            .Where(c => c.IsActive && c.Status == "Available")
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            var term = searchTerm.Trim().ToLower();
+            query = query.Where(c => c.AccessionNumber.ToLower().Contains(term) ||
+                                     (c.Barcode != null && c.Barcode.ToLower().Contains(term)) ||
+                                     (c.Book != null && (c.Book.Title.ToLower().Contains(term) || c.Book.Author.ToLower().Contains(term) || (c.Book.Subject != null && c.Book.Subject.ToLower().Contains(term)))));
+        }
+
+        var list = await query
+            .OrderBy(c => c.Book != null ? c.Book.Title : "")
+            .ThenBy(c => c.AccessionNumber)
+            .Take(100)
+            .Select(copy => new BookCopyDto(
+                copy.Id,
+                copy.TenantId,
+                copy.BranchId,
+                copy.BookId,
+                copy.Book != null ? copy.Book.Title : "Unknown Title",
+                copy.Book != null ? copy.Book.Author : "Unknown Author",
+                copy.AccessionNumber,
+                copy.Barcode,
+                copy.RackLocation,
+                copy.Price,
+                copy.Status,
+                copy.ConditionNotes,
+                copy.CreatedAt,
+                copy.IsActive
+            ))
+            .ToListAsync();
+
+        return Ok(list);
+    }
+
     [HttpPost("copies")]
     public async Task<ActionResult<BookCopyDto>> CreateCopy([FromBody] CreateBookCopyDto dto)
     {
@@ -411,11 +453,21 @@ public class LibraryController : ControllerBase
         }
         else if (dto.StudentId.HasValue)
         {
+            var student = await _db.Students.FindAsync(dto.StudentId.Value);
+            if (student != null && !student.IsLibraryMember)
+            {
+                return BadRequest(new { message = $"Borrowing restricted: Student '{student.StudentName}' does not have an active Library Membership. Please enroll in a membership plan first." });
+            }
+
+            int maxBooks = (student != null && student.MaxLibraryBooks > 0)
+                ? student.MaxLibraryBooks
+                : settings.MaxBooksPerStudent;
+
             var activeLoans = await _db.LibraryCirculations
                 .CountAsync(c => c.StudentId == dto.StudentId.Value && (c.Status == "Issued" || c.Status == "Overdue"));
 
-            if (activeLoans >= settings.MaxBooksPerStudent)
-                return BadRequest(new { message = $"Student has already reached maximum borrowing limit ({settings.MaxBooksPerStudent} books)." });
+            if (activeLoans >= maxBooks)
+                return BadRequest(new { message = $"Student has already reached maximum borrowing limit ({maxBooks} books)." });
 
             // Check if student has pending overdue books
             var hasOverdue = await _db.LibraryCirculations
@@ -756,5 +808,122 @@ public class LibraryController : ControllerBase
 
         await _db.SaveChangesAsync();
         return Ok(new { message = "Library settings updated successfully." });
+    }
+
+    // =========================================================================
+    // 6. Library Membership Plans & Shifts Master
+    // =========================================================================
+
+    [HttpGet("membership-plans")]
+    public async Task<ActionResult<IEnumerable<LibraryMembershipPlanDto>>> GetMembershipPlans([FromQuery] bool activeOnly = true)
+    {
+        var query = _db.LibraryMembershipPlans.AsNoTracking().AsQueryable();
+
+        if (activeOnly)
+            query = query.Where(p => p.IsActive);
+
+        var plans = await query
+            .OrderBy(p => p.SortOrder)
+            .ThenBy(p => p.PlanName)
+            .Select(p => new LibraryMembershipPlanDto(
+                p.Id,
+                p.TenantId,
+                p.BranchId,
+                p.PlanName,
+                p.ShiftTiming,
+                p.MonthlyFee,
+                p.MaxBooks,
+                p.IsActive,
+                p.SortOrder
+            ))
+            .ToListAsync();
+
+        if (plans.Count == 0)
+        {
+            var defaultPlans = new List<LibraryMembershipPlan>
+            {
+                new() { TenantId = _currentUser.TenantId, PlanName = "Standard Book Lending", ShiftTiming = "Home Issue / Lending", MonthlyFee = 0.00m, MaxBooks = 2, SortOrder = 1, IsActive = true },
+                new() { TenantId = _currentUser.TenantId, PlanName = "Morning Study Shift (8AM - 1PM)", ShiftTiming = "8:00 AM - 1:00 PM", MonthlyFee = 500.00m, MaxBooks = 2, SortOrder = 2, IsActive = true },
+                new() { TenantId = _currentUser.TenantId, PlanName = "Evening Study Shift (2PM - 7PM)", ShiftTiming = "2:00 PM - 7:00 PM", MonthlyFee = 500.00m, MaxBooks = 2, SortOrder = 3, IsActive = true },
+                new() { TenantId = _currentUser.TenantId, PlanName = "Full Day Reading Shift (8AM - 8PM)", ShiftTiming = "8:00 AM - 8:00 PM", MonthlyFee = 800.00m, MaxBooks = 4, SortOrder = 4, IsActive = true },
+            };
+            _db.LibraryMembershipPlans.AddRange(defaultPlans);
+            await _db.SaveChangesAsync();
+
+            plans = defaultPlans.Select(p => new LibraryMembershipPlanDto(
+                p.Id,
+                p.TenantId,
+                p.BranchId,
+                p.PlanName,
+                p.ShiftTiming,
+                p.MonthlyFee,
+                p.MaxBooks,
+                p.IsActive,
+                p.SortOrder
+            )).ToList();
+        }
+
+        return Ok(plans);
+    }
+
+    [HttpPost("membership-plans")]
+    public async Task<ActionResult<LibraryMembershipPlanDto>> CreateMembershipPlan([FromBody] CreateLibraryMembershipPlanDto dto)
+    {
+        var plan = new LibraryMembershipPlan
+        {
+            TenantId = _currentUser.TenantId,
+            BranchId = _currentUser.BranchId,
+            PlanName = dto.PlanName.Trim(),
+            ShiftTiming = dto.ShiftTiming?.Trim(),
+            MonthlyFee = dto.MonthlyFee,
+            MaxBooks = dto.MaxBooks > 0 ? dto.MaxBooks : 2,
+            SortOrder = dto.SortOrder,
+            IsActive = true
+        };
+
+        _db.LibraryMembershipPlans.Add(plan);
+        await _db.SaveChangesAsync();
+
+        return Ok(new LibraryMembershipPlanDto(
+            plan.Id,
+            plan.TenantId,
+            plan.BranchId,
+            plan.PlanName,
+            plan.ShiftTiming,
+            plan.MonthlyFee,
+            plan.MaxBooks,
+            plan.IsActive,
+            plan.SortOrder
+        ));
+    }
+
+    [HttpPut("membership-plans/{id}")]
+    public async Task<ActionResult> UpdateMembershipPlan(Guid id, [FromBody] UpdateLibraryMembershipPlanDto dto)
+    {
+        var plan = await _db.LibraryMembershipPlans.FirstOrDefaultAsync(p => p.Id == id);
+        if (plan == null)
+            return NotFound(new { message = "Membership plan not found." });
+
+        plan.PlanName = dto.PlanName.Trim();
+        plan.ShiftTiming = dto.ShiftTiming?.Trim();
+        plan.MonthlyFee = dto.MonthlyFee;
+        plan.MaxBooks = dto.MaxBooks > 0 ? dto.MaxBooks : 2;
+        plan.IsActive = dto.IsActive;
+        plan.SortOrder = dto.SortOrder;
+
+        await _db.SaveChangesAsync();
+        return Ok(new { message = "Membership plan updated successfully." });
+    }
+
+    [HttpDelete("membership-plans/{id}")]
+    public async Task<ActionResult> DeleteMembershipPlan(Guid id)
+    {
+        var plan = await _db.LibraryMembershipPlans.FirstOrDefaultAsync(p => p.Id == id);
+        if (plan == null)
+            return NotFound(new { message = "Membership plan not found." });
+
+        _db.LibraryMembershipPlans.Remove(plan);
+        await _db.SaveChangesAsync();
+        return Ok(new { message = "Membership plan deleted successfully." });
     }
 }

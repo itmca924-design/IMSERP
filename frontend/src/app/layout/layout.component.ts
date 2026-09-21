@@ -1095,6 +1095,7 @@ export class LayoutComponent implements OnInit {
     { title: 'Tests & Report Cards', route: '/tests', icon: 'assignment' },
     { title: 'Library Books Catalog', route: '/library/books', icon: 'local_library' },
     { title: 'Book Issue & Return Desk', route: '/library/circulation', icon: 'sync_alt' },
+    { title: 'Library Shifts & Plans', route: '/library/plans', icon: 'schedule' },
     { title: 'Classrooms (Rooms)', route: '/rooms', icon: 'meeting_room' },
     { title: 'Branches Master', route: '/branches', icon: 'store' },
     { title: 'Roles & Permissions', route: '/roles', icon: 'admin_panel_settings' },
@@ -1335,7 +1336,8 @@ export class LayoutComponent implements OnInit {
           { id: '53', title: 'WhatsApp Logs', routeUrl: '/whatsapp', icon: 'chat', sortOrder: 4, module: 'Academic', isActive: true, children: [] },
           { id: '54', title: 'Library Books', routeUrl: '/library/books', icon: 'local_library', sortOrder: 5, module: 'Academic', isActive: true, children: [] },
           { id: '55', title: 'Issue & Return Desk', routeUrl: '/library/circulation', icon: 'sync_alt', sortOrder: 6, module: 'Academic', isActive: true, children: [] },
-          { id: '56', title: 'Hostel Management', routeUrl: '/hostel', icon: 'apartment', sortOrder: 7, module: 'Academic', isActive: true, children: [] }
+          { id: '551', title: 'Library Shifts & Plans', routeUrl: '/library/plans', icon: 'schedule', sortOrder: 7, module: 'Academic', isActive: true, children: [] },
+          { id: '56', title: 'Hostel Management', routeUrl: '/hostel', icon: 'apartment', sortOrder: 8, module: 'Academic', isActive: true, children: [] }
         ]
       },
       {

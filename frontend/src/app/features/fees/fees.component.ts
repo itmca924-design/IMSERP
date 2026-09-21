@@ -335,9 +335,9 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                     <mat-icon>menu_book</mat-icon>
                   </button>
 
-                  <!-- Edit / Add Fee Heads: for non-cancelled invoices -->
+                  <!-- Edit / Add Fee Heads: only for Pending unpaid invoices -->
                   <button
-                    *ngIf="inv.status !== 'Cancelled'"
+                    *ngIf="inv.status === 'Pending' && inv.paidAmount === 0"
                     mat-icon-button
                     class="edit-invoice-btn"
                     (click)="openEditInvoiceModal(inv)"

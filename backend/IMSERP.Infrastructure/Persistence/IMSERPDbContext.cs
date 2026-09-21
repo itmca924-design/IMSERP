@@ -48,6 +48,7 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
     public DbSet<BookCopy> BookCopies => Set<BookCopy>();
     public DbSet<LibraryCirculation> LibraryCirculations => Set<LibraryCirculation>();
     public DbSet<LibrarySetting> LibrarySettings => Set<LibrarySetting>();
+    public DbSet<LibraryMembershipPlan> LibraryMembershipPlans => Set<LibraryMembershipPlan>();
     public DbSet<FeeHead> FeeHeads => Set<FeeHead>();
     public DbSet<ClassFeeStructure> ClassFeeStructures => Set<ClassFeeStructure>();
     public DbSet<FeeInvoiceItem> FeeInvoiceItems => Set<FeeInvoiceItem>();

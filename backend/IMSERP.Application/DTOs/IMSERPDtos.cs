@@ -224,8 +224,66 @@ public record StudentDto(
     string? HostelName = null,
     string? RoomNumber = null,
     string? BedCode = null,
-    Guid? HostelId = null
+    Guid? HostelId = null,
+    DateTime? LeavingDate = null,
+    string? LeavingReason = null,
+    string? TCNumber = null,
+    bool IsLibraryMember = false,
+    string? LibraryCardNumber = null,
+    string? LibraryMembershipType = null,
+    int MaxLibraryBooks = 2,
+    decimal MonthlyLibraryFee = 0
 );
+
+public record StudentLeavingClearanceDto(
+    Guid StudentId,
+    string StudentName,
+    string RollNumber,
+    bool IsActive,
+    decimal PendingFees,
+    int PendingInvoicesCount,
+    bool HasHostelBed,
+    Guid? HostelBedId,
+    Guid? HostelAllocationId,
+    string? HostelName,
+    string? RoomNumber,
+    string? BedCode,
+    int IssuedLibraryBooksCount,
+    decimal PendingLibraryFines,
+    string? ExistingTCNumber,
+    DateTime? ExistingLeavingDate,
+    string? ExistingLeavingReason
+);
+
+public record MarkStudentLeftDto(
+    DateTime LeavingDate,
+    string LeavingReason, // e.g., "TC Issued", "School Transfer", "Course Completed", "Dropped Out", "Rusticated", "Other"
+    string? Remarks,
+    bool VacateHostelBed = true,
+    string? CustomTCNumber = null
+);
+
+public record MarkStudentLeftResultDto(
+    bool Success,
+    string Message,
+    string TCNumber,
+    DateTime LeavingDate,
+    string LeavingReason,
+    decimal PendingFeesRemaining,
+    bool HostelVacated
+);
+
+public record ReAdmitStudentDto(
+    DateTime ReAdmissionDate,
+    string? Remarks = null,
+    Guid? ClassId = null,
+    Guid? SectionId = null,
+    Guid? BatchId = null,
+    string? NewRollNumber = null,
+    decimal ReAdmissionFee = 0,
+    bool ResetTC = true
+);
+
 
 public record CreateStudentDto(
     Guid? BatchId,
@@ -248,7 +306,12 @@ public record CreateStudentDto(
     DateTime? DateOfBirth = null,
     string? BloodGroup = null,
     bool IsHostelStudent = false,
-    Guid? HostelBedId = null
+    Guid? HostelBedId = null,
+    bool IsLibraryMember = false,
+    string? LibraryCardNumber = null,
+    string? LibraryMembershipType = null,
+    int MaxLibraryBooks = 2,
+    decimal MonthlyLibraryFee = 0
 );
 
 public record StudentAttendanceDto(
@@ -1424,6 +1487,35 @@ public record UpdateLibrarySettingDto(
     int TeacherIssueDays,
     decimal DailyFineRate,
     bool AllowFineWaiver
+);
+
+public record LibraryMembershipPlanDto(
+    Guid Id,
+    Guid TenantId,
+    Guid? BranchId,
+    string PlanName,
+    string? ShiftTiming,
+    decimal MonthlyFee,
+    int MaxBooks,
+    bool IsActive,
+    int SortOrder
+);
+
+public record CreateLibraryMembershipPlanDto(
+    string PlanName,
+    string? ShiftTiming,
+    decimal MonthlyFee,
+    int MaxBooks,
+    int SortOrder
+);
+
+public record UpdateLibraryMembershipPlanDto(
+    string PlanName,
+    string? ShiftTiming,
+    decimal MonthlyFee,
+    int MaxBooks,
+    bool IsActive,
+    int SortOrder
 );
 
 // ─── School Multi-Head Fees & Structure DTOs ────────────────────

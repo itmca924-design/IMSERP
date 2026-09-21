@@ -1034,13 +1034,14 @@ public class FeesController : ControllerBase
         // Resolve Standard & Residential FeeHead IDs by Code (HOSTEL / MESS / COACH / TUI)
         var standardHeads = await _dbContext.FeeHeads
             .AsNoTracking()
-            .Where(h => h.IsActive && (h.Code == "HOSTEL" || h.Code == "MESS" || h.Code == "COACH" || h.Code == "TUI"))
+            .Where(h => h.IsActive && (h.Code == "HOSTEL" || h.Code == "MESS" || h.Code == "COACH" || h.Code == "TUI" || h.Code == "LIB"))
             .ToListAsync();
 
         var hostelFeeHeadId = standardHeads.FirstOrDefault(h => h.Code == "HOSTEL")?.Id;
         var messFeeHeadId   = standardHeads.FirstOrDefault(h => h.Code == "MESS")?.Id;
         var coachFeeHead    = standardHeads.FirstOrDefault(h => h.Code == "COACH");
         var tuiFeeHead      = standardHeads.FirstOrDefault(h => h.Code == "TUI");
+        var libFeeHeadId    = standardHeads.FirstOrDefault(h => h.Code == "LIB")?.Id;
         // ────────────────────────────────────────────────────────────────────
 
         var newInvoices = new List<FeeInvoice>();
@@ -1075,6 +1076,12 @@ public class FeesController : ControllerBase
                     // are dynamically and exclusively computed from student's active HostelBed allocation
                     // (prevents accidental double-charging if someone sets a class-level hostel fee).
                     if (head.FeeHead != null && (head.FeeHead.Code == "HOSTEL" || head.FeeHead.Code == "MESS"))
+                    {
+                        continue;
+                    }
+
+                    // Optional Library Safeguard: If student did not opt into library, never charge LIB from matrix
+                    if (head.FeeHead != null && head.FeeHead.Code == "LIB" && !s.IsLibraryMember)
                     {
                         continue;
                     }
@@ -1216,6 +1223,21 @@ public class FeesController : ControllerBase
                 }
             }
             // ─────────────────────────────────────────────────────────────────────
+
+            // ── Inject Optional Library / Reading Room Fee (if opted-in by this student) ──
+            if (s.IsLibraryMember && s.MonthlyLibraryFee > 0)
+            {
+                decimal libAmount = s.MonthlyLibraryFee * cycleMonths;
+                totalAmount += libAmount;
+                invoiceItems.Add(new FeeInvoiceItem
+                {
+                    TenantId   = _currentUser.TenantId,
+                    FeeHeadId  = libFeeHeadId,
+                    HeadName   = $"Library & Reading Room ({s.LibraryMembershipType ?? "Membership"})",
+                    Amount     = libAmount,
+                    PaidAmount = 0
+                });
+            }
 
             // Unique invoice number encodes the cycle type
             var cycleSuffix = dto.BillingCycle switch

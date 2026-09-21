@@ -54,7 +54,8 @@ export class CoachingService {
     batchId?: string,
     stream?: string,
     classId?: string,
-    sectionId?: string
+    sectionId?: string,
+    status?: string
   ): Observable<any> {
     let params: any = {
       pageNumber: pageNumber.toString(),
@@ -68,8 +69,39 @@ export class CoachingService {
     if (stream) params.stream = stream;
     if (classId) params.classId = classId;
     if (sectionId) params.sectionId = sectionId;
+    if (status) params.status = status;
 
     return this.http.get<any>(`${this.BASE_URL}/students/paged`, { params });
+  }
+
+  getStudentClearanceStatus(id: string): Observable<any> {
+    return this.http.get<any>(`${this.BASE_URL}/students/${id}/clearance-status`);
+  }
+
+  markStudentLeft(id: string, payload: {
+    leavingDate: string;
+    leavingReason: string;
+    remarks?: string;
+    vacateHostelBed: boolean;
+    customTCNumber?: string;
+  }): Observable<any> {
+    return this.http.post<any>(`${this.BASE_URL}/students/${id}/mark-left`, payload);
+  }
+
+  reAdmitStudent(id: string, payload?: {
+    reAdmissionDate?: string;
+    remarks?: string;
+    classId?: string;
+    sectionId?: string;
+    batchId?: string;
+    newRollNumber?: string;
+    reAdmissionFee?: number;
+    resetTC?: boolean;
+  }): Observable<any> {
+    return this.http.post<any>(`${this.BASE_URL}/students/${id}/re-admit`, payload || {
+      reAdmissionDate: new Date().toISOString(),
+      remarks: 'Student re-admitted by admin'
+    });
   }
 
   getNextRollNumber(batchId: string): Observable<{ rollNumber: string }> {

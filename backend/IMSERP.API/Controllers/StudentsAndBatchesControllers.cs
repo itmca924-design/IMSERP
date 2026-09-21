@@ -138,7 +138,21 @@ public class StudentsController : ControllerBase
             s.MotherName,
             s.Gender,
             s.DateOfBirth,
-            s.BloodGroup
+            s.BloodGroup,
+            s.IsHostelStudent,
+            s.HostelBedId,
+            null,
+            null,
+            null,
+            null,
+            s.LeavingDate,
+            s.LeavingReason,
+            s.TCNumber,
+            s.IsLibraryMember,
+            s.LibraryCardNumber,
+            s.LibraryMembershipType,
+            s.MaxLibraryBooks,
+            s.MonthlyLibraryFee
         )).ToListAsync();
 
         return Ok(list);
@@ -631,7 +645,8 @@ public class StudentsController : ControllerBase
         [FromQuery] Guid? batchId = null,
         [FromQuery] Guid? classId = null,
         [FromQuery] Guid? sectionId = null,
-        [FromQuery] string? stream = null) // "school", "coaching", or null for all
+        [FromQuery] string? stream = null, // "school", "coaching", or null for all
+        [FromQuery] string? status = null) // "active", "left" / "inactive", or null / "all"
     {
         var query = _dbContext.Students.AsNoTracking()
             .Include(s => s.Batch)
@@ -639,6 +654,18 @@ public class StudentsController : ControllerBase
             .Include(s => s.Section)
             .Include(s => s.Branch)
             .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            if (status.Equals("active", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(s => s.IsActive);
+            }
+            else if (status.Equals("left", StringComparison.OrdinalIgnoreCase) || status.Equals("inactive", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(s => !s.IsActive);
+            }
+        }
 
         if (batchId.HasValue && batchId != Guid.Empty)
         {
@@ -673,6 +700,10 @@ public class StudentsController : ControllerBase
             {
                 query = query.Where(s => !s.IsHostelStudent);
             }
+            else if (stream.Equals("library", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(s => s.IsLibraryMember);
+            }
         }
 
         if (!string.IsNullOrWhiteSpace(searchTerm))
@@ -684,7 +715,9 @@ public class StudentsController : ControllerBase
                                      s.ParentWhatsAppPhone.ToLower().Contains(term) ||
                                      (s.AdmissionNumber != null && s.AdmissionNumber.ToLower().Contains(term)) ||
                                      (s.SchoolRollNumber != null && s.SchoolRollNumber.ToLower().Contains(term)) ||
-                                     (s.CoachingRollNumber != null && s.CoachingRollNumber.ToLower().Contains(term)));
+                                     (s.CoachingRollNumber != null && s.CoachingRollNumber.ToLower().Contains(term)) ||
+                                     (s.TCNumber != null && s.TCNumber.ToLower().Contains(term)) ||
+                                     (s.LibraryCardNumber != null && s.LibraryCardNumber.ToLower().Contains(term)));
         }
 
         query = (sortBy?.ToLower()) switch
@@ -735,7 +768,15 @@ public class StudentsController : ControllerBase
                 s.HostelBed != null && s.HostelBed.Room != null && s.HostelBed.Room.Hostel != null ? s.HostelBed.Room.Hostel.Name : null,
                 s.HostelBed != null && s.HostelBed.Room != null ? s.HostelBed.Room.RoomNumber : null,
                 s.HostelBed != null ? s.HostelBed.BedCode : null,
-                s.HostelBed != null && s.HostelBed.Room != null ? (Guid?)s.HostelBed.Room.HostelId : null
+                s.HostelBed != null && s.HostelBed.Room != null ? (Guid?)s.HostelBed.Room.HostelId : null,
+                s.LeavingDate,
+                s.LeavingReason,
+                s.TCNumber,
+                s.IsLibraryMember,
+                s.LibraryCardNumber,
+                s.LibraryMembershipType,
+                s.MaxLibraryBooks,
+                s.MonthlyLibraryFee
             )).ToListAsync();
 
         return Ok(new PagedResult<StudentDto>(items, totalCount, pageNumber, pageSize));
@@ -847,6 +888,11 @@ public class StudentsController : ControllerBase
                 IsCoachingStudent = dto.IsCoachingStudent,
                 IsHostelStudent = dto.IsHostelStudent,
                 HostelBedId = dto.IsHostelStudent ? dto.HostelBedId : null,
+                IsLibraryMember = dto.IsLibraryMember,
+                LibraryCardNumber = dto.IsLibraryMember ? dto.LibraryCardNumber : null,
+                LibraryMembershipType = dto.IsLibraryMember ? dto.LibraryMembershipType : null,
+                MaxLibraryBooks = dto.IsLibraryMember && dto.MaxLibraryBooks > 0 ? dto.MaxLibraryBooks : 2,
+                MonthlyLibraryFee = dto.IsLibraryMember ? dto.MonthlyLibraryFee : 0,
                 StudentName = dto.StudentName,
                 ParentName = dto.ParentName,
                 ParentWhatsAppPhone = dto.ParentWhatsAppPhone,
@@ -930,7 +976,21 @@ public class StudentsController : ControllerBase
                 student.MotherName,
                 student.Gender,
                 student.DateOfBirth,
-                student.BloodGroup
+                student.BloodGroup,
+                student.IsHostelStudent,
+                student.HostelBedId,
+                null,
+                null,
+                null,
+                null,
+                student.LeavingDate,
+                student.LeavingReason,
+                student.TCNumber,
+                student.IsLibraryMember,
+                student.LibraryCardNumber,
+                student.LibraryMembershipType,
+                student.MaxLibraryBooks,
+                student.MonthlyLibraryFee
             ));
         });
     }
@@ -1006,6 +1066,11 @@ public class StudentsController : ControllerBase
 
         student.IsHostelStudent = dto.IsHostelStudent;
         student.HostelBedId = dto.IsHostelStudent ? dto.HostelBedId : null;
+        student.IsLibraryMember = dto.IsLibraryMember;
+        student.LibraryCardNumber = dto.IsLibraryMember ? dto.LibraryCardNumber : null;
+        student.LibraryMembershipType = dto.IsLibraryMember ? dto.LibraryMembershipType : null;
+        student.MaxLibraryBooks = dto.IsLibraryMember && dto.MaxLibraryBooks > 0 ? dto.MaxLibraryBooks : 2;
+        student.MonthlyLibraryFee = dto.IsLibraryMember ? dto.MonthlyLibraryFee : 0;
         student.StudentName = dto.StudentName;
         student.ParentName = dto.ParentName;
         student.ParentWhatsAppPhone = dto.ParentWhatsAppPhone;
@@ -1082,8 +1147,247 @@ public class StudentsController : ControllerBase
             hostelName,
             roomNum,
             bedCode,
-            hostelId
+            hostelId,
+            student.LeavingDate,
+            student.LeavingReason,
+            student.TCNumber,
+            student.IsLibraryMember,
+            student.LibraryCardNumber,
+            student.LibraryMembershipType,
+            student.MaxLibraryBooks,
+            student.MonthlyLibraryFee
         ));
+    }
+
+    [HttpGet("{id}/clearance-status")]
+    public async Task<ActionResult<StudentLeavingClearanceDto>> GetClearanceStatus(Guid id)
+    {
+        var student = await _dbContext.Students
+            .AsNoTracking()
+            .FirstOrDefaultAsync(s => s.Id == id);
+
+        if (student == null) return NotFound(new { message = "Student not found" });
+
+        // 1. Fee Invoices pending
+        var unpaidInvoices = await _dbContext.FeeInvoices
+            .AsNoTracking()
+            .Where(i => i.StudentId == id && i.Status != InvoiceStatus.Paid && i.Status != InvoiceStatus.Cancelled)
+            .ToListAsync();
+
+        var pendingFees = unpaidInvoices.Sum(i => i.TotalAmount - i.PaidAmount);
+
+        // 2. Hostel allocation
+        var activeAlloc = await _dbContext.HostelAllocations
+            .AsNoTracking()
+            .Include(a => a.Bed)
+                .ThenInclude(b => b!.Room)
+                    .ThenInclude(r => r!.Hostel)
+            .Where(a => a.StudentId == id && a.Status == "Active")
+            .FirstOrDefaultAsync();
+
+        bool hasHostelBed = student.IsHostelStudent || student.HostelBedId.HasValue || activeAlloc != null;
+        Guid? bedId = student.HostelBedId ?? activeAlloc?.BedId;
+        Guid? allocId = activeAlloc?.Id;
+        string? hostelName = activeAlloc?.Bed?.Room?.Hostel?.Name;
+        string? roomNum = activeAlloc?.Bed?.Room?.RoomNumber;
+        string? bedCode = activeAlloc?.Bed?.BedCode;
+
+        // 3. Library circulations
+        var issuedBooksCount = await _dbContext.LibraryCirculations
+            .AsNoTracking()
+            .CountAsync(c => c.StudentId == id && (c.Status == "Issued" || c.Status == "Overdue"));
+
+        var pendingLibFines = await _dbContext.LibraryCirculations
+            .AsNoTracking()
+            .Where(c => c.StudentId == id && c.FineStatus == "Pending")
+            .SumAsync(c => c.FineAmount);
+
+        return Ok(new StudentLeavingClearanceDto(
+            student.Id,
+            student.StudentName,
+            student.RollNumber,
+            student.IsActive,
+            pendingFees,
+            unpaidInvoices.Count,
+            hasHostelBed,
+            bedId,
+            allocId,
+            hostelName,
+            roomNum,
+            bedCode,
+            issuedBooksCount,
+            pendingLibFines,
+            student.TCNumber,
+            student.LeavingDate,
+            student.LeavingReason
+        ));
+    }
+
+    [HttpPost("{id}/mark-left")]
+    public async Task<ActionResult<MarkStudentLeftResultDto>> MarkStudentLeft(Guid id, [FromBody] MarkStudentLeftDto dto)
+    {
+        var student = await _dbContext.Students
+            .Include(s => s.HostelAllocations)
+            .FirstOrDefaultAsync(s => s.Id == id);
+
+        if (student == null) return NotFound(new { message = "Student not found" });
+
+        student.IsActive = false;
+        student.LeavingDate = dto.LeavingDate != default ? dto.LeavingDate : DateTime.UtcNow;
+        student.LeavingReason = !string.IsNullOrWhiteSpace(dto.Remarks)
+            ? $"{dto.LeavingReason} - {dto.Remarks}"
+            : dto.LeavingReason;
+
+        // Generate TC number if not already present or provided
+        if (!string.IsNullOrWhiteSpace(dto.CustomTCNumber))
+        {
+            student.TCNumber = dto.CustomTCNumber.Trim();
+        }
+        else if (string.IsNullOrWhiteSpace(student.TCNumber))
+        {
+            var year = DateTime.UtcNow.Year;
+            var isPassedOut = !string.IsNullOrWhiteSpace(dto.LeavingReason) && 
+                (dto.LeavingReason.Contains("Passed Out", StringComparison.OrdinalIgnoreCase) || 
+                 dto.LeavingReason.Contains("Completed", StringComparison.OrdinalIgnoreCase));
+            var prefix = isPassedOut ? $"SLC-{year}" : $"TC-{year}";
+            var countThisYear = await _dbContext.Students
+                .IgnoreQueryFilters()
+                .CountAsync(s => s.TenantId == _currentUser.TenantId && s.TCNumber != null && s.TCNumber.StartsWith(prefix));
+            student.TCNumber = $"{prefix}-{(countThisYear + 1):D4}";
+        }
+
+        // Handle hostel bed deallocation
+        bool hostelVacated = false;
+        if (dto.VacateHostelBed)
+        {
+            if (student.HostelBedId.HasValue)
+            {
+                var bed = await _dbContext.HostelBeds.FindAsync(student.HostelBedId.Value);
+                if (bed != null)
+                {
+                    bed.CurrentStudentId = null;
+                    bed.Status = "Available";
+                }
+                student.HostelBedId = null;
+                student.IsHostelStudent = false;
+                hostelVacated = true;
+            }
+
+            var linkedBeds = await _dbContext.HostelBeds
+                .Where(b => b.CurrentStudentId == id)
+                .ToListAsync();
+            foreach (var b in linkedBeds)
+            {
+                b.CurrentStudentId = null;
+                b.Status = "Available";
+                hostelVacated = true;
+            }
+
+            var activeAllocations = await _dbContext.HostelAllocations
+                .Where(a => a.StudentId == id && a.Status == "Active")
+                .ToListAsync();
+
+            foreach (var alloc in activeAllocations)
+            {
+                alloc.Status = "Vacated";
+                alloc.VacatedDate = dto.LeavingDate != default ? dto.LeavingDate : DateTime.UtcNow;
+                alloc.Remarks = (alloc.Remarks ?? "") + $" | Left School: {dto.LeavingReason}";
+                hostelVacated = true;
+            }
+        }
+
+        await _dbContext.SaveChangesAsync();
+
+        var unpaidInvoices = await _dbContext.FeeInvoices
+            .AsNoTracking()
+            .Where(i => i.StudentId == id && i.Status != InvoiceStatus.Paid && i.Status != InvoiceStatus.Cancelled)
+            .ToListAsync();
+        var pendingFeesRemaining = unpaidInvoices.Sum(i => i.TotalAmount - i.PaidAmount);
+
+        return Ok(new MarkStudentLeftResultDto(
+            true,
+            $"Student marked as left successfully. TC Number: {student.TCNumber}",
+            student.TCNumber,
+            student.LeavingDate.Value,
+            student.LeavingReason,
+            pendingFeesRemaining,
+            hostelVacated
+        ));
+    }
+
+    [HttpPost("{id}/re-admit")]
+    public async Task<IActionResult> ReAdmitStudent(Guid id, [FromBody] ReAdmitStudentDto dto)
+    {
+        var student = await _dbContext.Students
+            .Include(s => s.Class)
+            .FirstOrDefaultAsync(s => s.Id == id);
+        if (student == null) return NotFound(new { message = "Student not found" });
+
+        // Check if student was marked as Passed Out / Graduated (Point 1 rule)
+        if (!string.IsNullOrWhiteSpace(student.LeavingReason) && 
+            (student.LeavingReason.Contains("Passed Out", StringComparison.OrdinalIgnoreCase) || 
+             student.LeavingReason.Contains("Completed", StringComparison.OrdinalIgnoreCase)))
+        {
+            return BadRequest(new { 
+                message = "Graduated / Passed-Out students cannot be re-admitted to the same class. Please register a fresh admission for the next class/stream." 
+            });
+        }
+
+        student.IsActive = true;
+        student.JoiningDate = dto.ReAdmissionDate != default ? dto.ReAdmissionDate : DateTime.UtcNow;
+
+        if (dto.ClassId.HasValue) student.ClassId = dto.ClassId.Value;
+        if (dto.SectionId.HasValue) student.SectionId = dto.SectionId.Value;
+        if (dto.BatchId.HasValue) student.BatchId = dto.BatchId.Value;
+        if (!string.IsNullOrWhiteSpace(dto.NewRollNumber))
+        {
+            student.RollNumber = dto.NewRollNumber.Trim();
+            if (student.IsSchoolStudent) student.SchoolRollNumber = dto.NewRollNumber.Trim();
+        }
+
+        if (dto.ResetTC)
+        {
+            student.TCNumber = null;
+            student.LeavingDate = null;
+            student.LeavingReason = null;
+        }
+
+        // Optional Re-Admission Fee invoice generation
+        if (dto.ReAdmissionFee > 0)
+        {
+            var invoiceNumber = $"INV-READMIT-{DateTime.UtcNow:yyyyMMdd}-{new Random().Next(100, 999)}";
+            var invoice = new FeeInvoice
+            {
+                Id = Guid.NewGuid(),
+                TenantId = _currentUser.TenantId,
+                BranchId = student.BranchId ?? _currentUser.BranchId,
+                StudentId = student.Id,
+                InvoiceNumber = invoiceNumber,
+                Title = "Re-Admission Fee",
+                InvoiceCategory = student.IsSchoolStudent ? "School" : "Coaching",
+                TotalAmount = dto.ReAdmissionFee,
+                PaidAmount = 0,
+                DueDate = DateTime.UtcNow.AddDays(7),
+                Status = InvoiceStatus.Pending,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            invoice.Items.Add(new FeeInvoiceItem
+            {
+                Id = Guid.NewGuid(),
+                TenantId = _currentUser.TenantId,
+                InvoiceId = invoice.Id,
+                HeadName = "Re-Admission Fee",
+                Amount = dto.ReAdmissionFee,
+                PaidAmount = 0,
+                CreatedAt = DateTime.UtcNow
+            });
+
+            _dbContext.FeeInvoices.Add(invoice);
+        }
+
+        await _dbContext.SaveChangesAsync();
+        return Ok(new { message = $"Student '{student.StudentName}' successfully re-admitted and restored to active enrollment." });
     }
 }
 

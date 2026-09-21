@@ -46,6 +46,9 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           </p>
         </div>
         <div class="header-actions">
+          <a mat-stroked-button routerLink="/library/plans" class="catalog-link-btn">
+            <mat-icon>schedule</mat-icon> Shifts &amp; Plans
+          </a>
           <a mat-stroked-button routerLink="/library/books" class="catalog-link-btn">
             <mat-icon>local_library</mat-icon> Books Catalog
           </a>
@@ -84,11 +87,23 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
         <div class="desk-grid">
           <!-- Left: Book Barcode Lookup -->
           <div class="desk-section">
-            <span class="ds-title">Step 1: Scan Book Accession Barcode</span>
-            <div class="lookup-row">
+            <span class="ds-title">Step 1: Pick Available Book or Scan Barcode</span>
+
+            <!-- Available Books Shelf Dropdown Filter -->
+            <mat-form-field appearance="outline" class="full-width" style="margin-bottom: 8px;">
+              <mat-label>📚 Select Available Book from Shelf</mat-label>
+              <mat-select [(ngModel)]="selectedAvailableAccession" (selectionChange)="onAvailableBookSelected($event.value)" placeholder="Browse books currently on shelf..." panelClass="batch-filter-panel">
+                <mat-option *ngFor="let copy of availableCopies" [value]="copy.accessionNumber">
+                  📖 <strong>{{ copy.bookTitle }}</strong> &bull; Accession: <code>{{ copy.accessionNumber }}</code> ({{ copy.author }})
+                </mat-option>
+              </mat-select>
+              <mat-hint>Choose from {{ availableCopies.length }} books currently available on shelf, or scan barcode below</mat-hint>
+            </mat-form-field>
+
+            <div class="lookup-row" style="margin-top: 6px;">
               <mat-form-field appearance="outline" class="flex-grow">
                 <mat-label>Accession Number / Barcode</mat-label>
-                <input matInput [(ngModel)]="issueAccession" (keyup.enter)="lookupBookForIssue()" placeholder="e.g. ACC-00101" />
+                <input matInput [(ngModel)]="issueAccession" (keyup.enter)="lookupBookForIssue()" placeholder="e.g. ACC-00001" />
                 <mat-icon matSuffix>qr_code_scanner</mat-icon>
               </mat-form-field>
               <button mat-raised-button color="primary" class="btn-lookup" (click)="lookupBookForIssue()" [disabled]="!issueAccession">
@@ -113,12 +128,57 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
 
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Select Enrolled Student</mat-label>
-              <mat-select [(ngModel)]="issueStudentId">
+              <mat-select [(ngModel)]="issueStudentId" panelClass="batch-filter-panel">
                 <mat-option *ngFor="let s of students" [value]="s.id">
-                  {{ s.studentName }} ({{ s.coachingRollNumber || s.rollNumber }}{{ s.admissionNumber ? ' • Adm: ' + s.admissionNumber : '' }})
+                  <div class="borrower-opt">
+                    <span class="borrower-opt-name">{{ s.studentName }}</span>
+                    <span class="borrower-opt-id">({{ s.coachingRollNumber || s.rollNumber }}{{ s.admissionNumber ? ' • Adm: ' + s.admissionNumber : '' }})</span>
+                    <span *ngIf="s.isLibraryMember" class="b-pill-member">📚 Member (Limit: {{ s.maxLibraryBooks || 2 }})</span>
+                    <span *ngIf="!s.isLibraryMember" class="b-pill-non">Non-Member</span>
+                  </div>
                 </mat-option>
               </mat-select>
             </mat-form-field>
+
+            <!-- Borrower Library Membership Summary Card -->
+            <div class="borrower-summary-card" *ngIf="selectedStudentForIssue">
+              <div class="bsc-badge-row">
+                <span class="bsc-status-pill" [class.is-member]="selectedStudentForIssue.isLibraryMember" [class.is-non-member]="!selectedStudentForIssue.isLibraryMember">
+                  <mat-icon>{{ selectedStudentForIssue.isLibraryMember ? 'verified' : 'block' }}</mat-icon>
+                  {{ selectedStudentForIssue.isLibraryMember ? 'Active Library Member' : 'Non-Member (Membership Required)' }}
+                </span>
+                <span class="bsc-limit-pill" *ngIf="selectedStudentForIssue.isLibraryMember">
+                  Borrow Limit: <strong>{{ selectedStudentForIssue.maxLibraryBooks || 2 }} Books</strong>
+                </span>
+              </div>
+              <div class="bsc-details-grid" *ngIf="selectedStudentForIssue.isLibraryMember">
+                <div class="bsc-item">
+                  <span class="bsc-lbl">Library Card / Barcode:</span>
+                  <strong class="bsc-val">{{ selectedStudentForIssue.libraryCardNumber || 'Card Not Assigned' }}</strong>
+                </div>
+                <div class="bsc-item">
+                  <span class="bsc-lbl">Shift / Facility:</span>
+                  <strong class="bsc-val">{{ selectedStudentForIssue.libraryMembershipType || 'Standard Book Lending' }}</strong>
+                </div>
+                <div class="bsc-item" *ngIf="selectedStudentForIssue.monthlyLibraryFee > 0">
+                  <span class="bsc-lbl">Monthly Reading Fee:</span>
+                  <strong class="bsc-val">₹{{ selectedStudentForIssue.monthlyLibraryFee | number }}/mo</strong>
+                </div>
+              </div>
+              <div class="bsc-non-member-box" *ngIf="!selectedStudentForIssue.isLibraryMember">
+                <div class="bsc-non-content">
+                  <mat-icon class="bsc-warn-ico">warning_amber</mat-icon>
+                  <div class="bsc-warn-texts">
+                    <span class="bsc-warn-heading">Membership Required to Borrow</span>
+                    <p class="bsc-warn-desc">Student has not enrolled in a Library Membership Plan. Book circulation is restricted to registered members only.</p>
+                  </div>
+                </div>
+                <a mat-stroked-button color="primary" class="btn-assign-mem" routerLink="/students" target="_blank">
+                  <mat-icon>card_membership</mat-icon>
+                  <span>Assign Membership in Students</span>
+                </a>
+              </div>
+            </div>
 
             <div class="duration-row">
               <mat-form-field appearance="outline" class="flex-1">
@@ -134,9 +194,9 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             </div>
 
             <div class="issue-action-bar">
-              <button mat-raised-button color="primary" class="btn-confirm-issue" (click)="confirmIssue()" [disabled]="!verifiedBook || verifiedBook.status !== 'Available' || !issueStudentId || issueSubmitting">
-                <mat-icon>check_circle</mat-icon>
-                <span>Confirm &amp; Issue Book</span>
+              <button mat-raised-button color="primary" class="btn-confirm-issue" (click)="confirmIssue()" [disabled]="!verifiedBook || verifiedBook.status !== 'Available' || !issueStudentId || !selectedStudentForIssue.isLibraryMember || issueSubmitting">
+                <mat-icon>{{ selectedStudentForIssue && !selectedStudentForIssue.isLibraryMember ? 'lock' : 'check_circle' }}</mat-icon>
+                <span>{{ selectedStudentForIssue && !selectedStudentForIssue.isLibraryMember ? 'Membership Required to Issue' : 'Confirm & Issue Book' }}</span>
               </button>
             </div>
           </div>
@@ -447,6 +507,159 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
         .no-records { text-align: center; color: #94a3b8; padding: 30px; }
       }
     }
+
+    /* Borrower Select Option & Summary Card */
+    .borrower-opt {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.88rem;
+      width: 100%;
+      .borrower-opt-name { font-weight: 600; color: #1e293b; }
+      .borrower-opt-id { color: #64748b; font-size: 0.8rem; }
+      .b-pill-member {
+        margin-left: auto;
+        font-size: 0.72rem;
+        font-weight: 700;
+        background: #ecfdf5;
+        color: #047857;
+        border: 1px solid #a7f3d0;
+        padding: 1px 8px;
+        border-radius: 10px;
+      }
+      .b-pill-non {
+        margin-left: auto;
+        font-size: 0.72rem;
+        font-weight: 600;
+        background: #f8fafc;
+        color: #64748b;
+        border: 1px solid #cbd5e1;
+        padding: 1px 8px;
+        border-radius: 10px;
+      }
+    }
+
+    .borrower-summary-card {
+      margin-bottom: 14px;
+      padding: 12px 14px;
+      border-radius: 8px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+
+      .bsc-badge-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+
+        .bsc-status-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          padding: 3px 10px;
+          border-radius: 12px;
+          font-size: 0.76rem;
+          font-weight: 700;
+          background: #f1f5f9;
+          color: #475569;
+          border: 1px solid #cbd5e1;
+          mat-icon { font-size: 14px; width: 14px; height: 14px; }
+
+          &.is-member {
+            background: #ecfdf5;
+            color: #047857;
+            border-color: #6ee7b7;
+          }
+
+          &.is-non-member {
+            background: #fef2f2;
+            color: #b91c1c;
+            border-color: #fca5a5;
+          }
+        }
+
+        .bsc-limit-pill {
+          font-size: 0.78rem;
+          color: #1e40af;
+          background: #eff6ff;
+          padding: 2px 8px;
+          border-radius: 6px;
+          border: 1px solid #bfdbfe;
+        }
+      }
+
+      .bsc-details-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 8px;
+        font-size: 0.8rem;
+        background: #ffffff;
+        padding: 8px 12px;
+        border-radius: 6px;
+        border: 1px solid #f1f5f9;
+
+        .bsc-item {
+          display: flex;
+          flex-direction: column;
+          gap: 1px;
+          .bsc-lbl { font-size: 0.7rem; color: #64748b; }
+          .bsc-val { color: #0f172a; font-weight: 600; }
+        }
+      }
+
+      .bsc-non-member-box {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 14px;
+        background: #fff1f2;
+        border: 1px dashed #fca5a5;
+        border-radius: 6px;
+
+        .bsc-non-content {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+
+          .bsc-warn-ico {
+            color: #e11d48;
+            font-size: 22px;
+            width: 22px;
+            height: 22px;
+          }
+
+          .bsc-warn-texts {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+
+            .bsc-warn-heading {
+              font-size: 0.82rem;
+              font-weight: 700;
+              color: #9f1239;
+            }
+
+            .bsc-warn-desc {
+              margin: 0;
+              font-size: 0.76rem;
+              color: #be123c;
+            }
+          }
+        }
+
+        .btn-assign-mem {
+          height: 32px;
+          font-size: 0.76rem;
+          font-weight: 700;
+          color: #2563eb;
+          border-color: #93c5fd;
+          background: #ffffff;
+          mat-icon { font-size: 16px; width: 16px; height: 16px; margin-right: 4px; }
+        }
+      }
+    }
   `]
 })
 export class LibraryCirculationComponent implements OnInit {
@@ -477,6 +690,10 @@ export class LibraryCirculationComponent implements OnInit {
   ledgerOverdueOnly = false;
   ledgerSearchTerm = '';
 
+  // Available books shelf picker
+  availableCopies: BookCopyDto[] = [];
+  selectedAvailableAccession = '';
+
   constructor(
     private libraryService: LibraryService,
     private coachingService: CoachingService,
@@ -487,6 +704,20 @@ export class LibraryCirculationComponent implements OnInit {
     this.loadSettings();
     this.loadStudents();
     this.loadCirculations();
+    this.loadAvailableCopies();
+  }
+
+  loadAvailableCopies(): void {
+    this.libraryService.getAvailableCopies().subscribe({
+      next: (copies) => this.availableCopies = copies || [],
+      error: (err) => console.error('Failed to load available book copies', err)
+    });
+  }
+
+  onAvailableBookSelected(accession: string): void {
+    if (!accession) return;
+    this.issueAccession = accession;
+    this.lookupBookForIssue();
   }
 
   loadSettings(): void {
@@ -497,7 +728,21 @@ export class LibraryCirculationComponent implements OnInit {
   }
 
   loadStudents(): void {
-    this.coachingService.getStudents().subscribe(res => this.students = res || []);
+    this.coachingService.getStudents().subscribe(res => {
+      this.students = (res || []).map((s: any) => ({
+        ...s,
+        isLibraryMember: !!(s.isLibraryMember ?? s.IsLibraryMember),
+        libraryCardNumber: s.libraryCardNumber || s.LibraryCardNumber,
+        libraryMembershipType: s.libraryMembershipType || s.LibraryMembershipType,
+        maxLibraryBooks: s.maxLibraryBooks ?? s.MaxLibraryBooks ?? 2,
+        monthlyLibraryFee: s.monthlyLibraryFee ?? s.MonthlyLibraryFee ?? 0
+      }));
+    });
+  }
+
+  get selectedStudentForIssue(): any {
+    if (!this.issueStudentId) return null;
+    return this.students.find(s => s.id === this.issueStudentId) || null;
   }
 
   loadCirculations(): void {
@@ -540,6 +785,22 @@ export class LibraryCirculationComponent implements OnInit {
 
   confirmIssue(): void {
     if (!this.verifiedBook || !this.issueStudentId) return;
+
+    const student = this.selectedStudentForIssue;
+    if (student && !student.isLibraryMember) {
+      this.confirmDialog.alert(
+        'Library Membership Required',
+        `Student "${student.studentName}" is not an active library member. Please assign a Library Membership Plan from Students Module before issuing books.`,
+        'danger'
+      );
+      return;
+    }
+
+    this.executeIssue();
+  }
+
+  private executeIssue(): void {
+    if (!this.verifiedBook || !this.issueStudentId) return;
     this.issueSubmitting = true;
 
     this.libraryService.issueBook({
@@ -554,9 +815,11 @@ export class LibraryCirculationComponent implements OnInit {
         const msg = res?.message || 'Book issued successfully!';
         this.confirmDialog.alert('Book Issued', msg, 'success');
         this.issueAccession = '';
+        this.selectedAvailableAccession = '';
         this.verifiedBook = null;
         this.issueRemarks = '';
         this.loadCirculations();
+        this.loadAvailableCopies();
       },
       error: (err) => {
         this.issueSubmitting = false;
@@ -612,6 +875,7 @@ export class LibraryCirculationComponent implements OnInit {
         this.customFineAmount = 0;
         this.finePaymentStatus = 'None';
         this.loadCirculations();
+        this.loadAvailableCopies();
       },
       error: (err) => {
         this.returnSubmitting = false;

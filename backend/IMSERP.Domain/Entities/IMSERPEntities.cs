@@ -207,6 +207,11 @@ public class Student
     public bool IsCoachingStudent { get; set; } = true;
     public bool IsHostelStudent { get; set; } = false;
     public Guid? HostelBedId { get; set; }
+    public bool IsLibraryMember { get; set; } = false;
+    public string? LibraryCardNumber { get; set; }
+    public string? LibraryMembershipType { get; set; }
+    public int MaxLibraryBooks { get; set; } = 2;
+    public decimal MonthlyLibraryFee { get; set; } = 0;
     public string StudentName { get; set; } = string.Empty;
     public string ParentName { get; set; } = string.Empty;
     public string ParentWhatsAppPhone { get; set; } = string.Empty;
@@ -218,6 +223,9 @@ public class Student
     public string? ProfilePhoto { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime JoiningDate { get; set; } = DateTime.UtcNow;
+    public DateTime? LeavingDate { get; set; }
+    public string? LeavingReason { get; set; }  // TC | Transfer | Rustication | Expelled | Other
+    public string? TCNumber { get; set; }
     public string? BiometricUserId { get; set; }
 
     [ForeignKey("BranchId")]
@@ -659,6 +667,20 @@ public class LibrarySetting
     public int TeacherIssueDays { get; set; } = 30;
     public decimal DailyFineRate { get; set; } = 2.00m;
     public bool AllowFineWaiver { get; set; } = true;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}
+
+public class LibraryMembershipPlan
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public string PlanName { get; set; } = string.Empty;
+    public string? ShiftTiming { get; set; }
+    public decimal MonthlyFee { get; set; } = 0;
+    public int MaxBooks { get; set; } = 2;
+    public int SortOrder { get; set; } = 0;
+    public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
 

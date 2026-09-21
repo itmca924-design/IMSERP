@@ -40,6 +40,7 @@ public interface IIMSERPDbContext
     DbSet<BookCopy> BookCopies { get; }
     DbSet<LibraryCirculation> LibraryCirculations { get; }
     DbSet<LibrarySetting> LibrarySettings { get; }
+    DbSet<LibraryMembershipPlan> LibraryMembershipPlans { get; }
     DbSet<FeeHead> FeeHeads { get; }
     DbSet<ClassFeeStructure> ClassFeeStructures { get; }
     DbSet<FeeInvoiceItem> FeeInvoiceItems { get; }

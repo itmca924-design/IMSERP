@@ -279,19 +279,20 @@ interface EditableInvoiceItem {
       align-items: center;
       justify-content: space-between;
       padding: 16px 24px;
-      background: linear-gradient(135deg, #f8fafc 0%, #ede9fe 100%);
-      border-bottom: 1px solid #ddd6fe;
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+      border-bottom: 1px solid #bfdbfe;
 
       .header-icon-wrap {
-        width: 42px;
-        height: 42px;
+        width: 44px;
+        height: 44px;
         border-radius: 10px;
-        background: #7c3aed;
+        background: #2563eb;
         color: #ffffff;
         display: flex;
         align-items: center;
         justify-content: center;
         flex-shrink: 0;
+        box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.25);
         margin-right: 12px;
 
         mat-icon { font-size: 24px; width: 24px; height: 24px; }
@@ -301,18 +302,20 @@ interface EditableInvoiceItem {
         flex: 1;
         .main-title {
           margin: 0;
-          font-size: 1.25rem;
+          font-size: 1.18rem;
           font-weight: 700;
-          color: #1e1b4b;
+          color: #1e3a8a;
+          line-height: 1.3;
         }
         .subtitle {
-          margin: 2px 0 0;
-          font-size: 0.82rem;
-          color: #6d28d9;
+          margin: 3px 0 0;
+          font-size: 0.79rem;
+          color: #3b82f6;
         }
       }
 
       .close-btn { color: #64748b; }
+      .close-btn:hover { color: #1e293b; }
     }
 
     .dialog-content {
