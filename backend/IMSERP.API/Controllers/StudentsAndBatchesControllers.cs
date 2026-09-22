@@ -601,6 +601,8 @@ public class StudentsController : ControllerBase
             {
                 s.StudentName,
                 s.ParentName,
+                s.MotherName,
+                s.Address,
                 BatchName = s.Batch != null ? s.Batch.Name : "",
                 BranchName = s.Branch != null ? s.Branch.Name : (s.Batch != null && s.Batch.Branch != null ? s.Batch.Branch.Name : "")
             })
@@ -618,6 +620,8 @@ public class StudentsController : ControllerBase
                 isSibling = !isSameStudent,
                 studentName = existing.StudentName,
                 parentName = existing.ParentName,
+                motherName = existing.MotherName,
+                address = existing.Address,
                 batchName = existing.BatchName,
                 branchName = existing.BranchName
             });
@@ -630,6 +634,8 @@ public class StudentsController : ControllerBase
             isSibling = false,
             studentName = (string?)null,
             parentName = (string?)null,
+            motherName = (string?)null,
+            address = (string?)null,
             batchName = (string?)null,
             branchName = (string?)null
         });

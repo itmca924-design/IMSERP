@@ -89,6 +89,25 @@ interface BillingCycleOption {
             </div>
           </div>
 
+          <!-- Recommended Workflow Callout -->
+          <div class="workflow-guide-callout">
+            <div class="guide-icon-pill">
+              <mat-icon>lightbulb</mat-icon>
+            </div>
+            <div class="guide-body">
+              <div class="guide-header">
+                <strong>Recommended Billing Sequence</strong>
+                <span class="guide-pro-badge">PRO TIP</span>
+              </div>
+              <p class="guide-text">
+                If student(s) require <strong>Transport (Bus Pass)</strong>, <strong>Hostel</strong>, or <strong>Library</strong> facilities, please assign them first in their respective modules. The system will automatically bundle those monthly charges with the <strong>Tuition Fee</strong> into a single combined invoice.
+              </p>
+              <div class="guide-foot">
+                <span>Note: If no extra facilities are needed, you may safely proceed with generating tuition invoices below.</span>
+              </div>
+            </div>
+          </div>
+
           <!-- Info Callout -->
           <div class="info-callout" *ngIf="!data.targetStudentName">
             <mat-icon class="info-icon">auto_awesome</mat-icon>
@@ -359,6 +378,75 @@ interface BillingCycleOption {
               border: 1px solid #ddd6fe;
             }
           }
+        }
+      }
+    }
+
+    .workflow-guide-callout {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 14px;
+      background: linear-gradient(135deg, #eff6ff 0%, #f0fdfa 100%);
+      border: 1px solid #bfdbfe;
+      border-left: 4px solid #2563eb;
+      border-radius: 8px;
+      margin-bottom: 8px;
+
+      .guide-icon-pill {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: #2563eb;
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        box-shadow: 0 2px 6px -1px rgba(37, 99, 235, 0.3);
+        mat-icon { font-size: 18px; width: 18px; height: 18px; }
+      }
+
+      .guide-body {
+        flex: 1;
+
+        .guide-header {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 4px;
+          strong {
+            color: #1e3a8a;
+            font-size: 0.84rem;
+            font-weight: 700;
+          }
+          .guide-pro-badge {
+            background: #dbeafe;
+            color: #1d4ed8;
+            font-size: 0.65rem;
+            font-weight: 700;
+            padding: 1px 6px;
+            border-radius: 4px;
+            letter-spacing: 0.04em;
+          }
+        }
+
+        .guide-text {
+          font-size: 0.78rem;
+          color: #1e40af;
+          line-height: 1.45;
+          margin: 0 0 6px 0;
+          strong {
+            font-weight: 600;
+            color: #0f172a;
+          }
+        }
+
+        .guide-foot {
+          font-size: 0.73rem;
+          color: #64748b;
+          font-style: italic;
+          line-height: 1.4;
         }
       }
     }

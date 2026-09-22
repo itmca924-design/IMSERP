@@ -1150,10 +1150,10 @@
         </div>
         <div>
           <h3 class="modal-title">
-            {{ allocationForm.get('memberType')?.value === 'Student' ? 'Assign Student Transport Pass' : 'Assign Faculty Transit Pass' }}
+            {{ allocationForm.get('memberType')?.value === 'Student' ? 'Assign Student Transport Pass' : 'Assign Teacher / Staff Transport Pass' }}
           </h3>
           <p class="modal-subtitle">
-            {{ allocationForm.get('memberType')?.value === 'Student' ? 'Enroll student into bus route with automated fee invoice billing' : 'Allocate campus transit facility for teacher or staff member' }}
+            {{ allocationForm.get('memberType')?.value === 'Student' ? 'Enroll student into bus route with automated fee invoice billing' : 'Allocate campus transport facility for teacher or staff member' }}
           </p>
         </div>
       </div>
@@ -1162,26 +1162,35 @@
 
     <form [formGroup]="allocationForm" (ngSubmit)="saveAllocation()">
       <div class="modal-body">
-        <!-- Commuter Type Pill Switcher -->
+        <!-- Member Type Pill Switcher -->
         <div class="commuter-type-switcher">
           <button type="button" class="type-pill-btn" [class.selected]="allocationForm.get('memberType')?.value === 'Student'" (click)="allocationForm.patchValue({memberType: 'Student'}); activeTopAction = 'student'">
-            <mat-icon>school</mat-icon> Student Commuter (Fee Invoiced)
+            <mat-icon>school</mat-icon> Student
           </button>
           <button type="button" class="type-pill-btn teacher-pill" [class.selected]="allocationForm.get('memberType')?.value === 'Teacher'" (click)="allocationForm.patchValue({memberType: 'Teacher'}); activeTopAction = 'faculty'">
-            <mat-icon>co_present</mat-icon> Faculty / Teacher Member
+            <mat-icon>co_present</mat-icon> Teacher / Staff
           </button>
         </div>
 
         <div class="form-grid">
 
           <!-- Class / Batch Filter (Shown only for Student) -->
-          <mat-form-field appearance="outline" *ngIf="allocationForm.get('memberType')?.value === 'Student'">
+          <mat-form-field appearance="outline" class="col-span-2" *ngIf="allocationForm.get('memberType')?.value === 'Student'">
             <mat-label>Filter by Class / Batch</mat-label>
             <mat-select [(ngModel)]="selectedAllocationClassFilter" [ngModelOptions]="{standalone: true}" (selectionChange)="onAllocationClassFilterChange()">
               <mat-option value="ALL">All Classes &amp; Batches ({{ studentsList.length }})</mat-option>
-              <mat-option *ngFor="let c of availableClasses" [value]="c.name">
-                {{ c.name }} ({{ c.count }} students)
-              </mat-option>
+              
+              <mat-optgroup label="School Classes (Nursery to 12th)" *ngIf="schoolClassFilterOptions.length > 0">
+                <mat-option *ngFor="let c of schoolClassFilterOptions" [value]="c.key">
+                  {{ c.name }} ({{ c.count }} students)
+                </mat-option>
+              </mat-optgroup>
+
+              <mat-optgroup label="Coaching Batches" *ngIf="batchFilterOptions.length > 0">
+                <mat-option *ngFor="let b of batchFilterOptions" [value]="b.key">
+                  {{ b.name }} ({{ b.count }} students)
+                </mat-option>
+              </mat-optgroup>
             </mat-select>
           </mat-form-field>
 
@@ -1191,7 +1200,7 @@
             <mat-select formControlName="studentId" (selectionChange)="onAllocationStudentSelect($event.value)">
               <mat-optgroup *ngFor="let grp of allocationStudentGroups" [label]="grp.groupName">
                 <mat-option *ngFor="let s of grp.students" [value]="s.id">
-                  {{ s.studentName }} (Roll: {{ s.rollNumber || s.schoolRollNumber || s.coachingRollNumber || 'N/A' }} &bull; {{ s.admissionNumber || 'No Adm' }})
+                  {{ s.studentName }} (Roll: {{ s.schoolRollNumber || s.rollNumber || s.coachingRollNumber || 'N/A' }} &bull; {{ s.admissionNumber ? 'Adm: ' + s.admissionNumber : 'No Adm' }})
                 </mat-option>
               </mat-optgroup>
               <mat-option *ngIf="allocationStudentGroups.length === 0" disabled>
@@ -1253,16 +1262,21 @@
             <span matPrefix>₹&nbsp;</span>
           </mat-form-field>
 
+          <mat-form-field appearance="outline">
+            <mat-label>Remarks / Special Instructions</mat-label>
+            <input matInput formControlName="remarks" placeholder="e.g. Blood group, special medical attention" />
+          </mat-form-field>
+
           <div class="checkbox-box">
             <mat-checkbox formControlName="isFreeAllocation">
               Free Bus Pass (100% Institution Concession)
             </mat-checkbox>
           </div>
 
-          <mat-form-field appearance="outline" class="col-span-2">
-            <mat-label>Remarks / Special Instructions</mat-label>
-            <input matInput formControlName="remarks" placeholder="e.g. Blood group, special medical attention" />
-          </mat-form-field>
+          <div class="transport-billing-note" *ngIf="allocationForm.get('memberType')?.value === 'Student'">
+            <mat-icon>receipt_long</mat-icon>
+            <span><strong>Automated Fee Billing:</strong> Once issued, this monthly transport fare will automatically be bundled together with the student's tuition fee in their next fee invoice cycle.</span>
+          </div>
         </div>
       </div>
 
@@ -1328,9 +1342,18 @@
             <mat-label>Filter by Class / Batch</mat-label>
             <mat-select [(ngModel)]="selectedGatePassClassFilter" [ngModelOptions]="{standalone: true}" (selectionChange)="onGatePassClassFilterChange()">
               <mat-option value="ALL">All Classes &amp; Batches ({{ studentsList.length }})</mat-option>
-              <mat-option *ngFor="let c of availableClasses" [value]="c.name">
-                {{ c.name }} ({{ c.count }} students)
-              </mat-option>
+              
+              <mat-optgroup label="School Classes (Nursery to 12th)" *ngIf="schoolClassFilterOptions.length > 0">
+                <mat-option *ngFor="let c of schoolClassFilterOptions" [value]="c.key">
+                  {{ c.name }} ({{ c.count }} students)
+                </mat-option>
+              </mat-optgroup>
+
+              <mat-optgroup label="Coaching Batches" *ngIf="batchFilterOptions.length > 0">
+                <mat-option *ngFor="let b of batchFilterOptions" [value]="b.key">
+                  {{ b.name }} ({{ b.count }} students)
+                </mat-option>
+              </mat-optgroup>
             </mat-select>
           </mat-form-field>
 
@@ -1339,7 +1362,7 @@
             <mat-select formControlName="studentId" (selectionChange)="onGatePassStudentSelect($event.value)">
               <mat-optgroup *ngFor="let grp of gatePassStudentGroups" [label]="grp.groupName">
                 <mat-option *ngFor="let s of grp.students" [value]="s.id">
-                  {{ s.studentName }} (Roll: {{ s.rollNumber || s.schoolRollNumber || s.coachingRollNumber || 'N/A' }} &bull; {{ s.admissionNumber || 'No Adm' }})
+                  {{ s.studentName }} (Roll: {{ s.schoolRollNumber || s.rollNumber || s.coachingRollNumber || 'N/A' }} &bull; {{ s.admissionNumber ? 'Adm: ' + s.admissionNumber : 'No Adm' }})
                 </mat-option>
               </mat-optgroup>
               <mat-option *ngIf="gatePassStudentGroups.length === 0" disabled>

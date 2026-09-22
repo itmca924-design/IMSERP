@@ -381,6 +381,13 @@ const API_BASE = 'http://localhost:5000';
                         <span class="differ-note">If {{ currentEnteredParentName }} is a guardian/relative or shared phone, you can still save.</span>
                       </div>
 
+                      <!-- Quick Action if Address differs or can be copied -->
+                      <div class="sibling-action-row" *ngIf="siblingInfo.address && studentForm.get('address')?.value !== siblingInfo.address">
+                        <button type="button" mat-stroked-button class="btn-copy-parent" (click)="useLinkedAddress()">
+                          <mat-icon>home</mat-icon> Set Address from Sibling
+                        </button>
+                      </div>
+
                       <div class="sibling-tags">
                         <span class="sibling-tag branch" *ngIf="siblingInfo.branchName">
                           <mat-icon>domain</mat-icon>
@@ -389,6 +396,10 @@ const API_BASE = 'http://localhost:5000';
                         <span class="sibling-tag batch" *ngIf="siblingInfo.batchName">
                           <mat-icon>school</mat-icon>
                           <span>Batch: {{ siblingInfo.batchName }}</span>
+                        </span>
+                        <span class="sibling-tag address" *ngIf="siblingInfo.address" [matTooltip]="siblingInfo.address">
+                          <mat-icon>home</mat-icon>
+                          <span>Address: {{ siblingInfo.address }}</span>
                         </span>
                       </div>
                     </div>
@@ -1418,6 +1429,7 @@ const API_BASE = 'http://localhost:5000';
             mat-icon { font-size: 13px; width: 13px; height: 13px; }
             &.branch { background: #e0f2fe; color: #0284c7; }
             &.batch { background: #f3e8ff; color: #7e22ce; }
+            &.address { background: #ecfdf5; color: #059669; }
           }
         }
       }
@@ -1565,6 +1577,8 @@ export class StudentsComponent implements OnInit, OnDestroy {
   siblingInfo: {
     studentName: string | null;
     parentName: string | null;
+    motherName?: string | null;
+    address?: string | null;
     batchName: string | null;
     branchName: string | null;
   } | null = null;
@@ -1865,6 +1879,16 @@ export class StudentsComponent implements OnInit, OnDestroy {
     }
   }
 
+  useLinkedAddress(): void {
+    if (this.siblingInfo?.address) {
+      const addrCtrl = this.studentForm?.get('address');
+      if (addrCtrl) {
+        addrCtrl.setValue(this.siblingInfo.address);
+        addrCtrl.markAsDirty();
+      }
+    }
+  }
+
   // ── Photo helpers ────────────────────────────────────────
 
   triggerFileInput(): void {
@@ -1962,6 +1986,8 @@ export class StudentsComponent implements OnInit, OnDestroy {
                 this.siblingInfo = {
                   studentName: res.studentName,
                   parentName: res.parentName,
+                  motherName: res.motherName,
+                  address: res.address,
                   batchName: res.batchName,
                   branchName: res.branchName
                 };
@@ -1969,6 +1995,16 @@ export class StudentsComponent implements OnInit, OnDestroy {
                 if (parentCtrl && !parentCtrl.value && res.parentName) {
                   parentCtrl.setValue(res.parentName);
                   parentCtrl.markAsDirty();
+                }
+                const motherCtrl = this.studentForm.get('motherName');
+                if (motherCtrl && !motherCtrl.value && res.motherName) {
+                  motherCtrl.setValue(res.motherName);
+                  motherCtrl.markAsDirty();
+                }
+                const addressCtrl = this.studentForm.get('address');
+                if (addressCtrl && (!addressCtrl.value || !addressCtrl.value.trim()) && res.address) {
+                  addressCtrl.setValue(res.address);
+                  addressCtrl.markAsDirty();
                 }
                 if (control.hasError('duplicate')) {
                   const errors = { ...control.errors };

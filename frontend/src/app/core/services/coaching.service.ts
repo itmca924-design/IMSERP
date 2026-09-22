@@ -126,6 +126,8 @@ export class CoachingService {
     isSibling: boolean;
     studentName: string | null;
     parentName: string | null;
+    motherName?: string | null;
+    address?: string | null;
     batchName: string | null;
     branchName: string | null;
   }> {

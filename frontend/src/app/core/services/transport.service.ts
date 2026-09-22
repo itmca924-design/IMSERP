@@ -450,4 +450,11 @@ export class TransportService {
   verifyPassQr(qrPayload: string): Observable<any> {
     return this.http.post<any>(`${API_BASE}/transport/verify-pass-qr`, { qrPayload });
   }
+
+  // Teacher Lookup
+  getTeachers(activeOnly: boolean = true): Observable<any[]> {
+    return this.http.get<any[]>(`${API_BASE}/teachers`, {
+      params: { activeOnly: String(activeOnly) }
+    });
+  }
 }

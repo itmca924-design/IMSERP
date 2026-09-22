@@ -18,6 +18,8 @@ import { MatDialogModule } from '@angular/material/dialog';
 import { MatTableModule } from '@angular/material/table';
 import { MatMenuModule } from '@angular/material/menu';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
+import { SchoolService, SchoolClassDto } from '../../core/services/school.service';
+import { CoachingService } from '../../core/services/coaching.service';
 import {
   TransportService,
   TransportOverviewDto,
@@ -82,6 +84,10 @@ export class TransportManagementComponent implements OnInit {
   // Autocomplete / Select Lookups
   studentsList: any[] = [];
   teachersList: any[] = [];
+  schoolClasses: SchoolClassDto[] = [];
+  batchesList: any[] = [];
+  schoolClassFilterOptions: { key: string; name: string; count: number; classId?: string; sectionId?: string; type: 'class' | 'section' }[] = [];
+  batchFilterOptions: { key: string; name: string; count: number; batchId: string }[] = [];
   selectedAllocationClassFilter = 'ALL';
   selectedGatePassClassFilter = 'ALL';
 
@@ -131,7 +137,9 @@ export class TransportManagementComponent implements OnInit {
     private transportService: TransportService,
     private fb: FormBuilder,
     private http: HttpClient,
-    private confirmDialog: ConfirmDialogService
+    private confirmDialog: ConfirmDialogService,
+    private schoolService: SchoolService,
+    private coachingService: CoachingService
   ) {}
 
   ngOnInit(): void {
@@ -318,17 +326,33 @@ export class TransportManagementComponent implements OnInit {
   }
 
   loadLookups(): void {
-    this.http.get<any[]>('http://localhost:5000/api/students').subscribe({
+    this.schoolService.getClasses(false).subscribe({
+      next: (res) => {
+        this.schoolClasses = (res || []).sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+        this.rebuildClassFiltersAndGroups();
+      },
+      error: (err) => console.error('Failed to load school classes', err)
+    });
+
+    this.coachingService.getBatches().subscribe({
+      next: (res) => {
+        this.batchesList = res || [];
+        this.rebuildClassFiltersAndGroups();
+      },
+      error: (err) => console.error('Failed to load coaching batches', err)
+    });
+
+    this.coachingService.getStudents().subscribe({
       next: (res) => {
         this.studentsList = res || [];
         this.rebuildClassFiltersAndGroups();
       },
-      error: () => {}
+      error: (err) => console.error('Failed to load students', err)
     });
 
-    this.http.get<any[]>('http://localhost:5000/api/teachers?activeOnly=true').subscribe({
+    this.transportService.getTeachers(true).subscribe({
       next: (res) => this.teachersList = res || [],
-      error: () => {}
+      error: (err) => console.error('Failed to load teachers', err)
     });
   }
 
@@ -1022,24 +1046,98 @@ export class TransportManagementComponent implements OnInit {
   selectedGatePassStudentInfo = '';
 
   rebuildClassFiltersAndGroups(): void {
-    const counts = new Map<string, number>();
-    for (const s of this.studentsList) {
-      const cls = this.getStudentClassName(s);
-      counts.set(cls, (counts.get(cls) || 0) + 1);
+    // 1. Build School Class options from master (in display order: Nursery to 12th)
+    this.schoolClassFilterOptions = [];
+    for (const c of this.schoolClasses) {
+      const classStudents = this.studentsList.filter(s =>
+        s.classId === c.id || (s.className && s.className.trim().toLowerCase() === c.name.trim().toLowerCase())
+      );
+
+      this.schoolClassFilterOptions.push({
+        key: `CLASS_${c.id}`,
+        name: c.name,
+        count: classStudents.length,
+        classId: c.id,
+        type: 'class'
+      });
+
+      if (c.sections && c.sections.length > 0) {
+        for (const sec of c.sections) {
+          const secStudents = classStudents.filter(s =>
+            s.sectionId === sec.id || (s.sectionName && s.sectionName.trim().toLowerCase() === sec.name.trim().toLowerCase())
+          );
+          this.schoolClassFilterOptions.push({
+            key: `SECTION_${c.id}_${sec.id}`,
+            name: `${c.name} - ${sec.name}`,
+            count: secStudents.length,
+            classId: c.id,
+            sectionId: sec.id,
+            type: 'section'
+          });
+        }
+      }
     }
-    this.availableClasses = Array.from(counts.entries())
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => a.name.localeCompare(b.name));
+
+    // 2. Build Coaching Batch options from master
+    this.batchFilterOptions = [];
+    for (const b of this.batchesList) {
+      const batchStudents = this.studentsList.filter(s =>
+        s.batchId === b.id || (s.batchName && s.batchName.trim().toLowerCase() === b.name.trim().toLowerCase())
+      );
+      this.batchFilterOptions.push({
+        key: `BATCH_${b.id}`,
+        name: b.name,
+        count: batchStudents.length,
+        batchId: b.id
+      });
+    }
+
+    // Maintain availableClasses for any legacy reference
+    this.availableClasses = this.schoolClassFilterOptions.map(x => ({ name: x.name, count: x.count }));
 
     this.rebuildAllocationGroups();
     this.rebuildGatePassGroups();
   }
 
-  rebuildAllocationGroups(): void {
-    let list = this.studentsList;
-    if (this.selectedAllocationClassFilter && this.selectedAllocationClassFilter !== 'ALL') {
-      list = list.filter(s => this.getStudentClassName(s) === this.selectedAllocationClassFilter);
+  filterStudentsBySelection(filterKey: string, students: any[]): any[] {
+    if (!filterKey || filterKey === 'ALL') return students;
+
+    if (filterKey.startsWith('CLASS_')) {
+      const classId = filterKey.replace('CLASS_', '');
+      const cls = this.schoolClasses.find(c => c.id === classId);
+      const className = cls?.name?.trim().toLowerCase();
+      return students.filter(s => s.classId === classId || (className && s.className && s.className.trim().toLowerCase() === className));
     }
+
+    if (filterKey.startsWith('SECTION_')) {
+      const parts = filterKey.split('_');
+      const classId = parts[1];
+      const sectionId = parts[2];
+      const cls = this.schoolClasses.find(c => c.id === classId);
+      const className = cls?.name?.trim().toLowerCase();
+      const sec = cls?.sections?.find(sc => sc.id === sectionId);
+      const secName = sec?.name?.trim().toLowerCase();
+
+      return students.filter(s => {
+        const matchesClass = s.classId === classId || (className && s.className && s.className.trim().toLowerCase() === className);
+        const matchesSec = s.sectionId === sectionId || (secName && s.sectionName && s.sectionName.trim().toLowerCase() === secName);
+        return matchesClass && matchesSec;
+      });
+    }
+
+    if (filterKey.startsWith('BATCH_')) {
+      const batchId = filterKey.replace('BATCH_', '');
+      const b = this.batchesList.find(x => x.id === batchId);
+      const batchName = b?.name?.trim().toLowerCase();
+      return students.filter(s => s.batchId === batchId || (batchName && s.batchName && s.batchName.trim().toLowerCase() === batchName));
+    }
+
+    // Fallback: match by student class name string (for backward compatibility)
+    return students.filter(s => this.getStudentClassName(s) === filterKey);
+  }
+
+  rebuildAllocationGroups(): void {
+    const list = this.filterStudentsBySelection(this.selectedAllocationClassFilter, this.studentsList);
 
     const map = new Map<string, any[]>();
     for (const s of list) {
@@ -1059,10 +1157,7 @@ export class TransportManagementComponent implements OnInit {
   }
 
   rebuildGatePassGroups(): void {
-    let list = this.studentsList;
-    if (this.selectedGatePassClassFilter && this.selectedGatePassClassFilter !== 'ALL') {
-      list = list.filter(s => this.getStudentClassName(s) === this.selectedGatePassClassFilter);
-    }
+    const list = this.filterStudentsBySelection(this.selectedGatePassClassFilter, this.studentsList);
 
     const map = new Map<string, any[]>();
     for (const s of list) {
@@ -1085,8 +1180,8 @@ export class TransportManagementComponent implements OnInit {
     this.rebuildAllocationGroups();
     const currentStudentId = this.allocationForm.get('studentId')?.value;
     if (currentStudentId && this.selectedAllocationClassFilter !== 'ALL') {
-      const student = this.studentsList.find(s => s.id === currentStudentId);
-      if (student && this.getStudentClassName(student) !== this.selectedAllocationClassFilter) {
+      const filtered = this.filterStudentsBySelection(this.selectedAllocationClassFilter, this.studentsList);
+      if (!filtered.some(s => s.id === currentStudentId)) {
         this.allocationForm.patchValue({ studentId: null });
         this.selectedAllocationStudentInfo = '';
       }
@@ -1097,8 +1192,8 @@ export class TransportManagementComponent implements OnInit {
     this.rebuildGatePassGroups();
     const currentStudentId = this.gatePassForm.get('studentId')?.value;
     if (currentStudentId && this.selectedGatePassClassFilter !== 'ALL') {
-      const student = this.studentsList.find(s => s.id === currentStudentId);
-      if (student && this.getStudentClassName(student) !== this.selectedGatePassClassFilter) {
+      const filtered = this.filterStudentsBySelection(this.selectedGatePassClassFilter, this.studentsList);
+      if (!filtered.some(s => s.id === currentStudentId)) {
         this.gatePassForm.patchValue({ studentId: null });
         this.selectedGatePassStudentInfo = '';
       }
@@ -1117,7 +1212,8 @@ export class TransportManagementComponent implements OnInit {
     const s = this.studentsList.find(x => x.id === id);
     if (!s) return '';
     const cls = this.getStudentClassName(s);
-    const roll = s.rollNumber || s.schoolRollNumber || s.coachingRollNumber;
-    return `${s.studentName} (${cls}${roll ? ' • Roll ' + roll : ''})`;
+    const roll = s.schoolRollNumber || s.rollNumber || s.coachingRollNumber;
+    const adm = s.admissionNumber ? ` • Adm: ${s.admissionNumber}` : '';
+    return `${s.studentName} (${cls}${roll ? ' • Roll: ' + roll : ''}${adm})`;
   }
 }

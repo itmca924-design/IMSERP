@@ -1552,6 +1552,33 @@
       grid-column: 1 / -1;
       padding: 6px 0;
     }
+
+    .transport-billing-note {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 8px;
+      font-size: 0.78rem;
+      color: #1e40af;
+      line-height: 1.4;
+
+      mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        color: #2563eb;
+        flex-shrink: 0;
+      }
+
+      strong {
+        font-weight: 700;
+        color: #1e3a8a;
+      }
+    }
   }
 }
 
