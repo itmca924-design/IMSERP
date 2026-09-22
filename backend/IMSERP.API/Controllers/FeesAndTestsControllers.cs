@@ -605,7 +605,12 @@ public class FeesController : ControllerBase
                 ));
             }
 
-            if (dto.SendWhatsAppReceipt && student != null)
+            var autoSettings = await _dbContext.AutomationSettings
+                .AsNoTracking()
+                .FirstOrDefaultAsync(s => s.TenantId == _currentUser.TenantId);
+            bool isWhatsAppReceiptActive = autoSettings?.WhatsAppFeeReceiptsEnabled ?? true;
+
+            if (dto.SendWhatsAppReceipt && isWhatsAppReceiptActive && student != null)
             {
                 await _whatsAppService.SendFeeReceiptAsync(
                     _currentUser.TenantId,

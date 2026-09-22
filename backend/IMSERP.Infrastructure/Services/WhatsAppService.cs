@@ -72,6 +72,18 @@ public class WhatsAppService : IWhatsAppService
         return await LogAndSend(tenantId, recipientPhone, studentName, MessageType.Announcement, content);
     }
 
+    public async Task<bool> SendAbsenteeAlertAsync(Guid tenantId, string recipientPhone, string studentName, string rollNumber, string dateStr)
+    {
+        var rollText = !string.IsNullOrWhiteSpace(rollNumber) ? $" (Roll: #{rollNumber})" : "";
+        var content = $"*DAILY ABSENTEE ALERT*\n" +
+                      $"Dear Parent,\n" +
+                      $"Your ward *{studentName}*{rollText} has been marked *ABSENT* on *{dateStr}*.\n" +
+                      $"If this absence is unplanned or unexplained, kindly contact the institute desk immediately.\n" +
+                      $"Apex Public School & Coaching Academy.";
+
+        return await LogAndSend(tenantId, recipientPhone, studentName, MessageType.Announcement, content);
+    }
+
     private async Task<bool> LogAndSend(Guid tenantId, string phone, string studentName, MessageType type, string content)
     {
         _logger.LogInformation("[WhatsApp Gateway Dispatch] To: {Phone} | Student: {Student} | Type: {Type} | Content: {Content}", phone, studentName, type, content);

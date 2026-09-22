@@ -577,6 +577,35 @@ public class AttendanceSettings
     public Branch? Branch { get; set; }
 }
 
+public class AutomationSettings
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+
+    public bool WhatsAppFeeReceiptsEnabled { get; set; } = true;
+
+    public bool DailyAbsenteeAlertEnabled { get; set; } = true;
+    public string DailyAbsenteeAlertTime { get; set; } = "10:30";
+    public DateTime? LastAbsenteeAlertDate { get; set; }
+
+    public bool FeeDueRemindersEnabled { get; set; } = true;
+    public int FeeDueDaysPrior { get; set; } = 3;
+    public DateTime? LastFeeReminderDate { get; set; }
+
+    public bool BiometricSyncEnabled { get; set; } = true;
+    public DateTime? LastBiometricSyncAt { get; set; }
+
+    public bool LateFeeAutoComputeEnabled { get; set; } = true;
+    public decimal LateFeeDailyRate { get; set; } = 10;
+    public int LateFeeGraceDays { get; set; } = 5;
+
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+}
+
 public class BiometricDevice
 {
     public Guid Id { get; set; } = Guid.NewGuid();

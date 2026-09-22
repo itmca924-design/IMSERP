@@ -404,6 +404,10 @@ export class TransportService {
     return this.http.post<TransportAllocationDto>(`${API_BASE}/transport/allocate`, dto);
   }
 
+  updateAllocation(id: string, dto: CreateTransportAllocationDto): Observable<TransportAllocationDto> {
+    return this.http.put<TransportAllocationDto>(`${API_BASE}/transport/allocations/${id}`, dto);
+  }
+
   discontinueAllocation(id: string): Observable<{ message: string }> {
     return this.http.patch<{ message: string }>(`${API_BASE}/transport/allocations/${id}/discontinue`, {});
   }

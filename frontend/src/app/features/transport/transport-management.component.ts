@@ -113,6 +113,7 @@ export class TransportManagementComponent implements OnInit {
   editingDriverId: string | null = null;
   editingRouteId: string | null = null;
   editingStopId: string | null = null;
+  editingAllocationId: string | null = null;
   selectedRouteForStops: TransportRouteDto | null = null;
   selectedGatePassForClose: CampusGatePassDto | null = null;
 
@@ -694,6 +695,7 @@ export class TransportManagementComponent implements OnInit {
   // --- Allocations (Passes) ---
 
   openAddAllocation(memberType: 'Student' | 'Teacher' = 'Student'): void {
+    this.editingAllocationId = null;
     this.activeTopAction = memberType === 'Student' ? 'student' : 'faculty';
     this.selectedAllocationClassFilter = 'ALL';
     this.selectedAllocationStudentInfo = '';
@@ -707,6 +709,50 @@ export class TransportManagementComponent implements OnInit {
       remarks: ''
     });
     this.showAllocationModal = true;
+  }
+
+  openEditAllocation(a: TransportAllocationDto): void {
+    this.editingAllocationId = a.id;
+    this.activeTopAction = a.memberType === 'Student' ? 'student' : 'faculty';
+    this.selectedAllocationClassFilter = 'ALL';
+    this.selectedAllocationStudentInfo = a.studentName
+      ? `${a.studentName} (Roll: ${a.studentRollNumber || a.rollNumber || 'N/A'})`
+      : (a.teacherName || '');
+    this.rebuildAllocationGroups();
+
+    const formattedDate = a.effectiveFrom
+      ? new Date(a.effectiveFrom).toISOString().substring(0, 10)
+      : this.getTodayDateString();
+
+    this.allocationForm.reset({
+      memberType: a.memberType,
+      studentId: a.studentId,
+      teacherId: a.teacherId,
+      routeId: a.routeId,
+      routeStopId: a.routeStopId,
+      vehicleId: a.vehicleId,
+      pickupDropType: a.pickupDropType || 'Both',
+      monthlyFare: a.monthlyFare,
+      isFreeAllocation: a.isFreeAllocation,
+      effectiveFrom: formattedDate,
+      remarks: a.remarks || ''
+    });
+
+    this.showAllocationModal = true;
+  }
+
+  onIsFreeAllocationToggle(isFree: boolean): void {
+    if (isFree) {
+      this.allocationForm.patchValue({ monthlyFare: 0 });
+    } else {
+      const routeId = this.allocationForm.get('routeId')?.value;
+      const stopId = this.allocationForm.get('routeStopId')?.value;
+      const selectedRoute = this.routes.find(r => r.id === routeId);
+      const stop = selectedRoute?.stops?.find(s => s.id === stopId);
+      if (stop) {
+        this.allocationForm.patchValue({ monthlyFare: stop.monthlyFare });
+      }
+    }
   }
 
   onRouteChangeForAllocation(routeId: string): void {
@@ -743,15 +789,28 @@ export class TransportManagementComponent implements OnInit {
       remarks: formVal.remarks
     };
 
-    this.transportService.allocateTransport(dto).subscribe({
-      next: () => {
-        this.showAllocationModal = false;
-        this.loadAllocations();
-        this.loadOverview();
-        this.confirmDialog.alert('Pass Issued', 'Transport pass allocated and smart card generated successfully!', 'success');
-      },
-      error: (err) => this.confirmDialog.alert('Allocation Failed', err.error?.message || 'Failed to allocate transport.', 'danger')
-    });
+    if (this.editingAllocationId) {
+      this.transportService.updateAllocation(this.editingAllocationId, dto).subscribe({
+        next: () => {
+          this.showAllocationModal = false;
+          this.editingAllocationId = null;
+          this.loadAllocations();
+          this.loadOverview();
+          this.confirmDialog.alert('Pass Updated', 'Transport pass updated successfully! Monthly fare and billing details have been updated.', 'success');
+        },
+        error: (err) => this.confirmDialog.alert('Update Failed', err.error?.message || 'Failed to update transport pass.', 'danger')
+      });
+    } else {
+      this.transportService.allocateTransport(dto).subscribe({
+        next: () => {
+          this.showAllocationModal = false;
+          this.loadAllocations();
+          this.loadOverview();
+          this.confirmDialog.alert('Pass Issued', 'Transport pass allocated and smart card generated successfully!', 'success');
+        },
+        error: (err) => this.confirmDialog.alert('Allocation Failed', err.error?.message || 'Failed to allocate transport.', 'danger')
+      });
+    }
   }
 
   discontinueAllocation(a: TransportAllocationDto): void {

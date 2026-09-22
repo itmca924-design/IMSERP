@@ -25,6 +25,7 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
     public DbSet<Student> Students => Set<Student>();
     public DbSet<StudentAttendance> StudentAttendances => Set<StudentAttendance>();
     public DbSet<AttendanceSettings> AttendanceSettings => Set<AttendanceSettings>();
+    public DbSet<AutomationSettings> AutomationSettings => Set<AutomationSettings>();
     public DbSet<BiometricDevice> BiometricDevices => Set<BiometricDevice>();
     public DbSet<BiometricEventLog> BiometricEventLogs => Set<BiometricEventLog>();
     public DbSet<FeeInvoice> FeeInvoices => Set<FeeInvoice>();

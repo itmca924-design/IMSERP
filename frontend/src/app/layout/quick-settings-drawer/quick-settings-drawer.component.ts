@@ -84,6 +84,35 @@ export class QuickSettingsDrawerComponent {
     }
   }
 
+  runningJob: string | null = null;
+  jobMessage: string | null = null;
+  jobSuccess: boolean = true;
+
+  onRunJob(jobName: string, event: MouseEvent): void {
+    event.stopPropagation();
+    this.runningJob = jobName;
+    this.jobMessage = null;
+
+    this.settingsService.runJob(jobName).subscribe({
+      next: (res) => {
+        this.runningJob = null;
+        this.jobSuccess = res.success;
+        this.jobMessage = res.message;
+        setTimeout(() => {
+          if (this.jobMessage === res.message) this.jobMessage = null;
+        }, 6000);
+      },
+      error: (err) => {
+        this.runningJob = null;
+        this.jobSuccess = false;
+        this.jobMessage = err.error?.message || 'Automation trigger failed.';
+        setTimeout(() => {
+          this.jobMessage = null;
+        }, 6000);
+      }
+    });
+  }
+
   playTestChime(): void {
     this.settingsService.playChime(640, 0.15, 'triangle');
   }

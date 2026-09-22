@@ -203,6 +203,15 @@
         </div>
       </div>
 
+      <!-- Realtime Job Run Notification Banner -->
+      <div *ngIf="jobMessage" class="job-status-banner" [class.success]="jobSuccess" [class.error]="!jobSuccess">
+        <mat-icon>{{ jobSuccess ? 'check_circle' : 'error_outline' }}</mat-icon>
+        <div class="banner-msg-content">
+          <strong>{{ jobSuccess ? 'Automation Task Executed' : 'Execution Notice' }}</strong>
+          <span>{{ jobMessage }}</span>
+        </div>
+      </div>
+
       <div class="toggles-list">
 
         <!-- WhatsApp Fee Receipt -->
@@ -213,9 +222,17 @@
           <div class="toggle-details">
             <div class="toggle-title-row">
               <span class="toggle-title">WhatsApp Fee Receipts</span>
-              <span class="status-pill green">Instant</span>
+              <span class="status-pill green" [class.paused]="!settingsService.whatsappFeeAlerts()">
+                {{ settingsService.whatsappFeeAlerts() ? 'Instant Auto-Send' : 'Disabled' }}
+              </span>
             </div>
-            <p class="toggle-desc">Automatically send branded PDF fee receipts to parents' WhatsApp on payment collection.</p>
+            <p class="toggle-desc">Automatically sends branded PDF fee receipts to parents' WhatsApp on payment collection.</p>
+            <div class="toggle-actions-row">
+              <button type="button" class="run-test-btn" (click)="onRunJob('whatsapp-receipts', $event)" [disabled]="runningJob === 'whatsapp-receipts'">
+                <mat-icon [class.spinning]="runningJob === 'whatsapp-receipts'">{{ runningJob === 'whatsapp-receipts' ? 'sync' : 'bolt' }}</mat-icon>
+                <span>{{ runningJob === 'whatsapp-receipts' ? 'Testing Gateway...' : 'Test WhatsApp Gateway' }}</span>
+              </button>
+            </div>
           </div>
           <label class="switch">
             <input
@@ -234,9 +251,17 @@
           <div class="toggle-details">
             <div class="toggle-title-row">
               <span class="toggle-title">Daily Absentee Alert</span>
-              <span class="status-pill blue">10:30 AM</span>
+              <span class="status-pill blue" [class.paused]="!settingsService.absentSmsAlerts()">
+                {{ settingsService.absentSmsAlerts() ? 'Scheduled (10:30 AM)' : 'Paused' }}
+              </span>
             </div>
             <p class="toggle-desc">Dispatches automated WhatsApp/SMS notifications to parents if student is marked absent.</p>
+            <div class="toggle-actions-row">
+              <button type="button" class="run-test-btn" (click)="onRunJob('absentee-alerts', $event)" [disabled]="runningJob === 'absentee-alerts'">
+                <mat-icon [class.spinning]="runningJob === 'absentee-alerts'">{{ runningJob === 'absentee-alerts' ? 'sync' : 'play_arrow' }}</mat-icon>
+                <span>{{ runningJob === 'absentee-alerts' ? 'Checking Absences...' : 'Run Absentee Alert Now' }}</span>
+              </button>
+            </div>
           </div>
           <label class="switch">
             <input
@@ -255,9 +280,17 @@
           <div class="toggle-details">
             <div class="toggle-title-row">
               <span class="toggle-title">Fee Due Auto-Reminders</span>
-              <span class="status-pill amber">3-Days Prior</span>
+              <span class="status-pill amber" [class.paused]="!settingsService.dueFeeReminders()">
+                {{ settingsService.dueFeeReminders() ? 'Active (3-Days Prior)' : 'Paused' }}
+              </span>
             </div>
             <p class="toggle-desc">Sends automatic payment reminders before invoice due dates to maintain zero overdue balances.</p>
+            <div class="toggle-actions-row">
+              <button type="button" class="run-test-btn" (click)="onRunJob('fee-reminders', $event)" [disabled]="runningJob === 'fee-reminders'">
+                <mat-icon [class.spinning]="runningJob === 'fee-reminders'">{{ runningJob === 'fee-reminders' ? 'sync' : 'send' }}</mat-icon>
+                <span>{{ runningJob === 'fee-reminders' ? 'Scanning Invoices...' : 'Dispatch Due Reminders Now' }}</span>
+              </button>
+            </div>
           </div>
           <label class="switch">
             <input
@@ -276,9 +309,17 @@
           <div class="toggle-details">
             <div class="toggle-title-row">
               <span class="toggle-title">Biometric / RFID Realtime Sync</span>
-              <span class="status-pill purple">Live</span>
+              <span class="status-pill purple" [class.paused]="!settingsService.biometricSync()">
+                {{ settingsService.biometricSync() ? 'Live Polling Engine' : 'Paused' }}
+              </span>
             </div>
             <p class="toggle-desc">Polls biometric hardware logs directly at gate entry and auto-marks class attendance.</p>
+            <div class="toggle-actions-row">
+              <button type="button" class="run-test-btn" (click)="onRunJob('biometric-sync', $event)" [disabled]="runningJob === 'biometric-sync'">
+                <mat-icon [class.spinning]="runningJob === 'biometric-sync'">{{ runningJob === 'biometric-sync' ? 'sync' : 'cached' }}</mat-icon>
+                <span>{{ runningJob === 'biometric-sync' ? 'Syncing Devices...' : 'Sync Biometric Gate Now' }}</span>
+              </button>
+            </div>
           </div>
           <label class="switch">
             <input
@@ -297,9 +338,17 @@
           <div class="toggle-details">
             <div class="toggle-title-row">
               <span class="toggle-title">Late Fee Rule Auto-Compute</span>
-              <span class="status-pill">Rules</span>
+              <span class="status-pill" [class.paused]="!settingsService.lateFeeCalc()">
+                {{ settingsService.lateFeeCalc() ? 'Rules Active (₹10/day)' : 'Disabled' }}
+              </span>
             </div>
             <p class="toggle-desc">Applies institute fine policy automatically to invoices past the defined grace period.</p>
+            <div class="toggle-actions-row">
+              <button type="button" class="run-test-btn" (click)="onRunJob('late-fee', $event)" [disabled]="runningJob === 'late-fee'">
+                <mat-icon [class.spinning]="runningJob === 'late-fee'">{{ runningJob === 'late-fee' ? 'sync' : 'calculate' }}</mat-icon>
+                <span>{{ runningJob === 'late-fee' ? 'Applying Penalties...' : 'Run Late Fee Auto-Compute' }}</span>
+              </button>
+            </div>
           </div>
           <label class="switch">
             <input

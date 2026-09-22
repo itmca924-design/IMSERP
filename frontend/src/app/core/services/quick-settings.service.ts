@@ -1,4 +1,6 @@
-import { Injectable, signal, effect } from '@angular/core';
+import { Injectable, signal, effect, inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable, tap } from 'rxjs';
 
 export type ErpThemeMode = 'light' | 'dark' | 'auto';
 export type ErpAccentColor = 'indigo' | 'emerald' | 'blue' | 'purple' | 'amber' | 'rose' | 'teal' | 'cyan' | 'orange' | 'lime' | 'crimson' | 'slate';
@@ -16,6 +18,33 @@ export interface ErpSettingsState {
   lateFeeCalc: boolean;
   soundEffects: boolean;
   autoRefreshInterval: number; // in seconds, 0 = off
+}
+
+export interface AutomationSettingsDto {
+  id?: string;
+  tenantId: string;
+  whatsAppFeeReceiptsEnabled: boolean;
+  dailyAbsenteeAlertEnabled: boolean;
+  dailyAbsenteeAlertTime: string;
+  lastAbsenteeAlertDate?: string | null;
+  feeDueRemindersEnabled: boolean;
+  feeDueDaysPrior: number;
+  lastFeeReminderDate?: string | null;
+  biometricSyncEnabled: boolean;
+  lastBiometricSyncAt?: string | null;
+  lateFeeAutoComputeEnabled: boolean;
+  lateFeeDailyRate: number;
+  lateFeeGraceDays: number;
+  updatedAt?: string | null;
+}
+
+export interface RunJobResult {
+  jobName: string;
+  success: boolean;
+  message: string;
+  processedCount: number;
+  executedAt: string;
+  details?: string[];
 }
 
 const STORAGE_KEY = 'imserp_quick_settings_v1';
@@ -38,6 +67,9 @@ const DEFAULT_SETTINGS: ErpSettingsState = {
   providedIn: 'root'
 })
 export class QuickSettingsService {
+  private http = inject(HttpClient);
+  private readonly API_URL = 'http://localhost:5000/api/automation-settings';
+
   // Drawer open/close state
   readonly isDrawerOpen = signal<boolean>(false);
 
@@ -54,8 +86,12 @@ export class QuickSettingsService {
   readonly soundEffects = signal<boolean>(DEFAULT_SETTINGS.soundEffects);
   readonly autoRefreshInterval = signal<number>(DEFAULT_SETTINGS.autoRefreshInterval);
 
+  readonly backendSettings = signal<AutomationSettingsDto | null>(null);
+  readonly isSyncing = signal<boolean>(false);
+
   constructor() {
     this.loadFromStorage();
+    this.loadFromBackend();
 
     // Setup effect to persist and apply DOM classes whenever settings change
     effect(() => {
@@ -75,6 +111,61 @@ export class QuickSettingsService {
       this.saveToStorage(state);
       this.applyToDom(state);
     });
+  }
+
+  loadFromBackend(): void {
+    this.http.get<AutomationSettingsDto>(this.API_URL).subscribe({
+      next: (res) => {
+        if (!res) return;
+        this.backendSettings.set(res);
+        this.whatsappFeeAlerts.set(res.whatsAppFeeReceiptsEnabled);
+        this.absentSmsAlerts.set(res.dailyAbsenteeAlertEnabled);
+        this.dueFeeReminders.set(res.feeDueRemindersEnabled);
+        this.biometricSync.set(res.biometricSyncEnabled);
+        this.lateFeeCalc.set(res.lateFeeAutoComputeEnabled);
+      },
+      error: () => {
+        // Fall back gracefully to localStorage if backend is still initializing
+      }
+    });
+  }
+
+  syncToBackend(): void {
+    this.isSyncing.set(true);
+    const payload = {
+      whatsAppFeeReceiptsEnabled: this.whatsappFeeAlerts(),
+      dailyAbsenteeAlertEnabled: this.absentSmsAlerts(),
+      dailyAbsenteeAlertTime: this.backendSettings()?.dailyAbsenteeAlertTime || '10:30',
+      feeDueRemindersEnabled: this.dueFeeReminders(),
+      feeDueDaysPrior: this.backendSettings()?.feeDueDaysPrior || 3,
+      biometricSyncEnabled: this.biometricSync(),
+      lateFeeAutoComputeEnabled: this.lateFeeCalc(),
+      lateFeeDailyRate: this.backendSettings()?.lateFeeDailyRate || 10,
+      lateFeeGraceDays: this.backendSettings()?.lateFeeGraceDays || 5
+    };
+
+    this.http.put<AutomationSettingsDto>(this.API_URL, payload).subscribe({
+      next: (res) => {
+        this.backendSettings.set(res);
+        this.isSyncing.set(false);
+      },
+      error: () => {
+        this.isSyncing.set(false);
+      }
+    });
+  }
+
+  runJob(jobName: string): Observable<RunJobResult> {
+    return this.http.post<RunJobResult>(`${this.API_URL}/run/${jobName}`, {}).pipe(
+      tap(res => {
+        if (res) {
+          this.loadFromBackend();
+          if (this.soundEffects()) {
+            this.playChime(750, 0.15, 'sine');
+          }
+        }
+      })
+    );
   }
 
   toggleDrawer(open?: boolean): void {
@@ -110,22 +201,27 @@ export class QuickSettingsService {
 
   toggleWhatsappFee(val?: boolean): void {
     this.whatsappFeeAlerts.update(v => typeof val === 'boolean' ? val : !v);
+    this.syncToBackend();
   }
 
   toggleAbsentSms(val?: boolean): void {
     this.absentSmsAlerts.update(v => typeof val === 'boolean' ? val : !v);
+    this.syncToBackend();
   }
 
   toggleDueFeeReminders(val?: boolean): void {
     this.dueFeeReminders.update(v => typeof val === 'boolean' ? val : !v);
+    this.syncToBackend();
   }
 
   toggleBiometricSync(val?: boolean): void {
     this.biometricSync.update(v => typeof val === 'boolean' ? val : !v);
+    this.syncToBackend();
   }
 
   toggleLateFeeCalc(val?: boolean): void {
     this.lateFeeCalc.update(v => typeof val === 'boolean' ? val : !v);
+    this.syncToBackend();
   }
 
   toggleSoundEffects(val?: boolean): void {
@@ -148,6 +244,7 @@ export class QuickSettingsService {
     this.lateFeeCalc.set(DEFAULT_SETTINGS.lateFeeCalc);
     this.soundEffects.set(DEFAULT_SETTINGS.soundEffects);
     this.autoRefreshInterval.set(DEFAULT_SETTINGS.autoRefreshInterval);
+    this.syncToBackend();
   }
 
   /**

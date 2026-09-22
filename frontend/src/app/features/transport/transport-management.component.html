@@ -519,6 +519,9 @@
             <td>{{ a.effectiveFrom | date:'dd MMM yyyy' }}</td>
             <td><span class="status-pill active">{{ a.status }}</span></td>
             <td style="text-align: right;">
+              <button mat-icon-button color="primary" (click)="openEditAllocation(a)" matTooltip="Edit Pass / Fare">
+                <mat-icon>edit</mat-icon>
+              </button>
               <button mat-stroked-button color="primary" class="btn-sm" (click)="viewBusPass(a.id)">
                 <mat-icon>badge</mat-icon> Bus Pass
               </button>
@@ -582,6 +585,9 @@
             <td><span class="trip-pill">{{ a.pickupDropType }}</span></td>
             <td><span class="status-pill active">{{ a.status }}</span></td>
             <td style="text-align: right;">
+              <button mat-icon-button color="primary" (click)="openEditAllocation(a)" matTooltip="Edit Pass / Fare">
+                <mat-icon>edit</mat-icon>
+              </button>
               <button mat-stroked-button color="primary" class="btn-sm" (click)="viewBusPass(a.id)">
                 <mat-icon>badge</mat-icon> Pass
               </button>
@@ -1150,10 +1156,10 @@
         </div>
         <div>
           <h3 class="modal-title">
-            {{ allocationForm.get('memberType')?.value === 'Student' ? 'Assign Student Transport Pass' : 'Assign Teacher / Staff Transport Pass' }}
+            {{ editingAllocationId ? 'Edit Transport Bus Pass' : (allocationForm.get('memberType')?.value === 'Student' ? 'Assign Student Transport Pass' : 'Assign Teacher / Staff Transport Pass') }}
           </h3>
           <p class="modal-subtitle">
-            {{ allocationForm.get('memberType')?.value === 'Student' ? 'Enroll student into bus route with automated fee invoice billing' : 'Allocate campus transport facility for teacher or staff member' }}
+            {{ editingAllocationId ? 'Modify route, boarding stop, concession status, or monthly fare' : (allocationForm.get('memberType')?.value === 'Student' ? 'Enroll student into bus route with automated fee invoice billing' : 'Allocate campus transport facility for teacher or staff member') }}
           </p>
         </div>
       </div>
@@ -1268,7 +1274,7 @@
           </mat-form-field>
 
           <div class="checkbox-box">
-            <mat-checkbox formControlName="isFreeAllocation">
+            <mat-checkbox formControlName="isFreeAllocation" (change)="onIsFreeAllocationToggle($event.checked)">
               Free Bus Pass (100% Institution Concession)
             </mat-checkbox>
           </div>
@@ -1283,7 +1289,7 @@
       <div class="modal-footer">
         <button mat-stroked-button type="button" (click)="showAllocationModal = false">Cancel</button>
         <button mat-flat-button color="primary" type="submit" [disabled]="allocationForm.invalid">
-          <mat-icon>verified</mat-icon> Issue Pass
+          <mat-icon>{{ editingAllocationId ? 'save' : 'verified' }}</mat-icon> {{ editingAllocationId ? 'Update Pass' : 'Issue Pass' }}
         </button>
       </div>
     </form>

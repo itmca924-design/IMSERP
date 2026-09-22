@@ -2480,3 +2480,47 @@ public record CreateCampusGatePassDto(
     int? PassengerCount = null,
     string? Remarks = null
 );
+
+// =========================================================================
+// AUTOMATION PRO & SYSTEM ENGINE DTOS
+// =========================================================================
+
+public record AutomationSettingsDto(
+    Guid? Id,
+    Guid TenantId,
+    bool WhatsAppFeeReceiptsEnabled,
+    bool DailyAbsenteeAlertEnabled,
+    string DailyAbsenteeAlertTime,
+    DateTime? LastAbsenteeAlertDate,
+    bool FeeDueRemindersEnabled,
+    int FeeDueDaysPrior,
+    DateTime? LastFeeReminderDate,
+    bool BiometricSyncEnabled,
+    DateTime? LastBiometricSyncAt,
+    bool LateFeeAutoComputeEnabled,
+    decimal LateFeeDailyRate,
+    int LateFeeGraceDays,
+    DateTime? UpdatedAt
+);
+
+public record SaveAutomationSettingsDto(
+    bool WhatsAppFeeReceiptsEnabled,
+    bool DailyAbsenteeAlertEnabled,
+    string DailyAbsenteeAlertTime,
+    bool FeeDueRemindersEnabled,
+    int FeeDueDaysPrior,
+    bool BiometricSyncEnabled,
+    bool LateFeeAutoComputeEnabled,
+    decimal LateFeeDailyRate,
+    int LateFeeGraceDays
+);
+
+public record RunAutomationJobResultDto(
+    string JobName,
+    bool Success,
+    string Message,
+    int ProcessedCount,
+    DateTime ExecutedAt,
+    List<string>? Details = null
+);
+

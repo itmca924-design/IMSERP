@@ -12,6 +12,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { FeesService, StudentLibraryDues, FeeInvoiceItem, FeeItemPayment } from '../../core/services/fees.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
+import { QuickSettingsService } from '../../core/services/quick-settings.service';
 
 export interface FeeDialogData {
   studentId: string;
@@ -794,6 +795,7 @@ export class FeeCollectionDialogComponent implements OnInit {
     private fb: FormBuilder,
     private feesService: FeesService,
     private confirmDialog: ConfirmDialogService,
+    private quickSettings: QuickSettingsService,
     private dialogRef: MatDialogRef<FeeCollectionDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: FeeDialogData
   ) {}
@@ -881,7 +883,7 @@ export class FeeCollectionDialogComponent implements OnInit {
       mode: [1, [Validators.required]], // Default to UPI
       transactionRef: [''],
       remarks: [defaultRemarks],
-      sendWhatsAppReceipt: [true],
+      sendWhatsAppReceipt: [this.quickSettings.whatsappFeeAlerts()],
       includeLibraryFine: [true]
     });
 

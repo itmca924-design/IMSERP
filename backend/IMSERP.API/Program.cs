@@ -14,6 +14,8 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IWhatsAppService, WhatsAppService>();
 builder.Services.AddScoped<IPasswordHasherService, PasswordHasherService>();
+builder.Services.AddScoped<IAutomationService, AutomationService>();
+builder.Services.AddHostedService<InstituteAutomationBackgroundService>();
 
 // 2. DbContext Configuration (SQL Server Database: IMSERP)
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
@@ -158,6 +160,28 @@ using (var scope = app.Services.CreateScope())
                             PrincipalSignTitle NVARCHAR(MAX) NULL,
                             ClassTeacherSignTitle NVARCHAR(MAX) NULL,
                             ResultDeclarationNote NVARCHAR(MAX) NULL,
+                            UpdatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
+                        );
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'AutomationSettings')
+                    BEGIN
+                        CREATE TABLE AutomationSettings (
+                            Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
+                            TenantId UNIQUEIDENTIFIER NOT NULL,
+                            BranchId UNIQUEIDENTIFIER NULL,
+                            WhatsAppFeeReceiptsEnabled BIT NOT NULL DEFAULT 1,
+                            DailyAbsenteeAlertEnabled BIT NOT NULL DEFAULT 1,
+                            DailyAbsenteeAlertTime NVARCHAR(10) NOT NULL DEFAULT '10:30',
+                            LastAbsenteeAlertDate DATETIME2 NULL,
+                            FeeDueRemindersEnabled BIT NOT NULL DEFAULT 1,
+                            FeeDueDaysPrior INT NOT NULL DEFAULT 3,
+                            LastFeeReminderDate DATETIME2 NULL,
+                            BiometricSyncEnabled BIT NOT NULL DEFAULT 1,
+                            LastBiometricSyncAt DATETIME2 NULL,
+                            LateFeeAutoComputeEnabled BIT NOT NULL DEFAULT 1,
+                            LateFeeDailyRate DECIMAL(18,2) NOT NULL DEFAULT 10,
+                            LateFeeGraceDays INT NOT NULL DEFAULT 5,
                             UpdatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
                         );
                     END

@@ -17,6 +17,7 @@ public interface IIMSERPDbContext
     DbSet<Student> Students { get; }
     DbSet<StudentAttendance> StudentAttendances { get; }
     DbSet<AttendanceSettings> AttendanceSettings { get; }
+    DbSet<AutomationSettings> AutomationSettings { get; }
     DbSet<BiometricDevice> BiometricDevices { get; }
     DbSet<BiometricEventLog> BiometricEventLogs { get; }
     DbSet<FeeInvoice> FeeInvoices { get; }
@@ -76,6 +77,7 @@ public interface IWhatsAppService
     Task<bool> SendAnnualExamReportAsync(Guid tenantId, string recipientPhone, string studentName, string examTitle, string academicYear, decimal totalObtained, decimal totalMax, decimal percentage, string grade, string resultStatus, int? rank);
     Task<bool> SendTeacherSalarySlipAsync(Guid tenantId, string recipientPhone, string teacherName, string monthName, int year, decimal netPaid, string receiptNo);
     Task<bool> SendTransportBoardingAlertAsync(Guid tenantId, string recipientPhone, string studentName, string busNumber, string stopName, string timeStr, string departureType);
+    Task<bool> SendAbsenteeAlertAsync(Guid tenantId, string recipientPhone, string studentName, string rollNumber, string dateStr);
 }
 
 public interface ICurrentUserService

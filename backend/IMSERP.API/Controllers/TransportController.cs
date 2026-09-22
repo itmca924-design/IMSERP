@@ -269,6 +269,42 @@ public class TransportController : ControllerBase
         return CreatedAtAction(nameof(GetAllocation), new { id = allocation.Id }, MapAllocationDto(result!));
     }
 
+    [HttpPut("allocations/{id:guid}")]
+    public async Task<ActionResult<TransportAllocationDto>> UpdateTransportAllocation(Guid id, [FromBody] CreateTransportAllocationDto dto)
+    {
+        var allocation = await _db.TransportAllocations.FirstOrDefaultAsync(a => a.Id == id && a.TenantId == _currentUser.TenantId);
+        if (allocation == null) return NotFound(new { message = "Transport allocation not found." });
+
+        var route = await _db.TransportRoutes.FindAsync(dto.RouteId);
+        if (route == null) return BadRequest(new { message = "Route not found." });
+
+        var stop = await _db.TransportRouteStops.FindAsync(dto.RouteStopId);
+        if (stop == null) return BadRequest(new { message = "Stop not found." });
+
+        allocation.RouteId = dto.RouteId;
+        allocation.RouteStopId = dto.RouteStopId;
+        allocation.VehicleId = dto.VehicleId ?? route.VehicleId;
+        allocation.PickupDropType = dto.PickupDropType;
+        allocation.MonthlyFare = dto.MonthlyFare;
+        allocation.IsFreeAllocation = dto.IsFreeAllocation;
+        allocation.EffectiveFrom = dto.EffectiveFrom;
+        allocation.Remarks = dto.Remarks;
+
+        await _db.SaveChangesAsync();
+
+        var result = await _db.TransportAllocations.AsNoTracking()
+            .Include(a => a.Student).ThenInclude(s => s!.Class)
+            .Include(a => a.Student).ThenInclude(s => s!.Section)
+            .Include(a => a.Student).ThenInclude(s => s!.Batch)
+            .Include(a => a.Teacher)
+            .Include(a => a.Route)
+            .Include(a => a.Stop)
+            .Include(a => a.Vehicle)
+            .FirstOrDefaultAsync(a => a.Id == allocation.Id);
+
+        return Ok(MapAllocationDto(result!));
+    }
+
     [HttpPatch("allocations/{id}/discontinue")]
     public async Task<IActionResult> DiscontinueAllocation(Guid id)
     {
