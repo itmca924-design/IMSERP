@@ -143,6 +143,165 @@ using (var scope = app.Services.CreateScope())
                             CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
                         );
                     END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'ExamSettings')
+                    BEGIN
+                        CREATE TABLE ExamSettings (
+                            Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
+                            TenantId UNIQUEIDENTIFIER NOT NULL,
+                            BranchId UNIQUEIDENTIFIER NULL,
+                            PassingPercentage DECIMAL(5,2) NOT NULL DEFAULT 33.00,
+                            MaxCompartmentSubjects INT NOT NULL DEFAULT 2,
+                            AllowGraceMarks BIT NOT NULL DEFAULT 1,
+                            MaxGraceMarks INT NOT NULL DEFAULT 5,
+                            SchoolAffiliationNumber NVARCHAR(MAX) NULL,
+                            PrincipalSignTitle NVARCHAR(MAX) NULL,
+                            ClassTeacherSignTitle NVARCHAR(MAX) NULL,
+                            ResultDeclarationNote NVARCHAR(MAX) NULL,
+                            UpdatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
+                        );
+                    END
+
+                    -- Teacher Module Hybrid School & Login Migrations
+                    IF EXISTS (SELECT 1 FROM sys.tables WHERE name = 'SchoolSections') AND NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'ClassTeacherId' AND object_id = OBJECT_ID('SchoolSections'))
+                    BEGIN
+                        ALTER TABLE SchoolSections ADD ClassTeacherId UNIQUEIDENTIFIER NULL;
+                    END
+
+                    IF EXISTS (SELECT 1 FROM sys.tables WHERE name = 'Teachers') AND NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'UserId' AND object_id = OBJECT_ID('Teachers'))
+                    BEGIN
+                        ALTER TABLE Teachers ADD UserId UNIQUEIDENTIFIER NULL;
+                    END
+
+                    IF EXISTS (SELECT 1 FROM sys.tables WHERE name = 'TeacherBatchAssignments')
+                    BEGIN
+                        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'ClassId' AND object_id = OBJECT_ID('TeacherBatchAssignments'))
+                        BEGIN
+                            ALTER TABLE TeacherBatchAssignments ADD ClassId UNIQUEIDENTIFIER NULL;
+                        END
+                        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'SectionId' AND object_id = OBJECT_ID('TeacherBatchAssignments'))
+                        BEGIN
+                            ALTER TABLE TeacherBatchAssignments ADD SectionId UNIQUEIDENTIFIER NULL;
+                        END
+                        ALTER TABLE TeacherBatchAssignments ALTER COLUMN BatchId UNIQUEIDENTIFIER NULL;
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'TeacherFnFSettlements')
+                    BEGIN
+                        CREATE TABLE TeacherFnFSettlements (
+                            Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
+                            TenantId UNIQUEIDENTIFIER NOT NULL,
+                            BranchId UNIQUEIDENTIFIER NULL,
+                            TeacherId UNIQUEIDENTIFIER NOT NULL,
+                            ResignationDate DATETIME2 NOT NULL,
+                            LastWorkingDate DATETIME2 NOT NULL,
+                            ReasonForLeaving NVARCHAR(MAX) NOT NULL,
+                            Remarks NVARCHAR(MAX) NULL,
+                            AcademicClearance BIT NOT NULL DEFAULT 1,
+                            LibraryClearance BIT NOT NULL DEFAULT 1,
+                            AssetClearance BIT NOT NULL DEFAULT 1,
+                            HostelClearance BIT NOT NULL DEFAULT 1,
+                            AllClearancesApproved BIT NOT NULL DEFAULT 1,
+                            ClearanceApprovedBy NVARCHAR(MAX) NULL,
+                            WorkingDaysInFinalMonth INT NOT NULL DEFAULT 0,
+                            PerDaySalaryRate DECIMAL(18,2) NOT NULL DEFAULT 0,
+                            UnpaidSalary DECIMAL(18,2) NOT NULL DEFAULT 0,
+                            EarnedLeaveEncashment DECIMAL(18,2) NOT NULL DEFAULT 0,
+                            GratuityOrBonus DECIMAL(18,2) NOT NULL DEFAULT 0,
+                            OtherAdditions DECIMAL(18,2) NOT NULL DEFAULT 0,
+                            TotalEarnings DECIMAL(18,2) NOT NULL DEFAULT 0,
+                            PendingAdvanceDeduction DECIMAL(18,2) NOT NULL DEFAULT 0,
+                            NoticeShortfallDeduction DECIMAL(18,2) NOT NULL DEFAULT 0,
+                            LibraryDuesDeduction DECIMAL(18,2) NOT NULL DEFAULT 0,
+                            AssetLossDeduction DECIMAL(18,2) NOT NULL DEFAULT 0,
+                            OtherDeductions DECIMAL(18,2) NOT NULL DEFAULT 0,
+                            TotalDeductions DECIMAL(18,2) NOT NULL DEFAULT 0,
+                            NetPayableAmount DECIMAL(18,2) NOT NULL DEFAULT 0,
+                            Status NVARCHAR(MAX) NOT NULL DEFAULT 'Settled',
+                            SettlementDate DATETIME2 NULL,
+                            PaymentMode NVARCHAR(MAX) NULL,
+                            PaymentReference NVARCHAR(MAX) NULL,
+                            SettlementVoucherNo NVARCHAR(MAX) NOT NULL DEFAULT '',
+                            RelievingLetterIssued BIT NOT NULL DEFAULT 1,
+                            ExperienceCertificateIssued BIT NOT NULL DEFAULT 1,
+                            CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+                            UpdatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
+                        );
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'TeacherSubstitutions')
+                    BEGIN
+                        CREATE TABLE TeacherSubstitutions (
+                            Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
+                            TenantId UNIQUEIDENTIFIER NOT NULL,
+                            BranchId UNIQUEIDENTIFIER NULL,
+                            SubstitutionDate DATETIME2 NOT NULL,
+                            OriginalTeacherId UNIQUEIDENTIFIER NOT NULL,
+                            SubstituteTeacherId UNIQUEIDENTIFIER NOT NULL,
+                            BatchId UNIQUEIDENTIFIER NULL,
+                            ClassSectionId UNIQUEIDENTIFIER NULL,
+                            SubjectId UNIQUEIDENTIFIER NULL,
+                            SubjectName NVARCHAR(MAX) NULL,
+                            TimeSlot NVARCHAR(MAX) NOT NULL DEFAULT '',
+                            RoomNumber NVARCHAR(MAX) NULL,
+                            TopicToCover NVARCHAR(MAX) NULL,
+                            Reason NVARCHAR(MAX) NULL,
+                            Status NVARCHAR(MAX) NOT NULL DEFAULT 'Assigned',
+                            ProxyAllowance DECIMAL(18,2) NOT NULL DEFAULT 0,
+                            Remarks NVARCHAR(MAX) NULL,
+                            AssignedBy NVARCHAR(MAX) NULL,
+                            CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+                            UpdatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
+                        );
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'TeacherLessonPlans')
+                    BEGIN
+                        CREATE TABLE TeacherLessonPlans (
+                            Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
+                            TenantId UNIQUEIDENTIFIER NOT NULL,
+                            BranchId UNIQUEIDENTIFIER NULL,
+                            TeacherId UNIQUEIDENTIFIER NOT NULL,
+                            PlanDate DATETIME2 NOT NULL,
+                            BatchId UNIQUEIDENTIFIER NULL,
+                            ClassSectionId UNIQUEIDENTIFIER NULL,
+                            SubjectId UNIQUEIDENTIFIER NULL,
+                            SubjectName NVARCHAR(MAX) NOT NULL DEFAULT '',
+                            ChapterTopic NVARCHAR(MAX) NOT NULL DEFAULT '',
+                            LearningObjectives NVARCHAR(MAX) NULL,
+                            TeachingMethodology NVARCHAR(MAX) NULL,
+                            HomeworkAssigned NVARCHAR(MAX) NULL,
+                            Status NVARCHAR(MAX) NOT NULL DEFAULT 'Completed',
+                            CompletionPercentage NVARCHAR(MAX) NULL,
+                            StudentResponse NVARCHAR(MAX) NULL,
+                            Remarks NVARCHAR(MAX) NULL,
+                            PrincipalFeedback NVARCHAR(MAX) NULL,
+                            CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+                            UpdatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
+                        );
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'TeacherDocuments')
+                    BEGIN
+                        CREATE TABLE TeacherDocuments (
+                            Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
+                            TenantId UNIQUEIDENTIFIER NOT NULL,
+                            BranchId UNIQUEIDENTIFIER NULL,
+                            TeacherId UNIQUEIDENTIFIER NOT NULL,
+                            DocumentType NVARCHAR(MAX) NOT NULL DEFAULT 'Aadhaar',
+                            Title NVARCHAR(MAX) NOT NULL DEFAULT '',
+                            DocumentNumber NVARCHAR(MAX) NULL,
+                            FileUrl NVARCHAR(MAX) NULL,
+                            FileName NVARCHAR(MAX) NULL,
+                            VerificationStatus NVARCHAR(MAX) NOT NULL DEFAULT 'Pending',
+                            VerifiedBy NVARCHAR(MAX) NULL,
+                            VerifiedAt DATETIME2 NULL,
+                            ExpiryDate DATETIME2 NULL,
+                            Remarks NVARCHAR(MAX) NULL,
+                            CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+                            UpdatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
+                        );
+                    END
                 ");
             }
             catch (Exception ex)
@@ -328,6 +487,118 @@ using (var scope = app.Services.CreateScope())
                 }
                 context.SaveChanges();
                 Console.WriteLine("[Database] Auto-seeded 'School Examinations' menu item under Academic Operations.");
+            }
+        }
+
+        // Auto-seed 'Exit & FNF Settlement' MenuItem under Teacher Module
+        var teacherMenu = context.MenuItems.FirstOrDefault(m => m.Title == "Teacher Module" && m.ParentId == null);
+        if (teacherMenu != null)
+        {
+            var fnfMenu = context.MenuItems.FirstOrDefault(m => m.RouteUrl == "/teachers/fnf");
+            if (fnfMenu == null)
+            {
+                var newFnfMenu = new IMSERP.Domain.Entities.MenuItem
+                {
+                    Id = Guid.NewGuid(),
+                    Title = "Exit & FNF Settlement",
+                    RouteUrl = "/teachers/fnf",
+                    Icon = "exit_to_app",
+                    ParentId = teacherMenu.Id,
+                    SortOrder = 9,
+                    Module = "Teachers",
+                    IsActive = true
+                };
+                context.MenuItems.Add(newFnfMenu);
+                context.SaveChanges();
+
+                var roles = context.Roles.ToList();
+                foreach (var role in roles)
+                {
+                    context.RolePermissions.Add(new IMSERP.Domain.Entities.RolePermission
+                    {
+                        Id = Guid.NewGuid(),
+                        RoleId = role.Id,
+                        MenuItemId = newFnfMenu.Id,
+                        CanView = true,
+                        CanCreate = true,
+                        CanEdit = true,
+                        CanDelete = true
+                    });
+                }
+                context.SaveChanges();
+                Console.WriteLine("[Database] Auto-seeded 'Exit & FNF Settlement' menu item under Teacher Module.");
+            }
+
+            // Auto-seed 'Proxy & Substitution' MenuItem under Teacher Module
+            var subMenu = context.MenuItems.FirstOrDefault(m => m.RouteUrl == "/teachers/substitution");
+            if (subMenu == null)
+            {
+                var newSubMenu = new IMSERP.Domain.Entities.MenuItem
+                {
+                    Id = Guid.NewGuid(),
+                    Title = "Proxy & Substitution",
+                    RouteUrl = "/teachers/substitution",
+                    Icon = "swap_horiz",
+                    ParentId = teacherMenu.Id,
+                    SortOrder = 10,
+                    Module = "Teachers",
+                    IsActive = true
+                };
+                context.MenuItems.Add(newSubMenu);
+                context.SaveChanges();
+
+                var roles = context.Roles.ToList();
+                foreach (var role in roles)
+                {
+                    context.RolePermissions.Add(new IMSERP.Domain.Entities.RolePermission
+                    {
+                        Id = Guid.NewGuid(),
+                        RoleId = role.Id,
+                        MenuItemId = newSubMenu.Id,
+                        CanView = true,
+                        CanCreate = true,
+                        CanEdit = true,
+                        CanDelete = true
+                    });
+                }
+                context.SaveChanges();
+                Console.WriteLine("[Database] Auto-seeded 'Proxy & Substitution' menu item under Teacher Module.");
+            }
+
+            // Auto-seed 'Daily Lesson Diary' MenuItem under Teacher Module
+            var diaryMenu = context.MenuItems.FirstOrDefault(m => m.RouteUrl == "/teachers/lesson-plans");
+            if (diaryMenu == null)
+            {
+                var newDiaryMenu = new IMSERP.Domain.Entities.MenuItem
+                {
+                    Id = Guid.NewGuid(),
+                    Title = "Daily Lesson Diary",
+                    RouteUrl = "/teachers/lesson-plans",
+                    Icon = "menu_book",
+                    ParentId = teacherMenu.Id,
+                    SortOrder = 11,
+                    Module = "Teachers",
+                    IsActive = true
+                };
+                context.MenuItems.Add(newDiaryMenu);
+                context.SaveChanges();
+
+                var roles = context.Roles.ToList();
+                foreach (var role in roles)
+                {
+                    context.RolePermissions.Add(new IMSERP.Domain.Entities.RolePermission
+                    {
+                        Id = Guid.NewGuid(),
+                        RoleId = role.Id,
+                        MenuItemId = newDiaryMenu.Id,
+                        CanView = true,
+                        CanCreate = true,
+                        CanEdit = true,
+                        CanDelete = true
+                    });
+                }
+                context.SaveChanges();
+                Console.WriteLine("[Database] Auto-seeded 'Daily Lesson Diary' menu item under Teacher Module.");
             }
         }
 

@@ -101,6 +101,18 @@ export const routes: Routes = [
         path: 'teachers/reports',
         loadComponent: () => import('./features/teachers/teacher-reports.component').then(m => m.TeacherReportsComponent)
       },
+      {
+        path: 'teachers/fnf',
+        loadComponent: () => import('./features/teachers/teacher-fnf.component').then(m => m.TeacherFnFComponent)
+      },
+      {
+        path: 'teachers/substitution',
+        loadComponent: () => import('./features/teachers/teacher-substitution.component').then(m => m.TeacherSubstitutionComponent)
+      },
+      {
+        path: 'teachers/lesson-plans',
+        loadComponent: () => import('./features/teachers/teacher-lesson-plans.component').then(m => m.TeacherLessonPlansComponent)
+      },
 
       // Academic Operations
       {

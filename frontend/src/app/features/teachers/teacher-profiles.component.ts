@@ -13,8 +13,11 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { API_BASE, TeacherDto } from './teacher.models';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
+import { TeacherIdCardDialogComponent } from './teacher-id-card-dialog.component';
+import { TeacherDocumentsDialogComponent } from './teacher-documents-dialog.component';
 
 @Component({
   selector: 'app-teacher-profiles',
@@ -23,7 +26,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
     CommonModule, FormsModule, ReactiveFormsModule, RouterModule,
     MatCardModule, MatButtonModule, MatIconModule, MatInputModule,
     MatFormFieldModule, MatSelectModule, MatProgressBarModule,
-    MatProgressSpinnerModule, MatTooltipModule, MatDividerModule
+    MatProgressSpinnerModule, MatTooltipModule, MatDividerModule, MatDialogModule
   ],
   template: `
 <div class="page-container">
@@ -32,9 +35,17 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
       <h1 class="page-title"><mat-icon>person</mat-icon> Teacher Profiles</h1>
       <p class="page-subtitle">Sab teachers ki profile — add, edit, aur manage karo.</p>
     </div>
-    <button mat-raised-button color="primary" (click)="openAddForm()" *ngIf="!showForm">
-      <mat-icon>person_add</mat-icon> Add Teacher
-    </button>
+    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+      <button mat-stroked-button color="primary" (click)="openBulkIdCards()" *ngIf="!showForm">
+        <mat-icon>badge</mat-icon> Staff ID Cards
+      </button>
+      <a mat-stroked-button color="warn" [routerLink]="['/teachers/fnf']" *ngIf="!showForm">
+        <mat-icon>exit_to_app</mat-icon> Exit & FNF
+      </a>
+      <button mat-raised-button color="primary" (click)="openAddForm()" *ngIf="!showForm">
+        <mat-icon>person_add</mat-icon> Add Teacher
+      </button>
+    </div>
   </div>
 
   <mat-progress-bar mode="indeterminate" *ngIf="loading"></mat-progress-bar>
@@ -223,12 +234,39 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           <a mat-stroked-button [routerLink]="['/teachers/leaves']" [queryParams]="{teacherId: selectedTeacher.id}">
             <mat-icon>beach_access</mat-icon> Leave Management
           </a>
+          <a mat-stroked-button [routerLink]="['/teachers/substitution']">
+            <mat-icon>swap_horiz</mat-icon> Proxy &amp; Substitution
+          </a>
+          <a mat-stroked-button [routerLink]="['/teachers/lesson-plans']" [queryParams]="{teacherId: selectedTeacher.id}">
+            <mat-icon>menu_book</mat-icon> Lesson Diary
+          </a>
+          <a mat-stroked-button [routerLink]="['/teachers/fnf']" [queryParams]="{teacherId: selectedTeacher.id}" style="color: #dc2626; border-color: #fca5a5;">
+            <mat-icon style="color: #dc2626;">exit_to_app</mat-icon> Exit / FNF
+          </a>
         </div>
       </div>
 
       <mat-divider></mat-divider>
 
       <div class="profile-actions">
+        <div class="account-actions-group">
+          <div class="user-account-badge" *ngIf="selectedTeacher.hasLoginAccount">
+            <mat-icon>verified_user</mat-icon>
+            <span>ERP Login Active: <strong>&#64;{{selectedTeacher.username}}</strong></span>
+          </div>
+          <button mat-stroked-button color="accent" *ngIf="!selectedTeacher.hasLoginAccount" (click)="openCreateAccountDialog(selectedTeacher)">
+            <mat-icon>person_add_alt</mat-icon> Create ERP Login
+          </button>
+        </div>
+        <button mat-stroked-button color="primary" (click)="openSingleIdCard(selectedTeacher)">
+          <mat-icon>badge</mat-icon> Staff ID Card
+        </button>
+        <button mat-stroked-button color="accent" (click)="openDocumentsModal(selectedTeacher)">
+          <mat-icon>folder_shared</mat-icon> KYC &amp; Docs
+        </button>
+        <a mat-stroked-button color="warn" [routerLink]="['/teachers/fnf']" [queryParams]="{teacherId: selectedTeacher.id}">
+          <mat-icon>exit_to_app</mat-icon> Exit / FNF Settlement
+        </a>
         <button mat-raised-button color="primary" (click)="editTeacher(selectedTeacher)">
           <mat-icon>edit</mat-icon> Edit Profile
         </button>
@@ -249,6 +287,9 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
       <div class="card-body">
         <div class="card-top">
           <span class="emp-code">{{t.employeeCode}}</span>
+          <span class="login-badge-chip" *ngIf="t.hasLoginAccount" [matTooltip]="'ERP Login Active (@' + (t.username || '') + ')'">
+            <mat-icon>vpn_key</mat-icon>
+          </span>
           <span class="active-dot" [class.active]="t.isActive" [class.inactive]="!t.isActive"></span>
         </div>
         <h4>{{t.fullName}}</h4>
@@ -277,6 +318,40 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
     <button mat-icon-button [disabled]="pageNumber >= totalPages" (click)="changePage(1)">
       <mat-icon>chevron_right</mat-icon>
     </button>
+  </div>
+
+  <!-- Create Teacher Login Modal -->
+  <div class="account-drawer-overlay" *ngIf="showAccountModal">
+    <mat-card class="account-drawer-card mat-elevation-z4">
+      <div class="account-drawer-header">
+        <div class="hdr-icon"><mat-icon>lock_person</mat-icon></div>
+        <div class="hdr-text">
+          <h3>Create Teacher ERP Login</h3>
+          <p>Set up portal login credentials for <strong>{{accountTeacher?.fullName}}</strong></p>
+        </div>
+        <button mat-icon-button (click)="closeAccountModal()"><mat-icon>close</mat-icon></button>
+      </div>
+      <div class="account-drawer-body">
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Login Username *</mat-label>
+          <input matInput [(ngModel)]="accountFormData.username" placeholder="e.g. rahul.sharma" />
+          <mat-hint>Teacher will use this to sign into IMSERP</mat-hint>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width" style="margin-top: 14px;">
+          <mat-label>Initial Password *</mat-label>
+          <input matInput type="text" [(ngModel)]="accountFormData.password" placeholder="e.g. Teacher@123" />
+          <mat-hint>Teacher can change this after logging in</mat-hint>
+        </mat-form-field>
+      </div>
+      <div class="account-drawer-footer">
+        <button mat-button (click)="closeAccountModal()">Cancel</button>
+        <button mat-raised-button color="primary" [disabled]="!accountFormData.username || !accountFormData.password || accountSaving" (click)="saveAccount()">
+          <mat-icon>{{ accountSaving ? 'hourglass_empty' : 'check_circle' }}</mat-icon>
+          {{ accountSaving ? 'Creating...' : 'Create Account' }}
+        </button>
+      </div>
+    </mat-card>
   </div>
 </div>
   `,
@@ -325,7 +400,50 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
     .quick-nav-grid { display:flex; flex-wrap:wrap; gap:8px;
       a { display:flex; align-items:center; gap:6px; font-size:.82rem;
         mat-icon{font-size:16px;width:16px;height:16px;} } }
-    .profile-actions { display:flex; gap:12px; padding-top:16px; }
+    .profile-actions { display:flex; align-items:center; gap:12px; margin-top:16px; flex-wrap:wrap; }
+    .account-actions-group { display:flex; align-items:center; gap:8px; margin-right:auto; }
+    .user-account-badge {
+      display:inline-flex; align-items:center; gap:6px; background:#eff6ff; color:#1d4ed8;
+      border:1px solid #bfdbfe; border-radius:8px; padding:6px 12px; font-size:0.84rem;
+      mat-icon { font-size:18px; width:18px; height:18px; color:#2563eb; }
+    }
+    .login-badge-chip {
+      display:inline-flex; align-items:center; justify-content:center;
+      color:#2563eb; background:#eff6ff; border-radius:4px; padding:1px 4px;
+      mat-icon { font-size:14px; width:14px; height:14px; line-height:14px; }
+    }
+
+    /* Modal Styling - AGENTS.md light-blue gradient header rule */
+    .account-drawer-overlay {
+      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(2px);
+      z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 20px;
+    }
+    .account-drawer-card {
+      width: 100%; max-width: 480px; border-radius: 12px; overflow: hidden; padding: 0 !important;
+      background: #ffffff; border: 1px solid #bfdbfe; box-shadow: 0 12px 24px -4px rgba(37,99,235,0.15);
+    }
+    .account-drawer-header {
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+      border-bottom: 1px solid #bfdbfe; padding: 16px 20px;
+      display: flex; align-items: center; gap: 12px;
+      .hdr-icon {
+        background: #2563eb; color: #ffffff; border-radius: 10px;
+        box-shadow: 0 4px 6px -1px rgba(37,99,235,0.25);
+        width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
+        mat-icon { font-size: 22px; width: 22px; height: 22px; }
+      }
+      .hdr-text {
+        flex: 1;
+        h3 { color: #1e3a8a; font-weight: 700; margin: 0; font-size: 1.05rem; }
+        p { color: #3b82f6; margin: 2px 0 0; font-size: 0.8rem; }
+      }
+    }
+    .account-drawer-body { padding: 20px 24px; display:flex; flex-direction:column; gap:8px; }
+    .account-drawer-footer {
+      padding: 12px 24px; background: #f8fafc; border-top: 1px solid #e2e8f0;
+      display: flex; justify-content: flex-end; gap: 10px;
+    }
     /* Teacher Grid */
     .teachers-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:16px; }
     .teacher-card { border-radius:12px; cursor:pointer; transition:all .2s ease; padding:0; overflow:hidden;
@@ -372,7 +490,12 @@ export class TeacherProfilesComponent implements OnInit {
   get totalPages() { return Math.ceil(this.totalCount / this.pageSize); }
   get hasDuplicates() { return this.phoneDuplicate || this.emailDuplicate; }
 
-  constructor(private http: HttpClient, private fb: FormBuilder, private confirmDialog: ConfirmDialogService) {}
+  constructor(
+    private http: HttpClient,
+    private fb: FormBuilder,
+    private confirmDialog: ConfirmDialogService,
+    private dialog: MatDialog
+  ) {}
 
   ngOnInit() {
     this.initForm();
@@ -483,6 +606,78 @@ export class TeacherProfilesComponent implements OnInit {
         this.saving = false;
         this.confirmDialog.alert('Error', e?.error?.message || 'Error saving faculty profile.', 'danger');
       }
+    });
+  }
+
+  // ── Account Modal Properties ──
+  showAccountModal = false;
+  accountSaving = false;
+  accountTeacher: TeacherDto | null = null;
+  accountFormData = { username: '', password: '' };
+
+  openCreateAccountDialog(t: TeacherDto) {
+    this.accountTeacher = t;
+    const cleanPrefix = t.fullName.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const cleanEmp = t.employeeCode.toLowerCase().replace(/[^a-z0-9]/g, '');
+    this.accountFormData = {
+      username: `${cleanPrefix}.${cleanEmp}`,
+      password: `Teach@${new Date().getFullYear()}`
+    };
+    this.showAccountModal = true;
+  }
+
+  closeAccountModal() {
+    this.showAccountModal = false;
+    this.accountTeacher = null;
+  }
+
+  saveAccount() {
+    if (!this.accountTeacher || !this.accountFormData.username || !this.accountFormData.password) return;
+    this.accountSaving = true;
+
+    this.http.post<any>(`${this.api}/teachers/${this.accountTeacher.id}/create-user`, this.accountFormData).subscribe({
+      next: (res) => {
+        this.accountSaving = false;
+        if (this.accountTeacher) {
+          this.accountTeacher.hasLoginAccount = true;
+          this.accountTeacher.username = this.accountFormData.username;
+        }
+        if (this.selectedTeacher && this.selectedTeacher.id === this.accountTeacher?.id) {
+          this.selectedTeacher.hasLoginAccount = true;
+          this.selectedTeacher.username = this.accountFormData.username;
+        }
+        this.closeAccountModal();
+        this.loadTeachers();
+        this.confirmDialog.alert('Account Created', `Login account created successfully for @${this.accountFormData.username}!`, 'success');
+      },
+      error: (err) => {
+        this.accountSaving = false;
+        this.confirmDialog.alert('Error', err?.error?.message || 'Failed to create user account.', 'danger');
+      }
+    });
+  }
+
+  openBulkIdCards() {
+    this.dialog.open(TeacherIdCardDialogComponent, {
+      width: '900px',
+      maxWidth: '95vw',
+      data: {}
+    });
+  }
+
+  openSingleIdCard(teacher: TeacherDto) {
+    this.dialog.open(TeacherIdCardDialogComponent, {
+      width: '600px',
+      maxWidth: '95vw',
+      data: { teacherId: teacher.id, teacherName: teacher.fullName }
+    });
+  }
+
+  openDocumentsModal(teacher: TeacherDto) {
+    this.dialog.open(TeacherDocumentsDialogComponent, {
+      width: '750px',
+      maxWidth: '95vw',
+      data: { teacherId: teacher.id, teacherName: teacher.fullName, employeeCode: teacher.employeeCode }
     });
   }
 

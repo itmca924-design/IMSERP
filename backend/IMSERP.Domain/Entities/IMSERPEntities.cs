@@ -179,6 +179,7 @@ public class SchoolSection
     public string Name { get; set; } = string.Empty;
     public int MaxCapacity { get; set; } = 45;
     public Guid? RoomId { get; set; }
+    public Guid? ClassTeacherId { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
@@ -187,6 +188,9 @@ public class SchoolSection
 
     [ForeignKey("RoomId")]
     public Room? Room { get; set; }
+
+    [ForeignKey("ClassTeacherId")]
+    public Teacher? ClassTeacher { get; set; }
 
     public ICollection<Student> Students { get; set; } = new List<Student>();
 }
@@ -291,6 +295,26 @@ public class StudentPromotionHistory
     [ForeignKey("ToSectionId")]
     public SchoolSection? ToSection { get; set; }
 }
+
+public class ExamSetting
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public decimal PassingPercentage { get; set; } = 33m;
+    public int MaxCompartmentSubjects { get; set; } = 2;
+    public bool AllowGraceMarks { get; set; } = true;
+    public int MaxGraceMarks { get; set; } = 5;
+    public string SchoolAffiliationNumber { get; set; } = "CBSE/STATE-AFF-2025";
+    public string PrincipalSignTitle { get; set; } = "Principal / Headmaster";
+    public string ClassTeacherSignTitle { get; set; } = "Class Teacher";
+    public string ResultDeclarationNote { get; set; } = "Continuous and Comprehensive Evaluation Scheme";
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+}
+
 
 public class StudentAttendance
 {
@@ -452,9 +476,13 @@ public class Teacher
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public string? BiometricUserId { get; set; }
+    public Guid? UserId { get; set; }
 
     [ForeignKey("BranchId")]
     public Branch? Branch { get; set; }
+
+    [ForeignKey("UserId")]
+    public User? User { get; set; }
 
     public ICollection<TeacherBatchAssignment> BatchAssignments { get; set; } = new List<TeacherBatchAssignment>();
     public ICollection<TeacherAttendance> Attendances { get; set; } = new List<TeacherAttendance>();
@@ -462,6 +490,11 @@ public class Teacher
     public ICollection<TeacherSalaryPayment> SalaryPayments { get; set; } = new List<TeacherSalaryPayment>();
     public ICollection<TeacherSalaryAdvance> SalaryAdvances { get; set; } = new List<TeacherSalaryAdvance>();
     public ICollection<TeacherLeave> Leaves { get; set; } = new List<TeacherLeave>();
+    public ICollection<TeacherFnFSettlement> FnFSettlements { get; set; } = new List<TeacherFnFSettlement>();
+    public ICollection<TeacherSubstitution> OriginalSubstitutions { get; set; } = new List<TeacherSubstitution>();
+    public ICollection<TeacherSubstitution> ProxySubstitutions { get; set; } = new List<TeacherSubstitution>();
+    public ICollection<TeacherLessonPlan> LessonPlans { get; set; } = new List<TeacherLessonPlan>();
+    public ICollection<TeacherDocument> Documents { get; set; } = new List<TeacherDocument>();
 }
 
 public class TeacherBatchAssignment
@@ -469,7 +502,9 @@ public class TeacherBatchAssignment
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid TenantId { get; set; }
     public Guid TeacherId { get; set; }
-    public Guid BatchId { get; set; }
+    public Guid? BatchId { get; set; }
+    public Guid? ClassId { get; set; }
+    public Guid? SectionId { get; set; }
     public string Subject { get; set; } = string.Empty;
     public string? DaysOfWeek { get; set; }
     public string? TimeSlot { get; set; }
@@ -478,6 +513,12 @@ public class TeacherBatchAssignment
 
     public Teacher? Teacher { get; set; }
     public Batch? Batch { get; set; }
+
+    [ForeignKey("ClassId")]
+    public SchoolClass? Class { get; set; }
+
+    [ForeignKey("SectionId")]
+    public SchoolSection? Section { get; set; }
 }
 
 public class TeacherAttendance
@@ -634,6 +675,164 @@ public class TeacherLeave
     public string? RejectionReason { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+    public Teacher? Teacher { get; set; }
+}
+
+public class TeacherFnFSettlement
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid TeacherId { get; set; }
+
+    public DateTime ResignationDate { get; set; } = DateTime.UtcNow;
+    public DateTime LastWorkingDate { get; set; } = DateTime.UtcNow;
+    public string ReasonForLeaving { get; set; } = "Resignation";
+    public string? Remarks { get; set; }
+
+    // Clearances Checklist
+    public bool AcademicClearance { get; set; } = true;
+    public bool LibraryClearance { get; set; } = true;
+    public bool AssetClearance { get; set; } = true;
+    public bool HostelClearance { get; set; } = true;
+    public bool AllClearancesApproved { get; set; } = true;
+    public string? ClearanceApprovedBy { get; set; }
+
+    // Financial Breakdown
+    public int WorkingDaysInFinalMonth { get; set; } = 0;
+    public decimal PerDaySalaryRate { get; set; } = 0;
+    public decimal UnpaidSalary { get; set; } = 0;
+    public decimal EarnedLeaveEncashment { get; set; } = 0;
+    public decimal GratuityOrBonus { get; set; } = 0;
+    public decimal OtherAdditions { get; set; } = 0;
+    public decimal TotalEarnings { get; set; } = 0;
+
+    public decimal PendingAdvanceDeduction { get; set; } = 0;
+    public decimal NoticeShortfallDeduction { get; set; } = 0;
+    public decimal LibraryDuesDeduction { get; set; } = 0;
+    public decimal AssetLossDeduction { get; set; } = 0;
+    public decimal OtherDeductions { get; set; } = 0;
+    public decimal TotalDeductions { get; set; } = 0;
+
+    public decimal NetPayableAmount { get; set; } = 0;
+
+    // Status & Payment
+    public string Status { get; set; } = "Settled"; // Draft, Approved, Settled
+    public DateTime? SettlementDate { get; set; }
+    public string? PaymentMode { get; set; } = "BankTransfer"; // BankTransfer, Cheque, Cash, UPI
+    public string? PaymentReference { get; set; }
+    public string SettlementVoucherNo { get; set; } = string.Empty;
+    public bool RelievingLetterIssued { get; set; } = true;
+    public bool ExperienceCertificateIssued { get; set; } = true;
+
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+
+    [ForeignKey("TeacherId")]
+    public Teacher? Teacher { get; set; }
+}
+
+public class TeacherSubstitution
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public DateTime SubstitutionDate { get; set; }
+    public Guid OriginalTeacherId { get; set; }
+    public Guid SubstituteTeacherId { get; set; }
+    public Guid? BatchId { get; set; }
+    public Guid? ClassSectionId { get; set; }
+    public Guid? SubjectId { get; set; }
+    public string? SubjectName { get; set; }
+    public string TimeSlot { get; set; } = string.Empty; // e.g. "09:00 AM - 10:00 AM" or "Period 2"
+    public string? RoomNumber { get; set; }
+    public string? TopicToCover { get; set; }
+    public string? Reason { get; set; }
+    public string Status { get; set; } = "Assigned"; // Assigned, Completed, Cancelled
+    public decimal ProxyAllowance { get; set; } = 0;
+    public string? Remarks { get; set; }
+    public string? AssignedBy { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+
+    [ForeignKey("OriginalTeacherId")]
+    public Teacher? OriginalTeacher { get; set; }
+
+    [ForeignKey("SubstituteTeacherId")]
+    public Teacher? SubstituteTeacher { get; set; }
+
+    [ForeignKey("BatchId")]
+    public Batch? Batch { get; set; }
+
+    [ForeignKey("ClassSectionId")]
+    public SchoolSection? ClassSection { get; set; }
+}
+
+public class TeacherLessonPlan
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid TeacherId { get; set; }
+    public DateTime PlanDate { get; set; }
+    public Guid? BatchId { get; set; }
+    public Guid? ClassSectionId { get; set; }
+    public Guid? SubjectId { get; set; }
+    public string SubjectName { get; set; } = string.Empty;
+    public string ChapterTopic { get; set; } = string.Empty;
+    public string? LearningObjectives { get; set; }
+    public string? TeachingMethodology { get; set; } // Lecture, Interactive, Activity, Lab, Revision
+    public string? HomeworkAssigned { get; set; }
+    public string Status { get; set; } = "Completed"; // Planned, InProgress, Completed, Revision
+    public string? CompletionPercentage { get; set; } // e.g. "100%", "75%"
+    public string? StudentResponse { get; set; } // Excellent, Good, Average, NeedsImprovement
+    public string? Remarks { get; set; }
+    public string? PrincipalFeedback { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+
+    [ForeignKey("TeacherId")]
+    public Teacher? Teacher { get; set; }
+
+    [ForeignKey("BatchId")]
+    public Batch? Batch { get; set; }
+
+    [ForeignKey("ClassSectionId")]
+    public SchoolSection? ClassSection { get; set; }
+}
+
+public class TeacherDocument
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid TeacherId { get; set; }
+    public string DocumentType { get; set; } = "Aadhaar"; // Aadhaar, PAN, Degree, BEd, PoliceVerification, AppointmentLetter, Resume, Other
+    public string Title { get; set; } = string.Empty;
+    public string? DocumentNumber { get; set; } // e.g. Aadhaar / PAN / Reg Number
+    public string? FileUrl { get; set; }
+    public string? FileName { get; set; }
+    public string VerificationStatus { get; set; } = "Pending"; // Pending, Verified, Rejected
+    public string? VerifiedBy { get; set; }
+    public DateTime? VerifiedAt { get; set; }
+    public DateTime? ExpiryDate { get; set; }
+    public string? Remarks { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+
+    [ForeignKey("TeacherId")]
     public Teacher? Teacher { get; set; }
 }
 

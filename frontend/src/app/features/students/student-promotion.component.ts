@@ -16,6 +16,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import {
   SchoolService,
   SchoolClassDto,
@@ -24,9 +25,11 @@ import {
   ClassExamDto,
   StudentPromotionItemDto,
   ExecutePromotionRequestDto,
-  StudentPromotionHistoryDto
+  StudentPromotionHistoryDto,
+  ConsolidatedStudentResultDto
 } from '../../core/services/school.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
+import { SchoolReportCardDialogComponent } from '../school/school-report-card-dialog.component';
 
 interface CandidateRow extends PromotionCandidateDto {
   selected: boolean;
@@ -55,7 +58,8 @@ interface CandidateRow extends PromotionCandidateDto {
     MatProgressSpinnerModule,
     MatTooltipModule,
     MatMenuModule,
-    MatChipsModule
+    MatChipsModule,
+    MatDialogModule
   ],
   template: `
     <div class="promotion-container">
@@ -526,6 +530,9 @@ interface CandidateRow extends PromotionCandidateDto {
                         <span class="user-txt">{{ h.promotedBy || 'Admin' }}</span>
                       </td>
                       <td class="text-right">
+                        <button mat-icon-button color="primary" (click)="printPromotionCertificate(h)" matTooltip="Print Official Promotion Certificate">
+                          <mat-icon>workspace_premium</mat-icon>
+                        </button>
                         <button mat-icon-button color="warn" (click)="revertSingleHistory(h)" matTooltip="Rollback this promotion">
                           <mat-icon>undo</mat-icon>
                         </button>
@@ -1202,7 +1209,8 @@ export class StudentPromotionComponent implements OnInit {
   constructor(
     private schoolService: SchoolService,
     private confirmDialog: ConfirmDialogService,
-    private route: ActivatedRoute
+    private route: ActivatedRoute,
+    private dialog: MatDialog
   ) {}
 
   ngOnInit(): void {
@@ -1214,7 +1222,20 @@ export class StudentPromotionComponent implements OnInit {
       if (params['academicYear']) {
         this.fromAcademicYear = params['academicYear'];
       }
+      if (params['passingPercentage']) {
+        this.passingPercentage = Number(params['passingPercentage']);
+      }
     });
+
+    // Load default passing benchmark from institute exam settings
+    this.schoolService.getExamSettings().subscribe({
+      next: (settings) => {
+        if (!this.route.snapshot.queryParams['passingPercentage'] && settings.passingPercentage) {
+          this.passingPercentage = settings.passingPercentage;
+        }
+      }
+    });
+
     this.loadClasses();
   }
 
@@ -1572,6 +1593,43 @@ export class StudentPromotionComponent implements OnInit {
           this.confirmDialog.alert('Rollback Failed', err?.error?.message || 'Failed to revert promotion.', 'danger');
         }
       });
+    });
+  }
+
+  printPromotionCertificate(h: StudentPromotionHistoryDto): void {
+    const mockStudent: ConsolidatedStudentResultDto = {
+      studentId: h.studentId,
+      studentName: h.studentName,
+      rollNumber: h.fromRollNumber || 'N/A',
+      admissionNumber: h.admissionNumber,
+      subjectMarks: {},
+      totalObtained: 0,
+      totalMax: 0,
+      overallPercentage: h.examPercentage || 0,
+      grade: h.examGrade || 'Passed',
+      resultStatus: h.resultStatus,
+      rank: 1,
+      failedSubjectCount: 0,
+      promotionVerdict: `Promoted from ${h.fromClassName} to ${h.toClassName}`,
+      attendancePercentage: 100,
+      presentDays: 212,
+      totalAttendanceDays: 220,
+      sectionName: h.fromSectionName,
+      subjectDetails: []
+    };
+
+    this.dialog.open(SchoolReportCardDialogComponent, {
+      width: '92vw',
+      maxWidth: '920px',
+      maxHeight: '94vh',
+      data: {
+        mode: 'certificate',
+        className: h.fromClassName,
+        academicYear: h.fromAcademicYear,
+        examType: 'Annual Examination',
+        student: mockStudent,
+        subjects: []
+      }
     });
   }
 }

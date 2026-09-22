@@ -7,11 +7,19 @@ export interface TeacherDto {
   email?: string; address?: string; photoUrl?: string;
   joiningDate: string; leavingDate?: string; isActive: boolean;
   createdAt: string; assignedBatchCount: number;
+  branchId?: string; branchName?: string;
+  userId?: string; username?: string; hasLoginAccount?: boolean;
 }
 export interface BatchAssignmentDto {
-  id: string; teacherId: string; teacherName: string; batchId: string;
-  batchName: string; subject: string; daysOfWeek?: string; timeSlot?: string;
+  id: string; teacherId: string; teacherName: string; batchId?: string;
+  batchName?: string; subject: string; daysOfWeek?: string; timeSlot?: string;
   isActive: boolean; assignedAt: string;
+  classId?: string; className?: string; sectionId?: string; sectionName?: string;
+}
+export interface CreateTeacherUserAccountDto {
+  username: string;
+  password: string;
+  roleId?: string;
 }
 export interface AttendanceDto {
   id: string; teacherId: string; teacherName: string; employeeCode: string;
@@ -66,6 +74,10 @@ export interface LeaveDto {
 export interface BatchDto {
   id: string; name: string; subject: string; academicYear: string;
   standardMonthlyFee: number; studentCount: number;
+  category?: 'Coaching' | 'School';
+  classId?: string;
+  sectionId?: string;
+  sectionName?: string;
 }
 
 export interface SubjectDto {
@@ -163,3 +175,236 @@ export interface AttendanceReportDto {
   rows: AttendanceReportRowDto[];
 }
 
+export interface TeacherFnFPreviewDto {
+  teacherId: string;
+  teacherName: string;
+  employeeCode: string;
+  phoneNumber?: string;
+  email?: string;
+  designation?: string;
+  joiningDate: string;
+  basicSalary: number;
+  grossMonthlySalary: number;
+  perDayRate: number;
+  finalMonthPresentDays: number;
+  suggestedUnpaidSalary: number;
+  outstandingAdvanceBalance: number;
+  pendingLibraryBooksCount: number;
+  pendingLibraryFines: number;
+  activeBatchesCount: number;
+  assignedSectionsCount: number;
+  activeAssignmentNames: string[];
+  hasActiveLoginAccount: boolean;
+  loginUsername?: string;
+}
+
+export interface CreateTeacherFnFRequestDto {
+  teacherId: string;
+  resignationDate: string;
+  lastWorkingDate: string;
+  reasonForLeaving: string;
+  remarks?: string;
+  academicClearance: boolean;
+  libraryClearance: boolean;
+  assetClearance: boolean;
+  hostelClearance: boolean;
+  workingDaysInFinalMonth: number;
+  unpaidSalary: number;
+  earnedLeaveEncashment: number;
+  gratuityOrBonus: number;
+  otherAdditions: number;
+  pendingAdvanceDeduction: number;
+  noticeShortfallDeduction: number;
+  libraryDuesDeduction: number;
+  assetLossDeduction: number;
+  otherDeductions: number;
+  paymentMode?: string;
+  paymentReference?: string;
+  finalizeNow: boolean;
+}
+
+export interface TeacherFnFSettlementDto {
+  id: string;
+  tenantId: string;
+  branchId?: string;
+  teacherId: string;
+  teacherName: string;
+  employeeCode: string;
+  designation?: string;
+  joiningDate: string;
+  resignationDate: string;
+  lastWorkingDate: string;
+  reasonForLeaving: string;
+  remarks?: string;
+  academicClearance: boolean;
+  libraryClearance: boolean;
+  assetClearance: boolean;
+  hostelClearance: boolean;
+  allClearancesApproved: boolean;
+  clearanceApprovedBy?: string;
+  workingDaysInFinalMonth: number;
+  perDaySalaryRate: number;
+  unpaidSalary: number;
+  earnedLeaveEncashment: number;
+  gratuityOrBonus: number;
+  otherAdditions: number;
+  totalEarnings: number;
+  pendingAdvanceDeduction: number;
+  noticeShortfallDeduction: number;
+  libraryDuesDeduction: number;
+  assetLossDeduction: number;
+  otherDeductions: number;
+  totalDeductions: number;
+  netPayableAmount: number;
+  status: string;
+  settlementDate?: string;
+  paymentMode?: string;
+  paymentReference?: string;
+  settlementVoucherNo: string;
+  relievingLetterIssued: boolean;
+  experienceCertificateIssued: boolean;
+  createdAt: string;
+}
+
+export interface TeacherSubstitutionDto {
+  id: string;
+  substitutionDate: string;
+  originalTeacherId: string;
+  originalTeacherName: string;
+  originalTeacherCode: string;
+  substituteTeacherId: string;
+  substituteTeacherName: string;
+  substituteTeacherCode: string;
+  batchId?: string;
+  batchName?: string;
+  classSectionId?: string;
+  classSectionName?: string;
+  subjectId?: string;
+  subjectName?: string;
+  timeSlot: string;
+  roomNumber?: string;
+  topicToCover?: string;
+  reason?: string;
+  status: string;
+  proxyAllowance: number;
+  remarks?: string;
+  assignedBy?: string;
+  createdAt: string;
+}
+
+export interface CreateTeacherSubstitutionDto {
+  substitutionDate: string;
+  originalTeacherId: string;
+  substituteTeacherId: string;
+  batchId?: string;
+  classSectionId?: string;
+  subjectId?: string;
+  subjectName?: string;
+  timeSlot: string;
+  roomNumber?: string;
+  topicToCover?: string;
+  reason?: string;
+  proxyAllowance?: number;
+  remarks?: string;
+}
+
+export interface TeacherLessonPlanDto {
+  id: string;
+  teacherId: string;
+  teacherName: string;
+  teacherCode: string;
+  planDate: string;
+  batchId?: string;
+  batchName?: string;
+  classSectionId?: string;
+  classSectionName?: string;
+  subjectId?: string;
+  subjectName: string;
+  chapterTopic: string;
+  learningObjectives?: string;
+  teachingMethodology?: string;
+  homeworkAssigned?: string;
+  status: string;
+  completionPercentage?: string;
+  studentResponse?: string;
+  remarks?: string;
+  principalFeedback?: string;
+  createdAt: string;
+}
+
+export interface CreateTeacherLessonPlanDto {
+  teacherId: string;
+  planDate: string;
+  batchId?: string;
+  classSectionId?: string;
+  subjectId?: string;
+  subjectName: string;
+  chapterTopic: string;
+  learningObjectives?: string;
+  teachingMethodology?: string;
+  homeworkAssigned?: string;
+  status?: string;
+  completionPercentage?: string;
+  studentResponse?: string;
+  remarks?: string;
+}
+
+export interface UpdateTeacherLessonPlanDto {
+  chapterTopic?: string;
+  learningObjectives?: string;
+  homeworkAssigned?: string;
+  status?: string;
+  completionPercentage?: string;
+  studentResponse?: string;
+  remarks?: string;
+  principalFeedback?: string;
+}
+
+export interface TeacherDocumentDto {
+  id: string;
+  teacherId: string;
+  teacherName: string;
+  documentType: string;
+  title: string;
+  documentNumber?: string;
+  fileUrl?: string;
+  fileName?: string;
+  verificationStatus: string;
+  verifiedBy?: string;
+  verifiedAt?: string;
+  expiryDate?: string;
+  remarks?: string;
+  createdAt: string;
+}
+
+export interface CreateTeacherDocumentDto {
+  documentType: string;
+  title: string;
+  documentNumber?: string;
+  fileUrl?: string;
+  fileName?: string;
+  expiryDate?: string;
+  remarks?: string;
+}
+
+export interface TeacherIdCardDto {
+  id: string;
+  fullName: string;
+  employeeCode: string;
+  designation?: string;
+  specialization?: string;
+  qualification?: string;
+  phoneNumber: string;
+  emergencyContact?: string;
+  bloodGroup?: string;
+  email?: string;
+  address?: string;
+  joiningDate: string;
+  photoUrl?: string;
+  institutionName: string;
+  branchName?: string;
+  institutionAddress?: string;
+  institutionPhone?: string;
+  affiliationCode?: string;
+  qrCodeData: string;
+}

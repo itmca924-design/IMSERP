@@ -4,8 +4,10 @@ import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/materia
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDividerModule } from '@angular/material/divider';
+import { HttpClient } from '@angular/common/http';
 import { SalaryPaymentDto, TeacherDto } from './teacher.models';
 import { AuthService } from '../../core/services/auth.service';
+import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 
 export interface PayslipDialogData {
   payment: SalaryPaymentDto;
@@ -22,10 +24,20 @@ export interface PayslipDialogData {
     <div class="payslip-modal-container">
       <!-- Top Action Bar (hidden in print) -->
       <div class="modal-actions no-print">
-        <span class="modal-title"><mat-icon>receipt_long</mat-icon> Staff Salary Payslip</span>
+        <div class="modal-hdr-left">
+          <div class="modal-hdr-icon"><mat-icon>receipt_long</mat-icon></div>
+          <div>
+            <h3 class="modal-hdr-title">Staff Salary Payslip</h3>
+            <p class="modal-hdr-sub">{{ data.teacher.fullName }} ({{ data.teacher.employeeCode }}) &bull; {{ data.payment.monthName }} {{ data.payment.paymentYear }}</p>
+          </div>
+        </div>
         <div class="btn-group">
+          <button mat-stroked-button class="whatsapp-btn" [disabled]="sendingWhatsApp" (click)="sendWhatsApp()" matTooltip="Send Payslip on WhatsApp">
+            <mat-icon>send</mat-icon>
+            <span>{{ sendingWhatsApp ? 'Sending...' : 'Send WhatsApp' }}</span>
+          </button>
           <button mat-raised-button color="primary" (click)="printPayslip()">
-            <mat-icon>print</mat-icon> Print / Download PDF
+            <mat-icon>print</mat-icon> Print / PDF
           </button>
           <button mat-icon-button (click)="dialogRef.close()">
             <mat-icon>close</mat-icon>
@@ -183,9 +195,31 @@ export interface PayslipDialogData {
     }
     .modal-actions {
       display: flex; justify-content: space-between; align-items: center;
-      padding: 12px 20px; background: #0f172a; color: #fff;
-      .modal-title { font-size: 1.05rem; font-weight: 600; display: flex; align-items: center; gap: 8px; mat-icon { font-size: 20px; } }
-      .btn-group { display: flex; align-items: center; gap: 8px; }
+      padding: 14px 22px;
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+      border-bottom: 1px solid #bfdbfe;
+      .modal-hdr-left {
+        display: flex; align-items: center; gap: 12px;
+        .modal-hdr-icon {
+          background: #2563eb; color: #ffffff; border-radius: 10px;
+          box-shadow: 0 4px 6px -1px rgba(37,99,235,0.25);
+          width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
+          mat-icon { font-size: 22px; width: 22px; height: 22px; }
+        }
+        .modal-hdr-title { margin: 0; font-size: 1.15rem; font-weight: 700; color: #1e3a8a; }
+        .modal-hdr-sub { margin: 2px 0 0; font-size: 0.8rem; color: #3b82f6; }
+      }
+      .btn-group {
+        display: flex; align-items: center; gap: 10px;
+        .whatsapp-btn {
+          background: #22c55e; color: #ffffff; border: none; font-weight: 600;
+          &:hover { background: #16a34a; }
+        }
+        button[mat-icon-button] {
+          color: #64748b;
+          &:hover { color: #1e293b; background: rgba(0,0,0,0.05); }
+        }
+      }
     }
     .payslip-paper {
       padding: 32px 36px; color: #1e293b; font-family: 'Segoe UI', Roboto, sans-serif;
@@ -288,13 +322,30 @@ export interface PayslipDialogData {
 export class TeacherPayslipDialogComponent {
   logoUrl: string | null = null;
   logoFailed = false;
+  sendingWhatsApp = false;
 
   constructor(
     public dialogRef: MatDialogRef<TeacherPayslipDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: PayslipDialogData,
-    public authService: AuthService
+    public authService: AuthService,
+    private http: HttpClient,
+    private confirmDialog: ConfirmDialogService
   ) {
     this.logoUrl = data.logoUrl || this.authService.getInstituteLogoUrl();
+  }
+
+  sendWhatsApp() {
+    this.sendingWhatsApp = true;
+    this.http.post<any>(`http://localhost:5000/api/teachers/salary-payments/${this.data.payment.id}/send-whatsapp`, {}).subscribe({
+      next: (res) => {
+        this.sendingWhatsApp = false;
+        this.confirmDialog.alert('WhatsApp Sent', res?.message || 'Salary slip sent to teacher on WhatsApp!', 'success');
+      },
+      error: (err) => {
+        this.sendingWhatsApp = false;
+        this.confirmDialog.alert('Error', err?.error?.message || 'Failed to dispatch WhatsApp message.', 'danger');
+      }
+    });
   }
 
   printPayslip() {

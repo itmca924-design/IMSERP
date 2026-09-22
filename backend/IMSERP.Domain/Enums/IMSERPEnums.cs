@@ -32,7 +32,8 @@ public enum MessageType
     FeeReceipt = 1,
     FeeReminder = 2,
     TestMarks = 3,
-    Announcement = 4
+    Announcement = 4,
+    SalarySlip = 5
 }
 
 // Teacher Module Enums

@@ -17,6 +17,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import {
   SchoolService,
   SchoolClassDto,
@@ -25,10 +26,14 @@ import {
   CreateBulkSchoolExamsDto,
   SchoolExamMarksItemDto,
   SaveSchoolExamMarksDto,
-  ConsolidatedClassResultDto
+  ConsolidatedClassResultDto,
+  ConsolidatedStudentResultDto,
+  ExamSettingDto,
+  UpdateExamSettingDto
 } from '../../core/services/school.service';
 import { SubjectsService, SubjectDto } from '../../core/services/subjects.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
+import { SchoolReportCardDialogComponent } from './school-report-card-dialog.component';
 
 @Component({
   selector: 'app-school-exams',
@@ -52,7 +57,8 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
     MatTooltipModule,
     MatMenuModule,
     MatChipsModule,
-    MatDividerModule
+    MatDividerModule,
+    MatDialogModule
   ],
   templateUrl: './school-exams.component.html',
   styleUrls: ['./school-exams.component.scss']
@@ -87,6 +93,15 @@ export class SchoolExamsComponent implements OnInit {
   consolidatedResult: ConsolidatedClassResultDto | null = null;
   loadingResults = false;
 
+  // Dynamic Exam Evaluation & Passing Benchmark Settings (GAP 4)
+  examSettings: ExamSettingDto | null = null;
+  settingPassingPercentage = 33;
+  settingMaxCompartment = 2;
+  settingAllowGrace = true;
+  settingMaxGrace = 5;
+  savingSettings = false;
+  showSettingsBar = false;
+
   // Marks Entry Overlay
   activeExamForMarks: SchoolExamDto | null = null;
   marksList: SchoolExamMarksItemDto[] = [];
@@ -99,7 +114,8 @@ export class SchoolExamsComponent implements OnInit {
     private subjectsService: SubjectsService,
     private confirmDialog: ConfirmDialogService,
     private fb: FormBuilder,
-    private router: Router
+    private router: Router,
+    private dialog: MatDialog
   ) {
     this.scheduleForm = this.fb.group({
       classId: ['', Validators.required],
@@ -117,7 +133,9 @@ export class SchoolExamsComponent implements OnInit {
     this.loadClasses();
     this.loadSubjects();
     this.loadExams();
+    this.loadExamSettings();
   }
+
 
   initAcademicYears(): void {
     const yr = new Date().getFullYear();
@@ -398,7 +416,46 @@ export class SchoolExamsComponent implements OnInit {
     });
   }
 
-  // ─── Consolidated Results (Tab 3) ─────────────────
+  // ─── Consolidated Results & Dynamic Benchmarks (Tab 3) ──
+
+  loadExamSettings(): void {
+    this.schoolService.getExamSettings().subscribe({
+      next: (settings) => {
+        this.examSettings = settings;
+        this.settingPassingPercentage = settings.passingPercentage || 33;
+        this.settingMaxCompartment = settings.maxCompartmentSubjects ?? 2;
+        this.settingAllowGrace = settings.allowGraceMarks ?? true;
+        this.settingMaxGrace = settings.maxGraceMarks ?? 5;
+      }
+    });
+  }
+
+  saveExamSettingsAsDefault(): void {
+    this.savingSettings = true;
+    const payload: UpdateExamSettingDto = {
+      passingPercentage: Number(this.settingPassingPercentage),
+      maxCompartmentSubjects: Number(this.settingMaxCompartment),
+      allowGraceMarks: this.settingAllowGrace,
+      maxGraceMarks: Number(this.settingMaxGrace),
+      schoolAffiliationNumber: this.examSettings?.schoolAffiliationNumber,
+      principalSignTitle: this.examSettings?.principalSignTitle,
+      classTeacherSignTitle: this.examSettings?.classTeacherSignTitle,
+      resultDeclarationNote: this.examSettings?.resultDeclarationNote
+    };
+
+    this.schoolService.updateExamSettings(payload).subscribe({
+      next: (saved) => {
+        this.savingSettings = false;
+        this.examSettings = saved;
+        this.confirmDialog.alert('Settings Saved! ⚙️', 'School exam evaluation benchmark has been successfully updated as institute default.', 'success');
+        this.loadConsolidatedResults();
+      },
+      error: (err) => {
+        this.savingSettings = false;
+        this.confirmDialog.alert('Save Failed', err?.error?.message || 'Could not save exam settings.', 'danger');
+      }
+    });
+  }
 
   loadConsolidatedResults(): void {
     if (!this.resultClassId) return;
@@ -410,16 +467,110 @@ export class SchoolExamsComponent implements OnInit {
       this.resultClassId,
       this.resultAcademicYear,
       this.resultExamType || undefined,
-      this.resultSectionId || undefined
+      this.resultSectionId || undefined,
+      this.settingPassingPercentage,
+      this.settingMaxCompartment,
+      this.settingAllowGrace,
+      this.settingMaxGrace
     ).subscribe({
       next: (res) => {
         this.loadingResults = false;
         this.consolidatedResult = res;
+        if (res.settings) {
+          this.examSettings = res.settings;
+        }
       },
       error: (err) => {
         this.loadingResults = false;
         this.confirmDialog.alert('Load Failed', err?.error?.message || 'Failed to load consolidated marksheet.', 'danger');
       }
+    });
+  }
+
+  // Report Card & Promotion Certificate Modals (GAP 1, 2, 3)
+  openReportCard(student: ConsolidatedStudentResultDto, mode: 'single' | 'certificate' = 'single'): void {
+    if (!this.consolidatedResult) return;
+
+    this.dialog.open(SchoolReportCardDialogComponent, {
+      width: '92vw',
+      maxWidth: '920px',
+      maxHeight: '94vh',
+      panelClass: 'custom-dialog-container',
+      data: {
+        mode,
+        className: this.consolidatedResult.className,
+        academicYear: this.resultAcademicYear,
+        examType: this.resultExamType,
+        student,
+        settings: this.examSettings || this.consolidatedResult.settings,
+        subjects: this.consolidatedResult.subjects
+      }
+    });
+  }
+
+  bulkPrintAllReportCards(): void {
+    if (!this.consolidatedResult || !this.consolidatedResult.students.length) {
+      this.confirmDialog.alert('No Student Records', 'No evaluated student marksheets found to print.', 'warning');
+      return;
+    }
+
+    this.dialog.open(SchoolReportCardDialogComponent, {
+      width: '94vw',
+      maxWidth: '940px',
+      maxHeight: '94vh',
+      panelClass: 'custom-dialog-container',
+      data: {
+        mode: 'bulk',
+        className: this.consolidatedResult.className,
+        academicYear: this.resultAcademicYear,
+        examType: this.resultExamType,
+        allStudents: this.consolidatedResult.students,
+        settings: this.examSettings || this.consolidatedResult.settings,
+        subjects: this.consolidatedResult.subjects
+      }
+    });
+  }
+
+  sendStudentWhatsApp(student: ConsolidatedStudentResultDto): void {
+    const phone = student.parentWhatsAppPhone;
+    if (!phone) {
+      this.confirmDialog.alert('WhatsApp Number Missing', `Parent WhatsApp number is not recorded for ${student.studentName}.`, 'warning');
+      return;
+    }
+
+    this.confirmDialog.confirm(
+      'Send WhatsApp Result',
+      `Send annual examination result summary to ${student.studentName}'s parent (${phone})?`,
+      'Send WhatsApp',
+      'Cancel',
+      'info'
+    ).subscribe((confirmed) => {
+      if (!confirmed) return;
+
+      this.schoolService.sendAnnualResultWhatsApp({
+        studentId: student.studentId,
+        studentName: student.studentName,
+        recipientPhone: phone,
+        examTitle: `${this.consolidatedResult?.className || 'Class'} ${this.resultExamType || 'Annual Exam'}`,
+        academicYear: this.resultAcademicYear,
+        totalObtained: student.totalObtained,
+        totalMax: student.totalMax,
+        percentage: student.overallPercentage,
+        grade: student.grade,
+        resultStatus: student.resultStatus,
+        rank: student.rank > 0 ? student.rank : undefined
+      }).subscribe({
+        next: (res) => {
+          this.confirmDialog.alert('WhatsApp Dispatched! 📱', res.message, 'success');
+        },
+        error: () => {
+          // Fallback direct wa.me
+          const msg = encodeURIComponent(
+            `*ANNUAL EXAM RESULT (${this.resultAcademicYear})*\n\nDear Parent, performance report for *${student.studentName}* (Roll: ${student.rollNumber}, Class: ${this.consolidatedResult?.className}):\n• Total: *${student.totalObtained} / ${student.totalMax}* (${student.overallPercentage}%)\n• Grade: *${student.grade}* | Rank: *#${student.rank || '1'}*\n• Result: *${student.resultStatus}*\n• Determination: *${student.promotionVerdict}*`
+          );
+          window.open(`https://wa.me/${phone.replace(/[^0-9]/g, '')}?text=${msg}`, '_blank');
+        }
+      });
     });
   }
 
@@ -432,7 +583,8 @@ export class SchoolExamsComponent implements OnInit {
     this.router.navigate(['/students/promotion'], {
       queryParams: {
         fromClassId: this.resultClassId,
-        academicYear: this.resultAcademicYear
+        academicYear: this.resultAcademicYear,
+        passingPercentage: this.settingPassingPercentage
       }
     });
   }

@@ -44,6 +44,9 @@ export interface SchoolSectionDto {
   createdAt: string;
   branchId?: string;
   studentCount: number;
+  classTeacherId?: string;
+  classTeacherName?: string;
+  classTeacherEmployeeCode?: string;
 }
 
 export interface CreateSchoolSectionDto {
@@ -52,6 +55,7 @@ export interface CreateSchoolSectionDto {
   maxCapacity?: number;
   roomId?: string;
   branchId?: string;
+  classTeacherId?: string;
 }
 
 export interface UpdateSchoolSectionDto {
@@ -59,6 +63,7 @@ export interface UpdateSchoolSectionDto {
   maxCapacity: number;
   roomId?: string;
   isActive: boolean;
+  classTeacherId?: string;
 }
 
 export interface EnrollSchoolStudentInCoachingDto {
@@ -232,19 +237,64 @@ export interface SaveSchoolExamMarksDto {
   marksList: SaveSchoolExamMarkItemDto[];
 }
 
+export interface ExamSettingDto {
+  id: string;
+  passingPercentage: number;
+  maxCompartmentSubjects: number;
+  allowGraceMarks: boolean;
+  maxGraceMarks: number;
+  schoolAffiliationNumber?: string;
+  principalSignTitle?: string;
+  classTeacherSignTitle?: string;
+  resultDeclarationNote?: string;
+}
+
+export interface UpdateExamSettingDto {
+  passingPercentage: number;
+  maxCompartmentSubjects: number;
+  allowGraceMarks: boolean;
+  maxGraceMarks: number;
+  schoolAffiliationNumber?: string;
+  principalSignTitle?: string;
+  classTeacherSignTitle?: string;
+  resultDeclarationNote?: string;
+}
+
+export interface ConsolidatedSubjectDetailDto {
+  subject: string;
+  maxMarks: number;
+  passingMarks: number;
+  marksObtained: number | null;
+  isAbsent: boolean;
+  grade: string;
+  isPassed: boolean;
+}
+
 export interface ConsolidatedStudentResultDto {
   studentId: string;
   studentName: string;
   rollNumber: string;
-  schoolRollNumber?: string;
   admissionNumber: string;
-  sectionName?: string;
   subjectMarks: { [subject: string]: number | null };
   totalObtained: number;
   totalMax: number;
   overallPercentage: number;
   grade: string;
-  resultStatus: string;
+  resultStatus: string; // "Passed", "Compartment", "Failed", "Passed with Grace", "Absent"
+  rank: number;
+  failedSubjectCount: number;
+  promotionVerdict: string;
+  attendancePercentage: number;
+  presentDays: number;
+  totalAttendanceDays: number;
+  fatherName?: string;
+  motherName?: string;
+  dateOfBirth?: string;
+  gender?: string;
+  parentWhatsAppPhone?: string;
+  sectionName?: string;
+  subjectDetails: ConsolidatedSubjectDetailDto[];
+  classTeacherName?: string;
 }
 
 export interface ConsolidatedClassResultDto {
@@ -256,8 +306,24 @@ export interface ConsolidatedClassResultDto {
   passingPercentage: number;
   totalStudents: number;
   passedCount: number;
+  compartmentCount: number;
   failedCount: number;
+  settings: ExamSettingDto;
   students: ConsolidatedStudentResultDto[];
+}
+
+export interface SendAnnualResultWhatsAppDto {
+  studentId: string;
+  studentName: string;
+  recipientPhone: string;
+  examTitle: string;
+  academicYear: string;
+  totalObtained: number;
+  totalMax: number;
+  percentage: number;
+  grade: string;
+  resultStatus: string;
+  rank?: number;
 }
 
 @Injectable({
@@ -402,17 +468,35 @@ export class SchoolService {
     return this.http.post<{ message: string }>(`${this.apiUrl}/exams/bulk-marks`, dto);
   }
 
+  getExamSettings(): Observable<ExamSettingDto> {
+    return this.http.get<ExamSettingDto>(`${this.apiUrl}/exam-settings`);
+  }
+
+  updateExamSettings(dto: UpdateExamSettingDto): Observable<ExamSettingDto> {
+    return this.http.put<ExamSettingDto>(`${this.apiUrl}/exam-settings`, dto);
+  }
+
+  sendAnnualResultWhatsApp(dto: SendAnnualResultWhatsAppDto): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.apiUrl}/exams/whatsapp-result`, dto);
+  }
+
   getConsolidatedResults(
     classId: string,
     academicYear: string,
     examType?: string,
     sectionId?: string,
-    passingPercentage?: number
+    passingPercentage?: number,
+    maxCompartmentSubjects?: number,
+    allowGraceMarks?: boolean,
+    maxGraceMarks?: number
   ): Observable<ConsolidatedClassResultDto> {
     const params: any = { classId, academicYear };
     if (examType) params.examType = examType;
     if (sectionId) params.sectionId = sectionId;
     if (passingPercentage !== undefined && passingPercentage !== null) params.passingPercentage = passingPercentage;
+    if (maxCompartmentSubjects !== undefined && maxCompartmentSubjects !== null) params.maxCompartmentSubjects = maxCompartmentSubjects;
+    if (allowGraceMarks !== undefined && allowGraceMarks !== null) params.allowGraceMarks = allowGraceMarks;
+    if (maxGraceMarks !== undefined && maxGraceMarks !== null) params.maxGraceMarks = maxGraceMarks;
 
     return this.http.get<ConsolidatedClassResultDto>(`${this.apiUrl}/exams/consolidated-results`, { params });
   }

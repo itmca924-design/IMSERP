@@ -10,19 +10,24 @@ import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { MatDialogModule } from '@angular/material/dialog';
+import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { forkJoin } from 'rxjs';
 import { TeacherSelectorComponent } from './teacher-selector.component';
+import { TeacherQuickAssignDialogComponent } from './teacher-quick-assign-dialog.component';
 import {
   API_BASE, TeacherDto, BatchAssignmentDto, BatchDto, SubjectDto, TeacherBatchCoverageReportDto
 } from './teacher.models';
+import { SchoolClassDto, SchoolSectionDto } from '../../core/services/school.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 
 export interface AssignmentSlot {
   id: string;
+  assignmentType: 'coaching' | 'school';
   batchId: string;
+  classId?: string;
+  sectionId?: string;
   selectedSubjects: string[];
   selectedDays: string[];
   timeSlotMode: 'preset' | 'custom';
@@ -39,7 +44,8 @@ export interface AssignmentSlot {
   imports: [
     CommonModule, FormsModule, MatCardModule, MatButtonModule, MatIconModule,
     MatInputModule, MatFormFieldModule, MatSelectModule, MatTooltipModule,
-    MatDialogModule, MatProgressBarModule, MatCheckboxModule, TeacherSelectorComponent
+    MatDialogModule, MatProgressBarModule, MatCheckboxModule,
+    TeacherSelectorComponent, TeacherQuickAssignDialogComponent
   ],
   template: `
 <div class="page-container">
@@ -51,47 +57,281 @@ export interface AssignmentSlot {
     </div>
   </div>
 
-  <!-- Batch Coverage Overview Banner -->
-  <div class="coverage-alert-banner" *ngIf="batchCoverage">
-    <div class="coverage-info">
-      <div class="coverage-icon-badge" [class.badge-warning]="batchCoverage.unassignedBatchesCount > 0">
-        <mat-icon>{{batchCoverage.unassignedBatchesCount > 0 ? 'warning_amber' : 'verified'}}</mat-icon>
-      </div>
-      <div>
-        <div class="coverage-title">
-          <span>Batch Assignment Coverage: <strong>{{batchCoverage.coveragePercentage}}%</strong></span>
-          <span class="coverage-counts">({{batchCoverage.assignedBatchesCount}} / {{batchCoverage.totalBatches}} Batches Assigned)</span>
-        </div>
-        <p class="coverage-desc" *ngIf="batchCoverage.unassignedBatchesCount > 0">
-          {{batchCoverage.unassignedBatchesCount}} {{batchCoverage.unassignedBatchesCount === 1 ? 'batch has' : 'batches have'}} no faculty assigned yet.
-        </p>
-        <p class="coverage-desc success" *ngIf="batchCoverage.unassignedBatchesCount === 0">
-          All {{batchCoverage.totalBatches}} batches in the institute have assigned teachers!
-        </p>
-      </div>
+  <!-- 3-Way Assignment Scope Bar (School Classes vs Coaching Batches) -->
+  <div class="scope-switcher-card mat-elevation-z1">
+    <div class="scope-label">
+      <mat-icon>tune</mat-icon>
+      <span>Assignment Scope:</span>
     </div>
-    <div class="coverage-actions" *ngIf="batchCoverage.unassignedBatchesCount > 0">
-      <button mat-button class="toggle-unassigned-btn" (click)="showUnassigned = !showUnassigned">
-        <mat-icon>{{showUnassigned ? 'expand_less' : 'expand_more'}}</mat-icon>
-        {{showUnassigned ? 'Hide' : 'View ' + batchCoverage.unassignedBatchesCount + ' Unassigned'}}
+    <div class="scope-buttons">
+      <button type="button" class="scope-btn" [class.active]="selectedScope === 'ALL'" (click)="setScope('ALL')">
+        <mat-icon>dashboard_customize</mat-icon>
+        <span class="btn-main">All (School + Coaching)</span>
+        <span class="scope-pill" *ngIf="batchCoverage">{{totalScopeCount('ALL')}}</span>
+      </button>
+      <button type="button" class="scope-btn school-btn" [class.active]="selectedScope === 'SCHOOL'" (click)="setScope('SCHOOL')">
+        <mat-icon>account_balance</mat-icon>
+        <span class="btn-main">School Classes (Class 9-A, 10-B, etc.)</span>
+        <span class="scope-pill" *ngIf="batchCoverage">{{totalScopeCount('SCHOOL')}}</span>
+      </button>
+      <button type="button" class="scope-btn coaching-btn" [class.active]="selectedScope === 'COACHING'" (click)="setScope('COACHING')">
+        <mat-icon>biotech</mat-icon>
+        <span class="btn-main">Coaching Batches (NEET, JEE, MTH-09-A, etc.)</span>
+        <span class="scope-pill" *ngIf="batchCoverage">{{totalScopeCount('COACHING')}}</span>
       </button>
     </div>
   </div>
 
-  <!-- Unassigned Batches Expandable Tray -->
-  <div class="unassigned-tray" *ngIf="showUnassigned && batchCoverage && batchCoverage.unassignedBatches.length > 0">
-    <div class="unassigned-title">
-      <mat-icon>announcement</mat-icon> Batches Awaiting Teacher Assignment:
-    </div>
-    <div class="unassigned-chips">
-      <div class="unassigned-chip" *ngFor="let ub of batchCoverage.unassignedBatches">
-        <div class="ub-text">
-          <span class="ub-name">{{ub.name}}</span>
-          <span class="ub-sub" *ngIf="ub.subject">({{ub.subject}})</span>
-          <span class="ub-students">{{ub.studentCount}} students</span>
+  <!-- Batch & Class Coverage Overview Banner -->
+  <div class="coverage-alert-banner" *ngIf="batchCoverage">
+    <div class="coverage-info">
+      <div class="coverage-icon-badge" [class.badge-warning]="scopeCoverageData.unassigned > 0">
+        <mat-icon>{{scopeCoverageData.unassigned > 0 ? 'warning_amber' : 'verified'}}</mat-icon>
+      </div>
+      <div>
+        <div class="coverage-title">
+          <span>{{scopeCoverageData.title}}: <strong>{{scopeCoverageData.percentage}}%</strong></span>
+          <span class="coverage-counts">({{scopeCoverageData.assigned}} / {{scopeCoverageData.total}} Assigned)</span>
         </div>
-        <button mat-stroked-button class="quick-assign-btn" (click)="quickAssignBatch(ub)" matTooltip="Assign this batch to currently selected teacher" *ngIf="selectedTeacher">
-          <mat-icon>add</mat-icon> Assign
+        <p class="coverage-desc" *ngIf="scopeCoverageData.unassigned > 0">
+          {{scopeCoverageData.unassigned}} teaching {{scopeCoverageData.unassigned === 1 ? 'unit has' : 'units have'}} no faculty assigned yet.
+        </p>
+        <p class="coverage-desc success" *ngIf="scopeCoverageData.unassigned === 0">
+          All {{scopeCoverageData.total}} teaching units in this scope have assigned teachers!
+        </p>
+      </div>
+    </div>
+    <div class="coverage-actions" *ngIf="scopeCoverageData.unassigned > 0">
+      <button mat-button class="toggle-unassigned-btn" (click)="showUnassigned = !showUnassigned">
+        <mat-icon>{{showUnassigned ? 'expand_less' : 'expand_more'}}</mat-icon>
+        {{showUnassigned ? 'Hide' : 'View ' + scopeCoverageData.unassigned + ' Unassigned'}}
+      </button>
+    </div>
+  </div>
+
+  <!-- Smart Unassigned Batches Hub -->
+  <div class="unassigned-hub" *ngIf="showUnassigned && batchCoverage && batchCoverage.unassignedBatches.length > 0">
+    <!-- Hub Header -->
+    <div class="hub-header">
+      <div class="hub-header-left">
+        <div class="hub-icon-badge">
+          <mat-icon>pending_actions</mat-icon>
+        </div>
+        <div class="hub-title-group">
+          <div class="hub-title-row">
+            <h3 class="hub-title">Batches Awaiting Teacher Assignment</h3>
+            <span class="hub-count-badge">{{filteredUnassignedBatches.length}} of {{batchCoverage.unassignedBatches.length}} Batches</span>
+            <span class="hub-students-badge" *ngIf="totalUnassignedStudents > 0">
+              <mat-icon>groups</mat-icon> {{totalUnassignedStudents}} Students Impacted
+            </span>
+          </div>
+          <p class="hub-subtitle">Filter, search, and instantly assign batches to teachers with automatic timetable slot loading.</p>
+        </div>
+      </div>
+
+      <div class="hub-header-controls">
+        <!-- View Mode: Cards vs Table -->
+        <div class="view-mode-toggles">
+          <button type="button" class="mode-btn" [class.active]="unassignedViewMode === 'cards'" (click)="unassignedViewMode = 'cards'" matTooltip="Card Grid View">
+            <mat-icon>grid_view</mat-icon>
+            <span class="mode-text">Cards</span>
+          </button>
+          <button type="button" class="mode-btn" [class.active]="unassignedViewMode === 'table'" (click)="unassignedViewMode = 'table'" matTooltip="Compact Table View">
+            <mat-icon>view_list</mat-icon>
+            <span class="mode-text">Table</span>
+          </button>
+        </div>
+
+        <button mat-icon-button class="hub-close-btn" (click)="showUnassigned = false" matTooltip="Hide this tray">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+    </div>
+
+    <!-- Smart Filter & Search Toolbar -->
+    <div class="hub-toolbar">
+      <div class="search-box">
+        <mat-icon class="search-icon">search</mat-icon>
+        <input type="text" [(ngModel)]="unassignedSearch" (ngModelChange)="onUnassignedFilterChange()" placeholder="Search by batch name, code, or subject (e.g. NEET, 12, Physics)..." />
+        <button type="button" class="clear-search-btn" *ngIf="unassignedSearch" (click)="unassignedSearch = ''; onUnassignedFilterChange()">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+
+      <div class="toolbar-dropdowns">
+        <!-- Class Filter -->
+        <div class="filter-select-wrapper">
+          <label class="dropdown-label"><mat-icon>school</mat-icon> Class:</label>
+          <select [(ngModel)]="unassignedClassFilter" (change)="onUnassignedFilterChange()" class="clean-select">
+            <option *ngFor="let opt of classFilterOptions" [value]="opt.id">{{opt.label}}</option>
+          </select>
+        </div>
+
+        <!-- Sort By -->
+        <div class="filter-select-wrapper">
+          <label class="dropdown-label"><mat-icon>sort</mat-icon> Sort:</label>
+          <select [(ngModel)]="unassignedSortBy" (change)="onUnassignedFilterChange()" class="clean-select">
+            <option value="name-asc">Name (A → Z)</option>
+            <option value="name-desc">Name (Z → A)</option>
+            <option value="subject">Subject</option>
+            <option value="students-desc">Students (High to Low)</option>
+          </select>
+        </div>
+
+        <!-- Reset Button -->
+        <button type="button" class="reset-filter-btn" *ngIf="isFilterActive" (click)="resetUnassignedFilters()">
+          <mat-icon>filter_alt_off</mat-icon> Reset
+        </button>
+      </div>
+    </div>
+
+    <!-- Subject Filter Tabs / Chips Bar -->
+    <div class="subject-chips-bar" *ngIf="unassignedSubjectTabs.length > 1">
+      <div class="chips-scroll-container">
+        <button type="button" *ngFor="let tab of unassignedSubjectTabs"
+          class="subject-chip-btn"
+          [class.active]="unassignedSubjectFilter === tab.name"
+          (click)="setSubjectFilter(tab.name)">
+          <span class="chip-name">{{tab.name}}</span>
+          <span class="chip-count">{{tab.count}}</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Active Faculty Context Hint -->
+    <div class="active-teacher-context" *ngIf="selectedTeacher">
+      <div class="context-content">
+        <mat-icon class="context-icon">person</mat-icon>
+        <span>Selected Faculty: <strong>{{selectedTeacher.fullName}}</strong> ({{selectedTeacher.employeeCode}}). Click <em>"+ Assign to {{selectedTeacher.fullName}}"</em> to load this batch into the assignment schedule builder below.</span>
+      </div>
+    </div>
+    <div class="active-teacher-context hint" *ngIf="!selectedTeacher">
+      <div class="context-content">
+        <mat-icon class="context-icon">lightbulb</mat-icon>
+        <span>No faculty selected yet. Click <strong>"+ Assign Faculty"</strong> on any batch to choose a teacher, or pick one from the teacher selector below.</span>
+      </div>
+    </div>
+
+    <!-- Body View 1: Cards Grid -->
+    <div class="cards-grid-container" *ngIf="unassignedViewMode === 'cards' && pagedUnassignedBatches.length > 0">
+      <div class="smart-batch-card" *ngFor="let ub of pagedUnassignedBatches">
+        <div class="card-top">
+          <div class="card-badges-left">
+            <span class="scope-category-tag" [class.school]="ub.category === 'School'" [class.coaching]="ub.category !== 'School'">
+              <mat-icon>{{ub.category === 'School' ? 'account_balance' : 'biotech'}}</mat-icon>
+              {{ub.category === 'School' ? 'School Class' : 'Coaching Batch'}}
+            </span>
+            <span class="subject-badge" [ngStyle]="{ 'background-color': getSubjectBadgeStyle(ub.subject).bg, 'color': getSubjectBadgeStyle(ub.subject).color, 'border': '1px solid ' + getSubjectBadgeStyle(ub.subject).border }">
+              {{ub.subject || 'General'}}
+            </span>
+          </div>
+          <span class="status-pill"><mat-icon>schedule</mat-icon> Unassigned</span>
+        </div>
+
+        <div class="card-mid">
+          <h4 class="batch-name" [matTooltip]="ub.name">{{ub.name}}</h4>
+          <div class="batch-meta">
+            <span class="meta-item students-tag" [class.zero-students]="!ub.studentCount">
+              <mat-icon>groups</mat-icon> {{ub.studentCount || 0}} Students
+            </span>
+            <span class="meta-item year-tag" *ngIf="ub.academicYear">
+              <mat-icon>calendar_today</mat-icon> {{ub.academicYear}}
+            </span>
+          </div>
+        </div>
+
+        <div class="card-bottom">
+          <button mat-flat-button color="primary" class="assign-action-btn" (click)="quickAssignBatch(ub)" *ngIf="selectedTeacher" matTooltip="Assign this batch to {{selectedTeacher.fullName}}">
+            <mat-icon>add</mat-icon> Assign to {{selectedTeacher.fullName | slice:0:14}}
+          </button>
+          <button mat-stroked-button color="primary" class="assign-action-btn" (click)="openQuickAssignModal(ub)" *ngIf="!selectedTeacher" matTooltip="Choose a teacher to assign this batch">
+            <mat-icon>person_add</mat-icon> Assign Faculty
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Body View 2: Compact Table -->
+    <div class="table-container" *ngIf="unassignedViewMode === 'table' && pagedUnassignedBatches.length > 0">
+      <table class="compact-unassigned-table">
+        <thead>
+          <tr>
+            <th>Type</th>
+            <th>Batch / Class Name</th>
+            <th>Subject</th>
+            <th>Enrolled Students</th>
+            <th>Academic Year</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let ub of pagedUnassignedBatches">
+            <td>
+              <span class="scope-category-tag" [class.school]="ub.category === 'School'" [class.coaching]="ub.category !== 'School'">
+                <mat-icon>{{ub.category === 'School' ? 'account_balance' : 'biotech'}}</mat-icon>
+                {{ub.category === 'School' ? 'School' : 'Coaching'}}
+              </span>
+            </td>
+            <td class="batch-col">
+              <strong>{{ub.name}}</strong>
+            </td>
+            <td>
+              <span class="subject-badge" [ngStyle]="{ 'background-color': getSubjectBadgeStyle(ub.subject).bg, 'color': getSubjectBadgeStyle(ub.subject).color, 'border': '1px solid ' + getSubjectBadgeStyle(ub.subject).border }">
+                {{ub.subject || 'General'}}
+              </span>
+            </td>
+            <td>
+              <span class="students-tag" [class.zero-students]="!ub.studentCount">
+                <mat-icon>groups</mat-icon> {{ub.studentCount || 0}} students
+              </span>
+            </td>
+            <td>
+              <span class="year-text">{{ub.academicYear || 'Current'}}</span>
+            </td>
+            <td class="action-col">
+              <button mat-stroked-button color="primary" class="table-assign-btn" (click)="quickAssignBatch(ub)" *ngIf="selectedTeacher">
+                <mat-icon>add</mat-icon> Assign
+              </button>
+              <button mat-stroked-button color="primary" class="table-assign-btn" (click)="openQuickAssignModal(ub)" *ngIf="!selectedTeacher">
+                <mat-icon>person_add</mat-icon> Assign
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Empty State when filter yields 0 -->
+    <div class="hub-empty-state" *ngIf="filteredUnassignedBatches.length === 0">
+      <mat-icon class="empty-icon">search_off</mat-icon>
+      <h4>No Unassigned Batches Found</h4>
+      <p>No batches match the search term "{{unassignedSearch}}" or the selected filters.</p>
+      <button mat-stroked-button color="primary" (click)="resetUnassignedFilters()">
+        <mat-icon>refresh</mat-icon> Reset Filters
+      </button>
+    </div>
+
+    <!-- Hub Footer Pagination -->
+    <div class="hub-footer" *ngIf="filteredUnassignedBatches.length > 0">
+      <div class="footer-left">
+        <span class="page-info">
+          Showing <strong>{{unassignedStartIndex + 1}} – {{unassignedEndIndex}}</strong> of <strong>{{filteredUnassignedBatches.length}}</strong> batches
+        </span>
+        <div class="page-size-selector">
+          <label>Page Size:</label>
+          <button type="button" class="size-btn" [class.active]="unassignedPageSize === 9" (click)="setPageSize(9)">9</button>
+          <button type="button" class="size-btn" [class.active]="unassignedPageSize === 18" (click)="setPageSize(18)">18</button>
+          <button type="button" class="size-btn" [class.active]="unassignedPageSize === 0" (click)="setPageSize(0)">All ({{filteredUnassignedBatches.length}})</button>
+        </div>
+      </div>
+
+      <div class="pagination-controls" *ngIf="unassignedPageSize > 0 && totalUnassignedPages > 1">
+        <button mat-icon-button [disabled]="unassignedPage === 1" (click)="setUnassignedPage(unassignedPage - 1)" matTooltip="Previous page">
+          <mat-icon>chevron_left</mat-icon>
+        </button>
+        <span class="page-current">Page {{unassignedPage}} of {{totalUnassignedPages}}</span>
+        <button mat-icon-button [disabled]="unassignedPage >= totalUnassignedPages" (click)="setUnassignedPage(unassignedPage + 1)" matTooltip="Next page">
+          <mat-icon>chevron_right</mat-icon>
         </button>
       </div>
     </div>
@@ -146,7 +386,7 @@ export interface AssignmentSlot {
     </div>
 
     <!-- Dynamic Multi-Row Assignment Builder Form -->
-    <div class="assign-form-container mat-elevation-z2" *ngIf="showForm">
+    <div class="assign-form-container mat-elevation-z2" *ngIf="showForm" id="assignBuilder">
       <div class="form-banner">
         <div class="banner-title">
           <mat-icon color="primary">tune</mat-icon>
@@ -167,20 +407,31 @@ export interface AssignmentSlot {
           <div class="slot-card-header">
             <div class="slot-tag">
               <span class="slot-index">Slot #{{i + 1}}</span>
-              <span class="slot-summary-text" *ngIf="slot.batchId">
-                {{getBatchName(slot.batchId)}}
+              <span class="slot-summary-text">
+                {{getSlotSummary(slot)}}
               </span>
             </div>
+
+            <!-- Type Selector: School Class vs Coaching Batch -->
+            <div class="slot-type-pills">
+              <button type="button" class="type-pill-btn" [class.active]="slot.assignmentType === 'school'" (click)="setSlotType(slot, 'school')">
+                <mat-icon>account_balance</mat-icon> School Class
+              </button>
+              <button type="button" class="type-pill-btn" [class.active]="slot.assignmentType === 'coaching'" (click)="setSlotType(slot, 'coaching')">
+                <mat-icon>biotech</mat-icon> Coaching Batch
+              </button>
+            </div>
+
             <button mat-icon-button color="warn" *ngIf="slots.length > 1" (click)="removeSlot(i)" matTooltip="Remove this slot">
               <mat-icon>delete_outline</mat-icon>
             </button>
           </div>
 
           <div class="slot-body">
-            <!-- Row 1: Batch & Multi-Select Subject -->
-            <div class="slot-row">
+            <!-- Row 1: If Coaching -> Select Batch. If School -> Select Class + Section -->
+            <div class="slot-row" *ngIf="slot.assignmentType === 'coaching'">
               <mat-form-field appearance="outline" class="field-batch">
-                <mat-label>Select Batch *</mat-label>
+                <mat-label>Select Coaching Batch *</mat-label>
                 <mat-select [(ngModel)]="slot.batchId" (selectionChange)="onBatchChanged(slot)">
                   <mat-option *ngFor="let b of batches" [value]="b.id">
                     <strong>{{b.name}}</strong> <span class="opt-subject" *ngIf="b.subject">({{b.subject}})</span>
@@ -192,12 +443,42 @@ export interface AssignmentSlot {
                 <mat-label>Subject(s) * (Multi-Select)</mat-label>
                 <mat-select [(ngModel)]="slot.selectedSubjects" multiple (selectionChange)="checkClashes()">
                   <mat-select-trigger>
-                    <span class="trigger-chip" *ngFor="let s of slot.selectedSubjects">
-                      {{s}}
-                    </span>
-                    <span *ngIf="!slot.selectedSubjects || slot.selectedSubjects.length === 0" class="placeholder-trigger">
-                      Select Subject(s)
-                    </span>
+                    <span class="trigger-chip" *ngFor="let s of slot.selectedSubjects">{{s}}</span>
+                    <span *ngIf="!slot.selectedSubjects || slot.selectedSubjects.length === 0" class="placeholder-trigger">Select Subject(s)</span>
+                  </mat-select-trigger>
+                  <mat-option *ngFor="let sub of subjects" [value]="sub.name">
+                    <span class="sub-name">{{sub.name}}</span>
+                    <span class="sub-code" *ngIf="sub.code">[{{sub.code}}]</span>
+                  </mat-option>
+                </mat-select>
+              </mat-form-field>
+            </div>
+
+            <div class="slot-row" *ngIf="slot.assignmentType === 'school'">
+              <mat-form-field appearance="outline" class="field-class">
+                <mat-label>Select School Class *</mat-label>
+                <mat-select [(ngModel)]="slot.classId" (selectionChange)="onClassChanged(slot)">
+                  <mat-option *ngFor="let c of schoolClasses" [value]="c.id">
+                    <strong>{{c.name}}</strong> <span class="opt-subject" *ngIf="c.code">({{c.code}})</span>
+                  </mat-option>
+                </mat-select>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="field-section">
+                <mat-label>Select Section *</mat-label>
+                <mat-select [(ngModel)]="slot.sectionId" (selectionChange)="onSectionChanged(slot)">
+                  <mat-option *ngFor="let sec of getSectionsForClass(slot.classId)" [value]="sec.id">
+                    <strong>{{sec.name}}</strong> <span class="opt-subject">({{sec.studentCount || 0}} students)</span>
+                  </mat-option>
+                </mat-select>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="field-subject">
+                <mat-label>Subject(s) * (Multi-Select)</mat-label>
+                <mat-select [(ngModel)]="slot.selectedSubjects" multiple (selectionChange)="checkClashes()">
+                  <mat-select-trigger>
+                    <span class="trigger-chip" *ngFor="let s of slot.selectedSubjects">{{s}}</span>
+                    <span *ngIf="!slot.selectedSubjects || slot.selectedSubjects.length === 0" class="placeholder-trigger">Select Subject(s)</span>
                   </mat-select-trigger>
                   <mat-option *ngFor="let sub of subjects" [value]="sub.name">
                     <span class="sub-name">{{sub.name}}</span>
@@ -344,15 +625,20 @@ export interface AssignmentSlot {
 
     <!-- VIEW 1: Assigned Batches Cards Grid -->
     <div class="assignments-section" *ngIf="activeView === 'cards'">
-      <div class="assignments-grid" *ngIf="assignments.length > 0">
-        <mat-card class="assign-card mat-elevation-z2" *ngFor="let a of assignments">
+      <div class="assignments-grid" *ngIf="filteredActiveAssignments.length > 0">
+        <mat-card class="assign-card mat-elevation-z2" *ngFor="let a of filteredActiveAssignments">
           <div class="card-status-strip"></div>
           <div class="card-content-wrap">
             <div class="assign-header">
               <div class="batch-title-row">
-                <mat-icon class="batch-icon">school</mat-icon>
+                <mat-icon class="batch-icon">{{a.classId ? 'account_balance' : 'biotech'}}</mat-icon>
                 <div>
-                  <strong class="batch-name">{{a.batchName}}</strong>
+                  <div class="title-with-tag">
+                    <strong class="batch-name">{{a.batchName}}</strong>
+                    <span class="scope-mini-pill" [class.school]="a.classId" [class.coaching]="!a.classId">
+                      {{a.classId ? 'School' : 'Coaching'}}
+                    </span>
+                  </div>
                   <div class="subject-chips-list">
                     <span class="subj-badge" *ngFor="let sub of splitSubjects(a.subject)">
                       {{sub}}
@@ -428,7 +714,8 @@ export interface AssignmentSlot {
               </td>
               <td *ngFor="let day of allDays" class="schedule-cell" [class.today-cell]="isToday(day)">
                 <ng-container *ngFor="let a of getAssignmentsForCell(day, slot)">
-                  <div class="tt-class-chip">
+                  <div class="tt-class-chip" [class.school-tt-chip]="a.classId" [class.coaching-tt-chip]="!a.classId">
+                    <div class="tt-scope-tag">{{a.classId ? '🏫 School' : '🎯 Coaching'}}</div>
                     <div class="tt-batch-name">{{a.batchName}}</div>
                     <div class="tt-subject-name">{{a.subject}}</div>
                   </div>
@@ -492,6 +779,118 @@ export interface AssignmentSlot {
       mat-icon{font-size:1.6rem;width:1.6rem;height:1.6rem;} }
     .page-subtitle { color:#64748b; margin:4px 0 0; font-size:.9rem; }
 
+    /* Scope Switcher Bar */
+    .scope-switcher-card {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+    .scope-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: .84rem;
+      font-weight: 700;
+      color: #334155;
+      mat-icon { font-size: 18px; width: 18px; height: 18px; color: #64748b; }
+    }
+    .scope-buttons { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .scope-btn {
+      border: 1.5px solid #e2e8f0;
+      background: #f8fafc;
+      color: #475569;
+      border-radius: 20px;
+      padding: 6px 14px;
+      font-size: .84rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all .2s;
+      mat-icon { font-size: 18px; width: 18px; height: 18px; }
+      &:hover { border-color: #94a3b8; background: #f1f5f9; }
+      &.active {
+        background: #1e3a8a;
+        color: #ffffff;
+        border-color: #1e3a8a;
+        box-shadow: 0 2px 8px rgba(30,58,138,0.25);
+        .scope-pill { background: rgba(255,255,255,0.25); color: #ffffff; }
+      }
+      &.school-btn.active {
+        background: #0284c7;
+        border-color: #0284c7;
+        box-shadow: 0 2px 8px rgba(2,132,199,0.25);
+      }
+      &.coaching-btn.active {
+        background: #059669;
+        border-color: #059669;
+        box-shadow: 0 2px 8px rgba(5,150,105,0.25);
+      }
+    }
+    .scope-pill {
+      background: #e2e8f0;
+      color: #1e293b;
+      font-size: .72rem;
+      font-weight: 700;
+      padding: 1px 8px;
+      border-radius: 12px;
+    }
+
+    .card-badges-left { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .scope-category-tag {
+      font-size: .7rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 6px;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      mat-icon { font-size: 13px; width: 13px; height: 13px; }
+      &.school { background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
+      &.coaching { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+    }
+
+    .slot-type-pills { display: flex; gap: 6px; }
+    .type-pill-btn {
+      border: 1px solid #cbd5e1;
+      background: #fff;
+      color: #64748b;
+      font-size: .76rem;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: all .15s;
+      mat-icon { font-size: 14px; width: 14px; height: 14px; }
+      &.active { background: #eff6ff; color: #2563eb; border-color: #93c5fd; font-weight: 700; }
+    }
+
+    .field-class { flex: 1.2; min-width: 220px; }
+    .field-section { flex: 1; min-width: 180px; }
+
+    .title-with-tag { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .scope-mini-pill {
+      font-size: .68rem;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 4px;
+      &.school { background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
+      &.coaching { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+    }
+
+    .tt-class-chip.school-tt-chip { background: #e0f2fe; border: 1.5px solid #7dd3fc; }
+    .tt-class-chip.coaching-tt-chip { background: #f0fdf4; border: 1.5px solid #86efac; }
+    .tt-scope-tag { font-size: .68rem; font-weight: 700; color: #475569; margin-bottom: 2px; }
+
     /* Batch Coverage Banner */
     .coverage-alert-banner { display:flex; justify-content:space-between; align-items:center; background:#ffffff; border-radius:12px; border:1px solid #e2e8f0; padding:14px 18px; box-shadow:0 2px 8px rgba(0,0,0,0.04); flex-wrap:wrap; gap:12px; }
     .coverage-info { display:flex; align-items:center; gap:14px; }
@@ -504,17 +903,427 @@ export interface AssignmentSlot {
     .coverage-desc.success { color:#166534; }
     .toggle-unassigned-btn { font-weight:600; font-size:.84rem; color:#1976d2; }
 
-    /* Unassigned Batches Tray */
-    .unassigned-tray { background:#fffbeb; border:1.5px solid #fde68a; border-radius:12px; padding:16px; display:flex; flex-direction:column; gap:12px; animation:fadeIn .2s ease-in; }
-    .unassigned-title { font-size:.88rem; font-weight:700; color:#92400e; display:flex; align-items:center; gap:6px;
-      mat-icon{font-size:18px;width:18px;height:18px;} }
-    .unassigned-chips { display:flex; flex-wrap:wrap; gap:10px; }
-    .unassigned-chip { background:#fff; border:1px solid #fcd34d; border-radius:8px; padding:6px 12px; display:flex; align-items:center; gap:10px; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
-    .ub-text { display:flex; align-items:center; gap:6px; font-size:.84rem; }
-    .ub-name { font-weight:700; color:#1e293b; }
-    .ub-sub { color:#64748b; font-size:.8rem; }
-    .ub-students { background:#f1f5f9; color:#475569; font-size:.72rem; font-weight:600; padding:1px 6px; border-radius:4px; }
-    .quick-assign-btn { font-size:.78rem; font-weight:600; border-radius:6px; height:28px; line-height:28px; padding:0 8px; color:#1976d2; border-color:#93c5fd; }
+    /* ================= Smart Unassigned Batches Hub Styles ================= */
+    .unassigned-hub {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-top: 4px solid #f59e0b;
+      border-radius: 14px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      box-shadow: 0 4px 16px -2px rgba(0,0,0,0.06);
+      animation: fadeIn .2s ease-in;
+    }
+
+    /* Hub Header */
+    .hub-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 14px;
+      border-bottom: 1px solid #f1f5f9;
+      padding-bottom: 14px;
+    }
+    .hub-header-left { display: flex; align-items: flex-start; gap: 14px; }
+    .hub-icon-badge {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: #fffbeb;
+      color: #d97706;
+      border: 1px solid #fde68a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      mat-icon { font-size: 26px; width: 26px; height: 26px; }
+    }
+    .hub-title-group { display: flex; flex-direction: column; gap: 4px; }
+    .hub-title-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .hub-title { margin: 0; font-size: 1.12rem; font-weight: 700; color: #0f172a; }
+    .hub-count-badge {
+      background: #fef3c7;
+      color: #92400e;
+      border: 1px solid #fcd34d;
+      font-size: .78rem;
+      font-weight: 700;
+      padding: 2px 10px;
+      border-radius: 20px;
+    }
+    .hub-students-badge {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: #f1f5f9;
+      color: #475569;
+      font-size: .76rem;
+      font-weight: 600;
+      padding: 2px 10px;
+      border-radius: 20px;
+      mat-icon { font-size: 16px; width: 16px; height: 16px; }
+    }
+    .hub-subtitle { margin: 0; font-size: .84rem; color: #64748b; }
+
+    .hub-header-controls { display: flex; align-items: center; gap: 10px; }
+    .view-mode-toggles { display: flex; background: #f1f5f9; padding: 3px; border-radius: 8px; }
+    .mode-btn {
+      border: none;
+      background: transparent;
+      padding: 6px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      color: #64748b;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: .8rem;
+      font-weight: 600;
+      transition: all .15s;
+      mat-icon { font-size: 18px; width: 18px; height: 18px; }
+      &.active { background: #fff; color: #2563eb; font-weight: 700; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+    }
+    .hub-close-btn { color: #94a3b8; &:hover { color: #1e293b; } }
+
+    /* Hub Toolbar (Search & Filter dropdowns) */
+    .hub-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+    .search-box {
+      flex: 1;
+      min-width: 260px;
+      display: flex;
+      align-items: center;
+      background: #f8fafc;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 6px 12px;
+      gap: 8px;
+      transition: all .2s ease;
+      &:focus-within { border-color: #3b82f6; background: #fff; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+      .search-icon { color: #94a3b8; font-size: 20px; width: 20px; height: 20px; }
+      input {
+        border: none;
+        outline: none;
+        width: 100%;
+        background: transparent;
+        font-size: .88rem;
+        color: #1e293b;
+      }
+      .clear-search-btn {
+        border: none;
+        background: transparent;
+        color: #94a3b8;
+        cursor: pointer;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        &:hover { color: #475569; }
+        mat-icon { font-size: 18px; width: 18px; height: 18px; }
+      }
+    }
+
+    .toolbar-dropdowns { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .filter-select-wrapper {
+      display: flex;
+      align-items: center;
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 4px 10px;
+      gap: 6px;
+    }
+    .dropdown-label {
+      font-size: .78rem;
+      font-weight: 600;
+      color: #64748b;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      mat-icon { font-size: 16px; width: 16px; height: 16px; }
+    }
+    .clean-select {
+      border: none;
+      background: transparent;
+      outline: none;
+      font-size: .82rem;
+      font-weight: 600;
+      color: #1e293b;
+      cursor: pointer;
+    }
+    .reset-filter-btn {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: #fee2e2;
+      color: #991b1b;
+      border: 1px solid #fca5a5;
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: .78rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .15s;
+      mat-icon { font-size: 16px; width: 16px; height: 16px; }
+      &:hover { background: #fecaca; }
+    }
+
+    /* Subject Chips Bar */
+    .subject-chips-bar {
+      border-top: 1px solid #f1f5f9;
+      padding-top: 10px;
+      margin-top: -4px;
+    }
+    .chips-scroll-container {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      &::-webkit-scrollbar { height: 4px; }
+      &::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    }
+    .subject-chip-btn {
+      border: 1px solid #e2e8f0;
+      background: #f8fafc;
+      color: #475569;
+      border-radius: 20px;
+      padding: 5px 12px;
+      font-size: .8rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+      transition: all .15s ease;
+      &:hover { border-color: #93c5fd; color: #1e40af; background: #eff6ff; }
+      &.active {
+        background: #2563eb;
+        color: #ffffff;
+        border-color: #2563eb;
+        box-shadow: 0 2px 6px rgba(37,99,235,0.25);
+        .chip-count { background: rgba(255,255,255,0.25); color: #fff; }
+      }
+    }
+    .chip-count {
+      background: #e2e8f0;
+      color: #334155;
+      font-size: .72rem;
+      padding: 1px 6px;
+      border-radius: 10px;
+      font-weight: 700;
+    }
+
+    /* Active Teacher Context */
+    .active-teacher-context {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: .82rem;
+      color: #1e40af;
+      display: flex;
+      align-items: center;
+      .context-content {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        .context-icon { font-size: 18px; width: 18px; height: 18px; color: #2563eb; }
+      }
+      &.hint {
+        background: #f0fdf4;
+        border-color: #bbf7d0;
+        color: #166534;
+        .context-icon { color: #16a34a; }
+      }
+    }
+
+    /* Cards Grid View */
+    .cards-grid-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 14px;
+    }
+    .smart-batch-card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+      transition: all .2s ease;
+      &:hover {
+        transform: translateY(-2px);
+        border-color: #93c5fd;
+        box-shadow: 0 8px 20px -4px rgba(0,0,0,0.08);
+      }
+    }
+    .card-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .subject-badge {
+      font-size: .74rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 6px;
+      display: inline-block;
+      letter-spacing: .3px;
+    }
+    .status-pill {
+      font-size: .7rem;
+      font-weight: 600;
+      color: #d97706;
+      background: #fffbeb;
+      padding: 2px 7px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      mat-icon { font-size: 12px; width: 12px; height: 12px; }
+    }
+
+    .card-mid { display: flex; flex-direction: column; gap: 6px; }
+    .batch-name {
+      margin: 0;
+      font-size: 1.02rem;
+      font-weight: 700;
+      color: #0f172a;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .batch-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .meta-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: .78rem;
+      color: #64748b;
+      mat-icon { font-size: 15px; width: 15px; height: 15px; color: #94a3b8; }
+    }
+    .students-tag {
+      font-weight: 600;
+      color: #0369a1;
+      background: #f0f9ff;
+      padding: 1px 6px;
+      border-radius: 4px;
+      mat-icon { color: #0284c7; }
+      &.zero-students { color: #94a3b8; background: #f8fafc; mat-icon { color: #cbd5e1; } }
+    }
+
+    .card-bottom { margin-top: auto; padding-top: 6px; border-top: 1px dashed #f1f5f9; }
+    .assign-action-btn {
+      width: 100%;
+      border-radius: 8px;
+      font-size: .8rem;
+      font-weight: 600;
+      height: 34px;
+      line-height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      mat-icon { font-size: 16px; width: 16px; height: 16px; }
+    }
+
+    /* Table View */
+    .table-container {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      overflow-x: auto;
+    }
+    .compact-unassigned-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .84rem;
+      th {
+        background: #f8fafc;
+        color: #475569;
+        font-weight: 700;
+        font-size: .75rem;
+        text-transform: uppercase;
+        padding: 10px 14px;
+        border-bottom: 1.5px solid #e2e8f0;
+        text-align: left;
+      }
+      td {
+        padding: 10px 14px;
+        border-bottom: 1px solid #f1f5f9;
+        color: #1e293b;
+        vertical-align: middle;
+      }
+      tr:hover td { background: #f8fafc; }
+      .batch-col strong { color: #0f172a; font-size: .9rem; }
+      .action-col { text-align: right; }
+      .table-assign-btn {
+        border-radius: 6px;
+        font-size: .76rem;
+        font-weight: 600;
+        height: 30px;
+        line-height: 30px;
+        padding: 0 10px;
+        mat-icon { font-size: 15px; width: 15px; height: 15px; margin-right: 2px; }
+      }
+    }
+
+    /* Empty State */
+    .hub-empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: #64748b;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      .empty-icon { font-size: 40px; width: 40px; height: 40px; color: #cbd5e1; }
+      h4 { margin: 0; font-size: 1.05rem; font-weight: 700; color: #1e293b; }
+      p { margin: 0; font-size: .85rem; max-width: 380px; }
+    }
+
+    /* Hub Footer Pagination */
+    .hub-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      border-top: 1px solid #f1f5f9;
+      padding-top: 12px;
+    }
+    .footer-left { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .page-info { font-size: .82rem; color: #64748b; strong { color: #1e293b; } }
+    .page-size-selector {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: .78rem;
+      color: #64748b;
+    }
+    .size-btn {
+      border: 1px solid #cbd5e1;
+      background: #f8fafc;
+      color: #334155;
+      font-size: .74rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      &.active { background: #2563eb; color: #fff; border-color: #2563eb; }
+    }
+    .pagination-controls {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      .page-current { font-size: .82rem; font-weight: 600; color: #334155; padding: 0 4px; }
+    }
 
     /* No Selection Empty State */
     .no-selection { display:flex; flex-direction:column; align-items:center; padding:60px 20px; color:#94a3b8; background:#f8fafc; border-radius:12px; border:2px dashed #cbd5e1; text-align:center;
@@ -748,6 +1557,7 @@ export interface AssignmentSlot {
       .no-selection,
       .teacher-view-wrapper,
       .coverage-alert-banner,
+      .unassigned-hub,
       .unassigned-tray,
       button {
         display: none !important;
@@ -784,8 +1594,11 @@ export class TeacherAssignmentsComponent implements OnInit {
   preSelectId: string | null = null;
   assignments: BatchAssignmentDto[] = [];
   batches: BatchDto[] = [];
+  schoolClasses: SchoolClassDto[] = [];
   subjects: SubjectDto[] = [];
   batchCoverage: TeacherBatchCoverageReportDto | null = null;
+
+  selectedScope: 'ALL' | 'SCHOOL' | 'COACHING' = 'ALL';
 
   loading = false;
   saving = false;
@@ -808,24 +1621,62 @@ export class TeacherAssignmentsComponent implements OnInit {
   ];
 
   slots: AssignmentSlot[] = [];
+  allTeachers: TeacherDto[] = [];
+
+  // Unassigned Hub Filter & Pagination State
+  unassignedSearch = '';
+  unassignedSubjectFilter = 'ALL';
+  unassignedClassFilter = 'ALL';
+  unassignedSortBy: 'name-asc' | 'name-desc' | 'subject' | 'students-desc' = 'name-asc';
+  unassignedViewMode: 'cards' | 'table' = 'cards';
+  unassignedPage = 1;
+  unassignedPageSize = 9;
+
+  readonly classFilterOptions = [
+    { id: 'ALL', label: 'All Classes/Levels' },
+    { id: '09', label: 'Class 9' },
+    { id: '10', label: 'Class 10' },
+    { id: '11', label: 'Class 11' },
+    { id: '12', label: 'Class 12' },
+    { id: 'NEET', label: 'NEET' },
+    { id: 'JEE', label: 'JEE' },
+    { id: 'FND', label: 'Foundation' }
+  ];
 
   constructor(
     private http: HttpClient,
     private route: ActivatedRoute,
-    private confirmDialog: ConfirmDialogService
+    private confirmDialog: ConfirmDialogService,
+    private dialog: MatDialog
   ) {}
 
   ngOnInit() {
     this.route.queryParams.subscribe(p => { if (p['teacherId']) this.preSelectId = p['teacherId']; });
     this.loadBatches();
+    this.loadSchoolClasses();
     this.loadSubjects();
     this.loadBatchCoverage();
+    this.loadAllTeachers();
     this.initSlots();
+  }
+
+  loadAllTeachers() {
+    this.http.get<any>(`${this.api}/teachers/paged?pageSize=500&sortBy=fullName`).subscribe({
+      next: r => this.allTeachers = r.items || [],
+      error: () => {}
+    });
   }
 
   loadBatches() {
     this.http.get<BatchDto[]>(`${this.api}/batches`).subscribe({
       next: b => this.batches = b,
+      error: () => {}
+    });
+  }
+
+  loadSchoolClasses() {
+    this.http.get<SchoolClassDto[]>(`${this.api}/school/classes?activeOnly=true`).subscribe({
+      next: c => this.schoolClasses = c || [],
       error: () => {}
     });
   }
@@ -855,6 +1706,60 @@ export class TeacherAssignmentsComponent implements OnInit {
     if (extracted.length > 0) {
       this.subjects = extracted.map(name => ({ id: name, name, isActive: true }));
     }
+  }
+
+  // Scope Switcher & Coverage Getters
+  setScope(scope: 'ALL' | 'SCHOOL' | 'COACHING') {
+    this.selectedScope = scope;
+    this.unassignedPage = 1;
+  }
+
+  totalScopeCount(scope: 'ALL' | 'SCHOOL' | 'COACHING'): number {
+    if (!this.batchCoverage) return 0;
+    const allAssigned = this.batchCoverage.allAssignments || [];
+    const allUnassigned = this.batchCoverage.unassignedBatches || [];
+    if (scope === 'ALL') return this.batchCoverage.totalBatches;
+    if (scope === 'SCHOOL') {
+      const assignedSchool = allAssigned.filter((a: BatchAssignmentDto) => !!a.classId).length;
+      const unassignedSchool = allUnassigned.filter((b: BatchDto) => b.category === 'School').length;
+      return assignedSchool + unassignedSchool;
+    }
+    const assignedCoaching = allAssigned.filter((a: BatchAssignmentDto) => !a.classId).length;
+    const unassignedCoaching = allUnassigned.filter((b: BatchDto) => b.category !== 'School').length;
+    return assignedCoaching + unassignedCoaching;
+  }
+
+  get scopeCoverageData(): { title: string; assigned: number; total: number; unassigned: number; percentage: number } {
+    if (!this.batchCoverage) {
+      return { title: 'Batch & Class Coverage', assigned: 0, total: 0, unassigned: 0, percentage: 0 };
+    }
+    const allAssigned = this.batchCoverage.allAssignments || [];
+    const allUnassigned = this.batchCoverage.unassignedBatches || [];
+
+    let assigned = this.batchCoverage.assignedBatchesCount;
+    let unassigned = this.batchCoverage.unassignedBatchesCount;
+    let title = 'Overall Teaching Coverage';
+
+    if (this.selectedScope === 'SCHOOL') {
+      assigned = allAssigned.filter((a: BatchAssignmentDto) => !!a.classId).length;
+      unassigned = allUnassigned.filter((b: BatchDto) => b.category === 'School').length;
+      title = 'School Classes Coverage';
+    } else if (this.selectedScope === 'COACHING') {
+      assigned = allAssigned.filter((a: BatchAssignmentDto) => !a.classId).length;
+      unassigned = allUnassigned.filter((b: BatchDto) => b.category !== 'School').length;
+      title = 'Coaching Batches Coverage';
+    }
+
+    const total = assigned + unassigned;
+    const percentage = total > 0 ? Math.round((assigned / total) * 100) : 0;
+    return { title, assigned, total, unassigned, percentage };
+  }
+
+  get filteredActiveAssignments(): BatchAssignmentDto[] {
+    if (!this.assignments) return [];
+    if (this.selectedScope === 'ALL') return this.assignments;
+    if (this.selectedScope === 'SCHOOL') return this.assignments.filter(a => !!a.classId);
+    return this.assignments.filter(a => !a.classId);
   }
 
   onTeacherSelected(t: TeacherDto) {
@@ -889,7 +1794,10 @@ export class TeacherAssignmentsComponent implements OnInit {
   createNewSlot(): AssignmentSlot {
     return {
       id: Math.random().toString(36).substring(2, 9),
+      assignmentType: this.selectedScope === 'SCHOOL' ? 'school' : 'coaching',
       batchId: '',
+      classId: undefined,
+      sectionId: undefined,
       selectedSubjects: [],
       selectedDays: ['Mon', 'Wed', 'Fri'],
       timeSlotMode: 'preset',
@@ -918,6 +1826,66 @@ export class TeacherAssignmentsComponent implements OnInit {
     return b ? b.name : '';
   }
 
+  getSectionsForClass(classId: string | undefined): SchoolSectionDto[] {
+    if (!classId) return [];
+    const cls = this.schoolClasses.find(c => c.id === classId);
+    return cls?.sections || [];
+  }
+
+  onClassChanged(slot: AssignmentSlot) {
+    const cls = this.schoolClasses.find(c => c.id === slot.classId);
+    slot.sectionId = '';
+    if (cls && cls.sections && cls.sections.length > 0) {
+      slot.sectionId = cls.sections[0].id;
+    }
+    this.checkClashes();
+  }
+
+  onSectionChanged(slot: AssignmentSlot) {
+    this.checkClashes();
+  }
+
+  setSlotType(slot: AssignmentSlot, type: 'coaching' | 'school') {
+    slot.assignmentType = type;
+    if (type === 'school') {
+      slot.batchId = '';
+      if (!slot.classId && this.schoolClasses.length > 0) {
+        slot.classId = this.schoolClasses[0].id;
+        this.onClassChanged(slot);
+      }
+    } else {
+      slot.classId = undefined;
+      slot.sectionId = undefined;
+    }
+    this.checkClashes();
+  }
+
+  getSlotSummary(slot: AssignmentSlot): string {
+    if (slot.assignmentType === 'school') {
+      const cls = this.schoolClasses.find(c => c.id === slot.classId);
+      const sec = this.getSectionsForClass(slot.classId).find(s => s.id === slot.sectionId);
+      if (cls && sec) return `School: ${cls.name} - Sec ${sec.name}`;
+      if (cls) return `School: ${cls.name}`;
+      return 'School Class (Not selected)';
+    } else {
+      const b = this.batches.find(x => x.id === slot.batchId);
+      return b ? `Coaching: ${b.name}` : 'Coaching Batch (Not selected)';
+    }
+  }
+
+  getSlotDisplayName(slot: AssignmentSlot): string {
+    if (slot.assignmentType === 'school') {
+      const cls = this.schoolClasses.find(c => c.id === slot.classId);
+      const sec = this.getSectionsForClass(slot.classId).find(s => s.id === slot.sectionId);
+      return cls ? `${cls.name} (${sec ? sec.name : 'All'})` : 'School Class';
+    }
+    return this.getBatchName(slot.batchId) || 'Coaching Batch';
+  }
+
+  isSlotTargetSelected(s: AssignmentSlot): boolean {
+    return s.assignmentType === 'school' ? !!s.classId : !!s.batchId;
+  }
+
   onBatchChanged(slot: AssignmentSlot) {
     const batch = this.batches.find(b => b.id === slot.batchId);
     if (batch && batch.subject) {
@@ -929,15 +1897,202 @@ export class TeacherAssignmentsComponent implements OnInit {
     this.checkClashes();
   }
 
+  // Smart Unassigned Filtering & Pagination Methods
+  get isFilterActive(): boolean {
+    return !!this.unassignedSearch.trim() || this.unassignedSubjectFilter !== 'ALL' || this.unassignedClassFilter !== 'ALL' || this.unassignedSortBy !== 'name-asc';
+  }
+
+  get unassignedSubjectTabs(): { name: string; count: number }[] {
+    if (!this.batchCoverage?.unassignedBatches) return [];
+    let source = this.batchCoverage.unassignedBatches;
+    if (this.selectedScope === 'SCHOOL') {
+      source = source.filter(b => b.category === 'School');
+    } else if (this.selectedScope === 'COACHING') {
+      source = source.filter(b => b.category !== 'School');
+    }
+    const map = new Map<string, number>();
+    let total = 0;
+    for (const b of source) {
+      total++;
+      const s = (b.subject || 'General').trim();
+      map.set(s, (map.get(s) || 0) + 1);
+    }
+    const list = Array.from(map.entries()).map(([name, count]) => ({ name, count }));
+    list.sort((a, b) => b.count - a.count);
+    return [{ name: 'ALL', count: total }, ...list];
+  }
+
+  get totalUnassignedStudents(): number {
+    if (!this.batchCoverage?.unassignedBatches) return 0;
+    let source = this.batchCoverage.unassignedBatches;
+    if (this.selectedScope === 'SCHOOL') {
+      source = source.filter(b => b.category === 'School');
+    } else if (this.selectedScope === 'COACHING') {
+      source = source.filter(b => b.category !== 'School');
+    }
+    return source.reduce((acc, b) => acc + (b.studentCount || 0), 0);
+  }
+
+  get filteredUnassignedBatches(): BatchDto[] {
+    if (!this.batchCoverage?.unassignedBatches) return [];
+    let list = [...this.batchCoverage.unassignedBatches];
+
+    // Scope filter (ALL vs SCHOOL vs COACHING)
+    if (this.selectedScope === 'SCHOOL') {
+      list = list.filter(b => b.category === 'School');
+    } else if (this.selectedScope === 'COACHING') {
+      list = list.filter(b => b.category !== 'School');
+    }
+
+    // Search query filter
+    if (this.unassignedSearch.trim()) {
+      const q = this.unassignedSearch.toLowerCase().trim();
+      list = list.filter(b =>
+        (b.name && b.name.toLowerCase().includes(q)) ||
+        (b.subject && b.subject.toLowerCase().includes(q)) ||
+        (b.academicYear && b.academicYear.toLowerCase().includes(q))
+      );
+    }
+
+    // Subject tab filter
+    if (this.unassignedSubjectFilter !== 'ALL') {
+      list = list.filter(b => (b.subject || 'General').toLowerCase() === this.unassignedSubjectFilter.toLowerCase());
+    }
+
+    // Class / Level filter
+    if (this.unassignedClassFilter !== 'ALL') {
+      const cf = this.unassignedClassFilter.toLowerCase();
+      list = list.filter(b => b.name && b.name.toLowerCase().includes(cf));
+    }
+
+    // Sort order
+    switch (this.unassignedSortBy) {
+      case 'name-asc':
+        list.sort((a, b) => a.name.localeCompare(b.name));
+        break;
+      case 'name-desc':
+        list.sort((a, b) => b.name.localeCompare(a.name));
+        break;
+      case 'subject':
+        list.sort((a, b) => (a.subject || '').localeCompare(b.subject || '') || a.name.localeCompare(b.name));
+        break;
+      case 'students-desc':
+        list.sort((a, b) => (b.studentCount || 0) - (a.studentCount || 0) || a.name.localeCompare(b.name));
+        break;
+    }
+
+    return list;
+  }
+
+  get totalUnassignedPages(): number {
+    if (this.unassignedPageSize <= 0) return 1;
+    return Math.ceil(this.filteredUnassignedBatches.length / this.unassignedPageSize) || 1;
+  }
+
+  get pagedUnassignedBatches(): BatchDto[] {
+    if (this.unassignedPageSize <= 0) return this.filteredUnassignedBatches;
+    const start = (this.unassignedPage - 1) * this.unassignedPageSize;
+    return this.filteredUnassignedBatches.slice(start, start + this.unassignedPageSize);
+  }
+
+  get unassignedStartIndex(): number {
+    if (this.filteredUnassignedBatches.length === 0) return 0;
+    return (this.unassignedPage - 1) * this.unassignedPageSize;
+  }
+
+  get unassignedEndIndex(): number {
+    if (this.unassignedPageSize <= 0) return this.filteredUnassignedBatches.length;
+    return Math.min(this.unassignedStartIndex + this.unassignedPageSize, this.filteredUnassignedBatches.length);
+  }
+
+  onUnassignedFilterChange() {
+    this.unassignedPage = 1;
+  }
+
+  setSubjectFilter(tabName: string) {
+    this.unassignedSubjectFilter = tabName;
+    this.unassignedPage = 1;
+  }
+
+  setPageSize(size: number) {
+    this.unassignedPageSize = size;
+    this.unassignedPage = 1;
+  }
+
+  setUnassignedPage(page: number) {
+    if (page >= 1 && page <= this.totalUnassignedPages) {
+      this.unassignedPage = page;
+    }
+  }
+
+  resetUnassignedFilters() {
+    this.unassignedSearch = '';
+    this.unassignedSubjectFilter = 'ALL';
+    this.unassignedClassFilter = 'ALL';
+    this.unassignedSortBy = 'name-asc';
+    this.unassignedPage = 1;
+  }
+
+  getSubjectBadgeStyle(subject: string | undefined): { bg: string; color: string; border: string } {
+    const sub = (subject || '').toLowerCase();
+    if (sub.includes('bio')) {
+      return { bg: '#ecfdf5', color: '#047857', border: '#a7f3d0' };
+    } else if (sub.includes('chem')) {
+      return { bg: '#f5f3ff', color: '#6d28d9', border: '#ddd6fe' };
+    } else if (sub.includes('math') || sub.includes('mth')) {
+      return { bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' };
+    } else if (sub.includes('phy')) {
+      return { bg: '#fffbeb', color: '#b45309', border: '#fde68a' };
+    } else if (sub.includes('acc') || sub.includes('eco') || sub.includes('comm')) {
+      return { bg: '#fdf2f8', color: '#be185d', border: '#fbcfe8' };
+    } else if (sub.includes('eng')) {
+      return { bg: '#f0fdfa', color: '#0f766e', border: '#99f6e4' };
+    }
+    return { bg: '#f1f5f9', color: '#475569', border: '#e2e8f0' };
+  }
+
+  openQuickAssignModal(batch: BatchDto) {
+    const dialogRef = this.dialog.open(TeacherQuickAssignDialogComponent, {
+      width: '580px',
+      data: {
+        batch,
+        teachers: this.allTeachers
+      }
+    });
+
+    dialogRef.afterClosed().subscribe((res: { teacher: TeacherDto } | undefined) => {
+      if (res && res.teacher) {
+        this.selectedTeacher = res.teacher;
+        this.preSelectId = res.teacher.id;
+        this.loadAssignments();
+        this.quickAssignBatch(batch);
+      }
+    });
+  }
+
   quickAssignBatch(batch: BatchDto) {
+    if (!this.selectedTeacher) {
+      this.openQuickAssignModal(batch);
+      return;
+    }
     this.showForm = true;
     const newSlot = this.createNewSlot();
-    newSlot.batchId = batch.id;
+    if (batch.category === 'School') {
+      newSlot.assignmentType = 'school';
+      newSlot.classId = batch.classId;
+      newSlot.sectionId = batch.sectionId;
+    } else {
+      newSlot.assignmentType = 'coaching';
+      newSlot.batchId = batch.id;
+    }
     if (batch.subject) {
       newSlot.selectedSubjects = [batch.subject];
     }
     this.slots = [newSlot];
     this.checkClashes();
+    setTimeout(() => {
+      document.getElementById('assignBuilder')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 150);
   }
 
   // Days Selection Helpers
@@ -1039,13 +2194,13 @@ export class TeacherAssignmentsComponent implements OnInit {
 
   // Form Workload Calculations
   get formClassesPerWeek(): number {
-    return this.slots.reduce((sum, s) => s.batchId ? sum + s.selectedDays.length : sum, 0);
+    return this.slots.reduce((sum, s) => this.isSlotTargetSelected(s) ? sum + s.selectedDays.length : sum, 0);
   }
 
   get formHoursPerWeek(): string {
     let totalMinutes = 0;
     for (const slot of this.slots) {
-      if (!slot.batchId || slot.selectedDays.length === 0) continue;
+      if (!this.isSlotTargetSelected(slot) || slot.selectedDays.length === 0) continue;
       let slotDurationMin = 90;
       if (slot.timeSlotMode === 'custom' && slot.startTime && slot.endTime) {
         const [sh, sm] = slot.startTime.split(':').map(Number);
@@ -1102,7 +2257,7 @@ export class TeacherAssignmentsComponent implements OnInit {
     for (let i = 0; i < this.slots.length; i++) {
       const slot = this.slots[i];
       slot.clashWarning = null;
-      if (!slot.batchId || slot.selectedDays.length === 0) continue;
+      if (!this.isSlotTargetSelected(slot) || slot.selectedDays.length === 0) continue;
 
       const currentSlotTime = this.getFormattedTimeSlot(slot);
 
@@ -1123,13 +2278,13 @@ export class TeacherAssignmentsComponent implements OnInit {
         for (let j = 0; j < this.slots.length; j++) {
           if (i === j) continue;
           const other = this.slots[j];
-          if (!other.batchId || other.selectedDays.length === 0) continue;
+          if (!this.isSlotTargetSelected(other) || other.selectedDays.length === 0) continue;
 
           const otherSlotTime = this.getFormattedTimeSlot(other);
           const hasDayOverlap = slot.selectedDays.some(d => other.selectedDays.includes(d));
 
           if (hasDayOverlap && currentSlotTime.trim().toLowerCase() === otherSlotTime.trim().toLowerCase()) {
-            slot.clashWarning = `Overlaps with Slot #${j + 1} ("${this.getBatchName(other.batchId)}") at the same time (${currentSlotTime}).`;
+            slot.clashWarning = `Overlaps with Slot #${j + 1} ("${this.getSlotDisplayName(other)}") at the same time (${currentSlotTime}).`;
             break;
           }
         }
@@ -1140,7 +2295,11 @@ export class TeacherAssignmentsComponent implements OnInit {
   isFormValid(): boolean {
     if (!this.selectedTeacher || this.slots.length === 0) return false;
     for (const slot of this.slots) {
-      if (!slot.batchId) return false;
+      if (slot.assignmentType === 'school') {
+        if (!slot.classId) return false;
+      } else {
+        if (!slot.batchId) return false;
+      }
       if (!slot.selectedSubjects || slot.selectedSubjects.length === 0) return false;
       if (!slot.selectedDays || slot.selectedDays.length === 0) return false;
       if (slot.timeSlotMode === 'custom' && (!slot.startTime || !slot.endTime)) return false;
@@ -1154,7 +2313,9 @@ export class TeacherAssignmentsComponent implements OnInit {
 
     this.saving = true;
     const payloadSlots = this.slots.map(s => ({
-      batchId: s.batchId,
+      batchId: s.assignmentType === 'coaching' ? s.batchId : null,
+      classId: s.assignmentType === 'school' ? s.classId : null,
+      sectionId: s.assignmentType === 'school' ? (s.sectionId || null) : null,
       subject: s.selectedSubjects.join(', '),
       daysOfWeek: s.selectedDays.join(','),
       timeSlot: this.getFormattedTimeSlot(s)
@@ -1171,8 +2332,8 @@ export class TeacherAssignmentsComponent implements OnInit {
         this.loadAssignments();
         this.loadBatchCoverage();
         this.confirmDialog.alert(
-          'Batch Assignment Saved',
-          `${payloadSlots.length} batch assignment(s) saved successfully for ${this.selectedTeacher?.fullName || 'the teacher'}!`,
+          'Assignment Saved',
+          `${payloadSlots.length} assignment(s) saved successfully for ${this.selectedTeacher?.fullName || 'the teacher'}!`,
           'success'
         );
       },
@@ -1191,8 +2352,8 @@ export class TeacherAssignmentsComponent implements OnInit {
             this.loadAssignments();
             this.loadBatchCoverage();
             this.confirmDialog.alert(
-              'Batch Assignment Saved',
-              `${payloadSlots.length} batch assignment(s) saved successfully for ${this.selectedTeacher?.fullName || 'the teacher'}!`,
+              'Assignment Saved',
+              `${payloadSlots.length} assignment(s) saved successfully for ${this.selectedTeacher?.fullName || 'the teacher'}!`,
               'success'
             );
           },
@@ -1200,7 +2361,7 @@ export class TeacherAssignmentsComponent implements OnInit {
             this.saving = false;
             this.confirmDialog.alert(
               'Assignment Failed',
-              err?.error?.message || 'Error assigning batches. Please try again.',
+              err?.error?.message || 'Error assigning slots. Please try again.',
               'danger'
             );
           }
@@ -1211,10 +2372,10 @@ export class TeacherAssignmentsComponent implements OnInit {
 
   removeAssignment(id: string) {
     const assignment = this.assignments.find(a => a.id === id);
-    const targetName = assignment ? `"${assignment.batchName}"` : 'this batch';
+    const targetName = assignment ? `"${assignment.batchName || assignment.className || 'this teaching unit'}"` : 'this assignment';
 
     this.confirmDialog.danger(
-      'Remove Batch Assignment',
+      'Remove Assignment',
       `Are you sure you want to remove ${targetName} assignment from ${this.selectedTeacher?.fullName || 'this teacher'}? This action cannot be undone.`,
       'Remove Assignment'
     ).subscribe(confirmed => {
@@ -1223,7 +2384,7 @@ export class TeacherAssignmentsComponent implements OnInit {
           next: () => {
             this.loadAssignments();
             this.loadBatchCoverage();
-            this.confirmDialog.alert('Assignment Removed', 'Batch assignment removed successfully.', 'success');
+            this.confirmDialog.alert('Assignment Removed', 'Assignment removed successfully.', 'success');
           },
           error: err => {
             this.confirmDialog.alert('Remove Failed', err?.error?.message || 'Failed to remove assignment.', 'danger');

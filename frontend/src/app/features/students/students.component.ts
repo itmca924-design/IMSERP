@@ -701,6 +701,17 @@ const API_BASE = 'http://localhost:5000';
                       </button>
                     </span>
 
+                    <!-- School Student: Academic Marksheet & Report Card -->
+                    <a
+                      mat-icon-button
+                      style="color: #2563eb;"
+                      *ngIf="s.isSchoolStudent && s.classId"
+                      [routerLink]="['/school/exams']"
+                      [queryParams]="{classId: s.classId}"
+                      matTooltip="School Annual Exam &amp; Marksheet">
+                      <mat-icon>analytics</mat-icon>
+                    </a>
+
                     <!-- Active Student: Mark Attendance (Hidden for Left / TC students) -->
                     <a mat-icon-button color="primary" [routerLink]="['/students/attendance']" [queryParams]="{studentId: s.id}" matTooltip="Student Attendance" *ngIf="s.isActive !== false">
                       <mat-icon>event_available</mat-icon>

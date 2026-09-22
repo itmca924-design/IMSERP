@@ -1734,7 +1734,8 @@ export class TeacherReportsComponent implements OnInit {
       const q = this.masterSearch.trim().toLowerCase();
       const matchSearch = !q ||
         m.teacherName.toLowerCase().includes(q) ||
-        m.batchName.toLowerCase().includes(q) ||
+        (m.batchName || '').toLowerCase().includes(q) ||
+        (m.className || '').toLowerCase().includes(q) ||
         m.subject.toLowerCase().includes(q);
 
       let matchDay = true;

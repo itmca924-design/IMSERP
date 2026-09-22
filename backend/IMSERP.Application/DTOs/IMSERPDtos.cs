@@ -167,7 +167,10 @@ public record SchoolSectionDto(
     bool IsActive,
     DateTime CreatedAt,
     Guid? BranchId = null,
-    int StudentCount = 0
+    int StudentCount = 0,
+    Guid? ClassTeacherId = null,
+    string? ClassTeacherName = null,
+    string? ClassTeacherEmployeeCode = null
 );
 
 public record CreateSchoolSectionDto(
@@ -175,14 +178,16 @@ public record CreateSchoolSectionDto(
     string Name,
     int MaxCapacity = 45,
     Guid? RoomId = null,
-    Guid? BranchId = null
+    Guid? BranchId = null,
+    Guid? ClassTeacherId = null
 );
 
 public record UpdateSchoolSectionDto(
     string Name,
     int MaxCapacity,
     Guid? RoomId,
-    bool IsActive
+    bool IsActive,
+    Guid? ClassTeacherId = null
 );
 
 public record EnrollSchoolStudentInCoachingDto(
@@ -407,7 +412,11 @@ public record BatchDto(
     Guid? BranchId = null,
     string? BranchName = null,
     Guid? RoomId = null,
-    string? RoomNumber = null
+    string? RoomNumber = null,
+    string Category = "Coaching",
+    Guid? ClassId = null,
+    Guid? SectionId = null,
+    string? SectionName = null
 );
 
 public record CreateBatchDto(
@@ -950,7 +959,10 @@ public record TeacherDto(
     DateTime CreatedAt,
     int AssignedBatchCount,
     Guid? BranchId = null,
-    string? BranchName = null
+    string? BranchName = null,
+    Guid? UserId = null,
+    string? Username = null,
+    bool HasLoginAccount = false
 );
 
 public record CreateTeacherDto(
@@ -975,33 +987,51 @@ public record TeacherBatchAssignmentDto(
     Guid Id,
     Guid TeacherId,
     string TeacherName,
-    Guid BatchId,
-    string BatchName,
+    Guid? BatchId,
+    string? BatchName,
     string Subject,
     string? DaysOfWeek,
     string? TimeSlot,
     bool IsActive,
-    DateTime AssignedAt
+    DateTime AssignedAt,
+    Guid? ClassId = null,
+    string? ClassName = null,
+    Guid? SectionId = null,
+    string? SectionName = null
 );
 
 public record CreateTeacherBatchAssignmentDto(
     Guid TeacherId,
-    Guid BatchId,
+    Guid? BatchId,
     string Subject,
     string? DaysOfWeek,
-    string? TimeSlot
+    string? TimeSlot,
+    Guid? ClassId = null,
+    Guid? SectionId = null
 );
 
 public record TeacherBatchSlotDto(
-    Guid BatchId,
+    Guid? BatchId,
     string Subject,
     string? DaysOfWeek,
-    string? TimeSlot
+    string? TimeSlot,
+    Guid? ClassId = null,
+    Guid? SectionId = null
 );
 
 public record BulkCreateTeacherBatchAssignmentDto(
     Guid TeacherId,
     List<TeacherBatchSlotDto> Slots
+);
+
+public record CreateTeacherUserAccountDto(
+    string Username,
+    string Password,
+    Guid? RoleId = null
+);
+
+public record SendTeacherSalarySlipWhatsAppDto(
+    Guid PaymentId
 );
 
 public record TeacherAttendanceDto(
@@ -1764,6 +1794,39 @@ public record SaveSchoolExamMarksDto(
     List<SaveSchoolExamMarkItemDto> MarksList
 );
 
+public record ExamSettingDto(
+    Guid Id,
+    decimal PassingPercentage,
+    int MaxCompartmentSubjects,
+    bool AllowGraceMarks,
+    int MaxGraceMarks,
+    string? SchoolAffiliationNumber,
+    string? PrincipalSignTitle,
+    string? ClassTeacherSignTitle,
+    string? ResultDeclarationNote
+);
+
+public record UpdateExamSettingDto(
+    decimal PassingPercentage,
+    int MaxCompartmentSubjects,
+    bool AllowGraceMarks,
+    int MaxGraceMarks,
+    string? SchoolAffiliationNumber,
+    string? PrincipalSignTitle,
+    string? ClassTeacherSignTitle,
+    string? ResultDeclarationNote
+);
+
+public record ConsolidatedSubjectDetailDto(
+    string Subject,
+    decimal MaxMarks,
+    decimal PassingMarks,
+    decimal? MarksObtained,
+    bool IsAbsent,
+    string Grade,
+    bool IsPassed
+);
+
 public record ConsolidatedStudentResultDto(
     Guid StudentId,
     string StudentName,
@@ -1774,7 +1837,21 @@ public record ConsolidatedStudentResultDto(
     decimal TotalMax,
     decimal OverallPercentage,
     string Grade,
-    string ResultStatus // "Passed", "Failed", "Passed with Grace"
+    string ResultStatus, // "Passed", "Compartment", "Failed", "Passed with Grace", "Absent"
+    int Rank,
+    int FailedSubjectCount,
+    string PromotionVerdict, // "Promoted to Next Grade", "Eligible for Compartment Exam", "Detained in Current Grade"
+    decimal AttendancePercentage,
+    int PresentDays,
+    int TotalAttendanceDays,
+    string? FatherName,
+    string? MotherName,
+    string? DateOfBirth,
+    string? Gender,
+    string? ParentWhatsAppPhone,
+    string? SectionName,
+    List<ConsolidatedSubjectDetailDto> SubjectDetails,
+    string? ClassTeacherName = null
 );
 
 public record ConsolidatedClassResultDto(
@@ -1786,9 +1863,273 @@ public record ConsolidatedClassResultDto(
     decimal PassingPercentage,
     int TotalStudents,
     int PassedCount,
+    int CompartmentCount,
     int FailedCount,
+    ExamSettingDto Settings,
     List<ConsolidatedStudentResultDto> Students
 );
 
+public record SendAnnualResultWhatsAppDto(
+    Guid StudentId,
+    string StudentName,
+    string RecipientPhone,
+    string ExamTitle,
+    string AcademicYear,
+    decimal TotalObtained,
+    decimal TotalMax,
+    decimal Percentage,
+    string Grade,
+    string ResultStatus,
+    int? Rank
+);
 
+// ── Teacher Exit & FNF DTOs ──────────────────────────────────────────
 
+public record TeacherFnFPreviewDto(
+    Guid TeacherId,
+    string TeacherName,
+    string EmployeeCode,
+    string? PhoneNumber,
+    string? Email,
+    string? Designation,
+    DateTime JoiningDate,
+    decimal BasicSalary,
+    decimal GrossMonthlySalary,
+    decimal PerDayRate,
+    int FinalMonthPresentDays,
+    decimal SuggestedUnpaidSalary,
+    decimal OutstandingAdvanceBalance,
+    int PendingLibraryBooksCount,
+    decimal PendingLibraryFines,
+    int ActiveBatchesCount,
+    int AssignedSectionsCount,
+    List<string> ActiveAssignmentNames,
+    bool HasActiveLoginAccount,
+    string? LoginUsername
+);
+
+public record CreateTeacherFnFRequestDto(
+    Guid TeacherId,
+    DateTime ResignationDate,
+    DateTime LastWorkingDate,
+    string ReasonForLeaving,
+    string? Remarks,
+    bool AcademicClearance,
+    bool LibraryClearance,
+    bool AssetClearance,
+    bool HostelClearance,
+    int WorkingDaysInFinalMonth,
+    decimal UnpaidSalary,
+    decimal EarnedLeaveEncashment,
+    decimal GratuityOrBonus,
+    decimal OtherAdditions,
+    decimal PendingAdvanceDeduction,
+    decimal NoticeShortfallDeduction,
+    decimal LibraryDuesDeduction,
+    decimal AssetLossDeduction,
+    decimal OtherDeductions,
+    string? PaymentMode,
+    string? PaymentReference,
+    bool FinalizeNow = true
+);
+
+public record TeacherFnFSettlementDto(
+    Guid Id,
+    Guid TenantId,
+    Guid? BranchId,
+    Guid TeacherId,
+    string TeacherName,
+    string EmployeeCode,
+    string? Designation,
+    DateTime JoiningDate,
+    DateTime ResignationDate,
+    DateTime LastWorkingDate,
+    string ReasonForLeaving,
+    string? Remarks,
+    bool AcademicClearance,
+    bool LibraryClearance,
+    bool AssetClearance,
+    bool HostelClearance,
+    bool AllClearancesApproved,
+    string? ClearanceApprovedBy,
+    int WorkingDaysInFinalMonth,
+    decimal PerDaySalaryRate,
+    decimal UnpaidSalary,
+    decimal EarnedLeaveEncashment,
+    decimal GratuityOrBonus,
+    decimal OtherAdditions,
+    decimal TotalEarnings,
+    decimal PendingAdvanceDeduction,
+    decimal NoticeShortfallDeduction,
+    decimal LibraryDuesDeduction,
+    decimal AssetLossDeduction,
+    decimal OtherDeductions,
+    decimal TotalDeductions,
+    decimal NetPayableAmount,
+    string Status,
+    DateTime? SettlementDate,
+    string? PaymentMode,
+    string? PaymentReference,
+    string SettlementVoucherNo,
+    bool RelievingLetterIssued,
+    bool ExperienceCertificateIssued,
+    DateTime CreatedAt
+);
+
+// ==========================================
+// TEACHER MODULE PART 2 DTOs
+// ==========================================
+
+public record TeacherSubstitutionDto(
+    Guid Id,
+    DateTime SubstitutionDate,
+    Guid OriginalTeacherId,
+    string OriginalTeacherName,
+    string OriginalTeacherCode,
+    Guid SubstituteTeacherId,
+    string SubstituteTeacherName,
+    string SubstituteTeacherCode,
+    Guid? BatchId,
+    string? BatchName,
+    Guid? ClassSectionId,
+    string? ClassSectionName,
+    Guid? SubjectId,
+    string? SubjectName,
+    string TimeSlot,
+    string? RoomNumber,
+    string? TopicToCover,
+    string? Reason,
+    string Status,
+    decimal ProxyAllowance,
+    string? Remarks,
+    string? AssignedBy,
+    DateTime CreatedAt
+);
+
+public record CreateTeacherSubstitutionDto(
+    DateTime SubstitutionDate,
+    Guid OriginalTeacherId,
+    Guid SubstituteTeacherId,
+    Guid? BatchId,
+    Guid? ClassSectionId,
+    Guid? SubjectId,
+    string? SubjectName,
+    string TimeSlot,
+    string? RoomNumber,
+    string? TopicToCover,
+    string? Reason,
+    decimal ProxyAllowance = 0,
+    string? Remarks = null
+);
+
+public record UpdateTeacherSubstitutionDto(
+    string Status,
+    string? Remarks,
+    decimal? ProxyAllowance
+);
+
+public record TeacherLessonPlanDto(
+    Guid Id,
+    Guid TeacherId,
+    string TeacherName,
+    string TeacherCode,
+    DateTime PlanDate,
+    Guid? BatchId,
+    string? BatchName,
+    Guid? ClassSectionId,
+    string? ClassSectionName,
+    Guid? SubjectId,
+    string SubjectName,
+    string ChapterTopic,
+    string? LearningObjectives,
+    string? TeachingMethodology,
+    string? HomeworkAssigned,
+    string Status,
+    string? CompletionPercentage,
+    string? StudentResponse,
+    string? Remarks,
+    string? PrincipalFeedback,
+    DateTime CreatedAt
+);
+
+public record CreateTeacherLessonPlanDto(
+    Guid TeacherId,
+    DateTime PlanDate,
+    Guid? BatchId,
+    Guid? ClassSectionId,
+    Guid? SubjectId,
+    string SubjectName,
+    string ChapterTopic,
+    string? LearningObjectives,
+    string? TeachingMethodology,
+    string? HomeworkAssigned,
+    string Status = "Completed",
+    string? CompletionPercentage = "100%",
+    string? StudentResponse = null,
+    string? Remarks = null
+);
+
+public record UpdateTeacherLessonPlanDto(
+    string? ChapterTopic,
+    string? LearningObjectives,
+    string? HomeworkAssigned,
+    string? Status,
+    string? CompletionPercentage,
+    string? StudentResponse,
+    string? Remarks,
+    string? PrincipalFeedback
+);
+
+public record TeacherDocumentDto(
+    Guid Id,
+    Guid TeacherId,
+    string TeacherName,
+    string DocumentType,
+    string Title,
+    string? DocumentNumber,
+    string? FileUrl,
+    string? FileName,
+    string VerificationStatus,
+    string? VerifiedBy,
+    DateTime? VerifiedAt,
+    DateTime? ExpiryDate,
+    string? Remarks,
+    DateTime CreatedAt
+);
+
+public record CreateTeacherDocumentDto(
+    string DocumentType,
+    string Title,
+    string? DocumentNumber,
+    string? FileUrl,
+    string? FileName,
+    DateTime? ExpiryDate,
+    string? Remarks
+);
+
+public record VerifyTeacherDocumentDto(
+    string VerificationStatus,
+    string? Remarks
+);
+
+public record TeacherIdCardDto(
+    Guid Id,
+    string FullName,
+    string EmployeeCode,
+    string? Designation,
+    string? Specialization,
+    string? Qualification,
+    string PhoneNumber,
+    string? EmergencyContact,
+    string? BloodGroup,
+    string? Email,
+    string? Address,
+    DateTime JoiningDate,
+    string? PhotoUrl,
+    string InstitutionName,
+    string? BranchName,
+    string? InstitutionAddress,
+    string? InstitutionPhone,
+    string? AffiliationCode,
+    string QrCodeData
+);

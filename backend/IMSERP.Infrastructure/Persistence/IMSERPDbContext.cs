@@ -59,6 +59,11 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
     public DbSet<HostelGatePass> HostelGatePasses => Set<HostelGatePass>();
     public DbSet<HostelAttendance> HostelAttendances => Set<HostelAttendance>();
     public DbSet<StudentPromotionHistory> StudentPromotionHistories => Set<StudentPromotionHistory>();
+    public DbSet<ExamSetting> ExamSettings => Set<ExamSetting>();
+    public DbSet<TeacherFnFSettlement> TeacherFnFSettlements => Set<TeacherFnFSettlement>();
+    public DbSet<TeacherSubstitution> TeacherSubstitutions => Set<TeacherSubstitution>();
+    public DbSet<TeacherLessonPlan> TeacherLessonPlans => Set<TeacherLessonPlan>();
+    public DbSet<TeacherDocument> TeacherDocuments => Set<TeacherDocument>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -162,6 +167,33 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
         modelBuilder.Entity<HostelAttendance>().HasQueryFilter(x => 
             (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<ExamSetting>().HasQueryFilter(x => 
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<TeacherFnFSettlement>().HasQueryFilter(x => 
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<TeacherSubstitution>().HasQueryFilter(x => 
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<TeacherLessonPlan>().HasQueryFilter(x => 
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<TeacherDocument>().HasQueryFilter(x => 
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+
+        modelBuilder.Entity<TeacherSubstitution>()
+            .HasOne(s => s.OriginalTeacher)
+            .WithMany(t => t.OriginalSubstitutions)
+            .HasForeignKey(s => s.OriginalTeacherId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<TeacherSubstitution>()
+            .HasOne(s => s.SubstituteTeacher)
+            .WithMany(t => t.ProxySubstitutions)
+            .HasForeignKey(s => s.SubstituteTeacherId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<HostelRoom>()
             .HasOne(r => r.Hostel)

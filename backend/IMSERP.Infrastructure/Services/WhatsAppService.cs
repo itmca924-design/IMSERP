@@ -38,6 +38,30 @@ public class WhatsAppService : IWhatsAppService
         return await LogAndSend(tenantId, recipientPhone, studentName, MessageType.TestMarks, content);
     }
 
+    public async Task<bool> SendAnnualExamReportAsync(Guid tenantId, string recipientPhone, string studentName, string examTitle, string academicYear, decimal totalObtained, decimal totalMax, decimal percentage, string grade, string resultStatus, int? rank)
+    {
+        var rankStr = rank.HasValue && rank.Value > 0 ? $" | Class Rank: #{rank.Value}" : "";
+        var content = $"*ANNUAL EXAM REPORT CARD & RESULT ({academicYear})*\nDear Parent, the final performance for *{studentName}* in *{examTitle}*:\n" +
+                      $"• Total Marks: *{totalObtained:N1} / {totalMax:N1}* ({percentage:F1}%)\n" +
+                      $"• Grade: *{grade}*{rankStr}\n" +
+                      $"• Final Verdict: *{resultStatus}*\n" +
+                      $"Congratulations on completing the academic session!";
+
+        return await LogAndSend(tenantId, recipientPhone, studentName, MessageType.TestMarks, content);
+    }
+
+    public async Task<bool> SendTeacherSalarySlipAsync(Guid tenantId, string recipientPhone, string teacherName, string monthName, int year, decimal netPaid, string receiptNo)
+    {
+        var content = $"*SALARY DISBURSEMENT ADVICE ({monthName} {year})*\n" +
+                      $"Dear Faculty/Staff member *{teacherName}*,\n" +
+                      $"Your monthly salary for *{monthName} {year}* has been successfully processed.\n" +
+                      $"• Net Disbursed: *₹{netPaid:N2}*\n" +
+                      $"• Voucher / Slip No: *#{receiptNo}*\n" +
+                      $"Thank you for your dedication and contributions to our institution!";
+
+        return await LogAndSend(tenantId, recipientPhone, teacherName, MessageType.SalarySlip, content);
+    }
+
     private async Task<bool> LogAndSend(Guid tenantId, string phone, string studentName, MessageType type, string content)
     {
         _logger.LogInformation("[WhatsApp Gateway Dispatch] To: {Phone} | Student: {Student} | Type: {Type} | Content: {Content}", phone, studentName, type, content);

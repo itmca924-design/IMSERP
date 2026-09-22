@@ -15,11 +15,13 @@ public class TeachersController : ControllerBase
 {
     private readonly IIMSERPDbContext _db;
     private readonly ICurrentUserService _currentUser;
+    private readonly IPasswordHasherService _passwordHasher;
 
-    public TeachersController(IIMSERPDbContext db, ICurrentUserService currentUser)
+    public TeachersController(IIMSERPDbContext db, ICurrentUserService currentUser, IPasswordHasherService passwordHasher)
     {
         _db = db;
         _currentUser = currentUser;
+        _passwordHasher = passwordHasher;
     }
 
     // ─── Helper ──────────────────────────────────────────────
@@ -29,7 +31,8 @@ public class TeachersController : ControllerBase
         t.Specialization, t.ExperienceYears, t.PhoneNumber,
         t.WhatsAppPhone, t.Email, t.Address, t.PhotoUrl,
         t.JoiningDate, t.LeavingDate, t.IsActive, t.CreatedAt, batchCount,
-        t.BranchId, t.Branch?.Name);
+        t.BranchId, t.Branch?.Name,
+        t.UserId, t.User?.Username, t.UserId.HasValue);
 
     private async Task<bool> CanEditPublicHolidayOrSundayAsync()
     {
@@ -141,6 +144,7 @@ public class TeachersController : ControllerBase
         var q = _db.Teachers.AsNoTracking()
             .Include(t => t.BatchAssignments)
             .Include(t => t.Branch)
+            .Include(t => t.User)
             .AsQueryable();
         if (activeOnly) q = q.Where(t => t.IsActive);
 
@@ -162,6 +166,7 @@ public class TeachersController : ControllerBase
         var q = _db.Teachers.AsNoTracking()
             .Include(t => t.BatchAssignments)
             .Include(t => t.Branch)
+            .Include(t => t.User)
             .AsQueryable();
 
         if (isActive.HasValue) q = q.Where(t => t.IsActive == isActive.Value);
@@ -209,9 +214,72 @@ public class TeachersController : ControllerBase
         var t = await _db.Teachers.AsNoTracking()
             .Include(x => x.BatchAssignments)
             .Include(x => x.Branch)
+            .Include(x => x.User)
             .FirstOrDefaultAsync(x => x.Id == id);
         if (t == null) return NotFound();
         return Ok(MapTeacher(t, t.BatchAssignments.Count(a => a.IsActive)));
+    }
+
+    /// <summary>
+    /// Creates or links an ERP login User account for this Teacher.
+    /// </summary>
+    [HttpPost("{id}/create-user")]
+    public async Task<ActionResult<object>> CreateUserAccount(Guid id, [FromBody] CreateTeacherUserAccountDto dto)
+    {
+        var teacher = await _db.Teachers.Include(t => t.User).FirstOrDefaultAsync(t => t.Id == id);
+        if (teacher == null) return NotFound(new { message = "Teacher not found." });
+
+        if (teacher.UserId.HasValue)
+        {
+            return BadRequest(new { message = "Teacher already has a linked login account." });
+        }
+
+        var username = dto.Username.Trim();
+        var existingUser = await _db.Users.AnyAsync(u => u.Username.ToLower() == username.ToLower());
+        if (existingUser)
+        {
+            return BadRequest(new { message = $"Username '{username}' is already taken." });
+        }
+
+        Guid roleId;
+        if (dto.RoleId.HasValue && dto.RoleId.Value != Guid.Empty)
+        {
+            roleId = dto.RoleId.Value;
+        }
+        else
+        {
+            var teacherRole = await _db.Roles.FirstOrDefaultAsync(r => r.Name.ToLower() == "teacher");
+            if (teacherRole == null)
+            {
+                teacherRole = await _db.Roles.FirstOrDefaultAsync(r => r.IsActive);
+            }
+            roleId = teacherRole?.Id ?? Guid.NewGuid();
+        }
+
+        var user = new User
+        {
+            TenantId = _currentUser.TenantId,
+            BranchId = teacher.BranchId ?? _currentUser.BranchId,
+            Username = username,
+            PasswordHash = _passwordHasher.HashPassword(dto.Password),
+            FullName = teacher.FullName,
+            Email = teacher.Email,
+            PhoneNumber = teacher.PhoneNumber,
+            Role = UserRole.Teacher,
+            RoleId = roleId,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _db.Users.Add(user);
+        teacher.UserId = user.Id;
+        await _db.SaveChangesAsync();
+
+        return Ok(new { 
+            message = "Teacher user account created successfully.", 
+            userId = user.Id, 
+            username = user.Username 
+        });
     }
 
     [HttpPost]
@@ -417,15 +485,22 @@ public class TeachersController : ControllerBase
     [HttpGet("{id}/batch-assignments")]
     public async Task<ActionResult<IEnumerable<TeacherBatchAssignmentDto>>> GetBatchAssignments(Guid id)
     {
-        var list = await _db.TeacherBatchAssignments.AsNoTracking()
+        var rawList = await _db.TeacherBatchAssignments.AsNoTracking()
             .Include(a => a.Teacher)
             .Include(a => a.Batch)
+            .Include(a => a.Class)
+            .Include(a => a.Section)
             .Where(a => a.TeacherId == id)
             .OrderByDescending(a => a.AssignedAt)
-            .Select(a => new TeacherBatchAssignmentDto(
-                a.Id, a.TeacherId, a.Teacher!.FullName, a.BatchId,
-                a.Batch!.Name, a.Subject, a.DaysOfWeek, a.TimeSlot, a.IsActive, a.AssignedAt))
             .ToListAsync();
+
+        var list = rawList.Select(a => new TeacherBatchAssignmentDto(
+            a.Id, a.TeacherId, a.Teacher?.FullName ?? "", a.BatchId,
+            a.Batch != null ? a.Batch.Name : (a.Class != null ? (a.Section != null ? $"{a.Class.Name} - {a.Section.Name}" : a.Class.Name) : "N/A"),
+            a.Subject, a.DaysOfWeek, a.TimeSlot, a.IsActive, a.AssignedAt,
+            a.ClassId, a.Class?.Name,
+            a.SectionId, a.Section?.Name)).ToList();
+
         return Ok(list);
     }
 
@@ -435,14 +510,41 @@ public class TeachersController : ControllerBase
         var teacher = await _db.Teachers.FindAsync(dto.TeacherId);
         if (teacher == null) return NotFound(new { message = "Teacher not found." });
 
-        var batch = await _db.Batches.FindAsync(dto.BatchId);
-        if (batch == null) return NotFound(new { message = "Batch not found." });
+        string displayName = string.Empty;
+        string? className = null;
+        string? sectionName = null;
+
+        if (dto.BatchId.HasValue && dto.BatchId.Value != Guid.Empty)
+        {
+            var batch = await _db.Batches.FindAsync(dto.BatchId.Value);
+            if (batch == null) return NotFound(new { message = "Batch not found." });
+            displayName = batch.Name;
+        }
+        else if (dto.ClassId.HasValue && dto.ClassId.Value != Guid.Empty)
+        {
+            var cls = await _db.SchoolClasses.FindAsync(dto.ClassId.Value);
+            if (cls == null) return NotFound(new { message = "School class not found." });
+            className = cls.Name;
+
+            if (dto.SectionId.HasValue && dto.SectionId.Value != Guid.Empty)
+            {
+                var sec = await _db.SchoolSections.FindAsync(dto.SectionId.Value);
+                sectionName = sec?.Name;
+            }
+            displayName = string.IsNullOrEmpty(sectionName) ? cls.Name : $"{cls.Name} - {sectionName}";
+        }
+        else
+        {
+            return BadRequest(new { message = "Either Batch or School Class must be selected." });
+        }
 
         var assignment = new TeacherBatchAssignment
         {
             TenantId = _currentUser.TenantId,
             TeacherId = dto.TeacherId,
-            BatchId = dto.BatchId,
+            BatchId = dto.BatchId.HasValue && dto.BatchId.Value != Guid.Empty ? dto.BatchId : null,
+            ClassId = dto.ClassId.HasValue && dto.ClassId.Value != Guid.Empty ? dto.ClassId : null,
+            SectionId = dto.SectionId.HasValue && dto.SectionId.Value != Guid.Empty ? dto.SectionId : null,
             Subject = dto.Subject.Trim(),
             DaysOfWeek = dto.DaysOfWeek?.Trim(),
             TimeSlot = dto.TimeSlot?.Trim(),
@@ -455,8 +557,9 @@ public class TeachersController : ControllerBase
 
         return Ok(new TeacherBatchAssignmentDto(
             assignment.Id, assignment.TeacherId, teacher.FullName,
-            assignment.BatchId, batch.Name, assignment.Subject,
-            assignment.DaysOfWeek, assignment.TimeSlot, assignment.IsActive, assignment.AssignedAt));
+            assignment.BatchId, displayName, assignment.Subject,
+            assignment.DaysOfWeek, assignment.TimeSlot, assignment.IsActive, assignment.AssignedAt,
+            assignment.ClassId, className, assignment.SectionId, sectionName));
     }
 
     [HttpPost("batch-assignments/bulk")]
@@ -467,22 +570,48 @@ public class TeachersController : ControllerBase
 
         if (dto.Slots == null || dto.Slots.Count == 0)
         {
-            return BadRequest(new { message = "At least one batch slot must be provided." });
+            return BadRequest(new { message = "At least one slot must be provided." });
         }
 
         var results = new List<TeacherBatchAssignmentDto>();
 
         foreach (var slot in dto.Slots)
         {
-            if (slot.BatchId == Guid.Empty) continue;
-            var batch = await _db.Batches.FindAsync(slot.BatchId);
-            if (batch == null) continue;
+            string displayName = string.Empty;
+            string? className = null;
+            string? sectionName = null;
+
+            if (slot.BatchId.HasValue && slot.BatchId.Value != Guid.Empty)
+            {
+                var batch = await _db.Batches.FindAsync(slot.BatchId.Value);
+                if (batch == null) continue;
+                displayName = batch.Name;
+            }
+            else if (slot.ClassId.HasValue && slot.ClassId.Value != Guid.Empty)
+            {
+                var cls = await _db.SchoolClasses.FindAsync(slot.ClassId.Value);
+                if (cls == null) continue;
+                className = cls.Name;
+
+                if (slot.SectionId.HasValue && slot.SectionId.Value != Guid.Empty)
+                {
+                    var sec = await _db.SchoolSections.FindAsync(slot.SectionId.Value);
+                    sectionName = sec?.Name;
+                }
+                displayName = string.IsNullOrEmpty(sectionName) ? cls.Name : $"{cls.Name} - {sectionName}";
+            }
+            else
+            {
+                continue;
+            }
 
             var assignment = new TeacherBatchAssignment
             {
                 TenantId = _currentUser.TenantId,
                 TeacherId = dto.TeacherId,
-                BatchId = slot.BatchId,
+                BatchId = slot.BatchId.HasValue && slot.BatchId.Value != Guid.Empty ? slot.BatchId : null,
+                ClassId = slot.ClassId.HasValue && slot.ClassId.Value != Guid.Empty ? slot.ClassId : null,
+                SectionId = slot.SectionId.HasValue && slot.SectionId.Value != Guid.Empty ? slot.SectionId : null,
                 Subject = slot.Subject?.Trim() ?? string.Empty,
                 DaysOfWeek = slot.DaysOfWeek?.Trim(),
                 TimeSlot = slot.TimeSlot?.Trim(),
@@ -493,8 +622,9 @@ public class TeachersController : ControllerBase
             _db.TeacherBatchAssignments.Add(assignment);
             results.Add(new TeacherBatchAssignmentDto(
                 assignment.Id, assignment.TeacherId, teacher.FullName,
-                assignment.BatchId, batch.Name, assignment.Subject,
-                assignment.DaysOfWeek, assignment.TimeSlot, assignment.IsActive, assignment.AssignedAt));
+                assignment.BatchId, displayName, assignment.Subject,
+                assignment.DaysOfWeek, assignment.TimeSlot, assignment.IsActive, assignment.AssignedAt,
+                assignment.ClassId, className, assignment.SectionId, sectionName));
         }
 
         await _db.SaveChangesAsync();
@@ -608,17 +738,32 @@ public class TeachersController : ControllerBase
             .OrderBy(b => b.Name)
             .ToListAsync();
 
+        var schoolClasses = await _db.SchoolClasses.AsNoTracking()
+            .Include(c => c.Sections)
+                .ThenInclude(s => s.Room)
+            .Where(c => c.IsActive)
+            .OrderBy(c => c.DisplayOrder)
+            .ThenBy(c => c.Name)
+            .ToListAsync();
+
         var assignments = await _db.TeacherBatchAssignments.AsNoTracking()
             .Include(a => a.Teacher)
             .Include(a => a.Batch)
+            .Include(a => a.Class)
+            .Include(a => a.Section)
             .Where(a => a.IsActive)
             .ToListAsync();
 
-        var assignedBatchIds = assignments.Select(a => a.BatchId).ToHashSet();
+        var assignedBatchIds = assignments.Where(a => a.BatchId.HasValue).Select(a => a.BatchId!.Value).ToHashSet();
+        var assignedSectionIds = assignments.Where(a => a.SectionId.HasValue).Select(a => a.SectionId!.Value).ToHashSet();
+        var assignedClassIds = assignments.Where(a => a.ClassId.HasValue && !a.SectionId.HasValue).Select(a => a.ClassId!.Value).ToHashSet();
 
-        var unassignedBatches = batches
-            .Where(b => !assignedBatchIds.Contains(b.Id))
-            .Select(b => new BatchDto(
+        var unassignedUnits = new List<BatchDto>();
+
+        // 1. Coaching Batches
+        foreach (var b in batches.Where(b => !assignedBatchIds.Contains(b.Id)))
+        {
+            unassignedUnits.Add(new BatchDto(
                 b.Id,
                 b.Name,
                 b.Subject,
@@ -628,26 +773,88 @@ public class TeachersController : ControllerBase
                 b.BranchId,
                 b.Branch != null ? b.Branch.Name : null,
                 b.RoomId,
-                b.Room != null ? b.Room.RoomNumber : null
-            ))
-            .ToList();
+                b.Room != null ? b.Room.RoomNumber : null,
+                "Coaching",
+                null,
+                null,
+                null
+            ));
+        }
 
-        var totalBatches = batches.Count;
-        var assignedCount = assignedBatchIds.Count;
-        var unassignedCount = unassignedBatches.Count;
-        var coveragePct = totalBatches == 0 ? 0m : Math.Round(((decimal)assignedCount / totalBatches) * 100m, 1);
+        // 2. School Classes & Sections
+        foreach (var cls in schoolClasses)
+        {
+            if (cls.Sections != null && cls.Sections.Count > 0)
+            {
+                foreach (var sec in cls.Sections.Where(s => s.IsActive))
+                {
+                    if (!assignedSectionIds.Contains(sec.Id))
+                    {
+                        var studentCount = await _db.Students.CountAsync(s => s.SectionId == sec.Id && s.IsActive);
+                        unassignedUnits.Add(new BatchDto(
+                            sec.Id,
+                            $"{cls.Name} - {sec.Name}",
+                            "School Curriculum",
+                            "Current",
+                            0,
+                            studentCount,
+                            sec.BranchId ?? cls.BranchId,
+                            null,
+                            sec.RoomId,
+                            sec.Room != null ? sec.Room.RoomNumber : null,
+                            "School",
+                            cls.Id,
+                            sec.Id,
+                            sec.Name
+                        ));
+                    }
+                }
+            }
+            else
+            {
+                if (!assignedClassIds.Contains(cls.Id))
+                {
+                    var studentCount = await _db.Students.CountAsync(s => s.ClassId == cls.Id && s.IsActive);
+                    unassignedUnits.Add(new BatchDto(
+                        cls.Id,
+                        cls.Name,
+                        "School Curriculum",
+                        "Current",
+                        0,
+                        studentCount,
+                        cls.BranchId,
+                        null,
+                        null,
+                        null,
+                        "School",
+                        cls.Id,
+                        null,
+                        null
+                    ));
+                }
+            }
+        }
+
+        // Total assignable teaching units = coaching batches + school class sections
+        int totalSchoolUnits = schoolClasses.Sum(c => c.Sections != null && c.Sections.Count > 0 ? c.Sections.Count(s => s.IsActive) : 1);
+        int totalUnits = batches.Count + totalSchoolUnits;
+        int unassignedCount = unassignedUnits.Count;
+        int assignedCount = totalUnits > unassignedCount ? totalUnits - unassignedCount : 0;
+        var coveragePct = totalUnits == 0 ? 0m : Math.Round(((decimal)assignedCount / totalUnits) * 100m, 1);
 
         var allAssignmentsDto = assignments.Select(a => new TeacherBatchAssignmentDto(
             a.Id, a.TeacherId, a.Teacher?.FullName ?? "Unknown", a.BatchId,
-            a.Batch?.Name ?? "Unknown", a.Subject, a.DaysOfWeek, a.TimeSlot, a.IsActive, a.AssignedAt
+            a.Batch != null ? a.Batch.Name : (a.Class != null ? (a.Section != null ? $"{a.Class.Name} - {a.Section.Name}" : a.Class.Name) : "Unknown"),
+            a.Subject, a.DaysOfWeek, a.TimeSlot, a.IsActive, a.AssignedAt,
+            a.ClassId, a.Class?.Name, a.SectionId, a.Section?.Name
         )).ToList();
 
         return Ok(new TeacherBatchCoverageReportDto(
-            totalBatches,
+            totalUnits,
             assignedCount,
             unassignedCount,
             coveragePct,
-            unassignedBatches,
+            unassignedUnits,
             allAssignmentsDto
         ));
     }
@@ -1332,6 +1539,41 @@ public class TeachersController : ControllerBase
             payment.PresentDays, payment.AbsentDays, payment.Remarks));
     }
 
+    /// <summary>
+    /// Dispatches Monthly Salary Slip details to Teacher's WhatsApp number.
+    /// </summary>
+    [HttpPost("salary-payments/{paymentId}/send-whatsapp")]
+    public async Task<ActionResult<object>> SendSalarySlipWhatsApp(Guid paymentId, [FromServices] IWhatsAppService whatsApp)
+    {
+        var payment = await _db.TeacherSalaryPayments
+            .Include(p => p.Teacher)
+            .FirstOrDefaultAsync(p => p.Id == paymentId);
+
+        if (payment == null) return NotFound(new { message = "Salary payment voucher not found." });
+
+        var phone = !string.IsNullOrWhiteSpace(payment.Teacher?.WhatsAppPhone) 
+            ? payment.Teacher.WhatsAppPhone 
+            : payment.Teacher?.PhoneNumber;
+
+        if (string.IsNullOrWhiteSpace(phone))
+        {
+            return BadRequest(new { message = "Teacher has no valid WhatsApp or Mobile phone number recorded." });
+        }
+
+        var monthName = new DateTime(payment.PaymentYear, payment.PaymentMonth, 1).ToString("MMMM");
+        var success = await whatsApp.SendTeacherSalarySlipAsync(
+            _currentUser.TenantId,
+            phone,
+            payment.Teacher!.FullName,
+            monthName,
+            payment.PaymentYear,
+            payment.NetPaid,
+            payment.ReceiptNumber
+        );
+
+        return Ok(new { success, message = success ? "Salary slip advice sent to Teacher on WhatsApp!" : "Failed to send WhatsApp message." });
+    }
+
     // ─── Salary Advances ──────────────────────────────────────
 
     [HttpGet("{id}/advances")]
@@ -1536,6 +1778,752 @@ public class TeachersController : ControllerBase
         }
 
         return hour * 60 + minute;
+    }
+
+    // ─── Teacher Exit & Full and Final Settlement (FnF) ────────
+
+    /// <summary>
+    /// Computes real-time preview of teacher dues, advances, library fines, and active assignments before FnF.
+    /// </summary>
+    [HttpGet("{id}/fnf-preview")]
+    public async Task<ActionResult<TeacherFnFPreviewDto>> GetFnFPreview(Guid id)
+    {
+        var teacher = await _db.Teachers
+            .Include(t => t.User)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(t => t.Id == id);
+        if (teacher == null) return NotFound(new { message = "Teacher not found." });
+
+        // 1. Advance balance
+        var advances = await _db.TeacherSalaryAdvances
+            .Where(a => a.TeacherId == id && a.Status == AdvanceStatus.Approved)
+            .SumAsync(a => a.Amount);
+
+        // 2. Library checkouts and fines
+        var circulations = await _db.LibraryCirculations
+            .Where(c => c.TeacherId == id && c.ReturnDate == null)
+            .ToListAsync();
+        var pendingBooksCount = circulations.Count;
+        var pendingLibraryFines = circulations.Sum(c => c.FineAmount);
+
+        // 3. Batch assignments
+        var assignments = await _db.TeacherBatchAssignments
+            .Include(a => a.Batch)
+            .Include(a => a.Class)
+            .Include(a => a.Section)
+            .Where(a => a.TeacherId == id && a.IsActive)
+            .ToListAsync();
+        var activeBatchesCount = assignments.Count;
+        var activeNames = assignments.Select(a => a.Batch != null ? a.Batch.Name : (a.Class != null ? $"{a.Class.Name} - {a.Section?.Name}" : "Assignment")).Distinct().ToList();
+
+        // 4. Class teacher sections
+        var sections = await _db.SchoolSections
+            .Include(s => s.Class)
+            .Where(s => s.ClassTeacherId == id && s.IsActive)
+            .ToListAsync();
+        var assignedSectionsCount = sections.Count;
+        activeNames.AddRange(sections.Select(s => $"Class Teacher: {s.Class?.Name} - {s.Name}"));
+
+        // 5. Salary structure
+        var salary = await _db.TeacherSalaries
+            .Where(s => s.TeacherId == id && s.IsActive)
+            .OrderByDescending(s => s.EffectiveFrom)
+            .FirstOrDefaultAsync();
+        var basic = salary?.BasicSalary ?? 0;
+        var gross = salary?.GrossSalary ?? basic;
+        var perDayRate = gross > 0 ? Math.Round(gross / 30m, 2) : 0;
+
+        // 6. Current month attendance
+        var now = DateTime.UtcNow;
+        var presentDays = await _db.TeacherAttendances
+            .CountAsync(a => a.TeacherId == id && a.AttendanceDate.Year == now.Year && a.AttendanceDate.Month == now.Month && (a.Status == TeacherAttendanceStatus.Present || a.Status == TeacherAttendanceStatus.Late));
+        var suggestedUnpaid = Math.Round(presentDays * perDayRate, 2);
+
+        return Ok(new TeacherFnFPreviewDto(
+            teacher.Id,
+            teacher.FullName,
+            teacher.EmployeeCode,
+            teacher.PhoneNumber,
+            teacher.Email,
+            teacher.Specialization,
+            teacher.JoiningDate,
+            basic,
+            gross,
+            perDayRate,
+            presentDays,
+            suggestedUnpaid,
+            advances,
+            pendingBooksCount,
+            pendingLibraryFines,
+            activeBatchesCount,
+            assignedSectionsCount,
+            activeNames,
+            teacher.UserId.HasValue,
+            teacher.User?.Username
+        ));
+    }
+
+    /// <summary>
+    /// Lists all FnF settlements across the institute.
+    /// </summary>
+    [HttpGet("fnf-settlements")]
+    public async Task<ActionResult<IEnumerable<TeacherFnFSettlementDto>>> GetFnFSettlements()
+    {
+        var rawList = await _db.TeacherFnFSettlements
+            .Include(s => s.Teacher)
+            .AsNoTracking()
+            .OrderByDescending(s => s.CreatedAt)
+            .ToListAsync();
+
+        var dtos = rawList.Select(s => new TeacherFnFSettlementDto(
+            s.Id, s.TenantId, s.BranchId, s.TeacherId,
+            s.Teacher?.FullName ?? "Unknown",
+            s.Teacher?.EmployeeCode ?? "N/A",
+            s.Teacher?.Specialization,
+            s.Teacher?.JoiningDate ?? s.CreatedAt,
+            s.ResignationDate, s.LastWorkingDate, s.ReasonForLeaving, s.Remarks,
+            s.AcademicClearance, s.LibraryClearance, s.AssetClearance, s.HostelClearance,
+            s.AllClearancesApproved, s.ClearanceApprovedBy,
+            s.WorkingDaysInFinalMonth, s.PerDaySalaryRate, s.UnpaidSalary,
+            s.EarnedLeaveEncashment, s.GratuityOrBonus, s.OtherAdditions, s.TotalEarnings,
+            s.PendingAdvanceDeduction, s.NoticeShortfallDeduction, s.LibraryDuesDeduction,
+            s.AssetLossDeduction, s.OtherDeductions, s.TotalDeductions, s.NetPayableAmount,
+            s.Status, s.SettlementDate, s.PaymentMode, s.PaymentReference, s.SettlementVoucherNo,
+            s.RelievingLetterIssued, s.ExperienceCertificateIssued, s.CreatedAt
+        )).ToList();
+
+        return Ok(dtos);
+    }
+
+    /// <summary>
+    /// Retrieves a single settlement with full details for printing statement or relieving certificate.
+    /// </summary>
+    [HttpGet("fnf-settlements/{settlementId}")]
+    public async Task<ActionResult<TeacherFnFSettlementDto>> GetFnFSettlementById(Guid settlementId)
+    {
+        var s = await _db.TeacherFnFSettlements
+            .Include(x => x.Teacher)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == settlementId);
+        if (s == null) return NotFound(new { message = "Settlement record not found." });
+
+        return Ok(new TeacherFnFSettlementDto(
+            s.Id, s.TenantId, s.BranchId, s.TeacherId,
+            s.Teacher?.FullName ?? "Unknown",
+            s.Teacher?.EmployeeCode ?? "N/A",
+            s.Teacher?.Specialization,
+            s.Teacher?.JoiningDate ?? s.CreatedAt,
+            s.ResignationDate, s.LastWorkingDate, s.ReasonForLeaving, s.Remarks,
+            s.AcademicClearance, s.LibraryClearance, s.AssetClearance, s.HostelClearance,
+            s.AllClearancesApproved, s.ClearanceApprovedBy,
+            s.WorkingDaysInFinalMonth, s.PerDaySalaryRate, s.UnpaidSalary,
+            s.EarnedLeaveEncashment, s.GratuityOrBonus, s.OtherAdditions, s.TotalEarnings,
+            s.PendingAdvanceDeduction, s.NoticeShortfallDeduction, s.LibraryDuesDeduction,
+            s.AssetLossDeduction, s.OtherDeductions, s.TotalDeductions, s.NetPayableAmount,
+            s.Status, s.SettlementDate, s.PaymentMode, s.PaymentReference, s.SettlementVoucherNo,
+            s.RelievingLetterIssued, s.ExperienceCertificateIssued, s.CreatedAt
+        ));
+    }
+
+    /// <summary>
+    /// Creates and processes an FnF settlement, offboarding the teacher, locking login user, releasing batches, and adjusting advances.
+    /// </summary>
+    [HttpPost("{id}/fnf-settlements")]
+    public async Task<ActionResult<TeacherFnFSettlementDto>> CreateFnFSettlement(Guid id, [FromBody] CreateTeacherFnFRequestDto dto)
+    {
+        var teacher = await _db.Teachers
+            .Include(t => t.User)
+            .FirstOrDefaultAsync(t => t.Id == id);
+        if (teacher == null) return NotFound(new { message = "Teacher not found." });
+
+        var totalEarnings = dto.UnpaidSalary + dto.EarnedLeaveEncashment + dto.GratuityOrBonus + dto.OtherAdditions;
+        var totalDeductions = dto.PendingAdvanceDeduction + dto.NoticeShortfallDeduction + dto.LibraryDuesDeduction + dto.AssetLossDeduction + dto.OtherDeductions;
+        var netPayable = totalEarnings - totalDeductions;
+
+        var allClear = dto.AcademicClearance && dto.LibraryClearance && dto.AssetClearance && dto.HostelClearance;
+        var voucherNo = $"FNF-{DateTime.UtcNow:yyyyMM}-{new Random().Next(100, 999)}";
+
+        var settlement = new TeacherFnFSettlement
+        {
+            TenantId = _currentUser.TenantId,
+            BranchId = teacher.BranchId ?? _currentUser.BranchId,
+            TeacherId = id,
+            ResignationDate = dto.ResignationDate,
+            LastWorkingDate = dto.LastWorkingDate,
+            ReasonForLeaving = dto.ReasonForLeaving,
+            Remarks = dto.Remarks,
+            AcademicClearance = dto.AcademicClearance,
+            LibraryClearance = dto.LibraryClearance,
+            AssetClearance = dto.AssetClearance,
+            HostelClearance = dto.HostelClearance,
+            AllClearancesApproved = allClear,
+            ClearanceApprovedBy = "Principal / Authorized Admin",
+            WorkingDaysInFinalMonth = dto.WorkingDaysInFinalMonth,
+            PerDaySalaryRate = dto.WorkingDaysInFinalMonth > 0 ? Math.Round(dto.UnpaidSalary / dto.WorkingDaysInFinalMonth, 2) : 0,
+            UnpaidSalary = dto.UnpaidSalary,
+            EarnedLeaveEncashment = dto.EarnedLeaveEncashment,
+            GratuityOrBonus = dto.GratuityOrBonus,
+            OtherAdditions = dto.OtherAdditions,
+            TotalEarnings = totalEarnings,
+            PendingAdvanceDeduction = dto.PendingAdvanceDeduction,
+            NoticeShortfallDeduction = dto.NoticeShortfallDeduction,
+            LibraryDuesDeduction = dto.LibraryDuesDeduction,
+            AssetLossDeduction = dto.AssetLossDeduction,
+            OtherDeductions = dto.OtherDeductions,
+            TotalDeductions = totalDeductions,
+            NetPayableAmount = netPayable,
+            Status = dto.FinalizeNow ? "Settled" : "Draft",
+            SettlementDate = dto.FinalizeNow ? DateTime.UtcNow : null,
+            PaymentMode = dto.PaymentMode ?? "BankTransfer",
+            PaymentReference = dto.PaymentReference,
+            SettlementVoucherNo = voucherNo,
+            RelievingLetterIssued = true,
+            ExperienceCertificateIssued = true,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        _db.TeacherFnFSettlements.Add(settlement);
+
+        if (dto.FinalizeNow)
+        {
+            // 1. Offboard Teacher
+            teacher.IsActive = false;
+            teacher.LeavingDate = dto.LastWorkingDate;
+
+            // 2. Lockout ERP Login User Account
+            if (teacher.UserId.HasValue)
+            {
+                var user = await _db.Users.FindAsync(teacher.UserId.Value);
+                if (user != null) user.IsActive = false;
+            }
+
+            // 3. Release batch assignments
+            var assignments = await _db.TeacherBatchAssignments
+                .Where(a => a.TeacherId == id && a.IsActive)
+                .ToListAsync();
+            foreach (var a in assignments) a.IsActive = false;
+
+            // 4. Release School Class Teacher assignments
+            var sections = await _db.SchoolSections
+                .Where(s => s.ClassTeacherId == id)
+                .ToListAsync();
+            foreach (var s in sections) s.ClassTeacherId = null;
+
+            // 5. Adjust pending advances
+            if (dto.PendingAdvanceDeduction > 0)
+            {
+                var advances = await _db.TeacherSalaryAdvances
+                    .Where(a => a.TeacherId == id && a.Status == AdvanceStatus.Approved)
+                    .ToListAsync();
+                foreach (var a in advances)
+                {
+                    a.Status = AdvanceStatus.Adjusted;
+                    a.AdjustedInMonth = dto.LastWorkingDate.Month;
+                    a.AdjustedInYear = dto.LastWorkingDate.Year;
+                }
+            }
+        }
+
+        await _db.SaveChangesAsync();
+
+        return Ok(new TeacherFnFSettlementDto(
+            settlement.Id, settlement.TenantId, settlement.BranchId, settlement.TeacherId,
+            teacher.FullName, teacher.EmployeeCode, teacher.Specialization,
+            teacher.JoiningDate, settlement.ResignationDate, settlement.LastWorkingDate,
+            settlement.ReasonForLeaving, settlement.Remarks,
+            settlement.AcademicClearance, settlement.LibraryClearance, settlement.AssetClearance, settlement.HostelClearance,
+            settlement.AllClearancesApproved, settlement.ClearanceApprovedBy,
+            settlement.WorkingDaysInFinalMonth, settlement.PerDaySalaryRate, settlement.UnpaidSalary,
+            settlement.EarnedLeaveEncashment, settlement.GratuityOrBonus, settlement.OtherAdditions, settlement.TotalEarnings,
+            settlement.PendingAdvanceDeduction, settlement.NoticeShortfallDeduction, settlement.LibraryDuesDeduction,
+            settlement.AssetLossDeduction, settlement.OtherDeductions, settlement.TotalDeductions, settlement.NetPayableAmount,
+            settlement.Status, settlement.SettlementDate, settlement.PaymentMode, settlement.PaymentReference, settlement.SettlementVoucherNo,
+            settlement.RelievingLetterIssued, settlement.ExperienceCertificateIssued, settlement.CreatedAt
+        ));
+    }
+
+    // =========================================================================
+    // PART 2: TEACHER SUBSTITUTION / PROXY
+    // =========================================================================
+
+    [HttpGet("substitutions")]
+    public async Task<ActionResult<IEnumerable<TeacherSubstitutionDto>>> GetSubstitutions(
+        [FromQuery] DateTime? date,
+        [FromQuery] Guid? teacherId,
+        [FromQuery] string? status)
+    {
+        var query = _db.TeacherSubstitutions
+            .Include(s => s.OriginalTeacher)
+            .Include(s => s.SubstituteTeacher)
+            .Include(s => s.Batch)
+            .Include(s => s.ClassSection)
+                .ThenInclude(cs => cs!.Class)
+            .AsNoTracking();
+
+        if (date.HasValue)
+        {
+            var targetDate = date.Value.Date;
+            query = query.Where(s => s.SubstitutionDate.Date == targetDate);
+        }
+
+        if (teacherId.HasValue)
+        {
+            query = query.Where(s => s.OriginalTeacherId == teacherId.Value || s.SubstituteTeacherId == teacherId.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            query = query.Where(s => s.Status == status);
+        }
+
+        var list = await query.OrderByDescending(s => s.SubstitutionDate).ThenBy(s => s.TimeSlot).ToListAsync();
+
+        var dtos = list.Select(s => new TeacherSubstitutionDto(
+            s.Id,
+            s.SubstitutionDate,
+            s.OriginalTeacherId,
+            s.OriginalTeacher?.FullName ?? "Unknown",
+            s.OriginalTeacher?.EmployeeCode ?? "",
+            s.SubstituteTeacherId,
+            s.SubstituteTeacher?.FullName ?? "Unknown",
+            s.SubstituteTeacher?.EmployeeCode ?? "",
+            s.BatchId,
+            s.Batch?.Name,
+            s.ClassSectionId,
+            s.ClassSection != null ? $"{s.ClassSection.Class?.Name} - {s.ClassSection.Name}" : null,
+            s.SubjectId,
+            s.SubjectName,
+            s.TimeSlot,
+            s.RoomNumber,
+            s.TopicToCover,
+            s.Reason,
+            s.Status,
+            s.ProxyAllowance,
+            s.Remarks,
+            s.AssignedBy,
+            s.CreatedAt
+        ));
+
+        return Ok(dtos);
+    }
+
+    [HttpPost("substitutions")]
+    public async Task<ActionResult<TeacherSubstitutionDto>> CreateSubstitution([FromBody] CreateTeacherSubstitutionDto dto)
+    {
+        if (dto.OriginalTeacherId == dto.SubstituteTeacherId)
+            return BadRequest(new { message = "Original teacher and substitute teacher cannot be the same person." });
+
+        var orig = await _db.Teachers.FindAsync(dto.OriginalTeacherId);
+        var sub = await _db.Teachers.FindAsync(dto.SubstituteTeacherId);
+        if (orig == null || sub == null)
+            return BadRequest(new { message = "Selected teacher not found." });
+
+        var record = new TeacherSubstitution
+        {
+            TenantId = _currentUser.TenantId,
+            BranchId = _currentUser.BranchId,
+            SubstitutionDate = dto.SubstitutionDate.Date,
+            OriginalTeacherId = dto.OriginalTeacherId,
+            SubstituteTeacherId = dto.SubstituteTeacherId,
+            BatchId = dto.BatchId,
+            ClassSectionId = dto.ClassSectionId,
+            SubjectId = dto.SubjectId,
+            SubjectName = dto.SubjectName,
+            TimeSlot = dto.TimeSlot,
+            RoomNumber = dto.RoomNumber,
+            TopicToCover = dto.TopicToCover,
+            Reason = dto.Reason,
+            Status = "Assigned",
+            ProxyAllowance = dto.ProxyAllowance,
+            Remarks = dto.Remarks,
+            AssignedBy = User.Identity?.Name ?? "Admin"
+        };
+
+        _db.TeacherSubstitutions.Add(record);
+        await _db.SaveChangesAsync();
+
+        var created = await _db.TeacherSubstitutions
+            .Include(s => s.OriginalTeacher)
+            .Include(s => s.SubstituteTeacher)
+            .Include(s => s.Batch)
+            .Include(s => s.ClassSection).ThenInclude(cs => cs!.Class)
+            .FirstAsync(s => s.Id == record.Id);
+
+        return Ok(new TeacherSubstitutionDto(
+            created.Id,
+            created.SubstitutionDate,
+            created.OriginalTeacherId,
+            created.OriginalTeacher?.FullName ?? "",
+            created.OriginalTeacher?.EmployeeCode ?? "",
+            created.SubstituteTeacherId,
+            created.SubstituteTeacher?.FullName ?? "",
+            created.SubstituteTeacher?.EmployeeCode ?? "",
+            created.BatchId,
+            created.Batch?.Name,
+            created.ClassSectionId,
+            created.ClassSection != null ? $"{created.ClassSection.Class?.Name} - {created.ClassSection.Name}" : null,
+            created.SubjectId,
+            created.SubjectName,
+            created.TimeSlot,
+            created.RoomNumber,
+            created.TopicToCover,
+            created.Reason,
+            created.Status,
+            created.ProxyAllowance,
+            created.Remarks,
+            created.AssignedBy,
+            created.CreatedAt
+        ));
+    }
+
+    [HttpPut("substitutions/{id}")]
+    public async Task<IActionResult> UpdateSubstitution(Guid id, [FromBody] UpdateTeacherSubstitutionDto dto)
+    {
+        var record = await _db.TeacherSubstitutions.FindAsync(id);
+        if (record == null) return NotFound();
+
+        record.Status = dto.Status;
+        if (dto.Remarks != null) record.Remarks = dto.Remarks;
+        if (dto.ProxyAllowance.HasValue) record.ProxyAllowance = dto.ProxyAllowance.Value;
+        record.UpdatedAt = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync();
+        return Ok(new { message = "Substitution updated successfully." });
+    }
+
+    [HttpDelete("substitutions/{id}")]
+    public async Task<IActionResult> DeleteSubstitution(Guid id)
+    {
+        var record = await _db.TeacherSubstitutions.FindAsync(id);
+        if (record == null) return NotFound();
+
+        _db.TeacherSubstitutions.Remove(record);
+        await _db.SaveChangesAsync();
+        return Ok(new { message = "Substitution deleted successfully." });
+    }
+
+    // =========================================================================
+    // PART 2: DAILY LESSON PLANS & TEACHER DIARY
+    // =========================================================================
+
+    [HttpGet("lesson-plans")]
+    public async Task<ActionResult<IEnumerable<TeacherLessonPlanDto>>> GetLessonPlans(
+        [FromQuery] Guid? teacherId,
+        [FromQuery] DateTime? fromDate,
+        [FromQuery] DateTime? toDate,
+        [FromQuery] string? status)
+    {
+        var query = _db.TeacherLessonPlans
+            .Include(p => p.Teacher)
+            .Include(p => p.Batch)
+            .Include(p => p.ClassSection)
+                .ThenInclude(cs => cs!.Class)
+            .AsNoTracking();
+
+        if (teacherId.HasValue)
+        {
+            query = query.Where(p => p.TeacherId == teacherId.Value);
+        }
+
+        if (fromDate.HasValue)
+        {
+            query = query.Where(p => p.PlanDate >= fromDate.Value.Date);
+        }
+
+        if (toDate.HasValue)
+        {
+            query = query.Where(p => p.PlanDate <= toDate.Value.Date);
+        }
+
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            query = query.Where(p => p.Status == status);
+        }
+
+        var list = await query.OrderByDescending(p => p.PlanDate).ThenByDescending(p => p.CreatedAt).ToListAsync();
+
+        var dtos = list.Select(p => new TeacherLessonPlanDto(
+            p.Id,
+            p.TeacherId,
+            p.Teacher?.FullName ?? "Unknown",
+            p.Teacher?.EmployeeCode ?? "",
+            p.PlanDate,
+            p.BatchId,
+            p.Batch?.Name,
+            p.ClassSectionId,
+            p.ClassSection != null ? $"{p.ClassSection.Class?.Name} - {p.ClassSection.Name}" : null,
+            p.SubjectId,
+            p.SubjectName,
+            p.ChapterTopic,
+            p.LearningObjectives,
+            p.TeachingMethodology,
+            p.HomeworkAssigned,
+            p.Status,
+            p.CompletionPercentage,
+            p.StudentResponse,
+            p.Remarks,
+            p.PrincipalFeedback,
+            p.CreatedAt
+        ));
+
+        return Ok(dtos);
+    }
+
+    [HttpPost("lesson-plans")]
+    public async Task<ActionResult<TeacherLessonPlanDto>> CreateLessonPlan([FromBody] CreateTeacherLessonPlanDto dto)
+    {
+        var teacher = await _db.Teachers.FindAsync(dto.TeacherId);
+        if (teacher == null) return BadRequest(new { message = "Teacher not found." });
+
+        var plan = new TeacherLessonPlan
+        {
+            TenantId = _currentUser.TenantId,
+            BranchId = _currentUser.BranchId,
+            TeacherId = dto.TeacherId,
+            PlanDate = dto.PlanDate.Date,
+            BatchId = dto.BatchId,
+            ClassSectionId = dto.ClassSectionId,
+            SubjectId = dto.SubjectId,
+            SubjectName = dto.SubjectName,
+            ChapterTopic = dto.ChapterTopic,
+            LearningObjectives = dto.LearningObjectives,
+            TeachingMethodology = dto.TeachingMethodology,
+            HomeworkAssigned = dto.HomeworkAssigned,
+            Status = dto.Status ?? "Completed",
+            CompletionPercentage = dto.CompletionPercentage ?? "100%",
+            StudentResponse = dto.StudentResponse,
+            Remarks = dto.Remarks
+        };
+
+        _db.TeacherLessonPlans.Add(plan);
+        await _db.SaveChangesAsync();
+
+        var created = await _db.TeacherLessonPlans
+            .Include(p => p.Teacher)
+            .Include(p => p.Batch)
+            .Include(p => p.ClassSection).ThenInclude(cs => cs!.Class)
+            .FirstAsync(p => p.Id == plan.Id);
+
+        return Ok(new TeacherLessonPlanDto(
+            created.Id,
+            created.TeacherId,
+            created.Teacher?.FullName ?? "",
+            created.Teacher?.EmployeeCode ?? "",
+            created.PlanDate,
+            created.BatchId,
+            created.Batch?.Name,
+            created.ClassSectionId,
+            created.ClassSection != null ? $"{created.ClassSection.Class?.Name} - {created.ClassSection.Name}" : null,
+            created.SubjectId,
+            created.SubjectName,
+            created.ChapterTopic,
+            created.LearningObjectives,
+            created.TeachingMethodology,
+            created.HomeworkAssigned,
+            created.Status,
+            created.CompletionPercentage,
+            created.StudentResponse,
+            created.Remarks,
+            created.PrincipalFeedback,
+            created.CreatedAt
+        ));
+    }
+
+    [HttpPut("lesson-plans/{id}")]
+    public async Task<IActionResult> UpdateLessonPlan(Guid id, [FromBody] UpdateTeacherLessonPlanDto dto)
+    {
+        var plan = await _db.TeacherLessonPlans.FindAsync(id);
+        if (plan == null) return NotFound();
+
+        if (dto.ChapterTopic != null) plan.ChapterTopic = dto.ChapterTopic;
+        if (dto.LearningObjectives != null) plan.LearningObjectives = dto.LearningObjectives;
+        if (dto.HomeworkAssigned != null) plan.HomeworkAssigned = dto.HomeworkAssigned;
+        if (dto.Status != null) plan.Status = dto.Status;
+        if (dto.CompletionPercentage != null) plan.CompletionPercentage = dto.CompletionPercentage;
+        if (dto.StudentResponse != null) plan.StudentResponse = dto.StudentResponse;
+        if (dto.Remarks != null) plan.Remarks = dto.Remarks;
+        if (dto.PrincipalFeedback != null) plan.PrincipalFeedback = dto.PrincipalFeedback;
+        plan.UpdatedAt = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync();
+        return Ok(new { message = "Lesson plan updated successfully." });
+    }
+
+    [HttpDelete("lesson-plans/{id}")]
+    public async Task<IActionResult> DeleteLessonPlan(Guid id)
+    {
+        var plan = await _db.TeacherLessonPlans.FindAsync(id);
+        if (plan == null) return NotFound();
+
+        _db.TeacherLessonPlans.Remove(plan);
+        await _db.SaveChangesAsync();
+        return Ok(new { message = "Lesson plan deleted successfully." });
+    }
+
+    // =========================================================================
+    // PART 2: TEACHER COMPLIANCE & KYC DOCUMENTS
+    // =========================================================================
+
+    [HttpGet("{id}/documents")]
+    public async Task<ActionResult<IEnumerable<TeacherDocumentDto>>> GetTeacherDocuments(Guid id)
+    {
+        var teacher = await _db.Teachers.FindAsync(id);
+        if (teacher == null) return NotFound();
+
+        var docs = await _db.TeacherDocuments
+            .Where(d => d.TeacherId == id)
+            .OrderByDescending(d => d.CreatedAt)
+            .ToListAsync();
+
+        var dtos = docs.Select(d => new TeacherDocumentDto(
+            d.Id,
+            d.TeacherId,
+            teacher.FullName,
+            d.DocumentType,
+            d.Title,
+            d.DocumentNumber,
+            d.FileUrl,
+            d.FileName,
+            d.VerificationStatus,
+            d.VerifiedBy,
+            d.VerifiedAt,
+            d.ExpiryDate,
+            d.Remarks,
+            d.CreatedAt
+        ));
+
+        return Ok(dtos);
+    }
+
+    [HttpPost("{id}/documents")]
+    public async Task<ActionResult<TeacherDocumentDto>> AddTeacherDocument(Guid id, [FromBody] CreateTeacherDocumentDto dto)
+    {
+        var teacher = await _db.Teachers.FindAsync(id);
+        if (teacher == null) return NotFound();
+
+        var doc = new TeacherDocument
+        {
+            TenantId = _currentUser.TenantId,
+            BranchId = _currentUser.BranchId,
+            TeacherId = id,
+            DocumentType = dto.DocumentType,
+            Title = dto.Title,
+            DocumentNumber = dto.DocumentNumber,
+            FileUrl = dto.FileUrl,
+            FileName = dto.FileName,
+            VerificationStatus = "Pending",
+            ExpiryDate = dto.ExpiryDate,
+            Remarks = dto.Remarks
+        };
+
+        _db.TeacherDocuments.Add(doc);
+        await _db.SaveChangesAsync();
+
+        return Ok(new TeacherDocumentDto(
+            doc.Id,
+            doc.TeacherId,
+            teacher.FullName,
+            doc.DocumentType,
+            doc.Title,
+            doc.DocumentNumber,
+            doc.FileUrl,
+            doc.FileName,
+            doc.VerificationStatus,
+            doc.VerifiedBy,
+            doc.VerifiedAt,
+            doc.ExpiryDate,
+            doc.Remarks,
+            doc.CreatedAt
+        ));
+    }
+
+    [HttpPut("{id}/documents/{docId}/verify")]
+    public async Task<IActionResult> VerifyTeacherDocument(Guid id, Guid docId, [FromBody] VerifyTeacherDocumentDto dto)
+    {
+        var doc = await _db.TeacherDocuments.FirstOrDefaultAsync(d => d.Id == docId && d.TeacherId == id);
+        if (doc == null) return NotFound();
+
+        doc.VerificationStatus = dto.VerificationStatus;
+        doc.Remarks = dto.Remarks ?? doc.Remarks;
+        if (dto.VerificationStatus == "Verified")
+        {
+            doc.VerifiedBy = User.Identity?.Name ?? "Admin";
+            doc.VerifiedAt = DateTime.UtcNow;
+        }
+        else
+        {
+            doc.VerifiedBy = null;
+            doc.VerifiedAt = null;
+        }
+        doc.UpdatedAt = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync();
+        return Ok(new { message = $"Document marked as {dto.VerificationStatus}." });
+    }
+
+    [HttpDelete("{id}/documents/{docId}")]
+    public async Task<IActionResult> DeleteTeacherDocument(Guid id, Guid docId)
+    {
+        var doc = await _db.TeacherDocuments.FirstOrDefaultAsync(d => d.Id == docId && d.TeacherId == id);
+        if (doc == null) return NotFound();
+
+        _db.TeacherDocuments.Remove(doc);
+        await _db.SaveChangesAsync();
+        return Ok(new { message = "Document deleted successfully." });
+    }
+
+    // =========================================================================
+    // PART 2: STAFF ID CARDS GENERATOR
+    // =========================================================================
+
+    [HttpGet("id-cards")]
+    public async Task<ActionResult<IEnumerable<TeacherIdCardDto>>> GetIdCards([FromQuery] Guid? teacherId)
+    {
+        var branch = await _db.Branches.AsNoTracking().FirstOrDefaultAsync(b => b.Id == _currentUser.BranchId);
+        var tenant = await _db.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.Id == _currentUser.TenantId);
+
+        string institutionName = tenant?.Name ?? "Coaching & School ERP";
+        string? branchName = branch?.Name;
+        string? instAddress = branch?.Address ?? tenant?.Address;
+        string? instPhone = branch?.ContactPhone ?? tenant?.ContactPhone;
+        string? affCode = branch?.Code ?? "EMP-STAFF";
+
+        var query = _db.Teachers.AsNoTracking().Where(t => t.IsActive);
+        if (teacherId.HasValue)
+        {
+            query = query.Where(t => t.Id == teacherId.Value);
+        }
+
+        var teachers = await query.OrderBy(t => t.FullName).ToListAsync();
+
+        var cards = teachers.Select(t =>
+        {
+            string qrData = $"ID:{t.EmployeeCode}|NAME:{t.FullName}|DESIG:{t.Specialization ?? "Faculty"}|PHONE:{t.PhoneNumber}|JOIN:{t.JoiningDate:dd-MMM-yyyy}";
+            return new TeacherIdCardDto(
+                t.Id,
+                t.FullName,
+                t.EmployeeCode,
+                t.Specialization ?? "Faculty / Teacher",
+                t.Specialization,
+                t.Qualification,
+                t.PhoneNumber,
+                t.WhatsAppPhone ?? t.PhoneNumber,
+                "B+",
+                t.Email,
+                t.Address,
+                t.JoiningDate,
+                t.PhotoUrl,
+                institutionName,
+                branchName,
+                instAddress,
+                instPhone,
+                affCode,
+                qrData
+            );
+        });
+
+        return Ok(cards);
     }
 }
 

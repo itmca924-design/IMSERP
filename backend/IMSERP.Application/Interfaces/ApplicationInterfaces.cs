@@ -51,6 +51,11 @@ public interface IIMSERPDbContext
     DbSet<HostelGatePass> HostelGatePasses { get; }
     DbSet<HostelAttendance> HostelAttendances { get; }
     DbSet<StudentPromotionHistory> StudentPromotionHistories { get; }
+    DbSet<ExamSetting> ExamSettings { get; }
+    DbSet<TeacherFnFSettlement> TeacherFnFSettlements { get; }
+    DbSet<TeacherSubstitution> TeacherSubstitutions { get; }
+    DbSet<TeacherLessonPlan> TeacherLessonPlans { get; }
+    DbSet<TeacherDocument> TeacherDocuments { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
@@ -60,6 +65,8 @@ public interface IWhatsAppService
     Task<bool> SendFeeReceiptAsync(Guid tenantId, string recipientPhone, string studentName, string receiptNo, decimal amount, decimal balanceDue);
     Task<bool> SendFeeReminderAsync(Guid tenantId, string recipientPhone, string studentName, string invoiceNo, decimal amountDue, DateTime dueDate);
     Task<bool> SendTestMarksReportAsync(Guid tenantId, string recipientPhone, string studentName, string testTitle, decimal marksObtained, decimal maxMarks, int rank);
+    Task<bool> SendAnnualExamReportAsync(Guid tenantId, string recipientPhone, string studentName, string examTitle, string academicYear, decimal totalObtained, decimal totalMax, decimal percentage, string grade, string resultStatus, int? rank);
+    Task<bool> SendTeacherSalarySlipAsync(Guid tenantId, string recipientPhone, string teacherName, string monthName, int year, decimal netPaid, string receiptNo);
 }
 
 public interface ICurrentUserService
