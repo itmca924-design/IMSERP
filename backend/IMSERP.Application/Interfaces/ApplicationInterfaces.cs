@@ -56,6 +56,13 @@ public interface IIMSERPDbContext
     DbSet<TeacherSubstitution> TeacherSubstitutions { get; }
     DbSet<TeacherLessonPlan> TeacherLessonPlans { get; }
     DbSet<TeacherDocument> TeacherDocuments { get; }
+    // Transport module
+    DbSet<TransportDriver> TransportDrivers { get; }
+    DbSet<TransportVehicle> TransportVehicles { get; }
+    DbSet<TransportRoute> TransportRoutes { get; }
+    DbSet<TransportRouteStop> TransportRouteStops { get; }
+    DbSet<TransportAllocation> TransportAllocations { get; }
+    DbSet<CampusGatePass> CampusGatePasses { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

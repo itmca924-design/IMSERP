@@ -602,6 +602,45 @@ using (var scope = app.Services.CreateScope())
             }
         }
 
+        // Auto-seed 'Transport & Fleet' MenuItem under Academic Operations
+        if (academicMenu != null)
+        {
+            var transportMenu = context.MenuItems.FirstOrDefault(m => m.RouteUrl == "/transport");
+            if (transportMenu == null)
+            {
+                var newTransportMenu = new IMSERP.Domain.Entities.MenuItem
+                {
+                    Id = Guid.NewGuid(),
+                    Title = "Transport & Fleet",
+                    RouteUrl = "/transport",
+                    Icon = "directions_bus",
+                    ParentId = academicMenu.Id,
+                    SortOrder = 8,
+                    Module = "Academic",
+                    IsActive = true
+                };
+                context.MenuItems.Add(newTransportMenu);
+                context.SaveChanges();
+
+                var roles = context.Roles.ToList();
+                foreach (var role in roles)
+                {
+                    context.RolePermissions.Add(new IMSERP.Domain.Entities.RolePermission
+                    {
+                        Id = Guid.NewGuid(),
+                        RoleId = role.Id,
+                        MenuItemId = newTransportMenu.Id,
+                        CanView = true,
+                        CanCreate = true,
+                        CanEdit = true,
+                        CanDelete = true
+                    });
+                }
+                context.SaveChanges();
+                Console.WriteLine("[Database] Auto-seeded 'Transport & Fleet' menu item under Academic Operations.");
+            }
+        }
+
         Console.WriteLine("[Database] IMSERP Database ensured and ready.");
     }
     catch (Exception ex)

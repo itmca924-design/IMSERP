@@ -153,6 +153,12 @@ export const routes: Routes = [
         loadComponent: () => import('./features/hostel/hostel-management.component').then(m => m.HostelManagementComponent)
       },
 
+      // Transport & Fleet Management
+      {
+        path: 'transport',
+        loadComponent: () => import('./features/transport/transport-management.component').then(m => m.TransportManagementComponent)
+      },
+
       // Admin Settings
       {
         path: 'roles',

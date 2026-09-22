@@ -81,7 +81,7 @@ public record HostelBedDto(
 
 public record HostelAllocationDto(
     Guid Id,
-    Guid StudentId,
+    Guid? StudentId,
     string StudentName,
     string? RollNumber,
     string? ParentWhatsAppPhone,
@@ -98,14 +98,20 @@ public record HostelAllocationDto(
     string MessPlan,
     decimal MonthlyMessFee,
     string Status, // Active, Vacated, Transferred
-    string? Remarks
+    string? Remarks,
+    string MemberType = "Student", // Student | Teacher
+    Guid? TeacherId = null,
+    string? TeacherName = null,
+    string? TeacherEmployeeCode = null
 );
 
 public record AllocateBedDto(
-    Guid StudentId,
     Guid BedId,
-    DateTime? AllocatedDate,
-    decimal? MonthlyRent,
+    string MemberType = "Student", // Student | Teacher
+    Guid? StudentId = null,
+    Guid? TeacherId = null,
+    DateTime? AllocatedDate = null,
+    decimal? MonthlyRent = null,
     bool IsMessIncluded = true,
     string MessPlan = "Full Board",
     decimal MonthlyMessFee = 0.00m,

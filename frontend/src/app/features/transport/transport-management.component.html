@@ -1,0 +1,1404 @@
+<div class="transport-page-wrapper">
+  <!-- Header Banner -->
+  <mat-card class="page-header-card mat-elevation-z1">
+    <div class="header-left">
+      <div class="header-icon-badge">
+        <mat-icon>directions_bus</mat-icon>
+      </div>
+      <div class="header-title-box">
+        <div class="title-row">
+          <h1>Transport &amp; Fleet Management</h1>
+          <span class="live-pill"><span class="pulse-dot"></span> Live Fleet Hub</span>
+          <span class="optional-tag">Campus Mobility</span>
+        </div>
+        <p class="subtitle">
+          Comprehensive GPS fleet tracking, student &amp; faculty bus passes, automated route fare billing, daily driver manifests, and campus gate pass security.
+        </p>
+      </div>
+    </div>
+
+    <div class="header-right-actions">
+      <button mat-flat-button color="primary" class="action-btn" (click)="openAddAllocation('Student')">
+        <mat-icon>assignment_ind</mat-icon>
+        <span>Assign Student</span>
+      </button>
+      <button mat-stroked-button class="action-btn-secondary" (click)="openAddAllocation('Teacher')">
+        <mat-icon>badge</mat-icon>
+        <span>Assign Faculty</span>
+      </button>
+      <button mat-stroked-button class="action-btn-secondary" (click)="openAddGatePass()">
+        <mat-icon>security</mat-icon>
+        <span>Gate Pass Desk</span>
+      </button>
+    </div>
+  </mat-card>
+
+  <!-- Navigation Tabs -->
+  <div class="nav-tabs-wrapper">
+    <div class="custom-tabs">
+      <button class="tab-btn" [class.active]="activeTab === 0" (click)="activeTab = 0">
+        <mat-icon>dashboard</mat-icon>
+        <span>Overview</span>
+      </button>
+      <button class="tab-btn" [class.active]="activeTab === 1" (click)="activeTab = 1">
+        <mat-icon>directions_bus</mat-icon>
+        <span>Vehicles &amp; Fleet ({{ vehicles.length }})</span>
+      </button>
+      <button class="tab-btn" [class.active]="activeTab === 2" (click)="activeTab = 2">
+        <mat-icon>airline_seat_recline_normal</mat-icon>
+        <span>Drivers &amp; Staff ({{ drivers.length }})</span>
+      </button>
+      <button class="tab-btn" [class.active]="activeTab === 3" (click)="activeTab = 3">
+        <mat-icon>alt_route</mat-icon>
+        <span>Routes &amp; Stops ({{ routes.length }})</span>
+      </button>
+      <button class="tab-btn" [class.active]="activeTab === 4" (click)="activeTab = 4">
+        <mat-icon>school</mat-icon>
+        <span>Student Passes ({{ studentAllocations.length }})</span>
+      </button>
+      <button class="tab-btn" [class.active]="activeTab === 5" (click)="activeTab = 5">
+        <mat-icon>co_present</mat-icon>
+        <span>Faculty Passes ({{ teacherAllocations.length }})</span>
+      </button>
+      <button class="tab-btn" [class.active]="activeTab === 6" (click)="activeTab = 6">
+        <mat-icon>fact_check</mat-icon>
+        <span>Daily Manifest</span>
+      </button>
+      <button class="tab-btn" [class.active]="activeTab === 7" (click)="activeTab = 7">
+        <mat-icon>meeting_room</mat-icon>
+        <span>Gate Passes ({{ gatePasses.length }})</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- TAB 0: OVERVIEW -->
+  <div class="tab-content" *ngIf="activeTab === 0">
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon-wrap blue">
+          <mat-icon>directions_bus</mat-icon>
+        </div>
+        <div class="stat-info">
+          <span class="stat-label">Active Vehicles</span>
+          <h2 class="stat-value">{{ overview?.totalVehicles ?? vehicles.length }}</h2>
+          <span class="stat-sub">Buses, Vans &amp; Shuttles</span>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon-wrap purple">
+          <mat-icon>alt_route</mat-icon>
+        </div>
+        <div class="stat-info">
+          <span class="stat-label">Covered Routes</span>
+          <h2 class="stat-value">{{ overview?.activeRoutes ?? routes.length }}</h2>
+          <span class="stat-sub">Daily Pickup &amp; Drop Paths</span>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon-wrap emerald">
+          <mat-icon>school</mat-icon>
+        </div>
+        <div class="stat-info">
+          <span class="stat-label">Student Riders</span>
+          <h2 class="stat-value">{{ overview?.studentAllocations ?? studentAllocations.length }}</h2>
+          <span class="stat-sub">Auto-Billed on Fee Invoices</span>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon-wrap amber">
+          <mat-icon>co_present</mat-icon>
+        </div>
+        <div class="stat-info">
+          <span class="stat-label">Faculty Riders</span>
+          <h2 class="stat-value">{{ overview?.teacherAllocations ?? teacherAllocations.length }}</h2>
+          <span class="stat-sub">Registered Staff Commuters</span>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon-wrap indigo">
+          <mat-icon>security</mat-icon>
+        </div>
+        <div class="stat-info">
+          <span class="stat-label">Bus Gate Exits</span>
+          <h2 class="stat-value">{{ overview?.todayBusDepartures ?? 0 }}</h2>
+          <span class="stat-sub">Logged Departures Today</span>
+        </div>
+      </div>
+
+      <div class="stat-card" [class.alert]="(overview?.expiredDocumentAlerts ?? 0) > 0">
+        <div class="stat-icon-wrap rose">
+          <mat-icon>warning</mat-icon>
+        </div>
+        <div class="stat-info">
+          <span class="stat-label">Compliance Alerts</span>
+          <h2 class="stat-value">{{ overview?.expiredDocumentAlerts ?? 0 }}</h2>
+          <span class="stat-sub">Insurance / Fitness / PUC &lt;30d</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Action Launchers -->
+    <div class="quick-launchers-row">
+      <div class="ql-card" (click)="openAddVehicle()">
+        <div class="ql-icon-box blue">
+          <mat-icon>add_circle</mat-icon>
+        </div>
+        <div class="ql-text">
+          <h4>Add New Vehicle</h4>
+          <p>Register bus/van with GPS, capacity &amp; compliance</p>
+        </div>
+      </div>
+      <div class="ql-card" (click)="openAddDriver()">
+        <div class="ql-icon-box indigo">
+          <mat-icon>person_add</mat-icon>
+        </div>
+        <div class="ql-text">
+          <h4>Add Driver / Crew</h4>
+          <p>Record driving license, Aadhaar &amp; emergency contact</p>
+        </div>
+      </div>
+      <div class="ql-card" (click)="openAddRoute()">
+        <div class="ql-icon-box amber">
+          <mat-icon>route</mat-icon>
+        </div>
+        <div class="ql-text">
+          <h4>Create New Route</h4>
+          <p>Map route stops, pickup timings &amp; tiered fares</p>
+        </div>
+      </div>
+      <div class="ql-card" (click)="activeTab = 6">
+        <div class="ql-icon-box purple">
+          <mat-icon>print</mat-icon>
+        </div>
+        <div class="ql-text">
+          <h4>Driver Manifests</h4>
+          <p>Print morning &amp; evening boarding passenger lists</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 1: VEHICLES -->
+  <div class="tab-content" *ngIf="activeTab === 1">
+    <div class="section-toolbar">
+      <div class="toolbar-title">
+        <h3>Institutional Fleet</h3>
+        <p>Manage buses, vans and staff cabs with driver assignments</p>
+      </div>
+      <button mat-flat-button color="primary" (click)="openAddVehicle()">
+        <mat-icon>add</mat-icon> Add Vehicle
+      </button>
+    </div>
+
+    <div class="cards-grid">
+      <div class="fleet-card" *ngFor="let v of vehicles" [class.inactive-card]="!v.isActive">
+        <div class="fleet-header">
+          <div class="fleet-type-badge">
+            <mat-icon>{{ v.vehicleType === 'Bus' ? 'directions_bus' : 'airport_shuttle' }}</mat-icon>
+            <span>{{ v.vehicleType }}</span>
+          </div>
+          <span class="status-pill" [class.active]="v.isActive" [class.inactive]="!v.isActive">
+            {{ v.isActive ? 'Active' : 'Out of Service' }}
+          </span>
+        </div>
+
+        <div class="fleet-main">
+          <h2 class="vehicle-reg">{{ v.vehicleNumber }}</h2>
+          <p class="model-line">{{ v.model || 'Standard Institutional Fleet' }} &bull; {{ v.color || 'Yellow' }}</p>
+
+          <div class="capacity-bar-box">
+            <div class="cap-labels">
+              <span>Seating Occupancy</span>
+              <strong>{{ v.activeAllocationsCount || 0 }} / {{ v.totalCapacity }} Seats</strong>
+            </div>
+            <div class="cap-track">
+              <div class="cap-fill" [style.width.%]="((v.activeAllocationsCount || 0) / (v.totalCapacity || 1)) * 100"></div>
+            </div>
+          </div>
+
+          <div class="fleet-details-list">
+            <div class="detail-row">
+              <span class="label"><mat-icon>person</mat-icon> Assigned Driver:</span>
+              <strong class="val">{{ v.driverName || 'Not Assigned' }} {{ v.driverPhone ? '(' + v.driverPhone + ')' : '' }}</strong>
+            </div>
+            <div class="detail-row" *ngIf="v.conductorName">
+              <span class="label"><mat-icon>support_agent</mat-icon> Conductor:</span>
+              <strong class="val">{{ v.conductorName }} {{ v.conductorPhone ? '(' + v.conductorPhone + ')' : '' }}</strong>
+            </div>
+            <div class="detail-row" *ngIf="v.gpsDeviceId">
+              <span class="label"><mat-icon>gps_fixed</mat-icon> GPS Unit:</span>
+              <strong class="val"><code>{{ v.gpsDeviceId }}</code></strong>
+            </div>
+            <div class="detail-row" *ngIf="v.insuranceExpiry">
+              <span class="label"><mat-icon>verified_user</mat-icon> Insurance:</span>
+              <span class="val" [class.text-danger]="v.isInsuranceExpiringSoon">
+                {{ v.insuranceExpiry | date:'dd MMM yyyy' }}
+                <strong *ngIf="v.isInsuranceExpiringSoon" class="warn-badge">Expiring Soon</strong>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="fleet-footer">
+          <button mat-button color="primary" (click)="openEditVehicle(v)">
+            <mat-icon>edit</mat-icon> Edit
+          </button>
+          <button mat-button [color]="v.isActive ? 'warn' : 'accent'" (click)="toggleVehicle(v)">
+            <mat-icon>{{ v.isActive ? 'pause_circle' : 'play_circle' }}</mat-icon>
+            {{ v.isActive ? 'Deactivate' : 'Activate' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 2: DRIVERS -->
+  <div class="tab-content" *ngIf="activeTab === 2">
+    <div class="section-toolbar">
+      <div class="toolbar-title">
+        <h3>Drivers &amp; Transport Crew</h3>
+        <p>Verified drivers with statutory license and Aadhaar records</p>
+      </div>
+      <button mat-flat-button color="primary" (click)="openAddDriver()">
+        <mat-icon>person_add</mat-icon> Add Driver
+      </button>
+    </div>
+
+    <div class="cards-grid">
+      <div class="driver-card" *ngFor="let d of drivers" [class.inactive-card]="!d.isActive">
+        <div class="driver-avatar-row">
+          <div class="avatar-circle">
+            <mat-icon>airline_seat_recline_normal</mat-icon>
+          </div>
+          <div class="driver-info-box">
+            <h4>{{ d.fullName }}</h4>
+            <p class="phone-link">
+              <mat-icon>phone</mat-icon>
+              <a [href]="'tel:' + d.phoneNumber">{{ d.phoneNumber }}</a>
+            </p>
+          </div>
+          <span class="status-pill" [class.active]="d.isActive" [class.inactive]="!d.isActive">
+            {{ d.isActive ? 'Verified' : 'Inactive' }}
+          </span>
+        </div>
+
+        <div class="driver-meta-grid">
+          <div class="dm-item">
+            <span class="dm-label">Commercial License</span>
+            <strong class="dm-val">{{ d.licenseNumber }}</strong>
+          </div>
+          <div class="dm-item" *ngIf="d.licenseExpiry">
+            <span class="dm-label">License Expiry</span>
+            <strong class="dm-val">{{ d.licenseExpiry | date:'dd MMM yyyy' }}</strong>
+          </div>
+          <div class="dm-item" *ngIf="d.emergencyPhone">
+            <span class="dm-label">Emergency SOS</span>
+            <strong class="dm-val">{{ d.emergencyPhone }}</strong>
+          </div>
+          <div class="dm-item" *ngIf="d.aadhaarNumber">
+            <span class="dm-label">Aadhaar UID</span>
+            <strong class="dm-val">{{ d.aadhaarNumber }}</strong>
+          </div>
+          <div class="dm-item full-width" *ngIf="d.address">
+            <span class="dm-label">Residence Address</span>
+            <span class="dm-val text-muted">{{ d.address }}</span>
+          </div>
+        </div>
+
+        <div class="fleet-footer">
+          <button mat-button color="primary" (click)="openEditDriver(d)">
+            <mat-icon>edit</mat-icon> Edit
+          </button>
+          <button mat-button [color]="d.isActive ? 'warn' : 'accent'" (click)="toggleDriver(d)">
+            <mat-icon>{{ d.isActive ? 'block' : 'check_circle' }}</mat-icon>
+            {{ d.isActive ? 'Suspend' : 'Activate' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 3: ROUTES & STOPS -->
+  <div class="tab-content" *ngIf="activeTab === 3">
+    <div class="section-toolbar">
+      <div class="toolbar-title">
+        <h3>Transit Routes &amp; Stop Fare Matrix</h3>
+        <p>Pick-up paths, scheduled morning/evening timings, and distance-based fee heads</p>
+      </div>
+      <button mat-flat-button color="primary" (click)="openAddRoute()">
+        <mat-icon>add_road</mat-icon> Create Route
+      </button>
+    </div>
+
+    <div class="routes-container">
+      <div class="route-panel" *ngFor="let r of routes">
+        <div class="route-header-bar">
+          <div class="rh-left">
+            <span class="route-code-badge">{{ r.routeCode }}</span>
+            <div class="rh-names">
+              <h4>{{ r.routeName }}</h4>
+              <p class="path-line">
+                <mat-icon>navigation</mat-icon>
+                <span>{{ r.startPoint || 'Origin' }}</span> &rarr; <span>{{ r.endPoint || 'Campus' }}</span>
+              </p>
+            </div>
+          </div>
+
+          <div class="rh-meta">
+            <div class="time-pill">
+              <mat-icon>schedule</mat-icon>
+              <span>AM: <strong>{{ r.morningDepartureTime || '07:00 AM' }}</strong> &bull; PM: <strong>{{ r.eveningDepartureTime || '03:30 PM' }}</strong></span>
+            </div>
+            <div class="bus-pill" *ngIf="r.vehicleNumber">
+              <mat-icon>directions_bus</mat-icon>
+              <span>{{ r.vehicleNumber }} ({{ r.driverName || 'Crew' }})</span>
+            </div>
+            <span class="badge-riders">{{ r.allocatedStudentsCount || 0 }} Riders</span>
+          </div>
+
+          <div class="rh-actions">
+            <button mat-stroked-button color="primary" (click)="manageStops(r)">
+              <mat-icon>add_location_alt</mat-icon> Add Stop
+            </button>
+            <button mat-icon-button color="primary" (click)="openEditRoute(r)" matTooltip="Edit Route">
+              <mat-icon>edit</mat-icon>
+            </button>
+            <button mat-icon-button [color]="r.isActive ? 'warn' : 'accent'" (click)="toggleRoute(r)" [matTooltip]="r.isActive ? 'Deactivate' : 'Activate'">
+              <mat-icon>{{ r.isActive ? 'pause_circle' : 'play_circle' }}</mat-icon>
+            </button>
+          </div>
+        </div>
+
+        <!-- Stops Table Inside Route -->
+        <div class="stops-wrapper" *ngIf="r.stops && r.stops.length > 0">
+          <table class="stops-table">
+            <thead>
+              <tr>
+                <th style="width: 60px;">#</th>
+                <th>Stop Name &amp; Landmark</th>
+                <th>Morning Pickup</th>
+                <th>Evening Drop</th>
+                <th>Distance</th>
+                <th>Monthly Fare</th>
+                <th>Quarterly</th>
+                <th>Annual</th>
+                <th>Riders</th>
+                <th style="text-align: right;">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let s of r.stops">
+                <td><span class="stop-num">{{ s.stopOrder }}</span></td>
+                <td>
+                  <strong class="stop-name">{{ s.stopName }}</strong>
+                  <span class="landmark-sub" *ngIf="s.landmark">&bull; Near {{ s.landmark }}</span>
+                </td>
+                <td><span class="timing-badge am"><mat-icon>wb_sunny</mat-icon> {{ s.pickupTime || '07:15 AM' }}</span></td>
+                <td><span class="timing-badge pm"><mat-icon>nights_stay</mat-icon> {{ s.dropTime || '03:45 PM' }}</span></td>
+                <td>{{ s.distanceKm ? s.distanceKm + ' km' : '—' }}</td>
+                <td><strong class="fare-highlight">₹{{ s.monthlyFare | number }}</strong><span class="per-mo">/mo</span></td>
+                <td>₹{{ (s.quarterlyFare || s.monthlyFare * 3) | number }}</td>
+                <td>₹{{ (s.annualFare || s.monthlyFare * 11) | number }}</td>
+                <td><span class="riders-count-pill">{{ s.allocatedStudentsCount || 0 }}</span></td>
+                <td style="text-align: right;">
+                  <button mat-icon-button color="warn" (click)="deleteStop(s)" matTooltip="Remove Stop">
+                    <mat-icon>delete_outline</mat-icon>
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="no-stops-box" *ngIf="!r.stops || r.stops.length === 0">
+          <mat-icon>signpost</mat-icon>
+          <span>No boarding stops created yet. Click <strong>"Add Stop"</strong> to define pickup points and fare slabs.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 4: STUDENT PASSES -->
+  <div class="tab-content" *ngIf="activeTab === 4">
+    <div class="section-toolbar">
+      <div class="toolbar-title">
+        <h3>Enrolled Student Riders</h3>
+        <p>Active transport passes with automated monthly billing on fee invoices</p>
+      </div>
+      <div class="search-and-action">
+        <mat-form-field appearance="outline" class="filter-input">
+          <mat-label>Search student or route...</mat-label>
+          <input matInput [(ngModel)]="allocationSearch" (keyup.enter)="loadAllocations()" placeholder="e.g. Rahul, R-01..." />
+          <mat-icon matSuffix>search</mat-icon>
+        </mat-form-field>
+        <button mat-flat-button color="primary" (click)="openAddAllocation('Student')">
+          <mat-icon>add</mat-icon> Issue Student Pass
+        </button>
+      </div>
+    </div>
+
+    <div class="table-card mat-elevation-z1">
+      <table class="erp-table">
+        <thead>
+          <tr>
+            <th>Student Name &amp; ID</th>
+            <th>Route &amp; Code</th>
+            <th>Boarding Stop</th>
+            <th>Timings</th>
+            <th>Trip Type</th>
+            <th>Monthly Fee</th>
+            <th>Effective From</th>
+            <th>Status</th>
+            <th style="text-align: right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let a of studentAllocations">
+            <td>
+              <div class="user-cell">
+                <div class="user-avatar"><mat-icon>person</mat-icon></div>
+                <div>
+                  <strong>{{ a.studentName }}</strong>
+                  <span class="meta-sub">Roll: {{ a.rollNumber || 'N/A' }}</span>
+                </div>
+              </div>
+            </td>
+            <td>
+              <span class="route-tag">{{ a.routeCode }}</span>
+              <span class="route-name-sub">{{ a.routeName }}</span>
+            </td>
+            <td><strong>{{ a.stopName }}</strong></td>
+            <td>
+              <span class="timing-badge am">{{ a.pickupTime || '—' }}</span>
+              <span class="timing-badge pm" style="margin-left: 4px;">{{ a.dropTime || '—' }}</span>
+            </td>
+            <td><span class="trip-pill">{{ a.pickupDropType }}</span></td>
+            <td>
+              <strong *ngIf="!a.isFreeAllocation" class="fare-text">₹{{ a.monthlyFare | number }}/mo</strong>
+              <span *ngIf="a.isFreeAllocation" class="free-badge">FREE PASS</span>
+            </td>
+            <td>{{ a.effectiveFrom | date:'dd MMM yyyy' }}</td>
+            <td><span class="status-pill active">{{ a.status }}</span></td>
+            <td style="text-align: right;">
+              <button mat-stroked-button color="primary" class="btn-sm" (click)="viewBusPass(a.id)">
+                <mat-icon>badge</mat-icon> Bus Pass
+              </button>
+              <button mat-icon-button color="warn" (click)="discontinueAllocation(a)" matTooltip="Discontinue Service">
+                <mat-icon>person_remove</mat-icon>
+              </button>
+            </td>
+          </tr>
+          <tr *ngIf="studentAllocations.length === 0">
+            <td colspan="9" class="empty-row">No active student transport passes found.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAB 5: FACULTY / TEACHER PASSES -->
+  <div class="tab-content" *ngIf="activeTab === 5">
+    <div class="section-toolbar">
+      <div class="toolbar-title">
+        <h3>Staff &amp; Teacher Transit Allocations</h3>
+        <p>Faculty members utilizing campus transport facility</p>
+      </div>
+      <button mat-flat-button color="primary" (click)="openAddAllocation('Teacher')">
+        <mat-icon>add</mat-icon> Issue Faculty Pass
+      </button>
+    </div>
+
+    <div class="table-card mat-elevation-z1">
+      <table class="erp-table">
+        <thead>
+          <tr>
+            <th>Faculty Member</th>
+            <th>Emp Code</th>
+            <th>Route</th>
+            <th>Boarding Stop</th>
+            <th>Timings</th>
+            <th>Pickup/Drop</th>
+            <th>Status</th>
+            <th style="text-align: right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let a of teacherAllocations">
+            <td>
+              <div class="user-cell">
+                <div class="user-avatar teacher"><mat-icon>school</mat-icon></div>
+                <strong>{{ a.teacherName }}</strong>
+              </div>
+            </td>
+            <td><code>{{ a.employeeCode || 'TCH' }}</code></td>
+            <td>
+              <span class="route-tag">{{ a.routeCode }}</span>
+              <span class="route-name-sub">{{ a.routeName }}</span>
+            </td>
+            <td><strong>{{ a.stopName }}</strong></td>
+            <td>
+              <span class="timing-badge am">{{ a.pickupTime || '—' }}</span>
+              <span class="timing-badge pm" style="margin-left: 4px;">{{ a.dropTime || '—' }}</span>
+            </td>
+            <td><span class="trip-pill">{{ a.pickupDropType }}</span></td>
+            <td><span class="status-pill active">{{ a.status }}</span></td>
+            <td style="text-align: right;">
+              <button mat-stroked-button color="primary" class="btn-sm" (click)="viewBusPass(a.id)">
+                <mat-icon>badge</mat-icon> Pass
+              </button>
+              <button mat-icon-button color="warn" (click)="discontinueAllocation(a)" matTooltip="Discontinue Service">
+                <mat-icon>person_remove</mat-icon>
+              </button>
+            </td>
+          </tr>
+          <tr *ngIf="teacherAllocations.length === 0">
+            <td colspan="8" class="empty-row">No active faculty transport passes assigned yet.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAB 6: DAILY MANIFEST -->
+  <div class="tab-content" *ngIf="activeTab === 6">
+    <div class="section-toolbar">
+      <div class="toolbar-title">
+        <h3>Driver's Daily Boarding Manifest</h3>
+        <p>Printable passenger checklist for morning pickups and evening school departures</p>
+      </div>
+
+      <div class="manifest-selectors">
+        <mat-form-field appearance="outline" class="selector-field">
+          <mat-label>Select Route</mat-label>
+          <mat-select [(ngModel)]="manifestRouteId" (selectionChange)="loadManifest()">
+            <mat-option *ngFor="let r of routes" [value]="r.id">
+              {{ r.routeCode }} &bull; {{ r.routeName }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="selector-field">
+          <mat-label>Departure</mat-label>
+          <mat-select [(ngModel)]="manifestDeparture" (selectionChange)="loadManifest()">
+            <mat-option value="Morning">Morning Pickup</mat-option>
+            <mat-option value="Evening">Evening Drop</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <button mat-raised-button color="primary" (click)="printManifest()">
+          <mat-icon>print</mat-icon> Print Clipboard Sheet
+        </button>
+      </div>
+    </div>
+
+    <div class="manifest-sheet mat-elevation-z1" *ngIf="manifest">
+      <div class="manifest-header-print">
+        <div class="mh-top">
+          <h2>CAMPUS TRANSPORTATION &bull; BOARDING MANIFEST</h2>
+          <span class="manifest-date">{{ manifest.manifestDate }} &bull; {{ manifest.departureType }} Run</span>
+        </div>
+        <div class="mh-meta-grid">
+          <div><strong>Route:</strong> {{ manifest.routeCode }} - {{ manifest.routeName }}</div>
+          <div><strong>Bus Number:</strong> {{ manifest.vehicleNumber }}</div>
+          <div><strong>Driver:</strong> {{ manifest.driverName || 'Assigned' }} ({{ manifest.driverPhone || '—' }})</div>
+          <div><strong>Passengers:</strong> {{ manifest.totalPassengers }} Commuters</div>
+        </div>
+      </div>
+
+      <table class="manifest-table">
+        <thead>
+          <tr>
+            <th style="width: 45px;">Sr.</th>
+            <th>Type</th>
+            <th>Commuter Name</th>
+            <th>Roll / Emp ID</th>
+            <th>Boarding Stop</th>
+            <th>Scheduled Time</th>
+            <th>Emergency Phone</th>
+            <th style="width: 80px; text-align: center;">Boarded</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let p of manifest.passengers">
+            <td>{{ p.srNo }}</td>
+            <td><span class="member-tag" [class.tch]="p.memberType === 'Teacher'">{{ p.memberType }}</span></td>
+            <td><strong>{{ p.memberName }}</strong></td>
+            <td><code>{{ p.rollOrEmpCode || '—' }}</code></td>
+            <td><strong>{{ p.stopName }}</strong></td>
+            <td>{{ p.scheduledTime || '—' }}</td>
+            <td>{{ p.contactNumber || '—' }}</td>
+            <td style="text-align: center;">
+              <mat-checkbox [(ngModel)]="p.isBoarded"></mat-checkbox>
+            </td>
+          </tr>
+          <tr *ngIf="manifest.passengers.length === 0">
+            <td colspan="8" class="empty-row">No commuters allocated for this route and departure window.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAB 7: CAMPUS GATE PASSES -->
+  <div class="tab-content" *ngIf="activeTab === 7">
+    <div class="section-toolbar">
+      <div class="toolbar-title">
+        <h3>Campus Gate Pass Security Desk</h3>
+        <p>Real-time tracking of early student exits, bus departures, teacher movements &amp; campus visitors</p>
+      </div>
+      <button mat-flat-button color="primary" (click)="openAddGatePass()">
+        <mat-icon>add_moderator</mat-icon> Issue Gate Pass
+      </button>
+    </div>
+
+    <div class="table-card mat-elevation-z1">
+      <table class="erp-table">
+        <thead>
+          <tr>
+            <th>Pass #</th>
+            <th>Pass Type</th>
+            <th>Person / Student / Vehicle</th>
+            <th>Purpose</th>
+            <th>Out Time</th>
+            <th>Expected In</th>
+            <th>Actual In</th>
+            <th>Approved By</th>
+            <th>Status</th>
+            <th style="text-align: right;">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let g of gatePasses">
+            <td><strong class="pass-no">{{ g.passNumber }}</strong></td>
+            <td><span class="gate-type-pill" [ngClass]="g.passType.toLowerCase()">{{ g.passType }}</span></td>
+            <td>
+              <div class="person-line">
+                <strong *ngIf="g.studentName">{{ g.studentName }} (Roll: {{ g.rollNumber }})</strong>
+                <strong *ngIf="g.teacherName">{{ g.teacherName }} (Staff)</strong>
+                <strong *ngIf="g.vehicleNumber">Bus {{ g.vehicleNumber }} (Pax: {{ g.passengerCount || 0 }})</strong>
+                <strong *ngIf="g.personName">{{ g.personName }} (Visitor)</strong>
+                <span class="contact-sub" *ngIf="g.contactNumber">&bull; {{ g.contactNumber }}</span>
+              </div>
+            </td>
+            <td>{{ g.purpose }}</td>
+            <td>{{ g.outDateTime | date:'dd MMM, hh:mm a' }}</td>
+            <td>{{ g.expectedInDateTime ? (g.expectedInDateTime | date:'dd MMM, hh:mm a') : '—' }}</td>
+            <td>
+              <span *ngIf="g.actualInDateTime" class="in-time">{{ g.actualInDateTime | date:'dd MMM, hh:mm a' }}</span>
+              <span *ngIf="!g.actualInDateTime" class="out-status">Still Outside</span>
+            </td>
+            <td>{{ g.approvedBy || 'Security' }}</td>
+            <td>
+              <span class="status-pill" [class.active]="g.status === 'Closed'" [class.pending]="g.status === 'Issued'">
+                {{ g.status }}
+              </span>
+            </td>
+            <td style="text-align: right;">
+              <button *ngIf="g.status === 'Issued'" mat-flat-button color="accent" class="btn-sm" (click)="openCloseGatePass(g)">
+                <mat-icon>login</mat-icon> Mark Return
+              </button>
+              <span *ngIf="g.status === 'Closed'" class="closed-label">
+                <mat-icon>verified</mat-icon> Closed
+              </span>
+            </td>
+          </tr>
+          <tr *ngIf="gatePasses.length === 0">
+            <td colspan="10" class="empty-row">No campus gate passes registered yet today.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- MODAL: ADD / EDIT VEHICLE (Light Blue Header strictly following AGENTS.md) -->
+<!-- ========================================================================= -->
+<div class="modal-backdrop" *ngIf="showVehicleModal">
+  <div class="modal-dialog">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <div class="modal-header-icon">
+          <mat-icon>directions_bus</mat-icon>
+        </div>
+        <div>
+          <h3 class="modal-title">{{ editingVehicleId ? 'Update Institutional Vehicle' : 'Register New Fleet Vehicle' }}</h3>
+          <p class="modal-subtitle">Configure registration number, seating capacity &amp; crew assignment</p>
+        </div>
+      </div>
+      <button class="modal-close-btn" (click)="showVehicleModal = false"><mat-icon>close</mat-icon></button>
+    </div>
+
+    <form [formGroup]="vehicleForm" (ngSubmit)="saveVehicle()">
+      <div class="modal-body">
+        <div class="form-grid">
+          <mat-form-field appearance="outline">
+            <mat-label>Vehicle Registration Number *</mat-label>
+            <input matInput formControlName="vehicleNumber" placeholder="e.g. DL-01-AB-1234" uppercase />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Vehicle Type *</mat-label>
+            <mat-select formControlName="vehicleType">
+              <mat-option value="Bus">Heavy Bus</mat-option>
+              <mat-option value="MiniBus">Mini Bus / Traveler</mat-option>
+              <mat-option value="Van">Omni / Winger Van</mat-option>
+              <mat-option value="Cab">Staff Cab / Car</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Total Seating Capacity *</mat-label>
+            <input matInput type="number" formControlName="totalCapacity" min="1" max="100" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Assigned Driver</mat-label>
+            <mat-select formControlName="driverId">
+              <mat-option [value]="null">-- None / Unassigned --</mat-option>
+              <mat-option *ngFor="let d of drivers" [value]="d.id">
+                {{ d.fullName }} ({{ d.phoneNumber }})
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Vehicle Model / Make</mat-label>
+            <input matInput formControlName="model" placeholder="e.g. Tata Starbus Ultra 2024" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>GPS Tracker Device ID</mat-label>
+            <input matInput formControlName="gpsDeviceId" placeholder="e.g. GPS-TK-9087" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Conductor Name</mat-label>
+            <input matInput formControlName="conductorName" placeholder="Conductor Full Name" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Conductor Phone</mat-label>
+            <input matInput formControlName="conductorPhone" placeholder="Mobile Number" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Insurance Expiry Date</mat-label>
+            <input matInput type="date" formControlName="insuranceExpiry" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Fitness Certificate Expiry</mat-label>
+            <input matInput type="date" formControlName="fitnessExpiry" />
+          </mat-form-field>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button mat-stroked-button type="button" (click)="showVehicleModal = false">Cancel</button>
+        <button mat-flat-button color="primary" type="submit" [disabled]="vehicleForm.invalid">
+          <mat-icon>save</mat-icon> Save Vehicle
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- MODAL: ADD / EDIT DRIVER (Light Blue Header strictly following AGENTS.md) -->
+<!-- ========================================================================= -->
+<div class="modal-backdrop" *ngIf="showDriverModal">
+  <div class="modal-dialog">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <div class="modal-header-icon">
+          <mat-icon>airline_seat_recline_normal</mat-icon>
+        </div>
+        <div>
+          <h3 class="modal-title">{{ editingDriverId ? 'Update Driver Profile' : 'Add Transport Driver' }}</h3>
+          <p class="modal-subtitle">Statutory compliance and contact information</p>
+        </div>
+      </div>
+      <button class="modal-close-btn" (click)="showDriverModal = false"><mat-icon>close</mat-icon></button>
+    </div>
+
+    <form [formGroup]="driverForm" (ngSubmit)="saveDriver()">
+      <div class="modal-body">
+        <div class="form-grid">
+          <mat-form-field appearance="outline">
+            <mat-label>Driver Full Name *</mat-label>
+            <input matInput formControlName="fullName" placeholder="Full Name" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Primary Mobile Number *</mat-label>
+            <input matInput formControlName="phoneNumber" placeholder="10-digit Mobile" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Commercial Driving License *</mat-label>
+            <input matInput formControlName="licenseNumber" placeholder="DL-XXXXXXXX" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>License Expiry Date</mat-label>
+            <input matInput type="date" formControlName="licenseExpiry" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Aadhaar Card Number</mat-label>
+            <input matInput formControlName="aadhaarNumber" placeholder="12-digit UID" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Emergency SOS Contact</mat-label>
+            <input matInput formControlName="emergencyPhone" placeholder="Emergency Relative Phone" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="col-span-2">
+            <mat-label>Residential Address</mat-label>
+            <textarea matInput formControlName="address" rows="2"></textarea>
+          </mat-form-field>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button mat-stroked-button type="button" (click)="showDriverModal = false">Cancel</button>
+        <button mat-flat-button color="primary" type="submit" [disabled]="driverForm.invalid">
+          <mat-icon>save</mat-icon> Save Driver
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- MODAL: ADD / EDIT ROUTE (Light Blue Header strictly following AGENTS.md)  -->
+<!-- ========================================================================= -->
+<div class="modal-backdrop" *ngIf="showRouteModal">
+  <div class="modal-dialog">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <div class="modal-header-icon">
+          <mat-icon>alt_route</mat-icon>
+        </div>
+        <div>
+          <h3 class="modal-title">{{ editingRouteId ? 'Update Route' : 'Create New Transit Route' }}</h3>
+          <p class="modal-subtitle">Define route code, origin, destination and scheduled shift timings</p>
+        </div>
+      </div>
+      <button class="modal-close-btn" (click)="showRouteModal = false"><mat-icon>close</mat-icon></button>
+    </div>
+
+    <form [formGroup]="routeForm" (ngSubmit)="saveRoute()">
+      <div class="modal-body">
+        <div class="form-grid">
+          <mat-form-field appearance="outline">
+            <mat-label>Route Code *</mat-label>
+            <input matInput formControlName="routeCode" placeholder="e.g. R-01" uppercase />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Route Name / Title *</mat-label>
+            <input matInput formControlName="routeName" placeholder="e.g. City Center via Ring Road" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Origin Point</mat-label>
+            <input matInput formControlName="startPoint" placeholder="e.g. Main Station" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Destination Point</mat-label>
+            <input matInput formControlName="endPoint" placeholder="e.g. Campus Main Gate" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Assigned Vehicle</mat-label>
+            <mat-select formControlName="vehicleId">
+              <mat-option [value]="null">-- None --</mat-option>
+              <mat-option *ngFor="let v of vehicles" [value]="v.id">
+                {{ v.vehicleNumber }} (Cap: {{ v.totalCapacity }})
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Morning Departure Time</mat-label>
+            <input matInput formControlName="morningDepartureTime" placeholder="e.g. 07:00 AM" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Evening Departure Time</mat-label>
+            <input matInput formControlName="eveningDepartureTime" placeholder="e.g. 03:30 PM" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="col-span-2">
+            <mat-label>Route Description</mat-label>
+            <input matInput formControlName="description" placeholder="Important landmarks &amp; notes" />
+          </mat-form-field>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button mat-stroked-button type="button" (click)="showRouteModal = false">Cancel</button>
+        <button mat-flat-button color="primary" type="submit" [disabled]="routeForm.invalid">
+          <mat-icon>save</mat-icon> Save Route
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- MODAL: ADD STOP (Light Blue Header strictly following AGENTS.md)          -->
+<!-- ========================================================================= -->
+<div class="modal-backdrop" *ngIf="showStopModal">
+  <div class="modal-dialog">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <div class="modal-header-icon">
+          <mat-icon>add_location_alt</mat-icon>
+        </div>
+        <div>
+          <h3 class="modal-title">Add Boarding Stop to {{ selectedRouteForStops?.routeCode }}</h3>
+          <p class="modal-subtitle">Specify pickup time and distance-based fare heads</p>
+        </div>
+      </div>
+      <button class="modal-close-btn" (click)="showStopModal = false"><mat-icon>close</mat-icon></button>
+    </div>
+
+    <form [formGroup]="stopForm" (ngSubmit)="saveStop()">
+      <div class="modal-body">
+        <div class="form-grid">
+          <mat-form-field appearance="outline">
+            <mat-label>Stop Name *</mat-label>
+            <input matInput formControlName="stopName" placeholder="e.g. Gandhi Chowk" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Stop Sequence Order *</mat-label>
+            <input matInput type="number" formControlName="stopOrder" min="1" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Morning Pickup Time</mat-label>
+            <input matInput formControlName="pickupTime" placeholder="e.g. 07:15 AM" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Evening Drop Time</mat-label>
+            <input matInput formControlName="dropTime" placeholder="e.g. 03:45 PM" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Monthly Fare (₹) *</mat-label>
+            <input matInput type="number" formControlName="monthlyFare" min="0" />
+            <span matPrefix>₹&nbsp;</span>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Quarterly Fare (₹)</mat-label>
+            <input matInput type="number" formControlName="quarterlyFare" min="0" />
+            <span matPrefix>₹&nbsp;</span>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Distance from Campus (km)</mat-label>
+            <input matInput type="number" formControlName="distanceKm" min="0" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Landmark</mat-label>
+            <input matInput formControlName="landmark" placeholder="e.g. Near HDFC Bank ATM" />
+          </mat-form-field>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button mat-stroked-button type="button" (click)="showStopModal = false">Cancel</button>
+        <button mat-flat-button color="primary" type="submit" [disabled]="stopForm.invalid">
+          <mat-icon>save</mat-icon> Save Stop
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- MODAL: ALLOCATE TRANSPORT PASS (Light Blue Header strictly following AGENTS.md) -->
+<!-- ========================================================================= -->
+<div class="modal-backdrop" *ngIf="showAllocationModal">
+  <div class="modal-dialog">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <div class="modal-header-icon">
+          <mat-icon>assignment_ind</mat-icon>
+        </div>
+        <div>
+          <h3 class="modal-title">Issue Transport Pass</h3>
+          <p class="modal-subtitle">Assign student or faculty commuter to a verified transit stop</p>
+        </div>
+      </div>
+      <button class="modal-close-btn" (click)="showAllocationModal = false"><mat-icon>close</mat-icon></button>
+    </div>
+
+    <form [formGroup]="allocationForm" (ngSubmit)="saveAllocation()">
+      <div class="modal-body">
+        <div class="form-grid">
+          <mat-form-field appearance="outline" [class.col-span-2]="allocationForm.get('memberType')?.value !== 'Student'">
+            <mat-label>Commuter Type *</mat-label>
+            <mat-select formControlName="memberType">
+              <mat-option value="Student">Student (Billed on Fee Invoices)</mat-option>
+              <mat-option value="Teacher">Teacher / Faculty Member</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <!-- Class / Batch Filter (Shown only for Student) -->
+          <mat-form-field appearance="outline" *ngIf="allocationForm.get('memberType')?.value === 'Student'">
+            <mat-label>Filter by Class / Batch</mat-label>
+            <mat-select [(ngModel)]="selectedAllocationClassFilter" [ngModelOptions]="{standalone: true}" (selectionChange)="onAllocationClassFilterChange()">
+              <mat-option value="ALL">All Classes &amp; Batches ({{ studentsList.length }})</mat-option>
+              <mat-option *ngFor="let c of availableClasses" [value]="c.name">
+                {{ c.name }} ({{ c.count }} students)
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <!-- Student Dropdown with Class Grouping -->
+          <mat-form-field appearance="outline" class="col-span-2" *ngIf="allocationForm.get('memberType')?.value === 'Student'">
+            <mat-label>Select Student *</mat-label>
+            <mat-select formControlName="studentId" (selectionChange)="onAllocationStudentSelect($event.value)">
+              <mat-optgroup *ngFor="let grp of allocationStudentGroups" [label]="grp.groupName">
+                <mat-option *ngFor="let s of grp.students" [value]="s.id">
+                  {{ s.studentName }} (Roll: {{ s.rollNumber || s.schoolRollNumber || s.coachingRollNumber || 'N/A' }} &bull; {{ s.admissionNumber || 'No Adm' }})
+                </mat-option>
+              </mat-optgroup>
+              <mat-option *ngIf="allocationStudentGroups.length === 0" disabled>
+                No students found in this class
+              </mat-option>
+            </mat-select>
+            <mat-hint *ngIf="selectedAllocationStudentInfo">
+              Selected: <strong>{{ selectedAllocationStudentInfo }}</strong>
+            </mat-hint>
+          </mat-form-field>
+
+          <!-- Teacher Dropdown -->
+          <mat-form-field appearance="outline" class="col-span-2" *ngIf="allocationForm.get('memberType')?.value === 'Teacher'">
+            <mat-label>Select Faculty Member *</mat-label>
+            <mat-select formControlName="teacherId">
+              <mat-option *ngFor="let t of teachersList" [value]="t.id">
+                {{ t.fullName }} ({{ t.employeeCode }} &bull; {{ t.specialization || 'Faculty' }})
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <!-- Route Selection -->
+          <mat-form-field appearance="outline">
+            <mat-label>Select Route *</mat-label>
+            <mat-select formControlName="routeId" (selectionChange)="onRouteChangeForAllocation($event.value)">
+              <mat-option *ngFor="let r of routes" [value]="r.id">
+                {{ r.routeCode }} &bull; {{ r.routeName }}
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <!-- Stop Selection -->
+          <mat-form-field appearance="outline">
+            <mat-label>Select Boarding Stop *</mat-label>
+            <mat-select formControlName="routeStopId" (selectionChange)="onStopChangeForAllocation($event.value)">
+              <mat-option *ngFor="let s of getStopsForSelectedRoute()" [value]="s.id">
+                {{ s.stopOrder }}. {{ s.stopName }} (₹{{ s.monthlyFare }}/mo)
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Trip Coverage *</mat-label>
+            <mat-select formControlName="pickupDropType">
+              <mat-option value="Both">Both Morning Pickup &amp; Evening Drop</mat-option>
+              <mat-option value="PickupOnly">Morning Pickup Only</mat-option>
+              <mat-option value="DropOnly">Evening Drop Only</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Effective Start Date *</mat-label>
+            <input matInput type="date" formControlName="effectiveFrom" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Monthly Transport Fare (₹)</mat-label>
+            <input matInput type="number" formControlName="monthlyFare" />
+            <span matPrefix>₹&nbsp;</span>
+          </mat-form-field>
+
+          <div class="checkbox-box">
+            <mat-checkbox formControlName="isFreeAllocation">
+              Free Bus Pass (100% Institution Concession)
+            </mat-checkbox>
+          </div>
+
+          <mat-form-field appearance="outline" class="col-span-2">
+            <mat-label>Remarks / Special Instructions</mat-label>
+            <input matInput formControlName="remarks" placeholder="e.g. Blood group, special medical attention" />
+          </mat-form-field>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button mat-stroked-button type="button" (click)="showAllocationModal = false">Cancel</button>
+        <button mat-flat-button color="primary" type="submit" [disabled]="allocationForm.invalid">
+          <mat-icon>verified</mat-icon> Issue Pass
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- MODAL: CAMPUS GATE PASS (Light Blue Header strictly following AGENTS.md)  -->
+<!-- ========================================================================= -->
+<div class="modal-backdrop" *ngIf="showGatePassModal">
+  <div class="modal-dialog">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <div class="modal-header-icon">
+          <mat-icon>security</mat-icon>
+        </div>
+        <div>
+          <h3 class="modal-title">Issue Campus Gate Pass</h3>
+          <p class="modal-subtitle">Security checkpoint verification for campus departures</p>
+        </div>
+      </div>
+      <button class="modal-close-btn" (click)="showGatePassModal = false"><mat-icon>close</mat-icon></button>
+    </div>
+
+    <form [formGroup]="gatePassForm" (ngSubmit)="saveGatePass()">
+      <div class="modal-body">
+        <div class="form-grid">
+          <mat-form-field appearance="outline" class="col-span-2">
+            <mat-label>Pass Category *</mat-label>
+            <mat-select formControlName="passType">
+              <mat-option value="StudentEarlyExit">Student Early Exit (Authorized by Principal)</mat-option>
+              <mat-option value="BusDeparture">Institutional Bus Run Departure</mat-option>
+              <mat-option value="TeacherMovement">Faculty / Staff Official Movement</mat-option>
+              <mat-option value="Visitor">Visitor / Contractor Gate Entry-Exit</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <!-- Conditionally shown based on Pass Type: Student Early Exit -->
+          <mat-form-field appearance="outline" class="col-span-2" *ngIf="gatePassForm.get('passType')?.value === 'StudentEarlyExit'">
+            <mat-label>Filter by Class / Batch</mat-label>
+            <mat-select [(ngModel)]="selectedGatePassClassFilter" [ngModelOptions]="{standalone: true}" (selectionChange)="onGatePassClassFilterChange()">
+              <mat-option value="ALL">All Classes &amp; Batches ({{ studentsList.length }})</mat-option>
+              <mat-option *ngFor="let c of availableClasses" [value]="c.name">
+                {{ c.name }} ({{ c.count }} students)
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="col-span-2" *ngIf="gatePassForm.get('passType')?.value === 'StudentEarlyExit'">
+            <mat-label>Select Enrolled Student *</mat-label>
+            <mat-select formControlName="studentId" (selectionChange)="onGatePassStudentSelect($event.value)">
+              <mat-optgroup *ngFor="let grp of gatePassStudentGroups" [label]="grp.groupName">
+                <mat-option *ngFor="let s of grp.students" [value]="s.id">
+                  {{ s.studentName }} (Roll: {{ s.rollNumber || s.schoolRollNumber || s.coachingRollNumber || 'N/A' }} &bull; {{ s.admissionNumber || 'No Adm' }})
+                </mat-option>
+              </mat-optgroup>
+              <mat-option *ngIf="gatePassStudentGroups.length === 0" disabled>
+                No students found in this class
+              </mat-option>
+            </mat-select>
+            <mat-hint *ngIf="selectedGatePassStudentInfo">
+              Selected: <strong>{{ selectedGatePassStudentInfo }}</strong>
+            </mat-hint>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="col-span-2" *ngIf="gatePassForm.get('passType')?.value === 'TeacherMovement'">
+            <mat-label>Select Faculty Member *</mat-label>
+            <mat-select formControlName="teacherId">
+              <mat-option *ngFor="let t of teachersList" [value]="t.id">
+                {{ t.fullName }} ({{ t.employeeCode }})
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="col-span-2" *ngIf="gatePassForm.get('passType')?.value === 'BusDeparture'">
+            <mat-label>Select Bus / Vehicle *</mat-label>
+            <mat-select formControlName="vehicleId">
+              <mat-option *ngFor="let v of vehicles" [value]="v.id">
+                {{ v.vehicleNumber }} (Driver: {{ v.driverName || 'Crew' }})
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" *ngIf="gatePassForm.get('passType')?.value === 'Visitor'">
+            <mat-label>Visitor Full Name *</mat-label>
+            <input matInput formControlName="personName" placeholder="Full Name" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" *ngIf="gatePassForm.get('passType')?.value === 'Visitor'">
+            <mat-label>Visitor Contact Phone</mat-label>
+            <input matInput formControlName="contactNumber" placeholder="Mobile Number" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="col-span-2">
+            <mat-label>Exit Purpose / Reason *</mat-label>
+            <input matInput formControlName="purpose" placeholder="e.g. Medical emergency, School trip departure" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Out Date &amp; Time *</mat-label>
+            <input matInput type="datetime-local" formControlName="outDateTime" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Expected In Date &amp; Time</mat-label>
+            <input matInput type="datetime-local" formControlName="expectedInDateTime" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Authorized By</mat-label>
+            <input matInput formControlName="approvedBy" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Duty Security Guard</mat-label>
+            <input matInput formControlName="securityGuardName" />
+          </mat-form-field>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button mat-stroked-button type="button" (click)="showGatePassModal = false">Cancel</button>
+        <button mat-flat-button color="primary" type="submit" [disabled]="gatePassForm.invalid">
+          <mat-icon>security</mat-icon> Issue Gate Pass
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- MODAL: CLOSE GATE PASS (Mark Return)                                      -->
+<!-- ========================================================================= -->
+<div class="modal-backdrop" *ngIf="showClosePassModal">
+  <div class="modal-dialog" style="max-width: 480px;">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <div class="modal-header-icon">
+          <mat-icon>login</mat-icon>
+        </div>
+        <div>
+          <h3 class="modal-title">Close Gate Pass &bull; {{ selectedGatePassForClose?.passNumber }}</h3>
+          <p class="modal-subtitle">Record return check-in at main campus turnstile</p>
+        </div>
+      </div>
+      <button class="modal-close-btn" (click)="showClosePassModal = false"><mat-icon>close</mat-icon></button>
+    </div>
+
+    <form [formGroup]="closePassForm" (ngSubmit)="confirmCloseGatePass()">
+      <div class="modal-body">
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Actual In Date &amp; Time</mat-label>
+          <input matInput type="datetime-local" formControlName="actualInDateTime" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Security Remarks</mat-label>
+          <input matInput formControlName="remarks" placeholder="Returned safely with parent" />
+        </mat-form-field>
+      </div>
+
+      <div class="modal-footer">
+        <button mat-stroked-button type="button" (click)="showClosePassModal = false">Cancel</button>
+        <button mat-flat-button color="accent" type="submit">
+          <mat-icon>check_circle</mat-icon> Confirm Return
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- MODAL: BUS PASS PREVIEW & PRINT                                           -->
+<!-- ========================================================================= -->
+<div class="modal-backdrop" *ngIf="showBusPassModal">
+  <div class="modal-dialog" style="max-width: 520px;">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <div class="modal-header-icon">
+          <mat-icon>badge</mat-icon>
+        </div>
+        <div>
+          <h3 class="modal-title">Official Commuter Bus Pass</h3>
+          <p class="modal-subtitle">Printable smart pass with route &amp; stop verification</p>
+        </div>
+      </div>
+      <button class="modal-close-btn" (click)="showBusPassModal = false"><mat-icon>close</mat-icon></button>
+    </div>
+
+    <div class="modal-body" *ngIf="selectedBusPass">
+      <div class="bus-pass-card" id="printable-pass">
+        <div class="bp-header">
+          <div class="bp-inst-info">
+            <h3>{{ selectedBusPass.institutionName || 'IMSERP ACADEMY' }}</h3>
+            <span>CAMPUS TRANSPORTATION PASS</span>
+          </div>
+          <span class="bp-type-pill">{{ selectedBusPass.memberType | uppercase }}</span>
+        </div>
+
+        <div class="bp-body">
+          <div class="bp-avatar">
+            <mat-icon>{{ selectedBusPass.memberType === 'Student' ? 'school' : 'co_present' }}</mat-icon>
+          </div>
+
+          <div class="bp-details">
+            <h2 class="bp-name">{{ selectedBusPass.memberName }}</h2>
+            <p class="bp-id">ID: <strong>{{ selectedBusPass.rollOrEmpCode || 'N/A' }}</strong> &bull; {{ selectedBusPass.classOrDesignation || 'Enrolled' }}</p>
+
+            <div class="bp-route-box">
+              <div class="bp-route-row">
+                <span class="lbl">Route:</span>
+                <strong class="val">{{ selectedBusPass.routeCode }} - {{ selectedBusPass.routeName }}</strong>
+              </div>
+              <div class="bp-route-row">
+                <span class="lbl">Stop:</span>
+                <strong class="val">{{ selectedBusPass.stopName }}</strong>
+              </div>
+              <div class="bp-route-row">
+                <span class="lbl">Vehicle / Bus:</span>
+                <strong class="val">{{ selectedBusPass.vehicleNumber }}</strong>
+              </div>
+              <div class="bp-route-row" *ngIf="selectedBusPass.driverName">
+                <span class="lbl">Driver SOS:</span>
+                <strong class="val">{{ selectedBusPass.driverName }} ({{ selectedBusPass.driverPhone }})</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bp-footer">
+          <div class="bp-qr-box">
+            <code>{{ selectedBusPass.qrPayload }}</code>
+          </div>
+          <div class="bp-validity">
+            <span>Valid From: <strong>{{ selectedBusPass.validFrom | date:'dd MMM yyyy' }}</strong></span>
+            <span>Coverage: <strong>{{ selectedBusPass.pickupDropType }}</strong></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button mat-stroked-button type="button" (click)="showBusPassModal = false">Close</button>
+      <button mat-flat-button color="primary" (click)="printBusPass()">
+        <mat-icon>print</mat-icon> Print Bus Pass
+      </button>
+    </div>
+  </div>
+</div>

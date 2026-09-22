@@ -64,6 +64,13 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
     public DbSet<TeacherSubstitution> TeacherSubstitutions => Set<TeacherSubstitution>();
     public DbSet<TeacherLessonPlan> TeacherLessonPlans => Set<TeacherLessonPlan>();
     public DbSet<TeacherDocument> TeacherDocuments => Set<TeacherDocument>();
+    // Transport module
+    public DbSet<TransportDriver> TransportDrivers => Set<TransportDriver>();
+    public DbSet<TransportVehicle> TransportVehicles => Set<TransportVehicle>();
+    public DbSet<TransportRoute> TransportRoutes => Set<TransportRoute>();
+    public DbSet<TransportRouteStop> TransportRouteStops => Set<TransportRouteStop>();
+    public DbSet<TransportAllocation> TransportAllocations => Set<TransportAllocation>();
+    public DbSet<CampusGatePass> CampusGatePasses => Set<CampusGatePass>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -182,6 +189,75 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
         modelBuilder.Entity<TeacherDocument>().HasQueryFilter(x => 
             (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+
+        // Transport module query filters
+        modelBuilder.Entity<TransportDriver>().HasQueryFilter(x =>
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<TransportVehicle>().HasQueryFilter(x =>
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<TransportRoute>().HasQueryFilter(x =>
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<TransportRouteStop>().HasQueryFilter(x =>
+            _currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId);
+        modelBuilder.Entity<TransportAllocation>().HasQueryFilter(x =>
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<CampusGatePass>().HasQueryFilter(x =>
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+
+        // HostelAllocation — configure nullable StudentId / TeacherId FKs
+        modelBuilder.Entity<HostelAllocation>()
+            .HasOne(a => a.Student)
+            .WithMany(s => s.HostelAllocations)
+            .HasForeignKey(a => a.StudentId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<HostelAllocation>()
+            .HasOne(a => a.Teacher)
+            .WithMany()
+            .HasForeignKey(a => a.TeacherId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // TransportAllocation — configure nullable FKs
+        modelBuilder.Entity<TransportAllocation>()
+            .HasOne(a => a.Student)
+            .WithMany()
+            .HasForeignKey(a => a.StudentId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<TransportAllocation>()
+            .HasOne(a => a.Teacher)
+            .WithMany()
+            .HasForeignKey(a => a.TeacherId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Teacher transport/hostel FKs — restrict to prevent cascades
+        modelBuilder.Entity<Teacher>()
+            .HasOne(t => t.TransportAllocation)
+            .WithMany()
+            .HasForeignKey(t => t.TransportAllocationId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.SetNull);
+        modelBuilder.Entity<Teacher>()
+            .HasOne(t => t.HostelBed)
+            .WithMany()
+            .HasForeignKey(t => t.HostelBedId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        // Student transport FK
+        modelBuilder.Entity<Student>()
+            .HasOne(s => s.TransportAllocation)
+            .WithMany()
+            .HasForeignKey(s => s.TransportAllocationId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.SetNull);
 
         modelBuilder.Entity<TeacherSubstitution>()
             .HasOne(s => s.OriginalTeacher)

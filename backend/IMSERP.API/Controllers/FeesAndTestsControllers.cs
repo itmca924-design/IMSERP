@@ -1024,18 +1024,19 @@ public class FeesController : ControllerBase
             .Include(a => a.Bed)
                 .ThenInclude(b => b!.Room)
                     .ThenInclude(r => r!.Hostel)
-            .Where(a => a.Status == "Active" && studentIds.Contains(a.StudentId))
+            .Where(a => a.Status == "Active" && a.MemberType == "Student" && a.StudentId.HasValue && studentIds.Contains(a.StudentId!.Value))
             .ToListAsync();
 
         // Key: StudentId → HostelAllocation (one active allocation per student)
         var allocationByStudent = activeAllocations
-            .GroupBy(a => a.StudentId)
+            .Where(a => a.StudentId.HasValue)
+            .GroupBy(a => a.StudentId!.Value)
             .ToDictionary(g => g.Key, g => g.First());
 
-        // Resolve Standard & Residential FeeHead IDs by Code (HOSTEL / MESS / COACH / TUI)
+        // Resolve Standard & Residential FeeHead IDs by Code (HOSTEL / MESS / COACH / TUI / LIB / TRANS)
         var standardHeads = await _dbContext.FeeHeads
             .AsNoTracking()
-            .Where(h => h.IsActive && (h.Code == "HOSTEL" || h.Code == "MESS" || h.Code == "COACH" || h.Code == "TUI" || h.Code == "LIB"))
+            .Where(h => h.IsActive && (h.Code == "HOSTEL" || h.Code == "MESS" || h.Code == "COACH" || h.Code == "TUI" || h.Code == "LIB" || h.Code == "TRANS"))
             .ToListAsync();
 
         var hostelFeeHeadId = standardHeads.FirstOrDefault(h => h.Code == "HOSTEL")?.Id;
@@ -1043,6 +1044,18 @@ public class FeesController : ControllerBase
         var coachFeeHead    = standardHeads.FirstOrDefault(h => h.Code == "COACH");
         var tuiFeeHead      = standardHeads.FirstOrDefault(h => h.Code == "TUI");
         var libFeeHeadId    = standardHeads.FirstOrDefault(h => h.Code == "LIB")?.Id;
+        var transFeeHeadId  = standardHeads.FirstOrDefault(h => h.Code == "TRANS")?.Id;
+
+        // Load active transport allocations for these students (bulk, pre-loop)
+        var activeTransportAllocations = await _dbContext.TransportAllocations
+            .AsNoTracking()
+            .Include(a => a.Stop)
+            .Where(a => a.Status == "Active" && a.MemberType == "Student" && a.StudentId.HasValue && studentIds.Contains(a.StudentId!.Value))
+            .ToListAsync();
+        var transportByStudent = activeTransportAllocations
+            .Where(a => a.StudentId.HasValue)
+            .GroupBy(a => a.StudentId!.Value)
+            .ToDictionary(g => g.Key, g => g.First());
         // ────────────────────────────────────────────────────────────────────
 
         var newInvoices = new List<FeeInvoice>();
@@ -1237,6 +1250,21 @@ public class FeesController : ControllerBase
                     FeeHeadId  = libFeeHeadId,
                     HeadName   = $"Library & Reading Room ({s.LibraryMembershipType ?? "Membership"})",
                     Amount     = libAmount,
+                    PaidAmount = 0
+                });
+            }
+
+            // ── Inject Transport Fee (if student has active transport allocation) ──
+            if (s.IsTransportStudent && transportByStudent.TryGetValue(s.Id, out var transportAlloc) && transportAlloc.MonthlyFare > 0 && !transportAlloc.IsFreeAllocation)
+            {
+                decimal transAmount = transportAlloc.MonthlyFare * cycleMonths;
+                totalAmount += transAmount;
+                invoiceItems.Add(new FeeInvoiceItem
+                {
+                    TenantId   = _currentUser.TenantId,
+                    FeeHeadId  = transFeeHeadId,
+                    HeadName   = $"Transport Fee ({transportAlloc.Stop?.StopName ?? "Bus"})",
+                    Amount     = transAmount,
                     PaidAmount = 0
                 });
             }

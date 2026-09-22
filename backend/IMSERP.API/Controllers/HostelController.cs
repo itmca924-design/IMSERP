@@ -414,153 +414,124 @@ public class HostelController : ControllerBase
     [HttpPost("allocate")]
     public async Task<IActionResult> AllocateBed([FromBody] AllocateBedDto dto)
     {
-        var student = await _db.Students.FindAsync(dto.StudentId);
-        if (student == null) return BadRequest(new { message = "Student not found" });
-
         var bed = await _db.HostelBeds.Include(b => b.Room).FirstOrDefaultAsync(b => b.Id == dto.BedId);
         if (bed == null) return BadRequest(new { message = "Bed not found" });
-
         if (bed.Status != "Available")
-        {
             return BadRequest(new { message = $"Bed {bed.BedCode} is already {bed.Status}" });
-        }
 
-        // Check if student already has an active bed
-        if (student.HostelBedId.HasValue && student.HostelBedId.Value != Guid.Empty)
+        string memberName;
+        string? allocMemberBranchId = null;
+
+        if (dto.MemberType == "Teacher")
         {
-            var currentBed = await _db.HostelBeds.FindAsync(student.HostelBedId.Value);
-            if (currentBed != null)
+            if (!dto.TeacherId.HasValue) return BadRequest(new { message = "TeacherId required for Teacher allocation." });
+            var teacher = await _db.Teachers.FindAsync(dto.TeacherId.Value);
+            if (teacher == null) return BadRequest(new { message = "Teacher not found" });
+
+            // Vacate existing hostel bed if any
+            if (teacher.HostelBedId.HasValue)
             {
-                currentBed.Status = "Available";
-                currentBed.CurrentStudentId = null;
+                var currentBed = await _db.HostelBeds.FindAsync(teacher.HostelBedId.Value);
+                if (currentBed != null) { currentBed.Status = "Available"; currentBed.CurrentStudentId = null; }
+                var activeAlloc = await _db.HostelAllocations.FirstOrDefaultAsync(a => a.TeacherId == teacher.Id && a.Status == "Active");
+                if (activeAlloc != null) { activeAlloc.Status = "Transferred"; activeAlloc.VacatedDate = DateTime.UtcNow; }
             }
 
-            var activeAlloc = await _db.HostelAllocations
-                .FirstOrDefaultAsync(a => a.StudentId == student.Id && a.Status == "Active");
-            if (activeAlloc != null)
+            bed.Status = "Occupied";
+            bed.CurrentStudentId = null; // bed is occupied by teacher, not student
+
+            teacher.IsHostelResident = true;
+            teacher.HostelBedId = bed.Id;
+
+            var rent = dto.MonthlyRent ?? bed.MonthlyRent;
+            var allocation = new HostelAllocation
             {
-                activeAlloc.Status = "Transferred";
-                activeAlloc.VacatedDate = DateTime.UtcNow;
-            }
+                TenantId = _currentUser.TenantId,
+                BranchId = teacher.BranchId,
+                MemberType = "Teacher",
+                TeacherId = teacher.Id,
+                BedId = bed.Id,
+                AllocatedDate = dto.AllocatedDate ?? DateTime.UtcNow,
+                MonthlyRent = rent,
+                IsMessIncluded = dto.IsMessIncluded,
+                MessPlan = dto.MessPlan,
+                MonthlyMessFee = dto.MonthlyMessFee,
+                Status = "Active",
+                Remarks = dto.Remarks
+            };
+            _db.HostelAllocations.Add(allocation);
+            await _db.SaveChangesAsync();
+            return Ok(new { message = $"Bed {bed.BedCode} allocated to teacher {teacher.FullName} successfully." });
         }
-
-        // Allocate new bed
-        bed.Status = "Occupied";
-        bed.CurrentStudentId = student.Id;
-
-        student.IsHostelStudent = true;
-        student.HostelBedId = bed.Id;
-
-        var rent = dto.MonthlyRent ?? bed.MonthlyRent;
-        var allocation = new HostelAllocation
+        else
         {
-            TenantId = _currentUser.TenantId,
-            BranchId = student.BranchId,
-            StudentId = student.Id,
-            BedId = bed.Id,
-            AllocatedDate = dto.AllocatedDate ?? DateTime.UtcNow,
-            MonthlyRent = rent,
-            IsMessIncluded = dto.IsMessIncluded,
-            MessPlan = dto.MessPlan,
-            MonthlyMessFee = dto.MonthlyMessFee,
-            Status = "Active",
-            Remarks = dto.Remarks
-        };
+            // Student allocation (original logic)
+            if (!dto.StudentId.HasValue) return BadRequest(new { message = "StudentId required for Student allocation." });
+            var student = await _db.Students.FindAsync(dto.StudentId.Value);
+            if (student == null) return BadRequest(new { message = "Student not found" });
 
-        _db.HostelAllocations.Add(allocation);
-        await _db.SaveChangesAsync();
-
-        // ── Immediate First-Month Invoice ──────────────────────────────────────
-        // Generate a hostel fee invoice for the current month immediately so the
-        // parent can settle at the admission counter without waiting for bulk generation.
-        try
-        {
-            var now = DateTime.UtcNow;
-            var periodStart = new DateTime(now.Year, now.Month, 1);
-            var periodEnd   = periodStart.AddMonths(1).AddDays(-1);
-
-            // Skip if an active invoice already exists this month for this student
-            bool invoiceAlreadyExists = await _db.FeeInvoices.AnyAsync(i =>
-                i.StudentId == student.Id &&
-                i.DueDate >= periodStart &&
-                i.DueDate <= periodEnd &&
-                i.Status != InvoiceStatus.Cancelled);
-
-            if (!invoiceAlreadyExists && (rent > 0 || dto.MonthlyMessFee > 0))
+            // Check if student already has an active bed
+            if (student.HostelBedId.HasValue && student.HostelBedId.Value != Guid.Empty)
             {
-                var residentialHeads = await _db.FeeHeads
-                    .AsNoTracking()
-                    .Where(h => h.IsActive && (h.Code == "HOSTEL" || h.Code == "MESS"))
-                    .ToListAsync();
+                var currentBed = await _db.HostelBeds.FindAsync(student.HostelBedId.Value);
+                if (currentBed != null) { currentBed.Status = "Available"; currentBed.CurrentStudentId = null; }
+                var activeAlloc = await _db.HostelAllocations.FirstOrDefaultAsync(a => a.StudentId == student.Id && a.Status == "Active");
+                if (activeAlloc != null) { activeAlloc.Status = "Transferred"; activeAlloc.VacatedDate = DateTime.UtcNow; }
+            }
 
-                Guid? hostelHeadId = residentialHeads.FirstOrDefault(h => h.Code == "HOSTEL")?.Id;
-                Guid? messHeadId   = residentialHeads.FirstOrDefault(h => h.Code == "MESS")?.Id;
+            bed.Status = "Occupied";
+            bed.CurrentStudentId = student.Id;
+            student.IsHostelStudent = true;
+            student.HostelBedId = bed.Id;
 
-                var roomNumber = bed.Room?.RoomNumber ?? "Room";
-                var bedCode    = bed.BedCode;
+            var rent = dto.MonthlyRent ?? bed.MonthlyRent;
+            var allocation = new HostelAllocation
+            {
+                TenantId = _currentUser.TenantId,
+                BranchId = student.BranchId,
+                MemberType = "Student",
+                StudentId = student.Id,
+                BedId = bed.Id,
+                AllocatedDate = dto.AllocatedDate ?? DateTime.UtcNow,
+                MonthlyRent = rent,
+                IsMessIncluded = dto.IsMessIncluded,
+                MessPlan = dto.MessPlan,
+                MonthlyMessFee = dto.MonthlyMessFee,
+                Status = "Active",
+                Remarks = dto.Remarks
+            };
+            _db.HostelAllocations.Add(allocation);
+            await _db.SaveChangesAsync();
 
-                var hostelItems = new List<FeeInvoiceItem>();
-                decimal hostelTotal = 0;
-
-                if (rent > 0)
+            // ── Immediate First-Month Invoice ──────────────────────────────────────
+            try
+            {
+                var now = DateTime.UtcNow;
+                var periodStart = new DateTime(now.Year, now.Month, 1);
+                var periodEnd   = periodStart.AddMonths(1).AddDays(-1);
+                bool invoiceAlreadyExists = await _db.FeeInvoices.AnyAsync(i => i.StudentId == student.Id && i.DueDate >= periodStart && i.DueDate <= periodEnd && i.Status != InvoiceStatus.Cancelled);
+                if (!invoiceAlreadyExists && (rent > 0 || dto.MonthlyMessFee > 0))
                 {
-                    hostelTotal += rent;
-                    hostelItems.Add(new FeeInvoiceItem
+                    var residentialHeads = await _db.FeeHeads.AsNoTracking().Where(h => h.IsActive && (h.Code == "HOSTEL" || h.Code == "MESS")).ToListAsync();
+                    Guid? hostelHeadId = residentialHeads.FirstOrDefault(h => h.Code == "HOSTEL")?.Id;
+                    Guid? messHeadId   = residentialHeads.FirstOrDefault(h => h.Code == "MESS")?.Id;
+                    var hostelItems = new List<FeeInvoiceItem>();
+                    decimal hostelTotal = 0;
+                    if (rent > 0) { hostelTotal += rent; hostelItems.Add(new FeeInvoiceItem { TenantId = _currentUser.TenantId, FeeHeadId = hostelHeadId, HeadName = $"Hostel / Accommodation Fee (Rm {bed.Room?.RoomNumber} - Bed {bed.BedCode})", Amount = rent, PaidAmount = 0 }); }
+                    if (dto.IsMessIncluded && dto.MonthlyMessFee > 0) { hostelTotal += dto.MonthlyMessFee; hostelItems.Add(new FeeInvoiceItem { TenantId = _currentUser.TenantId, FeeHeadId = messHeadId, HeadName = $"Mess & Dining Fee ({dto.MessPlan})", Amount = dto.MonthlyMessFee, PaidAmount = 0 }); }
+                    if (hostelTotal > 0)
                     {
-                        TenantId  = _currentUser.TenantId,
-                        FeeHeadId = hostelHeadId,
-                        HeadName  = $"Hostel / Accommodation Fee (Rm {roomNumber} - Bed {bedCode})",
-                        Amount    = rent,
-                        PaidAmount = 0
-                    });
-                }
-
-                if (dto.IsMessIncluded && dto.MonthlyMessFee > 0)
-                {
-                    hostelTotal += dto.MonthlyMessFee;
-                    hostelItems.Add(new FeeInvoiceItem
-                    {
-                        TenantId  = _currentUser.TenantId,
-                        FeeHeadId = messHeadId,
-                        HeadName  = $"Mess & Dining Fee ({dto.MessPlan})",
-                        Amount    = dto.MonthlyMessFee,
-                        PaidAmount = 0
-                    });
-                }
-
-                if (hostelTotal > 0)
-                {
-                    var hostelInvoice = new FeeInvoice
-                    {
-                        TenantId      = _currentUser.TenantId,
-                        BranchId      = student.BranchId,
-                        StudentId     = student.Id,
-                        ClassId       = student.ClassId,
-                        ClassName     = student.Class?.Name,
-                        SectionId     = student.SectionId,
-                        SectionName   = student.Section?.Name,
-                        InvoiceNumber = $"INV-HOSTEL-{now.Year}{now.Month:D2}-{new Random().Next(100, 999)}",
-                        Title         = $"{now:MMMM yyyy} Hostel Charges",
-                        TotalAmount   = hostelTotal,
-                        PaidAmount    = 0,
-                        DueDate       = new DateTime(now.Year, now.Month, Math.Min(10, DateTime.DaysInMonth(now.Year, now.Month))),
-                        Status        = InvoiceStatus.Pending,
-                        CreatedAt     = now,
-                        Items         = hostelItems
-                    };
-                    _db.FeeInvoices.Add(hostelInvoice);
-                    await _db.SaveChangesAsync();
+                        _db.FeeInvoices.Add(new FeeInvoice { TenantId = _currentUser.TenantId, BranchId = student.BranchId, StudentId = student.Id, ClassId = student.ClassId, ClassName = student.Class?.Name, SectionId = student.SectionId, SectionName = student.Section?.Name, InvoiceNumber = $"INV-HOSTEL-{now.Year}{now.Month:D2}-{new Random().Next(100, 999)}", Title = $"{now:MMMM yyyy} Hostel Charges", TotalAmount = hostelTotal, PaidAmount = 0, DueDate = new DateTime(now.Year, now.Month, Math.Min(10, DateTime.DaysInMonth(now.Year, now.Month))), Status = InvoiceStatus.Pending, CreatedAt = now, Items = hostelItems });
+                        await _db.SaveChangesAsync();
+                    }
                 }
             }
-        }
-        catch
-        {
-            // Non-critical: invoice generation failure should not block bed allocation
-        }
-        // ─────────────────────────────────────────────────────────────────────────
+            catch { /* Non-critical */ }
 
-        return Ok(new { message = $"Bed {bed.BedCode} allocated to {student.StudentName} successfully." });
+            return Ok(new { message = $"Bed {bed.BedCode} allocated to {student.StudentName} successfully." });
+        }
     }
+
 
     [HttpPost("vacate")]
     public async Task<IActionResult> VacateBed([FromBody] VacateBedDto dto)
@@ -568,6 +539,7 @@ public class HostelController : ControllerBase
         var alloc = await _db.HostelAllocations
             .Include(a => a.Bed)
             .Include(a => a.Student)
+            .Include(a => a.Teacher)
             .FirstOrDefaultAsync(a => a.Id == dto.AllocationId);
 
         if (alloc == null) return NotFound(new { message = "Allocation record not found" });
@@ -585,54 +557,51 @@ public class HostelController : ControllerBase
             alloc.Bed.CurrentStudentId = null;
         }
 
-        if (alloc.Student != null && alloc.Student.HostelBedId == alloc.BedId)
+        if (alloc.MemberType == "Teacher" && alloc.Teacher != null && alloc.Teacher.HostelBedId == alloc.BedId)
+        {
+            alloc.Teacher.HostelBedId = null;
+            alloc.Teacher.IsHostelResident = false;
+        }
+        else if (alloc.Student != null && alloc.Student.HostelBedId == alloc.BedId)
         {
             alloc.Student.HostelBedId = null;
-            // Student remains active academic student (Day Scholar)
             alloc.Student.IsHostelStudent = false;
         }
 
         await _db.SaveChangesAsync();
-        return Ok(new { message = "Bed vacated successfully. Student is now marked as Day Scholar." });
+        string whoVacated = alloc.MemberType == "Teacher" ? "Teacher is no longer a hostel resident." : "Student is now marked as Day Scholar.";
+        return Ok(new { message = $"Bed vacated successfully. {whoVacated}" });
     }
 
     [HttpGet("allocations")]
     public async Task<ActionResult<IEnumerable<HostelAllocationDto>>> GetAllocations(
         [FromQuery] string? status = null,
-        [FromQuery] Guid? studentId = null)
+        [FromQuery] Guid? studentId = null,
+        [FromQuery] Guid? teacherId = null,
+        [FromQuery] string? memberType = null)
     {
         var query = _db.HostelAllocations
             .AsNoTracking()
-            .Include(a => a.Student)
-                .ThenInclude(s => s.Class)
-            .Include(a => a.Student)
-                .ThenInclude(s => s.Batch)
-            .Include(a => a.Bed)
-                .ThenInclude(b => b.Room)
-                    .ThenInclude(r => r.Hostel)
+            .Include(a => a.Student).ThenInclude(s => s!.Class)
+            .Include(a => a.Student).ThenInclude(s => s!.Batch)
+            .Include(a => a.Teacher)
+            .Include(a => a.Bed).ThenInclude(b => b!.Room).ThenInclude(r => r!.Hostel)
             .AsQueryable();
 
-        if (!string.IsNullOrWhiteSpace(status))
-        {
-            query = query.Where(a => a.Status == status);
-        }
+        if (!string.IsNullOrWhiteSpace(status)) query = query.Where(a => a.Status == status);
+        if (studentId.HasValue && studentId != Guid.Empty) query = query.Where(a => a.StudentId == studentId.Value);
+        if (teacherId.HasValue && teacherId != Guid.Empty) query = query.Where(a => a.TeacherId == teacherId.Value);
+        if (!string.IsNullOrWhiteSpace(memberType)) query = query.Where(a => a.MemberType == memberType);
 
-        if (studentId.HasValue && studentId != Guid.Empty)
-        {
-            query = query.Where(a => a.StudentId == studentId.Value);
-        }
-
-        var list = await query
-            .OrderByDescending(a => a.AllocatedDate)
-            .ToListAsync();
+        var list = await query.OrderByDescending(a => a.AllocatedDate).ToListAsync();
 
         var result = list.Select(a => new HostelAllocationDto(
             a.Id,
             a.StudentId,
-            a.Student?.StudentName ?? "",
+            a.Student?.StudentName ?? a.Teacher?.FullName ?? "",
             a.Student?.RollNumber,
-            a.Student?.ParentWhatsAppPhone,
-            a.Student?.Class?.Name ?? a.Student?.Batch?.Name,
+            a.Student?.ParentWhatsAppPhone ?? a.Teacher?.PhoneNumber,
+            a.Student?.Class?.Name ?? a.Student?.Batch?.Name ?? a.Teacher?.Specialization,
             a.BedId,
             a.Bed?.BedCode ?? "",
             a.Bed?.Room?.RoomNumber ?? "",
@@ -645,7 +614,11 @@ public class HostelController : ControllerBase
             a.MessPlan,
             a.MonthlyMessFee,
             a.Status,
-            a.Remarks
+            a.Remarks,
+            a.MemberType,
+            a.TeacherId,
+            a.Teacher?.FullName,
+            a.Teacher?.EmployeeCode
         ));
 
         return Ok(result);

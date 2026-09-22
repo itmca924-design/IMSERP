@@ -347,10 +347,15 @@ const API_BASE = 'http://localhost:5000';
 
         <!-- TAB 3: RESIDENTS & ALLOCATIONS -->
         <div class="tab-pane" *ngIf="activeTab === 'residents'">
-          <div class="residents-toolbar">
-            <mat-form-field appearance="outline" class="search-field">
+          <div class="residents-toolbar" style="display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 16px;">
+            <div style="display: flex; gap: 8px;">
+              <button type="button" [style.background]="residentMemberTypeFilter === 'All' ? '#1e3a8a' : '#fff'" [style.color]="residentMemberTypeFilter === 'All' ? '#fff' : '#475569'" (click)="residentMemberTypeFilter = 'All'" style="padding: 6px 14px; border-radius: 16px; border: 1px solid #cbd5e1; cursor: pointer; font-weight: 600; font-size: 0.85rem;">All Residents</button>
+              <button type="button" [style.background]="residentMemberTypeFilter === 'Student' ? '#1e3a8a' : '#fff'" [style.color]="residentMemberTypeFilter === 'Student' ? '#fff' : '#475569'" (click)="residentMemberTypeFilter = 'Student'" style="padding: 6px 14px; border-radius: 16px; border: 1px solid #cbd5e1; cursor: pointer; font-weight: 600; font-size: 0.85rem;">Students</button>
+              <button type="button" [style.background]="residentMemberTypeFilter === 'Teacher' ? '#1e3a8a' : '#fff'" [style.color]="residentMemberTypeFilter === 'Teacher' ? '#fff' : '#475569'" (click)="residentMemberTypeFilter = 'Teacher'" style="padding: 6px 14px; border-radius: 16px; border: 1px solid #cbd5e1; cursor: pointer; font-weight: 600; font-size: 0.85rem;">Faculty / Staff Quarters</button>
+            </div>
+            <mat-form-field appearance="outline" class="search-field" style="margin-bottom: -16px;">
               <mat-label>Search Residents...</mat-label>
-              <input matInput [(ngModel)]="residentSearch" placeholder="Student name, roll no, room..." />
+              <input matInput [(ngModel)]="residentSearch" placeholder="Name, roll/emp no, room..." />
               <mat-icon matSuffix>search</mat-icon>
             </mat-form-field>
           </div>
@@ -359,8 +364,8 @@ const API_BASE = 'http://localhost:5000';
             <table class="custom-data-table">
               <thead>
                 <tr>
-                  <th>Student</th>
-                  <th>Roll / SR No</th>
+                  <th>Resident (Student / Faculty)</th>
+                  <th>Roll / Emp Code</th>
                   <th>Hostel Block</th>
                   <th>Room &amp; Bed</th>
                   <th>Monthly Rent</th>
@@ -374,11 +379,14 @@ const API_BASE = 'http://localhost:5000';
                 <tr *ngFor="let a of filteredAllocations">
                   <td>
                     <div class="student-cell">
-                      <span class="name">{{ a.studentName }}</span>
-                      <small class="class-info">{{ a.classOrBatch }}</small>
+                      <span class="name">
+                        {{ a.studentName || a.teacherName }}
+                        <span *ngIf="a.memberType === 'Teacher'" style="background: #faf5ff; color: #7e22ce; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; margin-left: 6px;">Staff Quarter</span>
+                      </span>
+                      <small class="class-info">{{ a.classOrBatch || (a.memberType === 'Teacher' ? 'Faculty Member' : '') }}</small>
                     </div>
                   </td>
-                  <td><strong>{{ a.rollNumber || 'N/A' }}</strong></td>
+                  <td><strong>{{ a.rollNumber || (a.memberType === 'Teacher' ? 'FACULTY' : 'N/A') }}</strong></td>
                   <td>{{ a.hostelName }}</td>
                   <td>
                     <span class="bed-pill">Rm {{ a.roomNumber }} - {{ a.bedCode }}</span>
@@ -3666,15 +3674,22 @@ export class HostelManagementComponent implements OnInit {
     });
   }
 
+  residentMemberTypeFilter: 'All' | 'Student' | 'Teacher' = 'All';
+
   get filteredAllocations(): HostelAllocationDto[] {
-    if (!this.residentSearch) return this.allocations;
+    let list = this.allocations;
+    if (this.residentMemberTypeFilter !== 'All') {
+      list = list.filter(a => (a.memberType || 'Student') === this.residentMemberTypeFilter);
+    }
+    if (!this.residentSearch) return list;
     const term = this.residentSearch.toLowerCase();
-    return this.allocations.filter(
+    return list.filter(
       (a) =>
-        a.studentName.toLowerCase().includes(term) ||
+        (a.studentName && a.studentName.toLowerCase().includes(term)) ||
+        (a.teacherName && a.teacherName.toLowerCase().includes(term)) ||
         (a.rollNumber && a.rollNumber.toLowerCase().includes(term)) ||
-        a.roomNumber.toLowerCase().includes(term) ||
-        a.bedCode.toLowerCase().includes(term)
+        (a.roomNumber && a.roomNumber.toLowerCase().includes(term)) ||
+        (a.bedCode && a.bedCode.toLowerCase().includes(term))
     );
   }
 

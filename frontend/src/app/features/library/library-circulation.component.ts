@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
 import { MatCardModule } from '@angular/material/card';
 import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
@@ -126,57 +127,111 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           <div class="desk-section">
             <span class="ds-title">Step 2: Borrower &amp; Loan Duration</span>
 
-            <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Select Enrolled Student</mat-label>
-              <mat-select [(ngModel)]="issueStudentId" panelClass="batch-filter-panel">
-                <mat-option *ngFor="let s of students" [value]="s.id">
-                  <div class="borrower-opt">
-                    <span class="borrower-opt-name">{{ s.studentName }}</span>
-                    <span class="borrower-opt-id">({{ s.coachingRollNumber || s.rollNumber }}{{ s.admissionNumber ? ' • Adm: ' + s.admissionNumber : '' }})</span>
-                    <span *ngIf="s.isLibraryMember" class="b-pill-member">📚 Member (Limit: {{ s.maxLibraryBooks || 2 }})</span>
-                    <span *ngIf="!s.isLibraryMember" class="b-pill-non">Non-Member</span>
-                  </div>
-                </mat-option>
-              </mat-select>
-            </mat-form-field>
+            <!-- Member Type Switcher -->
+            <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+              <button type="button" class="lp-pill" [class.active]="issueMemberType === 'Student'" (click)="setIssueMemberType('Student')">
+                <mat-icon>school</mat-icon> Student
+              </button>
+              <button type="button" class="lp-pill" [class.active]="issueMemberType === 'Teacher'" (click)="setIssueMemberType('Teacher')">
+                <mat-icon>co_present</mat-icon> Faculty / Teacher
+              </button>
+            </div>
 
-            <!-- Borrower Library Membership Summary Card -->
-            <div class="borrower-summary-card" *ngIf="selectedStudentForIssue">
-              <div class="bsc-badge-row">
-                <span class="bsc-status-pill" [class.is-member]="selectedStudentForIssue.isLibraryMember" [class.is-non-member]="!selectedStudentForIssue.isLibraryMember">
-                  <mat-icon>{{ selectedStudentForIssue.isLibraryMember ? 'verified' : 'block' }}</mat-icon>
-                  {{ selectedStudentForIssue.isLibraryMember ? 'Active Library Member' : 'Non-Member (Membership Required)' }}
-                </span>
-                <span class="bsc-limit-pill" *ngIf="selectedStudentForIssue.isLibraryMember">
-                  Borrow Limit: <strong>{{ selectedStudentForIssue.maxLibraryBooks || 2 }} Books</strong>
-                </span>
-              </div>
-              <div class="bsc-details-grid" *ngIf="selectedStudentForIssue.isLibraryMember">
-                <div class="bsc-item">
-                  <span class="bsc-lbl">Library Card / Barcode:</span>
-                  <strong class="bsc-val">{{ selectedStudentForIssue.libraryCardNumber || 'Card Not Assigned' }}</strong>
+            <!-- Student Picker -->
+            <div *ngIf="issueMemberType === 'Student'">
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Select Enrolled Student</mat-label>
+                <mat-select [(ngModel)]="issueStudentId" panelClass="batch-filter-panel">
+                  <mat-option *ngFor="let s of students" [value]="s.id">
+                    <div class="borrower-opt">
+                      <span class="borrower-opt-name">{{ s.studentName }}</span>
+                      <span class="borrower-opt-id">({{ s.coachingRollNumber || s.rollNumber }}{{ s.admissionNumber ? ' • Adm: ' + s.admissionNumber : '' }})</span>
+                      <span *ngIf="s.isLibraryMember" class="b-pill-member">📚 Member (Limit: {{ s.maxLibraryBooks || 2 }})</span>
+                      <span *ngIf="!s.isLibraryMember" class="b-pill-non">Non-Member</span>
+                    </div>
+                  </mat-option>
+                </mat-select>
+              </mat-form-field>
+
+              <!-- Borrower Library Membership Summary Card -->
+              <div class="borrower-summary-card" *ngIf="selectedStudentForIssue">
+                <div class="bsc-badge-row">
+                  <span class="bsc-status-pill" [class.is-member]="selectedStudentForIssue.isLibraryMember" [class.is-non-member]="!selectedStudentForIssue.isLibraryMember">
+                    <mat-icon>{{ selectedStudentForIssue.isLibraryMember ? 'verified' : 'block' }}</mat-icon>
+                    {{ selectedStudentForIssue.isLibraryMember ? 'Active Library Member' : 'Non-Member (Membership Required)' }}
+                  </span>
+                  <span class="bsc-limit-pill" *ngIf="selectedStudentForIssue.isLibraryMember">
+                    Borrow Limit: <strong>{{ selectedStudentForIssue.maxLibraryBooks || 2 }} Books</strong>
+                  </span>
                 </div>
-                <div class="bsc-item">
-                  <span class="bsc-lbl">Shift / Facility:</span>
-                  <strong class="bsc-val">{{ selectedStudentForIssue.libraryMembershipType || 'Standard Book Lending' }}</strong>
-                </div>
-                <div class="bsc-item" *ngIf="selectedStudentForIssue.monthlyLibraryFee > 0">
-                  <span class="bsc-lbl">Monthly Reading Fee:</span>
-                  <strong class="bsc-val">₹{{ selectedStudentForIssue.monthlyLibraryFee | number }}/mo</strong>
-                </div>
-              </div>
-              <div class="bsc-non-member-box" *ngIf="!selectedStudentForIssue.isLibraryMember">
-                <div class="bsc-non-content">
-                  <mat-icon class="bsc-warn-ico">warning_amber</mat-icon>
-                  <div class="bsc-warn-texts">
-                    <span class="bsc-warn-heading">Membership Required to Borrow</span>
-                    <p class="bsc-warn-desc">Student has not enrolled in a Library Membership Plan. Book circulation is restricted to registered members only.</p>
+                <div class="bsc-details-grid" *ngIf="selectedStudentForIssue.isLibraryMember">
+                  <div class="bsc-item">
+                    <span class="bsc-lbl">Library Card / Barcode:</span>
+                    <strong class="bsc-val">{{ selectedStudentForIssue.libraryCardNumber || 'Card Not Assigned' }}</strong>
+                  </div>
+                  <div class="bsc-item">
+                    <span class="bsc-lbl">Shift / Facility:</span>
+                    <strong class="bsc-val">{{ selectedStudentForIssue.libraryMembershipType || 'Standard Book Lending' }}</strong>
+                  </div>
+                  <div class="bsc-item" *ngIf="selectedStudentForIssue.monthlyLibraryFee > 0">
+                    <span class="bsc-lbl">Monthly Reading Fee:</span>
+                    <strong class="bsc-val">₹{{ selectedStudentForIssue.monthlyLibraryFee | number }}/mo</strong>
                   </div>
                 </div>
-                <a mat-stroked-button color="primary" class="btn-assign-mem" routerLink="/students" target="_blank">
-                  <mat-icon>card_membership</mat-icon>
-                  <span>Assign Membership in Students</span>
-                </a>
+                <div class="bsc-non-member-box" *ngIf="!selectedStudentForIssue.isLibraryMember">
+                  <div class="bsc-non-content">
+                    <mat-icon class="bsc-warn-ico">warning_amber</mat-icon>
+                    <div class="bsc-warn-texts">
+                      <span class="bsc-warn-heading">Membership Required to Borrow</span>
+                      <p class="bsc-warn-desc">Student has not enrolled in a Library Membership Plan. Book circulation is restricted to registered members only.</p>
+                    </div>
+                  </div>
+                  <a mat-stroked-button color="primary" class="btn-assign-mem" routerLink="/students" target="_blank">
+                    <mat-icon>card_membership</mat-icon>
+                    <span>Assign Membership in Students</span>
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            <!-- Teacher Picker -->
+            <div *ngIf="issueMemberType === 'Teacher'">
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Select Faculty Member</mat-label>
+                <mat-select [(ngModel)]="issueTeacherId" panelClass="batch-filter-panel">
+                  <mat-option *ngFor="let t of teachers" [value]="t.id">
+                    <div class="borrower-opt">
+                      <span class="borrower-opt-name">{{ t.fullName }}</span>
+                      <span class="borrower-opt-id">({{ t.employeeCode }} &bull; {{ t.specialization || 'Faculty' }})</span>
+                      <span class="b-pill-member">👨‍🏫 Faculty Privileges</span>
+                    </div>
+                  </mat-option>
+                </mat-select>
+              </mat-form-field>
+
+              <div class="borrower-summary-card" *ngIf="selectedTeacherForIssue">
+                <div class="bsc-badge-row">
+                  <span class="bsc-status-pill is-member">
+                    <mat-icon>verified</mat-icon> Verified Faculty Member
+                  </span>
+                  <span class="bsc-limit-pill">
+                    Faculty Loan: <strong>{{ settings?.maxBooksPerTeacher || 5 }} Books Max</strong>
+                  </span>
+                </div>
+                <div class="bsc-details-grid">
+                  <div class="bsc-item">
+                    <span class="bsc-lbl">Employee Code:</span>
+                    <strong class="bsc-val">{{ selectedTeacherForIssue.employeeCode }}</strong>
+                  </div>
+                  <div class="bsc-item">
+                    <span class="bsc-lbl">Specialization:</span>
+                    <strong class="bsc-val">{{ selectedTeacherForIssue.specialization || 'General' }}</strong>
+                  </div>
+                  <div class="bsc-item">
+                    <span class="bsc-lbl">Phone Number:</span>
+                    <strong class="bsc-val">{{ selectedTeacherForIssue.phoneNumber }}</strong>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -184,7 +239,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
               <mat-form-field appearance="outline" class="flex-1">
                 <mat-label>Loan Duration (Days)</mat-label>
                 <input matInput type="number" [(ngModel)]="issueDays" min="1" max="90" />
-                <mat-hint>Standard: {{ settings?.studentIssueDays || 14 }} days</mat-hint>
+                <mat-hint>{{ issueMemberType === 'Teacher' ? 'Faculty Policy: ' + (settings?.teacherIssueDays || 30) : 'Student Policy: ' + (settings?.studentIssueDays || 14) }} days</mat-hint>
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="flex-2">
@@ -194,9 +249,9 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             </div>
 
             <div class="issue-action-bar">
-              <button mat-raised-button color="primary" class="btn-confirm-issue" (click)="confirmIssue()" [disabled]="!verifiedBook || verifiedBook.status !== 'Available' || !issueStudentId || !selectedStudentForIssue.isLibraryMember || issueSubmitting">
-                <mat-icon>{{ selectedStudentForIssue && !selectedStudentForIssue.isLibraryMember ? 'lock' : 'check_circle' }}</mat-icon>
-                <span>{{ selectedStudentForIssue && !selectedStudentForIssue.isLibraryMember ? 'Membership Required to Issue' : 'Confirm & Issue Book' }}</span>
+              <button mat-raised-button color="primary" class="btn-confirm-issue" (click)="confirmIssue()" [disabled]="!verifiedBook || verifiedBook.status !== 'Available' || (issueMemberType === 'Student' && (!issueStudentId || !selectedStudentForIssue?.isLibraryMember)) || (issueMemberType === 'Teacher' && !issueTeacherId) || issueSubmitting">
+                <mat-icon>{{ (issueMemberType === 'Student' && selectedStudentForIssue && !selectedStudentForIssue.isLibraryMember) ? 'lock' : 'check_circle' }}</mat-icon>
+                <span>{{ (issueMemberType === 'Student' && selectedStudentForIssue && !selectedStudentForIssue.isLibraryMember) ? 'Membership Required to Issue' : 'Confirm & Issue Book' }}</span>
               </button>
             </div>
           </div>
@@ -316,11 +371,15 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                   <div class="bk-acc">Acc: <strong>{{ c.accessionNumber }}</strong> &bull; {{ c.rackLocation }}</div>
                 </td>
                 <td>
-                  <div class="borrower-name">{{ c.studentName || c.teacherName }}</div>
+                  <div class="borrower-name">
+                    {{ c.studentName || c.teacherName }}
+                    <span *ngIf="c.memberType === 'Teacher'" style="background: #faf5ff; color: #7e22ce; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; margin-left: 6px;">Faculty</span>
+                  </div>
                   <div class="borrower-meta">
                     <span *ngIf="c.studentRollNumber">Roll: {{ c.studentRollNumber }}</span>
                     <span *ngIf="c.studentClassName">&bull; {{ c.studentClassName }}</span>
                     <span *ngIf="c.studentBatchName">&bull; {{ c.studentBatchName }}</span>
+                    <span *ngIf="c.teacherEmployeeCode">Emp Code: {{ c.teacherEmployeeCode }}</span>
                   </div>
                 </td>
                 <td>{{ c.issueDate | date:'dd MMM yyyy' }}</td>
@@ -667,14 +726,17 @@ export class LibraryCirculationComponent implements OnInit {
 
   circulations: LibraryCirculationDto[] = [];
   students: any[] = [];
+  teachers: any[] = [];
   settings: LibrarySettingDto | null = null;
   overdueCount = 0;
   loadingCircs = false;
 
   // Issue Desk Fields
+  issueMemberType: 'Student' | 'Teacher' = 'Student';
   issueAccession = '';
   verifiedBook: BookCopyDto | null = null;
   issueStudentId: string | null = null;
+  issueTeacherId: string | null = null;
   issueDays = 14;
   issueRemarks = '';
   issueSubmitting = false;
@@ -697,14 +759,25 @@ export class LibraryCirculationComponent implements OnInit {
   constructor(
     private libraryService: LibraryService,
     private coachingService: CoachingService,
-    private confirmDialog: ConfirmDialogService
+    private confirmDialog: ConfirmDialogService,
+    private http: HttpClient
   ) {}
 
   ngOnInit(): void {
     this.loadSettings();
     this.loadStudents();
+    this.loadTeachers();
     this.loadCirculations();
     this.loadAvailableCopies();
+  }
+
+  setIssueMemberType(type: 'Student' | 'Teacher'): void {
+    this.issueMemberType = type;
+    if (type === 'Teacher') {
+      this.issueDays = this.settings?.teacherIssueDays || 30;
+    } else {
+      this.issueDays = this.settings?.studentIssueDays || 14;
+    }
   }
 
   loadAvailableCopies(): void {
@@ -723,7 +796,9 @@ export class LibraryCirculationComponent implements OnInit {
   loadSettings(): void {
     this.libraryService.getSettings().subscribe(s => {
       this.settings = s;
-      if (s) this.issueDays = s.studentIssueDays || 14;
+      if (s) {
+        this.issueDays = this.issueMemberType === 'Teacher' ? (s.teacherIssueDays || 30) : (s.studentIssueDays || 14);
+      }
     });
   }
 
@@ -740,9 +815,21 @@ export class LibraryCirculationComponent implements OnInit {
     });
   }
 
+  loadTeachers(): void {
+    this.http.get<any[]>('http://localhost:5000/api/teachers?activeOnly=true').subscribe({
+      next: (res) => this.teachers = res || [],
+      error: (err) => console.error('Failed to load teachers for library circulation', err)
+    });
+  }
+
   get selectedStudentForIssue(): any {
     if (!this.issueStudentId) return null;
     return this.students.find(s => s.id === this.issueStudentId) || null;
+  }
+
+  get selectedTeacherForIssue(): any {
+    if (!this.issueTeacherId) return null;
+    return this.teachers.find(t => t.id === this.issueTeacherId) || null;
   }
 
   loadCirculations(): void {
@@ -784,29 +871,37 @@ export class LibraryCirculationComponent implements OnInit {
   }
 
   confirmIssue(): void {
-    if (!this.verifiedBook || !this.issueStudentId) return;
+    if (!this.verifiedBook) return;
 
-    const student = this.selectedStudentForIssue;
-    if (student && !student.isLibraryMember) {
-      this.confirmDialog.alert(
-        'Library Membership Required',
-        `Student "${student.studentName}" is not an active library member. Please assign a Library Membership Plan from Students Module before issuing books.`,
-        'danger'
-      );
-      return;
+    if (this.issueMemberType === 'Student') {
+      if (!this.issueStudentId) return;
+      const student = this.selectedStudentForIssue;
+      if (student && !student.isLibraryMember) {
+        this.confirmDialog.alert(
+          'Library Membership Required',
+          `Student "${student.studentName}" is not an active library member. Please assign a Library Membership Plan from Students Module before issuing books.`,
+          'danger'
+        );
+        return;
+      }
+    } else {
+      if (!this.issueTeacherId) return;
     }
 
     this.executeIssue();
   }
 
   private executeIssue(): void {
-    if (!this.verifiedBook || !this.issueStudentId) return;
+    if (!this.verifiedBook) return;
+    if (this.issueMemberType === 'Student' && !this.issueStudentId) return;
+    if (this.issueMemberType === 'Teacher' && !this.issueTeacherId) return;
     this.issueSubmitting = true;
 
     this.libraryService.issueBook({
       accessionNumber: this.verifiedBook.accessionNumber,
-      studentId: this.issueStudentId,
-      memberType: 'Student',
+      studentId: this.issueMemberType === 'Student' ? this.issueStudentId! : undefined,
+      teacherId: this.issueMemberType === 'Teacher' ? this.issueTeacherId! : undefined,
+      memberType: this.issueMemberType,
       customDueDays: this.issueDays,
       remarks: this.issueRemarks
     }).subscribe({

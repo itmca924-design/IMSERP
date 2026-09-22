@@ -216,6 +216,9 @@ public class Student
     public string? LibraryMembershipType { get; set; }
     public int MaxLibraryBooks { get; set; } = 2;
     public decimal MonthlyLibraryFee { get; set; } = 0;
+    // Transport fields
+    public bool IsTransportStudent { get; set; } = false;
+    public Guid? TransportAllocationId { get; set; }
     public string StudentName { get; set; } = string.Empty;
     public string ParentName { get; set; } = string.Empty;
     public string ParentWhatsAppPhone { get; set; } = string.Empty;
@@ -246,6 +249,9 @@ public class Student
 
     [ForeignKey("HostelBedId")]
     public HostelBed? HostelBed { get; set; }
+
+    [ForeignKey("TransportAllocationId")]
+    public TransportAllocation? TransportAllocation { get; set; }
 
     public ICollection<FeeInvoice> FeeInvoices { get; set; } = new List<FeeInvoice>();
     public ICollection<TestMarks> TestMarks { get; set; } = new List<TestMarks>();
@@ -477,12 +483,24 @@ public class Teacher
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public string? BiometricUserId { get; set; }
     public Guid? UserId { get; set; }
+    // Transport fields
+    public bool IsTransportStaff { get; set; } = false;
+    public Guid? TransportAllocationId { get; set; }
+    // Hostel / Staff Quarters fields
+    public bool IsHostelResident { get; set; } = false;
+    public Guid? HostelBedId { get; set; }
 
     [ForeignKey("BranchId")]
     public Branch? Branch { get; set; }
 
     [ForeignKey("UserId")]
     public User? User { get; set; }
+
+    [ForeignKey("TransportAllocationId")]
+    public TransportAllocation? TransportAllocation { get; set; }
+
+    [ForeignKey("HostelBedId")]
+    public HostelBed? HostelBed { get; set; }
 
     public ICollection<TeacherBatchAssignment> BatchAssignments { get; set; } = new List<TeacherBatchAssignment>();
     public ICollection<TeacherAttendance> Attendances { get; set; } = new List<TeacherAttendance>();
@@ -1076,7 +1094,9 @@ public class HostelAllocation
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid TenantId { get; set; }
     public Guid? BranchId { get; set; }
-    public Guid StudentId { get; set; }
+    public string MemberType { get; set; } = "Student"; // Student | Teacher
+    public Guid? StudentId { get; set; }
+    public Guid? TeacherId { get; set; }
     public Guid BedId { get; set; }
     public DateTime AllocatedDate { get; set; } = DateTime.UtcNow;
     public DateTime? VacatedDate { get; set; }
@@ -1090,6 +1110,9 @@ public class HostelAllocation
 
     [ForeignKey("StudentId")]
     public Student? Student { get; set; }
+
+    [ForeignKey("TeacherId")]
+    public Teacher? Teacher { get; set; }
 
     [ForeignKey("BedId")]
     public HostelBed? Bed { get; set; }
@@ -1143,3 +1166,172 @@ public class HostelAttendance
     public Hostel? Hostel { get; set; }
 }
 
+// =========================================================================
+// TRANSPORT MODULE ENTITIES
+// =========================================================================
+
+public class TransportDriver
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public string FullName { get; set; } = string.Empty;
+    public string PhoneNumber { get; set; } = string.Empty;
+    public string? EmergencyPhone { get; set; }
+    public string LicenseNumber { get; set; } = string.Empty;
+    public DateTime? LicenseExpiry { get; set; }
+    public string? AadhaarNumber { get; set; }
+    public string? Address { get; set; }
+    public string? PhotoUrl { get; set; }
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    public ICollection<TransportVehicle> Vehicles { get; set; } = new List<TransportVehicle>();
+}
+
+public class TransportVehicle
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public string VehicleNumber { get; set; } = string.Empty; // e.g. UP-14-BT-1234
+    public string VehicleType { get; set; } = "Bus"; // Bus | Van | Auto
+    public int TotalCapacity { get; set; } = 40;
+    public string? Model { get; set; }
+    public string? Color { get; set; }
+    public Guid? DriverId { get; set; }
+    public string? ConductorName { get; set; }
+    public string? ConductorPhone { get; set; }
+    public string? GpsDeviceId { get; set; }
+    public DateTime? InsuranceExpiry { get; set; }
+    public DateTime? FitnessExpiry { get; set; }
+    public DateTime? PollutionExpiry { get; set; }
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("DriverId")]
+    public TransportDriver? Driver { get; set; }
+
+    public ICollection<TransportRoute> Routes { get; set; } = new List<TransportRoute>();
+}
+
+public class TransportRoute
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public string RouteCode { get; set; } = string.Empty; // e.g. R-01
+    public string RouteName { get; set; } = string.Empty; // e.g. City Centre to Campus
+    public string StartPoint { get; set; } = string.Empty;
+    public string EndPoint { get; set; } = string.Empty;
+    public Guid? VehicleId { get; set; }
+    public string? Description { get; set; }
+    public string MorningDepartureTime { get; set; } = "07:00"; // HH:mm
+    public string EveningDepartureTime { get; set; } = "14:00"; // HH:mm
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("VehicleId")]
+    public TransportVehicle? Vehicle { get; set; }
+
+    public ICollection<TransportRouteStop> Stops { get; set; } = new List<TransportRouteStop>();
+    public ICollection<TransportAllocation> Allocations { get; set; } = new List<TransportAllocation>();
+}
+
+public class TransportRouteStop
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid RouteId { get; set; }
+    public string StopName { get; set; } = string.Empty;
+    public int StopOrder { get; set; } = 1;
+    public string? PickupTime { get; set; } // HH:mm morning pickup
+    public string? DropTime { get; set; }   // HH:mm evening drop
+    public decimal MonthlyFare { get; set; } = 0;
+    public decimal? QuarterlyFare { get; set; }
+    public decimal? HalfYearlyFare { get; set; }
+    public decimal? AnnualFare { get; set; }
+    public string? Landmark { get; set; }
+    public decimal? DistanceKm { get; set; }
+    public bool IsActive { get; set; } = true;
+
+    [ForeignKey("RouteId")]
+    public TransportRoute? Route { get; set; }
+
+    public ICollection<TransportAllocation> Allocations { get; set; } = new List<TransportAllocation>();
+}
+
+public class TransportAllocation
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public string MemberType { get; set; } = "Student"; // Student | Teacher
+    public Guid? StudentId { get; set; }
+    public Guid? TeacherId { get; set; }
+    public Guid RouteId { get; set; }
+    public Guid RouteStopId { get; set; }
+    public Guid? VehicleId { get; set; }
+    public string PickupDropType { get; set; } = "Both"; // Both | PickupOnly | DropOnly
+    public decimal MonthlyFare { get; set; } = 0;
+    public bool IsFreeAllocation { get; set; } = false; // For teachers: free perk
+    public DateTime EffectiveFrom { get; set; } = DateTime.UtcNow;
+    public DateTime? EffectiveTo { get; set; }
+    public string Status { get; set; } = "Active"; // Active | Suspended | Discontinued
+    public string? Remarks { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("StudentId")]
+    public Student? Student { get; set; }
+
+    [ForeignKey("TeacherId")]
+    public Teacher? Teacher { get; set; }
+
+    [ForeignKey("RouteId")]
+    public TransportRoute? Route { get; set; }
+
+    [ForeignKey("RouteStopId")]
+    public TransportRouteStop? Stop { get; set; }
+
+    [ForeignKey("VehicleId")]
+    public TransportVehicle? Vehicle { get; set; }
+}
+
+// =========================================================================
+// CAMPUS GATE PASS (Unified Security Desk)
+// =========================================================================
+
+public class CampusGatePass
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    /// <summary>StudentEarlyExit | BusDeparture | TeacherMovement | Visitor</summary>
+    public string PassType { get; set; } = "StudentEarlyExit";
+    public string PassNumber { get; set; } = string.Empty;
+    public Guid? StudentId { get; set; }
+    public Guid? TeacherId { get; set; }
+    public Guid? VehicleId { get; set; }
+    /// <summary>For Visitor passes — name of visiting person</summary>
+    public string? PersonName { get; set; }
+    public string? ContactNumber { get; set; }
+    public string? Purpose { get; set; }
+    public DateTime OutDateTime { get; set; } = DateTime.UtcNow;
+    public DateTime? ExpectedInDateTime { get; set; }
+    public DateTime? ActualInDateTime { get; set; }
+    public string? ApprovedBy { get; set; }
+    public string? SecurityGuardName { get; set; }
+    public int? PassengerCount { get; set; } // for BusDeparture type
+    public string Status { get; set; } = "Issued"; // Issued | Closed | Overdue
+    public string? Remarks { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("StudentId")]
+    public Student? Student { get; set; }
+
+    [ForeignKey("TeacherId")]
+    public Teacher? Teacher { get; set; }
+
+    [ForeignKey("VehicleId")]
+    public TransportVehicle? Vehicle { get; set; }
+}

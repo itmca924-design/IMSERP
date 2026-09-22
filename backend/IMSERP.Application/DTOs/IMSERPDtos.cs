@@ -237,7 +237,14 @@ public record StudentDto(
     string? LibraryCardNumber = null,
     string? LibraryMembershipType = null,
     int MaxLibraryBooks = 2,
-    decimal MonthlyLibraryFee = 0
+    decimal MonthlyLibraryFee = 0,
+    // Transport
+    bool IsTransportStudent = false,
+    Guid? TransportAllocationId = null,
+    string? TransportRouteName = null,
+    string? TransportStopName = null,
+    string? TransportVehicleNumber = null,
+    decimal MonthlyTransportFare = 0
 );
 
 public record StudentLeavingClearanceDto(
@@ -257,7 +264,12 @@ public record StudentLeavingClearanceDto(
     decimal PendingLibraryFines,
     string? ExistingTCNumber,
     DateTime? ExistingLeavingDate,
-    string? ExistingLeavingReason
+    string? ExistingLeavingReason,
+    // Transport clearance
+    bool IsTransportStudent = false,
+    Guid? TransportAllocationId = null,
+    string? TransportRouteName = null,
+    string? TransportStopName = null
 );
 
 public record MarkStudentLeftDto(
@@ -265,6 +277,7 @@ public record MarkStudentLeftDto(
     string LeavingReason, // e.g., "TC Issued", "School Transfer", "Course Completed", "Dropped Out", "Rusticated", "Other"
     string? Remarks,
     bool VacateHostelBed = true,
+    bool ReleaseTransportSeat = true,
     string? CustomTCNumber = null
 );
 
@@ -275,7 +288,8 @@ public record MarkStudentLeftResultDto(
     DateTime LeavingDate,
     string LeavingReason,
     decimal PendingFeesRemaining,
-    bool HostelVacated
+    bool HostelVacated,
+    bool TransportReleased = false
 );
 
 public record ReAdmitStudentDto(
@@ -316,7 +330,9 @@ public record CreateStudentDto(
     string? LibraryCardNumber = null,
     string? LibraryMembershipType = null,
     int MaxLibraryBooks = 2,
-    decimal MonthlyLibraryFee = 0
+    decimal MonthlyLibraryFee = 0,
+    bool IsTransportStudent = false,
+    Guid? TransportAllocationId = null
 );
 
 public record StudentAttendanceDto(
@@ -962,7 +978,22 @@ public record TeacherDto(
     string? BranchName = null,
     Guid? UserId = null,
     string? Username = null,
-    bool HasLoginAccount = false
+    bool HasLoginAccount = false,
+    // Transport
+    bool IsTransportStaff = false,
+    Guid? TransportAllocationId = null,
+    string? TransportRouteName = null,
+    string? TransportStopName = null,
+    string? TransportVehicleNumber = null,
+    // Hostel / Staff Quarters
+    bool IsHostelResident = false,
+    Guid? HostelBedId = null,
+    string? HostelName = null,
+    string? HostelRoomNumber = null,
+    string? HostelBedCode = null,
+    // Library
+    int ActiveLibraryLoans = 0,
+    decimal PendingLibraryFines = 0
 );
 
 public record CreateTeacherDto(
@@ -1905,7 +1936,17 @@ public record TeacherFnFPreviewDto(
     int AssignedSectionsCount,
     List<string> ActiveAssignmentNames,
     bool HasActiveLoginAccount,
-    string? LoginUsername
+    string? LoginUsername,
+    // Transport clearance
+    bool IsTransportStaff = false,
+    string? TransportRouteName = null,
+    string? TransportStopName = null,
+    Guid? TransportAllocationId = null,
+    // Hostel clearance
+    bool IsHostelResident = false,
+    string? HostelBedCode = null,
+    string? HostelRoomNumber = null,
+    Guid? HostelAllocationId = null
 );
 
 public record CreateTeacherFnFRequestDto(
@@ -1918,6 +1959,7 @@ public record CreateTeacherFnFRequestDto(
     bool LibraryClearance,
     bool AssetClearance,
     bool HostelClearance,
+    bool TransportClearance,
     int WorkingDaysInFinalMonth,
     decimal UnpaidSalary,
     decimal EarnedLeaveEncashment,
@@ -2132,4 +2174,279 @@ public record TeacherIdCardDto(
     string? InstitutionPhone,
     string? AffiliationCode,
     string QrCodeData
+);
+
+// =========================================================================
+// TRANSPORT MODULE DTOs
+// =========================================================================
+
+public record TransportOverviewDto(
+    int TotalVehicles,
+    int ActiveRoutes,
+    int TotalStudentAllocations,
+    int TotalTeacherAllocations,
+    int TodayBusDepartures,
+    int ExpiredDocumentAlerts
+);
+
+public record TransportDriverDto(
+    Guid Id,
+    string FullName,
+    string PhoneNumber,
+    string? EmergencyPhone,
+    string LicenseNumber,
+    DateTime? LicenseExpiry,
+    string? AadhaarNumber,
+    string? Address,
+    string? PhotoUrl,
+    bool IsActive,
+    DateTime CreatedAt,
+    int AssignedVehicleCount = 0
+);
+
+public record CreateTransportDriverDto(
+    string FullName,
+    string PhoneNumber,
+    string? EmergencyPhone,
+    string LicenseNumber,
+    DateTime? LicenseExpiry,
+    string? AadhaarNumber,
+    string? Address,
+    string? PhotoUrl = null
+);
+
+public record TransportVehicleDto(
+    Guid Id,
+    string VehicleNumber,
+    string VehicleType,
+    int TotalCapacity,
+    string? Model,
+    string? Color,
+    Guid? DriverId,
+    string? DriverName,
+    string? DriverPhone,
+    string? ConductorName,
+    string? ConductorPhone,
+    string? GpsDeviceId,
+    DateTime? InsuranceExpiry,
+    DateTime? FitnessExpiry,
+    DateTime? PollutionExpiry,
+    bool IsActive,
+    DateTime CreatedAt,
+    int AllocatedPassengers = 0,
+    bool InsuranceExpiringSoon = false,
+    bool FitnessExpiringSoon = false
+);
+
+public record CreateTransportVehicleDto(
+    string VehicleNumber,
+    string VehicleType,
+    int TotalCapacity,
+    string? Model,
+    string? Color,
+    Guid? DriverId,
+    string? ConductorName,
+    string? ConductorPhone,
+    string? GpsDeviceId,
+    DateTime? InsuranceExpiry,
+    DateTime? FitnessExpiry,
+    DateTime? PollutionExpiry
+);
+
+public record TransportRouteDto(
+    Guid Id,
+    string RouteCode,
+    string RouteName,
+    string StartPoint,
+    string EndPoint,
+    Guid? VehicleId,
+    string? VehicleNumber,
+    string? DriverName,
+    string? DriverPhone,
+    string? Description,
+    string MorningDepartureTime,
+    string EveningDepartureTime,
+    bool IsActive,
+    DateTime CreatedAt,
+    int StopCount = 0,
+    int TotalAllocations = 0,
+    List<TransportRouteStopDto>? Stops = null
+);
+
+public record CreateTransportRouteDto(
+    string RouteCode,
+    string RouteName,
+    string StartPoint,
+    string EndPoint,
+    Guid? VehicleId,
+    string? Description,
+    string MorningDepartureTime,
+    string EveningDepartureTime
+);
+
+public record TransportRouteStopDto(
+    Guid Id,
+    Guid RouteId,
+    string RouteName,
+    string StopName,
+    int StopOrder,
+    string? PickupTime,
+    string? DropTime,
+    decimal MonthlyFare,
+    decimal? QuarterlyFare,
+    decimal? HalfYearlyFare,
+    decimal? AnnualFare,
+    string? Landmark,
+    decimal? DistanceKm,
+    bool IsActive,
+    int AllocationCount = 0
+);
+
+public record CreateTransportRouteStopDto(
+    Guid RouteId,
+    string StopName,
+    int StopOrder,
+    string? PickupTime,
+    string? DropTime,
+    decimal MonthlyFare,
+    decimal? QuarterlyFare,
+    decimal? HalfYearlyFare,
+    decimal? AnnualFare,
+    string? Landmark,
+    decimal? DistanceKm
+);
+
+public record TransportAllocationDto(
+    Guid Id,
+    string MemberType,
+    Guid? StudentId,
+    string? StudentName,
+    string? StudentRollNumber,
+    string? StudentClass,
+    Guid? TeacherId,
+    string? TeacherName,
+    string? TeacherEmployeeCode,
+    Guid RouteId,
+    string RouteName,
+    string RouteCode,
+    Guid RouteStopId,
+    string StopName,
+    string? PickupTime,
+    string? DropTime,
+    Guid? VehicleId,
+    string? VehicleNumber,
+    string PickupDropType,
+    decimal MonthlyFare,
+    bool IsFreeAllocation,
+    DateTime EffectiveFrom,
+    DateTime? EffectiveTo,
+    string Status,
+    string? Remarks,
+    DateTime CreatedAt
+);
+
+public record CreateTransportAllocationDto(
+    string MemberType,
+    Guid? StudentId,
+    Guid? TeacherId,
+    Guid RouteId,
+    Guid RouteStopId,
+    Guid? VehicleId,
+    string PickupDropType,
+    decimal MonthlyFare,
+    bool IsFreeAllocation,
+    DateTime EffectiveFrom,
+    string? Remarks = null
+);
+
+public record TransportBusPassDto(
+    Guid AllocationId,
+    string MemberType,
+    string MemberName,
+    string? RollOrEmployeeCode,
+    string? ClassName,
+    string? PhotoUrl,
+    string? ParentOrContactPhone,
+    string RouteName,
+    string RouteCode,
+    string StopName,
+    string? PickupTime,
+    string? DropTime,
+    string VehicleNumber,
+    string? DriverName,
+    string? DriverPhone,
+    string PickupDropType,
+    DateTime EffectiveFrom,
+    string InstitutionName,
+    string? BranchName,
+    string QrCodeData
+);
+
+public record BusBoardingManifestDto(
+    Guid RouteId,
+    string RouteCode,
+    string RouteName,
+    string VehicleNumber,
+    string? DriverName,
+    string? DriverPhone,
+    string? ConductorName,
+    string ManifestDate,
+    string DepartureType,
+    int TotalPassengers,
+    List<BusBoardingManifestRowDto> Passengers
+);
+
+public record BusBoardingManifestRowDto(
+    int SrNo,
+    string MemberType,
+    string Name,
+    string? Code,
+    string? ClassName,
+    string StopName,
+    string? PickupTime,
+    string? ParentPhone,
+    bool IsPresent
+);
+
+public record CampusGatePassDto(
+    Guid Id,
+    string PassType,
+    string PassNumber,
+    Guid? StudentId,
+    string? StudentName,
+    string? StudentRollNumber,
+    string? StudentClass,
+    Guid? TeacherId,
+    string? TeacherName,
+    string? TeacherCode,
+    Guid? VehicleId,
+    string? VehicleNumber,
+    string? PersonName,
+    string? ContactNumber,
+    string? Purpose,
+    DateTime OutDateTime,
+    DateTime? ExpectedInDateTime,
+    DateTime? ActualInDateTime,
+    string? ApprovedBy,
+    string? SecurityGuardName,
+    int? PassengerCount,
+    string Status,
+    string? Remarks,
+    DateTime CreatedAt
+);
+
+public record CreateCampusGatePassDto(
+    string PassType,
+    Guid? StudentId,
+    Guid? TeacherId,
+    Guid? VehicleId,
+    string? PersonName,
+    string? ContactNumber,
+    string? Purpose,
+    DateTime OutDateTime,
+    DateTime? ExpectedInDateTime,
+    string? ApprovedBy,
+    string? SecurityGuardName,
+    int? PassengerCount = null,
+    string? Remarks = null
 );

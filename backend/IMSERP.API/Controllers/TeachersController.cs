@@ -1839,6 +1839,21 @@ public class TeachersController : ControllerBase
             .CountAsync(a => a.TeacherId == id && a.AttendanceDate.Year == now.Year && a.AttendanceDate.Month == now.Month && (a.Status == TeacherAttendanceStatus.Present || a.Status == TeacherAttendanceStatus.Late));
         var suggestedUnpaid = Math.Round(presentDays * perDayRate, 2);
 
+        // 7. Transport clearance (live check)
+        var transportAlloc = await _db.TransportAllocations
+            .AsNoTracking()
+            .Include(a => a.Route)
+            .Include(a => a.Stop)
+            .FirstOrDefaultAsync(a => a.TeacherId == id && a.Status == "Active");
+        bool isTransportStaff = transportAlloc != null;
+
+        // 8. Hostel clearance (live check)
+        var hostelAlloc = await _db.HostelAllocations
+            .AsNoTracking()
+            .Include(a => a.Bed).ThenInclude(b => b!.Room).ThenInclude(r => r!.Hostel)
+            .FirstOrDefaultAsync(a => a.TeacherId == id && a.Status == "Active");
+        bool isHostelResident = hostelAlloc != null;
+
         return Ok(new TeacherFnFPreviewDto(
             teacher.Id,
             teacher.FullName,
@@ -1859,7 +1874,17 @@ public class TeachersController : ControllerBase
             assignedSectionsCount,
             activeNames,
             teacher.UserId.HasValue,
-            teacher.User?.Username
+            teacher.User?.Username,
+            // Transport clearance
+            isTransportStaff,
+            transportAlloc?.Route?.RouteName,
+            transportAlloc?.Stop?.StopName,
+            transportAlloc?.Id,
+            // Hostel clearance
+            isHostelResident,
+            hostelAlloc?.Bed?.BedCode,
+            hostelAlloc?.Bed?.Room?.RoomNumber,
+            hostelAlloc?.Id
         ));
     }
 

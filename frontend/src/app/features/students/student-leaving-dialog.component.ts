@@ -159,6 +159,28 @@ export interface StudentLeavingDialogData {
               </div>
             </div>
 
+            <!-- Transport Allocation Card -->
+            <div class="clearance-card" [class.card-clean]="!clearanceData?.hasTransportAllocation" [class.card-info-theme]="clearanceData?.hasTransportAllocation">
+              <div class="card-icon-wrap">
+                <mat-icon>{{ clearanceData?.hasTransportAllocation ? 'directions_bus' : 'directions_walk' }}</mat-icon>
+              </div>
+              <div class="card-info">
+                <div class="card-title">Campus Transport</div>
+                <div class="card-val" *ngIf="clearanceData?.hasTransportAllocation">
+                  <span class="info-text">{{ clearanceData?.transportRouteName }}</span>
+                </div>
+                <div class="card-val" *ngIf="!clearanceData?.hasTransportAllocation">
+                  <span class="clean-text">Self Commuter (No Bus Pass)</span>
+                </div>
+                <div class="card-sub" *ngIf="clearanceData?.hasTransportAllocation">
+                  Stop: {{ clearanceData?.transportStopName || 'N/A' }} (₹{{ clearanceData?.transportMonthlyFare }}/mo)
+                </div>
+                <div class="card-sub" *ngIf="!clearanceData?.hasTransportAllocation">
+                  No transport deallocation required
+                </div>
+              </div>
+            </div>
+
           </div>
 
           <!-- Pending Dues Notice Alert if any -->
@@ -261,6 +283,13 @@ export interface StudentLeavingDialogData {
             <div class="checkbox-option-box" *ngIf="clearanceData?.hasHostelBed">
               <mat-checkbox formControlName="vacateHostelBed" color="primary">
                 <span class="cb-label">Automatically vacate hostel bed (<strong>Bed {{ clearanceData?.bedCode }}</strong> in {{ clearanceData?.hostelName }}) and mark as Available.</span>
+              </mat-checkbox>
+            </div>
+
+            <!-- Transport Seat Release Option (if transport student) -->
+            <div class="checkbox-option-box" *ngIf="clearanceData?.hasTransportAllocation">
+              <mat-checkbox formControlName="releaseTransportSeat" color="primary">
+                <span class="cb-label">Automatically discontinue transport pass on <strong>{{ clearanceData?.transportRouteName }}</strong> and release bus seat.</span>
               </mat-checkbox>
             </div>
 
@@ -654,7 +683,7 @@ export interface StudentLeavingDialogData {
     /* Clearance Grid */
     .clearance-cards-grid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
       gap: 16px;
       margin-bottom: 20px;
     }
@@ -1248,7 +1277,8 @@ export class StudentLeavingDialogComponent implements OnInit {
       customTCNumber: [''],
       conduct: ['Good'],
       remarks: [''],
-      vacateHostelBed: [true]
+      vacateHostelBed: [true],
+      releaseTransportSeat: [true]
     });
 
     this.loadClearanceStatus();
@@ -1303,6 +1333,7 @@ export class StudentLeavingDialogComponent implements OnInit {
         leavingReason: val.leavingReason,
         remarks: val.remarks,
         vacateHostelBed: !!val.vacateHostelBed,
+        releaseTransportSeat: !!val.releaseTransportSeat,
         customTCNumber: val.customTCNumber ? val.customTCNumber.trim() : undefined
       };
 

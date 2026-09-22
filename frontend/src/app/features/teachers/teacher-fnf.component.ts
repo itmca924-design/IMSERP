@@ -164,6 +164,14 @@ import { AuthService } from '../../core/services/auth.service';
               <span class="lbl">Pending Library Books:</span>
               <span class="val">{{ preview.pendingLibraryBooksCount }} Books (Fine: ₹{{ preview.pendingLibraryFines }})</span>
             </div>
+            <div class="audit-item" [class.alert-danger]="preview.isHostelResident">
+              <span class="lbl">Staff Quarters:</span>
+              <span class="val">{{ preview.isHostelResident ? 'Rm ' + preview.hostelRoomNumber + ' (Bed ' + preview.hostelBedCode + ')' : 'Not Allocated' }}</span>
+            </div>
+            <div class="audit-item" [class.alert-danger]="preview.isTransportStaff">
+              <span class="lbl">Transport Facility:</span>
+              <span class="val">{{ preview.isTransportStaff ? preview.transportRouteName + ' (' + preview.transportStopName + ')' : 'No Transport' }}</span>
+            </div>
             <div class="audit-item">
               <span class="lbl">Active Assignments:</span>
               <span class="val">{{ preview.activeBatchesCount }} Batches / {{ preview.assignedSectionsCount }} Sections</span>
@@ -202,9 +210,16 @@ import { AuthService } from '../../core/services/auth.service';
 
             <div class="clearance-card" [class.cleared]="formData.hostelClearance">
               <mat-checkbox [(ngModel)]="formData.hostelClearance" color="primary">
-                <strong>Hostel / Residential Clearance</strong>
+                <strong>Hostel / Quarters Clearance</strong>
               </mat-checkbox>
               <p>Quarters vacated, warden keys surrendered, utility bills cleared.</p>
+            </div>
+
+            <div class="clearance-card" [class.cleared]="formData.transportClearance">
+              <mat-checkbox [(ngModel)]="formData.transportClearance" color="primary">
+                <strong>Transport Clearance</strong>
+              </mat-checkbox>
+              <p>Bus pass surrendered, transport allocation seat discontinued.</p>
             </div>
           </div>
         </div>
@@ -979,6 +994,7 @@ export class TeacherFnFComponent implements OnInit {
     libraryClearance: true,
     assetClearance: true,
     hostelClearance: true,
+    transportClearance: true,
     workingDaysInFinalMonth: 0,
     unpaidSalary: 0,
     earnedLeaveEncashment: 0,
@@ -1070,6 +1086,7 @@ export class TeacherFnFComponent implements OnInit {
       libraryClearance: true,
       assetClearance: true,
       hostelClearance: true,
+      transportClearance: true,
       workingDaysInFinalMonth: 0,
       unpaidSalary: 0,
       earnedLeaveEncashment: 0,
@@ -1113,7 +1130,8 @@ export class TeacherFnFComponent implements OnInit {
         this.formData.academicClearance = prev.activeBatchesCount === 0 && prev.assignedSectionsCount === 0;
         this.formData.libraryClearance = prev.pendingLibraryBooksCount === 0;
         this.formData.assetClearance = true;
-        this.formData.hostelClearance = true;
+        this.formData.hostelClearance = !prev.isHostelResident;
+        this.formData.transportClearance = !prev.isTransportStaff;
       },
       error: (err) => {
         this.confirmDialog.alert('Error', err?.error?.message || 'Could not fetch teacher dues preview.', 'danger');

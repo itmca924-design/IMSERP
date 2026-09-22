@@ -240,6 +240,15 @@ import { TeacherDocumentsDialogComponent } from './teacher-documents-dialog.comp
           <a mat-stroked-button [routerLink]="['/teachers/lesson-plans']" [queryParams]="{teacherId: selectedTeacher.id}">
             <mat-icon>menu_book</mat-icon> Lesson Diary
           </a>
+          <a mat-stroked-button [routerLink]="['/transport']" style="color: #2563eb; border-color: #93c5fd;">
+            <mat-icon style="color: #2563eb;">directions_bus</mat-icon> Transport Pass
+          </a>
+          <a mat-stroked-button [routerLink]="['/hostel']" style="color: #4f46e5; border-color: #c7d2fe;">
+            <mat-icon style="color: #4f46e5;">apartment</mat-icon> Staff Quarters
+          </a>
+          <a mat-stroked-button [routerLink]="['/library/circulation']" style="color: #059669; border-color: #a7f3d0;">
+            <mat-icon style="color: #059669;">local_library</mat-icon> Library Account
+          </a>
           <a mat-stroked-button [routerLink]="['/teachers/fnf']" [queryParams]="{teacherId: selectedTeacher.id}" style="color: #dc2626; border-color: #fca5a5;">
             <mat-icon style="color: #dc2626;">exit_to_app</mat-icon> Exit / FNF
           </a>

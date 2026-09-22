@@ -85,11 +85,14 @@ export interface HostelBedDto {
 
 export interface HostelAllocationDto {
   id: string;
-  studentId: string;
+  studentId?: string;
   studentName: string;
   rollNumber?: string;
   parentWhatsAppPhone?: string;
   classOrBatch?: string;
+  memberType?: string;
+  teacherId?: string;
+  teacherName?: string;
   bedId: string;
   bedCode: string;
   roomNumber: string;
@@ -106,7 +109,9 @@ export interface HostelAllocationDto {
 }
 
 export interface AllocateBedDto {
-  studentId: string;
+  studentId?: string;
+  teacherId?: string;
+  memberType?: string;
   bedId: string;
   allocatedDate?: string;
   monthlyRent?: number;

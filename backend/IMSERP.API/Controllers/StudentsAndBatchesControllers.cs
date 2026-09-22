@@ -1202,6 +1202,13 @@ public class StudentsController : ControllerBase
             .Where(c => c.StudentId == id && c.FineStatus == "Pending")
             .SumAsync(c => c.FineAmount);
 
+        // 4. Transport allocation
+        var activeTransportAlloc = await _dbContext.TransportAllocations
+            .AsNoTracking()
+            .Include(a => a.Route)
+            .Include(a => a.Stop)
+            .FirstOrDefaultAsync(a => a.StudentId == id && a.Status == "Active");
+
         return Ok(new StudentLeavingClearanceDto(
             student.Id,
             student.StudentName,
@@ -1219,7 +1226,11 @@ public class StudentsController : ControllerBase
             pendingLibFines,
             student.TCNumber,
             student.LeavingDate,
-            student.LeavingReason
+            student.LeavingReason,
+            student.IsTransportStudent || activeTransportAlloc != null,
+            activeTransportAlloc?.Id,
+            activeTransportAlloc?.Route?.RouteName,
+            activeTransportAlloc?.Stop?.StopName
         ));
     }
 
@@ -1296,6 +1307,23 @@ public class StudentsController : ControllerBase
             }
         }
 
+        // Handle transport seat release
+        bool transportReleased = false;
+        if (dto.ReleaseTransportSeat && student.IsTransportStudent)
+        {
+            var activeTransAlloc = await _dbContext.TransportAllocations
+                .FirstOrDefaultAsync(a => a.StudentId == id && a.Status == "Active");
+            if (activeTransAlloc != null)
+            {
+                activeTransAlloc.Status = "Discontinued";
+                activeTransAlloc.EffectiveTo = dto.LeavingDate != default ? dto.LeavingDate : DateTime.UtcNow;
+                activeTransAlloc.Remarks = (activeTransAlloc.Remarks ?? "") + $" | Left School: {dto.LeavingReason}";
+                student.IsTransportStudent = false;
+                student.TransportAllocationId = null;
+                transportReleased = true;
+            }
+        }
+
         await _dbContext.SaveChangesAsync();
 
         var unpaidInvoices = await _dbContext.FeeInvoices
@@ -1311,7 +1339,8 @@ public class StudentsController : ControllerBase
             student.LeavingDate.Value,
             student.LeavingReason,
             pendingFeesRemaining,
-            hostelVacated
+            hostelVacated,
+            transportReleased
         ));
     }
 

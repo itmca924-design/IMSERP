@@ -196,6 +196,14 @@ export interface TeacherFnFPreviewDto {
   activeAssignmentNames: string[];
   hasActiveLoginAccount: boolean;
   loginUsername?: string;
+  isTransportStaff?: boolean;
+  transportRouteName?: string;
+  transportStopName?: string;
+  transportAllocationId?: string;
+  isHostelResident?: boolean;
+  hostelBedCode?: string;
+  hostelRoomNumber?: string;
+  hostelAllocationId?: string;
 }
 
 export interface CreateTeacherFnFRequestDto {
@@ -208,6 +216,7 @@ export interface CreateTeacherFnFRequestDto {
   libraryClearance: boolean;
   assetClearance: boolean;
   hostelClearance: boolean;
+  transportClearance?: boolean;
   workingDaysInFinalMonth: number;
   unpaidSalary: number;
   earnedLeaveEncashment: number;
