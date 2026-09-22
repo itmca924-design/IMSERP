@@ -144,10 +144,16 @@ export interface TransportAllocationDto {
   memberType: string;
   studentId?: string;
   studentName?: string;
+  studentRollNumber?: string;
   rollNumber?: string;
+  studentClass?: string;
   className?: string;
+  studentBatch?: string;
+  batchName?: string;
+  admissionNumber?: string;
   teacherId?: string;
   teacherName?: string;
+  teacherEmployeeCode?: string;
   employeeCode?: string;
   routeId: string;
   routeName: string;
@@ -186,9 +192,12 @@ export interface TransportBusPassDto {
   allocationId: string;
   memberType: string;
   memberName: string;
+  rollOrEmployeeCode?: string;
   rollOrEmpCode?: string;
+  className?: string;
   classOrDesignation?: string;
   photoUrl?: string;
+  parentOrContactPhone?: string;
   contactNumber?: string;
   routeName: string;
   routeCode: string;
@@ -199,22 +208,30 @@ export interface TransportBusPassDto {
   driverName?: string;
   driverPhone?: string;
   pickupDropType: string;
-  validFrom: string;
+  effectiveFrom: string;
+  validFrom?: string;
   institutionName: string;
+  branchName?: string;
   logoUrl?: string;
+  qrCodeData?: string;
   qrPayload?: string;
 }
 
 export interface BusBoardingManifestRowDto {
   srNo: number;
   memberType: string;
-  memberName: string;
+  name?: string;
+  memberName?: string;
+  code?: string;
   rollOrEmpCode?: string;
   className?: string;
   stopName: string;
+  pickupTime?: string;
   scheduledTime?: string;
+  parentPhone?: string;
   contactNumber?: string;
-  isBoarded: boolean;
+  isPresent?: boolean;
+  isBoarded?: boolean;
 }
 
 export interface BusBoardingManifestDto {
@@ -237,10 +254,13 @@ export interface CampusGatePassDto {
   passNumber: string;
   studentId?: string;
   studentName?: string;
+  studentRollNumber?: string;
   rollNumber?: string;
+  studentClass?: string;
   className?: string;
   teacherId?: string;
   teacherName?: string;
+  teacherEmployeeCode?: string;
   employeeCode?: string;
   vehicleId?: string;
   vehicleNumber?: string;
@@ -416,5 +436,18 @@ export class TransportService {
 
   closeGatePass(id: string, dto: CloseGatePassDto): Observable<{ message: string; passNumber: string; actualInDateTime: string }> {
     return this.http.patch<{ message: string; passNumber: string; actualInDateTime: string }>(`${API_BASE}/transport/gate-passes/${id}/close`, dto);
+  }
+
+  // Boarding Actions
+  saveBoardingAttendance(routeId: string, payload: any): Observable<any> {
+    return this.http.post<any>(`${API_BASE}/transport/routes/${routeId}/manifest/save-attendance`, payload);
+  }
+
+  notifyBoardedParents(routeId: string, payload: any): Observable<any> {
+    return this.http.post<any>(`${API_BASE}/transport/routes/${routeId}/manifest/notify-parents`, payload);
+  }
+
+  verifyPassQr(qrPayload: string): Observable<any> {
+    return this.http.post<any>(`${API_BASE}/transport/verify-pass-qr`, { qrPayload });
   }
 }

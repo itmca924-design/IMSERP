@@ -62,6 +62,16 @@ public class WhatsAppService : IWhatsAppService
         return await LogAndSend(tenantId, recipientPhone, teacherName, MessageType.SalarySlip, content);
     }
 
+    public async Task<bool> SendTransportBoardingAlertAsync(Guid tenantId, string recipientPhone, string studentName, string busNumber, string stopName, string timeStr, string departureType)
+    {
+        var content = $"*SAFE TRANSIT ALERT • {departureType.ToUpper()} BOARDING*\n" +
+                      $"Dear Parent,\n" +
+                      $"*{studentName}* has safely boarded Campus Bus *{busNumber}* at *{stopName}* at *{timeStr}*.\n" +
+                      $"Verified safe transit via Apex School & Coaching Mobility Hub.";
+
+        return await LogAndSend(tenantId, recipientPhone, studentName, MessageType.Announcement, content);
+    }
+
     private async Task<bool> LogAndSend(Guid tenantId, string phone, string studentName, MessageType type, string content)
     {
         _logger.LogInformation("[WhatsApp Gateway Dispatch] To: {Phone} | Student: {Student} | Type: {Type} | Content: {Content}", phone, studentName, type, content);

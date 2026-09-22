@@ -62,6 +62,7 @@ public interface IIMSERPDbContext
     DbSet<TransportRoute> TransportRoutes { get; }
     DbSet<TransportRouteStop> TransportRouteStops { get; }
     DbSet<TransportAllocation> TransportAllocations { get; }
+    DbSet<TransportAttendance> TransportAttendances { get; }
     DbSet<CampusGatePass> CampusGatePasses { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
@@ -74,6 +75,7 @@ public interface IWhatsAppService
     Task<bool> SendTestMarksReportAsync(Guid tenantId, string recipientPhone, string studentName, string testTitle, decimal marksObtained, decimal maxMarks, int rank);
     Task<bool> SendAnnualExamReportAsync(Guid tenantId, string recipientPhone, string studentName, string examTitle, string academicYear, decimal totalObtained, decimal totalMax, decimal percentage, string grade, string resultStatus, int? rank);
     Task<bool> SendTeacherSalarySlipAsync(Guid tenantId, string recipientPhone, string teacherName, string monthName, int year, decimal netPaid, string receiptNo);
+    Task<bool> SendTransportBoardingAlertAsync(Guid tenantId, string recipientPhone, string studentName, string busNumber, string stopName, string timeStr, string departureType);
 }
 
 public interface ICurrentUserService

@@ -1297,6 +1297,35 @@ public class TransportAllocation
     public TransportVehicle? Vehicle { get; set; }
 }
 
+public class TransportAttendance
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid RouteId { get; set; }
+    public string MemberType { get; set; } = "Student"; // Student | Teacher
+    public Guid? StudentId { get; set; }
+    public Guid? TeacherId { get; set; }
+    public string PassengerName { get; set; } = string.Empty;
+    public string? PassengerCode { get; set; }
+    public string? StopName { get; set; }
+    public DateTime AttendanceDate { get; set; }
+    public string DepartureType { get; set; } = "Morning"; // Morning | Evening
+    public bool IsBoarded { get; set; } = false;
+    public DateTime? BoardedAt { get; set; }
+    public string? MarkedBy { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("RouteId")]
+    public TransportRoute? Route { get; set; }
+
+    [ForeignKey("StudentId")]
+    public Student? Student { get; set; }
+
+    [ForeignKey("TeacherId")]
+    public Teacher? Teacher { get; set; }
+}
+
 // =========================================================================
 // CAMPUS GATE PASS (Unified Security Desk)
 // =========================================================================

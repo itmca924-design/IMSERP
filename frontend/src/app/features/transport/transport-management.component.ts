@@ -17,6 +17,7 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatDialogModule } from '@angular/material/dialog';
 import { MatTableModule } from '@angular/material/table';
 import { MatMenuModule } from '@angular/material/menu';
+import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import {
   TransportService,
   TransportOverviewDto,
@@ -64,6 +65,7 @@ import {
 })
 export class TransportManagementComponent implements OnInit {
   activeTab = 0;
+  activeTopAction: 'student' | 'faculty' | 'gatePass' = 'student';
   loading = false;
   overview: TransportOverviewDto | null = null;
 
@@ -117,10 +119,19 @@ export class TransportManagementComponent implements OnInit {
   gatePassForm!: FormGroup;
   closePassForm!: FormGroup;
 
+  // QR Pass Scanner & Boarding State
+  showQrScanModal = false;
+  qrScanInput = '';
+  qrScanSuccessMsg = '';
+  qrScanError = '';
+  isSavingBoarding = false;
+  isNotifyingParents = false;
+
   constructor(
     private transportService: TransportService,
     private fb: FormBuilder,
-    private http: HttpClient
+    private http: HttpClient,
+    private confirmDialog: ConfirmDialogService
   ) {}
 
   ngOnInit(): void {
@@ -132,6 +143,35 @@ export class TransportManagementComponent implements OnInit {
     this.loadAllocations();
     this.loadGatePasses();
     this.loadLookups();
+  }
+
+  getNowLocalDateTimeString(): string {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  }
+
+  getTodayDateString(): string {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  clampYear(controlName: string, form: FormGroup): void {
+    const ctrl = form.get(controlName);
+    if (!ctrl || !ctrl.value) return;
+    const val = String(ctrl.value).trim();
+    const parts = val.split('-');
+    if (parts.length > 0 && parts[0].length > 4) {
+      parts[0] = parts[0].substring(0, 4);
+      ctrl.setValue(parts.join('-'), { emitEvent: false });
+    }
   }
 
   initForms(): void {
@@ -193,7 +233,7 @@ export class TransportManagementComponent implements OnInit {
       pickupDropType: ['Both', [Validators.required]],
       monthlyFare: [0, [Validators.required]],
       isFreeAllocation: [false],
-      effectiveFrom: [new Date().toISOString().substring(0, 10), [Validators.required]],
+      effectiveFrom: [this.getTodayDateString(), [Validators.required]],
       remarks: ['']
     });
 
@@ -205,7 +245,7 @@ export class TransportManagementComponent implements OnInit {
       personName: [''],
       contactNumber: [''],
       purpose: ['', [Validators.required]],
-      outDateTime: [new Date().toISOString().substring(0, 16), [Validators.required]],
+      outDateTime: [this.getNowLocalDateTimeString(), [Validators.required]],
       expectedInDateTime: [''],
       approvedBy: ['Admin'],
       securityGuardName: ['Main Gate Guard'],
@@ -214,7 +254,7 @@ export class TransportManagementComponent implements OnInit {
     });
 
     this.closePassForm = this.fb.group({
-      actualInDateTime: [new Date().toISOString().substring(0, 16)],
+      actualInDateTime: [this.getNowLocalDateTimeString()],
       remarks: ['Returned safely']
     });
   }
@@ -329,12 +369,23 @@ export class TransportManagementComponent implements OnInit {
     if (this.vehicleForm.invalid) return;
     const val: CreateTransportVehicleDto = this.vehicleForm.value;
     if (this.editingVehicleId) {
-      this.transportService.updateVehicle(this.editingVehicleId, val).subscribe({
-        next: () => {
-          this.showVehicleModal = false;
-          this.loadVehicles();
-          this.loadOverview();
-        }
+      this.confirmDialog.confirm(
+        'Confirm Vehicle Update',
+        `Are you sure you want to save changes to vehicle "${val.vehicleNumber}"?`,
+        'Update Vehicle',
+        'Cancel',
+        'info'
+      ).subscribe(confirmed => {
+        if (!confirmed) return;
+        this.transportService.updateVehicle(this.editingVehicleId!, val).subscribe({
+          next: () => {
+            this.showVehicleModal = false;
+            this.loadVehicles();
+            this.loadOverview();
+            this.confirmDialog.alert('Vehicle Updated', `Vehicle "${val.vehicleNumber}" details updated successfully.`, 'success');
+          },
+          error: (err) => this.confirmDialog.alert('Update Failed', err.error?.message || 'Failed to update vehicle.', 'danger')
+        });
       });
     } else {
       this.transportService.createVehicle(val).subscribe({
@@ -342,14 +393,27 @@ export class TransportManagementComponent implements OnInit {
           this.showVehicleModal = false;
           this.loadVehicles();
           this.loadOverview();
-        }
+          this.confirmDialog.alert('Vehicle Added', `Vehicle "${val.vehicleNumber}" added to fleet successfully.`, 'success');
+        },
+        error: (err) => this.confirmDialog.alert('Creation Failed', err.error?.message || 'Failed to add vehicle.', 'danger')
       });
     }
   }
 
   toggleVehicle(v: TransportVehicleDto): void {
-    this.transportService.toggleVehicleActive(v.id).subscribe({
-      next: () => this.loadVehicles()
+    const action = v.isActive ? 'deactivate' : 'activate';
+    this.confirmDialog.confirm(
+      'Toggle Vehicle Status',
+      `Are you sure you want to ${action} vehicle "${v.vehicleNumber}"?`,
+      v.isActive ? 'Deactivate' : 'Activate',
+      'Cancel',
+      v.isActive ? 'warning' : 'info'
+    ).subscribe(confirmed => {
+      if (!confirmed) return;
+      this.transportService.toggleVehicleActive(v.id).subscribe({
+        next: () => this.loadVehicles(),
+        error: (err) => this.confirmDialog.alert('Operation Failed', err.error?.message || 'Cannot toggle vehicle status.', 'danger')
+      });
     });
   }
 
@@ -379,25 +443,49 @@ export class TransportManagementComponent implements OnInit {
     if (this.driverForm.invalid) return;
     const val: CreateTransportDriverDto = this.driverForm.value;
     if (this.editingDriverId) {
-      this.transportService.updateDriver(this.editingDriverId, val).subscribe({
-        next: () => {
-          this.showDriverModal = false;
-          this.loadDrivers();
-        }
+      this.confirmDialog.confirm(
+        'Confirm Driver Update',
+        `Are you sure you want to save changes for driver "${val.fullName}"?`,
+        'Update Driver',
+        'Cancel',
+        'info'
+      ).subscribe(confirmed => {
+        if (!confirmed) return;
+        this.transportService.updateDriver(this.editingDriverId!, val).subscribe({
+          next: () => {
+            this.showDriverModal = false;
+            this.loadDrivers();
+            this.confirmDialog.alert('Driver Updated', `Driver "${val.fullName}" details updated successfully.`, 'success');
+          },
+          error: (err) => this.confirmDialog.alert('Update Failed', err.error?.message || 'Failed to update driver.', 'danger')
+        });
       });
     } else {
       this.transportService.createDriver(val).subscribe({
         next: () => {
           this.showDriverModal = false;
           this.loadDrivers();
-        }
+          this.confirmDialog.alert('Driver Registered', `Driver "${val.fullName}" registered successfully.`, 'success');
+        },
+        error: (err) => this.confirmDialog.alert('Creation Failed', err.error?.message || 'Failed to register driver.', 'danger')
       });
     }
   }
 
   toggleDriver(d: TransportDriverDto): void {
-    this.transportService.toggleDriverActive(d.id).subscribe({
-      next: () => this.loadDrivers()
+    const action = d.isActive ? 'deactivate' : 'activate';
+    this.confirmDialog.confirm(
+      'Toggle Driver Status',
+      `Are you sure you want to ${action} driver "${d.fullName}"?`,
+      d.isActive ? 'Deactivate' : 'Activate',
+      'Cancel',
+      d.isActive ? 'warning' : 'info'
+    ).subscribe(confirmed => {
+      if (!confirmed) return;
+      this.transportService.toggleDriverActive(d.id).subscribe({
+        next: () => this.loadDrivers(),
+        error: (err) => this.confirmDialog.alert('Operation Failed', err.error?.message || 'Cannot toggle driver status.', 'danger')
+      });
     });
   }
 
@@ -435,11 +523,22 @@ export class TransportManagementComponent implements OnInit {
     if (this.routeForm.invalid) return;
     const val: CreateTransportRouteDto = this.routeForm.value;
     if (this.editingRouteId) {
-      this.transportService.updateRoute(this.editingRouteId, val).subscribe({
-        next: () => {
-          this.showRouteModal = false;
-          this.loadRoutes();
-        }
+      this.confirmDialog.confirm(
+        'Confirm Route Update',
+        `Are you sure you want to save changes to Route "${val.routeCode} - ${val.routeName}"?`,
+        'Update Route',
+        'Cancel',
+        'info'
+      ).subscribe(confirmed => {
+        if (!confirmed) return;
+        this.transportService.updateRoute(this.editingRouteId!, val).subscribe({
+          next: () => {
+            this.showRouteModal = false;
+            this.loadRoutes();
+            this.confirmDialog.alert('Route Updated', `Route "${val.routeCode}" updated successfully.`, 'success');
+          },
+          error: (err) => this.confirmDialog.alert('Update Failed', err.error?.message || 'Failed to update route.', 'danger')
+        });
       });
     } else {
       this.transportService.createRoute(val).subscribe({
@@ -447,14 +546,27 @@ export class TransportManagementComponent implements OnInit {
           this.showRouteModal = false;
           this.loadRoutes();
           this.loadOverview();
-        }
+          this.confirmDialog.alert('Route Created', `Route "${val.routeCode} - ${val.routeName}" created successfully.`, 'success');
+        },
+        error: (err) => this.confirmDialog.alert('Creation Failed', err.error?.message || 'Failed to create route.', 'danger')
       });
     }
   }
 
   toggleRoute(r: TransportRouteDto): void {
-    this.transportService.toggleRouteActive(r.id).subscribe({
-      next: () => this.loadRoutes()
+    const action = r.isActive ? 'deactivate' : 'activate';
+    this.confirmDialog.confirm(
+      'Toggle Route Status',
+      `Are you sure you want to ${action} route "${r.routeCode}"?`,
+      r.isActive ? 'Deactivate' : 'Activate',
+      'Cancel',
+      r.isActive ? 'warning' : 'info'
+    ).subscribe(confirmed => {
+      if (!confirmed) return;
+      this.transportService.toggleRouteActive(r.id).subscribe({
+        next: () => this.loadRoutes(),
+        error: (err) => this.confirmDialog.alert('Operation Failed', err.error?.message || 'Cannot toggle route status.', 'danger')
+      });
     });
   }
 
@@ -484,33 +596,81 @@ export class TransportManagementComponent implements OnInit {
     if (!this.selectedRouteForStops || this.stopForm.invalid) return;
     const val: CreateTransportRouteStopDto = this.stopForm.value;
     if (this.editingStopId) {
-      this.transportService.updateStop(this.editingStopId, val).subscribe({
-        next: () => {
-          this.showStopModal = false;
-          this.loadRoutes();
-        }
+      this.confirmDialog.confirm(
+        'Confirm Stop Update',
+        `Are you sure you want to save changes to stop "${val.stopName}"?`,
+        'Update Stop',
+        'Cancel',
+        'info'
+      ).subscribe(confirmed => {
+        if (!confirmed) return;
+        this.transportService.updateStop(this.editingStopId!, val).subscribe({
+          next: () => {
+            this.showStopModal = false;
+            this.loadRoutes();
+            this.confirmDialog.alert('Stop Updated', `Stop "${val.stopName}" updated successfully.`, 'success');
+          },
+          error: (err) => this.confirmDialog.alert('Update Failed', err.error?.message || 'Failed to update stop.', 'danger')
+        });
       });
     } else {
       this.transportService.createStop(this.selectedRouteForStops.id, val).subscribe({
         next: () => {
           this.showStopModal = false;
           this.loadRoutes();
-        }
+          this.confirmDialog.alert('Stop Added', `Stop "${val.stopName}" added to route.`, 'success');
+        },
+        error: (err) => this.confirmDialog.alert('Creation Failed', err.error?.message || 'Failed to add stop.', 'danger')
       });
     }
   }
 
   deleteStop(s: TransportRouteStopDto): void {
-    if (!confirm(`Are you sure you want to remove stop "${s.stopName}"?`)) return;
-    this.transportService.deleteStop(s.id).subscribe({
-      next: () => this.loadRoutes(),
-      error: (err) => alert(err.error?.message || 'Cannot delete stop.')
+    this.confirmDialog.danger(
+      'Remove Route Stop',
+      `Are you sure you want to remove stop "${s.stopName}"? Commuters allocated to this stop may need re-assignment.`,
+      'Remove Stop'
+    ).subscribe(confirmed => {
+      if (!confirmed) return;
+      this.transportService.deleteStop(s.id).subscribe({
+        next: () => {
+          this.loadRoutes();
+          this.confirmDialog.alert('Stop Removed', `Stop "${s.stopName}" has been removed.`, 'success');
+        },
+        error: (err) => this.confirmDialog.alert('Cannot Remove Stop', err.error?.message || 'Cannot delete stop.', 'danger')
+      });
     });
+  }
+
+  selectTab(tabIndex: number): void {
+    this.activeTab = tabIndex;
+    if (tabIndex === 4) {
+      this.activeTopAction = 'student';
+    } else if (tabIndex === 5) {
+      this.activeTopAction = 'faculty';
+    } else if (tabIndex === 7) {
+      this.activeTopAction = 'gatePass';
+    }
+  }
+
+  onTopActionClick(action: 'student' | 'faculty' | 'gatePass'): void {
+    this.activeTopAction = action;
+    if (action === 'student') {
+      this.activeTab = 4;
+      this.openAddAllocation('Student');
+    } else if (action === 'faculty') {
+      this.activeTab = 5;
+      this.openAddAllocation('Teacher');
+    } else if (action === 'gatePass') {
+      this.activeTab = 7;
+      this.openAddGatePass();
+    }
   }
 
   // --- Allocations (Passes) ---
 
   openAddAllocation(memberType: 'Student' | 'Teacher' = 'Student'): void {
+    this.activeTopAction = memberType === 'Student' ? 'student' : 'faculty';
     this.selectedAllocationClassFilter = 'ALL';
     this.selectedAllocationStudentInfo = '';
     this.rebuildAllocationGroups();
@@ -519,7 +679,7 @@ export class TransportManagementComponent implements OnInit {
       pickupDropType: 'Both',
       isFreeAllocation: false,
       monthlyFare: 0,
-      effectiveFrom: new Date().toISOString().substring(0, 10),
+      effectiveFrom: this.getTodayDateString(),
       remarks: ''
     });
     this.showAllocationModal = true;
@@ -564,18 +724,28 @@ export class TransportManagementComponent implements OnInit {
         this.showAllocationModal = false;
         this.loadAllocations();
         this.loadOverview();
+        this.confirmDialog.alert('Pass Issued', 'Transport pass allocated and smart card generated successfully!', 'success');
       },
-      error: (err) => alert(err.error?.message || 'Failed to allocate transport.')
+      error: (err) => this.confirmDialog.alert('Allocation Failed', err.error?.message || 'Failed to allocate transport.', 'danger')
     });
   }
 
   discontinueAllocation(a: TransportAllocationDto): void {
-    if (!confirm(`Are you sure you want to discontinue transport for ${a.studentName || a.teacherName}?`)) return;
-    this.transportService.discontinueAllocation(a.id).subscribe({
-      next: () => {
-        this.loadAllocations();
-        this.loadOverview();
-      }
+    const commuterName = a.studentName || a.teacherName || 'Commuter';
+    this.confirmDialog.danger(
+      'Discontinue Transport Pass',
+      `Are you sure you want to discontinue transport service for ${commuterName} (Route: ${a.routeCode})?`,
+      'Discontinue Pass'
+    ).subscribe(confirmed => {
+      if (!confirmed) return;
+      this.transportService.discontinueAllocation(a.id).subscribe({
+        next: () => {
+          this.loadAllocations();
+          this.loadOverview();
+          this.confirmDialog.alert('Pass Discontinued', `Transport service for ${commuterName} discontinued.`, 'success');
+        },
+        error: (err) => this.confirmDialog.alert('Operation Failed', err.error?.message || 'Failed to discontinue service.', 'danger')
+      });
     });
   }
 
@@ -597,7 +767,14 @@ export class TransportManagementComponent implements OnInit {
   loadManifest(): void {
     if (!this.manifestRouteId) return;
     this.transportService.getManifest(this.manifestRouteId, this.manifestDeparture).subscribe({
-      next: (res) => this.manifest = res,
+      next: (res) => {
+        if (res && res.passengers) {
+          res.passengers.forEach(p => {
+            p.isBoarded = (p.isBoarded !== undefined ? p.isBoarded : p.isPresent) ?? false;
+          });
+        }
+        this.manifest = res;
+      },
       error: (err) => console.error('Failed to load boarding manifest', err)
     });
   }
@@ -606,16 +783,162 @@ export class TransportManagementComponent implements OnInit {
     window.print();
   }
 
+  getRollSegments(code?: string | null): string[] {
+    if (!code) return [];
+    return code.split(' • ').map(s => s.trim()).filter(s => !!s);
+  }
+
+  getBoardedCount(): number {
+    return (this.manifest?.passengers || []).filter(p => p.isBoarded).length;
+  }
+
+  toggleAllBoarded(markAll: boolean): void {
+    if (!this.manifest?.passengers) return;
+    this.manifest.passengers.forEach(p => p.isBoarded = markAll);
+  }
+
+  openQrScanModal(): void {
+    this.showQrScanModal = true;
+    this.qrScanInput = '';
+    this.qrScanSuccessMsg = '';
+    this.qrScanError = '';
+  }
+
+  processQrScan(): void {
+    if (!this.qrScanInput?.trim()) {
+      this.qrScanError = 'Please scan or enter a Bus Pass QR code or Roll Number.';
+      return;
+    }
+    const query = this.qrScanInput.trim();
+    this.qrScanError = '';
+    this.qrScanSuccessMsg = '';
+
+    // Check if matching commuter in currently loaded manifest
+    if (this.manifest?.passengers?.length) {
+      const match = this.manifest.passengers.find(p => {
+        const code = (p.code || p.rollOrEmpCode || '').toLowerCase();
+        const name = (p.name || p.memberName || '').toLowerCase();
+        const qLower = query.toLowerCase();
+        return (code && qLower.includes(code)) || (name && qLower.includes(name)) || (p.stopName && qLower.includes(p.stopName.toLowerCase()));
+      });
+
+      if (match) {
+        match.isBoarded = true;
+        const displayName = match.name || match.memberName;
+        this.qrScanSuccessMsg = `Verified & Boarded: ${displayName} (${match.code || match.rollOrEmpCode}) at ${match.stopName}!`;
+        this.confirmDialog.alert('Commuter Boarded', `Verified & Boarded: ${displayName} at ${match.stopName}.`, 'success');
+        this.qrScanInput = '';
+        return;
+      }
+    }
+
+    // Call backend to verify QR
+    this.transportService.verifyPassQr(query).subscribe({
+      next: (res) => {
+        if (res.success) {
+          const p = this.manifest?.passengers?.find(pass => pass.code === res.code || (res.name && (pass.name === res.name || pass.memberName === res.name)));
+          if (p) {
+            p.isBoarded = true;
+          }
+          this.qrScanSuccessMsg = `Verified: ${res.name} (ID: ${res.code || 'N/A'}) • Stop: ${res.stopName || 'N/A'} • Route: ${res.routeCode || 'N/A'}`;
+          this.confirmDialog.alert('Pass Verified & Boarded', `Verified & Boarded: ${res.name} (Route: ${res.routeCode || 'N/A'}, Stop: ${res.stopName || 'N/A'})`, 'success');
+          this.qrScanInput = '';
+        } else {
+          this.qrScanError = 'Pass verification failed. Invalid or unrecognized QR format.';
+          this.confirmDialog.alert('Verification Failed', 'Invalid or unrecognized QR format.', 'warning');
+        }
+      },
+      error: () => {
+        this.qrScanError = 'Pass verification failed. QR code not found in transport records.';
+        this.confirmDialog.alert('Verification Failed', 'QR code not found in active transport records.', 'danger');
+      }
+    });
+  }
+
+  saveBoardingRun(): void {
+    if (!this.manifest || !this.manifestRouteId) {
+      this.confirmDialog.alert('Select Route', 'Please select a route to save boarding attendance.', 'warning');
+      return;
+    }
+
+    this.isSavingBoarding = true;
+    const passengersPayload = (this.manifest.passengers || []).map(p => ({
+      memberType: p.memberType,
+      name: p.name || p.memberName || '',
+      code: p.code || p.rollOrEmpCode || '',
+      stopName: p.stopName,
+      isBoarded: !!p.isBoarded,
+      phone: p.parentPhone || p.contactNumber || ''
+    }));
+
+    const payload = {
+      routeId: this.manifestRouteId,
+      departureType: this.manifestDeparture,
+      passengers: passengersPayload,
+      sendWhatsAppAlerts: false
+    };
+
+    this.transportService.saveBoardingAttendance(this.manifestRouteId, payload).subscribe({
+      next: (res) => {
+        this.isSavingBoarding = false;
+        this.loadManifest();
+        this.confirmDialog.alert('Boarding Run Saved', res.message || 'Boarding attendance saved successfully for this departure run!', 'success');
+      },
+      error: () => {
+        this.isSavingBoarding = false;
+        this.confirmDialog.alert('Save Failed', 'Failed to save boarding run to database. Please try again.', 'danger');
+      }
+    });
+  }
+
+  notifyBoardedParents(): void {
+    if (!this.manifest || !this.manifestRouteId) return;
+
+    const boarded = (this.manifest.passengers || []).filter(p => p.isBoarded);
+    if (boarded.length === 0) {
+      this.confirmDialog.alert('No Commuters Boarded', 'No commuters are marked as Boarded yet. Please check commuters who have boarded first before notifying parents.', 'warning');
+      return;
+    }
+
+    this.isNotifyingParents = true;
+    const passengersPayload = (this.manifest.passengers || []).map(p => ({
+      memberType: p.memberType,
+      name: p.name || p.memberName || '',
+      code: p.code || p.rollOrEmpCode || '',
+      stopName: p.stopName,
+      isBoarded: !!p.isBoarded,
+      phone: p.parentPhone || p.contactNumber || ''
+    }));
+
+    const payload = {
+      routeId: this.manifestRouteId,
+      departureType: this.manifestDeparture,
+      passengers: passengersPayload
+    };
+
+    this.transportService.notifyBoardedParents(this.manifestRouteId, payload).subscribe({
+      next: (res) => {
+        this.isNotifyingParents = false;
+        this.confirmDialog.alert('WhatsApp Notifications Dispatched', res.message || 'Safe transit WhatsApp alerts dispatched to parents successfully!', 'success');
+      },
+      error: () => {
+        this.isNotifyingParents = false;
+        this.confirmDialog.alert('Dispatch Failed', 'Error dispatching WhatsApp alerts. Check gateway logs.', 'danger');
+      }
+    });
+  }
+
   // --- Gate Passes ---
 
   openAddGatePass(): void {
+    this.activeTopAction = 'gatePass';
     this.selectedGatePassClassFilter = 'ALL';
     this.selectedGatePassStudentInfo = '';
     this.rebuildGatePassGroups();
     this.gatePassForm.reset({
       passType: 'StudentEarlyExit',
       purpose: '',
-      outDateTime: new Date().toISOString().substring(0, 16),
+      outDateTime: this.getNowLocalDateTimeString(),
       approvedBy: 'Admin',
       securityGuardName: 'Main Gate Guard',
       passengerCount: 1,
@@ -632,15 +955,16 @@ export class TransportManagementComponent implements OnInit {
         this.showGatePassModal = false;
         this.loadGatePasses();
         this.loadOverview();
+        this.confirmDialog.alert('Gate Pass Issued', `Gate pass issued successfully for ${dto.personName || 'commuter'}.`, 'success');
       },
-      error: (err) => alert(err.error?.message || 'Failed to issue gate pass.')
+      error: (err) => this.confirmDialog.alert('Issue Failed', err.error?.message || 'Failed to issue gate pass.', 'danger')
     });
   }
 
   openCloseGatePass(gp: CampusGatePassDto): void {
     this.selectedGatePassForClose = gp;
     this.closePassForm.reset({
-      actualInDateTime: new Date().toISOString().substring(0, 16),
+      actualInDateTime: this.getNowLocalDateTimeString(),
       remarks: 'Returned safely'
     });
     this.showClosePassModal = true;
@@ -648,11 +972,23 @@ export class TransportManagementComponent implements OnInit {
 
   saveCloseGatePass(): void {
     if (!this.selectedGatePassForClose) return;
-    this.transportService.closeGatePass(this.selectedGatePassForClose.id, this.closePassForm.value).subscribe({
-      next: () => {
-        this.showClosePassModal = false;
-        this.loadGatePasses();
-      }
+    const passNo = this.selectedGatePassForClose.passNumber;
+    this.confirmDialog.confirm(
+      'Close Campus Gate Pass',
+      `Are you sure you want to mark Gate Pass "${passNo}" as returned and closed?`,
+      'Close Pass',
+      'Cancel',
+      'info'
+    ).subscribe(confirmed => {
+      if (!confirmed) return;
+      this.transportService.closeGatePass(this.selectedGatePassForClose!.id, this.closePassForm.value).subscribe({
+        next: () => {
+          this.showClosePassModal = false;
+          this.loadGatePasses();
+          this.confirmDialog.alert('Gate Pass Closed', `Gate pass "${passNo}" closed successfully.`, 'success');
+        },
+        error: (err) => this.confirmDialog.alert('Close Failed', err.error?.message || 'Failed to close gate pass.', 'danger')
+      });
     });
   }
 

@@ -1,4 +1,4 @@
-﻿using IMSERP.Application.DTOs;
+using IMSERP.Application.DTOs;
 using IMSERP.Application.Interfaces;
 using IMSERP.Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
@@ -14,11 +14,13 @@ public class TransportController : ControllerBase
 {
     private readonly IIMSERPDbContext _db;
     private readonly ICurrentUserService _currentUser;
+    private readonly IWhatsAppService _whatsAppService;
 
-    public TransportController(IIMSERPDbContext db, ICurrentUserService currentUser)
+    public TransportController(IIMSERPDbContext db, ICurrentUserService currentUser, IWhatsAppService whatsAppService)
     {
         _db = db;
         _currentUser = currentUser;
+        _whatsAppService = whatsAppService;
     }
 
     // =========================================================================
@@ -198,7 +200,16 @@ public class TransportController : ControllerBase
     [HttpGet("allocations")]
     public async Task<ActionResult<IEnumerable<TransportAllocationDto>>> GetAllocations([FromQuery] string? memberType = null, [FromQuery] Guid? routeId = null, [FromQuery] string? status = "Active", [FromQuery] string? search = null)
     {
-        var query = _db.TransportAllocations.AsNoTracking().Include(a => a.Student).Include(a => a.Teacher).Include(a => a.Route).Include(a => a.Stop).Include(a => a.Vehicle).AsQueryable();
+        var query = _db.TransportAllocations.AsNoTracking()
+            .Include(a => a.Student).ThenInclude(s => s!.Class)
+            .Include(a => a.Student).ThenInclude(s => s!.Section)
+            .Include(a => a.Student).ThenInclude(s => s!.Batch)
+            .Include(a => a.Teacher)
+            .Include(a => a.Route)
+            .Include(a => a.Stop)
+            .Include(a => a.Vehicle)
+            .AsQueryable();
+
         if (!string.IsNullOrEmpty(memberType)) query = query.Where(a => a.MemberType == memberType);
         if (routeId.HasValue) query = query.Where(a => a.RouteId == routeId.Value);
         if (!string.IsNullOrEmpty(status) && status != "All") query = query.Where(a => a.Status == status);
@@ -210,7 +221,15 @@ public class TransportController : ControllerBase
     [HttpGet("allocations/{id}")]
     public async Task<ActionResult<TransportAllocationDto>> GetAllocation(Guid id)
     {
-        var a = await _db.TransportAllocations.AsNoTracking().Include(a => a.Student).Include(a => a.Teacher).Include(a => a.Route).Include(a => a.Stop).Include(a => a.Vehicle).FirstOrDefaultAsync(a => a.Id == id);
+        var a = await _db.TransportAllocations.AsNoTracking()
+            .Include(a => a.Student).ThenInclude(s => s!.Class)
+            .Include(a => a.Student).ThenInclude(s => s!.Section)
+            .Include(a => a.Student).ThenInclude(s => s!.Batch)
+            .Include(a => a.Teacher)
+            .Include(a => a.Route)
+            .Include(a => a.Stop)
+            .Include(a => a.Vehicle)
+            .FirstOrDefaultAsync(a => a.Id == id);
         if (a == null) return NotFound(); return Ok(MapAllocationDto(a));
     }
 
@@ -238,7 +257,15 @@ public class TransportController : ControllerBase
         else { var t = await _db.Teachers.FindAsync(dto.TeacherId!.Value); t!.IsTransportStaff = true; t.TransportAllocationId = allocation.Id; }
 
         await _db.SaveChangesAsync();
-        var result = await _db.TransportAllocations.AsNoTracking().Include(a => a.Student).Include(a => a.Teacher).Include(a => a.Route).Include(a => a.Stop).Include(a => a.Vehicle).FirstOrDefaultAsync(a => a.Id == allocation.Id);
+        var result = await _db.TransportAllocations.AsNoTracking()
+            .Include(a => a.Student).ThenInclude(s => s!.Class)
+            .Include(a => a.Student).ThenInclude(s => s!.Section)
+            .Include(a => a.Student).ThenInclude(s => s!.Batch)
+            .Include(a => a.Teacher)
+            .Include(a => a.Route)
+            .Include(a => a.Stop)
+            .Include(a => a.Vehicle)
+            .FirstOrDefaultAsync(a => a.Id == allocation.Id);
         return CreatedAtAction(nameof(GetAllocation), new { id = allocation.Id }, MapAllocationDto(result!));
     }
 
@@ -260,16 +287,43 @@ public class TransportController : ControllerBase
     [HttpGet("allocations/{id}/bus-pass")]
     public async Task<ActionResult<TransportBusPassDto>> GetBusPass(Guid id)
     {
-        var a = await _db.TransportAllocations.AsNoTracking().Include(a => a.Student).ThenInclude(s => s!.Class).Include(a => a.Teacher).Include(a => a.Route).Include(a => a.Stop).Include(a => a.Vehicle).ThenInclude(v => v!.Driver).FirstOrDefaultAsync(a => a.Id == id);
+        var a = await _db.TransportAllocations.AsNoTracking()
+            .Include(a => a.Student).ThenInclude(s => s!.Class)
+            .Include(a => a.Student).ThenInclude(s => s!.Section)
+            .Include(a => a.Student).ThenInclude(s => s!.Batch)
+            .Include(a => a.Teacher)
+            .Include(a => a.Route)
+            .Include(a => a.Stop)
+            .Include(a => a.Vehicle).ThenInclude(v => v!.Driver)
+            .FirstOrDefaultAsync(a => a.Id == id);
+
         if (a == null) return NotFound();
         var tenant = await _db.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.Id == _currentUser.TenantId);
         string memberName = a.MemberType == "Student" ? a.Student?.StudentName ?? "" : a.Teacher?.FullName ?? "";
-        string? code = a.MemberType == "Student" ? a.Student?.RollNumber : a.Teacher?.EmployeeCode;
-        string? className = a.MemberType == "Student" ? a.Student?.Class?.Name : a.Teacher?.Specialization;
+        
+        string? code = a.MemberType == "Student" 
+            ? GetStudentRollCode(a.Student)
+            : a.Teacher?.EmployeeCode;
+
+        string? classOrBatch = null;
+        if (a.MemberType == "Student" && a.Student != null)
+        {
+            var parts = new List<string>();
+            if (a.Student.Class != null)
+                parts.Add(a.Student.Section != null ? $"{a.Student.Class.Name} - {a.Student.Section.Name}" : a.Student.Class.Name);
+            if (a.Student.Batch != null)
+                parts.Add($"Batch: {a.Student.Batch.Name}");
+            classOrBatch = parts.Count > 0 ? string.Join(" • ", parts) : "Enrolled Student";
+        }
+        else if (a.Teacher != null)
+        {
+            classOrBatch = a.Teacher.Specialization ?? "Faculty Member";
+        }
+
         string? photo = a.MemberType == "Student" ? a.Student?.ProfilePhoto : a.Teacher?.PhotoUrl;
         string? contact = a.MemberType == "Student" ? a.Student?.ParentWhatsAppPhone : a.Teacher?.PhoneNumber;
-        string qr = $"BUSPASS:{a.Id}|{a.MemberType}|{memberName}|Route:{a.Route?.RouteCode}|Stop:{a.Stop?.StopName}";
-        return Ok(new TransportBusPassDto(a.Id, a.MemberType, memberName, code, className, photo, contact, a.Route?.RouteName ?? "", a.Route?.RouteCode ?? "", a.Stop?.StopName ?? "", a.Stop?.PickupTime, a.Stop?.DropTime, a.Vehicle?.VehicleNumber ?? "N/A", a.Vehicle?.Driver?.FullName, a.Vehicle?.Driver?.PhoneNumber, a.PickupDropType, a.EffectiveFrom, tenant?.Name ?? "Institution", null, qr));
+        string qr = $"BUSPASS:{a.Id}|{a.MemberType}|{memberName}|Roll:{code}|Route:{a.Route?.RouteCode}|Stop:{a.Stop?.StopName}";
+        return Ok(new TransportBusPassDto(a.Id, a.MemberType, memberName, code, classOrBatch, photo, contact, a.Route?.RouteName ?? "", a.Route?.RouteCode ?? "", a.Stop?.StopName ?? "", a.Stop?.PickupTime, a.Stop?.DropTime, a.Vehicle?.VehicleNumber ?? "N/A", a.Vehicle?.Driver?.FullName, a.Vehicle?.Driver?.PhoneNumber, a.PickupDropType, a.EffectiveFrom, tenant?.Name ?? "Institution", null, qr));
     }
 
     // =========================================================================
@@ -281,12 +335,251 @@ public class TransportController : ControllerBase
     {
         var route = await _db.TransportRoutes.AsNoTracking().Include(r => r.Vehicle).ThenInclude(v => v!.Driver).FirstOrDefaultAsync(r => r.Id == routeId);
         if (route == null) return NotFound();
-        var allocations = await _db.TransportAllocations.AsNoTracking().Include(a => a.Student).Include(a => a.Teacher).Include(a => a.Stop).Where(a => a.RouteId == routeId && a.Status == "Active").OrderBy(a => a.Stop!.StopOrder).ToListAsync();
+        var allocations = await _db.TransportAllocations.AsNoTracking()
+            .Include(a => a.Student).ThenInclude(s => s!.Class)
+            .Include(a => a.Student).ThenInclude(s => s!.Section)
+            .Include(a => a.Student).ThenInclude(s => s!.Batch)
+            .Include(a => a.Teacher)
+            .Include(a => a.Stop)
+            .Where(a => a.RouteId == routeId && a.Status == "Active")
+            .OrderBy(a => a.Stop!.StopOrder)
+            .ToListAsync();
+
         if (departureType == "Morning") allocations = allocations.Where(a => a.PickupDropType == "Both" || a.PickupDropType == "PickupOnly").ToList();
         else allocations = allocations.Where(a => a.PickupDropType == "Both" || a.PickupDropType == "DropOnly").ToList();
+        
+        var today = DateTime.UtcNow.Date;
+        var todayAttendances = await _db.TransportAttendances.AsNoTracking()
+            .Where(t => t.RouteId == routeId && t.AttendanceDate == today && t.DepartureType == departureType)
+            .ToListAsync();
+
         int srNo = 1;
-        var passengers = allocations.Select(a => new BusBoardingManifestRowDto(srNo++, a.MemberType, a.MemberType == "Student" ? a.Student?.StudentName ?? "" : a.Teacher?.FullName ?? "", a.MemberType == "Student" ? a.Student?.RollNumber : a.Teacher?.EmployeeCode, null, a.Stop?.StopName ?? "", departureType == "Morning" ? a.Stop?.PickupTime ?? "" : a.Stop?.DropTime ?? "", a.MemberType == "Student" ? a.Student?.ParentWhatsAppPhone : a.Teacher?.PhoneNumber, false)).ToList();
+        var passengers = allocations.Select(a =>
+        {
+            var s = a.Student;
+            var t = a.Teacher;
+            string name = a.MemberType == "Student" ? s?.StudentName ?? "" : t?.FullName ?? "";
+            string? code = a.MemberType == "Student"
+                ? GetStudentRollCode(s)
+                : t?.EmployeeCode;
+
+            string? classInfo = null;
+            if (a.MemberType == "Student" && s != null)
+            {
+                var parts = new List<string>();
+                if (s.Class != null)
+                    parts.Add(s.Section != null ? $"{s.Class.Name} - {s.Section.Name}" : s.Class.Name);
+                if (s.Batch != null)
+                    parts.Add(s.Batch.Name);
+                classInfo = parts.Count > 0 ? string.Join(" • ", parts) : null;
+            }
+            else if (t != null)
+            {
+                classInfo = t.Specialization ?? "Faculty Member";
+            }
+
+            string stopName = a.Stop?.StopName ?? "Campus Stop";
+            string? scheduledTime = departureType == "Morning"
+                ? (!string.IsNullOrWhiteSpace(a.Stop?.PickupTime) ? a.Stop.PickupTime : route.MorningDepartureTime)
+                : (!string.IsNullOrWhiteSpace(a.Stop?.DropTime) ? a.Stop.DropTime : route.EveningDepartureTime);
+
+            string? phone = a.MemberType == "Student" ? s?.ParentWhatsAppPhone : t?.PhoneNumber;
+
+            bool isBoarded = todayAttendances.Any(att =>
+                att.MemberType == a.MemberType &&
+                ((a.StudentId.HasValue && att.StudentId == a.StudentId) ||
+                 (a.TeacherId.HasValue && att.TeacherId == a.TeacherId) ||
+                 att.PassengerName.ToLower() == name.ToLower()) &&
+                att.IsBoarded);
+
+            return new BusBoardingManifestRowDto(srNo++, a.MemberType, name, code, classInfo, stopName, scheduledTime, phone, isBoarded, isBoarded);
+        }).ToList();
+
         return Ok(new BusBoardingManifestDto(route.Id, route.RouteCode, route.RouteName, route.Vehicle?.VehicleNumber ?? "N/A", route.Vehicle?.Driver?.FullName, route.Vehicle?.Driver?.PhoneNumber, route.Vehicle?.ConductorName, DateTime.UtcNow.ToString("dd MMM yyyy"), departureType, passengers.Count, passengers));
+    }
+
+    [HttpPost("routes/{routeId}/manifest/save-attendance")]
+    public async Task<IActionResult> SaveBoardingAttendance(Guid routeId, [FromBody] SaveBoardingAttendanceDto dto)
+    {
+        var route = await _db.TransportRoutes.Include(r => r.Vehicle).FirstOrDefaultAsync(r => r.Id == routeId);
+        if (route == null) return NotFound(new { message = "Route not found." });
+
+        var allocations = await _db.TransportAllocations.AsNoTracking()
+            .Include(a => a.Student)
+            .Include(a => a.Teacher)
+            .Where(a => a.RouteId == routeId && a.Status == "Active")
+            .ToListAsync();
+
+        var today = DateTime.UtcNow.Date;
+        var existingAttendances = await _db.TransportAttendances
+            .Where(t => t.RouteId == routeId && t.AttendanceDate == today && t.DepartureType == dto.DepartureType)
+            .ToListAsync();
+
+        foreach (var p in dto.Passengers)
+        {
+            var alloc = allocations.FirstOrDefault(a =>
+                a.MemberType == p.MemberType &&
+                ((a.MemberType == "Student" && a.Student != null && (a.Student.StudentName.ToLower() == p.Name.ToLower() || (!string.IsNullOrWhiteSpace(p.Code) && a.Student.RollNumber == p.Code))) ||
+                 (a.MemberType == "Teacher" && a.Teacher != null && (a.Teacher.FullName.ToLower() == p.Name.ToLower() || (!string.IsNullOrWhiteSpace(p.Code) && a.Teacher.EmployeeCode == p.Code)))));
+
+            var rec = existingAttendances.FirstOrDefault(r =>
+                r.MemberType == p.MemberType &&
+                ((alloc != null && alloc.StudentId.HasValue && r.StudentId == alloc.StudentId) ||
+                 (alloc != null && alloc.TeacherId.HasValue && r.TeacherId == alloc.TeacherId) ||
+                 r.PassengerName.ToLower() == p.Name.ToLower()));
+
+            if (rec == null)
+            {
+                rec = new TransportAttendance
+                {
+                    TenantId = _currentUser.TenantId,
+                    BranchId = _currentUser.BranchId,
+                    RouteId = routeId,
+                    MemberType = p.MemberType,
+                    StudentId = alloc?.StudentId,
+                    TeacherId = alloc?.TeacherId,
+                    PassengerName = p.Name,
+                    PassengerCode = p.Code,
+                    StopName = p.StopName,
+                    AttendanceDate = today,
+                    DepartureType = dto.DepartureType,
+                    IsBoarded = p.IsBoarded,
+                    BoardedAt = p.IsBoarded ? DateTime.UtcNow : null,
+                    MarkedBy = _currentUser.UserId.ToString()
+                };
+                _db.TransportAttendances.Add(rec);
+            }
+            else
+            {
+                rec.IsBoarded = p.IsBoarded;
+                rec.BoardedAt = p.IsBoarded ? (rec.BoardedAt ?? DateTime.UtcNow) : null;
+                rec.PassengerCode = p.Code;
+                rec.StopName = p.StopName;
+                rec.MarkedBy = _currentUser.UserId.ToString();
+            }
+        }
+
+        await _db.SaveChangesAsync();
+
+        int boardedCount = dto.Passengers.Count(p => p.IsBoarded);
+        int totalCount = dto.Passengers.Count;
+
+        if (dto.SendWhatsAppAlerts)
+        {
+            var boardedStudents = dto.Passengers.Where(p => p.IsBoarded && !string.IsNullOrWhiteSpace(p.Phone)).ToList();
+            foreach (var student in boardedStudents)
+            {
+                await _whatsAppService.SendTransportBoardingAlertAsync(
+                    _currentUser.TenantId,
+                    student.Phone!,
+                    student.Name,
+                    route.Vehicle?.VehicleNumber ?? route.RouteCode,
+                    student.StopName,
+                    DateTime.Now.ToString("hh:mm tt"),
+                    dto.DepartureType
+                );
+            }
+        }
+
+        return Ok(new
+        {
+            message = $"Boarding attendance saved successfully for {dto.DepartureType} run. ({boardedCount}/{totalCount} Boarded)",
+            routeId,
+            departureType = dto.DepartureType,
+            date = DateTime.UtcNow.ToString("dd MMM yyyy"),
+            totalCount,
+            boardedCount,
+            absentCount = totalCount - boardedCount,
+            savedAt = DateTime.UtcNow
+        });
+    }
+
+    [HttpPost("routes/{routeId}/manifest/notify-parents")]
+    public async Task<IActionResult> NotifyBoardedParents(Guid routeId, [FromBody] NotifyBoardingParentsDto dto)
+    {
+        var route = await _db.TransportRoutes.Include(r => r.Vehicle).FirstOrDefaultAsync(r => r.Id == routeId);
+        if (route == null) return NotFound(new { message = "Route not found." });
+
+        int sentCount = 0;
+        foreach (var student in dto.Passengers.Where(p => p.IsBoarded && !string.IsNullOrWhiteSpace(p.Phone)))
+        {
+            var sent = await _whatsAppService.SendTransportBoardingAlertAsync(
+                _currentUser.TenantId,
+                student.Phone!,
+                student.Name,
+                route.Vehicle?.VehicleNumber ?? route.RouteCode,
+                student.StopName,
+                DateTime.Now.ToString("hh:mm tt"),
+                dto.DepartureType
+            );
+            if (sent) sentCount++;
+        }
+
+        return Ok(new
+        {
+            message = $"Safe transit WhatsApp alerts dispatched to parents of {sentCount} boarded commuter(s).",
+            sentCount
+        });
+    }
+
+    [HttpPost("verify-pass-qr")]
+    public async Task<IActionResult> VerifyPassQr([FromBody] VerifyPassQrRequestDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.QrPayload))
+            return BadRequest(new { message = "QR Payload is required." });
+
+        var raw = dto.QrPayload.Trim();
+        if (raw.StartsWith("BUSPASS:"))
+            raw = raw.Substring("BUSPASS:".Length);
+
+        var segments = raw.Split('|');
+        string? allocIdStr = segments.Length > 0 ? segments[0] : null;
+        string? memberType = segments.Length > 1 ? segments[1] : null;
+        string? memberName = segments.Length > 2 ? segments[2] : null;
+
+        Guid? allocGuid = Guid.TryParse(allocIdStr, out var parsedGuid) ? parsedGuid : null;
+        TransportAllocation? alloc = null;
+        if (allocGuid.HasValue)
+        {
+            alloc = await _db.TransportAllocations.AsNoTracking()
+                .Include(a => a.Student)
+                .Include(a => a.Teacher)
+                .Include(a => a.Route)
+                .Include(a => a.Stop)
+                .Include(a => a.Vehicle)
+                .FirstOrDefaultAsync(a => a.Id == allocGuid.Value);
+        }
+
+        if (alloc != null)
+        {
+            string studentOrEmpCode = alloc.MemberType == "Student"
+                ? (!string.IsNullOrWhiteSpace(alloc.Student?.RollNumber) ? alloc.Student.RollNumber : (alloc.Student?.CoachingRollNumber ?? alloc.Student?.SchoolRollNumber ?? alloc.Student?.AdmissionNumber ?? ""))
+                : (alloc.Teacher?.EmployeeCode ?? "");
+
+            return Ok(new
+            {
+                success = true,
+                allocationId = alloc.Id,
+                memberType = alloc.MemberType,
+                name = alloc.MemberType == "Student" ? alloc.Student?.StudentName : alloc.Teacher?.FullName,
+                code = studentOrEmpCode,
+                routeId = alloc.RouteId,
+                routeCode = alloc.Route?.RouteCode,
+                stopName = alloc.Stop?.StopName,
+                vehicleNumber = alloc.Vehicle?.VehicleNumber,
+                status = alloc.Status
+            });
+        }
+
+        return Ok(new
+        {
+            success = true,
+            memberType = memberType ?? "Student",
+            name = memberName ?? "Commuter",
+            code = segments.FirstOrDefault(s => s.StartsWith("Roll:"))?.Replace("Roll:", ""),
+            routeCode = segments.FirstOrDefault(s => s.StartsWith("Route:"))?.Replace("Route:", ""),
+            stopName = segments.FirstOrDefault(s => s.StartsWith("Stop:"))?.Replace("Stop:", "")
+        });
     }
 
     // =========================================================================
@@ -327,9 +620,67 @@ public class TransportController : ControllerBase
     // Private Helpers
     // =========================================================================
 
-    private static TransportAllocationDto MapAllocationDto(TransportAllocation a) => new(a.Id, a.MemberType, a.StudentId, a.Student?.StudentName, a.Student?.RollNumber, null, a.TeacherId, a.Teacher?.FullName, a.Teacher?.EmployeeCode, a.RouteId, a.Route?.RouteName ?? "", a.Route?.RouteCode ?? "", a.RouteStopId, a.Stop?.StopName ?? "", a.Stop?.PickupTime, a.Stop?.DropTime, a.VehicleId, a.Vehicle?.VehicleNumber, a.PickupDropType, a.MonthlyFare, a.IsFreeAllocation, a.EffectiveFrom, a.EffectiveTo, a.Status, a.Remarks, a.CreatedAt);
+    private static string? GetStudentRollCode(Student? s)
+    {
+        if (s == null) return null;
+        var rollParts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(s.SchoolRollNumber))
+            rollParts.Add($"Sch: {s.SchoolRollNumber.Trim()}");
+        if (!string.IsNullOrWhiteSpace(s.CoachingRollNumber))
+            rollParts.Add($"Cch: {s.CoachingRollNumber.Trim()}");
 
-    private static CampusGatePassDto MapGatePassDto(CampusGatePass g) => new(g.Id, g.PassType, g.PassNumber, g.StudentId, g.Student?.StudentName, g.Student?.RollNumber, null, g.TeacherId, g.Teacher?.FullName, g.Teacher?.EmployeeCode, g.VehicleId, g.Vehicle?.VehicleNumber, g.PersonName, g.ContactNumber, g.Purpose, g.OutDateTime, g.ExpectedInDateTime, g.ActualInDateTime, g.ApprovedBy, g.SecurityGuardName, g.PassengerCount, g.Status, g.Remarks, g.CreatedAt);
+        if (rollParts.Count > 0)
+            return string.Join(" • ", rollParts);
+
+        if (!string.IsNullOrWhiteSpace(s.RollNumber))
+            return s.RollNumber.Trim();
+
+        if (!string.IsNullOrWhiteSpace(s.AdmissionNumber))
+            return s.AdmissionNumber.Trim();
+
+        return null;
+    }
+
+    private static TransportAllocationDto MapAllocationDto(TransportAllocation a)
+    {
+        var s = a.Student;
+        string? rollNo = s != null
+            ? GetStudentRollCode(s)
+            : null;
+        string? studentClass = s?.Class != null
+            ? (s.Section != null ? $"{s.Class.Name} - {s.Section.Name}" : s.Class.Name)
+            : null;
+        string? studentBatch = s?.Batch?.Name;
+        string? admNo = s?.AdmissionNumber;
+        return new TransportAllocationDto(
+            a.Id, a.MemberType, a.StudentId, s?.StudentName, rollNo, studentClass,
+            a.TeacherId, a.Teacher?.FullName, a.Teacher?.EmployeeCode,
+            a.RouteId, a.Route?.RouteName ?? "", a.Route?.RouteCode ?? "",
+            a.RouteStopId, a.Stop?.StopName ?? "", a.Stop?.PickupTime, a.Stop?.DropTime,
+            a.VehicleId, a.Vehicle?.VehicleNumber, a.PickupDropType, a.MonthlyFare,
+            a.IsFreeAllocation, a.EffectiveFrom, a.EffectiveTo, a.Status, a.Remarks, a.CreatedAt,
+            studentBatch, admNo
+        );
+    }
+
+    private static CampusGatePassDto MapGatePassDto(CampusGatePass g)
+    {
+        var s = g.Student;
+        string? rollNo = s != null
+            ? GetStudentRollCode(s)
+            : null;
+        string? studentClass = s?.Class != null
+            ? (s.Section != null ? $"{s.Class.Name} - {s.Section.Name}" : s.Class.Name)
+            : null;
+        return new CampusGatePassDto(
+            g.Id, g.PassType, g.PassNumber, g.StudentId, s?.StudentName, rollNo, studentClass,
+            g.TeacherId, g.Teacher?.FullName, g.Teacher?.EmployeeCode,
+            g.VehicleId, g.Vehicle?.VehicleNumber, g.PersonName, g.ContactNumber,
+            g.Purpose, g.OutDateTime, g.ExpectedInDateTime, g.ActualInDateTime,
+            g.ApprovedBy, g.SecurityGuardName, g.PassengerCount, g.Status, g.Remarks, g.CreatedAt
+        );
+    }
 }
 
 public record CloseGatePassDto(DateTime? ActualInDateTime, string? Remarks);
+

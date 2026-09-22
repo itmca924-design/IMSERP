@@ -70,6 +70,7 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
     public DbSet<TransportRoute> TransportRoutes => Set<TransportRoute>();
     public DbSet<TransportRouteStop> TransportRouteStops => Set<TransportRouteStop>();
     public DbSet<TransportAllocation> TransportAllocations => Set<TransportAllocation>();
+    public DbSet<TransportAttendance> TransportAttendances => Set<TransportAttendance>();
     public DbSet<CampusGatePass> CampusGatePasses => Set<CampusGatePass>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -203,6 +204,9 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
         modelBuilder.Entity<TransportRouteStop>().HasQueryFilter(x =>
             _currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId);
         modelBuilder.Entity<TransportAllocation>().HasQueryFilter(x =>
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<TransportAttendance>().HasQueryFilter(x =>
             (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<CampusGatePass>().HasQueryFilter(x =>

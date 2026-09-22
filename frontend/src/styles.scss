@@ -1684,3 +1684,133 @@ mat-sidenav-container {
   }
 }
 
+// 7. Global Print Handler for Transport Bus Pass & Daily Manifest
+@media print {
+  body:has(#printable-pass) {
+    /* Hide layout shell & modal controls */
+    .layout-container,
+    .sidebar,
+    .header-toolbar,
+    .transport-page-wrapper,
+    .page-header-card,
+    .nav-tabs-wrapper,
+    .tab-content,
+    .modal-header,
+    .modal-footer,
+    .modal-close-btn,
+    .no-print {
+      display: none !important;
+      visibility: hidden !important;
+    }
+
+    /* Reset background & containers to pure white */
+    html, body {
+      background: #ffffff !important;
+      background-color: #ffffff !important;
+      padding: 0 !important;
+      margin: 0 !important;
+    }
+
+    .modal-backdrop {
+      position: static !important;
+      inset: auto !important;
+      background: transparent !important;
+      background-color: transparent !important;
+      backdrop-filter: none !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      display: block !important;
+      box-shadow: none !important;
+      border: none !important;
+    }
+
+    .modal-dialog {
+      background: transparent !important;
+      background-color: transparent !important;
+      box-shadow: none !important;
+      border: none !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      max-width: 100% !important;
+      overflow: visible !important;
+      display: block !important;
+    }
+
+    .modal-body {
+      padding: 0 !important;
+      margin: 0 !important;
+      display: block !important;
+    }
+
+    #printable-pass {
+      display: block !important;
+      visibility: visible !important;
+      width: 440px !important;
+      max-width: 440px !important;
+      margin: 40px auto !important;
+      border: 2px solid #2563eb !important;
+      border-radius: 16px !important;
+      padding: 20px !important;
+      background: #ffffff !important;
+      box-shadow: none !important;
+      page-break-inside: avoid !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    #printable-pass * {
+      visibility: visible !important;
+    }
+  }
+
+  body:has(#printable-manifest) {
+    .layout-container,
+    .sidebar,
+    .header-toolbar,
+    .page-header-card,
+    .nav-tabs-wrapper,
+    .section-toolbar,
+    .no-print {
+      display: none !important;
+      visibility: hidden !important;
+    }
+
+    html, body {
+      background: #ffffff !important;
+      padding: 0 !important;
+      margin: 0 !important;
+    }
+
+    .transport-page-wrapper {
+      padding: 0 !important;
+      margin: 0 !important;
+      background: transparent !important;
+      display: block !important;
+    }
+
+    .tab-content {
+      padding: 0 !important;
+      margin: 0 !important;
+      display: block !important;
+    }
+
+    #printable-manifest {
+      display: block !important;
+      visibility: visible !important;
+      width: 100% !important;
+      margin: 0 !important;
+      padding: 10px 0 !important;
+      box-shadow: none !important;
+      border: none !important;
+      page-break-inside: avoid !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    #printable-manifest * {
+      visibility: visible !important;
+    }
+  }
+}
+
+

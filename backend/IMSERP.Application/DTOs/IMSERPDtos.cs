@@ -2342,7 +2342,9 @@ public record TransportAllocationDto(
     DateTime? EffectiveTo,
     string Status,
     string? Remarks,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    string? StudentBatch = null,
+    string? AdmissionNumber = null
 );
 
 public record CreateTransportAllocationDto(
@@ -2405,7 +2407,35 @@ public record BusBoardingManifestRowDto(
     string StopName,
     string? PickupTime,
     string? ParentPhone,
-    bool IsPresent
+    bool IsPresent = false,
+    bool IsBoarded = false
+);
+
+public record SaveBoardingAttendanceDto(
+    Guid RouteId,
+    string DepartureType,
+    List<BoardingPassengerStatusDto> Passengers,
+    bool SendWhatsAppAlerts = false,
+    string? Remarks = null
+);
+
+public record BoardingPassengerStatusDto(
+    string MemberType,
+    string Name,
+    string? Code,
+    string StopName,
+    bool IsBoarded,
+    string? Phone
+);
+
+public record NotifyBoardingParentsDto(
+    Guid RouteId,
+    string DepartureType,
+    List<BoardingPassengerStatusDto> Passengers
+);
+
+public record VerifyPassQrRequestDto(
+    string QrPayload
 );
 
 public record CampusGatePassDto(

@@ -18,16 +18,33 @@
     </div>
 
     <div class="header-right-actions">
-      <button mat-flat-button color="primary" class="action-btn" (click)="openAddAllocation('Student')">
-        <mat-icon>assignment_ind</mat-icon>
+      <button 
+        type="button"
+        class="action-btn"
+        [class.action-btn-active]="activeTopAction === 'student'"
+        [class.action-btn-secondary]="activeTopAction !== 'student'"
+        (click)="onTopActionClick('student')">
+        <mat-icon>school</mat-icon>
         <span>Assign Student</span>
       </button>
-      <button mat-stroked-button class="action-btn-secondary" (click)="openAddAllocation('Teacher')">
-        <mat-icon>badge</mat-icon>
+
+      <button 
+        type="button"
+        class="action-btn"
+        [class.action-btn-active]="activeTopAction === 'faculty'"
+        [class.action-btn-secondary]="activeTopAction !== 'faculty'"
+        (click)="onTopActionClick('faculty')">
+        <mat-icon>co_present</mat-icon>
         <span>Assign Faculty</span>
       </button>
-      <button mat-stroked-button class="action-btn-secondary" (click)="openAddGatePass()">
-        <mat-icon>security</mat-icon>
+
+      <button 
+        type="button"
+        class="action-btn"
+        [class.action-btn-active]="activeTopAction === 'gatePass'"
+        [class.action-btn-secondary]="activeTopAction !== 'gatePass'"
+        (click)="onTopActionClick('gatePass')">
+        <mat-icon>meeting_room</mat-icon>
         <span>Gate Pass Desk</span>
       </button>
     </div>
@@ -36,35 +53,35 @@
   <!-- Navigation Tabs -->
   <div class="nav-tabs-wrapper">
     <div class="custom-tabs">
-      <button class="tab-btn" [class.active]="activeTab === 0" (click)="activeTab = 0">
+      <button class="tab-btn" [class.active]="activeTab === 0" (click)="selectTab(0)">
         <mat-icon>dashboard</mat-icon>
         <span>Overview</span>
       </button>
-      <button class="tab-btn" [class.active]="activeTab === 1" (click)="activeTab = 1">
+      <button class="tab-btn" [class.active]="activeTab === 1" (click)="selectTab(1)">
         <mat-icon>directions_bus</mat-icon>
         <span>Vehicles &amp; Fleet ({{ vehicles.length }})</span>
       </button>
-      <button class="tab-btn" [class.active]="activeTab === 2" (click)="activeTab = 2">
+      <button class="tab-btn" [class.active]="activeTab === 2" (click)="selectTab(2)">
         <mat-icon>airline_seat_recline_normal</mat-icon>
         <span>Drivers &amp; Staff ({{ drivers.length }})</span>
       </button>
-      <button class="tab-btn" [class.active]="activeTab === 3" (click)="activeTab = 3">
+      <button class="tab-btn" [class.active]="activeTab === 3" (click)="selectTab(3)">
         <mat-icon>alt_route</mat-icon>
         <span>Routes &amp; Stops ({{ routes.length }})</span>
       </button>
-      <button class="tab-btn" [class.active]="activeTab === 4" (click)="activeTab = 4">
+      <button class="tab-btn" [class.active]="activeTab === 4" (click)="selectTab(4)">
         <mat-icon>school</mat-icon>
         <span>Student Passes ({{ studentAllocations.length }})</span>
       </button>
-      <button class="tab-btn" [class.active]="activeTab === 5" (click)="activeTab = 5">
+      <button class="tab-btn" [class.active]="activeTab === 5" (click)="selectTab(5)">
         <mat-icon>co_present</mat-icon>
         <span>Faculty Passes ({{ teacherAllocations.length }})</span>
       </button>
-      <button class="tab-btn" [class.active]="activeTab === 6" (click)="activeTab = 6">
+      <button class="tab-btn" [class.active]="activeTab === 6" (click)="selectTab(6)">
         <mat-icon>fact_check</mat-icon>
         <span>Daily Manifest</span>
       </button>
-      <button class="tab-btn" [class.active]="activeTab === 7" (click)="activeTab = 7">
+      <button class="tab-btn" [class.active]="activeTab === 7" (click)="selectTab(7)">
         <mat-icon>meeting_room</mat-icon>
         <span>Gate Passes ({{ gatePasses.length }})</span>
       </button>
@@ -460,9 +477,28 @@
             <td>
               <div class="user-cell">
                 <div class="user-avatar"><mat-icon>person</mat-icon></div>
-                <div>
-                  <strong>{{ a.studentName }}</strong>
-                  <span class="meta-sub">Roll: {{ a.rollNumber || 'N/A' }}</span>
+                <div class="user-info">
+                  <strong class="user-name">{{ a.studentName }}</strong>
+                  <div class="meta-badges-row">
+                    <ng-container *ngIf="a.studentRollNumber && a.studentRollNumber.includes(' • ')">
+                      <span 
+                        *ngFor="let seg of getRollSegments(a.studentRollNumber)" 
+                        class="badge-roll"
+                        [class.sch-pill]="seg.startsWith('Sch:')"
+                        [class.cch-pill]="seg.startsWith('Cch:')">
+                        {{ seg }}
+                      </span>
+                    </ng-container>
+                    <span class="badge-roll" *ngIf="!a.studentRollNumber || !a.studentRollNumber.includes(' • ')">
+                      Roll: {{ a.studentRollNumber || a.rollNumber || 'N/A' }}
+                    </span>
+                    <span class="badge-school" *ngIf="a.studentClass || a.className" title="School Class">
+                      <mat-icon>school</mat-icon> {{ a.studentClass || a.className }}
+                    </span>
+                    <span class="badge-coaching" *ngIf="a.studentBatch || a.batchName" title="Coaching Batch">
+                      <mat-icon>menu_book</mat-icon> {{ a.studentBatch || a.batchName }}
+                    </span>
+                  </div>
                 </div>
               </div>
             </td>
@@ -515,7 +551,7 @@
       <table class="erp-table">
         <thead>
           <tr>
-            <th>Faculty Member</th>
+            <th>Faculty</th>
             <th>Emp Code</th>
             <th>Route</th>
             <th>Boarding Stop</th>
@@ -588,23 +624,63 @@
           </mat-select>
         </mat-form-field>
 
-        <button mat-raised-button color="primary" (click)="printManifest()">
-          <mat-icon>print</mat-icon> Print Clipboard Sheet
-        </button>
+        <div class="manifest-action-btns">
+          <button mat-flat-button class="btn-scan-qr" (click)="openQrScanModal()">
+            <mat-icon>qr_code_scanner</mat-icon> Scan QR Pass
+          </button>
+
+          <button mat-flat-button class="btn-save-boarding" [disabled]="isSavingBoarding || !manifest" (click)="saveBoardingRun()">
+            <mat-icon>save</mat-icon> {{ isSavingBoarding ? 'Saving...' : 'Save / Submit Boarding' }}
+          </button>
+
+          <button mat-stroked-button class="btn-notify-parents" [disabled]="isNotifyingParents || !manifest" (click)="notifyBoardedParents()">
+            <mat-icon>sms</mat-icon> {{ isNotifyingParents ? 'Sending...' : 'Notify Parents' }}
+          </button>
+
+          <button mat-stroked-button color="primary" class="btn-print" (click)="printManifest()">
+            <mat-icon>print</mat-icon> Print Sheet
+          </button>
+        </div>
       </div>
     </div>
 
-    <div class="manifest-sheet mat-elevation-z1" *ngIf="manifest">
+    <div class="manifest-sheet mat-elevation-z1" id="printable-manifest" *ngIf="manifest">
+      <!-- Live Boarding Run Status Strip -->
+      <div class="manifest-stats-strip no-print">
+        <div class="stat-items">
+          <span class="stat-badge total">
+            <mat-icon>groups</mat-icon> Total Allocated: <strong>{{ manifest.passengers.length }}</strong>
+          </span>
+          <span class="stat-badge success">
+            <mat-icon>check_circle</mat-icon> Boarded: <strong>{{ getBoardedCount() }}</strong>
+          </span>
+          <span class="stat-badge pending">
+            <mat-icon>pending</mat-icon> Pending / Absent: <strong>{{ manifest.passengers.length - getBoardedCount() }}</strong>
+          </span>
+        </div>
+        <div class="quick-actions">
+          <button mat-stroked-button color="primary" class="btn-sm" (click)="toggleAllBoarded(true)">
+            <mat-icon>done_all</mat-icon> Mark All Boarded
+          </button>
+          <button mat-button color="warn" class="btn-sm" (click)="toggleAllBoarded(false)">
+            <mat-icon>clear_all</mat-icon> Clear All
+          </button>
+        </div>
+      </div>
+
       <div class="manifest-header-print">
         <div class="mh-top">
-          <h2>CAMPUS TRANSPORTATION &bull; BOARDING MANIFEST</h2>
+          <div class="mh-title-block">
+            <h2>CAMPUS TRANSPORTATION &bull; BOARDING MANIFEST</h2>
+            <span class="mh-inst-subtitle">Official Dispatch Checklist &amp; Student Attendance Sheet</span>
+          </div>
           <span class="manifest-date">{{ manifest.manifestDate }} &bull; {{ manifest.departureType }} Run</span>
         </div>
         <div class="mh-meta-grid">
           <div><strong>Route:</strong> {{ manifest.routeCode }} - {{ manifest.routeName }}</div>
           <div><strong>Bus Number:</strong> {{ manifest.vehicleNumber }}</div>
           <div><strong>Driver:</strong> {{ manifest.driverName || 'Assigned' }} ({{ manifest.driverPhone || '—' }})</div>
-          <div><strong>Passengers:</strong> {{ manifest.totalPassengers }} Commuters</div>
+          <div><strong>Total Commuters:</strong> {{ manifest.totalPassengers }} Allocated</div>
         </div>
       </div>
 
@@ -612,9 +688,10 @@
         <thead>
           <tr>
             <th style="width: 45px;">Sr.</th>
-            <th>Type</th>
+            <th style="width: 80px;">Type</th>
             <th>Commuter Name</th>
             <th>Roll / Emp ID</th>
+            <th>Class / Batch</th>
             <th>Boarding Stop</th>
             <th>Scheduled Time</th>
             <th>Emergency Phone</th>
@@ -625,20 +702,53 @@
           <tr *ngFor="let p of manifest.passengers">
             <td>{{ p.srNo }}</td>
             <td><span class="member-tag" [class.tch]="p.memberType === 'Teacher'">{{ p.memberType }}</span></td>
-            <td><strong>{{ p.memberName }}</strong></td>
-            <td><code>{{ p.rollOrEmpCode || '—' }}</code></td>
+            <td>
+              <strong class="commuter-name">{{ p.name || p.memberName || 'N/A' }}</strong>
+            </td>
+            <td>
+              <div class="roll-badge-box" *ngIf="p.code">
+                <span 
+                  *ngFor="let seg of getRollSegments(p.code)" 
+                  class="roll-code-pill"
+                  [class.sch-pill]="seg.startsWith('Sch:')"
+                  [class.cch-pill]="seg.startsWith('Cch:')">
+                  {{ seg }}
+                </span>
+              </div>
+              <code *ngIf="!p.code">{{ p.rollOrEmpCode || '—' }}</code>
+            </td>
+            <td>
+              <span class="manifest-class" *ngIf="p.className">{{ p.className }}</span>
+              <span *ngIf="!p.className" class="text-muted">—</span>
+            </td>
             <td><strong>{{ p.stopName }}</strong></td>
-            <td>{{ p.scheduledTime || '—' }}</td>
-            <td>{{ p.contactNumber || '—' }}</td>
+            <td><span class="time-pill">{{ p.pickupTime || p.scheduledTime || '—' }}</span></td>
+            <td>{{ p.parentPhone || p.contactNumber || '—' }}</td>
             <td style="text-align: center;">
               <mat-checkbox [(ngModel)]="p.isBoarded"></mat-checkbox>
             </td>
           </tr>
           <tr *ngIf="manifest.passengers.length === 0">
-            <td colspan="8" class="empty-row">No commuters allocated for this route and departure window.</td>
+            <td colspan="9" class="empty-row">No commuters allocated for this route and departure window.</td>
           </tr>
         </tbody>
       </table>
+
+      <!-- Official Print Footer (Shown when printing clipboard sheet) -->
+      <div class="manifest-print-footer">
+        <div class="sig-box">
+          <div class="sig-line"></div>
+          <span>Driver Signature</span>
+        </div>
+        <div class="sig-box">
+          <div class="sig-line"></div>
+          <span>Conductor Signature</span>
+        </div>
+        <div class="sig-box">
+          <div class="sig-line"></div>
+          <span>Transport Supervisor</span>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -676,7 +786,7 @@
             <td><span class="gate-type-pill" [ngClass]="g.passType.toLowerCase()">{{ g.passType }}</span></td>
             <td>
               <div class="person-line">
-                <strong *ngIf="g.studentName">{{ g.studentName }} (Roll: {{ g.rollNumber }})</strong>
+                <strong *ngIf="g.studentName">{{ g.studentName }} (Roll: {{ g.studentRollNumber || g.rollNumber || 'N/A' }})</strong>
                 <strong *ngIf="g.teacherName">{{ g.teacherName }} (Staff)</strong>
                 <strong *ngIf="g.vehicleNumber">Bus {{ g.vehicleNumber }} (Pax: {{ g.passengerCount || 0 }})</strong>
                 <strong *ngIf="g.personName">{{ g.personName }} (Visitor)</strong>
@@ -787,12 +897,12 @@
 
           <mat-form-field appearance="outline">
             <mat-label>Insurance Expiry Date</mat-label>
-            <input matInput type="date" formControlName="insuranceExpiry" />
+            <input matInput type="date" formControlName="insuranceExpiry" min="2000-01-01" max="2099-12-31" (input)="clampYear('insuranceExpiry', vehicleForm)" />
           </mat-form-field>
 
           <mat-form-field appearance="outline">
             <mat-label>Fitness Certificate Expiry</mat-label>
-            <input matInput type="date" formControlName="fitnessExpiry" />
+            <input matInput type="date" formControlName="fitnessExpiry" min="2000-01-01" max="2099-12-31" (input)="clampYear('fitnessExpiry', vehicleForm)" />
           </mat-form-field>
         </div>
       </div>
@@ -845,7 +955,7 @@
 
           <mat-form-field appearance="outline">
             <mat-label>License Expiry Date</mat-label>
-            <input matInput type="date" formControlName="licenseExpiry" />
+            <input matInput type="date" formControlName="licenseExpiry" min="2000-01-01" max="2099-12-31" (input)="clampYear('licenseExpiry', driverForm)" />
           </mat-form-field>
 
           <mat-form-field appearance="outline">
@@ -1035,12 +1145,16 @@
   <div class="modal-dialog">
     <div class="modal-header">
       <div class="modal-header-left">
-        <div class="modal-header-icon">
-          <mat-icon>assignment_ind</mat-icon>
+        <div class="modal-header-icon" [ngClass]="{'teacher-header-icon': allocationForm.get('memberType')?.value === 'Teacher'}">
+          <mat-icon>{{ allocationForm.get('memberType')?.value === 'Student' ? 'school' : 'co_present' }}</mat-icon>
         </div>
         <div>
-          <h3 class="modal-title">Issue Transport Pass</h3>
-          <p class="modal-subtitle">Assign student or faculty commuter to a verified transit stop</p>
+          <h3 class="modal-title">
+            {{ allocationForm.get('memberType')?.value === 'Student' ? 'Assign Student Transport Pass' : 'Assign Faculty Transit Pass' }}
+          </h3>
+          <p class="modal-subtitle">
+            {{ allocationForm.get('memberType')?.value === 'Student' ? 'Enroll student into bus route with automated fee invoice billing' : 'Allocate campus transit facility for teacher or staff member' }}
+          </p>
         </div>
       </div>
       <button class="modal-close-btn" (click)="showAllocationModal = false"><mat-icon>close</mat-icon></button>
@@ -1048,14 +1162,17 @@
 
     <form [formGroup]="allocationForm" (ngSubmit)="saveAllocation()">
       <div class="modal-body">
+        <!-- Commuter Type Pill Switcher -->
+        <div class="commuter-type-switcher">
+          <button type="button" class="type-pill-btn" [class.selected]="allocationForm.get('memberType')?.value === 'Student'" (click)="allocationForm.patchValue({memberType: 'Student'}); activeTopAction = 'student'">
+            <mat-icon>school</mat-icon> Student Commuter (Fee Invoiced)
+          </button>
+          <button type="button" class="type-pill-btn teacher-pill" [class.selected]="allocationForm.get('memberType')?.value === 'Teacher'" (click)="allocationForm.patchValue({memberType: 'Teacher'}); activeTopAction = 'faculty'">
+            <mat-icon>co_present</mat-icon> Faculty / Teacher Member
+          </button>
+        </div>
+
         <div class="form-grid">
-          <mat-form-field appearance="outline" [class.col-span-2]="allocationForm.get('memberType')?.value !== 'Student'">
-            <mat-label>Commuter Type *</mat-label>
-            <mat-select formControlName="memberType">
-              <mat-option value="Student">Student (Billed on Fee Invoices)</mat-option>
-              <mat-option value="Teacher">Teacher / Faculty Member</mat-option>
-            </mat-select>
-          </mat-form-field>
 
           <!-- Class / Batch Filter (Shown only for Student) -->
           <mat-form-field appearance="outline" *ngIf="allocationForm.get('memberType')?.value === 'Student'">
@@ -1127,7 +1244,7 @@
 
           <mat-form-field appearance="outline">
             <mat-label>Effective Start Date *</mat-label>
-            <input matInput type="date" formControlName="effectiveFrom" />
+            <input matInput type="date" formControlName="effectiveFrom" min="2000-01-01" max="2099-12-31" (input)="clampYear('effectiveFrom', allocationForm)" />
           </mat-form-field>
 
           <mat-form-field appearance="outline">
@@ -1166,12 +1283,12 @@
   <div class="modal-dialog">
     <div class="modal-header">
       <div class="modal-header-left">
-        <div class="modal-header-icon">
-          <mat-icon>security</mat-icon>
+        <div class="modal-header-icon gatepass-header-icon">
+          <mat-icon>meeting_room</mat-icon>
         </div>
         <div>
-          <h3 class="modal-title">Issue Campus Gate Pass</h3>
-          <p class="modal-subtitle">Security checkpoint verification for campus departures</p>
+          <h3 class="modal-title">Campus Gate Pass Desk</h3>
+          <p class="modal-subtitle">Security checkpoint authorization for campus departures &amp; visitor entries</p>
         </div>
       </div>
       <button class="modal-close-btn" (click)="showGatePassModal = false"><mat-icon>close</mat-icon></button>
@@ -1179,6 +1296,22 @@
 
     <form [formGroup]="gatePassForm" (ngSubmit)="saveGatePass()">
       <div class="modal-body">
+        <!-- Pass Category Quick Selector -->
+        <div class="pass-category-switcher">
+          <button type="button" class="category-pill-btn" [class.selected]="gatePassForm.get('passType')?.value === 'StudentEarlyExit'" (click)="gatePassForm.patchValue({passType: 'StudentEarlyExit'})">
+            <mat-icon>school</mat-icon> Student Early Exit
+          </button>
+          <button type="button" class="category-pill-btn" [class.selected]="gatePassForm.get('passType')?.value === 'BusDeparture'" (click)="gatePassForm.patchValue({passType: 'BusDeparture'})">
+            <mat-icon>directions_bus</mat-icon> Bus Departure
+          </button>
+          <button type="button" class="category-pill-btn" [class.selected]="gatePassForm.get('passType')?.value === 'TeacherMovement'" (click)="gatePassForm.patchValue({passType: 'TeacherMovement'})">
+            <mat-icon>co_present</mat-icon> Faculty Movement
+          </button>
+          <button type="button" class="category-pill-btn" [class.selected]="gatePassForm.get('passType')?.value === 'Visitor'" (click)="gatePassForm.patchValue({passType: 'Visitor'})">
+            <mat-icon>person_pin</mat-icon> Visitor / Vendor
+          </button>
+        </div>
+
         <div class="form-grid">
           <mat-form-field appearance="outline" class="col-span-2">
             <mat-label>Pass Category *</mat-label>
@@ -1252,13 +1385,15 @@
           </mat-form-field>
 
           <mat-form-field appearance="outline">
-            <mat-label>Out Date &amp; Time *</mat-label>
-            <input matInput type="datetime-local" formControlName="outDateTime" />
+            <mat-label>Out Date &amp; Time (IST) *</mat-label>
+            <input matInput type="datetime-local" formControlName="outDateTime" min="2000-01-01T00:00" max="2099-12-31T23:59" (input)="clampYear('outDateTime', gatePassForm)" />
+            <mat-hint>Current local departure time</mat-hint>
           </mat-form-field>
 
           <mat-form-field appearance="outline">
-            <mat-label>Expected In Date &amp; Time</mat-label>
-            <input matInput type="datetime-local" formControlName="expectedInDateTime" />
+            <mat-label>Expected In Date &amp; Time (Optional)</mat-label>
+            <input matInput type="datetime-local" formControlName="expectedInDateTime" min="2000-01-01T00:00" max="2099-12-31T23:59" (input)="clampYear('expectedInDateTime', gatePassForm)" />
+            <mat-hint>Fill only if returning to campus today</mat-hint>
           </mat-form-field>
 
           <mat-form-field appearance="outline">
@@ -1304,8 +1439,9 @@
     <form [formGroup]="closePassForm" (ngSubmit)="confirmCloseGatePass()">
       <div class="modal-body">
         <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Actual In Date &amp; Time</mat-label>
-          <input matInput type="datetime-local" formControlName="actualInDateTime" />
+          <mat-label>Actual In Date &amp; Time (IST)</mat-label>
+          <input matInput type="datetime-local" formControlName="actualInDateTime" min="2000-01-01T00:00" max="2099-12-31T23:59" (input)="clampYear('actualInDateTime', closePassForm)" />
+          <mat-hint>Current arrival / return check-in time</mat-hint>
         </mat-form-field>
 
         <mat-form-field appearance="outline" class="full-width">
@@ -1359,7 +1495,7 @@
 
           <div class="bp-details">
             <h2 class="bp-name">{{ selectedBusPass.memberName }}</h2>
-            <p class="bp-id">ID: <strong>{{ selectedBusPass.rollOrEmpCode || 'N/A' }}</strong> &bull; {{ selectedBusPass.classOrDesignation || 'Enrolled' }}</p>
+            <p class="bp-id">ID: <strong>{{ selectedBusPass.rollOrEmployeeCode || selectedBusPass.rollOrEmpCode || 'N/A' }}</strong> &bull; {{ selectedBusPass.className || selectedBusPass.classOrDesignation || 'Enrolled' }}</p>
 
             <div class="bp-route-box">
               <div class="bp-route-row">
@@ -1384,11 +1520,11 @@
 
         <div class="bp-footer">
           <div class="bp-qr-box">
-            <code>{{ selectedBusPass.qrPayload }}</code>
+            <code>{{ selectedBusPass.qrCodeData || selectedBusPass.qrPayload }}</code>
           </div>
           <div class="bp-validity">
-            <span>Valid From: <strong>{{ selectedBusPass.validFrom | date:'dd MMM yyyy' }}</strong></span>
-            <span>Coverage: <strong>{{ selectedBusPass.pickupDropType }}</strong></span>
+            <span>Valid From: <strong>{{ (selectedBusPass.effectiveFrom || selectedBusPass.validFrom) | date:'dd MMM yyyy' }}</strong></span>
+            <span class="bp-status-badge">AUTHORIZED</span>
           </div>
         </div>
       </div>
@@ -1402,3 +1538,74 @@
     </div>
   </div>
 </div>
+
+<!-- ========================================================================= -->
+<!-- MODAL: SCAN & VERIFY BUS PASS QR                                         -->
+<!-- ========================================================================= -->
+<div class="modal-backdrop" *ngIf="showQrScanModal">
+  <div class="modal-dialog" style="max-width: 560px;">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <div class="modal-header-icon" style="background: #2563eb; box-shadow: 0 4px 6px -1px rgba(37,99,235,0.25);">
+          <mat-icon>qr_code_scanner</mat-icon>
+        </div>
+        <div>
+          <h3 class="modal-title">Scan &amp; Verify Bus Pass</h3>
+          <p class="modal-subtitle">Instant QR Barcode Scanner &amp; Roll/Code Boarding Verification</p>
+        </div>
+      </div>
+      <button class="modal-close-btn" (click)="showQrScanModal = false"><mat-icon>close</mat-icon></button>
+    </div>
+
+    <div class="modal-body qr-scanner-modal-body">
+      <div class="qr-scanner-viewfinder">
+        <div class="scanner-laser">
+          <mat-icon>qr_code_2</mat-icon>
+        </div>
+        <p>Position physical bus pass QR code or barcode under camera / handheld scanner</p>
+        <span class="laser-line"></span>
+      </div>
+
+      <div class="qr-input-group">
+        <mat-form-field appearance="outline" class="w-100">
+          <mat-label>Scan Barcode / Enter QR Payload or Roll Number</mat-label>
+          <input 
+            matInput 
+            [(ngModel)]="qrScanInput" 
+            placeholder="e.g. BUSPASS:guid|... or Roll Number" 
+            (keyup.enter)="processQrScan()"
+            autofocus />
+          <mat-icon matSuffix>center_focus_strong</mat-icon>
+          <mat-hint>Press Enter or click Verify to confirm boarding</mat-hint>
+        </mat-form-field>
+
+        <button mat-flat-button color="primary" class="btn-verify-qr" (click)="processQrScan()">
+          <mat-icon>verified</mat-icon> Verify &amp; Board
+        </button>
+      </div>
+
+      <!-- Success Feedback -->
+      <div class="qr-scan-result-card success" *ngIf="qrScanSuccessMsg">
+        <mat-icon>check_circle</mat-icon>
+        <div>
+          <strong>Passenger Verified!</strong>
+          <p class="mb-0">{{ qrScanSuccessMsg }}</p>
+        </div>
+      </div>
+
+      <!-- Error Feedback -->
+      <div class="qr-scan-result-card error" *ngIf="qrScanError">
+        <mat-icon>error_outline</mat-icon>
+        <div>
+          <strong>Verification Failed</strong>
+          <p class="mb-0">{{ qrScanError }}</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button mat-stroked-button type="button" (click)="showQrScanModal = false">Close</button>
+    </div>
+  </div>
+</div>
+

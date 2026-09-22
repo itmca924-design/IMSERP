@@ -1087,10 +1087,10 @@ public class FeesController : ControllerBase
             {
                 foreach (var head in applicableHeads)
                 {
-                    // Fail-Safe 1: Skip HOSTEL and MESS from class matrix because residential charges
-                    // are dynamically and exclusively computed from student's active HostelBed allocation
-                    // (prevents accidental double-charging if someone sets a class-level hostel fee).
-                    if (head.FeeHead != null && (head.FeeHead.Code == "HOSTEL" || head.FeeHead.Code == "MESS"))
+                    // Fail-Safe 1: Skip HOSTEL, MESS, and TRANS from class matrix because residential and
+                    // transport charges are dynamically and exclusively computed from student's active
+                    // HostelBed and TransportAllocation (prevents accidental double-charging or charging non-bus commuters).
+                    if (head.FeeHead != null && (head.FeeHead.Code == "HOSTEL" || head.FeeHead.Code == "MESS" || head.FeeHead.Code == "TRANS"))
                     {
                         continue;
                     }
