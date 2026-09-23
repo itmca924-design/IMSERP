@@ -1055,12 +1055,12 @@
     .col-actions {
       text-align: center;
       white-space: nowrap;
-      width: 140px;
+      width: 220px;
 
       .row-action-btns {
         display: inline-flex;
         align-items: center;
-        gap: 4px;
+        gap: 3px;
 
         .action-btn {
           width: 32px;
@@ -1074,6 +1074,21 @@
             height: 18px;
           }
 
+          &.bseb-btn {
+            color: #1e3a8a;
+            background: #eff6ff;
+            &:hover { background: #dbeafe; }
+          }
+          &.admit-btn {
+            color: #7c3aed;
+            background: #f5f3ff;
+            &:hover { background: #ede9fe; }
+          }
+          &.res-btn {
+            color: #0891b2;
+            background: #ecfeff;
+            &:hover { background: #cffafe; }
+          }
           &.rc-btn {
             color: #2563eb;
             &:hover { background: #eff6ff; }

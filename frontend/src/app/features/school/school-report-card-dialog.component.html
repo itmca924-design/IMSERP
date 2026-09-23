@@ -1,0 +1,937 @@
+<div class="report-card-modal-container">
+  
+  <!-- STRICT UI RULE: Light Blue Gradient Modal Header -->
+  <div class="modal-header-bar no-print">
+    <div class="header-left">
+      <div class="header-icon-box">
+        <mat-icon>{{ currentView === 'bseb_marksheet' ? 'auto_stories' : (currentView === 'admit_card' ? 'badge' : (currentView === 'result_card' ? 'analytics' : (currentView === 'certificate' ? 'workspace_premium' : 'assignment_turned_in'))) }}</mat-icon>
+      </div>
+      <div class="header-title-block">
+        <div class="header-title-row">
+          <h2 class="modal-main-title">{{ getViewTitle() }}</h2>
+        </div>
+        <div class="header-meta-row">
+          <span class="meta-pill"><mat-icon>school</mat-icon> Class: <strong>{{ data.className }}</strong></span>
+          <span class="meta-pill"><mat-icon>event</mat-icon> Session: <strong>{{ data.academicYear }}</strong></span>
+          <span class="meta-pill"><mat-icon>assignment</mat-icon> Term: <strong>{{ data.examType || 'Annual Exam' }}</strong></span>
+          <span class="meta-pill"><mat-icon>business</mat-icon> <strong>{{ instituteName }}</strong></span>
+          <span class="meta-pill student-pill" *ngIf="!isBulkMode && activeStudent">
+            <mat-icon>person</mat-icon> <strong>{{ activeStudent.studentName }}</strong> (Roll: {{ activeStudent.rollNumber }})
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <!-- WhatsApp Button (single mode only) -->
+      <button mat-flat-button class="wa-btn header-btn" *ngIf="!isBulkMode && activeStudent" (click)="sendWhatsApp()" [disabled]="sendingWhatsApp" matTooltip="Send Result Summary to Parent's WhatsApp">
+        <mat-icon *ngIf="!sendingWhatsApp">send</mat-icon>
+        <mat-icon *ngIf="sendingWhatsApp" class="spin">sync</mat-icon>
+        <span>WhatsApp</span>
+      </button>
+
+      <!-- Print Button -->
+      <button mat-flat-button class="print-btn header-btn" (click)="printDocument()" matTooltip="Print in A4 Portrait Layout">
+        <mat-icon>print</mat-icon>
+        <span>Print {{ isBulkMode ? 'All (' + studentsToRender.length + ')' : 'Document' }}</span>
+      </button>
+
+      <!-- Close Button -->
+      <button mat-icon-button class="close-btn" [mat-dialog-close]="null" matTooltip="Close (Esc)">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+  </div>
+
+  <!-- Sub-Header Document Navigation Strip (5 Formats) -->
+  <div class="doc-nav-toolbar no-print">
+    <div class="toolbar-tabs">
+      <button type="button" class="nav-tab-btn" [class.active]="currentView === 'bseb_marksheet'" (click)="currentView = 'bseb_marksheet'">
+        <mat-icon>auto_stories</mat-icon>
+        <span>Bihar Board Marksheet</span>
+      </button>
+      <button type="button" class="nav-tab-btn" [class.active]="currentView === 'admit_card'" (click)="currentView = 'admit_card'">
+        <mat-icon>badge</mat-icon>
+        <span>Admit Card</span>
+      </button>
+      <button type="button" class="nav-tab-btn" [class.active]="currentView === 'marksheet'" (click)="currentView = 'marksheet'">
+        <mat-icon>description</mat-icon>
+        <span>Progress Report Card</span>
+      </button>
+      <button type="button" class="nav-tab-btn" [class.active]="currentView === 'result_card'" (click)="currentView = 'result_card'">
+        <mat-icon>analytics</mat-icon>
+        <span>Result Card</span>
+      </button>
+      <button type="button" class="nav-tab-btn" [class.active]="currentView === 'certificate'" (click)="currentView = 'certificate'">
+        <mat-icon>workspace_premium</mat-icon>
+        <span>Promotion Certificate</span>
+      </button>
+    </div>
+
+    <div class="toolbar-info">
+      <span class="info-tag" *ngIf="isBulkMode">
+        <mat-icon>groups</mat-icon> {{ studentsToRender.length }} Students (A4 Page-Break Ready)
+      </span>
+      <span class="info-tag" *ngIf="!isBulkMode">
+        <mat-icon>verified</mat-icon> Official Examination Document
+      </span>
+    </div>
+  </div>
+
+  <!-- Scrollable Printable Document Body -->
+  <div class="document-scroll-viewport">
+
+    <!-- ═════════════════════════════════════════════════════════════════ -->
+    <!-- VIEW 1: BIHAR BOARD (BSEB) AUTHENTIC MARKS STATEMENT / MARKSHEET -->
+    <!-- ═════════════════════════════════════════════════════════════════ -->
+    <ng-container *ngIf="currentView === 'bseb_marksheet'">
+      <div class="bseb-marksheet-page" *ngFor="let st of studentsToRender; let sIdx = index" [class.page-break-always]="isBulkMode && sIdx < studentsToRender.length - 1">
+        
+        <!-- Ornate Corner Embellishments -->
+        <div class="bseb-corner corner-top-left"></div>
+        <div class="bseb-corner corner-top-right"></div>
+        <div class="bseb-corner corner-bottom-left"></div>
+        <div class="bseb-corner corner-bottom-right"></div>
+
+        <!-- Center Watermark Emblem -->
+        <div class="bseb-watermark-emblem">
+          <div class="watermark-circle">
+            <mat-icon>account_balance</mat-icon>
+            <div class="wm-text">BSEB</div>
+          </div>
+        </div>
+
+        <!-- Official Header -->
+        <div class="bseb-header">
+          <div class="bseb-seal-col">
+            <div class="bseb-seal-circle">
+              <mat-icon>account_balance</mat-icon>
+              <span class="seal-sub">PATNA</span>
+            </div>
+          </div>
+
+          <div class="bseb-titles-col">
+            <h1 class="bseb-board-en">BIHAR SCHOOL EXAMINATION BOARD, PATNA</h1>
+            <h2 class="bseb-board-hi">बिहार विद्यालय परीक्षा समिति, पटना</h2>
+            
+            <div class="bseb-statement-badge">
+              <span class="en">MARKS STATEMENT</span>
+              <span class="dot">&bull;</span>
+              <span class="hi">अंक विवरण</span>
+            </div>
+
+            <h3 class="bseb-exam-name">
+              ANNUAL SECONDARY SCHOOL EXAMINATION, {{ data.academicYear.slice(-4) }}
+            </h3>
+            <p class="bseb-exam-name-hi">वार्षिक माध्यमिक परीक्षा, {{ data.academicYear.slice(-4) }}</p>
+          </div>
+
+          <div class="bseb-serial-col">
+            <div class="bseb-sr-box">
+              <span class="sr-label">S.No. / क्र.सं.</span>
+              <strong class="sr-val">{{ getSerialNumber(st, sIdx) }}</strong>
+            </div>
+            <div class="bseb-qr-box">
+              <mat-icon>qr_code_2</mat-icon>
+              <span class="qr-text">VERIFIED</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="bseb-ornate-divider"></div>
+
+        <!-- Candidate Particulars Table (Authentic BSEB Grid) -->
+        <div class="bseb-table-container">
+          <table class="bseb-bio-grid">
+            <tr>
+              <td class="b-lbl">ROLL CODE / रोल कोड:</td>
+              <td class="b-val"><strong class="highlight-val">{{ getRollCode() }}</strong></td>
+              <td class="b-lbl">ROLL NO. / क्रमांक:</td>
+              <td class="b-val"><strong class="highlight-val">{{ st.rollNumber || '0001' }}</strong></td>
+            </tr>
+            <tr>
+              <td class="b-lbl">REGISTRATION NO. / पंजीयन संख्या:</td>
+              <td class="b-val"><strong>{{ getRegNo(st) }}</strong></td>
+              <td class="b-lbl">ENROLMENT NO. / नामांकन सं.:</td>
+              <td class="b-val"><strong>{{ st.admissionNumber }}</strong></td>
+            </tr>
+            <tr>
+              <td class="b-lbl">CANDIDATE'S NAME / परीक्षार्थी का नाम:</td>
+              <td class="b-val candidate-name" colspan="3"><strong>{{ st.studentName | uppercase }}</strong></td>
+            </tr>
+            <tr>
+              <td class="b-lbl">MOTHER'S NAME / माता का नाम:</td>
+              <td class="b-val" colspan="3">{{ (st.motherName || 'RECORD NOT AVAILABLE') | uppercase }}</td>
+            </tr>
+            <tr>
+              <td class="b-lbl">FATHER'S NAME / पिता का नाम:</td>
+              <td class="b-val" colspan="3">{{ (st.fatherName || 'GUARDIAN RECORD') | uppercase }}</td>
+            </tr>
+            <tr>
+              <td class="b-lbl">SCHOOL NAME / विद्यालय का नाम:</td>
+              <td class="b-val school-name" colspan="3">
+                <strong>{{ instituteName | uppercase }} (CODE: {{ getRollCode() }})</strong>
+              </td>
+            </tr>
+          </table>
+        </div>
+
+        <!-- Authentic BSEB Subject-wise Marks Table -->
+        <div class="bseb-table-container marks-table-wrap">
+          <table class="bseb-marks-table">
+            <thead>
+              <tr class="header-group-row">
+                <th rowspan="2" class="th-sub-code">SUB. CODE<br><span class="hi">विषय कोड</span></th>
+                <th rowspan="2" class="th-sub-name">SUBJECT<br><span class="hi">विषय</span></th>
+                <th colspan="3" class="th-sub-group">FULL MARKS (पूर्णांक)</th>
+                <th colspan="3" class="th-sub-group">PASS MARKS (उत्तीर्णांक)</th>
+                <th colspan="3" class="th-sub-group">MARKS OBTAINED (प्राप्तांक)</th>
+                <th rowspan="2" class="th-rem">REG.<br><span class="hi">अभ्युक्ति</span></th>
+              </tr>
+              <tr class="header-sub-row">
+                <th>Th.</th>
+                <th>Pr.</th>
+                <th>Tot.</th>
+                <th>Th.</th>
+                <th>Pr.</th>
+                <th>Tot.</th>
+                <th>Th.</th>
+                <th>Pr.</th>
+                <th>Tot.</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let sub of st.subjectDetails; let i = index">
+                <td class="td-center sub-code">{{ getSubjectCode(sub.subject, i) }}</td>
+                <td class="td-sub-title"><strong>{{ sub.subject | uppercase }}</strong></td>
+                <td class="td-center">{{ getSubjectTheoryMax(sub) }}</td>
+                <td class="td-center">{{ getSubjectPracticalMax(sub) }}</td>
+                <td class="td-center td-bold">{{ sub.maxMarks }}</td>
+                <td class="td-center">{{ getSubjectTheoryPass(sub) }}</td>
+                <td class="td-center">{{ getSubjectPracticalPass(sub) }}</td>
+                <td class="td-center td-bold">{{ sub.passingMarks }}</td>
+                <td class="td-center">{{ getSubjectTheoryObt(sub) }}</td>
+                <td class="td-center">{{ getSubjectPracticalObt(sub) }}</td>
+                <td class="td-center td-obt-total" [class.fail-text]="!sub.isPassed">
+                  <strong>{{ sub.isAbsent ? 'ABS' : sub.marksObtained }}</strong>
+                </td>
+                <td class="td-center td-reg">
+                  <span class="reg-pill" [class.reg-d]="getSubjectRemark(sub) === 'D'" [class.reg-f]="getSubjectRemark(sub) === 'FAIL'">
+                    {{ getSubjectRemark(sub) }}
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- BSEB Aggregate & Division Result Section -->
+        <div class="bseb-verdict-container">
+          <div class="bseb-aggregate-card">
+            <div class="agg-item">
+              <span class="agg-label">TOTAL MARKS / कुल प्राप्तांक:</span>
+              <strong class="agg-num">{{ st.totalObtained }}</strong>
+              <span class="agg-max">/ {{ st.totalMax }}</span>
+            </div>
+            <div class="agg-item">
+              <span class="agg-label">PERCENTAGE / प्रतिशत:</span>
+              <strong class="agg-num">{{ st.overallPercentage }}%</strong>
+            </div>
+            <div class="agg-item">
+              <span class="agg-label">FINAL RESULT / परीक्षाफल:</span>
+              <strong class="agg-status" [class.status-pass]="st.resultStatus === 'Passed' || st.resultStatus === 'Passed with Grace'" [class.status-fail]="st.resultStatus === 'Failed'">
+                {{ st.resultStatus === 'Passed' || st.resultStatus === 'Passed with Grace' ? 'PASSED / उत्तीर्ण' : (st.resultStatus === 'Compartment' ? 'COMPARTMENT / कम्पार्टमेंट' : 'FAILED / अनुत्तीर्ण') }}
+              </strong>
+            </div>
+          </div>
+
+          <div class="bseb-division-card" [ngClass]="getBsebDivision(st).class">
+            <span class="div-caption">RESULT DIVISION / उत्तीर्णता श्रेणी</span>
+            <h2 class="div-main-title">{{ getBsebDivision(st).en }}</h2>
+            <span class="div-hindi-title">{{ getBsebDivision(st).hi }}</span>
+          </div>
+        </div>
+
+        <!-- BSEB Regulation / Footnotes -->
+        <div class="bseb-footnote-bar">
+          <span class="note-item"><strong>* D</strong> = Distinction (75% or above)</span>
+          <span class="note-dot">&bull;</span>
+          <span class="note-item"><strong>Th.</strong> = Theory</span>
+          <span class="note-dot">&bull;</span>
+          <span class="note-item"><strong>Pr.</strong> = Practical / Internal Assessment</span>
+          <span class="note-dot">&bull;</span>
+          <span class="note-item"><strong>Tot.</strong> = Total</span>
+          <span class="note-dot">&bull;</span>
+          <span class="note-item"><strong>ABS</strong> = Absent</span>
+        </div>
+
+        <!-- Date & Three Official BSEB Signatures -->
+        <div class="bseb-signatures-bar">
+          <div class="bseb-date-col">
+            <span class="date-label">PATNA, DATED / निर्गत तिथि:</span>
+            <strong class="date-val">{{ todayDate }}</strong>
+            <span class="bseb-system-tag">BSEB PATTERN CERTIFIED DIGITAL MARKSHEET</span>
+          </div>
+
+          <div class="bseb-sign-col">
+            <div class="sign-space"></div>
+            <div class="sign-line"></div>
+            <span class="sign-designation">सारणीयनकर्ता<br><strong>Tabulator</strong></span>
+          </div>
+
+          <div class="bseb-sign-col">
+            <div class="sign-space"></div>
+            <div class="sign-line"></div>
+            <span class="sign-designation">तुलनाकर्ता / जाँचकर्ता<br><strong>Comparer</strong></span>
+          </div>
+
+          <div class="bseb-sign-col principal-col">
+            <div class="bseb-official-seal-box dynamic-seal-wrap">
+              <svg viewBox="0 0 100 100" class="dynamic-rubber-seal-svg">
+                <circle cx="50" cy="50" r="48" class="seal-ring-solid" />
+                <circle cx="50" cy="50" r="44" class="seal-ring-dashed" />
+                <circle cx="50" cy="50" r="29" class="seal-ring-solid" />
+                <defs>
+                  <path [attr.id]="'bseb-seal-top-' + sIdx" d="M 15,50 A 35,35 0 1,1 85,50" fill="none" />
+                  <path [attr.id]="'bseb-seal-bot-' + sIdx" d="M 85,50 A 35,35 0 0,1 15,50" fill="none" />
+                </defs>
+                <text class="seal-svg-text-top" [style.font-size]="getSealTopFontSize()">
+                  <textPath [attr.href]="'#bseb-seal-top-' + sIdx" startOffset="50%" text-anchor="middle">
+                    {{ getSealTopText() }}
+                  </textPath>
+                </text>
+                <text class="seal-svg-text-bot">
+                  <textPath [attr.href]="'#bseb-seal-bot-' + sIdx" startOffset="50%" text-anchor="middle">
+                    {{ getSealBottomText() }}
+                  </textPath>
+                </text>
+                <g class="seal-svg-center">
+                  <polygon points="50,27 51.5,31 56,31 52.5,34 54,38 50,35.5 46,38 47.5,34 44,31 48.5,31" class="seal-center-star" />
+                  <text x="50" y="48" class="seal-center-title" text-anchor="middle">OFFICIAL</text>
+                  <text x="50" y="57" class="seal-center-sub" text-anchor="middle">SEAL</text>
+                  <circle cx="44" cy="63" r="1.1" class="seal-center-dot" />
+                  <circle cx="50" cy="63" r="1.4" class="seal-center-dot" />
+                  <circle cx="56" cy="63" r="1.1" class="seal-center-dot" />
+                </g>
+              </svg>
+            </div>
+            <div class="sign-line"></div>
+            <span class="sign-designation">परीक्षा नियंत्रक / प्राचार्य<br><strong>Controller of Examinations</strong></span>
+          </div>
+        </div>
+
+      </div>
+    </ng-container>
+
+    <!-- ═════════════════════════════════════════════════════════════════ -->
+    <!-- VIEW 2: EXAM CARD / ADMIT CARD (हॉल टिकट / प्रवेश पत्र)         -->
+    <!-- ═════════════════════════════════════════════════════════════════ -->
+    <ng-container *ngIf="currentView === 'admit_card'">
+      <div class="admit-card-page" *ngFor="let st of studentsToRender; let sIdx = index" [class.page-break-always]="isBulkMode && sIdx < studentsToRender.length - 1">
+        
+        <!-- Admit Card Header -->
+        <div class="admit-header">
+          <div class="admit-logo-box">
+            <mat-icon>school</mat-icon>
+          </div>
+          <div class="admit-header-info">
+            <h1 class="admit-school-title">{{ instituteName }}</h1>
+            <p class="admit-school-sub">Affiliation / Reg: {{ data.settings?.schoolAffiliationNumber || 'CBSE/STATE-AFF-2025' }} &bull; {{ branchAddress || 'Main Campus' }}</p>
+            <div class="admit-title-pill">
+              <span>EXAMINATION ADMIT CARD &bull; प्रवेश पत्र</span>
+              <span class="pill-session">SESSION: {{ data.academicYear }}</span>
+            </div>
+          </div>
+          <div class="admit-term-badge">
+            <span class="badge-label">EXAM TERM</span>
+            <strong class="badge-term">{{ data.examType || 'ANNUAL EXAM' }}</strong>
+          </div>
+        </div>
+
+        <div class="admit-divider"></div>
+
+        <!-- Student Profile & Photo Box Grid -->
+        <div class="admit-bio-section">
+          <table class="admit-bio-table">
+            <tr>
+              <td class="a-lbl">Candidate's Name:</td>
+              <td class="a-val candidate-bold">{{ st.studentName | uppercase }}</td>
+              <td class="a-lbl">Roll Number:</td>
+              <td class="a-val roll-bold">{{ st.rollNumber }}</td>
+            </tr>
+            <tr>
+              <td class="a-lbl">Admission / SR No.:</td>
+              <td class="a-val">{{ st.admissionNumber }}</td>
+              <td class="a-lbl">Class &amp; Section:</td>
+              <td class="a-val">{{ data.className }} {{ st.sectionName ? '(' + st.sectionName + ')' : '' }}</td>
+            </tr>
+            <tr>
+              <td class="a-lbl">Father's Name:</td>
+              <td class="a-val">{{ st.fatherName || 'Guardian Record' }}</td>
+              <td class="a-lbl">Mother's Name:</td>
+              <td class="a-val">{{ st.motherName || 'Parent Record' }}</td>
+            </tr>
+            <tr>
+              <td class="a-lbl">Date of Birth:</td>
+              <td class="a-val">{{ st.dateOfBirth || '-' }}</td>
+              <td class="a-lbl">Examination Center:</td>
+              <td class="a-val">{{ instituteName }}, Center Hall</td>
+            </tr>
+          </table>
+
+          <div class="admit-photo-box">
+            <div class="photo-placeholder">
+              <mat-icon>account_box</mat-icon>
+              <span>AFFIX RECENT<br>PASSPORT PHOTO</span>
+            </div>
+            <div class="student-sign-box">
+              <span>Candidate's Signature</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Exam Schedule Timetable -->
+        <div class="admit-timetable-wrap">
+          <div class="timetable-title">
+            <mat-icon>event</mat-icon>
+            <span>SCHEDULE &amp; TIME TABLE OF EXAMINATION (परीक्षा कार्यक्रम)</span>
+          </div>
+          <table class="admit-routine-table">
+            <thead>
+              <tr>
+                <th class="th-sno">#</th>
+                <th class="th-date">Date &amp; Day</th>
+                <th class="th-sub">Subject / Paper</th>
+                <th class="th-time">Timing / Shift</th>
+                <th class="th-max">Max Marks</th>
+                <th class="th-room">Hall / Room</th>
+                <th class="th-invig">Invigilator Sign</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let item of getExamRoutine(st)">
+                <td class="td-center">{{ item.slNo }}</td>
+                <td class="td-date">
+                  <strong>{{ item.dateStr }}</strong>
+                  <small>{{ item.dayStr }}</small>
+                </td>
+                <td class="td-subject"><strong>{{ item.subject }}</strong></td>
+                <td class="td-time">{{ item.timeStr }}</td>
+                <td class="td-center">{{ item.maxMarks }}</td>
+                <td class="td-room">{{ item.roomNo }}</td>
+                <td class="td-invig"></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Candidate Instructions (परीक्षार्थियों के निर्देश) -->
+        <div class="admit-rules-card">
+          <div class="rules-header">
+            <mat-icon>rule</mat-icon>
+            <span>IMPORTANT INSTRUCTIONS FOR CANDIDATES (परीक्षार्थियों हेतु आवश्यक निर्देश)</span>
+          </div>
+          <ol class="rules-list">
+            <li>परीक्षार्थी को परीक्षा कक्ष में <strong>प्रवेश पत्र (Admit Card)</strong> एवं स्कूल पहचान पत्र लाना अनिवार्य है।</li>
+            <li>परीक्षा प्रारम्भ होने से कम से कम <strong>15 मिनट पूर्व</strong> परीक्षा भवन में अपना निर्धारित स्थान ग्रहण कर लें।</li>
+            <li>परीक्षा कक्ष में मोबाइल फोन, स्मार्ट वॉच, कैलकुलेटर अथवा किसी भी प्रकार की आपत्तिजनक सामग्री लाना <strong>सख्त वर्जित</strong> है।</li>
+            <li>प्रश्न-पत्र मिलने के उपरान्त 15 मिनट का अतिरिक्त समय प्रश्न-पत्र को ध्यानपूर्वक पढ़ने के लिए दिया जाएगा।</li>
+            <li>अनुशासनहीनता या अनुचित साधनों (Unfair Means) का प्रयोग करने पर परीक्षार्थी की परीक्षा निरस्त की जा सकती है।</li>
+          </ol>
+        </div>
+
+        <!-- Admit Card Signatures -->
+        <div class="admit-signatures-row">
+          <div class="a-sign-col">
+            <div class="a-sign-line"></div>
+            <span>परीक्षार्थी का हस्ताक्षर<br><strong>Candidate's Signature</strong></span>
+          </div>
+          <div class="a-sign-col center-seal-col">
+            <div class="a-seal-circle dynamic-seal-wrap">
+              <svg viewBox="0 0 100 100" class="dynamic-rubber-seal-svg">
+                <circle cx="50" cy="50" r="48" class="seal-ring-solid" />
+                <circle cx="50" cy="50" r="44" class="seal-ring-dashed" />
+                <circle cx="50" cy="50" r="29" class="seal-ring-solid" />
+                <defs>
+                  <path [attr.id]="'admit-seal-top-' + sIdx" d="M 15,50 A 35,35 0 1,1 85,50" fill="none" />
+                  <path [attr.id]="'admit-seal-bot-' + sIdx" d="M 85,50 A 35,35 0 0,1 15,50" fill="none" />
+                </defs>
+                <text class="seal-svg-text-top" [style.font-size]="getSealTopFontSize()">
+                  <textPath [attr.href]="'#admit-seal-top-' + sIdx" startOffset="50%" text-anchor="middle">
+                    {{ getSealTopText() }}
+                  </textPath>
+                </text>
+                <text class="seal-svg-text-bot">
+                  <textPath [attr.href]="'#admit-seal-bot-' + sIdx" startOffset="50%" text-anchor="middle">
+                    {{ getSealBottomText() }}
+                  </textPath>
+                </text>
+                <g class="seal-svg-center">
+                  <polygon points="50,27 51.5,31 56,31 52.5,34 54,38 50,35.5 46,38 47.5,34 44,31 48.5,31" class="seal-center-star" />
+                  <text x="50" y="48" class="seal-center-title" text-anchor="middle">OFFICIAL</text>
+                  <text x="50" y="57" class="seal-center-sub" text-anchor="middle">SEAL</text>
+                  <circle cx="44" cy="63" r="1.1" class="seal-center-dot" />
+                  <circle cx="50" cy="63" r="1.4" class="seal-center-dot" />
+                  <circle cx="56" cy="63" r="1.1" class="seal-center-dot" />
+                </g>
+              </svg>
+            </div>
+          </div>
+          <div class="a-sign-col">
+            <div class="a-sign-line"></div>
+            <span>केन्द्राधीक्षक / परीक्षा नियंत्रक<br><strong>Center Superintendent</strong></span>
+          </div>
+          <div class="a-sign-col">
+            <div class="a-sign-line"></div>
+            <span>प्राचार्य / प्रधानाध्यापक<br><strong>Principal / Headmaster</strong></span>
+          </div>
+        </div>
+
+      </div>
+    </ng-container>
+
+    <!-- ═════════════════════════════════════════════════════════════════ -->
+    <!-- VIEW 3: RESULT CARD (परीक्षाफल पत्रक / PERFORMANCE SUMMARY)     -->
+    <!-- ═════════════════════════════════════════════════════════════════ -->
+    <ng-container *ngIf="currentView === 'result_card'">
+      <div class="result-card-page" *ngFor="let st of studentsToRender; let sIdx = index" [class.page-break-always]="isBulkMode && sIdx < studentsToRender.length - 1">
+        
+        <div class="rc-card-inner">
+          <div class="res-card-top-bar">
+            <div class="res-logo">
+              <mat-icon>military_tech</mat-icon>
+            </div>
+            <div>
+              <h2 class="res-school-title">{{ instituteName }}</h2>
+              <p class="res-school-sub">Academic Session {{ data.academicYear }} &bull; {{ data.examType || 'Annual Examination' }}</p>
+            </div>
+            <div class="res-header-pill">
+              <span>RESULT SUMMARY CARD</span>
+            </div>
+          </div>
+
+          <div class="res-student-strip">
+            <div class="s-info-item">
+              <span class="lbl">Student Name:</span>
+              <strong class="val">{{ st.studentName }}</strong>
+            </div>
+            <div class="s-info-item">
+              <span class="lbl">Roll No.:</span>
+              <strong class="val">{{ st.rollNumber }}</strong>
+            </div>
+            <div class="s-info-item">
+              <span class="lbl">Class:</span>
+              <strong class="val">{{ data.className }} {{ st.sectionName ? '(' + st.sectionName + ')' : '' }}</strong>
+            </div>
+            <div class="s-info-item">
+              <span class="lbl">Admission No:</span>
+              <strong class="val">{{ st.admissionNumber }}</strong>
+            </div>
+            <div class="s-info-item">
+              <span class="lbl">Father's Name:</span>
+              <strong class="val">{{ st.fatherName || 'Guardian' }}</strong>
+            </div>
+          </div>
+
+          <!-- Highlight KPI Cards -->
+          <div class="res-kpi-grid">
+            <div class="kpi-card kpi-total">
+              <span class="kpi-label">TOTAL MARKS</span>
+              <h3 class="kpi-num">{{ st.totalObtained }} <small>/ {{ st.totalMax }}</small></h3>
+            </div>
+            <div class="kpi-card kpi-pct">
+              <span class="kpi-label">PERCENTAGE</span>
+              <h3 class="kpi-num">{{ st.overallPercentage }}%</h3>
+            </div>
+            <div class="kpi-card kpi-grade">
+              <span class="kpi-label">OVERALL GRADE</span>
+              <h3 class="kpi-num grade-{{ st.grade }}">{{ st.grade }}</h3>
+            </div>
+            <div class="kpi-card kpi-rank">
+              <span class="kpi-label">CLASS RANK</span>
+              <h3 class="kpi-num">#{{ st.rank > 0 ? st.rank : '1' }}</h3>
+            </div>
+            <div class="kpi-card kpi-status" [class.pass-card]="st.resultStatus === 'Passed' || st.resultStatus === 'Passed with Grace'" [class.fail-card]="st.resultStatus === 'Failed'">
+              <span class="kpi-label">FINAL RESULT</span>
+              <h3 class="kpi-num">{{ st.resultStatus }}</h3>
+            </div>
+          </div>
+
+          <!-- Subject Marks Grid -->
+          <table class="res-mini-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Subject Name</th>
+                <th>Max Marks</th>
+                <th>Pass Marks</th>
+                <th>Obtained</th>
+                <th>Grade</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let sub of st.subjectDetails; let i = index">
+                <td>{{ i + 1 }}</td>
+                <td><strong>{{ sub.subject }}</strong></td>
+                <td>{{ sub.maxMarks }}</td>
+                <td>{{ sub.passingMarks }}</td>
+                <td [class.fail-val]="!sub.isPassed"><strong>{{ sub.isAbsent ? 'ABS' : sub.marksObtained }}</strong></td>
+                <td><span class="mini-grade grade-{{ sub.grade }}">{{ sub.grade }}</span></td>
+                <td>
+                  <span class="badge-status" [class.b-pass]="sub.isPassed" [class.b-fail]="!sub.isPassed">
+                    {{ sub.isAbsent ? 'Absent' : (sub.isPassed ? 'Pass' : 'Fail') }}
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="res-verdict-callout">
+            <mat-icon>verified</mat-icon>
+            <div>
+              <strong>Academic Verdict: </strong>
+              <span>{{ st.promotionVerdict }}</span>
+            </div>
+          </div>
+
+          <div class="res-footer-signs">
+            <div class="r-sign">
+              <div class="line"></div>
+              <span>Class Teacher</span>
+            </div>
+            <div class="r-sign date-sign">
+              <span>Date: <strong>{{ todayDate }}</strong></span>
+            </div>
+            <div class="r-sign">
+              <div class="line"></div>
+              <span>Principal / Headmaster</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </ng-container>
+
+    <!-- ═════════════════════════════════════════════════════════════════ -->
+    <!-- VIEW 4: COMPREHENSIVE SCHOLASTIC PROGRESS REPORT CARD           -->
+    <!-- ═════════════════════════════════════════════════════════════════ -->
+    <ng-container *ngIf="currentView === 'marksheet'">
+      <div class="report-card-page" *ngFor="let st of studentsToRender; let sIdx = index" [class.page-break-always]="isBulkMode && sIdx < studentsToRender.length - 1">
+        
+        <!-- School Crest & Header -->
+        <div class="rc-header-section">
+          <div class="rc-header-logo">
+            <div class="school-seal-circle">
+              <mat-icon>school</mat-icon>
+            </div>
+          </div>
+          <div class="rc-header-info">
+            <h1 class="rc-school-name">{{ instituteName }}</h1>
+            <p class="rc-school-sub">Affiliation / Reg No: {{ data.settings?.schoolAffiliationNumber || 'CBSE/STATE-AFF-2025' }}</p>
+            <p class="rc-school-address">{{ branchAddress || 'Main Campus' }}</p>
+            <div class="rc-marksheet-title-strip">
+              <span class="title-text">ANNUAL PROGRESS REPORT &amp; PERFORMANCE MARKSHEET</span>
+              <span class="session-text">ACADEMIC SESSION: {{ data.academicYear }}</span>
+            </div>
+          </div>
+          <div class="rc-header-right">
+            <div class="academic-year-badge">
+              <span class="session-label">TERM</span>
+              <span class="session-val">{{ data.examType || 'ANNUAL' }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="rc-divider-double"></div>
+
+        <!-- Student Bio Profile Grid -->
+        <div class="rc-student-grid">
+          <div class="bio-col">
+            <div class="bio-row"><span class="lbl">Student Name:</span><span class="val name-val">{{ st.studentName }}</span></div>
+            <div class="bio-row"><span class="lbl">Father's Name:</span><span class="val">{{ st.fatherName || 'Guardian Record' }}</span></div>
+            <div class="bio-row"><span class="lbl">Mother's Name:</span><span class="val">{{ st.motherName || 'Parent Record' }}</span></div>
+            <div class="bio-row"><span class="lbl">Date of Birth:</span><span class="val">{{ st.dateOfBirth || '-' }}</span></div>
+          </div>
+          <div class="bio-col">
+            <div class="bio-row"><span class="lbl">Class &amp; Section:</span><span class="val"><strong>{{ data.className }} {{ st.sectionName ? '(' + st.sectionName + ')' : '' }}</strong></span></div>
+            <div class="bio-row"><span class="lbl">Roll Number:</span><span class="val"><strong>{{ st.rollNumber }}</strong></span></div>
+            <div class="bio-row"><span class="lbl">Admission / SR No:</span><span class="val">{{ st.admissionNumber }}</span></div>
+            <div class="bio-row"><span class="lbl">Annual Attendance:</span><span class="val"><strong>{{ st.presentDays }} / {{ st.totalAttendanceDays }} Days ({{ st.attendancePercentage }}%)</strong></span></div>
+          </div>
+        </div>
+
+        <!-- Subject-wise Marks Table -->
+        <div class="rc-table-wrapper">
+          <table class="rc-marks-table">
+            <thead>
+              <tr>
+                <th class="th-sno">#</th>
+                <th class="th-subject">Subject Title</th>
+                <th class="th-max">Max Marks</th>
+                <th class="th-pass">Pass Marks</th>
+                <th class="th-obt">Marks Obtained</th>
+                <th class="th-grade">Grade</th>
+                <th class="th-status">Result</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let sub of st.subjectDetails; let i = index">
+                <td class="td-sno">{{ i + 1 }}</td>
+                <td class="td-subject"><strong>{{ sub.subject }}</strong></td>
+                <td class="td-max">{{ sub.maxMarks }}</td>
+                <td class="td-pass">{{ sub.passingMarks }}</td>
+                <td class="td-obt" [class.text-absent]="sub.isAbsent" [class.text-failed]="!sub.isPassed && !sub.isAbsent">
+                  <strong>{{ sub.isAbsent ? 'ABSENT' : (sub.marksObtained != null ? sub.marksObtained : '-') }}</strong>
+                </td>
+                <td class="td-grade">
+                  <span class="sub-grade-pill grade-{{ sub.grade }}">{{ sub.grade }}</span>
+                </td>
+                <td class="td-status">
+                  <span class="sub-status-text" [class.pass]="sub.isPassed" [class.fail]="!sub.isPassed">
+                    {{ sub.isAbsent ? 'Absent' : (sub.isPassed ? 'Passed' : 'Failed') }}
+                  </span>
+                </td>
+              </tr>
+
+              <!-- Grand Total Row -->
+              <tr class="rc-total-row">
+                <td colspan="2" class="total-label">GRAND TOTAL &amp; AGGREGATE</td>
+                <td class="total-num">{{ st.totalMax }}</td>
+                <td class="total-num">-</td>
+                <td class="total-num total-highlight">
+                  <strong>{{ st.totalObtained }}</strong> / {{ st.totalMax }}
+                </td>
+                <td class="td-grade">
+                  <span class="sub-grade-pill grade-{{ st.grade }}">{{ st.grade }}</span>
+                </td>
+                <td class="td-status">
+                  <strong>{{ st.overallPercentage }}%</strong>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Result Summary & Verdict Box -->
+        <div class="rc-verdict-container">
+          <div class="verdict-stats">
+            <div class="v-stat">
+              <span class="v-lbl">Class Rank</span>
+              <span class="v-val rank-val">
+                {{ st.rank > 0 ? '#' + st.rank : 'N/A' }}
+              </span>
+            </div>
+            <div class="v-stat">
+              <span class="v-lbl">Overall Grade</span>
+              <span class="v-val grade-val">{{ st.grade }}</span>
+            </div>
+            <div class="v-stat">
+              <span class="v-lbl">Final Result</span>
+              <span class="v-val status-val" [ngClass]="st.resultStatus.toLowerCase().replace(' ', '-')">
+                {{ st.resultStatus }}
+              </span>
+            </div>
+          </div>
+
+          <div class="verdict-banner" [class.banner-promoted]="st.resultStatus === 'Passed' || st.resultStatus === 'Passed with Grace'" [class.banner-compartment]="st.resultStatus === 'Compartment'" [class.banner-detained]="st.resultStatus === 'Failed' || st.resultStatus === 'Absent'">
+            <mat-icon class="verdict-icon">
+              {{ (st.resultStatus === 'Passed' || st.resultStatus === 'Passed with Grace') ? 'check_circle' : (st.resultStatus === 'Compartment' ? 'warning' : 'cancel') }}
+            </mat-icon>
+            <div class="verdict-text">
+              <span class="verdict-heading">FINAL ACADEMIC STATUS</span>
+              <p class="verdict-desc">{{ st.promotionVerdict }}</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Grading Scale Legend & Remarks -->
+        <div class="rc-footer-info-grid">
+          <div class="grading-scale-card">
+            <span class="g-title">Scholastic Grading Scale Benchmark</span>
+            <div class="g-badges">
+              <span><strong>A+</strong> (90-100% Outstanding)</span>
+              <span><strong>A</strong> (80-89% Excellent)</span>
+              <span><strong>B</strong> (70-79% Very Good)</span>
+              <span><strong>C</strong> (60-69% Good)</span>
+              <span><strong>D</strong> ({{ data.settings?.passingPercentage || 33 }}-59% Pass)</span>
+              <span><strong>F</strong> (&lt; {{ data.settings?.passingPercentage || 33 }}% Needs Improvement)</span>
+            </div>
+          </div>
+
+          <div class="remarks-card">
+            <span class="r-title">Class Teacher's Remarks</span>
+            <p class="r-text">
+              {{ st.resultStatus === 'Passed' || st.resultStatus === 'Passed with Grace' ? 'Exemplary academic effort and disciplined conduct throughout the session. Keep aiming higher!' : (st.resultStatus === 'Compartment' ? 'Needs focused attention in compartment subjects to qualify for annual promotion.' : 'Requires persistent support and comprehensive revision.') }}
+            </p>
+          </div>
+        </div>
+
+        <!-- Signatures Strip -->
+        <div class="rc-signatures-section">
+          <div class="sign-block">
+            <div class="sign-line"></div>
+            <strong class="sign-person-name" *ngIf="st.classTeacherName">{{ st.classTeacherName }}</strong>
+            <span class="sign-title">{{ data.settings?.classTeacherSignTitle || 'Class Teacher' }}</span>
+          </div>
+          <div class="sign-block">
+            <div class="sign-line"></div>
+            <span class="sign-title">Controller of Examinations</span>
+          </div>
+          <div class="sign-block principal-seal-block">
+            <div class="school-seal-placeholder dynamic-seal-wrap">
+              <svg viewBox="0 0 100 100" class="dynamic-rubber-seal-svg">
+                <circle cx="50" cy="50" r="48" class="seal-ring-solid" />
+                <circle cx="50" cy="50" r="44" class="seal-ring-dashed" />
+                <circle cx="50" cy="50" r="29" class="seal-ring-solid" />
+                <defs>
+                  <path [attr.id]="'rc-seal-top-' + sIdx" d="M 15,50 A 35,35 0 1,1 85,50" fill="none" />
+                  <path [attr.id]="'rc-seal-bot-' + sIdx" d="M 85,50 A 35,35 0 0,1 15,50" fill="none" />
+                </defs>
+                <text class="seal-svg-text-top" [style.font-size]="getSealTopFontSize()">
+                  <textPath [attr.href]="'#rc-seal-top-' + sIdx" startOffset="50%" text-anchor="middle">
+                    {{ getSealTopText() }}
+                  </textPath>
+                </text>
+                <text class="seal-svg-text-bot">
+                  <textPath [attr.href]="'#rc-seal-bot-' + sIdx" startOffset="50%" text-anchor="middle">
+                    {{ getSealBottomText() }}
+                  </textPath>
+                </text>
+                <g class="seal-svg-center">
+                  <polygon points="50,27 51.5,31 56,31 52.5,34 54,38 50,35.5 46,38 47.5,34 44,31 48.5,31" class="seal-center-star" />
+                  <text x="50" y="48" class="seal-center-title" text-anchor="middle">OFFICIAL</text>
+                  <text x="50" y="57" class="seal-center-sub" text-anchor="middle">SEAL</text>
+                  <circle cx="44" cy="63" r="1.1" class="seal-center-dot" />
+                  <circle cx="50" cy="63" r="1.4" class="seal-center-dot" />
+                  <circle cx="56" cy="63" r="1.1" class="seal-center-dot" />
+                </g>
+              </svg>
+            </div>
+            <div class="sign-line"></div>
+            <span class="sign-title">{{ data.settings?.principalSignTitle || 'Principal / Headmaster' }}</span>
+          </div>
+        </div>
+
+        <!-- Date of Declaration -->
+        <div class="rc-issue-footer">
+          <span>Date of Result Declaration: <strong>{{ todayDate }}</strong></span>
+          <span>Generated via IMSERP Academic Module</span>
+        </div>
+
+      </div>
+    </ng-container>
+
+    <!-- ═════════════════════════════════════════════════════════════════ -->
+    <!-- VIEW 5: OFFICIAL PASS & PROMOTION CERTIFICATE                   -->
+    <!-- ═════════════════════════════════════════════════════════════════ -->
+    <ng-container *ngIf="currentView === 'certificate'">
+      <div class="certificate-page-wrapper" *ngFor="let st of studentsToRender; let sIdx = index" [class.page-break-always]="isBulkMode && sIdx < studentsToRender.length - 1">
+        <div class="certificate-inner-border">
+          
+          <!-- Certificate Header -->
+          <div class="cert-header">
+            <div class="cert-emblem">
+              <mat-icon>military_tech</mat-icon>
+            </div>
+            <h1 class="cert-school-name">{{ instituteName }}</h1>
+            <p class="cert-school-aff">Affiliated Institution &bull; Reg: {{ data.settings?.schoolAffiliationNumber || 'CBSE/STATE-AFF-2025' }}</p>
+            <div class="cert-title-ribbon">
+              <span>ANNUAL PROMOTION &amp; PASS CERTIFICATE</span>
+            </div>
+          </div>
+
+          <!-- Certificate Body Text -->
+          <div class="cert-body">
+            <p class="cert-proclamation">This is to officially certify that</p>
+            <h2 class="cert-student-name">{{ st.studentName }}</h2>
+            
+            <p class="cert-details-text">
+              Son / Daughter of <strong>{{ st.fatherName || 'Parent/Guardian' }}</strong>, 
+              Roll Number <strong>{{ st.rollNumber }}</strong>, 
+              Scholar Register / SR Number <strong>{{ st.admissionNumber }}</strong>, 
+              has successfully appeared for and completed the <strong>{{ data.examType || 'Annual Examination' }}</strong> 
+              of <strong>{{ data.className }}</strong> for Academic Session <strong>{{ data.academicYear }}</strong>.
+            </p>
+
+            <div class="cert-highlights-grid">
+              <div class="c-stat">
+                <span class="c-lbl">Aggregate Marks</span>
+                <span class="c-val">{{ st.totalObtained }} / {{ st.totalMax }}</span>
+              </div>
+              <div class="c-stat">
+                <span class="c-lbl">Percentage</span>
+                <span class="c-val">{{ st.overallPercentage }}%</span>
+              </div>
+              <div class="c-stat">
+                <span class="c-lbl">Grade Secured</span>
+                <span class="c-val">{{ st.grade }}</span>
+              </div>
+              <div class="c-stat">
+                <span class="c-lbl">Class Rank</span>
+                <span class="c-val">#{{ st.rank > 0 ? st.rank : '1' }}</span>
+              </div>
+            </div>
+
+            <div class="cert-verdict-box">
+              <p class="verdict-lead">Official Academic Determination:</p>
+              <h3 class="verdict-title">
+                {{ st.resultStatus === 'Passed' || st.resultStatus === 'Passed with Grace' ? 'QUALIFIED &amp; PROMOTED TO THE NEXT HIGHER GRADE' : st.promotionVerdict.toUpperCase() }}
+              </h3>
+            </div>
+          </div>
+
+          <!-- Certificate Signatures -->
+          <div class="cert-signatures">
+            <div class="cert-sign-col">
+              <span class="date-lbl">Date of Issuance:</span>
+              <span class="date-val">{{ todayDate }}</span>
+              <div class="cert-ct-box" *ngIf="st.classTeacherName" style="margin-top: 8px;">
+                <span style="font-size: 0.72rem; color: #64748b; text-transform: uppercase; font-weight: 600; display: block;">Class Teacher:</span>
+                <strong style="font-size: 0.85rem; color: #1e3a8a;">{{ st.classTeacherName }}</strong>
+              </div>
+            </div>
+            <div class="cert-seal-center">
+              <div class="cert-gold-seal dynamic-seal-wrap">
+                <svg viewBox="0 0 100 100" class="dynamic-rubber-seal-svg cert-seal-svg">
+                  <circle cx="50" cy="50" r="48" class="seal-ring-solid" />
+                  <circle cx="50" cy="50" r="44" class="seal-ring-dashed" />
+                  <circle cx="50" cy="50" r="29" class="seal-ring-solid" />
+                  <defs>
+                    <path [attr.id]="'cert-seal-top-' + sIdx" d="M 15,50 A 35,35 0 1,1 85,50" fill="none" />
+                    <path [attr.id]="'cert-seal-bot-' + sIdx" d="M 85,50 A 35,35 0 0,1 15,50" fill="none" />
+                  </defs>
+                  <text class="seal-svg-text-top" [style.font-size]="getSealTopFontSize()">
+                    <textPath [attr.href]="'#cert-seal-top-' + sIdx" startOffset="50%" text-anchor="middle">
+                      {{ getSealTopText() }}
+                    </textPath>
+                  </text>
+                  <text class="seal-svg-text-bot">
+                    <textPath [attr.href]="'#cert-seal-bot-' + sIdx" startOffset="50%" text-anchor="middle">
+                      {{ getSealBottomText() }}
+                    </textPath>
+                  </text>
+                  <g class="seal-svg-center">
+                    <polygon points="50,27 51.5,31 56,31 52.5,34 54,38 50,35.5 46,38 47.5,34 44,31 48.5,31" class="seal-center-star" />
+                    <text x="50" y="48" class="seal-center-title" text-anchor="middle">OFFICIAL</text>
+                    <text x="50" y="57" class="seal-center-sub" text-anchor="middle">SEAL</text>
+                    <circle cx="44" cy="63" r="1.1" class="seal-center-dot" />
+                    <circle cx="50" cy="63" r="1.4" class="seal-center-dot" />
+                    <circle cx="56" cy="63" r="1.1" class="seal-center-dot" />
+                  </g>
+                </svg>
+              </div>
+            </div>
+            <div class="cert-sign-col text-right">
+              <div class="sign-line-gold"></div>
+              <span class="sign-role">{{ data.settings?.principalSignTitle || 'Principal / Headmaster' }}</span>
+              <span class="sign-sub">{{ instituteName }}</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </ng-container>
+
+  </div>
+</div>

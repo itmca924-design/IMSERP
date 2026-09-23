@@ -514,46 +514,117 @@ export class SchoolExamsComponent implements OnInit {
     });
   }
 
-  // Report Card & Promotion Certificate Modals (GAP 1, 2, 3)
+  // Examination Cards & Document Modals (BSEB Marksheet, Admit Card, Result Card, Report Card, Certificate)
+  openBsebMarksheet(student: ConsolidatedStudentResultDto): void {
+    this.openDocumentDialog(student, 'single', 'bseb_marksheet');
+  }
+
+  openAdmitCard(student: ConsolidatedStudentResultDto): void {
+    this.openDocumentDialog(student, 'single', 'admit_card');
+  }
+
+  openResultCard(student: ConsolidatedStudentResultDto): void {
+    this.openDocumentDialog(student, 'single', 'result_card');
+  }
+
   openReportCard(student: ConsolidatedStudentResultDto, mode: 'single' | 'certificate' = 'single'): void {
+    this.openDocumentDialog(student, mode, mode === 'certificate' ? 'certificate' : 'marksheet');
+  }
+
+  openPromotionCertificate(student: ConsolidatedStudentResultDto): void {
+    this.openDocumentDialog(student, 'certificate', 'certificate');
+  }
+
+  openDocumentDialog(student: ConsolidatedStudentResultDto, mode: 'single' | 'certificate', initialView: 'bseb_marksheet' | 'admit_card' | 'result_card' | 'marksheet' | 'certificate'): void {
     if (!this.consolidatedResult) return;
 
     this.dialog.open(SchoolReportCardDialogComponent, {
-      width: '92vw',
-      maxWidth: '920px',
+      width: '96vw',
+      maxWidth: '1280px',
+      height: '92vh',
       maxHeight: '94vh',
       panelClass: 'custom-dialog-container',
       data: {
         mode,
+        initialView,
         className: this.consolidatedResult.className,
         academicYear: this.resultAcademicYear,
         examType: this.resultExamType,
         student,
         settings: this.examSettings || this.consolidatedResult.settings,
-        subjects: this.consolidatedResult.subjects
+        subjects: this.consolidatedResult.subjects,
+        exams: this.exams
       }
     });
   }
 
+  bulkPrintBsebMarksheets(): void {
+    this.bulkPrintDocuments('bseb_marksheet');
+  }
+
+  bulkPrintAdmitCards(): void {
+    this.bulkPrintDocuments('admit_card');
+  }
+
+  bulkPrintResultCards(): void {
+    this.bulkPrintDocuments('result_card');
+  }
+
   bulkPrintAllReportCards(): void {
+    this.bulkPrintDocuments('marksheet');
+  }
+
+  bulkPrintDocuments(view: 'bseb_marksheet' | 'admit_card' | 'result_card' | 'marksheet' | 'certificate'): void {
     if (!this.consolidatedResult || !this.consolidatedResult.students.length) {
-      this.confirmDialog.alert('No Student Records', 'No evaluated student marksheets found to print.', 'warning');
+      this.confirmDialog.alert('No Student Records', 'No evaluated student records found to print. Please evaluate marks or select a class with student records.', 'warning');
       return;
     }
 
     this.dialog.open(SchoolReportCardDialogComponent, {
-      width: '94vw',
-      maxWidth: '940px',
+      width: '96vw',
+      maxWidth: '1280px',
+      height: '92vh',
       maxHeight: '94vh',
       panelClass: 'custom-dialog-container',
       data: {
         mode: 'bulk',
+        initialView: view,
         className: this.consolidatedResult.className,
         academicYear: this.resultAcademicYear,
         examType: this.resultExamType,
         allStudents: this.consolidatedResult.students,
         settings: this.examSettings || this.consolidatedResult.settings,
-        subjects: this.consolidatedResult.subjects
+        subjects: this.consolidatedResult.subjects,
+        exams: this.exams
+      }
+    });
+  }
+
+  printClassAdmitCards(): void {
+    const targetClassId = this.filterClassId || (this.classes.length > 0 ? this.classes[0].id : '');
+    if (!targetClassId) {
+      this.confirmDialog.alert('Select Class', 'Please select a Class first to print Admit Cards.', 'info');
+      return;
+    }
+
+    if (this.consolidatedResult && this.consolidatedResult.classId === targetClassId && this.consolidatedResult.students.length > 0) {
+      this.bulkPrintAdmitCards();
+      return;
+    }
+
+    this.resultClassId = targetClassId;
+    this.resultAcademicYear = this.filterAcademicYear || '2025-2026';
+    this.resultExamType = this.filterExamType || 'Annual Exam';
+    this.loadingResults = true;
+    this.schoolService.getConsolidatedResults(targetClassId, this.resultAcademicYear, this.resultExamType).subscribe({
+      next: (res) => {
+        this.loadingResults = false;
+        this.consolidatedResult = res;
+        this.bulkPrintAdmitCards();
+      },
+      error: (err) => {
+        this.loadingResults = false;
+        this.confirmDialog.alert('Load Failed', err?.error?.message || 'Failed to load class students for admit cards.', 'danger');
       }
     });
   }

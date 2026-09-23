@@ -14,6 +14,9 @@
       <button mat-flat-button color="primary" class="action-btn matrix-top-btn" (click)="openClassMultiSubjectDialog()">
         <mat-icon>table_chart</mat-icon> Class Multi-Subject Marks
       </button>
+      <button mat-stroked-button color="primary" class="action-btn" (click)="printClassAdmitCards()" matTooltip="Print Admit Cards / Hall Tickets for Class">
+        <mat-icon>badge</mat-icon> Print Admit Cards
+      </button>
       <button mat-stroked-button color="primary" class="action-btn" (click)="activeTabIndex = 1">
         <mat-icon>add_task</mat-icon> Schedule Bulk Exams
       </button>
@@ -484,18 +487,32 @@
                 </p>
               </div>
               <div class="matrix-actions-top">
-                <!-- GAP 2: Bulk Print Button -->
-                <button mat-raised-button color="primary" class="bulk-print-btn" (click)="bulkPrintAllReportCards()" matTooltip="Print All Student Report Cards of this Class with Page Breaks">
-                  <mat-icon>print</mat-icon>
-                  <span>Print All Report Cards (A4)</span>
+                <button mat-flat-button color="primary" class="bulk-print-btn" (click)="bulkPrintBsebMarksheets()" matTooltip="Print Bihar Board Format Marksheets for all students with Page Breaks">
+                  <mat-icon>auto_stories</mat-icon>
+                  <span>Bulk BSEB Marksheets</span>
+                </button>
+
+                <button mat-flat-button color="accent" class="bulk-print-btn" (click)="bulkPrintAdmitCards()" matTooltip="Print Admit Cards / Hall Tickets for all students of this class">
+                  <mat-icon>badge</mat-icon>
+                  <span>Bulk Admit Cards</span>
+                </button>
+
+                <button mat-stroked-button (click)="bulkPrintResultCards()" matTooltip="Print Student Result Cards for all students">
+                  <mat-icon>analytics</mat-icon>
+                  <span>Result Cards</span>
+                </button>
+
+                <button mat-stroked-button (click)="bulkPrintAllReportCards()" matTooltip="Print Comprehensive Progress Report Cards">
+                  <mat-icon>description</mat-icon>
+                  <span>Report Cards</span>
                 </button>
 
                 <button mat-stroked-button (click)="printResultSheet()">
-                  <mat-icon>table_chart</mat-icon> Print Broadsheet
+                  <mat-icon>table_chart</mat-icon> Broadsheet
                 </button>
 
                 <button mat-stroked-button color="primary" (click)="goToPromotion()">
-                  <mat-icon>school</mat-icon> Proceed to Student Promotion
+                  <mat-icon>school</mat-icon> Promotion
                 </button>
               </div>
             </div>
@@ -567,13 +584,22 @@
                       </span>
                     </td>
 
-                    <!-- GAP 1, 3, 6: Action Buttons per Student -->
+                    <!-- Action Buttons per Student -->
                     <td class="col-actions">
                       <div class="row-action-btns">
-                        <button mat-icon-button class="action-btn rc-btn" (click)="openReportCard(s, 'single')" matTooltip="Print Report Card (अंकपत्र)">
+                        <button mat-icon-button class="action-btn bseb-btn" (click)="openBsebMarksheet(s)" matTooltip="Bihar Board Style Marksheet (बिहार बोर्ड अंक विवरण)">
+                          <mat-icon>auto_stories</mat-icon>
+                        </button>
+                        <button mat-icon-button class="action-btn admit-btn" (click)="openAdmitCard(s)" matTooltip="Admit Card / Exam Card (प्रवेश पत्र)">
+                          <mat-icon>badge</mat-icon>
+                        </button>
+                        <button mat-icon-button class="action-btn res-btn" (click)="openResultCard(s)" matTooltip="Result Card (परीक्षाफल पत्रक)">
+                          <mat-icon>analytics</mat-icon>
+                        </button>
+                        <button mat-icon-button class="action-btn rc-btn" (click)="openReportCard(s, 'single')" matTooltip="Progress Report Card (प्रगति पत्रक)">
                           <mat-icon>assignment_turned_in</mat-icon>
                         </button>
-                        <button mat-icon-button class="action-btn cert-btn" (click)="openReportCard(s, 'certificate')" matTooltip="Promotion Certificate (प्रमाण पत्र)">
+                        <button mat-icon-button class="action-btn cert-btn" (click)="openPromotionCertificate(s)" matTooltip="Promotion Certificate (प्रमाण पत्र)">
                           <mat-icon>workspace_premium</mat-icon>
                         </button>
                         <button mat-icon-button class="action-btn wa-btn" (click)="sendStudentWhatsApp(s)" matTooltip="Share Result on WhatsApp">
