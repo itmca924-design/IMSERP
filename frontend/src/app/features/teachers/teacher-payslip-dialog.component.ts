@@ -28,7 +28,7 @@ export interface PayslipDialogData {
           <div class="modal-hdr-icon"><mat-icon>receipt_long</mat-icon></div>
           <div>
             <h3 class="modal-hdr-title">Staff Salary Payslip</h3>
-            <p class="modal-hdr-sub">{{ data.teacher.fullName }} ({{ data.teacher.employeeCode }}) &bull; {{ data.payment.monthName }} {{ data.payment.paymentYear }}</p>
+            <p class="modal-hdr-sub">{{ data.teacher.fullName }} ({{ data.teacher.employeeCode }}) &bull; {{ data.payment.monthName }}</p>
           </div>
         </div>
         <div class="btn-group">
@@ -68,7 +68,7 @@ export interface PayslipDialogData {
         <div class="meta-strip">
           <div class="meta-item">
             <span class="meta-label">Pay Period / Month:</span>
-            <span class="meta-val"><strong>{{ data.payment.monthName }} {{ data.payment.paymentYear }}</strong></span>
+            <span class="meta-val"><strong>{{ data.payment.monthName }}</strong></span>
           </div>
           <div class="meta-item">
             <span class="meta-label">Receipt / Voucher No:</span>

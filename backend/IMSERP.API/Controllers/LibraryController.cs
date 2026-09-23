@@ -292,6 +292,8 @@ public class LibraryController : ControllerBase
     [HttpGet("copies/available")]
     public async Task<ActionResult<IEnumerable<BookCopyDto>>> GetAvailableCopies([FromQuery] string? searchTerm = null)
     {
+        await AutoHealInactiveTeacherCirculationsAsync();
+
         var query = _db.BookCopies
             .AsNoTracking()
             .Include(c => c.Book)
@@ -604,6 +606,8 @@ public class LibraryController : ControllerBase
         [FromQuery] bool overdueOnly = false,
         [FromQuery] string? searchTerm = null)
     {
+        await AutoHealInactiveTeacherCirculationsAsync();
+
         var query = _db.LibraryCirculations
             .AsNoTracking()
             .Include(c => c.BookCopy)
@@ -670,7 +674,8 @@ public class LibraryController : ControllerBase
                 c.FinePerDay,
                 calculatedFine,
                 c.FineStatus,
-                c.Remarks
+                c.Remarks,
+                c.BookCopy?.Price ?? 0
             );
         }).ToList();
 
@@ -716,7 +721,8 @@ public class LibraryController : ControllerBase
                 c.FinePerDay,
                 c.FineAmount,
                 c.FineStatus,
-                c.Remarks
+                c.Remarks,
+                c.BookCopy != null ? c.BookCopy.Price : 0
             ))
             .ToListAsync();
 
@@ -730,6 +736,8 @@ public class LibraryController : ControllerBase
     [HttpGet("stats")]
     public async Task<ActionResult<LibraryStatsDto>> GetStats()
     {
+        await AutoHealInactiveTeacherCirculationsAsync();
+
         var totalTitles = await _db.LibraryBooks.CountAsync(b => b.IsActive);
         var totalCopies = await _db.BookCopies.CountAsync(c => c.IsActive);
         var availableCopies = await _db.BookCopies.CountAsync(c => c.IsActive && c.Status == "Available");
@@ -925,5 +933,30 @@ public class LibraryController : ControllerBase
         _db.LibraryMembershipPlans.Remove(plan);
         await _db.SaveChangesAsync();
         return Ok(new { message = "Membership plan deleted successfully." });
+    }
+
+    private async Task AutoHealInactiveTeacherCirculationsAsync()
+    {
+        var orphanedCirculations = await _db.LibraryCirculations
+            .Include(c => c.BookCopy)
+            .Include(c => c.Teacher)
+            .Where(c => (c.Status == "Issued" || c.Status == "Overdue") && c.TeacherId != null && c.Teacher != null && !c.Teacher.IsActive)
+            .ToListAsync();
+
+        if (orphanedCirculations.Count > 0)
+        {
+            foreach (var oc in orphanedCirculations)
+            {
+                oc.ReturnDate = oc.Teacher?.LeavingDate ?? DateTime.UtcNow;
+                oc.Status = "Returned";
+                oc.FineStatus = "Paid";
+                oc.Remarks = (oc.Remarks != null ? oc.Remarks + " | " : "") + "Auto-returned: Teacher relieved/offboarded in F&F";
+                if (oc.BookCopy != null)
+                {
+                    oc.BookCopy.Status = "Available";
+                }
+            }
+            await _db.SaveChangesAsync();
+        }
     }
 }

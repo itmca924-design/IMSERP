@@ -1440,7 +1440,28 @@ public class TeachersController : ControllerBase
             .Where(a => a.TeacherId == id && a.Status == AdvanceStatus.Approved)
             .SumAsync(a => a.Amount);
 
-        decimal recommendedNet = Math.Max(0m, gross - (pf + tds + otherDeductions + totalAttendanceDeduction + pendingAdvance));
+        // Hostel rent deduction
+        var hostelAlloc = await _db.HostelAllocations.AsNoTracking()
+            .Include(a => a.Bed).ThenInclude(b => b!.Room)
+            .FirstOrDefaultAsync(a => a.TeacherId == id && a.Status == "Active");
+        decimal hostelRentDeduction = hostelAlloc != null ? hostelAlloc.MonthlyRent + hostelAlloc.MonthlyMessFee : 0m;
+        string? hostelRentInfo = hostelAlloc != null
+            ? $"Rm {hostelAlloc.Bed?.Room?.RoomNumber} (Bed {hostelAlloc.Bed?.BedCode}) — ₹{hostelAlloc.MonthlyRent:0}/mo rent" +
+              (hostelAlloc.MonthlyMessFee > 0 ? $" + ₹{hostelAlloc.MonthlyMessFee:0}/mo mess" : "")
+            : null;
+
+        // Transport fare deduction (only if NOT a free perk)
+        var transportAlloc = await _db.TransportAllocations.AsNoTracking()
+            .Include(a => a.Route)
+            .Include(a => a.Stop)
+            .FirstOrDefaultAsync(a => a.TeacherId == id && a.Status == "Active");
+        decimal transportFareDeduction = (transportAlloc != null && !transportAlloc.IsFreeAllocation) ? transportAlloc.MonthlyFare : 0m;
+        string? transportFareInfo = transportAlloc != null
+            ? $"{transportAlloc.Route?.RouteName} via {transportAlloc.Stop?.StopName}" +
+              (transportAlloc.IsFreeAllocation ? " (Free Perk — ₹0)" : $" — ₹{transportAlloc.MonthlyFare:0}/mo")
+            : null;
+
+        decimal recommendedNet = Math.Max(0m, gross - (pf + tds + otherDeductions + totalAttendanceDeduction + pendingAdvance + hostelRentDeduction + transportFareDeduction));
 
         return Ok(new TeacherPayrollPreviewDto(
             teacher.Id, teacher.FullName, teacher.EmployeeCode,
@@ -1452,7 +1473,11 @@ public class TeachersController : ControllerBase
             allowedLateDays, excessLateDays, latePenaltyDays,
             absentDeduction, halfDayDeduction, latePenaltyDeduction,
             totalAttendanceDeduction, pendingAdvance,
-            recommendedNet
+            recommendedNet,
+            hostelRentDeduction,
+            transportFareDeduction,
+            hostelRentInfo,
+            transportFareInfo
         ));
     }
 
@@ -1482,6 +1507,11 @@ public class TeachersController : ControllerBase
     {
         var teacher = await _db.Teachers.FindAsync(dto.TeacherId);
         if (teacher == null) return NotFound(new { message = "Teacher not found." });
+
+        var isFnFSettled = await _db.TeacherFnFSettlements.AsNoTracking()
+            .AnyAsync(s => s.TeacherId == dto.TeacherId && s.Status == "Settled");
+        if (isFnFSettled)
+            return BadRequest(new { message = $"Cannot record salary: {teacher.FullName} has already completed Full & Final Settlement (FNF) and is offboarded." });
 
         var alreadyPaid = await _db.TeacherSalaryPayments.AnyAsync(p =>
             p.TeacherId == dto.TeacherId && p.PaymentMonth == dto.PaymentMonth && p.PaymentYear == dto.PaymentYear);
@@ -1833,11 +1863,29 @@ public class TeachersController : ControllerBase
         var gross = salary?.GrossSalary ?? basic;
         var perDayRate = gross > 0 ? Math.Round(gross / 30m, 2) : 0;
 
-        // 6. Current month attendance
+        // 6. Current month attendance & salary payment check
         var now = DateTime.UtcNow;
         var presentDays = await _db.TeacherAttendances
             .CountAsync(a => a.TeacherId == id && a.AttendanceDate.Year == now.Year && a.AttendanceDate.Month == now.Month && (a.Status == TeacherAttendanceStatus.Present || a.Status == TeacherAttendanceStatus.Late));
         var suggestedUnpaid = Math.Round(presentDays * perDayRate, 2);
+
+        // Check if regular salary payment already exists for this final month
+        var finalMonthPayment = await _db.TeacherSalaryPayments.AsNoTracking()
+            .FirstOrDefaultAsync(p => p.TeacherId == id && p.PaymentMonth == now.Month && p.PaymentYear == now.Year);
+        bool isFinalMonthSalaryPaid = finalMonthPayment != null;
+        string? finalMonthSalaryReceiptNumber = finalMonthPayment?.ReceiptNumber;
+        decimal finalMonthSalaryPaidAmount = finalMonthPayment?.NetPaid ?? 0m;
+        DateTime? finalMonthSalaryPaymentDate = finalMonthPayment?.PaymentDate;
+
+        // If salary for the final month was already paid, prevent double payment by setting suggestedUnpaid to 0
+        if (isFinalMonthSalaryPaid)
+        {
+            suggestedUnpaid = 0m;
+        }
+
+        // Check if teacher already has an existing settled FNF
+        bool isFnFAlreadySettled = await _db.TeacherFnFSettlements.AsNoTracking()
+            .AnyAsync(s => s.TeacherId == id && s.Status == "Settled");
 
         // 7. Transport clearance (live check)
         var transportAlloc = await _db.TransportAllocations
@@ -1884,7 +1932,13 @@ public class TeachersController : ControllerBase
             isHostelResident,
             hostelAlloc?.Bed?.BedCode,
             hostelAlloc?.Bed?.Room?.RoomNumber,
-            hostelAlloc?.Id
+            hostelAlloc?.Id,
+            // Final month salary check & FNF status
+            isFinalMonthSalaryPaid,
+            finalMonthSalaryReceiptNumber,
+            finalMonthSalaryPaidAmount,
+            finalMonthSalaryPaymentDate,
+            isFnFAlreadySettled
         ));
     }
 
@@ -1894,6 +1948,105 @@ public class TeachersController : ControllerBase
     [HttpGet("fnf-settlements")]
     public async Task<ActionResult<IEnumerable<TeacherFnFSettlementDto>>> GetFnFSettlements()
     {
+        // Self-heal: ensure any past settled teachers have their allocations vacated / discontinued / returned
+        var settledTeacherIds = await _db.TeacherFnFSettlements
+            .Where(s => s.Status == "Settled")
+            .Select(s => s.TeacherId)
+            .Distinct()
+            .ToListAsync();
+
+        if (settledTeacherIds.Count > 0)
+        {
+            bool hadOrphans = false;
+            var activeHostel = await _db.HostelAllocations
+                .Include(a => a.Bed)
+                .Where(a => a.Status == "Active" && a.TeacherId.HasValue && settledTeacherIds.Contains(a.TeacherId.Value))
+                .ToListAsync();
+            foreach (var ha in activeHostel)
+            {
+                ha.Status = "Vacated";
+                ha.VacatedDate = DateTime.UtcNow;
+                ha.Remarks = (ha.Remarks != null ? ha.Remarks + " | " : "") + "Auto-vacated: Teacher settled in F&F";
+                if (ha.Bed != null)
+                {
+                    ha.Bed.Status = "Available";
+                    ha.Bed.CurrentStudentId = null;
+                }
+                hadOrphans = true;
+            }
+
+            var activeTransport = await _db.TransportAllocations
+                .Where(a => a.Status == "Active" && a.TeacherId.HasValue && settledTeacherIds.Contains(a.TeacherId.Value))
+                .ToListAsync();
+            foreach (var ta in activeTransport)
+            {
+                ta.Status = "Discontinued";
+                ta.EffectiveTo = DateTime.UtcNow;
+                ta.Remarks = (ta.Remarks != null ? ta.Remarks + " | " : "") + "Auto-discontinued: Teacher settled in F&F";
+                hadOrphans = true;
+            }
+
+            var activeCircs = await _db.LibraryCirculations
+                .Include(c => c.BookCopy)
+                .Where(c => (c.Status == "Issued" || c.Status == "Overdue") && c.TeacherId.HasValue && settledTeacherIds.Contains(c.TeacherId.Value))
+                .ToListAsync();
+            foreach (var lc in activeCircs)
+            {
+                lc.ReturnDate = DateTime.UtcNow;
+                lc.Status = "Returned";
+                lc.FineStatus = "Paid";
+                lc.Remarks = (lc.Remarks != null ? lc.Remarks + " | " : "") + "Auto-returned: Teacher settled in F&F";
+                if (lc.BookCopy != null)
+                {
+                    lc.BookCopy.Status = "Available";
+                }
+                hadOrphans = true;
+            }
+
+            if (hadOrphans)
+            {
+                var teachersToUpdate = await _db.Teachers
+                    .Where(t => settledTeacherIds.Contains(t.Id) && (t.IsHostelResident || t.IsTransportStaff || t.HostelBedId != null || t.TransportAllocationId != null))
+                    .ToListAsync();
+                foreach (var t in teachersToUpdate)
+                {
+                    t.IsHostelResident = false;
+                    t.HostelBedId = null;
+                    t.IsTransportStaff = false;
+                    t.TransportAllocationId = null;
+                }
+
+                await _db.SaveChangesAsync();
+            }
+
+            // Clean up accidental duplicate zero-value FNF records for teachers who already have an earlier real settlement
+            var allSettledList = await _db.TeacherFnFSettlements
+                .Where(s => s.Status == "Settled")
+                .ToListAsync();
+
+            var duplicateSettlementGroups = allSettledList
+                .GroupBy(s => s.TeacherId)
+                .Where(g => g.Count() > 1)
+                .ToList();
+
+            if (duplicateSettlementGroups.Count > 0)
+            {
+                var duplicatesToRemove = new List<TeacherFnFSettlement>();
+                foreach (var grp in duplicateSettlementGroups)
+                {
+                    var ordered = grp.OrderBy(x => x.CreatedAt).ToList();
+                    // Keep the first (original) settlement; remove subsequent accidental zero-amount duplicates
+                    var subsequentZeroDupes = ordered.Skip(1).Where(x => x.NetPayableAmount == 0m).ToList();
+                    duplicatesToRemove.AddRange(subsequentZeroDupes);
+                }
+                if (duplicatesToRemove.Count > 0)
+                {
+                    _db.TeacherFnFSettlements.RemoveRange(duplicatesToRemove);
+                    await _db.SaveChangesAsync();
+                }
+            }
+        }
+
         var rawList = await _db.TeacherFnFSettlements
             .Include(s => s.Teacher)
             .AsNoTracking()
@@ -1960,6 +2113,14 @@ public class TeachersController : ControllerBase
             .Include(t => t.User)
             .FirstOrDefaultAsync(t => t.Id == id);
         if (teacher == null) return NotFound(new { message = "Teacher not found." });
+
+        var existingSettled = await _db.TeacherFnFSettlements
+            .AsNoTracking()
+            .FirstOrDefaultAsync(s => s.TeacherId == id && s.Status == "Settled");
+        if (existingSettled != null)
+        {
+            return BadRequest(new { message = $"Full & Final Settlement for {teacher.FullName} has already been finalized under voucher {existingSettled.SettlementVoucherNo}. Duplicate settlement cannot be processed." });
+        }
 
         var totalEarnings = dto.UnpaidSalary + dto.EarnedLeaveEncashment + dto.GratuityOrBonus + dto.OtherAdditions;
         var totalDeductions = dto.PendingAdvanceDeduction + dto.NoticeShortfallDeduction + dto.LibraryDuesDeduction + dto.AssetLossDeduction + dto.OtherDeductions;
@@ -2048,6 +2209,13 @@ public class TeachersController : ControllerBase
                     a.AdjustedInYear = dto.LastWorkingDate.Year;
                 }
             }
+
+            // 6. Release Hostel, Transport, and Library allocations upon F&F finalization
+            await CleanupRelievedTeacherAllocationsAsync(id, dto.LastWorkingDate);
+            teacher.HostelBedId = null;
+            teacher.IsHostelResident = false;
+            teacher.TransportAllocationId = null;
+            teacher.IsTransportStaff = false;
         }
 
         await _db.SaveChangesAsync();
@@ -2066,6 +2234,54 @@ public class TeachersController : ControllerBase
             settlement.Status, settlement.SettlementDate, settlement.PaymentMode, settlement.PaymentReference, settlement.SettlementVoucherNo,
             settlement.RelievingLetterIssued, settlement.ExperienceCertificateIssued, settlement.CreatedAt
         ));
+    }
+
+    private async Task CleanupRelievedTeacherAllocationsAsync(Guid teacherId, DateTime effectiveDate)
+    {
+        // 1. Release Hostel Allocation & Beds
+        var hostelAllocations = await _db.HostelAllocations
+            .Include(a => a.Bed)
+            .Where(a => a.TeacherId == teacherId && a.Status == "Active")
+            .ToListAsync();
+        foreach (var ha in hostelAllocations)
+        {
+            ha.Status = "Vacated";
+            ha.VacatedDate = effectiveDate;
+            ha.Remarks = (ha.Remarks != null ? ha.Remarks + " | " : "") + "Vacated via F&F Settlement";
+            if (ha.Bed != null)
+            {
+                ha.Bed.Status = "Available";
+                ha.Bed.CurrentStudentId = null;
+            }
+        }
+
+        // 2. Release Transport Allocation
+        var transportAllocations = await _db.TransportAllocations
+            .Where(a => a.TeacherId == teacherId && a.Status == "Active")
+            .ToListAsync();
+        foreach (var ta in transportAllocations)
+        {
+            ta.Status = "Discontinued";
+            ta.EffectiveTo = effectiveDate;
+            ta.Remarks = (ta.Remarks != null ? ta.Remarks + " | " : "") + "Discontinued via F&F Settlement";
+        }
+
+        // 3. Return Library Books & Clear Fines
+        var libraryCirculations = await _db.LibraryCirculations
+            .Include(c => c.BookCopy)
+            .Where(c => c.TeacherId == teacherId && (c.Status == "Issued" || c.Status == "Overdue"))
+            .ToListAsync();
+        foreach (var lc in libraryCirculations)
+        {
+            lc.ReturnDate = effectiveDate;
+            lc.Status = "Returned";
+            lc.FineStatus = "Paid";
+            lc.Remarks = (lc.Remarks != null ? lc.Remarks + " | " : "") + "Returned & fine cleared via F&F Settlement";
+            if (lc.BookCopy != null)
+            {
+                lc.BookCopy.Status = "Available";
+            }
+        }
     }
 
     // =========================================================================
@@ -2369,6 +2585,10 @@ public class TeachersController : ControllerBase
         if (dto.StudentResponse != null) plan.StudentResponse = dto.StudentResponse;
         if (dto.Remarks != null) plan.Remarks = dto.Remarks;
         if (dto.PrincipalFeedback != null) plan.PrincipalFeedback = dto.PrincipalFeedback;
+        if (dto.SubjectName != null) plan.SubjectName = dto.SubjectName;
+        if (dto.SubjectId.HasValue) plan.SubjectId = dto.SubjectId;
+        plan.BatchId = dto.BatchId;
+        plan.ClassSectionId = dto.ClassSectionId;
         plan.UpdatedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync();

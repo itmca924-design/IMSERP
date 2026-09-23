@@ -10,7 +10,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { API_BASE, TeacherDocumentDto, CreateTeacherDocumentDto } from './teacher.models';
 
 export interface TeacherDocumentsDialogData {
@@ -26,7 +26,7 @@ export interface TeacherDocumentsDialogData {
     CommonModule, FormsModule, MatDialogModule,
     MatButtonModule, MatIconModule, MatTooltipModule,
     MatProgressBarModule, MatFormFieldModule, MatInputModule,
-    MatSelectModule, MatSnackBarModule
+    MatSelectModule
   ],
   template: `
 <div class="docs-modal-container">
@@ -453,7 +453,7 @@ export class TeacherDocumentsDialogComponent implements OnInit {
     public dialogRef: MatDialogRef<TeacherDocumentsDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: TeacherDocumentsDialogData,
     private http: HttpClient,
-    private snackBar: MatSnackBar
+    private confirmDialog: ConfirmDialogService
   ) {}
 
   ngOnInit() {
@@ -500,7 +500,7 @@ export class TeacherDocumentsDialogComponent implements OnInit {
 
   saveDocument() {
     if (!this.newDoc.title) {
-      this.snackBar.open('Kripya document title dalein.', 'OK', { duration: 3000 });
+      this.confirmDialog.alert('Required Field', 'Kripya document title dalein.', 'warning');
       return;
     }
 
@@ -510,12 +510,12 @@ export class TeacherDocumentsDialogComponent implements OnInit {
         this.saving = false;
         this.showAddForm = false;
         this.newDoc = { documentType: 'Aadhaar', title: '', documentNumber: '', fileUrl: '', remarks: '' };
-        this.snackBar.open('Document record safalta se add ho gaya!', 'OK', { duration: 3000 });
+        this.confirmDialog.alert('Added', 'Document record safalta se add ho gaya!', 'success');
         this.loadDocuments();
       },
       error: () => {
         this.saving = false;
-        this.snackBar.open('Error saving document.', 'OK', { duration: 3000 });
+        this.confirmDialog.alert('Error', 'Document save karne me samasya aayi.', 'danger');
       }
     });
   }
@@ -523,22 +523,24 @@ export class TeacherDocumentsDialogComponent implements OnInit {
   verifyDoc(doc: TeacherDocumentDto, newStatus: string) {
     this.http.put(`${API_BASE}/teachers/${this.data.teacherId}/documents/${doc.id}/verify`, { verificationStatus: newStatus }).subscribe({
       next: () => {
-        this.snackBar.open(`Document status updated to ${newStatus}`, 'OK', { duration: 2500 });
+        this.confirmDialog.alert('Status Updated', `Document status updated to ${newStatus}`, 'success');
         this.loadDocuments();
       },
-      error: () => this.snackBar.open('Error updating document status.', 'OK', { duration: 3000 })
+      error: () => this.confirmDialog.alert('Error', 'Error updating document status.', 'danger')
     });
   }
 
   deleteDoc(docId: string) {
-    if (!confirm('Kya aap is document record ko delete karna chahte hain?')) return;
+    this.confirmDialog.danger('Delete Document?', 'Kya aap is document record ko delete karna chahte hain?').subscribe(ok => {
+      if (!ok) return;
 
-    this.http.delete(`${API_BASE}/teachers/${this.data.teacherId}/documents/${docId}`).subscribe({
-      next: () => {
-        this.snackBar.open('Document deleted.', 'OK', { duration: 2500 });
-        this.loadDocuments();
-      },
-      error: () => this.snackBar.open('Error deleting document.', 'OK', { duration: 3000 })
+      this.http.delete(`${API_BASE}/teachers/${this.data.teacherId}/documents/${docId}`).subscribe({
+        next: () => {
+          this.confirmDialog.alert('Deleted', 'Document safaltapoorvak delete ho gaya.', 'success');
+          this.loadDocuments();
+        },
+        error: () => this.confirmDialog.alert('Error', 'Document delete karne me samasya aayi.', 'danger')
+      });
     });
   }
 }

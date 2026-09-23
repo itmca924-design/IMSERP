@@ -133,6 +133,7 @@ export interface LibraryCirculationDto {
   fineAmount: number;
   fineStatus: string;
   remarks?: string;
+  bookPrice: number;
 }
 
 export interface LibraryStatsDto {

@@ -11,6 +11,9 @@
       </div>
     </div>
     <div class="header-actions">
+      <button mat-flat-button color="primary" class="action-btn matrix-top-btn" (click)="openClassMultiSubjectDialog()">
+        <mat-icon>table_chart</mat-icon> Class Multi-Subject Marks
+      </button>
       <button mat-stroked-button color="primary" class="action-btn" (click)="activeTabIndex = 1">
         <mat-icon>add_task</mat-icon> Schedule Bulk Exams
       </button>
@@ -95,6 +98,23 @@
         <div class="loading-state" *ngIf="loadingExams">
           <mat-spinner diameter="40"></mat-spinner>
           <p>Loading scheduled exams...</p>
+        </div>
+
+        <!-- Quick Multi-Subject Entry Alert Bar -->
+        <div class="multi-marks-alert-banner" *ngIf="!loadingExams && exams.length > 0">
+          <div class="banner-info">
+            <div class="banner-icon-box">
+              <mat-icon>table_chart</mat-icon>
+            </div>
+            <div>
+              <div class="banner-title">कक्षावार सभी विषय अंक प्रविष्टि (Multi-Subject Batch Entry)</div>
+              <div class="banner-desc">एक-एक करके अंक भरने के बजाय, इस कक्षा के सभी विषयों के अंक एक साथ डायनेमिक टेबल में भरें व सुरक्षित करें।</div>
+            </div>
+          </div>
+          <button mat-flat-button color="primary" class="banner-action-btn" (click)="openClassMultiSubjectDialog(filterClassId)">
+            <mat-icon>edit_note</mat-icon>
+            <span>Open Multi-Subject Marks Matrix</span>
+          </button>
         </div>
 
         <!-- Empty State -->
@@ -302,42 +322,44 @@
 
       <div class="tab-content">
         <!-- Controls Bar -->
-        <mat-card class="filter-card">
-          <div class="filter-grid">
-            <mat-form-field appearance="outline" class="compact-field">
-              <mat-label>Class *</mat-label>
-              <mat-select [(value)]="resultClassId">
-                <mat-option *ngFor="let c of classes" [value]="c.id">{{ c.name }}</mat-option>
-              </mat-select>
-            </mat-form-field>
+        <mat-card class="filter-card results-filter-card">
+          <div class="filter-controls-row">
+            <div class="inputs-strip">
+              <mat-form-field appearance="outline" subscriptSizing="dynamic" class="filter-input-col">
+                <mat-label>Class *</mat-label>
+                <mat-select [(value)]="resultClassId">
+                  <mat-option *ngFor="let c of classes" [value]="c.id">{{ c.name }}</mat-option>
+                </mat-select>
+              </mat-form-field>
 
-            <mat-form-field appearance="outline" class="compact-field">
-              <mat-label>Academic Session *</mat-label>
-              <mat-select [(value)]="resultAcademicYear">
-                <mat-option value="2024-2025">2024-2025</mat-option>
-                <mat-option value="2025-2026">2025-2026</mat-option>
-                <mat-option value="2026-2027">2026-2027</mat-option>
-              </mat-select>
-            </mat-form-field>
+              <mat-form-field appearance="outline" subscriptSizing="dynamic" class="filter-input-col">
+                <mat-label>Academic Session *</mat-label>
+                <mat-select [(value)]="resultAcademicYear">
+                  <mat-option value="2024-2025">2024-2025</mat-option>
+                  <mat-option value="2025-2026">2025-2026</mat-option>
+                  <mat-option value="2026-2027">2026-2027</mat-option>
+                </mat-select>
+              </mat-form-field>
 
-            <mat-form-field appearance="outline" class="compact-field">
-              <mat-label>Exam Type</mat-label>
-              <mat-select [(value)]="resultExamType">
-                <mat-option value="Annual Exam">Annual Exam (Final)</mat-option>
-                <mat-option value="Half-Yearly Exam">Half-Yearly Exam</mat-option>
-                <mat-option value="Unit Test 1">Unit Test 1</mat-option>
-                <mat-option value="Unit Test 2">Unit Test 2</mat-option>
-                <mat-option value="">All Exam Types</mat-option>
-              </mat-select>
-            </mat-form-field>
+              <mat-form-field appearance="outline" subscriptSizing="dynamic" class="filter-input-col">
+                <mat-label>Exam Type</mat-label>
+                <mat-select [(value)]="resultExamType">
+                  <mat-option value="Annual Exam">Annual Exam (Final)</mat-option>
+                  <mat-option value="Half-Yearly Exam">Half-Yearly Exam</mat-option>
+                  <mat-option value="Unit Test 1">Unit Test 1</mat-option>
+                  <mat-option value="Unit Test 2">Unit Test 2</mat-option>
+                  <mat-option value="">All Exam Types</mat-option>
+                </mat-select>
+              </mat-form-field>
+            </div>
 
-            <div class="filter-actions">
-              <button mat-stroked-button (click)="showSettingsBar = !showSettingsBar" matTooltip="Configure Passing Benchmark, Grace Marks, and Compartment Criteria">
+            <div class="actions-strip">
+              <button mat-stroked-button type="button" class="btn-settings-toggle" [class.btn-active]="showSettingsBar" (click)="showSettingsBar = !showSettingsBar" matTooltip="Configure Passing Benchmark, Grace Marks, and Compartment Criteria">
                 <mat-icon>tune</mat-icon>
                 <span>Evaluation Settings</span>
               </button>
 
-              <button mat-flat-button color="primary" (click)="loadConsolidatedResults()" [disabled]="loadingResults || !resultClassId">
+              <button mat-flat-button color="primary" class="btn-view-sheet" (click)="loadConsolidatedResults()" [disabled]="loadingResults || !resultClassId">
                 <mat-icon *ngIf="!loadingResults">table_view</mat-icon>
                 <mat-spinner diameter="18" *ngIf="loadingResults"></mat-spinner>
                 <span>View Result Sheet</span>
@@ -345,43 +367,63 @@
             </div>
           </div>
 
-          <!-- DYNAMIC EVALUATION SETTINGS PANEL (GAP 4) -->
+          <!-- DYNAMIC EVALUATION SETTINGS PANEL -->
           <div class="dynamic-settings-drawer" *ngIf="showSettingsBar">
             <div class="settings-drawer-header">
               <div class="sd-left">
-                <mat-icon>tune</mat-icon>
-                <strong>Evaluation &amp; Passing Benchmark Settings (Dynamic UI Rule)</strong>
+                <div class="sd-icon-box">
+                  <mat-icon>tune</mat-icon>
+                </div>
+                <div>
+                  <h4 class="sd-title">Evaluation &amp; Passing Benchmark Settings</h4>
+                  <p class="sd-subtitle">Adjust criteria on-the-fly or save as institute default rules.</p>
+                </div>
               </div>
-              <span class="sd-hint">Adjust criteria on-the-fly or save as institute default</span>
+              <div class="sd-badge">Dynamic Rule Config</div>
             </div>
 
-            <div class="settings-grid">
-              <mat-form-field appearance="outline" class="sd-field">
+            <div class="settings-body-grid">
+              <!-- Field 1: Passing % -->
+              <mat-form-field appearance="outline" subscriptSizing="dynamic" class="sd-field">
                 <mat-label>Minimum Passing % *</mat-label>
                 <input matInput type="number" [(ngModel)]="settingPassingPercentage" min="1" max="100">
-                <span matSuffix>%&nbsp;</span>
+                <span matSuffix class="pct-suffix">%</span>
               </mat-form-field>
 
-              <mat-form-field appearance="outline" class="sd-field">
+              <!-- Field 2: Max Compartment -->
+              <mat-form-field appearance="outline" subscriptSizing="dynamic" class="sd-field">
                 <mat-label>Max Compartment Subjects</mat-label>
                 <input matInput type="number" [(ngModel)]="settingMaxCompartment" min="0" max="5">
               </mat-form-field>
 
-              <div class="sd-checkbox-group">
-                <mat-checkbox [(ngModel)]="settingAllowGrace" color="primary">Allow Grace Marks</mat-checkbox>
-                <mat-form-field appearance="outline" class="sd-grace-field" *ngIf="settingAllowGrace">
-                  <mat-label>Max Grace</mat-label>
-                  <input matInput type="number" [(ngModel)]="settingMaxGrace" min="1" max="15">
-                </mat-form-field>
+              <!-- Field 3: Allow Grace Marks Card -->
+              <div class="sd-checkbox-card" [class.checked]="settingAllowGrace" (click)="settingAllowGrace = !settingAllowGrace">
+                <mat-checkbox [(ngModel)]="settingAllowGrace" color="primary" (click)="$event.stopPropagation()">
+                  Allow Grace Marks
+                </mat-checkbox>
               </div>
 
-              <div class="sd-actions">
-                <button mat-stroked-button color="primary" (click)="saveExamSettingsAsDefault()" [disabled]="savingSettings">
+              <!-- Field 4: Standalone Max Grace Marks (No Overlap) -->
+              <mat-form-field appearance="outline" subscriptSizing="dynamic" class="sd-field sd-grace-field" [class.disabled-field]="!settingAllowGrace">
+                <mat-label>Max Grace Marks</mat-label>
+                <input matInput type="number" [(ngModel)]="settingMaxGrace" min="1" max="15" [disabled]="!settingAllowGrace">
+                <span matSuffix class="marks-suffix">Marks</span>
+              </mat-form-field>
+            </div>
+
+            <!-- Footer Actions Row -->
+            <div class="sd-footer-actions">
+              <div class="sd-footer-hint">
+                <mat-icon>info_outline</mat-icon>
+                <span>Changing benchmarks instantly updates promotion &amp; compartment status.</span>
+              </div>
+              <div class="sd-actions-row">
+                <button mat-stroked-button color="primary" type="button" class="sd-btn-save" (click)="saveExamSettingsAsDefault()" [disabled]="savingSettings">
                   <mat-icon *ngIf="!savingSettings">save</mat-icon>
                   <mat-spinner diameter="16" *ngIf="savingSettings"></mat-spinner>
                   <span>Save as Default</span>
                 </button>
-                <button mat-raised-button color="accent" (click)="loadConsolidatedResults()">
+                <button mat-flat-button color="primary" type="button" class="sd-btn-apply" (click)="loadConsolidatedResults()">
                   <mat-icon>refresh</mat-icon>
                   <span>Apply &amp; Re-evaluate</span>
                 </button>

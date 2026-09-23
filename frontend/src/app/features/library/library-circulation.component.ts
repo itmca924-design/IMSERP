@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { RouterModule, ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { MatCardModule } from '@angular/material/card';
@@ -12,6 +12,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { LibraryService, LibraryCirculationDto, BookCopyDto, LibrarySettingDto } from '../../core/services/library.service';
 import { CoachingService } from '../../core/services/coaching.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
@@ -31,7 +32,8 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
     MatInputModule,
     MatSelectModule,
     MatProgressBarModule,
-    MatTooltipModule
+    MatTooltipModule,
+    MatButtonToggleModule
   ],
   template: `
     <div class="circ-container">
@@ -127,14 +129,23 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           <div class="desk-section">
             <span class="ds-title">Step 2: Borrower &amp; Loan Duration</span>
 
-            <!-- Member Type Switcher -->
-            <div style="display: flex; gap: 8px; margin-bottom: 8px;">
-              <button type="button" class="lp-pill" [class.active]="issueMemberType === 'Student'" (click)="setIssueMemberType('Student')">
-                <mat-icon>school</mat-icon> Student
-              </button>
-              <button type="button" class="lp-pill" [class.active]="issueMemberType === 'Teacher'" (click)="setIssueMemberType('Teacher')">
-                <mat-icon>co_present</mat-icon> Faculty / Teacher
-              </button>
+            <!-- Member Type Switcher (Angular Material Segmented Toggle) -->
+            <div class="member-toggle-wrapper">
+              <mat-button-toggle-group
+                [value]="issueMemberType"
+                (change)="setIssueMemberType($event.value)"
+                aria-label="Borrower Category"
+                class="compact-mat-toggle"
+                hideSingleSelectionIndicator="true">
+                <mat-button-toggle value="Student">
+                  <mat-icon>school</mat-icon>
+                  <span>Student Borrower</span>
+                </mat-button-toggle>
+                <mat-button-toggle value="Teacher">
+                  <mat-icon>co_present</mat-icon>
+                  <span>Faculty / Teacher</span>
+                </mat-button-toggle>
+              </mat-button-toggle-group>
             </div>
 
             <!-- Student Picker -->
@@ -368,7 +379,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
               <tr *ngFor="let c of circulations">
                 <td>
                   <div class="bk-title">{{ c.bookTitle }}</div>
-                  <div class="bk-acc">Acc: <strong>{{ c.accessionNumber }}</strong> &bull; {{ c.rackLocation }}</div>
+                  <div class="bk-acc">Acc: <strong>{{ c.accessionNumber }}</strong> &bull; {{ c.rackLocation }}<ng-container *ngIf="c.bookPrice > 0"> &bull; <span class="bk-price">₹{{ c.bookPrice }}</span></ng-container></div>
                 </td>
                 <td>
                   <div class="borrower-name">
@@ -466,6 +477,72 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
     .desk-section {
       display: flex; flex-direction: column; gap: 12px;
       .ds-title { font-weight: 700; font-size: 0.92rem; color: #1e293b; }
+    }
+
+    .member-toggle-wrapper {
+      margin-bottom: 8px;
+      display: inline-block;
+    }
+
+    .compact-mat-toggle.mat-button-toggle-group {
+      border: 1px solid #cbd5e1 !important;
+      border-radius: 8px !important;
+      background: #ffffff !important;
+      overflow: hidden;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+
+      .mat-button-toggle {
+        font-family: inherit;
+        border-right: 1px solid #e2e8f0;
+        background-color: #ffffff;
+        color: #475569;
+        font-weight: 500;
+        font-size: 0.85rem;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+        &:last-child {
+          border-right: none;
+        }
+
+        ::ng-deep .mat-button-toggle-label-content {
+          line-height: 36px !important;
+          padding: 0 18px !important;
+          display: inline-flex !important;
+          align-items: center !important;
+          gap: 6px !important;
+
+          mat-icon {
+            font-size: 18px !important;
+            width: 18px !important;
+            height: 18px !important;
+            vertical-align: middle;
+            color: #64748b;
+          }
+        }
+
+        &:hover:not(.mat-button-toggle-checked) {
+          background-color: #f8fafc;
+          color: #0f172a;
+
+          ::ng-deep .mat-button-toggle-label-content mat-icon {
+            color: #1e293b;
+          }
+        }
+
+        &.mat-button-toggle-checked {
+          background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%) !important;
+          color: #ffffff !important;
+          font-weight: 600;
+
+          ::ng-deep .mat-button-toggle-label-content {
+            color: #ffffff !important;
+
+            mat-icon {
+              color: #ffffff !important;
+            }
+          }
+        }
+      }
     }
 
     .lookup-row { display: flex; gap: 10px; align-items: center; }
@@ -719,6 +796,9 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
         }
       }
     }
+    .bk-title { font-weight: 600; font-size: 0.88rem; color: #1e293b; }
+    .bk-acc { font-size: 0.75rem; color: #64748b; margin-top: 2px; }
+    .bk-price { color: #2563eb; font-weight: 700; font-size: 0.73rem; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 5px; padding: 0px 5px; margin-left: 4px; }
   `]
 })
 export class LibraryCirculationComponent implements OnInit {
@@ -760,7 +840,8 @@ export class LibraryCirculationComponent implements OnInit {
     private libraryService: LibraryService,
     private coachingService: CoachingService,
     private confirmDialog: ConfirmDialogService,
-    private http: HttpClient
+    private http: HttpClient,
+    private route: ActivatedRoute
   ) {}
 
   ngOnInit(): void {
@@ -769,6 +850,13 @@ export class LibraryCirculationComponent implements OnInit {
     this.loadTeachers();
     this.loadCirculations();
     this.loadAvailableCopies();
+
+    this.route.queryParams.subscribe(params => {
+      if (params['teacherId']) {
+        this.setIssueMemberType('Teacher');
+        this.issueTeacherId = params['teacherId'];
+      }
+    });
   }
 
   setIssueMemberType(type: 'Student' | 'Teacher'): void {

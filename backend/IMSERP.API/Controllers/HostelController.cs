@@ -29,6 +29,8 @@ public class HostelController : ControllerBase
     [HttpGet("overview")]
     public async Task<ActionResult<HostelOverviewSummaryDto>> GetOverview()
     {
+        await AutoHealInactiveTeacherAllocationsAsync();
+
         var totalHostels = await _db.Hostels.CountAsync(h => h.IsActive);
         var totalRooms = await _db.HostelRooms.CountAsync(r => r.IsActive);
         var totalBeds = await _db.HostelBeds.CountAsync(b => b.IsActive);
@@ -314,6 +316,8 @@ public class HostelController : ControllerBase
     [HttpGet("bed-matrix")]
     public async Task<ActionResult> GetBedMatrix([FromQuery] Guid? hostelId = null)
     {
+        await AutoHealInactiveTeacherAllocationsAsync();
+
         var query = _db.HostelRooms
             .AsNoTracking()
             .Include(r => r.Hostel)
@@ -323,6 +327,9 @@ public class HostelController : ControllerBase
             .Include(r => r.Beds)
                 .ThenInclude(b => b.CurrentStudent)
                     .ThenInclude(s => s != null ? s.Batch : null)
+            .Include(r => r.Beds)
+                .ThenInclude(b => b.Allocations)
+                    .ThenInclude(a => a.Teacher)
             .Where(r => r.IsActive);
 
         if (hostelId.HasValue && hostelId.Value != Guid.Empty)
@@ -346,21 +353,31 @@ public class HostelController : ControllerBase
             hasAC = r.HasAC,
             hasAttachedBath = r.HasAttachedBath,
             amenities = r.Amenities,
-            beds = r.Beds.Where(b => b.IsActive).Select(b => new
+            beds = r.Beds.Where(b => b.IsActive).Select(b =>
             {
-                bedId = b.Id,
-                bedCode = b.BedCode,
-                status = b.Status, // Available, Occupied, Maintenance
-                monthlyRent = b.MonthlyRent,
-                studentId = b.CurrentStudentId,
-                studentName = b.CurrentStudent?.StudentName,
-                rollNumber = b.CurrentStudent?.RollNumber,
-                phone = b.CurrentStudent?.ParentWhatsAppPhone,
-                classOrBatch = b.CurrentStudent?.Class != null ? b.CurrentStudent.Class.Name : (b.CurrentStudent?.Batch != null ? b.CurrentStudent.Batch.Name : ""),
-                profilePhoto = b.CurrentStudent?.ProfilePhoto,
-                gender = b.CurrentStudent?.Gender,
-                stream = (b.CurrentStudent?.IsSchoolStudent == true && b.CurrentStudent?.IsCoachingStudent == true) ? "School + Coaching" :
-                         (b.CurrentStudent?.IsSchoolStudent == true ? "School" : "Coaching")
+                var activeAlloc = b.Allocations?.FirstOrDefault(a => a.Status == "Active");
+                bool isTeacher = activeAlloc?.MemberType == "Teacher" || activeAlloc?.TeacherId != null;
+                return new
+                {
+                    bedId = b.Id,
+                    bedCode = b.BedCode,
+                    status = b.Status, // Available, Occupied, Maintenance
+                    monthlyRent = b.MonthlyRent,
+                    memberType = isTeacher ? "Teacher" : (b.CurrentStudentId.HasValue ? "Student" : null),
+                    teacherId = activeAlloc?.TeacherId,
+                    teacherName = activeAlloc?.Teacher?.FullName,
+                    employeeCode = activeAlloc?.Teacher?.EmployeeCode,
+                    specialization = activeAlloc?.Teacher?.Specialization,
+                    studentId = b.CurrentStudentId,
+                    studentName = isTeacher ? activeAlloc?.Teacher?.FullName : b.CurrentStudent?.StudentName,
+                    rollNumber = isTeacher ? (activeAlloc?.Teacher?.EmployeeCode ?? "FACULTY") : b.CurrentStudent?.RollNumber,
+                    phone = isTeacher ? activeAlloc?.Teacher?.PhoneNumber : b.CurrentStudent?.ParentWhatsAppPhone,
+                    classOrBatch = isTeacher ? (activeAlloc?.Teacher?.Specialization ?? "Faculty / Staff") : (b.CurrentStudent?.Class != null ? b.CurrentStudent.Class.Name : (b.CurrentStudent?.Batch != null ? b.CurrentStudent.Batch.Name : "")),
+                    profilePhoto = b.CurrentStudent?.ProfilePhoto,
+                    gender = isTeacher ? activeAlloc?.Teacher?.Gender.ToString() : b.CurrentStudent?.Gender,
+                    stream = isTeacher ? "Faculty / Staff" : ((b.CurrentStudent?.IsSchoolStudent == true && b.CurrentStudent?.IsCoachingStudent == true) ? "School + Coaching" :
+                             (b.CurrentStudent?.IsSchoolStudent == true ? "School" : "Coaching"))
+                };
             }).ToList()
         });
 
@@ -580,6 +597,8 @@ public class HostelController : ControllerBase
         [FromQuery] Guid? teacherId = null,
         [FromQuery] string? memberType = null)
     {
+        await AutoHealInactiveTeacherAllocationsAsync();
+
         var query = _db.HostelAllocations
             .AsNoTracking()
             .Include(a => a.Student).ThenInclude(s => s!.Class)
@@ -1297,5 +1316,35 @@ public class HostelController : ControllerBase
         }).ToList();
 
         return Ok(result);
+    }
+
+    private async Task AutoHealInactiveTeacherAllocationsAsync()
+    {
+        var orphanedAllocations = await _db.HostelAllocations
+            .Include(a => a.Bed)
+            .Include(a => a.Teacher)
+            .Where(a => a.Status == "Active" && a.TeacherId != null && a.Teacher != null && !a.Teacher.IsActive)
+            .ToListAsync();
+
+        if (orphanedAllocations.Count > 0)
+        {
+            foreach (var oa in orphanedAllocations)
+            {
+                oa.Status = "Vacated";
+                oa.VacatedDate = oa.Teacher?.LeavingDate ?? DateTime.UtcNow;
+                oa.Remarks = (oa.Remarks != null ? oa.Remarks + " | " : "") + "Auto-vacated: Teacher relieved/offboarded in F&F";
+                if (oa.Bed != null)
+                {
+                    oa.Bed.Status = "Available";
+                    oa.Bed.CurrentStudentId = null;
+                }
+                if (oa.Teacher != null)
+                {
+                    oa.Teacher.HostelBedId = null;
+                    oa.Teacher.IsHostelResident = false;
+                }
+            }
+            await _db.SaveChangesAsync();
+        }
     }
 }

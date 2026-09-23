@@ -10,7 +10,6 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterModule } from '@angular/router';
 import { API_BASE, TeacherDto, BatchDto, TeacherSubstitutionDto, CreateTeacherSubstitutionDto } from './teacher.models';
@@ -23,7 +22,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
     CommonModule, FormsModule, RouterModule,
     MatCardModule, MatButtonModule, MatIconModule,
     MatFormFieldModule, MatInputModule, MatSelectModule,
-    MatChipsModule, MatProgressBarModule, MatSnackBarModule, MatTooltipModule
+    MatChipsModule, MatProgressBarModule, MatTooltipModule
   ],
   template: `
 <div class="page-container">
@@ -247,30 +246,78 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           </mat-select>
         </mat-form-field>
 
+        <!-- Stream Type Selector: School vs Coaching -->
+        <div class="col-full target-toggle-box">
+          <label class="toggle-label">क्लास या बैच चुनें (Class or Batch Stream):</label>
+          <div class="toggle-pills">
+            <button type="button" class="pill-btn" [class.active]="streamType === 'School'" (click)="setStreamType('School')">
+              <mat-icon>school</mat-icon> School Class &amp; Section
+            </button>
+            <button type="button" class="pill-btn" [class.active]="streamType === 'Coaching'" (click)="setStreamType('Coaching')">
+              <mat-icon>class</mat-icon> Coaching Batch
+            </button>
+          </div>
+        </div>
+
+        <!-- If School Class Stream -->
+        <ng-container *ngIf="streamType === 'School'">
+          <mat-form-field appearance="outline" class="col-half">
+            <mat-label>School Class (कक्षा)</mat-label>
+            <mat-select [(ngModel)]="selectedClassId" (selectionChange)="onSchoolClassChange()">
+              <mat-option [value]="''">-- Select School Class --</mat-option>
+              <mat-option *ngFor="let c of schoolClasses" [value]="c.id">
+                {{c.name}}
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="col-half">
+            <mat-label>Section (सेक्शन)</mat-label>
+            <mat-select [(ngModel)]="newForm.classSectionId" (selectionChange)="onSchoolSectionChange()" [disabled]="!selectedClassId">
+              <mat-option [value]="undefined">-- Select Section --</mat-option>
+              <mat-option *ngFor="let sec of availableSections" [value]="sec.id">
+                Section {{sec.name}} {{ sec.roomNumber ? '(' + sec.roomNumber + ')' : '' }}
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+        </ng-container>
+
+        <!-- If Coaching Batch Stream -->
+        <ng-container *ngIf="streamType === 'Coaching'">
+          <mat-form-field appearance="outline" class="col-full">
+            <mat-label>Coaching Batch</mat-label>
+            <mat-select [(ngModel)]="newForm.batchId">
+              <mat-option [value]="undefined">-- Select Coaching Batch --</mat-option>
+              <mat-option *ngFor="let b of batches" [value]="b.id">{{b.name}}</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </ng-container>
+
         <!-- Time Slot / Period -->
         <mat-form-field appearance="outline" class="col-half">
           <mat-label>Period / Time Slot *</mat-label>
-          <input matInput [(ngModel)]="newForm.timeSlot" placeholder="e.g. Period 2 (09:30 AM - 10:15 AM)">
+          <input matInput [(ngModel)]="newForm.timeSlot" placeholder="e.g. Period 1 (08:30 AM - 09:15 AM)">
         </mat-form-field>
 
-        <!-- Room Number -->
+        <!-- Room Number bound to DB -->
         <mat-form-field appearance="outline" class="col-half">
-          <mat-label>Room Number</mat-label>
-          <input matInput [(ngModel)]="newForm.roomNumber" placeholder="e.g. Room 104">
+          <mat-label>Room Number (कमरा)</mat-label>
+          <mat-select [(ngModel)]="newForm.roomNumber">
+            <mat-option [value]="''">-- No Room / Default --</mat-option>
+            <mat-option *ngFor="let rm of rooms" [value]="rm.roomNumber">
+              {{rm.roomNumber}} {{ rm.floor ? '(Floor: ' + rm.floor + ')' : '' }}
+            </mat-option>
+          </mat-select>
         </mat-form-field>
 
-        <!-- Subject -->
+        <!-- Subject bound to DB -->
         <mat-form-field appearance="outline" class="col-half">
-          <mat-label>Subject Name</mat-label>
-          <input matInput [(ngModel)]="newForm.subjectName" placeholder="e.g. Mathematics">
-        </mat-form-field>
-
-        <!-- Batch or Class -->
-        <mat-form-field appearance="outline" class="col-half">
-          <mat-label>Coaching Batch (Optional)</mat-label>
-          <mat-select [(ngModel)]="newForm.batchId">
-            <mat-option [value]="undefined">-- None / School Section --</mat-option>
-            <mat-option *ngFor="let b of batches" [value]="b.id">{{b.name}}</mat-option>
+          <mat-label>Subject Name (विषय) *</mat-label>
+          <mat-select [(ngModel)]="newForm.subjectId" (selectionChange)="onSubjectSelect($event.value)">
+            <mat-option [value]="undefined">-- Select Subject --</mat-option>
+            <mat-option *ngFor="let sub of subjects" [value]="sub.id">
+              {{sub.name}} {{ sub.code ? '(' + sub.code + ')' : '' }}
+            </mat-option>
           </mat-select>
         </mat-form-field>
 
@@ -278,8 +325,8 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
         <mat-form-field appearance="outline" class="col-half">
           <mat-label>Reason for Absence</mat-label>
           <mat-select [(ngModel)]="newForm.reason">
-            <mat-option value="Sick / Medical Leave">Sick / Medical Leave</mat-option>
             <mat-option value="Casual Leave (CL)">Casual Leave (CL)</mat-option>
+            <mat-option value="Sick / Medical Leave">Sick / Medical Leave</mat-option>
             <mat-option value="Official Duty / Training">Official Duty / Training</mat-option>
             <mat-option value="Personal Emergency">Personal Emergency</mat-option>
             <mat-option value="Late / Delayed">Late / Delayed</mat-option>
@@ -287,7 +334,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
         </mat-form-field>
 
         <!-- Proxy Allowance -->
-        <mat-form-field appearance="outline" class="col-half">
+        <mat-form-field appearance="outline" class="col-full">
           <mat-label>Proxy Allowance (₹)</mat-label>
           <input matInput type="number" [(ngModel)]="newForm.proxyAllowance" placeholder="0">
         </mat-form-field>
@@ -740,8 +787,43 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
       grid-column: span 2;
     }
 
-    .col-half {
-      grid-column: span 1;
+    .target-toggle-box {
+      margin-bottom: 2px;
+    }
+    .toggle-label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #475569;
+      margin-bottom: 6px;
+    }
+    .toggle-pills {
+      display: flex;
+      gap: 10px;
+    }
+    .pill-btn {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: #ffffff;
+      color: #475569;
+      font-size: 0.84rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      mat-icon { font-size: 18px; width: 18px; height: 18px; color: #64748b; }
+      &:hover { background: #f8fafc; border-color: #94a3b8; }
+      &.active {
+        background: #eff6ff;
+        border-color: #2563eb;
+        color: #1e40af;
+        mat-icon { color: #2563eb; }
+      }
     }
 
     .modal-footer {
@@ -758,6 +840,14 @@ export class TeacherSubstitutionComponent implements OnInit {
   substitutions: TeacherSubstitutionDto[] = [];
   teachers: TeacherDto[] = [];
   batches: BatchDto[] = [];
+  schoolClasses: any[] = [];
+  subjects: any[] = [];
+  rooms: any[] = [];
+
+  streamType: 'School' | 'Coaching' = 'School';
+  selectedClassId: string = '';
+  availableSections: any[] = [];
+
   loading = false;
   saving = false;
 
@@ -771,18 +861,22 @@ export class TeacherSubstitutionComponent implements OnInit {
     substituteTeacherId: '',
     timeSlot: 'Period 1 (08:30 AM - 09:15 AM)',
     proxyAllowance: 0,
-    reason: 'Casual Leave (CL)'
+    reason: 'Casual Leave (CL)',
+    roomNumber: '',
+    subjectName: ''
   };
 
   constructor(
     private http: HttpClient,
-    private snackBar: MatSnackBar,
     private confirmDialog: ConfirmDialogService
   ) {}
 
   ngOnInit() {
     this.loadTeachers();
     this.loadBatches();
+    this.loadSchoolClasses();
+    this.loadSubjects();
+    this.loadRooms();
     this.loadSubstitutions();
   }
 
@@ -798,6 +892,66 @@ export class TeacherSubstitutionComponent implements OnInit {
       next: res => this.batches = res,
       error: () => {}
     });
+  }
+
+  loadSchoolClasses() {
+    this.http.get<any[]>(`${API_BASE}/school/classes?activeOnly=true`).subscribe({
+      next: res => this.schoolClasses = res || [],
+      error: () => this.schoolClasses = []
+    });
+  }
+
+  loadSubjects() {
+    this.http.get<any[]>(`${API_BASE}/subjects?activeOnly=true`).subscribe({
+      next: res => this.subjects = res || [],
+      error: () => this.subjects = []
+    });
+  }
+
+  loadRooms() {
+    this.http.get<any[]>(`${API_BASE}/rooms`).subscribe({
+      next: res => this.rooms = (res || []).filter((r: any) => r.isActive !== false),
+      error: () => this.rooms = []
+    });
+  }
+
+  setStreamType(type: 'School' | 'Coaching') {
+    this.streamType = type;
+    if (type === 'School') {
+      this.newForm.batchId = undefined;
+    } else {
+      this.newForm.classSectionId = undefined;
+      this.selectedClassId = '';
+      this.availableSections = [];
+    }
+  }
+
+  onSchoolClassChange() {
+    this.newForm.classSectionId = undefined;
+    const cls = this.schoolClasses.find(c => c.id === this.selectedClassId);
+    this.availableSections = cls?.sections || [];
+    if (this.availableSections.length === 1) {
+      this.newForm.classSectionId = this.availableSections[0].id;
+      this.onSchoolSectionChange();
+    }
+  }
+
+  onSchoolSectionChange() {
+    const sec = this.availableSections.find(s => s.id === this.newForm.classSectionId);
+    if (sec && sec.roomNumber && !this.newForm.roomNumber) {
+      this.newForm.roomNumber = sec.roomNumber;
+    }
+  }
+
+  onSubjectSelect(subId: string) {
+    const sub = this.subjects.find(s => s.id === subId);
+    if (sub) {
+      this.newForm.subjectId = sub.id;
+      this.newForm.subjectName = sub.name;
+    } else {
+      this.newForm.subjectId = undefined;
+      this.newForm.subjectName = '';
+    }
   }
 
   loadSubstitutions() {
@@ -843,13 +997,18 @@ export class TeacherSubstitutionComponent implements OnInit {
   }
 
   openCreateModal() {
+    this.streamType = 'School';
+    this.selectedClassId = '';
+    this.availableSections = [];
     this.newForm = {
       substitutionDate: this.selectedDate || new Date().toISOString().substring(0, 10),
       originalTeacherId: '',
       substituteTeacherId: '',
       timeSlot: 'Period 1 (08:30 AM - 09:15 AM)',
       proxyAllowance: 0,
-      reason: 'Casual Leave (CL)'
+      reason: 'Casual Leave (CL)',
+      roomNumber: '',
+      subjectName: ''
     };
     this.showCreateModal = true;
   }
@@ -860,7 +1019,7 @@ export class TeacherSubstitutionComponent implements OnInit {
 
   saveSubstitution() {
     if (!this.newForm.originalTeacherId || !this.newForm.substituteTeacherId || !this.newForm.timeSlot) {
-      this.snackBar.open('Kripya sabhi mandatory fields bharein.', 'OK', { duration: 3000 });
+      this.confirmDialog.alert('Required Fields', 'Please fill in all mandatory fields (Absent Teacher, Substitute Teacher, Period).', 'warning');
       return;
     }
 
@@ -869,12 +1028,12 @@ export class TeacherSubstitutionComponent implements OnInit {
       next: () => {
         this.saving = false;
         this.showCreateModal = false;
-        this.snackBar.open('Proxy teacher safaltapoorvak assign ho gaya!', 'OK', { duration: 3000 });
+        this.confirmDialog.alert('Proxy Assigned', 'Proxy teacher assigned successfully!', 'success');
         this.loadSubstitutions();
       },
       error: err => {
         this.saving = false;
-        this.snackBar.open(err.error?.message || 'Error assigning proxy.', 'OK', { duration: 4000 });
+        this.confirmDialog.alert('Assignment Failed', err.error?.message || 'Error assigning proxy teacher.', 'danger');
       }
     });
   }
@@ -882,23 +1041,23 @@ export class TeacherSubstitutionComponent implements OnInit {
   updateStatus(sub: TeacherSubstitutionDto, newStatus: string) {
     this.http.put(`${API_BASE}/teachers/substitutions/${sub.id}`, { status: newStatus }).subscribe({
       next: () => {
-        this.snackBar.open(`Status updated to ${newStatus}`, 'OK', { duration: 2500 });
+        this.confirmDialog.alert('Status Updated', `Status updated to "${newStatus}" successfully.`, 'success');
         this.loadSubstitutions();
       },
-      error: () => this.snackBar.open('Failed to update status', 'OK', { duration: 3000 })
+      error: () => this.confirmDialog.alert('Error', 'Failed to update status. Please try again.', 'danger')
     });
   }
 
   deleteSubstitution(id: string) {
-    this.confirmDialog.danger('Delete Substitution Record?', 'Kya aap is proxy substitution record ko hatana chahte hain?').subscribe(ok => {
+    this.confirmDialog.danger('Delete Substitution Record?', 'Are you sure you want to delete this proxy substitution record?').subscribe(ok => {
       if (!ok) return;
 
       this.http.delete(`${API_BASE}/teachers/substitutions/${id}`).subscribe({
         next: () => {
-          this.snackBar.open('Record deleted.', 'OK', { duration: 2500 });
+          this.confirmDialog.alert('Deleted', 'Proxy substitution record deleted successfully.', 'success');
           this.loadSubstitutions();
         },
-        error: () => this.snackBar.open('Failed to delete record.', 'OK', { duration: 3000 })
+        error: () => this.confirmDialog.alert('Error', 'Failed to delete record.', 'danger')
       });
     });
   }

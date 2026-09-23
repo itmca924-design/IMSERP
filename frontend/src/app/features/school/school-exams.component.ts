@@ -34,6 +34,7 @@ import {
 import { SubjectsService, SubjectDto } from '../../core/services/subjects.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { SchoolReportCardDialogComponent } from './school-report-card-dialog.component';
+import { SchoolClassMarksMatrixDialogComponent, SchoolClassMarksMatrixDialogData } from './school-class-marks-matrix-dialog.component';
 
 @Component({
   selector: 'app-school-exams',
@@ -394,6 +395,32 @@ export class SchoolExamsComponent implements OnInit {
       error: (err) => {
         this.savingMarks = false;
         this.confirmDialog.alert('Save Failed', err?.error?.message || 'Failed to save marks.', 'danger');
+      }
+    });
+  }
+
+  openClassMultiSubjectDialog(presetClassId?: string): void {
+    const dialogRef = this.dialog.open(SchoolClassMarksMatrixDialogComponent, {
+      width: '95vw',
+      maxWidth: '1400px',
+      height: '90vh',
+      maxHeight: '900px',
+      disableClose: true,
+      data: {
+        classId: presetClassId || this.filterClassId || (this.classes.length > 0 ? this.classes[0].id : ''),
+        sectionId: this.filterSectionId || '',
+        academicYear: this.filterAcademicYear || '2025-2026',
+        examType: this.filterExamType || 'Annual Exam',
+        classes: this.classes
+      } as SchoolClassMarksMatrixDialogData
+    });
+
+    dialogRef.afterClosed().subscribe(res => {
+      if (res?.saved) {
+        this.loadExams();
+        if (this.consolidatedResult) {
+          this.loadConsolidatedResults();
+        }
       }
     });
   }

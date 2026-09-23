@@ -200,6 +200,20 @@ import { TeacherDocumentsDialogComponent } from './teacher-documents-dialog.comp
         </button>
       </div>
 
+      <!-- Relieved / Offboarded Faculty Notice Banner -->
+      <div class="relieved-banner" *ngIf="!selectedTeacher.isActive">
+        <div class="banner-left">
+          <div class="lock-icon-box"><mat-icon>verified_user</mat-icon></div>
+          <div class="banner-content">
+            <span class="banner-title">Faculty Member Offboarded &amp; Relieved</span>
+            <span class="banner-sub">Full &amp; Final Settlement (FNF) has been finalized. ERP portal login, monthly payroll, and operational allocations are deactivated.</span>
+          </div>
+        </div>
+        <a mat-flat-button color="primary" class="banner-btn" [routerLink]="['/teachers/fnf']" [queryParams]="{viewSettlementTeacherId: selectedTeacher.id}">
+          <mat-icon>receipt_long</mat-icon> View FNF Statement &amp; Certificate
+        </a>
+      </div>
+
       <mat-divider></mat-divider>
 
       <div class="profile-details">
@@ -246,11 +260,16 @@ import { TeacherDocumentsDialogComponent } from './teacher-documents-dialog.comp
           <a mat-stroked-button [routerLink]="['/hostel']" style="color: #4f46e5; border-color: #c7d2fe;">
             <mat-icon style="color: #4f46e5;">apartment</mat-icon> Staff Quarters
           </a>
-          <a mat-stroked-button [routerLink]="['/library/circulation']" style="color: #059669; border-color: #a7f3d0;">
+          <a mat-stroked-button [routerLink]="['/library/circulation']" [queryParams]="{teacherId: selectedTeacher.id}" style="color: #059669; border-color: #a7f3d0;">
             <mat-icon style="color: #059669;">local_library</mat-icon> Library Account
           </a>
-          <a mat-stroked-button [routerLink]="['/teachers/fnf']" [queryParams]="{teacherId: selectedTeacher.id}" style="color: #dc2626; border-color: #fca5a5;">
+          <!-- Active Teacher: Initiate Exit / FNF -->
+          <a mat-stroked-button *ngIf="selectedTeacher.isActive" [routerLink]="['/teachers/fnf']" [queryParams]="{teacherId: selectedTeacher.id}" style="color: #dc2626; border-color: #fca5a5;">
             <mat-icon style="color: #dc2626;">exit_to_app</mat-icon> Exit / FNF
+          </a>
+          <!-- Relieved/Inactive Teacher: View Settled FNF Statement -->
+          <a mat-stroked-button *ngIf="!selectedTeacher.isActive" [routerLink]="['/teachers/fnf']" [queryParams]="{viewSettlementTeacherId: selectedTeacher.id}" style="color: #1e40af; border-color: #93c5fd; background: #eff6ff;">
+            <mat-icon style="color: #2563eb;">receipt_long</mat-icon> FNF Statement
           </a>
         </div>
       </div>
@@ -261,25 +280,35 @@ import { TeacherDocumentsDialogComponent } from './teacher-documents-dialog.comp
         <div class="account-actions-group">
           <div class="user-account-badge" *ngIf="selectedTeacher.hasLoginAccount">
             <mat-icon>verified_user</mat-icon>
-            <span>ERP Login Active: <strong>&#64;{{selectedTeacher.username}}</strong></span>
+            <span>ERP Login {{ selectedTeacher.isActive ? 'Active' : 'Locked' }}: <strong>&#64;{{selectedTeacher.username}}</strong></span>
           </div>
-          <button mat-stroked-button color="accent" *ngIf="!selectedTeacher.hasLoginAccount" (click)="openCreateAccountDialog(selectedTeacher)">
+          <!-- Only active teachers can have a new login account created -->
+          <button mat-stroked-button color="accent" *ngIf="selectedTeacher.isActive && !selectedTeacher.hasLoginAccount" (click)="openCreateAccountDialog(selectedTeacher)">
             <mat-icon>person_add_alt</mat-icon> Create ERP Login
           </button>
         </div>
-        <button mat-stroked-button color="primary" (click)="openSingleIdCard(selectedTeacher)">
+        <!-- Active Teacher Actions Only -->
+        <button mat-stroked-button color="primary" *ngIf="selectedTeacher.isActive" (click)="openSingleIdCard(selectedTeacher)">
           <mat-icon>badge</mat-icon> Staff ID Card
         </button>
-        <button mat-stroked-button color="accent" (click)="openDocumentsModal(selectedTeacher)">
+        <button mat-stroked-button color="accent" *ngIf="selectedTeacher.isActive" (click)="openDocumentsModal(selectedTeacher)">
           <mat-icon>folder_shared</mat-icon> KYC &amp; Docs
         </button>
-        <a mat-stroked-button color="warn" [routerLink]="['/teachers/fnf']" [queryParams]="{teacherId: selectedTeacher.id}">
+
+        <!-- Active Teacher: Settle Exit / FNF -->
+        <a mat-stroked-button color="warn" *ngIf="selectedTeacher.isActive" [routerLink]="['/teachers/fnf']" [queryParams]="{teacherId: selectedTeacher.id}">
           <mat-icon>exit_to_app</mat-icon> Exit / FNF Settlement
         </a>
-        <button mat-raised-button color="primary" (click)="editTeacher(selectedTeacher)">
+
+        <!-- Offboarded / Relieved Teacher: View FNF Statement & Certificate -->
+        <a mat-stroked-button style="color: #1e40af; border-color: #93c5fd; background: #eff6ff;" *ngIf="!selectedTeacher.isActive" [routerLink]="['/teachers/fnf']" [queryParams]="{viewSettlementTeacherId: selectedTeacher.id}">
+          <mat-icon style="color: #2563eb;">receipt_long</mat-icon> View FNF Statement
+        </a>
+
+        <button mat-raised-button color="primary" *ngIf="selectedTeacher.isActive" (click)="editTeacher(selectedTeacher)">
           <mat-icon>edit</mat-icon> Edit Profile
         </button>
-        <button mat-raised-button color="warn" (click)="deleteTeacher(selectedTeacher.id)">
+        <button mat-raised-button color="warn" *ngIf="selectedTeacher.isActive" (click)="deleteTeacher(selectedTeacher.id)">
           <mat-icon>delete</mat-icon> Remove
         </button>
       </div>
@@ -401,6 +430,30 @@ import { TeacherDocumentsDialogComponent } from './teacher-documents-dialog.comp
     .spec-text { color:#1976d2; font-weight:600; font-size:.88rem; margin:8px 0 2px; }
     .qual-text { color:#64748b; font-size:.82rem; margin:0; }
     .close-profile { margin-left:auto; }
+    .relieved-banner {
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+      border: 1px solid #bfdbfe;
+      border-radius: 10px;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-top: 14px;
+      flex-wrap: wrap;
+    }
+    .banner-left { display: flex; align-items: center; gap: 12px; }
+    .lock-icon-box {
+      background: #2563eb; color: #ffffff; border-radius: 8px;
+      width: 38px; height: 38px; display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 6px -1px rgba(37,99,235,0.25);
+      flex-shrink: 0;
+      mat-icon { font-size: 20px; width: 20px; height: 20px; }
+    }
+    .banner-content { display: flex; flex-direction: column; gap: 2px; }
+    .banner-title { color: #1e3a8a; font-weight: 700; font-size: 0.92rem; }
+    .banner-sub { color: #3b82f6; font-size: 0.8rem; }
+    .banner-btn { white-space: nowrap; }
     .profile-details { display:flex; flex-wrap:wrap; gap:8px 24px; padding:16px 0; }
     .detail-row { display:flex; align-items:center; gap:6px; font-size:.84rem; color:#475569;
       mat-icon{font-size:16px;width:16px;height:16px;color:#94a3b8;} }

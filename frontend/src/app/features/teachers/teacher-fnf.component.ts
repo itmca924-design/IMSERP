@@ -91,6 +91,20 @@ import { AuthService } from '../../core/services/auth.service';
       </div>
 
       <div class="drawer-body">
+        <!-- Locked Settlement Notice Banner -->
+        <div class="settled-lock-banner" *ngIf="preview?.isFnFAlreadySettled">
+          <div class="lock-banner-left">
+            <div class="lock-icon-box"><mat-icon>lock</mat-icon></div>
+            <div class="lock-banner-text">
+              <span class="lock-title">Full &amp; Final Settlement Already Completed</span>
+              <span class="lock-sub">{{ preview?.teacherName }} ({{ preview?.employeeCode }}) has already been offboarded and settled. Duplicate FNF processing is strictly prohibited.</span>
+            </div>
+          </div>
+          <button mat-flat-button color="primary" type="button" class="lock-banner-btn" (click)="openExistingSettlementFromPreview()">
+            <mat-icon>receipt_long</mat-icon> View Settlement Statement
+          </button>
+        </div>
+
         <!-- Step 1: Select Teacher -->
         <div class="section-block">
           <h4 class="section-title"><mat-icon>person</mat-icon> Step 1: Select Faculty Member</h4>
@@ -106,13 +120,21 @@ import { AuthService } from '../../core/services/auth.service';
 
             <mat-form-field appearance="outline" class="flex-1">
               <mat-label>Resignation / Notice Date</mat-label>
-              <input matInput type="date" [(ngModel)]="formData.resignationDate" />
+              <input matInput type="date" [(ngModel)]="formData.resignationDate" (change)="recalculateDues()" />
             </mat-form-field>
 
             <mat-form-field appearance="outline" class="flex-1">
               <mat-label>Last Working Day *</mat-label>
               <input matInput type="date" [(ngModel)]="formData.lastWorkingDate" (change)="recalculateDues()" />
             </mat-form-field>
+          </div>
+
+          <!-- Notice Period Duration Indicator -->
+          <div class="notice-period-chip" *ngIf="formData.resignationDate && formData.lastWorkingDate">
+            <mat-icon>schedule</mat-icon>
+            <span>Notice Duration: <strong>{{ getNoticePeriodDays() }} Days</strong></span>
+            <span *ngIf="getNoticePeriodDays() < 30" style="color:#b91c1c;font-weight:600;margin-left:8px;">(⚠️ Under 30-day standard norm. Notice Shortfall may apply.)</span>
+            <span *ngIf="getNoticePeriodDays() >= 30" style="color:#15803d;font-weight:600;margin-left:8px;">(✓ Standard Notice Period Served)</span>
           </div>
 
           <div class="form-row">
@@ -191,6 +213,11 @@ import { AuthService } from '../../core/services/auth.service';
               <mat-checkbox [(ngModel)]="formData.academicClearance" color="primary">
                 <strong>Academic Clearance</strong>
               </mat-checkbox>
+              <div class="cl-badge-row" *ngIf="preview">
+                <span class="cl-badge" [class.badge-ok]="preview.activeBatchesCount === 0 && preview.assignedSectionsCount === 0" [class.badge-pending]="preview.activeBatchesCount > 0 || preview.assignedSectionsCount > 0">
+                  {{ preview.activeBatchesCount === 0 && preview.assignedSectionsCount === 0 ? '✓ Auto-Clear (0 Batches)' : ('⚠️ ' + preview.activeBatchesCount + ' Batches / ' + preview.assignedSectionsCount + ' Secs Active') }}
+                </span>
+              </div>
               <p>Syllabus completed, exam marks verified, syllabus register handed over.</p>
             </div>
 
@@ -198,6 +225,11 @@ import { AuthService } from '../../core/services/auth.service';
               <mat-checkbox [(ngModel)]="formData.libraryClearance" color="primary">
                 <strong>Library Clearance</strong>
               </mat-checkbox>
+              <div class="cl-badge-row" *ngIf="preview">
+                <span class="cl-badge" [class.badge-ok]="preview.pendingLibraryBooksCount === 0" [class.badge-pending]="preview.pendingLibraryBooksCount > 0">
+                  {{ preview.pendingLibraryBooksCount === 0 ? '✓ Auto-Clear (0 Books)' : ('⚠️ ' + preview.pendingLibraryBooksCount + ' Book(s) Issued') }}
+                </span>
+              </div>
               <p>All issued books returned, no overdue fines or damage penalties pending.</p>
             </div>
 
@@ -205,6 +237,9 @@ import { AuthService } from '../../core/services/auth.service';
               <mat-checkbox [(ngModel)]="formData.assetClearance" color="primary">
                 <strong>Inventory &amp; Asset Clearance</strong>
               </mat-checkbox>
+              <div class="cl-badge-row">
+                <span class="cl-badge badge-neutral">Physical Handover</span>
+              </div>
               <p>Staff ID badge, classroom keys, lab equipment, laptop/tablet handed over.</p>
             </div>
 
@@ -212,6 +247,11 @@ import { AuthService } from '../../core/services/auth.service';
               <mat-checkbox [(ngModel)]="formData.hostelClearance" color="primary">
                 <strong>Hostel / Quarters Clearance</strong>
               </mat-checkbox>
+              <div class="cl-badge-row" *ngIf="preview">
+                <span class="cl-badge" [class.badge-ok]="!preview.isHostelResident" [class.badge-pending]="preview.isHostelResident">
+                  {{ preview.isHostelResident ? ('⚠️ Rm ' + preview.hostelRoomNumber + ', Bed ' + preview.hostelBedCode) : '✓ Auto-Clear (Not Allotted)' }}
+                </span>
+              </div>
               <p>Quarters vacated, warden keys surrendered, utility bills cleared.</p>
             </div>
 
@@ -219,6 +259,11 @@ import { AuthService } from '../../core/services/auth.service';
               <mat-checkbox [(ngModel)]="formData.transportClearance" color="primary">
                 <strong>Transport Clearance</strong>
               </mat-checkbox>
+              <div class="cl-badge-row" *ngIf="preview">
+                <span class="cl-badge" [class.badge-ok]="!preview.isTransportStaff" [class.badge-pending]="preview.isTransportStaff">
+                  {{ preview.isTransportStaff ? ('⚠️ ' + preview.transportRouteName) : '✓ Auto-Clear (Not Allotted)' }}
+                </span>
+              </div>
               <p>Bus pass surrendered, transport allocation seat discontinued.</p>
             </div>
           </div>
@@ -234,20 +279,35 @@ import { AuthService } from '../../core/services/auth.service';
                 <span><mat-icon>add_circle</mat-icon> Final Month Earnings</span>
                 <span class="sub-tot">+₹{{ getCalculatedTotalEarnings() | number:'1.2-2' }}</span>
               </div>
-              <div class="fin-field">
-                <label>Unpaid Salary (Pro-rata):</label>
-                <input type="number" [(ngModel)]="formData.unpaidSalary" />
+              <div class="fin-field" [style.background]="preview?.isFinalMonthSalaryPaid ? '#f0fdf4' : ''" [style.padding]="preview?.isFinalMonthSalaryPaid ? '6px 8px' : ''" [style.borderRadius]="preview?.isFinalMonthSalaryPaid ? '6px' : ''">
+                <div class="fin-label-box">
+                  <label>Unpaid Salary (Pro-rata):</label>
+                  <span class="fin-hint auto" *ngIf="preview && !preview.isFinalMonthSalaryPaid">⚡ Auto: {{preview.finalMonthPresentDays}}d attendance</span>
+                  <span class="fin-hint" style="color:#15803d;font-weight:700;" *ngIf="preview?.isFinalMonthSalaryPaid">
+                    ✓ Final Month Salary Already Paid ({{preview?.finalMonthSalaryReceiptNumber}} — ₹{{preview?.finalMonthSalaryPaidAmount | number:'1.2-2'}})
+                  </span>
+                </div>
+                <input type="number" [(ngModel)]="formData.unpaidSalary" [style.borderColor]="preview?.isFinalMonthSalaryPaid ? '#86efac' : ''" />
               </div>
               <div class="fin-field">
-                <label>Leave Encashment (PL/EL):</label>
+                <div class="fin-label-box">
+                  <label>Leave Encashment (PL/EL):</label>
+                  <span class="fin-hint opt">Unused PL × Daily Rate (or 0)</span>
+                </div>
                 <input type="number" [(ngModel)]="formData.earnedLeaveEncashment" />
               </div>
               <div class="fin-field">
-                <label>Gratuity / Long Service Bonus:</label>
+                <div class="fin-label-box">
+                  <label>Gratuity / Long Service Bonus:</label>
+                  <span class="fin-hint opt">5+ Yrs service tenure (or 0)</span>
+                </div>
                 <input type="number" [(ngModel)]="formData.gratuityOrBonus" />
               </div>
               <div class="fin-field">
-                <label>Other Additions / Allowances:</label>
+                <div class="fin-label-box">
+                  <label>Other Additions / Allowances:</label>
+                  <span class="fin-hint opt">Approved claims / travel bills (or 0)</span>
+                </div>
                 <input type="number" [(ngModel)]="formData.otherAdditions" />
               </div>
             </div>
@@ -259,23 +319,38 @@ import { AuthService } from '../../core/services/auth.service';
                 <span class="sub-tot">-₹{{ getCalculatedTotalDeductions() | number:'1.2-2' }}</span>
               </div>
               <div class="fin-field">
-                <label>Outstanding Advance Recovery:</label>
+                <div class="fin-label-box">
+                  <label>Outstanding Advance Recovery:</label>
+                  <span class="fin-hint auto">⚡ Auto: Approved advance</span>
+                </div>
                 <input type="number" [(ngModel)]="formData.pendingAdvanceDeduction" />
               </div>
               <div class="fin-field">
-                <label>Notice Shortfall Recovery:</label>
+                <div class="fin-label-box">
+                  <label>Notice Shortfall Recovery:</label>
+                  <span class="fin-hint opt">Shortfall days × Daily Rate (or 0)</span>
+                </div>
                 <input type="number" [(ngModel)]="formData.noticeShortfallDeduction" />
               </div>
               <div class="fin-field">
-                <label>Library Dues / Lost Books:</label>
+                <div class="fin-label-box">
+                  <label>Library Dues / Lost Books:</label>
+                  <span class="fin-hint auto">⚡ Auto: Overdue library fines</span>
+                </div>
                 <input type="number" [(ngModel)]="formData.libraryDuesDeduction" />
               </div>
               <div class="fin-field">
-                <label>Asset Loss / Damage Deduction:</label>
+                <div class="fin-label-box">
+                  <label>Asset Loss / Damage Deduction:</label>
+                  <span class="fin-hint opt">Broken/Lost equipment cost (or 0)</span>
+                </div>
                 <input type="number" [(ngModel)]="formData.assetLossDeduction" />
               </div>
               <div class="fin-field">
-                <label>Other Deductions / TDS:</label>
+                <div class="fin-label-box">
+                  <label>Other Deductions / TDS:</label>
+                  <span class="fin-hint opt">Final TDS tax deduction (or 0)</span>
+                </div>
                 <input type="number" [(ngModel)]="formData.otherDeductions" />
               </div>
             </div>
@@ -330,10 +405,20 @@ import { AuthService } from '../../core/services/auth.service';
 
       <div class="drawer-footer">
         <button mat-button (click)="closeDrawer()">Cancel</button>
-        <button mat-raised-button color="primary" [disabled]="!formData.teacherId || saving" (click)="saveFnFSettlement()">
-          <mat-icon>{{ saving ? 'hourglass_empty' : 'check_circle' }}</mat-icon>
-          <span>{{ formData.finalizeNow ? 'Finalize & Settle FNF' : 'Save as Draft' }}</span>
-        </button>
+
+        <ng-container *ngIf="!preview?.isFnFAlreadySettled; else alreadySettledFooterBtn">
+          <button mat-raised-button color="primary" [disabled]="!formData.teacherId || saving" (click)="saveFnFSettlement()">
+            <mat-icon>{{ saving ? 'hourglass_empty' : 'check_circle' }}</mat-icon>
+            <span>{{ formData.finalizeNow ? 'Finalize & Settle FNF' : 'Save as Draft' }}</span>
+          </button>
+        </ng-container>
+
+        <ng-template #alreadySettledFooterBtn>
+          <button mat-raised-button color="primary" type="button" (click)="openExistingSettlementFromPreview()">
+            <mat-icon>receipt_long</mat-icon>
+            <span>View Settled Statement</span>
+          </button>
+        </ng-template>
       </div>
     </mat-card>
   </div>
@@ -745,6 +830,36 @@ import { AuthService } from '../../core/services/auth.service';
     .form-row { display: flex; flex-wrap: wrap; gap: 12px; }
     .flex-1 { flex: 1; min-width: 160px; }
     .flex-2 { flex: 2; min-width: 240px; }
+    .settled-lock-banner {
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+      border: 1px solid #bfdbfe;
+      border-radius: 10px;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .lock-banner-left { display: flex; align-items: center; gap: 12px; }
+    .lock-icon-box {
+      background: #2563eb; color: #ffffff; border-radius: 8px;
+      width: 38px; height: 38px; display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 6px -1px rgba(37,99,235,0.25);
+      flex-shrink: 0;
+      mat-icon { font-size: 20px; width: 20px; height: 20px; }
+    }
+    .lock-banner-text { display: flex; flex-direction: column; gap: 2px; }
+    .lock-title { color: #1e3a8a; font-weight: 700; font-size: 0.92rem; }
+    .lock-sub { color: #3b82f6; font-size: 0.8rem; }
+    .lock-banner-btn { white-space: nowrap; }
+    .notice-period-chip {
+      display: inline-flex; align-items: center; gap: 6px; font-size: 0.78rem; color: #334155;
+      background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 6px 12px;
+      margin-top: -4px; width: fit-content;
+      mat-icon { font-size: 16px; width: 16px; height: 16px; color: #2563eb; }
+    }
 
     .audit-summary-box {
       background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px;
@@ -758,11 +873,21 @@ import { AuthService } from '../../core/services/auth.service';
       }
     }
 
-    .clearances-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+    .clearances-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
     .clearance-card {
       background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px 12px;
-      p { margin: 4px 0 0 28px; font-size: 0.74rem; color: #64748b; line-height: 1.3; }
+      display: flex; flex-direction: column; gap: 4px;
+      overflow: hidden;
+      p { margin: 2px 0 0 28px; font-size: 0.73rem; color: #64748b; line-height: 1.3; }
       &.cleared { background: #f0fdf4; border-color: #86efac; }
+      .cl-badge-row { margin: 1px 0 2px 28px; display: flex; flex-wrap: wrap; }
+      .cl-badge {
+        font-size: 0.68rem; font-weight: 700; padding: 2px 8px; border-radius: 10px;
+        max-width: 100%; word-break: break-word; line-height: 1.3;
+        &.badge-ok { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+        &.badge-pending { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+        &.badge-neutral { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
+      }
     }
 
     .financial-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
@@ -776,11 +901,20 @@ import { AuthService } from '../../core/services/auth.service';
         span { display: flex; align-items: center; gap: 6px; mat-icon { font-size: 18px; width: 18px; height: 18px; } }
       }
       .fin-field {
-        display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem;
-        label { color: #475569; }
+        display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem; gap: 8px;
+        .fin-label-box {
+          display: flex; flex-direction: column; gap: 1px;
+          label { color: #334155; font-weight: 600; }
+          .fin-hint {
+            font-size: 0.69rem;
+            &.auto { color: #0284c7; font-weight: 600; }
+            &.opt { color: #64748b; font-style: italic; }
+          }
+        }
         input {
-          width: 110px; padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 6px;
-          text-align: right; font-weight: 700; font-size: 0.84rem;
+          width: 100px; padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 6px;
+          text-align: right; font-weight: 700; font-size: 0.84rem; flex-shrink: 0;
+          &:focus { border-color: #2563eb; outline: none; }
         }
       }
     }
@@ -975,6 +1109,8 @@ export class TeacherFnFComponent implements OnInit {
   showDrawer = false;
   preSelectedTeacherId: string | null = null;
   preview: TeacherFnFPreviewDto | null = null;
+  pendingViewTeacherId: string | null = null;
+  pendingTeacherId: string | null = null;
 
   // Documents state
   showStatementModal = false;
@@ -1025,9 +1161,12 @@ export class TeacherFnFComponent implements OnInit {
     this.loadActiveTeachers();
 
     this.route.queryParams.subscribe(params => {
-      if (params['teacherId']) {
-        this.preSelectedTeacherId = params['teacherId'];
-        this.openFnFDrawer(params['teacherId']);
+      if (params['viewSettlementTeacherId']) {
+        this.pendingViewTeacherId = params['viewSettlementTeacherId'];
+        this.checkPendingQueryTeacherAction();
+      } else if (params['teacherId']) {
+        this.pendingTeacherId = params['teacherId'];
+        this.checkPendingQueryTeacherAction();
       }
     });
   }
@@ -1038,12 +1177,46 @@ export class TeacherFnFComponent implements OnInit {
       next: (res) => {
         this.settlements = res || [];
         this.loading = false;
+        this.checkPendingQueryTeacherAction();
       },
       error: () => {
         this.settlements = [];
         this.loading = false;
       }
     });
+  }
+
+  checkPendingQueryTeacherAction(): void {
+    if (this.pendingViewTeacherId && this.settlements.length > 0) {
+      const s = this.settlements.find(x => x.teacherId === this.pendingViewTeacherId);
+      if (s) {
+        this.viewSettlementStatement(s);
+        this.pendingViewTeacherId = null;
+      }
+    } else if (this.pendingTeacherId && this.settlements.length > 0) {
+      const settled = this.settlements.find(x => x.teacherId === this.pendingTeacherId && x.status === 'Settled');
+      if (settled) {
+        // Teacher is already settled! Directly open their settlement statement
+        this.viewSettlementStatement(settled);
+        this.pendingTeacherId = null;
+      } else if (!this.loading) {
+        // Teacher is not settled yet, open the FNF initiation drawer
+        this.preSelectedTeacherId = this.pendingTeacherId;
+        this.openFnFDrawer(this.pendingTeacherId);
+        this.pendingTeacherId = null;
+      }
+    }
+  }
+
+  openExistingSettlementFromPreview(): void {
+    if (!this.formData.teacherId) return;
+    const s = this.settlements.find(x => x.teacherId === this.formData.teacherId && x.status === 'Settled');
+    this.closeDrawer();
+    if (s) {
+      this.viewSettlementStatement(s);
+    } else {
+      this.loadSettlements();
+    }
   }
 
   loadActiveTeachers(): void {
@@ -1115,12 +1288,29 @@ export class TeacherFnFComponent implements OnInit {
     this.preview = null;
   }
 
+  getNoticePeriodDays(): number {
+    if (!this.formData.resignationDate || !this.formData.lastWorkingDate) return 0;
+    const r = new Date(this.formData.resignationDate);
+    const l = new Date(this.formData.lastWorkingDate);
+    const diffMs = l.getTime() - r.getTime();
+    return Math.max(0, Math.round(diffMs / (1000 * 60 * 60 * 24)));
+  }
+
   onTeacherSelected(): void {
     if (!this.formData.teacherId) return;
 
     this.http.get<TeacherFnFPreviewDto>(`${this.api}/teachers/${this.formData.teacherId}/fnf-preview`).subscribe({
       next: (prev) => {
         this.preview = prev;
+
+        if (prev.isFnFAlreadySettled) {
+          this.confirmDialog.alert(
+            'Already Settled',
+            `${prev.teacherName} has already completed Full & Final Settlement (FNF).`,
+            'info'
+          );
+        }
+
         this.formData.workingDaysInFinalMonth = prev.finalMonthPresentDays;
         this.formData.unpaidSalary = prev.suggestedUnpaidSalary;
         this.formData.pendingAdvanceDeduction = prev.outstandingAdvanceBalance;
@@ -1141,6 +1331,10 @@ export class TeacherFnFComponent implements OnInit {
 
   recalculateDues(): void {
     if (!this.preview) return;
+    if (this.preview.isFinalMonthSalaryPaid) {
+      this.formData.unpaidSalary = 0;
+      return;
+    }
     const lastDate = new Date(this.formData.lastWorkingDate);
     const day = lastDate.getDate();
     this.formData.workingDaysInFinalMonth = Math.min(day, 30);
@@ -1169,6 +1363,45 @@ export class TeacherFnFComponent implements OnInit {
   saveFnFSettlement(): void {
     if (!this.formData.teacherId) {
       this.confirmDialog.alert('Teacher Required', 'Please select a teacher to process FNF.', 'warning');
+      return;
+    }
+
+    if (this.preview?.isFnFAlreadySettled) {
+      this.confirmDialog.alert(
+        'Settlement Locked',
+        `${this.preview.teacherName} has already completed Full & Final Settlement. Duplicate settlement is strictly locked.`,
+        'warning'
+      );
+      return;
+    }
+
+    // Block finalize if hostel not cleared
+    if (this.preview?.isHostelResident && !this.formData.hostelClearance) {
+      this.confirmDialog.alert(
+        'Hostel Clearance Pending',
+        `${this.preview.teacherName} still has active Staff Quarters (Rm ${this.preview.hostelRoomNumber}, Bed ${this.preview.hostelBedCode}). Please mark "Hostel / Quarters Clearance" after room is vacated and keys surrendered.`,
+        'warning'
+      );
+      return;
+    }
+
+    // Block finalize if transport not cleared
+    if (this.preview?.isTransportStaff && !this.formData.transportClearance) {
+      this.confirmDialog.alert(
+        'Transport Clearance Pending',
+        `${this.preview.teacherName} still has active transport allocation (${this.preview.transportRouteName}). Please mark "Transport Clearance" after bus pass is surrendered.`,
+        'warning'
+      );
+      return;
+    }
+
+    // Warn (soft block) if library books pending
+    if ((this.preview?.pendingLibraryBooksCount ?? 0) > 0 && !this.formData.libraryClearance) {
+      this.confirmDialog.alert(
+        'Library Clearance Pending',
+        `${this.preview?.pendingLibraryBooksCount} library book(s) still issued to this teacher. Please ensure all books are returned and "Library Clearance" is ticked before finalizing.`,
+        'warning'
+      );
       return;
     }
 

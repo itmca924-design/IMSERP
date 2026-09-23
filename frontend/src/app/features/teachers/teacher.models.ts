@@ -46,6 +46,10 @@ export interface PayrollPreviewDto {
   allowedLateDays: number; excessLateDays: number; latePenaltyDays: number;
   absentDeduction: number; halfDayDeduction: number; latePenaltyDeduction: number;
   totalAttendanceDeduction: number; pendingAdvance: number; recommendedNetPaid: number;
+  hostelRentDeduction: number;
+  transportFareDeduction: number;
+  hostelRentInfo?: string;
+  transportFareInfo?: string;
 }
 export interface SalaryDto {
   id: string; teacherId: string; teacherName: string;
@@ -204,6 +208,11 @@ export interface TeacherFnFPreviewDto {
   hostelBedCode?: string;
   hostelRoomNumber?: string;
   hostelAllocationId?: string;
+  isFinalMonthSalaryPaid?: boolean;
+  finalMonthSalaryReceiptNumber?: string;
+  finalMonthSalaryPaidAmount?: number;
+  finalMonthSalaryPaymentDate?: string;
+  isFnFAlreadySettled?: boolean;
 }
 
 export interface CreateTeacherFnFRequestDto {
@@ -367,6 +376,10 @@ export interface UpdateTeacherLessonPlanDto {
   studentResponse?: string;
   remarks?: string;
   principalFeedback?: string;
+  subjectId?: string;
+  subjectName?: string;
+  batchId?: string;
+  classSectionId?: string;
 }
 
 export interface TeacherDocumentDto {

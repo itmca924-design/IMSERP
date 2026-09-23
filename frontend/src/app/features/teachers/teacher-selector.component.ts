@@ -51,6 +51,7 @@ import { API_BASE, TeacherDto } from './teacher.models';
 })
 export class TeacherSelectorComponent implements OnInit, OnChanges {
   @Input() preSelectId: string | null = null;
+  @Input() activeOnly: boolean = true;
   @Output() teacherSelected = new EventEmitter<TeacherDto>();
 
   teachers: TeacherDto[] = [];
@@ -60,9 +61,17 @@ export class TeacherSelectorComponent implements OnInit, OnChanges {
   constructor(private http: HttpClient) {}
 
   ngOnInit() {
-    this.http.get<any>(`${API_BASE}/teachers/paged?pageSize=500&sortBy=fullName`).subscribe({
+    this.loadTeachers();
+  }
+
+  loadTeachers() {
+    const url = this.activeOnly
+      ? `${API_BASE}/teachers/paged?pageSize=500&sortBy=fullName&isActive=true`
+      : `${API_BASE}/teachers/paged?pageSize=500&sortBy=fullName`;
+
+    this.http.get<any>(url).subscribe({
       next: r => {
-        this.teachers = r.items;
+        this.teachers = r.items || [];
         if (this.preSelectId) this.applyPreSelect();
       }
     });

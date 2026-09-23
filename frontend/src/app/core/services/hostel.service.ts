@@ -221,6 +221,10 @@ export class HostelService {
 
   constructor(private http: HttpClient) {}
 
+  getTeachers(): Observable<any[]> {
+    return this.http.get<any[]>(`${API_BASE}/teachers?activeOnly=true`);
+  }
+
   getOverview(): Observable<HostelOverviewSummaryDto> {
     return this.http.get<HostelOverviewSummaryDto>(`${this.baseUrl}/overview`);
   }

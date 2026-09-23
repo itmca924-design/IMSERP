@@ -10,10 +10,9 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterModule } from '@angular/router';
-import { API_BASE, TeacherDto, BatchDto, TeacherLessonPlanDto, CreateTeacherLessonPlanDto, UpdateTeacherLessonPlanDto } from './teacher.models';
+import { API_BASE, TeacherDto, BatchDto, SubjectDto, TeacherLessonPlanDto, CreateTeacherLessonPlanDto, UpdateTeacherLessonPlanDto } from './teacher.models';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 
 @Component({
@@ -23,7 +22,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
     CommonModule, FormsModule, RouterModule,
     MatCardModule, MatButtonModule, MatIconModule,
     MatFormFieldModule, MatInputModule, MatSelectModule,
-    MatChipsModule, MatProgressBarModule, MatSnackBarModule, MatTooltipModule
+    MatChipsModule, MatProgressBarModule, MatTooltipModule
   ],
   template: `
 <div class="page-container">
@@ -219,17 +218,58 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           <input matInput type="date" [(ngModel)]="addForm.planDate">
         </mat-form-field>
 
-        <!-- Subject -->
-        <mat-form-field appearance="outline" class="col-half">
-          <mat-label>Subject *</mat-label>
-          <input matInput [(ngModel)]="addForm.subjectName" placeholder="e.g. Science / Physics">
+        <!-- Subject Dropdown (DB Bound - Full Width) -->
+        <mat-form-field appearance="outline" class="col-full">
+          <mat-label>Subject (विषय) *</mat-label>
+          <mat-select [ngModel]="addForm.subjectId" (ngModelChange)="onSubjectSelect($event)">
+            <mat-option [value]="undefined">-- Select Subject --</mat-option>
+            <mat-option *ngFor="let s of subjects" [value]="s.id">
+              {{s.name}} <span *ngIf="s.code">({{s.code}})</span>
+            </mat-option>
+          </mat-select>
         </mat-form-field>
 
-        <!-- Batch -->
-        <mat-form-field appearance="outline" class="col-half">
-          <mat-label>Coaching Batch (Optional)</mat-label>
+        <!-- Stream Type Selector: School vs Coaching -->
+        <div class="col-full target-toggle-box">
+          <label class="toggle-label">क्लास या बैच चुनें (Class or Batch Stream):</label>
+          <div class="toggle-pills">
+            <button type="button" class="pill-btn" [class.active]="streamType === 'School'" (click)="setStreamType('School')">
+              <mat-icon>school</mat-icon> School Class &amp; Section
+            </button>
+            <button type="button" class="pill-btn" [class.active]="streamType === 'Coaching'" (click)="setStreamType('Coaching')">
+              <mat-icon>class</mat-icon> Coaching Batch
+            </button>
+          </div>
+        </div>
+
+        <!-- If School Class Stream -->
+        <ng-container *ngIf="streamType === 'School'">
+          <mat-form-field appearance="outline" class="col-half">
+            <mat-label>School Class (कक्षा)</mat-label>
+            <mat-select [(ngModel)]="selectedClassId" (selectionChange)="onSchoolClassChange()">
+              <mat-option [value]="''">-- Select School Class --</mat-option>
+              <mat-option *ngFor="let c of schoolClasses" [value]="c.id">
+                {{c.name}}
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="col-half">
+            <mat-label>Section (वर्ग)</mat-label>
+            <mat-select [(ngModel)]="addForm.classSectionId">
+              <mat-option [value]="undefined">-- Select Section --</mat-option>
+              <mat-option *ngFor="let sec of availableSections" [value]="sec.id">
+                {{sec.name}}
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+        </ng-container>
+
+        <!-- If Coaching Batch Stream -->
+        <mat-form-field appearance="outline" class="col-full" *ngIf="streamType === 'Coaching'">
+          <mat-label>Coaching Batch</mat-label>
           <mat-select [(ngModel)]="addForm.batchId">
-            <mat-option [value]="undefined">-- None / School Section --</mat-option>
+            <mat-option [value]="undefined">-- Select Coaching Batch --</mat-option>
             <mat-option *ngFor="let b of batches" [value]="b.id">{{b.name}}</mat-option>
           </mat-select>
         </mat-form-field>
@@ -717,6 +757,45 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
       grid-column: span 1;
     }
 
+    .target-toggle-box {
+      margin-bottom: 2px;
+    }
+    .toggle-label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #475569;
+      margin-bottom: 6px;
+    }
+    .toggle-pills {
+      display: flex;
+      gap: 10px;
+    }
+    .pill-btn {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: #ffffff;
+      color: #475569;
+      font-size: 0.84rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      mat-icon { font-size: 18px; width: 18px; height: 18px; color: #64748b; }
+      &:hover { background: #f8fafc; border-color: #94a3b8; }
+      &.active {
+        background: #eff6ff;
+        border-color: #2563eb;
+        color: #1e40af;
+        mat-icon { color: #2563eb; }
+      }
+    }
+
     .modal-footer {
       padding: 14px 20px;
       border-top: 1px solid #e2e8f0;
@@ -731,6 +810,11 @@ export class TeacherLessonPlansComponent implements OnInit {
   lessonPlans: TeacherLessonPlanDto[] = [];
   teachers: TeacherDto[] = [];
   batches: BatchDto[] = [];
+  schoolClasses: any[] = [];
+  subjects: SubjectDto[] = [];
+  availableSections: any[] = [];
+  selectedClassId: string = '';
+  streamType: 'School' | 'Coaching' = 'School';
   loading = false;
   saving = false;
 
@@ -755,14 +839,60 @@ export class TeacherLessonPlansComponent implements OnInit {
 
   constructor(
     private http: HttpClient,
-    private snackBar: MatSnackBar,
     private confirmDialog: ConfirmDialogService
   ) {}
 
   ngOnInit() {
     this.loadTeachers();
     this.loadBatches();
+    this.loadSchoolClasses();
+    this.loadSubjects();
     this.loadLessonPlans();
+  }
+
+  loadSchoolClasses() {
+    this.http.get<any[]>(`${API_BASE}/school/classes?activeOnly=true`).subscribe({
+      next: res => this.schoolClasses = res || [],
+      error: () => this.schoolClasses = []
+    });
+  }
+
+  loadSubjects() {
+    this.http.get<SubjectDto[]>(`${API_BASE}/subjects?activeOnly=true`).subscribe({
+      next: res => this.subjects = res || [],
+      error: () => this.subjects = []
+    });
+  }
+
+  setStreamType(type: 'School' | 'Coaching') {
+    this.streamType = type;
+    if (type === 'School') {
+      this.addForm.batchId = undefined;
+    } else {
+      this.addForm.classSectionId = undefined;
+      this.selectedClassId = '';
+      this.availableSections = [];
+    }
+  }
+
+  onSchoolClassChange() {
+    this.addForm.classSectionId = undefined;
+    const cls = this.schoolClasses.find(c => c.id === this.selectedClassId);
+    this.availableSections = cls?.sections || [];
+    if (this.availableSections.length === 1) {
+      this.addForm.classSectionId = this.availableSections[0].id;
+    }
+  }
+
+  onSubjectSelect(subId: string) {
+    const sub = this.subjects.find(s => s.id === subId);
+    if (sub) {
+      this.addForm.subjectId = sub.id;
+      this.addForm.subjectName = sub.name;
+    } else {
+      this.addForm.subjectId = undefined;
+      this.addForm.subjectName = '';
+    }
   }
 
   loadTeachers() {
@@ -823,6 +953,9 @@ export class TeacherLessonPlansComponent implements OnInit {
   openAddModal() {
     this.editingPlanId = null;
     this.editFeedback = '';
+    this.streamType = 'School';
+    this.selectedClassId = '';
+    this.availableSections = [];
     this.addForm = {
       teacherId: this.teachers.length > 0 ? this.teachers[0].id : '',
       planDate: new Date().toISOString().substring(0, 10),
@@ -840,6 +973,23 @@ export class TeacherLessonPlansComponent implements OnInit {
   openEditModal(plan: TeacherLessonPlanDto) {
     this.editingPlanId = plan.id;
     this.editFeedback = plan.principalFeedback || '';
+    if (plan.classSectionId) {
+      this.streamType = 'School';
+      const foundCls = this.schoolClasses.find(c => c.sections?.some((s: any) => s.id === plan.classSectionId));
+      if (foundCls) {
+        this.selectedClassId = foundCls.id;
+        this.availableSections = foundCls.sections || [];
+      }
+    } else if (plan.batchId) {
+      this.streamType = 'Coaching';
+      this.selectedClassId = '';
+      this.availableSections = [];
+    } else {
+      this.streamType = 'School';
+      this.selectedClassId = '';
+      this.availableSections = [];
+    }
+
     this.addForm = {
       teacherId: plan.teacherId,
       planDate: plan.planDate ? plan.planDate.substring(0, 10) : new Date().toISOString().substring(0, 10),
@@ -865,7 +1015,7 @@ export class TeacherLessonPlansComponent implements OnInit {
 
   saveLessonPlan() {
     if (!this.addForm.teacherId || !this.addForm.subjectName || !this.addForm.chapterTopic) {
-      this.snackBar.open('Kripya sabhi zaroori fields bharein.', 'OK', { duration: 3000 });
+      this.confirmDialog.alert('Required Fields', 'Please fill in all required fields (Teacher, Subject, Chapter/Topic).', 'warning');
       return;
     }
 
@@ -880,19 +1030,23 @@ export class TeacherLessonPlansComponent implements OnInit {
         completionPercentage: this.addForm.completionPercentage,
         studentResponse: this.addForm.studentResponse,
         remarks: this.addForm.remarks,
-        principalFeedback: this.editFeedback
+        principalFeedback: this.editFeedback,
+        subjectId: this.addForm.subjectId,
+        subjectName: this.addForm.subjectName,
+        batchId: this.addForm.batchId,
+        classSectionId: this.addForm.classSectionId
       };
 
       this.http.put(`${API_BASE}/teachers/lesson-plans/${this.editingPlanId}`, updateDto).subscribe({
         next: () => {
           this.saving = false;
           this.showAddModal = false;
-          this.snackBar.open('Diary entry updated successfully!', 'OK', { duration: 3000 });
+          this.confirmDialog.alert('Updated', 'Diary entry updated successfully!', 'success');
           this.loadLessonPlans();
         },
         error: () => {
           this.saving = false;
-          this.snackBar.open('Error updating diary entry.', 'OK', { duration: 4000 });
+          this.confirmDialog.alert('Error', 'Failed to update diary entry. Please try again.', 'danger');
         }
       });
     } else {
@@ -900,27 +1054,27 @@ export class TeacherLessonPlansComponent implements OnInit {
         next: () => {
           this.saving = false;
           this.showAddModal = false;
-          this.snackBar.open('Lesson plan safaltapoorvak log ho gaya!', 'OK', { duration: 3000 });
+          this.confirmDialog.alert('Logged', 'Lesson plan logged successfully!', 'success');
           this.loadLessonPlans();
         },
         error: () => {
           this.saving = false;
-          this.snackBar.open('Error saving lesson plan.', 'OK', { duration: 4000 });
+          this.confirmDialog.alert('Error', 'Failed to save lesson plan. Please try again.', 'danger');
         }
       });
     }
   }
 
   deleteLessonPlan(id: string) {
-    this.confirmDialog.danger('Delete Diary Entry?', 'Kya aap is diary / lesson plan record ko hatana chahte hain?').subscribe(ok => {
+    this.confirmDialog.danger('Delete Diary Entry?', 'Are you sure you want to delete this diary / lesson plan record?').subscribe(ok => {
       if (!ok) return;
 
       this.http.delete(`${API_BASE}/teachers/lesson-plans/${id}`).subscribe({
         next: () => {
-          this.snackBar.open('Record deleted.', 'OK', { duration: 2500 });
+          this.confirmDialog.alert('Deleted', 'Lesson plan record deleted successfully.', 'success');
           this.loadLessonPlans();
         },
-        error: () => this.snackBar.open('Failed to delete record.', 'OK', { duration: 3000 })
+        error: () => this.confirmDialog.alert('Error', 'Failed to delete record.', 'danger')
       });
     });
   }

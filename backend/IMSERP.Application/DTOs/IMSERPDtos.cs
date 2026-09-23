@@ -1181,7 +1181,11 @@ public record TeacherPayrollPreviewDto(
     decimal LatePenaltyDeduction,
     decimal TotalAttendanceDeduction,
     decimal PendingAdvance,
-    decimal RecommendedNetPaid
+    decimal RecommendedNetPaid,
+    decimal HostelRentDeduction = 0,
+    decimal TransportFareDeduction = 0,
+    string? HostelRentInfo = null,
+    string? TransportFareInfo = null
 );
 
 public record TeacherSalaryDto(
@@ -1525,7 +1529,8 @@ public record LibraryCirculationDto(
     decimal FinePerDay,
     decimal FineAmount,
     string FineStatus,
-    string? Remarks
+    string? Remarks,
+    decimal BookPrice = 0
 );
 
 public record LibraryStatsDto(
@@ -1825,6 +1830,56 @@ public record SaveSchoolExamMarksDto(
     List<SaveSchoolExamMarkItemDto> MarksList
 );
 
+public record ClassExamSubjectHeaderDto(
+    Guid ExamId,
+    string SubjectName,
+    decimal MaxMarks,
+    decimal PassingMarks
+);
+
+public record ClassStudentMarksCellDto(
+    Guid ExamId,
+    decimal? MarksObtained,
+    bool IsAbsent,
+    string? Remarks
+);
+
+public record ClassStudentMultiSubjectRowDto(
+    Guid StudentId,
+    string StudentName,
+    string AdmissionNumber,
+    string? RollNumber,
+    List<ClassStudentMarksCellDto> SubjectMarks
+);
+
+public record ClassMultiSubjectMatrixDto(
+    Guid ClassId,
+    string ClassName,
+    string AcademicYear,
+    string ExamType,
+    List<ClassExamSubjectHeaderDto> Subjects,
+    List<ClassStudentMultiSubjectRowDto> Students
+);
+
+public record ClassSaveCellMarkDto(
+    Guid ExamId,
+    decimal? MarksObtained,
+    bool IsAbsent = false,
+    string? Remarks = null
+);
+
+public record ClassSaveStudentRowDto(
+    Guid StudentId,
+    List<ClassSaveCellMarkDto> SubjectMarks
+);
+
+public record SaveClassMultiSubjectMarksDto(
+    Guid ClassId,
+    string AcademicYear,
+    string ExamType,
+    List<ClassSaveStudentRowDto> Rows
+);
+
 public record ExamSettingDto(
     Guid Id,
     decimal PassingPercentage,
@@ -1946,7 +2001,13 @@ public record TeacherFnFPreviewDto(
     bool IsHostelResident = false,
     string? HostelBedCode = null,
     string? HostelRoomNumber = null,
-    Guid? HostelAllocationId = null
+    Guid? HostelAllocationId = null,
+    // Final month salary check & FNF status
+    bool IsFinalMonthSalaryPaid = false,
+    string? FinalMonthSalaryReceiptNumber = null,
+    decimal FinalMonthSalaryPaidAmount = 0,
+    DateTime? FinalMonthSalaryPaymentDate = null,
+    bool IsFnFAlreadySettled = false
 );
 
 public record CreateTeacherFnFRequestDto(
@@ -2119,7 +2180,11 @@ public record UpdateTeacherLessonPlanDto(
     string? CompletionPercentage,
     string? StudentResponse,
     string? Remarks,
-    string? PrincipalFeedback
+    string? PrincipalFeedback,
+    Guid? SubjectId = null,
+    string? SubjectName = null,
+    Guid? BatchId = null,
+    Guid? ClassSectionId = null
 );
 
 public record TeacherDocumentDto(

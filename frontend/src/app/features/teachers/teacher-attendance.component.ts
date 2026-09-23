@@ -119,7 +119,7 @@ export interface CalendarDayItem {
       <div class="form-row">
         <mat-form-field appearance="outline" class="field-date">
           <mat-label>Attendance Date *</mat-label>
-          <input matInput type="date" [(ngModel)]="markData.attendanceDate">
+          <input matInput type="date" [(ngModel)]="markData.attendanceDate" [max]="todayStr">
         </mat-form-field>
 
         <mat-form-field appearance="outline" class="field-status">
@@ -270,8 +270,9 @@ export interface CalendarDayItem {
           [class.sunday-off]="d.isSunday && !d.record && !d.isDeclaredHoliday"
           [class.saturday-off]="d.isSaturday && !d.record && !d.isDeclaredHoliday"
           [class.today]="d.isToday"
+          [class.future-date]="d.dateStr > todayStr"
           (click)="onDayCellClick(d)"
-          [matTooltip]="d.dateStr + ' (' + d.dayOfWeek + '): ' + (d.isDeclaredHoliday ? ('Public Holiday: ' + d.holidayTitle) : (d.isSunday ? 'Sunday Weekly Off' : (d.isSaturday ? 'Saturday' : d.status))) + (d.record?.checkInTime ? ' | Punch-in: ' + d.record?.checkInTime : '')">
+          [matTooltip]="d.dateStr > todayStr ? 'Future date — attendance cannot be marked in advance' : (d.dateStr < todayStr && !attendancePermissions.canCorrectAttendance ? 'Back-date correction requires Admin permission' : (d.dateStr + ' (' + d.dayOfWeek + '): ' + (d.isDeclaredHoliday ? ('Public Holiday: ' + d.holidayTitle) : (d.isSunday ? 'Sunday Weekly Off' : (d.isSaturday ? 'Saturday' : d.status))) + (d.record?.checkInTime ? ' | Punch-in: ' + d.record?.checkInTime : '')))">
           <span class="cell-num">{{d.dayNumber}}</span>
           <span class="cell-sub">{{d.dayOfWeek.charAt(0)}}</span>
           <span class="cell-tag">{{getCellShortTag(d)}}</span>
@@ -514,6 +515,19 @@ export interface CalendarDayItem {
       .cell-sub { color: #6366f1; }
     }
 
+    /* Future dates — greyed out, not clickable */
+    .day-cell.future-date {
+      background: #f1f5f9;
+      border-color: #e2e8f0;
+      opacity: 0.45;
+      cursor: not-allowed;
+      pointer-events: none;
+      .cell-num { color: #94a3b8; }
+      .cell-tag { color: #cbd5e1; }
+      .cell-sub { color: #cbd5e1; }
+    }
+    .day-cell.future-date:hover { transform: none; box-shadow: none; }
+
     .cell-num { font-size:.82rem; font-weight:700; color:#334155; }
     .cell-sub { font-size:.65rem; color:#94a3b8; }
     .cell-tag { font-size:.64rem; }
@@ -554,6 +568,7 @@ export class TeacherAttendanceComponent implements OnInit {
   saving = false;
   showMarkForm = false;
   canEditPublicHolidayOrSunday = false;
+  todayStr = new Date().toISOString().split('T')[0];
   attendanceMode: AttendanceSettingsDto['teacherMode'] = 'Both';
   private attendanceSettings: AttendanceSettingsDto = { studentMode: 'Both', teacherMode: 'Both' };
   attendancePermissions: AttendancePermissionsDto = { canChangeMode: false, canManualMark: false, canBiometricCapture: false, canMapBiometric: false, canCorrectAttendance: false };
@@ -746,6 +761,18 @@ export class TeacherAttendanceComponent implements OnInit {
   }
 
   onDayCellClick(d: CalendarDayItem) {
+    // Block future dates for everyone
+    if (d.dateStr > this.todayStr) {
+      this.confirmDialog.alert('Future Date', 'Attendance cannot be marked in advance for future dates.', 'warning');
+      return;
+    }
+
+    // Block back dates for non-admins
+    if (d.dateStr < this.todayStr && !this.attendancePermissions.canCorrectAttendance) {
+      this.confirmDialog.alert('Back-Date Restricted', 'You do not have permission to mark or correct past date attendance. Please contact Admin.', 'warning');
+      return;
+    }
+
     if (this.isPublicHolidayOrSunday(d.dateStr) && !this.canEditPublicHolidayOrSunday) {
       this.confirmDialog.alert('Editing Disabled', 'PH/SUN attendance editing is disabled for your role.', 'warning');
       return;
@@ -931,6 +958,19 @@ export class TeacherAttendanceComponent implements OnInit {
 
   saveAttendance() {
     if (!this.selectedTeacher || !this.markData.attendanceDate) return;
+
+    // Block future dates for everyone
+    if (this.markData.attendanceDate > this.todayStr) {
+      this.confirmDialog.alert('Future Date Not Allowed', 'Attendance cannot be marked in advance for future dates.', 'warning');
+      return;
+    }
+
+    // Block back dates for non-admins
+    if (this.markData.attendanceDate < this.todayStr && !this.attendancePermissions.canCorrectAttendance) {
+      this.confirmDialog.alert('Back-Date Restricted', 'You do not have permission to mark or correct past date attendance. Please contact Admin.', 'warning');
+      return;
+    }
+
     if (!this.attendancePermissions.canManualMark) {
       this.confirmDialog.alert('Permission Denied', 'You do not have permission to mark manual attendance.', 'warning');
       return;

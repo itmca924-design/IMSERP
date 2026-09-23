@@ -30,6 +30,8 @@ public class TransportController : ControllerBase
     [HttpGet("overview")]
     public async Task<ActionResult<TransportOverviewDto>> GetOverview()
     {
+        await AutoHealInactiveTeacherTransportAllocationsAsync();
+
         var totalVehicles = await _db.TransportVehicles.CountAsync(v => v.IsActive);
         var activeRoutes = await _db.TransportRoutes.CountAsync(r => r.IsActive);
         var studentAllocations = await _db.TransportAllocations.CountAsync(a => a.MemberType == "Student" && a.Status == "Active");
@@ -200,6 +202,8 @@ public class TransportController : ControllerBase
     [HttpGet("allocations")]
     public async Task<ActionResult<IEnumerable<TransportAllocationDto>>> GetAllocations([FromQuery] string? memberType = null, [FromQuery] Guid? routeId = null, [FromQuery] string? status = "Active", [FromQuery] string? search = null)
     {
+        await AutoHealInactiveTeacherTransportAllocationsAsync();
+
         var query = _db.TransportAllocations.AsNoTracking()
             .Include(a => a.Student).ThenInclude(s => s!.Class)
             .Include(a => a.Student).ThenInclude(s => s!.Section)
@@ -715,6 +719,30 @@ public class TransportController : ControllerBase
             g.Purpose, g.OutDateTime, g.ExpectedInDateTime, g.ActualInDateTime,
             g.ApprovedBy, g.SecurityGuardName, g.PassengerCount, g.Status, g.Remarks, g.CreatedAt
         );
+    }
+
+    private async Task AutoHealInactiveTeacherTransportAllocationsAsync()
+    {
+        var orphanedTransport = await _db.TransportAllocations
+            .Include(a => a.Teacher)
+            .Where(a => a.Status == "Active" && a.TeacherId != null && a.Teacher != null && !a.Teacher.IsActive)
+            .ToListAsync();
+
+        if (orphanedTransport.Count > 0)
+        {
+            foreach (var ot in orphanedTransport)
+            {
+                ot.Status = "Discontinued";
+                ot.EffectiveTo = ot.Teacher?.LeavingDate ?? DateTime.UtcNow;
+                ot.Remarks = (ot.Remarks != null ? ot.Remarks + " | " : "") + "Auto-discontinued: Teacher relieved/offboarded in F&F";
+                if (ot.Teacher != null)
+                {
+                    ot.Teacher.IsTransportStaff = false;
+                    ot.Teacher.TransportAllocationId = null;
+                }
+            }
+            await _db.SaveChangesAsync();
+        }
     }
 }
 

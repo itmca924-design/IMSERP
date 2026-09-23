@@ -35,7 +35,7 @@ import { TeacherPayslipDialogComponent } from './teacher-payslip-dialog.componen
     </div>
   </div>
 
-  <app-teacher-selector [preSelectId]="preSelectId" (teacherSelected)="onTeacherSelected($event)"></app-teacher-selector>
+  <app-teacher-selector [preSelectId]="preSelectId" [activeOnly]="false" (teacherSelected)="onTeacherSelected($event)"></app-teacher-selector>
 
   <mat-progress-bar mode="indeterminate" *ngIf="loading"></mat-progress-bar>
 
@@ -45,9 +45,18 @@ import { TeacherPayslipDialogComponent } from './teacher-payslip-dialog.componen
   </div>
 
   <div *ngIf="selectedTeacher">
+    <!-- Exited Teacher Notice -->
+    <div class="exited-notice" *ngIf="!selectedTeacher.isActive">
+      <mat-icon>lock</mat-icon>
+      <div>
+        <strong>Faculty Member Relieved / Inactive</strong>
+        <p>{{selectedTeacher.fullName}} ({{selectedTeacher.employeeCode}}) has been offboarded{{selectedTeacher.leavingDate ? ' on ' + (selectedTeacher.leavingDate | date:'dd MMM yyyy') : ''}}. Full &amp; Final Settlement has been processed. Regular monthly payments are locked.</p>
+      </div>
+    </div>
+
     <div class="section-header">
       <h3>{{selectedTeacher.fullName}} — Payment History</h3>
-      <button mat-raised-button color="primary" (click)="toggleForm()">
+      <button mat-raised-button color="primary" [disabled]="!selectedTeacher.isActive" (click)="toggleForm()" [matTooltip]="!selectedTeacher.isActive ? 'Exited teacher cannot receive regular salary payments' : ''">
         <mat-icon>{{showForm ? 'close' : 'add'}}</mat-icon>
         {{showForm ? 'Cancel' : 'Payment Record Karo'}}
       </button>
@@ -101,6 +110,20 @@ import { TeacherPayslipDialogComponent } from './teacher-payslip-dialog.componen
             </small>
           </div>
 
+          <!-- ── Hostel Rent Deduction Card ── -->
+          <div class="stat-box" *ngIf="preview.hostelRentDeduction > 0" style="border-color:#f97316;background:#fff7ed;">
+            <span class="lbl" style="color:#9a3412;">Hostel / Mess Rent</span>
+            <span class="num" style="color:#c2410c;">-₹{{preview.hostelRentDeduction | number}}</span>
+            <small style="color:#ea580c;">{{preview.hostelRentInfo || 'Monthly rent deduction'}}</small>
+          </div>
+
+          <!-- ── Transport Fare Deduction Card ── -->
+          <div class="stat-box" *ngIf="preview.transportFareDeduction > 0" style="border-color:#8b5cf6;background:#faf5ff;">
+            <span class="lbl" style="color:#5b21b6;">Transport Fare</span>
+            <span class="num" style="color:#7c3aed;">-₹{{preview.transportFareDeduction | number}}</span>
+            <small style="color:#8b5cf6;">{{preview.transportFareInfo || 'Monthly transport fare'}}</small>
+          </div>
+
           <!-- ── Advance Adjustment Card ── -->
           <div class="stat-box advance-box" *ngIf="preview.pendingAdvance > 0" [class.highlight-advance]="preview.pendingAdvance > 0">
             <span class="lbl advance-lbl">
@@ -120,7 +143,7 @@ import { TeacherPayslipDialogComponent } from './teacher-payslip-dialog.componen
           <div class="stat-box net-box">
             <span class="lbl">Net Suggested Pay</span>
             <span class="num net">₹{{preview.recommendedNetPaid | number}}</span>
-            <small>Deductions: -₹{{preview.totalAttendanceDeduction + preview.pfDeduction + preview.tdsDeduction + preview.otherDeductions + preview.pendingAdvance | number}}</small>
+            <small>Deductions: -₹{{preview.totalAttendanceDeduction + preview.pfDeduction + preview.tdsDeduction + preview.otherDeductions + preview.pendingAdvance + (preview.hostelRentDeduction || 0) + (preview.transportFareDeduction || 0) | number}}</small>
           </div>
         </div>
 
@@ -402,6 +425,13 @@ import { TeacherPayslipDialogComponent } from './teacher-payslip-dialog.componen
     }
     .empty-state { display:flex; flex-direction:column; align-items:center; padding:40px; color:#94a3b8; background:#f8fafc; border-radius:12px;
       mat-icon{font-size:40px;width:40px;height:40px;margin-bottom:8px;} p{margin:0;} }
+    .exited-notice {
+      display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+      background: #fef2f2; border: 1.5px solid #fca5a5; border-radius: 8px; margin-bottom: 12px;
+      mat-icon { font-size: 24px; width: 24px; height: 24px; color: #dc2626; flex-shrink: 0; }
+      strong { display: block; color: #991b1b; font-size: 0.9rem; }
+      p { margin: 2px 0 0; color: #b91c1c; font-size: 0.8rem; }
+    }
   `]
 })
 export class TeacherPaymentsComponent implements OnInit {
@@ -551,7 +581,9 @@ export class TeacherPaymentsComponent implements OnInit {
     const totalDeductions = this.preview.totalAttendanceDeduction
       + this.preview.pfDeduction
       + this.preview.tdsDeduction
-      + this.preview.otherDeductions;
+      + this.preview.otherDeductions
+      + (this.preview.hostelRentDeduction || 0)
+      + (this.preview.transportFareDeduction || 0);
 
     this.paymentForm.patchValue({
       grossAmount:     this.preview.grossSalary,
@@ -560,17 +592,21 @@ export class TeacherPaymentsComponent implements OnInit {
       netPaid:         this.preview.recommendedNetPaid,
       presentDays:     this.preview.presentDays,
       absentDays:      this.preview.absentDays,
-      remarks: `Attendance: ${this.preview.presentDays}P, ${this.preview.halfDays}HD, ${this.preview.absentDays}A, ${this.preview.lateDays}L (${this.preview.latePenaltyDays}d late penalty)`
+      remarks: `Attendance: ${this.preview.presentDays}P, ${this.preview.halfDays}HD, ${this.preview.absentDays}A, ${this.preview.lateDays}L (${this.preview.latePenaltyDays}d late penalty)` +
+        (this.preview.hostelRentDeduction > 0 ? ` | Hostel: -₹${this.preview.hostelRentDeduction}` : '') +
+        (this.preview.transportFareDeduction > 0 ? ` | Transport: -₹${this.preview.transportFareDeduction}` : '')
     }, { emitEvent: false });
 
     this.calculationsApplied = true;
 
-    const advMsg = this.preview.pendingAdvance > 0
-      ? ` Advance of ₹${this.preview.pendingAdvance.toLocaleString('en-IN')} auto-adjusted.`
-      : '';
+    const extras: string[] = [];
+    if (this.preview.pendingAdvance > 0) extras.push(`Advance ₹${this.preview.pendingAdvance.toLocaleString('en-IN')} adjusted`);
+    if (this.preview.hostelRentDeduction > 0) extras.push(`Hostel ₹${this.preview.hostelRentDeduction.toLocaleString('en-IN')} deducted`);
+    if (this.preview.transportFareDeduction > 0) extras.push(`Transport ₹${this.preview.transportFareDeduction.toLocaleString('en-IN')} deducted`);
+    const extMsg = extras.length > 0 ? ' ' + extras.join(', ') + '.' : '';
     this.confirmDialog.alert(
       'Calculations Applied ✓',
-      `Attendance calculations verified and applied!${advMsg} "Record Payment" button is now enabled.`,
+      `Attendance calculations verified and applied!${extMsg} "Record Payment" button is now enabled.`,
       'success'
     );
   }
@@ -601,6 +637,10 @@ export class TeacherPaymentsComponent implements OnInit {
   recordPayment() {
     if (!this.selectedTeacher) {
       this.confirmDialog.alert('Error', 'Koi teacher select nahi hai.', 'danger');
+      return;
+    }
+    if (!this.selectedTeacher.isActive) {
+      this.confirmDialog.alert('Exited Faculty Member', 'Relieved / Inactive teacher ke liye regular salary payment record nahi kiya ja sakta.', 'warning');
       return;
     }
     if (!this.calculationsApplied) {

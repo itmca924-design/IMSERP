@@ -237,6 +237,56 @@ export interface SaveSchoolExamMarksDto {
   marksList: SaveSchoolExamMarkItemDto[];
 }
 
+export interface ClassExamSubjectHeaderDto {
+  examId: string;
+  subjectName: string;
+  maxMarks: number;
+  passingMarks: number;
+}
+
+export interface ClassStudentMarksCellDto {
+  examId: string;
+  marksObtained: number | null;
+  isAbsent: boolean;
+  remarks?: string;
+}
+
+export interface ClassStudentMultiSubjectRowDto {
+  studentId: string;
+  studentName: string;
+  admissionNumber: string;
+  rollNumber?: string;
+  subjectMarks: ClassStudentMarksCellDto[];
+}
+
+export interface ClassMultiSubjectMatrixDto {
+  classId: string;
+  className: string;
+  academicYear: string;
+  examType: string;
+  subjects: ClassExamSubjectHeaderDto[];
+  students: ClassStudentMultiSubjectRowDto[];
+}
+
+export interface ClassSaveCellMarkDto {
+  examId: string;
+  marksObtained: number | null;
+  isAbsent: boolean;
+  remarks?: string;
+}
+
+export interface ClassSaveStudentRowDto {
+  studentId: string;
+  subjectMarks: ClassSaveCellMarkDto[];
+}
+
+export interface SaveClassMultiSubjectMarksDto {
+  classId: string;
+  academicYear: string;
+  examType: string;
+  rows: ClassSaveStudentRowDto[];
+}
+
 export interface ExamSettingDto {
   id: string;
   passingPercentage: number;
@@ -466,6 +516,21 @@ export class SchoolService {
 
   saveSchoolExamMarks(dto: SaveSchoolExamMarksDto): Observable<{ message: string }> {
     return this.http.post<{ message: string }>(`${this.apiUrl}/exams/bulk-marks`, dto);
+  }
+
+  getClassMultiSubjectMarks(
+    classId: string,
+    academicYear: string,
+    examType: string,
+    sectionId?: string
+  ): Observable<ClassMultiSubjectMatrixDto> {
+    const params: any = { classId, academicYear, examType };
+    if (sectionId) params.sectionId = sectionId;
+    return this.http.get<ClassMultiSubjectMatrixDto>(`${this.apiUrl}/exams/class-multi-marks`, { params });
+  }
+
+  saveClassMultiSubjectMarks(dto: SaveClassMultiSubjectMarksDto): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.apiUrl}/exams/class-multi-marks`, dto);
   }
 
   getExamSettings(): Observable<ExamSettingDto> {

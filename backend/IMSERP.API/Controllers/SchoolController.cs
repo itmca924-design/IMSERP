@@ -1171,6 +1171,154 @@ public class SchoolController : ControllerBase
         return Ok(new { message = $"Successfully saved marks for {dto.MarksList.Count} student(s)!" });
     }
 
+    [HttpGet("exams/class-multi-marks")]
+    public async Task<ActionResult<ClassMultiSubjectMatrixDto>> GetClassMultiSubjectMarks(
+        [FromQuery] Guid classId,
+        [FromQuery] string academicYear,
+        [FromQuery] string examType,
+        [FromQuery] Guid? sectionId = null)
+    {
+        if (classId == Guid.Empty)
+            return BadRequest(new { message = "ClassId is required." });
+
+        var schoolClass = await _db.SchoolClasses.FindAsync(classId);
+        if (schoolClass == null)
+            return BadRequest(new { message = "Class not found." });
+
+        var testsQuery = _db.Tests
+            .AsNoTracking()
+            .Include(t => t.MarksList)
+            .Where(t => t.ClassId == classId && t.AcademicYear == academicYear && t.ExamType == examType);
+
+        if (sectionId.HasValue && sectionId != Guid.Empty)
+        {
+            testsQuery = testsQuery.Where(t => t.SectionId == null || t.SectionId == sectionId.Value);
+        }
+
+        var tests = await testsQuery.OrderBy(t => t.Subject).ToListAsync();
+
+        var subjects = tests.Select(t => new ClassExamSubjectHeaderDto(
+            t.Id,
+            t.Subject,
+            t.MaxMarks,
+            t.PassingMarks
+        )).ToList();
+
+        var studentsQuery = _db.Students
+            .AsNoTracking()
+            .Where(s => s.ClassId == classId && s.IsActive && s.IsSchoolStudent);
+
+        if (sectionId.HasValue && sectionId != Guid.Empty)
+        {
+            studentsQuery = studentsQuery.Where(s => s.SectionId == sectionId.Value);
+        }
+
+        var students = await studentsQuery
+            .OrderBy(s => s.SchoolRollNumber != null && s.SchoolRollNumber != "" ? s.SchoolRollNumber : s.RollNumber)
+            .ThenBy(s => s.StudentName)
+            .ToListAsync();
+
+        var studentRows = students.Select(s =>
+        {
+            var cellMarks = tests.Select(t =>
+            {
+                var mark = t.MarksList.FirstOrDefault(m => m.StudentId == s.Id);
+                return new ClassStudentMarksCellDto(
+                    t.Id,
+                    mark?.MarksObtained,
+                    mark?.IsAbsent ?? false,
+                    mark?.Remarks
+                );
+            }).ToList();
+
+            return new ClassStudentMultiSubjectRowDto(
+                s.Id,
+                s.StudentName,
+                s.AdmissionNumber ?? s.RollNumber,
+                s.SchoolRollNumber ?? s.RollNumber,
+                cellMarks
+            );
+        }).ToList();
+
+        return Ok(new ClassMultiSubjectMatrixDto(
+            schoolClass.Id,
+            schoolClass.Name,
+            academicYear,
+            examType,
+            subjects,
+            studentRows
+        ));
+    }
+
+    [HttpPost("exams/class-multi-marks")]
+    public async Task<ActionResult<object>> SaveClassMultiSubjectMarks([FromBody] SaveClassMultiSubjectMarksDto dto)
+    {
+        if (dto.ClassId == Guid.Empty || dto.Rows == null || dto.Rows.Count == 0)
+            return BadRequest(new { message = "No student rows provided to save." });
+
+        var distinctExamIds = dto.Rows
+            .SelectMany(r => r.SubjectMarks)
+            .Select(m => m.ExamId)
+            .Distinct()
+            .ToList();
+
+        var tests = await _db.Tests.Where(t => distinctExamIds.Contains(t.Id)).ToListAsync();
+        if (tests.Count == 0)
+            return BadRequest(new { message = "No valid exam tests found for the provided IDs." });
+
+        var existingMarks = await _db.TestMarks
+            .Where(m => distinctExamIds.Contains(m.TestId))
+            .ToListAsync();
+
+        foreach (var row in dto.Rows)
+        {
+            foreach (var cell in row.SubjectMarks)
+            {
+                var existing = existingMarks.FirstOrDefault(m => m.TestId == cell.ExamId && m.StudentId == row.StudentId);
+                if (existing != null)
+                {
+                    existing.MarksObtained = cell.IsAbsent ? 0 : (cell.MarksObtained ?? 0);
+                    existing.IsAbsent = cell.IsAbsent;
+                    existing.Remarks = cell.Remarks;
+                }
+                else if (cell.MarksObtained.HasValue || cell.IsAbsent)
+                {
+                    var newMark = new TestMarks
+                    {
+                        TenantId = _currentUser.TenantId,
+                        TestId = cell.ExamId,
+                        StudentId = row.StudentId,
+                        MarksObtained = cell.IsAbsent ? 0 : (cell.MarksObtained ?? 0),
+                        IsAbsent = cell.IsAbsent,
+                        Remarks = cell.Remarks,
+                        Rank = 0
+                    };
+                    _db.TestMarks.Add(newMark);
+                    existingMarks.Add(newMark);
+                }
+            }
+        }
+
+        // Recalculate ranks per exam
+        foreach (var examId in distinctExamIds)
+        {
+            var examMarks = existingMarks
+                .Where(m => m.TestId == examId)
+                .OrderByDescending(m => m.IsAbsent ? -1 : m.MarksObtained)
+                .ToList();
+
+            int rank = 1;
+            foreach (var em in examMarks)
+            {
+                em.Rank = em.IsAbsent ? 9999 : rank++;
+            }
+        }
+
+        await _db.SaveChangesAsync();
+
+        return Ok(new { message = $"Successfully saved marks for {dto.Rows.Count} student(s) across {distinctExamIds.Count} subjects!" });
+    }
+
     #region Exam Settings & Evaluation Configuration
 
     [HttpGet("exam-settings")]

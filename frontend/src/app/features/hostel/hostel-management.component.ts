@@ -187,10 +187,11 @@ const API_BASE = 'http://localhost:5000';
 
         <!-- TAB 1: VISUAL BED MATRIX -->
         <div class="tab-pane" *ngIf="activeTab === 'matrix'">
-          <div class="matrix-filter-bar">
-            <div class="filter-group">
+          <div class="matrix-filter-card mat-elevation-z1">
+            <div class="matrix-filter-row">
               <mat-form-field appearance="outline" class="dense-field hostel-filter-field">
-                <mat-label>Filter by Hostel Block</mat-label>
+                <mat-label>Hostel Block</mat-label>
+                <mat-icon matPrefix>apartment</mat-icon>
                 <mat-select [(ngModel)]="selectedHostelFilter" (selectionChange)="loadBedMatrix()" panelClass="hostel-block-dropdown-panel">
                   <mat-option value="">All Hostel Blocks</mat-option>
                   <mat-option *ngFor="let h of hostels" [value]="h.id">{{ h.name }} ({{ h.hostelType }})</mat-option>
@@ -198,18 +199,51 @@ const API_BASE = 'http://localhost:5000';
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="dense-field bed-status-filter-field">
-                <mat-label>Filter Bed Status</mat-label>
+                <mat-label>Bed Status</mat-label>
+                <mat-icon matPrefix>hotel</mat-icon>
                 <mat-select [(ngModel)]="selectedBedStatusFilter" (selectionChange)="applyMatrixFilter()">
-                  <mat-option value="all">All Beds</mat-option>
-                  <mat-option value="Available">Vacant / Available Only</mat-option>
-                  <mat-option value="Occupied">Occupied Only</mat-option>
+                  <mat-option value="all">All Beds (Vacant + Occupied)</mat-option>
+                  <mat-option value="Available">🟢 Vacant / Available Only</mat-option>
+                  <mat-option value="Occupied">🟣 Occupied Beds Only</mat-option>
                 </mat-select>
               </mat-form-field>
+
+              <!-- Resident Category Filter (Students vs Faculty) -->
+              <mat-form-field appearance="outline" class="dense-field category-filter-field">
+                <mat-label>Resident Category</mat-label>
+                <mat-icon matPrefix>groups</mat-icon>
+                <mat-select [(ngModel)]="selectedResidentCategoryFilter" (selectionChange)="applyMatrixFilter()">
+                  <mat-option value="all">All Residents (Students &amp; Faculty)</mat-option>
+                  <mat-option value="Student">🎓 Students Only</mat-option>
+                  <mat-option value="Teacher">👨‍🏫 Faculty / Staff Quarters Only</mat-option>
+                </mat-select>
+              </mat-form-field>
+
+              <button mat-stroked-button class="reset-filter-btn" *ngIf="isMatrixFilterActive" (click)="resetMatrixFilters()" matTooltip="Reset all filters to view all beds">
+                <mat-icon>refresh</mat-icon> Clear Filters
+              </button>
             </div>
 
-            <div class="legend-bar">
-              <span class="legend-item"><span class="dot available"></span> Available Bed</span>
-              <span class="legend-item"><span class="dot occupied"></span> Occupied Bed</span>
+            <!-- Sub Bar: Live Stats & Legend Chips -->
+            <div class="matrix-meta-strip">
+              <div class="strip-left-counts">
+                <span class="meta-chip chip-total">
+                  <mat-icon class="chip-icon">grid_view</mat-icon> <strong>{{ matrixTotalBeds }}</strong> Total Beds
+                </span>
+                <span class="meta-chip chip-available">
+                  <span class="dot available"></span> <strong>{{ matrixAvailableBeds }}</strong> Vacant Available
+                </span>
+                <span class="meta-chip chip-student">
+                  <span class="dot occupied-student"></span> <strong>{{ matrixStudentBeds }}</strong> Students
+                </span>
+                <span class="meta-chip chip-faculty">
+                  <span class="dot occupied-faculty"></span> <strong>{{ matrixFacultyBeds }}</strong> Staff Quarters
+                </span>
+              </div>
+
+              <div class="strip-right-hint">
+                <span class="quick-hint">💡 <em>Click <strong>"+ Allocate"</strong> on any green vacant bed to assign resident.</em></span>
+              </div>
             </div>
           </div>
 
@@ -241,15 +275,23 @@ const API_BASE = 'http://localhost:5000';
                   *ngFor="let bed of room.beds"
                   [ngClass]="{
                     'available-bed': bed.status === 'Available',
-                    'occupied-bed': bed.status === 'Occupied'
+                    'occupied-bed': bed.status === 'Occupied',
+                    'occupied-student-bed': bed.status === 'Occupied' && bed.memberType !== 'Teacher',
+                    'occupied-faculty-bed': bed.status === 'Occupied' && bed.memberType === 'Teacher'
                   }"
                 >
                   <div class="bed-header">
-                    <span class="bed-code-badge">
-                      <mat-icon>bed</mat-icon> {{ bed.bedCode }}
+                    <span class="bed-code-badge" [class.faculty-code]="bed.memberType === 'Teacher'">
+                      <mat-icon>{{ bed.memberType === 'Teacher' ? 'night_shelter' : 'bed' }}</mat-icon> {{ bed.bedCode }}
                     </span>
-                    <span class="bed-status-pill" [class.vacant]="bed.status === 'Available'">
-                      {{ bed.status }}
+                    <span
+                      class="bed-status-pill"
+                      [class.vacant]="bed.status === 'Available'"
+                      [class.student-pill]="bed.status === 'Occupied' && bed.memberType !== 'Teacher'"
+                      [class.faculty-pill]="bed.status === 'Occupied' && bed.memberType === 'Teacher'"
+                    >
+                      <mat-icon *ngIf="bed.status === 'Occupied' && bed.memberType === 'Teacher'" style="font-size:12px;width:12px;height:12px;vertical-align:middle;margin-right:2px">co_present</mat-icon>
+                      {{ bed.status === 'Available' ? 'Available' : (bed.memberType === 'Teacher' ? 'Staff Quarter' : 'Student') }}
                     </span>
                   </div>
 
@@ -264,22 +306,32 @@ const API_BASE = 'http://localhost:5000';
                   <!-- Occupied Bed Info -->
                   <div class="bed-body occupied-body" *ngIf="bed.status === 'Occupied'">
                     <div class="student-avatar-row">
-                      <div class="student-avatar">
+                      <div class="student-avatar" [style.background]="bed.memberType === 'Teacher' ? '#ede9fe' : '#dbeafe'">
                         <img *ngIf="bed.profilePhoto" [src]="getPhotoUrl(bed.profilePhoto)" alt="" />
-                        <mat-icon *ngIf="!bed.profilePhoto">person</mat-icon>
+                        <mat-icon *ngIf="!bed.profilePhoto" [style.color]="bed.memberType === 'Teacher' ? '#7c3aed' : '#2563eb'">
+                          {{ bed.memberType === 'Teacher' ? 'co_present' : 'person' }}
+                        </mat-icon>
                       </div>
                       <div class="student-meta">
-                        <strong class="student-name-text">{{ bed.studentName }}</strong>
-                        <span class="roll-text">Roll: {{ bed.rollNumber || 'N/A' }}</span>
-                        <span class="stream-text">{{ bed.classOrBatch }}</span>
+                        <div style="display:flex;align-items:center;gap:6px">
+                          <strong class="student-name-text">{{ bed.studentName || bed.teacherName || 'Occupied' }}</strong>
+                          <span *ngIf="bed.memberType === 'Teacher'" style="background: #faf5ff; color: #7e22ce; border: 1px solid #d8b4fe; padding: 1px 5px; border-radius: 4px; font-size: 0.68rem; font-weight: 700;">Faculty</span>
+                          <span *ngIf="bed.memberType !== 'Teacher' && bed.studentName" style="background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; padding: 1px 5px; border-radius: 4px; font-size: 0.68rem; font-weight: 700;">Student</span>
+                        </div>
+                        <span class="roll-text" *ngIf="bed.memberType === 'Teacher'" style="color: #7c3aed; font-weight: 700;">
+                          Staff Quarter &bull; {{ bed.employeeCode || 'FACULTY' }}
+                        </span>
+                        <span class="roll-text" *ngIf="bed.memberType !== 'Teacher'">Roll: {{ bed.rollNumber || 'N/A' }}</span>
+                        <span class="stream-text" *ngIf="bed.memberType === 'Teacher'">{{ bed.specialization || 'Faculty / Staff Member' }}</span>
+                        <span class="stream-text" *ngIf="bed.memberType !== 'Teacher'">{{ bed.classOrBatch }}</span>
                       </div>
                     </div>
 
                     <div class="bed-actions">
-                      <button mat-icon-button color="warn" matTooltip="Vacate Bed" (click)="vacateStudentBed(bed)">
+                      <button mat-icon-button color="warn" [matTooltip]="bed.memberType === 'Teacher' ? 'Vacate Staff Quarter' : 'Vacate Bed'" (click)="vacateStudentBed(bed)">
                         <mat-icon>logout</mat-icon>
                       </button>
-                      <button mat-icon-button color="primary" matTooltip="Issue Gate Pass" (click)="openGatePassForStudent(bed)">
+                      <button *ngIf="bed.memberType !== 'Teacher'" mat-icon-button color="primary" matTooltip="Issue Gate Pass" (click)="openGatePassForStudent(bed)">
                         <mat-icon>badge</mat-icon>
                       </button>
                     </div>
@@ -290,7 +342,19 @@ const API_BASE = 'http://localhost:5000';
           </div>
 
           <ng-template #noRoomsTemplate>
-            <div class="empty-state-box">
+            <div class="empty-state-box" *ngIf="isMatrixFilterActive" style="background: white; border-radius: 12px; padding: 40px 24px; border: 1px dashed #cbd5e1; text-align: center;">
+              <mat-icon class="empty-icon" style="color: #6366f1; font-size: 48px; width: 48px; height: 48px;">filter_list_off</mat-icon>
+              <h3 style="font-size: 18px; font-weight: 700; color: #1e293b; margin: 12px 0 6px 0;">No Beds Match Current Filters</h3>
+              <p style="color: #64748b; max-width: 520px; margin: 0 auto 16px auto; font-size: 13.5px;">
+                No beds match your filter criteria (<strong>{{ getActiveFilterSummary() }}</strong>).
+                Reset your filters to view all rooms and beds.
+              </p>
+              <button mat-raised-button color="primary" (click)="resetMatrixFilters()">
+                <mat-icon>refresh</mat-icon> Clear All Filters &amp; View All Beds
+              </button>
+            </div>
+
+            <div class="empty-state-box" *ngIf="!isMatrixFilterActive">
               <mat-icon class="empty-icon">hotel</mat-icon>
               <h3>No Rooms or Beds Found</h3>
               <p>Configure your hostel buildings and rooms to start allocating beds to boarding students.</p>
@@ -1021,114 +1085,174 @@ const API_BASE = 'http://localhost:5000';
       <div class="modal-backdrop" *ngIf="showAllocateModal">
         <div class="modal-dialog-card allocate-dialog">
           <div class="modal-header">
+            <div class="modal-header-icon-box">
+              <mat-icon>{{ allocateMemberType === 'Teacher' ? 'night_shelter' : 'hotel' }}</mat-icon>
+            </div>
             <div class="modal-title-wrap">
               <h3>Allocate Bed: {{ allocatingBed?.bedCode }}</h3>
-              <span class="modal-sub">Room {{ allocatingRoom?.roomNumber }} &bull; {{ allocatingRoom?.hostelName }} (Floor {{ allocatingRoom?.floor }})</span>
+              <span class="modal-sub">Room <strong>{{ allocatingRoom?.roomNumber }}</strong> &bull; <strong>{{ allocatingRoom?.hostelName }}</strong> (Floor {{ allocatingRoom?.floor }})</span>
             </div>
             <button mat-icon-button (click)="closeAllocateModal()"><mat-icon>close</mat-icon></button>
           </div>
           <form [formGroup]="allocateForm" (ngSubmit)="submitAllocateBed()">
             <div class="modal-body-form">
 
-              <!-- Filter Pills: All / School Only (Class-wise) / Coaching Only (Batch-wise) -->
-              <div class="student-search-header">
-                <div class="filter-pills-container">
-                  <span class="filter-title"><mat-icon>filter_list</mat-icon> Student Source:</span>
-                  <div class="filter-pills-list">
-                    <button type="button" class="type-pill" [class.active]="studentFilterType === 'all'" (click)="setStudentFilterType('all')">
-                      <mat-icon>groups</mat-icon> All Students
-                    </button>
-                    <button type="button" class="type-pill pill-school" [class.active]="studentFilterType === 'school'" (click)="setStudentFilterType('school')">
-                      <mat-icon>school</mat-icon> School Only (Class-wise)
-                    </button>
-                    <button type="button" class="type-pill pill-coaching" [class.active]="studentFilterType === 'coaching'" (click)="setStudentFilterType('coaching')">
-                      <mat-icon>menu_book</mat-icon> Coaching Only (Batch-wise)
-                    </button>
-                  </div>
-                </div>
-
-                <!-- Server-Side Live Search Input -->
-                <div class="search-input-wrapper">
-                  <mat-form-field appearance="outline" class="full-width search-input-field">
-                    <mat-label>Search Student (Name, Roll No, Admission No, Phone, Class, Batch)</mat-label>
-                    <input matInput [(ngModel)]="studentSearchQuery" [ngModelOptions]="{standalone: true}" (ngModelChange)="onStudentSearchChanged($event)" placeholder="Type name, roll, class (e.g. 10th A) or coaching batch..." autocomplete="off" />
-                    <mat-icon matPrefix>search</mat-icon>
-                    <button mat-icon-button matSuffix *ngIf="studentSearchQuery" (click)="clearStudentSearch()" type="button" matTooltip="Clear search">
-                      <mat-icon>close</mat-icon>
-                    </button>
-                  </mat-form-field>
-                  <!-- Smooth server-side searching progress bar loader -->
-                  <mat-progress-bar *ngIf="isSearchingStudents" mode="indeterminate" class="search-loader-bar"></mat-progress-bar>
+              <!-- Resident Type Switcher: Student vs Faculty / Staff -->
+              <div class="member-type-toggle-bar">
+                <span class="mtt-label"><mat-icon>how_to_reg</mat-icon> Resident Category:</span>
+                <div class="mtt-pills">
+                  <button type="button" class="mtt-pill" [class.active]="allocateMemberType === 'Student'" (click)="setAllocateMemberType('Student')">
+                    <mat-icon>school</mat-icon> Student Resident
+                  </button>
+                  <button type="button" class="mtt-pill pill-faculty" [class.active]="allocateMemberType === 'Teacher'" (click)="setAllocateMemberType('Teacher')">
+                    <mat-icon>co_present</mat-icon> Faculty / Staff Quarters
+                  </button>
                 </div>
               </div>
 
-              <!-- Group-Wise Student Selection Dropdown -->
-              <mat-form-field appearance="outline" class="full-width student-dropdown-field">
-                <mat-label>Select Student to Allocate Bed</mat-label>
-                <mat-select formControlName="studentId" (selectionChange)="onStudentSelected($event.value)" panelClass="student-search-dropdown-panel">
-                  <mat-select-trigger *ngIf="selectedStudentDetails">
-                    <div class="selected-trigger-display">
-                      <strong>{{ selectedStudentDetails.studentName }}</strong>
-                      <span class="trigger-roll" *ngIf="selectedStudentDetails.rollNumber"> &bull; Roll: {{ selectedStudentDetails.rollNumber }}</span>
-                      <span class="trigger-badge" [class.school]="selectedStudentDetails.isSchoolStudent" [class.coaching]="selectedStudentDetails.isCoachingStudent && !selectedStudentDetails.isSchoolStudent">
-                        {{ selectedStudentDetails.groupName }}
-                      </span>
+              <!-- ================= 1. STUDENT ALLOCATION FLOW ================= -->
+              <ng-container *ngIf="allocateMemberType === 'Student'">
+                <!-- Filter Pills: All / School Only (Class-wise) / Coaching Only (Batch-wise) -->
+                <div class="student-search-header">
+                  <div class="filter-pills-container">
+                    <span class="filter-title"><mat-icon>filter_list</mat-icon> Student Source:</span>
+                    <div class="filter-pills-list">
+                      <button type="button" class="type-pill" [class.active]="studentFilterType === 'all'" (click)="setStudentFilterType('all')">
+                        <mat-icon>groups</mat-icon> All Students
+                      </button>
+                      <button type="button" class="type-pill pill-school" [class.active]="studentFilterType === 'school'" (click)="setStudentFilterType('school')">
+                        <mat-icon>school</mat-icon> School Only (Class-wise)
+                      </button>
+                      <button type="button" class="type-pill pill-coaching" [class.active]="studentFilterType === 'coaching'" (click)="setStudentFilterType('coaching')">
+                        <mat-icon>menu_book</mat-icon> Coaching Only (Batch-wise)
+                      </button>
                     </div>
-                  </mat-select-trigger>
+                  </div>
 
-                  <mat-optgroup *ngFor="let grp of studentGroups" [label]="grp.groupName">
-                    <mat-option *ngFor="let s of grp.students" [value]="s.id" [disabled]="s.isAlreadyAllocated" class="student-opt-item">
-                      <div class="opt-student-container">
-                        <div class="opt-left">
-                          <span class="opt-name">{{ s.studentName }}</span>
-                          <span class="opt-roll" *ngIf="s.rollNumber">Roll: {{ s.rollNumber }}</span>
-                          <span class="opt-phone" *ngIf="s.parentPhone">&bull; 📞 {{ s.parentPhone }}</span>
-                        </div>
-                        <div class="opt-right-badges">
-                          <span class="badge-school" *ngIf="s.isSchoolStudent">
-                            <mat-icon>school</mat-icon> {{ s.className || 'Class' }}{{ s.sectionName ? ' (' + s.sectionName + ')' : '' }}
-                          </span>
-                          <span class="badge-coaching" *ngIf="s.isCoachingStudent">
-                            <mat-icon>menu_book</mat-icon> {{ s.batchName || 'Coaching' }}
-                          </span>
-                          <span class="badge-gender" *ngIf="s.gender">{{ s.gender }}</span>
-                          <span class="badge-allocated" *ngIf="s.isAlreadyAllocated">
-                            <mat-icon>block</mat-icon> Occupied ({{ s.currentBedInfo }})
-                          </span>
-                        </div>
+                  <!-- Server-Side Live Search Input -->
+                  <div class="search-input-wrapper">
+                    <mat-form-field appearance="outline" class="full-width search-input-field">
+                      <mat-label>Search Student (Name, Roll No, Admission No, Phone, Class, Batch)</mat-label>
+                      <input matInput [(ngModel)]="studentSearchQuery" [ngModelOptions]="{standalone: true}" (ngModelChange)="onStudentSearchChanged($event)" placeholder="Type name, roll, class (e.g. 10th A) or coaching batch..." autocomplete="off" />
+                      <mat-icon matPrefix>search</mat-icon>
+                      <button mat-icon-button matSuffix *ngIf="studentSearchQuery" (click)="clearStudentSearch()" type="button" matTooltip="Clear search">
+                        <mat-icon>close</mat-icon>
+                      </button>
+                    </mat-form-field>
+                    <!-- Smooth server-side searching progress bar loader -->
+                    <mat-progress-bar *ngIf="isSearchingStudents" mode="indeterminate" class="search-loader-bar"></mat-progress-bar>
+                  </div>
+                </div>
+
+                <!-- Group-Wise Student Selection Dropdown -->
+                <mat-form-field appearance="outline" class="full-width student-dropdown-field">
+                  <mat-label>Select Student to Allocate Bed</mat-label>
+                  <mat-select formControlName="studentId" (selectionChange)="onStudentSelected($event.value)" panelClass="student-search-dropdown-panel">
+                    <mat-select-trigger *ngIf="selectedStudentDetails">
+                      <div class="selected-trigger-display">
+                        <strong>{{ selectedStudentDetails.studentName }}</strong>
+                        <span class="trigger-roll" *ngIf="selectedStudentDetails.rollNumber"> &bull; Roll: {{ selectedStudentDetails.rollNumber }}</span>
+                        <span class="trigger-badge" [class.school]="selectedStudentDetails.isSchoolStudent" [class.coaching]="selectedStudentDetails.isCoachingStudent && !selectedStudentDetails.isSchoolStudent">
+                          {{ selectedStudentDetails.groupName }}
+                        </span>
                       </div>
+                    </mat-select-trigger>
+
+                    <mat-optgroup *ngFor="let grp of studentGroups" [label]="grp.groupName">
+                      <mat-option *ngFor="let s of grp.students" [value]="s.id" [disabled]="s.isAlreadyAllocated" class="student-opt-item">
+                        <div class="opt-student-container">
+                          <div class="opt-left">
+                            <span class="opt-name">{{ s.studentName }}</span>
+                            <span class="opt-roll" *ngIf="s.rollNumber">Roll: {{ s.rollNumber }}</span>
+                            <span class="opt-phone" *ngIf="s.parentPhone">&bull; 📞 {{ s.parentPhone }}</span>
+                          </div>
+                          <div class="opt-right-badges">
+                            <span class="badge-school" *ngIf="s.isSchoolStudent">
+                              <mat-icon>school</mat-icon> {{ s.className || 'Class' }}{{ s.sectionName ? ' (' + s.sectionName + ')' : '' }}
+                            </span>
+                            <span class="badge-coaching" *ngIf="s.isCoachingStudent">
+                              <mat-icon>menu_book</mat-icon> {{ s.batchName || 'Coaching' }}
+                            </span>
+                            <span class="badge-gender" *ngIf="s.gender">{{ s.gender }}</span>
+                            <span class="badge-allocated" *ngIf="s.isAlreadyAllocated">
+                              <mat-icon>block</mat-icon> Occupied ({{ s.currentBedInfo }})
+                            </span>
+                          </div>
+                        </div>
+                      </mat-option>
+                    </mat-optgroup>
+
+                    <mat-option *ngIf="!isSearchingStudents && studentGroups.length === 0" disabled>
+                      No students found for this search/filter.
                     </mat-option>
-                  </mat-optgroup>
+                  </mat-select>
+                </mat-form-field>
 
-                  <mat-option *ngIf="!isSearchingStudents && studentGroups.length === 0" disabled>
-                    No students found for this search/filter.
-                  </mat-option>
-                </mat-select>
-              </mat-form-field>
-
-              <!-- Selected Student Overview Summary Card -->
-              <div class="selected-student-card" *ngIf="selectedStudentDetails">
-                <div class="student-avatar-circle">
-                  <mat-icon>person</mat-icon>
-                </div>
-                <div class="student-meta-details">
-                  <div class="meta-row-top">
-                    <span class="student-fullname">{{ selectedStudentDetails.studentName }}</span>
-                    <span class="student-tag tag-school" *ngIf="selectedStudentDetails.isSchoolStudent">
-                      School: {{ selectedStudentDetails.className || 'Class' }}{{ selectedStudentDetails.sectionName ? ' - ' + selectedStudentDetails.sectionName : '' }}
-                    </span>
-                    <span class="student-tag tag-coaching" *ngIf="selectedStudentDetails.isCoachingStudent">
-                      Coaching: {{ selectedStudentDetails.batchName || 'Coaching Batch' }}
-                    </span>
-                    <span class="student-tag tag-gender" *ngIf="selectedStudentDetails.gender">{{ selectedStudentDetails.gender }}</span>
+                <!-- Selected Student Overview Summary Card -->
+                <div class="selected-student-card" *ngIf="selectedStudentDetails">
+                  <div class="student-avatar-circle">
+                    <mat-icon>person</mat-icon>
                   </div>
-                  <div class="meta-row-bottom">
-                    <span *ngIf="selectedStudentDetails.rollNumber"><strong>Roll No:</strong> {{ selectedStudentDetails.rollNumber }}</span>
-                    <span *ngIf="selectedStudentDetails.parentName"><strong>Parent:</strong> {{ selectedStudentDetails.parentName }}</span>
-                    <span *ngIf="selectedStudentDetails.parentPhone"><strong>WhatsApp/Phone:</strong> {{ selectedStudentDetails.parentPhone }}</span>
+                  <div class="student-meta-details">
+                    <div class="meta-row-top">
+                      <span class="student-fullname">{{ selectedStudentDetails.studentName }}</span>
+                      <span class="student-tag tag-school" *ngIf="selectedStudentDetails.isSchoolStudent">
+                        School: {{ selectedStudentDetails.className || 'Class' }}{{ selectedStudentDetails.sectionName ? ' - ' + selectedStudentDetails.sectionName : '' }}
+                      </span>
+                      <span class="student-tag tag-coaching" *ngIf="selectedStudentDetails.isCoachingStudent">
+                        Coaching: {{ selectedStudentDetails.batchName || 'Coaching Batch' }}
+                      </span>
+                      <span class="student-tag tag-gender" *ngIf="selectedStudentDetails.gender">{{ selectedStudentDetails.gender }}</span>
+                    </div>
+                    <div class="meta-row-bottom">
+                      <span *ngIf="selectedStudentDetails.rollNumber"><strong>Roll No:</strong> {{ selectedStudentDetails.rollNumber }}</span>
+                      <span *ngIf="selectedStudentDetails.parentName"><strong>Parent:</strong> {{ selectedStudentDetails.parentName }}</span>
+                      <span *ngIf="selectedStudentDetails.parentPhone"><strong>WhatsApp/Phone:</strong> {{ selectedStudentDetails.parentPhone }}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
+              </ng-container>
+
+              <!-- ================= 2. FACULTY / TEACHER ALLOCATION FLOW ================= -->
+              <ng-container *ngIf="allocateMemberType === 'Teacher'">
+                <div class="teacher-allocate-box">
+                  <mat-form-field appearance="outline" class="full-width">
+                    <mat-label>Select Faculty / Staff Member</mat-label>
+                    <mat-select formControlName="teacherId" (selectionChange)="onTeacherSelected($event.value)" panelClass="student-search-dropdown-panel">
+                      <mat-option *ngFor="let t of teachersList" [value]="t.id">
+                        <div class="opt-teacher-layout">
+                          <span class="opt-teacher-name">{{ t.fullName }}</span>
+                          <span class="opt-teacher-code">Emp Code: {{ t.employeeCode }}</span>
+                          <span class="opt-teacher-spec" *ngIf="t.specialization">&bull; {{ t.specialization }}</span>
+                        </div>
+                      </mat-option>
+                      <mat-option *ngIf="teachersList.length === 0" disabled>
+                        {{ isLoadingTeachers ? 'Loading faculty list...' : 'No active teachers found.' }}
+                      </mat-option>
+                    </mat-select>
+                    <mat-hint>Choose faculty member to assign this staff quarter / bed</mat-hint>
+                  </mat-form-field>
+
+                  <!-- Selected Teacher Preview Card -->
+                  <div class="selected-teacher-card" *ngIf="selectedTeacherDetails">
+                    <div class="teacher-avatar-circle">
+                      <mat-icon>co_present</mat-icon>
+                    </div>
+                    <div class="teacher-meta-details">
+                      <div class="meta-row-top">
+                        <span class="teacher-fullname">{{ selectedTeacherDetails.fullName }}</span>
+                        <span class="teacher-badge-code">EMP: {{ selectedTeacherDetails.employeeCode }}</span>
+                        <span class="teacher-badge-spec" *ngIf="selectedTeacherDetails.specialization">{{ selectedTeacherDetails.specialization }}</span>
+                      </div>
+                      <div class="meta-row-bottom">
+                        <span *ngIf="selectedTeacherDetails.phoneNumber"><strong>📞 Phone:</strong> {{ selectedTeacherDetails.phoneNumber }}</span>
+                        <span *ngIf="selectedTeacherDetails.email"><strong>✉️ Email:</strong> {{ selectedTeacherDetails.email }}</span>
+                        <span *ngIf="selectedTeacherDetails.qualification"><strong>🎓 Qual:</strong> {{ selectedTeacherDetails.qualification }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </ng-container>
 
               <!-- Rent & Mess Plan in a clean, spacious 2-column row -->
               <div class="form-row-allocate">
@@ -1697,58 +1821,122 @@ const API_BASE = 'http://localhost:5000';
     }
 
     /* MATRIX TAB */
-    .matrix-filter-bar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 24px;
-      flex-wrap: wrap;
-      gap: 16px;
+    .matrix-filter-card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 14px 18px 10px 18px;
+      margin-bottom: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+      width: 100%;
+      box-sizing: border-box;
 
-      @media (max-width: 768px) {
-        flex-direction: column;
-        align-items: stretch;
-      }
-
-      .filter-group {
+      .matrix-filter-row {
         display: flex;
-        gap: 14px;
-        flex-wrap: wrap;
+        align-items: center;
+        gap: 16px;
+        width: 100%;
 
-        @media (max-width: 768px) {
-          width: 100%;
+        .hostel-filter-field {
+          flex: 2.2;
+          min-width: 260px;
+        }
+
+        .bed-status-filter-field {
+          flex: 1.2;
+          min-width: 190px;
+        }
+
+        .category-filter-field {
+          flex: 1.6;
+          min-width: 220px;
+        }
+
+        .reset-filter-btn {
+          height: 48px;
+          margin-bottom: 4px;
+          border-color: #cbd5e1;
+          color: #475569;
+          font-weight: 600;
+          white-space: nowrap;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          padding: 0 16px;
+          border-radius: 8px;
+          transition: all 0.2s;
+
+          &:hover {
+            background: #fee2e2;
+            color: #dc2626;
+            border-color: #fca5a5;
+          }
+        }
+
+        @media (max-width: 992px) {
+          flex-wrap: wrap;
+          .hostel-filter-field { flex: 1 1 100%; }
+          .bed-status-filter-field { flex: 1 1 45%; }
+          .category-filter-field { flex: 1 1 45%; }
+        }
+
+        @media (max-width: 600px) {
           flex-direction: column;
           align-items: stretch;
-
-          .dense-field, .hostel-filter-field, .bed-status-filter-field {
+          .hostel-filter-field, .bed-status-filter-field, .category-filter-field {
             width: 100% !important;
             min-width: 0 !important;
           }
         }
-
-        .dense-field { min-width: 220px; }
-        .hostel-filter-field { min-width: 440px; }
-        .bed-status-filter-field { min-width: 220px; }
       }
 
-      .legend-bar {
+      .matrix-meta-strip {
         display: flex;
-        gap: 16px;
-        font-size: 13px;
-        font-weight: 500;
+        justify-content: space-between;
+        align-items: center;
+        padding-top: 10px;
+        margin-top: 4px;
+        border-top: 1px solid #f1f5f9;
+        flex-wrap: wrap;
+        gap: 10px;
 
-        .legend-item {
+        .strip-left-counts {
           display: flex;
           align-items: center;
-          gap: 6px;
+          gap: 10px;
+          flex-wrap: wrap;
 
-          .dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            &.available { background: #10b981; }
-            &.occupied { background: #4f46e5; }
+          .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12.5px;
+            font-weight: 500;
+
+            .chip-icon { font-size: 15px; width: 15px; height: 15px; }
+
+            &.chip-total { background: #f8fafc; color: #334155; border: 1px solid #e2e8f0; }
+            &.chip-available { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+            &.chip-student { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+            &.chip-faculty { background: #faf5ff; color: #7e22ce; border: 1px solid #e9d5ff; }
+
+            .dot {
+              width: 8px;
+              height: 8px;
+              border-radius: 50%;
+              &.available { background: #10b981; }
+              &.occupied-student { background: #2563eb; }
+              &.occupied-faculty { background: #7c3aed; }
+            }
           }
+        }
+
+        .strip-right-hint {
+          font-size: 12.5px;
+          color: #64748b;
+          font-weight: 500;
         }
       }
     }
@@ -1809,7 +1997,7 @@ const API_BASE = 'http://localhost:5000';
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 10px;
+        margin-bottom: 8px;
 
         .room-badge {
           display: flex;
@@ -1859,15 +2047,23 @@ const API_BASE = 'http://localhost:5000';
           border-radius: 8px;
           padding: 10px 12px;
           border: 1px solid #e2e8f0;
+          transition: all 0.2s ease;
 
           &.available-bed {
             background: #f0fdf4;
             border-color: #bbf7d0;
           }
 
-          &.occupied-bed {
+          &.occupied-student-bed {
+            background: #f8fafc;
+            border-color: #cbd5e1;
+            border-left: 3.5px solid #3b82f6;
+          }
+
+          &.occupied-faculty-bed {
             background: #faf5ff;
-            border-color: #e9d5ff;
+            border-color: #d8b4fe;
+            border-left: 3.5px solid #7c3aed;
           }
 
           .bed-header {
@@ -1884,6 +2080,11 @@ const API_BASE = 'http://localhost:5000';
               font-size: 13px;
               color: #0f172a;
               mat-icon { font-size: 16px; width: 16px; height: 16px; }
+
+              &.faculty-code {
+                color: #6b21a8;
+                mat-icon { color: #7c3aed; }
+              }
             }
 
             .bed-status-pill {
@@ -1891,12 +2092,24 @@ const API_BASE = 'http://localhost:5000';
               font-weight: 700;
               padding: 2px 8px;
               border-radius: 12px;
-              background: #ede9fe;
-              color: #6b21a8;
+              display: inline-flex;
+              align-items: center;
 
               &.vacant {
                 background: #dcfce7;
                 color: #15803d;
+              }
+
+              &.student-pill {
+                background: #eff6ff;
+                color: #1d4ed8;
+                border: 1px solid #bfdbfe;
+              }
+
+              &.faculty-pill {
+                background: #faf5ff;
+                color: #7e22ce;
+                border: 1px solid #d8b4fe;
               }
             }
           }
@@ -3093,29 +3306,50 @@ const API_BASE = 'http://localhost:5000';
 
         .modal-header {
           display: flex;
-          justify-content: space-between;
           align-items: center;
-          padding: 18px 24px;
-          border-bottom: 1px solid #e2e8f0;
-          h3 { margin: 0; font-size: 18px; font-weight: 700; color: #0f172a; }
+          gap: 12px;
+          padding: 16px 20px;
+          background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+          border-bottom: 1px solid #bfdbfe;
+
+          .modal-header-icon-box {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            background: #2563eb;
+            color: #ffffff;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px -1px rgba(37,99,235,0.25);
+            flex-shrink: 0;
+            mat-icon { font-size: 22px; width: 22px; height: 22px; color: #ffffff; }
+          }
 
           .modal-title-wrap {
             display: flex;
             flex-direction: column;
             gap: 2px;
+            flex: 1;
 
             h3 {
               margin: 0;
-              font-size: 18px;
+              font-size: 17px;
               font-weight: 700;
-              color: #0f172a;
+              color: #1e3a8a;
             }
 
             .modal-sub {
               font-size: 12px;
-              color: #64748b;
+              color: #3b82f6;
               font-weight: 500;
+              strong { color: #1e40af; }
             }
+          }
+
+          button.mat-icon-button {
+            color: #64748b;
+            &:hover { color: #1e293b; background: rgba(0,0,0,0.05); }
           }
         }
 
@@ -3126,6 +3360,156 @@ const API_BASE = 'http://localhost:5000';
           gap: 12px;
           max-height: 75vh;
           overflow-y: auto;
+
+          .member-type-toggle-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            gap: 10px;
+            flex-wrap: wrap;
+
+            .mtt-label {
+              display: inline-flex;
+              align-items: center;
+              gap: 5px;
+              font-size: 12px;
+              font-weight: 700;
+              color: #475569;
+              text-transform: uppercase;
+              letter-spacing: 0.3px;
+              mat-icon { font-size: 16px; width: 16px; height: 16px; color: #2563eb; }
+            }
+
+            .mtt-pills {
+              display: flex;
+              gap: 8px;
+
+              .mtt-pill {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                padding: 6px 14px;
+                border-radius: 20px;
+                border: 1px solid #cbd5e1;
+                background: #ffffff;
+                color: #334155;
+                font-size: 12.5px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.2s ease;
+                mat-icon { font-size: 16px; width: 16px; height: 16px; }
+
+                &:hover {
+                  background: #f1f5f9;
+                  border-color: #94a3b8;
+                }
+
+                &.active {
+                  background: #2563eb;
+                  color: #ffffff;
+                  border-color: #2563eb;
+                  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3);
+                }
+
+                &.pill-faculty.active {
+                  background: #7c3aed;
+                  color: #ffffff;
+                  border-color: #7c3aed;
+                  box-shadow: 0 2px 6px rgba(124, 58, 237, 0.3);
+                }
+              }
+            }
+          }
+
+          .teacher-allocate-box {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+
+            .opt-teacher-layout {
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              font-size: 13.5px;
+              .opt-teacher-name { font-weight: 700; color: #0f172a; }
+              .opt-teacher-code { color: #7c3aed; font-weight: 600; font-size: 12px; }
+              .opt-teacher-spec { color: #64748b; font-size: 12px; }
+            }
+          }
+
+          .selected-teacher-card {
+            background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%);
+            border: 1px solid #d8b4fe;
+            border-radius: 10px;
+            padding: 12px 14px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+
+            .teacher-avatar-circle {
+              width: 44px;
+              height: 44px;
+              border-radius: 50%;
+              background: #7c3aed;
+              color: white;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              flex-shrink: 0;
+              mat-icon { font-size: 22px; width: 22px; height: 22px; }
+            }
+
+            .teacher-meta-details {
+              display: flex;
+              flex-direction: column;
+              gap: 3px;
+              flex: 1;
+
+              .meta-row-top {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                flex-wrap: wrap;
+
+                .teacher-fullname {
+                  font-size: 14px;
+                  font-weight: 700;
+                  color: #0f172a;
+                }
+
+                .teacher-badge-code {
+                  font-size: 11px;
+                  font-weight: 700;
+                  padding: 1px 7px;
+                  border-radius: 4px;
+                  background: #7c3aed;
+                  color: white;
+                }
+
+                .teacher-badge-spec {
+                  font-size: 11px;
+                  font-weight: 600;
+                  padding: 1px 7px;
+                  border-radius: 4px;
+                  background: #ede9fe;
+                  color: #6b21a8;
+                }
+              }
+
+              .meta-row-bottom {
+                display: flex;
+                align-items: center;
+                gap: 14px;
+                font-size: 12px;
+                color: #475569;
+                flex-wrap: wrap;
+              }
+            }
+          }
 
           .full-width { width: 100%; }
           .form-row-2 {
@@ -3446,6 +3830,7 @@ export class HostelManagementComponent implements OnInit {
   // Matrix filters
   selectedHostelFilter = '';
   selectedBedStatusFilter = 'all';
+  selectedResidentCategoryFilter: 'all' | 'Student' | 'Teacher' = 'all';
 
   // Residents search
   residentSearch = '';
@@ -3482,6 +3867,12 @@ export class HostelManagementComponent implements OnInit {
   allocatingRoom: any = null;
   allocatingBed: any = null;
 
+  // Allocate Resident Category
+  allocateMemberType: 'Student' | 'Teacher' = 'Student';
+  teachersList: any[] = [];
+  selectedTeacherDetails: any = null;
+  isLoadingTeachers = false;
+
   // Forms
   hostelForm: FormGroup;
   roomForm: FormGroup;
@@ -3517,7 +3908,9 @@ export class HostelManagementComponent implements OnInit {
     });
 
     this.allocateForm = this.fb.group({
+      memberType: ['Student', Validators.required],
       studentId: ['', Validators.required],
+      teacherId: [''],
       monthlyRent: [8500, Validators.required],
       messPlan: ['Full Board', Validators.required],
       remarks: ['']
@@ -3653,16 +4046,83 @@ export class HostelManagementComponent implements OnInit {
   }
 
   applyMatrixFilter(): void {
-    if (this.selectedBedStatusFilter === 'all') {
-      this.filteredMatrixRooms = this.matrixRooms;
-    } else {
-      this.filteredMatrixRooms = this.matrixRooms
-        .map((r) => ({
-          ...r,
-          beds: r.beds.filter((b: any) => b.status === this.selectedBedStatusFilter)
-        }))
-        .filter((r) => r.beds.length > 0);
+    this.filteredMatrixRooms = this.matrixRooms
+      .map((r) => ({
+        ...r,
+        beds: r.beds.filter((b: any) => {
+          // Status filter
+          if (this.selectedBedStatusFilter !== 'all' && b.status !== this.selectedBedStatusFilter) {
+            return false;
+          }
+          // Resident Category filter
+          if (this.selectedResidentCategoryFilter === 'Student') {
+            if (b.status === 'Occupied' && (b.memberType === 'Teacher' || b.teacherId)) {
+              return false;
+            }
+          } else if (this.selectedResidentCategoryFilter === 'Teacher') {
+            if (b.status !== 'Occupied' || (b.memberType !== 'Teacher' && !b.teacherId)) {
+              return false;
+            }
+          }
+          return true;
+        })
+      }))
+      .filter((r) => r.beds.length > 0);
+  }
+
+  get isMatrixFilterActive(): boolean {
+    return !!this.selectedHostelFilter || this.selectedBedStatusFilter !== 'all' || this.selectedResidentCategoryFilter !== 'all';
+  }
+
+  getActiveFilterSummary(): string {
+    const parts: string[] = [];
+    if (this.selectedHostelFilter) {
+      const h = this.hostels.find((x) => x.id === this.selectedHostelFilter);
+      if (h) parts.push(`Block: ${h.name}`);
     }
+    if (this.selectedBedStatusFilter !== 'all') {
+      parts.push(`Status: ${this.selectedBedStatusFilter}`);
+    }
+    if (this.selectedResidentCategoryFilter !== 'all') {
+      parts.push(`Category: ${this.selectedResidentCategoryFilter === 'Teacher' ? 'Faculty / Staff Quarters' : 'Students'}`);
+    }
+    return parts.length > 0 ? parts.join(' • ') : 'All Beds';
+  }
+
+  resetMatrixFilters(): void {
+    this.selectedHostelFilter = '';
+    this.selectedBedStatusFilter = 'all';
+    this.selectedResidentCategoryFilter = 'all';
+    this.loadBedMatrix();
+  }
+
+  get matrixTotalBeds(): number {
+    return this.matrixRooms.reduce((sum, r) => sum + (r.beds?.length || 0), 0);
+  }
+
+  get matrixAvailableBeds(): number {
+    return this.matrixRooms.reduce(
+      (sum, r) => sum + (r.beds?.filter((b: any) => b.status === 'Available').length || 0),
+      0
+    );
+  }
+
+  get matrixStudentBeds(): number {
+    return this.matrixRooms.reduce(
+      (sum, r) =>
+        sum +
+        (r.beds?.filter((b: any) => b.status === 'Occupied' && b.memberType !== 'Teacher').length || 0),
+      0
+    );
+  }
+
+  get matrixFacultyBeds(): number {
+    return this.matrixRooms.reduce(
+      (sum, r) =>
+        sum +
+        (r.beds?.filter((b: any) => b.status === 'Occupied' && b.memberType === 'Teacher').length || 0),
+      0
+    );
   }
 
   loadAllocations(): void {
@@ -3980,23 +4440,64 @@ export class HostelManagementComponent implements OnInit {
   openQuickAllocateModal(room: any, bed: any): void {
     this.allocatingRoom = room;
     this.allocatingBed = bed;
+    this.allocateMemberType = 'Student';
     this.studentSearchQuery = '';
     this.studentFilterType = 'all';
     this.selectedStudentDetails = null;
+    this.selectedTeacherDetails = null;
     this.allocateForm.reset({
+      memberType: 'Student',
       studentId: '',
+      teacherId: '',
       monthlyRent: bed.monthlyRent || room.monthlyRent,
       messPlan: 'Full Board',
       remarks: ''
     });
+    this.setAllocateMemberType('Student');
     this.showAllocateModal = true;
     this.fetchStudentsForAllocation('');
+    this.loadTeachersForAllocation();
   }
 
   closeAllocateModal(): void {
     this.showAllocateModal = false;
     this.selectedStudentDetails = null;
+    this.selectedTeacherDetails = null;
     this.studentSearchQuery = '';
+  }
+
+  loadTeachersForAllocation(): void {
+    if (this.teachersList.length > 0) return;
+    this.isLoadingTeachers = true;
+    this.hostelService.getTeachers().subscribe({
+      next: (res) => {
+        this.isLoadingTeachers = false;
+        this.teachersList = res || [];
+      },
+      error: (err) => {
+        this.isLoadingTeachers = false;
+        console.error('Failed to load teachers for hostel allocation', err);
+      }
+    });
+  }
+
+  setAllocateMemberType(type: 'Student' | 'Teacher'): void {
+    this.allocateMemberType = type;
+    this.allocateForm.patchValue({ memberType: type });
+    if (type === 'Student') {
+      this.allocateForm.get('studentId')?.setValidators([Validators.required]);
+      this.allocateForm.get('teacherId')?.clearValidators();
+    } else {
+      this.allocateForm.get('teacherId')?.setValidators([Validators.required]);
+      this.allocateForm.get('studentId')?.clearValidators();
+      this.loadTeachersForAllocation();
+    }
+    this.allocateForm.get('studentId')?.updateValueAndValidity();
+    this.allocateForm.get('teacherId')?.updateValueAndValidity();
+  }
+
+  onTeacherSelected(teacherId: string): void {
+    this.selectedTeacherDetails = this.teachersList.find((t) => t.id === teacherId) || null;
   }
 
   onStudentSearchChanged(query: string): void {
@@ -4058,9 +4559,12 @@ export class HostelManagementComponent implements OnInit {
   submitAllocateBed(): void {
     if (this.allocateForm.invalid || !this.allocatingBed) return;
     this.loading = true;
+    const isTeacher = this.allocateMemberType === 'Teacher';
     this.hostelService
       .allocateBed({
-        studentId: this.allocateForm.value.studentId,
+        memberType: isTeacher ? 'Teacher' : 'Student',
+        studentId: isTeacher ? undefined : this.allocateForm.value.studentId,
+        teacherId: isTeacher ? this.allocateForm.value.teacherId : undefined,
         bedId: this.allocatingBed.bedId,
         monthlyRent: this.allocateForm.value.monthlyRent,
         isMessIncluded: this.allocateForm.value.messPlan !== 'None',
@@ -4071,7 +4575,10 @@ export class HostelManagementComponent implements OnInit {
         next: () => {
           this.showAllocateModal = false;
           this.loadAllData();
-          this.showSuccessDialog('Bed Allocated', 'Student bed allocated successfully.');
+          const msg = isTeacher
+            ? `Bed ${this.allocatingBed.bedCode} allocated to staff quarter successfully.`
+            : 'Student bed allocated successfully.';
+          this.showSuccessDialog('Bed Allocated', msg);
         },
         error: (err) => {
           this.loading = false;
@@ -4086,9 +4593,11 @@ export class HostelManagementComponent implements OnInit {
       this.showErrorDialog('Not Found', 'Active allocation record not found for this bed.');
       return;
     }
+    const residentName = bed.studentName || bed.teacherName || activeAlloc.studentName || activeAlloc.teacherName || 'Resident';
+    const isFaculty = bed.memberType === 'Teacher' || activeAlloc.memberType === 'Teacher';
     this.showConfirmDialog(
-      'Vacate Resident Bed',
-      `Are you sure you want to vacate Bed ${bed.bedCode} for ${bed.studentName}?`,
+      isFaculty ? 'Vacate Staff Quarter' : 'Vacate Resident Bed',
+      `Are you sure you want to vacate Bed ${bed.bedCode} for ${residentName}?`,
       'Vacate Bed',
       'danger'
     ).subscribe((confirmed) => {
