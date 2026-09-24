@@ -389,6 +389,30 @@ public record BatchAttendanceStudentRowDto(
     string? CaptureSource = null
 );
 
+public record BulkSchoolAttendanceDto(
+    Guid ClassId,
+    Guid? SectionId,
+    DateTime AttendanceDate,
+    bool SendWhatsAppAlerts,
+    List<BatchStudentAttendanceItemDto> Items
+);
+
+public record SchoolAttendanceStudentRowDto(
+    Guid StudentId,
+    string StudentName,
+    string? SchoolRollNumber,
+    string? AdmissionNumber,
+    string? ClassName,
+    string? SectionName,
+    string? ProfilePhoto,
+    string? ParentWhatsAppPhone,
+    string Status,
+    string? Remarks,
+    Guid? AttendanceId,
+    DateTime? CapturedAt = null,
+    string? CaptureSource = null
+);
+
 public record AttendanceReportRowDto(
     Guid PersonId,
     string PersonName,
@@ -1129,7 +1153,17 @@ public record BiometricEventLogDto(
     Guid? AttendanceId, DateTime ReceivedAt
 );
 
-public record BiometricMappingPersonDto(Guid Id, string PersonType, string Name, string Code, string? BiometricUserId, string? BatchName);
+public record BiometricMappingPersonDto(
+    Guid Id,
+    string PersonType,
+    string Name,
+    string Code,
+    string? BiometricUserId,
+    string? BatchName,
+    string? ClassName = null,
+    string? SectionName = null,
+    string? Stream = null
+);
 
 public record BulkAttendanceEntryItem(
     Guid TeacherId,

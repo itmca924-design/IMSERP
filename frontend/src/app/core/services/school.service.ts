@@ -376,6 +376,30 @@ export interface SendAnnualResultWhatsAppDto {
   rank?: number;
 }
 
+export interface SchoolAttendanceStudentRowDto {
+  studentId: string;
+  studentName: string;
+  schoolRollNumber?: string | null;
+  admissionNumber?: string | null;
+  className?: string | null;
+  sectionName?: string | null;
+  profilePhoto?: string | null;
+  parentWhatsAppPhone?: string | null;
+  status: string;
+  remarks?: string | null;
+  attendanceId?: string | null;
+  capturedAt?: string | null;
+  captureSource?: string | null;
+}
+
+export interface BulkSchoolAttendanceDto {
+  classId: string;
+  sectionId?: string | null;
+  attendanceDate: string;
+  sendWhatsAppAlerts: boolean;
+  items: Array<{ studentId: string; status: string; remarks?: string | null }>;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -568,5 +592,16 @@ export class SchoolService {
 
   deleteSchoolExam(examId: string): Observable<{ message: string }> {
     return this.http.delete<{ message: string }>(`${this.apiUrl}/exams/${examId}`);
+  }
+
+  getSchoolAttendance(classId: string, sectionId?: string, date?: string): Observable<SchoolAttendanceStudentRowDto[]> {
+    const params: any = { classId };
+    if (sectionId) params.sectionId = sectionId;
+    if (date) params.date = date;
+    return this.http.get<SchoolAttendanceStudentRowDto[]>(`${API_BASE}/students/school/attendance`, { params });
+  }
+
+  saveBulkSchoolAttendance(payload: BulkSchoolAttendanceDto): Observable<any> {
+    return this.http.post<any>(`${API_BASE}/students/school/attendance/bulk`, payload);
   }
 }

@@ -270,7 +270,12 @@ public class StudentsController : ControllerBase
 
     [HttpGet("attendance/report")]
     public async Task<ActionResult<AttendanceReportDto>> GetAttendanceReport(
-        [FromQuery] int month = 0, [FromQuery] int year = 0, [FromQuery] Guid? batchId = null)
+        [FromQuery] int month = 0,
+        [FromQuery] int year = 0,
+        [FromQuery] Guid? batchId = null,
+        [FromQuery] Guid? classId = null,
+        [FromQuery] Guid? sectionId = null,
+        [FromQuery] string? stream = null)
     {
         if (month == 0) month = DateTime.UtcNow.Month;
         if (year == 0) year = DateTime.UtcNow.Year;
@@ -291,8 +296,29 @@ public class StudentsController : ControllerBase
             for (var date = start; date <= end; date = date.AddDays(1)) offDates.Add(date.Date);
         }
 
-        var studentsQuery = _dbContext.Students.AsNoTracking().Include(student => student.Batch).Where(student => student.IsActive);
-        if (batchId.HasValue && batchId.Value != Guid.Empty) studentsQuery = studentsQuery.Where(student => student.BatchId == batchId.Value);
+        var studentsQuery = _dbContext.Students.AsNoTracking()
+            .Include(student => student.Batch)
+            .Include(student => student.Class)
+            .Include(student => student.Section)
+            .Where(student => student.IsActive);
+
+        if (!string.IsNullOrWhiteSpace(stream))
+        {
+            if (stream.Equals("school", StringComparison.OrdinalIgnoreCase))
+                studentsQuery = studentsQuery.Where(student => student.IsSchoolStudent);
+            else if (stream.Equals("coaching", StringComparison.OrdinalIgnoreCase))
+                studentsQuery = studentsQuery.Where(student => student.IsCoachingStudent);
+        }
+
+        if (batchId.HasValue && batchId.Value != Guid.Empty)
+            studentsQuery = studentsQuery.Where(student => student.BatchId == batchId.Value);
+
+        if (classId.HasValue && classId.Value != Guid.Empty)
+            studentsQuery = studentsQuery.Where(student => student.ClassId == classId.Value);
+
+        if (sectionId.HasValue && sectionId.Value != Guid.Empty)
+            studentsQuery = studentsQuery.Where(student => student.SectionId == sectionId.Value);
+
         var students = await studentsQuery.OrderBy(student => student.StudentName).ToListAsync();
         var studentIds = students.Select(student => student.Id).ToList();
         var records = await _dbContext.StudentAttendances.AsNoTracking()
@@ -307,7 +333,17 @@ public class StudentsController : ControllerBase
             var late = personRecords.Count(record => record.Status == TeacherAttendanceStatus.Late);
             var half = personRecords.Count(record => record.Status == TeacherAttendanceStatus.HalfDay);
             var evaluated = present + absent + late + half;
-            return new AttendanceReportRowDto(student.Id, student.StudentName, student.RollNumber, student.Batch?.Name ?? "", present, absent, late, half, offDates.Count, Math.Max(0, DateTime.DaysInMonth(year, month) - offDates.Count), evaluated == 0 ? 0 : Math.Round(((present + late + half * 0.5m) / evaluated) * 100, 1));
+
+            string roll = !string.IsNullOrWhiteSpace(student.SchoolRollNumber)
+                ? student.SchoolRollNumber
+                : (!string.IsNullOrWhiteSpace(student.RollNumber) ? student.RollNumber : student.AdmissionNumber ?? "");
+
+            string group = student.Batch?.Name
+                ?? (student.Class != null
+                    ? $"{student.Class.Name}{(student.Section != null ? " - " + student.Section.Name : "")}"
+                    : "");
+
+            return new AttendanceReportRowDto(student.Id, student.StudentName, roll, group, present, absent, late, half, offDates.Count, Math.Max(0, DateTime.DaysInMonth(year, month) - offDates.Count), evaluated == 0 ? 0 : Math.Round(((present + late + half * 0.5m) / evaluated) * 100, 1));
         }).ToList();
 
         return Ok(new AttendanceReportDto("Student", month, year, rows.Count, rows.Sum(row => row.PresentDays), rows.Sum(row => row.AbsentDays), rows.Sum(row => row.LateDays), rows.Sum(row => row.HalfDays), rows.Sum(row => row.HolidayDays), rows));
@@ -547,6 +583,149 @@ public class StudentsController : ControllerBase
         return Ok(new
         {
             message = $"Batch attendance saved successfully for {dto.Items.Count} students.",
+            totalCount = dto.Items.Count,
+            presentCount,
+            absentCount,
+            lateCount,
+            halfDayCount
+        });
+    }
+
+    [HttpGet("school/attendance")]
+    public async Task<ActionResult<IEnumerable<SchoolAttendanceStudentRowDto>>> GetSchoolAttendance(
+        [FromQuery] Guid classId, [FromQuery] Guid? sectionId = null, [FromQuery] DateTime? date = null)
+    {
+        var targetDate = (date ?? DateTime.UtcNow).Date;
+        var tenantId = _currentUser.TenantId;
+
+        var query = _dbContext.Students
+            .AsNoTracking()
+            .Include(s => s.Class)
+            .Include(s => s.Section)
+            .Where(s => s.TenantId == tenantId && s.ClassId == classId && s.IsActive && s.IsSchoolStudent);
+
+        if (sectionId.HasValue && sectionId != Guid.Empty)
+        {
+            query = query.Where(s => s.SectionId == sectionId.Value);
+        }
+
+        var students = await query
+            .OrderBy(s => s.SchoolRollNumber)
+            .ThenBy(s => s.StudentName)
+            .ToListAsync();
+
+        var studentIds = students.Select(s => s.Id).ToList();
+
+        var existingRecords = await _dbContext.StudentAttendances
+            .AsNoTracking()
+            .Where(a => a.TenantId == tenantId && studentIds.Contains(a.StudentId) && a.AttendanceDate == targetDate)
+            .ToDictionaryAsync(a => a.StudentId);
+
+        var result = students.Select(s =>
+        {
+            existingRecords.TryGetValue(s.Id, out var att);
+            DateTime? captured = att?.CapturedAt ?? att?.CreatedAt;
+            DateTime? capturedUtc = captured.HasValue ? DateTime.SpecifyKind(captured.Value, DateTimeKind.Utc) : null;
+            return new SchoolAttendanceStudentRowDto(
+                s.Id,
+                s.StudentName,
+                s.SchoolRollNumber,
+                s.AdmissionNumber,
+                s.Class != null ? s.Class.Name : null,
+                s.Section != null ? s.Section.Name : null,
+                s.ProfilePhoto,
+                s.ParentWhatsAppPhone,
+                att != null ? att.Status.ToString() : "Present",
+                att?.Remarks,
+                att?.Id,
+                capturedUtc,
+                att?.CaptureSource
+            );
+        }).ToList();
+
+        return Ok(result);
+    }
+
+    [HttpPost("school/attendance/bulk")]
+    public async Task<IActionResult> SaveBulkSchoolAttendance([FromBody] BulkSchoolAttendanceDto dto)
+    {
+        if (!await HasAttendancePermissionAsync("/attendance/permissions/manual", false))
+            return Forbid();
+
+        if (!await IsManualAttendanceAllowedAsync())
+            return Conflict(new { message = "Manual student attendance is disabled. Current mode is Biometric." });
+
+        var date = dto.AttendanceDate.Date;
+        if (date > DateTime.UtcNow.Date)
+            return BadRequest(new { message = "Cannot mark attendance for future dates." });
+
+        if (date < DateTime.UtcNow.Date && !await HasAttendancePermissionAsync("/attendance/permissions/correction", true))
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "Marking or modifying past attendance requires Admin Attendance Correction permission." });
+
+        if (!await CanEditPublicHolidayOrSundayAsync() && await IsPublicHolidayOrSundayAsync(date))
+            return Forbid();
+
+        var tenantId = _currentUser.TenantId;
+        var schoolClass = await _dbContext.SchoolClasses.Include(c => c.Branch).FirstOrDefaultAsync(c => c.Id == dto.ClassId && c.TenantId == tenantId);
+        if (schoolClass == null) return NotFound(new { message = "School class not found." });
+
+        var studentIds = dto.Items.Select(i => i.StudentId).ToList();
+        var students = await _dbContext.Students
+            .Where(s => s.TenantId == tenantId && studentIds.Contains(s.Id))
+            .ToDictionaryAsync(s => s.Id);
+
+        var existingRecords = await _dbContext.StudentAttendances
+            .Where(a => a.TenantId == tenantId && studentIds.Contains(a.StudentId) && a.AttendanceDate == date)
+            .ToDictionaryAsync(a => a.StudentId);
+
+        int presentCount = 0;
+        int absentCount = 0;
+        int lateCount = 0;
+        int halfDayCount = 0;
+
+        foreach (var item in dto.Items)
+        {
+            if (!students.TryGetValue(item.StudentId, out var student)) continue;
+            if (!TryParseAttendanceStatus(item.Status, out var status)) continue;
+
+            if (status == TeacherAttendanceStatus.Present) presentCount++;
+            else if (status == TeacherAttendanceStatus.Absent) absentCount++;
+            else if (status == TeacherAttendanceStatus.Late) lateCount++;
+            else if (status == TeacherAttendanceStatus.HalfDay) halfDayCount++;
+
+            if (existingRecords.TryGetValue(item.StudentId, out var existing))
+            {
+                existing.Status = status;
+                existing.Remarks = item.Remarks;
+                existing.MarkedBy = _currentUser.UserId.ToString();
+                existing.BranchId = student.BranchId ?? schoolClass.BranchId ?? _currentUser.BranchId;
+                existing.CaptureSource = "ManualSchoolBulk";
+                existing.CapturedAt = DateTime.UtcNow;
+            }
+            else
+            {
+                var newRecord = new StudentAttendance
+                {
+                    TenantId = tenantId,
+                    BranchId = student.BranchId ?? schoolClass.BranchId ?? _currentUser.BranchId,
+                    StudentId = student.Id,
+                    AttendanceDate = date,
+                    Status = status,
+                    Remarks = item.Remarks,
+                    MarkedBy = _currentUser.UserId.ToString(),
+                    CaptureSource = "ManualSchoolBulk",
+                    CapturedAt = DateTime.UtcNow,
+                    CreatedAt = DateTime.UtcNow
+                };
+                _dbContext.StudentAttendances.Add(newRecord);
+            }
+        }
+
+        await _dbContext.SaveChangesAsync();
+
+        return Ok(new
+        {
+            message = $"School attendance saved successfully for {dto.Items.Count} students.",
             totalCount = dto.Items.Count,
             presentCount,
             absentCount,

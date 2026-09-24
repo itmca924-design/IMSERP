@@ -11,6 +11,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { API_BASE } from '../teachers/teacher.models';
 import { AuthService } from '../../core/services/auth.service';
+import { SchoolService, SchoolClassDto, SchoolSectionDto } from '../../core/services/school.service';
 
 interface ReportRow {
   personId: string;
@@ -123,8 +124,36 @@ interface DailyDayItem {
         </select>
       </div>
 
-      <!-- Batch Filter (Students only) -->
+      <!-- Category / Stream Filter (Students only) -->
       <div class="filter-select-wrap" *ngIf="reportType === 'student'">
+        <label>Category:</label>
+        <select [(ngModel)]="studentFilterMode" (change)="onFilterModeChanged()">
+          <option value="all">All Students</option>
+          <option value="school">🏫 School Classes</option>
+          <option value="coaching">📚 Coaching Batches</option>
+        </select>
+      </div>
+
+      <!-- School Class Filter -->
+      <div class="filter-select-wrap" *ngIf="reportType === 'student' && studentFilterMode === 'school'">
+        <label>Class:</label>
+        <select [(ngModel)]="selectedClassId" (change)="onClassFilterChanged()">
+          <option value="">All Classes</option>
+          <option *ngFor="let c of schoolClasses" [value]="c.id">{{ c.name }}</option>
+        </select>
+      </div>
+
+      <!-- School Section Filter -->
+      <div class="filter-select-wrap" *ngIf="reportType === 'student' && studentFilterMode === 'school' && selectedClassId">
+        <label>Section:</label>
+        <select [(ngModel)]="selectedSectionId" (change)="loadReport()">
+          <option value="">All Sections</option>
+          <option *ngFor="let s of classSections" [value]="s.id">Section {{ s.name }}</option>
+        </select>
+      </div>
+
+      <!-- Batch Filter (Coaching only) -->
+      <div class="filter-select-wrap" *ngIf="reportType === 'student' && studentFilterMode === 'coaching'">
         <label>Batch:</label>
         <select [(ngModel)]="selectedBatchId" (change)="loadReport()">
           <option value="">All Batches</option>
@@ -150,7 +179,7 @@ interface DailyDayItem {
       <div>
         <h2>{{ instituteName }}</h2>
         <div class="print-report-title">{{ reportType === 'student' ? 'Student Attendance Report' : 'Faculty Attendance Report' }}</div>
-        <span *ngIf="reportType === 'student'" class="print-batch-sub">Batch: {{ getSelectedBatchName() }}</span>
+        <span *ngIf="reportType === 'student'" class="print-batch-sub">{{ getSelectedFilterSubTitle() }}</span>
       </div>
     </div>
     <div class="print-period-badge">{{ months[selectedMonth - 1] }} {{ selectedYear }}</div>
@@ -565,6 +594,11 @@ export class AttendanceReportsComponent implements OnInit {
   months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   years = [2024, 2025, 2026, 2027];
   batches: Array<{ id: string; name: string }> = [];
+  schoolClasses: SchoolClassDto[] = [];
+  studentFilterMode: 'all' | 'school' | 'coaching' = 'all';
+  selectedClassId = '';
+  selectedSectionId = '';
+  classSections: SchoolSectionDto[] = [];
   report: AttendanceReport | null = null;
   loading = false;
 
@@ -573,7 +607,11 @@ export class AttendanceReportsComponent implements OnInit {
   expandAll = false;
   dailyMatrixCache: { [personId: string]: DailyDayItem[] } = {};
 
-  constructor(private http: HttpClient, private authService: AuthService) {}
+  constructor(
+    private http: HttpClient,
+    private authService: AuthService,
+    private schoolService: SchoolService
+  ) {}
 
   logoFailed = false;
 
@@ -587,6 +625,7 @@ export class AttendanceReportsComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadBatches();
+    this.loadSchoolClasses();
     this.loadReport();
   }
 
@@ -597,9 +636,35 @@ export class AttendanceReportsComponent implements OnInit {
     });
   }
 
+  loadSchoolClasses(): void {
+    this.schoolService.getClasses(true).subscribe({
+      next: classes => this.schoolClasses = classes || [],
+      error: () => this.schoolClasses = []
+    });
+  }
+
+  onFilterModeChanged(): void {
+    this.selectedClassId = '';
+    this.selectedSectionId = '';
+    this.classSections = [];
+    this.selectedBatchId = '';
+    this.loadReport();
+  }
+
+  onClassFilterChanged(): void {
+    const found = this.schoolClasses.find(c => c.id === this.selectedClassId);
+    this.classSections = found?.sections || [];
+    this.selectedSectionId = '';
+    this.loadReport();
+  }
+
   changeReportType(type: 'student' | 'teacher'): void {
     this.reportType = type;
-    if (type === 'teacher') this.selectedBatchId = '';
+    if (type === 'teacher') {
+      this.selectedBatchId = '';
+      this.selectedClassId = '';
+      this.selectedSectionId = '';
+    }
     this.searchQuery = '';
     this.expandedPersonIds.clear();
     this.expandAll = false;
@@ -621,8 +686,15 @@ export class AttendanceReportsComponent implements OnInit {
       month: this.selectedMonth,
       year: this.selectedYear
     };
-    if (this.reportType === 'student' && this.selectedBatchId) {
-      params['batchId'] = this.selectedBatchId;
+    if (this.reportType === 'student') {
+      if (this.studentFilterMode === 'school') {
+        params['stream'] = 'school';
+        if (this.selectedClassId) params['classId'] = this.selectedClassId;
+        if (this.selectedSectionId) params['sectionId'] = this.selectedSectionId;
+      } else if (this.studentFilterMode === 'coaching') {
+        params['stream'] = 'coaching';
+        if (this.selectedBatchId) params['batchId'] = this.selectedBatchId;
+      }
     }
 
     this.http.get<AttendanceReport>(endpoint, { params }).subscribe({
@@ -805,14 +877,28 @@ export class AttendanceReportsComponent implements OnInit {
     return found ? found.name : 'All Batches';
   }
 
+  getSelectedFilterSubTitle(): string {
+    if (this.studentFilterMode === 'school') {
+      const cls = this.schoolClasses.find(c => c.id === this.selectedClassId);
+      const sec = this.classSections.find(s => s.id === this.selectedSectionId);
+      if (cls && sec) return `School Class: ${cls.name} (Section ${sec.name})`;
+      if (cls) return `School Class: ${cls.name}`;
+      return 'All School Classes';
+    }
+    if (this.studentFilterMode === 'coaching') {
+      return `Coaching Batch: ${this.getSelectedBatchName()}`;
+    }
+    return 'All Students (School & Coaching)';
+  }
+
   exportCsv(): void {
     if (!this.report || this.filteredRows.length === 0) return;
     const typeLabel = this.reportType === 'student' ? 'Student' : 'Faculty';
     const codeLabel = this.reportType === 'student' ? 'Roll Number' : 'Code';
-    const groupLabel = this.reportType === 'student' ? 'Batch' : 'Department';
+    const groupLabel = this.reportType === 'student' ? 'Batch / Class' : 'Department';
 
     let csv = `"${typeLabel} Attendance Report - ${this.months[this.selectedMonth - 1]} ${this.selectedYear}"\n`;
-    if (this.reportType === 'student') csv += `"Batch: ${this.getSelectedBatchName()}"\n`;
+    if (this.reportType === 'student') csv += `"${this.getSelectedFilterSubTitle()}"\n`;
     csv += `\n"Name","${codeLabel}","${groupLabel}","Present Days","Absent Days","Late Days","Half Days","Off Days","Total Working Days","Attendance %"\n`;
 
     for (const r of this.filteredRows) {

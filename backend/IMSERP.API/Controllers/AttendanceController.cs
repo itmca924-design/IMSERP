@@ -55,9 +55,21 @@ public class AttendanceController : ControllerBase
     {
         if (!await HasPermissionAsync(MappingRoute, PermissionAction.Edit)) return Forbid();
         var students = await _db.Students.AsNoTracking().Where(s => s.IsActive)
-            .Select(s => new BiometricMappingPersonDto(s.Id, "Student", s.StudentName, s.RollNumber, s.BiometricUserId, s.Batch != null ? s.Batch.Name : null)).ToListAsync();
+            .Select(s => new BiometricMappingPersonDto(
+                s.Id,
+                "Student",
+                s.StudentName,
+                s.IsSchoolStudent && !string.IsNullOrEmpty(s.SchoolRollNumber)
+                    ? s.SchoolRollNumber
+                    : (!string.IsNullOrEmpty(s.CoachingRollNumber) ? s.CoachingRollNumber : s.RollNumber),
+                s.BiometricUserId,
+                s.Batch != null ? s.Batch.Name : null,
+                s.Class != null ? s.Class.Name : null,
+                s.Section != null ? s.Section.Name : null,
+                s.IsSchoolStudent && s.IsCoachingStudent ? "Both" : (s.IsSchoolStudent ? "School" : "Coaching")
+            )).ToListAsync();
         var teachers = await _db.Teachers.AsNoTracking().Where(t => t.IsActive)
-            .Select(t => new BiometricMappingPersonDto(t.Id, "Teacher", t.FullName, t.EmployeeCode, t.BiometricUserId, null)).ToListAsync();
+            .Select(t => new BiometricMappingPersonDto(t.Id, "Teacher", t.FullName, t.EmployeeCode, t.BiometricUserId, null, null, null, null)).ToListAsync();
         return Ok(students.Concat(teachers).OrderBy(x => x.Name));
     }
 
