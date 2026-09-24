@@ -333,12 +333,13 @@ export class TeacherQuickAssignDialogComponent implements OnInit {
   ) {}
 
   ngOnInit() {
+    const activeList = (this.data.teachers || []).filter(t => t.isActive);
     // If there's an exact specialization match, preselect or highlight
-    const match = this.data.teachers.find(t => this.isSubjectMatch(t));
+    const match = activeList.find(t => this.isSubjectMatch(t));
     if (match) {
       this.selectedTeacher = match;
-    } else if (this.data.teachers.length > 0) {
-      this.selectedTeacher = this.data.teachers[0];
+    } else if (activeList.length > 0) {
+      this.selectedTeacher = activeList[0];
     }
   }
 

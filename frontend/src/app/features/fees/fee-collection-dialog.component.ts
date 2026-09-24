@@ -59,14 +59,14 @@ export interface FeeCollectionItemRow {
   ],
   template: `
     <div class="dialog-header-wrap">
-      <div class="header-titles">
-        <mat-icon class="header-icon">payments</mat-icon>
-        <div>
-          <h2 mat-dialog-title class="dialog-header">Collect Fee &amp; Settle Dues</h2>
-          <p class="dialog-sub">Itemized Fee Heads Settlement &amp; Official Receipt Generation</p>
-        </div>
+      <div class="header-icon-box">
+        <mat-icon>payments</mat-icon>
       </div>
-      <button mat-icon-button type="button" class="close-x-btn" (click)="onCancel()" [disabled]="saving">
+      <div class="header-titles">
+        <h2 mat-dialog-title class="dialog-header">Collect Fee &amp; Settle Dues</h2>
+        <p class="dialog-sub">Itemized Fee Heads Settlement &amp; Official Receipt Generation</p>
+      </div>
+      <button mat-icon-button type="button" class="close-x-btn" (click)="onCancel()" [disabled]="saving" matTooltip="Close">
         <mat-icon>close</mat-icon>
       </button>
     </div>
@@ -258,16 +258,19 @@ export interface FeeCollectionItemRow {
 
           <div class="full-width whatsapp-toggle-box">
             <mat-checkbox formControlName="sendWhatsAppReceipt" color="primary">
-              <strong style="color: #0284c7;">📲 Send Instant WhatsApp Digital Payment Receipt to Parent</strong>
+              <span class="wa-toggle-label">
+                <mat-icon class="wa-icon">chat</mat-icon>
+                <strong>Send Instant WhatsApp Digital Payment Receipt to Parent</strong>
+              </span>
             </mat-checkbox>
           </div>
         </div>
       </mat-dialog-content>
 
       <mat-dialog-actions align="end" class="dialog-actions">
-        <button mat-button type="button" (click)="onCancel()" [disabled]="saving">Cancel</button>
-        <button mat-raised-button color="primary" type="submit" [disabled]="feeForm.invalid || saving || (feeForm.get('amountPaid')?.value || 0) <= 0">
-          <mat-spinner diameter="20" *ngIf="saving" class="spinner"></mat-spinner>
+        <button mat-stroked-button type="button" class="btn-cancel" (click)="onCancel()" [disabled]="saving">Cancel</button>
+        <button mat-raised-button color="primary" type="submit" class="btn-confirm" [disabled]="feeForm.invalid || saving || (feeForm.get('amountPaid')?.value || 0) <= 0">
+          <mat-spinner diameter="18" *ngIf="saving" class="spinner"></mat-spinner>
           <mat-icon *ngIf="!saving">receipt_long</mat-icon>
           <span>Confirm &amp; Issue Receipt</span>
         </button>
@@ -275,71 +278,96 @@ export interface FeeCollectionItemRow {
     </form>
   `,
   styles: [`
+    :host {
+      display: block;
+      width: 100%;
+      overflow: hidden;
+    }
+
     .dialog-header-wrap {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      padding: 16px 24px;
-      background: linear-gradient(135deg, #f0fdf4 0%, #e0f2fe 100%);
+      gap: 14px;
+      padding: 18px 24px 16px;
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
       border-bottom: 1px solid #bfdbfe;
 
-      .header-titles {
+      .header-icon-box {
+        width: 44px;
+        height: 44px;
+        border-radius: 10px;
+        background: #2563eb;
+        color: #ffffff;
         display: flex;
         align-items: center;
-        gap: 12px;
+        justify-content: center;
+        flex-shrink: 0;
+        box-shadow: 0 4px 6px -1px rgba(37,99,235,0.25);
+        mat-icon { font-size: 24px; width: 24px; height: 24px; }
+      }
 
-        .header-icon {
-          font-size: 28px;
-          width: 28px;
-          height: 28px;
-          color: #0284c7;
-        }
+      .header-titles {
+        flex: 1 1 auto;
+        min-width: 0;
 
         .dialog-header {
           margin: 0;
-          font-size: 1.2rem;
+          font-size: 1.18rem;
           font-weight: 700;
-          color: #0f172a;
+          color: #1e3a8a;
+          line-height: 1.3;
         }
 
         .dialog-sub {
-          margin: 2px 0 0;
-          font-size: 0.8rem;
-          color: #64748b;
+          margin: 3px 0 0;
+          font-size: 0.82rem;
+          color: #3b82f6;
+          font-weight: 500;
         }
       }
 
       .close-x-btn {
         color: #64748b;
+        transition: all 0.15s ease;
+        &:hover {
+          color: #1e293b;
+          background: rgba(0, 0, 0, 0.05);
+        }
       }
     }
 
     .dialog-content {
-      min-width: 580px;
-      max-width: 680px;
-      padding: 16px 24px;
-      max-height: 80vh;
+      width: 100%;
+      box-sizing: border-box;
+      padding: 18px 24px;
+      max-height: 75vh;
       overflow-y: auto;
+      overflow-x: hidden;
     }
 
     .student-info-box {
       background: #f8fafc;
       border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      padding: 12px 16px;
+      border-radius: 10px;
+      padding: 12px 18px;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 16px;
       margin-bottom: 16px;
 
       .info-details {
         display: flex;
         flex-direction: column;
+        gap: 3px;
+        min-width: 0;
+
         .st-name {
           font-weight: 700;
           font-size: 1.05rem;
           color: #0f172a;
         }
+
         .st-sub {
           font-size: 0.82rem;
           color: #64748b;
@@ -420,17 +448,27 @@ export interface FeeCollectionItemRow {
 
       .due-badge {
         text-align: right;
+        flex-shrink: 0;
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        border-radius: 8px;
+        padding: 6px 14px;
+
         .due-label {
           display: block;
-          font-size: 0.75rem;
-          color: #64748b;
+          font-size: 0.7rem;
+          color: #991b1b;
           text-transform: uppercase;
-          font-weight: 600;
+          font-weight: 700;
+          letter-spacing: 0.5px;
         }
+
         .due-amount {
+          display: block;
           font-size: 1.35rem;
           color: #dc2626;
           font-weight: 800;
+          line-height: 1.2;
         }
       }
     }
@@ -766,17 +804,63 @@ export interface FeeCollectionItemRow {
     }
 
     .whatsapp-toggle-box {
-      background: #f0f9ff;
-      border: 1px dashed #7dd3fc;
-      border-radius: 6px;
-      padding: 6px 12px;
+      background: #f0fdf4;
+      border: 1px dashed #86efac;
+      border-radius: 8px;
+      padding: 8px 14px;
       margin-top: 4px;
+
+      .wa-toggle-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: #15803d;
+        font-size: 0.85rem;
+
+        .wa-icon {
+          font-size: 18px;
+          width: 18px;
+          height: 18px;
+          color: #16a34a;
+        }
+      }
     }
 
     .dialog-actions {
-      padding: 12px 24px 16px;
-      border-top: 1px solid #e2e8f0;
-      gap: 8px;
+      padding: 14px 24px 16px;
+      border-top: 1px solid #bfdbfe;
+      background: #f8fafc;
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      margin: 0;
+
+      .btn-cancel {
+        color: #475569;
+        font-weight: 600;
+        border-color: #cbd5e1;
+        &:hover {
+          background: #f1f5f9;
+        }
+      }
+
+      .btn-confirm {
+        background: #2563eb !important;
+        color: #ffffff !important;
+        font-weight: 700;
+        height: 42px;
+        padding: 0 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px -1px rgba(37,99,235,0.25);
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        mat-icon { font-size: 19px; width: 19px; height: 19px; }
+        &:hover:not([disabled]) {
+          background: #1d4ed8 !important;
+          box-shadow: 0 6px 10px -1px rgba(37,99,235,0.35);
+        }
+      }
 
       .spinner {
         margin-right: 8px;

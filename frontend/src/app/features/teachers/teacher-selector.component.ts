@@ -71,7 +71,8 @@ export class TeacherSelectorComponent implements OnInit, OnChanges {
 
     this.http.get<any>(url).subscribe({
       next: r => {
-        this.teachers = r.items || [];
+        const raw = r.items || [];
+        this.teachers = this.activeOnly ? raw.filter((t: TeacherDto) => t.isActive) : raw;
         if (this.preSelectId) this.applyPreSelect();
       }
     });

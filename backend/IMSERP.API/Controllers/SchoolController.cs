@@ -62,7 +62,8 @@ public class SchoolController : ControllerBase
                     _db.Students.Count(st => st.SectionId == s.Id && st.IsActive),
                     s.ClassTeacherId,
                     s.ClassTeacher != null ? s.ClassTeacher.FullName : null,
-                    s.ClassTeacher != null ? s.ClassTeacher.EmployeeCode : null
+                    s.ClassTeacher != null ? s.ClassTeacher.EmployeeCode : null,
+                    s.ClassTeacher != null ? s.ClassTeacher.PhoneNumber : null
                 )).ToList()
             ))
             .ToListAsync();
@@ -108,7 +109,8 @@ public class SchoolController : ControllerBase
                 _db.Students.Count(st => st.SectionId == s.Id && st.IsActive),
                 s.ClassTeacherId,
                 s.ClassTeacher != null ? s.ClassTeacher.FullName : null,
-                s.ClassTeacher != null ? s.ClassTeacher.EmployeeCode : null
+                s.ClassTeacher != null ? s.ClassTeacher.EmployeeCode : null,
+                s.ClassTeacher != null ? s.ClassTeacher.PhoneNumber : null
             )).ToList()
         );
 
@@ -224,7 +226,8 @@ public class SchoolController : ControllerBase
                 _db.Students.Count(st => st.SectionId == s.Id && st.IsActive),
                 s.ClassTeacherId,
                 s.ClassTeacher != null ? s.ClassTeacher.FullName : null,
-                s.ClassTeacher != null ? s.ClassTeacher.EmployeeCode : null
+                s.ClassTeacher != null ? s.ClassTeacher.EmployeeCode : null,
+                s.ClassTeacher != null ? s.ClassTeacher.PhoneNumber : null
             ))
             .ToListAsync();
 
@@ -270,11 +273,13 @@ public class SchoolController : ControllerBase
 
         string? classTeacherName = null;
         string? classTeacherCode = null;
+        string? classTeacherPhone = null;
         if (section.ClassTeacherId.HasValue)
         {
             var teacher = await _db.Teachers.FindAsync(section.ClassTeacherId.Value);
             classTeacherName = teacher?.FullName;
             classTeacherCode = teacher?.EmployeeCode;
+            classTeacherPhone = teacher?.PhoneNumber;
         }
 
         return Ok(new SchoolSectionDto(
@@ -292,7 +297,8 @@ public class SchoolController : ControllerBase
             0,
             section.ClassTeacherId,
             classTeacherName,
-            classTeacherCode
+            classTeacherCode,
+            classTeacherPhone
         ));
     }
 
@@ -332,6 +338,361 @@ public class SchoolController : ControllerBase
         _db.SchoolSections.Remove(section);
         await _db.SaveChangesAsync();
         return NoContent();
+    }
+
+    [HttpGet("class-teachers-matrix")]
+    public async Task<ActionResult<IEnumerable<ClassTeacherMatrixItemDto>>> GetClassTeachersMatrix()
+    {
+        var classes = await _db.SchoolClasses
+            .Include(c => c.Sections)
+                .ThenInclude(s => s.ClassTeacher)
+            .OrderBy(c => c.DisplayOrder)
+            .ThenBy(c => c.Name)
+            .ToListAsync();
+
+        var studentCounts = await _db.Students
+            .Where(st => st.SectionId.HasValue && st.IsActive)
+            .GroupBy(st => st.SectionId!.Value)
+            .Select(g => new { SectionId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.SectionId, x => x.Count);
+
+        var sectionAssignments = await _db.TeacherBatchAssignments
+            .Where(a => a.SectionId.HasValue && a.IsActive)
+            .Select(a => new { a.SectionId, a.Subject })
+            .ToListAsync();
+
+        var subjectsBySection = sectionAssignments
+            .GroupBy(a => a.SectionId!.Value)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Select(x => x.Subject).Where(s => !string.IsNullOrWhiteSpace(s)).Distinct().ToList()
+            );
+
+        var periodCountsBySection = sectionAssignments
+            .GroupBy(a => a.SectionId!.Value)
+            .ToDictionary(g => g.Key, g => g.Count());
+
+        var matrix = new List<ClassTeacherMatrixItemDto>();
+        foreach (var c in classes)
+        {
+            foreach (var s in c.Sections.OrderBy(s => s.Name))
+            {
+                var studentCount = studentCounts.GetValueOrDefault(s.Id, 0);
+                var assignedSubjects = subjectsBySection.GetValueOrDefault(s.Id, new List<string>());
+                var periodsCount = periodCountsBySection.GetValueOrDefault(s.Id, 0);
+
+                matrix.Add(new ClassTeacherMatrixItemDto(
+                    s.Id,
+                    s.Name,
+                    c.Id,
+                    c.Name,
+                    s.MaxCapacity,
+                    studentCount,
+                    s.ClassTeacherId,
+                    s.ClassTeacher?.FullName,
+                    s.ClassTeacher?.EmployeeCode,
+                    s.ClassTeacher?.PhoneNumber,
+                    s.IsActive,
+                    assignedSubjects,
+                    periodsCount
+                ));
+            }
+        }
+        return Ok(matrix);
+    }
+
+    [HttpGet("sections/{sectionId}/routine")]
+    public async Task<ActionResult<IEnumerable<SectionPeriodRoutineDto>>> GetSectionRoutine(Guid sectionId)
+    {
+        var section = await _db.SchoolSections
+            .Include(s => s.Class)
+            .FirstOrDefaultAsync(s => s.Id == sectionId);
+        if (section == null) return NotFound(new { message = "Section not found." });
+
+        var assignments = await _db.TeacherBatchAssignments
+            .Include(a => a.Teacher)
+            .Where(a => a.SectionId == sectionId && a.IsActive)
+            .OrderBy(a => a.TimeSlot)
+            .ThenBy(a => a.Subject)
+            .ToListAsync();
+
+        var list = assignments.Select(a => new SectionPeriodRoutineDto(
+            a.Id,
+            section.Id,
+            section.Name,
+            section.ClassId,
+            section.Class?.Name ?? "Class",
+            a.TeacherId,
+            a.Teacher?.FullName ?? "Unknown",
+            a.Teacher?.EmployeeCode ?? "N/A",
+            a.Teacher?.PhoneNumber,
+            a.Subject,
+            a.DaysOfWeek,
+            a.TimeSlot,
+            section.ClassTeacherId == a.TeacherId,
+            a.AssignedAt
+        )).ToList();
+
+        return Ok(list);
+    }
+
+    [HttpPost("sections/{sectionId}/routine")]
+    public async Task<ActionResult<SectionPeriodRoutineDto>> AddSectionPeriod(Guid sectionId, [FromBody] CreateSectionPeriodRequestDto dto)
+    {
+        var section = await _db.SchoolSections
+            .Include(s => s.Class)
+            .FirstOrDefaultAsync(s => s.Id == sectionId);
+        if (section == null) return NotFound(new { message = "Section not found." });
+
+        var teacher = await _db.Teachers.FindAsync(dto.TeacherId);
+        if (teacher == null) return NotFound(new { message = "Teacher not found." });
+
+        var isFnFSettled = await _db.TeacherFnFSettlements.AnyAsync(s => s.TeacherId == dto.TeacherId && s.Status == "Settled");
+        if (!teacher.IsActive || isFnFSettled)
+        {
+            return BadRequest(new { message = $"Cannot assign period to {teacher.FullName}: Faculty member is inactive or offboarded (FnF settled)." });
+        }
+
+        // Clash Detection: Check if another teacher is already scheduled in this section at this time slot
+        if (!dto.AllowClashOverride && !string.IsNullOrWhiteSpace(dto.TimeSlot) && !string.IsNullOrWhiteSpace(dto.DaysOfWeek))
+        {
+            var newDays = dto.DaysOfWeek.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            var existingSectionPeriods = await _db.TeacherBatchAssignments
+                .Include(a => a.Teacher)
+                .Where(a => a.SectionId == sectionId && a.IsActive && a.TimeSlot == dto.TimeSlot.Trim() && (!dto.ReplaceExistingAssignmentId.HasValue || a.Id != dto.ReplaceExistingAssignmentId.Value))
+                .ToListAsync();
+
+            foreach (var existing in existingSectionPeriods)
+            {
+                if (!string.IsNullOrWhiteSpace(existing.DaysOfWeek))
+                {
+                    var existingDays = existing.DaysOfWeek.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                    var commonDays = newDays.Intersect(existingDays, StringComparer.OrdinalIgnoreCase).ToList();
+                    if (commonDays.Any())
+                    {
+                        var assignedTeacherName = existing.Teacher?.FullName ?? "Unknown Faculty";
+                        var msg = existing.TeacherId != dto.TeacherId
+                            ? $"इस Class में इस समय ({existing.TimeSlot}) पर पहले से ही दूसरे अध्यापक {assignedTeacherName} ({existing.Subject}) को assign किया जा चुका है।"
+                            : $"इस Class में इस समय ({existing.TimeSlot}) पर {assignedTeacherName} पहले से ही {existing.Subject} पढ़ा रहे हैं।";
+
+                        return Conflict(new {
+                            message = msg,
+                            existingAssignmentId = existing.Id,
+                            existingTeacherName = assignedTeacherName,
+                            existingSubject = existing.Subject,
+                            requiresOverride = false,
+                            canReplace = existing.TeacherId != dto.TeacherId
+                        });
+                    }
+                }
+            }
+
+            // Clash Detection 2: Check if teacher has an existing overlapping assignment elsewhere
+            var existingTeacherAssignments = await _db.TeacherBatchAssignments
+                .Include(a => a.Batch)
+                .Include(a => a.Class)
+                .Include(a => a.Section)
+                .Where(a => a.TeacherId == dto.TeacherId && a.IsActive && a.TimeSlot == dto.TimeSlot.Trim() && (!dto.ReplaceExistingAssignmentId.HasValue || a.Id != dto.ReplaceExistingAssignmentId.Value))
+                .ToListAsync();
+
+            foreach (var existing in existingTeacherAssignments)
+            {
+                if (!string.IsNullOrWhiteSpace(existing.DaysOfWeek))
+                {
+                    var existingDays = existing.DaysOfWeek.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                    var commonDays = newDays.Intersect(existingDays, StringComparer.OrdinalIgnoreCase).ToList();
+                    if (commonDays.Any())
+                    {
+                        var targetName = existing.Batch != null ? existing.Batch.Name : $"{existing.Class?.Name} - {existing.Section?.Name}";
+                        return Conflict(new {
+                            message = $"Schedule Clash: {teacher.FullName} is already scheduled for {targetName} ({existing.Subject}) on {string.Join(", ", commonDays)} at {existing.TimeSlot}.",
+                            clashDetails = $"Occupied by {targetName}",
+                            requiresOverride = true
+                        });
+                    }
+                }
+            }
+        }
+
+        TeacherBatchAssignment assignment;
+        if (dto.ReplaceExistingAssignmentId.HasValue)
+        {
+            assignment = await _db.TeacherBatchAssignments.FindAsync(dto.ReplaceExistingAssignmentId.Value)
+                ?? new TeacherBatchAssignment { TenantId = _currentUser.TenantId, ClassId = section.ClassId, SectionId = section.Id, IsActive = true };
+
+            assignment.TeacherId = dto.TeacherId;
+            assignment.Subject = dto.Subject.Trim();
+            assignment.DaysOfWeek = dto.DaysOfWeek?.Trim();
+            assignment.TimeSlot = dto.TimeSlot?.Trim();
+            assignment.AssignedAt = DateTime.UtcNow;
+
+            if (assignment.Id == Guid.Empty)
+            {
+                _db.TeacherBatchAssignments.Add(assignment);
+            }
+        }
+        else
+        {
+            assignment = new TeacherBatchAssignment
+            {
+                TenantId = _currentUser.TenantId,
+                TeacherId = dto.TeacherId,
+                ClassId = section.ClassId,
+                SectionId = section.Id,
+                Subject = dto.Subject.Trim(),
+                DaysOfWeek = dto.DaysOfWeek?.Trim(),
+                TimeSlot = dto.TimeSlot?.Trim(),
+                IsActive = true,
+                AssignedAt = DateTime.UtcNow
+            };
+            _db.TeacherBatchAssignments.Add(assignment);
+        }
+
+        await _db.SaveChangesAsync();
+
+        var resultDto = new SectionPeriodRoutineDto(
+            assignment.Id,
+            section.Id,
+            section.Name,
+            section.ClassId,
+            section.Class?.Name ?? "Class",
+            teacher.Id,
+            teacher.FullName,
+            teacher.EmployeeCode,
+            teacher.PhoneNumber,
+            assignment.Subject,
+            assignment.DaysOfWeek,
+            assignment.TimeSlot,
+            section.ClassTeacherId == teacher.Id,
+            assignment.AssignedAt
+        );
+
+        return Ok(resultDto);
+    }
+
+    [HttpPut("sections/routine/{assignmentId}")]
+    public async Task<ActionResult<SectionPeriodRoutineDto>> UpdateSectionPeriod(Guid assignmentId, [FromBody] CreateSectionPeriodRequestDto dto)
+    {
+        var assignment = await _db.TeacherBatchAssignments
+            .Include(a => a.Section)
+                .ThenInclude(s => s.Class)
+            .FirstOrDefaultAsync(a => a.Id == assignmentId);
+
+        if (assignment == null) return NotFound(new { message = "Period assignment not found." });
+
+        var teacher = await _db.Teachers.FindAsync(dto.TeacherId);
+        if (teacher == null) return NotFound(new { message = "Teacher not found." });
+
+        var isFnFSettled = await _db.TeacherFnFSettlements.AnyAsync(s => s.TeacherId == dto.TeacherId && s.Status == "Settled");
+        if (!teacher.IsActive || isFnFSettled)
+        {
+            return BadRequest(new { message = $"Cannot assign period to {teacher.FullName}: Faculty member is inactive or offboarded (FnF settled)." });
+        }
+
+        assignment.TeacherId = dto.TeacherId;
+        assignment.Subject = dto.Subject.Trim();
+        assignment.DaysOfWeek = dto.DaysOfWeek?.Trim();
+        assignment.TimeSlot = dto.TimeSlot?.Trim();
+        assignment.AssignedAt = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync();
+
+        var isClassTeacher = assignment.Section?.ClassTeacherId == teacher.Id;
+        return Ok(new SectionPeriodRoutineDto(
+            assignment.Id,
+            assignment.SectionId ?? Guid.Empty,
+            assignment.Section?.Name ?? "Section",
+            assignment.ClassId ?? Guid.Empty,
+            assignment.Section?.Class?.Name ?? "Class",
+            teacher.Id,
+            teacher.FullName,
+            teacher.EmployeeCode,
+            teacher.PhoneNumber,
+            assignment.Subject,
+            assignment.DaysOfWeek,
+            assignment.TimeSlot,
+            isClassTeacher,
+            assignment.AssignedAt
+        ));
+    }
+
+    [HttpDelete("sections/routine/{assignmentId}")]
+    public async Task<IActionResult> RemoveSectionPeriod(Guid assignmentId)
+    {
+        var assignment = await _db.TeacherBatchAssignments.FindAsync(assignmentId);
+        if (assignment == null) return NotFound(new { message = "Period assignment not found." });
+
+        _db.TeacherBatchAssignments.Remove(assignment);
+        await _db.SaveChangesAsync();
+        return NoContent();
+    }
+
+    [HttpPatch("sections/{id}/class-teacher")]
+    public async Task<IActionResult> QuickAssignClassTeacher(Guid id, [FromBody] QuickAssignClassTeacherDto dto)
+    {
+        var section = await _db.SchoolSections
+            .Include(s => s.Class)
+            .FirstOrDefaultAsync(s => s.Id == id);
+
+        if (section == null) return NotFound(new { message = "Section not found." });
+
+        if (dto.ClassTeacherId.HasValue)
+        {
+            var teacher = await _db.Teachers.FindAsync(dto.ClassTeacherId.Value);
+            if (teacher == null) return NotFound(new { message = "Teacher not found." });
+
+            var isFnFSettled = await _db.TeacherFnFSettlements.AnyAsync(s => s.TeacherId == dto.ClassTeacherId.Value && s.Status == "Settled");
+            if (!teacher.IsActive || isFnFSettled)
+            {
+                return BadRequest(new { message = $"Cannot assign {teacher.FullName}: Faculty member is inactive or offboarded (FnF settled)." });
+            }
+
+            // Check if teacher is already assigned to another active section
+            var existingAssignment = await _db.SchoolSections
+                .Include(s => s.Class)
+                .FirstOrDefaultAsync(s => s.ClassTeacherId == dto.ClassTeacherId.Value && s.Id != id && s.IsActive);
+
+            if (existingAssignment != null)
+            {
+                if (!dto.ForceReassign)
+                {
+                    return Conflict(new {
+                        message = $"{teacher.FullName} is already assigned as Class Teacher for {existingAssignment.Class?.Name} - {existingAssignment.Name}.",
+                        alreadyAssignedSectionId = existingAssignment.Id,
+                        alreadyAssignedSectionName = $"{existingAssignment.Class?.Name} - {existingAssignment.Name}",
+                        teacherName = teacher.FullName,
+                        requiresConfirmation = true
+                    });
+                }
+                else
+                {
+                    // Reassign: Clear old assignment
+                    existingAssignment.ClassTeacherId = null;
+                }
+            }
+
+            section.ClassTeacherId = dto.ClassTeacherId.Value;
+        }
+        else
+        {
+            section.ClassTeacherId = null;
+        }
+
+        await _db.SaveChangesAsync();
+
+        var updatedTeacher = section.ClassTeacherId.HasValue ? await _db.Teachers.FindAsync(section.ClassTeacherId.Value) : null;
+        return Ok(new {
+            sectionId = section.Id,
+            sectionName = section.Name,
+            className = section.Class?.Name,
+            classTeacherId = section.ClassTeacherId,
+            classTeacherName = updatedTeacher?.FullName,
+            classTeacherEmployeeCode = updatedTeacher?.EmployeeCode,
+            classTeacherPhone = updatedTeacher?.PhoneNumber,
+            message = section.ClassTeacherId.HasValue
+                ? $"Assigned {updatedTeacher?.FullName} as Class Teacher for {section.Class?.Name} - {section.Name}."
+                : $"Unassigned Class Teacher for {section.Class?.Name} - {section.Name}."
+        });
     }
 
     #endregion

@@ -2,7 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterModule } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -12,14 +12,17 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { forkJoin } from 'rxjs';
 import { TeacherSelectorComponent } from './teacher-selector.component';
 import { TeacherQuickAssignDialogComponent } from './teacher-quick-assign-dialog.component';
+import { QuickClassTeacherDialogComponent } from '../school/quick-class-teacher-dialog.component';
+import { SectionRoutineDialogComponent } from '../school/section-routine-dialog.component';
 import {
   API_BASE, TeacherDto, BatchAssignmentDto, BatchDto, SubjectDto, TeacherBatchCoverageReportDto
 } from './teacher.models';
-import { SchoolClassDto, SchoolSectionDto } from '../../core/services/school.service';
+import { SchoolClassDto, SchoolSectionDto, ClassTeacherMatrixItemDto, SchoolService } from '../../core/services/school.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 
 export interface AssignmentSlot {
@@ -42,21 +45,47 @@ export interface AssignmentSlot {
   selector: 'app-teacher-assignments',
   standalone: true,
   imports: [
-    CommonModule, FormsModule, MatCardModule, MatButtonModule, MatIconModule,
+    CommonModule, FormsModule, RouterModule, MatCardModule, MatButtonModule, MatIconModule,
     MatInputModule, MatFormFieldModule, MatSelectModule, MatTooltipModule,
-    MatDialogModule, MatProgressBarModule, MatCheckboxModule,
-    TeacherSelectorComponent, TeacherQuickAssignDialogComponent
+    MatDialogModule, MatProgressBarModule, MatProgressSpinnerModule, MatCheckboxModule,
+    TeacherSelectorComponent, TeacherQuickAssignDialogComponent, QuickClassTeacherDialogComponent,
+    SectionRoutineDialogComponent
   ],
   template: `
 <div class="page-container">
   <!-- Page Header -->
   <div class="page-header">
     <div class="page-header-text">
-      <h1 class="page-title"><mat-icon>class</mat-icon> Batch Assignments & Timetable</h1>
-      <p class="page-subtitle">Assign batches to teachers with multi-subject selection, routine schedule days, clash detection, and weekly timetable matrix.</p>
+      <h1 class="page-title"><mat-icon>class</mat-icon> Teacher Assignments & Timetable</h1>
+      <p class="page-subtitle">Unified assignment hub: Manage School Class Teachers (कक्षा अध्यापक), Coaching Batches, and Timetable schedules.</p>
     </div>
   </div>
 
+  <!-- Top Primary Hub Navigation: Batch Timetable vs School Class Teachers -->
+  <div class="primary-nav-bar mat-elevation-z1">
+    <button type="button" class="primary-nav-btn" [class.active]="mainTab === 'TIMETABLE'" (click)="setMainTab('TIMETABLE')">
+      <mat-icon>calendar_view_week</mat-icon>
+      <div class="nav-btn-info">
+        <span class="nav-title">Batch & Subject Timetable</span>
+        <span class="nav-sub">Teaching periods, weekly routine & clash detection</span>
+      </div>
+    </button>
+    <button type="button" class="primary-nav-btn" [class.active]="mainTab === 'CLASS_TEACHER'" (click)="setMainTab('CLASS_TEACHER')">
+      <mat-icon>supervisor_account</mat-icon>
+      <div class="nav-btn-info">
+        <span class="nav-title">School Class Teachers (कक्षा अध्यापक)</span>
+        <span class="nav-sub">Section Incharge allocation & roll-call coverage</span>
+      </div>
+      <span class="nav-badge alert" *ngIf="unassignedClassTeachersCount > 0">
+        {{ unassignedClassTeachersCount }} Unassigned
+      </span>
+      <span class="nav-badge success" *ngIf="classTeachersMatrix.length > 0 && unassignedClassTeachersCount === 0">
+        <mat-icon>check_circle</mat-icon> 100% Assigned
+      </span>
+    </button>
+  </div>
+
+  <ng-container *ngIf="mainTab === 'TIMETABLE'">
   <!-- 3-Way Assignment Scope Bar (School Classes vs Coaching Batches) -->
   <div class="scope-switcher-card mat-elevation-z1">
     <div class="scope-label">
@@ -770,6 +799,403 @@ export interface AssignmentSlot {
       <p>Generated via IMSERP Coaching Management ERP on {{todayDate | date:'dd MMM yyyy, hh:mm a'}}</p>
     </div>
   </div>
+  </ng-container>
+
+  <!-- ================= TAB 2: SCHOOL CLASS TEACHERS (कक्षा अध्यापक) ================= -->
+  <ng-container *ngIf="mainTab === 'CLASS_TEACHER'">
+    <!-- Coverage Overview Stat Cards -->
+    <div class="ct-stats-grid">
+      <div class="ct-stat-card">
+        <div class="stat-icon-wrap icon-blue">
+          <mat-icon>school</mat-icon>
+        </div>
+        <div class="stat-content">
+          <span class="stat-val">{{ matrixUniqueClasses.length }}</span>
+          <span class="stat-lbl">School Classes</span>
+        </div>
+      </div>
+
+      <div class="ct-stat-card">
+        <div class="stat-icon-wrap icon-purple">
+          <mat-icon>meeting_room</mat-icon>
+        </div>
+        <div class="stat-content">
+          <span class="stat-val">{{ classTeachersMatrix.length }}</span>
+          <span class="stat-lbl">Total Sections</span>
+        </div>
+      </div>
+
+      <div class="ct-stat-card">
+        <div class="stat-icon-wrap icon-green">
+          <mat-icon>verified_user</mat-icon>
+        </div>
+        <div class="stat-content">
+          <div class="stat-val-row">
+            <span class="stat-val">{{ assignedClassTeachersCount }}</span>
+            <span class="coverage-pct-pill">{{ classTeachersCoveragePercent }}%</span>
+          </div>
+          <span class="stat-lbl">Sections with Faculty</span>
+        </div>
+      </div>
+
+      <div class="ct-stat-card" [class.highlight-warn]="unassignedClassTeachersCount > 0">
+        <div class="stat-icon-wrap icon-amber">
+          <mat-icon>{{ unassignedClassTeachersCount > 0 ? 'warning_amber' : 'check_circle' }}</mat-icon>
+        </div>
+        <div class="stat-content">
+          <span class="stat-val">{{ unassignedClassTeachersCount }}</span>
+          <span class="stat-lbl">{{ unassignedClassTeachersCount > 0 ? 'Unassigned (Needs Action)' : 'All Covered!' }}</span>
+        </div>
+      </div>
+
+      <div class="ct-stat-card">
+        <div class="stat-icon-wrap icon-teal">
+          <mat-icon>groups</mat-icon>
+        </div>
+        <div class="stat-content">
+          <span class="stat-val">{{ totalSchoolStudentsCount }}</span>
+          <span class="stat-lbl">School Students</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filter & Toolbar -->
+    <div class="ct-toolbar-card mat-elevation-z1">
+      <div class="ct-search-box">
+        <mat-icon class="search-icon">search</mat-icon>
+        <input type="text" [(ngModel)]="matrixSearch" (ngModelChange)="applyMatrixFilters()" placeholder="Search class, section, teacher name or code (e.g. 10th, Sharma, EMP001)..." />
+        <button type="button" class="clear-btn" *ngIf="matrixSearch" (click)="matrixSearch = ''; applyMatrixFilters()">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+
+      <div class="ct-filters">
+        <!-- Class Filter -->
+        <div class="filter-group">
+          <label><mat-icon>school</mat-icon> Class:</label>
+          <select [(ngModel)]="matrixClassFilter" (ngModelChange)="applyMatrixFilters()" class="ct-select">
+            <option value="ALL">All Classes ({{ matrixUniqueClasses.length }})</option>
+            <option *ngFor="let c of matrixUniqueClasses" [value]="c.id">{{ c.name }}</option>
+          </select>
+        </div>
+
+        <!-- Status Filter -->
+        <div class="filter-group">
+          <label><mat-icon>filter_list</mat-icon> Status:</label>
+          <select [(ngModel)]="matrixStatusFilter" (ngModelChange)="applyMatrixFilters()" class="ct-select">
+            <option value="ALL">All Sections ({{ classTeachersMatrix.length }})</option>
+            <option value="ASSIGNED">Assigned Only ({{ assignedClassTeachersCount }})</option>
+            <option value="UNASSIGNED">Unassigned Only ({{ unassignedClassTeachersCount }})</option>
+          </select>
+        </div>
+
+        <!-- View Mode Switcher -->
+        <div class="view-mode-buttons">
+          <button type="button" class="v-btn" [class.active]="matrixViewMode === 'cards'" (click)="matrixViewMode = 'cards'" matTooltip="3-Column All Sections Grid">
+            <mat-icon>grid_view</mat-icon>
+            <span class="v-btn-text">3 Columns</span>
+          </button>
+          <button type="button" class="v-btn" [class.active]="matrixViewMode === 'grouped'" (click)="matrixViewMode = 'grouped'" matTooltip="Grouped by Class">
+            <mat-icon>view_agenda</mat-icon>
+            <span class="v-btn-text">By Class</span>
+          </button>
+          <button type="button" class="v-btn" [class.active]="matrixViewMode === 'table'" (click)="matrixViewMode = 'table'" matTooltip="Compact Matrix Table">
+            <mat-icon>view_list</mat-icon>
+            <span class="v-btn-text">Table</span>
+          </button>
+        </div>
+
+        <button mat-icon-button (click)="loadClassTeachersMatrix()" matTooltip="Refresh Matrix" class="refresh-btn">
+          <mat-icon>refresh</mat-icon>
+        </button>
+      </div>
+    </div>
+
+    <mat-progress-bar mode="indeterminate" *ngIf="matrixLoading"></mat-progress-bar>
+
+    <!-- 3-COLUMN UNIFIED CARDS VIEW (All Sections) -->
+    <div class="ct-cards-grid-3col" *ngIf="matrixViewMode === 'cards' && !matrixLoading && filteredMatrix.length > 0">
+      <div class="section-card mat-elevation-z1" *ngFor="let sec of filteredMatrix; trackBy: trackBySection" [class.is-assigned]="sec.classTeacherId" [class.is-unassigned]="!sec.classTeacherId">
+        <!-- Class Tag Header inside Card -->
+        <div class="sec-card-header">
+          <div class="sec-class-tag">
+            <mat-icon>school</mat-icon>
+            <span class="class-name-text">{{ sec.className }}</span>
+          </div>
+          <span class="status-indicator" [class.assigned]="sec.classTeacherId" [class.unassigned]="!sec.classTeacherId">
+            <mat-icon>{{ sec.classTeacherId ? 'verified' : 'priority_high' }}</mat-icon>
+            {{ sec.classTeacherId ? 'Assigned' : 'Vacant' }}
+          </span>
+        </div>
+
+        <div class="sec-card-top">
+          <div class="sec-pill">
+            <span class="sec-badge">{{ sec.sectionName.startsWith('Section') ? sec.sectionName : 'Section ' + sec.sectionName }}</span>
+            <span class="sec-strength" matTooltip="Students Enrolled / Capacity">
+              <mat-icon>group</mat-icon> {{ sec.studentCount }} / {{ sec.maxCapacity }}
+            </span>
+          </div>
+        </div>
+
+        <!-- Faculty Info Area -->
+        <div class="faculty-info-box" *ngIf="sec.classTeacherId">
+          <div class="faculty-avatar">
+            <mat-icon>person</mat-icon>
+          </div>
+          <div class="faculty-details">
+            <span class="faculty-name">{{ sec.classTeacherName }}</span>
+            <div class="faculty-meta">
+              <span class="code-pill">{{ sec.classTeacherEmployeeCode || 'Faculty' }}</span>
+              <span class="phone-link" *ngIf="sec.classTeacherPhone">📞 {{ sec.classTeacherPhone }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="unassigned-notice-box" *ngIf="!sec.classTeacherId">
+          <mat-icon>person_off</mat-icon>
+          <span>No Class Teacher assigned. Pick a teacher below.</span>
+        </div>
+
+        <!-- Faculty Action Controls -->
+        <div class="ct-action-row">
+          <button mat-flat-button color="primary" class="ct-assign-btn" *ngIf="!sec.classTeacherId" (click)="openAssignDialog(sec)">
+            <mat-icon>person_add</mat-icon> Assign Class Teacher
+          </button>
+          <div class="ct-assigned-actions" *ngIf="sec.classTeacherId">
+            <button mat-stroked-button color="primary" class="ct-change-btn" (click)="openAssignDialog(sec)">
+              <mat-icon>edit</mat-icon> Change Faculty
+            </button>
+            <button mat-icon-button color="warn" class="ct-remove-btn" (click)="confirmUnassign(sec)" matTooltip="Remove Class Teacher">
+              <mat-icon>person_remove</mat-icon>
+            </button>
+          </div>
+        </div>
+
+        <!-- Weekly Routine & Subject Coverage Strip -->
+        <div class="sec-routine-strip" (click)="openSectionRoutineDialog(sec)" matTooltip="Click to configure weekly routine & period timetable">
+          <div class="routine-strip-left">
+            <mat-icon class="routine-icon">calendar_month</mat-icon>
+            <div class="routine-text-box">
+              <span class="routine-subj-text" *ngIf="sec.assignedSubjects && sec.assignedSubjects.length > 0">
+                <strong>{{ sec.assignedSubjects.length }} Subjects:</strong> {{ sec.assignedSubjects.slice(0, 3).join(', ') }}{{ sec.assignedSubjects.length > 3 ? '...' : '' }}
+              </span>
+              <span class="routine-subj-text not-set" *ngIf="!sec.assignedSubjects || sec.assignedSubjects.length === 0">
+                Routine not scheduled yet
+              </span>
+            </div>
+          </div>
+          <span class="routine-badge-pill" *ngIf="sec.totalPeriodsCount && sec.totalPeriodsCount > 0">
+            {{ sec.totalPeriodsCount }} Periods/wk
+          </span>
+          <span class="routine-badge-pill setup" *ngIf="!sec.totalPeriodsCount || sec.totalPeriodsCount === 0">
+            + Set Routine
+          </span>
+        </div>
+
+        <!-- Card Bottom Shortcuts -->
+        <div class="sec-card-actions">
+          <a mat-button class="sec-act-btn" [routerLink]="['/students']" [queryParams]="{classId: sec.classId, sectionId: sec.sectionId}" matTooltip="View students enrolled in this section">
+            <mat-icon>groups</mat-icon> Students
+          </a>
+          <a mat-button class="sec-act-btn" [routerLink]="['/students/attendance']" [queryParams]="{scope: 'school', classId: sec.classId, sectionId: sec.sectionId}" matTooltip="Take roll call attendance for this section">
+            <mat-icon>event_available</mat-icon> Roll Call
+          </a>
+          <button mat-button class="sec-act-btn routine-btn" (click)="openSectionRoutineDialog(sec)" matTooltip="Configure subjects, weekly routine & period timing">
+            <mat-icon>calendar_view_week</mat-icon> Routine
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CARDS VIEW (Grouped by Class) -->
+    <div class="ct-cards-view" *ngIf="matrixViewMode === 'grouped' && !matrixLoading">
+      <div class="class-group-card mat-elevation-z1" *ngFor="let grp of groupedMatrixByClass">
+        <div class="class-group-header">
+          <div class="class-group-title">
+            <div class="class-icon-circle">
+              <mat-icon>school</mat-icon>
+            </div>
+            <div>
+              <h3>{{ grp.className }}</h3>
+              <span class="class-subtitle">{{ grp.sections.length }} Section{{ grp.sections.length > 1 ? 's' : '' }}</span>
+            </div>
+          </div>
+          <div class="class-group-summary">
+            <a mat-button class="classes-link" routerLink="/school/classes" matTooltip="Manage Class & Sections in Master Settings">
+              <mat-icon>settings</mat-icon> Manage Class
+            </a>
+          </div>
+        </div>
+
+        <div class="sections-grid">
+          <div class="section-card mat-elevation-z1" *ngFor="let sec of grp.sections; trackBy: trackBySection" [class.is-assigned]="sec.classTeacherId" [class.is-unassigned]="!sec.classTeacherId">
+            <div class="sec-card-top">
+              <div class="sec-pill">
+                <span class="sec-badge">{{ sec.sectionName.startsWith('Section') ? sec.sectionName : 'Section ' + sec.sectionName }}</span>
+                <span class="sec-strength" matTooltip="Students Enrolled / Capacity">
+                  <mat-icon>group</mat-icon> {{ sec.studentCount }} / {{ sec.maxCapacity }}
+                </span>
+              </div>
+              <span class="status-indicator" [class.assigned]="sec.classTeacherId" [class.unassigned]="!sec.classTeacherId">
+                <mat-icon>{{ sec.classTeacherId ? 'verified' : 'priority_high' }}</mat-icon>
+                {{ sec.classTeacherId ? 'Assigned' : 'Vacant' }}
+              </span>
+            </div>
+
+            <!-- Faculty Info Area -->
+            <div class="faculty-info-box" *ngIf="sec.classTeacherId">
+              <div class="faculty-avatar">
+                <mat-icon>person</mat-icon>
+              </div>
+              <div class="faculty-details">
+                <span class="faculty-name">{{ sec.classTeacherName }}</span>
+                <div class="faculty-meta">
+                  <span class="code-pill">{{ sec.classTeacherEmployeeCode || 'Faculty' }}</span>
+                  <span class="phone-link" *ngIf="sec.classTeacherPhone">📞 {{ sec.classTeacherPhone }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="unassigned-notice-box" *ngIf="!sec.classTeacherId">
+              <mat-icon>person_off</mat-icon>
+              <span>No Class Teacher assigned. Pick a teacher below.</span>
+            </div>
+
+            <!-- Faculty Action Controls -->
+            <div class="ct-action-row">
+              <button mat-flat-button color="primary" class="ct-assign-btn" *ngIf="!sec.classTeacherId" (click)="openAssignDialog(sec)">
+                <mat-icon>person_add</mat-icon> Assign Class Teacher
+              </button>
+              <div class="ct-assigned-actions" *ngIf="sec.classTeacherId">
+                <button mat-stroked-button color="primary" class="ct-change-btn" (click)="openAssignDialog(sec)">
+                  <mat-icon>edit</mat-icon> Change Faculty
+                </button>
+                <button mat-icon-button color="warn" class="ct-remove-btn" (click)="confirmUnassign(sec)" matTooltip="Remove Class Teacher">
+                  <mat-icon>person_remove</mat-icon>
+                </button>
+              </div>
+            </div>
+
+            <!-- Weekly Routine & Subject Coverage Strip -->
+            <div class="sec-routine-strip" (click)="openSectionRoutineDialog(sec)" matTooltip="Click to configure weekly routine & period timetable">
+              <div class="routine-strip-left">
+                <mat-icon class="routine-icon">calendar_month</mat-icon>
+                <div class="routine-text-box">
+                  <span class="routine-subj-text" *ngIf="sec.assignedSubjects && sec.assignedSubjects.length > 0">
+                    <strong>{{ sec.assignedSubjects.length }} Subjects:</strong> {{ sec.assignedSubjects.slice(0, 3).join(', ') }}{{ sec.assignedSubjects.length > 3 ? '...' : '' }}
+                  </span>
+                  <span class="routine-subj-text not-set" *ngIf="!sec.assignedSubjects || sec.assignedSubjects.length === 0">
+                    Routine not scheduled yet
+                  </span>
+                </div>
+              </div>
+              <span class="routine-badge-pill" *ngIf="sec.totalPeriodsCount && sec.totalPeriodsCount > 0">
+                {{ sec.totalPeriodsCount }} Periods/wk
+              </span>
+              <span class="routine-badge-pill setup" *ngIf="!sec.totalPeriodsCount || sec.totalPeriodsCount === 0">
+                + Set Routine
+              </span>
+            </div>
+
+            <!-- Card Bottom Shortcuts -->
+            <div class="sec-card-actions">
+              <a mat-button class="sec-act-btn" [routerLink]="['/students']" [queryParams]="{classId: sec.classId, sectionId: sec.sectionId}" matTooltip="View students enrolled in this section">
+                <mat-icon>groups</mat-icon> Students
+              </a>
+              <a mat-button class="sec-act-btn" [routerLink]="['/students/attendance']" [queryParams]="{scope: 'school', classId: sec.classId, sectionId: sec.sectionId}" matTooltip="Take roll call attendance for this section">
+                <mat-icon>event_available</mat-icon> Roll Call
+              </a>
+              <button mat-button class="sec-act-btn routine-btn" (click)="openSectionRoutineDialog(sec)" matTooltip="Configure subjects, weekly routine & period timing">
+                <mat-icon>calendar_view_week</mat-icon> Routine
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Empty Filter State -->
+    <div class="empty-matrix-state" *ngIf="!matrixLoading && ((matrixViewMode === 'cards' && filteredMatrix.length === 0) || (matrixViewMode === 'grouped' && groupedMatrixByClass.length === 0))">
+      <mat-icon>search_off</mat-icon>
+      <h3>No sections match your filter</h3>
+      <p>Try resetting your search query or changing the class/status filters.</p>
+      <button mat-stroked-button (click)="matrixSearch = ''; matrixClassFilter = 'ALL'; matrixStatusFilter = 'ALL'; applyMatrixFilters()">
+        <mat-icon>restart_alt</mat-icon> Reset Filters
+      </button>
+    </div>
+
+    <!-- TABLE VIEW (Compact Matrix Table) -->
+    <div class="ct-table-card mat-elevation-z1" *ngIf="matrixViewMode === 'table' && !matrixLoading">
+      <div class="table-responsive">
+        <table class="matrix-table">
+          <thead>
+            <tr>
+              <th>Class</th>
+              <th>Section</th>
+              <th>Enrolled / Seats</th>
+              <th>Current Class Teacher</th>
+              <th>Routine & Subjects</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let sec of filteredMatrix" [class.row-unassigned]="!sec.classTeacherId">
+              <td class="col-class"><strong>{{ sec.className }}</strong></td>
+              <td class="col-section">
+                <span class="table-sec-pill">{{ sec.sectionName }}</span>
+              </td>
+              <td class="col-strength">
+                <span class="strength-tag">{{ sec.studentCount }} / {{ sec.maxCapacity }}</span>
+              </td>
+              <td class="col-teacher">
+                <div class="table-teacher-cell" *ngIf="sec.classTeacherId">
+                  <mat-icon class="t-ico">supervisor_account</mat-icon>
+                  <div>
+                    <div class="t-name">{{ sec.classTeacherName }}</div>
+                    <small class="t-code">{{ sec.classTeacherEmployeeCode }}{{ sec.classTeacherPhone ? ' • ' + sec.classTeacherPhone : '' }}</small>
+                  </div>
+                </div>
+                <div class="table-unassigned-cell" *ngIf="!sec.classTeacherId">
+                  <mat-icon>warning</mat-icon>
+                  <span>Unassigned</span>
+                </div>
+              </td>
+              <td class="col-routine">
+                <div class="table-routine-cell" (click)="openSectionRoutineDialog(sec)" style="cursor: pointer;" matTooltip="Click to open Section Routine">
+                  <span class="table-routine-badge" *ngIf="sec.assignedSubjects && sec.assignedSubjects.length > 0">
+                    {{ sec.assignedSubjects.length }} Subjects ({{ sec.totalPeriodsCount }} P/wk)
+                  </span>
+                  <span class="table-routine-badge empty" *ngIf="!sec.assignedSubjects || sec.assignedSubjects.length === 0">
+                    + Set Routine
+                  </span>
+                </div>
+              </td>
+              <td class="col-actions">
+                <div class="table-action-btns">
+                  <button mat-stroked-button color="primary" class="table-assign-btn" (click)="openAssignDialog(sec)">
+                    <mat-icon>{{ sec.classTeacherId ? 'edit' : 'person_add' }}</mat-icon>
+                    {{ sec.classTeacherId ? 'Change' : 'Assign' }}
+                  </button>
+                  <button mat-icon-button color="warn" *ngIf="sec.classTeacherId" (click)="confirmUnassign(sec)" matTooltip="Remove Class Teacher">
+                    <mat-icon>person_remove</mat-icon>
+                  </button>
+                  <button mat-icon-button color="primary" (click)="openSectionRoutineDialog(sec)" matTooltip="Class Routine & Period Timetable">
+                    <mat-icon>calendar_view_week</mat-icon>
+                  </button>
+                  <a mat-icon-button color="primary" [routerLink]="['/students']" [queryParams]="{classId: sec.classId, sectionId: sec.sectionId}" matTooltip="View Students">
+                    <mat-icon>people</mat-icon>
+                  </a>
+                  <a mat-icon-button color="primary" [routerLink]="['/students/attendance']" [queryParams]="{scope: 'school', classId: sec.classId, sectionId: sec.sectionId}" matTooltip="Take Roll Call">
+                    <mat-icon>event_available</mat-icon>
+                  </a>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </ng-container>
 </div>
   `,
   styles: [`
@@ -778,6 +1204,862 @@ export interface AssignmentSlot {
     .page-title { font-size:1.5rem; font-weight:700; margin:0; color:#1976d2; display:flex; align-items:center; gap:8px;
       mat-icon{font-size:1.6rem;width:1.6rem;height:1.6rem;} }
     .page-subtitle { color:#64748b; margin:4px 0 0; font-size:.9rem; }
+
+    /* Top Primary Nav Bar */
+    .primary-nav-bar {
+      display: flex;
+      gap: 12px;
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 14px;
+      padding: 6px;
+      flex-wrap: wrap;
+    }
+
+    .primary-nav-btn {
+      flex: 1;
+      min-width: 260px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 12px 18px;
+      border-radius: 10px;
+      border: 1px solid transparent;
+      background: transparent;
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+      mat-icon {
+        font-size: 28px;
+        width: 28px;
+        height: 28px;
+        color: #64748b;
+        transition: color 0.2s;
+      }
+
+      .nav-btn-info {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        flex: 1;
+      }
+
+      .nav-title {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: #334155;
+      }
+
+      .nav-sub {
+        font-size: 0.78rem;
+        color: #64748b;
+      }
+
+      &:hover {
+        background: #f8fafc;
+        border-color: #e2e8f0;
+      }
+
+      &.active {
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        border-color: #bfdbfe;
+        box-shadow: 0 2px 6px rgba(37, 99, 235, 0.12);
+
+        mat-icon {
+          color: #2563eb;
+        }
+
+        .nav-title {
+          color: #1e3a8a;
+        }
+
+        .nav-sub {
+          color: #3b82f6;
+        }
+      }
+    }
+
+    .nav-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 20px;
+      margin-left: auto;
+
+      &.alert {
+        background: #fef3c7;
+        color: #b45309;
+        border: 1px solid #fde68a;
+      }
+
+      &.success {
+        background: #dcfce7;
+        color: #15803d;
+        border: 1px solid #bbf7d0;
+
+        mat-icon {
+          font-size: 14px;
+          width: 14px;
+          height: 14px;
+          color: #16a34a;
+        }
+      }
+    }
+
+    /* Class Teacher Stats Grid */
+    .ct-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 14px;
+    }
+
+    .ct-stat-card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+      transition: transform 0.2s;
+
+      &:hover {
+        transform: translateY(-2px);
+      }
+
+      &.highlight-warn {
+        border-color: #fde68a;
+        background: #fffbeb;
+      }
+    }
+
+    .stat-icon-wrap {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      mat-icon {
+        font-size: 24px;
+        width: 24px;
+        height: 24px;
+        color: #ffffff;
+      }
+
+      &.icon-blue { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); }
+      &.icon-purple { background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%); }
+      &.icon-green { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+      &.icon-amber { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
+      &.icon-teal { background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%); }
+    }
+
+    .stat-content {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .stat-val-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .stat-val {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: #0f172a;
+      line-height: 1.1;
+    }
+
+    .stat-lbl {
+      font-size: 0.76rem;
+      font-weight: 600;
+      color: #64748b;
+      margin-top: 2px;
+    }
+
+    .coverage-pct-pill {
+      font-size: 0.72rem;
+      font-weight: 700;
+      background: #dcfce7;
+      color: #15803d;
+      padding: 1px 6px;
+      border-radius: 10px;
+    }
+
+    /* Toolbar */
+    .ct-toolbar-card {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .ct-search-box {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 6px 12px;
+      flex: 1;
+      min-width: 260px;
+
+      .search-icon {
+        color: #94a3b8;
+        font-size: 20px;
+        width: 20px;
+        height: 20px;
+      }
+
+      input {
+        border: none;
+        background: transparent;
+        outline: none;
+        width: 100%;
+        font-size: 0.88rem;
+        color: #0f172a;
+      }
+
+      .clear-btn {
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        padding: 0;
+        mat-icon { font-size: 18px; width: 18px; height: 18px; color: #94a3b8; }
+      }
+    }
+
+    .ct-filters {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .filter-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.82rem;
+      color: #475569;
+
+      label {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-weight: 600;
+        mat-icon { font-size: 16px; width: 16px; height: 16px; color: #64748b; }
+      }
+    }
+
+    .ct-select {
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 0.84rem;
+      background: #f8fafc;
+      color: #1e293b;
+      outline: none;
+      cursor: pointer;
+      &:focus { border-color: #2563eb; }
+    }
+
+    .view-mode-buttons {
+      display: flex;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      overflow: hidden;
+
+      .v-btn {
+        border: none;
+        background: #f8fafc;
+        color: #64748b;
+        padding: 6px 10px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.15s;
+
+        mat-icon { font-size: 20px; width: 20px; height: 20px; }
+
+        &.active {
+          background: #2563eb;
+          color: #ffffff;
+        }
+
+        &:hover:not(.active) {
+          background: #e2e8f0;
+          color: #1e293b;
+        }
+      }
+    }
+
+    .v-btn-text {
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
+    /* 3-Column Unified Grid */
+    .ct-cards-grid-3col {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    @media (max-width: 1200px) {
+      .ct-cards-grid-3col {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 768px) {
+      .ct-cards-grid-3col {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .sec-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 8px;
+      border-bottom: 1px dashed #e2e8f0;
+      margin-bottom: 2px;
+    }
+
+    .sec-class-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.84rem;
+      font-weight: 700;
+      color: #1e3a8a;
+      background: #eff6ff;
+      padding: 3px 8px;
+      border-radius: 6px;
+      border: 1px solid #bfdbfe;
+
+      mat-icon {
+        font-size: 15px;
+        width: 15px;
+        height: 15px;
+        color: #2563eb;
+      }
+    }
+
+    /* Section Routine Strip */
+    .sec-routine-strip {
+      background: #f8fafc;
+      border: 1px dashed #cbd5e1;
+      border-radius: 8px;
+      padding: 7px 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+
+      &:hover {
+        background: #eff6ff;
+        border-color: #93c5fd;
+      }
+    }
+
+    .routine-strip-left {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      overflow: hidden;
+    }
+
+    .routine-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+      color: #2563eb;
+      flex-shrink: 0;
+    }
+
+    .routine-text-box {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .routine-subj-text {
+      font-size: 0.74rem;
+      color: #334155;
+      strong { color: #1e3a8a; }
+      &.not-set { color: #94a3b8; font-style: italic; }
+    }
+
+    .routine-badge-pill {
+      font-size: 0.68rem;
+      font-weight: 700;
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+      padding: 2px 7px;
+      border-radius: 10px;
+      white-space: nowrap;
+      flex-shrink: 0;
+
+      &.setup {
+        background: #f0fdf4;
+        color: #15803d;
+        border-color: #bbf7d0;
+      }
+    }
+
+    .routine-btn {
+      color: #2563eb !important;
+      font-weight: 600;
+      mat-icon { color: #2563eb; font-size: 15px; width: 15px; height: 15px; }
+    }
+
+    .table-routine-badge {
+      display: inline-block;
+      font-size: 0.75rem;
+      font-weight: 700;
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+      padding: 2px 8px;
+      border-radius: 6px;
+
+      &.empty {
+        background: #f0fdf4;
+        color: #15803d;
+        border-color: #bbf7d0;
+      }
+    }
+
+    /* Cards Group View */
+    .ct-cards-view {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .class-group-card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .class-group-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #f1f5f9;
+      padding-bottom: 12px;
+    }
+
+    .class-group-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+
+      .class-icon-circle {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        background: #eff6ff;
+        color: #2563eb;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        mat-icon { font-size: 22px; width: 22px; height: 22px; }
+      }
+
+      h3 {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #0f172a;
+      }
+
+      .class-subtitle {
+        font-size: 0.8rem;
+        color: #64748b;
+      }
+    }
+
+    .classes-link {
+      color: #64748b;
+      font-size: 0.82rem;
+      mat-icon { font-size: 16px; width: 16px; height: 16px; margin-right: 4px; }
+      &:hover { color: #1e293b; }
+    }
+
+    .sections-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 14px;
+    }
+
+    .section-card {
+      background: #f8fafc;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+      &:hover {
+        border-color: #cbd5e1;
+        box-shadow: 0 6px 16px -2px rgba(15, 23, 42, 0.08);
+      }
+
+      &.is-assigned {
+        border-color: #bfdbfe;
+        background: #ffffff;
+      }
+
+      &.is-unassigned {
+        border-color: #fed7aa;
+        background: #fffbf5;
+      }
+    }
+
+    .sec-card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .sec-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .sec-badge {
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    .sec-strength {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      font-size: 0.74rem;
+      color: #64748b;
+      background: #f1f5f9;
+      padding: 2px 7px;
+      border-radius: 6px;
+      mat-icon { font-size: 13px; width: 13px; height: 13px; }
+    }
+
+    .status-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 12px;
+
+      mat-icon { font-size: 13px; width: 13px; height: 13px; }
+
+      &.assigned {
+        background: #eff6ff;
+        color: #1d4ed8;
+        border: 1px solid #bfdbfe;
+      }
+
+      &.unassigned {
+        background: #fff7ed;
+        color: #c2410c;
+        border: 1px solid #ffedd5;
+      }
+    }
+
+    .faculty-info-box {
+      background: #f0f7ff;
+      border: 1px solid #dbeafe;
+      border-radius: 8px;
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+
+      .faculty-avatar {
+        width: 34px;
+        height: 34px;
+        border-radius: 8px;
+        background: #2563eb;
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        mat-icon { font-size: 20px; width: 20px; height: 20px; }
+      }
+
+      .faculty-details {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      .faculty-name {
+        font-size: 0.9rem;
+        font-weight: 700;
+        color: #1e3a8a;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .faculty-meta {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.75rem;
+        color: #64748b;
+        margin-top: 1px;
+      }
+
+      .code-pill {
+        background: #ffffff;
+        border: 1px solid #bfdbfe;
+        color: #1d4ed8;
+        padding: 0 5px;
+        border-radius: 4px;
+        font-weight: 600;
+      }
+
+      .phone-link {
+        color: #2563eb;
+      }
+    }
+
+    .unassigned-notice-box {
+      background: #fefce8;
+      border: 1px solid #fef08a;
+      border-radius: 8px;
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.78rem;
+      color: #854d0e;
+
+      mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        color: #d97706;
+      }
+    }
+
+    .ct-action-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .ct-assign-btn {
+      width: 100%;
+      height: 38px;
+      font-size: 0.84rem;
+      font-weight: 600;
+      background: #2563eb !important;
+      color: #ffffff !important;
+      border-radius: 8px;
+      mat-icon { font-size: 18px; width: 18px; height: 18px; margin-right: 4px; }
+    }
+
+    .ct-assigned-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      width: 100%;
+    }
+
+    .ct-change-btn {
+      flex: 1;
+      height: 36px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      border-color: #bfdbfe !important;
+      color: #1d4ed8 !important;
+      border-radius: 8px;
+      mat-icon { font-size: 16px; width: 16px; height: 16px; margin-right: 4px; }
+      &:hover { background: #eff6ff !important; }
+    }
+
+    .table-assign-btn {
+      font-size: 0.78rem !important;
+      font-weight: 600 !important;
+      height: 32px !important;
+      line-height: 32px !important;
+      padding: 0 10px !important;
+      border-radius: 6px !important;
+      border-color: #bfdbfe !important;
+      color: #1d4ed8 !important;
+      mat-icon { font-size: 15px; width: 15px; height: 15px; margin-right: 3px; }
+    }
+
+    .sec-card-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border-top: 1px solid #f1f5f9;
+      padding-top: 10px;
+      margin-top: auto;
+
+      .sec-act-btn {
+        flex: 1;
+        font-size: 0.78rem !important;
+        font-weight: 600 !important;
+        color: #3b82f6 !important;
+        padding: 0 6px !important;
+        height: 30px !important;
+        line-height: 30px !important;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        background: #ffffff;
+
+        mat-icon {
+          font-size: 15px !important;
+          width: 15px !important;
+          height: 15px !important;
+          margin-right: 4px;
+        }
+
+        &:hover {
+          background: #eff6ff;
+          border-color: #bfdbfe;
+        }
+      }
+    }
+
+    /* Table View */
+    .ct-table-card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .matrix-table {
+      width: 100%;
+      border-collapse: collapse;
+
+      th {
+        background: #f8fafc;
+        border-bottom: 2px solid #e2e8f0;
+        padding: 12px 14px;
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: #475569;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        text-align: left;
+      }
+
+      td {
+        padding: 12px 14px;
+        border-bottom: 1px solid #f1f5f9;
+        font-size: 0.88rem;
+        vertical-align: middle;
+      }
+
+      tr:hover {
+        background: #f8fafc;
+      }
+
+      tr.row-unassigned {
+        background: #fffcf7;
+      }
+    }
+
+    .table-sec-pill {
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    .strength-tag {
+      font-size: 0.8rem;
+      color: #64748b;
+      background: #f1f5f9;
+      padding: 2px 8px;
+      border-radius: 6px;
+    }
+
+    .table-teacher-cell {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+
+      .t-ico {
+        font-size: 20px;
+        width: 20px;
+        height: 20px;
+        color: #2563eb;
+      }
+
+      .t-name {
+        font-weight: 600;
+        color: #1e3a8a;
+      }
+
+      .t-code {
+        color: #64748b;
+      }
+    }
+
+    .table-unassigned-cell {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #d97706;
+
+      mat-icon { font-size: 16px; width: 16px; height: 16px; }
+    }
+
+    .table-teacher-select {
+      width: 100%;
+      min-width: 220px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 0.84rem;
+      background: #ffffff;
+      outline: none;
+    }
+
+    .table-action-btns {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
 
     /* Scope Switcher Bar */
     .scope-switcher-card {
@@ -1623,6 +2905,19 @@ export class TeacherAssignmentsComponent implements OnInit {
   slots: AssignmentSlot[] = [];
   allTeachers: TeacherDto[] = [];
 
+  // Class Teachers Matrix Hub State
+  mainTab: 'TIMETABLE' | 'CLASS_TEACHER' = 'TIMETABLE';
+  classTeachersMatrix: ClassTeacherMatrixItemDto[] = [];
+  filteredMatrix: ClassTeacherMatrixItemDto[] = [];
+  groupedMatrixByClass: { classId: string; className: string; sections: ClassTeacherMatrixItemDto[] }[] = [];
+  matrixLoading = false;
+  matrixLoaded = false;
+  matrixSearch = '';
+  matrixClassFilter = 'ALL';
+  matrixStatusFilter: 'ALL' | 'ASSIGNED' | 'UNASSIGNED' = 'ALL';
+  matrixViewMode: 'cards' | 'grouped' | 'table' = 'cards';
+  updatingSectionId: string | null = null;
+
   // Unassigned Hub Filter & Pagination State
   unassignedSearch = '';
   unassignedSubjectFilter = 'ALL';
@@ -1647,23 +2942,174 @@ export class TeacherAssignmentsComponent implements OnInit {
     private http: HttpClient,
     private route: ActivatedRoute,
     private confirmDialog: ConfirmDialogService,
+    private schoolService: SchoolService,
     private dialog: MatDialog
   ) {}
 
   ngOnInit() {
-    this.route.queryParams.subscribe(p => { if (p['teacherId']) this.preSelectId = p['teacherId']; });
+    this.route.queryParams.subscribe(p => {
+      if (p['teacherId']) this.preSelectId = p['teacherId'];
+      if (p['tab'] === 'class-teachers') {
+        this.setMainTab('CLASS_TEACHER');
+      }
+    });
     this.loadBatches();
     this.loadSchoolClasses();
     this.loadSubjects();
     this.loadBatchCoverage();
     this.loadAllTeachers();
+    this.loadClassTeachersMatrix();
     this.initSlots();
   }
 
+  setMainTab(tab: 'TIMETABLE' | 'CLASS_TEACHER') {
+    this.mainTab = tab;
+    if (tab === 'CLASS_TEACHER' && !this.matrixLoaded) {
+      this.loadClassTeachersMatrix();
+    }
+  }
+
+  loadClassTeachersMatrix() {
+    this.matrixLoading = true;
+    this.schoolService.getClassTeachersMatrix().subscribe({
+      next: (data) => {
+        this.classTeachersMatrix = data || [];
+        this.matrixLoading = false;
+        this.matrixLoaded = true;
+        this.applyMatrixFilters();
+      },
+      error: () => {
+        this.matrixLoading = false;
+      }
+    });
+  }
+
+  applyMatrixFilters() {
+    let list = this.classTeachersMatrix || [];
+    if (this.matrixClassFilter !== 'ALL') {
+      list = list.filter(m => m.classId === this.matrixClassFilter);
+    }
+    if (this.matrixStatusFilter === 'ASSIGNED') {
+      list = list.filter(m => !!m.classTeacherId);
+    } else if (this.matrixStatusFilter === 'UNASSIGNED') {
+      list = list.filter(m => !m.classTeacherId);
+    }
+    if (this.matrixSearch && this.matrixSearch.trim()) {
+      const q = this.matrixSearch.toLowerCase().trim();
+      list = list.filter(m =>
+        m.className.toLowerCase().includes(q) ||
+        m.sectionName.toLowerCase().includes(q) ||
+        (m.classTeacherName && m.classTeacherName.toLowerCase().includes(q)) ||
+        (m.classTeacherEmployeeCode && m.classTeacherEmployeeCode.toLowerCase().includes(q))
+      );
+    }
+    this.filteredMatrix = list;
+
+    const groups: { [key: string]: { classId: string; className: string; sections: ClassTeacherMatrixItemDto[] } } = {};
+    for (const m of list) {
+      if (!groups[m.classId]) {
+        groups[m.classId] = {
+          classId: m.classId,
+          className: m.className,
+          sections: []
+        };
+      }
+      groups[m.classId].sections.push(m);
+    }
+    this.groupedMatrixByClass = Object.values(groups);
+  }
+
+  trackBySection(index: number, item: ClassTeacherMatrixItemDto): string {
+    return item.sectionId;
+  }
+
+  get unassignedClassTeachersCount(): number {
+    return this.classTeachersMatrix.filter(m => !m.classTeacherId).length;
+  }
+
+  get assignedClassTeachersCount(): number {
+    return this.classTeachersMatrix.filter(m => !!m.classTeacherId).length;
+  }
+
+  get classTeachersCoveragePercent(): number {
+    if (this.classTeachersMatrix.length === 0) return 0;
+    return Math.round((this.assignedClassTeachersCount / this.classTeachersMatrix.length) * 100);
+  }
+
+  get totalSchoolStudentsCount(): number {
+    return this.classTeachersMatrix.reduce((acc, m) => acc + (m.studentCount || 0), 0);
+  }
+
+  get matrixUniqueClasses(): { id: string; name: string }[] {
+    const map = new Map<string, string>();
+    this.classTeachersMatrix.forEach(m => {
+      if (!map.has(m.classId)) map.set(m.classId, m.className);
+    });
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  }
+
+  openAssignDialog(sec: ClassTeacherMatrixItemDto) {
+    const dialogRef = this.dialog.open(QuickClassTeacherDialogComponent, {
+      width: '500px',
+      data: {
+        sectionId: sec.sectionId,
+        sectionName: sec.sectionName,
+        className: sec.className,
+        currentClassTeacherId: sec.classTeacherId,
+        currentClassTeacherName: sec.classTeacherName,
+        teachers: this.allTeachers
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(res => {
+      if (res?.success) {
+        this.loadClassTeachersMatrix();
+      }
+    });
+  }
+
+  openSectionRoutineDialog(sec: ClassTeacherMatrixItemDto) {
+    const dialogRef = this.dialog.open(SectionRoutineDialogComponent, {
+      width: '1180px',
+      maxWidth: '96vw',
+      data: {
+        sectionId: sec.sectionId,
+        sectionName: sec.sectionName,
+        classId: sec.classId,
+        className: sec.className,
+        classTeacherId: sec.classTeacherId,
+        classTeacherName: sec.classTeacherName,
+        classTeacherPhone: sec.classTeacherPhone,
+        teachers: this.allTeachers
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(() => {
+      this.loadClassTeachersMatrix();
+    });
+  }
+
+  confirmUnassign(sec: ClassTeacherMatrixItemDto) {
+    this.confirmDialog.confirm(
+      'Remove Class Teacher',
+      `Are you sure you want to remove ${sec.classTeacherName} as Class Teacher for ${sec.className} - ${sec.sectionName}?`,
+      'Remove Faculty',
+      'Cancel',
+      'warning'
+    ).subscribe(confirmed => {
+      if (confirmed) {
+        this.schoolService.quickAssignClassTeacher(sec.sectionId, null, false).subscribe({
+          next: () => this.loadClassTeachersMatrix(),
+          error: (err) => alert(err.error?.message || 'Failed to remove Class Teacher.')
+        });
+      }
+    });
+  }
+
   loadAllTeachers() {
-    this.http.get<any>(`${this.api}/teachers/paged?pageSize=500&sortBy=fullName`).subscribe({
-      next: r => this.allTeachers = r.items || [],
-      error: () => {}
+    this.http.get<any>(`${this.api}/teachers/paged?pageSize=500&sortBy=fullName&isActive=true`).subscribe({
+      next: r => this.allTeachers = (r.items || []).filter((t: TeacherDto) => t.isActive),
+      error: () => this.allTeachers = []
     });
   }
 

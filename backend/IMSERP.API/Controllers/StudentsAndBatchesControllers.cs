@@ -156,7 +156,16 @@ public class StudentsController : ControllerBase
             s.LibraryCardNumber,
             s.LibraryMembershipType,
             s.MaxLibraryBooks,
-            s.MonthlyLibraryFee
+            s.MonthlyLibraryFee,
+            s.IsTransportStudent,
+            s.TransportAllocationId,
+            s.TransportAllocation != null && s.TransportAllocation.Route != null ? s.TransportAllocation.Route.RouteName : null,
+            s.TransportAllocation != null && s.TransportAllocation.Stop != null ? s.TransportAllocation.Stop.StopName : null,
+            s.TransportAllocation != null && s.TransportAllocation.Vehicle != null ? s.TransportAllocation.Vehicle.VehicleNumber : null,
+            s.TransportAllocation != null && s.TransportAllocation.Stop != null ? s.TransportAllocation.Stop.MonthlyFare : 0,
+            s.Section != null ? s.Section.ClassTeacherId : null,
+            s.Section != null && s.Section.ClassTeacher != null ? s.Section.ClassTeacher.FullName : null,
+            s.Section != null && s.Section.ClassTeacher != null ? s.Section.ClassTeacher.PhoneNumber : null
         )).ToListAsync();
 
         return Ok(list);
@@ -965,7 +974,16 @@ public class StudentsController : ControllerBase
                 s.LibraryCardNumber,
                 s.LibraryMembershipType,
                 s.MaxLibraryBooks,
-                s.MonthlyLibraryFee
+                s.MonthlyLibraryFee,
+                s.IsTransportStudent,
+                s.TransportAllocationId,
+                s.TransportAllocation != null && s.TransportAllocation.Route != null ? s.TransportAllocation.Route.RouteName : null,
+                s.TransportAllocation != null && s.TransportAllocation.Stop != null ? s.TransportAllocation.Stop.StopName : null,
+                s.TransportAllocation != null && s.TransportAllocation.Vehicle != null ? s.TransportAllocation.Vehicle.VehicleNumber : null,
+                s.TransportAllocation != null && s.TransportAllocation.Stop != null ? s.TransportAllocation.Stop.MonthlyFare : 0,
+                s.Section != null ? s.Section.ClassTeacherId : null,
+                s.Section != null && s.Section.ClassTeacher != null ? s.Section.ClassTeacher.FullName : null,
+                s.Section != null && s.Section.ClassTeacher != null ? s.Section.ClassTeacher.PhoneNumber : null
             )).ToListAsync();
 
         return Ok(new PagedResult<StudentDto>(items, totalCount, pageNumber, pageSize));

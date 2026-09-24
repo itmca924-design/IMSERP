@@ -935,6 +935,39 @@ public class LibraryController : ControllerBase
         return Ok(new { message = "Membership plan deleted successfully." });
     }
 
+    [HttpPost("assign-membership/{studentId}")]
+    public async Task<IActionResult> AssignLibraryMembership(Guid studentId, [FromBody] AssignLibraryMembershipDto dto)
+    {
+        var student = await _db.Students.FindAsync(studentId);
+        if (student == null)
+            return NotFound(new { message = "Student not found." });
+
+        student.IsLibraryMember = true;
+        student.LibraryMembershipType = !string.IsNullOrWhiteSpace(dto.LibraryMembershipType) ? dto.LibraryMembershipType.Trim() : "Standard Book Lending";
+        student.LibraryCardNumber = !string.IsNullOrWhiteSpace(dto.LibraryCardNumber)
+            ? dto.LibraryCardNumber.Trim()
+            : $"LIB-{(student.AdmissionNumber ?? student.RollNumber ?? student.Id.ToString()[..6]).Trim()}";
+        student.MaxLibraryBooks = dto.MaxBooks > 0 ? dto.MaxBooks : 2;
+        student.MonthlyLibraryFee = dto.MonthlyFee >= 0 ? dto.MonthlyFee : 0;
+
+        await _db.SaveChangesAsync();
+
+        return Ok(new
+        {
+            message = $"Library membership assigned successfully to {student.StudentName}.",
+            student = new
+            {
+                student.Id,
+                student.StudentName,
+                student.IsLibraryMember,
+                student.LibraryMembershipType,
+                student.LibraryCardNumber,
+                student.MaxLibraryBooks,
+                student.MonthlyLibraryFee
+            }
+        });
+    }
+
     private async Task AutoHealInactiveTeacherCirculationsAsync()
     {
         var orphanedCirculations = await _db.LibraryCirculations

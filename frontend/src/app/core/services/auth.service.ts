@@ -42,7 +42,31 @@ export class AuthService {
   selectedBranchId = signal<string | null>(this.getStoredBranchId());
   private dialog = inject(MatDialog, { optional: true });
 
-  constructor(private http: HttpClient, private router: Router) {}
+  constructor(private http: HttpClient, private router: Router) {
+    this.syncStorageAuth();
+  }
+
+  private syncStorageAuth(): void {
+    try {
+      const sessionToken = sessionStorage.getItem('auth_token');
+      const localToken = localStorage.getItem('auth_token');
+      const keys = ['auth_token', 'refresh_token', 'user_info', 'selected_branch_id', 'userId', 'userName', 'fullName', 'role', 'tenantId', 'instituteName', 'branchId', 'branchName'];
+
+      if (sessionToken && !localToken) {
+        for (const k of keys) {
+          const val = sessionStorage.getItem(k);
+          if (val) localStorage.setItem(k, val);
+        }
+      } else if (localToken && !sessionToken) {
+        for (const k of keys) {
+          const val = localStorage.getItem(k);
+          if (val) sessionStorage.setItem(k, val);
+        }
+      }
+    } catch (e) {
+      console.warn('Storage sync error:', e);
+    }
+  }
 
   isRememberMe(): boolean {
     return localStorage.getItem('remember_me') === 'true';
@@ -52,10 +76,7 @@ export class AuthService {
     if (sessionStorage.getItem('auth_token')) {
       return sessionStorage;
     }
-    if (this.isRememberMe() && localStorage.getItem('auth_token')) {
-      return localStorage;
-    }
-    return sessionStorage;
+    return localStorage;
   }
 
   private getStoredBranchId(): string | null {
@@ -91,12 +112,6 @@ export class AuthService {
   }
 
   private saveAuthData(res: LoginResponse, rememberMe: boolean = false): void {
-    const targetStorage = rememberMe ? localStorage : sessionStorage;
-    const alternateStorage = rememberMe ? sessionStorage : localStorage;
-
-    // Remove auth keys from alternate storage to prevent conflicting states
-    this.clearStorageAuth(alternateStorage);
-
     if (rememberMe) {
       localStorage.setItem('remember_me', 'true');
     } else {
@@ -108,38 +123,42 @@ export class AuthService {
       localStorage.setItem('last_tenant_code', res.tenantCode);
     }
 
-    targetStorage.setItem('auth_token', res.token);
-    if (res.refreshToken) {
-      targetStorage.setItem('refresh_token', res.refreshToken);
+    // Store auth session in both localStorage and sessionStorage so all tabs, target="_blank" links, and popups remain authenticated
+    const storages = [sessionStorage, localStorage];
+    for (const storage of storages) {
+      storage.setItem('auth_token', res.token);
+      if (res.refreshToken) {
+        storage.setItem('refresh_token', res.refreshToken);
+      }
+      if (res.tenantCode) {
+        storage.setItem('last_tenant_code', res.tenantCode);
+      }
+      if (res.userId) {
+        storage.setItem('userId', res.userId);
+      }
+      if (res.username) {
+        storage.setItem('userName', res.username);
+      }
+      if (res.fullName) {
+        storage.setItem('fullName', res.fullName);
+      }
+      if (res.role) {
+        storage.setItem('role', res.role);
+      }
+      if (res.tenantId) {
+        storage.setItem('tenantId', res.tenantId);
+      }
+      if (res.instituteName) {
+        storage.setItem('instituteName', res.instituteName);
+      }
+      if (res.branchId) {
+        storage.setItem('branchId', res.branchId);
+      }
+      if (res.branchName) {
+        storage.setItem('branchName', res.branchName);
+      }
+      storage.setItem('user_info', JSON.stringify(res));
     }
-    if (res.tenantCode) {
-      targetStorage.setItem('last_tenant_code', res.tenantCode);
-    }
-    if (res.userId) {
-      targetStorage.setItem('userId', res.userId);
-    }
-    if (res.username) {
-      targetStorage.setItem('userName', res.username);
-    }
-    if (res.fullName) {
-      targetStorage.setItem('fullName', res.fullName);
-    }
-    if (res.role) {
-      targetStorage.setItem('role', res.role);
-    }
-    if (res.tenantId) {
-      targetStorage.setItem('tenantId', res.tenantId);
-    }
-    if (res.instituteName) {
-      targetStorage.setItem('instituteName', res.instituteName);
-    }
-    if (res.branchId) {
-      targetStorage.setItem('branchId', res.branchId);
-    }
-    if (res.branchName) {
-      targetStorage.setItem('branchName', res.branchName);
-    }
-    targetStorage.setItem('user_info', JSON.stringify(res));
 
     // Update last activity timestamp
     localStorage.setItem('imserp_last_activity', Date.now().toString());
@@ -205,25 +224,27 @@ export class AuthService {
       instituteName: instituteName || current.instituteName,
       tenantCode: tenantCode || current.tenantCode
     };
-    const storage = this.getActiveStorage();
-    if (updated.profilePhoto) {
-      storage.setItem('profilePhoto', updated.profilePhoto);
-    } else {
-      storage.removeItem('profilePhoto');
+    for (const storage of [sessionStorage, localStorage]) {
+      if (updated.profilePhoto) {
+        storage.setItem('profilePhoto', updated.profilePhoto);
+      } else {
+        storage.removeItem('profilePhoto');
+      }
+      if (updated.instituteName) {
+        storage.setItem('instituteName', updated.instituteName);
+      }
+      storage.setItem('user_info', JSON.stringify(updated));
     }
-    if (updated.instituteName) {
-      storage.setItem('instituteName', updated.instituteName);
-    }
-    storage.setItem('user_info', JSON.stringify(updated));
     this.currentUser.set(updated);
   }
 
   switchBranch(branchId: string | null): void {
-    const storage = this.getActiveStorage();
-    if (branchId) {
-      storage.setItem('selected_branch_id', branchId);
-    } else {
-      storage.removeItem('selected_branch_id');
+    for (const storage of [sessionStorage, localStorage]) {
+      if (branchId) {
+        storage.setItem('selected_branch_id', branchId);
+      } else {
+        storage.removeItem('selected_branch_id');
+      }
     }
     this.selectedBranchId.set(branchId);
   }
@@ -277,23 +298,11 @@ export class AuthService {
   }
 
   getToken(): string | null {
-    if (sessionStorage.getItem('auth_token')) {
-      return sessionStorage.getItem('auth_token');
-    }
-    if (this.isRememberMe()) {
-      return localStorage.getItem('auth_token');
-    }
-    return null;
+    return sessionStorage.getItem('auth_token') || localStorage.getItem('auth_token');
   }
 
   getRefreshToken(): string | null {
-    if (sessionStorage.getItem('refresh_token')) {
-      return sessionStorage.getItem('refresh_token');
-    }
-    if (this.isRememberMe()) {
-      return localStorage.getItem('refresh_token');
-    }
-    return null;
+    return sessionStorage.getItem('refresh_token') || localStorage.getItem('refresh_token');
   }
 
   getLastTenantCode(): string {
@@ -305,8 +314,7 @@ export class AuthService {
   }
 
   private getUserFromStorage(): LoginResponse | null {
-    const storage = this.getActiveStorage();
-    const data = storage.getItem('user_info');
+    const data = sessionStorage.getItem('user_info') || localStorage.getItem('user_info');
     if (!data) return null;
     try {
       const user: LoginResponse = JSON.parse(data);
@@ -317,7 +325,8 @@ export class AuthService {
           const id = payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] || payload['nameid'] || payload['sub'];
           if (id) {
             user.userId = id;
-            storage.setItem('user_info', JSON.stringify(user));
+            sessionStorage.setItem('user_info', JSON.stringify(user));
+            localStorage.setItem('user_info', JSON.stringify(user));
           }
         }
       }

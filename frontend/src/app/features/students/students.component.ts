@@ -615,6 +615,10 @@ const API_BASE = 'http://localhost:5000';
                       <mat-icon class="icon-school">domain</mat-icon>
                       <span><strong>{{ s.className || 'Class' }}</strong> - Sec {{ s.sectionName || 'A' }}</span>
                     </div>
+                    <div class="teacher-alloc" *ngIf="s.isSchoolStudent && s.classTeacherName" [matTooltip]="'Class Teacher: ' + s.classTeacherName + (s.classTeacherPhone ? ' (📞 ' + s.classTeacherPhone + ')' : '')">
+                      <mat-icon class="icon-teacher">supervisor_account</mat-icon>
+                      <span>CT: <strong>{{ s.classTeacherName }}</strong></span>
+                    </div>
                     <div class="coaching-alloc" *ngIf="s.isCoachingStudent">
                       <mat-icon class="icon-coaching">school</mat-icon>
                       <span>{{ s.batchName || 'Coaching Batch' }}</span>
@@ -1237,6 +1241,19 @@ const API_BASE = 'http://localhost:5000';
         gap: 4px;
         color: #047857;
         .icon-school { font-size: 14px; width: 14px; height: 14px; color: #10b981; }
+      }
+      .teacher-alloc {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        color: #1d4ed8;
+        font-size: 0.76rem;
+        background: #eff6ff;
+        border: 1px solid #bfdbfe;
+        border-radius: 4px;
+        padding: 1px 6px;
+        width: fit-content;
+        .icon-teacher { font-size: 13px; width: 13px; height: 13px; color: #2563eb; }
       }
       .coaching-alloc {
         display: flex;

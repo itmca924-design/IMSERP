@@ -156,7 +156,8 @@ export class IdleTimeoutService implements OnDestroy {
     if (!this.authService.isLoggedIn() || this.dialogRef) return;
 
     this.dialogRef = this.dialog.open(IdleWarningDialogComponent, {
-      width: '420px',
+      width: '460px',
+      maxWidth: '94vw',
       disableClose: true,
       data: { seconds: this.WARNING_SECONDS }
     });

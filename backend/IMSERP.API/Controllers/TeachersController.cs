@@ -146,7 +146,13 @@ public class TeachersController : ControllerBase
             .Include(t => t.Branch)
             .Include(t => t.User)
             .AsQueryable();
-        if (activeOnly) q = q.Where(t => t.IsActive);
+        if (activeOnly)
+        {
+            var settledTeacherIds = _db.TeacherFnFSettlements
+                .Where(s => s.Status == "Settled")
+                .Select(s => s.TeacherId);
+            q = q.Where(t => t.IsActive && !settledTeacherIds.Contains(t.Id));
+        }
 
         // Pehle DB se raw data lo, phir C# mein map karo (EF Core translation issue avoid)
         var rawList = await q.OrderBy(t => t.FullName).ToListAsync();
@@ -169,7 +175,17 @@ public class TeachersController : ControllerBase
             .Include(t => t.User)
             .AsQueryable();
 
-        if (isActive.HasValue) q = q.Where(t => t.IsActive == isActive.Value);
+        if (isActive.HasValue)
+        {
+            q = q.Where(t => t.IsActive == isActive.Value);
+            if (isActive.Value)
+            {
+                var settledTeacherIds = _db.TeacherFnFSettlements
+                    .Where(s => s.Status == "Settled")
+                    .Select(s => s.TeacherId);
+                q = q.Where(t => !settledTeacherIds.Contains(t.Id));
+            }
+        }
 
         if (!string.IsNullOrWhiteSpace(searchTerm))
         {
@@ -510,6 +526,12 @@ public class TeachersController : ControllerBase
         var teacher = await _db.Teachers.FindAsync(dto.TeacherId);
         if (teacher == null) return NotFound(new { message = "Teacher not found." });
 
+        var isFnFSettled = await _db.TeacherFnFSettlements.AnyAsync(s => s.TeacherId == dto.TeacherId && s.Status == "Settled");
+        if (!teacher.IsActive || isFnFSettled)
+        {
+            return BadRequest(new { message = $"Cannot assign batch: {teacher.FullName} is inactive or offboarded (FnF settled)." });
+        }
+
         string displayName = string.Empty;
         string? className = null;
         string? sectionName = null;
@@ -567,6 +589,12 @@ public class TeachersController : ControllerBase
     {
         var teacher = await _db.Teachers.FindAsync(dto.TeacherId);
         if (teacher == null) return NotFound(new { message = "Teacher not found." });
+
+        var isFnFSettled = await _db.TeacherFnFSettlements.AnyAsync(s => s.TeacherId == dto.TeacherId && s.Status == "Settled");
+        if (!teacher.IsActive || isFnFSettled)
+        {
+            return BadRequest(new { message = $"Cannot assign batch: {teacher.FullName} is inactive or offboarded (FnF settled)." });
+        }
 
         if (dto.Slots == null || dto.Slots.Count == 0)
         {

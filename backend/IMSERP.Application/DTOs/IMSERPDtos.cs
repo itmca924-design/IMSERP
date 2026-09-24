@@ -170,7 +170,8 @@ public record SchoolSectionDto(
     int StudentCount = 0,
     Guid? ClassTeacherId = null,
     string? ClassTeacherName = null,
-    string? ClassTeacherEmployeeCode = null
+    string? ClassTeacherEmployeeCode = null,
+    string? ClassTeacherPhone = null
 );
 
 public record CreateSchoolSectionDto(
@@ -188,6 +189,53 @@ public record UpdateSchoolSectionDto(
     Guid? RoomId,
     bool IsActive,
     Guid? ClassTeacherId = null
+);
+
+public record QuickAssignClassTeacherDto(
+    Guid? ClassTeacherId,
+    bool ForceReassign = false
+);
+
+public record ClassTeacherMatrixItemDto(
+    Guid SectionId,
+    string SectionName,
+    Guid ClassId,
+    string ClassName,
+    int MaxCapacity,
+    int StudentCount,
+    Guid? ClassTeacherId,
+    string? ClassTeacherName,
+    string? ClassTeacherEmployeeCode,
+    string? ClassTeacherPhone,
+    bool IsActive,
+    List<string>? AssignedSubjects = null,
+    int TotalPeriodsCount = 0
+);
+
+public record SectionPeriodRoutineDto(
+    Guid Id,
+    Guid SectionId,
+    string SectionName,
+    Guid ClassId,
+    string ClassName,
+    Guid TeacherId,
+    string TeacherName,
+    string TeacherEmployeeCode,
+    string? TeacherPhone,
+    string Subject,
+    string? DaysOfWeek,
+    string? TimeSlot,
+    bool IsClassTeacher,
+    DateTime AssignedAt
+);
+
+public record CreateSectionPeriodRequestDto(
+    Guid TeacherId,
+    string Subject,
+    string? DaysOfWeek,
+    string? TimeSlot,
+    bool AllowClashOverride = false,
+    Guid? ReplaceExistingAssignmentId = null
 );
 
 public record EnrollSchoolStudentInCoachingDto(
@@ -244,7 +292,11 @@ public record StudentDto(
     string? TransportRouteName = null,
     string? TransportStopName = null,
     string? TransportVehicleNumber = null,
-    decimal MonthlyTransportFare = 0
+    decimal MonthlyTransportFare = 0,
+    // School Class Teacher
+    Guid? ClassTeacherId = null,
+    string? ClassTeacherName = null,
+    string? ClassTeacherPhone = null
 );
 
 public record StudentLeavingClearanceDto(
@@ -1627,6 +1679,13 @@ public record UpdateLibraryMembershipPlanDto(
     int MaxBooks,
     bool IsActive,
     int SortOrder
+);
+
+public record AssignLibraryMembershipDto(
+    string? LibraryMembershipType = null,
+    string? LibraryCardNumber = null,
+    int MaxBooks = 2,
+    decimal MonthlyFee = 0
 );
 
 // ─── School Multi-Head Fees & Structure DTOs ────────────────────

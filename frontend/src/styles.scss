@@ -1675,6 +1675,7 @@ mat-sidenav-container {
 
 /* Global Confirm / Alert Dialog Panel */
 .erp-confirm-dialog-panel {
+  z-index: 1250 !important;
   .mat-mdc-dialog-surface {
     border-radius: 14px !important;
     overflow: hidden !important;
@@ -1682,6 +1683,10 @@ mat-sidenav-container {
     background: #ffffff !important;
     box-shadow: 0 20px 30px -10px rgba(15, 23, 42, 0.2), 0 10px 15px -5px rgba(15, 23, 42, 0.1) !important;
   }
+}
+
+.cdk-overlay-container:has(.erp-confirm-dialog-panel) {
+  z-index: 1200 !important;
 }
 
 // 7. Global Print Handler for Transport Bus Pass & Daily Manifest

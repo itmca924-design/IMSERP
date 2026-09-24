@@ -307,4 +307,13 @@ export class LibraryService {
   deleteMembershipPlan(id: string): Observable<any> {
     return this.http.delete(`${this.apiUrl}/membership-plans/${id}`);
   }
+
+  assignStudentMembership(studentId: string, dto: {
+    libraryMembershipType?: string;
+    libraryCardNumber?: string;
+    maxBooks?: number;
+    monthlyFee?: number;
+  }): Observable<any> {
+    return this.http.post(`${this.apiUrl}/assign-membership/${studentId}`, dto);
+  }
 }

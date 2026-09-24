@@ -50,7 +50,8 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
     .idle-modal-container {
       padding: 24px 20px 20px;
       text-align: center;
-      max-width: 400px;
+      width: 100%;
+      max-width: 440px;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -146,13 +147,26 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        gap: 6px;
-        mat-icon { font-size: 18px; width: 18px; height: 18px; }
+        gap: 8px;
+        padding: 0 16px !important;
+        white-space: nowrap !important;
+
+        span {
+          white-space: nowrap !important;
+        }
+
+        mat-icon {
+          font-size: 18px;
+          width: 18px;
+          height: 18px;
+          flex-shrink: 0;
+        }
       }
 
       .stay-btn {
         background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
         color: #ffffff;
+        box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
       }
     }
   `]

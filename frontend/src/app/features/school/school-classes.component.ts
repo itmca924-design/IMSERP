@@ -16,6 +16,9 @@ import { SchoolService, SchoolClassDto, SchoolSectionDto, UnifiedStatsDto } from
 import { RoomService, RoomDto } from '../../core/services/room.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 
+import { MatDialogModule, MatDialog } from '@angular/material/dialog';
+import { QuickClassTeacherDialogComponent } from './quick-class-teacher-dialog.component';
+
 @Component({
   selector: 'app-school-classes',
   standalone: true,
@@ -31,7 +34,8 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
     MatInputModule,
     MatSelectModule,
     MatTooltipModule,
-    MatSlideToggleModule
+    MatSlideToggleModule,
+    MatDialogModule
   ],
   template: `
     <div class="page-container">
@@ -280,13 +284,10 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                     <mat-icon>meeting_room</mat-icon>
                     <span>Room {{ s.roomNumber }}</span>
                   </span>
-                  <div class="sec-teacher-tag" *ngIf="s.classTeacherName" matTooltip="Assigned Class Teacher">
-                    <mat-icon>person</mat-icon>
-                    <span>{{ s.classTeacherName }}</span>
-                  </div>
-                  <div class="sec-teacher-tag unassigned" *ngIf="!s.classTeacherName" matTooltip="No Class Teacher Assigned">
-                    <mat-icon>person_off</mat-icon>
-                    <span>No Class Teacher</span>
+                  <div class="sec-teacher-tag clickable-tag" (click)="openQuickAssignTeacher(s, c)" [class.unassigned]="!s.classTeacherName" [matTooltip]="s.classTeacherName ? 'Class Teacher: ' + s.classTeacherName + ' (Click to change)' : 'Click to Assign Class Teacher'">
+                    <mat-icon>{{ s.classTeacherName ? 'supervisor_account' : 'person_add' }}</mat-icon>
+                    <span>{{ s.classTeacherName || 'Assign Class Teacher' }}</span>
+                    <mat-icon class="quick-caret">arrow_drop_down</mat-icon>
                   </div>
                 </div>
               </div>
@@ -551,7 +552,31 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                 display: inline-flex; align-items: center; gap: 4px; font-size: 0.71rem; font-weight: 600;
                 color: #1d4ed8; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 1px 7px;
                 mat-icon { font-size: 13px; width: 13px; height: 13px; line-height: 13px; }
-                &.unassigned { color: #94a3b8; background: #f8fafc; border-color: #e2e8f0; }
+                &.unassigned { color: #854d0e; background: #fefce8; border-color: #fef08a; }
+                &.clickable-tag {
+                  cursor: pointer;
+                  transition: all 0.15s ease;
+                  user-select: none;
+                  &:hover {
+                    background: #dbeafe;
+                    border-color: #93c5fd;
+                    transform: translateY(-1px);
+                    box-shadow: 0 2px 4px rgba(37, 99, 235, 0.15);
+                  }
+                  &.unassigned:hover {
+                    background: #fef08a;
+                    border-color: #fde047;
+                    color: #713f12;
+                  }
+                  .quick-caret {
+                    font-size: 14px;
+                    width: 14px;
+                    height: 14px;
+                    line-height: 14px;
+                    margin-left: -2px;
+                    opacity: 0.7;
+                  }
+                }
               }
             }
           }
@@ -714,6 +739,7 @@ export class SchoolClassesComponent implements OnInit {
     private schoolService: SchoolService,
     private roomService: RoomService,
     private confirmDialog: ConfirmDialogService,
+    private dialog: MatDialog,
     private http: HttpClient
   ) {}
 
@@ -728,6 +754,28 @@ export class SchoolClassesComponent implements OnInit {
     this.http.get<any[]>('http://localhost:5000/api/teachers?activeOnly=true').subscribe({
       next: (res) => this.teachers = res || [],
       error: () => this.teachers = []
+    });
+  }
+
+  openQuickAssignTeacher(section: SchoolSectionDto, parentClass: SchoolClassDto): void {
+    const dialogRef = this.dialog.open(QuickClassTeacherDialogComponent, {
+      width: '500px',
+      data: {
+        sectionId: section.id,
+        sectionName: section.name,
+        className: parentClass.name,
+        currentClassTeacherId: section.classTeacherId,
+        currentClassTeacherName: section.classTeacherName,
+        teachers: this.teachers
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(res => {
+      if (res?.success) {
+        section.classTeacherId = res.classTeacherId;
+        section.classTeacherName = res.classTeacherName;
+        this.loadData();
+      }
     });
   }
 

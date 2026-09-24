@@ -1141,7 +1141,8 @@ export class FeesComponent implements OnInit, OnDestroy {
     const invTitles = this.selectedInvoices.map(i => i.title).join(', ');
 
     const dialogRef = this.dialog.open(FeeCollectionDialogComponent, {
-      width: '540px',
+      width: '640px',
+      maxWidth: '96vw',
       data: {
         studentId: first.studentId,
         studentName: first.studentName,

@@ -47,6 +47,49 @@ export interface SchoolSectionDto {
   classTeacherId?: string;
   classTeacherName?: string;
   classTeacherEmployeeCode?: string;
+  classTeacherPhone?: string;
+}
+
+export interface ClassTeacherMatrixItemDto {
+  sectionId: string;
+  sectionName: string;
+  classId: string;
+  className: string;
+  maxCapacity: number;
+  studentCount: number;
+  classTeacherId?: string;
+  classTeacherName?: string;
+  classTeacherEmployeeCode?: string;
+  classTeacherPhone?: string;
+  isActive: boolean;
+  assignedSubjects?: string[];
+  totalPeriodsCount?: number;
+}
+
+export interface SectionPeriodRoutineDto {
+  id: string;
+  sectionId: string;
+  sectionName: string;
+  classId: string;
+  className: string;
+  teacherId: string;
+  teacherName: string;
+  teacherEmployeeCode: string;
+  teacherPhone?: string;
+  subject: string;
+  daysOfWeek?: string;
+  timeSlot?: string;
+  isClassTeacher: boolean;
+  assignedAt: string;
+}
+
+export interface CreateSectionPeriodRequestDto {
+  teacherId: string;
+  subject: string;
+  daysOfWeek?: string;
+  timeSlot?: string;
+  allowClashOverride?: boolean;
+  replaceExistingAssignmentId?: string;
 }
 
 export interface CreateSchoolSectionDto {
@@ -448,6 +491,17 @@ export class SchoolService {
     return this.http.delete<void>(`${this.apiUrl}/sections/${id}`);
   }
 
+  getClassTeachersMatrix(): Observable<ClassTeacherMatrixItemDto[]> {
+    return this.http.get<ClassTeacherMatrixItemDto[]>(`${this.apiUrl}/class-teachers-matrix`);
+  }
+
+  quickAssignClassTeacher(sectionId: string, classTeacherId: string | null, forceReassign: boolean = false): Observable<any> {
+    return this.http.patch<any>(`${this.apiUrl}/sections/${sectionId}/class-teacher`, {
+      classTeacherId,
+      forceReassign
+    });
+  }
+
   searchSchoolStudents(query: string): Observable<any[]> {
     return this.http.get<any[]>(`${this.apiUrl}/students/search`, {
       params: { query }
@@ -603,5 +657,21 @@ export class SchoolService {
 
   saveBulkSchoolAttendance(payload: BulkSchoolAttendanceDto): Observable<any> {
     return this.http.post<any>(`${API_BASE}/students/school/attendance/bulk`, payload);
+  }
+
+  getSectionRoutine(sectionId: string): Observable<SectionPeriodRoutineDto[]> {
+    return this.http.get<SectionPeriodRoutineDto[]>(`${this.apiUrl}/sections/${sectionId}/routine`);
+  }
+
+  addSectionPeriod(sectionId: string, dto: CreateSectionPeriodRequestDto): Observable<SectionPeriodRoutineDto> {
+    return this.http.post<SectionPeriodRoutineDto>(`${this.apiUrl}/sections/${sectionId}/routine`, dto);
+  }
+
+  updateSectionPeriod(assignmentId: string, dto: CreateSectionPeriodRequestDto): Observable<SectionPeriodRoutineDto> {
+    return this.http.put<SectionPeriodRoutineDto>(`${this.apiUrl}/sections/routine/${assignmentId}`, dto);
+  }
+
+  removeSectionPeriod(assignmentId: string): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/sections/routine/${assignmentId}`);
   }
 }

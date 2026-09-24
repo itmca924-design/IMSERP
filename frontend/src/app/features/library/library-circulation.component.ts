@@ -13,7 +13,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
-import { LibraryService, LibraryCirculationDto, BookCopyDto, LibrarySettingDto } from '../../core/services/library.service';
+import { LibraryService, LibraryCirculationDto, BookCopyDto, LibrarySettingDto, LibraryMembershipPlanDto } from '../../core/services/library.service';
 import { CoachingService } from '../../core/services/coaching.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 
@@ -197,10 +197,10 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                       <p class="bsc-warn-desc">Student has not enrolled in a Library Membership Plan. Book circulation is restricted to registered members only.</p>
                     </div>
                   </div>
-                  <a mat-stroked-button color="primary" class="btn-assign-mem" routerLink="/students" target="_blank">
+                  <button mat-stroked-button color="primary" class="btn-assign-mem" type="button" (click)="openAssignMembershipModal()">
                     <mat-icon>card_membership</mat-icon>
-                    <span>Assign Membership in Students</span>
-                  </a>
+                    <span>Assign Membership</span>
+                  </button>
                 </div>
               </div>
             </div>
@@ -428,6 +428,84 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           </table>
         </div>
       </mat-card>
+
+      <!-- Quick Assign Membership Modal Overlay (Strict Light Blue Header) -->
+      <div class="modal-backdrop" *ngIf="showAssignMembershipModal" (click)="closeAssignMembershipModal()">
+        <div class="modal-dialog-card" (click)="$event.stopPropagation()">
+          <div class="modal-header-box">
+            <div class="header-left">
+              <div class="header-icon-box">
+                <mat-icon>card_membership</mat-icon>
+              </div>
+              <div class="header-title-meta">
+                <h3 class="header-title">Assign Library Membership</h3>
+                <p class="header-subtitle">
+                  Enroll <strong>{{ selectedStudentForIssue?.fullName || selectedStudentForIssue?.studentName }}</strong> into Library Circulation
+                </p>
+              </div>
+            </div>
+            <button type="button" class="close-btn" (click)="closeAssignMembershipModal()" matTooltip="Close">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+
+          <!-- Dialog Body Form -->
+          <div class="modal-form-body">
+            <!-- Student Banner -->
+            <div class="assign-student-banner">
+              <div class="asb-avatar">🎓</div>
+              <div class="asb-meta">
+                <div class="asb-name">{{ selectedStudentForIssue?.fullName || selectedStudentForIssue?.studentName }}</div>
+                <div class="asb-sub">
+                  Adm: <strong>{{ selectedStudentForIssue?.admissionNumber || 'N/A' }}</strong> &bull;
+                  Roll: <strong>{{ selectedStudentForIssue?.rollNumber || 'N/A' }}</strong>
+                </div>
+              </div>
+            </div>
+
+            <div class="modal-form-grid">
+              <mat-form-field appearance="outline" class="full-span">
+                <mat-label>Library Membership Plan / Shift *</mat-label>
+                <mat-select [(ngModel)]="assignPlanName" (selectionChange)="onAssignPlanChange($event.value)" panelClass="batch-filter-panel">
+                  <mat-option value="Standard Book Lending">Standard Book Lending (General)</mat-option>
+                  <mat-option *ngFor="let p of libraryPlans" [value]="p.planName">
+                    {{ p.planName }} {{ p.shiftTiming ? '(' + p.shiftTiming + ')' : '' }} &bull; Max {{ p.maxBooks }} Books
+                  </mat-option>
+                </mat-select>
+                <mat-hint>Select circulation tier or shift</mat-hint>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Library Card Number</mat-label>
+                <input matInput [(ngModel)]="assignCardNumber" placeholder="e.g. LIB-0012" />
+                <mat-hint>Card barcode / ID #</mat-hint>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Max Books Allowed *</mat-label>
+                <input matInput type="number" [(ngModel)]="assignMaxBooks" min="1" max="20" />
+                <mat-hint>Simultaneous books quota</mat-hint>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="full-span">
+                <mat-label>Monthly Library Fee (₹)</mat-label>
+                <input matInput type="number" [(ngModel)]="assignMonthlyFee" min="0" />
+                <mat-hint>Keep ₹0 for free borrowing or tuition inclusion</mat-hint>
+              </mat-form-field>
+            </div>
+
+            <div class="modal-footer-actions">
+              <button mat-stroked-button type="button" (click)="closeAssignMembershipModal()">
+                Cancel
+              </button>
+              <button mat-raised-button color="primary" type="button" class="btn-activate-save" (click)="saveAssignMembership()" [disabled]="assignSubmitting">
+                <mat-icon>{{ assignSubmitting ? 'hourglass_empty' : 'verified' }}</mat-icon>
+                <span>{{ assignSubmitting ? 'Activating...' : 'Activate Membership & Enable Borrowing' }}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   `,
   styles: [`
@@ -758,47 +836,221 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           display: flex;
           align-items: center;
           gap: 10px;
+          flex: 1;
+          min-width: 0;
 
           .bsc-warn-ico {
             color: #e11d48;
             font-size: 22px;
             width: 22px;
             height: 22px;
+            flex-shrink: 0;
           }
 
           .bsc-warn-texts {
             display: flex;
             flex-direction: column;
             gap: 2px;
+            min-width: 0;
 
             .bsc-warn-heading {
-              font-size: 0.82rem;
+              font-size: 0.84rem;
               font-weight: 700;
               color: #9f1239;
+              white-space: nowrap;
             }
 
             .bsc-warn-desc {
               margin: 0;
               font-size: 0.76rem;
               color: #be123c;
+              line-height: 1.35;
             }
           }
         }
 
         .btn-assign-mem {
-          height: 32px;
-          font-size: 0.76rem;
-          font-weight: 700;
-          color: #2563eb;
-          border-color: #93c5fd;
-          background: #ffffff;
-          mat-icon { font-size: 16px; width: 16px; height: 16px; margin-right: 4px; }
+          height: 34px;
+          font-size: 0.78rem;
+          font-weight: 600;
+          color: #2563eb !important;
+          border: 1px solid #93c5fd !important;
+          background: #ffffff !important;
+          border-radius: 6px;
+          white-space: nowrap;
+          flex-shrink: 0;
+          display: inline-flex;
+          align-items: center;
+          padding: 0 14px;
+          transition: all 0.15s ease;
+          mat-icon { font-size: 16px; width: 16px; height: 16px; margin-right: 5px; color: #2563eb; }
+          &:hover {
+            background: #eff6ff !important;
+            border-color: #3b82f6 !important;
+          }
         }
       }
     }
     .bk-title { font-weight: 600; font-size: 0.88rem; color: #1e293b; }
     .bk-acc { font-size: 0.75rem; color: #64748b; margin-top: 2px; }
     .bk-price { color: #2563eb; font-weight: 700; font-size: 0.73rem; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 5px; padding: 0px 5px; margin-left: 4px; }
+
+    /* Modal Backdrop & Strict Dialog Styling matching AGENTS.md */
+    .modal-backdrop {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(15, 23, 42, 0.45);
+      backdrop-filter: blur(4px);
+      z-index: 1050;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .modal-dialog-card {
+      background: #ffffff;
+      border-radius: 14px;
+      width: 100%;
+      max-width: 540px;
+      overflow: hidden;
+      box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
+      animation: modalSlide 0.2s ease-out;
+
+      /* STRICT AGENTS.MD LIGHT-BLUE GRADIENT HEADER */
+      .modal-header-box {
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        border-bottom: 1px solid #bfdbfe;
+        padding: 16px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+
+        .header-left {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+
+          .header-icon-box {
+            background: #2563eb;
+            color: #ffffff;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px -1px rgba(37,99,235,0.25);
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            mat-icon { font-size: 24px; width: 24px; height: 24px; }
+          }
+
+          .header-title-meta {
+            .header-title {
+              margin: 0;
+              font-size: 1.15rem;
+              font-weight: 700;
+              color: #1e3a8a;
+            }
+
+            .header-subtitle {
+              margin: 2px 0 0 0;
+              font-size: 0.82rem;
+              color: #3b82f6;
+
+              strong {
+                color: #1e40af;
+              }
+            }
+          }
+        }
+
+        .close-btn {
+          background: transparent;
+          border: none;
+          color: #64748b;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 32px;
+          height: 32px;
+          border-radius: 6px;
+          transition: all 0.15s;
+
+          &:hover {
+            background: rgba(0, 0, 0, 0.05);
+            color: #1e293b;
+          }
+        }
+      }
+
+      .modal-form-body {
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+
+        .assign-student-banner {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 8px;
+          padding: 10px 14px;
+
+          .asb-avatar {
+            font-size: 22px;
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            background: #e0e7ff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+
+          .asb-meta {
+            .asb-name { font-weight: 700; color: #0f172a; font-size: 0.95rem; }
+            .asb-sub { font-size: 0.78rem; color: #64748b; margin-top: 1px; strong { color: #1e293b; } }
+          }
+        }
+
+        .modal-form-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 14px;
+          .full-span { grid-column: span 2; margin-bottom: -10px; }
+          mat-form-field { margin-bottom: -10px; }
+        }
+
+        .modal-footer-actions {
+          display: flex;
+          justify-content: flex-end;
+          gap: 10px;
+          margin-top: 12px;
+          padding-top: 14px;
+          border-top: 1px solid #f1f5f9;
+
+          .btn-activate-save {
+            font-weight: 700;
+            height: 42px;
+            padding: 0 20px;
+            background: #2563eb;
+            color: #ffffff;
+            mat-icon { margin-right: 6px; font-size: 18px; width: 18px; height: 18px; }
+          }
+        }
+      }
+    }
+
+    @keyframes modalSlide {
+      from { transform: translateY(10px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
   `]
 })
 export class LibraryCirculationComponent implements OnInit {
@@ -836,6 +1088,15 @@ export class LibraryCirculationComponent implements OnInit {
   availableCopies: BookCopyDto[] = [];
   selectedAvailableAccession = '';
 
+  // Quick Assign Membership Modal Fields
+  showAssignMembershipModal = false;
+  assignPlanName = 'Standard Book Lending';
+  assignCardNumber = '';
+  assignMaxBooks = 2;
+  assignMonthlyFee = 0;
+  assignSubmitting = false;
+  libraryPlans: LibraryMembershipPlanDto[] = [];
+
   constructor(
     private libraryService: LibraryService,
     private coachingService: CoachingService,
@@ -846,6 +1107,7 @@ export class LibraryCirculationComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadSettings();
+    this.loadPlans();
     this.loadStudents();
     this.loadTeachers();
     this.loadCirculations();
@@ -879,6 +1141,82 @@ export class LibraryCirculationComponent implements OnInit {
     if (!accession) return;
     this.issueAccession = accession;
     this.lookupBookForIssue();
+  }
+
+  loadPlans(): void {
+    this.libraryService.getMembershipPlans(true).subscribe({
+      next: (plans) => {
+        this.libraryPlans = plans || [];
+      },
+      error: (err) => console.error('Failed to load library plans', err)
+    });
+  }
+
+  openAssignMembershipModal(): void {
+    const s = this.selectedStudentForIssue;
+    if (!s) return;
+    this.assignPlanName = this.libraryPlans.length > 0 ? this.libraryPlans[0].planName : 'Standard Book Lending';
+    this.assignCardNumber = `LIB-${(s.admissionNumber || s.rollNumber || s.id.substring(0, 6)).toString().trim()}`;
+    const matchedPlan = this.libraryPlans.find(p => p.planName === this.assignPlanName);
+    this.assignMaxBooks = matchedPlan?.maxBooks || 2;
+    this.assignMonthlyFee = matchedPlan?.monthlyFee || 0;
+    this.showAssignMembershipModal = true;
+  }
+
+  onAssignPlanChange(planName: string): void {
+    const matchedPlan = this.libraryPlans.find(p => p.planName === planName);
+    if (matchedPlan) {
+      this.assignMaxBooks = matchedPlan.maxBooks || 2;
+      this.assignMonthlyFee = matchedPlan.monthlyFee || 0;
+    }
+  }
+
+  closeAssignMembershipModal(): void {
+    this.showAssignMembershipModal = false;
+  }
+
+  saveAssignMembership(): void {
+    const s = this.selectedStudentForIssue;
+    if (!s) return;
+    this.assignSubmitting = true;
+    this.libraryService.assignStudentMembership(s.id, {
+      libraryMembershipType: this.assignPlanName,
+      libraryCardNumber: this.assignCardNumber,
+      maxBooks: this.assignMaxBooks,
+      monthlyFee: this.assignMonthlyFee
+    }).subscribe({
+      next: (res) => {
+        this.assignSubmitting = false;
+        this.showAssignMembershipModal = false;
+        // Update local student model
+        s.isLibraryMember = true;
+        s.libraryMembershipType = this.assignPlanName;
+        s.libraryCardNumber = this.assignCardNumber;
+        s.maxLibraryBooks = this.assignMaxBooks;
+        s.monthlyLibraryFee = this.assignMonthlyFee;
+
+        // Sync with student list
+        const idx = this.students.findIndex(st => st.id === s.id);
+        if (idx !== -1) {
+          this.students[idx] = { ...this.students[idx], ...s };
+          this.students = [...this.students];
+        }
+
+        this.confirmDialog.alert(
+          'Membership Assigned',
+          `Library membership successfully assigned to ${s.fullName || s.studentName}. Book issuing is now unlocked!`,
+          'success'
+        );
+      },
+      error: (err) => {
+        this.assignSubmitting = false;
+        this.confirmDialog.alert(
+          'Assignment Failed',
+          err?.error?.message || 'Could not assign library membership.',
+          'danger'
+        );
+      }
+    });
   }
 
   loadSettings(): void {
