@@ -202,37 +202,99 @@
   .header-actions {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 8px;
 
-    // Both header icon buttons — base
+    // Both header icon buttons — strictly centered circular buttons
     .header-btn {
-      color: #94a3b8;
-      width: 36px;
-      height: 36px;
+      width: 36px !important;
+      height: 36px !important;
+      min-width: 36px !important;
+      min-height: 36px !important;
+      max-width: 36px !important;
+      max-height: 36px !important;
+      padding: 0 !important;
+      margin: 0 !important;
       border-radius: 50% !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      box-sizing: border-box !important;
+      position: relative !important;
       overflow: visible !important;
-      // Pulsing cyan/white glow centered on reset button
-      animation: header-reset-pulse 2.8s ease-out infinite;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 
-      &:hover {
-        color: #ffffff;
-        background: rgba(255, 255, 255, 0.12) !important;
-        animation: none;
-        box-shadow: none;
+      ::ng-deep .mat-mdc-button-touch-target {
+        display: none !important;
       }
-    }
 
-    // Close (X) button — red centered pulsing glow
-    .close-btn {
-      border-radius: 50% !important;
-      overflow: visible !important;
-      animation: header-close-pulse 2.4s ease-out infinite;
+      ::ng-deep .mat-mdc-button-persistent-ripple {
+        border-radius: 50% !important;
+      }
 
-      &:hover {
+      mat-icon {
+        font-size: 20px !important;
+        width: 20px !important;
+        height: 20px !important;
+        line-height: 20px !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        position: relative !important;
+        top: 0 !important;
+        left: 0 !important;
+        transform: none !important;
+      }
+
+      // Reset button — subtle slate/blue centered circle
+      &.reset-btn {
+        background: rgba(255, 255, 255, 0.08) !important;
+        color: #94a3b8 !important;
+        border: 1px solid rgba(255, 255, 255, 0.16) !important;
+        animation: header-reset-pulse 2.8s ease-out infinite;
+
+        mat-icon {
+          color: #94a3b8 !important;
+        }
+
+        &:hover {
+          color: #38bdf8 !important;
+          background: rgba(56, 189, 248, 0.16) !important;
+          border-color: rgba(56, 189, 248, 0.45) !important;
+          transform: scale(1.08);
+          animation: none;
+          box-shadow: none;
+
+          mat-icon {
+            color: #38bdf8 !important;
+          }
+        }
+      }
+
+      // Close (X) button — perfectly centered red mark rounded circle with centered pulsing glow
+      &.close-btn {
+        background: rgba(239, 68, 68, 0.16) !important;
         color: #f87171 !important;
-        background: rgba(239, 68, 68, 0.18) !important;
-        animation: none;
-        box-shadow: none;
+        border: 1.5px solid rgba(248, 113, 113, 0.45) !important;
+        animation: header-close-pulse 2.2s ease-out infinite;
+
+        mat-icon {
+          color: #f87171 !important;
+        }
+
+        &:hover {
+          color: #ffffff !important;
+          background: #ef4444 !important;
+          border-color: #ef4444 !important;
+          transform: scale(1.08);
+          animation: none;
+          box-shadow: 0 0 12px rgba(239, 68, 68, 0.6) !important;
+
+          mat-icon {
+            color: #ffffff !important;
+          }
+        }
       }
     }
   }

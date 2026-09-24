@@ -66,7 +66,7 @@ import { BranchService } from '../../core/services/branch.service';
       <div class="unit-separator" *ngIf="branches.length > 0"></div>
 
       <!-- Campus / Branch Filter -->
-      <div class="control-unit" *ngIf="branches.length > 0">
+      <div class="control-unit branch-unit" *ngIf="branches.length > 0">
         <div class="unit-icon-badge">
           <mat-icon>apartment</mat-icon>
         </div>
@@ -458,8 +458,8 @@ import { BranchService } from '../../core/services/branch.service';
       box-sizing: border-box;
       display: flex;
       align-items: center;
-      gap: 10px;
-      padding: 0 12px;
+      gap: 12px;
+      padding: 0 16px;
       border-radius: 10px;
       background: #ffffff;
       border: 1px solid #e2e8f0;
@@ -469,6 +469,15 @@ import { BranchService } from '../../core/services/branch.service';
       &:hover {
         border-color: #cbd5e1;
         background: #fafbfc;
+      }
+
+      &.date-unit {
+        min-width: 245px;
+      }
+
+      &.branch-unit {
+        min-width: 320px;
+        max-width: 440px;
       }
     }
 
@@ -491,6 +500,7 @@ import { BranchService } from '../../core/services/branch.service';
       flex-direction: column;
       justify-content: center;
       height: 100%;
+      flex: 1;
       min-width: 0;
     }
 
@@ -508,12 +518,14 @@ import { BranchService } from '../../core/services/branch.service';
     .date-display-row {
       display: flex;
       align-items: center;
+      justify-content: space-between;
       gap: 4px;
       height: 20px;
+      width: 100%;
     }
 
     .date-text, .select-value-text {
-      font-size: 13px;
+      font-size: 13.5px;
       font-weight: 600;
       color: #0f172a;
       line-height: 20px;
@@ -523,7 +535,7 @@ import { BranchService } from '../../core/services/branch.service';
     }
 
     .date-text {
-      min-width: 105px;
+      min-width: 120px;
     }
 
     .hidden-picker-input {
@@ -540,14 +552,14 @@ import { BranchService } from '../../core/services/branch.service';
     }
 
     .unit-select {
-      font-size: 13px;
+      font-size: 13.5px;
       font-weight: 600;
       color: #0f172a;
       line-height: 20px;
+      width: 100%;
 
       &.branch-select {
-        min-width: 160px;
-        max-width: 220px;
+        min-width: 260px;
       }
     }
 

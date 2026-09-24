@@ -40,7 +40,7 @@ import { BranchService } from '../../core/services/branch.service';
     </div>
     <div class="smart-control-deck">
       <!-- Financial Year Selector -->
-      <div class="control-unit">
+      <div class="control-unit unit-fy">
         <div class="unit-icon-badge">
           <mat-icon>date_range</mat-icon>
         </div>
@@ -57,7 +57,7 @@ import { BranchService } from '../../core/services/branch.service';
       <div class="unit-separator" *ngIf="branches.length > 0"></div>
 
       <!-- Branch Filter -->
-      <div class="control-unit" *ngIf="branches.length > 0">
+      <div class="control-unit unit-branch" *ngIf="branches.length > 0">
         <div class="unit-icon-badge">
           <mat-icon>apartment</mat-icon>
         </div>
@@ -293,7 +293,52 @@ import { BranchService } from '../../core/services/branch.service';
             </td>
           </tr>
         </tbody>
+        <tfoot>
+          <tr class="trend-total-row" [ngClass]="report.isSurplus ? 'total-surplus' : 'total-deficit'">
+            <td class="font-extrabold total-cell-title">
+              <div class="total-title-wrap">
+                <mat-icon class="total-icon">{{ report.isSurplus ? 'trending_up' : 'trending_down' }}</mat-icon>
+                <span>Annual Cumulative Total (FY {{ report.financialYear }})</span>
+              </div>
+            </td>
+            <td class="text-right text-green font-extrabold total-val">₹{{ report.totalDirectIncome | number:'1.2-2' }}</td>
+            <td class="text-right text-red font-extrabold total-val">₹{{ report.totalExpense | number:'1.2-2' }}</td>
+            <td class="text-right font-black total-val" [ngClass]="report.isSurplus ? 'text-green' : 'text-red'">
+              {{ report.netProfitOrLoss < 0 ? '-₹' + ((-report.netProfitOrLoss) | number:'1.2-2') : '₹' + (report.netProfitOrLoss | number:'1.2-2') }}
+            </td>
+            <td class="text-center">
+              <span class="status-pill total-pill" [ngClass]="report.isSurplus ? 'pill-surplus' : 'pill-deficit'">
+                {{ report.isSurplus ? 'Full Year Profit' : 'Full Year Deficit' }}
+              </span>
+            </td>
+          </tr>
+        </tfoot>
       </table>
+    </div>
+
+    <!-- Annual Financial Health Highlights Footer -->
+    <div class="trend-footer-banner" [ngClass]="report.isSurplus ? 'surplus' : 'deficit'">
+      <div class="banner-stat">
+        <span class="stat-lbl">Annual Income (कुल वार्षिक आय)</span>
+        <strong class="stat-val text-green">₹{{ report.totalDirectIncome | number:'1.2-2' }}</strong>
+      </div>
+      <div class="banner-divider"></div>
+      <div class="banner-stat">
+        <span class="stat-lbl">Annual Expenses (कुल वार्षिक खर्चे)</span>
+        <strong class="stat-val text-red">₹{{ report.totalExpense | number:'1.2-2' }}</strong>
+      </div>
+      <div class="banner-divider"></div>
+      <div class="banner-stat main-result">
+        <span class="stat-lbl">{{ report.isSurplus ? 'Net Annual Profit (पूरे साल का शुद्ध लाभ)' : 'Net Annual Deficit (पूरे साल का कुल घाटा)' }}</span>
+        <strong class="stat-val" [ngClass]="report.isSurplus ? 'text-green' : 'text-red'">
+          {{ report.netProfitOrLoss < 0 ? '-₹' + ((-report.netProfitOrLoss) | number:'1.2-2') : '₹' + (report.netProfitOrLoss | number:'1.2-2') }}
+        </strong>
+      </div>
+      <div class="banner-divider"></div>
+      <div class="banner-stat">
+        <span class="stat-lbl">Net Margin</span>
+        <strong class="stat-val" [ngClass]="report.isSurplus ? 'text-green' : 'text-red'">{{ report.profitMarginPercentage }}%</strong>
+      </div>
     </div>
   </div>
 
@@ -387,8 +432,8 @@ import { BranchService } from '../../core/services/branch.service';
       box-sizing: border-box;
       display: flex;
       align-items: center;
-      gap: 10px;
-      padding: 0 12px;
+      gap: 12px;
+      padding: 0 16px;
       border-radius: 10px;
       background: #ffffff;
       border: 1px solid #e2e8f0;
@@ -397,6 +442,15 @@ import { BranchService } from '../../core/services/branch.service';
       &:hover {
         border-color: #cbd5e1;
         background: #fafbfc;
+      }
+
+      &.unit-fy {
+        min-width: 245px;
+      }
+
+      &.unit-branch {
+        min-width: 320px;
+        max-width: 440px;
       }
     }
 
@@ -419,6 +473,7 @@ import { BranchService } from '../../core/services/branch.service';
       flex-direction: column;
       justify-content: center;
       height: 100%;
+      flex: 1;
       min-width: 0;
     }
 
@@ -434,7 +489,7 @@ import { BranchService } from '../../core/services/branch.service';
     }
 
     .select-value-text {
-      font-size: 13px;
+      font-size: 13.5px;
       font-weight: 600;
       color: #0f172a;
       line-height: 20px;
@@ -444,18 +499,18 @@ import { BranchService } from '../../core/services/branch.service';
     }
 
     .unit-select {
-      font-size: 13px;
+      font-size: 13.5px;
       font-weight: 600;
       color: #0f172a;
       line-height: 20px;
+      width: 100%;
 
       &.fy-select {
-        min-width: 140px;
+        min-width: 190px;
       }
 
       &.branch-select {
-        min-width: 160px;
-        max-width: 220px;
+        min-width: 260px;
       }
     }
 
@@ -890,6 +945,109 @@ import { BranchService } from '../../core/services/branch.service';
         padding: 10px 12px;
         border-bottom: 1px solid #f8fafc;
         font-size: 13px;
+      }
+
+      tfoot {
+        tr.trend-total-row {
+          border-top: 2px solid #cbd5e1;
+          td {
+            padding: 14px 12px;
+            font-size: 14px;
+            border-bottom: none;
+          }
+
+          &.total-surplus td {
+            background: #f0fdf4;
+            color: #166534;
+            border-top: 2px solid #86efac;
+          }
+
+          &.total-deficit td {
+            background: #fef2f2;
+            color: #991b1b;
+            border-top: 2px solid #fca5a5;
+          }
+
+          .total-title-wrap {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 800;
+
+            .total-icon {
+              font-size: 20px;
+              width: 20px;
+              height: 20px;
+            }
+          }
+
+          .total-val {
+            font-size: 15px;
+          }
+
+          .total-pill {
+            padding: 5px 12px;
+            font-size: 12px;
+            font-weight: 800;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+          }
+        }
+      }
+    }
+
+    .trend-footer-banner {
+      margin-top: 16px;
+      border-radius: 10px;
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      border: 1px solid;
+
+      &.surplus {
+        background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+        border-color: #86efac;
+        color: #166534;
+      }
+
+      &.deficit {
+        background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+        border-color: #fca5a5;
+        color: #991b1b;
+      }
+
+      .banner-stat {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+
+        .stat-lbl {
+          font-size: 11px;
+          text-transform: uppercase;
+          letter-spacing: 0.4px;
+          font-weight: 700;
+          opacity: 0.85;
+        }
+
+        .stat-val {
+          font-size: 16px;
+          font-weight: 800;
+        }
+
+        &.main-result {
+          .stat-val {
+            font-size: 20px;
+            font-weight: 900;
+          }
+        }
+      }
+
+      .banner-divider {
+        width: 1px;
+        height: 36px;
+        background: rgba(0, 0, 0, 0.1);
       }
     }
 
