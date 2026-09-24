@@ -4,11 +4,12 @@ import { RouterModule } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { AuthService } from '../../core/services/auth.service';
+import { TranslatePipe } from '../../core/pipes/translate.pipe';
 
 @Component({
   selector: 'app-footer',
   standalone: true,
-  imports: [CommonModule, RouterModule, MatIconModule, MatTooltipModule],
+  imports: [CommonModule, RouterModule, MatIconModule, MatTooltipModule, TranslatePipe],
   template: `
     <footer class="app-footer">
       <div class="footer-container">
@@ -25,7 +26,7 @@ import { AuthService } from '../../core/services/auth.service';
 
         <!-- Center: Quick Helpful Links -->
         <div class="footer-center">
-          <a routerLink="/dashboard" class="footer-link">Dashboard</a>
+          <a routerLink="/dashboard" class="footer-link">{{ 'NAV.DASHBOARD' | translate }}</a>
           <span class="divider-dot">&bull;</span>
           <a routerLink="/whatsapp" class="footer-link">WhatsApp Logs</a>
           <span class="divider-dot">&bull;</span>
@@ -38,7 +39,7 @@ import { AuthService } from '../../core/services/auth.service';
         <div class="footer-right">
           <div class="status-indicator" matTooltip="Cloud API &amp; Database live and healthy">
             <span class="pulse-dot"></span>
-            <span class="status-text">System Live</span>
+            <span class="status-text">{{ 'HEADER.SYSTEM_LIVE' | translate }}</span>
           </div>
           <div class="version-badge" matTooltip="IMSERP Micro-SaaS Engine Version">
             {{ appVersion }}

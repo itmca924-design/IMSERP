@@ -96,3 +96,31 @@ public enum BillingCycle
     Yearly = 12
 }
 
+// ─── Finance, Balance Sheet & Accounting Enums ─────────────────
+public enum AccountType
+{
+    Asset = 1,
+    Liability = 2,
+    Equity = 3,
+    Income = 4,
+    Expense = 5
+}
+
+public enum AccountSubType
+{
+    CurrentAsset = 1,
+    FixedAsset = 2,
+    CurrentLiability = 3,
+    LongTermLiability = 4,
+    Capital = 5
+}
+
+public enum ExpensePaymentMode
+{
+    Cash = 1,
+    UPI = 2,
+    BankTransfer = 3,
+    Cheque = 4,
+    Card = 5
+}
+

@@ -27,7 +27,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
   <div class="page-header">
     <div>
       <h1 class="page-title"><mat-icon>account_balance_wallet</mat-icon> Salary Advances</h1>
-      <p class="page-subtitle">Advance salary requests — submit karo, approve/reject karo, aur ledger dekho.</p>
+      <p class="page-subtitle">Manage salary advance requests, track approvals, and view deduction ledger.</p>
     </div>
   </div>
 
@@ -37,7 +37,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
 
   <div *ngIf="!selectedTeacher" class="no-selection">
     <mat-icon>person_search</mat-icon>
-    <p>Upar se teacher select karo advances dekhne ke liye.</p>
+    <p>Please select a faculty member above to view advance requests.</p>
   </div>
 
   <div *ngIf="selectedTeacher">
@@ -45,7 +45,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
       <h3>{{selectedTeacher.fullName}} — Salary Advance Ledger</h3>
       <button mat-raised-button color="primary" (click)="showForm = !showForm" [disabled]="loading">
         <mat-icon>{{showForm ? 'close' : 'add'}}</mat-icon>
-        {{showForm ? 'Cancel' : '+ Advance Request Karo'}}
+        {{showForm ? 'Cancel' : '+ Request Salary Advance'}}
       </button>
     </div>
 
@@ -72,9 +72,9 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
       <div class="pending-warn" *ngIf="hasPendingOrApproved">
         <mat-icon>warning_amber</mat-icon>
         <span>
-          Is teacher ke <strong>{{pendingCount}} pending</strong> aur <strong>{{approvedCount}} approved</strong> advance(s) hain
+          Faculty member has <strong>{{pendingCount}} pending</strong> and <strong>{{approvedCount}} approved</strong> advance(s)
           (Total: <strong>₹{{totalApprovedAmt | number}}</strong> approved).
-          Naya request submit karne se pehle existing advances review karein.
+          Please review existing advances before submitting a new request.
         </span>
       </div>
 
@@ -83,7 +83,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
         <button mat-raised-button color="primary" (click)="requestAdvance()"
           [disabled]="!newAdvance.amount || newAdvance.amount <= 0 || !(newAdvance.reason || '').trim() || submitting">
           <mat-icon>{{submitting ? 'hourglass_empty' : 'send'}}</mat-icon>
-          {{submitting ? 'Submitting...' : 'Request Submit Karo'}}
+          {{submitting ? 'Submitting...' : 'Submit Advance Request'}}
         </button>
       </div>
     </mat-card>
@@ -154,18 +154,18 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
               </span>
               <span *ngIf="a.status === 'Approved'" class="pending-adjust-chip">
                 <mat-icon class="inline-icon">pending_actions</mat-icon>
-                Next salary mein
+                In upcoming salary
               </span>
               <span *ngIf="a.status !== 'Adjusted' && a.status !== 'Approved'" style="color:#94a3b8;font-size:.8rem;">—</span>
             </td>
             <td class="text-center">
               <div class="action-btns">
                 <button mat-icon-button color="primary" *ngIf="a.status === 'Pending'"
-                  (click)="approve(a.id, true)" matTooltip="Approve karo">
+                  (click)="approve(a.id, true)" matTooltip="Approve request">
                   <mat-icon>check_circle</mat-icon>
                 </button>
                 <button mat-icon-button color="warn" *ngIf="a.status === 'Pending'"
-                  (click)="approve(a.id, false)" matTooltip="Reject karo">
+                  (click)="approve(a.id, false)" matTooltip="Reject request">
                   <mat-icon>cancel</mat-icon>
                 </button>
                 <span *ngIf="a.status === 'Adjusted'" class="done-label">
@@ -198,8 +198,8 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
 
     <div class="empty-state" *ngIf="advances.length === 0 && !loading && !showForm">
       <mat-icon>account_balance_wallet</mat-icon>
-      <p>Koi advance request nahi hai abhi tak.</p>
-      <small>"+Advance Request Karo" button se naya request submit karein.</small>
+      <p>No advance requests recorded yet for this faculty member.</p>
+      <small>Click "+ Request Salary Advance" above to submit a new request.</small>
     </div>
   </div>
 </div>
@@ -362,7 +362,7 @@ export class TeacherAdvancesComponent implements OnInit {
       return;
     }
     if (!reason) {
-      this.confirmDialog.alert('Validation Error', 'Reason required hai advance request ke liye.', 'warning');
+      this.confirmDialog.alert('Validation Error', 'Please provide a valid reason for the advance request.', 'warning');
       return;
     }
 
@@ -379,7 +379,7 @@ export class TeacherAdvancesComponent implements OnInit {
         this.loadAdvances();
         this.confirmDialog.alert(
           'Advance Requested ✓',
-          `₹${amount.toLocaleString('en-IN')} ka advance request successfully submit ho gaya! Admin approval ka wait karein.`,
+          `Salary advance request for ₹${amount.toLocaleString('en-IN')} submitted successfully! Awaiting administrative approval.`,
           'success'
         );
       },

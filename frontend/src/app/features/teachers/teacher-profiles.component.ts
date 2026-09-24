@@ -33,7 +33,7 @@ import { TeacherDocumentsDialogComponent } from './teacher-documents-dialog.comp
   <div class="page-header">
     <div>
       <h1 class="page-title"><mat-icon>person</mat-icon> Teacher Profiles</h1>
-      <p class="page-subtitle">Sab teachers ki profile — add, edit, aur manage karo.</p>
+      <p class="page-subtitle">Manage complete faculty directory — add, update, and monitor faculty credentials.</p>
     </div>
     <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
       <button mat-stroked-button color="primary" (click)="openBulkIdCards()" *ngIf="!showForm">
@@ -54,7 +54,7 @@ import { TeacherDocumentsDialogComponent } from './teacher-documents-dialog.comp
   <mat-card class="form-card mat-elevation-z3" *ngIf="showForm">
     <div class="form-header">
       <h2><mat-icon color="primary">{{editingId ? 'edit' : 'person_add'}}</mat-icon>
-        {{editingId ? 'Teacher Edit Karo' : 'Naya Teacher Add Karo'}}
+        {{editingId ? 'Edit Faculty Details' : 'Add New Faculty Member'}}
       </h2>
       <button mat-icon-button (click)="cancelForm()"><mat-icon>close</mat-icon></button>
     </div>
@@ -67,7 +67,7 @@ import { TeacherDocumentsDialogComponent } from './teacher-documents-dialog.comp
           <mat-icon matSuffix *ngIf="!codeLoading" matTooltip="Auto-generated, edit not allowed"
             style="color:#64748b;font-size:16px">lock</mat-icon>
           <mat-spinner matSuffix diameter="16" *ngIf="codeLoading"></mat-spinner>
-          <mat-hint>Auto-generated hai – {{editingId ? 'edit mein nahi badlega' : 'save hone pe lock ho jata hai'}}</mat-hint>
+          <mat-hint>Auto-generated – {{editingId ? 'cannot be changed in edit mode' : 'locked upon saving'}}</mat-hint>
         </mat-form-field>
         <mat-form-field appearance="outline">
           <mat-label>Full Name *</mat-label>
@@ -163,7 +163,7 @@ import { TeacherDocumentsDialogComponent } from './teacher-documents-dialog.comp
     </div>
     <div class="filter-controls">
       <mat-form-field appearance="outline" class="search-field">
-        <mat-label>Teachers search karo...</mat-label>
+        <mat-label>Search faculty members...</mat-label>
         <mat-icon matPrefix>search</mat-icon>
         <input matInput [(ngModel)]="searchTerm" (ngModelChange)="onSearch()" placeholder="Name, code, specialization...">
         <button mat-icon-button matSuffix *ngIf="searchTerm" (click)="searchTerm=''; loadTeachers()">
@@ -343,7 +343,7 @@ import { TeacherDocumentsDialogComponent } from './teacher-documents-dialog.comp
 
     <div class="empty-state" *ngIf="teachers.length === 0 && !loading">
       <mat-icon>person_off</mat-icon>
-      <p>Koi teacher nahi mila. "Add Teacher" click karo.</p>
+      <p>No faculty records found. Click "Add Teacher" above to get started.</p>
     </div>
   </div>
 

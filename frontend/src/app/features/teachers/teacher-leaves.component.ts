@@ -28,7 +28,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
   <div class="page-header">
     <div>
       <h1 class="page-title"><mat-icon>beach_access</mat-icon> Leave Management</h1>
-      <p class="page-subtitle">Leave applications — apply karo, approve/reject karo, aur records dekho.</p>
+      <p class="page-subtitle">Track and manage faculty leave applications, approvals, and balance history.</p>
     </div>
   </div>
 
@@ -38,7 +38,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
 
   <div *ngIf="!selectedTeacher" class="no-selection">
     <mat-icon>person_search</mat-icon>
-    <p>Upar se teacher select karo leave records dekhne ke liye.</p>
+    <p>Please select a faculty member above to view leave records.</p>
   </div>
 
   <div *ngIf="selectedTeacher">
@@ -46,7 +46,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
       <h3>{{selectedTeacher.fullName}} — Leave Applications</h3>
       <button mat-raised-button color="primary" (click)="showForm = !showForm">
         <mat-icon>{{showForm ? 'close' : 'add'}}</mat-icon>
-        {{showForm ? 'Cancel' : 'Leave Apply Karo'}}
+        {{showForm ? 'Cancel' : 'Apply Leave'}}
       </button>
     </div>
 
@@ -80,7 +80,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
         <div class="form-actions">
           <button mat-button type="button" (click)="showForm = false">Cancel</button>
           <button mat-raised-button color="primary" type="submit" [disabled]="leaveForm.invalid">
-            <mat-icon>send</mat-icon> Leave Apply Karo
+            <mat-icon>send</mat-icon> Submit Leave Request
           </button>
         </div>
       </form>
@@ -113,11 +113,11 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             <td><span class="status-badge" [ngClass]="l.status.toLowerCase()">{{l.status}}</span></td>
             <td>
               <button mat-icon-button color="primary" *ngIf="l.status === 'Pending'"
-                (click)="approveLeave(l.id, true)" matTooltip="Approve karo">
+                (click)="approveLeave(l.id, true)" matTooltip="Approve leave">
                 <mat-icon>check_circle</mat-icon>
               </button>
               <button mat-icon-button color="warn" *ngIf="l.status === 'Pending'"
-                (click)="approveLeave(l.id, false)" matTooltip="Reject karo">
+                (click)="approveLeave(l.id, false)" matTooltip="Reject leave">
                 <mat-icon>cancel</mat-icon>
               </button>
               <span *ngIf="l.status !== 'Pending'" style="color:#94a3b8;font-size:.8rem;">—</span>
@@ -129,7 +129,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
 
     <div class="empty-state" *ngIf="leaves.length === 0 && !loading && !showForm">
       <mat-icon>beach_access</mat-icon>
-      <p>Koi leave application nahi hai abhi tak.</p>
+      <p>No leave applications recorded for this faculty member.</p>
     </div>
   </div>
 </div>

@@ -1393,3 +1393,70 @@ public class CampusGatePass
     [ForeignKey("VehicleId")]
     public TransportVehicle? Vehicle { get; set; }
 }
+
+// ─── Finance, Balance Sheet & Accounting Entities ─────────────
+
+public class ExpenseCategory
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string Code { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public bool IsActive { get; set; } = true;
+    public int SortOrder { get; set; } = 0;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    public Tenant? Tenant { get; set; }
+    public Branch? Branch { get; set; }
+    public ICollection<ExpenseVoucher> Vouchers { get; set; } = new List<ExpenseVoucher>();
+}
+
+public class ExpenseVoucher
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public string VoucherNo { get; set; } = string.Empty;
+    public DateTime ExpenseDate { get; set; } = DateTime.UtcNow;
+    public Guid ExpenseCategoryId { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public decimal Amount { get; set; }
+    public ExpensePaymentMode PaymentMode { get; set; } = ExpensePaymentMode.Cash;
+    public string? VendorName { get; set; }
+    public string? BillInvoiceNo { get; set; }
+    public string? Description { get; set; }
+    public string? ReceiptAttachmentUrl { get; set; }
+    public Guid? CreatedByUserId { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    public Tenant? Tenant { get; set; }
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+    [ForeignKey("ExpenseCategoryId")]
+    public ExpenseCategory? Category { get; set; }
+    [ForeignKey("CreatedByUserId")]
+    public User? CreatedByUser { get; set; }
+}
+
+public class AccountLedger
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public string AccountCode { get; set; } = string.Empty;
+    public string AccountName { get; set; } = string.Empty;
+    public AccountType AccountType { get; set; } = AccountType.Asset;
+    public AccountSubType SubType { get; set; } = AccountSubType.CurrentAsset;
+    public decimal OpeningBalance { get; set; } = 0.00m;
+    public decimal CurrentBalance { get; set; } = 0.00m;
+    public string? Description { get; set; }
+    public bool IsActive { get; set; } = true;
+    public bool IsDefault { get; set; } = false;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    public Tenant? Tenant { get; set; }
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+}

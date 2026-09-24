@@ -17,7 +17,7 @@ import { API_BASE, TeacherDto } from './teacher.models';
       <div class="selector-row">
         <mat-icon color="primary" class="selector-icon">person_search</mat-icon>
         <mat-form-field appearance="outline" class="selector-field">
-          <mat-label>Teacher Select Karo</mat-label>
+          <mat-label>Select Faculty Member</mat-label>
           <mat-select [(ngModel)]="selectedId" (ngModelChange)="onSelect($event)">
             <mat-option *ngFor="let t of teachers" [value]="t.id">
               <span class="opt-code">{{t.employeeCode}}</span>

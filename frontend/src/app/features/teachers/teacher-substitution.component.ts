@@ -190,7 +190,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
   <mat-card class="empty-card mat-elevation-z1" *ngIf="!loading && substitutions.length === 0">
     <mat-icon class="empty-icon">event_available</mat-icon>
     <h3>No Substitutions for this Date</h3>
-    <p>Selected date par koi proxy teacher substitution record nahi hai. Naya assignment banane ke liye upar button dabayein.</p>
+    <p>No proxy teacher substitutions recorded for the selected date. Click below to assign a substitute teacher.</p>
     <button mat-stroked-button color="primary" (click)="openCreateModal()">
       <mat-icon>add_task</mat-icon> Assign Proxy Now
     </button>

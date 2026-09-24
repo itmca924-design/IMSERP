@@ -60,17 +60,23 @@ public class DashboardController : ControllerBase
 
         var recentTests = await _dbContext.Tests
             .Include(t => t.Batch)
+            .Include(t => t.Class)
+            .Include(t => t.Section)
             .OrderByDescending(t => t.TestDate)
             .Take(5)
             .Select(t => new TestDto(
                 t.Id,
                 t.BatchId,
-                t.Batch != null ? t.Batch.Name : "",
+                t.Batch != null ? t.Batch.Name : (t.Class != null ? (t.Section != null ? $"{t.Class.Name} ({t.Section.Name})" : t.Class.Name) : "General"),
                 t.Title,
                 t.Subject,
                 t.MaxMarks,
                 t.TestDate,
-                t.MarksList.Count
+                t.MarksList.Count,
+                t.ClassId,
+                t.Class != null ? t.Class.Name : null,
+                t.SectionId,
+                t.Section != null ? t.Section.Name : null
             )).ToListAsync();
 
         // Dynamic Chart Analytics from Database

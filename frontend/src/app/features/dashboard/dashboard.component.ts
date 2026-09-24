@@ -13,6 +13,7 @@ import { skip } from 'rxjs';
 import { CoachingService } from '../../core/services/coaching.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { AuthService } from '../../core/services/auth.service';
+import { TranslatePipe } from '../../core/pipes/translate.pipe';
 import ApexCharts from 'apexcharts';
 
 @Component({
@@ -28,19 +29,20 @@ import ApexCharts from 'apexcharts';
     MatProgressSpinnerModule,
     MatChipsModule,
     MatTooltipModule,
-    RouterModule
+    RouterModule,
+    TranslatePipe
   ],
   template: `
     <div class="dashboard-wrapper">
       <!-- Header Banner -->
       <div class="header-banner">
         <div class="header-titles">
-          <h2>Institute Performance Overview</h2>
-          <p>Real-time analytics for Fees, Students, Test Exams, and WhatsApp Notifications.</p>
+          <h2>{{ 'DASHBOARD.BANNER_TITLE' | translate }}</h2>
+          <p>{{ 'DASHBOARD.BANNER_SUBTITLE' | translate }}</p>
         </div>
-        <button mat-raised-button color="primary" class="refresh-btn" (click)="loadSummary()" matTooltip="Refresh Live Analytics">
+        <button mat-raised-button color="primary" class="refresh-btn" (click)="loadSummary()" [matTooltip]="'DASHBOARD.REFRESH_ANALYTICS' | translate">
           <mat-icon [class.spin-icon]="loading()">sync</mat-icon>
-          <span>Refresh Analytics</span>
+          <span>{{ 'DASHBOARD.REFRESH_ANALYTICS' | translate }}</span>
         </button>
       </div>
 
@@ -57,7 +59,7 @@ import ApexCharts from 'apexcharts';
           <mat-card class="stat-card blue mat-elevation-z2">
             <mat-card-content class="stat-content">
               <div class="stat-header">
-                <span class="label">Total Active Students</span>
+                <span class="label">{{ 'DASHBOARD.TOTAL_ACTIVE_STUDENTS' | translate }}</span>
                 <div class="stat-icon-wrap">
                   <mat-icon class="stat-icon">people</mat-icon>
                 </div>
@@ -66,7 +68,7 @@ import ApexCharts from 'apexcharts';
                 <span class="value">{{ summary.totalStudents }}</span>
                 <div class="stat-footer">
                   <span class="stat-badge-pill">Live Roster</span>
-                  <span class="sub-label">Enrolled in institute</span>
+                  <span class="sub-label">{{ 'DASHBOARD.ENROLLED_INSTITUTE' | translate }}</span>
                 </div>
               </div>
             </mat-card-content>
@@ -75,7 +77,7 @@ import ApexCharts from 'apexcharts';
           <mat-card class="stat-card green mat-elevation-z2">
             <mat-card-content class="stat-content">
               <div class="stat-header">
-                <span class="label">Monthly Fee Collected</span>
+                <span class="label">{{ 'DASHBOARD.MONTHLY_FEE_COLLECTED' | translate }}</span>
                 <div class="stat-icon-wrap">
                   <mat-icon class="stat-icon">account_balance_wallet</mat-icon>
                 </div>
@@ -84,7 +86,7 @@ import ApexCharts from 'apexcharts';
                 <span class="value">₹{{ summary.totalFeeCollectedThisMonth | number:'1.0-0' }}</span>
                 <div class="stat-footer">
                   <span class="stat-badge-pill">This Month</span>
-                  <span class="sub-label">Received this month</span>
+                  <span class="sub-label">{{ 'DASHBOARD.RECEIVED_THIS_MONTH' | translate }}</span>
                 </div>
               </div>
             </mat-card-content>
@@ -93,7 +95,7 @@ import ApexCharts from 'apexcharts';
           <mat-card class="stat-card orange mat-elevation-z2">
             <mat-card-content class="stat-content">
               <div class="stat-header">
-                <span class="label">Pending Fees Due</span>
+                <span class="label">{{ 'DASHBOARD.PENDING_FEE_DUES' | translate }}</span>
                 <div class="stat-icon-wrap">
                   <mat-icon class="stat-icon">warning_amber</mat-icon>
                 </div>
@@ -102,7 +104,7 @@ import ApexCharts from 'apexcharts';
                 <span class="value">₹{{ summary.pendingFeesTotal | number:'1.0-0' }}</span>
                 <div class="stat-footer">
                   <span class="stat-badge-pill">Receivables</span>
-                  <span class="sub-label">Outstanding balance</span>
+                  <span class="sub-label">{{ 'DASHBOARD.OUTSTANDING_BALANCE' | translate }}</span>
                 </div>
               </div>
             </mat-card-content>
@@ -111,7 +113,7 @@ import ApexCharts from 'apexcharts';
           <mat-card class="stat-card purple mat-elevation-z2">
             <mat-card-content class="stat-content">
               <div class="stat-header">
-                <span class="label">Tests Conducted</span>
+                <span class="label">{{ 'DASHBOARD.TESTS_CONDUCTED' | translate }}</span>
                 <div class="stat-icon-wrap">
                   <mat-icon class="stat-icon">quiz</mat-icon>
                 </div>
@@ -120,7 +122,7 @@ import ApexCharts from 'apexcharts';
                 <span class="value">{{ summary.totalTestsConducted }}</span>
                 <div class="stat-footer">
                   <span class="stat-badge-pill">Academic</span>
-                  <span class="sub-label">Examinations evaluated</span>
+                  <span class="sub-label">{{ 'DASHBOARD.EXAMS_EVALUATED' | translate }}</span>
                 </div>
               </div>
             </mat-card-content>
@@ -129,7 +131,7 @@ import ApexCharts from 'apexcharts';
           <mat-card class="stat-card teal mat-elevation-z2">
             <mat-card-content class="stat-content">
               <div class="stat-header">
-                <span class="label">Active Batches</span>
+                <span class="label">{{ 'DASHBOARD.ACTIVE_BATCHES' | translate }}</span>
                 <div class="stat-icon-wrap">
                   <mat-icon class="stat-icon">groups</mat-icon>
                 </div>
@@ -138,7 +140,7 @@ import ApexCharts from 'apexcharts';
                 <span class="value">{{ summary.activeBatches }}</span>
                 <div class="stat-footer">
                   <span class="stat-badge-pill">Running</span>
-                  <span class="sub-label">Academic classrooms</span>
+                  <span class="sub-label">{{ 'DASHBOARD.ACADEMIC_CLASSROOMS' | translate }}</span>
                 </div>
               </div>
             </mat-card-content>
@@ -147,7 +149,7 @@ import ApexCharts from 'apexcharts';
           <mat-card class="stat-card emerald mat-elevation-z2" routerLink="/students/attendance" style="cursor: pointer;" matTooltip="Open Student Attendance & Roll Call">
             <mat-card-content class="stat-content">
               <div class="stat-header">
-                <span class="label">Today's Attendance</span>
+                <span class="label">{{ 'DASHBOARD.TODAY_ATTENDANCE' | translate }}</span>
                 <div class="stat-icon-wrap">
                   <mat-icon class="stat-icon">how_to_reg</mat-icon>
                 </div>
@@ -261,8 +263,21 @@ import ApexCharts from 'apexcharts';
                 <mat-icon>school</mat-icon>
               </div>
               <div>
-                <h3 class="chart-title">Batch-Wise Enrollment &amp; Monthly Revenue Capacity</h3>
-                <p class="chart-subtitle">Live student enrollment distribution across active academic batches</p>
+                <h3 class="chart-title">{{ 'DASHBOARD.BATCH_CHART_TITLE' | translate }}</h3>
+                <p class="chart-subtitle">{{ 'DASHBOARD.BATCH_CHART_SUB' | translate }}</p>
+              </div>
+            </div>
+            <div class="chart-header-right">
+              <div class="batch-filter-toggle">
+                <button type="button" class="toggle-btn" [class.active]="batchViewFilter === 'top10'" (click)="setBatchViewFilter('top10')">
+                  {{ 'DASHBOARD.TOP_10_BATCHES' | translate }}
+                </button>
+                <button type="button" class="toggle-btn" [class.active]="batchViewFilter === 'active'" (click)="setBatchViewFilter('active')">
+                  {{ 'DASHBOARD.ACTIVE_WITH_STUDENTS' | translate }}
+                </button>
+                <button type="button" class="toggle-btn" [class.active]="batchViewFilter === 'all'" (click)="setBatchViewFilter('all')">
+                  {{ 'DASHBOARD.ALL_BATCHES' | translate }} ({{ summary.batchDistributions.length }})
+                </button>
               </div>
             </div>
           </div>
@@ -280,18 +295,18 @@ import ApexCharts from 'apexcharts';
               <div class="section-title">
                 <mat-icon class="section-icon warning-icon">warning_amber</mat-icon>
                 <div>
-                  <h3>Urgent Pending Fee Reminders</h3>
-                  <p>Students with overdue fee invoices</p>
+                  <h3>{{ 'DASHBOARD.URGENT_REMINDERS_TITLE' | translate }}</h3>
+                  <p>{{ 'DASHBOARD.URGENT_REMINDERS_SUB' | translate }}</p>
                 </div>
               </div>
               <a mat-stroked-button color="warn" routerLink="/fees" class="view-all-btn">
-                View All <mat-icon>arrow_forward</mat-icon>
+                {{ 'COMMON.VIEW_ALL' | translate }} <mat-icon>arrow_forward</mat-icon>
               </a>
             </div>
             <mat-card-content>
               <table mat-table [dataSource]="summary.overdueInvoices" class="full-width">
                 <ng-container matColumnDef="studentName">
-                  <th mat-header-cell *matHeaderCellDef>Student</th>
+                  <th mat-header-cell *matHeaderCellDef>{{ 'DASHBOARD.STUDENT' | translate }}</th>
                   <td mat-cell *matCellDef="let el">
                     <div class="student-cell">
                       <span class="student-avatar-badge">{{ (el.studentName || 'S').charAt(0).toUpperCase() }}</span>
@@ -304,24 +319,24 @@ import ApexCharts from 'apexcharts';
                 </ng-container>
 
                 <ng-container matColumnDef="invoiceNumber">
-                  <th mat-header-cell *matHeaderCellDef>Invoice</th>
+                  <th mat-header-cell *matHeaderCellDef>{{ 'DASHBOARD.INVOICE' | translate }}</th>
                   <td mat-cell *matCellDef="let el">{{ el.invoiceNumber }}</td>
                 </ng-container>
 
                 <ng-container matColumnDef="dueAmount">
-                  <th mat-header-cell *matHeaderCellDef class="text-right">Amount Due</th>
+                  <th mat-header-cell *matHeaderCellDef class="text-right">{{ 'DASHBOARD.AMOUNT_DUE' | translate }}</th>
                   <td mat-cell *matCellDef="let el" class="amount-due text-right">
                     ₹{{ el.dueAmount | number:'1.0-0' }}
                   </td>
                 </ng-container>
 
                 <ng-container matColumnDef="dueDate">
-                  <th mat-header-cell *matHeaderCellDef>Due Date</th>
+                  <th mat-header-cell *matHeaderCellDef>{{ 'DASHBOARD.DUE_DATE' | translate }}</th>
                   <td mat-cell *matCellDef="let el">{{ el.dueDate | date:'mediumDate' }}</td>
                 </ng-container>
 
                 <ng-container matColumnDef="actions">
-                  <th mat-header-cell *matHeaderCellDef class="text-right">WhatsApp</th>
+                  <th mat-header-cell *matHeaderCellDef class="text-right">{{ 'DASHBOARD.WHATSAPP' | translate }}</th>
                   <td mat-cell *matCellDef="let el" class="text-right">
                     <button mat-flat-button class="wa-remind-btn" (click)="sendReminder(el)" matTooltip="Send Fee Reminder on WhatsApp">
                       <mat-icon>chat</mat-icon> Remind
@@ -336,7 +351,7 @@ import ApexCharts from 'apexcharts';
                   <td class="mat-cell" [attr.colspan]="feeColumns.length">
                     <div class="empty-inline">
                       <mat-icon style="color:#16a34a">check_circle</mat-icon>
-                      <span>No overdue fee invoices. All fees are up to date! 🎉</span>
+                      <span>{{ 'DASHBOARD.NO_OVERDUE_FEES' | translate }}</span>
                     </div>
                   </td>
                 </tr>
@@ -350,19 +365,19 @@ import ApexCharts from 'apexcharts';
               <div class="section-title">
                 <mat-icon class="section-icon test-icon">quiz</mat-icon>
                 <div>
-                  <h3>Recent Test Exams</h3>
-                  <p>Last 5 exams conducted</p>
+                  <h3>{{ 'DASHBOARD.RECENT_TESTS_TITLE' | translate }}</h3>
+                  <p>{{ 'DASHBOARD.RECENT_TESTS_SUB' | translate }}</p>
                 </div>
               </div>
               <a mat-stroked-button color="primary" routerLink="/tests" class="view-all-btn">
-                View All <mat-icon>arrow_forward</mat-icon>
+                {{ 'COMMON.VIEW_ALL' | translate }} <mat-icon>arrow_forward</mat-icon>
               </a>
             </div>
             <mat-card-content>
               <table mat-table [dataSource]="summary.recentTests" class="full-width recent-tests-table">
 
                 <ng-container matColumnDef="title">
-                  <th mat-header-cell *matHeaderCellDef>Test Title</th>
+                  <th mat-header-cell *matHeaderCellDef>{{ 'DASHBOARD.TEST_TITLE' | translate }}</th>
                   <td mat-cell *matCellDef="let t">
                     <div class="test-cell">
                       <strong>{{ t.title }}</strong>
@@ -372,21 +387,21 @@ import ApexCharts from 'apexcharts';
                 </ng-container>
 
                 <ng-container matColumnDef="batchName">
-                  <th mat-header-cell *matHeaderCellDef>Batch</th>
+                  <th mat-header-cell *matHeaderCellDef>{{ 'DASHBOARD.BATCH' | translate }}</th>
                   <td mat-cell *matCellDef="let t">
                     <span class="batch-badge" [matTooltip]="t.batchName">{{ t.batchName }}</span>
                   </td>
                 </ng-container>
 
                 <ng-container matColumnDef="maxMarks">
-                  <th mat-header-cell *matHeaderCellDef class="text-center">Max Marks</th>
+                  <th mat-header-cell *matHeaderCellDef class="text-center">{{ 'DASHBOARD.MAX_MARKS' | translate }}</th>
                   <td mat-cell *matCellDef="let t" class="text-center">
                     <span class="marks-badge">{{ t.maxMarks }}</span>
                   </td>
                 </ng-container>
 
                 <ng-container matColumnDef="marksEnteredCount">
-                  <th mat-header-cell *matHeaderCellDef class="text-center">Entries</th>
+                  <th mat-header-cell *matHeaderCellDef class="text-center">{{ 'DASHBOARD.ENTRIES' | translate }}</th>
                   <td mat-cell *matCellDef="let t" class="text-center">
                     <span class="entries-badge" [class.no-entries]="(t.totalStudentsEvaluated ?? t.marksEnteredCount ?? 0) === 0">
                       {{ (t.totalStudentsEvaluated ?? t.marksEnteredCount ?? 0) === 0 ? 'Pending' : (t.totalStudentsEvaluated ?? t.marksEnteredCount) + ' evaluated' }}
@@ -395,7 +410,7 @@ import ApexCharts from 'apexcharts';
                 </ng-container>
 
                 <ng-container matColumnDef="testDate">
-                  <th mat-header-cell *matHeaderCellDef class="text-right">Date</th>
+                  <th mat-header-cell *matHeaderCellDef class="text-right">{{ 'DASHBOARD.DATE' | translate }}</th>
                   <td mat-cell *matCellDef="let t" class="date-cell text-right">{{ t.testDate | date:'dd MMM yyyy' }}</td>
                 </ng-container>
 
@@ -764,9 +779,43 @@ import ApexCharts from 'apexcharts';
     .batch-canvas-box {
       padding: 16px 20px 20px;
       position: relative;
-      height: 220px;
+      min-height: 380px;
       width: 100%;
       box-sizing: border-box;
+    }
+
+    .batch-filter-toggle {
+      display: inline-flex;
+      align-items: center;
+      background: #f1f5f9;
+      padding: 3px;
+      border-radius: 8px;
+      gap: 2px;
+      border: 1px solid #e2e8f0;
+
+      .toggle-btn {
+        border: none;
+        background: transparent;
+        color: #64748b;
+        font-size: 11.5px;
+        font-weight: 600;
+        padding: 5px 12px;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        line-height: 1.2;
+
+        &:hover {
+          color: #1e293b;
+        }
+
+        &.active {
+          background: #ffffff;
+          color: #2563eb;
+          font-weight: 700;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+        }
+      }
     }
 
     /* Donut Body */
@@ -1107,6 +1156,7 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
 
   feeColumns = ['studentName', 'invoiceNumber', 'dueAmount', 'dueDate', 'actions'];
   testColumns = ['title', 'batchName', 'maxMarks', 'marksEnteredCount', 'testDate'];
+  batchViewFilter: 'top10' | 'active' | 'all' = 'top10';
 
   @ViewChild('revenueChart') revenueChartRef?: ElementRef<HTMLDivElement>;
   @ViewChild('feeBreakdownChart') feeBreakdownChartRef?: ElementRef<HTMLDivElement>;
@@ -1327,15 +1377,49 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     this.feeBreakdownChart.render();
   }
 
+  setBatchViewFilter(filter: 'top10' | 'active' | 'all'): void {
+    if (this.batchViewFilter === filter) return;
+    this.batchViewFilter = filter;
+    const s = this.summary();
+    if (s) {
+      if (this.batchChart) {
+        this.batchChart.destroy();
+        this.batchChart = undefined;
+      }
+      this.ngZone.runOutsideAngular(() => {
+        this.renderBatchChart(s);
+      });
+    }
+  }
+
   private renderBatchChart(s: any): void {
     if (!this.batchChartRef?.nativeElement) return;
 
-    const batches: any[] = s.batchDistributions || [];
-    if (batches.length === 0) return;
+    const allBatches: any[] = s.batchDistributions || [];
+    if (allBatches.length === 0) return;
 
-    const labels = batches.map(b => b.batchName);
-    const studentCounts = batches.map(b => b.studentCount);
-    const feeRates = batches.map(b => b.monthlyFeeRate);
+    let batches: any[] = [...allBatches];
+    if (this.batchViewFilter === 'top10') {
+      batches = [...allBatches]
+        .sort((a, b) => (b.studentCount - a.studentCount) || (b.monthlyFeeRate - a.monthlyFeeRate))
+        .slice(0, 10);
+    } else if (this.batchViewFilter === 'active') {
+      const activeOnly = allBatches.filter(b => (b.studentCount || 0) > 0);
+      batches = activeOnly.length > 0 ? activeOnly : allBatches.slice(0, 10);
+    }
+
+    // Clean and streamline batch names: remove repeated "(Batch-1)", clean separators
+    const labels = batches.map(b => {
+      return (b.batchName || '')
+        .replace(/\s*\(Batch-\d+\)\s*/gi, ' ')
+        .replace(/\s+-\s+/g, ' • ')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+    });
+
+    const studentCounts = batches.map(b => b.studentCount || 0);
+    const feeRates = batches.map(b => b.monthlyFeeRate || 0);
+    const isFewBatches = batches.length <= 8;
 
     const options: any = {
       series: [
@@ -1343,17 +1427,17 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
         { name: 'Monthly Fee Rate (₹)', type: 'column', data: feeRates }
       ],
       chart: {
-        height: 200,
+        height: 340,
         type: 'bar',
         toolbar: { show: false },
         fontFamily: 'Inter, system-ui, sans-serif'
       },
-      colors: ['#3b82f6', '#8b5cf6'],
+      colors: ['#2563eb', '#8b5cf6'],
       plotOptions: {
         bar: {
           horizontal: false,
-          columnWidth: '40%',
-          borderRadius: 6,
+          columnWidth: batches.length <= 6 ? '32%' : (batches.length <= 10 ? '42%' : '60%'),
+          borderRadius: 5,
           borderRadiusApplication: 'end'
         }
       },
@@ -1362,9 +1446,13 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
       xaxis: {
         categories: labels,
         labels: {
+          rotate: isFewBatches ? 0 : -45,
+          rotateAlways: !isFewBatches,
+          trim: true,
+          maxHeight: 110,
           style: { colors: '#475569', fontSize: '11px', fontWeight: 600 }
         },
-        axisBorder: { show: false },
+        axisBorder: { color: '#e2e8f0' },
         axisTicks: { show: false }
       },
       yaxis: [
@@ -1401,7 +1489,7 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
       grid: {
         borderColor: '#f1f5f9',
         strokeDashArray: 4,
-        padding: { top: 0, right: 10, bottom: 0, left: 10 }
+        padding: { top: 0, right: 15, bottom: isFewBatches ? 15 : 35, left: 15 }
       },
       tooltip: {
         theme: 'dark',

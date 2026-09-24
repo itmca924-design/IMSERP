@@ -133,9 +133,9 @@ export interface TeacherIdCardDialogData {
             </div>
 
             <div class="rules-list">
-              <div>&bull; Yeh card sanstha ki sampatti hai, sadav sath rakhein.</div>
-              <div>&bull; Kho jane par turant office me report karein.</div>
-              <div>&bull; Transferable nahi hai.</div>
+              <div>&bull; This card is institutional property; please carry it at all times.</div>
+              <div>&bull; Report immediately to the administrative office if lost.</div>
+              <div>&bull; Non-transferable.</div>
               <div>&bull; If found, please return to the school reception.</div>
             </div>
 

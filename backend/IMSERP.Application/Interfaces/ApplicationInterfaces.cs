@@ -65,6 +65,10 @@ public interface IIMSERPDbContext
     DbSet<TransportAllocation> TransportAllocations { get; }
     DbSet<TransportAttendance> TransportAttendances { get; }
     DbSet<CampusGatePass> CampusGatePasses { get; }
+    // Finance & Accounting module
+    DbSet<ExpenseCategory> ExpenseCategories { get; }
+    DbSet<ExpenseVoucher> ExpenseVouchers { get; }
+    DbSet<AccountLedger> AccountLedgers { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

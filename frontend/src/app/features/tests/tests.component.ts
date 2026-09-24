@@ -515,7 +515,7 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
               <ng-container matColumnDef="batchName">
                 <th mat-header-cell *matHeaderCellDef mat-sort-header="batchName">Batch</th>
                 <td mat-cell *matCellDef="let t">
-                  <span class="batch-name-tag">{{ t.batchName }}</span>
+                  <span class="batch-name-tag">{{ t.batchName || 'General' }}</span>
                 </td>
               </ng-container>
 
@@ -2218,9 +2218,9 @@ export class TestsComponent implements OnInit {
     this.marksLoading = true;
     this.marksGrid = [];
 
-    // Load batch students and existing marks in parallel
+    // Load batch or class students and existing marks in parallel
     forkJoin({
-      students: this.coachingService.getStudents(test.batchId),
+      students: this.coachingService.getStudents(test.batchId, test.classId),
       existingMarks: this.coachingService.getTestMarks(test.id)
     }).subscribe({
       next: ({ students, existingMarks }) => {

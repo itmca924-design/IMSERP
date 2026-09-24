@@ -568,7 +568,11 @@ public record TestDto(
     string Subject,
     decimal MaxMarks,
     DateTime TestDate,
-    int TotalStudentsEvaluated
+    int TotalStudentsEvaluated,
+    Guid? ClassId = null,
+    string? ClassName = null,
+    Guid? SectionId = null,
+    string? SectionName = null
 );
 
 public record CreateTestDto(
@@ -2587,5 +2591,228 @@ public record RunAutomationJobResultDto(
     int ProcessedCount,
     DateTime ExecutedAt,
     List<string>? Details = null
+);
+
+// =========================================================================
+// FINANCE, PROFIT & LOSS, BALANCE SHEET & EXPENSE DTOS
+// =========================================================================
+
+public record ExpenseCategoryDto(
+    Guid Id,
+    Guid TenantId,
+    Guid? BranchId,
+    string Name,
+    string Code,
+    string? Description,
+    bool IsActive,
+    int SortOrder,
+    int VoucherCount,
+    decimal TotalSpent
+);
+
+public record CreateExpenseCategoryDto(
+    string Name,
+    string Code,
+    string? Description,
+    Guid? BranchId = null,
+    int SortOrder = 0
+);
+
+public record ExpenseVoucherDto(
+    Guid Id,
+    Guid TenantId,
+    Guid? BranchId,
+    string? BranchName,
+    string VoucherNo,
+    DateTime ExpenseDate,
+    Guid ExpenseCategoryId,
+    string CategoryName,
+    string CategoryCode,
+    string Title,
+    decimal Amount,
+    ExpensePaymentMode PaymentMode,
+    string? VendorName,
+    string? BillInvoiceNo,
+    string? Description,
+    string? ReceiptAttachmentUrl,
+    Guid? CreatedByUserId,
+    string? CreatedByUserName,
+    DateTime CreatedAt
+);
+
+public record PagedExpenseResultDto(
+    List<ExpenseVoucherDto> Items,
+    int TotalCount,
+    int PageNumber,
+    int PageSize,
+    int TotalPages,
+    decimal TotalFilteredAmount,
+    decimal TotalCashAmount,
+    decimal TotalBankAmount
+);
+
+public record CreateExpenseVoucherDto(
+    DateTime ExpenseDate,
+    Guid ExpenseCategoryId,
+    string Title,
+    decimal Amount,
+    ExpensePaymentMode PaymentMode,
+    string? VendorName,
+    string? BillInvoiceNo,
+    string? Description,
+    string? ReceiptAttachmentUrl,
+    Guid? BranchId = null
+);
+
+public record UpdateExpenseVoucherDto(
+    DateTime ExpenseDate,
+    Guid ExpenseCategoryId,
+    string Title,
+    decimal Amount,
+    ExpensePaymentMode PaymentMode,
+    string? VendorName,
+    string? BillInvoiceNo,
+    string? Description,
+    string? ReceiptAttachmentUrl,
+    Guid? BranchId = null
+);
+
+public record AccountLedgerDto(
+    Guid Id,
+    Guid TenantId,
+    Guid? BranchId,
+    string? BranchName,
+    string AccountCode,
+    string AccountName,
+    AccountType AccountType,
+    AccountSubType SubType,
+    decimal OpeningBalance,
+    decimal CurrentBalance,
+    string? Description,
+    bool IsActive,
+    bool IsDefault
+);
+
+public record PagedLedgerResultDto(
+    List<AccountLedgerDto> Items,
+    int TotalCount,
+    int PageNumber,
+    int PageSize,
+    int TotalPages,
+    decimal TotalFilteredBalance,
+    decimal TotalAssetsValuation,
+    decimal TotalLiabilitiesValuation,
+    decimal TotalEquityValuation,
+    int AssetCount,
+    int LiabilityCount,
+    int EquityCount
+);
+
+public record CreateAccountLedgerDto(
+    string AccountCode,
+    string AccountName,
+    AccountType AccountType,
+    AccountSubType SubType,
+    decimal OpeningBalance,
+    string? Description,
+    Guid? BranchId = null
+);
+
+public record UpdateAccountLedgerDto(
+    string AccountCode,
+    string AccountName,
+    AccountType AccountType,
+    AccountSubType SubType,
+    decimal OpeningBalance,
+    string? Description,
+    bool IsActive
+);
+
+// ─── Profit & Loss (Income & Expenditure) Models ────────────────
+public record IncomeHeadSummaryDto(
+    string Category,
+    string HeadName,
+    decimal Amount,
+    decimal PercentageOfTotal
+);
+
+public record ExpenseHeadSummaryDto(
+    string Category,
+    string HeadName,
+    decimal Amount,
+    decimal PercentageOfTotal,
+    bool IsPayroll = false
+);
+
+public record MonthlySurplusTrendDto(
+    string MonthName,
+    int Month,
+    int Year,
+    decimal TotalIncome,
+    decimal TotalExpense,
+    decimal NetSurplus
+);
+
+public record ProfitLossReportDto(
+    DateTime FromDate,
+    DateTime ToDate,
+    string FinancialYear,
+    Guid? BranchId,
+    string BranchName,
+    decimal TotalDirectIncome,
+    decimal TotalPayrollExpense,
+    decimal TotalOperatingExpense,
+    decimal TotalExpense,
+    decimal NetProfitOrLoss,
+    decimal ProfitMarginPercentage,
+    bool IsSurplus,
+    List<IncomeHeadSummaryDto> Incomes,
+    List<ExpenseHeadSummaryDto> Expenses,
+    List<MonthlySurplusTrendDto> MonthlyTrends
+);
+
+// ─── Balance Sheet Models ───────────────────────────────────────
+public record BalanceSheetItemDto(
+    string Code,
+    string Title,
+    decimal Amount,
+    string Category,
+    bool IsDynamic = false,
+    string? Note = null
+);
+
+public record BalanceSheetGroupDto(
+    string GroupName,
+    decimal TotalAmount,
+    List<BalanceSheetItemDto> Items
+);
+
+public record BalanceSheetReportDto(
+    DateTime AsOfDate,
+    Guid? BranchId,
+    string BranchName,
+    BalanceSheetGroupDto CurrentAssets,
+    BalanceSheetGroupDto FixedAssets,
+    decimal TotalAssets,
+    BalanceSheetGroupDto CurrentLiabilities,
+    BalanceSheetGroupDto LongTermLiabilities,
+    BalanceSheetGroupDto EquityAndCapital,
+    decimal TotalLiabilitiesAndEquity,
+    decimal Difference,
+    bool IsBalanced,
+    decimal CurrentPeriodProfit
+);
+
+// ─── Finance Overview KPI DTO ──────────────────────────────────
+public record FinanceDashboardKpiDto(
+    decimal TotalIncomeThisMonth,
+    decimal TotalExpenseThisMonth,
+    decimal NetSurplusThisMonth,
+    decimal TotalFeeDuesOutstanding,
+    decimal CashInHandBalance,
+    decimal BankAccountsBalance,
+    decimal CurrentFinancialYearRevenue,
+    decimal CurrentFinancialYearExpense,
+    decimal CurrentFinancialYearSurplus
 );
 

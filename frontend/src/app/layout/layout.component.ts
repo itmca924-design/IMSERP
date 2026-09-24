@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, signal, effect, ViewChild } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, effect, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
@@ -17,6 +17,8 @@ import { AuthService, BranchInfo } from '../core/services/auth.service';
 import { MenuService, MenuItem } from '../core/services/menu.service';
 import { TenantService } from '../core/services/tenant.service';
 import { IdleTimeoutService } from '../core/services/idle-timeout.service';
+import { TranslationService } from '../core/services/translation.service';
+import { TranslatePipe } from '../core/pipes/translate.pipe';
 import { API_BASE, HolidayDto } from '../features/teachers/teacher.models';
 import { FooterComponent } from './footer/footer.component';
 import { QuickSettingsDrawerComponent } from './quick-settings-drawer/quick-settings-drawer.component';
@@ -38,7 +40,8 @@ import { QuickSettingsDrawerComponent } from './quick-settings-drawer/quick-sett
     MatMenuModule,
     MatTooltipModule,
     FooterComponent,
-    QuickSettingsDrawerComponent
+    QuickSettingsDrawerComponent,
+    TranslatePipe
   ],
   template: `
     <mat-sidenav-container class="sidenav-container">
@@ -71,12 +74,12 @@ import { QuickSettingsDrawerComponent } from './quick-settings-drawer/quick-sett
             <ng-container *ngFor="let item of menuTree()">
               <!-- Item with sub-menus (e.g. Master Management, Admin Settings) -->
               <mat-expansion-panel *ngIf="item.children && item.children.length > 0" class="mat-elevation-z0" [expanded]="false">
-                <mat-expansion-panel-header [matTooltip]="item.title" matTooltipPosition="right">
+                <mat-expansion-panel-header [matTooltip]="item.title | translate" matTooltipPosition="right">
                   <mat-panel-title class="accordion-title">
                     <span class="menu-icon-badge" [ngClass]="'badge-' + ((item.module || '') | lowercase)">
                       <mat-icon class="menu-icon">{{ item.icon || 'category' }}</mat-icon>
                     </span>
-                    <span class="module-title">{{ item.title }}</span>
+                    <span class="module-title">{{ item.title | translate }}</span>
                   </mat-panel-title>
                 </mat-expansion-panel-header>
 
@@ -86,11 +89,11 @@ import { QuickSettingsDrawerComponent } from './quick-settings-drawer/quick-sett
                        mat-list-item
                        [routerLink]="sub.routeUrl"
                        routerLinkActive="active-link"
-                       [matTooltip]="sub.title"
+                       [matTooltip]="sub.title | translate"
                        matTooltipPosition="right"
                        (click)="onNavClick(drawer)">
                       <mat-icon matListItemIcon class="sub-icon">{{ sub.icon || 'star' }}</mat-icon>
-                      <span matListItemTitle class="sub-title-text">{{ sub.title }}</span>
+                      <span matListItemTitle class="sub-title-text">{{ sub.title | translate }}</span>
                     </a>
                   </mat-nav-list>
                 </div>
@@ -102,13 +105,13 @@ import { QuickSettingsDrawerComponent } from './quick-settings-drawer/quick-sett
                    [routerLink]="item.routeUrl"
                    routerLinkActive="active-link"
                    [routerLinkActiveOptions]="{ exact: item.routeUrl === '/' || item.routeUrl === '/dashboard' }"
-                   [matTooltip]="item.title"
+                   [matTooltip]="item.title | translate"
                    matTooltipPosition="right"
                    (click)="onNavClick(drawer)">
                   <span class="menu-icon-badge badge-main">
                     <mat-icon>{{ item.icon || 'space_dashboard' }}</mat-icon>
                   </span>
-                  <span class="direct-title-text">{{ item.title }}</span>
+                  <span class="direct-title-text">{{ item.title | translate }}</span>
                 </a>
               </div>
             </ng-container>
@@ -117,7 +120,7 @@ import { QuickSettingsDrawerComponent } from './quick-settings-drawer/quick-sett
 
         <div class="sidebar-calendar">
           <div class="calendar-title-row">
-            <strong><mat-icon>event</mat-icon> Holiday Calendar</strong>
+            <strong><mat-icon>event</mat-icon> {{ 'NAV.HOLIDAY_CALENDAR' | translate }}</strong>
             <span>{{ calendarYear }}</span>
           </div>
           <div class="calendar-controls">
@@ -161,38 +164,49 @@ import { QuickSettingsDrawerComponent } from './quick-settings-drawer/quick-sett
             <mat-icon>menu</mat-icon>
           </button>
 
-          <span class="app-header-title">IMSERP &bull; School + Coaching ERP</span>
+          <span class="app-header-title">{{ 'HEADER.TITLE' | translate }}</span>
           <div class="header-tools">
             <div class="header-search" [class.open]="headerSearchFocused">
               <mat-icon>search</mat-icon>
-              <input type="search" placeholder="Search pages..." [value]="headerSearch" (input)="onHeaderSearch($event)" (focus)="headerSearchFocused = true" (blur)="closeHeaderSearch()" aria-label="Search pages">
+              <input type="search" [placeholder]="'HEADER.SEARCH_PAGES' | translate" [value]="headerSearch" (input)="onHeaderSearch($event)" (focus)="headerSearchFocused = true" (blur)="closeHeaderSearch()" aria-label="Search pages">
               <div class="search-results" *ngIf="headerSearchFocused && headerSearchResults.length > 0">
                 <a *ngFor="let result of headerSearchResults" [routerLink]="result.route" (mousedown)="$event.preventDefault()" (click)="headerSearch = ''; headerSearchFocused = false">
-                  <mat-icon>{{ result.icon }}</mat-icon><span>{{ result.title }}</span>
+                  <mat-icon>{{ result.icon }}</mat-icon><span>{{ result.title | translate }}</span>
                 </a>
               </div>
             </div>
 
-            <button mat-icon-button [matMenuTriggerFor]="notificationMenu" class="header-tool-button" matTooltip="Notifications" aria-label="Notifications">
+            <button mat-icon-button [matMenuTriggerFor]="notificationMenu" class="header-tool-button" [matTooltip]="'HEADER.NOTIFICATIONS' | translate" aria-label="Notifications">
               <mat-icon>notifications_none</mat-icon><span class="notification-dot"></span>
             </button>
             <mat-menu #notificationMenu="matMenu" xPosition="before">
-              <div class="menu-section-title">Notifications</div>
-              <button mat-menu-item routerLink="/holidays"><mat-icon color="primary">event</mat-icon><span>View Holiday Calendar</span></button>
-              <button mat-menu-item routerLink="/fees"><mat-icon color="warn">payments</mat-icon><span>Review Fee Collection</span></button>
-              <button mat-menu-item routerLink="/attendance/reports"><mat-icon color="accent">summarize</mat-icon><span>Open Attendance Reports</span></button>
+              <div class="menu-section-title">{{ 'HEADER.NOTIFICATIONS' | translate }}</div>
+              <button mat-menu-item routerLink="/holidays"><mat-icon color="primary">event</mat-icon><span>{{ 'HEADER.VIEW_HOLIDAYS' | translate }}</span></button>
+              <button mat-menu-item routerLink="/fees"><mat-icon color="warn">payments</mat-icon><span>{{ 'HEADER.REVIEW_FEES' | translate }}</span></button>
+              <button mat-menu-item routerLink="/attendance/reports"><mat-icon color="accent">summarize</mat-icon><span>{{ 'HEADER.OPEN_ATTENDANCE_REPORTS' | translate }}</span></button>
             </mat-menu>
 
-            <button mat-stroked-button [matMenuTriggerFor]="quickActionsMenu" class="quick-actions-button" matTooltip="Quick actions">
-              <mat-icon>bolt</mat-icon><span>Quick Actions</span>
+            <button mat-stroked-button [matMenuTriggerFor]="quickActionsMenu" class="quick-actions-button" [matTooltip]="'HEADER.QUICK_ACTIONS' | translate">
+              <mat-icon>bolt</mat-icon><span>{{ 'HEADER.QUICK_ACTIONS' | translate }}</span>
             </button>
             <mat-menu #quickActionsMenu="matMenu" xPosition="before">
-              <div class="menu-section-title">Quick Actions</div>
-              <button mat-menu-item routerLink="/students"><mat-icon>person_add</mat-icon><span>Add Student</span></button>
-              <button mat-menu-item routerLink="/teachers"><mat-icon>badge</mat-icon><span>Add Teacher</span></button>
-              <button mat-menu-item routerLink="/attendance/reports"><mat-icon>summarize</mat-icon><span>Attendance Reports</span></button>
-              <button mat-menu-item routerLink="/fees"><mat-icon>payments</mat-icon><span>Open Fee Collection</span></button>
+              <div class="menu-section-title">{{ 'HEADER.QUICK_ACTIONS' | translate }}</div>
+              <button mat-menu-item routerLink="/students"><mat-icon>person_add</mat-icon><span>{{ 'HEADER.ADD_STUDENT' | translate }}</span></button>
+              <button mat-menu-item routerLink="/teachers"><mat-icon>badge</mat-icon><span>{{ 'HEADER.ADD_TEACHER' | translate }}</span></button>
+              <button mat-menu-item routerLink="/attendance/reports"><mat-icon>summarize</mat-icon><span>{{ 'HEADER.OPEN_ATTENDANCE_REPORTS' | translate }}</span></button>
+              <button mat-menu-item routerLink="/fees"><mat-icon>payments</mat-icon><span>{{ 'HEADER.OPEN_FEE_COLLECTION' | translate }}</span></button>
             </mat-menu>
+
+            <!-- Dynamic Hindi / English Switcher Pill Button in Header -->
+            <button
+              type="button"
+              class="header-lang-btn"
+              (click)="toggleLanguage()"
+              [matTooltip]="'HEADER.SWITCH_LANG' | translate"
+              aria-label="Toggle language between English and Hindi">
+              <span class="lang-flag-badge">{{ translationService.isEnglish() ? '🇮🇳' : '🇬🇧' }}</span>
+              <span class="lang-code-text">{{ translationService.isEnglish() ? 'हिन्दी' : 'English' }}</span>
+            </button>
           </div>
           <span class="spacer"></span>
 
@@ -252,21 +266,6 @@ import { QuickSettingsDrawerComponent } from './quick-settings-drawer/quick-sett
             <button mat-menu-item routerLink="/users">
               <mat-icon color="primary">manage_accounts</mat-icon>
               <span>User Profile &amp; Staff</span>
-            </button>
-
-            <button mat-menu-item routerLink="/rooms">
-              <mat-icon style="color: #0284c7;">meeting_room</mat-icon>
-              <span>Classrooms Master</span>
-            </button>
-
-            <button mat-menu-item routerLink="/roles">
-              <mat-icon style="color: #6366f1;">admin_panel_settings</mat-icon>
-              <span>Roles &amp; Permissions</span>
-            </button>
-
-            <button mat-menu-item routerLink="/admin/tenants">
-              <mat-icon style="color: #059669;">corporate_fare</mat-icon>
-              <span>Institutes &amp; Tenants</span>
             </button>
 
             <mat-divider></mat-divider>
@@ -840,6 +839,41 @@ import { QuickSettingsDrawerComponent } from './quick-settings-drawer/quick-sett
       }
     }
     .quick-actions-button mat-icon { font-size:17px; width:17px; height:17px; margin-right:3px; }
+    .header-lang-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      height: 32px;
+      padding: 0 10px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.16);
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      color: #ffffff;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+      outline: none;
+      transition: all 0.2s ease;
+      flex-shrink: 0;
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.28);
+        border-color: rgba(255, 255, 255, 0.65);
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+      }
+
+      .lang-flag-badge {
+        font-size: 1rem;
+        line-height: 1;
+      }
+
+      .lang-code-text {
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.2px;
+      }
+    }
     .menu-section-title { padding:10px 16px 6px; color:#64748b; font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.5px; }
     .spacer {
       flex: 1 1 auto;
@@ -1072,6 +1106,7 @@ import { QuickSettingsDrawerComponent } from './quick-settings-drawer/quick-sett
   `]
 })
 export class LayoutComponent implements OnInit {
+  readonly translationService = inject(TranslationService);
   currentUser = this.authService.currentUser;
   menuTree = signal<MenuItem[]>([]);
   isMobile = signal<boolean>(false);
@@ -1108,6 +1143,10 @@ export class LayoutComponent implements OnInit {
   get canSwitchBranches(): boolean {
     const role = this.currentUser()?.role;
     return role === 'SuperAdmin' || role === 'InstituteAdmin';
+  }
+
+  toggleLanguage(): void {
+    this.translationService.toggleLanguage();
   }
 
   get branches(): BranchInfo[] {

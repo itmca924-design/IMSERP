@@ -28,7 +28,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
   <div class="page-header">
     <div>
       <h1 class="page-title"><mat-icon>account_balance_wallet</mat-icon> Salary Structure</h1>
-      <p class="page-subtitle">Teacher ki salary structure set karo — basic, HRA, allowances, aur deductions.</p>
+      <p class="page-subtitle">Configure faculty compensation structure — basic, HRA, allowances, and deductions.</p>
     </div>
   </div>
 
@@ -38,7 +38,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
 
   <div *ngIf="!selectedTeacher" class="no-selection">
     <mat-icon>person_search</mat-icon>
-    <p>Upar se teacher select karo salary structure dekhne ke liye.</p>
+    <p>Please select a faculty member above to view and configure their salary structure.</p>
   </div>
 
   <div *ngIf="selectedTeacher">
@@ -46,7 +46,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
       <h3>{{selectedTeacher.fullName}} — Salary Structure</h3>
       <button mat-stroked-button color="primary" (click)="toggleForm()">
         <mat-icon>{{salaryStructure ? 'edit' : 'add'}}</mat-icon>
-        {{showForm ? 'Cancel' : (salaryStructure ? 'Update Structure' : 'Salary Set Karo')}}
+        {{showForm ? 'Cancel' : (salaryStructure ? 'Update Structure' : 'Set Salary Structure')}}
       </button>
     </div>
 
@@ -117,7 +117,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
 
     <div class="empty-state" *ngIf="!salaryStructure && !loading && !showForm">
       <mat-icon>account_balance_wallet</mat-icon>
-      <p>Koi salary structure set nahi hai. "Salary Set Karo" click karo.</p>
+      <p>No salary structure configured yet. Click "Set Salary Structure" above to define.</p>
     </div>
   </div>
 </div>

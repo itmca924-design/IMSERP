@@ -457,6 +457,137 @@
   }
 }
 
+// ═══ LANGUAGE SELECTOR CARD ═══
+.lang-selector-card {
+  background: #ffffff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  transition: all 0.2s ease;
+
+  &:hover {
+    border-color: #cbd5e1;
+  }
+
+  .lang-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 4px;
+
+    .lang-card-label {
+      font-size: 0.86rem;
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    .lang-card-badge {
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 20px;
+      background: #eff6ff;
+      color: #2563eb;
+      border: 1px solid #bfdbfe;
+
+      &.badge-hi {
+        background: #fff7ed;
+        color: #c2410c;
+        border-color: #ffedd5;
+      }
+    }
+  }
+
+  .lang-card-desc {
+    margin: 0 0 12px 0;
+    font-size: 0.76rem;
+    color: #64748b;
+    line-height: 1.35;
+  }
+
+  .lang-toggle-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+
+    .lang-opt-btn {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1.5px solid #e2e8f0;
+      background: #f8fafc;
+      cursor: pointer;
+      text-align: left;
+      position: relative;
+      transition: all 0.2s ease;
+
+      .lang-flag {
+        font-size: 1.35rem;
+        line-height: 1;
+        flex-shrink: 0;
+      }
+
+      .lang-opt-text {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-width: 0;
+
+        .lang-primary {
+          font-size: 0.88rem;
+          font-weight: 700;
+          color: #334155;
+        }
+
+        .lang-secondary {
+          font-size: 0.7rem;
+          color: #94a3b8;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+      }
+
+      .check-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        color: #2563eb;
+        flex-shrink: 0;
+      }
+
+      &:hover {
+        background: #f1f5f9;
+        border-color: #94a3b8;
+        transform: translateY(-1px);
+      }
+
+      &.active {
+        background: #f0fdf4;
+        border-color: #22c55e;
+        box-shadow: 0 2px 8px rgba(34, 197, 94, 0.15);
+
+        .lang-primary {
+          color: #15803d;
+        }
+
+        .lang-secondary {
+          color: #16a34a;
+          font-weight: 600;
+        }
+
+        .check-icon {
+          color: #16a34a;
+        }
+      }
+    }
+  }
+}
+
 .settings-grid-2 {
   display: grid;
   grid-template-columns: 1fr 1fr;

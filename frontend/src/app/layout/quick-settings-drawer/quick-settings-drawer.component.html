@@ -39,8 +39,8 @@
         <mat-icon>tune</mat-icon>
       </div>
       <div class="header-text">
-        <h3 class="drawer-title">Institute Quick Settings</h3>
-        <p class="drawer-subtitle">ERP Customizer &amp; Smart School Automation</p>
+        <h3 class="drawer-title">{{ 'SETTINGS.TITLE' | translate }}</h3>
+        <p class="drawer-subtitle">{{ 'SETTINGS.SUBTITLE' | translate }}</p>
       </div>
     </div>
     <div class="header-actions">
@@ -49,7 +49,7 @@
         mat-icon-button
         class="header-btn"
         (click)="resetDefaults()"
-        matTooltip="Reset settings to default">
+        [matTooltip]="'SETTINGS.RESET_TOOLTIP' | translate">
         <mat-icon>restart_alt</mat-icon>
       </button>
       <button
@@ -57,7 +57,7 @@
         mat-icon-button
         class="header-btn close-btn"
         (click)="onCloseDrawer()"
-        matTooltip="Close settings (Esc)">
+        [matTooltip]="'SETTINGS.CLOSE_TOOLTIP' | translate">
         <mat-icon>close</mat-icon>
       </button>
     </div>
@@ -71,7 +71,7 @@
       [class.active]="activeTab === 'general'"
       (click)="activeTab = 'general'">
       <mat-icon>school</mat-icon>
-      <span>General</span>
+      <span>{{ 'SETTINGS.TAB_GENERAL' | translate }}</span>
     </button>
     <button
       type="button"
@@ -79,7 +79,7 @@
       [class.active]="activeTab === 'automation'"
       (click)="activeTab = 'automation'">
       <mat-icon>bolt</mat-icon>
-      <span>Automation</span>
+      <span>{{ 'SETTINGS.TAB_AUTOMATION' | translate }}</span>
       <span class="tab-badge">Pro</span>
     </button>
     <button
@@ -88,7 +88,7 @@
       [class.active]="activeTab === 'appearance'"
       (click)="activeTab = 'appearance'">
       <mat-icon>palette</mat-icon>
-      <span>Theme</span>
+      <span>{{ 'SETTINGS.TAB_THEME' | translate }}</span>
     </button>
     <button
       type="button"
@@ -96,7 +96,7 @@
       [class.active]="activeTab === 'shortcuts'"
       (click)="activeTab = 'shortcuts'">
       <mat-icon>grid_view</mat-icon>
-      <span>Shortcuts</span>
+      <span>{{ 'SETTINGS.TAB_SHORTCUTS' | translate }}</span>
     </button>
   </div>
 
@@ -167,26 +167,63 @@
         <div class="section-title-row">
           <mat-icon class="section-icon">language</mat-icon>
           <div>
-            <h4 class="section-title">Regional Standards</h4>
-            <p class="section-desc">Currency and date display specifications</p>
+            <h4 class="section-title">{{ 'SETTINGS.REGIONAL_STANDARDS' | translate }}</h4>
+            <p class="section-desc">{{ 'SETTINGS.REGIONAL_STANDARDS_DESC' | translate }}</p>
+          </div>
+        </div>
+
+        <!-- Language Switcher Card -->
+        <div class="lang-selector-card">
+          <div class="lang-card-header">
+            <span class="lang-card-label">{{ 'SETTINGS.APP_LANGUAGE' | translate }}</span>
+            <span class="lang-card-badge" [class.badge-hi]="translationService.isHindi()">
+              {{ translationService.isHindi() ? 'हिन्दी सक्रिय' : 'English Active' }}
+            </span>
+          </div>
+          <p class="lang-card-desc">{{ 'SETTINGS.APP_LANGUAGE_DESC' | translate }}</p>
+          <div class="lang-toggle-options">
+            <button
+              type="button"
+              class="lang-opt-btn"
+              [class.active]="translationService.isEnglish()"
+              (click)="setLanguage('en')">
+              <span class="lang-flag">🇬🇧</span>
+              <div class="lang-opt-text">
+                <span class="lang-primary">English</span>
+                <span class="lang-secondary">Global Standard</span>
+              </div>
+              <mat-icon class="check-icon" *ngIf="translationService.isEnglish()">check_circle</mat-icon>
+            </button>
+            <button
+              type="button"
+              class="lang-opt-btn"
+              [class.active]="translationService.isHindi()"
+              (click)="setLanguage('hi')">
+              <span class="lang-flag">🇮🇳</span>
+              <div class="lang-opt-text">
+                <span class="lang-primary">हिन्दी</span>
+                <span class="lang-secondary">राष्ट्रीय भाषा</span>
+              </div>
+              <mat-icon class="check-icon" *ngIf="translationService.isHindi()">check_circle</mat-icon>
+            </button>
           </div>
         </div>
 
         <div class="settings-grid-2">
           <div class="mini-spec-box">
-            <span class="spec-label">Currency Symbol</span>
+            <span class="spec-label">{{ 'SETTINGS.CURRENCY_SYMBOL' | translate }}</span>
             <span class="spec-val">₹ INR (Indian Rupee)</span>
           </div>
           <div class="mini-spec-box">
-            <span class="spec-label">Date Format</span>
+            <span class="spec-label">{{ 'SETTINGS.DATE_FORMAT' | translate }}</span>
             <span class="spec-val">DD/MM/YYYY</span>
           </div>
           <div class="mini-spec-box">
-            <span class="spec-label">Timezone</span>
+            <span class="spec-label">{{ 'SETTINGS.TIMEZONE' | translate }}</span>
             <span class="spec-val">IST (UTC+05:30)</span>
           </div>
           <div class="mini-spec-box">
-            <span class="spec-label">SMS Sender ID</span>
+            <span class="spec-label">{{ 'SETTINGS.SMS_SENDER_ID' | translate }}</span>
             <span class="spec-val text-green">APEXED (Approved)</span>
           </div>
         </div>
@@ -596,13 +633,13 @@
   <div class="drawer-footer">
     <div class="footer-status">
       <span class="status-indicator"></span>
-      <span class="status-text">All preferences automatically synced</span>
+      <span class="status-text">{{ 'SETTINGS.ALL_SYNCED' | translate }}</span>
     </div>
     <button
       type="button"
       class="done-btn"
       (click)="onCloseDrawer()">
-      Done
+      {{ 'COMMON.DONE' | translate }}
     </button>
   </div>
 

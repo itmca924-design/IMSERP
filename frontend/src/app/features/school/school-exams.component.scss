@@ -2,6 +2,9 @@
   padding: 24px;
   max-width: 1400px;
   margin: 0 auto;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
 }
 
 /* Page Header */
@@ -73,6 +76,9 @@
   box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.06);
   border: 1px solid #e2e8f0;
   overflow: hidden;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
 
   ::ng-deep .mat-mdc-tab-header {
     background: #f8fafc;
@@ -104,6 +110,9 @@
 
 .tab-content {
   padding: 24px;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
 }
 
 /* Filter Card */
@@ -277,11 +286,14 @@
   }
 }
 
-/* Exams Grid */
+/* Exams Grid - Fully Fluid & Responsive */
 .exams-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
   gap: 20px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .exam-card {
@@ -290,6 +302,12 @@
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   overflow: hidden;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
 
   &:hover {
     transform: translateY(-2px);
@@ -303,6 +321,9 @@
     padding: 14px 16px;
     background: #f8fafc;
     border-bottom: 1px solid #f1f5f9;
+    box-sizing: border-box;
+    width: 100%;
+    gap: 8px;
 
     .exam-badge {
       font-size: 11px;
@@ -313,6 +334,7 @@
       border-radius: 12px;
       background: #e2e8f0;
       color: #475569;
+      white-space: nowrap;
 
       &.badge-annual {
         background: #fef3c7;
@@ -325,17 +347,23 @@
       font-size: 12px;
       font-weight: 600;
       color: #64748b;
+      white-space: nowrap;
     }
   }
 
   .exam-card-body {
     padding: 16px;
+    box-sizing: border-box;
+    width: 100%;
+    flex: 1;
 
     .exam-title {
       font-size: 16px;
       font-weight: 700;
       color: #0f172a;
       margin: 0 0 12px 0;
+      word-break: break-word;
+      overflow-wrap: break-word;
     }
 
     .exam-meta {
@@ -350,12 +378,14 @@
         gap: 8px;
         font-size: 13px;
         color: #475569;
+        word-break: break-word;
 
         mat-icon {
           font-size: 18px;
           width: 18px;
           height: 18px;
           color: #94a3b8;
+          flex-shrink: 0;
         }
 
         strong {
@@ -369,6 +399,8 @@
       padding: 10px 12px;
       border-radius: 8px;
       border: 1px solid #f1f5f9;
+      box-sizing: border-box;
+      width: 100%;
 
       .progress-labels {
         display: flex;
@@ -376,20 +408,27 @@
         font-size: 12px;
         color: #64748b;
         margin-bottom: 6px;
+        gap: 8px;
+        flex-wrap: wrap;
 
         strong {
           color: #1e293b;
+          white-space: nowrap;
         }
       }
     }
   }
 
   .exam-card-actions {
-    padding: 12px 16px;
+    padding: 12px 14px;
     display: flex;
     justify-content: space-between;
     align-items: center;
     background: #ffffff;
+    gap: 8px;
+    box-sizing: border-box;
+    width: 100%;
+    margin-top: auto;
 
     .enter-marks-btn {
       display: flex;
@@ -397,6 +436,20 @@
       gap: 6px;
       font-weight: 600;
       border-radius: 6px;
+      flex: 1;
+      min-width: 0;
+      justify-content: center;
+      font-size: 13px;
+      white-space: nowrap;
+
+      span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+    }
+
+    button[color="warn"] {
+      flex-shrink: 0;
     }
   }
 }
@@ -1426,6 +1479,210 @@
 .text-danger { color: #dc2626; }
 .text-bold { font-weight: 700; }
 .text-muted { color: #94a3b8; }
+
+/* ─── Fully Responsive System for All Modes, Screens & Split Viewports ─── */
+@media (max-width: 1200px) {
+  .exams-grid {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+    gap: 16px;
+  }
+}
+
+@media (max-width: 992px) {
+  .school-exams-container {
+    padding: 16px;
+  }
+
+  .tab-content {
+    padding: 18px 14px;
+  }
+
+  .filter-card .filter-grid {
+    gap: 12px;
+
+    .compact-field {
+      min-width: 130px;
+    }
+
+    .search-field {
+      min-width: 180px;
+    }
+  }
+
+  .multi-marks-alert-banner {
+    padding: 12px 16px;
+
+    .banner-info {
+      gap: 10px;
+    }
+  }
+
+  .scheduler-config-grid {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)) !important;
+    padding: 14px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .school-exams-container {
+    padding: 12px 8px;
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+
+    .header-actions {
+      width: 100%;
+      flex-direction: row;
+      flex-wrap: wrap;
+
+      .action-btn {
+        flex: 1;
+        min-width: 130px;
+        justify-content: center;
+      }
+    }
+  }
+
+  .custom-tabs ::ng-deep .mat-mdc-tab-header {
+    padding: 0 8px;
+  }
+
+  .tab-content {
+    padding: 14px 8px;
+  }
+
+  .filter-card {
+    padding: 12px 10px;
+
+    .filter-grid {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 10px;
+
+      .compact-field, .search-field {
+        width: 100%;
+        min-width: 100%;
+        margin-bottom: 0;
+      }
+
+      .filter-actions {
+        width: 100%;
+        margin-top: 4px;
+
+        button {
+          width: 100%;
+          justify-content: center;
+        }
+      }
+    }
+  }
+
+  .multi-marks-alert-banner {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 12px;
+    gap: 12px;
+
+    .banner-action-btn {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+
+  /* Force single-column on tablets, phones and narrow split viewports */
+  .exams-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px;
+  }
+
+  .exam-card {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .subject-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 10px 12px;
+
+    .row-num {
+      text-align: left;
+      width: auto;
+    }
+
+    .sub-field, .title-field, .date-field, .marks-field {
+      width: 100%;
+      margin-bottom: 0;
+    }
+  }
+
+  .results-filter-card {
+    padding: 12px 10px;
+
+    .filter-controls-row {
+      flex-direction: column;
+      align-items: stretch;
+
+      .inputs-strip {
+        min-width: 100%;
+        flex-direction: column;
+        gap: 10px;
+
+        .filter-input-col {
+          width: 100%;
+          min-width: 100%;
+        }
+      }
+
+      .actions-strip {
+        width: 100%;
+        flex-direction: column;
+
+        button {
+          width: 100%;
+          justify-content: center;
+        }
+      }
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .school-exams-container {
+    padding: 8px 4px;
+  }
+
+  .tab-content {
+    padding: 10px 4px;
+  }
+
+  .exam-card {
+    border-radius: 8px;
+
+    .exam-card-header {
+      padding: 10px 12px;
+    }
+
+    .exam-card-body {
+      padding: 12px;
+    }
+
+    .exam-card-actions {
+      padding: 10px 12px;
+      flex-direction: row;
+      gap: 6px;
+
+      .enter-marks-btn {
+        font-size: 12px;
+        padding: 0 8px;
+      }
+    }
+  }
+}
 
 /* Print Mode Styling */
 @media print {

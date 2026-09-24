@@ -172,7 +172,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
   <mat-card class="empty-card mat-elevation-z1" *ngIf="!loading && lessonPlans.length === 0">
     <mat-icon class="empty-icon">menu_book</mat-icon>
     <h3>No Diary Entries Found</h3>
-    <p>Chuni gayi criteria par koi lesson plan ya diary record nahi mila. Naya lesson log karne ke liye button click karein.</p>
+    <p>No lesson plans or diary entries match the selected criteria. Click below to log a new lesson entry.</p>
     <button mat-stroked-button color="primary" (click)="openAddModal()">
       <mat-icon>edit_note</mat-icon> Log Daily Lesson
     </button>

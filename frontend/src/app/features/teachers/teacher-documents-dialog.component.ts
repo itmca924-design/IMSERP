@@ -63,7 +63,7 @@ export interface TeacherDocumentsDialogData {
 
     <!-- Inline Add Document Form -->
     <div class="add-form-card" *ngIf="showAddForm">
-      <h4><mat-icon>cloud_upload</mat-icon> Naya Document / KYC Attach Karo</h4>
+      <h4><mat-icon>cloud_upload</mat-icon> Upload & Attach New Document</h4>
       <div class="form-grid">
         <mat-form-field appearance="outline">
           <mat-label>Document Type *</mat-label>
@@ -167,7 +167,7 @@ export interface TeacherDocumentsDialogData {
     <div class="empty-docs" *ngIf="!loading && documents.length === 0">
       <mat-icon class="empty-icon">folder_open</mat-icon>
       <h3>No Documents Attached</h3>
-      <p>Is teacher ke liye abhi koi KYC ya certificate attach nahi kiya gaya hai.</p>
+      <p>No documents or KYC certificates have been uploaded for this faculty member yet.</p>
     </div>
   </div>
 </div>

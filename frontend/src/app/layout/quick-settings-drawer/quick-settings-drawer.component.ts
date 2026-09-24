@@ -6,6 +6,8 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { QuickSettingsService, ErpThemeMode, ErpAccentColor, ErpDensity } from '../../core/services/quick-settings.service';
 import { AuthService } from '../../core/services/auth.service';
+import { TranslationService } from '../../core/services/translation.service';
+import { TranslatePipe } from '../../core/pipes/translate.pipe';
 
 @Component({
   selector: 'app-quick-settings-drawer',
@@ -15,7 +17,8 @@ import { AuthService } from '../../core/services/auth.service';
     RouterModule,
     MatIconModule,
     MatButtonModule,
-    MatTooltipModule
+    MatTooltipModule,
+    TranslatePipe
   ],
   templateUrl: './quick-settings-drawer.component.html',
   styleUrls: ['./quick-settings-drawer.component.scss']
@@ -23,6 +26,7 @@ import { AuthService } from '../../core/services/auth.service';
 export class QuickSettingsDrawerComponent {
   readonly settingsService = inject(QuickSettingsService);
   readonly authService = inject(AuthService);
+  readonly translationService = inject(TranslationService);
 
   activeTab: 'general' | 'automation' | 'appearance' | 'shortcuts' = 'general';
 
@@ -72,6 +76,14 @@ export class QuickSettingsDrawerComponent {
 
   setAcademicSession(session: string): void {
     this.settingsService.setAcademicSession(session);
+  }
+
+  setLanguage(lang: 'en' | 'hi'): void {
+    this.translationService.setLanguage(lang);
+  }
+
+  toggleLanguage(): void {
+    this.translationService.toggleLanguage();
   }
 
   resetDefaults(): void {

@@ -1959,7 +1959,11 @@ public class TestsController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<TestDto>>> GetTests([FromQuery] Guid? batchId)
     {
-        var query = _dbContext.Tests.AsNoTracking().Include(t => t.Batch).AsQueryable();
+        var query = _dbContext.Tests.AsNoTracking()
+            .Include(t => t.Batch)
+            .Include(t => t.Class)
+            .Include(t => t.Section)
+            .AsQueryable();
 
         if (batchId.HasValue && batchId != Guid.Empty)
         {
@@ -1970,12 +1974,17 @@ public class TestsController : ControllerBase
         {
             t.Id,
             t.BatchId,
-            BatchName = t.Batch != null ? t.Batch.Name : "",
+            BatchName = t.Batch != null ? t.Batch.Name :
+                        t.Class != null ? (t.Section != null ? $"{t.Class.Name} ({t.Section.Name})" : t.Class.Name) : "General",
             t.Title,
             t.Subject,
             t.MaxMarks,
             t.TestDate,
-            EvaluatedCount = t.MarksList.Count
+            EvaluatedCount = t.MarksList.Count,
+            t.ClassId,
+            ClassName = t.Class != null ? t.Class.Name : null,
+            t.SectionId,
+            SectionName = t.Section != null ? t.Section.Name : null
         }).ToListAsync();
 
         var list = rawList.Select(t => new TestDto(
@@ -1986,7 +1995,11 @@ public class TestsController : ControllerBase
             t.Subject,
             t.MaxMarks,
             DateTime.SpecifyKind(t.TestDate, DateTimeKind.Utc),
-            t.EvaluatedCount
+            t.EvaluatedCount,
+            t.ClassId,
+            t.ClassName,
+            t.SectionId,
+            t.SectionName
         )).ToList();
 
         return Ok(list);
@@ -2001,7 +2014,11 @@ public class TestsController : ControllerBase
         [FromQuery] string? sortBy = "testDate",
         [FromQuery] bool sortDescending = true)
     {
-        var query = _dbContext.Tests.AsNoTracking().Include(t => t.Batch).AsQueryable();
+        var query = _dbContext.Tests.AsNoTracking()
+            .Include(t => t.Batch)
+            .Include(t => t.Class)
+            .Include(t => t.Section)
+            .AsQueryable();
 
         if (batchId.HasValue && batchId != Guid.Empty)
             query = query.Where(t => t.BatchId == batchId);
@@ -2012,7 +2029,8 @@ public class TestsController : ControllerBase
             query = query.Where(t =>
                 t.Title.ToLower().Contains(term) ||
                 t.Subject.ToLower().Contains(term) ||
-                (t.Batch != null && t.Batch.Name.ToLower().Contains(term)));
+                (t.Batch != null && t.Batch.Name.ToLower().Contains(term)) ||
+                (t.Class != null && t.Class.Name.ToLower().Contains(term)));
         }
 
         query = sortBy?.ToLower() switch
@@ -2020,7 +2038,9 @@ public class TestsController : ControllerBase
             "title" => sortDescending ? query.OrderByDescending(t => t.Title) : query.OrderBy(t => t.Title),
             "subject" => sortDescending ? query.OrderByDescending(t => t.Subject) : query.OrderBy(t => t.Subject),
             "maxmarks" => sortDescending ? query.OrderByDescending(t => t.MaxMarks) : query.OrderBy(t => t.MaxMarks),
-            "batchname" => sortDescending ? query.OrderByDescending(t => t.Batch!.Name) : query.OrderBy(t => t.Batch!.Name),
+            "batchname" => sortDescending 
+                ? query.OrderByDescending(t => t.Batch != null ? t.Batch.Name : (t.Class != null ? t.Class.Name : "")) 
+                : query.OrderBy(t => t.Batch != null ? t.Batch.Name : (t.Class != null ? t.Class.Name : "")),
             _ => sortDescending ? query.OrderByDescending(t => t.TestDate) : query.OrderBy(t => t.TestDate)
         };
 
@@ -2032,12 +2052,17 @@ public class TestsController : ControllerBase
             {
                 t.Id,
                 t.BatchId,
-                BatchName = t.Batch != null ? t.Batch.Name : "",
+                BatchName = t.Batch != null ? t.Batch.Name :
+                            t.Class != null ? (t.Section != null ? $"{t.Class.Name} ({t.Section.Name})" : t.Class.Name) : "General",
                 t.Title,
                 t.Subject,
                 t.MaxMarks,
                 t.TestDate,
-                EvaluatedCount = t.MarksList.Count
+                EvaluatedCount = t.MarksList.Count,
+                t.ClassId,
+                ClassName = t.Class != null ? t.Class.Name : null,
+                t.SectionId,
+                SectionName = t.Section != null ? t.Section.Name : null
             }).ToListAsync();
 
         var items = rawItems.Select(t => new TestDto(
@@ -2048,7 +2073,11 @@ public class TestsController : ControllerBase
             t.Subject,
             t.MaxMarks,
             DateTime.SpecifyKind(t.TestDate, DateTimeKind.Utc),
-            t.EvaluatedCount
+            t.EvaluatedCount,
+            t.ClassId,
+            t.ClassName,
+            t.SectionId,
+            t.SectionName
         )).ToList();
 
         return Ok(new PagedResultDto<TestDto>(items, totalCount, pageNumber, pageSize));

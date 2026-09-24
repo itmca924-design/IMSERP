@@ -159,6 +159,25 @@ export const routes: Routes = [
         loadComponent: () => import('./features/transport/transport-management.component').then(m => m.TransportManagementComponent)
       },
 
+      // Finance & Accounts (Profit & Loss, Balance Sheet, Expenses, Chart of Accounts)
+      {
+        path: 'finance/profit-loss',
+        loadComponent: () => import('./features/finance/profit-loss.component').then(m => m.ProfitLossComponent)
+      },
+      {
+        path: 'finance/balance-sheet',
+        loadComponent: () => import('./features/finance/balance-sheet.component').then(m => m.BalanceSheetComponent)
+      },
+      {
+        path: 'finance/expenses',
+        loadComponent: () => import('./features/finance/expenses.component').then(m => m.ExpensesComponent)
+      },
+      {
+        path: 'finance/chart-of-accounts',
+        loadComponent: () => import('./features/finance/chart-of-accounts.component').then(m => m.ChartOfAccountsComponent)
+      },
+      { path: 'finance', redirectTo: 'finance/profit-loss', pathMatch: 'full' },
+
       // Admin Settings
       {
         path: 'roles',

@@ -97,7 +97,7 @@ public class StudentsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<StudentDto>>> GetStudents([FromQuery] Guid? batchId)
+    public async Task<ActionResult<IEnumerable<StudentDto>>> GetStudents([FromQuery] Guid? batchId, [FromQuery] Guid? classId = null)
     {
         var query = _dbContext.Students.AsNoTracking()
             .Include(s => s.Batch)
@@ -108,6 +108,10 @@ public class StudentsController : ControllerBase
         if (batchId.HasValue && batchId != Guid.Empty)
         {
             query = query.Where(s => s.BatchId == batchId);
+        }
+        else if (classId.HasValue && classId != Guid.Empty)
+        {
+            query = query.Where(s => s.ClassId == classId);
         }
 
         query = query.OrderByDescending(s => s.JoiningDate).ThenByDescending(s => s.RollNumber);

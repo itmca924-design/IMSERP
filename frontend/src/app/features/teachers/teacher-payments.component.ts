@@ -31,7 +31,7 @@ import { TeacherPayslipDialogComponent } from './teacher-payslip-dialog.componen
   <div class="page-header">
     <div>
       <h1 class="page-title"><mat-icon>payments</mat-icon> Salary Payments</h1>
-      <p class="page-subtitle">Monthly salary payment records — record karo aur history dekho.</p>
+      <p class="page-subtitle">Track faculty salary disbursements, payslips, and payment history.</p>
     </div>
   </div>
 
@@ -41,7 +41,7 @@ import { TeacherPayslipDialogComponent } from './teacher-payslip-dialog.componen
 
   <div *ngIf="!selectedTeacher" class="no-selection">
     <mat-icon>person_search</mat-icon>
-    <p>Upar se teacher select karo payment history dekhne ke liye.</p>
+    <p>Please select a faculty member above to view salary payments.</p>
   </div>
 
   <div *ngIf="selectedTeacher">
@@ -58,7 +58,7 @@ import { TeacherPayslipDialogComponent } from './teacher-payslip-dialog.componen
       <h3>{{selectedTeacher.fullName}} — Payment History</h3>
       <button mat-raised-button color="primary" [disabled]="!selectedTeacher.isActive" (click)="toggleForm()" [matTooltip]="!selectedTeacher.isActive ? 'Exited teacher cannot receive regular salary payments' : ''">
         <mat-icon>{{showForm ? 'close' : 'add'}}</mat-icon>
-        {{showForm ? 'Cancel' : 'Payment Record Karo'}}
+        {{showForm ? 'Cancel' : 'Record Salary Payment'}}
       </button>
     </div>
 
@@ -163,7 +163,7 @@ import { TeacherPayslipDialogComponent } from './teacher-payslip-dialog.componen
       <!-- No Salary Structure Warning -->
       <div class="no-preview-warn" *ngIf="!preview && !previewLoading">
         <mat-icon>warning_amber</mat-icon>
-        <span>Is teacher ki salary structure set nahi hai ya is mahine attendance data nahi hai. Pehle <strong>Salary Structure</strong> set karein.</span>
+        <span>Salary structure is not configured for this faculty member or attendance data is missing. Please define <strong>Salary Structure</strong> first.</span>
       </div>
 
       <form [formGroup]="paymentForm" (ngSubmit)="recordPayment()">
@@ -240,16 +240,16 @@ import { TeacherPayslipDialogComponent } from './teacher-payslip-dialog.componen
         <div class="form-actions">
           <div class="mandatory-hint" *ngIf="!calculationsApplied">
             <mat-icon>lock</mat-icon>
-            <span>"Record Payment" disabled hai — Pehle upar <strong>"Auto-Fill Calculated Deductions"</strong> click karein.</span>
+            <span>"Record Payment" is disabled — Please click <strong>"Auto-Fill Calculated Deductions"</strong> above first.</span>
           </div>
           <div class="mandatory-hint success-hint" *ngIf="calculationsApplied">
             <mat-icon>check_circle</mat-icon>
-            <span>Calculations verified! Ab aap payment record kar sakte hain.</span>
+            <span>Calculations verified! You can now record the payment.</span>
           </div>
           <button mat-button type="button" (click)="toggleForm()">Cancel</button>
           <button mat-raised-button color="primary" type="submit"
                   [disabled]="paymentForm.invalid || !calculationsApplied || saving"
-                  [matTooltip]="!calculationsApplied ? 'Pehle Auto-Fill click karke calculations apply karein' : (paymentForm.invalid ? 'Form mein koi error hai' : '')">
+                  [matTooltip]="!calculationsApplied ? 'Please click Auto-Fill above to apply deductions' : (paymentForm.invalid ? 'Please resolve validation errors in form' : '')">
             <mat-icon>{{saving ? 'hourglass_empty' : 'save'}}</mat-icon>
             {{saving ? 'Saving...' : 'Record Payment'}}
           </button>
@@ -306,7 +306,7 @@ import { TeacherPayslipDialogComponent } from './teacher-payslip-dialog.componen
 
     <div class="empty-state" *ngIf="payments.length === 0 && !loading && !showForm">
       <mat-icon>payments</mat-icon>
-      <p>Koi salary payment record nahi hai abhi tak.</p>
+      <p>No salary payments recorded yet for this faculty member.</p>
     </div>
   </div>
 </div>
@@ -575,7 +575,7 @@ export class TeacherPaymentsComponent implements OnInit {
 
   applyPreviewToForm() {
     if (!this.preview) {
-      this.confirmDialog.alert('No Preview', 'Payroll preview load nahi hua. Month/Year check karein aur salary structure set karein.', 'warning');
+      this.confirmDialog.alert('No Preview', 'Payroll preview could not be loaded. Please verify Month/Year and ensure salary structure is configured.', 'warning');
       return;
     }
     const totalDeductions = this.preview.totalAttendanceDeduction
@@ -636,11 +636,11 @@ export class TeacherPaymentsComponent implements OnInit {
 
   recordPayment() {
     if (!this.selectedTeacher) {
-      this.confirmDialog.alert('Error', 'Koi teacher select nahi hai.', 'danger');
+      this.confirmDialog.alert('Error', 'Please select a faculty member first.', 'danger');
       return;
     }
     if (!this.selectedTeacher.isActive) {
-      this.confirmDialog.alert('Exited Faculty Member', 'Relieved / Inactive teacher ke liye regular salary payment record nahi kiya ja sakta.', 'warning');
+      this.confirmDialog.alert('Exited Faculty Member', 'Regular salary payment cannot be processed for inactive or relieved faculty members.', 'warning');
       return;
     }
     if (!this.calculationsApplied) {
@@ -649,7 +649,7 @@ export class TeacherPaymentsComponent implements OnInit {
     }
     if (this.paymentForm.invalid) {
       this.paymentForm.markAllAsTouched();
-      this.confirmDialog.alert('Form Invalid', 'Form mein koi required field khali hai ya invalid value hai. Please check karein.', 'warning');
+      this.confirmDialog.alert('Form Invalid', 'Required fields are missing or contain invalid values. Please check and retry.', 'warning');
       return;
     }
 
@@ -657,12 +657,12 @@ export class TeacherPaymentsComponent implements OnInit {
 
     // Final validation: advance cannot exceed gross
     if (v.advanceAdjusted > v.grossAmount) {
-      this.confirmDialog.alert('Validation Error', 'Advance adjusted amount gross salary se zyada nahi ho sakta.', 'danger');
+      this.confirmDialog.alert('Validation Error', 'Advance deduction cannot exceed gross salary amount.', 'danger');
       return;
     }
     // Final validation: net must be non-negative
     if (v.netPaid < 0) {
-      this.confirmDialog.alert('Validation Error', 'Net paid amount negative nahi ho sakta.', 'danger');
+      this.confirmDialog.alert('Validation Error', 'Net payable amount cannot be negative.', 'danger');
       return;
     }
 

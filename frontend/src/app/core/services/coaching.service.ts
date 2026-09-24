@@ -41,8 +41,11 @@ export class CoachingService {
     return this.http.get(`${this.BASE_URL}/dashboard/summary`);
   }
 
-  getStudents(batchId?: string): Observable<any[]> {
-    return this.http.get<any[]>(`${this.BASE_URL}/students`, { params: batchId ? { batchId } : {} });
+  getStudents(batchId?: string, classId?: string): Observable<any[]> {
+    let params: any = {};
+    if (batchId) params.batchId = batchId;
+    if (classId) params.classId = classId;
+    return this.http.get<any[]>(`${this.BASE_URL}/students`, { params });
   }
 
   getStudentsPaged(

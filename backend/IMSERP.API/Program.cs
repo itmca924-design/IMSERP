@@ -326,6 +326,62 @@ using (var scope = app.Services.CreateScope())
                             UpdatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
                         );
                     END
+
+                    -- Finance & Accounting Tables
+                    IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'ExpenseCategories')
+                    BEGIN
+                        CREATE TABLE ExpenseCategories (
+                            Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
+                            TenantId UNIQUEIDENTIFIER NOT NULL,
+                            BranchId UNIQUEIDENTIFIER NULL,
+                            Name NVARCHAR(150) NOT NULL,
+                            Code NVARCHAR(50) NOT NULL,
+                            Description NVARCHAR(500) NULL,
+                            IsActive BIT NOT NULL DEFAULT 1,
+                            SortOrder INT NOT NULL DEFAULT 0,
+                            CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
+                        );
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'ExpenseVouchers')
+                    BEGIN
+                        CREATE TABLE ExpenseVouchers (
+                            Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
+                            TenantId UNIQUEIDENTIFIER NOT NULL,
+                            BranchId UNIQUEIDENTIFIER NULL,
+                            VoucherNo NVARCHAR(50) NOT NULL,
+                            ExpenseDate DATETIME2 NOT NULL,
+                            ExpenseCategoryId UNIQUEIDENTIFIER NOT NULL,
+                            Title NVARCHAR(200) NOT NULL,
+                            Amount DECIMAL(18,2) NOT NULL,
+                            PaymentMode INT NOT NULL DEFAULT 1,
+                            VendorName NVARCHAR(200) NULL,
+                            BillInvoiceNo NVARCHAR(100) NULL,
+                            Description NVARCHAR(MAX) NULL,
+                            ReceiptAttachmentUrl NVARCHAR(500) NULL,
+                            CreatedByUserId UNIQUEIDENTIFIER NULL,
+                            CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
+                        );
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'AccountLedgers')
+                    BEGIN
+                        CREATE TABLE AccountLedgers (
+                            Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
+                            TenantId UNIQUEIDENTIFIER NOT NULL,
+                            BranchId UNIQUEIDENTIFIER NULL,
+                            AccountCode NVARCHAR(50) NOT NULL,
+                            AccountName NVARCHAR(150) NOT NULL,
+                            AccountType INT NOT NULL,
+                            SubType INT NOT NULL,
+                            OpeningBalance DECIMAL(18,2) NOT NULL DEFAULT 0.00,
+                            CurrentBalance DECIMAL(18,2) NOT NULL DEFAULT 0.00,
+                            Description NVARCHAR(500) NULL,
+                            IsActive BIT NOT NULL DEFAULT 1,
+                            IsDefault BIT NOT NULL DEFAULT 0,
+                            CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
+                        );
+                    END
                 ");
             }
             catch (Exception ex)
@@ -662,6 +718,88 @@ using (var scope = app.Services.CreateScope())
                 }
                 context.SaveChanges();
                 Console.WriteLine("[Database] Auto-seeded 'Transport & Fleet' menu item under Academic Operations.");
+            }
+        }
+
+        // Auto-seed 'Finance & Accounts' parent menu and submenus
+        var financeParent = context.MenuItems.FirstOrDefault(m => m.Title == "Finance & Accounts" && m.ParentId == null);
+        if (financeParent == null)
+        {
+            financeParent = new IMSERP.Domain.Entities.MenuItem
+            {
+                Id = Guid.NewGuid(),
+                Title = "Finance & Accounts",
+                RouteUrl = null,
+                Icon = "account_balance",
+                ParentId = null,
+                SortOrder = 6,
+                Module = "Finance",
+                IsActive = true
+            };
+            context.MenuItems.Add(financeParent);
+            context.SaveChanges();
+
+            var roles = context.Roles.ToList();
+            foreach (var role in roles)
+            {
+                context.RolePermissions.Add(new IMSERP.Domain.Entities.RolePermission
+                {
+                    Id = Guid.NewGuid(),
+                    RoleId = role.Id,
+                    MenuItemId = financeParent.Id,
+                    CanView = true,
+                    CanCreate = true,
+                    CanEdit = true,
+                    CanDelete = true
+                });
+            }
+            context.SaveChanges();
+            Console.WriteLine("[Database] Auto-seeded 'Finance & Accounts' parent menu.");
+        }
+
+        var financeSubmenus = new[]
+        {
+            new { Title = "Profit & Loss", Route = "/finance/profit-loss", Icon = "query_stats", Order = 1 },
+            new { Title = "Balance Sheet", Route = "/finance/balance-sheet", Icon = "account_balance_wallet", Order = 2 },
+            new { Title = "Expense Vouchers", Route = "/finance/expenses", Icon = "receipt_long", Order = 3 },
+            new { Title = "Chart of Accounts", Route = "/finance/chart-of-accounts", Icon = "account_tree", Order = 4 }
+        };
+
+        foreach (var sub in financeSubmenus)
+        {
+            var existingSub = context.MenuItems.FirstOrDefault(m => m.RouteUrl == sub.Route);
+            if (existingSub == null)
+            {
+                var newSub = new IMSERP.Domain.Entities.MenuItem
+                {
+                    Id = Guid.NewGuid(),
+                    Title = sub.Title,
+                    RouteUrl = sub.Route,
+                    Icon = sub.Icon,
+                    ParentId = financeParent.Id,
+                    SortOrder = sub.Order,
+                    Module = "Finance",
+                    IsActive = true
+                };
+                context.MenuItems.Add(newSub);
+                context.SaveChanges();
+
+                var roles = context.Roles.ToList();
+                foreach (var role in roles)
+                {
+                    context.RolePermissions.Add(new IMSERP.Domain.Entities.RolePermission
+                    {
+                        Id = Guid.NewGuid(),
+                        RoleId = role.Id,
+                        MenuItemId = newSub.Id,
+                        CanView = true,
+                        CanCreate = true,
+                        CanEdit = true,
+                        CanDelete = true
+                    });
+                }
+                context.SaveChanges();
+                Console.WriteLine($"[Database] Auto-seeded '{sub.Title}' under Finance & Accounts.");
             }
         }
 
