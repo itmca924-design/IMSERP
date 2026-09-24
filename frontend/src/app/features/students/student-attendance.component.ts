@@ -207,8 +207,8 @@ interface CalendarDay {
 
         <!-- Search in roll call -->
         <mat-form-field appearance="outline" class="search-input">
-          <mat-label>{{ rollCallScope === 'school' ? 'Search student, roll or adm no' : 'Search student or roll no' }}</mat-label>
-          <input matInput [(ngModel)]="batchSearchQuery" placeholder="Filter list...">
+          <mat-label>{{ rollCallScope === 'school' ? 'Search student, roll, adm' : 'Search student, roll' }}</mat-label>
+          <input matInput [(ngModel)]="batchSearchQuery" placeholder="Filter by name / roll...">
           <mat-icon matPrefix>search</mat-icon>
         </mat-form-field>
       </div>
@@ -270,13 +270,13 @@ interface CalendarDay {
         <table class="roll-call-table">
           <thead>
             <tr>
-              <th style="width: 50px;">#</th>
-              <th>Student Details</th>
-              <th *ngIf="rollCallScope === 'school'">Class & Section</th>
-              <th>{{ rollCallScope === 'school' ? 'School Roll / Adm' : 'Roll Number' }}</th>
-              <th>Parent WhatsApp</th>
-              <th style="width: 280px; text-align: center;">Attendance Status</th>
-              <th>Remarks / Note</th>
+              <th style="width: 44px; text-align: center;">#</th>
+              <th style="min-width: 170px;">Student Details</th>
+              <th *ngIf="rollCallScope === 'school'" style="width: 130px;">Class & Section</th>
+              <th style="width: 110px;">{{ rollCallScope === 'school' ? 'School Roll / Adm' : 'Roll Number' }}</th>
+              <th style="width: 135px;">Parent WhatsApp</th>
+              <th style="width: 250px; text-align: center;">Attendance Status</th>
+              <th class="remarks-col" style="width: 180px; text-align: left;">Remarks / Note</th>
             </tr>
           </thead>
           <tbody>
@@ -333,7 +333,7 @@ interface CalendarDay {
                 </div>
               </td>
               <td class="remarks-cell">
-                <input type="text" [(ngModel)]="s.remarks" [disabled]="isBatchPastLocked" placeholder="Add note (optional)" class="remarks-input" />
+                <input type="text" [(ngModel)]="s.remarks" [disabled]="isBatchPastLocked" placeholder="Add note..." class="remarks-input" />
               </td>
             </tr>
           </tbody>
@@ -546,14 +546,37 @@ interface CalendarDay {
     /* Batch View & Controls Card */
     .batch-view { display: flex; flex-direction: column; gap: 14px; }
     .batch-controls-card { padding: 16px 20px; border-radius: 12px; background: #ffffff; margin-bottom: 4px; }
-    .controls-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
-    .batch-select { flex: 1 1 260px; min-width: 220px; margin: 0; }
-    .class-select { flex: 1 1 220px; min-width: 190px; margin: 0; }
-    .section-select { flex: 1 1 180px; min-width: 150px; margin: 0; }
-    .date-controls { display: flex; align-items: center; gap: 6px; }
-    .date-input { width: 170px; margin: 0; }
+    .controls-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .batch-select { flex: 1 1 200px; min-width: 170px; margin: 0; }
+    .class-select { flex: 1 1 180px; min-width: 150px; margin: 0; }
+    .section-select { flex: 1 1 140px; min-width: 120px; margin: 0; }
+    .date-controls { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .date-input { width: 145px; margin: 0; }
     .today-btn { height: 48px; border-radius: 8px; font-weight: 600; color: #2563eb; }
-    .search-input { flex: 1 1 200px; min-width: 180px; margin: 0; }
+    .search-input {
+      flex: 2 1 220px;
+      min-width: 190px;
+      margin: 0;
+
+      ::ng-deep .mat-mdc-text-field-wrapper {
+        overflow: hidden;
+      }
+      ::ng-deep .mat-mdc-floating-label,
+      .mat-mdc-floating-label {
+        max-width: calc(100% - 44px) !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        white-space: nowrap !important;
+      }
+      ::ng-deep .mat-mdc-form-field-infix,
+      .mat-mdc-form-field-infix {
+        min-width: 0 !important;
+      }
+      input {
+        font-size: 0.88rem;
+        text-overflow: ellipsis;
+      }
+    }
 
     /* Stats & Bulk Fast-Actions */
     .stats-and-actions {
@@ -600,15 +623,23 @@ interface CalendarDay {
 
     /* Roll Call Table */
     .roll-call-card { padding: 0; border-radius: 12px; overflow: hidden; background: #ffffff; }
-    .table-responsive { overflow-x: auto; }
+    .table-responsive { overflow-x: auto; width: 100%; box-sizing: border-box; }
     .roll-call-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
     .roll-call-table th {
       background: #f8fafc; color: #475569; font-weight: 700; text-align: left;
-      padding: 14px 16px; border-bottom: 2px solid #e2e8f0; font-size: 0.82rem;
-      text-transform: uppercase; letter-spacing: 0.5px;
+      padding: 14px 14px; border-bottom: 2px solid #e2e8f0; font-size: 0.82rem;
+      text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;
     }
     .roll-call-table td {
-      padding: 12px 16px; border-bottom: 1px solid #f1f5f9; vertical-align: middle;
+      padding: 12px 14px; border-bottom: 1px solid #f1f5f9; vertical-align: middle;
+    }
+    .roll-call-table th:first-child,
+    .roll-call-table td:first-child {
+      padding-left: 20px !important;
+    }
+    .roll-call-table th:last-child,
+    .roll-call-table td:last-child {
+      padding-right: 32px !important;
     }
     .roll-call-table tr:hover { background: #f8fafc; }
     .roll-call-table tr.row-absent { background: #fff5f5; }
@@ -672,11 +703,32 @@ interface CalendarDay {
     .status-pill.h-btn:hover { background: #f3e8ff; color: #7e22ce; }
     .status-pill.h-btn.selected { background: #9333ea; color: #ffffff; }
 
-    .remarks-input {
-      width: 100%; max-width: 200px; padding: 6px 10px; border: 1px solid #cbd5e1;
-      border-radius: 6px; font-size: 0.82rem; outline: none; transition: border-color 0.2s;
+    .remarks-col {
+      width: 180px;
+      min-width: 170px;
     }
-    .remarks-input:focus { border-color: #2563eb; }
+    .remarks-cell {
+      padding-right: 32px !important;
+      width: 180px;
+      min-width: 170px;
+    }
+    .remarks-input {
+      width: 150px;
+      max-width: 100%;
+      box-sizing: border-box;
+      padding: 7px 11px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      font-size: 0.82rem;
+      outline: none;
+      transition: all 0.2s ease;
+      background: #ffffff;
+      display: block;
+    }
+    .remarks-input:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
 
     /* Save Bar */
     .save-bar {
