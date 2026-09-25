@@ -78,7 +78,9 @@ export class AuthService {
     const normalized = moduleKey.toLowerCase().replace(/^has/, '').replace(/module$/, '');
     if (user.licensedModules) {
       const parts = user.licensedModules.toLowerCase().split(',').map(s => s.trim());
-      return parts.includes(normalized);
+      if (parts.includes(normalized)) {
+        return true;
+      }
     }
 
     switch (normalized) {
@@ -337,6 +339,7 @@ export class AuthService {
     hasHostelModule?: boolean;
     hasLibraryModule?: boolean;
     hasTransportModule?: boolean;
+    licensedModules?: string | null;
   }): void {
     const current = this.currentUser();
     if (!current) return;
@@ -346,7 +349,8 @@ export class AuthService {
       hasCoachingModule: modules.hasCoachingModule !== undefined ? modules.hasCoachingModule : current.hasCoachingModule,
       hasHostelModule: modules.hasHostelModule !== undefined ? modules.hasHostelModule : current.hasHostelModule,
       hasLibraryModule: modules.hasLibraryModule !== undefined ? modules.hasLibraryModule : current.hasLibraryModule,
-      hasTransportModule: modules.hasTransportModule !== undefined ? modules.hasTransportModule : current.hasTransportModule
+      hasTransportModule: modules.hasTransportModule !== undefined ? modules.hasTransportModule : current.hasTransportModule,
+      licensedModules: modules.licensedModules !== undefined ? modules.licensedModules : current.licensedModules
     };
     for (const storage of [sessionStorage, localStorage]) {
       storage.setItem('user_info', JSON.stringify(updated));

@@ -1237,7 +1237,8 @@ export class LayoutComponent implements OnInit {
             hasCoachingModule: t.hasCoachingModule,
             hasHostelModule: t.hasHostelModule,
             hasLibraryModule: t.hasLibraryModule,
-            hasTransportModule: t.hasTransportModule
+            hasTransportModule: t.hasTransportModule,
+            licensedModules: t.licensedModules
           });
           this.loadMenu();
         }
@@ -1250,7 +1251,12 @@ export class LayoutComponent implements OnInit {
     this.headerSearch = (event.target as HTMLInputElement).value;
     const query = this.headerSearch.trim().toLowerCase();
     this.headerSearchResults = query
-      ? this.searchablePages.filter(page => page.title.toLowerCase().includes(query)).slice(0, 6)
+      ? this.searchablePages.filter(page => {
+          if (!this.authService.isSuperAdmin() && page.route === '/subscription') {
+            return false;
+          }
+          return page.title.toLowerCase().includes(query);
+        }).slice(0, 6)
       : [];
   }
 
@@ -1402,6 +1408,7 @@ export class LayoutComponent implements OnInit {
   }
 
   filterMenuByModules(menu: MenuItem[]): MenuItem[] {
+    const isSuperAdmin = this.authService.isSuperAdmin();
     const hasSchool = this.authService.hasSchoolModule();
     const hasCoaching = this.authService.hasCoachingModule();
     const hasHostel = this.authService.hasHostelModule();
@@ -1411,6 +1418,12 @@ export class LayoutComponent implements OnInit {
     const isRouteAllowed = (url?: string): boolean => {
       if (!url) return true;
       const lower = url.toLowerCase();
+
+      // Only SuperAdmin can see Subscription & Plan in sidebar menu
+      if (!isSuperAdmin && lower === '/subscription') {
+        return false;
+      }
+
       if (!hasSchool && (lower.includes('/school/') || lower.includes('/students/promotion'))) {
         return false;
       }
