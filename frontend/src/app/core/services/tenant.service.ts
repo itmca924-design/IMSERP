@@ -27,6 +27,14 @@ export interface TenantDto {
   hasHostelModule?: boolean;
   hasLibraryModule?: boolean;
   hasTransportModule?: boolean;
+  licensedModules?: string | null;
+  subscriptionPlan?: string;
+  subscriptionStatus?: string;
+  trialStartDate?: string | null;
+  trialEndDate?: string | null;
+  paidUntil?: string | null;
+  maxStudentsLimit?: number;
+  maxBranchesLimit?: number;
 }
 
 export interface CreateBranchItemDto {
@@ -54,6 +62,10 @@ export interface CreateTenantDto {
   hasHostelModule?: boolean;
   hasLibraryModule?: boolean;
   hasTransportModule?: boolean;
+  licensedModules?: string | null;
+  subscriptionPlan?: string;
+  maxStudentsLimit?: number;
+  maxBranchesLimit?: number;
 }
 
 export interface UpdateTenantDto {
@@ -68,6 +80,35 @@ export interface UpdateTenantDto {
   hasHostelModule?: boolean;
   hasLibraryModule?: boolean;
   hasTransportModule?: boolean;
+  licensedModules?: string | null;
+  subscriptionPlan?: string;
+  subscriptionStatus?: string;
+  trialEndDate?: string | null;
+  paidUntil?: string | null;
+  maxStudentsLimit?: number;
+  maxBranchesLimit?: number;
+}
+
+export interface MySubscriptionDto {
+  tenantId: string;
+  instituteName: string;
+  tenantCode: string;
+  subscriptionPlan: string;
+  subscriptionStatus: string;
+  trialStartDate?: string | null;
+  trialEndDate?: string | null;
+  paidUntil?: string | null;
+  trialDaysLeft?: number | null;
+  studentCount: number;
+  maxStudentsLimit: number;
+  branchCount: number;
+  maxBranchesLimit: number;
+  hasSchoolModule: boolean;
+  hasCoachingModule: boolean;
+  hasHostelModule: boolean;
+  hasLibraryModule: boolean;
+  hasTransportModule: boolean;
+  licensedModules?: string | null;
 }
 
 @Injectable({
@@ -88,6 +129,10 @@ export class TenantService {
 
   getTenantById(id: string): Observable<TenantDto> {
     return this.http.get<TenantDto>(`${this.API_URL}/${id}`);
+  }
+
+  getMySubscription(): Observable<MySubscriptionDto> {
+    return this.http.get<MySubscriptionDto>(`${this.API_URL}/my-subscription`);
   }
 
   createTenant(dto: CreateTenantDto): Observable<TenantDto> {

@@ -192,6 +192,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/tenants/tenants.component').then(m => m.TenantsComponent)
       },
       { path: 'tenants', redirectTo: 'admin/tenants', pathMatch: 'full' },
+      {
+        path: 'subscription',
+        loadComponent: () => import('./features/subscription/subscription.component').then(m => m.SubscriptionComponent)
+      },
     ]
   },
   { path: '**', redirectTo: 'dashboard' }

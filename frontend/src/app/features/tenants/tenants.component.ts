@@ -39,8 +39,8 @@ import { AuthService } from '../../core/services/auth.service';
       <!-- Header Section -->
       <div class="page-header">
         <div class="header-titles">
-          <h2 class="page-title">Coaching Institutes &amp; Tenants</h2>
-          <p class="page-subtitle">Multi-Tenant SaaS provisioning, institute profiles, logos, and branch settings.</p>
+          <h2 class="page-title">{{ isSuperAdmin ? 'Coaching Institutes &amp; Tenants Management' : 'My Institute Profile &amp; Settings' }}</h2>
+          <p class="page-subtitle">{{ isSuperAdmin ? 'Platform SaaS provisioning, multi-tenant instances, subscription tiers, student quotas, and module licensing.' : 'Manage your institute profile, contact branding, campus branches, and view subscription entitlements.' }}</p>
         </div>
         <button mat-raised-button color="primary" class="add-btn" (click)="openCreateModal()" *ngIf="isSuperAdmin">
           <mat-icon>add_business</mat-icon>
@@ -48,8 +48,8 @@ import { AuthService } from '../../core/services/auth.service';
         </button>
       </div>
 
-      <!-- KPI Summary Cards -->
-      <div class="kpi-container">
+      <!-- KPI Summary Cards - Super Admin View -->
+      <div class="kpi-container" *ngIf="isSuperAdmin">
         <mat-card class="kpi-card blue">
           <div class="kpi-inner">
             <div>
@@ -99,8 +99,59 @@ import { AuthService } from '../../core/services/auth.service';
         </mat-card>
       </div>
 
+      <!-- KPI Summary Cards - Institute Admin View -->
+      <div class="kpi-container" *ngIf="!isSuperAdmin">
+        <mat-card class="kpi-card blue">
+          <div class="kpi-inner">
+            <div>
+              <span class="kpi-label">Current Plan</span>
+              <span class="kpi-val" style="font-size:1.35rem;">{{ currentTenantPlan }}</span>
+            </div>
+            <div class="kpi-icon-box">
+              <mat-icon>workspace_premium</mat-icon>
+            </div>
+          </div>
+        </mat-card>
+
+        <mat-card class="kpi-card emerald">
+          <div class="kpi-inner">
+            <div>
+              <span class="kpi-label">Student Quota Used</span>
+              <span class="kpi-val">{{ totalStudents }} / {{ currentMaxStudents }}</span>
+            </div>
+            <div class="kpi-icon-box">
+              <mat-icon>school</mat-icon>
+            </div>
+          </div>
+        </mat-card>
+
+        <mat-card class="kpi-card violet">
+          <div class="kpi-inner">
+            <div>
+              <span class="kpi-label">Active Batches</span>
+              <span class="kpi-val">{{ totalBatches }}</span>
+            </div>
+            <div class="kpi-icon-box">
+              <mat-icon>groups</mat-icon>
+            </div>
+          </div>
+        </mat-card>
+
+        <mat-card class="kpi-card amber">
+          <div class="kpi-inner">
+            <div>
+              <span class="kpi-label">Subscription Status</span>
+              <span class="kpi-val" style="font-size:1.25rem;">{{ currentTenantStatus }}</span>
+            </div>
+            <div class="kpi-icon-box">
+              <mat-icon>verified</mat-icon>
+            </div>
+          </div>
+        </mat-card>
+      </div>
+
       <!-- Search & Controls Bar -->
-      <div class="controls-bar">
+      <div class="controls-bar" *ngIf="isSuperAdmin || filteredTenants.length > 1">
         <div class="search-box">
           <mat-icon class="search-icon">search</mat-icon>
           <input type="text" placeholder="Search institute name or code..." [(ngModel)]="searchQuery" (input)="filterTenants()">
@@ -169,7 +220,28 @@ import { AuthService } from '../../core/services/auth.service';
             </div>
           </div>
 
-          <div class="tenant-modules-strip" style="display:flex; flex-wrap:wrap; gap:4px; margin: 10px 0 14px; padding: 6px 10px; background: #f8fafc; border-radius: 6px; border: 1px dashed #cbd5e1;">
+          <!-- Subscription Plan & Quota Details Strip -->
+          <div class="subscription-strip" style="display:flex; justify-content:space-between; align-items:center; background:#f8fafc; border:1px solid #e2e8f0; padding:8px 12px; border-radius:8px; margin: 4px 0 6px;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <mat-icon style="font-size:18px; width:18px; height:18px; color:#2563eb;">verified_user</mat-icon>
+              <strong style="color:#1e3a8a; font-size:12px;">{{ t.subscriptionPlan || 'FreeTrial' }}</strong>
+              <span [style.background]="t.subscriptionStatus === 'Active' ? '#dcfce7' : '#e0f2fe'"
+                    [style.color]="t.subscriptionStatus === 'Active' ? '#15803d' : '#0369a1'"
+                    style="font-size:10px; font-weight:700; padding:2px 6px; border-radius:12px;">
+                {{ t.subscriptionStatus || 'TrialActive' }}
+              </span>
+            </div>
+            <span *ngIf="t.trialEndDate" style="font-size:11px; color:#64748b; font-weight:600;">
+              {{ getTrialDaysText(t) }}
+            </span>
+          </div>
+
+          <div style="display:flex; justify-content:space-between; font-size:11px; color:#475569; padding:0 4px; margin-bottom:4px;">
+            <span>👥 Max Students: <strong>{{ t.maxStudentsLimit || 50 }}</strong></span>
+            <span>🏢 Max Branches: <strong>{{ t.maxBranchesLimit || 2 }}</strong></span>
+          </div>
+
+          <div class="tenant-modules-strip" style="display:flex; flex-wrap:wrap; gap:4px; margin: 6px 0 12px; padding: 6px 10px; background: #f8fafc; border-radius: 6px; border: 1px dashed #cbd5e1;">
             <span *ngIf="isTenantModuleActive(t, 'school')" style="font-size:11px; font-weight:600; background:#dbeafe; color:#1e40af; padding:2px 6px; border-radius:4px;">🏫 School</span>
             <span *ngIf="isTenantModuleActive(t, 'coaching')" style="font-size:11px; font-weight:600; background:#fef3c7; color:#92400e; padding:2px 6px; border-radius:4px;">🎯 Coaching</span>
             <span *ngIf="isTenantModuleActive(t, 'hostel')" style="font-size:11px; font-weight:600; background:#ede9fe; color:#5b21b6; padding:2px 6px; border-radius:4px;">🏨 Hostel</span>
@@ -180,9 +252,9 @@ import { AuthService } from '../../core/services/auth.service';
           <div class="card-actions">
             <button mat-stroked-button color="primary" class="edit-btn" (click)="openEditModal(t)">
               <mat-icon>edit</mat-icon>
-              <span>Edit Profile</span>
+              <span>{{ isSuperAdmin ? 'Configure Institute' : 'Edit Profile' }}</span>
             </button>
-            <button mat-button [color]="t.isActive ? 'warn' : 'accent'" (click)="toggleStatus(t)">
+            <button *ngIf="isSuperAdmin" mat-button [color]="t.isActive ? 'warn' : 'accent'" (click)="toggleStatus(t)">
               <mat-icon>{{ t.isActive ? 'pause_circle' : 'play_circle' }}</mat-icon>
               <span>{{ t.isActive ? 'Deactivate' : 'Activate' }}</span>
             </button>
@@ -193,7 +265,7 @@ import { AuthService } from '../../core/services/auth.service';
           <mat-icon class="empty-icon">domain_disabled</mat-icon>
           <h3>No Coaching Institutes Found</h3>
           <p>No institutes match your search or no tenants have been provisioned yet.</p>
-          <button mat-raised-button color="primary" (click)="openCreateModal()">Provision First Institute</button>
+          <button mat-raised-button color="primary" (click)="openCreateModal()" *ngIf="isSuperAdmin">Provision First Institute</button>
         </div>
       </div>
 
@@ -202,10 +274,15 @@ import { AuthService } from '../../core/services/auth.service';
         <div class="modal-dialog" (click)="$event.stopPropagation()">
           <div class="modal-header">
             <div class="modal-title-group">
-              <mat-icon color="primary">{{ isEditing ? 'edit_note' : 'add_business' }}</mat-icon>
-              <h3>{{ isEditing ? 'Edit Institute Profile &amp; Photo' : 'Provision New Coaching Institute' }}</h3>
+              <div class="header-icon-box">
+                <mat-icon>{{ isEditing ? 'edit_note' : 'add_business' }}</mat-icon>
+              </div>
+              <div>
+                <h3>{{ isEditing ? (isSuperAdmin ? 'Configure Institute &amp; Subscription' : 'Edit Institute Profile') : 'Provision New Coaching Institute' }}</h3>
+                <p>{{ isEditing ? 'Configure institute branding, contact details, modules &amp; subscription plan' : 'Deploy a new multi-tenant instance for a school or coaching institute' }}</p>
+              </div>
             </div>
-            <button mat-icon-button (click)="closeModal()">
+            <button mat-icon-button (click)="closeModal()" class="close-btn">
               <mat-icon>close</mat-icon>
             </button>
           </div>
@@ -279,33 +356,84 @@ import { AuthService } from '../../core/services/auth.service';
 
             <!-- ERP Module Packaging / Subscription Selection -->
             <div class="modules-setup-block" style="margin: 16px 0; padding: 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;">
-              <h4 class="block-title" style="display:flex; align-items:center; gap:6px; margin:0 0 8px; font-size:14px; font-weight:700; color:#1e3a8a;">
-                <mat-icon style="color:#2563eb; font-size:20px; width:20px; height:20px;">hub</mat-icon>
-                <span>Subscribed Modules &amp; Licensing</span>
-              </h4>
-              <p style="margin:0 0 12px; font-size:12px; color:#64748b;">Configure which modules are licensed for this institute. Unchecked modules will be completely hidden from their sidebar and student forms.</p>
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
+                <h4 class="block-title" style="display:flex; align-items:center; gap:6px; margin:0; font-size:14px; font-weight:700; color:#1e3a8a;">
+                  <mat-icon style="color:#2563eb; font-size:20px; width:20px; height:20px;">hub</mat-icon>
+                  <span>Subscribed Modules &amp; Licensing</span>
+                </h4>
+                <span *ngIf="!isSuperAdmin" style="font-size:11px; font-weight:700; background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe; padding:2px 8px; border-radius:12px; display:inline-flex; align-items:center; gap:4px;">
+                  <mat-icon style="font-size:13px; width:13px; height:13px;">lock</mat-icon> Managed by Super Admin
+                </span>
+              </div>
+              <p style="margin:0 0 12px; font-size:12px; color:#64748b;">
+                {{ isSuperAdmin ? 'Configure which modules are licensed for this institute. Unchecked modules will be completely hidden from their sidebar and student forms.' : 'The functional modules enabled for your institute. Contact SaaS support to subscribe to additional modules.' }}
+              </p>
               
               <div style="display:flex; flex-wrap:wrap; gap:16px;">
-                <label style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:600; cursor:pointer;">
-                  <input type="checkbox" formControlName="hasSchoolModule" style="width:16px; height:16px; cursor:pointer;">
+                <label style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:600;" [style.cursor]="isSuperAdmin ? 'pointer' : 'not-allowed'">
+                  <input type="checkbox" formControlName="hasSchoolModule" [style.cursor]="isSuperAdmin ? 'pointer' : 'not-allowed'" style="width:16px; height:16px;">
                   <span>🏫 School Module</span>
                 </label>
-                <label style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:600; cursor:pointer;">
-                  <input type="checkbox" formControlName="hasCoachingModule" style="width:16px; height:16px; cursor:pointer;">
+                <label style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:600;" [style.cursor]="isSuperAdmin ? 'pointer' : 'not-allowed'">
+                  <input type="checkbox" formControlName="hasCoachingModule" [style.cursor]="isSuperAdmin ? 'pointer' : 'not-allowed'" style="width:16px; height:16px;">
                   <span>🎯 Coaching Module</span>
                 </label>
-                <label style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:600; cursor:pointer;">
-                  <input type="checkbox" formControlName="hasHostelModule" style="width:16px; height:16px; cursor:pointer;">
+                <label style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:600;" [style.cursor]="isSuperAdmin ? 'pointer' : 'not-allowed'">
+                  <input type="checkbox" formControlName="hasHostelModule" [style.cursor]="isSuperAdmin ? 'pointer' : 'not-allowed'" style="width:16px; height:16px;">
                   <span>🏨 Hostel &amp; Residential</span>
                 </label>
-                <label style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:600; cursor:pointer;">
-                  <input type="checkbox" formControlName="hasLibraryModule" style="width:16px; height:16px; cursor:pointer;">
+                <label style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:600;" [style.cursor]="isSuperAdmin ? 'pointer' : 'not-allowed'">
+                  <input type="checkbox" formControlName="hasLibraryModule" [style.cursor]="isSuperAdmin ? 'pointer' : 'not-allowed'" style="width:16px; height:16px;">
                   <span>📚 Library Management</span>
                 </label>
-                <label style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:600; cursor:pointer;">
-                  <input type="checkbox" formControlName="hasTransportModule" style="width:16px; height:16px; cursor:pointer;">
+                <label style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:600;" [style.cursor]="isSuperAdmin ? 'pointer' : 'not-allowed'">
+                  <input type="checkbox" formControlName="hasTransportModule" [style.cursor]="isSuperAdmin ? 'pointer' : 'not-allowed'" style="width:16px; height:16px;">
                   <span>🚌 Transport &amp; Fleet</span>
                 </label>
+              </div>
+            </div>
+
+            <!-- Subscription Plan & Quota Tier -->
+            <div class="subscription-setup-block" style="margin: 16px 0; padding: 14px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px;">
+              <h4 class="block-title" style="display:flex; align-items:center; gap:6px; margin:0 0 8px; font-size:14px; font-weight:700; color:#1e3a8a;">
+                <mat-icon style="color:#2563eb; font-size:20px; width:20px; height:20px;">workspace_premium</mat-icon>
+                <span>Subscription Plan &amp; Quotas</span>
+              </h4>
+              <p *ngIf="!isSuperAdmin" style="margin:0 0 10px; font-size:12px; color:#1e40af;">
+                Subscription tier and limits are controlled by your SaaS administrator.
+              </p>
+
+              <div class="form-grid" *ngIf="isSuperAdmin">
+                <mat-form-field appearance="outline" class="span-1">
+                  <mat-label>Subscription Plan</mat-label>
+                  <input matInput formControlName="subscriptionPlan" placeholder="FreeTrial, Starter, Growth, Enterprise">
+                  <mat-icon matSuffix>card_membership</mat-icon>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="span-1">
+                  <mat-label>Subscription Status</mat-label>
+                  <input matInput formControlName="subscriptionStatus" placeholder="TrialActive, Active, Expired">
+                  <mat-icon matSuffix>verified</mat-icon>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="span-1">
+                  <mat-label>Max Students Quota</mat-label>
+                  <input matInput type="number" formControlName="maxStudentsLimit" placeholder="e.g. 50">
+                  <mat-icon matSuffix>school</mat-icon>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="span-1">
+                  <mat-label>Max Branches Limit</mat-label>
+                  <input matInput type="number" formControlName="maxBranchesLimit" placeholder="e.g. 2">
+                  <mat-icon matSuffix>apartment</mat-icon>
+                </mat-form-field>
+              </div>
+
+              <div *ngIf="!isSuperAdmin" style="display:flex; gap:16px; flex-wrap:wrap; font-size:12px; color:#1e3a8a; background:#ffffff; padding:10px 14px; border-radius:6px; border:1px solid #dbeafe;">
+                <div>Plan: <strong>{{ tenantForm.get('subscriptionPlan')?.value || 'FreeTrial' }}</strong></div>
+                <div>Status: <strong>{{ tenantForm.get('subscriptionStatus')?.value || 'TrialActive' }}</strong></div>
+                <div>Max Students: <strong>{{ tenantForm.get('maxStudentsLimit')?.value || 50 }}</strong></div>
+                <div>Max Branches: <strong>{{ tenantForm.get('maxBranchesLimit')?.value || 2 }}</strong></div>
               </div>
             </div>
 
@@ -727,15 +855,37 @@ import { AuthService } from '../../core/services/auth.service';
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 18px 24px;
-      border-bottom: 1px solid #f1f5f9;
+      padding: 16px 24px;
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+      border-bottom: 1px solid #bfdbfe;
 
       .modal-title-group {
         display: flex;
         align-items: center;
-        gap: 10px;
-        h3 { font-size: 1.15rem; font-weight: 700; color: #0f172a; margin: 0; }
-        mat-icon { font-size: 24px; width: 24px; height: 24px; }
+        gap: 12px;
+
+        .header-icon-box {
+          background: #2563eb;
+          color: #ffffff;
+          border-radius: 10px;
+          box-shadow: 0 4px 6px -1px rgba(37,99,235,0.25);
+          width: 38px;
+          height: 38px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+
+          mat-icon { font-size: 22px; width: 22px; height: 22px; color: #ffffff; }
+        }
+
+        h3 { font-size: 1.12rem; font-weight: 700; color: #1e3a8a; margin: 0; }
+        p { font-size: 0.78rem; color: #3b82f6; margin: 2px 0 0; }
+      }
+
+      .close-btn {
+        color: #64748b;
+        &:hover { color: #1e293b; background: rgba(0,0,0,0.04); }
       }
     }
 
@@ -988,6 +1138,10 @@ export class TenantsComponent implements OnInit {
       hasHostelModule: [false],
       hasLibraryModule: [false],
       hasTransportModule: [false],
+      subscriptionPlan: ['FreeTrial'],
+      subscriptionStatus: ['TrialActive'],
+      maxStudentsLimit: [50],
+      maxBranchesLimit: [2],
       branches: this.fb.array([])
     });
   }
@@ -1023,8 +1177,30 @@ export class TenantsComponent implements OnInit {
   }
 
   get isSuperAdmin(): boolean {
-    const role = this.authService.currentUser()?.role;
-    return role === 'SuperAdmin' || role === 'InstituteAdmin';
+    return this.authService.isSuperAdmin();
+  }
+
+  get currentTenantPlan(): string {
+    const t = this.tenants[0];
+    return t?.subscriptionPlan || this.authService.subscriptionPlan();
+  }
+
+  get currentTenantStatus(): string {
+    const t = this.tenants[0];
+    return t?.subscriptionStatus || this.authService.subscriptionStatus();
+  }
+
+  get currentMaxStudents(): number {
+    const t = this.tenants[0];
+    return t?.maxStudentsLimit || 50;
+  }
+
+  getTrialDaysText(t: TenantDto): string {
+    if (!t.trialEndDate) return '';
+    const diff = Math.ceil((new Date(t.trialEndDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+    if (diff > 0) return `${diff} days trial`;
+    if (diff === 0) return 'Trial expires today';
+    return 'Trial expired';
   }
 
   get activeCount(): number {
@@ -1092,11 +1268,24 @@ export class TenantsComponent implements OnInit {
       hasCoachingModule: true,
       hasHostelModule: false,
       hasLibraryModule: false,
-      hasTransportModule: false
+      hasTransportModule: false,
+      subscriptionPlan: 'FreeTrial',
+      subscriptionStatus: 'TrialActive',
+      maxStudentsLimit: 50,
+      maxBranchesLimit: 2
     });
     this.branchesFormArray.clear();
     this.addBranchRow(true);
     this.tenantForm.get('code')?.enable();
+    this.tenantForm.get('hasSchoolModule')?.enable();
+    this.tenantForm.get('hasCoachingModule')?.enable();
+    this.tenantForm.get('hasHostelModule')?.enable();
+    this.tenantForm.get('hasLibraryModule')?.enable();
+    this.tenantForm.get('hasTransportModule')?.enable();
+    this.tenantForm.get('subscriptionPlan')?.enable();
+    this.tenantForm.get('subscriptionStatus')?.enable();
+    this.tenantForm.get('maxStudentsLimit')?.enable();
+    this.tenantForm.get('maxBranchesLimit')?.enable();
     this.showModal = true;
   }
 
@@ -1136,9 +1325,36 @@ export class TenantsComponent implements OnInit {
       hasCoachingModule: this.isTenantModuleActive(tenant, 'coaching'),
       hasHostelModule: this.isTenantModuleActive(tenant, 'hostel'),
       hasLibraryModule: this.isTenantModuleActive(tenant, 'library'),
-      hasTransportModule: this.isTenantModuleActive(tenant, 'transport')
+      hasTransportModule: this.isTenantModuleActive(tenant, 'transport'),
+      subscriptionPlan: tenant.subscriptionPlan || 'FreeTrial',
+      subscriptionStatus: tenant.subscriptionStatus || 'TrialActive',
+      maxStudentsLimit: tenant.maxStudentsLimit || 50,
+      maxBranchesLimit: tenant.maxBranchesLimit || 2
     });
     this.tenantForm.get('code')?.disable();
+
+    if (!this.isSuperAdmin) {
+      this.tenantForm.get('hasSchoolModule')?.disable();
+      this.tenantForm.get('hasCoachingModule')?.disable();
+      this.tenantForm.get('hasHostelModule')?.disable();
+      this.tenantForm.get('hasLibraryModule')?.disable();
+      this.tenantForm.get('hasTransportModule')?.disable();
+      this.tenantForm.get('subscriptionPlan')?.disable();
+      this.tenantForm.get('subscriptionStatus')?.disable();
+      this.tenantForm.get('maxStudentsLimit')?.disable();
+      this.tenantForm.get('maxBranchesLimit')?.disable();
+    } else {
+      this.tenantForm.get('hasSchoolModule')?.enable();
+      this.tenantForm.get('hasCoachingModule')?.enable();
+      this.tenantForm.get('hasHostelModule')?.enable();
+      this.tenantForm.get('hasLibraryModule')?.enable();
+      this.tenantForm.get('hasTransportModule')?.enable();
+      this.tenantForm.get('subscriptionPlan')?.enable();
+      this.tenantForm.get('subscriptionStatus')?.enable();
+      this.tenantForm.get('maxStudentsLimit')?.enable();
+      this.tenantForm.get('maxBranchesLimit')?.enable();
+    }
+
     this.showModal = true;
   }
 
@@ -1250,7 +1466,11 @@ export class TenantsComponent implements OnInit {
         hasCoachingModule: val.hasCoachingModule,
         hasHostelModule: val.hasHostelModule,
         hasLibraryModule: val.hasLibraryModule,
-        hasTransportModule: val.hasTransportModule
+        hasTransportModule: val.hasTransportModule,
+        subscriptionPlan: val.subscriptionPlan,
+        subscriptionStatus: val.subscriptionStatus,
+        maxStudentsLimit: val.maxStudentsLimit ? Number(val.maxStudentsLimit) : undefined,
+        maxBranchesLimit: val.maxBranchesLimit ? Number(val.maxBranchesLimit) : undefined
       };
 
       // Realtime instantaneous reflection on the sidebar header right when clicking Save Changes!
@@ -1262,6 +1482,12 @@ export class TenantsComponent implements OnInit {
           hasHostelModule: val.hasHostelModule,
           hasLibraryModule: val.hasLibraryModule,
           hasTransportModule: val.hasTransportModule
+        });
+        this.authService.updateSubscription({
+          subscriptionPlan: val.subscriptionPlan,
+          subscriptionStatus: val.subscriptionStatus,
+          maxStudentsLimit: val.maxStudentsLimit ? Number(val.maxStudentsLimit) : undefined,
+          maxBranchesLimit: val.maxBranchesLimit ? Number(val.maxBranchesLimit) : undefined
         });
       }
 
@@ -1303,7 +1529,10 @@ export class TenantsComponent implements OnInit {
         hasCoachingModule: val.hasCoachingModule,
         hasHostelModule: val.hasHostelModule,
         hasLibraryModule: val.hasLibraryModule,
-        hasTransportModule: val.hasTransportModule
+        hasTransportModule: val.hasTransportModule,
+        subscriptionPlan: val.subscriptionPlan || 'FreeTrial',
+        maxStudentsLimit: val.maxStudentsLimit ? Number(val.maxStudentsLimit) : 50,
+        maxBranchesLimit: val.maxBranchesLimit ? Number(val.maxBranchesLimit) : 2
       };
 
       this.tenantService.createTenant(createDto).subscribe({

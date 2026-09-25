@@ -22,7 +22,13 @@ public record LoginResponseDto(
     bool HasCoachingModule = true,
     bool HasHostelModule = true,
     bool HasLibraryModule = true,
-    bool HasTransportModule = true
+    bool HasTransportModule = true,
+    string? LicensedModules = null,
+    string SubscriptionPlan = "FreeTrial",
+    string SubscriptionStatus = "TrialActive",
+    int? TrialDaysLeft = null,
+    int MaxStudentsLimit = 50,
+    int MaxBranchesLimit = 2
 );
 
 public record BranchDto(
@@ -111,7 +117,15 @@ public record TenantDto(
     bool HasCoachingModule = true,
     bool HasHostelModule = true,
     bool HasLibraryModule = true,
-    bool HasTransportModule = true
+    bool HasTransportModule = true,
+    string? LicensedModules = null,
+    string SubscriptionPlan = "FreeTrial",
+    string SubscriptionStatus = "TrialActive",
+    DateTime? TrialStartDate = null,
+    DateTime? TrialEndDate = null,
+    DateTime? PaidUntil = null,
+    int MaxStudentsLimit = 50,
+    int MaxBranchesLimit = 2
 );
 
 public record CreateTenantDto(
@@ -130,7 +144,10 @@ public record CreateTenantDto(
     bool HasCoachingModule = true,
     bool HasHostelModule = true,
     bool HasLibraryModule = true,
-    bool HasTransportModule = true
+    bool HasTransportModule = true,
+    string SubscriptionPlan = "FreeTrial",
+    int MaxStudentsLimit = 50,
+    int MaxBranchesLimit = 2
 );
 
 public record UpdateTenantDto(
@@ -144,7 +161,13 @@ public record UpdateTenantDto(
     bool? HasCoachingModule = null,
     bool? HasHostelModule = null,
     bool? HasLibraryModule = null,
-    bool? HasTransportModule = null
+    bool? HasTransportModule = null,
+    string? SubscriptionPlan = null,
+    string? SubscriptionStatus = null,
+    DateTime? TrialEndDate = null,
+    DateTime? PaidUntil = null,
+    int? MaxStudentsLimit = null,
+    int? MaxBranchesLimit = null
 );
 
 public record UpdateTenantModulesDto(

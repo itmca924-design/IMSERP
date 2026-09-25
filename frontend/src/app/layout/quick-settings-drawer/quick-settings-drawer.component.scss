@@ -760,6 +760,16 @@
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
     }
 
+    &.disabled-card {
+      background: #f8fafc;
+      border-color: #e2e8f0;
+      opacity: 0.88;
+
+      .toggle-title {
+        color: #64748b;
+      }
+    }
+
     .toggle-icon-wrap {
       width: 38px;
       height: 38px;
@@ -849,6 +859,7 @@
           &.amber { background: #fef3c7; color: #92400e; }
           &.purple { background: #f3e8ff; color: #6b21a8; }
           &.paused { background: #f1f5f9; color: #94a3b8; border: 1px dashed #cbd5e1; }
+          &.locked { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; display: inline-flex; align-items: center; }
         }
 
         .test-chime-link {

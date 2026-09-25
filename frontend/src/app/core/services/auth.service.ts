@@ -35,6 +35,12 @@ export interface LoginResponse {
   hasHostelModule?: boolean;
   hasLibraryModule?: boolean;
   hasTransportModule?: boolean;
+  licensedModules?: string | null;
+  subscriptionPlan?: string;
+  subscriptionStatus?: string;
+  trialDaysLeft?: number | null;
+  maxStudentsLimit?: number;
+  maxBranchesLimit?: number;
 }
 
 @Injectable({
@@ -51,13 +57,55 @@ export class AuthService {
   readonly hasHostelModule = computed(() => this.currentUser()?.hasHostelModule ?? true);
   readonly hasLibraryModule = computed(() => this.currentUser()?.hasLibraryModule ?? true);
   readonly hasTransportModule = computed(() => this.currentUser()?.hasTransportModule ?? true);
+  readonly licensedModules = computed(() => this.currentUser()?.licensedModules ?? null);
+
+  /** Checks whether a functional module is licensed/subscribed for the current tenant */
+  isModuleLicensed(moduleKey: string): boolean {
+    if (this.isSuperAdmin()) return true;
+    const user = this.currentUser();
+    if (!user) return false;
+
+    const normalized = moduleKey.toLowerCase().replace(/^has/, '').replace(/module$/, '');
+    if (user.licensedModules) {
+      const parts = user.licensedModules.toLowerCase().split(',').map(s => s.trim());
+      return parts.includes(normalized);
+    }
+
+    switch (normalized) {
+      case 'school': return user.hasSchoolModule !== false;
+      case 'coaching': return user.hasCoachingModule !== false;
+      case 'hostel': return !!user.hasHostelModule;
+      case 'library': return !!user.hasLibraryModule;
+      case 'transport': return !!user.hasTransportModule;
+      default: return false;
+    }
+  }
 
   // ── Role helpers ──────────────────────────────────────────────────────────
+  /** True strictly for SaaS Platform Owner / Root Administrator */
+  readonly isSuperAdmin = computed(() => {
+    const r = this.currentUser()?.role;
+    return r === 'SuperAdmin';
+  });
+
+  /** True for Institute / Coaching Center Owner (e.g. APEX, TEST) */
+  readonly isInstituteAdmin = computed(() => {
+    const r = this.currentUser()?.role;
+    return r === 'InstituteAdmin';
+  });
+
   /** SuperAdmin or InstituteAdmin */
   readonly isAdmin = computed(() => {
     const r = this.currentUser()?.role;
     return r === 'SuperAdmin' || r === 'InstituteAdmin';
   });
+
+  // ── Subscription helpers ──────────────────────────────────────────────────
+  readonly subscriptionPlan = computed(() => this.currentUser()?.subscriptionPlan ?? 'FreeTrial');
+  readonly subscriptionStatus = computed(() => this.currentUser()?.subscriptionStatus ?? 'TrialActive');
+  readonly trialDaysLeft = computed(() => this.currentUser()?.trialDaysLeft ?? null);
+  readonly isFreeTrial = computed(() => this.subscriptionPlan() === 'FreeTrial' || this.subscriptionStatus() === 'TrialActive');
+  readonly isTrialExpired = computed(() => this.subscriptionStatus() === 'TrialExpired' || (this.trialDaysLeft() !== null && this.trialDaysLeft()! <= 0));
 
   /** HR Manager role */
   readonly isHR = computed(() => this.currentUser()?.role === 'HR');
@@ -289,6 +337,29 @@ export class AuthService {
       hasHostelModule: modules.hasHostelModule !== undefined ? modules.hasHostelModule : current.hasHostelModule,
       hasLibraryModule: modules.hasLibraryModule !== undefined ? modules.hasLibraryModule : current.hasLibraryModule,
       hasTransportModule: modules.hasTransportModule !== undefined ? modules.hasTransportModule : current.hasTransportModule
+    };
+    for (const storage of [sessionStorage, localStorage]) {
+      storage.setItem('user_info', JSON.stringify(updated));
+    }
+    this.currentUser.set(updated);
+  }
+
+  updateSubscription(sub: {
+    subscriptionPlan?: string;
+    subscriptionStatus?: string;
+    trialDaysLeft?: number | null;
+    maxStudentsLimit?: number;
+    maxBranchesLimit?: number;
+  }): void {
+    const current = this.currentUser();
+    if (!current) return;
+    const updated: LoginResponse = {
+      ...current,
+      subscriptionPlan: sub.subscriptionPlan ?? current.subscriptionPlan,
+      subscriptionStatus: sub.subscriptionStatus ?? current.subscriptionStatus,
+      trialDaysLeft: sub.trialDaysLeft !== undefined ? sub.trialDaysLeft : current.trialDaysLeft,
+      maxStudentsLimit: sub.maxStudentsLimit ?? current.maxStudentsLimit,
+      maxBranchesLimit: sub.maxBranchesLimit ?? current.maxBranchesLimit
     };
     for (const storage of [sessionStorage, localStorage]) {
       storage.setItem('user_info', JSON.stringify(updated));

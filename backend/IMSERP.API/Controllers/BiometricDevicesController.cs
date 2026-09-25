@@ -90,7 +90,7 @@ public class BiometricDevicesController : ControllerBase
 
     private async Task<bool> HasDevicePermissionAsync()
     {
-        var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
+        var user = await _db.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
         if (user?.RoleId == null) return false;
         return await _db.RolePermissions.AsNoTracking()
             .Where(permission => permission.RoleId == user.RoleId && permission.CanEdit)

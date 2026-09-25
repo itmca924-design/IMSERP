@@ -88,6 +88,13 @@ public class AuthController : ControllerBase
         user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7);
         await _dbContext.SaveChangesAsync();
 
+        int? trialDaysLeft = null;
+        if (tenant.TrialEndDate.HasValue)
+        {
+            var diff = (tenant.TrialEndDate.Value.Date - DateTime.UtcNow.Date).Days;
+            trialDaysLeft = Math.Max(0, diff);
+        }
+
         return Ok(new LoginResponseDto(
             Token: accessToken,
             RefreshToken: refreshToken,
@@ -106,7 +113,13 @@ public class AuthController : ControllerBase
             HasCoachingModule: tenant.HasCoachingModule,
             HasHostelModule: tenant.HasHostelModule,
             HasLibraryModule: tenant.HasLibraryModule,
-            HasTransportModule: tenant.HasTransportModule
+            HasTransportModule: tenant.HasTransportModule,
+            LicensedModules: tenant.LicensedModules,
+            SubscriptionPlan: tenant.SubscriptionPlan ?? "FreeTrial",
+            SubscriptionStatus: tenant.SubscriptionStatus ?? "TrialActive",
+            TrialDaysLeft: trialDaysLeft,
+            MaxStudentsLimit: tenant.MaxStudentsLimit,
+            MaxBranchesLimit: tenant.MaxBranchesLimit
         ));
     }
 
@@ -168,6 +181,13 @@ public class AuthController : ControllerBase
         user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7);
         await _dbContext.SaveChangesAsync();
 
+        int? trialDaysLeft = null;
+        if (tenant?.TrialEndDate.HasValue == true)
+        {
+            var diff = (tenant.TrialEndDate.Value.Date - DateTime.UtcNow.Date).Days;
+            trialDaysLeft = Math.Max(0, diff);
+        }
+
         return Ok(new LoginResponseDto(
             Token: newAccessToken,
             RefreshToken: newRefreshToken,
@@ -186,7 +206,13 @@ public class AuthController : ControllerBase
             HasCoachingModule: tenant?.HasCoachingModule ?? true,
             HasHostelModule: tenant?.HasHostelModule ?? true,
             HasLibraryModule: tenant?.HasLibraryModule ?? true,
-            HasTransportModule: tenant?.HasTransportModule ?? true
+            HasTransportModule: tenant?.HasTransportModule ?? true,
+            LicensedModules: tenant?.LicensedModules,
+            SubscriptionPlan: tenant?.SubscriptionPlan ?? "FreeTrial",
+            SubscriptionStatus: tenant?.SubscriptionStatus ?? "TrialActive",
+            TrialDaysLeft: trialDaysLeft,
+            MaxStudentsLimit: tenant?.MaxStudentsLimit ?? 50,
+            MaxBranchesLimit: tenant?.MaxBranchesLimit ?? 2
         ));
     }
 

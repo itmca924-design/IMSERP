@@ -63,7 +63,7 @@ public class StudentsController : ControllerBase
 
     private async Task<bool> HasAttendancePermissionAsync(string route, bool edit)
     {
-        var user = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
+        var user = await _dbContext.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
         if (user == null) return false;
         if (user.Role == IMSERP.Domain.Enums.UserRole.SuperAdmin || user.Role == IMSERP.Domain.Enums.UserRole.InstituteAdmin) return true;
         if (user.RoleId == null) return false;
@@ -89,7 +89,7 @@ public class StudentsController : ControllerBase
     {
         if (_currentUser.UserId == Guid.Empty) return false;
 
-        var user = await _dbContext.Users.AsNoTracking()
+        var user = await _dbContext.Users.IgnoreQueryFilters().AsNoTracking()
             .FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
         if (user?.RoleId == null) return false;
 

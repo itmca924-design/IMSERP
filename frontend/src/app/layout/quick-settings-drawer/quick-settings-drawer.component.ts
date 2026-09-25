@@ -37,7 +37,20 @@ export class QuickSettingsDrawerComponent {
   updatingModules = false;
   moduleSuccessMessage: string | null = null;
 
+  isModuleLicensed(moduleKey: 'school' | 'coaching' | 'hostel' | 'library' | 'transport' | 'hasSchoolModule' | 'hasCoachingModule' | 'hasHostelModule' | 'hasLibraryModule' | 'hasTransportModule'): boolean {
+    return this.authService.isModuleLicensed(moduleKey);
+  }
+
   toggleModule(moduleKey: 'hasSchoolModule' | 'hasCoachingModule' | 'hasHostelModule' | 'hasLibraryModule' | 'hasTransportModule'): void {
+    if (!this.authService.isModuleLicensed(moduleKey)) {
+      this.confirmDialog.alert(
+        'Module Not Subscribed',
+        'This module is not included in your institute\'s subscription plan. Please contact your SaaS administrator to upgrade your plan.',
+        'warning'
+      );
+      return;
+    }
+
     const user = this.authService.currentUser();
     if (!user || !user.tenantId) return;
 
@@ -55,7 +68,8 @@ export class QuickSettingsDrawerComponent {
       hasTransportModule: moduleKey === 'hasTransportModule' ? !currentTransport : currentTransport
     };
 
-    if (!updated.hasSchoolModule && !updated.hasCoachingModule) {
+    const hasPrimary = this.authService.isModuleLicensed('school') || this.authService.isModuleLicensed('coaching');
+    if (hasPrimary && !updated.hasSchoolModule && !updated.hasCoachingModule) {
       this.confirmDialog.alert(
         'Primary Module Required',
         'Institute must have at least one primary module (School or Coaching) enabled.',
@@ -103,6 +117,8 @@ export class QuickSettingsDrawerComponent {
           hasLibraryModule: currentLibrary,
           hasTransportModule: currentTransport
         });
+        const msg = err?.error?.message || 'Failed to update module settings.';
+        this.confirmDialog.alert('Save Failed', msg, 'danger');
         console.error('Failed to update tenant modules:', err);
       }
     });

@@ -421,6 +421,11 @@ using (var scope = app.Services.CreateScope())
                 u.PasswordHash = hasher.HashPassword("account123");
                 updated = true;
             }
+            else if (u.Username.ToLower() == "superadmin" && !hasher.VerifyPassword("password123", u.PasswordHash))
+            {
+                u.PasswordHash = hasher.HashPassword("password123");
+                updated = true;
+            }
         }
 
         if (updated)

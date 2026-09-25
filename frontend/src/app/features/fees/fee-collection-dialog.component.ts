@@ -169,9 +169,10 @@ export interface FeeCollectionItemRow {
                         type="number"
                         class="paying-input"
                         [disabled]="!row.selected || row.dueAmount <= 0"
-                        [value]="row.payingAmount"
+                        [value]="formatTwoDecimals(row.payingAmount)"
                         (input)="onItemPayingAmountChange(row, +$any($event.target).value)"
                         [max]="row.dueAmount"
+                        step="0.01"
                         min="0" />
                     </div>
                   </td>
@@ -949,11 +950,11 @@ export class FeeCollectionDialogComponent implements OnInit {
           // Use item total as capacity if no paidAmount tracked
           const capacity = headCapacity > 0 ? headCapacity : row.amount;
           if (capacity <= 0) continue;
-          const allocate = Math.min(remaining, capacity);
+          const allocate = Math.round(Math.min(remaining, capacity) * 100) / 100;
           row.dueAmount = allocate;
           row.selected = true;
           row.payingAmount = allocate;
-          remaining -= allocate;
+          remaining = Math.round((remaining - allocate) * 100) / 100;
         }
       } else if (itemsDueSum > 0 && Math.abs(itemsDueSum - invoiceDue) > 0.01) {
         // Items sum doesn't match invoice due (rounding / sync lag):
@@ -963,11 +964,11 @@ export class FeeCollectionDialogComponent implements OnInit {
         this.itemRows.forEach((r, idx) => {
           if (r.selected && r.dueAmount > 0) {
             if (idx === this.itemRows.length - 1) {
-              // Last selected item gets remainder to avoid rounding drift
-              r.payingAmount = Math.max(0, invoiceDue - distributed);
+              // Last selected item gets remainder to avoid rounding drift, strictly rounded to 2 decimals
+              r.payingAmount = Math.round(Math.max(0, invoiceDue - distributed) * 100) / 100;
             } else {
               r.payingAmount = Math.round(r.dueAmount * scale * 100) / 100;
-              distributed += r.payingAmount;
+              distributed = Math.round((distributed + r.payingAmount) * 100) / 100;
             }
           }
         });
@@ -1034,22 +1035,27 @@ export class FeeCollectionDialogComponent implements OnInit {
     this.recalculateTotal();
   }
 
+  formatTwoDecimals(val: number): string {
+    if (val === null || val === undefined || isNaN(val)) return '0.00';
+    return (Math.round(val * 100) / 100).toFixed(2);
+  }
+
   onItemPayingAmountChange(row: FeeCollectionItemRow, amount: number): void {
     const val = Number(amount);
-    row.payingAmount = isNaN(val) ? 0 : Math.min(row.dueAmount, Math.max(0, val));
+    row.payingAmount = isNaN(val) ? 0 : Math.round(Math.min(row.dueAmount, Math.max(0, val)) * 100) / 100;
     row.selected = row.payingAmount > 0;
     this.recalculateTotal();
   }
 
   recalculateTotal(): void {
-    const tuitionTotal = this.itemRows.reduce((sum, r) => sum + (r.selected ? r.payingAmount : 0), 0);
+    const tuitionTotal = Math.round(this.itemRows.reduce((sum, r) => sum + (r.selected ? r.payingAmount : 0), 0) * 100) / 100;
     this.baseTuitionAmount = tuitionTotal;
     const libFine = (this.libraryDues && this.libraryDues.pendingFineAmount > 0 && this.feeForm.get('includeLibraryFine')?.value)
-      ? this.libraryDues.pendingFineAmount
+      ? Math.round(this.libraryDues.pendingFineAmount * 100) / 100
       : 0;
     // Safety net: if all items are unselected (e.g. user manually unchecked all), don't leave textbox at 0
     // unless they genuinely set it to 0 deliberately
-    const newAmount = tuitionTotal + libFine;
+    const newAmount = Math.round((tuitionTotal + libFine) * 100) / 100;
     this.feeForm.patchValue({ amountPaid: newAmount }, { emitEvent: false });
   }
 
@@ -1103,12 +1109,12 @@ export class FeeCollectionDialogComponent implements OnInit {
     const itemPayments: FeeItemPayment[] | undefined = this.itemRows.length > 0
       ? this.itemRows
           .filter(r => r.selected && r.payingAmount > 0)
-          .map(r => ({ itemId: r.id, amount: r.payingAmount }))
+          .map(r => ({ itemId: r.id, amount: Math.round(r.payingAmount * 100) / 100 }))
       : undefined;
 
     const payload = {
       studentId: this.data.studentId,
-      amountPaid: Number(formVal.amountPaid),
+      amountPaid: Math.round(Number(formVal.amountPaid) * 100) / 100,
       mode: Number(formVal.mode),
       transactionRef: formVal.transactionRef || undefined,
       remarks: formVal.remarks || undefined,

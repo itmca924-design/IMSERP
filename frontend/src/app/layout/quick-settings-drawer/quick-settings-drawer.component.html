@@ -275,123 +275,146 @@
           </div>
         </div>
 
+        <div *ngIf="!authService.isSuperAdmin()" class="job-status-banner" style="background:#eff6ff; border:1px solid #bfdbfe; color:#1e40af; margin-bottom:14px; display:flex; gap:10px; padding:10px 12px; border-radius:8px; align-items:flex-start;">
+          <mat-icon style="color:#2563eb; font-size:20px; width:20px; height:20px; margin-top:2px;">verified_user</mat-icon>
+          <div style="font-size:12px; line-height:1.4;">
+            <strong style="color:#1e3a8a;">Subscribed Institute Modules</strong><br>
+            <span>You can toggle your licensed modules on or off below. Modules not included in your plan are locked and can be enabled by your SaaS Administrator.</span>
+          </div>
+        </div>
+
         <div class="toggles-list">
 
           <!-- School Academic Module -->
-          <div class="toggle-card">
+          <div class="toggle-card" [class.disabled-card]="!isModuleLicensed('hasSchoolModule')">
             <div class="toggle-icon-wrap school-icon-wrap">
               <mat-icon>domain</mat-icon>
             </div>
             <div class="toggle-details">
               <div class="toggle-title-row">
                 <span class="toggle-title">School Academic Module</span>
-                <span class="status-pill" [ngClass]="authService.hasSchoolModule() ? 'green' : 'paused'">
+                <span class="status-pill" *ngIf="isModuleLicensed('hasSchoolModule')" [ngClass]="authService.hasSchoolModule() ? 'green' : 'paused'">
                   {{ authService.hasSchoolModule() ? 'Active' : 'Disabled' }}
+                </span>
+                <span class="status-pill locked" *ngIf="!isModuleLicensed('hasSchoolModule')">
+                  <mat-icon style="font-size:11px; width:11px; height:11px; vertical-align:middle; margin-right:2px;">lock</mat-icon> Not Subscribed
                 </span>
               </div>
               <p class="toggle-desc">Classes, Sections, Student Promotion, School Exams, Report Cards &amp; Fee Heads.</p>
             </div>
-            <label class="switch">
+            <label class="switch" [class.locked-switch]="!isModuleLicensed('hasSchoolModule')" [matTooltip]="!isModuleLicensed('hasSchoolModule') ? 'Not included in your subscription. Contact SaaS Administrator.' : ''">
               <input
                 type="checkbox"
                 [checked]="authService.hasSchoolModule()"
-                [disabled]="updatingModules"
+                [disabled]="updatingModules || !isModuleLicensed('hasSchoolModule')"
                 (change)="toggleModule('hasSchoolModule')">
               <span class="slider"></span>
             </label>
           </div>
 
           <!-- Coaching & Tuitions Module -->
-          <div class="toggle-card">
+          <div class="toggle-card" [class.disabled-card]="!isModuleLicensed('hasCoachingModule')">
             <div class="toggle-icon-wrap coaching-icon-wrap">
               <mat-icon>school</mat-icon>
             </div>
             <div class="toggle-details">
               <div class="toggle-title-row">
                 <span class="toggle-title">Coaching &amp; Tuitions Module</span>
-                <span class="status-pill" [ngClass]="authService.hasCoachingModule() ? 'green' : 'paused'">
+                <span class="status-pill" *ngIf="isModuleLicensed('hasCoachingModule')" [ngClass]="authService.hasCoachingModule() ? 'green' : 'paused'">
                   {{ authService.hasCoachingModule() ? 'Active' : 'Disabled' }}
+                </span>
+                <span class="status-pill locked" *ngIf="!isModuleLicensed('hasCoachingModule')">
+                  <mat-icon style="font-size:11px; width:11px; height:11px; vertical-align:middle; margin-right:2px;">lock</mat-icon> Not Subscribed
                 </span>
               </div>
               <p class="toggle-desc">Academic Batches, Classrooms, Coaching Test Series &amp; Monthly Tuition Fees.</p>
             </div>
-            <label class="switch">
+            <label class="switch" [class.locked-switch]="!isModuleLicensed('hasCoachingModule')" [matTooltip]="!isModuleLicensed('hasCoachingModule') ? 'Not included in your subscription. Contact SaaS Administrator.' : ''">
               <input
                 type="checkbox"
                 [checked]="authService.hasCoachingModule()"
-                [disabled]="updatingModules"
+                [disabled]="updatingModules || !isModuleLicensed('hasCoachingModule')"
                 (change)="toggleModule('hasCoachingModule')">
               <span class="slider"></span>
             </label>
           </div>
 
           <!-- Hostel & Residential Module -->
-          <div class="toggle-card">
+          <div class="toggle-card" [class.disabled-card]="!isModuleLicensed('hasHostelModule')">
             <div class="toggle-icon-wrap hostel-icon-wrap">
               <mat-icon>apartment</mat-icon>
             </div>
             <div class="toggle-details">
               <div class="toggle-title-row">
                 <span class="toggle-title">Hostel &amp; Residential Module</span>
-                <span class="status-pill" [ngClass]="authService.hasHostelModule() ? 'green' : 'paused'">
+                <span class="status-pill" *ngIf="isModuleLicensed('hasHostelModule')" [ngClass]="authService.hasHostelModule() ? 'green' : 'paused'">
                   {{ authService.hasHostelModule() ? 'Active' : 'Disabled' }}
+                </span>
+                <span class="status-pill locked" *ngIf="!isModuleLicensed('hasHostelModule')">
+                  <mat-icon style="font-size:11px; width:11px; height:11px; vertical-align:middle; margin-right:2px;">lock</mat-icon> Not Subscribed
                 </span>
               </div>
               <p class="toggle-desc">Hostel Buildings, Bed Allotment, Room Rent, Mess Tracking &amp; Resident Lists.</p>
             </div>
-            <label class="switch">
+            <label class="switch" [class.locked-switch]="!isModuleLicensed('hasHostelModule')" [matTooltip]="!isModuleLicensed('hasHostelModule') ? 'Not included in your subscription. Contact SaaS Administrator.' : ''">
               <input
                 type="checkbox"
                 [checked]="authService.hasHostelModule()"
-                [disabled]="updatingModules"
+                [disabled]="updatingModules || !isModuleLicensed('hasHostelModule')"
                 (change)="toggleModule('hasHostelModule')">
               <span class="slider"></span>
             </label>
           </div>
 
           <!-- Library Management Module -->
-          <div class="toggle-card">
+          <div class="toggle-card" [class.disabled-card]="!isModuleLicensed('hasLibraryModule')">
             <div class="toggle-icon-wrap library-icon-wrap">
               <mat-icon>local_library</mat-icon>
             </div>
             <div class="toggle-details">
               <div class="toggle-title-row">
                 <span class="toggle-title">Library Management Module</span>
-                <span class="status-pill" [ngClass]="authService.hasLibraryModule() ? 'green' : 'paused'">
+                <span class="status-pill" *ngIf="isModuleLicensed('hasLibraryModule')" [ngClass]="authService.hasLibraryModule() ? 'green' : 'paused'">
                   {{ authService.hasLibraryModule() ? 'Active' : 'Disabled' }}
+                </span>
+                <span class="status-pill locked" *ngIf="!isModuleLicensed('hasLibraryModule')">
+                  <mat-icon style="font-size:11px; width:11px; height:11px; vertical-align:middle; margin-right:2px;">lock</mat-icon> Not Subscribed
                 </span>
               </div>
               <p class="toggle-desc">Book Catalog, Circulation Issue/Return, Fines &amp; Reading Shifts.</p>
             </div>
-            <label class="switch">
+            <label class="switch" [class.locked-switch]="!isModuleLicensed('hasLibraryModule')" [matTooltip]="!isModuleLicensed('hasLibraryModule') ? 'Not included in your subscription. Contact SaaS Administrator.' : ''">
               <input
                 type="checkbox"
                 [checked]="authService.hasLibraryModule()"
-                [disabled]="updatingModules"
+                [disabled]="updatingModules || !isModuleLicensed('hasLibraryModule')"
                 (change)="toggleModule('hasLibraryModule')">
               <span class="slider"></span>
             </label>
           </div>
 
           <!-- Transport & Fleet Module -->
-          <div class="toggle-card">
+          <div class="toggle-card" [class.disabled-card]="!isModuleLicensed('hasTransportModule')">
             <div class="toggle-icon-wrap transport-icon-wrap">
               <mat-icon>directions_bus</mat-icon>
             </div>
             <div class="toggle-details">
               <div class="toggle-title-row">
                 <span class="toggle-title">Transport &amp; Fleet Module</span>
-                <span class="status-pill" [ngClass]="authService.hasTransportModule() ? 'green' : 'paused'">
+                <span class="status-pill" *ngIf="isModuleLicensed('hasTransportModule')" [ngClass]="authService.hasTransportModule() ? 'green' : 'paused'">
                   {{ authService.hasTransportModule() ? 'Active' : 'Disabled' }}
+                </span>
+                <span class="status-pill locked" *ngIf="!isModuleLicensed('hasTransportModule')">
+                  <mat-icon style="font-size:11px; width:11px; height:11px; vertical-align:middle; margin-right:2px;">lock</mat-icon> Not Subscribed
                 </span>
               </div>
               <p class="toggle-desc">Bus Fleet Management, Transport Routes, Stop Allotment &amp; Fees.</p>
             </div>
-            <label class="switch">
+            <label class="switch" [class.locked-switch]="!isModuleLicensed('hasTransportModule')" [matTooltip]="!isModuleLicensed('hasTransportModule') ? 'Not included in your subscription. Contact SaaS Administrator.' : ''">
               <input
                 type="checkbox"
                 [checked]="authService.hasTransportModule()"
-                [disabled]="updatingModules"
+                [disabled]="updatingModules || !isModuleLicensed('hasTransportModule')"
                 (change)="toggleModule('hasTransportModule')">
               <span class="slider"></span>
             </label>

@@ -560,6 +560,21 @@ export class BatchDialogComponent implements OnInit {
         this.availableBranches = branches;
         this.availableRooms = rooms;
 
+        // Ensure any existing subjects from this batch are in availableSubjects
+        if (initialSubjectList.length > 0) {
+          for (const sName of initialSubjectList) {
+            const exists = this.availableSubjects.some(s => s.name.toLowerCase() === sName.toLowerCase());
+            if (!exists) {
+              this.availableSubjects.push({
+                id: sName,
+                name: sName,
+                code: sName.substring(0, 4).toUpperCase(),
+                isActive: true
+              } as any);
+            }
+          }
+        }
+
         // Auto-select header toolbar's selected branch when creating a new batch
         if (!this.isEditMode) {
           const matchingBranch = headerBranchId
@@ -569,6 +584,12 @@ export class BatchDialogComponent implements OnInit {
           if (targetBranch) {
             this.batchForm.patchValue({ branchId: targetBranch.id });
           }
+        } else {
+          // Re-assert selectedSubjects and roomId after options are populated
+          this.batchForm.patchValue({
+            selectedSubjects: initialSubjectList,
+            roomId: this.data?.roomId || null
+          });
         }
 
         this.filterRooms();
@@ -610,8 +631,8 @@ export class BatchDialogComponent implements OnInit {
   getSelectedRoomName(): string {
     const roomId = this.batchForm?.get('roomId')?.value;
     if (!roomId) return 'None / Unassigned';
-    const r = this.filteredRooms.find(x => x.id === roomId);
-    if (!r) return '';
+    const r = this.filteredRooms.find(x => x.id === roomId) || this.availableRooms.find(x => x.id === roomId);
+    if (!r) return 'None / Unassigned';
     return `${this.formatRoomDisplay(r.roomNumber)}${r.capacity ? ' (Cap: ' + r.capacity + ')' : ''}`;
   }
 

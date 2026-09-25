@@ -34,19 +34,23 @@ public class TenantsController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<TenantDto>>> GetAllTenants()
     {
-        var isSuperAdmin = string.Equals(_currentUser.UserRole, nameof(UserRole.SuperAdmin), StringComparison.OrdinalIgnoreCase)
-            || string.Equals(_currentUser.UserRole, nameof(UserRole.InstituteAdmin), StringComparison.OrdinalIgnoreCase)
-            || string.Equals(_currentUser.UserRole, "Admin", StringComparison.OrdinalIgnoreCase);
+        var isSuperAdmin = string.Equals(_currentUser.UserRole, nameof(UserRole.SuperAdmin), StringComparison.OrdinalIgnoreCase);
 
-        // SuperAdmin / InstituteAdmin can view all tenants in the SaaS provisioning management console
+        // SuperAdmin can view all tenants in the SaaS provisioning management console
         var query = _dbContext.Tenants
             .AsNoTracking()
             .IgnoreQueryFilters()
             .OrderByDescending(t => t.CreatedAt)
             .AsQueryable();
 
-        if (!isSuperAdmin)
+        if (isSuperAdmin)
         {
+            // Omit internal SYSTEM platform console tenant from ordinary client institutes list
+            query = query.Where(t => t.Code != "SYSTEM");
+        }
+        else
+        {
+            // Individual Institute Admin / Staff ONLY sees their own company
             query = query.Where(t => t.Id == _currentUser.TenantId);
         }
 
@@ -79,7 +83,15 @@ public class TenantsController : ControllerBase
                 t.HasCoachingModule,
                 t.HasHostelModule,
                 t.HasLibraryModule,
-                t.HasTransportModule
+                t.HasTransportModule,
+                t.LicensedModules,
+                t.SubscriptionPlan,
+                t.SubscriptionStatus,
+                t.TrialStartDate,
+                t.TrialEndDate,
+                t.PaidUntil,
+                t.MaxStudentsLimit,
+                t.MaxBranchesLimit
             ));
         }
 
@@ -123,7 +135,15 @@ public class TenantsController : ControllerBase
             t.HasCoachingModule,
             t.HasHostelModule,
             t.HasLibraryModule,
-            t.HasTransportModule
+            t.HasTransportModule,
+            t.LicensedModules,
+            t.SubscriptionPlan,
+            t.SubscriptionStatus,
+            t.TrialStartDate,
+            t.TrialEndDate,
+            t.PaidUntil,
+            t.MaxStudentsLimit,
+            t.MaxBranchesLimit
         ));
     }
 
@@ -152,13 +172,68 @@ public class TenantsController : ControllerBase
             t.HasCoachingModule,
             t.HasHostelModule,
             t.HasLibraryModule,
-            t.HasTransportModule
+            t.HasTransportModule,
+            t.LicensedModules,
+            t.SubscriptionPlan,
+            t.SubscriptionStatus,
+            t.TrialStartDate,
+            t.TrialEndDate,
+            t.PaidUntil,
+            t.MaxStudentsLimit,
+            t.MaxBranchesLimit
         ));
+    }
+
+    [HttpGet("my-subscription")]
+    public async Task<ActionResult> GetMySubscription()
+    {
+        var tenantId = _currentUser.TenantId;
+        var tenant = await _dbContext.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.Id == tenantId);
+        if (tenant == null) return NotFound(new { message = "Institute not found." });
+
+        var studentCount = await _dbContext.Students.IgnoreQueryFilters().CountAsync(s => s.TenantId == tenant.Id);
+        var branchCount = await _dbContext.Branches.IgnoreQueryFilters().CountAsync(b => b.TenantId == tenant.Id);
+
+        int? trialDaysLeft = null;
+        if (tenant.TrialEndDate.HasValue)
+        {
+            var diff = (tenant.TrialEndDate.Value.Date - DateTime.UtcNow.Date).Days;
+            trialDaysLeft = Math.Max(0, diff);
+        }
+
+        return Ok(new
+        {
+            tenantId = tenant.Id,
+            instituteName = tenant.Name,
+            tenantCode = tenant.Code,
+            subscriptionPlan = tenant.SubscriptionPlan,
+            subscriptionStatus = tenant.SubscriptionStatus,
+            trialStartDate = tenant.TrialStartDate,
+            trialEndDate = tenant.TrialEndDate,
+            paidUntil = tenant.PaidUntil,
+            trialDaysLeft,
+            studentCount,
+            maxStudentsLimit = tenant.MaxStudentsLimit,
+            branchCount,
+            maxBranchesLimit = tenant.MaxBranchesLimit,
+            hasSchoolModule = tenant.HasSchoolModule,
+            hasCoachingModule = tenant.HasCoachingModule,
+            hasHostelModule = tenant.HasHostelModule,
+            hasLibraryModule = tenant.HasLibraryModule,
+            hasTransportModule = tenant.HasTransportModule,
+            licensedModules = tenant.LicensedModules
+        });
     }
 
     [HttpPost]
     public async Task<ActionResult<TenantDto>> CreateTenant([FromBody] CreateTenantDto dto)
     {
+        var isSuperAdmin = string.Equals(_currentUser.UserRole, nameof(UserRole.SuperAdmin), StringComparison.OrdinalIgnoreCase);
+        if (!isSuperAdmin)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "Access denied: Only Platform Super Admin can provision new institutes." });
+        }
+
         if (string.IsNullOrWhiteSpace(dto.Name) || string.IsNullOrWhiteSpace(dto.Code))
         {
             return BadRequest(new { message = "Institute Name and Unique Code are required." });
@@ -190,6 +265,19 @@ public class TenantsController : ControllerBase
             HasHostelModule = dto.HasHostelModule,
             HasLibraryModule = dto.HasLibraryModule,
             HasTransportModule = dto.HasTransportModule,
+            LicensedModules = string.Join(",", new[] {
+                dto.HasSchoolModule ? "School" : null,
+                dto.HasCoachingModule ? "Coaching" : null,
+                dto.HasHostelModule ? "Hostel" : null,
+                dto.HasLibraryModule ? "Library" : null,
+                dto.HasTransportModule ? "Transport" : null
+            }.Where(s => s != null)),
+            SubscriptionPlan = string.IsNullOrWhiteSpace(dto.SubscriptionPlan) ? "FreeTrial" : dto.SubscriptionPlan,
+            SubscriptionStatus = "TrialActive",
+            TrialStartDate = DateTime.UtcNow,
+            TrialEndDate = DateTime.UtcNow.AddDays(30),
+            MaxStudentsLimit = dto.MaxStudentsLimit > 0 ? dto.MaxStudentsLimit : 50,
+            MaxBranchesLimit = dto.MaxBranchesLimit > 0 ? dto.MaxBranchesLimit : 2,
             IsActive = true,
             CreatedAt = DateTime.UtcNow
         };
@@ -305,13 +393,29 @@ public class TenantsController : ControllerBase
             tenant.HasCoachingModule,
             tenant.HasHostelModule,
             tenant.HasLibraryModule,
-            tenant.HasTransportModule
+            tenant.HasTransportModule,
+            tenant.LicensedModules,
+            tenant.SubscriptionPlan,
+            tenant.SubscriptionStatus,
+            tenant.TrialStartDate,
+            tenant.TrialEndDate,
+            tenant.PaidUntil,
+            tenant.MaxStudentsLimit,
+            tenant.MaxBranchesLimit
         ));
     }
 
     [HttpPut("{id}")]
     public async Task<ActionResult> UpdateTenant(Guid id, [FromBody] UpdateTenantDto dto)
     {
+        var isSuperAdmin = string.Equals(_currentUser.UserRole, nameof(UserRole.SuperAdmin), StringComparison.OrdinalIgnoreCase);
+
+        // Institute Admin can only update their own tenant
+        if (!isSuperAdmin && id != _currentUser.TenantId)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "You can only update your own institute profile." });
+        }
+
         var tenant = await _dbContext.Tenants.FirstOrDefaultAsync(t => t.Id == id);
         if (tenant == null) return NotFound(new { message = "Institute not found." });
 
@@ -321,11 +425,23 @@ public class TenantsController : ControllerBase
         tenant.ProfilePhoto = ImageStorageHelper.SaveBase64Image(dto.ProfilePhoto, "tenants", tenant.Id.ToString(), _env.ContentRootPath);
         if (!string.IsNullOrWhiteSpace(dto.WhatsAppPhoneId)) tenant.WhatsAppPhoneId = dto.WhatsAppPhoneId;
         if (!string.IsNullOrWhiteSpace(dto.WhatsAppAccessToken)) tenant.WhatsAppAccessToken = dto.WhatsAppAccessToken;
-        if (dto.HasSchoolModule.HasValue) tenant.HasSchoolModule = dto.HasSchoolModule.Value;
-        if (dto.HasCoachingModule.HasValue) tenant.HasCoachingModule = dto.HasCoachingModule.Value;
-        if (dto.HasHostelModule.HasValue) tenant.HasHostelModule = dto.HasHostelModule.Value;
-        if (dto.HasLibraryModule.HasValue) tenant.HasLibraryModule = dto.HasLibraryModule.Value;
-        if (dto.HasTransportModule.HasValue) tenant.HasTransportModule = dto.HasTransportModule.Value;
+
+        // ONLY SuperAdmin can modify functional modules and subscription entitlements
+        if (isSuperAdmin)
+        {
+            if (dto.HasSchoolModule.HasValue) tenant.HasSchoolModule = dto.HasSchoolModule.Value;
+            if (dto.HasCoachingModule.HasValue) tenant.HasCoachingModule = dto.HasCoachingModule.Value;
+            if (dto.HasHostelModule.HasValue) tenant.HasHostelModule = dto.HasHostelModule.Value;
+            if (dto.HasLibraryModule.HasValue) tenant.HasLibraryModule = dto.HasLibraryModule.Value;
+            if (dto.HasTransportModule.HasValue) tenant.HasTransportModule = dto.HasTransportModule.Value;
+
+            if (!string.IsNullOrWhiteSpace(dto.SubscriptionPlan)) tenant.SubscriptionPlan = dto.SubscriptionPlan;
+            if (!string.IsNullOrWhiteSpace(dto.SubscriptionStatus)) tenant.SubscriptionStatus = dto.SubscriptionStatus;
+            if (dto.TrialEndDate.HasValue) tenant.TrialEndDate = dto.TrialEndDate.Value;
+            if (dto.PaidUntil.HasValue) tenant.PaidUntil = dto.PaidUntil.Value;
+            if (dto.MaxStudentsLimit.HasValue) tenant.MaxStudentsLimit = dto.MaxStudentsLimit.Value;
+            if (dto.MaxBranchesLimit.HasValue) tenant.MaxBranchesLimit = dto.MaxBranchesLimit.Value;
+        }
 
         await _dbContext.SaveChangesAsync();
 
@@ -338,21 +454,71 @@ public class TenantsController : ControllerBase
             tenant.HasCoachingModule,
             tenant.HasHostelModule,
             tenant.HasLibraryModule,
-            tenant.HasTransportModule
+            tenant.HasTransportModule,
+            tenant.SubscriptionPlan,
+            tenant.SubscriptionStatus
         });
     }
 
     [HttpPut("{id}/modules")]
     public async Task<ActionResult> UpdateTenantModules(Guid id, [FromBody] UpdateTenantModulesDto dto)
     {
+        var isSuperAdmin = string.Equals(_currentUser.UserRole, nameof(UserRole.SuperAdmin), StringComparison.OrdinalIgnoreCase);
+
         var tenant = await _dbContext.Tenants.FirstOrDefaultAsync(t => t.Id == id);
         if (tenant == null) return NotFound(new { message = "Institute not found." });
 
-        tenant.HasSchoolModule = dto.HasSchoolModule;
-        tenant.HasCoachingModule = dto.HasCoachingModule;
-        tenant.HasHostelModule = dto.HasHostelModule;
-        tenant.HasLibraryModule = dto.HasLibraryModule;
-        tenant.HasTransportModule = dto.HasTransportModule;
+        if (!isSuperAdmin)
+        {
+            if (_currentUser.TenantId != id)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new { message = "You can only update module settings for your own institute." });
+            }
+
+            var licensed = (tenant.LicensedModules ?? "School,Coaching,Hostel,Library,Transport")
+                .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                .Select(s => s.Trim().ToLowerInvariant())
+                .ToHashSet();
+
+            if (dto.HasSchoolModule && !licensed.Contains("school"))
+                return StatusCode(StatusCodes.Status403Forbidden, new { message = "School module is not subscribed in your plan. Contact SaaS Admin." });
+            if (dto.HasCoachingModule && !licensed.Contains("coaching"))
+                return StatusCode(StatusCodes.Status403Forbidden, new { message = "Coaching module is not subscribed in your plan. Contact SaaS Admin." });
+            if (dto.HasHostelModule && !licensed.Contains("hostel"))
+                return StatusCode(StatusCodes.Status403Forbidden, new { message = "Hostel module is not subscribed in your plan. Contact SaaS Admin." });
+            if (dto.HasLibraryModule && !licensed.Contains("library"))
+                return StatusCode(StatusCodes.Status403Forbidden, new { message = "Library module is not subscribed in your plan. Contact SaaS Admin." });
+            if (dto.HasTransportModule && !licensed.Contains("transport"))
+                return StatusCode(StatusCodes.Status403Forbidden, new { message = "Transport module is not subscribed in your plan. Contact SaaS Admin." });
+
+            var hasPrimary = licensed.Contains("school") || licensed.Contains("coaching");
+            if (hasPrimary && !dto.HasSchoolModule && !dto.HasCoachingModule)
+            {
+                return BadRequest(new { message = "At least one primary module (School or Coaching) must be enabled." });
+            }
+
+            tenant.HasSchoolModule = dto.HasSchoolModule;
+            tenant.HasCoachingModule = dto.HasCoachingModule;
+            tenant.HasHostelModule = dto.HasHostelModule;
+            tenant.HasLibraryModule = dto.HasLibraryModule;
+            tenant.HasTransportModule = dto.HasTransportModule;
+        }
+        else
+        {
+            tenant.HasSchoolModule = dto.HasSchoolModule;
+            tenant.HasCoachingModule = dto.HasCoachingModule;
+            tenant.HasHostelModule = dto.HasHostelModule;
+            tenant.HasLibraryModule = dto.HasLibraryModule;
+            tenant.HasTransportModule = dto.HasTransportModule;
+
+            var activeList = new List<string>();
+            if (dto.HasSchoolModule) activeList.Add("School");
+            if (dto.HasCoachingModule) activeList.Add("Coaching");
+            if (dto.HasHostelModule) activeList.Add("Hostel");
+            if (dto.HasLibraryModule) activeList.Add("Library");
+            if (dto.HasTransportModule) activeList.Add("Transport");
+            tenant.LicensedModules = string.Join(",", activeList);
+        }
 
         await _dbContext.SaveChangesAsync();
 
@@ -364,13 +530,20 @@ public class TenantsController : ControllerBase
             tenant.HasCoachingModule,
             tenant.HasHostelModule,
             tenant.HasLibraryModule,
-            tenant.HasTransportModule
+            tenant.HasTransportModule,
+            tenant.LicensedModules
         });
     }
 
     [HttpPatch("{id}/toggle-status")]
     public async Task<ActionResult> ToggleTenantStatus(Guid id)
     {
+        var isSuperAdmin = string.Equals(_currentUser.UserRole, nameof(UserRole.SuperAdmin), StringComparison.OrdinalIgnoreCase);
+        if (!isSuperAdmin)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "Only Platform Super Admin can activate or deactivate institutes." });
+        }
+
         var tenant = await _dbContext.Tenants.FirstOrDefaultAsync(t => t.Id == id);
         if (tenant == null) return NotFound(new { message = "Institute not found." });
 

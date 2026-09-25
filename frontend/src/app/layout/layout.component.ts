@@ -1137,7 +1137,8 @@ export class LayoutComponent implements OnInit {
     { title: 'Classrooms (Rooms)', route: '/rooms', icon: 'meeting_room' },
     { title: 'Branches Master', route: '/branches', icon: 'store' },
     { title: 'Roles & Permissions', route: '/roles', icon: 'admin_panel_settings' },
-    { title: 'Institutes & Tenants', route: '/admin/tenants', icon: 'corporate_fare' }
+    { title: 'Institutes & Tenants', route: '/admin/tenants', icon: 'corporate_fare' },
+    { title: 'Subscription & Plan', route: '/subscription', icon: 'workspace_premium' }
   ];
   selectedBranchId = this.authService.selectedBranchId;
   activeBranches = signal<BranchInfo[]>(this.currentUser()?.branches || []);
@@ -1376,6 +1377,7 @@ export class LayoutComponent implements OnInit {
     const c = this.authService.hasCoachingModule();
     const h = this.authService.hasHostelModule();
     const l = this.authService.hasLibraryModule();
+    const t = this.authService.hasTransportModule();
 
     const parts: string[] = [];
     if (s && c) parts.push('School + Coaching');
@@ -1385,6 +1387,7 @@ export class LayoutComponent implements OnInit {
 
     if (h) parts.push('Hostel');
     if (l) parts.push('Library');
+    if (t) parts.push('Transport');
 
     return parts.join(' • ');
   }
@@ -1526,7 +1529,8 @@ export class LayoutComponent implements OnInit {
           { id: '61', title: 'Roles & Permissions', routeUrl: '/roles', icon: 'admin_panel_settings', sortOrder: 1, module: 'Admin', isActive: true, children: [] },
           { id: '62', title: 'User Management', routeUrl: '/users', icon: 'person_add', sortOrder: 2, module: 'Admin', isActive: true, children: [] },
           { id: '63', title: 'Biometric Devices', routeUrl: '/attendance/devices', icon: 'fingerprint', sortOrder: 3, module: 'Admin', isActive: true, children: [] },
-          { id: '64', title: 'Institutes & Tenants', routeUrl: '/admin/tenants', icon: 'corporate_fare', sortOrder: 4, module: 'Admin', isActive: true, children: [] }
+          { id: '64', title: 'Institutes & Tenants', routeUrl: '/admin/tenants', icon: 'corporate_fare', sortOrder: 4, module: 'Admin', isActive: true, children: [] },
+          { id: '65', title: 'Subscription & Plan', routeUrl: '/subscription', icon: 'workspace_premium', sortOrder: 5, module: 'Admin', isActive: true, children: [] }
         ]
       }
     ];

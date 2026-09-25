@@ -310,7 +310,7 @@ public class AttendanceController : ControllerBase
 
     private async Task<bool> HasPermissionAsync(string route, PermissionAction action)
     {
-        var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
+        var user = await _db.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
         if (user == null) return false;
         if (user.Role == IMSERP.Domain.Enums.UserRole.SuperAdmin || user.Role == IMSERP.Domain.Enums.UserRole.InstituteAdmin) return true;
         if (user.RoleId == null) return false;

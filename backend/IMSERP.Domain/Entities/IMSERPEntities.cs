@@ -18,6 +18,14 @@ public class Tenant
     public bool HasHostelModule { get; set; } = true;
     public bool HasLibraryModule { get; set; } = true;
     public bool HasTransportModule { get; set; } = true;
+    public string? LicensedModules { get; set; }
+    public string SubscriptionPlan { get; set; } = "FreeTrial";
+    public string SubscriptionStatus { get; set; } = "TrialActive";
+    public DateTime? TrialStartDate { get; set; }
+    public DateTime? TrialEndDate { get; set; }
+    public DateTime? PaidUntil { get; set; }
+    public int MaxStudentsLimit { get; set; } = 50;
+    public int MaxBranchesLimit { get; set; } = 2;
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
