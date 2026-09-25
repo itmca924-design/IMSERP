@@ -30,6 +30,7 @@ export interface CreateRoleDto {
   description?: string;
   isActive: boolean;
   permissions?: RolePermissionDto[];
+  tenantId?: string;
 }
 
 @Injectable({
@@ -40,8 +41,9 @@ export class RolesService {
 
   constructor(private http: HttpClient) {}
 
-  getRoles(): Observable<RoleDto[]> {
-    return this.http.get<RoleDto[]>(this.BASE_URL);
+  getRoles(tenantId?: string): Observable<RoleDto[]> {
+    const params = tenantId ? `?tenantId=${tenantId}` : '';
+    return this.http.get<RoleDto[]>(`${this.BASE_URL}${params}`);
   }
 
   getRoleById(id: string): Observable<RoleDto> {

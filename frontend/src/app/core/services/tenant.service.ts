@@ -109,6 +109,7 @@ export interface MySubscriptionDto {
   hasLibraryModule: boolean;
   hasTransportModule: boolean;
   licensedModules?: string | null;
+  isSubscriptionExpired?: boolean;
 }
 
 @Injectable({
@@ -131,8 +132,20 @@ export class TenantService {
     return this.http.get<TenantDto>(`${this.API_URL}/${id}`);
   }
 
-  getMySubscription(): Observable<MySubscriptionDto> {
-    return this.http.get<MySubscriptionDto>(`${this.API_URL}/my-subscription`);
+  getMySubscription(tenantId?: string): Observable<MySubscriptionDto> {
+    const params = tenantId ? `?tenantId=${tenantId}` : '';
+    return this.http.get<MySubscriptionDto>(`${this.API_URL}/my-subscription${params}`);
+  }
+
+  extendSubscription(id: string, dto: {
+    daysToAdd?: number;
+    newEndDate?: string;
+    newPlan?: string;
+    newStatus?: string;
+    maxStudentsLimit?: number;
+    maxBranchesLimit?: number;
+  }): Observable<any> {
+    return this.http.post(`${this.API_URL}/${id}/extend-subscription`, dto);
   }
 
   createTenant(dto: CreateTenantDto): Observable<TenantDto> {

@@ -41,6 +41,7 @@ export interface LoginResponse {
   trialDaysLeft?: number | null;
   maxStudentsLimit?: number;
   maxBranchesLimit?: number;
+  isSubscriptionExpired?: boolean;
 }
 
 @Injectable({
@@ -51,6 +52,15 @@ export class AuthService {
   
   currentUser = signal<LoginResponse | null>(this.getUserFromStorage());
   selectedBranchId = signal<string | null>(this.getStoredBranchId());
+
+  readonly isSubscriptionExpired = computed(() => {
+    const user = this.currentUser();
+    if (!user) return false;
+    if (user.role === 'SuperAdmin') return false;
+    if (user.isSubscriptionExpired) return true;
+    if (user.subscriptionStatus === 'Expired') return true;
+    return false;
+  });
 
   readonly hasSchoolModule = computed(() => this.currentUser()?.hasSchoolModule ?? true);
   readonly hasCoachingModule = computed(() => this.currentUser()?.hasCoachingModule ?? true);

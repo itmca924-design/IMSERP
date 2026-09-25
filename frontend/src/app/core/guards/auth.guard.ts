@@ -11,6 +11,17 @@ export const authGuard: CanActivateFn = (route, state) => {
       authService.logout('session_expired');
       return false;
     }
+
+    // Lock expired tenants to the subscription renewal page
+    if (authService.isSubscriptionExpired()) {
+      const targetUrl = state.url.split('?')[0];
+      if (targetUrl === '/subscription') {
+        return true;
+      }
+      router.navigate(['/subscription']);
+      return false;
+    }
+
     return true;
   }
 

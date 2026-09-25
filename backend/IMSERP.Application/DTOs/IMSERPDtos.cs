@@ -28,7 +28,8 @@ public record LoginResponseDto(
     string SubscriptionStatus = "TrialActive",
     int? TrialDaysLeft = null,
     int MaxStudentsLimit = 50,
-    int MaxBranchesLimit = 2
+    int MaxBranchesLimit = 2,
+    bool IsSubscriptionExpired = false
 );
 
 public record BranchDto(
@@ -166,6 +167,15 @@ public record UpdateTenantDto(
     string? SubscriptionStatus = null,
     DateTime? TrialEndDate = null,
     DateTime? PaidUntil = null,
+    int? MaxStudentsLimit = null,
+    int? MaxBranchesLimit = null
+);
+
+public record ExtendSubscriptionDto(
+    int? DaysToAdd = null,
+    DateTime? NewEndDate = null,
+    string? NewPlan = null,
+    string? NewStatus = null,
     int? MaxStudentsLimit = null,
     int? MaxBranchesLimit = null
 );
@@ -888,7 +898,8 @@ public record CreateRoleDto(
     string Name,
     string? Description,
     bool IsActive,
-    List<RolePermissionDto>? Permissions
+    List<RolePermissionDto>? Permissions,
+    Guid? TenantId = null
 );
 
 public record UserDto(

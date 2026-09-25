@@ -22,15 +22,28 @@ public class RolesController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<RoleDto>>> GetRoles()
+    public async Task<ActionResult<IEnumerable<RoleDto>>> GetRoles([FromQuery] Guid? tenantId = null)
     {
-        var roles = await _dbContext.Roles
+        var isSuperAdmin = string.Equals(_currentUser.UserRole, "SuperAdmin", StringComparison.OrdinalIgnoreCase);
+
+        IQueryable<RoleEntity> rolesQuery = _dbContext.Roles;
+        if (isSuperAdmin && tenantId.HasValue && tenantId.Value != Guid.Empty)
+        {
+            rolesQuery = _dbContext.Roles.IgnoreQueryFilters().Where(r => r.TenantId == tenantId.Value);
+        }
+
+        var roles = await rolesQuery
             .AsNoTracking()
             .Include(r => r.RolePermissions)
             .ThenInclude(rp => rp.MenuItem)
+            .OrderBy(r => r.Name)
             .ToListAsync();
 
-        var userCounts = await _dbContext.Users
+        var usersQuery = isSuperAdmin && tenantId.HasValue && tenantId.Value != Guid.Empty
+            ? _dbContext.Users.IgnoreQueryFilters().Where(u => u.TenantId == tenantId.Value)
+            : _dbContext.Users;
+
+        var userCounts = await usersQuery
             .AsNoTracking()
             .Where(u => u.RoleId != null)
             .GroupBy(u => u.RoleId!.Value)
@@ -119,9 +132,14 @@ public class RolesController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<RoleDto>> CreateRole([FromBody] CreateRoleDto dto)
     {
+        var isSuperAdmin = string.Equals(_currentUser.UserRole, "SuperAdmin", StringComparison.OrdinalIgnoreCase);
+        var targetTenantId = (isSuperAdmin && dto.TenantId.HasValue && dto.TenantId.Value != Guid.Empty)
+            ? dto.TenantId.Value
+            : _currentUser.TenantId;
+
         var role = new RoleEntity
         {
-            TenantId = _currentUser.TenantId,
+            TenantId = targetTenantId,
             Name = dto.Name,
             Description = dto.Description,
             IsActive = dto.IsActive

@@ -7,10 +7,14 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatDialogModule } from '@angular/material/dialog';
+import { MatDialogModule, MatDialog } from '@angular/material/dialog';
+import { MatSelectModule } from '@angular/material/select';
 import { RouterModule } from '@angular/router';
-import { TenantService, MySubscriptionDto } from '../../core/services/tenant.service';
+import { TenantService, MySubscriptionDto, TenantDto } from '../../core/services/tenant.service';
 import { AuthService } from '../../core/services/auth.service';
+import { SubscriptionRenewalDialogComponent } from './subscription-renewal-dialog.component';
+import { ManageSubscriptionDialogComponent } from './manage-subscription-dialog.component';
+import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 
 @Component({
   selector: 'app-subscription',
@@ -25,6 +29,7 @@ import { AuthService } from '../../core/services/auth.service';
     MatTooltipModule,
     MatProgressSpinnerModule,
     MatDialogModule,
+    MatSelectModule,
     RouterModule
   ],
   template: `
@@ -45,11 +50,35 @@ import { AuthService } from '../../core/services/auth.service';
         </div>
 
         <div class="header-actions" *ngIf="isSuperAdmin">
-          <a mat-raised-button color="primary" routerLink="/admin/tenants" class="manage-tenants-btn">
-            <mat-icon>settings_suggest</mat-icon>
-            <span>Super Admin Tenant Console</span>
+          <button mat-raised-button color="primary" class="superadmin-manage-btn" (click)="openSuperAdminManageDialog()">
+            <mat-icon>verified</mat-icon>
+            <span>Manage &amp; Extend Plan</span>
+          </button>
+          <a mat-stroked-button color="primary" routerLink="/admin/tenants" class="manage-tenants-btn">
+            <mat-icon>corporate_fare</mat-icon>
+            <span>Tenants Grid</span>
           </a>
         </div>
+      </div>
+
+      <!-- SuperAdmin Scope Selector (View & Manage Any Institute) -->
+      <div *ngIf="isSuperAdmin && tenants.length > 0" class="scope-selector-card mat-elevation-z1">
+        <div class="scope-label-side">
+          <mat-icon class="scope-icon">swap_horizontal_circle</mat-icon>
+          <div>
+            <strong>SuperAdmin Scope: Inspect &amp; Extend Any Institute</strong>
+            <p>Select institute to check expiry countdown, upgrade to Premium, or add 15 days, 1 month, 2 months.</p>
+          </div>
+        </div>
+        <mat-form-field appearance="outline" class="scope-select-field" subscriptSizing="dynamic">
+          <mat-label>Select Institute to Manage</mat-label>
+          <mat-select [value]="selectedTenantId" (selectionChange)="onTenantScopeChange($event.value)">
+            <mat-option [value]="null">🏢 Current Institute / Platform Console</mat-option>
+            <mat-option *ngFor="let t of tenants" [value]="t.id">
+              🏫 {{ t.name }} ({{ t.code }})
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
       </div>
 
       <!-- Loading State -->
@@ -58,8 +87,30 @@ import { AuthService } from '../../core/services/auth.service';
       </div>
 
       <div *ngIf="!loading && subData" class="content-body">
+
+        <!-- Subscription Expired / Locked Alert Notice -->
+        <div *ngIf="isExpired" class="expired-alert-card mat-elevation-z2">
+          <div class="alert-icon-box danger">
+            <mat-icon>lock_clock</mat-icon>
+          </div>
+          <div class="alert-content">
+            <div class="alert-title-row">
+              <h4>Subscription Expired / Free Trial Concluded</h4>
+              <span class="expiry-date-badge danger" *ngIf="subData.trialEndDate">
+                Concluded on {{ subData.trialEndDate | date:'mediumDate' }}
+              </span>
+            </div>
+            <p>
+              Your institute's trial period or subscription has ended. Routine operations and feature access are currently locked. Renew your plan or select an upgraded edition to resume immediate access.
+            </p>
+          </div>
+          <button mat-raised-button color="warn" class="upgrade-btn danger" (click)="openRenewalDialog()">
+            <mat-icon>credit_score</mat-icon>
+            <span>Renew Plan Now</span>
+          </button>
+        </div>
         
-        <!-- Trial Alert Notice (if FreeTrial) -->
+        <!-- Trial Alert Notice (if FreeTrial and active) -->
         <div *ngIf="isTrial" class="trial-alert-card mat-elevation-z1">
           <div class="alert-icon-box">
             <mat-icon>hourglass_top</mat-icon>
@@ -79,7 +130,7 @@ import { AuthService } from '../../core/services/auth.service';
           </button>
         </div>
 
-        <!-- 3-Column Plan Overview Metrics -->
+        <!-- 4-Column Plan Overview Metrics with Expiry Countdown -->
         <div class="metrics-grid">
           
           <!-- Plan Info Card -->
@@ -93,6 +144,36 @@ import { AuthService } from '../../core/services/auth.service';
               <div class="card-icon-bubble">
                 <mat-icon>workspace_premium</mat-icon>
               </div>
+            </div>
+          </mat-card>
+
+          <!-- Subscription Validity & Expiry Countdown Card -->
+          <mat-card class="metric-card countdown-card" [class.urgent]="trialDaysRemaining <= 10 && !isExpired" [class.expired]="isExpired">
+            <div class="card-inner">
+              <div class="metric-meta">
+                <span class="metric-title">Subscription Validity</span>
+                <span class="metric-highlight" *ngIf="!isExpired">
+                  {{ trialDaysRemaining }} <small>Days Left</small>
+                </span>
+                <span class="metric-highlight danger" *ngIf="isExpired">
+                  EXPIRED <small>(0 Days)</small>
+                </span>
+                <span class="metric-sub" *ngIf="subData.trialEndDate">
+                  Valid until {{ subData.trialEndDate | date:'mediumDate' }}
+                </span>
+                <span class="metric-sub" *ngIf="!subData.trialEndDate">
+                  Continuous / Permanent Plan
+                </span>
+              </div>
+              <div class="card-icon-bubble" [ngClass]="isExpired ? 'danger' : (trialDaysRemaining <= 10 ? 'amber' : 'emerald')">
+                <mat-icon>{{ isExpired ? 'error' : (trialDaysRemaining <= 10 ? 'alarm' : 'schedule') }}</mat-icon>
+              </div>
+            </div>
+            <div class="countdown-footer" *ngIf="isSuperAdmin">
+              <button mat-button color="primary" class="quick-extend-link" (click)="openSuperAdminManageDialog()">
+                <mat-icon>add_alarm</mat-icon>
+                <span>Extend (+15d / +1m / +2m)</span>
+              </button>
             </div>
           </mat-card>
 
@@ -448,10 +529,131 @@ import { AuthService } from '../../core/services/auth.service';
       }
     }
 
-    /* 3-Column Metrics */
+    .expired-alert-card {
+      background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%);
+      border: 1px solid #fecdd3;
+      border-radius: 12px;
+      padding: 18px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      flex-wrap: wrap;
+
+      .alert-icon-box.danger {
+        background: #e11d48;
+        color: #ffffff;
+        border-radius: 12px;
+        width: 48px;
+        height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 8px -2px rgba(225,29,72,0.3);
+        flex-shrink: 0;
+        mat-icon { font-size: 26px; width: 26px; height: 26px; }
+      }
+
+      .alert-content {
+        flex: 1;
+        min-width: 260px;
+
+        .alert-title-row {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          margin-bottom: 4px;
+
+          h4 {
+            margin: 0;
+            font-size: 1.15rem;
+            font-weight: 800;
+            color: #9f1239;
+          }
+
+          .expiry-date-badge.danger {
+            font-size: 0.78rem;
+            font-weight: 700;
+            background: #fda4af;
+            color: #881337;
+            padding: 2px 8px;
+            border-radius: 6px;
+          }
+        }
+
+        p {
+          margin: 0;
+          font-size: 0.86rem;
+          color: #be123c;
+          line-height: 1.45;
+          font-weight: 500;
+        }
+      }
+
+      .upgrade-btn.danger {
+        background: #e11d48 !important;
+        color: #ffffff !important;
+        font-weight: 700;
+        height: 42px;
+        border-radius: 8px;
+        padding: 0 20px;
+        box-shadow: 0 4px 10px rgba(225,29,72,0.3);
+      }
+    }
+
+    .superadmin-manage-btn {
+      background: #2563eb !important;
+      color: #ffffff !important;
+      font-weight: 700;
+      height: 40px;
+      border-radius: 8px;
+      box-shadow: 0 4px 10px rgba(37,99,235,0.25);
+    }
+
+    .scope-selector-card {
+      background: #ffffff;
+      border: 1px solid #bfdbfe;
+      border-radius: 12px;
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+
+      .scope-label-side {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+
+        .scope-icon {
+          color: #2563eb;
+          font-size: 28px;
+          width: 28px;
+          height: 28px;
+        }
+
+        strong {
+          color: #1e3a8a;
+          font-size: 0.95rem;
+        }
+
+        p {
+          margin: 2px 0 0;
+          font-size: 0.8rem;
+          color: #64748b;
+        }
+      }
+
+      .scope-select-field {
+        min-width: 320px;
+      }
+    }
+
+    /* 4-Column Metrics */
     .metrics-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
       gap: 20px;
     }
 
@@ -473,6 +675,48 @@ import { AuthService } from '../../core/services/auth.service';
         .metric-highlight { color: #ffffff; }
         .metric-sub { color: #93c5fd; }
         .card-icon-bubble { background: rgba(255, 255, 255, 0.15); color: #ffffff; }
+      }
+
+      &.countdown-card {
+        &.urgent {
+          border-color: #fde68a;
+          background: #fffbeb;
+        }
+        &.expired {
+          border-color: #fecdd3;
+          background: #fff1f2;
+        }
+
+        .card-icon-bubble.amber {
+          background: #fef3c7;
+          color: #d97706;
+        }
+
+        .card-icon-bubble.emerald {
+          background: #dcfce7;
+          color: #15803d;
+        }
+
+        .card-icon-bubble.danger {
+          background: #fee2e2;
+          color: #dc2626;
+        }
+
+        .metric-highlight.danger {
+          color: #dc2626;
+        }
+
+        .countdown-footer {
+          border-top: 1px solid #f1f5f9;
+          padding-top: 8px;
+          display: flex;
+          justify-content: flex-end;
+
+          .quick-extend-link {
+            font-size: 0.8rem;
+            font-weight: 700;
+          }
+        }
       }
 
       .card-inner {
@@ -738,8 +982,17 @@ export class SubscriptionComponent implements OnInit {
     return this.authService.isSuperAdmin();
   }
 
+  private dialog = inject(MatDialog);
+  private confirmDialog = inject(ConfirmDialogService);
+
+  get isExpired(): boolean {
+    return this.subData?.isSubscriptionExpired === true ||
+           this.subData?.subscriptionStatus === 'Expired' ||
+           (this.subData?.subscriptionPlan === 'FreeTrial' && this.trialDaysRemaining <= 0);
+  }
+
   get isTrial(): boolean {
-    return this.subData?.subscriptionPlan === 'FreeTrial' || this.subData?.subscriptionStatus === 'TrialActive';
+    return !this.isExpired && (this.subData?.subscriptionPlan === 'FreeTrial' || this.subData?.subscriptionStatus === 'TrialActive');
   }
 
   get trialDaysRemaining(): number {
@@ -763,13 +1016,23 @@ export class SubscriptionComponent implements OnInit {
     return Math.min(100, Math.round((this.subData.branchCount / this.subData.maxBranchesLimit) * 100));
   }
 
+  tenants: TenantDto[] = [];
+  selectedTenantId: string | null = null;
+
   ngOnInit(): void {
+    if (this.isSuperAdmin) {
+      this.tenantService.getAllTenants().subscribe({
+        next: (list: TenantDto[]) => {
+          this.tenants = list || [];
+        }
+      });
+    }
     this.loadSubscription();
   }
 
-  loadSubscription(): void {
+  loadSubscription(tenantId?: string | null): void {
     this.loading = true;
-    this.tenantService.getMySubscription().subscribe({
+    this.tenantService.getMySubscription(tenantId || undefined).subscribe({
       next: (data) => {
         this.subData = data;
         this.loading = false;
@@ -781,7 +1044,50 @@ export class SubscriptionComponent implements OnInit {
     });
   }
 
+  onTenantScopeChange(tenantId: string | null): void {
+    this.selectedTenantId = tenantId;
+    this.loadSubscription(tenantId);
+  }
+
+  openSuperAdminManageDialog(tier?: string): void {
+    if (!this.subData) return;
+    const dialogRef = this.dialog.open(ManageSubscriptionDialogComponent, {
+      width: '600px',
+      maxWidth: '96vw',
+      data: {
+        ...this.subData,
+        subscriptionPlan: tier || this.subData.subscriptionPlan
+      }
+    });
+
+    dialogRef.afterClosed().subscribe((res) => {
+      if (res?.updated) {
+        this.loadSubscription(this.selectedTenantId);
+        const msg = res?.res?.message || 'Subscription validity and plan updated successfully!';
+        this.confirmDialog.alert('Subscription Updated', msg, 'success');
+      }
+    });
+  }
+
+  openRenewalDialog(tier = 'Growth'): void {
+    const dialogRef = this.dialog.open(SubscriptionRenewalDialogComponent, {
+      width: '560px',
+      maxWidth: '95vw',
+      data: this.subData
+    });
+
+    dialogRef.afterClosed().subscribe((res) => {
+      if (res?.renewedTier) {
+        this.loadSubscription(this.selectedTenantId);
+      }
+    });
+  }
+
   contactForUpgrade(tier = 'Premium'): void {
-    alert(`To upgrade to ${tier} Plan or expand your student/branch quota, please reach out to your Platform Super Admin or SaaS Support.`);
+    if (this.isSuperAdmin) {
+      this.openSuperAdminManageDialog(tier);
+    } else {
+      this.openRenewalDialog(tier);
+    }
   }
 }

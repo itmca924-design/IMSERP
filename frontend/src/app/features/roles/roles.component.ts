@@ -12,8 +12,11 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatSelectModule } from '@angular/material/select';
 import { RolesService, RoleDto, RolePermissionDto } from '../../core/services/roles.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
+import { AuthService } from '../../core/services/auth.service';
+import { TenantService, TenantDto } from '../../core/services/tenant.service';
 
 interface ModuleGroup {
   moduleName: string;
@@ -49,7 +52,8 @@ interface ModuleHeaderState {
     MatProgressBarModule,
     MatProgressSpinnerModule,
     MatChipsModule,
-    MatTooltipModule
+    MatTooltipModule,
+    MatSelectModule
   ],
   template: `
     <div class="page-container">
@@ -70,6 +74,19 @@ interface ModuleHeaderState {
             <button mat-mini-fab color="primary" (click)="newRoleForm()" title="Create New Role">
               <mat-icon>add</mat-icon>
             </button>
+          </div>
+
+          <!-- SuperAdmin Tenant Scope Selector -->
+          <div *ngIf="isSuperAdmin && tenants.length > 0" class="tenant-scope-wrapper">
+            <mat-form-field appearance="outline" class="tenant-scope-field" subscriptSizing="dynamic">
+              <mat-label>Institute Scope</mat-label>
+              <mat-select [value]="selectedTenantId" (selectionChange)="onTenantFilterChange($event.value)">
+                <mat-option [value]="null">🏢 All / Platform Console Template</mat-option>
+                <mat-option *ngFor="let t of tenants" [value]="t.id">
+                  🏫 {{ t.name }} ({{ t.code }})
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
           </div>
 
           <div class="role-list">
@@ -266,6 +283,12 @@ interface ModuleHeaderState {
         .card-title {
           margin: 0;
           font-weight: 700;
+        }
+      }
+      .tenant-scope-wrapper {
+        margin-bottom: 14px;
+        .tenant-scope-field {
+          width: 100%;
         }
       }
     }
@@ -482,24 +505,43 @@ export class RolesComponent implements OnInit {
   saving = false;
   isNewRole = false;
 
+  tenants: TenantDto[] = [];
+  selectedTenantId: string | null = null;
+
+  get isSuperAdmin(): boolean {
+    return this.authService.isSuperAdmin();
+  }
+
   constructor(
     private fb: FormBuilder,
     private rolesService: RolesService,
-    private confirmDialog: ConfirmDialogService
+    private confirmDialog: ConfirmDialogService,
+    readonly authService: AuthService,
+    private tenantService: TenantService
   ) {}
 
   ngOnInit(): void {
+    if (this.isSuperAdmin) {
+      this.tenantService.getAllTenants().subscribe({
+        next: (list: TenantDto[]) => {
+          this.tenants = list || [];
+        }
+      });
+    }
     this.loadRoles();
   }
 
-  loadRoles(): void {
+  loadRoles(tenantId?: string | null): void {
     this.loading = true;
-    this.rolesService.getRoles().subscribe({
+    this.rolesService.getRoles(tenantId || undefined).subscribe({
       next: (data) => {
         this.roles = data;
         this.loading = false;
-        if (data.length > 0 && !this.selectedRole) {
+        if (data.length > 0) {
           this.selectRole(data[0]);
+        } else {
+          this.selectedRole = undefined;
+          this.roleForm = undefined as any;
         }
       },
       error: (err) => {
@@ -507,6 +549,12 @@ export class RolesComponent implements OnInit {
         console.error('Error fetching roles:', err);
       }
     });
+  }
+
+  onTenantFilterChange(tenantId: string | null): void {
+    this.selectedTenantId = tenantId;
+    this.selectedRole = undefined;
+    this.loadRoles(tenantId);
   }
 
   selectRole(role: RoleDto): void {
@@ -661,10 +709,14 @@ export class RolesComponent implements OnInit {
     const roleName = formVal.name?.trim() || 'Role';
 
     if (this.isNewRole) {
-      this.rolesService.createRole(formVal).subscribe({
+      const payload = {
+        ...formVal,
+        tenantId: this.isSuperAdmin && this.selectedTenantId ? this.selectedTenantId : undefined
+      };
+      this.rolesService.createRole(payload).subscribe({
         next: (created) => {
           this.saving = false;
-          this.loadRoles();
+          this.loadRoles(this.selectedTenantId);
           this.selectRole(created);
           this.confirmDialog.alert(
             'Role Created Successfully!',
@@ -685,7 +737,7 @@ export class RolesComponent implements OnInit {
       this.rolesService.updateRole(formVal.id, formVal).subscribe({
         next: () => {
           this.saving = false;
-          this.loadRoles();
+          this.loadRoles(this.selectedTenantId);
           this.confirmDialog.alert(
             'Permissions Saved Successfully!',
             `Hierarchical permissions and settings for role "${roleName}" have been saved successfully.`,

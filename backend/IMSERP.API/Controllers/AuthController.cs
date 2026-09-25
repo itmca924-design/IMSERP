@@ -95,6 +95,17 @@ public class AuthController : ControllerBase
             trialDaysLeft = Math.Max(0, diff);
         }
 
+        bool isExpired = user.Role != UserRole.SuperAdmin &&
+                         (string.Equals(tenant.SubscriptionStatus, "Expired", StringComparison.OrdinalIgnoreCase) ||
+                          (string.Equals(tenant.SubscriptionPlan, "FreeTrial", StringComparison.OrdinalIgnoreCase) &&
+                           tenant.TrialEndDate.HasValue && tenant.TrialEndDate.Value.Date < DateTime.UtcNow.Date));
+
+        if (isExpired && tenant.SubscriptionStatus != "Expired")
+        {
+            tenant.SubscriptionStatus = "Expired";
+            await _dbContext.SaveChangesAsync();
+        }
+
         return Ok(new LoginResponseDto(
             Token: accessToken,
             RefreshToken: refreshToken,
@@ -119,7 +130,8 @@ public class AuthController : ControllerBase
             SubscriptionStatus: tenant.SubscriptionStatus ?? "TrialActive",
             TrialDaysLeft: trialDaysLeft,
             MaxStudentsLimit: tenant.MaxStudentsLimit,
-            MaxBranchesLimit: tenant.MaxBranchesLimit
+            MaxBranchesLimit: tenant.MaxBranchesLimit,
+            IsSubscriptionExpired: isExpired
         ));
     }
 
@@ -188,6 +200,17 @@ public class AuthController : ControllerBase
             trialDaysLeft = Math.Max(0, diff);
         }
 
+        bool isExpired = user.Role != UserRole.SuperAdmin && tenant != null &&
+                         (string.Equals(tenant.SubscriptionStatus, "Expired", StringComparison.OrdinalIgnoreCase) ||
+                          (string.Equals(tenant.SubscriptionPlan, "FreeTrial", StringComparison.OrdinalIgnoreCase) &&
+                           tenant.TrialEndDate.HasValue && tenant.TrialEndDate.Value.Date < DateTime.UtcNow.Date));
+
+        if (isExpired && tenant != null && tenant.SubscriptionStatus != "Expired")
+        {
+            tenant.SubscriptionStatus = "Expired";
+            await _dbContext.SaveChangesAsync();
+        }
+
         return Ok(new LoginResponseDto(
             Token: newAccessToken,
             RefreshToken: newRefreshToken,
@@ -212,7 +235,8 @@ public class AuthController : ControllerBase
             SubscriptionStatus: tenant?.SubscriptionStatus ?? "TrialActive",
             TrialDaysLeft: trialDaysLeft,
             MaxStudentsLimit: tenant?.MaxStudentsLimit ?? 50,
-            MaxBranchesLimit: tenant?.MaxBranchesLimit ?? 2
+            MaxBranchesLimit: tenant?.MaxBranchesLimit ?? 2,
+            IsSubscriptionExpired: isExpired
         ));
     }
 

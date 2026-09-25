@@ -185,10 +185,14 @@ public class TenantsController : ControllerBase
     }
 
     [HttpGet("my-subscription")]
-    public async Task<ActionResult> GetMySubscription()
+    public async Task<ActionResult> GetMySubscription([FromQuery] Guid? tenantId = null)
     {
-        var tenantId = _currentUser.TenantId;
-        var tenant = await _dbContext.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.Id == tenantId);
+        var isSuperAdmin = string.Equals(_currentUser.UserRole, "SuperAdmin", StringComparison.OrdinalIgnoreCase);
+        var targetTenantId = (isSuperAdmin && tenantId.HasValue && tenantId.Value != Guid.Empty)
+            ? tenantId.Value
+            : _currentUser.TenantId;
+
+        var tenant = await _dbContext.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.Id == targetTenantId);
         if (tenant == null) return NotFound(new { message = "Institute not found." });
 
         var studentCount = await _dbContext.Students.IgnoreQueryFilters().CountAsync(s => s.TenantId == tenant.Id);
@@ -201,13 +205,28 @@ public class TenantsController : ControllerBase
             trialDaysLeft = Math.Max(0, diff);
         }
 
+        bool isExpired = !isSuperAdmin &&
+                         (string.Equals(tenant.SubscriptionStatus, "Expired", StringComparison.OrdinalIgnoreCase) ||
+                          (string.Equals(tenant.SubscriptionPlan, "FreeTrial", StringComparison.OrdinalIgnoreCase) &&
+                           tenant.TrialEndDate.HasValue && tenant.TrialEndDate.Value.Date < DateTime.UtcNow.Date));
+
+        if (isExpired && tenant.SubscriptionStatus != "Expired")
+        {
+            var trackedTenant = await _dbContext.Tenants.FirstOrDefaultAsync(t => t.Id == targetTenantId);
+            if (trackedTenant != null)
+            {
+                trackedTenant.SubscriptionStatus = "Expired";
+                await _dbContext.SaveChangesAsync();
+            }
+        }
+
         return Ok(new
         {
             tenantId = tenant.Id,
             instituteName = tenant.Name,
             tenantCode = tenant.Code,
             subscriptionPlan = tenant.SubscriptionPlan,
-            subscriptionStatus = tenant.SubscriptionStatus,
+            subscriptionStatus = isExpired ? "Expired" : tenant.SubscriptionStatus,
             trialStartDate = tenant.TrialStartDate,
             trialEndDate = tenant.TrialEndDate,
             paidUntil = tenant.PaidUntil,
@@ -221,7 +240,76 @@ public class TenantsController : ControllerBase
             hasHostelModule = tenant.HasHostelModule,
             hasLibraryModule = tenant.HasLibraryModule,
             hasTransportModule = tenant.HasTransportModule,
-            licensedModules = tenant.LicensedModules
+            licensedModules = tenant.LicensedModules,
+            isSubscriptionExpired = isExpired
+        });
+    }
+
+    [HttpPost("{id}/extend-subscription")]
+    public async Task<ActionResult> ExtendSubscription(Guid id, [FromBody] ExtendSubscriptionDto dto)
+    {
+        var isSuperAdmin = string.Equals(_currentUser.UserRole, nameof(UserRole.SuperAdmin), StringComparison.OrdinalIgnoreCase);
+        if (!isSuperAdmin)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "Only SuperAdmin can extend subscriptions." });
+        }
+
+        var tenant = await _dbContext.Tenants.FirstOrDefaultAsync(t => t.Id == id);
+        if (tenant == null) return NotFound(new { message = "Institute not found." });
+
+        DateTime baseDate = tenant.TrialEndDate.HasValue && tenant.TrialEndDate.Value > DateTime.UtcNow
+            ? tenant.TrialEndDate.Value
+            : DateTime.UtcNow;
+
+        if (dto.DaysToAdd.HasValue && dto.DaysToAdd.Value > 0)
+        {
+            tenant.TrialEndDate = baseDate.AddDays(dto.DaysToAdd.Value);
+            tenant.PaidUntil = baseDate.AddDays(dto.DaysToAdd.Value);
+        }
+        else if (dto.NewEndDate.HasValue)
+        {
+            tenant.TrialEndDate = dto.NewEndDate.Value;
+            tenant.PaidUntil = dto.NewEndDate.Value;
+        }
+
+        if (!string.IsNullOrWhiteSpace(dto.NewPlan))
+        {
+            tenant.SubscriptionPlan = dto.NewPlan;
+        }
+
+        if (!string.IsNullOrWhiteSpace(dto.NewStatus))
+        {
+            tenant.SubscriptionStatus = dto.NewStatus;
+        }
+        else
+        {
+            tenant.SubscriptionStatus = "Active";
+        }
+
+        if (dto.MaxStudentsLimit.HasValue && dto.MaxStudentsLimit.Value > 0)
+        {
+            tenant.MaxStudentsLimit = dto.MaxStudentsLimit.Value;
+        }
+
+        if (dto.MaxBranchesLimit.HasValue && dto.MaxBranchesLimit.Value > 0)
+        {
+            tenant.MaxBranchesLimit = dto.MaxBranchesLimit.Value;
+        }
+
+        await _dbContext.SaveChangesAsync();
+
+        int daysLeft = tenant.TrialEndDate.HasValue
+            ? Math.Max(0, (tenant.TrialEndDate.Value.Date - DateTime.UtcNow.Date).Days)
+            : 0;
+
+        return Ok(new
+        {
+            message = $"Subscription extended successfully for {tenant.Name}.",
+            subscriptionPlan = tenant.SubscriptionPlan,
+            subscriptionStatus = tenant.SubscriptionStatus,
+            trialEndDate = tenant.TrialEndDate,
+            paidUntil = tenant.PaidUntil,
+            trialDaysLeft = daysLeft
         });
     }
 

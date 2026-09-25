@@ -434,12 +434,99 @@ using (var scope = app.Services.CreateScope())
             Console.WriteLine("[Database] Demo user passwords automatically hashed and saved to SQL Server.");
         }
 
-        // Auto-seed 'HR' Role for every tenant that doesn't have one yet
+        // Auto-seed Standard Roles ('Institute Admin', 'Accountant', 'Teacher', 'HR', 'Front Desk / Receptionist') for every tenant
         var allTenantIds = context.Tenants.Select(t => t.Id).ToList();
         foreach (var tenantId in allTenantIds)
         {
-            var hrRoleExists = context.Roles.Any(r => r.TenantId == tenantId && r.Name == "HR");
-            if (!hrRoleExists)
+            // 1. Institute Admin
+            if (!context.Roles.Any(r => r.TenantId == tenantId && r.Name == "Institute Admin"))
+            {
+                var role = new IMSERP.Domain.Entities.RoleEntity
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    Name = "Institute Admin",
+                    Description = "Principal / Center Director — full administrative access to master setup, academics, faculty, finance, attendance and institute settings.",
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                };
+                context.Roles.Add(role);
+                context.SaveChanges();
+
+                var allMenus = context.MenuItems.Where(m => m.IsActive).ToList();
+                foreach (var m in allMenus)
+                {
+                    context.RolePermissions.Add(new IMSERP.Domain.Entities.RolePermission
+                    {
+                        Id = Guid.NewGuid(),
+                        RoleId = role.Id,
+                        MenuItemId = m.Id,
+                        CanView = true, CanCreate = true, CanEdit = true, CanDelete = true
+                    });
+                }
+                context.SaveChanges();
+            }
+
+            // 2. Accountant
+            if (!context.Roles.Any(r => r.TenantId == tenantId && r.Name == "Accountant"))
+            {
+                var role = new IMSERP.Domain.Entities.RoleEntity
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    Name = "Accountant",
+                    Description = "Accounts & Fee Manager — handles student fee collection, invoice receipts, fee heads master, expense vouchers, accounting ledger and financial reports.",
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                };
+                context.Roles.Add(role);
+                context.SaveChanges();
+
+                var accRoutes = new[] { "/dashboard", "/school/classes", "/batches", "/students", "/fees", "/fee-heads", "/whatsapp", "/finance/profit-loss", "/finance/balance-sheet", "/finance/expenses", "/finance/chart-of-accounts", "/attendance/reports" };
+                var accMenus = context.MenuItems.Where(m => accRoutes.Contains(m.RouteUrl)).ToList();
+                foreach (var m in accMenus)
+                {
+                    context.RolePermissions.Add(new IMSERP.Domain.Entities.RolePermission
+                    {
+                        Id = Guid.NewGuid(), RoleId = role.Id, MenuItemId = m.Id,
+                        CanView = true, CanCreate = true, CanEdit = true, CanDelete = true
+                    });
+                }
+                context.SaveChanges();
+            }
+
+            // 3. Teacher
+            if (!context.Roles.Any(r => r.TenantId == tenantId && r.Name == "Teacher"))
+            {
+                var role = new IMSERP.Domain.Entities.RoleEntity
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    Name = "Teacher",
+                    Description = "Faculty Member — batch lecture assignments, daily lesson diary, faculty attendance, student test marks, exam management and proxy substitution.",
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                };
+                context.Roles.Add(role);
+                context.SaveChanges();
+
+                var teacherRoutes = new[] { "/dashboard", "/school/classes", "/batches", "/rooms", "/subjects", "/students", "/holidays", "/attendance/reports", "/teachers/assignments", "/teachers/attendance", "/teachers/substitution", "/teachers/lesson-plans", "/teachers/reports", "/school/exams", "/tests" };
+                var teacherMenus = context.MenuItems.Where(m => teacherRoutes.Contains(m.RouteUrl)).ToList();
+                foreach (var m in teacherMenus)
+                {
+                    bool canCreate = m.RouteUrl == "/teachers/lesson-plans" || m.RouteUrl == "/tests" || m.RouteUrl == "/teachers/attendance";
+                    bool canEdit = canCreate || m.RouteUrl == "/school/exams" || m.RouteUrl == "/teachers/substitution";
+                    context.RolePermissions.Add(new IMSERP.Domain.Entities.RolePermission
+                    {
+                        Id = Guid.NewGuid(), RoleId = role.Id, MenuItemId = m.Id,
+                        CanView = true, CanCreate = canCreate, CanEdit = canEdit, CanDelete = false
+                    });
+                }
+                context.SaveChanges();
+            }
+
+            // 4. HR
+            if (!context.Roles.Any(r => r.TenantId == tenantId && r.Name == "HR"))
             {
                 var hrRole = new IMSERP.Domain.Entities.RoleEntity
                 {
@@ -453,7 +540,6 @@ using (var scope = app.Services.CreateScope())
                 context.Roles.Add(hrRole);
                 context.SaveChanges();
 
-                // Assign HR role permissions to relevant menu items
                 var hrAllowedRoutes = new[]
                 {
                     "/teachers", "/teachers/assignments", "/teachers/attendance",
@@ -464,29 +550,77 @@ using (var scope = app.Services.CreateScope())
                     "/attendance/permissions/manual", "/attendance/permissions/correction"
                 };
 
-                var hrMenuItems = context.MenuItems
-                    .Where(m => hrAllowedRoutes.Contains(m.RouteUrl))
-                    .ToList();
-
+                var hrMenuItems = context.MenuItems.Where(m => hrAllowedRoutes.Contains(m.RouteUrl)).ToList();
                 foreach (var menuItem in hrMenuItems)
                 {
-                    var alreadyHas = context.RolePermissions.Any(rp => rp.RoleId == hrRole.Id && rp.MenuItemId == menuItem.Id);
-                    if (!alreadyHas)
+                    context.RolePermissions.Add(new IMSERP.Domain.Entities.RolePermission
                     {
-                        context.RolePermissions.Add(new IMSERP.Domain.Entities.RolePermission
-                        {
-                            Id = Guid.NewGuid(),
-                            RoleId = hrRole.Id,
-                            MenuItemId = menuItem.Id,
-                            CanView = true,
-                            CanCreate = true,
-                            CanEdit = true,
-                            CanDelete = true
-                        });
-                    }
+                        Id = Guid.NewGuid(), RoleId = hrRole.Id, MenuItemId = menuItem.Id,
+                        CanView = true, CanCreate = true, CanEdit = true, CanDelete = true
+                    });
                 }
                 context.SaveChanges();
-                Console.WriteLine($"[Database] Auto-seeded 'HR' role for tenant {tenantId} with Teacher Module permissions.");
+            }
+
+            // 5. Front Desk / Receptionist
+            if (!context.Roles.Any(r => r.TenantId == tenantId && r.Name == "Front Desk / Receptionist"))
+            {
+                var role = new IMSERP.Domain.Entities.RoleEntity
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    Name = "Front Desk / Receptionist",
+                    Description = "Front Desk & Admissions — student inquiries, new admission registration, fee desk collection, WhatsApp notices and attendance verification.",
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                };
+                context.Roles.Add(role);
+                context.SaveChanges();
+
+                var fdRoutes = new[] { "/dashboard", "/school/classes", "/batches", "/students", "/holidays", "/fees", "/whatsapp", "/attendance/reports" };
+                var fdMenus = context.MenuItems.Where(m => fdRoutes.Contains(m.RouteUrl)).ToList();
+                foreach (var m in fdMenus)
+                {
+                    bool canCreate = m.RouteUrl == "/students" || m.RouteUrl == "/fees" || m.RouteUrl == "/whatsapp";
+                    bool canEdit = m.RouteUrl == "/students" || m.RouteUrl == "/fees";
+                    context.RolePermissions.Add(new IMSERP.Domain.Entities.RolePermission
+                    {
+                        Id = Guid.NewGuid(), RoleId = role.Id, MenuItemId = m.Id,
+                        CanView = true, CanCreate = canCreate, CanEdit = canEdit, CanDelete = false
+                    });
+                }
+                context.SaveChanges();
+            }
+        }
+
+        // Auto-seed 'Subscription & Plan' MenuItem under Admin Settings
+        var adminSettingsParent = context.MenuItems.FirstOrDefault(m => m.Title == "Admin Settings" && m.ParentId == null);
+        if (adminSettingsParent != null)
+        {
+            var subMenu = context.MenuItems.FirstOrDefault(m => m.RouteUrl == "/subscription");
+            if (subMenu == null)
+            {
+                context.MenuItems.Add(new IMSERP.Domain.Entities.MenuItem
+                {
+                    Id = Guid.NewGuid(),
+                    Title = "Subscription & Plan",
+                    RouteUrl = "/subscription",
+                    Icon = "workspace_premium",
+                    ParentId = adminSettingsParent.Id,
+                    SortOrder = 5,
+                    Module = "Admin",
+                    IsActive = true
+                });
+                context.SaveChanges();
+                Console.WriteLine("[Database] Auto-seeded 'Subscription & Plan' under Admin Settings.");
+            }
+
+            var bioMenu = context.MenuItems.FirstOrDefault(m => m.RouteUrl == "/attendance/devices");
+            if (bioMenu != null && bioMenu.ParentId != adminSettingsParent.Id)
+            {
+                bioMenu.ParentId = adminSettingsParent.Id;
+                bioMenu.SortOrder = 3;
+                context.SaveChanges();
             }
         }
 
