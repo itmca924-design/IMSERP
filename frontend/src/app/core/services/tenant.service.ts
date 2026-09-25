@@ -2,6 +2,14 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
+export interface TenantModulesDto {
+  hasSchoolModule: boolean;
+  hasCoachingModule: boolean;
+  hasHostelModule: boolean;
+  hasLibraryModule: boolean;
+  hasTransportModule: boolean;
+}
+
 export interface TenantDto {
   id: string;
   name: string;
@@ -14,6 +22,11 @@ export interface TenantDto {
   createdAt: string;
   studentCount: number;
   batchCount: number;
+  hasSchoolModule?: boolean;
+  hasCoachingModule?: boolean;
+  hasHostelModule?: boolean;
+  hasLibraryModule?: boolean;
+  hasTransportModule?: boolean;
 }
 
 export interface CreateBranchItemDto {
@@ -36,6 +49,11 @@ export interface CreateTenantDto {
   adminPassword: string;
   adminFullName: string;
   branches?: CreateBranchItemDto[];
+  hasSchoolModule?: boolean;
+  hasCoachingModule?: boolean;
+  hasHostelModule?: boolean;
+  hasLibraryModule?: boolean;
+  hasTransportModule?: boolean;
 }
 
 export interface UpdateTenantDto {
@@ -45,6 +63,11 @@ export interface UpdateTenantDto {
   profilePhoto?: string | null;
   whatsAppPhoneId?: string | null;
   whatsAppAccessToken?: string | null;
+  hasSchoolModule?: boolean;
+  hasCoachingModule?: boolean;
+  hasHostelModule?: boolean;
+  hasLibraryModule?: boolean;
+  hasTransportModule?: boolean;
 }
 
 @Injectable({
@@ -73,6 +96,10 @@ export class TenantService {
 
   updateTenant(id: string, dto: UpdateTenantDto): Observable<any> {
     return this.http.put(`${this.API_URL}/${id}`, dto);
+  }
+
+  updateTenantModules(id: string, dto: TenantModulesDto): Observable<any> {
+    return this.http.put(`${this.API_URL}/${id}/modules`, dto);
   }
 
   toggleTenantStatus(id: string): Observable<any> {

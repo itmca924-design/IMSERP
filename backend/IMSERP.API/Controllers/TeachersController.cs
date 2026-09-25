@@ -2,7 +2,9 @@ using IMSERP.Application.DTOs;
 using IMSERP.Application.Interfaces;
 using IMSERP.Domain.Entities;
 using IMSERP.Domain.Enums;
+using IMSERP.API.Helpers;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -16,12 +18,14 @@ public class TeachersController : ControllerBase
     private readonly IIMSERPDbContext _db;
     private readonly ICurrentUserService _currentUser;
     private readonly IPasswordHasherService _passwordHasher;
+    private readonly IWebHostEnvironment _env;
 
-    public TeachersController(IIMSERPDbContext db, ICurrentUserService currentUser, IPasswordHasherService passwordHasher)
+    public TeachersController(IIMSERPDbContext db, ICurrentUserService currentUser, IPasswordHasherService passwordHasher, IWebHostEnvironment env)
     {
         _db = db;
         _currentUser = currentUser;
         _passwordHasher = passwordHasher;
+        _env = env;
     }
 
     // ─── Helper ──────────────────────────────────────────────
@@ -32,7 +36,17 @@ public class TeachersController : ControllerBase
         t.WhatsAppPhone, t.Email, t.Address, t.PhotoUrl,
         t.JoiningDate, t.LeavingDate, t.IsActive, t.CreatedAt, batchCount,
         t.BranchId, t.Branch?.Name,
-        t.UserId, t.User?.Username, t.UserId.HasValue);
+        t.UserId, t.User?.Username, t.UserId.HasValue,
+        t.IsTransportStaff, t.TransportAllocationId,
+        t.TransportAllocation?.Route?.RouteName,
+        t.TransportAllocation?.Stop?.StopName,
+        t.TransportAllocation?.Vehicle?.VehicleNumber,
+        t.IsHostelResident, t.HostelBedId,
+        t.HostelBed?.Room?.Hostel?.Name,
+        t.HostelBed?.Room?.RoomNumber,
+        t.HostelBed?.BedCode,
+        0, 0,
+        t.StaffType.ToString(), t.Department, t.Designation);
 
     private async Task<bool> CanEditPublicHolidayOrSundayAsync()
     {
@@ -69,11 +83,26 @@ public class TeachersController : ControllerBase
     private async Task<bool> HasAttendancePermissionAsync(string route, bool edit)
     {
         var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
-        if (user?.RoleId == null) return false;
-        return await _db.RolePermissions.AsNoTracking()
+        if (user == null) return false;
+        if (user.Role == IMSERP.Domain.Enums.UserRole.SuperAdmin || user.Role == IMSERP.Domain.Enums.UserRole.InstituteAdmin || user.Role == IMSERP.Domain.Enums.UserRole.HR) return true;
+        if (user.RoleId == null) return false;
+
+        var hasDirect = await _db.RolePermissions.AsNoTracking()
             .Where(permission => permission.RoleId == user.RoleId && (edit ? permission.CanEdit : permission.CanCreate))
             .Join(_db.MenuItems, permission => permission.MenuItemId, menu => menu.Id, (permission, menu) => menu.RouteUrl)
             .AnyAsync(routeUrl => routeUrl == route);
+        if (hasDirect) return true;
+
+        // Fallback: If user has permission on /teachers/attendance, allow manual marking/correction
+        if (route == "/attendance/permissions/manual" || route == "/attendance/permissions/correction")
+        {
+            return await _db.RolePermissions.AsNoTracking()
+                .Where(permission => permission.RoleId == user.RoleId && (edit ? permission.CanEdit : (permission.CanCreate || permission.CanEdit)))
+                .Join(_db.MenuItems, permission => permission.MenuItemId, menu => menu.Id, (permission, menu) => menu.RouteUrl)
+                .AnyAsync(routeUrl => routeUrl == "/teachers/attendance");
+        }
+
+        return false;
     }
 
     // ─── Teacher CRUD ─────────────────────────────────────────
@@ -83,26 +112,27 @@ public class TeachersController : ControllerBase
     /// Format: {TenantCode}-TCH-{001}  e.g. ACA-TCH-003
     /// </summary>
     [HttpGet("next-employee-code")]
-    public async Task<ActionResult<object>> GetNextEmployeeCode()
+    public async Task<ActionResult<object>> GetNextEmployeeCode([FromQuery] string? staffType = null)
     {
         var tenant = await _db.Tenants
             .AsNoTracking()
             .FirstOrDefaultAsync(t => t.Id == _currentUser.TenantId);
 
         var tenantPrefix = (tenant?.Code ?? "TCH").ToUpper();
+        var typePrefix = (string.Equals(staffType, "NonTeaching", StringComparison.OrdinalIgnoreCase) || staffType == "2") ? "STF" : "TCH";
 
         // Count existing teachers for this tenant (already filtered by global query filter)
         var count = await _db.Teachers.CountAsync();
         var nextNumber = count + 1;
 
-        // Generate code: ACA-TCH-001
-        var code = $"{tenantPrefix}-TCH-{nextNumber:D3}";
+        // Generate code: e.g. ACA-TCH-001 or ACA-STF-001
+        var code = $"{tenantPrefix}-{typePrefix}-{nextNumber:D3}";
 
         // Make sure this code doesn't already exist (loop until unique)
         while (await _db.Teachers.AnyAsync(t => t.EmployeeCode == code))
         {
             nextNumber++;
-            code = $"{tenantPrefix}-TCH-{nextNumber:D3}";
+            code = $"{tenantPrefix}-{typePrefix}-{nextNumber:D3}";
         }
 
         return Ok(new { code });
@@ -139,7 +169,7 @@ public class TeachersController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<TeacherDto>>> GetTeachers([FromQuery] bool activeOnly = false)
+    public async Task<ActionResult<IEnumerable<TeacherDto>>> GetTeachers([FromQuery] bool activeOnly = false, [FromQuery] string? staffType = null)
     {
         var q = _db.Teachers.AsNoTracking()
             .Include(t => t.BatchAssignments)
@@ -152,6 +182,14 @@ public class TeachersController : ControllerBase
                 .Where(s => s.Status == "Settled")
                 .Select(s => s.TeacherId);
             q = q.Where(t => t.IsActive && !settledTeacherIds.Contains(t.Id));
+        }
+
+        if (!string.IsNullOrWhiteSpace(staffType) && !string.Equals(staffType, "All", StringComparison.OrdinalIgnoreCase))
+        {
+            if (Enum.TryParse<StaffType>(staffType, true, out var parsedStaffType))
+            {
+                q = q.Where(t => t.StaffType == parsedStaffType);
+            }
         }
 
         // Pehle DB se raw data lo, phir C# mein map karo (EF Core translation issue avoid)
@@ -167,7 +205,8 @@ public class TeachersController : ControllerBase
         [FromQuery] string? searchTerm = null,
         [FromQuery] string? sortBy = "fullName",
         [FromQuery] bool sortDescending = false,
-        [FromQuery] bool? isActive = null)
+        [FromQuery] bool? isActive = null,
+        [FromQuery] string? staffType = null)
     {
         var q = _db.Teachers.AsNoTracking()
             .Include(t => t.BatchAssignments)
@@ -187,12 +226,22 @@ public class TeachersController : ControllerBase
             }
         }
 
+        if (!string.IsNullOrWhiteSpace(staffType) && !string.Equals(staffType, "All", StringComparison.OrdinalIgnoreCase))
+        {
+            if (Enum.TryParse<StaffType>(staffType, true, out var parsedStaffType))
+            {
+                q = q.Where(t => t.StaffType == parsedStaffType);
+            }
+        }
+
         if (!string.IsNullOrWhiteSpace(searchTerm))
         {
             var term = searchTerm.Trim().ToLower();
             q = q.Where(t => t.FullName.ToLower().Contains(term) ||
                               t.EmployeeCode.ToLower().Contains(term) ||
                               (t.Specialization != null && t.Specialization.ToLower().Contains(term)) ||
+                              (t.Department != null && t.Department.ToLower().Contains(term)) ||
+                              (t.Designation != null && t.Designation.ToLower().Contains(term)) ||
                               t.PhoneNumber.Contains(term));
         }
 
@@ -314,14 +363,31 @@ public class TeachersController : ControllerBase
             targetBranchId = mainBranch?.Id;
         }
 
+        StaffType staffType = StaffType.Teaching;
+        if (!string.IsNullOrWhiteSpace(dto.StaffType) && Enum.TryParse<StaffType>(dto.StaffType, true, out var st))
+        {
+            staffType = st;
+        }
+
+        var teacherId = Guid.NewGuid();
+        string? savedPhoto = null;
+        if (!string.IsNullOrWhiteSpace(dto.PhotoUrl))
+        {
+            savedPhoto = ImageStorageHelper.SaveBase64Image(dto.PhotoUrl, "teachers", teacherId.ToString(), _env.ContentRootPath) ?? dto.PhotoUrl.Trim();
+        }
+
         var teacher = new Teacher
         {
+            Id = teacherId,
             TenantId = _currentUser.TenantId,
             BranchId = targetBranchId,
             EmployeeCode = dto.EmployeeCode.Trim(),
             FullName = dto.FullName.Trim(),
             FatherName = dto.FatherName?.Trim(),
             Gender = gender,
+            StaffType = staffType,
+            Department = dto.Department?.Trim(),
+            Designation = dto.Designation?.Trim(),
             DateOfBirth = dto.DateOfBirth,
             Qualification = dto.Qualification?.Trim(),
             Specialization = dto.Specialization?.Trim(),
@@ -330,6 +396,7 @@ public class TeachersController : ControllerBase
             WhatsAppPhone = dto.WhatsAppPhone?.Trim(),
             Email = dto.Email?.Trim(),
             Address = dto.Address?.Trim(),
+            PhotoUrl = savedPhoto,
             JoiningDate = dto.JoiningDate,
             IsActive = dto.IsActive,
             CreatedAt = DateTime.UtcNow
@@ -364,6 +431,13 @@ public class TeachersController : ControllerBase
             teacher.BranchId = _currentUser.BranchId;
         }
 
+        if (!string.IsNullOrWhiteSpace(dto.StaffType) && Enum.TryParse<StaffType>(dto.StaffType, true, out var stUpdate))
+        {
+            teacher.StaffType = stUpdate;
+        }
+        teacher.Department = dto.Department?.Trim();
+        teacher.Designation = dto.Designation?.Trim();
+
         teacher.FullName = dto.FullName.Trim();
         teacher.FatherName = dto.FatherName?.Trim();
         teacher.Gender = gender;
@@ -375,6 +449,16 @@ public class TeachersController : ControllerBase
         teacher.WhatsAppPhone = dto.WhatsAppPhone?.Trim();
         teacher.Email = dto.Email?.Trim();
         teacher.Address = dto.Address?.Trim();
+
+        if (string.IsNullOrWhiteSpace(dto.PhotoUrl))
+        {
+            teacher.PhotoUrl = null;
+        }
+        else
+        {
+            teacher.PhotoUrl = ImageStorageHelper.SaveBase64Image(dto.PhotoUrl, "teachers", teacher.Id.ToString(), _env.ContentRootPath) ?? dto.PhotoUrl.Trim();
+        }
+
         teacher.JoiningDate = dto.JoiningDate;
         teacher.IsActive = dto.IsActive;
 
@@ -456,10 +540,11 @@ public class TeachersController : ControllerBase
 
         int evaluatedDays = present + absent + late + half;
         decimal pct = 0;
-        if (evaluatedDays > 0)
+        int denominator = Math.Max(totalWorkingDays, evaluatedDays);
+        if (denominator > 0)
         {
             decimal attendedEffective = present + late + (half * 0.5m);
-            pct = Math.Round((attendedEffective / evaluatedDays) * 100, 1);
+            pct = Math.Min(100m, Math.Round((attendedEffective / (decimal)denominator) * 100, 1));
         }
 
         var activeSalary = teacher.Salaries.Where(s => s.IsActive).OrderByDescending(s => s.EffectiveFrom).FirstOrDefault();
@@ -675,7 +760,7 @@ public class TeachersController : ControllerBase
     public async Task<ActionResult<TeacherWorkloadReportDto>> GetWorkloadReport()
     {
         var teachers = await _db.Teachers.AsNoTracking()
-            .Where(t => t.IsActive)
+            .Where(t => t.IsActive && t.StaffType == StaffType.Teaching)
             .OrderBy(t => t.FullName)
             .ToListAsync();
 
@@ -745,7 +830,7 @@ public class TeachersController : ControllerBase
         var list = await _db.TeacherBatchAssignments.AsNoTracking()
             .Include(a => a.Teacher)
             .Include(a => a.Batch)
-            .Where(a => a.IsActive && a.Teacher != null && a.Teacher.IsActive)
+            .Where(a => a.IsActive && a.Teacher != null && a.Teacher.IsActive && a.Teacher.StaffType == StaffType.Teaching)
             .OrderBy(a => a.Teacher!.FullName)
             .ThenBy(a => a.Batch!.Name)
             .Select(a => new TeacherBatchAssignmentDto(
@@ -1158,10 +1243,11 @@ public class TeachersController : ControllerBase
 
         int evaluatedDays = present + absent + late + half;
         decimal pct = 0;
-        if (evaluatedDays > 0)
+        int denominator = Math.Max(totalWorkingDays, evaluatedDays);
+        if (denominator > 0)
         {
             decimal attendedEffective = present + late + (half * 0.5m);
-            pct = Math.Round((attendedEffective / evaluatedDays) * 100, 1);
+            pct = Math.Min(100m, Math.Round((attendedEffective / (decimal)denominator) * 100, 1));
         }
 
         const int allowedLateDays = 3;

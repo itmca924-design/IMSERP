@@ -16,6 +16,7 @@ import { HttpClient } from '@angular/common/http';
 import { AuthService, BranchInfo } from '../core/services/auth.service';
 import { MenuService, MenuItem } from '../core/services/menu.service';
 import { TenantService } from '../core/services/tenant.service';
+import { BranchService } from '../core/services/branch.service';
 import { IdleTimeoutService } from '../core/services/idle-timeout.service';
 import { TranslationService } from '../core/services/translation.service';
 import { TranslatePipe } from '../core/pipes/translate.pipe';
@@ -62,7 +63,7 @@ import { QuickSettingsDrawerComponent } from './quick-settings-drawer/quick-sett
                alt="Institute Logo">
           <div class="brand-titles">
             <span class="brand-name" [matTooltip]="currentUser()?.instituteName || 'Apex Coaching Academy'">{{ currentUser()?.instituteName || 'Apex Coaching Academy' }}</span>
-            <span class="brand-sub">{{ currentUser()?.tenantCode || 'APEX' }} &bull; Multi-Tenant SaaS</span>
+            <span class="brand-sub">{{ currentUser()?.tenantCode || 'APEX' }} &bull; {{ getTenantModuleBadge() }}</span>
           </div>
           <button *ngIf="isMobile()" mat-icon-button class="close-drawer-btn" (click)="drawer.close()">
             <mat-icon>close</mat-icon>
@@ -164,7 +165,7 @@ import { QuickSettingsDrawerComponent } from './quick-settings-drawer/quick-sett
             <mat-icon>menu</mat-icon>
           </button>
 
-          <span class="app-header-title">{{ 'HEADER.TITLE' | translate }}</span>
+          <span class="app-header-title">{{ getHeaderTitle() }}</span>
           <div class="header-tools">
             <div class="header-search" [class.open]="headerSearchFocused">
               <mat-icon>search</mat-icon>
@@ -1139,6 +1140,7 @@ export class LayoutComponent implements OnInit {
     { title: 'Institutes & Tenants', route: '/admin/tenants', icon: 'corporate_fare' }
   ];
   selectedBranchId = this.authService.selectedBranchId;
+  activeBranches = signal<BranchInfo[]>(this.currentUser()?.branches || []);
 
   get canSwitchBranches(): boolean {
     const role = this.currentUser()?.role;
@@ -1150,6 +1152,8 @@ export class LayoutComponent implements OnInit {
   }
 
   get branches(): BranchInfo[] {
+    const list = this.activeBranches();
+    if (list && list.length > 0) return list;
     return this.currentUser()?.branches || [];
   }
 
@@ -1186,10 +1190,12 @@ export class LayoutComponent implements OnInit {
   @ViewChild('drawer') drawer!: MatSidenav;
 
   logoImgFailed = signal(false);
+  private rawMenu: MenuItem[] = [];
 
   constructor(
     private authService: AuthService,
     private tenantService: TenantService,
+    private branchService: BranchService,
     private menuService: MenuService,
     private idleTimeout: IdleTimeoutService,
     private breakpointObserver: BreakpointObserver
@@ -1198,6 +1204,19 @@ export class LayoutComponent implements OnInit {
       const user = this.currentUser();
       if (user?.profilePhoto) {
         this.logoImgFailed.set(false);
+      }
+    }, { allowSignalWrites: true });
+
+    effect(() => {
+      // Reactively re-filter menu when any module license is toggled
+      this.authService.hasSchoolModule();
+      this.authService.hasCoachingModule();
+      this.authService.hasHostelModule();
+      this.authService.hasLibraryModule();
+      this.authService.hasTransportModule();
+
+      if (this.rawMenu && this.rawMenu.length > 0) {
+        this.menuTree.set(this.filterMenuByModules(this.rawMenu));
       }
     }, { allowSignalWrites: true });
   }
@@ -1212,6 +1231,14 @@ export class LayoutComponent implements OnInit {
         if (t) {
           this.logoImgFailed.set(false);
           this.authService.updateTenantProfile(t.profilePhoto, t.name, t.code);
+          this.authService.updateTenantModules({
+            hasSchoolModule: t.hasSchoolModule,
+            hasCoachingModule: t.hasCoachingModule,
+            hasHostelModule: t.hasHostelModule,
+            hasLibraryModule: t.hasLibraryModule,
+            hasTransportModule: t.hasTransportModule
+          });
+          this.loadMenu();
         }
       },
       error: () => {}
@@ -1230,12 +1257,40 @@ export class LayoutComponent implements OnInit {
     setTimeout(() => this.headerSearchFocused = false, 120);
   }
 
+  loadHeaderBranches(): void {
+    if (!this.canSwitchBranches) return;
+    this.branchService.getAllBranches().subscribe({
+      next: (list) => {
+        if (list && list.length > 0) {
+          const branchInfos: BranchInfo[] = list.map(b => ({
+            id: b.id,
+            tenantId: b.tenantId,
+            name: b.name,
+            code: b.code,
+            address: b.address,
+            contactPhone: b.contactPhone,
+            isMainBranch: b.isMainBranch,
+            isActive: b.isActive,
+            createdAt: b.createdAt
+          }));
+          this.activeBranches.set(branchInfos);
+          this.authService.updateBranches(branchInfos);
+        }
+      },
+      error: () => {}
+    });
+  }
+
   ngOnInit(): void {
     this.breakpointObserver.observe(['(max-width: 960px)']).subscribe((result) => {
       this.isMobile.set(result.matches);
     });
 
     this.loadCurrentTenant();
+    this.loadHeaderBranches();
+    this.branchService.branchesChanged.subscribe(() => {
+      this.loadHeaderBranches();
+    });
     this.loadMenu();
     this.loadCalendarHolidays();
     this.idleTimeout.startMonitoring();
@@ -1316,11 +1371,86 @@ export class LayoutComponent implements OnInit {
     }
   }
 
+  getTenantModuleBadge(): string {
+    const s = this.authService.hasSchoolModule();
+    const c = this.authService.hasCoachingModule();
+    const h = this.authService.hasHostelModule();
+    const l = this.authService.hasLibraryModule();
+
+    const parts: string[] = [];
+    if (s && c) parts.push('School + Coaching');
+    else if (s) parts.push('School Edition');
+    else if (c) parts.push('Coaching Edition');
+    else parts.push('ERP Suite');
+
+    if (h) parts.push('Hostel');
+    if (l) parts.push('Library');
+
+    return parts.join(' • ');
+  }
+
+  getHeaderTitle(): string {
+    const s = this.authService.hasSchoolModule();
+    const c = this.authService.hasCoachingModule();
+    if (s && c) return 'IMSERP • School + Coaching ERP';
+    if (s && !c) return 'IMSERP • School Management System';
+    if (!s && c) return 'IMSERP • Coaching & Tuitions ERP';
+    return 'IMSERP • Enterprise ERP';
+  }
+
+  filterMenuByModules(menu: MenuItem[]): MenuItem[] {
+    const hasSchool = this.authService.hasSchoolModule();
+    const hasCoaching = this.authService.hasCoachingModule();
+    const hasHostel = this.authService.hasHostelModule();
+    const hasLibrary = this.authService.hasLibraryModule();
+    const hasTransport = this.authService.hasTransportModule();
+
+    const isRouteAllowed = (url?: string): boolean => {
+      if (!url) return true;
+      const lower = url.toLowerCase();
+      if (!hasSchool && (lower.includes('/school/') || lower.includes('/students/promotion'))) {
+        return false;
+      }
+      if (!hasSchool && !hasCoaching && lower.includes('/fee-heads')) {
+        return false;
+      }
+      if (!hasCoaching && (lower === '/batches' || lower === '/tests')) {
+        return false;
+      }
+      if (!hasHostel && lower.includes('/hostel')) {
+        return false;
+      }
+      if (!hasLibrary && lower.includes('/library')) {
+        return false;
+      }
+      if (!hasTransport && lower.includes('/transport')) {
+        return false;
+      }
+      return true;
+    };
+
+    return (menu || [])
+      .map(item => {
+        if (item.children && item.children.length > 0) {
+          const children = item.children.filter(c => isRouteAllowed(c.routeUrl));
+          return { ...item, children };
+        }
+        return item;
+      })
+      .filter(item => {
+        if (!item.children || item.children.length === 0) {
+          return isRouteAllowed(item.routeUrl);
+        }
+        return item.children.length > 0;
+      });
+  }
+
   loadMenu(): void {
     this.menuService.getMyMenu().subscribe({
       next: (menu) => {
         if (menu && menu.length > 0) {
-          this.menuTree.set(menu);
+          this.rawMenu = menu;
+          this.menuTree.set(this.filterMenuByModules(menu));
         } else {
           this.fallbackMenu();
         }
@@ -1332,7 +1462,7 @@ export class LayoutComponent implements OnInit {
   }
 
   private fallbackMenu(): void {
-    this.menuTree.set([
+    const rawItems: MenuItem[] = [
       { id: '1', title: 'Dashboard', routeUrl: '/dashboard', icon: 'dashboard', sortOrder: 1, module: 'Main', isActive: true, children: [] },
       {
         id: '2', title: 'Master Management', routeUrl: '', icon: 'category', sortOrder: 2, module: 'Master', isActive: true,
@@ -1355,21 +1485,25 @@ export class LayoutComponent implements OnInit {
         ]
       },
       {
-        id: '4', title: 'Teacher Module', routeUrl: '', icon: 'person', sortOrder: 4, module: 'Teachers', isActive: true,
+        id: '4', title: 'HRMS & Staff', routeUrl: '', icon: 'badge', sortOrder: 4, module: 'Teachers', isActive: true,
         children: [
-          { id: '41', title: 'Teacher Profiles', routeUrl: '/teachers', icon: 'badge', sortOrder: 1, module: 'Teachers', isActive: true, children: [] },
-          { id: '42', title: 'Batch Assignments', routeUrl: '/teachers/assignments', icon: 'class', sortOrder: 2, module: 'Teachers', isActive: true, children: [] },
-          { id: '43', title: 'Attendance', routeUrl: '/teachers/attendance', icon: 'event_available', sortOrder: 3, module: 'Teachers', isActive: true, children: [] },
-          { id: '44', title: 'Salary Structure', routeUrl: '/teachers/salary', icon: 'account_balance_wallet', sortOrder: 4, module: 'Teachers', isActive: true, children: [] },
-          { id: '45', title: 'Salary Payments', routeUrl: '/teachers/payments', icon: 'payments', sortOrder: 5, module: 'Teachers', isActive: true, children: [] },
-          { id: '46', title: 'Salary Advances', routeUrl: '/teachers/advances', icon: 'currency_rupee', sortOrder: 6, module: 'Teachers', isActive: true, children: [] },
-          { id: '47', title: 'Leave Management', routeUrl: '/teachers/leaves', icon: 'beach_access', sortOrder: 7, module: 'Teachers', isActive: true, children: [] },
-          { id: '48', title: 'Teacher Reports', routeUrl: '/teachers/reports', icon: 'assessment', sortOrder: 8, module: 'Teachers', isActive: true, children: [] },
-          { id: '49', title: 'Exit & FNF Settlement', routeUrl: '/teachers/fnf', icon: 'exit_to_app', sortOrder: 9, module: 'Teachers', isActive: true, children: [] },
-          { id: '410', title: 'Proxy & Substitution', routeUrl: '/teachers/substitution', icon: 'swap_horiz', sortOrder: 10, module: 'Teachers', isActive: true, children: [] },
-          { id: '411', title: 'Daily Lesson Diary', routeUrl: '/teachers/lesson-plans', icon: 'menu_book', sortOrder: 11, module: 'Teachers', isActive: true, children: [] }
+          { id: '41', title: 'Staff Directory', routeUrl: '/teachers', icon: 'groups', sortOrder: 1, module: 'Teachers', isActive: true, children: [] },
+          { id: '44', title: 'Salary Structure', routeUrl: '/teachers/salary', icon: 'account_balance_wallet', sortOrder: 2, module: 'Teachers', isActive: true, children: [] },
+          { id: '45', title: 'Salary Payments', routeUrl: '/teachers/payments', icon: 'payments', sortOrder: 3, module: 'Teachers', isActive: true, children: [] },
+          { id: '46', title: 'Salary Advances', routeUrl: '/teachers/advances', icon: 'currency_rupee', sortOrder: 4, module: 'Teachers', isActive: true, children: [] },
+          { id: '47', title: 'Leave Management', routeUrl: '/teachers/leaves', icon: 'beach_access', sortOrder: 5, module: 'Teachers', isActive: true, children: [] },
+          { id: '48', title: 'Payroll & Staff Reports', routeUrl: '/teachers/reports', icon: 'summarize', sortOrder: 6, module: 'Teachers', isActive: true, children: [] },
+          { id: '49', title: 'Exit & FNF Settlement', routeUrl: '/teachers/fnf', icon: 'exit_to_app', sortOrder: 7, module: 'Teachers', isActive: true, children: [] }
         ]
-
+      },
+      {
+        id: '4b', title: 'Faculty Operations', routeUrl: '', icon: 'school', sortOrder: 5, module: 'Teachers', isActive: true,
+        children: [
+          { id: '42', title: 'Batch Assignments', routeUrl: '/teachers/assignments', icon: 'class', sortOrder: 1, module: 'Teachers', isActive: true, children: [] },
+          { id: '410', title: 'Proxy & Substitution', routeUrl: '/teachers/substitution', icon: 'swap_horiz', sortOrder: 2, module: 'Teachers', isActive: true, children: [] },
+          { id: '411', title: 'Daily Lesson Diary', routeUrl: '/teachers/lesson-plans', icon: 'menu_book', sortOrder: 3, module: 'Teachers', isActive: true, children: [] },
+          { id: '412', title: 'Faculty Workload', routeUrl: '/teachers/reports', icon: 'analytics', sortOrder: 4, module: 'Teachers', isActive: true, children: [] }
+        ]
       },
       {
         id: '5', title: 'Academic Operations', routeUrl: '', icon: 'school', sortOrder: 5, module: 'Academic', isActive: true,
@@ -1395,7 +1529,8 @@ export class LayoutComponent implements OnInit {
           { id: '64', title: 'Institutes & Tenants', routeUrl: '/admin/tenants', icon: 'corporate_fare', sortOrder: 4, module: 'Admin', isActive: true, children: [] }
         ]
       }
-    ]);
+    ];
+    this.menuTree.set(this.filterMenuByModules(rawItems));
   }
 
   logout() {

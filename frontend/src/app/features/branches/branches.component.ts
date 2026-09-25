@@ -12,7 +12,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { BranchService, BranchDto, CreateBranchDto, UpdateBranchDto } from '../../core/services/branch.service';
-import { AuthService } from '../../core/services/auth.service';
+import { AuthService, BranchInfo } from '../../core/services/auth.service';
 
 @Component({
   selector: 'app-branches',
@@ -976,6 +976,18 @@ export class BranchesComponent implements OnInit {
         this.branches = data || [];
         this.filterBranches();
         this.loading = false;
+        const branchInfos: BranchInfo[] = (data || []).map(b => ({
+          id: b.id,
+          tenantId: b.tenantId,
+          name: b.name,
+          code: b.code,
+          address: b.address,
+          contactPhone: b.contactPhone,
+          isMainBranch: b.isMainBranch,
+          isActive: b.isActive,
+          createdAt: b.createdAt
+        }));
+        this.authService.updateBranches(branchInfos);
       },
       error: () => {
         this.loading = false;

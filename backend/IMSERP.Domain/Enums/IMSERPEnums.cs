@@ -7,7 +7,8 @@ public enum UserRole
     Teacher = 3,
     Accountant = 4,
     Parent = 5,
-    Student = 6
+    Student = 6,
+    HR = 7
 }
 
 public enum PaymentMode
@@ -36,7 +37,13 @@ public enum MessageType
     SalarySlip = 5
 }
 
-// Teacher Module Enums
+// Teacher / Staff Module Enums
+public enum StaffType
+{
+    Teaching = 1,
+    NonTeaching = 2
+}
+
 public enum TeacherAttendanceStatus
 {
     Present = 1,

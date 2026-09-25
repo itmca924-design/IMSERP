@@ -531,7 +531,7 @@ export class TeacherDocumentsDialogComponent implements OnInit {
   }
 
   deleteDoc(docId: string) {
-    this.confirmDialog.danger('Delete Document?', 'Kya aap is document record ko delete karna chahte hain?').subscribe(ok => {
+    this.confirmDialog.danger('Delete Document?', 'Are you sure you want to delete this document record?').subscribe(ok => {
       if (!ok) return;
 
       this.http.delete(`${API_BASE}/teachers/${this.data.teacherId}/documents/${docId}`).subscribe({

@@ -1,4 +1,4 @@
-import { Injectable, signal, inject } from '@angular/core';
+import { Injectable, signal, computed, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { Observable, tap } from 'rxjs';
@@ -30,6 +30,11 @@ export interface LoginResponse {
   branchId?: string | null;
   branchName?: string | null;
   branches?: BranchInfo[] | null;
+  hasSchoolModule?: boolean;
+  hasCoachingModule?: boolean;
+  hasHostelModule?: boolean;
+  hasLibraryModule?: boolean;
+  hasTransportModule?: boolean;
 }
 
 @Injectable({
@@ -40,6 +45,36 @@ export class AuthService {
   
   currentUser = signal<LoginResponse | null>(this.getUserFromStorage());
   selectedBranchId = signal<string | null>(this.getStoredBranchId());
+
+  readonly hasSchoolModule = computed(() => this.currentUser()?.hasSchoolModule ?? true);
+  readonly hasCoachingModule = computed(() => this.currentUser()?.hasCoachingModule ?? true);
+  readonly hasHostelModule = computed(() => this.currentUser()?.hasHostelModule ?? true);
+  readonly hasLibraryModule = computed(() => this.currentUser()?.hasLibraryModule ?? true);
+  readonly hasTransportModule = computed(() => this.currentUser()?.hasTransportModule ?? true);
+
+  // ── Role helpers ──────────────────────────────────────────────────────────
+  /** SuperAdmin or InstituteAdmin */
+  readonly isAdmin = computed(() => {
+    const r = this.currentUser()?.role;
+    return r === 'SuperAdmin' || r === 'InstituteAdmin';
+  });
+
+  /** HR Manager role */
+  readonly isHR = computed(() => this.currentUser()?.role === 'HR');
+
+  /** Teacher role (faculty login) */
+  readonly isTeacher = computed(() => this.currentUser()?.role === 'Teacher');
+
+  /** Accountant / Cashier role */
+  readonly isAccountant = computed(() => this.currentUser()?.role === 'Accountant');
+
+  /**
+   * Can this user manage staff records?
+   * Admin and HR both have full teacher-module access.
+   * Teacher has read-only / self-service access.
+   */
+  readonly canManageStaff = computed(() => this.isAdmin() || this.isHR());
+
   private dialog = inject(MatDialog, { optional: true });
 
   constructor(private http: HttpClient, private router: Router) {
@@ -238,6 +273,29 @@ export class AuthService {
     this.currentUser.set(updated);
   }
 
+  updateTenantModules(modules: {
+    hasSchoolModule?: boolean;
+    hasCoachingModule?: boolean;
+    hasHostelModule?: boolean;
+    hasLibraryModule?: boolean;
+    hasTransportModule?: boolean;
+  }): void {
+    const current = this.currentUser();
+    if (!current) return;
+    const updated: LoginResponse = {
+      ...current,
+      hasSchoolModule: modules.hasSchoolModule !== undefined ? modules.hasSchoolModule : current.hasSchoolModule,
+      hasCoachingModule: modules.hasCoachingModule !== undefined ? modules.hasCoachingModule : current.hasCoachingModule,
+      hasHostelModule: modules.hasHostelModule !== undefined ? modules.hasHostelModule : current.hasHostelModule,
+      hasLibraryModule: modules.hasLibraryModule !== undefined ? modules.hasLibraryModule : current.hasLibraryModule,
+      hasTransportModule: modules.hasTransportModule !== undefined ? modules.hasTransportModule : current.hasTransportModule
+    };
+    for (const storage of [sessionStorage, localStorage]) {
+      storage.setItem('user_info', JSON.stringify(updated));
+    }
+    this.currentUser.set(updated);
+  }
+
   switchBranch(branchId: string | null): void {
     for (const storage of [sessionStorage, localStorage]) {
       if (branchId) {
@@ -247,6 +305,35 @@ export class AuthService {
       }
     }
     this.selectedBranchId.set(branchId);
+  }
+
+  getCurrentBranchName(): string {
+    const selectedId = this.selectedBranchId();
+    const user = this.currentUser();
+    if (selectedId && user?.branches) {
+      const b = user.branches.find(x => x.id === selectedId);
+      if (b) return b.name;
+    }
+    if (user?.branchName) {
+      return user.branchName;
+    }
+    if (user?.branches && user.branches.length === 1) {
+      return user.branches[0].name;
+    }
+    return '';
+  }
+
+  updateBranches(branches: BranchInfo[]): void {
+    const current = this.currentUser();
+    if (!current) return;
+    const updated: LoginResponse = {
+      ...current,
+      branches
+    };
+    for (const storage of [sessionStorage, localStorage]) {
+      storage.setItem('user_info', JSON.stringify(updated));
+    }
+    this.currentUser.set(updated);
   }
 
   private clearStorageAuth(storage: Storage): void {

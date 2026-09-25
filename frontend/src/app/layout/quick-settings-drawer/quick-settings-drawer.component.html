@@ -76,6 +76,15 @@
     <button
       type="button"
       class="tab-btn"
+      [class.active]="activeTab === 'modules'"
+      (click)="activeTab = 'modules'">
+      <mat-icon>hub</mat-icon>
+      <span>Modules</span>
+      <span class="tab-badge" style="background:#2563eb; color:#fff;">SaaS</span>
+    </button>
+    <button
+      type="button"
+      class="tab-btn"
       [class.active]="activeTab === 'automation'"
       (click)="activeTab = 'automation'">
       <mat-icon>bolt</mat-icon>
@@ -226,6 +235,168 @@
             <span class="spec-label">{{ 'SETTINGS.SMS_SENDER_ID' | translate }}</span>
             <span class="spec-val text-green">APEXED (Approved)</span>
           </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ═══════════ TAB: MODULAR SAAS LICENSING ═══════════ -->
+    <div class="tab-content" *ngIf="activeTab === 'modules'">
+      <div class="automation-banner" style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-color: #bfdbfe;">
+        <mat-icon class="banner-icon" style="background: #2563eb; color: #fff;">hub</mat-icon>
+        <div class="banner-text">
+          <strong style="color: #1e3a8a;">Modular ERP Licensing &amp; Subscriptions</strong>
+          <span style="color: #3b82f6;">Enable or disable modules according to this institute's plan. Sidebar and forms adapt instantly.</span>
+        </div>
+      </div>
+
+      <section class="settings-section">
+        <div class="section-title-row">
+          <mat-icon class="section-icon">inventory_2</mat-icon>
+          <div>
+            <h4 class="section-title">Active Functional Modules</h4>
+            <p class="section-desc">Toggle modules on/off for client demonstrations or subscription upgrades</p>
+          </div>
+        </div>
+
+        <!-- Module Updating / Sync Indicator -->
+        <div *ngIf="updatingModules" class="job-status-banner success" style="margin-bottom: 12px;">
+          <mat-icon class="spinning">sync</mat-icon>
+          <div class="banner-msg-content">
+            <strong>Updating Institute Plan...</strong>
+            <span>Saving module settings in background...</span>
+          </div>
+        </div>
+
+        <div *ngIf="moduleSuccessMessage" class="job-status-banner success" style="margin-bottom: 12px;">
+          <mat-icon>check_circle</mat-icon>
+          <div class="banner-msg-content">
+            <strong>Module Preference Saved</strong>
+            <span>Changes applied instantly without reloading the page.</span>
+          </div>
+        </div>
+
+        <div class="toggles-list">
+
+          <!-- School Academic Module -->
+          <div class="toggle-card">
+            <div class="toggle-icon-wrap school-icon-wrap">
+              <mat-icon>domain</mat-icon>
+            </div>
+            <div class="toggle-details">
+              <div class="toggle-title-row">
+                <span class="toggle-title">School Academic Module</span>
+                <span class="status-pill" [ngClass]="authService.hasSchoolModule() ? 'green' : 'paused'">
+                  {{ authService.hasSchoolModule() ? 'Active' : 'Disabled' }}
+                </span>
+              </div>
+              <p class="toggle-desc">Classes, Sections, Student Promotion, School Exams, Report Cards &amp; Fee Heads.</p>
+            </div>
+            <label class="switch">
+              <input
+                type="checkbox"
+                [checked]="authService.hasSchoolModule()"
+                [disabled]="updatingModules"
+                (change)="toggleModule('hasSchoolModule')">
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <!-- Coaching & Tuitions Module -->
+          <div class="toggle-card">
+            <div class="toggle-icon-wrap coaching-icon-wrap">
+              <mat-icon>school</mat-icon>
+            </div>
+            <div class="toggle-details">
+              <div class="toggle-title-row">
+                <span class="toggle-title">Coaching &amp; Tuitions Module</span>
+                <span class="status-pill" [ngClass]="authService.hasCoachingModule() ? 'green' : 'paused'">
+                  {{ authService.hasCoachingModule() ? 'Active' : 'Disabled' }}
+                </span>
+              </div>
+              <p class="toggle-desc">Academic Batches, Classrooms, Coaching Test Series &amp; Monthly Tuition Fees.</p>
+            </div>
+            <label class="switch">
+              <input
+                type="checkbox"
+                [checked]="authService.hasCoachingModule()"
+                [disabled]="updatingModules"
+                (change)="toggleModule('hasCoachingModule')">
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <!-- Hostel & Residential Module -->
+          <div class="toggle-card">
+            <div class="toggle-icon-wrap hostel-icon-wrap">
+              <mat-icon>apartment</mat-icon>
+            </div>
+            <div class="toggle-details">
+              <div class="toggle-title-row">
+                <span class="toggle-title">Hostel &amp; Residential Module</span>
+                <span class="status-pill" [ngClass]="authService.hasHostelModule() ? 'green' : 'paused'">
+                  {{ authService.hasHostelModule() ? 'Active' : 'Disabled' }}
+                </span>
+              </div>
+              <p class="toggle-desc">Hostel Buildings, Bed Allotment, Room Rent, Mess Tracking &amp; Resident Lists.</p>
+            </div>
+            <label class="switch">
+              <input
+                type="checkbox"
+                [checked]="authService.hasHostelModule()"
+                [disabled]="updatingModules"
+                (change)="toggleModule('hasHostelModule')">
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <!-- Library Management Module -->
+          <div class="toggle-card">
+            <div class="toggle-icon-wrap library-icon-wrap">
+              <mat-icon>local_library</mat-icon>
+            </div>
+            <div class="toggle-details">
+              <div class="toggle-title-row">
+                <span class="toggle-title">Library Management Module</span>
+                <span class="status-pill" [ngClass]="authService.hasLibraryModule() ? 'green' : 'paused'">
+                  {{ authService.hasLibraryModule() ? 'Active' : 'Disabled' }}
+                </span>
+              </div>
+              <p class="toggle-desc">Book Catalog, Circulation Issue/Return, Fines &amp; Reading Shifts.</p>
+            </div>
+            <label class="switch">
+              <input
+                type="checkbox"
+                [checked]="authService.hasLibraryModule()"
+                [disabled]="updatingModules"
+                (change)="toggleModule('hasLibraryModule')">
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <!-- Transport & Fleet Module -->
+          <div class="toggle-card">
+            <div class="toggle-icon-wrap transport-icon-wrap">
+              <mat-icon>directions_bus</mat-icon>
+            </div>
+            <div class="toggle-details">
+              <div class="toggle-title-row">
+                <span class="toggle-title">Transport &amp; Fleet Module</span>
+                <span class="status-pill" [ngClass]="authService.hasTransportModule() ? 'green' : 'paused'">
+                  {{ authService.hasTransportModule() ? 'Active' : 'Disabled' }}
+                </span>
+              </div>
+              <p class="toggle-desc">Bus Fleet Management, Transport Routes, Stop Allotment &amp; Fees.</p>
+            </div>
+            <label class="switch">
+              <input
+                type="checkbox"
+                [checked]="authService.hasTransportModule()"
+                [disabled]="updatingModules"
+                (change)="toggleModule('hasTransportModule')">
+              <span class="slider"></span>
+            </label>
+          </div>
+
         </div>
       </section>
     </div>

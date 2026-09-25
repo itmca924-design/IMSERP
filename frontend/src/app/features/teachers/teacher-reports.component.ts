@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
+import { ActivatedRoute } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -1334,7 +1335,8 @@ export class TeacherReportsComponent implements OnInit {
 
   constructor(
     private http: HttpClient,
-    private authService: AuthService
+    private authService: AuthService,
+    private route: ActivatedRoute
   ) {}
 
   logoFailed = false;
@@ -1365,6 +1367,12 @@ export class TeacherReportsComponent implements OnInit {
   }
 
   ngOnInit() {
+    this.route.queryParams.subscribe(params => {
+      const tabParam = params['tab'];
+      if (tabParam === 'workload' || tabParam === 'attendance' || tabParam === 'payroll' || tabParam === 'master_timetable') {
+        this.selectedTab = tabParam;
+      }
+    });
     this.loadWorkloadReport();
     this.loadAttendanceReport();
     this.loadPayrollReport();

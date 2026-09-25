@@ -311,20 +311,51 @@ public class AttendanceController : ControllerBase
     private async Task<bool> HasPermissionAsync(string route, PermissionAction action)
     {
         var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
-        if (user?.RoleId == null) return false;
+        if (user == null) return false;
+        if (user.Role == IMSERP.Domain.Enums.UserRole.SuperAdmin || user.Role == IMSERP.Domain.Enums.UserRole.InstituteAdmin) return true;
+        if (user.RoleId == null) return false;
 
         var permission = await _db.RolePermissions.AsNoTracking()
             .Where(rp => rp.RoleId == user.RoleId)
             .Join(_db.MenuItems, rp => rp.MenuItemId, menu => menu.Id, (rp, menu) => new { rp, menu.RouteUrl })
             .FirstOrDefaultAsync(item => item.RouteUrl == route);
 
-        return permission != null && action switch
+        if (permission != null)
         {
-            PermissionAction.View => permission.rp.CanView,
-            PermissionAction.Create => permission.rp.CanCreate,
-            PermissionAction.Edit => permission.rp.CanEdit,
-            PermissionAction.Delete => permission.rp.CanDelete,
-            _ => false
-        };
+            var allowed = action switch
+            {
+                PermissionAction.View => permission.rp.CanView,
+                PermissionAction.Create => permission.rp.CanCreate,
+                PermissionAction.Edit => permission.rp.CanEdit,
+                PermissionAction.Delete => permission.rp.CanDelete,
+                _ => false
+            };
+            if (allowed) return true;
+        }
+
+        // Fallback for Manual Attendance: If checking ManualRoute or CorrectionRoute, check if role has CanCreate / CanEdit on Teacher Attendance or Student Attendance
+        if (route == ManualRoute && (action == PermissionAction.Create || action == PermissionAction.View))
+        {
+            if (user.Role == IMSERP.Domain.Enums.UserRole.HR) return true;
+
+            var hasAttendanceRights = await _db.RolePermissions.AsNoTracking()
+                .Where(rp => rp.RoleId == user.RoleId && (rp.CanCreate || rp.CanEdit))
+                .Join(_db.MenuItems, rp => rp.MenuItemId, menu => menu.Id, (rp, menu) => menu.RouteUrl)
+                .AnyAsync(r => r == "/teachers/attendance" || r == "/students/attendance");
+            if (hasAttendanceRights) return true;
+        }
+
+        if (route == CorrectionRoute && (action == PermissionAction.Edit || action == PermissionAction.View))
+        {
+            if (user.Role == IMSERP.Domain.Enums.UserRole.HR) return true;
+
+            var hasAttendanceRights = await _db.RolePermissions.AsNoTracking()
+                .Where(rp => rp.RoleId == user.RoleId && rp.CanEdit)
+                .Join(_db.MenuItems, rp => rp.MenuItemId, menu => menu.Id, (rp, menu) => menu.RouteUrl)
+                .AnyAsync(r => r == "/teachers/attendance" || r == "/students/attendance");
+            if (hasAttendanceRights) return true;
+        }
+
+        return false;
     }
 }

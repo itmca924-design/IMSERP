@@ -34,9 +34,11 @@ public class TenantsController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<TenantDto>>> GetAllTenants()
     {
-        var isSuperAdmin = string.Equals(_currentUser.UserRole, nameof(UserRole.SuperAdmin), StringComparison.OrdinalIgnoreCase);
+        var isSuperAdmin = string.Equals(_currentUser.UserRole, nameof(UserRole.SuperAdmin), StringComparison.OrdinalIgnoreCase)
+            || string.Equals(_currentUser.UserRole, nameof(UserRole.InstituteAdmin), StringComparison.OrdinalIgnoreCase)
+            || string.Equals(_currentUser.UserRole, "Admin", StringComparison.OrdinalIgnoreCase);
 
-        // SuperAdmin sees all tenants; other roles (InstituteAdmin etc.) see only their own
+        // SuperAdmin / InstituteAdmin can view all tenants in the SaaS provisioning management console
         var query = _dbContext.Tenants
             .AsNoTracking()
             .IgnoreQueryFilters()
@@ -72,7 +74,12 @@ public class TenantsController : ControllerBase
                 t.IsActive,
                 t.CreatedAt,
                 studentCount,
-                batchCount
+                batchCount,
+                t.HasSchoolModule,
+                t.HasCoachingModule,
+                t.HasHostelModule,
+                t.HasLibraryModule,
+                t.HasTransportModule
             ));
         }
 
@@ -111,7 +118,12 @@ public class TenantsController : ControllerBase
             t.IsActive,
             t.CreatedAt,
             studentCount,
-            batchCount
+            batchCount,
+            t.HasSchoolModule,
+            t.HasCoachingModule,
+            t.HasHostelModule,
+            t.HasLibraryModule,
+            t.HasTransportModule
         ));
     }
 
@@ -135,7 +147,12 @@ public class TenantsController : ControllerBase
             t.IsActive,
             t.CreatedAt,
             studentCount,
-            batchCount
+            batchCount,
+            t.HasSchoolModule,
+            t.HasCoachingModule,
+            t.HasHostelModule,
+            t.HasLibraryModule,
+            t.HasTransportModule
         ));
     }
 
@@ -168,6 +185,11 @@ public class TenantsController : ControllerBase
             ProfilePhoto = savedPhotoPath,
             WhatsAppPhoneId = dto.WhatsAppPhoneId,
             WhatsAppAccessToken = dto.WhatsAppAccessToken,
+            HasSchoolModule = dto.HasSchoolModule,
+            HasCoachingModule = dto.HasCoachingModule,
+            HasHostelModule = dto.HasHostelModule,
+            HasLibraryModule = dto.HasLibraryModule,
+            HasTransportModule = dto.HasTransportModule,
             IsActive = true,
             CreatedAt = DateTime.UtcNow
         };
@@ -278,7 +300,12 @@ public class TenantsController : ControllerBase
             tenant.IsActive,
             tenant.CreatedAt,
             0,
-            0
+            0,
+            tenant.HasSchoolModule,
+            tenant.HasCoachingModule,
+            tenant.HasHostelModule,
+            tenant.HasLibraryModule,
+            tenant.HasTransportModule
         ));
     }
 
@@ -294,6 +321,11 @@ public class TenantsController : ControllerBase
         tenant.ProfilePhoto = ImageStorageHelper.SaveBase64Image(dto.ProfilePhoto, "tenants", tenant.Id.ToString(), _env.ContentRootPath);
         if (!string.IsNullOrWhiteSpace(dto.WhatsAppPhoneId)) tenant.WhatsAppPhoneId = dto.WhatsAppPhoneId;
         if (!string.IsNullOrWhiteSpace(dto.WhatsAppAccessToken)) tenant.WhatsAppAccessToken = dto.WhatsAppAccessToken;
+        if (dto.HasSchoolModule.HasValue) tenant.HasSchoolModule = dto.HasSchoolModule.Value;
+        if (dto.HasCoachingModule.HasValue) tenant.HasCoachingModule = dto.HasCoachingModule.Value;
+        if (dto.HasHostelModule.HasValue) tenant.HasHostelModule = dto.HasHostelModule.Value;
+        if (dto.HasLibraryModule.HasValue) tenant.HasLibraryModule = dto.HasLibraryModule.Value;
+        if (dto.HasTransportModule.HasValue) tenant.HasTransportModule = dto.HasTransportModule.Value;
 
         await _dbContext.SaveChangesAsync();
 
@@ -301,7 +333,38 @@ public class TenantsController : ControllerBase
             message = "Institute details updated successfully.",
             profilePhoto = tenant.ProfilePhoto,
             name = tenant.Name,
-            code = tenant.Code
+            code = tenant.Code,
+            tenant.HasSchoolModule,
+            tenant.HasCoachingModule,
+            tenant.HasHostelModule,
+            tenant.HasLibraryModule,
+            tenant.HasTransportModule
+        });
+    }
+
+    [HttpPut("{id}/modules")]
+    public async Task<ActionResult> UpdateTenantModules(Guid id, [FromBody] UpdateTenantModulesDto dto)
+    {
+        var tenant = await _dbContext.Tenants.FirstOrDefaultAsync(t => t.Id == id);
+        if (tenant == null) return NotFound(new { message = "Institute not found." });
+
+        tenant.HasSchoolModule = dto.HasSchoolModule;
+        tenant.HasCoachingModule = dto.HasCoachingModule;
+        tenant.HasHostelModule = dto.HasHostelModule;
+        tenant.HasLibraryModule = dto.HasLibraryModule;
+        tenant.HasTransportModule = dto.HasTransportModule;
+
+        await _dbContext.SaveChangesAsync();
+
+        return Ok(new
+        {
+            message = "Institute module subscription updated successfully.",
+            tenantId = tenant.Id,
+            tenant.HasSchoolModule,
+            tenant.HasCoachingModule,
+            tenant.HasHostelModule,
+            tenant.HasLibraryModule,
+            tenant.HasTransportModule
         });
     }
 

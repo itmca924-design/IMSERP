@@ -59,6 +59,10 @@ import { FeeDueReceiptDialogComponent } from './fee-due-receipt-dialog.component
                 <span class="st-roll">Roll: <strong>{{ ledger.rollNumber }}</strong></span>
                 <span class="st-sep">|</span>
                 <span class="st-batch">Batch: <strong>{{ ledger.batchName }}</strong></span>
+                <ng-container *ngIf="effectiveBranchName">
+                  <span class="st-sep">|</span>
+                  <span class="st-branch">🏛️ Branch: <strong>{{ effectiveBranchName }}</strong></span>
+                </ng-container>
               </div>
               <span class="st-parent">Parent: {{ ledger.parentName }} (WA: {{ ledger.parentWhatsAppPhone }})</span>
             </div>
@@ -387,6 +391,7 @@ import { FeeDueReceiptDialogComponent } from './fee-due-receipt-dialog.component
             font-size: 0.8rem;
             color: #475569;
             .st-sep { color: #cbd5e1; }
+            .st-branch { color: #1e40af; font-weight: 500; }
           }
           .st-parent { font-size: 0.76rem; color: #64748b; }
         }
@@ -747,6 +752,15 @@ export class StudentLedgerDialogComponent implements OnInit {
   reversingInProgress = false;
   hasReversedPayment = false;
 
+  get effectiveBranchName(): string {
+    const authBranch = this.authService.getCurrentBranchName();
+    if (authBranch) return authBranch;
+    const batch = this.ledger?.batchName || '';
+    const match = batch.match(/\(([^)]+)\)/);
+    if (match) return match[1];
+    return '';
+  }
+
   constructor(
     private feesService: FeesService,
     private authService: AuthService,
@@ -866,7 +880,8 @@ export class StudentLedgerDialogComponent implements OnInit {
         rollNumber: this.ledger.rollNumber,
         batchName: this.ledger.batchName,
         parentWhatsAppPhone: this.ledger.parentWhatsAppPhone,
-        totalOutstandingDue: this.ledger.totalOutstandingDue
+        totalOutstandingDue: this.ledger.totalOutstandingDue,
+        branchName: this.effectiveBranchName
       }
     });
 
@@ -879,7 +894,8 @@ export class StudentLedgerDialogComponent implements OnInit {
           panelClass: 'receipt-dialog-panel',
           data: {
             receipt: res,
-            instituteName: this.authService.currentUser()?.instituteName || 'Saraswati Coaching Classes'
+            instituteName: this.authService.currentUser()?.instituteName || 'Apex Coaching Academy',
+            branchName: this.effectiveBranchName
           }
         });
       }
@@ -897,7 +913,8 @@ export class StudentLedgerDialogComponent implements OnInit {
           panelClass: 'receipt-dialog-panel',
           data: {
             receipt,
-            instituteName: this.authService.currentUser()?.instituteName || 'Saraswati Coaching Classes'
+            instituteName: this.authService.currentUser()?.instituteName || 'Apex Coaching Academy',
+            branchName: this.effectiveBranchName
           }
         });
       },
@@ -943,7 +960,8 @@ export class StudentLedgerDialogComponent implements OnInit {
           panelClass: 'receipt-dialog-panel',
           data: {
             receipt: fallbackReceipt,
-            instituteName: this.authService.currentUser()?.instituteName || 'Apex Coaching Academy'
+            instituteName: this.authService.currentUser()?.instituteName || 'Apex Coaching Academy',
+            branchName: this.effectiveBranchName
           }
         });
       }
@@ -963,7 +981,8 @@ export class StudentLedgerDialogComponent implements OnInit {
         rollNumber: this.ledger.rollNumber,
         batchName: this.ledger.batchName,
         parentWhatsAppPhone: this.ledger.parentWhatsAppPhone,
-        instituteName: this.authService.currentUser()?.instituteName || 'Saraswati Coaching Classes'
+        instituteName: this.authService.currentUser()?.instituteName || 'Apex Coaching Academy',
+        branchName: this.effectiveBranchName
       }
     });
   }

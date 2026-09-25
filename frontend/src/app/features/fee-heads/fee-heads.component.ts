@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild } from '@angular/core';
+import { Component, OnInit, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators, FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -15,6 +15,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatDialogModule } from '@angular/material/dialog';
 import { FeesService, FeeHead, CreateFeeHeadPayload, UpdateFeeHeadPayload } from '../../core/services/fees.service';
+import { AuthService } from '../../core/services/auth.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 
 @Component({
@@ -130,9 +131,18 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                 <mat-option value="Infrastructure">Infrastructure (Labs & Smart Class)</mat-option>
                 <mat-option value="Activities">Activities (Sports & Cultural)</mat-option>
                 <mat-option value="Supplies">Supplies (Kit, Modules & Books)</mat-option>
-                <mat-option value="Residential">Residential (Hostel & Mess)</mat-option>
-                <mat-option value="Transport">Transport (Bus & Van Transit)</mat-option>
+                <mat-option value="Residential" *ngIf="hasHostelModule">Residential (Hostel & Mess)</mat-option>
+                <mat-option value="Transport" *ngIf="hasTransportModule">Transport (Bus & Van Transit)</mat-option>
                 <mat-option value="Other">Other / Fines / Miscellaneous</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="f-flex-1">
+              <mat-label>Applicable To *</mat-label>
+              <mat-select formControlName="applicableTo">
+                <mat-option *ngIf="hasSchoolModule && hasCoachingModule" value="Both">🔄 Both (School & Coaching)</mat-option>
+                <mat-option *ngIf="hasSchoolModule" value="School">🏫 School Only</mat-option>
+                <mat-option *ngIf="hasCoachingModule" value="Coaching">🎯 Coaching Only</mat-option>
               </mat-select>
             </mat-form-field>
 
@@ -195,8 +205,8 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
               <mat-option value="Infrastructure">Infrastructure</mat-option>
               <mat-option value="Activities">Activities</mat-option>
               <mat-option value="Supplies">Supplies</mat-option>
-              <mat-option value="Residential">Residential</mat-option>
-              <mat-option value="Transport">Transport</mat-option>
+              <mat-option value="Residential" *ngIf="hasHostelModule">Residential</mat-option>
+              <mat-option value="Transport" *ngIf="hasTransportModule">Transport</mat-option>
               <mat-option value="Other">Other</mat-option>
             </mat-select>
           </mat-form-field>
@@ -789,6 +799,19 @@ export class FeeHeadsComponent implements OnInit {
   loading = false;
   saving = false;
 
+  readonly authService = inject(AuthService);
+  get hasSchoolModule(): boolean { return this.authService.hasSchoolModule(); }
+  get hasCoachingModule(): boolean { return this.authService.hasCoachingModule(); }
+  get hasHostelModule(): boolean { return this.authService.hasHostelModule(); }
+  get hasLibraryModule(): boolean { return this.authService.hasLibraryModule(); }
+  get hasTransportModule(): boolean { return this.authService.hasTransportModule(); }
+
+  getDefaultApplicableTo(): string {
+    if (this.hasSchoolModule && this.hasCoachingModule) return 'Both';
+    if (this.hasCoachingModule) return 'Coaching';
+    return 'School';
+  }
+
   constructor(
     private fb: FormBuilder,
     private feesService: FeesService,
@@ -807,6 +830,7 @@ export class FeeHeadsComponent implements OnInit {
       code: ['', Validators.required],
       category: ['Academic', Validators.required],
       frequency: ['Monthly', Validators.required],
+      applicableTo: [this.getDefaultApplicableTo(), Validators.required],
       description: [''],
       sortOrder: [10, [Validators.required, Validators.min(0)]],
       isActive: [true]
@@ -894,6 +918,7 @@ export class FeeHeadsComponent implements OnInit {
       name: '',
       code: '',
       category: 'Academic',
+      applicableTo: this.getDefaultApplicableTo(),
       frequency: 'Monthly',
       description: '',
       sortOrder: (this.totalCount + 1) * 10,
@@ -909,6 +934,7 @@ export class FeeHeadsComponent implements OnInit {
       name: head.name,
       code: head.code,
       category: head.category,
+      applicableTo: head.applicableTo || this.getDefaultApplicableTo(),
       frequency: head.frequency,
       description: head.description || '',
       sortOrder: head.sortOrder,
@@ -933,6 +959,7 @@ export class FeeHeadsComponent implements OnInit {
         name: formVal.name.trim(),
         code: formVal.code.trim().toUpperCase(),
         category: formVal.category,
+        applicableTo: formVal.applicableTo || this.getDefaultApplicableTo(),
         frequency: formVal.frequency,
         description: formVal.description?.trim(),
         sortOrder: formVal.sortOrder || 0,
@@ -958,6 +985,7 @@ export class FeeHeadsComponent implements OnInit {
         name: formVal.name.trim(),
         code: formVal.code.trim().toUpperCase(),
         category: formVal.category,
+        applicableTo: formVal.applicableTo || this.getDefaultApplicableTo(),
         frequency: formVal.frequency,
         description: formVal.description?.trim(),
         sortOrder: formVal.sortOrder || 0,

@@ -18,6 +18,7 @@ import { API_BASE, TeacherDto } from './teacher.models';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { TeacherIdCardDialogComponent } from './teacher-id-card-dialog.component';
 import { TeacherDocumentsDialogComponent } from './teacher-documents-dialog.component';
+import { AuthService } from '../../core/services/auth.service';
 
 @Component({
   selector: 'app-teacher-profiles',
@@ -32,18 +33,18 @@ import { TeacherDocumentsDialogComponent } from './teacher-documents-dialog.comp
 <div class="page-container">
   <div class="page-header">
     <div>
-      <h1 class="page-title"><mat-icon>person</mat-icon> Teacher Profiles</h1>
-      <p class="page-subtitle">Manage complete faculty directory — add, update, and monitor faculty credentials.</p>
+      <h1 class="page-title"><mat-icon>groups</mat-icon> Staff &amp; Faculty Profiles</h1>
+      <p class="page-subtitle">Manage complete faculty and administrative staff directory — add, update, and monitor credentials.</p>
     </div>
     <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-      <button mat-stroked-button color="primary" (click)="openBulkIdCards()" *ngIf="!showForm">
+      <button mat-stroked-button color="primary" (click)="openBulkIdCards()" *ngIf="!showForm && canManageStaff">
         <mat-icon>badge</mat-icon> Staff ID Cards
       </button>
-      <a mat-stroked-button color="warn" [routerLink]="['/teachers/fnf']" *ngIf="!showForm">
+      <a mat-stroked-button color="warn" [routerLink]="['/teachers/fnf']" *ngIf="!showForm && canManageStaff">
         <mat-icon>exit_to_app</mat-icon> Exit & FNF
       </a>
-      <button mat-raised-button color="primary" (click)="openAddForm()" *ngIf="!showForm">
-        <mat-icon>person_add</mat-icon> Add Teacher
+      <button mat-raised-button color="primary" (click)="openAddForm()" *ngIf="!showForm && canManageStaff">
+        <mat-icon>person_add</mat-icon> Add Staff / Teacher
       </button>
     </div>
   </div>
@@ -54,12 +55,21 @@ import { TeacherDocumentsDialogComponent } from './teacher-documents-dialog.comp
   <mat-card class="form-card mat-elevation-z3" *ngIf="showForm">
     <div class="form-header">
       <h2><mat-icon color="primary">{{editingId ? 'edit' : 'person_add'}}</mat-icon>
-        {{editingId ? 'Edit Faculty Details' : 'Add New Faculty Member'}}
+        {{editingId ? 'Edit Staff / Faculty Details' : 'Add New Staff / Faculty Member'}}
       </h2>
       <button mat-icon-button (click)="cancelForm()"><mat-icon>close</mat-icon></button>
     </div>
     <form [formGroup]="teacherForm" (ngSubmit)="saveTeacher()">
       <div class="form-grid">
+        <!-- Classification -->
+        <mat-form-field appearance="outline">
+          <mat-label>Staff Classification *</mat-label>
+          <mat-select formControlName="staffType" (selectionChange)="onStaffTypeChange($event.value)">
+            <mat-option [value]="1">Teaching Faculty</mat-option>
+            <mat-option [value]="2">Non-Teaching Staff (Admin / HR / Office)</mat-option>
+          </mat-select>
+        </mat-form-field>
+
         <!-- Employee Code – Auto Generated, Readonly -->
         <mat-form-field appearance="outline">
           <mat-label>Employee Code</mat-label>
@@ -69,10 +79,23 @@ import { TeacherDocumentsDialogComponent } from './teacher-documents-dialog.comp
           <mat-spinner matSuffix diameter="16" *ngIf="codeLoading"></mat-spinner>
           <mat-hint>Auto-generated – {{editingId ? 'cannot be changed in edit mode' : 'locked upon saving'}}</mat-hint>
         </mat-form-field>
+
         <mat-form-field appearance="outline">
           <mat-label>Full Name *</mat-label>
           <input matInput formControlName="fullName">
         </mat-form-field>
+
+        <!-- Department and Designation for Non-Teaching -->
+        <mat-form-field appearance="outline" *ngIf="teacherForm.get('staffType')?.value == 2">
+          <mat-label>Department *</mat-label>
+          <input matInput formControlName="department" placeholder="e.g. Human Resources, Accounts, Admin">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" *ngIf="teacherForm.get('staffType')?.value == 2">
+          <mat-label>Designation *</mat-label>
+          <input matInput formControlName="designation" placeholder="e.g. HR Manager, Accountant, Receptionist">
+        </mat-form-field>
+
         <mat-form-field appearance="outline">
           <mat-label>Father's Name</mat-label>
           <input matInput formControlName="fatherName">
@@ -91,9 +114,9 @@ import { TeacherDocumentsDialogComponent } from './teacher-documents-dialog.comp
         </mat-form-field>
         <mat-form-field appearance="outline">
           <mat-label>Qualification</mat-label>
-          <input matInput formControlName="qualification" placeholder="M.Sc Physics, B.Ed">
+          <input matInput formControlName="qualification" placeholder="e.g. MBA, B.Tech, M.Sc, Graduate">
         </mat-form-field>
-        <mat-form-field appearance="outline">
+        <mat-form-field appearance="outline" *ngIf="teacherForm.get('staffType')?.value != 2">
           <mat-label>Specialization</mat-label>
           <input matInput formControlName="specialization" placeholder="Physics, Math...">
         </mat-form-field>
@@ -143,13 +166,44 @@ import { TeacherDocumentsDialogComponent } from './teacher-documents-dialog.comp
           <mat-label>Address</mat-label>
           <input matInput formControlName="address">
         </mat-form-field>
+        <!-- Profile Photo Row: URL or File Upload -->
+        <div class="photo-upload-row full-width">
+          <div class="photo-preview-box">
+            <img *ngIf="teacherForm.get('photoUrl')?.value && !previewImgError"
+                 [src]="getPhotoUrl(teacherForm.get('photoUrl')?.value)"
+                 class="form-avatar-preview"
+                 (error)="previewImgError = true"
+                 (load)="previewImgError = false"
+                 alt="Preview">
+            <div *ngIf="!teacherForm.get('photoUrl')?.value || previewImgError" class="form-avatar-placeholder">
+              <mat-icon>person</mat-icon>
+            </div>
+          </div>
+          <div class="photo-field-wrapper">
+            <mat-form-field appearance="outline" style="width:100%">
+              <mat-label>Profile Photo (Image URL or Upload)</mat-label>
+              <input matInput formControlName="photoUrl" placeholder="Paste image link or choose image file below" (input)="previewImgError = false">
+              <mat-icon matPrefix style="color:#64748b;margin-right:6px">photo_camera</mat-icon>
+              <button mat-icon-button matSuffix *ngIf="teacherForm.get('photoUrl')?.value" type="button" (click)="teacherForm.patchValue({photoUrl: ''})">
+                <mat-icon style="font-size:16px">clear</mat-icon>
+              </button>
+            </mat-form-field>
+            <div class="photo-btn-group">
+              <input #formFileInput type="file" accept="image/*" (change)="onFileSelected($event)" style="display:none">
+              <button mat-stroked-button type="button" color="primary" class="upload-pic-btn" (click)="formFileInput.click()">
+                <mat-icon>cloud_upload</mat-icon> Choose Image from Computer
+              </button>
+              <span class="upload-note">JPG, PNG, WebP up to 2MB</span>
+            </div>
+          </div>
+        </div>
       </div>
       <div class="form-actions">
         <button mat-button type="button" (click)="cancelForm()">Cancel</button>
         <button mat-raised-button color="primary" type="submit" [disabled]="teacherForm.invalid || saving">
           <mat-spinner diameter="18" *ngIf="saving" style="display:inline-block;margin-right:6px"></mat-spinner>
           <mat-icon *ngIf="!saving">save</mat-icon>
-          {{saving ? 'Saving...' : (editingId ? 'Update Teacher' : 'Add Teacher')}}
+          {{saving ? 'Saving...' : (editingId ? 'Update Staff Member' : 'Add Staff Member')}}
         </button>
       </div>
     </form>
@@ -158,22 +212,30 @@ import { TeacherDocumentsDialogComponent } from './teacher-documents-dialog.comp
   <!-- ── SEARCH & FILTER ── -->
   <mat-card class="filter-card mat-elevation-z1" *ngIf="!showForm">
     <div class="filter-heading">
-      <div class="filter-title"><mat-icon>filter_list</mat-icon><strong>Teacher Directory</strong></div>
-      <span class="total-count">{{totalCount}} teachers</span>
+      <div class="filter-title"><mat-icon>filter_list</mat-icon><strong>Staff &amp; Faculty Directory</strong></div>
+      <span class="total-count">{{totalCount}} members</span>
     </div>
     <div class="filter-controls">
       <mat-form-field appearance="outline" class="search-field">
-        <mat-label>Search faculty members...</mat-label>
+        <mat-label>Search staff / faculty members...</mat-label>
         <mat-icon matPrefix>search</mat-icon>
-        <input matInput [(ngModel)]="searchTerm" (ngModelChange)="onSearch()" placeholder="Name, code, specialization...">
+        <input matInput [(ngModel)]="searchTerm" (ngModelChange)="onSearch()" placeholder="Name, code, designation, department...">
         <button mat-icon-button matSuffix *ngIf="searchTerm" (click)="searchTerm=''; loadTeachers()">
           <mat-icon>clear</mat-icon>
         </button>
       </mat-form-field>
+      <mat-form-field appearance="outline" class="staff-filter-field">
+        <mat-label>Staff Type</mat-label>
+        <mat-select [(ngModel)]="filterStaffType" (ngModelChange)="loadTeachers()">
+          <mat-option value="All">All Staff &amp; Faculty</mat-option>
+          <mat-option value="Teaching">Teaching Faculty</mat-option>
+          <mat-option value="NonTeaching">Non-Teaching Staff</mat-option>
+        </mat-select>
+      </mat-form-field>
       <mat-form-field appearance="outline" class="status-field">
         <mat-label>Status</mat-label>
         <mat-select [(ngModel)]="filterActive" (ngModelChange)="loadTeachers()">
-          <mat-option [value]="null">Sab Teachers</mat-option>
+          <mat-option [value]="null">All Status</mat-option>
           <mat-option [value]="true">Active Only</mat-option>
           <mat-option [value]="false">Inactive Only</mat-option>
         </mat-select>
@@ -185,15 +247,38 @@ import { TeacherDocumentsDialogComponent } from './teacher-documents-dialog.comp
   <div class="profile-view" *ngIf="selectedTeacher && !showForm">
     <mat-card class="profile-card mat-elevation-z3">
       <div class="profile-top">
-        <div class="avatar-circle">{{getInitials(selectedTeacher.fullName)}}</div>
+        <div class="avatar-circle-wrapper">
+          <div class="avatar-circle" (click)="selectedTeacher.photoUrl && openPhotoPreview(selectedTeacher.photoUrl, selectedTeacher.fullName)" [style.cursor]="selectedTeacher.photoUrl ? 'pointer' : 'default'" [matTooltip]="selectedTeacher.photoUrl ? 'Click to view full photo' : ''">
+            <img *ngIf="selectedTeacher.photoUrl && !imgLoadErrors[selectedTeacher.id]"
+                 [src]="getPhotoUrl(selectedTeacher.photoUrl)"
+                 [alt]="selectedTeacher.fullName"
+                 class="avatar-img"
+                 (error)="imgLoadErrors[selectedTeacher.id] = true">
+            <span *ngIf="!selectedTeacher.photoUrl || imgLoadErrors[selectedTeacher.id]">
+              {{getInitials(selectedTeacher.fullName)}}
+            </span>
+          </div>
+          <button mat-mini-fab color="primary" class="avatar-quick-upload-btn" *ngIf="canManageStaff && selectedTeacher.isActive" (click)="quickAvatarInput.click()" matTooltip="Upload / Update Profile Photo">
+            <mat-icon style="font-size:16px;width:16px;height:16px;line-height:16px;">camera_alt</mat-icon>
+          </button>
+          <input #quickAvatarInput type="file" accept="image/*" (change)="onQuickAvatarSelected($event, selectedTeacher)" style="display:none">
+        </div>
         <div class="profile-info">
           <h2>{{selectedTeacher.fullName}}</h2>
           <span class="emp-badge">{{selectedTeacher.employeeCode}}</span>
+          <span class="staff-type-pill" [class.non-teach]="!isTeachingStaff(selectedTeacher)">
+            <mat-icon>{{ isTeachingStaff(selectedTeacher) ? 'school' : 'badge' }}</mat-icon>
+            {{ isTeachingStaff(selectedTeacher) ? 'Faculty' : 'Non-Teaching' }}
+          </span>
           <span class="status-chip" [class.active]="selectedTeacher.isActive" [class.inactive]="!selectedTeacher.isActive">
             {{selectedTeacher.isActive ? 'Active' : 'Inactive'}}
           </span>
-          <p class="spec-text">{{selectedTeacher.specialization || 'No Specialization'}}</p>
-          <p class="qual-text">{{selectedTeacher.qualification || ''}}</p>
+          <p class="spec-text" *ngIf="isTeachingStaff(selectedTeacher)">{{selectedTeacher.specialization || 'Teaching Faculty'}}</p>
+          <p class="spec-text non-teach-text" *ngIf="!isTeachingStaff(selectedTeacher)">
+            <strong>{{selectedTeacher.designation || 'Staff Member'}}</strong>
+            <span *ngIf="selectedTeacher.department"> &bull; {{selectedTeacher.department}}</span>
+          </p>
+          <p class="qual-text" *ngIf="selectedTeacher.qualification">{{selectedTeacher.qualification}}</p>
         </div>
         <button mat-icon-button (click)="selectedTeacher = null" class="close-profile">
           <mat-icon>close</mat-icon>
@@ -205,7 +290,7 @@ import { TeacherDocumentsDialogComponent } from './teacher-documents-dialog.comp
         <div class="banner-left">
           <div class="lock-icon-box"><mat-icon>verified_user</mat-icon></div>
           <div class="banner-content">
-            <span class="banner-title">Faculty Member Offboarded &amp; Relieved</span>
+            <span class="banner-title">Staff Member Offboarded &amp; Relieved</span>
             <span class="banner-sub">Full &amp; Final Settlement (FNF) has been finalized. ERP portal login, monthly payroll, and operational allocations are deactivated.</span>
           </div>
         </div>
@@ -230,13 +315,14 @@ import { TeacherDocumentsDialogComponent } from './teacher-documents-dialog.comp
       <div class="quick-nav">
         <p class="quick-nav-title">Directly Jaao →</p>
         <div class="quick-nav-grid">
-          <a mat-stroked-button [routerLink]="['/teachers/assignments']" [queryParams]="{teacherId: selectedTeacher.id}">
+          <a mat-stroked-button *ngIf="isTeachingStaff(selectedTeacher)" [routerLink]="['/teachers/assignments']" [queryParams]="{teacherId: selectedTeacher.id}">
             <mat-icon>class</mat-icon> Batch Assignments
           </a>
           <a mat-stroked-button [routerLink]="['/teachers/attendance']" [queryParams]="{teacherId: selectedTeacher.id}">
             <mat-icon>event_available</mat-icon> Attendance
           </a>
-          <a mat-stroked-button [routerLink]="['/teachers/salary']" [queryParams]="{teacherId: selectedTeacher.id}">
+          <!-- Salary Structure: Admin/HR only -->
+          <a mat-stroked-button *ngIf="canManageStaff" [routerLink]="['/teachers/salary']" [queryParams]="{teacherId: selectedTeacher.id}">
             <mat-icon>account_balance_wallet</mat-icon> Salary Structure
           </a>
           <a mat-stroked-button [routerLink]="['/teachers/payments']" [queryParams]="{teacherId: selectedTeacher.id}">
@@ -248,27 +334,30 @@ import { TeacherDocumentsDialogComponent } from './teacher-documents-dialog.comp
           <a mat-stroked-button [routerLink]="['/teachers/leaves']" [queryParams]="{teacherId: selectedTeacher.id}">
             <mat-icon>beach_access</mat-icon> Leave Management
           </a>
-          <a mat-stroked-button [routerLink]="['/teachers/substitution']">
+          <a mat-stroked-button *ngIf="isTeachingStaff(selectedTeacher)" [routerLink]="['/teachers/substitution']">
             <mat-icon>swap_horiz</mat-icon> Proxy &amp; Substitution
           </a>
-          <a mat-stroked-button [routerLink]="['/teachers/lesson-plans']" [queryParams]="{teacherId: selectedTeacher.id}">
+          <a mat-stroked-button *ngIf="isTeachingStaff(selectedTeacher)" [routerLink]="['/teachers/lesson-plans']" [queryParams]="{teacherId: selectedTeacher.id}">
             <mat-icon>menu_book</mat-icon> Lesson Diary
           </a>
-          <a mat-stroked-button [routerLink]="['/transport']" style="color: #2563eb; border-color: #93c5fd;">
+          <!-- Transport Pass: shown if transport module is on -->
+          <a mat-stroked-button *ngIf="authService.hasTransportModule()" [routerLink]="['/transport']" style="color: #2563eb; border-color: #93c5fd;">
             <mat-icon style="color: #2563eb;">directions_bus</mat-icon> Transport Pass
           </a>
-          <a mat-stroked-button [routerLink]="['/hostel']" style="color: #4f46e5; border-color: #c7d2fe;">
+          <!-- Staff Quarters: Admin/HR only -->
+          <a mat-stroked-button *ngIf="canManageStaff && authService.hasHostelModule()" [routerLink]="['/hostel']" style="color: #4f46e5; border-color: #c7d2fe;">
             <mat-icon style="color: #4f46e5;">apartment</mat-icon> Staff Quarters
           </a>
-          <a mat-stroked-button [routerLink]="['/library/circulation']" [queryParams]="{teacherId: selectedTeacher.id}" style="color: #059669; border-color: #a7f3d0;">
+          <!-- Library Account: shown if library module is on -->
+          <a mat-stroked-button *ngIf="authService.hasLibraryModule()" [routerLink]="['/library/circulation']" [queryParams]="{teacherId: selectedTeacher.id}" style="color: #059669; border-color: #a7f3d0;">
             <mat-icon style="color: #059669;">local_library</mat-icon> Library Account
           </a>
-          <!-- Active Teacher: Initiate Exit / FNF -->
-          <a mat-stroked-button *ngIf="selectedTeacher.isActive" [routerLink]="['/teachers/fnf']" [queryParams]="{teacherId: selectedTeacher.id}" style="color: #dc2626; border-color: #fca5a5;">
+          <!-- Exit/FNF: Admin/HR only -->
+          <a mat-stroked-button *ngIf="canManageStaff && selectedTeacher.isActive" [routerLink]="['/teachers/fnf']" [queryParams]="{teacherId: selectedTeacher.id}" style="color: #dc2626; border-color: #fca5a5;">
             <mat-icon style="color: #dc2626;">exit_to_app</mat-icon> Exit / FNF
           </a>
           <!-- Relieved/Inactive Teacher: View Settled FNF Statement -->
-          <a mat-stroked-button *ngIf="!selectedTeacher.isActive" [routerLink]="['/teachers/fnf']" [queryParams]="{viewSettlementTeacherId: selectedTeacher.id}" style="color: #1e40af; border-color: #93c5fd; background: #eff6ff;">
+          <a mat-stroked-button *ngIf="canManageStaff && !selectedTeacher.isActive" [routerLink]="['/teachers/fnf']" [queryParams]="{viewSettlementTeacherId: selectedTeacher.id}" style="color: #1e40af; border-color: #93c5fd; background: #eff6ff;">
             <mat-icon style="color: #2563eb;">receipt_long</mat-icon> FNF Statement
           </a>
         </div>
@@ -282,33 +371,36 @@ import { TeacherDocumentsDialogComponent } from './teacher-documents-dialog.comp
             <mat-icon>verified_user</mat-icon>
             <span>ERP Login {{ selectedTeacher.isActive ? 'Active' : 'Locked' }}: <strong>&#64;{{selectedTeacher.username}}</strong></span>
           </div>
-          <!-- Only active teachers can have a new login account created -->
-          <button mat-stroked-button color="accent" *ngIf="selectedTeacher.isActive && !selectedTeacher.hasLoginAccount" (click)="openCreateAccountDialog(selectedTeacher)">
+          <!-- Only Admin/HR can create new login accounts -->
+          <button mat-stroked-button color="accent" *ngIf="canManageStaff && selectedTeacher.isActive && !selectedTeacher.hasLoginAccount" (click)="openCreateAccountDialog(selectedTeacher)">
             <mat-icon>person_add_alt</mat-icon> Create ERP Login
           </button>
         </div>
-        <!-- Active Teacher Actions Only -->
+        <!-- Staff ID Card: everyone can print their own -->
         <button mat-stroked-button color="primary" *ngIf="selectedTeacher.isActive" (click)="openSingleIdCard(selectedTeacher)">
           <mat-icon>badge</mat-icon> Staff ID Card
         </button>
+        <!-- KYC & Docs: visible to all, but full management only for Admin/HR -->
         <button mat-stroked-button color="accent" *ngIf="selectedTeacher.isActive" (click)="openDocumentsModal(selectedTeacher)">
           <mat-icon>folder_shared</mat-icon> KYC &amp; Docs
         </button>
 
-        <!-- Active Teacher: Settle Exit / FNF -->
-        <a mat-stroked-button color="warn" *ngIf="selectedTeacher.isActive" [routerLink]="['/teachers/fnf']" [queryParams]="{teacherId: selectedTeacher.id}">
+        <!-- Exit / FNF Settlement: Admin/HR only -->
+        <a mat-stroked-button color="warn" *ngIf="canManageStaff && selectedTeacher.isActive" [routerLink]="['/teachers/fnf']" [queryParams]="{teacherId: selectedTeacher.id}">
           <mat-icon>exit_to_app</mat-icon> Exit / FNF Settlement
         </a>
 
         <!-- Offboarded / Relieved Teacher: View FNF Statement & Certificate -->
-        <a mat-stroked-button style="color: #1e40af; border-color: #93c5fd; background: #eff6ff;" *ngIf="!selectedTeacher.isActive" [routerLink]="['/teachers/fnf']" [queryParams]="{viewSettlementTeacherId: selectedTeacher.id}">
+        <a mat-stroked-button style="color: #1e40af; border-color: #93c5fd; background: #eff6ff;" *ngIf="canManageStaff && !selectedTeacher.isActive" [routerLink]="['/teachers/fnf']" [queryParams]="{viewSettlementTeacherId: selectedTeacher.id}">
           <mat-icon style="color: #2563eb;">receipt_long</mat-icon> View FNF Statement
         </a>
 
-        <button mat-raised-button color="primary" *ngIf="selectedTeacher.isActive" (click)="editTeacher(selectedTeacher)">
+        <!-- Edit Profile: Admin/HR only -->
+        <button mat-raised-button color="primary" *ngIf="canManageStaff && selectedTeacher.isActive" (click)="editTeacher(selectedTeacher)">
           <mat-icon>edit</mat-icon> Edit Profile
         </button>
-        <button mat-raised-button color="warn" *ngIf="selectedTeacher.isActive" (click)="deleteTeacher(selectedTeacher.id)">
+        <!-- Remove: Admin only (not HR) -->
+        <button mat-raised-button color="warn" *ngIf="authService.isAdmin() && selectedTeacher.isActive" (click)="deleteTeacher(selectedTeacher.id)">
           <mat-icon>delete</mat-icon> Remove
         </button>
       </div>
@@ -321,20 +413,40 @@ import { TeacherDocumentsDialogComponent } from './teacher-documents-dialog.comp
       *ngFor="let t of teachers"
       [class.selected-card]="selectedTeacher?.id === t.id"
       (click)="selectTeacher(t)">
-      <div class="card-avatar">{{getInitials(t.fullName)}}</div>
+      <div class="card-avatar" [class.has-photo]="!!t.photoUrl && !imgLoadErrors[t.id]">
+        <img *ngIf="t.photoUrl && !imgLoadErrors[t.id]"
+             [src]="getPhotoUrl(t.photoUrl)"
+             [alt]="t.fullName"
+             class="card-photo-img"
+             (error)="imgLoadErrors[t.id] = true">
+        <div *ngIf="!t.photoUrl || imgLoadErrors[t.id]" class="card-initials-badge">
+          {{getInitials(t.fullName)}}
+        </div>
+        <button mat-icon-button class="card-photo-zoom-btn"
+                *ngIf="t.photoUrl && !imgLoadErrors[t.id]"
+                (click)="$event.stopPropagation(); openPhotoPreview(t.photoUrl, t.fullName)"
+                matTooltip="View Full Photo">
+          <mat-icon style="font-size:16px;width:16px;height:16px;line-height:16px;">zoom_in</mat-icon>
+        </button>
+      </div>
       <div class="card-body">
         <div class="card-top">
           <span class="emp-code">{{t.employeeCode}}</span>
+          <span class="staff-mini-pill" [class.non-teach]="!isTeachingStaff(t)">
+            {{ isTeachingStaff(t) ? 'Faculty' : (t.designation || 'Staff') }}
+          </span>
           <span class="login-badge-chip" *ngIf="t.hasLoginAccount" [matTooltip]="'ERP Login Active (@' + (t.username || '') + ')'">
             <mat-icon>vpn_key</mat-icon>
           </span>
           <span class="active-dot" [class.active]="t.isActive" [class.inactive]="!t.isActive"></span>
         </div>
         <h4>{{t.fullName}}</h4>
-        <p class="spec">{{t.specialization || 'No Specialization'}}</p>
+        <p class="spec" *ngIf="isTeachingStaff(t)">{{t.specialization || 'Teaching Faculty'}}</p>
+        <p class="spec non-teach-spec" *ngIf="!isTeachingStaff(t)">{{t.designation || 'Staff'}} <span *ngIf="t.department">({{t.department}})</span></p>
         <p class="qual">{{t.qualification || ''}}</p>
         <div class="card-meta">
-          <span><mat-icon>class</mat-icon>{{t.assignedBatchCount}} Batches</span>
+          <span *ngIf="isTeachingStaff(t)"><mat-icon>class</mat-icon>{{t.assignedBatchCount}} Batches</span>
+          <span *ngIf="!isTeachingStaff(t)"><mat-icon>apartment</mat-icon>{{t.department || 'Staff'}}</span>
           <span><mat-icon>work_history</mat-icon>{{t.experienceYears}}y exp</span>
         </div>
         <div class="card-phone"><mat-icon>phone</mat-icon>{{t.phoneNumber}}</div>
@@ -343,7 +455,7 @@ import { TeacherDocumentsDialogComponent } from './teacher-documents-dialog.comp
 
     <div class="empty-state" *ngIf="teachers.length === 0 && !loading">
       <mat-icon>person_off</mat-icon>
-      <p>No faculty records found. Click "Add Teacher" above to get started.</p>
+      <p>No staff or faculty records found. Click "Add Staff / Teacher" above to get started.</p>
     </div>
   </div>
 
@@ -364,7 +476,7 @@ import { TeacherDocumentsDialogComponent } from './teacher-documents-dialog.comp
       <div class="account-drawer-header">
         <div class="hdr-icon"><mat-icon>lock_person</mat-icon></div>
         <div class="hdr-text">
-          <h3>Create Teacher ERP Login</h3>
+          <h3>Create Staff ERP Login</h3>
           <p>Set up portal login credentials for <strong>{{accountTeacher?.fullName}}</strong></p>
         </div>
         <button mat-icon-button (click)="closeAccountModal()"><mat-icon>close</mat-icon></button>
@@ -373,13 +485,13 @@ import { TeacherDocumentsDialogComponent } from './teacher-documents-dialog.comp
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>Login Username *</mat-label>
           <input matInput [(ngModel)]="accountFormData.username" placeholder="e.g. rahul.sharma" />
-          <mat-hint>Teacher will use this to sign into IMSERP</mat-hint>
+          <mat-hint>Staff member will use this to sign into IMSERP</mat-hint>
         </mat-form-field>
 
         <mat-form-field appearance="outline" class="full-width" style="margin-top: 14px;">
           <mat-label>Initial Password *</mat-label>
-          <input matInput type="text" [(ngModel)]="accountFormData.password" placeholder="e.g. Teacher@123" />
-          <mat-hint>Teacher can change this after logging in</mat-hint>
+          <input matInput type="text" [(ngModel)]="accountFormData.password" placeholder="e.g. Staff@123" />
+          <mat-hint>User can change this after logging in</mat-hint>
         </mat-form-field>
       </div>
       <div class="account-drawer-footer">
@@ -390,6 +502,24 @@ import { TeacherDocumentsDialogComponent } from './teacher-documents-dialog.comp
         </button>
       </div>
     </mat-card>
+  </div>
+
+  <!-- Full Photo Preview Lightbox Dialog -->
+  <div class="photo-lightbox-backdrop" *ngIf="previewPhotoUrl" (click)="previewPhotoUrl = null">
+    <div class="photo-lightbox-modal" (click)="$event.stopPropagation()">
+      <div class="lightbox-header">
+        <div class="lightbox-title-box">
+          <mat-icon>account_circle</mat-icon>
+          <span>{{previewPhotoTitle || 'Profile Photo'}}</span>
+        </div>
+        <button mat-icon-button (click)="previewPhotoUrl = null" class="lightbox-close-btn">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+      <div class="lightbox-body">
+        <img [src]="getPhotoUrl(previewPhotoUrl)" [alt]="previewPhotoTitle" class="lightbox-full-img">
+      </div>
+    </div>
   </div>
 </div>
   `,
@@ -410,23 +540,68 @@ import { TeacherDocumentsDialogComponent } from './teacher-documents-dialog.comp
     .filter-title { display:flex; align-items:center; gap:7px; color:#1e3a8a; font-size:.9rem; }
     .filter-title mat-icon { font-size:19px; width:19px; height:19px; color:#2563eb; }
     .total-count { color:#64748b; font-size:.78rem; font-weight:600; }
-    .filter-controls { display:grid; grid-template-columns:minmax(260px, 1fr) 180px; gap:14px; align-items:center; }
-    .search-field, .status-field { width:100%; }
+    .filter-controls { display:grid; grid-template-columns:minmax(240px, 1fr) 180px 150px; gap:14px; align-items:center; }
+    .search-field, .staff-filter-field, .status-field { width:100%; }
 
-    @media (max-width: 640px) {
+    @media (max-width: 768px) {
       .filter-controls { grid-template-columns:1fr; gap:4px; }
     }
     .total-count { font-size:.85rem; color:#64748b; margin-left:auto; }
     /* Profile View */
     .profile-view { }
     .profile-card { padding:24px; border-radius:12px; }
-    .profile-top { display:flex; align-items:flex-start; gap:20px; margin-bottom:16px; position:relative; }
-    .avatar-circle { width:72px; height:72px; border-radius:50%; background:linear-gradient(135deg,#1976d2,#42a5f5);
-      color:#fff; display:flex; align-items:center; justify-content:center; font-size:1.6rem; font-weight:700; flex-shrink:0; }
+    .avatar-circle-wrapper {
+      position: relative; display: inline-block; flex-shrink: 0;
+    }
+    .avatar-circle {
+      width:84px; height:84px; border-radius:50%; background:linear-gradient(135deg,#1976d2,#42a5f5);
+      color:#fff; display:flex; align-items:center; justify-content:center; font-size:1.8rem; font-weight:700;
+      overflow:hidden; border:3px solid #bfdbfe; box-shadow: 0 4px 12px rgba(37,99,235,0.25);
+    }
+    .avatar-quick-upload-btn {
+      position: absolute; bottom: -2px; right: -2px; width: 28px !important; height: 28px !important;
+      background: #2563eb !important; color: #ffffff !important; border-radius: 50%;
+      border: 2px solid #ffffff; box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+      display: flex; align-items: center; justify-content: center;
+      mat-icon { font-size: 15px; width: 15px; height: 15px; line-height: 15px; }
+      &:hover { background: #1d4ed8 !important; }
+    }
+    .avatar-img {
+      width: 100%; height: 100%; object-fit: cover; object-position: top center; display: block;
+    }
+    .photo-upload-row {
+      display: flex; align-items: center; gap: 16px; margin: 4px 0 12px;
+      padding: 12px 16px; background: #f8fafc; border: 1px dashed #93c5fd; border-radius: 10px;
+    }
+    .photo-preview-box {
+      width: 60px; height: 60px; border-radius: 50%; overflow: hidden; border: 2px solid #bfdbfe;
+      background: #e2e8f0; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+      box-shadow: 0 2px 8px rgba(37,99,235,0.15);
+    }
+    .form-avatar-preview { width: 100%; height: 100%; object-fit: cover; }
+    .form-avatar-placeholder { color: #94a3b8; display: flex; align-items: center; justify-content: center; mat-icon { font-size: 32px; width: 32px; height: 32px; } }
+    .photo-field-wrapper { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+    .photo-btn-group { display: flex; align-items: center; gap: 12px; }
+    .upload-pic-btn { font-size: 0.8rem; height: 32px; line-height: 32px; padding: 0 12px; }
+    .upload-note { font-size: 0.75rem; color: #64748b; }
     .profile-info { flex:1; h2{margin:0 0 6px;font-size:1.2rem;font-weight:700;} }
     .emp-badge { background:#e3f2fd; color:#1565c0; padding:2px 10px; border-radius:12px; font-size:.78rem; font-weight:700; }
     .status-chip { padding:2px 10px; border-radius:12px; font-size:.75rem; font-weight:600; margin-left:6px;
       &.active{background:#e8f5e9;color:#2e7d32;} &.inactive{background:#ffebee;color:#c62828;} }
+    .staff-type-pill {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: #e0f2fe; color: #0284c7; padding: 2px 8px; border-radius: 12px;
+      font-size: .75rem; font-weight: 600; margin-left: 6px;
+      mat-icon { font-size: 13px; width: 13px; height: 13px; }
+      &.non-teach { background: #ede9fe; color: #7c3aed; }
+    }
+    .staff-mini-pill {
+      font-size: .7rem; font-weight: 600; color: #0284c7; background: #f0f9ff;
+      padding: 1px 6px; border-radius: 6px; border: 1px solid #bae6fd;
+      &.non-teach { color: #6d28d9; background: #f5f3ff; border-color: #ddd6fe; }
+    }
+    .non-teach-text { color: #4338ca !important; }
+    .non-teach-spec { color: #6d28d9 !important; font-weight: 600; }
     .spec-text { color:#1976d2; font-weight:600; font-size:.88rem; margin:8px 0 2px; }
     .qual-text { color:#64748b; font-size:.82rem; margin:0; }
     .close-profile { margin-left:auto; }
@@ -511,8 +686,79 @@ import { TeacherDocumentsDialogComponent } from './teacher-documents-dialog.comp
     .teacher-card { border-radius:12px; cursor:pointer; transition:all .2s ease; padding:0; overflow:hidden;
       &:hover { transform:translateY(-3px); box-shadow:0 8px 20px rgba(0,0,0,.12)!important; }
       &.selected-card { border:2px solid #1976d2; } }
-    .card-avatar { height:72px; background:linear-gradient(135deg,#1976d2,#42a5f5); color:#fff;
-      display:flex; align-items:center; justify-content:center; font-size:1.6rem; font-weight:700; }
+    .card-avatar {
+      height: 160px;
+      background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      position: relative;
+      border-bottom: 1px solid #e2e8f0;
+      &.has-photo {
+        background: #f8fafc;
+      }
+    }
+    .card-photo-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: top center;
+      display: block;
+      transition: transform 0.25s ease;
+    }
+    .teacher-card:hover .card-photo-img {
+      transform: scale(1.04);
+    }
+    .card-initials-badge {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.22);
+      border: 2px solid rgba(255, 255, 255, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: #ffffff;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+    .card-photo-zoom-btn {
+      position: absolute; top: 8px; right: 8px; width: 28px !important; height: 28px !important;
+      background: rgba(15, 23, 42, 0.6) !important; color: #ffffff !important; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center; opacity: 0;
+      transition: opacity 0.2s ease, background 0.2s ease;
+      mat-icon { font-size: 16px; width: 16px; height: 16px; line-height: 16px; }
+      &:hover { background: rgba(37, 99, 235, 0.9) !important; }
+    }
+    .teacher-card:hover .card-photo-zoom-btn {
+      opacity: 1;
+    }
+    .photo-lightbox-backdrop {
+      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(3px);
+      z-index: 10000; display: flex; align-items: center; justify-content: center; padding: 24px;
+    }
+    .photo-lightbox-modal {
+      background: #ffffff; border-radius: 12px; overflow: hidden; max-width: 480px; width: 100%;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.25); border: 1px solid #bfdbfe;
+    }
+    .lightbox-header {
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+      border-bottom: 1px solid #bfdbfe; padding: 12px 18px;
+      display: flex; align-items: center; justify-content: space-between;
+      .lightbox-title-box {
+        display: flex; align-items: center; gap: 8px; color: #1e3a8a; font-weight: 700; font-size: 0.95rem;
+        mat-icon { color: #2563eb; font-size: 20px; width: 20px; height: 20px; }
+      }
+      .lightbox-close-btn { color: #64748b; &:hover { color: #1e293b; } }
+    }
+    .lightbox-body {
+      padding: 16px; display: flex; align-items: center; justify-content: center; background: #0f172a;
+      .lightbox-full-img { max-width: 100%; max-height: 70vh; object-fit: contain; border-radius: 6px; }
+    }
     .card-body { padding:14px; }
     .card-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
     .emp-code { font-size:.78rem; font-weight:700; color:#1976d2; background:#e3f2fd; padding:2px 8px; border-radius:8px; }
@@ -541,9 +787,14 @@ export class TeacherProfilesComponent implements OnInit {
   selectedTeacher: TeacherDto | null = null;
   loading = false; saving = false; codeLoading = false;
   searchTerm = ''; filterActive: boolean | null = null;
+  filterStaffType: 'All' | 'Teaching' | 'NonTeaching' = 'All';
   pageNumber = 1; pageSize = 12; totalCount = 0;
   showForm = false; editingId: string | null = null;
   teacherForm!: FormGroup;
+  imgLoadErrors: { [id: string]: boolean } = {};
+  previewImgError = false;
+  previewPhotoUrl: string | null = null;
+  previewPhotoTitle = '';
 
   // Duplicate check state
   phoneDuplicate = false; phoneDupChecking = false;
@@ -556,8 +807,20 @@ export class TeacherProfilesComponent implements OnInit {
     private http: HttpClient,
     private fb: FormBuilder,
     private confirmDialog: ConfirmDialogService,
-    private dialog: MatDialog
+    private dialog: MatDialog,
+    public authService: AuthService
   ) {}
+
+  /** True when the logged-in user is only a Teacher (self-service mode) */
+  get isTeacherRole(): boolean { return this.authService.isTeacher(); }
+
+  /** True when Admin or HR — full staff management is allowed */
+  get canManageStaff(): boolean { return this.authService.canManageStaff(); }
+
+  isTeachingStaff(t: TeacherDto | null): boolean {
+    if (!t) return false;
+    return t.staffType !== 'NonTeaching' && t.staffType !== 2;
+  }
 
   ngOnInit() {
     this.initForm();
@@ -567,16 +830,105 @@ export class TeacherProfilesComponent implements OnInit {
   initForm() {
     const today = new Date().toISOString().split('T')[0];
     this.teacherForm = this.fb.group({
+      staffType: [1, Validators.required],
       employeeCode: [{ value: '', disabled: false }, Validators.required],
       fullName: ['', Validators.required],
+      department: [''],
+      designation: [''],
       fatherName: [''], gender: ['Male', Validators.required],
       dateOfBirth: [''], qualification: [''], specialization: [''],
       experienceYears: [0], phoneNumber: ['', Validators.required],
-      whatsAppPhone: [''], email: [''], address: [''], joiningDate: [today, Validators.required]
+      whatsAppPhone: [''], email: [''], address: [''],
+      photoUrl: [''],
+      joiningDate: [today, Validators.required]
     });
   }
 
-  getInitials(name: string) { return name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase(); }
+  getInitials(name: string): string {
+    if (!name) return 'ST';
+    const clean = name.replace(/[()[\]{}_-]/g, ' ').replace(/[^a-zA-Z0-9\s]/g, '').trim();
+    const parts = clean.split(/\s+/).filter(p => p.length > 0);
+    if (parts.length === 0) return 'ST';
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+
+  getPhotoUrl(url?: string): string {
+    if (!url) return '';
+    if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
+      return url;
+    }
+    return `http://localhost:5000${url.startsWith('/') ? '' : '/'}${url}`;
+  }
+
+  openPhotoPreview(url: string, title: string) {
+    this.previewPhotoUrl = url;
+    this.previewPhotoTitle = title;
+  }
+
+  onFileSelected(event: any) {
+    const file = event.target?.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      this.confirmDialog.alert('Image Size', 'Image file size must be less than 2MB.', 'warning');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e: any) => {
+      this.previewImgError = false;
+      this.teacherForm.patchValue({ photoUrl: e.target.result });
+    };
+    reader.readAsDataURL(file);
+  }
+
+  onQuickAvatarSelected(event: any, teacher: TeacherDto) {
+    const file = event.target?.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      this.confirmDialog.alert('Image Size', 'Image file size must be less than 2MB.', 'warning');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e: any) => {
+      const base64 = e.target.result;
+      const payload: any = {
+        employeeCode: teacher.employeeCode,
+        fullName: teacher.fullName,
+        fatherName: teacher.fatherName,
+        gender: teacher.gender || 'Male',
+        dateOfBirth: teacher.dateOfBirth,
+        qualification: teacher.qualification,
+        specialization: teacher.specialization,
+        experienceYears: teacher.experienceYears,
+        phoneNumber: teacher.phoneNumber,
+        whatsAppPhone: teacher.whatsAppPhone,
+        email: teacher.email,
+        address: teacher.address,
+        photoUrl: base64,
+        joiningDate: teacher.joiningDate,
+        isActive: teacher.isActive,
+        branchId: teacher.branchId,
+        staffType: (teacher.staffType === 'NonTeaching' || teacher.staffType === 2) ? 'NonTeaching' : 'Teaching',
+        department: teacher.department,
+        designation: teacher.designation
+      };
+      this.http.put<TeacherDto>(`${this.api}/teachers/${teacher.id}`, payload).subscribe({
+        next: (updated) => {
+          teacher.photoUrl = updated.photoUrl;
+          delete this.imgLoadErrors[teacher.id];
+          const idx = this.teachers.findIndex(t => t.id === teacher.id);
+          if (idx !== -1) {
+            this.teachers[idx].photoUrl = updated.photoUrl;
+          }
+          this.confirmDialog.alert('Profile Photo', 'Profile photo updated successfully!', 'success');
+        },
+        error: () => {
+          this.confirmDialog.alert('Upload Failed', 'Failed to update profile photo.', 'danger');
+        }
+      });
+    };
+    reader.readAsDataURL(file);
+  }
 
   loadTeachers() {
     this.loading = true;
@@ -584,6 +936,9 @@ export class TeacherProfilesComponent implements OnInit {
       .set('pageNumber', this.pageNumber).set('pageSize', this.pageSize)
       .set('searchTerm', this.searchTerm).set('sortBy', 'fullName');
     if (this.filterActive !== null) params = params.set('isActive', this.filterActive);
+    if (this.filterStaffType && this.filterStaffType !== 'All') {
+      params = params.set('staffType', this.filterStaffType);
+    }
     this.http.get<any>(`${this.api}/teachers/paged`, { params }).subscribe({
       next: r => { this.teachers = r.items; this.totalCount = r.totalCount; this.loading = false; },
       error: () => this.loading = false
@@ -597,13 +952,15 @@ export class TeacherProfilesComponent implements OnInit {
     this.selectedTeacher = this.selectedTeacher?.id === t.id ? null : t;
   }
 
-  openAddForm() {
-    this.editingId = null; this.showForm = true; this.selectedTeacher = null;
-    this.phoneDuplicate = false; this.emailDuplicate = false;
-    this.teacherForm.reset({ gender: 'Male', experienceYears: 0, joiningDate: new Date().toISOString().split('T')[0] });
-    // Auto-generate employee code from backend
+  onStaffTypeChange(type: number) {
+    this.generateEmployeeCode(type);
+  }
+
+  generateEmployeeCode(typeVal: number) {
+    if (this.editingId) return;
     this.codeLoading = true;
-    this.http.get<{ code: string }>(`${this.api}/teachers/next-employee-code`).subscribe({
+    const typeStr = typeVal == 2 ? 'NonTeaching' : 'Teaching';
+    this.http.get<{ code: string }>(`${this.api}/teachers/next-employee-code?staffType=${typeStr}`).subscribe({
       next: r => { this.teacherForm.patchValue({ employeeCode: r.code }); this.codeLoading = false; },
       error: () => {
         this.codeLoading = false;
@@ -612,13 +969,36 @@ export class TeacherProfilesComponent implements OnInit {
     });
   }
 
+  openAddForm() {
+    this.editingId = null; this.showForm = true; this.selectedTeacher = null;
+    this.phoneDuplicate = false; this.emailDuplicate = false;
+    this.previewImgError = false;
+    this.teacherForm.reset({
+      staffType: 1,
+      gender: 'Male',
+      experienceYears: 0,
+      photoUrl: '',
+      joiningDate: new Date().toISOString().split('T')[0]
+    });
+    this.generateEmployeeCode(1);
+  }
+
   editTeacher(t: TeacherDto) {
     this.editingId = t.id; this.showForm = true;
     this.phoneDuplicate = false; this.emailDuplicate = false;
-    this.teacherForm.patchValue({ ...t, joiningDate: t.joiningDate?.split('T')[0], dateOfBirth: t.dateOfBirth?.split('T')[0] });
+    this.previewImgError = false;
+    this.teacherForm.patchValue({
+      ...t,
+      staffType: (t.staffType === 'NonTeaching' || t.staffType === 2) ? 2 : 1,
+      department: t.department || '',
+      designation: t.designation || '',
+      photoUrl: t.photoUrl || '',
+      joiningDate: t.joiningDate?.split('T')[0],
+      dateOfBirth: t.dateOfBirth?.split('T')[0]
+    });
   }
 
-  cancelForm() { this.showForm = false; this.editingId = null; this.phoneDuplicate = false; this.emailDuplicate = false; }
+  cancelForm() { this.showForm = false; this.editingId = null; this.phoneDuplicate = false; this.emailDuplicate = false; this.previewImgError = false; }
 
   /** Called on blur of phone/email fields */
   checkDuplicate(field: 'phone' | 'email') {
@@ -653,7 +1033,8 @@ export class TeacherProfilesComponent implements OnInit {
       return;
     }
     this.saving = true;
-    const val = this.teacherForm.getRawValue(); // includes readonly employeeCode
+    const val = { ...this.teacherForm.getRawValue() }; // includes readonly employeeCode
+    val.staffType = val.staffType == 2 ? 'NonTeaching' : 'Teaching';
     const req = this.editingId
       ? this.http.put<TeacherDto>(`${this.api}/teachers/${this.editingId}`, val)
       : this.http.post<TeacherDto>(`${this.api}/teachers`, val);
@@ -662,11 +1043,11 @@ export class TeacherProfilesComponent implements OnInit {
         this.saving = false;
         this.cancelForm();
         this.loadTeachers();
-        this.confirmDialog.alert('Success', 'Faculty profile saved successfully!', 'success');
+        this.confirmDialog.alert('Success', 'Staff / Faculty profile saved successfully!', 'success');
       },
       error: e => {
         this.saving = false;
-        this.confirmDialog.alert('Error', e?.error?.message || 'Error saving faculty profile.', 'danger');
+        this.confirmDialog.alert('Error', e?.error?.message || 'Error saving profile.', 'danger');
       }
     });
   }

@@ -13,6 +13,7 @@ export interface PayslipDialogData {
   payment: SalaryPaymentDto;
   teacher: TeacherDto;
   instituteName?: string;
+  branchName?: string;
   logoUrl?: string;
 }
 
@@ -57,6 +58,11 @@ export interface PayslipDialogData {
             <div>
               <h2 class="inst-name">{{ data.instituteName || authService.currentUser()?.instituteName || 'Apex Coaching Academy' }}</h2>
               <p class="inst-subtitle">Faculty & Staff Payroll Management | Monthly Pay Advice</p>
+              <p class="inst-branch" *ngIf="effectiveBranchName">
+                <span class="branch-pill">🏛️ Branch: {{ effectiveBranchName }}</span>
+                <span class="branch-dept-sep">|</span>
+                <span class="branch-dept">Payroll & Accounts Division</span>
+              </p>
             </div>
           </div>
           <div class="payslip-badge">
@@ -69,6 +75,10 @@ export interface PayslipDialogData {
           <div class="meta-item">
             <span class="meta-label">Pay Period / Month:</span>
             <span class="meta-val"><strong>{{ data.payment.monthName }}</strong></span>
+          </div>
+          <div class="meta-item branch-meta-item" *ngIf="effectiveBranchName">
+            <span class="meta-label">Branch / Campus:</span>
+            <span class="meta-val branch-val">🏛️ {{ effectiveBranchName }}</span>
           </div>
           <div class="meta-item">
             <span class="meta-label">Receipt / Voucher No:</span>
@@ -239,6 +249,12 @@ export interface PayslipDialogData {
       }
       .inst-name { margin: 0; font-size: 1.35rem; font-weight: 800; color: #0f172a; letter-spacing: -0.5px; }
       .inst-subtitle { margin: 2px 0 0; font-size: 0.8rem; color: #64748b; }
+      .inst-branch {
+        margin: 3px 0 0; font-size: 0.78rem; color: #1e40af; font-weight: 600; display: flex; align-items: center; gap: 6px;
+        .branch-pill { background: #eff6ff; color: #1e40af; padding: 2px 8px; border-radius: 6px; border: 1px solid #bfdbfe; font-size: 0.74rem; font-weight: 700; }
+        .branch-dept-sep { color: #94a3b8; }
+        .branch-dept { color: #64748b; font-size: 0.72rem; }
+      }
     }
     .payslip-badge {
       text-align: right;
@@ -246,13 +262,14 @@ export interface PayslipDialogData {
       .badge-sub { font-size: 0.8rem; color: #64748b; font-weight: 600; }
     }
     .meta-strip {
-      display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+      display: flex; flex-wrap: wrap; gap: 12px 18px;
       background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 16px; margin-bottom: 18px;
     }
     .meta-item {
-      display: flex; flex-direction: column; gap: 2px;
+      display: flex; flex-direction: column; gap: 2px; min-width: 110px; flex: 1 1 auto;
       .meta-label { font-size: 0.72rem; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px; }
       .meta-val { font-size: 0.88rem; color: #0f172a; }
+      .branch-val { color: #1e40af; font-weight: 700; }
       .receipt-no { font-family: monospace; font-weight: 700; color: #1e40af; }
       .mode-pill { font-weight: 600; color: #0284c7; }
     }
@@ -324,6 +341,13 @@ export class TeacherPayslipDialogComponent {
   logoFailed = false;
   sendingWhatsApp = false;
 
+  get effectiveBranchName(): string {
+    if (this.data?.branchName) return this.data.branchName;
+    const authBranch = this.authService.getCurrentBranchName();
+    if (authBranch) return authBranch;
+    return '';
+  }
+
   constructor(
     public dialogRef: MatDialogRef<TeacherPayslipDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: PayslipDialogData,
@@ -372,12 +396,17 @@ export class TeacherPayslipDialogComponent {
             .inst-logo-img { width: 100%; height: 100%; object-fit: contain; }
             .inst-name { font-size: 1.35rem; font-weight: 800; color: #0f172a; }
             .inst-subtitle { font-size: 0.8rem; color: #64748b; margin-top: 2px; }
+            .inst-branch { font-size: 0.74rem; color: #1e40af; font-weight: 600; margin-top: 3px; display: flex; align-items: center; gap: 6px; }
+            .branch-pill { background: #eff6ff; color: #1e40af; padding: 2px 7px; border-radius: 4px; border: 1px solid #bfdbfe; font-size: 0.72rem; }
+            .branch-dept-sep { color: #94a3b8; }
+            .branch-dept { color: #64748b; font-size: 0.7rem; }
             .payslip-badge { text-align: right; }
             .badge-title { display: block; font-size: 1.1rem; font-weight: 800; color: #1e40af; letter-spacing: 1px; }
             .badge-sub { font-size: 0.8rem; color: #64748b; font-weight: 600; }
-            .meta-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 16px; margin-bottom: 18px; }
+            .meta-strip { display: flex; flex-wrap: wrap; gap: 12px 18px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 16px; margin-bottom: 18px; }
             .meta-label { font-size: 0.72rem; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px; display: block; }
             .meta-val { font-size: 0.88rem; color: #0f172a; display: block; }
+            .branch-val { color: #1e40af; font-weight: 700; }
             .receipt-no { font-family: monospace; font-weight: 700; color: #1e40af; }
             .mode-pill { font-weight: 600; color: #0284c7; }
             .details-section { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 18px; margin-bottom: 16px; }

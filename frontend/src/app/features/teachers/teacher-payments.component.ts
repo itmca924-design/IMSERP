@@ -629,7 +629,8 @@ export class TeacherPaymentsComponent implements OnInit {
       data: {
         payment,
         teacher: this.selectedTeacher,
-        instituteName: this.authService.currentUser()?.instituteName || 'Apex Coaching Academy'
+        instituteName: this.authService.currentUser()?.instituteName || 'Apex Coaching Academy',
+        branchName: this.authService.getCurrentBranchName()
       }
     });
   }
@@ -678,7 +679,7 @@ export class TeacherPaymentsComponent implements OnInit {
         this.loadPayments();
         this.confirmDialog.confirm(
           'Payment Recorded ✓',
-          'Salary payment record ho gayi! Kya aap abhi is payment ki Payslip dekhna / print karna chahte hain?',
+          'Salary payment has been recorded successfully! Would you like to view or print the payslip now?',
           'View Payslip',
           'Done',
           'success'

@@ -10,12 +10,14 @@ import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { API_BASE, AttendancePermissionsDto, AttendanceSettingsDto, HolidayDto } from '../teachers/teacher.models';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { CoachingService } from '../../core/services/coaching.service';
 import { SchoolService, SchoolClassDto, SchoolSectionDto } from '../../core/services/school.service';
+import { AuthService } from '../../core/services/auth.service';
 
 interface StudentItem {
   id: string;
@@ -95,14 +97,16 @@ interface CalendarDay {
   imports: [
     CommonModule, FormsModule, RouterModule, MatCardModule, MatButtonModule,
     MatIconModule, MatInputModule, MatFormFieldModule, MatSelectModule,
-    MatProgressBarModule, MatTooltipModule, MatCheckboxModule
+    MatProgressBarModule, MatProgressSpinnerModule, MatTooltipModule, MatCheckboxModule
   ],
   template: `
 <div class="page-container">
+  <!-- Top Global Page Loading Indicator -->
+  <mat-progress-bar mode="indeterminate" class="global-page-loader" *ngIf="isAnyLoading"></mat-progress-bar>
   <div class="page-header">
     <div>
       <h1 class="page-title"><mat-icon>event_available</mat-icon> Student Attendance Management</h1>
-      <p class="page-subtitle">Mark daily roll call for School Classes or Coaching Batches, or view individual student monthly registers.</p>
+      <p class="page-subtitle">{{ hasSchool && hasCoaching ? 'Mark daily roll call for School Classes or Coaching Batches, or view individual student monthly registers.' : (hasSchool ? 'Mark daily roll call for School Classes and Sections, or view individual student monthly registers.' : 'Mark daily roll call for Coaching Batches, or view individual student monthly registers.') }}</p>
     </div>
     <div class="header-actions">
       <a mat-stroked-button routerLink="/attendance/reports"><mat-icon>summarize</mat-icon> Attendance Reports</a>
@@ -116,7 +120,7 @@ interface CalendarDay {
       <mat-icon>groups</mat-icon>
       <div class="tab-text">
         <strong>Roll Call (Bulk)</strong>
-        <small>School Classes & Coaching Batches attendance in 1 click</small>
+        <small>{{ hasSchool && hasCoaching ? 'School Classes & Coaching Batches attendance in 1 click' : (hasSchool ? 'School Classes daily roll call in 1 click' : 'Coaching Batches attendance in 1 click') }}</small>
       </div>
     </button>
     <button type="button" class="tab-btn" [class.active]="activeTab === 'single'" (click)="activeTab = 'single'">
@@ -134,8 +138,8 @@ interface CalendarDay {
   <!-- ================= TAB 1: ROLL CALL (BULK) ================= -->
   <div *ngIf="activeTab === 'batch'" class="batch-view">
 
-    <!-- Scope Selector: School Class vs Coaching Batch -->
-    <div class="roll-call-scope-bar">
+    <!-- Scope Selector: School Class vs Coaching Batch (Only shown if both modules are active) -->
+    <div class="roll-call-scope-bar" *ngIf="hasSchool && hasCoaching">
       <button type="button" class="scope-pill-btn" [class.active]="rollCallScope === 'school'" (click)="setRollCallScope('school')">
         <mat-icon>school</mat-icon>
         <div class="scope-btn-text">
@@ -254,6 +258,12 @@ interface CalendarDay {
       <p>Please select a batch from the dropdown above to mark attendance.</p>
     </mat-card>
 
+    <!-- Loading State: Scope Loading -->
+    <mat-card class="mat-elevation-z1 loading-card" *ngIf="isScopeLoading">
+      <mat-spinner diameter="34"></mat-spinner>
+      <span>Loading class & batch attendance records...</span>
+    </mat-card>
+
     <!-- Empty State: Zero Students -->
     <mat-card class="mat-elevation-z1 empty-card" *ngIf="isScopeSelected && !isScopeLoading && filteredActiveStudents.length === 0">
       <mat-icon class="empty-icon">person_off</mat-icon>
@@ -370,8 +380,8 @@ interface CalendarDay {
     <mat-card class="selector-card mat-elevation-z1">
       <mat-icon color="primary" class="selector-icon">person_search</mat-icon>
 
-      <!-- Stream Filter Toggle -->
-      <div class="stream-pill-toggle">
+      <!-- Stream Filter Toggle (Only shown when both School & Coaching modules are active) -->
+      <div class="stream-pill-toggle" *ngIf="hasSchool && hasCoaching">
         <button type="button" class="stream-pill" [class.active]="singleStreamFilter === 'all'" (click)="setSingleStreamFilter('all')">All</button>
         <button type="button" class="stream-pill" [class.active]="singleStreamFilter === 'school'" (click)="setSingleStreamFilter('school')">🏫 School</button>
         <button type="button" class="stream-pill" [class.active]="singleStreamFilter === 'coaching'" (click)="setSingleStreamFilter('coaching')">📚 Coaching</button>
@@ -416,6 +426,12 @@ interface CalendarDay {
           </mat-option>
         </mat-select>
       </mat-form-field>
+    </mat-card>
+
+    <!-- Loading State: Student Matrix Loading -->
+    <mat-card class="mat-elevation-z1 loading-card" *ngIf="loading">
+      <mat-spinner diameter="34"></mat-spinner>
+      <span>Loading student attendance calendar matrix...</span>
     </mat-card>
 
     <div *ngIf="selectedStudent" class="attendance-wrapper">
@@ -500,7 +516,28 @@ interface CalendarDay {
 </div>
   `,
   styles: [`
-    .page-container { display: flex; flex-direction: column; gap: 16px; }
+    .page-container { display: flex; flex-direction: column; gap: 16px; position: relative; }
+    .global-page-loader {
+      position: sticky;
+      top: -16px;
+      z-index: 1000;
+      height: 4px;
+      border-radius: 2px;
+      margin-bottom: -12px;
+    }
+    .loading-card {
+      padding: 36px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      background: #ffffff;
+      border-radius: 12px;
+      color: #64748b;
+      font-weight: 500;
+      font-size: 0.9rem;
+    }
     .page-header { display: flex; justify-content: space-between; align-items: center; }
     .page-title { margin: 0; color: #1976d2; font-size: 1.45rem; display: flex; align-items: center; gap: 8px; }
     .page-subtitle { margin: 4px 0 0; color: #64748b; font-size: .88rem; }
@@ -983,20 +1020,50 @@ export class StudentAttendanceComponent implements OnInit {
     private route: ActivatedRoute,
     private confirmDialog: ConfirmDialogService,
     private coachingService: CoachingService,
-    private schoolService: SchoolService
+    private schoolService: SchoolService,
+    public authService: AuthService
   ) {}
 
+  pageLoading = true;
+
+  get isAnyLoading(): boolean {
+    return this.pageLoading || this.loading || this.batchLoading || this.batchSaving || this.schoolLoading || this.schoolSaving;
+  }
+
+  get hasSchool(): boolean {
+    return this.authService.hasSchoolModule();
+  }
+
+  get hasCoaching(): boolean {
+    return this.authService.hasCoachingModule();
+  }
+
   ngOnInit(): void {
+    this.pageLoading = true;
+    if (!this.hasSchool && this.hasCoaching) {
+      this.rollCallScope = 'coaching';
+      this.singleStreamFilter = 'coaching';
+    } else if (this.hasSchool && !this.hasCoaching) {
+      this.rollCallScope = 'school';
+      this.singleStreamFilter = 'school';
+    } else {
+      this.singleStreamFilter = 'all';
+    }
+
     this.loadAttendanceSettings();
     this.http.get<AttendancePermissionsDto>(`${this.api}/attendance/permissions`).subscribe({
       next: permissions => this.attendancePermissions = permissions
     });
 
-    // Load School Classes for School Roll Call
-    this.loadSchoolClasses();
+    // Load School Classes only if School Module is active
+    if (this.hasSchool) {
+      this.loadSchoolClasses();
+    }
 
-    // Load Batches for Coaching Roll Call
-    this.loadBatches();
+    // Load Batches only if Coaching Module is active
+    if (this.hasCoaching) {
+      this.loadBatches();
+    }
 
     // Load Students for Tab 2
     this.loadStudents();
@@ -1122,8 +1189,10 @@ export class StudentAttendanceComponent implements OnInit {
   // ================= SCHOOL CLASS ROLL CALL METHODS =================
 
   loadSchoolClasses(): void {
+    this.schoolLoading = true;
     this.schoolService.getClasses(true).subscribe({
       next: classes => {
+        this.schoolLoading = false;
         this.schoolClasses = classes || [];
         const requestedClassId = this.route.snapshot.queryParamMap.get('classId');
         if (requestedClassId && this.schoolClasses.some(c => c.id === requestedClassId)) {
@@ -1140,6 +1209,7 @@ export class StudentAttendanceComponent implements OnInit {
         }
       },
       error: () => {
+        this.schoolLoading = false;
         this.schoolClasses = [];
       }
     });
@@ -1251,8 +1321,10 @@ export class StudentAttendanceComponent implements OnInit {
   // ================= BATCH ROLL CALL METHODS =================
 
   loadBatches(): void {
+    this.batchLoading = true;
     this.coachingService.getBatches().subscribe({
       next: batches => {
+        this.batchLoading = false;
         this.batches = batches || [];
         const requestedBatchId = this.route.snapshot.queryParamMap.get('batchId');
         if (requestedBatchId && this.batches.some(b => b.id === requestedBatchId)) {
@@ -1266,6 +1338,7 @@ export class StudentAttendanceComponent implements OnInit {
         }
       },
       error: () => {
+        this.batchLoading = false;
         this.batches = [];
       }
     });
@@ -1401,8 +1474,11 @@ export class StudentAttendanceComponent implements OnInit {
   // ================= SINGLE STUDENT ATTENDANCE METHODS =================
 
   loadStudents(): void {
+    this.loading = true;
     this.http.get<any[]>(`${this.api}/students`).subscribe({
       next: students => {
+        this.loading = false;
+        this.pageLoading = false;
         this.students = (students || []).map(s => ({
           id: s.id,
           rollNumber: s.schoolRollNumber || s.rollNumber || s.coachingRollNumber || '',
@@ -1434,11 +1510,21 @@ export class StudentAttendanceComponent implements OnInit {
             this.singleSelectedBatchId = found.batchId;
           }
         } else {
+          if (!this.hasSchool && this.hasCoaching) {
+            this.singleStreamFilter = 'coaching';
+          } else if (this.hasSchool && !this.hasCoaching) {
+            this.singleStreamFilter = 'school';
+          }
           this.selectedStudentId = this.filteredSingleStudents[0]?.id || '';
         }
         if (this.selectedStudentId) {
           this.onStudentChanged();
         }
+      },
+      error: () => {
+        this.loading = false;
+        this.pageLoading = false;
+        this.students = [];
       }
     });
   }

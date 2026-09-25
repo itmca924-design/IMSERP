@@ -720,7 +720,14 @@ export class TeachersComponent implements OnInit {
     });
   }
 
-  getInitials(name: string) { return name.split(' ').map(n=>n[0]).slice(0,2).join('').toUpperCase(); }
+  getInitials(name: string): string {
+    if (!name) return 'ST';
+    const clean = name.replace(/[()[\]{}_-]/g, ' ').replace(/[^a-zA-Z0-9\s]/g, '').trim();
+    const parts = clean.split(/\s+/).filter(p => p.length > 0);
+    if (parts.length === 0) return 'ST';
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
 
   loadTeachers() {
     this.loading = true;

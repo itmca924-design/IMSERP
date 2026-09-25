@@ -13,6 +13,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { FeesService, StudentLibraryDues, FeeInvoiceItem, FeeItemPayment } from '../../core/services/fees.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { QuickSettingsService } from '../../core/services/quick-settings.service';
+import { AuthService } from '../../core/services/auth.service';
 
 export interface FeeDialogData {
   studentId: string;
@@ -27,6 +28,7 @@ export interface FeeDialogData {
   selectedInvoicesCount?: number;
   selectedInvoicesDetails?: string;
   hostelInfo?: string;
+  branchName?: string;
   items?: FeeInvoiceItem[];
 }
 
@@ -84,6 +86,9 @@ export interface FeeCollectionItemRow {
               <span *ngIf="data.className && data.batchName" class="st-sep">•</span>
               <span *ngIf="data.batchName" class="st-batch-chip">
                 🎯 {{ data.batchName }}
+              </span>
+              <span *ngIf="effectiveBranchName" class="st-branch-chip">
+                🏛️ {{ effectiveBranchName }}
               </span>
               <span class="st-sep">|</span>
               <span class="st-wa-text">WA: {{ data.parentWhatsAppPhone }}</span>
@@ -396,6 +401,18 @@ export interface FeeCollectionItemRow {
             padding: 1px 6px;
             border-radius: 4px;
             border: 1px solid #ddd6fe;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+          }
+
+          .st-branch-chip {
+            color: #1e40af;
+            font-weight: 700;
+            background: #eff6ff;
+            padding: 1px 6px;
+            border-radius: 4px;
+            border: 1px solid #bfdbfe;
             display: inline-flex;
             align-items: center;
             gap: 4px;
@@ -875,11 +892,22 @@ export class FeeCollectionDialogComponent implements OnInit {
   baseTuitionAmount: number = 0;
   itemRows: FeeCollectionItemRow[] = [];
 
+  get effectiveBranchName(): string {
+    if (this.data?.branchName) return this.data.branchName;
+    const authBranch = this.authService.getCurrentBranchName();
+    if (authBranch) return authBranch;
+    const batch = this.data?.batchName || '';
+    const match = batch.match(/\(([^)]+)\)/);
+    if (match) return match[1];
+    return '';
+  }
+
   constructor(
     private fb: FormBuilder,
     private feesService: FeesService,
     private confirmDialog: ConfirmDialogService,
     private quickSettings: QuickSettingsService,
+    private authService: AuthService,
     private dialogRef: MatDialogRef<FeeCollectionDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: FeeDialogData
   ) {}

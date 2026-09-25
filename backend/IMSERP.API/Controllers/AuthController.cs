@@ -101,7 +101,12 @@ public class AuthController : ControllerBase
             ProfilePhoto: tenant.ProfilePhoto,
             BranchId: user.BranchId,
             BranchName: user.Branch?.Name,
-            Branches: branches
+            Branches: branches,
+            HasSchoolModule: tenant.HasSchoolModule,
+            HasCoachingModule: tenant.HasCoachingModule,
+            HasHostelModule: tenant.HasHostelModule,
+            HasLibraryModule: tenant.HasLibraryModule,
+            HasTransportModule: tenant.HasTransportModule
         ));
     }
 
@@ -176,7 +181,12 @@ public class AuthController : ControllerBase
             ProfilePhoto: tenant?.ProfilePhoto,
             BranchId: user.BranchId,
             BranchName: user.Branch?.Name,
-            Branches: branches
+            Branches: branches,
+            HasSchoolModule: tenant?.HasSchoolModule ?? true,
+            HasCoachingModule: tenant?.HasCoachingModule ?? true,
+            HasHostelModule: tenant?.HasHostelModule ?? true,
+            HasLibraryModule: tenant?.HasLibraryModule ?? true,
+            HasTransportModule: tenant?.HasTransportModule ?? true
         ));
     }
 

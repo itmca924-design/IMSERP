@@ -169,6 +169,14 @@ import { AuthService } from '../../core/services/auth.service';
             </div>
           </div>
 
+          <div class="tenant-modules-strip" style="display:flex; flex-wrap:wrap; gap:4px; margin: 10px 0 14px; padding: 6px 10px; background: #f8fafc; border-radius: 6px; border: 1px dashed #cbd5e1;">
+            <span *ngIf="isTenantModuleActive(t, 'school')" style="font-size:11px; font-weight:600; background:#dbeafe; color:#1e40af; padding:2px 6px; border-radius:4px;">🏫 School</span>
+            <span *ngIf="isTenantModuleActive(t, 'coaching')" style="font-size:11px; font-weight:600; background:#fef3c7; color:#92400e; padding:2px 6px; border-radius:4px;">🎯 Coaching</span>
+            <span *ngIf="isTenantModuleActive(t, 'hostel')" style="font-size:11px; font-weight:600; background:#ede9fe; color:#5b21b6; padding:2px 6px; border-radius:4px;">🏨 Hostel</span>
+            <span *ngIf="isTenantModuleActive(t, 'library')" style="font-size:11px; font-weight:600; background:#dcfce7; color:#166534; padding:2px 6px; border-radius:4px;">📚 Library</span>
+            <span *ngIf="isTenantModuleActive(t, 'transport')" style="font-size:11px; font-weight:600; background:#fce7f3; color:#9d174d; padding:2px 6px; border-radius:4px;">🚌 Transport</span>
+          </div>
+
           <div class="card-actions">
             <button mat-stroked-button color="primary" class="edit-btn" (click)="openEditModal(t)">
               <mat-icon>edit</mat-icon>
@@ -267,6 +275,38 @@ import { AuthService } from '../../core/services/auth.service';
                 <input matInput formControlName="whatsAppAccessToken" placeholder="Meta Graph API Token">
                 <mat-icon matSuffix>security</mat-icon>
               </mat-form-field>
+            </div>
+
+            <!-- ERP Module Packaging / Subscription Selection -->
+            <div class="modules-setup-block" style="margin: 16px 0; padding: 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;">
+              <h4 class="block-title" style="display:flex; align-items:center; gap:6px; margin:0 0 8px; font-size:14px; font-weight:700; color:#1e3a8a;">
+                <mat-icon style="color:#2563eb; font-size:20px; width:20px; height:20px;">hub</mat-icon>
+                <span>Subscribed Modules &amp; Licensing</span>
+              </h4>
+              <p style="margin:0 0 12px; font-size:12px; color:#64748b;">Configure which modules are licensed for this institute. Unchecked modules will be completely hidden from their sidebar and student forms.</p>
+              
+              <div style="display:flex; flex-wrap:wrap; gap:16px;">
+                <label style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:600; cursor:pointer;">
+                  <input type="checkbox" formControlName="hasSchoolModule" style="width:16px; height:16px; cursor:pointer;">
+                  <span>🏫 School Module</span>
+                </label>
+                <label style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:600; cursor:pointer;">
+                  <input type="checkbox" formControlName="hasCoachingModule" style="width:16px; height:16px; cursor:pointer;">
+                  <span>🎯 Coaching Module</span>
+                </label>
+                <label style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:600; cursor:pointer;">
+                  <input type="checkbox" formControlName="hasHostelModule" style="width:16px; height:16px; cursor:pointer;">
+                  <span>🏨 Hostel &amp; Residential</span>
+                </label>
+                <label style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:600; cursor:pointer;">
+                  <input type="checkbox" formControlName="hasLibraryModule" style="width:16px; height:16px; cursor:pointer;">
+                  <span>📚 Library Management</span>
+                </label>
+                <label style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:600; cursor:pointer;">
+                  <input type="checkbox" formControlName="hasTransportModule" style="width:16px; height:16px; cursor:pointer;">
+                  <span>🚌 Transport &amp; Fleet</span>
+                </label>
+              </div>
             </div>
 
             <!-- Initial Administrator Provisioning (Only on Create) -->
@@ -943,6 +983,11 @@ export class TenantsComponent implements OnInit {
       adminUsername: ['admin', Validators.required],
       adminPassword: ['admin123', Validators.required],
       adminFullName: [''],
+      hasSchoolModule: [true],
+      hasCoachingModule: [true],
+      hasHostelModule: [false],
+      hasLibraryModule: [false],
+      hasTransportModule: [false],
       branches: this.fb.array([])
     });
   }
@@ -1042,12 +1087,36 @@ export class TenantsComponent implements OnInit {
       whatsAppAccessToken: '',
       adminUsername: 'admin',
       adminPassword: 'password123',
-      adminFullName: ''
+      adminFullName: '',
+      hasSchoolModule: true,
+      hasCoachingModule: true,
+      hasHostelModule: false,
+      hasLibraryModule: false,
+      hasTransportModule: false
     });
     this.branchesFormArray.clear();
     this.addBranchRow(true);
     this.tenantForm.get('code')?.enable();
     this.showModal = true;
+  }
+
+  isTenantModuleActive(t: TenantDto, moduleKey: 'school' | 'coaching' | 'hostel' | 'library' | 'transport'): boolean {
+    const currentUser = this.authService.currentUser();
+    // If this card is for the currently signed-in tenant, dynamically track authService signals!
+    if (currentUser && (currentUser.tenantId === t.id || currentUser.tenantCode === t.code)) {
+      if (moduleKey === 'school') return this.authService.hasSchoolModule();
+      if (moduleKey === 'coaching') return this.authService.hasCoachingModule();
+      if (moduleKey === 'hostel') return this.authService.hasHostelModule();
+      if (moduleKey === 'library') return this.authService.hasLibraryModule();
+      if (moduleKey === 'transport') return this.authService.hasTransportModule();
+    }
+    // For other tenants in the list
+    if (moduleKey === 'school') return t.hasSchoolModule ?? true;
+    if (moduleKey === 'coaching') return t.hasCoachingModule ?? true;
+    if (moduleKey === 'hostel') return !!t.hasHostelModule;
+    if (moduleKey === 'library') return !!t.hasLibraryModule;
+    if (moduleKey === 'transport') return !!t.hasTransportModule;
+    return false;
   }
 
   openEditModal(tenant: TenantDto): void {
@@ -1062,7 +1131,12 @@ export class TenantsComponent implements OnInit {
       contactPhone: tenant.contactPhone || '',
       address: tenant.address || '',
       whatsAppPhoneId: tenant.whatsAppPhoneId || '',
-      whatsAppAccessToken: ''
+      whatsAppAccessToken: '',
+      hasSchoolModule: this.isTenantModuleActive(tenant, 'school'),
+      hasCoachingModule: this.isTenantModuleActive(tenant, 'coaching'),
+      hasHostelModule: this.isTenantModuleActive(tenant, 'hostel'),
+      hasLibraryModule: this.isTenantModuleActive(tenant, 'library'),
+      hasTransportModule: this.isTenantModuleActive(tenant, 'transport')
     });
     this.tenantForm.get('code')?.disable();
     this.showModal = true;
@@ -1171,11 +1245,25 @@ export class TenantsComponent implements OnInit {
         address: val.address?.trim() || null,
         profilePhoto: this.profilePhotoPreview,
         whatsAppPhoneId: val.whatsAppPhoneId?.trim() || null,
-        whatsAppAccessToken: val.whatsAppAccessToken?.trim() || null
+        whatsAppAccessToken: val.whatsAppAccessToken?.trim() || null,
+        hasSchoolModule: val.hasSchoolModule,
+        hasCoachingModule: val.hasCoachingModule,
+        hasHostelModule: val.hasHostelModule,
+        hasLibraryModule: val.hasLibraryModule,
+        hasTransportModule: val.hasTransportModule
       };
 
       // Realtime instantaneous reflection on the sidebar header right when clicking Save Changes!
       this.authService.updateTenantProfile(this.profilePhotoPreview, updateDto.name);
+      if (this.authService.currentUser()?.tenantId === this.editingId) {
+        this.authService.updateTenantModules({
+          hasSchoolModule: val.hasSchoolModule,
+          hasCoachingModule: val.hasCoachingModule,
+          hasHostelModule: val.hasHostelModule,
+          hasLibraryModule: val.hasLibraryModule,
+          hasTransportModule: val.hasTransportModule
+        });
+      }
 
       this.tenantService.updateTenant(this.editingId, updateDto).subscribe({
         next: (res: any) => {
@@ -1210,7 +1298,12 @@ export class TenantsComponent implements OnInit {
         adminUsername: val.adminUsername.trim(),
         adminPassword: val.adminPassword,
         adminFullName: val.adminFullName?.trim() || `${val.name.trim()} Administrator`,
-        branches: branchesList
+        branches: branchesList,
+        hasSchoolModule: val.hasSchoolModule,
+        hasCoachingModule: val.hasCoachingModule,
+        hasHostelModule: val.hasHostelModule,
+        hasLibraryModule: val.hasLibraryModule,
+        hasTransportModule: val.hasTransportModule
       };
 
       this.tenantService.createTenant(createDto).subscribe({

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatDialogRef, MatDialogModule } from '@angular/material/dialog';
@@ -15,6 +15,7 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { FeesService, FeeHead, ClassFeeStructureItem, SaveClassFeeStructureBatch } from '../../core/services/fees.service';
 import { BatchesService, BatchDto } from '../../core/services/batches.service';
 import { SchoolService, SchoolClassDto } from '../../core/services/school.service';
+import { AuthService } from '../../core/services/auth.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 
 @Component({
@@ -44,8 +45,8 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             <mat-icon>account_balance</mat-icon>
           </div>
           <div>
-            <h2 class="main-title">School & Coaching Fee Heads & Fee Matrix</h2>
-            <p class="sub-title">Configure universal fee heads & assign class/batch-wise fee schedules for Schools, Coaching, or Integrated dual models.</p>
+            <h2 class="main-title">{{ dialogTitle }}</h2>
+            <p class="sub-title">{{ dialogSubtitle }}</p>
           </div>
         </div>
         <button mat-icon-button type="button" class="close-btn" (click)="onClose()">
@@ -129,7 +130,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                         <span class="opt-desc">Printed DPPs, formula sheets, school diary, tie &amp; ID card</span>
                       </div>
                     </mat-option>
-                    <mat-option value="Residential">
+                    <mat-option value="Residential" *ngIf="hasHostelModule">
                       <div class="opt-content">
                         <div class="opt-header-row">
                           <span class="category-tag cat-residential">Residential</span>
@@ -138,7 +139,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                         <span class="opt-desc">Hostel room rent, food mess &amp; boarding facilities</span>
                       </div>
                     </mat-option>
-                    <mat-option value="Transport">
+                    <mat-option value="Transport" *ngIf="hasTransportModule">
                       <div class="opt-content">
                         <div class="opt-header-row">
                           <span class="category-tag cat-transport">Transport</span>
@@ -227,9 +228,9 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                 <mat-form-field appearance="outline" class="field-col">
                   <mat-label>Applicable To</mat-label>
                   <mat-select formControlName="applicableTo" panelClass="smooth-dropdown-panel">
-                    <mat-option value="Both">🔄 Both (School &amp; Coaching)</mat-option>
-                    <mat-option value="School">🏫 School Only</mat-option>
-                    <mat-option value="Coaching">🎯 Coaching Only</mat-option>
+                    <mat-option *ngIf="hasSchoolModule && hasCoachingModule" value="Both">🔄 Both (School &amp; Coaching)</mat-option>
+                    <mat-option *ngIf="hasSchoolModule" value="School">🏫 School Only</mat-option>
+                    <mat-option *ngIf="hasCoachingModule" value="Coaching">🎯 Coaching Only</mat-option>
                   </mat-select>
                 </mat-form-field>
 
@@ -324,8 +325,8 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             <div class="matrix-selector-card">
               <!-- Top Row: Mode Toggle & Summary Cards -->
               <div class="selector-top-row">
-                <!-- Dual Switcher: shown when both or either exist -->
-                <div class="target-toggle" *ngIf="schoolClasses.length > 0 && batches.length > 0">
+                <!-- Dual Switcher: shown only when BOTH modules are active and items exist -->
+                <div class="target-toggle" *ngIf="hasSchoolModule && hasCoachingModule && schoolClasses.length > 0 && batches.length > 0">
                   <button type="button"
                           class="toggle-btn"
                           [class.active]="targetType === 'class'"
@@ -360,7 +361,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
               <!-- Bottom Row: Large Full-Width Selection Dropdown -->
               <div class="selector-dropdown-row">
                 <!-- Dropdown when targetType === 'class' -->
-                <mat-form-field appearance="outline" class="select-target-full" *ngIf="targetType === 'class'">
+                <mat-form-field appearance="outline" class="select-target-full" *ngIf="hasSchoolModule && targetType === 'class'">
                   <mat-label>Assign Fee For: School Class</mat-label>
                   <mat-select [(ngModel)]="selectedClassId" (selectionChange)="loadStructureForSelection()" panelClass="target-select-panel">
                     <mat-option *ngFor="let c of schoolClasses" [value]="c.id">
@@ -371,7 +372,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                 </mat-form-field>
 
                 <!-- Dropdown when targetType === 'batch' -->
-                <mat-form-field appearance="outline" class="select-target-full" *ngIf="targetType === 'batch'">
+                <mat-form-field appearance="outline" class="select-target-full" *ngIf="hasCoachingModule && targetType === 'batch'">
                   <mat-label>Assign Fee For: Coaching Batch</mat-label>
                   <mat-select [(ngModel)]="selectedBatchId" (selectionChange)="loadStructureForSelection()" panelClass="target-select-panel">
                     <mat-option *ngFor="let b of batches" [value]="b.id">
@@ -965,6 +966,34 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
   `]
 })
 export class FeeMasterDialogComponent implements OnInit {
+  private authService = inject(AuthService);
+
+  get hasSchoolModule(): boolean { return this.authService.hasSchoolModule(); }
+  get hasCoachingModule(): boolean { return this.authService.hasCoachingModule(); }
+  get hasHostelModule(): boolean { return this.authService.hasHostelModule(); }
+  get hasLibraryModule(): boolean { return this.authService.hasLibraryModule(); }
+  get hasTransportModule(): boolean { return this.authService.hasTransportModule(); }
+
+  get dialogTitle(): string {
+    if (this.hasSchoolModule && this.hasCoachingModule) {
+      return 'School & Coaching Fee Heads & Fee Matrix';
+    } else if (this.hasCoachingModule) {
+      return 'Coaching Fee Heads & Fee Matrix';
+    } else {
+      return 'School Fee Heads & Fee Matrix';
+    }
+  }
+
+  get dialogSubtitle(): string {
+    if (this.hasSchoolModule && this.hasCoachingModule) {
+      return 'Configure universal fee heads & assign class/batch-wise fee schedules for Schools, Coaching, or Integrated dual models.';
+    } else if (this.hasCoachingModule) {
+      return 'Configure coaching fee heads & assign batch-wise monthly tuition, test series and module fees.';
+    } else {
+      return 'Configure school fee heads & assign class-wise monthly tuition, term-wise and annual fee structures.';
+    }
+  }
+
   feeHeads: FeeHead[] = [];
   filteredFeeHeads: FeeHead[] = [];
   headSearchQuery = '';
@@ -1011,13 +1040,19 @@ export class FeeMasterDialogComponent implements OnInit {
     this.loadClassesAndBatches();
   }
 
+  getDefaultApplicableTo(): string {
+    if (this.hasSchoolModule && this.hasCoachingModule) return 'Both';
+    if (this.hasCoachingModule) return 'Coaching';
+    return 'School';
+  }
+
   initHeadForm(): void {
     this.headForm = this.fb.group({
       name: ['', Validators.required],
       code: ['', Validators.required],
       category: ['Academic', Validators.required],
       frequency: ['Monthly', Validators.required],
-      applicableTo: ['Both', Validators.required],
+      applicableTo: [this.getDefaultApplicableTo(), Validators.required],
       description: [''],
       sortOrder: [10]
     });
@@ -1027,7 +1062,7 @@ export class FeeMasterDialogComponent implements OnInit {
     this.headForm.reset({
       category: 'Academic',
       frequency: 'Monthly',
-      applicableTo: 'Both',
+      applicableTo: this.getDefaultApplicableTo(),
       sortOrder: 10
     });
   }
@@ -1047,18 +1082,36 @@ export class FeeMasterDialogComponent implements OnInit {
 
   filterFeeHeadsMaster(): void {
     const q = (this.headSearchQuery || '').trim().toLowerCase();
-    if (!q) {
-      this.filteredFeeHeads = [...this.feeHeads];
-      return;
+
+    let list = this.feeHeads.filter(h => {
+      // 1. School vs Coaching scope
+      const scope = h.applicableTo || 'Both';
+      if (!this.hasSchoolModule && scope === 'School') return false;
+      if (!this.hasCoachingModule && scope === 'Coaching') return false;
+
+      // 2. Hostel module restriction
+      if (!this.hasHostelModule && (h.category === 'Residential' || h.code === 'HOSTEL' || h.code === 'MESS')) return false;
+
+      // 3. Transport module restriction
+      if (!this.hasTransportModule && (h.category === 'Transport' || h.code === 'TRANS')) return false;
+
+      // 4. Library module restriction
+      if (!this.hasLibraryModule && h.code === 'LIB') return false;
+
+      return true;
+    });
+
+    if (q) {
+      list = list.filter(h =>
+        (h.name && h.name.toLowerCase().includes(q)) ||
+        (h.code && h.code.toLowerCase().includes(q)) ||
+        (h.category && h.category.toLowerCase().includes(q)) ||
+        (h.frequency && h.frequency.toLowerCase().includes(q)) ||
+        (h.applicableTo && h.applicableTo.toLowerCase().includes(q)) ||
+        (h.description && h.description.toLowerCase().includes(q))
+      );
     }
-    this.filteredFeeHeads = this.feeHeads.filter(h =>
-      (h.name && h.name.toLowerCase().includes(q)) ||
-      (h.code && h.code.toLowerCase().includes(q)) ||
-      (h.category && h.category.toLowerCase().includes(q)) ||
-      (h.frequency && h.frequency.toLowerCase().includes(q)) ||
-      (h.applicableTo && h.applicableTo.toLowerCase().includes(q)) ||
-      (h.description && h.description.toLowerCase().includes(q))
-    );
+    this.filteredFeeHeads = list;
   }
 
   clearHeadSearch(): void {
@@ -1067,37 +1120,59 @@ export class FeeMasterDialogComponent implements OnInit {
   }
 
   loadClassesAndBatches(): void {
-    this.schoolService.getClasses(false).subscribe({
-      next: (classes) => {
-        this.schoolClasses = classes || [];
-        this.determineDefaultTarget();
-      },
-      error: (err) => console.error('Failed to load school classes', err)
-    });
+    if (this.hasSchoolModule) {
+      this.schoolService.getClasses(false).subscribe({
+        next: (classes) => {
+          this.schoolClasses = classes || [];
+          this.determineDefaultTarget();
+        },
+        error: (err) => console.error('Failed to load school classes', err)
+      });
+    } else {
+      this.schoolClasses = [];
+    }
 
-    this.batchesService.getBatches().subscribe({
-      next: (batches) => {
-        this.batches = batches || [];
-        this.determineDefaultTarget();
-      },
-      error: (err) => console.error('Failed to load batches', err)
-    });
+    if (this.hasCoachingModule) {
+      this.batchesService.getBatches().subscribe({
+        next: (batches) => {
+          this.batches = batches || [];
+          this.determineDefaultTarget();
+        },
+        error: (err) => console.error('Failed to load batches', err)
+      });
+    } else {
+      this.batches = [];
+    }
+
+    this.determineDefaultTarget();
   }
 
   determineDefaultTarget(): void {
-    // If target already configured, don't overwrite
-    if (this.targetType === 'class' && this.selectedClassId) return;
-    if (this.targetType === 'batch' && this.selectedBatchId) return;
-
-    if (this.schoolClasses.length > 0 && this.batches.length === 0) {
-      this.targetType = 'class';
-      this.selectedClassId = this.schoolClasses[0].id;
-    } else if (this.batches.length > 0 && this.schoolClasses.length === 0) {
+    if (!this.hasSchoolModule && this.hasCoachingModule) {
       this.targetType = 'batch';
-      this.selectedBatchId = this.batches[0].id;
-    } else if (this.schoolClasses.length > 0 && this.batches.length > 0) {
-      // Integrated dual model: default to School Class or keep batch if selected
-      if (!this.selectedClassId && !this.selectedBatchId) {
+      if (!this.selectedBatchId && this.batches.length > 0) {
+        this.selectedBatchId = this.batches[0].id;
+      }
+    } else if (this.hasSchoolModule && !this.hasCoachingModule) {
+      this.targetType = 'class';
+      if (!this.selectedClassId && this.schoolClasses.length > 0) {
+        this.selectedClassId = this.schoolClasses[0].id;
+      }
+    } else {
+      // Both modules active
+      if (this.targetType === 'class' && this.selectedClassId) return;
+      if (this.targetType === 'batch' && this.selectedBatchId) return;
+
+      if (this.batches.length > 0 && this.schoolClasses.length === 0) {
+        this.targetType = 'batch';
+        this.selectedBatchId = this.batches[0].id;
+      } else if (this.schoolClasses.length > 0 && this.batches.length === 0) {
+        this.targetType = 'class';
+        this.selectedClassId = this.schoolClasses[0].id;
+      } else if (this.batches.length > 0) {
+        this.targetType = 'batch';
+        this.selectedBatchId = this.batches[0].id;
+      } else if (this.schoolClasses.length > 0) {
         this.targetType = 'class';
         this.selectedClassId = this.schoolClasses[0].id;
       }
@@ -1140,9 +1215,15 @@ export class FeeMasterDialogComponent implements OnInit {
         const structMap = new Map<string, ClassFeeStructureItem>();
         structures.forEach(s => structMap.set(s.feeHeadId, s));
 
-        // Filter fee heads relevant to the selected mode (School Class vs Coaching Batch)
+        // Filter fee heads relevant to the selected mode (School Class vs Coaching Batch) and active modules
         const relevantHeads = this.feeHeads.filter(head => {
           const scope = head.applicableTo || 'Both';
+          if (!this.hasSchoolModule && scope === 'School') return false;
+          if (!this.hasCoachingModule && scope === 'Coaching') return false;
+          if (!this.hasHostelModule && (head.category === 'Residential' || head.code === 'HOSTEL' || head.code === 'MESS')) return false;
+          if (!this.hasTransportModule && (head.category === 'Transport' || head.code === 'TRANS')) return false;
+          if (!this.hasLibraryModule && head.code === 'LIB') return false;
+
           if (this.targetType === 'class') {
             return scope === 'School' || scope === 'Both';
           } else {

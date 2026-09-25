@@ -94,6 +94,17 @@ using (var scope = app.Services.CreateScope())
             try
             {
                 context.Database.ExecuteSqlRaw(@"
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tenants') AND name = 'HasSchoolModule')
+                        ALTER TABLE Tenants ADD HasSchoolModule BIT NOT NULL DEFAULT 1;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tenants') AND name = 'HasCoachingModule')
+                        ALTER TABLE Tenants ADD HasCoachingModule BIT NOT NULL DEFAULT 1;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tenants') AND name = 'HasHostelModule')
+                        ALTER TABLE Tenants ADD HasHostelModule BIT NOT NULL DEFAULT 1;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tenants') AND name = 'HasLibraryModule')
+                        ALTER TABLE Tenants ADD HasLibraryModule BIT NOT NULL DEFAULT 1;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tenants') AND name = 'HasTransportModule')
+                        ALTER TABLE Tenants ADD HasTransportModule BIT NOT NULL DEFAULT 1;
+
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Students') AND name = 'LeavingDate')
                         ALTER TABLE Students ADD LeavingDate DATETIME2 NULL;
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Students') AND name = 'LeavingReason')
@@ -416,6 +427,62 @@ using (var scope = app.Services.CreateScope())
         {
             context.SaveChanges();
             Console.WriteLine("[Database] Demo user passwords automatically hashed and saved to SQL Server.");
+        }
+
+        // Auto-seed 'HR' Role for every tenant that doesn't have one yet
+        var allTenantIds = context.Tenants.Select(t => t.Id).ToList();
+        foreach (var tenantId in allTenantIds)
+        {
+            var hrRoleExists = context.Roles.Any(r => r.TenantId == tenantId && r.Name == "HR");
+            if (!hrRoleExists)
+            {
+                var hrRole = new IMSERP.Domain.Entities.RoleEntity
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    Name = "HR",
+                    Description = "Human Resources — manages teacher profiles, attendance, leaves, salary, advances, FNF and payroll processing.",
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                };
+                context.Roles.Add(hrRole);
+                context.SaveChanges();
+
+                // Assign HR role permissions to relevant menu items
+                var hrAllowedRoutes = new[]
+                {
+                    "/teachers", "/teachers/assignments", "/teachers/attendance",
+                    "/teachers/salary", "/teachers/payments", "/teachers/advances",
+                    "/teachers/leaves", "/teachers/reports", "/teachers/fnf",
+                    "/teachers/substitution", "/teachers/lesson-plans",
+                    "/dashboard", "/attendance/reports",
+                    "/attendance/permissions/manual", "/attendance/permissions/correction"
+                };
+
+                var hrMenuItems = context.MenuItems
+                    .Where(m => hrAllowedRoutes.Contains(m.RouteUrl))
+                    .ToList();
+
+                foreach (var menuItem in hrMenuItems)
+                {
+                    var alreadyHas = context.RolePermissions.Any(rp => rp.RoleId == hrRole.Id && rp.MenuItemId == menuItem.Id);
+                    if (!alreadyHas)
+                    {
+                        context.RolePermissions.Add(new IMSERP.Domain.Entities.RolePermission
+                        {
+                            Id = Guid.NewGuid(),
+                            RoleId = hrRole.Id,
+                            MenuItemId = menuItem.Id,
+                            CanView = true,
+                            CanCreate = true,
+                            CanEdit = true,
+                            CanDelete = true
+                        });
+                    }
+                }
+                context.SaveChanges();
+                Console.WriteLine($"[Database] Auto-seeded 'HR' role for tenant {tenantId} with Teacher Module permissions.");
+            }
         }
 
         // Auto-seed 'Classes & Sections' MenuItem under Master Management

@@ -24,6 +24,7 @@ import {
 } from './teacher.models';
 import { SchoolClassDto, SchoolSectionDto, ClassTeacherMatrixItemDto, SchoolService } from '../../core/services/school.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
+import { AuthService } from '../../core/services/auth.service';
 
 export interface AssignmentSlot {
   id: string;
@@ -57,24 +58,26 @@ export interface AssignmentSlot {
   <div class="page-header">
     <div class="page-header-text">
       <h1 class="page-title"><mat-icon>class</mat-icon> Teacher Assignments & Timetable</h1>
-      <p class="page-subtitle">Unified assignment hub: Manage School Class Teachers (कक्षा अध्यापक), Coaching Batches, and Timetable schedules.</p>
+      <p class="page-subtitle" *ngIf="authService.hasSchoolModule() && authService.hasCoachingModule()">Unified assignment hub: Manage School Class Teachers (कक्षा अध्यापक), Coaching Batches, and Timetable schedules.</p>
+      <p class="page-subtitle" *ngIf="!authService.hasSchoolModule() && authService.hasCoachingModule()">Coaching Faculty Assignments: Manage batch schedules, weekly routines, and period clash detection.</p>
+      <p class="page-subtitle" *ngIf="authService.hasSchoolModule() && !authService.hasCoachingModule()">School Faculty Assignments: Manage Class Teachers (कक्षा अध्यापक), section routines, and period timetable.</p>
     </div>
   </div>
 
-  <!-- Top Primary Hub Navigation: Batch Timetable vs School Class Teachers -->
-  <div class="primary-nav-bar mat-elevation-z1">
+  <!-- Top Primary Hub Navigation: Batch Timetable vs School Class Teachers (Hidden if School Module is disabled) -->
+  <div class="primary-nav-bar mat-elevation-z1" *ngIf="authService.hasSchoolModule()">
     <button type="button" class="primary-nav-btn" [class.active]="mainTab === 'TIMETABLE'" (click)="setMainTab('TIMETABLE')">
       <mat-icon>calendar_view_week</mat-icon>
       <div class="nav-btn-info">
-        <span class="nav-title">Batch & Subject Timetable</span>
-        <span class="nav-sub">Teaching periods, weekly routine & clash detection</span>
+        <span class="nav-title">Batch &amp; Subject Timetable</span>
+        <span class="nav-sub">Teaching periods, weekly routine &amp; clash detection</span>
       </div>
     </button>
     <button type="button" class="primary-nav-btn" [class.active]="mainTab === 'CLASS_TEACHER'" (click)="setMainTab('CLASS_TEACHER')">
       <mat-icon>supervisor_account</mat-icon>
       <div class="nav-btn-info">
         <span class="nav-title">School Class Teachers (कक्षा अध्यापक)</span>
-        <span class="nav-sub">Section Incharge allocation & roll-call coverage</span>
+        <span class="nav-sub">Section Incharge allocation &amp; roll-call coverage</span>
       </div>
       <span class="nav-badge alert" *ngIf="unassignedClassTeachersCount > 0">
         {{ unassignedClassTeachersCount }} Unassigned
@@ -86,8 +89,8 @@ export interface AssignmentSlot {
   </div>
 
   <ng-container *ngIf="mainTab === 'TIMETABLE'">
-  <!-- 3-Way Assignment Scope Bar (School Classes vs Coaching Batches) -->
-  <div class="scope-switcher-card mat-elevation-z1">
+  <!-- 3-Way Assignment Scope Bar (School Classes vs Coaching Batches - Only shown if both modules enabled) -->
+  <div class="scope-switcher-card mat-elevation-z1" *ngIf="authService.hasSchoolModule() && authService.hasCoachingModule()">
     <div class="scope-label">
       <mat-icon>tune</mat-icon>
       <span>Assignment Scope:</span>
@@ -366,8 +369,8 @@ export interface AssignmentSlot {
     </div>
   </div>
 
-  <!-- Teacher Selector -->
-  <app-teacher-selector [preSelectId]="preSelectId" (teacherSelected)="onTeacherSelected($event)"></app-teacher-selector>
+  <!-- Teacher Selector (Teaching Faculty only) -->
+  <app-teacher-selector [preSelectId]="preSelectId" [staffTypeFilter]="'Teaching'" (teacherSelected)="onTeacherSelected($event)"></app-teacher-selector>
 
   <mat-progress-bar mode="indeterminate" *ngIf="loading"></mat-progress-bar>
 
@@ -2943,26 +2946,39 @@ export class TeacherAssignmentsComponent implements OnInit {
     private route: ActivatedRoute,
     private confirmDialog: ConfirmDialogService,
     private schoolService: SchoolService,
-    private dialog: MatDialog
+    private dialog: MatDialog,
+    public authService: AuthService
   ) {}
 
   ngOnInit() {
+    if (!this.authService.hasSchoolModule()) {
+      this.mainTab = 'TIMETABLE';
+      this.selectedScope = 'COACHING';
+    } else if (!this.authService.hasCoachingModule()) {
+      this.selectedScope = 'SCHOOL';
+    }
+
     this.route.queryParams.subscribe(p => {
       if (p['teacherId']) this.preSelectId = p['teacherId'];
-      if (p['tab'] === 'class-teachers') {
+      if (p['tab'] === 'class-teachers' && this.authService.hasSchoolModule()) {
         this.setMainTab('CLASS_TEACHER');
       }
     });
     this.loadBatches();
-    this.loadSchoolClasses();
+    if (this.authService.hasSchoolModule()) {
+      this.loadSchoolClasses();
+      this.loadClassTeachersMatrix();
+    }
     this.loadSubjects();
     this.loadBatchCoverage();
     this.loadAllTeachers();
-    this.loadClassTeachersMatrix();
     this.initSlots();
   }
 
   setMainTab(tab: 'TIMETABLE' | 'CLASS_TEACHER') {
+    if (tab === 'CLASS_TEACHER' && !this.authService.hasSchoolModule()) {
+      return;
+    }
     this.mainTab = tab;
     if (tab === 'CLASS_TEACHER' && !this.matrixLoaded) {
       this.loadClassTeachersMatrix();

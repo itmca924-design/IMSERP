@@ -13,6 +13,11 @@ public class Tenant
     public string? ProfilePhoto { get; set; }
     public string? WhatsAppPhoneId { get; set; }
     public string? WhatsAppAccessToken { get; set; }
+    public bool HasSchoolModule { get; set; } = true;
+    public bool HasCoachingModule { get; set; } = true;
+    public bool HasHostelModule { get; set; } = true;
+    public bool HasLibraryModule { get; set; } = true;
+    public bool HasTransportModule { get; set; } = true;
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
@@ -471,6 +476,9 @@ public class Teacher
     public DateTime? DateOfBirth { get; set; }
     public string? Qualification { get; set; }
     public string? Specialization { get; set; }
+    public StaffType StaffType { get; set; } = StaffType.Teaching;
+    public string? Department { get; set; }
+    public string? Designation { get; set; }
     public int ExperienceYears { get; set; } = 0;
     public string PhoneNumber { get; set; } = string.Empty;
     public string? WhatsAppPhone { get; set; }

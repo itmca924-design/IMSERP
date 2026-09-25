@@ -134,7 +134,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             </mat-select>
           </mat-form-field>
 
-          <mat-form-field appearance="outline" class="class-filter">
+          <mat-form-field appearance="outline" class="class-filter" *ngIf="hasSchoolModule">
             <mat-label>Filter by School Class</mat-label>
             <mat-select [(ngModel)]="selectedClassFilter" (selectionChange)="onFilterChange()" panelClass="class-filter-panel">
               <mat-option value="">All School Classes</mat-option>
@@ -144,7 +144,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             </mat-select>
           </mat-form-field>
 
-          <mat-form-field appearance="outline" class="batch-filter">
+          <mat-form-field appearance="outline" class="batch-filter" *ngIf="hasCoachingModule">
             <mat-label>Filter by Coaching Batch</mat-label>
             <mat-select [(ngModel)]="selectedBatchFilter" (selectionChange)="onFilterChange()" panelClass="batch-filter-panel">
               <mat-option value="">All Coaching Batches</mat-option>
@@ -1154,7 +1154,8 @@ export class FeesComponent implements OnInit, OnDestroy {
         totalOutstandingDue: totalAmount,
         initialAmount: totalAmount,
         selectedInvoicesCount: invCount,
-        selectedInvoicesDetails: invTitles
+        selectedInvoicesDetails: invTitles,
+        branchName: this.authService.getCurrentBranchName()
       }
     });
 
@@ -1166,9 +1167,12 @@ export class FeesComponent implements OnInit, OnDestroy {
         // Immediately open official Fee Payment Receipt Dialog
         this.dialog.open(FeeReceiptDialogComponent, {
           width: '840px',
+          maxWidth: '96vw',
+          panelClass: 'receipt-dialog-panel',
           data: {
             receipt: res,
-            instituteName: this.authService.currentUser()?.instituteName || 'Saraswati Coaching Classes'
+            instituteName: this.authService.currentUser()?.instituteName || 'Apex Coaching Academy',
+            branchName: this.authService.getCurrentBranchName()
           }
         });
       }
@@ -1188,9 +1192,15 @@ export class FeesComponent implements OnInit, OnDestroy {
     private dialog: MatDialog
   ) {}
 
+  get hasSchoolModule(): boolean { return this.authService.hasSchoolModule(); }
+  get hasCoachingModule(): boolean { return this.authService.hasCoachingModule(); }
+  get hasHostelModule(): boolean { return this.authService.hasHostelModule(); }
+  get hasLibraryModule(): boolean { return this.authService.hasLibraryModule(); }
+  get hasTransportModule(): boolean { return this.authService.hasTransportModule(); }
+
   ngOnInit(): void {
-    this.loadBatches();
-    this.loadSchoolClasses();
+    if (this.hasCoachingModule) this.loadBatches();
+    if (this.hasSchoolModule) this.loadSchoolClasses();
     this.loadInvoices();
     this.loadPendingStudents();
 
@@ -1315,7 +1325,8 @@ export class FeesComponent implements OnInit, OnDestroy {
             parentWhatsAppPhone: inv.parentWhatsAppPhone,
             totalOutstandingDue: inv.dueAmount,
             hostelInfo,
-            items: inv.items
+            items: inv.items,
+            branchName: this.authService.getCurrentBranchName()
           }
         });
 
@@ -1330,7 +1341,8 @@ export class FeesComponent implements OnInit, OnDestroy {
               panelClass: 'receipt-dialog-panel',
               data: {
                 receipt: res,
-                instituteName: this.authService.currentUser()?.instituteName || 'Saraswati Coaching Classes'
+                instituteName: this.authService.currentUser()?.instituteName || 'Apex Coaching Academy',
+                branchName: this.authService.getCurrentBranchName()
               }
             });
           }
@@ -1350,7 +1362,8 @@ export class FeesComponent implements OnInit, OnDestroy {
             batchName: inv.batchName,
             parentWhatsAppPhone: inv.parentWhatsAppPhone,
             totalOutstandingDue: inv.dueAmount,
-            items: inv.items
+            items: inv.items,
+            branchName: this.authService.getCurrentBranchName()
           }
         });
 
@@ -1363,7 +1376,8 @@ export class FeesComponent implements OnInit, OnDestroy {
               panelClass: 'receipt-dialog-panel',
               data: {
                 receipt: res,
-                instituteName: this.authService.currentUser()?.instituteName || 'Saraswati Coaching Classes'
+                instituteName: this.authService.currentUser()?.instituteName || 'Apex Coaching Academy',
+                branchName: this.authService.getCurrentBranchName()
               }
             });
           }
@@ -1385,7 +1399,8 @@ export class FeesComponent implements OnInit, OnDestroy {
         batchName: inv.batchName,
         parentWhatsAppPhone: inv.parentWhatsAppPhone,
         invoice: inv,
-        instituteName: this.authService.currentUser()?.instituteName || 'Saraswati Coaching Classes'
+        instituteName: this.authService.currentUser()?.instituteName || 'Apex Coaching Academy',
+        branchName: this.authService.getCurrentBranchName()
       }
     });
 
@@ -1409,7 +1424,8 @@ export class FeesComponent implements OnInit, OnDestroy {
                 panelClass: 'receipt-dialog-panel',
                 data: {
                   receipt,
-                  instituteName: this.authService.currentUser()?.instituteName || 'Apex Coaching Academy'
+                  instituteName: this.authService.currentUser()?.instituteName || 'Apex Coaching Academy',
+                  branchName: this.authService.getCurrentBranchName()
                 }
               });
             },
@@ -1454,7 +1470,8 @@ export class FeesComponent implements OnInit, OnDestroy {
                 panelClass: 'receipt-dialog-panel',
                 data: {
                   receipt: receiptData,
-                  instituteName: this.authService.currentUser()?.instituteName || 'Apex Coaching Academy'
+                  instituteName: this.authService.currentUser()?.instituteName || 'Apex Coaching Academy',
+                  branchName: this.authService.getCurrentBranchName()
                 }
               });
             }

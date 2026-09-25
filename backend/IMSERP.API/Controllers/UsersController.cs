@@ -84,6 +84,11 @@ public class UsersController : ControllerBase
         {
             mappedRole = UserRole.InstituteAdmin;
         }
+        else if (role.Name.Equals("HR", StringComparison.OrdinalIgnoreCase) ||
+                 role.Name.Contains("Human Resource", StringComparison.OrdinalIgnoreCase))
+        {
+            mappedRole = UserRole.HR;
+        }
         else if (role.Name.Contains("Account", StringComparison.OrdinalIgnoreCase))
         {
             mappedRole = UserRole.Accountant;
@@ -152,6 +157,11 @@ public class UsersController : ControllerBase
             else if (role.Name.Contains("Admin", StringComparison.OrdinalIgnoreCase))
             {
                 user.Role = UserRole.InstituteAdmin;
+            }
+            else if (role.Name.Equals("HR", StringComparison.OrdinalIgnoreCase) ||
+                     role.Name.Contains("Human Resource", StringComparison.OrdinalIgnoreCase))
+            {
+                user.Role = UserRole.HR;
             }
             else if (role.Name.Contains("Account", StringComparison.OrdinalIgnoreCase))
             {

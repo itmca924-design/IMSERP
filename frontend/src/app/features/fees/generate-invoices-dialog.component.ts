@@ -11,6 +11,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { FeesService, GenerateInvoicesResult } from '../../core/services/fees.service';
 import { BatchDto } from '../../core/services/batches.service';
 import { SchoolClassDto } from '../../core/services/school.service';
+import { AuthService } from '../../core/services/auth.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 
 export interface GenerateInvoicesDialogData {
@@ -56,8 +57,10 @@ interface BillingCycleOption {
           <mat-icon>post_add</mat-icon>
         </div>
         <div class="header-titles">
-          <h2 mat-dialog-title class="main-title">Generate Fee Invoices</h2>
-          <p class="subtitle">Bulk-bill tuition fees across any billing cycle.</p>
+          <h2 mat-dialog-title class="main-title">
+            Generate {{ hasSchoolModule && hasCoachingModule ? 'School & Coaching' : (hasCoachingModule ? 'Coaching' : 'School') }} Invoices
+          </h2>
+          <p class="subtitle">Bulk-bill {{ hasSchoolModule && hasCoachingModule ? 'class and batch' : (hasCoachingModule ? 'batch' : 'class') }} tuition fees across any billing cycle.</p>
         </div>
         <button mat-icon-button type="button" class="close-btn" (click)="onCancel()" [disabled]="saving">
           <mat-icon>close</mat-icon>
@@ -161,10 +164,10 @@ interface BillingCycleOption {
               <mat-error *ngIf="form.get('year')?.hasError('required')">Year is required</mat-error>
             </mat-form-field>
 
-            <mat-form-field appearance="outline" class="full-width">
+            <mat-form-field appearance="outline" class="full-width" *ngIf="hasSchoolModule">
               <mat-label>Target School Class</mat-label>
               <mat-select formControlName="classId" panelClass="smart-batch-panel">
-                <mat-option value="">✨ All School Classes (Or Coaching Only)</mat-option>
+                <mat-option value="">✨ All School Classes</mat-option>
                 <mat-option *ngFor="let c of data.classes" [value]="c.id">
                   🏫 {{ c.name }}
                 </mat-option>
@@ -172,10 +175,10 @@ interface BillingCycleOption {
               <mat-icon matSuffix color="primary">school</mat-icon>
             </mat-form-field>
 
-            <mat-form-field appearance="outline" class="full-width">
+            <mat-form-field appearance="outline" class="full-width" *ngIf="hasCoachingModule">
               <mat-label>Target Coaching Batch</mat-label>
               <mat-select formControlName="batchId" panelClass="smart-batch-panel">
-                <mat-option value="">✨ All Coaching Batches (Or School Only)</mat-option>
+                <mat-option value="">✨ All Coaching Batches</mat-option>
                 <mat-option *ngFor="let b of data.batches" [value]="b.id">
                   🎯 {{ b.name }} (₹{{ b.standardMonthlyFee | number:'1.0-0' }}/mo)
                 </mat-option>
@@ -644,6 +647,7 @@ export class GenerateInvoicesDialogComponent implements OnInit {
     private fb: FormBuilder,
     private feesService: FeesService,
     private confirmDialog: ConfirmDialogService,
+    private authService: AuthService,
     private dialogRef: MatDialogRef<GenerateInvoicesDialogComponent, GenerateInvoicesResult | null>,
     @Inject(MAT_DIALOG_DATA) public data: GenerateInvoicesDialogData
   ) {
@@ -661,6 +665,9 @@ export class GenerateInvoicesDialogComponent implements OnInit {
       dueDate: [defaultDueDate,            [Validators.required]]
     });
   }
+
+  get hasSchoolModule(): boolean { return this.authService.hasSchoolModule(); }
+  get hasCoachingModule(): boolean { return this.authService.hasCoachingModule(); }
 
   getSelectedTargetClassName(): string {
     const classId = this.form?.get('classId')?.value || this.data?.defaultClassId;

@@ -60,7 +60,11 @@ export interface FeeReceiptDialogData {
             <div>
               <h2 class="inst-name">{{ data.instituteName || authService.currentUser()?.instituteName || 'Apex Coaching Academy' }}</h2>
               <p class="inst-subtitle">Premier Center for Academic Excellence & Competitive Coaching</p>
-              <p class="inst-branch" *ngIf="data.branchName">Branch: {{ data.branchName }} | Authorized Accounts Department</p>
+              <p class="inst-branch" *ngIf="effectiveBranchName">
+                <span class="branch-pill">🏛️ Branch: {{ effectiveBranchName }}</span>
+                <span class="branch-dept-sep">|</span>
+                <span class="branch-dept">Authorized Accounts Department</span>
+              </p>
             </div>
           </div>
           <div class="receipt-badge">
@@ -79,6 +83,10 @@ export interface FeeReceiptDialogData {
           <div class="meta-item time-item">
             <span class="meta-label">Date & Time (IST):</span>
             <span class="meta-val date-time-val">{{ formatToIST(data.receipt.paymentDate) }}</span>
+          </div>
+          <div class="meta-item branch-meta-item" *ngIf="effectiveBranchName">
+            <span class="meta-label">Branch / Centre:</span>
+            <span class="meta-val branch-val">🏛️ {{ effectiveBranchName }}</span>
           </div>
           <div class="meta-item">
             <span class="meta-label">Payment Mode:</span>
@@ -458,10 +466,26 @@ export interface FeeReceiptDialogData {
         }
 
         .inst-branch {
-          margin: 2px 0 0 0;
-          font-size: 0.78rem;
-          color: #64748b;
+          margin: 4px 0 0 0;
+          font-size: 0.8rem;
+          color: #3b82f6;
           font-weight: 600;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          flex-wrap: wrap;
+
+          .branch-pill {
+            background: #eff6ff;
+            color: #1e40af;
+            padding: 2px 8px;
+            border-radius: 6px;
+            border: 1px solid #bfdbfe;
+            font-weight: 700;
+            font-size: 0.76rem;
+          }
+          .branch-dept-sep { color: #94a3b8; }
+          .branch-dept { color: #64748b; font-weight: 500; font-size: 0.74rem; }
         }
       }
 
@@ -498,23 +522,25 @@ export interface FeeReceiptDialogData {
     }
 
     .meta-strip {
-      display: grid;
-      grid-template-columns: 1fr 1.4fr 1fr;
-      gap: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px 18px;
       padding: 12px 14px;
       background: #f8fafc;
       border: 1px solid #e2e8f0;
       border-radius: 6px;
       margin: 16px 0;
 
-      &.has-ref {
-        grid-template-columns: 1fr 1.35fr 0.85fr 1fr;
-      }
-
       .meta-item {
         display: flex;
         flex-direction: column;
-        min-width: 0;
+        min-width: 120px;
+        flex: 1 1 auto;
+
+        .branch-val {
+          color: #1e40af;
+          font-weight: 700;
+        }
         .meta-label {
           font-size: 0.72rem;
           color: #64748b;
@@ -845,6 +871,16 @@ export class FeeReceiptDialogComponent {
   logoUrl: string | null = null;
   logoFailed = false;
 
+  get effectiveBranchName(): string {
+    if (this.data?.branchName) return this.data.branchName;
+    const authBranch = this.authService.getCurrentBranchName();
+    if (authBranch) return authBranch;
+    const batch = this.data?.receipt?.batchName || '';
+    const match = batch.match(/\(([^)]+)\)/);
+    if (match) return match[1];
+    return '';
+  }
+
   constructor(
     public dialogRef: MatDialogRef<FeeReceiptDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: FeeReceiptDialogData,
@@ -1001,8 +1037,10 @@ export class FeeReceiptDialogComponent {
       headsSection = `\n*Fee Heads Breakdown*:\n${list}\n`;
     }
 
+    const branchLine = this.effectiveBranchName ? `*Branch*: ${this.effectiveBranchName}\n` : '';
     const textMsg = `*OFFICIAL FEE PAYMENT RECEIPT*\n` +
-      `*Institute*: ${this.data.instituteName || 'Apex Coaching Academy'}\n` +
+      `*Institute*: ${this.data.instituteName || this.authService.currentUser()?.instituteName || 'Apex Coaching Academy'}\n` +
+      branchLine +
       `*Receipt No*: #${this.data.receipt.receiptNumber}\n` +
       `*Date*: ${this.formatToIST(this.data.receipt.paymentDate)}\n\n` +
       `Dear Parent, we have received payment of *₹${this.data.receipt.amountPaid}* for student *${this.data.receipt.studentName}* (${this.data.receipt.batchName || 'General'}).\n` +

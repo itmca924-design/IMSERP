@@ -74,7 +74,11 @@ export interface FeeDueReceiptDialogData {
             <div>
               <h2 class="inst-name">{{ data.instituteName || authService.currentUser()?.instituteName || 'Apex Coaching Academy' }}</h2>
               <p class="inst-subtitle">Accounts & Financial Clearance Department | Student Fee Demand Note</p>
-              <p class="inst-branch" *ngIf="data.branchName">Branch: {{ data.branchName }} | Official Notice</p>
+              <p class="inst-branch" *ngIf="effectiveBranchName">
+                <span class="branch-pill">🏛️ Branch: {{ effectiveBranchName }}</span>
+                <span class="branch-dept-sep">|</span>
+                <span class="branch-dept">Official Accounts Notice</span>
+              </p>
             </div>
           </div>
           <div class="due-badge-block">
@@ -93,6 +97,10 @@ export interface FeeDueReceiptDialogData {
           <div class="meta-item">
             <span class="meta-label">Notice Issue Date:</span>
             <span class="meta-val">{{ dueSlip.generatedDate | date:'dd-MMM-yyyy' }}</span>
+          </div>
+          <div class="meta-item branch-meta-item" *ngIf="effectiveBranchName">
+            <span class="meta-label">Branch / Centre:</span>
+            <span class="meta-val branch-val">🏛️ {{ effectiveBranchName }}</span>
           </div>
           <div class="meta-item">
             <span class="meta-label">Total Unpaid Invoices:</span>
@@ -452,10 +460,26 @@ export interface FeeDueReceiptDialogData {
         }
 
         .inst-branch {
-          margin: 2px 0 0 0;
-          font-size: 0.78rem;
-          color: #64748b;
+          margin: 4px 0 0 0;
+          font-size: 0.8rem;
+          color: #dc2626;
           font-weight: 600;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          flex-wrap: wrap;
+
+          .branch-pill {
+            background: #fef2f2;
+            color: #b91c1c;
+            padding: 2px 8px;
+            border-radius: 6px;
+            border: 1px solid #fecaca;
+            font-weight: 700;
+            font-size: 0.76rem;
+          }
+          .branch-dept-sep { color: #94a3b8; }
+          .branch-dept { color: #64748b; font-weight: 500; font-size: 0.74rem; }
         }
       }
 
@@ -492,9 +516,9 @@ export interface FeeDueReceiptDialogData {
     }
 
     .meta-strip {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px 18px;
       padding: 12px 14px;
       background: #f8fafc;
       border: 1px solid #e2e8f0;
@@ -504,7 +528,14 @@ export interface FeeDueReceiptDialogData {
       .meta-item {
         display: flex;
         flex-direction: column;
-        .meta-label { font-size: 0.72rem; color: #64748b; font-weight: 600; text-transform: uppercase; }
+        min-width: 120px;
+        flex: 1 1 auto;
+
+        .branch-val {
+          color: #b91c1c;
+          font-weight: 700;
+        }
+        .meta-label { font-size: 0.72rem; color: #64748b; font-weight: 600; text-transform: uppercase; white-space: nowrap; }
         .meta-val { font-size: 0.88rem; font-weight: 700; color: #1e293b; margin-top: 2px; }
         .meta-val.highlight { color: #b91c1c; }
         .status-badge-due {
@@ -828,6 +859,16 @@ export class FeeDueReceiptDialogComponent implements OnInit {
   logoUrl: string | null = null;
   logoFailed = false;
 
+  get effectiveBranchName(): string {
+    if (this.data?.branchName) return this.data.branchName;
+    const authBranch = this.authService.getCurrentBranchName();
+    if (authBranch) return authBranch;
+    const batch = this.dueSlip?.batchName || this.data?.batchName || this.data?.invoice?.batchName || '';
+    const match = batch.match(/\(([^)]+)\)/);
+    if (match) return match[1];
+    return '';
+  }
+
   constructor(
     public dialogRef: MatDialogRef<FeeDueReceiptDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: FeeDueReceiptDialogData,
@@ -913,15 +954,20 @@ export class FeeDueReceiptDialogComponent implements OnInit {
             .inst-logo-img { width: 100%; height: 100%; object-fit: contain; }
             .inst-name { font-size: 1.35rem; font-weight: 800; color: #0f172a; }
             .inst-subtitle { font-size: 0.8rem; color: #475569; margin-top: 2px; }
-            .inst-branch { font-size: 0.74rem; color: #64748b; font-weight: 600; margin-top: 2px; }
+            .inst-branch { font-size: 0.74rem; color: #b91c1c; font-weight: 600; margin-top: 3px; display: flex; align-items: center; gap: 6px; }
+            .branch-pill { background: #fef2f2; color: #b91c1c; padding: 2px 7px; border-radius: 4px; border: 1px solid #fecaca; font-weight: 700; font-size: 0.72rem; }
+            .branch-dept-sep { color: #94a3b8; }
+            .branch-dept { color: #64748b; font-weight: 500; font-size: 0.7rem; }
             .due-badge-block { text-align: right; }
             .badge-title { font-size: 1.1rem; font-weight: 800; color: #b91c1c; }
             .badge-sub { font-size: 0.78rem; color: #64748b; font-weight: 600; display: block; }
             .urgency-tag { display: inline-block; margin-top: 4px; font-size: 0.65rem; font-weight: 700; background: #fee2e2; color: #b91c1c; padding: 2px 8px; border-radius: 4px; border: 1px solid #fca5a5; }
-            .meta-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 10px 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; margin: 14px 0; }
+            .meta-strip { display: flex; flex-wrap: wrap; gap: 10px; padding: 10px 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; margin: 14px 0; }
+            .meta-item { display: flex; flex-direction: column; min-width: 100px; flex: 1 1 auto; }
             .meta-label { font-size: 0.7rem; color: #64748b; font-weight: 600; text-transform: uppercase; display: block; }
             .meta-val { font-size: 0.85rem; font-weight: 700; color: #1e293b; margin-top: 2px; display: block; }
             .meta-val.highlight { color: #b91c1c; }
+            .meta-val.branch-val { color: #b91c1c; }
             .status-badge-due { display: inline-block; background: #fee2e2; color: #991b1b; padding: 1px 8px; border-radius: 4px; font-size: 0.76rem; }
             .student-profile-card { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 12px 16px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; margin-bottom: 14px; }
             .prof-row { display: flex; font-size: 0.82rem; margin-bottom: 4px; }
@@ -982,8 +1028,12 @@ export class FeeDueReceiptDialogComponent implements OnInit {
 
     const invDetails = this.dueSlip.dueItems.map(d => `• ${d.title}: Due *₹${d.dueAmount}* (Due Date: ${new Date(d.dueDate).toLocaleDateString('en-IN')})`).join('\n');
 
+    const branchLine = this.effectiveBranchName ? `*Branch*: ${this.effectiveBranchName}\n` : '';
+    const instName = this.data.instituteName || this.authService.currentUser()?.instituteName || 'Apex Coaching Academy';
+
     const textMsg = `*OFFICIAL FEE DUE DEMAND SLIP*\n` +
-      `*Institute*: ${this.data.instituteName || 'Saraswati Coaching Classes'}\n` +
+      `*Institute*: ${instName}\n` +
+      branchLine +
       `*Notice No*: #${this.noticeNumber}\n` +
       `*Date*: ${new Date().toLocaleDateString('en-IN')}\n\n` +
       `Dear Parent, this is an official reminder regarding pending fees for *${this.dueSlip.studentName}* (${this.dueSlip.batchName || 'General'}).\n\n` +

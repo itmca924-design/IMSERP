@@ -29,6 +29,10 @@ public class MenuController : ControllerBase
             .Include(u => u.AssignedRole)
             .FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
 
+        var tenant = await _dbContext.Tenants
+            .AsNoTracking()
+            .FirstOrDefaultAsync(t => t.Id == _currentUser.TenantId);
+
         var permissionOnlyRoutes = new[]
         {
             "/teachers/attendance/ph-sun-edit",
@@ -39,9 +43,40 @@ public class MenuController : ControllerBase
             "/attendance/permissions/correction"
         };
 
+        var disabledRoutes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (tenant != null)
+        {
+            if (!tenant.HasSchoolModule)
+            {
+                disabledRoutes.Add("/school/classes");
+                disabledRoutes.Add("/school/exams");
+                disabledRoutes.Add("/students/promotion");
+                disabledRoutes.Add("/fee-heads");
+            }
+            if (!tenant.HasCoachingModule)
+            {
+                disabledRoutes.Add("/batches");
+                disabledRoutes.Add("/tests");
+            }
+            if (!tenant.HasHostelModule)
+            {
+                disabledRoutes.Add("/hostel");
+            }
+            if (!tenant.HasLibraryModule)
+            {
+                disabledRoutes.Add("/library/books");
+                disabledRoutes.Add("/library/circulation");
+                disabledRoutes.Add("/library/plans");
+            }
+            if (!tenant.HasTransportModule)
+            {
+                disabledRoutes.Add("/transport");
+            }
+        }
+
         var allMenuItems = await _dbContext.MenuItems
             .AsNoTracking()
-            .Where(m => m.IsActive && !permissionOnlyRoutes.Contains(m.RouteUrl!))
+            .Where(m => m.IsActive && !permissionOnlyRoutes.Contains(m.RouteUrl!) && (m.RouteUrl == null || !disabledRoutes.Contains(m.RouteUrl)))
             .OrderBy(m => m.SortOrder)
             .ToListAsync();
 

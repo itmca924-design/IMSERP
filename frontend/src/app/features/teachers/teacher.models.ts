@@ -9,6 +9,9 @@ export interface TeacherDto {
   createdAt: string; assignedBatchCount: number;
   branchId?: string; branchName?: string;
   userId?: string; username?: string; hasLoginAccount?: boolean;
+  staffType?: 'Teaching' | 'NonTeaching' | number;
+  department?: string;
+  designation?: string;
 }
 export interface BatchAssignmentDto {
   id: string; teacherId: string; teacherName: string; batchId?: string;

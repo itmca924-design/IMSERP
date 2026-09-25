@@ -64,11 +64,25 @@ public class StudentsController : ControllerBase
     private async Task<bool> HasAttendancePermissionAsync(string route, bool edit)
     {
         var user = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
-        if (user?.RoleId == null) return false;
-        return await _dbContext.RolePermissions.AsNoTracking()
+        if (user == null) return false;
+        if (user.Role == IMSERP.Domain.Enums.UserRole.SuperAdmin || user.Role == IMSERP.Domain.Enums.UserRole.InstituteAdmin) return true;
+        if (user.RoleId == null) return false;
+
+        var hasDirect = await _dbContext.RolePermissions.AsNoTracking()
             .Where(permission => permission.RoleId == user.RoleId && (edit ? permission.CanEdit : permission.CanCreate))
             .Join(_dbContext.MenuItems, permission => permission.MenuItemId, menu => menu.Id, (permission, menu) => menu.RouteUrl)
             .AnyAsync(routeUrl => routeUrl == route);
+        if (hasDirect) return true;
+
+        if (route == "/attendance/permissions/manual" || route == "/attendance/permissions/correction")
+        {
+            return await _dbContext.RolePermissions.AsNoTracking()
+                .Where(permission => permission.RoleId == user.RoleId && (edit ? permission.CanEdit : (permission.CanCreate || permission.CanEdit)))
+                .Join(_dbContext.MenuItems, permission => permission.MenuItemId, menu => menu.Id, (permission, menu) => menu.RouteUrl)
+                .AnyAsync(routeUrl => routeUrl == "/students/attendance");
+        }
+
+        return false;
     }
 
     private async Task<bool> CanEditPublicHolidayOrSundayAsync()
@@ -334,6 +348,8 @@ public class StudentsController : ControllerBase
             .Where(record => studentIds.Contains(record.StudentId) && record.AttendanceDate >= monthStart && record.AttendanceDate <= monthEnd)
             .ToListAsync();
 
+        var totalWorkingDaysInMonth = Math.Max(0, DateTime.DaysInMonth(year, month) - offDates.Count);
+
         var rows = students.Select(student =>
         {
             var personRecords = records.Where(record => record.StudentId == student.Id).ToList();
@@ -342,6 +358,11 @@ public class StudentsController : ControllerBase
             var late = personRecords.Count(record => record.Status == TeacherAttendanceStatus.Late);
             var half = personRecords.Count(record => record.Status == TeacherAttendanceStatus.HalfDay);
             var evaluated = present + absent + late + half;
+            var attendedWeighted = present + late + (half * 0.5m);
+            var denominator = Math.Max(totalWorkingDaysInMonth, evaluated);
+            var attendancePercentage = (denominator == 0 || attendedWeighted == 0)
+                ? 0m
+                : Math.Min(100m, Math.Round((attendedWeighted / (decimal)denominator) * 100m, 1));
 
             string roll = !string.IsNullOrWhiteSpace(student.SchoolRollNumber)
                 ? student.SchoolRollNumber
@@ -352,7 +373,7 @@ public class StudentsController : ControllerBase
                     ? $"{student.Class.Name}{(student.Section != null ? " - " + student.Section.Name : "")}"
                     : "");
 
-            return new AttendanceReportRowDto(student.Id, student.StudentName, roll, group, present, absent, late, half, offDates.Count, Math.Max(0, DateTime.DaysInMonth(year, month) - offDates.Count), evaluated == 0 ? 0 : Math.Round(((present + late + half * 0.5m) / evaluated) * 100, 1));
+            return new AttendanceReportRowDto(student.Id, student.StudentName, roll, group, present, absent, late, half, offDates.Count, totalWorkingDaysInMonth, attendancePercentage);
         }).ToList();
 
         return Ok(new AttendanceReportDto("Student", month, year, rows.Count, rows.Sum(row => row.PresentDays), rows.Sum(row => row.AbsentDays), rows.Sum(row => row.LateDays), rows.Sum(row => row.HalfDays), rows.Sum(row => row.HolidayDays), rows));
@@ -398,14 +419,17 @@ public class StudentsController : ControllerBase
         foreach (var record in records.Where(a => a.Status == TeacherAttendanceStatus.Holiday))
             offDates.Add(record.AttendanceDate.Date);
 
+        int totalWorkingDays = Math.Max(0, DateTime.DaysInMonth(year, month) - offDates.Count);
         var evaluatedDays = present + absent + late + half;
-        var percentage = evaluatedDays == 0
-            ? 0
-            : Math.Round(((present + late + (half * 0.5m)) / evaluatedDays) * 100, 1);
+        decimal attendedWeighted = present + late + (half * 0.5m);
+        int denominator = Math.Max(totalWorkingDays, evaluatedDays);
+        decimal percentage = (denominator == 0 || attendedWeighted == 0)
+            ? 0m
+            : Math.Min(100m, Math.Round((attendedWeighted / (decimal)denominator) * 100m, 1));
 
         return Ok(new StudentAttendanceSummaryDto(
             present, absent, late, half, offDates.Count,
-            Math.Max(0, DateTime.DaysInMonth(year, month) - offDates.Count), percentage));
+            totalWorkingDays, percentage));
     }
 
     [HttpPost("{id}/attendance")]

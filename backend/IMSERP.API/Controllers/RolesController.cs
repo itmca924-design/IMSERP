@@ -130,17 +130,32 @@ public class RolesController : ControllerBase
         _dbContext.Roles.Add(role);
 
         var allMenuItems = await _dbContext.MenuItems.Where(m => m.IsActive).ToListAsync();
+        var menuItemsMap = allMenuItems.ToDictionary(m => m.Id);
+
+        bool hasAttendanceCreate = dto.Permissions != null && dto.Permissions.Any(p =>
+            (p.CanCreate || p.CanEdit) &&
+            menuItemsMap.TryGetValue(p.MenuItemId, out var m) &&
+            (m.RouteUrl == "/teachers/attendance" || m.RouteUrl == "/students/attendance"));
+
+        bool hasAttendanceEdit = dto.Permissions != null && dto.Permissions.Any(p =>
+            p.CanEdit &&
+            menuItemsMap.TryGetValue(p.MenuItemId, out var m) &&
+            (m.RouteUrl == "/teachers/attendance" || m.RouteUrl == "/students/attendance"));
+
         foreach (var menu in allMenuItems)
         {
             var pDto = dto.Permissions?.FirstOrDefault(p => p.MenuItemId == menu.Id);
             var isAttendancePermission = menu.RouteUrl?.StartsWith("/attendance/permissions/", StringComparison.OrdinalIgnoreCase) == true;
+            var isManual = menu.RouteUrl == "/attendance/permissions/manual";
+            var isCorrection = menu.RouteUrl == "/attendance/permissions/correction";
+
             role.RolePermissions.Add(new RolePermission
             {
                 RoleId = role.Id,
                 MenuItemId = menu.Id,
-                CanView = pDto?.CanView ?? !isAttendancePermission,
-                CanCreate = pDto?.CanCreate ?? !isAttendancePermission,
-                CanEdit = pDto?.CanEdit ?? !isAttendancePermission,
+                CanView = pDto?.CanView ?? ((isManual && hasAttendanceCreate) || (isCorrection && hasAttendanceEdit) || !isAttendancePermission),
+                CanCreate = pDto?.CanCreate ?? ((isManual && hasAttendanceCreate) || !isAttendancePermission),
+                CanEdit = pDto?.CanEdit ?? ((isCorrection && hasAttendanceEdit) || !isAttendancePermission),
                 CanDelete = pDto?.CanDelete ?? !isAttendancePermission
             });
         }
@@ -178,15 +193,29 @@ public class RolesController : ControllerBase
 
         if (dto.Permissions != null && dto.Permissions.Count > 0)
         {
+            var menuItemsMap = await _dbContext.MenuItems.AsNoTracking().ToDictionaryAsync(m => m.Id);
+            bool hasAttendanceCreate = dto.Permissions.Any(p =>
+                (p.CanCreate || p.CanEdit) &&
+                menuItemsMap.TryGetValue(p.MenuItemId, out var m) &&
+                (m.RouteUrl == "/teachers/attendance" || m.RouteUrl == "/students/attendance"));
+
+            bool hasAttendanceEdit = dto.Permissions.Any(p =>
+                p.CanEdit &&
+                menuItemsMap.TryGetValue(p.MenuItemId, out var m) &&
+                (m.RouteUrl == "/teachers/attendance" || m.RouteUrl == "/students/attendance"));
+
             foreach (var permDto in dto.Permissions)
             {
+                var isManual = menuItemsMap.TryGetValue(permDto.MenuItemId, out var m) && m.RouteUrl == "/attendance/permissions/manual";
+                var isCorrection = menuItemsMap.TryGetValue(permDto.MenuItemId, out var mc) && mc.RouteUrl == "/attendance/permissions/correction";
+
                 _dbContext.RolePermissions.Add(new RolePermission
                 {
                     RoleId = role.Id,
                     MenuItemId = permDto.MenuItemId,
-                    CanView = permDto.CanView,
-                    CanCreate = permDto.CanCreate,
-                    CanEdit = permDto.CanEdit,
+                    CanView = permDto.CanView || (isManual && hasAttendanceCreate) || (isCorrection && hasAttendanceEdit),
+                    CanCreate = permDto.CanCreate || (isManual && hasAttendanceCreate),
+                    CanEdit = permDto.CanEdit || (isCorrection && hasAttendanceEdit),
                     CanDelete = permDto.CanDelete
                 });
             }

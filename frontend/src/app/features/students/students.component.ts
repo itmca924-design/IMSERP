@@ -26,6 +26,7 @@ import { LibraryService, LibraryMembershipPlanDto } from '../../core/services/li
 import { StudentLeavingDialogComponent } from './student-leaving-dialog.component';
 import { StudentReadmissionDialogComponent } from './student-readmission-dialog.component';
 import { ManageLibraryPlansDialogComponent } from '../library/manage-library-plans-dialog.component';
+import { AuthService } from '../../core/services/auth.service';
 
 const API_BASE = 'http://localhost:5000';
 
@@ -57,13 +58,15 @@ const API_BASE = 'http://localhost:5000';
       <div class="header-actions">
         <div>
           <h2>Student Directory &amp; Admissions</h2>
-          <p>Unified admissions for School &amp; Coaching. School students can seamlessly enroll into evening coaching batches.</p>
+          <p *ngIf="authService.hasSchoolModule() && authService.hasCoachingModule()">Unified admissions for School &amp; Coaching. School students can seamlessly enroll into evening coaching batches.</p>
+          <p *ngIf="authService.hasSchoolModule() && !authService.hasCoachingModule()">Comprehensive school student admissions, academic class assignments, and student directory.</p>
+          <p *ngIf="!authService.hasSchoolModule() && authService.hasCoachingModule()">Manage student admissions, batch enrollments, and coaching tuition records.</p>
         </div>
         <div class="header-btns">
-          <a mat-stroked-button routerLink="/students/promotion" class="promotion-link-btn">
+          <a *ngIf="authService.hasSchoolModule()" mat-stroked-button routerLink="/students/promotion" class="promotion-link-btn">
             <mat-icon>trending_up</mat-icon> Promote Students
           </a>
-          <a mat-stroked-button routerLink="/school/classes" class="classes-link-btn">
+          <a *ngIf="authService.hasSchoolModule()" mat-stroked-button routerLink="/school/classes" class="classes-link-btn">
             <mat-icon>domain</mat-icon> Classes &amp; Sections
           </a>
           <button mat-raised-button color="primary" class="add-btn" (click)="toggleForm()">
@@ -112,22 +115,22 @@ const API_BASE = 'http://localhost:5000';
                 <span>Select Enrollment Stream(s)</span>
               </div>
               <div class="stream-checkboxes">
-                <mat-checkbox formControlName="isSchoolStudent" (change)="onStreamCheckChanged()" color="primary">
+                <mat-checkbox *ngIf="authService.hasSchoolModule()" formControlName="isSchoolStudent" (change)="onStreamCheckChanged()" color="primary">
                   <span class="chk-label">🏫 <strong>School Enrollment</strong> (Class, Section, Admission No)</span>
                 </mat-checkbox>
-                <mat-checkbox formControlName="isCoachingStudent" (change)="onStreamCheckChanged()" color="primary">
+                <mat-checkbox *ngIf="authService.hasCoachingModule()" formControlName="isCoachingStudent" (change)="onStreamCheckChanged()" color="primary">
                   <span class="chk-label">🎯 <strong>Coaching Enrollment</strong> (Batch, Monthly Tuition Fee)</span>
                 </mat-checkbox>
-                <mat-checkbox formControlName="isHostelStudent" (change)="onHostelCheckChanged()" color="accent">
+                <mat-checkbox *ngIf="authService.hasHostelModule()" formControlName="isHostelStudent" (change)="onHostelCheckChanged()" color="accent">
                   <span class="chk-label">🏨 <strong>Hostel Resident (Optional)</strong> (Room &amp; Bed Allotment)</span>
                 </mat-checkbox>
-                <mat-checkbox formControlName="isLibraryMember" (change)="onLibraryCheckChanged()" color="primary">
+                <mat-checkbox *ngIf="authService.hasLibraryModule()" formControlName="isLibraryMember" (change)="onLibraryCheckChanged()" color="primary">
                   <span class="chk-label">📚 <strong>Library Membership (Optional)</strong> (Books &amp; Reading Shifts)</span>
                 </mat-checkbox>
               </div>
-              <div class="stream-hint-warn" *ngIf="!studentForm.value.isSchoolStudent && !studentForm.value.isCoachingStudent">
+              <div class="stream-hint-warn" *ngIf="!studentForm.value.isSchoolStudent && !studentForm.value.isCoachingStudent && (authService.hasSchoolModule() || authService.hasCoachingModule())">
                 <mat-icon>warning_amber</mat-icon>
-                <span>Please select at least one stream (School, Coaching, or both).</span>
+                <span>Please select at least one stream ({{ authService.hasSchoolModule() && authService.hasCoachingModule() ? 'School, Coaching, or both' : (authService.hasSchoolModule() ? 'School' : 'Coaching') }}).</span>
               </div>
             </div>
 
@@ -434,23 +437,23 @@ const API_BASE = 'http://localhost:5000';
             <span>All Enrolled</span>
             <span class="tab-count">{{ totalCount }}</span>
           </button>
-          <button type="button" class="stream-tab school-tab" [class.active]="selectedStreamFilter === 'school'" (click)="setStreamFilter('school')">
+          <button *ngIf="authService.hasSchoolModule()" type="button" class="stream-tab school-tab" [class.active]="selectedStreamFilter === 'school'" (click)="setStreamFilter('school')">
             <mat-icon>domain</mat-icon>
             <span>School Students</span>
           </button>
-          <button type="button" class="stream-tab coaching-tab" [class.active]="selectedStreamFilter === 'coaching'" (click)="setStreamFilter('coaching')">
+          <button *ngIf="authService.hasCoachingModule()" type="button" class="stream-tab coaching-tab" [class.active]="selectedStreamFilter === 'coaching'" (click)="setStreamFilter('coaching')">
             <mat-icon>school</mat-icon>
             <span>Coaching Batches</span>
           </button>
-          <button type="button" class="stream-tab hostel-tab" [class.active]="selectedStreamFilter === 'hostel'" (click)="setStreamFilter('hostel')">
+          <button *ngIf="authService.hasHostelModule()" type="button" class="stream-tab hostel-tab" [class.active]="selectedStreamFilter === 'hostel'" (click)="setStreamFilter('hostel')">
             <mat-icon>apartment</mat-icon>
             <span>Hostel Residents</span>
           </button>
-          <button type="button" class="stream-tab library-tab" [class.active]="selectedStreamFilter === 'library'" (click)="setStreamFilter('library')">
+          <button *ngIf="authService.hasLibraryModule()" type="button" class="stream-tab library-tab" [class.active]="selectedStreamFilter === 'library'" (click)="setStreamFilter('library')">
             <mat-icon>local_library</mat-icon>
             <span>Library Members</span>
           </button>
-          <button type="button" class="stream-tab dayscholar-tab" [class.active]="selectedStreamFilter === 'dayscholar'" (click)="setStreamFilter('dayscholar')">
+          <button *ngIf="authService.hasHostelModule()" type="button" class="stream-tab dayscholar-tab" [class.active]="selectedStreamFilter === 'dayscholar'" (click)="setStreamFilter('dayscholar')">
             <mat-icon>directions_walk</mat-icon>
             <span>Day Scholars</span>
           </button>
@@ -473,7 +476,7 @@ const API_BASE = 'http://localhost:5000';
             </mat-form-field>
 
             <!-- School Class Filter -->
-            <mat-form-field appearance="outline" class="filter-select" *ngIf="selectedStreamFilter !== 'coaching'">
+            <mat-form-field appearance="outline" class="filter-select" *ngIf="authService.hasSchoolModule() && selectedStreamFilter !== 'coaching'">
               <mat-label>Filter by School Class</mat-label>
               <mat-select [(ngModel)]="selectedClassFilter" (selectionChange)="onClassFilterChange()" panelClass="batch-filter-panel">
                 <mat-option value="">All School Classes</mat-option>
@@ -484,7 +487,7 @@ const API_BASE = 'http://localhost:5000';
             </mat-form-field>
 
             <!-- Coaching Batch Filter -->
-            <mat-form-field appearance="outline" class="filter-select" *ngIf="selectedStreamFilter !== 'school'">
+            <mat-form-field appearance="outline" class="filter-select" *ngIf="authService.hasCoachingModule() && selectedStreamFilter !== 'school'">
               <mat-label>Filter by Coaching Batch</mat-label>
               <mat-select [(ngModel)]="selectedBatchFilter" (selectionChange)="onFilterChange()" panelClass="batch-filter-panel">
                 <mat-option value="">All Academic Batches</mat-option>
@@ -495,7 +498,7 @@ const API_BASE = 'http://localhost:5000';
             </mat-form-field>
 
             <!-- Section Filter -->
-            <mat-form-field appearance="outline" class="filter-select section-select" *ngIf="selectedClassFilter && selectedStreamFilter !== 'coaching'">
+            <mat-form-field appearance="outline" class="filter-select section-select" *ngIf="authService.hasSchoolModule() && selectedClassFilter && selectedStreamFilter !== 'coaching'">
               <mat-label>Filter by Section</mat-label>
               <mat-select [(ngModel)]="selectedSectionFilter" (selectionChange)="onFilterChange()" panelClass="batch-filter-panel">
                 <mat-option value="">All Sections</mat-option>
@@ -668,7 +671,7 @@ const API_BASE = 'http://localhost:5000';
                       mat-stroked-button
                       color="primary"
                       class="btn-quick-coaching"
-                      *ngIf="s.isSchoolStudent && !s.isCoachingStudent && s.isActive !== false"
+                      *ngIf="authService.hasCoachingModule() && s.isSchoolStudent && !s.isCoachingStudent && s.isActive !== false"
                       (click)="openEnrollCoachingModal(s)"
                       matTooltip="Enroll this school student into Coaching batch">
                       <mat-icon>add_task</mat-icon>
@@ -1650,11 +1653,17 @@ export class StudentsComponent implements OnInit, OnDestroy {
     private libraryService: LibraryService,
     private confirmDialog: ConfirmDialogService,
     private dialog: MatDialog,
-    private fb: FormBuilder
+    private fb: FormBuilder,
+    public authService: AuthService
   ) {
+    const hasSchool = this.authService.hasSchoolModule();
+    const hasCoaching = this.authService.hasCoachingModule();
+    const initSchool = hasSchool && !hasCoaching;
+    const initCoaching = hasCoaching;
+
     this.studentForm = this.fb.group({
-      isSchoolStudent: [false],
-      isCoachingStudent: [true],
+      isSchoolStudent: [initSchool],
+      isCoachingStudent: [initCoaching],
       isHostelStudent: [false],
       hostelId: [''],
       hostelBedId: [''],
@@ -1663,12 +1672,12 @@ export class StudentsComponent implements OnInit, OnDestroy {
       libraryMembershipType: ['Standard Book Lending'],
       maxLibraryBooks: [2],
       monthlyLibraryFee: [0],
-      classId: [''],
+      classId: [initSchool ? '' : ''],
       sectionId: [''],
       admissionNumber: [''],
       schoolRollNumber: [''],
-      batchId: ['', Validators.required],
-      rollNumber: ['', Validators.required],
+      batchId: ['', initCoaching ? [Validators.required] : []],
+      rollNumber: ['', initCoaching ? [Validators.required] : []],
       studentName: ['', Validators.required],
       gender: ['Male'],
       dateOfBirth: [''],
@@ -1681,10 +1690,23 @@ export class StudentsComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    this.coachingService.getBatches().subscribe(b => this.batches = b || []);
-    this.schoolService.getClasses(false).subscribe(c => this.schoolClasses = c || []);
-    this.hostelService.getHostels().subscribe(h => this.hostelsList = h || []);
-    this.loadLibraryPlans();
+    if (this.authService.hasCoachingModule()) {
+      this.coachingService.getBatches().subscribe(b => this.batches = b || []);
+    }
+    if (this.authService.hasSchoolModule()) {
+      this.schoolService.getClasses(false).subscribe(c => this.schoolClasses = c || []);
+    }
+    if (this.authService.hasHostelModule()) {
+      this.hostelService.getHostels().subscribe(h => this.hostelsList = h || []);
+    }
+    if (this.authService.hasLibraryModule()) {
+      this.loadLibraryPlans();
+    }
+
+    if (!this.authService.hasCoachingModule() && this.authService.hasSchoolModule()) {
+      this.selectedStreamFilter = 'school';
+    }
+
     this.loadStudents();
     this.setupBatchIdWatcher();
   }
@@ -2237,6 +2259,9 @@ export class StudentsComponent implements OnInit, OnDestroy {
 
   toggleForm(): void {
     this.showForm = !this.showForm;
+    const hasSchool = this.authService.hasSchoolModule();
+    const hasCoaching = this.authService.hasCoachingModule();
+
     if (!this.showForm) {
       this.isEditMode = false;
       this.selectedStudent = null;
@@ -2248,8 +2273,8 @@ export class StudentsComponent implements OnInit, OnDestroy {
       this.selectedPhotoData = null;
       this.formSections = [];
       this.studentForm.reset({
-        isSchoolStudent: false,
-        isCoachingStudent: true,
+        isSchoolStudent: hasSchool && !hasCoaching,
+        isCoachingStudent: hasCoaching,
         isHostelStudent: false,
         isLibraryMember: false,
         libraryCardNumber: '',
@@ -2258,7 +2283,14 @@ export class StudentsComponent implements OnInit, OnDestroy {
         monthlyLibraryFee: 0,
         gender: 'Male'
       });
+      this.onStreamCheckChanged();
       this.loadStudents();
+    } else if (!this.isEditMode) {
+      this.studentForm.patchValue({
+        isSchoolStudent: hasSchool && !hasCoaching,
+        isCoachingStudent: hasCoaching
+      });
+      this.onStreamCheckChanged();
     }
   }
 

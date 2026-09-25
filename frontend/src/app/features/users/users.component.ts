@@ -13,6 +13,7 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { UserDto, UsersService } from '../../core/services/users.service';
 import { UserDialogComponent } from './user-dialog.component';
+import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 
 @Component({
   selector: 'app-users',
@@ -219,7 +220,11 @@ export class UsersComponent implements OnInit {
   users: UserDto[] = [];
   loading = false;
 
-  constructor(private usersService: UsersService, private dialog: MatDialog) {}
+  constructor(
+    private usersService: UsersService,
+    private dialog: MatDialog,
+    private confirmDialog: ConfirmDialogService
+  ) {}
 
   ngOnInit(): void {
     this.loadUsers();
@@ -241,8 +246,10 @@ export class UsersComponent implements OnInit {
 
   openUserModal(user?: UserDto): void {
     const dialogRef = this.dialog.open(UserDialogComponent, {
-      width: '580px',
+      width: '600px',
       maxWidth: '96vw',
+      maxHeight: '92vh',
+      autoFocus: false,
       data: user ? { ...user } : undefined
     });
 
@@ -254,7 +261,12 @@ export class UsersComponent implements OnInit {
   }
 
   deleteUser(user: UserDto): void {
-    if (confirm(`Are you sure you want to delete user account "${user.username}"?`)) {
+    this.confirmDialog.danger(
+      'Delete User Account',
+      `Are you sure you want to delete user account "${user.username}"? This action cannot be undone.`,
+      'Delete Account'
+    ).subscribe((confirmed) => {
+      if (!confirmed) return;
       this.loading = true;
       this.usersService.deleteUser(user.id).subscribe({
         next: () => {
@@ -262,9 +274,9 @@ export class UsersComponent implements OnInit {
         },
         error: (err) => {
           this.loading = false;
-          alert(err?.error?.message || 'Error deleting user.');
+          this.confirmDialog.alert('Delete Failed', err?.error?.message || 'Error deleting user.', 'danger');
         }
       });
-    }
+    });
   }
 }

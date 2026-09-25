@@ -14,10 +14,15 @@ public record LoginResponseDto(
     Guid TenantId,
     string InstituteName,
     string TenantCode,
-    string? ProfilePhoto,
+    string? ProfilePhoto = null,
     Guid? BranchId = null,
     string? BranchName = null,
-    List<BranchDto>? Branches = null
+    List<BranchDto>? Branches = null,
+    bool HasSchoolModule = true,
+    bool HasCoachingModule = true,
+    bool HasHostelModule = true,
+    bool HasLibraryModule = true,
+    bool HasTransportModule = true
 );
 
 public record BranchDto(
@@ -101,7 +106,12 @@ public record TenantDto(
     bool IsActive,
     DateTime CreatedAt,
     int StudentCount,
-    int BatchCount
+    int BatchCount,
+    bool HasSchoolModule = true,
+    bool HasCoachingModule = true,
+    bool HasHostelModule = true,
+    bool HasLibraryModule = true,
+    bool HasTransportModule = true
 );
 
 public record CreateTenantDto(
@@ -115,7 +125,12 @@ public record CreateTenantDto(
     string AdminUsername,
     string AdminPassword,
     string AdminFullName,
-    List<CreateBranchDto>? Branches = null
+    List<CreateBranchDto>? Branches = null,
+    bool HasSchoolModule = true,
+    bool HasCoachingModule = true,
+    bool HasHostelModule = true,
+    bool HasLibraryModule = true,
+    bool HasTransportModule = true
 );
 
 public record UpdateTenantDto(
@@ -124,7 +139,20 @@ public record UpdateTenantDto(
     string? Address,
     string? ProfilePhoto,
     string? WhatsAppPhoneId,
-    string? WhatsAppAccessToken
+    string? WhatsAppAccessToken,
+    bool? HasSchoolModule = null,
+    bool? HasCoachingModule = null,
+    bool? HasHostelModule = null,
+    bool? HasLibraryModule = null,
+    bool? HasTransportModule = null
+);
+
+public record UpdateTenantModulesDto(
+    bool HasSchoolModule,
+    bool HasCoachingModule,
+    bool HasHostelModule,
+    bool HasLibraryModule,
+    bool HasTransportModule
 );
 
 public record SchoolClassDto(
@@ -1073,7 +1101,10 @@ public record TeacherDto(
     string? HostelBedCode = null,
     // Library
     int ActiveLibraryLoans = 0,
-    decimal PendingLibraryFines = 0
+    decimal PendingLibraryFines = 0,
+    string StaffType = "Teaching",
+    string? Department = null,
+    string? Designation = null
 );
 
 public record CreateTeacherDto(
@@ -1091,7 +1122,11 @@ public record CreateTeacherDto(
     string? Address,
     DateTime JoiningDate,
     bool IsActive = true,
-    Guid? BranchId = null
+    Guid? BranchId = null,
+    string StaffType = "Teaching",
+    string? Department = null,
+    string? Designation = null,
+    string? PhotoUrl = null
 );
 
 public record TeacherBatchAssignmentDto(
