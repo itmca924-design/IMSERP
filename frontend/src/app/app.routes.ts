@@ -52,6 +52,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/students/student-attendance.component').then(m => m.StudentAttendanceComponent)
       },
       {
+        path: 'students/leaves',
+        loadComponent: () => import('./features/students/student-leaves.component').then(m => m.StudentLeavesComponent)
+      },
+      {
         path: 'students/promotion',
         loadComponent: () => import('./features/students/student-promotion.component').then(m => m.StudentPromotionComponent)
       },
@@ -66,6 +70,10 @@ export const routes: Routes = [
       {
         path: 'school/homework',
         loadComponent: () => import('./features/school/homework-diary.component').then(m => m.HomeworkDiaryComponent)
+      },
+      {
+        path: 'school/notices',
+        loadComponent: () => import('./features/school/school-notices.component').then(m => m.SchoolNoticesComponent)
       },
       {
         path: 'students/enquiries',
@@ -208,6 +216,17 @@ export const routes: Routes = [
         path: 'subscription',
         loadComponent: () => import('./features/subscription/subscription.component').then(m => m.SubscriptionComponent)
       },
+
+      // Front Desk — Visitor Book & Student Gate Pass
+      {
+        path: 'front-desk/visitors',
+        loadComponent: () => import('./features/front-desk/visitors.component').then(m => m.VisitorsComponent)
+      },
+      {
+        path: 'front-desk/gate-passes',
+        loadComponent: () => import('./features/front-desk/visitors.component').then(m => m.VisitorsComponent)
+      },
+      { path: 'front-desk', redirectTo: 'front-desk/visitors', pathMatch: 'full' },
     ]
   },
   { path: '**', redirectTo: 'dashboard' }

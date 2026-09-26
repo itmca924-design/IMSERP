@@ -51,7 +51,8 @@ public enum TeacherAttendanceStatus
     Late = 3,
     HalfDay = 4,
     Holiday = 5,
-    WeekOff = 6
+    WeekOff = 6,
+    Leave = 7
 }
 
 public enum LeaveType

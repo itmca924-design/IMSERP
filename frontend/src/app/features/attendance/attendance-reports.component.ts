@@ -336,6 +336,7 @@ interface DailyDayItem {
                   </div>
                   <div class="md-summary-chips">
                     <span class="md-chip chip-p">🟢 Present: {{ row.presentDays }}</span>
+                    <span class="md-chip chip-leave" *ngIf="getLeaveDays(row) > 0">🟠 Leave: {{ getLeaveDays(row) }}</span>
                     <span class="md-chip chip-l">🟡 Late: {{ row.lateDays }}</span>
                     <span class="md-chip chip-a">🔴 Absent: {{ row.absentDays }}</span>
                     <span class="md-chip chip-hd">🟣 Half: {{ row.halfDays }}</span>
@@ -359,7 +360,8 @@ interface DailyDayItem {
                 <!-- Legend Footer -->
                 <div class="matrix-legend">
                   <span class="leg-item"><span class="leg-dot dot-p"></span> <strong>P</strong> = Present</span>
-                  <span class="leg-item"><span class="leg-dot dot-l"></span> <strong>L</strong> = Late Arrival</span>
+                  <span class="leg-item"><span class="leg-dot dot-l"></span> <strong>L</strong> = Sanctioned Leave</span>
+                  <span class="leg-item"><span class="leg-dot dot-lt"></span> <strong>LT</strong> = Late Arrival</span>
                   <span class="leg-item"><span class="leg-dot dot-a"></span> <strong>A</strong> = Absent</span>
                   <span class="leg-item"><span class="leg-dot dot-hd"></span> <strong>HD</strong> = Half Day</span>
                   <span class="leg-item"><span class="leg-dot dot-off"></span> <strong>OFF</strong> = Sunday / Holiday</span>
@@ -524,6 +526,8 @@ interface DailyDayItem {
     .day-card.day-p .day-card-badge { background:#16a34a; color:#fff; }
     .day-card.day-l { background:#fffbeb; border-color:#fde047; }
     .day-card.day-l .day-card-badge { background:#d97706; color:#fff; }
+    .day-card.day-lt { background:#fefce8; border-color:#fef08a; }
+    .day-card.day-lt .day-card-badge { background:#ca8a04; color:#fff; }
     .day-card.day-a { background:#fef2f2; border-color:#fca5a5; }
     .day-card.day-a .day-card-badge { background:#dc2626; color:#fff; }
     .day-card.day-hd { background:#faf5ff; border-color:#d8b4fe; }
@@ -540,10 +544,12 @@ interface DailyDayItem {
     .leg-dot { width:8px; height:8px; border-radius:50%; display:inline-block; }
     .dot-p { background:#16a34a; }
     .dot-l { background:#d97706; }
+    .dot-lt { background:#ca8a04; }
     .dot-a { background:#dc2626; }
     .dot-hd { background:#9333ea; }
     .dot-off { background:#64748b; }
     .dot-unmarked { background:#cbd5e1; }
+    .md-chip.chip-leave { background:#fffbeb; color:#b45309; border:1px solid #fde68a; }
 
     /* Empty Table State */
     .empty-table-cell { text-align:center; padding:36px 16px !important; }
@@ -731,7 +737,13 @@ export class AttendanceReportsComponent implements OnInit {
   }
 
   getEvaluatedDays(row: ReportRow): number {
-    return (row.presentDays || 0) + (row.absentDays || 0) + (row.lateDays || 0) + (row.halfDays || 0);
+    return (row.presentDays || 0) + (row.absentDays || 0) + (row.lateDays || 0) + (row.halfDays || 0) + this.getLeaveDays(row);
+  }
+
+  getLeaveDays(row: ReportRow): number {
+    const matrix = this.dailyMatrixCache[row.personId];
+    if (!matrix) return 0;
+    return matrix.filter(d => d.status === 'L').length;
   }
 
   getUnmarkedDays(row: ReportRow): number {
@@ -825,15 +837,21 @@ export class AttendanceReportsComponent implements OnInit {
         let code = 'P';
         const st = (rec.status || '').toLowerCase();
         if (st.includes('absent')) code = 'A';
-        else if (st.includes('late')) code = 'L';
+        else if (st.includes('leave')) code = 'L';
+        else if (st.includes('late')) code = 'LT';
         else if (st.includes('half')) code = 'HD';
+
+        let statusText = rec.status || 'Present';
+        if (code === 'L') {
+          statusText = rec.remarks ? `Sanctioned Leave: ${rec.remarks}` : 'Sanctioned Leave';
+        }
 
         daysArr.push({
           day: d,
           dayOfWeek,
           isSunday: false,
           status: code,
-          label: `${d} ${this.months[this.selectedMonth - 1]} (${dayOfWeek}): ${rec.status || 'Present'}${rec.checkInTime ? ' • In: ' + rec.checkInTime : ''}`
+          label: `${d} ${this.months[this.selectedMonth - 1]} (${dayOfWeek}): ${statusText}${rec.checkInTime ? ' • In: ' + rec.checkInTime : ''}`
         });
       } else {
         daysArr.push({

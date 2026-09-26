@@ -3331,4 +3331,114 @@ public record EnquiryStatsDto(
     double ConversionRate
 );
 
+public record SchoolNoticeDto(
+    Guid Id,
+    Guid TenantId,
+    Guid? BranchId,
+    string NoticeNumber,
+    string Title,
+    string Content,
+    string Category,
+    string TargetAudience,
+    Guid? ClassId,
+    string? ClassName,
+    string Priority,
+    DateTime PublishDate,
+    DateTime? ExpiryDate,
+    string? AttachmentUrl,
+    bool IsPinned,
+    bool IsActive,
+    string? CreatedBy,
+    DateTime CreatedAt,
+    DateTime UpdatedAt
+);
+
+public record CreateSchoolNoticeDto(
+    string Title,
+    string Content,
+    string Category,
+    string TargetAudience,
+    Guid? ClassId,
+    string? ClassName,
+    string Priority,
+    DateTime PublishDate,
+    DateTime? ExpiryDate,
+    string? AttachmentUrl,
+    bool IsPinned
+);
+
+public record UpdateSchoolNoticeDto(
+    string Title,
+    string Content,
+    string Category,
+    string TargetAudience,
+    Guid? ClassId,
+    string? ClassName,
+    string Priority,
+    DateTime PublishDate,
+    DateTime? ExpiryDate,
+    string? AttachmentUrl,
+    bool IsPinned,
+    bool IsActive
+);
+
+public record NoticeStatsDto(
+    int TotalNotices,
+    int UrgentNotices,
+    int PinnedNotices,
+    int ActiveCirculars,
+    int StudentNotices,
+    int StaffNotices
+);
+
+public record StudentLeaveDto(
+    Guid Id,
+    Guid TenantId,
+    Guid? BranchId,
+    Guid StudentId,
+    string StudentName,
+    string RollNumber,
+    string? ClassName,
+    string? SectionName,
+    string? ParentContactNumber,
+    string LeaveCategory,
+    DateTime FromDate,
+    DateTime ToDate,
+    int TotalDays,
+    string Reason,
+    string? AttachmentUrl,
+    string Status,
+    string? ReviewedBy,
+    DateTime? ReviewedAt,
+    string? ReviewRemarks,
+    bool AttendanceMarked,
+    string AppliedBy,
+    DateTime CreatedAt,
+    DateTime UpdatedAt
+);
+
+public record CreateStudentLeaveDto(
+    Guid StudentId,
+    string LeaveCategory,
+    DateTime FromDate,
+    DateTime ToDate,
+    string Reason,
+    string? ParentContactNumber,
+    string? AttachmentUrl,
+    string AppliedBy = "Parent"
+);
+
+public record ReviewStudentLeaveDto(
+    string Status,
+    string? ReviewRemarks
+);
+
+public record StudentLeaveStatsDto(
+    int TotalLeaves,
+    int PendingLeaves,
+    int ApprovedLeaves,
+    int RejectedLeaves,
+    int TodayOnLeave
+);
+
 

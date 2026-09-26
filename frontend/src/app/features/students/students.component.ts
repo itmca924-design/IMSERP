@@ -65,6 +65,9 @@ const API_BASE = 'http://localhost:5000';
           <p *ngIf="!authService.hasSchoolModule() && authService.hasCoachingModule()">Manage student admissions, batch enrollments, and coaching tuition records.</p>
         </div>
         <div class="header-btns">
+          <a mat-stroked-button routerLink="/students/leaves" class="leaves-link-btn" style="border-color:#cbd5e1; color:#1e40af; font-weight:600;">
+            <mat-icon style="color:#d97706;">event_busy</mat-icon> Student Leaves
+          </a>
           <a *ngIf="authService.hasSchoolModule()" mat-stroked-button routerLink="/students/promotion" class="promotion-link-btn">
             <mat-icon>trending_up</mat-icon> Promote Students
           </a>

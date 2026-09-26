@@ -506,6 +506,69 @@ using (var scope = app.Services.CreateScope())
                             UpdatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
                         );
                     END
+                    -- Front Desk: Visitor Book
+                    IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'VisitorLogs')
+                    BEGIN
+                        CREATE TABLE VisitorLogs (
+                            Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
+                            TenantId UNIQUEIDENTIFIER NOT NULL,
+                            BranchId UNIQUEIDENTIFIER NULL,
+                            VisitorNumber NVARCHAR(50) NOT NULL DEFAULT '',
+                            VisitorType NVARCHAR(50) NOT NULL DEFAULT 'Visitor',
+                            VisitorName NVARCHAR(150) NOT NULL,
+                            Organization NVARCHAR(150) NULL,
+                            ContactNumber NVARCHAR(50) NULL,
+                            Email NVARCHAR(150) NULL,
+                            IdProofType NVARCHAR(50) NULL,
+                            IdProofNumber NVARCHAR(100) NULL,
+                            PersonToMeet NVARCHAR(150) NULL,
+                            DepartmentToVisit NVARCHAR(100) NULL,
+                            StudentId UNIQUEIDENTIFIER NULL,
+                            StudentName NVARCHAR(150) NULL,
+                            StudentClass NVARCHAR(100) NULL,
+                            Purpose NVARCHAR(500) NOT NULL DEFAULT '',
+                            CheckInTime DATETIME2 NOT NULL DEFAULT GETDATE(),
+                            CheckOutTime DATETIME2 NULL,
+                            Status NVARCHAR(50) NOT NULL DEFAULT 'Active',
+                            NumberOfVisitors INT NULL DEFAULT 1,
+                            VehicleNumber NVARCHAR(50) NULL,
+                            PhotoUrl NVARCHAR(MAX) NULL,
+                            BadgeNumber NVARCHAR(50) NULL,
+                            MaterialCarried NVARCHAR(500) NULL,
+                            Remarks NVARCHAR(MAX) NULL,
+                            ReceivedBy NVARCHAR(150) NULL,
+                            CreatedAt DATETIME2 NOT NULL DEFAULT GETDATE(),
+                            UpdatedAt DATETIME2 NOT NULL DEFAULT GETDATE()
+                        );
+                    END
+
+                    -- Front Desk: Student Gate Pass
+                    IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'StudentGatePasses')
+                    BEGIN
+                        CREATE TABLE StudentGatePasses (
+                            Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
+                            TenantId UNIQUEIDENTIFIER NOT NULL,
+                            BranchId UNIQUEIDENTIFIER NULL,
+                            GatePassNumber NVARCHAR(50) NOT NULL DEFAULT '',
+                            StudentId UNIQUEIDENTIFIER NOT NULL,
+                            Reason NVARCHAR(MAX) NOT NULL DEFAULT '',
+                            ReasonCategory NVARCHAR(100) NOT NULL DEFAULT 'Early Pickup',
+                            OutDateTime DATETIME2 NOT NULL DEFAULT GETDATE(),
+                            ExpectedReturnTime DATETIME2 NULL,
+                            ActualReturnTime DATETIME2 NULL,
+                            Status NVARCHAR(50) NOT NULL DEFAULT 'Pending',
+                            ParentGuardianName NVARCHAR(150) NULL,
+                            ParentContactNumber NVARCHAR(50) NULL,
+                            ParentRelation NVARCHAR(100) NULL,
+                            ApprovedBy NVARCHAR(150) NULL,
+                            ApprovedAt DATETIME2 NULL,
+                            ApprovalRemarks NVARCHAR(MAX) NULL,
+                            SecurityGuardName NVARCHAR(150) NULL,
+                            Remarks NVARCHAR(MAX) NULL,
+                            CreatedAt DATETIME2 NOT NULL DEFAULT GETDATE(),
+                            UpdatedAt DATETIME2 NOT NULL DEFAULT GETDATE()
+                        );
+                    END
                 ");
             }
             catch (Exception ex)
@@ -923,6 +986,42 @@ using (var scope = app.Services.CreateScope())
                 context.SaveChanges();
                 Console.WriteLine("[Database] Auto-seeded 'Homework & Daily Diary' menu item under Academic Operations.");
             }
+
+            // Auto-seed 'Notice Board & Circulars' MenuItem under Academic Operations
+            var noticeMenu = context.MenuItems.FirstOrDefault(m => m.RouteUrl == "/school/notices");
+            if (noticeMenu == null)
+            {
+                var newNoticeMenu = new IMSERP.Domain.Entities.MenuItem
+                {
+                    Id = Guid.NewGuid(),
+                    Title = "Notice Board & Circulars",
+                    RouteUrl = "/school/notices",
+                    Icon = "campaign",
+                    ParentId = academicMenu.Id,
+                    SortOrder = 4,
+                    Module = "Academic",
+                    IsActive = true
+                };
+                context.MenuItems.Add(newNoticeMenu);
+                context.SaveChanges();
+
+                var roles = context.Roles.ToList();
+                foreach (var role in roles)
+                {
+                    context.RolePermissions.Add(new IMSERP.Domain.Entities.RolePermission
+                    {
+                        Id = Guid.NewGuid(),
+                        RoleId = role.Id,
+                        MenuItemId = newNoticeMenu.Id,
+                        CanView = true,
+                        CanCreate = true,
+                        CanEdit = true,
+                        CanDelete = true
+                    });
+                }
+                context.SaveChanges();
+                Console.WriteLine("[Database] Auto-seeded 'Notice Board & Circulars' menu item under Academic Operations.");
+            }
         }
 
         // Auto-seed 'Admission Enquiries' MenuItem under Master Management
@@ -1113,6 +1212,78 @@ using (var scope = app.Services.CreateScope())
                 context.SaveChanges();
                 Console.WriteLine("[Database] Auto-seeded 'Transport & Fleet' menu item under Academic Operations.");
             }
+
+            var noticesMenu = context.MenuItems.FirstOrDefault(m => m.RouteUrl == "/school/notices");
+            if (noticesMenu == null)
+            {
+                var newNoticesMenu = new IMSERP.Domain.Entities.MenuItem
+                {
+                    Id = Guid.NewGuid(),
+                    Title = "Notice Board & Circulars",
+                    RouteUrl = "/school/notices",
+                    Icon = "campaign",
+                    ParentId = academicMenu.Id,
+                    SortOrder = 4,
+                    Module = "Academic",
+                    IsActive = true
+                };
+                context.MenuItems.Add(newNoticesMenu);
+                context.SaveChanges();
+
+                var roles = context.Roles.ToList();
+                foreach (var role in roles)
+                {
+                    context.RolePermissions.Add(new IMSERP.Domain.Entities.RolePermission
+                    {
+                        Id = Guid.NewGuid(),
+                        RoleId = role.Id,
+                        MenuItemId = newNoticesMenu.Id,
+                        CanView = true,
+                        CanCreate = true,
+                        CanEdit = true,
+                        CanDelete = true
+                    });
+                }
+                context.SaveChanges();
+            }
+
+            var attendanceParent = context.MenuItems.FirstOrDefault(m => m.Title == "Attendance Management" && m.ParentId == null);
+            if (attendanceParent != null)
+            {
+                var studentLeavesMenu = context.MenuItems.FirstOrDefault(m => m.RouteUrl == "/students/leaves");
+                if (studentLeavesMenu == null)
+                {
+                    var newLeavesMenu = new IMSERP.Domain.Entities.MenuItem
+                    {
+                        Id = Guid.NewGuid(),
+                        Title = "Student Leaves & Linkage",
+                        RouteUrl = "/students/leaves",
+                        Icon = "event_busy",
+                        ParentId = attendanceParent.Id,
+                        SortOrder = 4,
+                        Module = "Attendance",
+                        IsActive = true
+                    };
+                    context.MenuItems.Add(newLeavesMenu);
+                    context.SaveChanges();
+
+                    var roles = context.Roles.ToList();
+                    foreach (var role in roles)
+                    {
+                        context.RolePermissions.Add(new IMSERP.Domain.Entities.RolePermission
+                        {
+                            Id = Guid.NewGuid(),
+                            RoleId = role.Id,
+                            MenuItemId = newLeavesMenu.Id,
+                            CanView = true,
+                            CanCreate = true,
+                            CanEdit = true,
+                            CanDelete = true
+                        });
+                    }
+                    context.SaveChanges();
+                }
+            }
         }
 
         // Auto-seed 'Finance & Accounts' parent menu and submenus
@@ -1194,6 +1365,76 @@ using (var scope = app.Services.CreateScope())
                 }
                 context.SaveChanges();
                 Console.WriteLine($"[Database] Auto-seeded '{sub.Title}' under Finance & Accounts.");
+            }
+        }
+
+        // Auto-seed 'Front Desk' parent menu and submenus (Visitor Book & Student Gate Pass)
+        var frontDeskParent = context.MenuItems.FirstOrDefault(m => m.Title == "Front Desk" && m.ParentId == null);
+        if (frontDeskParent == null)
+        {
+            frontDeskParent = new IMSERP.Domain.Entities.MenuItem
+            {
+                Id        = Guid.NewGuid(),
+                Title     = "Front Desk",
+                RouteUrl  = null,
+                Icon      = "sensor_door",
+                ParentId  = null,
+                SortOrder = 9,
+                Module    = "FrontDesk",
+                IsActive  = true
+            };
+            context.MenuItems.Add(frontDeskParent);
+            context.SaveChanges();
+
+            var allRoles = context.Roles.ToList();
+            foreach (var role in allRoles)
+            {
+                context.RolePermissions.Add(new IMSERP.Domain.Entities.RolePermission
+                {
+                    Id = Guid.NewGuid(), RoleId = role.Id, MenuItemId = frontDeskParent.Id,
+                    CanView = true, CanCreate = true, CanEdit = true, CanDelete = true
+                });
+            }
+            context.SaveChanges();
+            Console.WriteLine("[Database] Auto-seeded 'Front Desk' parent menu.");
+        }
+
+        var frontDeskSubmenus = new[]
+        {
+            new { Title = "Visitor Book",        Route = "/front-desk/visitors",   Icon = "badge",        Order = 1 },
+            new { Title = "Student Gate Pass",   Route = "/front-desk/gate-passes", Icon = "exit_to_app", Order = 2 }
+        };
+
+        foreach (var sub in frontDeskSubmenus)
+        {
+            var existingSub = context.MenuItems.FirstOrDefault(m => m.RouteUrl == sub.Route);
+            if (existingSub == null)
+            {
+                var newSub = new IMSERP.Domain.Entities.MenuItem
+                {
+                    Id        = Guid.NewGuid(),
+                    Title     = sub.Title,
+                    RouteUrl  = sub.Route,
+                    Icon      = sub.Icon,
+                    ParentId  = frontDeskParent.Id,
+                    SortOrder = sub.Order,
+                    Module    = "FrontDesk",
+                    IsActive  = true
+                };
+                context.MenuItems.Add(newSub);
+                context.SaveChanges();
+
+                var allRoles = context.Roles.ToList();
+                foreach (var role in allRoles)
+                {
+                    context.RolePermissions.Add(new IMSERP.Domain.Entities.RolePermission
+                    {
+                        Id = Guid.NewGuid(), RoleId = role.Id, MenuItemId = newSub.Id,
+                        CanView = true, CanCreate = true, CanEdit = true, CanDelete = true
+                    });
+                }
+                context.SaveChanges();
+                Console.WriteLine($"[Database] Auto-seeded '{sub.Title}' under Front Desk.");
             }
         }
 

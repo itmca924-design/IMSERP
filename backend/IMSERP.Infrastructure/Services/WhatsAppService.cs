@@ -84,6 +84,27 @@ public class WhatsAppService : IWhatsAppService
         return await LogAndSend(tenantId, recipientPhone, studentName, MessageType.Announcement, content);
     }
 
+    public async Task<bool> SendLeaveStatusAlertAsync(Guid tenantId, string recipientPhone, string studentName, string status, DateTime fromDate, DateTime toDate, string? remarks, string reviewerName)
+    {
+        var durationStr = fromDate.Date == toDate.Date 
+            ? fromDate.ToString("dd MMM yyyy") 
+            : $"{fromDate:dd MMM yyyy} to {toDate:dd MMM yyyy}";
+
+        var statusUpper = status.ToUpper();
+        var icon = statusUpper == "APPROVED" ? "✅" : "❌";
+        var remarkText = !string.IsNullOrWhiteSpace(remarks) ? $"\n*Remarks:* {remarks}" : "";
+
+        var content = $"{icon} *STUDENT LEAVE APPLICATION: {statusUpper}*\n" +
+                      $"Dear Parent,\n" +
+                      $"Leave request for *{studentName}* for the period *{durationStr}* has been *{statusUpper}*.\n" +
+                      $"*Processed By:* {reviewerName}" +
+                      $"{remarkText}\n" +
+                      (statusUpper == "APPROVED" ? "Leave status has been synchronized with the school attendance register.\n" : "") +
+                      $"Apex Public School & Coaching Academy.";
+
+        return await LogAndSend(tenantId, recipientPhone, studentName, MessageType.Announcement, content);
+    }
+
     private async Task<bool> LogAndSend(Guid tenantId, string phone, string studentName, MessageType type, string content)
     {
         _logger.LogInformation("[WhatsApp Gateway Dispatch] To: {Phone} | Student: {Student} | Type: {Type} | Content: {Content}", phone, studentName, type, content);

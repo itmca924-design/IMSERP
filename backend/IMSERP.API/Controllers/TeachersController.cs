@@ -1098,7 +1098,8 @@ public class TeachersController : ControllerBase
                         {
                             TeacherAttendanceStatus.Present => "P",
                             TeacherAttendanceStatus.Absent => "A",
-                            TeacherAttendanceStatus.Late => "L",
+                            TeacherAttendanceStatus.Leave => "L",
+                            TeacherAttendanceStatus.Late => "LT",
                             TeacherAttendanceStatus.HalfDay => "HD",
                             _ => "P"
                         };
@@ -1854,13 +1855,67 @@ public class TeachersController : ControllerBase
         leave.ApprovedAt = DateTime.UtcNow;
         leave.RejectionReason = dto.Approve ? null : dto.RejectionReason?.Trim();
 
+        // Attendance Linkage
+        if (dto.Approve)
+        {
+            var from = leave.FromDate.Date;
+            var to = leave.ToDate.Date;
+
+            for (var cur = from; cur <= to; cur = cur.AddDays(1))
+            {
+                if (cur.DayOfWeek == DayOfWeek.Sunday) continue;
+
+                var existingAtt = await _db.TeacherAttendances
+                    .FirstOrDefaultAsync(a => a.TeacherId == leave.TeacherId && a.AttendanceDate.Date == cur);
+
+                if (existingAtt != null)
+                {
+                    existingAtt.Status = TeacherAttendanceStatus.Leave;
+                    existingAtt.Remarks = $"Sanctioned Leave ({leave.LeaveType}): {leave.Reason}";
+                    existingAtt.CaptureSource = "LeaveApplication";
+                }
+                else
+                {
+                    var newAtt = new TeacherAttendance
+                    {
+                        TenantId = leave.TenantId,
+                        TeacherId = leave.TeacherId,
+                        AttendanceDate = cur,
+                        Status = TeacherAttendanceStatus.Leave,
+                        Remarks = $"Sanctioned Leave ({leave.LeaveType}): {leave.Reason}",
+                        CaptureSource = "LeaveApplication",
+                        MarkedBy = _currentUser.UserId.ToString(),
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    _db.TeacherAttendances.Add(newAtt);
+                }
+            }
+        }
+        else
+        {
+            // Roll back attendance if rejected
+            var from = leave.FromDate.Date;
+            var to = leave.ToDate.Date;
+
+            var markedAtts = await _db.TeacherAttendances
+                .Where(a => a.TeacherId == leave.TeacherId &&
+                            a.AttendanceDate.Date >= from && a.AttendanceDate.Date <= to &&
+                            a.CaptureSource == "LeaveApplication")
+                .ToListAsync();
+
+            if (markedAtts.Count > 0)
+            {
+                _db.TeacherAttendances.RemoveRange(markedAtts);
+            }
+        }
+
         await _db.SaveChangesAsync();
-        return Ok(new { message = dto.Approve ? "Leave approved." : "Leave rejected.", status = leave.Status.ToString() });
+        return Ok(new { message = dto.Approve ? "Leave approved and attendance register synchronized." : "Leave rejected.", status = leave.Status.ToString() });
     }
 
     private static TeacherAttendanceStatus EvaluateSmartAttendanceStatus(TeacherAttendanceStatus declaredStatus, string? inTime, string? outTime)
     {
-        if (declaredStatus == TeacherAttendanceStatus.Absent || declaredStatus == TeacherAttendanceStatus.Holiday || declaredStatus == TeacherAttendanceStatus.WeekOff)
+        if (declaredStatus == TeacherAttendanceStatus.Absent || declaredStatus == TeacherAttendanceStatus.Holiday || declaredStatus == TeacherAttendanceStatus.WeekOff || declaredStatus == TeacherAttendanceStatus.Leave)
             return declaredStatus;
 
         if (string.IsNullOrWhiteSpace(inTime) || string.IsNullOrWhiteSpace(outTime))

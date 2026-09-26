@@ -80,6 +80,11 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
     public DbSet<AccountLedger> AccountLedgers => Set<AccountLedger>();
     public DbSet<StudentHomework> StudentHomeworks => Set<StudentHomework>();
     public DbSet<AdmissionEnquiry> AdmissionEnquiries => Set<AdmissionEnquiry>();
+    public DbSet<SchoolNotice> SchoolNotices => Set<SchoolNotice>();
+    public DbSet<StudentLeave> StudentLeaves => Set<StudentLeave>();
+    // Front Desk module
+    public DbSet<VisitorLog> VisitorLogs => Set<VisitorLog>();
+    public DbSet<StudentGatePass> StudentGatePasses => Set<StudentGatePass>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -237,6 +242,19 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
             (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<AdmissionEnquiry>().HasQueryFilter(x =>
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<SchoolNotice>().HasQueryFilter(x =>
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<StudentLeave>().HasQueryFilter(x =>
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        // Front Desk query filters
+        modelBuilder.Entity<VisitorLog>().HasQueryFilter(x =>
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<StudentGatePass>().HasQueryFilter(x =>
             (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
 

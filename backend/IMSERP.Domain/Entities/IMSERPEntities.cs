@@ -247,6 +247,8 @@ public class Student
     public string? LeavingReason { get; set; }  // TC | Transfer | Rustication | Expelled | Other
     public string? TCNumber { get; set; }
     public string? BiometricUserId { get; set; }
+    public Guid? UserId { get; set; }
+    public Guid? ParentUserId { get; set; }
     // Standard ERP & Compliance Fields (UDISE+, NEP 2020)
     public string? AadhaarNumber { get; set; }
     public string? PenNumber { get; set; }
@@ -1603,3 +1605,173 @@ public class AdmissionEnquiry
     [ForeignKey("ConvertedStudentId")]
     public Student? ConvertedStudent { get; set; }
 }
+
+public class SchoolNotice
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public string NoticeNumber { get; set; } = string.Empty; // CIR-2026-0001
+    public string Title { get; set; } = string.Empty;
+    public string Content { get; set; } = string.Empty;
+    public string Category { get; set; } = "Academic"; // Academic, Administrative, Holiday, Examination, Event, Fee Reminder, Emergency
+    public string TargetAudience { get; set; } = "All"; // All, Students, Teachers, Parents, SpecificClass
+    public Guid? ClassId { get; set; }
+    public string? ClassName { get; set; }
+    public string Priority { get; set; } = "Normal"; // Urgent, High, Normal
+    public DateTime PublishDate { get; set; } = DateTime.Now;
+    public DateTime? ExpiryDate { get; set; }
+    public string? AttachmentUrl { get; set; }
+    public bool IsPinned { get; set; } = false;
+    public bool IsActive { get; set; } = true;
+    public string? CreatedBy { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public DateTime UpdatedAt { get; set; } = DateTime.Now;
+
+    public Tenant? Tenant { get; set; }
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+    [ForeignKey("ClassId")]
+    public SchoolClass? Class { get; set; }
+}
+
+public class StudentLeave
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid StudentId { get; set; }
+    public string LeaveCategory { get; set; } = "Medical"; // Medical, Sick, Family Event, Emergency, Planned, Other
+    public DateTime FromDate { get; set; }
+    public DateTime ToDate { get; set; }
+    public int TotalDays { get; set; } = 1;
+    public string Reason { get; set; } = string.Empty;
+    public string? ParentContactNumber { get; set; }
+    public string? AttachmentUrl { get; set; }
+    public string Status { get; set; } = "Pending"; // Pending, Approved, Rejected, Cancelled
+    public string? ReviewedBy { get; set; }
+    public DateTime? ReviewedAt { get; set; }
+    public string? ReviewRemarks { get; set; }
+    public bool AttendanceMarked { get; set; } = false;
+    public string AppliedBy { get; set; } = "Parent"; // Parent, Student, Class Teacher, Admin
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public DateTime UpdatedAt { get; set; } = DateTime.Now;
+
+    public Tenant? Tenant { get; set; }
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+    [ForeignKey("StudentId")]
+    public Student? Student { get; set; }
+}
+
+// ─── Front Desk / Visitor Book & Gate Pass Entities ──────────────
+
+/// <summary>
+/// Visitor Book — records every external visitor arriving at campus.
+/// Tracks purpose, host person, check-in/check-out times, ID proof and photo.
+/// </summary>
+public class VisitorLog
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+
+    /// <summary>Auto-generated: VIS-2026-0001</summary>
+    public string VisitorNumber { get; set; } = string.Empty;
+
+    /// <summary>Visitor | Vendor | Parent | Official | Contractor | Delivery | Other</summary>
+    public string VisitorType { get; set; } = "Visitor";
+
+    public string VisitorName { get; set; } = string.Empty;
+    public string? Organization { get; set; }
+    public string? ContactNumber { get; set; }
+    public string? Email { get; set; }
+
+    /// <summary>Aadhaar | PAN | DL | VoterID | Passport | Other</summary>
+    public string? IdProofType { get; set; }
+    public string? IdProofNumber { get; set; }
+
+    /// <summary>Person or department being visited</summary>
+    public string? PersonToMeet { get; set; }
+    public string? DepartmentToVisit { get; set; }
+
+    /// <summary>Student being visited (for parent visits)</summary>
+    public Guid? StudentId { get; set; }
+    public string? StudentName { get; set; }
+    public string? StudentClass { get; set; }
+
+    public string Purpose { get; set; } = string.Empty;
+
+    public DateTime CheckInTime { get; set; } = DateTime.Now;
+    public DateTime? CheckOutTime { get; set; }
+
+    /// <summary>Active | CheckedOut | Overstay</summary>
+    public string Status { get; set; } = "Active";
+
+    public int? NumberOfVisitors { get; set; } = 1;
+    public string? VehicleNumber { get; set; }
+    public string? PhotoUrl { get; set; }
+    public string? BadgeNumber { get; set; }
+
+    /// <summary>Items / equipment being carried in</summary>
+    public string? MaterialCarried { get; set; }
+    public string? Remarks { get; set; }
+    public string? ReceivedBy { get; set; }
+
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public DateTime UpdatedAt { get; set; } = DateTime.Now;
+
+    public Tenant? Tenant { get; set; }
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+    [ForeignKey("StudentId")]
+    public Student? Student { get; set; }
+}
+
+/// <summary>
+/// Student Gate Pass — issued when a student leaves campus early (before school hours end).
+/// Linked to the requesting parent / guardian. Admin / teacher must approve.
+/// </summary>
+public class StudentGatePass
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+
+    /// <summary>Auto-generated: SGP-2026-0001</summary>
+    public string GatePassNumber { get; set; } = string.Empty;
+
+    public Guid StudentId { get; set; }
+
+    /// <summary>Medical Emergency | Family Emergency | Early Pickup | Event | Other</summary>
+    public string Reason { get; set; } = string.Empty;
+    public string ReasonCategory { get; set; } = "Early Pickup";
+
+    public DateTime OutDateTime { get; set; } = DateTime.Now;
+    public DateTime? ExpectedReturnTime { get; set; }
+    public DateTime? ActualReturnTime { get; set; }
+
+    /// <summary>Pending | Approved | Rejected | Returned | Expired</summary>
+    public string Status { get; set; } = "Pending";
+
+    public string? ParentGuardianName { get; set; }
+    public string? ParentContactNumber { get; set; }
+    public string? ParentRelation { get; set; }
+
+    public string? ApprovedBy { get; set; }
+    public DateTime? ApprovedAt { get; set; }
+    public string? ApprovalRemarks { get; set; }
+
+    public string? SecurityGuardName { get; set; }
+    public string? Remarks { get; set; }
+
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public DateTime UpdatedAt { get; set; } = DateTime.Now;
+
+    public Tenant? Tenant { get; set; }
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+    [ForeignKey("StudentId")]
+    public Student? Student { get; set; }
+}
+

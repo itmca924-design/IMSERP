@@ -413,7 +413,8 @@ import { AuthService } from '../../core/services/auth.service';
                     <!-- Legend footer -->
                     <div class="matrix-legend">
                       <span class="leg-item"><span class="leg-dot dot-p"></span> <strong>P</strong> = Present</span>
-                      <span class="leg-item"><span class="leg-dot dot-l"></span> <strong>L</strong> = Late Arrival</span>
+                      <span class="leg-item"><span class="leg-dot dot-l"></span> <strong>L</strong> = Sanctioned Leave</span>
+                      <span class="leg-item"><span class="leg-dot dot-lt"></span> <strong>LT</strong> = Late Arrival</span>
                       <span class="leg-item"><span class="leg-dot dot-a"></span> <strong>A</strong> = Absent</span>
                       <span class="leg-item"><span class="leg-dot dot-hd"></span> <strong>HD</strong> = Half Day</span>
                       <span class="leg-item"><span class="leg-dot dot-off"></span> <strong>OFF</strong> = Sunday / Holiday</span>
@@ -985,10 +986,13 @@ import { AuthService } from '../../core/services/auth.service';
     .leg-dot { width:8px; height:8px; border-radius:50%; display:inline-block; }
     .dot-p { background:#16a34a; }
     .dot-l { background:#d97706; }
+    .dot-lt { background:#ca8a04; }
     .dot-a { background:#dc2626; }
     .dot-hd { background:#9333ea; }
     .dot-off { background:#64748b; }
     .dot-unmarked { background:#cbd5e1; }
+    .day-card.day-lt { background:#fefce8; border-color:#fef08a; }
+    .day-card.day-lt .day-card-badge { background:#ca8a04; color:#fff; }
 
     .empty-table-cell { text-align:center !important; padding:40px 20px; color:#94a3b8; font-weight:500; }
 
@@ -1662,15 +1666,21 @@ export class TeacherReportsComponent implements OnInit {
         let code = 'P';
         const st = (rec.status || '').toLowerCase();
         if (st.includes('absent')) code = 'A';
-        else if (st.includes('late')) code = 'L';
+        else if (st.includes('leave')) code = 'L';
+        else if (st.includes('late')) code = 'LT';
         else if (st.includes('half')) code = 'HD';
+
+        let statusText = rec.status || 'Present';
+        if (code === 'L') {
+          statusText = rec.remarks ? `Sanctioned Leave: ${rec.remarks}` : 'Sanctioned Leave';
+        }
 
         daysArr.push({
           day: d,
           dayOfWeek,
           isSunday: false,
           status: code,
-          label: `${d} ${this.months[this.attendanceMonth - 1]} (${dayOfWeek}): ${rec.status || 'Present'}${rec.checkInTime ? ' • In: ' + rec.checkInTime : ''}`
+          label: `${d} ${this.months[this.attendanceMonth - 1]} (${dayOfWeek}): ${statusText}${rec.checkInTime ? ' • In: ' + rec.checkInTime : ''}`
         });
       } else {
         daysArr.push({
@@ -1704,7 +1714,7 @@ export class TeacherReportsComponent implements OnInit {
           dayOfWeek,
           isSunday,
           status: st || '-',
-          label: `${dayNum} ${this.months[this.attendanceMonth - 1]} (${dayOfWeek}): ${st === 'OFF' ? 'Sunday/Holiday' : st === 'P' ? 'Present' : st === 'L' ? 'Late' : st === 'A' ? 'Absent' : st === 'HD' ? 'Half Day' : 'Unmarked'}`
+          label: `${dayNum} ${this.months[this.attendanceMonth - 1]} (${dayOfWeek}): ${st === 'OFF' ? 'Sunday/Holiday' : st === 'P' ? 'Present' : st === 'L' ? 'Sanctioned Leave' : st === 'LT' ? 'Late Arrival' : st === 'A' ? 'Absent' : st === 'HD' ? 'Half Day' : 'Unmarked'}`
         };
       });
       this.teacherDailyMap[row.personId] = arr;

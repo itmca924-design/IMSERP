@@ -32,7 +32,8 @@ public class StudentsController : ControllerBase
             or TeacherAttendanceStatus.Absent
             or TeacherAttendanceStatus.Late
             or TeacherAttendanceStatus.HalfDay
-            or TeacherAttendanceStatus.Holiday;
+            or TeacherAttendanceStatus.Holiday
+            or TeacherAttendanceStatus.Leave;
     }
 
     private static StudentAttendanceDto MapStudentAttendance(StudentAttendance attendance, Student student)

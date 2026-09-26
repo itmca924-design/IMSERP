@@ -73,6 +73,11 @@ public interface IIMSERPDbContext
     DbSet<AccountLedger> AccountLedgers { get; }
     DbSet<StudentHomework> StudentHomeworks { get; }
     DbSet<AdmissionEnquiry> AdmissionEnquiries { get; }
+    DbSet<SchoolNotice> SchoolNotices { get; }
+    DbSet<StudentLeave> StudentLeaves { get; }
+    // Front Desk module
+    DbSet<VisitorLog> VisitorLogs { get; }
+    DbSet<StudentGatePass> StudentGatePasses { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
@@ -86,6 +91,7 @@ public interface IWhatsAppService
     Task<bool> SendTeacherSalarySlipAsync(Guid tenantId, string recipientPhone, string teacherName, string monthName, int year, decimal netPaid, string receiptNo);
     Task<bool> SendTransportBoardingAlertAsync(Guid tenantId, string recipientPhone, string studentName, string busNumber, string stopName, string timeStr, string departureType);
     Task<bool> SendAbsenteeAlertAsync(Guid tenantId, string recipientPhone, string studentName, string rollNumber, string dateStr);
+    Task<bool> SendLeaveStatusAlertAsync(Guid tenantId, string recipientPhone, string studentName, string status, DateTime fromDate, DateTime toDate, string? remarks, string reviewerName);
 }
 
 public interface ICurrentUserService
