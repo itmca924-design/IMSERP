@@ -26,7 +26,7 @@ export interface CalendarDayItem {
   isSaturday: boolean;
   isDeclaredHoliday?: boolean;
   holidayTitle?: string;
-  status: 'Present' | 'Absent' | 'Late' | 'HalfDay' | 'Holiday' | 'Unmarked';
+  status: 'Present' | 'Absent' | 'Late' | 'HalfDay' | 'Holiday' | 'Leave' | 'Unmarked';
   record?: AttendanceDto;
 }
 
@@ -266,6 +266,7 @@ export interface CalendarDayItem {
           [class.absent]="d.status === 'Absent'"
           [class.late]="d.status === 'Late'"
           [class.half]="d.status === 'HalfDay'"
+          [class.leave]="d.status === 'Leave'"
           [class.public-holiday]="d.isDeclaredHoliday && !d.record"
           [class.sunday-off]="d.isSunday && !d.record && !d.isDeclaredHoliday"
           [class.saturday-off]="d.isSaturday && !d.record && !d.isDeclaredHoliday"
@@ -469,7 +470,7 @@ export interface CalendarDayItem {
     .calendar-header { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; }
     .cal-title { display:flex; align-items:center; gap:8px; font-size:.95rem; color:#1e293b; }
     .legend-chips { display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-size:.76rem; font-weight:600;
-      .leg.present{color:#16a34a;} .leg.absent{color:#dc2626;} .leg.late{color:#ea580c;}
+      .leg.present{color:#16a34a;} .leg.leave{color:#d97706;font-weight:700;} .leg.absent{color:#dc2626;} .leg.late{color:#ea580c;}
       .leg.half{color:#9333ea;} .leg.pub-holiday{color:#b45309;font-weight:700;}
       .leg.sunday{color:#e11d48;font-weight:700;} .leg.saturday{color:#6366f1;font-weight:700;}
       .leg.unmarked{color:#94a3b8;} }
@@ -483,6 +484,7 @@ export interface CalendarDayItem {
     .day-cell:hover { transform:scale(1.06); box-shadow:0 2px 8px rgba(0,0,0,0.1); }
     .day-cell.today { border:2px solid #0284c7; }
     .day-cell.present { background:#dcfce7; border-color:#86efac; .cell-num{color:#15803d;} .cell-tag{color:#166534;font-weight:700;} }
+    .day-cell.leave { background:#fef3c7; border-color:#fcd34d; .cell-num{color:#92400e;} .cell-tag{color:#b45309;font-weight:700;} }
     .day-cell.absent { background:#fee2e2; border-color:#fca5a5; .cell-num{color:#b91c1c;} .cell-tag{color:#991b1b;font-weight:700;} }
     .day-cell.late { background:#ffedd5; border-color:#fdba74; .cell-num{color:#c2410c;} .cell-tag{color:#9a3412;font-weight:700;} }
     .day-cell.half { background:#f3e8ff; border-color:#d8b4fe; .cell-num{color:#7e22ce;} .cell-tag{color:#6b21a8;font-weight:700;} }
@@ -546,6 +548,7 @@ export interface CalendarDayItem {
 
     .status-badge { padding:3px 10px; border-radius:8px; font-size:.74rem; font-weight:700; text-transform:capitalize;
       &.present{background:#dcfce7;color:#15803d;}
+      &.leave{background:#fef3c7;color:#92400e;}
       &.absent{background:#fee2e2;color:#b91c1c;}
       &.late{background:#ffedd5;color:#c2410c;}
       &.halfday{background:#f3e8ff;color:#7e22ce;}
@@ -753,7 +756,8 @@ export class TeacherAttendanceComponent implements OnInit {
     switch (status) {
       case 'Present': return 'P';
       case 'Absent': return 'A';
-      case 'Late': return 'L';
+      case 'Leave': return 'L';
+      case 'Late': return 'LT';
       case 'HalfDay': return 'HD';
       case 'Holiday': return 'H';
       default: return '—';
@@ -889,9 +893,9 @@ export class TeacherAttendanceComponent implements OnInit {
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
   }
 
-  getEffectiveStatus(record?: { status?: string; checkInTime?: string; checkOutTime?: string }): 'Present' | 'Absent' | 'Late' | 'HalfDay' | 'Holiday' | 'Unmarked' {
+  getEffectiveStatus(record?: { status?: string; checkInTime?: string; checkOutTime?: string }): 'Present' | 'Absent' | 'Late' | 'HalfDay' | 'Holiday' | 'Leave' | 'Unmarked' {
     if (!record || !record.status) return 'Unmarked';
-    if (record.status === 'Absent' || record.status === 'Holiday' || record.status === 'WeekOff') {
+    if (record.status === 'Absent' || record.status === 'Holiday' || record.status === 'WeekOff' || record.status === 'Leave') {
       return record.status === 'WeekOff' ? 'Holiday' : (record.status as any);
     }
     const diff = this.getDiffMinutes(record.checkInTime, record.checkOutTime);

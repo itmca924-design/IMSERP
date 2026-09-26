@@ -1997,7 +1997,7 @@ public class TeachersController : ControllerBase
         var tenantId = _currentUser.TenantId;
         var user = await _db.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
 
-        // Security Check: Teachers CANNOT approve or reject leaves!
+        // Security Check 1: Teachers CANNOT approve or reject leaves!
         if (user != null && (user.Role == IMSERP.Domain.Enums.UserRole.Teacher || _currentUser.UserRole == "Teacher"))
         {
             return Forbid();
@@ -2005,6 +2005,14 @@ public class TeachersController : ControllerBase
 
         var leave = await _db.TeacherLeaves.FirstOrDefaultAsync(l => l.Id == leaveId && l.TenantId == tenantId);
         if (leave == null) return NotFound();
+
+        // Security Check 2: Self-approval prevention!
+        // No staff or HR user can approve/reject their own leave application. HR leave must be approved by Admin / SuperAdmin.
+        var linkedTeacher = await _db.Teachers.AsNoTracking().FirstOrDefaultAsync(t => t.UserId == _currentUser.UserId && t.TenantId == tenantId);
+        if (linkedTeacher != null && linkedTeacher.Id == leave.TeacherId)
+        {
+            return BadRequest(new { message = "Self-approval is not permitted. Your leave request must be reviewed and approved by the School Administration / Principal / Director." });
+        }
 
         var approverName = user?.FullName ?? user?.Username ?? _currentUser.UserRole;
 

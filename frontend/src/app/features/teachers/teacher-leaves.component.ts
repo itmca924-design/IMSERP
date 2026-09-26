@@ -1,6 +1,6 @@
 import { Component, OnInit, Inject, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators, AbstractControl, ValidationErrors } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute } from '@angular/router';
 import { MatDialog, MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
@@ -172,8 +172,8 @@ export class RejectTeacherLeaveDialogComponent {
           <mat-icon>beach_access</mat-icon>
         </div>
         <div class="fd-dialog-title-group">
-          <h2 class="fd-dialog-title">{{isTeacherSelf ? 'Apply for Leave' : 'Submit Faculty Leave Application'}}</h2>
-          <span class="fd-dialog-sub">{{isTeacherSelf ? 'Application will be submitted to Admin / Principal for approval' : 'Submit leave on behalf of a faculty member'}}</span>
+          <h2 class="fd-dialog-title">{{dialogTitle}}</h2>
+          <span class="fd-dialog-sub">{{dialogSub}}</span>
         </div>
         <button mat-icon-button class="fd-dialog-close" (click)="cancel()"><mat-icon>close</mat-icon></button>
       </div>
@@ -181,9 +181,21 @@ export class RejectTeacherLeaveDialogComponent {
       <form [formGroup]="form" (ngSubmit)="submit()">
         <div class="fd-dialog-body">
 
-          <!-- If Teacher is self-applying: Readonly banner -->
-          <div class="profile-strip" *ngIf="isTeacherSelf && myProfile">
-            <div class="profile-avatar"><mat-icon>school</mat-icon></div>
+          <!-- Option B: Smart Mode Switcher for HR & Staff Managers -->
+          <div class="apply-mode-switcher" *ngIf="hasLinkedProfile && !isTeacherSelf">
+            <button type="button" class="mode-btn" [class.active]="applyMode === 'self'" (click)="setMode('self')">
+              <mat-icon>person</mat-icon>
+              <span>Apply for Myself ({{myProfile?.fullName?.split(' ')?.[0] || 'Self'}})</span>
+            </button>
+            <button type="button" class="mode-btn" [class.active]="applyMode === 'behalf'" (click)="setMode('behalf')">
+              <mat-icon>groups</mat-icon>
+              <span>On Behalf of Faculty Member</span>
+            </button>
+          </div>
+
+          <!-- Self Profile Banner: When Teacher applies OR HR applies for self -->
+          <div class="profile-strip self-active" *ngIf="applyMode === 'self' && myProfile">
+            <div class="profile-avatar"><mat-icon>account_circle</mat-icon></div>
             <div class="profile-info">
               <div class="profile-name">{{myProfile.fullName}}</div>
               <div class="profile-meta">
@@ -191,14 +203,18 @@ export class RejectTeacherLeaveDialogComponent {
                 <span *ngIf="myProfile.department">Dept: <strong>{{myProfile.department}}</strong></span>
                 <span *ngIf="myProfile.designation">Role: <strong>{{myProfile.designation}}</strong></span>
               </div>
+              <div class="self-sub-note" *ngIf="!isTeacherSelf">
+                <mat-icon>verified_user</mat-icon>
+                <span>HR Personal Application • Forwarded to School Admin / Director for sanction</span>
+              </div>
             </div>
           </div>
 
-          <!-- If Admin: Teacher selector -->
-          <mat-form-field appearance="outline" class="fd-field-full" *ngIf="!isTeacherSelf">
-            <mat-label>Select Faculty Member *</mat-label>
+          <!-- Faculty Member Dropdown: When Admin OR applying on behalf -->
+          <mat-form-field appearance="outline" class="fd-field-full" *ngIf="applyMode === 'behalf'">
+            <mat-label>Select Faculty Member</mat-label>
             <mat-select formControlName="teacherId">
-              <mat-option *ngFor="let t of teachers" [value]="t.id">
+              <mat-option *ngFor="let t of otherTeachers" [value]="t.id">
                 {{t.fullName}} ({{t.employeeCode}}){{t.department ? ' — ' + t.department : ''}}
               </mat-option>
             </mat-select>
@@ -206,7 +222,7 @@ export class RejectTeacherLeaveDialogComponent {
 
           <div class="form-row">
             <mat-form-field appearance="outline" class="form-col">
-              <mat-label>Leave Type *</mat-label>
+              <mat-label>Leave Type</mat-label>
               <mat-select formControlName="leaveType">
                 <mat-option value="CasualLeave">Casual Leave</mat-option>
                 <mat-option value="SickLeave">Sick Leave</mat-option>
@@ -217,23 +233,33 @@ export class RejectTeacherLeaveDialogComponent {
             </mat-form-field>
 
             <mat-form-field appearance="outline" class="form-col">
-              <mat-label>From Date *</mat-label>
-              <input matInput type="date" formControlName="fromDate" (change)="calcDays()" />
+              <mat-label>From Date</mat-label>
+              <input matInput type="date" formControlName="fromDate"
+                (change)="onFromDateChange()" />
             </mat-form-field>
 
             <mat-form-field appearance="outline" class="form-col">
-              <mat-label>To Date *</mat-label>
-              <input matInput type="date" formControlName="toDate" (change)="calcDays()" />
+              <mat-label>To Date</mat-label>
+              <input matInput type="date" formControlName="toDate"
+                [min]="form.get('fromDate')?.value || null"
+                (change)="onToDateChange()" />
             </mat-form-field>
           </div>
 
-          <div class="days-badge-wrap" *ngIf="totalDays > 0">
+          <!-- Date Validation Error Banner -->
+          <div class="date-error-banner" *ngIf="form.hasError('dateRangeInvalid')">
+            <mat-icon>warning</mat-icon>
+            <span><strong>Invalid Date Range:</strong> "To Date" must be on or after "From Date".</span>
+          </div>
+
+          <!-- Total Duration Badge -->
+          <div class="days-badge-wrap" *ngIf="totalDays > 0 && !form.hasError('dateRangeInvalid')">
             <mat-icon style="font-size:16px;width:16px;height:16px;color:#2563eb;">date_range</mat-icon>
             <span>Total Duration: <strong>{{totalDays}} Day(s)</strong></span>
           </div>
 
           <mat-form-field appearance="outline" class="fd-field-full">
-            <mat-label>Reason for Leave *</mat-label>
+            <mat-label>Reason for Leave</mat-label>
             <textarea matInput formControlName="reason" rows="3" placeholder="Provide medical reason, personal emergency, family function, etc..."></textarea>
           </mat-form-field>
         </div>
@@ -270,6 +296,27 @@ export class RejectTeacherLeaveDialogComponent {
     .form-row { display: flex; gap: 12px; flex-wrap: wrap; }
     .form-col { flex: 1; min-width: 140px; }
 
+    .apply-mode-switcher {
+      display: flex; gap: 6px;
+      background: #f1f5f9; padding: 4px; border-radius: 10px; border: 1px solid #e2e8f0;
+    }
+    .mode-btn {
+      flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 8px 12px; border-radius: 7px; border: none; background: transparent;
+      font-size: 0.82rem; font-weight: 600; color: #64748b; cursor: pointer; transition: all 0.15s ease;
+    }
+    .mode-btn mat-icon { font-size: 18px; width: 18px; height: 18px; }
+    .mode-btn:hover { color: #1e293b; background: rgba(255,255,255,0.7); }
+    .mode-btn.active {
+      background: #ffffff; color: #2563eb;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+    }
+    .self-sub-note {
+      display: flex; align-items: center; gap: 5px;
+      margin-top: 6px; font-size: 0.72rem; color: #2563eb; font-weight: 600;
+    }
+    .self-sub-note mat-icon { font-size: 14px; width: 14px; height: 14px; }
+
     .profile-strip {
       display: flex; align-items: center; gap: 12px;
       background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 10px 14px;
@@ -288,6 +335,13 @@ export class RejectTeacherLeaveDialogComponent {
       padding: 6px 12px; font-size: 13px; color: #1e40af; width: fit-content;
     }
 
+    .date-error-banner {
+      display: flex; align-items: center; gap: 8px;
+      background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px;
+      padding: 8px 12px; font-size: 13px; color: #b91c1c;
+    }
+    .date-error-banner mat-icon { font-size: 18px; width: 18px; height: 18px; color: #ef4444; flex-shrink: 0; }
+
     @media (max-width: 520px) {
       .fd-dialog-header { padding: 14px 16px 12px; }
       .fd-dialog-body { padding: 14px 16px; gap: 10px; }
@@ -303,6 +357,8 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
   saving = false;
   totalDays = 0;
   isTeacherSelf = false;
+  hasLinkedProfile = false;
+  applyMode: 'self' | 'behalf' = 'self';
   teachers: TeacherDto[] = [];
   myProfile: any = null;
 
@@ -317,20 +373,102 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
     this.myProfile = data.myProfile;
   }
 
+  get otherTeachers(): TeacherDto[] {
+    if (!this.myProfile?.id) return this.teachers;
+    return this.teachers.filter(t => t.id !== this.myProfile.id);
+  }
+
+  get dialogTitle(): string {
+    if (this.isTeacherSelf || this.applyMode === 'self') {
+      return 'Apply for Leave';
+    }
+    return 'Submit Faculty Leave Application';
+  }
+
+  get dialogSub(): string {
+    if (this.isTeacherSelf || this.applyMode === 'self') {
+      return 'Application will be submitted to School Administration / Principal for approval';
+    }
+    return 'Submit leave on behalf of a faculty member';
+  }
+
   ngOnInit() {
+    this.hasLinkedProfile = !!(this.myProfile?.id);
+
+    // If teacher: always 'self'
+    // If HR/Admin with linked profile: default to 'self' (convenient!), can switch to 'behalf'
+    // If Admin without linked profile: 'behalf'
+    if (this.isTeacherSelf || this.hasLinkedProfile) {
+      this.applyMode = 'self';
+    } else {
+      this.applyMode = 'behalf';
+    }
+
+    const defaultTeacherId = this.applyMode === 'self' ? (this.myProfile?.id || '') : '';
+
     this.form = this.fb.group({
-      teacherId: [this.isTeacherSelf ? (this.myProfile?.id || '') : '', Validators.required],
+      teacherId: [defaultTeacherId, Validators.required],
       leaveType: ['CasualLeave', Validators.required],
       fromDate: ['', Validators.required],
       toDate: ['', Validators.required],
       reason: ['', Validators.required]
+    }, {
+      validators: [this.dateRangeValidator]
     });
+
+    // If myProfile was not yet loaded from parent, fetch it dynamically
+    if (!this.myProfile) {
+      this.http.get<any>(`${API_BASE}/teachers/my-profile`).subscribe({
+        next: p => {
+          if (p?.isLinked) {
+            this.myProfile = p;
+            this.hasLinkedProfile = true;
+            if (this.applyMode === 'self') {
+              this.form.patchValue({ teacherId: p.id });
+            }
+          }
+        },
+        error: () => {}
+      });
+    }
+  }
+
+  dateRangeValidator(control: AbstractControl): ValidationErrors | null {
+    const from = control.get('fromDate')?.value;
+    const to = control.get('toDate')?.value;
+    if (from && to && to < from) {
+      return { dateRangeInvalid: true };
+    }
+    return null;
+  }
+
+  setMode(mode: 'self' | 'behalf') {
+    this.applyMode = mode;
+    if (mode === 'self') {
+      this.form.patchValue({ teacherId: this.myProfile?.id || '' });
+    } else {
+      this.form.patchValue({ teacherId: '' });
+    }
+  }
+
+  onFromDateChange() {
+    const from = this.form.get('fromDate')?.value;
+    const to = this.form.get('toDate')?.value;
+    // If To Date is empty or earlier than From Date, auto-align To Date with From Date
+    if (from && (!to || to < from)) {
+      this.form.patchValue({ toDate: from });
+    }
+    this.calcDays();
+  }
+
+  onToDateChange() {
+    this.calcDays();
   }
 
   calcDays() {
     const from = this.form.get('fromDate')?.value;
     const to = this.form.get('toDate')?.value;
-    if (from && to) {
+    if (from && to && to >= from) {
       const d1 = new Date(from);
       const d2 = new Date(to);
       const diff = Math.ceil((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24)) + 1;
@@ -577,8 +715,8 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
                 <!-- Actions -->
                 <td>
                   <div class="action-btns">
-                    <!-- ADMIN ACTIONS -->
-                    <ng-container *ngIf="canApproveLeave">
+                    <!-- ADMIN / HR ACTIONS (Approving other staff's leaves) -->
+                    <ng-container *ngIf="canApproveLeave && !isSelfLeave(l)">
                       <button mat-icon-button class="btn-approve" *ngIf="l.status === 'Pending'"
                         (click)="quickApprove(l)" matTooltip="Approve Leave (Syncs Attendance)">
                         <mat-icon>check_circle</mat-icon>
@@ -587,16 +725,30 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
                         (click)="openRejectDialog(l)" matTooltip="Reject Leave Application">
                         <mat-icon>cancel</mat-icon>
                       </button>
-                      <button mat-icon-button color="warn" (click)="deleteLeave(l)" matTooltip="Delete Application">
+                      <button mat-icon-button color="warn" *ngIf="l.status === 'Pending'" (click)="deleteLeave(l)" matTooltip="Delete Application">
                         <mat-icon>delete</mat-icon>
                       </button>
                     </ng-container>
 
-                    <!-- TEACHER ACTIONS (Faculty can only cancel their own Pending requests) -->
-                    <button mat-icon-button color="warn" *ngIf="isTeacher && l.status === 'Pending'"
+                    <!-- SELF ACTIONS (Staff or HR viewing their OWN application: Self-approval forbidden, can only Cancel Pending) -->
+                    <ng-container *ngIf="isSelfLeave(l)">
+                      <span class="self-tag" *ngIf="l.status === 'Pending'" matTooltip="Self-approval not permitted. Awaiting Admin / Director sanction.">
+                        <mat-icon>hourglass_top</mat-icon> Awaiting Admin
+                      </span>
+                      <button mat-icon-button color="warn" *ngIf="l.status === 'Pending'"
+                        (click)="deleteLeave(l)" matTooltip="Cancel My Application">
+                        <mat-icon>close</mat-icon>
+                      </button>
+                    </ng-container>
+
+                    <!-- TEACHER ACTIONS (Faculty can only cancel their own Pending requests if not already covered) -->
+                    <button mat-icon-button color="warn" *ngIf="isTeacher && !isSelfLeave(l) && l.status === 'Pending'"
                       (click)="deleteLeave(l)" matTooltip="Cancel Leave Application">
                       <mat-icon>close</mat-icon>
                     </button>
+
+                    <!-- Completed / Finalized Status -->
+                    <span class="na-text" *ngIf="l.status !== 'Pending'">—</span>
                   </div>
                 </td>
               </tr>
@@ -806,6 +958,12 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
     .action-btns { display: flex; align-items: center; gap: 4px; }
     .btn-approve { color: #16a34a !important; }
     .btn-reject { color: #dc2626 !important; }
+    .self-tag {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 600;
+      background: #fef3c7; color: #92400e; border: 1px solid #fde68a;
+    }
+    .self-tag mat-icon { font-size: 13px; width: 13px; height: 13px; }
 
     .empty-state {
       display: flex; flex-direction: column; align-items: center;
@@ -849,6 +1007,10 @@ export class TeacherLeavesComponent implements OnInit {
     return this.authService.isAdmin() || this.authService.isHR();
   }
 
+  isSelfLeave(l: LeaveDto): boolean {
+    return !!(this.myProfile?.id && l.teacherId === this.myProfile.id);
+  }
+
   get filteredLeaves(): LeaveDto[] {
     return this.leaves.filter(l => {
       // Status filter
@@ -877,10 +1039,9 @@ export class TeacherLeavesComponent implements OnInit {
   loadAll() {
     this.loadStats();
     this.loadLeaves();
+    this.loadMyProfile();
     if (!this.isTeacher) {
       this.loadTeachers();
-    } else {
-      this.loadMyProfile();
     }
   }
 
@@ -944,7 +1105,7 @@ export class TeacherLeavesComponent implements OnInit {
       },
       disableClose: true,
       maxWidth: '92vw',
-      width: '520px'
+      width: '540px'
     });
     ref.afterClosed().subscribe(res => {
       if (res) {
