@@ -1503,7 +1503,17 @@ public class TeachersController : ControllerBase
             .Where(a => a.TeacherId == id && a.AttendanceDate.Month == month && a.AttendanceDate.Year == year)
             .ToListAsync();
 
+        // Fetch approved leaves in this month to cross-check Paid vs Unpaid Leaves
+        var monthStart = new DateTime(year, month, 1);
+        var monthEnd = new DateTime(year, month, DateTime.DaysInMonth(year, month));
+        var approvedLeaves = await _db.TeacherLeaves.AsNoTracking()
+            .Where(l => l.TeacherId == id && l.Status == LeaveStatus.Approved &&
+                        l.FromDate.Date <= monthEnd && l.ToDate.Date >= monthStart)
+            .ToListAsync();
+
         int present = 0, absent = 0, late = 0, half = 0;
+        int unpaidLeaveDays = 0, paidLeaveDays = 0;
+
         foreach (var r in records)
         {
             var effectiveStatus = EvaluateSmartAttendanceStatus(r.Status, r.CheckInTime, r.CheckOutTime);
@@ -1511,11 +1521,35 @@ public class TeachersController : ControllerBase
             else if (effectiveStatus == TeacherAttendanceStatus.Absent) absent++;
             else if (effectiveStatus == TeacherAttendanceStatus.Late) late++;
             else if (effectiveStatus == TeacherAttendanceStatus.HalfDay) half++;
+            else if (effectiveStatus == TeacherAttendanceStatus.Leave)
+            {
+                bool isUnpaid = false;
+                if (!string.IsNullOrEmpty(r.Remarks) && r.Remarks.Contains("UnpaidLeave", StringComparison.OrdinalIgnoreCase))
+                {
+                    isUnpaid = true;
+                }
+                else
+                {
+                    var matchingLeave = approvedLeaves.FirstOrDefault(l => l.FromDate.Date <= r.AttendanceDate.Date && l.ToDate.Date >= r.AttendanceDate.Date);
+                    if (matchingLeave != null && matchingLeave.LeaveType == LeaveType.UnpaidLeave)
+                    {
+                        isUnpaid = true;
+                    }
+                }
+
+                if (isUnpaid)
+                {
+                    unpaidLeaveDays++;
+                    absent++; // Loss of Pay counts towards absent deduction
+                }
+                else
+                {
+                    paidLeaveDays++;
+                }
+            }
         }
 
         // Calculate working days
-        var monthStart = new DateTime(year, month, 1);
-        var monthEnd = new DateTime(year, month, DateTime.DaysInMonth(year, month));
         var declaredHolidays = await _db.Holidays.AsNoTracking()
             .Where(h => h.IsActive && h.StartDate.Date <= monthEnd && h.EndDate.Date >= monthStart)
             .ToListAsync();
@@ -1592,7 +1626,9 @@ public class TeachersController : ControllerBase
             hostelRentDeduction,
             transportFareDeduction,
             hostelRentInfo,
-            transportFareInfo
+            transportFareInfo,
+            unpaidLeaveDays,
+            paidLeaveDays
         ));
     }
 
@@ -1682,6 +1718,34 @@ public class TeachersController : ControllerBase
             payment.AdvanceAdjusted, payment.NetPaid,
             payment.PaymentMode.ToString(), payment.TransactionRef, payment.ReceiptNumber,
             payment.PresentDays, payment.AbsentDays, payment.Remarks));
+    }
+
+    [HttpDelete("salary-payments/{paymentId}")]
+    public async Task<IActionResult> DeleteSalaryPayment(Guid paymentId)
+    {
+        var tenantId = _currentUser.TenantId;
+        var payment = await _db.TeacherSalaryPayments.FirstOrDefaultAsync(p => p.Id == paymentId && p.TenantId == tenantId);
+        if (payment == null) return NotFound(new { message = "Payment not found." });
+
+        // If advances were adjusted in this payment, restore them to Approved status
+        if (payment.AdvanceAdjusted > 0)
+        {
+            var advances = await _db.TeacherSalaryAdvances
+                .Where(a => a.TeacherId == payment.TeacherId && a.Status == AdvanceStatus.Adjusted &&
+                            a.AdjustedInMonth == payment.PaymentMonth && a.AdjustedInYear == payment.PaymentYear)
+                .ToListAsync();
+
+            foreach (var adv in advances)
+            {
+                adv.Status = AdvanceStatus.Approved;
+                adv.AdjustedInMonth = null;
+                adv.AdjustedInYear = null;
+            }
+        }
+
+        _db.TeacherSalaryPayments.Remove(payment);
+        await _db.SaveChangesAsync();
+        return Ok(new { message = "Salary payment deleted successfully." });
     }
 
     /// <summary>
@@ -1992,7 +2056,7 @@ public class TeachersController : ControllerBase
     }
 
     [HttpPut("leaves/{leaveId}/approve")]
-    public async Task<IActionResult> ApproveLeave(Guid leaveId, [FromBody] ApproveLeaveDto dto)
+    public async Task<IActionResult> ApproveLeave(Guid leaveId, [FromBody] ApproveLeaveDto dto, [FromServices] IWhatsAppService whatsApp)
     {
         var tenantId = _currentUser.TenantId;
         var user = await _db.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
@@ -2076,7 +2140,32 @@ public class TeachersController : ControllerBase
         }
 
         await _db.SaveChangesAsync();
-        return Ok(new { message = dto.Approve ? "Leave approved and attendance register synchronized." : "Leave rejected.", status = leave.Status.ToString() });
+
+        // Dispatch WhatsApp notification to Faculty / Teacher / HR
+        try
+        {
+            var teacher = await _db.Teachers.AsNoTracking().FirstOrDefaultAsync(t => t.Id == leave.TeacherId);
+            var phone = teacher?.WhatsAppPhone ?? teacher?.PhoneNumber;
+            if (!string.IsNullOrWhiteSpace(phone))
+            {
+                await whatsApp.SendTeacherLeaveDecisionAlertAsync(
+                    leave.TenantId,
+                    phone,
+                    teacher?.FullName ?? "Faculty Member",
+                    leave.LeaveType.ToString(),
+                    leave.Status.ToString(),
+                    leave.FromDate,
+                    leave.ToDate,
+                    leave.RejectionReason,
+                    approverName);
+            }
+        }
+        catch
+        {
+            // WhatsApp dispatch failure should not fail the approval transaction
+        }
+
+        return Ok(new { message = dto.Approve ? "Leave approved, attendance register synchronized, and WhatsApp alert sent." : "Leave rejected and WhatsApp alert sent.", status = leave.Status.ToString() });
     }
 
     [HttpDelete("leaves/{leaveId}")]

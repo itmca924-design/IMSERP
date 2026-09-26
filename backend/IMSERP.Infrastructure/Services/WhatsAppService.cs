@@ -105,6 +105,27 @@ public class WhatsAppService : IWhatsAppService
         return await LogAndSend(tenantId, recipientPhone, studentName, MessageType.Announcement, content);
     }
 
+    public async Task<bool> SendTeacherLeaveDecisionAlertAsync(Guid tenantId, string recipientPhone, string teacherName, string leaveType, string status, DateTime fromDate, DateTime toDate, string? remarks, string reviewerName)
+    {
+        var durationStr = fromDate.Date == toDate.Date 
+            ? fromDate.ToString("dd MMM yyyy") 
+            : $"{fromDate:dd MMM yyyy} to {toDate:dd MMM yyyy}";
+
+        var statusUpper = status.ToUpper();
+        var icon = statusUpper == "APPROVED" ? "✅" : "❌";
+        var remarkText = !string.IsNullOrWhiteSpace(remarks) ? $"\n*Decision Remarks:* {remarks}" : "";
+
+        var content = $"{icon} *FACULTY LEAVE SANCTION: {statusUpper}*\n" +
+                      $"Dear {teacherName},\n" +
+                      $"Your leave request (*{leaveType}*) for the period *{durationStr}* has been *{statusUpper}*.\n" +
+                      $"*Sanctioned / Reviewed By:* {reviewerName}" +
+                      $"{remarkText}\n" +
+                      (statusUpper == "APPROVED" ? "Attendance roster has been updated as Sanctioned Leave.\n" : "") +
+                      $"Apex Public School & Academy HRMS.";
+
+        return await LogAndSend(tenantId, recipientPhone, teacherName, MessageType.Announcement, content);
+    }
+
     private async Task<bool> LogAndSend(Guid tenantId, string phone, string studentName, MessageType type, string content)
     {
         _logger.LogInformation("[WhatsApp Gateway Dispatch] To: {Phone} | Student: {Student} | Type: {Type} | Content: {Content}", phone, studentName, type, content);

@@ -3,9 +3,8 @@ import { CommonModule } from '@angular/common';
 import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatDividerModule } from '@angular/material/divider';
 import { HttpClient } from '@angular/common/http';
-import { SalaryPaymentDto, TeacherDto } from './teacher.models';
+import { API_BASE, SalaryPaymentDto, TeacherDto } from './teacher.models';
 import { AuthService } from '../../core/services/auth.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 
@@ -20,7 +19,7 @@ export interface PayslipDialogData {
 @Component({
   selector: 'app-teacher-payslip-dialog',
   standalone: true,
-  imports: [CommonModule, MatDialogModule, MatButtonModule, MatIconModule, MatDividerModule],
+  imports: [CommonModule, MatDialogModule, MatButtonModule, MatIconModule],
   template: `
     <div class="payslip-modal-container">
       <!-- Top Action Bar (hidden in print) -->
@@ -37,10 +36,10 @@ export interface PayslipDialogData {
             <mat-icon>send</mat-icon>
             <span>{{ sendingWhatsApp ? 'Sending...' : 'Send WhatsApp' }}</span>
           </button>
-          <button mat-raised-button color="primary" (click)="printPayslip()">
-            <mat-icon>print</mat-icon> Print / PDF
+          <button mat-raised-button color="primary" class="print-btn" (click)="printPayslip()" matTooltip="Print Payslip">
+            <mat-icon>print</mat-icon> <span>Print / PDF</span>
           </button>
-          <button mat-icon-button (click)="dialogRef.close()">
+          <button mat-icon-button class="header-close-btn" (click)="dialogRef.close()" matTooltip="Close">
             <mat-icon>close</mat-icon>
           </button>
         </div>
@@ -199,139 +198,176 @@ export interface PayslipDialogData {
     </div>
   `,
   styles: [`
+    :host {
+      display: block;
+    }
     .payslip-modal-container {
-      width: 100%; max-width: 780px; background: #fff; border-radius: 12px; overflow: hidden;
+      width: 100%; max-width: 860px; background: #fff; border-radius: 12px; overflow: hidden;
       display: flex; flex-direction: column;
     }
     .modal-actions {
       display: flex; justify-content: space-between; align-items: center;
-      padding: 14px 22px;
+      padding: 10px 20px; flex-shrink: 0;
       background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
       border-bottom: 1px solid #bfdbfe;
       .modal-hdr-left {
-        display: flex; align-items: center; gap: 12px;
+        display: flex; align-items: center; gap: 10px;
         .modal-hdr-icon {
-          background: #2563eb; color: #ffffff; border-radius: 10px;
-          box-shadow: 0 4px 6px -1px rgba(37,99,235,0.25);
-          width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
-          mat-icon { font-size: 22px; width: 22px; height: 22px; }
+          background: #2563eb; color: #ffffff; border-radius: 8px;
+          box-shadow: 0 2px 4px rgba(37,99,235,0.25);
+          width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;
+          mat-icon { font-size: 19px; width: 19px; height: 19px; }
         }
-        .modal-hdr-title { margin: 0; font-size: 1.15rem; font-weight: 700; color: #1e3a8a; }
-        .modal-hdr-sub { margin: 2px 0 0; font-size: 0.8rem; color: #3b82f6; }
+        .modal-hdr-title { margin: 0; font-size: 1.05rem; font-weight: 700; color: #1e3a8a; }
+        .modal-hdr-sub { margin: 1px 0 0; font-size: 0.76rem; color: #3b82f6; }
       }
       .btn-group {
-        display: flex; align-items: center; gap: 10px;
+        display: flex; align-items: center; gap: 8px;
         .whatsapp-btn {
-          background: #22c55e; color: #ffffff; border: none; font-weight: 600;
+          background: #22c55e; color: #ffffff; border: none; font-weight: 600; height: 32px; font-size: 0.8rem;
+          display: inline-flex; align-items: center; gap: 5px; padding: 0 10px; border-radius: 6px;
+          mat-icon { font-size: 16px; width: 16px; height: 16px; margin: 0; }
           &:hover { background: #16a34a; }
         }
-        button[mat-icon-button] {
-          color: #64748b;
-          &:hover { color: #1e293b; background: rgba(0,0,0,0.05); }
+        .print-btn {
+          height: 32px; font-size: 0.8rem;
+          display: inline-flex; align-items: center; gap: 5px; padding: 0 10px; border-radius: 6px;
+          mat-icon { font-size: 16px; width: 16px; height: 16px; margin: 0; }
+        }
+        .header-close-btn {
+          width: 32px !important;
+          height: 32px !important;
+          min-width: 32px !important;
+          padding: 0 !important;
+          display: inline-flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          border-radius: 6px !important;
+          color: #64748b !important;
+          margin-left: 4px;
+          cursor: pointer !important;
+          transition: background 0.15s, color 0.15s;
+          mat-icon {
+            font-size: 20px !important;
+            width: 20px !important;
+            height: 20px !important;
+            line-height: 20px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+          }
+          &:hover {
+            color: #1e293b !important;
+            background: rgba(30, 41, 59, 0.08) !important;
+          }
         }
       }
     }
     .payslip-paper {
-      padding: 32px 36px; color: #1e293b; font-family: 'Segoe UI', Roboto, sans-serif;
+      padding: 12px 22px 14px; color: #1e293b; font-family: 'Segoe UI', Roboto, sans-serif;
+      overflow-y: auto;
+      scrollbar-width: none; /* Hide scrollbar for Firefox */
+      -ms-overflow-style: none; /* Hide scrollbar for IE/Edge */
+      &::-webkit-scrollbar { display: none; } /* Hide scrollbar for Chrome/Safari */
     }
     .paper-header {
       display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0f172a;
-      padding-bottom: 16px; margin-bottom: 16px;
+      padding-bottom: 6px; margin-bottom: 7px;
     }
     .inst-info {
-      display: flex; align-items: center; gap: 14px;
+      display: flex; align-items: center; gap: 10px;
       .logo-mark {
-        width: 48px; height: 48px; border-radius: 10px; background: #1e40af; color: #fff;
+        width: 36px; height: 36px; border-radius: 8px; background: #1e40af; color: #fff;
         display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;
         &.has-img { background: #fff; border: 1px solid #e2e8f0; padding: 2px; }
         .inst-logo-img { width: 100%; height: 100%; object-fit: contain; }
-        mat-icon { font-size: 28px; width: 28px; height: 28px; }
+        mat-icon { font-size: 22px; width: 22px; height: 22px; }
       }
-      .inst-name { margin: 0; font-size: 1.35rem; font-weight: 800; color: #0f172a; letter-spacing: -0.5px; }
-      .inst-subtitle { margin: 2px 0 0; font-size: 0.8rem; color: #64748b; }
+      .inst-name { margin: 0; font-size: 1.15rem; font-weight: 800; color: #0f172a; letter-spacing: -0.3px; line-height: 1.15; }
+      .inst-subtitle { margin: 1px 0 0; font-size: 0.72rem; color: #64748b; }
       .inst-branch {
-        margin: 3px 0 0; font-size: 0.78rem; color: #1e40af; font-weight: 600; display: flex; align-items: center; gap: 6px;
-        .branch-pill { background: #eff6ff; color: #1e40af; padding: 2px 8px; border-radius: 6px; border: 1px solid #bfdbfe; font-size: 0.74rem; font-weight: 700; }
+        margin: 2px 0 0; font-size: 0.72rem; color: #1e40af; font-weight: 600; display: flex; align-items: center; gap: 6px;
+        .branch-pill { background: #eff6ff; color: #1e40af; padding: 1px 6px; border-radius: 4px; border: 1px solid #bfdbfe; font-size: 0.68rem; font-weight: 700; }
         .branch-dept-sep { color: #94a3b8; }
-        .branch-dept { color: #64748b; font-size: 0.72rem; }
+        .branch-dept { color: #64748b; font-size: 0.68rem; }
       }
     }
     .payslip-badge {
       text-align: right;
-      .badge-title { display: block; font-size: 1.1rem; font-weight: 800; color: #1e40af; letter-spacing: 1px; }
-      .badge-sub { font-size: 0.8rem; color: #64748b; font-weight: 600; }
+      .badge-title { display: block; font-size: 0.95rem; font-weight: 800; color: #1e40af; letter-spacing: 0.5px; line-height: 1.1; }
+      .badge-sub { font-size: 0.7rem; color: #64748b; font-weight: 600; }
     }
     .meta-strip {
-      display: flex; flex-wrap: wrap; gap: 12px 18px;
-      background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 16px; margin-bottom: 18px;
+      display: flex; flex-wrap: wrap; gap: 6px 14px;
+      background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 5px 12px; margin-bottom: 7px;
     }
     .meta-item {
-      display: flex; flex-direction: column; gap: 2px; min-width: 110px; flex: 1 1 auto;
-      .meta-label { font-size: 0.72rem; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px; }
-      .meta-val { font-size: 0.88rem; color: #0f172a; }
+      display: flex; flex-direction: column; gap: 1px; min-width: 95px; flex: 1 1 auto;
+      .meta-label { font-size: 0.64rem; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.3px; }
+      .meta-val { font-size: 0.8rem; color: #0f172a; }
       .branch-val { color: #1e40af; font-weight: 700; }
       .receipt-no { font-family: monospace; font-weight: 700; color: #1e40af; }
       .mode-pill { font-weight: 600; color: #0284c7; }
     }
     .details-section {
-      display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
-      background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 18px; margin-bottom: 16px;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+      background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 12px; margin-bottom: 7px;
     }
-    .details-col { display: flex; flex-direction: column; gap: 6px; }
+    .details-col { display: flex; flex-direction: column; gap: 3px; }
     .info-row {
-      display: flex; justify-content: space-between; font-size: 0.84rem;
+      display: flex; justify-content: space-between; font-size: 0.78rem;
       .k { color: #64748b; }
       .v { color: #0f172a; }
     }
     .attendance-summary-box {
-      display: flex; align-items: center; gap: 24px; background: #f0fdf4; border: 1px solid #bbf7d0;
-      border-radius: 8px; padding: 8px 16px; margin-bottom: 18px; font-size: 0.83rem;
-      .att-item { display: flex; align-items: center; gap: 6px; }
+      display: flex; align-items: center; gap: 18px; background: #f0fdf4; border: 1px solid #bbf7d0;
+      border-radius: 6px; padding: 4px 12px; margin-bottom: 7px; font-size: 0.78rem;
+      .att-item { display: flex; align-items: center; gap: 5px; }
       .att-lbl { color: #166534; font-weight: 600; }
       .att-val { font-weight: 700; &.green { color: #15803d; } &.red { color: #b91c1c; } }
-      .att-remarks { color: #64748b; font-size: 0.78rem; margin-left: auto; }
+      .att-remarks { color: #64748b; font-size: 0.74rem; margin-left: auto; }
     }
     .breakdown-table-wrapper {
-      margin-bottom: 18px; border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden;
+      margin-bottom: 7px; border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden;
     }
     .payslip-table {
-      width: 100%; border-collapse: collapse; font-size: 0.84rem;
-      th, td { padding: 8px 14px; border: 1px solid #e2e8f0; }
+      width: 100%; border-collapse: collapse; font-size: 0.78rem;
+      th, td { padding: 4px 10px; border: 1px solid #e2e8f0; line-height: 1.25; }
       .th-earnings { background: #eff6ff; color: #1e40af; font-weight: 700; text-align: center; }
       .th-deductions { background: #fef2f2; color: #991b1b; font-weight: 700; text-align: center; }
-      .sub-head th { background: #f8fafc; font-size: 0.75rem; color: #64748b; font-weight: 600; text-transform: uppercase; }
+      .sub-head th { background: #f8fafc; font-size: 0.7rem; color: #64748b; font-weight: 600; text-transform: uppercase; }
       .text-right { text-align: right; }
-      .total-row { background: #f8fafc; border-top: 2px solid #cbd5e1; }
+      .total-row { background: #f8fafc; border-top: 1.5px solid #cbd5e1; }
     }
     .net-payable-strip {
       display: flex; justify-content: space-between; align-items: center;
-      background: #0f172a; color: #fff; padding: 14px 20px; border-radius: 8px; margin-bottom: 30px;
-      .net-left { display: flex; flex-direction: column; gap: 4px; }
-      .net-label { font-size: 0.88rem; font-weight: 800; letter-spacing: 0.5px; color: #93c5fd; }
-      .net-words { font-size: 0.76rem; color: #cbd5e1; em { font-style: normal; color: #facc15; font-weight: 600; } }
+      background: #0f172a; color: #fff; padding: 6px 14px; border-radius: 6px; margin-bottom: 8px;
+      .net-left { display: flex; flex-direction: column; gap: 1px; }
+      .net-label { font-size: 0.78rem; font-weight: 800; letter-spacing: 0.3px; color: #93c5fd; }
+      .net-words { font-size: 0.7rem; color: #cbd5e1; em { font-style: normal; color: #facc15; font-weight: 600; } }
       .net-right {
-        display: flex; align-items: baseline; gap: 4px;
-        .net-currency { font-size: 1.2rem; font-weight: 700; color: #4ade80; }
-        .net-amount { font-size: 1.6rem; font-weight: 800; color: #4ade80; }
+        display: flex; align-items: baseline; gap: 3px;
+        .net-currency { font-size: 1rem; font-weight: 700; color: #4ade80; }
+        .net-amount { font-size: 1.25rem; font-weight: 800; color: #4ade80; }
       }
     }
     .footer-signatures {
-      display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-top: 36px; padding-top: 10px;
+      display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 8px; padding-top: 2px;
     }
     .sig-box {
-      display: flex; flex-direction: column; align-items: flex-start; gap: 6px; font-size: 0.78rem; color: #64748b;
-      .sig-line { width: 140px; height: 1px; background: #94a3b8; margin-bottom: 4px; }
+      display: flex; flex-direction: column; align-items: flex-start; gap: 3px; font-size: 0.72rem; color: #64748b;
+      .sig-line { width: 110px; height: 1px; background: #94a3b8; margin-bottom: 2px; }
       &.text-center { align-items: center; }
       &.text-right { align-items: flex-end; }
     }
     .stamp-placeholder {
       display: flex; align-items: center; gap: 4px; border: 1.5px dashed #cbd5e1;
-      padding: 4px 10px; border-radius: 20px; color: #94a3b8; font-size: 0.72rem;
-      mat-icon { font-size: 16px; width: 16px; height: 16px; }
+      padding: 2px 7px; border-radius: 14px; color: #94a3b8; font-size: 0.68rem;
+      mat-icon { font-size: 14px; width: 14px; height: 14px; }
     }
     .paper-disclaimer {
-      margin-top: 24px; padding-top: 12px; border-top: 1px dashed #e2e8f0; text-align: center;
-      p { margin: 0; font-size: 0.68rem; color: #94a3b8; }
+      margin-top: 6px; padding-top: 4px; border-top: 1px dashed #e2e8f0; text-align: center;
+      p { margin: 0; font-size: 0.62rem; color: #94a3b8; }
     }
 
   `]
@@ -360,7 +396,7 @@ export class TeacherPayslipDialogComponent {
 
   sendWhatsApp() {
     this.sendingWhatsApp = true;
-    this.http.post<any>(`http://localhost:5000/api/teachers/salary-payments/${this.data.payment.id}/send-whatsapp`, {}).subscribe({
+    this.http.post<any>(`${API_BASE}/teachers/salary-payments/${this.data.payment.id}/send-whatsapp`, {}).subscribe({
       next: (res) => {
         this.sendingWhatsApp = false;
         this.confirmDialog.alert('WhatsApp Sent', res?.message || 'Salary slip sent to teacher on WhatsApp!', 'success');

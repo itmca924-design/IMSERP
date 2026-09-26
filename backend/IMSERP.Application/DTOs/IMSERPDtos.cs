@@ -1384,7 +1384,9 @@ public record TeacherPayrollPreviewDto(
     decimal HostelRentDeduction = 0,
     decimal TransportFareDeduction = 0,
     string? HostelRentInfo = null,
-    string? TransportFareInfo = null
+    string? TransportFareInfo = null,
+    int UnpaidLeaveDays = 0,
+    int PaidLeaveDays = 0
 );
 
 public record TeacherSalaryDto(

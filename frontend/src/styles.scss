@@ -504,6 +504,21 @@ body, p, span, h1, h2, h3, h4, h5, h6, a, button, input, select, textarea,
   }
 }
 
+// Custom panel for Teacher Payslip Dialog - fixed header, clean fit
+.payslip-dialog-panel {
+  max-width: 96vw !important;
+
+  .mat-mdc-dialog-surface {
+    padding: 0 !important;
+    overflow: hidden !important;
+    border-radius: 12px !important;
+    background: #ffffff !important;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.3) !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+}
+
 // Custom panel for Student Ledger Dialog
 .ledger-dialog-panel {
   max-width: 96vw !important;

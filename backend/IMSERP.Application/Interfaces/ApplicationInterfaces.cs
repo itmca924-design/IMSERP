@@ -92,6 +92,7 @@ public interface IWhatsAppService
     Task<bool> SendTransportBoardingAlertAsync(Guid tenantId, string recipientPhone, string studentName, string busNumber, string stopName, string timeStr, string departureType);
     Task<bool> SendAbsenteeAlertAsync(Guid tenantId, string recipientPhone, string studentName, string rollNumber, string dateStr);
     Task<bool> SendLeaveStatusAlertAsync(Guid tenantId, string recipientPhone, string studentName, string status, DateTime fromDate, DateTime toDate, string? remarks, string reviewerName);
+    Task<bool> SendTeacherLeaveDecisionAlertAsync(Guid tenantId, string recipientPhone, string teacherName, string leaveType, string status, DateTime fromDate, DateTime toDate, string? remarks, string reviewerName);
 }
 
 public interface ICurrentUserService

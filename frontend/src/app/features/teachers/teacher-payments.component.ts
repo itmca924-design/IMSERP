@@ -110,6 +110,17 @@ import { TeacherPayslipDialogComponent } from './teacher-payslip-dialog.componen
             </small>
           </div>
 
+          <!-- ── Leaves Breakdown Card ── -->
+          <div class="stat-box" *ngIf="(preview.unpaidLeaveDays || 0) > 0 || (preview.paidLeaveDays || 0) > 0" style="border-color:#f59e0b;background:#fffbeb;">
+            <span class="lbl" style="color:#b45309;">Sanctioned Leaves</span>
+            <span class="num" style="color:#d97706;">{{ (preview.unpaidLeaveDays || 0) + (preview.paidLeaveDays || 0) }} Days</span>
+            <small style="color:#92400e;">
+              <span *ngIf="(preview.unpaidLeaveDays || 0) > 0" style="color:#dc2626;font-weight:600;">{{preview.unpaidLeaveDays}}d Unpaid (LOP)</span>
+              <span *ngIf="(preview.unpaidLeaveDays || 0) > 0 && (preview.paidLeaveDays || 0) > 0"> &bull; </span>
+              <span *ngIf="(preview.paidLeaveDays || 0) > 0" style="color:#16a34a;font-weight:600;">{{preview.paidLeaveDays}}d Paid</span>
+            </small>
+          </div>
+
           <!-- ── Hostel Rent Deduction Card ── -->
           <div class="stat-box" *ngIf="preview.hostelRentDeduction > 0" style="border-color:#f97316;background:#fff7ed;">
             <span class="lbl" style="color:#9a3412;">Hostel / Mess Rent</span>
@@ -263,7 +274,7 @@ import { TeacherPayslipDialogComponent } from './teacher-payslip-dialog.componen
         <thead>
           <tr>
             <th>Month / Year</th><th>Gross</th><th>Deductions</th>
-            <th>Advance Adj.</th><th>Net Paid</th><th>Mode</th><th>Receipt</th><th>Date</th><th class="text-center">Payslip</th>
+            <th>Advance Adj.</th><th>Net Paid</th><th>Mode</th><th>Receipt</th><th>Date</th><th class="text-center">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -286,9 +297,12 @@ import { TeacherPayslipDialogComponent } from './teacher-payslip-dialog.componen
               </span>
             </td>
             <td>{{p.paymentDate | date:'dd MMM yyyy'}}</td>
-            <td class="text-center">
+            <td class="text-center" style="white-space:nowrap;">
               <button mat-flat-button color="primary" class="payslip-btn" (click)="openPayslip(p)" matTooltip="View &amp; Print Payslip">
                 <mat-icon>receipt_long</mat-icon> Payslip
+              </button>
+              <button mat-icon-button color="warn" (click)="deletePayment(p)" matTooltip="Delete Voucher">
+                <mat-icon>delete_outline</mat-icon>
               </button>
             </td>
           </tr>
@@ -585,6 +599,15 @@ export class TeacherPaymentsComponent implements OnInit {
       + (this.preview.hostelRentDeduction || 0)
       + (this.preview.transportFareDeduction || 0);
 
+    const leaveRemarksParts: string[] = [];
+    if (this.preview.unpaidLeaveDays && this.preview.unpaidLeaveDays > 0) {
+      leaveRemarksParts.push(`${this.preview.unpaidLeaveDays}d Unpaid Leave (LOP)`);
+    }
+    if (this.preview.paidLeaveDays && this.preview.paidLeaveDays > 0) {
+      leaveRemarksParts.push(`${this.preview.paidLeaveDays}d Paid Leave`);
+    }
+    const leaveRemarksStr = leaveRemarksParts.length > 0 ? ` | Leaves: ${leaveRemarksParts.join(', ')}` : '';
+
     this.paymentForm.patchValue({
       grossAmount:     this.preview.grossSalary,
       deductions:      totalDeductions,
@@ -593,6 +616,7 @@ export class TeacherPaymentsComponent implements OnInit {
       presentDays:     this.preview.presentDays,
       absentDays:      this.preview.absentDays,
       remarks: `Attendance: ${this.preview.presentDays}P, ${this.preview.halfDays}HD, ${this.preview.absentDays}A, ${this.preview.lateDays}L (${this.preview.latePenaltyDays}d late penalty)` +
+        leaveRemarksStr +
         (this.preview.hostelRentDeduction > 0 ? ` | Hostel: -₹${this.preview.hostelRentDeduction}` : '') +
         (this.preview.transportFareDeduction > 0 ? ` | Transport: -₹${this.preview.transportFareDeduction}` : '')
     }, { emitEvent: false });
@@ -611,6 +635,28 @@ export class TeacherPaymentsComponent implements OnInit {
     );
   }
 
+  deletePayment(payment: SalaryPaymentDto) {
+    this.confirmDialog.confirm(
+      'Delete Payment Voucher',
+      `Are you sure you want to delete the salary payment voucher for ${payment.monthName} (${payment.receiptNumber})? Any adjusted advance will be restored to Approved.`,
+      'Delete',
+      'Cancel'
+    ).subscribe(confirmed => {
+      if (confirmed) {
+        this.http.delete(`${this.api}/teachers/salary-payments/${payment.id}`).subscribe({
+          next: () => {
+            this.confirmDialog.alert('Deleted', 'Salary payment deleted successfully.', 'success');
+            this.loadPayments();
+            this.loadPreview();
+          },
+          error: (err: any) => {
+            this.confirmDialog.alert('Error', err?.error?.message || 'Failed to delete payment.', 'danger');
+          }
+        });
+      }
+    });
+  }
+
   loadPayments() {
     if (!this.selectedTeacher) return;
     this.loading = true;
@@ -623,8 +669,9 @@ export class TeacherPaymentsComponent implements OnInit {
   openPayslip(payment: SalaryPaymentDto) {
     if (!this.selectedTeacher) return;
     this.dialog.open(TeacherPayslipDialogComponent, {
-      width: '820px',
+      width: '860px',
       maxWidth: '96vw',
+      autoFocus: false,
       panelClass: 'payslip-dialog-panel',
       data: {
         payment,

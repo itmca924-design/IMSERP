@@ -53,6 +53,8 @@ export interface PayrollPreviewDto {
   transportFareDeduction: number;
   hostelRentInfo?: string;
   transportFareInfo?: string;
+  unpaidLeaveDays?: number;
+  paidLeaveDays?: number;
 }
 export interface SalaryDto {
   id: string; teacherId: string; teacherName: string;
