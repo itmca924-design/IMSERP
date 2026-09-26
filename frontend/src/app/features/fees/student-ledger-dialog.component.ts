@@ -753,12 +753,13 @@ export class StudentLedgerDialogComponent implements OnInit {
   hasReversedPayment = false;
 
   get effectiveBranchName(): string {
+    if (this.ledger?.branchName) return this.ledger.branchName;
     const authBranch = this.authService.getCurrentBranchName();
     if (authBranch) return authBranch;
     const batch = this.ledger?.batchName || '';
     const match = batch.match(/\(([^)]+)\)/);
     if (match) return match[1];
-    return '';
+    return 'Main Branch';
   }
 
   constructor(

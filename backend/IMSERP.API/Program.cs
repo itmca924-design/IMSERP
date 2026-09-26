@@ -111,6 +111,24 @@ using (var scope = app.Services.CreateScope())
                         ALTER TABLE Students ADD LeavingReason NVARCHAR(MAX) NULL;
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Students') AND name = 'TCNumber')
                         ALTER TABLE Students ADD TCNumber NVARCHAR(MAX) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Students') AND name = 'AadhaarNumber')
+                        ALTER TABLE Students ADD AadhaarNumber NVARCHAR(50) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Students') AND name = 'PenNumber')
+                        ALTER TABLE Students ADD PenNumber NVARCHAR(50) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Students') AND name = 'ApaarId')
+                        ALTER TABLE Students ADD ApaarId NVARCHAR(50) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Students') AND name = 'Category')
+                        ALTER TABLE Students ADD Category NVARCHAR(50) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Students') AND name = 'Religion')
+                        ALTER TABLE Students ADD Religion NVARCHAR(50) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Students') AND name = 'EmergencyContactName')
+                        ALTER TABLE Students ADD EmergencyContactName NVARCHAR(100) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Students') AND name = 'EmergencyContactPhone')
+                        ALTER TABLE Students ADD EmergencyContactPhone NVARCHAR(50) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Students') AND name = 'PreviousSchoolName')
+                        ALTER TABLE Students ADD PreviousSchoolName NVARCHAR(200) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Students') AND name = 'PreviousBoard')
+                        ALTER TABLE Students ADD PreviousBoard NVARCHAR(50) NULL;
 
                     -- Tests table schema updates for School Examination support
                     IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tests') AND name = 'BatchId' AND is_nullable = 0)

@@ -263,42 +263,107 @@ public class AuthController : ControllerBase
         return Ok(new { message = "Token revoked successfully." });
     }
 
-    [HttpPost("register-tenant")]
+    [HttpGet("check-tenant-code/{code}")]
     [AllowAnonymous]
-    public async Task<ActionResult> RegisterTenant([FromBody] RegisterInstituteDto dto)
+    public async Task<ActionResult> CheckTenantCodeAvailability(string code)
     {
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            return BadRequest(new { available = false, message = "Code cannot be empty." });
+        }
+
+        var normalized = code.Trim().ToUpper();
+        if (normalized.Length < 3 || normalized.Length > 15)
+        {
+            return Ok(new { available = false, message = "Code must be between 3 and 15 alphanumeric characters." });
+        }
+
+        if (normalized == "SYSTEM")
+        {
+            return Ok(new { available = false, message = "Code 'SYSTEM' is reserved for platform console." });
+        }
+
+        var exists = await _dbContext.Tenants.IgnoreQueryFilters().AnyAsync(t => t.Code == normalized);
+        if (exists)
+        {
+            return Ok(new { available = false, message = $"Code '{normalized}' is already in use. Please choose another." });
+        }
+
+        return Ok(new { available = true, message = $"Code '{normalized}' is available." });
+    }
+
+    [HttpPost("register-trial")]
+    [AllowAnonymous]
+    public async Task<ActionResult<LoginResponseDto>> RegisterTrialTenant([FromBody] RegisterTrialTenantDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.Name) ||
+            string.IsNullOrWhiteSpace(dto.Code) ||
+            string.IsNullOrWhiteSpace(dto.AdminUsername) ||
+            string.IsNullOrWhiteSpace(dto.AdminPassword))
+        {
+            return BadRequest(new { message = "Institute Name, Unique Code, Admin Username, and Password are all required." });
+        }
+
+        var normalizedCode = dto.Code.Trim().ToUpper();
+        if (normalizedCode == "SYSTEM")
+        {
+            return BadRequest(new { message = "Code 'SYSTEM' is reserved for platform console." });
+        }
+
+        var codeExists = await _dbContext.Tenants.IgnoreQueryFilters().AnyAsync(t => t.Code == normalizedCode);
+        if (codeExists)
+        {
+            return Conflict(new { message = $"Institute Code '{normalizedCode}' is already registered. Please choose another code." });
+        }
+
         var tenantId = Guid.NewGuid();
-        var savedPhotoPath = ImageStorageHelper.SaveBase64Image(dto.ProfilePhoto, "tenants", tenantId.ToString(), _env.ContentRootPath);
+        var licensedList = new List<string>();
+        if (dto.HasSchoolModule) licensedList.Add("School");
+        if (dto.HasCoachingModule) licensedList.Add("Coaching");
+        if (dto.HasHostelModule) licensedList.Add("Hostel");
+        if (dto.HasLibraryModule) licensedList.Add("Library");
+        if (dto.HasTransportModule) licensedList.Add("Transport");
 
         var tenant = new Tenant
         {
             Id = tenantId,
-            Name = dto.InstituteName,
-            Code = dto.InstituteCode.ToUpper().Trim(),
-            ContactPhone = dto.Phone,
-            Address = dto.Address,
-            ProfilePhoto = savedPhotoPath,
-            IsActive = true
+            Name = dto.Name.Trim(),
+            Code = normalizedCode,
+            ContactPhone = dto.ContactPhone?.Trim(),
+            Address = dto.Address?.Trim(),
+            HasSchoolModule = dto.HasSchoolModule,
+            HasCoachingModule = dto.HasCoachingModule,
+            HasHostelModule = dto.HasHostelModule,
+            HasLibraryModule = dto.HasLibraryModule,
+            HasTransportModule = dto.HasTransportModule,
+            LicensedModules = string.Join(",", licensedList),
+            SubscriptionPlan = "FreeTrial",
+            SubscriptionStatus = "TrialActive",
+            TrialStartDate = DateTime.UtcNow,
+            TrialEndDate = DateTime.UtcNow.AddDays(14),
+            MaxStudentsLimit = 50,
+            MaxBranchesLimit = 2,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow
         };
-
         _dbContext.Tenants.Add(tenant);
 
-        // Auto-provision initial Main Branch for this tenant
+        // 1. Auto-provision initial Main Branch for this tenant
         var mainBranch = new Branch
         {
             Id = Guid.NewGuid(),
             TenantId = tenant.Id,
-            Name = $"{dto.InstituteName} - Main Branch",
+            Name = $"{dto.Name.Trim()} - Main Campus",
             Code = "MAIN",
-            Address = dto.Address,
-            ContactPhone = dto.Phone,
+            Address = tenant.Address,
+            ContactPhone = tenant.ContactPhone,
             IsMainBranch = true,
             IsActive = true,
             CreatedAt = DateTime.UtcNow
         };
         _dbContext.Branches.Add(mainBranch);
 
-        // Auto-provision default Room for this main branch
+        // 2. Auto-provision default Room for this main branch
         var defaultRoom = new Room
         {
             Id = Guid.NewGuid(),
@@ -312,26 +377,290 @@ public class AuthController : ControllerBase
         };
         _dbContext.Rooms.Add(defaultRoom);
 
-        // Securely Hash the Admin Password before saving to database
+        // 3. Securely Hash Admin Password & create User
         var hashedPassword = _passwordHasher.HashPassword(dto.AdminPassword);
-
         var adminUser = new User
         {
+            Id = Guid.NewGuid(),
             TenantId = tenant.Id,
             BranchId = mainBranch.Id,
-            Username = dto.AdminUsername,
+            Username = dto.AdminUsername.Trim().ToLower(),
             PasswordHash = hashedPassword,
-            FullName = dto.AdminFullName,
-            Email = $"{dto.AdminUsername}@coaching.com",
-            PhoneNumber = dto.Phone,
+            FullName = !string.IsNullOrWhiteSpace(dto.AdminFullName) ? dto.AdminFullName.Trim() : $"{tenant.Name} Administrator",
+            Email = $"{dto.AdminUsername.Trim().ToLower()}@{normalizedCode.ToLower()}.com",
+            PhoneNumber = dto.ContactPhone?.Trim(),
             Role = UserRole.InstituteAdmin,
-            IsActive = true
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow
         };
-
         _dbContext.Users.Add(adminUser);
+
+        // 4. Standard Tenant Roles
+        var roleNames = new[] { "Faculty", "Accountant", "Receptionist", "Librarian", "Warden" };
+        foreach (var rName in roleNames)
+        {
+            var role = new RoleEntity
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenant.Id,
+                Name = rName,
+                Description = $"Standard {rName} role for {tenant.Name}",
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            };
+            _dbContext.Roles.Add(role);
+        }
+
+        // 5. Seed Sample Demo Data if requested
+        if (dto.SeedSampleDemoData)
+        {
+            var batch1 = new Batch
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenant.Id,
+                BranchId = mainBranch.Id,
+                RoomId = defaultRoom.Id,
+                Name = "Class 10th - Batch A",
+                Subject = "Mathematics & Science",
+                AcademicYear = "2026-2027",
+                StandardMonthlyFee = 3500,
+                CreatedAt = DateTime.UtcNow
+            };
+            var batch2 = new Batch
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenant.Id,
+                BranchId = mainBranch.Id,
+                RoomId = defaultRoom.Id,
+                Name = "Target Batch 2026",
+                Subject = "Physics, Chemistry & Biology",
+                AcademicYear = "2026-2027",
+                StandardMonthlyFee = 4500,
+                CreatedAt = DateTime.UtcNow
+            };
+            _dbContext.Batches.AddRange(batch1, batch2);
+
+            var feeHead1 = new FeeHead
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenant.Id,
+                BranchId = mainBranch.Id,
+                Name = "Tuition Fee (Monthly)",
+                Code = "TUI-FEE",
+                Category = "Academic",
+                Frequency = "Monthly",
+                ApplicableTo = "Both",
+                IsActive = true,
+                IsDefault = true,
+                CreatedAt = DateTime.UtcNow
+            };
+            var feeHead2 = new FeeHead
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenant.Id,
+                BranchId = mainBranch.Id,
+                Name = "Admission & Registration Fee",
+                Code = "ADM-FEE",
+                Category = "Academic",
+                Frequency = "OneTime",
+                ApplicableTo = "Both",
+                IsActive = true,
+                IsDefault = true,
+                CreatedAt = DateTime.UtcNow
+            };
+            _dbContext.FeeHeads.AddRange(feeHead1, feeHead2);
+
+            var teacher1 = new Teacher
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenant.Id,
+                BranchId = mainBranch.Id,
+                EmployeeCode = "FAC-01",
+                FullName = "Dr. Sanjay Mishra",
+                PhoneNumber = "9876543201",
+                Designation = "Senior Faculty - Mathematics",
+                Department = "Academics",
+                Gender = Gender.Male,
+                IsActive = true,
+                JoiningDate = DateTime.UtcNow.AddMonths(-6),
+                CreatedAt = DateTime.UtcNow
+            };
+            var teacher2 = new Teacher
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenant.Id,
+                BranchId = mainBranch.Id,
+                EmployeeCode = "FAC-02",
+                FullName = "Neha Sharma",
+                PhoneNumber = "9876543202",
+                Designation = "Faculty - Science",
+                Department = "Academics",
+                Gender = Gender.Female,
+                IsActive = true,
+                JoiningDate = DateTime.UtcNow.AddMonths(-4),
+                CreatedAt = DateTime.UtcNow
+            };
+            _dbContext.Teachers.AddRange(teacher1, teacher2);
+
+            var s1 = new Student
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenant.Id,
+                BranchId = mainBranch.Id,
+                BatchId = batch1.Id,
+                StudentName = "Aarav Sharma",
+                RollNumber = "101",
+                AdmissionNumber = "ADM-2026-001",
+                ParentName = "Rajesh Sharma",
+                ParentWhatsAppPhone = "9876543210",
+                Gender = "Male",
+                IsSchoolStudent = dto.HasSchoolModule,
+                IsCoachingStudent = dto.HasCoachingModule,
+                IsActive = true,
+                JoiningDate = DateTime.UtcNow.AddMonths(-1),
+                Address = tenant.Address ?? "City Center"
+            };
+            var s2 = new Student
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenant.Id,
+                BranchId = mainBranch.Id,
+                BatchId = batch1.Id,
+                StudentName = "Priya Patel",
+                RollNumber = "102",
+                AdmissionNumber = "ADM-2026-002",
+                ParentName = "Suresh Patel",
+                ParentWhatsAppPhone = "9876543211",
+                Gender = "Female",
+                IsSchoolStudent = dto.HasSchoolModule,
+                IsCoachingStudent = dto.HasCoachingModule,
+                IsActive = true,
+                JoiningDate = DateTime.UtcNow.AddMonths(-1),
+                Address = tenant.Address ?? "Civil Lines"
+            };
+            var s3 = new Student
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenant.Id,
+                BranchId = mainBranch.Id,
+                BatchId = batch2.Id,
+                StudentName = "Rohan Verma",
+                RollNumber = "103",
+                AdmissionNumber = "ADM-2026-003",
+                ParentName = "Anil Verma",
+                ParentWhatsAppPhone = "9876543212",
+                Gender = "Male",
+                IsSchoolStudent = false,
+                IsCoachingStudent = true,
+                IsActive = true,
+                JoiningDate = DateTime.UtcNow.AddDays(-15),
+                Address = tenant.Address ?? "Station Road"
+            };
+            var s4 = new Student
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenant.Id,
+                BranchId = mainBranch.Id,
+                BatchId = batch2.Id,
+                StudentName = "Ananya Singh",
+                RollNumber = "104",
+                AdmissionNumber = "ADM-2026-004",
+                ParentName = "Vikram Singh",
+                ParentWhatsAppPhone = "9876543213",
+                Gender = "Female",
+                IsSchoolStudent = dto.HasSchoolModule,
+                IsCoachingStudent = true,
+                IsActive = true,
+                JoiningDate = DateTime.UtcNow.AddDays(-10),
+                Address = tenant.Address ?? "Gandhi Nagar"
+            };
+            _dbContext.Students.AddRange(s1, s2, s3, s4);
+
+            var inv1 = new FeeInvoice
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenant.Id,
+                BranchId = mainBranch.Id,
+                StudentId = s1.Id,
+                InvoiceNumber = $"INV-{normalizedCode}-001",
+                Title = "Monthly Tuition Fee - Current Month",
+                TotalAmount = 3500,
+                PaidAmount = 3500,
+                DueDate = DateTime.UtcNow.AddDays(10),
+                Status = InvoiceStatus.Paid,
+                CreatedAt = DateTime.UtcNow.AddDays(-3)
+            };
+            var pay1 = new FeePayment
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenant.Id,
+                BranchId = mainBranch.Id,
+                InvoiceId = inv1.Id,
+                ReceiptNumber = $"REC-{normalizedCode}-001",
+                AmountPaid = 3500,
+                Mode = PaymentMode.Cash,
+                PaymentDate = DateTime.UtcNow.AddDays(-3),
+                Remarks = "Paid in full via Cash"
+            };
+            var inv2 = new FeeInvoice
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenant.Id,
+                BranchId = mainBranch.Id,
+                StudentId = s2.Id,
+                InvoiceNumber = $"INV-{normalizedCode}-002",
+                Title = "Monthly Tuition Fee - Current Month",
+                TotalAmount = 3500,
+                PaidAmount = 0,
+                DueDate = DateTime.UtcNow.AddDays(7),
+                Status = InvoiceStatus.Pending,
+                CreatedAt = DateTime.UtcNow.AddDays(-1)
+            };
+            _dbContext.FeeInvoices.AddRange(inv1, inv2);
+            _dbContext.FeePayments.Add(pay1);
+        }
+
         await _dbContext.SaveChangesAsync();
 
-        return Ok(new { message = "Institute registered successfully with secure hashed password", tenantId = tenant.Id, branchId = mainBranch.Id });
+        // 6. Generate Tokens for Auto-Login
+        var accessToken = GenerateJwtToken(adminUser, tenant.Name, tenant.Code);
+        var refreshToken = GenerateRefreshToken();
+        adminUser.RefreshToken = refreshToken;
+        adminUser.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7);
+        await _dbContext.SaveChangesAsync();
+
+        var branchesList = new List<BranchDto>
+        {
+            new BranchDto(mainBranch.Id, tenant.Id, mainBranch.Name, mainBranch.Code, mainBranch.Address, mainBranch.ContactPhone, true, true, mainBranch.CreatedAt, 0, 0, 0)
+        };
+
+        return Ok(new LoginResponseDto(
+            Token: accessToken,
+            RefreshToken: refreshToken,
+            UserId: adminUser.Id,
+            Username: adminUser.Username,
+            FullName: adminUser.FullName,
+            Role: adminUser.Role.ToString(),
+            TenantId: tenant.Id,
+            InstituteName: tenant.Name,
+            TenantCode: tenant.Code,
+            ProfilePhoto: tenant.ProfilePhoto,
+            BranchId: mainBranch.Id,
+            BranchName: mainBranch.Name,
+            Branches: branchesList,
+            HasSchoolModule: tenant.HasSchoolModule,
+            HasCoachingModule: tenant.HasCoachingModule,
+            HasHostelModule: tenant.HasHostelModule,
+            HasLibraryModule: tenant.HasLibraryModule,
+            HasTransportModule: tenant.HasTransportModule,
+            LicensedModules: tenant.LicensedModules,
+            SubscriptionPlan: tenant.SubscriptionPlan,
+            SubscriptionStatus: tenant.SubscriptionStatus,
+            TrialDaysLeft: 14,
+            MaxStudentsLimit: tenant.MaxStudentsLimit,
+            MaxBranchesLimit: tenant.MaxBranchesLimit,
+            IsSubscriptionExpired: false
+        ));
     }
 
     private string GenerateJwtToken(User user, string instituteName, string tenantCode)

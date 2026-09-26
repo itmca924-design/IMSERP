@@ -268,8 +268,10 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             </ng-container>
 
             <ng-container matColumnDef="dueDate">
-              <th mat-header-cell *matHeaderCellDef mat-sort-header="dueDate">Due Date</th>
-              <td mat-cell *matCellDef="let inv">{{ inv.dueDate | date:'mediumDate' }}</td>
+              <th mat-header-cell *matHeaderCellDef mat-sort-header="dueDate" class="col-due-date">Due Date</th>
+              <td mat-cell *matCellDef="let inv" class="col-due-date">
+                <span class="due-date-pill">{{ inv.dueDate | date:'dd-MMM-yyyy' }}</span>
+              </td>
             </ng-container>
 
             <ng-container matColumnDef="status">
@@ -768,8 +770,43 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
       }
     }
     .grid-loader { margin-top: 4px; }
-    .table-container { padding: 0; }
-    .full-width { width: 100%; }
+    .table-container {
+      padding: 0;
+      overflow-x: auto;
+      width: 100%;
+    }
+    .full-width {
+      width: 100%;
+      min-width: 980px;
+    }
+    .col-due-date,
+    .mat-column-dueDate {
+      white-space: nowrap !important;
+      min-width: 115px !important;
+      width: 115px;
+
+      .due-date-pill {
+        white-space: nowrap !important;
+        font-weight: 500;
+        color: #334155;
+        font-size: 0.84rem;
+        display: inline-block;
+      }
+    }
+    .mat-column-dueAmount {
+      white-space: nowrap !important;
+      min-width: 100px !important;
+    }
+    .mat-column-totalFee,
+    .mat-column-paidAmount {
+      white-space: nowrap !important;
+      min-width: 90px !important;
+    }
+    .mat-column-status {
+      white-space: nowrap !important;
+      min-width: 90px !important;
+      text-align: center;
+    }
     .st-cell {
       display: flex;
       flex-direction: column;
@@ -1326,7 +1363,7 @@ export class FeesComponent implements OnInit, OnDestroy {
             totalOutstandingDue: inv.dueAmount,
             hostelInfo,
             items: inv.items,
-            branchName: this.authService.getCurrentBranchName()
+            branchName: inv.branchName || this.authService.getCurrentBranchName()
           }
         });
 
@@ -1342,7 +1379,7 @@ export class FeesComponent implements OnInit, OnDestroy {
               data: {
                 receipt: res,
                 instituteName: this.authService.currentUser()?.instituteName || 'Apex Coaching Academy',
-                branchName: this.authService.getCurrentBranchName()
+                branchName: res.branchName || inv.branchName || this.authService.getCurrentBranchName()
               }
             });
           }
@@ -1363,7 +1400,7 @@ export class FeesComponent implements OnInit, OnDestroy {
             parentWhatsAppPhone: inv.parentWhatsAppPhone,
             totalOutstandingDue: inv.dueAmount,
             items: inv.items,
-            branchName: this.authService.getCurrentBranchName()
+            branchName: inv.branchName || this.authService.getCurrentBranchName()
           }
         });
 
@@ -1377,7 +1414,7 @@ export class FeesComponent implements OnInit, OnDestroy {
               data: {
                 receipt: res,
                 instituteName: this.authService.currentUser()?.instituteName || 'Apex Coaching Academy',
-                branchName: this.authService.getCurrentBranchName()
+                branchName: res.branchName || inv.branchName || this.authService.getCurrentBranchName()
               }
             });
           }
@@ -1400,7 +1437,7 @@ export class FeesComponent implements OnInit, OnDestroy {
         parentWhatsAppPhone: inv.parentWhatsAppPhone,
         invoice: inv,
         instituteName: this.authService.currentUser()?.instituteName || 'Apex Coaching Academy',
-        branchName: this.authService.getCurrentBranchName()
+        branchName: inv.branchName || this.authService.getCurrentBranchName()
       }
     });
 
@@ -1425,7 +1462,7 @@ export class FeesComponent implements OnInit, OnDestroy {
                 data: {
                   receipt,
                   instituteName: this.authService.currentUser()?.instituteName || 'Apex Coaching Academy',
-                  branchName: this.authService.getCurrentBranchName()
+                  branchName: receipt.branchName || inv.branchName || ledger.branchName || this.authService.getCurrentBranchName()
                 }
               });
             },
@@ -1461,7 +1498,8 @@ export class FeesComponent implements OnInit, OnDestroy {
                 mode: payment.mode,
                 transactionRef: payment.transactionRef,
                 remarks: payment.remarks,
-                items: fallbackItems
+                items: fallbackItems,
+                branchName: inv.branchName || ledger.branchName || this.authService.getCurrentBranchName()
               };
 
               this.dialog.open(FeeReceiptDialogComponent, {
@@ -1471,7 +1509,7 @@ export class FeesComponent implements OnInit, OnDestroy {
                 data: {
                   receipt: receiptData,
                   instituteName: this.authService.currentUser()?.instituteName || 'Apex Coaching Academy',
-                  branchName: this.authService.getCurrentBranchName()
+                  branchName: inv.branchName || ledger.branchName || this.authService.getCurrentBranchName()
                 }
               });
             }

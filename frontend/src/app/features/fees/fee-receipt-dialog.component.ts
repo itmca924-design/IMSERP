@@ -296,27 +296,28 @@ export interface FeeReceiptDialogData {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 10px 18px;
-      background: #0f172a;
-      color: #ffffff;
-      border-bottom: 1px solid #1e293b;
+      padding: 12px 20px;
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+      color: #1e3a8a;
+      border-bottom: 1px solid #bfdbfe;
       flex-shrink: 0;
 
       .modal-title {
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 12px;
 
         .title-badge {
-          width: 34px;
-          height: 34px;
-          border-radius: 8px;
-          background: rgba(37, 99, 235, 0.2);
-          border: 1px solid rgba(37, 99, 235, 0.4);
+          width: 38px;
+          height: 38px;
+          border-radius: 10px;
+          background: #2563eb;
+          color: #ffffff;
+          box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.25);
           display: flex;
           align-items: center;
           justify-content: center;
-          color: #60a5fa;
+          border: none;
           mat-icon { font-size: 20px; width: 20px; height: 20px; }
         }
 
@@ -325,13 +326,14 @@ export interface FeeReceiptDialogData {
           flex-direction: column;
           .main-title {
             font-weight: 700;
-            font-size: 0.98rem;
-            color: #ffffff;
+            font-size: 1.05rem;
+            color: #1e3a8a;
             letter-spacing: -0.01em;
           }
           .sub-title {
-            font-size: 0.72rem;
-            color: #94a3b8;
+            font-size: 0.74rem;
+            color: #3b82f6;
+            font-weight: 600;
           }
         }
       }
@@ -363,14 +365,14 @@ export interface FeeReceiptDialogData {
           }
 
           &.print-btn {
-            background: #3b82f6 !important;
+            background: #2563eb !important;
             color: #ffffff !important;
-            &:hover { background: #2563eb !important; transform: translateY(-1px); }
+            &:hover { background: #1d4ed8 !important; transform: translateY(-1px); }
           }
         }
 
         .header-close-btn {
-          color: #94a3b8 !important;
+          color: #64748b !important;
           width: 34px !important;
           height: 34px !important;
           border-radius: 6px !important;
@@ -380,8 +382,8 @@ export interface FeeReceiptDialogData {
           transition: color 0.15s ease, background 0.15s ease !important;
           mat-icon { font-size: 20px; width: 20px; height: 20px; }
           &:hover {
-            color: #ffffff !important;
-            background: rgba(255, 255, 255, 0.1) !important;
+            color: #1e293b !important;
+            background: rgba(30, 41, 59, 0.08) !important;
           }
         }
       }
@@ -623,9 +625,11 @@ export interface FeeReceiptDialogData {
         border-collapse: collapse;
 
         th {
-          background: #0f172a;
-          color: #ffffff;
-          padding: 8px 12px;
+          background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+          color: #1e3a8a;
+          border-top: 1px solid #bfdbfe;
+          border-bottom: 2px solid #bfdbfe;
+          padding: 9px 12px;
           font-size: 0.8rem;
           font-weight: 700;
           text-align: left;
@@ -872,13 +876,14 @@ export class FeeReceiptDialogComponent {
   logoFailed = false;
 
   get effectiveBranchName(): string {
-    if (this.data?.branchName) return this.data.branchName;
+    if (this.data?.receipt?.branchName) return this.data.receipt.branchName;
+    if (this.data?.branchName && this.data.branchName !== 'All Branches / Head Office') return this.data.branchName;
     const authBranch = this.authService.getCurrentBranchName();
     if (authBranch) return authBranch;
     const batch = this.data?.receipt?.batchName || '';
     const match = batch.match(/\(([^)]+)\)/);
     if (match) return match[1];
-    return '';
+    return 'Main Branch';
   }
 
   constructor(
@@ -948,7 +953,7 @@ export class FeeReceiptDialogComponent {
             .status-pill { display: inline-block; background: #e0f2fe; color: #0369a1; padding: 1px 8px; border-radius: 4px; font-size: 0.74rem; font-weight: 600; }
             .table-section { margin-bottom: 12px; }
             .receipt-table { width: 100%; border-collapse: collapse; }
-            .receipt-table th { background: #0f172a; color: #fff; padding: 8px 10px; font-size: 0.78rem; font-weight: 700; text-align: left; }
+            .receipt-table th { background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%) !important; color: #1e3a8a !important; border-top: 1px solid #bfdbfe; border-bottom: 2px solid #bfdbfe; padding: 8px 10px; font-size: 0.78rem; font-weight: 700; text-align: left; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             .receipt-table td { padding: 9px 10px; border-bottom: 1px solid #e2e8f0; font-size: 0.84rem; }
             .fee-head-title { font-size: 0.88rem; color: #0f172a; font-weight: 700; }
             .fee-head-sub { font-size: 0.75rem; color: #64748b; margin-top: 2px; }

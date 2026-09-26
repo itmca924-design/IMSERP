@@ -179,7 +179,16 @@ public class StudentsController : ControllerBase
             s.TransportAllocation != null && s.TransportAllocation.Stop != null ? s.TransportAllocation.Stop.MonthlyFare : 0,
             s.Section != null ? s.Section.ClassTeacherId : null,
             s.Section != null && s.Section.ClassTeacher != null ? s.Section.ClassTeacher.FullName : null,
-            s.Section != null && s.Section.ClassTeacher != null ? s.Section.ClassTeacher.PhoneNumber : null
+            s.Section != null && s.Section.ClassTeacher != null ? s.Section.ClassTeacher.PhoneNumber : null,
+            s.AadhaarNumber,
+            s.PenNumber,
+            s.ApaarId,
+            s.Category,
+            s.Religion,
+            s.EmergencyContactName,
+            s.EmergencyContactPhone,
+            s.PreviousSchoolName,
+            s.PreviousBoard
         )).ToListAsync();
 
         return Ok(list);
@@ -1007,7 +1016,16 @@ public class StudentsController : ControllerBase
                 s.TransportAllocation != null && s.TransportAllocation.Stop != null ? s.TransportAllocation.Stop.MonthlyFare : 0,
                 s.Section != null ? s.Section.ClassTeacherId : null,
                 s.Section != null && s.Section.ClassTeacher != null ? s.Section.ClassTeacher.FullName : null,
-                s.Section != null && s.Section.ClassTeacher != null ? s.Section.ClassTeacher.PhoneNumber : null
+                s.Section != null && s.Section.ClassTeacher != null ? s.Section.ClassTeacher.PhoneNumber : null,
+                s.AadhaarNumber,
+                s.PenNumber,
+                s.ApaarId,
+                s.Category,
+                s.Religion,
+                s.EmergencyContactName,
+                s.EmergencyContactPhone,
+                s.PreviousSchoolName,
+                s.PreviousBoard
             )).ToListAsync();
 
         return Ok(new PagedResult<StudentDto>(items, totalCount, pageNumber, pageSize));
@@ -1132,6 +1150,15 @@ public class StudentsController : ControllerBase
                 DateOfBirth = dto.DateOfBirth,
                 BloodGroup = dto.BloodGroup,
                 Address = dto.Address,
+                AadhaarNumber = dto.AadhaarNumber,
+                PenNumber = dto.PenNumber,
+                ApaarId = dto.ApaarId,
+                Category = dto.Category,
+                Religion = dto.Religion,
+                EmergencyContactName = dto.EmergencyContactName,
+                EmergencyContactPhone = dto.EmergencyContactPhone,
+                PreviousSchoolName = dto.PreviousSchoolName,
+                PreviousBoard = dto.PreviousBoard,
                 JoiningDate = DateTime.UtcNow,
                 IsActive = true
             };
@@ -1221,7 +1248,25 @@ public class StudentsController : ControllerBase
                 student.LibraryCardNumber,
                 student.LibraryMembershipType,
                 student.MaxLibraryBooks,
-                student.MonthlyLibraryFee
+                student.MonthlyLibraryFee,
+                student.IsTransportStudent,
+                student.TransportAllocationId,
+                null,
+                null,
+                null,
+                0,
+                null,
+                null,
+                null,
+                student.AadhaarNumber,
+                student.PenNumber,
+                student.ApaarId,
+                student.Category,
+                student.Religion,
+                student.EmergencyContactName,
+                student.EmergencyContactPhone,
+                student.PreviousSchoolName,
+                student.PreviousBoard
             ));
         });
     }
@@ -1310,6 +1355,15 @@ public class StudentsController : ControllerBase
         student.DateOfBirth = dto.DateOfBirth;
         student.BloodGroup = dto.BloodGroup;
         student.Address = dto.Address;
+        student.AadhaarNumber = dto.AadhaarNumber;
+        student.PenNumber = dto.PenNumber;
+        student.ApaarId = dto.ApaarId;
+        student.Category = dto.Category;
+        student.Religion = dto.Religion;
+        student.EmergencyContactName = dto.EmergencyContactName;
+        student.EmergencyContactPhone = dto.EmergencyContactPhone;
+        student.PreviousSchoolName = dto.PreviousSchoolName;
+        student.PreviousBoard = dto.PreviousBoard;
         student.ProfilePhoto = ImageStorageHelper.SaveBase64Image(dto.ProfilePhoto, "students", student.Id.ToString(), _env.ContentRootPath)
             ?? student.ProfilePhoto;
 
@@ -1386,7 +1440,25 @@ public class StudentsController : ControllerBase
             student.LibraryCardNumber,
             student.LibraryMembershipType,
             student.MaxLibraryBooks,
-            student.MonthlyLibraryFee
+            student.MonthlyLibraryFee,
+            student.IsTransportStudent,
+            student.TransportAllocationId,
+            null,
+            null,
+            null,
+            0,
+            null,
+            null,
+            null,
+            student.AadhaarNumber,
+            student.PenNumber,
+            student.ApaarId,
+            student.Category,
+            student.Religion,
+            student.EmergencyContactName,
+            student.EmergencyContactPhone,
+            student.PreviousSchoolName,
+            student.PreviousBoard
         ));
     }
 

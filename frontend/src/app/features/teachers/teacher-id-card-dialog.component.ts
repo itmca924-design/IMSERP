@@ -58,7 +58,7 @@ export interface TeacherIdCardDialogData {
   <mat-progress-bar mode="indeterminate" *ngIf="loading"></mat-progress-bar>
 
   <!-- Printable Area -->
-  <div class="id-cards-sheet print-area" *ngIf="!loading">
+  <div id="printable-staff-id-cards" class="id-cards-sheet print-area" *ngIf="!loading">
     <div class="cards-grid">
       <div class="card-pair-wrapper" *ngFor="let card of cards">
         <!-- ================= FRONT SIDE ================= -->
@@ -269,10 +269,10 @@ export interface TeacherIdCardDialogData {
       flex-wrap: wrap;
     }
 
-    /* Standard CR80 Ratio Card (Width 220px x Height 340px) */
+    /* Standard CR80 Ratio Card (Width 232px x Height 375px) */
     .id-card {
-      width: 230px;
-      height: 350px;
+      width: 232px;
+      height: 375px;
       background: #ffffff;
       border-radius: 12px;
       border: 1px solid #cbd5e1;
@@ -333,7 +333,7 @@ export interface TeacherIdCardDialogData {
     }
 
     .card-body {
-      padding: 12px 10px 6px;
+      padding: 8px 10px 4px;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -341,17 +341,17 @@ export interface TeacherIdCardDialogData {
     }
 
     .photo-container {
-      width: 72px;
-      height: 72px;
+      width: 66px;
+      height: 66px;
       border-radius: 50%;
-      border: 3px solid #2563eb;
+      border: 2.5px solid #2563eb;
       box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
       overflow: hidden;
       background: #f1f5f9;
       display: flex;
       align-items: center;
       justify-content: center;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
     }
 
     .staff-photo {
@@ -361,7 +361,7 @@ export interface TeacherIdCardDialogData {
     }
 
     .photo-placeholder {
-      font-size: 22px;
+      font-size: 20px;
       font-weight: 800;
       color: #2563eb;
     }
@@ -369,7 +369,7 @@ export interface TeacherIdCardDialogData {
     .staff-primary-info {
       text-align: center;
       width: 100%;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
     }
 
     .staff-name {
@@ -389,7 +389,7 @@ export interface TeacherIdCardDialogData {
       font-weight: 800;
       padding: 1px 6px;
       border-radius: 4px;
-      margin-top: 3px;
+      margin-top: 2px;
       letter-spacing: 0.5px;
     }
 
@@ -397,7 +397,7 @@ export interface TeacherIdCardDialogData {
       font-size: 10px;
       font-weight: 600;
       color: #475569;
-      margin-top: 3px;
+      margin-top: 2px;
     }
 
     .staff-qual {
@@ -409,10 +409,10 @@ export interface TeacherIdCardDialogData {
       width: 100%;
       background: #f8fafc;
       border-radius: 6px;
-      padding: 6px 8px;
+      padding: 5px 8px;
       display: flex;
       flex-direction: column;
-      gap: 3px;
+      gap: 2.5px;
       border: 1px solid #f1f5f9;
     }
 
@@ -437,11 +437,12 @@ export interface TeacherIdCardDialogData {
     }
 
     .card-footer {
-      padding: 6px 10px 10px;
+      padding: 6px 12px 12px;
       display: flex;
       align-items: flex-end;
       justify-content: space-between;
       margin-top: auto;
+      box-sizing: border-box;
     }
 
     .qr-mock-box {
@@ -451,9 +452,9 @@ export interface TeacherIdCardDialogData {
     }
 
     .qr-icon {
-      font-size: 32px;
-      width: 32px;
-      height: 32px;
+      font-size: 30px;
+      width: 30px;
+      height: 30px;
       color: #0f172a;
     }
 
@@ -466,19 +467,21 @@ export interface TeacherIdCardDialogData {
 
     .signature-block {
       text-align: center;
-      width: 100px;
+      width: 104px;
     }
 
     .sign-line {
       border-bottom: 1px solid #64748b;
-      height: 20px;
-      margin-bottom: 2px;
+      height: 16px;
+      margin-bottom: 3px;
     }
 
     .sign-label {
-      font-size: 8px;
+      font-size: 8.5px;
       font-weight: 700;
       color: #475569;
+      white-space: nowrap;
+      display: block;
     }
 
     /* Card Back */
@@ -629,6 +632,13 @@ export class TeacherIdCardDialogComponent implements OnInit {
   }
 
   printCards() {
+    document.body.classList.add('printing-staff-id-cards');
+    const cleanup = () => {
+      document.body.classList.remove('printing-staff-id-cards');
+      window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
     window.print();
+    setTimeout(cleanup, 2500);
   }
 }

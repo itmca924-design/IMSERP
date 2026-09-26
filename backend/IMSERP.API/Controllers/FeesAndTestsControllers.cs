@@ -42,8 +42,12 @@ public class FeesController : ControllerBase
         var query = _dbContext.FeeInvoices
             .AsNoTracking()
             .Where(i => i.TenantId == tenantId)
+            .Include(i => i.Branch)
+            .Include(i => i.Student)
+                .ThenInclude(s => s.Branch)
             .Include(i => i.Student)
                 .ThenInclude(s => s.Batch)
+                    .ThenInclude(b => b.Branch)
             .Include(i => i.Student)
                 .ThenInclude(s => s.Class)
             .Include(i => i.Student)
@@ -182,7 +186,8 @@ public class FeesController : ControllerBase
                 i.Student != null && i.Student.IsSchoolStudent,
                 i.Student != null && i.Student.IsCoachingStudent,
                 i.Student != null && i.Student.Class != null ? i.Student.Class.Name : null,
-                i.Student != null && i.Student.Section != null ? i.Student.Section.Name : null
+                i.Student != null && i.Student.Section != null ? i.Student.Section.Name : null,
+                i.Branch != null ? i.Branch.Name : (i.Student != null && i.Student.Branch != null ? i.Student.Branch.Name : (i.Student != null && i.Student.Batch != null && i.Student.Batch.Branch != null ? i.Student.Batch.Branch.Name : null))
             ))
             .ToListAsync();
 
@@ -194,10 +199,22 @@ public class FeesController : ControllerBase
     {
         var student = await _dbContext.Students
             .AsNoTracking()
+            .Include(s => s.Branch)
             .Include(s => s.Batch)
+                .ThenInclude(b => b!.Branch)
             .FirstOrDefaultAsync(s => s.Id == studentId);
 
         if (student == null) return NotFound("Student not found");
+
+        var ledgerBranchName = student.Branch?.Name ?? student.Batch?.Branch?.Name;
+        if (string.IsNullOrEmpty(ledgerBranchName))
+        {
+            var mainBr = await _dbContext.Branches.AsNoTracking()
+                .Where(b => b.TenantId == student.TenantId && b.IsActive)
+                .OrderByDescending(b => b.IsMainBranch)
+                .FirstOrDefaultAsync();
+            ledgerBranchName = mainBr?.Name;
+        }
 
         var invoices = await _dbContext.FeeInvoices
             .AsNoTracking()
@@ -267,7 +284,8 @@ public class FeesController : ControllerBase
             totalDue,
             invoiceDtos,
             paymentDtos,
-            pendingLibFine
+            pendingLibFine,
+            ledgerBranchName
         ));
     }
 
@@ -345,7 +363,9 @@ public class FeesController : ControllerBase
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
 
             var student = await _dbContext.Students
+                .Include(s => s.Branch)
                 .Include(s => s.Batch)
+                    .ThenInclude(b => b!.Branch)
                 .FirstOrDefaultAsync(s => s.Id == dto.StudentId);
 
             if (student == null) return NotFound("Student not found");
@@ -635,6 +655,16 @@ public class FeesController : ControllerBase
                 ? $"{hostelAlloc.Bed?.Room?.Hostel?.Name} - Rm {hostelAlloc.Bed?.Room?.RoomNumber} (Bed {hostelAlloc.Bed?.BedCode})"
                 : null;
 
+            string? collectBranchName = student.Branch?.Name ?? student.Batch?.Branch?.Name;
+            if (string.IsNullOrEmpty(collectBranchName))
+            {
+                var mainBr = await _dbContext.Branches.AsNoTracking()
+                    .Where(b => b.TenantId == student.TenantId && b.IsActive)
+                    .OrderByDescending(b => b.IsMainBranch)
+                    .FirstOrDefaultAsync();
+                collectBranchName = mainBr?.Name;
+            }
+
             return Ok(new FeePaymentReceiptDto(
                 lastPayment?.Id ?? (selectedCirculations.FirstOrDefault()?.Id ?? Guid.NewGuid()),
                 receiptNo,
@@ -655,7 +685,8 @@ public class FeesController : ControllerBase
                 libraryFineParticulars,
                 remainingPendingLibFine,
                 lineItems,
-                hostelInfo
+                hostelInfo,
+                collectBranchName
             ));
         });
     }
@@ -665,11 +696,18 @@ public class FeesController : ControllerBase
     {
         var payments = await _dbContext.FeePayments
             .AsNoTracking()
+            .Include(p => p.Branch)
+            .Include(p => p.Invoice)
+                .ThenInclude(i => i!.Branch)
             .Include(p => p.Invoice)
                 .ThenInclude(i => i!.Items)
             .Include(p => p.Invoice)
                 .ThenInclude(i => i!.Student)
+                    .ThenInclude(s => s!.Branch)
+            .Include(p => p.Invoice)
+                .ThenInclude(i => i!.Student)
                     .ThenInclude(s => s!.Batch)
+                        .ThenInclude(b => b!.Branch)
             .Where(p => p.ReceiptNumber == receiptNumber)
             .ToListAsync();
 
@@ -804,7 +842,8 @@ public class FeesController : ControllerBase
             totalFinePaid > 0 ? string.Join(", ", circulations.Select(c => $"{c.BookCopy?.Book?.Title} ({c.BookCopy?.AccessionNumber})")) : null,
             remainingLibFine,
             lineItems,
-            receiptHostelInfo
+            receiptHostelInfo,
+            firstPayment?.Branch?.Name ?? firstPayment?.Invoice?.Branch?.Name ?? student?.Branch?.Name ?? student?.Batch?.Branch?.Name ?? (await _dbContext.Branches.AsNoTracking().Where(b => b.TenantId == (student != null ? student.TenantId : _currentUser.TenantId) && b.IsActive).OrderByDescending(b => b.IsMainBranch).FirstOrDefaultAsync())?.Name
         ));
     }
 
@@ -813,7 +852,9 @@ public class FeesController : ControllerBase
     {
         var student = await _dbContext.Students
             .AsNoTracking()
+            .Include(s => s.Branch)
             .Include(s => s.Batch)
+                .ThenInclude(b => b!.Branch)
             .FirstOrDefaultAsync(s => s.Id == studentId);
 
         if (student == null) return NotFound("Student not found");
@@ -863,6 +904,16 @@ public class FeesController : ControllerBase
             ? $"{dueSlipHostelAlloc.Bed?.Room?.Hostel?.Name} - Rm {dueSlipHostelAlloc.Bed?.Room?.RoomNumber} (Bed {dueSlipHostelAlloc.Bed?.BedCode})"
             : null;
 
+        string? dueSlipBranch = student?.Branch?.Name ?? student?.Batch?.Branch?.Name;
+        if (string.IsNullOrEmpty(dueSlipBranch) && student != null)
+        {
+            var mainBr = await _dbContext.Branches.AsNoTracking()
+                .Where(b => b.TenantId == student.TenantId && b.IsActive)
+                .OrderByDescending(b => b.IsMainBranch)
+                .FirstOrDefaultAsync();
+            dueSlipBranch = mainBr?.Name;
+        }
+
         return Ok(new FeeDueSlipDto(
             student.Id,
             student.StudentName,
@@ -875,7 +926,8 @@ public class FeesController : ControllerBase
             items,
             pendingLibFine,
             activeOverdueCount,
-            dueSlipHostelInfo
+            dueSlipHostelInfo,
+            dueSlipBranch
         ));
     }
 

@@ -247,6 +247,16 @@ public class Student
     public string? LeavingReason { get; set; }  // TC | Transfer | Rustication | Expelled | Other
     public string? TCNumber { get; set; }
     public string? BiometricUserId { get; set; }
+    // Standard ERP & Compliance Fields (UDISE+, NEP 2020)
+    public string? AadhaarNumber { get; set; }
+    public string? PenNumber { get; set; }
+    public string? ApaarId { get; set; }
+    public string? Category { get; set; } // General | OBC | SC | ST | EWS
+    public string? Religion { get; set; }
+    public string? EmergencyContactName { get; set; }
+    public string? EmergencyContactPhone { get; set; }
+    public string? PreviousSchoolName { get; set; }
+    public string? PreviousBoard { get; set; }
 
     [ForeignKey("BranchId")]
     public Branch? Branch { get; set; }

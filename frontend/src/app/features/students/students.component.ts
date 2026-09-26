@@ -296,12 +296,26 @@ const API_BASE = 'http://localhost:5000';
               </mat-select>
             </mat-form-field>
 
-            <mat-form-field appearance="outline">
-              <mat-label>Date of Birth</mat-label>
-              <input matInput type="date" formControlName="dateOfBirth"
-                min="1900-01-01"
-                max="2099-12-31" />
-            </mat-form-field>
+            <div class="dob-col-wrap">
+              <mat-form-field appearance="outline" class="full-width-field">
+                <mat-label>Date of Birth</mat-label>
+                <input matInput type="date" formControlName="dateOfBirth"
+                  min="1900-01-01"
+                  max="2099-12-31" />
+              </mat-form-field>
+              <!-- Live Auto-Age Badge & NEP 2020 Advisory -->
+              <div class="age-advisory-pill-wrap" *ngIf="getNepAgeAdvisory() as advisory">
+                <span class="age-pill" [ngClass]="'age-pill-' + advisory.type" [matTooltip]="advisory.message">
+                  <mat-icon *ngIf="advisory.type === 'success'">check_circle</mat-icon>
+                  <mat-icon *ngIf="advisory.type === 'warning'">warning</mat-icon>
+                  <mat-icon *ngIf="advisory.type === 'info'">info</mat-icon>
+                  <span>{{ advisory.badge }}</span>
+                </span>
+                <span class="nep-advisory-note" *ngIf="advisory.type === 'warning'">
+                  {{ advisory.message }}
+                </span>
+              </div>
+            </div>
 
             <mat-form-field appearance="outline">
               <mat-label>Blood Group</mat-label>
@@ -416,6 +430,95 @@ const API_BASE = 'http://localhost:5000';
                 <input matInput formControlName="address" placeholder="e.g. Flat 302, Green Park Apartments, New Delhi" />
               </mat-form-field>
             </div>
+
+            <!-- Government Compliance & Student Identifiers (UDISE+ / NEP 2020) -->
+            <div class="section-divider-box full-span compliance-sect">
+              <mat-icon>verified_user</mat-icon>
+              <span>Government Compliance &amp; Student Identifiers (UDISE+ / NEP)</span>
+            </div>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Social Category / Quota</mat-label>
+              <mat-select formControlName="category">
+                <mat-option value="General">General</mat-option>
+                <mat-option value="OBC">OBC (Other Backward Class)</mat-option>
+                <mat-option value="SC">SC (Scheduled Caste)</mat-option>
+                <mat-option value="ST">ST (Scheduled Tribe)</mat-option>
+                <mat-option value="EWS">EWS / RTE (25% Quota)</mat-option>
+              </mat-select>
+              <mat-hint>RTE / Govt scholarship &amp; fee category</mat-hint>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>UDISE+ PEN (Permanent Education No)</mat-label>
+              <input matInput formControlName="penNumber" placeholder="e.g. 11-digit Central PEN" maxlength="20" />
+              <mat-icon matSuffix color="primary">badge</mat-icon>
+              <mat-hint>Central Govt UDISE+ Student ID</mat-hint>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>APAAR ID (One Nation One Student ID)</mat-label>
+              <input matInput formControlName="apaarId" placeholder="e.g. 12-digit APAAR ID" maxlength="20" />
+              <mat-icon matSuffix color="primary">fingerprint</mat-icon>
+              <mat-hint>Ministry of Education APAAR ID</mat-hint>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Student Aadhaar Number</mat-label>
+              <input matInput formControlName="aadhaarNumber" placeholder="XXXX-XXXX-XXXX" maxlength="16" />
+              <mat-icon matSuffix color="primary">credit_card</mat-icon>
+              <mat-hint>Optional / Required for Govt benefits</mat-hint>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Religion</mat-label>
+              <mat-select formControlName="religion">
+                <mat-option value="">Not Specified</mat-option>
+                <mat-option value="Hindu">Hindu</mat-option>
+                <mat-option value="Muslim">Muslim</mat-option>
+                <mat-option value="Christian">Christian</mat-option>
+                <mat-option value="Sikh">Sikh</mat-option>
+                <mat-option value="Jain">Jain</mat-option>
+                <mat-option value="Buddhist">Buddhist</mat-option>
+                <mat-option value="Other">Other</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <!-- Previous School & Emergency Contacts -->
+            <div class="section-divider-box full-span history-sect">
+              <mat-icon>history_edu</mat-icon>
+              <span>Previous Academic History &amp; Emergency Contact</span>
+            </div>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Previous School Name (If Transfer)</mat-label>
+              <input matInput formControlName="previousSchoolName" placeholder="e.g. St. Xavier High School" />
+              <mat-icon matSuffix style="color:#64748b">school</mat-icon>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Previous Board / Affiliation</mat-label>
+              <mat-select formControlName="previousBoard">
+                <mat-option value="">None / Fresh Admission</mat-option>
+                <mat-option value="CBSE">CBSE</mat-option>
+                <mat-option value="ICSE">ICSE / ISC</mat-option>
+                <mat-option value="State Board">State Board</mat-option>
+                <mat-option value="IB / Cambridge">IB / Cambridge</mat-option>
+                <mat-option value="Other">Other</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Emergency Contact Person</mat-label>
+              <input matInput formControlName="emergencyContactName" placeholder="e.g. Uncle, Grandparent, Doctor" />
+              <mat-icon matSuffix style="color:#64748b">contact_emergency</mat-icon>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Emergency Contact Phone</mat-label>
+              <input matInput type="tel" formControlName="emergencyContactPhone" placeholder="10-digit mobile number" maxlength="15" />
+              <mat-icon matSuffix style="color:#64748b">phone</mat-icon>
+            </mat-form-field>
 
             <div class="form-actions full-span">
               <button mat-button type="button" (click)="toggleForm()" [disabled]="saving">Cancel</button>
@@ -1038,6 +1141,68 @@ const API_BASE = 'http://localhost:5000';
         color: #0f766e;
         border-left: 4px solid #14b8a6;
       }
+      &.compliance-sect {
+        background: #eff6ff;
+        color: #1e40af;
+        border-left: 4px solid #2563eb;
+      }
+      &.history-sect {
+        background: #fdf2f8;
+        color: #9d174d;
+        border-left: 4px solid #db2777;
+      }
+    }
+
+    /* Live Auto-Age & NEP Advisory Badge */
+    .dob-col-wrap {
+      display: flex;
+      flex-direction: column;
+    }
+    .age-advisory-pill-wrap {
+      margin-top: -12px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .age-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 0.76rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+
+      mat-icon {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
+      }
+
+      &.age-pill-success {
+        background: #ecfdf5;
+        color: #065f46;
+        border: 1px solid #a7f3d0;
+      }
+      &.age-pill-warning {
+        background: #fffbeb;
+        color: #92400e;
+        border: 1px solid #fde68a;
+      }
+      &.age-pill-info {
+        background: #eff6ff;
+        color: #1e40af;
+        border: 1px solid #bfdbfe;
+      }
+    }
+    .nep-advisory-note {
+      font-size: 0.74rem;
+      color: #b45309;
+      font-weight: 500;
+      line-height: 1.25;
     }
 
     .form-actions {
@@ -1685,7 +1850,16 @@ export class StudentsComponent implements OnInit, OnDestroy {
       bloodGroup: [''],
       parentName: ['', Validators.required],
       parentWhatsAppPhone: [''],
-      address: ['']
+      address: [''],
+      aadhaarNumber: [''],
+      penNumber: [''],
+      apaarId: [''],
+      category: ['General'],
+      religion: [''],
+      emergencyContactName: [''],
+      emergencyContactPhone: [''],
+      previousSchoolName: [''],
+      previousBoard: ['']
     });
   }
 
@@ -2341,7 +2515,16 @@ export class StudentsComponent implements OnInit, OnDestroy {
       bloodGroup: student.bloodGroup || '',
       parentName: student.parentName,
       parentWhatsAppPhone: formattedPhone,
-      address: student.address || ''
+      address: student.address || '',
+      aadhaarNumber: student.aadhaarNumber || '',
+      penNumber: student.penNumber || '',
+      apaarId: student.apaarId || '',
+      category: student.category || 'General',
+      religion: student.religion || '',
+      emergencyContactName: student.emergencyContactName || '',
+      emergencyContactPhone: student.emergencyContactPhone || '',
+      previousSchoolName: student.previousSchoolName || '',
+      previousBoard: student.previousBoard || ''
     });
 
     this.onStreamCheckChanged();
@@ -2416,6 +2599,113 @@ export class StudentsComponent implements OnInit, OnDestroy {
     }
   }
 
+  getCalculatedAge(): { years: number; months: number; displayText: string } | null {
+    const dobVal = this.studentForm.get('dateOfBirth')?.value;
+    if (!dobVal) return null;
+    const birthDate = new Date(dobVal);
+    if (isNaN(birthDate.getTime())) return null;
+
+    const today = new Date();
+    let years = today.getFullYear() - birthDate.getFullYear();
+    let months = today.getMonth() - birthDate.getMonth();
+    if (today.getDate() < birthDate.getDate()) {
+      months--;
+    }
+    if (months < 0) {
+      years--;
+      months += 12;
+    }
+    if (years < 0) return null;
+
+    let displayText = '';
+    if (years === 0) {
+      displayText = `${months} Month${months !== 1 ? 's' : ''}`;
+    } else if (months === 0) {
+      displayText = `${years} Yr${years !== 1 ? 's' : ''}`;
+    } else {
+      displayText = `${years} Yrs ${months} Mos`;
+    }
+
+    return { years, months, displayText };
+  }
+
+  getNepAgeAdvisory(): { type: 'success' | 'warning' | 'info'; message: string; badge: string } | null {
+    const age = this.getCalculatedAge();
+    if (!age) return null;
+
+    const classId = this.studentForm.get('classId')?.value;
+    const isSchool = this.studentForm.get('isSchoolStudent')?.value;
+    if (!isSchool || !classId) {
+      return {
+        type: 'info',
+        badge: `Age: ${age.displayText}`,
+        message: `Calculated age: ${age.displayText}`
+      };
+    }
+
+    const selectedClass = this.schoolClasses.find(c => c.id === classId);
+    if (!selectedClass) {
+      return {
+        type: 'info',
+        badge: `Age: ${age.displayText}`,
+        message: `Calculated age: ${age.displayText}`
+      };
+    }
+
+    const name = (selectedClass.name || '').toLowerCase();
+    let minAge = 0;
+    let maxTypicalAge = 0;
+
+    if (name.includes('nursery') || name.includes('pre-kg') || name.includes('play')) {
+      minAge = 3; maxTypicalAge = 4;
+    } else if (name.includes('lkg') || name.includes('kg-1') || name.includes('kg 1') || name.includes('lower kg')) {
+      minAge = 4; maxTypicalAge = 5;
+    } else if (name.includes('ukg') || name.includes('kg-2') || name.includes('kg 2') || name.includes('upper kg') || name.includes('prep')) {
+      minAge = 5; maxTypicalAge = 6;
+    } else if (name.includes('10') || (name.includes('x') && !name.includes('xi') && !name.includes('xii'))) {
+      minAge = 15; maxTypicalAge = 16;
+    } else if (name.includes('11') || name.includes('xi')) {
+      minAge = 16; maxTypicalAge = 17;
+    } else if (name.includes('12') || name.includes('xii')) {
+      minAge = 17; maxTypicalAge = 18;
+    } else {
+      const match = name.match(/\b([1-9])\b/);
+      if (match) {
+        const gradeNum = parseInt(match[1], 10);
+        minAge = 5 + gradeNum;
+        maxTypicalAge = minAge + 1;
+      }
+    }
+
+    if (minAge > 0) {
+      if (age.years < minAge) {
+        return {
+          type: 'warning',
+          badge: `Age: ${age.displayText} • NEP Advisory ⚠️`,
+          message: `NEP 2020 guideline recommends min ${minAge} yrs for ${selectedClass.name} (Student is ${age.displayText}). Non-blocking: Allowed with school discretion.`
+        };
+      } else if (age.years > maxTypicalAge + 1) {
+        return {
+          type: 'info',
+          badge: `Age: ${age.displayText} • Verified ✓`,
+          message: `Student age is ${age.displayText} (Typical age for ${selectedClass.name} is ${minAge}-${maxTypicalAge} yrs).`
+        };
+      } else {
+        return {
+          type: 'success',
+          badge: `Age: ${age.displayText} • NEP Compliant ✓`,
+          message: `Compliant with NEP 2020 age criteria for ${selectedClass.name} (Min ${minAge} yrs).`
+        };
+      }
+    }
+
+    return {
+      type: 'info',
+      badge: `Age: ${age.displayText}`,
+      message: `Calculated age: ${age.displayText}`
+    };
+  }
+
   onSubmitStudent(): void {
     if (this.studentForm.invalid) return;
     const formVal = this.studentForm.value;
@@ -2441,6 +2731,15 @@ export class StudentsComponent implements OnInit, OnDestroy {
       classId: formVal.isSchoolStudent && formVal.classId ? formVal.classId : null,
       sectionId: formVal.isSchoolStudent && formVal.sectionId ? formVal.sectionId : null,
       parentWhatsAppPhone: cleanPhone,
+      aadhaarNumber: formVal.aadhaarNumber ? formVal.aadhaarNumber.trim() : null,
+      penNumber: formVal.penNumber ? formVal.penNumber.trim() : null,
+      apaarId: formVal.apaarId ? formVal.apaarId.trim() : null,
+      category: formVal.category || 'General',
+      religion: formVal.religion || null,
+      emergencyContactName: formVal.emergencyContactName ? formVal.emergencyContactName.trim() : null,
+      emergencyContactPhone: formVal.emergencyContactPhone ? formVal.emergencyContactPhone.trim() : null,
+      previousSchoolName: formVal.previousSchoolName ? formVal.previousSchoolName.trim() : null,
+      previousBoard: formVal.previousBoard || null,
       profilePhoto: this.selectedPhotoData
         ?? (this.isEditMode && this.selectedStudent?.profilePhoto ? this.selectedStudent.profilePhoto : null)
     };

@@ -190,23 +190,33 @@ import ApexCharts from 'apexcharts';
                   <p class="chart-subtitle">6-Month database comparison: Billed Tuition Fees vs Collected Payments (₹)</p>
                 </div>
               </div>
-              <div class="chart-legend-pills">
-                <span class="pill pill-billed"
-                      [matTooltip]="billedTooltip()"
-                      matTooltipClass="multiline-tooltip"
-                      matTooltipPosition="below">
-                  <span class="legend-dot dot-billed"></span>
-                  <span>Billed: ₹{{ totalBilled() | number:'1.0-0' }}</span>
-                  <mat-icon class="pill-info-icon">info</mat-icon>
-                </span>
-                <span class="pill pill-collected"
-                      [matTooltip]="collectedTooltip()"
-                      matTooltipClass="multiline-tooltip"
-                      matTooltipPosition="below">
-                  <span class="legend-dot dot-collected"></span>
-                  <span>Collected: ₹{{ totalCollected() | number:'1.0-0' }}</span>
-                  <mat-icon class="pill-info-icon">info</mat-icon>
-                </span>
+              <div class="chart-header-actions">
+                <div class="chart-type-toggle">
+                  <button type="button" class="type-btn" [class.active]="revenueChartType === 'area'" (click)="toggleRevenueChartType('area')">
+                    <mat-icon>show_chart</mat-icon> Wave
+                  </button>
+                  <button type="button" class="type-btn" [class.active]="revenueChartType === 'bar'" (click)="toggleRevenueChartType('bar')">
+                    <mat-icon>bar_chart</mat-icon> Bars
+                  </button>
+                </div>
+                <div class="chart-legend-pills">
+                  <span class="pill pill-billed"
+                        [matTooltip]="billedTooltip()"
+                        matTooltipClass="multiline-tooltip"
+                        matTooltipPosition="below">
+                    <span class="legend-dot dot-billed"></span>
+                    <span>Billed: ₹{{ totalBilled() | number:'1.0-0' }}</span>
+                    <mat-icon class="pill-info-icon">info</mat-icon>
+                  </span>
+                  <span class="pill pill-collected"
+                        [matTooltip]="collectedTooltip()"
+                        matTooltipClass="multiline-tooltip"
+                        matTooltipPosition="below">
+                    <span class="legend-dot dot-collected"></span>
+                    <span>Collected: ₹{{ totalCollected() | number:'1.0-0' }}</span>
+                    <mat-icon class="pill-info-icon">info</mat-icon>
+                  </span>
+                </div>
               </div>
             </div>
             <mat-card-content class="chart-canvas-box">
@@ -708,6 +718,50 @@ import ApexCharts from 'apexcharts';
       }
     }
 
+    .chart-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .chart-type-toggle {
+      display: inline-flex;
+      align-items: center;
+      background: #f1f5f9;
+      padding: 2px;
+      border-radius: 8px;
+      gap: 2px;
+      border: 1px solid #e2e8f0;
+
+      .type-btn {
+        border: none;
+        background: transparent;
+        color: #64748b;
+        font-size: 11px;
+        font-weight: 600;
+        padding: 4px 8px;
+        border-radius: 6px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        transition: all 0.15s ease;
+
+        mat-icon {
+          font-size: 14px;
+          width: 14px;
+          height: 14px;
+        }
+
+        &.active {
+          background: #ffffff;
+          color: #2563eb;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+        }
+      }
+    }
+
     .chart-legend-pills {
       display: flex;
       align-items: center;
@@ -1157,6 +1211,7 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   feeColumns = ['studentName', 'invoiceNumber', 'dueAmount', 'dueDate', 'actions'];
   testColumns = ['title', 'batchName', 'maxMarks', 'marksEnteredCount', 'testDate'];
   batchViewFilter: 'top10' | 'active' | 'all' = 'top10';
+  revenueChartType: 'area' | 'bar' = 'area';
 
   @ViewChild('revenueChart') revenueChartRef?: ElementRef<HTMLDivElement>;
   @ViewChild('feeBreakdownChart') feeBreakdownChartRef?: ElementRef<HTMLDivElement>;
@@ -1243,6 +1298,21 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  toggleRevenueChartType(type: 'area' | 'bar'): void {
+    if (this.revenueChartType === type) return;
+    this.revenueChartType = type;
+    const s = this.summary();
+    if (s) {
+      if (this.revenueChart) {
+        this.revenueChart.destroy();
+        this.revenueChart = undefined;
+      }
+      this.ngZone.runOutsideAngular(() => {
+        this.renderRevenueChart(s);
+      });
+    }
+  }
+
   private renderRevenueChart(s: any): void {
     if (!this.revenueChartRef?.nativeElement) return;
 
@@ -1251,56 +1321,121 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     const billedData = trends.map(t => t.billedAmount);
     const collectedData = trends.map(t => t.collectedAmount);
 
-    const options: any = {
-      series: [
-        { name: 'Fees Billed', data: billedData },
-        { name: 'Fees Collected', data: collectedData }
-      ],
-      chart: {
-        type: 'bar',
-        height: 250,
-        toolbar: { show: false },
-        fontFamily: 'Inter, system-ui, sans-serif'
-      },
-      colors: ['#6366f1', '#10b981'],
-      plotOptions: {
-        bar: {
-          horizontal: false,
-          columnWidth: '46%',
-          borderRadius: 6,
-          borderRadiusApplication: 'end'
-        }
-      },
-      dataLabels: { enabled: false },
-      stroke: { show: true, width: 3, colors: ['transparent'] },
-      xaxis: {
-        categories: labels,
-        axisBorder: { show: false },
-        axisTicks: { show: false },
-        labels: {
-          style: { colors: '#64748b', fontSize: '12px', fontWeight: 600 }
-        }
-      },
-      yaxis: {
-        labels: {
-          style: { colors: '#64748b', fontSize: '11px' },
-          formatter: (val: number) => '₹' + Number(val || 0).toLocaleString('en-IN')
-        }
-      },
-      grid: {
-        borderColor: '#f1f5f9',
-        strokeDashArray: 4,
-        padding: { top: 0, right: 10, bottom: 0, left: 10 }
-      },
-      fill: { opacity: 1 },
-      tooltip: {
-        theme: 'dark',
-        y: {
-          formatter: (val: number) => '₹' + Number(val || 0).toLocaleString('en-IN')
-        }
-      },
-      legend: { show: false }
-    };
+    let options: any;
+
+    if (this.revenueChartType === 'area') {
+      options = {
+        series: [
+          { name: 'Fees Billed', data: billedData },
+          { name: 'Fees Collected', data: collectedData }
+        ],
+        chart: {
+          type: 'area',
+          height: 250,
+          toolbar: { show: false },
+          zoom: { enabled: false },
+          fontFamily: 'Inter, system-ui, sans-serif'
+        },
+        colors: ['#6366f1', '#10b981'],
+        stroke: {
+          curve: 'smooth',
+          width: [3, 3]
+        },
+        fill: {
+          type: 'gradient',
+          gradient: {
+            shadeIntensity: 1,
+            opacityFrom: 0.45,
+            opacityTo: 0.04,
+            stops: [0, 90, 100]
+          }
+        },
+        markers: {
+          size: 4,
+          strokeColors: '#ffffff',
+          strokeWidth: 2,
+          hover: { size: 6 }
+        },
+        dataLabels: { enabled: false },
+        xaxis: {
+          categories: labels,
+          axisBorder: { show: false },
+          axisTicks: { show: false },
+          labels: {
+            style: { colors: '#64748b', fontSize: '12px', fontWeight: 600 }
+          }
+        },
+        yaxis: {
+          labels: {
+            style: { colors: '#64748b', fontSize: '11px' },
+            formatter: (val: number) => '₹' + Number(val || 0).toLocaleString('en-IN')
+          }
+        },
+        grid: {
+          borderColor: '#f1f5f9',
+          strokeDashArray: 4,
+          padding: { top: 0, right: 10, bottom: 0, left: 10 }
+        },
+        tooltip: {
+          theme: 'dark',
+          y: {
+            formatter: (val: number) => '₹' + Number(val || 0).toLocaleString('en-IN')
+          }
+        },
+        legend: { show: false }
+      };
+    } else {
+      options = {
+        series: [
+          { name: 'Fees Billed', data: billedData },
+          { name: 'Fees Collected', data: collectedData }
+        ],
+        chart: {
+          type: 'bar',
+          height: 250,
+          toolbar: { show: false },
+          fontFamily: 'Inter, system-ui, sans-serif'
+        },
+        colors: ['#6366f1', '#10b981'],
+        plotOptions: {
+          bar: {
+            horizontal: false,
+            columnWidth: '46%',
+            borderRadius: 6,
+            borderRadiusApplication: 'end'
+          }
+        },
+        dataLabels: { enabled: false },
+        stroke: { show: true, width: 3, colors: ['transparent'] },
+        xaxis: {
+          categories: labels,
+          axisBorder: { show: false },
+          axisTicks: { show: false },
+          labels: {
+            style: { colors: '#64748b', fontSize: '12px', fontWeight: 600 }
+          }
+        },
+        yaxis: {
+          labels: {
+            style: { colors: '#64748b', fontSize: '11px' },
+            formatter: (val: number) => '₹' + Number(val || 0).toLocaleString('en-IN')
+          }
+        },
+        grid: {
+          borderColor: '#f1f5f9',
+          strokeDashArray: 4,
+          padding: { top: 0, right: 10, bottom: 0, left: 10 }
+        },
+        fill: { opacity: 1 },
+        tooltip: {
+          theme: 'dark',
+          y: {
+            formatter: (val: number) => '₹' + Number(val || 0).toLocaleString('en-IN')
+          }
+        },
+        legend: { show: false }
+      };
+    }
 
     this.revenueChart = new ApexCharts(this.revenueChartRef.nativeElement, options);
     this.revenueChart.render();
@@ -1326,14 +1461,17 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
       colors: colors,
       chart: {
         type: 'donut',
-        height: 180,
+        height: 195,
         fontFamily: 'Inter, system-ui, sans-serif'
       },
-      stroke: { width: 2, colors: ['#ffffff'] },
+      stroke: { width: 3, colors: ['#ffffff'] },
       dataLabels: { enabled: false },
       legend: { show: false },
       plotOptions: {
         pie: {
+          startAngle: -90,
+          endAngle: 90,
+          offsetY: 10,
           donut: {
             size: '76%',
             labels: {
@@ -1343,19 +1481,19 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
                 fontSize: '11px',
                 fontWeight: 600,
                 color: '#64748b',
-                offsetY: -3
+                offsetY: -18
               },
               value: {
                 show: true,
-                fontSize: '17px',
+                fontSize: '22px',
                 fontWeight: 800,
                 color: '#0f172a',
-                offsetY: 4,
+                offsetY: -8,
                 formatter: () => `${recoveryPct}%`
               },
               total: {
                 show: true,
-                label: 'Recovery',
+                label: 'Recovery Rate',
                 fontSize: '11px',
                 fontWeight: 600,
                 color: '#64748b',

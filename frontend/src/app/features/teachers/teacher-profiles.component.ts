@@ -32,16 +32,16 @@ import { AuthService } from '../../core/services/auth.service';
   template: `
 <div class="page-container">
   <div class="page-header">
-    <div>
+    <div class="header-titles">
       <h1 class="page-title"><mat-icon>groups</mat-icon> Staff &amp; Faculty Profiles</h1>
       <p class="page-subtitle">Manage complete faculty and administrative staff directory — add, update, and monitor credentials.</p>
     </div>
-    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+    <div class="header-actions-row">
       <button mat-stroked-button color="primary" (click)="openBulkIdCards()" *ngIf="!showForm && canManageStaff">
         <mat-icon>badge</mat-icon> Staff ID Cards
       </button>
       <a mat-stroked-button color="warn" [routerLink]="['/teachers/fnf']" *ngIf="!showForm && canManageStaff">
-        <mat-icon>exit_to_app</mat-icon> Exit & FNF
+        <mat-icon>exit_to_app</mat-icon> Exit &amp; FNF
       </a>
       <button mat-raised-button color="primary" (click)="openAddForm()" *ngIf="!showForm && canManageStaff">
         <mat-icon>person_add</mat-icon> Add Staff / Teacher
@@ -525,7 +525,25 @@ import { AuthService } from '../../core/services/auth.service';
   `,
   styles: [`
     .page-container { display:flex; flex-direction:column; gap:20px; }
-    .page-header { display:flex; justify-content:space-between; align-items:center; }
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: nowrap;
+    }
+    .header-titles {
+      flex: 1;
+      min-width: 0;
+    }
+    .header-actions-row {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+      white-space: nowrap;
+      flex-wrap: nowrap;
+    }
     .page-title { font-size:1.5rem; font-weight:700; margin:0; color:#1976d2; display:flex; align-items:center; gap:8px;
       mat-icon { font-size:1.5rem; width:1.5rem; height:1.5rem; } }
     .page-subtitle { color:#666; margin:4px 0 0; font-size:.9rem; }

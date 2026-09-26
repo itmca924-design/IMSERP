@@ -151,6 +151,22 @@ public record CreateTenantDto(
     int MaxBranchesLimit = 2
 );
 
+public record RegisterTrialTenantDto(
+    string Name,
+    string Code,
+    string? ContactPhone,
+    string? Address,
+    string AdminFullName,
+    string AdminUsername,
+    string AdminPassword,
+    bool HasSchoolModule = true,
+    bool HasCoachingModule = true,
+    bool HasHostelModule = false,
+    bool HasLibraryModule = false,
+    bool HasTransportModule = false,
+    bool SeedSampleDemoData = true
+);
+
 public record UpdateTenantDto(
     string Name,
     string? ContactPhone,
@@ -357,7 +373,17 @@ public record StudentDto(
     // School Class Teacher
     Guid? ClassTeacherId = null,
     string? ClassTeacherName = null,
-    string? ClassTeacherPhone = null
+    string? ClassTeacherPhone = null,
+    // Compliance & Standard Identifiers
+    string? AadhaarNumber = null,
+    string? PenNumber = null,
+    string? ApaarId = null,
+    string? Category = null,
+    string? Religion = null,
+    string? EmergencyContactName = null,
+    string? EmergencyContactPhone = null,
+    string? PreviousSchoolName = null,
+    string? PreviousBoard = null
 );
 
 public record StudentLeavingClearanceDto(
@@ -445,7 +471,17 @@ public record CreateStudentDto(
     int MaxLibraryBooks = 2,
     decimal MonthlyLibraryFee = 0,
     bool IsTransportStudent = false,
-    Guid? TransportAllocationId = null
+    Guid? TransportAllocationId = null,
+    // Compliance & Standard Identifiers
+    string? AadhaarNumber = null,
+    string? PenNumber = null,
+    string? ApaarId = null,
+    string? Category = null,
+    string? Religion = null,
+    string? EmergencyContactName = null,
+    string? EmergencyContactPhone = null,
+    string? PreviousSchoolName = null,
+    string? PreviousBoard = null
 );
 
 public record StudentAttendanceDto(
@@ -640,7 +676,8 @@ public record FeePaymentReceiptDto(
     string? LibraryFineParticulars = null,
     decimal PendingLibraryFine = 0,
     List<FeeReceiptLineItemDto>? Items = null,
-    string? HostelInfo = null
+    string? HostelInfo = null,
+    string? BranchName = null
 );
 
 public record StudentPendingFineItemDto(
@@ -694,7 +731,8 @@ public record FeeDueSlipDto(
     List<FeeDueSlipItemDto> DueItems,
     decimal PendingLibraryFine = 0,
     int ActiveOverdueBooksCount = 0,
-    string? HostelInfo = null
+    string? HostelInfo = null,
+    string? BranchName = null
 );
 
 public record TestDto(
@@ -980,7 +1018,8 @@ public record FeeInvoicePagedItemDto(
     bool IsSchoolStudent = false,
     bool IsCoachingStudent = true,
     string? CurrentClassName = null,
-    string? CurrentSectionName = null
+    string? CurrentSectionName = null,
+    string? BranchName = null
 );
 
 public record StudentLedgerInvoiceItemDto(
@@ -1021,7 +1060,8 @@ public record StudentLedgerDto(
     decimal TotalOutstandingDue,
     List<StudentLedgerInvoiceItemDto> Invoices,
     List<StudentLedgerPaymentItemDto> Payments,
-    decimal PendingLibraryFine = 0
+    decimal PendingLibraryFine = 0,
+    string? BranchName = null
 );
 
 public record FeeItemPaymentDto(

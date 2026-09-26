@@ -44,6 +44,22 @@ export interface LoginResponse {
   isSubscriptionExpired?: boolean;
 }
 
+export interface RegisterTrialTenantDto {
+  name: string;
+  code: string;
+  contactPhone?: string | null;
+  address?: string | null;
+  adminFullName: string;
+  adminUsername: string;
+  adminPassword: string;
+  hasSchoolModule: boolean;
+  hasCoachingModule: boolean;
+  hasHostelModule: boolean;
+  hasLibraryModule: boolean;
+  hasTransportModule: boolean;
+  seedSampleDemoData: boolean;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -202,6 +218,18 @@ export class AuthService {
     return this.http.post<LoginResponse>(`${this.API_URL}/refresh-token`, { token, refreshToken }).pipe(
       tap(res => {
         this.saveAuthData(res, rememberMe);
+      })
+    );
+  }
+
+  checkTenantCodeAvailability(code: string): Observable<{ available: boolean; message: string }> {
+    return this.http.get<{ available: boolean; message: string }>(`${this.API_URL}/check-tenant-code/${encodeURIComponent(code)}`);
+  }
+
+  registerTrialTenant(dto: RegisterTrialTenantDto): Observable<LoginResponse> {
+    return this.http.post<LoginResponse>(`${this.API_URL}/register-trial`, dto).pipe(
+      tap(res => {
+        this.saveAuthData(res, true);
       })
     );
   }
@@ -402,10 +430,14 @@ export class AuthService {
     if (user?.branchName) {
       return user.branchName;
     }
-    if (user?.branches && user.branches.length === 1) {
+    if (user?.branches && user.branches.length > 0) {
+      const main = user.branches.find(x => x.isMainBranch);
+      if (main) return main.name;
       return user.branches[0].name;
     }
-    return '';
+    const storedBranch = sessionStorage.getItem('branchName') || localStorage.getItem('branchName');
+    if (storedBranch) return storedBranch;
+    return 'Main Branch';
   }
 
   updateBranches(branches: BranchInfo[]): void {

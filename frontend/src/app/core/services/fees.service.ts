@@ -111,6 +111,7 @@ export interface FeeInvoicePagedItem {
   currentSectionName?: string | null;
   isSchoolStudent?: boolean;
   isCoachingStudent?: boolean;
+  branchName?: string;
 }
 
 export interface StudentLedgerInvoiceItem {
@@ -152,6 +153,7 @@ export interface StudentLedger {
   invoices: StudentLedgerInvoiceItem[];
   payments: StudentLedgerPaymentItem[];
   pendingLibraryFine?: number;
+  branchName?: string;
 }
 
 export interface PagedResult<T> {
@@ -236,6 +238,7 @@ export interface FeePaymentReceipt {
   pendingLibraryFine?: number;
   items?: FeeReceiptLineItem[];
   hostelInfo?: string;
+  branchName?: string;
 }
 
 export interface StudentPendingFineItem {
@@ -280,6 +283,7 @@ export interface FeeDueSlip {
   pendingLibraryFine?: number;
   activeOverdueBooksCount?: number;
   hostelInfo?: string;
+  branchName?: string;
 }
 
 @Injectable({
