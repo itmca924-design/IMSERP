@@ -144,6 +144,18 @@ export class AuthService {
   /** Accountant / Cashier role */
   readonly isAccountant = computed(() => this.currentUser()?.role === 'Accountant');
 
+  /** Student role (student self-service login) */
+  readonly isStudent = computed(() => this.currentUser()?.role === 'Student');
+
+  /** Parent role (guardian login) */
+  readonly isParent = computed(() => this.currentUser()?.role === 'Parent');
+
+  /** Student or Parent role */
+  readonly isStudentOrParent = computed(() => {
+    const r = this.currentUser()?.role;
+    return r === 'Student' || r === 'Parent';
+  });
+
   /**
    * Can this user manage staff records?
    * Admin and HR both have full teacher-module access.

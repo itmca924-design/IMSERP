@@ -14,6 +14,7 @@ import { MatDividerModule } from '@angular/material/divider';
 import { MatTabsModule } from '@angular/material/tabs';
 import { ActivatedRoute } from '@angular/router';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
+import { AuthService } from '../../core/services/auth.service';
 
 const API_BASE = 'http://localhost:5000/api';
 
@@ -87,6 +88,8 @@ export interface StudentItem {
   rollNumber?: string;
   className?: string;
   sectionName?: string;
+  parentName?: string;
+  parentPhone?: string;
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -302,15 +305,28 @@ export class VisitorCheckInDialogComponent {
       </div>
 
       <div class="fd-dialog-body">
-        <mat-form-field appearance="outline" class="fd-field-full">
-          <mat-label>Select Student *</mat-label>
-          <mat-select [(ngModel)]="form.studentId" required>
-            <mat-option *ngFor="let s of data.students" [value]="s.id">
-              {{s.studentName}} — {{s.className}} {{s.sectionName}} | Roll: {{s.rollNumber || 'N/A'}}
-            </mat-option>
-          </mat-select>
-          <mat-icon matPrefix>school</mat-icon>
-        </mat-form-field>
+        <div class="fd-form-row">
+          <mat-form-field appearance="outline" class="fd-field">
+            <mat-label>Select Class</mat-label>
+            <mat-select [(ngModel)]="selectedClass" (selectionChange)="onClassChange()">
+              <mat-option value="">-- All Classes --</mat-option>
+              <mat-option *ngFor="let c of classList" [value]="c">
+                {{c}}
+              </mat-option>
+            </mat-select>
+            <mat-icon matPrefix>domain</mat-icon>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="fd-field">
+            <mat-label>Select Student *</mat-label>
+            <mat-select [(ngModel)]="form.studentId" required (selectionChange)="onStudentChange()">
+              <mat-option *ngFor="let s of filteredStudents" [value]="s.id">
+                {{s.studentName}} <span *ngIf="s.rollNumber">(Roll: {{s.rollNumber}})</span>
+              </mat-option>
+            </mat-select>
+            <mat-icon matPrefix>school</mat-icon>
+          </mat-form-field>
+        </div>
 
         <div class="fd-form-row">
           <mat-form-field appearance="outline" class="fd-field">
@@ -401,9 +417,12 @@ export class VisitorCheckInDialogComponent {
     mat-form-field { margin-bottom: 8px; }
   `]
 })
-export class GatePassDialogComponent {
+export class GatePassDialogComponent implements OnInit {
   saving = false;
   reasonCategories = ['Medical Emergency', 'Family Emergency', 'Early Pickup', 'Event', 'Other'];
+  selectedClass = '';
+  classList: string[] = [];
+  filteredStudents: StudentItem[] = [];
 
   form: any = {
     studentId: null,
@@ -422,6 +441,41 @@ export class GatePassDialogComponent {
     @Inject(MAT_DIALOG_DATA) public data: { students: StudentItem[] },
     private http: HttpClient
   ) {}
+
+  ngOnInit() {
+    this.extractClasses();
+    this.filteredStudents = this.data?.students || [];
+  }
+
+  extractClasses() {
+    const set = new Set<string>();
+    for (const s of (this.data?.students || [])) {
+      const cls = (s.className ? (s.className + (s.sectionName ? ' - ' + s.sectionName : '')) : (s.className || '')).trim();
+      if (cls) set.add(cls);
+    }
+    this.classList = Array.from(set).sort();
+  }
+
+  getClassLabel(s: StudentItem): string {
+    return (s.className ? (s.className + (s.sectionName ? ' - ' + s.sectionName : '')) : (s.className || '')).trim();
+  }
+
+  onClassChange() {
+    this.form.studentId = null;
+    if (!this.selectedClass) {
+      this.filteredStudents = this.data?.students || [];
+    } else {
+      this.filteredStudents = (this.data?.students || []).filter(s => this.getClassLabel(s) === this.selectedClass);
+    }
+  }
+
+  onStudentChange() {
+    const s = (this.data?.students || []).find(x => x.id === this.form.studentId);
+    if (s) {
+      if (s.parentName) this.form.parentGuardianName = s.parentName;
+      if (s.parentPhone) this.form.parentContactNumber = s.parentPhone;
+    }
+  }
 
   save() {
     if (!this.form.studentId || !this.form.reason) return;
@@ -446,32 +500,71 @@ export class GatePassDialogComponent {
   template: `
     <div class="fd-dialog-sm">
       <div class="fd-dialog-header">
-        <div class="fd-dialog-icon" [style.background]="data.action === 'Approve' ? '#16a34a' : '#dc2626'">
+        <div class="fd-dialog-icon" [style.background]="data.action === 'Approve' ? '#16a34a' : '#ef4444'">
           <mat-icon>{{data.action === 'Approve' ? 'check_circle' : 'cancel'}}</mat-icon>
         </div>
         <div class="fd-dialog-title-group">
-          <h2 class="fd-dialog-title">{{data.action}} Gate Pass</h2>
-          <span class="fd-dialog-sub">{{data.gatePassNumber}} — {{data.studentName}}</span>
+          <h2 class="fd-dialog-title">{{data.action === 'Approve' ? 'Approve Gate Pass' : 'Reject Gate Pass Request'}}</h2>
+          <span class="fd-dialog-sub">{{data.gatePassNumber}} — <strong>{{data.studentName}}</strong></span>
         </div>
         <button mat-icon-button class="fd-dialog-close" (click)="cancel()"><mat-icon>close</mat-icon></button>
       </div>
+
       <div class="fd-dialog-body">
+        <!-- Rejection Warning Banner -->
+        <div class="rejection-notice" *ngIf="data.action === 'Reject'">
+          <mat-icon>info</mat-icon>
+          <div>
+            <strong>Rejection Reason Required:</strong> Please specify why this gate pass is being rejected. This reason will be recorded and visible to the student/parent.
+          </div>
+        </div>
+
+        <!-- Quick Reason Selection Chips -->
+        <div class="quick-causes" *ngIf="data.action === 'Reject'">
+          <div class="quick-causes-label">Common Rejection Causes:</div>
+          <div class="causes-chips">
+            <button type="button" class="cause-chip" (click)="setCause('Parent / Guardian unverified or not answering phone')">
+              📞 Parent Unverified
+            </button>
+            <button type="button" class="cause-chip" (click)="setCause('Exam / Class test scheduled at this time')">
+              📝 Exam in Progress
+            </button>
+            <button type="button" class="cause-chip" (click)="setCause('Unauthorized escort or guardian')">
+              🚫 Unauthorized Guardian
+            </button>
+            <button type="button" class="cause-chip" (click)="setCause('Invalid or insufficient reason provided')">
+              ⚠️ Insufficient Reason
+            </button>
+          </div>
+        </div>
+
         <mat-form-field appearance="outline" class="fd-field-full">
-          <mat-label>Remarks (optional)</mat-label>
-          <textarea matInput [(ngModel)]="remarks" rows="3" placeholder="Enter approval / rejection reason..."></textarea>
+          <mat-label>{{ data.action === 'Reject' ? 'Rejection Cause / Reason *' : 'Approval Remarks (optional)' }}</mat-label>
+          <textarea matInput [(ngModel)]="remarks" rows="3" 
+            [placeholder]="data.action === 'Reject' ? 'Type or select the reason for rejection...' : 'E.g., Verified with parent via phone...'"></textarea>
+          <mat-hint *ngIf="data.action === 'Reject' && !remarks.trim()" class="rejection-error-hint">
+            * Please enter or select a rejection cause before submitting
+          </mat-hint>
         </mat-form-field>
       </div>
+
       <div class="fd-dialog-footer">
         <button mat-stroked-button (click)="cancel()">Cancel</button>
-        <button mat-flat-button [color]="data.action === 'Approve' ? 'primary' : 'warn'" (click)="confirm()" [disabled]="saving">
+        <button mat-flat-button [color]="data.action === 'Approve' ? 'primary' : 'warn'" 
+          (click)="confirm()" 
+          [disabled]="saving || (data.action === 'Reject' && !remarks.trim())">
           <mat-icon>{{data.action === 'Approve' ? 'check' : 'block'}}</mat-icon>
-          {{saving ? 'Processing...' : data.action}}
+          {{saving ? 'Processing...' : (data.action === 'Approve' ? 'Approve Gate Pass' : 'Reject Gate Pass')}}
         </button>
       </div>
     </div>
   `,
   styles: [`
-    .fd-dialog-sm { min-width: 460px; }
+    .fd-dialog-sm {
+      width: 100%;
+      max-width: 480px;
+      box-sizing: border-box;
+    }
     .fd-dialog-header {
       display: flex; align-items: center; gap: 14px; padding: 20px 24px 14px;
       background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
@@ -481,14 +574,116 @@ export class GatePassDialogComponent {
       color: #fff; border-radius: 10px; width: 44px; height: 44px;
       display: flex; align-items: center; justify-content: center;
       box-shadow: 0 4px 6px -1px rgba(0,0,0,0.15);
+      flex-shrink: 0;
     }
-    .fd-dialog-title { color: #1e3a8a; font-weight: 700; font-size: 1.05rem; margin: 0; }
-    .fd-dialog-sub { color: #3b82f6; font-size: 0.8rem; }
-    .fd-dialog-title-group { flex: 1; }
-    .fd-dialog-close { color: #64748b; margin-left: auto; }
-    .fd-dialog-body { padding: 18px 24px; }
+    .fd-dialog-title { color: #1e3a8a; font-weight: 700; font-size: 1.05rem; margin: 0; line-height: 1.2; }
+    .fd-dialog-sub { color: #3b82f6; font-size: 0.82rem; }
+    .fd-dialog-sub strong { color: #1e40af; }
+    .fd-dialog-title-group { flex: 1; min-width: 0; }
+    .fd-dialog-close { color: #64748b; margin-left: auto; flex-shrink: 0; }
+    .fd-dialog-body { padding: 18px 24px; display: flex; flex-direction: column; gap: 14px; box-sizing: border-box; }
     .fd-dialog-footer { display: flex; gap: 12px; justify-content: flex-end; padding: 14px 24px; border-top: 1px solid #e2e8f0; }
     .fd-field-full { width: 100%; display: block; }
+
+    .rejection-notice {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 8px;
+      padding: 10px 14px;
+      color: #991b1b;
+      font-size: 0.82rem;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+    .rejection-notice mat-icon { font-size: 18px; width: 18px; height: 18px; color: #dc2626; flex-shrink: 0; margin-top: 1px; }
+
+    .quick-causes-label {
+      font-size: 0.76rem;
+      font-weight: 600;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      margin-bottom: 6px;
+    }
+    .causes-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .cause-chip {
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      border-radius: 16px;
+      padding: 4px 10px;
+      font-size: 0.76rem;
+      color: #334155;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+    .cause-chip:hover {
+      background: #fee2e2;
+      border-color: #fca5a5;
+      color: #991b1b;
+    }
+
+    .rejection-error-hint {
+      color: #dc2626;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+
+    @media (max-width: 520px) {
+      .fd-dialog-sm {
+        max-width: 100%;
+      }
+      .fd-dialog-header {
+        padding: 14px 16px 12px;
+        gap: 10px;
+      }
+      .fd-dialog-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+      }
+      .fd-dialog-icon mat-icon {
+        font-size: 20px;
+        width: 20px;
+        height: 20px;
+      }
+      .fd-dialog-title {
+        font-size: 0.95rem;
+      }
+      .fd-dialog-sub {
+        font-size: 0.74rem;
+      }
+      .fd-dialog-body {
+        padding: 14px 16px;
+        gap: 10px;
+      }
+      .rejection-notice {
+        padding: 8px 10px;
+        font-size: 0.76rem;
+      }
+      .causes-chips {
+        gap: 4px;
+      }
+      .cause-chip {
+        font-size: 0.72rem;
+        padding: 3px 8px;
+      }
+      .fd-dialog-footer {
+        padding: 10px 16px;
+        gap: 8px;
+      }
+      .fd-dialog-footer button {
+        flex: 1 1 auto;
+        font-size: 0.8rem;
+      }
+    }
   `]
 })
 export class ApproveGatePassDialogComponent {
@@ -501,7 +696,14 @@ export class ApproveGatePassDialogComponent {
     private http: HttpClient
   ) {}
 
+  setCause(cause: string) {
+    this.remarks = cause;
+  }
+
   confirm() {
+    if (this.data.action === 'Reject' && !this.remarks.trim()) {
+      return;
+    }
     this.saving = true;
     this.http.put(`${API_BASE}/front-desk/gate-passes/${this.data.id}/approve`, {
       action: this.data.action,
@@ -536,53 +738,61 @@ export class ApproveGatePassDialogComponent {
             <mat-icon>sensor_door</mat-icon>
           </div>
           <div>
-            <h1 class="page-title">Front Desk — Visitor Book & Gate Pass</h1>
+            <h1 class="page-title">{{ isStudentOrParent ? 'Student Gate Pass' : 'Front Desk — Visitor Book & Gate Pass' }}</h1>
             <p class="page-subtitle">
-              Track campus visitors with check-in/out logs and issue student early-exit gate passes
+              {{ isStudentOrParent ? 'View your gate passes, return times and approval status' : 'Track campus visitors with check-in/out logs and issue student early-exit gate passes' }}
             </p>
           </div>
         </div>
         <div class="header-actions">
+          <a mat-stroked-button class="refresh-btn" routerLink="/students/gate-pass" style="color:#2563eb; border-color:#bfdbfe;">
+            <mat-icon>badge</mat-icon>
+            <span>Student Portal</span>
+          </a>
           <button mat-stroked-button class="refresh-btn" (click)="loadAll()" [disabled]="loading">
             <mat-icon [class.spin]="loading">refresh</mat-icon>
             <span>Refresh</span>
           </button>
-          <button mat-flat-button class="btn-visitor" (click)="openVisitorDialog()">
-            <mat-icon>how_to_reg</mat-icon>
-            <span>Check In Visitor</span>
-          </button>
-          <button mat-flat-button class="btn-gatepass" (click)="openGatePassDialog()">
-            <mat-icon>exit_to_app</mat-icon>
-            <span>Issue Gate Pass</span>
-          </button>
+          <ng-container *ngIf="!isStudentOrParent">
+            <button mat-flat-button class="btn-visitor" (click)="openVisitorDialog()">
+              <mat-icon>how_to_reg</mat-icon>
+              <span>Check In Visitor</span>
+            </button>
+            <button mat-flat-button class="btn-gatepass" (click)="openGatePassDialog()">
+              <mat-icon>exit_to_app</mat-icon>
+              <span>Issue Gate Pass</span>
+            </button>
+          </ng-container>
         </div>
       </div>
 
       <mat-progress-bar *ngIf="loading" mode="indeterminate" class="fd-loader"></mat-progress-bar>
 
       <!-- ── Stats Cards ── -->
-      <div class="stats-grid">
-        <div class="stat-card stat-blue">
-          <mat-icon class="stat-icon">groups</mat-icon>
-          <div class="stat-body">
-            <div class="stat-num">{{stats.totalVisitorsToday}}</div>
-            <div class="stat-label">Visitors Today</div>
+      <div class="stats-grid" [class.stats-student]="isStudentOrParent">
+        <ng-container *ngIf="!isStudentOrParent">
+          <div class="stat-card stat-blue">
+            <mat-icon class="stat-icon">groups</mat-icon>
+            <div class="stat-body">
+              <div class="stat-num">{{stats.totalVisitorsToday}}</div>
+              <div class="stat-label">Visitors Today</div>
+            </div>
           </div>
-        </div>
-        <div class="stat-card stat-green">
-          <mat-icon class="stat-icon">sensors</mat-icon>
-          <div class="stat-body">
-            <div class="stat-num">{{stats.activeVisitors}}</div>
-            <div class="stat-label">Currently Inside</div>
+          <div class="stat-card stat-green">
+            <mat-icon class="stat-icon">sensors</mat-icon>
+            <div class="stat-body">
+              <div class="stat-num">{{stats.activeVisitors}}</div>
+              <div class="stat-label">Currently Inside</div>
+            </div>
           </div>
-        </div>
-        <div class="stat-card stat-slate">
-          <mat-icon class="stat-icon">logout</mat-icon>
-          <div class="stat-body">
-            <div class="stat-num">{{stats.checkedOutToday}}</div>
-            <div class="stat-label">Checked Out</div>
+          <div class="stat-card stat-slate">
+            <mat-icon class="stat-icon">logout</mat-icon>
+            <div class="stat-body">
+              <div class="stat-num">{{stats.checkedOutToday}}</div>
+              <div class="stat-label">Checked Out</div>
+            </div>
           </div>
-        </div>
+        </ng-container>
         <div class="stat-card stat-orange">
           <mat-icon class="stat-icon">exit_to_app</mat-icon>
           <div class="stat-body">
@@ -610,7 +820,7 @@ export class ApproveGatePassDialogComponent {
       <mat-tab-group [(selectedIndex)]="activeTab" class="fd-tabs" animationDuration="200ms">
 
         <!-- ═══ TAB 1: VISITOR BOOK ═══ -->
-        <mat-tab>
+        <mat-tab *ngIf="!isStudentOrParent">
           <ng-template mat-tab-label>
             <mat-icon class="tab-icon">badge</mat-icon>
             Visitor Book
@@ -618,12 +828,12 @@ export class ApproveGatePassDialogComponent {
 
           <!-- Filters -->
           <div class="filter-bar">
-            <mat-form-field appearance="outline" class="filter-field">
+            <mat-form-field appearance="outline" class="filter-field-date" subscriptSizing="dynamic">
               <mat-label>Date</mat-label>
+              <mat-icon matPrefix class="filter-icon">today</mat-icon>
               <input matInput type="date" [(ngModel)]="visitorDate" (change)="loadVisitors()" />
-              <mat-icon matPrefix>today</mat-icon>
             </mat-form-field>
-            <mat-form-field appearance="outline" class="filter-field">
+            <mat-form-field appearance="outline" class="filter-field" subscriptSizing="dynamic">
               <mat-label>Status</mat-label>
               <mat-select [(ngModel)]="visitorStatus" (selectionChange)="loadVisitors()">
                 <mat-option value="All">All</mat-option>
@@ -632,17 +842,19 @@ export class ApproveGatePassDialogComponent {
                 <mat-option value="Overstay">Overstay</mat-option>
               </mat-select>
             </mat-form-field>
-            <mat-form-field appearance="outline" class="filter-field">
+            <mat-form-field appearance="outline" class="filter-field filter-field-full-mobile" subscriptSizing="dynamic">
               <mat-label>Visitor Type</mat-label>
               <mat-select [(ngModel)]="visitorType" (selectionChange)="loadVisitors()">
                 <mat-option value="All">All Types</mat-option>
                 <mat-option *ngFor="let t of visitorTypes" [value]="t">{{t}}</mat-option>
               </mat-select>
             </mat-form-field>
-            <mat-form-field appearance="outline" class="filter-search">
-              <mat-label>Search</mat-label>
-              <input matInput [(ngModel)]="visitorSearch" (input)="loadVisitors()" placeholder="Name, org, pass no..." />
-              <mat-icon matPrefix>search</mat-icon>
+            <mat-form-field appearance="outline" class="filter-field-search" subscriptSizing="dynamic">
+              <mat-icon matPrefix class="filter-icon">search</mat-icon>
+              <input matInput [(ngModel)]="visitorSearch" (input)="loadVisitors()" placeholder="Search by name, org, pass no..." />
+              <button mat-icon-button matSuffix *ngIf="visitorSearch" (click)="visitorSearch=''; loadVisitors()" style="color:#94a3b8;">
+                <mat-icon style="font-size:18px;">close</mat-icon>
+              </button>
             </mat-form-field>
           </div>
 
@@ -685,11 +897,12 @@ export class ApproveGatePassDialogComponent {
                     <span class="na-text" *ngIf="!v.personToMeet">—</span>
                   </td>
                   <td>
-                    <div class="time-primary">{{v.checkInTime | date:'hh:mm a'}}</div>
-                    <div class="time-date">{{v.checkInTime | date:'dd MMM'}}</div>
+                    <div class="time-primary">{{v.checkInTime | date:'hh:mm a':'Asia/Kolkata'}}</div>
+                    <div class="time-date">{{v.checkInTime | date:'dd MMM':'Asia/Kolkata'}}</div>
                   </td>
                   <td>
-                    <div class="time-primary" *ngIf="v.checkOutTime">{{v.checkOutTime | date:'hh:mm a'}}</div>
+                    <div class="time-primary" *ngIf="v.checkOutTime">{{v.checkOutTime | date:'hh:mm a':'Asia/Kolkata'}}</div>
+                    <div class="time-date" *ngIf="v.checkOutTime">{{v.checkOutTime | date:'dd MMM':'Asia/Kolkata'}}</div>
                     <span class="na-text" *ngIf="!v.checkOutTime">—</span>
                   </td>
                   <td>
@@ -738,12 +951,12 @@ export class ApproveGatePassDialogComponent {
 
           <!-- Filters -->
           <div class="filter-bar">
-            <mat-form-field appearance="outline" class="filter-field">
+            <mat-form-field appearance="outline" class="filter-field-date" subscriptSizing="dynamic">
               <mat-label>Date</mat-label>
+              <mat-icon matPrefix class="filter-icon">today</mat-icon>
               <input matInput type="date" [(ngModel)]="gatePassDate" (change)="loadGatePasses()" />
-              <mat-icon matPrefix>today</mat-icon>
             </mat-form-field>
-            <mat-form-field appearance="outline" class="filter-field">
+            <mat-form-field appearance="outline" class="filter-field" subscriptSizing="dynamic">
               <mat-label>Status</mat-label>
               <mat-select [(ngModel)]="gatePassStatus" (selectionChange)="loadGatePasses()">
                 <mat-option value="All">All</mat-option>
@@ -753,10 +966,12 @@ export class ApproveGatePassDialogComponent {
                 <mat-option value="Returned">Returned</mat-option>
               </mat-select>
             </mat-form-field>
-            <mat-form-field appearance="outline" class="filter-search">
-              <mat-label>Search</mat-label>
-              <input matInput [(ngModel)]="gatePassSearch" (input)="loadGatePasses()" placeholder="Student name, pass no..." />
-              <mat-icon matPrefix>search</mat-icon>
+            <mat-form-field appearance="outline" class="filter-field-search" subscriptSizing="dynamic">
+              <mat-icon matPrefix class="filter-icon">search</mat-icon>
+              <input matInput [(ngModel)]="gatePassSearch" (input)="loadGatePasses()" placeholder="Search by student name, pass no..." />
+              <button mat-icon-button matSuffix *ngIf="gatePassSearch" (click)="gatePassSearch=''; loadGatePasses()" style="color:#94a3b8;">
+                <mat-icon style="font-size:18px;">close</mat-icon>
+              </button>
             </mat-form-field>
           </div>
 
@@ -800,13 +1015,14 @@ export class ApproveGatePassDialogComponent {
                     <span class="na-text" *ngIf="!g.parentGuardianName">—</span>
                   </td>
                   <td>
-                    <div class="time-primary">{{g.outDateTime | date:'hh:mm a'}}</div>
-                    <div class="time-date">{{g.outDateTime | date:'dd MMM'}}</div>
+                    <div class="time-primary">{{g.outDateTime | date:'hh:mm a':'Asia/Kolkata'}}</div>
+                    <div class="time-date">{{g.outDateTime | date:'dd MMM':'Asia/Kolkata'}}</div>
                   </td>
                   <td>
-                    <div class="time-primary" *ngIf="g.expectedReturnTime">{{g.expectedReturnTime | date:'hh:mm a'}}</div>
+                    <div class="time-primary" *ngIf="g.expectedReturnTime">{{g.expectedReturnTime | date:'hh:mm a':'Asia/Kolkata'}}</div>
+                    <div class="time-date" *ngIf="g.expectedReturnTime">{{g.expectedReturnTime | date:'dd MMM':'Asia/Kolkata'}}</div>
                     <div class="time-date" *ngIf="g.actualReturnTime" style="color:#16a34a;">
-                      Ret: {{g.actualReturnTime | date:'hh:mm a'}}
+                      Ret: {{g.actualReturnTime | date:'hh:mm a':'Asia/Kolkata'}} · {{g.actualReturnTime | date:'dd MMM':'Asia/Kolkata'}}
                     </div>
                     <span class="na-text" *ngIf="!g.expectedReturnTime">—</span>
                   </td>
@@ -818,26 +1034,35 @@ export class ApproveGatePassDialogComponent {
                   </td>
                   <td>
                     <div *ngIf="g.approvedBy" class="approver-text">{{g.approvedBy}}</div>
-                    <div *ngIf="g.approvedAt" class="time-date">{{g.approvedAt | date:'hh:mm a'}}</div>
+                    <div *ngIf="g.approvedAt" class="time-date">{{g.approvedAt | date:'hh:mm a':'Asia/Kolkata'}} · {{g.approvedAt | date:'dd MMM':'Asia/Kolkata'}}</div>
                     <span class="na-text" *ngIf="!g.approvedBy">—</span>
                   </td>
                   <td>
                     <div class="action-btns">
-                      <button mat-icon-button style="color:#16a34a;" *ngIf="g.status === 'Pending'"
-                        (click)="approveGatePass(g, 'Approve')" matTooltip="Approve">
-                        <mat-icon>check_circle</mat-icon>
-                      </button>
-                      <button mat-icon-button color="warn" *ngIf="g.status === 'Pending'"
-                        (click)="approveGatePass(g, 'Reject')" matTooltip="Reject">
-                        <mat-icon>cancel</mat-icon>
-                      </button>
-                      <button mat-icon-button style="color:#2563eb;" *ngIf="g.status === 'Approved'"
-                        (click)="markReturn(g)" matTooltip="Mark Student Returned">
-                        <mat-icon>keyboard_return</mat-icon>
-                      </button>
-                      <button mat-icon-button color="warn"
-                        (click)="deleteGatePass(g)" matTooltip="Delete">
-                        <mat-icon>delete</mat-icon>
+                      <!-- Approve / Reject / Return: ONLY for Admin / Staff / Wardens -->
+                      <ng-container *ngIf="canApproveGatePass">
+                        <button mat-icon-button style="color:#16a34a;" *ngIf="g.status === 'Pending'"
+                          (click)="approveGatePass(g, 'Approve')" matTooltip="Approve">
+                          <mat-icon>check_circle</mat-icon>
+                        </button>
+                        <button mat-icon-button color="warn" *ngIf="g.status === 'Pending'"
+                          (click)="approveGatePass(g, 'Reject')" matTooltip="Reject">
+                          <mat-icon>cancel</mat-icon>
+                        </button>
+                        <button mat-icon-button style="color:#2563eb;" *ngIf="g.status === 'Approved'"
+                          (click)="markReturn(g)" matTooltip="Mark Student Returned">
+                          <mat-icon>keyboard_return</mat-icon>
+                        </button>
+                        <button mat-icon-button color="warn"
+                          (click)="deleteGatePass(g)" matTooltip="Delete">
+                          <mat-icon>delete</mat-icon>
+                        </button>
+                      </ng-container>
+
+                      <!-- If Student or Parent: They can only cancel their own pending request -->
+                      <button mat-icon-button color="warn" *ngIf="isStudentOrParent && g.status === 'Pending'"
+                        (click)="deleteGatePass(g)" matTooltip="Cancel Request">
+                        <mat-icon>close</mat-icon>
                       </button>
                     </div>
                   </td>
@@ -864,50 +1089,101 @@ export class ApproveGatePassDialogComponent {
 
     .fd-page {
       font-family: 'Inter', sans-serif;
-      background: #f8fafc;
-      min-height: 100vh;
-      padding: 0 0 40px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      padding-bottom: 40px;
     }
 
     /* ── Page Header ── */
     .page-header {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 24px 28px; background: #fff;
-      border-bottom: 1px solid #e2e8f0;
-      box-shadow: 0 1px 3px rgba(0,0,0,.06);
+      padding: 20px 24px; background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.05);
+      flex-wrap: wrap;
+      gap: 16px;
     }
     .header-left { display: flex; align-items: center; gap: 16px; }
     .header-icon-box {
-      width: 52px; height: 52px; border-radius: 14px;
+      width: 48px; height: 48px; border-radius: 12px;
       background: linear-gradient(135deg, #2563eb, #1d4ed8);
       display: flex; align-items: center; justify-content: center;
-      box-shadow: 0 4px 12px rgba(37,99,235,.3);
+      box-shadow: 0 4px 10px rgba(37,99,235,.28);
       color: #fff;
     }
-    .page-title { font-size: 1.3rem; font-weight: 700; color: #0f172a; margin: 0; }
+    .page-title { font-size: 1.25rem; font-weight: 700; color: #0f172a; margin: 0; }
     .page-subtitle { font-size: 0.82rem; color: #64748b; margin: 2px 0 0; }
-    .header-actions { display: flex; gap: 10px; align-items: center; }
+    .header-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
     .refresh-btn { color: #64748b !important; border-color: #e2e8f0 !important; }
     .btn-visitor { background: linear-gradient(135deg, #0891b2, #0e7490) !important; color: #fff !important; }
     .btn-gatepass { background: linear-gradient(135deg, #2563eb, #1d4ed8) !important; color: #fff !important; }
 
-    .fd-loader { margin: 0; }
+    .fd-loader { margin: 0; border-radius: 4px; }
 
     /* ── Stats ── */
     .stats-grid {
-      display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px;
-      padding: 20px 28px 0;
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 16px;
+      width: 100%;
+    }
+    .stats-grid.stats-student {
+      grid-template-columns: repeat(3, 1fr);
+    }
+    @media (max-width: 1100px) {
+      .stats-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+      .stats-grid.stats-student {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+    @media (max-width: 700px) {
+      .stats-grid, .stats-grid.stats-student {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+      }
+      .stat-card {
+        padding: 12px 14px;
+        gap: 10px;
+      }
+      .stat-num {
+        font-size: 1.4rem;
+      }
+      .stat-icon {
+        font-size: 26px;
+        width: 32px;
+        height: 32px;
+        line-height: 32px;
+        overflow: visible !important;
+      }
+    }
+    @media (max-width: 420px) {
+      .stats-grid, .stats-grid.stats-student {
+        grid-template-columns: 1fr;
+      }
     }
     .stat-card {
-      background: #fff; border-radius: 14px; padding: 18px 16px;
+      background: #fff; border-radius: 12px; padding: 18px 20px;
       display: flex; align-items: center; gap: 14px;
-      box-shadow: 0 1px 6px rgba(0,0,0,.06); border: 1px solid #e2e8f0;
+      box-shadow: 0 1px 4px rgba(0,0,0,.05); border: 1px solid #e2e8f0;
       transition: transform .2s, box-shadow .2s;
     }
-    .stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,.1); }
-    .stat-icon { font-size: 32px; width: 32px; height: 32px; }
+    .stat-icon {
+      font-size: 32px;
+      width: 38px;
+      height: 38px;
+      line-height: 38px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      overflow: visible !important;
+      flex-shrink: 0;
+    }
     .stat-num { font-size: 1.8rem; font-weight: 700; line-height: 1; }
-    .stat-label { font-size: 0.72rem; color: #64748b; margin-top: 2px; text-transform: uppercase; letter-spacing: .3px; }
+    .stat-label { font-size: 0.72rem; color: #64748b; margin-top: 4px; text-transform: uppercase; letter-spacing: .3px; font-weight: 600; }
     .stat-blue .stat-icon  { color: #2563eb; }  .stat-blue .stat-num  { color: #2563eb; }
     .stat-green .stat-icon { color: #16a34a; }  .stat-green .stat-num { color: #16a34a; }
     .stat-slate .stat-icon { color: #475569; }  .stat-slate .stat-num { color: #475569; }
@@ -916,7 +1192,15 @@ export class ApproveGatePassDialogComponent {
     .stat-teal .stat-icon   { color: #0891b2; } .stat-teal .stat-num   { color: #0891b2; }
 
     /* ── Tabs ── */
-    .fd-tabs { margin: 20px 28px 0; background: #fff; border-radius: 14px; box-shadow: 0 1px 6px rgba(0,0,0,.06); overflow: hidden; }
+    .fd-tabs {
+      background: #fff;
+      border-radius: 12px;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 1px 4px rgba(0,0,0,.05);
+      overflow: hidden;
+      width: 100%;
+      margin: 0;
+    }
     .tab-icon { font-size: 18px; margin-right: 6px; vertical-align: middle; }
     .pending-chip {
       background: #ef4444; color: #fff; font-size: 10px; font-weight: 700;
@@ -925,11 +1209,66 @@ export class ApproveGatePassDialogComponent {
 
     /* ── Filter Bar ── */
     .filter-bar {
-      display: flex; gap: 12px; align-items: center; padding: 16px 20px 4px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      padding: 16px 20px 10px;
       flex-wrap: wrap;
     }
-    .filter-field { width: 160px; }
-    .filter-search { flex: 1; min-width: 220px; }
+    .filter-field {
+      flex: 0 0 170px;
+      min-width: 150px;
+    }
+    .filter-field-date {
+      flex: 0 0 215px;
+      width: 215px;
+      min-width: 205px;
+    }
+    .filter-field-search {
+      flex: 1 1 240px;
+      min-width: 200px;
+    }
+    .filter-icon {
+      color: #64748b;
+      margin-right: 8px;
+      margin-left: 2px;
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    @media (max-width: 768px) {
+      .filter-bar {
+        padding: 12px 14px 6px;
+        gap: 8px;
+      }
+      .filter-field, .filter-field-date {
+        flex: 1 1 calc(50% - 4px);
+        min-width: 150px;
+        width: auto;
+      }
+      .filter-field.filter-field-full-mobile {
+        flex: 1 1 100%;
+        min-width: 100%;
+      }
+      .filter-field-search {
+        flex: 1 1 100%;
+        min-width: 100%;
+      }
+      .page-header {
+        padding: 14px 16px;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+      }
+      .header-actions {
+        width: 100%;
+        justify-content: flex-start;
+      }
+    }
 
     /* ── Table ── */
     .fd-table-wrap { padding: 0 20px 20px; overflow-x: auto; }
@@ -1041,21 +1380,38 @@ export class VisitorsComponent implements OnInit {
     private http: HttpClient,
     private dialog: MatDialog,
     private confirm: ConfirmDialogService,
-    private route: ActivatedRoute
+    private route: ActivatedRoute,
+    public authService: AuthService
   ) {}
 
+  get isStudentOrParent(): boolean {
+    const role = this.authService.currentUser()?.role || '';
+    return role === 'Student' || role === 'Parent';
+  }
+
+  get canApproveGatePass(): boolean {
+    return !this.isStudentOrParent;
+  }
+
   ngOnInit() {
-    // Auto-switch to Gate Pass tab if routed to /front-desk/gate-passes
-    this.route.url.subscribe(segments => {
-      if (segments.some(s => s.path === 'gate-passes')) this.activeTab = 1;
-    });
+    if (this.isStudentOrParent) {
+      this.activeTab = 0;
+    } else {
+      this.route.url.subscribe(segments => {
+        if (segments.some(s => s.path === 'gate-passes')) this.activeTab = 1;
+      });
+    }
     this.loadAll();
-    this.loadStudents();
+    if (!this.isStudentOrParent) {
+      this.loadStudents();
+    }
   }
 
   loadAll() {
     this.loadStats();
-    this.loadVisitors();
+    if (!this.isStudentOrParent) {
+      this.loadVisitors();
+    }
     this.loadGatePasses();
   }
 
@@ -1098,7 +1454,9 @@ export class VisitorsComponent implements OnInit {
           studentName: s.studentName,
           rollNumber: s.rollNumber,
           className: s.className,
-          sectionName: s.sectionName
+          sectionName: s.sectionName,
+          parentName: s.parentName || s.fatherName || '',
+          parentPhone: s.parentWhatsAppPhone || s.emergencyContactPhone || ''
         }));
       },
       error: () => {}
@@ -1109,6 +1467,8 @@ export class VisitorsComponent implements OnInit {
   openVisitorDialog() {
     const ref = this.dialog.open(VisitorCheckInDialogComponent, {
       disableClose: true,
+      maxWidth: '92vw',
+      width: '640px',
       panelClass: 'fd-dialog-panel'
     });
     ref.afterClosed().subscribe(result => {
@@ -1151,6 +1511,8 @@ export class VisitorsComponent implements OnInit {
     const ref = this.dialog.open(GatePassDialogComponent, {
       data: { students: this.students },
       disableClose: true,
+      maxWidth: '92vw',
+      width: '640px',
       panelClass: 'fd-dialog-panel'
     });
     ref.afterClosed().subscribe(result => {
@@ -1164,7 +1526,10 @@ export class VisitorsComponent implements OnInit {
   approveGatePass(g: StudentGatePassDto, action: 'Approve' | 'Reject') {
     const ref = this.dialog.open(ApproveGatePassDialogComponent, {
       data: { id: g.id, action, gatePassNumber: g.gatePassNumber, studentName: g.studentName },
-      disableClose: true
+      disableClose: true,
+      maxWidth: '92vw',
+      width: '460px',
+      autoFocus: false
     });
     ref.afterClosed().subscribe(result => {
       if (result) this.loadAll();

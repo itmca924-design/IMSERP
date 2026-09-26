@@ -324,6 +324,38 @@ public class FrontDeskController : ControllerBase
 
     // ─── Student Gate Pass CRUD ───────────────────────────────────
 
+    [HttpGet("gate-passes/my-profile")]
+    public async Task<ActionResult> GetMyStudentProfile()
+    {
+        var tenantId = _currentUser.TenantId;
+        var scope = await GetUserAccessScopeAsync(tenantId);
+        if (scope.StudentId.HasValue)
+        {
+            var s = await _db.Students
+                .AsNoTracking()
+                .Include(st => st.Class)
+                .Include(st => st.Section)
+                .FirstOrDefaultAsync(st => st.Id == scope.StudentId.Value && st.TenantId == tenantId);
+
+            if (s != null)
+            {
+                return Ok(new
+                {
+                    isStudentOrParent = true,
+                    studentId = s.Id,
+                    studentName = s.StudentName,
+                    className = s.Class?.Name,
+                    sectionName = s.Section?.Name,
+                    rollNumber = s.RollNumber,
+                    parentName = s.ParentName,
+                    parentPhone = s.ParentWhatsAppPhone ?? s.EmergencyContactPhone
+                });
+            }
+        }
+
+        return Ok(new { isStudentOrParent = false });
+    }
+
     [HttpGet("gate-passes")]
     public async Task<ActionResult<IEnumerable<StudentGatePassDto>>> GetGatePasses(
         [FromQuery] string? status,
@@ -332,17 +364,28 @@ public class FrontDeskController : ControllerBase
         [FromQuery] DateTime? date)
     {
         var tenantId = _currentUser.TenantId;
+        var scope = await GetUserAccessScopeAsync(tenantId);
+
         var query = _db.StudentGatePasses
             .AsNoTracking()
             .Include(g => g.Student).ThenInclude(s => s!.Class)
             .Include(g => g.Student).ThenInclude(s => s!.Section)
             .Where(g => g.TenantId == tenantId);
 
+        // Student/Parent can ONLY view their own gate passes
+        if (scope.Scope == "Student" || scope.Scope == "Parent")
+        {
+            if (!scope.StudentId.HasValue)
+                return Ok(new List<StudentGatePassDto>());
+            query = query.Where(g => g.StudentId == scope.StudentId.Value);
+        }
+        else if (studentId.HasValue)
+        {
+            query = query.Where(g => g.StudentId == studentId.Value);
+        }
+
         if (!string.IsNullOrEmpty(status) && status != "All")
             query = query.Where(g => g.Status == status);
-
-        if (studentId.HasValue)
-            query = query.Where(g => g.StudentId == studentId);
 
         if (date.HasValue)
             query = query.Where(g => g.OutDateTime.Date == date.Value.Date);
@@ -392,12 +435,23 @@ public class FrontDeskController : ControllerBase
     public async Task<ActionResult<StudentGatePassDto>> CreateGatePass([FromBody] CreateGatePassRequest req)
     {
         var tenantId = _currentUser.TenantId;
+        var scope = await GetUserAccessScopeAsync(tenantId);
+
+        Guid targetStudentId = req.StudentId;
+        if (scope.Scope == "Student" || scope.Scope == "Parent")
+        {
+            if (!scope.StudentId.HasValue)
+            {
+                return BadRequest(new { message = "No student profile is linked with your current user account." });
+            }
+            targetStudentId = scope.StudentId.Value;
+        }
 
         var student = await _db.Students
             .AsNoTracking()
             .Include(s => s.Class)
             .Include(s => s.Section)
-            .FirstOrDefaultAsync(s => s.Id == req.StudentId && s.TenantId == tenantId);
+            .FirstOrDefaultAsync(s => s.Id == targetStudentId && s.TenantId == tenantId);
 
         if (student == null) return BadRequest(new { message = "Student not found." });
 
@@ -405,21 +459,29 @@ public class FrontDeskController : ControllerBase
         var count = await _db.StudentGatePasses.CountAsync(g => g.TenantId == tenantId && g.OutDateTime.Year == year);
         var gatePassNumber = $"SGP-{year}-{(count + 1):D4}";
 
+        var parentName = !string.IsNullOrWhiteSpace(req.ParentGuardianName) 
+            ? req.ParentGuardianName.Trim() 
+            : (!string.IsNullOrWhiteSpace(student.ParentName) ? student.ParentName : scope.DisplayName);
+
+        var parentPhone = !string.IsNullOrWhiteSpace(req.ParentContactNumber) 
+            ? req.ParentContactNumber.Trim() 
+            : (student.ParentWhatsAppPhone ?? student.EmergencyContactPhone);
+
         var pass = new StudentGatePass
         {
             Id                  = Guid.NewGuid(),
             TenantId            = tenantId,
             BranchId            = _currentUser.BranchId,
             GatePassNumber      = gatePassNumber,
-            StudentId           = req.StudentId,
+            StudentId           = targetStudentId,
             Reason              = req.Reason.Trim(),
             ReasonCategory      = req.ReasonCategory,
             OutDateTime         = DateTime.Now,
             ExpectedReturnTime  = req.ExpectedReturnTime,
             Status              = "Pending",
-            ParentGuardianName  = req.ParentGuardianName?.Trim(),
-            ParentContactNumber = req.ParentContactNumber?.Trim(),
-            ParentRelation      = req.ParentRelation?.Trim(),
+            ParentGuardianName  = parentName,
+            ParentContactNumber = parentPhone,
+            ParentRelation      = req.ParentRelation?.Trim() ?? "Parent",
             SecurityGuardName   = req.SecurityGuardName?.Trim(),
             Remarks             = req.Remarks?.Trim(),
             CreatedAt           = DateTime.Now,
@@ -429,7 +491,7 @@ public class FrontDeskController : ControllerBase
         _db.StudentGatePasses.Add(pass);
         await _db.SaveChangesAsync();
 
-        _logger.LogInformation("[FrontDesk] Gate pass issued: {GatePassNumber} for {Student}", gatePassNumber, student.StudentName);
+        _logger.LogInformation("[FrontDesk] Gate pass issued/requested: {GatePassNumber} for {Student} by {Scope}", gatePassNumber, student.StudentName, scope.Scope);
 
         return Ok(new StudentGatePassDto
         {
@@ -458,6 +520,12 @@ public class FrontDeskController : ControllerBase
     public async Task<IActionResult> ApproveGatePass(Guid id, [FromBody] ApproveGatePassRequest req)
     {
         var tenantId = _currentUser.TenantId;
+        var scope = await GetUserAccessScopeAsync(tenantId);
+
+        // Students / Parents cannot approve or reject gate passes
+        if (scope.Scope == "Student" || scope.Scope == "Parent")
+            return Forbid();
+
         var pass = await _db.StudentGatePasses.FirstOrDefaultAsync(g => g.Id == id && g.TenantId == tenantId);
         if (pass == null) return NotFound();
 
@@ -504,8 +572,19 @@ public class FrontDeskController : ControllerBase
     public async Task<IActionResult> DeleteGatePass(Guid id)
     {
         var tenantId = _currentUser.TenantId;
+        var scope = await GetUserAccessScopeAsync(tenantId);
+
         var pass = await _db.StudentGatePasses.FirstOrDefaultAsync(g => g.Id == id && g.TenantId == tenantId);
         if (pass == null) return NotFound();
+
+        // If student or parent, they can only delete (cancel) their OWN PENDING gate pass
+        if (scope.Scope == "Student" || scope.Scope == "Parent")
+        {
+            if (pass.StudentId != scope.StudentId)
+                return Forbid();
+            if (pass.Status != "Pending")
+                return BadRequest(new { message = "Only Pending gate pass requests can be cancelled." });
+        }
 
         _db.StudentGatePasses.Remove(pass);
         await _db.SaveChangesAsync();
@@ -513,6 +592,34 @@ public class FrontDeskController : ControllerBase
     }
 
     // ─── Helpers ──────────────────────────────────────────────────
+
+    private async Task<(string Scope, Guid? StudentId, string DisplayName)> GetUserAccessScopeAsync(Guid tenantId)
+    {
+        var userId = _currentUser.UserId;
+        var user = await _db.Users
+            .AsNoTracking()
+            .Include(u => u.AssignedRole)
+            .FirstOrDefaultAsync(u => u.Id == userId);
+
+        var roleName = user?.AssignedRole?.Name ?? _currentUser.UserRole ?? "";
+
+        // Check if Student
+        if (roleName.Contains("Student", StringComparison.OrdinalIgnoreCase) || _currentUser.UserRole.Equals("Student", StringComparison.OrdinalIgnoreCase))
+        {
+            var student = await _db.Students.AsNoTracking().FirstOrDefaultAsync(s => s.UserId == userId && s.TenantId == tenantId);
+            return ("Student", student?.Id, user?.FullName ?? "Student");
+        }
+
+        // Check if Parent
+        if (roleName.Contains("Parent", StringComparison.OrdinalIgnoreCase) || _currentUser.UserRole.Equals("Parent", StringComparison.OrdinalIgnoreCase))
+        {
+            var student = await _db.Students.AsNoTracking().FirstOrDefaultAsync(s => s.ParentUserId == userId && s.TenantId == tenantId);
+            return ("Parent", student?.Id, user?.FullName ?? "Parent");
+        }
+
+        // Default: Staff / Admin / Teacher / FrontDesk
+        return ("Staff", null, user?.FullName ?? _currentUser.UserRole ?? "Administrator");
+    }
 
     private static VisitorLogDto MapVisitorDto(VisitorLog v) => new()
     {

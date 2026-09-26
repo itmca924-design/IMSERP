@@ -75,6 +75,10 @@ export interface StudentLeaveStatsDto {
         </div>
 
         <div class="header-actions">
+          <a mat-stroked-button class="refresh-btn" routerLink="/students/gate-pass" style="color:#2563eb; border-color:#bfdbfe;">
+            <mat-icon>badge</mat-icon>
+            <span>Gate Pass</span>
+          </a>
           <button mat-stroked-button class="refresh-btn" (click)="loadLeaves()" [disabled]="loading">
             <mat-icon [class.spin]="loading">refresh</mat-icon>
             <span>Refresh</span>

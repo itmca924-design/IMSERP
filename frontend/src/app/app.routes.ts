@@ -56,6 +56,15 @@ export const routes: Routes = [
         loadComponent: () => import('./features/students/student-leaves.component').then(m => m.StudentLeavesComponent)
       },
       {
+        path: 'students/gate-pass',
+        loadComponent: () => import('./features/students/student-gate-pass.component').then(m => m.StudentGatePassComponent)
+      },
+      {
+        path: 'students/gate-passes',
+        redirectTo: 'students/gate-pass',
+        pathMatch: 'full'
+      },
+      {
         path: 'students/promotion',
         loadComponent: () => import('./features/students/student-promotion.component').then(m => m.StudentPromotionComponent)
       },

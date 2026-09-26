@@ -1785,6 +1785,142 @@ public class TeachersController : ControllerBase
 
     // ─── Leave Management ─────────────────────────────────────
 
+    [HttpGet("my-profile")]
+    public async Task<ActionResult> GetMyTeacherProfile()
+    {
+        var tenantId = _currentUser.TenantId;
+        var user = await _db.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
+        if (user == null) return NotFound();
+
+        var teacher = await _db.Teachers.AsNoTracking()
+            .FirstOrDefaultAsync(t => t.TenantId == tenantId && (t.UserId == user.Id || (user.Email != null && t.Email == user.Email)));
+
+        if (teacher == null) return Ok(new { isLinked = false });
+
+        return Ok(new
+        {
+            isLinked = true,
+            id = teacher.Id,
+            fullName = teacher.FullName,
+            employeeCode = teacher.EmployeeCode,
+            department = teacher.Department,
+            designation = teacher.Designation,
+            phoneNumber = teacher.PhoneNumber,
+            email = teacher.Email
+        });
+    }
+
+    [HttpGet("all-leaves")]
+    public async Task<ActionResult<IEnumerable<TeacherLeaveDto>>> GetAllLeaves(
+        [FromQuery] string? status = null,
+        [FromQuery] string? search = null,
+        [FromQuery] Guid? teacherId = null,
+        [FromQuery] int? month = null,
+        [FromQuery] int? year = null)
+    {
+        var tenantId = _currentUser.TenantId;
+        var user = await _db.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
+        
+        // Check if current user is a Teacher
+        Teacher? linkedTeacher = null;
+        if (user != null && (user.Role == IMSERP.Domain.Enums.UserRole.Teacher || _currentUser.UserRole == "Teacher"))
+        {
+            linkedTeacher = await _db.Teachers.AsNoTracking().FirstOrDefaultAsync(t => t.TenantId == tenantId && (t.UserId == user.Id || (user.Email != null && t.Email == user.Email)));
+        }
+
+        var q = _db.TeacherLeaves.AsNoTracking()
+            .Include(l => l.Teacher)
+            .Where(l => l.TenantId == tenantId);
+
+        // If Teacher is logged in, restrict to ONLY their own leaves!
+        if (linkedTeacher != null)
+        {
+            q = q.Where(l => l.TeacherId == linkedTeacher.Id);
+        }
+        else if (teacherId.HasValue)
+        {
+            q = q.Where(l => l.TeacherId == teacherId.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(status) && status != "All" && Enum.TryParse<LeaveStatus>(status, true, out var leaveStatus))
+        {
+            q = q.Where(l => l.Status == leaveStatus);
+        }
+
+        if (month.HasValue && month.Value >= 1 && month.Value <= 12)
+        {
+            q = q.Where(l => l.FromDate.Month == month.Value || l.ToDate.Month == month.Value);
+        }
+
+        if (year.HasValue && year.Value > 2000)
+        {
+            q = q.Where(l => l.FromDate.Year == year.Value || l.ToDate.Year == year.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var s = search.Trim().ToLower();
+            q = q.Where(l => (l.Teacher != null && l.Teacher.FullName.ToLower().Contains(s)) ||
+                             (l.Teacher != null && l.Teacher.EmployeeCode.ToLower().Contains(s)) ||
+                             (l.Reason != null && l.Reason.ToLower().Contains(s)));
+        }
+
+        var list = await q.OrderByDescending(l => l.CreatedAt)
+            .Select(l => new TeacherLeaveDto(
+                l.Id, l.TeacherId,
+                l.Teacher != null ? l.Teacher.FullName : "Unknown",
+                l.Teacher != null ? l.Teacher.EmployeeCode : "",
+                l.LeaveType.ToString(), l.FromDate, l.ToDate,
+                (int)(l.ToDate - l.FromDate).TotalDays + 1,
+                l.Reason, l.Status.ToString(),
+                l.ApprovedBy, l.ApprovedAt, l.RejectionReason, l.CreatedAt))
+            .ToListAsync();
+
+        return Ok(list);
+    }
+
+    [HttpGet("leaves/stats")]
+    public async Task<ActionResult> GetLeaveStats()
+    {
+        var tenantId = _currentUser.TenantId;
+        var today = DateTime.Today;
+        var startOfMonth = new DateTime(today.Year, today.Month, 1);
+        var startOfYear = new DateTime(today.Year, 1, 1);
+
+        var user = await _db.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
+        Teacher? linkedTeacher = null;
+        if (user != null && (user.Role == IMSERP.Domain.Enums.UserRole.Teacher || _currentUser.UserRole == "Teacher"))
+        {
+            linkedTeacher = await _db.Teachers.AsNoTracking().FirstOrDefaultAsync(t => t.TenantId == tenantId && (t.UserId == user.Id || (user.Email != null && t.Email == user.Email)));
+        }
+
+        var q = _db.TeacherLeaves.AsNoTracking().Where(l => l.TenantId == tenantId);
+        if (linkedTeacher != null)
+        {
+            q = q.Where(l => l.TeacherId == linkedTeacher.Id);
+        }
+
+        var pending = await q.CountAsync(l => l.Status == LeaveStatus.Pending);
+        var approvedThisMonth = await q.CountAsync(l => l.Status == LeaveStatus.Approved && l.FromDate >= startOfMonth);
+        var totalThisYear = await q.CountAsync(l => l.FromDate >= startOfYear);
+
+        var onLeaveToday = await _db.TeacherLeaves.AsNoTracking()
+            .Where(l => l.TenantId == tenantId && l.Status == LeaveStatus.Approved &&
+                        l.FromDate.Date <= today && l.ToDate.Date >= today)
+            .CountAsync();
+
+        return Ok(new
+        {
+            pending,
+            approvedThisMonth,
+            onLeaveToday,
+            totalThisYear,
+            isTeacher = linkedTeacher != null,
+            teacherName = linkedTeacher?.FullName,
+            teacherId = linkedTeacher?.Id
+        });
+    }
+
     [HttpGet("{id}/leaves")]
     public async Task<ActionResult<IEnumerable<TeacherLeaveDto>>> GetLeaves(
         Guid id, [FromQuery] string? status = null)
@@ -1812,7 +1948,18 @@ public class TeachersController : ControllerBase
     [HttpPost("leaves")]
     public async Task<ActionResult<TeacherLeaveDto>> ApplyLeave([FromBody] ApplyLeaveDto dto)
     {
-        var teacher = await _db.Teachers.FindAsync(dto.TeacherId);
+        var tenantId = _currentUser.TenantId;
+        var user = await _db.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
+        
+        Guid targetTeacherId = dto.TeacherId;
+        // If current user is a Teacher, enforce linked profile
+        if (user != null && (user.Role == IMSERP.Domain.Enums.UserRole.Teacher || _currentUser.UserRole == "Teacher"))
+        {
+            var linked = await _db.Teachers.AsNoTracking().FirstOrDefaultAsync(t => t.TenantId == tenantId && (t.UserId == user.Id || (user.Email != null && t.Email == user.Email)));
+            if (linked != null) targetTeacherId = linked.Id;
+        }
+
+        var teacher = await _db.Teachers.FindAsync(targetTeacherId);
         if (teacher == null) return NotFound(new { message = "Teacher not found." });
 
         if (!Enum.TryParse<LeaveType>(dto.LeaveType, true, out var leaveType))
@@ -1823,8 +1970,8 @@ public class TeachersController : ControllerBase
 
         var leave = new TeacherLeave
         {
-            TenantId = _currentUser.TenantId,
-            TeacherId = dto.TeacherId,
+            TenantId = tenantId,
+            TeacherId = targetTeacherId,
             LeaveType = leaveType,
             FromDate = dto.FromDate.Date,
             ToDate = dto.ToDate.Date,
@@ -1847,13 +1994,24 @@ public class TeachersController : ControllerBase
     [HttpPut("leaves/{leaveId}/approve")]
     public async Task<IActionResult> ApproveLeave(Guid leaveId, [FromBody] ApproveLeaveDto dto)
     {
-        var leave = await _db.TeacherLeaves.FindAsync(leaveId);
+        var tenantId = _currentUser.TenantId;
+        var user = await _db.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
+
+        // Security Check: Teachers CANNOT approve or reject leaves!
+        if (user != null && (user.Role == IMSERP.Domain.Enums.UserRole.Teacher || _currentUser.UserRole == "Teacher"))
+        {
+            return Forbid();
+        }
+
+        var leave = await _db.TeacherLeaves.FirstOrDefaultAsync(l => l.Id == leaveId && l.TenantId == tenantId);
         if (leave == null) return NotFound();
 
+        var approverName = user?.FullName ?? user?.Username ?? _currentUser.UserRole;
+
         leave.Status = dto.Approve ? LeaveStatus.Approved : LeaveStatus.Rejected;
-        leave.ApprovedBy = _currentUser.UserId.ToString();
+        leave.ApprovedBy = approverName;
         leave.ApprovedAt = DateTime.UtcNow;
-        leave.RejectionReason = dto.Approve ? null : dto.RejectionReason?.Trim();
+        leave.RejectionReason = dto.Approve ? null : (string.IsNullOrWhiteSpace(dto.RejectionReason) ? "Not approved by administration" : dto.RejectionReason.Trim());
 
         // Attendance Linkage
         if (dto.Approve)
@@ -1884,7 +2042,7 @@ public class TeachersController : ControllerBase
                         Status = TeacherAttendanceStatus.Leave,
                         Remarks = $"Sanctioned Leave ({leave.LeaveType}): {leave.Reason}",
                         CaptureSource = "LeaveApplication",
-                        MarkedBy = _currentUser.UserId.ToString(),
+                        MarkedBy = approverName,
                         CreatedAt = DateTime.UtcNow
                     };
                     _db.TeacherAttendances.Add(newAtt);
@@ -1911,6 +2069,44 @@ public class TeachersController : ControllerBase
 
         await _db.SaveChangesAsync();
         return Ok(new { message = dto.Approve ? "Leave approved and attendance register synchronized." : "Leave rejected.", status = leave.Status.ToString() });
+    }
+
+    [HttpDelete("leaves/{leaveId}")]
+    public async Task<IActionResult> DeleteLeave(Guid leaveId)
+    {
+        var tenantId = _currentUser.TenantId;
+        var leave = await _db.TeacherLeaves.FirstOrDefaultAsync(l => l.Id == leaveId && l.TenantId == tenantId);
+        if (leave == null) return NotFound();
+
+        var user = await _db.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
+        var isTeacher = user != null && (user.Role == IMSERP.Domain.Enums.UserRole.Teacher || _currentUser.UserRole == "Teacher");
+
+        // Teachers can only delete their own PENDING requests
+        if (isTeacher && leave.Status != LeaveStatus.Pending)
+        {
+            return BadRequest(new { message = "Only pending leave applications can be cancelled." });
+        }
+
+        // If approved leave is deleted, clean up synced attendance
+        if (leave.Status == LeaveStatus.Approved)
+        {
+            var from = leave.FromDate.Date;
+            var to = leave.ToDate.Date;
+            var markedAtts = await _db.TeacherAttendances
+                .Where(a => a.TeacherId == leave.TeacherId &&
+                            a.AttendanceDate.Date >= from && a.AttendanceDate.Date <= to &&
+                            a.CaptureSource == "LeaveApplication")
+                .ToListAsync();
+
+            if (markedAtts.Count > 0)
+            {
+                _db.TeacherAttendances.RemoveRange(markedAtts);
+            }
+        }
+
+        _db.TeacherLeaves.Remove(leave);
+        await _db.SaveChangesAsync();
+        return Ok(new { message = "Leave application deleted successfully." });
     }
 
     private static TeacherAttendanceStatus EvaluateSmartAttendanceStatus(TeacherAttendanceStatus declaredStatus, string? inTime, string? outTime)

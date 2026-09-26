@@ -1501,9 +1501,11 @@ export class LayoutComponent implements OnInit {
         id: '3', title: 'Attendance Management', routeUrl: '', icon: 'event_available', sortOrder: 3, module: 'Attendance', isActive: true,
         children: [
           { id: '301', title: 'Student Attendance', routeUrl: '/students/attendance', icon: 'how_to_reg', sortOrder: 1, module: 'Attendance', isActive: true, children: [] },
-          { id: '302', title: 'Teacher Attendance', routeUrl: '/teachers/attendance', icon: 'co_present', sortOrder: 2, module: 'Attendance', isActive: true, children: [] },
-          { id: '303', title: 'Attendance Reports', routeUrl: '/attendance/reports', icon: 'summarize', sortOrder: 3, module: 'Attendance', isActive: true, children: [] },
-          { id: '304', title: 'Biometric Devices', routeUrl: '/attendance/devices', icon: 'fingerprint', sortOrder: 4, module: 'Attendance', isActive: true, children: [] }
+          { id: '3011', title: 'Student Leaves', routeUrl: '/students/leaves', icon: 'event_busy', sortOrder: 2, module: 'Attendance', isActive: true, children: [] },
+          { id: '3012', title: 'Student Gate Pass', routeUrl: '/students/gate-pass', icon: 'badge', sortOrder: 3, module: 'Attendance', isActive: true, children: [] },
+          { id: '302', title: 'Teacher Attendance', routeUrl: '/teachers/attendance', icon: 'co_present', sortOrder: 4, module: 'Attendance', isActive: true, children: [] },
+          { id: '303', title: 'Attendance Reports', routeUrl: '/attendance/reports', icon: 'summarize', sortOrder: 5, module: 'Attendance', isActive: true, children: [] },
+          { id: '304', title: 'Biometric Devices', routeUrl: '/attendance/devices', icon: 'fingerprint', sortOrder: 6, module: 'Attendance', isActive: true, children: [] }
         ]
       },
       {
@@ -1540,7 +1542,8 @@ export class LayoutComponent implements OnInit {
           { id: '54', title: 'Library Books', routeUrl: '/library/books', icon: 'local_library', sortOrder: 8, module: 'Academic', isActive: true, children: [] },
           { id: '55', title: 'Issue & Return Desk', routeUrl: '/library/circulation', icon: 'sync_alt', sortOrder: 9, module: 'Academic', isActive: true, children: [] },
           { id: '551', title: 'Library Shifts & Plans', routeUrl: '/library/plans', icon: 'schedule', sortOrder: 10, module: 'Academic', isActive: true, children: [] },
-          { id: '56', title: 'Hostel Management', routeUrl: '/hostel', icon: 'apartment', sortOrder: 11, module: 'Academic', isActive: true, children: [] }
+          { id: '56', title: 'Hostel Management', routeUrl: '/hostel', icon: 'apartment', sortOrder: 11, module: 'Academic', isActive: true, children: [] },
+          { id: '57', title: 'Front Desk & Visitors', routeUrl: '/front-desk/visitors', icon: 'transfer_within_a_station', sortOrder: 12, module: 'Academic', isActive: true, children: [] }
         ]
       },
       {
