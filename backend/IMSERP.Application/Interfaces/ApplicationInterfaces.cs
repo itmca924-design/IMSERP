@@ -35,6 +35,8 @@ public interface IIMSERPDbContext
     DbSet<Room> Rooms { get; }
     DbSet<TeacherLeave> TeacherLeaves { get; }
     DbSet<Holiday> Holidays { get; }
+    DbSet<SchoolEvent> SchoolEvents { get; }
+    DbSet<EventPhoto> EventPhotos { get; }
     DbSet<SchoolClass> SchoolClasses { get; }
     DbSet<SchoolSection> SchoolSections { get; }
     DbSet<LibraryBook> LibraryBooks { get; }
@@ -69,6 +71,8 @@ public interface IIMSERPDbContext
     DbSet<ExpenseCategory> ExpenseCategories { get; }
     DbSet<ExpenseVoucher> ExpenseVouchers { get; }
     DbSet<AccountLedger> AccountLedgers { get; }
+    DbSet<StudentHomework> StudentHomeworks { get; }
+    DbSet<AdmissionEnquiry> AdmissionEnquiries { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

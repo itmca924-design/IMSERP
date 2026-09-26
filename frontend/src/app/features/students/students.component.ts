@@ -26,6 +26,8 @@ import { LibraryService, LibraryMembershipPlanDto } from '../../core/services/li
 import { StudentLeavingDialogComponent } from './student-leaving-dialog.component';
 import { StudentReadmissionDialogComponent } from './student-readmission-dialog.component';
 import { ManageLibraryPlansDialogComponent } from '../library/manage-library-plans-dialog.component';
+import { StudentIdCardDialogComponent } from './student-id-card-dialog.component';
+import { StudentBonafideDialogComponent } from './student-bonafide-dialog.component';
 import { AuthService } from '../../core/services/auth.service';
 
 const API_BASE = 'http://localhost:5000';
@@ -821,6 +823,26 @@ const API_BASE = 'http://localhost:5000';
                         <mat-icon style="color: #cbd5e1;">block</mat-icon>
                       </button>
                     </span>
+
+                    <!-- School Student: Print ID Card -->
+                    <button
+                      mat-icon-button
+                      class="btn-id-card"
+                      *ngIf="s.isSchoolStudent && s.isActive !== false"
+                      (click)="openIdCardDialog(s)"
+                      matTooltip="Print Student ID Card">
+                      <mat-icon>badge</mat-icon>
+                    </button>
+
+                    <!-- School Student: Bonafide / Character Certificate -->
+                    <button
+                      mat-icon-button
+                      class="btn-certificate"
+                      *ngIf="s.isSchoolStudent"
+                      (click)="openBonafideDialog(s)"
+                      matTooltip="Generate Bonafide / Character Certificate">
+                      <mat-icon>workspace_premium</mat-icon>
+                    </button>
 
                     <!-- School Student: Academic Marksheet & Report Card -->
                     <a
@@ -2426,6 +2448,39 @@ export class StudentsComponent implements OnInit, OnDestroy {
       if (res?.reAdmitted) {
         this.loadStudents();
       }
+    });
+  }
+
+  // ── Student ID Card Studio ─────────────────────────────────
+
+  openIdCardDialog(student: any): void {
+    this.dialog.open(StudentIdCardDialogComponent, {
+      width: '1100px',
+      maxWidth: '97vw',
+      maxHeight: '92vh',
+      panelClass: 'idcard-modal-container',
+      disableClose: false,
+      data: {
+        studentId: student.id,
+        studentName: student.studentName,
+        classId: student.classId,
+        sectionId: student.sectionId,
+        className: student.className,
+        schoolClasses: this.schoolClasses
+      }
+    });
+  }
+
+  // ── Bonafide / Character Certificate Generator ─────────────
+
+  openBonafideDialog(student: any): void {
+    this.dialog.open(StudentBonafideDialogComponent, {
+      width: '840px',
+      maxWidth: '97vw',
+      maxHeight: '92vh',
+      panelClass: 'cert-modal-container',
+      disableClose: false,
+      data: { student }
     });
   }
 

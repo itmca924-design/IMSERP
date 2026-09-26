@@ -13,7 +13,11 @@ import { skip } from 'rxjs';
 import { CoachingService } from '../../core/services/coaching.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { AuthService } from '../../core/services/auth.service';
+import { EventsService, DashboardCelebrationsSummary, SchoolEvent, BirthdayItem } from '../../core/services/events.service';
 import { TranslatePipe } from '../../core/pipes/translate.pipe';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { EventFormDialogComponent } from '../events/event-form-dialog.component';
+import { EventGalleryDialogComponent } from '../events/event-gallery-dialog.component';
 import ApexCharts from 'apexcharts';
 
 @Component({
@@ -29,6 +33,7 @@ import ApexCharts from 'apexcharts';
     MatProgressSpinnerModule,
     MatChipsModule,
     MatTooltipModule,
+    MatDialogModule,
     RouterModule,
     TranslatePipe
   ],
@@ -295,6 +300,164 @@ import ApexCharts from 'apexcharts';
             <div #batchChart class="apex-chart-wrap"></div>
           </mat-card-content>
         </mat-card>
+
+        <!-- 3.5 School Happenings & Celebration Radar -->
+        <div class="celebration-radar-grid">
+          <!-- Left: Upcoming Events & Celebrations (62%) -->
+          <mat-card class="radar-card events-box mat-elevation-z2">
+            <div class="radar-header">
+              <div class="radar-title-wrap">
+                <div class="radar-icon-badge events-badge">
+                  <mat-icon>celebration</mat-icon>
+                </div>
+                <div>
+                  <h3 class="radar-title">School Happenings & Upcoming Events</h3>
+                  <p class="radar-sub">Annual Day, 15 Aug, Farewell, Sports Meet & Official Circulars</p>
+                </div>
+              </div>
+              <div class="radar-actions">
+                <a mat-stroked-button routerLink="/events" class="view-events-btn">
+                  <span>View All</span>
+                  <mat-icon>arrow_forward</mat-icon>
+                </a>
+                <button mat-raised-button color="primary" class="new-event-btn" (click)="openCreateEventDialog()">
+                  <mat-icon>add</mat-icon>
+                  <span>New Event</span>
+                </button>
+              </div>
+            </div>
+
+            <mat-card-content class="events-content">
+              @if (celebrations()?.upcomingEvents?.length) {
+                <div class="events-cards-row">
+                  @for (ev of celebrations()!.upcomingEvents; track ev.id) {
+                    <div class="event-mini-card">
+                      <div class="event-banner" [style.background-image]="ev.bannerUrl ? 'url(' + ev.bannerUrl + ')' : getFallbackGradient(ev.category)">
+                        <span class="cat-chip" [ngClass]="ev.category.toLowerCase()">
+                          {{ getCategoryEmoji(ev.category) }} {{ ev.category }}
+                        </span>
+                        <div class="event-date-flag">
+                          <span class="m">{{ ev.startDate | date:'MMM' | uppercase }}</span>
+                          <span class="d">{{ ev.startDate | date:'dd' }}</span>
+                        </div>
+                      </div>
+                      <div class="event-info">
+                        <h4 class="event-name" [title]="ev.title">{{ ev.title }}</h4>
+                        <div class="meta-row" *ngIf="ev.venue">
+                          <mat-icon>place</mat-icon>
+                          <span>{{ ev.venue }}</span>
+                        </div>
+                        <div class="meta-row" *ngIf="ev.startTime">
+                          <mat-icon>schedule</mat-icon>
+                          <span>{{ ev.startTime }}</span>
+                        </div>
+                        <div class="bottom-actions">
+                          <a *ngIf="ev.attachmentPdfUrl" [href]="ev.attachmentPdfUrl" target="_blank" class="pdf-tag" download>
+                            <mat-icon>picture_as_pdf</mat-icon> Circular
+                          </a>
+                          <button class="memories-tag" (click)="openEventGallery(ev)">
+                            <mat-icon>photo_camera</mat-icon> {{ ev.photosCount }} Memories
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  }
+                </div>
+              } @else {
+                <div class="empty-events-radar">
+                  <div class="empty-events-icon">
+                    <mat-icon>event_available</mat-icon>
+                  </div>
+                  <p class="empty-main">No Upcoming Events Scheduled</p>
+                  <p class="empty-desc">Schedule your annual day, 15 Aug, sports meet, or cultural celebration to keep everyone informed.</p>
+                  <button mat-flat-button color="primary" (click)="openCreateEventDialog()">
+                    <mat-icon>add</mat-icon> Schedule First Event
+                  </button>
+                </div>
+              }
+            </mat-card-content>
+          </mat-card>
+
+          <!-- Right: Today's Celebrations & Birthdays Radar (38%) -->
+          <mat-card class="radar-card birthdays-box mat-elevation-z2">
+            <div class="radar-header">
+              <div class="radar-title-wrap">
+                <div class="radar-icon-badge bday-badge">
+                  <mat-icon>cake</mat-icon>
+                </div>
+                <div>
+                  <h3 class="radar-title">Celebrations & Birthdays</h3>
+                  <p class="radar-sub">Students & Teachers Celebrating Today</p>
+                </div>
+              </div>
+              <span class="bday-count-pill" *ngIf="celebrations()?.todayBirthdays?.length">
+                {{ celebrations()!.todayBirthdays.length }} Today 🎂
+              </span>
+            </div>
+
+            <mat-card-content class="birthdays-content">
+              @if (celebrations()?.todayBirthdays?.length) {
+                <div class="today-bday-list">
+                  @for (b of celebrations()!.todayBirthdays; track b.id) {
+                    <div class="bday-item-card">
+                      <div class="bday-avatar-wrap">
+                        <img *ngIf="b.photoUrl" [src]="b.photoUrl" [alt]="b.name" class="bday-avatar" />
+                        <div *ngIf="!b.photoUrl" class="bday-avatar-fallback">
+                          {{ b.name.substring(0, 1) | uppercase }}
+                        </div>
+                        <span class="confetti-emoji">🎉</span>
+                      </div>
+                      <div class="bday-details">
+                        <div class="bday-name-row">
+                          <span class="person-name">{{ b.name }}</span>
+                          <span class="role-pill" [class.staff]="b.role === 'Staff'">{{ b.role }}</span>
+                        </div>
+                        <span class="bday-meta">
+                          {{ b.classOrDepartment || 'Student' }} • Turning {{ b.ageTurning }} yrs
+                        </span>
+                      </div>
+                      <button
+                        mat-flat-button
+                        class="wa-wish-btn"
+                        (click)="sendWhatsAppWish(b)"
+                        [matTooltip]="'Send Birthday Greeting via WhatsApp'"
+                      >
+                        <mat-icon class="wa-icon">chat</mat-icon>
+                        <span>Wish</span>
+                      </button>
+                    </div>
+                  }
+                </div>
+              } @else {
+                <div class="no-bday-today">
+                  <div class="bday-cal-icon">
+                    <mat-icon>sentiment_satisfied_alt</mat-icon>
+                  </div>
+                  <p class="no-bday-text">No birthdays today</p>
+                  <p class="no-bday-sub">Everyone's growing a little older gracefully! Check upcoming birthdays below.</p>
+                </div>
+              }
+
+              <!-- Upcoming Birthdays Next 7 Days -->
+              @if (celebrations()?.upcomingBirthdaysThisWeek?.length) {
+                <div class="upcoming-bdays-section">
+                  <span class="upcoming-header-label">
+                    <mat-icon>calendar_month</mat-icon> Next 7 Days Birthdays
+                  </span>
+                  <div class="upcoming-chips-row">
+                    @for (ub of celebrations()!.upcomingBirthdaysThisWeek; track ub.id) {
+                      <div class="upcoming-chip">
+                        <span class="ub-date">{{ ub.birthdayDateFormatted }}</span>
+                        <span class="ub-name">{{ ub.name }}</span>
+                        <span class="ub-role">({{ ub.role }})</span>
+                      </div>
+                    }
+                  </div>
+                </div>
+              }
+            </mat-card-content>
+          </mat-card>
+        </div>
 
         <!-- 4. Tables Row (Overdue Reminders & Recent Tests) -->
         <div class="bottom-grid">
@@ -1167,9 +1330,467 @@ import ApexCharts from 'apexcharts';
       a { color: #2563eb; text-decoration: none; font-weight: 600; }
     }
 
+    /* ─── Celebration Radar ─── */
+    .celebration-radar-grid {
+      display: grid;
+      grid-template-columns: 1.6fr 1fr;
+      gap: 20px;
+    }
+
+    .radar-card {
+      border-radius: 14px;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .radar-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px;
+      border-bottom: 1px solid #f1f5f9;
+      background: #fafafa;
+      flex-wrap: wrap;
+      gap: 10px;
+
+      .radar-title-wrap {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+
+        .radar-icon-badge {
+          width: 40px;
+          height: 40px;
+          border-radius: 10px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+
+          mat-icon { font-size: 22px; width: 22px; height: 22px; }
+
+          &.events-badge { background: #eff6ff; color: #2563eb; }
+          &.bday-badge { background: #fdf2f8; color: #db2777; }
+        }
+
+        .radar-title {
+          margin: 0;
+          font-size: 1.05rem;
+          font-weight: 700;
+          color: #0f172a;
+          line-height: 1.3;
+        }
+
+        .radar-sub {
+          margin: 2px 0 0;
+          font-size: 0.74rem;
+          color: #64748b;
+        }
+      }
+
+      .radar-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+
+        .view-events-btn {
+          font-size: 0.76rem;
+          height: 32px;
+          color: #2563eb;
+          border-color: #bfdbfe;
+        }
+
+        .new-event-btn {
+          font-size: 0.76rem;
+          height: 32px;
+          background: #2563eb;
+          color: #ffffff;
+          font-weight: 600;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+        }
+      }
+
+      .bday-count-pill {
+        font-size: 0.76rem;
+        font-weight: 700;
+        background: #ffe4e6;
+        color: #be123c;
+        border: 1px solid #fecdd3;
+        padding: 3px 10px;
+        border-radius: 20px;
+      }
+    }
+
+    .events-content {
+      padding: 0 !important;
+      flex: 1;
+    }
+
+    .events-cards-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 14px;
+      padding: 16px;
+
+      .event-mini-card {
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        overflow: hidden;
+        background: #ffffff;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        display: flex;
+        flex-direction: column;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+
+        &:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 8px rgba(0,0,0,0.08);
+        }
+
+        .event-banner {
+          height: 85px;
+          position: relative;
+          background-size: cover;
+          background-position: center;
+
+          .cat-chip {
+            position: absolute;
+            top: 6px;
+            right: 8px;
+            font-size: 0.65rem;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.92);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+
+            &.national { background: #fff7ed; color: #c2410c; }
+            &.cultural { background: #fdf2f8; color: #be185d; }
+            &.sports { background: #f0fdf4; color: #15803d; }
+            &.ptm { background: #f0f9ff; color: #0369a1; }
+            &.academic { background: #f5f3ff; color: #6d28d9; }
+          }
+
+          .event-date-flag {
+            position: absolute;
+            bottom: 6px;
+            left: 8px;
+            background: rgba(255,255,255,0.95);
+            border-radius: 6px;
+            padding: 2px 6px;
+            text-align: center;
+            line-height: 1;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+
+            .m { font-size: 0.58rem; font-weight: 800; color: #dc2626; display: block; }
+            .d { font-size: 0.95rem; font-weight: 800; color: #0f172a; display: block; margin-top: 1px; }
+          }
+        }
+
+        .event-info {
+          padding: 10px 12px;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          flex: 1;
+
+          .event-name {
+            margin: 0 0 4px;
+            font-size: 0.88rem;
+            font-weight: 700;
+            color: #1e293b;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .meta-row {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.72rem;
+            color: #64748b;
+
+            mat-icon { font-size: 14px; width: 14px; height: 14px; color: #94a3b8; }
+            span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+          }
+
+          .bottom-actions {
+            display: flex;
+            gap: 6px;
+            margin-top: auto;
+            padding-top: 8px;
+
+            .pdf-tag {
+              font-size: 0.68rem;
+              font-weight: 600;
+              color: #dc2626;
+              background: #fef2f2;
+              border: 1px solid #fecaca;
+              border-radius: 4px;
+              padding: 2px 6px;
+              display: inline-flex;
+              align-items: center;
+              gap: 2px;
+              text-decoration: none;
+
+              mat-icon { font-size: 13px; width: 13px; height: 13px; }
+              &:hover { background: #fee2e2; }
+            }
+
+            .memories-tag {
+              font-size: 0.68rem;
+              font-weight: 600;
+              color: #0284c7;
+              background: #f0f9ff;
+              border: 1px solid #bae6fd;
+              border-radius: 4px;
+              padding: 2px 6px;
+              cursor: pointer;
+              display: inline-flex;
+              align-items: center;
+              gap: 2px;
+
+              mat-icon { font-size: 13px; width: 13px; height: 13px; }
+              &:hover { background: #e0f2fe; }
+            }
+          }
+        }
+      }
+    }
+
+    .empty-events-radar {
+      padding: 36px 20px;
+      text-align: center;
+
+      .empty-events-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        background: #eff6ff;
+        color: #2563eb;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 10px;
+
+        mat-icon { font-size: 26px; width: 26px; height: 26px; }
+      }
+
+      .empty-main {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: #1e293b;
+        margin: 0 0 4px;
+      }
+
+      .empty-desc {
+        font-size: 0.78rem;
+        color: #64748b;
+        margin: 0 0 14px;
+        max-width: 380px;
+        margin-left: auto;
+        margin-right: auto;
+      }
+    }
+
+    .birthdays-content {
+      padding: 0 !important;
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+    }
+
+    .today-bday-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 14px;
+
+      .bday-item-card {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 12px;
+        background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%);
+        border: 1px solid #fecdd3;
+        border-radius: 10px;
+
+        .bday-avatar-wrap {
+          position: relative;
+          width: 42px;
+          height: 42px;
+          flex-shrink: 0;
+
+          .bday-avatar {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid #fda4af;
+          }
+
+          .bday-avatar-fallback {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: #e11d48;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.1rem;
+          }
+
+          .confetti-emoji {
+            position: absolute;
+            top: -6px;
+            right: -6px;
+            font-size: 14px;
+          }
+        }
+
+        .bday-details {
+          flex: 1;
+          min-width: 0;
+
+          .bday-name-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+
+            .person-name {
+              font-size: 0.88rem;
+              font-weight: 700;
+              color: #881337;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              white-space: nowrap;
+            }
+
+            .role-pill {
+              font-size: 0.62rem;
+              font-weight: 700;
+              padding: 1px 6px;
+              border-radius: 8px;
+              background: #fecdd3;
+              color: #9f1239;
+
+              &.staff { background: #fed7aa; color: #9a3412; }
+            }
+          }
+
+          .bday-meta {
+            font-size: 0.72rem;
+            color: #9f1239;
+            margin-top: 2px;
+            display: block;
+          }
+        }
+
+        .wa-wish-btn {
+          background: #22c55e !important;
+          color: #ffffff !important;
+          border-radius: 20px;
+          font-size: 0.74rem;
+          font-weight: 700;
+          height: 32px;
+          padding: 0 12px;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          box-shadow: 0 2px 4px rgba(34,197,94,0.3);
+          flex-shrink: 0;
+
+          .wa-icon { font-size: 16px; width: 16px; height: 16px; }
+          &:hover { background: #16a34a !important; }
+        }
+      }
+    }
+
+    .no-bday-today {
+      padding: 24px 16px;
+      text-align: center;
+
+      .bday-cal-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: #f1f5f9;
+        color: #94a3b8;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 8px;
+
+        mat-icon { font-size: 22px; width: 22px; height: 22px; }
+      }
+
+      .no-bday-text {
+        font-size: 0.88rem;
+        font-weight: 700;
+        color: #334155;
+        margin: 0 0 3px;
+      }
+
+      .no-bday-sub {
+        font-size: 0.74rem;
+        color: #64748b;
+        margin: 0;
+      }
+    }
+
+    .upcoming-bdays-section {
+      margin-top: auto;
+      padding: 12px 14px;
+      background: #f8fafc;
+      border-top: 1px solid #f1f5f9;
+
+      .upcoming-header-label {
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        margin-bottom: 8px;
+
+        mat-icon { font-size: 14px; width: 14px; height: 14px; color: #2563eb; }
+      }
+
+      .upcoming-chips-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+
+        .upcoming-chip {
+          font-size: 0.72rem;
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
+          border-radius: 12px;
+          padding: 3px 8px;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+
+          .ub-date { font-weight: 700; color: #2563eb; }
+          .ub-name { color: #1e293b; font-weight: 600; }
+          .ub-role { color: #94a3b8; font-size: 0.66rem; }
+        }
+      }
+    }
+
     /* ─── Responsive ─── */
     @media (max-width: 1024px) {
       .charts-row { grid-template-columns: 1fr; }
+      .celebration-radar-grid { grid-template-columns: 1fr; }
       .bottom-grid { grid-template-columns: 1fr; }
     }
   `]
@@ -1222,10 +1843,14 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   private batchChart?: ApexCharts;
   private destroyRef = inject(DestroyRef);
 
+  celebrations = signal<DashboardCelebrationsSummary | null>(null);
+
   constructor(
     private coachingService: CoachingService,
     private confirmDialog: ConfirmDialogService,
     private authService: AuthService,
+    private eventsService: EventsService,
+    private dialog: MatDialog,
     private ngZone: NgZone,
     private cdr: ChangeDetectorRef
   ) {
@@ -1253,6 +1878,7 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   loadSummary(): void {
     this.loading.set(true);
     this.cdr.markForCheck();
+    this.loadCelebrationsSummary();
     this.coachingService.getDashboardSummary()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
@@ -1673,4 +2299,75 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
       });
     });
   }
+
+  loadCelebrationsSummary(): void {
+    this.eventsService.getDashboardSummary()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (data: DashboardCelebrationsSummary) => {
+          this.celebrations.set(data);
+          this.cdr.markForCheck();
+        },
+        error: () => {}
+      });
+  }
+
+  openCreateEventDialog(): void {
+    const dialogRef = this.dialog.open(EventFormDialogComponent, {
+      width: '640px',
+      data: {}
+    });
+
+    dialogRef.afterClosed().subscribe((res) => {
+      if (res) {
+        this.loadCelebrationsSummary();
+      }
+    });
+  }
+
+  openEventGallery(event: SchoolEvent): void {
+    const dialogRef = this.dialog.open(EventGalleryDialogComponent, {
+      width: '760px',
+      data: { event }
+    });
+
+    dialogRef.afterClosed().subscribe((res) => {
+      if (res && typeof res.photosCount === 'number') {
+        event.photosCount = res.photosCount;
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  sendWhatsAppWish(b: BirthdayItem): void {
+    const textMsg = `*HAPPY BIRTHDAY!* 🎂🎉\nDear *${b.name}*,\n\nWishing you a very Happy Birthday from all of us at School! ✨\nMay this year bring immense learning, joy, good health, and glorious achievements!\n\n_With warm blessings & best wishes!_`;
+    const phone = b.whatsAppPhone ? b.whatsAppPhone.replace(/\D/g, '') : '';
+    const formattedPhone = phone.length === 10 ? '91' + phone : phone;
+    const waUrl = formattedPhone ? `https://wa.me/${formattedPhone}?text=${encodeURIComponent(textMsg)}` : `https://wa.me/?text=${encodeURIComponent(textMsg)}`;
+    window.open(waUrl, '_blank');
+  }
+
+  getCategoryEmoji(category: string): string {
+    switch (category) {
+      case 'National': return '🇮🇳';
+      case 'Cultural': return '🎭';
+      case 'Sports': return '🏆';
+      case 'PTM': return '🤝';
+      case 'Academic': return '📚';
+      case 'Celebration': return '💐';
+      default: return '🎉';
+    }
+  }
+
+  getFallbackGradient(category: string): string {
+    switch (category) {
+      case 'National': return 'linear-gradient(135deg, #f97316 0%, #ea580c 50%, #15803d 100%)';
+      case 'Cultural': return 'linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)';
+      case 'Sports': return 'linear-gradient(135deg, #10b981 0%, #047857 100%)';
+      case 'PTM': return 'linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)';
+      case 'Academic': return 'linear-gradient(135deg, #6366f1 0%, #4338ca 100%)';
+      default: return 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)';
+    }
+  }
 }
+

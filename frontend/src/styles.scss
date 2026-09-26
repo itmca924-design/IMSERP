@@ -1818,10 +1818,12 @@ mat-sidenav-container {
   }
 }
 
-// 8. Global Print Handler for Staff Identity Cards
+// 8. Global Print Handler for Staff & Student Identity Cards
 @media print {
   body:has(#printable-staff-id-cards),
-  body.printing-staff-id-cards {
+  body.printing-staff-id-cards,
+  body:has(#student-id-cards-print),
+  body.printing-student-id-cards {
     app-root,
     .layout-container,
     .sidebar,
@@ -1848,7 +1850,9 @@ mat-sidenav-container {
     .mat-mdc-dialog-container,
     .mat-mdc-dialog-surface,
     .idcard-modal-container,
-    #printable-staff-id-cards {
+    .idcard-wrap,
+    #printable-staff-id-cards,
+    #student-id-cards-print {
       display: block !important;
       visibility: visible !important;
       position: static !important;
@@ -1862,22 +1866,24 @@ mat-sidenav-container {
       background: #ffffff !important;
     }
 
-    #printable-staff-id-cards {
+    #printable-staff-id-cards,
+    #student-id-cards-print {
       padding: 8mm !important;
 
       .cards-grid {
         display: flex !important;
         flex-wrap: wrap !important;
-        gap: 10mm !important;
+        gap: 8mm !important;
         justify-content: flex-start !important;
       }
 
+      .card-wrap,
       .card-pair-wrapper {
         display: flex !important;
-        gap: 8mm !important;
+        gap: 6mm !important;
         break-inside: avoid !important;
         page-break-inside: avoid !important;
-        margin-bottom: 8mm !important;
+        margin-bottom: 6mm !important;
       }
 
       .id-card {
@@ -1890,6 +1896,68 @@ mat-sidenav-container {
       }
 
       .id-card * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        visibility: visible !important;
+      }
+    }
+  }
+
+  // 9. Global Print Handler for Certificates (Bonafide, Character, Study)
+  body:has(#bonafide-cert-print),
+  body.printing-bonafide-cert {
+    app-root,
+    .layout-container,
+    .sidebar,
+    .header-toolbar,
+    .page-container,
+    .modal-header,
+    .cdk-overlay-backdrop,
+    .no-print {
+      display: none !important;
+      visibility: hidden !important;
+    }
+
+    html, body {
+      background: #ffffff !important;
+      background-color: #ffffff !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      overflow: visible !important;
+    }
+
+    .cdk-overlay-container,
+    .cdk-global-overlay-wrapper,
+    .cdk-overlay-pane,
+    .mat-mdc-dialog-container,
+    .mat-mdc-dialog-surface,
+    .cert-modal-container,
+    .cert-wrap,
+    .cert-preview-area,
+    #bonafide-cert-print {
+      display: block !important;
+      visibility: visible !important;
+      position: static !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      border: none !important;
+      box-shadow: none !important;
+      overflow: visible !important;
+      background: #ffffff !important;
+    }
+
+    #bonafide-cert-print {
+      padding: 0 !important;
+      box-shadow: none !important;
+      border: 2px solid #1e3a8a !important;
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+
+      * {
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
         visibility: visible !important;

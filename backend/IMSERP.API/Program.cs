@@ -411,6 +411,101 @@ using (var scope = app.Services.CreateScope())
                             CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
                         );
                     END
+
+                    -- School Events, Functions & Celebrations Tables
+                    IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'SchoolEvents')
+                    BEGIN
+                        CREATE TABLE SchoolEvents (
+                            Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
+                            TenantId UNIQUEIDENTIFIER NOT NULL,
+                            BranchId UNIQUEIDENTIFIER NULL,
+                            Title NVARCHAR(200) NOT NULL,
+                            Category NVARCHAR(50) NOT NULL DEFAULT 'Cultural',
+                            StartDate DATETIME2 NOT NULL,
+                            EndDate DATETIME2 NULL,
+                            StartTime NVARCHAR(50) NULL,
+                            EndTime NVARCHAR(50) NULL,
+                            Venue NVARCHAR(200) NULL,
+                            Description NVARCHAR(MAX) NULL,
+                            TargetAudience NVARCHAR(100) NOT NULL DEFAULT 'All',
+                            BannerUrl NVARCHAR(MAX) NULL,
+                            AttachmentPdfUrl NVARCHAR(MAX) NULL,
+                            ChiefGuestName NVARCHAR(150) NULL,
+                            CoordinatorName NVARCHAR(150) NULL,
+                            Status NVARCHAR(50) NOT NULL DEFAULT 'Upcoming',
+                            IsActive BIT NOT NULL DEFAULT 1,
+                            CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
+                        );
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'EventPhotos')
+                    BEGIN
+                        CREATE TABLE EventPhotos (
+                            Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
+                            TenantId UNIQUEIDENTIFIER NOT NULL,
+                            EventId UNIQUEIDENTIFIER NOT NULL,
+                            PhotoUrl NVARCHAR(MAX) NOT NULL,
+                            Caption NVARCHAR(250) NULL,
+                            UploadedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
+                        );
+                    END
+
+                    -- Option B: Digital Homework & Diary Table
+                    IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'StudentHomeworks')
+                    BEGIN
+                        CREATE TABLE StudentHomeworks (
+                            Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
+                            TenantId UNIQUEIDENTIFIER NOT NULL,
+                            BranchId UNIQUEIDENTIFIER NULL,
+                            ClassId UNIQUEIDENTIFIER NULL,
+                            SectionId UNIQUEIDENTIFIER NULL,
+                            BatchId UNIQUEIDENTIFIER NULL,
+                            SubjectId UNIQUEIDENTIFIER NULL,
+                            SubjectName NVARCHAR(150) NOT NULL DEFAULT '',
+                            TeacherId UNIQUEIDENTIFIER NULL,
+                            TeacherName NVARCHAR(150) NULL,
+                            Title NVARCHAR(250) NOT NULL,
+                            Description NVARCHAR(MAX) NOT NULL,
+                            AssignedDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+                            DueDate DATETIME2 NOT NULL,
+                            AttachmentUrl NVARCHAR(MAX) NULL,
+                            Status NVARCHAR(50) NOT NULL DEFAULT 'Active',
+                            EstimatedMinutes INT NULL,
+                            CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+                            UpdatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
+                        );
+                    END
+
+                    -- Option C: Admission Enquiry & CRM Table
+                    IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'AdmissionEnquiries')
+                    BEGIN
+                        CREATE TABLE AdmissionEnquiries (
+                            Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
+                            TenantId UNIQUEIDENTIFIER NOT NULL,
+                            BranchId UNIQUEIDENTIFIER NULL,
+                            EnquiryNumber NVARCHAR(50) NOT NULL,
+                            StudentName NVARCHAR(150) NOT NULL,
+                            ParentName NVARCHAR(150) NOT NULL,
+                            Phone NVARCHAR(50) NOT NULL,
+                            AlternatePhone NVARCHAR(50) NULL,
+                            Email NVARCHAR(150) NULL,
+                            InterestedClassId UNIQUEIDENTIFIER NULL,
+                            InterestedClassName NVARCHAR(150) NULL,
+                            InterestedBatchId UNIQUEIDENTIFIER NULL,
+                            InterestedBatchName NVARCHAR(150) NULL,
+                            EnquiryDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+                            FollowUpDate DATETIME2 NULL,
+                            Source NVARCHAR(50) NOT NULL DEFAULT 'Walk-in',
+                            Status NVARCHAR(50) NOT NULL DEFAULT 'New',
+                            Priority NVARCHAR(50) NOT NULL DEFAULT 'Medium',
+                            Remarks NVARCHAR(MAX) NULL,
+                            ConvertedStudentId UNIQUEIDENTIFIER NULL,
+                            ConvertedAt DATETIME2 NULL,
+                            CreatedBy NVARCHAR(150) NULL,
+                            CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+                            UpdatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
+                        );
+                    END
                 ");
             }
             catch (Exception ex)
@@ -791,6 +886,81 @@ using (var scope = app.Services.CreateScope())
                 }
                 context.SaveChanges();
                 Console.WriteLine("[Database] Auto-seeded 'School Examinations' menu item under Academic Operations.");
+            }
+
+            // Auto-seed 'Homework & Daily Diary' MenuItem under Academic Operations
+            var homeworkMenu = context.MenuItems.FirstOrDefault(m => m.RouteUrl == "/school/homework");
+            if (homeworkMenu == null)
+            {
+                var newHomeworkMenu = new IMSERP.Domain.Entities.MenuItem
+                {
+                    Id = Guid.NewGuid(),
+                    Title = "Homework & Daily Diary",
+                    RouteUrl = "/school/homework",
+                    Icon = "assignment_turned_in",
+                    ParentId = academicMenu.Id,
+                    SortOrder = 3,
+                    Module = "Academic",
+                    IsActive = true
+                };
+                context.MenuItems.Add(newHomeworkMenu);
+                context.SaveChanges();
+
+                var roles = context.Roles.ToList();
+                foreach (var role in roles)
+                {
+                    context.RolePermissions.Add(new IMSERP.Domain.Entities.RolePermission
+                    {
+                        Id = Guid.NewGuid(),
+                        RoleId = role.Id,
+                        MenuItemId = newHomeworkMenu.Id,
+                        CanView = true,
+                        CanCreate = true,
+                        CanEdit = true,
+                        CanDelete = true
+                    });
+                }
+                context.SaveChanges();
+                Console.WriteLine("[Database] Auto-seeded 'Homework & Daily Diary' menu item under Academic Operations.");
+            }
+        }
+
+        // Auto-seed 'Admission Enquiries' MenuItem under Master Management
+        if (masterMenu != null)
+        {
+            var enquiryMenu = context.MenuItems.FirstOrDefault(m => m.RouteUrl == "/students/enquiries");
+            if (enquiryMenu == null)
+            {
+                var newEnquiryMenu = new IMSERP.Domain.Entities.MenuItem
+                {
+                    Id = Guid.NewGuid(),
+                    Title = "Admission Enquiries",
+                    RouteUrl = "/students/enquiries",
+                    Icon = "contact_phone",
+                    ParentId = masterMenu.Id,
+                    SortOrder = 6,
+                    Module = "Master",
+                    IsActive = true
+                };
+                context.MenuItems.Add(newEnquiryMenu);
+                context.SaveChanges();
+
+                var roles = context.Roles.ToList();
+                foreach (var role in roles)
+                {
+                    context.RolePermissions.Add(new IMSERP.Domain.Entities.RolePermission
+                    {
+                        Id = Guid.NewGuid(),
+                        RoleId = role.Id,
+                        MenuItemId = newEnquiryMenu.Id,
+                        CanView = true,
+                        CanCreate = true,
+                        CanEdit = true,
+                        CanDelete = true
+                    });
+                }
+                context.SaveChanges();
+                Console.WriteLine("[Database] Auto-seeded 'Admission Enquiries' menu item under Master Management.");
             }
         }
 

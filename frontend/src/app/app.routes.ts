@@ -60,6 +60,18 @@ export const routes: Routes = [
         loadComponent: () => import('./features/holidays/holidays.component').then(m => m.HolidaysComponent)
       },
       {
+        path: 'events',
+        loadComponent: () => import('./features/events/events.component').then(m => m.EventsComponent)
+      },
+      {
+        path: 'school/homework',
+        loadComponent: () => import('./features/school/homework-diary.component').then(m => m.HomeworkDiaryComponent)
+      },
+      {
+        path: 'students/enquiries',
+        loadComponent: () => import('./features/students/admission-enquiries.component').then(m => m.AdmissionEnquiriesComponent)
+      },
+      {
         path: 'attendance/reports',
         loadComponent: () => import('./features/attendance/attendance-reports.component').then(m => m.AttendanceReportsComponent)
       },

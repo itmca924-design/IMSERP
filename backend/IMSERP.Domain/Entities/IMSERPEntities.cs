@@ -922,6 +922,48 @@ public class Holiday
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
 
+public class SchoolEvent
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string Category { get; set; } = "Cultural"; // National, Cultural, Sports, Academic, PTM, Celebration, Other
+    public DateTime StartDate { get; set; }
+    public DateTime? EndDate { get; set; }
+    public string? StartTime { get; set; } // e.g. "09:00 AM"
+    public string? EndTime { get; set; } // e.g. "01:00 PM"
+    public string? Venue { get; set; }
+    public string? Description { get; set; }
+    public string TargetAudience { get; set; } = "All"; // All, SchoolOnly, CoachingOnly, StaffOnly, Primary, Secondary, Senior
+    public string? BannerUrl { get; set; }
+    public string? AttachmentPdfUrl { get; set; }
+    public string? ChiefGuestName { get; set; }
+    public string? CoordinatorName { get; set; }
+    public string Status { get; set; } = "Upcoming"; // Upcoming, Ongoing, Completed, Postponed, Cancelled
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+
+    public ICollection<EventPhoto> Photos { get; set; } = new List<EventPhoto>();
+}
+
+public class EventPhoto
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid EventId { get; set; }
+    public string PhotoUrl { get; set; } = string.Empty;
+    public string? Caption { get; set; }
+    public DateTime UploadedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("EventId")]
+    public SchoolEvent? Event { get; set; }
+}
+
+
 public class LibraryBook
 {
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -1485,4 +1527,79 @@ public class AccountLedger
     public Tenant? Tenant { get; set; }
     [ForeignKey("BranchId")]
     public Branch? Branch { get; set; }
+}
+
+public class StudentHomework
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid? ClassId { get; set; }
+    public Guid? SectionId { get; set; }
+    public Guid? BatchId { get; set; }
+    public Guid? SubjectId { get; set; }
+    public string SubjectName { get; set; } = string.Empty;
+    public Guid? TeacherId { get; set; }
+    public string? TeacherName { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public DateTime AssignedDate { get; set; } = DateTime.UtcNow;
+    public DateTime DueDate { get; set; }
+    public string? AttachmentUrl { get; set; }
+    public string Status { get; set; } = "Active"; // Active, Completed, Archived
+    public int? EstimatedMinutes { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+    public Tenant? Tenant { get; set; }
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+    [ForeignKey("ClassId")]
+    public SchoolClass? Class { get; set; }
+    [ForeignKey("SectionId")]
+    public SchoolSection? Section { get; set; }
+    [ForeignKey("BatchId")]
+    public Batch? Batch { get; set; }
+    [ForeignKey("SubjectId")]
+    public SubjectEntity? Subject { get; set; }
+    [ForeignKey("TeacherId")]
+    public Teacher? Teacher { get; set; }
+}
+
+public class AdmissionEnquiry
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public string EnquiryNumber { get; set; } = string.Empty;
+    public string StudentName { get; set; } = string.Empty;
+    public string ParentName { get; set; } = string.Empty;
+    public string Phone { get; set; } = string.Empty;
+    public string? AlternatePhone { get; set; }
+    public string? Email { get; set; }
+    public Guid? InterestedClassId { get; set; }
+    public string? InterestedClassName { get; set; }
+    public Guid? InterestedBatchId { get; set; }
+    public string? InterestedBatchName { get; set; }
+    public DateTime EnquiryDate { get; set; } = DateTime.UtcNow;
+    public DateTime? FollowUpDate { get; set; }
+    public string Source { get; set; } = "Walk-in"; // Walk-in, Phone, Website, Referral, Social Media, Newspaper
+    public string Status { get; set; } = "New"; // New, Contacted, Demo/Visit, Admitted, Lost
+    public string Priority { get; set; } = "Medium"; // High, Medium, Low
+    public string? Remarks { get; set; }
+    public Guid? ConvertedStudentId { get; set; }
+    public DateTime? ConvertedAt { get; set; }
+    public string? CreatedBy { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+    public Tenant? Tenant { get; set; }
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+    [ForeignKey("InterestedClassId")]
+    public SchoolClass? InterestedClass { get; set; }
+    [ForeignKey("InterestedBatchId")]
+    public Batch? InterestedBatch { get; set; }
+    [ForeignKey("ConvertedStudentId")]
+    public Student? ConvertedStudent { get; set; }
 }

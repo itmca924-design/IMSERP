@@ -1725,7 +1725,147 @@ public class StudentsController : ControllerBase
         await _dbContext.SaveChangesAsync();
         return Ok(new { message = $"Student '{student.StudentName}' successfully re-admitted and restored to active enrollment." });
     }
+
+    // =========================================================================
+    // STUDENT ID CARD GENERATOR
+    // =========================================================================
+
+    [HttpGet("id-cards")]
+    public async Task<ActionResult<IEnumerable<StudentIdCardDto>>> GetStudentIdCards(
+        [FromQuery] Guid? studentId,
+        [FromQuery] Guid? classId,
+        [FromQuery] Guid? sectionId,
+        [FromQuery] Guid? batchId)
+    {
+        var branch = await _dbContext.Branches.AsNoTracking().FirstOrDefaultAsync(b => b.Id == _currentUser.BranchId);
+        var tenant = await _dbContext.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.Id == _currentUser.TenantId);
+
+        string institutionName = tenant?.Name ?? "School ERP";
+        string? branchName = branch?.Name;
+        string? instAddress = branch?.Address ?? tenant?.Address;
+        string? instPhone = branch?.ContactPhone ?? tenant?.ContactPhone;
+        string? affCode = branch?.Code ?? "STUDENT-ID";
+        string academicYear = $"{DateTime.UtcNow.Year}-{DateTime.UtcNow.Year + 1}";
+
+        var query = _dbContext.Students.AsNoTracking()
+            .Include(s => s.Batch)
+            .Include(s => s.Class)
+            .Include(s => s.Section)
+            .Where(s => s.IsActive && s.IsSchoolStudent);
+
+        if (studentId.HasValue && studentId.Value != Guid.Empty)
+            query = query.Where(s => s.Id == studentId.Value);
+        else if (classId.HasValue && classId.Value != Guid.Empty)
+        {
+            query = query.Where(s => s.ClassId == classId.Value);
+            if (sectionId.HasValue && sectionId.Value != Guid.Empty)
+                query = query.Where(s => s.SectionId == sectionId.Value);
+        }
+        else if (batchId.HasValue && batchId.Value != Guid.Empty)
+            query = query.Where(s => s.BatchId == batchId.Value);
+
+        var students = await query.OrderBy(s => s.StudentName).ToListAsync();
+
+        var cards = students.Select(s =>
+        {
+            string qrData = $"ADM:{s.AdmissionNumber ?? s.RollNumber}|NAME:{s.StudentName}|CLASS:{s.Class?.Name ?? s.Batch?.Name}|DOB:{s.DateOfBirth?.ToString("dd-MMM-yyyy") ?? ""}";
+            return new StudentIdCardDto(
+                s.Id,
+                s.StudentName,
+                s.AdmissionNumber,
+                s.SchoolRollNumber,
+                s.RollNumber,
+                s.Class?.Name,
+                s.Section?.Name,
+                s.Batch?.Name,
+                s.DateOfBirth?.ToString("yyyy-MM-dd"),
+                s.Gender,
+                s.BloodGroup,
+                s.ParentName,
+                s.ParentWhatsAppPhone,
+                s.Address,
+                s.ProfilePhoto,
+                s.AadhaarNumber,
+                s.Category,
+                institutionName,
+                branchName,
+                instAddress,
+                instPhone,
+                affCode,
+                academicYear,
+                qrData
+            );
+        });
+
+        return Ok(cards);
+    }
+
+    // =========================================================================
+    // BONAFIDE / CHARACTER CERTIFICATE GENERATOR
+    // =========================================================================
+
+    [HttpGet("{id}/bonafide")]
+    public async Task<ActionResult<BonafideCertificateDto>> GetBonafideCertificate(
+        Guid id,
+        [FromQuery] string certType = "Bonafide")
+    {
+        var s = await _dbContext.Students.AsNoTracking()
+            .Include(st => st.Class)
+            .Include(st => st.Section)
+            .FirstOrDefaultAsync(st => st.Id == id);
+
+        if (s == null) return NotFound(new { message = "Student not found." });
+
+        var branch = await _dbContext.Branches.AsNoTracking().FirstOrDefaultAsync(b => b.Id == (_currentUser.BranchId ?? s.BranchId));
+        var tenant = await _dbContext.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.Id == _currentUser.TenantId);
+
+        string institutionName = tenant?.Name ?? "School ERP";
+        string? branchName = branch?.Name;
+        string? instAddress = branch?.Address ?? tenant?.Address;
+        string? instPhone = branch?.ContactPhone ?? tenant?.ContactPhone;
+        string? affCode = branch?.Code;
+        string academicYear = $"{DateTime.UtcNow.Year}-{DateTime.UtcNow.Year + 1}";
+
+        // Try to get principal from active teachers
+        string? principalName = await _dbContext.Teachers.AsNoTracking()
+            .Where(t => t.IsActive && (t.Designation != null && t.Designation.ToLower().Contains("principal")))
+            .Select(t => t.FullName)
+            .FirstOrDefaultAsync();
+
+        var cert = new BonafideCertificateDto(
+            s.Id,
+            s.StudentName,
+            s.AdmissionNumber,
+            s.SchoolRollNumber,
+            s.Class?.Name,
+            s.Section?.Name,
+            academicYear,
+            s.DateOfBirth?.ToString("dd MMMM yyyy"),
+            s.Gender,
+            s.Category,
+            s.ParentName,
+            s.MotherName,
+            s.Address,
+            s.ProfilePhoto,
+            s.PreviousSchoolName,
+            s.BloodGroup,
+            s.Religion,
+            s.JoiningDate,
+            institutionName,
+            branchName,
+            instAddress,
+            instPhone,
+            principalName,
+            affCode,
+            null, // affiliation number can be expanded later
+            certType,
+            DateTime.UtcNow.ToString("dd MMMM yyyy")
+        );
+
+        return Ok(cert);
+    }
 }
+
 
 [ApiController]
 [Route("api/[controller]")]

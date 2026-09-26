@@ -43,6 +43,8 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
     public DbSet<Room> Rooms => Set<Room>();
     public DbSet<TeacherLeave> TeacherLeaves => Set<TeacherLeave>();
     public DbSet<Holiday> Holidays => Set<Holiday>();
+    public DbSet<SchoolEvent> SchoolEvents => Set<SchoolEvent>();
+    public DbSet<EventPhoto> EventPhotos => Set<EventPhoto>();
     public DbSet<SchoolClass> SchoolClasses => Set<SchoolClass>();
     public DbSet<SchoolSection> SchoolSections => Set<SchoolSection>();
     public DbSet<LibraryBook> LibraryBooks => Set<LibraryBook>();
@@ -76,6 +78,8 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
     public DbSet<ExpenseCategory> ExpenseCategories => Set<ExpenseCategory>();
     public DbSet<ExpenseVoucher> ExpenseVouchers => Set<ExpenseVoucher>();
     public DbSet<AccountLedger> AccountLedgers => Set<AccountLedger>();
+    public DbSet<StudentHomework> StudentHomeworks => Set<StudentHomework>();
+    public DbSet<AdmissionEnquiry> AdmissionEnquiries => Set<AdmissionEnquiry>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -134,6 +138,10 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
         modelBuilder.Entity<TeacherSalaryAdvance>().HasQueryFilter(x => _currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId);
         modelBuilder.Entity<TeacherLeave>().HasQueryFilter(x => _currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId);
         modelBuilder.Entity<Holiday>().HasQueryFilter(x => _currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId);
+        modelBuilder.Entity<SchoolEvent>().HasQueryFilter(x => 
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<EventPhoto>().HasQueryFilter(x => _currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId);
         modelBuilder.Entity<SchoolClass>().HasQueryFilter(x => 
             (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
@@ -223,6 +231,12 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
             (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<AccountLedger>().HasQueryFilter(x =>
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<StudentHomework>().HasQueryFilter(x =>
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<AdmissionEnquiry>().HasQueryFilter(x =>
             (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
 

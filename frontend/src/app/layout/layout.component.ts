@@ -1122,6 +1122,7 @@ export class LayoutComponent implements OnInit {
     { title: 'Batches', route: '/batches', icon: 'class' },
     { title: 'Subjects', route: '/subjects', icon: 'menu_book' },
     { title: 'Holiday Calendar', route: '/holidays', icon: 'event' },
+    { title: 'Events & Celebrations', route: '/events', icon: 'celebration' },
     { title: 'Teacher Profiles', route: '/teachers', icon: 'badge' },
     { title: 'Teacher Reports', route: '/teachers/reports', icon: 'assessment' },
     { title: 'Teacher Attendance', route: '/teachers/attendance', icon: 'event_available' },
@@ -1424,7 +1425,10 @@ export class LayoutComponent implements OnInit {
         return false;
       }
 
-      if (!hasSchool && (lower.includes('/school/') || lower.includes('/students/promotion'))) {
+      if (!hasSchool && !hasCoaching && lower.includes('/school/homework')) {
+        return false;
+      }
+      if (!hasSchool && (lower.includes('/school/classes') || lower.includes('/school/exams') || lower.includes('/students/promotion'))) {
         return false;
       }
       if (!hasSchool && !hasCoaching && lower.includes('/fee-heads')) {
@@ -1488,7 +1492,9 @@ export class LayoutComponent implements OnInit {
           { id: '22', title: 'Classrooms Master', routeUrl: '/rooms', icon: 'meeting_room', sortOrder: 3, module: 'Master', isActive: true, children: [] },
           { id: '23', title: 'Subject Master', routeUrl: '/subjects', icon: 'menu_book', sortOrder: 4, module: 'Master', isActive: true, children: [] },
           { id: '24', title: 'Students Master', routeUrl: '/students', icon: 'people', sortOrder: 5, module: 'Master', isActive: true, children: [] },
-          { id: '25', title: 'Holiday Master', routeUrl: '/holidays', icon: 'event', sortOrder: 6, module: 'Master', isActive: true, children: [] }
+          { id: '241', title: 'Admission Enquiries', routeUrl: '/students/enquiries', icon: 'contact_phone', sortOrder: 6, module: 'Master', isActive: true, children: [] },
+          { id: '25', title: 'Holiday Master', routeUrl: '/holidays', icon: 'event', sortOrder: 7, module: 'Master', isActive: true, children: [] },
+          { id: '26', title: 'Events & Celebrations', routeUrl: '/events', icon: 'celebration', sortOrder: 8, module: 'Master', isActive: true, children: [] }
         ]
       },
       {
@@ -1526,14 +1532,15 @@ export class LayoutComponent implements OnInit {
         children: [
           { id: '51', title: 'Fee Collection', routeUrl: '/fees', icon: 'payments', sortOrder: 1, module: 'Academic', isActive: true, children: [] },
           { id: '511', title: 'Fee Heads Master', routeUrl: '/fee-heads', icon: 'account_tree', sortOrder: 2, module: 'Academic', isActive: true, children: [] },
-          { id: '52', title: 'School Examinations', routeUrl: '/school/exams', icon: 'assignment', sortOrder: 3, module: 'Academic', isActive: true, children: [] },
-          { id: '521', title: 'Student Promotion', routeUrl: '/students/promotion', icon: 'trending_up', sortOrder: 4, module: 'Academic', isActive: true, children: [] },
-          { id: '522', title: 'Tests & Report Cards', routeUrl: '/tests', icon: 'quiz', sortOrder: 5, module: 'Academic', isActive: true, children: [] },
-          { id: '53', title: 'WhatsApp Logs', routeUrl: '/whatsapp', icon: 'chat', sortOrder: 6, module: 'Academic', isActive: true, children: [] },
-          { id: '54', title: 'Library Books', routeUrl: '/library/books', icon: 'local_library', sortOrder: 7, module: 'Academic', isActive: true, children: [] },
-          { id: '55', title: 'Issue & Return Desk', routeUrl: '/library/circulation', icon: 'sync_alt', sortOrder: 8, module: 'Academic', isActive: true, children: [] },
-          { id: '551', title: 'Library Shifts & Plans', routeUrl: '/library/plans', icon: 'schedule', sortOrder: 9, module: 'Academic', isActive: true, children: [] },
-          { id: '56', title: 'Hostel Management', routeUrl: '/hostel', icon: 'apartment', sortOrder: 10, module: 'Academic', isActive: true, children: [] }
+          { id: '512', title: 'Homework & Daily Diary', routeUrl: '/school/homework', icon: 'menu_book', sortOrder: 3, module: 'Academic', isActive: true, children: [] },
+          { id: '52', title: 'School Examinations', routeUrl: '/school/exams', icon: 'assignment', sortOrder: 4, module: 'Academic', isActive: true, children: [] },
+          { id: '521', title: 'Student Promotion', routeUrl: '/students/promotion', icon: 'trending_up', sortOrder: 5, module: 'Academic', isActive: true, children: [] },
+          { id: '522', title: 'Tests & Report Cards', routeUrl: '/tests', icon: 'quiz', sortOrder: 6, module: 'Academic', isActive: true, children: [] },
+          { id: '53', title: 'WhatsApp Logs', routeUrl: '/whatsapp', icon: 'chat', sortOrder: 7, module: 'Academic', isActive: true, children: [] },
+          { id: '54', title: 'Library Books', routeUrl: '/library/books', icon: 'local_library', sortOrder: 8, module: 'Academic', isActive: true, children: [] },
+          { id: '55', title: 'Issue & Return Desk', routeUrl: '/library/circulation', icon: 'sync_alt', sortOrder: 9, module: 'Academic', isActive: true, children: [] },
+          { id: '551', title: 'Library Shifts & Plans', routeUrl: '/library/plans', icon: 'schedule', sortOrder: 10, module: 'Academic', isActive: true, children: [] },
+          { id: '56', title: 'Hostel Management', routeUrl: '/hostel', icon: 'apartment', sortOrder: 11, module: 'Academic', isActive: true, children: [] }
         ]
       },
       {

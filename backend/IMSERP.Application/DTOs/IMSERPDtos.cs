@@ -3018,3 +3018,317 @@ public record FinanceDashboardKpiDto(
     decimal CurrentFinancialYearSurplus
 );
 
+// ─── School Events, Functions & Celebrations DTOs ──────────────────────
+public record SchoolEventDto(
+    Guid Id,
+    Guid TenantId,
+    Guid? BranchId,
+    string? BranchName,
+    string Title,
+    string Category,
+    DateTime StartDate,
+    DateTime? EndDate,
+    string? StartTime,
+    string? EndTime,
+    string? Venue,
+    string? Description,
+    string TargetAudience,
+    string? BannerUrl,
+    string? AttachmentPdfUrl,
+    string? ChiefGuestName,
+    string? CoordinatorName,
+    string Status,
+    bool IsActive,
+    DateTime CreatedAt,
+    int PhotosCount,
+    List<EventPhotoDto>? Photos = null
+);
+
+public record EventPhotoDto(
+    Guid Id,
+    Guid EventId,
+    string PhotoUrl,
+    string? Caption,
+    DateTime UploadedAt
+);
+
+public record CreateSchoolEventDto(
+    string Title,
+    string Category,
+    DateTime StartDate,
+    DateTime? EndDate = null,
+    string? StartTime = null,
+    string? EndTime = null,
+    string? Venue = null,
+    string? Description = null,
+    string TargetAudience = "All",
+    string? BannerBase64 = null,
+    string? AttachmentPdfBase64 = null,
+    string? ChiefGuestName = null,
+    string? CoordinatorName = null,
+    Guid? BranchId = null,
+    bool SendWhatsAppBroadcast = false
+);
+
+public record UpdateSchoolEventDto(
+    string Title,
+    string Category,
+    DateTime StartDate,
+    DateTime? EndDate = null,
+    string? StartTime = null,
+    string? EndTime = null,
+    string? Venue = null,
+    string? Description = null,
+    string TargetAudience = "All",
+    string? BannerBase64 = null,
+    string? AttachmentPdfBase64 = null,
+    string? ChiefGuestName = null,
+    string? CoordinatorName = null,
+    string Status = "Upcoming",
+    bool IsActive = true,
+    Guid? BranchId = null
+);
+
+public record AddEventPhotosDto(
+    List<string> PhotosBase64,
+    string? Caption = null
+);
+
+public record BirthdayItemDto(
+    Guid Id,
+    string Name,
+    string Role, // "Student" | "Staff"
+    string? ClassOrDepartment,
+    string? RollNumber,
+    string? PhotoUrl,
+    DateTime DateOfBirth,
+    int AgeTurning,
+    string? WhatsAppPhone,
+    string BirthdayDateFormatted,
+    bool IsToday
+);
+
+public record DashboardCelebrationsSummaryDto(
+    List<SchoolEventDto> UpcomingEvents,
+    List<BirthdayItemDto> TodayBirthdays,
+    List<BirthdayItemDto> UpcomingBirthdaysThisWeek,
+    List<EventPhotoDto> RecentGalleryHighlights,
+    int TotalEventsThisMonth,
+    int TotalBirthdaysToday
+);
+
+public record CalendarActivityItemDto(
+    string Date, // YYYY-MM-DD
+    string Type, // "Holiday" | "Event" | "Birthday"
+    string Title,
+    string? Subtitle,
+    string? BadgeColor,
+    string? Extra
+);
+
+// =========================================================================
+// STUDENT ID CARD & CERTIFICATE DTOs
+// =========================================================================
+
+public record StudentIdCardDto(
+    Guid Id,
+    string StudentName,
+    string? AdmissionNumber,
+    string? SchoolRollNumber,
+    string? RollNumber,
+    string? ClassName,
+    string? SectionName,
+    string? BatchName,
+    string? DateOfBirth,
+    string? Gender,
+    string? BloodGroup,
+    string? ParentName,
+    string? ParentPhone,
+    string? Address,
+    string? ProfilePhoto,
+    string? AadhaarNumber,
+    string? Category,
+    string InstitutionName,
+    string? BranchName,
+    string? InstitutionAddress,
+    string? InstitutionPhone,
+    string? AffiliationCode,
+    string? AcademicYear,
+    string QrCodeData
+);
+
+public record BonafideCertificateDto(
+    Guid StudentId,
+    string StudentName,
+    string? AdmissionNumber,
+    string? SchoolRollNumber,
+    string? ClassName,
+    string? SectionName,
+    string? AcademicYear,
+    string? DateOfBirth,
+    string? Gender,
+    string? Category,
+    string? ParentName,
+    string? MotherName,
+    string? Address,
+    string? ProfilePhoto,
+    string? PreviousSchoolName,
+    string? BloodGroup,
+    string? Religion,
+    DateTime AdmissionDate,
+    string InstitutionName,
+    string? BranchName,
+    string? InstitutionAddress,
+    string? InstitutionPhone,
+    string? PrincipalName,
+    string? AffiliationCode,
+    string? AffiliationNumber,
+    string CertificateType, // "Bonafide" | "Character" | "StudyCertificate"
+    string GeneratedOn
+);
+
+// =========================================================================
+// OPTION B: DIGITAL HOMEWORK & DIARY DTOs
+// =========================================================================
+
+public record StudentHomeworkDto(
+    Guid Id,
+    Guid TenantId,
+    Guid? BranchId,
+    Guid? ClassId,
+    string? ClassName,
+    Guid? SectionId,
+    string? SectionName,
+    Guid? BatchId,
+    string? BatchName,
+    Guid? SubjectId,
+    string SubjectName,
+    Guid? TeacherId,
+    string? TeacherName,
+    string Title,
+    string Description,
+    DateTime AssignedDate,
+    DateTime DueDate,
+    string? AttachmentUrl,
+    string Status,
+    int? EstimatedMinutes,
+    DateTime CreatedAt
+);
+
+public record CreateStudentHomeworkDto(
+    Guid? ClassId,
+    Guid? SectionId,
+    Guid? BatchId,
+    Guid? SubjectId,
+    string SubjectName,
+    Guid? TeacherId,
+    string? TeacherName,
+    string Title,
+    string Description,
+    DateTime AssignedDate,
+    DateTime DueDate,
+    string? AttachmentUrl,
+    int? EstimatedMinutes
+);
+
+public record UpdateStudentHomeworkDto(
+    string Title,
+    string Description,
+    DateTime DueDate,
+    string Status,
+    string? AttachmentUrl,
+    int? EstimatedMinutes
+);
+
+public record HomeworkStatsDto(
+    int TotalActive,
+    int DueToday,
+    int AssignedToday,
+    int Completed
+);
+
+// =========================================================================
+// OPTION C: ADMISSION ENQUIRY CRM DTOs
+// =========================================================================
+
+public record AdmissionEnquiryDto(
+    Guid Id,
+    Guid TenantId,
+    Guid? BranchId,
+    string EnquiryNumber,
+    string StudentName,
+    string ParentName,
+    string Phone,
+    string? AlternatePhone,
+    string? Email,
+    Guid? InterestedClassId,
+    string? InterestedClassName,
+    Guid? InterestedBatchId,
+    string? InterestedBatchName,
+    DateTime EnquiryDate,
+    DateTime? FollowUpDate,
+    string Source,
+    string Status,
+    string Priority,
+    string? Remarks,
+    Guid? ConvertedStudentId,
+    DateTime? ConvertedAt,
+    string? CreatedBy,
+    DateTime CreatedAt
+);
+
+public record CreateAdmissionEnquiryDto(
+    string StudentName,
+    string ParentName,
+    string Phone,
+    string? AlternatePhone,
+    string? Email,
+    Guid? InterestedClassId,
+    string? InterestedClassName,
+    Guid? InterestedBatchId,
+    string? InterestedBatchName,
+    DateTime EnquiryDate,
+    DateTime? FollowUpDate,
+    string Source,
+    string Priority,
+    string? Remarks,
+    string? Status = "New"
+);
+
+public record UpdateAdmissionEnquiryDto(
+    string StudentName,
+    string ParentName,
+    string Phone,
+    string? AlternatePhone,
+    string? Email,
+    Guid? InterestedClassId,
+    string? InterestedClassName,
+    Guid? InterestedBatchId,
+    string? InterestedBatchName,
+    DateTime? FollowUpDate,
+    string Source,
+    string Status,
+    string Priority,
+    string? Remarks
+);
+
+public record ConvertEnquiryDto(
+    string? AdmissionNumber,
+    Guid? ClassId,
+    Guid? SectionId,
+    Guid? BatchId,
+    DateTime? DateOfBirth,
+    string? Gender
+);
+
+public record EnquiryStatsDto(
+    int TotalEnquiries,
+    int NewEnquiries,
+    int FollowUpPending,
+    int DemoOrVisit,
+    int AdmittedConverted,
+    int LostDropped,
+    double ConversionRate
+);
+
+

@@ -66,14 +66,13 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
             <!-- Institute / Tenant Code -->
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Institute Code</mat-label>
-              <input matInput formControlName="tenantCode" placeholder="e.g. APEX" (input)="onTenantCodeInput($event)">
+              <input matInput formControlName="tenantCode" placeholder="e.g. GALAXY" (input)="onTenantCodeInput($event)">
               <mat-icon matSuffix>corporate_fare</mat-icon>
-              <mat-hint>Assigned code for your institute</mat-hint>
               <mat-error *ngIf="loginForm.get('tenantCode')?.hasError('required')">Institute Code is required</mat-error>
             </mat-form-field>
 
             <!-- Username -->
-            <mat-form-field appearance="outline" class="full-width" style="margin-top: 6px;">
+            <mat-form-field appearance="outline" class="full-width">
               <mat-label>Username</mat-label>
               <input matInput formControlName="username" placeholder="e.g. admin, faculty, accountant">
               <mat-icon matSuffix>person</mat-icon>
@@ -139,7 +138,9 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
   `,
   styles: [`
     .login-wrapper {
+      height: 100vh;
       min-height: 100vh;
+      max-height: 100vh;
       position: relative;
       display: flex;
       align-items: center;
@@ -150,7 +151,7 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
         radial-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px);
       background-size: 100% 100%, 28px 28px;
       overflow: hidden;
-      padding: 20px;
+      padding: 10px 16px;
       box-sizing: border-box;
     }
     .ambient-glow {
@@ -169,9 +170,9 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
       position: relative;
       z-index: 10;
       width: 100%;
-      max-width: 440px;
-      padding: 32px 28px 26px;
-      border-radius: 20px;
+      max-width: 430px;
+      padding: 20px 26px 16px;
+      border-radius: 18px;
       box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.08) !important;
       background: #ffffff;
       border: 1px solid #e2e8f0;
@@ -190,31 +191,31 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
       flex-direction: column;
       align-items: center;
       text-align: center;
-      margin-bottom: 22px;
+      margin-bottom: 12px;
     }
     .brand-logo-box {
-      width: 54px;
-      height: 54px;
-      border-radius: 14px;
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
       background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 8px 18px -2px rgba(37, 99, 235, 0.4);
-      margin-bottom: 12px;
+      box-shadow: 0 6px 14px -2px rgba(37, 99, 235, 0.4);
+      margin-bottom: 8px;
       .brand-icon {
-        font-size: 28px;
-        width: 28px;
-        height: 28px;
+        font-size: 24px;
+        width: 24px;
+        height: 24px;
         color: #ffffff;
       }
     }
     .brand-title {
-      font-size: 1.45rem;
+      font-size: 1.3rem;
       font-weight: 800;
       color: #0f172a;
       letter-spacing: -0.025em;
-      margin: 0 0 8px 0;
+      margin: 0 0 6px 0;
     }
     .subtitle-badge {
       display: inline-flex;
@@ -223,14 +224,14 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
       background: #f0f7ff;
       border: 1px solid #bfdbfe;
       border-radius: 20px;
-      padding: 4px 10px;
-      margin-bottom: 8px;
+      padding: 2px 8px;
+      margin-bottom: 4px;
       box-shadow: 0 1px 3px rgba(37, 99, 235, 0.06);
     }
     .tenant-pill {
       background: #2563eb;
       color: #ffffff;
-      font-size: 0.66rem;
+      font-size: 0.64rem;
       font-weight: 700;
       padding: 2px 7px;
       border-radius: 10px;
@@ -238,7 +239,7 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
       text-transform: uppercase;
     }
     .subtitle-text {
-      font-size: 0.78rem;
+      font-size: 0.76rem;
       font-weight: 700;
       color: #1e40af;
       letter-spacing: -0.01em;
@@ -249,7 +250,7 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
       align-items: center;
       justify-content: center;
       gap: 6px;
-      font-size: 0.74rem;
+      font-size: 0.72rem;
       color: #64748b;
       font-weight: 600;
       letter-spacing: 0.01em;
@@ -267,17 +268,17 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
     }
     .full-width {
       width: 100%;
-      margin-bottom: 8px;
+      margin-bottom: 2px;
     }
     .submit-btn {
       width: 100%;
-      height: 48px;
+      height: 42px;
       background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
       color: #ffffff !important;
-      font-size: 0.98rem;
+      font-size: 0.92rem;
       font-weight: 600;
       border-radius: 10px;
-      margin-top: 6px;
+      margin-top: 4px;
       box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
       transition: all 0.2s ease;
       display: flex;
@@ -301,14 +302,14 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
       align-items: center;
       justify-content: center;
       gap: 6px;
-      margin-top: 18px;
-      font-size: 0.74rem;
+      margin-top: 10px;
+      font-size: 0.7rem;
       color: #64748b;
       font-weight: 500;
       .sec-icon {
-        font-size: 16px;
-        width: 16px;
-        height: 16px;
+        font-size: 15px;
+        width: 15px;
+        height: 15px;
         color: #10b981;
       }
     }
@@ -316,14 +317,14 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
       display: flex;
       align-items: center;
       gap: 10px;
-      margin: 16px 0 12px;
+      margin: 10px 0 8px;
       .line {
         flex: 1;
         height: 1px;
         background: #e2e8f0;
       }
       .text {
-        font-size: 0.74rem;
+        font-size: 0.72rem;
         color: #94a3b8;
         font-weight: 600;
         text-transform: uppercase;
@@ -333,19 +334,19 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
     .demo-actions-row {
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 6px;
       align-items: center;
       width: 100%;
     }
     .create-tenant-btn {
       width: 100%;
-      height: 44px;
+      height: 38px;
       border: 1.5px solid #bfdbfe !important;
       background: #eff6ff !important;
       color: #1d4ed8 !important;
       font-weight: 700 !important;
       border-radius: 10px !important;
-      font-size: 0.90rem !important;
+      font-size: 0.84rem !important;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -358,9 +359,9 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
         box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
       }
       mat-icon {
-        font-size: 20px;
-        width: 20px;
-        height: 20px;
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
         color: #2563eb;
       }
     }
@@ -368,13 +369,13 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
       background: none;
       border: none;
       color: #475569;
-      font-size: 0.82rem;
+      font-size: 0.78rem;
       font-weight: 600;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
       gap: 4px;
-      padding: 4px 8px;
+      padding: 2px 6px;
       border-radius: 6px;
       transition: color 0.15s ease;
       &:hover {
@@ -382,41 +383,41 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
         text-decoration: underline;
       }
       mat-icon {
-        font-size: 16px;
-        width: 16px;
-        height: 16px;
+        font-size: 15px;
+        width: 15px;
+        height: 15px;
         color: #f59e0b;
       }
     }
     .info-banner {
       display: flex;
-      align-items: flex-start;
-      gap: 10px;
+      align-items: center;
+      gap: 8px;
       background-color: #eff6ff;
       color: #1d4ed8;
       border: 1px solid #bfdbfe;
-      padding: 10px 14px;
+      padding: 6px 12px;
       border-radius: 8px;
-      font-size: 0.88rem;
+      font-size: 0.78rem;
       font-weight: 500;
-      margin-bottom: 12px;
-      mat-icon { font-size: 20px; width: 20px; height: 20px; flex-shrink: 0; margin-top: 1px; }
-      span { flex: 1; line-height: 1.4; }
+      margin: 2px 0 6px;
+      mat-icon { font-size: 18px; width: 18px; height: 18px; flex-shrink: 0; }
+      span { flex: 1; line-height: 1.3; }
     }
     .error-banner {
       display: flex;
-      align-items: flex-start;
-      gap: 10px;
+      align-items: center;
+      gap: 8px;
       background-color: #fef2f2;
       color: #b91c1c;
       border: 1px solid #fecaca;
-      padding: 10px 14px;
+      padding: 6px 12px;
       border-radius: 8px;
-      font-size: 0.88rem;
+      font-size: 0.78rem;
       font-weight: 500;
-      margin-bottom: 12px;
-      mat-icon { font-size: 20px; width: 20px; height: 20px; flex-shrink: 0; margin-top: 1px; color: #dc2626 !important; }
-      span { flex: 1; line-height: 1.4; }
+      margin: 2px 0 6px;
+      mat-icon { font-size: 18px; width: 18px; height: 18px; flex-shrink: 0; color: #dc2626 !important; }
+      span { flex: 1; line-height: 1.3; }
     }
   `]
 })
