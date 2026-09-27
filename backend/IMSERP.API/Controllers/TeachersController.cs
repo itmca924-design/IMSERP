@@ -1380,6 +1380,47 @@ public class TeachersController : ControllerBase
             _db.TeacherAttendances.Add(existing);
         }
 
+        // Conflict resolution: Check if teacher had an active leave on this date and is now marked Present/Late/HalfDay
+        if (smartStatus != TeacherAttendanceStatus.Leave)
+        {
+            var overlappingLeave = await _db.TeacherLeaves.FirstOrDefaultAsync(l =>
+                l.TenantId == _currentUser.TenantId &&
+                l.TeacherId == id &&
+                (l.Status == LeaveStatus.Approved || l.Status == LeaveStatus.CancellationRequested || l.Status == LeaveStatus.PartiallyCancelled) &&
+                l.FromDate.Date <= date &&
+                l.ToDate.Date >= date);
+
+            if (overlappingLeave != null)
+            {
+                if (overlappingLeave.FromDate.Date == overlappingLeave.ToDate.Date)
+                {
+                    overlappingLeave.Status = LeaveStatus.OverriddenByPunch;
+                    overlappingLeave.IsCancellationRequested = false;
+                }
+                else if (date == overlappingLeave.FromDate.Date)
+                {
+                    overlappingLeave.FromDate = date.AddDays(1);
+                    overlappingLeave.Status = LeaveStatus.PartiallyCancelled;
+                    overlappingLeave.IsCancellationRequested = false;
+                }
+                else if (date == overlappingLeave.ToDate.Date)
+                {
+                    overlappingLeave.ToDate = date.AddDays(-1);
+                    overlappingLeave.Status = LeaveStatus.PartiallyCancelled;
+                    overlappingLeave.IsCancellationRequested = false;
+                }
+                else
+                {
+                    overlappingLeave.IsCancellationRequested = false;
+                }
+
+                if (string.IsNullOrWhiteSpace(existing.Remarks) || existing.Remarks.StartsWith("On-time"))
+                {
+                    existing.Remarks = $"Manual override to {smartStatus}. Sanctioned {overlappingLeave.LeaveType} adjusted & leave balance quota restored.";
+                }
+            }
+        }
+
         await _db.SaveChangesAsync();
 
         return Ok(new TeacherAttendanceDto(
@@ -1937,7 +1978,17 @@ public class TeachersController : ControllerBase
                 l.LeaveType.ToString(), l.FromDate, l.ToDate,
                 (int)(l.ToDate - l.FromDate).TotalDays + 1,
                 l.Reason, l.Status.ToString(),
-                l.ApprovedBy, l.ApprovedAt, l.RejectionReason, l.CreatedAt))
+                l.ApprovedBy, l.ApprovedAt, l.RejectionReason, l.CreatedAt,
+                l.IsCancellationRequested,
+                l.IsPartialCancellation,
+                l.CancellationFromDate,
+                l.CancellationToDate,
+                l.CancellationReason,
+                l.CancellationRequestedAt,
+                l.CancellationReviewedBy,
+                l.CancellationReviewedAt,
+                l.CancellationReviewRemarks,
+                l.IsCancellationApproved))
             .ToListAsync();
 
         return Ok(list);
@@ -1981,7 +2032,8 @@ public class TeachersController : ControllerBase
             totalThisYear,
             isTeacher = linkedTeacher != null,
             teacherName = linkedTeacher?.FullName,
-            teacherId = linkedTeacher?.Id
+            teacherId = linkedTeacher?.Id,
+            employeeCode = linkedTeacher?.EmployeeCode
         });
     }
 
@@ -2003,7 +2055,17 @@ public class TeachersController : ControllerBase
                 l.LeaveType.ToString(), l.FromDate, l.ToDate,
                 (int)(l.ToDate - l.FromDate).TotalDays + 1,
                 l.Reason, l.Status.ToString(),
-                l.ApprovedBy, l.ApprovedAt, l.RejectionReason, l.CreatedAt))
+                l.ApprovedBy, l.ApprovedAt, l.RejectionReason, l.CreatedAt,
+                l.IsCancellationRequested,
+                l.IsPartialCancellation,
+                l.CancellationFromDate,
+                l.CancellationToDate,
+                l.CancellationReason,
+                l.CancellationRequestedAt,
+                l.CancellationReviewedBy,
+                l.CancellationReviewedAt,
+                l.CancellationReviewRemarks,
+                l.IsCancellationApproved))
             .ToListAsync();
 
         return Ok(list);
@@ -2032,13 +2094,63 @@ public class TeachersController : ControllerBase
         if (dto.ToDate < dto.FromDate)
             return BadRequest(new { message = "ToDate must be after FromDate." });
 
+        var from = dto.FromDate.Date;
+        var to = dto.ToDate.Date;
+        var requestedDays = (int)(to - from).TotalDays + 1;
+
+        // 1. Conflict Check: Overlapping leave applications
+        var overlappingLeave = await _db.TeacherLeaves.AsNoTracking().FirstOrDefaultAsync(l =>
+            l.TenantId == tenantId &&
+            l.TeacherId == targetTeacherId &&
+            l.Status != LeaveStatus.Rejected &&
+            l.Status != LeaveStatus.Cancelled &&
+            l.Status != LeaveStatus.OverriddenByPunch &&
+            l.FromDate.Date <= to &&
+            l.ToDate.Date >= from);
+
+        if (overlappingLeave != null)
+        {
+            return Conflict(new { 
+                message = $"Date Overlap Conflict: Aapki already ek {overlappingLeave.LeaveType} ({overlappingLeave.FromDate:dd-MMM-yyyy} se {overlappingLeave.ToDate:dd-MMM-yyyy}) active/approved hai. Kripya iske baad ki dates chunein ya purani leave ko cancel karein." 
+            });
+        }
+
+        // 2. Policy Settings Check
+        var policy = await GetOrCreateLeavePolicyAsync(tenantId);
+
+        // 3. Conflict Check: Is teacher already marked 'Present' on any of these dates?
+        var existingAttendances = await _db.TeacherAttendances
+            .Where(a => a.TeacherId == targetTeacherId && a.AttendanceDate.Date >= from && a.AttendanceDate.Date <= to)
+            .ToListAsync();
+
+        var presentAtt = existingAttendances.FirstOrDefault(a => a.Status == TeacherAttendanceStatus.Present || a.Status == TeacherAttendanceStatus.Late);
+        if (presentAtt != null && !policy.AllowFullDayLeaveIfMarkedPresent)
+        {
+            return Conflict(new { 
+                message = $"Attendance is already recorded as Present on {presentAtt.AttendanceDate:dd-MMM-yyyy}. You cannot apply for a full-day leave on a day attendance was marked Present. If you left early, please apply for Half-Day Leave, or request Attendance Regularization if this attendance was marked in error." 
+            });
+        }
+
+        // 4. Leave Balance Quota Check (unless UnpaidLeave)
+        if (leaveType != LeaveType.UnpaidLeave)
+        {
+            var balances = await ComputeTeacherLeaveBalancesAsync(targetTeacherId, policy);
+            var balanceItem = balances.Balances.FirstOrDefault(b => b.LeaveType.Equals(leaveType.ToString(), StringComparison.OrdinalIgnoreCase));
+            if (balanceItem != null && requestedDays > balanceItem.AvailableBalance)
+            {
+                return BadRequest(new { 
+                    message = $"Insufficient {leaveType} balance. You currently have {balanceItem.AvailableBalance} days available (requested {requestedDays} days). Please adjust the dates or apply as Unpaid Leave (LWP)." 
+                });
+            }
+        }
+
         var leave = new TeacherLeave
         {
             TenantId = tenantId,
             TeacherId = targetTeacherId,
             LeaveType = leaveType,
-            FromDate = dto.FromDate.Date,
-            ToDate = dto.ToDate.Date,
+            FromDate = from,
+            ToDate = to,
             Reason = dto.Reason?.Trim(),
             Status = LeaveStatus.Pending,
             CreatedAt = DateTime.UtcNow
@@ -2050,7 +2162,7 @@ public class TeachersController : ControllerBase
         return Ok(new TeacherLeaveDto(
             leave.Id, leave.TeacherId, teacher.FullName, teacher.EmployeeCode,
             leave.LeaveType.ToString(), leave.FromDate, leave.ToDate,
-            (int)(leave.ToDate - leave.FromDate).TotalDays + 1,
+            leave.TotalDays,
             leave.Reason, leave.Status.ToString(),
             leave.ApprovedBy, leave.ApprovedAt, leave.RejectionReason, leave.CreatedAt));
     }
@@ -2172,8 +2284,8 @@ public class TeachersController : ControllerBase
     public async Task<IActionResult> DeleteLeave(Guid leaveId)
     {
         var tenantId = _currentUser.TenantId;
-        var leave = await _db.TeacherLeaves.FirstOrDefaultAsync(l => l.Id == leaveId && l.TenantId == tenantId);
-        if (leave == null) return NotFound();
+        var leave = await _db.TeacherLeaves.AsNoTracking().FirstOrDefaultAsync(l => l.Id == leaveId && l.TenantId == tenantId);
+        if (leave == null) return NotFound(new { message = "Leave record not found." });
 
         var user = await _db.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
         var isTeacher = user != null && (user.Role == IMSERP.Domain.Enums.UserRole.Teacher || _currentUser.UserRole == "Teacher");
@@ -2184,26 +2296,575 @@ public class TeachersController : ControllerBase
             return BadRequest(new { message = "Only pending leave applications can be cancelled." });
         }
 
-        // If approved leave is deleted, clean up synced attendance
-        if (leave.Status == LeaveStatus.Approved)
+        try
         {
-            var from = leave.FromDate.Date;
-            var to = leave.ToDate.Date;
-            var markedAtts = await _db.TeacherAttendances
-                .Where(a => a.TeacherId == leave.TeacherId &&
-                            a.AttendanceDate.Date >= from && a.AttendanceDate.Date <= to &&
-                            a.CaptureSource == "LeaveApplication")
-                .ToListAsync();
-
-            if (markedAtts.Count > 0)
+            // If approved leave is deleted, clean up synced attendance directly
+            if (leave.Status == LeaveStatus.Approved)
             {
-                _db.TeacherAttendances.RemoveRange(markedAtts);
+                var from = leave.FromDate.Date;
+                var to = leave.ToDate.Date;
+                await _db.TeacherAttendances
+                    .Where(a => a.TeacherId == leave.TeacherId &&
+                                a.AttendanceDate >= from && a.AttendanceDate <= to &&
+                                a.CaptureSource == "LeaveApplication")
+                    .ExecuteDeleteAsync();
+            }
+
+            await _db.TeacherLeaves
+                .Where(l => l.Id == leaveId && l.TenantId == tenantId)
+                .ExecuteDeleteAsync();
+
+            return Ok(new { message = "Leave application deleted successfully." });
+        }
+        catch (Exception ex)
+        {
+            var inner = ex.InnerException?.Message ?? ex.Message;
+            return BadRequest(new { message = $"Failed to delete leave record: {inner}" });
+        }
+    }
+
+    [HttpPost("leaves/{id}/request-cancellation")]
+    public async Task<IActionResult> RequestLeaveCancellation(Guid id, [FromBody] RequestLeaveCancellationDto dto)
+    {
+        var tenantId = _currentUser.TenantId;
+        var leave = await _db.TeacherLeaves.FirstOrDefaultAsync(l => l.Id == id && l.TenantId == tenantId);
+        if (leave == null) return NotFound(new { message = "Leave application not found." });
+
+        if (leave.Status != LeaveStatus.Approved && leave.Status != LeaveStatus.PartiallyCancelled)
+        {
+            return BadRequest(new { message = "Only approved leave applications can have cancellation requested. If your leave is still pending, you can cancel it directly." });
+        }
+
+        if (leave.IsCancellationRequested && leave.Status == LeaveStatus.CancellationRequested)
+        {
+            return BadRequest(new { message = "A cancellation request is already pending review for this leave application." });
+        }
+
+        if (dto.IsPartialCancellation)
+        {
+            if (!dto.CancelFromDate.HasValue || !dto.CancelToDate.HasValue)
+                return BadRequest(new { message = "CancelFromDate and CancelToDate are required for partial cancellation." });
+
+            var cFrom = dto.CancelFromDate.Value.Date;
+            var cTo = dto.CancelToDate.Value.Date;
+            if (cTo < cFrom)
+                return BadRequest(new { message = "CancelToDate must be on or after CancelFromDate." });
+
+            if (cFrom < leave.FromDate.Date || cTo > leave.ToDate.Date)
+                return BadRequest(new { message = $"Cancellation dates must fall within the sanctioned leave period ({leave.FromDate:dd-MMM-yyyy} to {leave.ToDate:dd-MMM-yyyy})." });
+
+            leave.IsPartialCancellation = true;
+            leave.CancellationFromDate = cFrom;
+            leave.CancellationToDate = cTo;
+        }
+        else
+        {
+            leave.IsPartialCancellation = false;
+            leave.CancellationFromDate = leave.FromDate.Date;
+            leave.CancellationToDate = leave.ToDate.Date;
+        }
+
+        leave.IsCancellationRequested = true;
+        leave.Status = LeaveStatus.CancellationRequested;
+        leave.CancellationReason = dto.Reason?.Trim() ?? "Requested by employee";
+        leave.CancellationRequestedAt = DateTime.UtcNow;
+        leave.IsCancellationApproved = null;
+
+        await _db.SaveChangesAsync();
+        return Ok(new { message = "Leave cancellation request submitted successfully. Awaiting administrative review." });
+    }
+
+    [HttpPut("leaves/{id}/review-cancellation")]
+    public async Task<IActionResult> ReviewLeaveCancellation(Guid id, [FromBody] ReviewLeaveCancellationDto dto)
+    {
+        var tenantId = _currentUser.TenantId;
+        var user = await _db.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
+
+        if (user != null && (user.Role == IMSERP.Domain.Enums.UserRole.Teacher || _currentUser.UserRole == "Teacher"))
+        {
+            return Forbid();
+        }
+
+        var leave = await _db.TeacherLeaves.FirstOrDefaultAsync(l => l.Id == id && l.TenantId == tenantId);
+        if (leave == null) return NotFound(new { message = "Leave application not found." });
+
+        if (leave.Status != LeaveStatus.CancellationRequested && !leave.IsCancellationRequested)
+        {
+            return BadRequest(new { message = "This leave application does not have a pending cancellation request." });
+        }
+
+        // Self-approval prevention
+        var linkedTeacher = await _db.Teachers.AsNoTracking().FirstOrDefaultAsync(t => t.UserId == _currentUser.UserId && t.TenantId == tenantId);
+        if (linkedTeacher != null && linkedTeacher.Id == leave.TeacherId)
+        {
+            return BadRequest(new { message = "Self-approval is prohibited. Your leave cancellation request must be sanctioned by School Administration / Principal / Director." });
+        }
+
+        var reviewerName = user?.FullName ?? user?.Username ?? _currentUser.UserRole;
+        leave.CancellationReviewedBy = reviewerName;
+        leave.CancellationReviewedAt = DateTime.UtcNow;
+        leave.CancellationReviewRemarks = dto.ReviewRemarks?.Trim();
+        leave.IsCancellationApproved = dto.Approve;
+
+        if (dto.Approve)
+        {
+            var cFrom = (leave.CancellationFromDate ?? leave.FromDate).Date;
+            var cTo = (leave.CancellationToDate ?? leave.ToDate).Date;
+
+            // 1. Remove synced attendance for the cancelled dates directly
+            await _db.TeacherAttendances
+                .Where(a => a.TeacherId == leave.TeacherId &&
+                            a.AttendanceDate >= cFrom && a.AttendanceDate <= cTo &&
+                            a.Status == TeacherAttendanceStatus.Leave)
+                .ExecuteDeleteAsync();
+
+            // 2. Adjust or finalize leave record
+            if (!leave.IsPartialCancellation || (cFrom <= leave.FromDate.Date && cTo >= leave.ToDate.Date))
+            {
+                // Full cancellation
+                leave.Status = LeaveStatus.Cancelled;
+            }
+            else
+            {
+                // Partial cancellation: adjust boundaries if cancellation occurred at edges
+                leave.Status = LeaveStatus.PartiallyCancelled;
+
+                if (cFrom <= leave.FromDate.Date && cTo < leave.ToDate.Date)
+                {
+                    leave.FromDate = cTo.AddDays(1);
+                }
+                else if (cFrom > leave.FromDate.Date && cTo >= leave.ToDate.Date)
+                {
+                    leave.ToDate = cFrom.AddDays(-1);
+                }
+            }
+        }
+        else
+        {
+            // Revert back to Approved
+            leave.Status = LeaveStatus.Approved;
+        }
+
+        leave.IsCancellationRequested = false;
+        await _db.SaveChangesAsync();
+
+        return Ok(new { 
+            message = dto.Approve 
+                ? "Leave cancellation approved. Attendance records and leave balance have been synchronized." 
+                : "Leave cancellation rejected. Original sanctioned leave remains active.", 
+            status = leave.Status.ToString() 
+        });
+    }
+
+    // ═════════════════════════════════════════════════════════════════
+    // POLICY & LEAVE QUOTA SETTINGS (ZERO HARDCODING)
+    // ═════════════════════════════════════════════════════════════════
+    private async Task<LeaveAndAttendancePolicySettings> GetOrCreateLeavePolicyAsync(Guid tenantId)
+    {
+        var policy = await _db.LeaveAndAttendancePolicies.FirstOrDefaultAsync(p => p.TenantId == tenantId);
+        if (policy == null)
+        {
+            policy = new LeaveAndAttendancePolicySettings
+            {
+                TenantId = tenantId,
+                AnnualCasualLeaveQuota = 12.0m,
+                AnnualSickLeaveQuota = 10.0m,
+                AnnualEarnedLeaveQuota = 15.0m,
+                LeaveAccrualFrequency = "Monthly",
+                MonthlyCasualLeaveAccrual = 1.0m,
+                MaxRegularizationDaysBackdated = 15,
+                MaxRegularizationPerMonth = 3,
+                AutoCancelLeaveOnBiometricPunch = true,
+                AllowFullDayLeaveIfMarkedPresent = false,
+                UpdatedAt = DateTime.UtcNow
+            };
+            _db.LeaveAndAttendancePolicies.Add(policy);
+            await _db.SaveChangesAsync();
+        }
+        return policy;
+    }
+
+    private async Task<TeacherLeaveBalancesSummaryDto> ComputeTeacherLeaveBalancesAsync(Guid teacherId, LeaveAndAttendancePolicySettings policy)
+    {
+        var teacher = await _db.Teachers.AsNoTracking().FirstOrDefaultAsync(t => t.Id == teacherId);
+        string teacherName = teacher?.FullName ?? "Unknown";
+        string empCode = teacher?.EmployeeCode ?? "—";
+
+        var now = DateTime.UtcNow;
+        var startOfYear = new DateTime(now.Year, 1, 1);
+        var endOfYear = new DateTime(now.Year, 12, 31);
+        int monthsElapsed = Math.Max(1, Math.Min(12, now.Month));
+
+        var leavesThisYear = await _db.TeacherLeaves.AsNoTracking()
+            .Where(l => l.TeacherId == teacherId && l.FromDate >= startOfYear && l.FromDate <= endOfYear)
+            .ToListAsync();
+
+        var balances = new List<TeacherLeaveBalanceItemDto>();
+
+        // Casual Leave
+        decimal clAllocated = policy.AnnualCasualLeaveQuota;
+        decimal clAccrued = policy.LeaveAccrualFrequency.Equals("Monthly", StringComparison.OrdinalIgnoreCase)
+            ? Math.Min(clAllocated, policy.MonthlyCasualLeaveAccrual * monthsElapsed)
+            : clAllocated;
+        decimal clUsed = leavesThisYear.Where(l => l.LeaveType == LeaveType.CasualLeave && (l.Status == LeaveStatus.Approved || l.Status == LeaveStatus.CancellationRequested || l.Status == LeaveStatus.PartiallyCancelled)).Sum(l => l.TotalDays);
+        decimal clPending = leavesThisYear.Where(l => l.LeaveType == LeaveType.CasualLeave && l.Status == LeaveStatus.Pending).Sum(l => l.TotalDays);
+        decimal clAvailable = Math.Max(0, clAccrued - clUsed - clPending);
+        balances.Add(new TeacherLeaveBalanceItemDto("CasualLeave", clAllocated, clAccrued, clUsed, clPending, clAvailable));
+
+        // Sick Leave
+        decimal slAllocated = policy.AnnualSickLeaveQuota;
+        decimal slAccrued = policy.LeaveAccrualFrequency.Equals("Monthly", StringComparison.OrdinalIgnoreCase)
+            ? Math.Min(slAllocated, Math.Round((slAllocated / 12.0m) * monthsElapsed, 1))
+            : slAllocated;
+        decimal slUsed = leavesThisYear.Where(l => l.LeaveType == LeaveType.SickLeave && (l.Status == LeaveStatus.Approved || l.Status == LeaveStatus.CancellationRequested || l.Status == LeaveStatus.PartiallyCancelled)).Sum(l => l.TotalDays);
+        decimal slPending = leavesThisYear.Where(l => l.LeaveType == LeaveType.SickLeave && l.Status == LeaveStatus.Pending).Sum(l => l.TotalDays);
+        decimal slAvailable = Math.Max(0, slAccrued - slUsed - slPending);
+        balances.Add(new TeacherLeaveBalanceItemDto("SickLeave", slAllocated, slAccrued, slUsed, slPending, slAvailable));
+
+        // Earned Leave
+        decimal elAllocated = policy.AnnualEarnedLeaveQuota;
+        decimal elAccrued = policy.LeaveAccrualFrequency.Equals("Monthly", StringComparison.OrdinalIgnoreCase)
+            ? Math.Min(elAllocated, Math.Round((elAllocated / 12.0m) * monthsElapsed, 1))
+            : elAllocated;
+        decimal elUsed = leavesThisYear.Where(l => l.LeaveType == LeaveType.EarnedLeave && (l.Status == LeaveStatus.Approved || l.Status == LeaveStatus.CancellationRequested || l.Status == LeaveStatus.PartiallyCancelled)).Sum(l => l.TotalDays);
+        decimal elPending = leavesThisYear.Where(l => l.LeaveType == LeaveType.EarnedLeave && l.Status == LeaveStatus.Pending).Sum(l => l.TotalDays);
+        decimal elAvailable = Math.Max(0, elAccrued - elUsed - elPending);
+        balances.Add(new TeacherLeaveBalanceItemDto("EarnedLeave", elAllocated, elAccrued, elUsed, elPending, elAvailable));
+
+        // Unpaid Leave (LWP)
+        decimal lwpUsed = leavesThisYear.Where(l => l.LeaveType == LeaveType.UnpaidLeave && (l.Status == LeaveStatus.Approved || l.Status == LeaveStatus.CancellationRequested || l.Status == LeaveStatus.PartiallyCancelled)).Sum(l => l.TotalDays);
+        decimal lwpPending = leavesThisYear.Where(l => l.LeaveType == LeaveType.UnpaidLeave && l.Status == LeaveStatus.Pending).Sum(l => l.TotalDays);
+        balances.Add(new TeacherLeaveBalanceItemDto("UnpaidLeave", 999, 999, lwpUsed, lwpPending, 999));
+
+        var startOfMonth = new DateTime(now.Year, now.Month, 1);
+        var endOfMonth = new DateTime(now.Year, now.Month, DateTime.DaysInMonth(now.Year, now.Month));
+        int regCountThisMonth = await _db.TeacherAttendanceRegularizations.AsNoTracking()
+            .CountAsync(r => r.TeacherId == teacherId && r.AttendanceDate >= startOfMonth && r.AttendanceDate <= endOfMonth && r.Status != RegularizationStatus.Rejected);
+
+        return new TeacherLeaveBalancesSummaryDto(teacherId, teacherName, empCode, balances, regCountThisMonth, policy.MaxRegularizationPerMonth);
+    }
+
+    [HttpGet("leave-policy-settings")]
+    public async Task<ActionResult<LeavePolicySettingsDto>> GetLeavePolicySettings()
+    {
+        var tenantId = _currentUser.TenantId;
+        var policy = await GetOrCreateLeavePolicyAsync(tenantId);
+        return Ok(new LeavePolicySettingsDto(
+            policy.AnnualCasualLeaveQuota,
+            policy.AnnualSickLeaveQuota,
+            policy.AnnualEarnedLeaveQuota,
+            policy.LeaveAccrualFrequency,
+            policy.MonthlyCasualLeaveAccrual,
+            policy.MaxRegularizationDaysBackdated,
+            policy.MaxRegularizationPerMonth,
+            policy.AutoCancelLeaveOnBiometricPunch,
+            policy.AllowFullDayLeaveIfMarkedPresent
+        ));
+    }
+
+    [HttpPut("leave-policy-settings")]
+    public async Task<ActionResult<LeavePolicySettingsDto>> UpdateLeavePolicySettings([FromBody] LeavePolicySettingsDto dto)
+    {
+        var tenantId = _currentUser.TenantId;
+        var user = await _db.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
+        if (user != null && (user.Role == IMSERP.Domain.Enums.UserRole.Teacher || _currentUser.UserRole == "Teacher"))
+        {
+            return Forbid();
+        }
+
+        var policy = await GetOrCreateLeavePolicyAsync(tenantId);
+        policy.AnnualCasualLeaveQuota = dto.AnnualCasualLeaveQuota;
+        policy.AnnualSickLeaveQuota = dto.AnnualSickLeaveQuota;
+        policy.AnnualEarnedLeaveQuota = dto.AnnualEarnedLeaveQuota;
+        policy.LeaveAccrualFrequency = dto.LeaveAccrualFrequency;
+        policy.MonthlyCasualLeaveAccrual = dto.MonthlyCasualLeaveAccrual;
+        policy.MaxRegularizationDaysBackdated = dto.MaxRegularizationDaysBackdated;
+        policy.MaxRegularizationPerMonth = dto.MaxRegularizationPerMonth;
+        policy.AutoCancelLeaveOnBiometricPunch = dto.AutoCancelLeaveOnBiometricPunch;
+        policy.AllowFullDayLeaveIfMarkedPresent = dto.AllowFullDayLeaveIfMarkedPresent;
+        policy.UpdatedAt = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync();
+
+        return Ok(new LeavePolicySettingsDto(
+            policy.AnnualCasualLeaveQuota,
+            policy.AnnualSickLeaveQuota,
+            policy.AnnualEarnedLeaveQuota,
+            policy.LeaveAccrualFrequency,
+            policy.MonthlyCasualLeaveAccrual,
+            policy.MaxRegularizationDaysBackdated,
+            policy.MaxRegularizationPerMonth,
+            policy.AutoCancelLeaveOnBiometricPunch,
+            policy.AllowFullDayLeaveIfMarkedPresent
+        ));
+    }
+
+    [HttpGet("{id}/leave-balances")]
+    public async Task<ActionResult<TeacherLeaveBalancesSummaryDto>> GetTeacherLeaveBalances(Guid id)
+    {
+        var tenantId = _currentUser.TenantId;
+        var policy = await GetOrCreateLeavePolicyAsync(tenantId);
+        var result = await ComputeTeacherLeaveBalancesAsync(id, policy);
+        return Ok(result);
+    }
+
+    // ═════════════════════════════════════════════════════════════════
+    // ATTENDANCE REGULARIZATION WORKFLOW
+    // ═════════════════════════════════════════════════════════════════
+    [HttpGet("regularizations")]
+    public async Task<ActionResult<IEnumerable<TeacherAttendanceRegularizationDto>>> GetRegularizations(
+        [FromQuery] Guid? teacherId = null,
+        [FromQuery] string? status = null,
+        [FromQuery] int? month = null,
+        [FromQuery] int? year = null)
+    {
+        var tenantId = _currentUser.TenantId;
+        var user = await _db.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
+
+        var query = _db.TeacherAttendanceRegularizations
+            .AsNoTracking()
+            .Include(r => r.Teacher)
+            .Where(r => r.TenantId == tenantId);
+
+        // Security scoping: Teachers only see their own requests
+        if (user != null && (user.Role == IMSERP.Domain.Enums.UserRole.Teacher || _currentUser.UserRole == "Teacher"))
+        {
+            var linked = await _db.Teachers.AsNoTracking().FirstOrDefaultAsync(t => t.TenantId == tenantId && (t.UserId == user.Id || (user.Email != null && t.Email == user.Email)));
+            if (linked != null)
+            {
+                query = query.Where(r => r.TeacherId == linked.Id);
+            }
+            else
+            {
+                return Ok(new List<TeacherAttendanceRegularizationDto>());
+            }
+        }
+        else if (teacherId.HasValue && teacherId.Value != Guid.Empty)
+        {
+            query = query.Where(r => r.TeacherId == teacherId.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<RegularizationStatus>(status, true, out var regStatus))
+        {
+            query = query.Where(r => r.Status == regStatus);
+        }
+
+        if (month.HasValue && month.Value > 0)
+        {
+            query = query.Where(r => r.AttendanceDate.Month == month.Value);
+        }
+        if (year.HasValue && year.Value > 0)
+        {
+            query = query.Where(r => r.AttendanceDate.Year == year.Value);
+        }
+
+        var list = await query
+            .OrderByDescending(r => r.CreatedAt)
+            .Select(r => new TeacherAttendanceRegularizationDto(
+                r.Id,
+                r.TeacherId,
+                r.Teacher != null ? r.Teacher.FullName : "Unknown",
+                r.Teacher != null ? r.Teacher.EmployeeCode : "—",
+                r.AttendanceDate,
+                r.RequestedStatus.ToString(),
+                r.RequestedCheckIn,
+                r.RequestedCheckOut,
+                r.Reason,
+                r.AttachmentUrl,
+                r.Status.ToString(),
+                r.ReviewedBy,
+                r.ReviewedAt,
+                r.ReviewRemarks,
+                r.CreatedAt
+            ))
+            .ToListAsync();
+
+        return Ok(list);
+    }
+
+    [HttpPost("regularizations")]
+    public async Task<ActionResult<TeacherAttendanceRegularizationDto>> ApplyRegularization([FromBody] ApplyRegularizationDto dto)
+    {
+        var tenantId = _currentUser.TenantId;
+        var user = await _db.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
+
+        Guid targetTeacherId = dto.TeacherId;
+        if (user != null && (user.Role == IMSERP.Domain.Enums.UserRole.Teacher || _currentUser.UserRole == "Teacher"))
+        {
+            var linked = await _db.Teachers.AsNoTracking().FirstOrDefaultAsync(t => t.TenantId == tenantId && (t.UserId == user.Id || (user.Email != null && t.Email == user.Email)));
+            if (linked != null) targetTeacherId = linked.Id;
+        }
+
+        var teacher = await _db.Teachers.FindAsync(targetTeacherId);
+        if (teacher == null) return NotFound(new { message = "Teacher not found." });
+
+        if (dto.AttendanceDate.Date > DateTime.UtcNow.Date)
+            return BadRequest(new { message = "Cannot regularize attendance for a future date." });
+
+        if (dto.AttendanceDate.DayOfWeek == DayOfWeek.Sunday)
+            return BadRequest(new { message = "Attendance cannot be regularized on a Sunday / Weekly Off." });
+
+        var isHoliday = await _db.Holidays.AsNoTracking().AnyAsync(h =>
+            h.TenantId == tenantId && h.IsActive &&
+            h.StartDate.Date <= dto.AttendanceDate.Date && h.EndDate.Date >= dto.AttendanceDate.Date);
+        if (isHoliday)
+            return BadRequest(new { message = "Attendance cannot be regularized on an official school/coaching holiday." });
+
+        var policy = await GetOrCreateLeavePolicyAsync(tenantId);
+
+        // Backdated limit check
+        int daysAgo = (int)(DateTime.UtcNow.Date - dto.AttendanceDate.Date).TotalDays;
+        if (daysAgo > policy.MaxRegularizationDaysBackdated)
+        {
+            return BadRequest(new { message = $"Regularization can only be requested within {policy.MaxRegularizationDaysBackdated} days of the occurrence (this request is {daysAgo} days old)." });
+        }
+
+        // Monthly count check
+        var monthStart = new DateTime(dto.AttendanceDate.Year, dto.AttendanceDate.Month, 1);
+        var monthEnd = new DateTime(dto.AttendanceDate.Year, dto.AttendanceDate.Month, DateTime.DaysInMonth(dto.AttendanceDate.Year, dto.AttendanceDate.Month));
+        int existingRegCount = await _db.TeacherAttendanceRegularizations.CountAsync(r =>
+            r.TenantId == tenantId &&
+            r.TeacherId == targetTeacherId &&
+            r.AttendanceDate >= monthStart &&
+            r.AttendanceDate <= monthEnd &&
+            r.Status != RegularizationStatus.Rejected);
+
+        if (existingRegCount >= policy.MaxRegularizationPerMonth)
+        {
+            return BadRequest(new { message = $"You have reached the monthly regularization limit of {policy.MaxRegularizationPerMonth} requests for {dto.AttendanceDate:MMMM yyyy}." });
+        }
+
+        // Check if pending regularization already exists for this date
+        bool alreadyPending = await _db.TeacherAttendanceRegularizations.AnyAsync(r =>
+            r.TenantId == tenantId &&
+            r.TeacherId == targetTeacherId &&
+            r.AttendanceDate.Date == dto.AttendanceDate.Date &&
+            r.Status == RegularizationStatus.Pending);
+
+        if (alreadyPending)
+        {
+            return Conflict(new { message = "A pending regularization request already exists for this date." });
+        }
+
+        if (!Enum.TryParse<TeacherAttendanceStatus>(dto.RequestedStatus, true, out var reqStatus))
+        {
+            reqStatus = TeacherAttendanceStatus.Present;
+        }
+
+        var reg = new TeacherAttendanceRegularization
+        {
+            TenantId = tenantId,
+            BranchId = teacher.BranchId ?? _currentUser.BranchId,
+            TeacherId = targetTeacherId,
+            AttendanceDate = dto.AttendanceDate.Date,
+            RequestedStatus = reqStatus,
+            RequestedCheckIn = dto.RequestedCheckIn,
+            RequestedCheckOut = dto.RequestedCheckOut,
+            Reason = dto.Reason.Trim(),
+            AttachmentUrl = dto.AttachmentUrl?.Trim(),
+            Status = RegularizationStatus.Pending,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _db.TeacherAttendanceRegularizations.Add(reg);
+        await _db.SaveChangesAsync();
+
+        return Ok(new TeacherAttendanceRegularizationDto(
+            reg.Id,
+            reg.TeacherId,
+            teacher.FullName,
+            teacher.EmployeeCode,
+            reg.AttendanceDate,
+            reg.RequestedStatus.ToString(),
+            reg.RequestedCheckIn,
+            reg.RequestedCheckOut,
+            reg.Reason,
+            reg.AttachmentUrl,
+            reg.Status.ToString(),
+            reg.ReviewedBy,
+            reg.ReviewedAt,
+            reg.ReviewRemarks,
+            reg.CreatedAt
+        ));
+    }
+
+    [HttpPut("regularizations/{id}/review")]
+    public async Task<IActionResult> ReviewRegularization(Guid id, [FromBody] ReviewRegularizationDto dto)
+    {
+        var tenantId = _currentUser.TenantId;
+        var user = await _db.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
+
+        // Security Check 1: Teachers CANNOT approve regularizations!
+        if (user != null && (user.Role == IMSERP.Domain.Enums.UserRole.Teacher || _currentUser.UserRole == "Teacher"))
+        {
+            return Forbid();
+        }
+
+        var reg = await _db.TeacherAttendanceRegularizations
+            .Include(r => r.Teacher)
+            .FirstOrDefaultAsync(r => r.Id == id && r.TenantId == tenantId);
+
+        if (reg == null) return NotFound(new { message = "Regularization request not found." });
+
+        if (reg.Status != RegularizationStatus.Pending)
+        {
+            return Conflict(new { message = $"This request is already {reg.Status}." });
+        }
+
+        // Security Check 2: Self-approval prevention! HR cannot approve their own regularization request
+        var linkedTeacher = await _db.Teachers.AsNoTracking().FirstOrDefaultAsync(t => t.UserId == _currentUser.UserId && t.TenantId == tenantId);
+        if (linkedTeacher != null && linkedTeacher.Id == reg.TeacherId)
+        {
+            return BadRequest(new { message = "Self-approval is strictly forbidden. Your regularization request must be reviewed and approved by the School Administration / Principal / Director." });
+        }
+
+        var approverName = user?.FullName ?? user?.Username ?? _currentUser.UserRole;
+        reg.Status = dto.Approve ? RegularizationStatus.Approved : RegularizationStatus.Rejected;
+        reg.ReviewedBy = approverName;
+        reg.ReviewedAt = DateTime.UtcNow;
+        reg.ReviewRemarks = dto.ReviewRemarks?.Trim();
+
+        // If Approved: Update attendance record for that date
+        if (dto.Approve)
+        {
+            var att = await _db.TeacherAttendances
+                .FirstOrDefaultAsync(a => a.TeacherId == reg.TeacherId && a.AttendanceDate.Date == reg.AttendanceDate.Date);
+
+            if (att == null)
+            {
+                att = new TeacherAttendance
+                {
+                    TenantId = tenantId,
+                    BranchId = reg.BranchId ?? _currentUser.BranchId,
+                    TeacherId = reg.TeacherId,
+                    AttendanceDate = reg.AttendanceDate.Date,
+                    Status = reg.RequestedStatus,
+                    CheckInTime = reg.RequestedCheckIn ?? "09:00",
+                    CheckOutTime = reg.RequestedCheckOut ?? "16:00",
+                    CaptureSource = "Regularization",
+                    Remarks = $"Regularized by {approverName}: {reg.Reason}",
+                    MarkedBy = approverName,
+                    CreatedAt = DateTime.UtcNow
+                };
+                _db.TeacherAttendances.Add(att);
+            }
+            else
+            {
+                att.Status = reg.RequestedStatus;
+                if (!string.IsNullOrWhiteSpace(reg.RequestedCheckIn)) att.CheckInTime = reg.RequestedCheckIn;
+                if (!string.IsNullOrWhiteSpace(reg.RequestedCheckOut)) att.CheckOutTime = reg.RequestedCheckOut;
+                att.CaptureSource = "Regularization";
+                att.Remarks = $"Regularized by {approverName}: {reg.Reason}";
+                att.MarkedBy = approverName;
             }
         }
 
-        _db.TeacherLeaves.Remove(leave);
         await _db.SaveChangesAsync();
-        return Ok(new { message = "Leave application deleted successfully." });
+
+        return Ok(new { 
+            message = dto.Approve ? "Attendance regularization approved and attendance record updated." : "Attendance regularization rejected.",
+            status = reg.Status.ToString()
+        });
     }
 
     private static TeacherAttendanceStatus EvaluateSmartAttendanceStatus(TeacherAttendanceStatus declaredStatus, string? inTime, string? outTime)

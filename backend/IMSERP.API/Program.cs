@@ -569,6 +569,92 @@ using (var scope = app.Services.CreateScope())
                             UpdatedAt DATETIME2 NOT NULL DEFAULT GETDATE()
                         );
                     END
+
+                    -- Teacher Attendance Regularization & Leave Policy Migration
+                    IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'TeacherAttendanceRegularizations')
+                    BEGIN
+                        CREATE TABLE TeacherAttendanceRegularizations (
+                            Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
+                            TenantId UNIQUEIDENTIFIER NOT NULL,
+                            BranchId UNIQUEIDENTIFIER NULL,
+                            TeacherId UNIQUEIDENTIFIER NOT NULL,
+                            AttendanceDate DATETIME2 NOT NULL,
+                            RequestedStatus INT NOT NULL DEFAULT 1,
+                            RequestedCheckIn NVARCHAR(10) NULL,
+                            RequestedCheckOut NVARCHAR(10) NULL,
+                            Reason NVARCHAR(MAX) NOT NULL DEFAULT '',
+                            AttachmentUrl NVARCHAR(500) NULL,
+                            Status INT NOT NULL DEFAULT 1,
+                            ReviewedBy NVARCHAR(150) NULL,
+                            ReviewedAt DATETIME2 NULL,
+                            ReviewRemarks NVARCHAR(MAX) NULL,
+                            CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
+                        );
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'LeaveAndAttendancePolicies')
+                    BEGIN
+                        CREATE TABLE LeaveAndAttendancePolicies (
+                            Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
+                            TenantId UNIQUEIDENTIFIER NOT NULL,
+                            AnnualCasualLeaveQuota DECIMAL(5,2) NOT NULL DEFAULT 12.00,
+                            AnnualSickLeaveQuota DECIMAL(5,2) NOT NULL DEFAULT 10.00,
+                            AnnualEarnedLeaveQuota DECIMAL(5,2) NOT NULL DEFAULT 15.00,
+                            LeaveAccrualFrequency NVARCHAR(50) NOT NULL DEFAULT 'Monthly',
+                            MonthlyCasualLeaveAccrual DECIMAL(5,2) NOT NULL DEFAULT 1.00,
+                            MaxRegularizationDaysBackdated INT NOT NULL DEFAULT 15,
+                            MaxRegularizationPerMonth INT NOT NULL DEFAULT 3,
+                            AutoCancelLeaveOnBiometricPunch BIT NOT NULL DEFAULT 1,
+                            AllowFullDayLeaveIfMarkedPresent BIT NOT NULL DEFAULT 0,
+                            UpdatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
+                        );
+                    END
+
+                    -- TeacherLeaves Cancellation & Revocation Columns
+                    IF EXISTS (SELECT 1 FROM sys.tables WHERE name = 'TeacherLeaves')
+                    BEGIN
+                        ALTER TABLE TeacherLeaves ALTER COLUMN Status NVARCHAR(50) NOT NULL;
+                        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'IsCancellationRequested' AND object_id = OBJECT_ID('TeacherLeaves'))
+                        BEGIN
+                            ALTER TABLE TeacherLeaves ADD IsCancellationRequested BIT NOT NULL DEFAULT 0;
+                        END
+                        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'IsPartialCancellation' AND object_id = OBJECT_ID('TeacherLeaves'))
+                        BEGIN
+                            ALTER TABLE TeacherLeaves ADD IsPartialCancellation BIT NOT NULL DEFAULT 0;
+                        END
+                        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'CancellationFromDate' AND object_id = OBJECT_ID('TeacherLeaves'))
+                        BEGIN
+                            ALTER TABLE TeacherLeaves ADD CancellationFromDate DATETIME2 NULL;
+                        END
+                        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'CancellationToDate' AND object_id = OBJECT_ID('TeacherLeaves'))
+                        BEGIN
+                            ALTER TABLE TeacherLeaves ADD CancellationToDate DATETIME2 NULL;
+                        END
+                        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'CancellationReason' AND object_id = OBJECT_ID('TeacherLeaves'))
+                        BEGIN
+                            ALTER TABLE TeacherLeaves ADD CancellationReason NVARCHAR(MAX) NULL;
+                        END
+                        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'CancellationRequestedAt' AND object_id = OBJECT_ID('TeacherLeaves'))
+                        BEGIN
+                            ALTER TABLE TeacherLeaves ADD CancellationRequestedAt DATETIME2 NULL;
+                        END
+                        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'CancellationReviewedBy' AND object_id = OBJECT_ID('TeacherLeaves'))
+                        BEGIN
+                            ALTER TABLE TeacherLeaves ADD CancellationReviewedBy NVARCHAR(150) NULL;
+                        END
+                        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'CancellationReviewedAt' AND object_id = OBJECT_ID('TeacherLeaves'))
+                        BEGIN
+                            ALTER TABLE TeacherLeaves ADD CancellationReviewedAt DATETIME2 NULL;
+                        END
+                        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'CancellationReviewRemarks' AND object_id = OBJECT_ID('TeacherLeaves'))
+                        BEGIN
+                            ALTER TABLE TeacherLeaves ADD CancellationReviewRemarks NVARCHAR(MAX) NULL;
+                        END
+                        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'IsCancellationApproved' AND object_id = OBJECT_ID('TeacherLeaves'))
+                        BEGIN
+                            ALTER TABLE TeacherLeaves ADD IsCancellationApproved BIT NULL;
+                        END
+                    END
                 ");
             }
             catch (Exception ex)

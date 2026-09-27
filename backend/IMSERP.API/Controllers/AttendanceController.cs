@@ -160,6 +160,19 @@ public class AttendanceController : ControllerBase
             record.BiometricEventId = dto.EventId;
             record.CapturedAt = dto.EventTime;
             record.MarkedBy = "biometric-device";
+
+            // If student had approved leave on this date, update remarks noting turnstile attendance
+            var approvedStudentLeave = await _db.StudentLeaves.FirstOrDefaultAsync(l =>
+                l.TenantId == _currentUser.TenantId &&
+                l.StudentId == student.Id &&
+                l.Status == "Approved" &&
+                l.FromDate.Date <= dto.EventTime.Date &&
+                l.ToDate.Date >= dto.EventTime.Date);
+            if (approvedStudentLeave != null)
+            {
+                record.Remarks = $"Present via Biometric Gate/Turnstile. Sanctioned leave overridden by attendance punch.";
+            }
+
             eventLog.Status = "Processed";
             eventLog.AttendanceId = record.Id;
             await _db.SaveChangesAsync();
@@ -250,6 +263,24 @@ public class AttendanceController : ControllerBase
             teacherRecord.CheckOutTime = indiaTime.ToString("HH:mm");
         else
             teacherRecord.CheckInTime ??= indiaTime.ToString("HH:mm");
+
+        // Biometric Conflict Resolution: Check if teacher had an approved leave on this date
+        var approvedLeave = await _db.TeacherLeaves.FirstOrDefaultAsync(l =>
+            l.TenantId == _currentUser.TenantId &&
+            l.TeacherId == teacher.Id &&
+            l.Status == LeaveStatus.Approved &&
+            l.FromDate.Date <= dto.EventTime.Date &&
+            l.ToDate.Date >= dto.EventTime.Date);
+
+        var policy = await _db.LeaveAndAttendancePolicies.AsNoTracking()
+            .FirstOrDefaultAsync(p => p.TenantId == _currentUser.TenantId);
+        bool autoCancelLeave = policy?.AutoCancelLeaveOnBiometricPunch ?? true;
+
+        if (approvedLeave != null && autoCancelLeave)
+        {
+            approvedLeave.Status = LeaveStatus.OverriddenByPunch;
+            teacherRecord.Remarks = $"Present via Biometric Punch. Sanctioned {approvedLeave.LeaveType} overridden and leave balance quota restored.";
+        }
 
         await _db.SaveChangesAsync();
         eventLog.Status = "Processed";

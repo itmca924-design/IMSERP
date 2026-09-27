@@ -14,7 +14,23 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { AuthService } from '../../core/services/auth.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
-import { API_BASE, TeacherDto, LeaveDto } from './teacher.models';
+import {
+  API_BASE,
+  TeacherDto,
+  LeaveDto,
+  TeacherAttendanceRegularizationDto,
+  TeacherLeaveBalancesSummaryDto,
+  LeavePolicySettingsDto
+} from './teacher.models';
+import {
+  ApplyTeacherRegularizationDialogComponent,
+  ReviewTeacherRegularizationDialogComponent
+} from './teacher-regularization-dialog.component';
+import {
+  RequestLeaveCancellationDialogComponent,
+  ReviewLeaveCancellationDialogComponent
+} from './teacher-leave-cancel-dialog.component';
+import { LeavePolicySettingsDialogComponent } from './leave-policy-settings-dialog.component';
 
 // ═══════════════════════════════════════════════════════════════════
 // REJECT TEACHER LEAVE DIALOG
@@ -199,7 +215,7 @@ export class RejectTeacherLeaveDialogComponent {
             <div class="profile-info">
               <div class="profile-name">{{myProfile.fullName}}</div>
               <div class="profile-meta">
-                <span>Code: <strong>{{myProfile.employeeCode}}</strong></span>
+                <span>Code: <strong>{{userEmployeeCode}}</strong></span>
                 <span *ngIf="myProfile.department">Dept: <strong>{{myProfile.department}}</strong></span>
                 <span *ngIf="myProfile.designation">Role: <strong>{{myProfile.designation}}</strong></span>
               </div>
@@ -219,6 +235,33 @@ export class RejectTeacherLeaveDialogComponent {
               </mat-option>
             </mat-select>
           </mat-form-field>
+
+          <!-- Live Leave Quota Balances Strip -->
+          <div class="quota-ledger-strip" *ngIf="leaveBalances">
+            <div class="quota-header-row">
+              <span class="quota-title"><mat-icon>account_balance_wallet</mat-icon> Live Leave Balance:</span>
+              <span class="quota-sub">Session entitlement & monthly accrual</span>
+            </div>
+            <div class="quota-chips-grid">
+              <div *ngFor="let b of leaveBalances.balances" 
+                class="quota-chip"
+                [class.active-type]="form.get('leaveType')?.value === b.leaveType"
+                [class.low-bal]="b.availableBalance <= 2 && b.leaveType !== 'UnpaidLeave'"
+                [class.zero-bal]="b.availableBalance <= 0 && b.leaveType !== 'UnpaidLeave'"
+                (click)="selectLeaveType(b.leaveType)">
+                <span class="chip-label">{{b.leaveType === 'CasualLeave' ? 'Casual (CL)' : (b.leaveType === 'SickLeave' ? 'Sick (SL)' : (b.leaveType === 'EarnedLeave' ? 'Earned (EL)' : 'LWP (Unpaid)'))}}</span>
+                <span class="chip-val">{{b.leaveType === 'UnpaidLeave' ? 'Unlimited' : (b.availableBalance + ' Left')}}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Conflict / Backend Error Banner -->
+          <div class="conflict-error-banner" *ngIf="backendError">
+            <mat-icon>error_outline</mat-icon>
+            <div>
+              <strong>Action Blocked:</strong> {{backendError}}
+            </div>
+          </div>
 
           <div class="form-row">
             <mat-form-field appearance="outline" class="form-col">
@@ -252,10 +295,35 @@ export class RejectTeacherLeaveDialogComponent {
             <span><strong>Invalid Date Range:</strong> "To Date" must be on or after "From Date".</span>
           </div>
 
-          <!-- Total Duration Badge -->
-          <div class="days-badge-wrap" *ngIf="totalDays > 0 && !form.hasError('dateRangeInvalid')">
-            <mat-icon style="font-size:16px;width:16px;height:16px;color:#2563eb;">date_range</mat-icon>
+          <!-- Total Duration Badge & Live Quota Match -->
+          <div class="days-badge-wrap" [class.badge-danger]="isInsufficientBalance" *ngIf="totalDays > 0 && !form.hasError('dateRangeInvalid')">
+            <mat-icon [style.color]="isInsufficientBalance ? '#dc2626' : '#2563eb'" style="font-size:16px;width:16px;height:16px;">
+              {{isInsufficientBalance ? 'warning' : 'date_range'}}
+            </mat-icon>
             <span>Total Duration: <strong>{{totalDays}} Day(s)</strong></span>
+            <span *ngIf="currentAvailableBalance !== null" class="balance-limit-text">
+              • Quota Balance: <strong>{{currentAvailableBalance}} Day(s)</strong>
+            </span>
+          </div>
+
+          <!-- Prominent Quota Exceeded Warning Banner -->
+          <div class="quota-exceeded-banner" *ngIf="isInsufficientBalance">
+            <div class="banner-top">
+              <mat-icon>block</mat-icon>
+              <div class="banner-msg">
+                <strong>Insufficient {{selectedLeaveTypeName}} Balance!</strong>
+                <p>
+                  Aapke paas sirf <strong>{{currentAvailableBalance}} din</strong> bache hain, lekin aapne <strong>{{totalDays}} din</strong> select kiya hai (Excess: <strong>{{balanceShortfall}} din</strong>).
+                </p>
+              </div>
+            </div>
+            <div class="banner-actions">
+              <button type="button" class="btn-switch-unpaid" (click)="switchToUnpaid()">
+                <mat-icon>swap_horiz</mat-icon>
+                <span>Switch to Unpaid Leave (LWP)</span>
+              </button>
+              <span class="or-text">or adjust From/To dates to maximum {{currentAvailableBalance}} day(s)</span>
+            </div>
           </div>
 
           <mat-form-field appearance="outline" class="fd-field-full">
@@ -266,16 +334,16 @@ export class RejectTeacherLeaveDialogComponent {
 
         <div class="fd-dialog-footer">
           <button mat-stroked-button type="button" (click)="cancel()">Cancel</button>
-          <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid || saving">
-            <mat-icon>send</mat-icon>
-            {{saving ? 'Submitting...' : 'Submit Application'}}
+          <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid || isInsufficientBalance || saving">
+            <mat-icon>{{isInsufficientBalance ? 'block' : 'send'}}</mat-icon>
+            {{saving ? 'Submitting...' : (isInsufficientBalance ? 'Insufficient Balance' : 'Submit Application')}}
           </button>
         </div>
       </form>
     </div>
   `,
   styles: [`
-    .fd-dialog-md { width: 100%; max-width: 540px; box-sizing: border-box; }
+    .fd-dialog-md { width: 100%; max-width: 680px; box-sizing: border-box; }
     .fd-dialog-header {
       display: flex; align-items: center; gap: 14px; padding: 20px 24px 14px;
       background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
@@ -295,6 +363,52 @@ export class RejectTeacherLeaveDialogComponent {
     .fd-field-full { width: 100%; display: block; }
     .form-row { display: flex; gap: 12px; flex-wrap: wrap; }
     .form-col { flex: 1; min-width: 140px; }
+
+    .quota-ledger-strip {
+      background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .quota-header-row {
+      display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px;
+    }
+    .quota-title {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 0.78rem; font-weight: 700; color: #1e40af; text-transform: uppercase; letter-spacing: 0.3px;
+    }
+    .quota-title mat-icon { font-size: 16px; width: 16px; height: 16px; color: #2563eb; }
+    .quota-sub { font-size: 0.72rem; color: #64748b; }
+    .quota-chips-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+    .quota-chip {
+      background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px;
+      padding: 8px 10px; display: flex; flex-direction: column; cursor: pointer;
+      transition: all 0.15s ease; min-width: 0;
+    }
+    .quota-chip:hover { border-color: #93c5fd; background: #eff6ff; }
+    .quota-chip.active-type {
+      background: #eff6ff; border-color: #3b82f6; box-shadow: 0 0 0 1px #3b82f6;
+    }
+    .quota-chip .chip-label { font-size: 0.74rem; color: #64748b; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .quota-chip .chip-val { font-size: 0.95rem; font-weight: 700; color: #1e293b; margin-top: 3px; }
+    .quota-chip.low-bal .chip-val { color: #d97706; }
+    .quota-chip.zero-bal { background: #fef2f2; border-color: #fecaca; }
+    .quota-chip.zero-bal .chip-val { color: #dc2626; }
+
+    @media (max-width: 600px) {
+      .quota-chips-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .conflict-error-banner {
+      display: flex; gap: 10px; align-items: flex-start;
+      background: #fef2f2; border: 1px solid #fca5a5; border-radius: 8px;
+      padding: 10px 14px; color: #991b1b; font-size: 0.82rem; line-height: 1.4;
+    }
+    .conflict-error-banner mat-icon { font-size: 20px; width: 20px; height: 20px; color: #dc2626; flex-shrink: 0; }
 
     .apply-mode-switcher {
       display: flex; gap: 6px;
@@ -333,6 +447,47 @@ export class RejectTeacherLeaveDialogComponent {
       display: inline-flex; align-items: center; gap: 6px;
       background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px;
       padding: 6px 12px; font-size: 13px; color: #1e40af; width: fit-content;
+      transition: all 0.2s ease;
+    }
+    .days-badge-wrap.badge-danger {
+      background: #fef2f2; border-color: #fca5a5; color: #991b1b;
+    }
+    .balance-limit-text {
+      font-size: 12px; opacity: 0.85; margin-left: 4px;
+    }
+
+    .quota-exceeded-banner {
+      background: #fef2f2; border: 1px solid #fecaca; border-left: 4px solid #dc2626;
+      border-radius: 8px; padding: 10px 14px; display: flex; flex-direction: column; gap: 8px;
+    }
+    .quota-exceeded-banner .banner-top {
+      display: flex; align-items: flex-start; gap: 10px;
+    }
+    .quota-exceeded-banner .banner-top mat-icon {
+      color: #dc2626; font-size: 20px; width: 20px; height: 20px; flex-shrink: 0; margin-top: 1px;
+    }
+    .quota-exceeded-banner .banner-msg {
+      font-size: 0.82rem; color: #991b1b; line-height: 1.4;
+    }
+    .quota-exceeded-banner .banner-msg strong {
+      color: #7f1d1d;
+    }
+    .quota-exceeded-banner .banner-msg p {
+      margin: 3px 0 0; font-size: 0.8rem; color: #7f1d1d;
+    }
+    .quota-exceeded-banner .banner-actions {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding-left: 30px;
+    }
+    .btn-switch-unpaid {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: #2563eb; color: #ffffff; border: none; border-radius: 6px;
+      padding: 5px 10px; font-size: 0.78rem; font-weight: 600; cursor: pointer;
+      transition: background 0.15s ease;
+    }
+    .btn-switch-unpaid:hover { background: #1d4ed8; }
+    .btn-switch-unpaid mat-icon { font-size: 15px; width: 15px; height: 15px; }
+    .quota-exceeded-banner .or-text {
+      font-size: 0.75rem; color: #991b1b; font-style: italic;
     }
 
     .date-error-banner {
@@ -361,6 +516,9 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
   applyMode: 'self' | 'behalf' = 'self';
   teachers: TeacherDto[] = [];
   myProfile: any = null;
+  leaveBalances: TeacherLeaveBalancesSummaryDto | null = null;
+  loadingBalances = false;
+  backendError = '';
 
   constructor(
     private fb: FormBuilder,
@@ -371,6 +529,13 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
     this.isTeacherSelf = data.isTeacher;
     this.teachers = data.teachers || [];
     this.myProfile = data.myProfile;
+  }
+
+  get userEmployeeCode(): string {
+    return this.myProfile?.employeeCode 
+      || this.leaveBalances?.employeeCode 
+      || this.teachers?.find(t => t.id === this.myProfile?.id)?.employeeCode 
+      || '—';
   }
 
   get otherTeachers(): TeacherDto[] {
@@ -392,12 +557,43 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
     return 'Submit leave on behalf of a faculty member';
   }
 
+  get currentAvailableBalance(): number | null {
+    const currentType = this.form?.get('leaveType')?.value;
+    if (!currentType || currentType === 'UnpaidLeave') return null;
+    if (!this.leaveBalances?.balances) return null;
+    const b = this.leaveBalances.balances.find(x => x.leaveType.toLowerCase() === currentType.toLowerCase());
+    return b !== undefined ? b.availableBalance : null;
+  }
+
+  get isInsufficientBalance(): boolean {
+    if (this.form?.get('leaveType')?.value === 'UnpaidLeave') return false;
+    const bal = this.currentAvailableBalance;
+    if (bal === null) return false;
+    return this.totalDays > bal;
+  }
+
+  get balanceShortfall(): number {
+    const bal = this.currentAvailableBalance;
+    if (bal === null) return 0;
+    return Number((this.totalDays - bal).toFixed(1));
+  }
+
+  get selectedLeaveTypeName(): string {
+    const type = this.form?.get('leaveType')?.value;
+    if (type === 'SickLeave') return 'Sick Leave';
+    if (type === 'CasualLeave') return 'Casual Leave';
+    if (type === 'EarnedLeave') return 'Earned Leave';
+    if (type === 'EmergencyLeave') return 'Emergency Leave';
+    return 'Leave';
+  }
+
+  switchToUnpaid() {
+    this.form.patchValue({ leaveType: 'UnpaidLeave' });
+  }
+
   ngOnInit() {
     this.hasLinkedProfile = !!(this.myProfile?.id);
 
-    // If teacher: always 'self'
-    // If HR/Admin with linked profile: default to 'self' (convenient!), can switch to 'behalf'
-    // If Admin without linked profile: 'behalf'
     if (this.isTeacherSelf || this.hasLinkedProfile) {
       this.applyMode = 'self';
     } else {
@@ -416,6 +612,18 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
       validators: [this.dateRangeValidator]
     });
 
+    this.form.valueChanges.subscribe(() => {
+      this.calcDays();
+    });
+
+    if (defaultTeacherId) {
+      this.loadBalances(defaultTeacherId);
+    }
+
+    this.form.get('teacherId')?.valueChanges.subscribe(val => {
+      if (val) this.loadBalances(val);
+    });
+
     // If myProfile was not yet loaded from parent, fetch it dynamically
     if (!this.myProfile) {
       this.http.get<any>(`${API_BASE}/teachers/my-profile`).subscribe({
@@ -425,12 +633,37 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
             this.hasLinkedProfile = true;
             if (this.applyMode === 'self') {
               this.form.patchValue({ teacherId: p.id });
+              this.loadBalances(p.id);
             }
           }
         },
         error: () => {}
       });
     }
+  }
+
+  loadBalances(teacherId: string) {
+    if (!teacherId) {
+      this.leaveBalances = null;
+      return;
+    }
+    this.loadingBalances = true;
+    this.http.get<TeacherLeaveBalancesSummaryDto>(`${API_BASE}/teachers/${teacherId}/leave-balances`).subscribe({
+      next: res => {
+        this.leaveBalances = res;
+        this.loadingBalances = false;
+        if (this.myProfile && !this.myProfile.employeeCode && res?.employeeCode) {
+          this.myProfile.employeeCode = res.employeeCode;
+        }
+      },
+      error: () => {
+        this.loadingBalances = false;
+      }
+    });
+  }
+
+  selectLeaveType(type: string) {
+    this.form.patchValue({ leaveType: type });
   }
 
   dateRangeValidator(control: AbstractControl): ValidationErrors | null {
@@ -445,16 +678,18 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
   setMode(mode: 'self' | 'behalf') {
     this.applyMode = mode;
     if (mode === 'self') {
-      this.form.patchValue({ teacherId: this.myProfile?.id || '' });
+      const id = this.myProfile?.id || '';
+      this.form.patchValue({ teacherId: id });
+      if (id) this.loadBalances(id);
     } else {
       this.form.patchValue({ teacherId: '' });
+      this.leaveBalances = null;
     }
   }
 
   onFromDateChange() {
     const from = this.form.get('fromDate')?.value;
     const to = this.form.get('toDate')?.value;
-    // If To Date is empty or earlier than From Date, auto-align To Date with From Date
     if (from && (!to || to < from)) {
       this.form.patchValue({ toDate: from });
     }
@@ -481,13 +716,15 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
   submit() {
     if (this.form.invalid) return;
     this.saving = true;
+    this.backendError = '';
     this.http.post(`${API_BASE}/teachers/leaves`, this.form.value).subscribe({
       next: () => {
         this.saving = false;
         this.dialogRef.close(true);
       },
-      error: () => {
+      error: err => {
         this.saving = false;
+        this.backendError = err.error?.message || 'Failed to submit leave application. Please check details.';
       }
     });
   }
@@ -530,6 +767,14 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
             <mat-icon [class.spin]="loading">refresh</mat-icon>
             <span>Refresh</span>
           </button>
+          <button mat-stroked-button class="policy-btn" *ngIf="canApproveLeave" (click)="openPolicySettingsDialog()" matTooltip="Configure institutional leave quotas, monthly accruals & conflict rules">
+            <mat-icon>tune</mat-icon>
+            <span>Policy & Quotas</span>
+          </button>
+          <button mat-stroked-button class="reg-btn" (click)="openRegularizationDialog()">
+            <mat-icon>build_circle</mat-icon>
+            <span>Request Regularization</span>
+          </button>
           <button mat-flat-button class="btn-primary" (click)="openApplyDialog()">
             <mat-icon>add</mat-icon>
             <span>Apply Leave</span>
@@ -537,18 +782,31 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
         </div>
       </div>
 
-      <mat-progress-bar *ngIf="loading" mode="indeterminate" class="fd-loader"></mat-progress-bar>
+      <mat-progress-bar *ngIf="loading || loadingRegs" mode="indeterminate" class="fd-loader"></mat-progress-bar>
+
+      <!-- ── Sub Navigation Tabs ── -->
+      <div class="tabs-nav-strip">
+        <button type="button" class="tab-pill" [class.active]="activeTab === 'leaves'" (click)="activeTab = 'leaves'">
+          <mat-icon>beach_access</mat-icon>
+          <span>Leave Applications ({{leaves.length}})</span>
+        </button>
+        <button type="button" class="tab-pill" [class.active]="activeTab === 'regularizations'" (click)="activeTab = 'regularizations'; loadRegularizations()">
+          <mat-icon>build_circle</mat-icon>
+          <span>Attendance Regularizations ({{regularizations.length}})</span>
+          <span class="pill-badge" *ngIf="pendingRegCount > 0">{{pendingRegCount}}</span>
+        </button>
+      </div>
 
       <!-- ── Teacher Scope Notice Banner ── -->
       <div class="role-scope-notice teacher" *ngIf="isTeacher">
         <mat-icon>account_circle</mat-icon>
         <span>
-          <strong>Faculty Portal View:</strong> Displaying leave requests for <strong>{{myProfile?.fullName || 'Your Account'}}</strong>{{myProfile?.employeeCode ? ' (Code: ' + myProfile.employeeCode + ')' : ''}}. Submitted applications are forwarded to School Administration / Principal for review.
+          <strong>Faculty Portal View:</strong> Displaying records for <strong>{{myProfile?.fullName || 'Your Account'}}</strong>{{(myProfile?.employeeCode || currentEmployeeCode) ? ' (Code: ' + (myProfile?.employeeCode || currentEmployeeCode) + ')' : ''}}. Applications are forwarded to School Administration / Principal for review.
         </span>
       </div>
 
       <!-- ── Stats Cards (Full Width Edge to Edge) ── -->
-      <div class="stats-grid" [class.stats-teacher]="isTeacher">
+      <div class="stats-grid" [class.stats-teacher]="isTeacher" *ngIf="activeTab === 'leaves'">
         <div class="stat-card stat-amber">
           <mat-icon class="stat-icon">pending_actions</mat-icon>
           <div class="stat-body">
@@ -583,8 +841,142 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
         </div>
       </div>
 
-      <!-- ── Main Card (Filter Strip + Table) ── -->
-      <div class="content-card">
+      <!-- ── Live Leave Quota & Balances Ledger ── -->
+      <div class="leave-balance-ledger-card" *ngIf="activeTab === 'leaves'">
+        <div class="ledger-header">
+          <div class="ledger-header-left">
+            <div class="ledger-icon-box">
+              <mat-icon>account_balance_wallet</mat-icon>
+            </div>
+            <div>
+              <div class="ledger-title-line">
+                <h3 class="ledger-title">Live Leave Balance & Quota Ledger</h3>
+                <span class="ledger-tag faculty-tag" *ngIf="currentTeacherBalances">
+                  {{currentTeacherBalances.teacherName}} ({{currentTeacherBalances.employeeCode}})
+                </span>
+                <span class="ledger-tag admin-hint-tag" *ngIf="!isTeacher && !filterTeacherId && !currentTeacherBalances">
+                  Select a faculty member below to inspect individual quota
+                </span>
+              </div>
+              <p class="ledger-sub" *ngIf="currentTeacherBalances">
+                Real-time session quota, leaves consumed, and available balance (auto-credited upon leave cancellation).
+              </p>
+              <p class="ledger-sub" *ngIf="!currentTeacherBalances">
+                Track sanctioned leave entitlements, casual leave, sick leave, earned leave & attendance regularizations.
+              </p>
+            </div>
+          </div>
+
+          <div class="ledger-header-right" *ngIf="currentTeacherBalances">
+            <button mat-stroked-button class="ledger-refresh-btn" (click)="loadTeacherBalances()" [disabled]="loadingBalances" matTooltip="Refresh Balance">
+              <mat-icon [class.spin-icon]="loadingBalances">sync</mat-icon>
+              <span>Refresh Balance</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Balances Grid -->
+        <div class="ledger-grid" *ngIf="currentTeacherBalances">
+          <div *ngFor="let b of currentTeacherBalances.balances"
+            class="ledger-chip-card"
+            [class.card-cl]="b.leaveType === 'CasualLeave'"
+            [class.card-sl]="b.leaveType === 'SickLeave'"
+            [class.card-el]="b.leaveType === 'EarnedLeave'"
+            [class.card-lwp]="b.leaveType === 'UnpaidLeave'">
+            
+            <div class="chip-card-top">
+              <div class="chip-type-badge">
+                <mat-icon>{{getLeaveIcon(b.leaveType)}}</mat-icon>
+                <span>{{formatBalanceLeaveType(b.leaveType)}}</span>
+              </div>
+              <span class="chip-avail-pill" *ngIf="b.leaveType !== 'UnpaidLeave'" [class.pill-zero]="b.availableBalance <= 0" [class.pill-low]="b.availableBalance > 0 && b.availableBalance <= 2">
+                {{b.availableBalance > 0 ? (b.availableBalance + ' Days Left') : 'Quota Exhausted'}}
+              </span>
+              <span class="chip-avail-pill pill-lwp" *ngIf="b.leaveType === 'UnpaidLeave'">
+                Loss of Pay
+              </span>
+            </div>
+
+            <div class="chip-card-center">
+              <div class="chip-big-num" *ngIf="b.leaveType !== 'UnpaidLeave'">
+                {{b.availableBalance}} <span class="chip-unit">Days</span>
+              </div>
+              <div class="chip-big-num" *ngIf="b.leaveType === 'UnpaidLeave'">
+                {{b.usedDays}} <span class="chip-unit">Days Taken</span>
+              </div>
+              <div class="chip-caption">
+                {{b.leaveType === 'UnpaidLeave' ? 'Total Unpaid Leave Availed' : 'Available for Application'}}
+              </div>
+            </div>
+
+            <!-- Progress Meter & Ledger stats -->
+            <div class="chip-card-footer" *ngIf="b.leaveType !== 'UnpaidLeave'">
+              <div class="chip-meter">
+                <div class="chip-meter-fill" [style.width.%]="getBalMeterPercent(b)"></div>
+              </div>
+              <div class="chip-stats-row">
+                <span class="stat-item">Used: <strong>{{b.usedDays}}d</strong></span>
+                <span class="stat-item" *ngIf="b.pendingDays > 0" style="color:#d97706;">Pending: <strong>{{b.pendingDays}}d</strong></span>
+                <span class="stat-item">Total: <strong>{{b.allocatedDays}}d</strong></span>
+              </div>
+            </div>
+
+            <div class="chip-card-footer lwp-footer" *ngIf="b.leaveType === 'UnpaidLeave'">
+              <div class="lwp-hint-text">
+                <mat-icon>monetization_on</mat-icon>
+                <span>Salary deduction calculated in Monthly Payroll</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Monthly Regularization Summary Strip -->
+        <div class="regularization-quota-strip" *ngIf="currentTeacherBalances && currentTeacherBalances.maxRegularizationsAllowedPerMonth > 0">
+          <div class="rq-left">
+            <mat-icon>fact_check</mat-icon>
+            <span>
+              <strong>Attendance Regularization Policy:</strong>
+              Monthly Quota: <strong>{{currentTeacherBalances.maxRegularizationsAllowedPerMonth}} requests/month</strong>.
+              Consumed: <strong>{{currentTeacherBalances.regularizationsUsedThisMonth}}</strong>.
+              Available: <strong>{{currentTeacherBalances.maxRegularizationsAllowedPerMonth - currentTeacherBalances.regularizationsUsedThisMonth}}</strong>.
+            </span>
+          </div>
+          <button mat-button class="rq-action-btn" (click)="openRegularizationDialog()">
+            <mat-icon>build_circle</mat-icon> Request Regularization
+          </button>
+        </div>
+      </div>
+
+      <!-- ── Regularization Stats (When regularizations tab active) ── -->
+      <div class="stats-grid" [class.stats-teacher]="isTeacher" *ngIf="activeTab === 'regularizations'">
+        <div class="stat-card stat-amber">
+          <mat-icon class="stat-icon">hourglass_top</mat-icon>
+          <div class="stat-body">
+            <div class="stat-num">{{pendingRegCount}}</div>
+            <div class="stat-label">Pending Regularizations</div>
+          </div>
+          <div class="pulse-badge" *ngIf="pendingRegCount > 0 && canApproveLeave">Action Required</div>
+        </div>
+
+        <div class="stat-card stat-green">
+          <mat-icon class="stat-icon">task_alt</mat-icon>
+          <div class="stat-body">
+            <div class="stat-num">{{approvedRegCount}}</div>
+            <div class="stat-label">Approved (Total)</div>
+          </div>
+        </div>
+
+        <div class="stat-card stat-blue">
+          <mat-icon class="stat-icon">history</mat-icon>
+          <div class="stat-body">
+            <div class="stat-num">{{regularizations.length}}</div>
+            <div class="stat-label">Total Requests</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Main Card for Leave Applications ── -->
+      <div class="content-card" *ngIf="activeTab === 'leaves'">
 
         <!-- ── Filter Bar ── -->
         <div class="filter-bar">
@@ -612,7 +1004,7 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
 
           <mat-form-field appearance="outline" class="filter-field filter-field-full-mobile" *ngIf="!isTeacher" subscriptSizing="dynamic">
             <mat-label>Faculty Member</mat-label>
-            <mat-select [(ngModel)]="filterTeacherId" (selectionChange)="loadLeaves()">
+            <mat-select [(ngModel)]="filterTeacherId" (selectionChange)="onTeacherFilterChange()">
               <mat-option value="">All Faculty</mat-option>
               <mat-option *ngFor="let t of teachers" [value]="t.id">{{t.fullName}} ({{t.employeeCode}})</mat-option>
             </mat-select>
@@ -686,7 +1078,14 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
 
                 <!-- Status -->
                 <td>
-                  <span class="status-badge status-{{l.status.toLowerCase()}}">
+                  <span *ngIf="l.status === 'CancellationRequested' || l.isCancellationRequested" class="status-badge status-cancel-req"
+                    matTooltip="Cancellation requested: awaiting Admin review">
+                    <mat-icon>hourglass_top</mat-icon> Cancel Pending
+                  </span>
+                  <span *ngIf="l.status === 'PartiallyCancelled'" class="status-badge status-partially-cancelled">
+                    <mat-icon>event_repeat</mat-icon> Partially Cancelled
+                  </span>
+                  <span *ngIf="l.status !== 'CancellationRequested' && !l.isCancellationRequested && l.status !== 'PartiallyCancelled'" class="status-badge status-{{l.status.toLowerCase()}}">
                     <mat-icon>{{getStatusIcon(l.status)}}</mat-icon>
                     {{l.status}}
                   </span>
@@ -694,9 +1093,17 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
 
                 <!-- Approver / Rejection Reason -->
                 <td>
-                  <div *ngIf="l.status === 'Approved'" class="approver-info">
+                  <div *ngIf="l.status === 'Approved' || l.status === 'PartiallyCancelled'" class="approver-info">
                     <div class="approver-name">✅ {{l.approvedBy || 'Admin'}}</div>
-                    <div class="approver-date" *ngIf="l.approvedAt">{{l.approvedAt | date:'dd MMM, hh:mm a'}}</div>
+                    <div class="approver-date" *ngIf="l.approvedAt">{{toUtc(l.approvedAt) | date:'dd MMM, hh:mm a'}}</div>
+                    <div *ngIf="l.isCancellationRequested" class="rejection-reason-text" style="color:#c2410c;">
+                      Cancel Requested: {{l.cancellationReason}}
+                    </div>
+                    <div *ngIf="l.status === 'PartiallyCancelled' && l.cancellationReviewedBy" class="cancel-partial-sub">
+                      <mat-icon style="font-size:12px;width:12px;height:12px;vertical-align:middle;color:#ea580c;">event_repeat</mat-icon>
+                      Partially Revoked by {{l.cancellationReviewedBy}}
+                      <span *ngIf="l.cancellationReviewedAt">({{toUtc(l.cancellationReviewedAt) | date:'dd MMM, hh:mm a'}})</span>
+                    </div>
                   </div>
                   <div *ngIf="l.status === 'Rejected'" class="rejection-info">
                     <div class="rejection-name">❌ {{l.approvedBy || 'Admin'}}</div>
@@ -705,11 +1112,23 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
                     </div>
                   </div>
                   <span class="na-text" *ngIf="l.status === 'Pending'">⏳ Awaiting Review</span>
+                  <div *ngIf="l.status === 'Cancelled'" class="approver-info cancel-info">
+                    <div class="approver-name cancel-name">
+                      <mat-icon class="cancel-icon-inline">event_busy</mat-icon>
+                      <span>Revoked by {{l.cancellationReviewedBy || l.approvedBy || 'Admin'}}</span>
+                    </div>
+                    <div class="approver-date" *ngIf="l.cancellationReviewedAt || l.approvedAt">
+                      {{toUtc(l.cancellationReviewedAt || l.approvedAt) | date:'dd MMM, hh:mm a'}}
+                    </div>
+                    <div class="rejection-reason-text cancel-remarks-text" *ngIf="l.cancellationReviewRemarks" [matTooltip]="l.cancellationReviewRemarks">
+                      "{{l.cancellationReviewRemarks}}"
+                    </div>
+                  </div>
                 </td>
 
                 <!-- Applied Date -->
                 <td>
-                  <div class="applied-date">{{l.createdAt | date:'dd MMM yyyy'}}</div>
+                  <div class="applied-date">{{toUtc(l.createdAt) | date:'dd MMM yyyy'}}</div>
                 </td>
 
                 <!-- Actions -->
@@ -728,12 +1147,28 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
                       <button mat-icon-button color="warn" *ngIf="l.status === 'Pending'" (click)="deleteLeave(l)" matTooltip="Delete Application">
                         <mat-icon>delete</mat-icon>
                       </button>
+
+                      <!-- Review Cancellation Request (Admin/HR for other staff) -->
+                      <button mat-stroked-button class="btn-review-cancel" *ngIf="l.status === 'CancellationRequested' || l.isCancellationRequested"
+                        (click)="openReviewCancellationDialog(l)" matTooltip="Review cancellation request submitted by employee">
+                        <mat-icon>fact_check</mat-icon> Review Cancel
+                      </button>
                     </ng-container>
 
-                    <!-- SELF ACTIONS (Staff or HR viewing their OWN application: Self-approval forbidden, can only Cancel Pending) -->
+                    <!-- Request Cancellation Button (Available for approved leaves) -->
+                    <button mat-icon-button class="btn-cancel-req"
+                      *ngIf="(l.status === 'Approved' || l.status === 'PartiallyCancelled') && !l.isCancellationRequested"
+                      (click)="openRequestCancellationDialog(l)" matTooltip="Request Full or Partial Cancellation for this Leave">
+                      <mat-icon>event_busy</mat-icon>
+                    </button>
+
+                    <!-- SELF ACTIONS (Staff or HR viewing their OWN application) -->
                     <ng-container *ngIf="isSelfLeave(l)">
                       <span class="self-tag" *ngIf="l.status === 'Pending'" matTooltip="Self-approval not permitted. Awaiting Admin / Director sanction.">
                         <mat-icon>hourglass_top</mat-icon> Awaiting Admin
+                      </span>
+                      <span class="self-tag" *ngIf="l.status === 'CancellationRequested' || l.isCancellationRequested" matTooltip="Self-approval not permitted. Cancellation request awaiting Admin sanction.">
+                        <mat-icon>hourglass_top</mat-icon> Cancel Awaiting Admin
                       </span>
                       <button mat-icon-button color="warn" *ngIf="l.status === 'Pending'"
                         (click)="deleteLeave(l)" matTooltip="Cancel My Application">
@@ -741,14 +1176,14 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
                       </button>
                     </ng-container>
 
-                    <!-- TEACHER ACTIONS (Faculty can only cancel their own Pending requests if not already covered) -->
+                    <!-- TEACHER ACTIONS -->
                     <button mat-icon-button color="warn" *ngIf="isTeacher && !isSelfLeave(l) && l.status === 'Pending'"
                       (click)="deleteLeave(l)" matTooltip="Cancel Leave Application">
                       <mat-icon>close</mat-icon>
                     </button>
 
                     <!-- Completed / Finalized Status -->
-                    <span class="na-text" *ngIf="l.status !== 'Pending'">—</span>
+                    <span class="na-text" *ngIf="l.status !== 'Pending' && !l.isCancellationRequested && l.status !== 'Approved' && l.status !== 'PartiallyCancelled'">—</span>
                   </div>
                 </td>
               </tr>
@@ -766,6 +1201,162 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
           </div>
         </ng-template>
 
+      </div>
+
+      <!-- ── Main Card for Attendance Regularizations ── -->
+      <div class="content-card" *ngIf="activeTab === 'regularizations'">
+
+        <!-- Filter Bar -->
+        <div class="filter-bar">
+          <mat-form-field appearance="outline" class="filter-field" subscriptSizing="dynamic">
+            <mat-label>Status</mat-label>
+            <mat-select [(ngModel)]="filterRegStatus" (selectionChange)="loadRegularizations()">
+              <mat-option value="All">All Statuses</mat-option>
+              <mat-option value="Pending">⏳ Pending Review</mat-option>
+              <mat-option value="Approved">✅ Approved</mat-option>
+              <mat-option value="Rejected">❌ Rejected</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="filter-field filter-field-full-mobile" *ngIf="!isTeacher" subscriptSizing="dynamic">
+            <mat-label>Faculty Member</mat-label>
+            <mat-select [(ngModel)]="filterRegTeacherId" (selectionChange)="loadRegularizations()">
+              <mat-option value="">All Faculty</mat-option>
+              <mat-option *ngFor="let t of teachers" [value]="t.id">{{t.fullName}} ({{t.employeeCode}})</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="filter-field-search" subscriptSizing="dynamic">
+            <mat-icon matPrefix class="filter-icon">search</mat-icon>
+            <input matInput [(ngModel)]="regSearchQuery" placeholder="Search teacher, employee code, reason..." />
+            <button mat-icon-button matSuffix *ngIf="regSearchQuery" (click)="regSearchQuery=''" style="color:#94a3b8;">
+              <mat-icon style="font-size:18px;">close</mat-icon>
+            </button>
+          </mat-form-field>
+        </div>
+
+        <!-- Regularizations Table -->
+        <div class="fd-table-wrap" *ngIf="filteredRegularizations.length > 0; else noRegs">
+          <table class="fd-table">
+            <thead>
+              <tr>
+                <th *ngIf="!isTeacher">Faculty Member</th>
+                <th>Occurrence Date</th>
+                <th>Target Mark</th>
+                <th>Timestamps</th>
+                <th>Reason / Justification</th>
+                <th>Attachment</th>
+                <th>Status</th>
+                <th>Reviewed By</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let r of filteredRegularizations" [class.row-pending]="r.status === 'Pending'">
+                <!-- Faculty Member -->
+                <td *ngIf="!isTeacher">
+                  <div class="teacher-info-cell">
+                    <div class="teacher-avatar"><mat-icon>person</mat-icon></div>
+                    <div>
+                      <div class="teacher-name">{{r.teacherName}}</div>
+                      <div class="teacher-code">{{r.employeeCode}}</div>
+                    </div>
+                  </div>
+                </td>
+
+                <!-- Occurrence Date -->
+                <td>
+                  <span class="date-bold">{{r.attendanceDate | date:'dd MMM yyyy'}}</span>
+                </td>
+
+                <!-- Target Mark -->
+                <td>
+                  <span class="reg-status-chip" [class.chip-present]="r.requestedStatus === 'Present'" [class.chip-halfday]="r.requestedStatus === 'HalfDay'">
+                    {{r.requestedStatus}}
+                  </span>
+                </td>
+
+                <!-- Timestamps -->
+                <td>
+                  <div class="time-text">
+                    {{r.requestedCheckIn || '—'}} to {{r.requestedCheckOut || '—'}}
+                  </div>
+                </td>
+
+                <!-- Reason -->
+                <td>
+                  <div class="reason-cell">
+                    <span class="reason-text">{{r.reason}}</span>
+                  </div>
+                </td>
+
+                <!-- Attachment -->
+                <td>
+                  <a *ngIf="r.attachmentUrl" [href]="r.attachmentUrl" target="_blank" rel="noopener noreferrer" class="doc-link">
+                    <mat-icon>attach_file</mat-icon> Doc
+                  </a>
+                  <span *ngIf="!r.attachmentUrl" class="na-text">—</span>
+                </td>
+
+                <!-- Status -->
+                <td>
+                  <span class="status-badge status-{{r.status.toLowerCase()}}">
+                    <mat-icon>{{getStatusIcon(r.status)}}</mat-icon>
+                    {{r.status}}
+                  </span>
+                </td>
+
+                <!-- Reviewed By -->
+                <td>
+                  <div *ngIf="r.status === 'Approved'" class="approver-info">
+                    <div class="approver-name">✅ {{r.reviewedBy || 'Admin'}}</div>
+                    <div class="approver-date" *ngIf="r.reviewedAt">{{toUtc(r.reviewedAt) | date:'dd MMM, hh:mm a'}}</div>
+                  </div>
+                  <div *ngIf="r.status === 'Rejected'" class="rejection-info">
+                    <div class="rejection-name">❌ {{r.reviewedBy || 'Admin'}}</div>
+                    <div class="rejection-reason-text" *ngIf="r.reviewRemarks" [matTooltip]="r.reviewRemarks">
+                      {{r.reviewRemarks}}
+                    </div>
+                  </div>
+                  <span class="na-text" *ngIf="r.status === 'Pending'">⏳ Awaiting Review</span>
+                </td>
+
+                <!-- Actions -->
+                <td>
+                  <div class="action-btns">
+                    <!-- Admin / HR Review Actions -->
+                    <ng-container *ngIf="canApproveLeave && !isSelfReg(r)">
+                      <button mat-icon-button class="btn-approve" *ngIf="r.status === 'Pending'"
+                        (click)="openReviewRegularizationDialog(r, true)" matTooltip="Approve Regularization">
+                        <mat-icon>check_circle</mat-icon>
+                      </button>
+                      <button mat-icon-button class="btn-reject" *ngIf="r.status === 'Pending'"
+                        (click)="openReviewRegularizationDialog(r, false)" matTooltip="Reject Regularization">
+                        <mat-icon>cancel</mat-icon>
+                      </button>
+                    </ng-container>
+
+                    <span class="self-tag" *ngIf="isSelfReg(r) && r.status === 'Pending'" matTooltip="Self-approval not permitted. Awaiting Admin sanction.">
+                      <mat-icon>hourglass_top</mat-icon> Awaiting Admin
+                    </span>
+
+                    <span class="na-text" *ngIf="r.status !== 'Pending'">—</span>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <ng-template #noRegs>
+          <div class="empty-state">
+            <mat-icon>build_circle</mat-icon>
+            <p>No attendance regularization records found.</p>
+            <button mat-stroked-button (click)="openRegularizationDialog()">
+              <mat-icon>add</mat-icon> Request Regularization
+            </button>
+          </div>
+        </ng-template>
       </div>
     </div>
   `,
@@ -963,7 +1554,14 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
       padding: 3px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 600;
       background: #fef3c7; color: #92400e; border: 1px solid #fde68a;
     }
-    .self-tag mat-icon { font-size: 13px; width: 13px; height: 13px; }
+    .status-cancel-req { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
+    .status-partially-cancelled { background: #f5f3ff; color: #6d28d9; border: 1px solid #ddd6fe; }
+    .btn-cancel-req { color: #d97706 !important; }
+    .btn-review-cancel {
+      font-size: 0.74rem !important; padding: 2px 8px !important; line-height: 24px !important;
+      color: #c2410c !important; border-color: #fdba74 !important; background: #fff7ed !important;
+    }
+    .btn-review-cancel mat-icon { font-size: 15px; width: 15px; height: 15px; margin-right: 4px; }
 
     .empty-state {
       display: flex; flex-direction: column; align-items: center;
@@ -971,6 +1569,310 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
     }
     .empty-state mat-icon { font-size: 40px; width: 40px; height: 40px; margin-bottom: 8px; color: #cbd5e1; }
     .empty-state p { margin: 0 0 14px; font-size: 0.88rem; }
+
+    /* Tabs Navigation Strip */
+    .tabs-nav-strip {
+      display: flex; gap: 8px; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px;
+    }
+    .tab-pill {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 8px 16px; border-radius: 8px; border: 1px solid #cbd5e1;
+      background: #f8fafc; color: #475569; font-weight: 600; font-size: 0.84rem;
+      cursor: pointer; transition: all 0.15s ease;
+    }
+    .tab-pill mat-icon { font-size: 18px; width: 18px; height: 18px; }
+    .tab-pill:hover { background: #eff6ff; color: #2563eb; border-color: #93c5fd; }
+    .tab-pill.active {
+      background: #2563eb; color: #fff; border-color: #2563eb;
+      box-shadow: 0 2px 4px rgba(37,99,235,0.25);
+    }
+    .tab-pill.active mat-icon { color: #fff; }
+    .pill-badge {
+      background: #ef4444; color: #fff; border-radius: 10px;
+      font-size: 0.7rem; font-weight: 700; padding: 1px 6px;
+    }
+    .tab-pill.active .pill-badge {
+      background: #fff; color: #dc2626;
+    }
+
+    .policy-btn { color: #475569 !important; border-color: #cbd5e1 !important; }
+    .policy-btn:hover { background: #f1f5f9 !important; color: #1e293b !important; }
+    .reg-btn { color: #2563eb !important; border-color: #bfdbfe !important; background: #eff6ff !important; }
+    .reg-btn:hover { background: #dbeafe !important; }
+
+    .reg-status-chip {
+      display: inline-block; font-size: 0.72rem; font-weight: 700; padding: 2px 8px;
+      border-radius: 6px; background: #f1f5f9; color: #475569;
+    }
+    .reg-status-chip.chip-present { background: #dcfce7; color: #15803d; }
+    .reg-status-chip.chip-halfday { background: #fef3c7; color: #b45309; }
+
+    .time-text { font-size: 0.78rem; font-family: monospace; color: #334155; font-weight: 600; }
+    .doc-link {
+      display: inline-flex; align-items: center; gap: 4px; font-size: 0.76rem;
+      color: #2563eb; text-decoration: none; font-weight: 600;
+    }
+    .cancel-info { font-size: 0.76rem; }
+    .cancel-name { font-weight: 600; color: #c2410c; display: flex; align-items: center; gap: 4px; }
+    .cancel-icon-inline { font-size: 14px; width: 14px; height: 14px; color: #ea580c; vertical-align: middle; }
+    .cancel-remarks-text { font-size: 0.7rem; color: #9a3412; font-style: italic; margin-top: 1px; }
+    .cancel-partial-sub { font-size: 0.69rem; color: #7c2d12; margin-top: 2px; font-weight: 500; }
+
+    /* ── Live Leave Balance & Quota Ledger ── */
+    .leave-balance-ledger-card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 16px 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 6px -1px rgba(0, 0, 0, 0.05);
+    }
+    .ledger-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .ledger-header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .ledger-icon-box {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.25);
+      flex-shrink: 0;
+    }
+    .ledger-icon-box mat-icon { font-size: 22px; width: 22px; height: 22px; }
+    .ledger-title-line {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .ledger-title {
+      margin: 0;
+      font-size: 1.02rem;
+      font-weight: 700;
+      color: #0f172a;
+    }
+    .ledger-tag {
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 2px 10px;
+      border-radius: 9999px;
+    }
+    .ledger-tag.faculty-tag {
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+    }
+    .ledger-tag.admin-hint-tag {
+      background: #f8fafc;
+      color: #64748b;
+      border: 1px dashed #cbd5e1;
+    }
+    .ledger-sub {
+      margin: 2px 0 0 0;
+      font-size: 0.78rem;
+      color: #64748b;
+    }
+    .ledger-refresh-btn {
+      font-size: 0.78rem !important;
+      border-color: #cbd5e1 !important;
+      color: #334155 !important;
+    }
+    .ledger-refresh-btn mat-icon { font-size: 16px; width: 16px; height: 16px; margin-right: 4px; }
+    .spin-icon { animation: spin 1s infinite linear; }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+    /* Balances Grid */
+    .ledger-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+    }
+    @media (max-width: 1024px) {
+      .ledger-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 640px) {
+      .ledger-grid { grid-template-columns: 1fr; }
+    }
+
+    .ledger-chip-card {
+      border-radius: 12px;
+      padding: 14px 16px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .ledger-chip-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    }
+    .chip-card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .chip-type-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #1e293b;
+    }
+    .chip-type-badge mat-icon { font-size: 17px; width: 17px; height: 17px; }
+    .chip-avail-pill {
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 6px;
+      background: #dcfce7;
+      color: #15803d;
+    }
+    .chip-avail-pill.pill-low {
+      background: #fef3c7;
+      color: #b45309;
+    }
+    .chip-avail-pill.pill-zero {
+      background: #fee2e2;
+      color: #b91c1c;
+    }
+    .chip-avail-pill.pill-lwp {
+      background: #f1f5f9;
+      color: #475569;
+    }
+
+    .chip-card-center {
+      margin-bottom: 12px;
+    }
+    .chip-big-num {
+      font-size: 1.6rem;
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+    }
+    .chip-unit {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #64748b;
+      margin-left: 2px;
+    }
+    .chip-caption {
+      font-size: 0.72rem;
+      color: #64748b;
+      margin-top: 2px;
+    }
+
+    /* Color variations */
+    .card-cl {
+      background: linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%);
+      border-color: #bbf7d0;
+    }
+    .card-cl .chip-big-num { color: #15803d; }
+    .card-cl .chip-type-badge mat-icon { color: #16a34a; }
+    .card-cl .chip-meter-fill { background: #22c55e; }
+
+    .card-sl {
+      background: linear-gradient(180deg, #eff6ff 0%, #ffffff 100%);
+      border-color: #bfdbfe;
+    }
+    .card-sl .chip-big-num { color: #1d4ed8; }
+    .card-sl .chip-type-badge mat-icon { color: #2563eb; }
+    .card-sl .chip-meter-fill { background: #3b82f6; }
+
+    .card-el {
+      background: linear-gradient(180deg, #faf5ff 0%, #ffffff 100%);
+      border-color: #e9d5ff;
+    }
+    .card-el .chip-big-num { color: #7e22ce; }
+    .card-el .chip-type-badge mat-icon { color: #9333ea; }
+    .card-el .chip-meter-fill { background: #a855f7; }
+
+    .card-lwp {
+      background: linear-gradient(180deg, #fff7ed 0%, #ffffff 100%);
+      border-color: #fed7aa;
+    }
+    .card-lwp .chip-big-num { color: #c2410c; }
+    .card-lwp .chip-type-badge mat-icon { color: #ea580c; }
+
+    .chip-card-footer {
+      border-top: 1px solid rgba(0, 0, 0, 0.06);
+      padding-top: 8px;
+    }
+    .chip-meter {
+      height: 5px;
+      background: #e2e8f0;
+      border-radius: 9999px;
+      overflow: hidden;
+      margin-bottom: 6px;
+    }
+    .chip-meter-fill {
+      height: 100%;
+      border-radius: 9999px;
+      transition: width 0.3s ease;
+    }
+    .chip-stats-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.72rem;
+      color: #64748b;
+    }
+    .chip-stats-row strong { color: #1e293b; }
+    .lwp-hint-text {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.72rem;
+      color: #9a3412;
+      font-weight: 500;
+    }
+    .lwp-hint-text mat-icon { font-size: 15px; width: 15px; height: 15px; color: #ea580c; }
+
+    .regularization-quota-strip {
+      margin-top: 14px;
+      padding: 10px 14px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .rq-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.78rem;
+      color: #1e40af;
+    }
+    .rq-left mat-icon { font-size: 18px; width: 18px; height: 18px; color: #2563eb; }
+    .rq-left strong { color: #1e3a8a; }
+    .rq-action-btn {
+      font-size: 0.76rem !important;
+      font-weight: 600 !important;
+      color: #2563eb !important;
+      padding: 0 10px !important;
+    }
+    .rq-action-btn mat-icon { font-size: 16px; width: 16px; height: 16px; margin-right: 4px; }
   `]
 })
 export class TeacherLeavesComponent implements OnInit {
@@ -980,16 +1882,26 @@ export class TeacherLeavesComponent implements OnInit {
   private dialog = inject(MatDialog);
   private confirm = inject(ConfirmDialogService);
 
+  activeTab: 'leaves' | 'regularizations' = 'leaves';
   leaves: LeaveDto[] = [];
+  regularizations: TeacherAttendanceRegularizationDto[] = [];
   teachers: TeacherDto[] = [];
   myProfile: any = null;
+  currentTeacherBalances: TeacherLeaveBalancesSummaryDto | null = null;
   loading = false;
+  loadingRegs = false;
+  loadingBalances = false;
 
-  // Filters
+  // Filters (Leaves)
   filterStatus = 'All';
   filterLeaveType = 'All';
   filterTeacherId = '';
   searchQuery = '';
+
+  // Filters (Regularizations)
+  filterRegStatus = 'All';
+  filterRegTeacherId = '';
+  regSearchQuery = '';
 
   // Stats
   stats = {
@@ -1011,6 +1923,18 @@ export class TeacherLeavesComponent implements OnInit {
     return !!(this.myProfile?.id && l.teacherId === this.myProfile.id);
   }
 
+  isSelfReg(r: TeacherAttendanceRegularizationDto): boolean {
+    return !!(this.myProfile?.id && r.teacherId === this.myProfile.id);
+  }
+
+  get pendingRegCount(): number {
+    return this.regularizations.filter(r => r.status === 'Pending').length;
+  }
+
+  get approvedRegCount(): number {
+    return this.regularizations.filter(r => r.status === 'Approved').length;
+  }
+
   get filteredLeaves(): LeaveDto[] {
     return this.leaves.filter(l => {
       // Status filter
@@ -1029,6 +1953,21 @@ export class TeacherLeavesComponent implements OnInit {
     });
   }
 
+  get filteredRegularizations(): TeacherAttendanceRegularizationDto[] {
+    return this.regularizations.filter(r => {
+      if (this.filterRegStatus !== 'All' && r.status !== this.filterRegStatus) return false;
+      if (this.filterRegTeacherId && r.teacherId !== this.filterRegTeacherId) return false;
+      if (this.regSearchQuery) {
+        const q = this.regSearchQuery.toLowerCase();
+        const mTeacher = r.teacherName?.toLowerCase().includes(q);
+        const mCode = r.employeeCode?.toLowerCase().includes(q);
+        const mReason = r.reason?.toLowerCase().includes(q);
+        if (!mTeacher && !mCode && !mReason) return false;
+      }
+      return true;
+    });
+  }
+
   ngOnInit() {
     this.route.queryParams.subscribe(p => {
       if (p['teacherId']) this.filterTeacherId = p['teacherId'];
@@ -1039,10 +1978,10 @@ export class TeacherLeavesComponent implements OnInit {
   loadAll() {
     this.loadStats();
     this.loadLeaves();
+    this.loadRegularizations();
     this.loadMyProfile();
-    if (!this.isTeacher) {
-      this.loadTeachers();
-    }
+    this.loadTeachers();
+    this.loadTeacherBalances();
   }
 
   loadMyProfile() {
@@ -1050,6 +1989,7 @@ export class TeacherLeavesComponent implements OnInit {
       next: p => {
         if (p?.isLinked) {
           this.myProfile = p;
+          this.loadTeacherBalances();
         }
       },
       error: () => {}
@@ -1057,8 +1997,8 @@ export class TeacherLeavesComponent implements OnInit {
   }
 
   loadTeachers() {
-    this.http.get<TeacherDto[]>(`${API_BASE}/teachers`).subscribe({
-      next: t => this.teachers = t,
+    this.http.get<TeacherDto[]>(`${API_BASE}/teachers?activeOnly=true`).subscribe({
+      next: t => this.teachers = t.filter(x => x.isActive !== false && !x.leavingDate),
       error: () => {}
     });
   }
@@ -1071,11 +2011,50 @@ export class TeacherLeavesComponent implements OnInit {
         this.stats.onLeaveToday = s.onLeaveToday || 0;
         this.stats.totalThisYear = s.totalThisYear || 0;
         if (s.isTeacher && s.teacherName) {
-          this.myProfile = { fullName: s.teacherName, id: s.teacherId };
+          this.myProfile = {
+            ...this.myProfile,
+            fullName: s.teacherName,
+            id: s.teacherId,
+            employeeCode: s.employeeCode || this.myProfile?.employeeCode
+          };
+          this.loadTeacherBalances();
         }
       },
       error: () => {}
     });
+  }
+
+  loadTeacherBalances() {
+    let targetId = '';
+    if (this.isTeacher) {
+      targetId = this.myProfile?.id || (this.stats as any)?.teacherId || '';
+    } else {
+      targetId = this.filterTeacherId || this.myProfile?.id || '';
+    }
+
+    if (!targetId) {
+      this.currentTeacherBalances = null;
+      return;
+    }
+
+    this.loadingBalances = true;
+    this.http.get<TeacherLeaveBalancesSummaryDto>(`${API_BASE}/teachers/${targetId}/leave-balances`).subscribe({
+      next: res => {
+        this.currentTeacherBalances = res;
+        this.loadingBalances = false;
+        if (!this.myProfile?.employeeCode && res?.employeeCode) {
+          if (this.myProfile) this.myProfile.employeeCode = res.employeeCode;
+        }
+      },
+      error: () => {
+        this.loadingBalances = false;
+      }
+    });
+  }
+
+  onTeacherFilterChange() {
+    this.loadLeaves();
+    this.loadTeacherBalances();
   }
 
   loadLeaves() {
@@ -1096,7 +2075,17 @@ export class TeacherLeavesComponent implements OnInit {
     });
   }
 
+  get currentEmployeeCode(): string {
+    return this.myProfile?.employeeCode || this.teachers?.find(t => t.id === this.myProfile?.id)?.employeeCode || '';
+  }
+
   openApplyDialog() {
+    if (this.myProfile?.id && !this.myProfile.employeeCode) {
+      const match = this.teachers.find(t => t.id === this.myProfile.id);
+      if (match?.employeeCode) {
+        this.myProfile.employeeCode = match.employeeCode;
+      }
+    }
     const ref = this.dialog.open(ApplyTeacherLeaveDialogComponent, {
       data: {
         isTeacher: this.isTeacher,
@@ -1104,8 +2093,8 @@ export class TeacherLeavesComponent implements OnInit {
         myProfile: this.myProfile
       },
       disableClose: true,
-      maxWidth: '92vw',
-      width: '540px'
+      maxWidth: '94vw',
+      width: '680px'
     });
     ref.afterClosed().subscribe(res => {
       if (res) {
@@ -1169,9 +2158,158 @@ export class TeacherLeavesComponent implements OnInit {
     });
   }
 
+  loadRegularizations() {
+    this.loadingRegs = true;
+    const params: any = {};
+    if (this.filterRegStatus && this.filterRegStatus !== 'All') params.status = this.filterRegStatus;
+    if (this.filterRegTeacherId) params.teacherId = this.filterRegTeacherId;
+
+    this.http.get<TeacherAttendanceRegularizationDto[]>(`${API_BASE}/teachers/regularizations`, { params }).subscribe({
+      next: res => {
+        this.regularizations = res;
+        this.loadingRegs = false;
+      },
+      error: () => {
+        this.loadingRegs = false;
+      }
+    });
+  }
+
+  openRegularizationDialog(teacherId?: string, targetDate?: string) {
+    if (this.myProfile?.id && !this.myProfile.employeeCode) {
+      const match = this.teachers.find(t => t.id === this.myProfile.id);
+      if (match?.employeeCode) {
+        this.myProfile.employeeCode = match.employeeCode;
+      }
+    }
+    const ref = this.dialog.open(ApplyTeacherRegularizationDialogComponent, {
+      data: {
+        isTeacherSelf: this.isTeacher,
+        isTeacher: this.isTeacher,
+        teachers: this.teachers.filter(t => t.isActive !== false && !t.leavingDate),
+        myProfile: this.myProfile,
+        preSelectTeacherId: teacherId || this.myProfile?.id,
+        targetTeacherId: teacherId || this.myProfile?.id,
+        preSelectDate: targetDate,
+        targetDate: targetDate
+      },
+      disableClose: true,
+      maxWidth: '92vw',
+      width: '560px'
+    });
+    ref.afterClosed().subscribe(res => {
+      if (res) {
+        this.loadRegularizations();
+      }
+    });
+  }
+
+  openReviewRegularizationDialog(r: TeacherAttendanceRegularizationDto, isApproved: boolean) {
+    const ref = this.dialog.open(ReviewTeacherRegularizationDialogComponent, {
+      data: {
+        regularization: r,
+        isApproved: isApproved
+      },
+      disableClose: true,
+      maxWidth: '92vw',
+      width: '480px'
+    });
+    ref.afterClosed().subscribe(res => {
+      if (res) {
+        this.loadRegularizations();
+      }
+    });
+  }
+
+  openPolicySettingsDialog() {
+    const ref = this.dialog.open(LeavePolicySettingsDialogComponent, {
+      disableClose: true,
+      maxWidth: '92vw',
+      width: '740px'
+    });
+    ref.afterClosed().subscribe(res => {
+      if (res) {
+        this.loadAll();
+      }
+    });
+  }
+
+  openRequestCancellationDialog(l: LeaveDto) {
+    const ref = this.dialog.open(RequestLeaveCancellationDialogComponent, {
+      data: { leave: l },
+      disableClose: true,
+      maxWidth: '92vw',
+      width: '540px'
+    });
+    ref.afterClosed().subscribe(res => {
+      if (res) {
+        this.loadAll();
+      }
+    });
+  }
+
+  openReviewCancellationDialog(l: LeaveDto) {
+    const ref = this.dialog.open(ReviewLeaveCancellationDialogComponent, {
+      data: { leave: l },
+      disableClose: true,
+      maxWidth: '94vw',
+      width: '600px'
+    });
+    ref.afterClosed().subscribe(res => {
+      if (res) {
+        this.loadAll();
+      }
+    });
+  }
+
   formatLeaveType(type: string): string {
     if (!type) return 'Leave';
     return type.replace(/([A-Z])/g, ' $1').trim();
+  }
+
+  formatBalanceLeaveType(type: string): string {
+    switch (type) {
+      case 'CasualLeave': return 'Casual Leave (CL)';
+      case 'SickLeave': return 'Sick Leave (SL)';
+      case 'EarnedLeave': return 'Earned Leave (EL)';
+      case 'UnpaidLeave': return 'Unpaid Leave (LWP)';
+      default: return this.formatLeaveType(type);
+    }
+  }
+
+  getLeaveIcon(type: string): string {
+    switch (type) {
+      case 'CasualLeave': return 'beach_access';
+      case 'SickLeave': return 'medical_services';
+      case 'EarnedLeave': return 'flight_takeoff';
+      case 'UnpaidLeave': return 'money_off';
+      default: return 'event_note';
+    }
+  }
+
+  getBalMeterPercent(b: any): number {
+    if (!b || !b.allocatedDays || b.allocatedDays <= 0) return 0;
+    const pct = Math.round((b.availableBalance / b.allocatedDays) * 100);
+    return Math.max(0, Math.min(100, pct));
+  }
+
+  toUtc(val: any): Date | null {
+    if (!val) return null;
+    if (val instanceof Date) return val;
+    let str = String(val).trim();
+    if (!str) return null;
+    // Pure date without time (e.g. 2026-09-27)
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+      return new Date(str + 'T00:00:00');
+    }
+    // Standardize space separator to ISO 'T'
+    str = str.replace(' ', 'T');
+    // If timestamp string lacks timezone indicator (no 'Z' and no offset +/-HH:mm), mark as UTC ('Z')
+    if (!str.endsWith('Z') && !/[+-]\d{2}(:\d{2})?$/.test(str)) {
+      str = str + 'Z';
+    }
+    const d = new Date(str);
+    return isNaN(d.getTime()) ? null : d;
   }
 
   getStatusIcon(status: string): string {

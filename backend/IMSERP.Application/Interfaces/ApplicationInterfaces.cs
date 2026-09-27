@@ -34,6 +34,8 @@ public interface IIMSERPDbContext
     DbSet<Branch> Branches { get; }
     DbSet<Room> Rooms { get; }
     DbSet<TeacherLeave> TeacherLeaves { get; }
+    DbSet<TeacherAttendanceRegularization> TeacherAttendanceRegularizations { get; }
+    DbSet<LeaveAndAttendancePolicySettings> LeaveAndAttendancePolicies { get; }
     DbSet<Holiday> Holidays { get; }
     DbSet<SchoolEvent> SchoolEvents { get; }
     DbSet<EventPhoto> EventPhotos { get; }

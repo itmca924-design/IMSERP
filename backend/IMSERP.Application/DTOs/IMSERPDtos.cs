@@ -1495,7 +1495,17 @@ public record TeacherLeaveDto(
     string? ApprovedBy,
     DateTime? ApprovedAt,
     string? RejectionReason,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    bool IsCancellationRequested = false,
+    bool IsPartialCancellation = false,
+    DateTime? CancellationFromDate = null,
+    DateTime? CancellationToDate = null,
+    string? CancellationReason = null,
+    DateTime? CancellationRequestedAt = null,
+    string? CancellationReviewedBy = null,
+    DateTime? CancellationReviewedAt = null,
+    string? CancellationReviewRemarks = null,
+    bool? IsCancellationApproved = null
 );
 
 public record ApplyLeaveDto(
@@ -1509,6 +1519,81 @@ public record ApplyLeaveDto(
 public record ApproveLeaveDto(
     bool Approve,
     string? RejectionReason
+);
+
+public record RequestLeaveCancellationDto(
+    bool IsPartialCancellation,
+    DateTime? CancelFromDate,
+    DateTime? CancelToDate,
+    string Reason
+);
+
+public record ReviewLeaveCancellationDto(
+    bool Approve,
+    string? ReviewRemarks
+);
+
+public record TeacherAttendanceRegularizationDto(
+    Guid Id,
+    Guid TeacherId,
+    string TeacherName,
+    string EmployeeCode,
+    DateTime AttendanceDate,
+    string RequestedStatus,
+    string? RequestedCheckIn,
+    string? RequestedCheckOut,
+    string Reason,
+    string? AttachmentUrl,
+    string Status,
+    string? ReviewedBy,
+    DateTime? ReviewedAt,
+    string? ReviewRemarks,
+    DateTime CreatedAt
+);
+
+public record ApplyRegularizationDto(
+    Guid TeacherId,
+    DateTime AttendanceDate,
+    string RequestedStatus,
+    string? RequestedCheckIn,
+    string? RequestedCheckOut,
+    string Reason,
+    string? AttachmentUrl
+);
+
+public record ReviewRegularizationDto(
+    bool Approve,
+    string? ReviewRemarks
+);
+
+public record LeavePolicySettingsDto(
+    decimal AnnualCasualLeaveQuota,
+    decimal AnnualSickLeaveQuota,
+    decimal AnnualEarnedLeaveQuota,
+    string LeaveAccrualFrequency,
+    decimal MonthlyCasualLeaveAccrual,
+    int MaxRegularizationDaysBackdated,
+    int MaxRegularizationPerMonth,
+    bool AutoCancelLeaveOnBiometricPunch,
+    bool AllowFullDayLeaveIfMarkedPresent
+);
+
+public record TeacherLeaveBalanceItemDto(
+    string LeaveType,
+    decimal AllocatedDays,
+    decimal AccruedToDate,
+    decimal UsedDays,
+    decimal PendingDays,
+    decimal AvailableBalance
+);
+
+public record TeacherLeaveBalancesSummaryDto(
+    Guid TeacherId,
+    string TeacherName,
+    string EmployeeCode,
+    List<TeacherLeaveBalanceItemDto> Balances,
+    int RegularizationsUsedThisMonth,
+    int MaxRegularizationsAllowedPerMonth
 );
 
 public record TeacherDashboardDto(

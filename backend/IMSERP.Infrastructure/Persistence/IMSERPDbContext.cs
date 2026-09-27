@@ -42,6 +42,8 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
     public DbSet<Branch> Branches => Set<Branch>();
     public DbSet<Room> Rooms => Set<Room>();
     public DbSet<TeacherLeave> TeacherLeaves => Set<TeacherLeave>();
+    public DbSet<TeacherAttendanceRegularization> TeacherAttendanceRegularizations => Set<TeacherAttendanceRegularization>();
+    public DbSet<LeaveAndAttendancePolicySettings> LeaveAndAttendancePolicies => Set<LeaveAndAttendancePolicySettings>();
     public DbSet<Holiday> Holidays => Set<Holiday>();
     public DbSet<SchoolEvent> SchoolEvents => Set<SchoolEvent>();
     public DbSet<EventPhoto> EventPhotos => Set<EventPhoto>();
@@ -897,6 +899,15 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
             }
         }
 
-        return await base.SaveChangesAsync(cancellationToken);
+        try
+        {
+            return await base.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException ex)
+        {
+            var inner = ex.InnerException?.Message ?? ex.Message;
+            Console.WriteLine($"[IMSERP DbUpdateException]: {inner}");
+            throw new Exception($"Database update error: {inner}", ex);
+        }
     }
 }

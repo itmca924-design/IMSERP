@@ -10,10 +10,11 @@ import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { MatDialogModule } from '@angular/material/dialog';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TeacherSelectorComponent } from './teacher-selector.component';
-import { API_BASE, AttendancePermissionsDto, AttendanceSettingsDto, TeacherDto, AttendanceDto, AttendanceSummaryDto, HolidayDto } from './teacher.models';
+import { API_BASE, AttendancePermissionsDto, AttendanceSettingsDto, TeacherDto, AttendanceDto, AttendanceSummaryDto, HolidayDto, LeaveDto } from './teacher.models';
+import { ApplyTeacherRegularizationDialogComponent } from './teacher-regularization-dialog.component';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { LocalDatetimePipe } from '../../shared/pipes/local-datetime.pipe';
 
@@ -28,6 +29,8 @@ export interface CalendarDayItem {
   holidayTitle?: string;
   status: 'Present' | 'Absent' | 'Late' | 'HalfDay' | 'Holiday' | 'Leave' | 'Unmarked';
   record?: AttendanceDto;
+  isCancellationPending?: boolean;
+  cancellationDetails?: string;
 }
 
 @Component({
@@ -60,14 +63,6 @@ export interface CalendarDayItem {
     <!-- Sleek Horizontal Toolbar (Fixed Width Dropdowns & Non-Wrapping Bar) -->
     <div class="attendance-toolbar mat-elevation-z1">
       <div class="toolbar-left">
-        <div class="teacher-info-badge">
-          <mat-icon color="primary">account_circle</mat-icon>
-          <div class="teacher-meta-text">
-            <strong>{{selectedTeacher.fullName}}</strong>
-            <span class="emp-code">{{selectedTeacher.employeeCode}}</span>
-          </div>
-        </div>
-
         <div class="period-selectors">
           <!-- Month Dropdown with wide width to fit September without truncation -->
           <mat-form-field appearance="outline" class="month-select-field">
@@ -92,6 +87,10 @@ export interface CalendarDayItem {
         <mat-form-field appearance="outline" class="mode-select"><mat-label>Teacher Attendance Mode</mat-label><mat-select [(ngModel)]="attendanceMode" (selectionChange)="saveAttendanceMode()" [disabled]="!attendancePermissions.canChangeMode"><mat-option value="Both">Manual + Biometric</mat-option><mat-option value="Manual">Manual Only</mat-option><mat-option value="Biometric">Biometric Only</mat-option></mat-select></mat-form-field>
         <button mat-stroked-button color="accent" class="quick-today-btn" (click)="quickMarkTodayPresent()" [disabled]="!attendancePermissions.canManualMark || attendanceMode === 'Biometric'" matTooltip="Manual marking is disabled by permission or mode">
           <mat-icon>verified</mat-icon> Today Present
+        </button>
+
+        <button mat-stroked-button class="regularize-toolbar-btn" (click)="openRegularizationDialog()" matTooltip="Request Attendance Regularization for missed punches or duty tour">
+          <mat-icon>build_circle</mat-icon> Regularize
         </button>
 
         <button mat-raised-button color="primary" class="mark-btn" (click)="showMarkForm = !showMarkForm" [disabled]="!attendancePermissions.canManualMark || attendanceMode === 'Biometric'">
@@ -253,6 +252,8 @@ export interface CalendarDayItem {
           <span class="leg absent">● Absent</span>
           <span class="leg late">● Late</span>
           <span class="leg half">● Half Day</span>
+          <span class="leg leave">● Leave</span>
+          <span class="leg cancel-req">⏳ Cancel Pending</span>
           <span class="leg pub-holiday">★ Public Holiday</span>
           <span class="leg sunday">● Sunday Off</span>
           <span class="leg saturday">● Saturday</span>
@@ -267,13 +268,14 @@ export interface CalendarDayItem {
           [class.late]="d.status === 'Late'"
           [class.half]="d.status === 'HalfDay'"
           [class.leave]="d.status === 'Leave'"
+          [class.cancel-pending]="d.isCancellationPending"
           [class.public-holiday]="d.isDeclaredHoliday && !d.record"
           [class.sunday-off]="d.isSunday && !d.record && !d.isDeclaredHoliday"
           [class.saturday-off]="d.isSaturday && !d.record && !d.isDeclaredHoliday"
           [class.today]="d.isToday"
           [class.future-date]="d.dateStr > todayStr"
           (click)="onDayCellClick(d)"
-          [matTooltip]="d.dateStr > todayStr ? 'Future date — attendance cannot be marked in advance' : (d.dateStr < todayStr && !attendancePermissions.canCorrectAttendance ? 'Back-date correction requires Admin permission' : (d.dateStr + ' (' + d.dayOfWeek + '): ' + (d.isDeclaredHoliday ? ('Public Holiday: ' + d.holidayTitle) : (d.isSunday ? 'Sunday Weekly Off' : (d.isSaturday ? 'Saturday' : d.status))) + (d.record?.checkInTime ? ' | Punch-in: ' + d.record?.checkInTime : '')))">
+          [matTooltip]="d.dateStr > todayStr ? 'Future date — attendance cannot be marked in advance' : (d.dateStr < todayStr && !attendancePermissions.canCorrectAttendance ? 'Back-date correction requires Admin permission' : ((d.isCancellationPending ? ('[Cancellation Requested: ' + d.cancellationDetails + ' (Pending Admin Review)] | ') : '') + d.dateStr + ' (' + d.dayOfWeek + '): ' + (d.isDeclaredHoliday ? ('Public Holiday: ' + d.holidayTitle) : (d.isSunday ? 'Sunday Weekly Off' : (d.isSaturday ? 'Saturday' : d.status))) + (d.record?.checkInTime ? ' | Punch-in: ' + d.record?.checkInTime : '')))">
           <span class="cell-num">{{d.dayNumber}}</span>
           <span class="cell-sub">{{d.dayOfWeek.charAt(0)}}</span>
           <span class="cell-tag">{{getCellShortTag(d)}}</span>
@@ -284,68 +286,73 @@ export interface CalendarDayItem {
     <!-- Detailed Attendance Log Table -->
     <mat-card class="table-card mat-elevation-z1" *ngIf="records.length > 0">
       <div class="table-card-header">
-        <strong>Detailed Attendance Register ({{records.length}} Records)</strong>
+        <div class="table-title-group">
+          <strong>Detailed Attendance Register ({{records.length}} Records)</strong>
+          <span class="table-scroll-hint"><mat-icon>swap_horiz</mat-icon> Swipe to view all columns & actions</span>
+        </div>
       </div>
-      <table class="att-table">
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Day</th>
-            <th>Status</th>
-            <th>Source</th>
-            <th>Check-in (IST)</th>
-            <th>Check-out (IST)</th>
-            <th>Work Duration</th>
-            <th>Remarks</th>
-            <th class="actions-col">Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let a of records">
-            <td><strong>{{a.attendanceDate | date:'dd MMM yyyy'}}</strong></td>
-            <td><span class="day-label">{{a.attendanceDate | date:'EEEE'}}</span></td>
-            <td><span class="status-badge" [ngClass]="getEffectiveStatus(a).toLowerCase()">{{getEffectiveStatus(a) === 'HalfDay' ? 'Half Day' : getEffectiveStatus(a)}}</span></td>
-            <td>{{ a.captureSource || 'Manual' }}</td>
-            <td>
-              <span>{{ a.captureSource === 'Biometric' && a.capturedAt ? (a.capturedAt | localDatetime:'time24') : (a.checkInTime || '—') }}</span>
-              <small class="time-sub" *ngIf="a.captureSource === 'Biometric' && a.capturedAt">
-                ({{ a.capturedAt | localDatetime:'time' }})
-              </small>
-              <small class="time-sub" *ngIf="a.captureSource !== 'Biometric' && formatDisplayTime(a.checkInTime) && formatDisplayTime(a.checkInTime) !== a.checkInTime">
-                ({{ formatDisplayTime(a.checkInTime) }})
-              </small>
-            </td>
-            <td>
-              <span>{{ a.captureSource === 'Biometric' && a.checkOutTime && a.capturedAt ? (a.capturedAt | localDatetime:'time24') : (a.checkOutTime || '—') }}</span>
-              <small class="time-sub" *ngIf="a.captureSource === 'Biometric' && a.checkOutTime && a.capturedAt">
-                ({{ a.capturedAt | localDatetime:'time' }})
-              </small>
-              <small class="time-sub" *ngIf="a.captureSource !== 'Biometric' && formatDisplayTime(a.checkOutTime) && formatDisplayTime(a.checkOutTime) !== a.checkOutTime">
-                ({{ formatDisplayTime(a.checkOutTime) }})
-              </small>
-            </td>
-            <td>
-              <span class="work-duration" *ngIf="calculateDuration(a.checkInTime, a.checkOutTime)">
-                {{calculateDuration(a.checkInTime, a.checkOutTime)}}
-              </span>
-              <span *ngIf="!calculateDuration(a.checkInTime, a.checkOutTime)">—</span>
-            </td>
-            <td>{{a.remarks || '—'}}</td>
-            <td class="actions-col">
-              <button mat-icon-button color="primary" (click)="editRecord(a)"
-                [disabled]="!attendancePermissions.canCorrectAttendance || attendanceMode === 'Biometric' || (isPublicHolidayOrSunday(a.attendanceDate) && !canEditPublicHolidayOrSunday)"
-                matTooltip="Edit record">
-                <mat-icon>edit</mat-icon>
-              </button>
-              <button mat-icon-button color="warn" (click)="deleteRecord(a.id)"
-                [disabled]="!attendancePermissions.canCorrectAttendance || attendanceMode === 'Biometric' || (isPublicHolidayOrSunday(a.attendanceDate) && !canEditPublicHolidayOrSunday)"
-                matTooltip="Delete record">
-                <mat-icon>delete_outline</mat-icon>
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <div class="table-responsive">
+        <table class="att-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Day</th>
+              <th>Status</th>
+              <th>Source</th>
+              <th>Check-in (IST)</th>
+              <th>Check-out (IST)</th>
+              <th>Work Duration</th>
+              <th>Remarks</th>
+              <th class="actions-col">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let a of records">
+              <td><strong>{{a.attendanceDate | date:'dd MMM yyyy'}}</strong></td>
+              <td><span class="day-label">{{a.attendanceDate | date:'EEEE'}}</span></td>
+              <td><span class="status-badge" [ngClass]="getEffectiveStatus(a).toLowerCase()">{{getEffectiveStatus(a) === 'HalfDay' ? 'Half Day' : getEffectiveStatus(a)}}</span></td>
+              <td><span class="source-tag">{{ a.captureSource || 'Manual' }}</span></td>
+              <td>
+                <span class="time-main">{{ a.captureSource === 'Biometric' && a.capturedAt ? (a.capturedAt | localDatetime:'time24') : (a.checkInTime || '—') }}</span>
+                <small class="time-sub" *ngIf="a.captureSource === 'Biometric' && a.capturedAt">
+                  ({{ a.capturedAt | localDatetime:'time' }})
+                </small>
+                <small class="time-sub" *ngIf="a.captureSource !== 'Biometric' && formatDisplayTime(a.checkInTime) && formatDisplayTime(a.checkInTime) !== a.checkInTime">
+                  ({{ formatDisplayTime(a.checkInTime) }})
+                </small>
+              </td>
+              <td>
+                <span class="time-main">{{ a.captureSource === 'Biometric' && a.checkOutTime && a.capturedAt ? (a.capturedAt | localDatetime:'time24') : (a.checkOutTime || '—') }}</span>
+                <small class="time-sub" *ngIf="a.captureSource === 'Biometric' && a.checkOutTime && a.capturedAt">
+                  ({{ a.capturedAt | localDatetime:'time' }})
+                </small>
+                <small class="time-sub" *ngIf="a.captureSource !== 'Biometric' && formatDisplayTime(a.checkOutTime) && formatDisplayTime(a.checkOutTime) !== a.checkOutTime">
+                  ({{ formatDisplayTime(a.checkOutTime) }})
+                </small>
+              </td>
+              <td>
+                <span class="work-duration" *ngIf="calculateDuration(a.checkInTime, a.checkOutTime)">
+                  {{calculateDuration(a.checkInTime, a.checkOutTime)}}
+                </span>
+                <span *ngIf="!calculateDuration(a.checkInTime, a.checkOutTime)" class="no-dur">—</span>
+              </td>
+              <td class="remarks-cell">{{a.remarks || '—'}}</td>
+              <td class="actions-col">
+                <button mat-icon-button color="primary" (click)="editRecord(a)"
+                  [disabled]="!attendancePermissions.canCorrectAttendance || attendanceMode === 'Biometric' || (isPublicHolidayOrSunday(a.attendanceDate) && !canEditPublicHolidayOrSunday)"
+                  matTooltip="Edit record">
+                  <mat-icon>edit</mat-icon>
+                </button>
+                <button mat-icon-button color="warn" (click)="deleteRecord(a.id)"
+                  [disabled]="!attendancePermissions.canCorrectAttendance || attendanceMode === 'Biometric' || (isPublicHolidayOrSunday(a.attendanceDate) && !canEditPublicHolidayOrSunday)"
+                  matTooltip="Delete record">
+                  <mat-icon>delete_outline</mat-icon>
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </mat-card>
 
     <div class="empty-state" *ngIf="records.length === 0 && !loading && !showMarkForm">
@@ -387,26 +394,15 @@ export interface CalendarDayItem {
       gap:20px;
       flex-wrap:wrap;
     }
-    .teacher-info-badge {
-      display:flex;
-      align-items:center;
-      gap:10px;
-      padding-right:16px;
-      border-right:1.5px solid #e2e8f0;
-      mat-icon{font-size:28px;width:28px;height:28px;}
-    }
-    .teacher-meta-text {
-      strong{font-size:.98rem;color:#0f172a;display:block;}
-      .emp-code{font-size:.76rem;color:#64748b;font-weight:600;}
-    }
     .period-selectors {
       display:flex;
       align-items:center;
       gap:12px;
     }
-    /* Fixed generous width for Month and Year */
+    /* Fixed generous width and aligned margins for Month, Year, and Mode */
     .month-select-field { width:180px; min-width:175px; margin-bottom:-1.25em; }
     .year-select-field { width:115px; min-width:110px; margin-bottom:-1.25em; }
+    .mode-select { width:235px; min-width:220px; margin-bottom:-1.25em; }
 
     .toolbar-right {
       display:flex;
@@ -440,6 +436,14 @@ export interface CalendarDayItem {
       mat-icon { font-size: 20px; width: 20px; height: 20px; color: #2563eb; }
     }
 
+    .regularize-toolbar-btn {
+      color: #2563eb !important;
+      border-color: #bfdbfe !important;
+      background: #eff6ff !important;
+      font-weight: 600;
+      &:hover { background: #dbeafe !important; }
+    }
+
     .form-actions { display:flex; justify-content:flex-end; gap:12px; }
 
     /* Summary KPI Cards Grid */
@@ -470,7 +474,7 @@ export interface CalendarDayItem {
     .calendar-header { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; }
     .cal-title { display:flex; align-items:center; gap:8px; font-size:.95rem; color:#1e293b; }
     .legend-chips { display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-size:.76rem; font-weight:600;
-      .leg.present{color:#16a34a;} .leg.leave{color:#d97706;font-weight:700;} .leg.absent{color:#dc2626;} .leg.late{color:#ea580c;}
+      .leg.present{color:#16a34a;} .leg.leave{color:#d97706;font-weight:700;} .leg.cancel-req{color:#ea580c;font-weight:700;} .leg.absent{color:#dc2626;} .leg.late{color:#ea580c;}
       .leg.half{color:#9333ea;} .leg.pub-holiday{color:#b45309;font-weight:700;}
       .leg.sunday{color:#e11d48;font-weight:700;} .leg.saturday{color:#6366f1;font-weight:700;}
       .leg.unmarked{color:#94a3b8;} }
@@ -485,6 +489,12 @@ export interface CalendarDayItem {
     .day-cell.today { border:2px solid #0284c7; }
     .day-cell.present { background:#dcfce7; border-color:#86efac; .cell-num{color:#15803d;} .cell-tag{color:#166534;font-weight:700;} }
     .day-cell.leave { background:#fef3c7; border-color:#fcd34d; .cell-num{color:#92400e;} .cell-tag{color:#b45309;font-weight:700;} }
+    .day-cell.cancel-pending {
+      background: #fff7ed; border: 2px dashed #ea580c;
+      .cell-num { color: #c2410c; font-weight: 800; }
+      .cell-tag { color: #ea580c; font-weight: 800; letter-spacing: 0.5px; }
+      .cell-sub { color: #ea580c; font-weight: 700; }
+    }
     .day-cell.absent { background:#fee2e2; border-color:#fca5a5; .cell-num{color:#b91c1c;} .cell-tag{color:#991b1b;font-weight:700;} }
     .day-cell.late { background:#ffedd5; border-color:#fdba74; .cell-num{color:#c2410c;} .cell-tag{color:#9a3412;font-weight:700;} }
     .day-cell.half { background:#f3e8ff; border-color:#d8b4fe; .cell-num{color:#7e22ce;} .cell-tag{color:#6b21a8;font-weight:700;} }
@@ -535,14 +545,28 @@ export interface CalendarDayItem {
     .cell-tag { font-size:.64rem; }
 
     /* Table */
-    .table-card { border-radius:12px; overflow:hidden; padding:0; border:1px solid #e2e8f0; }
-    .table-card-header { padding:14px 20px; background:#f8fafc; border-bottom:1px solid #e2e8f0; font-size:.92rem; color:#1e293b; }
-    .att-table { width:100%; border-collapse:collapse; font-size:.86rem; }
-    .att-table th, .att-table td { padding:12px 16px; border-bottom:1px solid #f1f5f9; text-align:left; }
-    .att-table th { background:#f8fafc; font-weight:700; color:#64748b; font-size:.78rem; text-transform:uppercase; letter-spacing:.4px; }
+    .table-card { border-radius:12px; overflow:hidden; padding:0; border:1px solid #e2e8f0; width:100%; max-width:100%; box-sizing:border-box; }
+    .table-card-header { padding:12px 18px; background:#f8fafc; border-bottom:1px solid #e2e8f0; font-size:.92rem; color:#1e293b; }
+    .table-title-group { display:flex; justify-content:space-between; align-items:center; width:100%; flex-wrap:wrap; gap:8px; }
+    .table-scroll-hint { display:none; align-items:center; gap:5px; font-size:.74rem; color:#0369a1; background:#e0f2fe; border:1px solid #bae6fd; padding:3px 8px; border-radius:6px; font-weight:600; mat-icon{font-size:15px;width:15px;height:15px;} }
+    .table-responsive { width:100%; max-width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+    .att-table { width:100%; min-width:820px; border-collapse:collapse; font-size:.86rem; }
+    .att-table th, .att-table td { padding:12px 14px; border-bottom:1px solid #f1f5f9; text-align:left; white-space:nowrap; }
+    .att-table th { background:#f8fafc; font-weight:700; color:#64748b; font-size:.78rem; text-transform:uppercase; letter-spacing:.4px; position:sticky; top:0; z-index:1; }
     .att-table tr:hover td { background:#fbfcfd; }
+    .att-table td.remarks-cell { white-space:normal; min-width:130px; max-width:220px; line-height:1.35; }
+    /* Sticky first column (Date) for seamless mobile browsing */
+    .att-table th:first-child, .att-table td:first-child {
+      position:sticky; left:0; background:#ffffff; z-index:2; box-shadow:2px 0 6px rgba(0,0,0,0.04);
+    }
+    .att-table th:first-child { background:#f8fafc; z-index:3; }
+    .att-table tr:hover td:first-child { background:#fbfcfd; }
+
     .day-label { font-size:.8rem; color:#64748b; }
+    .source-tag { display:inline-block; padding:2px 8px; border-radius:6px; font-size:.76rem; font-weight:600; background:#f1f5f9; color:#475569; }
     .work-duration { background:#f1f5f9; color:#334155; padding:2px 8px; border-radius:6px; font-weight:600; font-size:.78rem; }
+    .no-dur { color:#94a3b8; }
+    .time-main { font-weight:600; color:#1e293b; }
     .time-sub { display:block; font-size:.72rem; color:#64748b; margin-top:2px; font-weight:600; }
     .actions-col { text-align:right; width:100px; }
 
@@ -558,6 +582,98 @@ export interface CalendarDayItem {
       mat-icon{font-size:48px;width:48px;height:48px;color:#cbd5e1;margin-bottom:10px;}
       h3{margin:0 0 6px;color:#1e293b;font-size:1.1rem;font-weight:700;}
       p{margin:0;font-size:.88rem;} }
+
+    @media (max-width: 900px) {
+      .table-scroll-hint { display: inline-flex; }
+      .attendance-toolbar {
+        padding: 12px 14px;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+      }
+      .toolbar-left {
+        width: 100%;
+        gap: 10px;
+      }
+      .period-selectors {
+        width: 100%;
+        gap: 10px;
+      }
+      .month-select-field {
+        flex: 1;
+        width: auto;
+        min-width: 0;
+      }
+      .year-select-field {
+        width: 110px;
+        min-width: 90px;
+      }
+      .toolbar-right {
+        width: 100%;
+        margin-left: 0;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .mode-select {
+        width: 100%;
+        min-width: 100%;
+      }
+      .quick-today-btn, .regularize-toolbar-btn, .mark-btn {
+        flex: 1 1 calc(33.333% - 8px);
+        min-width: 105px;
+        padding: 0 8px !important;
+        font-size: 0.78rem;
+        justify-content: center;
+      }
+    }
+
+    @media (max-width: 550px) {
+      .page-container {
+        padding: 8px;
+      }
+      .page-header {
+        margin-bottom: 12px;
+      }
+      .table-card-header {
+        padding: 10px 14px;
+      }
+      .att-table {
+        min-width: 760px;
+      }
+      .att-table th, .att-table td {
+        padding: 8px 10px;
+        font-size: 0.78rem;
+      }
+      .actions-col {
+        width: 80px;
+        button {
+          width: 32px;
+          height: 32px;
+          line-height: 32px;
+          mat-icon { font-size: 18px; width: 18px; height: 18px; }
+        }
+      }
+      .quick-today-btn, .regularize-toolbar-btn, .mark-btn {
+        flex: 1 1 100%;
+        width: 100%;
+      }
+      .summary-cards-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+      }
+      .days-heatmap-grid {
+        grid-template-columns: repeat(auto-fill, minmax(36px, 1fr));
+        gap: 4px;
+      }
+      .calendar-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .legend-chips {
+        font-size: 0.7rem;
+        gap: 6px;
+      }
+    }
   `]
 })
 export class TeacherAttendanceComponent implements OnInit {
@@ -594,12 +710,35 @@ export class TeacherAttendanceComponent implements OnInit {
   };
 
   calendarDays: CalendarDayItem[] = [];
+  teacherLeaves: LeaveDto[] = [];
 
   constructor(
     private http: HttpClient,
     private route: ActivatedRoute,
-    private confirmDialog: ConfirmDialogService
+    private confirmDialog: ConfirmDialogService,
+    private dialog: MatDialog
   ) {}
+
+  openRegularizationDialog(targetDate?: string) {
+    const ref = this.dialog.open(ApplyTeacherRegularizationDialogComponent, {
+      data: {
+        isTeacher: false,
+        teachers: this.selectedTeacher ? [this.selectedTeacher] : [],
+        myProfile: null,
+        targetTeacherId: this.selectedTeacher?.id,
+        targetDate: targetDate || this.markData.attendanceDate
+      },
+      disableClose: true,
+      maxWidth: '92vw',
+      width: '540px'
+    });
+    ref.afterClosed().subscribe(res => {
+      if (res) {
+        this.loadAttendance();
+        this.confirmDialog.alert('Regularization Submitted', 'Attendance regularization request submitted successfully!', 'success');
+      }
+    });
+  }
 
   ngOnInit() {
     this.loadAttendanceSettings();
@@ -670,6 +809,18 @@ export class TeacherAttendanceComponent implements OnInit {
       }
     });
 
+    // Fetch teacher's leaves to detect any pending cancellation requests
+    this.http.get<LeaveDto[]>(`${this.api}/teachers/${id}/leaves`).subscribe({
+      next: leaves => {
+        this.teacherLeaves = leaves || [];
+        this.buildCalendarGrid();
+      },
+      error: () => {
+        this.teacherLeaves = [];
+        this.buildCalendarGrid();
+      }
+    });
+
     // Fetch dynamic attendance summary KPI counters
     this.http.get<AttendanceSummaryDto>(`${this.api}/teachers/${id}/attendance/summary`, {
       params: { month: this.attMonth, year: this.attYear }
@@ -719,6 +870,15 @@ export class TeacherAttendanceComponent implements OnInit {
         holidayTitle = holidayTitle || 'Sunday (Weekly Off)';
       }
 
+      // Check if this date has a pending leave cancellation request
+      const pendingCancelLeave = this.teacherLeaves.find(l => 
+        (l.status === 'CancellationRequested' || l.isCancellationRequested) &&
+        dateStr >= (l.cancellationFromDate || l.fromDate).split('T')[0] &&
+        dateStr <= (l.cancellationToDate || l.toDate).split('T')[0]
+      );
+      const isCancellationPending = !!pendingCancelLeave;
+      const cancellationDetails = pendingCancelLeave?.cancellationReason;
+
       items.push({
         dayNumber: day,
         dateStr,
@@ -729,7 +889,9 @@ export class TeacherAttendanceComponent implements OnInit {
         isDeclaredHoliday,
         holidayTitle,
         status,
-        record: found
+        record: found,
+        isCancellationPending,
+        cancellationDetails
       });
     }
 
@@ -737,6 +899,9 @@ export class TeacherAttendanceComponent implements OnInit {
   }
 
   getCellShortTag(d: CalendarDayItem): string {
+    if (d.isCancellationPending) {
+      return 'L-REQ';
+    }
     if (d.record) {
       return this.getStatusShortTag(d.status);
     }
@@ -989,8 +1154,6 @@ export class TeacherAttendanceComponent implements OnInit {
       return;
     }
 
-    this.saving = true;
-
     // Normalize check-in and check-out to 24-hour format seamlessly
     const inNormalized = this.normalizeTo24h(this.markData.checkInTime);
     const outNormalized = this.normalizeTo24h(this.markData.checkOutTime, this.markData.checkInTime);
@@ -1002,10 +1165,31 @@ export class TeacherAttendanceComponent implements OnInit {
       checkOutTime: outNormalized
     });
 
+    // Check if faculty already has an approved leave for this date
+    const existingLeave = this.records.find(r => r.attendanceDate.split('T')[0] === this.markData.attendanceDate && r.status === 'Leave');
+    if (existingLeave) {
+      this.confirmDialog.confirm(
+        'Override Approved Leave?',
+        `Faculty member already has an <strong>approved Leave</strong> recorded on <strong>${this.markData.attendanceDate}</strong>.<br><br>Manually marking attendance as <strong>${this.markData.status}</strong> will override this leave. Do you want to proceed?`,
+        'Yes, Override & Mark', 'Cancel'
+      ).subscribe(ok => {
+        if (ok) {
+          this.executeSaveAttendance(inNormalized, outNormalized);
+        }
+      });
+      return;
+    }
+
+    this.executeSaveAttendance(inNormalized, outNormalized);
+  }
+
+  executeSaveAttendance(inNormalized: string, outNormalized: string) {
+    this.saving = true;
+
     const payload = {
       attendanceDate: this.markData.attendanceDate,
       entries: [{
-        teacherId: this.selectedTeacher.id,
+        teacherId: this.selectedTeacher!.id,
         status: this.markData.status,
         checkInTime: inNormalized || null,
         checkOutTime: outNormalized || null,
@@ -1014,7 +1198,7 @@ export class TeacherAttendanceComponent implements OnInit {
     };
 
     // Try single teacher endpoint first, with seamless fallback to bulk endpoint
-    this.http.post(`${this.api}/teachers/${this.selectedTeacher.id}/attendance`, {
+    this.http.post(`${this.api}/teachers/${this.selectedTeacher!.id}/attendance`, {
       attendanceDate: this.markData.attendanceDate,
       status: this.markData.status,
       checkInTime: inNormalized,

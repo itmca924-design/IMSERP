@@ -750,7 +750,56 @@ public class TeacherLeave
     public string? RejectionReason { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+    // Cancellation & Revocation properties
+    public bool IsCancellationRequested { get; set; } = false;
+    public bool IsPartialCancellation { get; set; } = false;
+    public DateTime? CancellationFromDate { get; set; }
+    public DateTime? CancellationToDate { get; set; }
+    public string? CancellationReason { get; set; }
+    public DateTime? CancellationRequestedAt { get; set; }
+    public string? CancellationReviewedBy { get; set; }
+    public DateTime? CancellationReviewedAt { get; set; }
+    public string? CancellationReviewRemarks { get; set; }
+    public bool? IsCancellationApproved { get; set; }
+
     public Teacher? Teacher { get; set; }
+}
+
+public class TeacherAttendanceRegularization
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid TeacherId { get; set; }
+    public DateTime AttendanceDate { get; set; }
+    public TeacherAttendanceStatus RequestedStatus { get; set; } = TeacherAttendanceStatus.Present;
+    public string? RequestedCheckIn { get; set; }
+    public string? RequestedCheckOut { get; set; }
+    public string Reason { get; set; } = string.Empty;
+    public string? AttachmentUrl { get; set; }
+    public RegularizationStatus Status { get; set; } = RegularizationStatus.Pending;
+    public string? ReviewedBy { get; set; }
+    public DateTime? ReviewedAt { get; set; }
+    public string? ReviewRemarks { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    public Teacher? Teacher { get; set; }
+}
+
+public class LeaveAndAttendancePolicySettings
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public decimal AnnualCasualLeaveQuota { get; set; } = 12.0m;
+    public decimal AnnualSickLeaveQuota { get; set; } = 10.0m;
+    public decimal AnnualEarnedLeaveQuota { get; set; } = 15.0m;
+    public string LeaveAccrualFrequency { get; set; } = "Monthly"; // "Monthly" or "AnnualUpfront"
+    public decimal MonthlyCasualLeaveAccrual { get; set; } = 1.0m;
+    public int MaxRegularizationDaysBackdated { get; set; } = 15;
+    public int MaxRegularizationPerMonth { get; set; } = 3;
+    public bool AutoCancelLeaveOnBiometricPunch { get; set; } = true;
+    public bool AllowFullDayLeaveIfMarkedPresent { get; set; } = false;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }
 
 public class TeacherFnFSettlement

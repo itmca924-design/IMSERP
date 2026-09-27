@@ -70,7 +70,17 @@ public enum LeaveStatus
     Pending = 1,
     Approved = 2,
     Rejected = 3,
-    Cancelled = 4
+    Cancelled = 4,
+    OverriddenByPunch = 5,
+    CancellationRequested = 6,
+    PartiallyCancelled = 7
+}
+
+public enum RegularizationStatus
+{
+    Pending = 1,
+    Approved = 2,
+    Rejected = 3
 }
 
 public enum AdvanceStatus

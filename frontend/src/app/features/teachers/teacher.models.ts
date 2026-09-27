@@ -79,7 +79,93 @@ export interface LeaveDto {
   leaveType: string; fromDate: string; toDate: string; totalDays: number;
   reason?: string; status: string; approvedBy?: string; approvedAt?: string;
   rejectionReason?: string; createdAt: string;
+  isCancellationRequested?: boolean;
+  isPartialCancellation?: boolean;
+  cancellationFromDate?: string;
+  cancellationToDate?: string;
+  cancellationReason?: string;
+  cancellationRequestedAt?: string;
+  cancellationReviewedBy?: string;
+  cancellationReviewedAt?: string;
+  cancellationReviewRemarks?: string;
+  isCancellationApproved?: boolean;
 }
+
+export interface RequestLeaveCancellationDto {
+  isPartialCancellation: boolean;
+  cancelFromDate?: string;
+  cancelToDate?: string;
+  reason: string;
+}
+
+export interface ReviewLeaveCancellationDto {
+  approve: boolean;
+  reviewRemarks?: string;
+}
+
+export interface TeacherAttendanceRegularizationDto {
+  id: string;
+  teacherId: string;
+  teacherName: string;
+  employeeCode: string;
+  attendanceDate: string;
+  requestedStatus: string;
+  requestedCheckIn?: string;
+  requestedCheckOut?: string;
+  reason: string;
+  attachmentUrl?: string;
+  status: 'Pending' | 'Approved' | 'Rejected';
+  reviewedBy?: string;
+  reviewedAt?: string;
+  reviewRemarks?: string;
+  createdAt: string;
+}
+
+export interface ApplyRegularizationDto {
+  teacherId: string;
+  attendanceDate: string;
+  requestedStatus: string;
+  requestedCheckIn?: string;
+  requestedCheckOut?: string;
+  reason: string;
+  attachmentUrl?: string;
+}
+
+export interface ReviewRegularizationDto {
+  approve: boolean;
+  reviewRemarks?: string;
+}
+
+export interface LeavePolicySettingsDto {
+  annualCasualLeaveQuota: number;
+  annualSickLeaveQuota: number;
+  annualEarnedLeaveQuota: number;
+  leaveAccrualFrequency: string;
+  monthlyCasualLeaveAccrual: number;
+  maxRegularizationDaysBackdated: number;
+  maxRegularizationPerMonth: number;
+  autoCancelLeaveOnBiometricPunch: boolean;
+  allowFullDayLeaveIfMarkedPresent: boolean;
+}
+
+export interface TeacherLeaveBalanceItemDto {
+  leaveType: string;
+  allocatedDays: number;
+  accruedToDate: number;
+  usedDays: number;
+  pendingDays: number;
+  availableBalance: number;
+}
+
+export interface TeacherLeaveBalancesSummaryDto {
+  teacherId: string;
+  teacherName: string;
+  employeeCode: string;
+  balances: TeacherLeaveBalanceItemDto[];
+  regularizationsUsedThisMonth: number;
+  maxRegularizationsAllowedPerMonth: number;
+}
+
 export interface BatchDto {
   id: string; name: string; subject: string; academicYear: string;
   standardMonthlyFee: number; studentCount: number;
