@@ -1709,6 +1709,18 @@ public class StudentLeave
     public DateTime CreatedAt { get; set; } = DateTime.Now;
     public DateTime UpdatedAt { get; set; } = DateTime.Now;
 
+    // Cancellation & Revocation properties
+    public bool IsCancellationRequested { get; set; } = false;
+    public bool IsPartialCancellation { get; set; } = false;
+    public DateTime? CancellationFromDate { get; set; }
+    public DateTime? CancellationToDate { get; set; }
+    public string? CancellationReason { get; set; }
+    public DateTime? CancellationRequestedAt { get; set; }
+    public string? CancellationReviewedBy { get; set; }
+    public DateTime? CancellationReviewedAt { get; set; }
+    public string? CancellationReviewRemarks { get; set; }
+    public bool? IsCancellationApproved { get; set; }
+
     public Tenant? Tenant { get; set; }
     [ForeignKey("BranchId")]
     public Branch? Branch { get; set; }

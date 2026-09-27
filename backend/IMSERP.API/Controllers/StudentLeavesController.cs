@@ -128,7 +128,17 @@ public class StudentLeavesController : ControllerBase
                 l.AttendanceMarked,
                 l.AppliedBy,
                 l.CreatedAt,
-                l.UpdatedAt
+                l.UpdatedAt,
+                l.IsCancellationRequested,
+                l.IsPartialCancellation,
+                l.CancellationFromDate,
+                l.CancellationToDate,
+                l.CancellationReason,
+                l.CancellationRequestedAt,
+                l.CancellationReviewedBy,
+                l.CancellationReviewedAt,
+                l.CancellationReviewRemarks,
+                l.IsCancellationApproved
             ))
             .ToListAsync();
 
@@ -181,9 +191,12 @@ public class StudentLeavesController : ControllerBase
         var approved = await query.CountAsync(l => l.Status == "Approved");
         var rejected = await query.CountAsync(l => l.Status == "Rejected");
         var todayOnLeave = await query.CountAsync(l =>
-            l.Status == "Approved" && l.FromDate.Date <= today && l.ToDate.Date >= today);
+            (l.Status == "Approved" || l.Status == "PartiallyCancelled") && l.FromDate.Date <= today && l.ToDate.Date >= today &&
+            !(l.IsCancellationApproved == true && l.CancellationFromDate.HasValue && l.CancellationToDate.HasValue &&
+              today >= l.CancellationFromDate.Value.Date && today <= l.CancellationToDate.Value.Date));
+        var cancellationPending = await query.CountAsync(l => l.Status == "CancellationRequested" || l.IsCancellationRequested);
 
-        return Ok(new StudentLeaveStatsDto(total, pending, approved, rejected, todayOnLeave));
+        return Ok(new StudentLeaveStatsDto(total, pending, approved, rejected, todayOnLeave, cancellationPending));
     }
 
     [HttpGet("{id}")]
@@ -223,7 +236,17 @@ public class StudentLeavesController : ControllerBase
             l.AttendanceMarked,
             l.AppliedBy,
             l.CreatedAt,
-            l.UpdatedAt
+            l.UpdatedAt,
+            l.IsCancellationRequested,
+            l.IsPartialCancellation,
+            l.CancellationFromDate,
+            l.CancellationToDate,
+            l.CancellationReason,
+            l.CancellationRequestedAt,
+            l.CancellationReviewedBy,
+            l.CancellationReviewedAt,
+            l.CancellationReviewRemarks,
+            l.IsCancellationApproved
         ));
     }
 
@@ -329,7 +352,17 @@ public class StudentLeavesController : ControllerBase
             leave.AttendanceMarked,
             leave.AppliedBy,
             leave.CreatedAt,
-            leave.UpdatedAt
+            leave.UpdatedAt,
+            leave.IsCancellationRequested,
+            leave.IsPartialCancellation,
+            leave.CancellationFromDate,
+            leave.CancellationToDate,
+            leave.CancellationReason,
+            leave.CancellationRequestedAt,
+            leave.CancellationReviewedBy,
+            leave.CancellationReviewedAt,
+            leave.CancellationReviewRemarks,
+            leave.IsCancellationApproved
         ));
     }
 
@@ -466,6 +499,182 @@ public class StudentLeavesController : ControllerBase
             reviewedBy = leave.ReviewedBy,
             attendanceMarked = leave.AttendanceMarked,
             whatsappAlertDispatched = !string.IsNullOrWhiteSpace(parentPhone)
+        });
+    }
+
+    [HttpPost("{id}/request-cancellation")]
+    public async Task<IActionResult> RequestLeaveCancellation(Guid id, [FromBody] RequestStudentLeaveCancellationDto dto)
+    {
+        var tenantId = _currentUser.TenantId;
+        var scope = await GetUserAccessScopeAsync(tenantId);
+
+        var leave = await _db.StudentLeaves
+            .Include(l => l.Student)
+            .FirstOrDefaultAsync(l => l.Id == id && l.TenantId == tenantId);
+
+        if (leave == null) return NotFound(new { message = "Student leave application not found." });
+
+        if ((scope.Scope == "Student" || scope.Scope == "Parent") && leave.StudentId != scope.StudentId)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "You can only request cancellation for your own ward's leaves." });
+        }
+
+        if (leave.Status != "Approved" && leave.Status != "PartiallyCancelled")
+        {
+            return BadRequest(new { message = "Only Approved leaves can be requested for cancellation." });
+        }
+
+        if (leave.IsCancellationRequested || leave.Status == "CancellationRequested")
+        {
+            return BadRequest(new { message = "A cancellation request is already pending review for this leave." });
+        }
+
+        DateTime cFrom = (dto.CancellationFromDate ?? leave.FromDate).Date;
+        DateTime cTo = (dto.CancellationToDate ?? leave.ToDate).Date;
+
+        if (cFrom < leave.FromDate.Date || cTo > leave.ToDate.Date)
+        {
+            return BadRequest(new { message = "Cancellation dates must fall within the sanctioned leave period." });
+        }
+
+        if (cTo < cFrom)
+        {
+            return BadRequest(new { message = "Cancellation To Date cannot be earlier than From Date." });
+        }
+
+        leave.IsCancellationRequested = true;
+        leave.IsPartialCancellation = dto.IsPartialCancellation;
+        leave.CancellationFromDate = cFrom;
+        leave.CancellationToDate = cTo;
+        leave.CancellationReason = dto.Reason?.Trim() ?? "Requested by parent/student";
+        leave.CancellationRequestedAt = DateTime.UtcNow;
+        leave.Status = "CancellationRequested";
+        leave.UpdatedAt = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync();
+
+        return Ok(new { message = "Student leave cancellation request submitted successfully. Awaiting Class Teacher / Admin review." });
+    }
+
+    [HttpPut("{id}/review-cancellation")]
+    public async Task<IActionResult> ReviewLeaveCancellation(Guid id, [FromBody] ReviewStudentLeaveCancellationDto dto)
+    {
+        var tenantId = _currentUser.TenantId;
+        var scope = await GetUserAccessScopeAsync(tenantId);
+
+        // Security: Students and Parents cannot review cancellations
+        if (scope.Scope == "Student" || scope.Scope == "Parent")
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "Students and parents are not authorized to review leave cancellations." });
+        }
+
+        var leave = await _db.StudentLeaves
+            .Include(l => l.Student)
+            .FirstOrDefaultAsync(l => l.Id == id && l.TenantId == tenantId);
+
+        if (leave == null) return NotFound(new { message = "Student leave application not found." });
+
+        // If Teacher, ensure student belongs to their assigned section
+        if (scope.Scope == "Teacher" && scope.AssignedSectionIds != null && scope.AssignedSectionIds.Count > 0)
+        {
+            if (leave.Student == null || !leave.Student.SectionId.HasValue || !scope.AssignedSectionIds.Contains(leave.Student.SectionId.Value))
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new { message = "You can only review leave cancellations for students in your assigned Class/Section." });
+            }
+        }
+
+        if (leave.Status != "CancellationRequested" && !leave.IsCancellationRequested)
+        {
+            return BadRequest(new { message = "This leave application does not have a pending cancellation request." });
+        }
+
+        var now = DateTime.UtcNow;
+        leave.CancellationReviewedBy = scope.ReviewerName;
+        leave.CancellationReviewedAt = now;
+        leave.CancellationReviewRemarks = dto.ReviewRemarks?.Trim();
+        leave.IsCancellationApproved = dto.Approve;
+        leave.UpdatedAt = now;
+
+        if (dto.Approve)
+        {
+            var cFrom = (leave.CancellationFromDate ?? leave.FromDate).Date;
+            var cTo = (leave.CancellationToDate ?? leave.ToDate).Date;
+
+            // 1. Remove synced attendance for the cancelled dates
+            var markedAtts = await _db.StudentAttendances
+                .Where(a => a.StudentId == leave.StudentId &&
+                            a.AttendanceDate >= cFrom && a.AttendanceDate <= cTo &&
+                            a.CaptureSource == "LeaveApplication")
+                .ToListAsync();
+
+            if (markedAtts.Count > 0)
+            {
+                _db.StudentAttendances.RemoveRange(markedAtts);
+            }
+
+            // 2. Adjust leave record
+            if (!leave.IsPartialCancellation || (cFrom <= leave.FromDate.Date && cTo >= leave.ToDate.Date))
+            {
+                // Full cancellation
+                leave.Status = "Cancelled";
+                leave.AttendanceMarked = false;
+            }
+            else
+            {
+                // Partial cancellation
+                leave.Status = "PartiallyCancelled";
+                int cancelledDays = (cTo - cFrom).Days + 1;
+                leave.TotalDays = Math.Max(0, leave.TotalDays - cancelledDays);
+
+                if (cFrom <= leave.FromDate.Date && cTo < leave.ToDate.Date)
+                {
+                    leave.FromDate = cTo.AddDays(1);
+                }
+                else if (cFrom > leave.FromDate.Date && cTo >= leave.ToDate.Date)
+                {
+                    leave.ToDate = cFrom.AddDays(-1);
+                }
+            }
+        }
+        else
+        {
+            // Revert back to Approved
+            leave.Status = "Approved";
+        }
+
+        leave.IsCancellationRequested = false;
+        await _db.SaveChangesAsync();
+
+        // Dispatch WhatsApp notification to Parent
+        var parentPhone = leave.ParentContactNumber ?? leave.Student?.ParentWhatsAppPhone ?? leave.Student?.EmergencyContactPhone;
+        if (!string.IsNullOrWhiteSpace(parentPhone))
+        {
+            try
+            {
+                var msgStatus = dto.Approve ? "Cancellation Approved" : "Cancellation Rejected";
+                await _whatsAppService.SendLeaveStatusAlertAsync(
+                    tenantId,
+                    parentPhone,
+                    leave.Student != null ? leave.Student.StudentName : "Student",
+                    msgStatus,
+                    leave.FromDate,
+                    leave.ToDate,
+                    dto.ReviewRemarks ?? (dto.Approve ? "Leave cancellation approved. Attendance register updated." : "Cancellation rejected."),
+                    scope.ReviewerName
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to send WhatsApp alert for student leave cancellation.");
+            }
+        }
+
+        return Ok(new
+        {
+            message = dto.Approve
+                ? "Student leave cancellation approved. Attendance records synchronized."
+                : "Student leave cancellation rejected. Sanctioned leave remains active.",
+            status = leave.Status
         });
     }
 

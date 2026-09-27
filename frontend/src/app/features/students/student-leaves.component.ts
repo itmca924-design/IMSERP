@@ -13,6 +13,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatDividerModule } from '@angular/material/divider';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { AuthService } from '../../core/services/auth.service';
+import { RequestStudentLeaveCancellationDialogComponent, ReviewStudentLeaveCancellationDialogComponent } from './student-leave-cancel-dialog.component';
 
 const API_BASE = 'http://localhost:5000/api';
 
@@ -32,7 +33,7 @@ export interface StudentLeaveDto {
   totalDays: number;
   reason: string;
   attachmentUrl?: string;
-  status: 'Pending' | 'Approved' | 'Rejected' | 'Cancelled';
+  status: 'Pending' | 'Approved' | 'Rejected' | 'Cancelled' | 'CancellationRequested' | 'PartiallyCancelled';
   reviewedBy?: string;
   reviewedAt?: string;
   reviewRemarks?: string;
@@ -40,6 +41,16 @@ export interface StudentLeaveDto {
   appliedBy: string;
   createdAt: string;
   updatedAt: string;
+  isCancellationRequested?: boolean;
+  isPartialCancellation?: boolean;
+  cancellationFromDate?: string;
+  cancellationToDate?: string;
+  cancellationReason?: string;
+  cancellationRequestedAt?: string;
+  cancellationReviewedBy?: string;
+  cancellationReviewedAt?: string;
+  cancellationReviewRemarks?: string;
+  isCancellationApproved?: boolean;
 }
 
 export interface StudentLeaveStatsDto {
@@ -48,6 +59,7 @@ export interface StudentLeaveStatsDto {
   approvedLeaves: number;
   rejectedLeaves: number;
   todayOnLeave: number;
+  cancellationPendingLeaves?: number;
 }
 
 @Component({
@@ -127,6 +139,15 @@ export interface StudentLeaveStatsDto {
           </div>
         </div>
 
+        <div class="stat-card stat-cancel-pending" *ngIf="stats.cancellationPendingLeaves && stats.cancellationPendingLeaves > 0">
+          <div class="stat-icon-wrap"><mat-icon>event_busy</mat-icon></div>
+          <div class="stat-info">
+            <span class="stat-val">{{stats.cancellationPendingLeaves}}</span>
+            <span class="stat-lbl">Cancellation Pending</span>
+          </div>
+          <div class="pulse-badge" style="background:#ea580c;">Review Needed</div>
+        </div>
+
         <div class="stat-card stat-today">
           <div class="stat-icon-wrap"><mat-icon>person_off</mat-icon></div>
           <div class="stat-info">
@@ -145,6 +166,9 @@ export interface StudentLeaveStatsDto {
               <mat-option value="">All Statuses</mat-option>
               <mat-option value="Pending">⏳ Pending Review</mat-option>
               <mat-option value="Approved">✅ Approved</mat-option>
+              <mat-option value="CancellationRequested">⏳ Cancellation Pending</mat-option>
+              <mat-option value="PartiallyCancelled">⚡ Partially Cancelled</mat-option>
+              <mat-option value="Cancelled">🚫 Cancelled</mat-option>
               <mat-option value="Rejected">❌ Rejected</mat-option>
             </mat-select>
           </mat-form-field>
@@ -226,7 +250,7 @@ export interface StudentLeaveStatsDto {
               </div>
             </div>
             <span class="status-pill" [ngClass]="item.status.toLowerCase()">
-              {{item.status}}
+              {{item.status === 'CancellationRequested' ? '⏳ Cancel Requested' : (item.status === 'PartiallyCancelled' ? '⚡ Partially Cancelled' : item.status)}}
             </span>
           </div>
 
@@ -286,14 +310,33 @@ export interface StudentLeaveStatsDto {
               <mat-icon>visibility</mat-icon> View
             </button>
 
+            <!-- Cancellation Actions -->
+            <button mat-stroked-button class="cancel-leave-btn"
+                    *ngIf="(item.status === 'Approved' || item.status === 'PartiallyCancelled') && !item.isCancellationRequested"
+                    (click)="openRequestCancellationDialog(item)"
+                    matTooltip="Request full or partial cancellation with interactive calendar">
+              <mat-icon>event_busy</mat-icon> Cancel Leave
+            </button>
+
+            <button mat-flat-button class="review-cancel-btn"
+                    *ngIf="(item.status === 'CancellationRequested' || item.isCancellationRequested) && !isStudentOrParent"
+                    (click)="openReviewCancellationDialog(item)"
+                    matTooltip="Review requested leave cancellation">
+              <mat-icon>rule</mat-icon> Review Cancellation
+            </button>
+
+            <span class="pending-cancel-badge" *ngIf="(item.status === 'CancellationRequested' || item.isCancellationRequested) && isStudentOrParent">
+              <mat-icon>hourglass_top</mat-icon> Cancellation Under Review
+            </span>
+
             <div class="action-buttons">
-              <!-- Approve button if pending or rejected (Only for Teachers / Admins) -->
-              <button mat-flat-button class="approve-btn" *ngIf="!isStudentOrParent && item.status !== 'Approved'" (click)="quickReview(item, 'Approved')" matTooltip="Approve & Link Attendance">
+              <!-- Approve button if pending (Only for Teachers / Admins) -->
+              <button mat-flat-button class="approve-btn" *ngIf="!isStudentOrParent && item.status === 'Pending'" (click)="quickReview(item, 'Approved')" matTooltip="Approve & Link Attendance">
                 <mat-icon>check</mat-icon> Approve
               </button>
 
-              <!-- Reject button if pending or approved (Only for Teachers / Admins) -->
-              <button mat-stroked-button class="reject-btn" *ngIf="!isStudentOrParent && item.status !== 'Rejected'" (click)="quickReview(item, 'Rejected')" matTooltip="Reject Application">
+              <!-- Reject button if pending (Only for Teachers / Admins) -->
+              <button mat-stroked-button class="reject-btn" *ngIf="!isStudentOrParent && item.status === 'Pending'" (click)="quickReview(item, 'Rejected')" matTooltip="Reject Application">
                 <mat-icon>close</mat-icon> Reject
               </button>
 
@@ -341,7 +384,7 @@ export interface StudentLeaveStatsDto {
               </td>
               <td>
                 <span class="status-pill" [ngClass]="item.status.toLowerCase()">
-                  {{item.status}}
+                  {{item.status === 'CancellationRequested' ? '⏳ Cancel Requested' : (item.status === 'PartiallyCancelled' ? '⚡ Partially Cancelled' : item.status)}}
                 </span>
               </td>
               <td>
@@ -355,10 +398,20 @@ export interface StudentLeaveStatsDto {
                   <button mat-icon-button (click)="viewLeaveDetails(item)" matTooltip="View Slip">
                     <mat-icon style="color:#2563eb;">visibility</mat-icon>
                   </button>
-                  <button mat-icon-button *ngIf="!isStudentOrParent && item.status !== 'Approved'" (click)="quickReview(item, 'Approved')" matTooltip="Approve & Link">
+                  <!-- Cancel Leave Button on Approved / PartiallyCancelled -->
+                  <button mat-icon-button *ngIf="(item.status === 'Approved' || item.status === 'PartiallyCancelled') && !item.isCancellationRequested"
+                          (click)="openRequestCancellationDialog(item)" matTooltip="Cancel Leave / Partial Dates">
+                    <mat-icon style="color:#dc2626;">event_busy</mat-icon>
+                  </button>
+                  <!-- Review Cancellation Button on CancellationRequested for Teacher/Admin -->
+                  <button mat-icon-button *ngIf="(item.status === 'CancellationRequested' || item.isCancellationRequested) && !isStudentOrParent"
+                          (click)="openReviewCancellationDialog(item)" matTooltip="Review Leave Cancellation">
+                    <mat-icon style="color:#ea580c;">rule</mat-icon>
+                  </button>
+                  <button mat-icon-button *ngIf="!isStudentOrParent && item.status === 'Pending'" (click)="quickReview(item, 'Approved')" matTooltip="Approve & Link">
                     <mat-icon style="color:#16a34a;">check_circle</mat-icon>
                   </button>
-                  <button mat-icon-button *ngIf="!isStudentOrParent && item.status !== 'Rejected'" (click)="quickReview(item, 'Rejected')" matTooltip="Reject">
+                  <button mat-icon-button *ngIf="!isStudentOrParent && item.status === 'Pending'" (click)="quickReview(item, 'Rejected')" matTooltip="Reject">
                     <mat-icon style="color:#dc2626;">cancel</mat-icon>
                   </button>
                   <button mat-icon-button *ngIf="!isStudentOrParent || item.status === 'Pending'" (click)="deleteLeave(item)" matTooltip="Delete">
@@ -395,6 +448,7 @@ export interface StudentLeaveStatsDto {
     .stat-pending .stat-icon-wrap { background: #fffbeb; color: #d97706; }
     .stat-approved .stat-icon-wrap { background: #f0fdf4; color: #16a34a; }
     .stat-today .stat-icon-wrap { background: #fef2f2; color: #dc2626; }
+    .stat-cancel-pending .stat-icon-wrap { background: #fff7ed; color: #ea580c; }
     .stat-val { font-size: 24px; font-weight: 800; color: #0f172a; line-height: 1; }
     .stat-lbl { font-size: 12px; color: #64748b; margin-top: 4px; display: block; font-weight: 600; }
     .pulse-badge { position: absolute; top: 12px; right: 14px; background: #f59e0b; color: #fff; font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 10px; letter-spacing: 0.3px; }
@@ -426,9 +480,16 @@ export interface StudentLeaveStatsDto {
     .student-name:hover { color: #2563eb; text-decoration: underline; }
     .student-sub { font-size: 11.5px; color: #64748b; margin-top: 2px; }
 
+    .leave-card.cancellationrequested { border-left: 4px solid #ea580c; background: #fffaf0; }
+    .leave-card.partiallycancelled { border-left: 4px solid #8b5cf6; }
+    .leave-card.cancelled { border-left: 4px solid #94a3b8; opacity: 0.8; }
+
     .status-pill { font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
     .status-pill.pending { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
     .status-pill.approved { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+    .status-pill.cancellationrequested { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
+    .status-pill.partiallycancelled { background: #f5f3ff; color: #6d28d9; border: 1px solid #ddd6fe; }
+    .status-pill.cancelled { background: #f1f5f9; color: #64748b; border: 1px solid #cbd5e1; }
     .status-pill.rejected { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
 
     .category-strip { display: flex; justify-content: space-between; align-items: center; }
@@ -473,6 +534,13 @@ export interface StudentLeaveStatsDto {
     .reject-btn mat-icon { font-size: 15px; width: 15px; height: 15px; margin-right: 2px; }
     .del-btn { color: #94a3b8; width: 32px !important; height: 32px !important; padding: 0 !important; }
     .del-btn:hover { color: #dc2626; }
+    .cancel-leave-btn { color: #dc2626 !important; border-color: #fecaca !important; font-size: 11.5px; font-weight: 700; height: 32px; border-radius: 6px; }
+    .cancel-leave-btn:hover { background: #fef2f2 !important; }
+    .cancel-leave-btn mat-icon { font-size: 15px; width: 15px; height: 15px; margin-right: 2px; }
+    .review-cancel-btn { background: #ea580c !important; color: #fff !important; font-size: 11.5px; font-weight: 700; height: 32px; border-radius: 6px; }
+    .review-cancel-btn mat-icon { font-size: 15px; width: 15px; height: 15px; margin-right: 2px; }
+    .pending-cancel-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; color: #ea580c; background: #fff7ed; border: 1px solid #fed7aa; padding: 4px 8px; border-radius: 6px; }
+    .pending-cancel-badge mat-icon { font-size: 14px; width: 14px; height: 14px; }
 
     .role-scope-notice { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-radius: 8px; font-size: 13px; line-height: 1.4; }
     .role-scope-notice.teacher { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; }
@@ -695,6 +763,44 @@ export class StudentLeavesComponent implements OnInit {
           this.confirmDialog.alert('Review Action Failed', msg, 'danger');
         }
       });
+    });
+  }
+
+  openRequestCancellationDialog(item: StudentLeaveDto): void {
+    const ref = this.dialog.open(RequestStudentLeaveCancellationDialogComponent, {
+      width: '740px',
+      maxWidth: '95vw',
+      data: { leave: item }
+    });
+
+    ref.afterClosed().subscribe((res: any) => {
+      if (res?.success) {
+        this.loadLeaves();
+        this.confirmDialog.alert(
+          'Cancellation Submitted 🎉',
+          res.message || 'Leave cancellation request has been submitted for review.',
+          'success'
+        );
+      }
+    });
+  }
+
+  openReviewCancellationDialog(item: StudentLeaveDto): void {
+    const ref = this.dialog.open(ReviewStudentLeaveCancellationDialogComponent, {
+      width: '640px',
+      maxWidth: '95vw',
+      data: { leave: item }
+    });
+
+    ref.afterClosed().subscribe((res: any) => {
+      if (res?.success) {
+        this.loadLeaves();
+        this.confirmDialog.alert(
+          'Cancellation Processed 🎉',
+          res.message || 'Leave cancellation has been processed and attendance synchronized.',
+          'success'
+        );
+      }
     });
   }
 
@@ -1083,6 +1189,33 @@ export class ApplyStudentLeaveDialogComponent implements OnInit {
           <p class="box-content">{{data.leave.reason}}</p>
         </div>
 
+        <!-- Cancellation Details Audit Block if requested or processed -->
+        <div class="section-box cancellation-audit-box" *ngIf="data.leave.isCancellationRequested || data.leave.status === 'CancellationRequested' || data.leave.status === 'PartiallyCancelled' || data.leave.status === 'Cancelled'">
+          <span class="box-title" style="color:#c2410c;">CANCELLATION &amp; ATTENDANCE AUDIT:</span>
+          <div class="cancel-audit-details">
+            <div class="audit-item">
+              <strong>Status:</strong>
+              <span class="status-pill" [ngClass]="data.leave.status.toLowerCase()">
+                {{data.leave.status === 'CancellationRequested' ? '⏳ Cancel Requested' : (data.leave.status === 'PartiallyCancelled' ? '⚡ Partially Cancelled' : data.leave.status)}}
+              </span>
+            </div>
+            <div class="audit-item" *ngIf="data.leave.cancellationFromDate && data.leave.cancellationToDate">
+              <strong>Cancelled Period:</strong> {{formatDate(data.leave.cancellationFromDate)}} to {{formatDate(data.leave.cancellationToDate)}}
+              <span *ngIf="data.leave.isPartialCancellation" class="badge-partial">(Partial Cancellation)</span>
+            </div>
+            <div class="audit-item" *ngIf="data.leave.cancellationReason">
+              <strong>Parent/Student Reason:</strong> <em>"{{data.leave.cancellationReason}}"</em>
+            </div>
+            <div class="audit-item" *ngIf="data.leave.cancellationReviewedBy">
+              <strong>Reviewed By:</strong> {{data.leave.cancellationReviewedBy}}
+              <span *ngIf="data.leave.cancellationReviewedAt"> on {{data.leave.cancellationReviewedAt | date:'dd-MMM-yyyy, hh:mm a'}}</span>
+            </div>
+            <div class="audit-item" *ngIf="data.leave.cancellationReviewRemarks">
+              <strong>Reviewer Remarks:</strong> {{data.leave.cancellationReviewRemarks}}
+            </div>
+          </div>
+        </div>
+
         <!-- Remarks if any -->
         <div class="section-box" *ngIf="data.leave.reviewRemarks">
           <span class="box-title">REVIEW REMARKS / INSTRUCTIONS:</span>
@@ -1150,6 +1283,11 @@ export class ApplyStudentLeaveDialogComponent implements OnInit {
     .section-box { margin-bottom: 16px; }
     .box-title { font-size: 10.5px; font-weight: 800; color: #64748b; letter-spacing: 0.5px; display: block; margin-bottom: 4px; }
     .box-content { font-size: 13.5px; line-height: 1.5; color: #1e293b; margin: 0; background: #f8fafc; padding: 10px 12px; border-radius: 6px; border: 1px solid #e2e8f0; }
+
+    .cancellation-audit-box { background: #fffaf0; border: 1px solid #fed7aa; border-radius: 8px; padding: 12px 14px; }
+    .cancel-audit-details { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; color: #431407; margin-top: 6px; }
+    .audit-item { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .badge-partial { background: #ede9fe; color: #6d28d9; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; }
 
     .att-box { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 8px 12px; font-size: 11.5px; display: flex; align-items: center; gap: 6px; margin-bottom: 24px; }
     .att-box mat-icon { font-size: 16px; width: 16px; height: 16px; color: #2563eb; }

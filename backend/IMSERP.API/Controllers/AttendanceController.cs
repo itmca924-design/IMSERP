@@ -268,9 +268,13 @@ public class AttendanceController : ControllerBase
         var approvedLeave = await _db.TeacherLeaves.FirstOrDefaultAsync(l =>
             l.TenantId == _currentUser.TenantId &&
             l.TeacherId == teacher.Id &&
-            l.Status == LeaveStatus.Approved &&
+            (l.Status == LeaveStatus.Approved || l.Status == LeaveStatus.PartiallyCancelled) &&
             l.FromDate.Date <= dto.EventTime.Date &&
-            l.ToDate.Date >= dto.EventTime.Date);
+            l.ToDate.Date >= dto.EventTime.Date &&
+            !(l.IsCancellationApproved == true &&
+              l.CancellationFromDate.HasValue && l.CancellationToDate.HasValue &&
+              dto.EventTime.Date >= l.CancellationFromDate.Value.Date &&
+              dto.EventTime.Date <= l.CancellationToDate.Value.Date));
 
         var policy = await _db.LeaveAndAttendancePolicies.AsNoTracking()
             .FirstOrDefaultAsync(p => p.TenantId == _currentUser.TenantId);

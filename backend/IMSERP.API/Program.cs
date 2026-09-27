@@ -673,6 +673,51 @@ using (var scope = app.Services.CreateScope())
                             ALTER TABLE TeacherLeaves ADD IsCancellationApproved BIT NULL;
                         END
                     END
+
+                    -- StudentLeaves Cancellation & Revocation Columns
+                    IF EXISTS (SELECT 1 FROM sys.tables WHERE name = 'StudentLeaves')
+                    BEGIN
+                        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'IsCancellationRequested' AND object_id = OBJECT_ID('StudentLeaves'))
+                        BEGIN
+                            ALTER TABLE StudentLeaves ADD IsCancellationRequested BIT NOT NULL DEFAULT 0;
+                        END
+                        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'IsPartialCancellation' AND object_id = OBJECT_ID('StudentLeaves'))
+                        BEGIN
+                            ALTER TABLE StudentLeaves ADD IsPartialCancellation BIT NOT NULL DEFAULT 0;
+                        END
+                        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'CancellationFromDate' AND object_id = OBJECT_ID('StudentLeaves'))
+                        BEGIN
+                            ALTER TABLE StudentLeaves ADD CancellationFromDate DATETIME2 NULL;
+                        END
+                        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'CancellationToDate' AND object_id = OBJECT_ID('StudentLeaves'))
+                        BEGIN
+                            ALTER TABLE StudentLeaves ADD CancellationToDate DATETIME2 NULL;
+                        END
+                        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'CancellationReason' AND object_id = OBJECT_ID('StudentLeaves'))
+                        BEGIN
+                            ALTER TABLE StudentLeaves ADD CancellationReason NVARCHAR(MAX) NULL;
+                        END
+                        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'CancellationRequestedAt' AND object_id = OBJECT_ID('StudentLeaves'))
+                        BEGIN
+                            ALTER TABLE StudentLeaves ADD CancellationRequestedAt DATETIME2 NULL;
+                        END
+                        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'CancellationReviewedBy' AND object_id = OBJECT_ID('StudentLeaves'))
+                        BEGIN
+                            ALTER TABLE StudentLeaves ADD CancellationReviewedBy NVARCHAR(150) NULL;
+                        END
+                        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'CancellationReviewedAt' AND object_id = OBJECT_ID('StudentLeaves'))
+                        BEGIN
+                            ALTER TABLE StudentLeaves ADD CancellationReviewedAt DATETIME2 NULL;
+                        END
+                        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'CancellationReviewRemarks' AND object_id = OBJECT_ID('StudentLeaves'))
+                        BEGIN
+                            ALTER TABLE StudentLeaves ADD CancellationReviewRemarks NVARCHAR(MAX) NULL;
+                        END
+                        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'IsCancellationApproved' AND object_id = OBJECT_ID('StudentLeaves'))
+                        BEGIN
+                            ALTER TABLE StudentLeaves ADD IsCancellationApproved BIT NULL;
+                        END
+                    END
                 ");
             }
             catch (Exception ex)

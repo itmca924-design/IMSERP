@@ -561,7 +561,7 @@ public class TeachersController : ControllerBase
             .CountAsync(l => l.TeacherId == id && l.Status == LeaveStatus.Pending);
 
         var approvedLeaves = await _db.TeacherLeaves.AsNoTracking()
-            .CountAsync(l => l.TeacherId == id && l.Status == LeaveStatus.Approved && l.FromDate.Year == now.Year);
+            .CountAsync(l => l.TeacherId == id && (l.Status == LeaveStatus.Approved || l.Status == LeaveStatus.PartiallyCancelled) && l.FromDate.Year == now.Year);
 
         var pendingAdvance = await _db.TeacherSalaryAdvances.AsNoTracking()
             .Where(a => a.TeacherId == id && (a.Status == AdvanceStatus.Approved || a.Status == AdvanceStatus.Pending))
@@ -1409,7 +1409,9 @@ public class TeachersController : ControllerBase
                 l.TeacherId == id &&
                 (l.Status == LeaveStatus.Approved || l.Status == LeaveStatus.CancellationRequested || l.Status == LeaveStatus.PartiallyCancelled) &&
                 l.FromDate.Date <= date &&
-                l.ToDate.Date >= date);
+                l.ToDate.Date >= date &&
+                !(l.IsCancellationApproved == true && l.CancellationFromDate.HasValue && l.CancellationToDate.HasValue &&
+                  date >= l.CancellationFromDate.Value.Date && date <= l.CancellationToDate.Value.Date));
 
             if (overlappingLeave != null)
             {
@@ -1578,7 +1580,8 @@ public class TeachersController : ControllerBase
         var monthStart = new DateTime(year, month, 1);
         var monthEnd = new DateTime(year, month, DateTime.DaysInMonth(year, month));
         var approvedLeaves = await _db.TeacherLeaves.AsNoTracking()
-            .Where(l => l.TeacherId == id && l.Status == LeaveStatus.Approved &&
+            .Where(l => l.TeacherId == id && 
+                        (l.Status == LeaveStatus.Approved || l.Status == LeaveStatus.PartiallyCancelled) &&
                         l.FromDate.Date <= monthEnd && l.ToDate.Date >= monthStart)
             .ToListAsync();
 
@@ -1601,7 +1604,10 @@ public class TeachersController : ControllerBase
                 }
                 else
                 {
-                    var matchingLeave = approvedLeaves.FirstOrDefault(l => l.FromDate.Date <= r.AttendanceDate.Date && l.ToDate.Date >= r.AttendanceDate.Date);
+                    var matchingLeave = approvedLeaves.FirstOrDefault(l => 
+                        l.FromDate.Date <= r.AttendanceDate.Date && l.ToDate.Date >= r.AttendanceDate.Date &&
+                        !(l.IsCancellationApproved == true && l.CancellationFromDate.HasValue && l.CancellationToDate.HasValue &&
+                          r.AttendanceDate.Date >= l.CancellationFromDate.Value.Date && r.AttendanceDate.Date <= l.CancellationToDate.Value.Date));
                     if (matchingLeave != null && matchingLeave.LeaveType == LeaveType.UnpaidLeave)
                     {
                         isUnpaid = true;
@@ -2047,12 +2053,15 @@ public class TeachersController : ControllerBase
         }
 
         var pending = await q.CountAsync(l => l.Status == LeaveStatus.Pending);
-        var approvedThisMonth = await q.CountAsync(l => l.Status == LeaveStatus.Approved && l.FromDate >= startOfMonth);
+        var approvedThisMonth = await q.CountAsync(l => (l.Status == LeaveStatus.Approved || l.Status == LeaveStatus.PartiallyCancelled) && l.FromDate >= startOfMonth);
         var totalThisYear = await q.CountAsync(l => l.FromDate >= startOfYear);
 
         var onLeaveToday = await _db.TeacherLeaves.AsNoTracking()
-            .Where(l => l.TenantId == tenantId && l.Status == LeaveStatus.Approved &&
-                        l.FromDate.Date <= today && l.ToDate.Date >= today)
+            .Where(l => l.TenantId == tenantId && 
+                        (l.Status == LeaveStatus.Approved || l.Status == LeaveStatus.PartiallyCancelled) &&
+                        l.FromDate.Date <= today && l.ToDate.Date >= today &&
+                        !(l.IsCancellationApproved == true && l.CancellationFromDate.HasValue && l.CancellationToDate.HasValue &&
+                          today >= l.CancellationFromDate.Value.Date && today <= l.CancellationToDate.Value.Date))
             .CountAsync();
 
         return Ok(new
@@ -2515,6 +2524,10 @@ public class TeachersController : ControllerBase
                 // Partial cancellation: adjust boundaries if cancellation occurred at edges
                 leave.Status = LeaveStatus.PartiallyCancelled;
 
+                int cancelledDays = (cTo - cFrom).Days + 1;
+                decimal currentDeductible = leave.DeductibleDays > 0 ? leave.DeductibleDays : (decimal)leave.TotalDays;
+                leave.DeductibleDays = Math.Max(0m, currentDeductible - cancelledDays);
+
                 if (cFrom <= leave.FromDate.Date && cTo < leave.ToDate.Date)
                 {
                     leave.FromDate = cTo.AddDays(1);
@@ -2589,13 +2602,29 @@ public class TeachersController : ControllerBase
 
         var balances = new List<TeacherLeaveBalanceItemDto>();
 
+        decimal GetEffectiveLeaveDays(TeacherLeave l)
+        {
+            decimal days = l.DeductibleDays > 0 ? l.DeductibleDays : (decimal)l.TotalDays;
+            if (l.Status == LeaveStatus.PartiallyCancelled && l.IsCancellationApproved == true &&
+                l.CancellationFromDate.HasValue && l.CancellationToDate.HasValue)
+            {
+                int fullSpan = (l.ToDate.Date - l.FromDate.Date).Days + 1;
+                int cancelSpan = (l.CancellationToDate.Value.Date - l.CancellationFromDate.Value.Date).Days + 1;
+                if (days >= fullSpan && fullSpan > cancelSpan)
+                {
+                    days = Math.Max(0m, days - cancelSpan);
+                }
+            }
+            return days;
+        }
+
         // Casual Leave
         decimal clAllocated = policy.AnnualCasualLeaveQuota;
         decimal clAccrued = policy.LeaveAccrualFrequency.Equals("Monthly", StringComparison.OrdinalIgnoreCase)
             ? Math.Min(clAllocated, policy.MonthlyCasualLeaveAccrual * monthsElapsed)
             : clAllocated;
         decimal clUsed = leavesThisYear.Where(l => l.LeaveType == LeaveType.CasualLeave && (l.Status == LeaveStatus.Approved || l.Status == LeaveStatus.CancellationRequested || l.Status == LeaveStatus.PartiallyCancelled))
-            .Sum(l => l.DeductibleDays > 0 ? l.DeductibleDays : (decimal)l.TotalDays);
+            .Sum(l => GetEffectiveLeaveDays(l));
         decimal clPending = leavesThisYear.Where(l => l.LeaveType == LeaveType.CasualLeave && l.Status == LeaveStatus.Pending)
             .Sum(l => l.DeductibleDays > 0 ? l.DeductibleDays : (decimal)l.TotalDays);
         decimal clAvailable = Math.Max(0, clAccrued - clUsed - clPending);
@@ -2607,7 +2636,7 @@ public class TeachersController : ControllerBase
             ? Math.Min(slAllocated, Math.Round((slAllocated / 12.0m) * monthsElapsed, 1))
             : slAllocated;
         decimal slUsed = leavesThisYear.Where(l => l.LeaveType == LeaveType.SickLeave && (l.Status == LeaveStatus.Approved || l.Status == LeaveStatus.CancellationRequested || l.Status == LeaveStatus.PartiallyCancelled))
-            .Sum(l => l.DeductibleDays > 0 ? l.DeductibleDays : (decimal)l.TotalDays);
+            .Sum(l => GetEffectiveLeaveDays(l));
         decimal slPending = leavesThisYear.Where(l => l.LeaveType == LeaveType.SickLeave && l.Status == LeaveStatus.Pending)
             .Sum(l => l.DeductibleDays > 0 ? l.DeductibleDays : (decimal)l.TotalDays);
         decimal slAvailable = Math.Max(0, slAccrued - slUsed - slPending);
@@ -2619,7 +2648,7 @@ public class TeachersController : ControllerBase
             ? Math.Min(elAllocated, Math.Round((elAllocated / 12.0m) * monthsElapsed, 1))
             : elAllocated;
         decimal elUsed = leavesThisYear.Where(l => l.LeaveType == LeaveType.EarnedLeave && (l.Status == LeaveStatus.Approved || l.Status == LeaveStatus.CancellationRequested || l.Status == LeaveStatus.PartiallyCancelled))
-            .Sum(l => l.DeductibleDays > 0 ? l.DeductibleDays : (decimal)l.TotalDays);
+            .Sum(l => GetEffectiveLeaveDays(l));
         decimal elPending = leavesThisYear.Where(l => l.LeaveType == LeaveType.EarnedLeave && l.Status == LeaveStatus.Pending)
             .Sum(l => l.DeductibleDays > 0 ? l.DeductibleDays : (decimal)l.TotalDays);
         decimal elAvailable = Math.Max(0, elAccrued - elUsed - elPending);
@@ -2627,7 +2656,7 @@ public class TeachersController : ControllerBase
 
         // Unpaid Leave (LWP)
         decimal lwpUsed = leavesThisYear.Where(l => l.LeaveType == LeaveType.UnpaidLeave && (l.Status == LeaveStatus.Approved || l.Status == LeaveStatus.CancellationRequested || l.Status == LeaveStatus.PartiallyCancelled))
-            .Sum(l => l.DeductibleDays > 0 ? l.DeductibleDays : (decimal)l.TotalDays);
+            .Sum(l => GetEffectiveLeaveDays(l));
         decimal lwpPending = leavesThisYear.Where(l => l.LeaveType == LeaveType.UnpaidLeave && l.Status == LeaveStatus.Pending)
             .Sum(l => l.DeductibleDays > 0 ? l.DeductibleDays : (decimal)l.TotalDays);
         balances.Add(new TeacherLeaveBalanceItemDto("UnpaidLeave", 999, 999, lwpUsed, lwpPending, 999));
@@ -2815,9 +2844,13 @@ public class TeachersController : ControllerBase
         var hasApprovedLeave = await _db.TeacherLeaves.AsNoTracking().AnyAsync(l =>
             l.TenantId == tenantId &&
             l.TeacherId == targetTeacherId &&
-            l.Status == LeaveStatus.Approved &&
+            (l.Status == LeaveStatus.Approved || l.Status == LeaveStatus.PartiallyCancelled) &&
             l.FromDate.Date <= dto.AttendanceDate.Date &&
-            l.ToDate.Date >= dto.AttendanceDate.Date);
+            l.ToDate.Date >= dto.AttendanceDate.Date &&
+            !(l.IsCancellationApproved == true &&
+              l.CancellationFromDate.HasValue && l.CancellationToDate.HasValue &&
+              dto.AttendanceDate.Date >= l.CancellationFromDate.Value.Date &&
+              dto.AttendanceDate.Date <= l.CancellationToDate.Value.Date));
         if (hasApprovedLeave)
             return BadRequest(new { message = "Cannot regularize attendance on a date that is already marked as Approved Leave. If you attended school on this date, please cancel the approved leave first." });
 

@@ -339,16 +339,16 @@ export interface CalendarDayItem {
               </td>
               <td class="remarks-cell">{{a.remarks || '—'}}</td>
               <td class="actions-col" *ngIf="canManageAttendance">
-                <button mat-icon-button color="primary" (click)="editRecord(a)"
-                  [disabled]="!attendancePermissions.canCorrectAttendance || attendanceMode === 'Biometric' || (isPublicHolidayOrSunday(a.attendanceDate) && !canEditPublicHolidayOrSunday) || a.captureSource === 'LeaveApplication' || a.status === 'Leave'"
-                  [matTooltip]="a.captureSource === 'LeaveApplication' || a.status === 'Leave' ? 'Approved Leave cannot be edited here. Manage via HRMS > Leave Management' : 'Edit record'">
-                  <mat-icon>edit</mat-icon>
-                </button>
-                <button mat-icon-button color="warn" (click)="deleteRecord(a.id)"
-                  [disabled]="!attendancePermissions.canCorrectAttendance || attendanceMode === 'Biometric' || (isPublicHolidayOrSunday(a.attendanceDate) && !canEditPublicHolidayOrSunday) || a.captureSource === 'LeaveApplication' || a.status === 'Leave'"
-                  [matTooltip]="a.captureSource === 'LeaveApplication' || a.status === 'Leave' ? 'Approved Leave cannot be deleted here. To cancel and restore leave quota, go to HRMS > Leave Management' : 'Delete record'">
-                  <mat-icon>delete_outline</mat-icon>
-                </button>
+                <span class="action-btn-wrapper" [class.is-disabled]="isEditDisabled(a)" [matTooltip]="getEditTooltip(a)" (click)="isEditDisabled(a) ? editRecord(a) : null">
+                  <button mat-icon-button color="primary" (click)="editRecord(a)" [disabled]="isEditDisabled(a)">
+                    <mat-icon>edit</mat-icon>
+                  </button>
+                </span>
+                <span class="action-btn-wrapper" [class.is-disabled]="isDeleteDisabled(a)" [matTooltip]="getDeleteTooltip(a)" (click)="isDeleteDisabled(a) ? deleteRecord(a.id) : null">
+                  <button mat-icon-button color="warn" (click)="deleteRecord(a.id)" [disabled]="isDeleteDisabled(a)">
+                    <mat-icon>delete_outline</mat-icon>
+                  </button>
+                </span>
               </td>
               <td class="actions-col" *ngIf="!canManageAttendance">
                 <button *ngIf="canRegularizeRecord(a)" mat-stroked-button class="reg-btn-row" (click)="openRegularizationDialog(a.attendanceDate.split('T')[0])" matTooltip="Request Attendance Regularization for this date">
@@ -625,8 +625,19 @@ export interface CalendarDayItem {
     .work-duration { background:#f1f5f9; color:#334155; padding:2px 8px; border-radius:6px; font-weight:600; font-size:.78rem; }
     .no-dur { color:#94a3b8; }
     .time-main { font-weight:600; color:#1e293b; }
-    .time-sub { display:block; font-size:.72rem; color:#64748b; margin-top:2px; font-weight:600; }
-    .actions-col { text-align:right; width:100px; }
+    .actions-col { text-align:right; width:100px; white-space:nowrap; }
+    .action-btn-wrapper {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      vertical-align: middle;
+      &.is-disabled {
+        cursor: not-allowed;
+        button[disabled] {
+          pointer-events: none;
+        }
+      }
+    }
 
     .reg-btn-row {
       font-size: 0.72rem !important;
@@ -1466,5 +1477,53 @@ export class TeacherAttendanceComponent implements OnInit {
       const end = h.endDate.split('T')[0];
       return dateOnly >= start && dateOnly <= end;
     });
+  }
+
+  isEditDisabled(a: AttendanceDto): boolean {
+    return !this.attendancePermissions.canCorrectAttendance ||
+      this.attendanceMode === 'Biometric' ||
+      (this.isPublicHolidayOrSunday(a.attendanceDate) && !this.canEditPublicHolidayOrSunday) ||
+      a.captureSource === 'LeaveApplication' ||
+      a.status === 'Leave';
+  }
+
+  isDeleteDisabled(a: AttendanceDto): boolean {
+    return !this.attendancePermissions.canCorrectAttendance ||
+      this.attendanceMode === 'Biometric' ||
+      (this.isPublicHolidayOrSunday(a.attendanceDate) && !this.canEditPublicHolidayOrSunday) ||
+      a.captureSource === 'LeaveApplication' ||
+      a.status === 'Leave';
+  }
+
+  getEditTooltip(a: AttendanceDto): string {
+    if (a.captureSource === 'LeaveApplication' || a.status === 'Leave') {
+      return 'Approved Leave cannot be edited here. Manage via HRMS > Leave Management';
+    }
+    if (this.attendanceMode === 'Biometric') {
+      return 'Attendance editing is disabled in Biometric-Only mode';
+    }
+    if (!this.attendancePermissions.canCorrectAttendance) {
+      return 'You do not have permission to edit attendance records';
+    }
+    if (this.isPublicHolidayOrSunday(a.attendanceDate) && !this.canEditPublicHolidayOrSunday) {
+      return 'Attendance editing on Sunday / Public Holiday is restricted';
+    }
+    return 'Edit attendance record';
+  }
+
+  getDeleteTooltip(a: AttendanceDto): string {
+    if (a.captureSource === 'LeaveApplication' || a.status === 'Leave') {
+      return 'Approved Leave cannot be deleted here. To cancel and restore leave quota, go to HRMS > Leave Management';
+    }
+    if (this.attendanceMode === 'Biometric') {
+      return 'Attendance deleting is disabled in Biometric-Only mode';
+    }
+    if (!this.attendancePermissions.canCorrectAttendance) {
+      return 'You do not have permission to delete attendance records';
+    }
+    if (this.isPublicHolidayOrSunday(a.attendanceDate) && !this.canEditPublicHolidayOrSunday) {
+      return 'Attendance deleting on Sunday / Public Holiday is restricted';
+    }
+    return 'Delete attendance record';
   }
 }

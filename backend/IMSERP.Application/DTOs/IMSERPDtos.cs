@@ -3504,7 +3504,17 @@ public record StudentLeaveDto(
     bool AttendanceMarked,
     string AppliedBy,
     DateTime CreatedAt,
-    DateTime UpdatedAt
+    DateTime UpdatedAt,
+    bool IsCancellationRequested = false,
+    bool IsPartialCancellation = false,
+    DateTime? CancellationFromDate = null,
+    DateTime? CancellationToDate = null,
+    string? CancellationReason = null,
+    DateTime? CancellationRequestedAt = null,
+    string? CancellationReviewedBy = null,
+    DateTime? CancellationReviewedAt = null,
+    string? CancellationReviewRemarks = null,
+    bool? IsCancellationApproved = null
 );
 
 public record CreateStudentLeaveDto(
@@ -3523,12 +3533,25 @@ public record ReviewStudentLeaveDto(
     string? ReviewRemarks
 );
 
+public record RequestStudentLeaveCancellationDto(
+    bool IsPartialCancellation,
+    DateTime? CancellationFromDate,
+    DateTime? CancellationToDate,
+    string Reason
+);
+
+public record ReviewStudentLeaveCancellationDto(
+    bool Approve,
+    string? ReviewRemarks
+);
+
 public record StudentLeaveStatsDto(
     int TotalLeaves,
     int PendingLeaves,
     int ApprovedLeaves,
     int RejectedLeaves,
-    int TodayOnLeave
+    int TodayOnLeave,
+    int CancellationPendingLeaves = 0
 );
 
 
