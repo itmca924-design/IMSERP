@@ -1505,7 +1505,8 @@ public record TeacherLeaveDto(
     string? CancellationReviewedBy = null,
     DateTime? CancellationReviewedAt = null,
     string? CancellationReviewRemarks = null,
-    bool? IsCancellationApproved = null
+    bool? IsCancellationApproved = null,
+    decimal DeductibleDays = 0
 );
 
 public record ApplyLeaveDto(
@@ -1575,7 +1576,9 @@ public record LeavePolicySettingsDto(
     int MaxRegularizationDaysBackdated,
     int MaxRegularizationPerMonth,
     bool AutoCancelLeaveOnBiometricPunch,
-    bool AllowFullDayLeaveIfMarkedPresent
+    bool AllowFullDayLeaveIfMarkedPresent,
+    bool ExcludeHolidaysFromLeaveCount = true,
+    bool ExcludeSundaysFromLeaveCount = true
 );
 
 public record TeacherLeaveBalanceItemDto(

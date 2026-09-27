@@ -474,6 +474,7 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
         // Ignore computed properties (EF cannot map them to columns)
         modelBuilder.Entity<TeacherSalary>().Ignore(t => t.GrossSalary).Ignore(t => t.NetSalary);
         modelBuilder.Entity<TeacherLeave>().Ignore(t => t.TotalDays);
+        modelBuilder.Entity<TeacherLeave>().Property(t => t.DeductibleDays).HasColumnType("decimal(5,2)");
 
         // Enums → store as string in DB (avoids InvalidCastException when DB column is nvarchar)
         modelBuilder.Entity<Teacher>()

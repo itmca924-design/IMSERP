@@ -1980,6 +1980,27 @@ mat-sidenav-container {
     }
   }
 }
+// =====================================================================
+// Dialog Overflow Fix — prevents horizontal scroll / red overflow mark
+// =====================================================================
+.no-overflow-dialog {
+  .mat-mdc-dialog-container,
+  .mdc-dialog__container,
+  .mdc-dialog__surface {
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+    padding: 0 !important;  // remove MDC default padding that causes white gap
+    width: 100% !important;
+  }
 
+  // Ensure the component host fills full dialog width
+  .mat-mdc-dialog-container .mdc-dialog__surface > * {
+    width: 100%;
+    box-sizing: border-box;
+  }
+}
 
-
+// Global safe-guard for all dialogs
+.cdk-overlay-pane.mat-mdc-dialog-panel {
+  overflow-x: hidden !important;
+}

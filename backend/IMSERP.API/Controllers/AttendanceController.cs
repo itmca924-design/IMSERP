@@ -367,8 +367,6 @@ public class AttendanceController : ControllerBase
         // Fallback for Manual Attendance: If checking ManualRoute or CorrectionRoute, check if role has CanCreate / CanEdit on Teacher Attendance or Student Attendance
         if (route == ManualRoute && (action == PermissionAction.Create || action == PermissionAction.View))
         {
-            if (user.Role == IMSERP.Domain.Enums.UserRole.HR) return true;
-
             var hasAttendanceRights = await _db.RolePermissions.AsNoTracking()
                 .Where(rp => rp.RoleId == user.RoleId && (rp.CanCreate || rp.CanEdit))
                 .Join(_db.MenuItems, rp => rp.MenuItemId, menu => menu.Id, (rp, menu) => menu.RouteUrl)
@@ -378,7 +376,7 @@ public class AttendanceController : ControllerBase
 
         if (route == CorrectionRoute && (action == PermissionAction.Edit || action == PermissionAction.View))
         {
-            if (user.Role == IMSERP.Domain.Enums.UserRole.HR) return true;
+            if (user.Role == IMSERP.Domain.Enums.UserRole.Teacher) return false;
 
             var hasAttendanceRights = await _db.RolePermissions.AsNoTracking()
                 .Where(rp => rp.RoleId == user.RoleId && rp.CanEdit)

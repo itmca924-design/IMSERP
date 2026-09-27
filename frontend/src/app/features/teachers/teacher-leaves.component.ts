@@ -20,7 +20,8 @@ import {
   LeaveDto,
   TeacherAttendanceRegularizationDto,
   TeacherLeaveBalancesSummaryDto,
-  LeavePolicySettingsDto
+  LeavePolicySettingsDto,
+  HolidayDto
 } from './teacher.models';
 import {
   ApplyTeacherRegularizationDialogComponent,
@@ -295,12 +296,66 @@ export class RejectTeacherLeaveDialogComponent {
             <span><strong>Invalid Date Range:</strong> "To Date" must be on or after "From Date".</span>
           </div>
 
+          <!-- SMART HOLIDAY & WEEK-OFF REMINDER BANNER -->
+          <div class="holiday-reminder-card" *ngIf="(holidaysInRange.length > 0 || sundaysInRange.length > 0) && !form.hasError('dateRangeInvalid') && calendarDays > 0">
+            <div class="reminder-header">
+              <div class="reminder-icon-box">
+                <mat-icon>celebration</mat-icon>
+              </div>
+              <div class="reminder-text-group">
+                <div class="reminder-heading">Holiday & Week-Off Notice</div>
+                <div class="reminder-subheading">
+                  These days will not be <strong>deducted from your leave quota</strong> due to school holidays / weekly offs:
+                </div>
+              </div>
+            </div>
+
+            <!-- List of detected holidays & Sundays -->
+            <div class="reminder-dates-grid">
+              <div class="date-pill holiday-pill" *ngFor="let h of holidaysInRange">
+                <span class="pill-badge pill-holiday">🏖️ Holiday</span>
+                <span class="pill-date">{{h.date | date:'dd MMM (EEE)'}}:</span>
+                <strong class="pill-name">{{h.title}}</strong>
+              </div>
+              <div class="date-pill sunday-pill" *ngFor="let s of sundaysInRange">
+                <span class="pill-badge pill-sunday">☀️ Week-Off</span>
+                <span class="pill-date">{{s | date:'dd MMM'}}:</span>
+                <strong class="pill-name">Sunday</strong>
+              </div>
+            </div>
+
+            <!-- Calculation Breakdown Formula -->
+            <div class="breakdown-strip">
+              <div class="b-item">
+                <span class="b-lbl">Total Span</span>
+                <span class="b-val">{{calendarDays}} Days</span>
+              </div>
+              <span class="b-math">−</span>
+              <div class="b-item">
+                <span class="b-lbl">Holidays & Sundays</span>
+                <span class="b-val text-exempt">{{holidaysInRange.length + sundaysInRange.length}} Days Exempt</span>
+              </div>
+              <span class="b-math">=</span>
+              <div class="b-item b-final">
+                <span class="b-lbl">Actual Leave Deducted</span>
+                <span class="b-val text-primary">{{deductibleDays}} Working Day(s)</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Notice if entire range is holidays/Sundays -->
+          <div class="zero-deductible-notice" *ngIf="calendarDays > 0 && deductibleDays === 0 && !form.hasError('dateRangeInvalid')">
+            <mat-icon>info</mat-icon>
+            <span>All selected dates fall on official holidays/Sundays. Therefore, <strong>0 days</strong> will be deducted from your leave quota.</span>
+          </div>
+
           <!-- Total Duration Badge & Live Quota Match -->
-          <div class="days-badge-wrap" [class.badge-danger]="isInsufficientBalance" *ngIf="totalDays > 0 && !form.hasError('dateRangeInvalid')">
+          <div class="days-badge-wrap" [class.badge-danger]="isInsufficientBalance" *ngIf="calendarDays > 0 && !form.hasError('dateRangeInvalid')">
             <mat-icon [style.color]="isInsufficientBalance ? '#dc2626' : '#2563eb'" style="font-size:16px;width:16px;height:16px;">
               {{isInsufficientBalance ? 'warning' : 'date_range'}}
             </mat-icon>
-            <span>Total Duration: <strong>{{totalDays}} Day(s)</strong></span>
+            <span>Net Leave Count: <strong>{{deductibleDays}} Working Day(s)</strong></span>
+            <span class="cal-span-sub" *ngIf="calendarDays !== deductibleDays">({{calendarDays}} calendar days span)</span>
             <span *ngIf="currentAvailableBalance !== null" class="balance-limit-text">
               • Quota Balance: <strong>{{currentAvailableBalance}} Day(s)</strong>
             </span>
@@ -497,6 +552,144 @@ export class RejectTeacherLeaveDialogComponent {
     }
     .date-error-banner mat-icon { font-size: 18px; width: 18px; height: 18px; color: #ef4444; flex-shrink: 0; }
 
+    /* Smart Holiday & Week-Off Reminder Banner */
+    .holiday-reminder-card {
+      background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+      border: 1px solid #a7f3d0;
+      border-radius: 10px;
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      box-shadow: 0 1px 3px rgba(16, 185, 129, 0.08);
+    }
+    .reminder-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .reminder-icon-box {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: #059669;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 2px 4px rgba(5, 150, 105, 0.25);
+    }
+    .reminder-icon-box mat-icon { font-size: 18px; width: 18px; height: 18px; }
+    .reminder-text-group { flex: 1; }
+    .reminder-heading {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #065f46;
+    }
+    .reminder-subheading {
+      font-size: 0.74rem;
+      color: #047857;
+      margin-top: 1px;
+    }
+    .reminder-dates-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .date-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #ffffff;
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 0.76rem;
+      border: 1px solid #d1fae5;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+    }
+    .pill-badge {
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.2px;
+    }
+    .pill-holiday {
+      background: #fef3c7;
+      color: #92400e;
+    }
+    .pill-sunday {
+      background: #e0f2fe;
+      color: #0369a1;
+    }
+    .pill-date {
+      color: #374151;
+      font-weight: 600;
+    }
+    .pill-name {
+      color: #0f172a;
+    }
+    .breakdown-strip {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 12px;
+      background: rgba(255, 255, 255, 0.85);
+      border: 1px solid #a7f3d0;
+      border-radius: 8px;
+      flex-wrap: wrap;
+    }
+    .b-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .b-lbl {
+      font-size: 0.68rem;
+      color: #64748b;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+    .b-val {
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: #1e293b;
+    }
+    .b-val.text-exempt {
+      color: #059669;
+    }
+    .b-val.text-primary {
+      color: #2563eb;
+      font-size: 0.95rem;
+    }
+    .b-math {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #94a3b8;
+    }
+    .b-item.b-final {
+      margin-left: auto;
+    }
+    .cal-span-sub {
+      font-size: 0.75rem;
+      color: #64748b;
+      margin-left: 2px;
+    }
+    .zero-deductible-notice {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 0.8rem;
+      color: #1e40af;
+    }
+    .zero-deductible-notice mat-icon { font-size: 18px; width: 18px; height: 18px; color: #2563eb; flex-shrink: 0; }
+
     @media (max-width: 520px) {
       .fd-dialog-header { padding: 14px 16px 12px; }
       .fd-dialog-body { padding: 14px 16px; gap: 10px; }
@@ -511,6 +704,11 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
   form!: FormGroup;
   saving = false;
   totalDays = 0;
+  calendarDays = 0;
+  deductibleDays = 0;
+  holidays: HolidayDto[] = [];
+  holidaysInRange: { date: string; title: string; type: string }[] = [];
+  sundaysInRange: string[] = [];
   isTeacherSelf = false;
   hasLinkedProfile = false;
   applyMode: 'self' | 'behalf' = 'self';
@@ -624,6 +822,15 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
       if (val) this.loadBalances(val);
     });
 
+    // Fetch active holidays for holiday reminder & smart deductible calculation
+    this.http.get<HolidayDto[]>(`${API_BASE}/holidays?activeOnly=true`).subscribe({
+      next: h => {
+        this.holidays = h || [];
+        this.calcDays();
+      },
+      error: () => {}
+    });
+
     // If myProfile was not yet loaded from parent, fetch it dynamically
     if (!this.myProfile) {
       this.http.get<any>(`${API_BASE}/teachers/my-profile`).subscribe({
@@ -701,16 +908,53 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
   }
 
   calcDays() {
-    const from = this.form.get('fromDate')?.value;
-    const to = this.form.get('toDate')?.value;
-    if (from && to && to >= from) {
-      const d1 = new Date(from);
-      const d2 = new Date(to);
-      const diff = Math.ceil((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-      this.totalDays = diff > 0 ? diff : 0;
-    } else {
+    const fromStr = this.form.get('fromDate')?.value;
+    const toStr = this.form.get('toDate')?.value;
+    if (!fromStr || !toStr || toStr < fromStr) {
       this.totalDays = 0;
+      this.calendarDays = 0;
+      this.deductibleDays = 0;
+      this.holidaysInRange = [];
+      this.sundaysInRange = [];
+      return;
     }
+
+    const d1 = new Date(fromStr + 'T00:00:00');
+    const d2 = new Date(toStr + 'T00:00:00');
+    let count = 0;
+    const hList: { date: string; title: string; type: string }[] = [];
+    const sList: string[] = [];
+
+    for (let cur = new Date(d1); cur <= d2; cur.setDate(cur.getDate() + 1)) {
+      count++;
+      const y = cur.getFullYear();
+      const m = String(cur.getMonth() + 1).padStart(2, '0');
+      const d = String(cur.getDate()).padStart(2, '0');
+      const dateStr = `${y}-${m}-${d}`;
+
+      const isSunday = cur.getDay() === 0;
+      const matched = this.holidays.find(h => {
+        const hStart = (h.startDate || '').split('T')[0];
+        const hEnd = (h.endDate || '').split('T')[0] || hStart;
+        return dateStr >= hStart && dateStr <= hEnd;
+      });
+
+      if (isSunday) {
+        sList.push(dateStr);
+      } else if (matched) {
+        hList.push({
+          date: dateStr,
+          title: matched.title,
+          type: matched.holidayType || 'Holiday'
+        });
+      }
+    }
+
+    this.calendarDays = count;
+    this.holidaysInRange = hList;
+    this.sundaysInRange = sList;
+    this.deductibleDays = Math.max(0, count - hList.length - sList.length);
+    this.totalDays = this.deductibleDays; // Deductible days used for live balance quota match & validation
   }
 
   submit() {
@@ -2224,8 +2468,9 @@ export class TeacherLeavesComponent implements OnInit {
   openPolicySettingsDialog() {
     const ref = this.dialog.open(LeavePolicySettingsDialogComponent, {
       disableClose: true,
-      maxWidth: '92vw',
-      width: '740px'
+      width: '680px',
+      maxWidth: '95vw',
+      panelClass: 'no-overflow-dialog'
     });
     ref.afterClosed().subscribe(res => {
       if (res) {
@@ -2238,8 +2483,9 @@ export class TeacherLeavesComponent implements OnInit {
     const ref = this.dialog.open(RequestLeaveCancellationDialogComponent, {
       data: { leave: l },
       disableClose: true,
-      maxWidth: '92vw',
-      width: '540px'
+      maxWidth: '95vw',
+      width: '640px',
+      panelClass: 'no-overflow-dialog'
     });
     ref.afterClosed().subscribe(res => {
       if (res) {

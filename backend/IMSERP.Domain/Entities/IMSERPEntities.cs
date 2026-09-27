@@ -743,6 +743,7 @@ public class TeacherLeave
     public DateTime FromDate { get; set; }
     public DateTime ToDate { get; set; }
     public int TotalDays => (int)(ToDate - FromDate).TotalDays + 1;
+    public decimal DeductibleDays { get; set; } = 0;
     public string? Reason { get; set; }
     public LeaveStatus Status { get; set; } = LeaveStatus.Pending;
     public string? ApprovedBy { get; set; }
@@ -799,6 +800,8 @@ public class LeaveAndAttendancePolicySettings
     public int MaxRegularizationPerMonth { get; set; } = 3;
     public bool AutoCancelLeaveOnBiometricPunch { get; set; } = true;
     public bool AllowFullDayLeaveIfMarkedPresent { get; set; } = false;
+    public bool ExcludeHolidaysFromLeaveCount { get; set; } = true;
+    public bool ExcludeSundaysFromLeaveCount { get; set; } = true;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }
 

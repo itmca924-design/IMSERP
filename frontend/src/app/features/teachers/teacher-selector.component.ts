@@ -6,12 +6,14 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { API_BASE, TeacherDto } from './teacher.models';
+import { AuthService } from '../../core/services/auth.service';
 
 @Component({
   selector: 'app-teacher-selector',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatFormFieldModule, MatSelectModule, MatIconModule, MatCardModule],
+  imports: [CommonModule, FormsModule, MatFormFieldModule, MatSelectModule, MatIconModule, MatCardModule, MatTooltipModule],
   template: `
     <mat-card class="selector-card mat-elevation-z1">
       <div class="selector-row">
@@ -19,7 +21,8 @@ import { API_BASE, TeacherDto } from './teacher.models';
           <mat-icon color="primary" class="selector-icon">person_search</mat-icon>
           <mat-form-field appearance="outline" class="selector-field">
             <mat-label>Select Staff / Faculty Member</mat-label>
-            <mat-select [(ngModel)]="selectedId" (ngModelChange)="onSelect($event)">
+            <mat-select [(ngModel)]="selectedId" (ngModelChange)="onSelect($event)"
+                        [disabled]="isSelfOnlyMode && teachers.length <= 1">
               <mat-option *ngFor="let t of teachers" [value]="t.id">
                 <span class="opt-code">{{t.employeeCode}}</span>
                 &nbsp;–&nbsp;{{t.fullName}}
@@ -29,6 +32,11 @@ import { API_BASE, TeacherDto } from './teacher.models';
                 <span class="opt-dot" [class.active]="t.isActive" [class.inactive]="!t.isActive"></span>
               </mat-option>
             </mat-select>
+            <!-- Self-only badge shown when teacher logs in -->
+            <mat-hint *ngIf="isSelfOnlyMode" class="self-hint">
+              <mat-icon style="font-size:12px;width:12px;height:12px;vertical-align:middle;color:#16a34a;">lock</mat-icon>
+              Viewing your own records
+            </mat-hint>
           </mat-form-field>
           <div class="teacher-quick" *ngIf="selected">
             <mat-icon>{{ isNonTeaching(selected) ? 'badge' : 'school' }}</mat-icon>
@@ -40,7 +48,7 @@ import { API_BASE, TeacherDto } from './teacher.models';
           </div>
         </div>
 
-        <!-- Shifted from bottom toolbar to here (Green line spot) -->
+        <!-- Shifted from bottom toolbar to here -->
         <div class="teacher-info-badge" *ngIf="selected">
           <mat-icon class="badge-icon">account_circle</mat-icon>
           <div class="teacher-meta-text">
@@ -65,8 +73,9 @@ import { API_BASE, TeacherDto } from './teacher.models';
     .staff-tag.non-teach { background: #ede9fe; color: #6d28d9; }
     .opt-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-left: 6px; vertical-align: middle;
       &.active { background: #4caf50; } &.inactive { background: #f44336; } }
+    .self-hint { color: #16a34a; font-size: 0.72rem; font-weight: 600; display: flex; align-items: center; gap: 3px; }
 
-    /* Teacher Info Badge shifted to right (green line) */
+    /* Teacher Info Badge shifted to right */
     .teacher-info-badge {
       display: flex;
       align-items: center;
@@ -109,7 +118,11 @@ export class TeacherSelectorComponent implements OnInit, OnChanges {
   selectedId: string = '';
   selected: TeacherDto | null = null;
 
-  constructor(private http: HttpClient) {}
+  /** True when a Teacher-role user is logged in (self-service mode) */
+  isSelfOnlyMode = false;
+  private loggedInUserId: string | null = null;
+
+  constructor(private http: HttpClient, private auth: AuthService) {}
 
   isNonTeaching(t: TeacherDto | null): boolean {
     if (!t) return false;
@@ -117,6 +130,9 @@ export class TeacherSelectorComponent implements OnInit, OnChanges {
   }
 
   ngOnInit() {
+    const user = this.auth.currentUser();
+    this.isSelfOnlyMode = this.auth.isTeacher();
+    this.loggedInUserId = user?.userId ?? null;
     this.loadTeachers();
   }
 
@@ -129,13 +145,41 @@ export class TeacherSelectorComponent implements OnInit, OnChanges {
       next: r => {
         let raw: TeacherDto[] = r.items || [];
         if (this.activeOnly) raw = raw.filter(t => t.isActive);
+
+        // ── Role-based filtering ──────────────────────────────────────────
+        // When a Teacher (faculty) is logged in, show only their own record.
+        // Admin / HR / SuperAdmin see the full list.
+        if (this.isSelfOnlyMode) {
+          const user = this.auth.currentUser();
+          const selfFiltered = raw.filter(t => {
+            const matchUserId = !!(this.loggedInUserId && t.userId && t.userId.toLowerCase() === this.loggedInUserId.toLowerCase());
+            const matchUsername = !!(user?.username && t.username && t.username.toLowerCase() === user.username.toLowerCase());
+            const matchName = !!(user?.fullName && t.fullName && t.fullName.trim().toLowerCase() === user.fullName.trim().toLowerCase());
+            return matchUserId || matchUsername || matchName;
+          });
+
+          // Only restrict if we found the self record (fail-safe)
+          if (selfFiltered.length > 0) {
+            raw = selfFiltered;
+          }
+        }
+
         if (this.staffTypeFilter === 'Teaching') {
           raw = raw.filter(t => !this.isNonTeaching(t));
         } else if (this.staffTypeFilter === 'NonTeaching') {
           raw = raw.filter(t => this.isNonTeaching(t));
         }
         this.teachers = raw;
-        if (this.preSelectId) this.applyPreSelect();
+
+        // Auto-select: preSelectId takes priority, then self-only auto-pick
+        if (this.preSelectId) {
+          this.applyPreSelect();
+        } else if (this.isSelfOnlyMode && raw.length === 1) {
+          // Auto-select the teacher's own record
+          this.selectedId = raw[0].id;
+          this.selected = raw[0];
+          this.teacherSelected.emit(raw[0]);
+        }
       }
     });
   }

@@ -89,6 +89,7 @@ export interface LeaveDto {
   cancellationReviewedAt?: string;
   cancellationReviewRemarks?: string;
   isCancellationApproved?: boolean;
+  deductibleDays?: number;
 }
 
 export interface RequestLeaveCancellationDto {
@@ -146,6 +147,8 @@ export interface LeavePolicySettingsDto {
   maxRegularizationPerMonth: number;
   autoCancelLeaveOnBiometricPunch: boolean;
   allowFullDayLeaveIfMarkedPresent: boolean;
+  excludeHolidaysFromLeaveCount?: boolean;
+  excludeSundaysFromLeaveCount?: boolean;
 }
 
 export interface TeacherLeaveBalanceItemDto {

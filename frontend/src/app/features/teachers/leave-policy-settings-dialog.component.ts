@@ -142,6 +142,28 @@ import { API_BASE, LeavePolicySettingsDto } from './teacher.models';
             <mat-slide-toggle formControlName="allowFullDayLeaveIfMarkedPresent" color="primary"></mat-slide-toggle>
           </div>
 
+          <!-- Section 5: Holidays & Weekends Exclusion -->
+          <div class="section-title">
+            <mat-icon>celebration</mat-icon>
+            <span>Holidays & Weekends Deductible Policy</span>
+          </div>
+
+          <div class="toggle-card">
+            <div class="toggle-info">
+              <strong>Exclude Official Holidays from Leave Count (Recommended)</strong>
+              <p>When enabled, official gazetted and declared school holidays falling within the leave period are NOT deducted from the teacher's leave balance.</p>
+            </div>
+            <mat-slide-toggle formControlName="excludeHolidaysFromLeaveCount" color="primary"></mat-slide-toggle>
+          </div>
+
+          <div class="toggle-card">
+            <div class="toggle-info">
+              <strong>Exclude Sundays from Leave Count (Weekly Off)</strong>
+              <p>When enabled, Sundays falling within the leave period are treated as week-off and will NOT be deducted from the leave quota.</p>
+            </div>
+            <mat-slide-toggle formControlName="excludeSundaysFromLeaveCount" color="primary"></mat-slide-toggle>
+          </div>
+
           <div class="error-banner" *ngIf="errorMessage">
             <mat-icon>error</mat-icon>
             <span>{{errorMessage}}</span>
@@ -162,6 +184,8 @@ import { API_BASE, LeavePolicySettingsDto } from './teacher.models';
     .policy-dialog-container {
       width: 100%;
       max-width: 680px;
+      box-sizing: border-box;
+      overflow-x: hidden;
       font-family: inherit;
       color: #0f172a;
     }
@@ -209,6 +233,8 @@ import { API_BASE, LeavePolicySettingsDto } from './teacher.models';
       gap: 12px;
       max-height: 72vh;
       overflow-y: auto;
+      overflow-x: hidden;
+      box-sizing: border-box;
     }
     .section-title {
       display: flex;
@@ -231,9 +257,14 @@ import { API_BASE, LeavePolicySettingsDto } from './teacher.models';
       display: flex;
       gap: 12px;
       flex-wrap: wrap;
+      width: 100%;
+      box-sizing: border-box;
     }
     .form-col {
-      flex: 1 1 200px;
+      flex: 1 1 180px;
+      min-width: 0;
+      max-width: 100%;
+      box-sizing: border-box;
     }
     .toggle-card {
       display: flex;
@@ -244,6 +275,13 @@ import { API_BASE, LeavePolicySettingsDto } from './teacher.models';
       border: 1px solid #e2e8f0;
       border-radius: 8px;
       padding: 12px 16px;
+      box-sizing: border-box;
+      width: 100%;
+      min-width: 0;
+    }
+    .toggle-info {
+      flex: 1;
+      min-width: 0;
     }
     .toggle-info strong {
       color: #1e293b;
@@ -305,7 +343,9 @@ export class LeavePolicySettingsDialogComponent implements OnInit {
           maxRegularizationDaysBackdated: [res.maxRegularizationDaysBackdated, [Validators.required, Validators.min(1)]],
           maxRegularizationPerMonth: [res.maxRegularizationPerMonth, [Validators.required, Validators.min(1)]],
           autoCancelLeaveOnBiometricPunch: [res.autoCancelLeaveOnBiometricPunch],
-          allowFullDayLeaveIfMarkedPresent: [res.allowFullDayLeaveIfMarkedPresent]
+          allowFullDayLeaveIfMarkedPresent: [res.allowFullDayLeaveIfMarkedPresent],
+          excludeHolidaysFromLeaveCount: [res.excludeHolidaysFromLeaveCount ?? true],
+          excludeSundaysFromLeaveCount: [res.excludeSundaysFromLeaveCount ?? true]
         });
         this.loading = false;
       },

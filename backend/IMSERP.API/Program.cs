@@ -606,14 +606,32 @@ using (var scope = app.Services.CreateScope())
                             MaxRegularizationPerMonth INT NOT NULL DEFAULT 3,
                             AutoCancelLeaveOnBiometricPunch BIT NOT NULL DEFAULT 1,
                             AllowFullDayLeaveIfMarkedPresent BIT NOT NULL DEFAULT 0,
+                            ExcludeHolidaysFromLeaveCount BIT NOT NULL DEFAULT 1,
+                            ExcludeSundaysFromLeaveCount BIT NOT NULL DEFAULT 1,
                             UpdatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
                         );
                     END
+                    ELSE
+                    BEGIN
+                        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'ExcludeHolidaysFromLeaveCount' AND object_id = OBJECT_ID('LeaveAndAttendancePolicies'))
+                        BEGIN
+                            ALTER TABLE LeaveAndAttendancePolicies ADD ExcludeHolidaysFromLeaveCount BIT NOT NULL DEFAULT 1;
+                        END
+                        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'ExcludeSundaysFromLeaveCount' AND object_id = OBJECT_ID('LeaveAndAttendancePolicies'))
+                        BEGIN
+                            ALTER TABLE LeaveAndAttendancePolicies ADD ExcludeSundaysFromLeaveCount BIT NOT NULL DEFAULT 1;
+                        END
+                    END
 
-                    -- TeacherLeaves Cancellation & Revocation Columns
+                    -- TeacherLeaves Cancellation, Revocation & DeductibleDays Columns
                     IF EXISTS (SELECT 1 FROM sys.tables WHERE name = 'TeacherLeaves')
                     BEGIN
                         ALTER TABLE TeacherLeaves ALTER COLUMN Status NVARCHAR(50) NOT NULL;
+                        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'DeductibleDays' AND object_id = OBJECT_ID('TeacherLeaves'))
+                        BEGIN
+                            ALTER TABLE TeacherLeaves ADD DeductibleDays DECIMAL(5,2) NOT NULL DEFAULT 0;
+                            EXEC('UPDATE TeacherLeaves SET DeductibleDays = DATEDIFF(day, FromDate, ToDate) + 1 WHERE DeductibleDays = 0;');
+                        END
                         IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'IsCancellationRequested' AND object_id = OBJECT_ID('TeacherLeaves'))
                         BEGIN
                             ALTER TABLE TeacherLeaves ADD IsCancellationRequested BIT NOT NULL DEFAULT 0;

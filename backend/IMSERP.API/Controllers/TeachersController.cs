@@ -80,24 +80,27 @@ public class TeachersController : ControllerBase
         return !string.Equals(settings?.TeacherMode, "Biometric", StringComparison.OrdinalIgnoreCase);
     }
 
-    private async Task<bool> HasAttendancePermissionAsync(string route, bool edit)
+    private async Task<bool> HasAttendancePermissionAsync(string route, bool edit, bool delete = false)
     {
         var user = await _db.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
         if (user == null) return false;
-        if (user.Role == IMSERP.Domain.Enums.UserRole.SuperAdmin || user.Role == IMSERP.Domain.Enums.UserRole.InstituteAdmin || user.Role == IMSERP.Domain.Enums.UserRole.HR) return true;
+        if (user.Role == IMSERP.Domain.Enums.UserRole.SuperAdmin || user.Role == IMSERP.Domain.Enums.UserRole.InstituteAdmin) return true;
         if (user.RoleId == null) return false;
 
         var hasDirect = await _db.RolePermissions.AsNoTracking()
-            .Where(permission => permission.RoleId == user.RoleId && (edit ? permission.CanEdit : permission.CanCreate))
+            .Where(permission => permission.RoleId == user.RoleId && (delete ? permission.CanDelete : edit ? permission.CanEdit : permission.CanCreate))
             .Join(_db.MenuItems, permission => permission.MenuItemId, menu => menu.Id, (permission, menu) => menu.RouteUrl)
             .AnyAsync(routeUrl => routeUrl == route);
         if (hasDirect) return true;
 
-        // Fallback: If user has permission on /teachers/attendance, allow manual marking/correction
+        // Fallback: If user has permission on /teachers/attendance, allow manual marking/correction/delete
         if (route == "/attendance/permissions/manual" || route == "/attendance/permissions/correction")
         {
+            if (user.Role == IMSERP.Domain.Enums.UserRole.Teacher && (route == "/attendance/permissions/correction" || delete))
+                return false;
+
             return await _db.RolePermissions.AsNoTracking()
-                .Where(permission => permission.RoleId == user.RoleId && (edit ? permission.CanEdit : (permission.CanCreate || permission.CanEdit)))
+                .Where(permission => permission.RoleId == user.RoleId && (delete ? permission.CanDelete : edit ? permission.CanEdit : (permission.CanCreate || permission.CanEdit)))
                 .Join(_db.MenuItems, permission => permission.MenuItemId, menu => menu.Id, (permission, menu) => menu.RouteUrl)
                 .AnyAsync(routeUrl => routeUrl == "/teachers/attendance");
         }
@@ -1282,6 +1285,10 @@ public class TeachersController : ControllerBase
             var existing = await _db.TeacherAttendances
                 .FirstOrDefaultAsync(a => a.TeacherId == entry.TeacherId && a.AttendanceDate.Date == dto.AttendanceDate.Date);
 
+            // Skip overwriting teachers who are currently on sanctioned approved leave
+            if (existing != null && (existing.CaptureSource == "LeaveApplication" || existing.Status == TeacherAttendanceStatus.Leave))
+                continue;
+
             if (existing != null && !await HasAttendancePermissionAsync("/attendance/permissions/correction", true))
                 return Forbid();
 
@@ -1336,11 +1343,25 @@ public class TeachersController : ControllerBase
 
         var smartStatus = EvaluateSmartAttendanceStatus(status, dto.CheckInTime, dto.CheckOutTime);
         var date = dto.AttendanceDate.Date;
+
+        // 1. Attendance cannot be marked in advance for future dates
+        if (date > DateTime.Today)
+            return BadRequest(new { message = "Attendance cannot be marked for future dates." });
+
+        var user = await _db.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
+
+        // 2. Teachers cannot directly mark or edit past date attendance (must use Regularization)
+        if (user?.Role == IMSERP.Domain.Enums.UserRole.Teacher && date < DateTime.Today)
+            return BadRequest(new { message = "Faculty cannot directly log or edit past date attendance. Please submit an Attendance Regularization request." });
+
         if (!await CanEditPublicHolidayOrSundayAsync() && await IsPublicHolidayOrSundayAsync(date))
             return Forbid();
 
         var existing = await _db.TeacherAttendances
             .FirstOrDefaultAsync(a => a.TeacherId == id && a.AttendanceDate.Date == date);
+
+        if (existing != null && (existing.CaptureSource == "LeaveApplication" || existing.Status == TeacherAttendanceStatus.Leave))
+            return Conflict(new { message = "Cannot overwrite an attendance record originating from an Approved Leave Application. Please cancel or revoke the leave from Leave Management first." });
 
         if (existing != null && !await HasAttendancePermissionAsync("/attendance/permissions/correction", true))
             return Forbid();
@@ -1432,7 +1453,11 @@ public class TeachersController : ControllerBase
     [HttpDelete("attendance/{attendanceId}")]
     public async Task<IActionResult> DeleteAttendance(Guid attendanceId)
     {
-        if (!await HasAttendancePermissionAsync("/attendance/permissions/correction", true))
+        var user = await _db.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
+        if (user?.Role == IMSERP.Domain.Enums.UserRole.Teacher)
+            return Forbid();
+
+        if (!await HasAttendancePermissionAsync("/attendance/permissions/correction", edit: false, delete: true))
             return Forbid();
 
         if (!await IsManualAttendanceAllowedAsync())
@@ -1440,6 +1465,11 @@ public class TeachersController : ControllerBase
 
         var record = await _db.TeacherAttendances.FindAsync(attendanceId);
         if (record == null) return NotFound();
+
+        if (record.CaptureSource == "LeaveApplication" || record.Status == TeacherAttendanceStatus.Leave)
+        {
+            return Conflict(new { message = "Attendance logs originating from Approved Leave Applications cannot be deleted directly from attendance register. Please cancel or revoke the leave from Leave Management to safely adjust quotas and payroll." });
+        }
 
         if (!await CanEditPublicHolidayOrSundayAsync() && await IsPublicHolidayOrSundayAsync(record.AttendanceDate))
             return Forbid();
@@ -1976,7 +2006,7 @@ public class TeachersController : ControllerBase
                 l.Teacher != null ? l.Teacher.FullName : "Unknown",
                 l.Teacher != null ? l.Teacher.EmployeeCode : "",
                 l.LeaveType.ToString(), l.FromDate, l.ToDate,
-                (int)(l.ToDate - l.FromDate).TotalDays + 1,
+                l.DeductibleDays > 0 ? (int)l.DeductibleDays : (int)(l.ToDate - l.FromDate).TotalDays + 1,
                 l.Reason, l.Status.ToString(),
                 l.ApprovedBy, l.ApprovedAt, l.RejectionReason, l.CreatedAt,
                 l.IsCancellationRequested,
@@ -1988,7 +2018,8 @@ public class TeachersController : ControllerBase
                 l.CancellationReviewedBy,
                 l.CancellationReviewedAt,
                 l.CancellationReviewRemarks,
-                l.IsCancellationApproved))
+                l.IsCancellationApproved,
+                l.DeductibleDays > 0 ? l.DeductibleDays : (decimal)((int)(l.ToDate - l.FromDate).TotalDays + 1)))
             .ToListAsync();
 
         return Ok(list);
@@ -2053,7 +2084,7 @@ public class TeachersController : ControllerBase
             .Select(l => new TeacherLeaveDto(
                 l.Id, l.TeacherId, teacher.FullName, teacher.EmployeeCode,
                 l.LeaveType.ToString(), l.FromDate, l.ToDate,
-                (int)(l.ToDate - l.FromDate).TotalDays + 1,
+                l.DeductibleDays > 0 ? (int)l.DeductibleDays : (int)(l.ToDate - l.FromDate).TotalDays + 1,
                 l.Reason, l.Status.ToString(),
                 l.ApprovedBy, l.ApprovedAt, l.RejectionReason, l.CreatedAt,
                 l.IsCancellationRequested,
@@ -2065,10 +2096,52 @@ public class TeachersController : ControllerBase
                 l.CancellationReviewedBy,
                 l.CancellationReviewedAt,
                 l.CancellationReviewRemarks,
-                l.IsCancellationApproved))
+                l.IsCancellationApproved,
+                l.DeductibleDays > 0 ? l.DeductibleDays : (decimal)((int)(l.ToDate - l.FromDate).TotalDays + 1)))
             .ToListAsync();
 
         return Ok(list);
+    }
+
+    private async Task<(decimal deductibleDays, int calendarDays, int holidayDays, int sundayDays, List<string> holidayNames)> 
+        CalculateLeaveDaysAsync(Guid tenantId, DateTime fromDate, DateTime toDate, LeaveAndAttendancePolicySettings policy)
+    {
+        var from = fromDate.Date;
+        var to = toDate.Date;
+        int totalDays = (int)(to - from).TotalDays + 1;
+        if (totalDays <= 0) return (0, 0, 0, 0, new List<string>());
+
+        var holidays = await _db.Holidays.AsNoTracking()
+            .Where(h => h.TenantId == tenantId && h.IsActive && h.StartDate.Date <= to && h.EndDate.Date >= from)
+            .ToListAsync();
+
+        int holidayCount = 0;
+        int sundayCount = 0;
+        var holidayNames = new List<string>();
+
+        for (var cur = from; cur <= to; cur = cur.AddDays(1))
+        {
+            bool isSunday = cur.DayOfWeek == DayOfWeek.Sunday;
+            var matchedHoliday = holidays.FirstOrDefault(h => h.StartDate.Date <= cur && h.EndDate.Date >= cur);
+
+            if (isSunday && policy.ExcludeSundaysFromLeaveCount)
+            {
+                sundayCount++;
+            }
+            else if (matchedHoliday != null && policy.ExcludeHolidaysFromLeaveCount)
+            {
+                holidayCount++;
+                string item = $"{cur:dd-MMM} ({matchedHoliday.Title})";
+                if (!holidayNames.Contains(item)) holidayNames.Add(item);
+            }
+        }
+
+        decimal deductible = totalDays;
+        if (policy.ExcludeSundaysFromLeaveCount) deductible -= sundayCount;
+        if (policy.ExcludeHolidaysFromLeaveCount) deductible -= holidayCount;
+        if (deductible < 0) deductible = 0;
+
+        return (deductible, totalDays, holidayCount, sundayCount, holidayNames);
     }
 
     [HttpPost("leaves")]
@@ -2096,7 +2169,13 @@ public class TeachersController : ControllerBase
 
         var from = dto.FromDate.Date;
         var to = dto.ToDate.Date;
-        var requestedDays = (int)(to - from).TotalDays + 1;
+
+        // Policy Settings Check
+        var policy = await GetOrCreateLeavePolicyAsync(tenantId);
+
+        // Smart Holiday & Sunday Aware Duration Calculation
+        var (deductibleDays, calendarDays, holidayDays, sundayDays, holidayNames) =
+            await CalculateLeaveDaysAsync(tenantId, from, to, policy);
 
         // 1. Conflict Check: Overlapping leave applications
         var overlappingLeave = await _db.TeacherLeaves.AsNoTracking().FirstOrDefaultAsync(l =>
@@ -2115,9 +2194,6 @@ public class TeachersController : ControllerBase
             });
         }
 
-        // 2. Policy Settings Check
-        var policy = await GetOrCreateLeavePolicyAsync(tenantId);
-
         // 3. Conflict Check: Is teacher already marked 'Present' on any of these dates?
         var existingAttendances = await _db.TeacherAttendances
             .Where(a => a.TeacherId == targetTeacherId && a.AttendanceDate.Date >= from && a.AttendanceDate.Date <= to)
@@ -2131,15 +2207,15 @@ public class TeachersController : ControllerBase
             });
         }
 
-        // 4. Leave Balance Quota Check (unless UnpaidLeave)
+        // 4. Leave Balance Quota Check (Calculated on Net Working Days excluding holidays/Sundays)
         if (leaveType != LeaveType.UnpaidLeave)
         {
             var balances = await ComputeTeacherLeaveBalancesAsync(targetTeacherId, policy);
             var balanceItem = balances.Balances.FirstOrDefault(b => b.LeaveType.Equals(leaveType.ToString(), StringComparison.OrdinalIgnoreCase));
-            if (balanceItem != null && requestedDays > balanceItem.AvailableBalance)
+            if (balanceItem != null && deductibleDays > balanceItem.AvailableBalance)
             {
                 return BadRequest(new { 
-                    message = $"Insufficient {leaveType} balance. You currently have {balanceItem.AvailableBalance} days available (requested {requestedDays} days). Please adjust the dates or apply as Unpaid Leave (LWP)." 
+                    message = $"Insufficient {leaveType} balance. You currently have {balanceItem.AvailableBalance} days available (requested {deductibleDays} working days, {holidayDays} holiday(s) and {sundayDays} Sunday(s) excluded). Please adjust the dates or apply as Unpaid Leave (LWP)." 
                 });
             }
         }
@@ -2151,6 +2227,7 @@ public class TeachersController : ControllerBase
             LeaveType = leaveType,
             FromDate = from,
             ToDate = to,
+            DeductibleDays = deductibleDays,
             Reason = dto.Reason?.Trim(),
             Status = LeaveStatus.Pending,
             CreatedAt = DateTime.UtcNow
@@ -2162,9 +2239,10 @@ public class TeachersController : ControllerBase
         return Ok(new TeacherLeaveDto(
             leave.Id, leave.TeacherId, teacher.FullName, teacher.EmployeeCode,
             leave.LeaveType.ToString(), leave.FromDate, leave.ToDate,
-            leave.TotalDays,
+            leave.DeductibleDays > 0 ? (int)leave.DeductibleDays : leave.TotalDays,
             leave.Reason, leave.Status.ToString(),
-            leave.ApprovedBy, leave.ApprovedAt, leave.RejectionReason, leave.CreatedAt));
+            leave.ApprovedBy, leave.ApprovedAt, leave.RejectionReason, leave.CreatedAt,
+            DeductibleDays: leave.DeductibleDays));
     }
 
     [HttpPut("leaves/{leaveId}/approve")]
@@ -2183,7 +2261,6 @@ public class TeachersController : ControllerBase
         if (leave == null) return NotFound();
 
         // Security Check 2: Self-approval prevention!
-        // No staff or HR user can approve/reject their own leave application. HR leave must be approved by Admin / SuperAdmin.
         var linkedTeacher = await _db.Teachers.AsNoTracking().FirstOrDefaultAsync(t => t.UserId == _currentUser.UserId && t.TenantId == tenantId);
         if (linkedTeacher != null && linkedTeacher.Id == leave.TeacherId)
         {
@@ -2203,9 +2280,18 @@ public class TeachersController : ControllerBase
             var from = leave.FromDate.Date;
             var to = leave.ToDate.Date;
 
+            // Fetch declared active holidays in the range
+            var holidaysInRange = await _db.Holidays.AsNoTracking()
+                .Where(h => h.TenantId == tenantId && h.IsActive && h.StartDate.Date <= to && h.EndDate.Date >= from)
+                .ToListAsync();
+
             for (var cur = from; cur <= to; cur = cur.AddDays(1))
             {
                 if (cur.DayOfWeek == DayOfWeek.Sunday) continue;
+
+                // Check if date is declared holiday - do NOT overwrite Holiday with Leave!
+                bool isHoliday = holidaysInRange.Any(h => h.StartDate.Date <= cur && h.EndDate.Date >= cur);
+                if (isHoliday) continue;
 
                 var existingAtt = await _db.TeacherAttendances
                     .FirstOrDefaultAsync(a => a.TeacherId == leave.TeacherId && a.AttendanceDate.Date == cur);
@@ -2476,6 +2562,8 @@ public class TeachersController : ControllerBase
                 MaxRegularizationPerMonth = 3,
                 AutoCancelLeaveOnBiometricPunch = true,
                 AllowFullDayLeaveIfMarkedPresent = false,
+                ExcludeHolidaysFromLeaveCount = true,
+                ExcludeSundaysFromLeaveCount = true,
                 UpdatedAt = DateTime.UtcNow
             };
             _db.LeaveAndAttendancePolicies.Add(policy);
@@ -2506,8 +2594,10 @@ public class TeachersController : ControllerBase
         decimal clAccrued = policy.LeaveAccrualFrequency.Equals("Monthly", StringComparison.OrdinalIgnoreCase)
             ? Math.Min(clAllocated, policy.MonthlyCasualLeaveAccrual * monthsElapsed)
             : clAllocated;
-        decimal clUsed = leavesThisYear.Where(l => l.LeaveType == LeaveType.CasualLeave && (l.Status == LeaveStatus.Approved || l.Status == LeaveStatus.CancellationRequested || l.Status == LeaveStatus.PartiallyCancelled)).Sum(l => l.TotalDays);
-        decimal clPending = leavesThisYear.Where(l => l.LeaveType == LeaveType.CasualLeave && l.Status == LeaveStatus.Pending).Sum(l => l.TotalDays);
+        decimal clUsed = leavesThisYear.Where(l => l.LeaveType == LeaveType.CasualLeave && (l.Status == LeaveStatus.Approved || l.Status == LeaveStatus.CancellationRequested || l.Status == LeaveStatus.PartiallyCancelled))
+            .Sum(l => l.DeductibleDays > 0 ? l.DeductibleDays : (decimal)l.TotalDays);
+        decimal clPending = leavesThisYear.Where(l => l.LeaveType == LeaveType.CasualLeave && l.Status == LeaveStatus.Pending)
+            .Sum(l => l.DeductibleDays > 0 ? l.DeductibleDays : (decimal)l.TotalDays);
         decimal clAvailable = Math.Max(0, clAccrued - clUsed - clPending);
         balances.Add(new TeacherLeaveBalanceItemDto("CasualLeave", clAllocated, clAccrued, clUsed, clPending, clAvailable));
 
@@ -2516,8 +2606,10 @@ public class TeachersController : ControllerBase
         decimal slAccrued = policy.LeaveAccrualFrequency.Equals("Monthly", StringComparison.OrdinalIgnoreCase)
             ? Math.Min(slAllocated, Math.Round((slAllocated / 12.0m) * monthsElapsed, 1))
             : slAllocated;
-        decimal slUsed = leavesThisYear.Where(l => l.LeaveType == LeaveType.SickLeave && (l.Status == LeaveStatus.Approved || l.Status == LeaveStatus.CancellationRequested || l.Status == LeaveStatus.PartiallyCancelled)).Sum(l => l.TotalDays);
-        decimal slPending = leavesThisYear.Where(l => l.LeaveType == LeaveType.SickLeave && l.Status == LeaveStatus.Pending).Sum(l => l.TotalDays);
+        decimal slUsed = leavesThisYear.Where(l => l.LeaveType == LeaveType.SickLeave && (l.Status == LeaveStatus.Approved || l.Status == LeaveStatus.CancellationRequested || l.Status == LeaveStatus.PartiallyCancelled))
+            .Sum(l => l.DeductibleDays > 0 ? l.DeductibleDays : (decimal)l.TotalDays);
+        decimal slPending = leavesThisYear.Where(l => l.LeaveType == LeaveType.SickLeave && l.Status == LeaveStatus.Pending)
+            .Sum(l => l.DeductibleDays > 0 ? l.DeductibleDays : (decimal)l.TotalDays);
         decimal slAvailable = Math.Max(0, slAccrued - slUsed - slPending);
         balances.Add(new TeacherLeaveBalanceItemDto("SickLeave", slAllocated, slAccrued, slUsed, slPending, slAvailable));
 
@@ -2526,14 +2618,18 @@ public class TeachersController : ControllerBase
         decimal elAccrued = policy.LeaveAccrualFrequency.Equals("Monthly", StringComparison.OrdinalIgnoreCase)
             ? Math.Min(elAllocated, Math.Round((elAllocated / 12.0m) * monthsElapsed, 1))
             : elAllocated;
-        decimal elUsed = leavesThisYear.Where(l => l.LeaveType == LeaveType.EarnedLeave && (l.Status == LeaveStatus.Approved || l.Status == LeaveStatus.CancellationRequested || l.Status == LeaveStatus.PartiallyCancelled)).Sum(l => l.TotalDays);
-        decimal elPending = leavesThisYear.Where(l => l.LeaveType == LeaveType.EarnedLeave && l.Status == LeaveStatus.Pending).Sum(l => l.TotalDays);
+        decimal elUsed = leavesThisYear.Where(l => l.LeaveType == LeaveType.EarnedLeave && (l.Status == LeaveStatus.Approved || l.Status == LeaveStatus.CancellationRequested || l.Status == LeaveStatus.PartiallyCancelled))
+            .Sum(l => l.DeductibleDays > 0 ? l.DeductibleDays : (decimal)l.TotalDays);
+        decimal elPending = leavesThisYear.Where(l => l.LeaveType == LeaveType.EarnedLeave && l.Status == LeaveStatus.Pending)
+            .Sum(l => l.DeductibleDays > 0 ? l.DeductibleDays : (decimal)l.TotalDays);
         decimal elAvailable = Math.Max(0, elAccrued - elUsed - elPending);
         balances.Add(new TeacherLeaveBalanceItemDto("EarnedLeave", elAllocated, elAccrued, elUsed, elPending, elAvailable));
 
         // Unpaid Leave (LWP)
-        decimal lwpUsed = leavesThisYear.Where(l => l.LeaveType == LeaveType.UnpaidLeave && (l.Status == LeaveStatus.Approved || l.Status == LeaveStatus.CancellationRequested || l.Status == LeaveStatus.PartiallyCancelled)).Sum(l => l.TotalDays);
-        decimal lwpPending = leavesThisYear.Where(l => l.LeaveType == LeaveType.UnpaidLeave && l.Status == LeaveStatus.Pending).Sum(l => l.TotalDays);
+        decimal lwpUsed = leavesThisYear.Where(l => l.LeaveType == LeaveType.UnpaidLeave && (l.Status == LeaveStatus.Approved || l.Status == LeaveStatus.CancellationRequested || l.Status == LeaveStatus.PartiallyCancelled))
+            .Sum(l => l.DeductibleDays > 0 ? l.DeductibleDays : (decimal)l.TotalDays);
+        decimal lwpPending = leavesThisYear.Where(l => l.LeaveType == LeaveType.UnpaidLeave && l.Status == LeaveStatus.Pending)
+            .Sum(l => l.DeductibleDays > 0 ? l.DeductibleDays : (decimal)l.TotalDays);
         balances.Add(new TeacherLeaveBalanceItemDto("UnpaidLeave", 999, 999, lwpUsed, lwpPending, 999));
 
         var startOfMonth = new DateTime(now.Year, now.Month, 1);
@@ -2558,7 +2654,9 @@ public class TeachersController : ControllerBase
             policy.MaxRegularizationDaysBackdated,
             policy.MaxRegularizationPerMonth,
             policy.AutoCancelLeaveOnBiometricPunch,
-            policy.AllowFullDayLeaveIfMarkedPresent
+            policy.AllowFullDayLeaveIfMarkedPresent,
+            policy.ExcludeHolidaysFromLeaveCount,
+            policy.ExcludeSundaysFromLeaveCount
         ));
     }
 
@@ -2582,6 +2680,8 @@ public class TeachersController : ControllerBase
         policy.MaxRegularizationPerMonth = dto.MaxRegularizationPerMonth;
         policy.AutoCancelLeaveOnBiometricPunch = dto.AutoCancelLeaveOnBiometricPunch;
         policy.AllowFullDayLeaveIfMarkedPresent = dto.AllowFullDayLeaveIfMarkedPresent;
+        policy.ExcludeHolidaysFromLeaveCount = dto.ExcludeHolidaysFromLeaveCount;
+        policy.ExcludeSundaysFromLeaveCount = dto.ExcludeSundaysFromLeaveCount;
         policy.UpdatedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync();
@@ -2595,7 +2695,9 @@ public class TeachersController : ControllerBase
             policy.MaxRegularizationDaysBackdated,
             policy.MaxRegularizationPerMonth,
             policy.AutoCancelLeaveOnBiometricPunch,
-            policy.AllowFullDayLeaveIfMarkedPresent
+            policy.AllowFullDayLeaveIfMarkedPresent,
+            policy.ExcludeHolidaysFromLeaveCount,
+            policy.ExcludeSundaysFromLeaveCount
         ));
     }
 
@@ -2709,6 +2811,15 @@ public class TeachersController : ControllerBase
             h.StartDate.Date <= dto.AttendanceDate.Date && h.EndDate.Date >= dto.AttendanceDate.Date);
         if (isHoliday)
             return BadRequest(new { message = "Attendance cannot be regularized on an official school/coaching holiday." });
+
+        var hasApprovedLeave = await _db.TeacherLeaves.AsNoTracking().AnyAsync(l =>
+            l.TenantId == tenantId &&
+            l.TeacherId == targetTeacherId &&
+            l.Status == LeaveStatus.Approved &&
+            l.FromDate.Date <= dto.AttendanceDate.Date &&
+            l.ToDate.Date >= dto.AttendanceDate.Date);
+        if (hasApprovedLeave)
+            return BadRequest(new { message = "Cannot regularize attendance on a date that is already marked as Approved Leave. If you attended school on this date, please cancel the approved leave first." });
 
         var policy = await GetOrCreateLeavePolicyAsync(tenantId);
 

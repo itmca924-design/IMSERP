@@ -17,6 +17,7 @@ import { API_BASE, AttendancePermissionsDto, AttendanceSettingsDto, TeacherDto, 
 import { ApplyTeacherRegularizationDialogComponent } from './teacher-regularization-dialog.component';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { LocalDatetimePipe } from '../../shared/pipes/local-datetime.pipe';
+import { AuthService } from '../../core/services/auth.service';
 
 export interface CalendarDayItem {
   dayNumber: number;
@@ -84,7 +85,7 @@ export interface CalendarDayItem {
 
       <div class="toolbar-right">
         <!-- Quick 1-Click Today Action -->
-        <mat-form-field appearance="outline" class="mode-select"><mat-label>Teacher Attendance Mode</mat-label><mat-select [(ngModel)]="attendanceMode" (selectionChange)="saveAttendanceMode()" [disabled]="!attendancePermissions.canChangeMode"><mat-option value="Both">Manual + Biometric</mat-option><mat-option value="Manual">Manual Only</mat-option><mat-option value="Biometric">Biometric Only</mat-option></mat-select></mat-form-field>
+        <mat-form-field appearance="outline" class="mode-select" *ngIf="canManageAttendance"><mat-label>Teacher Attendance Mode</mat-label><mat-select [(ngModel)]="attendanceMode" (selectionChange)="saveAttendanceMode()" [disabled]="!attendancePermissions.canChangeMode"><mat-option value="Both">Manual + Biometric</mat-option><mat-option value="Manual">Manual Only</mat-option><mat-option value="Biometric">Biometric Only</mat-option></mat-select></mat-form-field>
         <button mat-stroked-button color="accent" class="quick-today-btn" (click)="quickMarkTodayPresent()" [disabled]="!attendancePermissions.canManualMark || attendanceMode === 'Biometric'" matTooltip="Manual marking is disabled by permission or mode">
           <mat-icon>verified</mat-icon> Today Present
         </button>
@@ -93,7 +94,7 @@ export interface CalendarDayItem {
           <mat-icon>build_circle</mat-icon> Regularize
         </button>
 
-        <button mat-raised-button color="primary" class="mark-btn" (click)="showMarkForm = !showMarkForm" [disabled]="!attendancePermissions.canManualMark || attendanceMode === 'Biometric'">
+        <button mat-raised-button color="primary" class="mark-btn" *ngIf="canManageAttendance" (click)="showMarkForm = !showMarkForm" [disabled]="!attendancePermissions.canManualMark || attendanceMode === 'Biometric'">
           <mat-icon>{{showMarkForm ? 'close' : 'add_task'}}</mat-icon>
           {{showMarkForm ? 'Close Form' : 'Mark Attendance'}}
         </button>
@@ -275,7 +276,7 @@ export interface CalendarDayItem {
           [class.today]="d.isToday"
           [class.future-date]="d.dateStr > todayStr"
           (click)="onDayCellClick(d)"
-          [matTooltip]="d.dateStr > todayStr ? 'Future date — attendance cannot be marked in advance' : (d.dateStr < todayStr && !attendancePermissions.canCorrectAttendance ? 'Back-date correction requires Admin permission' : ((d.isCancellationPending ? ('[Cancellation Requested: ' + d.cancellationDetails + ' (Pending Admin Review)] | ') : '') + d.dateStr + ' (' + d.dayOfWeek + '): ' + (d.isDeclaredHoliday ? ('Public Holiday: ' + d.holidayTitle) : (d.isSunday ? 'Sunday Weekly Off' : (d.isSaturday ? 'Saturday' : d.status))) + (d.record?.checkInTime ? ' | Punch-in: ' + d.record?.checkInTime : '')))">
+          [matTooltip]="d.status === 'Leave' && d.dateStr > todayStr ? ('Approved Leave — ' + d.dateStr + ' (' + d.dayOfWeek + ')') : (d.dateStr > todayStr ? 'Future date — attendance cannot be marked in advance' : (d.dateStr < todayStr && !attendancePermissions.canCorrectAttendance ? 'Back-date correction requires Admin permission' : ((d.isCancellationPending ? ('[Cancellation Requested: ' + d.cancellationDetails + ' (Pending Admin Review)] | ') : '') + d.dateStr + ' (' + d.dayOfWeek + '): ' + (d.isDeclaredHoliday ? ('Public Holiday: ' + d.holidayTitle) : (d.isSunday ? 'Sunday Weekly Off' : (d.isSaturday ? 'Saturday' : d.status))) + (d.record?.checkInTime ? ' | Punch-in: ' + d.record?.checkInTime : ''))))">
           <span class="cell-num">{{d.dayNumber}}</span>
           <span class="cell-sub">{{d.dayOfWeek.charAt(0)}}</span>
           <span class="cell-tag">{{getCellShortTag(d)}}</span>
@@ -303,7 +304,7 @@ export interface CalendarDayItem {
               <th>Check-out (IST)</th>
               <th>Work Duration</th>
               <th>Remarks</th>
-              <th class="actions-col">Action</th>
+              <th class="actions-col">{{canManageAttendance ? 'Action' : 'Request'}}</th>
             </tr>
           </thead>
           <tbody>
@@ -337,17 +338,23 @@ export interface CalendarDayItem {
                 <span *ngIf="!calculateDuration(a.checkInTime, a.checkOutTime)" class="no-dur">—</span>
               </td>
               <td class="remarks-cell">{{a.remarks || '—'}}</td>
-              <td class="actions-col">
+              <td class="actions-col" *ngIf="canManageAttendance">
                 <button mat-icon-button color="primary" (click)="editRecord(a)"
-                  [disabled]="!attendancePermissions.canCorrectAttendance || attendanceMode === 'Biometric' || (isPublicHolidayOrSunday(a.attendanceDate) && !canEditPublicHolidayOrSunday)"
-                  matTooltip="Edit record">
+                  [disabled]="!attendancePermissions.canCorrectAttendance || attendanceMode === 'Biometric' || (isPublicHolidayOrSunday(a.attendanceDate) && !canEditPublicHolidayOrSunday) || a.captureSource === 'LeaveApplication' || a.status === 'Leave'"
+                  [matTooltip]="a.captureSource === 'LeaveApplication' || a.status === 'Leave' ? 'Approved Leave cannot be edited here. Manage via HRMS > Leave Management' : 'Edit record'">
                   <mat-icon>edit</mat-icon>
                 </button>
                 <button mat-icon-button color="warn" (click)="deleteRecord(a.id)"
-                  [disabled]="!attendancePermissions.canCorrectAttendance || attendanceMode === 'Biometric' || (isPublicHolidayOrSunday(a.attendanceDate) && !canEditPublicHolidayOrSunday)"
-                  matTooltip="Delete record">
+                  [disabled]="!attendancePermissions.canCorrectAttendance || attendanceMode === 'Biometric' || (isPublicHolidayOrSunday(a.attendanceDate) && !canEditPublicHolidayOrSunday) || a.captureSource === 'LeaveApplication' || a.status === 'Leave'"
+                  [matTooltip]="a.captureSource === 'LeaveApplication' || a.status === 'Leave' ? 'Approved Leave cannot be deleted here. To cancel and restore leave quota, go to HRMS > Leave Management' : 'Delete record'">
                   <mat-icon>delete_outline</mat-icon>
                 </button>
+              </td>
+              <td class="actions-col" *ngIf="!canManageAttendance">
+                <button *ngIf="canRegularizeRecord(a)" mat-stroked-button class="reg-btn-row" (click)="openRegularizationDialog(a.attendanceDate.split('T')[0])" matTooltip="Request Attendance Regularization for this date">
+                  <mat-icon style="font-size:14px;width:14px;height:14px;">build_circle</mat-icon> Regularize
+                </button>
+                <span *ngIf="!canRegularizeRecord(a)" class="no-dur">—</span>
               </td>
             </tr>
           </tbody>
@@ -488,7 +495,14 @@ export interface CalendarDayItem {
     .day-cell:hover { transform:scale(1.06); box-shadow:0 2px 8px rgba(0,0,0,0.1); }
     .day-cell.today { border:2px solid #0284c7; }
     .day-cell.present { background:#dcfce7; border-color:#86efac; .cell-num{color:#15803d;} .cell-tag{color:#166534;font-weight:700;} }
-    .day-cell.leave { background:#fef3c7; border-color:#fcd34d; .cell-num{color:#92400e;} .cell-tag{color:#b45309;font-weight:700;} }
+    .day-cell.leave {
+      background:#fef3c7; border-color:#fcd34d;
+      .cell-num{color:#92400e; font-weight:700;}
+      .cell-tag{
+        color:#b45309; font-weight:800; font-size:0.72rem;
+        background:#fde68a; padding:1px 5px; border-radius:4px;
+      }
+    }
     .day-cell.cancel-pending {
       background: #fff7ed; border: 2px dashed #ea580c;
       .cell-num { color: #c2410c; font-weight: 800; }
@@ -527,7 +541,7 @@ export interface CalendarDayItem {
       .cell-sub { color: #6366f1; }
     }
 
-    /* Future dates — greyed out, not clickable */
+    /* Future dates — greyed out, not clickable by default */
     .day-cell.future-date {
       background: #f1f5f9;
       border-color: #e2e8f0;
@@ -539,6 +553,50 @@ export interface CalendarDayItem {
       .cell-sub { color: #cbd5e1; }
     }
     .day-cell.future-date:hover { transform: none; box-shadow: none; }
+
+    /* When a future date has an approved Leave — do NOT grey out, keep vibrant warm amber & colorful 'L' tag */
+    .day-cell.leave.future-date {
+      background: #fef3c7 !important;
+      border: 1.5px solid #f59e0b !important;
+      opacity: 1 !important;
+      cursor: pointer !important;
+      pointer-events: auto !important;
+      box-shadow: 0 1px 3px rgba(217, 119, 6, 0.15);
+      .cell-num { color: #92400e !important; font-weight: 800 !important; }
+      .cell-sub { color: #b45309 !important; font-weight: 600 !important; }
+      .cell-tag {
+        color: #78350f !important;
+        background: #fde68a !important;
+        font-weight: 900 !important;
+        font-size: 0.74rem !important;
+        padding: 1px 6px !important;
+        border-radius: 4px !important;
+        box-shadow: 0 1px 2px rgba(217, 119, 6, 0.2) !important;
+      }
+    }
+    .day-cell.leave.future-date:hover {
+      transform: scale(1.08) !important;
+      box-shadow: 0 4px 10px rgba(217, 119, 6, 0.25) !important;
+    }
+
+    /* When a future date has a pending cancellation request */
+    .day-cell.cancel-pending.future-date {
+      background: #fff7ed !important;
+      border: 2px dashed #ea580c !important;
+      opacity: 1 !important;
+      cursor: pointer !important;
+      pointer-events: auto !important;
+      .cell-num { color: #c2410c !important; font-weight: 800 !important; }
+      .cell-sub { color: #ea580c !important; font-weight: 700 !important; }
+      .cell-tag {
+        color: #ffffff !important;
+        background: #ea580c !important;
+        font-weight: 800 !important;
+        font-size: 0.72rem !important;
+        padding: 1px 5px !important;
+        border-radius: 4px !important;
+      }
+    }
 
     .cell-num { font-size:.82rem; font-weight:700; color:#334155; }
     .cell-sub { font-size:.65rem; color:#94a3b8; }
@@ -569,6 +627,22 @@ export interface CalendarDayItem {
     .time-main { font-weight:600; color:#1e293b; }
     .time-sub { display:block; font-size:.72rem; color:#64748b; margin-top:2px; font-weight:600; }
     .actions-col { text-align:right; width:100px; }
+
+    .reg-btn-row {
+      font-size: 0.72rem !important;
+      padding: 0 10px !important;
+      height: 28px !important;
+      line-height: 28px !important;
+      border-color: #818cf8 !important;
+      color: #4338ca !important;
+      background: #eef2ff !important;
+      font-weight: 700 !important;
+      border-radius: 6px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      gap: 4px !important;
+    }
+    .reg-btn-row:hover { background: #e0e7ff !important; color: #3730a3 !important; }
 
     .status-badge { padding:3px 10px; border-radius:8px; font-size:.74rem; font-weight:700; text-transform:capitalize;
       &.present{background:#dcfce7;color:#15803d;}
@@ -716,17 +790,79 @@ export class TeacherAttendanceComponent implements OnInit {
     private http: HttpClient,
     private route: ActivatedRoute,
     private confirmDialog: ConfirmDialogService,
-    private dialog: MatDialog
+    private dialog: MatDialog,
+    public auth: AuthService
   ) {}
 
+  get isTeacher(): boolean {
+    return this.auth.isTeacher();
+  }
+
+  get canManageAttendance(): boolean {
+    return !this.auth.isTeacher() && (this.auth.isAdmin() || this.auth.isHR() || this.attendancePermissions.canCorrectAttendance);
+  }
+
+  canRegularizeRecord(a: AttendanceDto): boolean {
+    if (!a) return false;
+    const dateStr = a.attendanceDate.split('T')[0];
+    // Cannot regularize future dates
+    if (dateStr > this.todayStr) return false;
+    // Cannot regularize already approved leaves
+    if (a.status === 'Leave' || a.captureSource === 'LeaveApplication') return false;
+    const hasApprovedLeave = this.teacherLeaves.some(l => {
+      if (l.status !== 'Approved' && l.status !== 'PartiallyCancelled') return false;
+      const s = l.fromDate.split('T')[0];
+      const e = l.toDate.split('T')[0];
+      if (dateStr < s || dateStr > e) return false;
+      if (l.isCancellationApproved && l.cancellationFromDate && l.cancellationToDate) {
+        const cFrom = l.cancellationFromDate.split('T')[0];
+        const cTo = l.cancellationToDate.split('T')[0];
+        if (dateStr >= cFrom && dateStr <= cTo) return false;
+      }
+      return true;
+    });
+    if (hasApprovedLeave) return false;
+    // Cannot regularize declared public holidays or sundays
+    if (a.status === 'Holiday' || this.isPublicHolidayOrSunday(dateStr)) return false;
+    return true;
+  }
+
   openRegularizationDialog(targetDate?: string) {
+    if (targetDate) {
+      if (targetDate > this.todayStr) {
+        this.confirmDialog.alert('Future Date', 'Attendance Regularization cannot be submitted for future dates.', 'warning');
+        return;
+      }
+      const rec = this.records.find(r => r.attendanceDate.startsWith(targetDate));
+      const hasApprovedLeave = (rec && (rec.status === 'Leave' || rec.captureSource === 'LeaveApplication')) || this.teacherLeaves.some(l => {
+        if (l.status !== 'Approved' && l.status !== 'PartiallyCancelled') return false;
+        const s = l.fromDate.split('T')[0];
+        const e = l.toDate.split('T')[0];
+        if (targetDate < s || targetDate > e) return false;
+        if (l.isCancellationApproved && l.cancellationFromDate && l.cancellationToDate) {
+          const cFrom = l.cancellationFromDate.split('T')[0];
+          const cTo = l.cancellationToDate.split('T')[0];
+          if (targetDate >= cFrom && targetDate <= cTo) return false;
+        }
+        return true;
+      });
+      if (hasApprovedLeave) {
+        this.confirmDialog.alert('Leave Already Approved', `Date ${targetDate} is already an Approved Leave. Regularization is not applicable on approved leaves. To cancel this leave, please go to the Leave Management section.`, 'info');
+        return;
+      }
+      if (this.isPublicHolidayOrSunday(targetDate)) {
+        this.confirmDialog.alert('Holiday / Weekly Off', `Date ${targetDate} is an official holiday or weekly off. Regularization is not applicable.`, 'info');
+        return;
+      }
+    }
+
     const ref = this.dialog.open(ApplyTeacherRegularizationDialogComponent, {
       data: {
-        isTeacher: false,
+        isTeacher: this.isTeacher,
         teachers: this.selectedTeacher ? [this.selectedTeacher] : [],
-        myProfile: null,
+        myProfile: this.selectedTeacher,
         targetTeacherId: this.selectedTeacher?.id,
-        targetDate: targetDate || this.markData.attendanceDate
+        targetDate: targetDate || (this.markData?.attendanceDate <= this.todayStr ? this.markData?.attendanceDate : this.todayStr)
       },
       disableClose: true,
       maxWidth: '92vw',
@@ -930,14 +1066,45 @@ export class TeacherAttendanceComponent implements OnInit {
   }
 
   onDayCellClick(d: CalendarDayItem) {
-    // Block future dates for everyone
+    // 1. If it's a sanctioned leave date, provide clear information
+    const hasApprovedLeave = d.status === 'Leave' || (d.record && (d.record.status === 'Leave' || d.record.captureSource === 'LeaveApplication')) || this.teacherLeaves.some(l => {
+      if (l.status !== 'Approved' && l.status !== 'PartiallyCancelled') return false;
+      const s = l.fromDate.split('T')[0];
+      const e = l.toDate.split('T')[0];
+      if (d.dateStr < s || d.dateStr > e) return false;
+      if (l.isCancellationApproved && l.cancellationFromDate && l.cancellationToDate) {
+        const cFrom = l.cancellationFromDate.split('T')[0];
+        const cTo = l.cancellationToDate.split('T')[0];
+        if (d.dateStr >= cFrom && d.dateStr <= cTo) return false;
+      }
+      return true;
+    });
+    if (hasApprovedLeave) {
+      this.confirmDialog.alert('Sanctioned Leave', `Date ${d.dateStr} is already marked as Approved Leave. If you wish to cancel or modify it, please go to the Leave Management section.`, 'info');
+      return;
+    }
+
+    // 2. Block future dates for everyone
     if (d.dateStr > this.todayStr) {
       this.confirmDialog.alert('Future Date', 'Attendance cannot be marked in advance for future dates.', 'warning');
       return;
     }
 
-    // Block back dates for non-admins
-    if (d.dateStr < this.todayStr && !this.attendancePermissions.canCorrectAttendance) {
+    // 3. If Teacher clicks:
+    if (this.isTeacher) {
+      if (d.dateStr < this.todayStr) {
+        // Teacher clicked a past date: guide them to Regularization request
+        this.openRegularizationDialog(d.dateStr);
+        return;
+      }
+      if (d.dateStr === this.todayStr) {
+        this.quickMarkTodayPresent();
+        return;
+      }
+    }
+
+    // 4. For Admin / HR:
+    if (d.dateStr < this.todayStr && !this.canManageAttendance) {
       this.confirmDialog.alert('Back-Date Restricted', 'You do not have permission to mark or correct past date attendance. Please contact Admin.', 'warning');
       return;
     }
@@ -947,6 +1114,7 @@ export class TeacherAttendanceComponent implements OnInit {
       return;
     }
 
+    this.showMarkForm = true;
     this.markData.attendanceDate = d.dateStr;
     if (d.record) {
       this.markData.status = d.record.status;
@@ -1230,6 +1398,15 @@ export class TeacherAttendanceComponent implements OnInit {
   }
 
   editRecord(record: AttendanceDto) {
+    if (record.captureSource === 'LeaveApplication' || record.status === 'Leave') {
+      this.confirmDialog.alert(
+        'Manage in Leave Management',
+        'This attendance log was generated by an Approved Leave Application. To modify or cancel this leave and adjust leave quotas, please go to HRMS -> Leave Management.',
+        'info'
+      );
+      return;
+    }
+
     const date = record.attendanceDate.split('T')[0];
     if (this.isPublicHolidayOrSunday(date) && !this.canEditPublicHolidayOrSunday) {
       this.confirmDialog.alert('Editing Disabled', 'PH/SUN attendance editing is disabled for your role.', 'warning');
@@ -1246,6 +1423,15 @@ export class TeacherAttendanceComponent implements OnInit {
 
   deleteRecord(id: string) {
     const record = this.records.find(item => item.id === id);
+    if (record && (record.captureSource === 'LeaveApplication' || record.status === 'Leave')) {
+      this.confirmDialog.alert(
+        'Protected Leave Record',
+        'This attendance entry was created from an Approved Leave Application. Direct deletion here will break leave quotas and payroll calculations. Please cancel or revoke this leave from HRMS -> Leave Management.',
+        'warning'
+      );
+      return;
+    }
+
     if (record && this.isPublicHolidayOrSunday(record.attendanceDate.split('T')[0]) && !this.canEditPublicHolidayOrSunday) {
       this.confirmDialog.alert('Editing Disabled', 'PH/SUN attendance editing is disabled for your role.', 'warning');
       return;
