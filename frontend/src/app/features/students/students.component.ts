@@ -73,13 +73,13 @@ const API_BASE = 'http://localhost:5000';
           <a mat-stroked-button routerLink="/students/gate-pass" class="gatepass-link-btn" style="border-color:#cbd5e1; color:#0284c7; font-weight:600;">
             <mat-icon style="color:#0284c7;">meeting_room</mat-icon> Gate Passes
           </a>
-          <a *ngIf="authService.hasSchoolModule()" mat-stroked-button routerLink="/students/promotion" class="promotion-link-btn">
+          <a *ngIf="authService.hasSchoolModule() && !authService.isTeacher()" mat-stroked-button routerLink="/students/promotion" class="promotion-link-btn">
             <mat-icon>trending_up</mat-icon> Promote Students
           </a>
-          <a *ngIf="authService.hasSchoolModule()" mat-stroked-button routerLink="/school/classes" class="classes-link-btn">
+          <a *ngIf="authService.hasSchoolModule() && !authService.isTeacher()" mat-stroked-button routerLink="/school/classes" class="classes-link-btn">
             <mat-icon>domain</mat-icon> Classes &amp; Sections
           </a>
-          <button mat-raised-button color="primary" class="add-btn" (click)="toggleForm()">
+          <button *ngIf="!authService.isTeacher()" mat-raised-button color="primary" class="add-btn" (click)="toggleForm()">
             <mat-icon>{{ showForm ? 'close' : 'person_add' }}</mat-icon>
             <span>{{ showForm ? 'Cancel' : (isEditMode ? 'Edit Student' : 'New Admission') }}</span>
           </button>

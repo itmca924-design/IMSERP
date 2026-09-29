@@ -574,7 +574,13 @@ public record AttendanceReportRowDto(
     int HolidayDays,
     int TotalWorkingDays,
     decimal AttendancePercentage,
-    string? DailyStatuses = null
+    string? DailyStatuses = null,
+    string? SchoolClass = null,
+    string? CoachingBatch = null,
+    string? SchoolRoll = null,
+    string? CoachingRoll = null,
+    bool IsSchoolStudent = false,
+    bool IsCoachingStudent = false
 );
 
 
@@ -588,7 +594,9 @@ public record AttendanceReportDto(
     int TotalLateDays,
     int TotalHalfDays,
     int TotalHolidayDays,
-    List<AttendanceReportRowDto> Rows
+    List<AttendanceReportRowDto> Rows,
+    bool IsDualEnrolled = false,
+    string? DefaultStream = null
 );
 
 public record BatchDto(
@@ -1565,6 +1573,53 @@ public record ApplyRegularizationDto(
 public record ReviewRegularizationDto(
     bool Approve,
     string? ReviewRemarks
+);
+
+public record StudentAttendanceRegularizationDto(
+    Guid Id,
+    Guid TenantId,
+    Guid? BranchId,
+    Guid StudentId,
+    string StudentName,
+    string RollNumber,
+    Guid? ClassId,
+    string? ClassName,
+    Guid? SectionId,
+    string? SectionName,
+    DateTime AttendanceDate,
+    string RequestedStatus,
+    string ReasonCategory,
+    string Reason,
+    string? AttachmentUrl,
+    string Status,
+    string? ReviewedBy,
+    DateTime? ReviewedAt,
+    string? ReviewRemarks,
+    string AppliedBy,
+    DateTime CreatedAt,
+    DateTime UpdatedAt
+);
+
+public record ApplyStudentRegularizationDto(
+    Guid StudentId,
+    DateTime AttendanceDate,
+    string RequestedStatus,
+    string ReasonCategory,
+    string Reason,
+    string? AttachmentUrl
+);
+
+public record ReviewStudentRegularizationDto(
+    bool Approve,
+    string? ReviewRemarks,
+    string? ApprovedStatus = null
+);
+
+public record StudentRegularizationStatsDto(
+    int TotalRequests,
+    int PendingRequests,
+    int ApprovedRequests,
+    int RejectedRequests
 );
 
 public record LeavePolicySettingsDto(
@@ -3881,5 +3936,87 @@ public record Student360Dto(
     StudentHealthDto? HealthProfile
 );
 
+public record StudentUpcomingTestDto(Guid Id, string Title, string Subject, DateTime TestDate, decimal MaxMarks, string BatchOrClass);
+public record StudentHomeworkItemDto(Guid Id, string Subject, string Title, string Description, DateTime AssignedDate, DateTime DueDate, string TeacherName);
+public record StudentIssuedBookDto(Guid Id, string BookTitle, string AccessionNumber, DateTime IssueDate, DateTime DueDate, bool IsOverdue);
+public record StudentTodayRoutineDto(string PeriodName, string Subject, string TeacherName, string TimeSlot, string? RoomNumber);
+public record DashboardNoticeItemDto(Guid Id, string Title, string Content, string Category, DateTime PublishedDate, string Priority);
 
+public record StudentDashboardSummaryDto(
+    Guid StudentId,
+    string StudentName,
+    string RollNumber,
+    string? AdmissionNumber,
+    string? ClassName,
+    string? SectionName,
+    string? BatchName,
+    string? BranchName,
+    string? ProfilePhoto,
+    bool IsStarPerformer,
+    string PerformanceBadge,
+    // Attendance
+    int TotalAttendanceDays,
+    int PresentDays,
+    int AbsentDays,
+    decimal AttendancePercentage,
+    string AttendanceStatusTag,
+    // Fees
+    decimal TotalFeeBilled,
+    decimal TotalFeePaid,
+    decimal TotalFeeDue,
+    DateTime? NextDueDate,
+    string? LastReceiptNumber,
+    decimal? LastPaymentAmount,
+    DateTime? LastPaymentDate,
+    // Tests
+    int UpcomingTestsCount,
+    List<StudentUpcomingTestDto> UpcomingTests,
+    decimal? LatestTestPercentage,
+    string? LatestTestSubject,
+    // Homework
+    int PendingHomeworkCount,
+    List<StudentHomeworkItemDto> RecentHomework,
+    // Library
+    int IssuedBooksCount,
+    int OverdueBooksCount,
+    List<StudentIssuedBookDto> IssuedBooks,
+    // Honors
+    int TotalAccoladesCount,
+    List<string> RecentAccolades,
+    // Routine & Notices
+    List<StudentTodayRoutineDto> TodayRoutine,
+    List<DashboardNoticeItemDto> RecentNotices
+);
 
+public record TeacherTodayLectureDto(string PeriodName, string ClassOrBatch, string Subject, string? RoomNumber, string TimeSlot);
+public record TeacherPendingTestDto(Guid TestId, string Title, string Subject, string BatchOrClass, DateTime TestDate);
+
+public record TeacherDashboardSummaryDto(
+    Guid TeacherId,
+    string TeacherName,
+    string EmployeeCode,
+    string Designation,
+    string? Department,
+    string? BranchName,
+    string? ProfilePhoto,
+    // Schedule
+    int TodayLecturesCount,
+    List<TeacherTodayLectureDto> TodaySchedule,
+    // Batches
+    int AssignedBatchesCount,
+    List<string> AssignedBatchNames,
+    // Attendance
+    bool HasPunchedInToday,
+    string? TodayPunchTime,
+    int PendingAttendanceCount,
+    // Tests
+    int PendingMarksEntryTestsCount,
+    List<TeacherPendingTestDto> PendingTests,
+    // Homework
+    int HomeworkGivenThisWeekCount,
+    // Leaves
+    int CasualLeaveBalance,
+    int MedicalLeaveBalance,
+    // Notices
+    List<DashboardNoticeItemDto> RecentNotices
+);

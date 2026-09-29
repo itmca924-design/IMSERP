@@ -14,31 +14,49 @@ namespace IMSERP.API.Controllers;
 public class DashboardController : ControllerBase
 {
     private readonly IIMSERPDbContext _dbContext;
+    private readonly ICurrentUserService _currentUser;
 
-    public DashboardController(IIMSERPDbContext dbContext)
+    public DashboardController(IIMSERPDbContext dbContext, ICurrentUserService currentUser)
     {
         _dbContext = dbContext;
+        _currentUser = currentUser;
     }
 
     [HttpGet("summary")]
     public async Task<ActionResult<DashboardSummaryDto>> GetSummary()
     {
-        var totalStudents = await _dbContext.Students.CountAsync(s => s.IsActive);
-        var activeBatches = await _dbContext.Batches.CountAsync();
+        var roleNormalized = (_currentUser.UserRole ?? "").Trim();
+        if (roleNormalized.Contains("Student", StringComparison.OrdinalIgnoreCase) || roleNormalized.Contains("Parent", StringComparison.OrdinalIgnoreCase))
+        {
+            return Forbid();
+        }
+
+        bool isSuperAdmin = string.Equals(_currentUser.UserRole, "SuperAdmin", StringComparison.OrdinalIgnoreCase);
+
+        var studentsQuery = isSuperAdmin ? _dbContext.Students.IgnoreQueryFilters() : _dbContext.Students;
+        var batchesQuery = isSuperAdmin ? _dbContext.Batches.IgnoreQueryFilters() : _dbContext.Batches;
+        var feePaymentsQuery = isSuperAdmin ? _dbContext.FeePayments.IgnoreQueryFilters() : _dbContext.FeePayments;
+        var feeInvoicesQuery = isSuperAdmin ? _dbContext.FeeInvoices.IgnoreQueryFilters() : _dbContext.FeeInvoices;
+        var testsQuery = isSuperAdmin ? _dbContext.Tests.IgnoreQueryFilters() : _dbContext.Tests;
+        var whatsAppQuery = isSuperAdmin ? _dbContext.WhatsAppLogs.IgnoreQueryFilters() : _dbContext.WhatsAppLogs;
+        var studentAttendancesQuery = isSuperAdmin ? _dbContext.StudentAttendances.IgnoreQueryFilters() : _dbContext.StudentAttendances;
+
+        var totalStudents = await studentsQuery.CountAsync(s => s.IsActive);
+        var activeBatches = await batchesQuery.CountAsync();
         
         var startOfMonth = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1, 0, 0, 0, DateTimeKind.Utc);
-        var totalFeeCollectedThisMonth = await _dbContext.FeePayments
+        var totalFeeCollectedThisMonth = await feePaymentsQuery
             .Where(p => p.PaymentDate >= startOfMonth)
             .SumAsync(p => (decimal?)p.AmountPaid) ?? 0;
 
-        var pendingFeesTotal = await _dbContext.FeeInvoices
+        var pendingFeesTotal = await feeInvoicesQuery
             .Where(i => i.Status != InvoiceStatus.Paid)
             .SumAsync(i => (decimal?)(i.TotalAmount - i.PaidAmount)) ?? 0;
 
-        var totalTestsConducted = await _dbContext.Tests.CountAsync();
-        var whatsAppSent = await _dbContext.WhatsAppLogs.CountAsync();
+        var totalTestsConducted = await testsQuery.CountAsync();
+        var whatsAppSent = await whatsAppQuery.CountAsync();
 
-        var overdueInvoices = await _dbContext.FeeInvoices
+        var overdueInvoices = await feeInvoicesQuery
             .Include(i => i.Student)
             .Where(i => i.Status == InvoiceStatus.Overdue || (i.Status != InvoiceStatus.Paid && i.DueDate < DateTime.UtcNow))
             .OrderBy(i => i.DueDate)
@@ -58,7 +76,7 @@ public class DashboardController : ControllerBase
                 i.Status.ToString()
             )).ToListAsync();
 
-        var recentTests = await _dbContext.Tests
+        var recentTests = await testsQuery
             .Include(t => t.Batch)
             .Include(t => t.Class)
             .Include(t => t.Section)
@@ -81,8 +99,8 @@ public class DashboardController : ControllerBase
 
         // Dynamic Chart Analytics from Database
         var now = DateTime.UtcNow;
-        var allInvoices = await _dbContext.FeeInvoices.AsNoTracking().ToListAsync();
-        var allPayments = await _dbContext.FeePayments.AsNoTracking().ToListAsync();
+        var allInvoices = await feeInvoicesQuery.AsNoTracking().ToListAsync();
+        var allPayments = await feePaymentsQuery.AsNoTracking().ToListAsync();
 
         // 1. Monthly Revenue & Collection Trend (Last 6 Months)
         var revenueTrends = new List<MonthlyRevenueTrendItemDto>();
@@ -105,8 +123,8 @@ public class DashboardController : ControllerBase
         }
 
         // 2. Batch-wise Student Enrollment Distribution
-        var batches = await _dbContext.Batches.AsNoTracking().ToListAsync();
-        var students = await _dbContext.Students.AsNoTracking().Where(s => s.IsActive).ToListAsync();
+        var batches = await batchesQuery.AsNoTracking().ToListAsync();
+        var students = await studentsQuery.AsNoTracking().Where(s => s.IsActive).ToListAsync();
         var batchDistributions = batches.Select(b =>
         {
             int count = students.Count(s => s.BatchId == b.Id);
@@ -124,7 +142,7 @@ public class DashboardController : ControllerBase
 
         // 4. Today's Student Attendance Live Summary & Time
         var today = DateTime.UtcNow.Date;
-        var todayAttendances = await _dbContext.StudentAttendances
+        var todayAttendances = await studentAttendancesQuery
             .AsNoTracking()
             .Include(a => a.Student)
             .ThenInclude(s => s!.Batch)
@@ -180,7 +198,348 @@ public class DashboardController : ControllerBase
             todayAttendance
         ));
     }
+
+    [HttpGet("student-summary")]
+    public async Task<ActionResult<StudentDashboardSummaryDto>> GetStudentSummary()
+    {
+        var userId = _currentUser.UserId;
+        var tenantId = _currentUser.TenantId;
+
+        // 1. Look up student by UserId or ParentUserId
+        var student = await _dbContext.Students.AsNoTracking()
+            .Include(s => s.Class)
+            .Include(s => s.Section)
+            .Include(s => s.Batch)
+            .Include(s => s.Branch)
+            .FirstOrDefaultAsync(s => (s.UserId == userId || s.ParentUserId == userId) && s.TenantId == tenantId);
+
+        if (student == null)
+        {
+            var user = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
+            if (user != null)
+            {
+                student = await _dbContext.Students.AsNoTracking()
+                    .Include(s => s.Class)
+                    .Include(s => s.Section)
+                    .Include(s => s.Batch)
+                    .Include(s => s.Branch)
+                    .FirstOrDefaultAsync(s => s.TenantId == tenantId && (
+                        (!string.IsNullOrEmpty(user.PhoneNumber) && (s.ParentWhatsAppPhone == user.PhoneNumber || s.EmergencyContactPhone == user.PhoneNumber)) ||
+                        (!string.IsNullOrEmpty(user.FullName) && s.StudentName == user.FullName)
+                    ));
+            }
+        }
+
+        if (student == null)
+        {
+            student = await _dbContext.Students.AsNoTracking()
+                .Include(s => s.Class)
+                .Include(s => s.Section)
+                .Include(s => s.Batch)
+                .Include(s => s.Branch)
+                .FirstOrDefaultAsync(s => s.TenantId == tenantId && s.IsActive);
+        }
+
+        if (student == null) return NotFound(new { message = "Student profile not found." });
+
+        // Personal Attendance
+        var attendances = await _dbContext.StudentAttendances.AsNoTracking()
+            .Where(a => a.StudentId == student.Id)
+            .ToListAsync();
+        int totalAttDays = attendances.Count;
+        int presentDays = attendances.Count(a => a.Status == TeacherAttendanceStatus.Present);
+        int absentDays = attendances.Count(a => a.Status == TeacherAttendanceStatus.Absent);
+        decimal attPct = totalAttDays > 0 ? Math.Round((decimal)presentDays / totalAttDays * 100m, 1) : 100m;
+        string attStatus = attPct >= 85 ? "Excellent Attendance" : (attPct >= 75 ? "Good Standing" : "Attendance Warning (<75%)");
+
+        // Personal Fees
+        var invoices = await _dbContext.FeeInvoices.AsNoTracking()
+            .Where(i => i.StudentId == student.Id)
+            .OrderByDescending(i => i.DueDate)
+            .ToListAsync();
+        decimal totalBilled = invoices.Sum(i => i.TotalAmount);
+        decimal totalPaid = invoices.Sum(i => i.PaidAmount);
+        decimal totalDue = invoices.Where(i => i.Status != InvoiceStatus.Paid).Sum(i => i.TotalAmount - i.PaidAmount);
+        var nextDueInv = invoices.Where(i => i.Status != InvoiceStatus.Paid).OrderBy(i => i.DueDate).FirstOrDefault();
+        DateTime? nextDueDate = nextDueInv?.DueDate;
+
+        var lastPayment = await _dbContext.FeePayments.AsNoTracking()
+            .Include(p => p.Invoice)
+            .Where(p => p.Invoice != null && p.Invoice.StudentId == student.Id)
+            .OrderByDescending(p => p.PaymentDate)
+            .FirstOrDefaultAsync();
+        string? lastReceiptNumber = lastPayment?.ReceiptNumber;
+        decimal? lastPaymentAmount = lastPayment?.AmountPaid;
+        DateTime? lastPaymentDate = lastPayment?.PaymentDate;
+
+        // Upcoming Tests
+        var today = DateTime.UtcNow.Date;
+        var upcomingTestsRaw = await _dbContext.Tests.AsNoTracking()
+            .Include(t => t.Batch)
+            .Include(t => t.Class)
+            .Include(t => t.Section)
+            .Where(t => t.TenantId == tenantId && t.TestDate >= today &&
+                ((student.ClassId.HasValue && t.ClassId == student.ClassId) ||
+                 (student.BatchId.HasValue && t.BatchId == student.BatchId)))
+            .OrderBy(t => t.TestDate)
+            .Take(5)
+            .ToListAsync();
+
+        var upcomingTests = upcomingTestsRaw.Select(t => new StudentUpcomingTestDto(
+            t.Id,
+            t.Title,
+            t.Subject,
+            t.TestDate,
+            t.MaxMarks,
+            t.Class != null ? (t.Section != null ? $"{t.Class.Name} - {t.Section.Name}" : t.Class.Name) : (t.Batch != null ? t.Batch.Name : "General")
+        )).ToList();
+
+        var latestMark = await _dbContext.TestMarks.AsNoTracking()
+            .Include(m => m.Test)
+            .Where(m => m.StudentId == student.Id)
+            .OrderByDescending(m => m.Test != null ? m.Test.TestDate : DateTime.MinValue)
+            .FirstOrDefaultAsync();
+        decimal? latestTestPct = (latestMark != null && latestMark.Test != null && latestMark.Test.MaxMarks > 0) ? Math.Round((latestMark.MarksObtained / latestMark.Test.MaxMarks) * 100m, 1) : null;
+        string? latestTestSubject = latestMark?.Test?.Subject;
+
+        // Recent Homework
+        var recentHomeworkRaw = await _dbContext.StudentHomeworks.AsNoTracking()
+            .Where(h => h.TenantId == tenantId &&
+                ((student.ClassId.HasValue && h.ClassId == student.ClassId) ||
+                 (student.SectionId.HasValue && h.SectionId == student.SectionId) ||
+                 (student.BatchId.HasValue && h.BatchId == student.BatchId)))
+            .OrderByDescending(h => h.AssignedDate)
+            .Take(5)
+            .ToListAsync();
+        var recentHomework = recentHomeworkRaw.Select(h => new StudentHomeworkItemDto(
+            h.Id,
+            !string.IsNullOrEmpty(h.SubjectName) ? h.SubjectName : (h.Class != null ? "Academic" : "General"),
+            h.Title,
+            h.Description ?? "",
+            h.AssignedDate,
+            h.DueDate,
+            h.TeacherName ?? "Faculty"
+        )).ToList();
+        int pendingHomeworkCount = recentHomeworkRaw.Count(h => h.DueDate >= today);
+
+        // Issued Library Books
+        var issuedCircs = await _dbContext.LibraryCirculations.AsNoTracking()
+            .Include(c => c.BookCopy)
+            .ThenInclude(bc => bc!.Book)
+            .Where(c => c.StudentId == student.Id && c.Status == "Issued")
+            .ToListAsync();
+        int issuedBooksCount = issuedCircs.Count;
+        int overdueBooksCount = issuedCircs.Count(c => c.DueDate < DateTime.UtcNow);
+        var issuedBooks = issuedCircs.Select(c => new StudentIssuedBookDto(
+            c.Id,
+            c.BookCopy?.Book?.Title ?? "Textbook",
+            c.BookCopy?.AccessionNumber ?? "N/A",
+            c.IssueDate,
+            c.DueDate,
+            c.DueDate < DateTime.UtcNow
+        )).ToList();
+
+        // Honors & Wall of Fame
+        var honors = await _dbContext.StudentAchievements.AsNoTracking()
+            .Where(a => a.StudentId == student.Id)
+            .OrderByDescending(a => a.AwardDate)
+            .ToListAsync();
+        int totalAccoladesCount = honors.Count;
+        var recentAccolades = honors.Take(3).Select(h => $"{h.Title} ({h.AwardLevel})").ToList();
+        bool isStarPerformer = totalAccoladesCount >= 2 || attPct >= 95 || (latestTestPct.HasValue && latestTestPct.Value >= 90);
+        string perfBadge = isStarPerformer ? "Star Scholar" : (attPct >= 80 ? "Consistent Performer" : "Active Learner");
+
+        // Today's Routine
+        var todayDow = DateTime.UtcNow.DayOfWeek.ToString();
+        var routineRaw = await _dbContext.TeacherBatchAssignments.AsNoTracking()
+            .Include(a => a.Teacher)
+            .Where(a => a.IsActive && student.SectionId.HasValue && a.SectionId == student.SectionId.Value &&
+                        (!string.IsNullOrEmpty(a.DaysOfWeek) && a.DaysOfWeek.Contains(todayDow)))
+            .OrderBy(a => a.TimeSlot)
+            .ToListAsync();
+        var todayRoutine = routineRaw.Select(r => new StudentTodayRoutineDto(
+            r.TimeSlot ?? "Period",
+            r.Subject,
+            r.Teacher?.FullName ?? "Subject Faculty",
+            r.TimeSlot ?? "Scheduled",
+            "Classroom"
+        )).ToList();
+
+        // Recent Notices
+        var noticesRaw = await _dbContext.SchoolNotices.AsNoTracking()
+            .Where(n => n.TenantId == tenantId && n.IsActive && (n.TargetAudience == "All" || n.TargetAudience == "Students" || n.TargetAudience == "Parents"))
+            .OrderByDescending(n => n.IsPinned)
+            .ThenByDescending(n => n.CreatedAt)
+            .Take(4)
+            .ToListAsync();
+        var recentNotices = noticesRaw.Select(n => new DashboardNoticeItemDto(
+            n.Id, n.Title, n.Content, n.Category, n.CreatedAt, n.Priority
+        )).ToList();
+
+        return Ok(new StudentDashboardSummaryDto(
+            student.Id,
+            student.StudentName,
+            student.RollNumber,
+            student.AdmissionNumber,
+            student.Class?.Name,
+            student.Section?.Name,
+            student.Batch?.Name,
+            student.Branch?.Name,
+            student.ProfilePhoto,
+            isStarPerformer,
+            perfBadge,
+            totalAttDays,
+            presentDays,
+            absentDays,
+            attPct,
+            attStatus,
+            totalBilled,
+            totalPaid,
+            totalDue,
+            nextDueDate,
+            lastReceiptNumber,
+            lastPaymentAmount,
+            lastPaymentDate,
+            upcomingTests.Count,
+            upcomingTests,
+            latestTestPct,
+            latestTestSubject,
+            pendingHomeworkCount,
+            recentHomework,
+            issuedBooksCount,
+            overdueBooksCount,
+            issuedBooks,
+            totalAccoladesCount,
+            recentAccolades,
+            todayRoutine,
+            recentNotices
+        ));
+    }
+
+    [HttpGet("teacher-summary")]
+    public async Task<ActionResult<TeacherDashboardSummaryDto>> GetTeacherSummary()
+    {
+        var userId = _currentUser.UserId;
+        var tenantId = _currentUser.TenantId;
+
+        var teacher = await _dbContext.Teachers.AsNoTracking()
+            .Include(t => t.Branch)
+            .Include(t => t.BatchAssignments)
+            .FirstOrDefaultAsync(t => t.UserId == userId && t.TenantId == tenantId);
+
+        if (teacher == null)
+        {
+            var user = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
+            if (user != null)
+            {
+                teacher = await _dbContext.Teachers.AsNoTracking()
+                    .Include(t => t.Branch)
+                    .Include(t => t.BatchAssignments)
+                    .FirstOrDefaultAsync(t => t.TenantId == tenantId && (
+                        (!string.IsNullOrEmpty(user.PhoneNumber) && t.PhoneNumber == user.PhoneNumber) ||
+                        (!string.IsNullOrEmpty(user.Email) && t.Email == user.Email) ||
+                        (!string.IsNullOrEmpty(user.FullName) && t.FullName == user.FullName)
+                    ));
+            }
+        }
+
+        if (teacher == null)
+        {
+            teacher = await _dbContext.Teachers.AsNoTracking()
+                .Include(t => t.Branch)
+                .Include(t => t.BatchAssignments)
+                .FirstOrDefaultAsync(t => t.TenantId == tenantId && t.IsActive);
+        }
+
+        if (teacher == null) return NotFound(new { message = "Teacher record not found." });
+
+        var today = DateTime.UtcNow.Date;
+        var todayDow = DateTime.UtcNow.DayOfWeek.ToString();
+
+        var assignments = await _dbContext.TeacherBatchAssignments.AsNoTracking()
+            .Include(a => a.Class)
+            .Include(a => a.Section)
+            .Include(a => a.Batch)
+            .Where(a => a.TeacherId == teacher.Id && a.IsActive)
+            .ToListAsync();
+
+        var todayLectures = assignments
+            .Where(a => string.IsNullOrEmpty(a.DaysOfWeek) || a.DaysOfWeek.Contains(todayDow))
+            .OrderBy(a => a.TimeSlot)
+            .Select(a => new TeacherTodayLectureDto(
+                a.TimeSlot ?? "Period",
+                a.Class != null ? (a.Section != null ? $"{a.Class.Name} ({a.Section.Name})" : a.Class.Name) : (a.Batch != null ? a.Batch.Name : "Class"),
+                a.Subject,
+                "Classroom",
+                a.TimeSlot ?? "Scheduled"
+            )).ToList();
+
+        var assignedBatchNames = assignments
+            .Select(a => a.Class != null ? (a.Section != null ? $"{a.Class.Name} - {a.Section.Name}" : a.Class.Name) : (a.Batch != null ? a.Batch.Name : a.Subject))
+            .Distinct()
+            .ToList();
+
+        // Punch in status
+        var teacherAttendanceToday = await _dbContext.TeacherAttendances.AsNoTracking()
+            .FirstOrDefaultAsync(a => a.TeacherId == teacher.Id && a.AttendanceDate == today);
+        bool hasPunchedIn = teacherAttendanceToday != null && teacherAttendanceToday.Status == TeacherAttendanceStatus.Present;
+        string? punchTime = teacherAttendanceToday?.CheckInTime;
+
+        // Pending Marks Entry Tests
+        var batchIds = assignments.Where(a => a.BatchId.HasValue).Select(a => a.BatchId!.Value).Distinct().ToList();
+        var classIds = assignments.Where(a => a.ClassId.HasValue).Select(a => a.ClassId!.Value).Distinct().ToList();
+        var tests = await _dbContext.Tests.AsNoTracking()
+            .Include(t => t.Batch)
+            .Include(t => t.Class)
+            .Include(t => t.MarksList)
+            .Where(t => t.TenantId == tenantId && ((t.BatchId.HasValue && batchIds.Contains(t.BatchId.Value)) || (t.ClassId.HasValue && classIds.Contains(t.ClassId.Value))))
+            .OrderByDescending(t => t.TestDate)
+            .Take(10)
+            .ToListAsync();
+        var pendingTests = tests.Where(t => t.MarksList.Count == 0).Take(5).Select(t => new TeacherPendingTestDto(
+            t.Id, t.Title, t.Subject, t.Class != null ? t.Class.Name : (t.Batch != null ? t.Batch.Name : "Class"), t.TestDate
+        )).ToList();
+
+        // Homework this week
+        var startOfWeek = today.AddDays(-(int)today.DayOfWeek);
+        int homeworkCount = await _dbContext.StudentHomeworks.CountAsync(h => h.TenantId == tenantId && h.CreatedAt >= startOfWeek && (h.TeacherName == teacher.FullName || h.TeacherId == teacher.Id));
+
+        // Notices
+        var noticesRaw = await _dbContext.SchoolNotices.AsNoTracking()
+            .Where(n => n.TenantId == tenantId && n.IsActive && (n.TargetAudience == "All" || n.TargetAudience == "Teachers"))
+            .OrderByDescending(n => n.IsPinned)
+            .ThenByDescending(n => n.CreatedAt)
+            .Take(4)
+            .ToListAsync();
+        var recentNotices = noticesRaw.Select(n => new DashboardNoticeItemDto(
+            n.Id, n.Title, n.Content, n.Category, n.CreatedAt, n.Priority
+        )).ToList();
+
+        return Ok(new TeacherDashboardSummaryDto(
+            teacher.Id,
+            teacher.FullName,
+            teacher.EmployeeCode,
+            teacher.Designation ?? "Faculty Member",
+            teacher.Department,
+            teacher.Branch?.Name,
+            teacher.PhotoUrl,
+            todayLectures.Count,
+            todayLectures,
+            assignedBatchNames.Count,
+            assignedBatchNames,
+            hasPunchedIn,
+            punchTime,
+            pendingTests.Count,
+            pendingTests.Count,
+            pendingTests,
+            homeworkCount,
+            12,
+            6,
+            recentNotices
+        ));
+    }
 }
+
 
 [ApiController]
 [Route("api/[controller]")]

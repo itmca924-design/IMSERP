@@ -110,22 +110,42 @@ export class AuthService {
   }
 
   // ── Role helpers ──────────────────────────────────────────────────────────
+  private getRoleNormalized(): string {
+    const user = this.currentUser();
+    let role = user?.role || (user as any)?.roleName || sessionStorage.getItem('role') || localStorage.getItem('role') || '';
+    if (!role || role === '0' || role === 'null') {
+      const uname = (user?.username || sessionStorage.getItem('userName') || localStorage.getItem('userName') || '').toLowerCase().trim();
+      if (uname.startsWith('student.') || uname.includes('student')) {
+        role = 'Student';
+      } else if (uname.startsWith('teacher') || uname.includes('faculty') || uname.startsWith('pappu')) {
+        role = 'Teacher';
+      } else if (uname.startsWith('parent.')) {
+        role = 'Parent';
+      } else if (uname === 'superadmin') {
+        role = 'SuperAdmin';
+      } else if (uname === 'admin') {
+        role = 'InstituteAdmin';
+      }
+    }
+    return role.toLowerCase().trim();
+  }
+
   /** True strictly for SaaS Platform Owner / Root Administrator */
   readonly isSuperAdmin = computed(() => {
-    const r = this.currentUser()?.role;
-    return r === 'SuperAdmin';
+    const r = this.getRoleNormalized();
+    return r === 'superadmin' || r.includes('superadmin');
   });
 
   /** True for Institute / Coaching Center Owner (e.g. APEX, TEST) */
   readonly isInstituteAdmin = computed(() => {
-    const r = this.currentUser()?.role;
-    return r === 'InstituteAdmin';
+    const r = this.getRoleNormalized();
+    return r === 'instituteadmin' || r.includes('admin') || r.includes('director') || r.includes('principal');
   });
 
   /** SuperAdmin or InstituteAdmin */
   readonly isAdmin = computed(() => {
-    const r = this.currentUser()?.role;
-    return r === 'SuperAdmin' || r === 'InstituteAdmin';
+    const r = this.getRoleNormalized();
+    return r === 'superadmin' || r.includes('admin') || r.includes('director') || r.includes('principal');
   });
 
   // ── Subscription helpers ──────────────────────────────────────────────────
@@ -136,24 +156,39 @@ export class AuthService {
   readonly isTrialExpired = computed(() => this.subscriptionStatus() === 'TrialExpired' || (this.trialDaysLeft() !== null && this.trialDaysLeft()! <= 0));
 
   /** HR Manager role */
-  readonly isHR = computed(() => this.currentUser()?.role === 'HR');
+  readonly isHR = computed(() => {
+    const r = this.getRoleNormalized();
+    return r === 'hr' || r.includes('hr manager');
+  });
 
   /** Teacher role (faculty login) */
-  readonly isTeacher = computed(() => this.currentUser()?.role === 'Teacher');
+  readonly isTeacher = computed(() => {
+    const r = this.getRoleNormalized();
+    return r.includes('teacher') || r.includes('faculty');
+  });
 
   /** Accountant / Cashier role */
-  readonly isAccountant = computed(() => this.currentUser()?.role === 'Accountant');
+  readonly isAccountant = computed(() => {
+    const r = this.getRoleNormalized();
+    return r.includes('account') || r.includes('cashier');
+  });
 
   /** Student role (student self-service login) */
-  readonly isStudent = computed(() => this.currentUser()?.role === 'Student');
+  readonly isStudent = computed(() => {
+    const r = this.getRoleNormalized();
+    return r.includes('student');
+  });
 
   /** Parent role (guardian login) */
-  readonly isParent = computed(() => this.currentUser()?.role === 'Parent');
+  readonly isParent = computed(() => {
+    const r = this.getRoleNormalized();
+    return r.includes('parent');
+  });
 
   /** Student or Parent role */
   readonly isStudentOrParent = computed(() => {
-    const r = this.currentUser()?.role;
-    return r === 'Student' || r === 'Parent';
+    const r = this.getRoleNormalized();
+    return r.includes('student') || r.includes('parent');
   });
 
   /**

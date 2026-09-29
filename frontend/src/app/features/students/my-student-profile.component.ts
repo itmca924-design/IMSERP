@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
 import { RouterLink } from '@angular/router';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatButtonModule } from '@angular/material/button';
@@ -14,6 +15,9 @@ import {
 } from '../../core/services/coaching.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { ApplyStudentRegularizationDialogComponent, StudentAttendanceRegularizationDto } from './student-regularization-dialog.component';
+import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.directive';
 
 const API_BASE = 'http://localhost:5000';
 
@@ -28,7 +32,9 @@ const API_BASE = 'http://localhost:5000';
     MatButtonModule,
     MatIconModule,
     MatTooltipModule,
-    MatProgressSpinnerModule
+    MatProgressSpinnerModule,
+    MatDialogModule,
+    IstDatetimeDirective
   ],
   template: `
     <div class="my-profile-container">
@@ -45,6 +51,9 @@ const API_BASE = 'http://localhost:5000';
           </div>
         </div>
         <div class="header-actions" *ngIf="data360">
+          <button mat-stroked-button class="print-medical-btn" (click)="openRegularizationDialog()" style="color: #2563eb; border-color: #bfdbfe;">
+            <mat-icon>edit_calendar</mat-icon> Request Regularization
+          </button>
           <button mat-stroked-button class="print-medical-btn" (click)="showPrintMedicalCard = true">
             <mat-icon>badge</mat-icon> Pocket Medical Card
           </button>
@@ -525,6 +534,88 @@ const API_BASE = 'http://localhost:5000';
                     <div class="punch-chip" *ngFor="let p of data360.attendanceSummary.recentLogs" [ngClass]="p.status.toLowerCase()">
                       <span class="date">{{ p.date | date:'dd MMM' }}</span>
                       <span class="st">{{ p.status }}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Regularization Requests Section -->
+                <div class="regularization-requests-wrap">
+                  <div class="reg-section-header">
+                    <div class="reg-title-group">
+                      <mat-icon class="reg-sec-icon">rule_folder</mat-icon>
+                      <div>
+                        <h4 class="sub-heading" style="margin-bottom: 2px;">My Attendance Regularization &amp; OD Requests</h4>
+                        <p class="reg-sub-desc">Status of your submitted attendance dispute, On-Duty (OD), and medical leave regularizations</p>
+                      </div>
+                    </div>
+                    <button mat-stroked-button class="apply-reg-btn" (click)="openRegularizationDialog()">
+                      <mat-icon>add_circle</mat-icon> Request Regularization
+                    </button>
+                  </div>
+
+                  <!-- Loading state -->
+                  <div class="reg-mini-loader" *ngIf="loadingRegularizations">
+                    <mat-spinner diameter="24"></mat-spinner>
+                    <span>Loading your requests...</span>
+                  </div>
+
+                  <!-- Empty state -->
+                  <div class="reg-empty-strip" *ngIf="!loadingRegularizations && myRegularizations.length === 0">
+                    <mat-icon>task_alt</mat-icon>
+                    <div>
+                      <strong>No Regularization Requests</strong>
+                      <p>You have not submitted any attendance regularization requests yet. If you were absent due to an event, sports, or illness, you can submit a request above.</p>
+                    </div>
+                  </div>
+
+                  <!-- Requests Cards / Table -->
+                  <div class="reg-cards-list" *ngIf="!loadingRegularizations && myRegularizations.length > 0">
+                    <div class="reg-item-card" *ngFor="let reg of myRegularizations" [ngClass]="reg.status.toLowerCase()">
+                      <div class="reg-card-left">
+                        <div class="reg-status-icon" [ngClass]="reg.status.toLowerCase()">
+                          <mat-icon *ngIf="reg.status === 'Pending'">hourglass_top</mat-icon>
+                          <mat-icon *ngIf="reg.status === 'Approved'">check_circle</mat-icon>
+                          <mat-icon *ngIf="reg.status === 'Rejected'">cancel</mat-icon>
+                        </div>
+                        <div class="reg-main-info">
+                          <div class="reg-date-row">
+                            <span class="reg-for-date">Attendance Date: <strong>{{ reg.attendanceDate | date:'dd MMMM yyyy (EEEE)' }}</strong></span>
+                            <span class="reg-cat-pill" [ngClass]="reg.reasonCategory.toLowerCase()">
+                              {{ getCategoryLabel(reg.reasonCategory) }}
+                            </span>
+                            <span class="reg-req-status">Requested: <strong>{{ reg.requestedStatus }}</strong></span>
+                          </div>
+                          <p class="reg-reason-text">"{{ reg.reason }}"</p>
+                          <div class="reg-proof-link" *ngIf="reg.attachmentUrl">
+                            <a [href]="reg.attachmentUrl" target="_blank">
+                              <mat-icon>attachment</mat-icon> View Attached Document / Proof
+                            </a>
+                          </div>
+                          <!-- Teacher review info -->
+                          <div class="reg-review-info" *ngIf="reg.status !== 'Pending'">
+                            <span class="reviewer-txt">
+                              <strong>Reviewed by:</strong> {{ reg.reviewedBy || 'Class Teacher' }} on <span [appIstDatetime]="reg.reviewedAt" format="datetime"></span>
+                            </span>
+                            <span class="teacher-remarks" *ngIf="reg.reviewRemarks">
+                              <strong>Teacher Remarks:</strong> {{ reg.reviewRemarks }}
+                            </span>
+                          </div>
+                          <div class="reg-pending-note" *ngIf="reg.status === 'Pending'">
+                            <mat-icon>schedule</mat-icon>
+                            <span>Awaiting review and approval from your Class Teacher.</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="reg-card-right">
+                        <span class="reg-badge" [ngClass]="reg.status.toLowerCase()">
+                          {{ reg.status === 'Pending' ? 'Pending Review' : reg.status }}
+                        </span>
+                        <small class="reg-applied-time" [appIstDatetime]="reg.createdAt" prefix="Applied on "></small>
+                        <button mat-icon-button color="warn" *ngIf="reg.status === 'Pending'" (click)="cancelMyRegularization(reg)" matTooltip="Cancel this request">
+                          <mat-icon>delete_outline</mat-icon>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1636,6 +1727,202 @@ const API_BASE = 'http://localhost:5000';
     .punch-chip.absent { border-color: #fca5a5; background: #fef2f2; color: #991b1b; font-weight: 700; }
     .punch-chip.late { border-color: #fde047; background: #fefce8; color: #854d0e; font-weight: 700; }
 
+    /* ── Regularization Requests Section ── */
+    .regularization-requests-wrap {
+      margin-top: 1.5rem;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .reg-section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid #f1f5f9;
+      .reg-title-group {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        .reg-sec-icon {
+          color: #2563eb;
+          font-size: 28px;
+          width: 28px;
+          height: 28px;
+        }
+      }
+      .reg-sub-desc {
+        margin: 0;
+        font-size: 0.78rem;
+        color: #64748b;
+      }
+      .apply-reg-btn {
+        color: #2563eb;
+        border-color: #bfdbfe;
+        background: #eff6ff;
+        font-weight: 600;
+        font-size: 0.82rem;
+        &:hover {
+          background: #dbeafe;
+        }
+      }
+    }
+    .reg-mini-loader {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 16px;
+      color: #64748b;
+      font-size: 0.85rem;
+    }
+    .reg-empty-strip {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 18px;
+      background: #f8fafc;
+      border: 1px dashed #cbd5e1;
+      border-radius: 8px;
+      color: #64748b;
+      mat-icon { font-size: 26px; width: 26px; height: 26px; color: #94a3b8; }
+      strong { color: #334155; font-size: 0.88rem; display: block; margin-bottom: 2px; }
+      p { margin: 0; font-size: 0.8rem; }
+    }
+    .reg-cards-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .reg-item-card {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      padding: 14px 16px;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      transition: all 0.2s ease;
+      &.pending {
+        border-left: 4px solid #f59e0b;
+        background: #fffdf5;
+      }
+      &.approved {
+        border-left: 4px solid #10b981;
+        background: #f0fdf4;
+      }
+      &.rejected {
+        border-left: 4px solid #ef4444;
+        background: #fef2f2;
+      }
+      .reg-card-left {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        flex: 1;
+        .reg-status-icon {
+          width: 36px;
+          height: 36px;
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          mat-icon { font-size: 20px; width: 20px; height: 20px; }
+          &.pending { background: #fef3c7; color: #b45309; }
+          &.approved { background: #dcfce7; color: #15803d; }
+          &.rejected { background: #fee2e2; color: #b91c1c; }
+        }
+        .reg-main-info {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          .reg-date-row {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.85rem;
+            .reg-for-date { color: #1e293b; }
+            .reg-cat-pill {
+              font-size: 0.72rem;
+              font-weight: 600;
+              padding: 2px 7px;
+              border-radius: 9999px;
+              background: #eff6ff;
+              color: #1d4ed8;
+              &.onduty { background: #fef3c7; color: #92400e; }
+              &.medical { background: #fee2e2; color: #991b1b; }
+              &.rollcallerror { background: #e0f2fe; color: #0369a1; }
+              &.punchmiss { background: #f3e8ff; color: #6b21a8; }
+            }
+            .reg-req-status { font-size: 0.78rem; color: #15803d; }
+          }
+          .reg-reason-text {
+            margin: 2px 0 0;
+            font-size: 0.86rem;
+            color: #334155;
+            font-style: italic;
+          }
+          .reg-proof-link {
+            a {
+              display: inline-flex;
+              align-items: center;
+              gap: 4px;
+              font-size: 0.78rem;
+              color: #2563eb;
+              font-weight: 600;
+              text-decoration: none;
+              mat-icon { font-size: 15px; width: 15px; height: 15px; }
+              &:hover { text-decoration: underline; }
+            }
+          }
+          .reg-review-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            margin-top: 4px;
+            font-size: 0.78rem;
+            color: #059669;
+            .teacher-remarks { color: #1e293b; font-weight: 500; }
+          }
+          .reg-pending-note {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.75rem;
+            color: #b45309;
+            mat-icon { font-size: 14px; width: 14px; height: 14px; }
+          }
+        }
+      }
+      .reg-card-right {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 6px;
+        flex-shrink: 0;
+        .reg-badge {
+          display: inline-flex;
+          align-items: center;
+          padding: 3px 8px;
+          border-radius: 6px;
+          font-size: 0.75rem;
+          font-weight: 700;
+          &.pending { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
+          &.approved { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+          &.rejected { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
+        }
+        .reg-applied-time { font-size: 0.72rem; color: #94a3b8; }
+      }
+    }
+
     /* ── Facilities ── */
     .facility-grid {
       display: grid;
@@ -1950,14 +2237,21 @@ export class MyStudentProfileComponent implements OnInit {
   activeCertificateModal: StudentAchievementDto | null = null;
   showPrintMedicalCard = false;
 
+  // Regularization requests
+  myRegularizations: StudentAttendanceRegularizationDto[] = [];
+  loadingRegularizations = false;
+
   constructor(
     private coachingService: CoachingService,
     public authService: AuthService,
-    private confirmDialog: ConfirmDialogService
+    private confirmDialog: ConfirmDialogService,
+    private dialog: MatDialog,
+    private http: HttpClient
   ) {}
 
   ngOnInit(): void {
     this.loadProfile();
+    this.loadMyRegularizations();
   }
 
   loadProfile(): void {
@@ -1970,6 +2264,65 @@ export class MyStudentProfileComponent implements OnInit {
       error: () => {
         this.loading = false;
         this.confirmDialog.alert('Error', 'Could not load your student 360 profile.', 'danger');
+      }
+    });
+  }
+
+  loadMyRegularizations(): void {
+    this.loadingRegularizations = true;
+    this.http.get<StudentAttendanceRegularizationDto[]>(`${API_BASE}/api/student-regularizations`).subscribe({
+      next: (list) => {
+        this.myRegularizations = list || [];
+        this.loadingRegularizations = false;
+      },
+      error: () => {
+        this.myRegularizations = [];
+        this.loadingRegularizations = false;
+      }
+    });
+  }
+
+  getCategoryLabel(cat: string): string {
+    switch (cat) {
+      case 'OnDuty': return '🏆 On-Duty (OD)';
+      case 'Medical': return '🩺 Medical';
+      case 'RollCallError': return '📋 Roll Call Error';
+      case 'PunchMiss': return '⏱️ RFID Miss';
+      default: return '📝 ' + cat;
+    }
+  }
+
+  cancelMyRegularization(reg: StudentAttendanceRegularizationDto): void {
+    if (!confirm(`Are you sure you want to cancel the regularization request for ${reg.attendanceDate}?`)) return;
+    this.http.delete(`${API_BASE}/api/student-regularizations/${reg.id}`).subscribe({
+      next: () => {
+        this.loadMyRegularizations();
+        this.confirmDialog.alert('Cancelled', 'Your regularization request has been cancelled.', 'info');
+      },
+      error: (err) => {
+        this.confirmDialog.alert('Error', err.error?.message || 'Could not cancel request.', 'danger');
+      }
+    });
+  }
+
+  openRegularizationDialog(): void {
+    if (!this.data360?.student) return;
+    const s = this.data360.student;
+    const dialogRef = this.dialog.open(ApplyStudentRegularizationDialogComponent, {
+      width: '650px',
+      data: {
+        studentId: s.id,
+        studentName: s.studentName,
+        rollNumber: s.rollNumber,
+        className: s.className,
+        sectionName: s.sectionName
+      }
+    });
+
+    dialogRef.afterClosed().subscribe((res) => {
+      if (res) {
+        this.confirmDialog.alert('Request Submitted', 'Your attendance regularization request has been submitted to your Class Teacher for review.', 'info');
+        this.loadMyRegularizations();
       }
     });
   }

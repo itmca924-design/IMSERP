@@ -10,7 +10,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterModule } from '@angular/router';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { skip } from 'rxjs';
-import { CoachingService } from '../../core/services/coaching.service';
+import { CoachingService, StudentDashboardSummary, TeacherDashboardSummary } from '../../core/services/coaching.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { AuthService } from '../../core/services/auth.service';
 import { EventsService, DashboardCelebrationsSummary, SchoolEvent, BirthdayItem } from '../../core/services/events.service';
@@ -42,8 +42,18 @@ import ApexCharts from 'apexcharts';
       <!-- Header Banner -->
       <div class="header-banner">
         <div class="header-titles">
-          <h2>{{ 'DASHBOARD.BANNER_TITLE' | translate }}</h2>
-          <p>{{ 'DASHBOARD.BANNER_SUBTITLE' | translate }}</p>
+          @if (authService.isStudentOrParent()) {
+            <h2>My Student Academic Hub</h2>
+            <p>Welcome back, <strong>{{ studentSummary()?.studentName || 'Student' }}</strong>! Your daily timetable, homework diary, attendance &amp; exam updates.</p>
+          }
+          @if (authService.isTeacher()) {
+            <h2>Faculty Academic &amp; Operations Desk</h2>
+            <p>Welcome, <strong>{{ teacherSummary()?.teacherName || 'Faculty' }}</strong>! Here is your lecture routine, assigned classrooms, and grading schedule.</p>
+          }
+          @if (!authService.isStudentOrParent() && !authService.isTeacher()) {
+            <h2>{{ 'DASHBOARD.BANNER_TITLE' | translate }}</h2>
+            <p>{{ 'DASHBOARD.BANNER_SUBTITLE' | translate }}</p>
+          }
         </div>
         <button mat-raised-button color="primary" class="refresh-btn" (click)="loadSummary()" [matTooltip]="'DASHBOARD.REFRESH_ANALYTICS' | translate">
           <mat-icon [class.spin-icon]="loading()">sync</mat-icon>
@@ -51,33 +61,847 @@ import ApexCharts from 'apexcharts';
         </button>
       </div>
 
-      @if (loading() && !summary()) {
+      @if (loading() && !summary() && !studentSummary() && !teacherSummary()) {
         <div class="spinner-center">
           <mat-spinner diameter="44"></mat-spinner>
         </div>
       }
 
-      @if (summary(); as summary) {
+      <!-- ========================================== -->
+      <!-- 🎓 1. STUDENT & PARENT ACADEMIC HUB       -->
+      <!-- ========================================== -->
+      @if (authService.isStudentOrParent()) {
+        @if (studentSummary(); as st) {
 
-        <!-- 🏆 Student Portal Quick Access Hero Card -->
-        <div class="student-portal-hero-banner" *ngIf="authService.isStudentOrParent()">
-          <div class="sph-left">
-            <div class="sph-icon"><mat-icon>military_tech</mat-icon></div>
-            <div>
-              <h3 class="sph-title">Student Self-Service Portal &amp; Wall of Fame</h3>
-              <p class="sph-sub">Access your 360° profile dossier, official honors, printable certificates, growth BMI tracker, and PTM records.</p>
+          <!-- Student 6 KPI Stat Cards -->
+          <div class="card-container">
+            <!-- 1. Attendance -->
+            <mat-card class="stat-card emerald mat-elevation-z2" routerLink="/students/my-profile">
+              <mat-card-content class="stat-content">
+                <div class="stat-header">
+                  <span class="label">My Attendance</span>
+                  <div class="stat-icon-wrap">
+                    <mat-icon class="stat-icon">how_to_reg</mat-icon>
+                  </div>
+                </div>
+                <div class="stat-body">
+                  <span class="value">{{ st.attendancePercentage }}%</span>
+                  <div class="stat-footer">
+                    <span class="stat-badge-pill">{{ st.presentDays }}/{{ st.totalAttendanceDays }} Days</span>
+                    <span class="sub-label">{{ st.attendanceStatusTag || 'Current Academic Year' }}</span>
+                  </div>
+                </div>
+              </mat-card-content>
+            </mat-card>
+
+            <!-- 2. Fee Dues -->
+            <mat-card class="stat-card orange mat-elevation-z2" routerLink="/students/my-profile">
+              <mat-card-content class="stat-content">
+                <div class="stat-header">
+                  <span class="label">My Fee Balance</span>
+                  <div class="stat-icon-wrap">
+                    <mat-icon class="stat-icon">account_balance_wallet</mat-icon>
+                  </div>
+                </div>
+                <div class="stat-body">
+                  <span class="value">₹{{ st.totalFeeDue | number:'1.0-0' }}</span>
+                  <div class="stat-footer">
+                    @if (st.lastReceiptNumber) {
+                      <span class="stat-badge-pill">Paid ₹{{ st.lastPaymentAmount | number:'1.0-0' }}</span>
+                      <span class="sub-label">Rcpt: {{ st.lastReceiptNumber }}</span>
+                    } @else if (st.totalFeeDue === 0) {
+                      <span class="stat-badge-pill">All Cleared</span>
+                      <span class="sub-label">No dues pending</span>
+                    } @else {
+                      <span class="stat-badge-pill">Pending Due</span>
+                      <span class="sub-label">Due Soon</span>
+                    }
+                  </div>
+                </div>
+              </mat-card-content>
+            </mat-card>
+
+            <!-- 3. Upcoming Tests -->
+            <mat-card class="stat-card purple mat-elevation-z2" routerLink="/school-exams">
+              <mat-card-content class="stat-content">
+                <div class="stat-header">
+                  <span class="label">Upcoming Tests</span>
+                  <div class="stat-icon-wrap">
+                    <mat-icon class="stat-icon">quiz</mat-icon>
+                  </div>
+                </div>
+                <div class="stat-body">
+                  <span class="value">{{ st.upcomingTestsCount }}</span>
+                  <div class="stat-footer">
+                    <span class="stat-badge-pill">Exams</span>
+                    <span class="sub-label">{{ st.latestTestSubject ? 'Prep: ' + st.latestTestSubject : 'No immediate test' }}</span>
+                  </div>
+                </div>
+              </mat-card-content>
+            </mat-card>
+
+            <!-- 4. Today's Homework -->
+            <mat-card class="stat-card blue mat-elevation-z2" routerLink="/homework-diary">
+              <mat-card-content class="stat-content">
+                <div class="stat-header">
+                  <span class="label">Today's Homework</span>
+                  <div class="stat-icon-wrap">
+                    <mat-icon class="stat-icon">assignment</mat-icon>
+                  </div>
+                </div>
+                <div class="stat-body">
+                  <span class="value">{{ st.pendingHomeworkCount }}</span>
+                  <div class="stat-footer">
+                    <span class="stat-badge-pill">Active Diary</span>
+                    <span class="sub-label">Assignments to complete</span>
+                  </div>
+                </div>
+              </mat-card-content>
+            </mat-card>
+
+            <!-- 5. Library Books -->
+            <mat-card class="stat-card teal mat-elevation-z2">
+              <mat-card-content class="stat-content">
+                <div class="stat-header">
+                  <span class="label">Books Borrowed</span>
+                  <div class="stat-icon-wrap">
+                    <mat-icon class="stat-icon">local_library</mat-icon>
+                  </div>
+                </div>
+                <div class="stat-body">
+                  <span class="value">{{ st.issuedBooksCount }}</span>
+                  <div class="stat-footer">
+                    @if (st.overdueBooksCount > 0) {
+                      <span class="stat-badge-pill" style="background: rgba(239, 68, 68, 0.45);">{{ st.overdueBooksCount }} Overdue</span>
+                      <span class="sub-label">Return soon</span>
+                    } @else {
+                      <span class="stat-badge-pill">In Possession</span>
+                      <span class="sub-label">0 Overdue</span>
+                    }
+                  </div>
+                </div>
+              </mat-card-content>
+            </mat-card>
+
+            <!-- 6. Wall of Fame -->
+            <mat-card class="stat-card whatsapp mat-elevation-z2" routerLink="/students/my-profile">
+              <mat-card-content class="stat-content">
+                <div class="stat-header">
+                  <span class="label">Wall of Fame</span>
+                  <div class="stat-icon-wrap">
+                    <mat-icon class="stat-icon">military_tech</mat-icon>
+                  </div>
+                </div>
+                <div class="stat-body">
+                  <span class="value">{{ st.totalAccoladesCount }}</span>
+                  <div class="stat-footer">
+                    <span class="stat-badge-pill">Star Scholar</span>
+                    <span class="sub-label">Medals &amp; Badges</span>
+                  </div>
+                </div>
+              </mat-card-content>
+            </mat-card>
+          </div>
+
+          <!-- Student Identity Hero Banner -->
+          <div class="role-hero-banner student-theme mat-elevation-z2">
+            <div class="hero-left">
+              <div class="hero-avatar-wrap">
+                <span class="hero-avatar">{{ (st.studentName || 'S').charAt(0).toUpperCase() }}</span>
+                <span class="online-dot" title="Active Student"></span>
+              </div>
+              <div class="hero-info">
+                <div class="hero-name-row">
+                  <h3 class="hero-name">{{ st.studentName }}</h3>
+                  <span class="hero-badge badge-grade">{{ st.className ? (st.sectionName ? st.className + ' - ' + st.sectionName : st.className) : (st.batchName || 'Enrolled Student') }}</span>
+                  <span class="hero-badge badge-active" *ngIf="st.isStarPerformer">{{ st.performanceBadge || 'Star Scholar' }}</span>
+                </div>
+                <div class="hero-meta-row">
+                  <span><mat-icon>badge</mat-icon> Roll No: <strong>{{ st.rollNumber || '-' }}</strong></span>
+                  <span><mat-icon>tag</mat-icon> Adm No: <strong>{{ st.admissionNumber || '-' }}</strong></span>
+                  <span><mat-icon>domain</mat-icon> Branch: <strong>{{ st.branchName || '-' }}</strong></span>
+                </div>
+              </div>
+            </div>
+            <div class="hero-actions">
+              <a mat-raised-button color="primary" class="hero-action-btn" routerLink="/students/my-profile">
+                <mat-icon>workspace_premium</mat-icon>
+                <span>My 360° Profile &amp; Wall of Fame</span>
+              </a>
             </div>
           </div>
-          <div class="sph-right">
-            <a mat-raised-button color="primary" class="sph-btn" routerLink="/students/my-profile">
-              <mat-icon>workspace_premium</mat-icon> Open My 360° Profile &amp; Wall of Fame
-            </a>
-          </div>
-        </div>
 
-        <!-- 1. Top KPI Stat Cards -->
-        <div class="card-container">
-          <mat-card class="stat-card blue mat-elevation-z2">
+          <!-- Student Row 1: Today's Routine & Timetable + Today's Homework Diary -->
+          <div class="hub-grid-2col">
+            <!-- Left: Today's Timetable -->
+            <mat-card class="hub-card mat-elevation-z2">
+              <div class="widget-header">
+                <div class="widget-title-wrap">
+                  <div class="widget-icon-box">
+                    <mat-icon>schedule</mat-icon>
+                  </div>
+                  <div>
+                    <h3 class="widget-title">Today's Class Timetable &amp; Schedule</h3>
+                    <p class="widget-sub">Daily routine for {{ st.className || st.batchName || 'Student' }}</p>
+                  </div>
+                </div>
+              </div>
+              <mat-card-content class="widget-content">
+                @if (st.todayRoutine?.length) {
+                  <div class="routine-list">
+                    @for (item of st.todayRoutine; track $index) {
+                      <div class="routine-item-card">
+                        <div class="routine-time-box">
+                          <span class="period-num">{{ item.periodName || ('Period ' + ($index + 1)) }}</span>
+                          <span class="time-range">{{ item.timeSlot }}</span>
+                        </div>
+                        <div class="routine-details">
+                          <div class="subj-row">
+                            <span class="subj-name">{{ item.subject }}</span>
+                            <span class="room-chip" *ngIf="item.roomNumber"><mat-icon>meeting_room</mat-icon> Room {{ item.roomNumber }}</span>
+                          </div>
+                          <span class="teacher-lbl" *ngIf="item.teacherName">
+                            <mat-icon>person</mat-icon> {{ item.teacherName }}
+                          </span>
+                        </div>
+                      </div>
+                    }
+                  </div>
+                } @else {
+                  <div class="hub-empty-state">
+                    <mat-icon class="empty-icon">event_busy</mat-icon>
+                    <p class="empty-title">No Lectures Scheduled Today</p>
+                    <p class="empty-sub">Enjoy your study time or weekend! Classes will appear here automatically on academic days.</p>
+                  </div>
+                }
+              </mat-card-content>
+            </mat-card>
+
+            <!-- Right: Today's Homework Diary -->
+            <mat-card class="hub-card mat-elevation-z2">
+              <div class="widget-header">
+                <div class="widget-title-wrap">
+                  <div class="widget-icon-box">
+                    <mat-icon>assignment</mat-icon>
+                  </div>
+                  <div>
+                    <h3 class="widget-title">Homework &amp; Class Diary</h3>
+                    <p class="widget-sub">Teacher assignments and submissions</p>
+                  </div>
+                </div>
+                <a mat-stroked-button color="primary" routerLink="/homework-diary" class="hub-link-btn">
+                  <span>View All</span>
+                  <mat-icon>arrow_forward</mat-icon>
+                </a>
+              </div>
+              <mat-card-content class="widget-content">
+                @if (st.recentHomework?.length) {
+                  <div class="homework-list">
+                    @for (hw of st.recentHomework; track hw.id) {
+                      <div class="hw-item-card">
+                        <div class="hw-top-row">
+                          <span class="hw-subj-pill">{{ hw.subject }}</span>
+                          <span class="hw-due-pill">Due: {{ hw.dueDate | date:'dd MMM' }}</span>
+                        </div>
+                        <h4 class="hw-title">{{ hw.title }}</h4>
+                        <p class="hw-desc" *ngIf="hw.description">{{ hw.description }}</p>
+                        <div class="hw-bottom-row">
+                          <span class="hw-teacher"><mat-icon>school</mat-icon> By {{ hw.teacherName || 'Faculty' }}</span>
+                          <span class="hw-date">Assigned {{ hw.assignedDate | date:'dd MMM' }}</span>
+                        </div>
+                      </div>
+                    }
+                  </div>
+                } @else {
+                  <div class="hub-empty-state">
+                    <mat-icon class="empty-icon text-green">assignment_turned_in</mat-icon>
+                    <p class="empty-title">All Caught Up!</p>
+                    <p class="empty-sub">No pending homework assignments in your diary right now.</p>
+                  </div>
+                }
+              </mat-card-content>
+            </mat-card>
+          </div>
+
+          <!-- Student Row 2: Upcoming Tests & Exams + Borrowed Library Books -->
+          <div class="hub-grid-2col">
+            <!-- Left: Upcoming Tests -->
+            <mat-card class="hub-card mat-elevation-z2">
+              <div class="widget-header">
+                <div class="widget-title-wrap">
+                  <div class="widget-icon-box">
+                    <mat-icon>quiz</mat-icon>
+                  </div>
+                  <div>
+                    <h3 class="widget-title">Upcoming Tests &amp; Exams</h3>
+                    <p class="widget-sub">Tests scheduled for your classroom</p>
+                  </div>
+                </div>
+                <a mat-stroked-button color="primary" routerLink="/school-exams" class="hub-link-btn">
+                  <span>Exam Desk</span>
+                  <mat-icon>arrow_forward</mat-icon>
+                </a>
+              </div>
+              <mat-card-content class="widget-content">
+                @if (st.upcomingTests?.length) {
+                  <div class="tests-list">
+                    @for (t of st.upcomingTests; track $index) {
+                      <div class="test-item-card">
+                        <div class="test-date-badge">
+                          <span class="m">{{ t.testDate | date:'MMM' | uppercase }}</span>
+                          <span class="d">{{ t.testDate | date:'dd' }}</span>
+                        </div>
+                        <div class="test-details">
+                          <div class="test-name-row">
+                            <h4 class="test-title">{{ t.title }}</h4>
+                            <span class="test-marks-chip">{{ t.maxMarks }} Marks</span>
+                          </div>
+                          <span class="test-subj"><mat-icon>menu_book</mat-icon> {{ t.subject }}</span>
+                          <p class="test-syllabus" *ngIf="t.batchOrClass">
+                            <strong>Target:</strong> {{ t.batchOrClass }}
+                          </p>
+                        </div>
+                      </div>
+                    }
+                  </div>
+                } @else {
+                  <div class="hub-empty-state">
+                    <mat-icon class="empty-icon">verified</mat-icon>
+                    <p class="empty-title">No Upcoming Tests</p>
+                    <p class="empty-sub">No tests or exams are scheduled for this week.</p>
+                  </div>
+                }
+              </mat-card-content>
+            </mat-card>
+
+            <!-- Right: Borrowed Library Books -->
+            <mat-card class="hub-card mat-elevation-z2">
+              <div class="widget-header">
+                <div class="widget-title-wrap">
+                  <div class="widget-icon-box">
+                    <mat-icon>local_library</mat-icon>
+                  </div>
+                  <div>
+                    <h3 class="widget-title">Borrowed Library Books</h3>
+                    <p class="widget-sub">Books currently issued to your library account</p>
+                  </div>
+                </div>
+              </div>
+              <mat-card-content class="widget-content">
+                @if (st.issuedBooks?.length) {
+                  <div class="books-list">
+                    @for (b of st.issuedBooks; track b.id) {
+                      <div class="book-item-card" [class.is-overdue]="b.isOverdue">
+                        <div class="book-icon-badge">
+                          <mat-icon>auto_stories</mat-icon>
+                        </div>
+                        <div class="book-details">
+                          <div class="book-title-row">
+                            <h4 class="book-title">{{ b.bookTitle }}</h4>
+                            <span class="book-status-pill" [class.overdue]="b.isOverdue">
+                              {{ b.isOverdue ? 'Overdue' : 'Issued' }}
+                            </span>
+                          </div>
+                          <span class="book-author" *ngIf="b.accessionNumber">Acc: {{ b.accessionNumber }}</span>
+                          <div class="book-dates-row">
+                            <span>Issued: {{ b.issueDate | date:'dd MMM yyyy' }}</span>
+                            <span class="due-text" [class.text-red]="b.isOverdue">
+                              Return Due: <strong>{{ b.dueDate | date:'dd MMM yyyy' }}</strong>
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    }
+                  </div>
+                } @else {
+                  <div class="hub-empty-state">
+                    <mat-icon class="empty-icon">menu_book</mat-icon>
+                    <p class="empty-title">No Books Issued</p>
+                    <p class="empty-sub">Visit the school library to borrow storybooks, course guides, and reference material.</p>
+                  </div>
+                }
+              </mat-card-content>
+            </mat-card>
+          </div>
+
+          <!-- Student Row 3: Official Circulars & Notices + School Celebrations Radar -->
+          <div class="hub-grid-2col">
+            <!-- Left: Official Notices & Circulars -->
+            <mat-card class="hub-card mat-elevation-z2">
+              <div class="widget-header">
+                <div class="widget-title-wrap">
+                  <div class="widget-icon-box">
+                    <mat-icon>campaign</mat-icon>
+                  </div>
+                  <div>
+                    <h3 class="widget-title">Official Circulars &amp; Notices</h3>
+                    <p class="widget-sub">School administration announcements</p>
+                  </div>
+                </div>
+                <a mat-stroked-button color="primary" routerLink="/school-notices" class="hub-link-btn">
+                  <span>Notice Board</span>
+                  <mat-icon>arrow_forward</mat-icon>
+                </a>
+              </div>
+              <mat-card-content class="widget-content">
+                @if (st.recentNotices?.length) {
+                  <div class="notices-list">
+                    @for (n of st.recentNotices; track n.id) {
+                      <div class="notice-item-card">
+                        <div class="notice-header-row">
+                          <span class="notice-cat-chip" [ngClass]="n.category.toLowerCase()">{{ n.category }}</span>
+                          <span class="notice-date">{{ n.publishedDate | date:'dd MMM yyyy' }}</span>
+                        </div>
+                        <h4 class="notice-title">{{ n.title }}</h4>
+                        <p class="notice-desc">{{ n.content }}</p>
+                      </div>
+                    }
+                  </div>
+                } @else {
+                  <div class="hub-empty-state">
+                    <mat-icon class="empty-icon">notifications_paused</mat-icon>
+                    <p class="empty-title">No Active Circulars</p>
+                    <p class="empty-sub">New announcements from the principal and teachers will appear here.</p>
+                  </div>
+                }
+              </mat-card-content>
+            </mat-card>
+
+
+            <!-- Right: Campus Happenings & Birthday Radar -->
+            <mat-card class="hub-card mat-elevation-z2">
+              <div class="widget-header">
+                <div class="widget-title-wrap">
+                  <div class="widget-icon-box">
+                    <mat-icon>celebration</mat-icon>
+                  </div>
+                  <div>
+                    <h3 class="widget-title">Campus Happenings &amp; Birthdays</h3>
+                    <p class="widget-sub">{{ birthdayRadarSubtitle() }}</p>
+                  </div>
+                </div>
+              </div>
+              <mat-card-content class="widget-content">
+                @if (celebrations()?.todayBirthdays?.length) {
+                  <div class="today-bday-list">
+                    @for (b of celebrations()!.todayBirthdays; track b.id) {
+                      <div class="bday-item-card">
+                        <div class="bday-avatar-wrap">
+                          <img *ngIf="b.photoUrl" [src]="b.photoUrl" [alt]="b.name" class="bday-avatar" />
+                          <div *ngIf="!b.photoUrl" class="bday-avatar-fallback">
+                            {{ b.name.substring(0, 1) | uppercase }}
+                          </div>
+                          <span class="confetti-emoji">🎉</span>
+                        </div>
+                        <div class="bday-details">
+                          <div class="bday-name-row">
+                            <span class="person-name">{{ b.name }}</span>
+                            <span class="role-pill" [class.staff]="b.role === 'Staff'">{{ b.role }}</span>
+                          </div>
+                          <span class="bday-meta">
+                            {{ b.classOrDepartment || 'Student' }} • Turning {{ b.ageTurning }} yrs
+                          </span>
+                        </div>
+                      </div>
+                    }
+                  </div>
+                } @else {
+                  <div class="hub-empty-state">
+                    <mat-icon class="empty-icon">sentiment_satisfied_alt</mat-icon>
+                    <p class="empty-title">No Birthdays Today</p>
+                    <p class="empty-sub">Check back tomorrow for campus celebrations!</p>
+                  </div>
+                }
+              </mat-card-content>
+            </mat-card>
+          </div>
+
+        } @else if (!loading()) {
+          <div class="dashboard-fallback-state mat-elevation-z1">
+            <div class="fallback-icon-box">
+              <mat-icon>school</mat-icon>
+            </div>
+            <h3>Student Academic Hub</h3>
+            <p>Unable to retrieve student profile or academic records. Please click below to refresh.</p>
+            <button mat-raised-button color="primary" (click)="loadSummary()">
+              <mat-icon>refresh</mat-icon> Refresh
+            </button>
+          </div>
+        }
+      }
+
+      <!-- ========================================== -->
+      <!-- 👨‍🏫 2. TEACHER & FACULTY OPERATIONS HUB     -->
+      <!-- ========================================== -->
+      @if (authService.isTeacher()) {
+        @if (teacherSummary(); as tc) {
+
+          <!-- Teacher 6 KPI Stat Cards -->
+          <div class="card-container">
+            <!-- 1. Today's Lectures -->
+            <mat-card class="stat-card blue mat-elevation-z2">
+              <mat-card-content class="stat-content">
+                <div class="stat-header">
+                  <span class="label">Today's Lectures</span>
+                  <div class="stat-icon-wrap">
+                    <mat-icon class="stat-icon">schedule</mat-icon>
+                  </div>
+                </div>
+                <div class="stat-body">
+                  <span class="value">{{ tc.todayLecturesCount }}</span>
+                  <div class="stat-footer">
+                    <span class="stat-badge-pill">Routine</span>
+                    <span class="sub-label">Assigned periods today</span>
+                  </div>
+                </div>
+              </mat-card-content>
+            </mat-card>
+
+            <!-- 2. Assigned Batches -->
+            <mat-card class="stat-card teal mat-elevation-z2" routerLink="/batches">
+              <mat-card-content class="stat-content">
+                <div class="stat-header">
+                  <span class="label">Assigned Batches</span>
+                  <div class="stat-icon-wrap">
+                    <mat-icon class="stat-icon">groups</mat-icon>
+                  </div>
+                </div>
+                <div class="stat-body">
+                  <span class="value">{{ tc.assignedBatchesCount }}</span>
+                  <div class="stat-footer">
+                    <span class="stat-badge-pill">Classrooms</span>
+                    <span class="sub-label">Active sections under you</span>
+                  </div>
+                </div>
+              </mat-card-content>
+            </mat-card>
+
+            <!-- 3. Pending Marks Entry -->
+            <mat-card class="stat-card orange mat-elevation-z2" routerLink="/school-exams">
+              <mat-card-content class="stat-content">
+                <div class="stat-header">
+                  <span class="label">Pending Marks Entry</span>
+                  <div class="stat-icon-wrap">
+                    <mat-icon class="stat-icon">pending_actions</mat-icon>
+                  </div>
+                </div>
+                <div class="stat-body">
+                  <span class="value">{{ tc.pendingMarksEntryTestsCount }}</span>
+                  <div class="stat-footer">
+                    <span class="stat-badge-pill">Evaluation</span>
+                    <span class="sub-label">Tests awaiting grading</span>
+                  </div>
+                </div>
+              </mat-card-content>
+            </mat-card>
+
+            <!-- 4. Homework Given This Week -->
+            <mat-card class="stat-card purple mat-elevation-z2" routerLink="/homework-diary">
+              <mat-card-content class="stat-content">
+                <div class="stat-header">
+                  <span class="label">Homework Posted</span>
+                  <div class="stat-icon-wrap">
+                    <mat-icon class="stat-icon">menu_book</mat-icon>
+                  </div>
+                </div>
+                <div class="stat-body">
+                  <span class="value">{{ tc.homeworkGivenThisWeekCount }}</span>
+                  <div class="stat-footer">
+                    <span class="stat-badge-pill">This Week</span>
+                    <span class="sub-label">Active diary tasks</span>
+                  </div>
+                </div>
+              </mat-card-content>
+            </mat-card>
+
+            <!-- 5. Leave Balance -->
+            <mat-card class="stat-card emerald mat-elevation-z2">
+              <mat-card-content class="stat-content">
+                <div class="stat-header">
+                  <span class="label">Leave Balance</span>
+                  <div class="stat-icon-wrap">
+                    <mat-icon class="stat-icon">beach_access</mat-icon>
+                  </div>
+                </div>
+                <div class="stat-body">
+                  <span class="value">{{ (tc.casualLeaveBalance || 0) + (tc.medicalLeaveBalance || 0) }} <small style="font-size: 0.9rem;">Days</small></span>
+                  <div class="stat-footer">
+                    <span class="stat-badge-pill">CL: {{ tc.casualLeaveBalance || 0 }} | ML: {{ tc.medicalLeaveBalance || 0 }}</span>
+                    <span class="sub-label">Paid leaves remaining</span>
+                  </div>
+                </div>
+              </mat-card-content>
+            </mat-card>
+
+            <!-- 6. Punch Status -->
+            <mat-card class="stat-card whatsapp mat-elevation-z2">
+              <mat-card-content class="stat-content">
+                <div class="stat-header">
+                  <span class="label">Biometric Punch</span>
+                  <div class="stat-icon-wrap">
+                    <mat-icon class="stat-icon">fingerprint</mat-icon>
+                  </div>
+                </div>
+                <div class="stat-body">
+                  <span class="value">{{ tc.hasPunchedInToday ? 'Punched In' : 'Not Punched' }}</span>
+                  <div class="stat-footer">
+                    <span class="stat-badge-pill">Live Status</span>
+                    <span class="sub-label">{{ tc.todayPunchTime ? 'In at ' + tc.todayPunchTime : 'Not punched today' }}</span>
+                  </div>
+                </div>
+              </mat-card-content>
+            </mat-card>
+          </div>
+
+          <!-- Teacher Identity Hero Banner -->
+          <div class="role-hero-banner teacher-theme mat-elevation-z2">
+            <div class="hero-left">
+              <div class="hero-avatar-wrap">
+                <span class="hero-avatar">{{ (tc.teacherName || 'T').charAt(0).toUpperCase() }}</span>
+                <span class="online-dot" title="Active Faculty"></span>
+              </div>
+              <div class="hero-info">
+                <div class="hero-name-row">
+                  <h3 class="hero-name">{{ tc.teacherName }}</h3>
+                  <span class="hero-badge badge-grade">{{ tc.designation || 'Faculty Member' }}</span>
+                  <span class="hero-badge badge-dept" *ngIf="tc.department">{{ tc.department }}</span>
+                </div>
+                <div class="hero-meta-row">
+                  <span><mat-icon>badge</mat-icon> Emp Code: <strong>{{ tc.employeeCode || '-' }}</strong></span>
+                  <span><mat-icon>domain</mat-icon> Branch: <strong>{{ tc.branchName || '-' }}</strong></span>
+                  <span><mat-icon>schedule</mat-icon> Punch: <strong>{{ tc.hasPunchedInToday ? 'Punched In' : 'Not Punched' }}</strong> ({{ tc.todayPunchTime || 'No punch record' }})</span>
+                </div>
+              </div>
+            </div>
+            <div class="hero-actions">
+              <a mat-raised-button color="primary" class="hero-action-btn" routerLink="/students/attendance">
+                <mat-icon>how_to_reg</mat-icon>
+                <span>Take Roll Call</span>
+              </a>
+            </div>
+          </div>
+
+          <!-- Teacher Row 1: Today's Teaching Schedule + Pending Marks Entry -->
+          <div class="hub-grid-2col">
+            <!-- Left: Today's Teaching Schedule -->
+            <mat-card class="hub-card mat-elevation-z2">
+              <div class="widget-header">
+                <div class="widget-title-wrap">
+                  <div class="widget-icon-box">
+                    <mat-icon>schedule</mat-icon>
+                  </div>
+                  <div>
+                    <h3 class="widget-title">Today's Teaching Schedule</h3>
+                    <p class="widget-sub">Periods &amp; classrooms assigned to you today</p>
+                  </div>
+                </div>
+              </div>
+              <mat-card-content class="widget-content">
+                @if (tc.todaySchedule?.length) {
+                  <div class="routine-list">
+                    @for (lec of tc.todaySchedule; track $index) {
+                      <div class="routine-item-card">
+                        <div class="routine-time-box">
+                          <span class="period-num">{{ lec.periodName || ('Period ' + ($index + 1)) }}</span>
+                          <span class="time-range">{{ lec.timeSlot }}</span>
+                        </div>
+                        <div class="routine-details">
+                          <div class="subj-row">
+                            <span class="subj-name">{{ lec.subject }}</span>
+                            <span class="room-chip" *ngIf="lec.roomNumber"><mat-icon>meeting_room</mat-icon> Room {{ lec.roomNumber }}</span>
+                          </div>
+                          <span class="teacher-lbl">
+                            <mat-icon>groups</mat-icon> {{ lec.classOrBatch }}
+                          </span>
+                        </div>
+                      </div>
+                    }
+                  </div>
+                } @else {
+                  <div class="hub-empty-state">
+                    <mat-icon class="empty-icon">check_circle</mat-icon>
+                    <p class="empty-title">No Lectures Scheduled Today</p>
+                    <p class="empty-sub">No timetable periods assigned to you for today.</p>
+                  </div>
+                }
+              </mat-card-content>
+            </mat-card>
+
+            <!-- Right: Pending Marks Entry -->
+            <mat-card class="hub-card mat-elevation-z2">
+              <div class="widget-header">
+                <div class="widget-title-wrap">
+                  <div class="widget-icon-box">
+                    <mat-icon>edit_note</mat-icon>
+                  </div>
+                  <div>
+                    <h3 class="widget-title">Tests Awaiting Marks Entry</h3>
+                    <p class="widget-sub">Grade your students to update progress reports</p>
+                  </div>
+                </div>
+                <a mat-stroked-button color="primary" routerLink="/school-exams" class="hub-link-btn">
+                  <span>Exams Desk</span>
+                  <mat-icon>arrow_forward</mat-icon>
+                </a>
+              </div>
+              <mat-card-content class="widget-content">
+                @if (tc.pendingTests?.length) {
+                  <div class="tests-list">
+                    @for (pt of tc.pendingTests; track pt.testId) {
+                      <div class="test-item-card">
+                        <div class="test-date-badge">
+                          <span class="m">{{ pt.testDate | date:'MMM' | uppercase }}</span>
+                          <span class="d">{{ pt.testDate | date:'dd' }}</span>
+                        </div>
+                        <div class="test-details">
+                          <div class="test-name-row">
+                            <h4 class="test-title">{{ pt.title }}</h4>
+                            <span class="test-marks-chip">Pending</span>
+                          </div>
+                          <span class="test-subj"><mat-icon>groups</mat-icon> {{ pt.batchOrClass }} • {{ pt.subject }}</span>
+                          <div class="test-eval-row">
+                            <span class="eval-stat">Pending Marks Entry</span>
+                            <a mat-flat-button color="primary" class="enter-marks-mini-btn" routerLink="/school-exams">
+                              Enter Marks
+                            </a>
+                          </div>
+                        </div>
+                      </div>
+                    }
+                  </div>
+                } @else {
+                  <div class="hub-empty-state">
+                    <mat-icon class="empty-icon text-green">task_alt</mat-icon>
+                    <p class="empty-title">All Tests Evaluated!</p>
+                    <p class="empty-sub">Great job! You have no pending marks entries waiting for your classes.</p>
+                  </div>
+                }
+              </mat-card-content>
+            </mat-card>
+          </div>
+
+          <!-- Teacher Row 2: Faculty Quick Operations + Campus Celebrations -->
+          <div class="hub-grid-2col">
+            <!-- Left: Quick Actions Grid -->
+            <mat-card class="hub-card mat-elevation-z2">
+              <div class="widget-header">
+                <div class="widget-title-wrap">
+                  <div class="widget-icon-box">
+                    <mat-icon>bolt</mat-icon>
+                  </div>
+                  <div>
+                    <h3 class="widget-title">Faculty Quick Actions</h3>
+                    <p class="widget-sub">One-click operational shortcuts</p>
+                  </div>
+                </div>
+              </div>
+              <mat-card-content class="widget-content">
+                <div class="quick-actions-grid">
+                  <a class="action-tile blue-tile" routerLink="/students/attendance">
+                    <mat-icon>how_to_reg</mat-icon>
+                    <span class="tile-title">Take Roll Call</span>
+                    <span class="tile-desc">Mark student daily attendance</span>
+                  </a>
+                  <a class="action-tile purple-tile" routerLink="/homework-diary">
+                    <mat-icon>assignment</mat-icon>
+                    <span class="tile-title">Post Homework</span>
+                    <span class="tile-desc">Add homework to student diary</span>
+                  </a>
+                  <a class="action-tile orange-tile" routerLink="/school-exams">
+                    <mat-icon>quiz</mat-icon>
+                    <span class="tile-title">Schedule Test</span>
+                    <span class="tile-desc">Create classroom test &amp; enter marks</span>
+                  </a>
+                  <a class="action-tile teal-tile" routerLink="/teacher-substitution">
+                    <mat-icon>swap_horiz</mat-icon>
+                    <span class="tile-title">Substitution</span>
+                    <span class="tile-desc">Check substitute teacher routine</span>
+                  </a>
+                </div>
+              </mat-card-content>
+            </mat-card>
+
+            <!-- Right: Campus Happenings & Birthdays Radar -->
+            <mat-card class="hub-card mat-elevation-z2">
+              <div class="widget-header">
+                <div class="widget-title-wrap">
+                  <div class="widget-icon-box">
+                    <mat-icon>celebration</mat-icon>
+                  </div>
+                  <div>
+                    <h3 class="widget-title">Campus Happenings &amp; Birthdays</h3>
+                    <p class="widget-sub">{{ birthdayRadarSubtitle() }}</p>
+                  </div>
+                </div>
+              </div>
+              <mat-card-content class="widget-content">
+                @if (celebrations()?.todayBirthdays?.length) {
+                  <div class="today-bday-list">
+                    @for (b of celebrations()!.todayBirthdays; track b.id) {
+                      <div class="bday-item-card">
+                        <div class="bday-avatar-wrap">
+                          <img *ngIf="b.photoUrl" [src]="b.photoUrl" [alt]="b.name" class="bday-avatar" />
+                          <div *ngIf="!b.photoUrl" class="bday-avatar-fallback">
+                            {{ b.name.substring(0, 1) | uppercase }}
+                          </div>
+                          <span class="confetti-emoji">🎉</span>
+                        </div>
+                        <div class="bday-details">
+                          <div class="bday-name-row">
+                            <span class="person-name">{{ b.name }}</span>
+                            <span class="role-pill" [class.staff]="b.role === 'Staff'">{{ b.role }}</span>
+                          </div>
+                          <span class="bday-meta">
+                            {{ b.classOrDepartment || 'Student' }} • Turning {{ b.ageTurning }} yrs
+                          </span>
+                        </div>
+                        <button
+                          *ngIf="b.whatsAppPhone"
+                          mat-flat-button
+                          class="wa-wish-btn"
+                          (click)="sendWhatsAppWish(b)"
+                          [matTooltip]="'Send Birthday Greeting via WhatsApp'"
+                        >
+                          <mat-icon class="wa-icon">chat</mat-icon>
+                          <span>Wish</span>
+                        </button>
+                      </div>
+                    }
+                  </div>
+                } @else {
+                  <div class="hub-empty-state">
+                    <mat-icon class="empty-icon">sentiment_satisfied_alt</mat-icon>
+                    <p class="empty-title">No Birthdays Today</p>
+                    <p class="empty-sub">No student or colleague birthdays today.</p>
+                  </div>
+                }
+              </mat-card-content>
+            </mat-card>
+          </div>
+
+        } @else if (!loading()) {
+          <div class="dashboard-fallback-state mat-elevation-z1">
+            <div class="fallback-icon-box">
+              <mat-icon>badge</mat-icon>
+            </div>
+            <h3>Faculty Operations Desk</h3>
+            <p>Unable to retrieve faculty timetable or class records. Please click below to refresh.</p>
+            <button mat-raised-button color="primary" (click)="loadSummary()">
+              <mat-icon>refresh</mat-icon> Refresh
+            </button>
+          </div>
+        }
+      }
+
+      <!-- ========================================== -->
+      <!-- 🏢 3. EXECUTIVE & MANAGEMENT OVERVIEW       -->
+      <!-- ========================================== -->
+      @if (!authService.isStudentOrParent() && !authService.isTeacher()) {
+        @if (summary(); as summary) {
+
+          <!-- 1. Top KPI Stat Cards -->
+          <div class="card-container">
+            <mat-card class="stat-card blue mat-elevation-z2">
             <mat-card-content class="stat-content">
               <div class="stat-header">
                 <span class="label">{{ 'DASHBOARD.TOTAL_ACTIVE_STUDENTS' | translate }}</span>
@@ -621,6 +1445,18 @@ import ApexCharts from 'apexcharts';
 
         </div>
 
+        } @else if (!loading()) {
+          <div class="dashboard-fallback-state mat-elevation-z1">
+            <div class="fallback-icon-box">
+              <mat-icon>analytics</mat-icon>
+            </div>
+            <h3>Institute Analytics Overview</h3>
+            <p>Unable to load institutional analytics. Please make sure the backend is connected and click below to refresh.</p>
+            <button mat-raised-button color="primary" (click)="loadSummary()">
+              <mat-icon>refresh</mat-icon> Refresh
+            </button>
+          </div>
+        }
       }
     </div>
   `,
@@ -631,6 +1467,55 @@ import ApexCharts from 'apexcharts';
       gap: 22px;
       width: 100%;
       box-sizing: border-box;
+    }
+
+    .dashboard-fallback-state {
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+      border: 1px solid #bfdbfe;
+      border-radius: 16px;
+      padding: 40px 24px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      margin: 20px 0;
+
+      .fallback-icon-box {
+        width: 56px;
+        height: 56px;
+        border-radius: 12px;
+        background: #2563eb;
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 6px -1px rgba(37,99,235,0.25);
+
+        mat-icon {
+          font-size: 28px;
+          width: 28px;
+          height: 28px;
+        }
+      }
+
+      h3 {
+        margin: 0;
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: #1e3a8a;
+      }
+
+      p {
+        margin: 0;
+        font-size: 0.9rem;
+        color: #3b82f6;
+        max-width: 460px;
+      }
+
+      button {
+        margin-top: 6px;
+      }
     }
 
     .header-banner {
@@ -1860,6 +2745,780 @@ import ApexCharts from 'apexcharts';
       }
     }
 
+    /* ─── Role Hero Banners (Student & Faculty) ─── */
+    .role-hero-banner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1.25rem 1.75rem;
+      border-radius: 14px;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+
+      &.student-theme {
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        border: 1px solid #bfdbfe;
+      }
+
+      &.teacher-theme {
+        background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+        border: 1px solid #bbf7d0;
+      }
+
+      .hero-left {
+        display: flex;
+        align-items: center;
+        gap: 1.25rem;
+      }
+
+      .hero-avatar-wrap {
+        position: relative;
+        width: 56px;
+        height: 56px;
+        border-radius: 14px;
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3);
+
+        .hero-avatar {
+          font-size: 1.6rem;
+          font-weight: 800;
+        }
+
+        .online-dot {
+          position: absolute;
+          bottom: -2px;
+          right: -2px;
+          width: 14px;
+          height: 14px;
+          border-radius: 50%;
+          background: #10b981;
+          border: 2px solid #ffffff;
+        }
+      }
+
+      .hero-info {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+
+        .hero-name-row {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex-wrap: wrap;
+
+          .hero-name {
+            margin: 0;
+            font-size: 1.35rem;
+            font-weight: 700;
+            color: #1e3a8a;
+          }
+
+          .hero-badge {
+            font-size: 0.72rem;
+            font-weight: 700;
+            padding: 3px 9px;
+            border-radius: 20px;
+
+            &.badge-grade {
+              background: #dbeafe;
+              color: #1d4ed8;
+              border: 1px solid #bfdbfe;
+            }
+
+            &.badge-dept {
+              background: #dcfce7;
+              color: #15803d;
+              border: 1px solid #bbf7d0;
+            }
+
+            &.badge-active {
+              background: #ecfdf5;
+              color: #059669;
+              border: 1px solid #a7f3d0;
+            }
+          }
+        }
+
+        .hero-meta-row {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          color: #3b82f6;
+          font-size: 0.85rem;
+          flex-wrap: wrap;
+
+          span {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+
+            mat-icon {
+              font-size: 16px;
+              width: 16px;
+              height: 16px;
+              color: #2563eb;
+            }
+
+            strong {
+              color: #1e40af;
+              font-weight: 700;
+            }
+          }
+        }
+      }
+
+      .hero-actions .hero-action-btn {
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+        color: #ffffff !important;
+        font-weight: 600 !important;
+        border-radius: 10px !important;
+        padding: 0.65rem 1.4rem !important;
+        box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25) !important;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+    }
+
+    /* ─── Role Hub Grid & Cards ─── */
+    .hub-grid-2col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+
+      @media (max-width: 992px) {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .hub-card {
+      border-radius: 12px;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+
+      .widget-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 14px 18px;
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        border-bottom: 1px solid #bfdbfe;
+        flex-wrap: wrap;
+        gap: 10px;
+
+        .widget-title-wrap {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+
+          .widget-icon-box {
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            background: #2563eb;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.25);
+            mat-icon { font-size: 20px; width: 20px; height: 20px; }
+          }
+
+          .widget-title {
+            margin: 0;
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: #1e3a8a;
+          }
+
+          .widget-sub {
+            margin: 2px 0 0;
+            font-size: 0.78rem;
+            color: #3b82f6;
+          }
+        }
+
+        .hub-link-btn {
+          border-color: #93c5fd !important;
+          color: #1d4ed8 !important;
+          background: #ffffff !important;
+          font-weight: 600;
+          font-size: 0.8rem;
+          height: 32px;
+          line-height: 32px;
+          padding: 0 10px;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+        }
+      }
+
+      .widget-content {
+        padding: 16px;
+        min-height: 220px;
+      }
+    }
+
+    /* ─── Routine & Timetable List ─── */
+    .routine-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .routine-item-card {
+      display: flex;
+      align-items: center;
+      padding: 10px 14px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      gap: 14px;
+      transition: all 0.2s ease;
+
+      &:hover {
+        background: #f1f5f9;
+        border-color: #cbd5e1;
+      }
+
+      .routine-time-box {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: #eff6ff;
+        border: 1px solid #bfdbfe;
+        border-radius: 8px;
+        padding: 6px 12px;
+        min-width: 90px;
+        text-align: center;
+
+        .period-num {
+          font-size: 0.72rem;
+          font-weight: 700;
+          color: #1d4ed8;
+          text-transform: uppercase;
+        }
+
+        .time-range {
+          font-size: 0.75rem;
+          font-weight: 600;
+          color: #1e40af;
+          white-space: nowrap;
+        }
+      }
+
+      .routine-details {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+
+        .subj-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+
+          .subj-name {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #0f172a;
+          }
+
+          .room-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #475569;
+            background: #e2e8f0;
+            padding: 2px 7px;
+            border-radius: 12px;
+
+            mat-icon { font-size: 14px; width: 14px; height: 14px; }
+          }
+        }
+
+        .teacher-lbl {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          font-size: 0.8rem;
+          color: #64748b;
+
+          mat-icon { font-size: 15px; width: 15px; height: 15px; color: #94a3b8; }
+        }
+      }
+    }
+
+    /* ─── Homework & Diary List ─── */
+    .homework-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .hw-item-card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      transition: all 0.2s ease;
+
+      &:hover {
+        background: #f1f5f9;
+        border-color: #bfdbfe;
+      }
+
+      .hw-top-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+
+        .hw-subj-pill {
+          background: #eff6ff;
+          color: #2563eb;
+          font-size: 0.72rem;
+          font-weight: 700;
+          padding: 2px 8px;
+          border-radius: 12px;
+          border: 1px solid #bfdbfe;
+        }
+
+        .hw-due-pill {
+          font-size: 0.72rem;
+          font-weight: 700;
+          color: #dc2626;
+          background: #fef2f2;
+          padding: 2px 8px;
+          border-radius: 12px;
+          border: 1px solid #fecaca;
+        }
+      }
+
+      .hw-title {
+        margin: 0;
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: #1e293b;
+      }
+
+      .hw-desc {
+        margin: 0;
+        font-size: 0.82rem;
+        color: #64748b;
+        line-height: 1.4;
+      }
+
+      .hw-bottom-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.75rem;
+        color: #94a3b8;
+        padding-top: 4px;
+        border-top: 1px dashed #e2e8f0;
+
+        .hw-teacher {
+          display: inline-flex;
+          align-items: center;
+          gap: 3px;
+          mat-icon { font-size: 14px; width: 14px; height: 14px; }
+        }
+      }
+    }
+
+    /* ─── Tests & Exams List ─── */
+    .tests-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .test-item-card {
+      display: flex;
+      align-items: center;
+      padding: 12px 14px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      gap: 14px;
+      transition: all 0.2s ease;
+
+      &:hover {
+        background: #f1f5f9;
+        border-color: #ddd6fe;
+      }
+
+      .test-date-badge {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: #faf5ff;
+        border: 1px solid #e9d5ff;
+        border-radius: 8px;
+        padding: 6px 12px;
+        min-width: 52px;
+
+        .m {
+          font-size: 0.68rem;
+          font-weight: 800;
+          color: #7c3aed;
+        }
+
+        .d {
+          font-size: 1.15rem;
+          font-weight: 800;
+          color: #6d28d9;
+          line-height: 1.1;
+        }
+      }
+
+      .test-details {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+
+        .test-name-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+
+          .test-title {
+            margin: 0;
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #0f172a;
+          }
+
+          .test-marks-chip {
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: #6d28d9;
+            background: #ede9fe;
+            padding: 2px 7px;
+            border-radius: 10px;
+          }
+        }
+
+        .test-subj {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          font-size: 0.8rem;
+          color: #64748b;
+
+          mat-icon { font-size: 15px; width: 15px; height: 15px; color: #8b5cf6; }
+        }
+
+        .test-syllabus {
+          margin: 2px 0 0;
+          font-size: 0.78rem;
+          color: #475569;
+          strong { color: #1e293b; }
+        }
+
+        .test-eval-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-top: 4px;
+          padding-top: 4px;
+          border-top: 1px dashed #e2e8f0;
+
+          .eval-stat {
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: #f59e0b;
+          }
+
+          .enter-marks-mini-btn {
+            height: 26px !important;
+            line-height: 26px !important;
+            padding: 0 10px !important;
+            font-size: 0.75rem !important;
+            font-weight: 600 !important;
+            border-radius: 6px !important;
+          }
+        }
+      }
+    }
+
+    /* ─── Library Books List ─── */
+    .books-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .book-item-card {
+      display: flex;
+      align-items: center;
+      padding: 12px 14px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      gap: 12px;
+      transition: all 0.2s ease;
+
+      &.is-overdue {
+        background: #fff5f5;
+        border-color: #fca5a5;
+      }
+
+      .book-icon-badge {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        background: #ccfbf1;
+        color: #0f766e;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        mat-icon { font-size: 22px; width: 22px; height: 22px; }
+      }
+
+      .book-details {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+
+        .book-title-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+
+          .book-title {
+            margin: 0;
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #0f172a;
+          }
+
+          .book-status-pill {
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 10px;
+            background: #dcfce7;
+            color: #15803d;
+
+            &.overdue {
+              background: #fee2e2;
+              color: #dc2626;
+            }
+          }
+        }
+
+        .book-author {
+          font-size: 0.8rem;
+          color: #64748b;
+        }
+
+        .book-dates-row {
+          display: flex;
+          justify-content: space-between;
+          font-size: 0.75rem;
+          color: #94a3b8;
+          margin-top: 2px;
+
+          .due-text {
+            color: #475569;
+            &.text-red { color: #dc2626; }
+          }
+        }
+      }
+    }
+
+    /* ─── Circulars & Notices List ─── */
+    .notices-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .notice-item-card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+
+      .notice-header-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+
+        .notice-cat-chip {
+          font-size: 0.7rem;
+          font-weight: 700;
+          padding: 2px 8px;
+          border-radius: 12px;
+          background: #eff6ff;
+          color: #2563eb;
+
+          &.urgent, &.exam {
+            background: #fef2f2;
+            color: #dc2626;
+          }
+          &.holiday {
+            background: #f0fdf4;
+            color: #16a34a;
+          }
+        }
+
+        .notice-date {
+          font-size: 0.75rem;
+          color: #94a3b8;
+        }
+      }
+
+      .notice-title {
+        margin: 0;
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: #1e293b;
+      }
+
+      .notice-desc {
+        margin: 0;
+        font-size: 0.82rem;
+        color: #64748b;
+        line-height: 1.4;
+      }
+    }
+
+    /* ─── Faculty Quick Actions Grid ─── */
+    .quick-actions-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+
+      @media (max-width: 580px) {
+        grid-template-columns: 1fr;
+      }
+
+      .action-tile {
+        display: flex;
+        flex-direction: column;
+        padding: 16px;
+        border-radius: 12px;
+        text-decoration: none;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        border: 1px solid #e2e8f0;
+
+        &:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 15px rgba(0, 0, 0, 0.08);
+        }
+
+        mat-icon {
+          font-size: 28px;
+          width: 28px;
+          height: 28px;
+          margin-bottom: 8px;
+        }
+
+        .tile-title {
+          font-size: 0.95rem;
+          font-weight: 700;
+          margin-bottom: 2px;
+        }
+
+        .tile-desc {
+          font-size: 0.75rem;
+          opacity: 0.85;
+          line-height: 1.3;
+        }
+
+        &.blue-tile {
+          background: #eff6ff;
+          border-color: #bfdbfe;
+          color: #1d4ed8;
+          mat-icon { color: #2563eb; }
+        }
+
+        &.purple-tile {
+          background: #faf5ff;
+          border-color: #e9d5ff;
+          color: #6d28d9;
+          mat-icon { color: #7c3aed; }
+        }
+
+        &.orange-tile {
+          background: #fffbeb;
+          border-color: #fde68a;
+          color: #b45309;
+          mat-icon { color: #f59e0b; }
+        }
+
+        &.teal-tile {
+          background: #f0fdfa;
+          border-color: #99f6e4;
+          color: #0f766e;
+          mat-icon { color: #0d9488; }
+        }
+      }
+    }
+
+    /* ─── Hub Empty States ─── */
+    .hub-empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 35px 20px;
+
+      .empty-icon {
+        font-size: 42px;
+        width: 42px;
+        height: 42px;
+        color: #94a3b8;
+        margin-bottom: 10px;
+
+        &.text-green { color: #10b981; }
+      }
+
+      .empty-title {
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 700;
+        color: #334155;
+      }
+
+      .empty-sub {
+        margin: 4px 0 0;
+        font-size: 0.82rem;
+        color: #94a3b8;
+        max-width: 320px;
+      }
+    }
+
+    .overdue-pill {
+      background: rgba(239, 68, 68, 0.35) !important;
+      color: #ffffff !important;
+    }
+
     /* ─── Responsive ─── */
     @media (max-width: 1024px) {
       .charts-row { grid-template-columns: 1fr; }
@@ -1870,6 +3529,8 @@ import ApexCharts from 'apexcharts';
 })
 export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   summary = signal<any>(null);
+  studentSummary = signal<StudentDashboardSummary | null>(null);
+  teacherSummary = signal<TeacherDashboardSummary | null>(null);
   loading = signal<boolean>(true);
 
   totalBilled = computed(() => {
@@ -1966,21 +3627,54 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     this.loading.set(true);
     this.cdr.markForCheck();
     this.loadCelebrationsSummary();
-    this.coachingService.getDashboardSummary()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (res) => {
-          this.summary.set(res);
-          this.loading.set(false);
-          this.cdr.markForCheck();
-          setTimeout(() => this.initCharts(), 50);
-        },
-        error: () => {
-          this.loading.set(false);
-          this.cdr.markForCheck();
-          this.confirmDialog.alert('Error', 'Failed to load dashboard analytics.', 'danger');
-        }
-      });
+
+    if (this.authService.isStudentOrParent()) {
+      this.coachingService.getStudentDashboardSummary()
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({
+          next: (res) => {
+            this.studentSummary.set(res);
+            this.loading.set(false);
+            this.cdr.markForCheck();
+          },
+          error: (err) => {
+            this.loading.set(false);
+            this.cdr.markForCheck();
+            this.confirmDialog.alert('Error', err?.error?.message || 'Failed to load student dashboard.', 'danger');
+          }
+        });
+    } else if (this.authService.isTeacher()) {
+      this.coachingService.getTeacherDashboardSummary()
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({
+          next: (res) => {
+            this.teacherSummary.set(res);
+            this.loading.set(false);
+            this.cdr.markForCheck();
+          },
+          error: (err) => {
+            this.loading.set(false);
+            this.cdr.markForCheck();
+            this.confirmDialog.alert('Error', err?.error?.message || 'Failed to load teacher dashboard.', 'danger');
+          }
+        });
+    } else {
+      this.coachingService.getDashboardSummary()
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({
+          next: (res) => {
+            this.summary.set(res);
+            this.loading.set(false);
+            this.cdr.markForCheck();
+            setTimeout(() => this.initCharts(), 50);
+          },
+          error: () => {
+            this.loading.set(false);
+            this.cdr.markForCheck();
+            this.confirmDialog.alert('Error', 'Failed to load dashboard analytics.', 'danger');
+          }
+        });
+    }
   }
 
   private destroyCharts(): void {

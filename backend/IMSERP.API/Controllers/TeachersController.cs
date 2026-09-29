@@ -1059,6 +1059,13 @@ public class TeachersController : ControllerBase
     public async Task<ActionResult<AttendanceReportDto>> GetAttendanceReport(
         [FromQuery] int month = 0, [FromQuery] int year = 0)
     {
+        var isStudentOrParent = string.Equals(_currentUser.UserRole, "Student", StringComparison.OrdinalIgnoreCase) ||
+                                string.Equals(_currentUser.UserRole, "Parent", StringComparison.OrdinalIgnoreCase);
+        if (isStudentOrParent)
+        {
+            return Forbid();
+        }
+
         if (month == 0) month = DateTime.UtcNow.Month;
         if (year == 0) year = DateTime.UtcNow.Year;
 
@@ -2029,6 +2036,37 @@ public class TeachersController : ControllerBase
             .ToListAsync();
 
         return Ok(list);
+    }
+
+    // Returns the class-teacher section assigned to the currently logged-in teacher
+    [HttpGet("my-class-section")]
+    public async Task<ActionResult> GetMyClassSection()
+    {
+        var tenantId = _currentUser.TenantId;
+        var user = await _db.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
+        if (user == null) return Ok(new { isClassTeacher = false });
+
+        var linkedTeacher = await _db.Teachers.AsNoTracking().FirstOrDefaultAsync(t =>
+            t.TenantId == tenantId && (t.UserId == user.Id || (user.Email != null && t.Email == user.Email)));
+        if (linkedTeacher == null) return Ok(new { isClassTeacher = false });
+
+        var section = await _db.SchoolSections
+            .AsNoTracking()
+            .Include(s => s.Class)
+            .Where(s => s.ClassTeacherId == linkedTeacher.Id && s.IsActive && s.TenantId == tenantId)
+            .FirstOrDefaultAsync();
+
+        if (section == null) return Ok(new { isClassTeacher = false, teacherId = linkedTeacher.Id });
+
+        return Ok(new
+        {
+            isClassTeacher = true,
+            teacherId = linkedTeacher.Id,
+            classId = section.ClassId,
+            className = section.Class?.Name,
+            sectionId = section.Id,
+            sectionName = section.Name
+        });
     }
 
     [HttpGet("leaves/stats")]

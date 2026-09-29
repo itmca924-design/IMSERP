@@ -13,11 +13,14 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { API_BASE, AttendancePermissionsDto, AttendanceSettingsDto, HolidayDto } from '../teachers/teacher.models';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { CoachingService } from '../../core/services/coaching.service';
 import { SchoolService, SchoolClassDto, SchoolSectionDto } from '../../core/services/school.service';
 import { AuthService } from '../../core/services/auth.service';
+import { ApplyStudentRegularizationDialogComponent, ReviewStudentRegularizationDialogComponent, StudentAttendanceRegularizationDto } from './student-regularization-dialog.component';
+import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.directive';
 
 interface StudentItem {
   id: string;
@@ -97,7 +100,9 @@ interface CalendarDay {
   imports: [
     CommonModule, FormsModule, RouterModule, MatCardModule, MatButtonModule,
     MatIconModule, MatInputModule, MatFormFieldModule, MatSelectModule,
-    MatProgressBarModule, MatProgressSpinnerModule, MatTooltipModule, MatCheckboxModule
+    MatProgressBarModule, MatProgressSpinnerModule, MatTooltipModule, MatCheckboxModule,
+    MatDialogModule,
+    IstDatetimeDirective
   ],
   template: `
 <div class="page-container">
@@ -110,25 +115,35 @@ interface CalendarDay {
     </div>
     <div class="header-actions">
       <a mat-stroked-button routerLink="/attendance/reports"><mat-icon>summarize</mat-icon> Attendance Reports</a>
-      <a mat-stroked-button routerLink="/students"><mat-icon>people</mat-icon> Student Directory</a>
+      <a *ngIf="!isTeacher" mat-stroked-button routerLink="/students"><mat-icon>people</mat-icon> Student Directory</a>
     </div>
   </div>
 
-  <!-- Dual Mode Tab Switcher -->
+  <!-- Mode Tab Switcher -->
   <div class="view-mode-tabs">
-    <button type="button" class="tab-btn" [class.active]="activeTab === 'batch'" (click)="activeTab = 'batch'">
+    <button type="button" class="tab-btn" [class.active]="activeTab === 'batch'" (click)="setTab('batch')">
       <mat-icon>groups</mat-icon>
       <div class="tab-text">
         <strong>Roll Call (Bulk)</strong>
         <small>{{ hasSchool && hasCoaching ? 'School Classes & Coaching Batches attendance in 1 click' : (hasSchool ? 'School Classes daily roll call in 1 click' : 'Coaching Batches attendance in 1 click') }}</small>
       </div>
     </button>
-    <button type="button" class="tab-btn" [class.active]="activeTab === 'single'" (click)="activeTab = 'single'">
+    <button type="button" class="tab-btn" [class.active]="activeTab === 'single'" (click)="setTab('single')">
       <mat-icon>person_search</mat-icon>
       <div class="tab-text">
         <strong>Individual Student Register</strong>
         <small>Monthly calendar, leave logs & compliance</small>
       </div>
+    </button>
+    <button type="button" class="tab-btn" [class.active]="activeTab === 'regularization'" (click)="setTab('regularization')">
+      <mat-icon>edit_calendar</mat-icon>
+      <div class="tab-text">
+        <strong>Attendance Regularization</strong>
+        <small>Student corrections &amp; OD requests</small>
+      </div>
+      <span class="tab-pending-badge" *ngIf="regularizationStats.pendingRequests > 0">
+        {{ regularizationStats.pendingRequests }} Pending
+      </span>
     </button>
   </div>
 
@@ -162,24 +177,38 @@ interface CalendarDay {
         
         <!-- School Class & Section Selectors -->
         <ng-container *ngIf="rollCallScope === 'school'">
-          <mat-form-field appearance="outline" class="class-select">
-            <mat-label>Select School Class</mat-label>
-            <mat-select [(ngModel)]="selectedClassId" (selectionChange)="onClassChanged()">
-              <mat-option *ngFor="let c of schoolClasses" [value]="c.id">
-                {{ c.name }} <span *ngIf="c.code">({{ c.code }})</span>
-              </mat-option>
-            </mat-select>
-          </mat-form-field>
+          <!-- Locked view for class teachers -->
+          <ng-container *ngIf="isTeacher && teacherClassSection?.isClassTeacher; else classDropdowns">
+            <div class="teacher-class-locked-badge">
+              <mat-icon>lock</mat-icon>
+              <div>
+                <strong>{{ teacherClassSection?.className }}</strong>
+                <small *ngIf="teacherClassSection?.sectionName">
+                  {{ (teacherClassSection?.sectionName || '').startsWith('Section') ? teacherClassSection?.sectionName : 'Section ' + teacherClassSection?.sectionName }}
+                </small>
+              </div>
+            </div>
+          </ng-container>
+          <ng-template #classDropdowns>
+            <mat-form-field appearance="outline" class="class-select">
+              <mat-label>Select School Class</mat-label>
+              <mat-select [(ngModel)]="selectedClassId" (selectionChange)="onClassChanged()" [disabled]="isTeacher">
+                <mat-option *ngFor="let c of schoolClasses" [value]="c.id">
+                  {{ c.name }} <span *ngIf="c.code">({{ c.code }})</span>
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
 
-          <mat-form-field appearance="outline" class="section-select">
-            <mat-label>Select Section</mat-label>
-            <mat-select [(ngModel)]="selectedSectionId" (selectionChange)="onSectionChanged()">
-              <mat-option value="">All Sections</mat-option>
-              <mat-option *ngFor="let sec of classSections" [value]="sec.id">
-                Section {{ sec.name }}
-              </mat-option>
-            </mat-select>
-          </mat-form-field>
+            <mat-form-field appearance="outline" class="section-select">
+              <mat-label>Select Section</mat-label>
+              <mat-select [(ngModel)]="selectedSectionId" (selectionChange)="onSectionChanged()">
+                <mat-option value="">All Sections</mat-option>
+                <mat-option *ngFor="let sec of classSections" [value]="sec.id">
+                  Section {{ sec.name }}
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
+          </ng-template>
         </ng-container>
 
         <!-- Coaching Batch Selector -->
@@ -506,12 +535,204 @@ interface CalendarDay {
           </span>
           <span class="remarks">{{ record.remarks || '—' }}</span>
           <div class="record-actions">
+            <button mat-icon-button color="accent" (click)="openApplyRegularization(selectedStudent, record.attendanceDate)" matTooltip="Request Regularization for this date"><mat-icon>edit_calendar</mat-icon></button>
             <button mat-icon-button color="primary" (click)="editRecord(record)" [disabled]="!attendancePermissions.canCorrectAttendance || attendanceMode === 'Biometric' || (isPublicHolidayOrSunday(record.attendanceDate) && !canEditPublicHolidayOrSunday)" matTooltip="Edit record"><mat-icon>edit</mat-icon></button>
             <button mat-icon-button color="warn" (click)="deleteRecord(record.id)" [disabled]="!attendancePermissions.canCorrectAttendance || attendanceMode === 'Biometric' || (isPublicHolidayOrSunday(record.attendanceDate) && !canEditPublicHolidayOrSunday)" matTooltip="Delete record"><mat-icon>delete_outline</mat-icon></button>
           </div>
         </div>
       </mat-card>
     </div>
+  </div>
+
+  <!-- ================= TAB 3: ATTENDANCE REGULARIZATION & OD REQUESTS ================= -->
+  <div *ngIf="activeTab === 'regularization'" class="regularization-view">
+
+    <!-- KPI Summary Cards -->
+    <div class="reg-kpi-grid">
+      <div class="reg-kpi-card total">
+        <div class="kpi-icon"><mat-icon>rule</mat-icon></div>
+        <div class="kpi-info">
+          <span class="kpi-num">{{ regularizationStats.totalRequests }}</span>
+          <span class="kpi-lbl">Total Requests</span>
+        </div>
+      </div>
+      <div class="reg-kpi-card pending">
+        <div class="kpi-icon"><mat-icon>hourglass_top</mat-icon></div>
+        <div class="kpi-info">
+          <span class="kpi-num">{{ regularizationStats.pendingRequests }}</span>
+          <span class="kpi-lbl">Pending Review</span>
+        </div>
+        <span class="pulse-indicator" *ngIf="regularizationStats.pendingRequests > 0">Action Required</span>
+      </div>
+      <div class="reg-kpi-card approved">
+        <div class="kpi-icon"><mat-icon>check_circle</mat-icon></div>
+        <div class="kpi-info">
+          <span class="kpi-num">{{ regularizationStats.approvedRequests }}</span>
+          <span class="kpi-lbl">Approved</span>
+        </div>
+      </div>
+      <div class="reg-kpi-card rejected">
+        <div class="kpi-icon"><mat-icon>cancel</mat-icon></div>
+        <div class="kpi-info">
+          <span class="kpi-num">{{ regularizationStats.rejectedRequests }}</span>
+          <span class="kpi-lbl">Rejected</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Controls & Filter Bar -->
+    <mat-card class="reg-controls-card mat-elevation-z1">
+      <div class="reg-controls-row">
+        <!-- Status Filter Pills -->
+        <div class="status-filter-pills">
+          <button type="button" class="pill-btn" [class.active]="regFilterStatus === 'Pending'" (click)="setRegStatusFilter('Pending')">
+            Pending <span class="badge" *ngIf="regularizationStats.pendingRequests > 0">{{ regularizationStats.pendingRequests }}</span>
+          </button>
+          <button type="button" class="pill-btn" [class.active]="regFilterStatus === 'Approved'" (click)="setRegStatusFilter('Approved')">
+            Approved
+          </button>
+          <button type="button" class="pill-btn" [class.active]="regFilterStatus === 'Rejected'" (click)="setRegStatusFilter('Rejected')">
+            Rejected
+          </button>
+          <button type="button" class="pill-btn" [class.active]="regFilterStatus === 'All'" (click)="setRegStatusFilter('All')">
+            All
+          </button>
+        </div>
+
+        <!-- Search Input -->
+        <mat-form-field appearance="outline" class="reg-search-field">
+          <mat-label>Search student, roll no, reason...</mat-label>
+          <input matInput [(ngModel)]="regSearchQuery" (keyup.enter)="loadRegularizations()" placeholder="Type & press Enter...">
+          <mat-icon matPrefix>search</mat-icon>
+          <button mat-icon-button matSuffix *ngIf="regSearchQuery" (click)="regSearchQuery = ''; loadRegularizations()">
+            <mat-icon>close</mat-icon>
+          </button>
+        </mat-form-field>
+
+        <div class="reg-action-btns">
+          <button mat-stroked-button class="reg-refresh-btn" (click)="loadRegularizations()" [disabled]="regularizationLoading" matTooltip="Refresh Requests">
+            <mat-icon [class.spin]="regularizationLoading">refresh</mat-icon>
+            <span>Refresh</span>
+          </button>
+          <button mat-raised-button color="primary" class="reg-apply-btn" (click)="openApplyRegularization()" matTooltip="Submit Attendance Regularization">
+            <mat-icon>add_circle</mat-icon>
+            <span>Apply Regularization</span>
+          </button>
+        </div>
+      </div>
+    </mat-card>
+
+    <!-- Requests Data Table / List -->
+    <mat-card class="reg-table-card mat-elevation-z1">
+      <div *ngIf="regularizationLoading" class="reg-loading-box">
+        <mat-spinner diameter="40"></mat-spinner>
+        <p>Loading regularization requests...</p>
+      </div>
+
+      <div *ngIf="!regularizationLoading && regularizations.length === 0" class="reg-empty-box">
+        <mat-icon>task_alt</mat-icon>
+        <h4>No {{ regFilterStatus === 'All' ? '' : regFilterStatus }} Regularization Requests</h4>
+        <p>{{ regFilterStatus === 'Pending' ? 'All student attendance regularization requests have been reviewed.' : 'No records match the current filter criteria.' }}</p>
+        <button mat-stroked-button color="primary" (click)="openApplyRegularization()">
+          <mat-icon>add</mat-icon> Submit New Request
+        </button>
+      </div>
+
+      <div class="reg-table-container" *ngIf="!regularizationLoading && regularizations.length > 0">
+        <table class="reg-table">
+          <thead>
+            <tr>
+              <th>Student Details</th>
+              <th>Class & Section</th>
+              <th>Attendance Date</th>
+              <th>Category & Requested</th>
+              <th>Reason & Teacher Notes</th>
+              <th>Proof / Doc</th>
+              <th>Status</th>
+              <th>Applied By</th>
+              <th style="text-align: right;">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let reg of regularizations" [class.pending-row]="reg.status === 'Pending'">
+              <td>
+                <div class="student-cell">
+                  <div class="student-avatar">{{ getInitials(reg.studentName) }}</div>
+                  <div class="student-meta">
+                    <strong>{{ reg.studentName }}</strong>
+                    <small>Roll: {{ reg.rollNumber }}</small>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <div class="class-cell">
+                  <span>{{ reg.className || 'General' }}</span>
+                  <small *ngIf="reg.sectionName">Sec {{ reg.sectionName }}</small>
+                </div>
+              </td>
+              <td>
+                <div class="date-cell">
+                  <strong>{{ reg.attendanceDate | date:'dd MMM yyyy' }}</strong>
+                  <small>{{ reg.attendanceDate | date:'EEEE' }}</small>
+                </div>
+              </td>
+              <td>
+                <div class="status-cat-cell">
+                  <span class="cat-tag" [ngClass]="reg.reasonCategory.toLowerCase()">
+                    {{ getRegCategoryLabel(reg.reasonCategory) }}
+                  </span>
+                  <span class="req-status-tag">{{ reg.requestedStatus }}</span>
+                </div>
+              </td>
+              <td>
+                <div class="reason-cell" [matTooltip]="reg.reason">
+                  <p class="reason-text">{{ reg.reason }}</p>
+                  <small class="reviewed-note" *ngIf="reg.reviewRemarks">
+                    <strong>Note:</strong> {{ reg.reviewRemarks }} (by {{ reg.reviewedBy }})
+                  </small>
+                </div>
+              </td>
+              <td>
+                <a *ngIf="reg.attachmentUrl" [href]="reg.attachmentUrl" target="_blank" class="doc-link-btn" matTooltip="Open Attachment">
+                  <mat-icon>attachment</mat-icon> Proof
+                </a>
+                <span *ngIf="!reg.attachmentUrl" class="no-doc">—</span>
+              </td>
+              <td>
+                <span class="status-badge-chip" [ngClass]="reg.status.toLowerCase()">
+                  <mat-icon *ngIf="reg.status === 'Approved'">check</mat-icon>
+                  <mat-icon *ngIf="reg.status === 'Pending'">hourglass_empty</mat-icon>
+                  <mat-icon *ngIf="reg.status === 'Rejected'">close</mat-icon>
+                  {{ reg.status }}
+                </span>
+              </td>
+              <td>
+                <div class="applied-cell">
+                  <span class="applied-badge">{{ reg.appliedBy }}</span>
+                  <small [appIstDatetime]="reg.createdAt"></small>
+                </div>
+              </td>
+              <td style="text-align: right;">
+                <div class="action-cell">
+                  <!-- Class Teacher or Admin can Review if Pending -->
+                  <button mat-raised-button color="primary" class="review-btn" *ngIf="reg.status === 'Pending'" (click)="openReviewRegularization(reg)" matTooltip="Review and Approve/Reject">
+                    <mat-icon>fact_check</mat-icon> Review
+                  </button>
+                  <!-- Cancel button -->
+                  <button mat-icon-button color="warn" *ngIf="reg.status === 'Pending'" (click)="deleteRegularization(reg)" matTooltip="Cancel Request">
+                    <mat-icon>delete_outline</mat-icon>
+                  </button>
+                  <span *ngIf="reg.status !== 'Pending'" class="reviewed-done-txt">
+                    <mat-icon>done_all</mat-icon>
+                  </span>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </mat-card>
+
   </div>
 </div>
   `,
@@ -927,6 +1148,149 @@ interface CalendarDay {
     }
     .record-actions button { display: inline-flex; flex: 0 0 48px; width: 48px; height: 48px; }
 
+    .teacher-class-locked-badge {
+      display: flex; align-items: center; gap: 10px;
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+      border: 1.5px solid #bfdbfe; border-radius: 12px;
+      padding: 10px 18px; color: #1e3a8a;
+    }
+    .teacher-class-locked-badge mat-icon { color: #2563eb; font-size: 20px; }
+    .teacher-class-locked-badge strong { display: block; font-size: 14px; font-weight: 700; }
+    .teacher-class-locked-badge small { font-size: 12px; color: #3b82f6; }
+
+    /* Regularization Tab Styles */
+    .tab-pending-badge {
+      background: #f59e0b; color: #ffffff; font-size: 0.72rem; font-weight: 700;
+      padding: 2px 7px; border-radius: 9999px; margin-left: auto;
+      box-shadow: 0 2px 4px rgba(245, 158, 11, 0.3);
+    }
+    .regularization-view { display: flex; flex-direction: column; gap: 14px; }
+    .reg-kpi-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
+    }
+    .reg-kpi-card {
+      background: #ffffff; border-radius: 12px; padding: 16px; display: flex; align-items: center; gap: 14px;
+      border: 1px solid #e2e8f0; position: relative; overflow: hidden;
+      .kpi-icon {
+        width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
+        mat-icon { font-size: 24px; width: 24px; height: 24px; }
+      }
+      .kpi-info { display: flex; flex-direction: column; }
+      .kpi-num { font-size: 1.5rem; font-weight: 800; line-height: 1; }
+      .kpi-lbl { font-size: 0.8rem; color: #64748b; margin-top: 4px; font-weight: 500; }
+      &.total {
+        .kpi-icon { background: #eff6ff; color: #2563eb; }
+        .kpi-num { color: #1e40af; }
+      }
+      &.pending {
+        .kpi-icon { background: #fef3c7; color: #d97706; }
+        .kpi-num { color: #b45309; }
+      }
+      &.approved {
+        .kpi-icon { background: #dcfce7; color: #16a34a; }
+        .kpi-num { color: #15803d; }
+      }
+      &.rejected {
+        .kpi-icon { background: #fee2e2; color: #dc2626; }
+        .kpi-num { color: #b91c1c; }
+      }
+      .pulse-indicator {
+        position: absolute; top: 10px; right: 10px; font-size: 0.68rem; font-weight: 700;
+        background: #fef3c7; color: #b45309; border: 1px solid #fde68a; padding: 2px 6px; border-radius: 4px;
+      }
+    }
+    .reg-controls-card { padding: 14px 18px; border-radius: 12px; background: #ffffff; }
+    .reg-controls-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    .status-filter-pills {
+      display: flex; gap: 6px; background: #f1f5f9; padding: 4px; border-radius: 8px;
+      .pill-btn {
+        border: none; background: transparent; padding: 6px 14px; border-radius: 6px;
+        font-size: 0.84rem; font-weight: 600; color: #475569; cursor: pointer; transition: all 0.15s ease;
+        display: inline-flex; align-items: center; gap: 6px;
+        .badge {
+          background: #f59e0b; color: #ffffff; font-size: 0.7rem; padding: 1px 5px; border-radius: 9999px;
+        }
+        &.active {
+          background: #ffffff; color: #2563eb; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+      }
+    }
+    .reg-search-field { flex: 1; min-width: 200px; margin: 0; }
+    .reg-action-btns { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+    .reg-table-card { border-radius: 12px; overflow: hidden; padding: 0; background: #ffffff; }
+    .reg-loading-box, .reg-empty-box {
+      padding: 48px 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: #64748b;
+      mat-icon { font-size: 40px; width: 40px; height: 40px; color: #94a3b8; }
+      h4 { margin: 0; font-size: 1.1rem; color: #334155; }
+      p { margin: 0; font-size: 0.88rem; max-width: 400px; text-align: center; }
+    }
+    .reg-table-container { overflow-x: auto; width: 100%; }
+    .reg-table {
+      width: 100%; border-collapse: collapse; font-size: 0.88rem; text-align: left;
+      thead th {
+        background: #f8fafc; color: #475569; font-weight: 600; padding: 12px 16px; border-bottom: 1px solid #e2e8f0; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em;
+      }
+      tbody td {
+        padding: 12px 16px; border-bottom: 1px solid #f1f5f9; vertical-align: middle;
+      }
+      tbody tr:hover { background: #f8fafc; }
+      tbody tr.pending-row { background: #fffdf5; &:hover { background: #fefce8; } }
+    }
+    .student-cell {
+      display: flex; align-items: center; gap: 10px;
+      .student-avatar {
+        width: 34px; height: 34px; border-radius: 50%; background: #2563eb; color: #ffffff;
+        font-weight: 700; font-size: 0.8rem; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+      }
+      .student-meta { display: flex; flex-direction: column; strong { color: #0f172a; font-size: 0.9rem; } small { color: #64748b; font-size: 0.75rem; } }
+    }
+    .class-cell, .date-cell, .applied-cell {
+      display: flex; flex-direction: column;
+      strong { color: #0f172a; font-size: 0.88rem; }
+      small { color: #64748b; font-size: 0.75rem; }
+    }
+    .status-cat-cell {
+      display: flex; flex-direction: column; gap: 4px;
+      .cat-tag {
+        display: inline-block; padding: 2px 7px; border-radius: 9999px; font-size: 0.72rem; font-weight: 600; width: fit-content;
+        background: #eff6ff; color: #1d4ed8;
+        &.onduty { background: #fef3c7; color: #92400e; }
+        &.medical { background: #fee2e2; color: #991b1b; }
+        &.rollcallerror { background: #e0f2fe; color: #0369a1; }
+        &.punchmiss { background: #f3e8ff; color: #6b21a8; }
+      }
+      .req-status-tag { font-size: 0.75rem; font-weight: 600; color: #15803d; }
+    }
+    .reason-cell {
+      max-width: 260px;
+      .reason-text { margin: 0; font-size: 0.85rem; color: #334155; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+      .reviewed-note { display: block; margin-top: 4px; font-size: 0.75rem; color: #059669; }
+    }
+    .doc-link-btn {
+      display: inline-flex; align-items: center; gap: 4px; font-size: 0.78rem; font-weight: 600; color: #2563eb; text-decoration: none;
+      mat-icon { font-size: 16px; width: 16px; height: 16px; }
+      &:hover { text-decoration: underline; }
+    }
+    .no-doc { color: #cbd5e1; }
+    .status-badge-chip {
+      display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 6px; font-size: 0.78rem; font-weight: 600;
+      mat-icon { font-size: 14px; width: 14px; height: 14px; }
+      &.pending { background: #fef3c7; color: #b45309; }
+      &.approved { background: #dcfce7; color: #15803d; }
+      &.rejected { background: #fee2e2; color: #b91c1c; }
+    }
+    .applied-badge {
+      display: inline-block; font-size: 0.75rem; font-weight: 600; color: #475569; background: #f1f5f9; padding: 2px 6px; border-radius: 4px; width: fit-content;
+    }
+    .action-cell {
+      display: flex; align-items: center; justify-content: flex-end; gap: 6px;
+      .review-btn {
+        font-size: 0.8rem; padding: 0 12px; height: 32px; line-height: 32px;
+        mat-icon { font-size: 16px; width: 16px; height: 16px; margin-right: 4px; }
+      }
+      .reviewed-done-txt { color: #10b981; mat-icon { font-size: 20px; } }
+    }
+
     @media (max-width: 900px) {
       .summary-grid { grid-template-columns: repeat(4, 1fr); gap: 14px; }
       .period-card { flex-wrap: wrap !important; }
@@ -956,8 +1320,8 @@ export class StudentAttendanceComponent implements OnInit {
   private api = API_BASE;
   hasWaImg = false;
 
-  // Dual Tabs
-  activeTab: 'batch' | 'single' = 'batch';
+  // Mode Tabs
+  activeTab: 'batch' | 'single' | 'regularization' = 'batch';
 
   // Roll Call Scope ('school' | 'coaching')
   rollCallScope: 'school' | 'coaching' = 'school';
@@ -971,6 +1335,9 @@ export class StudentAttendanceComponent implements OnInit {
   schoolLoading = false;
   schoolSaving = false;
   schoolSuccessMsg = '';
+
+  // Teacher's class section (if class teacher)
+  teacherClassSection: { isClassTeacher: boolean; classId?: string; sectionId?: string; className?: string; sectionName?: string } | null = null;
 
   // Batch Bulk Roll Call State
   batches: any[] = [];
@@ -1015,13 +1382,21 @@ export class StudentAttendanceComponent implements OnInit {
     '#0891b2', '#4f46e5', '#d97706', '#dc2626', '#0d9488'
   ];
 
+  // Tab 3: Attendance Regularization State
+  regularizations: StudentAttendanceRegularizationDto[] = [];
+  regularizationStats = { totalRequests: 0, pendingRequests: 0, approvedRequests: 0, rejectedRequests: 0 };
+  regularizationLoading = false;
+  regFilterStatus: string = 'Pending';
+  regSearchQuery: string = '';
+
   constructor(
     private http: HttpClient,
     private route: ActivatedRoute,
     private confirmDialog: ConfirmDialogService,
     private coachingService: CoachingService,
     private schoolService: SchoolService,
-    public authService: AuthService
+    public authService: AuthService,
+    private dialog: MatDialog
   ) {}
 
   pageLoading = true;
@@ -1036,6 +1411,10 @@ export class StudentAttendanceComponent implements OnInit {
 
   get hasCoaching(): boolean {
     return this.authService.hasCoachingModule();
+  }
+
+  get isTeacher(): boolean {
+    return this.authService.isTeacher();
   }
 
   ngOnInit(): void {
@@ -1054,6 +1433,19 @@ export class StudentAttendanceComponent implements OnInit {
     this.http.get<AttendancePermissionsDto>(`${this.api}/attendance/permissions`).subscribe({
       next: permissions => this.attendancePermissions = permissions
     });
+
+    this.loadRegularizationStats();
+
+    const requestedTab = this.route.snapshot.queryParamMap.get('tab');
+    if (requestedTab === 'regularization') {
+      this.activeTab = 'regularization';
+      this.loadRegularizations();
+    }
+
+    // If teacher, load their assigned class section first
+    if (this.isTeacher) {
+      this.loadTeacherClassSection();
+    }
 
     // Load School Classes only if School Module is active
     if (this.hasSchool) {
@@ -1188,6 +1580,25 @@ export class StudentAttendanceComponent implements OnInit {
 
   // ================= SCHOOL CLASS ROLL CALL METHODS =================
 
+  loadTeacherClassSection(): void {
+    this.http.get<any>(`${this.api}/teachers/my-class-section`).subscribe({
+      next: info => {
+        this.teacherClassSection = info;
+        if (this.isTeacher && info?.isClassTeacher && info.classId) {
+          this.rollCallScope = 'school';
+          this.selectedClassId = info.classId;
+          const selectedClass = this.schoolClasses.find(c => c.id === info.classId);
+          this.classSections = selectedClass?.sections || [];
+          if (info.sectionId) {
+            this.selectedSectionId = info.sectionId;
+          }
+          this.loadSchoolAttendance();
+        }
+      },
+      error: () => { this.teacherClassSection = { isClassTeacher: false }; }
+    });
+  }
+
   loadSchoolClasses(): void {
     this.schoolLoading = true;
     this.schoolService.getClasses(true).subscribe({
@@ -1195,16 +1606,35 @@ export class StudentAttendanceComponent implements OnInit {
         this.schoolLoading = false;
         this.schoolClasses = classes || [];
         const requestedClassId = this.route.snapshot.queryParamMap.get('classId');
-        if (requestedClassId && this.schoolClasses.some(c => c.id === requestedClassId)) {
+        const requestedSectionId = this.route.snapshot.queryParamMap.get('sectionId');
+
+        // If teacher is a class teacher, lock to their assigned class/section
+        if (this.isTeacher && this.teacherClassSection?.isClassTeacher && this.teacherClassSection.classId) {
+          this.rollCallScope = 'school';
+          this.selectedClassId = this.teacherClassSection.classId;
+          const selectedClass = this.schoolClasses.find(c => c.id === this.selectedClassId);
+          this.classSections = selectedClass?.sections || [];
+          if (this.teacherClassSection.sectionId) {
+            this.selectedSectionId = this.teacherClassSection.sectionId;
+          }
+          this.loadSchoolAttendance();
+        } else if (requestedClassId && this.schoolClasses.some(c => c.id === requestedClassId)) {
           this.rollCallScope = 'school';
           this.selectedClassId = requestedClassId;
           this.onClassChanged();
-        } else if (this.schoolClasses.length > 0) {
-          // If classes exist, default to first class
+          if (requestedSectionId) {
+            this.selectedSectionId = requestedSectionId;
+            this.loadSchoolAttendance();
+          }
+        } else if (!this.isTeacher && this.schoolClasses.length > 0) {
+          // If classes exist and user is admin/staff, default to first class
           this.selectedClassId = this.schoolClasses[0].id;
           this.onClassChanged();
-        } else {
-          // If no classes exist in system, default scope to coaching
+        } else if (this.isTeacher && this.teacherClassSection && !this.teacherClassSection.isClassTeacher && this.schoolClasses.length > 0) {
+          // If teacher is NOT a class teacher, default to first class
+          this.selectedClassId = this.schoolClasses[0].id;
+          this.onClassChanged();
+        } else if (this.schoolClasses.length === 0) {
           this.rollCallScope = 'coaching';
         }
       },
@@ -1930,5 +2360,119 @@ export class StudentAttendanceComponent implements OnInit {
     } catch {
       return 'Previously';
     }
+  }
+
+  setTab(tab: 'batch' | 'single' | 'regularization'): void {
+    this.activeTab = tab;
+    if (tab === 'regularization') {
+      this.loadRegularizations();
+      this.loadRegularizationStats();
+    }
+  }
+
+  setRegStatusFilter(status: string): void {
+    this.regFilterStatus = status;
+    this.loadRegularizations();
+  }
+
+  getRegCategoryLabel(cat: string): string {
+    switch (cat) {
+      case 'OnDuty': return '🏆 On-Duty (OD)';
+      case 'Medical': return '🩺 Medical';
+      case 'RollCallError': return '📋 Roll Call Error';
+      case 'PunchMiss': return '⏱️ RFID Miss';
+      default: return '📝 ' + cat;
+    }
+  }
+
+  loadRegularizations(): void {
+    this.regularizationLoading = true;
+    let params: any = {};
+    if (this.regFilterStatus !== 'All') params.status = this.regFilterStatus;
+    if (this.regSearchQuery.trim()) params.search = this.regSearchQuery.trim();
+
+    this.http.get<StudentAttendanceRegularizationDto[]>(`${this.api}/student-regularizations`, { params }).subscribe({
+      next: (list) => {
+        this.regularizations = list || [];
+        this.regularizationLoading = false;
+      },
+      error: () => {
+        this.regularizations = [];
+        this.regularizationLoading = false;
+      }
+    });
+
+    this.loadRegularizationStats();
+  }
+
+  loadRegularizationStats(): void {
+    this.http.get<{ totalRequests: number; pendingRequests: number; approvedRequests: number; rejectedRequests: number }>(
+      `${this.api}/student-regularizations/stats`
+    ).subscribe({
+      next: (stats) => {
+        if (stats) this.regularizationStats = stats;
+      },
+      error: () => {}
+    });
+  }
+
+  openApplyRegularization(student?: any, dateStr?: string): void {
+    const dialogRef = this.dialog.open(ApplyStudentRegularizationDialogComponent, {
+      width: '650px',
+      data: {
+        studentId: student?.id || student?.studentId,
+        studentName: student?.studentName,
+        rollNumber: student?.rollNumber,
+        className: student?.className,
+        sectionName: student?.sectionName,
+        attendanceDate: dateStr
+      }
+    });
+
+    dialogRef.afterClosed().subscribe((res) => {
+      if (res) {
+        this.loadRegularizations();
+        this.loadRegularizationStats();
+        if (this.activeTab === 'single' && this.selectedStudentId) {
+          this.loadAttendance();
+        }
+      }
+    });
+  }
+
+  openReviewRegularization(reg: StudentAttendanceRegularizationDto): void {
+    const dialogRef = this.dialog.open(ReviewStudentRegularizationDialogComponent, {
+      width: '600px',
+      data: reg
+    });
+
+    dialogRef.afterClosed().subscribe((res) => {
+      if (res) {
+        this.loadRegularizations();
+        this.loadRegularizationStats();
+        if (this.rollCallScope === 'school' && this.selectedClassId) {
+          this.loadSchoolAttendance();
+        }
+        if (this.selectedStudentId) {
+          this.loadAttendance();
+        }
+      }
+    });
+  }
+
+  deleteRegularization(reg: StudentAttendanceRegularizationDto): void {
+    if (!confirm(`Are you sure you want to cancel the regularization request for ${reg.studentName} on ${reg.attendanceDate}?`)) {
+      return;
+    }
+
+    this.http.delete(`${this.api}/student-regularizations/${reg.id}`).subscribe({
+      next: () => {
+        this.loadRegularizations();
+        this.loadRegularizationStats();
+      },
+      error: (err) => {
+        alert(err.error?.message || 'Failed to cancel request.');
+      }
+    });
   }
 }

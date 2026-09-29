@@ -279,7 +279,7 @@ public class StudentsController : ControllerBase
 
     [HttpGet("{id}/attendance")]
     public async Task<ActionResult<IEnumerable<StudentAttendanceDto>>> GetAttendance(
-        Guid id, [FromQuery] int month = 0, [FromQuery] int year = 0)
+        Guid id, [FromQuery] int month = 0, [FromQuery] int year = 0, [FromQuery] string? stream = null)
     {
         if (month == 0) month = DateTime.UtcNow.Month;
         if (year == 0) year = DateTime.UtcNow.Year;
@@ -287,12 +287,52 @@ public class StudentsController : ControllerBase
         var student = await _dbContext.Students.AsNoTracking().FirstOrDefaultAsync(s => s.Id == id);
         if (student == null) return NotFound(new { message = "Student not found." });
 
-        var records = await _dbContext.StudentAttendances.AsNoTracking()
-            .Where(a => a.StudentId == id && a.AttendanceDate.Month == month && a.AttendanceDate.Year == year)
-            .OrderBy(a => a.AttendanceDate)
-            .ToListAsync();
+        var query = _dbContext.StudentAttendances.AsNoTracking()
+            .Where(a => a.StudentId == id && a.AttendanceDate.Month == month && a.AttendanceDate.Year == year);
+
+        if (string.Equals(stream, "coaching", StringComparison.OrdinalIgnoreCase))
+        {
+            query = query.Where(a => a.CaptureSource == "ManualBulk");
+        }
+        else if (string.Equals(stream, "school", StringComparison.OrdinalIgnoreCase))
+        {
+            query = query.Where(a => a.CaptureSource != "ManualBulk");
+        }
+
+        var records = await query.OrderBy(a => a.AttendanceDate).ToListAsync();
 
         return Ok(records.Select(a => MapStudentAttendance(a, student)));
+    }
+
+    private async Task<Student?> ResolveCurrentStudentAsync()
+    {
+        var userId = _currentUser.UserId;
+        var tenantId = _currentUser.TenantId;
+
+        var student = await _dbContext.Students.AsNoTracking()
+            .FirstOrDefaultAsync(s => (s.UserId == userId || s.ParentUserId == userId) && s.TenantId == tenantId);
+
+        if (student == null)
+        {
+            var user = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
+            if (user != null)
+            {
+                student = await _dbContext.Students.AsNoTracking()
+                    .FirstOrDefaultAsync(s => s.TenantId == tenantId && (
+                        (!string.IsNullOrEmpty(user.PhoneNumber) && (s.ParentWhatsAppPhone == user.PhoneNumber || s.EmergencyContactPhone == user.PhoneNumber)) ||
+                        (!string.IsNullOrEmpty(user.FullName) && s.StudentName == user.FullName)
+                    ));
+
+                if (student == null && !string.IsNullOrEmpty(user.Username) && user.Username.ToLower().StartsWith("student."))
+                {
+                    var candidateName = user.Username.Substring("student.".Length).Replace(".", " ");
+                    student = await _dbContext.Students.AsNoTracking()
+                        .FirstOrDefaultAsync(s => s.TenantId == tenantId && EF.Functions.Like(s.StudentName, $"%{candidateName}%"));
+                }
+            }
+        }
+
+        return student;
     }
 
     [HttpGet("attendance/ph-sun-edit-permission")]
@@ -335,22 +375,44 @@ public class StudentsController : ControllerBase
             .Include(student => student.Section)
             .Where(student => student.IsActive);
 
-        if (!string.IsNullOrWhiteSpace(stream))
+        var isStudentOrParent = string.Equals(_currentUser.UserRole, "Student", StringComparison.OrdinalIgnoreCase) ||
+                                string.Equals(_currentUser.UserRole, "Parent", StringComparison.OrdinalIgnoreCase);
+
+        if (isStudentOrParent)
         {
-            if (stream.Equals("school", StringComparison.OrdinalIgnoreCase))
-                studentsQuery = studentsQuery.Where(student => student.IsSchoolStudent);
-            else if (stream.Equals("coaching", StringComparison.OrdinalIgnoreCase))
-                studentsQuery = studentsQuery.Where(student => student.IsCoachingStudent);
+            var currentStudent = await ResolveCurrentStudentAsync();
+            if (currentStudent != null)
+            {
+                studentsQuery = studentsQuery.Where(student => student.Id == currentStudent.Id);
+            }
+            else
+            {
+                var user = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
+                if (user != null && !string.IsNullOrEmpty(user.FullName))
+                {
+                    studentsQuery = studentsQuery.Where(student => student.StudentName == user.FullName);
+                }
+            }
         }
+        else
+        {
+            if (!string.IsNullOrWhiteSpace(stream))
+            {
+                if (stream.Equals("school", StringComparison.OrdinalIgnoreCase))
+                    studentsQuery = studentsQuery.Where(student => student.IsSchoolStudent);
+                else if (stream.Equals("coaching", StringComparison.OrdinalIgnoreCase))
+                    studentsQuery = studentsQuery.Where(student => student.IsCoachingStudent);
+            }
 
-        if (batchId.HasValue && batchId.Value != Guid.Empty)
-            studentsQuery = studentsQuery.Where(student => student.BatchId == batchId.Value);
+            if (batchId.HasValue && batchId.Value != Guid.Empty)
+                studentsQuery = studentsQuery.Where(student => student.BatchId == batchId.Value);
 
-        if (classId.HasValue && classId.Value != Guid.Empty)
-            studentsQuery = studentsQuery.Where(student => student.ClassId == classId.Value);
+            if (classId.HasValue && classId.Value != Guid.Empty)
+                studentsQuery = studentsQuery.Where(student => student.ClassId == classId.Value);
 
-        if (sectionId.HasValue && sectionId.Value != Guid.Empty)
-            studentsQuery = studentsQuery.Where(student => student.SectionId == sectionId.Value);
+            if (sectionId.HasValue && sectionId.Value != Guid.Empty)
+                studentsQuery = studentsQuery.Where(student => student.SectionId == sectionId.Value);
+        }
 
         var students = await studentsQuery.OrderBy(student => student.StudentName).ToListAsync();
         var studentIds = students.Select(student => student.Id).ToList();
@@ -360,13 +422,33 @@ public class StudentsController : ControllerBase
 
         var totalWorkingDaysInMonth = Math.Max(0, DateTime.DaysInMonth(year, month) - offDates.Count);
 
+        bool isDual = false;
+        string? defaultStream = null;
+        if (isStudentOrParent && students.Count == 1)
+        {
+            var st = students[0];
+            isDual = st.IsSchoolStudent && st.IsCoachingStudent;
+            defaultStream = isDual ? "all" : (st.IsSchoolStudent ? "school" : (st.IsCoachingStudent ? "coaching" : null));
+        }
+
         var rows = students.Select(student =>
         {
             var personRecords = records.Where(record => record.StudentId == student.Id).ToList();
-            var present = personRecords.Count(record => record.Status == TeacherAttendanceStatus.Present);
-            var absent = personRecords.Count(record => record.Status == TeacherAttendanceStatus.Absent);
-            var late = personRecords.Count(record => record.Status == TeacherAttendanceStatus.Late);
-            var half = personRecords.Count(record => record.Status == TeacherAttendanceStatus.HalfDay);
+
+            var targetRecords = personRecords;
+            if (string.Equals(stream, "coaching", StringComparison.OrdinalIgnoreCase))
+            {
+                targetRecords = personRecords.Where(r => r.CaptureSource == "ManualBulk").ToList();
+            }
+            else if (string.Equals(stream, "school", StringComparison.OrdinalIgnoreCase))
+            {
+                targetRecords = personRecords.Where(r => r.CaptureSource != "ManualBulk").ToList();
+            }
+
+            var present = targetRecords.Count(record => record.Status == TeacherAttendanceStatus.Present);
+            var absent = targetRecords.Count(record => record.Status == TeacherAttendanceStatus.Absent);
+            var late = targetRecords.Count(record => record.Status == TeacherAttendanceStatus.Late);
+            var half = targetRecords.Count(record => record.Status == TeacherAttendanceStatus.HalfDay);
             var evaluated = present + absent + late + half;
             var attendedWeighted = present + late + (half * 0.5m);
             var denominator = Math.Max(totalWorkingDaysInMonth, evaluated);
@@ -374,19 +456,92 @@ public class StudentsController : ControllerBase
                 ? 0m
                 : Math.Min(100m, Math.Round((attendedWeighted / (decimal)denominator) * 100m, 1));
 
-            string roll = !string.IsNullOrWhiteSpace(student.SchoolRollNumber)
-                ? student.SchoolRollNumber
-                : (!string.IsNullOrWhiteSpace(student.RollNumber) ? student.RollNumber : student.AdmissionNumber ?? "");
+            string schoolClass = student.Class != null
+                ? $"{student.Class.Name}{(student.Section != null ? " - " + student.Section.Name : "")}"
+                : "";
+            string coachingBatch = student.Batch != null
+                ? student.Batch.Name
+                : "";
 
-            string group = student.Batch?.Name
-                ?? (student.Class != null
-                    ? $"{student.Class.Name}{(student.Section != null ? " - " + student.Section.Name : "")}"
-                    : "");
+            string roll;
+            string group;
 
-            return new AttendanceReportRowDto(student.Id, student.StudentName, roll, group, present, absent, late, half, offDates.Count, totalWorkingDaysInMonth, attendancePercentage);
+            if (string.Equals(stream, "coaching", StringComparison.OrdinalIgnoreCase))
+            {
+                roll = !string.IsNullOrWhiteSpace(student.CoachingRollNumber)
+                    ? student.CoachingRollNumber
+                    : (!string.IsNullOrWhiteSpace(student.RollNumber) ? student.RollNumber : student.AdmissionNumber ?? "");
+                group = !string.IsNullOrWhiteSpace(coachingBatch)
+                    ? $"Batch: {coachingBatch}"
+                    : (student.IsCoachingStudent ? "Coaching (No Batch)" : "");
+            }
+            else if (string.Equals(stream, "school", StringComparison.OrdinalIgnoreCase))
+            {
+                roll = !string.IsNullOrWhiteSpace(student.SchoolRollNumber)
+                    ? student.SchoolRollNumber
+                    : (!string.IsNullOrWhiteSpace(student.RollNumber) ? student.RollNumber : student.AdmissionNumber ?? "");
+                group = !string.IsNullOrWhiteSpace(schoolClass)
+                    ? schoolClass
+                    : (student.IsSchoolStudent ? "School" : "");
+            }
+            else
+            {
+                if (student.IsSchoolStudent && student.IsCoachingStudent)
+                {
+                    roll = $"Sch: {student.SchoolRollNumber ?? student.RollNumber} | Coa: {student.CoachingRollNumber ?? "-"}";
+                    group = !string.IsNullOrWhiteSpace(schoolClass) && !string.IsNullOrWhiteSpace(coachingBatch)
+                        ? $"{schoolClass} • Batch: {coachingBatch}"
+                        : (!string.IsNullOrWhiteSpace(schoolClass) ? schoolClass : coachingBatch);
+                }
+                else
+                {
+                    roll = !string.IsNullOrWhiteSpace(student.SchoolRollNumber)
+                        ? student.SchoolRollNumber
+                        : (!string.IsNullOrWhiteSpace(student.RollNumber) ? student.RollNumber : student.AdmissionNumber ?? "");
+
+                    group = student.Batch?.Name
+                        ?? (student.Class != null
+                            ? $"{student.Class.Name}{(student.Section != null ? " - " + student.Section.Name : "")}"
+                            : "");
+                }
+            }
+
+            return new AttendanceReportRowDto(
+                student.Id, 
+                student.StudentName, 
+                roll, 
+                group, 
+                present, 
+                absent, 
+                late, 
+                half, 
+                offDates.Count, 
+                totalWorkingDaysInMonth, 
+                attendancePercentage,
+                null,
+                schoolClass,
+                coachingBatch,
+                student.SchoolRollNumber,
+                student.CoachingRollNumber,
+                student.IsSchoolStudent,
+                student.IsCoachingStudent
+            );
         }).ToList();
 
-        return Ok(new AttendanceReportDto("Student", month, year, rows.Count, rows.Sum(row => row.PresentDays), rows.Sum(row => row.AbsentDays), rows.Sum(row => row.LateDays), rows.Sum(row => row.HalfDays), rows.Sum(row => row.HolidayDays), rows));
+        return Ok(new AttendanceReportDto(
+            "Student", 
+            month, 
+            year, 
+            rows.Count, 
+            rows.Sum(row => row.PresentDays), 
+            rows.Sum(row => row.AbsentDays), 
+            rows.Sum(row => row.LateDays), 
+            rows.Sum(row => row.HalfDays), 
+            rows.Sum(row => row.HolidayDays), 
+            rows,
+            isDual,
+            defaultStream
+        ));
     }
 
     [HttpGet("{id}/attendance/summary")]

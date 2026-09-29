@@ -14,3 +14,7 @@
     - Main Title: `color: #1e3a8a; font-weight: 700;`
     - Subtitle / Meta details: `color: #3b82f6;` (with `strong` tags in `#1e40af` or `#0f172a`)
     - Close button: `color: #64748b;` (hover `#1e293b`)
+- **DateTime Display (Strict Timezone Rule)**:
+  - ALWAYS display timestamps and datetimes in **Indian Standard Time (IST - Asia/Kolkata)**.
+  - Never display raw UTC strings or rely on raw browser default date pipes without timezone.
+  - Use the shared `[appIstDatetime]` directive (`src/app/shared/directives/ist-datetime.directive.ts`) or `localDatetime` pipe across the entire application for all date/time rendering.

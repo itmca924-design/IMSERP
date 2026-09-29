@@ -41,6 +41,14 @@ export class CoachingService {
     return this.http.get(`${this.BASE_URL}/dashboard/summary`);
   }
 
+  getStudentDashboardSummary(): Observable<StudentDashboardSummary> {
+    return this.http.get<StudentDashboardSummary>(`${this.BASE_URL}/dashboard/student-summary`);
+  }
+
+  getTeacherDashboardSummary(): Observable<TeacherDashboardSummary> {
+    return this.http.get<TeacherDashboardSummary>(`${this.BASE_URL}/dashboard/teacher-summary`);
+  }
+
   getStudents(batchId?: string, classId?: string): Observable<any[]> {
     let params: any = {};
     if (batchId) params.batchId = batchId;
@@ -660,5 +668,128 @@ export interface Student360Data {
   healthRecord?: StudentHealthDto | null;
   healthProfile?: StudentHealthDto | null;
   performanceAlert?: StudentAcademicAlert360Dto | null;
+}
+
+export interface StudentUpcomingTest {
+  id: string;
+  title: string;
+  subject: string;
+  testDate: string;
+  maxMarks: number;
+  batchOrClass: string;
+}
+
+export interface StudentHomeworkItem {
+  id: string;
+  subject: string;
+  title: string;
+  description: string;
+  assignedDate: string;
+  dueDate: string;
+  teacherName: string;
+}
+
+export interface StudentIssuedBook {
+  id: string;
+  bookTitle: string;
+  accessionNumber: string;
+  issueDate: string;
+  dueDate: string;
+  isOverdue: boolean;
+}
+
+export interface StudentTodayRoutine {
+  periodName: string;
+  subject: string;
+  teacherName: string;
+  timeSlot: string;
+  roomNumber?: string;
+}
+
+export interface DashboardNoticeItem {
+  id: string;
+  title: string;
+  content: string;
+  category: string;
+  publishedDate: string;
+  priority: string;
+}
+
+export interface StudentDashboardSummary {
+  studentId: string;
+  studentName: string;
+  rollNumber: string;
+  admissionNumber?: string;
+  className?: string;
+  sectionName?: string;
+  batchName?: string;
+  branchName?: string;
+  profilePhoto?: string;
+  isStarPerformer: boolean;
+  performanceBadge: string;
+  totalAttendanceDays: number;
+  presentDays: number;
+  absentDays: number;
+  attendancePercentage: number;
+  attendanceStatusTag: string;
+  totalFeeBilled: number;
+  totalFeePaid: number;
+  totalFeeDue: number;
+  nextDueDate?: string;
+  lastReceiptNumber?: string;
+  lastPaymentAmount?: number;
+  lastPaymentDate?: string;
+  upcomingTestsCount: number;
+  upcomingTests: StudentUpcomingTest[];
+  latestTestPercentage?: number;
+  latestTestSubject?: string;
+  pendingHomeworkCount: number;
+  recentHomework: StudentHomeworkItem[];
+  issuedBooksCount: number;
+  overdueBooksCount: number;
+  issuedBooks: StudentIssuedBook[];
+  totalAccoladesCount: number;
+  recentAccolades: string[];
+  todayRoutine: StudentTodayRoutine[];
+  recentNotices: DashboardNoticeItem[];
+}
+
+export interface TeacherTodayLecture {
+  periodName: string;
+  classOrBatch: string;
+  subject: string;
+  roomNumber?: string;
+  timeSlot: string;
+}
+
+export interface TeacherPendingTest {
+  testId: string;
+  title: string;
+  subject: string;
+  batchOrClass: string;
+  testDate: string;
+}
+
+export interface TeacherDashboardSummary {
+  teacherId: string;
+  teacherName: string;
+  employeeCode: string;
+  designation: string;
+  department?: string;
+  branchName?: string;
+  profilePhoto?: string;
+  todayLecturesCount: number;
+  todaySchedule: TeacherTodayLecture[];
+  assignedBatchesCount: number;
+  assignedBatchNames: string[];
+  hasPunchedInToday: boolean;
+  todayPunchTime?: string;
+  pendingAttendanceCount: number;
+  pendingMarksEntryTestsCount: number;
+  pendingTests: TeacherPendingTest[];
+  homeworkGivenThisWeekCount: number;
+  casualLeaveBalance: number;
+  medicalLeaveBalance: number;
+  recentNotices: DashboardNoticeItem[];
 }
 

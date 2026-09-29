@@ -43,6 +43,7 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
     public DbSet<Room> Rooms => Set<Room>();
     public DbSet<TeacherLeave> TeacherLeaves => Set<TeacherLeave>();
     public DbSet<TeacherAttendanceRegularization> TeacherAttendanceRegularizations => Set<TeacherAttendanceRegularization>();
+    public DbSet<StudentAttendanceRegularization> StudentAttendanceRegularizations => Set<StudentAttendanceRegularization>();
     public DbSet<LeaveAndAttendancePolicySettings> LeaveAndAttendancePolicies => Set<LeaveAndAttendancePolicySettings>();
     public DbSet<Holiday> Holidays => Set<Holiday>();
     public DbSet<SchoolEvent> SchoolEvents => Set<SchoolEvent>();

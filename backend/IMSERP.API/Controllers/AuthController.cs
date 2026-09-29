@@ -55,6 +55,7 @@ public class AuthController : ControllerBase
         var user = await _dbContext.Users
             .IgnoreQueryFilters()
             .Include(u => u.Branch)
+            .Include(u => u.AssignedRole)
             .FirstOrDefaultAsync(u => u.TenantId == tenant.Id && u.Username.ToLower() == request.Username.Trim().ToLower() && u.IsActive);
 
         bool isValidPassword = user != null && (
@@ -77,6 +78,12 @@ public class AuthController : ControllerBase
             .Select(b => new BranchDto(b.Id, b.TenantId, b.Name, b.Code, b.Address, b.ContactPhone, b.IsMainBranch, b.IsActive, b.CreatedAt, 0, 0, 0))
             .ToListAsync();
 
+        var effectiveRole = ResolveEffectiveRole(user);
+        if (user.Role == 0 && Enum.TryParse<UserRole>(effectiveRole, out var pr))
+        {
+            user.Role = pr;
+        }
+
         if (user.Role != UserRole.SuperAdmin && user.Role != UserRole.InstituteAdmin)
         {
             if (user.BranchId.HasValue)
@@ -86,7 +93,7 @@ public class AuthController : ControllerBase
         }
 
         // 3. Generate Access Token (30 min) + Refresh Token (7 days)
-        var accessToken = GenerateJwtToken(user, tenant.Name, tenant.Code);
+        var accessToken = GenerateJwtToken(user, tenant.Name, tenant.Code, effectiveRole);
         var refreshToken = GenerateRefreshToken();
 
         user.RefreshToken = refreshToken;
@@ -117,7 +124,7 @@ public class AuthController : ControllerBase
             UserId: user.Id,
             Username: user.Username,
             FullName: user.FullName,
-            Role: user.Role.ToString(),
+            Role: effectiveRole,
             TenantId: user.TenantId,
             InstituteName: tenant.Name,
             TenantCode: tenant.Code,
@@ -164,6 +171,7 @@ public class AuthController : ControllerBase
         var user = await _dbContext.Users
             .IgnoreQueryFilters()
             .Include(u => u.Branch)
+            .Include(u => u.AssignedRole)
             .FirstOrDefaultAsync(u => u.Id == userId && u.IsActive);
 
         if (user == null || user.RefreshToken != request.RefreshToken || user.RefreshTokenExpiryTime <= DateTime.UtcNow)
@@ -182,6 +190,12 @@ public class AuthController : ControllerBase
             .Select(b => new BranchDto(b.Id, b.TenantId, b.Name, b.Code, b.Address, b.ContactPhone, b.IsMainBranch, b.IsActive, b.CreatedAt, 0, 0, 0))
             .ToListAsync();
 
+        var effectiveRole = ResolveEffectiveRole(user);
+        if (user.Role == 0 && Enum.TryParse<UserRole>(effectiveRole, out var prRefresh))
+        {
+            user.Role = prRefresh;
+        }
+
         if (user.Role != UserRole.SuperAdmin && user.Role != UserRole.InstituteAdmin)
         {
             if (user.BranchId.HasValue)
@@ -191,7 +205,7 @@ public class AuthController : ControllerBase
         }
 
         // Token Rotation: issue brand new access token and refresh token
-        var newAccessToken = GenerateJwtToken(user, tenant?.Name ?? "Coaching Institute", tenant?.Code ?? "");
+        var newAccessToken = GenerateJwtToken(user, tenant?.Name ?? "Coaching Institute", tenant?.Code ?? "", effectiveRole);
         var newRefreshToken = GenerateRefreshToken();
 
         user.RefreshToken = newRefreshToken;
@@ -222,7 +236,7 @@ public class AuthController : ControllerBase
             UserId: user.Id,
             Username: user.Username,
             FullName: user.FullName,
-            Role: user.Role.ToString(),
+            Role: effectiveRole,
             TenantId: user.TenantId,
             InstituteName: tenant?.Name ?? "Coaching Institute",
             TenantCode: tenant?.Code ?? "",
@@ -663,8 +677,46 @@ public class AuthController : ControllerBase
         ));
     }
 
-    private string GenerateJwtToken(User user, string instituteName, string tenantCode)
+    private static string ResolveEffectiveRole(User user)
     {
+        if (user.Role != 0)
+        {
+            return user.Role.ToString();
+        }
+
+        if (user.AssignedRole != null && !string.IsNullOrWhiteSpace(user.AssignedRole.Name))
+        {
+            var roleName = user.AssignedRole.Name.Trim();
+            if (roleName.Contains("Teacher", StringComparison.OrdinalIgnoreCase) || roleName.Contains("Faculty", StringComparison.OrdinalIgnoreCase))
+                return "Teacher";
+            if (roleName.Contains("Student", StringComparison.OrdinalIgnoreCase))
+                return "Student";
+            if (roleName.Contains("Parent", StringComparison.OrdinalIgnoreCase))
+                return "Parent";
+            if (roleName.Contains("HR", StringComparison.OrdinalIgnoreCase))
+                return "HR";
+            if (roleName.Contains("Account", StringComparison.OrdinalIgnoreCase))
+                return "Accountant";
+            if (roleName.Contains("SuperAdmin", StringComparison.OrdinalIgnoreCase))
+                return "SuperAdmin";
+            if (roleName.Contains("Admin", StringComparison.OrdinalIgnoreCase))
+                return "InstituteAdmin";
+            return roleName;
+        }
+
+        var uname = (user.Username ?? "").Trim().ToLower();
+        if (uname.StartsWith("student.")) return "Student";
+        if (uname.StartsWith("teacher") || uname.StartsWith("pappu.")) return "Teacher";
+        if (uname.StartsWith("parent.")) return "Parent";
+        if (uname == "superadmin") return "SuperAdmin";
+        if (uname == "admin") return "InstituteAdmin";
+
+        return "Guest";
+    }
+
+    private string GenerateJwtToken(User user, string instituteName, string tenantCode, string? effectiveRole = null)
+    {
+        effectiveRole ??= ResolveEffectiveRole(user);
         var secretKey = _config["Jwt:Key"] ?? "SuperSecretKeyForIMSERPCoachingSaaSApp123456!";
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
@@ -674,7 +726,7 @@ public class AuthController : ControllerBase
             new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new Claim(ClaimTypes.Name, user.Username),
             new Claim(ClaimTypes.GivenName, user.FullName),
-            new Claim(ClaimTypes.Role, user.Role.ToString()),
+            new Claim(ClaimTypes.Role, effectiveRole),
             new Claim("TenantId", user.TenantId.ToString()),
             new Claim("TenantCode", tenantCode),
             new Claim("InstituteName", instituteName)

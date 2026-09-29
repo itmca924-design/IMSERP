@@ -697,6 +697,34 @@ using (var scope = app.Services.CreateScope())
                         );
                     END
 
+                    -- Student Attendance Regularization Migration
+                    IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'StudentAttendanceRegularizations')
+                    BEGIN
+                        CREATE TABLE StudentAttendanceRegularizations (
+                            Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
+                            TenantId UNIQUEIDENTIFIER NOT NULL,
+                            BranchId UNIQUEIDENTIFIER NULL,
+                            StudentId UNIQUEIDENTIFIER NOT NULL,
+                            ClassId UNIQUEIDENTIFIER NULL,
+                            SectionId UNIQUEIDENTIFIER NULL,
+                            AttendanceDate DATETIME2 NOT NULL,
+                            RequestedStatus INT NOT NULL DEFAULT 1,
+                            ReasonCategory NVARCHAR(50) NOT NULL DEFAULT 'OnDuty',
+                            Reason NVARCHAR(MAX) NOT NULL DEFAULT '',
+                            AttachmentUrl NVARCHAR(500) NULL,
+                            Status INT NOT NULL DEFAULT 1,
+                            ReviewedBy NVARCHAR(150) NULL,
+                            ReviewedAt DATETIME2 NULL,
+                            ReviewRemarks NVARCHAR(MAX) NULL,
+                            AppliedBy NVARCHAR(100) NOT NULL DEFAULT 'Student',
+                            CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+                            UpdatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
+                        );
+
+                        CREATE INDEX IX_StudentAttendanceRegularizations_Student_Date ON StudentAttendanceRegularizations (TenantId, StudentId, AttendanceDate);
+                        CREATE INDEX IX_StudentAttendanceRegularizations_Status ON StudentAttendanceRegularizations (TenantId, Status);
+                    END
+
                     IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'LeaveAndAttendancePolicies')
                     BEGIN
                         CREATE TABLE LeaveAndAttendancePolicies (
@@ -940,11 +968,11 @@ using (var scope = app.Services.CreateScope())
                 context.Roles.Add(role);
                 context.SaveChanges();
 
-                var teacherRoutes = new[] { "/dashboard", "/school/classes", "/batches", "/rooms", "/subjects", "/students", "/holidays", "/attendance/reports", "/teachers/assignments", "/teachers/attendance", "/teachers/substitution", "/teachers/lesson-plans", "/teachers/reports", "/school/exams", "/tests" };
+                var teacherRoutes = new[] { "/dashboard", "/school/classes", "/batches", "/rooms", "/subjects", "/students", "/students/attendance", "/holidays", "/attendance/reports", "/teachers/assignments", "/teachers/attendance", "/teachers/substitution", "/teachers/lesson-plans", "/teachers/reports", "/school/exams", "/tests" };
                 var teacherMenus = context.MenuItems.Where(m => teacherRoutes.Contains(m.RouteUrl)).ToList();
                 foreach (var m in teacherMenus)
                 {
-                    bool canCreate = m.RouteUrl == "/teachers/lesson-plans" || m.RouteUrl == "/tests" || m.RouteUrl == "/teachers/attendance";
+                    bool canCreate = m.RouteUrl == "/teachers/lesson-plans" || m.RouteUrl == "/tests" || m.RouteUrl == "/teachers/attendance" || m.RouteUrl == "/students/attendance";
                     bool canEdit = canCreate || m.RouteUrl == "/school/exams" || m.RouteUrl == "/teachers/substitution";
                     context.RolePermissions.Add(new IMSERP.Domain.Entities.RolePermission
                     {
@@ -1689,6 +1717,46 @@ using (var scope = app.Services.CreateScope())
                 }
                 context.SaveChanges();
                 Console.WriteLine($"[Database] Auto-seeded '{sub.Title}' under Front Desk.");
+            }
+        }
+
+        // Backfill: grant existing Teacher roles access to /students/attendance (roll call)
+        {
+            var studAttMenu = context.MenuItems.FirstOrDefault(m => m.RouteUrl == "/students/attendance");
+            if (studAttMenu != null)
+            {
+                var teacherRoles = context.Roles.Where(r => r.Name == "Teacher" || r.Name == "Teacher / Faculty" || r.Name == "Faculty / Teacher").ToList();
+                foreach (var tRole in teacherRoles)
+                {
+                    bool alreadyGranted = context.RolePermissions.Any(rp => rp.RoleId == tRole.Id && rp.MenuItemId == studAttMenu.Id);
+                    if (!alreadyGranted)
+                    {
+                        context.RolePermissions.Add(new IMSERP.Domain.Entities.RolePermission
+                        {
+                            Id = Guid.NewGuid(),
+                            RoleId = tRole.Id,
+                            MenuItemId = studAttMenu.Id,
+                            CanView = true,
+                            CanCreate = true,
+                            CanEdit = true,
+                            CanDelete = false
+                        });
+                        Console.WriteLine($"[Database] Backfill: granted Teacher role '{tRole.Id}' access to /students/attendance.");
+                    }
+                    else
+                    {
+                        // Ensure existing permissions are enabled (in case they were set to false)
+                        var existing = context.RolePermissions.First(rp => rp.RoleId == tRole.Id && rp.MenuItemId == studAttMenu.Id);
+                        if (!existing.CanView || !existing.CanCreate)
+                        {
+                            existing.CanView = true;
+                            existing.CanCreate = true;
+                            existing.CanEdit = true;
+                            Console.WriteLine($"[Database] Backfill: updated Teacher role '{tRole.Name}' permissions for /students/attendance.");
+                        }
+                    }
+                }
+                context.SaveChanges();
             }
         }
 

@@ -25,6 +25,12 @@ interface ReportRow {
   holidayDays: number;
   totalWorkingDays: number;
   attendancePercentage: number;
+  schoolClass?: string | null;
+  coachingBatch?: string | null;
+  schoolRoll?: string | null;
+  coachingRoll?: string | null;
+  isSchoolStudent?: boolean;
+  isCoachingStudent?: boolean;
 }
 
 interface AttendanceReport {
@@ -37,7 +43,10 @@ interface AttendanceReport {
   totalLateDays: number;
   totalHalfDays: number;
   totalHolidayDays: number;
+  totalWorkingDaysInMonth?: number;
   rows: ReportRow[];
+  isDualEnrolled?: boolean;
+  defaultStream?: string | null;
 }
 
 interface DailyDayItem {
@@ -67,8 +76,11 @@ interface DailyDayItem {
   <!-- Page Header -->
   <div class="page-header no-print">
     <div class="header-titles">
-      <h1><mat-icon>summarize</mat-icon> {{ reportType === 'student' ? 'Student Attendance Reports & Analytics' : 'Faculty Attendance Reports & Analytics' }}</h1>
-      <p>Comprehensive monthly attendance matrix, compliance tracking, and register analytics.</p>
+      <h1>
+        <mat-icon>summarize</mat-icon>
+        {{ isStudentOrParent ? 'My Monthly Attendance Report' : (reportType === 'student' ? 'Student Attendance Reports & Analytics' : 'Faculty Attendance Reports & Analytics') }}
+      </h1>
+      <p>{{ isStudentOrParent ? 'Your personal monthly attendance percentage, working days, and day-by-day status matrix.' : 'Comprehensive monthly attendance matrix, compliance tracking, and register analytics.' }}</p>
     </div>
     <div class="header-actions">
       <button mat-stroked-button class="action-btn" (click)="exportCsv()">
@@ -80,33 +92,37 @@ interface DailyDayItem {
     </div>
   </div>
 
-  <!-- Dual Mode Switcher (Student vs Teacher) -->
-  <div class="report-type-bar no-print">
-    <button type="button" class="type-btn" [class.active]="reportType === 'student'" (click)="changeReportType('student')">
-      <mat-icon>groups</mat-icon>
-      <div class="type-text">
-        <strong>Student Attendance Register</strong>
-        <small>Batch-wise monthly registers, roll numbers & daily matrix</small>
-      </div>
-    </button>
-    <button type="button" class="type-btn" [class.active]="reportType === 'teacher'" (click)="changeReportType('teacher')">
-      <mat-icon>badge</mat-icon>
-      <div class="type-text">
-        <strong>Teacher / Faculty Register</strong>
-        <small>Faculty attendance, punctuality & working days</small>
-      </div>
-    </button>
-  </div>
+  <!-- Dual Mode Switcher (Student vs Teacher) - Hidden for Student/Parent -->
+  @if (!isStudentOrParent) {
+    <div class="report-type-bar no-print">
+      <button type="button" class="type-btn" [class.active]="reportType === 'student'" (click)="changeReportType('student')">
+        <mat-icon>groups</mat-icon>
+        <div class="type-text">
+          <strong>Student Attendance Register</strong>
+          <small>Batch-wise monthly registers, roll numbers &amp; daily matrix</small>
+        </div>
+      </button>
+      <button type="button" class="type-btn" [class.active]="reportType === 'teacher'" (click)="changeReportType('teacher')">
+        <mat-icon>badge</mat-icon>
+        <div class="type-text">
+          <strong>Teacher / Faculty Register</strong>
+          <small>Faculty attendance, punctuality &amp; working days</small>
+        </div>
+      </button>
+    </div>
+  }
 
   <!-- Filter & Control Card -->
   <div class="filter-card no-print">
     <div class="filters-row">
-      <!-- Search Box -->
-      <div class="search-input-wrap">
-        <mat-icon>search</mat-icon>
-        <input type="text" [(ngModel)]="searchQuery" [placeholder]="reportType === 'student' ? 'Search student by name, roll no, batch...' : 'Search teacher by name, code...'">
-        <button *ngIf="searchQuery" class="clear-search-btn" (click)="searchQuery = ''">✕</button>
-      </div>
+      <!-- Search Box (only for staff/teachers with multiple students) -->
+      @if (!isStudentOrParent) {
+        <div class="search-input-wrap">
+          <mat-icon>search</mat-icon>
+          <input type="text" [(ngModel)]="searchQuery" [placeholder]="reportType === 'student' ? 'Search student by name, roll no, batch...' : 'Search teacher by name, code...'">
+          <button *ngIf="searchQuery" class="clear-search-btn" (click)="searchQuery = ''">✕</button>
+        </div>
+      }
 
       <!-- Month Selector -->
       <div class="filter-select-wrap">
@@ -124,47 +140,70 @@ interface DailyDayItem {
         </select>
       </div>
 
-      <!-- Category / Stream Filter (Students only) -->
-      <div class="filter-select-wrap" *ngIf="reportType === 'student'">
-        <label>Category:</label>
-        <select [(ngModel)]="studentFilterMode" (change)="onFilterModeChanged()">
-          <option value="all">All Students</option>
-          <option value="school">🏫 School Classes</option>
-          <option value="coaching">📚 Coaching Batches</option>
-        </select>
-      </div>
+      <!-- Dual Enrolled Student Stream Switcher (School vs Coaching vs Combined) -->
+      @if (isStudentOrParent && isDualStudent) {
+        <div class="filter-stream-pill-wrap">
+          <label>Stream:</label>
+          <div class="stream-pill-group">
+            <button type="button" class="stream-tab-btn" [class.active]="studentStreamMode === 'all'" (click)="setStudentStream('all')">
+              <mat-icon>hub</mat-icon>
+              <span>🌐 All (Combined)</span>
+            </button>
+            <button type="button" class="stream-tab-btn" [class.active]="studentStreamMode === 'school'" (click)="setStudentStream('school')">
+              <mat-icon>domain</mat-icon>
+              <span>🏫 School Class</span>
+            </button>
+            <button type="button" class="stream-tab-btn" [class.active]="studentStreamMode === 'coaching'" (click)="setStudentStream('coaching')">
+              <mat-icon>school</mat-icon>
+              <span>📚 Coaching Batch</span>
+            </button>
+          </div>
+        </div>
+      }
 
-      <!-- School Class Filter -->
-      <div class="filter-select-wrap" *ngIf="reportType === 'student' && studentFilterMode === 'school'">
-        <label>Class:</label>
-        <select [(ngModel)]="selectedClassId" (change)="onClassFilterChanged()">
-          <option value="">All Classes</option>
-          <option *ngFor="let c of schoolClasses" [value]="c.id">{{ c.name }}</option>
-        </select>
-      </div>
+      <!-- Category / Stream Filter (Staff/Teacher only) -->
+      @if (!isStudentOrParent && reportType === 'student') {
+        <div class="filter-select-wrap">
+          <label>Category:</label>
+          <select [(ngModel)]="studentFilterMode" (change)="onFilterModeChanged()">
+            <option value="all">All Students</option>
+            <option value="school">🏫 School Classes</option>
+            <option value="coaching">📚 Coaching Batches</option>
+          </select>
+        </div>
 
-      <!-- School Section Filter -->
-      <div class="filter-select-wrap" *ngIf="reportType === 'student' && studentFilterMode === 'school' && selectedClassId">
-        <label>Section:</label>
-        <select [(ngModel)]="selectedSectionId" (change)="loadReport()">
-          <option value="">All Sections</option>
-          <option *ngFor="let s of classSections" [value]="s.id">Section {{ s.name }}</option>
-        </select>
-      </div>
+        <!-- School Class Filter -->
+        <div class="filter-select-wrap" *ngIf="studentFilterMode === 'school'">
+          <label>Class:</label>
+          <select [(ngModel)]="selectedClassId" (change)="onClassFilterChanged()">
+            <option value="">All Classes</option>
+            <option *ngFor="let c of schoolClasses" [value]="c.id">{{ c.name }}</option>
+          </select>
+        </div>
 
-      <!-- Batch Filter (Coaching only) -->
-      <div class="filter-select-wrap" *ngIf="reportType === 'student' && studentFilterMode === 'coaching'">
-        <label>Batch:</label>
-        <select [(ngModel)]="selectedBatchId" (change)="loadReport()">
-          <option value="">All Batches</option>
-          <option *ngFor="let batch of batches" [value]="batch.id">{{ batch.name }}</option>
-        </select>
-      </div>
+        <!-- School Section Filter -->
+        <div class="filter-select-wrap" *ngIf="studentFilterMode === 'school' && selectedClassId">
+          <label>Section:</label>
+          <select [(ngModel)]="selectedSectionId" (change)="loadReport()">
+            <option value="">All Sections</option>
+            <option *ngFor="let s of classSections" [value]="s.id">Section {{ s.name }}</option>
+          </select>
+        </div>
+
+        <!-- Batch Filter (Coaching only) -->
+        <div class="filter-select-wrap" *ngIf="studentFilterMode === 'coaching'">
+          <label>Batch:</label>
+          <select [(ngModel)]="selectedBatchId" (change)="loadReport()">
+            <option value="">All Batches</option>
+            <option *ngFor="let batch of batches" [value]="batch.id">{{ batch.name }}</option>
+          </select>
+        </div>
+      }
 
       <!-- Bulk Expand / Collapse Matrix Button -->
       <button mat-stroked-button class="matrix-bulk-btn" (click)="toggleExpandAll()">
         <mat-icon>{{ expandAll ? 'unfold_less' : 'grid_view' }}</mat-icon>
-        <span>{{ expandAll ? 'Collapse All Matrices' : 'Expand All 30-Day Matrices' }}</span>
+        <span>{{ expandAll ? 'Collapse Matrix' : 'Expand 30-Day Matrix' }}</span>
       </button>
     </div>
   </div>
@@ -178,7 +217,7 @@ interface DailyDayItem {
       </div>
       <div>
         <h2>{{ instituteName }}</h2>
-        <div class="print-report-title">{{ reportType === 'student' ? 'Student Attendance Report' : 'Faculty Attendance Report' }}</div>
+        <div class="print-report-title">{{ isStudentOrParent ? 'Student Attendance Report' : (reportType === 'student' ? 'Student Attendance Report' : 'Faculty Attendance Report') }}</div>
         <span *ngIf="reportType === 'student'" class="print-batch-sub">{{ getSelectedFilterSubTitle() }}</span>
       </div>
     </div>
@@ -191,41 +230,41 @@ interface DailyDayItem {
   <!-- KPI Analytics Cards -->
   <div class="kpi-grid" *ngIf="report">
     <div class="kpi-card kpi-total">
-      <div class="kpi-icon-box"><mat-icon>{{ reportType === 'student' ? 'school' : 'badge' }}</mat-icon></div>
+      <div class="kpi-icon-box"><mat-icon>{{ isStudentOrParent ? 'calendar_month' : (reportType === 'student' ? 'school' : 'badge') }}</mat-icon></div>
       <div class="kpi-data">
-        <span class="kpi-label">Total {{ reportType === 'student' ? 'Students' : 'Faculty' }}</span>
-        <span class="kpi-val">{{ report.totalPeople }}</span>
+        <span class="kpi-label">{{ isStudentOrParent ? 'Total Working Days' : ('Total ' + (reportType === 'student' ? 'Students' : 'Faculty')) }}</span>
+        <span class="kpi-val">{{ isStudentOrParent ? (totalWorkingDaysInMonth + ' Days') : report.totalPeople }}</span>
       </div>
     </div>
 
     <div class="kpi-card kpi-present">
       <div class="kpi-icon-box"><mat-icon>check_circle</mat-icon></div>
       <div class="kpi-data">
-        <span class="kpi-label">Total Present</span>
-        <span class="kpi-val">{{ report.totalPresentDays }}</span>
+        <span class="kpi-label">{{ isStudentOrParent ? 'My Present Days' : 'Total Present' }}</span>
+        <span class="kpi-val">{{ isStudentOrParent ? (report.totalPresentDays + ' Days') : report.totalPresentDays }}</span>
       </div>
     </div>
 
     <div class="kpi-card kpi-absent">
       <div class="kpi-icon-box"><mat-icon>cancel</mat-icon></div>
       <div class="kpi-data">
-        <span class="kpi-label">Total Absent</span>
-        <span class="kpi-val">{{ report.totalAbsentDays }}</span>
+        <span class="kpi-label">{{ isStudentOrParent ? 'My Absent Days' : 'Total Absent' }}</span>
+        <span class="kpi-val">{{ isStudentOrParent ? (report.totalAbsentDays + ' Days') : report.totalAbsentDays }}</span>
       </div>
     </div>
 
     <div class="kpi-card kpi-late">
       <div class="kpi-icon-box"><mat-icon>schedule</mat-icon></div>
       <div class="kpi-data">
-        <span class="kpi-label">Late Days</span>
-        <span class="kpi-val">{{ report.totalLateDays }}</span>
+        <span class="kpi-label">{{ isStudentOrParent ? 'My Late Days' : 'Late Days' }}</span>
+        <span class="kpi-val">{{ isStudentOrParent ? (report.totalLateDays + ' Days') : report.totalLateDays }}</span>
       </div>
     </div>
 
     <div class="kpi-card kpi-avg">
       <div class="kpi-icon-box"><mat-icon>donut_large</mat-icon></div>
       <div class="kpi-data">
-        <span class="kpi-label">Avg Attendance</span>
+        <span class="kpi-label">{{ isStudentOrParent ? 'My Attendance %' : 'Avg Attendance' }}</span>
         <span class="kpi-val">{{ overallAttendanceRate }}%</span>
       </div>
     </div>
@@ -265,8 +304,21 @@ interface DailyDayItem {
               <div class="person-name-cell">
                 <div class="avatar-circle">{{ getInitials(row.personName) }}</div>
                 <div>
-                  <span class="name-bold">{{ row.personName }}</span>
+                  <div class="name-line">
+                    <span class="name-bold">{{ row.personName }}</span>
+                    <span class="badge-dual-enrolled" *ngIf="isStudentOrParent && row.isSchoolStudent && row.isCoachingStudent">
+                      ★ Dual Enrolled
+                    </span>
+                  </div>
                   <span class="role-sub">{{ row.groupName || (reportType === 'student' ? 'No Batch' : 'Faculty') }}</span>
+                  <div class="dual-extra-note" *ngIf="isStudentOrParent && row.isSchoolStudent && row.isCoachingStudent">
+                    <span class="other-stream-text" *ngIf="studentStreamMode === 'school' && row.coachingBatch">
+                      📚 Evening Batch: <strong>{{ row.coachingBatch }}</strong> (Roll: {{ row.coachingRoll || 'N/A' }})
+                    </span>
+                    <span class="other-stream-text" *ngIf="studentStreamMode === 'coaching' && row.schoolClass">
+                      🏫 Morning School: <strong>{{ row.schoolClass }}</strong> (Roll: {{ row.schoolRoll || 'N/A' }})
+                    </span>
+                  </div>
                 </div>
               </div>
             </td>
@@ -558,6 +610,30 @@ interface DailyDayItem {
     .empty-state strong { font-size:1rem; color:#1e293b; }
     .empty-state p { margin:0; font-size:.84rem; color:#64748b; }
 
+    /* Dual Stream Pill Switcher */
+    .filter-stream-pill-wrap { display:flex; align-items:center; gap:8px; }
+    .filter-stream-pill-wrap label { font-size:0.8rem; font-weight:700; color:#475569; }
+    .stream-pill-group { display:inline-flex; background:#e2e8f0; padding:3px; border-radius:10px; gap:4px; }
+    .stream-tab-btn {
+      display:inline-flex; align-items:center; gap:6px; border:none; background:transparent;
+      padding:6px 14px; border-radius:8px; font-size:0.82rem; font-weight:600; color:#475569;
+      cursor:pointer; transition:all 0.15s ease-in-out;
+    }
+    .stream-tab-btn mat-icon { font-size:18px; width:18px; height:18px; color:#64748b; }
+    .stream-tab-btn.active {
+      background:#ffffff; color:#1d4ed8; font-weight:700;
+      box-shadow:0 2px 6px rgba(0,0,0,0.08);
+    }
+    .stream-tab-btn.active mat-icon { color:#2563eb; }
+    .name-line { display:flex; align-items:center; gap:8px; }
+    .badge-dual-enrolled {
+      display:inline-block; font-size:0.68rem; font-weight:700; padding:2px 7px;
+      border-radius:12px; background:linear-gradient(135deg, #fdf4ff 0%, #fae8ff 100%);
+      color:#9333ea; border:1px solid #f0abfc;
+    }
+    .dual-extra-note { margin-top:3px; font-size:0.75rem; color:#64748b; }
+    .other-stream-text { background:#f8fafc; padding:3px 8px; border-radius:6px; border:1px solid #e2e8f0; display:inline-block; }
+
     /* Print Specific Styles */
     .print-heading { display:none; }
     @media print {
@@ -607,11 +683,29 @@ export class AttendanceReportsComponent implements OnInit {
   classSections: SchoolSectionDto[] = [];
   report: AttendanceReport | null = null;
   loading = false;
+  studentStreamMode: 'all' | 'school' | 'coaching' = 'all';
+  streamInitialized = false;
+
+  get isDualStudent(): boolean {
+    if (!this.isStudentOrParent) return false;
+    if (this.report?.isDualEnrolled) return true;
+    const r = this.report?.rows?.[0];
+    return !!(r && r.isSchoolStudent && r.isCoachingStudent);
+  }
+
+  setStudentStream(stream: 'all' | 'school' | 'coaching'): void {
+    if (this.studentStreamMode === stream) return;
+    this.studentStreamMode = stream;
+    this.dailyMatrixCache = {};
+    this.loadingDaily.clear();
+    this.loadReport();
+  }
 
   // 30-Day Daily Matrix State
   expandedPersonIds = new Set<string>();
   expandAll = false;
   dailyMatrixCache: { [personId: string]: DailyDayItem[] } = {};
+  loadingDaily = new Set<string>();
 
   constructor(
     private http: HttpClient,
@@ -629,9 +723,17 @@ export class AttendanceReportsComponent implements OnInit {
     return this.authService.currentUser()?.instituteName || 'Apex Coaching Academy';
   }
 
+  get isStudentOrParent(): boolean {
+    return this.authService.isStudentOrParent();
+  }
+
   ngOnInit(): void {
-    this.loadBatches();
-    this.loadSchoolClasses();
+    if (this.isStudentOrParent) {
+      this.reportType = 'student';
+    } else {
+      this.loadBatches();
+      this.loadSchoolClasses();
+    }
     this.loadReport();
   }
 
@@ -665,6 +767,7 @@ export class AttendanceReportsComponent implements OnInit {
   }
 
   changeReportType(type: 'student' | 'teacher'): void {
+    if (this.isStudentOrParent) return;
     this.reportType = type;
     if (type === 'teacher') {
       this.selectedBatchId = '';
@@ -683,6 +786,11 @@ export class AttendanceReportsComponent implements OnInit {
     this.expandedPersonIds.clear();
     this.expandAll = false;
     this.dailyMatrixCache = {};
+    this.loadingDaily.clear();
+
+    if (this.isStudentOrParent) {
+      this.reportType = 'student';
+    }
 
     const endpoint = this.reportType === 'student'
       ? `${this.api}/students/attendance/report`
@@ -693,13 +801,17 @@ export class AttendanceReportsComponent implements OnInit {
       year: this.selectedYear
     };
     if (this.reportType === 'student') {
-      if (this.studentFilterMode === 'school') {
-        params['stream'] = 'school';
-        if (this.selectedClassId) params['classId'] = this.selectedClassId;
-        if (this.selectedSectionId) params['sectionId'] = this.selectedSectionId;
-      } else if (this.studentFilterMode === 'coaching') {
-        params['stream'] = 'coaching';
-        if (this.selectedBatchId) params['batchId'] = this.selectedBatchId;
+      if (this.isStudentOrParent) {
+        params['stream'] = this.studentStreamMode;
+      } else {
+        if (this.studentFilterMode === 'school') {
+          params['stream'] = 'school';
+          if (this.selectedClassId) params['classId'] = this.selectedClassId;
+          if (this.selectedSectionId) params['sectionId'] = this.selectedSectionId;
+        } else if (this.studentFilterMode === 'coaching') {
+          params['stream'] = 'coaching';
+          if (this.selectedBatchId) params['batchId'] = this.selectedBatchId;
+        }
       }
     }
 
@@ -707,6 +819,21 @@ export class AttendanceReportsComponent implements OnInit {
       next: report => {
         this.report = report;
         this.loading = false;
+        if (this.isStudentOrParent && report?.rows && report.rows.length > 0) {
+          const firstRow = report.rows[0];
+          if (!this.streamInitialized) {
+            this.streamInitialized = true;
+            if (report.defaultStream) {
+              this.studentStreamMode = report.defaultStream as 'all' | 'school' | 'coaching';
+            } else if (firstRow.isSchoolStudent && firstRow.isCoachingStudent) {
+              this.studentStreamMode = 'all';
+            } else if (!firstRow.isSchoolStudent && firstRow.isCoachingStudent) {
+              this.studentStreamMode = 'coaching';
+            }
+          }
+          this.expandedPersonIds.add(firstRow.personId);
+          this.loadDailyAttendanceIfNeeded(firstRow.personId);
+        }
       },
       error: () => {
         this.report = null;
@@ -730,6 +857,20 @@ export class AttendanceReportsComponent implements OnInit {
     if (!this.report || this.report.rows.length === 0) return 0;
     const sum = this.report.rows.reduce((acc, row) => acc + (row.attendancePercentage || 0), 0);
     return Math.round(sum / this.report.rows.length);
+  }
+
+  get totalWorkingDaysInMonth(): number {
+    if (this.report?.rows?.length) {
+      return this.report.rows[0].totalWorkingDays;
+    }
+    const daysInMonth = this.getDaysInMonth();
+    let sundays = 0;
+    for (let d = 1; d <= daysInMonth; d++) {
+      if (new Date(this.selectedYear, this.selectedMonth - 1, d).getDay() === 0) {
+        sundays++;
+      }
+    }
+    return Math.max(0, daysInMonth - sundays);
   }
 
   getDaysInMonth(): number {
@@ -795,15 +936,33 @@ export class AttendanceReportsComponent implements OnInit {
   }
 
   loadDailyAttendanceIfNeeded(personId: string): void {
-    if (this.dailyMatrixCache[personId]) return;
+    if (this.dailyMatrixCache[personId] || this.loadingDaily.has(personId)) return;
+    this.loadingDaily.add(personId);
+
+    let streamQuery = '';
+    if (this.reportType === 'student') {
+      if (this.isStudentOrParent) {
+        streamQuery = `&stream=${this.studentStreamMode}`;
+      } else if (this.studentFilterMode === 'school') {
+        streamQuery = '&stream=school';
+      } else if (this.studentFilterMode === 'coaching') {
+        streamQuery = '&stream=coaching';
+      }
+    }
 
     const endpoint = this.reportType === 'student'
-      ? `${this.api}/students/${personId}/attendance?month=${this.selectedMonth}&year=${this.selectedYear}`
+      ? `${this.api}/students/${personId}/attendance?month=${this.selectedMonth}&year=${this.selectedYear}${streamQuery}`
       : `${this.api}/teachers/${personId}/attendance?month=${this.selectedMonth}&year=${this.selectedYear}`;
 
     this.http.get<any[]>(endpoint).subscribe({
-      next: records => this.buildDailyMapFromRecords(personId, records || []),
-      error: () => this.buildDailyMapFromRecords(personId, [])
+      next: records => {
+        this.loadingDaily.delete(personId);
+        this.buildDailyMapFromRecords(personId, records || []);
+      },
+      error: () => {
+        this.loadingDaily.delete(personId);
+        this.buildDailyMapFromRecords(personId, []);
+      }
     });
   }
 
@@ -829,8 +988,19 @@ export class AttendanceReportsComponent implements OnInit {
       }
 
       const rec = records.find(r => {
-        const rDate = new Date(r.attendanceDate);
-        return rDate.getDate() === d && (rDate.getMonth() + 1) === this.selectedMonth && rDate.getFullYear() === this.selectedYear;
+        let rYear: number, rMonth: number, rDay: number;
+        if (typeof r.attendanceDate === 'string' && r.attendanceDate.length >= 10) {
+          const parts = r.attendanceDate.substring(0, 10).split('-');
+          rYear = parseInt(parts[0], 10);
+          rMonth = parseInt(parts[1], 10);
+          rDay = parseInt(parts[2], 10);
+        } else {
+          const dt = new Date(r.attendanceDate);
+          rYear = dt.getFullYear();
+          rMonth = dt.getMonth() + 1;
+          rDay = dt.getDate();
+        }
+        return rDay === d && rMonth === Number(this.selectedMonth) && rYear === Number(this.selectedYear);
       });
 
       if (rec) {
@@ -840,18 +1010,23 @@ export class AttendanceReportsComponent implements OnInit {
         else if (st.includes('leave')) code = 'L';
         else if (st.includes('late')) code = 'LT';
         else if (st.includes('half')) code = 'HD';
+        else if (st.includes('present')) code = 'P';
 
         let statusText = rec.status || 'Present';
         if (code === 'L') {
           statusText = rec.remarks ? `Sanctioned Leave: ${rec.remarks}` : 'Sanctioned Leave';
         }
 
+        const sourceLabel = rec.captureSource === 'ManualBulk'
+          ? ' • Coaching'
+          : (rec.captureSource?.startsWith('ManualSchool') ? ' • School' : (rec.captureSource ? ` • ${rec.captureSource}` : ''));
+
         daysArr.push({
           day: d,
           dayOfWeek,
           isSunday: false,
           status: code,
-          label: `${d} ${this.months[this.selectedMonth - 1]} (${dayOfWeek}): ${statusText}${rec.checkInTime ? ' • In: ' + rec.checkInTime : ''}`
+          label: `${d} ${this.months[this.selectedMonth - 1]} (${dayOfWeek}): ${statusText}${sourceLabel}${rec.checkInTime ? ' • In: ' + rec.checkInTime : ''}`
         });
       } else {
         daysArr.push({
@@ -870,6 +1045,7 @@ export class AttendanceReportsComponent implements OnInit {
     if (this.dailyMatrixCache[row.personId]) {
       return this.dailyMatrixCache[row.personId];
     }
+    this.loadDailyAttendanceIfNeeded(row.personId);
     // Return temporary skeleton if still loading
     const totalDays = this.getDaysInMonth();
     const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];

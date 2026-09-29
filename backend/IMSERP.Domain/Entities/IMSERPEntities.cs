@@ -792,6 +792,36 @@ public class TeacherAttendanceRegularization
     public Teacher? Teacher { get; set; }
 }
 
+public class StudentAttendanceRegularization
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid StudentId { get; set; }
+    public Guid? ClassId { get; set; }
+    public Guid? SectionId { get; set; }
+    public DateTime AttendanceDate { get; set; }
+    public TeacherAttendanceStatus RequestedStatus { get; set; } = TeacherAttendanceStatus.Present;
+    public string ReasonCategory { get; set; } = "OnDuty";
+    public string Reason { get; set; } = string.Empty;
+    public string? AttachmentUrl { get; set; }
+    public RegularizationStatus Status { get; set; } = RegularizationStatus.Pending;
+    public string? ReviewedBy { get; set; }
+    public DateTime? ReviewedAt { get; set; }
+    public string? ReviewRemarks { get; set; }
+    public string AppliedBy { get; set; } = "Student";
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+    public Student? Student { get; set; }
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+    [ForeignKey("ClassId")]
+    public SchoolClass? Class { get; set; }
+    [ForeignKey("SectionId")]
+    public SchoolSection? Section { get; set; }
+}
+
 public class LeaveAndAttendancePolicySettings
 {
     public Guid Id { get; set; } = Guid.NewGuid();
