@@ -69,6 +69,7 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
     public DbSet<TeacherSubstitution> TeacherSubstitutions => Set<TeacherSubstitution>();
     public DbSet<TeacherLessonPlan> TeacherLessonPlans => Set<TeacherLessonPlan>();
     public DbSet<TeacherDocument> TeacherDocuments => Set<TeacherDocument>();
+    public DbSet<StudentDocument> StudentDocuments => Set<StudentDocument>();
     // Transport module
     public DbSet<TransportDriver> TransportDrivers => Set<TransportDriver>();
     public DbSet<TransportVehicle> TransportVehicles => Set<TransportVehicle>();
@@ -87,10 +88,31 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
     // Front Desk module
     public DbSet<VisitorLog> VisitorLogs => Set<VisitorLog>();
     public DbSet<StudentGatePass> StudentGatePasses => Set<StudentGatePass>();
+    // Student 360 Enhancements
+    public DbSet<StudentAchievement> StudentAchievements => Set<StudentAchievement>();
+    public DbSet<StudentDisciplinaryRecord> StudentDisciplinaryRecords => Set<StudentDisciplinaryRecord>();
+    public DbSet<StudentPtmRecord> StudentPtmRecords => Set<StudentPtmRecord>();
+    public DbSet<StudentHealthRecord> StudentHealthRecords => Set<StudentHealthRecord>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<StudentAchievement>().HasQueryFilter(x => 
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+
+        modelBuilder.Entity<StudentDisciplinaryRecord>().HasQueryFilter(x => 
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+
+        modelBuilder.Entity<StudentPtmRecord>().HasQueryFilter(x => 
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+
+        modelBuilder.Entity<StudentHealthRecord>().HasQueryFilter(x => 
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
 
         // Dynamic Global Multi-Tenant & Multi-Branch Query Filters
         modelBuilder.Entity<Branch>().HasQueryFilter(x => _currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId);
@@ -207,6 +229,9 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
             (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<TeacherDocument>().HasQueryFilter(x => 
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<StudentDocument>().HasQueryFilter(x => 
             (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
 

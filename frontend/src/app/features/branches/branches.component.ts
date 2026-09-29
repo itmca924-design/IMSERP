@@ -353,9 +353,9 @@ import { AuthService, BranchInfo } from '../../core/services/auth.service';
   `,
   styles: [`
     .branches-wrapper {
-      padding: 24px;
-      max-width: 1400px;
-      margin: 0 auto;
+      padding: 0 0 40px;
+      width: 100%;
+      box-sizing: border-box;
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     }
 

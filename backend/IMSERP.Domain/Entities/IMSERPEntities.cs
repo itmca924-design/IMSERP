@@ -285,6 +285,11 @@ public class Student
     public ICollection<HostelGatePass> HostelGatePasses { get; set; } = new List<HostelGatePass>();
     public ICollection<HostelAttendance> HostelAttendances { get; set; } = new List<HostelAttendance>();
     public ICollection<StudentPromotionHistory> PromotionHistories { get; set; } = new List<StudentPromotionHistory>();
+    public ICollection<StudentDocument> Documents { get; set; } = new List<StudentDocument>();
+    public ICollection<StudentAchievement> Achievements { get; set; } = new List<StudentAchievement>();
+    public ICollection<StudentDisciplinaryRecord> DisciplinaryRecords { get; set; } = new List<StudentDisciplinaryRecord>();
+    public ICollection<StudentPtmRecord> PtmRecords { get; set; } = new List<StudentPtmRecord>();
+    public ICollection<StudentHealthRecord> HealthRecords { get; set; } = new List<StudentHealthRecord>();
 }
 
 public class StudentPromotionHistory
@@ -961,6 +966,31 @@ public class TeacherDocument
 
     [ForeignKey("TeacherId")]
     public Teacher? Teacher { get; set; }
+}
+
+public class StudentDocument
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid StudentId { get; set; }
+    public string DocumentType { get; set; } = "Aadhaar"; // Aadhaar, BirthCertificate, TransferCertificate, Marksheet, CasteCertificate, IncomeCertificate, MedicalRecord, Other
+    public string Title { get; set; } = string.Empty;
+    public string? DocumentNumber { get; set; }
+    public string? FileUrl { get; set; }
+    public string? FileName { get; set; }
+    public string VerificationStatus { get; set; } = "Verified"; // Verified, Pending, Rejected
+    public string? VerifiedBy { get; set; }
+    public DateTime? VerifiedAt { get; set; }
+    public string? Remarks { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+
+    [ForeignKey("StudentId")]
+    public Student? Student { get; set; }
 }
 
 public class Holiday
@@ -1835,6 +1865,94 @@ public class StudentGatePass
     public Tenant? Tenant { get; set; }
     [ForeignKey("BranchId")]
     public Branch? Branch { get; set; }
+    [ForeignKey("StudentId")]
+    public Student? Student { get; set; }
+}
+
+public class StudentAchievement
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid StudentId { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string Category { get; set; } = "Academic"; // Academic | Sports | Arts | Olympiad | Leadership | Attendance | CoCurricular | Other
+    public string AwardLevel { get; set; } = "School"; // Class | School | Inter-School | District | State | National | International
+    public DateTime AwardDate { get; set; } = DateTime.UtcNow;
+    public string BadgeIcon { get; set; } = "emoji_events"; // emoji_events, military_tech, workspace_premium, star, psychology, sports_soccer
+    public string? CertificateNumber { get; set; }
+    public string? Description { get; set; }
+    public string? AwardedBy { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("StudentId")]
+    public Student? Student { get; set; }
+}
+
+public class StudentDisciplinaryRecord
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid StudentId { get; set; }
+    public DateTime IncidentDate { get; set; } = DateTime.UtcNow;
+    public string IncidentType { get; set; } = "Warning"; // PositiveCommendation | Warning | UniformViolation | PunctualityLate | HomeworkDefaulter | Misconduct | Bullying | Other
+    public string Severity { get; set; } = "Low"; // Commendation | Low | Medium | High
+    public string Title { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public string? ActionTaken { get; set; }
+    public string? ReportedBy { get; set; }
+    public bool ParentNotified { get; set; } = false;
+    public bool IsResolved { get; set; } = true;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("StudentId")]
+    public Student? Student { get; set; }
+}
+
+public class StudentPtmRecord
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid StudentId { get; set; }
+    public DateTime PtmDate { get; set; } = DateTime.UtcNow;
+    public string TeacherName { get; set; } = string.Empty;
+    public string TeacherRemarks { get; set; } = string.Empty;
+    public string? ParentFeedback { get; set; }
+    public string? ChildStrengths { get; set; }
+    public string? AreasOfImprovement { get; set; }
+    public string ParentAttended { get; set; } = "Both"; // Both | Mother | Father | Guardian | Absent
+    public bool FollowUpRequired { get; set; } = false;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("StudentId")]
+    public Student? Student { get; set; }
+}
+
+public class StudentHealthRecord
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid StudentId { get; set; }
+    public decimal? HeightCm { get; set; }
+    public decimal? WeightKg { get; set; }
+    public decimal? Bmi { get; set; }
+    public string? BmiCategory { get; set; } // Underweight | Normal | Overweight | Obese
+    public string? VisionLeft { get; set; }
+    public string? VisionRight { get; set; }
+    public string? BloodGroup { get; set; }
+    public string? KnownAllergies { get; set; }
+    public string? ChronicConditions { get; set; }
+    public string? RegularMedications { get; set; }
+    public string? EmergencyDoctorName { get; set; }
+    public string? EmergencyDoctorPhone { get; set; }
+    public DateTime? LastCheckupDate { get; set; }
+    public string? DoctorRemarks { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
     [ForeignKey("StudentId")]
     public Student? Student { get; set; }
 }

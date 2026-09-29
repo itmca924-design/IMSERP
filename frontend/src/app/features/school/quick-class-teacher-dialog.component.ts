@@ -375,12 +375,26 @@ export class QuickClassTeacherDialogComponent implements OnInit {
     private schoolService: SchoolService
   ) {}
 
+  isTeachingStaff(t: any): boolean {
+    if (!t) return false;
+    const st = (t.staffType || '').toString().toLowerCase();
+    if (st === 'nonteaching' || st.includes('non') || st === '2' || t.staffType === 2) return false;
+    const dept = (t.department || '').toLowerCase();
+    const desig = (t.designation || '').toLowerCase();
+    const code = (t.employeeCode || '').toLowerCase();
+    const name = (t.fullName || '').toLowerCase();
+    if (code.startsWith('hr') || name.includes('(hr') || name.includes('hr manager') || dept.includes('hr') || dept.includes('human resource') || desig.includes('hr') || desig.includes('accountant') || desig.includes('receptionist') || desig.includes('driver')) {
+      return false;
+    }
+    return true;
+  }
+
   ngOnInit() {
     this.selectedTeacherId = this.data.currentClassTeacherId || null;
-    this.availableTeachers = (this.data.teachers || []).filter(t => t.isActive);
+    this.availableTeachers = (this.data.teachers || []).filter(t => t.isActive && this.isTeachingStaff(t));
     if (this.data.currentClassTeacherId && !this.availableTeachers.some(t => t.id === this.data.currentClassTeacherId)) {
       const cur = (this.data.teachers || []).find(t => t.id === this.data.currentClassTeacherId);
-      if (cur) this.availableTeachers.unshift(cur);
+      if (cur && this.isTeachingStaff(cur)) this.availableTeachers.unshift(cur);
     }
     this.updateSelectedTeacher();
   }

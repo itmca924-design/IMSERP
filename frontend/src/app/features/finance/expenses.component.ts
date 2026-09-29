@@ -318,12 +318,12 @@ import { ExpenseDialogComponent } from './expense-dialog.component';
   `,
   styles: [`
     .page-container {
-      padding: 24px;
+      padding: 0 0 40px;
+      width: 100%;
+      box-sizing: border-box;
       display: flex;
       flex-direction: column;
       gap: 20px;
-      background: #f8fafc;
-      min-height: calc(100vh - 64px);
     }
 
     /* Header Card */

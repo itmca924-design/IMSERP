@@ -63,32 +63,46 @@ public class EventsController : ControllerBase
             ))
             .ToListAsync();
 
-        // 2. Today's birthdays (Students & Staff)
+        // 2. Role-based birthday visibility scope
+        var birthdayScope = await GetBirthdayScopeAsync();
+
+        // Today's birthdays (Students & Staff)
         var todayMonth = today.Month;
         var todayDay = today.Day;
 
-        var studentBirthdaysToday = await _db.Students
-            .AsNoTracking()
-            .Include(s => s.Batch)
-            .Include(s => s.Class)
-            .Include(s => s.Section)
-            .Where(s => s.IsActive && s.DateOfBirth.HasValue 
-                     && s.DateOfBirth.Value.Month == todayMonth 
-                     && s.DateOfBirth.Value.Day == todayDay)
-            .Select(s => new BirthdayItemDto(
-                s.Id,
-                s.StudentName,
-                "Student",
-                s.Class != null ? $"{s.Class.Name}{(s.Section != null ? " - " + s.Section.Name : "")}" : (s.Batch != null ? s.Batch.Name : "Classroom Student"),
-                s.RollNumber,
-                s.ProfilePhoto,
-                s.DateOfBirth!.Value,
-                today.Year - s.DateOfBirth!.Value.Year,
-                s.ParentWhatsAppPhone,
-                "Today",
-                true
-            ))
-            .ToListAsync();
+        var studentBirthdaysToday = new List<BirthdayItemDto>();
+        if (birthdayScope.CanViewStudents)
+        {
+            var studentTodayQuery = _db.Students
+                .AsNoTracking()
+                .Include(s => s.Batch)
+                .Include(s => s.Class)
+                .Include(s => s.Section)
+                .Where(s => s.IsActive && s.DateOfBirth.HasValue 
+                         && s.DateOfBirth.Value.Month == todayMonth 
+                         && s.DateOfBirth.Value.Day == todayDay);
+
+            if (birthdayScope.AllowedStudentIds != null)
+            {
+                studentTodayQuery = studentTodayQuery.Where(s => birthdayScope.AllowedStudentIds.Contains(s.Id));
+            }
+
+            studentBirthdaysToday = await studentTodayQuery
+                .Select(s => new BirthdayItemDto(
+                    s.Id,
+                    s.StudentName,
+                    "Student",
+                    s.Class != null ? $"{s.Class.Name}{(s.Section != null ? " - " + s.Section.Name : "")}" : (s.Batch != null ? s.Batch.Name : "Classroom Student"),
+                    s.RollNumber,
+                    s.ProfilePhoto,
+                    s.DateOfBirth!.Value,
+                    today.Year - s.DateOfBirth!.Value.Year,
+                    birthdayScope.HideStudentContact ? null : s.ParentWhatsAppPhone,
+                    "Today",
+                    true
+                ))
+                .ToListAsync();
+        }
 
         var teacherBirthdaysToday = await _db.Teachers
             .AsNoTracking()
@@ -116,33 +130,43 @@ public class EventsController : ControllerBase
         var upcomingDays = Enumerable.Range(1, 7).Select(offset => today.AddDays(offset)).ToList();
         var upcomingMonthDays = upcomingDays.Select(d => new { d.Month, d.Day, DateObj = d }).ToList();
 
-        var allUpcomingStudents = await _db.Students
-            .AsNoTracking()
-            .Include(s => s.Batch)
-            .Include(s => s.Class)
-            .Include(s => s.Section)
-            .Where(s => s.IsActive && s.DateOfBirth.HasValue)
-            .ToListAsync();
+        var upcomingStudentBirthdays = new List<BirthdayItemDto>();
+        if (birthdayScope.CanViewStudents)
+        {
+            var upcomingStudentQuery = _db.Students
+                .AsNoTracking()
+                .Include(s => s.Batch)
+                .Include(s => s.Class)
+                .Include(s => s.Section)
+                .Where(s => s.IsActive && s.DateOfBirth.HasValue);
 
-        var upcomingStudentBirthdays = allUpcomingStudents
-            .Where(s => upcomingDays.Any(d => d.Month == s.DateOfBirth!.Value.Month && d.Day == s.DateOfBirth!.Value.Day))
-            .Select(s => {
-                var nextMatch = upcomingDays.First(d => d.Month == s.DateOfBirth!.Value.Month && d.Day == s.DateOfBirth!.Value.Day);
-                return new BirthdayItemDto(
-                    s.Id,
-                    s.StudentName,
-                    "Student",
-                    s.Class != null ? $"{s.Class.Name}{(s.Section != null ? " - " + s.Section.Name : "")}" : (s.Batch != null ? s.Batch.Name : "Classroom Student"),
-                    s.RollNumber,
-                    s.ProfilePhoto,
-                    s.DateOfBirth!.Value,
-                    today.Year - s.DateOfBirth!.Value.Year,
-                    s.ParentWhatsAppPhone,
-                    nextMatch.ToString("dd MMM"),
-                    false
-                );
-            })
-            .ToList();
+            if (birthdayScope.AllowedStudentIds != null)
+            {
+                upcomingStudentQuery = upcomingStudentQuery.Where(s => birthdayScope.AllowedStudentIds.Contains(s.Id));
+            }
+
+            var allUpcomingStudents = await upcomingStudentQuery.ToListAsync();
+
+            upcomingStudentBirthdays = allUpcomingStudents
+                .Where(s => upcomingDays.Any(d => d.Month == s.DateOfBirth!.Value.Month && d.Day == s.DateOfBirth!.Value.Day))
+                .Select(s => {
+                    var nextMatch = upcomingDays.First(d => d.Month == s.DateOfBirth!.Value.Month && d.Day == s.DateOfBirth!.Value.Day);
+                    return new BirthdayItemDto(
+                        s.Id,
+                        s.StudentName,
+                        "Student",
+                        s.Class != null ? $"{s.Class.Name}{(s.Section != null ? " - " + s.Section.Name : "")}" : (s.Batch != null ? s.Batch.Name : "Classroom Student"),
+                        s.RollNumber,
+                        s.ProfilePhoto,
+                        s.DateOfBirth!.Value,
+                        today.Year - s.DateOfBirth!.Value.Year,
+                        birthdayScope.HideStudentContact ? null : s.ParentWhatsAppPhone,
+                        nextMatch.ToString("dd MMM"),
+                        false
+                    );
+                })
+                .ToList();
+        }
 
         var allUpcomingTeachers = await _db.Teachers
             .AsNoTracking()
@@ -557,11 +581,22 @@ public class EventsController : ControllerBase
             ));
         }
 
-        // 3. Birthdays in this month
-        var studentBirthdays = await _db.Students
-            .AsNoTracking()
-            .Where(s => s.IsActive && s.DateOfBirth.HasValue && s.DateOfBirth.Value.Month == month)
-            .ToListAsync();
+        // 3. Birthdays in this month (Role-scoped)
+        var calBirthdayScope = await GetBirthdayScopeAsync();
+        var studentBirthdays = new List<Student>();
+        if (calBirthdayScope.CanViewStudents)
+        {
+            var studentMonthQuery = _db.Students
+                .AsNoTracking()
+                .Where(s => s.IsActive && s.DateOfBirth.HasValue && s.DateOfBirth.Value.Month == month);
+
+            if (calBirthdayScope.AllowedStudentIds != null)
+            {
+                studentMonthQuery = studentMonthQuery.Where(s => calBirthdayScope.AllowedStudentIds.Contains(s.Id));
+            }
+
+            studentBirthdays = await studentMonthQuery.ToListAsync();
+        }
 
         foreach (var s in studentBirthdays)
         {
@@ -597,5 +632,117 @@ public class EventsController : ControllerBase
         }
 
         return Ok(items);
+    }
+
+    // ── Birthday Scope Helper ──────────────────────────────────────────────────
+    private record BirthdayScopeResult(
+        bool CanViewStudents,
+        List<Guid>? AllowedStudentIds,
+        bool HideStudentContact
+    );
+
+    private async Task<BirthdayScopeResult> GetBirthdayScopeAsync()
+    {
+        var tenantId = _currentUser.TenantId;
+        var userId = _currentUser.UserId;
+
+        var user = await _db.Users
+            .AsNoTracking()
+            .Include(u => u.AssignedRole)
+            .FirstOrDefaultAsync(u => u.Id == userId);
+
+        var roleName = user?.AssignedRole?.Name ?? _currentUser.UserRole ?? "";
+
+        // 1. Accountant / Finance / Non-teaching office clerks -> Zero student noise (only staff birthdays)
+        if (roleName.Contains("Accountant", StringComparison.OrdinalIgnoreCase) ||
+            roleName.Contains("Finance", StringComparison.OrdinalIgnoreCase) ||
+            roleName.Contains("Clerk", StringComparison.OrdinalIgnoreCase))
+        {
+            return new BirthdayScopeResult(
+                CanViewStudents: false,
+                AllowedStudentIds: new List<Guid>(),
+                HideStudentContact: false
+            );
+        }
+
+        // 2. Student / Parent -> Only classmates in their specific section/batch; hide contact phone for child privacy
+        if (roleName.Contains("Student", StringComparison.OrdinalIgnoreCase) ||
+            roleName.Contains("Parent", StringComparison.OrdinalIgnoreCase))
+        {
+            var student = await _db.Students.AsNoTracking().FirstOrDefaultAsync(s =>
+                (s.UserId == userId || s.ParentUserId == userId) && s.TenantId == tenantId);
+
+            if (student != null)
+            {
+                var classmateIds = await _db.Students.AsNoTracking()
+                    .Where(s => s.IsActive &&
+                                ((student.SectionId.HasValue && s.SectionId == student.SectionId.Value) ||
+                                 (student.BatchId.HasValue && s.BatchId == student.BatchId.Value) ||
+                                 (student.ClassId.HasValue && s.ClassId == student.ClassId.Value)))
+                    .Select(s => s.Id)
+                    .ToListAsync();
+
+                return new BirthdayScopeResult(
+                    CanViewStudents: true,
+                    AllowedStudentIds: classmateIds,
+                    HideStudentContact: true
+                );
+            }
+
+            return new BirthdayScopeResult(
+                CanViewStudents: false,
+                AllowedStudentIds: new List<Guid>(),
+                HideStudentContact: true
+            );
+        }
+
+        // 3. Teacher / Faculty -> Only students from their Class Teacher sections or assigned batches/classes
+        if (roleName.Contains("Teacher", StringComparison.OrdinalIgnoreCase) ||
+            roleName.Contains("Faculty", StringComparison.OrdinalIgnoreCase))
+        {
+            var linkedTeacher = await _db.Teachers.AsNoTracking().FirstOrDefaultAsync(t =>
+                t.TenantId == tenantId &&
+                (t.UserId == userId || (user != null && user.Email != null && t.Email == user.Email)));
+
+            if (linkedTeacher != null)
+            {
+                // Class Teacher sections
+                var classTeacherSectionIds = await _db.SchoolSections.AsNoTracking()
+                    .Where(s => s.ClassTeacherId == linkedTeacher.Id && s.IsActive)
+                    .Select(s => s.Id)
+                    .ToListAsync();
+
+                // Batch & Class assignments
+                var assignments = await _db.TeacherBatchAssignments.AsNoTracking()
+                    .Where(a => a.TeacherId == linkedTeacher.Id && a.IsActive)
+                    .ToListAsync();
+
+                var assignedBatchIds = assignments.Where(a => a.BatchId.HasValue).Select(a => a.BatchId!.Value).Distinct().ToList();
+                var assignedClassIds = assignments.Where(a => a.ClassId.HasValue).Select(a => a.ClassId!.Value).Distinct().ToList();
+                var assignedSectionIds = assignments.Where(a => a.SectionId.HasValue).Select(a => a.SectionId!.Value)
+                    .Concat(classTeacherSectionIds).Distinct().ToList();
+
+                var teacherStudentIds = await _db.Students.AsNoTracking()
+                    .Where(s => s.IsActive &&
+                                ((s.SectionId.HasValue && assignedSectionIds.Contains(s.SectionId.Value)) ||
+                                 (s.BatchId.HasValue && assignedBatchIds.Contains(s.BatchId.Value)) ||
+                                 (s.ClassId.HasValue && assignedClassIds.Contains(s.ClassId.Value))))
+                    .Select(s => s.Id)
+                    .ToListAsync();
+
+                return new BirthdayScopeResult(
+                    CanViewStudents: true,
+                    AllowedStudentIds: teacherStudentIds,
+                    HideStudentContact: false
+                );
+            }
+        }
+
+        // 4. Default: Admin, SuperAdmin, InstituteAdmin, HR, Principal, FrontDesk -> Full branch/school access
+        return new BirthdayScopeResult(
+            CanViewStudents: true,
+            AllowedStudentIds: null, // null indicates all students in branch
+            HideStudentContact: false
+        );
     }
 }

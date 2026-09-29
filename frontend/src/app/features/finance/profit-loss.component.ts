@@ -361,9 +361,9 @@ import { BranchService } from '../../core/services/branch.service';
   `,
   styles: [`
     .page-container {
-      padding: 24px;
-      max-width: 1400px;
-      margin: 0 auto;
+      padding: 0 0 40px;
+      width: 100%;
+      box-sizing: border-box;
       display: flex;
       flex-direction: column;
       gap: 20px;

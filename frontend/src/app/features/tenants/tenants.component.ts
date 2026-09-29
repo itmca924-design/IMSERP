@@ -538,7 +538,8 @@ import { AuthService } from '../../core/services/auth.service';
   `,
   styles: [`
     .tenants-wrapper {
-      padding: 24px;
+      padding: 0 0 40px;
+      width: 100%;
       display: flex;
       flex-direction: column;
       gap: 20px;

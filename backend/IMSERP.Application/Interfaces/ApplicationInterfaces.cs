@@ -61,6 +61,7 @@ public interface IIMSERPDbContext
     DbSet<TeacherSubstitution> TeacherSubstitutions { get; }
     DbSet<TeacherLessonPlan> TeacherLessonPlans { get; }
     DbSet<TeacherDocument> TeacherDocuments { get; }
+    DbSet<StudentDocument> StudentDocuments { get; }
     // Transport module
     DbSet<TransportDriver> TransportDrivers { get; }
     DbSet<TransportVehicle> TransportVehicles { get; }
@@ -80,6 +81,11 @@ public interface IIMSERPDbContext
     // Front Desk module
     DbSet<VisitorLog> VisitorLogs { get; }
     DbSet<StudentGatePass> StudentGatePasses { get; }
+    // Student 360 Enhancements
+    DbSet<StudentAchievement> StudentAchievements { get; }
+    DbSet<StudentDisciplinaryRecord> StudentDisciplinaryRecords { get; }
+    DbSet<StudentPtmRecord> StudentPtmRecords { get; }
+    DbSet<StudentHealthRecord> StudentHealthRecords { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

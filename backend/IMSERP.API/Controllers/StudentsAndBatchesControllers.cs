@@ -1865,6 +1865,839 @@ public class StudentsController : ControllerBase
 
         return Ok(cert);
     }
+
+    // =========================================================================
+    // STUDENT 360° PROFILE DOSSIER
+    // =========================================================================
+
+    [HttpGet("my-profile-360")]
+    public async Task<ActionResult<Student360Dto>> GetMyProfile360()
+    {
+        var userId = _currentUser.UserId;
+        var tenantId = _currentUser.TenantId;
+
+        // 1. Check if logged in user is a Student directly linked via UserId
+        var student = await _dbContext.Students.AsNoTracking()
+            .FirstOrDefaultAsync(s => s.UserId == userId && s.TenantId == tenantId);
+
+        // 2. Check if logged in user is a Parent directly linked via ParentUserId
+        if (student == null)
+        {
+            student = await _dbContext.Students.AsNoTracking()
+                .FirstOrDefaultAsync(s => s.ParentUserId == userId && s.TenantId == tenantId);
+        }
+
+        // 3. Fallback: match by user's phone or name
+        if (student == null)
+        {
+            var user = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
+            if (user != null)
+            {
+                student = await _dbContext.Students.AsNoTracking().FirstOrDefaultAsync(s =>
+                    s.TenantId == tenantId && (
+                        (!string.IsNullOrEmpty(user.PhoneNumber) && (s.ParentWhatsAppPhone == user.PhoneNumber || s.EmergencyContactPhone == user.PhoneNumber)) ||
+                        (!string.IsNullOrEmpty(user.FullName) && s.StudentName == user.FullName)
+                    ));
+            }
+        }
+
+        // 4. Fallback for staff/admin previewing the portal: first active student
+        if (student == null)
+        {
+            student = await _dbContext.Students.AsNoTracking()
+                .FirstOrDefaultAsync(s => s.TenantId == tenantId && s.IsActive);
+        }
+
+        if (student == null) return NotFound(new { message = "No associated student profile found." });
+
+        return await GetStudentProfile360(student.Id);
+    }
+
+    [HttpGet("{id}/profile-360")]
+    public async Task<ActionResult<Student360Dto>> GetStudentProfile360(Guid id)
+    {
+        var student = await _dbContext.Students.AsNoTracking()
+            .Include(s => s.Class)
+            .Include(s => s.Section)
+                .ThenInclude(sec => sec!.ClassTeacher)
+            .Include(s => s.Batch)
+            .Include(s => s.Branch)
+            .FirstOrDefaultAsync(s => s.Id == id);
+
+        if (student == null) return NotFound(new { message = "Student not found." });
+
+        // 1. Linked Siblings
+        var siblings = new List<StudentSibling360Dto>();
+        if (!string.IsNullOrWhiteSpace(student.ParentWhatsAppPhone))
+        {
+            var phoneTrimmed = student.ParentWhatsAppPhone.Trim();
+            siblings = await _dbContext.Students.AsNoTracking()
+                .Include(s => s.Class)
+                .Include(s => s.Section)
+                .Include(s => s.Batch)
+                .Where(s => s.Id != student.Id && s.ParentWhatsAppPhone == phoneTrimmed)
+                .Select(s => new StudentSibling360Dto(
+                    s.Id,
+                    s.StudentName,
+                    s.RollNumber,
+                    s.Class != null ? s.Class.Name : null,
+                    s.Section != null ? s.Section.Name : null,
+                    s.Batch != null ? s.Batch.Name : null,
+                    s.ProfilePhoto,
+                    s.IsActive
+                ))
+                .ToListAsync();
+        }
+
+        // 2. Fee Summary & Recent Invoices
+        var invoices = await _dbContext.FeeInvoices.AsNoTracking()
+            .Where(i => i.StudentId == id && i.Status != InvoiceStatus.Cancelled)
+            .OrderByDescending(i => i.DueDate)
+            .ToListAsync();
+
+        var totalInvoiced = invoices.Sum(i => i.TotalAmount);
+        var totalPaid = invoices.Sum(i => i.PaidAmount);
+        var totalPending = invoices.Where(i => i.Status != InvoiceStatus.Paid).Sum(i => i.TotalAmount - i.PaidAmount);
+        var unpaidCount = invoices.Count(i => i.Status != InvoiceStatus.Paid);
+
+        var recentInvoices = invoices.Take(8).Select(i => new StudentFeeInvoiceItem360Dto(
+            i.Id,
+            i.InvoiceNumber,
+            i.Title,
+            i.TotalAmount,
+            i.PaidAmount,
+            i.TotalAmount - i.PaidAmount,
+            i.Status.ToString(),
+            i.DueDate,
+            i.CreatedAt
+        )).ToList();
+
+        var feeSummary = new StudentFeeSummary360Dto(
+            totalInvoiced,
+            totalPaid,
+            totalPending,
+            invoices.Count,
+            unpaidCount,
+            recentInvoices
+        );
+
+        // 3. Attendance Summary & Recent Logs
+        var attendances = await _dbContext.StudentAttendances.AsNoTracking()
+            .Where(a => a.StudentId == id)
+            .OrderByDescending(a => a.AttendanceDate)
+            .ToListAsync();
+
+        int totalRecDays = attendances.Count;
+        int presentCount = attendances.Count(a => a.Status == TeacherAttendanceStatus.Present);
+        int absentCount = attendances.Count(a => a.Status == TeacherAttendanceStatus.Absent);
+        int lateCount = attendances.Count(a => a.Status == TeacherAttendanceStatus.Late);
+        int halfCount = attendances.Count(a => a.Status == TeacherAttendanceStatus.HalfDay);
+        int leaveCount = attendances.Count(a => a.Status == TeacherAttendanceStatus.Leave);
+
+        decimal attPct = totalRecDays > 0 
+            ? Math.Round(((presentCount + lateCount + (halfCount * 0.5m)) / (decimal)totalRecDays) * 100m, 1) 
+            : 0m;
+
+        var recentAttLogs = attendances.Take(15).Select(a => new StudentRecentAttendanceItem360Dto(
+            a.AttendanceDate,
+            a.Status.ToString(),
+            a.Remarks,
+            a.CaptureSource
+        )).ToList();
+
+        var attSummary = new StudentAttendance360Dto(
+            totalRecDays,
+            presentCount,
+            absentCount,
+            lateCount,
+            halfCount,
+            leaveCount,
+            attPct,
+            recentAttLogs
+        );
+
+        // 4. Exams & Test Marks
+        var testMarks = await _dbContext.TestMarks.AsNoTracking()
+            .Include(m => m.Test)
+            .Where(m => m.StudentId == id)
+            .OrderByDescending(m => m.Test != null ? m.Test.TestDate : DateTime.MinValue)
+            .Take(10)
+            .ToListAsync();
+
+        var examMarksList = testMarks.Select(m => {
+            var maxMarks = m.Test?.MaxMarks ?? 100m;
+            var pct = maxMarks > 0 ? Math.Round((m.MarksObtained / maxMarks) * 100m, 1) : 0m;
+            var passMarks = m.Test?.PassingMarks ?? (maxMarks * 0.33m);
+            var isPass = m.MarksObtained >= passMarks;
+            return new StudentExamMark360Dto(
+                m.TestId,
+                m.Test?.Title ?? "Assessment Test",
+                m.Test?.Subject ?? "General",
+                m.Test?.TestDate ?? DateTime.UtcNow,
+                m.MarksObtained,
+                maxMarks,
+                pct,
+                isPass ? "Passed" : "Needs Improvement",
+                m.Remarks
+            );
+        }).ToList();
+
+        // 5. Library Info & Issued Books
+        var circulations = await _dbContext.LibraryCirculations.AsNoTracking()
+            .Include(c => c.BookCopy)
+                .ThenInclude(bc => bc!.Book)
+            .Where(c => c.StudentId == id && (c.Status == "Issued" || c.Status == "Overdue"))
+            .OrderByDescending(c => c.IssueDate)
+            .ToListAsync();
+
+        var issuedBooks = circulations.Select(c => new StudentIssuedBook360Dto(
+            c.Id,
+            c.BookCopy?.Book?.Title ?? "Library Book",
+            c.BookCopy?.AccessionNumber ?? "",
+            c.IssueDate,
+            c.DueDate,
+            c.DueDate.Date < DateTime.UtcNow.Date || c.Status == "Overdue",
+            c.FineAmount,
+            c.FineStatus
+        )).ToList();
+
+        var libInfo = new StudentLibrary360Dto(
+            student.IsLibraryMember,
+            student.LibraryCardNumber,
+            student.LibraryMembershipType,
+            student.MaxLibraryBooks,
+            student.MonthlyLibraryFee,
+            issuedBooks.Count,
+            issuedBooks
+        );
+
+        // 6. Facilities (Hostel & Transport)
+        var activeHostel = await _dbContext.HostelAllocations.AsNoTracking()
+            .Include(h => h.Bed)
+                .ThenInclude(b => b!.Room)
+                    .ThenInclude(r => r!.Hostel)
+            .FirstOrDefaultAsync(h => h.StudentId == id && h.Status == "Active");
+
+        var activeTransport = await _dbContext.TransportAllocations.AsNoTracking()
+            .Include(t => t.Route)
+            .Include(t => t.Stop)
+            .Include(t => t.Vehicle)
+            .FirstOrDefaultAsync(t => t.StudentId == id && t.Status == "Active");
+
+        var facilities = new StudentFacility360Dto(
+            student.IsHostelStudent || activeHostel != null,
+            activeHostel?.Bed?.Room?.Hostel?.Name,
+            activeHostel?.Bed?.Room?.RoomNumber,
+            activeHostel?.Bed?.BedCode,
+            activeHostel?.MonthlyRent,
+            student.IsTransportStudent || activeTransport != null,
+            activeTransport?.Route?.RouteName,
+            activeTransport?.Stop?.StopName,
+            activeTransport?.Vehicle?.VehicleNumber,
+            activeTransport?.MonthlyFare
+        );
+
+        // 7. Recent Leaves
+        var leaves = await _dbContext.StudentLeaves.AsNoTracking()
+            .Where(l => l.StudentId == id)
+            .OrderByDescending(l => l.FromDate)
+            .Take(6)
+            .Select(l => new StudentLeave360Dto(
+                l.Id,
+                l.Reason,
+                l.FromDate,
+                l.ToDate,
+                l.TotalDays,
+                l.Status,
+                l.CreatedAt
+            ))
+            .ToListAsync();
+
+        // 8. Recent Gate Passes
+        var gatePasses = await _dbContext.CampusGatePasses.AsNoTracking()
+            .Where(g => g.StudentId == id)
+            .OrderByDescending(g => g.OutDateTime)
+            .Take(6)
+            .Select(g => new StudentGatePass360Dto(
+                g.Id,
+                g.PassNumber,
+                g.Purpose ?? "Campus Outpass",
+                g.OutDateTime,
+                g.ActualInDateTime,
+                g.Status,
+                g.PersonName
+            ))
+            .ToListAsync();
+
+        // 9. Uploaded Documents
+        var docs = await _dbContext.StudentDocuments.AsNoTracking()
+            .Where(d => d.StudentId == id)
+            .OrderByDescending(d => d.CreatedAt)
+            .Select(d => new StudentDocumentDto(
+                d.Id,
+                d.StudentId,
+                student.StudentName,
+                d.DocumentType,
+                d.Title,
+                d.DocumentNumber,
+                d.FileUrl,
+                d.FileName,
+                d.VerificationStatus,
+                d.VerifiedBy,
+                d.VerifiedAt,
+                d.Remarks,
+                d.CreatedAt
+            ))
+            .ToListAsync();
+
+        // 10. Achievements & Awards
+        var achievements = await _dbContext.StudentAchievements.AsNoTracking()
+            .Where(a => a.StudentId == id)
+            .OrderByDescending(a => a.AwardDate)
+            .Select(a => new StudentAchievementDto(
+                a.Id,
+                a.StudentId,
+                a.Title,
+                a.Category,
+                a.AwardLevel,
+                a.AwardDate,
+                a.BadgeIcon,
+                a.CertificateNumber,
+                a.Description,
+                a.AwardedBy,
+                a.CreatedAt
+            ))
+            .ToListAsync();
+
+        // 11. Disciplinary Records
+        var disciplinary = await _dbContext.StudentDisciplinaryRecords.AsNoTracking()
+            .Where(d => d.StudentId == id)
+            .OrderByDescending(d => d.IncidentDate)
+            .Select(d => new StudentDisciplinaryDto(
+                d.Id,
+                d.StudentId,
+                d.IncidentDate,
+                d.IncidentType,
+                d.Severity,
+                d.Title,
+                d.Description,
+                d.ActionTaken,
+                d.ReportedBy,
+                d.ParentNotified,
+                d.IsResolved,
+                d.CreatedAt
+            ))
+            .ToListAsync();
+
+        // 12. PTM Records
+        var ptmRecords = await _dbContext.StudentPtmRecords.AsNoTracking()
+            .Where(p => p.StudentId == id)
+            .OrderByDescending(p => p.PtmDate)
+            .Select(p => new StudentPtmDto(
+                p.Id,
+                p.StudentId,
+                p.PtmDate,
+                p.TeacherName,
+                p.TeacherRemarks,
+                p.ParentFeedback,
+                p.ChildStrengths,
+                p.AreasOfImprovement,
+                p.ParentAttended,
+                p.FollowUpRequired,
+                p.CreatedAt
+            ))
+            .ToListAsync();
+
+        // 13. Health Profile
+        var healthEntity = await _dbContext.StudentHealthRecords.AsNoTracking()
+            .FirstOrDefaultAsync(h => h.StudentId == id);
+        
+        StudentHealthDto? healthProfile = null;
+        if (healthEntity != null)
+        {
+            healthProfile = new StudentHealthDto(
+                healthEntity.Id,
+                healthEntity.StudentId,
+                healthEntity.HeightCm,
+                healthEntity.WeightKg,
+                healthEntity.Bmi,
+                healthEntity.BmiCategory,
+                healthEntity.VisionLeft,
+                healthEntity.VisionRight,
+                healthEntity.BloodGroup ?? student.BloodGroup,
+                healthEntity.KnownAllergies,
+                healthEntity.ChronicConditions,
+                healthEntity.RegularMedications,
+                healthEntity.EmergencyDoctorName,
+                healthEntity.EmergencyDoctorPhone,
+                healthEntity.LastCheckupDate,
+                healthEntity.DoctorRemarks
+            );
+        }
+        else if (!string.IsNullOrWhiteSpace(student.BloodGroup))
+        {
+            healthProfile = new StudentHealthDto(
+                null,
+                student.Id,
+                null, null, null, null, null, null,
+                student.BloodGroup,
+                null, null, null, null, null, null, null
+            );
+        }
+
+        // 14. Academic Early-Warning & Performance Radar
+        bool hasAttendanceWarning = attSummary.AttendancePercentage < 75 && attSummary.TotalRecordedDays >= 5;
+        string? attMsg = hasAttendanceWarning ? $"Attendance ({attSummary.AttendancePercentage:F1}%) is below CBSE/State minimum 75% threshold." : null;
+
+        var failingExams = examMarksList.Where(e => e.Status == "Needs Improvement" || e.Status == "Failed" || e.Percentage < 35).ToList();
+        bool hasExamWarning = failingExams.Any();
+        string? examMsg = hasExamWarning ? $"Needs academic intervention in {string.Join(", ", failingExams.Select(f => f.SubjectName))}" : null;
+
+        var strongSubs = examMarksList.Where(e => e.Percentage >= 75).Select(e => e.SubjectName).Distinct().ToList();
+        var weakSubs = examMarksList.Where(e => e.Percentage < 45).Select(e => e.SubjectName).Distinct().ToList();
+
+        bool isStar = attSummary.AttendancePercentage >= 90 && examMarksList.Any() && examMarksList.Average(e => e.Percentage) >= 80;
+        string badgeText = isStar ? "Star Scholar (Top Performer)" : (hasAttendanceWarning || hasExamWarning ? "Remedial Attention Needed" : "Consistent Performer");
+
+        var perfAlert = new StudentAcademicAlert360Dto(
+            hasAttendanceWarning,
+            attMsg,
+            hasExamWarning,
+            examMsg,
+            isStar,
+            badgeText,
+            strongSubs,
+            weakSubs
+        );
+
+        // 15. Student Detail DTO
+        var studentDetail = new StudentDetail360Dto(
+            student.Id,
+            student.StudentName,
+            student.RollNumber,
+            student.SchoolRollNumber,
+            student.CoachingRollNumber,
+            student.AdmissionNumber,
+            student.IsSchoolStudent,
+            student.IsCoachingStudent,
+            student.IsHostelStudent,
+            student.IsLibraryMember,
+            student.IsTransportStudent,
+            student.ClassId,
+            student.Class?.Name,
+            student.SectionId,
+            student.Section?.Name,
+            student.Section?.ClassTeacher?.FullName,
+            student.Section?.ClassTeacher?.PhoneNumber,
+            student.BatchId,
+            student.Batch?.Name,
+            student.ParentName,
+            student.ParentWhatsAppPhone,
+            student.MotherName,
+            student.Gender,
+            student.DateOfBirth,
+            student.DateOfBirth.HasValue ? DateTime.UtcNow.Year - student.DateOfBirth.Value.Year : null,
+            student.BloodGroup,
+            student.Address,
+            student.ProfilePhoto,
+            student.IsActive,
+            student.JoiningDate,
+            student.AadhaarNumber,
+            student.PenNumber,
+            student.ApaarId,
+            student.Category,
+            student.Religion,
+            student.EmergencyContactName,
+            student.EmergencyContactPhone,
+            student.PreviousSchoolName,
+            student.PreviousBoard,
+            student.Branch?.Name
+        );
+
+        return Ok(new Student360Dto(
+            studentDetail,
+            siblings,
+            feeSummary,
+            attSummary,
+            examMarksList,
+            libInfo,
+            facilities,
+            leaves,
+            gatePasses,
+            docs,
+            perfAlert,
+            achievements,
+            disciplinary,
+            ptmRecords,
+            healthProfile
+        ));
+    }
+
+    // =========================================================================
+    // STUDENT KYC DOCUMENTS
+    // =========================================================================
+
+    [HttpGet("{id}/documents")]
+    public async Task<ActionResult<IEnumerable<StudentDocumentDto>>> GetStudentDocuments(Guid id)
+    {
+        var student = await _dbContext.Students.AsNoTracking().FirstOrDefaultAsync(s => s.Id == id);
+        if (student == null) return NotFound(new { message = "Student not found." });
+
+        var docs = await _dbContext.StudentDocuments.AsNoTracking()
+            .Where(d => d.StudentId == id)
+            .OrderByDescending(d => d.CreatedAt)
+            .Select(d => new StudentDocumentDto(
+                d.Id,
+                d.StudentId,
+                student.StudentName,
+                d.DocumentType,
+                d.Title,
+                d.DocumentNumber,
+                d.FileUrl,
+                d.FileName,
+                d.VerificationStatus,
+                d.VerifiedBy,
+                d.VerifiedAt,
+                d.Remarks,
+                d.CreatedAt
+            ))
+            .ToListAsync();
+
+        return Ok(docs);
+    }
+
+    [HttpPost("{id}/documents")]
+    public async Task<ActionResult<StudentDocumentDto>> AddStudentDocument(Guid id, [FromBody] CreateStudentDocumentDto dto)
+    {
+        var student = await _dbContext.Students.FirstOrDefaultAsync(s => s.Id == id);
+        if (student == null) return NotFound(new { message = "Student not found." });
+
+        var docId = Guid.NewGuid();
+        string? fileUrl = dto.FileUrl;
+
+        // If file base64 is provided, save it to uploads/students/documents
+        if (!string.IsNullOrWhiteSpace(dto.FileBase64))
+        {
+            fileUrl = ImageStorageHelper.SaveBase64File(dto.FileBase64, "students/documents", docId.ToString(), _env.ContentRootPath);
+        }
+
+        var doc = new StudentDocument
+        {
+            Id = docId,
+            TenantId = _currentUser.TenantId,
+            BranchId = _currentUser.BranchId ?? student.BranchId,
+            StudentId = id,
+            DocumentType = dto.DocumentType,
+            Title = string.IsNullOrWhiteSpace(dto.Title) ? dto.DocumentType : dto.Title.Trim(),
+            DocumentNumber = dto.DocumentNumber?.Trim(),
+            FileUrl = fileUrl,
+            FileName = dto.FileName,
+            VerificationStatus = "Verified",
+            VerifiedBy = _currentUser.UserRole,
+            VerifiedAt = DateTime.UtcNow,
+            Remarks = dto.Remarks?.Trim(),
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        _dbContext.StudentDocuments.Add(doc);
+        await _dbContext.SaveChangesAsync();
+
+        return Ok(new StudentDocumentDto(
+            doc.Id,
+            doc.StudentId,
+            student.StudentName,
+            doc.DocumentType,
+            doc.Title,
+            doc.DocumentNumber,
+            doc.FileUrl,
+            doc.FileName,
+            doc.VerificationStatus,
+            doc.VerifiedBy,
+            doc.VerifiedAt,
+            doc.Remarks,
+            doc.CreatedAt
+        ));
+    }
+
+    [HttpDelete("{id}/documents/{docId}")]
+    public async Task<IActionResult> DeleteStudentDocument(Guid id, Guid docId)
+    {
+        var doc = await _dbContext.StudentDocuments.FirstOrDefaultAsync(d => d.Id == docId && d.StudentId == id);
+        if (doc == null) return NotFound(new { message = "Document not found." });
+
+        _dbContext.StudentDocuments.Remove(doc);
+        await _dbContext.SaveChangesAsync();
+
+        return Ok(new { message = "Document deleted successfully." });
+    }
+
+    // =========================================================================
+    // STUDENT ACHIEVEMENTS & WALL OF FAME
+    // =========================================================================
+
+    [HttpPost("{id}/achievements")]
+    public async Task<ActionResult<StudentAchievementDto>> AddStudentAchievement(Guid id, [FromBody] CreateStudentAchievementDto dto)
+    {
+        var student = await _dbContext.Students.FirstOrDefaultAsync(s => s.Id == id);
+        if (student == null) return NotFound(new { message = "Student not found." });
+
+        var achievement = new StudentAchievement
+        {
+            Id = Guid.NewGuid(),
+            TenantId = _currentUser.TenantId,
+            BranchId = _currentUser.BranchId ?? student.BranchId,
+            StudentId = id,
+            Title = dto.Title.Trim(),
+            Category = dto.Category ?? "Academic",
+            AwardLevel = dto.AwardLevel ?? "School",
+            AwardDate = dto.AwardDate,
+            BadgeIcon = string.IsNullOrWhiteSpace(dto.BadgeIcon) ? "emoji_events" : dto.BadgeIcon,
+            CertificateNumber = dto.CertificateNumber?.Trim(),
+            Description = dto.Description?.Trim(),
+            AwardedBy = dto.AwardedBy?.Trim() ?? _currentUser.UserRole,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _dbContext.StudentAchievements.Add(achievement);
+        await _dbContext.SaveChangesAsync();
+
+        return Ok(new StudentAchievementDto(
+            achievement.Id,
+            achievement.StudentId,
+            achievement.Title,
+            achievement.Category,
+            achievement.AwardLevel,
+            achievement.AwardDate,
+            achievement.BadgeIcon,
+            achievement.CertificateNumber,
+            achievement.Description,
+            achievement.AwardedBy,
+            achievement.CreatedAt
+        ));
+    }
+
+    [HttpDelete("{id}/achievements/{achId}")]
+    public async Task<IActionResult> DeleteStudentAchievement(Guid id, Guid achId)
+    {
+        var ach = await _dbContext.StudentAchievements.FirstOrDefaultAsync(a => a.Id == achId && a.StudentId == id);
+        if (ach == null) return NotFound(new { message = "Achievement record not found." });
+
+        _dbContext.StudentAchievements.Remove(ach);
+        await _dbContext.SaveChangesAsync();
+        return Ok(new { message = "Achievement removed successfully." });
+    }
+
+    // =========================================================================
+    // STUDENT DISCIPLINARY & CONDUCT REGISTER
+    // =========================================================================
+
+    [HttpPost("{id}/discipline")]
+    public async Task<ActionResult<StudentDisciplinaryDto>> AddStudentDisciplinaryRecord(Guid id, [FromBody] CreateStudentDisciplinaryDto dto)
+    {
+        var student = await _dbContext.Students.FirstOrDefaultAsync(s => s.Id == id);
+        if (student == null) return NotFound(new { message = "Student not found." });
+
+        var record = new StudentDisciplinaryRecord
+        {
+            Id = Guid.NewGuid(),
+            TenantId = _currentUser.TenantId,
+            BranchId = _currentUser.BranchId ?? student.BranchId,
+            StudentId = id,
+            IncidentDate = dto.IncidentDate,
+            IncidentType = dto.IncidentType ?? "Warning",
+            Severity = dto.Severity ?? "Low",
+            Title = dto.Title.Trim(),
+            Description = dto.Description.Trim(),
+            ActionTaken = dto.ActionTaken?.Trim(),
+            ReportedBy = dto.ReportedBy?.Trim() ?? _currentUser.UserRole,
+            ParentNotified = dto.ParentNotified,
+            IsResolved = dto.IsResolved,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _dbContext.StudentDisciplinaryRecords.Add(record);
+        await _dbContext.SaveChangesAsync();
+
+        return Ok(new StudentDisciplinaryDto(
+            record.Id,
+            record.StudentId,
+            record.IncidentDate,
+            record.IncidentType,
+            record.Severity,
+            record.Title,
+            record.Description,
+            record.ActionTaken,
+            record.ReportedBy,
+            record.ParentNotified,
+            record.IsResolved,
+            record.CreatedAt
+        ));
+    }
+
+    [HttpDelete("{id}/discipline/{recId}")]
+    public async Task<IActionResult> DeleteStudentDisciplinaryRecord(Guid id, Guid recId)
+    {
+        var rec = await _dbContext.StudentDisciplinaryRecords.FirstOrDefaultAsync(r => r.Id == recId && r.StudentId == id);
+        if (rec == null) return NotFound(new { message = "Disciplinary record not found." });
+
+        _dbContext.StudentDisciplinaryRecords.Remove(rec);
+        await _dbContext.SaveChangesAsync();
+        return Ok(new { message = "Disciplinary record removed successfully." });
+    }
+
+    // =========================================================================
+    // PTM & PARENT INTERACTION DESK
+    // =========================================================================
+
+    [HttpPost("{id}/ptm")]
+    public async Task<ActionResult<StudentPtmDto>> AddStudentPtmRecord(Guid id, [FromBody] CreateStudentPtmDto dto)
+    {
+        var student = await _dbContext.Students.FirstOrDefaultAsync(s => s.Id == id);
+        if (student == null) return NotFound(new { message = "Student not found." });
+
+        var record = new StudentPtmRecord
+        {
+            Id = Guid.NewGuid(),
+            TenantId = _currentUser.TenantId,
+            BranchId = _currentUser.BranchId ?? student.BranchId,
+            StudentId = id,
+            PtmDate = dto.PtmDate,
+            TeacherName = dto.TeacherName.Trim(),
+            TeacherRemarks = dto.TeacherRemarks.Trim(),
+            ParentFeedback = dto.ParentFeedback?.Trim(),
+            ChildStrengths = dto.ChildStrengths?.Trim(),
+            AreasOfImprovement = dto.AreasOfImprovement?.Trim(),
+            ParentAttended = dto.ParentAttended ?? "Both",
+            FollowUpRequired = dto.FollowUpRequired,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _dbContext.StudentPtmRecords.Add(record);
+        await _dbContext.SaveChangesAsync();
+
+        return Ok(new StudentPtmDto(
+            record.Id,
+            record.StudentId,
+            record.PtmDate,
+            record.TeacherName,
+            record.TeacherRemarks,
+            record.ParentFeedback,
+            record.ChildStrengths,
+            record.AreasOfImprovement,
+            record.ParentAttended,
+            record.FollowUpRequired,
+            record.CreatedAt
+        ));
+    }
+
+    [HttpDelete("{id}/ptm/{ptmId}")]
+    public async Task<IActionResult> DeleteStudentPtmRecord(Guid id, Guid ptmId)
+    {
+        var ptm = await _dbContext.StudentPtmRecords.FirstOrDefaultAsync(p => p.Id == ptmId && p.StudentId == id);
+        if (ptm == null) return NotFound(new { message = "PTM record not found." });
+
+        _dbContext.StudentPtmRecords.Remove(ptm);
+        await _dbContext.SaveChangesAsync();
+        return Ok(new { message = "PTM record removed successfully." });
+    }
+
+    // =========================================================================
+    // STUDENT HEALTH & MEDICAL PROFILE
+    // =========================================================================
+
+    [HttpPost("{id}/health")]
+    public async Task<ActionResult<StudentHealthDto>> SaveStudentHealth(Guid id, [FromBody] SaveStudentHealthDto dto)
+    {
+        var student = await _dbContext.Students.FirstOrDefaultAsync(s => s.Id == id);
+        if (student == null) return NotFound(new { message = "Student not found." });
+
+        // Calculate BMI if height and weight available
+        decimal? bmi = null;
+        string? bmiCategory = null;
+        if (dto.HeightCm.HasValue && dto.HeightCm.Value > 0 && dto.WeightKg.HasValue && dto.WeightKg.Value > 0)
+        {
+            var heightM = dto.HeightCm.Value / 100m;
+            bmi = Math.Round(dto.WeightKg.Value / (heightM * heightM), 2);
+            if (bmi < 18.5m) bmiCategory = "Underweight";
+            else if (bmi < 25m) bmiCategory = "Normal";
+            else if (bmi < 30m) bmiCategory = "Overweight";
+            else bmiCategory = "Obese";
+        }
+
+        var health = await _dbContext.StudentHealthRecords.FirstOrDefaultAsync(h => h.StudentId == id);
+        if (health == null)
+        {
+            health = new StudentHealthRecord
+            {
+                Id = Guid.NewGuid(),
+                TenantId = _currentUser.TenantId,
+                BranchId = _currentUser.BranchId ?? student.BranchId,
+                StudentId = id,
+                HeightCm = dto.HeightCm,
+                WeightKg = dto.WeightKg,
+                Bmi = bmi,
+                BmiCategory = bmiCategory,
+                VisionLeft = dto.VisionLeft?.Trim(),
+                VisionRight = dto.VisionRight?.Trim(),
+                BloodGroup = dto.BloodGroup?.Trim() ?? student.BloodGroup,
+                KnownAllergies = dto.KnownAllergies?.Trim(),
+                ChronicConditions = dto.ChronicConditions?.Trim(),
+                RegularMedications = dto.RegularMedications?.Trim(),
+                EmergencyDoctorName = dto.EmergencyDoctorName?.Trim(),
+                EmergencyDoctorPhone = dto.EmergencyDoctorPhone?.Trim(),
+                LastCheckupDate = dto.LastCheckupDate,
+                DoctorRemarks = dto.DoctorRemarks?.Trim(),
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+            _dbContext.StudentHealthRecords.Add(health);
+        }
+        else
+        {
+            health.HeightCm = dto.HeightCm;
+            health.WeightKg = dto.WeightKg;
+            health.Bmi = bmi;
+            health.BmiCategory = bmiCategory;
+            health.VisionLeft = dto.VisionLeft?.Trim();
+            health.VisionRight = dto.VisionRight?.Trim();
+            health.BloodGroup = dto.BloodGroup?.Trim() ?? student.BloodGroup;
+            health.KnownAllergies = dto.KnownAllergies?.Trim();
+            health.ChronicConditions = dto.ChronicConditions?.Trim();
+            health.RegularMedications = dto.RegularMedications?.Trim();
+            health.EmergencyDoctorName = dto.EmergencyDoctorName?.Trim();
+            health.EmergencyDoctorPhone = dto.EmergencyDoctorPhone?.Trim();
+            health.LastCheckupDate = dto.LastCheckupDate;
+            health.DoctorRemarks = dto.DoctorRemarks?.Trim();
+            health.UpdatedAt = DateTime.UtcNow;
+        }
+
+        if (!string.IsNullOrWhiteSpace(dto.BloodGroup) && student.BloodGroup != dto.BloodGroup)
+        {
+            student.BloodGroup = dto.BloodGroup.Trim();
+        }
+
+        await _dbContext.SaveChangesAsync();
+
+        return Ok(new StudentHealthDto(
+            health.Id,
+            health.StudentId,
+            health.HeightCm,
+            health.WeightKg,
+            health.Bmi,
+            health.BmiCategory,
+            health.VisionLeft,
+            health.VisionRight,
+            health.BloodGroup,
+            health.KnownAllergies,
+            health.ChronicConditions,
+            health.RegularMedications,
+            health.EmergencyDoctorName,
+            health.EmergencyDoctorPhone,
+            health.LastCheckupDate,
+            health.DoctorRemarks
+        ));
+    }
 }
 
 

@@ -263,4 +263,402 @@ export class CoachingService {
 
     return this.http.get<any>(`${this.BASE_URL}/whatsapp/paged`, { params });
   }
+
+  // ── Student 360 Profile & Documents ─────────────────────────────────────────
+  getStudentProfile360(studentId: string): Observable<Student360Data> {
+    return this.http.get<Student360Data>(`${this.BASE_URL}/students/${studentId}/profile-360`);
+  }
+
+  getMyStudentProfile360(): Observable<Student360Data> {
+    return this.http.get<Student360Data>(`${this.BASE_URL}/students/my-profile-360`);
+  }
+
+  getStudentDocuments(studentId: string): Observable<StudentDocumentItem[]> {
+    return this.http.get<StudentDocumentItem[]>(`${this.BASE_URL}/students/${studentId}/documents`);
+  }
+
+  addStudentDocument(studentId: string, payload: CreateStudentDocumentPayload): Observable<StudentDocumentItem> {
+    return this.http.post<StudentDocumentItem>(`${this.BASE_URL}/students/${studentId}/documents`, payload);
+  }
+
+  deleteStudentDocument(studentId: string, docId: string): Observable<any> {
+    return this.http.delete(`${this.BASE_URL}/students/${studentId}/documents/${docId}`);
+  }
+
+  // ── 5 Attractive Student Features: Achievements, Discipline, PTM, Health ────
+  addStudentAchievement(studentId: string, payload: CreateStudentAchievementDto): Observable<StudentAchievementDto> {
+    return this.http.post<StudentAchievementDto>(`${this.BASE_URL}/students/${studentId}/achievements`, payload);
+  }
+
+  deleteStudentAchievement(studentId: string, achId: string): Observable<any> {
+    return this.http.delete(`${this.BASE_URL}/students/${studentId}/achievements/${achId}`);
+  }
+
+  addStudentDiscipline(studentId: string, payload: CreateStudentDisciplinaryDto): Observable<StudentDisciplinaryDto> {
+    return this.http.post<StudentDisciplinaryDto>(`${this.BASE_URL}/students/${studentId}/discipline`, payload);
+  }
+
+  deleteStudentDiscipline(studentId: string, recId: string): Observable<any> {
+    return this.http.delete(`${this.BASE_URL}/students/${studentId}/discipline/${recId}`);
+  }
+
+  addStudentPtm(studentId: string, payload: CreateStudentPtmDto): Observable<StudentPtmDto> {
+    return this.http.post<StudentPtmDto>(`${this.BASE_URL}/students/${studentId}/ptm`, payload);
+  }
+
+  deleteStudentPtm(studentId: string, ptmId: string): Observable<any> {
+    return this.http.delete(`${this.BASE_URL}/students/${studentId}/ptm/${ptmId}`);
+  }
+
+  saveStudentHealth(studentId: string, payload: SaveStudentHealthDto): Observable<StudentHealthDto> {
+    return this.http.post<StudentHealthDto>(`${this.BASE_URL}/students/${studentId}/health`, payload);
+  }
 }
+
+// ── Interfaces for Student 360 & Documents ───────────────────────────────────
+
+export interface StudentDetail360 {
+  id: string;
+  studentName: string;
+  rollNumber: string;
+  schoolRollNumber?: string | null;
+  coachingRollNumber?: string | null;
+  admissionNumber?: string | null;
+  isSchoolStudent: boolean;
+  isCoachingStudent: boolean;
+  isHostelStudent: boolean;
+  isLibraryMember: boolean;
+  isTransportStudent: boolean;
+  classId?: string | null;
+  className?: string | null;
+  sectionId?: string | null;
+  sectionName?: string | null;
+  classTeacherName?: string | null;
+  classTeacherPhone?: string | null;
+  batchId?: string | null;
+  batchName?: string | null;
+  parentName: string;
+  parentWhatsAppPhone: string;
+  motherName?: string | null;
+  gender?: string | null;
+  dateOfBirth?: string | null;
+  age?: number | null;
+  bloodGroup?: string | null;
+  address?: string | null;
+  profilePhoto?: string | null;
+  isActive: boolean;
+  joiningDate: string;
+  aadhaarNumber?: string | null;
+  penNumber?: string | null;
+  apaarId?: string | null;
+  category?: string | null;
+  religion?: string | null;
+  emergencyContactName?: string | null;
+  emergencyContactPhone?: string | null;
+  previousSchoolName?: string | null;
+  previousBoard?: string | null;
+  branchName?: string | null;
+}
+
+export interface StudentSibling360 {
+  studentId: string;
+  studentName: string;
+  rollNumber: string;
+  className?: string | null;
+  sectionName?: string | null;
+  batchName?: string | null;
+  profilePhoto?: string | null;
+  isActive: boolean;
+}
+
+export interface StudentFeeInvoiceItem360 {
+  invoiceId: string;
+  invoiceNumber: string;
+  title: string;
+  totalAmount: number;
+  paidAmount: number;
+  balanceAmount: number;
+  status: string;
+  dueDate: string;
+  createdAt: string;
+}
+
+export interface StudentFeeSummary360 {
+  totalInvoiced: number;
+  totalPaid: number;
+  totalPending: number;
+  totalInvoicesCount: number;
+  unpaidInvoicesCount: number;
+  recentInvoices: StudentFeeInvoiceItem360[];
+}
+
+export interface StudentRecentAttendanceItem360 {
+  date: string;
+  status: string;
+  remarks?: string | null;
+  captureSource?: string | null;
+}
+
+export interface StudentAttendance360 {
+  totalRecordedDays: number;
+  presentDays: number;
+  absentDays: number;
+  lateDays: number;
+  halfDays: number;
+  leaveDays: number;
+  attendancePercentage: number;
+  recentLogs: StudentRecentAttendanceItem360[];
+}
+
+export interface StudentExamMark360 {
+  testId: string;
+  testName: string;
+  subjectName: string;
+  testDate: string;
+  marksObtained: number;
+  maxMarks: number;
+  percentage: number;
+  status: string;
+  remarks?: string | null;
+}
+
+export interface StudentIssuedBook360 {
+  circulationId: string;
+  bookTitle: string;
+  accessionNumber?: string | null;
+  issueDate: string;
+  dueDate: string;
+  isOverdue: boolean;
+  fineAmount: number;
+  fineStatus: string;
+}
+
+export interface StudentLibrary360 {
+  isMember: boolean;
+  libraryCardNumber?: string | null;
+  membershipPlan?: string | null;
+  maxBooksAllowed: number;
+  monthlyFee: number;
+  currentlyIssuedCount: number;
+  issuedBooks: StudentIssuedBook360[];
+}
+
+export interface StudentFacility360 {
+  hasHostel: boolean;
+  hostelName?: string | null;
+  roomNumber?: string | null;
+  bedCode?: string | null;
+  monthlyBedRent?: number | null;
+  hasTransport: boolean;
+  routeName?: string | null;
+  stopName?: string | null;
+  vehicleNumber?: string | null;
+  transportMonthlyFee?: number | null;
+}
+
+export interface StudentLeave360 {
+  leaveId: string;
+  reason: string;
+  fromDate: string;
+  toDate: string;
+  totalDays: number;
+  status: string;
+  appliedAt: string;
+}
+
+export interface StudentGatePass360 {
+  passId: string;
+  passNumber: string;
+  reason: string;
+  outTime: string;
+  inTime?: string | null;
+  status: string;
+  guardianName?: string | null;
+}
+
+export interface StudentDocumentItem {
+  id: string;
+  studentId: string;
+  studentName: string;
+  documentType: string;
+  title: string;
+  documentNumber?: string | null;
+  fileUrl?: string | null;
+  fileName?: string | null;
+  verificationStatus: string;
+  verifiedBy?: string | null;
+  verifiedAt?: string | null;
+  remarks?: string | null;
+  createdAt: string;
+}
+
+export interface CreateStudentDocumentPayload {
+  documentType: string;
+  title: string;
+  documentNumber?: string | null;
+  fileUrl?: string | null;
+  fileName?: string | null;
+  fileBase64?: string | null;
+  remarks?: string | null;
+}
+
+export interface StudentAchievementDto {
+  id: string;
+  studentId: string;
+  title: string;
+  category: string; // Academic, Sports, Cultural, Leadership, Olympiad, Other
+  level?: string | null;
+  awardLevel?: string | null;
+  position?: string | null;
+  awardedDate?: string;
+  awardDate?: string;
+  issuedBy?: string | null;
+  awardedBy?: string | null;
+  certificateNumber?: string | null;
+  remarks?: string | null;
+  description?: string | null;
+  badgeIcon?: string | null;
+  createdAt: string;
+}
+
+export interface CreateStudentAchievementDto {
+  title: string;
+  category: string;
+  level?: string | null;
+  position?: string | null;
+  awardedDate: string;
+  issuedBy?: string | null;
+  certificateNumber?: string | null;
+  remarks?: string | null;
+  badgeIcon?: string | null;
+}
+
+export interface StudentDisciplinaryDto {
+  id: string;
+  studentId: string;
+  incidentDate: string;
+  incidentType: string; // PositiveCommendation, MinorInfraction, ModerateMisconduct, SevereViolation
+  severity: string; // Low, Medium, High, Critical, Commendation
+  title: string;
+  description: string;
+  actionTaken?: string | null;
+  reportedByName?: string | null;
+  reportedBy?: string | null;
+  parentNotified: boolean;
+  parentNotifiedAt?: string | null;
+  status?: string;
+  isResolved?: boolean;
+  createdAt: string;
+}
+
+export interface CreateStudentDisciplinaryDto {
+  incidentDate: string;
+  incidentType: string;
+  severity: string;
+  title: string;
+  description: string;
+  actionTaken?: string | null;
+  reportedByName?: string | null;
+  parentNotified: boolean;
+  status: string;
+}
+
+export interface StudentPtmDto {
+  id: string;
+  studentId: string;
+  meetingDate?: string;
+  ptmDate?: string;
+  attendedByParentName?: string;
+  parentAttended?: string;
+  teacherName?: string | null;
+  discussionSummary?: string | null;
+  teacherRemarks?: string | null;
+  parentFeedback?: string | null;
+  childStrengths?: string | null;
+  areasOfImprovement?: string | null;
+  actionPoints?: string | null;
+  satisfactionRating?: string;
+  followUpRequired?: boolean;
+  createdAt: string;
+}
+
+export interface CreateStudentPtmDto {
+  meetingDate: string;
+  attendedByParentName: string;
+  teacherName?: string | null;
+  discussionSummary?: string | null;
+  teacherRemarks?: string | null;
+  parentFeedback?: string | null;
+  actionPoints?: string | null;
+  satisfactionRating: string;
+}
+
+export interface StudentHealthDto {
+  id: string;
+  studentId: string;
+  heightCm?: number | null;
+  weightKg?: number | null;
+  bmi?: number | null;
+  bmiCategory?: string | null;
+  bloodGroup?: string | null;
+  visionLeft?: string | null;
+  visionRight?: string | null;
+  knownAllergies?: string | null;
+  chronicConditions?: string | null;
+  regularMedications?: string | null;
+  emergencyDoctorName?: string | null;
+  emergencyDoctorPhone?: string | null;
+  lastCheckupDate?: string | null;
+  doctorNotes?: string | null;
+  doctorRemarks?: string | null;
+  updatedAt?: string;
+}
+
+export interface SaveStudentHealthDto {
+  heightCm?: number | null;
+  weightKg?: number | null;
+  bloodGroup?: string | null;
+  visionLeft?: string | null;
+  visionRight?: string | null;
+  knownAllergies?: string | null;
+  chronicConditions?: string | null;
+  regularMedications?: string | null;
+  emergencyDoctorName?: string | null;
+  emergencyDoctorPhone?: string | null;
+  lastCheckupDate?: string | null;
+  doctorNotes?: string | null;
+}
+
+export interface StudentAcademicAlert360Dto {
+  hasAttendanceWarning?: boolean;
+  attendanceAlertMessage?: string | null;
+  hasExamWarning?: boolean;
+  examAlertMessage?: string | null;
+  isStarPerformer: boolean;
+  performanceBadgeText?: string;
+  strongSubjects: string[];
+  weakSubjects: string[];
+  hasAttendanceRisk?: boolean;
+  hasAcademicRisk?: boolean;
+  alertMessage?: string;
+}
+
+export interface Student360Data {
+  student: StudentDetail360;
+  siblings: StudentSibling360[];
+  feeSummary: StudentFeeSummary360;
+  attendanceSummary: StudentAttendance360;
+  examMarks: StudentExamMark360[];
+  library: StudentLibrary360;
+  facilities: StudentFacility360;
+  leaves: StudentLeave360[];
+  gatePasses: StudentGatePass360[];
+  documents: StudentDocumentItem[];
+  achievements?: StudentAchievementDto[];
+  disciplinaryRecords?: StudentDisciplinaryDto[];
+  ptmRecords?: StudentPtmDto[];
+  healthRecord?: StudentHealthDto | null;
+  healthProfile?: StudentHealthDto | null;
+  performanceAlert?: StudentAcademicAlert360Dto | null;
+}
+

@@ -59,6 +59,22 @@ import ApexCharts from 'apexcharts';
 
       @if (summary(); as summary) {
 
+        <!-- 🏆 Student Portal Quick Access Hero Card -->
+        <div class="student-portal-hero-banner" *ngIf="authService.isStudentOrParent()">
+          <div class="sph-left">
+            <div class="sph-icon"><mat-icon>military_tech</mat-icon></div>
+            <div>
+              <h3 class="sph-title">Student Self-Service Portal &amp; Wall of Fame</h3>
+              <p class="sph-sub">Access your 360° profile dossier, official honors, printable certificates, growth BMI tracker, and PTM records.</p>
+            </div>
+          </div>
+          <div class="sph-right">
+            <a mat-raised-button color="primary" class="sph-btn" routerLink="/students/my-profile">
+              <mat-icon>workspace_premium</mat-icon> Open My 360° Profile &amp; Wall of Fame
+            </a>
+          </div>
+        </div>
+
         <!-- 1. Top KPI Stat Cards -->
         <div class="card-container">
           <mat-card class="stat-card blue mat-elevation-z2">
@@ -387,7 +403,7 @@ import ApexCharts from 'apexcharts';
                 </div>
                 <div>
                   <h3 class="radar-title">Celebrations & Birthdays</h3>
-                  <p class="radar-sub">Students & Teachers Celebrating Today</p>
+                  <p class="radar-sub">{{ birthdayRadarSubtitle() }}</p>
                 </div>
               </div>
               <span class="bday-count-pill" *ngIf="celebrations()?.todayBirthdays?.length">
@@ -417,6 +433,7 @@ import ApexCharts from 'apexcharts';
                         </span>
                       </div>
                       <button
+                        *ngIf="b.whatsAppPhone"
                         mat-flat-button
                         class="wa-wish-btn"
                         (click)="sendWhatsAppWish(b)"
@@ -1787,6 +1804,62 @@ import ApexCharts from 'apexcharts';
       }
     }
 
+    /* ─── Student Portal Hero Banner ─── */
+    .student-portal-hero-banner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+      border: 1px solid #bfdbfe;
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 1.25rem;
+      flex-wrap: wrap;
+      gap: 1rem;
+      box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.08);
+
+      .sph-left {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+
+        .sph-icon {
+          width: 48px;
+          height: 48px;
+          background: #2563eb;
+          color: #ffffff;
+          border-radius: 10px;
+          box-shadow: 0 4px 6px -1px rgba(37,99,235,0.25);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+
+          mat-icon { font-size: 28px; width: 28px; height: 28px; }
+        }
+
+        .sph-title {
+          margin: 0;
+          font-size: 1.15rem;
+          font-weight: 700;
+          color: #1e3a8a;
+        }
+
+        .sph-sub {
+          margin: 2px 0 0;
+          font-size: 0.825rem;
+          color: #3b82f6;
+        }
+      }
+
+      .sph-btn {
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+        color: #ffffff !important;
+        font-weight: 600 !important;
+        border-radius: 8px !important;
+        padding: 0.5rem 1.25rem !important;
+      }
+    }
+
     /* ─── Responsive ─── */
     @media (max-width: 1024px) {
       .charts-row { grid-template-columns: 1fr; }
@@ -1845,10 +1918,24 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
 
   celebrations = signal<DashboardCelebrationsSummary | null>(null);
 
+  readonly birthdayRadarSubtitle = computed(() => {
+    const role = (this.authService.currentUser()?.role || '').toLowerCase();
+    if (role.includes('teacher') || role.includes('faculty')) {
+      return 'Class Students & Staff Celebrating Today';
+    }
+    if (role.includes('account') || role.includes('finance') || role.includes('clerk')) {
+      return 'Staff & Colleagues Celebrating Today';
+    }
+    if (role.includes('student') || role.includes('parent')) {
+      return 'Classmates & Teachers Celebrating Today';
+    }
+    return 'Students & Teachers Celebrating Today';
+  });
+
   constructor(
     private coachingService: CoachingService,
     private confirmDialog: ConfirmDialogService,
-    private authService: AuthService,
+    public authService: AuthService,
     private eventsService: EventsService,
     private dialog: MatDialog,
     private ngZone: NgZone,

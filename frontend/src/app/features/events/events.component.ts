@@ -289,9 +289,8 @@ import { EventGalleryDialogComponent } from './event-gallery-dialog.component';
   `,
   styles: [`
     .events-page-container {
-      padding: 24px;
-      max-width: 1400px;
-      margin: 0 auto;
+      padding: 0 0 40px;
+      width: 100%;
       box-sizing: border-box;
     }
 

@@ -386,7 +386,8 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
   `,
   styles: [`
     .subscription-page-container {
-      padding: 24px;
+      padding: 0 0 40px;
+      width: 100%;
       display: flex;
       flex-direction: column;
       gap: 24px;

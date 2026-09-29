@@ -437,7 +437,7 @@ export interface EnquiryStatsDto {
     </div>
   `,
   styles: [`
-    .crm-page-container { padding: 24px; display: flex; flex-direction: column; gap: 20px; background: #f8fafc; min-height: 100vh; }
+    .crm-page-container { padding: 0 0 40px; display: flex; flex-direction: column; gap: 20px; box-sizing: border-box; width: 100%; }
     .page-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; background: #fff; padding: 20px 24px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
     .header-left { display: flex; align-items: center; gap: 16px; }
     .header-icon-box { width: 48px; height: 48px; border-radius: 12px; background: #2563eb; color: #fff; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px -1px rgba(37,99,235,0.25); }

@@ -335,9 +335,9 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
   `,
   styles: [`
     .page-container {
-      padding: 24px;
-      max-width: 1300px;
-      margin: 0 auto;
+      padding: 0 0 40px;
+      width: 100%;
+      box-sizing: border-box;
     }
 
     .page-header {

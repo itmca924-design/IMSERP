@@ -990,10 +990,26 @@ export class SectionRoutineDialogComponent implements OnInit {
     private confirmDialog: ConfirmDialogService
   ) {}
 
+  isTeachingStaff(t: any): boolean {
+    if (!t) return false;
+    const st = (t.staffType || '').toString().toLowerCase();
+    if (st === 'nonteaching' || st.includes('non') || st === '2' || t.staffType === 2) return false;
+    const dept = (t.department || '').toLowerCase();
+    const desig = (t.designation || '').toLowerCase();
+    const code = (t.employeeCode || '').toLowerCase();
+    const name = (t.fullName || '').toLowerCase();
+    if (code.startsWith('hr') || name.includes('(hr') || name.includes('hr manager') || dept.includes('hr') || dept.includes('human resource') || desig.includes('hr') || desig.includes('accountant') || desig.includes('receptionist') || desig.includes('driver')) {
+      return false;
+    }
+    return true;
+  }
+
   ngOnInit() {
     this.loadRoutine();
-    if (this.data.classTeacherId) {
+    if (this.data.classTeacherId && this.classTeacherObj) {
       this.selectedTeacherId = this.data.classTeacherId;
+    } else {
+      this.selectedTeacherId = '';
     }
   }
 
@@ -1016,11 +1032,12 @@ export class SectionRoutineDialogComponent implements OnInit {
 
   get classTeacherObj(): TeacherDto | undefined {
     if (!this.data.classTeacherId) return undefined;
-    return this.data.teachers.find(t => t.id === this.data.classTeacherId);
+    const ct = this.data.teachers.find(t => t.id === this.data.classTeacherId);
+    return (ct && this.isTeachingStaff(ct)) ? ct : undefined;
   }
 
   get nonCtTeachers(): TeacherDto[] {
-    const list = (this.data.teachers || []).filter(t => t.isActive);
+    const list = (this.data.teachers || []).filter(t => t.isActive && this.isTeachingStaff(t));
     if (!this.data.classTeacherId) return list;
     return list.filter(t => t.id !== this.data.classTeacherId);
   }

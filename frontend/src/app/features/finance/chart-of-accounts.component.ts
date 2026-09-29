@@ -280,14 +280,12 @@ import { LedgerDialogComponent } from './ledger-dialog.component';
   `,
   styles: [`
     .page-container {
-      padding: 24px;
-      max-width: 1400px;
-      margin: 0 auto;
+      padding: 0 0 40px;
+      width: 100%;
+      box-sizing: border-box;
       display: flex;
       flex-direction: column;
       gap: 20px;
-      background: #f8fafc;
-      min-height: calc(100vh - 64px);
     }
 
     .header-card {

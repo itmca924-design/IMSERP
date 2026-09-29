@@ -356,6 +356,111 @@ using (var scope = app.Services.CreateScope())
                         );
                     END
 
+                    IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'StudentDocuments')
+                    BEGIN
+                        CREATE TABLE StudentDocuments (
+                            Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
+                            TenantId UNIQUEIDENTIFIER NOT NULL,
+                            BranchId UNIQUEIDENTIFIER NULL,
+                            StudentId UNIQUEIDENTIFIER NOT NULL,
+                            DocumentType NVARCHAR(MAX) NOT NULL DEFAULT 'Aadhaar',
+                            Title NVARCHAR(MAX) NOT NULL DEFAULT '',
+                            DocumentNumber NVARCHAR(MAX) NULL,
+                            FileUrl NVARCHAR(MAX) NULL,
+                            FileName NVARCHAR(MAX) NULL,
+                            VerificationStatus NVARCHAR(MAX) NOT NULL DEFAULT 'Verified',
+                            VerifiedBy NVARCHAR(MAX) NULL,
+                            VerifiedAt DATETIME2 NULL,
+                            Remarks NVARCHAR(MAX) NULL,
+                            CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+                            UpdatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
+                        );
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'StudentAchievements')
+                    BEGIN
+                        CREATE TABLE StudentAchievements (
+                            Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
+                            TenantId UNIQUEIDENTIFIER NOT NULL,
+                            BranchId UNIQUEIDENTIFIER NULL,
+                            StudentId UNIQUEIDENTIFIER NOT NULL,
+                            Title NVARCHAR(200) NOT NULL,
+                            Category NVARCHAR(100) NOT NULL DEFAULT 'Academic',
+                            AwardLevel NVARCHAR(100) NOT NULL DEFAULT 'School',
+                            AwardDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+                            BadgeIcon NVARCHAR(100) NOT NULL DEFAULT 'emoji_events',
+                            CertificateNumber NVARCHAR(100) NULL,
+                            Description NVARCHAR(MAX) NULL,
+                            AwardedBy NVARCHAR(200) NULL,
+                            CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
+                        );
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'StudentDisciplinaryRecords')
+                    BEGIN
+                        CREATE TABLE StudentDisciplinaryRecords (
+                            Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
+                            TenantId UNIQUEIDENTIFIER NOT NULL,
+                            BranchId UNIQUEIDENTIFIER NULL,
+                            StudentId UNIQUEIDENTIFIER NOT NULL,
+                            IncidentDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+                            IncidentType NVARCHAR(100) NOT NULL DEFAULT 'Warning',
+                            Severity NVARCHAR(50) NOT NULL DEFAULT 'Low',
+                            Title NVARCHAR(200) NOT NULL,
+                            Description NVARCHAR(MAX) NOT NULL,
+                            ActionTaken NVARCHAR(MAX) NULL,
+                            ReportedBy NVARCHAR(200) NULL,
+                            ParentNotified BIT NOT NULL DEFAULT 0,
+                            IsResolved BIT NOT NULL DEFAULT 1,
+                            CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
+                        );
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'StudentPtmRecords')
+                    BEGIN
+                        CREATE TABLE StudentPtmRecords (
+                            Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
+                            TenantId UNIQUEIDENTIFIER NOT NULL,
+                            BranchId UNIQUEIDENTIFIER NULL,
+                            StudentId UNIQUEIDENTIFIER NOT NULL,
+                            PtmDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+                            TeacherName NVARCHAR(200) NOT NULL,
+                            TeacherRemarks NVARCHAR(MAX) NOT NULL,
+                            ParentFeedback NVARCHAR(MAX) NULL,
+                            ChildStrengths NVARCHAR(MAX) NULL,
+                            AreasOfImprovement NVARCHAR(MAX) NULL,
+                            ParentAttended NVARCHAR(50) NOT NULL DEFAULT 'Both',
+                            FollowUpRequired BIT NOT NULL DEFAULT 0,
+                            CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
+                        );
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'StudentHealthRecords')
+                    BEGIN
+                        CREATE TABLE StudentHealthRecords (
+                            Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
+                            TenantId UNIQUEIDENTIFIER NOT NULL,
+                            BranchId UNIQUEIDENTIFIER NULL,
+                            StudentId UNIQUEIDENTIFIER NOT NULL,
+                            HeightCm DECIMAL(6,2) NULL,
+                            WeightKg DECIMAL(6,2) NULL,
+                            Bmi DECIMAL(5,2) NULL,
+                            BmiCategory NVARCHAR(50) NULL,
+                            VisionLeft NVARCHAR(50) NULL,
+                            VisionRight NVARCHAR(50) NULL,
+                            BloodGroup NVARCHAR(10) NULL,
+                            KnownAllergies NVARCHAR(MAX) NULL,
+                            ChronicConditions NVARCHAR(MAX) NULL,
+                            RegularMedications NVARCHAR(MAX) NULL,
+                            EmergencyDoctorName NVARCHAR(200) NULL,
+                            EmergencyDoctorPhone NVARCHAR(50) NULL,
+                            LastCheckupDate DATETIME2 NULL,
+                            DoctorRemarks NVARCHAR(MAX) NULL,
+                            CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+                            UpdatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
+                        );
+                    END
+
                     -- Finance & Accounting Tables
                     IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'ExpenseCategories')
                     BEGIN

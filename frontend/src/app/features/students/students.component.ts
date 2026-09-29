@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy, ViewChild } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { RouterModule, Router } from '@angular/router';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators, FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatTableModule } from '@angular/material/table';
@@ -28,6 +28,7 @@ import { StudentReadmissionDialogComponent } from './student-readmission-dialog.
 import { ManageLibraryPlansDialogComponent } from '../library/manage-library-plans-dialog.component';
 import { StudentIdCardDialogComponent } from './student-id-card-dialog.component';
 import { StudentBonafideDialogComponent } from './student-bonafide-dialog.component';
+import { StudentProfile360DialogComponent } from './student-profile-360-dialog.component';
 import { AuthService } from '../../core/services/auth.service';
 
 const API_BASE = 'http://localhost:5000';
@@ -53,7 +54,8 @@ const API_BASE = 'http://localhost:5000';
     MatProgressSpinnerModule,
     MatTooltipModule,
     MatCheckboxModule,
-    MatDialogModule
+    MatDialogModule,
+    StudentProfile360DialogComponent
   ],
   template: `
     <div class="students-wrapper">
@@ -67,6 +69,9 @@ const API_BASE = 'http://localhost:5000';
         <div class="header-btns">
           <a mat-stroked-button routerLink="/students/leaves" class="leaves-link-btn" style="border-color:#cbd5e1; color:#1e40af; font-weight:600;">
             <mat-icon style="color:#d97706;">event_busy</mat-icon> Student Leaves
+          </a>
+          <a mat-stroked-button routerLink="/students/gate-pass" class="gatepass-link-btn" style="border-color:#cbd5e1; color:#0284c7; font-weight:600;">
+            <mat-icon style="color:#0284c7;">meeting_room</mat-icon> Gate Passes
           </a>
           <a *ngIf="authService.hasSchoolModule()" mat-stroked-button routerLink="/students/promotion" class="promotion-link-btn">
             <mat-icon>trending_up</mat-icon> Promote Students
@@ -670,7 +675,7 @@ const API_BASE = 'http://localhost:5000';
                 <td mat-cell *matCellDef="let s">
                   <div class="name-cell-wrap">
                     <div class="name-row-header">
-                      <span class="student-name-text">{{ s.studentName }}</span>
+                      <span class="student-name-text student-name-clickable" (click)="openStudent360(s)" matTooltip="Click to open Student 360° Dossier & KYC Vault">{{ s.studentName }}</span>
                       <span class="slc-badge-pill" *ngIf="s.isActive === false && isStudentPassedOut(s)" matTooltip="Terminal Pass-Out Alumnus - SLC: {{ s.tcNumber || 'Issued' }}">
                         <mat-icon class="tc-icon-mini">school</mat-icon>
                         <span>{{ s.tcNumber || 'SLC' }}</span>
@@ -857,6 +862,15 @@ const API_BASE = 'http://localhost:5000';
                       matTooltip="School Annual Exam &amp; Marksheet">
                       <mat-icon>analytics</mat-icon>
                     </a>
+
+                    <!-- Student 360° Profile & KYC Vault -->
+                    <button
+                      mat-icon-button
+                      class="btn-profile-360"
+                      (click)="openStudent360(s)"
+                      matTooltip="Student 360° Dossier &amp; KYC Vault">
+                      <mat-icon>account_circle</mat-icon>
+                    </button>
 
                     <!-- Active Student: Mark Attendance (Hidden for Left / TC students) -->
                     <a mat-icon-button color="primary" [routerLink]="['/students/attendance']" [queryParams]="{studentId: s.id}" matTooltip="Student Attendance" *ngIf="s.isActive !== false">
@@ -1523,6 +1537,19 @@ const API_BASE = 'http://localhost:5000';
       color: #16a34a !important;
       &:hover { background: #f0fdf4 !important; }
     }
+    .btn-profile-360 {
+      color: #2563eb !important;
+      &:hover { background: #eff6ff !important; }
+    }
+    .student-name-clickable {
+      cursor: pointer;
+      color: #1e40af;
+      transition: color 0.15s ease;
+      &:hover {
+        color: #2563eb;
+        text-decoration: underline;
+      }
+    }
 
     .name-row-header {
       display: flex;
@@ -1844,6 +1871,7 @@ export class StudentsComponent implements OnInit, OnDestroy {
     private confirmDialog: ConfirmDialogService,
     private dialog: MatDialog,
     private fb: FormBuilder,
+    private router: Router,
     public authService: AuthService
   ) {
     const hasSchool = this.authService.hasSchoolModule();
@@ -1889,6 +1917,11 @@ export class StudentsComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    if (this.authService.isStudentOrParent()) {
+      this.router.navigate(['/students/my-profile']);
+      return;
+    }
+
     if (this.authService.hasCoachingModule()) {
       this.coachingService.getBatches().subscribe(b => this.batches = b || []);
     }
@@ -2484,6 +2517,22 @@ export class StudentsComponent implements OnInit, OnDestroy {
       panelClass: 'cert-modal-container',
       disableClose: false,
       data: { student }
+    });
+  }
+
+  // ── Student 360° Dossier & KYC Vault ───────────────────────
+  openStudent360(student: any): void {
+    this.dialog.open(StudentProfile360DialogComponent, {
+      width: '1040px',
+      maxWidth: '97vw',
+      maxHeight: '94vh',
+      panelClass: 'student-360-modal-container',
+      disableClose: false,
+      data: {
+        studentId: student.id,
+        studentName: student.studentName,
+        studentData: student
+      }
     });
   }
 

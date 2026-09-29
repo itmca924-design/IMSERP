@@ -3554,4 +3554,332 @@ public record StudentLeaveStatsDto(
     int CancellationPendingLeaves = 0
 );
 
+// ─── Student Documents & 360 Profile DTOs ────────────────────────────────────
+
+public record StudentDocumentDto(
+    Guid Id,
+    Guid StudentId,
+    string StudentName,
+    string DocumentType,
+    string Title,
+    string? DocumentNumber,
+    string? FileUrl,
+    string? FileName,
+    string VerificationStatus,
+    string? VerifiedBy,
+    DateTime? VerifiedAt,
+    string? Remarks,
+    DateTime CreatedAt
+);
+
+public record CreateStudentDocumentDto(
+    string DocumentType,
+    string Title,
+    string? DocumentNumber,
+    string? FileUrl,
+    string? FileName,
+    string? FileBase64,
+    string? Remarks
+);
+
+public record StudentDetail360Dto(
+    Guid Id,
+    string StudentName,
+    string RollNumber,
+    string? SchoolRollNumber,
+    string? CoachingRollNumber,
+    string? AdmissionNumber,
+    bool IsSchoolStudent,
+    bool IsCoachingStudent,
+    bool IsHostelStudent,
+    bool IsLibraryMember,
+    bool IsTransportStudent,
+    Guid? ClassId,
+    string? ClassName,
+    Guid? SectionId,
+    string? SectionName,
+    string? ClassTeacherName,
+    string? ClassTeacherPhone,
+    Guid? BatchId,
+    string? BatchName,
+    string ParentName,
+    string ParentWhatsAppPhone,
+    string? MotherName,
+    string? Gender,
+    DateTime? DateOfBirth,
+    int? Age,
+    string? BloodGroup,
+    string? Address,
+    string? ProfilePhoto,
+    bool IsActive,
+    DateTime JoiningDate,
+    string? AadhaarNumber,
+    string? PenNumber,
+    string? ApaarId,
+    string? Category,
+    string? Religion,
+    string? EmergencyContactName,
+    string? EmergencyContactPhone,
+    string? PreviousSchoolName,
+    string? PreviousBoard,
+    string? BranchName
+);
+
+public record StudentSibling360Dto(
+    Guid StudentId,
+    string StudentName,
+    string RollNumber,
+    string? ClassName,
+    string? SectionName,
+    string? BatchName,
+    string? ProfilePhoto,
+    bool IsActive
+);
+
+public record StudentFeeSummary360Dto(
+    decimal TotalInvoiced,
+    decimal TotalPaid,
+    decimal TotalPending,
+    int TotalInvoicesCount,
+    int UnpaidInvoicesCount,
+    List<StudentFeeInvoiceItem360Dto> RecentInvoices
+);
+
+public record StudentFeeInvoiceItem360Dto(
+    Guid InvoiceId,
+    string InvoiceNumber,
+    string Title,
+    decimal TotalAmount,
+    decimal PaidAmount,
+    decimal BalanceAmount,
+    string Status,
+    DateTime DueDate,
+    DateTime CreatedAt
+);
+
+public record StudentAttendance360Dto(
+    int TotalRecordedDays,
+    int PresentDays,
+    int AbsentDays,
+    int LateDays,
+    int HalfDays,
+    int LeaveDays,
+    decimal AttendancePercentage,
+    List<StudentRecentAttendanceItem360Dto> RecentLogs
+);
+
+public record StudentRecentAttendanceItem360Dto(
+    DateTime Date,
+    string Status,
+    string? Remarks,
+    string? CaptureSource
+);
+
+public record StudentExamMark360Dto(
+    Guid TestId,
+    string TestName,
+    string SubjectName,
+    DateTime TestDate,
+    decimal MarksObtained,
+    decimal MaxMarks,
+    decimal Percentage,
+    string Status,
+    string? Remarks
+);
+
+public record StudentLibrary360Dto(
+    bool IsMember,
+    string? LibraryCardNumber,
+    string? MembershipPlan,
+    int MaxBooksAllowed,
+    decimal MonthlyFee,
+    int CurrentlyIssuedCount,
+    List<StudentIssuedBook360Dto> IssuedBooks
+);
+
+public record StudentIssuedBook360Dto(
+    Guid CirculationId,
+    string BookTitle,
+    string? AccessionNumber,
+    DateTime IssueDate,
+    DateTime DueDate,
+    bool IsOverdue,
+    decimal FineAmount,
+    string FineStatus
+);
+
+public record StudentFacility360Dto(
+    bool HasHostel,
+    string? HostelName,
+    string? RoomNumber,
+    string? BedCode,
+    decimal? MonthlyBedRent,
+    bool HasTransport,
+    string? RouteName,
+    string? StopName,
+    string? VehicleNumber,
+    decimal? TransportMonthlyFee
+);
+
+public record StudentLeave360Dto(
+    Guid LeaveId,
+    string Reason,
+    DateTime FromDate,
+    DateTime ToDate,
+    int TotalDays,
+    string Status,
+    DateTime AppliedAt
+);
+
+public record StudentGatePass360Dto(
+    Guid PassId,
+    string PassNumber,
+    string Reason,
+    DateTime OutTime,
+    DateTime? InTime,
+    string Status,
+    string? GuardianName
+);
+
+public record StudentAchievementDto(
+    Guid Id,
+    Guid StudentId,
+    string Title,
+    string Category,
+    string AwardLevel,
+    DateTime AwardDate,
+    string BadgeIcon,
+    string? CertificateNumber,
+    string? Description,
+    string? AwardedBy,
+    DateTime CreatedAt
+);
+
+public record CreateStudentAchievementDto(
+    string Title,
+    string Category,
+    string AwardLevel,
+    DateTime AwardDate,
+    string BadgeIcon,
+    string? CertificateNumber,
+    string? Description,
+    string? AwardedBy
+);
+
+public record StudentDisciplinaryDto(
+    Guid Id,
+    Guid StudentId,
+    DateTime IncidentDate,
+    string IncidentType,
+    string Severity,
+    string Title,
+    string Description,
+    string? ActionTaken,
+    string? ReportedBy,
+    bool ParentNotified,
+    bool IsResolved,
+    DateTime CreatedAt
+);
+
+public record CreateStudentDisciplinaryDto(
+    DateTime IncidentDate,
+    string IncidentType,
+    string Severity,
+    string Title,
+    string Description,
+    string? ActionTaken,
+    string? ReportedBy,
+    bool ParentNotified = false,
+    bool IsResolved = true
+);
+
+public record StudentPtmDto(
+    Guid Id,
+    Guid StudentId,
+    DateTime PtmDate,
+    string TeacherName,
+    string TeacherRemarks,
+    string? ParentFeedback,
+    string? ChildStrengths,
+    string? AreasOfImprovement,
+    string ParentAttended,
+    bool FollowUpRequired,
+    DateTime CreatedAt
+);
+
+public record CreateStudentPtmDto(
+    DateTime PtmDate,
+    string TeacherName,
+    string TeacherRemarks,
+    string? ParentFeedback,
+    string? ChildStrengths,
+    string? AreasOfImprovement,
+    string ParentAttended = "Both",
+    bool FollowUpRequired = false
+);
+
+public record StudentHealthDto(
+    Guid? Id,
+    Guid StudentId,
+    decimal? HeightCm,
+    decimal? WeightKg,
+    decimal? Bmi,
+    string? BmiCategory,
+    string? VisionLeft,
+    string? VisionRight,
+    string? BloodGroup,
+    string? KnownAllergies,
+    string? ChronicConditions,
+    string? RegularMedications,
+    string? EmergencyDoctorName,
+    string? EmergencyDoctorPhone,
+    DateTime? LastCheckupDate,
+    string? DoctorRemarks
+);
+
+public record SaveStudentHealthDto(
+    decimal? HeightCm,
+    decimal? WeightKg,
+    string? VisionLeft,
+    string? VisionRight,
+    string? BloodGroup,
+    string? KnownAllergies,
+    string? ChronicConditions,
+    string? RegularMedications,
+    string? EmergencyDoctorName,
+    string? EmergencyDoctorPhone,
+    DateTime? LastCheckupDate,
+    string? DoctorRemarks
+);
+
+public record StudentAcademicAlert360Dto(
+    bool HasAttendanceWarning,
+    string? AttendanceAlertMessage,
+    bool HasExamWarning,
+    string? ExamAlertMessage,
+    bool IsStarPerformer,
+    string PerformanceBadgeText,
+    List<string> StrongSubjects,
+    List<string> WeakSubjects
+);
+
+public record Student360Dto(
+    StudentDetail360Dto Student,
+    List<StudentSibling360Dto> Siblings,
+    StudentFeeSummary360Dto FeeSummary,
+    StudentAttendance360Dto AttendanceSummary,
+    List<StudentExamMark360Dto> ExamMarks,
+    StudentLibrary360Dto Library,
+    StudentFacility360Dto Facilities,
+    List<StudentLeave360Dto> Leaves,
+    List<StudentGatePass360Dto> GatePasses,
+    List<StudentDocumentDto> Documents,
+    StudentAcademicAlert360Dto PerformanceAlert,
+    List<StudentAchievementDto> Achievements,
+    List<StudentDisciplinaryDto> DisciplinaryRecords,
+    List<StudentPtmDto> PtmRecords,
+    StudentHealthDto? HealthProfile
+);
+
+
 

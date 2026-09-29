@@ -1116,6 +1116,7 @@ export class LayoutComponent implements OnInit {
   headerSearchResults: Array<{ title: string; route: string; icon: string }> = [];
   private readonly searchablePages = [
     { title: 'Dashboard', route: '/dashboard', icon: 'dashboard' },
+    { title: 'My 360° Profile & Wall of Fame', route: '/students/my-profile', icon: 'military_tech' },
     { title: 'Classes & Sections (School)', route: '/school/classes', icon: 'domain' },
     { title: 'Students', route: '/students', icon: 'people' },
     { title: 'Student Attendance', route: '/students/attendance', icon: 'event_available' },
@@ -1137,6 +1138,12 @@ export class LayoutComponent implements OnInit {
     { title: 'Library Shifts & Plans', route: '/library/plans', icon: 'schedule' },
     { title: 'Classrooms (Rooms)', route: '/rooms', icon: 'meeting_room' },
     { title: 'Branches Master', route: '/branches', icon: 'store' },
+    { title: 'School Notices & Circulars', route: '/school/notices', icon: 'campaign' },
+    { title: 'Transport & Fleet Management', route: '/transport', icon: 'directions_bus' },
+    { title: 'Profit & Loss Statement', route: '/finance/profit-loss', icon: 'query_stats' },
+    { title: 'Balance Sheet', route: '/finance/balance-sheet', icon: 'account_balance_wallet' },
+    { title: 'Expense Vouchers', route: '/finance/expenses', icon: 'receipt_long' },
+    { title: 'Chart of Accounts', route: '/finance/chart-of-accounts', icon: 'account_tree' },
     { title: 'Roles & Permissions', route: '/roles', icon: 'admin_panel_settings' },
     { title: 'Institutes & Tenants', route: '/admin/tenants', icon: 'corporate_fare' },
     { title: 'Subscription & Plan', route: '/subscription', icon: 'workspace_premium' }
@@ -1410,6 +1417,9 @@ export class LayoutComponent implements OnInit {
 
   filterMenuByModules(menu: MenuItem[]): MenuItem[] {
     const isSuperAdmin = this.authService.isSuperAdmin();
+    const isAdmin = this.authService.isAdmin();
+    const isAccountant = this.authService.isAccountant();
+    const canAccessFinance = isAdmin || isAccountant;
     const hasSchool = this.authService.hasSchoolModule();
     const hasCoaching = this.authService.hasCoachingModule();
     const hasHostel = this.authService.hasHostelModule();
@@ -1425,10 +1435,15 @@ export class LayoutComponent implements OnInit {
         return false;
       }
 
+      // Finance & Accounts is strictly restricted to Admin & Accountant roles
+      if (!canAccessFinance && lower.includes('/finance')) {
+        return false;
+      }
+
       if (!hasSchool && !hasCoaching && lower.includes('/school/homework')) {
         return false;
       }
-      if (!hasSchool && (lower.includes('/school/classes') || lower.includes('/school/exams') || lower.includes('/students/promotion'))) {
+      if (!hasSchool && (lower.includes('/school/classes') || lower.includes('/school/exams') || lower.includes('/students/promotion') || lower.includes('/school/notices'))) {
         return false;
       }
       if (!hasSchool && !hasCoaching && lower.includes('/fee-heads')) {
@@ -1470,7 +1485,11 @@ export class LayoutComponent implements OnInit {
       next: (menu) => {
         if (menu && menu.length > 0) {
           this.rawMenu = menu;
-          this.menuTree.set(this.filterMenuByModules(menu));
+          let filtered = this.filterMenuByModules(menu);
+          if (this.authService.isStudentOrParent()) {
+            filtered = this.adjustStudentMenu(filtered);
+          }
+          this.menuTree.set(filtered);
         } else {
           this.fallbackMenu();
         }
@@ -1481,20 +1500,66 @@ export class LayoutComponent implements OnInit {
     });
   }
 
+  private adjustStudentMenu(menu: MenuItem[]): MenuItem[] {
+    const myProfileItem: MenuItem = {
+      id: 'my-student-360',
+      title: 'My 360° Profile & Wall of Fame',
+      routeUrl: '/students/my-profile',
+      icon: 'military_tech',
+      sortOrder: 2,
+      module: 'Master',
+      isActive: true,
+      children: []
+    };
+
+    let found = false;
+    const updated = (menu || []).map(m => {
+      if (m.children && m.children.length > 0) {
+        const newChildren = m.children.map(c => {
+          if (c.routeUrl === '/students' || c.routeUrl === '/students/my-profile') {
+            found = true;
+            return { ...c, title: 'My 360° Profile & Wall of Fame', routeUrl: '/students/my-profile', icon: 'military_tech' };
+          }
+          return c;
+        });
+        return { ...m, children: newChildren };
+      }
+      if (m.routeUrl === '/students' || m.routeUrl === '/students/my-profile') {
+        found = true;
+        return { ...m, title: 'My 360° Profile & Wall of Fame', routeUrl: '/students/my-profile', icon: 'military_tech' };
+      }
+      return m;
+    });
+
+    if (!found) {
+      updated.splice(1, 0, myProfileItem);
+    }
+    return updated;
+  }
+
   private fallbackMenu(): void {
+    const isAdmin = this.authService.isAdmin();
+    const isAccountant = this.authService.isAccountant();
+    const isStudentOrParent = this.authService.isStudentOrParent();
+    const canAccessFinance = isAdmin || isAccountant;
+
     const rawItems: MenuItem[] = [
       { id: '1', title: 'Dashboard', routeUrl: '/dashboard', icon: 'dashboard', sortOrder: 1, module: 'Main', isActive: true, children: [] },
       {
-        id: '2', title: 'Master Management', routeUrl: '', icon: 'category', sortOrder: 2, module: 'Master', isActive: true,
+        id: '2', title: isStudentOrParent ? 'My Student Center' : 'Master Management', routeUrl: '', icon: 'category', sortOrder: 2, module: 'Master', isActive: true,
         children: [
-          { id: '20', title: 'Classes & Sections', routeUrl: '/school/classes', icon: 'domain', sortOrder: 1, module: 'Master', isActive: true, children: [] },
-          { id: '21', title: 'Batches Master', routeUrl: '/batches', icon: 'class', sortOrder: 2, module: 'Master', isActive: true, children: [] },
-          { id: '22', title: 'Classrooms Master', routeUrl: '/rooms', icon: 'meeting_room', sortOrder: 3, module: 'Master', isActive: true, children: [] },
-          { id: '23', title: 'Subject Master', routeUrl: '/subjects', icon: 'menu_book', sortOrder: 4, module: 'Master', isActive: true, children: [] },
-          { id: '24', title: 'Students Master', routeUrl: '/students', icon: 'people', sortOrder: 5, module: 'Master', isActive: true, children: [] },
-          { id: '241', title: 'Admission Enquiries', routeUrl: '/students/enquiries', icon: 'contact_phone', sortOrder: 6, module: 'Master', isActive: true, children: [] },
-          { id: '25', title: 'Holiday Master', routeUrl: '/holidays', icon: 'event', sortOrder: 7, module: 'Master', isActive: true, children: [] },
-          { id: '26', title: 'Events & Celebrations', routeUrl: '/events', icon: 'celebration', sortOrder: 8, module: 'Master', isActive: true, children: [] }
+          ...(isStudentOrParent ? [
+            { id: '24my', title: 'My 360° Profile & Wall of Fame', routeUrl: '/students/my-profile', icon: 'military_tech', sortOrder: 1, module: 'Master', isActive: true, children: [] }
+          ] : [
+            { id: '20', title: 'Classes & Sections', routeUrl: '/school/classes', icon: 'domain', sortOrder: 1, module: 'Master', isActive: true, children: [] },
+            { id: '21', title: 'Batches Master', routeUrl: '/batches', icon: 'class', sortOrder: 2, module: 'Master', isActive: true, children: [] },
+            { id: '22', title: 'Classrooms Master', routeUrl: '/rooms', icon: 'meeting_room', sortOrder: 3, module: 'Master', isActive: true, children: [] },
+            { id: '23', title: 'Subject Master', routeUrl: '/subjects', icon: 'menu_book', sortOrder: 4, module: 'Master', isActive: true, children: [] },
+            { id: '24', title: 'Students Master', routeUrl: '/students', icon: 'people', sortOrder: 5, module: 'Master', isActive: true, children: [] },
+            { id: '241', title: 'Admission Enquiries', routeUrl: '/students/enquiries', icon: 'contact_phone', sortOrder: 6, module: 'Master', isActive: true, children: [] },
+            { id: '25', title: 'Holiday Master', routeUrl: '/holidays', icon: 'event', sortOrder: 7, module: 'Master', isActive: true, children: [] },
+            { id: '26', title: 'Events & Celebrations', routeUrl: '/events', icon: 'celebration', sortOrder: 8, module: 'Master', isActive: true, children: [] }
+          ])
         ]
       },
       {
@@ -1538,14 +1603,25 @@ export class LayoutComponent implements OnInit {
           { id: '52', title: 'School Examinations', routeUrl: '/school/exams', icon: 'assignment', sortOrder: 4, module: 'Academic', isActive: true, children: [] },
           { id: '521', title: 'Student Promotion', routeUrl: '/students/promotion', icon: 'trending_up', sortOrder: 5, module: 'Academic', isActive: true, children: [] },
           { id: '522', title: 'Tests & Report Cards', routeUrl: '/tests', icon: 'quiz', sortOrder: 6, module: 'Academic', isActive: true, children: [] },
-          { id: '53', title: 'WhatsApp Logs', routeUrl: '/whatsapp', icon: 'chat', sortOrder: 7, module: 'Academic', isActive: true, children: [] },
-          { id: '54', title: 'Library Books', routeUrl: '/library/books', icon: 'local_library', sortOrder: 8, module: 'Academic', isActive: true, children: [] },
-          { id: '55', title: 'Issue & Return Desk', routeUrl: '/library/circulation', icon: 'sync_alt', sortOrder: 9, module: 'Academic', isActive: true, children: [] },
-          { id: '551', title: 'Library Shifts & Plans', routeUrl: '/library/plans', icon: 'schedule', sortOrder: 10, module: 'Academic', isActive: true, children: [] },
-          { id: '56', title: 'Hostel Management', routeUrl: '/hostel', icon: 'apartment', sortOrder: 11, module: 'Academic', isActive: true, children: [] },
-          { id: '57', title: 'Front Desk & Visitors', routeUrl: '/front-desk/visitors', icon: 'transfer_within_a_station', sortOrder: 12, module: 'Academic', isActive: true, children: [] }
+          { id: '523', title: 'School Notices', routeUrl: '/school/notices', icon: 'campaign', sortOrder: 7, module: 'Academic', isActive: true, children: [] },
+          { id: '53', title: 'WhatsApp Logs', routeUrl: '/whatsapp', icon: 'chat', sortOrder: 8, module: 'Academic', isActive: true, children: [] },
+          { id: '54', title: 'Library Books', routeUrl: '/library/books', icon: 'local_library', sortOrder: 9, module: 'Academic', isActive: true, children: [] },
+          { id: '55', title: 'Issue & Return Desk', routeUrl: '/library/circulation', icon: 'sync_alt', sortOrder: 10, module: 'Academic', isActive: true, children: [] },
+          { id: '551', title: 'Library Shifts & Plans', routeUrl: '/library/plans', icon: 'schedule', sortOrder: 11, module: 'Academic', isActive: true, children: [] },
+          { id: '56', title: 'Hostel Management', routeUrl: '/hostel', icon: 'apartment', sortOrder: 12, module: 'Academic', isActive: true, children: [] },
+          { id: '561', title: 'Transport & Fleet', routeUrl: '/transport', icon: 'directions_bus', sortOrder: 13, module: 'Academic', isActive: true, children: [] },
+          { id: '57', title: 'Front Desk & Visitors', routeUrl: '/front-desk/visitors', icon: 'transfer_within_a_station', sortOrder: 14, module: 'Academic', isActive: true, children: [] }
         ]
       },
+      ...(canAccessFinance ? [{
+        id: '5f', title: 'Finance & Accounts', routeUrl: '', icon: 'account_balance', sortOrder: 5.5, module: 'Finance', isActive: true,
+        children: [
+          { id: '5f1', title: 'Profit & Loss', routeUrl: '/finance/profit-loss', icon: 'query_stats', sortOrder: 1, module: 'Finance', isActive: true, children: [] },
+          { id: '5f2', title: 'Balance Sheet', routeUrl: '/finance/balance-sheet', icon: 'account_balance_wallet', sortOrder: 2, module: 'Finance', isActive: true, children: [] },
+          { id: '5f3', title: 'Expense Vouchers', routeUrl: '/finance/expenses', icon: 'receipt_long', sortOrder: 3, module: 'Finance', isActive: true, children: [] },
+          { id: '5f4', title: 'Chart of Accounts', routeUrl: '/finance/chart-of-accounts', icon: 'account_tree', sortOrder: 4, module: 'Finance', isActive: true, children: [] }
+        ]
+      }] : []),
       {
         id: '6', title: 'Admin Settings', routeUrl: '', icon: 'settings', sortOrder: 6, module: 'Admin', isActive: true,
         children: [

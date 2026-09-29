@@ -48,6 +48,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/students/students.component').then(m => m.StudentsComponent)
       },
       {
+        path: 'students/my-profile',
+        loadComponent: () => import('./features/students/my-student-profile.component').then(m => m.MyStudentProfileComponent)
+      },
+      {
         path: 'students/attendance',
         loadComponent: () => import('./features/students/student-attendance.component').then(m => m.StudentAttendanceComponent)
       },

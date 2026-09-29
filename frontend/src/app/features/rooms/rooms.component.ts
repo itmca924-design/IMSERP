@@ -203,9 +203,7 @@ import { RoomDialogComponent } from './room-dialog.component';
   `,
   styles: [`
     .rooms-container {
-      padding: 0;
-      max-width: 1400px;
-      margin: 0 auto;
+      padding: 0 0 40px;
       font-family: inherit;
       width: 100%;
       box-sizing: border-box;

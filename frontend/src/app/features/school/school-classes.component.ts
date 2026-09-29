@@ -18,6 +18,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
 
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { QuickClassTeacherDialogComponent } from './quick-class-teacher-dialog.component';
+import { SectionRoutineDialogComponent } from './section-routine-dialog.component';
 
 @Component({
   selector: 'app-school-classes',
@@ -35,7 +36,8 @@ import { QuickClassTeacherDialogComponent } from './quick-class-teacher-dialog.c
     MatSelectModule,
     MatTooltipModule,
     MatSlideToggleModule,
-    MatDialogModule
+    MatDialogModule,
+    SectionRoutineDialogComponent
   ],
   template: `
     <div class="page-container">
@@ -293,6 +295,9 @@ import { QuickClassTeacherDialogComponent } from './quick-class-teacher-dialog.c
               </div>
 
               <div class="sec-actions">
+                <button mat-icon-button class="mini-action-btn routine-sec" (click)="openSectionRoutine(s, c)" matTooltip="Class Timetable / Period Routine (समय सारणी)">
+                  <mat-icon style="color: #2563eb;">schedule</mat-icon>
+                </button>
                 <button mat-icon-button class="mini-action-btn edit-sec" (click)="editSection(s)" matTooltip="Edit Section">
                   <mat-icon>edit</mat-icon>
                 </button>
@@ -312,11 +317,11 @@ import { QuickClassTeacherDialogComponent } from './quick-class-teacher-dialog.c
 
       <!-- Empty State -->
       <div class="empty-state" *ngIf="!loading && classes.length === 0">
-        <mat-icon>school</mat-icon>
+        <mat-icon class="empty-state-icon">school</mat-icon>
         <h3>No School Classes Declared</h3>
         <p>Set up your institution's school classes (e.g. Class 1st to 12th) to begin enrolling school students and linking them with coaching batches.</p>
-        <button mat-raised-button color="primary" (click)="openAddClassDrawer()">
-          <mat-icon>add</mat-icon>
+        <button mat-raised-button color="primary" class="declare-btn" (click)="openAddClassDrawer()">
+          <mat-icon class="btn-icon">add</mat-icon>
           <span>Declare First Class</span>
         </button>
       </div>
@@ -596,6 +601,10 @@ import { QuickClassTeacherDialogComponent } from './quick-class-teacher-dialog.c
 
               mat-icon { font-size: 16px !important; width: 16px !important; height: 16px !important; line-height: 16px !important; }
 
+              &.routine-sec {
+                color: #2563eb;
+                &:hover { background-color: #eff6ff !important; color: #1d4ed8; }
+              }
               &.edit-sec {
                 color: #64748b;
                 &:hover { background-color: #f1f5f9 !important; color: #0f172a; }
@@ -618,9 +627,27 @@ import { QuickClassTeacherDialogComponent } from './quick-class-teacher-dialog.c
 
     .empty-state {
       display: flex; flex-direction: column; align-items: center; text-align: center; padding: 60px 20px;
-      mat-icon { font-size: 60px; width: 60px; height: 60px; color: #cbd5e1; margin-bottom: 12px; }
+      .empty-state-icon { font-size: 64px; width: 64px; height: 64px; color: #cbd5e1; margin-bottom: 12px; }
       h3 { margin: 0 0 6px; font-size: 1.2rem; color: #1e293b; }
       p { margin: 0 0 20px; color: #64748b; font-size: 0.9rem; max-width: 480px; }
+      .declare-btn {
+        font-weight: 600;
+        border-radius: 8px;
+        padding: 0 22px;
+        height: 42px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        mat-icon.btn-icon {
+          font-size: 20px !important;
+          width: 20px !important;
+          height: 20px !important;
+          line-height: 20px !important;
+          margin-bottom: 0 !important;
+          margin-right: 2px !important;
+          color: #ffffff !important;
+        }
+      }
     }
 
     /* Responsive Media Queries */
@@ -750,9 +777,23 @@ export class SchoolClassesComponent implements OnInit {
     this.loadStats();
   }
 
+  isTeachingStaff(t: any): boolean {
+    if (!t) return false;
+    const st = (t.staffType || '').toString().toLowerCase();
+    if (st === 'nonteaching' || st.includes('non') || st === '2' || t.staffType === 2) return false;
+    const dept = (t.department || '').toLowerCase();
+    const desig = (t.designation || '').toLowerCase();
+    const code = (t.employeeCode || '').toLowerCase();
+    const name = (t.fullName || '').toLowerCase();
+    if (code.startsWith('hr') || name.includes('(hr') || name.includes('hr manager') || dept.includes('hr') || dept.includes('human resource') || desig.includes('hr') || desig.includes('accountant') || desig.includes('receptionist') || desig.includes('driver')) {
+      return false;
+    }
+    return true;
+  }
+
   loadTeachers(): void {
-    this.http.get<any[]>('http://localhost:5000/api/teachers?activeOnly=true').subscribe({
-      next: (res) => this.teachers = res || [],
+    this.http.get<any[]>('http://localhost:5000/api/teachers?activeOnly=true&staffType=Teaching').subscribe({
+      next: (res) => this.teachers = (res || []).filter(t => this.isTeachingStaff(t)),
       error: () => this.teachers = []
     });
   }
@@ -775,6 +816,23 @@ export class SchoolClassesComponent implements OnInit {
         section.classTeacherId = res.classTeacherId;
         section.classTeacherName = res.classTeacherName;
         this.loadData();
+      }
+    });
+  }
+
+  openSectionRoutine(section: SchoolSectionDto, parentClass: SchoolClassDto): void {
+    this.dialog.open(SectionRoutineDialogComponent, {
+      width: '1180px',
+      maxWidth: '96vw',
+      data: {
+        sectionId: section.id,
+        sectionName: section.name,
+        classId: parentClass.id,
+        className: parentClass.name,
+        classTeacherId: section.classTeacherId,
+        classTeacherName: section.classTeacherName,
+        classTeacherPhone: section.classTeacherPhone,
+        teachers: this.teachers || []
       }
     });
   }
