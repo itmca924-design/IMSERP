@@ -1660,6 +1660,7 @@ public class StudentHomework
     public DateTime AssignedDate { get; set; } = DateTime.UtcNow;
     public DateTime DueDate { get; set; }
     public string? AttachmentUrl { get; set; }
+    public string? AttachmentFileName { get; set; }
     public string Status { get; set; } = "Active"; // Active, Completed, Archived
     public int? EstimatedMinutes { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
@@ -1678,6 +1679,37 @@ public class StudentHomework
     public SubjectEntity? Subject { get; set; }
     [ForeignKey("TeacherId")]
     public Teacher? Teacher { get; set; }
+
+    public ICollection<StudentHomeworkSubmission> Submissions { get; set; } = new List<StudentHomeworkSubmission>();
+}
+
+public class StudentHomeworkSubmission
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid HomeworkId { get; set; }
+    public Guid StudentId { get; set; }
+    public DateTime SubmissionDate { get; set; } = DateTime.UtcNow;
+    public string? StudentRemarks { get; set; }
+    public string SubmissionFileUrl { get; set; } = string.Empty;
+    public string SubmissionFileName { get; set; } = string.Empty;
+    public string Status { get; set; } = "Submitted"; // Submitted, Reviewed, NeedsCorrection, Approved
+    public string? TeacherRemarks { get; set; }
+    public string? GradeOrMarks { get; set; }
+    public DateTime? ReviewedAt { get; set; }
+    public Guid? ReviewedByTeacherId { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    public Tenant? Tenant { get; set; }
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+    [ForeignKey("HomeworkId")]
+    public StudentHomework? Homework { get; set; }
+    [ForeignKey("StudentId")]
+    public Student? Student { get; set; }
+    [ForeignKey("ReviewedByTeacherId")]
+    public Teacher? ReviewedByTeacher { get; set; }
 }
 
 public class AdmissionEnquiry

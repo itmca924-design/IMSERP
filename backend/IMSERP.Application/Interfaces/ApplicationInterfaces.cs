@@ -76,6 +76,7 @@ public interface IIMSERPDbContext
     DbSet<ExpenseVoucher> ExpenseVouchers { get; }
     DbSet<AccountLedger> AccountLedgers { get; }
     DbSet<StudentHomework> StudentHomeworks { get; }
+    DbSet<StudentHomeworkSubmission> StudentHomeworkSubmissions { get; }
     DbSet<AdmissionEnquiry> AdmissionEnquiries { get; }
     DbSet<SchoolNotice> SchoolNotices { get; }
     DbSet<StudentLeave> StudentLeaves { get; }

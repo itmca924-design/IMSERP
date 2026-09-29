@@ -83,6 +83,7 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
     public DbSet<ExpenseVoucher> ExpenseVouchers => Set<ExpenseVoucher>();
     public DbSet<AccountLedger> AccountLedgers => Set<AccountLedger>();
     public DbSet<StudentHomework> StudentHomeworks => Set<StudentHomework>();
+    public DbSet<StudentHomeworkSubmission> StudentHomeworkSubmissions => Set<StudentHomeworkSubmission>();
     public DbSet<AdmissionEnquiry> AdmissionEnquiries => Set<AdmissionEnquiry>();
     public DbSet<SchoolNotice> SchoolNotices => Set<SchoolNotice>();
     public DbSet<StudentLeave> StudentLeaves => Set<StudentLeave>();
@@ -267,6 +268,9 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
             (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<StudentHomework>().HasQueryFilter(x =>
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<StudentHomeworkSubmission>().HasQueryFilter(x =>
             (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<AdmissionEnquiry>().HasQueryFilter(x =>

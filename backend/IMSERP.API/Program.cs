@@ -574,10 +574,37 @@ using (var scope = app.Services.CreateScope())
                             AssignedDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
                             DueDate DATETIME2 NOT NULL,
                             AttachmentUrl NVARCHAR(MAX) NULL,
+                            AttachmentFileName NVARCHAR(250) NULL,
                             Status NVARCHAR(50) NOT NULL DEFAULT 'Active',
                             EstimatedMinutes INT NULL,
                             CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
                             UpdatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
+                        );
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('StudentHomeworks') AND name = 'AttachmentFileName')
+                    BEGIN
+                        ALTER TABLE StudentHomeworks ADD AttachmentFileName NVARCHAR(250) NULL;
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'StudentHomeworkSubmissions')
+                    BEGIN
+                        CREATE TABLE StudentHomeworkSubmissions (
+                            Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
+                            TenantId UNIQUEIDENTIFIER NOT NULL,
+                            BranchId UNIQUEIDENTIFIER NULL,
+                            HomeworkId UNIQUEIDENTIFIER NOT NULL,
+                            StudentId UNIQUEIDENTIFIER NOT NULL,
+                            SubmissionDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+                            StudentRemarks NVARCHAR(MAX) NULL,
+                            SubmissionFileUrl NVARCHAR(MAX) NOT NULL,
+                            SubmissionFileName NVARCHAR(250) NOT NULL,
+                            Status NVARCHAR(50) NOT NULL DEFAULT 'Submitted',
+                            TeacherRemarks NVARCHAR(MAX) NULL,
+                            GradeOrMarks NVARCHAR(50) NULL,
+                            ReviewedAt DATETIME2 NULL,
+                            ReviewedByTeacherId UNIQUEIDENTIFIER NULL,
+                            CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
                         );
                     END
 

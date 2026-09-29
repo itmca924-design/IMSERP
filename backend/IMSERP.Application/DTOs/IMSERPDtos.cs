@@ -3355,9 +3355,11 @@ public record StudentHomeworkDto(
     DateTime AssignedDate,
     DateTime DueDate,
     string? AttachmentUrl,
+    string? AttachmentFileName,
     string Status,
     int? EstimatedMinutes,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    int TotalSubmissions = 0
 );
 
 public record CreateStudentHomeworkDto(
@@ -3373,6 +3375,7 @@ public record CreateStudentHomeworkDto(
     DateTime AssignedDate,
     DateTime DueDate,
     string? AttachmentUrl,
+    string? AttachmentFileName,
     int? EstimatedMinutes
 );
 
@@ -3382,6 +3385,7 @@ public record UpdateStudentHomeworkDto(
     DateTime DueDate,
     string Status,
     string? AttachmentUrl,
+    string? AttachmentFileName,
     int? EstimatedMinutes
 );
 
@@ -3390,6 +3394,73 @@ public record HomeworkStatsDto(
     int DueToday,
     int AssignedToday,
     int Completed
+);
+
+public record StudentHomeworkSubmissionDto(
+    Guid Id,
+    Guid HomeworkId,
+    Guid StudentId,
+    string StudentName,
+    string? RollNumber,
+    string? AdmissionNumber,
+    DateTime SubmissionDate,
+    string? StudentRemarks,
+    string SubmissionFileUrl,
+    string SubmissionFileName,
+    string Status, // Submitted, Reviewed, NeedsCorrection, Approved
+    string? TeacherRemarks,
+    string? GradeOrMarks,
+    DateTime? ReviewedAt,
+    string? ReviewedByTeacherName
+);
+
+public record SubmitHomeworkRequestDto(
+    string SubmissionFileUrl,
+    string SubmissionFileName,
+    string? StudentRemarks,
+    Guid? StudentId = null
+);
+
+public record ReviewHomeworkSubmissionDto(
+    string Status, // Approved, NeedsCorrection, Reviewed
+    string? TeacherRemarks,
+    string? GradeOrMarks
+);
+
+public record StudentHomeworkWithSubmissionDto(
+    Guid Id,
+    Guid TenantId,
+    Guid? BranchId,
+    Guid? ClassId,
+    string? ClassName,
+    Guid? SectionId,
+    string? SectionName,
+    Guid? BatchId,
+    string? BatchName,
+    Guid? SubjectId,
+    string SubjectName,
+    Guid? TeacherId,
+    string? TeacherName,
+    string Title,
+    string Description,
+    DateTime AssignedDate,
+    DateTime DueDate,
+    string? AttachmentUrl,
+    string? AttachmentFileName,
+    string Status,
+    int? EstimatedMinutes,
+    DateTime CreatedAt,
+    bool IsSubmitted,
+    StudentHomeworkSubmissionDto? MySubmission
+);
+
+public record ClassStudentSubmissionRosterDto(
+    Guid StudentId,
+    string StudentName,
+    string? RollNumber,
+    string? AdmissionNumber,
+    bool HasSubmitted,
+    StudentHomeworkSubmissionDto? Submission
 );
 
 // =========================================================================

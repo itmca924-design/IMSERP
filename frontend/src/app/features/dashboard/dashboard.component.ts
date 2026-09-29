@@ -247,7 +247,7 @@ import ApexCharts from 'apexcharts';
                 </div>
               </div>
               <mat-card-content class="widget-content">
-                @if (st.todayRoutine?.length) {
+                @if (st.todayRoutine.length) {
                   <div class="routine-list">
                     @for (item of st.todayRoutine; track $index) {
                       <div class="routine-item-card">
@@ -295,7 +295,7 @@ import ApexCharts from 'apexcharts';
                 </a>
               </div>
               <mat-card-content class="widget-content">
-                @if (st.recentHomework?.length) {
+                @if (st.recentHomework.length) {
                   <div class="homework-list">
                     @for (hw of st.recentHomework; track hw.id) {
                       <div class="hw-item-card">
@@ -343,7 +343,7 @@ import ApexCharts from 'apexcharts';
                 </a>
               </div>
               <mat-card-content class="widget-content">
-                @if (st.upcomingTests?.length) {
+                @if (st.upcomingTests.length) {
                   <div class="tests-list">
                     @for (t of st.upcomingTests; track $index) {
                       <div class="test-item-card">
@@ -388,7 +388,7 @@ import ApexCharts from 'apexcharts';
                 </div>
               </div>
               <mat-card-content class="widget-content">
-                @if (st.issuedBooks?.length) {
+                @if (st.issuedBooks.length) {
                   <div class="books-list">
                     @for (b of st.issuedBooks; track b.id) {
                       <div class="book-item-card" [class.is-overdue]="b.isOverdue">
@@ -444,7 +444,7 @@ import ApexCharts from 'apexcharts';
                 </a>
               </div>
               <mat-card-content class="widget-content">
-                @if (st.recentNotices?.length) {
+                @if (st.recentNotices.length) {
                   <div class="notices-list">
                     @for (n of st.recentNotices; track n.id) {
                       <div class="notice-item-card">
@@ -697,7 +697,7 @@ import ApexCharts from 'apexcharts';
                 </div>
               </div>
               <mat-card-content class="widget-content">
-                @if (tc.todaySchedule?.length) {
+                @if (tc.todaySchedule.length) {
                   <div class="routine-list">
                     @for (lec of tc.todaySchedule; track $index) {
                       <div class="routine-item-card">
@@ -745,7 +745,7 @@ import ApexCharts from 'apexcharts';
                 </a>
               </div>
               <mat-card-content class="widget-content">
-                @if (tc.pendingTests?.length) {
+                @if (tc.pendingTests.length) {
                   <div class="tests-list">
                     @for (pt of tc.pendingTests; track pt.testId) {
                       <div class="test-item-card">
