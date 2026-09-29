@@ -264,23 +264,31 @@ import { AuthService } from '../../core/services/auth.service';
           <input #quickAvatarInput type="file" accept="image/*" (change)="onQuickAvatarSelected($event, selectedTeacher)" style="display:none">
         </div>
         <div class="profile-info">
-          <h2>{{selectedTeacher.fullName}}</h2>
-          <span class="emp-badge">{{selectedTeacher.employeeCode}}</span>
-          <span class="staff-type-pill" [class.non-teach]="!isTeachingStaff(selectedTeacher)">
-            <mat-icon>{{ isTeachingStaff(selectedTeacher) ? 'school' : 'badge' }}</mat-icon>
-            {{ isTeachingStaff(selectedTeacher) ? 'Faculty' : 'Non-Teaching' }}
-          </span>
-          <span class="status-chip" [class.active]="selectedTeacher.isActive" [class.inactive]="!selectedTeacher.isActive">
-            {{selectedTeacher.isActive ? 'Active' : 'Inactive'}}
-          </span>
-          <p class="spec-text" *ngIf="isTeachingStaff(selectedTeacher)">{{selectedTeacher.specialization || 'Teaching Faculty'}}</p>
-          <p class="spec-text non-teach-text" *ngIf="!isTeachingStaff(selectedTeacher)">
-            <strong>{{selectedTeacher.designation || 'Staff Member'}}</strong>
-            <span *ngIf="selectedTeacher.department"> &bull; {{selectedTeacher.department}}</span>
-          </p>
-          <p class="qual-text" *ngIf="selectedTeacher.qualification">{{selectedTeacher.qualification}}</p>
+          <div class="profile-title-row">
+            <h2>{{selectedTeacher.fullName}}</h2>
+            <div class="badges-row">
+              <span class="emp-badge">{{selectedTeacher.employeeCode}}</span>
+              <span class="staff-type-pill" [class.non-teach]="!isTeachingStaff(selectedTeacher)">
+                <mat-icon>{{ isTeachingStaff(selectedTeacher) ? 'school' : 'badge' }}</mat-icon>
+                {{ isTeachingStaff(selectedTeacher) ? 'Faculty' : 'Non-Teaching' }}
+              </span>
+              <span class="status-chip" [class.active]="selectedTeacher.isActive" [class.inactive]="!selectedTeacher.isActive">
+                {{selectedTeacher.isActive ? 'Active' : 'Inactive'}}
+              </span>
+            </div>
+          </div>
+          <div class="profile-meta-row">
+            <span class="spec-text" *ngIf="isTeachingStaff(selectedTeacher)">
+              {{selectedTeacher.specialization || 'Teaching Faculty'}}
+            </span>
+            <span class="spec-text non-teach-text" *ngIf="!isTeachingStaff(selectedTeacher)">
+              <strong>{{selectedTeacher.designation || 'Staff Member'}}</strong>
+              <span *ngIf="selectedTeacher.department"> &bull; {{selectedTeacher.department}}</span>
+            </span>
+            <span class="qual-badge" *ngIf="selectedTeacher.qualification">&bull; {{selectedTeacher.qualification}}</span>
+          </div>
         </div>
-        <button mat-icon-button (click)="selectedTeacher = null" class="close-profile">
+        <button mat-icon-button (click)="selectedTeacher = null" class="close-profile" matTooltip="Close Profile Card">
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -566,15 +574,39 @@ import { AuthService } from '../../core/services/auth.service';
     }
     .total-count { font-size:.85rem; color:#64748b; margin-left:auto; }
     /* Profile View */
-    .profile-view { }
-    .profile-card { padding:24px; border-radius:12px; }
+    .profile-view { margin-bottom: 24px; }
+    .profile-card {
+      padding: 24px;
+      border-radius: 14px;
+      border: 1px solid #bfdbfe;
+      background: #ffffff;
+      box-shadow: 0 4px 16px -2px rgba(37, 99, 235, 0.08) !important;
+    }
+    .profile-top {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      position: relative;
+    }
     .avatar-circle-wrapper {
-      position: relative; display: inline-block; flex-shrink: 0;
+      position: relative;
+      display: inline-block;
+      flex-shrink: 0;
     }
     .avatar-circle {
-      width:84px; height:84px; border-radius:50%; background:linear-gradient(135deg,#1976d2,#42a5f5);
-      color:#fff; display:flex; align-items:center; justify-content:center; font-size:1.8rem; font-weight:700;
-      overflow:hidden; border:3px solid #bfdbfe; box-shadow: 0 4px 12px rgba(37,99,235,0.25);
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 60%, #3b82f6 100%);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.8rem;
+      font-weight: 700;
+      overflow: hidden;
+      border: 3px solid #dbeafe;
+      box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25);
     }
     .avatar-quick-upload-btn {
       position: absolute; bottom: -2px; right: -2px; width: 28px !important; height: 28px !important;
@@ -602,16 +634,52 @@ import { AuthService } from '../../core/services/auth.service';
     .photo-btn-group { display: flex; align-items: center; gap: 12px; }
     .upload-pic-btn { font-size: 0.8rem; height: 32px; line-height: 32px; padding: 0 12px; }
     .upload-note { font-size: 0.75rem; color: #64748b; }
-    .profile-info { flex:1; h2{margin:0 0 6px;font-size:1.2rem;font-weight:700;} }
-    .emp-badge { background:#e3f2fd; color:#1565c0; padding:2px 10px; border-radius:12px; font-size:.78rem; font-weight:700; }
-    .status-chip { padding:2px 10px; border-radius:12px; font-size:.75rem; font-weight:600; margin-left:6px;
-      &.active{background:#e8f5e9;color:#2e7d32;} &.inactive{background:#ffebee;color:#c62828;} }
+    .profile-info {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .profile-title-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      h2 {
+        margin: 0;
+        font-size: 1.35rem;
+        font-weight: 700;
+        color: #0f172a;
+      }
+    }
+    .badges-row {
+      display: inline-flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .profile-meta-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .qual-badge {
+      font-size: 0.85rem;
+      color: #64748b;
+      font-weight: 500;
+    }
+    .emp-badge { background:#eff6ff; color:#1e40af; border:1px solid #bfdbfe; padding:3px 10px; border-radius:12px; font-size:.78rem; font-weight:700; }
+    .status-chip { padding:3px 10px; border-radius:12px; font-size:.75rem; font-weight:600;
+      &.active{background:#ecfdf5;color:#047857;border:1px solid #a7f3d0;} &.inactive{background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;} }
     .staff-type-pill {
       display: inline-flex; align-items: center; gap: 4px;
-      background: #e0f2fe; color: #0284c7; padding: 2px 8px; border-radius: 12px;
-      font-size: .75rem; font-weight: 600; margin-left: 6px;
-      mat-icon { font-size: 13px; width: 13px; height: 13px; }
-      &.non-teach { background: #ede9fe; color: #7c3aed; }
+      background: #eff6ff; color: #1d4ed8; padding: 3px 10px; border-radius: 12px;
+      border: 1px solid #bfdbfe;
+      font-size: .75rem; font-weight: 600;
+      mat-icon { font-size: 14px; width: 14px; height: 14px; }
+      &.non-teach { background: #faf5ff; color: #7e22ce; border-color: #e9d5ff; }
     }
     .staff-mini-pill {
       font-size: .7rem; font-weight: 600; color: #0284c7; background: #f0f9ff;
@@ -620,19 +688,36 @@ import { AuthService } from '../../core/services/auth.service';
     }
     .non-teach-text { color: #4338ca !important; }
     .non-teach-spec { color: #6d28d9 !important; font-weight: 600; }
-    .spec-text { color:#1976d2; font-weight:600; font-size:.88rem; margin:8px 0 2px; }
+    .spec-text { color:#1e40af; font-weight:600; font-size:.9rem; margin:0; }
     .qual-text { color:#64748b; font-size:.82rem; margin:0; }
-    .close-profile { margin-left:auto; }
+    .close-profile {
+      margin-left: auto;
+      align-self: flex-start;
+      color: #64748b;
+      background: #f8fafc;
+      border-radius: 8px;
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      &:hover {
+        background: #fee2e2;
+        color: #ef4444;
+      }
+    }
     .relieved-banner {
       background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
       border: 1px solid #bfdbfe;
+      border-left: 4px solid #2563eb;
       border-radius: 10px;
-      padding: 12px 16px;
+      padding: 12px 18px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 16px;
-      margin-top: 14px;
+      margin: 16px 0 10px;
       flex-wrap: wrap;
     }
     .banner-left { display: flex; align-items: center; gap: 12px; }
@@ -647,9 +732,25 @@ import { AuthService } from '../../core/services/auth.service';
     .banner-title { color: #1e3a8a; font-weight: 700; font-size: 0.92rem; }
     .banner-sub { color: #3b82f6; font-size: 0.8rem; }
     .banner-btn { white-space: nowrap; }
-    .profile-details { display:flex; flex-wrap:wrap; gap:8px 24px; padding:16px 0; }
-    .detail-row { display:flex; align-items:center; gap:6px; font-size:.84rem; color:#475569;
-      mat-icon{font-size:16px;width:16px;height:16px;color:#94a3b8;} }
+    .profile-details {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 14px;
+      padding: 16px 0;
+    }
+    .detail-row {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 0.84rem;
+      color: #334155;
+      background: #f8fafc;
+      padding: 6px 14px;
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
+      font-weight: 500;
+      mat-icon { font-size: 16px; width: 16px; height: 16px; color: #2563eb; }
+    }
     .quick-nav { padding:16px 0; }
     .quick-nav-title { font-size:.8rem; font-weight:700; color:#64748b; margin:0 0 12px; text-transform:uppercase; letter-spacing:.5px; }
     .quick-nav-grid { display:flex; flex-wrap:wrap; gap:8px;
@@ -701,19 +802,33 @@ import { AuthService } from '../../core/services/auth.service';
     }
     /* Teacher Grid */
     .teachers-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:16px; }
-    .teacher-card { border-radius:12px; cursor:pointer; transition:all .2s ease; padding:0; overflow:hidden;
-      &:hover { transform:translateY(-3px); box-shadow:0 8px 20px rgba(0,0,0,.12)!important; }
-      &.selected-card { border:2px solid #1976d2; } }
+    .teacher-card {
+      border-radius: 14px;
+      cursor: pointer;
+      transition: all .2s ease;
+      padding: 0;
+      overflow: hidden;
+      border: 1px solid #e2e8f0;
+      background: #ffffff;
+      &:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 25px -5px rgba(37, 99, 235, 0.15) !important;
+        border-color: #bfdbfe;
+      }
+      &.selected-card {
+        border: 2px solid #2563eb;
+        box-shadow: 0 8px 20px -3px rgba(37, 99, 235, 0.2) !important;
+      }
+    }
     .card-avatar {
-      height: 160px;
-      background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
-      color: #fff;
+      height: 140px;
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
       display: flex;
       align-items: center;
       justify-content: center;
       overflow: hidden;
       position: relative;
-      border-bottom: 1px solid #e2e8f0;
+      border-bottom: 1px solid #bfdbfe;
       &.has-photo {
         background: #f8fafc;
       }
@@ -730,18 +845,18 @@ import { AuthService } from '../../core/services/auth.service';
       transform: scale(1.04);
     }
     .card-initials-badge {
-      width: 64px;
-      height: 64px;
+      width: 68px;
+      height: 68px;
       border-radius: 50%;
-      background: rgba(255, 255, 255, 0.22);
-      border: 2px solid rgba(255, 255, 255, 0.5);
+      background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 60%, #3b82f6 100%);
+      border: 3px solid #ffffff;
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 1.6rem;
       font-weight: 700;
       color: #ffffff;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      box-shadow: 0 6px 16px rgba(37, 99, 235, 0.28);
     }
     .card-photo-zoom-btn {
       position: absolute; top: 8px; right: 8px; width: 28px !important; height: 28px !important;

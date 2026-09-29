@@ -134,7 +134,11 @@
 
         <!-- Exams Grid -->
         <div class="exams-grid" *ngIf="!loadingExams && exams.length > 0">
-          <mat-card class="exam-card" *ngFor="let exam of exams">
+          <mat-card class="exam-card" *ngFor="let exam of exams" [class.highlighted-exam]="exam.id === highlightedExamId">
+            <div class="target-exam-banner" *ngIf="exam.id === highlightedExamId">
+              <mat-icon>check_circle</mat-icon>
+              <span>Selected for Marks Entry</span>
+            </div>
             <div class="exam-card-header">
               <div class="exam-badge" [class.badge-annual]="exam.examType === 'Annual Exam'">
                 {{ exam.examType }}

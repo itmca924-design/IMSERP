@@ -1,0 +1,528 @@
+<div class="report-page">
+  <!-- Page Header -->
+  <div class="page-header no-print">
+    <div class="header-titles">
+      <h1>
+        <mat-icon>summarize</mat-icon>
+        {{ isStudentOrParent ? 'My Monthly Attendance Report' : (reportType === 'student' ? 'Student Attendance Reports & Analytics' : 'Faculty Attendance Reports & Analytics') }}
+      </h1>
+      <p>{{ isStudentOrParent ? 'Your personal monthly attendance percentage, working days, and day-by-day status matrix.' : 'Comprehensive monthly attendance matrix, compliance tracking, and register analytics.' }}</p>
+    </div>
+    <div class="header-actions">
+      <button mat-stroked-button class="action-btn" (click)="exportCsv()">
+        <mat-icon>download</mat-icon> Export CSV
+      </button>
+      <button mat-raised-button color="primary" class="action-btn" (click)="printReport()">
+        <mat-icon>print</mat-icon> Print Report
+      </button>
+    </div>
+  </div>
+
+  @if (!isStudentOrParent) {
+    <div class="report-type-bar no-print">
+      <button type="button" class="type-btn" [class.active]="reportType === 'student'" (click)="changeReportType('student')">
+        <mat-icon>groups</mat-icon>
+        <div class="type-text">
+          <strong>Student Attendance Register</strong>
+          <small>Batch-wise monthly registers, roll numbers &amp; daily matrix</small>
+        </div>
+      </button>
+      <button type="button" class="type-btn" [class.active]="reportType === 'teacher'" (click)="changeReportType('teacher')">
+        <mat-icon>badge</mat-icon>
+        <div class="type-text">
+          <strong>Teacher / Faculty Register</strong>
+          <small>Faculty attendance, punctuality &amp; working days</small>
+        </div>
+      </button>
+    </div>
+  }
+
+  <!-- Filter Card -->
+  <div class="filter-card no-print">
+    <div class="filters-row">
+      @if (!isStudentOrParent) {
+        <div class="search-input-wrap" [class.search-active]="searchQuery">
+          <mat-icon>search</mat-icon>
+          <input type="text" [(ngModel)]="searchQuery" (ngModelChange)="onSearchChange($event)"
+            [placeholder]="reportType === 'student' ? 'Search student by name, roll no, batch...' : 'Search teacher by name, code...'">
+          <button *ngIf="searchQuery" class="clear-search-btn" (click)="clearSearch()">
+            <mat-icon style="font-size:16px;width:16px;height:16px;">close</mat-icon>
+          </button>
+        </div>
+      }
+
+      <div class="filter-select-wrap">
+        <label>Month:</label>
+        <select [(ngModel)]="selectedMonth" (change)="loadReport()">
+          <option *ngFor="let month of months; let i = index" [value]="i + 1">{{ month }}</option>
+        </select>
+      </div>
+
+      <div class="filter-select-wrap">
+        <label>Year:</label>
+        <select [(ngModel)]="selectedYear" (change)="loadReport()">
+          <option *ngFor="let year of years" [value]="year">{{ year }}</option>
+        </select>
+      </div>
+
+      @if (isStudentOrParent && isDualStudent) {
+        <div class="filter-stream-pill-wrap">
+          <label>Stream:</label>
+          <div class="stream-pill-group">
+            <button type="button" class="stream-tab-btn" [class.active]="studentStreamMode === 'all'" (click)="setStudentStream('all')">
+              <mat-icon>hub</mat-icon><span>&#x1F310; All (Combined)</span>
+            </button>
+            <button type="button" class="stream-tab-btn" [class.active]="studentStreamMode === 'school'" (click)="setStudentStream('school')">
+              <mat-icon>domain</mat-icon><span>&#x1F3EB; School Class</span>
+            </button>
+            <button type="button" class="stream-tab-btn" [class.active]="studentStreamMode === 'coaching'" (click)="setStudentStream('coaching')">
+              <mat-icon>school</mat-icon><span>&#x1F4DA; Coaching Batch</span>
+            </button>
+          </div>
+        </div>
+      }
+
+      @if (!isStudentOrParent && reportType === 'student') {
+        <div class="filter-select-wrap">
+          <label>Category:</label>
+          <select [(ngModel)]="studentFilterMode" (change)="onFilterModeChanged()">
+            <option value="all">All Students</option>
+            <option value="school">&#x1F3EB; School Classes</option>
+            <option value="coaching">&#x1F4DA; Coaching Batches</option>
+          </select>
+        </div>
+        <div class="filter-select-wrap" *ngIf="studentFilterMode === 'school'">
+          <label>Class:</label>
+          <select [(ngModel)]="selectedClassId" (change)="onClassFilterChanged()">
+            <option value="">All Classes</option>
+            <option *ngFor="let c of schoolClasses" [value]="c.id">{{ c.name }}</option>
+          </select>
+        </div>
+        <div class="filter-select-wrap" *ngIf="studentFilterMode === 'school' && selectedClassId">
+          <label>Section:</label>
+          <select [(ngModel)]="selectedSectionId" (change)="loadReport()">
+            <option value="">All Sections</option>
+            <option *ngFor="let s of classSections" [value]="s.id">Section {{ s.name }}</option>
+          </select>
+        </div>
+        <div class="filter-select-wrap" *ngIf="studentFilterMode === 'coaching'">
+          <label>Batch:</label>
+          <select [(ngModel)]="selectedBatchId" (change)="loadReport()">
+            <option value="">All Batches</option>
+            <option *ngFor="let batch of batches" [value]="batch.id">{{ batch.name }}</option>
+          </select>
+        </div>
+      }
+
+      <button mat-stroked-button class="matrix-bulk-btn" (click)="toggleExpandAll()">
+        <mat-icon>{{ expandAll ? 'unfold_less' : 'grid_view' }}</mat-icon>
+        <span>{{ expandAll ? 'Collapse Matrix' : 'Expand 30-Day Matrix' }}</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Print Heading -->
+  <div class="print-heading">
+    <div class="print-brand-info">
+      <div class="print-logo-mark" [class.has-img]="logoUrl && !logoFailed">
+        <img *ngIf="logoUrl && !logoFailed" [src]="logoUrl" (error)="logoFailed = true" alt="Logo" class="inst-logo-img">
+        <mat-icon *ngIf="!logoUrl || logoFailed">school</mat-icon>
+      </div>
+      <div>
+        <h2>{{ instituteName }}</h2>
+        <div class="print-report-title">{{ isStudentOrParent ? 'Student Attendance Report' : (reportType === 'student' ? 'Student Attendance Report' : 'Faculty Attendance Report') }}</div>
+        <span *ngIf="reportType === 'student'" class="print-batch-sub">{{ getSelectedFilterSubTitle() }}</span>
+      </div>
+    </div>
+    <div class="print-period-badge">{{ months[selectedMonth - 1] }} {{ selectedYear }}</div>
+  </div>
+
+  <!-- Loader -->
+  <div class="loader-bar-wrap" [class.loader-visible]="loading">
+    <div class="loader-bar-track"><div class="loader-bar-fill"></div></div>
+    <span class="loader-label"><mat-icon class="spin-icon">sync</mat-icon> Loading attendance data…</span>
+  </div>
+
+  <!-- KPI Cards (data) -->
+  <div class="kpi-grid" *ngIf="report && !loading">
+    <div class="kpi-card kpi-total">
+      <div class="kpi-icon-box"><mat-icon>{{ isStudentOrParent ? 'calendar_month' : (reportType === 'student' ? 'school' : 'badge') }}</mat-icon></div>
+      <div class="kpi-data">
+        <span class="kpi-label">{{ isStudentOrParent ? 'Total Working Days' : ('Total ' + (reportType === 'student' ? 'Students' : 'Faculty')) }}</span>
+        <span class="kpi-val">{{ isStudentOrParent ? (totalWorkingDaysInMonth + ' Days') : (report.totalCount ?? report.totalPeople) }}</span>
+      </div>
+    </div>
+    <div class="kpi-card kpi-present">
+      <div class="kpi-icon-box"><mat-icon>check_circle</mat-icon></div>
+      <div class="kpi-data">
+        <span class="kpi-label">{{ isStudentOrParent ? 'My Present Days' : 'Total Present' }}</span>
+        <span class="kpi-val">{{ isStudentOrParent ? (report.totalPresentDays + ' Days') : report.totalPresentDays }}</span>
+      </div>
+    </div>
+    <div class="kpi-card kpi-absent">
+      <div class="kpi-icon-box"><mat-icon>cancel</mat-icon></div>
+      <div class="kpi-data">
+        <span class="kpi-label">{{ isStudentOrParent ? 'My Absent Days' : 'Total Absent' }}</span>
+        <span class="kpi-val">{{ isStudentOrParent ? (report.totalAbsentDays + ' Days') : report.totalAbsentDays }}</span>
+      </div>
+    </div>
+    <div class="kpi-card kpi-late">
+      <div class="kpi-icon-box"><mat-icon>schedule</mat-icon></div>
+      <div class="kpi-data">
+        <span class="kpi-label">{{ isStudentOrParent ? 'My Late Days' : 'Late Days' }}</span>
+        <span class="kpi-val">{{ isStudentOrParent ? (report.totalLateDays + ' Days') : report.totalLateDays }}</span>
+      </div>
+    </div>
+    <div class="kpi-card kpi-avg">
+      <div class="kpi-icon-box"><mat-icon>donut_large</mat-icon></div>
+      <div class="kpi-data">
+        <span class="kpi-label">{{ isStudentOrParent ? 'My Attendance %' : 'Avg Attendance' }}</span>
+        <span class="kpi-val">{{ overallAttendanceRate }}%</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- KPI Skeleton -->
+  <div class="kpi-grid" *ngIf="loading">
+    <div class="kpi-card skeleton-card" *ngFor="let i of [1,2,3,4,5]">
+      <div class="skel-icon"></div>
+      <div style="flex:1;display:flex;flex-direction:column;gap:6px;">
+        <div class="skel-line skel-sm"></div>
+        <div class="skel-line skel-lg"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="table-responsive-container" *ngIf="report || loading">
+    <div class="table-toolbar no-print">
+      <div class="toolbar-left">
+        <strong>{{ reportType === 'student' ? 'Student Monthly Register' : 'Faculty Monthly Register' }}</strong>
+        <span class="count-chip" *ngIf="!loading">{{ clientTotalCount }} {{ reportType === 'student' ? 'students' : 'teachers' }}</span>
+        <span class="count-chip skel-chip" *ngIf="loading">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+      </div>
+      <div class="toolbar-right" style="display:flex;align-items:center;gap:10px;">
+        <span class="search-hint" *ngIf="searchQuery && !loading">Results for "{{ searchQuery }}"</span>
+        <div class="page-size-wrap" *ngIf="!isStudentOrParent">
+          <label>Rows:</label>
+          <select [(ngModel)]="pageSize" (change)="onPageSizeChange()">
+            <option [value]="25">25</option>
+            <option [value]="50">50</option>
+            <option [value]="100">100</option>
+            <option [value]="200">200</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <table class="report-table">
+      <thead>
+        <tr>
+          <th style="min-width:220px;" class="sortable-th" (click)="setSortColumn('personName')">
+            <div class="th-inner">
+              <span>{{ reportType === 'student' ? 'Student Name' : 'Faculty Name' }}</span>
+              <span class="sort-icon">{{ getSortIcon('personName') }}</span>
+            </div>
+          </th>
+          <th style="min-width:110px;" class="sortable-th" (click)="setSortColumn('code')">
+            <div class="th-inner"><span>{{ reportType === 'student' ? 'Roll No.' : 'Code' }}</span><span class="sort-icon">{{ getSortIcon('code') }}</span></div>
+          </th>
+          <th class="text-center sortable-th" style="min-width:70px;" (click)="setSortColumn('presentDays')">
+            <div class="th-inner th-center">Present <span class="sort-icon">{{ getSortIcon('presentDays') }}</span></div>
+          </th>
+          <th class="text-center sortable-th" style="min-width:70px;" (click)="setSortColumn('absentDays')">
+            <div class="th-inner th-center">Absent <span class="sort-icon">{{ getSortIcon('absentDays') }}</span></div>
+          </th>
+          <th class="text-center sortable-th" style="min-width:70px;" (click)="setSortColumn('lateDays')">
+            <div class="th-inner th-center">Late <span class="sort-icon">{{ getSortIcon('lateDays') }}</span></div>
+          </th>
+          <th class="text-center sortable-th" style="min-width:75px;" (click)="setSortColumn('halfDays')">
+            <div class="th-inner th-center">Half Days <span class="sort-icon">{{ getSortIcon('halfDays') }}</span></div>
+          </th>
+          <th class="text-center" style="min-width:80px;">Off/Sundays</th>
+          <th class="text-center sortable-th" style="min-width:85px;" (click)="setSortColumn('totalWorkingDays')">
+            <div class="th-inner th-center">Working Days <span class="sort-icon">{{ getSortIcon('totalWorkingDays') }}</span></div>
+          </th>
+          <th class="text-center sortable-th" style="min-width:170px;" (click)="setSortColumn('attendancePercentage')">
+            <div class="th-inner th-center">Attendance % <span class="sort-icon">{{ getSortIcon('attendancePercentage') }}</span></div>
+          </th>
+          <th class="text-center no-print" style="min-width:130px;">Daily Matrix</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Skeleton rows -->
+        <ng-container *ngIf="loading">
+          <tr class="skeleton-row" *ngFor="let s of skeletonRows">
+            <td><div class="person-name-cell"><div class="skel-avatar"></div><div style="flex:1;display:flex;flex-direction:column;gap:5px;"><div class="skel-line skel-md"></div><div class="skel-line skel-sm"></div></div></div></td>
+            <td><div class="skel-line skel-sm"></div></td>
+            <td class="text-center"><div class="skel-pill"></div></td>
+            <td class="text-center"><div class="skel-pill"></div></td>
+            <td class="text-center"><div class="skel-pill"></div></td>
+            <td class="text-center"><div class="skel-pill"></div></td>
+            <td class="text-center"><div class="skel-pill"></div></td>
+            <td class="text-center"><div class="skel-pill"></div></td>
+            <td><div style="display:flex;flex-direction:column;gap:5px;"><div class="skel-line skel-md"></div><div class="skel-line skel-bar"></div><div class="skel-line skel-sm"></div></div></td>
+            <td class="text-center no-print"><div class="skel-btn"></div></td>
+          </tr>
+        </ng-container>
+
+        <!-- Data rows -->
+        <ng-container *ngIf="!loading">
+          <ng-container *ngFor="let row of sortedRows">
+            <tr class="person-main-row" [class.expanded-row]="isExpanded(row.personId)" [ngClass]="getAttendanceRowClass(row.attendancePercentage)">
+              <td>
+                <div class="person-name-cell">
+                  <div class="avatar-circle">{{ getInitials(row.personName) }}</div>
+                  <div>
+                    <div class="name-line">
+                      <span class="name-bold">{{ row.personName }}</span>
+                      <span class="badge-dual-enrolled" *ngIf="isStudentOrParent && row.isSchoolStudent && row.isCoachingStudent">&#x2605; Dual Enrolled</span>
+                    </div>
+                    <span class="role-sub">{{ row.groupName || (reportType === 'student' ? 'No Batch' : 'Faculty') }}</span>
+                    <div class="dual-extra-note" *ngIf="isStudentOrParent && row.isSchoolStudent && row.isCoachingStudent">
+                      <span class="other-stream-text" *ngIf="studentStreamMode === 'school' && row.coachingBatch">
+                        &#x1F4DA; Evening Batch: <strong>{{ row.coachingBatch }}</strong> (Roll: {{ row.coachingRoll || 'N/A' }})
+                      </span>
+                      <span class="other-stream-text" *ngIf="studentStreamMode === 'coaching' && row.schoolClass">
+                        &#x1F3EB; Morning School: <strong>{{ row.schoolClass }}</strong> (Roll: {{ row.schoolRoll || 'N/A' }})
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </td>
+              <td style="white-space:nowrap;"><span class="code-badge">{{ row.code || 'N/A' }}</span></td>
+              <td class="text-center text-emerald"><span class="stat-pill pill-present"><strong>{{ row.presentDays }}</strong></span></td>
+              <td class="text-center text-rose"><span class="stat-pill pill-absent"><strong>{{ row.absentDays }}</strong></span></td>
+              <td class="text-center text-amber"><span class="stat-pill pill-late"><strong>{{ row.lateDays }}</strong></span></td>
+              <td class="text-center text-purple"><span class="stat-pill pill-half"><strong>{{ row.halfDays }}</strong></span></td>
+              <td class="text-center"><span class="stat-pill pill-off">{{ row.holidayDays }}</span></td>
+              <td class="text-center"><span class="stat-pill pill-work">{{ row.totalWorkingDays }}</span></td>
+              <td>
+                <div class="ring-cell">
+                  <div class="ring-wrap">
+                    <svg class="ring-svg" width="54" height="54" viewBox="0 0 54 54">
+                      <circle class="ring-track" cx="27" cy="27" r="21"/>
+                      <circle class="ring-fill"
+                        cx="27" cy="27" r="21"
+                        [attr.stroke]="getPctColor(row.attendancePercentage)"
+                        [attr.stroke-dasharray]="circumference"
+                        [attr.stroke-dashoffset]="getDashOffset(row.attendancePercentage)"/>
+                    </svg>
+                    <div class="ring-label">
+                      <span class="ring-pct" [style.color]="getPctColor(row.attendancePercentage)">{{row.attendancePercentage}}%</span>
+                    </div>
+                  </div>
+                  <div class="ring-meta">
+                    <span class="ring-badge" [ngClass]="row.attendancePercentage >= 75 ? 'badge-good' : row.attendancePercentage >= 50 ? 'badge-warn' : 'badge-low'">
+                      {{ row.attendancePercentage >= 75 ? 'Good' : row.attendancePercentage >= 50 ? 'Moderate' : 'Low' }}
+                    </span>
+                    <span class="ring-sub">{{ row.presentDays + row.lateDays }} / {{ row.totalWorkingDays }} days</span>
+                  </div>
+                </div>
+              </td>
+              <td class="text-center no-print">
+                <button mat-stroked-button class="matrix-action-btn"
+                  [class.matrix-open]="isExpanded(row.personId)"
+                  [class.matrix-loading]="loadingDaily.has(row.personId)"
+                  (click)="toggleCalendar(row.personId)">
+                  <mat-icon *ngIf="!loadingDaily.has(row.personId)">{{ isExpanded(row.personId) ? 'expand_less' : 'calendar_month' }}</mat-icon>
+                  <mat-icon *ngIf="loadingDaily.has(row.personId)" class="spin-icon">sync</mat-icon>
+                  <span>{{ loadingDaily.has(row.personId) ? 'Loading…' : (isExpanded(row.personId) ? 'Hide Matrix' : 'Daily Matrix') }}</span>
+                </button>
+              </td>
+            </tr>
+
+            <!-- Matrix Drawer -->
+            <tr class="matrix-drawer-row no-print" *ngIf="isExpanded(row.personId) || isCollapsing(row.personId)">
+              <td colspan="10" class="matrix-drawer-container">
+                <div class="matrix-drawer-card"
+                  [class.drawer-enter]="isExpanded(row.personId)"
+                  [class.drawer-exit]="isCollapsing(row.personId)">
+                  <div class="md-header">
+                    <div class="md-title-left">
+                      <mat-icon class="md-icon">date_range</mat-icon>
+                      <div>
+                        <strong class="md-title">{{ months[selectedMonth - 1] }} {{ selectedYear }} Daily Attendance Strip</strong>
+                        <span class="md-subtitle">{{ row.personName }} ({{ row.code }}) &bull; 1 to {{ getDaysInMonth() }} {{ months[selectedMonth - 1] }}</span>
+                      </div>
+                    </div>
+                    <div class="md-summary-chips">
+                      <span class="md-chip chip-p">&#x1F7E2; Present: {{ row.presentDays }}</span>
+                      <span class="md-chip chip-leave" *ngIf="getLeaveDays(row) > 0">&#x1F7E0; Leave: {{ getLeaveDays(row) }}</span>
+                      <span class="md-chip chip-l">&#x1F7E1; Late: {{ row.lateDays }}</span>
+                      <span class="md-chip chip-a">&#x1F534; Absent: {{ row.absentDays }}</span>
+                      <span class="md-chip chip-hd">&#x1F7E3; Half: {{ row.halfDays }}</span>
+                      <span class="md-chip chip-off">&#x26AA; Sun/Off: {{ row.holidayDays }}</span>
+                      <span class="md-chip chip-unmarked">&#x2796; Unmarked: {{ getUnmarkedDays(row) }}</span>
+                    </div>
+                  </div>
+
+                  <!-- Skeleton day strip -->
+                  <div class="daily-strip-container" *ngIf="loadingDaily.has(row.personId)">
+                    <div class="day-card-skel" *ngFor="let d of skeletonDays"></div>
+                  </div>
+
+                  <!-- Calendar Grid + Right Summary Panel -->
+                  <div class="cal-grid-wrap" *ngIf="!loadingDaily.has(row.personId)">
+                    <!-- Left: Calendar -->
+                    <div class="cal-grid">
+                      <div class="cal-head-cell" *ngFor="let h of weekDayHeaders" [class.cal-sun]="h === 'Sun'">{{h}}</div>
+                      <ng-container *ngFor="let week of getDailyMatrixCalendar(row); trackBy: trackByWeekIndex; let weekIdx = index">
+                        <div *ngFor="let d of week; trackBy: trackByDayNum; let colIdx = index"
+                          class="cal-cell"
+                          [class.cal-empty]="!d"
+                          [ngClass]="d ? 'day-' + d.status.toLowerCase() : ''"
+                          [class.day-is-sunday]="d?.isSunday"
+                          [class.day-today]="d != null && isToday(d.day)">
+                          <span class="cal-num" *ngIf="d">{{d.day}}</span>
+                          <span class="cal-code" *ngIf="d && d.status !== '-'">{{d.status}}</span>
+
+                          <!-- Smart Hover Tooltip Card (Instant & Rich) -->
+                          <div class="cal-popover" *ngIf="d"
+                            [class.pop-flip]="weekIdx === 0"
+                            [class.pop-left]="colIdx <= 4"
+                            [class.pop-right]="colIdx >= 5">
+                            <div class="pop-header">
+                              <span class="pop-date">{{ d.day }} {{ months[selectedMonth - 1] }} ({{ d.dayOfWeek }})</span>
+                              <span class="pop-badge pop-badge-{{ d.status.toLowerCase() }}">{{ getStatusBadgeName(d.status) }}</span>
+                            </div>
+
+                            <!-- Leave reason / remarks -->
+                            <div class="pop-item pop-leave" *ngIf="d.status === 'L' || (d.status !== '-' && d.remarks)">
+                              <mat-icon class="pop-ic">event_busy</mat-icon>
+                              <div class="pop-text">
+                                <span class="pop-sub">Leave Summary</span>
+                                <span class="pop-main">{{ d.remarks || 'Sanctioned Leave' }}</span>
+                              </div>
+                            </div>
+
+                            <!-- Official Holiday Name -->
+                            <div class="pop-item pop-holiday" *ngIf="d.holidayTitle">
+                              <mat-icon class="pop-ic">celebration</mat-icon>
+                              <div class="pop-text">
+                                <span class="pop-sub">Holiday Info</span>
+                                <span class="pop-main">{{ d.holidayTitle }}</span>
+                              </div>
+                            </div>
+
+                            <!-- Punch Time -->
+                            <div class="pop-item" *ngIf="d.checkInTime">
+                              <mat-icon class="pop-ic">schedule</mat-icon>
+                              <div class="pop-text">
+                                <span class="pop-sub">Punch Time</span>
+                                <span class="pop-main">{{ d.checkInTime }}</span>
+                              </div>
+                            </div>
+
+                            <!-- Attendance Stream -->
+                            <div class="pop-item" *ngIf="d.captureSource">
+                              <mat-icon class="pop-ic">fingerprint</mat-icon>
+                              <div class="pop-text">
+                                <span class="pop-sub">Stream</span>
+                                <span class="pop-main">{{ d.captureSource }}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </ng-container>
+                    </div>
+                    <!-- Right: Summary Stats Panel -->
+                    <div class="cal-summary-panel">
+                      <div class="cal-stat-row">
+                        <div class="cal-stat-block cal-stat-present">
+                          <span class="cal-stat-val">{{ row.presentDays }}</span>
+                          <span class="cal-stat-label">Present</span>
+                        </div>
+                        <div class="cal-stat-block cal-stat-absent">
+                          <span class="cal-stat-val">{{ row.absentDays }}</span>
+                          <span class="cal-stat-label">Absent</span>
+                        </div>
+                        <div class="cal-stat-block cal-stat-late">
+                          <span class="cal-stat-val">{{ row.lateDays }}</span>
+                          <span class="cal-stat-label">Late</span>
+                        </div>
+                        <div class="cal-stat-block cal-stat-half">
+                          <span class="cal-stat-val">{{ row.halfDays }}</span>
+                          <span class="cal-stat-label">Half Day</span>
+                        </div>
+                        <div class="cal-stat-block cal-stat-leave" *ngIf="getLeaveDays(row) > 0">
+                          <span class="cal-stat-val">{{ getLeaveDays(row) }}</span>
+                          <span class="cal-stat-label">Leave</span>
+                        </div>
+                        <div class="cal-stat-block cal-stat-off">
+                          <span class="cal-stat-val">{{ row.holidayDays }}</span>
+                          <span class="cal-stat-label">Off/Sun</span>
+                        </div>
+                        <div class="cal-stat-block cal-stat-unmarked">
+                          <span class="cal-stat-val">{{ getUnmarkedDays(row) }}</span>
+                          <span class="cal-stat-label">Unmarked</span>
+                        </div>
+                      </div>
+                      <div class="cal-summary-pct">
+                        <div class="cal-pct-bar-bg">
+                          <div class="cal-pct-bar-fill"
+                            [style.width.%]="row.attendancePercentage"
+                            [style.background]="getPctColor(row.attendancePercentage)">
+                          </div>
+                        </div>
+                        <div class="cal-pct-footer">
+                          <span [style.color]="getPctColor(row.attendancePercentage)" style="font-weight:800;font-size:.88rem;">{{ row.attendancePercentage }}% Attendance</span>
+                          <span style="color:#94a3b8;font-size:.74rem;">{{ row.presentDays + row.lateDays }} / {{ row.totalWorkingDays }} working days</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Legend -->
+                  <div class="matrix-legend">
+                    <span class="leg-item"><span class="leg-dot dot-p"></span> <strong>P</strong> = Present</span>
+                    <span class="leg-item"><span class="leg-dot dot-l"></span> <strong>L</strong> = Sanctioned Leave</span>
+                    <span class="leg-item"><span class="leg-dot dot-lt"></span> <strong>LT</strong> = Late Arrival</span>
+                    <span class="leg-item"><span class="leg-dot dot-a"></span> <strong>A</strong> = Absent</span>
+                    <span class="leg-item"><span class="leg-dot dot-hd"></span> <strong>HD</strong> = Half Day</span>
+                    <span class="leg-item"><span class="leg-dot dot-h"></span> <strong>H</strong> = Holiday</span>
+                    <span class="leg-item"><span class="leg-dot dot-off"></span> <strong>OFF</strong> = Sunday / Off</span>
+                    <span class="leg-item"><span class="leg-dot dot-unmarked"></span> <strong>&#x2014;</strong> = Unmarked / Future Date</span>
+                  </div>
+                </div>
+              </td>
+            </tr>
+          </ng-container>
+
+          <tr *ngIf="sortedRows.length === 0">
+            <td colspan="10" class="empty-table-cell">
+              <div class="empty-state">
+                <mat-icon>search_off</mat-icon>
+                <strong>No attendance records found</strong>
+                <p *ngIf="searchQuery">No results match your search "{{ searchQuery }}". Try clearing the filter.</p>
+                <p *ngIf="!searchQuery">No attendance marked for this month/batch yet.</p>
+              </div>
+            </td>
+          </tr>
+        </ng-container>
+      </tbody>
+    </table>
+
+    <!-- Pagination -->
+    <div class="pagination-bar no-print" *ngIf="!loading && !isStudentOrParent && clientTotalCount > 0">
+      <div class="page-info">
+        Showing <strong>{{ pageStart }}&#x2013;{{ pageEnd }}</strong> of <strong>{{ clientTotalCount }}</strong>
+        {{ reportType === 'student' ? 'students' : 'teachers' }}
+      </div>
+      <div class="page-btns">
+        <button class="page-btn" (click)="goToPage(pageIndex - 1)" [disabled]="pageIndex === 0">
+          <mat-icon>chevron_left</mat-icon>
+        </button>
+        <button class="page-btn page-num"
+          *ngFor="let p of pageNumbers"
+          [class.active-page]="p === pageIndex + 1"
+          (click)="goToPage(p - 1)">{{ p }}</button>
+        <button class="page-btn" (click)="goToPage(pageIndex + 1)" [disabled]="pageIndex >= totalPages - 1">
+          <mat-icon>chevron_right</mat-icon>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+

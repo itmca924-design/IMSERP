@@ -314,6 +314,24 @@
     box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
   }
 
+  &.highlighted-exam {
+    border: 2px solid #2563eb !important;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2), 0 8px 24px rgba(37, 99, 235, 0.15) !important;
+  }
+
+  .target-exam-banner {
+    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+    color: #1e40af;
+    border-bottom: 1px solid #bfdbfe;
+    padding: 7px 14px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    mat-icon { font-size: 16px; width: 16px; height: 16px; color: #2563eb; }
+  }
+
   .exam-card-header {
     display: flex;
     justify-content: space-between;

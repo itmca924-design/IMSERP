@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, FormArray, Validators } from '@angular/forms';
-import { RouterModule, Router } from '@angular/router';
+import { RouterModule, Router, ActivatedRoute } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -110,12 +110,16 @@ export class SchoolExamsComponent implements OnInit {
   loadingMarks = false;
   savingMarks = false;
 
+  targetExamIdToAutoOpen: string | null = null;
+  highlightedExamId: string | null = null;
+
   constructor(
     private schoolService: SchoolService,
     private subjectsService: SubjectsService,
     private confirmDialog: ConfirmDialogService,
     private fb: FormBuilder,
     private router: Router,
+    private route: ActivatedRoute,
     private dialog: MatDialog
   ) {
     this.scheduleForm = this.fb.group({
@@ -131,6 +135,17 @@ export class SchoolExamsComponent implements OnInit {
 
   ngOnInit(): void {
     this.initAcademicYears();
+    this.route.queryParams.subscribe(params => {
+      const targetId = params['examId'] || params['testId'];
+      if (targetId) {
+        this.targetExamIdToAutoOpen = targetId;
+        this.highlightedExamId = targetId;
+        this.activeTabIndex = 0;
+        this.filterClassId = '';
+        this.filterAcademicYear = '';
+        this.filterExamType = '';
+      }
+    });
     this.loadClasses();
     this.loadSubjects();
     this.loadExams();
@@ -198,6 +213,17 @@ export class SchoolExamsComponent implements OnInit {
       next: (res) => {
         this.loadingExams = false;
         this.exams = res.items;
+
+        if (this.targetExamIdToAutoOpen) {
+          const targetId = this.targetExamIdToAutoOpen;
+          const found = this.exams.find(e => e.id.toLowerCase() === targetId.toLowerCase());
+          if (found) {
+            this.targetExamIdToAutoOpen = null;
+            setTimeout(() => {
+              this.openMarksEntry(found);
+            }, 150);
+          }
+        }
       },
       error: () => {
         this.loadingExams = false;

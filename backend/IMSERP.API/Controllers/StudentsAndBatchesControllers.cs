@@ -657,6 +657,81 @@ public class StudentsController : ControllerBase
         return Ok(MapStudentAttendance(record, student));
     }
 
+    [HttpPost("{id}/attendance/multi-dates")]
+    public async Task<ActionResult> MarkMultiDatesAttendance(
+        Guid id, [FromBody] BulkStudentMultiDatesAttendanceDto dto)
+    {
+        if (!await HasAttendancePermissionAsync("/attendance/permissions/manual", false))
+            return Forbid();
+
+        if (!await IsManualAttendanceAllowedAsync())
+            return Conflict(new { message = "Manual student attendance is disabled. Current mode is Biometric." });
+
+        var student = await _dbContext.Students.FirstOrDefaultAsync(s => s.Id == id);
+        if (student == null) return NotFound(new { message = "Student not found." });
+        if (!TryParseAttendanceStatus(dto.Status, out var status))
+            return BadRequest(new { message = "Invalid attendance status." });
+
+        if (dto.AttendanceDates == null || dto.AttendanceDates.Count == 0)
+            return BadRequest(new { message = "No dates provided." });
+
+        var today = DateTime.UtcNow.Date;
+        var canCorrect = await HasAttendancePermissionAsync("/attendance/permissions/correction", true);
+        var canEditHoliday = await CanEditPublicHolidayOrSundayAsync();
+
+        var validDates = new List<DateTime>();
+        foreach (var rawDate in dto.AttendanceDates)
+        {
+            var date = rawDate.Date;
+            if (date > today) continue; // skip future
+            if (date < today && !canCorrect) continue; // skip past if no permission
+            if (!canEditHoliday && await IsPublicHolidayOrSundayAsync(date)) continue; // skip holiday/sunday
+            validDates.Add(date);
+        }
+
+        if (validDates.Count == 0)
+            return BadRequest(new { message = "No valid dates eligible for marking attendance." });
+
+        var existingRecords = await _dbContext.StudentAttendances
+            .Where(a => a.StudentId == id && validDates.Contains(a.AttendanceDate))
+            .ToListAsync();
+
+        var existingMap = existingRecords.ToDictionary(a => a.AttendanceDate.Date);
+
+        foreach (var date in validDates)
+        {
+            if (existingMap.TryGetValue(date, out var record))
+            {
+                if (!canCorrect) continue; // cannot edit existing without correction permission
+                record.Status = status;
+                record.Remarks = dto.Remarks;
+                record.MarkedBy = _currentUser.UserId.ToString();
+                record.CaptureSource = "Manual";
+                record.CapturedAt ??= DateTime.UtcNow;
+            }
+            else
+            {
+                var newRecord = new StudentAttendance
+                {
+                    TenantId = _currentUser.TenantId,
+                    BranchId = student.BranchId ?? _currentUser.BranchId,
+                    StudentId = id,
+                    AttendanceDate = date,
+                    Status = status,
+                    Remarks = dto.Remarks,
+                    MarkedBy = _currentUser.UserId.ToString(),
+                    CaptureSource = "Manual",
+                    CreatedAt = DateTime.UtcNow,
+                    CapturedAt = DateTime.UtcNow
+                };
+                _dbContext.StudentAttendances.Add(newRecord);
+            }
+        }
+
+        await _dbContext.SaveChangesAsync();
+        return Ok(new { message = $"Successfully marked attendance for {validDates.Count} date(s).", count = validDates.Count });
+    }
+
     [HttpGet("batch/{batchId}/attendance")]
     public async Task<ActionResult<IEnumerable<BatchAttendanceStudentRowDto>>> GetBatchAttendance(
         Guid batchId, [FromQuery] DateTime? date = null)

@@ -240,6 +240,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/front-desk/visitors.component').then(m => m.VisitorsComponent)
       },
       { path: 'front-desk', redirectTo: 'front-desk/visitors', pathMatch: 'full' },
+      // Route Aliases
+      { path: 'school-exams', redirectTo: 'school/exams', pathMatch: 'full' },
+      { path: 'homework-diary', redirectTo: 'school/homework', pathMatch: 'full' },
+      { path: 'teacher-substitution', redirectTo: 'teachers/substitution', pathMatch: 'full' },
     ]
   },
   { path: '**', redirectTo: 'dashboard' }

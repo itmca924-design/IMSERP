@@ -147,9 +147,6 @@ interface CalendarDay {
     </button>
   </div>
 
-  <!-- Loading Bar -->
-  <mat-progress-bar mode="indeterminate" *ngIf="loading || batchLoading || batchSaving || schoolLoading || schoolSaving"></mat-progress-bar>
-
   <!-- ================= TAB 1: ROLL CALL (BULK) ================= -->
   <div *ngIf="activeTab === 'batch'" class="batch-view">
 
@@ -511,12 +508,85 @@ interface CalendarDay {
             <span class="saturday-dot">● Saturday</span>
           </div>
         </div>
+
+        <!-- Multi-Check Quick Toolbar -->
+        <div class="multi-select-toolbar" *ngIf="attendancePermissions.canManualMark && attendanceMode !== 'Biometric'">
+          <div class="mst-left">
+            <span class="mst-title"><mat-icon>fact_check</mat-icon> Multi-Check:</span>
+            <button type="button" class="mst-btn" (click)="selectAllWorkingDays()" matTooltip="Select all working days in this month">
+              <mat-icon>checklist</mat-icon> Select All Working Days
+            </button>
+            <button type="button" class="mst-btn" (click)="selectAllAbsentDays()" matTooltip="Select all unmarked / absent days">
+              <mat-icon>rule</mat-icon> Select Unmarked / Absent
+            </button>
+            <button type="button" class="mst-btn clear" *ngIf="selectedMatrixDates.size > 0" (click)="clearDateSelection()">
+              <mat-icon>clear_all</mat-icon> Clear ({{ selectedMatrixDates.size }})
+            </button>
+          </div>
+          <div class="mst-right" *ngIf="selectedMatrixDates.size > 0">
+            <span class="mst-counter-badge">{{ selectedMatrixDates.size }} Days Selected</span>
+          </div>
+        </div>
+
         <div class="calendar-grid">
-          <div *ngFor="let day of calendarDays" class="day-cell" [ngClass]="[day.status.toLowerCase(), day.isSunday ? 'sunday' : '', day.isSaturday ? 'saturday' : '', day.isToday ? 'today' : '', day.isFuture ? 'future' : '', (!day.isToday && !day.isFuture && !attendancePermissions.canCorrectAttendance) ? 'locked-past' : '']" [matTooltip]="getDayTooltip(day)" (click)="openDay(day)">
+          <div *ngFor="let day of calendarDays"
+            class="day-cell"
+            [class.selected-for-batch]="selectedMatrixDates.has(day.dateStr)"
+            [ngClass]="[day.status.toLowerCase(), day.isSunday ? 'sunday' : '', day.isSaturday ? 'saturday' : '', day.isToday ? 'today' : '', day.isFuture ? 'future' : '', (!day.isToday && !day.isFuture && !attendancePermissions.canCorrectAttendance) ? 'locked-past' : '']"
+            [matTooltip]="getDayTooltip(day)"
+            (click)="onDayCellClick(day, $event)">
+
+            <!-- Smart Checkbox on selectable days -->
+            <div class="cell-check-wrap" *ngIf="isDateSelectable(day)" (click)="$event.stopPropagation()">
+              <input type="checkbox"
+                class="cell-check-input"
+                [checked]="selectedMatrixDates.has(day.dateStr)"
+                (change)="toggleDateSelect(day)">
+            </div>
+
             <span class="day-num">{{ day.dayNumber }}</span>
             <span class="day-name">{{ day.dayOfWeek }}</span>
             <span class="day-tag" *ngIf="day.status">{{ day.status === 'HalfDay' ? 'Half' : day.status }}</span>
             <span class="day-time" *ngIf="day.capturedTime">{{ day.capturedTime }}</span>
+          </div>
+        </div>
+
+        <!-- Floating Batch Action Bar -->
+        <div class="matrix-floating-bar" *ngIf="selectedMatrixDates.size > 0">
+          <div class="mfb-left">
+            <div class="mfb-badge">{{ selectedMatrixDates.size }}</div>
+            <div class="mfb-text">
+              <strong>{{ selectedMatrixDates.size }} Dates Selected</strong>
+              <small>Choose status & apply in 1-click</small>
+            </div>
+          </div>
+          <div class="mfb-center">
+            <button type="button" class="mfb-pill pill-p" [class.active]="batchTargetStatus === 'Present'" (click)="batchTargetStatus = 'Present'">
+              <mat-icon>check_circle</mat-icon> Present
+            </button>
+            <button type="button" class="mfb-pill pill-a" [class.active]="batchTargetStatus === 'Absent'" (click)="batchTargetStatus = 'Absent'">
+              <mat-icon>cancel</mat-icon> Absent
+            </button>
+            <button type="button" class="mfb-pill pill-lt" [class.active]="batchTargetStatus === 'Late'" (click)="batchTargetStatus = 'Late'">
+              <mat-icon>schedule</mat-icon> Late
+            </button>
+            <button type="button" class="mfb-pill pill-hd" [class.active]="batchTargetStatus === 'HalfDay'" (click)="batchTargetStatus = 'HalfDay'">
+              <mat-icon>hourglass_bottom</mat-icon> Half Day
+            </button>
+            <button type="button" class="mfb-pill pill-l" [class.active]="batchTargetStatus === 'Leave'" (click)="batchTargetStatus = 'Leave'">
+              <mat-icon>event_busy</mat-icon> Leave
+            </button>
+            <input type="text" class="mfb-remarks-input" [(ngModel)]="batchTargetRemarks" placeholder="Optional notes / remarks...">
+          </div>
+          <div class="mfb-right">
+            <button type="button" class="mfb-save-btn" [disabled]="batchSavingDates" (click)="applyMultiDatesAttendance()">
+              <mat-icon *ngIf="!batchSavingDates">save</mat-icon>
+              <mat-icon class="spin" *ngIf="batchSavingDates">refresh</mat-icon>
+              <span>Save ({{ selectedMatrixDates.size }} Days)</span>
+            </button>
+            <button type="button" class="mfb-close-btn" (click)="clearDateSelection()" matTooltip="Cancel selection">
+              <mat-icon>close</mat-icon>
+            </button>
           </div>
         </div>
       </mat-card>
@@ -1086,7 +1156,170 @@ interface CalendarDay {
       min-height: 74px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       gap: 1px; cursor: pointer; color: #334155; padding: 4px 2px; transition: transform 0.15s ease, box-shadow 0.15s ease;
+      position: relative;
     }
+    .cell-check-wrap {
+      position: absolute;
+      top: 4px;
+      right: 5px;
+      z-index: 3;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .cell-check-input {
+      width: 15px;
+      height: 15px;
+      cursor: pointer;
+      accent-color: #2563eb;
+      border-radius: 4px;
+      margin: 0;
+    }
+    .day-cell.selected-for-batch {
+      border: 2.5px solid #2563eb !important;
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25) !important;
+      transform: translateY(-2px);
+    }
+    .multi-select-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 8px 12px;
+      background: #f1f5f9;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      border: 1px solid #e2e8f0;
+    }
+    .mst-left { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .mst-title { font-size: 0.8rem; font-weight: 700; color: #334155; display: inline-flex; align-items: center; gap: 4px; }
+    .mst-title mat-icon { font-size: 18px; width: 18px; height: 18px; color: #2563eb; }
+    .mst-btn {
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      color: #334155;
+      font-size: 0.74rem;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.15s ease;
+    }
+    .mst-btn mat-icon { font-size: 15px; width: 15px; height: 15px; color: #64748b; }
+    .mst-btn:hover { background: #e0f2fe; color: #0284c7; border-color: #93c5fd; }
+    .mst-btn.clear { background: #fee2e2; color: #dc2626; border-color: #fca5a5; }
+    .mst-btn.clear:hover { background: #fecaca; }
+    .mst-counter-badge {
+      background: #2563eb;
+      color: #ffffff;
+      font-size: 0.74rem;
+      font-weight: 800;
+      padding: 3px 9px;
+      border-radius: 12px;
+    }
+    .matrix-floating-bar {
+      position: sticky;
+      bottom: 12px;
+      margin-top: 14px;
+      background: #0f172a;
+      color: #ffffff;
+      border-radius: 12px;
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+      z-index: 50;
+      border: 1px solid rgba(255,255,255,0.15);
+      animation: mfbSlideUp 0.22s ease-out;
+    }
+    @keyframes mfbSlideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+    .mfb-left { display: flex; align-items: center; gap: 10px; }
+    .mfb-badge {
+      background: #2563eb;
+      color: #fff;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      font-size: 0.88rem;
+    }
+    .mfb-text { display: flex; flex-direction: column; }
+    .mfb-text strong { font-size: 0.85rem; color: #f8fafc; }
+    .mfb-text small { font-size: 0.7rem; color: #94a3b8; }
+    .mfb-center { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; flex: 1; justify-content: center; }
+    .mfb-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.74rem;
+      font-weight: 700;
+      padding: 5px 11px;
+      border-radius: 20px;
+      border: 1.5px solid transparent;
+      cursor: pointer;
+      background: #1e293b;
+      color: #cbd5e1;
+      transition: all 0.15s ease;
+    }
+    .mfb-pill mat-icon { font-size: 16px; width: 16px; height: 16px; }
+    .mfb-pill:hover { background: #334155; color: #ffffff; }
+    .mfb-pill.pill-p.active { background: #16a34a; color: #fff; border-color: #22c55e; }
+    .mfb-pill.pill-a.active { background: #dc2626; color: #fff; border-color: #ef4444; }
+    .mfb-pill.pill-lt.active { background: #d97706; color: #fff; border-color: #f59e0b; }
+    .mfb-pill.pill-hd.active { background: #7c3aed; color: #fff; border-color: #8b5cf6; }
+    .mfb-pill.pill-l.active { background: #ea580c; color: #fff; border-color: #f97316; }
+    .mfb-remarks-input {
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: #ffffff;
+      font-size: 0.76rem;
+      padding: 6px 10px;
+      border-radius: 6px;
+      outline: none;
+      min-width: 170px;
+    }
+    .mfb-remarks-input:focus { border-color: #3b82f6; }
+    .mfb-right { display: flex; align-items: center; gap: 8px; }
+    .mfb-save-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+      color: #ffffff;
+      border: none;
+      padding: 7px 16px;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 0.82rem;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+      transition: all 0.15s ease;
+    }
+    .mfb-save-btn:hover:not([disabled]) { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(37, 99, 235, 0.45); }
+    .mfb-save-btn mat-icon { font-size: 18px; width: 18px; height: 18px; }
+    .mfb-close-btn {
+      background: transparent;
+      border: none;
+      color: #94a3b8;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px;
+      border-radius: 6px;
+    }
+    .mfb-close-btn:hover { background: #334155; color: #ffffff; }
+
     .day-cell:hover { transform: translateY(-1px); box-shadow: 0 4px 10px rgba(0,0,0,0.06); }
     .day-cell .day-num { font-weight: 800; font-size: 0.88rem; line-height: 1.1; }
     .day-cell .day-name { color: #94a3b8; font-size: .64rem; line-height: 1.1; }
@@ -1362,6 +1595,12 @@ export class StudentAttendanceComponent implements OnInit {
   records: StudentAttendance[] = [];
   holidays: HolidayDto[] = [];
   calendarDays: CalendarDay[] = [];
+
+  // Multi-Date Check State
+  selectedMatrixDates = new Set<string>();
+  batchTargetStatus = 'Present';
+  batchTargetRemarks = '';
+  batchSavingDates = false;
   summary: AttendanceSummary | null = null;
   loading = false;
   saving = false;
@@ -2535,6 +2774,103 @@ export class StudentAttendanceComponent implements OnInit {
       },
       error: (err) => {
         alert(err.error?.message || 'Failed to cancel request.');
+      }
+    });
+  }
+
+  // ================= MULTI-DATE SELECTION METHODS =================
+
+  /** Whether a calendar cell can be multi-selected (not future, not holiday, not Sunday, and user has correction permission if past) */
+  isDateSelectable(day: CalendarDay): boolean {
+    if (day.isFuture) return false;
+    if (day.isSunday) return false;
+    if (day.holiday) return false;
+    if (!this.attendancePermissions.canManualMark) return false;
+    if (this.attendanceMode === 'Biometric') return false;
+    if (!day.isToday && !this.attendancePermissions.canCorrectAttendance) return false;
+    return true;
+  }
+
+  /** Click on a calendar day cell: if selectable toggle selection, else open single-day form */
+  onDayCellClick(day: CalendarDay, event: MouseEvent): void {
+    if (this.isDateSelectable(day)) {
+      this.toggleDateSelect(day);
+    } else {
+      this.openDay(day);
+    }
+  }
+
+  toggleDateSelect(day: CalendarDay): void {
+    if (!this.isDateSelectable(day)) return;
+    if (this.selectedMatrixDates.has(day.dateStr)) {
+      this.selectedMatrixDates.delete(day.dateStr);
+    } else {
+      this.selectedMatrixDates.add(day.dateStr);
+    }
+    // Trigger change detection on the Set
+    this.selectedMatrixDates = new Set(this.selectedMatrixDates);
+  }
+
+  selectAllWorkingDays(): void {
+    const selectable = this.calendarDays.filter(d => this.isDateSelectable(d));
+    this.selectedMatrixDates = new Set(selectable.map(d => d.dateStr));
+  }
+
+  selectAllAbsentDays(): void {
+    const absentSelectable = this.calendarDays.filter(d =>
+      this.isDateSelectable(d) && (d.status === 'Absent' || !d.record)
+    );
+    this.selectedMatrixDates = new Set(absentSelectable.map(d => d.dateStr));
+  }
+
+  clearDateSelection(): void {
+    this.selectedMatrixDates = new Set();
+    this.batchTargetStatus = 'Present';
+    this.batchTargetRemarks = '';
+  }
+
+  applyMultiDatesAttendance(): void {
+    if (this.selectedMatrixDates.size === 0) {
+      this.confirmDialog.alert('No Dates Selected', 'Please select at least one date to apply attendance.', 'warning');
+      return;
+    }
+    if (!this.batchTargetStatus) {
+      this.confirmDialog.alert('Status Required', 'Please choose an attendance status (Present, Absent, etc.).', 'warning');
+      return;
+    }
+    if (!this.selectedStudentId) {
+      this.confirmDialog.alert('No Student', 'Please select a student first.', 'warning');
+      return;
+    }
+
+    const dates = Array.from(this.selectedMatrixDates).sort();
+
+    this.batchSavingDates = true;
+
+    const payload = {
+      attendanceDates: dates,
+      status: this.batchTargetStatus,
+      remarks: this.batchTargetRemarks || null
+    };
+
+    this.http.post(
+      `${this.api}/students/${this.selectedStudentId}/attendance/multi-dates`,
+      payload
+    ).subscribe({
+      next: (res: any) => {
+        this.batchSavingDates = false;
+        const msg = res?.message || `Attendance marked as "${this.batchTargetStatus}" for ${dates.length} date(s) successfully.`;
+        this.clearDateSelection();
+        this.loadAttendance();
+        this.confirmDialog.alert('Bulk Attendance Saved', msg, 'success');
+      },
+      error: err => {
+        this.batchSavingDates = false;
+        this.confirmDialog.alert(
+          'Save Failed',
+          err?.error?.message || 'Failed to save bulk attendance. Please try again.',
+          'danger'
+        );
       }
     });
   }

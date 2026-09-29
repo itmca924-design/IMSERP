@@ -122,7 +122,7 @@ import ApexCharts from 'apexcharts';
             </mat-card>
 
             <!-- 3. Upcoming Tests -->
-            <mat-card class="stat-card purple mat-elevation-z2" routerLink="/school-exams">
+            <mat-card class="stat-card purple mat-elevation-z2" routerLink="/school/exams">
               <mat-card-content class="stat-content">
                 <div class="stat-header">
                   <span class="label">Upcoming Tests</span>
@@ -141,7 +141,7 @@ import ApexCharts from 'apexcharts';
             </mat-card>
 
             <!-- 4. Today's Homework -->
-            <mat-card class="stat-card blue mat-elevation-z2" routerLink="/homework-diary">
+            <mat-card class="stat-card blue mat-elevation-z2" routerLink="/school/homework">
               <mat-card-content class="stat-content">
                 <div class="stat-header">
                   <span class="label">Today's Homework</span>
@@ -289,7 +289,7 @@ import ApexCharts from 'apexcharts';
                     <p class="widget-sub">Teacher assignments and submissions</p>
                   </div>
                 </div>
-                <a mat-stroked-button color="primary" routerLink="/homework-diary" class="hub-link-btn">
+                <a mat-stroked-button color="primary" routerLink="/school/homework" class="hub-link-btn">
                   <span>View All</span>
                   <mat-icon>arrow_forward</mat-icon>
                 </a>
@@ -337,7 +337,7 @@ import ApexCharts from 'apexcharts';
                     <p class="widget-sub">Tests scheduled for your classroom</p>
                   </div>
                 </div>
-                <a mat-stroked-button color="primary" routerLink="/school-exams" class="hub-link-btn">
+                <a mat-stroked-button color="primary" routerLink="/school/exams" class="hub-link-btn">
                   <span>Exam Desk</span>
                   <mat-icon>arrow_forward</mat-icon>
                 </a>
@@ -577,7 +577,7 @@ import ApexCharts from 'apexcharts';
             </mat-card>
 
             <!-- 3. Pending Marks Entry -->
-            <mat-card class="stat-card orange mat-elevation-z2" routerLink="/school-exams">
+            <mat-card class="stat-card orange mat-elevation-z2" routerLink="/school/exams">
               <mat-card-content class="stat-content">
                 <div class="stat-header">
                   <span class="label">Pending Marks Entry</span>
@@ -596,7 +596,7 @@ import ApexCharts from 'apexcharts';
             </mat-card>
 
             <!-- 4. Homework Given This Week -->
-            <mat-card class="stat-card purple mat-elevation-z2" routerLink="/homework-diary">
+            <mat-card class="stat-card purple mat-elevation-z2" routerLink="/school/homework">
               <mat-card-content class="stat-content">
                 <div class="stat-header">
                   <span class="label">Homework Posted</span>
@@ -739,7 +739,7 @@ import ApexCharts from 'apexcharts';
                     <p class="widget-sub">Grade your students to update progress reports</p>
                   </div>
                 </div>
-                <a mat-stroked-button color="primary" routerLink="/school-exams" class="hub-link-btn">
+                <a mat-stroked-button color="primary" routerLink="/school/exams" class="hub-link-btn">
                   <span>Exams Desk</span>
                   <mat-icon>arrow_forward</mat-icon>
                 </a>
@@ -748,7 +748,7 @@ import ApexCharts from 'apexcharts';
                 @if (tc.pendingTests.length) {
                   <div class="tests-list">
                     @for (pt of tc.pendingTests; track pt.testId) {
-                      <div class="test-item-card">
+                      <div class="test-item-card" [routerLink]="['/school/exams']" [queryParams]="{ examId: pt.testId }" style="cursor: pointer;">
                         <div class="test-date-badge">
                           <span class="m">{{ pt.testDate | date:'MMM' | uppercase }}</span>
                           <span class="d">{{ pt.testDate | date:'dd' }}</span>
@@ -761,7 +761,7 @@ import ApexCharts from 'apexcharts';
                           <span class="test-subj"><mat-icon>groups</mat-icon> {{ pt.batchOrClass }} • {{ pt.subject }}</span>
                           <div class="test-eval-row">
                             <span class="eval-stat">Pending Marks Entry</span>
-                            <a mat-flat-button color="primary" class="enter-marks-mini-btn" routerLink="/school-exams">
+                            <a mat-flat-button color="primary" class="enter-marks-mini-btn" [routerLink]="['/school/exams']" [queryParams]="{ examId: pt.testId }" (click)="$event.stopPropagation()">
                               Enter Marks
                             </a>
                           </div>
@@ -802,17 +802,17 @@ import ApexCharts from 'apexcharts';
                     <span class="tile-title">Take Roll Call</span>
                     <span class="tile-desc">Mark student daily attendance</span>
                   </a>
-                  <a class="action-tile purple-tile" routerLink="/homework-diary">
+                  <a class="action-tile purple-tile" routerLink="/school/homework">
                     <mat-icon>assignment</mat-icon>
                     <span class="tile-title">Post Homework</span>
                     <span class="tile-desc">Add homework to student diary</span>
                   </a>
-                  <a class="action-tile orange-tile" routerLink="/school-exams">
+                  <a class="action-tile orange-tile" routerLink="/school/exams">
                     <mat-icon>quiz</mat-icon>
                     <span class="tile-title">Schedule Test</span>
                     <span class="tile-desc">Create classroom test &amp; enter marks</span>
                   </a>
-                  <a class="action-tile teal-tile" routerLink="/teacher-substitution">
+                  <a class="action-tile teal-tile" routerLink="/teachers/substitution">
                     <mat-icon>swap_horiz</mat-icon>
                     <span class="tile-title">Substitution</span>
                     <span class="tile-desc">Check substitute teacher routine</span>

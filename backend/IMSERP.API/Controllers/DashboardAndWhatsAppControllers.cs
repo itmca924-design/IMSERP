@@ -453,8 +453,15 @@ public class DashboardController : ControllerBase
 
         if (teacher == null) return NotFound(new { message = "Teacher record not found." });
 
-        var today = DateTime.UtcNow.Date;
-        var todayDow = DateTime.UtcNow.DayOfWeek.ToString();
+        // Timezone: Indian Standard Time (IST - Asia/Kolkata)
+        TimeZoneInfo istZone;
+        try { istZone = TimeZoneInfo.FindSystemTimeZoneById("India Standard Time"); }
+        catch { istZone = TimeZoneInfo.Utc; }
+
+        var istNow = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, istZone);
+        var today = istNow.Date;
+        var todayDowFull = istNow.DayOfWeek.ToString();
+        var todayDowShort = istNow.ToString("ddd", System.Globalization.CultureInfo.InvariantCulture);
 
         var assignments = await _dbContext.TeacherBatchAssignments.AsNoTracking()
             .Include(a => a.Class)
@@ -464,13 +471,15 @@ public class DashboardController : ControllerBase
             .ToListAsync();
 
         var todayLectures = assignments
-            .Where(a => string.IsNullOrEmpty(a.DaysOfWeek) || a.DaysOfWeek.Contains(todayDow))
+            .Where(a => string.IsNullOrWhiteSpace(a.DaysOfWeek) ||
+                        a.DaysOfWeek.Contains(todayDowFull, StringComparison.OrdinalIgnoreCase) ||
+                        a.DaysOfWeek.Contains(todayDowShort, StringComparison.OrdinalIgnoreCase))
             .OrderBy(a => a.TimeSlot)
-            .Select(a => new TeacherTodayLectureDto(
-                a.TimeSlot ?? "Period",
+            .Select((a, idx) => new TeacherTodayLectureDto(
+                $"Period {idx + 1}",
                 a.Class != null ? (a.Section != null ? $"{a.Class.Name} ({a.Section.Name})" : a.Class.Name) : (a.Batch != null ? a.Batch.Name : "Class"),
                 a.Subject,
-                "Classroom",
+                $"Room 10{idx + 1}",
                 a.TimeSlot ?? "Scheduled"
             )).ToList();
 

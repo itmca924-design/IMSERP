@@ -512,6 +512,12 @@ public record MarkStudentAttendanceDto(
     string? Remarks
 );
 
+public record BulkStudentMultiDatesAttendanceDto(
+    List<DateTime> AttendanceDates,
+    string Status,
+    string? Remarks
+);
+
 public record BatchStudentAttendanceItemDto(
     Guid StudentId,
     string Status,
