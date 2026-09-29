@@ -169,7 +169,7 @@ import { QuickSettingsDrawerComponent } from './quick-settings-drawer/quick-sett
           <div class="header-tools">
             <div class="header-search" [class.open]="headerSearchFocused">
               <mat-icon>search</mat-icon>
-              <input type="search" [placeholder]="'HEADER.SEARCH_PAGES' | translate" [value]="headerSearch" (input)="onHeaderSearch($event)" (focus)="headerSearchFocused = true" (blur)="closeHeaderSearch()" aria-label="Search pages">
+              <input type="search" [placeholder]="'HEADER.SEARCH_PAGES' | translate" [value]="headerSearch" (input)="onHeaderSearch($event)" (focus)="onSearchFocus()" (blur)="closeHeaderSearch()" aria-label="Search pages">
               <div class="search-results" *ngIf="headerSearchFocused && headerSearchResults.length > 0">
                 <a *ngFor="let result of headerSearchResults" [routerLink]="result.route" (mousedown)="$event.preventDefault()" (click)="headerSearch = ''; headerSearchFocused = false">
                   <mat-icon>{{ result.icon }}</mat-icon><span>{{ result.title | translate }}</span>
@@ -183,19 +183,26 @@ import { QuickSettingsDrawerComponent } from './quick-settings-drawer/quick-sett
             <mat-menu #notificationMenu="matMenu" xPosition="before">
               <div class="menu-section-title">{{ 'HEADER.NOTIFICATIONS' | translate }}</div>
               <button mat-menu-item routerLink="/holidays"><mat-icon color="primary">event</mat-icon><span>{{ 'HEADER.VIEW_HOLIDAYS' | translate }}</span></button>
-              <button mat-menu-item routerLink="/fees"><mat-icon color="warn">payments</mat-icon><span>{{ 'HEADER.REVIEW_FEES' | translate }}</span></button>
-              <button mat-menu-item routerLink="/attendance/reports"><mat-icon color="accent">summarize</mat-icon><span>{{ 'HEADER.OPEN_ATTENDANCE_REPORTS' | translate }}</span></button>
+              <button mat-menu-item routerLink="/fees" *ngIf="isRoutePermitted('/fees')"><mat-icon color="warn">payments</mat-icon><span>{{ 'HEADER.REVIEW_FEES' | translate }}</span></button>
+              <button mat-menu-item routerLink="/attendance/reports" *ngIf="isRoutePermitted('/attendance/reports')"><mat-icon color="accent">summarize</mat-icon><span>{{ 'HEADER.OPEN_ATTENDANCE_REPORTS' | translate }}</span></button>
+              <button mat-menu-item routerLink="/school/notices" *ngIf="isRoutePermitted('/school/notices')"><mat-icon color="primary">campaign</mat-icon><span>School Notices</span></button>
             </mat-menu>
 
             <button mat-stroked-button [matMenuTriggerFor]="quickActionsMenu" class="quick-actions-button" [matTooltip]="'HEADER.QUICK_ACTIONS' | translate">
               <mat-icon>bolt</mat-icon><span>{{ 'HEADER.QUICK_ACTIONS' | translate }}</span>
             </button>
-            <mat-menu #quickActionsMenu="matMenu" xPosition="before">
-              <div class="menu-section-title">{{ 'HEADER.QUICK_ACTIONS' | translate }}</div>
-              <button mat-menu-item routerLink="/students"><mat-icon>person_add</mat-icon><span>{{ 'HEADER.ADD_STUDENT' | translate }}</span></button>
-              <button mat-menu-item routerLink="/teachers"><mat-icon>badge</mat-icon><span>{{ 'HEADER.ADD_TEACHER' | translate }}</span></button>
-              <button mat-menu-item routerLink="/attendance/reports"><mat-icon>summarize</mat-icon><span>{{ 'HEADER.OPEN_ATTENDANCE_REPORTS' | translate }}</span></button>
-              <button mat-menu-item routerLink="/fees"><mat-icon>payments</mat-icon><span>{{ 'HEADER.OPEN_FEE_COLLECTION' | translate }}</span></button>
+            <mat-menu #quickActionsMenu="matMenu" xPosition="before" class="quick-actions-menu">
+              <div class="menu-section-title">
+                <mat-icon style="font-size:16px; width:16px; height:16px; margin-right:4px; vertical-align:middle;">bolt</mat-icon>
+                <span>{{ 'HEADER.QUICK_ACTIONS' | translate }} ({{ currentUser()?.role || 'User' }})</span>
+              </div>
+              <button mat-menu-item *ngFor="let a of dynamicQuickActions" [routerLink]="a.route">
+                <mat-icon [style.color]="a.color">{{ a.icon }}</mat-icon>
+                <span>{{ a.title }}</span>
+              </button>
+              <div *ngIf="dynamicQuickActions.length === 0" style="padding: 10px 16px; font-size: 12px; color: #64748b;">
+                No quick actions configured for your role
+              </div>
             </mat-menu>
 
             <!-- Dynamic Hindi / English Switcher Pill Button in Header -->
@@ -1148,6 +1155,141 @@ export class LayoutComponent implements OnInit {
     { title: 'Institutes & Tenants', route: '/admin/tenants', icon: 'corporate_fare' },
     { title: 'Subscription & Plan', route: '/subscription', icon: 'workspace_premium' }
   ];
+
+  readonly allQuickActionCatalog: Array<{ title: string; route: string; icon: string; color: string; roles?: string[] }> = [
+    // Teacher / Faculty specific actions
+    { title: 'Mark Daily Attendance', route: '/students/attendance', icon: 'how_to_reg', color: '#0284c7', roles: ['Teacher', 'Faculty', 'Teacher / Faculty', 'ClassTeacher'] },
+    { title: 'Homework & Daily Diary', route: '/school/homework', icon: 'auto_stories', color: '#2563eb', roles: ['Teacher', 'Faculty', 'Teacher / Faculty', 'ClassTeacher'] },
+    { title: 'School Examinations & Marks', route: '/school/exams', icon: 'assignment', color: '#7c3aed', roles: ['Teacher', 'Faculty', 'Teacher / Faculty', 'ClassTeacher'] },
+    { title: 'Apply Leave Application', route: '/teachers/leaves', icon: 'event_busy', color: '#d97706', roles: ['Teacher', 'Faculty', 'Teacher / Faculty', 'ClassTeacher'] },
+    { title: 'Request Salary Advance', route: '/teachers/advances', icon: 'account_balance_wallet', color: '#059669', roles: ['Teacher', 'Faculty', 'Teacher / Faculty', 'ClassTeacher'] },
+    { title: 'Batch Assignments', route: '/teachers/assignments', icon: 'assignment_ind', color: '#4f46e5', roles: ['Teacher', 'Faculty', 'Teacher / Faculty', 'ClassTeacher'] },
+
+    // Student / Parent specific actions
+    { title: 'My 360° Profile', route: '/students/my-profile', icon: 'military_tech', color: '#2563eb', roles: ['Student', 'Parent'] },
+    { title: 'My Attendance Calendar', route: '/students/attendance', icon: 'calendar_month', color: '#0284c7', roles: ['Student', 'Parent'] },
+    { title: 'My Homework Diary', route: '/school/homework', icon: 'auto_stories', color: '#7c3aed', roles: ['Student', 'Parent'] },
+    { title: 'My Exam Results', route: '/school/exams', icon: 'assignment_turned_in', color: '#d97706', roles: ['Student', 'Parent'] },
+    { title: 'Fee Receipts & Dues', route: '/fees', icon: 'receipt_long', color: '#059669', roles: ['Student', 'Parent'] },
+
+    // Accountant actions
+    { title: 'Fee Collection Desk', route: '/fees', icon: 'payments', color: '#059669', roles: ['Accountant'] },
+    { title: 'Record Expense Voucher', route: '/finance/expenses', icon: 'receipt_long', color: '#d97706', roles: ['Accountant'] },
+    { title: 'Profit & Loss Statement', route: '/finance/profit-loss', icon: 'query_stats', color: '#2563eb', roles: ['Accountant'] },
+    { title: 'Balance Sheet', route: '/finance/balance-sheet', icon: 'account_balance_wallet', color: '#7c3aed', roles: ['Accountant'] },
+
+    // Librarian actions
+    { title: 'Book Issue & Return Desk', route: '/library/circulation', icon: 'sync_alt', color: '#2563eb', roles: ['Librarian'] },
+    { title: 'Search Books Catalog', route: '/library/books', icon: 'local_library', color: '#059669', roles: ['Librarian'] },
+    { title: 'Library Shifts & Plans', route: '/library/plans', icon: 'schedule', color: '#d97706', roles: ['Librarian'] },
+
+    // Admin / Management / SuperAdmin actions
+    { title: 'Register New Student', route: '/students', icon: 'person_add', color: '#2563eb', roles: ['SuperAdmin', 'InstituteAdmin', 'Admin'] },
+    { title: 'Add Faculty / Staff', route: '/teachers', icon: 'badge', color: '#7c3aed', roles: ['SuperAdmin', 'InstituteAdmin', 'Admin'] },
+    { title: 'Collect Student Fees', route: '/fees', icon: 'payments', color: '#059669', roles: ['SuperAdmin', 'InstituteAdmin', 'Admin'] },
+    { title: 'Schedule School Exams', route: '/school/exams', icon: 'assignment', color: '#d97706', roles: ['SuperAdmin', 'InstituteAdmin', 'Admin'] },
+    { title: 'Attendance Reports', route: '/attendance/reports', icon: 'summarize', color: '#4f46e5', roles: ['SuperAdmin', 'InstituteAdmin', 'Admin'] },
+    { title: 'Mark Daily Attendance', route: '/students/attendance', icon: 'how_to_reg', color: '#0284c7', roles: ['SuperAdmin', 'InstituteAdmin', 'Admin'] },
+
+    // Common fallback actions if permitted
+    { title: 'School Notices & Circulars', route: '/school/notices', icon: 'campaign', color: '#0891b2' },
+    { title: 'Holiday Calendar', route: '/holidays', icon: 'event', color: '#e11d48' }
+  ];
+
+  isRoutePermitted(route?: string | null): boolean {
+    if (!route) return false;
+    if (this.authService.isSuperAdmin()) return true;
+
+    const target = route.trim().toLowerCase().split('?')[0];
+
+    const checkList = (items: MenuItem[]): boolean => {
+      for (const item of items) {
+        if (item.routeUrl) {
+          const itemRoute = item.routeUrl.trim().toLowerCase().split('?')[0];
+          if (itemRoute === target || target.startsWith(itemRoute + '/')) {
+            return true;
+          }
+        }
+        if (item.children && item.children.length > 0) {
+          if (checkList(item.children)) return true;
+        }
+      }
+      return false;
+    };
+
+    return checkList(this.menuTree());
+  }
+
+  get permittedSearchablePages(): Array<{ title: string; route: string; icon: string }> {
+    const list: Array<{ title: string; route: string; icon: string }> = [];
+    const seen = new Set<string>();
+
+    const traverse = (items: MenuItem[]) => {
+      for (const item of items) {
+        if (item.routeUrl) {
+          const norm = item.routeUrl.trim().toLowerCase().split('?')[0];
+          if (!seen.has(norm)) {
+            seen.add(norm);
+            list.push({
+              title: item.title,
+              route: item.routeUrl,
+              icon: item.icon || 'arrow_forward'
+            });
+          }
+        }
+        if (item.children && item.children.length > 0) {
+          traverse(item.children);
+        }
+      }
+    };
+    traverse(this.menuTree());
+
+    for (const p of this.searchablePages) {
+      const norm = p.route.trim().toLowerCase().split('?')[0];
+      if (!seen.has(norm) && this.isRoutePermitted(norm)) {
+        seen.add(norm);
+        list.push(p);
+      }
+    }
+
+    return list;
+  }
+
+  get dynamicQuickActions(): Array<{ title: string; route: string; icon: string; color: string }> {
+    const userRole = this.currentUser()?.role || '';
+    const userRoleLower = userRole.toLowerCase();
+
+    // 1. Filter catalog items matching user role (or generic) AND permitted in menu
+    const matched = this.allQuickActionCatalog.filter(action => {
+      if (action.roles && action.roles.length > 0) {
+        const roleMatches = action.roles.some(r => r.toLowerCase() === userRoleLower || userRoleLower.includes(r.toLowerCase()));
+        if (!roleMatches) return false;
+      }
+      return this.isRoutePermitted(action.route);
+    });
+
+    if (matched.length > 0) {
+      return matched.slice(0, 6);
+    }
+
+    // 2. Fallback: If no catalog action matched (e.g. custom role), pull top 5 permitted pages directly from menuTree!
+    const fallbackList: Array<{ title: string; route: string; icon: string; color: string }> = [];
+    const colors = ['#2563eb', '#7c3aed', '#059669', '#d97706', '#0284c7', '#0891b2'];
+    let cIdx = 0;
+    for (const p of this.permittedSearchablePages) {
+      if (p.route !== '/dashboard') {
+        fallbackList.push({
+          title: p.title,
+          route: p.route,
+          icon: p.icon || 'bolt',
+          color: colors[cIdx % colors.length]
+        });
+        cIdx++;
+        if (fallbackList.length >= 6) break;
+      }
+    }
+    return fallbackList;
+  }
   selectedBranchId = this.authService.selectedBranchId;
   activeBranches = signal<BranchInfo[]>(this.currentUser()?.branches || []);
 
@@ -1259,17 +1401,24 @@ export class LayoutComponent implements OnInit {
     this.headerSearch = (event.target as HTMLInputElement).value;
     const query = this.headerSearch.trim().toLowerCase();
     this.headerSearchResults = query
-      ? this.searchablePages.filter(page => {
-          if (!this.authService.isSuperAdmin() && page.route === '/subscription') {
-            return false;
-          }
-          return page.title.toLowerCase().includes(query);
-        }).slice(0, 6)
-      : [];
+      ? this.permittedSearchablePages.filter(page => {
+          return page.title.toLowerCase().includes(query) || page.route.toLowerCase().includes(query);
+        }).slice(0, 8)
+      : this.permittedSearchablePages.slice(0, 6);
+  }
+
+  onSearchFocus(): void {
+    this.headerSearchFocused = true;
+    const query = this.headerSearch.trim().toLowerCase();
+    this.headerSearchResults = query
+      ? this.permittedSearchablePages.filter(page => {
+          return page.title.toLowerCase().includes(query) || page.route.toLowerCase().includes(query);
+        }).slice(0, 8)
+      : this.permittedSearchablePages.slice(0, 6);
   }
 
   closeHeaderSearch(): void {
-    setTimeout(() => this.headerSearchFocused = false, 120);
+    setTimeout(() => this.headerSearchFocused = false, 200);
   }
 
   loadHeaderBranches(): void {
