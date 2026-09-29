@@ -418,18 +418,18 @@ interface CalendarDay {
 
       <!-- School Class & Section Filter -->
       <ng-container *ngIf="singleStreamFilter === 'school'">
-        <mat-form-field appearance="outline" class="single-class-select">
-          <mat-label>Select Class</mat-label>
-          <mat-select [(ngModel)]="singleSelectedClassId" (selectionChange)="onSingleClassChanged()">
-            <mat-option value="">All Classes</mat-option>
+        <mat-form-field appearance="outline" class="single-class-select" [matTooltip]="isTeacherClassLocked ? '🔒 Assigned class for your teaching profile (Locked)' : ''">
+          <mat-label>Select Class <span *ngIf="isTeacherClassLocked">🔒</span></mat-label>
+          <mat-select [(ngModel)]="singleSelectedClassId" (selectionChange)="onSingleClassChanged()" [disabled]="isTeacherClassLocked">
+            <mat-option value="" *ngIf="!isTeacherClassLocked">All Classes</mat-option>
             <mat-option *ngFor="let c of schoolClasses" [value]="c.id">{{ c.name }}</mat-option>
           </mat-select>
         </mat-form-field>
 
-        <mat-form-field appearance="outline" class="single-section-select" *ngIf="singleSelectedClassId && singleClassSections.length > 0">
-          <mat-label>Section</mat-label>
-          <mat-select [(ngModel)]="singleSelectedSectionId" (selectionChange)="onSingleSectionChanged()">
-            <mat-option value="">All Sections</mat-option>
+        <mat-form-field appearance="outline" class="single-section-select" *ngIf="singleSelectedClassId && singleClassSections.length > 0" [matTooltip]="isTeacherSectionLocked ? '🔒 Assigned section locked' : ''">
+          <mat-label>Section <span *ngIf="isTeacherSectionLocked">🔒</span></mat-label>
+          <mat-select [(ngModel)]="singleSelectedSectionId" (selectionChange)="onSingleSectionChanged()" [disabled]="isTeacherSectionLocked">
+            <mat-option value="" *ngIf="!isTeacherSectionLocked">All Sections</mat-option>
             <mat-option *ngFor="let sec of singleClassSections" [value]="sec.id">Section {{ sec.name }}</mat-option>
           </mat-select>
         </mat-form-field>
@@ -1417,12 +1417,23 @@ export class StudentAttendanceComponent implements OnInit {
     return this.authService.isTeacher();
   }
 
+  get isTeacherClassLocked(): boolean {
+    return !!(this.isTeacher && this.teacherClassSection?.isClassTeacher);
+  }
+
+  get isTeacherSectionLocked(): boolean {
+    return !!(this.isTeacher && this.teacherClassSection?.isClassTeacher && this.teacherClassSection?.sectionId);
+  }
+
   ngOnInit(): void {
     this.pageLoading = true;
     if (!this.hasSchool && this.hasCoaching) {
       this.rollCallScope = 'coaching';
       this.singleStreamFilter = 'coaching';
     } else if (this.hasSchool && !this.hasCoaching) {
+      this.rollCallScope = 'school';
+      this.singleStreamFilter = 'school';
+    } else if (this.isTeacher) {
       this.rollCallScope = 'school';
       this.singleStreamFilter = 'school';
     } else {
@@ -1580,22 +1591,64 @@ export class StudentAttendanceComponent implements OnInit {
 
   // ================= SCHOOL CLASS ROLL CALL METHODS =================
 
+  syncTeacherClassSection(): void {
+    if (this.isTeacher) {
+      // If teacherClassSection was not populated from backend endpoint, find match from schoolClasses
+      if (!this.teacherClassSection?.isClassTeacher && this.schoolClasses?.length > 0) {
+        const user: any = this.authService.currentUser();
+        const userFullName = (user?.fullName || user?.name || '').trim().toLowerCase();
+        for (const c of this.schoolClasses) {
+          const sec = c.sections?.find((s: any) =>
+            (s.classTeacherName && s.classTeacherName.trim().toLowerCase() === userFullName)
+          );
+          if (sec) {
+            this.teacherClassSection = {
+              isClassTeacher: true,
+              classId: c.id,
+              className: c.name,
+              sectionId: sec.id,
+              sectionName: sec.name
+            };
+            break;
+          }
+        }
+      }
+
+      if (this.teacherClassSection?.isClassTeacher && this.teacherClassSection.classId) {
+        const classId = this.teacherClassSection.classId;
+        const sectionId = this.teacherClassSection.sectionId || '';
+
+        // Tab 1: Roll Call Bulk
+        this.rollCallScope = 'school';
+        this.selectedClassId = classId;
+        const selectedClass = this.schoolClasses.find(c => c.id === classId);
+        this.classSections = selectedClass?.sections || [];
+        this.selectedSectionId = sectionId;
+        if (this.activeTab === 'batch') {
+          this.loadSchoolAttendance();
+        }
+
+        // Tab 2: Individual Student Register
+        this.singleStreamFilter = 'school';
+        this.singleSelectedClassId = classId;
+        const singleClass = this.schoolClasses.find(c => c.id === classId);
+        this.singleClassSections = singleClass?.sections || [];
+        this.singleSelectedSectionId = sectionId;
+        this.syncSingleSelectedStudent();
+      }
+    }
+  }
+
   loadTeacherClassSection(): void {
     this.http.get<any>(`${this.api}/teachers/my-class-section`).subscribe({
       next: info => {
         this.teacherClassSection = info;
-        if (this.isTeacher && info?.isClassTeacher && info.classId) {
-          this.rollCallScope = 'school';
-          this.selectedClassId = info.classId;
-          const selectedClass = this.schoolClasses.find(c => c.id === info.classId);
-          this.classSections = selectedClass?.sections || [];
-          if (info.sectionId) {
-            this.selectedSectionId = info.sectionId;
-          }
-          this.loadSchoolAttendance();
-        }
+        this.syncTeacherClassSection();
       },
-      error: () => { this.teacherClassSection = { isClassTeacher: false }; }
+      error: () => {
+        this.teacherClassSection = { isClassTeacher: false };
+        this.syncTeacherClassSection();
+      }
     });
   }
 
@@ -1609,15 +1662,8 @@ export class StudentAttendanceComponent implements OnInit {
         const requestedSectionId = this.route.snapshot.queryParamMap.get('sectionId');
 
         // If teacher is a class teacher, lock to their assigned class/section
-        if (this.isTeacher && this.teacherClassSection?.isClassTeacher && this.teacherClassSection.classId) {
-          this.rollCallScope = 'school';
-          this.selectedClassId = this.teacherClassSection.classId;
-          const selectedClass = this.schoolClasses.find(c => c.id === this.selectedClassId);
-          this.classSections = selectedClass?.sections || [];
-          if (this.teacherClassSection.sectionId) {
-            this.selectedSectionId = this.teacherClassSection.sectionId;
-          }
-          this.loadSchoolAttendance();
+        if (this.isTeacher) {
+          this.syncTeacherClassSection();
         } else if (requestedClassId && this.schoolClasses.some(c => c.id === requestedClassId)) {
           this.rollCallScope = 'school';
           this.selectedClassId = requestedClassId;
@@ -1628,10 +1674,6 @@ export class StudentAttendanceComponent implements OnInit {
           }
         } else if (!this.isTeacher && this.schoolClasses.length > 0) {
           // If classes exist and user is admin/staff, default to first class
-          this.selectedClassId = this.schoolClasses[0].id;
-          this.onClassChanged();
-        } else if (this.isTeacher && this.teacherClassSection && !this.teacherClassSection.isClassTeacher && this.schoolClasses.length > 0) {
-          // If teacher is NOT a class teacher, default to first class
           this.selectedClassId = this.schoolClasses[0].id;
           this.onClassChanged();
         } else if (this.schoolClasses.length === 0) {
@@ -1940,10 +1982,20 @@ export class StudentAttendanceComponent implements OnInit {
             this.singleSelectedBatchId = found.batchId;
           }
         } else {
-          if (!this.hasSchool && this.hasCoaching) {
-            this.singleStreamFilter = 'coaching';
-          } else if (this.hasSchool && !this.hasCoaching) {
+          if (this.isTeacher && this.teacherClassSection?.isClassTeacher && this.teacherClassSection.classId) {
             this.singleStreamFilter = 'school';
+            this.singleSelectedClassId = this.teacherClassSection.classId;
+            const singleClass = this.schoolClasses.find(c => c.id === this.singleSelectedClassId);
+            this.singleClassSections = singleClass?.sections || [];
+            if (this.teacherClassSection.sectionId) {
+              this.singleSelectedSectionId = this.teacherClassSection.sectionId;
+            }
+          } else {
+            if (!this.hasSchool && this.hasCoaching) {
+              this.singleStreamFilter = 'coaching';
+            } else if (this.hasSchool && !this.hasCoaching) {
+              this.singleStreamFilter = 'school';
+            }
           }
           this.selectedStudentId = this.filteredSingleStudents[0]?.id || '';
         }
@@ -1966,14 +2018,19 @@ export class StudentAttendanceComponent implements OnInit {
     this.singleClassSections = [];
     this.singleSelectedBatchId = '';
 
-    if (filter === 'school' && this.schoolClasses.length > 0) {
-      this.singleSelectedClassId = this.schoolClasses[0].id;
-      this.onSingleClassChanged();
-      return;
+    if (filter === 'school') {
+      if (this.isTeacher && this.teacherClassSection?.isClassTeacher && this.teacherClassSection.classId) {
+        this.singleSelectedClassId = this.teacherClassSection.classId;
+        const found = this.schoolClasses.find(c => c.id === this.singleSelectedClassId);
+        this.singleClassSections = found?.sections || [];
+        this.singleSelectedSectionId = this.teacherClassSection.sectionId || '';
+      } else if (this.schoolClasses.length > 0) {
+        this.singleSelectedClassId = this.schoolClasses[0].id;
+        const found = this.schoolClasses.find(c => c.id === this.singleSelectedClassId);
+        this.singleClassSections = found?.sections || [];
+      }
     } else if (filter === 'coaching' && this.batches.length > 0) {
       this.singleSelectedBatchId = this.batches[0].id;
-      this.onSingleBatchChanged();
-      return;
     }
 
     this.syncSingleSelectedStudent();
@@ -2030,6 +2087,9 @@ export class StudentAttendanceComponent implements OnInit {
   }
 
   getStudentDisplayGroup(student: StudentItem): string {
+    if (student.className && student.batchName) {
+      return `(${student.className}${student.sectionName ? ' - Sec ' + student.sectionName : ''} • 📚 ${student.batchName})`;
+    }
     if (student.className) {
       return `(${student.className}${student.sectionName ? ' - Sec ' + student.sectionName : ''})`;
     }
@@ -2072,7 +2132,10 @@ export class StudentAttendanceComponent implements OnInit {
   loadAttendance(): void {
     if (!this.selectedStudentId) return;
     this.loading = true;
-    const params = { month: this.attMonth, year: this.attYear };
+    const params: any = { month: this.attMonth, year: this.attYear };
+    if (this.singleStreamFilter && this.singleStreamFilter !== 'all') {
+      params.stream = this.singleStreamFilter;
+    }
     this.http.get<StudentAttendance[]>(`${this.api}/students/${this.selectedStudentId}/attendance`, { params }).subscribe({
       next: records => { this.records = records || []; this.loading = false; this.loadHolidaysAndCalendar(); },
       error: () => { this.records = []; this.loading = false; this.loadHolidaysAndCalendar(); }

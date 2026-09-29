@@ -788,7 +788,7 @@ const API_BASE = 'http://localhost:5000';
                       (click)="openEnrollCoachingModal(s)"
                       matTooltip="Enroll this school student into Coaching batch">
                       <mat-icon>add_task</mat-icon>
-                      <span>+ Coaching</span>
+                      <span>Add Coaching</span>
                     </button>
 
                     <!-- Active Student: Mark Left / Issue TC Button -->

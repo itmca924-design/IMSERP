@@ -45,7 +45,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
       <h3>{{selectedTeacher.fullName}} — Salary Advance Ledger</h3>
       <button mat-raised-button color="primary" (click)="showForm = !showForm" [disabled]="loading">
         <mat-icon>{{showForm ? 'close' : 'add'}}</mat-icon>
-        {{showForm ? 'Cancel' : '+ Request Salary Advance'}}
+        {{showForm ? 'Cancel' : 'Request Salary Advance'}}
       </button>
     </div>
 
@@ -199,7 +199,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
     <div class="empty-state" *ngIf="advances.length === 0 && !loading && !showForm">
       <mat-icon>account_balance_wallet</mat-icon>
       <p>No advance requests recorded yet for this faculty member.</p>
-      <small>Click "+ Request Salary Advance" above to submit a new request.</small>
+      <small>Click "Request Salary Advance" above to submit a new request.</small>
     </div>
   </div>
 </div>

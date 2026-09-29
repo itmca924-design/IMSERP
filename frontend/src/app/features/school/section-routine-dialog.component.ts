@@ -120,7 +120,7 @@ export interface SectionRoutineDialogData {
             </div>
             <button type="button" class="add-period-toggle" (click)="showAddForm = !showAddForm">
               <mat-icon>{{ showAddForm ? 'remove' : 'add' }}</mat-icon>
-              {{ showAddForm ? 'Hide Form' : '+ Add Subject Period' }}
+              {{ showAddForm ? 'Hide Form' : 'Add Subject Period' }}
             </button>
           </div>
 

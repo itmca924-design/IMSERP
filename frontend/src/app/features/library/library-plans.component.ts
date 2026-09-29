@@ -182,7 +182,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             <tr class="mat-row" *matNoDataRow>
               <td class="mat-cell empty-table" colspan="6">
                 <mat-icon>info</mat-icon>
-                <span>No library membership plans found. Click "+ Add New Shift / Plan" to create one.</span>
+                <span>No library membership plans found. Click "Add New Shift / Plan" to create one.</span>
               </td>
             </tr>
           </table>

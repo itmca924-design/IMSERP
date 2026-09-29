@@ -80,7 +80,7 @@ import { CoachingService } from '../../core/services/coaching.service';
               <td mat-cell *matCellDef="let log" class="time-cell">
                 <span class="ist-time-text">
                   <mat-icon class="clock-icon">schedule</mat-icon>
-                  {{ log.sentAt | date:'MMM d, y, hh:mm:ss a':'++0530' }}
+                  {{ log.sentAt | date:'MMM d, y, hh:mm:ss a':'+0530' }}
                 </span>
               </td>
             </ng-container>

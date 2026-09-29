@@ -2047,7 +2047,7 @@ public class TeachersController : ControllerBase
         if (user == null) return Ok(new { isClassTeacher = false });
 
         var linkedTeacher = await _db.Teachers.AsNoTracking().FirstOrDefaultAsync(t =>
-            t.TenantId == tenantId && (t.UserId == user.Id || (user.Email != null && t.Email == user.Email)));
+            t.TenantId == tenantId && (t.UserId == user.Id || (user.Email != null && t.Email == user.Email) || (user.FullName != null && t.FullName == user.FullName)));
         if (linkedTeacher == null) return Ok(new { isClassTeacher = false });
 
         var section = await _db.SchoolSections

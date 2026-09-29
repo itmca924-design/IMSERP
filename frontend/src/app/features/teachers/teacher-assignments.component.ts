@@ -234,13 +234,13 @@ export interface AssignmentSlot {
     <div class="active-teacher-context" *ngIf="selectedTeacher">
       <div class="context-content">
         <mat-icon class="context-icon">person</mat-icon>
-        <span>Selected Faculty: <strong>{{selectedTeacher.fullName}}</strong> ({{selectedTeacher.employeeCode}}). Click <em>"+ Assign to {{selectedTeacher.fullName}}"</em> to load this batch into the assignment schedule builder below.</span>
+        <span>Selected Faculty: <strong>{{selectedTeacher.fullName}}</strong> ({{selectedTeacher.employeeCode}}). Click <em>"Assign to {{selectedTeacher.fullName}}"</em> to load this batch into the assignment schedule builder below.</span>
       </div>
     </div>
     <div class="active-teacher-context hint" *ngIf="!selectedTeacher">
       <div class="context-content">
         <mat-icon class="context-icon">lightbulb</mat-icon>
-        <span>No faculty selected yet. Click <strong>"+ Assign Faculty"</strong> on any batch to choose a teacher, or pick one from the teacher selector below.</span>
+        <span>No faculty selected yet. Click <strong>"Assign Faculty"</strong> on any batch to choose a teacher, or pick one from the teacher selector below.</span>
       </div>
     </div>
 
@@ -642,7 +642,7 @@ export interface AssignmentSlot {
       <div class="form-footer">
         <button mat-stroked-button color="primary" class="add-slot-btn" (click)="addSlot()">
           <mat-icon>add_circle_outline</mat-icon>
-          + Add Another Batch Slot
+          Add Another Batch Slot
         </button>
 
         <div class="action-buttons">
