@@ -1479,6 +1479,14 @@
     display: none !important;
   }
 
+  :host {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
   .report-card-modal-container {
     height: auto !important;
     max-height: none !important;

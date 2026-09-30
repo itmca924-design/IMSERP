@@ -2735,56 +2735,50 @@
   }
 }
 
-/* Print Mode Styling */
+/* Component Print Cleanups (Full page print isolation is handled in styles.scss) */
 @media print {
-  body * {
-    visibility: hidden !important;
-  }
-
-  #printable-award-sheet, #printable-award-sheet * {
-    visibility: visible !important;
-  }
-
-  #printable-award-sheet {
-    position: absolute !important;
-    left: 0 !important;
-    top: 0 !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    box-shadow: none !important;
-    border: none !important;
-  }
-
   .no-print {
     display: none !important;
   }
 
-  .award-sheet-table {
-    border: 1.5px solid #000 !important;
-
-    th, td {
-      border: 1px solid #000 !important;
-      color: #000 !important;
-    }
-
-    .blank-cell-box {
-      border: 1.5px solid #000 !important;
-    }
+  :host {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
-  .sheet-meta-table {
-    border: 1.5px solid #000 !important;
-
-    td {
-      border: 1px solid #000 !important;
-      color: #000 !important;
-    }
+  .marks-entry-overlay {
+    position: static !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
   }
 
-  .sheet-footer-verification {
-    page-break-inside: avoid !important;
+  .award-sheet-modal {
+    box-shadow: none !important;
+    border: none !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .award-sheet-scrollable-body {
+    padding: 0 !important;
+    overflow: visible !important;
+    background: transparent !important;
+  }
+
+  #printable-award-sheet {
+    box-shadow: none !important;
+    border: none !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    position: static !important;
   }
 }
 

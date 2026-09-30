@@ -11,7 +11,7 @@
       </div>
     </div>
     <div class="header-actions">
-      <button mat-flat-button color="primary" class="action-btn matrix-top-btn" (click)="openClassMultiSubjectDialog()">
+      <button mat-flat-button color="primary" class="action-btn matrix-top-btn" *ngIf="!isTeacher" (click)="openClassMultiSubjectDialog(filterClassId)">
         <mat-icon>table_chart</mat-icon> Class Multi-Subject Marks
       </button>
       <button mat-stroked-button color="primary" class="action-btn" (click)="printClassAdmitCards()" matTooltip="Print Admit Cards / Hall Tickets for Class">
@@ -109,22 +109,6 @@
           <p>Loading scheduled exams...</p>
         </div>
 
-        <!-- Quick Multi-Subject Entry Alert Bar (Admin Only) -->
-        <div class="multi-marks-alert-banner" *ngIf="!loadingExams && exams.length > 0 && !isTeacher">
-          <div class="banner-info">
-            <div class="banner-icon-box">
-              <mat-icon>table_chart</mat-icon>
-            </div>
-            <div>
-              <div class="banner-title">Class-Wise Multi-Subject Marks Entry Matrix</div>
-              <div class="banner-desc">Record, evaluate, and save marks for all subjects simultaneously across the class in an interactive matrix.</div>
-            </div>
-          </div>
-          <button mat-flat-button color="primary" class="banner-action-btn" (click)="openClassMultiSubjectDialog(filterClassId)">
-            <mat-icon>edit_note</mat-icon>
-            <span>Open Multi-Subject Marks Matrix</span>
-          </button>
-        </div>
 
         <!-- Empty State (Admin) -->
         <div class="empty-state" *ngIf="!loadingExams && displayedExams.length === 0 && !isTeacher">

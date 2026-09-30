@@ -878,12 +878,23 @@ export class SchoolExamsComponent implements OnInit {
   }
 
   closeAwardSheetModal(): void {
+    document.body.classList.remove('printing-award-sheet');
     this.showAwardSheetModal = false;
     this.awardSheetData = null;
   }
 
   printAwardSheet(): void {
-    window.print();
+    document.body.classList.add('printing-award-sheet');
+    const cleanup = () => {
+      document.body.classList.remove('printing-award-sheet');
+      window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
+
+    setTimeout(() => {
+      window.print();
+      setTimeout(cleanup, 2000);
+    }, 50);
   }
 
   // ─── Consolidated Results & Dynamic Benchmarks (Tab 3) ──

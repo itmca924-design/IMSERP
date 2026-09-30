@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit } from '@angular/core';
+import { Component, Inject, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -57,7 +57,7 @@ export interface ExamRoutineItem {
   templateUrl: './school-report-card-dialog.component.html',
   styleUrls: ['./school-report-card-dialog.component.scss']
 })
-export class SchoolReportCardDialogComponent implements OnInit {
+export class SchoolReportCardDialogComponent implements OnInit, OnDestroy {
   currentView: 'bseb_marksheet' | 'marksheet' | 'admit_card' | 'result_card' | 'certificate' = 'bseb_marksheet';
   isBulkMode = false;
   activeStudent: ConsolidatedStudentResultDto | null = null;
@@ -134,7 +134,21 @@ export class SchoolReportCardDialogComponent implements OnInit {
   }
 
   printDocument(): void {
-    window.print();
+    document.body.classList.add('printing-report-card');
+    const cleanup = () => {
+      document.body.classList.remove('printing-report-card');
+      window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
+
+    setTimeout(() => {
+      window.print();
+      setTimeout(cleanup, 2000);
+    }, 50);
+  }
+
+  ngOnDestroy(): void {
+    document.body.classList.remove('printing-report-card');
   }
 
   // ─── Dynamic School Rubber Seal Helpers ───
