@@ -120,6 +120,8 @@ export class AttendanceReportsComponent implements OnInit, OnDestroy {
   expandAll = false;
   dailyMatrixCache: { [personId: string]: DailyDayItem[] } = {};
   dailyCalendarCache: { [personId: string]: (DailyDayItem | null)[][] } = {};
+  streakCache: { [personId: string]: { current: number; max: number; label: string } } = {};
+  weeklyPatternCache: { [personId: string]: Array<{ name: string; present: number; total: number; pct: number }> } = {};
   loadingDaily = new Set<string>();
   holidays: any[] = [];
 
@@ -274,8 +276,7 @@ export class AttendanceReportsComponent implements OnInit, OnDestroy {
     this.http.get<any[]>(`${this.api}/holidays?activeOnly=true`).subscribe({
       next: h => {
         this.holidays = h || [];
-        this.dailyMatrixCache = {};
-        this.dailyCalendarCache = {};
+        this.resetDailyCaches();
       },
       error: () => { this.holidays = []; }
     });
@@ -308,8 +309,7 @@ export class AttendanceReportsComponent implements OnInit, OnDestroy {
   setStudentStream(stream: 'all' | 'school' | 'coaching'): void {
     if (this.studentStreamMode === stream) return;
     this.studentStreamMode = stream;
-    this.dailyMatrixCache = {};
-    this.dailyCalendarCache = {};
+    this.resetDailyCaches();
     this.loadingDaily.clear();
     this.loadReport();
   }
@@ -340,16 +340,14 @@ export class AttendanceReportsComponent implements OnInit, OnDestroy {
     if (type === 'teacher') { this.selectedBatchId = ''; this.selectedClassId = ''; this.selectedSectionId = ''; }
     this.searchQuery = ''; this.pageIndex = 0; this.sortColumn = '';
     this.expandedPersonIds.clear(); this.collapsingPersonIds.clear(); this.expandAll = false;
-    this.dailyMatrixCache = {};
-    this.dailyCalendarCache = {};
+    this.resetDailyCaches();
     this.loadReport();
   }
 
   loadReport(): void {
     this.loading = true;
     this.expandedPersonIds.clear(); this.collapsingPersonIds.clear(); this.expandAll = false;
-    this.dailyMatrixCache = {};
-    this.dailyCalendarCache = {};
+    this.resetDailyCaches();
     this.loadingDaily.clear();
     if (this.isStudentOrParent) this.reportType = 'student';
 
@@ -425,8 +423,131 @@ export class AttendanceReportsComponent implements OnInit, OnDestroy {
     return p.length >= 2 ? (p[0][0]+p[1][0]).toUpperCase() : (name).slice(0,2).toUpperCase();
   }
 
+  resetDailyCaches(): void {
+    this.dailyMatrixCache = {};
+    this.dailyCalendarCache = {};
+    this.streakCache = {};
+    this.weeklyPatternCache = {};
+  }
+
   getPctColor(pct: number): string {
     if (pct >= 85) return '#059669'; if (pct >= 75) return '#16a34a'; if (pct >= 50) return '#d97706'; return '#e11d48';
+  }
+
+  // === Google-Style Attendance Intelligence Helpers ===
+  getStreak(row: ReportRow): { current: number; max: number; label: string } {
+    if (this.streakCache[row.personId]) return this.streakCache[row.personId];
+    const days = this.getDailyMatrix(row);
+    if (!days || days.length === 0) return { current: 0, max: 0, label: 'No Data' };
+
+    let max = 0;
+    let running = 0;
+    for (const d of days) {
+      if (d.status === 'P' || d.status === 'LT') {
+        running++;
+        if (running > max) max = running;
+      } else if (d.status === 'A' || d.status === 'HD') {
+        running = 0;
+      }
+    }
+
+    let tailStreak = 0;
+    const evaluated = days.filter(d => d.status !== '-' && !d.isSunday && d.status !== 'H');
+    for (let i = evaluated.length - 1; i >= 0; i--) {
+      const s = evaluated[i].status;
+      if (s === 'P' || s === 'LT') {
+        tailStreak++;
+      } else if (s === 'A' || s === 'HD') {
+        break;
+      }
+    }
+
+    let label = 'Active Streak';
+    if ((row.absentDays || 0) === 0 && (row.presentDays || 0) > 0) {
+      label = 'Perfect Streak';
+    } else if (tailStreak >= 10) {
+      label = 'Super Regular';
+    } else if (tailStreak >= 5) {
+      label = 'Solid Run';
+    }
+
+    const res = { current: tailStreak, max: Math.max(max, tailStreak), label };
+    this.streakCache[row.personId] = res;
+    return res;
+  }
+
+  getPunctualityRate(row: ReportRow): number {
+    const present = row.presentDays || 0;
+    if (present === 0) return 100;
+    const late = row.lateDays || 0;
+    const onTime = Math.max(0, present - late);
+    return Math.round((onTime / present) * 100);
+  }
+
+  getLastPunchInfo(row: ReportRow): DailyDayItem | null {
+    const days = this.getDailyMatrix(row);
+    if (!days || days.length === 0) return null;
+    for (let i = days.length - 1; i >= 0; i--) {
+      const d = days[i];
+      if (d.checkInTime || d.status === 'P' || d.status === 'LT') {
+        return d;
+      }
+    }
+    return null;
+  }
+
+  getWeeklyPattern(row: ReportRow): Array<{ name: string; present: number; total: number; pct: number }> {
+    if (this.weeklyPatternCache[row.personId]) return this.weeklyPatternCache[row.personId];
+    const days = this.getDailyMatrix(row);
+    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const map: { [k: string]: { present: number; total: number } } = {};
+    for (const name of dayNames) map[name] = { present: 0, total: 0 };
+
+    for (const d of days) {
+      if (map[d.dayOfWeek]) {
+        if (d.status !== '-' && d.status !== 'OFF') {
+          map[d.dayOfWeek].total++;
+          if (d.status === 'P' || d.status === 'LT') {
+            map[d.dayOfWeek].present++;
+          }
+        }
+      }
+    }
+
+    const res = dayNames.map(name => {
+      const item = map[name];
+      const pct = item.total > 0 ? Math.round((item.present / item.total) * 100) : 0;
+      return { name, present: item.present, total: item.total, pct };
+    });
+    this.weeklyPatternCache[row.personId] = res;
+    return res;
+  }
+
+  getDisciplineBadge(row: ReportRow): { text: string; subtext: string; icon: string; theme: string } {
+    const pct = row.attendancePercentage || 0;
+    if (pct >= 95) {
+      return { text: 'Outstanding Attendance', subtext: 'Exemplary Regularity', icon: 'workspace_premium', theme: 'badge-elite' };
+    }
+    if (pct >= 85) {
+      return { text: 'Consistent & On Track', subtext: 'High Regularity', icon: 'verified', theme: 'badge-good' };
+    }
+    if (pct >= 75) {
+      return { text: 'Satisfactory', subtext: 'Meets Criteria', icon: 'check_circle', theme: 'badge-warn' };
+    }
+    return { text: 'Attention Required', subtext: 'Below 75% Requirement', icon: 'warning', theme: 'badge-low' };
+  }
+
+  getStatusIcon(status: string): string {
+    switch (status) {
+      case 'P': return 'check_circle';
+      case 'A': return 'cancel';
+      case 'L': return 'event_busy';
+      case 'LT': return 'schedule';
+      case 'HD': return 'timelapse';
+      case 'H': return 'celebration';
+      case 'OFF': return 'weekend';
+      default: return 'remove';
+    }
   }
 
   isExpanded(personId: string): boolean { return this.expandedPersonIds.has(personId); }
@@ -580,6 +701,8 @@ export class AttendanceReportsComponent implements OnInit, OnDestroy {
     }
     this.dailyMatrixCache[personId] = daysArr;
     delete this.dailyCalendarCache[personId];
+    delete this.streakCache[personId];
+    delete this.weeklyPatternCache[personId];
   }
 
   getDailyMatrix(row: ReportRow): DailyDayItem[] {

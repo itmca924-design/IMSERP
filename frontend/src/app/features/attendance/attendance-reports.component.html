@@ -347,13 +347,11 @@
                       </div>
                     </div>
                     <div class="md-summary-chips">
-                      <span class="md-chip chip-p">&#x1F7E2; Present: {{ row.presentDays }}</span>
-                      <span class="md-chip chip-leave" *ngIf="getLeaveDays(row) > 0">&#x1F7E0; Leave: {{ getLeaveDays(row) }}</span>
-                      <span class="md-chip chip-l">&#x1F7E1; Late: {{ row.lateDays }}</span>
-                      <span class="md-chip chip-a">&#x1F534; Absent: {{ row.absentDays }}</span>
-                      <span class="md-chip chip-hd">&#x1F7E3; Half: {{ row.halfDays }}</span>
-                      <span class="md-chip chip-off">&#x26AA; Sun/Off: {{ row.holidayDays }}</span>
-                      <span class="md-chip chip-unmarked">&#x2796; Unmarked: {{ getUnmarkedDays(row) }}</span>
+                      <span class="md-chip chip-streak-pill">🔥 {{ getStreak(row).current }} Days Streak</span>
+                      <span class="md-chip chip-overall">
+                        <mat-icon class="chip-mini-ic" [style.color]="getPctColor(row.attendancePercentage)">verified</mat-icon>
+                        <strong [style.color]="getPctColor(row.attendancePercentage)">{{ row.attendancePercentage }}%</strong> Attendance
+                      </span>
                     </div>
                   </div>
 
@@ -362,112 +360,278 @@
                     <div class="day-card-skel" *ngFor="let d of skeletonDays"></div>
                   </div>
 
-                  <!-- Calendar Grid + Right Summary Panel -->
+                  <!-- Calendar Grid + Right Intelligence Hub Panel -->
                   <div class="cal-grid-wrap" *ngIf="!loadingDaily.has(row.personId)">
-                    <!-- Left: Calendar -->
-                    <div class="cal-grid">
-                      <div class="cal-head-cell" *ngFor="let h of weekDayHeaders" [class.cal-sun]="h === 'Sun'">{{h}}</div>
-                      <ng-container *ngFor="let week of getDailyMatrixCalendar(row); trackBy: trackByWeekIndex; let weekIdx = index">
-                        <div *ngFor="let d of week; trackBy: trackByDayNum; let colIdx = index"
-                          class="cal-cell"
-                          [class.cal-empty]="!d"
-                          [ngClass]="d ? 'day-' + d.status.toLowerCase() : ''"
-                          [class.day-is-sunday]="d?.isSunday"
-                          [class.day-today]="d != null && isToday(d.day)">
-                          <span class="cal-num" *ngIf="d">{{d.day}}</span>
-                          <span class="cal-code" *ngIf="d && d.status !== '-'">{{d.status}}</span>
+                    <!-- Left: Google Style Calendar Card -->
+                    <div class="cal-card-box">
+                      <div class="cal-card-header">
+                        <div class="cal-card-title">
+                          <mat-icon class="cal-title-ic">calendar_month</mat-icon>
+                          <span>{{ months[selectedMonth - 1] }} {{ selectedYear }}</span>
+                        </div>
+                        <span class="cal-active-tag">Month Matrix</span>
+                      </div>
 
-                          <!-- Smart Hover Tooltip Card (Instant & Rich) -->
-                          <div class="cal-popover" *ngIf="d"
-                            [class.pop-flip]="weekIdx === 0"
-                            [class.pop-left]="colIdx <= 4"
-                            [class.pop-right]="colIdx >= 5">
-                            <div class="pop-header">
-                              <span class="pop-date">{{ d.day }} {{ months[selectedMonth - 1] }} ({{ d.dayOfWeek }})</span>
-                              <span class="pop-badge pop-badge-{{ d.status.toLowerCase() }}">{{ getStatusBadgeName(d.status) }}</span>
+                      <div class="cal-grid">
+                        <div class="cal-head-cell" *ngFor="let h of weekDayHeaders" [class.cal-sun]="h === 'Sun'">{{h}}</div>
+                        <ng-container *ngFor="let week of getDailyMatrixCalendar(row); trackBy: trackByWeekIndex; let weekIdx = index">
+                          <div *ngFor="let d of week; trackBy: trackByDayNum; let colIdx = index"
+                            class="cal-cell"
+                            [class.cal-empty]="!d"
+                            [ngClass]="d ? 'day-' + d.status.toLowerCase() : ''"
+                            [class.day-is-sunday]="d?.isSunday"
+                            [class.day-today]="d != null && isToday(d.day)">
+                            
+                            <!-- Day Number (Google Blue Circle if Today) -->
+                            <div class="cal-day-num-wrap" *ngIf="d">
+                              <span class="cal-num" [class.cal-today-circle]="isToday(d.day)">{{d.day}}</span>
                             </div>
 
-                            <!-- Leave reason / remarks -->
-                            <div class="pop-item pop-leave" *ngIf="d.status === 'L' || (d.status !== '-' && d.remarks)">
-                              <mat-icon class="pop-ic">event_busy</mat-icon>
-                              <div class="pop-text">
-                                <span class="pop-sub">Leave Summary</span>
-                                <span class="pop-main">{{ d.remarks || 'Sanctioned Leave' }}</span>
+                            <!-- Google Calendar Style Event Chip -->
+                            <div class="cal-event-chip chip-{{ d.status.toLowerCase() }}" *ngIf="d && d.status !== '-'">
+                              <span class="chip-status-text">{{ d.status }}</span>
+                            </div>
+                            <div class="cal-event-chip chip-unmarked" *ngIf="d && d.status === '-'">
+                              <span class="chip-status-dash">&bull;</span>
+                            </div>
+
+                            <!-- Smart Hover Tooltip Card (Instant & Rich) -->
+                            <div class="cal-popover" *ngIf="d"
+                              [class.pop-flip]="weekIdx === 0"
+                              [class.pop-left]="colIdx <= 4"
+                              [class.pop-right]="colIdx >= 5">
+                              <div class="pop-header">
+                                <span class="pop-date">{{ d.day }} {{ months[selectedMonth - 1] }} ({{ d.dayOfWeek }})</span>
+                                <span class="pop-badge pop-badge-{{ d.status.toLowerCase() }}">{{ getStatusBadgeName(d.status) }}</span>
                               </div>
-                            </div>
 
-                            <!-- Official Holiday Name -->
-                            <div class="pop-item pop-holiday" *ngIf="d.holidayTitle">
-                              <mat-icon class="pop-ic">celebration</mat-icon>
-                              <div class="pop-text">
-                                <span class="pop-sub">Holiday Info</span>
-                                <span class="pop-main">{{ d.holidayTitle }}</span>
+                              <!-- Leave reason / remarks -->
+                              <div class="pop-item pop-leave" *ngIf="d.status === 'L' || (d.status !== '-' && d.remarks)">
+                                <mat-icon class="pop-ic">event_busy</mat-icon>
+                                <div class="pop-text">
+                                  <span class="pop-sub">Leave Summary</span>
+                                  <span class="pop-main">{{ d.remarks || 'Sanctioned Leave' }}</span>
+                                </div>
                               </div>
-                            </div>
 
-                            <!-- Punch Time -->
-                            <div class="pop-item" *ngIf="d.checkInTime">
-                              <mat-icon class="pop-ic">schedule</mat-icon>
-                              <div class="pop-text">
-                                <span class="pop-sub">Punch Time</span>
-                                <span class="pop-main">{{ d.checkInTime }}</span>
+                              <!-- Official Holiday Name -->
+                              <div class="pop-item pop-holiday" *ngIf="d.holidayTitle">
+                                <mat-icon class="pop-ic">celebration</mat-icon>
+                                <div class="pop-text">
+                                  <span class="pop-sub">Holiday Info</span>
+                                  <span class="pop-main">{{ d.holidayTitle }}</span>
+                                </div>
                               </div>
-                            </div>
 
-                            <!-- Attendance Stream -->
-                            <div class="pop-item" *ngIf="d.captureSource">
-                              <mat-icon class="pop-ic">fingerprint</mat-icon>
-                              <div class="pop-text">
-                                <span class="pop-sub">Stream</span>
-                                <span class="pop-main">{{ d.captureSource }}</span>
+                              <!-- Punch Time -->
+                              <div class="pop-item" *ngIf="d.checkInTime">
+                                <mat-icon class="pop-ic">schedule</mat-icon>
+                                <div class="pop-text">
+                                  <span class="pop-sub">Punch Time</span>
+                                  <span class="pop-main">{{ d.checkInTime }}</span>
+                                </div>
+                              </div>
+
+                              <!-- Attendance Stream -->
+                              <div class="pop-item" *ngIf="d.captureSource">
+                                <mat-icon class="pop-ic">fingerprint</mat-icon>
+                                <div class="pop-text">
+                                  <span class="pop-sub">Stream</span>
+                                  <span class="pop-main">{{ d.captureSource }}</span>
+                                </div>
                               </div>
                             </div>
                           </div>
-                        </div>
-                      </ng-container>
+                        </ng-container>
+                      </div>
                     </div>
-                    <!-- Right: Summary Stats Panel -->
-                    <div class="cal-summary-panel">
-                      <div class="cal-stat-row">
-                        <div class="cal-stat-block cal-stat-present">
-                          <span class="cal-stat-val">{{ row.presentDays }}</span>
-                          <span class="cal-stat-label">Present</span>
+
+                    <!-- Right: Attendance Intelligence Hub (Fills Empty Space Elegantly) -->
+                    <div class="cal-intel-hub">
+                      <!-- Top Hero Card: Streak + Punctuality + Gauge -->
+                      <div class="intel-hero-card">
+                        <div class="intel-hero-left">
+                          <!-- Streak Box -->
+                          <div class="intel-streak-box">
+                            <div class="streak-icon-wrap">
+                              <span class="streak-fire">🔥</span>
+                            </div>
+                            <div class="streak-meta">
+                              <div class="streak-title-row">
+                                <span class="streak-num">{{ getStreak(row).current }}</span>
+                                <span class="streak-unit">Days</span>
+                                <span class="streak-badge">{{ getStreak(row).label }}</span>
+                              </div>
+                              <span class="streak-sub">
+                                <ng-container *ngIf="row.absentDays === 0">Unbroken attendance streak</ng-container>
+                                <ng-container *ngIf="row.absentDays > 0">Peak streak: {{ getStreak(row).max }} days</ng-container>
+                              </span>
+                            </div>
+                          </div>
+
+                          <div class="intel-divider"></div>
+
+                          <!-- Punctuality Box -->
+                          <div class="intel-punctual-box">
+                            <div class="punctual-meta">
+                              <div class="punctual-title-row">
+                                <mat-icon class="punctual-ic">verified_user</mat-icon>
+                                <span class="punctual-val">{{ getPunctualityRate(row) }}%</span>
+                                <span class="punctual-badge" [class.badge-clean]="row.lateDays === 0">
+                                  {{ row.lateDays === 0 ? 'Zero Late' : row.lateDays + ' Late Arrival' + (row.lateDays > 1 ? 's' : '') }}
+                                </span>
+                              </div>
+                              <span class="punctual-sub">On-Time Arrival Index</span>
+                            </div>
+                          </div>
                         </div>
-                        <div class="cal-stat-block cal-stat-absent">
-                          <span class="cal-stat-val">{{ row.absentDays }}</span>
-                          <span class="cal-stat-label">Absent</span>
-                        </div>
-                        <div class="cal-stat-block cal-stat-late">
-                          <span class="cal-stat-val">{{ row.lateDays }}</span>
-                          <span class="cal-stat-label">Late</span>
-                        </div>
-                        <div class="cal-stat-block cal-stat-half">
-                          <span class="cal-stat-val">{{ row.halfDays }}</span>
-                          <span class="cal-stat-label">Half Day</span>
-                        </div>
-                        <div class="cal-stat-block cal-stat-leave" *ngIf="getLeaveDays(row) > 0">
-                          <span class="cal-stat-val">{{ getLeaveDays(row) }}</span>
-                          <span class="cal-stat-label">Leave</span>
-                        </div>
-                        <div class="cal-stat-block cal-stat-off">
-                          <span class="cal-stat-val">{{ row.holidayDays }}</span>
-                          <span class="cal-stat-label">Off/Sun</span>
-                        </div>
-                        <div class="cal-stat-block cal-stat-unmarked">
-                          <span class="cal-stat-val">{{ getUnmarkedDays(row) }}</span>
-                          <span class="cal-stat-label">Unmarked</span>
+
+                        <!-- Gauge Box -->
+                        <div class="intel-gauge-box">
+                          <div class="gauge-ring-wrap">
+                            <svg class="gauge-svg" width="56" height="56" viewBox="0 0 48 48">
+                              <circle class="gauge-track" cx="24" cy="24" r="21" />
+                              <circle class="gauge-fill" cx="24" cy="24" r="21"
+                                [style.stroke]="getPctColor(row.attendancePercentage)"
+                                [style.strokeDasharray]="circumference"
+                                [style.strokeDashoffset]="getDashOffset(row.attendancePercentage)" />
+                            </svg>
+                            <div class="gauge-center">
+                              <span class="gauge-val" [style.color]="getPctColor(row.attendancePercentage)">{{ row.attendancePercentage }}%</span>
+                            </div>
+                          </div>
+                          <div class="gauge-label-wrap">
+                            <span class="gauge-title" [style.color]="getPctColor(row.attendancePercentage)">{{ getDisciplineBadge(row).text }}</span>
+                            <span class="gauge-count">{{ row.presentDays + row.lateDays }} of {{ row.totalWorkingDays }} Working Days</span>
+                          </div>
                         </div>
                       </div>
-                      <div class="cal-summary-pct">
-                        <div class="cal-pct-bar-bg">
-                          <div class="cal-pct-bar-fill"
-                            [style.width.%]="row.attendancePercentage"
-                            [style.background]="getPctColor(row.attendancePercentage)">
+
+                      <!-- Key Metrics Cards (Modern Google Material 3 Design) -->
+                      <div class="intel-metrics-strip">
+                        <div class="metric-card metric-p">
+                          <div class="metric-top">
+                            <span class="metric-dot dot-p"></span>
+                            <span class="metric-name">Present</span>
+                          </div>
+                          <span class="metric-val">{{ row.presentDays }}</span>
+                          <span class="metric-footer">Days on-site</span>
+                        </div>
+
+                        <div class="metric-card metric-a" [class.metric-muted]="row.absentDays === 0">
+                          <div class="metric-top">
+                            <span class="metric-dot dot-a"></span>
+                            <span class="metric-name">Absent</span>
+                          </div>
+                          <span class="metric-val">{{ row.absentDays }}</span>
+                          <span class="metric-footer">{{ row.absentDays === 0 ? 'Clean Record' : 'Missed' }}</span>
+                        </div>
+
+                        <div class="metric-card metric-lt" [class.metric-muted]="row.lateDays === 0">
+                          <div class="metric-top">
+                            <span class="metric-dot dot-lt"></span>
+                            <span class="metric-name">Late</span>
+                          </div>
+                          <span class="metric-val">{{ row.lateDays }}</span>
+                          <span class="metric-footer">{{ row.lateDays === 0 ? 'Zero Late' : 'Delayed' }}</span>
+                        </div>
+
+                        <div class="metric-card metric-hd" [class.metric-muted]="row.halfDays === 0">
+                          <div class="metric-top">
+                            <span class="metric-dot dot-hd"></span>
+                            <span class="metric-name">Half Day</span>
+                          </div>
+                          <span class="metric-val">{{ row.halfDays }}</span>
+                          <span class="metric-footer">Partial</span>
+                        </div>
+
+                        <div class="metric-card metric-l" *ngIf="getLeaveDays(row) > 0">
+                          <div class="metric-top">
+                            <span class="metric-dot dot-l"></span>
+                            <span class="metric-name">Leave</span>
+                          </div>
+                          <span class="metric-val">{{ getLeaveDays(row) }}</span>
+                          <span class="metric-footer">Approved</span>
+                        </div>
+
+                        <div class="metric-card metric-off">
+                          <div class="metric-top">
+                            <span class="metric-dot dot-off"></span>
+                            <span class="metric-name">Sundays / Off</span>
+                          </div>
+                          <span class="metric-val">{{ row.holidayDays }}</span>
+                          <span class="metric-footer">Rest Days</span>
+                        </div>
+
+                        <div class="metric-card metric-unmarked" *ngIf="getUnmarkedDays(row) > 0">
+                          <div class="metric-top">
+                            <span class="metric-dot dot-unmarked"></span>
+                            <span class="metric-name">Unmarked</span>
+                          </div>
+                          <span class="metric-val">{{ getUnmarkedDays(row) }}</span>
+                          <span class="metric-footer">Future / Pending</span>
+                        </div>
+                      </div>
+
+                      <!-- Bottom Insights: Weekly Regularity Sparkline + Latest Punch Snapshot -->
+                      <div class="intel-bottom-row">
+                        <!-- Weekly Regularity Heatmap -->
+                        <div class="intel-weekly-card">
+                          <div class="intel-card-header">
+                            <mat-icon class="card-h-ic">leaderboard</mat-icon>
+                            <span>Weekly Day-wise Regularity</span>
+                          </div>
+                          <div class="weekly-bars-container">
+                            <div class="w-bar-col" *ngFor="let wb of getWeeklyPattern(row)"
+                              [matTooltip]="wb.name + ': ' + wb.present + '/' + wb.total + ' days attended (' + wb.pct + '%)'">
+                              <div class="w-bar-track">
+                                <div class="w-bar-fill" [style.height.%]="wb.pct" [style.background]="getPctColor(wb.pct)"></div>
+                              </div>
+                              <span class="w-bar-day">{{ wb.name }}</span>
+                              <span class="w-bar-pct">{{ wb.present }}/{{ wb.total }}</span>
+                            </div>
                           </div>
                         </div>
-                        <div class="cal-pct-footer">
-                          <span [style.color]="getPctColor(row.attendancePercentage)" style="font-weight:800;font-size:.88rem;">{{ row.attendancePercentage }}% Attendance</span>
-                          <span style="color:#94a3b8;font-size:.74rem;">{{ row.presentDays + row.lateDays }} / {{ row.totalWorkingDays }} working days</span>
+
+                        <!-- Latest Punch Activity Card -->
+                        <div class="intel-activity-card">
+                          <div class="intel-card-header">
+                            <mat-icon class="card-h-ic">touch_app</mat-icon>
+                            <span>Latest Recorded Activity</span>
+                          </div>
+                          <div class="activity-content" *ngIf="getLastPunchInfo(row) as lp">
+                            <div class="activity-punch-row">
+                              <div class="activity-date-badge">
+                                <span class="act-day">{{ lp.day }}</span>
+                                <span class="act-month">{{ months[selectedMonth - 1].slice(0, 3) }}</span>
+                              </div>
+                              <div class="activity-details">
+                                <div class="act-status-line">
+                                  <span class="act-status-pill status-{{ lp.status.toLowerCase() }}">
+                                    {{ getStatusBadgeName(lp.status) }}
+                                  </span>
+                                  <span class="act-time" *ngIf="lp.checkInTime">
+                                    <mat-icon class="act-clock">schedule</mat-icon> {{ lp.checkInTime }}
+                                  </span>
+                                </div>
+                                <span class="act-meta-line" *ngIf="lp.captureSource">
+                                  Stream: <strong>{{ lp.captureSource }}</strong>
+                                </span>
+                                <div class="act-remarks-box" *ngIf="lp.remarks">
+                                  <mat-icon class="act-rem-ic">comment</mat-icon>
+                                  <span>{{ lp.remarks }}</span>
+                                </div>
+                                <div class="act-holiday-box" *ngIf="lp.holidayTitle">
+                                  <mat-icon class="act-hol-ic">celebration</mat-icon>
+                                  <span>Holiday: {{ lp.holidayTitle }}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          <div class="activity-empty" *ngIf="!getLastPunchInfo(row)">
+                            <mat-icon class="empty-act-ic">info_outline</mat-icon>
+                            <span>No attendance punches recorded yet this month</span>
+                          </div>
                         </div>
                       </div>
                     </div>
