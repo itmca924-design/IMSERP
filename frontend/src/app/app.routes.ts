@@ -229,6 +229,10 @@ export const routes: Routes = [
         path: 'subscription',
         loadComponent: () => import('./features/subscription/subscription.component').then(m => m.SubscriptionComponent)
       },
+      {
+        path: 'admin/academic-workflow',
+        loadComponent: () => import('./features/school/academic-workflow-settings.component').then(m => m.AcademicWorkflowSettingsComponent)
+      },
 
       // Front Desk — Visitor Book & Student Gate Pass
       {

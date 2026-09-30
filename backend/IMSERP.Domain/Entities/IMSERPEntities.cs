@@ -346,6 +346,11 @@ public class ExamSetting
     public string PrincipalSignTitle { get; set; } = "Principal / Headmaster";
     public string ClassTeacherSignTitle { get; set; } = "Class Teacher";
     public string ResultDeclarationNote { get; set; } = "Continuous and Comprehensive Evaluation Scheme";
+    public string? ActiveAcademicYear { get; set; }
+    public string? NextAcademicYear { get; set; }
+    public string? AvailableAcademicYears { get; set; }
+    public string? AvailableExamTypes { get; set; }
+    public int EvaluationDueDays { get; set; } = 7;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     [ForeignKey("BranchId")]

@@ -394,6 +394,11 @@ export interface ExamSettingDto {
   principalSignTitle?: string;
   classTeacherSignTitle?: string;
   resultDeclarationNote?: string;
+  activeAcademicYear?: string;
+  nextAcademicYear?: string;
+  availableAcademicYears?: string;
+  availableExamTypes?: string;
+  evaluationDueDays?: number;
 }
 
 export interface UpdateExamSettingDto {
@@ -405,6 +410,20 @@ export interface UpdateExamSettingDto {
   principalSignTitle?: string;
   classTeacherSignTitle?: string;
   resultDeclarationNote?: string;
+  activeAcademicYear?: string;
+  nextAcademicYear?: string;
+  availableAcademicYears?: string;
+  availableExamTypes?: string;
+  evaluationDueDays?: number;
+}
+
+export interface AcademicConfigDto {
+  activeAcademicYear: string;
+  nextAcademicYear: string;
+  availableAcademicYears: string[];
+  availableExamTypes: string[];
+  evaluationDueDays: number;
+  passingPercentage: number;
 }
 
 export interface ConsolidatedSubjectDetailDto {
@@ -671,6 +690,10 @@ export class SchoolService {
 
   updateExamSettings(dto: UpdateExamSettingDto): Observable<ExamSettingDto> {
     return this.http.put<ExamSettingDto>(`${this.apiUrl}/exam-settings`, dto);
+  }
+
+  getAcademicConfig(): Observable<AcademicConfigDto> {
+    return this.http.get<AcademicConfigDto>(`${this.apiUrl}/academic-config`);
   }
 
   sendAnnualResultWhatsApp(dto: SendAnnualResultWhatsAppDto): Observable<{ message: string }> {

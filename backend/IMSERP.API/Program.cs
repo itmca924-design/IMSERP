@@ -26,6 +26,7 @@ builder.Services.AddDbContext<IMSERPDbContext>(options =>
     {
         options.UseSqlServer(connectionString, sqlOptions =>
         {
+            sqlOptions.CommandTimeout(60);
             sqlOptions.EnableRetryOnFailure(
                 maxRetryCount: 5,
                 maxRetryDelay: TimeSpan.FromSeconds(10),
@@ -209,6 +210,17 @@ using (var scope = app.Services.CreateScope())
                             ResultDeclarationNote NVARCHAR(MAX) NULL,
                             UpdatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
                         );
+                    END
+                    ELSE
+                    BEGIN
+                        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('ExamSettings') AND name = 'ActiveAcademicYear')
+                        BEGIN
+                            ALTER TABLE ExamSettings ADD ActiveAcademicYear NVARCHAR(50) NOT NULL DEFAULT '2025-2026';
+                            ALTER TABLE ExamSettings ADD NextAcademicYear NVARCHAR(50) NOT NULL DEFAULT '2026-2027';
+                            ALTER TABLE ExamSettings ADD AvailableAcademicYears NVARCHAR(MAX) NOT NULL DEFAULT '2024-2025,2025-2026,2026-2027,2027-2028';
+                            ALTER TABLE ExamSettings ADD AvailableExamTypes NVARCHAR(MAX) NOT NULL DEFAULT 'Unit Test 1,Unit Test 2,Quarterly Exam,Half Yearly Exam,Pre-Board Exam,Annual Exam';
+                            ALTER TABLE ExamSettings ADD EvaluationDueDays INT NOT NULL DEFAULT 7;
+                        END
                     END
 
                     IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'AutomationSettings')
@@ -1124,6 +1136,50 @@ using (var scope = app.Services.CreateScope())
                 bioMenu.ParentId = adminSettingsParent.Id;
                 bioMenu.SortOrder = 3;
                 context.SaveChanges();
+            }
+
+            // Auto-seed 'Academic & Exam Workflow' MenuItem under Admin Settings
+            var workflowMenu = context.MenuItems.FirstOrDefault(m => m.RouteUrl == "/admin/academic-workflow");
+            if (workflowMenu == null)
+            {
+                workflowMenu = new IMSERP.Domain.Entities.MenuItem
+                {
+                    Id = Guid.NewGuid(),
+                    Title = "Academic & Exam Workflow",
+                    RouteUrl = "/admin/academic-workflow",
+                    Icon = "tune",
+                    ParentId = adminSettingsParent.Id,
+                    SortOrder = 6,
+                    Module = "Admin",
+                    IsActive = true
+                };
+                context.MenuItems.Add(workflowMenu);
+                context.SaveChanges();
+
+                var allRoles = context.Roles.ToList();
+                foreach (var role in allRoles)
+                {
+                    if (role.Name.Contains("Admin", StringComparison.OrdinalIgnoreCase) || 
+                        role.Name.Contains("Director", StringComparison.OrdinalIgnoreCase) || 
+                        role.Name.Contains("Principal", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (!context.RolePermissions.Any(rp => rp.RoleId == role.Id && rp.MenuItemId == workflowMenu.Id))
+                        {
+                            context.RolePermissions.Add(new IMSERP.Domain.Entities.RolePermission
+                            {
+                                Id = Guid.NewGuid(),
+                                RoleId = role.Id,
+                                MenuItemId = workflowMenu.Id,
+                                CanView = true,
+                                CanCreate = true,
+                                CanEdit = true,
+                                CanDelete = true
+                            });
+                        }
+                    }
+                }
+                context.SaveChanges();
+                Console.WriteLine("[Database] Auto-seeded 'Academic & Exam Workflow' under Admin Settings.");
             }
         }
 

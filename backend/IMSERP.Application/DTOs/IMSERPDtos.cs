@@ -2300,7 +2300,12 @@ public record ExamSettingDto(
     string? SchoolAffiliationNumber,
     string? PrincipalSignTitle,
     string? ClassTeacherSignTitle,
-    string? ResultDeclarationNote
+    string? ResultDeclarationNote,
+    string? ActiveAcademicYear = null,
+    string? NextAcademicYear = null,
+    string? AvailableAcademicYears = null,
+    string? AvailableExamTypes = null,
+    int EvaluationDueDays = 7
 );
 
 public record UpdateExamSettingDto(
@@ -2311,7 +2316,12 @@ public record UpdateExamSettingDto(
     string? SchoolAffiliationNumber,
     string? PrincipalSignTitle,
     string? ClassTeacherSignTitle,
-    string? ResultDeclarationNote
+    string? ResultDeclarationNote,
+    string? ActiveAcademicYear = null,
+    string? NextAcademicYear = null,
+    string? AvailableAcademicYears = null,
+    string? AvailableExamTypes = null,
+    int EvaluationDueDays = 7
 );
 
 public record ConsolidatedSubjectDetailDto(

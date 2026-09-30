@@ -1296,6 +1296,53 @@ public class SchoolController : ControllerBase
 
     #endregion
 
+    #region Academic Session & Exam Dynamic Helpers
+
+    private async Task<string> GetActiveAcademicYearAsync()
+    {
+        var setting = await _db.ExamSettings.FirstOrDefaultAsync();
+        if (setting != null && !string.IsNullOrWhiteSpace(setting.ActiveAcademicYear))
+        {
+            return setting.ActiveAcademicYear.Trim();
+        }
+
+        var now = DateTime.UtcNow;
+        return now.Month >= 4
+            ? $"{now.Year}-{now.Year + 1}"
+            : $"{now.Year - 1}-{now.Year}";
+    }
+
+    private async Task<string> GetNextAcademicYearAsync()
+    {
+        var setting = await _db.ExamSettings.FirstOrDefaultAsync();
+        if (setting != null && !string.IsNullOrWhiteSpace(setting.NextAcademicYear))
+        {
+            return setting.NextAcademicYear.Trim();
+        }
+
+        var now = DateTime.UtcNow;
+        return now.Month >= 4
+            ? $"{now.Year + 1}-{now.Year + 2}"
+            : $"{now.Year}-{now.Year + 1}";
+    }
+
+    private const string DefaultStandardExamTypes = "Unit Test 1,Unit Test 2,Quarterly Exam,Half Yearly Exam,Pre-Board Exam,Annual Exam";
+
+    private string GetDynamicRollingSessions(int pastYears = 1, int futureYears = 3)
+    {
+        var now = DateTime.UtcNow;
+        int baseYear = now.Month >= 4 ? now.Year : now.Year - 1;
+
+        var sessions = new List<string>();
+        for (int y = baseYear - pastYears; y <= baseYear + futureYears; y++)
+        {
+            sessions.Add($"{y}-{y + 1}");
+        }
+        return string.Join(",", sessions);
+    }
+
+    #endregion
+
     #region School Examinations & Marks Entry
 
     [HttpGet("exams")]
@@ -1350,6 +1397,8 @@ public class SchoolController : ControllerBase
             .Take(pageSize)
             .ToListAsync();
 
+        var activeSession = await GetActiveAcademicYearAsync();
+
         var items = exams.Select(t =>
         {
             int totalInClass = 0;
@@ -1367,7 +1416,7 @@ public class SchoolController : ControllerBase
                 t.Title,
                 t.Subject,
                 t.ExamType ?? "Annual Exam",
-                t.AcademicYear ?? "2025-2026",
+                t.AcademicYear ?? activeSession,
                 t.ClassId!.Value,
                 t.Class?.Name ?? "Class",
                 t.SectionId,
@@ -1413,7 +1462,8 @@ public class SchoolController : ControllerBase
         if (schoolClass == null)
             return BadRequest(new { message = "Invalid class specified." });
 
-        var session = !string.IsNullOrWhiteSpace(dto.AcademicYear) ? dto.AcademicYear : "2025-2026";
+        var defaultSession = await GetActiveAcademicYearAsync();
+        var session = !string.IsNullOrWhiteSpace(dto.AcademicYear) ? dto.AcademicYear : defaultSession;
         var examType = !string.IsNullOrWhiteSpace(dto.ExamType) ? dto.ExamType : "Annual Exam";
 
         var entities = dto.Exams.Select(item => new Test
@@ -1439,7 +1489,7 @@ public class SchoolController : ControllerBase
             t.Title,
             t.Subject,
             t.ExamType ?? "Annual Exam",
-            t.AcademicYear ?? "2025-2026",
+            t.AcademicYear ?? defaultSession,
             t.ClassId!.Value,
             schoolClass.Name,
             t.SectionId,
@@ -1696,12 +1746,14 @@ public class SchoolController : ControllerBase
             ))
             .ToListAsync();
 
+        var activeSession = await GetActiveAcademicYearAsync();
+
         var result = new BlankAwardSheetDto(
             test.Id,
             test.Title,
             test.Subject,
             test.ExamType ?? "Annual Exam",
-            test.AcademicYear ?? "2025-2026",
+            test.AcademicYear ?? activeSession,
             test.Class?.Name ?? "Class",
             test.Section?.Name,
             test.MaxMarks,
@@ -1910,7 +1962,12 @@ public class SchoolController : ControllerBase
             setting.SchoolAffiliationNumber,
             setting.PrincipalSignTitle,
             setting.ClassTeacherSignTitle,
-            setting.ResultDeclarationNote
+            setting.ResultDeclarationNote,
+            setting.ActiveAcademicYear ?? await GetActiveAcademicYearAsync(),
+            setting.NextAcademicYear ?? await GetNextAcademicYearAsync(),
+            !string.IsNullOrWhiteSpace(setting.AvailableAcademicYears) ? setting.AvailableAcademicYears : GetDynamicRollingSessions(),
+            !string.IsNullOrWhiteSpace(setting.AvailableExamTypes) ? setting.AvailableExamTypes : DefaultStandardExamTypes,
+            setting.EvaluationDueDays > 0 ? setting.EvaluationDueDays : 7
         ));
     }
 
@@ -1936,6 +1993,18 @@ public class SchoolController : ControllerBase
         setting.PrincipalSignTitle = !string.IsNullOrWhiteSpace(dto.PrincipalSignTitle) ? dto.PrincipalSignTitle : "Principal / Headmaster";
         setting.ClassTeacherSignTitle = !string.IsNullOrWhiteSpace(dto.ClassTeacherSignTitle) ? dto.ClassTeacherSignTitle : "Class Teacher";
         setting.ResultDeclarationNote = !string.IsNullOrWhiteSpace(dto.ResultDeclarationNote) ? dto.ResultDeclarationNote : "Continuous and Comprehensive Evaluation Scheme";
+
+        if (!string.IsNullOrWhiteSpace(dto.ActiveAcademicYear))
+            setting.ActiveAcademicYear = dto.ActiveAcademicYear.Trim();
+        if (!string.IsNullOrWhiteSpace(dto.NextAcademicYear))
+            setting.NextAcademicYear = dto.NextAcademicYear.Trim();
+        if (!string.IsNullOrWhiteSpace(dto.AvailableAcademicYears))
+            setting.AvailableAcademicYears = dto.AvailableAcademicYears.Trim();
+        if (!string.IsNullOrWhiteSpace(dto.AvailableExamTypes))
+            setting.AvailableExamTypes = dto.AvailableExamTypes.Trim();
+        if (dto.EvaluationDueDays > 0)
+            setting.EvaluationDueDays = dto.EvaluationDueDays;
+
         setting.UpdatedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync();
@@ -1949,8 +2018,51 @@ public class SchoolController : ControllerBase
             setting.SchoolAffiliationNumber,
             setting.PrincipalSignTitle,
             setting.ClassTeacherSignTitle,
-            setting.ResultDeclarationNote
+            setting.ResultDeclarationNote,
+            setting.ActiveAcademicYear,
+            setting.NextAcademicYear,
+            setting.AvailableAcademicYears,
+            setting.AvailableExamTypes,
+            setting.EvaluationDueDays
         ));
+    }
+
+    [HttpGet("academic-config")]
+    public async Task<ActionResult> GetAcademicConfig()
+    {
+        var setting = await _db.ExamSettings.FirstOrDefaultAsync();
+        var activeYear = setting?.ActiveAcademicYear ?? await GetActiveAcademicYearAsync();
+        var nextYear = setting?.NextAcademicYear ?? await GetNextAcademicYearAsync();
+        var rawYears = !string.IsNullOrWhiteSpace(setting?.AvailableAcademicYears)
+            ? setting.AvailableAcademicYears
+            : GetDynamicRollingSessions();
+
+        var yearsList = rawYears
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Distinct()
+            .ToList();
+
+        if (!yearsList.Contains(activeYear))
+            yearsList.Insert(0, activeYear);
+
+        var rawTypes = !string.IsNullOrWhiteSpace(setting?.AvailableExamTypes)
+            ? setting.AvailableExamTypes
+            : DefaultStandardExamTypes;
+
+        var examTypesList = rawTypes
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Distinct()
+            .ToList();
+
+        return Ok(new
+        {
+            activeAcademicYear = activeYear,
+            nextAcademicYear = nextYear,
+            availableAcademicYears = yearsList,
+            availableExamTypes = examTypesList,
+            evaluationDueDays = setting?.EvaluationDueDays ?? 7,
+            passingPercentage = setting?.PassingPercentage ?? 33m
+        });
     }
 
     [HttpPost("exams/whatsapp-result")]

@@ -71,9 +71,7 @@
             <mat-form-field appearance="outline" class="compact-field">
               <mat-label>Academic Session</mat-label>
               <mat-select [(value)]="filterAcademicYear" (selectionChange)="loadExams()">
-                <mat-option value="2024-2025">2024-2025</mat-option>
-                <mat-option value="2025-2026">2025-2026</mat-option>
-                <mat-option value="2026-2027">2026-2027</mat-option>
+                <mat-option *ngFor="let s of availableSessions" [value]="s">{{ s }}</mat-option>
               </mat-select>
             </mat-form-field>
 
@@ -348,12 +346,7 @@
               <mat-form-field appearance="outline">
                 <mat-label>Exam Type / Term *</mat-label>
                 <mat-select formControlName="examType">
-                  <mat-option value="Annual Exam">Annual Exam (Final)</mat-option>
-                  <mat-option value="Half-Yearly Exam">Half-Yearly Exam</mat-option>
-                  <mat-option value="Unit Test 1">Unit Test 1</mat-option>
-                  <mat-option value="Unit Test 2">Unit Test 2</mat-option>
-                  <mat-option value="Quarterly Exam">Quarterly Exam</mat-option>
-                  <mat-option value="Pre-Board">Pre-Board Exam</mat-option>
+                  <mat-option *ngFor="let et of availableExamTypes" [value]="et">{{ et }}</mat-option>
                 </mat-select>
               </mat-form-field>
 
@@ -446,20 +439,15 @@
               <mat-form-field appearance="outline" subscriptSizing="dynamic" class="filter-input-col">
                 <mat-label>Academic Session *</mat-label>
                 <mat-select [(value)]="resultAcademicYear">
-                  <mat-option value="2024-2025">2024-2025</mat-option>
-                  <mat-option value="2025-2026">2025-2026</mat-option>
-                  <mat-option value="2026-2027">2026-2027</mat-option>
+                  <mat-option *ngFor="let s of availableSessions" [value]="s">{{ s }}</mat-option>
                 </mat-select>
               </mat-form-field>
 
               <mat-form-field appearance="outline" subscriptSizing="dynamic" class="filter-input-col">
                 <mat-label>Exam Type</mat-label>
                 <mat-select [(value)]="resultExamType">
-                  <mat-option value="Annual Exam">Annual Exam (Final)</mat-option>
-                  <mat-option value="Half-Yearly Exam">Half-Yearly Exam</mat-option>
-                  <mat-option value="Unit Test 1">Unit Test 1</mat-option>
-                  <mat-option value="Unit Test 2">Unit Test 2</mat-option>
                   <mat-option value="">All Exam Types</mat-option>
+                  <mat-option *ngFor="let et of availableExamTypes" [value]="et">{{ et }}</mat-option>
                 </mat-select>
               </mat-form-field>
             </div>

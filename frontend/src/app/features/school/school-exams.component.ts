@@ -84,6 +84,7 @@ export class SchoolExamsComponent implements OnInit {
   filterClassId = '';
   filterSectionId = '';
   filterAcademicYear = '2025-2026';
+  availableSessions: string[] = ['2024-2025', '2025-2026', '2026-2027', '2027-2028'];
   filterExamType = '';
   searchTerm = '';
   exams: SchoolExamDto[] = [];
@@ -216,7 +217,11 @@ export class SchoolExamsComponent implements OnInit {
   get availableExamTypes(): string[] {
     if (this.isTeacher) {
       const types = Array.from(new Set(this.assignedTeacherExams.map(e => e.examType).filter(Boolean)));
-      return types.length > 0 ? types : ['Annual Exam', 'Half-Yearly Exam', 'Unit Test 1', 'Unit Test 2', 'Quarterly Exam', 'Pre-Board'];
+      if (types.length > 0) return types;
+    }
+    if (this.examSettings?.availableExamTypes) {
+      const types = this.examSettings.availableExamTypes.split(',').map(t => t.trim()).filter(Boolean);
+      if (types.length > 0) return types;
     }
     return ['Annual Exam', 'Half-Yearly Exam', 'Unit Test 1', 'Unit Test 2', 'Quarterly Exam', 'Pre-Board'];
   }
@@ -907,6 +912,18 @@ export class SchoolExamsComponent implements OnInit {
         this.settingMaxCompartment = settings.maxCompartmentSubjects ?? 2;
         this.settingAllowGrace = settings.allowGraceMarks ?? true;
         this.settingMaxGrace = settings.maxGraceMarks ?? 5;
+
+        if (settings.activeAcademicYear) {
+          this.filterAcademicYear = settings.activeAcademicYear;
+          this.resultAcademicYear = settings.activeAcademicYear;
+        }
+
+        if (settings.availableAcademicYears) {
+          const sessions = settings.availableAcademicYears.split(',').map(s => s.trim()).filter(Boolean);
+          if (sessions.length > 0) {
+            this.availableSessions = sessions;
+          }
+        }
       }
     });
   }

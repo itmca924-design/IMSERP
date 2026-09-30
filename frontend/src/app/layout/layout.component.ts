@@ -1367,7 +1367,11 @@ export class LayoutComponent implements OnInit {
       this.authService.hasTransportModule();
 
       if (this.rawMenu && this.rawMenu.length > 0) {
-        this.menuTree.set(this.filterMenuByModules(this.rawMenu));
+        let filtered = this.filterMenuByModules(this.rawMenu);
+        if (this.authService.isStudentOrParent()) {
+          filtered = this.adjustStudentMenu(filtered);
+        }
+        this.menuTree.set(filtered);
       }
     }, { allowSignalWrites: true });
   }
@@ -1633,6 +1637,7 @@ export class LayoutComponent implements OnInit {
     this.menuService.getMyMenu().subscribe({
       next: (menu) => {
         if (menu && menu.length > 0) {
+          menu = this.adjustAdminWorkflowMenu(menu);
           this.rawMenu = menu;
           let filtered = this.filterMenuByModules(menu);
           if (this.authService.isStudentOrParent()) {
@@ -1647,6 +1652,88 @@ export class LayoutComponent implements OnInit {
         this.fallbackMenu();
       }
     });
+  }
+
+  private adjustAdminWorkflowMenu(menu: MenuItem[]): MenuItem[] {
+    if (!menu || menu.length === 0) return menu;
+    if (this.authService.isStudentOrParent()) {
+      return menu;
+    }
+
+    const workflowItemAdmin: MenuItem = {
+      id: 'admin-academic-workflow',
+      title: 'Academic & Exam Workflow',
+      routeUrl: '/admin/academic-workflow',
+      icon: 'tune',
+      sortOrder: 6,
+      module: 'Admin',
+      isActive: true,
+      children: []
+    };
+
+    const workflowItemAcademic: MenuItem = {
+      id: 'academic-workflow-link',
+      title: 'Academic & Exam Workflow',
+      routeUrl: '/admin/academic-workflow',
+      icon: 'tune',
+      sortOrder: 5.5,
+      module: 'Academic',
+      isActive: true,
+      children: []
+    };
+
+    let updated = (menu || []).map(item => {
+      const copy = { ...item, children: item.children ? [...item.children] : [] };
+
+      // 1. Inject into Admin Settings
+      const isAdminSettings = (copy.title && copy.title.toLowerCase().includes('admin')) ||
+                              copy.id === '6' ||
+                              (copy.module && copy.module.toLowerCase() === 'admin');
+      if (isAdminSettings) {
+        if (!copy.children.some(c => c.routeUrl === '/admin/academic-workflow')) {
+          copy.children.push(workflowItemAdmin);
+        }
+      }
+
+      // 2. Also inject into Academic Operations
+      const isAcademic = (copy.title && copy.title.toLowerCase().includes('academic')) ||
+                         copy.id === '5' ||
+                         (copy.module && copy.module.toLowerCase() === 'academic');
+      if (isAcademic) {
+        if (!copy.children.some(c => c.routeUrl === '/admin/academic-workflow')) {
+          const promoIdx = copy.children.findIndex(c => c.routeUrl === '/students/promotion' || c.routeUrl === '/school/exams');
+          if (promoIdx >= 0) {
+            copy.children.splice(promoIdx + 1, 0, workflowItemAcademic);
+          } else {
+            copy.children.push(workflowItemAcademic);
+          }
+        }
+      }
+
+      return copy;
+    });
+
+    // 3. If Admin Settings group did not exist at all, add it if user has admin privileges
+    const hasAdminSettings = updated.some(item =>
+      (item.title && item.title.toLowerCase().includes('admin')) ||
+      item.id === '6' ||
+      (item.module && item.module.toLowerCase() === 'admin')
+    );
+
+    if (!hasAdminSettings && this.authService.isAdmin()) {
+      updated.push({
+        id: '6',
+        title: 'Admin Settings',
+        routeUrl: '',
+        icon: 'settings',
+        sortOrder: 6,
+        module: 'Admin',
+        isActive: true,
+        children: [workflowItemAdmin]
+      });
+    }
+
+    return updated;
   }
 
   private adjustStudentMenu(menu: MenuItem[]): MenuItem[] {
@@ -1751,6 +1838,7 @@ export class LayoutComponent implements OnInit {
           { id: '512', title: 'Homework & Daily Diary', routeUrl: '/school/homework', icon: 'menu_book', sortOrder: 3, module: 'Academic', isActive: true, children: [] },
           { id: '52', title: 'School Examinations', routeUrl: '/school/exams', icon: 'assignment', sortOrder: 4, module: 'Academic', isActive: true, children: [] },
           { id: '521', title: 'Student Promotion', routeUrl: '/students/promotion', icon: 'trending_up', sortOrder: 5, module: 'Academic', isActive: true, children: [] },
+          { id: '5211', title: 'Academic & Exam Workflow', routeUrl: '/admin/academic-workflow', icon: 'tune', sortOrder: 5.5, module: 'Academic', isActive: true, children: [] },
           { id: '522', title: 'Tests & Report Cards', routeUrl: '/tests', icon: 'quiz', sortOrder: 6, module: 'Academic', isActive: true, children: [] },
           { id: '523', title: 'School Notices', routeUrl: '/school/notices', icon: 'campaign', sortOrder: 7, module: 'Academic', isActive: true, children: [] },
           { id: '53', title: 'WhatsApp Logs', routeUrl: '/whatsapp', icon: 'chat', sortOrder: 8, module: 'Academic', isActive: true, children: [] },
@@ -1778,7 +1866,8 @@ export class LayoutComponent implements OnInit {
           { id: '62', title: 'User Management', routeUrl: '/users', icon: 'person_add', sortOrder: 2, module: 'Admin', isActive: true, children: [] },
           { id: '63', title: 'Biometric Devices', routeUrl: '/attendance/devices', icon: 'fingerprint', sortOrder: 3, module: 'Admin', isActive: true, children: [] },
           { id: '64', title: 'Institutes & Tenants', routeUrl: '/admin/tenants', icon: 'corporate_fare', sortOrder: 4, module: 'Admin', isActive: true, children: [] },
-          { id: '65', title: 'Subscription & Plan', routeUrl: '/subscription', icon: 'workspace_premium', sortOrder: 5, module: 'Admin', isActive: true, children: [] }
+          { id: '65', title: 'Subscription & Plan', routeUrl: '/subscription', icon: 'workspace_premium', sortOrder: 5, module: 'Admin', isActive: true, children: [] },
+          { id: '66', title: 'Academic & Exam Workflow', routeUrl: '/admin/academic-workflow', icon: 'tune', sortOrder: 6, module: 'Admin', isActive: true, children: [] }
         ]
       }
     ];
