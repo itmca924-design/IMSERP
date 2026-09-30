@@ -2142,7 +2142,61 @@ public record SchoolExamDto(
     decimal PassingMarks,
     DateTime TestDate,
     int TotalStudents,
-    int EvaluatedStudents
+    int EvaluatedStudents,
+    Guid? EvaluatorTeacherId = null,
+    string? EvaluatorTeacherName = null,
+    string? EvaluatorPhone = null,
+    string EvaluationStatus = "Scheduled",
+    DateTime? EvaluationDueDate = null,
+    int? TotalCopiesIssued = null,
+    DateTime? CopiesSubmittedDate = null,
+    bool IsMarksLocked = false,
+    DateTime? MarksLockedAt = null,
+    string? MarksLockedBy = null,
+    string? EvaluationRemarks = null
+);
+
+public record UpdateExamEvaluationWorkflowDto(
+    Guid ExamId,
+    Guid? EvaluatorTeacherId,
+    string EvaluationStatus,
+    DateTime? EvaluationDueDate,
+    int? TotalCopiesIssued,
+    DateTime? CopiesSubmittedDate,
+    string? EvaluationRemarks
+);
+
+public record LockExamMarksDto(
+    Guid ExamId,
+    bool LockState,
+    string? Reason = null
+);
+
+public record BlankAwardSheetItemDto(
+    Guid StudentId,
+    string RollNumber,
+    string SchoolRollNumber,
+    string AdmissionNumber,
+    string StudentName,
+    string? Gender,
+    string? SectionName
+);
+
+public record BlankAwardSheetDto(
+    Guid ExamId,
+    string ExamTitle,
+    string Subject,
+    string ExamType,
+    string AcademicYear,
+    string ClassName,
+    string? SectionName,
+    decimal MaxMarks,
+    decimal PassingMarks,
+    DateTime ExamDate,
+    string? EvaluatorTeacherName,
+    int? TotalCopiesIssued,
+    DateTime? EvaluationDueDate,
+    List<BlankAwardSheetItemDto> Students
 );
 
 public record CreateSchoolExamItemDto(
@@ -3335,7 +3389,8 @@ public record BonafideCertificateDto(
     string? AffiliationCode,
     string? AffiliationNumber,
     string CertificateType, // "Bonafide" | "Character" | "StudyCertificate"
-    string GeneratedOn
+    string GeneratedOn,
+    string? RollNumber = null
 );
 
 // =========================================================================
@@ -3734,6 +3789,7 @@ public record StudentDetail360Dto(
     string? ClassTeacherPhone,
     Guid? BatchId,
     string? BatchName,
+    string? BatchSubject,
     string ParentName,
     string ParentWhatsAppPhone,
     string? MotherName,
@@ -4096,4 +4152,79 @@ public record TeacherDashboardSummaryDto(
     int MedicalLeaveBalance,
     // Notices
     List<DashboardNoticeItemDto> RecentNotices
+);
+
+// =========================================================================
+// STUDENT SIBLING & FAMILY LINKAGE DTOS
+// =========================================================================
+public record StudentSiblingDto(
+    Guid Id,
+    Guid StudentId,
+    Guid SiblingStudentId,
+    string SiblingName,
+    string? AdmissionNumber,
+    string? ClassName,
+    string? SectionName,
+    string? BatchName,
+    string? SchoolRollNumber,
+    string? RollNumber,
+    string? Gender,
+    string? ProfilePhoto,
+    string Relationship,
+    decimal DiscountPercent,
+    string? ParentName,
+    string? ParentPhone,
+    decimal OutstandingDues,
+    string? Notes,
+    DateTime CreatedAt
+);
+
+public record AddStudentSiblingDto(
+    Guid SiblingStudentId,
+    string Relationship = "Brother", // Brother | Sister | Twin | Cousin
+    decimal DiscountPercent = 0,
+    string? Notes = null
+);
+
+public record SiblingCandidateSearchDto(
+    Guid Id,
+    string StudentName,
+    string? AdmissionNumber,
+    string? ClassName,
+    string? SectionName,
+    string? RollNumber,
+    string? SchoolRollNumber,
+    string? ParentName,
+    string? ParentPhone,
+    string? Gender,
+    string? ProfilePhoto
+);
+
+// =========================================================================
+// CLASS ROLL NUMBER RE-SEQUENCER DTOS
+// =========================================================================
+public record ResequenceRollNumbersRequestDto(
+    Guid ClassId,
+    Guid? SectionId,
+    string SortRule, // "alphabetical" | "gender_alphabetical" | "admission_date" | "admission_no"
+    int StartFrom = 1,
+    string? Prefix = "",
+    bool IsDryRun = false
+);
+
+public record StudentRollNumberPreviewItemDto(
+    Guid StudentId,
+    string StudentName,
+    string? AdmissionNumber,
+    string? Gender,
+    string? CurrentRollNumber,
+    string NewRollNumber
+);
+
+public record ResequenceRollNumbersResultDto(
+    int TotalStudents,
+    int UpdatedCount,
+    bool IsDryRun,
+    string SortRule,
+    List<StudentRollNumberPreviewItemDto> Students
 );

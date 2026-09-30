@@ -886,8 +886,8 @@ public class SchoolController : ControllerBase
                 t.Id,
                 t.Title,
                 t.Subject,
-                t.ExamType,
-                t.AcademicYear,
+                t.ExamType ?? "Annual Exam",
+                t.AcademicYear ?? "2025-2026",
                 t.MaxMarks,
                 t.PassingMarks,
                 t.TestDate,
@@ -1313,6 +1313,7 @@ public class SchoolController : ControllerBase
             .Include(t => t.Class)
             .Include(t => t.Section)
             .Include(t => t.MarksList)
+            .Include(t => t.EvaluatorTeacher)
             .Where(t => t.ClassId != null);
 
         if (classId.HasValue && classId != Guid.Empty)
@@ -1365,8 +1366,8 @@ public class SchoolController : ControllerBase
                 t.Id,
                 t.Title,
                 t.Subject,
-                t.ExamType,
-                t.AcademicYear,
+                t.ExamType ?? "Annual Exam",
+                t.AcademicYear ?? "2025-2026",
                 t.ClassId!.Value,
                 t.Class?.Name ?? "Class",
                 t.SectionId,
@@ -1375,7 +1376,18 @@ public class SchoolController : ControllerBase
                 t.PassingMarks,
                 t.TestDate,
                 totalInClass,
-                t.MarksList.Count
+                t.MarksList.Count,
+                t.EvaluatorTeacherId,
+                t.EvaluatorTeacher?.FullName,
+                t.EvaluatorTeacher?.PhoneNumber,
+                t.EvaluationStatus ?? "Scheduled",
+                t.EvaluationDueDate,
+                t.TotalCopiesIssued,
+                t.CopiesSubmittedDate,
+                t.IsMarksLocked,
+                t.MarksLockedAt,
+                t.MarksLockedBy,
+                t.EvaluationRemarks
             );
         }).ToList();
 
@@ -1426,8 +1438,8 @@ public class SchoolController : ControllerBase
             t.Id,
             t.Title,
             t.Subject,
-            t.ExamType,
-            t.AcademicYear,
+            t.ExamType ?? "Annual Exam",
+            t.AcademicYear ?? "2025-2026",
             t.ClassId!.Value,
             schoolClass.Name,
             t.SectionId,
@@ -1436,7 +1448,18 @@ public class SchoolController : ControllerBase
             t.PassingMarks,
             t.TestDate,
             0,
-            0
+            0,
+            null,
+            null,
+            null,
+            "Scheduled",
+            null,
+            null,
+            null,
+            false,
+            null,
+            null,
+            null
         )).ToList();
 
         return Ok(result);
@@ -1504,6 +1527,9 @@ public class SchoolController : ControllerBase
         if (test == null)
             return NotFound(new { message = "Exam not found." });
 
+        if (test.IsMarksLocked)
+            return BadRequest(new { message = $"Marks for '{test.Title}' are locked/frozen by examination authority. Unlock marks first to make changes." });
+
         var existingMarks = await _db.TestMarks.Where(m => m.TestId == dto.ExamId).ToListAsync();
         _db.TestMarks.RemoveRange(existingMarks);
 
@@ -1527,9 +1553,167 @@ public class SchoolController : ControllerBase
             _db.TestMarks.Add(mark);
         }
 
+        if (test.EvaluationStatus == "Scheduled" || test.EvaluationStatus == "CopiesUnderEvaluation")
+        {
+            test.EvaluationStatus = "MarksEntered";
+        }
+
         await _db.SaveChangesAsync();
 
         return Ok(new { message = $"Successfully saved marks for {dto.MarksList.Count} student(s)!" });
+    }
+
+    [HttpPost("exams/evaluation-workflow")]
+    public async Task<ActionResult<object>> UpdateExamEvaluationWorkflow([FromBody] UpdateExamEvaluationWorkflowDto dto)
+    {
+        var test = await _db.Tests.FirstOrDefaultAsync(t => t.Id == dto.ExamId);
+        if (test == null)
+            return NotFound(new { message = "Exam not found." });
+
+        if (test.IsMarksLocked)
+            return BadRequest(new { message = "Cannot modify copy evaluation details because marks are already locked/frozen." });
+
+        if (dto.EvaluatorTeacherId.HasValue && dto.EvaluatorTeacherId.Value != Guid.Empty)
+        {
+            var teacher = await _db.Teachers.FindAsync(dto.EvaluatorTeacherId.Value);
+            if (teacher == null) return NotFound(new { message = "Teacher not found." });
+
+            var isFnFSettled = await _db.TeacherFnFSettlements.AnyAsync(s => s.TeacherId == dto.EvaluatorTeacherId.Value && (s.Status == "Settled" || s.Status == "Approved" || s.Status == "Completed"));
+            if (!teacher.IsActive || isFnFSettled || (teacher.LeavingDate.HasValue && teacher.LeavingDate.Value.Date < DateTime.UtcNow.Date))
+            {
+                return BadRequest(new { message = $"Cannot assign {teacher.FullName}: Faculty member is inactive or offboarded (FnF settled)." });
+            }
+        }
+
+        // Date Range Validations
+        if (dto.EvaluationDueDate.HasValue && dto.EvaluationDueDate.Value.Date < test.TestDate.Date)
+        {
+            return BadRequest(new { message = $"Evaluation Due Date ({dto.EvaluationDueDate.Value:dd-MM-yyyy}) cannot be earlier than the Exam Date ({test.TestDate:dd-MM-yyyy})." });
+        }
+
+        if (dto.CopiesSubmittedDate.HasValue)
+        {
+            if (dto.CopiesSubmittedDate.Value.Date < test.TestDate.Date)
+            {
+                return BadRequest(new { message = $"Return / Submission Date ({dto.CopiesSubmittedDate.Value:dd-MM-yyyy}) cannot be earlier than the Exam Date ({test.TestDate:dd-MM-yyyy})." });
+            }
+
+            if (dto.CopiesSubmittedDate.Value.Date > DateTime.UtcNow.Date)
+            {
+                return BadRequest(new { message = $"Return / Submission Date ({dto.CopiesSubmittedDate.Value:dd-MM-yyyy}) cannot be in the future." });
+            }
+        }
+
+        test.EvaluatorTeacherId = dto.EvaluatorTeacherId ?? test.EvaluatorTeacherId;
+        test.EvaluationStatus = !string.IsNullOrWhiteSpace(dto.EvaluationStatus) ? dto.EvaluationStatus : (test.EvaluationStatus ?? "Scheduled");
+        test.EvaluationDueDate = dto.EvaluationDueDate ?? test.EvaluationDueDate;
+        test.TotalCopiesIssued = dto.TotalCopiesIssued ?? test.TotalCopiesIssued;
+        test.CopiesSubmittedDate = dto.CopiesSubmittedDate ?? test.CopiesSubmittedDate;
+        test.EvaluationRemarks = dto.EvaluationRemarks ?? test.EvaluationRemarks;
+
+        if (dto.CopiesSubmittedDate.HasValue && (test.EvaluationStatus == "CopiesUnderEvaluation" || test.EvaluationStatus == "Scheduled"))
+        {
+            test.EvaluationStatus = "EvaluationCompleted";
+        }
+
+        await _db.SaveChangesAsync();
+        return Ok(new { message = "Evaluation workflow status updated successfully!" });
+    }
+
+    [HttpPost("exams/lock-marks")]
+    public async Task<ActionResult<object>> LockExamMarks([FromBody] LockExamMarksDto dto)
+    {
+        var isPrivilegedAdmin = _currentUser.UserRole.Contains("Admin", StringComparison.OrdinalIgnoreCase) ||
+                                _currentUser.UserRole.Contains("Principal", StringComparison.OrdinalIgnoreCase) ||
+                                _currentUser.UserRole.Contains("Director", StringComparison.OrdinalIgnoreCase) ||
+                                _currentUser.UserRole.Contains("SuperAdmin", StringComparison.OrdinalIgnoreCase);
+
+        if (!isPrivilegedAdmin)
+        {
+            return StatusCode(403, new { message = "Only School Administrators or Exam Controllers are authorized to Lock & Freeze or Unlock exam marks." });
+        }
+
+        var test = await _db.Tests.FirstOrDefaultAsync(t => t.Id == dto.ExamId);
+        if (test == null)
+            return NotFound(new { message = "Exam not found." });
+
+        test.IsMarksLocked = dto.LockState;
+        if (dto.LockState)
+        {
+            test.MarksLockedAt = DateTime.UtcNow;
+            test.MarksLockedBy = User?.Identity?.Name ?? _currentUser.UserRole ?? "Exam Controller";
+            test.EvaluationStatus = "MarksLocked";
+        }
+        else
+        {
+            test.MarksLockedAt = null;
+            test.MarksLockedBy = null;
+            test.EvaluationStatus = "MarksEntered";
+        }
+
+        await _db.SaveChangesAsync();
+        return Ok(new
+        {
+            message = dto.LockState ? "Marks have been locked and frozen successfully." : "Marks have been unlocked for editing.",
+            isLocked = test.IsMarksLocked
+        });
+    }
+
+    [HttpGet("exams/{id}/award-sheet")]
+    public async Task<ActionResult<BlankAwardSheetDto>> GetBlankAwardSheet(Guid id)
+    {
+        var test = await _db.Tests
+            .AsNoTracking()
+            .Include(t => t.Class)
+            .Include(t => t.Section)
+            .Include(t => t.EvaluatorTeacher)
+            .FirstOrDefaultAsync(t => t.Id == id);
+
+        if (test == null)
+            return NotFound(new { message = "Exam not found." });
+
+        var studentsQuery = _db.Students
+            .AsNoTracking()
+            .Include(s => s.Section)
+            .Where(s => s.IsActive && s.IsSchoolStudent && s.ClassId == test.ClassId);
+
+        if (test.SectionId.HasValue && test.SectionId != Guid.Empty)
+        {
+            studentsQuery = studentsQuery.Where(s => s.SectionId == test.SectionId.Value);
+        }
+
+        var students = await studentsQuery
+            .OrderBy(s => s.SchoolRollNumber != null && s.SchoolRollNumber != "" ? s.SchoolRollNumber : s.RollNumber)
+            .ThenBy(s => s.StudentName)
+            .Select(s => new BlankAwardSheetItemDto(
+                s.Id,
+                s.RollNumber,
+                s.SchoolRollNumber ?? s.RollNumber,
+                s.AdmissionNumber ?? "N/A",
+                s.StudentName,
+                s.Gender,
+                s.Section != null ? s.Section.Name : (test.Section != null ? test.Section.Name : null)
+            ))
+            .ToListAsync();
+
+        var result = new BlankAwardSheetDto(
+            test.Id,
+            test.Title,
+            test.Subject,
+            test.ExamType ?? "Annual Exam",
+            test.AcademicYear ?? "2025-2026",
+            test.Class?.Name ?? "Class",
+            test.Section?.Name,
+            test.MaxMarks,
+            test.PassingMarks,
+            test.TestDate,
+            test.EvaluatorTeacher?.FullName,
+            test.TotalCopiesIssued ?? students.Count,
+            test.EvaluationDueDate,
+            students
+        );
+
+        return Ok(result);
     }
 
     [HttpGet("exams/class-multi-marks")]
@@ -1627,6 +1811,10 @@ public class SchoolController : ControllerBase
         if (tests.Count == 0)
             return BadRequest(new { message = "No valid exam tests found for the provided IDs." });
 
+        var lockedExam = tests.FirstOrDefault(t => t.IsMarksLocked);
+        if (lockedExam != null)
+            return BadRequest(new { message = $"Marks for '{lockedExam.Subject}' are locked/frozen. Please unlock the exam before modifying marks." });
+
         var existingMarks = await _db.TestMarks
             .Where(m => distinctExamIds.Contains(m.TestId))
             .ToListAsync();
@@ -1672,6 +1860,14 @@ public class SchoolController : ControllerBase
             foreach (var em in examMarks)
             {
                 em.Rank = em.IsAbsent ? 9999 : rank++;
+            }
+        }
+
+        foreach (var t in tests)
+        {
+            if (t.EvaluationStatus == "Scheduled" || t.EvaluationStatus == "CopiesUnderEvaluation")
+            {
+                t.EvaluationStatus = "MarksEntered";
             }
         }
 
@@ -2104,9 +2300,24 @@ public class SchoolController : ControllerBase
     [HttpDelete("exams/{id}")]
     public async Task<ActionResult> DeleteSchoolExam(Guid id)
     {
+        var isPrivilegedAdmin = _currentUser.UserRole.Contains("Admin", StringComparison.OrdinalIgnoreCase) ||
+                                _currentUser.UserRole.Contains("Principal", StringComparison.OrdinalIgnoreCase) ||
+                                _currentUser.UserRole.Contains("Director", StringComparison.OrdinalIgnoreCase) ||
+                                _currentUser.UserRole.Contains("SuperAdmin", StringComparison.OrdinalIgnoreCase);
+
+        if (!isPrivilegedAdmin)
+        {
+            return StatusCode(403, new { message = "Only School Administrators or Exam In-charge are authorized to delete exam records." });
+        }
+
         var test = await _db.Tests.FirstOrDefaultAsync(t => t.Id == id);
         if (test == null)
             return NotFound(new { message = "Exam not found." });
+
+        if (test.IsMarksLocked)
+        {
+            return BadRequest(new { message = "Cannot delete an exam whose marks have been locked & frozen by administration." });
+        }
 
         var marks = await _db.TestMarks.Where(m => m.TestId == id).ToListAsync();
         _db.TestMarks.RemoveRange(marks);

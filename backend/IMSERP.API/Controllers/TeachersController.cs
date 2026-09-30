@@ -182,9 +182,9 @@ public class TeachersController : ControllerBase
         if (activeOnly)
         {
             var settledTeacherIds = _db.TeacherFnFSettlements
-                .Where(s => s.Status == "Settled")
+                .Where(s => s.Status == "Settled" || s.Status == "Approved" || s.Status == "Completed")
                 .Select(s => s.TeacherId);
-            q = q.Where(t => t.IsActive && !settledTeacherIds.Contains(t.Id));
+            q = q.Where(t => t.IsActive && !settledTeacherIds.Contains(t.Id) && (!t.LeavingDate.HasValue || t.LeavingDate.Value.Date >= DateTime.UtcNow.Date));
         }
 
         if (!string.IsNullOrWhiteSpace(staffType) && !string.Equals(staffType, "All", StringComparison.OrdinalIgnoreCase))

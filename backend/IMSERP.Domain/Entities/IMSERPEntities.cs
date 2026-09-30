@@ -290,6 +290,7 @@ public class Student
     public ICollection<StudentDisciplinaryRecord> DisciplinaryRecords { get; set; } = new List<StudentDisciplinaryRecord>();
     public ICollection<StudentPtmRecord> PtmRecords { get; set; } = new List<StudentPtmRecord>();
     public ICollection<StudentHealthRecord> HealthRecords { get; set; } = new List<StudentHealthRecord>();
+    public ICollection<StudentSibling> Siblings { get; set; } = new List<StudentSibling>();
 }
 
 public class StudentPromotionHistory
@@ -439,8 +440,8 @@ public class Test
     public Guid? SectionId { get; set; }
     public string Title { get; set; } = string.Empty;
     public string Subject { get; set; } = string.Empty;
-    public string ExamType { get; set; } = "Annual Exam"; // "Annual Exam", "Half Yearly", "Term 1", "Unit Test"
-    public string AcademicYear { get; set; } = string.Empty;
+    public string? ExamType { get; set; } = "Annual Exam"; // "Annual Exam", "Half Yearly", "Term 1", "Unit Test"
+    public string? AcademicYear { get; set; } = string.Empty;
     public decimal MaxMarks { get; set; }
     public decimal PassingMarks { get; set; } = 33;
     public DateTime TestDate { get; set; }
@@ -456,6 +457,19 @@ public class Test
 
     [ForeignKey("SectionId")]
     public SchoolSection? Section { get; set; }
+
+    public Guid? EvaluatorTeacherId { get; set; }
+    [ForeignKey("EvaluatorTeacherId")]
+    public Teacher? EvaluatorTeacher { get; set; }
+
+    public string EvaluationStatus { get; set; } = "Scheduled"; // Scheduled, CopiesUnderEvaluation, EvaluationCompleted, MarksEntered, MarksLocked
+    public DateTime? EvaluationDueDate { get; set; }
+    public int? TotalCopiesIssued { get; set; }
+    public DateTime? CopiesSubmittedDate { get; set; }
+    public bool IsMarksLocked { get; set; } = false;
+    public DateTime? MarksLockedAt { get; set; }
+    public string? MarksLockedBy { get; set; }
+    public string? EvaluationRemarks { get; set; }
 
     public ICollection<TestMarks> MarksList { get; set; } = new List<TestMarks>();
 }
@@ -2017,5 +2031,24 @@ public class StudentHealthRecord
 
     [ForeignKey("StudentId")]
     public Student? Student { get; set; }
+}
+
+public class StudentSibling
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid StudentId { get; set; }
+    public Guid SiblingStudentId { get; set; }
+    public string Relationship { get; set; } = "Brother"; // Brother | Sister | Twin | Cousin
+    public decimal DiscountPercent { get; set; } = 0;
+    public string? Notes { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("StudentId")]
+    public Student? Student { get; set; }
+
+    [ForeignKey("SiblingStudentId")]
+    public Student? SiblingStudent { get; set; }
 }
 

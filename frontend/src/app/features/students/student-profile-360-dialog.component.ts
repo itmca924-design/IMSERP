@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit } from '@angular/core';
+import { Component, Inject, OnInit, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule, MatDialog } from '@angular/material/dialog';
@@ -7,6 +7,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
@@ -22,7 +23,10 @@ import {
   StudentPtmDto,
   CreateStudentPtmDto,
   StudentHealthDto,
-  SaveStudentHealthDto
+  SaveStudentHealthDto,
+  StudentSiblingDto,
+  AddStudentSiblingDto,
+  SiblingCandidateSearchDto
 } from '../../core/services/coaching.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { AuthService } from '../../core/services/auth.service';
@@ -48,6 +52,7 @@ const API_BASE = 'http://localhost:5000';
     MatIconModule,
     MatTooltipModule,
     MatProgressBarModule,
+    MatProgressSpinnerModule,
     MatFormFieldModule,
     MatInputModule,
     MatSelectModule
@@ -82,6 +87,12 @@ const API_BASE = 'http://localhost:5000';
               </span>
               <span *ngIf="data360?.student?.batchName" class="meta-sep">
                 &bull; Batch: <strong>{{ data360!.student.batchName }}</strong>
+              </span>
+              <span *ngIf="data360?.student?.batchSubject" class="meta-sep">
+                &bull; Subject: <strong>{{ data360!.student.batchSubject }}</strong>
+              </span>
+              <span class="meta-sep">
+                &bull; Class Teacher: <strong [style.color]="data360?.student?.classTeacherName ? '#1e40af' : '#b45309'">{{ data360?.student?.classTeacherName || 'Not Assigned' }}</strong>
               </span>
               <span class="meta-sep">
                 &bull; Roll: <strong>{{ data360?.student?.rollNumber || data.rollNumber || 'N/A' }}</strong>
@@ -128,7 +139,7 @@ const API_BASE = 'http://localhost:5000';
           <span class="metric-val">{{ data360.library.currentlyIssuedCount }} Books</span>
           <span class="metric-lbl">Issued</span>
         </div>
-        <div class="metric-pill" *ngIf="data360.siblings?.length">
+        <div class="metric-pill" *ngIf="data360.siblings.length">
           <mat-icon class="icon-sibling">family_restroom</mat-icon>
           <span class="metric-val">{{ data360.siblings.length }} Sibling{{ data360.siblings.length > 1 ? 's' : '' }}</span>
           <span class="metric-lbl">In School</span>
@@ -175,6 +186,9 @@ const API_BASE = 'http://localhost:5000';
           </button>
           <button mat-button class="action-btn" (click)="activeTabIndex = 9">
             <mat-icon>record_voice_over</mat-icon> PTM Desk
+          </button>
+          <button mat-button class="action-btn" (click)="activeTabIndex = 11">
+            <mat-icon>diversity_3</mat-icon> Siblings ({{ siblingsList.length || (data360?.siblings?.length ?? 0) }})
           </button>
         </div>
       </div>
@@ -233,6 +247,54 @@ const API_BASE = 'http://localhost:5000';
                   </div>
                 </div>
 
+                <!-- Academic & Faculty Allocation Card -->
+                <div class="info-card">
+                  <div class="card-header">
+                    <mat-icon class="sect-icon">school</mat-icon>
+                    <h3>Academic &amp; Faculty Allocation</h3>
+                  </div>
+                  <div class="info-rows">
+                    <div class="info-row">
+                      <span class="row-label">Class &amp; Section:</span>
+                      <span class="row-val font-semibold">
+                        {{ data360.student.className ? data360.student.className + (data360.student.sectionName ? ' - ' + data360.student.sectionName : '') : 'N/A' }}
+                      </span>
+                    </div>
+                    <div class="info-row">
+                      <span class="row-label">Enrolled Batch:</span>
+                      <span class="row-val font-semibold">{{ data360.student.batchName || 'N/A' }}</span>
+                    </div>
+                    <div class="info-row">
+                      <span class="row-label">Subject:</span>
+                      <span class="row-val font-semibold" [style.color]="data360.student.batchSubject ? '#1e40af' : '#64748b'">
+                        {{ data360.student.batchSubject || 'General / All Subjects' }}
+                      </span>
+                    </div>
+                    <div class="info-row">
+                      <span class="row-label">Class Teacher:</span>
+                      <span class="row-val ct-highlight" *ngIf="data360.student.classTeacherName">
+                        {{ data360.student.classTeacherName }}
+                        <small *ngIf="data360.student.classTeacherPhone">({{ data360.student.classTeacherPhone }})</small>
+                      </span>
+                      <span class="row-val" *ngIf="!data360.student.classTeacherName" style="color: #b45309; font-weight: 600; font-size: 0.82rem;">
+                        Not Assigned <small style="color: #64748b; font-weight: 400;">(Master Management &gt; Classes &amp; Sections)</small>
+                      </span>
+                    </div>
+                    <div class="info-row">
+                      <span class="row-label">Admission / SR No:</span>
+                      <span class="row-val font-mono">{{ data360.student.admissionNumber || 'N/A' }}</span>
+                    </div>
+                    <div class="info-row">
+                      <span class="row-label">Roll Number:</span>
+                      <span class="row-val">{{ data360.student.schoolRollNumber || data360.student.rollNumber || 'N/A' }}</span>
+                    </div>
+                    <div class="info-row" *ngIf="data360.student.branchName">
+                      <span class="row-label">Branch:</span>
+                      <span class="row-val">{{ data360.student.branchName }}</span>
+                    </div>
+                  </div>
+                </div>
+
                 <!-- Parents & Guardian Info Card -->
                 <div class="info-card">
                   <div class="card-header">
@@ -263,23 +325,52 @@ const API_BASE = 'http://localhost:5000';
                       <span class="row-label">Residential Address:</span>
                       <span class="row-val address-text">{{ data360.student.address || 'Not specified' }}</span>
                     </div>
-                    <div class="info-row" *ngIf="data360.student.classTeacherName">
-                      <span class="row-label">Class Teacher:</span>
-                      <span class="row-val ct-highlight">
-                        {{ data360.student.classTeacherName }}
-                        <small *ngIf="data360.student.classTeacherPhone">({{ data360.student.classTeacherPhone }})</small>
+                  </div>
+                </div>
+
+                <!-- Enrollment & Previous School Info Card -->
+                <div class="info-card">
+                  <div class="card-header">
+                    <mat-icon class="sect-icon">history_edu</mat-icon>
+                    <h3>Enrollment &amp; Academic Background</h3>
+                  </div>
+                  <div class="info-rows">
+                    <div class="info-row">
+                      <span class="row-label">Enrollment Type:</span>
+                      <span class="row-val">
+                        <span *ngIf="data360.student.isSchoolStudent" style="background:#e0f2fe; color:#0369a1; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:600; margin-right:4px;">School</span>
+                        <span *ngIf="data360.student.isCoachingStudent" style="background:#fef3c7; color:#b45309; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:600;">Coaching</span>
+                      </span>
+                    </div>
+                    <div class="info-row">
+                      <span class="row-label">Previous School:</span>
+                      <span class="row-val">{{ data360.student.previousSchoolName || 'N/A' }}</span>
+                    </div>
+                    <div class="info-row">
+                      <span class="row-label">Previous Board:</span>
+                      <span class="row-val">{{ data360.student.previousBoard || 'N/A' }}</span>
+                    </div>
+                    <div class="info-row">
+                      <span class="row-label">Status:</span>
+                      <span class="row-val font-semibold" [style.color]="data360.student.isActive ? '#16a34a' : '#dc2626'">
+                        {{ data360.student.isActive ? 'Active Enrolled' : 'Inactive / Left' }}
                       </span>
                     </div>
                   </div>
                 </div>
 
                 <!-- Linked Siblings Card -->
-                <div class="info-card col-span-2" *ngIf="data360.siblings?.length">
-                  <div class="card-header sibling-header">
-                    <mat-icon class="sect-icon sibling-icon">family_restroom</mat-icon>
-                    <h3>Linked Siblings / Family Members in Institution ({{ data360.siblings.length }})</h3>
+                <div class="info-card col-span-2">
+                  <div class="card-header sibling-header" style="display:flex; justify-content:space-between; align-items:center;">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                      <mat-icon class="sect-icon sibling-icon">family_restroom</mat-icon>
+                      <h3>Linked Siblings / Family Members ({{ siblingsList.length || data360.siblings.length || 0 }})</h3>
+                    </div>
+                    <button mat-stroked-button color="primary" class="manage-sibs-btn" (click)="activeTabIndex = 11" style="height:28px; line-height:28px; font-size:11px;">
+                      <mat-icon style="font-size:14px; width:14px; height:14px;">diversity_3</mat-icon> Manage / Link Sibling
+                    </button>
                   </div>
-                  <div class="siblings-grid">
+                  <div class="siblings-grid" *ngIf="data360.siblings.length">
                     <div class="sibling-chip-card" *ngFor="let sib of data360.siblings" (click)="openSibling(sib.studentId)">
                       <div class="sib-avatar-wrap">
                         <img *ngIf="sib.profilePhoto" [src]="getPhotoUrl(sib.profilePhoto)" [alt]="sib.studentName" class="sib-avatar-img" />
@@ -295,6 +386,10 @@ const API_BASE = 'http://localhost:5000';
                       </div>
                       <mat-icon class="view-sib-icon" matTooltip="Click to open profile">launch</mat-icon>
                     </div>
+                  </div>
+                  <div *ngIf="!data360.siblings.length" style="padding:12px; color:#64748b; font-size:12px; display:flex; align-items:center; gap:8px;">
+                    <mat-icon style="font-size:18px; width:18px; height:18px; color:#94a3b8;">info</mat-icon>
+                    No siblings linked yet. Click "Manage / Link Sibling" to map family members and configure fee concessions.
                   </div>
                 </div>
 
@@ -946,9 +1041,65 @@ const API_BASE = 'http://localhost:5000';
                     <label>Incident Date *</label>
                     <input type="date" class="custom-input" [(ngModel)]="newDiscipline.incidentDate" />
                   </div>
-                  <div class="form-field-wrap">
+                  <div class="form-field-wrap faculty-field-wrap">
                     <label>Reported By / Faculty Name</label>
-                    <input type="text" class="custom-input" [(ngModel)]="newDiscipline.reportedByName" placeholder="Faculty or Staff Name" />
+                    <div class="faculty-combobox-wrap">
+                      <input
+                        type="text"
+                        class="custom-input"
+                        [(ngModel)]="newDiscipline.reportedByName"
+                        (focus)="showDisciplineFacultyDropdown = true"
+                        placeholder="Select faculty or type name..."
+                        autocomplete="off"
+                      />
+                      <button type="button" class="combobox-toggle-btn" (click)="showDisciplineFacultyDropdown = !showDisciplineFacultyDropdown" tabindex="-1">
+                        <mat-icon>{{ showDisciplineFacultyDropdown ? 'arrow_drop_up' : 'arrow_drop_down' }}</mat-icon>
+                      </button>
+
+                      <!-- Custom Positioned Floating Dropdown Panel Directly Below Input -->
+                      <div class="faculty-dropdown-menu" *ngIf="showDisciplineFacultyDropdown">
+                        <!-- 1. Assigned Class Teacher -->
+                        <div class="dropdown-group-header" *ngIf="data360?.student?.classTeacherName">Assigned Class Teacher</div>
+                        <div
+                          class="dropdown-option-item highlight"
+                          *ngIf="data360?.student?.classTeacherName"
+                          (click)="selectDisciplineFaculty(data360!.student.classTeacherName + ' (Class Teacher)')"
+                        >
+                          <mat-icon class="item-icon star">stars</mat-icon>
+                          <div class="item-text">
+                            <div class="item-name">{{ data360!.student.classTeacherName }}</div>
+                            <div class="item-sub">Class Teacher &bull; Sec {{ data360!.student.sectionName || 'A' }}</div>
+                          </div>
+                        </div>
+
+                        <!-- 2. School Teachers -->
+                        <div class="dropdown-group-header" *ngIf="schoolTeachers.length > 0">Faculty &amp; Subject Teachers</div>
+                        <div
+                          class="dropdown-option-item"
+                          *ngFor="let t of getFilteredTeachers(newDiscipline.reportedByName)"
+                          (click)="selectDisciplineFaculty(t.fullName + (t.specialization ? ' (' + t.specialization + ')' : (t.designation ? ' (' + t.designation + ')' : '')))"
+                        >
+                          <mat-icon class="item-icon teacher">school</mat-icon>
+                          <div class="item-text">
+                            <div class="item-name">{{ t.fullName }}</div>
+                            <div class="item-sub">{{ t.specialization || t.designation || t.department || 'Faculty' }}</div>
+                          </div>
+                        </div>
+
+                        <!-- 3. Key Authorities -->
+                        <div class="dropdown-group-header">Institutional Incharges &amp; Staff</div>
+                        <div
+                          class="dropdown-option-item"
+                          *ngFor="let auth of institutionalAuthorities"
+                          (click)="selectDisciplineFaculty(auth.title)"
+                        >
+                          <mat-icon class="item-icon auth">{{ auth.icon }}</mat-icon>
+                          <div class="item-text">
+                            <div class="item-name">{{ auth.title }}</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                   <div class="form-field-wrap">
                     <label>Status</label>
@@ -1061,9 +1212,65 @@ const API_BASE = 'http://localhost:5000';
                     <label>Attended By (Parent / Guardian) *</label>
                     <input type="text" class="custom-input" [(ngModel)]="newPtm.attendedByParentName" placeholder="e.g. Mr. Rajesh Kumar (Father)" />
                   </div>
-                  <div class="form-field-wrap">
+                  <div class="form-field-wrap faculty-field-wrap">
                     <label>Teacher / Counselor Conducting PTM</label>
-                    <input type="text" class="custom-input" [(ngModel)]="newPtm.teacherName" placeholder="e.g. Mrs. Sunita Sharma" />
+                    <div class="faculty-combobox-wrap">
+                      <input
+                        type="text"
+                        class="custom-input"
+                        [(ngModel)]="newPtm.teacherName"
+                        (focus)="showPtmFacultyDropdown = true"
+                        placeholder="Select faculty or type name..."
+                        autocomplete="off"
+                      />
+                      <button type="button" class="combobox-toggle-btn" (click)="showPtmFacultyDropdown = !showPtmFacultyDropdown" tabindex="-1">
+                        <mat-icon>{{ showPtmFacultyDropdown ? 'arrow_drop_up' : 'arrow_drop_down' }}</mat-icon>
+                      </button>
+
+                      <!-- Custom Positioned Floating Dropdown Panel Directly Below Input -->
+                      <div class="faculty-dropdown-menu" *ngIf="showPtmFacultyDropdown">
+                        <!-- 1. Assigned Class Teacher -->
+                        <div class="dropdown-group-header" *ngIf="data360?.student?.classTeacherName">Assigned Class Teacher</div>
+                        <div
+                          class="dropdown-option-item highlight"
+                          *ngIf="data360?.student?.classTeacherName"
+                          (click)="selectPtmFaculty(data360!.student.classTeacherName + ' (Class Teacher)')"
+                        >
+                          <mat-icon class="item-icon star">stars</mat-icon>
+                          <div class="item-text">
+                            <div class="item-name">{{ data360!.student.classTeacherName }}</div>
+                            <div class="item-sub">Class Teacher &bull; Sec {{ data360!.student.sectionName || 'A' }}</div>
+                          </div>
+                        </div>
+
+                        <!-- 2. School Teachers -->
+                        <div class="dropdown-group-header" *ngIf="schoolTeachers.length > 0">Faculty &amp; Subject Teachers</div>
+                        <div
+                          class="dropdown-option-item"
+                          *ngFor="let t of getFilteredTeachers(newPtm.teacherName)"
+                          (click)="selectPtmFaculty(t.fullName + (t.specialization ? ' (' + t.specialization + ')' : (t.designation ? ' (' + t.designation + ')' : '')))"
+                        >
+                          <mat-icon class="item-icon teacher">school</mat-icon>
+                          <div class="item-text">
+                            <div class="item-name">{{ t.fullName }}</div>
+                            <div class="item-sub">{{ t.specialization || t.designation || t.department || 'Faculty' }}</div>
+                          </div>
+                        </div>
+
+                        <!-- 3. Key Authorities -->
+                        <div class="dropdown-group-header">Institutional Incharges &amp; Counselors</div>
+                        <div
+                          class="dropdown-option-item"
+                          *ngFor="let auth of institutionalAuthorities"
+                          (click)="selectPtmFaculty(auth.title)"
+                        >
+                          <mat-icon class="item-icon auth">{{ auth.icon }}</mat-icon>
+                          <div class="item-text">
+                            <div class="item-name">{{ auth.title }}</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                   <div class="form-field-wrap">
                     <label>Parent Satisfaction Level</label>
@@ -1348,6 +1555,162 @@ const API_BASE = 'http://localhost:5000';
                 </div>
 
               </div>
+            </div>
+          </mat-tab>
+
+          <!-- TAB 12: SIBLINGS & FAMILY LINKAGE (Feature 1) -->
+          <mat-tab>
+            <ng-template mat-tab-label>
+              <mat-icon class="tab-icon">diversity_3</mat-icon> Siblings &amp; Family ({{ siblingsList.length }})
+            </ng-template>
+            <div class="tab-content-wrap">
+              <div class="tab-action-header">
+                <div>
+                  <h4 class="tab-action-title">Linked Siblings &amp; Family Group (भाई-बहन मैपिंग)</h4>
+                  <p class="tab-action-sub">Link brother/sister profiles, set sibling fee discount, and track family ledger</p>
+                </div>
+                <button mat-raised-button color="primary" class="primary-gradient-btn" *ngIf="!isReadOnly" (click)="showAddSiblingForm = !showAddSiblingForm">
+                  <mat-icon>{{ showAddSiblingForm ? 'close' : 'person_add' }}</mat-icon>
+                  {{ showAddSiblingForm ? 'Cancel' : 'Link New Sibling' }}
+                </button>
+              </div>
+
+              <!-- Add Sibling Drawer / Form Card -->
+              <div class="inline-form-card" *ngIf="showAddSiblingForm">
+                <div class="form-header">
+                  <div class="form-header-title">
+                    <mat-icon>person_add</mat-icon>
+                    <h5>Search &amp; Link Student as Sibling</h5>
+                  </div>
+                  <span class="badge-hint"><mat-icon style="font-size:14px; width:14px; height:14px; vertical-align:middle;">travel_explore</mat-icon> Live Institution Search</span>
+                </div>
+
+                <div class="form-grid">
+                  <div class="form-field-wrap full-col search-field-container">
+                    <label>Search Student (Name, Admission No, Parent Phone) *</label>
+                    <div class="search-input-wrap">
+                      <input type="text" class="custom-input" [(ngModel)]="siblingSearchQuery" (input)="onSearchSibling()" placeholder="Type student name, admission number or parent phone..." />
+                      <mat-icon class="search-icon" *ngIf="!searchingCandidates">search</mat-icon>
+                      <mat-progress-spinner *ngIf="searchingCandidates" mode="indeterminate" diameter="18" class="search-spinner"></mat-progress-spinner>
+
+                      <!-- Autocomplete Results Dropdown -->
+                      <div class="candidate-dropdown" *ngIf="candidateSearchResults.length > 0">
+                        <div class="candidate-item" *ngFor="let c of candidateSearchResults" (click)="selectSiblingCandidate(c)">
+                          <div class="cand-avatar">{{ getInitials(c.studentName) }}</div>
+                          <div class="cand-details">
+                            <div class="cand-name">{{ c.studentName }}</div>
+                            <div class="cand-meta">
+                              <span *ngIf="c.className">Class {{ c.className }}</span>
+                              <span *ngIf="c.admissionNumber"> &bull; Adm: {{ c.admissionNumber }}</span>
+                              <span *ngIf="c.parentPhone"> &bull; 📞 {{ c.parentPhone }}</span>
+                            </div>
+                          </div>
+                          <button type="button" class="cand-select-btn">Select</button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Selected Candidate Preview -->
+                  <div class="form-field-wrap full-col" *ngIf="selectedSiblingCandidate">
+                    <div class="selected-cand-card">
+                      <div class="cand-preview-info">
+                        <mat-icon style="color: #16a34a; font-size: 20px; width: 20px; height: 20px;">check_circle</mat-icon>
+                        <div>
+                          <strong style="color: #15803d; font-size: 0.88rem;">{{ selectedSiblingCandidate.studentName }}</strong>
+                          <span style="color:#475569; font-size:12px; margin-left:8px;">
+                            ({{ selectedSiblingCandidate.className || 'General' }} &bull; Adm: {{ selectedSiblingCandidate.admissionNumber || 'N/A' }})
+                          </span>
+                        </div>
+                      </div>
+                      <button type="button" class="clear-cand-btn" (click)="selectedSiblingCandidate = null" title="Change selection">
+                        <mat-icon style="font-size: 16px; width: 16px; height: 16px;">close</mat-icon>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="form-field-wrap">
+                    <label>Relationship (संबंध) *</label>
+                    <select class="custom-input" [(ngModel)]="newSiblingRelationship">
+                      <option value="Brother">Brother (भाई)</option>
+                      <option value="Sister">Sister (बहन)</option>
+                      <option value="Twin">Twin (जुड़वां)</option>
+                      <option value="Cousin">Cousin (कज़िन)</option>
+                    </select>
+                  </div>
+
+                  <div class="form-field-wrap">
+                    <label>Sibling Concession / Fee Discount (%)</label>
+                    <input type="number" class="custom-input" [(ngModel)]="newSiblingDiscount" min="0" max="100" placeholder="e.g. 15" />
+                  </div>
+
+                  <div class="form-field-wrap">
+                    <label>Internal Notes / Authorization</label>
+                    <input type="text" class="custom-input" [(ngModel)]="newSiblingNotes" placeholder="e.g. Approved 15% discount" />
+                  </div>
+                </div>
+
+                <div class="form-actions">
+                  <button mat-button type="button" (click)="showAddSiblingForm = false">Cancel</button>
+                  <button mat-raised-button color="primary" class="primary-gradient-btn" [disabled]="savingSibling || !selectedSiblingCandidate" (click)="saveSiblingLink()">
+                    <mat-icon>link</mat-icon> {{ savingSibling ? 'Linking...' : 'Confirm & Link Sibling' }}
+                  </button>
+                </div>
+              </div>
+
+              <!-- Siblings Grid Display -->
+              <div class="siblings-manage-grid" *ngIf="siblingsList.length > 0">
+                <div class="sibling-manage-card" *ngFor="let sib of siblingsList">
+                  <div class="sib-card-top">
+                    <div class="sib-avatar-large">
+                      <img *ngIf="sib.profilePhoto" [src]="getPhotoUrl(sib.profilePhoto)" [alt]="sib.siblingName" />
+                      <span *ngIf="!sib.profilePhoto">{{ getInitials(sib.siblingName) }}</span>
+                    </div>
+                    <div class="sib-main-info">
+                      <div class="sib-name-row">
+                        <h5>{{ sib.siblingName }}</h5>
+                        <span class="sib-rel-tag">{{ sib.relationship }}</span>
+                      </div>
+                      <div class="sib-academic-meta">
+                        <span *ngIf="sib.className">Class {{ sib.className }}{{ sib.sectionName ? ' - ' + sib.sectionName : '' }}</span>
+                        <span *ngIf="sib.schoolRollNumber || sib.rollNumber"> &bull; Roll: {{ sib.schoolRollNumber || sib.rollNumber }}</span>
+                        <span *ngIf="sib.admissionNumber"> &bull; Adm: {{ sib.admissionNumber }}</span>
+                      </div>
+                    </div>
+                    <button mat-icon-button color="warn" *ngIf="!isReadOnly" (click)="deleteSiblingLink(sib)" matTooltip="Remove sibling link">
+                      <mat-icon>link_off</mat-icon>
+                    </button>
+                  </div>
+
+                  <div class="sib-card-badges">
+                    <div class="sib-badge discount-badge" *ngIf="sib.discountPercent > 0">
+                      <mat-icon>local_offer</mat-icon> Sibling Discount: <strong>{{ sib.discountPercent }}%</strong>
+                    </div>
+                    <div class="sib-badge fee-badge" [class.has-due]="sib.outstandingDues > 0">
+                      <mat-icon>{{ sib.outstandingDues > 0 ? 'account_balance_wallet' : 'verified' }}</mat-icon>
+                      {{ sib.outstandingDues > 0 ? ('Pending Due: ₹' + (sib.outstandingDues | number)) : 'Fee Cleared (₹0 Due)' }}
+                    </div>
+                  </div>
+
+                  <div class="sib-card-footer" *ngIf="sib.parentPhone || sib.notes">
+                    <span *ngIf="sib.parentPhone" class="parent-phone">
+                      <mat-icon>call</mat-icon> {{ sib.parentName || 'Parent' }}: {{ sib.parentPhone }}
+                    </span>
+                    <span *ngIf="sib.notes" class="sib-notes-text">&bull; {{ sib.notes }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Empty state -->
+              <div class="empty-state-box" *ngIf="siblingsList.length === 0 && !showAddSiblingForm">
+                <mat-icon class="empty-icon">diversity_3</mat-icon>
+                <h5>No Siblings Linked Yet</h5>
+                <p>Link brothers or sisters studying in this institution to enable unified parent portal view and sibling fee concessions.</p>
+                <button mat-stroked-button color="primary" *ngIf="!isReadOnly" (click)="showAddSiblingForm = true">
+                  <mat-icon>person_add</mat-icon> Link First Sibling
+                </button>
+              </div>
+
             </div>
           </mat-tab>
 
@@ -2550,10 +2913,17 @@ const API_BASE = 'http://localhost:5000';
       .form-header {
         display: flex;
         align-items: center;
+        justify-content: space-between;
         gap: 8px;
         margin-bottom: 14px;
         padding-bottom: 8px;
         border-bottom: 1px solid #f1f5f9;
+
+        .form-header-title {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
 
         mat-icon { color: #2563eb; }
         h5 { margin: 0; font-size: 0.92rem; font-weight: 700; color: #1e293b; }
@@ -2591,6 +2961,126 @@ const API_BASE = 'http://localhost:5000';
           &:focus {
             border-color: #2563eb;
             box-shadow: 0 0 0 2px rgba(37,99,235,0.15);
+          }
+        }
+
+        .faculty-combobox-wrap {
+          position: relative;
+          display: flex;
+          align-items: center;
+          width: 100%;
+
+          .custom-input {
+            width: 100%;
+            padding-right: 30px;
+          }
+
+          .combobox-toggle-btn {
+            position: absolute;
+            right: 4px;
+            background: transparent;
+            border: none;
+            color: #64748b;
+            cursor: pointer;
+            padding: 2px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 26px;
+            width: 26px;
+            border-radius: 4px;
+
+            mat-icon {
+              font-size: 20px;
+              width: 20px;
+              height: 20px;
+            }
+
+            &:hover {
+              color: #2563eb;
+              background: #eff6ff;
+            }
+          }
+
+          .faculty-dropdown-menu {
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            right: 0;
+            background: #ffffff;
+            border: 1px solid #bfdbfe;
+            border-radius: 8px;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.16), 0 8px 10px -6px rgba(0,0,0,0.06);
+            z-index: 100;
+            max-height: 220px;
+            overflow-y: auto;
+            padding: 4px 0;
+
+            .dropdown-group-header {
+              padding: 6px 12px 2px;
+              font-size: 0.68rem;
+              font-weight: 700;
+              text-transform: uppercase;
+              color: #94a3b8;
+              letter-spacing: 0.04em;
+              border-top: 1px solid #f1f5f9;
+
+              &:first-child {
+                border-top: none;
+                padding-top: 4px;
+              }
+            }
+
+            .dropdown-option-item {
+              display: flex;
+              align-items: center;
+              gap: 10px;
+              padding: 6px 12px;
+              cursor: pointer;
+              transition: background 0.15s;
+
+              &:hover {
+                background: #eff6ff;
+              }
+
+              &.highlight {
+                background: #f0fdf4;
+                &:hover {
+                  background: #dcfce7;
+                }
+              }
+
+              .item-icon {
+                font-size: 18px;
+                width: 18px;
+                height: 18px;
+                color: #64748b;
+
+                &.star { color: #eab308; }
+                &.teacher { color: #2563eb; }
+                &.auth { color: #0284c7; }
+              }
+
+              .item-text {
+                flex: 1;
+                min-width: 0;
+                .item-name {
+                  font-size: 0.82rem;
+                  font-weight: 600;
+                  color: #1e293b;
+                  white-space: nowrap;
+                  overflow: hidden;
+                  text-overflow: ellipsis;
+                }
+                .item-sub {
+                  font-size: 0.7rem;
+                  color: #64748b;
+                  white-space: nowrap;
+                  overflow: hidden;
+                  text-overflow: ellipsis;
+                }
+              }
+            }
           }
         }
 
@@ -3459,6 +3949,286 @@ const API_BASE = 'http://localhost:5000';
       border-top: 1px solid #f1f5f9;
       padding-top: 4px;
     }
+
+    /* ── TAB 12: SIBLINGS & FAMILY STYLES ── */
+    .badge-hint {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: #eff6ff;
+      color: #1d4ed8;
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 9999px;
+      border: 1px solid #bfdbfe;
+    }
+
+    .search-input-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+      width: 100%;
+
+      .custom-input {
+        width: 100%;
+        padding-right: 38px;
+      }
+
+      .search-icon {
+        position: absolute;
+        right: 12px;
+        color: #94a3b8;
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        pointer-events: none;
+      }
+
+      .search-spinner {
+        position: absolute;
+        right: 12px;
+      }
+    }
+
+    .candidate-dropdown {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      right: 0;
+      background: #ffffff;
+      border: 1px solid #bfdbfe;
+      border-radius: 8px;
+      box-shadow: 0 10px 25px -5px rgba(0,0,0,0.12), 0 4px 6px -2px rgba(0,0,0,0.05);
+      z-index: 50;
+      max-height: 220px;
+      overflow-y: auto;
+
+      .candidate-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 12px;
+        cursor: pointer;
+        border-bottom: 1px solid #f1f5f9;
+        transition: background 0.15s;
+
+        &:last-child {
+          border-bottom: none;
+        }
+
+        &:hover {
+          background: #eff6ff;
+        }
+
+        .cand-avatar {
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          background: #2563eb;
+          color: #ffffff;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 700;
+          font-size: 0.75rem;
+          flex-shrink: 0;
+        }
+
+        .cand-details {
+          flex: 1;
+          .cand-name { font-weight: 600; font-size: 0.85rem; color: #0f172a; }
+          .cand-meta { font-size: 0.72rem; color: #64748b; }
+        }
+
+        .cand-select-btn {
+          background: #eff6ff;
+          color: #2563eb;
+          border: 1px solid #bfdbfe;
+          border-radius: 6px;
+          padding: 4px 10px;
+          font-size: 0.75rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.15s;
+
+          &:hover {
+            background: #2563eb;
+            color: #ffffff;
+          }
+        }
+      }
+    }
+
+    .selected-cand-card {
+      background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+      border: 1px solid #86efac;
+      border-radius: 8px;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+
+      .cand-preview-info {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .clear-cand-btn {
+        background: transparent;
+        border: none;
+        color: #64748b;
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.15s;
+
+        &:hover {
+          background: rgba(239, 68, 68, 0.1);
+          color: #ef4444;
+        }
+      }
+    }
+
+    .siblings-manage-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 16px;
+      margin-top: 14px;
+    }
+
+    .sibling-manage-card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      transition: all 0.2s;
+
+      &:hover {
+        border-color: #93c5fd;
+        box-shadow: 0 4px 12px -2px rgba(37,99,235,0.08);
+      }
+
+      .sib-card-top {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+
+        .sib-avatar-large {
+          width: 46px;
+          height: 46px;
+          border-radius: 50%;
+          background: #eff6ff;
+          color: #2563eb;
+          border: 2px solid #bfdbfe;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 700;
+          font-size: 1rem;
+          flex-shrink: 0;
+          overflow: hidden;
+
+          img { width: 100%; height: 100%; object-fit: cover; }
+        }
+
+        .sib-main-info {
+          flex: 1;
+
+          .sib-name-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+
+            h5 {
+              margin: 0;
+              font-size: 0.95rem;
+              font-weight: 700;
+              color: #0f172a;
+            }
+
+            .sib-rel-tag {
+              background: #f1f5f9;
+              color: #334155;
+              padding: 1px 8px;
+              border-radius: 10px;
+              font-size: 0.7rem;
+              font-weight: 600;
+            }
+          }
+
+          .sib-academic-meta {
+            font-size: 0.78rem;
+            color: #64748b;
+            margin-top: 2px;
+          }
+        }
+      }
+
+      .sib-card-badges {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+
+        .sib-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          padding: 4px 10px;
+          border-radius: 6px;
+          font-size: 0.75rem;
+          font-weight: 600;
+
+          mat-icon { font-size: 14px; width: 14px; height: 14px; }
+        }
+
+        .discount-badge {
+          background: #fef3c7;
+          color: #b45309;
+        }
+
+        .fee-badge {
+          background: #dcfce7;
+          color: #15803d;
+
+          &.has-due {
+            background: #fee2e2;
+            color: #b91c1c;
+          }
+        }
+      }
+
+      .sib-card-footer {
+        font-size: 0.75rem;
+        color: #64748b;
+        border-top: 1px solid #f1f5f9;
+        padding-top: 8px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+
+        .parent-phone {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          mat-icon { font-size: 13px; width: 13px; height: 13px; }
+        }
+
+        .sib-notes-text {
+          color: #94a3b8;
+          font-style: italic;
+        }
+      }
+    }
   `]
 })
 export class StudentProfile360DialogComponent implements OnInit {
@@ -3545,6 +4315,65 @@ export class StudentProfile360DialogComponent implements OnInit {
     doctorNotes: ''
   };
 
+  // 👨‍👩‍👧 Feature 1: Sibling & Family State
+  siblingsList: StudentSiblingDto[] = [];
+  loadingSiblings = false;
+  showAddSiblingForm = false;
+  savingSibling = false;
+  siblingSearchQuery = '';
+  searchingCandidates = false;
+  candidateSearchResults: SiblingCandidateSearchDto[] = [];
+  selectedSiblingCandidate: SiblingCandidateSearchDto | null = null;
+  newSiblingRelationship = 'Brother';
+  newSiblingDiscount = 0;
+  newSiblingNotes = '';
+
+  // 👨‍🏫 Faculty / Teachers List for Combobox
+  schoolTeachers: any[] = [];
+  showDisciplineFacultyDropdown = false;
+  showPtmFacultyDropdown = false;
+
+  institutionalAuthorities = [
+    { title: 'Discipline Incharge / Proctor', icon: 'gavel' },
+    { title: 'Hostel Warden', icon: 'hotel' },
+    { title: 'Sports Coach / P.E. Teacher', icon: 'sports_soccer' },
+    { title: 'Librarian / Library Incharge', icon: 'local_library' },
+    { title: 'Transport Incharge / Bus Driver', icon: 'directions_bus' },
+    { title: 'Principal / Vice Principal', icon: 'account_balance' },
+    { title: 'Academic Counselor', icon: 'psychology' }
+  ];
+
+  @HostListener('document:click', ['$event'])
+  onGlobalClick(event: MouseEvent): void {
+    const target = event.target as HTMLElement;
+    if (!target.closest('.faculty-field-wrap')) {
+      this.showDisciplineFacultyDropdown = false;
+      this.showPtmFacultyDropdown = false;
+    }
+  }
+
+  selectDisciplineFaculty(val: string): void {
+    this.newDiscipline.reportedByName = val;
+    this.showDisciplineFacultyDropdown = false;
+  }
+
+  selectPtmFaculty(val: string): void {
+    this.newPtm.teacherName = val;
+    this.showPtmFacultyDropdown = false;
+  }
+
+  getFilteredTeachers(filterText?: string | null): any[] {
+    if (!filterText || !filterText.trim()) {
+      return this.schoolTeachers;
+    }
+    const q = filterText.toLowerCase().trim();
+    return this.schoolTeachers.filter(t =>
+      t.fullName?.toLowerCase().includes(q) ||
+      t.specialization?.toLowerCase().includes(q) ||
+      t.designation?.toLowerCase().includes(q)
+    );
+  }
+
   constructor(
     public dialogRef: MatDialogRef<StudentProfile360DialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: StudentProfile360DialogData,
@@ -3560,10 +4389,21 @@ export class StudentProfile360DialogComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadProfile();
+    this.loadTeachers();
+  }
+
+  loadTeachers(): void {
+    this.coachingService.getTeachers().subscribe({
+      next: (teachers) => {
+        this.schoolTeachers = (teachers || []).filter((t: any) => t.isActive !== false);
+      },
+      error: () => {}
+    });
   }
 
   loadProfile(): void {
     this.loading = true;
+    this.loadSiblings();
     this.coachingService.getStudentProfile360(this.data.studentId).subscribe({
       next: (res) => {
         this.data360 = res;
@@ -3939,5 +4779,96 @@ export class StudentProfile360DialogComponent implements OnInit {
 
   triggerPrint(): void {
     window.print();
+  }
+
+  // ── 👨‍👩‍👧 Feature 1: Sibling & Family Linkage Methods ─────────────────────────
+  loadSiblings(): void {
+    if (!this.data.studentId) return;
+    this.loadingSiblings = true;
+    this.coachingService.getStudentSiblings(this.data.studentId).subscribe({
+      next: (res) => {
+        this.siblingsList = res || [];
+        this.loadingSiblings = false;
+      },
+      error: () => {
+        this.loadingSiblings = false;
+      }
+    });
+  }
+
+  onSearchSibling(): void {
+    if (!this.siblingSearchQuery || this.siblingSearchQuery.trim().length < 2) {
+      this.candidateSearchResults = [];
+      return;
+    }
+    this.searchingCandidates = true;
+    this.coachingService.searchStudentsForSibling(this.siblingSearchQuery.trim(), this.data.studentId).subscribe({
+      next: (res) => {
+        this.candidateSearchResults = res || [];
+        this.searchingCandidates = false;
+      },
+      error: () => {
+        this.searchingCandidates = false;
+      }
+    });
+  }
+
+  selectSiblingCandidate(candidate: SiblingCandidateSearchDto): void {
+    this.selectedSiblingCandidate = candidate;
+    this.candidateSearchResults = [];
+    this.siblingSearchQuery = candidate.studentName;
+  }
+
+  saveSiblingLink(): void {
+    if (!this.selectedSiblingCandidate) {
+      this.confirmDialog.alert('Selection Required', 'Please search and select a student to link as sibling.', 'warning');
+      return;
+    }
+
+    this.savingSibling = true;
+    this.coachingService.addStudentSibling(this.data.studentId, {
+      siblingStudentId: this.selectedSiblingCandidate.id,
+      relationship: this.newSiblingRelationship,
+      discountPercent: this.newSiblingDiscount || 0,
+      notes: this.newSiblingNotes
+    }).subscribe({
+      next: (res) => {
+        this.savingSibling = false;
+        this.showAddSiblingForm = false;
+        this.selectedSiblingCandidate = null;
+        this.siblingSearchQuery = '';
+        this.newSiblingDiscount = 0;
+        this.newSiblingNotes = '';
+        this.siblingsList.unshift(res);
+        this.loadProfile();
+        this.confirmDialog.alert('Success', `${res.siblingName} has been linked as ${res.relationship} successfully!`, 'success');
+      },
+      error: (err) => {
+        this.savingSibling = false;
+        this.confirmDialog.alert('Error', err?.error?.message || 'Failed to link sibling.', 'danger');
+      }
+    });
+  }
+
+  deleteSiblingLink(sib: StudentSiblingDto): void {
+    this.confirmDialog.confirm(
+      'Remove Sibling Link',
+      `Are you sure you want to remove the sibling link between this student and ${sib.siblingName}?`,
+      'Yes, Remove Link',
+      'Cancel',
+      'danger'
+    ).subscribe(confirmed => {
+      if (!confirmed) return;
+      this.coachingService.deleteStudentSibling(sib.id).subscribe({
+        next: () => {
+          this.siblingsList = this.siblingsList.filter(s => s.id !== sib.id);
+          this.loadProfile();
+          this.confirmDialog.alert('Success', 'Sibling link removed successfully.', 'success');
+        },
+        error: (err) => {
+          this.confirmDialog.alert('Error', err?.error?.message || 'Failed to remove sibling link.', 'danger');
+        }
+      });
+    });
   }
 }

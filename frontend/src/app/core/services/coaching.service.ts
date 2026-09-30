@@ -321,6 +321,106 @@ export class CoachingService {
   saveStudentHealth(studentId: string, payload: SaveStudentHealthDto): Observable<StudentHealthDto> {
     return this.http.post<StudentHealthDto>(`${this.BASE_URL}/students/${studentId}/health`, payload);
   }
+
+  // ── Sibling / Family Mapping ──────────────────────────────
+  getStudentSiblings(studentId: string): Observable<StudentSiblingDto[]> {
+    return this.http.get<StudentSiblingDto[]>(`${this.BASE_URL}/students/${studentId}/siblings`);
+  }
+
+  addStudentSibling(studentId: string, payload: AddStudentSiblingDto): Observable<StudentSiblingDto> {
+    return this.http.post<StudentSiblingDto>(`${this.BASE_URL}/students/${studentId}/siblings`, payload);
+  }
+
+  deleteStudentSibling(linkId: string): Observable<any> {
+    return this.http.delete(`${this.BASE_URL}/students/siblings/${linkId}`);
+  }
+
+  searchStudentsForSibling(query: string, excludeStudentId?: string): Observable<SiblingCandidateSearchDto[]> {
+    let params: any = { query };
+    if (excludeStudentId) params.excludeStudentId = excludeStudentId;
+    return this.http.get<SiblingCandidateSearchDto[]>(`${this.BASE_URL}/students/search-for-sibling`, { params });
+  }
+
+  // ── Class Roll Number Re-Sequencer ─────────────────────────
+  resequenceRollNumbers(payload: ResequenceRollNumbersRequestDto): Observable<ResequenceRollNumbersResultDto> {
+    return this.http.post<ResequenceRollNumbersResultDto>(`${this.BASE_URL}/students/resequence-roll-numbers`, payload);
+  }
+
+  // ── Teachers & Faculty ─────────────────────────────────────
+  getTeachers(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.BASE_URL}/teachers`);
+  }
+}
+
+// ── Sibling & Roll Number Interfaces ───────────────────────────────────────
+
+export interface StudentSiblingDto {
+  id: string;
+  studentId: string;
+  siblingStudentId: string;
+  siblingName: string;
+  admissionNumber?: string | null;
+  className?: string | null;
+  sectionName?: string | null;
+  batchName?: string | null;
+  schoolRollNumber?: string | null;
+  rollNumber?: string | null;
+  gender?: string | null;
+  profilePhoto?: string | null;
+  relationship: string;
+  discountPercent: number;
+  parentName?: string | null;
+  parentPhone?: string | null;
+  outstandingDues: number;
+  notes?: string | null;
+  createdAt: string;
+}
+
+export interface AddStudentSiblingDto {
+  siblingStudentId: string;
+  relationship: string;
+  discountPercent: number;
+  notes?: string | null;
+}
+
+export interface SiblingCandidateSearchDto {
+  id: string;
+  studentName: string;
+  admissionNumber?: string | null;
+  className?: string | null;
+  sectionName?: string | null;
+  rollNumber?: string | null;
+  schoolRollNumber?: string | null;
+  parentName?: string | null;
+  parentPhone?: string | null;
+  gender?: string | null;
+  profilePhoto?: string | null;
+}
+
+export interface ResequenceRollNumbersRequestDto {
+  classId: string;
+  sectionId?: string | null;
+  sortRule: string; // 'alphabetical' | 'gender_alphabetical' | 'admission_date' | 'admission_no'
+  startFrom: number;
+  prefix?: string;
+  isDryRun: boolean;
+}
+
+export interface StudentRollNumberPreviewItemDto {
+  studentId: string;
+  studentName: string;
+  admissionNumber?: string | null;
+  gender?: string | null;
+  currentRollNumber?: string | null;
+  newRollNumber: string;
+}
+
+export interface ResequenceRollNumbersResultDto {
+  totalStudents: number;
+  updatedCount: number;
+  isDryRun: boolean;
+  sortRule: string;
+  students: StudentRollNumberPreviewItemDto[];
 }
 
 // ── Interfaces for Student 360 & Documents ───────────────────────────────────
@@ -345,6 +445,7 @@ export interface StudentDetail360 {
   classTeacherPhone?: string | null;
   batchId?: string | null;
   batchName?: string | null;
+  batchSubject?: string | null;
   parentName: string;
   parentWhatsAppPhone: string;
   motherName?: string | null;

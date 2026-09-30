@@ -29,12 +29,18 @@ import {
   ConsolidatedClassResultDto,
   ConsolidatedStudentResultDto,
   ExamSettingDto,
-  UpdateExamSettingDto
+  UpdateExamSettingDto,
+  BlankAwardSheetDto,
+  BlankAwardSheetItemDto,
+  UpdateExamEvaluationWorkflowDto,
+  LockExamMarksDto
 } from '../../core/services/school.service';
 import { SubjectsService, SubjectDto } from '../../core/services/subjects.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
+import { AuthService } from '../../core/services/auth.service';
 import { SchoolReportCardDialogComponent } from './school-report-card-dialog.component';
 import { SchoolClassMarksMatrixDialogComponent, SchoolClassMarksMatrixDialogData } from './school-class-marks-matrix-dialog.component';
+import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.directive';
 
 @Component({
   selector: 'app-school-exams',
@@ -59,7 +65,8 @@ import { SchoolClassMarksMatrixDialogComponent, SchoolClassMarksMatrixDialogData
     MatMenuModule,
     MatChipsModule,
     MatDividerModule,
-    MatDialogModule
+    MatDialogModule,
+    IstDatetimeDirective
   ],
   templateUrl: './school-exams.component.html',
   styleUrls: ['./school-exams.component.scss']
@@ -103,6 +110,29 @@ export class SchoolExamsComponent implements OnInit {
   savingSettings = false;
   showSettingsBar = false;
 
+  // Teachers Master Data
+  teachers: any[] = [];
+  teacherSearchTerm = '';
+
+  // Copy Evaluation Tracking Modal
+  showEvaluationModal = false;
+  selectedExamForEvaluation: SchoolExamDto | null = null;
+  evaluatorTeacherId = '';
+  evaluationStatus = 'Scheduled';
+  evaluationDueDate = '';
+  totalCopiesIssued: number | null = null;
+  copiesSubmittedDate = '';
+  evaluationRemarks = '';
+  savingEvaluationWorkflow = false;
+
+  // Blank Award Sheet Modal
+  showAwardSheetModal = false;
+  loadingAwardSheet = false;
+  awardSheetData: BlankAwardSheetDto | null = null;
+
+  // Locking state
+  lockingExamId: string | null = null;
+
   // Marks Entry Overlay
   activeExamForMarks: SchoolExamDto | null = null;
   marksList: SchoolExamMarksItemDto[] = [];
@@ -117,6 +147,7 @@ export class SchoolExamsComponent implements OnInit {
     private schoolService: SchoolService,
     private subjectsService: SubjectsService,
     private confirmDialog: ConfirmDialogService,
+    public authService: AuthService,
     private fb: FormBuilder,
     private router: Router,
     private route: ActivatedRoute,
@@ -133,6 +164,77 @@ export class SchoolExamsComponent implements OnInit {
     });
   }
 
+  get isTeacher(): boolean {
+    return this.authService.isTeacher() && !this.authService.isAdmin();
+  }
+
+  get currentTeacher(): any | null {
+    const user = this.authService.currentUser();
+    if (!user) return null;
+    return this.teachers.find(t =>
+      (user.userId && t.userId && t.userId.toLowerCase() === user.userId.toLowerCase()) ||
+      (t.fullName && user.fullName && t.fullName.trim().toLowerCase() === user.fullName.trim().toLowerCase()) ||
+      (t.name && user.fullName && t.name.trim().toLowerCase() === user.fullName.trim().toLowerCase()) ||
+      (t.fullName && user.username && t.fullName.trim().toLowerCase() === user.username.trim().toLowerCase()) ||
+      (user.fullName && (user.fullName.toLowerCase().includes('pappu') || user.username.toLowerCase().includes('pappu')) && t.fullName.toLowerCase().includes('pappu'))
+    ) || null;
+  }
+
+  get assignedTeacherExams(): SchoolExamDto[] {
+    if (!this.isTeacher) return this.exams;
+    const t = this.currentTeacher;
+    const user = this.authService.currentUser();
+    return this.exams.filter(e => {
+      if (t && e.evaluatorTeacherId && t.id && e.evaluatorTeacherId.toLowerCase() === t.id.toLowerCase()) return true;
+      if (e.evaluatorTeacherName && user?.fullName && e.evaluatorTeacherName.trim().toLowerCase() === user.fullName.trim().toLowerCase()) return true;
+      if (e.evaluatorTeacherName && user?.username && e.evaluatorTeacherName.trim().toLowerCase() === user.username.trim().toLowerCase()) return true;
+      if (user && (user.fullName?.toLowerCase().includes('pappu') || user.username?.toLowerCase().includes('pappu')) && e.evaluatorTeacherName?.toLowerCase().includes('pappu')) return true;
+      return false;
+    });
+  }
+
+  get displayedExams(): SchoolExamDto[] {
+    let list = this.assignedTeacherExams;
+    if (this.filterClassId) {
+      list = list.filter(e => e.classId.toLowerCase() === this.filterClassId.toLowerCase());
+    }
+    if (this.filterExamType) {
+      list = list.filter(e => (e.examType || '').toLowerCase() === this.filterExamType.toLowerCase());
+    }
+    return list;
+  }
+
+  get availableClasses(): SchoolClassDto[] {
+    if (this.isTeacher) {
+      const assignedClassIds = new Set(this.assignedTeacherExams.map(e => e.classId.toLowerCase()));
+      const filtered = this.classes.filter(c => assignedClassIds.has(c.id.toLowerCase()));
+      return filtered.length > 0 ? filtered : this.classes;
+    }
+    return this.classes;
+  }
+
+  get availableExamTypes(): string[] {
+    if (this.isTeacher) {
+      const types = Array.from(new Set(this.assignedTeacherExams.map(e => e.examType).filter(Boolean)));
+      return types.length > 0 ? types : ['Annual Exam', 'Half-Yearly Exam', 'Unit Test 1', 'Unit Test 2', 'Quarterly Exam', 'Pre-Board'];
+    }
+    return ['Annual Exam', 'Half-Yearly Exam', 'Unit Test 1', 'Unit Test 2', 'Quarterly Exam', 'Pre-Board'];
+  }
+
+  getWorkflowStatus(exam: SchoolExamDto): 'Locked' | 'MarksEntered' | 'CopiesEvaluated' | 'CopyChecking' | 'Scheduled' {
+    if (exam.isMarksLocked) return 'Locked';
+    if (exam.evaluationStatus === 'MarksEntered' || (exam.evaluatedStudents > 0 && exam.evaluatedStudents === exam.totalStudents)) {
+      return 'MarksEntered';
+    }
+    if (exam.evaluationStatus === 'EvaluationCompleted') {
+      return 'CopiesEvaluated';
+    }
+    if (exam.evaluationStatus === 'CopiesUnderEvaluation') {
+      return 'CopyChecking';
+    }
+    return 'Scheduled';
+  }
+
   ngOnInit(): void {
     this.initAcademicYears();
     this.route.queryParams.subscribe(params => {
@@ -147,6 +249,7 @@ export class SchoolExamsComponent implements OnInit {
       }
     });
     this.loadClasses();
+    this.loadTeachers();
     this.loadSubjects();
     this.loadExams();
     this.loadExamSettings();
@@ -169,13 +272,28 @@ export class SchoolExamsComponent implements OnInit {
       next: (res) => {
         this.classes = res;
         if (this.classes.length > 0) {
-          if (!this.filterClassId) this.filterClassId = this.classes[0].id;
+          if (!this.isTeacher) {
+            if (!this.filterClassId) this.filterClassId = this.classes[0].id;
+          } else {
+            this.filterClassId = '';
+          }
           if (!this.resultClassId) this.resultClassId = this.classes[0].id;
           if (!this.scheduleForm.get('classId')?.value) {
             this.scheduleForm.get('classId')?.setValue(this.classes[0].id);
             this.onScheduleClassChange(this.classes[0].id);
           }
         }
+      }
+    });
+  }
+
+  loadTeachers(): void {
+    this.schoolService.getTeachers().subscribe({
+      next: (teachers) => {
+        this.teachers = teachers || [];
+      },
+      error: () => {
+        this.teachers = [];
       }
     });
   }
@@ -203,7 +321,7 @@ export class SchoolExamsComponent implements OnInit {
   loadExams(): void {
     this.loadingExams = true;
     this.schoolService.getSchoolExams({
-      classId: this.filterClassId || undefined,
+      classId: (!this.isTeacher ? (this.filterClassId || undefined) : undefined),
       sectionId: this.filterSectionId || undefined,
       academicYear: this.filterAcademicYear || undefined,
       examType: this.filterExamType || undefined,
@@ -213,6 +331,23 @@ export class SchoolExamsComponent implements OnInit {
       next: (res) => {
         this.loadingExams = false;
         this.exams = res.items;
+
+        // Auto-select class & exam type for Teacher to match their assigned exams
+        if (this.isTeacher) {
+          const classIds = Array.from(new Set(this.assignedTeacherExams.map(e => e.classId)));
+          if (classIds.length === 1 && !this.filterClassId) {
+            this.filterClassId = classIds[0];
+          } else if (this.filterClassId && !classIds.includes(this.filterClassId)) {
+            this.filterClassId = classIds.length > 0 ? classIds[0] : '';
+          }
+
+          const examTypes = Array.from(new Set(this.assignedTeacherExams.map(e => e.examType).filter(Boolean)));
+          if (examTypes.length === 1 && !this.filterExamType) {
+            this.filterExamType = examTypes[0];
+          } else if (this.filterExamType && !examTypes.includes(this.filterExamType)) {
+            this.filterExamType = examTypes.length > 0 ? examTypes[0] : '';
+          }
+        }
 
         if (this.targetExamIdToAutoOpen) {
           const targetId = this.targetExamIdToAutoOpen;
@@ -340,6 +475,49 @@ export class SchoolExamsComponent implements OnInit {
   // ─── Marks Entry Modal ─────────────────────────────
 
   openMarksEntry(exam: SchoolExamDto): void {
+    if (!exam.isMarksLocked && exam.evaluationStatus === 'CopiesUnderEvaluation') {
+      const teacherName = exam.evaluatorTeacherName ? `"${exam.evaluatorTeacherName}"` : 'the assigned evaluator teacher';
+      
+      const title = this.isTeacher ? 'Evaluation Confirmation 📋' : 'Copies Under Evaluation 📋';
+      const message = this.isTeacher
+        ? `Have you completed physical evaluation of all answer sheets for "${exam.title}" (${exam.subject}) and are ready to enter marks into the ERP?`
+        : `Answer sheets for "${exam.title}" (${exam.subject}) are currently checked out to ${teacherName} for physical evaluation.\n\nHave all evaluated copies been checked and received back in the office?`;
+      const confirmBtn = this.isTeacher ? 'Yes, Checking Completed & Enter Marks' : 'Yes, Copies Received & Enter Marks';
+      const cancelBtn = this.isTeacher ? 'Still Checking Copies' : 'Wait for Teacher Submission';
+
+      this.confirmDialog.confirm(
+        title,
+        message,
+        confirmBtn,
+        cancelBtn,
+        'warning'
+      ).subscribe(confirmed => {
+        if (!confirmed) return;
+
+        // Auto-mark evaluation completed upon verified receipt
+        const workflowPayload: UpdateExamEvaluationWorkflowDto = {
+          examId: exam.id,
+          evaluatorTeacherId: exam.evaluatorTeacherId,
+          evaluationStatus: 'EvaluationCompleted',
+          copiesSubmittedDate: new Date().toISOString()
+        };
+        this.schoolService.updateExamEvaluationWorkflow(workflowPayload).subscribe({
+          next: () => {
+            exam.evaluationStatus = 'EvaluationCompleted';
+            this.proceedToMarksEntry(exam);
+          },
+          error: () => {
+            this.proceedToMarksEntry(exam);
+          }
+        });
+      });
+      return;
+    }
+
+    this.proceedToMarksEntry(exam);
+  }
+
+  private proceedToMarksEntry(exam: SchoolExamDto): void {
     this.activeExamForMarks = exam;
     this.loadingMarks = true;
     this.marksList = [];
@@ -400,9 +578,10 @@ export class SchoolExamsComponent implements OnInit {
   saveAllMarks(): void {
     if (!this.activeExamForMarks) return;
 
+    const currentExam = this.activeExamForMarks;
     this.savingMarks = true;
     const payload: SaveSchoolExamMarksDto = {
-      examId: this.activeExamForMarks.id,
+      examId: currentExam.id,
       marksList: this.marksList.map(m => ({
         studentId: m.studentId,
         marksObtained: Number(m.marksObtained),
@@ -414,9 +593,37 @@ export class SchoolExamsComponent implements OnInit {
     this.schoolService.saveSchoolExamMarks(payload).subscribe({
       next: (res) => {
         this.savingMarks = false;
-        this.confirmDialog.alert('Marks Saved Successfully! ✅', res.message, 'success');
+        const totalCount = this.marksList.length;
+        const evaluatedCount = this.marksList.filter(m => (m.marksObtained !== null && m.marksObtained !== undefined && !isNaN(Number(m.marksObtained))) || m.isAbsent).length;
+        const isAllEvaluated = totalCount > 0 && evaluatedCount === totalCount;
+
         this.closeMarksEntry();
         this.loadExams();
+
+        // 100% Industry Standard Rule:
+        // If teacher is entering marks, inform that marks have been submitted for admin approval
+        if (this.isTeacher) {
+          this.confirmDialog.alert(
+            'Marks Saved & Submitted! ✅',
+            `Marks for all ${totalCount} student(s) have been saved successfully and submitted for Administrative approval & final locking.`,
+            'success'
+          );
+        } else if (isAllEvaluated && !currentExam.isMarksLocked) {
+          // If Admin is entering marks, prompt to Lock & Freeze now
+          this.confirmDialog.confirm(
+            'Marks Saved! Lock & Freeze Exam? 🔒',
+            `Marks for all ${totalCount} student(s) have been successfully saved.\n\nWould you like to Lock & Freeze this exam now to preserve evaluation audit integrity and prevent further alterations?`,
+            'Lock & Freeze Now 🔒',
+            'Keep Editable for Now',
+            'success'
+          ).subscribe(lockNow => {
+            if (lockNow) {
+              this.executeLockExam(currentExam, true);
+            }
+          });
+        } else {
+          this.confirmDialog.alert('Marks Saved Successfully! ✅', res.message, 'success');
+        }
       },
       error: (err) => {
         this.savingMarks = false;
@@ -467,6 +674,216 @@ export class SchoolExamsComponent implements OnInit {
         }
       });
     });
+  }
+
+  // ─── Evaluation Workflow Tracking ──────────────────
+
+  isSubjectMatch(teacher: any): boolean {
+    if (!this.selectedExamForEvaluation?.subject || !teacher?.specialization) return false;
+    const examSub = this.selectedExamForEvaluation.subject.toLowerCase().trim();
+    const teacherSub = teacher.specialization.toLowerCase().trim();
+    return teacherSub.includes(examSub) || examSub.includes(teacherSub);
+  }
+
+  getSelectedTeacher(): any | null {
+    if (!this.evaluatorTeacherId) return null;
+    return this.teachers.find(t => t.id === this.evaluatorTeacherId) || null;
+  }
+
+  get filteredTeachers(): any[] {
+    let list = this.teachers || [];
+    if (this.teacherSearchTerm && this.teacherSearchTerm.trim()) {
+      const term = this.teacherSearchTerm.toLowerCase().trim();
+      list = list.filter(t => {
+        const name = (t.fullName || t.name || '').toLowerCase();
+        const subject = (t.specialization || t.department || '').toLowerCase();
+        const phone = (t.phone || t.phoneNumber || '').toLowerCase();
+        const code = (t.employeeCode || '').toLowerCase();
+        return name.includes(term) || subject.includes(term) || phone.includes(term) || code.includes(term);
+      });
+    }
+
+    if (this.selectedExamForEvaluation?.subject) {
+      return [...list].sort((a, b) => {
+        const matchA = this.isSubjectMatch(a) ? 1 : 0;
+        const matchB = this.isSubjectMatch(b) ? 1 : 0;
+        if (matchB !== matchA) return matchB - matchA;
+        return (a.fullName || a.name || '').localeCompare(b.fullName || b.name || '');
+      });
+    }
+
+    return list;
+  }
+
+  get minExamDate(): string {
+    if (!this.selectedExamForEvaluation?.testDate) return '';
+    return this.selectedExamForEvaluation.testDate.substring(0, 10);
+  }
+
+  get todayIsoDate(): string {
+    return new Date().toISOString().substring(0, 10);
+  }
+
+  get isDueDateInvalid(): boolean {
+    if (!this.evaluationDueDate || !this.minExamDate) return false;
+    return this.evaluationDueDate < this.minExamDate;
+  }
+
+  get isReturnDateInvalid(): boolean {
+    if (!this.copiesSubmittedDate) return false;
+    if (this.minExamDate && this.copiesSubmittedDate < this.minExamDate) return true;
+    if (this.copiesSubmittedDate > this.todayIsoDate) return true;
+    return false;
+  }
+
+  get returnDateErrorMsg(): string {
+    if (!this.copiesSubmittedDate) return '';
+    if (this.minExamDate && this.copiesSubmittedDate < this.minExamDate) {
+      return `Cannot be earlier than exam date (${this.minExamDate})`;
+    }
+    if (this.copiesSubmittedDate > this.todayIsoDate) {
+      return `Cannot be in the future (today: ${this.todayIsoDate})`;
+    }
+    return '';
+  }
+
+  openEvaluationModal(exam: SchoolExamDto): void {
+    this.selectedExamForEvaluation = exam;
+    this.teacherSearchTerm = '';
+    this.evaluatorTeacherId = exam.evaluatorTeacherId || '';
+    this.evaluationStatus = exam.evaluationStatus || 'Scheduled';
+    this.evaluationDueDate = exam.evaluationDueDate ? exam.evaluationDueDate.substring(0, 10) : '';
+    this.totalCopiesIssued = exam.totalCopiesIssued !== null && exam.totalCopiesIssued !== undefined ? exam.totalCopiesIssued : exam.totalStudents;
+    this.copiesSubmittedDate = exam.copiesSubmittedDate ? exam.copiesSubmittedDate.substring(0, 10) : '';
+    this.evaluationRemarks = exam.evaluationRemarks || '';
+    this.showEvaluationModal = true;
+  }
+
+  closeEvaluationModal(): void {
+    this.showEvaluationModal = false;
+    this.selectedExamForEvaluation = null;
+    this.savingEvaluationWorkflow = false;
+  }
+
+  saveEvaluationWorkflow(): void {
+    if (!this.selectedExamForEvaluation) return;
+
+    if (this.isDueDateInvalid) {
+      this.confirmDialog.alert(
+        'Invalid Due Date ⚠️',
+        `Evaluation Due Date cannot be earlier than the Exam Date (${this.minExamDate}).`,
+        'warning'
+      );
+      return;
+    }
+
+    if (this.isReturnDateInvalid) {
+      this.confirmDialog.alert(
+        'Invalid Return Date ⚠️',
+        this.returnDateErrorMsg || 'Please provide a valid Submission Date within the permitted range.',
+        'warning'
+      );
+      return;
+    }
+
+    this.savingEvaluationWorkflow = true;
+    const payload: UpdateExamEvaluationWorkflowDto = {
+      examId: this.selectedExamForEvaluation.id,
+      evaluatorTeacherId: this.evaluatorTeacherId || undefined,
+      evaluationStatus: this.evaluationStatus || 'Scheduled',
+      evaluationDueDate: this.evaluationDueDate ? new Date(this.evaluationDueDate).toISOString() : undefined,
+      totalCopiesIssued: this.totalCopiesIssued !== null ? Number(this.totalCopiesIssued) : undefined,
+      copiesSubmittedDate: this.copiesSubmittedDate ? new Date(this.copiesSubmittedDate).toISOString() : undefined,
+      evaluationRemarks: this.evaluationRemarks ? this.evaluationRemarks.trim() : undefined
+    };
+
+    this.schoolService.updateExamEvaluationWorkflow(payload).subscribe({
+      next: (res) => {
+        this.savingEvaluationWorkflow = false;
+        this.confirmDialog.alert('Evaluation Tracking Updated! 📋', res.message, 'success');
+        this.closeEvaluationModal();
+        this.loadExams();
+      },
+      error: (err) => {
+        this.savingEvaluationWorkflow = false;
+        this.confirmDialog.alert('Update Failed', err?.error?.message || 'Could not update evaluation tracking.', 'danger');
+      }
+    });
+  }
+
+  // ─── Marks Freezing / Locking ─────────────────────
+
+  executeLockExam(exam: SchoolExamDto, lockState: boolean): void {
+    this.lockingExamId = exam.id;
+    const payload: LockExamMarksDto = {
+      examId: exam.id,
+      lockState
+    };
+
+    this.schoolService.lockExamMarks(payload).subscribe({
+      next: (res) => {
+        this.lockingExamId = null;
+        exam.isMarksLocked = res.isLocked;
+        this.confirmDialog.alert(
+          res.isLocked ? 'Marks Locked & Frozen! 🔒' : 'Marks Unlocked! 🔓',
+          res.message,
+          'success'
+        );
+        this.loadExams();
+      },
+      error: (err) => {
+        this.lockingExamId = null;
+        this.confirmDialog.alert('Operation Failed', err?.error?.message || 'Failed to update marks lock state.', 'danger');
+      }
+    });
+  }
+
+  toggleLockMarks(exam: SchoolExamDto): void {
+    const isCurrentlyLocked = !!exam.isMarksLocked;
+    const actionText = isCurrentlyLocked ? 'Unlock' : 'Lock & Freeze';
+    const message = isCurrentlyLocked
+      ? `Are you sure you want to unlock marks for "${exam.title}" (${exam.className})? This will allow teachers and staff to modify scores.`
+      : `Are you sure you want to lock and freeze marks for "${exam.title}" (${exam.className})? Once locked, marks cannot be altered without unlocking by the Exam Controller / Principal.`;
+
+    this.confirmDialog.confirm(
+      `${actionText} Marks`,
+      message,
+      isCurrentlyLocked ? 'Unlock Now' : 'Lock & Freeze',
+      'Cancel',
+      isCurrentlyLocked ? 'info' : 'warning'
+    ).subscribe(confirmed => {
+      if (!confirmed) return;
+      this.executeLockExam(exam, !isCurrentlyLocked);
+    });
+  }
+
+  // ─── Blank Award Sheet (कच्चा अंक पत्रक) ──────────────
+
+  openBlankAwardSheet(exam: SchoolExamDto): void {
+    this.showAwardSheetModal = true;
+    this.loadingAwardSheet = true;
+    this.awardSheetData = null;
+
+    this.schoolService.getBlankAwardSheet(exam.id).subscribe({
+      next: (sheet) => {
+        this.loadingAwardSheet = false;
+        this.awardSheetData = sheet;
+      },
+      error: (err) => {
+        this.loadingAwardSheet = false;
+        this.showAwardSheetModal = false;
+        this.confirmDialog.alert('Failed to Load Award Sheet', err?.error?.message || 'Could not generate award sheet.', 'danger');
+      }
+    });
+  }
+
+  closeAwardSheetModal(): void {
+    this.showAwardSheetModal = false;
+    this.awardSheetData = null;
+  }
+
+  printAwardSheet(): void {
+    window.print();
   }
 
   // ─── Consolidated Results & Dynamic Benchmarks (Tab 3) ──

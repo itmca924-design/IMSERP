@@ -236,6 +236,60 @@ export interface SchoolExamDto {
   testDate: string;
   totalStudents: number;
   evaluatedStudents: number;
+  evaluatorTeacherId?: string;
+  evaluatorTeacherName?: string;
+  evaluatorPhone?: string;
+  evaluationStatus?: 'Scheduled' | 'CopiesUnderEvaluation' | 'EvaluationCompleted' | 'MarksEntered' | 'MarksLocked' | string;
+  evaluationDueDate?: string;
+  totalCopiesIssued?: number;
+  copiesSubmittedDate?: string;
+  isMarksLocked?: boolean;
+  marksLockedAt?: string;
+  marksLockedBy?: string;
+  evaluationRemarks?: string;
+}
+
+export interface UpdateExamEvaluationWorkflowDto {
+  examId: string;
+  evaluatorTeacherId?: string;
+  evaluationStatus: string;
+  evaluationDueDate?: string;
+  totalCopiesIssued?: number;
+  copiesSubmittedDate?: string;
+  evaluationRemarks?: string;
+}
+
+export interface LockExamMarksDto {
+  examId: string;
+  lockState: boolean;
+  reason?: string;
+}
+
+export interface BlankAwardSheetItemDto {
+  studentId: string;
+  rollNumber: string;
+  schoolRollNumber: string;
+  admissionNumber: string;
+  studentName: string;
+  gender?: string;
+  sectionName?: string;
+}
+
+export interface BlankAwardSheetDto {
+  examId: string;
+  examTitle: string;
+  subject: string;
+  examType: string;
+  academicYear: string;
+  className: string;
+  sectionName?: string;
+  maxMarks: number;
+  passingMarks: number;
+  examDate: string;
+  evaluatorTeacherName?: string;
+  totalCopiesIssued?: number;
+  evaluationDueDate?: string;
+  students: BlankAwardSheetItemDto[];
 }
 
 export interface CreateSchoolExamItemDto {
@@ -646,6 +700,22 @@ export class SchoolService {
 
   deleteSchoolExam(examId: string): Observable<{ message: string }> {
     return this.http.delete<{ message: string }>(`${this.apiUrl}/exams/${examId}`);
+  }
+
+  updateExamEvaluationWorkflow(dto: UpdateExamEvaluationWorkflowDto): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.apiUrl}/exams/evaluation-workflow`, dto);
+  }
+
+  lockExamMarks(dto: LockExamMarksDto): Observable<{ message: string; isLocked: boolean }> {
+    return this.http.post<{ message: string; isLocked: boolean }>(`${this.apiUrl}/exams/lock-marks`, dto);
+  }
+
+  getBlankAwardSheet(examId: string): Observable<BlankAwardSheetDto> {
+    return this.http.get<BlankAwardSheetDto>(`${this.apiUrl}/exams/${examId}/award-sheet`);
+  }
+
+  getTeachers(activeOnly: boolean = true): Observable<any[]> {
+    return this.http.get<any[]>(`${API_BASE}/teachers`, { params: { activeOnly } });
   }
 
   getSchoolAttendance(classId: string, sectionId?: string, date?: string): Observable<SchoolAttendanceStudentRowDto[]> {

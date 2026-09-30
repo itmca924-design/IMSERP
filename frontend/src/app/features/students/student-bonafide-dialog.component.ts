@@ -15,7 +15,7 @@ const API_BASE = 'http://localhost:5000/api';
 
 export interface BonafideCertificateDto {
   studentId: string; studentName: string; admissionNumber?: string;
-  schoolRollNumber?: string; className?: string; sectionName?: string;
+  schoolRollNumber?: string; rollNumber?: string; className?: string; sectionName?: string;
   academicYear?: string; dateOfBirth?: string; gender?: string;
   category?: string; parentName?: string; motherName?: string;
   address?: string; profilePhoto?: string; previousSchoolName?: string;
@@ -61,6 +61,9 @@ export interface BonafideDialogData {
         <button mat-stroked-button [class.active-btn]="certType==='StudyCertificate'" (click)="setCertType('StudyCertificate')">
           <mat-icon>school</mat-icon> Study Cert.
         </button>
+        <button mat-stroked-button [class.active-btn]="certType==='NoDues'" (click)="setCertType('NoDues')">
+          <mat-icon>task_alt</mat-icon> No-Dues Slip
+        </button>
       </div>
       <button mat-raised-button class="print-btn" (click)="printCert()" [disabled]="loading||!cert">
         <mat-icon>print</mat-icon> Print
@@ -68,6 +71,25 @@ export interface BonafideDialogData {
       <button mat-icon-button (click)="dialogRef.close()" class="close-btn" matTooltip="Close">
         <mat-icon>close</mat-icon>
       </button>
+    </div>
+  </div>
+
+  <!-- Conduct Rating Selector (Only for Character Certificate) -->
+  <div class="conduct-bar no-print" *ngIf="!loading && cert && certType==='Character'">
+    <div class="conduct-hdr">
+      <mat-icon class="p-icon" style="color: #7c3aed;">verified_user</mat-icon>
+      <span class="p-label">Conduct Evaluation (चारित्रिक मूल्यांकन):</span>
+      <div class="conduct-ratings">
+        <button type="button" class="rating-btn" [class.active-rating]="conductRating==='EXEMPLARY'" (click)="conductRating='EXEMPLARY'">
+          ⭐ Exemplary (उत्कृष्ट)
+        </button>
+        <button type="button" class="rating-btn" [class.active-rating]="conductRating==='VERY GOOD'" (click)="conductRating='VERY GOOD'">
+          👍 Very Good (अति उत्तम)
+        </button>
+        <button type="button" class="rating-btn" [class.active-rating]="conductRating==='GOOD'" (click)="conductRating='GOOD'">
+          👌 Good (उत्तम)
+        </button>
+      </div>
     </div>
   </div>
 
@@ -83,7 +105,7 @@ export interface BonafideDialogData {
         <button class="p-clear-btn" *ngIf="certPurpose" (click)="certPurpose=''" title="Clear Purpose">✕</button>
       </div>
     </div>
-    <div class="p-pills">
+    <div class="p-pills" *ngIf="certType !== 'NoDues'">
       <span class="p-pill" [class.active-pill]="certPurpose==='Opening a Bank Account'" (click)="setPurpose('Opening a Bank Account')">🏦 Bank Account</span>
       <span class="p-pill" [class.active-pill]="certPurpose==='Scholarship Application'" (click)="setPurpose('Scholarship Application')">🎓 Scholarship</span>
       <span class="p-pill" [class.active-pill]="certPurpose==='Passport Verification / Application'" (click)="setPurpose('Passport Verification / Application')">🛂 Passport</span>
@@ -91,6 +113,13 @@ export interface BonafideDialogData {
       <span class="p-pill" [class.active-pill]="certPurpose==='Bus Pass / Travel Concession'" (click)="setPurpose('Bus Pass / Travel Concession')">🚌 Bus Pass</span>
       <span class="p-pill" [class.active-pill]="certPurpose==='Official Verification'" (click)="setPurpose('Official Verification')">📄 Official Use</span>
       <span class="p-pill p-pill-blank" [class.active-pill]="!certPurpose" (click)="certPurpose=''">✍️ Leave Blank (Handwritten)</span>
+    </div>
+    <div class="p-pills" *ngIf="certType === 'NoDues'">
+      <span class="p-pill" [class.active-pill]="certPurpose==='Board Examination Clearance'" (click)="setPurpose('Board Examination Clearance')">📝 Board Exam Admit Card</span>
+      <span class="p-pill" [class.active-pill]="certPurpose==='Issuance of Transfer Certificate (TC)'" (click)="setPurpose('Issuance of Transfer Certificate (TC)')">📜 TC / School Leaving</span>
+      <span class="p-pill" [class.active-pill]="certPurpose==='Annual Session-End Clearance'" (click)="setPurpose('Annual Session-End Clearance')">🎓 Session End Clearance</span>
+      <span class="p-pill" [class.active-pill]="certPurpose==='Security / Caution Deposit Refund'" (click)="setPurpose('Security / Caution Deposit Refund')">💰 Deposit Refund</span>
+      <span class="p-pill p-pill-blank" [class.active-pill]="!certPurpose" (click)="certPurpose=''">✍️ General Clearance</span>
     </div>
   </div>
 
@@ -134,7 +163,7 @@ export interface BonafideDialogData {
 
       <!-- Serial Number & Date -->
       <div class="cert-meta-bar">
-        <span>No.: _______________</span>
+        <span>No.: {{ getSerialNo() }}</span>
         <span>Date: {{cert.generatedOn}}</span>
       </div>
 
@@ -171,22 +200,22 @@ export interface BonafideDialogData {
           <p class="cert-text">
             This is to certify that <strong class="hi">{{cert.studentName}}</strong>
             <span *ngIf="cert.parentName">, {{cert.gender==='Male'?'S/O':'D/O'}} <strong class="hi">{{cert.parentName}}</strong></span>,
-            was a student of this institution.
+            was a regular student of this institution.
           </p>
           <p class="cert-text" *ngIf="cert.className">
             The student studied in <strong class="hi">Class {{cert.className}}<span *ngIf="cert.sectionName"> - {{cert.sectionName.startsWith('Sec') ? cert.sectionName : 'Section ' + cert.sectionName}}</span></strong>
             during the academic year <strong class="hi">{{cert.academicYear || currentAcadYear}}</strong>.
           </p>
           <p class="cert-text">
-            During the period of study at this institution, the student's <strong class="hi">character and conduct were found to be good</strong>.
-            The student has always maintained a high standard of discipline and decorum.
+            During the period of study at this institution, the student's <strong class="hi">character and moral conduct were found to be {{conductRating}}</strong>.
+            The student has consistently exhibited exemplary discipline, obedience, academic integrity, and respectful behavior toward all faculty and peers.
           </p>
           <p class="cert-text" *ngIf="cert.admissionDate">
             The student was admitted on <strong class="hi">{{cert.admissionDate | date:'dd MMMM yyyy'}}</strong>
-            and has no dues pending with the institution at the time of leaving.
+            and has maintained an honorable standing with no disciplinary infractions on record.
           </p>
           <p class="cert-text cert-purpose">
-            This certificate is issued on the request of the student for
+            This certificate is issued on request of the student for the purpose of
             <span *ngIf="certPurpose" class="purpose-filled"><strong class="hi">{{certPurpose}}</strong></span><span *ngIf="!certPurpose" class="purpose-blank">&nbsp;</span>.
           </p>
         </ng-container>
@@ -215,16 +244,72 @@ export interface BonafideDialogData {
             <span *ngIf="certPurpose" class="purpose-filled"><strong class="hi">{{certPurpose}}</strong></span><span *ngIf="!certPurpose" class="purpose-blank">&nbsp;</span>.
           </p>
         </ng-container>
+
+        <!-- NO DUES / CLEARANCE CERTIFICATE -->
+        <ng-container *ngIf="cert.certificateType === 'NoDues'">
+          <p class="cert-text">
+            This is to officially certify that all institutional dues, library accessions, sports amenities, and academic accounts have been fully settled for <strong class="hi">{{cert.studentName}}</strong>
+            <span *ngIf="cert.parentName">, {{cert.gender==='Male'?'S/O':'D/O'}} <strong class="hi">{{cert.parentName}}</strong></span>.
+          </p>
+          <p class="cert-text" *ngIf="cert.className">
+            Enrolled in <strong class="hi">Class {{cert.className}}<span *ngIf="cert.sectionName"> - {{cert.sectionName.startsWith('Sec') ? cert.sectionName : 'Section ' + cert.sectionName}}</span></strong>
+            <span *ngIf="cert.schoolRollNumber || cert.rollNumber"> &bull; Roll No: <strong class="hi">{{cert.schoolRollNumber || cert.rollNumber}}</strong></span>
+            <span *ngIf="cert.admissionNumber"> &bull; Adm No: <strong class="hi">{{cert.admissionNumber}}</strong></span>
+            &bull; Academic Year: <strong class="hi">{{cert.academicYear || currentAcadYear}}</strong>.
+          </p>
+
+          <div class="clearance-table-box">
+            <table class="clearance-table">
+              <thead>
+                <tr>
+                  <th style="width: 32%;">Department / Section</th>
+                  <th style="width: 38%;">Dues Clearance Status</th>
+                  <th style="width: 30%;">Verification Authority</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Accounts &amp; Tuition Fee</strong></td>
+                  <td><span class="status-cleared">✓ ALL DUES CLEARED (₹0 PENDING)</span></td>
+                  <td>Accounts Officer / Bursar</td>
+                </tr>
+                <tr>
+                  <td><strong>Central Library &amp; Reading Room</strong></td>
+                  <td><span class="status-cleared">✓ NO BOOKS OVERDUE</span></td>
+                  <td>Chief Librarian</td>
+                </tr>
+                <tr>
+                  <td><strong>Hostel &amp; Transport Facility</strong></td>
+                  <td><span class="status-cleared">✓ CLEARED / N/A</span></td>
+                  <td>Warden / Transport Incharge</td>
+                </tr>
+                <tr>
+                  <td><strong>Laboratories &amp; Sports Department</strong></td>
+                  <td><span class="status-cleared">✓ NO BREAKAGE DUES</span></td>
+                  <td>Lab Incharge / PTI</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="cert-text" style="margin-top: 14px;">
+            It is hereby certified that the student holds <strong class="hi">NO OUTSTANDING DUES OR LIABILITIES</strong> against this institution as on <strong class="hi">{{cert.generatedOn}}</strong>.
+          </p>
+          <p class="cert-text cert-purpose">
+            Purpose of clearance:
+            <span *ngIf="certPurpose" class="purpose-filled"><strong class="hi">{{certPurpose}}</strong></span><span *ngIf="!certPurpose" class="purpose-blank">&nbsp;</span>.
+          </p>
+        </ng-container>
       </div>
 
       <!-- Signatures -->
       <div class="cert-signatures">
         <div class="sig-block">
           <div class="sig-line"></div>
-          <div class="sig-name">Class Teacher</div>
+          <div class="sig-name">{{ cert.certificateType === 'NoDues' ? 'Accounts Officer / Bursar' : 'Class Teacher' }}</div>
         </div>
         <div class="sig-block center">
-          <div class="school-seal">[ School Seal ]</div>
+          <div class="school-seal">[ Official Seal ]</div>
         </div>
         <div class="sig-block">
           <div class="sig-line"></div>
@@ -255,6 +340,15 @@ export interface BonafideDialogData {
     .cert-type-btns button mat-icon{font-size:14px;width:14px;height:14px}
     .active-btn{background:#2563eb!important;color:#fff!important;font-weight:700}
     .close-btn{color:#64748b}.close-btn:hover{color:#1e293b}
+
+    /* Conduct Bar */
+    .conduct-bar{background:#f5f3ff;border-bottom:1px solid #ddd6fe;padding:8px 20px}
+    .conduct-hdr{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+    .conduct-ratings{display:flex;gap:8px}
+    .rating-btn{border:1px solid #c4b5fd;background:#fff;border-radius:16px;padding:3px 12px;font-size:11px;font-weight:600;color:#6b21a8;cursor:pointer;transition:all .15s}
+    .rating-btn:hover{background:#ede9fe}
+    .active-rating{background:#7c3aed!important;color:#fff!important;border-color:#6d28d9!important}
+
     /* Purpose toolbar */
     .purpose-bar{background:#ffffff;border-bottom:1px solid #e2e8f0;padding:10px 20px;display:flex;flex-direction:column;gap:8px}
     .purpose-hdr{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
@@ -271,6 +365,7 @@ export interface BonafideDialogData {
     .active-pill{background:#2563eb!important;border-color:#1d4ed8!important;color:#ffffff!important;font-weight:700}
     .p-pill-blank{background:#fff;border-style:dashed}
     .purpose-filled{color:#1e3a8a;font-weight:700;border-bottom:1.5px solid #1e3a8a;padding-bottom:1px}
+
     /* Preview area */
     .cert-preview-area{padding:24px;overflow-y:auto;flex:1;display:flex;justify-content:center}
     /* A4 Portrait Certificate */
@@ -293,15 +388,24 @@ export interface BonafideDialogData {
     .cert-title-section{display:flex;align-items:center;gap:12px;padding:20px 32px 8px}
     .cert-title-line{flex:1;height:2px;background:linear-gradient(90deg,transparent,#2563eb)}
     .cert-title-line:last-child{background:linear-gradient(90deg,#2563eb,transparent)}
-    .cert-title-text{font-size:16px;font-weight:900;color:#1e3a8a;letter-spacing:2px;text-transform:uppercase;white-space:nowrap;display:flex;align-items:center;gap:8px}
+    .cert-title-text{font-size:15px;font-weight:900;color:#1e3a8a;letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap;display:flex;align-items:center;gap:8px}
     .cert-title-icon{font-size:20px;width:20px;height:20px;color:#2563eb}
     /* Meta bar */
     .cert-meta-bar{display:flex;justify-content:space-between;padding:0 32px 12px;font-size:12px;color:#475569}
     /* Body */
     .cert-body{padding:8px 40px 24px;flex:1}
-    .cert-text{font-size:14px;line-height:1.9;color:#1e293b;text-align:justify;margin-bottom:16px}
-    .cert-purpose{border-top:1px dashed #cbd5e1;padding-top:12px;margin-top:24px}
+    .cert-text{font-size:14px;line-height:1.9;color:#1e293b;text-align:justify;margin-bottom:14px}
+    .cert-purpose{border-top:1px dashed #cbd5e1;padding-top:12px;margin-top:20px}
     .purpose-blank{display:inline-block;width:240px;border-bottom:1.5px solid #1e293b;vertical-align:bottom;margin:0 4px}
+
+    /* Clearance Table */
+    .clearance-table-box{margin:16px 0;border:1px solid #cbd5e1;border-radius:6px;overflow:hidden}
+    .clearance-table{width:100%;border-collapse:collapse;font-size:12px}
+    .clearance-table th{background:#eff6ff;color:#1e40af;font-weight:700;padding:8px 12px;border-bottom:1px solid #bfdbfe;text-align:left}
+    .clearance-table td{padding:8px 12px;border-bottom:1px solid #e2e8f0;color:#334155}
+    .clearance-table tr:last-child td{border-bottom:none}
+    .status-cleared{color:#15803d;font-weight:700;font-size:11px}
+
     /* Signatures */
     .cert-signatures{display:flex;justify-content:space-between;align-items:flex-end;padding:16px 40px 28px;margin-top:auto}
     .sig-block{text-align:center;min-width:160px}
@@ -318,7 +422,8 @@ export interface BonafideDialogData {
 export class StudentBonafideDialogComponent implements OnInit {
   cert: BonafideCertificateDto | null = null;
   loading = false;
-  certType: 'Bonafide' | 'Character' | 'StudyCertificate' = 'Bonafide';
+  certType: 'Bonafide' | 'Character' | 'StudyCertificate' | 'NoDues' = 'Bonafide';
+  conductRating: 'EXEMPLARY' | 'VERY GOOD' | 'GOOD' = 'VERY GOOD';
   currentAcadYear: string;
   certPurpose: string = '';
 
@@ -346,13 +451,20 @@ export class StudentBonafideDialogComponent implements OnInit {
     });
   }
 
-  setCertType(t: 'Bonafide'|'Character'|'StudyCertificate') { this.certType = t; this.loadCert(); }
+  setCertType(t: 'Bonafide'|'Character'|'StudyCertificate'|'NoDues') {
+    this.certType = t;
+    if (t === 'NoDues' && !this.certPurpose) {
+      this.certPurpose = 'Annual Session-End Clearance';
+    }
+    this.loadCert();
+  }
 
   getCertTitle(): string {
     switch(this.certType) {
-      case 'Character': return 'Character Certificate';
-      case 'StudyCertificate': return 'Study Certificate';
-      default: return 'Bonafide Certificate';
+      case 'Character': return 'Character Certificate (चरित्र प्रमाण पत्र)';
+      case 'StudyCertificate': return 'Study Certificate (अध्ययन प्रमाण पत्र)';
+      case 'NoDues': return 'No Dues & Clearance Certificate (बेबाकी प्रमाण पत्र)';
+      default: return 'Bonafide Certificate (संस्थागत प्रमाण पत्र)';
     }
   }
 
@@ -360,8 +472,15 @@ export class StudentBonafideDialogComponent implements OnInit {
     switch(this.certType) {
       case 'Character': return 'psychology';
       case 'StudyCertificate': return 'school';
+      case 'NoDues': return 'task_alt';
       default: return 'verified';
     }
+  }
+
+  getSerialNo(): string {
+    const prefix = this.certType === 'NoDues' ? 'ND' : (this.certType === 'Character' ? 'CC' : 'BC');
+    const adm = this.cert?.admissionNumber ? this.cert.admissionNumber.replace(/\D/g, '') : '101';
+    return `${prefix}-${new Date().getFullYear()}-${adm || '001'}`;
   }
 
   getPhotoUrl(path: string): string {

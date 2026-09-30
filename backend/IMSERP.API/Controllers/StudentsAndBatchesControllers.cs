@@ -2090,7 +2090,8 @@ public class StudentsController : ControllerBase
             affCode,
             null, // affiliation number can be expanded later
             certType,
-            DateTime.UtcNow.ToString("dd MMMM yyyy")
+            DateTime.UtcNow.ToString("dd MMMM yyyy"),
+            s.RollNumber
         );
 
         return Ok(cert);
@@ -2156,28 +2157,36 @@ public class StudentsController : ControllerBase
 
         if (student == null) return NotFound(new { message = "Student not found." });
 
-        // 1. Linked Siblings
-        var siblings = new List<StudentSibling360Dto>();
-        if (!string.IsNullOrWhiteSpace(student.ParentWhatsAppPhone))
-        {
-            var phoneTrimmed = student.ParentWhatsAppPhone.Trim();
-            siblings = await _dbContext.Students.AsNoTracking()
-                .Include(s => s.Class)
-                .Include(s => s.Section)
-                .Include(s => s.Batch)
-                .Where(s => s.Id != student.Id && s.ParentWhatsAppPhone == phoneTrimmed)
-                .Select(s => new StudentSibling360Dto(
-                    s.Id,
-                    s.StudentName,
-                    s.RollNumber,
-                    s.Class != null ? s.Class.Name : null,
-                    s.Section != null ? s.Section.Name : null,
-                    s.Batch != null ? s.Batch.Name : null,
-                    s.ProfilePhoto,
-                    s.IsActive
-                ))
-                .ToListAsync();
-        }
+        // 1. Linked Siblings (from explicit StudentSiblings table + matching Parent Phone)
+        var explicitSiblingLinks = await _dbContext.StudentSiblings.AsNoTracking()
+            .Where(s => s.StudentId == id || s.SiblingStudentId == id)
+            .ToListAsync();
+        var explicitIds = explicitSiblingLinks
+            .Select(l => l.StudentId == id ? l.SiblingStudentId : l.StudentId)
+            .ToHashSet();
+
+        var phoneTrimmed = !string.IsNullOrWhiteSpace(student.ParentWhatsAppPhone) ? student.ParentWhatsAppPhone.Trim() : null;
+
+        var siblingStudents = await _dbContext.Students.AsNoTracking()
+            .Include(s => s.Class)
+            .Include(s => s.Section)
+            .Include(s => s.Batch)
+            .Where(s => s.Id != student.Id && (
+                explicitIds.Contains(s.Id) ||
+                (phoneTrimmed != null && s.ParentWhatsAppPhone == phoneTrimmed)
+            ))
+            .ToListAsync();
+
+        var siblings = siblingStudents.Select(s => new StudentSibling360Dto(
+            s.Id,
+            s.StudentName,
+            s.SchoolRollNumber ?? s.RollNumber,
+            s.Class != null ? s.Class.Name : null,
+            s.Section != null ? s.Section.Name : null,
+            s.Batch != null ? s.Batch.Name : null,
+            s.ProfilePhoto,
+            s.IsActive
+        )).ToList();
 
         // 2. Fee Summary & Recent Invoices
         var invoices = await _dbContext.FeeInvoices.AsNoTracking()
@@ -2521,6 +2530,7 @@ public class StudentsController : ControllerBase
             student.Section?.ClassTeacher?.PhoneNumber,
             student.BatchId,
             student.Batch?.Name,
+            student.Batch?.Subject,
             student.ParentName,
             student.ParentWhatsAppPhone,
             student.MotherName,
@@ -2926,6 +2936,266 @@ public class StudentsController : ControllerBase
             health.EmergencyDoctorPhone,
             health.LastCheckupDate,
             health.DoctorRemarks
+        ));
+    }
+
+    // =========================================================================
+    // FEATURE 1: SIBLING & FAMILY MAPPING
+    // =========================================================================
+
+    [HttpGet("{id}/siblings")]
+    public async Task<ActionResult<List<StudentSiblingDto>>> GetStudentSiblings(Guid id)
+    {
+        var links = await _dbContext.StudentSiblings
+            .AsNoTracking()
+            .Where(s => s.StudentId == id || s.SiblingStudentId == id)
+            .ToListAsync();
+
+        if (!links.Any()) return Ok(new List<StudentSiblingDto>());
+
+        var siblingStudentIds = links
+            .Select(l => l.StudentId == id ? l.SiblingStudentId : l.StudentId)
+            .Distinct()
+            .ToList();
+
+        var siblingStudents = await _dbContext.Students
+            .AsNoTracking()
+            .Include(st => st.Class)
+            .Include(st => st.Section)
+            .Include(st => st.Batch)
+            .Where(st => siblingStudentIds.Contains(st.Id))
+            .ToDictionaryAsync(st => st.Id);
+
+        var duesByStudent = await _dbContext.FeeInvoices
+            .AsNoTracking()
+            .Where(f => siblingStudentIds.Contains(f.StudentId) && f.Status != InvoiceStatus.Paid && f.Status != InvoiceStatus.Cancelled)
+            .GroupBy(f => f.StudentId)
+            .Select(g => new { StudentId = g.Key, TotalDue = g.Sum(f => f.TotalAmount - f.PaidAmount) })
+            .ToDictionaryAsync(x => x.StudentId, x => x.TotalDue);
+
+        var result = new List<StudentSiblingDto>();
+        var seenSiblingIds = new HashSet<Guid>();
+
+        foreach (var link in links)
+        {
+            var targetId = link.StudentId == id ? link.SiblingStudentId : link.StudentId;
+            if (!seenSiblingIds.Add(targetId) || !siblingStudents.TryGetValue(targetId, out var targetStudent)) continue;
+
+            duesByStudent.TryGetValue(targetId, out var dues);
+
+            result.Add(new StudentSiblingDto(
+                link.Id,
+                id,
+                targetStudent.Id,
+                targetStudent.StudentName,
+                targetStudent.AdmissionNumber,
+                targetStudent.Class?.Name,
+                targetStudent.Section?.Name,
+                targetStudent.Batch?.Name,
+                targetStudent.SchoolRollNumber,
+                targetStudent.RollNumber,
+                targetStudent.Gender,
+                targetStudent.ProfilePhoto,
+                link.Relationship,
+                link.DiscountPercent,
+                targetStudent.ParentName,
+                targetStudent.ParentWhatsAppPhone,
+                dues,
+                link.Notes,
+                link.CreatedAt
+            ));
+        }
+
+        return Ok(result);
+    }
+
+    [HttpPost("{id}/siblings")]
+    public async Task<ActionResult<StudentSiblingDto>> AddStudentSibling(Guid id, [FromBody] AddStudentSiblingDto dto)
+    {
+        if (id == dto.SiblingStudentId)
+            return BadRequest(new { message = "A student cannot be added as their own sibling." });
+
+        var student = await _dbContext.Students.FirstOrDefaultAsync(s => s.Id == id);
+        if (student == null) return NotFound(new { message = "Primary student not found." });
+
+        var siblingStudent = await _dbContext.Students
+            .Include(s => s.Class)
+            .Include(s => s.Section)
+            .Include(s => s.Batch)
+            .FirstOrDefaultAsync(s => s.Id == dto.SiblingStudentId);
+        if (siblingStudent == null) return NotFound(new { message = "Sibling student not found." });
+
+        var alreadyLinked = await _dbContext.StudentSiblings.AnyAsync(s => 
+            (s.StudentId == id && s.SiblingStudentId == dto.SiblingStudentId) ||
+            (s.StudentId == dto.SiblingStudentId && s.SiblingStudentId == id));
+        if (alreadyLinked)
+            return BadRequest(new { message = "These students are already linked as siblings." });
+
+        var link = new StudentSibling
+        {
+            Id = Guid.NewGuid(),
+            TenantId = _currentUser.TenantId,
+            BranchId = _currentUser.BranchId ?? student.BranchId,
+            StudentId = id,
+            SiblingStudentId = dto.SiblingStudentId,
+            Relationship = string.IsNullOrWhiteSpace(dto.Relationship) ? "Brother" : dto.Relationship.Trim(),
+            DiscountPercent = dto.DiscountPercent,
+            Notes = dto.Notes?.Trim(),
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _dbContext.StudentSiblings.Add(link);
+        await _dbContext.SaveChangesAsync();
+
+        var dues = await _dbContext.FeeInvoices
+            .AsNoTracking()
+            .Where(f => f.StudentId == siblingStudent.Id && f.Status != InvoiceStatus.Paid && f.Status != InvoiceStatus.Cancelled)
+            .SumAsync(f => (decimal?)(f.TotalAmount - f.PaidAmount)) ?? 0m;
+
+        return Ok(new StudentSiblingDto(
+            link.Id,
+            id,
+            siblingStudent.Id,
+            siblingStudent.StudentName,
+            siblingStudent.AdmissionNumber,
+            siblingStudent.Class?.Name,
+            siblingStudent.Section?.Name,
+            siblingStudent.Batch?.Name,
+            siblingStudent.SchoolRollNumber,
+            siblingStudent.RollNumber,
+            siblingStudent.Gender,
+            siblingStudent.ProfilePhoto,
+            link.Relationship,
+            link.DiscountPercent,
+            siblingStudent.ParentName,
+            siblingStudent.ParentWhatsAppPhone,
+            dues,
+            link.Notes,
+            link.CreatedAt
+        ));
+    }
+
+    [HttpDelete("siblings/{linkId}")]
+    public async Task<IActionResult> DeleteStudentSibling(Guid linkId)
+    {
+        var link = await _dbContext.StudentSiblings.FirstOrDefaultAsync(s => s.Id == linkId);
+        if (link == null) return NotFound(new { message = "Sibling linkage not found." });
+
+        _dbContext.StudentSiblings.Remove(link);
+        await _dbContext.SaveChangesAsync();
+        return Ok(new { message = "Sibling linkage removed successfully." });
+    }
+
+    [HttpGet("search-for-sibling")]
+    public async Task<ActionResult<List<SiblingCandidateSearchDto>>> SearchStudentsForSibling(
+        [FromQuery] string query,
+        [FromQuery] Guid? excludeStudentId)
+    {
+        if (string.IsNullOrWhiteSpace(query) || query.Trim().Length < 2)
+            return Ok(new List<SiblingCandidateSearchDto>());
+
+        var q = query.Trim().ToLower();
+        var students = await _dbContext.Students
+            .AsNoTracking()
+            .Include(s => s.Class)
+            .Include(s => s.Section)
+            .Where(s => s.IsActive &&
+                (!excludeStudentId.HasValue || s.Id != excludeStudentId.Value) &&
+                (s.StudentName.ToLower().Contains(q) ||
+                 (s.AdmissionNumber != null && s.AdmissionNumber.ToLower().Contains(q)) ||
+                 (s.ParentWhatsAppPhone != null && s.ParentWhatsAppPhone.Contains(q)) ||
+                 (s.ParentName != null && s.ParentName.ToLower().Contains(q))))
+            .Take(15)
+            .Select(s => new SiblingCandidateSearchDto(
+                s.Id,
+                s.StudentName,
+                s.AdmissionNumber,
+                s.Class != null ? s.Class.Name : null,
+                s.Section != null ? s.Section.Name : null,
+                s.RollNumber,
+                s.SchoolRollNumber,
+                s.ParentName,
+                s.ParentWhatsAppPhone,
+                s.Gender,
+                s.ProfilePhoto
+            ))
+            .ToListAsync();
+
+        return Ok(students);
+    }
+
+    // =========================================================================
+    // FEATURE 2: CLASS ROLL NUMBER RE-SEQUENCER
+    // =========================================================================
+
+    [HttpPost("resequence-roll-numbers")]
+    public async Task<ActionResult<ResequenceRollNumbersResultDto>> ResequenceRollNumbers([FromBody] ResequenceRollNumbersRequestDto dto)
+    {
+        var query = _dbContext.Students
+            .Where(s => s.IsActive && s.ClassId == dto.ClassId);
+
+        if (dto.SectionId.HasValue && dto.SectionId.Value != Guid.Empty)
+        {
+            query = query.Where(s => s.SectionId == dto.SectionId.Value);
+        }
+
+        var students = await query.ToListAsync();
+        if (!students.Any())
+        {
+            return Ok(new ResequenceRollNumbersResultDto(0, 0, dto.IsDryRun, dto.SortRule, new List<StudentRollNumberPreviewItemDto>()));
+        }
+
+        IEnumerable<Student> sorted = dto.SortRule?.ToLower() switch
+        {
+            "gender_alphabetical" => students
+                .OrderBy(s => (s.Gender?.ToLower() == "female" || s.Gender?.ToLower() == "girl") ? 0 : 1)
+                .ThenBy(s => s.StudentName, StringComparer.OrdinalIgnoreCase),
+            "admission_date" => students
+                .OrderBy(s => s.JoiningDate)
+                .ThenBy(s => s.StudentName, StringComparer.OrdinalIgnoreCase),
+            "admission_no" => students
+                .OrderBy(s => s.AdmissionNumber ?? "")
+                .ThenBy(s => s.StudentName, StringComparer.OrdinalIgnoreCase),
+            _ => students
+                .OrderBy(s => s.StudentName, StringComparer.OrdinalIgnoreCase)
+        };
+
+        var previewItems = new List<StudentRollNumberPreviewItemDto>();
+        var prefix = dto.Prefix?.Trim() ?? "";
+        int currentNumber = Math.Max(1, dto.StartFrom);
+
+        foreach (var student in sorted)
+        {
+            var newRoll = string.IsNullOrEmpty(prefix) ? currentNumber.ToString() : $"{prefix}{currentNumber}";
+            previewItems.Add(new StudentRollNumberPreviewItemDto(
+                student.Id,
+                student.StudentName,
+                student.AdmissionNumber,
+                student.Gender,
+                student.SchoolRollNumber ?? student.RollNumber,
+                newRoll
+            ));
+
+            if (!dto.IsDryRun)
+            {
+                student.SchoolRollNumber = newRoll;
+                student.RollNumber = newRoll;
+            }
+
+            currentNumber++;
+        }
+
+        if (!dto.IsDryRun)
+        {
+            await _dbContext.SaveChangesAsync();
+        }
+
+        return Ok(new ResequenceRollNumbersResultDto(
+            previewItems.Count,
+            dto.IsDryRun ? 0 : previewItems.Count,
+            dto.IsDryRun,
+            dto.SortRule ?? "alphabetical",
+            previewItems
         ));
     }
 }

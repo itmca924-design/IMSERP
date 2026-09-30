@@ -143,6 +143,24 @@ using (var scope = app.Services.CreateScope())
                         ALTER TABLE Tests ADD AcademicYear NVARCHAR(MAX) NULL;
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tests') AND name = 'PassingMarks')
                         ALTER TABLE Tests ADD PassingMarks DECIMAL(18,2) NOT NULL DEFAULT 33;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tests') AND name = 'EvaluatorTeacherId')
+                        ALTER TABLE Tests ADD EvaluatorTeacherId UNIQUEIDENTIFIER NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tests') AND name = 'EvaluationStatus')
+                        ALTER TABLE Tests ADD EvaluationStatus NVARCHAR(50) NOT NULL DEFAULT 'Scheduled';
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tests') AND name = 'EvaluationDueDate')
+                        ALTER TABLE Tests ADD EvaluationDueDate DATETIME2 NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tests') AND name = 'TotalCopiesIssued')
+                        ALTER TABLE Tests ADD TotalCopiesIssued INT NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tests') AND name = 'CopiesSubmittedDate')
+                        ALTER TABLE Tests ADD CopiesSubmittedDate DATETIME2 NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tests') AND name = 'IsMarksLocked')
+                        ALTER TABLE Tests ADD IsMarksLocked BIT NOT NULL DEFAULT 0;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tests') AND name = 'MarksLockedAt')
+                        ALTER TABLE Tests ADD MarksLockedAt DATETIME2 NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tests') AND name = 'MarksLockedBy')
+                        ALTER TABLE Tests ADD MarksLockedBy NVARCHAR(150) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tests') AND name = 'EvaluationRemarks')
+                        ALTER TABLE Tests ADD EvaluationRemarks NVARCHAR(500) NULL;
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('FeeInvoices') AND name = 'ClassId')
                         ALTER TABLE FeeInvoices ADD ClassId UNIQUEIDENTIFIER NULL;
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('FeeInvoices') AND name = 'SectionId')

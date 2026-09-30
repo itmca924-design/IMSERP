@@ -807,7 +807,8 @@ export class SchoolClassesComponent implements OnInit {
         className: parentClass.name,
         currentClassTeacherId: section.classTeacherId,
         currentClassTeacherName: section.classTeacherName,
-        teachers: this.teachers
+        teachers: this.teachers,
+        classes: this.classes
       }
     });
 

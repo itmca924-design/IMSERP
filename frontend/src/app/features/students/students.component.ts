@@ -29,6 +29,7 @@ import { ManageLibraryPlansDialogComponent } from '../library/manage-library-pla
 import { StudentIdCardDialogComponent } from './student-id-card-dialog.component';
 import { StudentBonafideDialogComponent } from './student-bonafide-dialog.component';
 import { StudentProfile360DialogComponent } from './student-profile-360-dialog.component';
+import { StudentRollSequencerDialogComponent } from './student-roll-sequencer-dialog.component';
 import { AuthService } from '../../core/services/auth.service';
 
 const API_BASE = 'http://localhost:5000';
@@ -55,7 +56,8 @@ const API_BASE = 'http://localhost:5000';
     MatTooltipModule,
     MatCheckboxModule,
     MatDialogModule,
-    StudentProfile360DialogComponent
+    StudentProfile360DialogComponent,
+    StudentRollSequencerDialogComponent
   ],
   template: `
     <div class="students-wrapper">
@@ -79,6 +81,9 @@ const API_BASE = 'http://localhost:5000';
           <a *ngIf="authService.hasSchoolModule() && !authService.isTeacher()" mat-stroked-button routerLink="/school/classes" class="classes-link-btn">
             <mat-icon>domain</mat-icon> Classes &amp; Sections
           </a>
+          <button *ngIf="authService.hasSchoolModule() && !authService.isTeacher()" mat-stroked-button class="sequencer-link-btn" (click)="openRollSequencer()" style="border-color:#bfdbfe; color:#1e40af; font-weight:600; background:#eff6ff;" matTooltip="Auto-generate or re-sequence roll numbers for any class">
+            <mat-icon style="color:#2563eb;">format_list_numbered</mat-icon> Roll No. Sequencer
+          </button>
           <button *ngIf="!authService.isTeacher()" mat-raised-button color="primary" class="add-btn" (click)="toggleForm()">
             <mat-icon>{{ showForm ? 'close' : 'person_add' }}</mat-icon>
             <span>{{ showForm ? 'Cancel' : (isEditMode ? 'Edit Student' : 'New Admission') }}</span>
@@ -2517,6 +2522,28 @@ export class StudentsComponent implements OnInit, OnDestroy {
       panelClass: 'cert-modal-container',
       disableClose: false,
       data: { student }
+    });
+  }
+
+  // ── Class Roll Number Re-Sequencer Dialog ───────────────────
+  openRollSequencer(): void {
+    const dialogRef = this.dialog.open(StudentRollSequencerDialogComponent, {
+      width: '900px',
+      maxWidth: '96vw',
+      maxHeight: '92vh',
+      panelClass: 'cert-modal-container',
+      disableClose: false,
+      data: {
+        schoolClasses: this.schoolClasses,
+        selectedClassId: this.selectedClassFilter,
+        selectedSectionId: this.selectedSectionFilter
+      }
+    });
+
+    dialogRef.afterClosed().subscribe((changed) => {
+      if (changed) {
+        this.loadStudents();
+      }
     });
   }
 

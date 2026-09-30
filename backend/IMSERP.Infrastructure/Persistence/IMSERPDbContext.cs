@@ -95,10 +95,28 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
     public DbSet<StudentDisciplinaryRecord> StudentDisciplinaryRecords => Set<StudentDisciplinaryRecord>();
     public DbSet<StudentPtmRecord> StudentPtmRecords => Set<StudentPtmRecord>();
     public DbSet<StudentHealthRecord> StudentHealthRecords => Set<StudentHealthRecord>();
+    public DbSet<StudentSibling> StudentSiblings => Set<StudentSibling>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<StudentSibling>(entity =>
+        {
+            entity.HasOne(s => s.Student)
+                .WithMany(st => st.Siblings)
+                .HasForeignKey(s => s.StudentId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(s => s.SiblingStudent)
+                .WithMany()
+                .HasForeignKey(s => s.SiblingStudentId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<StudentSibling>().HasQueryFilter(x => 
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
 
         modelBuilder.Entity<StudentAchievement>().HasQueryFilter(x => 
             (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
