@@ -908,6 +908,52 @@ using (var scope = app.Services.CreateScope())
                             ALTER TABLE StudentLeaves ADD IsCancellationApproved BIT NULL;
                         END
                     END
+
+                    -- Study Material & Question Bank Repository (Digital Notes & PYQ)
+                    IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'StudyMaterials')
+                    BEGIN
+                        CREATE TABLE StudyMaterials (
+                            Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
+                            TenantId UNIQUEIDENTIFIER NOT NULL,
+                            BranchId UNIQUEIDENTIFIER NULL,
+                            Title NVARCHAR(300) NOT NULL,
+                            Description NVARCHAR(MAX) NULL,
+                            TargetScope NVARCHAR(50) NOT NULL DEFAULT 'Both', -- Both | School | Coaching
+                            ClassId UNIQUEIDENTIFIER NULL,
+                            SectionId UNIQUEIDENTIFIER NULL,
+                            BatchId UNIQUEIDENTIFIER NULL,
+                            SubjectId UNIQUEIDENTIFIER NULL,
+                            Subject NVARCHAR(150) NOT NULL DEFAULT '',
+                            MaterialType NVARCHAR(50) NOT NULL DEFAULT 'Notes', -- Notes | PYQ | QuestionBank | FormulaSheet | SamplePaper | Syllabus
+                            ChapterName NVARCHAR(200) NULL,
+                            Topic NVARCHAR(200) NULL,
+                            AcademicYear NVARCHAR(50) NULL,
+                            TargetExam NVARCHAR(100) NULL,
+                            ExamYear NVARCHAR(50) NULL,
+                            HasSolutions BIT NOT NULL DEFAULT 0,
+                            DifficultyLevel NVARCHAR(50) NULL,
+                            FileUrl NVARCHAR(1000) NOT NULL,
+                            FileName NVARCHAR(300) NOT NULL,
+                            FileSizeBytes BIGINT NOT NULL DEFAULT 0,
+                            FileFormat NVARCHAR(50) NOT NULL DEFAULT 'pdf',
+                            ExternalLink NVARCHAR(1000) NULL,
+                            SolutionFileUrl NVARCHAR(1000) NULL,
+                            SolutionFileName NVARCHAR(300) NULL,
+                            UploadedByName NVARCHAR(150) NOT NULL DEFAULT '',
+                            UploadedByUserId UNIQUEIDENTIFIER NULL,
+                            DownloadCount INT NOT NULL DEFAULT 0,
+                            ViewCount INT NOT NULL DEFAULT 0,
+                            IsPublished BIT NOT NULL DEFAULT 1,
+                            IsFeatured BIT NOT NULL DEFAULT 0,
+                            CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+                            UpdatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
+                        );
+
+                        CREATE INDEX IX_StudyMaterials_Tenant_Scope ON StudyMaterials (TenantId, TargetScope, MaterialType, IsPublished);
+                        CREATE INDEX IX_StudyMaterials_Class_Batch ON StudyMaterials (TenantId, ClassId, BatchId);
+                        CREATE INDEX IX_StudyMaterials_Subject ON StudyMaterials (TenantId, Subject);
+                        CREATE INDEX IX_StudyMaterials_CreatedAt ON StudyMaterials (TenantId, CreatedAt DESC);
+                    END
                 ");
             }
             catch (Exception ex)

@@ -52,6 +52,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/students/my-student-profile.component').then(m => m.MyStudentProfileComponent)
       },
       {
+        path: 'students/timetable',
+        loadComponent: () => import('./features/students/student-timetable.component').then(m => m.StudentTimetableComponent)
+      },
+      {
         path: 'students/attendance',
         loadComponent: () => import('./features/students/student-attendance.component').then(m => m.StudentAttendanceComponent)
       },
@@ -153,6 +157,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/fees/fees.component').then(m => m.FeesComponent)
       },
       {
+        path: 'study-materials',
+        loadComponent: () => import('./features/study-materials/study-materials.component').then(m => m.StudyMaterialsComponent)
+      },
+      {
         path: 'fee-heads',
         loadComponent: () => import('./features/fee-heads/fee-heads.component').then(m => m.FeeHeadsComponent)
       },
@@ -248,6 +256,9 @@ export const routes: Routes = [
       { path: 'school-exams', redirectTo: 'school/exams', pathMatch: 'full' },
       { path: 'homework-diary', redirectTo: 'school/homework', pathMatch: 'full' },
       { path: 'teacher-substitution', redirectTo: 'teachers/substitution', pathMatch: 'full' },
+      { path: 'academic/study-materials', redirectTo: 'study-materials', pathMatch: 'full' },
+      { path: 'pyq-bank', redirectTo: 'study-materials', pathMatch: 'full' },
+      { path: 'notes', redirectTo: 'study-materials', pathMatch: 'full' },
     ]
   },
   { path: '**', redirectTo: 'dashboard' }

@@ -11,7 +11,8 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { 
   CoachingService, 
   Student360Data, 
-  StudentAchievementDto 
+  StudentAchievementDto,
+  StudentWeeklyTimetableDto 
 } from '../../core/services/coaching.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
@@ -51,6 +52,9 @@ const API_BASE = 'http://localhost:5000';
           </div>
         </div>
         <div class="header-actions" *ngIf="data360">
+          <a mat-stroked-button class="print-medical-btn" routerLink="/students/timetable" style="color: #0ea5e9; border-color: #bae6fd;">
+            <mat-icon>calendar_view_week</mat-icon> Class Timetable &amp; Routine
+          </a>
           <button mat-stroked-button class="print-medical-btn" (click)="openRegularizationDialog()" style="color: #2563eb; border-color: #bfdbfe;">
             <mat-icon>edit_calendar</mat-icon> Request Regularization
           </button>
@@ -142,6 +146,62 @@ const API_BASE = 'http://localhost:5000';
         <!-- Tabbed Sections Navigation -->
         <div class="tabs-wrapper">
           <mat-tab-group [(selectedIndex)]="activeTabIndex" animationDuration="250ms">
+
+            <!-- TAB: 📅 CLASS TIMETABLE & ROUTINE -->
+            <mat-tab>
+              <ng-template mat-tab-label>
+                <mat-icon class="tab-icon">calendar_view_week</mat-icon> Timetable &amp; Routine
+              </ng-template>
+              <div class="tab-body-container">
+                <div class="section-title-bar">
+                  <div>
+                    <h3 class="sec-title">Today's Class Schedule &amp; Routine ({{ timetableMiniData?.todayDayOfWeek || 'Today' }})</h3>
+                    <p class="sec-sub">Live periods, classroom allocation, assigned faculty and proxy notices</p>
+                  </div>
+                  <div class="sec-actions">
+                    <a mat-raised-button color="primary" class="primary-gradient-btn" routerLink="/students/timetable">
+                      <mat-icon>open_in_new</mat-icon> Full Timetable Portal
+                    </a>
+                  </div>
+                </div>
+
+                <!-- Timetable Mini Content -->
+                <div class="mini-timetable-container">
+                  <div class="mini-periods-grid" *ngIf="timetableMiniData?.todayPeriods?.length">
+                    <div 
+                      class="mini-period-card" 
+                      *ngFor="let s of timetableMiniData?.todayPeriods" 
+                      [class.live-card]="s.isLiveNow"
+                      [class.completed-card]="s.isCompleted"
+                      [class.proxy-card]="s.isSubstituted">
+                      <div class="mpc-top">
+                        <span class="mpc-pnum">P{{ s.periodNumber }}</span>
+                        <span class="mpc-time">{{ s.timeSlot }}</span>
+                        <span class="mpc-live-tag" *ngIf="s.isLiveNow">● LIVE</span>
+                        <span class="mpc-proxy-tag" *ngIf="s.isSubstituted">PROXY</span>
+                      </div>
+                      <h4 class="mpc-subject">{{ s.subject }}</h4>
+                      <div class="mpc-meta">
+                        <span class="mpc-teacher"><mat-icon>person</mat-icon> {{ s.teacherName }}</span>
+                        <span class="mpc-room"><mat-icon>meeting_room</mat-icon> Room {{ s.roomNumber }}</span>
+                      </div>
+                      <div class="mpc-sub-notice" *ngIf="s.isSubstituted">
+                        <small>Proxy: <strong>{{ s.substituteTeacherName }}</strong></small>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="empty-state-card" *ngIf="!timetableMiniData?.todayPeriods?.length">
+                    <mat-icon class="empty-icon">calendar_month</mat-icon>
+                    <h4>No Classes Scheduled Today</h4>
+                    <p>No lectures are scheduled for today. You can view the master schedule for the full week.</p>
+                    <a mat-stroked-button color="primary" routerLink="/students/timetable" style="margin-top: 10px;">
+                      <mat-icon>grid_view</mat-icon> Open Full Routine Matrix
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </mat-tab>
 
             <!-- TAB 1: 🏆 WALL OF FAME (Feature 1) -->
             <mat-tab>
@@ -2215,6 +2275,104 @@ const API_BASE = 'http://localhost:5000';
       font-style: italic;
     }
 
+    /* Embedded Timetable Mini Cards */
+    .mini-timetable-container {
+      margin-top: 1rem;
+    }
+    .mini-periods-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 1rem;
+    }
+    .mini-period-card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      transition: all 0.15s;
+    }
+    .mini-period-card:hover {
+      border-color: #cbd5e1;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+    }
+    .mini-period-card.live-card {
+      border-color: #10b981;
+      background: #f0fdf4;
+      box-shadow: 0 4px 14px rgba(16,185,129,0.15);
+    }
+    .mini-period-card.completed-card {
+      opacity: 0.75;
+      background: #f8fafc;
+    }
+    .mini-period-card.proxy-card {
+      border-left: 4px solid #f59e0b;
+    }
+    .mpc-top {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .mpc-pnum {
+      font-size: 0.95rem;
+      font-weight: 800;
+      color: #0f172a;
+    }
+    .mpc-time {
+      font-size: 0.75rem;
+      color: #64748b;
+      margin-right: auto;
+    }
+    .mpc-live-tag {
+      font-size: 0.65rem;
+      font-weight: 800;
+      background: #dcfce7;
+      color: #15803d;
+      padding: 1px 6px;
+      border-radius: 4px;
+    }
+    .mpc-proxy-tag {
+      font-size: 0.65rem;
+      font-weight: 800;
+      background: #fef3c7;
+      color: #b45309;
+      padding: 1px 6px;
+      border-radius: 4px;
+    }
+    .mpc-subject {
+      margin: 0;
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: #1e3a8a;
+    }
+    .mpc-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.8rem;
+      color: #475569;
+    }
+    .mpc-teacher, .mpc-room {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+    }
+    .mpc-teacher mat-icon, .mpc-room mat-icon {
+      font-size: 14px;
+      width: 14px;
+      height: 14px;
+      color: #64748b;
+    }
+    .mpc-sub-notice {
+      background: #fffbeb;
+      border-radius: 6px;
+      padding: 4px 8px;
+      font-size: 0.75rem;
+      color: #92400e;
+    }
+
     @media print {
       body * { visibility: hidden; }
       #printCertificateArea, #printCertificateArea *,
@@ -2234,6 +2392,7 @@ export class MyStudentProfileComponent implements OnInit {
   loading = true;
   activeTabIndex = 0;
 
+  timetableMiniData: StudentWeeklyTimetableDto | null = null;
   activeCertificateModal: StudentAchievementDto | null = null;
   showPrintMedicalCard = false;
 
@@ -2252,6 +2411,16 @@ export class MyStudentProfileComponent implements OnInit {
   ngOnInit(): void {
     this.loadProfile();
     this.loadMyRegularizations();
+    this.loadMiniTimetable();
+  }
+
+  loadMiniTimetable(): void {
+    this.coachingService.getMyTimetable().subscribe({
+      next: (res) => {
+        this.timetableMiniData = res;
+      },
+      error: () => {}
+    });
   }
 
   loadProfile(): void {

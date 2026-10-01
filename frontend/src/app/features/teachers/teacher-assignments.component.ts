@@ -32,7 +32,8 @@ export interface AssignmentSlot {
   batchId: string;
   classId?: string;
   sectionId?: string;
-  selectedSubjects: string[];
+  subject: string;
+  selectedSubjects?: string[];
   selectedDays: string[];
   timeSlotMode: 'preset' | 'custom';
   presetSlot: string;
@@ -472,12 +473,8 @@ export interface AssignmentSlot {
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="field-subject">
-                <mat-label>Subject(s) * (Multi-Select)</mat-label>
-                <mat-select [(ngModel)]="slot.selectedSubjects" multiple (selectionChange)="checkClashes()">
-                  <mat-select-trigger>
-                    <span class="trigger-chip" *ngFor="let s of slot.selectedSubjects">{{s}}</span>
-                    <span *ngIf="!slot.selectedSubjects || slot.selectedSubjects.length === 0" class="placeholder-trigger">Select Subject(s)</span>
-                  </mat-select-trigger>
+                <mat-label>Teaching Subject *</mat-label>
+                <mat-select [(ngModel)]="slot.subject" (selectionChange)="onSubjectChanged(slot)" placeholder="Select Subject">
                   <mat-option *ngFor="let sub of subjects" [value]="sub.name">
                     <span class="sub-name">{{sub.name}}</span>
                     <span class="sub-code" *ngIf="sub.code">[{{sub.code}}]</span>
@@ -506,12 +503,8 @@ export interface AssignmentSlot {
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="field-subject">
-                <mat-label>Subject(s) * (Multi-Select)</mat-label>
-                <mat-select [(ngModel)]="slot.selectedSubjects" multiple (selectionChange)="checkClashes()">
-                  <mat-select-trigger>
-                    <span class="trigger-chip" *ngFor="let s of slot.selectedSubjects">{{s}}</span>
-                    <span *ngIf="!slot.selectedSubjects || slot.selectedSubjects.length === 0" class="placeholder-trigger">Select Subject(s)</span>
-                  </mat-select-trigger>
+                <mat-label>Teaching Subject *</mat-label>
+                <mat-select [(ngModel)]="slot.subject" (selectionChange)="onSubjectChanged(slot)" placeholder="Select Subject">
                   <mat-option *ngFor="let sub of subjects" [value]="sub.name">
                     <span class="sub-name">{{sub.name}}</span>
                     <span class="sub-code" *ngIf="sub.code">[{{sub.code}}]</span>
@@ -3254,13 +3247,22 @@ export class TeacherAssignmentsComponent implements OnInit {
   }
 
   createNewSlot(): AssignmentSlot {
+    let defaultSubject = '';
+    if (this.selectedTeacher?.specialization) {
+      const match = this.subjects.find(s => s.name.toLowerCase() === this.selectedTeacher!.specialization!.toLowerCase());
+      if (match) {
+        defaultSubject = match.name;
+      }
+    }
+
     return {
       id: Math.random().toString(36).substring(2, 9),
       assignmentType: this.selectedScope === 'SCHOOL' ? 'school' : 'coaching',
       batchId: '',
       classId: undefined,
       sectionId: undefined,
-      selectedSubjects: [],
+      subject: defaultSubject,
+      selectedSubjects: defaultSubject ? [defaultSubject] : [],
       selectedDays: ['Mon', 'Wed', 'Fri'],
       timeSlotMode: 'preset',
       presetSlot: '08:00 AM - 09:30 AM',
@@ -3323,15 +3325,16 @@ export class TeacherAssignmentsComponent implements OnInit {
   }
 
   getSlotSummary(slot: AssignmentSlot): string {
+    const subjTag = slot.subject ? ` • ${slot.subject}` : '';
     if (slot.assignmentType === 'school') {
       const cls = this.schoolClasses.find(c => c.id === slot.classId);
       const sec = this.getSectionsForClass(slot.classId).find(s => s.id === slot.sectionId);
-      if (cls && sec) return `School: ${cls.name} - Sec ${sec.name}`;
-      if (cls) return `School: ${cls.name}`;
-      return 'School Class (Not selected)';
+      if (cls && sec) return `School: ${cls.name} - Sec ${sec.name}${subjTag}`;
+      if (cls) return `School: ${cls.name}${subjTag}`;
+      return `School Class (Not selected)${subjTag}`;
     } else {
       const b = this.batches.find(x => x.id === slot.batchId);
-      return b ? `Coaching: ${b.name}` : 'Coaching Batch (Not selected)';
+      return b ? `Coaching: ${b.name}${subjTag}` : `Coaching Batch (Not selected)${subjTag}`;
     }
   }
 
@@ -3348,12 +3351,18 @@ export class TeacherAssignmentsComponent implements OnInit {
     return s.assignmentType === 'school' ? !!s.classId : !!s.batchId;
   }
 
+  onSubjectChanged(slot: AssignmentSlot) {
+    slot.selectedSubjects = slot.subject ? [slot.subject] : [];
+    this.checkClashes();
+  }
+
   onBatchChanged(slot: AssignmentSlot) {
     const batch = this.batches.find(b => b.id === slot.batchId);
     if (batch && batch.subject) {
-      if (!slot.selectedSubjects || slot.selectedSubjects.length === 0) {
+      if (!slot.subject) {
         const found = this.subjects.find(s => s.name.toLowerCase() === batch.subject.toLowerCase());
-        slot.selectedSubjects = [found ? found.name : batch.subject];
+        slot.subject = found ? found.name : batch.subject;
+        slot.selectedSubjects = [slot.subject];
       }
     }
     this.checkClashes();
@@ -3548,7 +3557,9 @@ export class TeacherAssignmentsComponent implements OnInit {
       newSlot.batchId = batch.id;
     }
     if (batch.subject) {
-      newSlot.selectedSubjects = [batch.subject];
+      const found = this.subjects.find(s => s.name.toLowerCase() === batch.subject.toLowerCase());
+      newSlot.subject = found ? found.name : batch.subject;
+      newSlot.selectedSubjects = [newSlot.subject];
     }
     this.slots = [newSlot];
     this.checkClashes();
@@ -3762,7 +3773,8 @@ export class TeacherAssignmentsComponent implements OnInit {
       } else {
         if (!slot.batchId) return false;
       }
-      if (!slot.selectedSubjects || slot.selectedSubjects.length === 0) return false;
+      const subj = (slot.subject || (slot.selectedSubjects && slot.selectedSubjects[0]) || '').trim();
+      if (!subj) return false;
       if (!slot.selectedDays || slot.selectedDays.length === 0) return false;
       if (slot.timeSlotMode === 'custom' && (!slot.startTime || !slot.endTime)) return false;
       if (slot.clashWarning && !slot.allowClashOverride) return false;
@@ -3774,14 +3786,17 @@ export class TeacherAssignmentsComponent implements OnInit {
     if (!this.selectedTeacher || !this.isFormValid()) return;
 
     this.saving = true;
-    const payloadSlots = this.slots.map(s => ({
-      batchId: s.assignmentType === 'coaching' ? s.batchId : null,
-      classId: s.assignmentType === 'school' ? s.classId : null,
-      sectionId: s.assignmentType === 'school' ? (s.sectionId || null) : null,
-      subject: s.selectedSubjects.join(', '),
-      daysOfWeek: s.selectedDays.join(','),
-      timeSlot: this.getFormattedTimeSlot(s)
-    }));
+    const payloadSlots = this.slots.map(s => {
+      const subjectName = (s.subject || (s.selectedSubjects && s.selectedSubjects[0]) || '').trim();
+      return {
+        batchId: s.assignmentType === 'coaching' ? s.batchId : null,
+        classId: s.assignmentType === 'school' ? s.classId : null,
+        sectionId: s.assignmentType === 'school' ? (s.sectionId || null) : null,
+        subject: subjectName,
+        daysOfWeek: s.selectedDays.join(','),
+        timeSlot: this.getFormattedTimeSlot(s)
+      };
+    });
 
     this.http.post<BatchAssignmentDto[]>(`${this.api}/teachers/batch-assignments/bulk`, {
       teacherId: this.selectedTeacher.id,

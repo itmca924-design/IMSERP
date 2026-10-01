@@ -2574,6 +2574,249 @@ public class StudentsController : ControllerBase
     }
 
     // =========================================================================
+    // STUDENT LIVE CLASS ROUTINE & TIMETABLE
+    // =========================================================================
+
+    [HttpGet("my-timetable")]
+    public async Task<ActionResult<StudentWeeklyTimetableDto>> GetMyTimetable([FromQuery] string? dayOfWeek)
+    {
+        var userId = _currentUser.UserId;
+        var tenantId = _currentUser.TenantId;
+
+        // 1. Resolve student from UserId, ParentUserId, or phone/name
+        var student = await _dbContext.Students.AsNoTracking()
+            .FirstOrDefaultAsync(s => s.UserId == userId && s.TenantId == tenantId);
+
+        if (student == null)
+        {
+            student = await _dbContext.Students.AsNoTracking()
+                .FirstOrDefaultAsync(s => s.ParentUserId == userId && s.TenantId == tenantId);
+        }
+
+        if (student == null)
+        {
+            var user = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
+            if (user != null)
+            {
+                student = await _dbContext.Students.AsNoTracking().FirstOrDefaultAsync(s =>
+                    s.TenantId == tenantId && (
+                        (!string.IsNullOrEmpty(user.PhoneNumber) && (s.ParentWhatsAppPhone == user.PhoneNumber || s.EmergencyContactPhone == user.PhoneNumber)) ||
+                        (!string.IsNullOrEmpty(user.FullName) && s.StudentName == user.FullName)
+                    ));
+            }
+        }
+
+        if (student == null)
+        {
+            student = await _dbContext.Students.AsNoTracking()
+                .FirstOrDefaultAsync(s => s.TenantId == tenantId && s.IsActive);
+        }
+
+        if (student == null) return NotFound(new { message = "No associated student profile found." });
+
+        return await GetStudentTimetable(student.Id, dayOfWeek);
+    }
+
+    [HttpGet("{id}/timetable")]
+    public async Task<ActionResult<StudentWeeklyTimetableDto>> GetStudentTimetable(Guid id, [FromQuery] string? dayOfWeek)
+    {
+        var tenantId = _currentUser.TenantId;
+        var student = await _dbContext.Students.AsNoTracking()
+            .Include(s => s.Class)
+            .Include(s => s.Section)
+                .ThenInclude(sec => sec!.ClassTeacher)
+            .Include(s => s.Section)
+                .ThenInclude(sec => sec!.Room)
+            .Include(s => s.Batch)
+                .ThenInclude(b => b!.Room)
+            .Include(s => s.Branch)
+            .FirstOrDefaultAsync(s => s.Id == id && s.TenantId == tenantId);
+
+        if (student == null) return NotFound(new { message = "Student not found." });
+
+        // Indian Standard Time (IST)
+        TimeZoneInfo istTz;
+        try { istTz = TimeZoneInfo.FindSystemTimeZoneById("India Standard Time"); }
+        catch { istTz = TimeZoneInfo.FindSystemTimeZoneById("Asia/Kolkata"); }
+        var istNow = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, istTz);
+        var currentLiveTimeIst = istNow.ToString("hh:mm tt");
+        var todayDow = istNow.DayOfWeek.ToString(); // e.g. "Wednesday"
+        var todayDate = istNow.Date;
+
+        var sectionId = student.SectionId;
+        var classId = student.ClassId;
+        var batchId = student.BatchId;
+
+        // Fetch active assignments (School Section/Class or Coaching Batch)
+        var assignments = await _dbContext.TeacherBatchAssignments.AsNoTracking()
+            .Include(a => a.Teacher)
+            .Include(a => a.Class)
+            .Include(a => a.Section)
+                .ThenInclude(sec => sec!.Room)
+            .Include(a => a.Batch)
+                .ThenInclude(b => b!.Room)
+            .Where(a => a.TenantId == tenantId && a.IsActive &&
+                        ((sectionId.HasValue && a.SectionId == sectionId.Value) ||
+                         (classId.HasValue && a.ClassId == classId.Value && !a.SectionId.HasValue) ||
+                         (batchId.HasValue && a.BatchId == batchId.Value)))
+            .ToListAsync();
+
+        // Fetch today's substitutions
+        var substitutions = await _dbContext.TeacherSubstitutions.AsNoTracking()
+            .Include(s => s.SubstituteTeacher)
+            .Where(s => s.TenantId == tenantId && s.SubstitutionDate.Date == todayDate && s.Status == "Assigned" &&
+                        ((sectionId.HasValue && s.ClassSectionId == sectionId.Value) ||
+                         (batchId.HasValue && s.BatchId == batchId.Value)))
+            .ToListAsync();
+
+        var daysOfWeekList = new List<string> { "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" };
+        var weeklySchedule = new Dictionary<string, List<StudentTimetableSlotDto>>();
+
+        TimeSpan? ParseTime(string? slot, bool isStart)
+        {
+            if (string.IsNullOrWhiteSpace(slot)) return null;
+            var parts = slot.Split(new[] { "-", "–", "to" }, StringSplitOptions.RemoveEmptyEntries);
+            string target = isStart ? parts.FirstOrDefault()?.Trim() ?? "" : parts.LastOrDefault()?.Trim() ?? "";
+            if (DateTime.TryParse(target, out var dt)) return dt.TimeOfDay;
+            if (TimeSpan.TryParse(target, out var ts)) return ts;
+            return null;
+        }
+
+        List<StudentTimetableSlotDto> BuildSlotsForDay(string dow)
+        {
+            var isCurrentDay = string.Equals(dow, todayDow, StringComparison.OrdinalIgnoreCase);
+            var daySlots = new List<StudentTimetableSlotDto>();
+
+            var matching = assignments.Where(a =>
+                string.IsNullOrEmpty(a.DaysOfWeek) ||
+                a.DaysOfWeek.Contains(dow, StringComparison.OrdinalIgnoreCase) ||
+                (dow.Length >= 3 && a.DaysOfWeek.Contains(dow.Substring(0, 3), StringComparison.OrdinalIgnoreCase))
+            ).ToList();
+
+            matching = matching.OrderBy(m => ParseTime(m.TimeSlot, true) ?? TimeSpan.MaxValue)
+                               .ThenBy(m => m.TimeSlot)
+                               .ToList();
+
+            int periodNum = 1;
+            foreach (var a in matching)
+            {
+                var startTimeSpan = ParseTime(a.TimeSlot, true);
+                var endTimeSpan = ParseTime(a.TimeSlot, false);
+
+                bool isLiveNow = false;
+                bool isUpcoming = false;
+                bool isCompleted = false;
+
+                if (isCurrentDay && startTimeSpan.HasValue && endTimeSpan.HasValue)
+                {
+                    var nowTs = istNow.TimeOfDay;
+                    if (nowTs >= startTimeSpan.Value && nowTs <= endTimeSpan.Value) isLiveNow = true;
+                    else if (nowTs < startTimeSpan.Value) isUpcoming = true;
+                    else if (nowTs > endTimeSpan.Value) isCompleted = true;
+                }
+
+                TeacherSubstitution? sub = null;
+                if (isCurrentDay)
+                {
+                    sub = substitutions.FirstOrDefault(s =>
+                        (s.TimeSlot != null && a.TimeSlot != null && s.TimeSlot.Trim().Equals(a.TimeSlot.Trim(), StringComparison.OrdinalIgnoreCase)) ||
+                        (!string.IsNullOrEmpty(s.SubjectName) && s.SubjectName.Trim().Equals(a.Subject?.Trim(), StringComparison.OrdinalIgnoreCase))
+                    );
+                }
+
+                var defaultRoom = a.Section?.Room?.RoomNumber ??
+                                  student.Section?.Room?.RoomNumber ??
+                                  a.Batch?.Room?.RoomNumber ??
+                                  student.Batch?.Room?.RoomNumber;
+
+                var stream = a.BatchId.HasValue ? "Coaching" : "School";
+                var isClassTeacher = student.Section?.ClassTeacherId.HasValue == true &&
+                                     a.TeacherId == student.Section.ClassTeacherId.Value;
+
+                daySlots.Add(new StudentTimetableSlotDto(
+                    a.Id,
+                    periodNum++,
+                    a.Subject,
+                    a.TimeSlot ?? $"Period {periodNum - 1}",
+                    startTimeSpan?.ToString(@"hh\:mm"),
+                    endTimeSpan?.ToString(@"hh\:mm"),
+                    a.TeacherId,
+                    a.Teacher?.FullName ?? "Faculty",
+                    a.Teacher?.PhoneNumber,
+                    a.Teacher?.PhotoUrl,
+                    isClassTeacher,
+                    sub?.RoomNumber ?? defaultRoom ?? "Classroom",
+                    a.DaysOfWeek ?? "Mon-Sat",
+                    stream,
+                    isLiveNow,
+                    isUpcoming,
+                    isCompleted,
+                    sub != null,
+                    sub?.SubstituteTeacher?.FullName,
+                    sub?.Reason,
+                    sub?.TopicToCover
+                ));
+            }
+
+            return daySlots;
+        }
+
+        foreach (var dow in daysOfWeekList)
+        {
+            weeklySchedule[dow] = BuildSlotsForDay(dow);
+        }
+
+        var todayPeriods = weeklySchedule.ContainsKey(todayDow)
+            ? weeklySchedule[todayDow]
+            : (weeklySchedule.Values.FirstOrDefault() ?? new List<StudentTimetableSlotDto>());
+
+        var facultyContacts = assignments
+            .Where(a => a.Teacher != null)
+            .GroupBy(a => a.TeacherId)
+            .Select(g =>
+            {
+                var first = g.First();
+                var isCt = student.Section?.ClassTeacherId.HasValue == true &&
+                           first.TeacherId == student.Section.ClassTeacherId.Value;
+                var allSubjects = string.Join(", ", g.Select(x => x.Subject).Distinct());
+                var room = first.Section?.Room?.RoomNumber ?? student.Section?.Room?.RoomNumber ?? first.Batch?.Room?.RoomNumber;
+
+                return new StudentFacultyContactDto(
+                    first.TeacherId,
+                    first.Teacher!.FullName,
+                    allSubjects,
+                    first.Teacher.PhoneNumber,
+                    first.Teacher.Email,
+                    first.Teacher.PhotoUrl,
+                    isCt,
+                    room ?? "Staff Room"
+                );
+            })
+            .OrderByDescending(f => f.IsClassTeacher)
+            .ThenBy(f => f.TeacherName)
+            .ToList();
+
+        var result = new StudentWeeklyTimetableDto(
+            student.Id,
+            student.StudentName,
+            student.RollNumber,
+            student.Class?.Name,
+            student.Section?.Name,
+            student.Batch?.Name,
+            student.Branch?.Name,
+            student.Section?.ClassTeacher?.FullName,
+            student.Section?.ClassTeacher?.PhoneNumber,
+            todayDow,
+            currentLiveTimeIst,
+            todayPeriods,
+            weeklySchedule,
+            facultyContacts
+        );
+
+        return Ok(result);
+    }
+
+    // =========================================================================
     // STUDENT KYC DOCUMENTS
     // =========================================================================
 

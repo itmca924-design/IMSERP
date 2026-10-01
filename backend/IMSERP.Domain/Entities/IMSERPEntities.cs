@@ -2057,3 +2057,67 @@ public class StudentSibling
     public Student? SiblingStudent { get; set; }
 }
 
+public class StudyMaterial
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+
+    // Core Content
+    public string Title { get; set; } = string.Empty;
+    public string? Description { get; set; }
+
+    // Target Scope & Optional Filters (ALL OPTIONAL)
+    // TargetScope: "Both" | "School" | "Coaching"
+    public string TargetScope { get; set; } = "Both";
+    public Guid? ClassId { get; set; }
+    public Guid? SectionId { get; set; }
+    public Guid? BatchId { get; set; }
+    public Guid? SubjectId { get; set; }
+    public string Subject { get; set; } = string.Empty;
+
+    // Academic Categorization
+    // MaterialType: "Notes" | "PYQ" | "QuestionBank" | "FormulaSheet" | "SamplePaper" | "Syllabus"
+    public string MaterialType { get; set; } = "Notes";
+    public string? ChapterName { get; set; }
+    public string? Topic { get; set; }
+    public string? AcademicYear { get; set; } // e.g. "2026-27"
+
+    // Exam & PYQ specific (Optional)
+    public string? TargetExam { get; set; } // CBSE Board, ICSE, State Board, JEE Main, JEE Adv, NEET, Olympiad, Foundation, General
+    public string? ExamYear { get; set; } // e.g. "2024", "2023", "2020-2024"
+    public bool HasSolutions { get; set; } = false;
+    public string? DifficultyLevel { get; set; } // Easy, Medium, Hard, All Levels
+
+    // File / Attachment
+    public string FileUrl { get; set; } = string.Empty;
+    public string FileName { get; set; } = string.Empty;
+    public long FileSizeBytes { get; set; } = 0;
+    public string FileFormat { get; set; } = "pdf"; // pdf, docx, pptx, zip, link
+    public string? ExternalLink { get; set; } // YouTube / Drive link
+    public string? SolutionFileUrl { get; set; }
+    public string? SolutionFileName { get; set; }
+
+    // Meta & Analytics
+    public string UploadedByName { get; set; } = string.Empty;
+    public Guid? UploadedByUserId { get; set; }
+    public int DownloadCount { get; set; } = 0;
+    public int ViewCount { get; set; } = 0;
+    public bool IsPublished { get; set; } = true;
+    public bool IsFeatured { get; set; } = false;
+
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+    // Navigations (Optional)
+    [ForeignKey("ClassId")]
+    public SchoolClass? Class { get; set; }
+
+    [ForeignKey("SectionId")]
+    public SchoolSection? Section { get; set; }
+
+    [ForeignKey("BatchId")]
+    public Batch? Batch { get; set; }
+}
+
+

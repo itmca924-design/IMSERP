@@ -96,10 +96,41 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
     public DbSet<StudentPtmRecord> StudentPtmRecords => Set<StudentPtmRecord>();
     public DbSet<StudentHealthRecord> StudentHealthRecords => Set<StudentHealthRecord>();
     public DbSet<StudentSibling> StudentSiblings => Set<StudentSibling>();
+    public DbSet<StudyMaterial> StudyMaterials => Set<StudyMaterial>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<StudyMaterial>(entity =>
+        {
+            entity.HasOne(s => s.Class)
+                .WithMany()
+                .HasForeignKey(s => s.ClassId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(s => s.Section)
+                .WithMany()
+                .HasForeignKey(s => s.SectionId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(s => s.Batch)
+                .WithMany()
+                .HasForeignKey(s => s.BatchId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasIndex(s => new { s.TenantId, s.TargetScope, s.MaterialType, s.IsPublished });
+            entity.HasIndex(s => new { s.TenantId, s.ClassId, s.BatchId });
+            entity.HasIndex(s => new { s.TenantId, s.Subject });
+            entity.HasIndex(s => new { s.TenantId, s.CreatedAt });
+        });
+
+        modelBuilder.Entity<StudyMaterial>().HasQueryFilter(x =>
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
 
         modelBuilder.Entity<StudentSibling>(entity =>
         {

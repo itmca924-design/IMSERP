@@ -346,6 +346,19 @@ export class CoachingService {
     return this.http.post<ResequenceRollNumbersResultDto>(`${this.BASE_URL}/students/resequence-roll-numbers`, payload);
   }
 
+  // ── Class Timetable & Routine ──────────────────────────────
+  getMyTimetable(dayOfWeek?: string): Observable<StudentWeeklyTimetableDto> {
+    const params: any = {};
+    if (dayOfWeek) params.dayOfWeek = dayOfWeek;
+    return this.http.get<StudentWeeklyTimetableDto>(`${this.BASE_URL}/students/my-timetable`, { params });
+  }
+
+  getStudentTimetable(studentId: string, dayOfWeek?: string): Observable<StudentWeeklyTimetableDto> {
+    const params: any = {};
+    if (dayOfWeek) params.dayOfWeek = dayOfWeek;
+    return this.http.get<StudentWeeklyTimetableDto>(`${this.BASE_URL}/students/${studentId}/timetable`, { params });
+  }
+
   // ── Teachers & Faculty ─────────────────────────────────────
   getTeachers(): Observable<any[]> {
     return this.http.get<any[]>(`${this.BASE_URL}/teachers`);
@@ -892,5 +905,58 @@ export interface TeacherDashboardSummary {
   casualLeaveBalance: number;
   medicalLeaveBalance: number;
   recentNotices: DashboardNoticeItem[];
+}
+
+// ── Student Live Timetable & Routine DTOs ─────────────────────────────────────
+export interface StudentTimetableSlotDto {
+  assignmentId: string;
+  periodNumber: number;
+  subject: string;
+  timeSlot: string;
+  startTime?: string;
+  endTime?: string;
+  teacherId?: string;
+  teacherName: string;
+  teacherPhone?: string;
+  teacherPhoto?: string;
+  isClassTeacher: boolean;
+  roomNumber: string;
+  daysOfWeek: string;
+  stream: string;
+  isLiveNow: boolean;
+  isUpcoming: boolean;
+  isCompleted: boolean;
+  isSubstituted: boolean;
+  substituteTeacherName?: string;
+  substituteReason?: string;
+  substituteTopic?: string;
+}
+
+export interface StudentFacultyContactDto {
+  teacherId: string;
+  teacherName: string;
+  subject: string;
+  phone?: string;
+  email?: string;
+  photoUrl?: string;
+  isClassTeacher: boolean;
+  roomNumber?: string;
+}
+
+export interface StudentWeeklyTimetableDto {
+  studentId: string;
+  studentName: string;
+  rollNumber: string;
+  className?: string;
+  sectionName?: string;
+  batchName?: string;
+  branchName?: string;
+  classTeacherName?: string;
+  classTeacherPhone?: string;
+  todayDayOfWeek: string;
+  currentLiveTimeIst: string;
+  todayPeriods: StudentTimetableSlotDto[];
+  weeklySchedule: { [dayOfWeek: string]: StudentTimetableSlotDto[] };
+  facultyContacts: StudentFacultyContactDto[];
 }
 

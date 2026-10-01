@@ -1124,6 +1124,7 @@ export class LayoutComponent implements OnInit {
   private readonly searchablePages = [
     { title: 'Dashboard', route: '/dashboard', icon: 'dashboard' },
     { title: 'My 360° Profile & Wall of Fame', route: '/students/my-profile', icon: 'military_tech' },
+    { title: 'Class Timetable & Routine', route: '/students/timetable', icon: 'calendar_view_week' },
     { title: 'Classes & Sections (School)', route: '/school/classes', icon: 'domain' },
     { title: 'Students', route: '/students', icon: 'people' },
     { title: 'Student Attendance', route: '/students/attendance', icon: 'event_available' },
@@ -1153,7 +1154,8 @@ export class LayoutComponent implements OnInit {
     { title: 'Chart of Accounts', route: '/finance/chart-of-accounts', icon: 'account_tree' },
     { title: 'Roles & Permissions', route: '/roles', icon: 'admin_panel_settings' },
     { title: 'Institutes & Tenants', route: '/admin/tenants', icon: 'corporate_fare' },
-    { title: 'Subscription & Plan', route: '/subscription', icon: 'workspace_premium' }
+    { title: 'Subscription & Plan', route: '/subscription', icon: 'workspace_premium' },
+    { title: 'Study Material & Question Bank Repository (Notes & PYQ)', route: '/study-materials', icon: 'auto_stories' }
   ];
 
   readonly allQuickActionCatalog: Array<{ title: string; route: string; icon: string; color: string; roles?: string[] }> = [
@@ -1164,9 +1166,12 @@ export class LayoutComponent implements OnInit {
     { title: 'Apply Leave Application', route: '/teachers/leaves', icon: 'event_busy', color: '#d97706', roles: ['Teacher', 'Faculty', 'Teacher / Faculty', 'ClassTeacher'] },
     { title: 'Request Salary Advance', route: '/teachers/advances', icon: 'account_balance_wallet', color: '#059669', roles: ['Teacher', 'Faculty', 'Teacher / Faculty', 'ClassTeacher'] },
     { title: 'Batch Assignments', route: '/teachers/assignments', icon: 'assignment_ind', color: '#4f46e5', roles: ['Teacher', 'Faculty', 'Teacher / Faculty', 'ClassTeacher'] },
+    { title: 'Upload Notes & PYQs', route: '/study-materials', icon: 'auto_stories', color: '#8b5cf6', roles: ['Teacher', 'Faculty', 'Teacher / Faculty', 'ClassTeacher'] },
 
     // Student / Parent specific actions
     { title: 'My 360° Profile', route: '/students/my-profile', icon: 'military_tech', color: '#2563eb', roles: ['Student', 'Parent'] },
+    { title: 'Class Timetable & Routine', route: '/students/timetable', icon: 'calendar_view_week', color: '#0ea5e9', roles: ['Student', 'Parent'] },
+    { title: 'Download Notes & PYQ Bank', route: '/study-materials', icon: 'auto_stories', color: '#8b5cf6', roles: ['Student', 'Parent'] },
     { title: 'My Attendance Calendar', route: '/students/attendance', icon: 'calendar_month', color: '#0284c7', roles: ['Student', 'Parent'] },
     { title: 'My Homework Diary', route: '/school/homework', icon: 'auto_stories', color: '#7c3aed', roles: ['Student', 'Parent'] },
     { title: 'My Exam Results', route: '/school/exams', icon: 'assignment_turned_in', color: '#d97706', roles: ['Student', 'Parent'] },
@@ -1190,6 +1195,7 @@ export class LayoutComponent implements OnInit {
     { title: 'Schedule School Exams', route: '/school/exams', icon: 'assignment', color: '#d97706', roles: ['SuperAdmin', 'InstituteAdmin', 'Admin'] },
     { title: 'Attendance Reports', route: '/attendance/reports', icon: 'summarize', color: '#4f46e5', roles: ['SuperAdmin', 'InstituteAdmin', 'Admin'] },
     { title: 'Mark Daily Attendance', route: '/students/attendance', icon: 'how_to_reg', color: '#0284c7', roles: ['SuperAdmin', 'InstituteAdmin', 'Admin'] },
+    { title: 'Study Material & PYQs', route: '/study-materials', icon: 'auto_stories', color: '#8b5cf6', roles: ['SuperAdmin', 'InstituteAdmin', 'Admin'] },
 
     // Common fallback actions if permitted
     { title: 'School Notices & Circulars', route: '/school/notices', icon: 'campaign', color: '#0891b2' },
@@ -1682,6 +1688,72 @@ export class LayoutComponent implements OnInit {
       children: []
     };
 
+    const timetableItemAcademic: MenuItem = {
+      id: 'academic-timetable-link',
+      title: 'Class Timetable & Routine',
+      routeUrl: '/students/timetable',
+      icon: 'calendar_view_week',
+      sortOrder: 3.5,
+      module: 'Academic',
+      isActive: true,
+      children: []
+    };
+
+    const timetableItemMaster: MenuItem = {
+      id: 'master-timetable-link',
+      title: 'Class Timetable & Routine',
+      routeUrl: '/students/timetable',
+      icon: 'calendar_view_week',
+      sortOrder: 5.5,
+      module: 'Master',
+      isActive: true,
+      children: []
+    };
+
+    const timetableItemFaculty: MenuItem = {
+      id: 'faculty-timetable-link',
+      title: 'Class Timetable & Routine',
+      routeUrl: '/students/timetable',
+      icon: 'calendar_view_week',
+      sortOrder: 3.5,
+      module: 'Teachers',
+      isActive: true,
+      children: []
+    };
+
+    const studyMaterialsItemAcademic: MenuItem = {
+      id: 'academic-study-materials-link',
+      title: 'Study Material & PYQ Bank',
+      routeUrl: '/study-materials',
+      icon: 'auto_stories',
+      sortOrder: 3.8,
+      module: 'Academic',
+      isActive: true,
+      children: []
+    };
+
+    const studyMaterialsItemFaculty: MenuItem = {
+      id: 'faculty-study-materials-link',
+      title: 'Study Material & PYQs',
+      routeUrl: '/study-materials',
+      icon: 'auto_stories',
+      sortOrder: 3.8,
+      module: 'Teachers',
+      isActive: true,
+      children: []
+    };
+
+    const studyMaterialsItemMaster: MenuItem = {
+      id: 'master-study-materials-link',
+      title: 'Study Material & PYQ Bank',
+      routeUrl: '/study-materials',
+      icon: 'auto_stories',
+      sortOrder: 5.8,
+      module: 'Master',
+      isActive: true,
+      children: []
+    };
+
     let updated = (menu || []).map(item => {
       const copy = { ...item, children: item.children ? [...item.children] : [] };
 
@@ -1708,12 +1780,77 @@ export class LayoutComponent implements OnInit {
             copy.children.push(workflowItemAcademic);
           }
         }
+        if (!copy.children.some(c => c.routeUrl === '/students/timetable')) {
+          const hwIdx = copy.children.findIndex(c => c.routeUrl === '/school/homework');
+          if (hwIdx >= 0) {
+            copy.children.splice(hwIdx + 1, 0, timetableItemAcademic);
+          } else {
+            copy.children.push(timetableItemAcademic);
+          }
+        }
+        if (!copy.children.some(c => c.routeUrl === '/study-materials')) {
+          const ttIdx = copy.children.findIndex(c => c.routeUrl === '/students/timetable');
+          if (ttIdx >= 0) {
+            copy.children.splice(ttIdx + 1, 0, studyMaterialsItemAcademic);
+          } else {
+            copy.children.push(studyMaterialsItemAcademic);
+          }
+        }
+      }
+
+      // 3. Inject into Master Management / Student Center
+      const isMaster = (copy.title && copy.title.toLowerCase().includes('master')) ||
+                       (copy.title && copy.title.toLowerCase().includes('student center')) ||
+                       copy.id === '2' ||
+                       (copy.module && copy.module.toLowerCase() === 'master');
+      if (isMaster) {
+        if (!copy.children.some(c => c.routeUrl === '/students/timetable')) {
+          const stuIdx = copy.children.findIndex(c => c.routeUrl === '/students' || c.routeUrl === '/students/my-profile');
+          if (stuIdx >= 0) {
+            copy.children.splice(stuIdx + 1, 0, timetableItemMaster);
+          } else {
+            copy.children.push(timetableItemMaster);
+          }
+        }
+        if (!copy.children.some(c => c.routeUrl === '/study-materials')) {
+          const ttIdx = copy.children.findIndex(c => c.routeUrl === '/students/timetable');
+          if (ttIdx >= 0) {
+            copy.children.splice(ttIdx + 1, 0, studyMaterialsItemMaster);
+          } else {
+            copy.children.push(studyMaterialsItemMaster);
+          }
+        }
+      }
+
+      // 4. Inject into Faculty Operations (right after Homework / Lesson Plan)
+      const isFaculty = (copy.title && copy.title.toLowerCase().includes('faculty')) ||
+                        (copy.title && copy.title.toLowerCase().includes('teacher')) ||
+                        copy.id === '4b' ||
+                        copy.id === '4' ||
+                        (copy.module && copy.module.toLowerCase() === 'teachers');
+      if (isFaculty) {
+        if (!copy.children.some(c => c.routeUrl === '/students/timetable')) {
+          const subIdx = copy.children.findIndex(c => c.routeUrl === '/teachers/substitution');
+          if (subIdx >= 0) {
+            copy.children.splice(subIdx + 1, 0, timetableItemFaculty);
+          } else {
+            copy.children.push(timetableItemFaculty);
+          }
+        }
+        if (!copy.children.some(c => c.routeUrl === '/study-materials')) {
+          const ttIdx = copy.children.findIndex(c => c.routeUrl === '/students/timetable');
+          if (ttIdx >= 0) {
+            copy.children.splice(ttIdx + 1, 0, studyMaterialsItemFaculty);
+          } else {
+            copy.children.push(studyMaterialsItemFaculty);
+          }
+        }
       }
 
       return copy;
     });
 
-    // 3. If Admin Settings group did not exist at all, add it if user has admin privileges
+    // 5. If Admin Settings group did not exist at all, add it if user has admin privileges
     const hasAdminSettings = updated.some(item =>
       (item.title && item.title.toLowerCase().includes('admin')) ||
       item.id === '6' ||
@@ -1785,13 +1922,16 @@ export class LayoutComponent implements OnInit {
         id: '2', title: isStudentOrParent ? 'My Student Center' : 'Master Management', routeUrl: '', icon: 'category', sortOrder: 2, module: 'Master', isActive: true,
         children: [
           ...(isStudentOrParent ? [
-            { id: '24my', title: 'My 360° Profile & Wall of Fame', routeUrl: '/students/my-profile', icon: 'military_tech', sortOrder: 1, module: 'Master', isActive: true, children: [] }
+            { id: '24my', title: 'My 360° Profile & Wall of Fame', routeUrl: '/students/my-profile', icon: 'military_tech', sortOrder: 1, module: 'Master', isActive: true, children: [] },
+            { id: '24tt', title: 'Class Timetable & Routine', routeUrl: '/students/timetable', icon: 'calendar_view_week', sortOrder: 2, module: 'Master', isActive: true, children: [] },
+            { id: '24sm', title: 'Study Material & PYQ Bank', routeUrl: '/study-materials', icon: 'auto_stories', sortOrder: 3, module: 'Master', isActive: true, children: [] }
           ] : [
             { id: '20', title: 'Classes & Sections', routeUrl: '/school/classes', icon: 'domain', sortOrder: 1, module: 'Master', isActive: true, children: [] },
             { id: '21', title: 'Batches Master', routeUrl: '/batches', icon: 'class', sortOrder: 2, module: 'Master', isActive: true, children: [] },
             { id: '22', title: 'Classrooms Master', routeUrl: '/rooms', icon: 'meeting_room', sortOrder: 3, module: 'Master', isActive: true, children: [] },
             { id: '23', title: 'Subject Master', routeUrl: '/subjects', icon: 'menu_book', sortOrder: 4, module: 'Master', isActive: true, children: [] },
             { id: '24', title: 'Students Master', routeUrl: '/students', icon: 'people', sortOrder: 5, module: 'Master', isActive: true, children: [] },
+            { id: '24tt', title: 'Class Timetable & Routine', routeUrl: '/students/timetable', icon: 'calendar_view_week', sortOrder: 5.5, module: 'Master', isActive: true, children: [] },
             { id: '241', title: 'Admission Enquiries', routeUrl: '/students/enquiries', icon: 'contact_phone', sortOrder: 6, module: 'Master', isActive: true, children: [] },
             { id: '25', title: 'Holiday Master', routeUrl: '/holidays', icon: 'event', sortOrder: 7, module: 'Master', isActive: true, children: [] },
             { id: '26', title: 'Events & Celebrations', routeUrl: '/events', icon: 'celebration', sortOrder: 8, module: 'Master', isActive: true, children: [] }
@@ -1826,6 +1966,7 @@ export class LayoutComponent implements OnInit {
         children: [
           { id: '42', title: 'Batch Assignments', routeUrl: '/teachers/assignments', icon: 'class', sortOrder: 1, module: 'Teachers', isActive: true, children: [] },
           { id: '410', title: 'Proxy & Substitution', routeUrl: '/teachers/substitution', icon: 'swap_horiz', sortOrder: 2, module: 'Teachers', isActive: true, children: [] },
+          { id: '411tt', title: 'Class Timetable & Routine', routeUrl: '/students/timetable', icon: 'calendar_view_week', sortOrder: 2.5, module: 'Teachers', isActive: true, children: [] },
           { id: '411', title: 'Daily Lesson Diary', routeUrl: '/teachers/lesson-plans', icon: 'menu_book', sortOrder: 3, module: 'Teachers', isActive: true, children: [] },
           { id: '412', title: 'Faculty Workload', routeUrl: '/teachers/reports', icon: 'analytics', sortOrder: 4, module: 'Teachers', isActive: true, children: [] }
         ]
@@ -1836,6 +1977,8 @@ export class LayoutComponent implements OnInit {
           { id: '51', title: 'Fee Collection', routeUrl: '/fees', icon: 'payments', sortOrder: 1, module: 'Academic', isActive: true, children: [] },
           { id: '511', title: 'Fee Heads Master', routeUrl: '/fee-heads', icon: 'account_tree', sortOrder: 2, module: 'Academic', isActive: true, children: [] },
           { id: '512', title: 'Homework & Daily Diary', routeUrl: '/school/homework', icon: 'menu_book', sortOrder: 3, module: 'Academic', isActive: true, children: [] },
+          { id: '512tt', title: 'Class Timetable & Routine', routeUrl: '/students/timetable', icon: 'calendar_view_week', sortOrder: 3.5, module: 'Academic', isActive: true, children: [] },
+          { id: '512sm', title: 'Study Material & PYQ Bank', routeUrl: '/study-materials', icon: 'auto_stories', sortOrder: 3.8, module: 'Academic', isActive: true, children: [] },
           { id: '52', title: 'School Examinations', routeUrl: '/school/exams', icon: 'assignment', sortOrder: 4, module: 'Academic', isActive: true, children: [] },
           { id: '521', title: 'Student Promotion', routeUrl: '/students/promotion', icon: 'trending_up', sortOrder: 5, module: 'Academic', isActive: true, children: [] },
           { id: '5211', title: 'Academic & Exam Workflow', routeUrl: '/admin/academic-workflow', icon: 'tune', sortOrder: 5.5, module: 'Academic', isActive: true, children: [] },

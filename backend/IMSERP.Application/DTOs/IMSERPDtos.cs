@@ -4238,3 +4238,173 @@ public record ResequenceRollNumbersResultDto(
     string SortRule,
     List<StudentRollNumberPreviewItemDto> Students
 );
+
+// =========================================================================
+// STUDENT LIVE CLASS ROUTINE & TIMETABLE DTOS
+// =========================================================================
+public record StudentTimetableSlotDto(
+    Guid Id,
+    int PeriodNumber,
+    string Subject,
+    string TimeSlot,
+    string? StartTime,
+    string? EndTime,
+    Guid? TeacherId,
+    string TeacherName,
+    string? TeacherPhone,
+    string? TeacherPhotoUrl,
+    bool IsClassTeacher,
+    string? RoomNumber,
+    string DaysOfWeek,
+    string StreamType,
+    bool IsLiveNow,
+    bool IsUpcoming,
+    bool IsCompleted,
+    bool IsSubstituted,
+    string? SubstituteTeacherName,
+    string? SubstituteReason,
+    string? SubstituteTopic
+);
+
+public record StudentFacultyContactDto(
+    Guid TeacherId,
+    string TeacherName,
+    string Subject,
+    string? Phone,
+    string? Email,
+    string? PhotoUrl,
+    bool IsClassTeacher,
+    string? RoomNumber
+);
+
+public record StudentWeeklyTimetableDto(
+    Guid StudentId,
+    string StudentName,
+    string RollNumber,
+    string? ClassName,
+    string? SectionName,
+    string? BatchName,
+    string? BranchName,
+    string? ClassTeacherName,
+    string? ClassTeacherPhone,
+    string TodayDayOfWeek,
+    string CurrentLiveTimeIst,
+    List<StudentTimetableSlotDto> TodayPeriods,
+    Dictionary<string, List<StudentTimetableSlotDto>> WeeklySchedule,
+    List<StudentFacultyContactDto> FacultyContacts
+);
+
+// ==========================================
+// STUDY MATERIAL & QUESTION BANK DTOs (OPTIMIZED & PROJECTED)
+// ==========================================
+public record StudyMaterialDto(
+    Guid Id,
+    Guid TenantId,
+    Guid? BranchId,
+    string Title,
+    string? Description,
+    string TargetScope, // "Both" | "School" | "Coaching"
+    Guid? ClassId,
+    string? ClassName,
+    Guid? SectionId,
+    string? SectionName,
+    Guid? BatchId,
+    string? BatchName,
+    Guid? SubjectId,
+    string Subject,
+    string MaterialType, // "Notes" | "PYQ" | "QuestionBank" | "FormulaSheet" | "SamplePaper" | "Syllabus"
+    string? ChapterName,
+    string? Topic,
+    string? AcademicYear,
+    string? TargetExam,
+    string? ExamYear,
+    bool HasSolutions,
+    string? DifficultyLevel,
+    string FileUrl,
+    string FileName,
+    long FileSizeBytes,
+    string FileFormat,
+    string? ExternalLink,
+    string? SolutionFileUrl,
+    string? SolutionFileName,
+    string UploadedByName,
+    Guid? UploadedByUserId,
+    int DownloadCount,
+    int ViewCount,
+    bool IsPublished,
+    bool IsFeatured,
+    DateTime CreatedAt,
+    DateTime UpdatedAt
+);
+
+public record CreateStudyMaterialDto(
+    string Title,
+    string? Description,
+    string TargetScope = "Both",
+    Guid? ClassId = null,
+    Guid? SectionId = null,
+    Guid? BatchId = null,
+    Guid? SubjectId = null,
+    string Subject = "",
+    string MaterialType = "Notes",
+    string? ChapterName = null,
+    string? Topic = null,
+    string? AcademicYear = null,
+    string? TargetExam = null,
+    string? ExamYear = null,
+    bool HasSolutions = false,
+    string? DifficultyLevel = null,
+    string FileUrl = "",
+    string FileName = "",
+    long FileSizeBytes = 0,
+    string FileFormat = "pdf",
+    string? ExternalLink = null,
+    string? SolutionFileUrl = null,
+    string? SolutionFileName = null,
+    bool IsPublished = true,
+    bool IsFeatured = false
+);
+
+public record UpdateStudyMaterialDto(
+    string Title,
+    string? Description,
+    string TargetScope,
+    Guid? ClassId,
+    Guid? SectionId,
+    Guid? BatchId,
+    Guid? SubjectId,
+    string Subject,
+    string MaterialType,
+    string? ChapterName,
+    string? Topic,
+    string? AcademicYear,
+    string? TargetExam,
+    string? ExamYear,
+    bool HasSolutions,
+    string? DifficultyLevel,
+    string FileUrl,
+    string FileName,
+    long FileSizeBytes,
+    string FileFormat,
+    string? ExternalLink,
+    string? SolutionFileUrl,
+    string? SolutionFileName,
+    bool IsPublished,
+    bool IsFeatured
+);
+
+public record StudyMaterialStatsDto(
+    int TotalItems,
+    int NotesCount,
+    int PyqCount,
+    int QuestionBankCount,
+    int FormulaSheetCount,
+    int TotalDownloads,
+    List<StudyMaterialSubjectCountDto> TopSubjects
+);
+
+public record StudyMaterialSubjectCountDto(
+    string Subject,
+    int Count
+);
+

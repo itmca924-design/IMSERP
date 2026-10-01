@@ -519,6 +519,46 @@ body, p, span, h1, h2, h3, h4, h5, h6, a, button, input, select, textarea,
   }
 }
 
+// Custom panel for Study Material Upload & Viewer dialogs - zero out default surface padding
+.study-material-dialog-panel {
+  max-width: 96vw !important;
+
+  .mat-mdc-dialog-surface {
+    padding: 0 !important;
+    overflow: hidden !important;
+    border-radius: 14px !important;
+    background: #ffffff !important;
+    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.25) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  @media (max-width: 768px) {
+    width: 98vw !important;
+    max-width: 98vw !important;
+    margin: 0 auto !important;
+
+    .mat-mdc-dialog-surface {
+      border-radius: 10px !important;
+    }
+  }
+
+  @media (max-width: 480px) {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    height: 100% !important;
+    max-height: 100% !important;
+
+    .mat-mdc-dialog-surface {
+      border-radius: 0 !important;
+      height: 100% !important;
+    }
+  }
+}
+
 // Custom panel for Student Ledger Dialog
 .ledger-dialog-panel {
   max-width: 96vw !important;
@@ -1676,6 +1716,56 @@ body.erp-dark-theme .mat-mdc-select-panel {
       border: none !important;
       box-shadow: none !important;
       overflow: visible !important;
+    }
+  }
+
+  body:has(#printTimetableArea) {
+    .mat-toolbar,
+    .sidenav,
+    app-footer,
+    app-quick-settings-drawer,
+    .no-print,
+    .screen-ui-wrapper,
+    .portal-header-bar,
+    .content-wrapper,
+    .student-identity-bar,
+    .live-spotlight-banner,
+    .day-navigation-strip,
+    .daily-timeline-section,
+    .weekly-matrix-section,
+    .modal-backdrop,
+    .loading-state-card,
+    .error-state-card {
+      display: none !important;
+    }
+
+    .main-content {
+      padding: 0 !important;
+      margin: 0 !important;
+      border: none !important;
+      background: #ffffff !important;
+      overflow: visible !important;
+    }
+
+    .timetable-page-container {
+      padding: 0 !important;
+      margin: 0 !important;
+      background: #ffffff !important;
+      display: block !important;
+    }
+
+    #printTimetableArea {
+      display: block !important;
+      visibility: visible !important;
+      position: static !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      padding: 24px !important;
+      margin: 0 !important;
+      border: none !important;
+      box-shadow: none !important;
+      background: #ffffff !important;
+      color: #000000 !important;
     }
   }
 }
