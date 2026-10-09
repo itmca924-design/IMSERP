@@ -18,6 +18,7 @@ import { API_BASE, TeacherDto } from './teacher.models';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { TeacherIdCardDialogComponent } from './teacher-id-card-dialog.component';
 import { TeacherDocumentsDialogComponent } from './teacher-documents-dialog.component';
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { AuthService } from '../../core/services/auth.service';
 
 @Component({
@@ -26,7 +27,7 @@ import { AuthService } from '../../core/services/auth.service';
   imports: [
     CommonModule, FormsModule, ReactiveFormsModule, RouterModule,
     MatCardModule, MatButtonModule, MatIconModule, MatInputModule,
-    MatFormFieldModule, MatSelectModule, MatProgressBarModule,
+    MatFormFieldModule, MatSelectModule, MatAutocompleteModule, MatProgressBarModule,
     MatProgressSpinnerModule, MatTooltipModule, MatDividerModule, MatDialogModule
   ],
   template: `
@@ -80,14 +81,20 @@ import { AuthService } from '../../core/services/auth.service';
           </mat-select>
         </mat-form-field>
 
-        <!-- Employee Code – Auto Generated, Readonly -->
+        <!-- Employee Code – Auto Generated (Approach 1: Category Specific) -->
         <mat-form-field appearance="outline">
-          <mat-label>Employee Code</mat-label>
-          <input matInput formControlName="employeeCode" readonly class="readonly-field">
-          <mat-icon matSuffix *ngIf="!codeLoading" matTooltip="Auto-generated, locked"
-            style="color:#64748b;font-size:16px">lock</mat-icon>
+          <mat-label>Employee Code *</mat-label>
+          <input matInput formControlName="employeeCode" [readonly]="editingId || !allowManualCode" [class.readonly-field]="editingId || !allowManualCode">
+          <button mat-icon-button matSuffix type="button" *ngIf="!editingId && !codeLoading"
+            (click)="toggleCustomCode()"
+            [matTooltip]="allowManualCode ? 'Reset to category auto-code' : 'Click to enter custom code'">
+            <mat-icon style="font-size:18px;color:#2563eb">{{allowManualCode ? 'autorenew' : 'edit'}}</mat-icon>
+          </button>
+          <mat-icon matSuffix *ngIf="editingId" matTooltip="Employee code cannot be changed after creation" style="color:#64748b;font-size:16px">lock</mat-icon>
           <mat-spinner matSuffix diameter="16" *ngIf="codeLoading"></mat-spinner>
-          <mat-hint>Auto-generated – {{editingId ? 'locked in edit mode' : 'locked upon saving'}}</mat-hint>
+          <mat-hint *ngIf="!editingId && !allowManualCode">Auto-generated series</mat-hint>
+          <mat-hint *ngIf="!editingId && allowManualCode" style="color:#2563eb;font-weight:600">Custom code mode</mat-hint>
+          <mat-hint *ngIf="editingId">Locked: permanent employee ID</mat-hint>
         </mat-form-field>
 
         <!-- Full Name -->
@@ -96,57 +103,27 @@ import { AuthService } from '../../core/services/auth.service';
           <input matInput formControlName="fullName" placeholder="e.g. Ramesh Kumar Sharma">
         </mat-form-field>
 
-        <!-- Department (with datalist for quick suggestions) -->
+        <!-- Department (with smooth Material autocomplete) -->
         <mat-form-field appearance="outline">
           <mat-label>Department *</mat-label>
-          <input matInput formControlName="department" list="deptSuggestions" placeholder="e.g. Science, Accounts, HR, Admin">
-          <mat-hint>Type or select standard department</mat-hint>
+          <input matInput formControlName="department" [matAutocomplete]="deptAuto" placeholder="e.g. Science, Accounts, HR, Admin">
+          <mat-icon matSuffix style="color:#64748b;font-size:18px">apartment</mat-icon>
+          <mat-autocomplete #deptAuto="matAutocomplete">
+            <mat-option *ngFor="let d of filteredDepartments" [value]="d">{{ d }}</mat-option>
+          </mat-autocomplete>
+          <mat-hint>Select or type department</mat-hint>
         </mat-form-field>
-        <datalist id="deptSuggestions">
-          <option value="Science Department">
-          <option value="Mathematics Department">
-          <option value="Humanities & Arts">
-          <option value="Commerce & Economics">
-          <option value="Computer Science & IT">
-          <option value="Primary Wing">
-          <option value="Secondary Wing">
-          <option value="Administration & Management">
-          <option value="Human Resources">
-          <option value="Accounts & Finance">
-          <option value="Library Division">
-          <option value="Front Office & Reception">
-          <option value="Transport & Fleet">
-          <option value="Hostel & Maintenance">
-        </datalist>
 
-        <!-- Designation (with datalist) -->
+        <!-- Designation (with smooth Material autocomplete) -->
         <mat-form-field appearance="outline">
           <mat-label>Designation *</mat-label>
-          <input matInput formControlName="designation" list="desigSuggestions" placeholder="e.g. PGT Physics, Accountant, HR Manager">
+          <input matInput formControlName="designation" [matAutocomplete]="desigAuto" placeholder="e.g. PGT Physics, Accountant, HR Manager">
+          <mat-icon matSuffix style="color:#64748b;font-size:18px">work_outline</mat-icon>
+          <mat-autocomplete #desigAuto="matAutocomplete">
+            <mat-option *ngFor="let des of filteredDesignations" [value]="des">{{ des }}</mat-option>
+          </mat-autocomplete>
           <mat-hint>Official post / title</mat-hint>
         </mat-form-field>
-        <datalist id="desigSuggestions">
-          <option value="PGT (Post Graduate Teacher)">
-          <option value="TGT (Trained Graduate Teacher)">
-          <option value="PRT (Primary Teacher)">
-          <option value="Head of Department (HOD)">
-          <option value="Senior Lecturer / Faculty">
-          <option value="Assistant Teacher">
-          <option value="Principal">
-          <option value="Vice Principal">
-          <option value="Academic Coordinator">
-          <option value="HR Manager">
-          <option value="Chief Accountant">
-          <option value="Accountant">
-          <option value="Cashier / Billing Clerk">
-          <option value="Front Desk Executive">
-          <option value="Librarian">
-          <option value="Lab Assistant">
-          <option value="IT Administrator">
-          <option value="Transport Supervisor">
-          <option value="Security / Guard">
-          <option value="Peon / Attendant">
-        </datalist>
 
         <!-- Employment Type -->
         <mat-form-field appearance="outline">
@@ -201,7 +178,7 @@ import { AuthService } from '../../core/services/auth.service';
         <mat-form-field appearance="outline">
           <mat-label>Date of Birth</mat-label>
           <input matInput type="date" formControlName="dateOfBirth" [min]="minDob" [max]="maxDob" (change)="validateDateRanges()">
-          <mat-hint>Must be 18+ years old (on/before {{maxDob | date:'dd-MMM-yyyy'}})</mat-hint>
+          <mat-hint>Min age 18 years</mat-hint>
           <mat-error *ngIf="teacherForm.get('dateOfBirth')?.hasError('underage')">Staff must be at least 18 years old</mat-error>
           <mat-error *ngIf="teacherForm.get('dateOfBirth')?.hasError('tooOld')">Please enter a valid DOB</mat-error>
         </mat-form-field>
@@ -310,25 +287,16 @@ import { AuthService } from '../../core/services/auth.service';
           <span>Bank &amp; Statutory Details (बैंक खाता व वेतन विवरण — For Salary &amp; Payroll)</span>
         </div>
 
-        <!-- Bank Name with datalist -->
+        <!-- Bank Name with smooth Material autocomplete -->
         <mat-form-field appearance="outline">
           <mat-label>Bank Name</mat-label>
-          <input matInput formControlName="bankName" list="bankList" placeholder="e.g. State Bank of India, HDFC Bank">
+          <input matInput formControlName="bankName" [matAutocomplete]="bankAuto" placeholder="e.g. State Bank of India, HDFC Bank">
+          <mat-icon matSuffix style="color:#64748b;font-size:18px">account_balance</mat-icon>
+          <mat-autocomplete #bankAuto="matAutocomplete">
+            <mat-option *ngFor="let b of filteredBanks" [value]="b">{{ b }}</mat-option>
+          </mat-autocomplete>
+          <mat-hint>Select or type bank name</mat-hint>
         </mat-form-field>
-        <datalist id="bankList">
-          <option value="State Bank of India (SBI)">
-          <option value="HDFC Bank">
-          <option value="ICICI Bank">
-          <option value="Punjab National Bank (PNB)">
-          <option value="Bank of Baroda">
-          <option value="Axis Bank">
-          <option value="Canara Bank">
-          <option value="Union Bank of India">
-          <option value="Kotak Mahindra Bank">
-          <option value="IndusInd Bank">
-          <option value="Bank of India">
-          <option value="Indian Bank">
-        </datalist>
 
         <mat-form-field appearance="outline">
           <mat-label>Bank Account Number</mat-label>
@@ -367,7 +335,7 @@ import { AuthService } from '../../core/services/auth.service';
           <mat-hint>Required for PF deduction</mat-hint>
         </mat-form-field>
 
-        <!-- Profile Photo Row: URL or File Upload -->
+        <!-- Profile Photo Row: URL or File Upload (Clean & Responsive) -->
         <div class="photo-upload-row full-width">
           <div class="photo-preview-box">
             <img *ngIf="teacherForm.get('photoUrl')?.value && !previewImgError"
@@ -382,7 +350,7 @@ import { AuthService } from '../../core/services/auth.service';
           </div>
           <div class="photo-field-wrapper">
             <mat-form-field appearance="outline" style="width:100%">
-              <mat-label>Profile Photo (Image URL or Upload)</mat-label>
+              <mat-label>Profile Photo (URL or File)</mat-label>
               <input matInput formControlName="photoUrl" placeholder="Paste image link or choose image file below" (input)="previewImgError = false">
               <mat-icon matPrefix style="color:#64748b;margin-right:6px">photo_camera</mat-icon>
               <button mat-icon-button matSuffix *ngIf="teacherForm.get('photoUrl')?.value" type="button" (click)="teacherForm.patchValue({photoUrl: ''})">
@@ -392,9 +360,9 @@ import { AuthService } from '../../core/services/auth.service';
             <div class="photo-btn-group">
               <input #formFileInput type="file" accept="image/*" (change)="onFileSelected($event)" style="display:none">
               <button mat-stroked-button type="button" color="primary" class="upload-pic-btn" (click)="formFileInput.click()">
-                <mat-icon>cloud_upload</mat-icon> Choose Image from Computer
+                <mat-icon>cloud_upload</mat-icon> Upload Photo
               </button>
-              <span class="upload-note">JPG, PNG, WebP up to 2MB</span>
+              <span class="upload-note">Supports JPG, PNG, WebP (Max 2MB)</span>
             </div>
           </div>
         </div>
@@ -794,21 +762,37 @@ import { AuthService } from '../../core/services/auth.service';
     .form-card { padding:24px; border-radius:12px; }
     .form-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;
       h2 { display:flex; align-items:center; gap:8px; font-size:1.1rem; font-weight:700; margin:0; } }
-    .form-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:0 16px; }
-    .full-width { grid-column:1/-1; }
-    .form-actions { display:flex; justify-content:flex-end; gap:12px; margin-top:8px; }
-    .filter-card { padding:14px 18px 8px; border-radius:10px; display:flex; flex-direction:column; gap:6px; }
-    .filter-heading { display:flex; align-items:center; justify-content:space-between; min-height:24px; }
-    .filter-title { display:flex; align-items:center; gap:7px; color:#1e3a8a; font-size:.9rem; }
-    .filter-title mat-icon { font-size:19px; width:19px; height:19px; color:#2563eb; }
-    .total-count { color:#64748b; font-size:.78rem; font-weight:600; }
-    .filter-controls { display:grid; grid-template-columns:minmax(240px, 1fr) 180px 150px; gap:14px; align-items:center; }
-    .search-field, .staff-filter-field, .status-field { width:100%; }
-
-    @media (max-width: 768px) {
-      .filter-controls { grid-template-columns:1fr; gap:4px; }
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      column-gap: 16px;
+      row-gap: 14px;
     }
-    .total-count { font-size:.85rem; color:#64748b; margin-left:auto; }
+    .form-grid mat-form-field {
+      width: 100%;
+    }
+    .form-grid mat-form-field .mat-mdc-form-field-subscript-wrapper {
+      padding: 0 4px;
+      margin-top: 2px;
+      min-height: 18px;
+    }
+    .form-grid mat-hint {
+      font-size: 0.72rem;
+      color: #64748b;
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .full-width { grid-column: 1 / -1; }
+    .form-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 16px; }
+    .filter-card { padding: 14px 18px 8px; border-radius: 10px; display: flex; flex-direction: column; gap: 6px; }
+    .filter-heading { display: flex; align-items: center; justify-content: space-between; min-height: 24px; }
+    .filter-title { display: flex; align-items: center; gap: 7px; color: #1e3a8a; font-size: .9rem; }
+    .filter-title mat-icon { font-size: 19px; width: 19px; height: 19px; color: #2563eb; }
+    .total-count { color: #64748b; font-size: .78rem; font-weight: 600; margin-left: auto; }
+    .filter-controls { display: grid; grid-template-columns: minmax(240px, 1fr) 200px 160px; gap: 14px; align-items: center; }
+    .search-field, .staff-filter-field, .status-field { width: 100%; }
     /* Profile View */
     .profile-view { margin-bottom: 24px; }
     .profile-card {
@@ -856,20 +840,60 @@ import { AuthService } from '../../core/services/auth.service';
       width: 100%; height: 100%; object-fit: cover; object-position: top center; display: block;
     }
     .photo-upload-row {
-      display: flex; align-items: center; gap: 16px; margin: 4px 0 12px;
-      padding: 12px 16px; background: #f8fafc; border: 1px dashed #93c5fd; border-radius: 10px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin: 8px 0 14px;
+      padding: 14px 18px;
+      background: #f8fafc;
+      border: 1.5px dashed #bfdbfe;
+      border-radius: 12px;
+      transition: border-color 0.2s ease;
+      &:hover { border-color: #3b82f6; }
     }
     .photo-preview-box {
-      width: 60px; height: 60px; border-radius: 50%; overflow: hidden; border: 2px solid #bfdbfe;
-      background: #e2e8f0; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      overflow: hidden;
+      border: 2px solid #93c5fd;
+      background: #e2e8f0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
       box-shadow: 0 2px 8px rgba(37,99,235,0.15);
     }
     .form-avatar-preview { width: 100%; height: 100%; object-fit: cover; }
     .form-avatar-placeholder { color: #94a3b8; display: flex; align-items: center; justify-content: center; mat-icon { font-size: 32px; width: 32px; height: 32px; } }
-    .photo-field-wrapper { flex: 1; display: flex; flex-direction: column; gap: 4px; }
-    .photo-btn-group { display: flex; align-items: center; gap: 12px; }
-    .upload-pic-btn { font-size: 0.8rem; height: 32px; line-height: 32px; padding: 0 12px; }
-    .upload-note { font-size: 0.75rem; color: #64748b; }
+    .photo-field-wrapper {
+      flex: 1;
+      min-width: 0;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .photo-btn-group {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .upload-pic-btn {
+      font-size: 0.82rem;
+      height: 34px;
+      line-height: 34px;
+      padding: 0 14px;
+      white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .upload-note {
+      font-size: 0.74rem;
+      color: #64748b;
+    }
     .profile-info {
       flex: 1;
       min-width: 0;
@@ -1178,6 +1202,158 @@ import { AuthService } from '../../core/services/auth.service';
     .dup-warning { display:flex; align-items:center; gap:4px; font-size:.78rem; color:#c62828;
       font-weight:600; padding:2px 4px;
       mat-icon{font-size:14px;width:14px;height:14px;} }
+
+    /* =========================================================
+       RESPONSIVE DESIGN BREAKPOINTS ACROSS ALL MODES & DEVICES
+       ========================================================= */
+    @media (max-width: 1200px) {
+      .form-grid { grid-template-columns: repeat(3, 1fr) !important; }
+    }
+    @media (max-width: 900px) {
+      .page-header {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 12px;
+      }
+      .header-actions-row {
+        width: 100%;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        button { flex: 1 1 auto; justify-content: center; }
+      }
+      .filter-controls {
+        grid-template-columns: 1fr 1fr !important;
+        gap: 10px;
+        .search-field { grid-column: 1 / -1; }
+      }
+      .form-grid { grid-template-columns: repeat(2, 1fr) !important; }
+      .profile-top {
+        gap: 16px;
+      }
+    }
+    @media (max-width: 640px) {
+      .form-card { padding: 16px !important; }
+      .filter-card { padding: 12px !important; }
+      .filter-controls {
+        grid-template-columns: 1fr !important;
+        gap: 6px;
+        .search-field { grid-column: 1; }
+      }
+      .form-grid {
+        grid-template-columns: 1fr !important;
+        row-gap: 12px;
+      }
+      .form-actions {
+        flex-direction: column-reverse;
+        gap: 8px;
+        button { width: 100%; }
+      }
+      .photo-upload-row {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        padding: 14px !important;
+        gap: 12px;
+      }
+      .photo-preview-box {
+        margin: 0 auto;
+        width: 72px;
+        height: 72px;
+      }
+      .photo-btn-group {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+        .upload-pic-btn {
+          width: 100%;
+          justify-content: center;
+        }
+        .upload-note {
+          text-align: center;
+          display: block;
+        }
+      }
+      .profile-card { padding: 16px !important; }
+      .profile-top {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 14px;
+      }
+      .profile-title-row, .badges-row, .profile-meta-row {
+        justify-content: center;
+      }
+      .profile-actions {
+        flex-direction: column;
+        align-items: stretch;
+        button, a { width: 100%; justify-content: center; }
+        .account-actions-group { width: 100%; }
+      }
+      .close-profile {
+        position: absolute;
+        top: 0;
+        right: 0;
+      }
+      .teachers-grid {
+        grid-template-columns: 1fr !important;
+      }
+      .relieved-banner {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+        .banner-btn { width: 100%; }
+      }
+      .account-drawer-card {
+        max-width: 100% !important;
+        margin: 10px;
+      }
+      .account-drawer-footer {
+        flex-direction: column-reverse;
+        button { width: 100%; }
+      }
+    }
+
+    /* =========================================================
+       SMOOTH DROPDOWN PANEL ANIMATIONS (SELECT & AUTOCOMPLETE)
+       ========================================================= */
+    ::ng-deep .mat-mdc-autocomplete-panel,
+    ::ng-deep .mat-mdc-select-panel {
+      border-radius: 12px !important;
+      box-shadow: 0 16px 36px -4px rgba(37, 99, 235, 0.2), 0 4px 12px -2px rgba(15, 23, 42, 0.08) !important;
+      border: 1px solid #bfdbfe !important;
+      background: #ffffff !important;
+      padding: 6px !important;
+      animation: smoothPanelSlide 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+      transform-origin: top center !important;
+    }
+
+    @keyframes smoothPanelSlide {
+      0% {
+        opacity: 0;
+        transform: translateY(-8px) scale(0.97);
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    ::ng-deep .mat-mdc-option {
+      border-radius: 8px !important;
+      margin-bottom: 2px !important;
+      font-size: 0.86rem !important;
+      min-height: 40px !important;
+      transition: background 0.15s ease, color 0.15s ease !important;
+      &:hover {
+        background: #eff6ff !important;
+        color: #1d4ed8 !important;
+      }
+      &.mdc-list-item--selected:not(.mdc-list-item--disabled) {
+        background: #dbeafe !important;
+        color: #1e40af !important;
+        font-weight: 600 !important;
+      }
+    }
   `]
 })
 export class TeacherProfilesComponent implements OnInit {
@@ -1185,6 +1361,7 @@ export class TeacherProfilesComponent implements OnInit {
   teachers: TeacherDto[] = [];
   selectedTeacher: TeacherDto | null = null;
   loading = false; saving = false; codeLoading = false;
+  allowManualCode = false;
   searchTerm = ''; filterActive: boolean | null = null;
   filterStaffType: 'All' | 'Teaching' | 'NonTeaching' = 'All';
   pageNumber = 1; pageSize = 12; totalCount = 0;
@@ -1194,6 +1371,44 @@ export class TeacherProfilesComponent implements OnInit {
   previewImgError = false;
   previewPhotoUrl: string | null = null;
   previewPhotoTitle = '';
+
+  // Suggestions for Autocomplete
+  bankList: string[] = [
+    'State Bank of India (SBI)', 'HDFC Bank', 'ICICI Bank', 'Punjab National Bank (PNB)',
+    'Bank of Baroda', 'Axis Bank', 'Canara Bank', 'Union Bank of India',
+    'Kotak Mahindra Bank', 'IndusInd Bank', 'Bank of India', 'Indian Bank',
+    'Central Bank of India', 'IDBI Bank', 'Yes Bank', 'Federal Bank'
+  ];
+  departmentList: string[] = [
+    'Science Department', 'Mathematics Department', 'Humanities & Arts', 'Commerce & Economics',
+    'Computer Science & IT', 'Primary Wing', 'Secondary Wing', 'Administration & Management',
+    'Human Resources', 'Accounts & Finance', 'Library Division', 'Front Office & Reception',
+    'Transport & Fleet', 'Hostel & Maintenance'
+  ];
+  designationList: string[] = [
+    'PGT (Post Graduate Teacher)', 'TGT (Trained Graduate Teacher)', 'PRT (Primary Teacher)',
+    'Head of Department (HOD)', 'Senior Lecturer / Faculty', 'Assistant Teacher',
+    'Principal', 'Vice Principal', 'Academic Coordinator',
+    'HR Manager', 'Chief Accountant', 'Accountant', 'Cashier / Billing Clerk',
+    'Front Desk Executive', 'Librarian', 'Lab Assistant', 'IT Administrator',
+    'Transport Supervisor', 'Security / Guard', 'Peon / Attendant'
+  ];
+
+  get filteredBanks(): string[] {
+    const q = (this.teacherForm?.get('bankName')?.value || '').toLowerCase().trim();
+    if (!q) return this.bankList;
+    return this.bankList.filter(b => b.toLowerCase().includes(q));
+  }
+  get filteredDepartments(): string[] {
+    const q = (this.teacherForm?.get('department')?.value || '').toLowerCase().trim();
+    if (!q) return this.departmentList;
+    return this.departmentList.filter(d => d.toLowerCase().includes(q));
+  }
+  get filteredDesignations(): string[] {
+    const q = (this.teacherForm?.get('designation')?.value || '').toLowerCase().trim();
+    if (!q) return this.designationList;
+    return this.designationList.filter(d => d.toLowerCase().includes(q));
+  }
 
   // Duplicate check state
   phoneDuplicate = false; phoneDupChecking = false;
@@ -1481,14 +1696,24 @@ export class TeacherProfilesComponent implements OnInit {
   }
 
   onStaffTypeChange(type: number) {
-    this.generateEmployeeCode(type);
+    if (!this.editingId && !this.allowManualCode) {
+      this.generateEmployeeCode(type);
+    }
+  }
+
+  toggleCustomCode() {
+    if (this.editingId) return;
+    this.allowManualCode = !this.allowManualCode;
+    if (!this.allowManualCode) {
+      const type = this.teacherForm.get('staffType')?.value || 1;
+      this.generateEmployeeCode(type);
+    }
   }
 
   generateEmployeeCode(typeVal: number) {
     if (this.editingId) return;
     this.codeLoading = true;
-    const typeStr = typeVal == 1 ? 'Teaching' : 'NonTeaching';
-    this.http.get<{ code: string }>(`${this.api}/teachers/next-employee-code?staffType=${typeStr}`).subscribe({
+    this.http.get<{ code: string }>(`${this.api}/teachers/next-employee-code?staffType=${typeVal}`).subscribe({
       next: r => { this.teacherForm.patchValue({ employeeCode: r.code }); this.codeLoading = false; },
       error: () => {
         this.codeLoading = false;
@@ -1501,6 +1726,7 @@ export class TeacherProfilesComponent implements OnInit {
     this.editingId = null; this.showForm = true; this.selectedTeacher = null;
     this.phoneDuplicate = false; this.whatsAppDuplicate = false; this.emailDuplicate = false;
     this.previewImgError = false;
+    this.allowManualCode = false;
     this.teacherForm.reset({
       staffType: 1,
       gender: 'Male',
@@ -1516,6 +1742,7 @@ export class TeacherProfilesComponent implements OnInit {
     this.editingId = t.id; this.showForm = true;
     this.phoneDuplicate = false; this.whatsAppDuplicate = false; this.emailDuplicate = false;
     this.previewImgError = false;
+    this.allowManualCode = false;
     this.teacherForm.patchValue({
       ...t,
       staffType: (t.staffType === 'NonTeaching' || t.staffType === 2) ? 2 : 1,

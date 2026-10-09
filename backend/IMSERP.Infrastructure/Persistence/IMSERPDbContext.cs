@@ -98,9 +98,23 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
     public DbSet<StudentSibling> StudentSiblings => Set<StudentSibling>();
     public DbSet<StudyMaterial> StudyMaterials => Set<StudyMaterial>();
 
+    protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
+    {
+        base.ConfigureConventions(configurationBuilder);
+        configurationBuilder.Properties<decimal>().HavePrecision(18, 2);
+        configurationBuilder.Properties<decimal?>().HavePrecision(18, 2);
+    }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        foreach (var property in modelBuilder.Model.GetEntityTypes()
+                     .SelectMany(t => t.GetProperties())
+                     .Where(p => p.ClrType == typeof(decimal) || p.ClrType == typeof(decimal?)))
+        {
+            property.SetColumnType("decimal(18,2)");
+        }
 
         modelBuilder.Entity<StudyMaterial>(entity =>
         {

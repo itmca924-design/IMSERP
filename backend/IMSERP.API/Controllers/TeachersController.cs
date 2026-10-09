@@ -126,16 +126,41 @@ public class TeachersController : ControllerBase
             .FirstOrDefaultAsync(t => t.Id == _currentUser.TenantId);
 
         var tenantPrefix = (tenant?.Code ?? "TCH").ToUpper();
-        var typePrefix = (string.Equals(staffType, "NonTeaching", StringComparison.OrdinalIgnoreCase) || staffType == "2") ? "STF" : "TCH";
 
-        // Count existing teachers for this tenant (already filtered by global query filter)
-        var count = await _db.Teachers.CountAsync();
-        var nextNumber = count + 1;
+        // Approach 1: Category-specific prefix
+        var normalized = (staffType ?? "1").Trim().ToLowerInvariant();
+        string typePrefix = normalized switch
+        {
+            "1" or "teaching" or "teacher" or "tch" => "TCH",
+            "2" or "admin" or "administrative" or "management" or "adm" => "ADM",
+            "3" or "hr" or "operations" => "HR",
+            "4" or "accounts" or "finance" or "accountant" or "acc" => "ACC",
+            "5" or "support" or "facility" or "sup" => "SUP",
+            _ => "TCH"
+        };
 
-        // Generate code: e.g. ACA-TCH-001 or ACA-STF-001
+        var prefixPattern = $"{tenantPrefix}-{typePrefix}-";
+        var existingCodes = await _db.Teachers
+            .Where(t => t.EmployeeCode.StartsWith(prefixPattern))
+            .Select(t => t.EmployeeCode)
+            .ToListAsync();
+
+        int maxNumber = 0;
+        foreach (var c in existingCodes)
+        {
+            if (c.Length > prefixPattern.Length)
+            {
+                var suffix = c.Substring(prefixPattern.Length);
+                if (int.TryParse(suffix, out var num) && num > maxNumber)
+                {
+                    maxNumber = num;
+                }
+            }
+        }
+
+        var nextNumber = maxNumber + 1;
         var code = $"{tenantPrefix}-{typePrefix}-{nextNumber:D3}";
 
-        // Make sure this code doesn't already exist (loop until unique)
         while (await _db.Teachers.AnyAsync(t => t.EmployeeCode == code))
         {
             nextNumber++;
