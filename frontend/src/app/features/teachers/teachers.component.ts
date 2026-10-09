@@ -377,8 +377,8 @@ interface BatchDto { id: string; name: string; subject: string; academicYear: st
                 <mat-form-field appearance="outline"><mat-label>Present Days</mat-label><input matInput type="number" formControlName="presentDays"></mat-form-field>
                 <mat-form-field appearance="outline"><mat-label>Absent Days</mat-label><input matInput type="number" formControlName="absentDays"></mat-form-field>
                 <mat-form-field appearance="outline"><mat-label>Transaction Ref</mat-label><input matInput formControlName="transactionRef"></mat-form-field>
-                <mat-form-field appearance="outline"><mat-label>Payment Date</mat-label><input matInput type="date" formControlName="paymentDate"></mat-form-field>
-                <mat-form-field appearance="outline"><mat-label>Remarks</mat-label><input matInput formControlName="remarks"></mat-form-field>
+                <mat-form-field appearance="outline" class="col-span-1"><mat-label>Payment Date</mat-label><input matInput type="date" formControlName="paymentDate"></mat-form-field>
+                <mat-form-field appearance="outline" class="remarks-col-4"><mat-label>Remarks</mat-label><input matInput formControlName="remarks" placeholder="Optional notes, deductions or calculation remarks..."><mat-icon matSuffix color="primary">notes</mat-icon></mat-form-field>
               </div>
               <div class="form-actions">
                 <button mat-button type="button" (click)="showPaymentForm=false">Cancel</button>
@@ -550,9 +550,11 @@ interface BatchDto { id: string; name: string; subject: string; academicYear: st
     /* Form Card */
     .form-card { padding:24px; border-radius:12px; }
     .form-card-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; h2 { display:flex; align-items:center; gap:8px; font-size:1.2rem; font-weight:700; margin:0; } }
-    .form-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px,1fr)); gap:0 16px; }
-    .form-grid.compact { grid-template-columns:repeat(auto-fill, minmax(180px,1fr)); }
-    .full-width { grid-column:1/-1; }
+    .form-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px,1fr)); gap:12px 16px; }
+    .form-grid.compact { grid-template-columns:repeat(5, minmax(0, 1fr)); }
+    .col-span-1 { grid-column: span 1; }
+    .remarks-col-4 { grid-column: span 4; width: 100%; }
+    .full-width { grid-column:1/-1; width: 100%; }
     .form-actions { display:flex; justify-content:flex-end; gap:12px; margin-top:8px; }
 
     /* Detail Layout */

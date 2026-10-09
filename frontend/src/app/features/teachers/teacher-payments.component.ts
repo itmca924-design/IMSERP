@@ -213,7 +213,7 @@ import { TeacherPayslipDialogComponent } from './teacher-payslip-dialog.componen
           <mat-form-field appearance="outline">
             <mat-label>Net Paid ₹ *</mat-label>
             <input matInput type="number" formControlName="netPaid" min="0">
-            <mat-hint>Auto-calculated: Gross − Deductions − Advance</mat-hint>
+            <mat-hint class="single-line-hint" title="Gross − Deductions − Advance">Gross − Ded. − Adv.</mat-hint>
             <mat-error *ngIf="paymentForm.get('netPaid')?.hasError('required')">Net paid required</mat-error>
             <mat-error *ngIf="paymentForm.get('netPaid')?.hasError('min')">Must be ≥ 0</mat-error>
           </mat-form-field>
@@ -238,14 +238,15 @@ import { TeacherPayslipDialogComponent } from './teacher-payslip-dialog.componen
             <mat-label>Transaction Ref</mat-label>
             <input matInput formControlName="transactionRef" placeholder="UTR / Cheque No.">
           </mat-form-field>
-          <mat-form-field appearance="outline">
+          <mat-form-field appearance="outline" class="col-span-1">
             <mat-label>Payment Date *</mat-label>
             <input matInput type="date" formControlName="paymentDate">
             <mat-error *ngIf="paymentForm.get('paymentDate')?.hasError('required')">Date required</mat-error>
           </mat-form-field>
-          <mat-form-field appearance="outline">
+          <mat-form-field appearance="outline" class="remarks-col-4">
             <mat-label>Remarks</mat-label>
-            <input matInput formControlName="remarks">
+            <input matInput formControlName="remarks" placeholder="Optional notes, deductions explanation, or attendance calculation remarks...">
+            <mat-icon matSuffix color="primary">notes</mat-icon>
           </mat-form-field>
         </div>
         <div class="form-actions">
@@ -333,9 +334,20 @@ import { TeacherPayslipDialogComponent } from './teacher-payslip-dialog.componen
     .page-subtitle { color:#666; margin:4px 0 0; font-size:.9rem; }
     .no-selection { display:flex; flex-direction:column; align-items:center; padding:60px; color:#94a3b8; background:#f8fafc; border-radius:12px;
       mat-icon{font-size:48px;width:48px;height:48px;margin-bottom:12px;} p{margin:0;font-size:.95rem;} }
-    .section-header { display:flex; justify-content:space-between; align-items:center;
-      h3{margin:0;font-weight:700;font-size:1.05rem;} }
-    .form-card { padding:24px; border-radius:12px; }
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      padding-bottom: 2px;
+      h3 { margin: 0; font-weight: 700; font-size: 1.05rem; }
+    }
+    .form-card {
+      padding: 24px;
+      border-radius: 12px;
+      margin-top: 16px;
+      margin-bottom: 20px;
+    }
 
     /* Smart Payroll Banner */
     .payroll-preview-banner {
@@ -395,7 +407,43 @@ import { TeacherPayslipDialogComponent } from './teacher-payslip-dialog.componen
     }
     .hint-advance { color: #d97706 !important; font-size: 0.72rem; white-space: nowrap; text-align: left; }
 
-    .form-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:0 16px; }
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      column-gap: 16px;
+      row-gap: 24px;
+      align-items: start;
+    }
+    .single-line-hint {
+      font-size: 0.73rem !important;
+      white-space: nowrap !important;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: #64748b;
+    }
+    .col-span-1 {
+      grid-column: span 1;
+    }
+    .remarks-col-4 {
+      grid-column: span 4;
+      width: 100%;
+    }
+    @media (max-width: 1200px) {
+      .form-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .remarks-col-4 {
+        grid-column: span 2;
+      }
+    }
+    @media (max-width: 600px) {
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+      .col-span-1, .remarks-col-4 {
+        grid-column: 1 / -1;
+      }
+    }
     .form-actions { display:flex; justify-content:flex-end; align-items:center; gap:12px; margin-top:8px; flex-wrap:wrap; }
     .mandatory-hint {
       display: flex; align-items: center; gap: 8px; color: #b45309; background: #fef3c7;
