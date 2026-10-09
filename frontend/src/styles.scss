@@ -2500,8 +2500,7 @@ mat-sidenav-container {
     .bseb-marksheet-page,
     .admit-card-page,
     .result-card-page,
-    .report-card-page,
-    .certificate-page-wrapper {
+    .report-card-page {
       display: block !important;
       visibility: visible !important;
       position: relative !important;
@@ -2514,6 +2513,48 @@ mat-sidenav-container {
       background: #ffffff !important;
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
+
+      * {
+        visibility: visible !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+    }
+
+    .certificate-page-wrapper {
+      display: block !important;
+      visibility: visible !important;
+      position: relative !important;
+      box-shadow: none !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      margin: 0 auto !important;
+      padding: 8mm 10mm !important;
+      min-height: auto !important;
+      background: #ffffff !important;
+      break-inside: avoid !important;
+      page-break-inside: avoid !important;
+      -webkit-box-decoration-break: clone !important;
+      box-decoration-break: clone !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+
+      .certificate-inner-border {
+        display: block !important;
+        visibility: visible !important;
+        position: relative !important;
+        border: 4px double #d97706 !important;
+        border-top: 4px double #d97706 !important;
+        border-bottom: 4px double #d97706 !important;
+        border-left: 4px double #d97706 !important;
+        border-right: 4px double #d97706 !important;
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+        -webkit-box-decoration-break: clone !important;
+        box-decoration-break: clone !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
 
       * {
         visibility: visible !important;

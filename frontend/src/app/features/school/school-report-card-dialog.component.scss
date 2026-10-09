@@ -1367,19 +1367,45 @@
 /* ═════════════════════════════════════════════════════════════════════ */
 .certificate-page-wrapper {
   background: #ffffff;
-  padding: 10mm 12mm;
+  padding: 8mm 10mm;
   width: 210mm;
   max-width: 100%;
   box-sizing: border-box;
   margin: 0 auto;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+  break-inside: avoid !important;
+  page-break-inside: avoid !important;
+  -webkit-box-decoration-break: clone !important;
+  box-decoration-break: clone !important;
 
   .certificate-inner-border {
-    border: 4px double #d97706;
-    outline: 2px solid #fef3c7;
-    outline-offset: -6px;
+    position: relative;
+    border: 4px double #d97706 !important;
+    border-top: 4px double #d97706 !important;
+    border-bottom: 4px double #d97706 !important;
+    border-left: 4px double #d97706 !important;
+    border-right: 4px double #d97706 !important;
+    box-sizing: border-box;
     padding: 18px;
     text-align: center;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    -webkit-box-decoration-break: clone !important;
+    box-decoration-break: clone !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+
+    &::before {
+      content: '';
+      position: absolute;
+      top: 4px;
+      left: 4px;
+      right: 4px;
+      bottom: 4px;
+      border: 1.5px solid #fde68a;
+      pointer-events: none;
+      box-sizing: border-box;
+    }
 
     .cert-header {
       margin-bottom: 16px;
@@ -1504,14 +1530,40 @@
   .bseb-marksheet-page,
   .admit-card-page,
   .result-card-page,
-  .report-card-page,
-  .certificate-page-wrapper {
+  .report-card-page {
     box-shadow: none !important;
     width: 100% !important;
     max-width: 100% !important;
     margin: 0 auto !important;
     padding: 6mm 8mm !important;
     min-height: auto !important;
+  }
+
+  .certificate-page-wrapper {
+    box-shadow: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    padding: 8mm 10mm !important;
+    min-height: auto !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    -webkit-box-decoration-break: clone !important;
+    box-decoration-break: clone !important;
+
+    .certificate-inner-border {
+      border: 4px double #d97706 !important;
+      border-top: 4px double #d97706 !important;
+      border-bottom: 4px double #d97706 !important;
+      border-left: 4px double #d97706 !important;
+      border-right: 4px double #d97706 !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+      break-inside: avoid !important;
+      page-break-inside: avoid !important;
+      -webkit-box-decoration-break: clone !important;
+      box-decoration-break: clone !important;
+    }
   }
 
   .page-break-always {

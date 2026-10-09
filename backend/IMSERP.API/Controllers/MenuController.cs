@@ -61,6 +61,9 @@ public class MenuController : ControllerBase
             if (!tenant.HasCoachingModule)
             {
                 disabledRoutes.Add("/batches");
+            }
+            if (!tenant.HasSchoolModule && !tenant.HasCoachingModule)
+            {
                 disabledRoutes.Add("/tests");
             }
             if (!tenant.HasHostelModule)
@@ -96,6 +99,20 @@ public class MenuController : ControllerBase
                 .ToListAsync();
 
             allowedMenuIds = new HashSet<Guid>(permissions);
+
+            // Ensure Teacher / Faculty roles have access to Tests / Marks Entry and Exams
+            var roleNameLower = user.AssignedRole?.Name?.ToLower() ?? "";
+            if (roleNameLower.Contains("teacher") || roleNameLower.Contains("faculty") || roleNameLower.Contains("admin") || roleNameLower.Contains("principal"))
+            {
+                var essentialRoutes = new[] { "/tests", "/school/exams", "/teachers/lesson-plans", "/school/homework" };
+                var testMenuIds = allMenuItems
+                    .Where(m => m.RouteUrl != null && essentialRoutes.Contains(m.RouteUrl.ToLower()))
+                    .Select(m => m.Id);
+                foreach (var id in testMenuIds)
+                {
+                    allowedMenuIds.Add(id);
+                }
+            }
         }
         else
         {

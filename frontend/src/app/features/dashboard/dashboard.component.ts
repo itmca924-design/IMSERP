@@ -577,7 +577,7 @@ import ApexCharts from 'apexcharts';
             </mat-card>
 
             <!-- 3. Pending Marks Entry -->
-            <mat-card class="stat-card orange mat-elevation-z2" routerLink="/school/exams">
+            <mat-card class="stat-card orange mat-elevation-z2" routerLink="/tests" style="cursor: pointer;">
               <mat-card-content class="stat-content">
                 <div class="stat-header">
                   <span class="label">Pending Marks Entry</span>
@@ -739,7 +739,7 @@ import ApexCharts from 'apexcharts';
                     <p class="widget-sub">Grade your students to update progress reports</p>
                   </div>
                 </div>
-                <a mat-stroked-button color="primary" routerLink="/school/exams" class="hub-link-btn">
+                <a mat-stroked-button color="primary" routerLink="/tests" class="hub-link-btn">
                   <span>Exams Desk</span>
                   <mat-icon>arrow_forward</mat-icon>
                 </a>
@@ -748,7 +748,7 @@ import ApexCharts from 'apexcharts';
                 @if (tc.pendingTests.length) {
                   <div class="tests-list">
                     @for (pt of tc.pendingTests; track pt.testId) {
-                      <div class="test-item-card" [routerLink]="['/school/exams']" [queryParams]="{ examId: pt.testId }" style="cursor: pointer;">
+                      <div class="test-item-card" [routerLink]="['/tests']" [queryParams]="{ examId: pt.testId }" style="cursor: pointer;">
                         <div class="test-date-badge">
                           <span class="m">{{ pt.testDate | date:'MMM' | uppercase }}</span>
                           <span class="d">{{ pt.testDate | date:'dd' }}</span>
@@ -761,7 +761,7 @@ import ApexCharts from 'apexcharts';
                           <span class="test-subj"><mat-icon>groups</mat-icon> {{ pt.batchOrClass }} • {{ pt.subject }}</span>
                           <div class="test-eval-row">
                             <span class="eval-stat">Pending Marks Entry</span>
-                            <a mat-flat-button color="primary" class="enter-marks-mini-btn" [routerLink]="['/school/exams']" [queryParams]="{ examId: pt.testId }" (click)="$event.stopPropagation()">
+                            <a mat-flat-button color="primary" class="enter-marks-mini-btn" [routerLink]="['/tests']" [queryParams]="{ examId: pt.testId }" (click)="$event.stopPropagation()">
                               Enter Marks
                             </a>
                           </div>

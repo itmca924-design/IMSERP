@@ -761,7 +761,56 @@ public record TestDto(
     Guid? ClassId = null,
     string? ClassName = null,
     Guid? SectionId = null,
-    string? SectionName = null
+    string? SectionName = null,
+    Guid? EvaluatorTeacherId = null,
+    string? EvaluatorTeacherName = null,
+    string? EvaluatorTeacherPhone = null,
+    string EvaluationStatus = "Scheduled",
+    DateTime? EvaluationDueDate = null,
+    int? TotalCopiesIssued = null,
+    DateTime? CopiesSubmittedDate = null,
+    bool IsMarksLocked = false,
+    DateTime? MarksLockedAt = null,
+    string? MarksLockedBy = null,
+    string? EvaluationRemarks = null
+);
+
+public record UpdateTestEvaluationWorkflowDto(
+    Guid? EvaluatorTeacherId,
+    string EvaluationStatus,
+    DateTime? EvaluationDueDate,
+    int? TotalCopiesIssued,
+    DateTime? CopiesSubmittedDate,
+    string? EvaluationRemarks
+);
+
+public record ApproveAndLockTestMarksDto(
+    string? Remarks
+);
+
+public record RejectTestMarksDto(
+    string Reason
+);
+
+public record TestAwardSheetItemDto(
+    Guid StudentId,
+    string RollNumber,
+    string StudentName,
+    string? BatchName
+);
+
+public record TestAwardSheetDto(
+    Guid TestId,
+    string TestTitle,
+    string Subject,
+    decimal MaxMarks,
+    DateTime TestDate,
+    string BatchName,
+    string EvaluatorTeacherName,
+    string EvaluatorTeacherPhone,
+    DateTime? EvaluationDueDate,
+    int TotalCopiesIssued,
+    List<TestAwardSheetItemDto> Students
 );
 
 public record CreateTestDto(

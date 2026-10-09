@@ -1615,10 +1615,10 @@ export class LayoutComponent implements OnInit {
       if (!hasSchool && (lower.includes('/school/classes') || lower.includes('/school/exams') || lower.includes('/students/promotion') || lower.includes('/school/notices'))) {
         return false;
       }
-      if (!hasSchool && !hasCoaching && lower.includes('/fee-heads')) {
+      if (!hasCoaching && lower === '/batches') {
         return false;
       }
-      if (!hasCoaching && (lower === '/batches' || lower === '/tests')) {
+      if (!hasSchool && !hasCoaching && lower === '/tests') {
         return false;
       }
       if (!hasHostel && lower.includes('/hostel')) {
@@ -1776,6 +1776,28 @@ export class LayoutComponent implements OnInit {
       children: []
     };
 
+    const testsItemAcademic: MenuItem = {
+      id: 'academic-tests-link',
+      title: 'Test Exams & Marks Entry',
+      routeUrl: '/tests',
+      icon: 'quiz',
+      sortOrder: 4.2,
+      module: 'Academic',
+      isActive: true,
+      children: []
+    };
+
+    const testsItemFaculty: MenuItem = {
+      id: 'faculty-tests-link',
+      title: 'Test Exams & Marks Entry',
+      routeUrl: '/tests',
+      icon: 'quiz',
+      sortOrder: 3.2,
+      module: 'Teachers',
+      isActive: true,
+      children: []
+    };
+
     let updated = (menu || []).map(item => {
       const copy = { ...item, children: item.children ? [...item.children] : [] };
 
@@ -1800,6 +1822,14 @@ export class LayoutComponent implements OnInit {
             copy.children.splice(promoIdx + 1, 0, workflowItemAcademic);
           } else {
             copy.children.push(workflowItemAcademic);
+          }
+        }
+        if (!copy.children.some(c => c.routeUrl === '/tests')) {
+          const examIdx = copy.children.findIndex(c => c.routeUrl === '/school/exams' || c.routeUrl === '/admin/academic-workflow');
+          if (examIdx >= 0) {
+            copy.children.splice(examIdx + 1, 0, testsItemAcademic);
+          } else {
+            copy.children.push(testsItemAcademic);
           }
         }
         if (!copy.children.some(c => c.routeUrl === '/students/timetable')) {
@@ -1859,6 +1889,14 @@ export class LayoutComponent implements OnInit {
                         copy.id === '4' ||
                         (copy.module && copy.module.toLowerCase() === 'teachers');
       if (isFaculty) {
+        if (!copy.children.some(c => c.routeUrl === '/tests')) {
+          const diaryIdx = copy.children.findIndex(c => c.routeUrl === '/teachers/lesson-plans' || c.routeUrl === '/teachers/assignments');
+          if (diaryIdx >= 0) {
+            copy.children.splice(diaryIdx + 1, 0, testsItemFaculty);
+          } else {
+            copy.children.push(testsItemFaculty);
+          }
+        }
         if (!copy.children.some(c => c.routeUrl === '/students/timetable')) {
           const subIdx = copy.children.findIndex(c => c.routeUrl === '/teachers/substitution');
           if (subIdx >= 0) {

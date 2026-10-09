@@ -2019,6 +2019,7 @@ public class TestsController : ControllerBase
             .Include(t => t.Batch)
             .Include(t => t.Class)
             .Include(t => t.Section)
+            .Include(t => t.EvaluatorTeacher)
             .AsQueryable();
 
         if (batchId.HasValue && batchId != Guid.Empty)
@@ -2040,7 +2041,18 @@ public class TestsController : ControllerBase
             t.ClassId,
             ClassName = t.Class != null ? t.Class.Name : null,
             t.SectionId,
-            SectionName = t.Section != null ? t.Section.Name : null
+            SectionName = t.Section != null ? t.Section.Name : null,
+            t.EvaluatorTeacherId,
+            EvaluatorTeacherName = t.EvaluatorTeacher != null ? t.EvaluatorTeacher.FullName : null,
+            EvaluatorTeacherPhone = t.EvaluatorTeacher != null ? t.EvaluatorTeacher.PhoneNumber : null,
+            EvaluationStatus = t.EvaluationStatus ?? "Scheduled",
+            t.EvaluationDueDate,
+            t.TotalCopiesIssued,
+            t.CopiesSubmittedDate,
+            t.IsMarksLocked,
+            t.MarksLockedAt,
+            t.MarksLockedBy,
+            t.EvaluationRemarks
         }).ToListAsync();
 
         var list = rawList.Select(t => new TestDto(
@@ -2055,7 +2067,18 @@ public class TestsController : ControllerBase
             t.ClassId,
             t.ClassName,
             t.SectionId,
-            t.SectionName
+            t.SectionName,
+            t.EvaluatorTeacherId,
+            t.EvaluatorTeacherName,
+            t.EvaluatorTeacherPhone,
+            t.EvaluationStatus,
+            t.EvaluationDueDate,
+            t.TotalCopiesIssued,
+            t.CopiesSubmittedDate,
+            t.IsMarksLocked,
+            t.MarksLockedAt,
+            t.MarksLockedBy,
+            t.EvaluationRemarks
         )).ToList();
 
         return Ok(list);
@@ -2074,6 +2097,7 @@ public class TestsController : ControllerBase
             .Include(t => t.Batch)
             .Include(t => t.Class)
             .Include(t => t.Section)
+            .Include(t => t.EvaluatorTeacher)
             .AsQueryable();
 
         if (batchId.HasValue && batchId != Guid.Empty)
@@ -2118,7 +2142,18 @@ public class TestsController : ControllerBase
                 t.ClassId,
                 ClassName = t.Class != null ? t.Class.Name : null,
                 t.SectionId,
-                SectionName = t.Section != null ? t.Section.Name : null
+                SectionName = t.Section != null ? t.Section.Name : null,
+                t.EvaluatorTeacherId,
+                EvaluatorTeacherName = t.EvaluatorTeacher != null ? t.EvaluatorTeacher.FullName : null,
+                EvaluatorTeacherPhone = t.EvaluatorTeacher != null ? t.EvaluatorTeacher.PhoneNumber : null,
+                EvaluationStatus = t.EvaluationStatus ?? "Scheduled",
+                t.EvaluationDueDate,
+                t.TotalCopiesIssued,
+                t.CopiesSubmittedDate,
+                t.IsMarksLocked,
+                t.MarksLockedAt,
+                t.MarksLockedBy,
+                t.EvaluationRemarks
             }).ToListAsync();
 
         var items = rawItems.Select(t => new TestDto(
@@ -2133,7 +2168,18 @@ public class TestsController : ControllerBase
             t.ClassId,
             t.ClassName,
             t.SectionId,
-            t.SectionName
+            t.SectionName,
+            t.EvaluatorTeacherId,
+            t.EvaluatorTeacherName,
+            t.EvaluatorTeacherPhone,
+            t.EvaluationStatus,
+            t.EvaluationDueDate,
+            t.TotalCopiesIssued,
+            t.CopiesSubmittedDate,
+            t.IsMarksLocked,
+            t.MarksLockedAt,
+            t.MarksLockedBy,
+            t.EvaluationRemarks
         )).ToList();
 
         return Ok(new PagedResultDto<TestDto>(items, totalCount, pageNumber, pageSize));
@@ -2425,6 +2471,16 @@ public class TestsController : ControllerBase
         var test = await _dbContext.Tests.FirstOrDefaultAsync(t => t.Id == dto.TestId);
         if (test == null) return NotFound("Test not found");
 
+        var isPrivilegedAdmin = _currentUser.UserRole.Contains("Admin", StringComparison.OrdinalIgnoreCase) ||
+                                _currentUser.UserRole.Contains("Principal", StringComparison.OrdinalIgnoreCase) ||
+                                _currentUser.UserRole.Contains("Director", StringComparison.OrdinalIgnoreCase) ||
+                                _currentUser.UserRole.Contains("SuperAdmin", StringComparison.OrdinalIgnoreCase);
+
+        if (test.IsMarksLocked && !isPrivilegedAdmin)
+        {
+            return BadRequest(new { message = "Marks for this exam have been officially approved and locked by the Principal/Administrator. Editing is prohibited." });
+        }
+
         var strategy = _dbContext.Database.CreateExecutionStrategy();
         return await strategy.ExecuteAsync<ActionResult>(async () =>
         {
@@ -2477,10 +2533,294 @@ public class TestsController : ControllerBase
             }
 
             _dbContext.TestMarks.AddRange(entities);
+
+            if (test.EvaluationStatus == "Scheduled" || test.EvaluationStatus == "CopiesUnderEvaluation" || test.EvaluationStatus == "EvaluationCompleted" || test.EvaluationStatus == "NeedsRevision")
+            {
+                test.EvaluationStatus = "MarksEntered";
+            }
+
             await _dbContext.SaveChangesAsync();
             await transaction.CommitAsync();
 
             return Ok(new { message = $"Successfully saved marks for {entities.Count} students.", whatsappSent = dto.NotifyParentsViaWhatsApp });
         });
+    }
+
+    [HttpPut("{testId}/evaluation-workflow")]
+    public async Task<ActionResult<object>> UpdateEvaluationWorkflow(Guid testId, [FromBody] UpdateTestEvaluationWorkflowDto dto)
+    {
+        var test = await _dbContext.Tests.FirstOrDefaultAsync(t => t.Id == testId);
+        if (test == null) return NotFound(new { message = "Test not found." });
+
+        var isPrivilegedAdmin = _currentUser.UserRole.Contains("Admin", StringComparison.OrdinalIgnoreCase) ||
+                                _currentUser.UserRole.Contains("Principal", StringComparison.OrdinalIgnoreCase) ||
+                                _currentUser.UserRole.Contains("Director", StringComparison.OrdinalIgnoreCase) ||
+                                _currentUser.UserRole.Contains("SuperAdmin", StringComparison.OrdinalIgnoreCase);
+
+        if (test.IsMarksLocked && !isPrivilegedAdmin)
+        {
+            return BadRequest(new { message = "Exam marks are locked. Cannot alter evaluation assignments." });
+        }
+
+        if (dto.EvaluatorTeacherId.HasValue && dto.EvaluatorTeacherId.Value != Guid.Empty)
+        {
+            var teacher = await _dbContext.Teachers.FindAsync(dto.EvaluatorTeacherId.Value);
+            if (teacher == null) return NotFound(new { message = "Assigned teacher not found." });
+
+            var isFnFSettled = await _dbContext.TeacherFnFSettlements.AnyAsync(s => s.TeacherId == dto.EvaluatorTeacherId.Value && (s.Status == "Settled" || s.Status == "Approved" || s.Status == "Completed"));
+            if (isFnFSettled)
+            {
+                return BadRequest(new { message = $"Cannot assign copies to '{teacher.FullName}'. This faculty member has already completed Full & Final (FNF) settlement." });
+            }
+        }
+
+        if (dto.EvaluationDueDate.HasValue && test.TestDate != default)
+        {
+            var examDateUtc = DateTime.SpecifyKind(test.TestDate, DateTimeKind.Utc).Date;
+            var dueDateUtc = DateTime.SpecifyKind(dto.EvaluationDueDate.Value, DateTimeKind.Utc).Date;
+            if (dueDateUtc < examDateUtc)
+            {
+                return BadRequest(new { message = $"Evaluation due date cannot be earlier than the examination date ({examDateUtc:yyyy-MM-dd})." });
+            }
+        }
+
+        test.EvaluatorTeacherId = dto.EvaluatorTeacherId ?? test.EvaluatorTeacherId;
+        test.EvaluationStatus = !string.IsNullOrWhiteSpace(dto.EvaluationStatus) ? dto.EvaluationStatus : (test.EvaluationStatus ?? "Scheduled");
+        test.EvaluationDueDate = dto.EvaluationDueDate ?? test.EvaluationDueDate;
+        test.TotalCopiesIssued = dto.TotalCopiesIssued ?? test.TotalCopiesIssued;
+        test.CopiesSubmittedDate = dto.CopiesSubmittedDate ?? test.CopiesSubmittedDate;
+        test.EvaluationRemarks = dto.EvaluationRemarks ?? test.EvaluationRemarks;
+
+        if (dto.CopiesSubmittedDate.HasValue && (test.EvaluationStatus == "CopiesUnderEvaluation" || test.EvaluationStatus == "Scheduled"))
+        {
+            test.EvaluationStatus = "EvaluationCompleted";
+        }
+        else if (test.EvaluatorTeacherId.HasValue && test.EvaluationStatus == "Scheduled")
+        {
+            test.EvaluationStatus = "CopiesUnderEvaluation";
+        }
+
+        await _dbContext.SaveChangesAsync();
+
+        return Ok(new
+        {
+            message = "Evaluation bundle workflow updated successfully.",
+            evaluationStatus = test.EvaluationStatus,
+            evaluatorTeacherId = test.EvaluatorTeacherId,
+            totalCopiesIssued = test.TotalCopiesIssued,
+            evaluationDueDate = test.EvaluationDueDate,
+            copiesSubmittedDate = test.CopiesSubmittedDate
+        });
+    }
+
+    [HttpPut("{testId}/submit-for-approval")]
+    public async Task<ActionResult<object>> SubmitForApproval(Guid testId)
+    {
+        var test = await _dbContext.Tests.Include(t => t.MarksList).FirstOrDefaultAsync(t => t.Id == testId);
+        if (test == null) return NotFound(new { message = "Test not found." });
+
+        if (test.MarksList.Count == 0)
+        {
+            return BadRequest(new { message = "Cannot submit for approval without entering student marks first." });
+        }
+
+        if (test.IsMarksLocked)
+        {
+            return BadRequest(new { message = "Marks are already locked and approved." });
+        }
+
+        test.EvaluationStatus = "SubmittedForApproval";
+        await _dbContext.SaveChangesAsync();
+
+        return Ok(new
+        {
+            message = "Marks submitted to Principal / Exam Cell for final verification and approval.",
+            evaluationStatus = test.EvaluationStatus
+        });
+    }
+
+    [HttpPut("{testId}/approve-and-lock")]
+    public async Task<ActionResult<object>> ApproveAndLockMarks(Guid testId, [FromBody] ApproveAndLockTestMarksDto dto)
+    {
+        var isPrivilegedAdmin = _currentUser.UserRole.Contains("Admin", StringComparison.OrdinalIgnoreCase) ||
+                                _currentUser.UserRole.Contains("Principal", StringComparison.OrdinalIgnoreCase) ||
+                                _currentUser.UserRole.Contains("Director", StringComparison.OrdinalIgnoreCase) ||
+                                _currentUser.UserRole.Contains("SuperAdmin", StringComparison.OrdinalIgnoreCase);
+
+        if (!isPrivilegedAdmin)
+        {
+            return StatusCode(403, new { message = "Unauthorized: Only Principal or Institute Administrator can officially approve and lock examination results." });
+        }
+
+        var test = await _dbContext.Tests.Include(t => t.MarksList).FirstOrDefaultAsync(t => t.Id == testId);
+        if (test == null) return NotFound(new { message = "Test not found." });
+
+        if (test.MarksList.Count == 0)
+        {
+            return BadRequest(new { message = "Cannot approve an exam with zero student marks." });
+        }
+
+        test.IsMarksLocked = true;
+        test.EvaluationStatus = "MarksLocked";
+        test.MarksLockedBy = User?.Identity?.Name ?? _currentUser.UserRole ?? "Principal / Admin";
+        test.MarksLockedAt = DateTime.UtcNow;
+
+        if (!string.IsNullOrWhiteSpace(dto?.Remarks))
+        {
+            test.EvaluationRemarks = string.IsNullOrWhiteSpace(test.EvaluationRemarks)
+                ? $"Approved by {test.MarksLockedBy}: {dto.Remarks}"
+                : $"{test.EvaluationRemarks} | Approved: {dto.Remarks}";
+        }
+
+        await _dbContext.SaveChangesAsync();
+
+        return Ok(new
+        {
+            message = "Examination marks verified, officially approved, and locked. Results are now finalized.",
+            evaluationStatus = test.EvaluationStatus,
+            isMarksLocked = test.IsMarksLocked,
+            lockedBy = test.MarksLockedBy,
+            lockedAt = test.MarksLockedAt
+        });
+    }
+
+    [HttpPut("{testId}/unlock-marks")]
+    public async Task<ActionResult<object>> UnlockMarks(Guid testId, [FromBody] RejectTestMarksDto dto)
+    {
+        var isPrivilegedAdmin = _currentUser.UserRole.Contains("Admin", StringComparison.OrdinalIgnoreCase) ||
+                                _currentUser.UserRole.Contains("Principal", StringComparison.OrdinalIgnoreCase) ||
+                                _currentUser.UserRole.Contains("Director", StringComparison.OrdinalIgnoreCase) ||
+                                _currentUser.UserRole.Contains("SuperAdmin", StringComparison.OrdinalIgnoreCase);
+
+        if (!isPrivilegedAdmin)
+        {
+            return StatusCode(403, new { message = "Unauthorized: Only Principal or Administrator can unlock officially approved marks." });
+        }
+
+        var test = await _dbContext.Tests.FirstOrDefaultAsync(t => t.Id == testId);
+        if (test == null) return NotFound(new { message = "Test not found." });
+
+        test.IsMarksLocked = false;
+        test.EvaluationStatus = "NeedsRevision";
+        test.MarksLockedBy = null;
+        test.MarksLockedAt = null;
+
+        if (!string.IsNullOrWhiteSpace(dto?.Reason))
+        {
+            test.EvaluationRemarks = string.IsNullOrWhiteSpace(test.EvaluationRemarks)
+                ? $"Unlocked for revision: {dto.Reason}"
+                : $"{test.EvaluationRemarks} | Unlocked: {dto.Reason}";
+        }
+
+        await _dbContext.SaveChangesAsync();
+
+        return Ok(new
+        {
+            message = "Exam marks unlocked for revision.",
+            evaluationStatus = test.EvaluationStatus,
+            isMarksLocked = test.IsMarksLocked
+        });
+    }
+
+    [HttpPut("{testId}/reject-revision")]
+    public async Task<ActionResult<object>> RejectForRevision(Guid testId, [FromBody] RejectTestMarksDto dto)
+    {
+        var isPrivilegedAdmin = _currentUser.UserRole.Contains("Admin", StringComparison.OrdinalIgnoreCase) ||
+                                _currentUser.UserRole.Contains("Principal", StringComparison.OrdinalIgnoreCase) ||
+                                _currentUser.UserRole.Contains("Director", StringComparison.OrdinalIgnoreCase) ||
+                                _currentUser.UserRole.Contains("SuperAdmin", StringComparison.OrdinalIgnoreCase);
+
+        if (!isPrivilegedAdmin)
+        {
+            return StatusCode(403, new { message = "Unauthorized: Only Principal or Administrator can reject marks for revision." });
+        }
+
+        var test = await _dbContext.Tests.FirstOrDefaultAsync(t => t.Id == testId);
+        if (test == null) return NotFound(new { message = "Test not found." });
+
+        test.EvaluationStatus = "NeedsRevision";
+        test.IsMarksLocked = false;
+        test.EvaluationRemarks = !string.IsNullOrWhiteSpace(dto.Reason)
+            ? $"Revision Requested: {dto.Reason}"
+            : "Revision requested by Exam Cell / Principal.";
+
+        await _dbContext.SaveChangesAsync();
+
+        return Ok(new
+        {
+            message = "Marks returned to evaluator teacher for re-checking / revision.",
+            evaluationStatus = test.EvaluationStatus,
+            evaluationRemarks = test.EvaluationRemarks
+        });
+    }
+
+    [HttpGet("{testId}/award-sheet")]
+    public async Task<ActionResult<TestAwardSheetDto>> GetAwardSheet(Guid testId)
+    {
+        var test = await _dbContext.Tests
+            .AsNoTracking()
+            .Include(t => t.Batch)
+            .Include(t => t.Class)
+            .Include(t => t.Section)
+            .Include(t => t.EvaluatorTeacher)
+            .FirstOrDefaultAsync(t => t.Id == testId);
+
+        if (test == null) return NotFound(new { message = "Test not found." });
+
+        List<TestAwardSheetItemDto> studentItems;
+
+        if (test.BatchId.HasValue && test.BatchId.Value != Guid.Empty)
+        {
+            studentItems = await _dbContext.Students
+                .AsNoTracking()
+                .Where(s => s.BatchId == test.BatchId.Value && s.IsActive)
+                .OrderBy(s => s.RollNumber)
+                .Select(s => new TestAwardSheetItemDto(
+                    s.Id,
+                    s.RollNumber,
+                    s.StudentName,
+                    test.Batch != null ? test.Batch.Name : "Batch"
+                ))
+                .ToListAsync();
+        }
+        else if (test.ClassId.HasValue && test.ClassId.Value != Guid.Empty)
+        {
+            var q = _dbContext.Students.AsNoTracking().Where(s => s.ClassId == test.ClassId.Value && s.IsActive);
+            if (test.SectionId.HasValue && test.SectionId.Value != Guid.Empty)
+                q = q.Where(s => s.SectionId == test.SectionId.Value);
+
+            studentItems = await q
+                .OrderBy(s => s.RollNumber)
+                .Select(s => new TestAwardSheetItemDto(
+                    s.Id,
+                    s.RollNumber,
+                    s.StudentName,
+                    test.Class != null ? test.Class.Name : "Class"
+                ))
+                .ToListAsync();
+        }
+        else
+        {
+            studentItems = new List<TestAwardSheetItemDto>();
+        }
+
+        var batchOrClassName = test.Batch != null ? test.Batch.Name :
+                               test.Class != null ? (test.Section != null ? $"{test.Class.Name} - {test.Section.Name}" : test.Class.Name) : "General";
+
+        var result = new TestAwardSheetDto(
+            test.Id,
+            test.Title,
+            test.Subject,
+            test.MaxMarks,
+            test.TestDate,
+            batchOrClassName,
+            test.EvaluatorTeacher?.FullName ?? "Unassigned",
+            test.EvaluatorTeacher?.PhoneNumber ?? "N/A",
+            test.EvaluationDueDate,
+            test.TotalCopiesIssued ?? studentItems.Count,
+            studentItems
+        );
+
+        return Ok(result);
     }
 }

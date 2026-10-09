@@ -24,6 +24,7 @@ import { CoachingService } from '../../core/services/coaching.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { SubjectsService, SubjectDto } from '../../core/services/subjects.service';
 import { LocalDatetimePipe } from '../../shared/pipes/local-datetime.pipe';
+import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.directive';
 import { AuthService } from '../../core/services/auth.service';
 import { ExamAdmitCardDialogComponent } from './exam-admit-card-dialog.component';
 import { ExamResultDialogComponent } from './exam-result-dialog.component';
@@ -37,7 +38,7 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
     MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule,
     MatSelectModule, MatCheckboxModule, MatProgressBarModule,
     MatTooltipModule, MatChipsModule, MatDividerModule,
-    MatDialogModule, LocalDatetimePipe
+    MatDialogModule, LocalDatetimePipe, IstDatetimeDirective
   ],
   template: `
     <div class="tests-wrapper">
@@ -48,7 +49,7 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
           <h1 class="print-inst-name">{{ instituteName }}</h1>
           <h2 class="print-doc-title">EXAMINATION &amp; TEST SCHEDULE TIMETABLE</h2>
           <div class="print-meta-row">
-            <span><strong>Generated Date:</strong> {{ todayDate | date:'dd MMM yyyy, hh:mm a' }}</span>
+            <span><strong>Generated Date:</strong> <span [appIstDatetime]="todayDate" format="datetime"></span></span>
             <span class="meta-sep">&bull;</span>
             <span><strong>Batch:</strong> {{ activeBatchName }}</span>
             <span class="meta-sep">&bull;</span>
@@ -255,7 +256,10 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                 <mat-icon class="marks-header-icon">assignment_turned_in</mat-icon>
                 <div class="marks-heading-wrap">
                   <span class="marks-badge-tag">EXAM EVALUATION</span>
-                  <h3 class="marks-main-title">Enter Marks: <strong>{{ selectedTest.title }}</strong></h3>
+                  <h3 class="marks-main-title">
+                    {{ selectedTest.isMarksLocked ? 'Official Marks:' : (selectedTest.evaluationStatus === 'SubmittedForApproval' ? 'Review Evaluated Marks:' : 'Enter Marks:') }}
+                    <strong>{{ selectedTest.title }}</strong>
+                  </h3>
                 </div>
               </div>
               <div class="marks-header-right">
@@ -285,12 +289,48 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                 </mat-chip>
                 <mat-chip class="custom-chip chip-date" *ngIf="selectedTest.testDate">
                   <mat-icon matChipAvatar>schedule</mat-icon>
-                  {{ selectedTest.testDate | localDatetime:'datetime' }}
+                  <span [appIstDatetime]="selectedTest.testDate" format="datetime"></span>
+                </mat-chip>
+                <mat-chip class="custom-chip" *ngIf="selectedTest.evaluatorTeacherName">
+                  <mat-icon matChipAvatar>person</mat-icon>
+                  Evaluator: <strong>{{ selectedTest.evaluatorTeacherName }}</strong>
+                </mat-chip>
+                <mat-chip class="custom-chip" [ngClass]="getWorkflowStatusInfo(selectedTest).class">
+                  <mat-icon matChipAvatar>{{ getWorkflowStatusInfo(selectedTest).icon }}</mat-icon>
+                  {{ getWorkflowStatusInfo(selectedTest).label }}
                 </mat-chip>
               </mat-chip-set>
             </div>
           </div>
         </mat-card-header>
+
+        <!-- Locked Banner -->
+        <div class="test-lock-alert" *ngIf="selectedTest.isMarksLocked">
+          <div class="lock-alert-content">
+            <mat-icon class="lock-icon">lock</mat-icon>
+            <div>
+              <span class="lock-title">Marks Officially Approved &amp; Locked</span>
+              <span class="lock-desc">
+                Approved by <strong>{{ selectedTest.marksLockedBy || 'Principal' }}</strong>
+                on <span [appIstDatetime]="selectedTest.marksLockedAt" format="datetime"></span>.
+                Marks edits are frozen.
+                <span *ngIf="selectedTest.evaluationRemarks"> Note: "{{ selectedTest.evaluationRemarks }}"</span>
+              </span>
+            </div>
+          </div>
+          <button *ngIf="isUserAdmin" mat-stroked-button color="warn" class="unlock-btn" (click)="unlockMarks(selectedTest)">
+            <mat-icon>lock_open</mat-icon> Unlock Marks (Admin Override)
+          </button>
+        </div>
+
+        <!-- Revision Requested Banner -->
+        <div class="revision-alert" *ngIf="!selectedTest.isMarksLocked && (selectedTest.evaluationStatus === 'RevisionRequested' || selectedTest.evaluationStatus === 'NeedsRevision')">
+          <mat-icon>warning</mat-icon>
+          <div>
+            <span class="revision-title">Revision Requested by Principal / Administrator</span>
+            <span class="revision-desc">{{ selectedTest.evaluationRemarks || 'Please review entered marks and re-submit for approval.' }}</span>
+          </div>
+        </div>
 
         <mat-divider></mat-divider>
 
@@ -338,7 +378,7 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                   <div class="marks-input-cell">
                     <mat-form-field appearance="outline" subscriptSizing="dynamic" class="marks-mat-field">
                       <input matInput type="number" [(ngModel)]="item.marksObtained"
-                             [disabled]="item.isAbsent"
+                             [disabled]="item.isAbsent || selectedTest.isMarksLocked"
                              [max]="selectedTest.maxMarks" min="0"
                              placeholder="0"
                              class="marks-input-left"
@@ -356,7 +396,7 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
               <ng-container matColumnDef="isAbsent">
                 <th mat-header-cell *matHeaderCellDef class="col-absent text-center">Absent?</th>
                 <td mat-cell *matCellDef="let item" class="col-absent text-center">
-                  <mat-checkbox [(ngModel)]="item.isAbsent" color="warn" (change)="onAbsentToggle(item)">
+                  <mat-checkbox [(ngModel)]="item.isAbsent" [disabled]="selectedTest.isMarksLocked" color="warn" (change)="onAbsentToggle(item)">
                     <span class="absent-flag" *ngIf="item.isAbsent">ABSENT</span>
                   </mat-checkbox>
                 </td>
@@ -367,7 +407,7 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                 <th mat-header-cell *matHeaderCellDef class="col-remarks text-center">Remarks</th>
                 <td mat-cell *matCellDef="let item" class="col-remarks">
                   <mat-form-field appearance="outline" subscriptSizing="dynamic" class="remarks-mat-field">
-                    <input matInput [(ngModel)]="item.remarks" placeholder="Optional comments..." class="remarks-input-left">
+                    <input matInput [(ngModel)]="item.remarks" [disabled]="selectedTest.isMarksLocked" placeholder="Optional comments..." class="remarks-input-left">
                     <mat-icon matSuffix class="remarks-icon">edit_note</mat-icon>
                   </mat-form-field>
                 </td>
@@ -405,7 +445,7 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                     <span class="roll-pill-small">{{ item.rollNumber || 'No Roll' }}</span>
                   </div>
                 </div>
-                <mat-checkbox [(ngModel)]="item.isAbsent" color="warn" (change)="onAbsentToggle(item)">
+                <mat-checkbox [(ngModel)]="item.isAbsent" [disabled]="selectedTest.isMarksLocked" color="warn" (change)="onAbsentToggle(item)">
                   <span class="absent-flag" *ngIf="item.isAbsent">ABSENT</span>
                   <span class="absent-hint" *ngIf="!item.isAbsent">Mark Absent</span>
                 </mat-checkbox>
@@ -416,7 +456,7 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                 <mat-form-field appearance="outline" subscriptSizing="dynamic" class="mobile-marks-field">
                   <mat-label>Marks Obtained</mat-label>
                   <input matInput type="number" [(ngModel)]="item.marksObtained"
-                         [disabled]="item.isAbsent"
+                         [disabled]="item.isAbsent || selectedTest.isMarksLocked"
                          [max]="selectedTest.maxMarks" min="0" placeholder="0"
                          [class.over-limit]="!item.isAbsent && item.marksObtained > selectedTest.maxMarks">
                   <span matSuffix class="marks-suffix-tag">/ {{ selectedTest.maxMarks }}</span>
@@ -424,7 +464,7 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
 
                 <mat-form-field appearance="outline" subscriptSizing="dynamic" class="mobile-remarks-field">
                   <mat-label>Remarks (Optional)</mat-label>
-                  <input matInput [(ngModel)]="item.remarks" placeholder="Optional comments...">
+                  <input matInput [(ngModel)]="item.remarks" [disabled]="selectedTest.isMarksLocked" placeholder="Optional comments...">
                 </mat-form-field>
               </div>
             </div>
@@ -437,7 +477,7 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
 
           <!-- Bottom Action Bar -->
           <div class="marks-footer">
-            <div class="whatsapp-dispatch-box">
+            <div class="whatsapp-dispatch-box" *ngIf="!selectedTest.isMarksLocked">
               <mat-checkbox [(ngModel)]="notifyParents" color="primary">
                 <div class="whatsapp-label">
                   <span class="whatsapp-icon-circle">
@@ -452,10 +492,37 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
             </div>
 
             <div class="marks-submit-actions">
-              <button mat-stroked-button (click)="selectedTest = null">Cancel</button>
-              <button mat-raised-button color="primary" class="save-marks-btn" (click)="saveMarks()" [disabled]="savingMarks">
-                <mat-icon>{{ savingMarks ? 'hourglass_empty' : 'verified' }}</mat-icon>
-                {{ savingMarks ? 'Saving...' : 'Save Marks & Dispatch' }}
+              <button mat-stroked-button (click)="selectedTest = null">Cancel / Back</button>
+
+              <!-- TEACHER ACTIONS (For Faculty/Teachers submitting marks) -->
+              <button *ngIf="!selectedTest.isMarksLocked && !isUserAdmin" mat-stroked-button color="primary" class="draft-marks-btn" (click)="saveMarks(false)" [disabled]="savingMarks">
+                <mat-icon>{{ savingMarks ? 'hourglass_empty' : 'save' }}</mat-icon>
+                {{ savingMarks ? 'Saving...' : 'Save Draft' }}
+              </button>
+
+              <button *ngIf="!selectedTest.isMarksLocked && !isUserAdmin" mat-raised-button color="primary" class="save-marks-btn" (click)="saveMarks(true)" [disabled]="savingMarks">
+                <mat-icon>{{ savingMarks ? 'hourglass_empty' : 'send' }}</mat-icon>
+                {{ savingMarks ? 'Submitting...' : 'Save & Submit to Principal' }}
+              </button>
+
+              <!-- ADMIN / PRINCIPAL ACTIONS (For Admin reviewing & moderating marks) -->
+              <button *ngIf="isUserAdmin && !selectedTest.isMarksLocked" mat-stroked-button color="primary" class="draft-marks-btn" (click)="saveMarks(false)" [disabled]="savingMarks" matTooltip="Save any moderation corrections before approving">
+                <mat-icon>{{ savingMarks ? 'hourglass_empty' : 'save' }}</mat-icon>
+                {{ savingMarks ? 'Saving...' : 'Save Corrections' }}
+              </button>
+
+              <button *ngIf="isUserAdmin && !selectedTest.isMarksLocked && (selectedTest.evaluationStatus === 'SubmittedForApproval' || selectedTest.evaluationStatus === 'MarksEntered')"
+                      mat-stroked-button color="warn" (click)="rejectForRevisionDirect(selectedTest)" matTooltip="Send back to teacher with notes for re-checking">
+                <mat-icon>replay</mat-icon> Send Back for Revision
+              </button>
+
+              <button *ngIf="isUserAdmin && !selectedTest.isMarksLocked"
+                      mat-raised-button color="accent" class="approve-marks-direct-btn" (click)="openApprovalModal(selectedTest)" matTooltip="Review summary & officially approve and freeze marks">
+                <mat-icon>verified</mat-icon> Principal Approve &amp; Lock
+              </button>
+
+              <button *ngIf="isUserAdmin && selectedTest.isMarksLocked" mat-stroked-button color="warn" (click)="unlockMarks(selectedTest)">
+                <mat-icon>lock_open</mat-icon> Unlock Marks
               </button>
             </div>
           </div>
@@ -497,16 +564,28 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
 
               <!-- Title Column -->
               <ng-container matColumnDef="title">
-                <th mat-header-cell *matHeaderCellDef mat-sort-header="title">Test Title</th>
+                <th mat-header-cell *matHeaderCellDef mat-sort-header="title">Test Title &amp; Status</th>
                 <td mat-cell *matCellDef="let t">
                   <div class="test-title-cell">
-                    <strong class="title-heading">{{ t.title }}</strong>
-                    <span class="marks-count" *ngIf="t.totalStudentsEvaluated > 0">
-                      <mat-icon>people</mat-icon> {{ t.totalStudentsEvaluated }} evaluated
-                    </span>
-                    <span class="marks-count pending-count" *ngIf="!t.totalStudentsEvaluated">
-                      <mat-icon>pending_actions</mat-icon> Pending evaluation
-                    </span>
+                    <div class="title-and-badge">
+                      <strong class="title-heading">{{ t.title }}</strong>
+                      <span class="workflow-status-badge" [ngClass]="getWorkflowStatusInfo(t).class">
+                        <mat-icon>{{ getWorkflowStatusInfo(t).icon }}</mat-icon>
+                        {{ getWorkflowStatusInfo(t).label }}
+                      </span>
+                    </div>
+                    <div class="test-meta-sub">
+                      <span class="evaluator-sub" *ngIf="t.evaluatorTeacherName">
+                        <mat-icon>person</mat-icon> Evaluator: <strong>{{ t.evaluatorTeacherName }}</strong>
+                        <span *ngIf="t.totalCopiesIssued">({{ t.totalCopiesIssued }} copies)</span>
+                      </span>
+                      <span class="marks-count" *ngIf="t.totalStudentsEvaluated > 0">
+                        <mat-icon>people</mat-icon> {{ t.totalStudentsEvaluated }} evaluated
+                      </span>
+                      <span class="marks-count pending-count" *ngIf="!t.totalStudentsEvaluated && t.evaluationStatus !== 'Evaluating'">
+                        <mat-icon>pending_actions</mat-icon> Pending evaluation
+                      </span>
+                    </div>
                   </div>
                 </td>
               </ng-container>
@@ -537,11 +616,11 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
 
               <!-- Exam Date & Time Column -->
               <ng-container matColumnDef="testDate">
-                <th mat-header-cell *matHeaderCellDef mat-sort-header="testDate">Exam Date &amp; Time</th>
+                <th mat-header-cell *matHeaderCellDef mat-sort-header="testDate">Exam Date</th>
                 <td mat-cell *matCellDef="let t">
                   <div class="date-cell">
-                    <span class="date-text">{{ t.testDate | localDatetime:'date' }}</span>
-                    <span class="time-badge">{{ t.testDate | localDatetime:'time' }}</span>
+                    <span class="date-text" [appIstDatetime]="t.testDate" format="date"></span>
+                    <span class="time-badge" [appIstDatetime]="t.testDate" format="time"></span>
                   </div>
                 </td>
               </ng-container>
@@ -551,15 +630,41 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                 <th mat-header-cell *matHeaderCellDef class="text-right no-print">Actions</th>
                 <td mat-cell *matCellDef="let t" class="text-right no-print">
                   <div class="action-buttons no-print">
-                    <button mat-stroked-button class="admit-card-btn" (click)="openAdmitCards(t)" matTooltip="Generate &amp; Print Admit Cards / Hall Tickets">
-                      <mat-icon>confirmation_number</mat-icon> Admit Cards
+                    <!-- Bundle Handover (Only visible during active evaluation phase) -->
+                    <button *ngIf="!t.isMarksLocked" mat-stroked-button class="bundle-btn" (click)="openBundleModal(t)" matTooltip="Assign / Track Physical Copy Bundle Handover">
+                      <mat-icon>inventory_2</mat-icon> Bundle
                     </button>
+
+                    <!-- Marking Foil / Award Sheet -->
+                    <button mat-stroked-button class="foil-btn" (click)="openAwardSheetModal(t)" matTooltip="Print Blank Award Sheet (Marking Foil) for Teacher">
+                      <mat-icon>receipt_long</mat-icon> Foil
+                    </button>
+
+                    <!-- Principal Review & Approve Button (When Submitted for Approval) -->
+                    <button *ngIf="isUserAdmin && t.evaluationStatus === 'SubmittedForApproval'"
+                            mat-raised-button color="accent" class="approval-btn" (click)="openApprovalModal(t)"
+                            matTooltip="Principal Verification: Review, Approve & Lock Marks">
+                      <mat-icon>verified</mat-icon> Approve
+                    </button>
+
+                    <!-- Enter / Review / View Marks Button -->
+                    <button mat-raised-button color="primary" (click)="openMarksGrid(t)"
+                            class="enter-marks-btn"
+                            [matTooltip]="t.isMarksLocked ? 'View Officially Locked Marks' : (t.evaluationStatus === 'SubmittedForApproval' ? 'Review & Verify Evaluated Marks' : 'Enter / Update Marks')">
+                      <mat-icon>{{ t.isMarksLocked ? 'lock' : (t.evaluationStatus === 'SubmittedForApproval' ? 'rate_review' : 'edit_note') }}</mat-icon>
+                      {{ t.isMarksLocked ? 'Marks 🔒' : (t.evaluationStatus === 'SubmittedForApproval' ? 'Review Marks' : 'Enter Marks') }}
+                    </button>
+
+                    <!-- Quick Unlock for Admin if locked -->
+                    <button *ngIf="isUserAdmin && t.isMarksLocked" mat-icon-button color="warn" (click)="unlockMarks(t)" matTooltip="Unlock Marks (Admin Override)">
+                      <mat-icon>lock_open</mat-icon>
+                    </button>
+
                     <button mat-stroked-button class="result-btn" (click)="openResults(t)" matTooltip="View Leaderboard &amp; Student Result Cards">
                       <mat-icon>emoji_events</mat-icon> Results
                     </button>
-                    <button mat-raised-button color="primary" (click)="openMarksGrid(t)"
-                            class="enter-marks-btn" matTooltip="Enter / Update Marks">
-                      <mat-icon>edit_note</mat-icon> Enter Marks
+                    <button mat-stroked-button class="admit-card-btn" (click)="openAdmitCards(t)" matTooltip="Generate &amp; Print Admit Cards / Hall Tickets">
+                      <mat-icon>confirmation_number</mat-icon>
                     </button>
                     <button mat-icon-button color="warn" (click)="deleteTest(t)" matTooltip="Delete Test">
                       <mat-icon>delete_outline</mat-icon>
@@ -600,6 +705,277 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
           </div>
         </div>
       </mat-card>
+
+      <!-- ════════════════════════════════════════ -->
+      <!-- MODAL 1: COPY BUNDLE HANDOVER TRACKING   -->
+      <!-- ════════════════════════════════════════ -->
+      <div class="custom-modal-backdrop no-print" *ngIf="showBundleModal" (click)="closeBundleModal()">
+        <div class="custom-modal-dialog" (click)="$event.stopPropagation()">
+          <!-- Consistent Light Blue Gradient Header -->
+          <div class="modal-dialog-header">
+            <div class="modal-icon-box">
+              <mat-icon>inventory_2</mat-icon>
+            </div>
+            <div class="modal-title-wrap">
+              <h3>Assign Copy Bundle to Evaluator Teacher</h3>
+              <p>Physical paper bundles handover &amp; checking tracking for <strong>{{ bundleTest?.title }}</strong></p>
+            </div>
+            <button mat-icon-button class="modal-close-btn" (click)="closeBundleModal()" matTooltip="Close">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+
+          <!-- Modal Body -->
+          <div class="modal-dialog-body" [formGroup]="bundleForm">
+            <div class="workflow-info-banner">
+              <mat-icon>info</mat-icon>
+              <div>
+                <strong>Evaluation Workflow:</strong> Exam Coordinator hands over physical answer sheets to the designated teacher. Upon completion, teacher inputs marks and submits for Principal approval.
+              </div>
+            </div>
+
+            <div class="modal-form-grid">
+              <mat-form-field appearance="outline" class="full-col">
+                <mat-label>Evaluator / Checking Teacher</mat-label>
+                <mat-select formControlName="evaluatorTeacherId" placeholder="Select Subject Teacher">
+                  <mat-option *ngFor="let tch of teachersList" [value]="tch.id">
+                    {{ tch.name }} {{ tch.phoneNumber ? '(' + tch.phoneNumber + ')' : '' }} {{ tch.specialization ? '— ' + tch.specialization : '' }}
+                  </mat-option>
+                </mat-select>
+                <mat-icon matPrefix>person</mat-icon>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Total Copies Issued in Bundle</mat-label>
+                <input matInput type="number" formControlName="totalCopiesIssued" min="1" placeholder="e.g. 45">
+                <mat-icon matPrefix>layers</mat-icon>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Evaluation Due Date</mat-label>
+                <input matInput type="date" formControlName="evaluationDueDate">
+                <mat-icon matPrefix>event</mat-icon>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Bundle Status</mat-label>
+                <mat-select formControlName="evaluationStatus">
+                  <mat-option value="Scheduled">Scheduled (Not yet handed over)</mat-option>
+                  <mat-option value="Evaluating">Evaluating (Copies Handed to Teacher)</mat-option>
+                  <mat-option value="CopiesReturned">Copies Returned by Teacher</mat-option>
+                </mat-select>
+                <mat-icon matPrefix>flag</mat-icon>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Copies Returned Date (If Returned)</mat-label>
+                <input matInput type="date" formControlName="copiesSubmittedDate">
+                <mat-icon matPrefix>done_all</mat-icon>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="full-col">
+                <mat-label>Handover Instructions / Remarks</mat-label>
+                <textarea matInput rows="2" formControlName="evaluationRemarks" placeholder="e.g. Ensure strict marking on Section B, return with award foil by Friday."></textarea>
+                <mat-icon matPrefix>edit_note</mat-icon>
+              </mat-form-field>
+            </div>
+          </div>
+
+          <!-- Modal Footer -->
+          <div class="modal-dialog-footer">
+            <button mat-stroked-button (click)="openAwardSheetModal(bundleTest)" type="button">
+              <mat-icon>print</mat-icon> Print Blank Award Foil
+            </button>
+            <div class="footer-spacer"></div>
+            <button mat-stroked-button (click)="closeBundleModal()" type="button">Cancel</button>
+            <button mat-raised-button color="primary" (click)="saveBundleAssignment()" [disabled]="savingBundle || bundleForm.invalid">
+              <mat-icon>{{ savingBundle ? 'hourglass_empty' : 'check_circle' }}</mat-icon>
+              {{ savingBundle ? 'Saving...' : 'Save & Assign Bundle' }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ════════════════════════════════════════ -->
+      <!-- MODAL 2: PRINCIPAL APPROVAL & SEAL       -->
+      <!-- ════════════════════════════════════════ -->
+      <div class="custom-modal-backdrop no-print" *ngIf="showApprovalModal" (click)="closeApprovalModal()">
+        <div class="custom-modal-dialog" (click)="$event.stopPropagation()">
+          <!-- Light Blue Gradient Header -->
+          <div class="modal-dialog-header">
+            <div class="modal-icon-box" style="background: #16a34a;">
+              <mat-icon>verified</mat-icon>
+            </div>
+            <div class="modal-title-wrap">
+              <h3>Principal Final Approval &amp; Official Seal</h3>
+              <p>Review &amp; finalize results for <strong>{{ approvalTest?.title }}</strong> ({{ approvalTest?.subject }})</p>
+            </div>
+            <button mat-icon-button class="modal-close-btn" (click)="closeApprovalModal()" matTooltip="Close">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+
+          <!-- Modal Body -->
+          <div class="modal-dialog-body">
+            <div class="approval-summary-card">
+              <div class="summary-stat-row">
+                <div class="stat-pill">
+                  <span class="stat-lbl">Batch:</span>
+                  <span class="stat-val">{{ approvalTest?.batchName || 'General' }}</span>
+                </div>
+                <div class="stat-pill">
+                  <span class="stat-lbl">Max Marks:</span>
+                  <span class="stat-val">{{ approvalTest?.maxMarks }}</span>
+                </div>
+                <div class="stat-pill">
+                  <span class="stat-lbl">Evaluated Students:</span>
+                  <span class="stat-val font-bold">{{ approvalTest?.totalStudentsEvaluated || 0 }}</span>
+                </div>
+                <div class="stat-pill">
+                  <span class="stat-lbl">Evaluator:</span>
+                  <span class="stat-val">{{ approvalTest?.evaluatorTeacherName || 'Teacher' }}</span>
+                </div>
+              </div>
+
+              <div class="approval-hierarchy-box">
+                <div class="hierarchy-step done">
+                  <mat-icon>schedule</mat-icon>
+                  <span>1. Exam Held</span>
+                </div>
+                <div class="hierarchy-arrow">➔</div>
+                <div class="hierarchy-step done">
+                  <mat-icon>edit_note</mat-icon>
+                  <span>2. Copies Checked &amp; Entered by Teacher</span>
+                </div>
+                <div class="hierarchy-arrow">➔</div>
+                <div class="hierarchy-step active">
+                  <mat-icon>admin_panel_settings</mat-icon>
+                  <span>3. Principal Verification &amp; Seal</span>
+                </div>
+              </div>
+            </div>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Principal Approval Remarks / Moderation Notes</mat-label>
+              <textarea matInput rows="3" [(ngModel)]="approvalRemarks" placeholder="e.g. Verified by Principal. Marks approved for parent scorecard dispatch and report card printing."></textarea>
+            </mat-form-field>
+          </div>
+
+          <!-- Modal Footer -->
+          <div class="modal-dialog-footer">
+            <button mat-stroked-button color="warn" (click)="promptRejectRevision()" [disabled]="approvingMarks">
+              <mat-icon>replay</mat-icon> Send Back for Revision
+            </button>
+            <div class="footer-spacer"></div>
+            <button mat-stroked-button (click)="closeApprovalModal()">Cancel</button>
+            <button mat-raised-button color="primary" class="approve-seal-btn" (click)="confirmApproveAndLock()" [disabled]="approvingMarks">
+              <mat-icon>verified</mat-icon>
+              {{ approvingMarks ? 'Approving...' : 'Approve & Freeze Marks 🔒' }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ════════════════════════════════════════ -->
+      <!-- MODAL 3: MARKING FOIL / AWARD SHEET      -->
+      <!-- ════════════════════════════════════════ -->
+      <div class="custom-modal-backdrop" *ngIf="showAwardSheetModal" (click)="closeAwardSheetModal()">
+        <div class="custom-modal-dialog award-sheet-dialog" (click)="$event.stopPropagation()">
+          <!-- Light Blue Gradient Header (no-print) -->
+          <div class="modal-dialog-header no-print">
+            <div class="modal-icon-box">
+              <mat-icon>description</mat-icon>
+            </div>
+            <div class="modal-title-wrap">
+              <h3>Official Marking Foil / Blank Award Sheet</h3>
+              <p>Physical answer sheet checking &amp; manual tabulation sheet</p>
+            </div>
+            <button mat-icon-button class="modal-close-btn" (click)="closeAwardSheetModal()" matTooltip="Close">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+
+          <!-- Printable Award Sheet Body -->
+          <div class="modal-dialog-body award-sheet-scrollable" id="awardSheetPrintArea">
+            <div class="award-sheet-paper">
+              <div class="award-sheet-inst-header">
+                <h2 class="inst-name-print">{{ instituteName }}</h2>
+                <h4 class="sheet-title-print">EXAMINATION MARKS TABULATION FOIL / AWARD SHEET</h4>
+                <div class="sheet-meta-grid">
+                  <div><strong>Exam Title:</strong> {{ awardSheetData?.testTitle }}</div>
+                  <div><strong>Subject:</strong> {{ awardSheetData?.subject }}</div>
+                  <div><strong>Batch / Class:</strong> {{ awardSheetData?.batchName }}</div>
+                  <div><strong>Exam Date:</strong> <span [appIstDatetime]="awardSheetData?.testDate" format="date"></span></div>
+                  <div><strong>Max Marks:</strong> {{ awardSheetData?.maxMarks }}</div>
+                  <div><strong>Evaluator Teacher:</strong> {{ awardSheetData?.evaluatorTeacherName || 'To Be Assigned' }}</div>
+                  <div><strong>Copies Issued:</strong> {{ awardSheetData?.totalCopiesIssued || awardSheetData?.items?.length }}</div>
+                  <div><strong>Generated At:</strong> <span [appIstDatetime]="todayDate" format="datetime"></span></div>
+                </div>
+              </div>
+
+              <div *ngIf="loadingAwardSheet" class="text-center p-4">
+                <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+                <p class="mt-2 text-slate-500">Generating Marking Foil...</p>
+              </div>
+
+              <table class="award-foil-table" *ngIf="!loadingAwardSheet && awardSheetData?.items">
+                <thead>
+                  <tr>
+                    <th style="width: 45px;">Sl. No.</th>
+                    <th style="width: 100px;">Roll No</th>
+                    <th>Student Full Name</th>
+                    <th style="width: 90px;">Max Marks</th>
+                    <th style="width: 110px;">Marks in Figures</th>
+                    <th style="width: 140px;">Marks in Words</th>
+                    <th style="width: 90px;">Absent (A)</th>
+                    <th style="width: 120px;">Examiner Initial</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let item of awardSheetData?.items; let idx = index">
+                    <td class="text-center">{{ idx + 1 }}</td>
+                    <td class="text-center font-mono">{{ item.rollNumber || '—' }}</td>
+                    <td><strong>{{ item.studentName }}</strong></td>
+                    <td class="text-center">{{ awardSheetData?.maxMarks }}</td>
+                    <td class="text-center">{{ item.isAbsent ? 'ABSENT' : (item.marksObtained !== null ? item.marksObtained : '') }}</td>
+                    <td></td>
+                    <td class="text-center">{{ item.isAbsent ? '✓' : '' }}</td>
+                    <td></td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <!-- Signatures Row -->
+              <div class="award-foil-signatures">
+                <div class="foil-sig-box">
+                  <div class="sig-line-top"></div>
+                  <span>Signature of Examiner (Teacher)</span>
+                  <small>{{ awardSheetData?.evaluatorTeacherName || 'Name: ________________' }}</small>
+                </div>
+                <div class="foil-sig-box">
+                  <div class="sig-line-top"></div>
+                  <span>Exam Controller / Coordinator</span>
+                  <small>Verified Copies Count</small>
+                </div>
+                <div class="foil-sig-box">
+                  <div class="sig-line-top"></div>
+                  <span>Principal / Director</span>
+                  <small>Official Seal &amp; Approval</small>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Modal Footer (no-print) -->
+          <div class="modal-dialog-footer no-print">
+            <button mat-stroked-button (click)="closeAwardSheetModal()">Close</button>
+            <div class="footer-spacer"></div>
+            <button mat-raised-button color="primary" (click)="printAwardSheet()">
+              <mat-icon>print</mat-icon> Print Award Sheet
+            </button>
+          </div>
+        </div>
+      </div>
 
     </div>
   `,
@@ -1497,6 +1873,538 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
       align-items: center;
       gap: 8px;
     }
+
+    /* ─── Workflow Badges & Action Buttons ─── */
+    .title-and-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .workflow-status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.73rem;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 6px;
+      white-space: nowrap;
+      mat-icon {
+        font-size: 13px;
+        width: 13px;
+        height: 13px;
+      }
+    }
+    .badge-scheduled {
+      background: #f1f5f9;
+      color: #475569;
+      border: 1px solid #cbd5e1;
+    }
+    .badge-evaluating {
+      background: #fff7ed;
+      color: #c2410c;
+      border: 1px solid #fdba74;
+    }
+    .badge-returned {
+      background: #f5f3ff;
+      color: #6d28d9;
+      border: 1px solid #ddd6fe;
+    }
+    .badge-entered {
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+    }
+    .badge-submitted {
+      background: #fefce8;
+      color: #a16207;
+      border: 1px solid #fde047;
+    }
+    .badge-locked {
+      background: #f0fdf4;
+      color: #15803d;
+      border: 1px solid #86efac;
+    }
+    .badge-revision {
+      background: #fff1f2;
+      color: #be123c;
+      border: 1px solid #fecdd3;
+    }
+    .test-meta-sub {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 2px;
+    }
+    .evaluator-sub {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.78rem;
+      color: #475569;
+      mat-icon {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
+        color: #2563eb;
+      }
+      strong {
+        color: #0f172a;
+      }
+    }
+    .bundle-btn {
+      font-size: 0.82rem;
+      font-weight: 600;
+      border-radius: 6px;
+      height: 36px;
+      padding: 0 10px;
+      border-color: #f97316;
+      color: #ea580c;
+      background: #fff7ed;
+      mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        margin-right: 4px;
+      }
+      &:hover {
+        background: #ffedd5;
+      }
+    }
+    .foil-btn {
+      font-size: 0.82rem;
+      font-weight: 600;
+      border-radius: 6px;
+      height: 36px;
+      padding: 0 10px;
+      border-color: #0284c7;
+      color: #0369a1;
+      background: #f0f9ff;
+      mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        margin-right: 4px;
+      }
+      &:hover {
+        background: #e0f2fe;
+      }
+    }
+    .approval-btn {
+      font-size: 0.82rem;
+      font-weight: 700;
+      border-radius: 6px;
+      height: 36px;
+      padding: 0 12px;
+      background: linear-gradient(135deg, #059669 0%, #10b981 100%) !important;
+      color: #ffffff !important;
+      box-shadow: 0 2px 4px rgba(16,185,129,0.3);
+      mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        margin-right: 4px;
+      }
+    }
+    .draft-marks-btn {
+      font-weight: 600;
+      height: 40px;
+      border-radius: 8px;
+    }
+    .approve-marks-direct-btn {
+      background: linear-gradient(135deg, #059669 0%, #10b981 100%) !important;
+      color: #ffffff !important;
+      font-weight: 700;
+      height: 40px;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(16,185,129,0.35);
+    }
+    .test-lock-alert {
+      margin: 16px 20px 0;
+      padding: 14px 18px;
+      background: #f0fdf4;
+      border: 1.5px solid #86efac;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      .lock-alert-content {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        .lock-icon {
+          color: #16a34a;
+          font-size: 28px;
+          width: 28px;
+          height: 28px;
+        }
+        .lock-title {
+          display: block;
+          font-size: 0.96rem;
+          font-weight: 700;
+          color: #14532d;
+        }
+        .lock-desc {
+          display: block;
+          font-size: 0.82rem;
+          color: #15803d;
+          margin-top: 2px;
+        }
+      }
+      .unlock-btn {
+        border-color: #ef4444;
+        color: #dc2626;
+        font-weight: 600;
+      }
+    }
+    .revision-alert {
+      margin: 16px 20px 0;
+      padding: 14px 18px;
+      background: #fff1f2;
+      border: 1.5px solid #fecdd3;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      mat-icon {
+        color: #e11d48;
+        font-size: 28px;
+        width: 28px;
+        height: 28px;
+        flex-shrink: 0;
+      }
+      .revision-title {
+        display: block;
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: #9f1239;
+      }
+      .revision-desc {
+        display: block;
+        font-size: 0.84rem;
+        color: #be123c;
+        margin-top: 2px;
+      }
+    }
+
+    /* ─── Custom Modals (Strict Light Blue Header Rule) ─── */
+    .custom-modal-backdrop {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(15, 23, 42, 0.5);
+      backdrop-filter: blur(4px);
+      z-index: 1050;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      box-sizing: border-box;
+      overflow-y: auto;
+    }
+    .custom-modal-dialog {
+      background: #ffffff;
+      border-radius: 16px;
+      box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25);
+      width: 100%;
+      max-width: 680px;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      animation: modalFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes modalFadeIn {
+      from { opacity: 0; transform: scale(0.96) translateY(8px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .modal-dialog-header {
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+      border-bottom: 1px solid #bfdbfe;
+      padding: 18px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-shrink: 0;
+    }
+    .modal-icon-box {
+      width: 44px;
+      height: 44px;
+      background: #2563eb;
+      color: #ffffff;
+      border-radius: 10px;
+      box-shadow: 0 4px 6px -1px rgba(37,99,235,0.25);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      mat-icon {
+        font-size: 24px;
+        width: 24px;
+        height: 24px;
+      }
+    }
+    .modal-title-wrap {
+      flex: 1;
+      min-width: 0;
+      h3 {
+        margin: 0;
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: #1e3a8a;
+        line-height: 1.3;
+      }
+      p {
+        margin: 3px 0 0;
+        font-size: 0.85rem;
+        color: #3b82f6;
+        line-height: 1.4;
+        strong {
+          color: #1e40af;
+        }
+      }
+    }
+    .modal-close-btn {
+      color: #64748b;
+      margin-left: auto;
+      flex-shrink: 0;
+      &:hover {
+        color: #1e293b;
+        background: rgba(219, 234, 254, 0.6);
+      }
+    }
+    .modal-dialog-body {
+      padding: 24px;
+      overflow-y: auto;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .modal-dialog-footer {
+      padding: 16px 24px;
+      background: #f8fafc;
+      border-top: 1px solid #e2e8f0;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+    .footer-spacer {
+      flex: 1;
+    }
+    .modal-form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+      .full-col {
+        grid-column: 1 / -1;
+      }
+    }
+    .workflow-info-banner {
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 8px;
+      padding: 12px 16px;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 0.85rem;
+      color: #166534;
+      mat-icon {
+        color: #16a34a;
+        font-size: 20px;
+        width: 20px;
+        height: 20px;
+        flex-shrink: 0;
+        margin-top: 1px;
+      }
+    }
+    .approval-summary-card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .summary-stat-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      @media (max-width: 640px) {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+    .stat-pill {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 8px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      .stat-lbl {
+        font-size: 0.72rem;
+        color: #64748b;
+        font-weight: 600;
+        text-transform: uppercase;
+      }
+      .stat-val {
+        font-size: 0.92rem;
+        font-weight: 700;
+        color: #0f172a;
+      }
+    }
+    .approval-hierarchy-box {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 8px;
+      padding: 12px 16px;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .hierarchy-step {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #64748b;
+      mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+      }
+      &.done {
+        color: #1e40af;
+        mat-icon { color: #2563eb; }
+      }
+      &.active {
+        color: #15803d;
+        font-weight: 700;
+        mat-icon { color: #16a34a; }
+      }
+    }
+    .hierarchy-arrow {
+      color: #93c5fd;
+      font-weight: 700;
+    }
+    .approve-seal-btn {
+      background: #16a34a !important;
+      color: #ffffff !important;
+    }
+
+    /* ─── Award Sheet Marking Foil Layout ─── */
+    .award-sheet-dialog {
+      max-width: 900px;
+      width: 96vw;
+    }
+    .award-sheet-scrollable {
+      max-height: 75vh;
+      overflow-y: auto;
+      background: #f8fafc;
+      padding: 24px;
+    }
+    .award-sheet-paper {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      padding: 32px 36px;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.06);
+      border-radius: 4px;
+    }
+    .award-sheet-inst-header {
+      text-align: center;
+      border-bottom: 2px solid #0f172a;
+      padding-bottom: 14px;
+      margin-bottom: 16px;
+      .inst-name-print {
+        margin: 0;
+        font-size: 1.45rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        color: #0f172a;
+        letter-spacing: -0.01em;
+      }
+      .sheet-title-print {
+        margin: 4px 0 0;
+        font-size: 0.98rem;
+        font-weight: 700;
+        color: #1e40af;
+        letter-spacing: 0.05em;
+      }
+      .sheet-meta-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px 16px;
+        margin-top: 14px;
+        text-align: left;
+        font-size: 0.82rem;
+        color: #334155;
+        border-top: 1px dashed #cbd5e1;
+        padding-top: 10px;
+      }
+    }
+    .award-foil-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 16px;
+      border: 1.5px solid #0f172a;
+      th {
+        background: #f1f5f9;
+        color: #0f172a;
+        font-weight: 700;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        border: 1px solid #94a3b8;
+        padding: 8px 10px;
+        text-align: left;
+      }
+      td {
+        border: 1px solid #cbd5e1;
+        padding: 8px 10px;
+        font-size: 0.85rem;
+        color: #0f172a;
+      }
+    }
+    .award-foil-signatures {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 54px;
+      padding-top: 10px;
+      .foil-sig-box {
+        width: 220px;
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        .sig-line-top {
+          width: 100%;
+          border-top: 1.5px solid #334155;
+          margin-bottom: 6px;
+        }
+        span {
+          font-size: 0.82rem;
+          font-weight: 700;
+          color: #0f172a;
+        }
+        small {
+          font-size: 0.74rem;
+          color: #64748b;
+          margin-top: 2px;
+        }
+      }
+    }
     .empty-cell {
       padding: 48px;
       text-align: center;
@@ -1914,6 +2822,36 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
           text-transform: uppercase;
         }
       }
+
+      /* Award Sheet Modal Print Overrides */
+      .custom-modal-backdrop {
+        position: static !important;
+        width: 100% !important;
+        height: auto !important;
+        background: transparent !important;
+        padding: 0 !important;
+        display: block !important;
+        box-shadow: none !important;
+      }
+      .award-sheet-dialog {
+        max-width: 100% !important;
+        width: 100% !important;
+        box-shadow: none !important;
+        border: none !important;
+        background: transparent !important;
+      }
+      .award-sheet-scrollable {
+        max-height: none !important;
+        overflow: visible !important;
+        padding: 0 !important;
+        background: transparent !important;
+      }
+      .award-sheet-paper {
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        width: 100% !important;
+      }
     }
   `]
 })
@@ -1939,6 +2877,24 @@ export class TestsComponent implements OnInit {
   notifyParents = true;
   savingMarks = false;
 
+  // Evaluator Teacher & Copy Bundle Tracking State
+  showBundleModal = false;
+  bundleTest: any = null;
+  bundleForm: FormGroup;
+  savingBundle = false;
+  teachersList: any[] = [];
+
+  // Principal Final Approval Modal State
+  showApprovalModal = false;
+  approvalTest: any = null;
+  approvalRemarks = 'Verified and approved for official publication.';
+  approvingMarks = false;
+
+  // Award Sheet Marking Foil State
+  showAwardSheetModal = false;
+  awardSheetData: any = null;
+  loadingAwardSheet = false;
+
   // Grid state
   pageIndex = 0;
   pageSize = 10;
@@ -1960,13 +2916,25 @@ export class TestsComponent implements OnInit {
     private subjectsService: SubjectsService,
     private fb: FormBuilder,
     private dialog: MatDialog,
-    private authService: AuthService
+    public authService: AuthService
   ) {
     this.bulkForm = this.fb.group({ exams: this.fb.array([]) });
+    this.bundleForm = this.fb.group({
+      evaluatorTeacherId: ['', Validators.required],
+      totalCopiesIssued: [0, [Validators.required, Validators.min(1)]],
+      evaluationDueDate: [''],
+      evaluationStatus: ['Evaluating', Validators.required],
+      copiesSubmittedDate: [''],
+      evaluationRemarks: ['']
+    });
+  }
+
+  get isUserAdmin(): boolean {
+    return this.authService.isAdmin();
   }
 
   get instituteName(): string {
-    return this.authService.currentUser()?.instituteName || 'Apex Coaching Academy';
+    return this.authService.currentUser()?.instituteName || 'Institute Examination Cell';
   }
 
   get todayDate(): Date {
@@ -2038,6 +3006,14 @@ export class TestsComponent implements OnInit {
     this.loadBatches();
     this.loadTests();
     this.loadSubjects();
+    this.loadTeachers();
+  }
+
+  loadTeachers(): void {
+    this.coachingService.getTeachers().subscribe({
+      next: list => { this.teachersList = list || []; },
+      error: err => console.error('Error loading teachers:', err)
+    });
   }
 
   loadBatches(): void {
@@ -2253,7 +3229,229 @@ export class TestsComponent implements OnInit {
     if (item.isAbsent) item.marksObtained = 0;
   }
 
-  saveMarks(): void {
+  // ─── Evaluation Workflow & Status Helpers ───────────────────
+  getWorkflowStatusInfo(test: any): { label: string; class: string; icon: string } {
+    if (!test) return { label: 'Scheduled', class: 'badge-scheduled', icon: 'event' };
+    if (test.isMarksLocked || test.evaluationStatus === 'ApprovedAndLocked' || test.evaluationStatus === 'MarksLocked') {
+      return { label: 'Approved & Locked 🔒', class: 'badge-locked', icon: 'verified' };
+    }
+    switch (test.evaluationStatus) {
+      case 'Evaluating':
+      case 'CopiesUnderEvaluation':
+        return { label: `Evaluating (${test.evaluatorTeacherName || 'Teacher'})`, class: 'badge-evaluating', icon: 'pending' };
+      case 'CopiesReturned':
+      case 'EvaluationCompleted':
+        return { label: 'Copies Returned', class: 'badge-returned', icon: 'assignment_turned_in' };
+      case 'MarksEntered':
+        return { label: 'Marks Drafted', class: 'badge-entered', icon: 'edit_note' };
+      case 'SubmittedForApproval':
+        return { label: 'Pending Principal Approval', class: 'badge-submitted', icon: 'hourglass_top' };
+      case 'RevisionRequested':
+      case 'NeedsRevision':
+        return { label: 'Revision Requested', class: 'badge-revision', icon: 'error_outline' };
+      case 'Scheduled':
+      default:
+        return { label: 'Exam Scheduled', class: 'badge-scheduled', icon: 'event' };
+    }
+  }
+
+  // ─── Modal 1: Copy Bundle Handover Tracking ─────────────────
+  openBundleModal(test: any): void {
+    this.bundleTest = test;
+    const d = new Date();
+    d.setDate(d.getDate() + 3);
+    const defaultDue = d.toISOString().split('T')[0];
+
+    this.bundleForm.patchValue({
+      evaluatorTeacherId: test.evaluatorTeacherId || '',
+      totalCopiesIssued: test.totalCopiesIssued ?? (test.totalStudentsEvaluated > 0 ? test.totalStudentsEvaluated : null),
+      evaluationDueDate: test.evaluationDueDate ? new Date(test.evaluationDueDate).toISOString().split('T')[0] : defaultDue,
+      evaluationStatus: test.evaluationStatus || 'Evaluating',
+      copiesSubmittedDate: test.copiesSubmittedDate ? new Date(test.copiesSubmittedDate).toISOString().split('T')[0] : '',
+      evaluationRemarks: test.evaluationRemarks || ''
+    });
+    this.showBundleModal = true;
+  }
+
+  closeBundleModal(): void {
+    this.showBundleModal = false;
+    this.bundleTest = null;
+  }
+
+  saveBundleAssignment(): void {
+    if (!this.bundleTest || this.bundleForm.invalid) return;
+    const v = this.bundleForm.value;
+    this.savingBundle = true;
+
+    const payload = {
+      evaluatorTeacherId: v.evaluatorTeacherId,
+      evaluationStatus: v.evaluationStatus,
+      evaluationDueDate: v.evaluationDueDate ? new Date(v.evaluationDueDate + 'T18:00:00+05:30').toISOString() : null,
+      totalCopiesIssued: Number(v.totalCopiesIssued),
+      copiesSubmittedDate: v.copiesSubmittedDate ? new Date(v.copiesSubmittedDate + 'T18:00:00+05:30').toISOString() : null,
+      evaluationRemarks: v.evaluationRemarks
+    };
+
+    this.coachingService.updateTestEvaluationWorkflow(this.bundleTest.id, payload).subscribe({
+      next: () => {
+        this.savingBundle = false;
+        this.closeBundleModal();
+        this.loadTests();
+        this.confirmDialog.alert('Bundle Assigned! 📦', 'Physical copy bundle and evaluator teacher workflow updated successfully.', 'success');
+      },
+      error: err => {
+        this.savingBundle = false;
+        this.confirmDialog.alert('Error', err?.error?.message || 'Failed to update bundle assignment.', 'danger');
+      }
+    });
+  }
+
+  // ─── Modal 2: Principal Approval & Seal ─────────────────────
+  openApprovalModal(test: any): void {
+    this.approvalTest = test;
+    this.approvalRemarks = 'Verified and approved for official publication.';
+    this.showApprovalModal = true;
+  }
+
+  closeApprovalModal(): void {
+    this.showApprovalModal = false;
+    this.approvalTest = null;
+  }
+
+  confirmApproveAndLock(): void {
+    if (!this.approvalTest) return;
+    this.confirmDialog.confirm(
+      'Approve & Freeze Marks 🔒',
+      `Officially approve results for "${this.approvalTest.title}"? Once locked, teacher marks editing is frozen and official results are published.`,
+      'Approve & Lock',
+      'Cancel',
+      'success'
+    ).subscribe(ok => {
+      if (!ok) return;
+      this.approvingMarks = true;
+      this.coachingService.approveAndLockTestMarks(this.approvalTest.id, this.approvalRemarks).subscribe({
+        next: () => {
+          this.approvingMarks = false;
+          this.closeApprovalModal();
+          if (this.selectedTest?.id === this.approvalTest?.id) {
+            this.selectedTest.isMarksLocked = true;
+            this.selectedTest.evaluationStatus = 'ApprovedAndLocked';
+            this.selectedTest.marksLockedBy = this.authService.currentUser()?.fullName || 'Principal';
+            this.selectedTest.marksLockedAt = new Date().toISOString();
+          }
+          this.loadTests();
+          this.confirmDialog.alert('Approved & Locked! 🏆', 'Test marks have been officially approved by Principal/Admin and locked against edits.', 'success');
+        },
+        error: err => {
+          this.approvingMarks = false;
+          this.confirmDialog.alert('Error', err?.error?.message || 'Failed to approve marks.', 'danger');
+        }
+      });
+    });
+  }
+
+  rejectForRevisionDirect(test: any): void {
+    this.approvalTest = test;
+    this.promptRejectRevision();
+  }
+
+  promptRejectRevision(): void {
+    if (!this.approvalTest) return;
+    const reason = prompt('Please enter revision remarks / corrections required for the teacher:');
+    if (!reason || !reason.trim()) return;
+
+    this.approvingMarks = true;
+    this.coachingService.rejectTestMarksForRevision(this.approvalTest.id, reason.trim()).subscribe({
+      next: () => {
+        this.approvingMarks = false;
+        this.closeApprovalModal();
+        if (this.selectedTest && this.selectedTest.id === this.approvalTest?.id) {
+          this.selectedTest.evaluationStatus = 'RevisionRequested';
+          this.selectedTest.isMarksLocked = false;
+          this.selectedTest.evaluationRemarks = reason.trim();
+        }
+        this.loadTests();
+        this.confirmDialog.alert('Revision Requested ⚠️', `Marks sent back to evaluator teacher with remarks: "${reason.trim()}".`, 'warning');
+      },
+      error: err => {
+        this.approvingMarks = false;
+        this.confirmDialog.alert('Error', err?.error?.message || 'Failed to send back for revision.', 'danger');
+      }
+    });
+  }
+
+  unlockMarks(test: any): void {
+    const reason = prompt('Admin Authorization: Please enter the reason for unlocking marks for this test:');
+    if (!reason || !reason.trim()) return;
+
+    this.coachingService.unlockTestMarks(test.id, reason.trim()).subscribe({
+      next: () => {
+        this.loadTests();
+        if (this.selectedTest?.id === test.id) {
+          this.selectedTest.isMarksLocked = false;
+          this.selectedTest.evaluationStatus = 'MarksEntered';
+        }
+        this.confirmDialog.alert('Marks Unlocked 🔓', 'Test marks have been unlocked for corrections.', 'success');
+      },
+      error: err => {
+        this.confirmDialog.alert('Error', err?.error?.message || 'Failed to unlock marks.', 'danger');
+      }
+    });
+  }
+
+  submitForPrincipalApproval(test: any): void {
+    this.confirmDialog.confirm(
+      'Submit to Principal for Approval 📤',
+      `Submit marks of "${test.title}" to the Principal/Administrator for official verification and locking?`,
+      'Submit for Approval',
+      'Cancel',
+      'info'
+    ).subscribe(ok => {
+      if (!ok) return;
+      this.coachingService.submitTestForApproval(test.id).subscribe({
+        next: () => {
+          this.loadTests();
+          if (this.selectedTest?.id === test.id) {
+            this.selectedTest.evaluationStatus = 'SubmittedForApproval';
+          }
+          this.confirmDialog.alert('Submitted Successfully! 📋', 'Marks submitted to Principal/Admin for official approval and locking.', 'success');
+        },
+        error: err => {
+          this.confirmDialog.alert('Error', err?.error?.message || 'Failed to submit marks for approval.', 'danger');
+        }
+      });
+    });
+  }
+
+  // ─── Modal 3: Marking Foil / Award Sheet ─────────────────────
+  openAwardSheetModal(test: any): void {
+    this.awardSheetData = null;
+    this.loadingAwardSheet = true;
+    this.showAwardSheetModal = true;
+    this.coachingService.getTestAwardSheet(test.id).subscribe({
+      next: data => {
+        this.awardSheetData = data;
+        this.loadingAwardSheet = false;
+      },
+      error: () => {
+        this.loadingAwardSheet = false;
+        this.confirmDialog.alert('Error', 'Failed to generate marking foil / award sheet.', 'danger');
+        this.showAwardSheetModal = false;
+      }
+    });
+  }
+
+  closeAwardSheetModal(): void {
+    this.showAwardSheetModal = false;
+    this.awardSheetData = null;
+  }
+
+  printAwardSheet(): void {
+    window.print();
+  }
+
+  // ─── Marks Saving (Draft or Submit to Principal) ─────────────
+  saveMarks(andSubmit = false): void {
     if (!this.selectedTest) return;
 
     const overMax = this.marksGrid.some(m => !m.isAbsent && m.marksObtained > this.selectedTest.maxMarks);
@@ -2262,10 +3460,17 @@ export class TestsComponent implements OnInit {
       return;
     }
 
+    const actionTitle = andSubmit ? 'Save & Submit to Principal' : 'Save Marks Draft';
+    const actionMsg = andSubmit
+      ? `Save marks and immediately submit to Principal/Admin for official verification?`
+      : `Save marks draft for ${this.marksGrid.length} students in "${this.selectedTest.title}"${this.notifyParents ? ' and send WhatsApp report cards' : ''}?`;
+
     this.confirmDialog.confirm(
-      'Save Marks',
-      `Save marks for all ${this.marksGrid.length} students in "${this.selectedTest.title}"${this.notifyParents ? ' and send WhatsApp report cards' : ''}?`,
-      'Save & Dispatch', 'Cancel', 'success'
+      actionTitle,
+      actionMsg,
+      andSubmit ? 'Save & Submit' : 'Save Draft',
+      'Cancel',
+      'success'
     ).subscribe(confirmed => {
       if (!confirmed) return;
       this.savingMarks = true;
@@ -2275,11 +3480,32 @@ export class TestsComponent implements OnInit {
         notifyParentsViaWhatsApp: this.notifyParents
       }).subscribe({
         next: () => {
-          this.savingMarks = false;
-          this.selectedTest = null;
-          this.loadTests();
-          this.confirmDialog.alert('Marks Saved! 🎉',
-            `Marks saved for ${this.marksGrid.length} students.${this.notifyParents ? ' WhatsApp report cards dispatched!' : ''}`, 'success');
+          if (andSubmit) {
+            this.coachingService.submitTestForApproval(this.selectedTest.id).subscribe({
+              next: () => {
+                this.savingMarks = false;
+                this.selectedTest = null;
+                this.loadTests();
+                this.confirmDialog.alert(
+                  'Submitted to Principal! 📋',
+                  `Marks saved and officially submitted to Principal/Administrator for verification & approval.`,
+                  'success'
+                );
+              },
+              error: err => {
+                this.savingMarks = false;
+                this.selectedTest = null;
+                this.loadTests();
+                this.confirmDialog.alert('Saved with Warning', 'Marks were saved, but submission notification failed: ' + (err?.error?.message || ''), 'warning');
+              }
+            });
+          } else {
+            this.savingMarks = false;
+            this.selectedTest = null;
+            this.loadTests();
+            this.confirmDialog.alert('Marks Saved! 🎉',
+              `Marks draft saved for ${this.marksGrid.length} students.${this.notifyParents ? ' WhatsApp report cards dispatched!' : ''}`, 'success');
+          }
         },
         error: err => {
           this.savingMarks = false;

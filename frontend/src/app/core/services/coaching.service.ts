@@ -248,6 +248,30 @@ export class CoachingService {
     return this.http.post(`${this.BASE_URL}/tests/bulk-marks`, payload);
   }
 
+  updateTestEvaluationWorkflow(testId: string, payload: any): Observable<any> {
+    return this.http.put(`${this.BASE_URL}/tests/${testId}/evaluation-workflow`, payload);
+  }
+
+  submitTestForApproval(testId: string): Observable<any> {
+    return this.http.put(`${this.BASE_URL}/tests/${testId}/submit-for-approval`, {});
+  }
+
+  approveAndLockTestMarks(testId: string, remarks?: string): Observable<any> {
+    return this.http.put(`${this.BASE_URL}/tests/${testId}/approve-and-lock`, { remarks });
+  }
+
+  unlockTestMarks(testId: string, reason: string): Observable<any> {
+    return this.http.put(`${this.BASE_URL}/tests/${testId}/unlock-marks`, { reason });
+  }
+
+  rejectTestMarksForRevision(testId: string, reason: string): Observable<any> {
+    return this.http.put(`${this.BASE_URL}/tests/${testId}/reject-revision`, { reason });
+  }
+
+  getTestAwardSheet(testId: string): Observable<any> {
+    return this.http.get(`${this.BASE_URL}/tests/${testId}/award-sheet`);
+  }
+
   getWhatsAppLogs(): Observable<any[]> {
     return this.http.get<any[]>(`${this.BASE_URL}/whatsapp/logs`);
   }
