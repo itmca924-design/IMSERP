@@ -63,12 +63,12 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
         <mat-card-content class="form-content">
           <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
 
-            <!-- Institute / Tenant Code -->
+            <!-- Company / Tenant Code -->
             <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Institute Code</mat-label>
-              <input matInput formControlName="tenantCode" placeholder="e.g. GALAXY" (input)="onTenantCodeInput($event)">
+              <mat-label>Company Code</mat-label>
+              <input matInput formControlName="tenantCode" placeholder="e.g. ZENITH, SYSTEM, APEX" (input)="onTenantCodeInput($event)">
               <mat-icon matSuffix>corporate_fare</mat-icon>
-              <mat-error *ngIf="loginForm.get('tenantCode')?.hasError('required')">Institute Code is required</mat-error>
+              <mat-error *ngIf="loginForm.get('tenantCode')?.hasError('required')">Company Code is required</mat-error>
             </mat-form-field>
 
             <!-- Username -->
@@ -489,7 +489,7 @@ export class LoginComponent implements OnInit {
       },
       error: (err) => {
         this.loading = false;
-        this.errorMessage = err?.error?.message || 'Authentication failed. Please check Institute Code and credentials.';
+        this.errorMessage = err?.error?.message || 'Authentication failed. Please check Company Code and credentials.';
       }
     });
   }

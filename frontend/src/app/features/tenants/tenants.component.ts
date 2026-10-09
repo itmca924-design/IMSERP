@@ -310,7 +310,7 @@ import { AuthService } from '../../core/services/auth.service';
             <div class="form-grid">
               <!-- Code (Only for new) -->
               <mat-form-field appearance="outline" *ngIf="!isEditing" class="span-1">
-                <mat-label>Institute Code (Unique)</mat-label>
+                <mat-label>Company / Institute Code (Unique)</mat-label>
                 <input matInput formControlName="code" placeholder="e.g. APEX, EXCEL" (input)="onCodeInput($event)">
                 <mat-icon matSuffix>vpn_key</mat-icon>
                 <mat-hint>Used by users to sign in</mat-hint>
