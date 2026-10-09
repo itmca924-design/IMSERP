@@ -152,13 +152,14 @@ import { ExpenseDialogComponent } from './expense-dialog.component';
 
       <!-- Date Presets -->
       <mat-form-field appearance="outline" class="filter-item">
-        <mat-label>Time Period</mat-label>
+        <mat-label>Time Period (अवधि)</mat-label>
         <mat-select [(ngModel)]="datePreset" (selectionChange)="onPresetChange()">
           <mat-option value="this_month">This Month (इस माह)</mat-option>
+          <mat-option value="last_month">Last Month (पिछला माह)</mat-option>
           <mat-option value="today">Today Only (आज)</mat-option>
-          <mat-option value="this_fy">This Financial Year (2025-26)</mat-option>
+          <mat-option value="this_fy">This Financial Year (इस वित्तीय वर्ष)</mat-option>
           <mat-option value="all">All Time (समस्त)</mat-option>
-          <mat-option value="custom">Custom Date Range</mat-option>
+          <mat-option value="custom">Custom Date Range (कस्टम अवधि)</mat-option>
         </mat-select>
         <mat-icon matPrefix>date_range</mat-icon>
       </mat-form-field>
@@ -732,7 +733,7 @@ export class ExpensesComponent implements OnInit, OnDestroy {
   selectedCategoryId: string | null = null;
   selectedPaymentMode: ExpensePaymentMode | null = null;
   selectedBranchId: string | null = null;
-  datePreset: 'this_month' | 'today' | 'this_fy' | 'all' | 'custom' = 'this_month';
+  datePreset: 'this_month' | 'last_month' | 'today' | 'this_fy' | 'all' | 'custom' = 'this_month';
   customFromDate: Date | null = null;
   customToDate: Date | null = null;
 
@@ -816,6 +817,11 @@ export class ExpensesComponent implements OnInit, OnDestroy {
     if (this.datePreset === 'this_month') {
       const start = new Date(now.getFullYear(), now.getMonth(), 1);
       const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+      from = start.toISOString();
+      to = end.toISOString();
+    } else if (this.datePreset === 'last_month') {
+      const start = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0);
+      const end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
       from = start.toISOString();
       to = end.toISOString();
     } else if (this.datePreset === 'today') {
