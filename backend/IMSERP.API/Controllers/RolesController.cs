@@ -344,4 +344,76 @@ public class RolesController : ControllerBase
             return StatusCode(StatusCodes.Status500InternalServerError, new { message = "Failed to delete role. Please try again." });
         }
     }
+
+    [HttpGet("my-permissions")]
+    public async Task<ActionResult<Dictionary<string, UserPermissionSummaryDto>>> GetMyPermissions()
+    {
+        try
+        {
+            var isSuperAdmin = string.Equals(_currentUser.UserRole, "SuperAdmin", StringComparison.OrdinalIgnoreCase);
+
+            if (isSuperAdmin)
+            {
+                var allItems = await _dbContext.MenuItems.AsNoTracking().Where(m => m.IsActive).ToListAsync();
+                var fullDict = allItems
+                    .Where(m => !string.IsNullOrEmpty(m.RouteUrl))
+                    .ToDictionary(
+                        m => m.RouteUrl!,
+                        m => new UserPermissionSummaryDto(true, true, true, true),
+                        StringComparer.OrdinalIgnoreCase
+                    );
+                return Ok(fullDict);
+            }
+
+            var user = await _dbContext.Users
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
+
+            if (user?.RoleId == null)
+            {
+                var isInstituteAdmin = string.Equals(_currentUser.UserRole, "InstituteAdmin", StringComparison.OrdinalIgnoreCase) ||
+                                       _currentUser.UserRole.Contains("Admin", StringComparison.OrdinalIgnoreCase);
+                if (isInstituteAdmin)
+                {
+                    var allItems = await _dbContext.MenuItems.AsNoTracking().Where(m => m.IsActive).ToListAsync();
+                    var adminDict = allItems
+                        .Where(m => !string.IsNullOrEmpty(m.RouteUrl))
+                        .ToDictionary(
+                            m => m.RouteUrl!,
+                            m => new UserPermissionSummaryDto(true, true, true, true),
+                            StringComparer.OrdinalIgnoreCase
+                        );
+                    return Ok(adminDict);
+                }
+
+                return Ok(new Dictionary<string, UserPermissionSummaryDto>(StringComparer.OrdinalIgnoreCase));
+            }
+
+            var permissions = await _dbContext.RolePermissions
+                .AsNoTracking()
+                .Include(rp => rp.MenuItem)
+                .Where(rp => rp.RoleId == user.RoleId && rp.MenuItem != null && !string.IsNullOrEmpty(rp.MenuItem.RouteUrl))
+                .ToListAsync();
+
+            var dict = permissions
+                .GroupBy(p => p.MenuItem!.RouteUrl!)
+                .ToDictionary(
+                    g => g.Key,
+                    g => new UserPermissionSummaryDto(
+                        g.Any(p => p.CanView),
+                        g.Any(p => p.CanCreate),
+                        g.Any(p => p.CanEdit),
+                        g.Any(p => p.CanDelete)
+                    ),
+                    StringComparer.OrdinalIgnoreCase
+                );
+
+            return Ok(dict);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching user permissions");
+            return StatusCode(500, new { message = "Failed to load permissions" });
+        }
+    }
 }

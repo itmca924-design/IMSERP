@@ -1,4 +1,4 @@
-import { Component, HostListener, inject } from '@angular/core';
+import { Component, HostListener, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
@@ -10,6 +10,7 @@ import { TenantService } from '../../core/services/tenant.service';
 import { TranslationService } from '../../core/services/translation.service';
 import { TranslatePipe } from '../../core/pipes/translate.pipe';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
+import { RolesService, UserPermissionSummary } from '../../core/services/roles.service';
 
 @Component({
   selector: 'app-quick-settings-drawer',
@@ -25,17 +26,105 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
   templateUrl: './quick-settings-drawer.component.html',
   styleUrls: ['./quick-settings-drawer.component.scss']
 })
-export class QuickSettingsDrawerComponent {
+export class QuickSettingsDrawerComponent implements OnInit {
   readonly settingsService = inject(QuickSettingsService);
   readonly authService = inject(AuthService);
   readonly tenantService = inject(TenantService);
   readonly translationService = inject(TranslationService);
   readonly confirmDialog = inject(ConfirmDialogService);
+  readonly rolesService = inject(RolesService);
   readonly router = inject(Router);
 
   activeTab: 'general' | 'modules' | 'automation' | 'appearance' | 'shortcuts' = 'general';
   updatingModules = false;
   moduleSuccessMessage: string | null = null;
+
+  userPermissions: Record<string, UserPermissionSummary> = {};
+  permissionsLoaded = false;
+
+  ngOnInit(): void {
+    this.loadPermissions();
+  }
+
+  loadPermissions(): void {
+    this.rolesService.getMyPermissions().subscribe({
+      next: (perms) => {
+        this.userPermissions = perms || {};
+        this.permissionsLoaded = true;
+        this.ensureValidActiveTab();
+      },
+      error: (err) => {
+        console.warn('Could not load user permissions for Quick Settings:', err);
+        this.permissionsLoaded = true;
+      }
+    });
+  }
+
+  canViewTab(routeUrl: string): boolean {
+    if (this.authService.isSuperAdmin() || this.authService.isAdmin()) {
+      return true;
+    }
+    const perm = this.userPermissions[routeUrl];
+    if (perm !== undefined) {
+      return perm.canView;
+    }
+    // Fail-safe while loading or on network lag:
+    // Modules and Automation remain strictly hidden for non-admins unless explicitly granted in /roles
+    if (routeUrl === '/settings/quick/modules' || routeUrl === '/settings/quick/automation') {
+      return false;
+    }
+    return true;
+  }
+
+  canViewGeneral(): boolean {
+    return this.canViewTab('/settings/quick/general');
+  }
+
+  canViewModules(): boolean {
+    return this.canViewTab('/settings/quick/modules');
+  }
+
+  canViewAutomation(): boolean {
+    return this.canViewTab('/settings/quick/automation');
+  }
+
+  canViewAppearance(): boolean {
+    return this.canViewTab('/settings/quick/appearance');
+  }
+
+  canViewShortcuts(): boolean {
+    return this.canViewTab('/settings/quick/shortcuts');
+  }
+
+  hasAnyTabPermission(): boolean {
+    return (
+      this.canViewGeneral() ||
+      this.canViewModules() ||
+      this.canViewAutomation() ||
+      this.canViewAppearance() ||
+      this.canViewShortcuts()
+    );
+  }
+
+  isTabAllowed(tab: string): boolean {
+    switch (tab) {
+      case 'general': return this.canViewGeneral();
+      case 'modules': return this.canViewModules();
+      case 'automation': return this.canViewAutomation();
+      case 'appearance': return this.canViewAppearance();
+      case 'shortcuts': return this.canViewShortcuts();
+      default: return false;
+    }
+  }
+
+  private ensureValidActiveTab(): void {
+    if (this.isTabAllowed(this.activeTab)) return;
+    if (this.canViewGeneral()) { this.activeTab = 'general'; return; }
+    if (this.canViewAppearance()) { this.activeTab = 'appearance'; return; }
+    if (this.canViewShortcuts()) { this.activeTab = 'shortcuts'; return; }
+    if (this.canViewModules()) { this.activeTab = 'modules'; return; }
+    if (this.canViewAutomation()) { this.activeTab = 'automation'; return; }
+  }
 
   isModuleLicensed(moduleKey: 'school' | 'coaching' | 'hostel' | 'library' | 'transport' | 'hasSchoolModule' | 'hasCoachingModule' | 'hasHostelModule' | 'hasLibraryModule' | 'hasTransportModule'): boolean {
     return this.authService.isModuleLicensed(moduleKey);

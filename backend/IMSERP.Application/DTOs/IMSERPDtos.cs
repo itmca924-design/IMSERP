@@ -932,6 +932,13 @@ public record RolePermissionDto(
     bool CanDelete
 );
 
+public record UserPermissionSummaryDto(
+    bool CanView,
+    bool CanCreate,
+    bool CanEdit,
+    bool CanDelete
+);
+
 public record SaveRolePermissionsDto(
     Guid RoleId,
     List<RolePermissionDto> Permissions

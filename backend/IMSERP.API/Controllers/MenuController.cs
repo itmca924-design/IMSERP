@@ -40,7 +40,12 @@ public class MenuController : ControllerBase
             "/attendance/permissions/manual",
             "/attendance/permissions/biometric",
             "/attendance/permissions/biometric-mapping",
-            "/attendance/permissions/correction"
+            "/attendance/permissions/correction",
+            "/settings/quick/general",
+            "/settings/quick/modules",
+            "/settings/quick/automation",
+            "/settings/quick/appearance",
+            "/settings/quick/shortcuts"
         };
 
         var disabledRoutes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);

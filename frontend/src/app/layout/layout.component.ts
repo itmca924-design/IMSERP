@@ -1594,6 +1594,11 @@ export class LayoutComponent implements OnInit {
       if (!url) return true;
       const lower = url.toLowerCase();
 
+      // Quick Settings tabs are drawer permission items, NEVER sidebar navigation items
+      if (lower.startsWith('/settings/quick')) {
+        return false;
+      }
+
       // Only SuperAdmin can see Subscription & Plan in sidebar menu
       if (!isSuperAdmin && lower === '/subscription') {
         return false;
@@ -1629,6 +1634,7 @@ export class LayoutComponent implements OnInit {
     };
 
     return (menu || [])
+      .filter(item => item.module !== 'Quick Settings' && (!item.routeUrl || !item.routeUrl.toLowerCase().startsWith('/settings/quick')))
       .map(item => {
         if (item.children && item.children.length > 0) {
           const children = item.children.filter(c => isRouteAllowed(c.routeUrl));

@@ -33,13 +33,28 @@ export interface CreateRoleDto {
   tenantId?: string;
 }
 
+export interface UserPermissionSummary {
+  canView: boolean;
+  canCreate: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
+}
+
 @Injectable({
   providedIn: 'root'
 })
 export class RolesService {
   private readonly BASE_URL = 'http://localhost:5000/api/roles';
+  private myPermissions$?: Observable<Record<string, UserPermissionSummary>>;
 
   constructor(private http: HttpClient) {}
+
+  getMyPermissions(forceRefresh = false): Observable<Record<string, UserPermissionSummary>> {
+    if (!this.myPermissions$ || forceRefresh) {
+      this.myPermissions$ = this.http.get<Record<string, UserPermissionSummary>>(`${this.BASE_URL}/my-permissions`);
+    }
+    return this.myPermissions$;
+  }
 
   getRoles(tenantId?: string): Observable<RoleDto[]> {
     const params = tenantId ? `?tenantId=${tenantId}` : '';
@@ -55,6 +70,7 @@ export class RolesService {
   }
 
   updateRole(id: string, role: CreateRoleDto): Observable<RoleDto> {
+    this.myPermissions$ = undefined; // Invalidate cache on update
     return this.http.put<RoleDto>(`${this.BASE_URL}/${id}`, role);
   }
 
