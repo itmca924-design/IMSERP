@@ -654,7 +654,7 @@ public class AutomationSettings
     public DateTime? LastAbsenteeAlertDate { get; set; }
 
     public bool FeeDueRemindersEnabled { get; set; } = true;
-    public int FeeDueDaysPrior { get; set; } = 3;
+    public int FeeDueDaysPrior { get; set; } = 7;
     public DateTime? LastFeeReminderDate { get; set; }
 
     public bool BiometricSyncEnabled { get; set; } = true;
@@ -663,6 +663,10 @@ public class AutomationSettings
     public bool LateFeeAutoComputeEnabled { get; set; } = true;
     public decimal LateFeeDailyRate { get; set; } = 10;
     public int LateFeeGraceDays { get; set; } = 5;
+
+    public bool AutoPilotFeeInvoicingEnabled { get; set; } = false;
+    public int AutoPilotInvoicingDayOfMonth { get; set; } = 25;
+    public DateTime? LastAutoPilotInvoicingRun { get; set; }
 
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 

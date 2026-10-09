@@ -30,6 +30,17 @@ import { CancelInvoiceDialogComponent } from './cancel-invoice-dialog.component'
 import { FeeMasterDialogComponent } from './fee-master-dialog.component';
 import { EditInvoiceDialogComponent } from './edit-invoice-dialog.component';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
+import { QuickSettingsService } from '../../core/services/quick-settings.service';
+
+export interface UpcomingBillingCycleInfo {
+  month: number;
+  year: number;
+  monthName: string;
+  daysRemaining: number;
+  uninvoicedStudentsCount: number;
+  defaultDueDate: string;
+  students: PendingInvoicingStudent[];
+}
 
 @Component({
   selector: 'app-fees',
@@ -68,6 +79,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           <button mat-raised-button color="primary" class="generate-btn" (click)="openGenerateInvoicesModal()">
             <mat-icon>post_add</mat-icon>
             <span>Generate Monthly Invoices</span>
+            <span class="autopilot-chip" *ngIf="settingsService.autoPilotInvoicing()" matTooltip="Auto-Pilot Mode Active (Auto-bills on 25th of month)">🤖 Auto-Pilot ON</span>
           </button>
         </div>
       </div>
@@ -99,6 +111,43 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             <span *ngIf="pendingStudents.length > 1">Generate Invoices ({{ pendingStudents.length }} Admissions)</span>
           </button>
           <button mat-icon-button class="dismiss-btn" (click)="dismissBanner()" matTooltip="Hide alert for now">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+      </div>
+
+      <!-- Upcoming Billing Cycle Alert Banner: Preparation & 7-Day Advance Alert -->
+      <div class="upcoming-cycle-banner" *ngIf="upcomingCycle && upcomingCycle.uninvoicedStudentsCount > 0 && !upcomingBannerDismissed">
+        <div class="banner-left">
+          <div class="banner-badge-icon">
+            <mat-icon>calendar_month</mat-icon>
+          </div>
+          <div class="banner-text">
+            <div class="banner-title-row">
+              <span class="banner-pill-upcoming">UPCOMING BILLING CYCLE</span>
+              <strong class="banner-heading">{{ upcomingCycle.monthName }} {{ upcomingCycle.year }} Fee Collection Preparation</strong>
+              <span class="banner-badge-count">📢 {{ upcomingCycle.uninvoicedStudentsCount }} {{ upcomingCycle.uninvoicedStudentsCount === 1 ? 'Student' : 'Students' }} Awaiting Invoicing</span>
+            </div>
+            <p class="banner-subtitle">
+              Current cycle is settled. Pre-generate {{ upcomingCycle.monthName }} monthly invoices now so automated WhatsApp fee reminders (7-day advance notice) can dispatch to parents before the due date ({{ upcomingCycle.defaultDueDate | date:'dd MMM yyyy' }}).
+            </p>
+            <div class="banner-students-list" *ngIf="upcomingCycle.students.length > 0">
+              <span class="student-item-tag" *ngFor="let s of upcomingCycle.students | slice:0:6" matTooltip="Awaiting {{ upcomingCycle.monthName }} Invoice">
+                <strong>{{ s.studentName }}</strong>
+                <span class="sub-info">({{ s.className || s.batchName || 'General' }} • Roll: {{ s.rollNumber }})</span>
+              </span>
+              <span class="more-tag" *ngIf="upcomingCycle.students.length > 6">
+                +{{ upcomingCycle.students.length - 6 }} more students
+              </span>
+            </div>
+          </div>
+        </div>
+        <div class="banner-actions">
+          <button mat-raised-button color="primary" class="quick-gen-btn" (click)="openGenerateInvoicesForUpcomingCycle()">
+            <mat-icon>bolt</mat-icon>
+            <span>Generate {{ upcomingCycle.monthName }} Invoices (1-Click)</span>
+          </button>
+          <button mat-icon-button class="dismiss-btn" (click)="dismissUpcomingBanner()" matTooltip="Hide alert for now">
             <mat-icon>close</mat-icon>
           </button>
         </div>
@@ -538,6 +587,20 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
       gap: 8px;
       letter-spacing: 0.02em;
       box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
+
+      .autopilot-chip {
+        background: #10b981;
+        color: #ffffff;
+        font-size: 0.68rem;
+        font-weight: 700;
+        padding: 2px 7px;
+        border-radius: 10px;
+        margin-left: 4px;
+        letter-spacing: 0.02em;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+        display: inline-flex;
+        align-items: center;
+      }
     }
     .pending-invoicing-banner {
       background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
@@ -690,6 +753,169 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           display: flex;
           align-items: center;
           justify-content: center;
+        }
+      }
+    }
+
+    .upcoming-cycle-banner {
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+      border: 1.5px solid #bfdbfe;
+      border-left: 5px solid #2563eb;
+      border-radius: 10px;
+      padding: 14px 18px;
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08);
+      animation: fadeIn 0.25s ease-in-out;
+
+      .banner-left {
+        display: flex;
+        align-items: flex-start;
+        gap: 14px;
+        flex: 1;
+        min-width: 280px;
+
+        .banner-badge-icon {
+          width: 42px;
+          height: 42px;
+          border-radius: 10px;
+          background: #2563eb;
+          color: #ffffff;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          box-shadow: 0 4px 8px rgba(37, 99, 235, 0.25);
+          margin-top: 2px;
+
+          mat-icon {
+            font-size: 24px;
+            width: 24px;
+            height: 24px;
+          }
+        }
+
+        .banner-text {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+
+          .banner-title-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+
+            .banner-pill-upcoming {
+              background: #1e40af;
+              color: #ffffff;
+              font-size: 0.68rem;
+              font-weight: 800;
+              letter-spacing: 0.05em;
+              padding: 2px 8px;
+              border-radius: 12px;
+              text-transform: uppercase;
+            }
+
+            .banner-heading {
+              font-size: 0.95rem;
+              font-weight: 700;
+              color: #1e3a8a;
+            }
+
+            .banner-badge-count {
+              background: #fef3c7;
+              color: #b45309;
+              border: 1px solid #fde68a;
+              font-size: 0.72rem;
+              font-weight: 700;
+              padding: 2px 8px;
+              border-radius: 12px;
+            }
+          }
+
+          .banner-subtitle {
+            color: #2563eb;
+            font-size: 0.82rem;
+            margin: 0;
+            line-height: 1.45;
+          }
+
+          .banner-students-list {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 2px;
+
+            .student-item-tag {
+              font-size: 0.78rem;
+              color: #1e40af;
+              background: rgba(255, 255, 255, 0.85);
+              padding: 2px 8px;
+              border-radius: 6px;
+              border: 1px solid #bfdbfe;
+              display: inline-flex;
+              align-items: center;
+              gap: 4px;
+
+              .sub-info {
+                color: #3b82f6;
+                font-size: 0.73rem;
+              }
+            }
+
+            .more-tag {
+              font-size: 0.75rem;
+              font-weight: 600;
+              color: #1e40af;
+              background: #dbeafe;
+              padding: 2px 7px;
+              border-radius: 6px;
+            }
+          }
+        }
+      }
+
+      .banner-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+
+        .quick-gen-btn {
+          font-weight: 600;
+          border-radius: 8px;
+          height: 38px;
+          padding: 0 16px;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          background: #2563eb;
+          color: #ffffff;
+          box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.25);
+          transition: all 0.15s ease;
+
+          &:hover {
+            background: #1d4ed8;
+          }
+        }
+
+        .dismiss-btn {
+          color: #64748b;
+          width: 32px;
+          height: 32px;
+          padding: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+
+          &:hover {
+            color: #1e293b;
+          }
         }
       }
     }
@@ -1059,6 +1285,10 @@ export class FeesComponent implements OnInit, OnDestroy {
   generatingPending = false;
   bannerDismissed = false;
 
+  upcomingCycle: UpcomingBillingCycleInfo | null = null;
+  upcomingBannerDismissed = false;
+  loadingUpcoming = false;
+
   pageIndex = 0;
   pageSize = 10;
   totalCount = 0;
@@ -1226,6 +1456,7 @@ export class FeesComponent implements OnInit, OnDestroy {
     private confirmDialog: ConfirmDialogService,
     private authService: AuthService,
     private hostelService: HostelService,
+    public settingsService: QuickSettingsService,
     private dialog: MatDialog
   ) {}
 
@@ -1240,10 +1471,12 @@ export class FeesComponent implements OnInit, OnDestroy {
     if (this.hasSchoolModule) this.loadSchoolClasses();
     this.loadInvoices();
     this.loadPendingStudents();
+    this.loadUpcomingBillingCycle();
 
     this.refreshSub = this.feesService.refreshRequired$.subscribe(() => {
       this.loadInvoices();
       this.loadPendingStudents();
+      this.loadUpcomingBillingCycle();
     });
   }
 
@@ -1702,6 +1935,86 @@ export class FeesComponent implements OnInit, OnDestroy {
 
   dismissBanner(): void {
     this.bannerDismissed = true;
+  }
+
+  loadUpcomingBillingCycle(): void {
+    const today = new Date();
+    let nextMonth = today.getMonth() + 2; // JS getMonth() 0-based; so current month = getMonth()+1, next month = getMonth()+2
+    let nextYear = today.getFullYear();
+    if (nextMonth > 12) {
+      nextMonth = 1;
+      nextYear += 1;
+    }
+
+    const nextMonthDate = new Date(nextYear, nextMonth - 1, 1);
+    const monthName = nextMonthDate.toLocaleString('en-IN', { month: 'long' });
+
+    const diffTime = nextMonthDate.getTime() - today.getTime();
+    const daysRemaining = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+    const dueDateStr = `${nextYear}-${String(nextMonth).padStart(2, '0')}-10`;
+
+    // Only notify during the last 7 days of the current month (e.g. 25th onwards for October)
+    if (daysRemaining > 7) {
+      this.upcomingCycle = null;
+      return;
+    }
+
+    this.loadingUpcoming = true;
+    this.feesService.getPendingInvoicingStudents(nextMonth, nextYear).subscribe({
+      next: (list) => {
+        this.loadingUpcoming = false;
+        if (list && list.length > 0) {
+          this.upcomingCycle = {
+            month: nextMonth,
+            year: nextYear,
+            monthName,
+            daysRemaining,
+            uninvoicedStudentsCount: list.length,
+            defaultDueDate: dueDateStr,
+            students: list
+          };
+        } else {
+          this.upcomingCycle = null;
+        }
+      },
+      error: (err) => {
+        this.loadingUpcoming = false;
+        console.error('Failed to load upcoming cycle pending students', err);
+      }
+    });
+  }
+
+  openGenerateInvoicesForUpcomingCycle(): void {
+    if (!this.upcomingCycle) return;
+
+    const dialogRef = this.dialog.open(GenerateInvoicesDialogComponent, {
+      width: '560px',
+      maxWidth: '96vw',
+      data: {
+        batches: this.batches,
+        classes: this.schoolClasses,
+        defaultMonth: this.upcomingCycle.month,
+        defaultYear: this.upcomingCycle.year
+      }
+    });
+
+    dialogRef.afterClosed().subscribe((result) => {
+      if (result) {
+        this.confirmDialog.alert(
+          'Invoices Generated',
+          result.message || `Successfully generated ${this.upcomingCycle?.monthName} invoice(s).`,
+          'success'
+        );
+        this.pageIndex = 0;
+        this.loadInvoices();
+        this.loadPendingStudents();
+        this.loadUpcomingBillingCycle();
+      }
+    });
+  }
+
+  dismissUpcomingBanner(): void {
+    this.upcomingBannerDismissed = true;
   }
 
   getCurrentMonthYearName(): string {

@@ -3010,6 +3010,9 @@ public record AutomationSettingsDto(
     bool LateFeeAutoComputeEnabled,
     decimal LateFeeDailyRate,
     int LateFeeGraceDays,
+    bool AutoPilotFeeInvoicingEnabled,
+    int AutoPilotInvoicingDayOfMonth,
+    DateTime? LastAutoPilotInvoicingRun,
     DateTime? UpdatedAt
 );
 
@@ -3022,7 +3025,9 @@ public record SaveAutomationSettingsDto(
     bool BiometricSyncEnabled,
     bool LateFeeAutoComputeEnabled,
     decimal LateFeeDailyRate,
-    int LateFeeGraceDays
+    int LateFeeGraceDays,
+    bool AutoPilotFeeInvoicingEnabled = false,
+    int AutoPilotInvoicingDayOfMonth = 25
 );
 
 public record RunAutomationJobResultDto(

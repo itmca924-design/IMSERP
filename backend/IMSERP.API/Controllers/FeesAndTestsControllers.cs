@@ -1056,8 +1056,12 @@ public class FeesController : ControllerBase
 
         // Duplicate check: find all active invoices within the current billing window (ignore cancelled invoices)
         // Check StudentId + ClassId so that promoting a student to a higher class allows fresh billing for the new class
+        string invPrefix = $"INV-{dto.Year}{dto.Month:D2}";
         var existingStudentInvoices = await _dbContext.FeeInvoices
-            .Where(i => i.DueDate >= periodStart && i.DueDate <= periodEnd && i.Status != InvoiceStatus.Cancelled)
+            .Where(i => i.Status != InvoiceStatus.Cancelled &&
+                       ((i.DueDate >= periodStart && i.DueDate <= periodEnd) ||
+                        (i.InvoiceNumber != null && i.InvoiceNumber.StartsWith(invPrefix)) ||
+                        (i.Title != null && i.Title.Contains(periodLabel))))
             .Select(i => new { i.StudentId, i.ClassId })
             .ToListAsync();
 

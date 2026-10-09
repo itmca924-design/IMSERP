@@ -245,6 +245,21 @@ using (var scope = app.Services.CreateScope())
                         );
                     END
 
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'AutoPilotFeeInvoicingEnabled' AND object_id = OBJECT_ID('AutomationSettings'))
+                    BEGIN
+                        ALTER TABLE AutomationSettings ADD AutoPilotFeeInvoicingEnabled BIT NOT NULL DEFAULT 0;
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'AutoPilotInvoicingDayOfMonth' AND object_id = OBJECT_ID('AutomationSettings'))
+                    BEGIN
+                        ALTER TABLE AutomationSettings ADD AutoPilotInvoicingDayOfMonth INT NOT NULL DEFAULT 25;
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'LastAutoPilotInvoicingRun' AND object_id = OBJECT_ID('AutomationSettings'))
+                    BEGIN
+                        ALTER TABLE AutomationSettings ADD LastAutoPilotInvoicingRun DATETIME2 NULL;
+                    END
+
                     -- Teacher Module Hybrid School & Login Migrations
                     IF EXISTS (SELECT 1 FROM sys.tables WHERE name = 'SchoolSections') AND NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'ClassTeacherId' AND object_id = OBJECT_ID('SchoolSections'))
                     BEGIN

@@ -459,7 +459,12 @@
             </div>
             <p class="toggle-desc">Automatically sends branded PDF fee receipts to parents' WhatsApp on payment collection.</p>
             <div class="toggle-actions-row">
-              <button type="button" class="run-test-btn" (click)="onRunJob('whatsapp-receipts', $event)" [disabled]="runningJob === 'whatsapp-receipts'">
+              <button
+                type="button"
+                class="run-test-btn"
+                (click)="onRunJob('whatsapp-receipts', $event)"
+                [disabled]="runningJob === 'whatsapp-receipts' || !settingsService.whatsappFeeAlerts()"
+                [matTooltip]="!settingsService.whatsappFeeAlerts() ? 'Enable toggle above to test WhatsApp gateway' : 'Test WhatsApp Gateway'">
                 <mat-icon [class.spinning]="runningJob === 'whatsapp-receipts'">{{ runningJob === 'whatsapp-receipts' ? 'sync' : 'bolt' }}</mat-icon>
                 <span>{{ runningJob === 'whatsapp-receipts' ? 'Testing Gateway...' : 'Test WhatsApp Gateway' }}</span>
               </button>
@@ -488,7 +493,12 @@
             </div>
             <p class="toggle-desc">Dispatches automated WhatsApp/SMS notifications to parents if student is marked absent.</p>
             <div class="toggle-actions-row">
-              <button type="button" class="run-test-btn" (click)="onRunJob('absentee-alerts', $event)" [disabled]="runningJob === 'absentee-alerts'">
+              <button
+                type="button"
+                class="run-test-btn"
+                (click)="onRunJob('absentee-alerts', $event)"
+                [disabled]="runningJob === 'absentee-alerts' || !settingsService.absentSmsAlerts()"
+                [matTooltip]="!settingsService.absentSmsAlerts() ? 'Enable toggle above to run absentee alert' : 'Run Absentee Alert Now'">
                 <mat-icon [class.spinning]="runningJob === 'absentee-alerts'">{{ runningJob === 'absentee-alerts' ? 'sync' : 'play_arrow' }}</mat-icon>
                 <span>{{ runningJob === 'absentee-alerts' ? 'Checking Absences...' : 'Run Absentee Alert Now' }}</span>
               </button>
@@ -512,12 +522,17 @@
             <div class="toggle-title-row">
               <span class="toggle-title">Fee Due Auto-Reminders</span>
               <span class="status-pill amber" [class.paused]="!settingsService.dueFeeReminders()">
-                {{ settingsService.dueFeeReminders() ? 'Active (3-Days Prior)' : 'Paused' }}
+                {{ settingsService.dueFeeReminders() ? 'Active (7-Days Prior)' : 'Paused' }}
               </span>
             </div>
             <p class="toggle-desc">Sends automatic payment reminders before invoice due dates to maintain zero overdue balances.</p>
             <div class="toggle-actions-row">
-              <button type="button" class="run-test-btn" (click)="onRunJob('fee-reminders', $event)" [disabled]="runningJob === 'fee-reminders'">
+              <button
+                type="button"
+                class="run-test-btn"
+                (click)="onRunJob('fee-reminders', $event)"
+                [disabled]="runningJob === 'fee-reminders' || !settingsService.dueFeeReminders()"
+                [matTooltip]="!settingsService.dueFeeReminders() ? 'Enable toggle above to dispatch fee reminders' : 'Dispatch Due Reminders Now'">
                 <mat-icon [class.spinning]="runningJob === 'fee-reminders'">{{ runningJob === 'fee-reminders' ? 'sync' : 'send' }}</mat-icon>
                 <span>{{ runningJob === 'fee-reminders' ? 'Scanning Invoices...' : 'Dispatch Due Reminders Now' }}</span>
               </button>
@@ -528,6 +543,40 @@
               type="checkbox"
               [checked]="settingsService.dueFeeReminders()"
               (change)="settingsService.toggleDueFeeReminders()">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <!-- Auto-Pilot Monthly Fee Invoicing (Pro) -->
+        <div class="toggle-card">
+          <div class="toggle-icon-wrap" style="background: #eff6ff; color: #2563eb;">
+            <mat-icon>bolt</mat-icon>
+          </div>
+          <div class="toggle-details">
+            <div class="toggle-title-row">
+              <span class="toggle-title">Auto-Pilot Fee Invoicing (Pro)</span>
+              <span class="status-pill green" [class.paused]="!settingsService.autoPilotInvoicing()">
+                {{ settingsService.autoPilotInvoicing() ? 'Scheduled (25th of Month)' : 'Disabled' }}
+              </span>
+            </div>
+            <p class="toggle-desc">Automatically generates next month's invoices for all active students on the 25th with a 10th-day due date.</p>
+            <div class="toggle-actions-row">
+              <button
+                type="button"
+                class="run-test-btn"
+                (click)="onRunJob('autopilot', $event)"
+                [disabled]="runningJob === 'autopilot' || !settingsService.autoPilotInvoicing()"
+                [matTooltip]="!settingsService.autoPilotInvoicing() ? 'Please enable toggle above first to run Auto-Pilot' : 'Trigger Auto-Pilot invoice generation now'">
+                <mat-icon [class.spinning]="runningJob === 'autopilot'">{{ runningJob === 'autopilot' ? 'sync' : 'bolt' }}</mat-icon>
+                <span>{{ runningJob === 'autopilot' ? 'Generating Invoices...' : 'Run Auto-Pilot Invoicing Now' }}</span>
+              </button>
+            </div>
+          </div>
+          <label class="switch">
+            <input
+              type="checkbox"
+              [checked]="settingsService.autoPilotInvoicing()"
+              (change)="settingsService.toggleAutoPilotInvoicing()">
             <span class="slider"></span>
           </label>
         </div>
@@ -546,7 +595,12 @@
             </div>
             <p class="toggle-desc">Polls biometric hardware logs directly at gate entry and auto-marks class attendance.</p>
             <div class="toggle-actions-row">
-              <button type="button" class="run-test-btn" (click)="onRunJob('biometric-sync', $event)" [disabled]="runningJob === 'biometric-sync'">
+              <button
+                type="button"
+                class="run-test-btn"
+                (click)="onRunJob('biometric-sync', $event)"
+                [disabled]="runningJob === 'biometric-sync' || !settingsService.biometricSync()"
+                [matTooltip]="!settingsService.biometricSync() ? 'Enable toggle above to sync biometric devices' : 'Sync Biometric Gate Now'">
                 <mat-icon [class.spinning]="runningJob === 'biometric-sync'">{{ runningJob === 'biometric-sync' ? 'sync' : 'cached' }}</mat-icon>
                 <span>{{ runningJob === 'biometric-sync' ? 'Syncing Devices...' : 'Sync Biometric Gate Now' }}</span>
               </button>
@@ -575,7 +629,12 @@
             </div>
             <p class="toggle-desc">Applies institute fine policy automatically to invoices past the defined grace period.</p>
             <div class="toggle-actions-row">
-              <button type="button" class="run-test-btn" (click)="onRunJob('late-fee', $event)" [disabled]="runningJob === 'late-fee'">
+              <button
+                type="button"
+                class="run-test-btn"
+                (click)="onRunJob('late-fee', $event)"
+                [disabled]="runningJob === 'late-fee' || !settingsService.lateFeeCalc()"
+                [matTooltip]="!settingsService.lateFeeCalc() ? 'Enable toggle above to run late fee calculation' : 'Run Late Fee Auto-Compute'">
                 <mat-icon [class.spinning]="runningJob === 'late-fee'">{{ runningJob === 'late-fee' ? 'sync' : 'calculate' }}</mat-icon>
                 <span>{{ runningJob === 'late-fee' ? 'Applying Penalties...' : 'Run Late Fee Auto-Compute' }}</span>
               </button>

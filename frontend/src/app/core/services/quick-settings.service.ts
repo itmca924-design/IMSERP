@@ -16,6 +16,7 @@ export interface ErpSettingsState {
   dueFeeReminders: boolean;
   biometricSync: boolean;
   lateFeeCalc: boolean;
+  autoPilotInvoicing?: boolean;
   soundEffects: boolean;
   autoRefreshInterval: number; // in seconds, 0 = off
 }
@@ -35,6 +36,9 @@ export interface AutomationSettingsDto {
   lateFeeAutoComputeEnabled: boolean;
   lateFeeDailyRate: number;
   lateFeeGraceDays: number;
+  autoPilotFeeInvoicingEnabled?: boolean;
+  autoPilotInvoicingDayOfMonth?: number;
+  lastAutoPilotInvoicingRun?: string | null;
   updatedAt?: string | null;
 }
 
@@ -59,6 +63,7 @@ const DEFAULT_SETTINGS: ErpSettingsState = {
   dueFeeReminders: true,
   biometricSync: true,
   lateFeeCalc: true,
+  autoPilotInvoicing: false,
   soundEffects: true,
   autoRefreshInterval: 0
 };
@@ -83,6 +88,7 @@ export class QuickSettingsService {
   readonly dueFeeReminders = signal<boolean>(DEFAULT_SETTINGS.dueFeeReminders);
   readonly biometricSync = signal<boolean>(DEFAULT_SETTINGS.biometricSync);
   readonly lateFeeCalc = signal<boolean>(DEFAULT_SETTINGS.lateFeeCalc);
+  readonly autoPilotInvoicing = signal<boolean>(DEFAULT_SETTINGS.autoPilotInvoicing ?? false);
   readonly soundEffects = signal<boolean>(DEFAULT_SETTINGS.soundEffects);
   readonly autoRefreshInterval = signal<number>(DEFAULT_SETTINGS.autoRefreshInterval);
 
@@ -123,6 +129,7 @@ export class QuickSettingsService {
         this.dueFeeReminders.set(res.feeDueRemindersEnabled);
         this.biometricSync.set(res.biometricSyncEnabled);
         this.lateFeeCalc.set(res.lateFeeAutoComputeEnabled);
+        this.autoPilotInvoicing.set(res.autoPilotFeeInvoicingEnabled ?? false);
       },
       error: () => {
         // Fall back gracefully to localStorage if backend is still initializing
@@ -141,7 +148,9 @@ export class QuickSettingsService {
       biometricSyncEnabled: this.biometricSync(),
       lateFeeAutoComputeEnabled: this.lateFeeCalc(),
       lateFeeDailyRate: this.backendSettings()?.lateFeeDailyRate || 10,
-      lateFeeGraceDays: this.backendSettings()?.lateFeeGraceDays || 5
+      lateFeeGraceDays: this.backendSettings()?.lateFeeGraceDays || 5,
+      autoPilotFeeInvoicingEnabled: this.autoPilotInvoicing(),
+      autoPilotInvoicingDayOfMonth: 25
     };
 
     this.http.put<AutomationSettingsDto>(this.API_URL, payload).subscribe({
@@ -221,6 +230,11 @@ export class QuickSettingsService {
 
   toggleLateFeeCalc(val?: boolean): void {
     this.lateFeeCalc.update(v => typeof val === 'boolean' ? val : !v);
+    this.syncToBackend();
+  }
+
+  toggleAutoPilotInvoicing(val?: boolean): void {
+    this.autoPilotInvoicing.update(v => typeof val === 'boolean' ? val : !v);
     this.syncToBackend();
   }
 

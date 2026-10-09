@@ -13,6 +13,7 @@ import { BatchDto } from '../../core/services/batches.service';
 import { SchoolClassDto } from '../../core/services/school.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
+import { QuickSettingsService } from '../../core/services/quick-settings.service';
 
 export interface GenerateInvoicesDialogData {
   batches: BatchDto[];
@@ -89,6 +90,10 @@ interface BillingCycleOption {
                   🎯 {{ getSelectedTargetBatchName() }}
                 </span>
               </div>
+              <div class="st-hint">
+                <mat-icon class="hint-icon">shield</mat-icon>
+                <span>Generating invoice exclusively for this newly admitted student. Other students remain untouched.</span>
+              </div>
             </div>
           </div>
 
@@ -111,8 +116,29 @@ interface BillingCycleOption {
             </div>
           </div>
 
+          <!-- Auto-Pilot Mode Guidance Callout -->
+          <div class="autopilot-banner-callout" *ngIf="settingsService.autoPilotInvoicing() && !data.targetStudentName">
+            <div class="autopilot-icon-pill">
+              <mat-icon>smart_toy</mat-icon>
+            </div>
+            <div class="autopilot-body">
+              <div class="autopilot-header">
+                <strong>Auto-Pilot Active (Scheduled for 25th of month)</strong>
+                <span class="autopilot-badge">🤖 AUTO-PILOT ON</span>
+              </div>
+              <p class="autopilot-desc">
+                Regular monthly batch billing will automatically execute on the <strong>25th of the month</strong>.
+                You can safely use this manual dialog anytime for <strong>New Admissions</strong>, late joiners, or custom billing cycles.
+              </p>
+              <div class="autopilot-foot">
+                <mat-icon class="shield-icon">verified_user</mat-icon>
+                <span><strong>Zero-Duplicate Shield:</strong> Students who already have an invoice for this period are automatically skipped.</span>
+              </div>
+            </div>
+          </div>
+
           <!-- Info Callout -->
-          <div class="info-callout" *ngIf="!data.targetStudentName">
+          <div class="info-callout" *ngIf="!data.targetStudentName && !settingsService.autoPilotInvoicing()">
             <mat-icon class="info-icon">auto_awesome</mat-icon>
             <div class="info-text">
               <strong>Smart Auto-Billing Engine:</strong> Invoices use each student's batch fee rate multiplied by the selected cycle. Students who already have an invoice for the selected period are <strong>automatically skipped</strong>.
@@ -381,6 +407,96 @@ interface BillingCycleOption {
               border: 1px solid #ddd6fe;
             }
           }
+
+          .st-hint {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.72rem;
+            color: #1e40af;
+            background: #eff6ff;
+            padding: 3px 8px;
+            border-radius: 4px;
+            border: 1px solid #bfdbfe;
+            margin-top: 4px;
+            .hint-icon { font-size: 13px; width: 13px; height: 13px; color: #2563eb; }
+          }
+        }
+      }
+    }
+
+    .autopilot-banner-callout {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 14px;
+      background: linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%);
+      border: 1px solid #c7d2fe;
+      border-left: 4px solid #6366f1;
+      border-radius: 8px;
+      margin-bottom: 8px;
+
+      .autopilot-icon-pill {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: #4f46e5;
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        box-shadow: 0 2px 6px -1px rgba(79, 70, 229, 0.3);
+        mat-icon { font-size: 18px; width: 18px; height: 18px; }
+      }
+
+      .autopilot-body {
+        flex: 1;
+
+        .autopilot-header {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 4px;
+          strong {
+            color: #312e81;
+            font-size: 0.84rem;
+            font-weight: 700;
+          }
+          .autopilot-badge {
+            background: #e0e7ff;
+            color: #4338ca;
+            font-size: 0.65rem;
+            font-weight: 700;
+            padding: 1px 6px;
+            border-radius: 4px;
+            letter-spacing: 0.04em;
+          }
+        }
+
+        .autopilot-desc {
+          font-size: 0.78rem;
+          color: #3730a3;
+          line-height: 1.45;
+          margin: 0 0 6px 0;
+          strong {
+            font-weight: 600;
+            color: #1e1b4b;
+          }
+        }
+
+        .autopilot-foot {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 0.74rem;
+          color: #065f46;
+          background: #ecfdf5;
+          padding: 4px 8px;
+          border-radius: 6px;
+          border: 1px solid #a7f3d0;
+          .shield-icon { font-size: 14px; width: 14px; height: 14px; color: #059669; }
+          strong { font-weight: 700; }
         }
       }
     }
@@ -648,6 +764,7 @@ export class GenerateInvoicesDialogComponent implements OnInit {
     private feesService: FeesService,
     private confirmDialog: ConfirmDialogService,
     private authService: AuthService,
+    public settingsService: QuickSettingsService,
     private dialogRef: MatDialogRef<GenerateInvoicesDialogComponent, GenerateInvoicesResult | null>,
     @Inject(MAT_DIALOG_DATA) public data: GenerateInvoicesDialogData
   ) {

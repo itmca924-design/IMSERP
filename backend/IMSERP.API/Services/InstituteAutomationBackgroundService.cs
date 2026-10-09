@@ -148,6 +148,30 @@ public class InstituteAutomationBackgroundService : BackgroundService
                             _logger.LogWarning(ex, "[BackgroundService] Late fee calculation failed for tenant {TenantId}", tenantId);
                         }
                     }
+
+                    // 5. Auto-Pilot Monthly Fee Invoicing (Runs on configured day of month, default 25th)
+                    if (settings.AutoPilotFeeInvoicingEnabled)
+                    {
+                        var targetDay = settings.AutoPilotInvoicingDayOfMonth > 0 ? settings.AutoPilotInvoicingDayOfMonth : 25;
+                        var lastRun = settings.LastAutoPilotInvoicingRun.HasValue
+                            ? TimeZoneInfo.ConvertTimeFromUtc(settings.LastAutoPilotInvoicingRun.Value, istZone)
+                            : (DateTime?)null;
+
+                        // Trigger if today's day of month >= targetDay AND (never run OR last run was in a different month)
+                        if (nowIst.Day >= targetDay && (lastRun == null || lastRun.Value.Year != nowIst.Year || lastRun.Value.Month != nowIst.Month))
+                        {
+                            try
+                            {
+                                _logger.LogInformation("🤖 [BackgroundService] Triggering Auto-Pilot Monthly Fee Invoicing for Tenant {TenantId} at {Time}", tenantId, nowIst);
+                                var result = await automationService.ExecuteAutoPilotFeeInvoicingAsync(tenantId);
+                                _logger.LogInformation("🤖 [BackgroundService] Auto-Pilot Invoicing complete for Tenant {TenantId}: {Message}", tenantId, result.Message);
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(ex, "❌ [BackgroundService] Auto-Pilot Fee Invoicing failed for tenant {TenantId}", tenantId);
+                            }
+                        }
+                    }
                 }
             }
             catch (Exception ex) when (!stoppingToken.IsCancellationRequested)

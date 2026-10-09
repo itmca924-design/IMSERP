@@ -10,5 +10,6 @@ public interface IAutomationService
     Task<RunAutomationJobResultDto> ExecuteFeeDueRemindersAsync(Guid tenantId, int? daysPrior = null);
     Task<RunAutomationJobResultDto> ExecuteBiometricSyncAsync(Guid tenantId);
     Task<RunAutomationJobResultDto> ExecuteLateFeeComputationAsync(Guid tenantId, decimal? dailyRate = null, int? graceDays = null);
+    Task<RunAutomationJobResultDto> ExecuteAutoPilotFeeInvoicingAsync(Guid tenantId);
     Task<RunAutomationJobResultDto> RunJobAsync(Guid tenantId, string jobName);
 }

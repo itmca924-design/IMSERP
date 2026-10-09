@@ -182,6 +182,10 @@ import { QuickSettingsDrawerComponent } from './quick-settings-drawer/quick-sett
             </button>
             <mat-menu #notificationMenu="matMenu" xPosition="before">
               <div class="menu-section-title">{{ 'HEADER.NOTIFICATIONS' | translate }}</div>
+              <button mat-menu-item routerLink="/fees" *ngIf="isRoutePermitted('/fees') && isUpcomingBillingWindowActive()">
+                <mat-icon style="color: #2563eb;">calendar_month</mat-icon>
+                <span>Upcoming Fee Invoicing Alert ({{ getUpcomingBillingCycleLabel() }})</span>
+              </button>
               <button mat-menu-item routerLink="/holidays"><mat-icon color="primary">event</mat-icon><span>{{ 'HEADER.VIEW_HOLIDAYS' | translate }}</span></button>
               <button mat-menu-item routerLink="/fees" *ngIf="isRoutePermitted('/fees')"><mat-icon color="warn">payments</mat-icon><span>{{ 'HEADER.REVIEW_FEES' | translate }}</span></button>
               <button mat-menu-item routerLink="/attendance/reports" *ngIf="isRoutePermitted('/attendance/reports')"><mat-icon color="accent">summarize</mat-icon><span>{{ 'HEADER.OPEN_ATTENDANCE_REPORTS' | translate }}</span></button>
@@ -204,17 +208,6 @@ import { QuickSettingsDrawerComponent } from './quick-settings-drawer/quick-sett
                 No quick actions configured for your role
               </div>
             </mat-menu>
-
-            <!-- Dynamic Hindi / English Switcher Pill Button in Header -->
-            <button
-              type="button"
-              class="header-lang-btn"
-              (click)="toggleLanguage()"
-              [matTooltip]="'HEADER.SWITCH_LANG' | translate"
-              aria-label="Toggle language between English and Hindi">
-              <span class="lang-flag-badge">{{ translationService.isEnglish() ? '🇮🇳' : '🇬🇧' }}</span>
-              <span class="lang-code-text">{{ translationService.isEnglish() ? 'हिन्दी' : 'English' }}</span>
-            </button>
           </div>
           <span class="spacer"></span>
 
@@ -1224,6 +1217,18 @@ export class LayoutComponent implements OnInit {
     };
 
     return checkList(this.menuTree());
+  }
+
+  isUpcomingBillingWindowActive(): boolean {
+    const today = new Date();
+    const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+    return today.getDate() > (lastDayOfMonth - 7);
+  }
+
+  getUpcomingBillingCycleLabel(): string {
+    const today = new Date();
+    const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+    return nextMonth.toLocaleString('en-IN', { month: 'short', year: 'numeric' });
   }
 
   get permittedSearchablePages(): Array<{ title: string; route: string; icon: string }> {
