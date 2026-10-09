@@ -256,9 +256,12 @@ export interface HomeworkStatsDto {
 
             <!-- Attachment / Worksheet file button if attached -->
             <div class="worksheet-attach-box" *ngIf="h.attachmentUrl">
-              <a [href]="getFileUrl(h.attachmentUrl)" target="_blank" class="worksheet-link">
-                <mat-icon>attach_file</mat-icon>
-                <span class="filename">{{h.attachmentFileName || 'Download Worksheet / Assignment File'}}</span>
+              <a [href]="getFileUrl(h.attachmentUrl)" target="_blank" class="worksheet-link" [matTooltip]="h.attachmentFileName || 'Download Worksheet / Assignment File'">
+                <mat-icon class="attach-lead-icon">attach_file</mat-icon>
+                <div class="link-texts">
+                  <span class="link-label">Worksheet / Material:</span>
+                  <span class="filename">{{h.attachmentFileName || 'Download Worksheet / Assignment File'}}</span>
+                </div>
                 <mat-icon class="external-icon">open_in_new</mat-icon>
               </a>
             </div>
@@ -473,8 +476,8 @@ export interface HomeworkStatsDto {
 
             <!-- Teacher Worksheet Attached -->
             <div class="worksheet-attach-box" *ngIf="sh.attachmentUrl">
-              <a [href]="getFileUrl(sh.attachmentUrl)" target="_blank" class="worksheet-link">
-                <mat-icon>download_for_offline</mat-icon>
+              <a [href]="getFileUrl(sh.attachmentUrl)" target="_blank" class="worksheet-link" [matTooltip]="sh.attachmentFileName || 'Download Assignment Material'">
+                <mat-icon class="attach-lead-icon">download_for_offline</mat-icon>
                 <div class="link-texts">
                   <span class="link-label">Teacher's Worksheet / Questions:</span>
                   <span class="filename">{{sh.attachmentFileName || 'Download Assignment Material'}}</span>
@@ -490,14 +493,14 @@ export interface HomeworkStatsDto {
                 <span class="sub-date" [appIstDatetime]="sh.mySubmission.submissionDate"></span>
               </div>
               <div class="sub-file-row">
-                <a [href]="getFileUrl(sh.mySubmission.submissionFileUrl)" target="_blank" class="sub-file-link">
+                <a [href]="getFileUrl(sh.mySubmission.submissionFileUrl)" target="_blank" class="sub-file-link" [matTooltip]="sh.mySubmission.submissionFileName || 'View Solution Copy'">
                   <mat-icon>description</mat-icon>
-                  <span>{{sh.mySubmission.submissionFileName || 'View Solution Copy'}}</span>
+                  <span class="sub-filename">{{sh.mySubmission.submissionFileName || 'View Solution Copy'}}</span>
                   <mat-icon class="ext-sm">open_in_new</mat-icon>
                 </a>
               </div>
               <div class="sub-remarks" *ngIf="sh.mySubmission.studentRemarks">
-                <strong>Your Notes:</strong> {{sh.mySubmission.studentRemarks}}
+                <strong>Your Notes:</strong> <span>{{sh.mySubmission.studentRemarks}}</span>
               </div>
 
               <!-- Teacher Review Feedback if graded -->
@@ -572,35 +575,96 @@ export interface HomeworkStatsDto {
     .active-view { background: #fff !important; color: #2563eb !important; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
 
     /* Grid Layout */
-    .hw-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 18px; }
-    .hw-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); transition: transform 0.15s, box-shadow 0.15s; }
+    .hw-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 18px; }
+    .hw-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); transition: transform 0.15s, box-shadow 0.15s; min-width: 0; max-width: 100%; box-sizing: border-box; overflow: hidden; }
     .hw-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.08); border-color: #cbd5e1; }
-    .hw-card-top { display: flex; justify-content: space-between; align-items: center; }
-    .top-badges { display: flex; align-items: center; gap: 8px; }
-    .subject-badge { background: #eff6ff; color: #1d4ed8; font-size: 11px; font-weight: 800; padding: 3px 10px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px; border: 1px solid #bfdbfe; }
-    .submissions-badge { background: #f0fdf4; color: #166534; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 20px; border: 1px solid #bbf7d0; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; transition: background 0.15s; }
+    .hw-card-top { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+    .top-badges { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .subject-badge { background: #eff6ff; color: #1d4ed8; font-size: 11px; font-weight: 800; padding: 3px 10px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px; border: 1px solid #bfdbfe; flex-shrink: 0; }
+    .submissions-badge { background: #f0fdf4; color: #166534; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 20px; border: 1px solid #bbf7d0; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; transition: background 0.15s; flex-shrink: 0; }
     .submissions-badge:hover { background: #dcfce7; }
     .submissions-badge mat-icon { font-size: 14px; width: 14px; height: 14px; }
-    .status-pill { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; text-transform: capitalize; }
+    .status-pill { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; text-transform: capitalize; flex-shrink: 0; }
     .status-pill.active { background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; }
     .status-pill.completed { background: #f1f5f9; color: #64748b; border: 1px solid #cbd5e1; }
     .status-pill.archived { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
-    .hw-title { margin: 0; font-size: 15px; font-weight: 700; color: #1e293b; line-height: 1.3; }
+    .hw-title { margin: 0; font-size: 15px; font-weight: 700; color: #1e293b; line-height: 1.3; word-break: break-word; }
     .hw-meta-chips { display: flex; flex-wrap: wrap; gap: 6px; }
     .meta-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 6px; }
     .meta-chip mat-icon { font-size: 14px; width: 14px; height: 14px; }
     .class-chip { background: #f8fafc; color: #475569; border: 1px solid #e2e8f0; }
     .teacher-chip { background: #faf5ff; color: #7e22ce; border: 1px solid #f3e8ff; }
     .time-chip { background: #fffbeb; color: #b45309; border: 1px solid #fef3c7; }
-    .hw-desc { margin: 0; font-size: 13px; color: #475569; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+    .hw-desc { margin: 0; font-size: 13px; color: #475569; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }
 
     /* Worksheet attachment link box */
-    .worksheet-attach-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; }
-    .worksheet-link { display: flex; align-items: center; gap: 8px; color: #2563eb; text-decoration: none; font-size: 12px; font-weight: 600; }
-    .worksheet-link:hover { color: #1d4ed8; text-decoration: underline; }
-    .worksheet-link mat-icon { font-size: 18px; width: 18px; height: 18px; color: #2563eb; flex-shrink: 0; }
-    .worksheet-link .filename { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .external-icon { font-size: 14px; width: 14px; height: 14px; color: #94a3b8; }
+    .worksheet-attach-box {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 8px 12px;
+      max-width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
+      overflow: hidden;
+      transition: all 0.15s ease;
+    }
+    .worksheet-attach-box:hover {
+      background: #eff6ff;
+      border-color: #bfdbfe;
+    }
+    .worksheet-link {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #2563eb;
+      text-decoration: none;
+      font-size: 12px;
+      font-weight: 600;
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
+    }
+    .worksheet-link:hover { text-decoration: none; }
+    .attach-lead-icon { font-size: 20px; width: 20px; height: 20px; color: #2563eb; flex-shrink: 0; }
+    .worksheet-link .link-texts {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      flex: 1;
+      gap: 1px;
+      overflow: hidden;
+    }
+    .worksheet-link .link-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #2563eb;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1.3;
+    }
+    .worksheet-link .filename {
+      font-size: 12px;
+      font-weight: 600;
+      color: #1e40af;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
+      line-height: 1.3;
+    }
+    .external-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+      color: #94a3b8;
+      flex-shrink: 0;
+      margin-left: auto;
+      transition: color 0.15s ease;
+    }
+    .worksheet-attach-box:hover .external-icon { color: #2563eb; }
 
     .hw-card-footer { margin-top: auto; border-top: 1px solid #f1f5f9; padding-top: 10px; display: flex; flex-direction: column; gap: 8px; }
     .hw-dates-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 11.5px; background: #f8fafc; padding: 6px 10px; border-radius: 6px; border: 1px solid #f1f5f9; }
@@ -708,47 +772,108 @@ export interface HomeworkStatsDto {
     .filter-tab-pill mat-icon { font-size: 16px; width: 16px; height: 16px; }
 
     /* Student Grid Layout */
-    .student-hw-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 18px; }
-    .student-hw-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); transition: transform 0.15s, box-shadow 0.15s; }
+    .student-hw-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 18px; }
+    .student-hw-card {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+      transition: transform 0.15s, box-shadow 0.15s;
+      min-width: 0;
+      max-width: 100%;
+      box-sizing: border-box;
+      overflow: hidden;
+    }
     .student-hw-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.08); }
     .student-hw-card.is-submitted { border-left: 4px solid #10b981; }
-    .student-card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+    .student-card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
     .header-badges { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-    .submission-status-pill { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; text-transform: capitalize; }
+    .submission-status-pill { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; text-transform: capitalize; flex-shrink: 0; }
     .submission-status-pill.pending { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
     .submission-status-pill.submitted { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
     .submission-status-pill.approved { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
     .submission-status-pill.needscorrection { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
     .pill-icon { font-size: 14px; width: 14px; height: 14px; }
-    .student-hw-title { margin: 0; font-size: 16px; font-weight: 700; color: #1e293b; line-height: 1.3; }
-    .student-hw-desc { margin: 0; font-size: 13px; color: #475569; line-height: 1.5; white-space: pre-line; }
+    .student-hw-title { margin: 0; font-size: 16px; font-weight: 700; color: #1e293b; line-height: 1.3; word-break: break-word; }
+    .student-hw-desc { margin: 0; font-size: 13px; color: #475569; line-height: 1.5; white-space: pre-line; word-break: break-word; }
 
     /* Student Submission Details Box */
-    .submission-details-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; font-size: 12px; }
-    .sub-header { display: flex; justify-content: space-between; align-items: center; font-weight: 700; color: #0f172a; }
+    .submission-details-box {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-size: 12px;
+      max-width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
+      overflow: hidden;
+    }
+    .sub-header { display: flex; justify-content: space-between; align-items: center; font-weight: 700; color: #0f172a; flex-wrap: wrap; gap: 6px; }
     .sub-label { display: flex; align-items: center; gap: 4px; color: #059669; }
-    .sub-label mat-icon { font-size: 16px; width: 16px; height: 16px; }
+    .sub-label mat-icon { font-size: 16px; width: 16px; height: 16px; flex-shrink: 0; }
     .sub-date { color: #64748b; font-size: 11px; font-weight: 500; }
-    .sub-file-row { display: flex; align-items: center; }
-    .sub-file-link { display: inline-flex; align-items: center; gap: 6px; color: #2563eb; text-decoration: none; font-weight: 700; background: #fff; padding: 4px 10px; border-radius: 6px; border: 1px solid #cbd5e1; }
-    .sub-file-link:hover { background: #eff6ff; }
-    .sub-file-link mat-icon { font-size: 16px; width: 16px; height: 16px; color: #2563eb; }
-    .ext-sm { font-size: 12px; width: 12px; height: 12px; color: #94a3b8; }
-    .sub-remarks { color: #475569; }
+    .sub-file-row { display: flex; align-items: center; max-width: 100%; min-width: 0; }
+    .sub-file-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: #2563eb;
+      text-decoration: none;
+      font-weight: 700;
+      background: #fff;
+      padding: 5px 10px;
+      border-radius: 6px;
+      border: 1px solid #cbd5e1;
+      max-width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
+      transition: all 0.15s ease;
+    }
+    .sub-file-link:hover { background: #eff6ff; border-color: #93c5fd; }
+    .sub-file-link mat-icon { font-size: 16px; width: 16px; height: 16px; color: #2563eb; flex-shrink: 0; }
+    .sub-file-link .sub-filename {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
+      flex: 1;
+    }
+    .ext-sm { font-size: 12px; width: 12px; height: 12px; color: #94a3b8; flex-shrink: 0; margin-left: 4px; }
+    .sub-remarks { color: #475569; word-break: break-word; overflow-wrap: break-word; }
 
     /* Teacher Feedback Card */
-    .teacher-feedback-card { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
-    .feedback-title { display: flex; align-items: center; gap: 6px; font-weight: 700; color: #1e40af; font-size: 12px; }
-    .feedback-title mat-icon { font-size: 16px; width: 16px; height: 16px; }
+    .teacher-feedback-card {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 8px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-top: 4px;
+      max-width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
+    }
+    .feedback-title { display: flex; align-items: center; gap: 6px; font-weight: 700; color: #1e40af; font-size: 12px; flex-wrap: wrap; }
+    .feedback-title mat-icon { font-size: 16px; width: 16px; height: 16px; flex-shrink: 0; }
     .grade-badge { margin-left: auto; background: #2563eb; color: #fff; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 800; }
-    .feedback-text { margin: 2px 0 0; color: #1e3a8a; font-size: 12px; }
+    .feedback-text { margin: 2px 0 0; color: #1e3a8a; font-size: 12px; word-break: break-word; }
     .feedback-meta { color: #64748b; font-size: 11px; }
 
-    .student-card-footer { margin-top: auto; border-top: 1px solid #f1f5f9; padding-top: 12px; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+    .student-card-footer { margin-top: auto; border-top: 1px solid #f1f5f9; padding-top: 12px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
     .due-info { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; white-space: nowrap; }
     .due-lbl { color: #64748b; font-weight: 600; white-space: nowrap; }
     .due-val { color: #1e293b; font-weight: 700; white-space: nowrap; }
-    .submit-solution-btn { background: #2563eb !important; color: #fff !important; font-weight: 700; border-radius: 8px; font-size: 12px; height: 36px; }
+    .submit-solution-btn { background: #2563eb !important; color: #fff !important; font-weight: 700; border-radius: 8px; font-size: 12px; height: 36px; white-space: nowrap; }
 
     /* Prominent Student Loader */
     .student-loading-container {
@@ -786,6 +911,135 @@ export interface HomeworkStatsDto {
     .empty-icon-wrap mat-icon { font-size: 32px; width: 32px; height: 32px; }
     .empty-state h3 { margin: 0; font-size: 18px; color: #1e293b; font-weight: 700; }
     .empty-state p { margin: 0; font-size: 13px; color: #64748b; max-width: 440px; }
+
+    /* ========================================================================= */
+    /* RESPONSIVE BREAKPOINTS (ALL MODES: DESKTOP, LAPTOP, TABLET, MOBILE) */
+    /* ========================================================================= */
+    @media (max-width: 1024px) {
+      .student-hw-grid, .hw-grid {
+        grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+        gap: 14px;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .page-header {
+        padding: 16px;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 14px;
+      }
+      .header-actions {
+        width: 100%;
+        justify-content: flex-start;
+      }
+      .role-view-switch {
+        width: 100%;
+        display: flex;
+      }
+      .switch-pill {
+        flex: 1;
+        justify-content: center;
+      }
+
+      .student-portal-banner {
+        padding: 14px 16px;
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .student-preview-switcher {
+        width: 100%;
+        box-sizing: border-box;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+      }
+      .preview-select-field,
+      .preview-select-field.class-field,
+      .preview-select-field.section-field,
+      .preview-select-field.student-field {
+        width: 100% !important;
+      }
+
+      .student-tabs-bar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+        padding: 10px 12px;
+      }
+      .filter-pills {
+        overflow-x: auto;
+        padding-bottom: 4px;
+        width: 100%;
+        flex-wrap: nowrap;
+      }
+      .filter-tab-pill {
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+
+      .filter-card {
+        padding: 14px 16px;
+      }
+      .filter-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+      }
+      .filter-field {
+        width: 100%;
+        min-width: 100%;
+      }
+      .view-toggle {
+        width: 100%;
+        justify-content: center;
+      }
+
+      .student-hw-grid, .hw-grid {
+        grid-template-columns: 1fr;
+        gap: 14px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .stats-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+      .stat-card {
+        padding: 12px 14px;
+        gap: 10px;
+      }
+      .stat-icon-wrap {
+        width: 36px;
+        height: 36px;
+      }
+      .stat-value {
+        font-size: 20px;
+      }
+      .student-hw-card, .hw-card {
+        padding: 14px 16px;
+      }
+      .student-card-footer {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+      }
+      .student-action {
+        width: 100%;
+      }
+      .submit-solution-btn {
+        width: 100%;
+        justify-content: center;
+      }
+      .hw-actions-bar {
+        flex-wrap: wrap;
+      }
+      .view-submissions-btn {
+        width: 100%;
+        justify-content: center;
+      }
+    }
   `]
 })
 export class HomeworkDiaryComponent implements OnInit {

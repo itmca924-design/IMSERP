@@ -215,32 +215,32 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           <!-- Dialog Body Form -->
           <form [formGroup]="planForm" (ngSubmit)="savePlan()" class="modal-form-body">
             <div class="form-grid">
-              <mat-form-field appearance="outline" class="full-span">
+              <mat-form-field appearance="outline" class="full-span" subscriptSizing="dynamic">
                 <mat-label>Plan / Shift Name *</mat-label>
                 <input matInput formControlName="planName" placeholder="e.g. Morning Study Shift (8AM - 1PM)" />
                 <mat-hint>Name shown in the admission dropdown and fee invoice</mat-hint>
                 <mat-error *ngIf="planForm.get('planName')?.invalid">Plan name is required</mat-error>
               </mat-form-field>
 
-              <mat-form-field appearance="outline">
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
                 <mat-label>Shift Timing / Slot</mat-label>
                 <input matInput formControlName="shiftTiming" placeholder="e.g. 8:00 AM - 1:00 PM" />
                 <mat-hint>Timing hours for library access</mat-hint>
               </mat-form-field>
 
-              <mat-form-field appearance="outline">
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
                 <mat-label>Monthly Library Fee (₹) *</mat-label>
                 <input matInput type="number" formControlName="monthlyFee" min="0" placeholder="0" />
-                <mat-hint>Keep ₹0 for free book lending, or enter monthly amount</mat-hint>
+                <mat-hint>Keep ₹0 for free access, or enter fee</mat-hint>
               </mat-form-field>
 
-              <mat-form-field appearance="outline">
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
                 <mat-label>Max Book Borrow Limit *</mat-label>
                 <input matInput type="number" formControlName="maxBooks" min="1" max="20" placeholder="2" />
-                <mat-hint>Max physical books student can hold at once</mat-hint>
+                <mat-hint>Max books student can borrow at once</mat-hint>
               </mat-form-field>
 
-              <mat-form-field appearance="outline">
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
                 <mat-label>Display Order</mat-label>
                 <input matInput type="number" formControlName="sortOrder" min="0" placeholder="1" />
                 <mat-hint>Sorting order in dropdowns (lower first)</mat-hint>
@@ -631,7 +631,28 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
         .form-grid {
           display: grid;
           grid-template-columns: 1fr 1fr;
-          gap: 14px;
+          row-gap: 20px;
+          column-gap: 16px;
+
+          mat-form-field {
+            width: 100%;
+
+            ::ng-deep .mat-mdc-form-field-subscript-wrapper {
+              height: auto !important;
+              min-height: 18px;
+              padding: 0 4px;
+            }
+
+            ::ng-deep .mat-mdc-form-field-hint-wrapper {
+              padding: 0;
+            }
+
+            ::ng-deep mat-hint {
+              font-size: 0.73rem;
+              line-height: 1.3;
+              color: #64748b;
+            }
+          }
 
           .full-span {
             grid-column: 1 / -1;
@@ -640,6 +661,10 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           .toggle-span {
             grid-column: 1 / -1;
             padding: 8px 0;
+          }
+
+          @media (max-width: 600px) {
+            grid-template-columns: 1fr;
           }
         }
 

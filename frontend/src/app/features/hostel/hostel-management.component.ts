@@ -942,8 +942,14 @@ const API_BASE = 'http://localhost:5000';
       <div class="modal-backdrop" *ngIf="showAddHostelModal">
         <div class="modal-dialog-card">
           <div class="modal-header">
-            <h3>Add New Hostel Block</h3>
-            <button mat-icon-button (click)="showAddHostelModal = false"><mat-icon>close</mat-icon></button>
+            <div class="modal-header-icon-box">
+              <mat-icon>domain</mat-icon>
+            </div>
+            <div class="modal-title-wrap">
+              <h3>Add New Hostel Block</h3>
+              <span class="modal-sub">Create residential wing &amp; block details</span>
+            </div>
+            <button mat-icon-button class="modal-close-btn" (click)="showAddHostelModal = false" matTooltip="Close"><mat-icon>close</mat-icon></button>
           </div>
           <form [formGroup]="hostelForm" (ngSubmit)="submitAddHostel()">
             <div class="modal-body-form">
@@ -1000,8 +1006,14 @@ const API_BASE = 'http://localhost:5000';
       <div class="modal-backdrop" *ngIf="showAddRoomModal">
         <div class="modal-dialog-card">
           <div class="modal-header">
-            <h3>Add New Room &amp; Beds</h3>
-            <button mat-icon-button (click)="showAddRoomModal = false"><mat-icon>close</mat-icon></button>
+            <div class="modal-header-icon-box">
+              <mat-icon>meeting_room</mat-icon>
+            </div>
+            <div class="modal-title-wrap">
+              <h3>Add New Room &amp; Beds</h3>
+              <span class="modal-sub">Configure room type, capacity &amp; auto-generated bed codes</span>
+            </div>
+            <button mat-icon-button class="modal-close-btn" (click)="showAddRoomModal = false" matTooltip="Close"><mat-icon>close</mat-icon></button>
           </div>
           <form [formGroup]="roomForm" (ngSubmit)="submitAddRoom()">
             <div class="modal-body-form">
@@ -1092,7 +1104,7 @@ const API_BASE = 'http://localhost:5000';
               <h3>Allocate Bed: {{ allocatingBed?.bedCode }}</h3>
               <span class="modal-sub">Room <strong>{{ allocatingRoom?.roomNumber }}</strong> &bull; <strong>{{ allocatingRoom?.hostelName }}</strong> (Floor {{ allocatingRoom?.floor }})</span>
             </div>
-            <button mat-icon-button (click)="closeAllocateModal()"><mat-icon>close</mat-icon></button>
+            <button mat-icon-button class="modal-close-btn" (click)="closeAllocateModal()" matTooltip="Close"><mat-icon>close</mat-icon></button>
           </div>
           <form [formGroup]="allocateForm" (ngSubmit)="submitAllocateBed()">
             <div class="modal-body-form">
@@ -1313,8 +1325,14 @@ const API_BASE = 'http://localhost:5000';
       <div class="modal-backdrop" *ngIf="showGatePassModal">
         <div class="modal-dialog-card gatepass-dialog">
           <div class="modal-header">
-            <h3>Issue Hostel Gate Pass / Outing</h3>
-            <button mat-icon-button (click)="showGatePassModal = false"><mat-icon>close</mat-icon></button>
+            <div class="modal-header-icon-box">
+              <mat-icon>exit_to_app</mat-icon>
+            </div>
+            <div class="modal-title-wrap">
+              <h3>Issue Hostel Gate Pass / Outing</h3>
+              <span class="modal-sub">Authorize residential student early exit / day-out</span>
+            </div>
+            <button mat-icon-button class="modal-close-btn" (click)="showGatePassModal = false" matTooltip="Close"><mat-icon>close</mat-icon></button>
           </div>
           <form [formGroup]="gatePassForm" (ngSubmit)="submitGatePass()">
             <div class="modal-body-form">
@@ -1377,8 +1395,14 @@ const API_BASE = 'http://localhost:5000';
       <div class="modal-backdrop" *ngIf="showBiometricSimulatorModal">
         <div class="modal-dialog-card">
           <div class="modal-header">
-            <h3><mat-icon color="accent" style="vertical-align:middle;margin-right:6px;">fingerprint</mat-icon> Simulate Biometric Turnstile Punch</h3>
-            <button mat-icon-button (click)="showBiometricSimulatorModal = false"><mat-icon>close</mat-icon></button>
+            <div class="modal-header-icon-box">
+              <mat-icon>fingerprint</mat-icon>
+            </div>
+            <div class="modal-title-wrap">
+              <h3>Simulate Biometric Turnstile Punch</h3>
+              <span class="modal-sub">Test hardware turnstile machine live entry / exit event</span>
+            </div>
+            <button mat-icon-button class="modal-close-btn" (click)="showBiometricSimulatorModal = false" matTooltip="Close"><mat-icon>close</mat-icon></button>
           </div>
           <div class="modal-body-form">
             <p class="auto-beds-hint">
@@ -1420,8 +1444,14 @@ const API_BASE = 'http://localhost:5000';
       <div class="modal-backdrop" *ngIf="showBiometricMappingModal">
         <div class="modal-dialog-card wide-dialog">
           <div class="modal-header">
-            <h3><mat-icon color="primary" style="vertical-align:middle;margin-right:6px;">badge</mat-icon> Hostel Residents Biometric ID Mappings</h3>
-            <button mat-icon-button (click)="showBiometricMappingModal = false"><mat-icon>close</mat-icon></button>
+            <div class="modal-header-icon-box">
+              <mat-icon>badge</mat-icon>
+            </div>
+            <div class="modal-title-wrap">
+              <h3>Hostel Residents Biometric ID Mappings</h3>
+              <span class="modal-sub">Enroll and configure turnstile device IDs for residents</span>
+            </div>
+            <button mat-icon-button class="modal-close-btn" (click)="showBiometricMappingModal = false" matTooltip="Close"><mat-icon>close</mat-icon></button>
           </div>
           <div class="modal-body-form mappings-table-container">
             <p class="auto-beds-hint">
@@ -3292,6 +3322,9 @@ const API_BASE = 'http://localhost:5000';
         max-width: 540px;
         box-shadow: 0 10px 25px rgba(0,0,0,0.15);
         overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        max-height: min(92vh, 850px);
 
         &.allocate-dialog {
           max-width: 760px;
@@ -3303,20 +3336,30 @@ const API_BASE = 'http://localhost:5000';
           width: 95vw;
         }
 
+        form {
+          display: flex;
+          flex-direction: column;
+          min-height: 0;
+          flex: 1;
+          overflow: hidden;
+        }
+
         .modal-header {
           display: flex;
           align-items: center;
-          gap: 12px;
+          justify-content: space-between;
+          gap: 14px;
           padding: 16px 20px;
           background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
           border-bottom: 1px solid #bfdbfe;
+          flex-shrink: 0;
 
           .modal-header-icon-box {
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 40px;
-            height: 40px;
+            width: 42px;
+            height: 42px;
             background: #2563eb;
             color: #ffffff;
             border-radius: 10px;
@@ -3329,26 +3372,53 @@ const API_BASE = 'http://localhost:5000';
             display: flex;
             flex-direction: column;
             gap: 2px;
-            flex: 1;
+            flex: 1 1 auto;
+            min-width: 0;
 
             h3 {
               margin: 0;
-              font-size: 17px;
+              font-size: 1.12rem;
               font-weight: 700;
               color: #1e3a8a;
+              line-height: 1.3;
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
             }
 
             .modal-sub {
-              font-size: 12px;
+              font-size: 0.8rem;
               color: #3b82f6;
               font-weight: 500;
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
               strong { color: #1e40af; }
             }
           }
 
+          .modal-close-btn,
           button.mat-icon-button {
+            margin-left: auto;
+            flex-shrink: 0;
             color: #64748b;
             &:hover { color: #1e293b; background: rgba(0,0,0,0.05); }
+          }
+
+          @media (max-width: 600px) {
+            padding: 12px 14px;
+            gap: 10px;
+
+            .modal-header-icon-box {
+              width: 36px;
+              height: 36px;
+              mat-icon { font-size: 20px; width: 20px; height: 20px; }
+            }
+
+            .modal-title-wrap {
+              h3 { font-size: 1rem; }
+              .modal-sub { font-size: 0.75rem; }
+            }
           }
         }
 
@@ -3359,6 +3429,12 @@ const API_BASE = 'http://localhost:5000';
           gap: 12px;
           max-height: 75vh;
           overflow-y: auto;
+          flex: 1;
+
+          @media (max-width: 600px) {
+            padding: 14px 14px;
+            gap: 10px;
+          }
 
           .member-type-toggle-bar {
             display: flex;
@@ -3516,7 +3592,7 @@ const API_BASE = 'http://localhost:5000';
             grid-template-columns: 1fr 1fr;
             gap: 12px;
 
-            @media (max-width: 540px) {
+            @media (max-width: 600px) {
               grid-template-columns: 1fr;
             }
           }

@@ -103,144 +103,314 @@ export interface StudentItem {
   template: `
     <div class="fd-dialog">
       <div class="fd-dialog-header">
-        <div class="fd-dialog-icon"><mat-icon>badge</mat-icon></div>
+        <div class="fd-dialog-icon"><mat-icon>how_to_reg</mat-icon></div>
         <div class="fd-dialog-title-group">
           <h2 class="fd-dialog-title">Visitor Check-In</h2>
-          <span class="fd-dialog-sub">Register a new visitor arriving at campus</span>
+          <span class="fd-dialog-sub">Register a new visitor arriving at campus &bull; <strong style="color:#1e40af">Front Desk Entry</strong></span>
         </div>
-        <button mat-icon-button class="fd-dialog-close" (click)="cancel()"><mat-icon>close</mat-icon></button>
+        <button mat-icon-button class="fd-dialog-close" (click)="cancel()" matTooltip="Close"><mat-icon>close</mat-icon></button>
       </div>
 
       <div class="fd-dialog-body">
+        <div class="form-section-title">
+          <mat-icon>person_pin</mat-icon>
+          <span>Visitor Information</span>
+        </div>
+
         <div class="fd-form-row">
-          <mat-form-field appearance="outline" class="fd-field">
+          <mat-form-field appearance="outline" class="fd-field" subscriptSizing="dynamic">
             <mat-label>Visitor Type *</mat-label>
             <mat-select [(ngModel)]="form.visitorType" required>
               <mat-option *ngFor="let t of visitorTypes" [value]="t">{{t}}</mat-option>
             </mat-select>
           </mat-form-field>
-          <mat-form-field appearance="outline" class="fd-field">
+          <mat-form-field appearance="outline" class="fd-field" subscriptSizing="dynamic">
             <mat-label>Visitor Name *</mat-label>
             <input matInput [(ngModel)]="form.visitorName" placeholder="Full name" required />
             <mat-icon matPrefix>person</mat-icon>
           </mat-form-field>
         </div>
+
         <div class="fd-form-row">
-          <mat-form-field appearance="outline" class="fd-field">
+          <mat-form-field appearance="outline" class="fd-field" subscriptSizing="dynamic">
             <mat-label>Organization / School</mat-label>
             <input matInput [(ngModel)]="form.organization" placeholder="Company or institution" />
             <mat-icon matPrefix>business</mat-icon>
           </mat-form-field>
-          <mat-form-field appearance="outline" class="fd-field">
+          <mat-form-field appearance="outline" class="fd-field" subscriptSizing="dynamic">
             <mat-label>Contact Number</mat-label>
             <input matInput [(ngModel)]="form.contactNumber" placeholder="Mobile number" />
             <mat-icon matPrefix>phone</mat-icon>
           </mat-form-field>
         </div>
+
         <div class="fd-form-row">
-          <mat-form-field appearance="outline" class="fd-field">
+          <mat-form-field appearance="outline" class="fd-field" subscriptSizing="dynamic">
             <mat-label>ID Proof Type</mat-label>
             <mat-select [(ngModel)]="form.idProofType">
               <mat-option value="">None</mat-option>
               <mat-option *ngFor="let p of idProofTypes" [value]="p">{{p}}</mat-option>
             </mat-select>
           </mat-form-field>
-          <mat-form-field appearance="outline" class="fd-field">
+          <mat-form-field appearance="outline" class="fd-field" subscriptSizing="dynamic">
             <mat-label>ID Proof Number</mat-label>
             <input matInput [(ngModel)]="form.idProofNumber" placeholder="e.g. XXXX-XXXX-XXXX" />
+            <mat-icon matPrefix>badge</mat-icon>
           </mat-form-field>
         </div>
+
+        <div class="form-section-title">
+          <mat-icon>meeting_room</mat-icon>
+          <span>Meeting Details & Host</span>
+        </div>
+
         <div class="fd-form-row">
-          <mat-form-field appearance="outline" class="fd-field">
+          <mat-form-field appearance="outline" class="fd-field" subscriptSizing="dynamic">
             <mat-label>Person to Meet</mat-label>
             <input matInput [(ngModel)]="form.personToMeet" placeholder="Teacher / Principal / Admin" />
             <mat-icon matPrefix>record_voice_over</mat-icon>
           </mat-form-field>
-          <mat-form-field appearance="outline" class="fd-field">
+          <mat-form-field appearance="outline" class="fd-field" subscriptSizing="dynamic">
             <mat-label>Department</mat-label>
             <input matInput [(ngModel)]="form.departmentToVisit" placeholder="e.g. Science Dept." />
             <mat-icon matPrefix>domain</mat-icon>
           </mat-form-field>
         </div>
+
         <div class="fd-form-row" *ngIf="form.visitorType === 'Parent'">
-          <mat-form-field appearance="outline" class="fd-field">
+          <mat-form-field appearance="outline" class="fd-field" subscriptSizing="dynamic">
             <mat-label>Student Name</mat-label>
             <input matInput [(ngModel)]="form.studentName" placeholder="Ward's name" />
+            <mat-icon matPrefix>school</mat-icon>
           </mat-form-field>
-          <mat-form-field appearance="outline" class="fd-field">
+          <mat-form-field appearance="outline" class="fd-field" subscriptSizing="dynamic">
             <mat-label>Student Class</mat-label>
             <input matInput [(ngModel)]="form.studentClass" placeholder="e.g. Class 5A" />
+            <mat-icon matPrefix>class</mat-icon>
           </mat-form-field>
         </div>
-        <mat-form-field appearance="outline" class="fd-field-full">
+
+        <mat-form-field appearance="outline" class="fd-field-full" subscriptSizing="dynamic">
           <mat-label>Purpose of Visit *</mat-label>
           <textarea matInput [(ngModel)]="form.purpose" rows="2" placeholder="Describe the reason for visit" required></textarea>
         </mat-form-field>
+
+        <div class="form-section-title">
+          <mat-icon>verified_user</mat-icon>
+          <span>Security & Logistics</span>
+        </div>
+
         <div class="fd-form-row">
-          <mat-form-field appearance="outline" class="fd-field">
+          <mat-form-field appearance="outline" class="fd-field" subscriptSizing="dynamic">
             <mat-label>No. of Visitors</mat-label>
             <input matInput type="number" [(ngModel)]="form.numberOfVisitors" min="1" />
             <mat-icon matPrefix>group</mat-icon>
           </mat-form-field>
-          <mat-form-field appearance="outline" class="fd-field">
+          <mat-form-field appearance="outline" class="fd-field" subscriptSizing="dynamic">
             <mat-label>Vehicle Number</mat-label>
             <input matInput [(ngModel)]="form.vehicleNumber" placeholder="e.g. UP32 AB 1234" />
             <mat-icon matPrefix>directions_car</mat-icon>
           </mat-form-field>
         </div>
+
         <div class="fd-form-row">
-          <mat-form-field appearance="outline" class="fd-field">
-            <mat-label>Badge Number</mat-label>
+          <mat-form-field appearance="outline" class="fd-field" subscriptSizing="dynamic">
+            <mat-label>Badge / Pass Number</mat-label>
             <input matInput [(ngModel)]="form.badgeNumber" placeholder="Visitor badge ID" />
+            <mat-icon matPrefix>pin</mat-icon>
           </mat-form-field>
-          <mat-form-field appearance="outline" class="fd-field">
+          <mat-form-field appearance="outline" class="fd-field" subscriptSizing="dynamic">
             <mat-label>Received By</mat-label>
             <input matInput [(ngModel)]="form.receivedBy" placeholder="Staff name" />
             <mat-icon matPrefix>how_to_reg</mat-icon>
           </mat-form-field>
         </div>
-        <mat-form-field appearance="outline" class="fd-field-full">
-          <mat-label>Material / Items Carried</mat-label>
-          <input matInput [(ngModel)]="form.materialCarried" placeholder="e.g. Laptop bag, Documents" />
-        </mat-form-field>
-        <mat-form-field appearance="outline" class="fd-field-full">
-          <mat-label>Remarks</mat-label>
-          <input matInput [(ngModel)]="form.remarks" placeholder="Any additional notes" />
-        </mat-form-field>
+
+        <div class="fd-form-row">
+          <mat-form-field appearance="outline" class="fd-field" subscriptSizing="dynamic">
+            <mat-label>Material / Items Carried</mat-label>
+            <input matInput [(ngModel)]="form.materialCarried" placeholder="e.g. Laptop bag, Documents" />
+            <mat-icon matPrefix>work_outline</mat-icon>
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="fd-field" subscriptSizing="dynamic">
+            <mat-label>Remarks</mat-label>
+            <input matInput [(ngModel)]="form.remarks" placeholder="Any additional notes" />
+            <mat-icon matPrefix>edit_note</mat-icon>
+          </mat-form-field>
+        </div>
       </div>
 
       <div class="fd-dialog-footer">
-        <button mat-stroked-button (click)="cancel()">Cancel</button>
-        <button mat-flat-button color="primary" (click)="save()" [disabled]="saving || !form.visitorName || !form.purpose">
+        <button mat-button class="cancel-btn" (click)="cancel()">Cancel</button>
+        <button mat-raised-button class="submit-btn" (click)="save()" [disabled]="saving || !form.visitorName || !form.purpose">
           <mat-icon>{{saving ? 'hourglass_empty' : 'how_to_reg'}}</mat-icon>
-          {{saving ? 'Checking In...' : 'Check In Visitor'}}
+          <span>{{saving ? 'Checking In...' : 'Check In Visitor'}}</span>
         </button>
       </div>
     </div>
   `,
   styles: [`
-    .fd-dialog { min-width: 700px; max-width: 780px; }
+    .fd-dialog {
+      width: 100%;
+      max-width: 660px;
+      margin: 0 auto;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      background: #ffffff;
+      border-radius: 12px;
+      overflow: hidden;
+    }
     .fd-dialog-header {
-      display: flex; align-items: center; gap: 14px; padding: 22px 24px 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 16px 20px;
       background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
       border-bottom: 1px solid #bfdbfe;
+      flex-shrink: 0;
     }
     .fd-dialog-icon {
-      background: #2563eb; color: #fff; border-radius: 10px; width: 44px; height: 44px;
-      display: flex; align-items: center; justify-content: center;
+      background: #2563eb;
+      color: #ffffff;
+      border-radius: 10px;
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       box-shadow: 0 4px 6px -1px rgba(37,99,235,0.25);
+      flex-shrink: 0;
+      mat-icon { font-size: 24px; width: 24px; height: 24px; }
     }
-    .fd-dialog-title { color: #1e3a8a; font-weight: 700; font-size: 1.1rem; margin: 0; }
-    .fd-dialog-sub { color: #3b82f6; font-size: 0.8rem; }
-    .fd-dialog-title-group { flex: 1; }
-    .fd-dialog-close { color: #64748b; margin-left: auto; }
-    .fd-dialog-close:hover { color: #1e293b; }
-    .fd-dialog-body { padding: 20px 24px; max-height: 60vh; overflow-y: auto; }
-    .fd-dialog-footer { display: flex; gap: 12px; justify-content: flex-end; padding: 16px 24px; border-top: 1px solid #e2e8f0; }
-    .fd-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 4px; }
-    .fd-field { width: 100%; }
-    .fd-field-full { width: 100%; display: block; margin-bottom: 4px; }
-    mat-form-field { margin-bottom: 8px; }
+    .fd-dialog-title-group {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+    .fd-dialog-title {
+      color: #1e3a8a;
+      font-weight: 700;
+      font-size: 1.15rem;
+      margin: 0;
+      line-height: 1.3;
+    }
+    .fd-dialog-sub {
+      color: #3b82f6;
+      font-size: 0.8rem;
+      margin: 2px 0 0;
+      display: block;
+    }
+    .fd-dialog-close {
+      color: #64748b;
+      margin-left: auto;
+      flex-shrink: 0;
+    }
+    .fd-dialog-close:hover {
+      color: #1e293b;
+    }
+
+    .fd-dialog-body {
+      padding: 18px 20px;
+      max-height: calc(85vh - 135px);
+      overflow-y: auto;
+      overflow-x: hidden;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .form-section-title {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.76rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #2563eb;
+      margin-top: 4px;
+      margin-bottom: 2px;
+      border-bottom: 1px dashed #e2e8f0;
+      padding-bottom: 4px;
+      mat-icon { font-size: 16px; width: 16px; height: 16px; color: #3b82f6; }
+    }
+
+    .fd-form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px 14px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .fd-field {
+      width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
+    }
+    .fd-field-full {
+      width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
+    }
+
+    .fd-dialog-footer {
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+      align-items: center;
+      padding: 14px 20px;
+      border-top: 1px solid #e2e8f0;
+      background: #f8fafc;
+      flex-shrink: 0;
+    }
+    .cancel-btn {
+      color: #64748b;
+      font-weight: 600;
+    }
+    .submit-btn {
+      background: #2563eb !important;
+      color: #ffffff !important;
+      font-weight: 700;
+      border-radius: 8px;
+      height: 38px;
+      padding: 0 18px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    @media (max-width: 600px) {
+      .fd-dialog-header {
+        padding: 14px 16px;
+        gap: 10px;
+      }
+      .fd-dialog-icon {
+        width: 38px;
+        height: 38px;
+        mat-icon { font-size: 20px; width: 20px; height: 20px; }
+      }
+      .fd-dialog-title {
+        font-size: 1.05rem;
+      }
+      .fd-dialog-body {
+        padding: 14px 16px;
+        gap: 8px;
+      }
+      .fd-form-row {
+        grid-template-columns: 1fr;
+        gap: 10px;
+      }
+      .fd-dialog-footer {
+        flex-direction: column-reverse;
+        align-items: stretch;
+        padding: 12px 16px;
+      }
+      .submit-btn, .cancel-btn {
+        width: 100%;
+        justify-content: center;
+      }
+    }
   `]
 })
 export class VisitorCheckInDialogComponent {
@@ -394,27 +564,66 @@ export class VisitorCheckInDialogComponent {
     </div>
   `,
   styles: [`
-    .fd-dialog { min-width: 620px; max-width: 700px; }
+    .fd-dialog {
+      width: 100%;
+      max-width: 640px;
+      margin: 0 auto;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      background: #ffffff;
+      border-radius: 12px;
+      overflow: hidden;
+    }
     .fd-dialog-header {
-      display: flex; align-items: center; gap: 14px; padding: 22px 24px 16px;
+      display: flex; align-items: center; gap: 14px; padding: 16px 20px;
       background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
       border-bottom: 1px solid #bfdbfe;
+      flex-shrink: 0;
     }
     .fd-dialog-icon {
       background: #2563eb; color: #fff; border-radius: 10px; width: 44px; height: 44px;
       display: flex; align-items: center; justify-content: center;
       box-shadow: 0 4px 6px -1px rgba(37,99,235,0.25);
+      flex-shrink: 0;
+      mat-icon { font-size: 24px; width: 24px; height: 24px; }
     }
-    .fd-dialog-title { color: #1e3a8a; font-weight: 700; font-size: 1.1rem; margin: 0; }
-    .fd-dialog-sub { color: #3b82f6; font-size: 0.8rem; }
-    .fd-dialog-title-group { flex: 1; }
-    .fd-dialog-close { color: #64748b; margin-left: auto; }
-    .fd-dialog-body { padding: 20px 24px; max-height: 55vh; overflow-y: auto; }
-    .fd-dialog-footer { display: flex; gap: 12px; justify-content: flex-end; padding: 16px 24px; border-top: 1px solid #e2e8f0; }
-    .fd-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .fd-field { width: 100%; }
-    .fd-field-full { width: 100%; display: block; margin-bottom: 4px; }
-    mat-form-field { margin-bottom: 8px; }
+    .fd-dialog-title { color: #1e3a8a; font-weight: 700; font-size: 1.15rem; margin: 0; line-height: 1.3; }
+    .fd-dialog-sub { color: #3b82f6; font-size: 0.8rem; margin: 2px 0 0; display: block; }
+    .fd-dialog-title-group { flex: 1 1 auto; min-width: 0; }
+    .fd-dialog-close { color: #64748b; margin-left: auto; flex-shrink: 0; }
+    .fd-dialog-close:hover { color: #1e293b; }
+    .fd-dialog-body {
+      padding: 18px 20px;
+      max-height: calc(85vh - 135px);
+      overflow-y: auto;
+      overflow-x: hidden;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .fd-dialog-footer {
+      display: flex; gap: 12px; justify-content: flex-end; align-items: center;
+      padding: 14px 20px; border-top: 1px solid #e2e8f0; background: #f8fafc;
+      flex-shrink: 0;
+    }
+    .fd-form-row {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px 14px;
+      width: 100%; box-sizing: border-box;
+    }
+    .fd-field { width: 100%; min-width: 0; box-sizing: border-box; }
+    .fd-field-full { width: 100%; min-width: 0; box-sizing: border-box; }
+
+    @media (max-width: 600px) {
+      .fd-dialog-header { padding: 14px 16px; gap: 10px; }
+      .fd-dialog-icon { width: 38px; height: 38px; mat-icon { font-size: 20px; width: 20px; height: 20px; } }
+      .fd-dialog-title { font-size: 1.05rem; }
+      .fd-dialog-body { padding: 14px 16px; gap: 8px; }
+      .fd-form-row { grid-template-columns: 1fr; gap: 10px; }
+      .fd-dialog-footer { flex-direction: column-reverse; align-items: stretch; padding: 12px 16px; }
+      .fd-dialog-footer button { width: 100%; justify-content: center; }
+    }
   `]
 })
 export class GatePassDialogComponent implements OnInit {
@@ -1467,8 +1676,9 @@ export class VisitorsComponent implements OnInit {
   openVisitorDialog() {
     const ref = this.dialog.open(VisitorCheckInDialogComponent, {
       disableClose: true,
-      maxWidth: '92vw',
-      width: '640px',
+      maxWidth: '95vw',
+      width: '660px',
+      autoFocus: false,
       panelClass: 'fd-dialog-panel'
     });
     ref.afterClosed().subscribe(result => {
@@ -1511,8 +1721,9 @@ export class VisitorsComponent implements OnInit {
     const ref = this.dialog.open(GatePassDialogComponent, {
       data: { students: this.students },
       disableClose: true,
-      maxWidth: '92vw',
+      maxWidth: '95vw',
       width: '640px',
+      autoFocus: false,
       panelClass: 'fd-dialog-panel'
     });
     ref.afterClosed().subscribe(result => {
