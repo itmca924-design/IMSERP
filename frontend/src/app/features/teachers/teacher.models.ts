@@ -12,6 +12,18 @@ export interface TeacherDto {
   staffType?: 'Teaching' | 'NonTeaching' | number;
   department?: string;
   designation?: string;
+  bankName?: string;
+  bankAccountNumber?: string;
+  bankIfscCode?: string;
+  bankAccountHolder?: string;
+  panNumber?: string;
+  aadhaarNumber?: string;
+  uanNumber?: string;
+  employmentType?: string;
+  bloodGroup?: string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  biometricUserId?: string;
 }
 export interface BatchAssignmentDto {
   id: string; teacherId: string; teacherName: string; batchId?: string;

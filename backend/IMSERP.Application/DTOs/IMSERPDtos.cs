@@ -1192,7 +1192,19 @@ public record TeacherDto(
     decimal PendingLibraryFines = 0,
     string StaffType = "Teaching",
     string? Department = null,
-    string? Designation = null
+    string? Designation = null,
+    string? BankName = null,
+    string? BankAccountNumber = null,
+    string? BankIfscCode = null,
+    string? BankAccountHolder = null,
+    string? PanNumber = null,
+    string? AadhaarNumber = null,
+    string? UanNumber = null,
+    string? EmploymentType = null,
+    string? BloodGroup = null,
+    string? EmergencyContactName = null,
+    string? EmergencyContactPhone = null,
+    string? BiometricUserId = null
 );
 
 public record CreateTeacherDto(
@@ -1214,7 +1226,19 @@ public record CreateTeacherDto(
     string StaffType = "Teaching",
     string? Department = null,
     string? Designation = null,
-    string? PhotoUrl = null
+    string? PhotoUrl = null,
+    string? BankName = null,
+    string? BankAccountNumber = null,
+    string? BankIfscCode = null,
+    string? BankAccountHolder = null,
+    string? PanNumber = null,
+    string? AadhaarNumber = null,
+    string? UanNumber = null,
+    string? EmploymentType = null,
+    string? BloodGroup = null,
+    string? EmergencyContactName = null,
+    string? EmergencyContactPhone = null,
+    string? BiometricUserId = null
 );
 
 public record TeacherBatchAssignmentDto(

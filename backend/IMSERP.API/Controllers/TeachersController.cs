@@ -46,7 +46,11 @@ public class TeachersController : ControllerBase
         t.HostelBed?.Room?.RoomNumber,
         t.HostelBed?.BedCode,
         0, 0,
-        t.StaffType.ToString(), t.Department, t.Designation);
+        t.StaffType.ToString(), t.Department, t.Designation,
+        t.BankName, t.BankAccountNumber, t.BankIfscCode, t.BankAccountHolder,
+        t.PanNumber, t.AadhaarNumber, t.UanNumber, t.EmploymentType,
+        t.BloodGroup, t.EmergencyContactName, t.EmergencyContactPhone,
+        t.BiometricUserId);
 
     private async Task<bool> CanEditPublicHolidayOrSundayAsync()
     {
@@ -142,33 +146,45 @@ public class TeachersController : ControllerBase
     }
 
     /// <summary>
-    /// Check if phone or email already exists for another teacher in this tenant.
+    /// Check if phone, email, or WhatsApp already exists for another teacher in this tenant.
     /// Pass excludeId when editing to skip the current teacher.
     /// </summary>
     [HttpGet("check-duplicate")]
     public async Task<ActionResult<object>> CheckDuplicate(
         [FromQuery] string? phone = null,
         [FromQuery] string? email = null,
+        [FromQuery] string? whatsApp = null,
         [FromQuery] Guid? excludeId = null)
     {
         var phoneExists = false;
         var emailExists = false;
+        var whatsAppExists = false;
 
         if (!string.IsNullOrWhiteSpace(phone))
         {
-            var q = _db.Teachers.Where(t => t.PhoneNumber == phone.Trim());
+            var p = phone.Trim();
+            var q = _db.Teachers.Where(t => t.PhoneNumber == p);
             if (excludeId.HasValue) q = q.Where(t => t.Id != excludeId.Value);
             phoneExists = await q.AnyAsync();
         }
 
+        if (!string.IsNullOrWhiteSpace(whatsApp))
+        {
+            var w = whatsApp.Trim();
+            var q = _db.Teachers.Where(t => t.WhatsAppPhone == w || t.PhoneNumber == w);
+            if (excludeId.HasValue) q = q.Where(t => t.Id != excludeId.Value);
+            whatsAppExists = await q.AnyAsync();
+        }
+
         if (!string.IsNullOrWhiteSpace(email))
         {
-            var q = _db.Teachers.Where(t => t.Email != null && t.Email == email.Trim().ToLower());
+            var e = email.Trim().ToLower();
+            var q = _db.Teachers.Where(t => t.Email != null && t.Email.ToLower() == e);
             if (excludeId.HasValue) q = q.Where(t => t.Id != excludeId.Value);
             emailExists = await q.AnyAsync();
         }
 
-        return Ok(new { phoneExists, emailExists });
+        return Ok(new { phoneExists, emailExists, whatsAppExists });
     }
 
     [HttpGet]
@@ -310,9 +326,23 @@ public class TeachersController : ControllerBase
         }
 
         Guid roleId;
+        UserRole userRole = UserRole.Teacher;
         if (dto.RoleId.HasValue && dto.RoleId.Value != Guid.Empty)
         {
             roleId = dto.RoleId.Value;
+            var assignedRole = await _db.Roles.FirstOrDefaultAsync(r => r.Id == roleId);
+            if (assignedRole != null)
+            {
+                var roleNameLower = assignedRole.Name.ToLower();
+                if (roleNameLower.Contains("super") || roleNameLower.Contains("admin"))
+                    userRole = UserRole.InstituteAdmin;
+                else if (roleNameLower.Contains("accountant") || roleNameLower.Contains("finance"))
+                    userRole = UserRole.Accountant;
+                else if (roleNameLower.Contains("hr"))
+                    userRole = UserRole.HR;
+                else
+                    userRole = UserRole.Teacher;
+            }
         }
         else
         {
@@ -333,7 +363,7 @@ public class TeachersController : ControllerBase
             FullName = teacher.FullName,
             Email = teacher.Email,
             PhoneNumber = teacher.PhoneNumber,
-            Role = UserRole.Teacher,
+            Role = userRole,
             RoleId = roleId,
             IsActive = true,
             CreatedAt = DateTime.UtcNow
@@ -344,7 +374,7 @@ public class TeachersController : ControllerBase
         await _db.SaveChangesAsync();
 
         return Ok(new { 
-            message = "Teacher user account created successfully.", 
+            message = "Staff user account created successfully.", 
             userId = user.Id, 
             username = user.Username 
         });
@@ -358,6 +388,31 @@ public class TeachersController : ControllerBase
 
         if (!Enum.TryParse<Gender>(dto.Gender, true, out var gender))
             return BadRequest(new { message = "Invalid gender value." });
+
+        // Server-side duplicate checks
+        var phone = dto.PhoneNumber.Trim();
+        if (await _db.Teachers.AnyAsync(t => t.PhoneNumber == phone))
+        {
+            return BadRequest(new { message = $"Phone number '{phone}' is already registered with another staff member." });
+        }
+
+        if (!string.IsNullOrWhiteSpace(dto.WhatsAppPhone))
+        {
+            var wa = dto.WhatsAppPhone.Trim();
+            if (await _db.Teachers.AnyAsync(t => t.WhatsAppPhone == wa || t.PhoneNumber == wa))
+            {
+                return BadRequest(new { message = $"WhatsApp number '{wa}' is already registered with another staff member." });
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(dto.Email))
+        {
+            var email = dto.Email.Trim().ToLower();
+            if (await _db.Teachers.AnyAsync(t => t.Email != null && t.Email.ToLower() == email))
+            {
+                return BadRequest(new { message = $"Email '{dto.Email.Trim()}' is already registered with another staff member." });
+            }
+        }
 
         var targetBranchId = dto.BranchId ?? _currentUser.BranchId;
         if (!targetBranchId.HasValue || targetBranchId.Value == Guid.Empty)
@@ -395,14 +450,27 @@ public class TeachersController : ControllerBase
             Qualification = dto.Qualification?.Trim(),
             Specialization = dto.Specialization?.Trim(),
             ExperienceYears = dto.ExperienceYears,
-            PhoneNumber = dto.PhoneNumber.Trim(),
+            PhoneNumber = phone,
             WhatsAppPhone = dto.WhatsAppPhone?.Trim(),
             Email = dto.Email?.Trim(),
             Address = dto.Address?.Trim(),
             PhotoUrl = savedPhoto,
             JoiningDate = dto.JoiningDate,
             IsActive = dto.IsActive,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow,
+            // Bank & Statutory Details
+            BankName = dto.BankName?.Trim(),
+            BankAccountNumber = dto.BankAccountNumber?.Trim(),
+            BankIfscCode = dto.BankIfscCode?.Trim()?.ToUpper(),
+            BankAccountHolder = dto.BankAccountHolder?.Trim(),
+            PanNumber = dto.PanNumber?.Trim()?.ToUpper(),
+            AadhaarNumber = dto.AadhaarNumber?.Trim(),
+            UanNumber = dto.UanNumber?.Trim(),
+            EmploymentType = dto.EmploymentType?.Trim(),
+            BloodGroup = dto.BloodGroup?.Trim(),
+            EmergencyContactName = dto.EmergencyContactName?.Trim(),
+            EmergencyContactPhone = dto.EmergencyContactPhone?.Trim(),
+            BiometricUserId = dto.BiometricUserId?.Trim()
         };
 
         _db.Teachers.Add(teacher);
@@ -424,6 +492,31 @@ public class TeachersController : ControllerBase
 
         if (!Enum.TryParse<Gender>(dto.Gender, true, out var gender))
             return BadRequest(new { message = "Invalid gender value." });
+
+        // Server-side duplicate checks excluding current teacher
+        var phone = dto.PhoneNumber.Trim();
+        if (await _db.Teachers.AnyAsync(t => t.PhoneNumber == phone && t.Id != id))
+        {
+            return BadRequest(new { message = $"Phone number '{phone}' is already registered with another staff member." });
+        }
+
+        if (!string.IsNullOrWhiteSpace(dto.WhatsAppPhone))
+        {
+            var wa = dto.WhatsAppPhone.Trim();
+            if (await _db.Teachers.AnyAsync(t => (t.WhatsAppPhone == wa || t.PhoneNumber == wa) && t.Id != id))
+            {
+                return BadRequest(new { message = $"WhatsApp number '{wa}' is already registered with another staff member." });
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(dto.Email))
+        {
+            var email = dto.Email.Trim().ToLower();
+            if (await _db.Teachers.AnyAsync(t => t.Email != null && t.Email.ToLower() == email && t.Id != id))
+            {
+                return BadRequest(new { message = $"Email '{dto.Email.Trim()}' is already registered with another staff member." });
+            }
+        }
 
         if (dto.BranchId.HasValue && dto.BranchId.Value != Guid.Empty)
         {
@@ -448,10 +541,24 @@ public class TeachersController : ControllerBase
         teacher.Qualification = dto.Qualification?.Trim();
         teacher.Specialization = dto.Specialization?.Trim();
         teacher.ExperienceYears = dto.ExperienceYears;
-        teacher.PhoneNumber = dto.PhoneNumber.Trim();
+        teacher.PhoneNumber = phone;
         teacher.WhatsAppPhone = dto.WhatsAppPhone?.Trim();
         teacher.Email = dto.Email?.Trim();
         teacher.Address = dto.Address?.Trim();
+
+        // Bank & Statutory Details
+        teacher.BankName = dto.BankName?.Trim();
+        teacher.BankAccountNumber = dto.BankAccountNumber?.Trim();
+        teacher.BankIfscCode = dto.BankIfscCode?.Trim()?.ToUpper();
+        teacher.BankAccountHolder = dto.BankAccountHolder?.Trim();
+        teacher.PanNumber = dto.PanNumber?.Trim()?.ToUpper();
+        teacher.AadhaarNumber = dto.AadhaarNumber?.Trim();
+        teacher.UanNumber = dto.UanNumber?.Trim();
+        teacher.EmploymentType = dto.EmploymentType?.Trim();
+        teacher.BloodGroup = dto.BloodGroup?.Trim();
+        teacher.EmergencyContactName = dto.EmergencyContactName?.Trim();
+        teacher.EmergencyContactPhone = dto.EmergencyContactPhone?.Trim();
+        teacher.BiometricUserId = dto.BiometricUserId?.Trim();
 
         if (string.IsNullOrWhiteSpace(dto.PhotoUrl))
         {

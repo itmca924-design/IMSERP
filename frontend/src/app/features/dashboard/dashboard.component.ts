@@ -1550,6 +1550,24 @@ import ApexCharts from 'apexcharts';
       .spin-icon {
         animation: spin 1s linear infinite;
       }
+
+      @media (max-width: 600px) {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+
+        .header-titles h2 {
+          font-size: 1.25rem;
+        }
+        .header-titles p {
+          font-size: 0.82rem;
+        }
+        .refresh-btn {
+          width: 100%;
+          justify-content: center;
+          height: 38px;
+        }
+      }
     }
 
     @keyframes spin {
@@ -1563,7 +1581,7 @@ import ApexCharts from 'apexcharts';
       padding: 60px 0;
     }
 
-    /* ─── Top KPI Stat Cards ─── */
+    /* ─── Top KPI Stat Cards (Responsive Grid across all devices) ─── */
     .card-container {
       display: grid;
       grid-template-columns: repeat(6, 1fr);
@@ -1572,10 +1590,15 @@ import ApexCharts from 'apexcharts';
       @media (max-width: 1440px) {
         grid-template-columns: repeat(3, 1fr);
       }
+      @media (max-width: 992px) {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+      }
       @media (max-width: 768px) {
         grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
       }
-      @media (max-width: 480px) {
+      @media (max-width: 360px) {
         grid-template-columns: 1fr;
       }
     }
@@ -1729,6 +1752,11 @@ import ApexCharts from 'apexcharts';
       display: grid;
       grid-template-columns: 1.65fr 1fr;
       gap: 18px;
+
+      @media (max-width: 992px) {
+        grid-template-columns: 1fr;
+        gap: 14px;
+      }
     }
 
     .chart-card {
@@ -2017,6 +2045,11 @@ import ApexCharts from 'apexcharts';
       display: grid;
       grid-template-columns: repeat(2, 1fr);
       gap: 18px;
+
+      @media (max-width: 992px) {
+        grid-template-columns: 1fr;
+        gap: 14px;
+      }
     }
 
     .table-card {
@@ -2755,6 +2788,52 @@ import ApexCharts from 'apexcharts';
       gap: 1.5rem;
       flex-wrap: wrap;
 
+      @media (max-width: 768px) {
+        padding: 12px 14px;
+        gap: 12px;
+        flex-direction: column;
+        align-items: stretch;
+
+        .hero-left {
+          gap: 10px;
+          align-items: flex-start;
+          width: 100%;
+        }
+
+        .hero-avatar-wrap {
+          width: 44px;
+          height: 44px;
+          min-width: 44px;
+          border-radius: 10px;
+          .hero-avatar { font-size: 1.3rem; }
+        }
+
+        .hero-info {
+          width: 100%;
+          .hero-name-row {
+            gap: 6px;
+            .hero-name { font-size: 1.1rem; }
+            .hero-badge { font-size: 0.68rem; padding: 2px 7px; }
+          }
+          .hero-meta-row {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 4px;
+            font-size: 0.78rem;
+          }
+        }
+
+        .hero-actions {
+          width: 100%;
+          .hero-action-btn {
+            width: 100%;
+            justify-content: center;
+            font-size: 0.82rem;
+            padding: 0.5rem 1rem !important;
+          }
+        }
+      }
+
       &.student-theme {
         background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
         border: 1px solid #bfdbfe;
@@ -2904,6 +2983,34 @@ import ApexCharts from 'apexcharts';
       display: flex;
       flex-direction: column;
 
+      @media (max-width: 600px) {
+        .widget-header {
+          padding: 10px 12px;
+          flex-direction: column;
+          align-items: stretch;
+          gap: 8px;
+
+          .widget-title-wrap {
+            gap: 10px;
+            .widget-icon-box {
+              width: 32px;
+              height: 32px;
+              min-width: 32px;
+              mat-icon { font-size: 18px; width: 18px; height: 18px; }
+            }
+            .widget-title { font-size: 0.95rem; }
+            .widget-sub { font-size: 0.72rem; }
+          }
+          .hub-link-btn {
+            width: 100%;
+            justify-content: center;
+          }
+        }
+        .widget-content {
+          padding: 10px;
+        }
+      }
+
       .widget-header {
         display: flex;
         justify-content: space-between;
@@ -2983,6 +3090,22 @@ import ApexCharts from 'apexcharts';
       border-radius: 10px;
       gap: 14px;
       transition: all 0.2s ease;
+
+      @media (max-width: 600px) {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+        padding: 8px 10px;
+
+        .routine-time-box {
+          width: 100%;
+          flex-direction: row;
+          justify-content: space-between;
+          padding: 4px 10px;
+          min-width: auto;
+          box-sizing: border-box;
+        }
+      }
 
       &:hover {
         background: #f1f5f9;
@@ -3157,6 +3280,23 @@ import ApexCharts from 'apexcharts';
       border-radius: 10px;
       gap: 14px;
       transition: all 0.2s ease;
+
+      @media (max-width: 600px) {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+        padding: 8px 10px;
+
+        .test-date-badge {
+          width: 100%;
+          flex-direction: row;
+          justify-content: space-between;
+          padding: 4px 10px;
+          min-width: auto;
+          box-sizing: border-box;
+          .d { font-size: 1rem; }
+        }
+      }
 
       &:hover {
         background: #f1f5f9;

@@ -61,12 +61,22 @@ import { AuthService } from '../../core/services/auth.service';
     </div>
     <form [formGroup]="teacherForm" (ngSubmit)="saveTeacher()">
       <div class="form-grid">
+
+        <!-- ── SECTION 1: ROLE, CLASSIFICATION & EMPLOYMENT ── -->
+        <div class="form-section-title">
+          <mat-icon>badge</mat-icon>
+          <span>Staff Classification &amp; Employment Details (पद, श्रेणी एवं रोजगार विवरण)</span>
+        </div>
+
         <!-- Classification -->
         <mat-form-field appearance="outline">
           <mat-label>Staff Classification *</mat-label>
           <mat-select formControlName="staffType" (selectionChange)="onStaffTypeChange($event.value)">
-            <mat-option [value]="1">Teaching Faculty</mat-option>
-            <mat-option [value]="2">Non-Teaching Staff (Admin / HR / Office)</mat-option>
+            <mat-option [value]="1">Teaching Faculty (Teacher / Lecturer)</mat-option>
+            <mat-option [value]="2">Administrative &amp; Management (Admin / Principal)</mat-option>
+            <mat-option [value]="3">HR &amp; Operations</mat-option>
+            <mat-option [value]="4">Accounts &amp; Finance (Accountant / Cashier)</mat-option>
+            <mat-option [value]="5">Support &amp; Facility Staff (Librarian / Lab / Front Office)</mat-option>
           </mat-select>
         </mat-form-field>
 
@@ -74,32 +84,110 @@ import { AuthService } from '../../core/services/auth.service';
         <mat-form-field appearance="outline">
           <mat-label>Employee Code</mat-label>
           <input matInput formControlName="employeeCode" readonly class="readonly-field">
-          <mat-icon matSuffix *ngIf="!codeLoading" matTooltip="Auto-generated, edit not allowed"
+          <mat-icon matSuffix *ngIf="!codeLoading" matTooltip="Auto-generated, locked"
             style="color:#64748b;font-size:16px">lock</mat-icon>
           <mat-spinner matSuffix diameter="16" *ngIf="codeLoading"></mat-spinner>
-          <mat-hint>Auto-generated – {{editingId ? 'cannot be changed in edit mode' : 'locked upon saving'}}</mat-hint>
+          <mat-hint>Auto-generated – {{editingId ? 'locked in edit mode' : 'locked upon saving'}}</mat-hint>
         </mat-form-field>
 
+        <!-- Full Name -->
         <mat-form-field appearance="outline">
           <mat-label>Full Name *</mat-label>
-          <input matInput formControlName="fullName">
+          <input matInput formControlName="fullName" placeholder="e.g. Ramesh Kumar Sharma">
         </mat-form-field>
 
-        <!-- Department and Designation for Non-Teaching -->
-        <mat-form-field appearance="outline" *ngIf="teacherForm.get('staffType')?.value == 2">
+        <!-- Department (with datalist for quick suggestions) -->
+        <mat-form-field appearance="outline">
           <mat-label>Department *</mat-label>
-          <input matInput formControlName="department" placeholder="e.g. Human Resources, Accounts, Admin">
+          <input matInput formControlName="department" list="deptSuggestions" placeholder="e.g. Science, Accounts, HR, Admin">
+          <mat-hint>Type or select standard department</mat-hint>
+        </mat-form-field>
+        <datalist id="deptSuggestions">
+          <option value="Science Department">
+          <option value="Mathematics Department">
+          <option value="Humanities & Arts">
+          <option value="Commerce & Economics">
+          <option value="Computer Science & IT">
+          <option value="Primary Wing">
+          <option value="Secondary Wing">
+          <option value="Administration & Management">
+          <option value="Human Resources">
+          <option value="Accounts & Finance">
+          <option value="Library Division">
+          <option value="Front Office & Reception">
+          <option value="Transport & Fleet">
+          <option value="Hostel & Maintenance">
+        </datalist>
+
+        <!-- Designation (with datalist) -->
+        <mat-form-field appearance="outline">
+          <mat-label>Designation *</mat-label>
+          <input matInput formControlName="designation" list="desigSuggestions" placeholder="e.g. PGT Physics, Accountant, HR Manager">
+          <mat-hint>Official post / title</mat-hint>
+        </mat-form-field>
+        <datalist id="desigSuggestions">
+          <option value="PGT (Post Graduate Teacher)">
+          <option value="TGT (Trained Graduate Teacher)">
+          <option value="PRT (Primary Teacher)">
+          <option value="Head of Department (HOD)">
+          <option value="Senior Lecturer / Faculty">
+          <option value="Assistant Teacher">
+          <option value="Principal">
+          <option value="Vice Principal">
+          <option value="Academic Coordinator">
+          <option value="HR Manager">
+          <option value="Chief Accountant">
+          <option value="Accountant">
+          <option value="Cashier / Billing Clerk">
+          <option value="Front Desk Executive">
+          <option value="Librarian">
+          <option value="Lab Assistant">
+          <option value="IT Administrator">
+          <option value="Transport Supervisor">
+          <option value="Security / Guard">
+          <option value="Peon / Attendant">
+        </datalist>
+
+        <!-- Employment Type -->
+        <mat-form-field appearance="outline">
+          <mat-label>Employment Type</mat-label>
+          <mat-select formControlName="employmentType">
+            <mat-option value="Permanent">Permanent (Regular)</mat-option>
+            <mat-option value="Probation">On Probation</mat-option>
+            <mat-option value="Contractual">Contractual</mat-option>
+            <mat-option value="Visiting">Visiting / Guest Faculty</mat-option>
+            <mat-option value="Part-Time">Part-Time</mat-option>
+          </mat-select>
         </mat-form-field>
 
-        <mat-form-field appearance="outline" *ngIf="teacherForm.get('staffType')?.value == 2">
-          <mat-label>Designation *</mat-label>
-          <input matInput formControlName="designation" placeholder="e.g. HR Manager, Accountant, Receptionist">
+        <!-- Joining Date with range validation -->
+        <mat-form-field appearance="outline">
+          <mat-label>Joining Date *</mat-label>
+          <input matInput type="date" formControlName="joiningDate" [min]="minDoj" [max]="maxDoj" (change)="validateDateRanges()">
+          <mat-hint>Official date of joining</mat-hint>
+          <mat-error *ngIf="teacherForm.get('joiningDate')?.hasError('beforeAdult')">Cannot be before 18th birthday</mat-error>
+          <mat-error *ngIf="teacherForm.get('joiningDate')?.hasError('futureTooFar')">Cannot exceed 90 days in future</mat-error>
         </mat-form-field>
+
+        <!-- Biometric User ID -->
+        <mat-form-field appearance="outline">
+          <mat-label>Biometric Machine Punch ID</mat-label>
+          <input matInput formControlName="biometricUserId" placeholder="e.g. 102 or BIO-040">
+          <mat-icon matSuffix matTooltip="Device ID on Fingerprint / Facial Attendance Machine" style="color:#64748b;font-size:16px">fingerprint</mat-icon>
+          <mat-hint>Links biometric punch records</mat-hint>
+        </mat-form-field>
+
+        <!-- ── SECTION 2: PERSONAL & CONTACT DETAILS ── -->
+        <div class="form-section-title">
+          <mat-icon>person</mat-icon>
+          <span>Personal, Contact &amp; Qualification Details (व्यक्तिगत एवं संपर्क विवरण)</span>
+        </div>
 
         <mat-form-field appearance="outline">
-          <mat-label>Father's Name</mat-label>
+          <mat-label>Father's / Spouse's Name</mat-label>
           <input matInput formControlName="fatherName">
         </mat-form-field>
+
         <mat-form-field appearance="outline">
           <mat-label>Gender *</mat-label>
           <mat-select formControlName="gender">
@@ -108,64 +196,177 @@ import { AuthService } from '../../core/services/auth.service';
             <mat-option value="Other">Other</mat-option>
           </mat-select>
         </mat-form-field>
+
+        <!-- Date of Birth with range validation -->
         <mat-form-field appearance="outline">
           <mat-label>Date of Birth</mat-label>
-          <input matInput type="date" formControlName="dateOfBirth">
+          <input matInput type="date" formControlName="dateOfBirth" [min]="minDob" [max]="maxDob" (change)="validateDateRanges()">
+          <mat-hint>Must be 18+ years old (on/before {{maxDob | date:'dd-MMM-yyyy'}})</mat-hint>
+          <mat-error *ngIf="teacherForm.get('dateOfBirth')?.hasError('underage')">Staff must be at least 18 years old</mat-error>
+          <mat-error *ngIf="teacherForm.get('dateOfBirth')?.hasError('tooOld')">Please enter a valid DOB</mat-error>
         </mat-form-field>
+
+        <!-- Blood Group -->
         <mat-form-field appearance="outline">
-          <mat-label>Qualification</mat-label>
-          <input matInput formControlName="qualification" placeholder="e.g. MBA, B.Tech, M.Sc, Graduate">
+          <mat-label>Blood Group</mat-label>
+          <mat-select formControlName="bloodGroup">
+            <mat-option value="">-- Not Specified --</mat-option>
+            <mat-option value="A+">A+</mat-option>
+            <mat-option value="A-">A-</mat-option>
+            <mat-option value="B+">B+</mat-option>
+            <mat-option value="B-">B-</mat-option>
+            <mat-option value="O+">O+</mat-option>
+            <mat-option value="O-">O-</mat-option>
+            <mat-option value="AB+">AB+</mat-option>
+            <mat-option value="AB-">AB-</mat-option>
+          </mat-select>
+          <mat-hint>For Staff ID Card</mat-hint>
         </mat-form-field>
-        <mat-form-field appearance="outline" *ngIf="teacherForm.get('staffType')?.value != 2">
-          <mat-label>Specialization</mat-label>
-          <input matInput formControlName="specialization" placeholder="Physics, Math...">
-        </mat-form-field>
-        <mat-form-field appearance="outline">
-          <mat-label>Experience (Years)</mat-label>
-          <input matInput type="number" formControlName="experienceYears" min="0">
-        </mat-form-field>
+
         <!-- Phone with inline duplicate check -->
         <div class="field-with-hint">
           <mat-form-field appearance="outline" style="width:100%">
-            <mat-label>Phone Number *</mat-label>
-            <input matInput formControlName="phoneNumber"
-              (blur)="checkDuplicate('phone')">
+            <mat-label>Primary Phone Number *</mat-label>
+            <input matInput formControlName="phoneNumber" maxlength="12" (blur)="checkDuplicate('phone')">
             <mat-icon matSuffix *ngIf="phoneDupChecking" style="font-size:16px">hourglass_empty</mat-icon>
             <mat-icon matSuffix *ngIf="!phoneDupChecking && phoneDuplicate" color="warn" style="font-size:16px">warning</mat-icon>
             <mat-icon matSuffix *ngIf="!phoneDupChecking && !phoneDuplicate && teacherForm.get('phoneNumber')?.value"
               style="font-size:16px;color:#2e7d32">check_circle</mat-icon>
+            <mat-hint>10-digit mobile number</mat-hint>
           </mat-form-field>
           <div class="dup-warning" *ngIf="phoneDuplicate">
-            <mat-icon>warning</mat-icon> Yeh phone number pehle se registered hai!
+            <mat-icon>warning</mat-icon> Yeh Phone Number pehle se registered hai!
           </div>
         </div>
-        <mat-form-field appearance="outline">
-          <mat-label>WhatsApp Number</mat-label>
-          <input matInput formControlName="whatsAppPhone">
-        </mat-form-field>
+
+        <!-- WhatsApp with inline duplicate check & copy button -->
+        <div class="field-with-hint">
+          <mat-form-field appearance="outline" style="width:100%">
+            <mat-label>WhatsApp Number</mat-label>
+            <input matInput formControlName="whatsAppPhone" maxlength="12" (blur)="checkDuplicate('whatsApp')">
+            <button mat-icon-button matSuffix type="button" (click)="copyPhoneToWhatsApp()" matTooltip="Same as Phone Number">
+              <mat-icon style="font-size:16px;color:#2563eb">content_copy</mat-icon>
+            </button>
+            <mat-icon matSuffix *ngIf="whatsAppDupChecking" style="font-size:16px">hourglass_empty</mat-icon>
+            <mat-icon matSuffix *ngIf="!whatsAppDupChecking && whatsAppDuplicate" color="warn" style="font-size:16px">warning</mat-icon>
+            <mat-icon matSuffix *ngIf="!whatsAppDupChecking && !whatsAppDuplicate && teacherForm.get('whatsAppPhone')?.value"
+              style="font-size:16px;color:#2e7d32">check_circle</mat-icon>
+            <mat-hint>WhatsApp payslip &amp; updates</mat-hint>
+          </mat-form-field>
+          <div class="dup-warning" *ngIf="whatsAppDuplicate">
+            <mat-icon>warning</mat-icon> Yeh WhatsApp Number pehle se registered hai!
+          </div>
+        </div>
+
         <!-- Email with inline duplicate check -->
         <div class="field-with-hint">
           <mat-form-field appearance="outline" style="width:100%">
-            <mat-label>Email</mat-label>
-            <input matInput type="email" formControlName="email"
-              (blur)="checkDuplicate('email')">
+            <mat-label>Email Address</mat-label>
+            <input matInput type="email" formControlName="email" (blur)="checkDuplicate('email')">
             <mat-icon matSuffix *ngIf="emailDupChecking" style="font-size:16px">hourglass_empty</mat-icon>
             <mat-icon matSuffix *ngIf="!emailDupChecking && emailDuplicate" color="warn" style="font-size:16px">warning</mat-icon>
             <mat-icon matSuffix *ngIf="!emailDupChecking && !emailDuplicate && teacherForm.get('email')?.value"
               style="font-size:16px;color:#2e7d32">check_circle</mat-icon>
+            <mat-hint>Official or personal email</mat-hint>
           </mat-form-field>
           <div class="dup-warning" *ngIf="emailDuplicate">
-            <mat-icon>warning</mat-icon> Yeh email pehle se registered hai!
+            <mat-icon>warning</mat-icon> Yeh Email ID pehle se registered hai!
           </div>
         </div>
+
         <mat-form-field appearance="outline">
-          <mat-label>Joining Date *</mat-label>
-          <input matInput type="date" formControlName="joiningDate">
+          <mat-label>Emergency Contact Person</mat-label>
+          <input matInput formControlName="emergencyContactName" placeholder="e.g. Suman Sharma (Spouse)">
         </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Emergency Contact Phone</mat-label>
+          <input matInput formControlName="emergencyContactPhone" maxlength="12" placeholder="e.g. 9811223344">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Qualification</mat-label>
+          <input matInput formControlName="qualification" placeholder="e.g. M.Sc, B.Ed, M.Tech, MBA, Graduate">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Subject Specialization</mat-label>
+          <input matInput formControlName="specialization" placeholder="Physics, Mathematics, Accounts...">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Total Experience (Years)</mat-label>
+          <input matInput type="number" formControlName="experienceYears" min="0">
+        </mat-form-field>
+
         <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Address</mat-label>
-          <input matInput formControlName="address">
+          <mat-label>Residential Address</mat-label>
+          <input matInput formControlName="address" placeholder="Full residential / permanent address">
         </mat-form-field>
+
+        <!-- ── SECTION 3: BANK DETAILS & TAX / PAYROLL IDENTIFIERS ── -->
+        <div class="form-section-title">
+          <mat-icon>account_balance</mat-icon>
+          <span>Bank &amp; Statutory Details (बैंक खाता व वेतन विवरण — For Salary &amp; Payroll)</span>
+        </div>
+
+        <!-- Bank Name with datalist -->
+        <mat-form-field appearance="outline">
+          <mat-label>Bank Name</mat-label>
+          <input matInput formControlName="bankName" list="bankList" placeholder="e.g. State Bank of India, HDFC Bank">
+        </mat-form-field>
+        <datalist id="bankList">
+          <option value="State Bank of India (SBI)">
+          <option value="HDFC Bank">
+          <option value="ICICI Bank">
+          <option value="Punjab National Bank (PNB)">
+          <option value="Bank of Baroda">
+          <option value="Axis Bank">
+          <option value="Canara Bank">
+          <option value="Union Bank of India">
+          <option value="Kotak Mahindra Bank">
+          <option value="IndusInd Bank">
+          <option value="Bank of India">
+          <option value="Indian Bank">
+        </datalist>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Bank Account Number</mat-label>
+          <input matInput formControlName="bankAccountNumber" placeholder="e.g. 302918239401">
+          <mat-hint>Account for salary credit</mat-hint>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Bank IFSC Code</mat-label>
+          <input matInput formControlName="bankIfscCode" placeholder="e.g. SBIN0001234" maxlength="11" style="text-transform:uppercase">
+          <mat-hint>11-character IFSC</mat-hint>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Bank Account Holder Name</mat-label>
+          <input matInput formControlName="bankAccountHolder" placeholder="Name as per bank passbook">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>PAN Card Number</mat-label>
+          <input matInput formControlName="panNumber" placeholder="e.g. ABCDE1234F" maxlength="10" style="text-transform:uppercase">
+          <mat-hint>Required for TDS tax deduction</mat-hint>
+          <mat-error *ngIf="teacherForm.get('panNumber')?.hasError('pattern')">Invalid PAN format (e.g. ABCDE1234F)</mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Aadhaar Card Number</mat-label>
+          <input matInput formControlName="aadhaarNumber" placeholder="e.g. 123456789012" maxlength="12">
+          <mat-hint>12-digit Aadhaar UID</mat-hint>
+          <mat-error *ngIf="teacherForm.get('aadhaarNumber')?.hasError('pattern')">Must be 12 numeric digits</mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>PF / UAN Number</mat-label>
+          <input matInput formControlName="uanNumber" placeholder="e.g. 100928374650">
+          <mat-hint>Required for PF deduction</mat-hint>
+        </mat-form-field>
+
         <!-- Profile Photo Row: URL or File Upload -->
         <div class="photo-upload-row full-width">
           <div class="photo-preview-box">
@@ -200,7 +401,7 @@ import { AuthService } from '../../core/services/auth.service';
       </div>
       <div class="form-actions">
         <button mat-button type="button" (click)="cancelForm()">Cancel</button>
-        <button mat-raised-button color="primary" type="submit" [disabled]="teacherForm.invalid || saving">
+        <button mat-raised-button color="primary" type="submit" [disabled]="teacherForm.invalid || saving || hasDuplicates">
           <mat-spinner diameter="18" *ngIf="saving" style="display:inline-block;margin-right:6px"></mat-spinner>
           <mat-icon *ngIf="!saving">save</mat-icon>
           {{saving ? 'Saving...' : (editingId ? 'Update Staff Member' : 'Add Staff Member')}}
@@ -309,12 +510,39 @@ import { AuthService } from '../../core/services/auth.service';
 
       <mat-divider></mat-divider>
 
-      <div class="profile-details">
-        <div class="detail-row"><mat-icon>phone</mat-icon><span>{{selectedTeacher.phoneNumber}}</span></div>
-        <div class="detail-row" *ngIf="selectedTeacher.email"><mat-icon>email</mat-icon><span>{{selectedTeacher.email}}</span></div>
-        <div class="detail-row"><mat-icon>work</mat-icon><span>{{selectedTeacher.experienceYears}} years experience</span></div>
-        <div class="detail-row"><mat-icon>calendar_today</mat-icon><span>Joined: {{selectedTeacher.joiningDate | date:'dd MMM yyyy'}}</span></div>
-        <div class="detail-row" *ngIf="selectedTeacher.address"><mat-icon>location_on</mat-icon><span>{{selectedTeacher.address}}</span></div>
+      <div class="profile-details-grid">
+        <div class="detail-block">
+          <span class="block-title"><mat-icon>contact_phone</mat-icon> Contact &amp; Personal</span>
+          <div class="detail-row"><mat-icon>phone</mat-icon><span><strong>Phone:</strong> {{selectedTeacher.phoneNumber}}</span></div>
+          <div class="detail-row" *ngIf="selectedTeacher.whatsAppPhone"><mat-icon style="color:#25d366">chat</mat-icon><span><strong>WhatsApp:</strong> {{selectedTeacher.whatsAppPhone}}</span></div>
+          <div class="detail-row" *ngIf="selectedTeacher.email"><mat-icon>email</mat-icon><span><strong>Email:</strong> {{selectedTeacher.email}}</span></div>
+          <div class="detail-row" *ngIf="selectedTeacher.bloodGroup"><mat-icon style="color:#dc2626">water_drop</mat-icon><span><strong>Blood Group:</strong> {{selectedTeacher.bloodGroup}}</span></div>
+          <div class="detail-row" *ngIf="selectedTeacher.emergencyContactPhone"><mat-icon>emergency</mat-icon><span><strong>Emergency:</strong> {{selectedTeacher.emergencyContactName}} ({{selectedTeacher.emergencyContactPhone}})</span></div>
+          <div class="detail-row" *ngIf="selectedTeacher.address"><mat-icon>location_on</mat-icon><span><strong>Address:</strong> {{selectedTeacher.address}}</span></div>
+        </div>
+
+        <div class="detail-block">
+          <span class="block-title"><mat-icon>work</mat-icon> Employment &amp; Biometrics</span>
+          <div class="detail-row"><mat-icon>badge</mat-icon><span><strong>Employment:</strong> {{selectedTeacher.employmentType || 'Permanent'}}</span></div>
+          <div class="detail-row"><mat-icon>calendar_today</mat-icon><span><strong>Joined:</strong> {{selectedTeacher.joiningDate | date:'dd MMM yyyy'}}</span></div>
+          <div class="detail-row"><mat-icon>history_edu</mat-icon><span><strong>Experience:</strong> {{selectedTeacher.experienceYears}} years</span></div>
+          <div class="detail-row" *ngIf="selectedTeacher.dateOfBirth"><mat-icon>cake</mat-icon><span><strong>DOB:</strong> {{selectedTeacher.dateOfBirth | date:'dd MMM yyyy'}}</span></div>
+          <div class="detail-row" *ngIf="selectedTeacher.biometricUserId"><mat-icon>fingerprint</mat-icon><span><strong>Biometric ID:</strong> {{selectedTeacher.biometricUserId}}</span></div>
+        </div>
+
+        <div class="detail-block">
+          <span class="block-title"><mat-icon>account_balance</mat-icon> Bank &amp; Statutory (Payroll)</span>
+          <div class="detail-row" *ngIf="selectedTeacher.bankName"><mat-icon>account_balance</mat-icon><span><strong>Bank:</strong> {{selectedTeacher.bankName}}</span></div>
+          <div class="detail-row" *ngIf="selectedTeacher.bankAccountNumber"><mat-icon>credit_card</mat-icon><span><strong>A/C No:</strong> {{selectedTeacher.bankAccountNumber}}</span></div>
+          <div class="detail-row" *ngIf="selectedTeacher.bankIfscCode"><mat-icon>tag</mat-icon><span><strong>IFSC:</strong> {{selectedTeacher.bankIfscCode}}</span></div>
+          <div class="detail-row" *ngIf="selectedTeacher.panNumber"><mat-icon>receipt</mat-icon><span><strong>PAN:</strong> {{selectedTeacher.panNumber}}</span></div>
+          <div class="detail-row" *ngIf="selectedTeacher.aadhaarNumber"><mat-icon>verified</mat-icon><span><strong>Aadhaar:</strong> {{selectedTeacher.aadhaarNumber}}</span></div>
+          <div class="detail-row" *ngIf="selectedTeacher.uanNumber"><mat-icon>savings</mat-icon><span><strong>UAN / PF:</strong> {{selectedTeacher.uanNumber}}</span></div>
+          <div class="detail-row no-bank" *ngIf="!selectedTeacher.bankAccountNumber && !selectedTeacher.panNumber">
+            <mat-icon style="color:#94a3b8">info</mat-icon>
+            <span style="color:#64748b;font-style:italic">Bank &amp; PAN not configured yet. Click Edit to update.</span>
+          </div>
+        </div>
       </div>
 
       <mat-divider></mat-divider>
@@ -491,12 +719,20 @@ import { AuthService } from '../../core/services/auth.service';
       </div>
       <div class="account-drawer-body">
         <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Assign Portal Role *</mat-label>
+          <mat-select [(ngModel)]="accountFormData.roleId">
+            <mat-option *ngFor="let r of systemRoles" [value]="r.id">{{r.name}}</mat-option>
+          </mat-select>
+          <mat-hint>Determines page permissions &amp; accessible ERP modules</mat-hint>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width" style="margin-top: 10px;">
           <mat-label>Login Username *</mat-label>
           <input matInput [(ngModel)]="accountFormData.username" placeholder="e.g. rahul.sharma" />
           <mat-hint>Staff member will use this to sign into IMSERP</mat-hint>
         </mat-form-field>
 
-        <mat-form-field appearance="outline" class="full-width" style="margin-top: 14px;">
+        <mat-form-field appearance="outline" class="full-width" style="margin-top: 10px;">
           <mat-label>Initial Password *</mat-label>
           <input matInput type="text" [(ngModel)]="accountFormData.password" placeholder="e.g. Staff@123" />
           <mat-hint>User can change this after logging in</mat-hint>
@@ -732,24 +968,54 @@ import { AuthService } from '../../core/services/auth.service';
     .banner-title { color: #1e3a8a; font-weight: 700; font-size: 0.92rem; }
     .banner-sub { color: #3b82f6; font-size: 0.8rem; }
     .banner-btn { white-space: nowrap; }
-    .profile-details {
+    .form-section-title {
+      grid-column: 1 / -1;
       display: flex;
-      flex-wrap: wrap;
-      gap: 10px 14px;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #1e40af;
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+      border: 1px solid #bfdbfe;
+      padding: 9px 14px;
+      border-radius: 8px;
+      margin: 14px 0 6px;
+      mat-icon { font-size: 20px; width: 20px; height: 20px; color: #2563eb; }
+    }
+    .profile-details-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
       padding: 16px 0;
     }
-    .detail-row {
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      font-size: 0.84rem;
-      color: #334155;
+    .detail-block {
       background: #f8fafc;
-      padding: 6px 14px;
-      border-radius: 8px;
       border: 1px solid #e2e8f0;
-      font-weight: 500;
+      border-radius: 10px;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .block-title {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #1e40af;
+      border-bottom: 1px dashed #cbd5e1;
+      padding-bottom: 6px;
       mat-icon { font-size: 16px; width: 16px; height: 16px; color: #2563eb; }
+    }
+    .detail-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.83rem;
+      color: #334155;
+      mat-icon { font-size: 16px; width: 16px; height: 16px; color: #2563eb; flex-shrink: 0; }
     }
     .quick-nav { padding:16px 0; }
     .quick-nav-title { font-size:.8rem; font-weight:700; color:#64748b; margin:0 0 12px; text-transform:uppercase; letter-spacing:.5px; }
@@ -931,10 +1197,41 @@ export class TeacherProfilesComponent implements OnInit {
 
   // Duplicate check state
   phoneDuplicate = false; phoneDupChecking = false;
+  whatsAppDuplicate = false; whatsAppDupChecking = false;
   emailDuplicate = false; emailDupChecking = false;
+  systemRoles: any[] = [];
 
   get totalPages() { return Math.ceil(this.totalCount / this.pageSize); }
-  get hasDuplicates() { return this.phoneDuplicate || this.emailDuplicate; }
+  get hasDuplicates() { return this.phoneDuplicate || this.whatsAppDuplicate || this.emailDuplicate; }
+
+  // Date Range Validation Getters
+  get maxDob(): string {
+    const d = new Date();
+    d.setFullYear(d.getFullYear() - 18);
+    return d.toISOString().split('T')[0];
+  }
+
+  get minDob(): string {
+    const d = new Date();
+    d.setFullYear(d.getFullYear() - 75);
+    return d.toISOString().split('T')[0];
+  }
+
+  get maxDoj(): string {
+    const d = new Date();
+    d.setDate(d.getDate() + 90);
+    return d.toISOString().split('T')[0];
+  }
+
+  get minDoj(): string {
+    const dobVal = this.teacherForm?.get('dateOfBirth')?.value;
+    if (dobVal) {
+      const d = new Date(dobVal);
+      d.setFullYear(d.getFullYear() + 18);
+      return d.toISOString().split('T')[0];
+    }
+    return '1990-01-01';
+  }
 
   constructor(
     private http: HttpClient,
@@ -942,7 +1239,7 @@ export class TeacherProfilesComponent implements OnInit {
     private confirmDialog: ConfirmDialogService,
     private dialog: MatDialog,
     public authService: AuthService
-  ) {}
+  ) { }
 
   /** True when the logged-in user is only a Teacher (self-service mode) */
   get isTeacherRole(): boolean { return this.authService.isTeacher(); }
@@ -958,6 +1255,14 @@ export class TeacherProfilesComponent implements OnInit {
   ngOnInit() {
     this.initForm();
     this.loadTeachers();
+    this.loadRoles();
+  }
+
+  loadRoles() {
+    this.http.get<any[]>(`${this.api}/roles`).subscribe({
+      next: r => this.systemRoles = r || [],
+      error: () => this.systemRoles = []
+    });
   }
 
   initForm() {
@@ -968,13 +1273,91 @@ export class TeacherProfilesComponent implements OnInit {
       fullName: ['', Validators.required],
       department: [''],
       designation: [''],
-      fatherName: [''], gender: ['Male', Validators.required],
-      dateOfBirth: [''], qualification: [''], specialization: [''],
-      experienceYears: [0], phoneNumber: ['', Validators.required],
-      whatsAppPhone: [''], email: [''], address: [''],
+      employmentType: ['Permanent'],
+      fatherName: [''],
+      gender: ['Male', Validators.required],
+      dateOfBirth: [''],
+      bloodGroup: [''],
+      qualification: [''],
+      specialization: [''],
+      experienceYears: [0, [Validators.min(0)]],
+      phoneNumber: ['', [Validators.required, Validators.pattern(/^[0-9]{10,12}$/)]],
+      whatsAppPhone: ['', [Validators.pattern(/^[0-9]{10,12}$/)]],
+      email: ['', [Validators.email]],
+      emergencyContactName: [''],
+      emergencyContactPhone: ['', [Validators.pattern(/^[0-9]{10,12}$/)]],
+      address: [''],
       photoUrl: [''],
-      joiningDate: [today, Validators.required]
+      joiningDate: [today, Validators.required],
+      biometricUserId: [''],
+      // Bank & Payroll Details
+      bankName: [''],
+      bankAccountNumber: [''],
+      bankIfscCode: [''],
+      bankAccountHolder: [''],
+      panNumber: ['', [Validators.pattern(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/i)]],
+      aadhaarNumber: ['', [Validators.pattern(/^[0-9]{12}$/)]],
+      uanNumber: ['']
     });
+  }
+
+  validateDateRanges(): boolean {
+    const dobVal = this.teacherForm.get('dateOfBirth')?.value;
+    const dojVal = this.teacherForm.get('joiningDate')?.value;
+
+    let isValid = true;
+
+    // Validate DOB (must be at least 18 years old)
+    if (dobVal) {
+      const dob = new Date(dobVal);
+      const today = new Date();
+      let age = today.getFullYear() - dob.getFullYear();
+      const m = today.getMonth() - dob.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) {
+        age--;
+      }
+
+      if (age < 18) {
+        this.teacherForm.get('dateOfBirth')?.setErrors({ underage: true });
+        isValid = false;
+      } else if (age > 80) {
+        this.teacherForm.get('dateOfBirth')?.setErrors({ tooOld: true });
+        isValid = false;
+      } else {
+        if (this.teacherForm.get('dateOfBirth')?.hasError('underage') || this.teacherForm.get('dateOfBirth')?.hasError('tooOld')) {
+          this.teacherForm.get('dateOfBirth')?.setErrors(null);
+        }
+      }
+    }
+
+    // Validate DOJ (cannot be before 18th birthday)
+    if (dojVal) {
+      const doj = new Date(dojVal);
+      if (dobVal) {
+        const dob = new Date(dobVal);
+        dob.setFullYear(dob.getFullYear() + 18);
+        if (doj < dob) {
+          this.teacherForm.get('joiningDate')?.setErrors({ beforeAdult: true });
+          isValid = false;
+        }
+      }
+      const maxFuture = new Date();
+      maxFuture.setDate(maxFuture.getDate() + 90);
+      if (doj > maxFuture) {
+        this.teacherForm.get('joiningDate')?.setErrors({ futureTooFar: true });
+        isValid = false;
+      }
+    }
+
+    return isValid;
+  }
+
+  copyPhoneToWhatsApp() {
+    const ph = this.teacherForm.get('phoneNumber')?.value;
+    if (ph) {
+      this.teacherForm.patchValue({ whatsAppPhone: ph });
+      this.checkDuplicate('whatsApp');
+    }
   }
 
   getInitials(name: string): string {
@@ -1043,7 +1426,19 @@ export class TeacherProfilesComponent implements OnInit {
         branchId: teacher.branchId,
         staffType: (teacher.staffType === 'NonTeaching' || teacher.staffType === 2) ? 'NonTeaching' : 'Teaching',
         department: teacher.department,
-        designation: teacher.designation
+        designation: teacher.designation,
+        bankName: teacher.bankName,
+        bankAccountNumber: teacher.bankAccountNumber,
+        bankIfscCode: teacher.bankIfscCode,
+        bankAccountHolder: teacher.bankAccountHolder,
+        panNumber: teacher.panNumber,
+        aadhaarNumber: teacher.aadhaarNumber,
+        uanNumber: teacher.uanNumber,
+        employmentType: teacher.employmentType,
+        bloodGroup: teacher.bloodGroup,
+        emergencyContactName: teacher.emergencyContactName,
+        emergencyContactPhone: teacher.emergencyContactPhone,
+        biometricUserId: teacher.biometricUserId
       };
       this.http.put<TeacherDto>(`${this.api}/teachers/${teacher.id}`, payload).subscribe({
         next: (updated) => {
@@ -1092,7 +1487,7 @@ export class TeacherProfilesComponent implements OnInit {
   generateEmployeeCode(typeVal: number) {
     if (this.editingId) return;
     this.codeLoading = true;
-    const typeStr = typeVal == 2 ? 'NonTeaching' : 'Teaching';
+    const typeStr = typeVal == 1 ? 'Teaching' : 'NonTeaching';
     this.http.get<{ code: string }>(`${this.api}/teachers/next-employee-code?staffType=${typeStr}`).subscribe({
       next: r => { this.teacherForm.patchValue({ employeeCode: r.code }); this.codeLoading = false; },
       error: () => {
@@ -1104,11 +1499,12 @@ export class TeacherProfilesComponent implements OnInit {
 
   openAddForm() {
     this.editingId = null; this.showForm = true; this.selectedTeacher = null;
-    this.phoneDuplicate = false; this.emailDuplicate = false;
+    this.phoneDuplicate = false; this.whatsAppDuplicate = false; this.emailDuplicate = false;
     this.previewImgError = false;
     this.teacherForm.reset({
       staffType: 1,
       gender: 'Male',
+      employmentType: 'Permanent',
       experienceYears: 0,
       photoUrl: '',
       joiningDate: new Date().toISOString().split('T')[0]
@@ -1118,59 +1514,99 @@ export class TeacherProfilesComponent implements OnInit {
 
   editTeacher(t: TeacherDto) {
     this.editingId = t.id; this.showForm = true;
-    this.phoneDuplicate = false; this.emailDuplicate = false;
+    this.phoneDuplicate = false; this.whatsAppDuplicate = false; this.emailDuplicate = false;
     this.previewImgError = false;
     this.teacherForm.patchValue({
       ...t,
       staffType: (t.staffType === 'NonTeaching' || t.staffType === 2) ? 2 : 1,
       department: t.department || '',
       designation: t.designation || '',
+      employmentType: t.employmentType || 'Permanent',
+      bloodGroup: t.bloodGroup || '',
+      emergencyContactName: t.emergencyContactName || '',
+      emergencyContactPhone: t.emergencyContactPhone || '',
+      biometricUserId: t.biometricUserId || '',
+      bankName: t.bankName || '',
+      bankAccountNumber: t.bankAccountNumber || '',
+      bankIfscCode: t.bankIfscCode || '',
+      bankAccountHolder: t.bankAccountHolder || '',
+      panNumber: t.panNumber || '',
+      aadhaarNumber: t.aadhaarNumber || '',
+      uanNumber: t.uanNumber || '',
       photoUrl: t.photoUrl || '',
       joiningDate: t.joiningDate?.split('T')[0],
       dateOfBirth: t.dateOfBirth?.split('T')[0]
     });
   }
 
-  cancelForm() { this.showForm = false; this.editingId = null; this.phoneDuplicate = false; this.emailDuplicate = false; this.previewImgError = false; }
+  cancelForm() {
+    this.showForm = false;
+    this.editingId = null;
+    this.phoneDuplicate = false;
+    this.whatsAppDuplicate = false;
+    this.emailDuplicate = false;
+    this.previewImgError = false;
+  }
 
-  /** Called on blur of phone/email fields */
-  checkDuplicate(field: 'phone' | 'email') {
-    const phone = field === 'phone' ? this.teacherForm.get('phoneNumber')?.value : null;
-    const email = field === 'email' ? this.teacherForm.get('email')?.value : null;
-    if (!phone && !email) return;
+  /** Called on blur of phone, whatsApp, or email fields */
+  checkDuplicate(field: 'phone' | 'whatsApp' | 'email') {
+    const phone = this.teacherForm.get('phoneNumber')?.value?.trim();
+    const whatsApp = this.teacherForm.get('whatsAppPhone')?.value?.trim();
+    const email = this.teacherForm.get('email')?.value?.trim();
+
+    if (field === 'phone' && !phone) { this.phoneDuplicate = false; return; }
+    if (field === 'whatsApp' && !whatsApp) { this.whatsAppDuplicate = false; return; }
+    if (field === 'email' && !email) { this.emailDuplicate = false; return; }
 
     if (field === 'phone') this.phoneDupChecking = true;
+    if (field === 'whatsApp') this.whatsAppDupChecking = true;
     if (field === 'email') this.emailDupChecking = true;
 
-    const params: any = {};
-    if (phone) params.phone = phone;
-    if (email) params.email = email;
-    if (this.editingId) params.excludeId = this.editingId;
+    let params = new HttpParams();
+    if (field === 'phone' && phone) params = params.set('phone', phone);
+    if (field === 'whatsApp' && whatsApp) params = params.set('whatsApp', whatsApp);
+    if (field === 'email' && email) params = params.set('email', email);
+    if (this.editingId) params = params.set('excludeId', this.editingId);
 
-    this.http.get<{ phoneExists: boolean; emailExists: boolean }>(
+    this.http.get<{ phoneExists: boolean; emailExists: boolean; whatsAppExists?: boolean }>(
       `${this.api}/teachers/check-duplicate`, { params }
     ).subscribe({
       next: r => {
-        if (field === 'phone') { this.phoneDuplicate = r.phoneExists; this.phoneDupChecking = false; }
-        if (field === 'email') { this.emailDuplicate = r.emailExists; this.emailDupChecking = false; }
+        if (field === 'phone') { this.phoneDuplicate = !!r.phoneExists; this.phoneDupChecking = false; }
+        if (field === 'whatsApp') { this.whatsAppDuplicate = !!r.whatsAppExists; this.whatsAppDupChecking = false; }
+        if (field === 'email') { this.emailDuplicate = !!r.emailExists; this.emailDupChecking = false; }
       },
-      error: () => { this.phoneDupChecking = false; this.emailDupChecking = false; }
+      error: () => {
+        this.phoneDupChecking = false;
+        this.whatsAppDupChecking = false;
+        this.emailDupChecking = false;
+      }
     });
   }
 
   saveTeacher() {
+    if (!this.validateDateRanges()) {
+      this.confirmDialog.alert('Date Range Invalid', 'Please check Date of Birth (must be 18+ years) and Joining Date.', 'warning');
+      return;
+    }
+
     if (this.teacherForm.invalid || this.hasDuplicates) {
       if (this.hasDuplicates) {
-        this.confirmDialog.alert('Duplicate Information', 'Duplicate phone or email address already exists. Please fix it before proceeding.', 'warning');
+        this.confirmDialog.alert('Duplicate Information', 'Phone, WhatsApp, or Email address is already registered with another staff member.', 'warning');
       }
       return;
     }
+
     this.saving = true;
     const val = { ...this.teacherForm.getRawValue() }; // includes readonly employeeCode
-    val.staffType = val.staffType == 2 ? 'NonTeaching' : 'Teaching';
+    val.staffType = val.staffType == 1 ? 'Teaching' : 'NonTeaching';
+    if (val.bankIfscCode) val.bankIfscCode = val.bankIfscCode.trim().toUpperCase();
+    if (val.panNumber) val.panNumber = val.panNumber.trim().toUpperCase();
+
     const req = this.editingId
       ? this.http.put<TeacherDto>(`${this.api}/teachers/${this.editingId}`, val)
       : this.http.post<TeacherDto>(`${this.api}/teachers`, val);
+
     req.subscribe({
       next: () => {
         this.saving = false;
@@ -1189,15 +1625,34 @@ export class TeacherProfilesComponent implements OnInit {
   showAccountModal = false;
   accountSaving = false;
   accountTeacher: TeacherDto | null = null;
-  accountFormData = { username: '', password: '' };
+  accountFormData: { username: string; password: string; roleId?: string } = { username: '', password: '', roleId: '' };
 
   openCreateAccountDialog(t: TeacherDto) {
     this.accountTeacher = t;
     const cleanPrefix = t.fullName.toLowerCase().replace(/[^a-z0-9]/g, '');
     const cleanEmp = t.employeeCode.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+    // Pick suitable default role
+    let defaultRoleId = '';
+    const isNonTeaching = t.staffType === 'NonTeaching' || t.staffType === 2;
+    if (this.systemRoles.length > 0) {
+      if (isNonTeaching) {
+        const deptOrDesig = `${t.department || ''} ${t.designation || ''}`.toLowerCase();
+        let matched = this.systemRoles.find(r => r.name.toLowerCase().includes('accountant') && deptOrDesig.includes('account'));
+        if (!matched) matched = this.systemRoles.find(r => r.name.toLowerCase().includes('hr') && deptOrDesig.includes('hr'));
+        if (!matched) matched = this.systemRoles.find(r => r.name.toLowerCase().includes('admin') && deptOrDesig.includes('admin'));
+        if (!matched) matched = this.systemRoles.find(r => r.name.toLowerCase().includes('staff') || r.name.toLowerCase().includes('manager'));
+        defaultRoleId = (matched || this.systemRoles[0]).id;
+      } else {
+        const teacherRole = this.systemRoles.find(r => r.name.toLowerCase().includes('teacher') || r.name.toLowerCase().includes('faculty'));
+        defaultRoleId = (teacherRole || this.systemRoles[0]).id;
+      }
+    }
+
     this.accountFormData = {
       username: `${cleanPrefix}.${cleanEmp}`,
-      password: `Teach@${new Date().getFullYear()}`
+      password: `Staff@${new Date().getFullYear()}`,
+      roleId: defaultRoleId
     };
     this.showAccountModal = true;
   }

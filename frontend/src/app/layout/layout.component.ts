@@ -1754,6 +1754,17 @@ export class LayoutComponent implements OnInit {
       children: []
     };
 
+    const teachersMasterItem: MenuItem = {
+      id: 'master-teachers-link',
+      title: 'Teachers Master',
+      routeUrl: '/teachers',
+      icon: 'groups',
+      sortOrder: 5.2,
+      module: 'Master',
+      isActive: true,
+      children: []
+    };
+
     let updated = (menu || []).map(item => {
       const copy = { ...item, children: item.children ? [...item.children] : [] };
 
@@ -1818,6 +1829,14 @@ export class LayoutComponent implements OnInit {
             copy.children.splice(ttIdx + 1, 0, studyMaterialsItemMaster);
           } else {
             copy.children.push(studyMaterialsItemMaster);
+          }
+        }
+        if (!copy.children.some(c => c.routeUrl === '/teachers') && !this.authService.isStudentOrParent()) {
+          const stuIdx = copy.children.findIndex(c => c.routeUrl === '/students');
+          if (stuIdx >= 0) {
+            copy.children.splice(stuIdx + 1, 0, teachersMasterItem);
+          } else {
+            copy.children.push(teachersMasterItem);
           }
         }
       }
@@ -1931,6 +1950,7 @@ export class LayoutComponent implements OnInit {
             { id: '22', title: 'Classrooms Master', routeUrl: '/rooms', icon: 'meeting_room', sortOrder: 3, module: 'Master', isActive: true, children: [] },
             { id: '23', title: 'Subject Master', routeUrl: '/subjects', icon: 'menu_book', sortOrder: 4, module: 'Master', isActive: true, children: [] },
             { id: '24', title: 'Students Master', routeUrl: '/students', icon: 'people', sortOrder: 5, module: 'Master', isActive: true, children: [] },
+            { id: '24tm', title: 'Teachers Master', routeUrl: '/teachers', icon: 'groups', sortOrder: 5.2, module: 'Master', isActive: true, children: [] },
             { id: '24tt', title: 'Class Timetable & Routine', routeUrl: '/students/timetable', icon: 'calendar_view_week', sortOrder: 5.5, module: 'Master', isActive: true, children: [] },
             { id: '241', title: 'Admission Enquiries', routeUrl: '/students/enquiries', icon: 'contact_phone', sortOrder: 6, module: 'Master', isActive: true, children: [] },
             { id: '25', title: 'Holiday Master', routeUrl: '/holidays', icon: 'event', sortOrder: 7, module: 'Master', isActive: true, children: [] },

@@ -535,6 +535,18 @@ public class Teacher
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public string? BiometricUserId { get; set; }
     public Guid? UserId { get; set; }
+    // Bank & Payroll Details
+    public string? BankName { get; set; }
+    public string? BankAccountNumber { get; set; }
+    public string? BankIfscCode { get; set; }
+    public string? BankAccountHolder { get; set; }
+    public string? PanNumber { get; set; }
+    public string? AadhaarNumber { get; set; }
+    public string? UanNumber { get; set; }
+    public string? EmploymentType { get; set; }
+    public string? BloodGroup { get; set; }
+    public string? EmergencyContactName { get; set; }
+    public string? EmergencyContactPhone { get; set; }
     // Transport fields
     public bool IsTransportStaff { get; set; } = false;
     public Guid? TransportAllocationId { get; set; }
