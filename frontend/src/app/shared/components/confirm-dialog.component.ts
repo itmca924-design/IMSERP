@@ -43,7 +43,7 @@ export interface ConfirmDialogData {
       <!-- Dialog Body -->
       <mat-dialog-content class="dialog-content">
         <div class="dialog-message-box">
-          <p class="dialog-message">{{ data.message }}</p>
+          <p class="dialog-message" [innerHTML]="data.message"></p>
         </div>
       </mat-dialog-content>
 

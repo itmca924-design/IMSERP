@@ -170,13 +170,13 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             <ng-container matColumnDef="branchName">
               <th mat-header-cell *matHeaderCellDef mat-sort-header="branchName"> Assigned Branch </th>
               <td mat-cell *matCellDef="let element">
-                <span class="branch-tag" *ngIf="element.branchName">
+                <span class="branch-tag" *ngIf="element.branchName" [title]="element.branchName">
                   <mat-icon class="inline-icon">store</mat-icon>
-                  {{ element.branchName }}
+                  <span class="branch-text">{{ element.branchName }}</span>
                 </span>
-                <span class="head-office-tag" *ngIf="!element.branchName">
+                <span class="head-office-tag" *ngIf="!element.branchName" title="All Branches (HQ)">
                   <mat-icon class="inline-icon">corporate_fare</mat-icon>
-                  All Branches (HQ)
+                  <span class="branch-text">All Branches (HQ)</span>
                 </span>
               </td>
             </ng-container>
@@ -366,7 +366,10 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
     }
     .full-width-table {
       width: 100%;
-      min-width: 780px;
+      min-width: 880px;
+    }
+    .mat-column-branchName {
+      min-width: 170px;
     }
     .user-name-cell {
       font-weight: 700;
@@ -419,29 +422,51 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
     .branch-tag {
       display: inline-flex;
       align-items: center;
-      gap: 4px;
-      font-size: 0.78rem;
+      gap: 6px;
+      font-size: 0.8rem;
       font-weight: 500;
       color: #0369a1;
       background: #e0f2fe;
-      padding: 3px 8px;
+      padding: 4px 10px;
       border-radius: 6px;
+      border: 1px solid #bae6fd;
+      line-height: 1.35;
+      max-width: 100%;
+      box-sizing: border-box;
     }
     .head-office-tag {
       display: inline-flex;
       align-items: center;
-      gap: 4px;
-      font-size: 0.78rem;
+      gap: 6px;
+      font-size: 0.8rem;
       font-weight: 500;
       color: #475569;
       background: #f1f5f9;
-      padding: 3px 8px;
+      padding: 4px 10px;
       border-radius: 6px;
+      border: 1px solid #e2e8f0;
+      line-height: 1.35;
+      max-width: 100%;
+      box-sizing: border-box;
     }
     .inline-icon {
-      font-size: 15px;
-      width: 15px;
-      height: 15px;
+      font-size: 16px !important;
+      width: 16px !important;
+      height: 16px !important;
+      line-height: 16px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      flex-shrink: 0 !important;
+      vertical-align: middle !important;
+      color: #0284c7;
+    }
+    .head-office-tag .inline-icon {
+      color: #64748b;
+    }
+    .branch-text {
+      flex: 1;
+      min-width: 0;
     }
     .text-right {
       text-align: right;

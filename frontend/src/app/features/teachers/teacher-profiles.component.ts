@@ -212,7 +212,7 @@ import { AuthService } from '../../core/services/auth.service';
             <mat-hint>10-digit mobile number</mat-hint>
           </mat-form-field>
           <div class="dup-warning" *ngIf="phoneDuplicate">
-            <mat-icon>warning</mat-icon> Yeh Phone Number pehle se registered hai!
+            <mat-icon>warning</mat-icon>Phone number already taken!
           </div>
         </div>
 
@@ -231,7 +231,7 @@ import { AuthService } from '../../core/services/auth.service';
             <mat-hint>WhatsApp payslip &amp; updates</mat-hint>
           </mat-form-field>
           <div class="dup-warning" *ngIf="whatsAppDuplicate">
-            <mat-icon>warning</mat-icon> Yeh WhatsApp Number pehle se registered hai!
+            <mat-icon>warning</mat-icon> WhatsApp Number already taken!
           </div>
         </div>
 
