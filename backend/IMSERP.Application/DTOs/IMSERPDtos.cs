@@ -970,7 +970,7 @@ public record UserDto(
 
 public record CreateUserDto(
     string Username,
-    string Password,
+    string? Password,
     string FullName,
     string? Email,
     string? PhoneNumber,

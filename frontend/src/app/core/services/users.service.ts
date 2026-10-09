@@ -92,6 +92,14 @@ export class UsersService {
     return this.http.put<UserDto>(`${this.BASE_URL}/${id}`, user);
   }
 
+  checkDuplicate(phone?: string, email?: string, excludeId?: string): Observable<{ phoneExists: boolean; emailExists: boolean }> {
+    let params = new HttpParams();
+    if (phone && phone.trim()) params = params.set('phone', phone.trim());
+    if (email && email.trim()) params = params.set('email', email.trim());
+    if (excludeId && excludeId.trim()) params = params.set('excludeId', excludeId.trim());
+    return this.http.get<{ phoneExists: boolean; emailExists: boolean }>(`${this.BASE_URL}/check-duplicate`, { params });
+  }
+
   deleteUser(id: string): Observable<any> {
     return this.http.delete(`${this.BASE_URL}/${id}`);
   }

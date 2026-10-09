@@ -151,6 +151,46 @@ public class UsersController : ControllerBase
         return Ok(new PagedResult<UserDto>(dtos, totalCount, pageNumber, pageSize));
     }
 
+    [HttpGet("check-duplicate")]
+    public async Task<ActionResult<object>> CheckDuplicate(
+        [FromQuery] string? phone = null,
+        [FromQuery] string? email = null,
+        [FromQuery] Guid? excludeId = null)
+    {
+        var phoneExists = false;
+        var emailExists = false;
+
+        if (!string.IsNullOrWhiteSpace(phone))
+        {
+            var p = phone.Trim();
+            var digits = new string(p.Where(char.IsDigit).ToArray());
+            var last10 = digits.Length >= 10 ? digits.Substring(digits.Length - 10) : digits;
+
+            var q = _dbContext.Users.AsNoTracking().AsQueryable();
+            if (excludeId.HasValue && excludeId.Value != Guid.Empty)
+            {
+                q = q.Where(u => u.Id != excludeId.Value);
+            }
+
+            phoneExists = await q.AnyAsync(u => u.PhoneNumber != null && 
+                (u.PhoneNumber == p || (last10.Length >= 10 && (u.PhoneNumber.EndsWith(last10) || u.PhoneNumber.Contains(last10)))));
+        }
+
+        if (!string.IsNullOrWhiteSpace(email))
+        {
+            var e = email.Trim().ToLower();
+            var q = _dbContext.Users.AsNoTracking().AsQueryable();
+            if (excludeId.HasValue && excludeId.Value != Guid.Empty)
+            {
+                q = q.Where(u => u.Id != excludeId.Value);
+            }
+
+            emailExists = await q.AnyAsync(u => u.Email != null && u.Email.ToLower() == e);
+        }
+
+        return Ok(new { phoneExists, emailExists });
+    }
+
     [HttpPost]
     public async Task<ActionResult<UserDto>> CreateUser([FromBody] CreateUserDto dto)
     {
@@ -158,6 +198,34 @@ public class UsersController : ControllerBase
         if (existing)
         {
             return BadRequest(new { message = "Username already exists in this institute." });
+        }
+
+        if (string.IsNullOrWhiteSpace(dto.Password))
+        {
+            return BadRequest(new { message = "Password is required for creating a new user." });
+        }
+
+        if (!string.IsNullOrWhiteSpace(dto.Email))
+        {
+            var emailTrimmed = dto.Email.Trim().ToLower();
+            var emailExists = await _dbContext.Users.AnyAsync(u => u.Email != null && u.Email.ToLower() == emailTrimmed);
+            if (emailExists)
+            {
+                return BadRequest(new { message = $"Email address '{dto.Email.Trim()}' is already registered with another user." });
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(dto.PhoneNumber))
+        {
+            var p = dto.PhoneNumber.Trim();
+            var digits = new string(p.Where(char.IsDigit).ToArray());
+            var last10 = digits.Length >= 10 ? digits.Substring(digits.Length - 10) : digits;
+            var phoneExists = await _dbContext.Users.AnyAsync(u => u.PhoneNumber != null &&
+                (u.PhoneNumber == p || (last10.Length >= 10 && (u.PhoneNumber.EndsWith(last10) || u.PhoneNumber.Contains(last10)))));
+            if (phoneExists)
+            {
+                return BadRequest(new { message = $"Phone number '{dto.PhoneNumber.Trim()}' is already registered with another user." });
+            }
         }
 
         var role = await _dbContext.Roles.FindAsync(dto.RoleId);
@@ -234,6 +302,29 @@ public class UsersController : ControllerBase
     {
         var user = await _dbContext.Users.FindAsync(id);
         if (user == null) return NotFound();
+
+        if (!string.IsNullOrWhiteSpace(dto.Email))
+        {
+            var emailTrimmed = dto.Email.Trim().ToLower();
+            var emailExists = await _dbContext.Users.AnyAsync(u => u.Id != id && u.Email != null && u.Email.ToLower() == emailTrimmed);
+            if (emailExists)
+            {
+                return BadRequest(new { message = $"Email address '{dto.Email.Trim()}' is already registered with another user." });
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(dto.PhoneNumber))
+        {
+            var p = dto.PhoneNumber.Trim();
+            var digits = new string(p.Where(char.IsDigit).ToArray());
+            var last10 = digits.Length >= 10 ? digits.Substring(digits.Length - 10) : digits;
+            var phoneExists = await _dbContext.Users.AnyAsync(u => u.Id != id && u.PhoneNumber != null &&
+                (u.PhoneNumber == p || (last10.Length >= 10 && (u.PhoneNumber.EndsWith(last10) || u.PhoneNumber.Contains(last10)))));
+            if (phoneExists)
+            {
+                return BadRequest(new { message = $"Phone number '{dto.PhoneNumber.Trim()}' is already registered with another user." });
+            }
+        }
 
         var role = await _dbContext.Roles.FindAsync(dto.RoleId);
         if (role == null)

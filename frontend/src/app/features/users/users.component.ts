@@ -653,9 +653,9 @@ export class UsersComponent implements OnInit, OnDestroy {
 
   openUserModal(user?: UserDto): void {
     const dialogRef = this.dialog.open(UserDialogComponent, {
-      width: '600px',
+      width: '640px',
       maxWidth: '96vw',
-      maxHeight: '92vh',
+      maxHeight: '94vh',
       autoFocus: false,
       data: user ? { ...user } : undefined
     });
