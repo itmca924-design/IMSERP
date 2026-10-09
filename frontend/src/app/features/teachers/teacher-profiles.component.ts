@@ -221,13 +221,15 @@ import { AuthService } from '../../core/services/auth.service';
           <mat-form-field appearance="outline" style="width:100%">
             <mat-label>WhatsApp Number</mat-label>
             <input matInput formControlName="whatsAppPhone" maxlength="12" (blur)="checkDuplicate('whatsApp')">
-            <button mat-icon-button matSuffix type="button" (click)="copyPhoneToWhatsApp()" matTooltip="Same as Phone Number">
-              <mat-icon style="font-size:16px;color:#2563eb">content_copy</mat-icon>
-            </button>
-            <mat-icon matSuffix *ngIf="whatsAppDupChecking" style="font-size:16px">hourglass_empty</mat-icon>
-            <mat-icon matSuffix *ngIf="!whatsAppDupChecking && whatsAppDuplicate" color="warn" style="font-size:16px">warning</mat-icon>
-            <mat-icon matSuffix *ngIf="!whatsAppDupChecking && !whatsAppDuplicate && teacherForm.get('whatsAppPhone')?.value"
-              style="font-size:16px;color:#2e7d32">check_circle</mat-icon>
+            <div matSuffix class="suffix-group">
+              <button mat-icon-button type="button" (click)="copyPhoneToWhatsApp()" matTooltip="Same as Phone Number" class="copy-suffix-btn">
+                <mat-icon>content_copy</mat-icon>
+              </button>
+              <mat-icon *ngIf="whatsAppDupChecking" class="status-suffix-icon">hourglass_empty</mat-icon>
+              <mat-icon *ngIf="!whatsAppDupChecking && whatsAppDuplicate" color="warn" class="status-suffix-icon">warning</mat-icon>
+              <mat-icon *ngIf="!whatsAppDupChecking && !whatsAppDuplicate && teacherForm.get('whatsAppPhone')?.value"
+                class="status-suffix-icon check-icon">check_circle</mat-icon>
+            </div>
             <mat-hint>WhatsApp payslip &amp; updates</mat-hint>
           </mat-form-field>
           <div class="dup-warning" *ngIf="whatsAppDuplicate">
@@ -1352,6 +1354,55 @@ import { AuthService } from '../../core/services/auth.service';
         background: #dbeafe !important;
         color: #1e40af !important;
         font-weight: 600 !important;
+      }
+    }
+
+    ::ng-deep .mat-mdc-form-field-icon-suffix {
+      display: inline-flex !important;
+      align-items: center !important;
+      flex-direction: row !important;
+      flex-wrap: nowrap !important;
+      white-space: nowrap !important;
+    }
+
+    .suffix-group {
+      display: inline-flex !important;
+      align-items: center !important;
+      flex-direction: row !important;
+      flex-wrap: nowrap !important;
+      white-space: nowrap !important;
+      gap: 2px !important;
+      padding-right: 2px;
+    }
+
+    .copy-suffix-btn {
+      width: 28px !important;
+      height: 28px !important;
+      padding: 0 !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      flex-shrink: 0 !important;
+      mat-icon {
+        font-size: 16px !important;
+        width: 16px !important;
+        height: 16px !important;
+        line-height: 16px !important;
+        color: #2563eb !important;
+      }
+    }
+
+    .status-suffix-icon {
+      font-size: 16px !important;
+      width: 16px !important;
+      height: 16px !important;
+      line-height: 16px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      flex-shrink: 0 !important;
+      &.check-icon {
+        color: #2e7d32 !important;
       }
     }
   `]
