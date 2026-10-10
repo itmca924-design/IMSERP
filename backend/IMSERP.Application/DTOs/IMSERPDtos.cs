@@ -315,6 +315,46 @@ public record CreateSectionPeriodRequestDto(
     Guid? ReplaceExistingAssignmentId = null
 );
 
+public record SchoolPeriodSlotDto(
+    Guid Id,
+    Guid TenantId,
+    Guid? BranchId,
+    string? BranchName,
+    string Name,
+    string StartTime,
+    string EndTime,
+    string TimeSlot,
+    bool IsBreak,
+    int DisplayOrder,
+    bool IsActive,
+    DateTime CreatedAt
+);
+
+public record CreateSchoolPeriodSlotDto(
+    Guid? BranchId,
+    string Name,
+    string StartTime,
+    string EndTime,
+    string? TimeSlot,
+    bool IsBreak,
+    int DisplayOrder,
+    bool IsActive = true
+);
+
+public record BulkSaveSchoolPeriodSlotsDto(
+    Guid? BranchId,
+    List<CreateSchoolPeriodSlotDto> Slots
+);
+
+public record GeneratePeriodSlotsRequestDto(
+    Guid? BranchId,
+    string SchoolStartTime,
+    int PeriodDurationMinutes,
+    int TotalPeriods,
+    int? BreakAfterPeriod = 4,
+    int? BreakDurationMinutes = 30
+);
+
 public record EnrollSchoolStudentInCoachingDto(
     Guid StudentId,
     Guid BatchId,

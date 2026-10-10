@@ -756,6 +756,10 @@ export class SchoolService {
     return this.http.get<SectionPeriodRoutineDto[]>(`${this.apiUrl}/sections/${sectionId}/routine`);
   }
 
+  getAllSectionRoutines(): Observable<SectionPeriodRoutineDto[]> {
+    return this.http.get<SectionPeriodRoutineDto[]>(`${this.apiUrl}/routines/all`);
+  }
+
   addSectionPeriod(sectionId: string, dto: CreateSectionPeriodRequestDto): Observable<SectionPeriodRoutineDto> {
     return this.http.post<SectionPeriodRoutineDto>(`${this.apiUrl}/sections/${sectionId}/routine`, dto);
   }
@@ -767,4 +771,64 @@ export class SchoolService {
   removeSectionPeriod(assignmentId: string): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/sections/routine/${assignmentId}`);
   }
+
+  // ─── School Period Slots & Timetable Timings ───────────────────
+  getPeriodSlots(branchId?: string | null, activeOnly: boolean = true): Observable<SchoolPeriodSlotDto[]> {
+    const params: any = { activeOnly };
+    if (branchId) params.branchId = branchId;
+    return this.http.get<SchoolPeriodSlotDto[]>(`${this.apiUrl}/period-slots`, { params });
+  }
+
+  bulkSavePeriodSlots(payload: BulkSaveSchoolPeriodSlotsDto): Observable<SchoolPeriodSlotDto[]> {
+    return this.http.post<SchoolPeriodSlotDto[]>(`${this.apiUrl}/period-slots/bulk`, payload);
+  }
+
+  generatePeriodSlotsPreview(req: GeneratePeriodSlotsRequestDto): Observable<CreateSchoolPeriodSlotDto[]> {
+    return this.http.post<CreateSchoolPeriodSlotDto[]>(`${this.apiUrl}/period-slots/generate-preview`, req);
+  }
+
+  deletePeriodSlot(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/period-slots/${id}`);
+  }
 }
+
+export interface SchoolPeriodSlotDto {
+  id: string;
+  tenantId: string;
+  branchId?: string | null;
+  branchName?: string | null;
+  name: string;
+  startTime: string;
+  endTime: string;
+  timeSlot: string;
+  isBreak: boolean;
+  displayOrder: number;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface CreateSchoolPeriodSlotDto {
+  branchId?: string | null;
+  name: string;
+  startTime: string;
+  endTime: string;
+  timeSlot?: string;
+  isBreak: boolean;
+  displayOrder: number;
+  isActive?: boolean;
+}
+
+export interface BulkSaveSchoolPeriodSlotsDto {
+  branchId?: string | null;
+  slots: CreateSchoolPeriodSlotDto[];
+}
+
+export interface GeneratePeriodSlotsRequestDto {
+  branchId?: string | null;
+  schoolStartTime: string;
+  periodDurationMinutes: number;
+  totalPeriods: number;
+  breakAfterPeriod?: number;
+  breakDurationMinutes?: number;
+}
+

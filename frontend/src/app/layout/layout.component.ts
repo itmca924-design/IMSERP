@@ -1119,6 +1119,7 @@ export class LayoutComponent implements OnInit {
     { title: 'My 360° Profile & Wall of Fame', route: '/students/my-profile', icon: 'military_tech' },
     { title: 'Class Timetable & Routine', route: '/students/timetable', icon: 'calendar_view_week' },
     { title: 'Classes & Sections (School)', route: '/school/classes', icon: 'domain' },
+    { title: 'Period & Bell Timings Master', route: '/school/period-settings', icon: 'alarm_on' },
     { title: 'Students', route: '/students', icon: 'people' },
     { title: 'Student Attendance', route: '/students/attendance', icon: 'event_available' },
     { title: 'Batches', route: '/batches', icon: 'class' },
@@ -1995,6 +1996,7 @@ export class LayoutComponent implements OnInit {
             { id: '24sm', title: 'Study Material & PYQ Bank', routeUrl: '/study-materials', icon: 'auto_stories', sortOrder: 3, module: 'Master', isActive: true, children: [] }
           ] : [
             { id: '20', title: 'Classes & Sections', routeUrl: '/school/classes', icon: 'domain', sortOrder: 1, module: 'Master', isActive: true, children: [] },
+            { id: '20pt', title: 'Period & Bell Timings', routeUrl: '/school/period-settings', icon: 'alarm_on', sortOrder: 1.5, module: 'Master', isActive: true, children: [] },
             { id: '21', title: 'Batches Master', routeUrl: '/batches', icon: 'class', sortOrder: 2, module: 'Master', isActive: true, children: [] },
             { id: '22', title: 'Classrooms Master', routeUrl: '/rooms', icon: 'meeting_room', sortOrder: 3, module: 'Master', isActive: true, children: [] },
             { id: '23', title: 'Subject Master', routeUrl: '/subjects', icon: 'menu_book', sortOrder: 4, module: 'Master', isActive: true, children: [] },

@@ -436,6 +436,205 @@ public class SchoolController : ControllerBase
         return Ok(list);
     }
 
+    [HttpGet("routines/all")]
+    public async Task<ActionResult<IEnumerable<SectionPeriodRoutineDto>>> GetAllSchoolRoutines()
+    {
+        var tenantId = _currentUser.TenantId;
+        var assignments = await _db.TeacherBatchAssignments.AsNoTracking()
+            .Include(a => a.Teacher)
+            .Include(a => a.Class)
+            .Include(a => a.Section)
+            .Where(a => a.TenantId == tenantId && a.IsActive && a.SectionId.HasValue)
+            .OrderBy(a => a.TimeSlot)
+            .ToListAsync();
+
+        var list = assignments.Select(a => new SectionPeriodRoutineDto(
+            a.Id,
+            a.SectionId!.Value,
+            a.Section?.Name ?? "Section",
+            a.ClassId ?? a.Section?.ClassId ?? Guid.Empty,
+            a.Class?.Name ?? a.Section?.Class?.Name ?? "Class",
+            a.TeacherId,
+            a.Teacher?.FullName ?? "Unknown",
+            a.Teacher?.EmployeeCode ?? "N/A",
+            a.Teacher?.PhoneNumber,
+            a.Subject,
+            a.DaysOfWeek,
+            a.TimeSlot,
+            a.Section?.ClassTeacherId == a.TeacherId,
+            a.AssignedAt
+        )).ToList();
+
+        return Ok(list);
+    }
+
+    #region School Period Slots & Timetable Timings
+
+    private static SchoolPeriodSlotDto ToPeriodSlotDto(SchoolPeriodSlot s) => new(
+        s.Id,
+        s.TenantId,
+        s.BranchId,
+        s.Branch?.Name,
+        s.Name,
+        s.StartTime,
+        s.EndTime,
+        s.TimeSlot,
+        s.IsBreak,
+        s.DisplayOrder,
+        s.IsActive,
+        s.CreatedAt
+    );
+
+    [HttpGet("period-slots")]
+    public async Task<ActionResult<IEnumerable<SchoolPeriodSlotDto>>> GetPeriodSlots([FromQuery] Guid? branchId = null, [FromQuery] bool activeOnly = true)
+    {
+        var tenantId = _currentUser.TenantId;
+        var query = _db.SchoolPeriodSlots.AsNoTracking()
+            .Include(s => s.Branch)
+            .Where(s => s.TenantId == tenantId);
+
+        if (branchId.HasValue)
+        {
+            var branchSpecific = await query
+                .Where(s => s.BranchId == branchId.Value && (!activeOnly || s.IsActive))
+                .OrderBy(s => s.DisplayOrder)
+                .ToListAsync();
+
+            if (branchSpecific.Any())
+            {
+                return Ok(branchSpecific.Select(ToPeriodSlotDto));
+            }
+        }
+
+        // Global / Institute-wide default slots (BranchId == null)
+        var globalSlots = await query
+            .Where(s => s.BranchId == null && (!activeOnly || s.IsActive))
+            .OrderBy(s => s.DisplayOrder)
+                .ToListAsync();
+
+        if (globalSlots.Any())
+        {
+            return Ok(globalSlots.Select(ToPeriodSlotDto));
+        }
+
+        // Fallback to any configured slots
+        var allSlots = await query
+            .Where(s => !activeOnly || s.IsActive)
+            .OrderBy(s => s.DisplayOrder)
+            .ToListAsync();
+
+        return Ok(allSlots.Select(ToPeriodSlotDto));
+    }
+
+    [HttpPost("period-slots/bulk")]
+    public async Task<ActionResult<IEnumerable<SchoolPeriodSlotDto>>> BulkSavePeriodSlots([FromBody] BulkSaveSchoolPeriodSlotsDto dto)
+    {
+        var tenantId = _currentUser.TenantId;
+        var existing = await _db.SchoolPeriodSlots
+            .Where(s => s.TenantId == tenantId && s.BranchId == dto.BranchId)
+            .ToListAsync();
+
+        _db.SchoolPeriodSlots.RemoveRange(existing);
+
+        var newSlots = new List<SchoolPeriodSlot>();
+        int order = 1;
+        foreach (var item in dto.Slots)
+        {
+            var timeSlot = !string.IsNullOrWhiteSpace(item.TimeSlot)
+                ? item.TimeSlot.Trim()
+                : $"{item.StartTime.Trim()} - {item.EndTime.Trim()}";
+
+            newSlots.Add(new SchoolPeriodSlot
+            {
+                TenantId = tenantId,
+                BranchId = dto.BranchId,
+                Name = item.Name.Trim(),
+                StartTime = item.StartTime.Trim(),
+                EndTime = item.EndTime.Trim(),
+                TimeSlot = timeSlot,
+                IsBreak = item.IsBreak,
+                DisplayOrder = item.DisplayOrder > 0 ? item.DisplayOrder : order++,
+                IsActive = item.IsActive
+            });
+        }
+
+        await _db.SchoolPeriodSlots.AddRangeAsync(newSlots);
+        await _db.SaveChangesAsync();
+
+        return Ok(newSlots.OrderBy(s => s.DisplayOrder).Select(ToPeriodSlotDto));
+    }
+
+    [HttpPost("period-slots/generate-preview")]
+    public ActionResult<IEnumerable<CreateSchoolPeriodSlotDto>> GeneratePeriodSlotsPreview([FromBody] GeneratePeriodSlotsRequestDto req)
+    {
+        if (!DateTime.TryParseExact(req.SchoolStartTime.Trim(), new[] { "hh:mm tt", "h:mm tt", "HH:mm", "H:mm" },
+            System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var currentStart))
+        {
+            currentStart = DateTime.Today.AddHours(8);
+        }
+
+        var result = new List<CreateSchoolPeriodSlotDto>();
+        int periodNumber = 1;
+        int order = 1;
+
+        for (int i = 1; i <= req.TotalPeriods; i++)
+        {
+            var periodEnd = currentStart.AddMinutes(req.PeriodDurationMinutes);
+            var startStr = currentStart.ToString("hh:mm tt");
+            var endStr = periodEnd.ToString("hh:mm tt");
+            var slotStr = $"{startStr} - {endStr}";
+
+            result.Add(new CreateSchoolPeriodSlotDto(
+                req.BranchId,
+                $"Period {periodNumber}",
+                startStr,
+                endStr,
+                slotStr,
+                false,
+                order++
+            ));
+
+            currentStart = periodEnd;
+            periodNumber++;
+
+            if (req.BreakAfterPeriod.HasValue && req.BreakAfterPeriod.Value == i && req.BreakDurationMinutes.HasValue && req.BreakDurationMinutes.Value > 0)
+            {
+                var breakEnd = currentStart.AddMinutes(req.BreakDurationMinutes.Value);
+                var breakStartStr = currentStart.ToString("hh:mm tt");
+                var breakEndStr = breakEnd.ToString("hh:mm tt");
+                var breakSlotStr = $"{breakStartStr} - {breakEndStr}";
+
+                result.Add(new CreateSchoolPeriodSlotDto(
+                    req.BranchId,
+                    "Recess / Lunch Break",
+                    breakStartStr,
+                    breakEndStr,
+                    breakSlotStr,
+                    true,
+                    order++
+                ));
+
+                currentStart = breakEnd;
+            }
+        }
+
+        return Ok(result);
+    }
+
+    [HttpDelete("period-slots/{id}")]
+    public async Task<ActionResult> DeletePeriodSlot(Guid id)
+    {
+        var tenantId = _currentUser.TenantId;
+        var slot = await _db.SchoolPeriodSlots.FirstOrDefaultAsync(s => s.Id == id && s.TenantId == tenantId);
+        if (slot == null) return NotFound(new { message = "Period slot not found." });
+
+        _db.SchoolPeriodSlots.Remove(slot);
+        await _db.SaveChangesAsync();
+        return Ok(new { message = "Period slot removed successfully." });
+    }
+
+    #endregion
+
     [HttpPost("sections/{sectionId}/routine")]
     public async Task<ActionResult<SectionPeriodRoutineDto>> AddSectionPeriod(Guid sectionId, [FromBody] CreateSectionPeriodRequestDto dto)
     {

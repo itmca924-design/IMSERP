@@ -98,6 +98,7 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
     public DbSet<StudentHealthRecord> StudentHealthRecords => Set<StudentHealthRecord>();
     public DbSet<StudentSibling> StudentSiblings => Set<StudentSibling>();
     public DbSet<StudyMaterial> StudyMaterials => Set<StudyMaterial>();
+    public DbSet<SchoolPeriodSlot> SchoolPeriodSlots => Set<SchoolPeriodSlot>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {

@@ -2187,4 +2187,22 @@ public class StudyMaterial
     public Batch? Batch { get; set; }
 }
 
+public class SchoolPeriodSlot
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string StartTime { get; set; } = string.Empty;
+    public string EndTime { get; set; } = string.Empty;
+    public string TimeSlot { get; set; } = string.Empty;
+    public bool IsBreak { get; set; } = false;
+    public int DisplayOrder { get; set; } = 1;
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+}
+
 

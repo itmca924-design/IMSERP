@@ -9,6 +9,8 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { forkJoin, of } from 'rxjs';
+import { catchError, map } from 'rxjs/operators';
 import { SchoolService, SectionPeriodRoutineDto, CreateSectionPeriodRequestDto } from '../../core/services/school.service';
 import { SubjectsService, ClassSubjectDto } from '../../core/services/subjects.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
@@ -22,6 +24,7 @@ export interface SectionRoutineDialogData {
   classTeacherId?: string | null;
   classTeacherName?: string | null;
   classTeacherPhone?: string | null;
+  branchId?: string | null;
   teachers: TeacherDto[];
 }
 
@@ -104,6 +107,9 @@ export interface SectionRoutineDialogData {
             <strong>Faculty Schedule Clash Detected!</strong>
             <p>{{ clashWarning }}</p>
             <div class="clash-actions">
+              <button mat-flat-button color="primary" class="btn-pick-free" (click)="pickFirstAvailableTeacher()">
+                <mat-icon>auto_awesome</mat-icon> Pick Free Teacher (खाली शिक्षक चुनें)
+              </button>
               <button mat-flat-button color="warn" class="btn-override" (click)="submitPeriod(true)">
                 <mat-icon>priority_high</mat-icon> Schedule Anyway (Override Clash)
               </button>
@@ -119,7 +125,7 @@ export interface SectionRoutineDialogData {
               <h3 class="section-heading"><mat-icon>schedule</mat-icon> Scheduled Periods ({{ routine.length }})</h3>
               <span class="coverage-pill" *ngIf="routine.length > 0">{{ uniqueSubjects.length }} Subjects Configured</span>
             </div>
-            <button type="button" class="add-period-toggle" (click)="showAddForm = !showAddForm">
+            <button type="button" class="add-period-toggle" (click)="toggleAddForm()">
               <mat-icon>{{ showAddForm ? 'remove' : 'add' }}</mat-icon>
               {{ showAddForm ? 'Hide Form' : 'Add Subject Period' }}
             </button>
@@ -127,10 +133,15 @@ export interface SectionRoutineDialogData {
 
           <!-- Add/Assign Period Form Drawer -->
           <div class="add-period-card" *ngIf="showAddForm">
-            <h4 class="form-title">
-              <mat-icon>{{ editingPeriodId ? 'edit_calendar' : 'add_task' }}</mat-icon>
-              {{ editingPeriodId ? 'Edit Period / Change Faculty' : 'Add Period / Subject Slot' }}
-            </h4>
+            <div class="form-title-row">
+              <h4 class="form-title">
+                <mat-icon>{{ editingPeriodId ? 'edit_calendar' : 'add_task' }}</mat-icon>
+                {{ editingPeriodId ? 'Edit Period / Change Faculty' : 'Add Period / Subject Slot' }}
+              </h4>
+              <button type="button" class="auto-fill-btn" (click)="autoFillNextSlot()" *ngIf="!editingPeriodId" matTooltip="Auto-pick next unassigned subject, empty period, and available teacher">
+                <mat-icon>auto_awesome</mat-icon> Auto-Fill Next Slot (खाली स्लॉट भरें)
+              </button>
+            </div>
 
             <!-- Quick Subject Suggestions -->
             <div class="form-group">
@@ -144,10 +155,14 @@ export interface SectionRoutineDialogData {
                 <button type="button" *ngFor="let s of displaySubjects; trackBy: trackBySubject"
                   class="subj-chip"
                   [class.curriculum-chip]="s.isCurriculum"
+                  [class.already-configured]="isSubjectAssigned(s.name)"
                   [class.active]="newSubject && (newSubject.trim().toLowerCase() === (s.name || '').trim().toLowerCase())"
                   (click)="pickSubject(s)"
-                  [matTooltip]="s.teacherId ? 'Auto-selects assigned subject teacher' : ''">
-                  <span *ngIf="s.isCurriculum" class="star-icon">⭐ </span>{{ s.name }}
+                  [matTooltip]="isSubjectAssigned(s.name) ? 'Already scheduled in this section' : (s.teacherId ? 'Auto-selects assigned subject teacher if available' : '')">
+                  <span *ngIf="isSubjectAssigned(s.name)" class="check-icon">✓ </span>
+                  <span *ngIf="!isSubjectAssigned(s.name) && s.isCurriculum" class="star-icon">⭐ </span>{{ s.name }}
+                  <span *ngIf="isSubjectAssigned(s.name)" class="badge-done">Already Configured</span>
+                  <span *ngIf="!isSubjectAssigned(s.name)" class="badge-pending">Unassigned</span>
                 </button>
               </div>
               <input type="text" [(ngModel)]="newSubject" placeholder="Or enter subject name (e.g. Sanskrit, Moral Science)..." class="custom-input" />
@@ -155,16 +170,44 @@ export interface SectionRoutineDialogData {
 
             <!-- Faculty Selection -->
             <div class="form-group">
-              <label class="field-label">Faculty Member (शिक्षक) *</label>
-              <select [(ngModel)]="selectedTeacherId" class="custom-select">
+              <div class="fac-label-row">
+                <label class="field-label">Faculty Member (शिक्षक) *</label>
+                <span class="fac-availability-tag clash" *ngIf="selectedTeacherClash">
+                  <mat-icon>error</mat-icon> Busy in other class!
+                </span>
+                <span class="fac-availability-tag free" *ngIf="!selectedTeacherClash && selectedTeacherId">
+                  <mat-icon>check_circle</mat-icon> Available at this slot
+                </span>
+              </div>
+              <select [(ngModel)]="selectedTeacherId" class="custom-select" [class.input-clash]="selectedTeacherClash">
                 <option value="">-- Choose Teacher --</option>
-                <option *ngIf="classTeacherObj" [value]="classTeacherObj.id" style="font-weight: 700; color: #1e3a8a;">
-                  ⭐ {{ classTeacherObj.fullName }} ({{ classTeacherObj.employeeCode }}) — Class Teacher
-                </option>
-                <option *ngFor="let t of nonCtTeachers; trackBy: trackByTeacherId" [value]="t.id">
-                  {{ t.fullName }} ({{ t.employeeCode }}) {{ t.specialization ? '• ' + t.specialization : '' }}
-                </option>
+                <optgroup [label]="'🟢 Available Faculty (उपलब्ध शिक्षक - कोई Clash नहीं) (' + availableTeachers.length + ' Free)'" *ngIf="availableTeachers.length > 0">
+                  <option *ngIf="classTeacherObj && !isTeacherClashed(classTeacherObj.id)" [value]="classTeacherObj.id" style="font-weight: 700; color: #1e3a8a;">
+                    ⭐ {{ classTeacherObj.fullName }} ({{ classTeacherObj.employeeCode }}) — Class Teacher [Available]
+                  </option>
+                  <option *ngFor="let t of availableNonCtTeachers; trackBy: trackByTeacherId" [value]="t.id">
+                    🟢 {{ t.fullName }} ({{ t.employeeCode }}) {{ t.specialization ? '• ' + t.specialization : '' }}
+                  </option>
+                </optgroup>
+                <optgroup [label]="'🔴 Busy Faculty (व्यस्त शिक्षक - दूसरी क्लास में शेड्यूल) (' + busyTeachers.length + ' Busy)'" *ngIf="busyTeachers.length > 0">
+                  <option *ngIf="classTeacherObj && isTeacherClashed(classTeacherObj.id)" [value]="classTeacherObj.id" style="color: #991b1b;">
+                    ⚠️ {{ classTeacherObj.fullName }} ({{ classTeacherObj.employeeCode }}) — Busy in {{ getTeacherClash(classTeacherObj.id) }}
+                  </option>
+                  <option *ngFor="let t of busyNonCtTeachers; trackBy: trackByTeacherId" [value]="t.id" style="color: #991b1b;">
+                    ⚠️ {{ t.fullName }} ({{ t.employeeCode }}) — Busy in {{ getTeacherClash(t.id) }}
+                  </option>
+                </optgroup>
               </select>
+              <!-- Inline teacher clash helper box -->
+              <div class="teacher-inline-clash-box" *ngIf="selectedTeacherClash">
+                <div class="clash-inline-text">
+                  <mat-icon>warning</mat-icon>
+                  <span><strong>{{ selectedTeacherObj?.fullName }}</strong> is busy: {{ selectedTeacherClash }}</span>
+                </div>
+                <button type="button" class="btn-quick-fix-teacher" (click)="pickFirstAvailableTeacher()">
+                  <mat-icon>auto_fix_high</mat-icon> Pick Available Teacher
+                </button>
+              </div>
             </div>
 
             <!-- Days Selection -->
@@ -194,8 +237,13 @@ export interface SectionRoutineDialogData {
                 <button type="button" *ngFor="let p of presetPeriods"
                   class="p-chip"
                   [class.active]="selectedTimeSlot === p.slot"
-                  (click)="selectedTimeSlot = p.slot">
-                  <span class="p-name">{{ p.name }}</span>
+                  [class.period-taken]="isPeriodAssigned(p.slot)"
+                  (click)="onSelectPeriodSlot(p.slot)">
+                  <div class="p-top-row">
+                    <span class="p-name">{{ p.name }}</span>
+                    <span class="p-tag-pill" *ngIf="getPeriodSubjectName(p.slot)">✓ {{ getPeriodSubjectName(p.slot) }}</span>
+                    <span class="p-tag-pill free-tag" *ngIf="!getPeriodSubjectName(p.slot)">🟢 Free</span>
+                  </div>
                   <span class="p-time">{{ p.slot }}</span>
                 </button>
               </div>
@@ -276,8 +324,8 @@ export interface SectionRoutineDialogData {
             </div>
             <h4>No periods scheduled yet</h4>
             <p>Configure weekly timetable for <strong>{{ data.className }} - {{ data.sectionName }}</strong> by adding subjects and assigned faculty members.</p>
-            <button mat-flat-button color="primary" class="start-btn" (click)="showAddForm = true">
-              <mat-icon>add</mat-icon> Setup Class Routine
+            <button mat-flat-button color="primary" class="start-btn" (click)="showAddForm = true; autoFillNextSlot()">
+              <mat-icon>auto_awesome</mat-icon> Setup Class Routine (खाली स्लॉट भरें)
             </button>
           </div>
         </div>
@@ -583,6 +631,99 @@ export interface SectionRoutineDialogData {
       gap: 14px;
     }
 
+    .form-title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .auto-fill-btn {
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+      border: 1px solid #93c5fd;
+      color: #1d4ed8;
+      font-size: 0.78rem;
+      font-weight: 700;
+      padding: 5px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.15s;
+      mat-icon { font-size: 15px; width: 15px; height: 15px; color: #2563eb; }
+      &:hover { background: #dbeafe; border-color: #60a5fa; transform: translateY(-1px); }
+    }
+
+    .fac-label-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.76rem;
+    }
+
+    .fac-availability-tag {
+      font-size: 0.74rem;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      mat-icon { font-size: 14px; width: 14px; height: 14px; }
+      &.clash { color: #dc2626; }
+      &.free { color: #16a34a; }
+    }
+
+    .input-clash {
+      border-color: #f87171 !important;
+      background: #fff5f5 !important;
+    }
+
+    .teacher-inline-clash-box {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 8px;
+      padding: 8px 12px;
+      margin-top: 4px;
+      font-size: 0.8rem;
+      color: #991b1b;
+      gap: 8px;
+      flex-wrap: wrap;
+
+      .clash-inline-text {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        mat-icon { font-size: 16px; width: 16px; height: 16px; color: #dc2626; flex-shrink: 0; }
+      }
+
+      .btn-quick-fix-teacher {
+        background: #2563eb;
+        color: #fff;
+        border: none;
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 0.76rem;
+        font-weight: 700;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        mat-icon { font-size: 14px; width: 14px; height: 14px; color: #fff; }
+        &:hover { background: #1d4ed8; }
+      }
+    }
+
+    .btn-pick-free {
+      font-weight: 700;
+      font-size: 0.78rem;
+      background: #2563eb !important;
+      color: #fff !important;
+    }
+
     .form-title {
       margin: 0;
       font-size: 0.95rem;
@@ -748,6 +889,56 @@ export interface SectionRoutineDialogData {
         .p-name { color: #1d4ed8; }
         .p-time { color: #2563eb; font-weight: 600; }
       }
+      &.period-taken {
+        border-color: #bfdbfe;
+        background: #f8fafc;
+      }
+    }
+
+    .p-top-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      margin-bottom: 2px;
+    }
+
+    .p-tag-pill {
+      font-size: 0.65rem;
+      font-weight: 700;
+      color: #1e40af;
+      background: #dbeafe;
+      padding: 1px 5px;
+      border-radius: 4px;
+      &.free-tag {
+        background: #dcfce7;
+        color: #15803d;
+      }
+    }
+
+    .subj-chip.already-configured {
+      background: #f0fdf4 !important;
+      border-color: #bbf7d0 !important;
+      color: #166534 !important;
+      .badge-done {
+        font-size: 0.65rem;
+        font-weight: 700;
+        background: #dcfce7;
+        color: #15803d;
+        padding: 1px 5px;
+        border-radius: 4px;
+        margin-left: 4px;
+      }
+    }
+
+    .subj-chip .badge-pending {
+      font-size: 0.65rem;
+      font-weight: 700;
+      background: #eff6ff;
+      color: #2563eb;
+      padding: 1px 5px;
+      border-radius: 4px;
+      margin-left: 4px;
     }
 
     .form-actions {
@@ -1006,24 +1197,16 @@ export class SectionRoutineDialogComponent implements OnInit {
 
   readonly weekDaysList = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-  readonly presetPeriods = [
-    { name: 'Period 1', slot: '08:00 AM - 08:45 AM' },
-    { name: 'Period 2', slot: '08:45 AM - 09:30 AM' },
-    { name: 'Period 3', slot: '09:45 AM - 10:30 AM' },
-    { name: 'Period 4', slot: '10:30 AM - 11:15 AM' },
-    { name: 'Period 5', slot: '11:30 AM - 12:15 PM' },
-    { name: 'Period 6', slot: '12:15 PM - 01:00 PM' },
-    { name: 'Period 7', slot: '01:30 PM - 02:15 PM' },
-    { name: 'Period 8', slot: '02:15 PM - 03:00 PM' }
-  ];
+  presetPeriods: { name: string; slot: string; isBreak?: boolean }[] = [];
 
   newSubject = '';
   selectedTeacherId = '';
   selectedDays: string[] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  selectedTimeSlot = '08:00 AM - 08:45 AM';
+  selectedTimeSlot = '';
 
   classSubjects: ClassSubjectDto[] = [];
   loadingClassSubjects = false;
+  allSchoolRoutines: SectionPeriodRoutineDto[] = [];
 
   constructor(
     public dialogRef: MatDialogRef<SectionRoutineDialogComponent>,
@@ -1058,14 +1241,170 @@ export class SectionRoutineDialogComponent implements OnInit {
     return item ? item.id : `${index}`;
   }
 
+  private normalizeSlot(s?: string): string {
+    return (s || '').replace(/[\u2010-\u2015\u2212–—]/g, '-').replace(/\s+/g, ' ').trim().toLowerCase();
+  }
+
+  private normalizeDay(d: string): string {
+    return d.trim().substring(0, 3).toLowerCase();
+  }
+
+  isSubjectAssigned(subjectName: string): boolean {
+    if (!subjectName) return false;
+    const nameNorm = subjectName.trim().toLowerCase();
+    return this.routine.some(r => 
+      (r.subject || '').trim().toLowerCase() === nameNorm && 
+      (!this.editingPeriodId || r.id !== this.editingPeriodId)
+    );
+  }
+
+  isPeriodAssigned(slot: string): boolean {
+    if (!slot) return false;
+    const slotNorm = this.normalizeSlot(slot);
+    return this.routine.some(r => 
+      this.normalizeSlot(r.timeSlot) === slotNorm && 
+      (!this.editingPeriodId || r.id !== this.editingPeriodId)
+    );
+  }
+
+  getPeriodSubjectName(slot: string): string | null {
+    if (!slot) return null;
+    const slotNorm = this.normalizeSlot(slot);
+    const found = this.routine.find(r => 
+      this.normalizeSlot(r.timeSlot) === slotNorm && 
+      (!this.editingPeriodId || r.id !== this.editingPeriodId)
+    );
+    return found ? found.subject : null;
+  }
+
+  getTeacherClash(teacherId: string): string | null {
+    if (!teacherId || !this.selectedTimeSlot) return null;
+    const currentSlotNorm = this.normalizeSlot(this.selectedTimeSlot);
+    const selectedDaysNorm = this.selectedDays.map(d => this.normalizeDay(d));
+
+    const clash = this.allSchoolRoutines.find(r => {
+      if (r.teacherId !== teacherId) return false;
+      if (this.editingPeriodId && r.id === this.editingPeriodId) return false;
+
+      const rSlotNorm = this.normalizeSlot(r.timeSlot);
+      if (rSlotNorm !== currentSlotNorm) return false;
+
+      const rDays = this.getDaysArray(r.daysOfWeek).map(d => this.normalizeDay(d));
+      return selectedDaysNorm.some(d => rDays.includes(d));
+    });
+
+    if (clash) {
+      const clsName = clash.className ? `${clash.className} - ${clash.sectionName}` : 'Another class';
+      return `${clsName} (${clash.subject})`;
+    }
+    return null;
+  }
+
+  isTeacherClashed(teacherId: string): boolean {
+    return this.getTeacherClash(teacherId) !== null;
+  }
+
+  get selectedTeacherClash(): string | null {
+    return this.selectedTeacherId ? this.getTeacherClash(this.selectedTeacherId) : null;
+  }
+
+  get selectedTeacherObj(): TeacherDto | undefined {
+    return (this.data.teachers || []).find(t => t.id === this.selectedTeacherId);
+  }
+
+  get availableTeachers(): TeacherDto[] {
+    const list = (this.data.teachers || []).filter(t => t.isActive && this.isTeachingStaff(t));
+    return list.filter(t => !this.isTeacherClashed(t.id));
+  }
+
+  get busyTeachers(): TeacherDto[] {
+    const list = (this.data.teachers || []).filter(t => t.isActive && this.isTeachingStaff(t));
+    return list.filter(t => this.isTeacherClashed(t.id));
+  }
+
+  get availableNonCtTeachers(): TeacherDto[] {
+    return this.nonCtTeachers.filter(t => !this.isTeacherClashed(t.id));
+  }
+
+  get busyNonCtTeachers(): TeacherDto[] {
+    return this.nonCtTeachers.filter(t => this.isTeacherClashed(t.id));
+  }
+
+  pickFirstAvailableTeacher(): void {
+    this.clashWarning = null;
+    if (this.classTeacherObj && !this.isTeacherClashed(this.classTeacherObj.id)) {
+      this.selectedTeacherId = this.classTeacherObj.id;
+      return;
+    }
+    const free = this.availableNonCtTeachers;
+    if (free.length > 0) {
+      this.selectedTeacherId = free[0].id;
+      return;
+    }
+    const anyFree = this.availableTeachers;
+    if (anyFree.length > 0) {
+      this.selectedTeacherId = anyFree[0].id;
+    }
+  }
+
+  onSelectPeriodSlot(slot: string): void {
+    this.selectedTimeSlot = slot;
+    this.clashWarning = null;
+    if (this.selectedTeacherId && this.isTeacherClashed(this.selectedTeacherId)) {
+      this.pickFirstAvailableTeacher();
+    }
+  }
+
   pickSubject(item: { name: string; teacherId?: string; isCurriculum: boolean }): void {
     if (this.newSubject && this.newSubject.trim().toLowerCase() === (item.name || '').trim().toLowerCase()) {
       this.newSubject = '';
     } else {
       this.newSubject = item.name;
-      if (item.teacherId) {
-        this.selectedTeacherId = item.teacherId;
+      this.clashWarning = null;
+
+      // Auto-assign next free period if current period is already taken by another subject
+      if (this.isPeriodAssigned(this.selectedTimeSlot)) {
+        const nextFreePeriod = this.presetPeriods.find(p => !this.isPeriodAssigned(p.slot));
+        if (nextFreePeriod) {
+          this.selectedTimeSlot = nextFreePeriod.slot;
+        }
       }
+
+      if (item.teacherId && !this.isTeacherClashed(item.teacherId)) {
+        this.selectedTeacherId = item.teacherId;
+      } else {
+        this.pickFirstAvailableTeacher();
+      }
+    }
+  }
+
+  autoFillNextSlot(): void {
+    this.clashWarning = null;
+
+    // 1. Next Unassigned Subject
+    const unassignedSubj = this.displaySubjects.find(s => !this.isSubjectAssigned(s.name)) || this.displaySubjects[0];
+    if (unassignedSubj) {
+      this.newSubject = unassignedSubj.name;
+    }
+
+    // 2. Next Unassigned Period Slot
+    const unassignedPeriod = this.presetPeriods.find(p => !this.isPeriodAssigned(p.slot)) || this.presetPeriods[0];
+    if (unassignedPeriod) {
+      this.selectedTimeSlot = unassignedPeriod.slot;
+    }
+
+    // 3. Faculty: If subject's curriculum teacher is available, use them; otherwise pick first available teacher!
+    if (unassignedSubj?.teacherId && !this.isTeacherClashed(unassignedSubj.teacherId)) {
+      this.selectedTeacherId = unassignedSubj.teacherId;
+    } else {
+      this.pickFirstAvailableTeacher();
+    }
+  }
+
+  toggleAddForm(): void {
+    this.showAddForm = !this.showAddForm;
+    if (this.showAddForm && !this.editingPeriodId) {
+      this.autoFillNextSlot();
     }
   }
 
@@ -1086,11 +1425,101 @@ export class SectionRoutineDialogComponent implements OnInit {
   ngOnInit() {
     this.updateDisplaySubjects();
     this.loadRoutine();
+    this.loadPeriodSlots();
+    this.loadAllSchoolRoutines();
     this.loadClassSubjects();
     if (this.data.classTeacherId && this.classTeacherObj) {
       this.selectedTeacherId = this.data.classTeacherId;
     } else {
       this.selectedTeacherId = '';
+    }
+  }
+
+  loadPeriodSlots(): void {
+    const branchId = this.data.branchId || null;
+    this.schoolService.getPeriodSlots(branchId, true).subscribe({
+      next: (slots) => {
+        if (slots && slots.length > 0) {
+          const teachingSlots = slots
+            .filter(s => !s.isBreak)
+            .map(s => ({
+              name: s.name,
+              slot: s.timeSlot,
+              isBreak: s.isBreak
+            }));
+
+          if (teachingSlots.length > 0) {
+            this.presetPeriods = teachingSlots;
+
+            if (!this.editingPeriodId) {
+              const unassignedPeriod = this.presetPeriods.find(p => !this.isPeriodAssigned(p.slot)) || this.presetPeriods[0];
+              this.selectedTimeSlot = unassignedPeriod.slot;
+            }
+          }
+        }
+      },
+      error: () => {}
+    });
+  }
+
+  loadAllSchoolRoutines(): void {
+    this.schoolService.getAllSectionRoutines().subscribe({
+      next: (routines) => {
+        if (routines && routines.length > 0) {
+          this.allSchoolRoutines = routines;
+          this.autoSelectFreeSlotIfEmpty();
+        } else {
+          this.fallbackLoadAllRoutines();
+        }
+      },
+      error: () => {
+        this.fallbackLoadAllRoutines();
+      }
+    });
+  }
+
+  fallbackLoadAllRoutines(): void {
+    this.schoolService.getClasses(false).subscribe({
+      next: (classes) => {
+        const sections: { id: string; className: string; secName: string }[] = [];
+        (classes || []).forEach(c => {
+          (c.sections || []).forEach(s => {
+            sections.push({ id: s.id, className: c.name, secName: s.name });
+          });
+        });
+
+        if (sections.length === 0) {
+          this.allSchoolRoutines = [];
+          return;
+        }
+
+        forkJoin(
+          sections.map(sec => 
+            this.schoolService.getSectionRoutine(sec.id).pipe(
+              map(arr => (arr || []).map(r => ({
+                ...r,
+                className: r.className || sec.className,
+                sectionName: r.sectionName || sec.secName
+              }))),
+              catchError(() => of([]))
+            )
+          )
+        ).subscribe(results => {
+          this.allSchoolRoutines = results.flat();
+          this.autoSelectFreeSlotIfEmpty();
+        });
+      },
+      error: () => {
+        this.allSchoolRoutines = [];
+      }
+    });
+  }
+
+  autoSelectFreeSlotIfEmpty(): void {
+    if (!this.editingPeriodId) {
+      if (!this.selectedTeacherId || this.isTeacherClashed(this.selectedTeacherId)) {
+        this.pickFirstAvailableTeacher();
+      }
     }
   }
 
@@ -1293,6 +1722,12 @@ export class SectionRoutineDialogComponent implements OnInit {
           } else {
             this.routine.push(updated);
           }
+          const allIdx = this.allSchoolRoutines.findIndex(r => r.id === updated.id);
+          if (allIdx !== -1) {
+            this.allSchoolRoutines[allIdx] = updated;
+          } else {
+            this.allSchoolRoutines.push(updated);
+          }
           this.resetForm();
         },
         error: (err) => this.handleSaveError(err)
@@ -1306,6 +1741,12 @@ export class SectionRoutineDialogComponent implements OnInit {
             this.routine[idx] = res;
           } else {
             this.routine.push(res);
+          }
+          const allIdx = this.allSchoolRoutines.findIndex(r => r.id === res.id);
+          if (allIdx !== -1) {
+            this.allSchoolRoutines[allIdx] = res;
+          } else {
+            this.allSchoolRoutines.push(res);
           }
           this.resetForm();
         },
@@ -1351,6 +1792,7 @@ export class SectionRoutineDialogComponent implements OnInit {
       this.schoolService.removeSectionPeriod(item.id).subscribe({
         next: () => {
           this.routine = this.routine.filter(r => r.id !== item.id);
+          this.allSchoolRoutines = this.allSchoolRoutines.filter(r => r.id !== item.id);
         },
         error: (err) => {
           this.confirmDialog.alert('Error', err.error?.message || 'Failed to remove period.', 'danger');

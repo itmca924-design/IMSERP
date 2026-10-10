@@ -91,6 +91,7 @@ public interface IIMSERPDbContext
     DbSet<StudentHealthRecord> StudentHealthRecords { get; }
     DbSet<StudentSibling> StudentSiblings { get; }
     DbSet<StudyMaterial> StudyMaterials { get; }
+    DbSet<SchoolPeriodSlot> SchoolPeriodSlots { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

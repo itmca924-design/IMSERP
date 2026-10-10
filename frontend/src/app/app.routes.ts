@@ -1,6 +1,8 @@
 import { Routes } from '@angular/router';
 import { LayoutComponent } from './layout/layout.component';
 import { authGuard } from './core/guards/auth.guard';
+import { PeriodSettingsComponent } from './features/school/period-settings.component';
+
 
 export const routes: Routes = [
   {
@@ -22,6 +24,10 @@ export const routes: Routes = [
       {
         path: 'school/classes',
         loadComponent: () => import('./features/school/school-classes.component').then(m => m.SchoolClassesComponent)
+      },
+      {
+        path: 'school/period-settings',
+        component: PeriodSettingsComponent
       },
       {
         path: 'school/exams',
@@ -253,6 +259,11 @@ export const routes: Routes = [
       },
       { path: 'front-desk', redirectTo: 'front-desk/visitors', pathMatch: 'full' },
       // Route Aliases
+      { path: 'period-settings', redirectTo: 'school/period-settings', pathMatch: 'full' },
+      { path: 'school/periods', redirectTo: 'school/period-settings', pathMatch: 'full' },
+      { path: 'periods', redirectTo: 'school/period-settings', pathMatch: 'full' },
+      { path: 'school/period-timings', redirectTo: 'school/period-settings', pathMatch: 'full' },
+      { path: 'period-timings', redirectTo: 'school/period-settings', pathMatch: 'full' },
       { path: 'school-exams', redirectTo: 'school/exams', pathMatch: 'full' },
       { path: 'homework-diary', redirectTo: 'school/homework', pathMatch: 'full' },
       { path: 'teacher-substitution', redirectTo: 'teachers/substitution', pathMatch: 'full' },
