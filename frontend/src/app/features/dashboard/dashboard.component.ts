@@ -1586,6 +1586,7 @@ import ApexCharts from 'apexcharts';
       display: grid;
       grid-template-columns: repeat(6, 1fr);
       gap: 16px;
+      margin-bottom: 8px;
 
       @media (max-width: 1440px) {
         grid-template-columns: repeat(3, 1fr);

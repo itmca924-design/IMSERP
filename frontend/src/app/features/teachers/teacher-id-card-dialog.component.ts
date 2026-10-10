@@ -28,14 +28,20 @@ export interface TeacherIdCardDialogData {
 <div class="idcard-modal-container">
   <!-- Top Action Bar (Screen Only) adhering strictly to AGENTS.md light-blue header rule -->
   <div class="modal-header no-print">
-    <div class="header-left">
-      <div class="header-icon-box">
-        <mat-icon>badge</mat-icon>
+    <div class="header-top-row">
+      <div class="header-left">
+        <div class="header-icon-box">
+          <mat-icon>badge</mat-icon>
+        </div>
+        <div>
+          <h2 class="modal-title">Staff Identity Cards (शिक्षक पहचान पत्र)</h2>
+          <p class="modal-subtitle">Official Staff ID Cards &bull; High Resolution Printable Badges</p>
+        </div>
       </div>
-      <div>
-        <h2 class="modal-title">Staff Identity Cards (शिक्षक पहचान पत्र)</h2>
-        <p class="modal-subtitle">Official Staff ID Cards &bull; High Resolution Printable Badges</p>
-      </div>
+
+      <button mat-icon-button (click)="dialogRef.close()" class="close-btn" matTooltip="Close">
+        <mat-icon>close</mat-icon>
+      </button>
     </div>
 
     <div class="header-controls">
@@ -47,10 +53,6 @@ export interface TeacherIdCardDialogData {
 
       <button mat-raised-button color="primary" class="print-btn" (click)="printCards()">
         <mat-icon>print</mat-icon> Print ID Cards
-      </button>
-
-      <button mat-icon-button (click)="dialogRef.close()" class="close-btn">
-        <mat-icon>close</mat-icon>
       </button>
     </div>
   </div>
@@ -169,16 +171,24 @@ export interface TeacherIdCardDialogData {
       border-bottom: 1px solid #bfdbfe;
       padding: 14px 20px;
       display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .header-top-row {
+      display: flex;
       align-items: center;
       justify-content: space-between;
+      width: 100%;
       gap: 12px;
-      flex-wrap: wrap;
     }
 
     .header-left {
       display: flex;
       align-items: center;
       gap: 12px;
+      flex: 1;
+      min-width: 0;
     }
 
     .header-icon-box {

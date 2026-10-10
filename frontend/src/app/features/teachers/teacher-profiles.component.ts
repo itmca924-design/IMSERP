@@ -572,15 +572,11 @@ import { AuthService } from '../../core/services/auth.service';
       <mat-divider></mat-divider>
 
       <div class="profile-actions">
-        <div class="account-actions-group">
-          <div class="user-account-badge" *ngIf="selectedTeacher.hasLoginAccount">
+        <div class="account-actions-group" *ngIf="selectedTeacher.hasLoginAccount">
+          <div class="user-account-badge">
             <mat-icon>verified_user</mat-icon>
             <span>ERP Login {{ selectedTeacher.isActive ? 'Active' : 'Locked' }}: <strong>&#64;{{selectedTeacher.username}}</strong></span>
           </div>
-          <!-- Only Admin/HR can create new login accounts -->
-          <button mat-stroked-button color="accent" *ngIf="canManageStaff && selectedTeacher.isActive && !selectedTeacher.hasLoginAccount" (click)="openCreateAccountDialog(selectedTeacher)">
-            <mat-icon>person_add_alt</mat-icon> Create ERP Login
-          </button>
         </div>
         <!-- Staff ID Card: everyone can print their own -->
         <button mat-stroked-button color="primary" *ngIf="selectedTeacher.isActive" (click)="openSingleIdCard(selectedTeacher)">
