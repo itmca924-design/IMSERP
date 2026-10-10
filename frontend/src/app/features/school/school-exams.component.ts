@@ -35,7 +35,7 @@ import {
   UpdateExamEvaluationWorkflowDto,
   LockExamMarksDto
 } from '../../core/services/school.service';
-import { SubjectsService, SubjectDto } from '../../core/services/subjects.service';
+import { SubjectsService, SubjectDto, ClassSubjectDto } from '../../core/services/subjects.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { AuthService } from '../../core/services/auth.service';
 import { SchoolReportCardDialogComponent } from './school-report-card-dialog.component';
@@ -159,6 +159,8 @@ export class SchoolExamsComponent implements OnInit {
       sectionId: [''],
       academicYear: ['2025-2026', Validators.required],
       examType: ['Annual Exam', Validators.required],
+      startDate: [this.getDefaultExamStartDate(), Validators.required],
+      examSpacing: ['daily', Validators.required],
       defaultMaxMarks: [100, [Validators.required, Validators.min(1)]],
       defaultPassingMarks: [33, [Validators.required, Validators.min(1)]],
       exams: this.fb.array([])
@@ -256,7 +258,6 @@ export class SchoolExamsComponent implements OnInit {
     this.loadClasses();
     this.loadTeachers();
     this.loadSubjects();
-    this.loadExams();
     this.loadExamSettings();
   }
 
@@ -288,7 +289,9 @@ export class SchoolExamsComponent implements OnInit {
             this.onScheduleClassChange(this.classes[0].id);
           }
         }
-      }
+        this.loadExams();
+      },
+      error: () => this.loadExams()
     });
   }
 
@@ -373,42 +376,207 @@ export class SchoolExamsComponent implements OnInit {
 
   // ─── Scheduler Tab ─────────────────────────────────
 
+  // Class-Wise Curriculum Mapping
+  currentClassSubjects: ClassSubjectDto[] = [];
+  loadingClassSubjects = false;
+
+  get availableSubjectsForSchedule(): { name: string; isCurriculum: boolean; totalMarks?: number; passingMarks?: number; teacherName?: string }[] {
+    const list: { name: string; isCurriculum: boolean; totalMarks?: number; passingMarks?: number; teacherName?: string }[] = [];
+    const added = new Set<string>();
+
+    this.currentClassSubjects.forEach(cs => {
+      list.push({
+        name: cs.subjectName,
+        isCurriculum: true,
+        totalMarks: cs.totalMarks,
+        passingMarks: cs.passingMarks,
+        teacherName: cs.teacherName
+      });
+      added.add(cs.subjectName.toLowerCase());
+    });
+
+    this.allSubjects.forEach(s => {
+      if (!added.has(s.name.toLowerCase())) {
+        list.push({
+          name: s.name,
+          isCurriculum: false
+        });
+        added.add(s.name.toLowerCase());
+      }
+    });
+
+    return list;
+  }
+
+  isKnownSubject(subName?: string): boolean {
+    if (!subName) return false;
+    return this.availableSubjectsForSchedule.some(s => s.name.toLowerCase() === subName.toLowerCase());
+  }
+
   onScheduleClassChange(classId: string): void {
     if (!classId) return;
     this.schoolService.getSections(classId).subscribe({
       next: (secs) => { this.sections = secs; }
     });
 
-    // If rows are empty, prefill standard school subjects
-    if (this.examRows.length === 0) {
-      const defaultSubjects = ['Mathematics', 'Science', 'English', 'Social Studies', 'Hindi'];
-      const examType = this.scheduleForm.get('examType')?.value || 'Annual Exam';
-      const maxMarks = this.scheduleForm.get('defaultMaxMarks')?.value || 100;
-      const passMarks = this.scheduleForm.get('defaultPassingMarks')?.value || 33;
-      const today = new Date().toISOString().substring(0, 10);
+    this.loadingClassSubjects = true;
+    this.subjectsService.getClassSubjects(classId).subscribe({
+      next: (classSubs) => {
+        this.loadingClassSubjects = false;
+        this.currentClassSubjects = classSubs || [];
 
-      defaultSubjects.forEach(sub => {
+        // Auto-populate from curriculum if rows are empty or defaults
+        if (this.examRows.length === 0 || this.isDefaultPrefilledRows()) {
+          this.populateFromClassCurriculum();
+        }
+      },
+      error: () => {
+        this.loadingClassSubjects = false;
+        this.currentClassSubjects = [];
+      }
+    });
+  }
+
+  isDefaultPrefilledRows(): boolean {
+    if (this.examRows.length === 0) return true;
+    const defaultSet = new Set(['mathematics', 'science', 'english', 'social studies', 'hindi']);
+    return this.examRows.controls.every(r => defaultSet.has((r.get('subject')?.value || '').toLowerCase()));
+  }
+
+  // ─── Date & Sunday Helpers ───────────────────────────
+  getDefaultExamStartDate(): string {
+    const d = new Date();
+    // If today is Saturday, default start next Monday (+2 days); if Sunday, next Monday (+1 day)
+    if (d.getDay() === 6) {
+      d.setDate(d.getDate() + 2);
+    } else if (d.getDay() === 0) {
+      d.setDate(d.getDate() + 1);
+    }
+    return this.formatDateToYMD(d);
+  }
+
+  formatDateToYMD(d: Date): string {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  isSunday(dateStr: string | null | undefined): boolean {
+    if (!dateStr) return false;
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      const year = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const day = parseInt(parts[2], 10);
+      const d = new Date(year, month, day);
+      return d.getDay() === 0;
+    }
+    const d = new Date(dateStr);
+    return !isNaN(d.getTime()) && d.getDay() === 0;
+  }
+
+  getDayName(dateStr: string | null | undefined): string {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    let d: Date;
+    if (parts.length === 3) {
+      d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+    } else {
+      d = new Date(dateStr);
+    }
+    if (isNaN(d.getTime())) return '';
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    return days[d.getDay()];
+  }
+
+  autoSequenceExamDates(): void {
+    const startStr = this.scheduleForm.get('startDate')?.value || this.getDefaultExamStartDate();
+    const spacing = this.scheduleForm.get('examSpacing')?.value || 'daily';
+
+    if (!startStr || this.examRows.length === 0) return;
+
+    const parts = startStr.split('-');
+    let curr = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+
+    // If start date itself is Sunday, advance to Monday
+    if (curr.getDay() === 0) {
+      curr.setDate(curr.getDate() + 1);
+      this.scheduleForm.get('startDate')?.setValue(this.formatDateToYMD(curr));
+    }
+
+    const step = spacing === 'alternate' ? 2 : (spacing === 'gap2' ? 3 : 1);
+
+    this.examRows.controls.forEach((row, idx) => {
+      if (idx > 0 && spacing !== 'same_day') {
+        curr.setDate(curr.getDate() + step);
+        // Automatically skip Sunday!
+        if (curr.getDay() === 0) {
+          curr.setDate(curr.getDate() + 1);
+        }
+      }
+      row.patchValue({ testDate: this.formatDateToYMD(curr) });
+    });
+  }
+
+  populateFromClassCurriculum(): void {
+    const examType = this.scheduleForm.get('examType')?.value || 'Annual Exam';
+    const formMaxMarks = this.scheduleForm.get('defaultMaxMarks')?.value || 100;
+    const formPassMarks = this.scheduleForm.get('defaultPassingMarks')?.value || 33;
+
+    this.examRows.clear();
+
+    if (this.currentClassSubjects.length > 0) {
+      this.currentClassSubjects.forEach(cs => {
+        this.examRows.push(this.fb.group({
+          subject: [cs.subjectName, Validators.required],
+          title: [`${examType} - ${cs.subjectName}`, Validators.required],
+          testDate: ['', Validators.required],
+          maxMarks: [cs.totalMarks || formMaxMarks, [Validators.required, Validators.min(1)]],
+          passingMarks: [cs.passingMarks || formPassMarks, [Validators.required, Validators.min(1)]]
+        }));
+      });
+    } else {
+      const fallbackList = this.allSubjects.length > 0
+        ? this.allSubjects.slice(0, 6).map(s => s.name)
+        : ['Mathematics', 'Science', 'English', 'Social Studies', 'Hindi'];
+
+      fallbackList.forEach(sub => {
         this.examRows.push(this.fb.group({
           subject: [sub, Validators.required],
           title: [`${examType} - ${sub}`, Validators.required],
-          testDate: [today, Validators.required],
-          maxMarks: [maxMarks, [Validators.required, Validators.min(1)]],
-          passingMarks: [passMarks, [Validators.required, Validators.min(1)]]
+          testDate: ['', Validators.required],
+          maxMarks: [formMaxMarks, [Validators.required, Validators.min(1)]],
+          passingMarks: [formPassMarks, [Validators.required, Validators.min(1)]]
         }));
       });
     }
+
+    // Auto-sequence dates starting from startDate and skipping Sundays!
+    this.autoSequenceExamDates();
   }
 
   addScheduleRow(): void {
     const maxMarks = this.scheduleForm.get('defaultMaxMarks')?.value || 100;
     const passMarks = this.scheduleForm.get('defaultPassingMarks')?.value || 33;
     const examType = this.scheduleForm.get('examType')?.value || 'Annual Exam';
-    const today = new Date().toISOString().substring(0, 10);
+
+    let nextDate = this.getDefaultExamStartDate();
+    if (this.examRows.length > 0) {
+      const lastDateStr = this.examRows.at(this.examRows.length - 1).get('testDate')?.value;
+      if (lastDateStr) {
+        const parts = lastDateStr.split('-');
+        const lastD = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+        lastD.setDate(lastD.getDate() + 1);
+        if (lastD.getDay() === 0) lastD.setDate(lastD.getDate() + 1); // Skip Sunday
+        nextDate = this.formatDateToYMD(lastD);
+      }
+    }
 
     this.examRows.push(this.fb.group({
       subject: ['', Validators.required],
       title: [`${examType} Exam`, Validators.required],
-      testDate: [today, Validators.required],
+      testDate: [nextDate, Validators.required],
       maxMarks: [maxMarks, [Validators.required, Validators.min(1)]],
       passingMarks: [passMarks, [Validators.required, Validators.min(1)]]
     }));
@@ -423,6 +591,11 @@ export class SchoolExamsComponent implements OnInit {
     const row = this.examRows.at(index);
     if (row && subName) {
       row.get('title')?.setValue(`${examType} - ${subName}`);
+      const matchedCs = this.currentClassSubjects.find(cs => cs.subjectName.toLowerCase() === subName.toLowerCase());
+      if (matchedCs) {
+        if (matchedCs.totalMarks) row.get('maxMarks')?.setValue(matchedCs.totalMarks);
+        if (matchedCs.passingMarks) row.get('passingMarks')?.setValue(matchedCs.passingMarks);
+      }
     }
   }
 
@@ -435,6 +608,23 @@ export class SchoolExamsComponent implements OnInit {
     const val = this.scheduleForm.value;
     const targetClass = this.classes.find(c => c.id === val.classId)?.name || 'Class';
 
+    // Sunday Exam Validation Warning
+    const sundayExams = (val.exams || []).filter((e: any) => this.isSunday(e.testDate));
+    if (sundayExams.length > 0) {
+      const sundayList = sundayExams.map((e: any) => `• ${e.subject} (${e.testDate} - Sunday)`).join('\n');
+      this.confirmDialog.confirm(
+        'Sunday Exam Warning ⚠️',
+        `Warning: The following exam(s) fall on Sunday (Weekly Holiday):\n\n${sundayList}\n\nSchool examinations are usually not scheduled on Sundays. Are you sure you want to schedule on Sunday, or would you like to cancel and change the date?`,
+        'Keep Sunday & Schedule',
+        'Cancel (Change Dates)',
+        'warning'
+      ).subscribe(confirmed => {
+        if (!confirmed) return;
+        this.executeSaveBulkSchedule(val, targetClass);
+      });
+      return;
+    }
+
     this.confirmDialog.confirm(
       'Confirm Exam Schedule',
       `Are you sure you want to schedule ${val.exams.length} exam(s) for "${targetClass}" under "${val.examType}" (${val.academicYear})?`,
@@ -443,43 +633,63 @@ export class SchoolExamsComponent implements OnInit {
       'info'
     ).subscribe(confirmed => {
       if (!confirmed) return;
+      this.executeSaveBulkSchedule(val, targetClass);
+    });
+  }
 
-      this.savingSchedule = true;
-      const payload: CreateBulkSchoolExamsDto = {
-        classId: val.classId,
-        sectionId: val.sectionId || undefined,
-        academicYear: val.academicYear,
-        examType: val.examType,
-        exams: val.exams.map((e: any) => ({
-          subject: e.subject,
-          title: e.title,
-          testDate: new Date(e.testDate).toISOString(),
-          maxMarks: Number(e.maxMarks),
-          passingMarks: Number(e.passingMarks)
-        }))
-      };
+  private executeSaveBulkSchedule(val: any, targetClass: string): void {
+    this.savingSchedule = true;
+    const payload: CreateBulkSchoolExamsDto = {
+      classId: val.classId,
+      sectionId: val.sectionId || undefined,
+      academicYear: val.academicYear,
+      examType: val.examType,
+      exams: val.exams.map((e: any) => ({
+        subject: e.subject,
+        title: e.title,
+        testDate: new Date(e.testDate).toISOString(),
+        maxMarks: Number(e.maxMarks),
+        passingMarks: Number(e.passingMarks)
+      }))
+    };
 
-      this.schoolService.createBulkSchoolExams(payload).subscribe({
-        next: (created) => {
-          this.savingSchedule = false;
-          this.confirmDialog.alert('Exams Scheduled! 🎉', `Successfully scheduled ${created.length} exam(s) for ${targetClass}. Teachers can now enter marks.`, 'success');
-          this.activeTabIndex = 0;
-          this.filterClassId = val.classId;
-          this.filterAcademicYear = val.academicYear;
-          this.filterExamType = val.examType;
-          this.loadExams();
-        },
-        error: (err) => {
-          this.savingSchedule = false;
-          this.confirmDialog.alert('Scheduling Failed', err?.error?.message || 'Failed to schedule exams.', 'danger');
-        }
-      });
+    this.schoolService.createBulkSchoolExams(payload).subscribe({
+      next: (created) => {
+        this.savingSchedule = false;
+        this.confirmDialog.alert('Exams Scheduled! 🎉', `Successfully scheduled ${created.length} exam(s) for ${targetClass}. Teachers can now enter marks.`, 'success');
+        this.activeTabIndex = 0;
+        this.filterClassId = val.classId;
+        this.filterAcademicYear = val.academicYear;
+        this.filterExamType = val.examType;
+        this.loadExams();
+      },
+      error: (err) => {
+        this.savingSchedule = false;
+        this.confirmDialog.alert('Scheduling Failed', err?.error?.message || 'Failed to schedule exams.', 'danger');
+      }
     });
   }
 
   // ─── Marks Entry Modal ─────────────────────────────
 
   openMarksEntry(exam: SchoolExamDto): void {
+    if (!exam.isMarksLocked && (exam.evaluationStatus === 'Scheduled' || !exam.evaluatorTeacherId)) {
+      this.confirmDialog.confirm(
+        'Copy Bundle Not Handed Over ⚠️',
+        `उत्तर पुस्तिकाएं (Copy Bundle) अभी शिक्षक को आवंटित नहीं की गई हैं।\n\nस्कूल नियम अनुसार, लिखित परीक्षा में पहले शिक्षक को कॉपी बंडल और कच्चा अंक पत्रक (Award Sheet) सौंपा जाता है।\n\nक्या आप अभी शिक्षक को कॉपी बंडल आवंटित करना चाहते हैं, या यह केवल मौखिक/प्रैक्टिकल परीक्षा (Oral/Practical Exam) है जिसके लिए सीधे अंक प्रविष्टि करनी है?`,
+        'कॉपी बंडल आवंटित करें (Assign Bundle)',
+        'मौखिक/सीधे अंक प्रविष्टि (Direct Entry)',
+        'info'
+      ).subscribe(assignNow => {
+        if (assignNow) {
+          this.openEvaluationModal(exam);
+        } else {
+          this.proceedToMarksEntry(exam);
+        }
+      });
+      return;
+    }
+
     if (!exam.isMarksLocked && exam.evaluationStatus === 'CopiesUnderEvaluation') {
       const teacherName = exam.evaluatorTeacherName ? `"${exam.evaluatorTeacherName}"` : 'the assigned evaluator teacher';
       

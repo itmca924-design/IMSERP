@@ -18,6 +18,40 @@ export interface CreateSubjectDto {
   isActive?: boolean;
 }
 
+export interface ClassSubjectDto {
+  id: string;
+  classId: string;
+  className: string;
+  subjectId: string;
+  subjectName: string;
+  subjectCode?: string;
+  teacherId?: string;
+  teacherName?: string;
+  isCompulsory: boolean;
+  totalMarks: number;
+  passingMarks: number;
+  displayOrder: number;
+  createdAt: string;
+}
+
+export interface AllocateClassSubjectItemDto {
+  subjectId: string;
+  teacherId?: string | null;
+  isCompulsory?: boolean;
+  totalMarks?: number;
+  passingMarks?: number;
+  displayOrder?: number;
+}
+
+export interface ClassSubjectSummaryDto {
+  classId: string;
+  className: string;
+  classCode?: string;
+  displayOrder: number;
+  assignedSubjectsCount: number;
+  subjectNames: string[];
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -69,5 +103,22 @@ export class SubjectsService {
 
   deleteSubject(id: string): Observable<any> {
     return this.http.delete(`${this.BASE_URL}/${id}`);
+  }
+
+  // ── Class-Wise Subject Allocations ──────────────────────────
+  getClassSubjectSummaries(): Observable<ClassSubjectSummaryDto[]> {
+    return this.http.get<ClassSubjectSummaryDto[]>(`${this.BASE_URL}/class-summary`);
+  }
+
+  getClassSubjects(classId: string): Observable<ClassSubjectDto[]> {
+    return this.http.get<ClassSubjectDto[]>(`${this.BASE_URL}/classes/${classId}`);
+  }
+
+  allocateClassSubjects(classId: string, subjects: AllocateClassSubjectItemDto[]): Observable<ClassSubjectDto[]> {
+    return this.http.post<ClassSubjectDto[]>(`${this.BASE_URL}/classes/${classId}/allocate`, { classId, subjects });
+  }
+
+  copyClassSubjects(targetClassId: string, sourceClassId: string): Observable<ClassSubjectDto[]> {
+    return this.http.post<ClassSubjectDto[]>(`${this.BASE_URL}/classes/${targetClassId}/copy-from/${sourceClassId}`, {});
   }
 }

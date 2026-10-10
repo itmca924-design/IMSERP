@@ -11,6 +11,7 @@ public interface IIMSERPDbContext
     DbSet<User> Users { get; }
     DbSet<RoleEntity> Roles { get; }
     DbSet<SubjectEntity> Subjects { get; }
+    DbSet<ClassSubject> ClassSubjects { get; }
     DbSet<MenuItem> MenuItems { get; }
     DbSet<RolePermission> RolePermissions { get; }
     DbSet<Batch> Batches { get; }

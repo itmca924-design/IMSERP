@@ -153,4 +153,181 @@ public class SubjectsController : ControllerBase
 
         return NoContent();
     }
+
+    #region Class-Wise Subject Allocations
+
+    [HttpGet("class-summary")]
+    public async Task<ActionResult<IEnumerable<ClassSubjectSummaryDto>>> GetClassSubjectSummaries()
+    {
+        var classes = await _dbContext.SchoolClasses
+            .AsNoTracking()
+            .Where(c => c.IsActive)
+            .OrderBy(c => c.DisplayOrder)
+            .ThenBy(c => c.Name)
+            .ToListAsync();
+
+        var allocations = await _dbContext.ClassSubjects
+            .AsNoTracking()
+            .Include(cs => cs.Subject)
+            .OrderBy(cs => cs.DisplayOrder)
+            .ToListAsync();
+
+        var summaries = classes.Select(c =>
+        {
+            var classAllocations = allocations.Where(a => a.ClassId == c.Id).ToList();
+            return new ClassSubjectSummaryDto(
+                c.Id,
+                c.Name,
+                c.Code,
+                c.DisplayOrder,
+                classAllocations.Count,
+                classAllocations.Select(a => a.Subject?.Name ?? "Subject").ToList()
+            );
+        }).ToList();
+
+        return Ok(summaries);
+    }
+
+    [HttpGet("classes/{classId}")]
+    public async Task<ActionResult<IEnumerable<ClassSubjectDto>>> GetClassSubjects(Guid classId)
+    {
+        var classObj = await _dbContext.SchoolClasses
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.Id == classId);
+
+        if (classObj == null)
+            return NotFound(new { message = "Class not found." });
+
+        var items = await _dbContext.ClassSubjects
+            .AsNoTracking()
+            .Include(cs => cs.Subject)
+            .Include(cs => cs.Teacher)
+            .Where(cs => cs.ClassId == classId)
+            .OrderBy(cs => cs.DisplayOrder)
+            .ThenBy(cs => cs.Subject != null ? cs.Subject.Name : string.Empty)
+            .Select(cs => new ClassSubjectDto(
+                cs.Id,
+                cs.ClassId,
+                classObj.Name,
+                cs.SubjectId,
+                cs.Subject != null ? cs.Subject.Name : string.Empty,
+                cs.Subject != null ? cs.Subject.Code : null,
+                cs.TeacherId,
+                cs.Teacher != null ? cs.Teacher.FullName : null,
+                cs.IsCompulsory,
+                cs.TotalMarks,
+                cs.PassingMarks,
+                cs.DisplayOrder,
+                cs.CreatedAt
+            ))
+            .ToListAsync();
+
+        return Ok(items);
+    }
+
+    [HttpPost("classes/{classId}/allocate")]
+    public async Task<ActionResult<IEnumerable<ClassSubjectDto>>> AllocateClassSubjects(Guid classId, [FromBody] AllocateClassSubjectsRequestDto dto)
+    {
+        var tenantId = _currentUser.TenantId;
+        var branchId = _currentUser.BranchId;
+
+        var classObj = await _dbContext.SchoolClasses
+            .FirstOrDefaultAsync(c => c.Id == classId);
+
+        if (classObj == null)
+            return NotFound(new { message = "Class not found." });
+
+        var effectiveTenantId = classObj.TenantId != Guid.Empty
+            ? classObj.TenantId
+            : (tenantId != Guid.Empty ? tenantId : Guid.Parse("a8c89ff2-ed12-4e4b-80c4-316453c3a1c6"));
+
+        var existingAllocations = await _dbContext.ClassSubjects
+            .Where(cs => cs.ClassId == classId)
+            .ToListAsync();
+
+        _dbContext.ClassSubjects.RemoveRange(existingAllocations);
+
+        if (dto.Subjects != null && dto.Subjects.Count > 0)
+        {
+            var now = DateTime.UtcNow;
+            int order = 1;
+            foreach (var item in dto.Subjects)
+            {
+                var newCs = new ClassSubject
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = effectiveTenantId,
+                    BranchId = branchId,
+                    ClassId = classId,
+                    SubjectId = item.SubjectId,
+                    TeacherId = item.TeacherId,
+                    IsCompulsory = item.IsCompulsory,
+                    TotalMarks = item.TotalMarks > 0 ? item.TotalMarks : 100,
+                    PassingMarks = item.PassingMarks > 0 ? item.PassingMarks : 33,
+                    DisplayOrder = item.DisplayOrder > 0 ? item.DisplayOrder : order++,
+                    CreatedAt = now,
+                    UpdatedAt = now
+                };
+                _dbContext.ClassSubjects.Add(newCs);
+            }
+        }
+
+        await _dbContext.SaveChangesAsync();
+
+        return await GetClassSubjects(classId);
+    }
+
+    [HttpPost("classes/{targetClassId}/copy-from/{sourceClassId}")]
+    public async Task<ActionResult<IEnumerable<ClassSubjectDto>>> CopyClassSubjects(Guid targetClassId, Guid sourceClassId)
+    {
+        var tenantId = _currentUser.TenantId;
+        var branchId = _currentUser.BranchId;
+
+        var targetClass = await _dbContext.SchoolClasses.FirstOrDefaultAsync(c => c.Id == targetClassId);
+        if (targetClass == null) return NotFound(new { message = "Target class not found." });
+
+        var effectiveTenantId = targetClass.TenantId != Guid.Empty
+            ? targetClass.TenantId
+            : (tenantId != Guid.Empty ? tenantId : Guid.Parse("a8c89ff2-ed12-4e4b-80c4-316453c3a1c6"));
+
+        var sourceAllocations = await _dbContext.ClassSubjects
+            .AsNoTracking()
+            .Where(cs => cs.ClassId == sourceClassId)
+            .ToListAsync();
+
+        if (sourceAllocations.Count == 0)
+            return BadRequest(new { message = "Source class does not have any subjects allocated." });
+
+        var existingTargetAllocations = await _dbContext.ClassSubjects
+            .Where(cs => cs.ClassId == targetClassId)
+            .ToListAsync();
+
+        _dbContext.ClassSubjects.RemoveRange(existingTargetAllocations);
+
+        var now = DateTime.UtcNow;
+        foreach (var src in sourceAllocations)
+        {
+            var newCs = new ClassSubject
+            {
+                Id = Guid.NewGuid(),
+                TenantId = effectiveTenantId,
+                BranchId = branchId,
+                ClassId = targetClassId,
+                SubjectId = src.SubjectId,
+                TeacherId = null,
+                IsCompulsory = src.IsCompulsory,
+                TotalMarks = src.TotalMarks,
+                PassingMarks = src.PassingMarks,
+                DisplayOrder = src.DisplayOrder,
+                CreatedAt = now,
+                UpdatedAt = now
+            };
+            _dbContext.ClassSubjects.Add(newCs);
+        }
+
+        await _dbContext.SaveChangesAsync();
+        return await GetClassSubjects(targetClassId);
+    }
+
+    #endregion
 }

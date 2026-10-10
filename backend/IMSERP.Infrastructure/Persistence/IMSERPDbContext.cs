@@ -19,6 +19,7 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
     public DbSet<User> Users => Set<User>();
     public DbSet<RoleEntity> Roles => Set<RoleEntity>();
     public DbSet<SubjectEntity> Subjects => Set<SubjectEntity>();
+    public DbSet<ClassSubject> ClassSubjects => Set<ClassSubject>();
     public DbSet<MenuItem> MenuItems => Set<MenuItem>();
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
     public DbSet<Batch> Batches => Set<Batch>();
@@ -190,6 +191,7 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<RoleEntity>().HasQueryFilter(x => _currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId);
         modelBuilder.Entity<SubjectEntity>().HasQueryFilter(x => _currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId);
+        modelBuilder.Entity<ClassSubject>().HasQueryFilter(x => _currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId);
         modelBuilder.Entity<Batch>().HasQueryFilter(x => 
             (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
@@ -970,12 +972,14 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
         {
             if (entry.State == EntityState.Added)
             {
-                if (tenantId != Guid.Empty)
+                var prop = entry.Properties.FirstOrDefault(p => p.Metadata.Name == "TenantId");
+                if (prop != null)
                 {
-                    var prop = entry.Properties.FirstOrDefault(p => p.Metadata.Name == "TenantId");
-                    if (prop != null && prop.CurrentValue != null && (Guid)prop.CurrentValue == Guid.Empty)
+                    if (prop.CurrentValue == null || (prop.CurrentValue is Guid g && g == Guid.Empty))
                     {
-                        prop.CurrentValue = tenantId;
+                        prop.CurrentValue = (tenantId != Guid.Empty)
+                            ? tenantId
+                            : Guid.Parse("a8c89ff2-ed12-4e4b-80c4-316453c3a1c6");
                     }
                 }
 

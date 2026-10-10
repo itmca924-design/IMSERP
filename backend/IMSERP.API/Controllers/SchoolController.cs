@@ -1357,10 +1357,6 @@ public class SchoolController : ControllerBase
     {
         var query = _db.Tests
             .AsNoTracking()
-            .Include(t => t.Class)
-            .Include(t => t.Section)
-            .Include(t => t.MarksList)
-            .Include(t => t.EvaluatorTeacher)
             .Where(t => t.ClassId != null);
 
         if (classId.HasValue && classId != Guid.Empty)
@@ -1382,54 +1378,84 @@ public class SchoolController : ControllerBase
         }
 
         var totalCount = await query.CountAsync();
+        var activeSession = await GetActiveAcademicYearAsync();
 
-        var classIds = await query.Select(t => t.ClassId!.Value).Distinct().ToListAsync();
-        var studentCounts = await _db.Students
-            .AsNoTracking()
-            .Where(s => s.ClassId != null && classIds.Contains(s.ClassId.Value) && s.IsActive && s.IsSchoolStudent)
-            .GroupBy(s => new { ClassId = s.ClassId!.Value, SectionId = s.SectionId })
-            .Select(g => new { g.Key.ClassId, g.Key.SectionId, Count = g.Count() })
-            .ToListAsync();
-
-        var exams = await query
+        // High-performance direct projection: avoids massive Include(MarksList) memory load & Cartesian products
+        var pagedExams = await query
             .OrderByDescending(t => t.TestDate)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
+            .Select(t => new
+            {
+                t.Id,
+                t.Title,
+                t.Subject,
+                ExamType = t.ExamType ?? "Annual Exam",
+                AcademicYear = t.AcademicYear ?? activeSession,
+                ClassId = t.ClassId!.Value,
+                ClassName = t.Class != null ? t.Class.Name : "Class",
+                t.SectionId,
+                SectionName = t.Section != null ? t.Section.Name : null,
+                t.MaxMarks,
+                t.PassingMarks,
+                t.TestDate,
+                EvaluatedCount = t.MarksList.Count(),
+                t.EvaluatorTeacherId,
+                EvaluatorTeacherName = t.EvaluatorTeacher != null ? t.EvaluatorTeacher.FullName : null,
+                EvaluatorPhone = t.EvaluatorTeacher != null ? t.EvaluatorTeacher.PhoneNumber : null,
+                EvaluationStatus = t.EvaluationStatus ?? "Scheduled",
+                t.EvaluationDueDate,
+                t.TotalCopiesIssued,
+                t.CopiesSubmittedDate,
+                t.IsMarksLocked,
+                t.MarksLockedAt,
+                t.MarksLockedBy,
+                t.EvaluationRemarks
+            })
             .ToListAsync();
 
-        var activeSession = await GetActiveAcademicYearAsync();
+        // Query student counts ONLY for classes present on current page
+        var pagedClassIds = pagedExams.Select(e => e.ClassId).Distinct().ToList();
+        var studentCounts = pagedClassIds.Count > 0
+            ? await _db.Students
+                .AsNoTracking()
+                .Where(s => s.ClassId != null && pagedClassIds.Contains(s.ClassId.Value) && s.IsActive && s.IsSchoolStudent)
+                .GroupBy(s => new { ClassId = s.ClassId!.Value, s.SectionId })
+                .Select(g => new { g.Key.ClassId, g.Key.SectionId, Count = g.Count() })
+                .ToListAsync()
+            : new();
 
-        var items = exams.Select(t =>
+        var items = pagedExams.Select(t =>
         {
             int totalInClass = 0;
             if (t.SectionId.HasValue)
             {
-                totalInClass = studentCounts.FirstOrDefault(x => x.ClassId == t.ClassId!.Value && x.SectionId == t.SectionId.Value)?.Count ?? 0;
+                totalInClass = studentCounts.FirstOrDefault(x => x.ClassId == t.ClassId && x.SectionId == t.SectionId.Value)?.Count ?? 0;
             }
             else
             {
-                totalInClass = studentCounts.Where(x => x.ClassId == t.ClassId!.Value).Sum(x => x.Count);
+                totalInClass = studentCounts.Where(x => x.ClassId == t.ClassId).Sum(x => x.Count);
             }
 
             return new SchoolExamDto(
                 t.Id,
                 t.Title,
                 t.Subject,
-                t.ExamType ?? "Annual Exam",
-                t.AcademicYear ?? activeSession,
-                t.ClassId!.Value,
-                t.Class?.Name ?? "Class",
+                t.ExamType,
+                t.AcademicYear,
+                t.ClassId,
+                t.ClassName,
                 t.SectionId,
-                t.Section?.Name,
+                t.SectionName,
                 t.MaxMarks,
                 t.PassingMarks,
                 t.TestDate,
                 totalInClass,
-                t.MarksList.Count,
+                t.EvaluatedCount,
                 t.EvaluatorTeacherId,
-                t.EvaluatorTeacher?.FullName,
-                t.EvaluatorTeacher?.PhoneNumber,
-                t.EvaluationStatus ?? "Scheduled",
+                t.EvaluatorTeacherName,
+                t.EvaluatorPhone,
+                t.EvaluationStatus,
                 t.EvaluationDueDate,
                 t.TotalCopiesIssued,
                 t.CopiesSubmittedDate,
@@ -1466,9 +1492,13 @@ public class SchoolController : ControllerBase
         var session = !string.IsNullOrWhiteSpace(dto.AcademicYear) ? dto.AcademicYear : defaultSession;
         var examType = !string.IsNullOrWhiteSpace(dto.ExamType) ? dto.ExamType : "Annual Exam";
 
+        var effectiveTenantId = schoolClass.TenantId != Guid.Empty
+            ? schoolClass.TenantId
+            : (_currentUser.TenantId != Guid.Empty ? _currentUser.TenantId : Guid.Parse("A8C89FF2-ED12-4E4B-80C4-316453C3A1C6"));
+
         var entities = dto.Exams.Select(item => new Test
         {
-            TenantId = _currentUser.TenantId,
+            TenantId = effectiveTenantId,
             BranchId = schoolClass.BranchId ?? _currentUser.BranchId,
             ClassId = dto.ClassId,
             SectionId = dto.SectionId,
@@ -1588,11 +1618,15 @@ public class SchoolController : ControllerBase
             .OrderByDescending(m => m.IsAbsent ? -1 : m.MarksObtained)
             .ToList();
 
+        var effectiveTenantId = test.TenantId != Guid.Empty
+            ? test.TenantId
+            : (_currentUser.TenantId != Guid.Empty ? _currentUser.TenantId : Guid.Parse("A8C89FF2-ED12-4E4B-80C4-316453C3A1C6"));
+
         foreach (var item in sorted)
         {
             var mark = new TestMarks
             {
-                TenantId = _currentUser.TenantId,
+                TenantId = effectiveTenantId,
                 TestId = dto.ExamId,
                 StudentId = item.StudentId,
                 MarksObtained = item.IsAbsent ? 0 : item.MarksObtained,
@@ -1947,7 +1981,12 @@ public class SchoolController : ControllerBase
                 SchoolAffiliationNumber = "CBSE/STATE-AFF-2025",
                 PrincipalSignTitle = "Principal / Headmaster",
                 ClassTeacherSignTitle = "Class Teacher",
-                ResultDeclarationNote = "Continuous and Comprehensive Evaluation Scheme"
+                ResultDeclarationNote = "Continuous and Comprehensive Evaluation Scheme",
+                ActiveAcademicYear = await GetActiveAcademicYearAsync(),
+                NextAcademicYear = await GetNextAcademicYearAsync(),
+                AvailableAcademicYears = GetDynamicRollingSessions(),
+                AvailableExamTypes = DefaultStandardExamTypes,
+                EvaluationDueDays = 7
             };
             _db.ExamSettings.Add(setting);
             await _db.SaveChangesAsync();
@@ -2126,7 +2165,12 @@ public class SchoolController : ControllerBase
                 SchoolAffiliationNumber = "CBSE/STATE-AFF-2025",
                 PrincipalSignTitle = "Principal / Headmaster",
                 ClassTeacherSignTitle = "Class Teacher",
-                ResultDeclarationNote = "Continuous and Comprehensive Evaluation Scheme"
+                ResultDeclarationNote = "Continuous and Comprehensive Evaluation Scheme",
+                ActiveAcademicYear = await GetActiveAcademicYearAsync(),
+                NextAcademicYear = await GetNextAcademicYearAsync(),
+                AvailableAcademicYears = GetDynamicRollingSessions(),
+                AvailableExamTypes = DefaultStandardExamTypes,
+                EvaluationDueDays = 7
             };
             _db.ExamSettings.Add(setting);
             await _db.SaveChangesAsync();

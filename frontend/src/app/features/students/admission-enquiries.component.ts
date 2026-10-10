@@ -905,7 +905,7 @@ export class AdmissionEnquiriesComponent implements OnInit {
           <mat-form-field appearance="outline" class="form-field">
             <mat-label>Interested Class (कक्षा)</mat-label>
             <mat-select [(ngModel)]="model.interestedClassId" (selectionChange)="onClassSelect()">
-              <mat-option value="">Not Applicable</mat-option>
+              <mat-option [value]="null">Not Applicable</mat-option>
               <mat-option *ngFor="let c of data.classes" [value]="c.id">{{c.name}}</mat-option>
             </mat-select>
           </mat-form-field>
@@ -913,7 +913,7 @@ export class AdmissionEnquiriesComponent implements OnInit {
           <mat-form-field appearance="outline" class="form-field">
             <mat-label>Interested Batch (Coaching)</mat-label>
             <mat-select [(ngModel)]="model.interestedBatchId" (selectionChange)="onBatchSelect()">
-              <mat-option value="">Not Applicable</mat-option>
+              <mat-option [value]="null">Not Applicable</mat-option>
               <mat-option *ngFor="let b of data.batches" [value]="b.id">{{b.name}}</mat-option>
             </mat-select>
           </mat-form-field>
@@ -1006,9 +1006,9 @@ export class EnquiryFormDialogComponent implements OnInit {
     phone: '',
     alternatePhone: '',
     email: '',
-    interestedClassId: '',
+    interestedClassId: null,
     interestedClassName: '',
-    interestedBatchId: '',
+    interestedBatchId: null,
     interestedBatchName: '',
     source: 'Walk-in',
     status: 'New',
@@ -1027,7 +1027,11 @@ export class EnquiryFormDialogComponent implements OnInit {
     if (this.data?.enquiry) {
       this.isEdit = true;
       const e = this.data.enquiry;
-      this.model = { ...e };
+      this.model = {
+        ...e,
+        interestedClassId: e.interestedClassId || null,
+        interestedBatchId: e.interestedBatchId || null
+      };
       if (e.followUpDate) {
         this.followUpDateStr = e.followUpDate.slice(0, 10);
       }
@@ -1054,6 +1058,8 @@ export class EnquiryFormDialogComponent implements OnInit {
     this.saving = true;
     const payload = {
       ...this.model,
+      interestedClassId: this.model.interestedClassId || null,
+      interestedBatchId: this.model.interestedBatchId || null,
       followUpDate: this.followUpDateStr ? (this.followUpDateStr + 'T00:00:00') : null
     };
 
@@ -1067,9 +1073,10 @@ export class EnquiryFormDialogComponent implements OnInit {
             enquiryNumber: this.model.enquiryNumber
           });
         },
-        error: () => {
+        error: (err: any) => {
           this.saving = false;
-          this.confirmDialog.alert('Save Failed', 'Failed to update enquiry details.', 'danger');
+          const msg = err?.error?.message || 'Failed to update enquiry details.';
+          this.confirmDialog.alert('Save Failed', msg, 'danger');
         }
       });
     } else {
@@ -1082,9 +1089,10 @@ export class EnquiryFormDialogComponent implements OnInit {
             enquiryNumber: res?.enquiryNumber || 'ENQ'
           });
         },
-        error: () => {
+        error: (err: any) => {
           this.saving = false;
-          this.confirmDialog.alert('Registration Failed', 'Failed to register new enquiry.', 'danger');
+          const msg = err?.error?.message || (err?.error?.errors ? Object.values(err.error.errors).flat().join(', ') : 'Failed to register new enquiry.');
+          this.confirmDialog.alert('Registration Failed', msg, 'danger');
         }
       });
     }
@@ -1139,7 +1147,7 @@ export class EnquiryFormDialogComponent implements OnInit {
           <mat-form-field appearance="outline" class="form-field">
             <mat-label>School Class (कक्षा)</mat-label>
             <mat-select [(ngModel)]="model.classId" (selectionChange)="onClassSelect()">
-              <mat-option value="">Not a School Student</mat-option>
+              <mat-option [value]="null">Not a School Student</mat-option>
               <mat-option *ngFor="let c of data.classes" [value]="c.id">{{c.name}}</mat-option>
             </mat-select>
           </mat-form-field>
@@ -1147,7 +1155,7 @@ export class EnquiryFormDialogComponent implements OnInit {
           <mat-form-field appearance="outline" class="form-field" *ngIf="availableSections.length > 0">
             <mat-label>Section (वर्ग)</mat-label>
             <mat-select [(ngModel)]="model.sectionId">
-              <mat-option value="">Select Section</mat-option>
+              <mat-option [value]="null">Select Section</mat-option>
               <mat-option *ngFor="let s of availableSections" [value]="s.id">{{s.name}}</mat-option>
             </mat-select>
           </mat-form-field>
@@ -1157,7 +1165,7 @@ export class EnquiryFormDialogComponent implements OnInit {
           <mat-form-field appearance="outline" class="form-field">
             <mat-label>Coaching Batch</mat-label>
             <mat-select [(ngModel)]="model.batchId">
-              <mat-option value="">Not a Coaching Student</mat-option>
+              <mat-option [value]="null">Not a Coaching Student</mat-option>
               <mat-option *ngFor="let b of data.batches" [value]="b.id">{{b.name}}</mat-option>
             </mat-select>
           </mat-form-field>

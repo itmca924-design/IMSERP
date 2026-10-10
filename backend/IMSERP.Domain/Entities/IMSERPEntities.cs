@@ -115,6 +115,31 @@ public class SubjectEntity
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
 
+public class ClassSubject
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid ClassId { get; set; }
+    public Guid SubjectId { get; set; }
+    public Guid? TeacherId { get; set; }
+    public bool IsCompulsory { get; set; } = true;
+    public int TotalMarks { get; set; } = 100;
+    public int PassingMarks { get; set; } = 33;
+    public int DisplayOrder { get; set; } = 0;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("ClassId")]
+    public SchoolClass? Class { get; set; }
+
+    [ForeignKey("SubjectId")]
+    public SubjectEntity? Subject { get; set; }
+
+    [ForeignKey("TeacherId")]
+    public Teacher? Teacher { get; set; }
+}
+
 public class MenuItem
 {
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -342,22 +367,48 @@ public class ExamSetting
     public int MaxCompartmentSubjects { get; set; } = 2;
     public bool AllowGraceMarks { get; set; } = true;
     public int MaxGraceMarks { get; set; } = 5;
-    public string SchoolAffiliationNumber { get; set; } = "CBSE/STATE-AFF-2025";
+    public string SchoolAffiliationNumber { get; set; } = $"CBSE/STATE-AFF-{DateTime.UtcNow.Year}";
     public string PrincipalSignTitle { get; set; } = "Principal / Headmaster";
     public string ClassTeacherSignTitle { get; set; } = "Class Teacher";
     public string ResultDeclarationNote { get; set; } = "Continuous and Comprehensive Evaluation Scheme";
-    public string? ActiveAcademicYear { get; set; }
-    public string? NextAcademicYear { get; set; }
-    public string? AvailableAcademicYears { get; set; }
-    public string? AvailableExamTypes { get; set; }
+
+    // Dynamic session defaults based on current date (Indian Academic Session: April to March)
+    public string? ActiveAcademicYear { get; set; } = CalculateCurrentSession();
+    public string? NextAcademicYear { get; set; } = CalculateNextSession();
+    public string? AvailableAcademicYears { get; set; } = CalculateRollingSessions();
+    public string? AvailableExamTypes { get; set; } = "Unit Test 1,Unit Test 2,Quarterly Exam,Half Yearly Exam,Pre-Board Exam,Annual Exam";
     public int EvaluationDueDays { get; set; } = 7;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     [ForeignKey("BranchId")]
     public Branch? Branch { get; set; }
+
+    public static string CalculateCurrentSession()
+    {
+        var now = DateTime.UtcNow;
+        return now.Month >= 4 ? $"{now.Year}-{now.Year + 1}" : $"{now.Year - 1}-{now.Year}";
+    }
+
+    public static string CalculateNextSession()
+    {
+        var now = DateTime.UtcNow;
+        return now.Month >= 4 ? $"{now.Year + 1}-{now.Year + 2}" : $"{now.Year}-{now.Year + 1}";
+    }
+
+    public static string CalculateRollingSessions(int pastYears = 2, int futureYears = 4)
+    {
+        var now = DateTime.UtcNow;
+        int baseYear = now.Month >= 4 ? now.Year : now.Year - 1;
+        var list = new List<string>();
+        for (int y = baseYear - pastYears; y <= baseYear + futureYears; y++)
+        {
+            list.Add($"{y}-{y + 1}");
+        }
+        return string.Join(",", list);
+    }
 }
 
-
+    
 public class StudentAttendance
 {
     public Guid Id { get; set; } = Guid.NewGuid();

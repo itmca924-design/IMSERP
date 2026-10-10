@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterModule } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -13,6 +14,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { HttpClient } from '@angular/common/http';
 import { SchoolService, SchoolClassDto, SchoolSectionDto, UnifiedStatsDto } from '../../core/services/school.service';
+import { SubjectsService } from '../../core/services/subjects.service';
 import { RoomService, RoomDto } from '../../core/services/room.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 
@@ -37,6 +39,7 @@ import { SectionRoutineDialogComponent } from './section-routine-dialog.componen
     MatTooltipModule,
     MatSlideToggleModule,
     MatDialogModule,
+    RouterModule,
     SectionRoutineDialogComponent
   ],
   template: `
@@ -246,6 +249,9 @@ import { SectionRoutineDialogComponent } from './section-routine-dialog.componen
             </div>
 
             <div class="class-actions">
+              <a mat-icon-button class="action-btn-circle subjects-btn" matTooltip="Manage Class Curriculum & Subjects" [routerLink]="['/subjects']" [queryParams]="{classId: c.id, tab: 1}">
+                <mat-icon>menu_book</mat-icon>
+              </a>
               <button mat-icon-button class="action-btn-circle add-btn" matTooltip="Add Section to this Class" (click)="quickAddSection(c)">
                 <mat-icon>add</mat-icon>
               </button>
@@ -267,6 +273,10 @@ import { SectionRoutineDialogComponent } from './section-routine-dialog.componen
               <mat-icon>layers</mat-icon>
               <span>{{ c.sections?.length || 0 }} Section{{ (c.sections?.length || 0) === 1 ? '' : 's' }}</span>
             </span>
+            <a class="meta-tag subjects-tag" [routerLink]="['/subjects']" [queryParams]="{classId: c.id, tab: 1}" matTooltip="Manage Class Curriculum & Subjects">
+              <mat-icon>menu_book</mat-icon>
+              <span>{{ classSubjectCounts[c.id] !== undefined ? classSubjectCounts[c.id] + ' Subjects' : 'Subjects' }}</span>
+            </a>
           </div>
 
           <!-- Sections List in Class -->
@@ -485,6 +495,10 @@ import { SectionRoutineDialogComponent } from './section-routine-dialog.componen
 
             mat-icon { font-size: 18px !important; width: 18px !important; height: 18px !important; line-height: 18px !important; }
 
+            &.subjects-btn {
+              color: #2563eb; background: #eff6ff;
+              &:hover { background: #dbeafe !important; transform: scale(1.08); }
+            }
             &.add-btn {
               color: #2563eb; background: #eff6ff;
               &:hover { background: #dbeafe !important; transform: scale(1.08); }
@@ -514,6 +528,12 @@ import { SectionRoutineDialogComponent } from './section-routine-dialog.componen
             color: #2563eb; background: #ffffff; padding: 2px 8px; border-radius: 8px; border: 1px solid #e2e8f0;
             font-size: 0.74rem; font-weight: 700;
             mat-icon { font-size: 15px; width: 15px; height: 15px; color: #2563eb; }
+          }
+          &.subjects-tag {
+            color: #1d4ed8; background: #eff6ff; padding: 2px 8px; border-radius: 8px; border: 1px solid #bfdbfe;
+            font-size: 0.74rem; font-weight: 700; text-decoration: none; cursor: pointer; transition: all 0.2s;
+            mat-icon { font-size: 15px; width: 15px; height: 15px; color: #2563eb; }
+            &:hover { background: #dbeafe; border-color: #93c5fd; }
           }
         }
       }
@@ -762,8 +782,11 @@ export class SchoolClassesComponent implements OnInit {
     }, 60);
   }
 
+  classSubjectCounts: { [classId: string]: number } = {};
+
   constructor(
     private schoolService: SchoolService,
+    private subjectsService: SubjectsService,
     private roomService: RoomService,
     private confirmDialog: ConfirmDialogService,
     private dialog: MatDialog,
@@ -772,9 +795,23 @@ export class SchoolClassesComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadData();
+    this.loadSubjectCounts();
     this.loadRooms();
     this.loadTeachers();
     this.loadStats();
+  }
+
+  loadSubjectCounts(): void {
+    this.subjectsService.getClassSubjectSummaries().subscribe({
+      next: (summaries) => {
+        const map: { [classId: string]: number } = {};
+        (summaries || []).forEach(s => {
+          map[s.classId] = s.assignedSubjectsCount;
+        });
+        this.classSubjectCounts = map;
+      },
+      error: () => {}
+    });
   }
 
   isTeachingStaff(t: any): boolean {
@@ -855,6 +892,7 @@ export class SchoolClassesComponent implements OnInit {
         });
         this.classes = list;
         this.loading = false;
+        this.loadSubjectCounts();
       },
       error: () => {
         this.loading = false;

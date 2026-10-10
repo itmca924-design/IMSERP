@@ -1447,24 +1447,413 @@ export class TeacherFnFComponent implements OnInit {
     const el = document.getElementById(elementId);
     if (!el) return;
 
-    const printWin = window.open('', '_blank', 'width=900,height=750');
+    const printWin = window.open('', '_blank', 'width=950,height=800');
     if (!printWin) return;
+
+    const isStatement = elementId === 'fnf-statement-paper';
+    const docTitle = isStatement ? 'FNF Statement' : 'Relieving Certificate';
+    const teacherName = this.activeSettlement?.teacherName || 'Staff';
 
     printWin.document.write(`
       <!DOCTYPE html>
       <html>
         <head>
           <meta charset="utf-8"/>
-          <title>${elementId === 'fnf-statement-paper' ? 'FNF Statement' : 'Relieving Certificate'} - ${this.activeSettlement?.teacherName}</title>
+          <title>${docTitle} - ${teacherName}</title>
+          <link rel="preconnect" href="https://fonts.googleapis.com">
+          <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+          <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Material+Icons&display=swap" rel="stylesheet">
           <style>
-            * { box-sizing: border-box; margin: 0; padding: 0; }
-            body { font-family: Arial, sans-serif; background: #fff; padding: 24px; color: #1e293b; }
-            .doc-paper, .cert-paper { max-width: 800px; margin: 0 auto; }
-            table { width: 100%; border-collapse: collapse; }
-            th, td { padding: 6px 8px; border: 1px solid #cbd5e1; font-size: 11px; }
-            .text-right { text-align: right; }
-            .total-row { background: #f1f5f9; font-weight: bold; }
-            @page { size: A4; margin: 12mm; }
+            * {
+              box-sizing: border-box;
+              margin: 0;
+              padding: 0;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            @page {
+              size: A4 portrait;
+              margin: 12mm 14mm;
+            }
+            body {
+              font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+              background: #ffffff;
+              color: #0f172a;
+              line-height: 1.4;
+              padding: 0;
+              margin: 0;
+            }
+            .doc-paper, .cert-paper {
+              width: 100%;
+              max-width: 100%;
+              margin: 0 auto;
+              background: #ffffff;
+            }
+
+            /* ══════ FNF STATEMENT STYLING ══════ */
+            .paper-header {
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-start;
+              border-bottom: 2.5px solid #1e3a8a;
+              padding-bottom: 12px;
+              margin-bottom: 14px;
+            }
+            .inst-info h2 {
+              font-size: 22px;
+              font-weight: 800;
+              color: #1e3a8a;
+              letter-spacing: -0.02em;
+              margin: 0;
+              line-height: 1.2;
+            }
+            .inst-info p {
+              font-size: 12px;
+              font-weight: 600;
+              color: #475569;
+              margin-top: 3px;
+            }
+            .voucher-box {
+              text-align: right;
+              background: #f8fafc;
+              border: 1px solid #cbd5e1;
+              border-radius: 6px;
+              padding: 6px 12px;
+            }
+            .voucher-box .v-title {
+              display: block;
+              font-size: 10px;
+              font-weight: 700;
+              color: #64748b;
+              letter-spacing: 0.8px;
+            }
+            .voucher-box .v-num {
+              font-family: 'Consolas', 'Courier New', monospace;
+              font-size: 14px;
+              font-weight: 700;
+              color: #1e40af;
+            }
+
+            .meta-strip {
+              display: grid;
+              grid-template-columns: repeat(4, 1fr);
+              gap: 10px 14px;
+              background: #f8fafc;
+              border: 1px solid #e2e8f0;
+              border-radius: 8px;
+              padding: 12px 14px;
+              margin-bottom: 12px;
+            }
+            .meta-strip div {
+              display: flex;
+              flex-direction: column;
+            }
+            .meta-strip label {
+              font-size: 9.5px;
+              font-weight: 700;
+              color: #64748b;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              margin-bottom: 2px;
+            }
+            .meta-strip strong {
+              font-size: 12px;
+              font-weight: 700;
+              color: #0f172a;
+              word-break: break-word;
+            }
+
+            .clearance-summary-strip {
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              flex-wrap: wrap;
+              background: #ffffff;
+              border: 1px solid #e2e8f0;
+              border-radius: 6px;
+              padding: 8px 12px;
+              margin-bottom: 14px;
+            }
+            .clearance-summary-strip .cs-lbl {
+              font-size: 11px;
+              font-weight: 700;
+              color: #334155;
+              margin-right: 4px;
+            }
+            .clearance-summary-strip .cs-badge {
+              background: #f0fdf4 !important;
+              border: 1px solid #bbf7d0 !important;
+              color: #166534 !important;
+              font-size: 10.5px;
+              font-weight: 700;
+              padding: 3px 8px;
+              border-radius: 4px;
+            }
+
+            .breakdown-grid {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 14px;
+              margin-bottom: 14px;
+            }
+            .bd-table {
+              width: 100%;
+              border-collapse: collapse;
+              border: 1px solid #cbd5e1;
+              font-size: 11px;
+            }
+            .bd-table th {
+              padding: 7px 10px;
+              font-size: 10.5px;
+              font-weight: 700;
+              letter-spacing: 0.3px;
+              border: 1px solid #cbd5e1;
+            }
+            .bd-col:first-child .bd-table th {
+              background: #eff6ff !important;
+              color: #1e40af;
+            }
+            .bd-col:last-child .bd-table th {
+              background: #fef2f2 !important;
+              color: #991b1b;
+            }
+            .bd-table td {
+              padding: 6px 10px;
+              border: 1px solid #e2e8f0;
+              color: #1e293b;
+            }
+            .bd-table .text-right {
+              text-align: right;
+            }
+            .bd-table .total-row td {
+              background: #f8fafc !important;
+              font-weight: 800;
+              border-top: 1.5px solid #cbd5e1;
+              color: #0f172a;
+            }
+
+            .paper-net-block {
+              background: #eff6ff !important;
+              border: 1.5px solid #60a5fa !important;
+              border-radius: 8px;
+              padding: 12px 18px;
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              margin-bottom: 24px;
+            }
+            .paper-net-block .net-lbl {
+              font-size: 12px;
+              font-weight: 800;
+              color: #1e40af;
+              letter-spacing: 0.5px;
+            }
+            .paper-net-block .net-words {
+              font-size: 11px;
+              color: #475569;
+              margin-top: 3px;
+              font-style: italic;
+            }
+            .paper-net-block .net-val {
+              font-size: 22px;
+              font-weight: 800;
+              color: #1e3a8a;
+            }
+
+            .paper-signatures {
+              display: grid;
+              grid-template-columns: 1fr 1fr 1fr;
+              gap: 16px;
+              margin-top: 24px;
+              padding-top: 10px;
+              align-items: flex-end;
+            }
+            .sig-box {
+              display: flex;
+              flex-direction: column;
+              gap: 4px;
+              font-size: 11px;
+              color: #334155;
+            }
+            .sig-box.text-center {
+              align-items: center;
+              text-align: center;
+            }
+            .sig-box.text-right {
+              align-items: flex-end;
+              text-align: right;
+            }
+            .sig-line {
+              width: 150px;
+              height: 1.5px;
+              background: #64748b;
+              margin-bottom: 6px;
+            }
+            .sig-box small {
+              font-size: 9.5px;
+              color: #64748b;
+              line-height: 1.3;
+              margin-top: 2px;
+            }
+            .stamp-box {
+              border: 1.5px dashed #3b82f6 !important;
+              background: #eff6ff !important;
+              border-radius: 20px;
+              padding: 6px 14px;
+              display: inline-flex;
+              align-items: center;
+              gap: 6px;
+              color: #1e40af !important;
+              font-size: 10.5px;
+              font-weight: 800;
+              letter-spacing: 0.5px;
+            }
+            .stamp-box mat-icon {
+              font-size: 16px;
+              width: 16px;
+              height: 16px;
+              color: #2563eb;
+              vertical-align: middle;
+            }
+
+            /* ══════ RELIEVING CERTIFICATE STYLING ══════ */
+            .cert-paper {
+              padding: 8px;
+              color: #0f172a;
+            }
+            .cert-border {
+              border: 3.5px double #1e3a8a;
+              padding: 28px 34px;
+              position: relative;
+              background: #ffffff;
+              border-radius: 4px;
+            }
+            .cert-header {
+              text-align: center;
+              border-bottom: 1.5px solid #1e3a8a;
+              padding-bottom: 14px;
+              margin-bottom: 18px;
+            }
+            .inst-crest {
+              width: 44px;
+              height: 44px;
+              border-radius: 50%;
+              background: #1e3a8a !important;
+              color: #ffffff;
+              margin: 0 auto 8px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            }
+            .inst-crest mat-icon {
+              font-size: 24px;
+              width: 24px;
+              height: 24px;
+              color: #ffffff;
+            }
+            .inst-cert-title {
+              font-size: 22px;
+              font-weight: 800;
+              margin: 0;
+              color: #1e3a8a;
+              letter-spacing: 0.8px;
+            }
+            .inst-cert-sub {
+              font-size: 11px;
+              color: #64748b;
+              margin: 3px 0 10px;
+              font-style: italic;
+            }
+            .cert-ref-strip {
+              display: flex;
+              justify-content: space-between;
+              font-size: 11px;
+              color: #475569;
+              border-top: 1px dashed #cbd5e1;
+              padding-top: 8px;
+            }
+            .cert-title-badge {
+              text-align: center;
+              margin-bottom: 18px;
+            }
+            .cert-title-badge h2 {
+              font-size: 18px;
+              font-weight: 800;
+              color: #1e3a8a;
+              letter-spacing: 1.5px;
+              margin: 0;
+            }
+            .cert-title-badge span {
+              font-size: 11px;
+              color: #64748b;
+              font-weight: 600;
+            }
+            .cert-body-text {
+              font-size: 12.5px;
+              line-height: 1.65;
+              color: #1e293b;
+              text-align: justify;
+            }
+            .cert-body-text .to-whom {
+              font-size: 12px;
+              font-weight: 800;
+              text-align: center;
+              margin-bottom: 14px;
+              letter-spacing: 1.5px;
+              color: #0f172a;
+            }
+            .cert-body-text .body-para {
+              margin-bottom: 12px;
+              text-indent: 24px;
+            }
+            .cert-footer {
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-end;
+              margin-top: 30px;
+              padding-top: 10px;
+            }
+            .gold-seal {
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              gap: 3px;
+              border: 2px dashed #b45309 !important;
+              border-radius: 50%;
+              width: 80px;
+              height: 80px;
+              justify-content: center;
+              color: #b45309;
+              font-size: 9px;
+              font-weight: 800;
+            }
+            .gold-seal mat-icon {
+              font-size: 24px;
+              width: 24px;
+              height: 24px;
+              color: #d97706;
+            }
+            .principal-sig {
+              text-align: right;
+              display: flex;
+              flex-direction: column;
+              gap: 2px;
+            }
+            .sig-line-gold {
+              width: 170px;
+              height: 1.5px;
+              background: #1e3a8a;
+              margin-bottom: 6px;
+              margin-left: auto;
+            }
+            .principal-sig strong {
+              font-size: 12px;
+              color: #0f172a;
+            }
+            .principal-sig span {
+              font-size: 10.5px;
+              color: #64748b;
+            }
           </style>
         </head>
         <body>
@@ -1477,7 +1866,7 @@ export class TeacherFnFComponent implements OnInit {
     setTimeout(() => {
       printWin.print();
       printWin.close();
-    }, 500);
+    }, 450);
   }
 
   getAmountInWords(num: number): string {

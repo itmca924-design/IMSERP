@@ -192,6 +192,9 @@
                   <strong class="evaluator-name" [class.unassigned]="!exam.evaluatorTeacherName">
                     {{ exam.evaluatorTeacherName || 'Teacher Not Assigned' }}
                   </strong>
+                  <button mat-button type="button" class="quick-assign-btn" *ngIf="!exam.evaluatorTeacherName && !exam.isMarksLocked && !isTeacher" (click)="openEvaluationModal(exam)">
+                    + Assign Bundle
+                  </button>
                 </div>
                 <div class="evaluator-pills">
                   <span class="eval-pill" *ngIf="exam.totalCopiesIssued !== null && exam.totalCopiesIssued !== undefined">
@@ -226,49 +229,126 @@
             <mat-divider></mat-divider>
 
             <div class="exam-card-actions">
-              <!-- Primary Action Row -->
+              <!-- Primary Action Row - STRICT STAGE AWARE -->
               <div class="card-action-row-primary">
-                <!-- Enter / View Marks Button -->
-                <button
-                  mat-flat-button
-                  [color]="exam.isMarksLocked ? 'accent' : 'primary'"
-                  class="enter-marks-btn"
-                  (click)="openMarksEntry(exam)">
-                  <mat-icon>{{ exam.isMarksLocked ? 'lock' : 'edit_note' }}</mat-icon>
-                  <span>{{ exam.isMarksLocked ? 'View Marks' : 'Enter Marks' }}</span>
-                </button>
 
-                <!-- Blank Award Sheet Button (कच्चा अंक पत्रक) -->
-                <button
-                  mat-stroked-button
-                  class="award-sheet-btn"
-                  (click)="openBlankAwardSheet(exam)"
-                  matTooltip="Print Blank Award Sheet (कच्चा अंक पत्रक) for physical copy checking">
-                  <mat-icon>print</mat-icon>
-                  <span>Award Sheet</span>
-                </button>
+                <!-- STAGE 1: Scheduled / Bundle Not Handed Over -->
+                <ng-container *ngIf="!exam.isMarksLocked && (exam.evaluationStatus === 'Scheduled' || !exam.evaluatorTeacherId)">
+                  <button
+                    mat-flat-button
+                    color="primary"
+                    class="assign-bundle-primary-btn"
+                    (click)="openEvaluationModal(exam)"
+                    matTooltip="Assign Evaluator Teacher & Hand Over Answer Sheet Bundle">
+                    <mat-icon>assignment_ind</mat-icon>
+                    <span>Assign Copy Bundle</span>
+                  </button>
+
+                  <button
+                    mat-stroked-button
+                    class="award-sheet-btn"
+                    (click)="openBlankAwardSheet(exam)"
+                    matTooltip="Print Blank Award Sheet (कच्चा अंक पत्रक) for physical copy checking">
+                    <mat-icon>print</mat-icon>
+                    <span>Award Sheet</span>
+                  </button>
+                </ng-container>
+
+                <!-- STAGE 2: Copies Under Evaluation (Teacher Checking In Progress) -->
+                <ng-container *ngIf="!exam.isMarksLocked && exam.evaluatorTeacherId && exam.evaluationStatus === 'CopiesUnderEvaluation'">
+                  <button
+                    mat-flat-button
+                    class="copies-evaluating-btn"
+                    (click)="openEvaluationModal(exam)"
+                    matTooltip="Click to update return status when teacher submits checked bundle">
+                    <mat-icon>hourglass_top</mat-icon>
+                    <span>Checking: {{ exam.evaluatorTeacherName || 'Teacher' }}</span>
+                  </button>
+
+                  <button
+                    mat-stroked-button
+                    class="enter-marks-secondary-btn"
+                    (click)="openMarksEntry(exam)"
+                    matTooltip="Enter marks once checked bundle is received">
+                    <mat-icon>edit_note</mat-icon>
+                    <span>Enter Marks</span>
+                  </button>
+                </ng-container>
+
+                <!-- STAGE 3 & 4: Copies Checked & Received OR Marks In Progress -->
+                <ng-container *ngIf="!exam.isMarksLocked && (exam.evaluationStatus === 'EvaluationCompleted' || exam.evaluationStatus === 'MarksEntered')">
+                  <button
+                    mat-flat-button
+                    color="primary"
+                    class="enter-marks-btn"
+                    (click)="openMarksEntry(exam)">
+                    <mat-icon>edit_note</mat-icon>
+                    <span>{{ exam.evaluatedStudents > 0 ? 'Edit Marks' : 'Enter Marks' }}</span>
+                  </button>
+
+                  <button
+                    mat-stroked-button
+                    class="award-sheet-btn"
+                    (click)="openBlankAwardSheet(exam)"
+                    matTooltip="Print Blank Award Sheet (कच्चा अंक पत्रक)">
+                    <mat-icon>print</mat-icon>
+                    <span>Award Sheet</span>
+                  </button>
+                </ng-container>
+
+                <!-- STAGE 5: Frozen & Locked by Principal -->
+                <ng-container *ngIf="exam.isMarksLocked">
+                  <button
+                    mat-flat-button
+                    color="accent"
+                    class="enter-marks-btn view-locked-btn"
+                    (click)="openMarksEntry(exam)">
+                    <mat-icon>lock</mat-icon>
+                    <span>View Marks</span>
+                  </button>
+
+                  <button
+                    mat-stroked-button
+                    class="award-sheet-btn"
+                    (click)="openBlankAwardSheet(exam)"
+                    matTooltip="Print Final Award Sheet">
+                    <mat-icon>print</mat-icon>
+                    <span>Award Sheet</span>
+                  </button>
+                </ng-container>
               </div>
 
-              <!-- Secondary Utility Action Row (Admin / Exam Incharge Only) -->
-              <div class="card-action-row-secondary" *ngIf="!isTeacher">
-                <!-- Copy Evaluation Tracking Button (Visible only when unlocked) -->
+              <!-- Secondary Utility Action Row -->
+              <div class="card-action-row-secondary">
+                <!-- For unassigned exams: allow direct oral entry link -->
+                <button
+                  mat-button
+                  type="button"
+                  class="bypass-link-btn"
+                  *ngIf="!exam.isMarksLocked && (exam.evaluationStatus === 'Scheduled' || !exam.evaluatorTeacherId)"
+                  (click)="openMarksEntry(exam)"
+                  matTooltip="Bypass copy checking for Oral, Practical or Class tests">
+                  <span>Oral/Direct Entry</span>
+                </button>
+
+                <!-- Copy Tracking shortcut button (when assigned) -->
                 <button
                   mat-stroked-button
                   class="tracking-quick-btn"
-                  *ngIf="!exam.isMarksLocked"
+                  *ngIf="!exam.isMarksLocked && exam.evaluatorTeacherId"
                   (click)="openEvaluationModal(exam)"
-                  matTooltip="Assign Evaluator Teacher & Track Paper Bundle">
+                  matTooltip="View/Edit Copy Tracking Details">
                   <mat-icon>assignment_ind</mat-icon>
                   <span>Copy Tracking</span>
                 </button>
 
-                <!-- Evaluation Completed Badge (Visible when locked) -->
+                <!-- Locked Status Strip -->
                 <div class="locked-status-strip" *ngIf="exam.isMarksLocked">
                   <mat-icon>verified</mat-icon>
                   <span>Evaluation Completed & Locked</span>
                 </div>
 
-                <div class="action-icons-group">
+                <div class="action-icons-group" *ngIf="!isTeacher">
                   <!-- Lock / Unlock Marks Toggle -->
                   <button
                     mat-icon-button
@@ -359,23 +439,74 @@
                 <mat-label>Default Passing Marks</mat-label>
                 <input matInput type="number" formControlName="defaultPassingMarks" min="1">
               </mat-form-field>
+
+              <!-- Start Date & Paper Spacing Controls -->
+              <mat-form-field appearance="outline" class="start-date-field" [class.field-sunday]="isSunday(scheduleForm.get('startDate')?.value)">
+                <mat-label>Exam Start Date *</mat-label>
+                <input matInput type="date" formControlName="startDate" (change)="autoSequenceExamDates()">
+                <mat-hint *ngIf="isSunday(scheduleForm.get('startDate')?.value)" class="sunday-hint-text">
+                  ⚠️ Sunday (Holiday!)
+                </mat-hint>
+                <mat-hint *ngIf="!isSunday(scheduleForm.get('startDate')?.value) && scheduleForm.get('startDate')?.value" class="weekday-hint-text">
+                  📅 Starts {{ getDayName(scheduleForm.get('startDate')?.value) }}
+                </mat-hint>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Paper Spacing (Skip Sun)</mat-label>
+                <mat-select formControlName="examSpacing" (selectionChange)="autoSequenceExamDates()">
+                  <mat-option value="daily">Consecutive Days (Skip Sundays)</mat-option>
+                  <mat-option value="alternate">1 Day Gap / Study Leave (Skip Sundays)</mat-option>
+                  <mat-option value="gap2">2 Days Gap (Skip Sundays)</mat-option>
+                  <mat-option value="same_day">All On Same Day (Single Day)</mat-option>
+                </mat-select>
+              </mat-form-field>
             </div>
 
             <!-- Subject Rows Table -->
             <div class="subjects-schedule-header">
-              <h3>Subject Exam Papers ({{ examRows.length }})</h3>
-              <button mat-stroked-button type="button" color="primary" (click)="addScheduleRow()">
-                <mat-icon>add</mat-icon> Add Subject
-              </button>
+              <div class="schedule-header-title">
+                <h3>Subject Exam Papers ({{ examRows.length }})</h3>
+                <span class="curriculum-pill" *ngIf="currentClassSubjects.length > 0">
+                  <mat-icon>verified</mat-icon> {{ currentClassSubjects.length }} Curriculum Subjects
+                </span>
+              </div>
+              <div class="schedule-actions-btns">
+                <button mat-stroked-button type="button" class="populate-curriculum-btn" (click)="populateFromClassCurriculum()" matTooltip="Reset and auto-populate all subjects mapped to this class in Subject Master">
+                  <mat-icon>auto_awesome</mat-icon>
+                  <span>{{ currentClassSubjects.length > 0 ? 'Load Curriculum (' + currentClassSubjects.length + ' Subjects)' : 'Load Default Subjects' }}</span>
+                </button>
+                <button mat-stroked-button type="button" class="seq-dates-btn" (click)="autoSequenceExamDates()" matTooltip="Re-sequence all subject exam dates starting from start date and skip Sundays">
+                  <mat-icon>event_repeat</mat-icon>
+                  <span>Re-Sequence (Skip Sun)</span>
+                </button>
+                <button mat-stroked-button type="button" color="primary" (click)="addScheduleRow()">
+                  <mat-icon>add</mat-icon> Add Subject
+                </button>
+              </div>
             </div>
 
             <div class="subject-rows-container" formArrayName="exams">
-              <div class="subject-row" *ngFor="let row of examRows.controls; let i = index" [formGroupName]="i">
+              <div class="subject-row" *ngFor="let row of examRows.controls; let i = index" [formGroupName]="i" [class.row-sunday-alert]="isSunday(row.get('testDate')?.value)">
                 <span class="row-num">{{ i + 1 }}</span>
 
                 <mat-form-field appearance="outline" class="sub-field">
                   <mat-label>Subject Name *</mat-label>
-                  <input matInput formControlName="subject" (change)="onSubjectChange(i, row.get('subject')?.value)" placeholder="e.g. Mathematics">
+                  <mat-select formControlName="subject" (selectionChange)="onSubjectChange(i, $event.value)">
+                    <mat-optgroup label="Class Curriculum Subjects" *ngIf="currentClassSubjects.length > 0">
+                      <mat-option *ngFor="let s of currentClassSubjects" [value]="s.subjectName">
+                        ⭐ {{ s.subjectName }} (Marks: {{ s.totalMarks }})
+                      </mat-option>
+                    </mat-optgroup>
+                    <mat-optgroup label="Other Catalog Subjects">
+                      <mat-option *ngFor="let s of allSubjects" [value]="s.name">
+                        {{ s.name }}
+                      </mat-option>
+                    </mat-optgroup>
+                    <mat-option *ngIf="row.get('subject')?.value && !isKnownSubject(row.get('subject')?.value)" [value]="row.get('subject')?.value">
+                      {{ row.get('subject')?.value }} (Custom)
+                    </mat-option>
+                  </mat-select>
                 </mat-form-field>
 
                 <mat-form-field appearance="outline" class="title-field">
@@ -383,9 +514,15 @@
                   <input matInput formControlName="title" placeholder="e.g. Annual Exam - Mathematics">
                 </mat-form-field>
 
-                <mat-form-field appearance="outline" class="date-field">
+                <mat-form-field appearance="outline" class="date-field" [class.field-sunday]="isSunday(row.get('testDate')?.value)">
                   <mat-label>Exam Date *</mat-label>
                   <input matInput type="date" formControlName="testDate">
+                  <mat-hint *ngIf="isSunday(row.get('testDate')?.value)" class="sunday-hint-text">
+                    ⚠️ Sunday (Holiday!)
+                  </mat-hint>
+                  <mat-hint *ngIf="!isSunday(row.get('testDate')?.value) && row.get('testDate')?.value" class="weekday-hint-text">
+                    📅 {{ getDayName(row.get('testDate')?.value) }}
+                  </mat-hint>
                 </mat-form-field>
 
                 <mat-form-field appearance="outline" class="marks-field">

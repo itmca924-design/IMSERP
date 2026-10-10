@@ -10,6 +10,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { SchoolService, SectionPeriodRoutineDto, CreateSectionPeriodRequestDto } from '../../core/services/school.service';
+import { SubjectsService, ClassSubjectDto } from '../../core/services/subjects.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { TeacherDto } from '../teachers/teacher.models';
 
@@ -133,13 +134,20 @@ export interface SectionRoutineDialogData {
 
             <!-- Quick Subject Suggestions -->
             <div class="form-group">
-              <label class="field-label">Subject (विषय) *</label>
+              <div class="subject-header-row">
+                <label class="field-label">Subject (विषय) *</label>
+                <span class="curr-pill" *ngIf="classSubjects.length > 0">
+                  <mat-icon>verified</mat-icon> {{ classSubjects.length }} Curriculum Subjects
+                </span>
+              </div>
               <div class="subject-chips">
-                <button type="button" *ngFor="let s of popularSubjects"
+                <button type="button" *ngFor="let s of displaySubjects; trackBy: trackBySubject"
                   class="subj-chip"
-                  [class.active]="newSubject.toLowerCase() === s.toLowerCase()"
-                  (click)="newSubject = s">
-                  {{ s }}
+                  [class.curriculum-chip]="s.isCurriculum"
+                  [class.active]="newSubject && (newSubject.trim().toLowerCase() === (s.name || '').trim().toLowerCase())"
+                  (click)="pickSubject(s)"
+                  [matTooltip]="s.teacherId ? 'Auto-selects assigned subject teacher' : ''">
+                  <span *ngIf="s.isCurriculum" class="star-icon">⭐ </span>{{ s.name }}
                 </button>
               </div>
               <input type="text" [(ngModel)]="newSubject" placeholder="Or enter subject name (e.g. Sanskrit, Moral Science)..." class="custom-input" />
@@ -153,7 +161,7 @@ export interface SectionRoutineDialogData {
                 <option *ngIf="classTeacherObj" [value]="classTeacherObj.id" style="font-weight: 700; color: #1e3a8a;">
                   ⭐ {{ classTeacherObj.fullName }} ({{ classTeacherObj.employeeCode }}) — Class Teacher
                 </option>
-                <option *ngFor="let t of nonCtTeachers" [value]="t.id">
+                <option *ngFor="let t of nonCtTeachers; trackBy: trackByTeacherId" [value]="t.id">
                   {{ t.fullName }} ({{ t.employeeCode }}) {{ t.specialization ? '• ' + t.specialization : '' }}
                 </option>
               </select>
@@ -598,6 +606,28 @@ export interface SectionRoutineDialogData {
       color: #334155;
     }
 
+    .subject-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 4px;
+
+      .curr-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        background: #eff6ff;
+        color: #1d4ed8;
+        border: 1px solid #bfdbfe;
+        font-size: 0.72rem;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 12px;
+        mat-icon { font-size: 14px; width: 14px; height: 14px; color: #2563eb; }
+      }
+    }
+
     .subject-chips {
       display: flex;
       flex-wrap: wrap;
@@ -616,10 +646,19 @@ export interface SectionRoutineDialogData {
       cursor: pointer;
       transition: all 0.15s;
       &:hover { background: #e2e8f0; }
+
+      &.curriculum-chip {
+        background: #eff6ff;
+        border-color: #bfdbfe;
+        color: #1e40af;
+        font-weight: 700;
+        &:hover { background: #dbeafe; }
+      }
+
       &.active {
-        background: #2563eb;
-        color: #ffffff;
-        border-color: #2563eb;
+        background: #2563eb !important;
+        color: #ffffff !important;
+        border-color: #2563eb !important;
       }
     }
 
@@ -983,12 +1022,52 @@ export class SectionRoutineDialogComponent implements OnInit {
   selectedDays: string[] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   selectedTimeSlot = '08:00 AM - 08:45 AM';
 
+  classSubjects: ClassSubjectDto[] = [];
+  loadingClassSubjects = false;
+
   constructor(
     public dialogRef: MatDialogRef<SectionRoutineDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: SectionRoutineDialogData,
     private schoolService: SchoolService,
+    private subjectsService: SubjectsService,
     private confirmDialog: ConfirmDialogService
   ) {}
+
+  displaySubjects: { name: string; teacherId?: string; isCurriculum: boolean }[] = [];
+
+  updateDisplaySubjects(): void {
+    if (this.classSubjects && this.classSubjects.length > 0) {
+      this.displaySubjects = this.classSubjects.map(cs => ({
+        name: cs.subjectName,
+        teacherId: cs.teacherId,
+        isCurriculum: true
+      }));
+    } else {
+      this.displaySubjects = this.popularSubjects.map(s => ({
+        name: s,
+        isCurriculum: false
+      }));
+    }
+  }
+
+  trackBySubject(index: number, item: { name: string; teacherId?: string; isCurriculum: boolean }): string {
+    return item ? item.name : `${index}`;
+  }
+
+  trackByTeacherId(index: number, item: TeacherDto): string {
+    return item ? item.id : `${index}`;
+  }
+
+  pickSubject(item: { name: string; teacherId?: string; isCurriculum: boolean }): void {
+    if (this.newSubject && this.newSubject.trim().toLowerCase() === (item.name || '').trim().toLowerCase()) {
+      this.newSubject = '';
+    } else {
+      this.newSubject = item.name;
+      if (item.teacherId) {
+        this.selectedTeacherId = item.teacherId;
+      }
+    }
+  }
 
   isTeachingStaff(t: any): boolean {
     if (!t) return false;
@@ -1005,12 +1084,34 @@ export class SectionRoutineDialogComponent implements OnInit {
   }
 
   ngOnInit() {
+    this.updateDisplaySubjects();
     this.loadRoutine();
+    this.loadClassSubjects();
     if (this.data.classTeacherId && this.classTeacherObj) {
       this.selectedTeacherId = this.data.classTeacherId;
     } else {
       this.selectedTeacherId = '';
     }
+  }
+
+  loadClassSubjects(): void {
+    if (!this.data.classId) {
+      this.updateDisplaySubjects();
+      return;
+    }
+    this.loadingClassSubjects = true;
+    this.subjectsService.getClassSubjects(this.data.classId).subscribe({
+      next: (subs) => {
+        this.loadingClassSubjects = false;
+        this.classSubjects = subs || [];
+        this.updateDisplaySubjects();
+      },
+      error: () => {
+        this.loadingClassSubjects = false;
+        this.classSubjects = [];
+        this.updateDisplaySubjects();
+      }
+    });
   }
 
   loadRoutine() {

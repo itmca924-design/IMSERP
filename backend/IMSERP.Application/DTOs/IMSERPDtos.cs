@@ -1059,6 +1059,45 @@ public record CreateSubjectDto(
     bool IsActive = true
 );
 
+public record ClassSubjectDto(
+    Guid Id,
+    Guid ClassId,
+    string ClassName,
+    Guid SubjectId,
+    string SubjectName,
+    string? SubjectCode,
+    Guid? TeacherId,
+    string? TeacherName,
+    bool IsCompulsory,
+    int TotalMarks,
+    int PassingMarks,
+    int DisplayOrder,
+    DateTime CreatedAt
+);
+
+public record AllocateClassSubjectItemDto(
+    Guid SubjectId,
+    Guid? TeacherId = null,
+    bool IsCompulsory = true,
+    int TotalMarks = 100,
+    int PassingMarks = 33,
+    int DisplayOrder = 0
+);
+
+public record AllocateClassSubjectsRequestDto(
+    Guid ClassId,
+    List<AllocateClassSubjectItemDto> Subjects
+);
+
+public record ClassSubjectSummaryDto(
+    Guid ClassId,
+    string ClassName,
+    string? ClassCode,
+    int DisplayOrder,
+    int AssignedSubjectsCount,
+    List<string> SubjectNames
+);
+
 public record PagedResultDto<T>(
     List<T> Items,
     int TotalCount,

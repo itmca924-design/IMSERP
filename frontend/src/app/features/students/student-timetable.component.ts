@@ -14,6 +14,13 @@ import {
   StudentFacultyContactDto 
 } from '../../core/services/coaching.service';
 import { AuthService } from '../../core/services/auth.service';
+import { 
+  SchoolService, 
+  SchoolClassDto, 
+  SchoolSectionDto, 
+  SectionPeriodRoutineDto 
+} from '../../core/services/school.service';
+import { SectionRoutineDialogComponent } from '../school/section-routine-dialog.component';
 import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.directive';
 
 @Component({
@@ -77,6 +84,37 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
         </div>
       </div>
 
+      <!-- Academic Class & Section Selector for Staff/Admin -->
+      <div class="admin-selector-bar" *ngIf="isAdminOrStaff && classes.length > 0">
+        <div class="selector-left">
+          <div class="selector-badge">
+            <mat-icon>tune</mat-icon>
+            <span>Class Timetable</span>
+          </div>
+          
+          <div class="select-group">
+            <label class="select-label">Class (कक्षा):</label>
+            <select [(ngModel)]="selectedClassId" (change)="onClassSelect()" class="header-select">
+              <option *ngFor="let c of classes" [value]="c.id">{{ c.name }}</option>
+            </select>
+          </div>
+
+          <div class="select-group" *ngIf="currentSections.length > 0">
+            <label class="select-label">Section (वर्ग):</label>
+            <select [(ngModel)]="selectedSectionId" (change)="onSectionSelect()" class="header-select">
+              <option *ngFor="let s of currentSections" [value]="s.id">{{ s.name }}</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="selector-right">
+          <button type="button" class="setup-routine-btn" (click)="openConfigureRoutineDialog()" matTooltip="Add / edit periods and assign teachers for this section">
+            <mat-icon>edit_calendar</mat-icon>
+            <span>Configure Section Routine</span>
+          </button>
+        </div>
+      </div>
+
       <!-- Loading State -->
       <div class="loading-state-card" *ngIf="loading">
         <mat-spinner diameter="44"></mat-spinner>
@@ -95,6 +133,20 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
 
       <!-- Main Timetable Content -->
       <div class="content-wrapper" *ngIf="!loading && timetableData">
+
+        <!-- No Routine Configured Alert Banner -->
+        <div class="no-routine-configured-banner" *ngIf="totalWeeklyPeriodsCount === 0">
+          <div class="banner-left">
+            <mat-icon>event_busy</mat-icon>
+            <div>
+              <strong>No Periods Scheduled Yet for {{ timetableData.className }}{{ timetableData.sectionName ? ' - ' + timetableData.sectionName : '' }}</strong>
+              <p>Configure weekly class routine, subjects, and period timings for this section.</p>
+            </div>
+          </div>
+          <button type="button" class="btn-create-routine" (click)="openConfigureRoutineDialog()">
+            <mat-icon>add_circle_outline</mat-icon> Setup Weekly Routine
+          </button>
+        </div>
 
         <!-- Student & Academic Identity Strip -->
         <div class="student-identity-bar">
@@ -655,6 +707,134 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
       box-shadow: 0 1px 3px rgba(37, 99, 235, 0.08);
       flex-wrap: wrap;
       gap: 16px;
+    }
+
+    .admin-selector-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #ffffff;
+      border: 1.5px solid #bfdbfe;
+      border-radius: 12px;
+      padding: 12px 18px;
+      box-shadow: 0 4px 12px -2px rgba(37, 99, 235, 0.08);
+      flex-wrap: wrap;
+      gap: 14px;
+    }
+
+    .selector-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .selector-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1e40af;
+      font-size: 0.8rem;
+      font-weight: 700;
+      padding: 6px 12px;
+      border-radius: 8px;
+      mat-icon { font-size: 16px; width: 16px; height: 16px; color: #2563eb; }
+    }
+
+    .select-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .select-label {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #334155;
+      white-space: nowrap;
+    }
+
+    .header-select {
+      background: #f8fafc;
+      border: 1.5px solid #cbd5e1;
+      color: #0f172a;
+      font-size: 0.86rem;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 8px;
+      outline: none;
+      cursor: pointer;
+      min-width: 140px;
+      transition: all 0.15s;
+      &:focus {
+        border-color: #2563eb;
+        background: #ffffff;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+      }
+    }
+
+    .selector-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .setup-routine-btn {
+      background: #2563eb;
+      color: #ffffff;
+      border: none;
+      font-size: 0.82rem;
+      font-weight: 700;
+      padding: 7px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+      transition: all 0.15s;
+      mat-icon { font-size: 16px; width: 16px; height: 16px; }
+      &:hover { background: #1d4ed8; transform: translateY(-1px); }
+    }
+
+    .no-routine-configured-banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #fffbeb;
+      border: 1.5px solid #fde68a;
+      border-radius: 12px;
+      padding: 14px 18px;
+      gap: 16px;
+      flex-wrap: wrap;
+
+      .banner-left {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        mat-icon { font-size: 28px; width: 28px; height: 28px; color: #d97706; }
+        strong { display: block; font-size: 0.92rem; color: #92400e; margin-bottom: 2px; }
+        p { margin: 0; font-size: 0.82rem; color: #b45309; }
+      }
+
+      .btn-create-routine {
+        background: #f59e0b;
+        color: #ffffff;
+        border: none;
+        font-size: 0.82rem;
+        font-weight: 700;
+        padding: 7px 14px;
+        border-radius: 8px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: background 0.15s;
+        mat-icon { font-size: 16px; width: 16px; height: 16px; }
+        &:hover { background: #d97706; }
+      }
     }
 
     .header-left {
@@ -2682,16 +2862,45 @@ export class StudentTimetableComponent implements OnInit, OnDestroy {
     'physical education': '#16a34a'
   };
 
+  classes: SchoolClassDto[] = [];
+  selectedClassId = '';
+  selectedSectionId = '';
+
+  get currentSections(): SchoolSectionDto[] {
+    const cls = this.classes.find(c => c.id === this.selectedClassId);
+    return cls?.sections || [];
+  }
+
+  get isAdminOrStaff(): boolean {
+    if (this.authService.isTeacher()) return false;
+    return this.authService.isAdmin() || this.authService.isSuperAdmin() || this.authService.isInstituteAdmin();
+  }
+
+  get isTeacher(): boolean {
+    return this.authService.isTeacher();
+  }
+
+  get totalWeeklyPeriodsCount(): number {
+    if (!this.timetableData?.weeklySchedule) return 0;
+    return Object.values(this.timetableData.weeklySchedule).reduce((acc, list) => acc + (list?.length || 0), 0);
+  }
+
   constructor(
     private coachingService: CoachingService,
+    private schoolService: SchoolService,
     private authService: AuthService,
+    private dialog: MatDialog,
     private route: ActivatedRoute,
     private router: Router
   ) {}
 
   ngOnInit(): void {
     this.startLiveClock();
-    this.loadTimetable();
+    if (this.isAdminOrStaff) {
+      this.loadClassesAndInitialTimetable();
+    } else {
+      this.loadTimetable();
+    }
   }
 
   ngOnDestroy(): void {
@@ -2718,6 +2927,206 @@ export class StudentTimetableComponent implements OnInit, OnDestroy {
     };
     updateTime();
     this.clockIntervalId = setInterval(updateTime, 1000);
+  }
+
+  loadClassesAndInitialTimetable(): void {
+    const studentIdParam = this.route.snapshot.queryParamMap.get('studentId');
+    const classIdParam = this.route.snapshot.queryParamMap.get('classId');
+    const sectionIdParam = this.route.snapshot.queryParamMap.get('sectionId');
+
+    this.schoolService.getClasses(false).subscribe({
+      next: (clsList) => {
+        this.classes = clsList || [];
+        if (this.classes.length > 0) {
+          if (classIdParam && this.classes.some(c => c.id === classIdParam)) {
+            this.selectedClassId = classIdParam;
+          } else {
+            this.selectedClassId = this.classes[0].id;
+          }
+
+          const secs = this.currentSections;
+          if (sectionIdParam && secs.some(s => s.id === sectionIdParam)) {
+            this.selectedSectionId = sectionIdParam;
+          } else if (secs.length > 0) {
+            this.selectedSectionId = secs[0].id;
+          }
+
+          if (this.selectedSectionId && !studentIdParam) {
+            this.loadSectionTimetable(this.selectedSectionId);
+            return;
+          }
+        }
+
+        this.loadTimetable();
+      },
+      error: () => {
+        this.loadTimetable();
+      }
+    });
+  }
+
+  onClassSelect(): void {
+    const secs = this.currentSections;
+    if (secs.length > 0) {
+      this.selectedSectionId = secs[0].id;
+      this.loadSectionTimetable(this.selectedSectionId);
+    } else {
+      this.selectedSectionId = '';
+      this.timetableData = null;
+      this.errorMessage = 'No sections configured for this class.';
+    }
+  }
+
+  onSectionSelect(): void {
+    if (this.selectedSectionId) {
+      this.loadSectionTimetable(this.selectedSectionId);
+    }
+  }
+
+  loadSectionTimetable(sectionId: string): void {
+    const cls = this.classes.find(c => c.id === this.selectedClassId);
+    const sec = this.currentSections.find(s => s.id === sectionId);
+    if (!cls || !sec) return;
+
+    this.loading = true;
+    this.errorMessage = '';
+
+    this.schoolService.getSectionRoutine(sectionId).subscribe({
+      next: (routine) => {
+        this.loading = false;
+        this.timetableData = this.buildTimetableDtoFromSectionRoutine(cls, sec, routine || []);
+        this.selectedDay = this.timetableData.todayDayOfWeek || 'Monday';
+        this.computeMaxPeriods();
+      },
+      error: (err) => {
+        this.loading = false;
+        this.errorMessage = err?.error?.message || 'Failed to load timetable for selected section.';
+      }
+    });
+  }
+
+  private buildTimetableDtoFromSectionRoutine(
+    cls: SchoolClassDto,
+    sec: SchoolSectionDto,
+    routine: SectionPeriodRoutineDto[]
+  ): StudentWeeklyTimetableDto {
+    const daysList = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const daysShort = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+    const todayIndex = new Date().getDay();
+    const todayDayName = todayIndex === 0 ? 'Sunday' : daysList[todayIndex - 1];
+
+    const weeklySchedule: { [key: string]: StudentTimetableSlotDto[] } = {};
+
+    daysList.forEach((fullDay, idx) => {
+      const shortDay = daysShort[idx];
+      const daySlots: StudentTimetableSlotDto[] = [];
+      let periodNum = 1;
+
+      const matching = (routine || []).filter(r => {
+        const days = (r.daysOfWeek || 'All Days').toLowerCase();
+        return days.includes(shortDay.toLowerCase()) || days.includes(fullDay.toLowerCase()) || days.includes('all');
+      });
+
+      matching.forEach(r => {
+        daySlots.push({
+          assignmentId: r.id,
+          periodNumber: periodNum++,
+          subject: r.subject,
+          timeSlot: r.timeSlot || `Period ${periodNum - 1}`,
+          startTime: '',
+          endTime: '',
+          teacherId: r.teacherId,
+          teacherName: r.teacherName || 'Faculty',
+          teacherPhone: r.teacherPhone,
+          teacherPhoto: undefined,
+          isClassTeacher: r.isClassTeacher || (sec.classTeacherId === r.teacherId),
+          roomNumber: sec.roomNumber || 'Classroom',
+          daysOfWeek: r.daysOfWeek || 'Mon-Sat',
+          stream: 'School',
+          isLiveNow: false,
+          isUpcoming: false,
+          isCompleted: false,
+          isSubstituted: false
+        });
+      });
+
+      weeklySchedule[fullDay] = daySlots;
+    });
+
+    const todayPeriods = weeklySchedule[todayDayName] || [];
+
+    const facultyMap = new Map<string, StudentFacultyContactDto>();
+    (routine || []).forEach(r => {
+      if (!facultyMap.has(r.teacherId)) {
+        facultyMap.set(r.teacherId, {
+          teacherId: r.teacherId,
+          teacherName: r.teacherName,
+          subject: r.subject,
+          isClassTeacher: r.isClassTeacher || (sec.classTeacherId === r.teacherId),
+          phone: r.teacherPhone,
+          email: undefined,
+          photoUrl: undefined,
+          roomNumber: undefined
+        });
+      } else {
+        const existing = facultyMap.get(r.teacherId)!;
+        if (!existing.subject.includes(r.subject)) {
+          existing.subject += `, ${r.subject}`;
+        }
+      }
+    });
+
+    const facultyContacts = Array.from(facultyMap.values());
+
+    return {
+      studentId: sec.id,
+      studentName: `${cls.name} - ${sec.name}`,
+      rollNumber: `Seats: ${sec.studentCount}/${sec.maxCapacity}`,
+      className: cls.name,
+      sectionName: sec.name,
+      batchName: undefined,
+      branchName: undefined,
+      classTeacherName: sec.classTeacherName,
+      classTeacherPhone: sec.classTeacherPhone,
+      todayDayOfWeek: todayDayName,
+      currentLiveTimeIst: this.liveClockTime,
+      todayPeriods,
+      weeklySchedule,
+      facultyContacts
+    };
+  }
+
+  openConfigureRoutineDialog(): void {
+    const cls = this.classes.find(c => c.id === this.selectedClassId);
+    const sec = this.currentSections.find(s => s.id === this.selectedSectionId);
+    if (!cls || !sec) return;
+
+    this.coachingService.getTeachers().subscribe({
+      next: (teachersList) => {
+        const dialogRef = this.dialog.open(SectionRoutineDialogComponent, {
+          width: '880px',
+          maxWidth: '96vw',
+          maxHeight: '92vh',
+          panelClass: 'erp-custom-dialog',
+          autoFocus: false,
+          data: {
+            sectionId: sec.id,
+            sectionName: sec.name,
+            classId: cls.id,
+            className: cls.name,
+            classTeacherId: sec.classTeacherId,
+            classTeacherName: sec.classTeacherName,
+            classTeacherPhone: sec.classTeacherPhone,
+            teachers: teachersList || []
+          }
+        });
+
+        dialogRef.afterClosed().subscribe(() => {
+          this.loadSectionTimetable(sec.id);
+        });
+      }
+    });
   }
 
   loadTimetable(): void {

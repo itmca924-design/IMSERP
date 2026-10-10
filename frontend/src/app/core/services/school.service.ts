@@ -653,7 +653,7 @@ export class SchoolService {
 
     return this.http.get<{ totalCount: number; page: number; pageSize: number; items: SchoolExamDto[] }>(
       `${this.apiUrl}/exams`,
-      { params: httpParams }
+      { params: httpParams, headers: { 'X-Skip-Loader': 'true' } }
     );
   }
 

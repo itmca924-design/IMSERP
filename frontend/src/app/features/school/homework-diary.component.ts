@@ -1531,18 +1531,25 @@ export class HomeworkDiaryComponent implements OnInit {
 
         <div class="form-row">
           <mat-form-field appearance="outline" class="form-field">
-            <mat-label>Subject (विषय)</mat-label>
-            <mat-select [(ngModel)]="model.subjectName">
-              <mat-option value="Mathematics">Mathematics</mat-option>
-              <mat-option value="Science">Science</mat-option>
-              <mat-option value="English">English</mat-option>
-              <mat-option value="Hindi">Hindi</mat-option>
-              <mat-option value="Social Science">Social Science</mat-option>
-              <mat-option value="Physics">Physics</mat-option>
-              <mat-option value="Chemistry">Chemistry</mat-option>
-              <mat-option value="Biology">Biology</mat-option>
-              <mat-option value="Computer">Computer</mat-option>
-              <mat-option value="General">General / All Subjects</mat-option>
+            <mat-label>Subject (विषय) *</mat-label>
+            <mat-select [(ngModel)]="model.subjectName" (selectionChange)="onSubjectSelect($event.value)">
+              <mat-optgroup label="Class Curriculum Subjects" *ngIf="classSubjects.length > 0">
+                <mat-option *ngFor="let s of classSubjects" [value]="s.subjectName">
+                  ⭐ {{s.subjectName}} <span *ngIf="s.teacherName">({{s.teacherName}})</span>
+                </mat-option>
+              </mat-optgroup>
+              <mat-optgroup label="Standard / Other Subjects">
+                <mat-option value="Mathematics">Mathematics</mat-option>
+                <mat-option value="Science">Science</mat-option>
+                <mat-option value="English">English</mat-option>
+                <mat-option value="Hindi">Hindi</mat-option>
+                <mat-option value="Social Science">Social Science</mat-option>
+                <mat-option value="Physics">Physics</mat-option>
+                <mat-option value="Chemistry">Chemistry</mat-option>
+                <mat-option value="Biology">Biology</mat-option>
+                <mat-option value="Computer">Computer</mat-option>
+                <mat-option value="General">General / All Subjects</mat-option>
+              </mat-optgroup>
             </mat-select>
           </mat-form-field>
 
@@ -1837,9 +1844,40 @@ export class HomeworkFormDialogComponent implements OnInit {
     this.updatePreviewIso();
   }
 
+  classSubjects: any[] = [];
+  loadingClassSubjects = false;
+
   onClassSelect(): void {
     const found = this.data.classes?.find((c: any) => c.id === this.model.classId);
     this.dialogSections = found?.sections || [];
+
+    if (this.model.classId) {
+      this.loadingClassSubjects = true;
+      this.http.get<any[]>(`${API_BASE}/subjects/classes/${this.model.classId}`).subscribe({
+        next: (subs) => {
+          this.loadingClassSubjects = false;
+          this.classSubjects = subs || [];
+          if (!this.isEdit && this.classSubjects.length > 0 && (!this.model.subjectName || this.model.subjectName === 'Mathematics')) {
+            this.onSubjectSelect(this.classSubjects[0].subjectName);
+          }
+        },
+        error: () => {
+          this.loadingClassSubjects = false;
+          this.classSubjects = [];
+        }
+      });
+    } else {
+      this.classSubjects = [];
+    }
+  }
+
+  onSubjectSelect(subName: string): void {
+    this.model.subjectName = subName;
+    const found = this.classSubjects.find(cs => cs.subjectName.toLowerCase() === (subName || '').toLowerCase());
+    if (found?.teacherId) {
+      this.model.teacherId = found.teacherId;
+      this.onTeacherSelect();
+    }
   }
 
   onTeacherSelect(): void {

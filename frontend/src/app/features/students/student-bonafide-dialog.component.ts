@@ -49,29 +49,30 @@ export interface BonafideDialogData {
         </p>
       </div>
     </div>
-    <div class="header-controls">
-      <!-- Certificate Type Selector -->
-      <div class="cert-type-btns">
-        <button mat-stroked-button [class.active-btn]="certType==='Bonafide'" (click)="setCertType('Bonafide')">
-          <mat-icon>verified</mat-icon> Bonafide
-        </button>
-        <button mat-stroked-button [class.active-btn]="certType==='Character'" (click)="setCertType('Character')">
-          <mat-icon>psychology</mat-icon> Character
-        </button>
-        <button mat-stroked-button [class.active-btn]="certType==='StudyCertificate'" (click)="setCertType('StudyCertificate')">
-          <mat-icon>school</mat-icon> Study Cert.
-        </button>
-        <button mat-stroked-button [class.active-btn]="certType==='NoDues'" (click)="setCertType('NoDues')">
-          <mat-icon>task_alt</mat-icon> No-Dues Slip
-        </button>
-      </div>
-      <button mat-raised-button class="print-btn" (click)="printCert()" [disabled]="loading||!cert">
-        <mat-icon>print</mat-icon> Print
+    <button mat-icon-button (click)="dialogRef.close()" class="close-btn" matTooltip="Close">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <!-- Certificate Selection & Print Toolbar -->
+  <div class="cert-toolbar no-print">
+    <div class="cert-type-btns">
+      <button mat-stroked-button [class.active-btn]="certType==='Bonafide'" (click)="setCertType('Bonafide')">
+        <mat-icon>verified</mat-icon> Bonafide
       </button>
-      <button mat-icon-button (click)="dialogRef.close()" class="close-btn" matTooltip="Close">
-        <mat-icon>close</mat-icon>
+      <button mat-stroked-button [class.active-btn]="certType==='Character'" (click)="setCertType('Character')">
+        <mat-icon>psychology</mat-icon> Character
+      </button>
+      <button mat-stroked-button [class.active-btn]="certType==='StudyCertificate'" (click)="setCertType('StudyCertificate')">
+        <mat-icon>school</mat-icon> Study Cert.
+      </button>
+      <button mat-stroked-button [class.active-btn]="certType==='NoDues'" (click)="setCertType('NoDues')">
+        <mat-icon>task_alt</mat-icon> No-Dues Slip
       </button>
     </div>
+    <button mat-raised-button class="print-btn" (click)="printCert()" [disabled]="loading||!cert">
+      <mat-icon>print</mat-icon> Print
+    </button>
   </div>
 
   <!-- Conduct Rating Selector (Only for Character Certificate) -->
@@ -329,17 +330,20 @@ export interface BonafideDialogData {
   `,
   styles: [`
     .bonafide-wrap{display:flex;flex-direction:column;max-height:90vh;background:#f1f5f9;overflow:hidden}
-    .modal-header{background:linear-gradient(135deg,#eff6ff 0%,#dbeafe 100%);border-bottom:1px solid #bfdbfe;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+    .modal-header{background:linear-gradient(135deg,#eff6ff 0%,#dbeafe 100%);border-bottom:1px solid #bfdbfe;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px}
     .header-left{display:flex;align-items:center;gap:12px}
     .header-icon-box{width:40px;height:40px;background:#2563eb;color:#fff;border-radius:10px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 6px -1px rgba(37,99,235,.25);flex-shrink:0}
     .modal-title{margin:0;font-size:18px;font-weight:700;color:#1e3a8a}
     .modal-subtitle{margin:2px 0 0;font-size:12px;color:#3b82f6;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-    .header-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-    .cert-type-btns{display:flex;gap:4px;background:#fff;padding:3px;border-radius:8px;border:1px solid #cbd5e1}
-    .cert-type-btns button{font-size:11px;padding:0 10px;height:28px;line-height:28px;border:none;display:flex;align-items:center;gap:4px}
-    .cert-type-btns button mat-icon{font-size:14px;width:14px;height:14px}
+    .close-btn{color:#64748b;flex-shrink:0}.close-btn:hover{color:#1e293b}
+
+    /* Cert Selection & Print Toolbar */
+    .cert-toolbar{background:#ffffff;border-bottom:1px solid #e2e8f0;padding:10px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+    .cert-type-btns{display:flex;gap:4px;background:#f8fafc;padding:3px;border-radius:8px;border:1px solid #cbd5e1}
+    .cert-type-btns button{font-size:11px;padding:0 10px;height:30px;line-height:30px;border:none;display:flex;align-items:center;gap:4px}
+    .cert-type-btns button mat-icon{font-size:15px;width:15px;height:15px}
     .active-btn{background:#2563eb!important;color:#fff!important;font-weight:700}
-    .close-btn{color:#64748b}.close-btn:hover{color:#1e293b}
+    .print-btn{background:#2563eb!important;color:#fff!important;font-weight:700;display:flex;align-items:center;gap:6px}
 
     /* Conduct Bar */
     .conduct-bar{background:#f5f3ff;border-bottom:1px solid #ddd6fe;padding:8px 20px}
