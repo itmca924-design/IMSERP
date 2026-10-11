@@ -50,65 +50,7 @@ public class StudyMaterialsController : ControllerBase
             .AsNoTracking()
             .Where(m => m.IsPublished);
 
-        // Auto-detect student if logged in as Student or Parent and studentId not explicitly provided
-        if (!studentId.HasValue && _currentUser.UserId != Guid.Empty && 
-            (_currentUser.UserRole.Equals("Student", StringComparison.OrdinalIgnoreCase) || 
-             _currentUser.UserRole.Equals("Parent", StringComparison.OrdinalIgnoreCase)))
-        {
-            var studentUser = await _db.Students
-                .AsNoTracking()
-                .Where(s => (s.UserId == _currentUser.UserId || s.ParentUserId == _currentUser.UserId) && s.TenantId == tenantId)
-                .Select(s => (Guid?)s.Id)
-                .FirstOrDefaultAsync();
-
-            if (studentUser.HasValue)
-            {
-                studentId = studentUser.Value;
-            }
-        }
-
-        // Optional: Student enrollment-aware filtering
-        if (studentId.HasValue && studentId.Value != Guid.Empty)
-        {
-            var student = await _db.Students
-                .AsNoTracking()
-                .Where(s => s.Id == studentId.Value)
-                .Select(s => new
-                {
-                    s.ClassId,
-                    s.SectionId,
-                    s.BatchId,
-                    s.IsSchoolStudent,
-                    s.IsCoachingStudent
-                })
-                .FirstOrDefaultAsync();
-
-            if (student != null)
-            {
-                if (student.IsSchoolStudent && !student.IsCoachingStudent)
-                {
-                    // School Only: Materials for their class OR open to both/all
-                    query = query.Where(m =>
-                        m.TargetScope == "Both" ||
-                        (m.TargetScope == "School" && (!m.ClassId.HasValue || m.ClassId == student.ClassId)));
-                }
-                else if (student.IsCoachingStudent && !student.IsSchoolStudent)
-                {
-                    // Coaching Only: Materials for their batch OR open to both/all
-                    query = query.Where(m =>
-                        m.TargetScope == "Both" ||
-                        (m.TargetScope == "Coaching" && (!m.BatchId.HasValue || m.BatchId == student.BatchId)));
-                }
-                else if (student.IsSchoolStudent && student.IsCoachingStudent)
-                {
-                    // Dual Enrollment: School class OR Coaching batch OR Both
-                    query = query.Where(m =>
-                        m.TargetScope == "Both" ||
-                        (m.TargetScope == "School" && (!m.ClassId.HasValue || m.ClassId == student.ClassId)) ||
-                        (m.TargetScope == "Coaching" && (!m.BatchId.HasValue || m.BatchId == student.BatchId)));
-                }
-            }
-        }
+        query = await ApplyRoleScopeAsync(query, tenantId, studentId);
 
         // 1. Scope filter (Optional)
         if (!string.IsNullOrWhiteSpace(scope) && !scope.Equals("All", StringComparison.OrdinalIgnoreCase))
@@ -255,9 +197,12 @@ public class StudyMaterialsController : ControllerBase
     /// Fast aggregation statistics for top summary cards.
     /// </summary>
     [HttpGet("stats")]
-    public async Task<ActionResult<StudyMaterialStatsDto>> GetStats([FromQuery] string? scope = null)
+    public async Task<ActionResult<StudyMaterialStatsDto>> GetStats([FromQuery] string? scope = null, [FromQuery] Guid? studentId = null)
     {
+        var tenantId = _currentUser.TenantId;
         var query = _db.StudyMaterials.AsNoTracking().Where(m => m.IsPublished);
+
+        query = await ApplyRoleScopeAsync(query, tenantId, studentId);
 
         if (!string.IsNullOrWhiteSpace(scope) && !scope.Equals("All", StringComparison.OrdinalIgnoreCase))
         {
@@ -583,5 +528,102 @@ public class StudyMaterialsController : ControllerBase
         await _db.SaveChangesAsync();
 
         return Ok(new { downloadCount = item.DownloadCount });
+    }
+
+    private async Task<IQueryable<StudyMaterial>> ApplyRoleScopeAsync(IQueryable<StudyMaterial> query, Guid tenantId, Guid? studentId = null)
+    {
+        // 1. Student / Parent
+        if (!studentId.HasValue && _currentUser.UserId != Guid.Empty && 
+            (_currentUser.UserRole.Equals("Student", StringComparison.OrdinalIgnoreCase) || 
+             _currentUser.UserRole.Equals("Parent", StringComparison.OrdinalIgnoreCase)))
+        {
+            var studentUser = await _db.Students
+                .AsNoTracking()
+                .Where(s => (s.UserId == _currentUser.UserId || s.ParentUserId == _currentUser.UserId) && s.TenantId == tenantId)
+                .Select(s => (Guid?)s.Id)
+                .FirstOrDefaultAsync();
+
+            if (studentUser.HasValue)
+            {
+                studentId = studentUser.Value;
+            }
+        }
+
+        if (studentId.HasValue && studentId.Value != Guid.Empty)
+        {
+            var student = await _db.Students
+                .AsNoTracking()
+                .Where(s => s.Id == studentId.Value)
+                .Select(s => new
+                {
+                    s.ClassId,
+                    s.SectionId,
+                    s.BatchId,
+                    s.IsSchoolStudent,
+                    s.IsCoachingStudent
+                })
+                .FirstOrDefaultAsync();
+
+            if (student != null)
+            {
+                if (student.IsSchoolStudent && !student.IsCoachingStudent)
+                {
+                    query = query.Where(m =>
+                        m.TargetScope == "Both" ||
+                        (m.TargetScope == "School" && (!m.ClassId.HasValue || m.ClassId == student.ClassId)));
+                }
+                else if (student.IsCoachingStudent && !student.IsSchoolStudent)
+                {
+                    query = query.Where(m =>
+                        m.TargetScope == "Both" ||
+                        (m.TargetScope == "Coaching" && (!m.BatchId.HasValue || m.BatchId == student.BatchId)));
+                }
+                else if (student.IsSchoolStudent && student.IsCoachingStudent)
+                {
+                    query = query.Where(m =>
+                        m.TargetScope == "Both" ||
+                        (m.TargetScope == "School" && (!m.ClassId.HasValue || m.ClassId == student.ClassId)) ||
+                        (m.TargetScope == "Coaching" && (!m.BatchId.HasValue || m.BatchId == student.BatchId)));
+                }
+            }
+        }
+        // 2. Teacher / Faculty
+        else if (_currentUser.UserId != Guid.Empty && 
+                 (_currentUser.UserRole.Equals("Teacher", StringComparison.OrdinalIgnoreCase) || 
+                  _currentUser.UserRole.Equals("Faculty", StringComparison.OrdinalIgnoreCase)))
+        {
+            var user = await _db.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
+            if (user != null)
+            {
+                var linkedTeacher = await _db.Teachers.AsNoTracking().FirstOrDefaultAsync(t =>
+                    t.TenantId == tenantId && (t.UserId == user.Id || (user.Email != null && t.Email == user.Email) || (user.FullName != null && t.FullName == user.FullName)));
+
+                if (linkedTeacher != null)
+                {
+                    var assignments = await _db.TeacherBatchAssignments.AsNoTracking()
+                        .Where(a => a.TeacherId == linkedTeacher.Id && a.IsActive && a.TenantId == tenantId)
+                        .ToListAsync();
+
+                    var classTeacherSection = await _db.SchoolSections.AsNoTracking()
+                        .Where(s => s.ClassTeacherId == linkedTeacher.Id && s.IsActive && s.TenantId == tenantId)
+                        .FirstOrDefaultAsync();
+
+                    var teacherClassIds = assignments.Where(a => a.ClassId.HasValue).Select(a => a.ClassId!.Value).Distinct().ToList();
+                    if (classTeacherSection != null && !teacherClassIds.Contains(classTeacherSection.ClassId))
+                    {
+                        teacherClassIds.Add(classTeacherSection.ClassId);
+                    }
+
+                    var teacherBatchIds = assignments.Where(a => a.BatchId.HasValue).Select(a => a.BatchId!.Value).Distinct().ToList();
+
+                    query = query.Where(m =>
+                        (m.ClassId.HasValue && teacherClassIds.Contains(m.ClassId.Value)) ||
+                        (m.BatchId.HasValue && teacherBatchIds.Contains(m.BatchId.Value)) ||
+                        (!m.ClassId.HasValue && !m.BatchId.HasValue));
+                }
+            }
+        }
+
+        return query;
     }
 }

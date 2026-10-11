@@ -748,7 +748,13 @@ export class TeacherSelectorComponent implements OnInit, OnChanges {
     if (!this.preSelectId) return;
     this.selectedId = this.preSelectId;
     this.selected = this.teachers.find(t => t.id === this.preSelectId) || null;
-    if (this.selected) this.teacherSelected.emit(this.selected);
+    if (this.selected) {
+      this.teacherSelected.emit(this.selected);
+    } else if (this.isSelfOnlyMode && this.teachers.length > 0) {
+      this.selectedId = this.teachers[0].id;
+      this.selected = this.teachers[0];
+      this.teacherSelected.emit(this.selected);
+    }
   }
 
   onSelect(id: string) {

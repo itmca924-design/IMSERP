@@ -21,6 +21,7 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { CoachingService } from '../../core/services/coaching.service';
+import { SchoolService, SchoolClassDto, SchoolSectionDto } from '../../core/services/school.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { SubjectsService, SubjectDto } from '../../core/services/subjects.service';
 import { LocalDatetimePipe } from '../../shared/pipes/local-datetime.pipe';
@@ -68,7 +69,7 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
           <button mat-stroked-button class="print-schedule-btn" (click)="printSchedule()" matTooltip="Print Exam Schedule Timetable">
             <mat-icon>print</mat-icon> Print Schedule
           </button>
-          <button mat-raised-button color="primary" class="add-btn" (click)="toggleBulkPlanner()">
+          <button *ngIf="isUserAdmin" mat-raised-button color="primary" class="add-btn" (click)="toggleBulkPlanner()">
             <mat-icon>{{ showBulkPlanner ? 'close' : 'add_circle' }}</mat-icon>
             {{ showBulkPlanner ? 'Close Scheduler' : 'Schedule Exam Session' }}
           </button>
@@ -90,36 +91,87 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                 <span class="title-sub">Plan multiple tests across subjects in a single workflow</span>
               </div>
             </div>
-            <span class="row-count-badge">{{ examRows.length }} Exam{{ examRows.length !== 1 ? 's' : '' }} Planned</span>
+            <div class="planner-header-actions">
+              <!-- Type Switcher (Visible only for Hybrid Institutes) -->
+              <div class="planner-type-switcher" *ngIf="isHybridInstitute">
+                <button type="button" class="type-pill-btn" [class.active]="plannerCategory === 'school'" (click)="setPlannerCategory('school')">
+                  <mat-icon>school</mat-icon> <span>School Class Exam</span>
+                </button>
+                <button type="button" class="type-pill-btn" [class.active]="plannerCategory === 'coaching'" (click)="setPlannerCategory('coaching')">
+                  <mat-icon>groups</mat-icon> <span>Coaching Batch Test</span>
+                </button>
+              </div>
+              <span class="row-count-badge">{{ examRows.length }} Exam{{ examRows.length !== 1 ? 's' : '' }} Planned</span>
+            </div>
           </div>
 
-          <!-- Quick apply batch to all -->
-          <div class="shared-batch-row">
+          <!-- Quick apply Default Class (School Mode) -->
+          <div class="shared-batch-row" *ngIf="plannerCategory === 'school'">
+            <mat-form-field appearance="outline" class="batch-selector" subscriptSizing="dynamic">
+              <mat-label>Default Class for All Rows</mat-label>
+              <mat-select [(ngModel)]="sharedClassId" (selectionChange)="onSharedClassChange()" panelClass="smart-batch-panel">
+                <mat-option value="">-- Choose School Class --</mat-option>
+                <mat-option *ngFor="let c of schoolClasses" [value]="c.id">
+                  {{ c.name }} {{ c.code ? '(' + c.code + ')' : '' }}
+                </mat-option>
+              </mat-select>
+              <mat-icon matSuffix>school</mat-icon>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="section-selector" subscriptSizing="dynamic" *ngIf="sharedClassId && sectionsForSharedClass.length > 0">
+              <mat-label>Default Section (Optional)</mat-label>
+              <mat-select [(ngModel)]="sharedSectionId" (selectionChange)="applySharedSectionToAll()" panelClass="smart-batch-panel">
+                <mat-option value="">-- All Sections --</mat-option>
+                <mat-option *ngFor="let s of sectionsForSharedClass" [value]="s.id">{{ s.name }}</mat-option>
+              </mat-select>
+              <mat-icon matSuffix>meeting_room</mat-icon>
+            </mat-form-field>
+
+            <span class="batch-tip" *ngIf="sharedClassId">
+              <mat-icon>check_circle</mat-icon> Applied class to all rows
+            </span>
+          </div>
+
+          <!-- Quick apply Default Batch (Coaching Mode) -->
+          <div class="shared-batch-row" *ngIf="plannerCategory === 'coaching'">
             <mat-form-field appearance="outline" class="batch-selector" subscriptSizing="dynamic">
               <mat-label>Default Batch for All Rows</mat-label>
               <mat-select [(ngModel)]="sharedBatchId" (selectionChange)="applyBatchToAll()" panelClass="smart-batch-panel">
                 <mat-option value="">-- Choose Batch --</mat-option>
                 <mat-option *ngFor="let b of batches" [value]="b.id">{{ b.name }}</mat-option>
               </mat-select>
-              <mat-icon matSuffix>group</mat-icon>
+              <mat-icon matSuffix>groups</mat-icon>
             </mat-form-field>
             <span class="batch-tip" *ngIf="sharedBatchId">
-              <mat-icon>check_circle</mat-icon> Applied to all empty rows
+              <mat-icon>check_circle</mat-icon> Applied to all rows
             </span>
           </div>
 
           <!-- Dynamic Exam Rows Form -->
           <div [formGroup]="bulkForm" class="planner-grid-wrapper">
 
-            <!-- Desktop / Tablet Column Header -->
-            <div class="row-labels">
+            <!-- Desktop / Tablet Column Header (School Mode) -->
+            <div class="row-labels school-mode" *ngIf="plannerCategory === 'school'">
+              <span class="lbl-num">#</span>
+              <span>Class *</span>
+              <span>Section</span>
+              <span>Subject *</span>
+              <span>Exam Title *</span>
+              <span>Date *</span>
+              <span>Time</span>
+              <span class="text-center lbl-marks">Marks *</span>
+              <span class="text-center">Action</span>
+            </div>
+
+            <!-- Desktop / Tablet Column Header (Coaching Mode) -->
+            <div class="row-labels coaching-mode" *ngIf="plannerCategory === 'coaching'">
               <span class="lbl-num">#</span>
               <span>Batch *</span>
               <span>Subject *</span>
               <span>Exam Title *</span>
               <span>Date *</span>
               <span>Time</span>
-              <span>Max Marks *</span>
+              <span class="text-center lbl-marks">Marks *</span>
               <span class="text-center">Action</span>
             </div>
 
@@ -128,6 +180,7 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
               <div *ngFor="let row of examRows; let i = index"
                    [formGroupName]="i"
                    class="exam-row"
+                   [ngClass]="plannerCategory === 'school' ? 'school-mode' : 'coaching-mode'"
                    [class.exam-row-error]="row.invalid && row.touched">
 
                 <!-- Row number -->
@@ -135,8 +188,28 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                   <span class="row-num">{{ i + 1 }}</span>
                 </div>
 
-                <!-- Batch -->
-                <div class="cell-batch">
+                <!-- School Mode: Class -->
+                <div class="cell-class" *ngIf="plannerCategory === 'school'">
+                  <mat-form-field appearance="outline" class="field-compact" subscriptSizing="dynamic">
+                    <mat-select formControlName="classId" placeholder="Select class..." panelClass="smart-batch-panel" (selectionChange)="onRowClassChange(i)">
+                      <mat-option *ngFor="let c of schoolClasses" [value]="c.id">{{ c.name }}</mat-option>
+                    </mat-select>
+                    <mat-error *ngIf="row.get('classId')?.invalid">Required</mat-error>
+                  </mat-form-field>
+                </div>
+
+                <!-- School Mode: Section -->
+                <div class="cell-section" *ngIf="plannerCategory === 'school'">
+                  <mat-form-field appearance="outline" class="field-compact" subscriptSizing="dynamic">
+                    <mat-select formControlName="sectionId" placeholder="All Sections" panelClass="smart-batch-panel">
+                      <mat-option value="">All</mat-option>
+                      <mat-option *ngFor="let s of sectionsForRow(i)" [value]="s.id">{{ s.name }}</mat-option>
+                    </mat-select>
+                  </mat-form-field>
+                </div>
+
+                <!-- Coaching Mode: Batch -->
+                <div class="cell-batch" *ngIf="plannerCategory === 'coaching'">
                   <mat-form-field appearance="outline" class="field-compact" subscriptSizing="dynamic">
                     <mat-select formControlName="batchId" placeholder="Select batch..." panelClass="smart-batch-panel">
                       <mat-option *ngFor="let b of batches" [value]="b.id">{{ b.name }}</mat-option>
@@ -279,7 +352,11 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                   <mat-icon matChipAvatar>menu_book</mat-icon>
                   {{ selectedTest.subject }}
                 </mat-chip>
-                <mat-chip class="custom-chip chip-batch">
+                <mat-chip class="custom-chip chip-batch" *ngIf="selectedTest.className">
+                  <mat-icon matChipAvatar>school</mat-icon>
+                  Class: <strong>{{ selectedTest.className }} {{ selectedTest.sectionName ? '(' + selectedTest.sectionName + ')' : '' }}</strong>
+                </mat-chip>
+                <mat-chip class="custom-chip chip-batch" *ngIf="!selectedTest.className && selectedTest.batchName">
                   <mat-icon matChipAvatar>groups</mat-icon>
                   {{ selectedTest.batchName }}
                 </mat-chip>
@@ -537,23 +614,60 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
 
         <!-- Search and Filter Bar -->
         <div class="filter-toolbar no-print">
-          <mat-form-field appearance="outline" class="search-field" subscriptSizing="dynamic">
-            <mat-label>Search Tests / Subject / Batch...</mat-label>
-            <input matInput [(ngModel)]="searchTerm" (keyup.enter)="onSearch()" />
-            <mat-icon matPrefix>search</mat-icon>
-            <button mat-icon-button matSuffix (click)="onSearch()" matTooltip="Search">
-              <mat-icon>arrow_forward</mat-icon>
+          <!-- Hybrid Module Category Tabs (Only if institute has both School & Coaching) -->
+          <div class="category-tabs-bar" *ngIf="isHybridInstitute">
+            <button type="button" class="cat-tab-btn" [class.active]="selectedCategory === 'all'" (click)="setCategoryFilter('all')">
+              <mat-icon>grid_view</mat-icon> All Exams
             </button>
-          </mat-form-field>
+            <button type="button" class="cat-tab-btn" [class.active]="selectedCategory === 'school'" (click)="setCategoryFilter('school')">
+              <mat-icon>school</mat-icon> School Classes
+            </button>
+            <button type="button" class="cat-tab-btn" [class.active]="selectedCategory === 'coaching'" (click)="setCategoryFilter('coaching')">
+              <mat-icon>groups</mat-icon> Coaching Batches
+            </button>
+          </div>
 
-          <mat-form-field appearance="outline" class="batch-filter" subscriptSizing="dynamic">
-            <mat-label>Filter by Batch</mat-label>
-            <mat-select [(ngModel)]="selectedBatchFilter" (selectionChange)="onFilterChange()">
-              <mat-option value="">All Batches</mat-option>
-              <mat-option *ngFor="let b of batches" [value]="b.id">{{ b.name }}</mat-option>
-            </mat-select>
-            <mat-icon matSuffix>filter_list</mat-icon>
-          </mat-form-field>
+          <div class="filters-input-row">
+            <mat-form-field appearance="outline" class="search-field" subscriptSizing="dynamic">
+              <mat-label>Search Tests / Subject / Title...</mat-label>
+              <input matInput [(ngModel)]="searchTerm" (keyup.enter)="onSearch()" />
+              <mat-icon matPrefix>search</mat-icon>
+              <button mat-icon-button matSuffix (click)="onSearch()" matTooltip="Search">
+                <mat-icon>arrow_forward</mat-icon>
+              </button>
+            </mat-form-field>
+
+            <!-- School Class & Section Filters (Visible when category is 'all' or 'school', AND hasSchool) -->
+            <ng-container *ngIf="hasSchool && (selectedCategory === 'school' || selectedCategory === 'all')">
+              <mat-form-field appearance="outline" class="filter-dropdown" subscriptSizing="dynamic">
+                <mat-label>Filter by School Class</mat-label>
+                <mat-select [(ngModel)]="selectedClassFilter" (selectionChange)="onClassFilterChange()">
+                  <mat-option value="">All Classes</mat-option>
+                  <mat-option *ngFor="let c of schoolClasses" [value]="c.id">{{ c.name }}</mat-option>
+                </mat-select>
+                <mat-icon matSuffix>school</mat-icon>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="filter-dropdown section-filter" subscriptSizing="dynamic" *ngIf="selectedClassFilter && sectionsForFilterClass.length > 0">
+                <mat-label>Section</mat-label>
+                <mat-select [(ngModel)]="selectedSectionFilter" (selectionChange)="onFilterChange()">
+                  <mat-option value="">All Sections</mat-option>
+                  <mat-option *ngFor="let s of sectionsForFilterClass" [value]="s.id">{{ s.name }}</mat-option>
+                </mat-select>
+                <mat-icon matSuffix>meeting_room</mat-icon>
+              </mat-form-field>
+            </ng-container>
+
+            <!-- Coaching Batch Filter (Visible when category is 'all' or 'coaching', AND hasCoaching) -->
+            <mat-form-field appearance="outline" class="filter-dropdown batch-filter" subscriptSizing="dynamic" *ngIf="hasCoaching && (selectedCategory === 'coaching' || selectedCategory === 'all')">
+              <mat-label>Filter by Coaching Batch</mat-label>
+              <mat-select [(ngModel)]="selectedBatchFilter" (selectionChange)="onFilterChange()">
+                <mat-option value="">All Batches</mat-option>
+                <mat-option *ngFor="let b of batches" [value]="b.id">{{ b.name }}</mat-option>
+              </mat-select>
+              <mat-icon matSuffix>filter_list</mat-icon>
+            </mat-form-field>
+          </div>
         </div>
 
         <mat-progress-bar mode="indeterminate" *ngIf="loading" class="grid-loader no-print"></mat-progress-bar>
@@ -579,6 +693,9 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                         <mat-icon>person</mat-icon> Evaluator: <strong>{{ t.evaluatorTeacherName }}</strong>
                         <span *ngIf="t.totalCopiesIssued">({{ t.totalCopiesIssued }} copies)</span>
                       </span>
+                      <span class="my-bundle-chip" *ngIf="!isUserAdmin && isMyBundle(t)">
+                        <mat-icon>assignment_ind</mat-icon> Assigned to You
+                      </span>
                       <span class="marks-count" *ngIf="t.totalStudentsEvaluated > 0">
                         <mat-icon>people</mat-icon> {{ t.totalStudentsEvaluated }} evaluated
                       </span>
@@ -590,11 +707,29 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                 </td>
               </ng-container>
 
-              <!-- Batch Column -->
+              <!-- Target Group (Class / Batch) Column -->
               <ng-container matColumnDef="batchName">
-                <th mat-header-cell *matHeaderCellDef mat-sort-header="batchName">Batch</th>
+                <th mat-header-cell *matHeaderCellDef mat-sort-header="batchName">
+                  {{ isHybridInstitute ? 'Class / Batch' : (hasSchool ? 'Class & Section' : 'Coaching Batch') }}
+                </th>
                 <td mat-cell *matCellDef="let t">
-                  <span class="batch-name-tag">{{ t.batchName || 'General' }}</span>
+                  <!-- School Class Tag -->
+                  <span class="school-class-tag" *ngIf="t.className">
+                    <mat-icon class="group-icon">school</mat-icon>
+                    <strong>{{ t.className }}</strong>
+                    <span class="sec-badge" *ngIf="t.sectionName">({{ t.sectionName }})</span>
+                  </span>
+
+                  <!-- Coaching Batch Tag -->
+                  <span class="batch-name-tag" *ngIf="!t.className && t.batchName && t.batchName !== 'General'">
+                    <mat-icon class="group-icon">groups</mat-icon>
+                    <span>{{ t.batchName }}</span>
+                  </span>
+
+                  <!-- General Tag if neither -->
+                  <span class="general-tag" *ngIf="!t.className && (!t.batchName || t.batchName === 'General')">
+                    General
+                  </span>
                 </td>
               </ng-container>
 
@@ -630,13 +765,13 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                 <th mat-header-cell *matHeaderCellDef class="text-right no-print">Actions</th>
                 <td mat-cell *matCellDef="let t" class="text-right no-print">
                   <div class="action-buttons no-print">
-                    <!-- Bundle Handover (Only visible during active evaluation phase) -->
-                    <button *ngIf="!t.isMarksLocked" mat-stroked-button class="bundle-btn" (click)="openBundleModal(t)" matTooltip="Assign / Track Physical Copy Bundle Handover">
-                      <mat-icon>inventory_2</mat-icon> Bundle
+                    <!-- Admin Only: Bundle Handover / Tracking -->
+                    <button *ngIf="isUserAdmin && !t.isMarksLocked" mat-stroked-button class="bundle-btn" (click)="openBundleModal(t)" matTooltip="Assign / Track Physical Copy Bundle Handover">
+                      <mat-icon>inventory_2</mat-icon> {{ t.evaluatorTeacherId ? 'Bundle' : 'Assign Bundle' }}
                     </button>
 
-                    <!-- Marking Foil / Award Sheet -->
-                    <button mat-stroked-button class="foil-btn" (click)="openAwardSheetModal(t)" matTooltip="Print Blank Award Sheet (Marking Foil) for Teacher">
+                    <!-- Marking Foil / Award Sheet: Admin OR Assigned Teacher -->
+                    <button *ngIf="isUserAdmin || isMyBundle(t)" mat-stroked-button class="foil-btn" (click)="openAwardSheetModal(t)" matTooltip="Print Blank Award Sheet (Marking Foil)">
                       <mat-icon>receipt_long</mat-icon> Foil
                     </button>
 
@@ -647,12 +782,18 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                       <mat-icon>verified</mat-icon> Approve
                     </button>
 
-                    <!-- Enter / Review / View Marks Button -->
-                    <button mat-raised-button color="primary" (click)="openMarksGrid(t)"
+                    <!-- Enter / Review / View Marks Button (If permitted) -->
+                    <button *ngIf="canEnterMarks(t)" mat-raised-button color="primary" (click)="openMarksGrid(t)"
                             class="enter-marks-btn"
                             [matTooltip]="t.isMarksLocked ? 'View Officially Locked Marks' : (t.evaluationStatus === 'SubmittedForApproval' ? 'Review & Verify Evaluated Marks' : 'Enter / Update Marks')">
                       <mat-icon>{{ t.isMarksLocked ? 'lock' : (t.evaluationStatus === 'SubmittedForApproval' ? 'rate_review' : 'edit_note') }}</mat-icon>
                       {{ t.isMarksLocked ? 'Marks 🔒' : (t.evaluationStatus === 'SubmittedForApproval' ? 'Review Marks' : 'Enter Marks') }}
+                    </button>
+
+                    <!-- If Teacher but bundle is not assigned yet -->
+                    <button *ngIf="!isUserAdmin && !canEnterMarks(t)" mat-stroked-button class="enter-marks-disabled-btn" disabled
+                            [matTooltip]="!t.evaluatorTeacherId ? 'Bundle not yet assigned by Admin / Exam Cell' : 'Bundle assigned to ' + (t.evaluatorTeacherName || 'another evaluator')">
+                      <mat-icon>lock</mat-icon> Enter Marks
                     </button>
 
                     <!-- Quick Unlock for Admin if locked -->
@@ -660,13 +801,20 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                       <mat-icon>lock_open</mat-icon>
                     </button>
 
-                    <button mat-stroked-button class="result-btn" (click)="openResults(t)" matTooltip="View Leaderboard &amp; Student Result Cards">
+                    <!-- Results Button: Enabled once marks entered/locked, disabled otherwise -->
+                    <button *ngIf="canViewResults(t)" mat-stroked-button class="result-btn" (click)="openResults(t)" matTooltip="View Leaderboard &amp; Student Result Cards">
                       <mat-icon>emoji_events</mat-icon> Results
                     </button>
-                    <button mat-stroked-button class="admit-card-btn" (click)="openAdmitCards(t)" matTooltip="Generate &amp; Print Admit Cards / Hall Tickets">
+                    <button *ngIf="!canViewResults(t)" mat-stroked-button class="result-btn-disabled" disabled
+                            [matTooltip]="isUserAdmin ? 'Enter &amp; save marks first to view results' : 'Results will be visible after evaluation &amp; Principal approval'">
+                      <mat-icon>emoji_events</mat-icon> Results
+                    </button>
+
+                    <!-- Admin Only Actions: Admit Cards and Delete -->
+                    <button *ngIf="isUserAdmin" mat-stroked-button class="admit-card-btn" (click)="openAdmitCards(t)" matTooltip="Generate &amp; Print Admit Cards / Hall Tickets">
                       <mat-icon>confirmation_number</mat-icon>
                     </button>
-                    <button mat-icon-button color="warn" (click)="deleteTest(t)" matTooltip="Delete Test">
+                    <button *ngIf="isUserAdmin" mat-icon-button color="warn" (click)="deleteTest(t)" matTooltip="Delete Test">
                       <mat-icon>delete_outline</mat-icon>
                     </button>
                   </div>
@@ -734,15 +882,127 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
               </div>
             </div>
 
+            <!-- Exam Details Specification Card -->
+            <div class="exam-spec-card" *ngIf="bundleTest">
+              <div class="exam-spec-header">
+                <div class="spec-title-group">
+                  <span class="spec-exam-type">{{ bundleTest.className ? 'SCHOOL EXAMINATION' : 'COACHING TEST' }}</span>
+                  <h4 class="spec-title">{{ bundleTest.title }}</h4>
+                </div>
+                <span class="spec-marks-badge">Max Marks: {{ bundleTest.maxMarks }}</span>
+              </div>
+              <div class="exam-spec-grid">
+                <div class="spec-item">
+                  <mat-icon>school</mat-icon>
+                  <div>
+                    <label>{{ bundleTest.className ? 'Target Class / Section' : 'Coaching Batch' }}</label>
+                    <strong>
+                      {{ bundleTest.className ? bundleTest.className + (bundleTest.sectionName ? ' (' + bundleTest.sectionName + ')' : '') : (bundleTest.batchName || 'General') }}
+                    </strong>
+                  </div>
+                </div>
+                <div class="spec-item">
+                  <mat-icon>menu_book</mat-icon>
+                  <div>
+                    <label>Subject</label>
+                    <strong>{{ bundleTest.subject || 'N/A' }}</strong>
+                  </div>
+                </div>
+                <div class="spec-item">
+                  <mat-icon>event</mat-icon>
+                  <div>
+                    <label>Exam Date &amp; Time (IST)</label>
+                    <strong>
+                      <span [appIstDatetime]="bundleTest.testDate" format="date"></span>
+                      <span *ngIf="bundleTest.testTime"> ({{ bundleTest.testTime }})</span>
+                    </strong>
+                  </div>
+                </div>
+                <div class="spec-item">
+                  <mat-icon>assignment_ind</mat-icon>
+                  <div>
+                    <label>Current Assigned Faculty</label>
+                    <strong [class.unassigned-text]="!bundleTest.evaluatorTeacherName">
+                      {{ bundleTest.evaluatorTeacherName || 'Not Assigned Yet' }}
+                      <span *ngIf="bundleTest.evaluatorTeacherPhone" class="spec-sub-phone">({{ bundleTest.evaluatorTeacherPhone }})</span>
+                    </strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div class="modal-form-grid">
               <mat-form-field appearance="outline" class="full-col">
-                <mat-label>Evaluator / Checking Teacher</mat-label>
-                <mat-select formControlName="evaluatorTeacherId" placeholder="Select Subject Teacher">
-                  <mat-option *ngFor="let tch of teachersList" [value]="tch.id">
-                    {{ tch.name }} {{ tch.phoneNumber ? '(' + tch.phoneNumber + ')' : '' }} {{ tch.specialization ? '— ' + tch.specialization : '' }}
+                <mat-label>Evaluator / Checking Teacher *</mat-label>
+                <mat-select formControlName="evaluatorTeacherId" placeholder="Select Subject Teacher"
+                            panelClass="smart-teacher-panel"
+                            (openedChange)="onTeacherSelectOpened($event)">
+                  <mat-select-trigger>
+                    <div class="selected-teacher-trigger" *ngIf="bundleForm.get('evaluatorTeacherId')?.value">
+                      <mat-icon class="trigger-icon">person</mat-icon>
+                      <span class="trigger-name">{{ getSelectedTeacherName(bundleForm.get('evaluatorTeacherId')?.value) }}</span>
+                      <span class="trigger-badge" *ngIf="getSelectedTeacherCode(bundleForm.get('evaluatorTeacherId')?.value)">
+                        {{ getSelectedTeacherCode(bundleForm.get('evaluatorTeacherId')?.value) }}
+                      </span>
+                      <span class="trigger-phone" *ngIf="getSelectedTeacherPhone(bundleForm.get('evaluatorTeacherId')?.value)">
+                        • {{ getSelectedTeacherPhone(bundleForm.get('evaluatorTeacherId')?.value) }}
+                      </span>
+                    </div>
+                  </mat-select-trigger>
+
+                  <!-- Sticky Search Option Inside Dropdown Panel -->
+                  <mat-option disabled class="select-search-option">
+                    <div class="select-search-wrap" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()">
+                      <mat-icon class="search-box-icon">search</mat-icon>
+                      <input class="select-search-input teacher-search-box"
+                             placeholder="Search teacher by name, code, phone, subject..."
+                             [value]="teacherSearchText || ''"
+                             (input)="filterTeachers($event)"
+                             (click)="$event.stopPropagation()"
+                             (mousedown)="$event.stopPropagation()"
+                             (keydown)="$event.stopPropagation()"
+                             (keyup)="$event.stopPropagation()">
+                      <button mat-icon-button type="button" class="clear-search-btn" *ngIf="teacherSearchText"
+                              (click)="clearTeacherSearch($event)" (mousedown)="$event.stopPropagation()">
+                        <mat-icon>close</mat-icon>
+                      </button>
+                    </div>
+                  </mat-option>
+
+                  <!-- Filtered Teachers Options -->
+                  <mat-option *ngFor="let tch of filteredTeachers" [value]="tch.id" class="teacher-select-option">
+                    <div class="teacher-option-row">
+                      <div class="tch-avatar">
+                        {{ (tch.fullName || tch.name || 'T').charAt(0).toUpperCase() }}
+                      </div>
+                      <div class="tch-details">
+                        <div class="tch-title-line">
+                          <strong class="tch-name">{{ tch.fullName || tch.name }}</strong>
+                          <span class="tch-code-badge" *ngIf="tch.employeeCode">{{ tch.employeeCode }}</span>
+                          <span class="tch-desig" *ngIf="tch.designation">{{ tch.designation }}</span>
+                        </div>
+                        <div class="tch-meta-line">
+                          <span class="tch-phone" *ngIf="tch.phoneNumber">
+                            <mat-icon>phone</mat-icon> {{ tch.phoneNumber }}
+                          </span>
+                          <span class="tch-spec" *ngIf="tch.specialization">
+                            <mat-icon>school</mat-icon> {{ tch.specialization }}
+                          </span>
+                          <span class="tch-dept" *ngIf="tch.department && !tch.specialization">
+                            <mat-icon>business</mat-icon> {{ tch.department }}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </mat-option>
+
+                  <mat-option disabled *ngIf="filteredTeachers.length === 0" class="no-subjects-option">
+                    <span class="no-subjects-text">No faculty found matching "{{ teacherSearchText }}"</span>
                   </mat-option>
                 </mat-select>
                 <mat-icon matPrefix>person</mat-icon>
+                <mat-hint>Choose the faculty member responsible for physical paper checking &amp; marks entry.</mat-hint>
+                <mat-error *ngIf="bundleForm.get('evaluatorTeacherId')?.invalid">Please select an evaluator teacher.</mat-error>
               </mat-form-field>
 
               <mat-form-field appearance="outline">
@@ -1067,13 +1327,63 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
       font-weight: 600;
       border: 1px solid #bfdbfe;
     }
+    .planner-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+    .planner-type-switcher {
+      display: inline-flex;
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      border-radius: 24px;
+      padding: 3px;
+      gap: 4px;
+
+      .type-pill-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 14px;
+        border-radius: 20px;
+        border: none;
+        background: transparent;
+        color: #64748b;
+        font-size: 0.84rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+
+        mat-icon {
+          font-size: 18px;
+          width: 18px;
+          height: 18px;
+        }
+
+        &:hover {
+          color: #1e293b;
+        }
+
+        &.active {
+          background: #2563eb;
+          color: #ffffff;
+          box-shadow: 0 2px 4px rgba(37, 99, 235, 0.25);
+
+          mat-icon {
+            color: #ffffff;
+          }
+        }
+      }
+    }
     .shared-batch-row {
       display: flex;
       align-items: center;
       gap: 14px;
       margin-bottom: 18px;
       flex-wrap: wrap;
-      .batch-selector { flex: 0 0 380px; }
+      .batch-selector { flex: 0 0 340px; }
+      .section-selector { flex: 0 0 220px; }
       .batch-tip {
         display: flex;
         align-items: center;
@@ -1085,49 +1395,97 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
       }
     }
 
-    /* ── Column Labels for Planner ── */
+    /* ── Planner Grid & Column Labels ── */
+    .planner-grid-wrapper {
+      width: 100%;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      border-radius: 8px;
+      padding-bottom: 4px;
+    }
+
     .row-labels {
       display: grid;
-      grid-template-columns: 36px 1.2fr 1fr 1.5fr 140px 105px 95px 44px;
-      gap: 10px;
-      padding: 10px 8px;
+      gap: 8px;
+      padding: 10px 10px;
       background: #f1f5f9;
       border: 1px solid #e2e8f0;
       border-radius: 8px 8px 0 0;
-      font-size: 0.76rem;
+      font-size: 0.74rem;
       font-weight: 700;
       color: #475569;
       text-transform: uppercase;
       letter-spacing: 0.04em;
+      box-sizing: border-box;
+      min-width: 820px;
+      width: 100%;
       .lbl-num { text-align: center; }
+      .lbl-marks { text-align: center; white-space: nowrap; }
+
+      &.coaching-mode {
+        grid-template-columns: 32px minmax(130px, 1.3fr) minmax(110px, 1.2fr) minmax(140px, 1.6fr) 125px 85px 75px 38px;
+      }
+      &.school-mode {
+        grid-template-columns: 32px minmax(110px, 1.2fr) 75px minmax(110px, 1.2fr) minmax(130px, 1.5fr) 125px 85px 75px 38px;
+      }
     }
+
     .exam-row {
       display: grid;
-      grid-template-columns: 36px 1.2fr 1fr 1.5fr 140px 105px 95px 44px;
-      gap: 10px;
+      gap: 8px;
       align-items: flex-start;
-      padding: 8px 8px;
+      padding: 8px 10px;
       border: 1px solid #e2e8f0;
       border-top: none;
       background: #ffffff;
       transition: background 0.15s ease;
+      box-sizing: border-box;
+      min-width: 820px;
+      width: 100%;
       &:hover { background: #f8fafc; }
       &.exam-row-error { background: #fffbfb; border-color: #fecaca; }
       &:last-child { border-radius: 0 0 8px 8px; }
+
+      &.coaching-mode {
+        grid-template-columns: 32px minmax(130px, 1.3fr) minmax(110px, 1.2fr) minmax(140px, 1.6fr) 125px 85px 75px 38px;
+      }
+      &.school-mode {
+        grid-template-columns: 32px minmax(110px, 1.2fr) 75px minmax(110px, 1.2fr) minmax(130px, 1.5fr) 125px 85px 75px 38px;
+      }
     }
+
     .cell-num, .cell-del {
       display: flex;
       align-items: center;
       justify-content: center;
-      height: 42px;
+      height: 40px;
     }
-    .cell-batch, .cell-subject, .cell-title,
-    .cell-date, .cell-time, .cell-marks { width: 100%; }
+    .cell-del button {
+      width: 34px !important;
+      height: 34px !important;
+      padding: 0 !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      mat-icon { font-size: 20px; width: 20px; height: 20px; }
+    }
+    .cell-marks {
+      input {
+        text-align: center;
+        font-weight: 700;
+      }
+    }
+    .cell-class, .cell-section, .cell-batch, .cell-subject, .cell-title,
+    .cell-date, .cell-time, .cell-marks, .cell-num, .cell-del {
+      min-width: 0;
+      box-sizing: border-box;
+    }
+
     .field-compact {
       width: 100%;
       ::ng-deep .mat-mdc-text-field-wrapper {
-        height: 42px !important;
-        padding: 0 10px !important;
+        height: 40px !important;
+        padding: 0 8px !important;
         display: flex !important;
         align-items: center !important;
         background-color: #ffffff;
@@ -1162,16 +1520,17 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
         line-height: 1.2;
       }
     }
+
     .row-num {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 26px;
-      height: 26px;
+      width: 24px;
+      height: 24px;
       border-radius: 50%;
       background: #e0e7ff;
       color: #3730a3;
-      font-size: 0.78rem;
+      font-size: 0.76rem;
       font-weight: 700;
     }
     /* ─── Smart Dropdown Panels ─── */
@@ -1728,14 +2087,72 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
       background: #ffffff;
     }
     .filter-toolbar {
-      padding: 18px 20px 14px;
+      padding: 16px 20px 14px;
       display: flex;
-      gap: 16px;
-      flex-wrap: wrap;
+      flex-direction: column;
+      gap: 12px;
       background: #fafafa;
       border-bottom: 1px solid #f1f5f9;
-      .search-field { flex: 1 1 300px; }
-      .batch-filter { flex: 1 1 240px; }
+    }
+    .category-tabs-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #e2e8f0;
+      flex-wrap: wrap;
+
+      .cat-tab-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 16px;
+        border-radius: 8px;
+        border: 1px solid #cbd5e1;
+        background: #ffffff;
+        color: #475569;
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+
+        mat-icon {
+          font-size: 18px;
+          width: 18px;
+          height: 18px;
+          color: #64748b;
+        }
+
+        &:hover {
+          border-color: #94a3b8;
+          color: #0f172a;
+          background: #f8fafc;
+        }
+
+        &.active {
+          background: #2563eb;
+          border-color: #2563eb;
+          color: #ffffff;
+          box-shadow: 0 2px 6px -1px rgba(37, 99, 235, 0.3);
+
+          mat-icon {
+            color: #ffffff;
+          }
+        }
+      }
+    }
+    .filters-input-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      width: 100%;
+      flex-wrap: wrap;
+
+      .search-field { flex: 1 1 280px; }
+      .filter-dropdown { flex: 0 1 240px; }
+      .section-filter { flex: 0 1 160px; }
+      .batch-filter { flex: 0 1 240px; }
     }
     .grid-loader { margin: 0; }
     .table-container { padding: 0; }
@@ -1770,7 +2187,9 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
       color: #d97706;
     }
     .batch-name-tag {
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
       font-size: 0.82rem;
       font-weight: 600;
       color: #0284c7;
@@ -1778,6 +2197,50 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
       padding: 4px 10px;
       border-radius: 6px;
       border: 1px solid #bae6fd;
+
+      .group-icon {
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+        color: #0284c7;
+      }
+    }
+    .school-class-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #15803d;
+      background: #f0fdf4;
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid #bbf7d0;
+
+      .group-icon {
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+        color: #16a34a;
+      }
+
+      .sec-badge {
+        font-size: 0.75rem;
+        background: #dcfce7;
+        color: #166534;
+        padding: 1px 5px;
+        border-radius: 3px;
+        font-weight: 700;
+      }
+    }
+    .general-tag {
+      display: inline-block;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #64748b;
+      background: #f1f5f9;
+      padding: 4px 10px;
+      border-radius: 6px;
     }
     .subject-tag {
       display: inline-block;
@@ -1992,6 +2455,64 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
         background: #e0f2fe;
       }
     }
+    .result-btn {
+      font-size: 0.82rem;
+      font-weight: 600;
+      border-radius: 6px;
+      height: 36px;
+      padding: 0 10px;
+      border-color: #10b981;
+      color: #059669;
+      background: #ecfdf5;
+      mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        margin-right: 4px;
+        color: #10b981;
+      }
+      &:hover {
+        background: #d1fae5;
+      }
+    }
+    .result-btn-disabled,
+    .enter-marks-disabled-btn {
+      font-size: 0.82rem;
+      font-weight: 500;
+      border-radius: 6px;
+      height: 36px;
+      padding: 0 10px;
+      border-color: #e2e8f0 !important;
+      color: #94a3b8 !important;
+      background: #f8fafc !important;
+      cursor: not-allowed !important;
+      opacity: 0.75;
+      mat-icon {
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+        margin-right: 4px;
+        color: #cbd5e1;
+      }
+    }
+    .my-bundle-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.74rem;
+      font-weight: 700;
+      color: #15803d;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      padding: 2px 8px;
+      border-radius: 12px;
+      mat-icon {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
+        color: #16a34a;
+      }
+    }
     .approval-btn {
       font-size: 0.82rem;
       font-weight: 700;
@@ -2199,6 +2720,222 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
     .footer-spacer {
       flex: 1;
     }
+    /* ─── Smart Teacher Dropdown Panel ─── */
+    ::ng-deep .smart-teacher-panel {
+      min-width: 360px !important;
+      max-width: 540px !important;
+      border-radius: 10px !important;
+      box-shadow: 0 14px 30px -5px rgba(15, 23, 42, 0.2), 0 8px 10px -6px rgba(15, 23, 42, 0.1) !important;
+
+      .mat-mdc-option {
+        min-height: 52px !important;
+        padding: 8px 14px !important;
+        border-bottom: 1px solid #f1f5f9;
+
+        &:last-child {
+          border-bottom: none;
+        }
+
+        &.mdc-list-item--selected:not(.mdc-list-item--disabled) {
+          background-color: #eff6ff !important;
+        }
+      }
+    }
+
+    .selected-teacher-trigger {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #0f172a;
+      .trigger-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        color: #2563eb;
+      }
+      .trigger-name {
+        color: #1e3a8a;
+      }
+      .trigger-badge {
+        background: #e0e7ff;
+        color: #3730a3;
+        font-size: 0.72rem;
+        font-weight: 700;
+        padding: 1px 6px;
+        border-radius: 4px;
+        letter-spacing: 0.02em;
+      }
+      .trigger-phone {
+        font-size: 0.8rem;
+        color: #64748b;
+        font-weight: 500;
+      }
+    }
+
+    .teacher-option-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+    }
+    .tch-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+      color: #ffffff;
+      font-size: 0.82rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 2px 4px rgba(37, 99, 235, 0.25);
+    }
+    .tch-details {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      flex: 1;
+      min-width: 0;
+    }
+    .tch-title-line {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .tch-name {
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: #0f172a;
+    }
+    .tch-code-badge {
+      background: #e0e7ff;
+      color: #3730a3;
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
+    .tch-desig {
+      font-size: 0.74rem;
+      color: #0284c7;
+      background: #f0f9ff;
+      border: 1px solid #bae6fd;
+      padding: 0 5px;
+      border-radius: 3px;
+    }
+    .tch-meta-line {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.76rem;
+      color: #64748b;
+      span {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        mat-icon {
+          font-size: 13px;
+          width: 13px;
+          height: 13px;
+        }
+      }
+    }
+
+    /* Exam Details Specification Card */
+    .exam-spec-card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .exam-spec-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px dashed #cbd5e1;
+    }
+    .spec-title-group {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .spec-exam-type {
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      color: #2563eb;
+      text-transform: uppercase;
+    }
+    .spec-title {
+      margin: 0;
+      font-size: 0.98rem;
+      font-weight: 700;
+      color: #0f172a;
+    }
+    .spec-marks-badge {
+      background: #ecfdf5;
+      color: #059669;
+      border: 1px solid #a7f3d0;
+      font-size: 0.78rem;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 6px;
+      white-space: nowrap;
+    }
+    .exam-spec-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px 16px;
+    }
+    .spec-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      font-size: 0.8rem;
+      mat-icon {
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+        color: #3b82f6;
+        margin-top: 2px;
+        flex-shrink: 0;
+      }
+      div {
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+      }
+      label {
+        font-size: 0.7rem;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+        font-weight: 600;
+      }
+      strong {
+        color: #1e293b;
+        font-size: 0.82rem;
+      }
+      .unassigned-text {
+        color: #d97706;
+        font-style: italic;
+      }
+      .spec-sub-phone {
+        font-weight: normal;
+        color: #64748b;
+      }
+    }
+
     .modal-form-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
@@ -2430,15 +3167,18 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
 
     /* Tablet (768px - 1024px) */
     @media (max-width: 1024px) {
-      .row-labels {
-        grid-template-columns: 32px 1fr 1fr 1.2fr 130px 95px 85px 40px;
+      .row-labels.coaching-mode,
+      .exam-row.coaching-mode {
+        grid-template-columns: 32px minmax(130px, 1.3fr) minmax(110px, 1.2fr) minmax(140px, 1.6fr) 125px 85px 75px 38px;
         gap: 6px;
       }
-      .exam-row {
-        grid-template-columns: 32px 1fr 1fr 1.2fr 130px 95px 85px 40px;
+      .row-labels.school-mode,
+      .exam-row.school-mode {
+        grid-template-columns: 32px minmax(110px, 1.2fr) 75px minmax(110px, 1.2fr) minmax(130px, 1.5fr) 125px 85px 75px 38px;
         gap: 6px;
       }
-      .shared-batch-row .batch-selector {
+      .shared-batch-row .batch-selector,
+      .shared-batch-row .section-selector {
         flex: 1 1 100%;
       }
       .marks-mat-table {
@@ -2861,9 +3601,39 @@ export class TestsComponent implements OnInit {
   batches: any[] = [];
   allSubjects: SubjectDto[] = [];
 
-  // Bulk planner state
+  // License & Module helpers
+  get hasSchool(): boolean {
+    return this.authService.hasSchoolModule();
+  }
+
+  get hasCoaching(): boolean {
+    return this.authService.hasCoachingModule();
+  }
+
+  get isHybridInstitute(): boolean {
+    return this.hasSchool && this.hasCoaching;
+  }
+
+  // Category filter: 'all' | 'school' | 'coaching'
+  selectedCategory: 'all' | 'school' | 'coaching' = 'all';
+
+  // School Classes & Sections state
+  schoolClasses: SchoolClassDto[] = [];
+  selectedClassFilter = '';
+  selectedSectionFilter = '';
+  sectionsForFilterClass: SchoolSectionDto[] = [];
+
+  // Bulk planner category: 'school' | 'coaching'
+  plannerCategory: 'school' | 'coaching' = 'school';
   showBulkPlanner = false;
   sharedBatchId = '';
+  sharedClassId = '';
+  sharedSectionId = '';
+  sectionsForSharedClass: SchoolSectionDto[] = [];
+
+  // Class-specific subject cache: classId -> SubjectDto[]
+  classSubjectsCache = new Map<string, SubjectDto[]>();
+
   bulkForm: FormGroup;
   saving = false;
   subjectSearchTexts: string[] = [];
@@ -2883,6 +3653,8 @@ export class TestsComponent implements OnInit {
   bundleForm: FormGroup;
   savingBundle = false;
   teachersList: any[] = [];
+  filteredTeachers: any[] = [];
+  teacherSearchText = '';
 
   // Principal Final Approval Modal State
   showApprovalModal = false;
@@ -2912,6 +3684,7 @@ export class TestsComponent implements OnInit {
 
   constructor(
     private coachingService: CoachingService,
+    private schoolService: SchoolService,
     private confirmDialog: ConfirmDialogService,
     private subjectsService: SubjectsService,
     private fb: FormBuilder,
@@ -2933,6 +3706,63 @@ export class TestsComponent implements OnInit {
     return this.authService.isAdmin();
   }
 
+  currentTeacherId: string | null = null;
+
+  get isTeacher(): boolean {
+    return this.authService.isTeacher();
+  }
+
+  loadCurrentTeacher(): void {
+    if (this.isTeacher) {
+      this.coachingService.getMyTeacherProfile().subscribe({
+        next: res => {
+          if (res && res.teacherId) {
+            this.currentTeacherId = res.teacherId;
+          }
+        },
+        error: err => console.error('Error loading teacher profile:', err)
+      });
+    }
+  }
+
+  isMyBundle(test: any): boolean {
+    if (!test) return false;
+    if (this.isUserAdmin) return true;
+    if (this.currentTeacherId && test.evaluatorTeacherId) {
+      if (test.evaluatorTeacherId.toLowerCase() === this.currentTeacherId.toLowerCase()) {
+        return true;
+      }
+    }
+    const currentName = this.authService.currentUser()?.fullName?.toLowerCase()?.trim();
+    if (currentName && test.evaluatorTeacherName) {
+      if (test.evaluatorTeacherName.toLowerCase().trim() === currentName) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  canEnterMarks(test: any): boolean {
+    if (!test) return false;
+    if (this.isUserAdmin) return true;
+    return this.isMyBundle(test) && !!test.evaluatorTeacherId;
+  }
+
+  canViewResults(test: any): boolean {
+    if (!test) return false;
+    if (test.isMarksLocked || test.evaluationStatus === 'ApprovedAndLocked' || test.evaluationStatus === 'MarksLocked') {
+      return true;
+    }
+    const evaluatedCount = test.totalStudentsEvaluated ?? test.evaluatedCount ?? 0;
+    if (this.isUserAdmin && evaluatedCount > 0) {
+      return true;
+    }
+    if (!this.isUserAdmin && this.isMyBundle(test) && evaluatedCount > 0 && test.evaluationStatus !== 'Evaluating' && test.evaluationStatus !== 'Scheduled') {
+      return true;
+    }
+    return false;
+  }
+
   get instituteName(): string {
     return this.authService.currentUser()?.instituteName || 'Institute Examination Cell';
   }
@@ -2942,6 +3772,11 @@ export class TestsComponent implements OnInit {
   }
 
   get activeBatchName(): string {
+    if (this.selectedCategory === 'school') {
+      if (!this.selectedClassFilter) return 'All School Classes';
+      const c = this.schoolClasses.find(x => x.id === this.selectedClassFilter);
+      return c ? c.name : 'School Class';
+    }
     if (!this.selectedBatchFilter) return 'All Batches';
     const b = this.batches.find(x => x.id === this.selectedBatchFilter);
     return b ? b.name : 'All Batches';
@@ -2975,7 +3810,7 @@ export class TestsComponent implements OnInit {
         testTitle: test.title,
         subject: test.subject,
         maxMarks: test.maxMarks,
-        batchName: test.batchName,
+        batchName: test.className ? `${test.className}${test.sectionName ? ' (' + test.sectionName + ')' : ''}` : test.batchName,
         testDate: test.testDate
       }
     });
@@ -2989,11 +3824,14 @@ export class TestsComponent implements OnInit {
     return this.bulkForm.get('exams') as FormArray;
   }
 
-  private buildRow(batchId = ''): FormGroup {
+  private buildRow(batchId = '', classId = '', sectionId = ''): FormGroup {
     const d = new Date();
     const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const isSchool = this.plannerCategory === 'school';
     return this.fb.group({
-      batchId: [batchId, Validators.required],
+      batchId: [batchId, isSchool ? [] : [Validators.required]],
+      classId: [classId, isSchool ? [Validators.required] : []],
+      sectionId: [sectionId],
       subject: ['', Validators.required],
       title: ['', Validators.required],
       examDate: [today, Validators.required],
@@ -3003,7 +3841,24 @@ export class TestsComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.loadBatches();
+    if (this.hasSchool && !this.hasCoaching) {
+      this.selectedCategory = 'school';
+      this.plannerCategory = 'school';
+    } else if (!this.hasSchool && this.hasCoaching) {
+      this.selectedCategory = 'coaching';
+      this.plannerCategory = 'coaching';
+    } else {
+      this.selectedCategory = 'all';
+      this.plannerCategory = 'school';
+    }
+
+    this.loadCurrentTeacher();
+    if (this.hasCoaching) {
+      this.loadBatches();
+    }
+    if (this.hasSchool) {
+      this.loadSchoolClasses();
+    }
     this.loadTests();
     this.loadSubjects();
     this.loadTeachers();
@@ -3011,7 +3866,10 @@ export class TestsComponent implements OnInit {
 
   loadTeachers(): void {
     this.coachingService.getTeachers().subscribe({
-      next: list => { this.teachersList = list || []; },
+      next: list => {
+        this.teachersList = list || [];
+        this.filteredTeachers = [...this.teachersList];
+      },
       error: err => console.error('Error loading teachers:', err)
     });
   }
@@ -3023,6 +3881,13 @@ export class TestsComponent implements OnInit {
     });
   }
 
+  loadSchoolClasses(): void {
+    this.schoolService.getClasses(true).subscribe({
+      next: list => { this.schoolClasses = list || []; },
+      error: err => console.error('Error loading school classes:', err)
+    });
+  }
+
   loadSubjects(): void {
     this.subjectsService.getSubjects(true).subscribe({
       next: list => { this.allSubjects = list; },
@@ -3030,22 +3895,87 @@ export class TestsComponent implements OnInit {
     });
   }
 
+  // ─── Filter Helpers ───────────────────────────
+  setCategoryFilter(cat: 'all' | 'school' | 'coaching'): void {
+    this.selectedCategory = cat;
+    if (cat === 'school') {
+      this.selectedBatchFilter = '';
+    } else if (cat === 'coaching') {
+      this.selectedClassFilter = '';
+      this.selectedSectionFilter = '';
+      this.sectionsForFilterClass = [];
+    }
+    this.pageIndex = 0;
+    this.loadTests();
+  }
+
+  onClassFilterChange(): void {
+    this.selectedSectionFilter = '';
+    if (this.selectedClassFilter) {
+      const cls = this.schoolClasses.find(c => c.id === this.selectedClassFilter);
+      this.sectionsForFilterClass = cls?.sections || [];
+    } else {
+      this.sectionsForFilterClass = [];
+    }
+    this.pageIndex = 0;
+    this.loadTests();
+  }
+
+  onFilterChange(): void {
+    this.pageIndex = 0;
+    this.loadTests();
+  }
+
   // ─── Bulk Planner ──────────────────────────────
+  setPlannerCategory(cat: 'school' | 'coaching'): void {
+    if (this.plannerCategory === cat) return;
+    this.plannerCategory = cat;
+    this.examsArray.controls.forEach(row => {
+      if (cat === 'school') {
+        row.get('classId')?.setValidators(Validators.required);
+        row.get('classId')?.updateValueAndValidity();
+        row.get('batchId')?.clearValidators();
+        row.get('batchId')?.setValue('');
+        row.get('batchId')?.updateValueAndValidity();
+      } else {
+        row.get('batchId')?.setValidators(Validators.required);
+        row.get('batchId')?.updateValueAndValidity();
+        row.get('classId')?.clearValidators();
+        row.get('classId')?.setValue('');
+        row.get('classId')?.updateValueAndValidity();
+        row.get('sectionId')?.setValue('');
+      }
+    });
+  }
+
   toggleBulkPlanner(): void {
     this.showBulkPlanner = !this.showBulkPlanner;
     if (this.showBulkPlanner) {
       this.examsArray.clear();
       this.subjectSearchTexts = [];
       this.filteredSubjectsPerRow = [];
+      this.sharedBatchId = '';
+      this.sharedClassId = '';
+      this.sharedSectionId = '';
+      this.sectionsForSharedClass = [];
       this.addRow();
     }
   }
 
   addRow(): void {
-    const row = this.buildRow(this.sharedBatchId);
+    const row = this.buildRow(
+      this.plannerCategory === 'coaching' ? this.sharedBatchId : '',
+      this.plannerCategory === 'school' ? this.sharedClassId : '',
+      this.plannerCategory === 'school' ? this.sharedSectionId : ''
+    );
+    const rowIndex = this.examsArray.length;
     this.examsArray.push(row);
     this.subjectSearchTexts.push('');
     this.filteredSubjectsPerRow.push([...this.allSubjects]);
+
+    if (this.plannerCategory === 'school' && this.sharedClassId) {
+      this.loadSubjectsForClassRow(rowIndex, this.sharedClassId);
+    }
   }
 
   removeRow(i: number): void {
@@ -3061,14 +3991,89 @@ export class TestsComponent implements OnInit {
     });
   }
 
+  onSharedClassChange(): void {
+    this.sharedSectionId = '';
+    if (this.sharedClassId) {
+      const cls = this.schoolClasses.find(c => c.id === this.sharedClassId);
+      this.sectionsForSharedClass = cls?.sections || [];
+    } else {
+      this.sectionsForSharedClass = [];
+    }
+    this.examsArray.controls.forEach((ctrl, idx) => {
+      ctrl.get('classId')?.setValue(this.sharedClassId);
+      ctrl.get('sectionId')?.setValue('');
+      if (this.sharedClassId) {
+        this.loadSubjectsForClassRow(idx, this.sharedClassId);
+      }
+    });
+  }
+
+  applySharedSectionToAll(): void {
+    this.examsArray.controls.forEach(ctrl => {
+      ctrl.get('sectionId')?.setValue(this.sharedSectionId);
+    });
+  }
+
+  sectionsForRow(i: number): SchoolSectionDto[] {
+    const classId = this.examRows[i]?.get('classId')?.value;
+    if (!classId) return [];
+    const cls = this.schoolClasses.find(c => c.id === classId);
+    return cls?.sections || [];
+  }
+
+  onRowClassChange(i: number): void {
+    const row = this.examRows[i];
+    row.get('sectionId')?.setValue('');
+    const classId = row.get('classId')?.value;
+    if (classId) {
+      this.loadSubjectsForClassRow(i, classId);
+    } else {
+      this.filteredSubjectsPerRow[i] = [...this.allSubjects];
+    }
+  }
+
+  loadSubjectsForClassRow(i: number, classId: string): void {
+    if (this.classSubjectsCache.has(classId)) {
+      const cached = this.classSubjectsCache.get(classId)!;
+      this.filteredSubjectsPerRow[i] = cached.length > 0 ? cached : [...this.allSubjects];
+      return;
+    }
+
+    this.subjectsService.getClassSubjects(classId).subscribe({
+      next: (classSubs) => {
+        if (classSubs && classSubs.length > 0) {
+          const mapped: SubjectDto[] = classSubs.map(cs => ({
+            id: cs.subjectId,
+            name: cs.subjectName,
+            code: cs.subjectCode,
+            isActive: true,
+            createdAt: cs.createdAt
+          }));
+          this.classSubjectsCache.set(classId, mapped);
+          this.filteredSubjectsPerRow[i] = mapped;
+        } else {
+          this.classSubjectsCache.set(classId, [...this.allSubjects]);
+          this.filteredSubjectsPerRow[i] = [...this.allSubjects];
+        }
+      },
+      error: () => {
+        this.filteredSubjectsPerRow[i] = [...this.allSubjects];
+      }
+    });
+  }
+
   filterSubjectsForRow(i: number, event: Event): void {
     const term = (event.target as HTMLInputElement).value?.toLowerCase() ?? '';
     this.subjectSearchTexts[i] = term;
+    const baseList = (this.plannerCategory === 'school' && this.examRows[i]?.get('classId')?.value)
+      ? (this.classSubjectsCache.get(this.examRows[i].get('classId')?.value) || this.allSubjects)
+      : this.allSubjects;
+
     if (!term.trim()) {
-      this.filteredSubjectsPerRow[i] = [...this.allSubjects];
+      this.filteredSubjectsPerRow[i] = [...baseList];
       return;
     }
-    this.filteredSubjectsPerRow[i] = this.allSubjects.filter(
+    this.filteredSubjectsPerRow[i] = baseList.filter(
       s => (s.name && s.name.toLowerCase().includes(term)) ||
            (s.code && s.code.toLowerCase().includes(term))
     );
@@ -3077,7 +4082,10 @@ export class TestsComponent implements OnInit {
   clearSubjectSearch(i: number, event: Event): void {
     event.stopPropagation();
     this.subjectSearchTexts[i] = '';
-    this.filteredSubjectsPerRow[i] = [...this.allSubjects];
+    const baseList = (this.plannerCategory === 'school' && this.examRows[i]?.get('classId')?.value)
+      ? (this.classSubjectsCache.get(this.examRows[i].get('classId')?.value) || this.allSubjects)
+      : this.allSubjects;
+    this.filteredSubjectsPerRow[i] = [...baseList];
   }
 
   onSubjectSelectOpened(i: number, isOpen: boolean): void {
@@ -3088,7 +4096,10 @@ export class TestsComponent implements OnInit {
       }, 100);
     } else {
       this.subjectSearchTexts[i] = '';
-      this.filteredSubjectsPerRow[i] = [...this.allSubjects];
+      const baseList = (this.plannerCategory === 'school' && this.examRows[i]?.get('classId')?.value)
+        ? (this.classSubjectsCache.get(this.examRows[i].get('classId')?.value) || this.allSubjects)
+        : this.allSubjects;
+      this.filteredSubjectsPerRow[i] = [...baseList];
     }
   }
 
@@ -3096,7 +4107,8 @@ export class TestsComponent implements OnInit {
     this.examsArray.controls.forEach(c => c.markAllAsTouched());
 
     if (this.bulkForm.invalid) {
-      this.confirmDialog.alert('Validation Error', 'Please fill in all required fields (Batch, Subject, Title, Date) for every row.', 'warning');
+      const targetLabel = this.plannerCategory === 'school' ? 'Class' : 'Batch';
+      this.confirmDialog.alert('Validation Error', `Please fill in all required fields (${targetLabel}, Subject, Title, Date) for every row.`, 'warning');
       return;
     }
 
@@ -3107,7 +4119,6 @@ export class TestsComponent implements OnInit {
       let isoDate: string;
       try {
         if (dateStr) {
-          // Parse explicitly in IST (Indian Standard Time, UTC+05:30) and convert to UTC ISO
           const combined = new Date(`${dateStr}T${timeStr}:00+05:30`);
           isoDate = !isNaN(combined.getTime()) ? combined.toISOString() : new Date().toISOString();
         } else {
@@ -3118,7 +4129,9 @@ export class TestsComponent implements OnInit {
       }
 
       return {
-        batchId: v.batchId,
+        batchId: this.plannerCategory === 'coaching' ? (v.batchId || null) : null,
+        classId: this.plannerCategory === 'school' ? (v.classId || null) : null,
+        sectionId: this.plannerCategory === 'school' ? (v.sectionId || null) : null,
         subject: v.subject,
         title: v.title,
         maxMarks: Number(v.maxMarks),
@@ -3126,8 +4139,9 @@ export class TestsComponent implements OnInit {
       };
     });
 
+    const categoryTitle = this.plannerCategory === 'school' ? 'School Class Exam' : 'Coaching Batch Test';
     this.confirmDialog.confirm(
-      'Schedule Exam Session',
+      `Schedule ${categoryTitle} Session`,
       `Schedule ${payload.length} exam${payload.length !== 1 ? 's' : ''}? They will appear in the Tests grid immediately.`,
       `Schedule All ${payload.length}`,
       'Cancel',
@@ -3163,9 +4177,12 @@ export class TestsComponent implements OnInit {
       this.pageIndex + 1,
       this.pageSize,
       this.searchTerm,
-      this.selectedBatchFilter,
+      this.selectedBatchFilter || undefined,
       this.sortBy,
-      this.sortDescending
+      this.sortDescending,
+      this.selectedClassFilter || undefined,
+      this.selectedSectionFilter || undefined,
+      this.selectedCategory
     ).subscribe({
       next: result => { this.tests = result.items; this.totalCount = result.totalCount; this.loading = false; },
       error: () => { this.loading = false; }
@@ -3173,7 +4190,6 @@ export class TestsComponent implements OnInit {
   }
 
   onSearch(): void { this.pageIndex = 0; this.loadTests(); }
-  onFilterChange(): void { this.pageIndex = 0; this.loadTests(); }
 
   onSortChange(s: Sort): void {
     this.sortBy = s.active || 'testDate';
@@ -3190,13 +4206,23 @@ export class TestsComponent implements OnInit {
 
   // ─── Marks Entry ───────────────────────────────
   openMarksGrid(test: any): void {
+    if (!this.canEnterMarks(test)) {
+      this.confirmDialog.alert(
+        'Access Restricted 🔒',
+        !test.evaluatorTeacherId
+          ? 'Physical answer sheet bundle has not yet been assigned to any teacher by the Admin / Exam Cell.'
+          : `This exam bundle is assigned to ${test.evaluatorTeacherName || 'another evaluator'}. You cannot enter marks.`,
+        'warning'
+      );
+      return;
+    }
     this.selectedTest = test;
     this.marksLoading = true;
     this.marksGrid = [];
 
     // Load batch or class students and existing marks in parallel
     forkJoin({
-      students: this.coachingService.getStudents(test.batchId, test.classId),
+      students: this.coachingService.getStudents(test.batchId, test.classId, test.sectionId),
       existingMarks: this.coachingService.getTestMarks(test.id)
     }).subscribe({
       next: ({ students, existingMarks }) => {
@@ -3258,19 +4284,101 @@ export class TestsComponent implements OnInit {
   // ─── Modal 1: Copy Bundle Handover Tracking ─────────────────
   openBundleModal(test: any): void {
     this.bundleTest = test;
-    const d = new Date();
+    this.teacherSearchText = '';
+    this.filteredTeachers = [...this.teachersList];
+
+    // Base date for default evaluation due date: must NOT be earlier than exam date
+    let baseDate = new Date();
+    if (test.testDate) {
+      const examDate = new Date(test.testDate);
+      if (!isNaN(examDate.getTime()) && examDate > baseDate) {
+        baseDate = examDate;
+      }
+    }
+    const d = new Date(baseDate);
     d.setDate(d.getDate() + 3);
     const defaultDue = d.toISOString().split('T')[0];
 
+    // Ensure teacher id matches case-insensitively with teachersList item id
+    let matchedTeacherId = '';
+    if (test.evaluatorTeacherId) {
+      const match = this.teachersList.find(
+        t => (t.id || '').toLowerCase() === (test.evaluatorTeacherId || '').toLowerCase()
+      );
+      matchedTeacherId = match ? match.id : test.evaluatorTeacherId;
+    }
+
+    const suggestedCopies = test.totalCopiesIssued ?? (test.studentCount || (test.totalStudentsEvaluated > 0 ? test.totalStudentsEvaluated : null));
+
     this.bundleForm.patchValue({
-      evaluatorTeacherId: test.evaluatorTeacherId || '',
-      totalCopiesIssued: test.totalCopiesIssued ?? (test.totalStudentsEvaluated > 0 ? test.totalStudentsEvaluated : null),
+      evaluatorTeacherId: matchedTeacherId,
+      totalCopiesIssued: suggestedCopies,
       evaluationDueDate: test.evaluationDueDate ? new Date(test.evaluationDueDate).toISOString().split('T')[0] : defaultDue,
       evaluationStatus: test.evaluationStatus || 'Evaluating',
       copiesSubmittedDate: test.copiesSubmittedDate ? new Date(test.copiesSubmittedDate).toISOString().split('T')[0] : '',
       evaluationRemarks: test.evaluationRemarks || ''
     });
     this.showBundleModal = true;
+  }
+
+  filterTeachers(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.teacherSearchText = input.value || '';
+    const query = this.teacherSearchText.trim().toLowerCase();
+    if (!query) {
+      this.filteredTeachers = [...this.teachersList];
+      return;
+    }
+    this.filteredTeachers = this.teachersList.filter(t => {
+      const name = (t.fullName || t.name || '').toLowerCase();
+      const code = (t.employeeCode || '').toLowerCase();
+      const phone = (t.phoneNumber || '').toLowerCase();
+      const spec = (t.specialization || '').toLowerCase();
+      const dept = (t.department || '').toLowerCase();
+      const desig = (t.designation || '').toLowerCase();
+      return name.includes(query) || code.includes(query) || phone.includes(query) ||
+             spec.includes(query) || dept.includes(query) || desig.includes(query);
+    });
+  }
+
+  clearTeacherSearch(event?: Event): void {
+    if (event) {
+      event.stopPropagation();
+    }
+    this.teacherSearchText = '';
+    this.filteredTeachers = [...this.teachersList];
+  }
+
+  onTeacherSelectOpened(isOpen: boolean): void {
+    if (isOpen) {
+      this.teacherSearchText = '';
+      this.filteredTeachers = [...this.teachersList];
+      setTimeout(() => {
+        const el = document.querySelector('.smart-teacher-panel .select-search-input') as HTMLInputElement;
+        if (el) el.focus();
+      }, 100);
+    }
+  }
+
+  getSelectedTeacher(teacherId: string): any {
+    if (!teacherId || !this.teachersList) return null;
+    const tid = teacherId.toLowerCase();
+    return this.teachersList.find(t => (t.id || '').toLowerCase() === tid) || null;
+  }
+
+  getSelectedTeacherName(teacherId: string): string {
+    const tch = this.getSelectedTeacher(teacherId);
+    return tch ? (tch.fullName || tch.name || 'Teacher') : '';
+  }
+
+  getSelectedTeacherCode(teacherId: string): string {
+    const tch = this.getSelectedTeacher(teacherId);
+    return tch?.employeeCode || '';
+  }
+
+  getSelectedTeacherPhone(teacherId: string): string {
+    const tch = this.getSelectedTeacher(teacherId);
+    return tch?.phoneNumber || '';
   }
 
   closeBundleModal(): void {

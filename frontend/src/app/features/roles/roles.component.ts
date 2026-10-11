@@ -166,19 +166,29 @@ interface ModuleHeaderState {
               <button mat-stroked-button color="warn" type="button" (click)="revokeAll()">
                 <mat-icon>block</mat-icon> Revoke All
               </button>
+              <span class="toolbar-spacer"></span>
+              <button mat-stroked-button type="button" class="collapse-all-btn" (click)="toggleAllModules()"
+                [title]="areAllModulesCollapsed ? 'Expand All Modules' : 'Collapse All Modules'">
+                <mat-icon>{{ areAllModulesCollapsed ? 'unfold_more' : 'unfold_less' }}</mat-icon>
+                <span>{{ areAllModulesCollapsed ? 'Expand All' : 'Collapse All' }}</span>
+              </button>
             </div>
 
             <!-- Hierarchical Module & Page Matrix -->
             <div class="hierarchical-matrix-container">
-              <div *ngFor="let mod of moduleGroups" class="module-block">
+              <div *ngFor="let mod of moduleGroups" class="module-block" [class.is-collapsed]="isModuleCollapsed(mod.moduleName)">
                 <!-- Module Header Bar -->
-                <div class="module-header">
+                <div class="module-header" (click)="toggleModuleCollapse(mod.moduleName)">
                   <div class="module-title-box">
+                    <mat-icon class="collapse-toggle-icon">
+                      {{ isModuleCollapsed(mod.moduleName) ? 'chevron_right' : 'expand_more' }}
+                    </mat-icon>
                     <mat-icon color="primary" class="mod-icon">category</mat-icon>
                     <span class="mod-title-text">{{ mod.moduleName }} Module</span>
+                    <span class="module-items-badge">{{ mod.items.length }} {{ mod.items.length === 1 ? 'Page' : 'Pages' }}</span>
                   </div>
 
-                  <div class="module-master-toggles">
+                  <div class="module-master-toggles" (click)="$event.stopPropagation()">
                     <span class="mod-toggle-label">Module Toggles:</span>
                     <mat-checkbox
                       color="primary"
@@ -216,7 +226,7 @@ interface ModuleHeaderState {
                 </div>
 
                 <!-- Child Pages Table in Responsive Wrapper -->
-                <div class="table-responsive-wrapper">
+                <div class="table-responsive-wrapper" *ngIf="!isModuleCollapsed(mod.moduleName)">
                   <table class="rights-table">
                     <thead>
                       <tr>
@@ -526,6 +536,21 @@ interface ModuleHeaderState {
         margin-right: 6px;
       }
 
+      .toolbar-spacer {
+        flex: 1;
+      }
+
+      .collapse-all-btn {
+        background: #ffffff;
+        color: #475569;
+        font-weight: 600;
+        border-color: #cbd5e1;
+        &:hover {
+          background: #e2e8f0;
+          color: #0f172a;
+        }
+      }
+
       @media (max-width: 768px) {
         gap: 8px;
         button {
@@ -540,6 +565,9 @@ interface ModuleHeaderState {
           width: 100%;
           margin-bottom: 4px;
         }
+        .toolbar-spacer {
+          display: none;
+        }
         button {
           width: 100%;
           justify-content: center;
@@ -549,7 +577,7 @@ interface ModuleHeaderState {
     .hierarchical-matrix-container {
       display: flex;
       flex-direction: column;
-      gap: 20px;
+      gap: 16px;
       width: 100%;
       min-width: 0;
     }
@@ -559,6 +587,14 @@ interface ModuleHeaderState {
       overflow: hidden;
       width: 100%;
       background: #ffffff;
+      transition: all 0.2s ease-in-out;
+
+      &.is-collapsed {
+        box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+        .module-header {
+          border-bottom: none;
+        }
+      }
     }
     .module-header {
       background: #f1f5f9;
@@ -569,6 +605,13 @@ interface ModuleHeaderState {
       align-items: center;
       flex-wrap: wrap;
       gap: 12px;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.15s ease-in-out;
+
+      &:hover {
+        background: #e9eff5;
+      }
 
       @media (max-width: 768px) {
         flex-direction: column;
@@ -582,6 +625,13 @@ interface ModuleHeaderState {
         color: #0f172a;
         font-size: 0.95rem;
 
+        .collapse-toggle-icon {
+          font-size: 20px;
+          width: 20px;
+          height: 20px;
+          color: #475569;
+          transition: transform 0.2s ease;
+        }
         .mod-icon {
           font-size: 20px;
           width: 20px;
@@ -590,6 +640,15 @@ interface ModuleHeaderState {
         .mod-title-text {
           font-weight: 700;
           color: #0f172a;
+        }
+        .module-items-badge {
+          font-size: 0.72rem;
+          font-weight: 600;
+          background: #e2e8f0;
+          color: #475569;
+          padding: 2px 8px;
+          border-radius: 12px;
+          margin-left: 4px;
         }
       }
       .module-master-toggles {
@@ -976,6 +1035,7 @@ export class RolesComponent implements OnInit {
   }
 
   buildModuleGroups(): void {
+    this.expandedModuleName = null; // Start with all modules collapsed by default on page / role load
     const groupsMap = new Map<string, { index: number; group: FormGroup }[]>();
     this.permissionsArray.controls.forEach((ctrl, index) => {
       const group = ctrl as FormGroup;
@@ -1062,6 +1122,47 @@ export class RolesComponent implements OnInit {
       ctrl.get('canEdit')?.setValue(false);
       ctrl.get('canDelete')?.setValue(false);
     });
+  }
+
+  // Module Accordion Collapse & Expand Features (Single Module Open at a time, all collapsed by default)
+  expandedModuleName: string | null = null;
+
+  isModuleCollapsed(moduleName: string): boolean {
+    return this.expandedModuleName !== moduleName && this.expandedModuleName !== '__ALL__';
+  }
+
+  isModuleExpanded(moduleName: string): boolean {
+    return this.expandedModuleName === moduleName || this.expandedModuleName === '__ALL__';
+  }
+
+  toggleModuleCollapse(moduleName: string): void {
+    if (this.expandedModuleName === moduleName) {
+      // Agar pehle se expand hai, toh click karne par collapse ho jayega
+      this.expandedModuleName = null;
+    } else {
+      // Naya module expand hoga aur doosra automatically collapse ho jayega
+      this.expandedModuleName = moduleName;
+    }
+  }
+
+  expandAllModules(): void {
+    this.expandedModuleName = '__ALL__';
+  }
+
+  collapseAllModules(): void {
+    this.expandedModuleName = null;
+  }
+
+  toggleAllModules(): void {
+    if (this.areAllModulesCollapsed) {
+      this.expandAllModules();
+    } else {
+      this.collapseAllModules();
+    }
+  }
+
+  get areAllModulesCollapsed(): boolean {
+    return this.expandedModuleName === null;
   }
 
   saveRole(): void {

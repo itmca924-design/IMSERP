@@ -136,10 +136,10 @@ interface CalendarDay {
       </div>
     </button>
     <button type="button" class="tab-btn" [class.active]="activeTab === 'regularization'" (click)="setTab('regularization')">
-      <mat-icon>edit_calendar</mat-icon>
+      <mat-icon>rule_folder</mat-icon>
       <div class="tab-text">
-        <strong>Attendance Regularization</strong>
-        <small>Student corrections &amp; OD requests</small>
+        <strong>{{ isTeacher ? 'Regularization Approvals' : 'Attendance Regularization' }}</strong>
+        <small>{{ isTeacher ? 'Review & approve student OD / leave requests' : 'Student corrections &amp; OD requests' }}</small>
       </div>
       <span class="tab-pending-badge" *ngIf="regularizationStats.pendingRequests > 0">
         {{ regularizationStats.pendingRequests }} Pending
@@ -617,6 +617,17 @@ interface CalendarDay {
   <!-- ================= TAB 3: ATTENDANCE REGULARIZATION & OD REQUESTS ================= -->
   <div *ngIf="activeTab === 'regularization'" class="regularization-view">
 
+    <!-- Approver Header Banner for Class Teacher -->
+    <div class="teacher-approval-banner" *ngIf="isTeacher">
+      <div class="tab-badge-icon">
+        <mat-icon>fact_check</mat-icon>
+      </div>
+      <div class="tab-badge-text">
+        <strong>Class Teacher Review Desk • {{ teacherClassSection?.className || 'Assigned Class' }} {{ teacherClassSection?.sectionName ? '(' + ((teacherClassSection?.sectionName || '').startsWith('Section') ? teacherClassSection?.sectionName : 'Section ' + teacherClassSection?.sectionName) + ')' : '' }}</strong>
+        <p>Review and approve / reject attendance regularization and OD requests submitted by students or parents of your assigned class.</p>
+      </div>
+    </div>
+
     <!-- KPI Summary Cards -->
     <div class="reg-kpi-grid">
       <div class="reg-kpi-card total">
@@ -684,8 +695,8 @@ interface CalendarDay {
             <mat-icon [class.spin]="regularizationLoading">refresh</mat-icon>
             <span>Refresh</span>
           </button>
-          <button mat-raised-button color="primary" class="reg-apply-btn" (click)="openApplyRegularization()" matTooltip="Submit Attendance Regularization">
-            <mat-icon>add_circle</mat-icon>
+          <button mat-stroked-button class="reg-apply-btn secondary" *ngIf="!isTeacher" (click)="openApplyRegularization()" matTooltip="Submit Attendance Regularization">
+            <mat-icon>add_circle_outline</mat-icon>
             <span>Apply Regularization</span>
           </button>
         </div>
@@ -701,9 +712,9 @@ interface CalendarDay {
 
       <div *ngIf="!regularizationLoading && regularizations.length === 0" class="reg-empty-box">
         <mat-icon>task_alt</mat-icon>
-        <h4>No {{ regFilterStatus === 'All' ? '' : regFilterStatus }} Regularization Requests</h4>
-        <p>{{ regFilterStatus === 'Pending' ? 'All student attendance regularization requests have been reviewed.' : 'No records match the current filter criteria.' }}</p>
-        <button mat-stroked-button color="primary" (click)="openApplyRegularization()">
+        <h4>{{ isTeacher ? 'No Pending Student Requests to Review' : ('No ' + (regFilterStatus === 'All' ? '' : regFilterStatus) + ' Regularization Requests') }}</h4>
+        <p>{{ isTeacher ? 'All student attendance regularization requests for your assigned class have been reviewed. New requests from students or parents will appear here.' : (regFilterStatus === 'Pending' ? 'All student attendance regularization requests have been reviewed.' : 'No records match the current filter criteria.') }}</p>
+        <button mat-stroked-button color="primary" *ngIf="!isTeacher" (click)="openApplyRegularization()">
           <mat-icon>add</mat-icon> Submit New Request
         </button>
       </div>
@@ -1398,6 +1409,22 @@ interface CalendarDay {
       box-shadow: 0 2px 4px rgba(245, 158, 11, 0.3);
     }
     .regularization-view { display: flex; flex-direction: column; gap: 14px; }
+    .teacher-approval-banner {
+      display: flex; align-items: center; gap: 14px;
+      padding: 12px 18px;
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+      border: 1px solid #bfdbfe; border-radius: 12px;
+      .tab-badge-icon {
+        width: 40px; height: 40px; background: #2563eb; color: #ffffff;
+        border-radius: 10px; display: flex; align-items: center; justify-content: center;
+        box-shadow: 0 4px 6px -1px rgba(37,99,235,0.25); flex-shrink: 0;
+        mat-icon { font-size: 22px; width: 22px; height: 22px; }
+      }
+      .tab-badge-text {
+        strong { display: block; color: #1e3a8a; font-size: 0.92rem; font-weight: 700; }
+        p { margin: 2px 0 0; color: #3b82f6; font-size: 0.78rem; font-weight: 500; }
+      }
+    }
     .reg-kpi-grid {
       display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
     }

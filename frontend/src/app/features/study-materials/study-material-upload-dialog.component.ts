@@ -10,6 +10,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { HttpClient } from '@angular/common/http';
 import { StudyMaterialService } from './study-material.service';
 import { StudyMaterialDto } from './study-material.models';
 
@@ -18,6 +19,7 @@ export interface StudyMaterialDialogData {
   classes: any[];
   batches: any[];
   subjects: any[];
+  isTeacher?: boolean;
 }
 
 @Component({
@@ -63,21 +65,21 @@ export interface StudyMaterialDialogData {
           </div>
 
           <div class="scope-toggle-row">
-            <button type="button" class="scope-chip-btn" [class.active]="form.targetScope === 'Both'" (click)="setScope('Both')">
+            <button type="button" class="scope-chip-btn" [class.active]="form.targetScope === 'Both'" (click)="setScope('Both')" *ngIf="!data.isTeacher || (hasClasses && hasBatches)">
               <mat-icon>public</mat-icon>
               <div class="chip-text">
                 <strong>🌐 Open to All</strong>
                 <small>School + Coaching Students</small>
               </div>
             </button>
-            <button type="button" class="scope-chip-btn" [class.active]="form.targetScope === 'School'" (click)="setScope('School')">
+            <button type="button" class="scope-chip-btn" [class.active]="form.targetScope === 'School'" (click)="setScope('School')" *ngIf="!data.isTeacher || hasClasses">
               <mat-icon>school</mat-icon>
               <div class="chip-text">
                 <strong>🏫 School Classes</strong>
                 <small>Class 1st to 12th Syllabus</small>
               </div>
             </button>
-            <button type="button" class="scope-chip-btn" [class.active]="form.targetScope === 'Coaching'" (click)="setScope('Coaching')">
+            <button type="button" class="scope-chip-btn" [class.active]="form.targetScope === 'Coaching'" (click)="setScope('Coaching')" *ngIf="!data.isTeacher || hasBatches">
               <mat-icon>psychology</mat-icon>
               <div class="chip-text">
                 <strong>🎯 Coaching Batches</strong>
@@ -89,10 +91,10 @@ export interface StudyMaterialDialogData {
           <!-- Scope Dynamic Filters (Class / Batch / Subject / Type) -->
           <div class="grid-2-cols" style="margin-top: 14px;">
             <!-- School Class (if School or Both) -->
-            <mat-form-field appearance="outline" *ngIf="form.targetScope !== 'Coaching'">
-              <mat-label>School Class (Optional)</mat-label>
+            <mat-form-field appearance="outline" *ngIf="form.targetScope !== 'Coaching' && (!data.isTeacher || hasClasses)">
+              <mat-label>{{ data.isTeacher ? 'Assigned School Class' : 'School Class (Optional)' }}</mat-label>
               <mat-select [(ngModel)]="form.classId" (selectionChange)="onClassSelected()">
-                <mat-option [value]="null">-- All Classes (General / Open) --</mat-option>
+                <mat-option [value]="null" *ngIf="!data.isTeacher">-- All Classes (General / Open) --</mat-option>
                 <mat-option *ngFor="let c of data.classes" [value]="c.id">
                   {{ c.name }} <span class="opt-sub" *ngIf="c.code">({{ c.code }})</span>
                 </mat-option>
@@ -100,10 +102,10 @@ export interface StudyMaterialDialogData {
             </mat-form-field>
 
             <!-- Coaching Batch (if Coaching or Both) -->
-            <mat-form-field appearance="outline" *ngIf="form.targetScope !== 'School'">
-              <mat-label>Coaching Batch (Optional)</mat-label>
+            <mat-form-field appearance="outline" *ngIf="form.targetScope !== 'School' && (!data.isTeacher || hasBatches)">
+              <mat-label>{{ data.isTeacher ? 'Assigned Coaching Batch' : 'Coaching Batch (Optional)' }}</mat-label>
               <mat-select [(ngModel)]="form.batchId">
-                <mat-option [value]="null">-- All Batches (Open Competitive) --</mat-option>
+                <mat-option [value]="null" *ngIf="!data.isTeacher">-- All Batches (Open Competitive) --</mat-option>
                 <mat-option *ngFor="let b of data.batches" [value]="b.id">
                   {{ b.name }} <span class="opt-sub" *ngIf="b.subject">({{ b.subject }})</span>
                 </mat-option>
@@ -114,7 +116,7 @@ export interface StudyMaterialDialogData {
             <mat-form-field appearance="outline" [class.col-span-2]="form.targetScope === 'Both'">
               <mat-label>Teaching Subject *</mat-label>
               <mat-select [(ngModel)]="form.subject" required>
-                <mat-option *ngFor="let s of data.subjects" [value]="s.name">
+                <mat-option *ngFor="let s of (classSubjects.length > 0 ? classSubjects : data.subjects)" [value]="s.name">
                   {{ s.name }} <span class="opt-sub" *ngIf="s.code">[{{ s.code }}]</span>
                 </mat-option>
               </mat-select>
@@ -681,12 +683,14 @@ export interface StudyMaterialDialogData {
 })
 export class StudyMaterialUploadDialogComponent implements OnInit {
   private readonly studyMaterialService = inject(StudyMaterialService);
+  private readonly http = inject(HttpClient);
   readonly dialogRef = inject(MatDialogRef<StudyMaterialUploadDialogComponent>);
 
   isEdit = false;
   saving = false;
   uploadingFile = false;
   uploadingSolution = false;
+  classSubjects: any[] = [];
 
   form: any = {
     title: '',
@@ -717,12 +721,38 @@ export class StudyMaterialUploadDialogComponent implements OnInit {
 
   constructor(@Inject(MAT_DIALOG_DATA) public data: StudyMaterialDialogData) {}
 
+  get hasClasses(): boolean {
+    return (this.data?.classes?.length ?? 0) > 0;
+  }
+
+  get hasBatches(): boolean {
+    return (this.data?.batches?.length ?? 0) > 0;
+  }
+
   ngOnInit() {
     if (this.data.material) {
       this.isEdit = true;
       this.form = { ...this.data.material };
-    } else if (this.data.subjects?.length > 0) {
-      this.form.subject = this.data.subjects[0].name;
+    } else {
+      if (this.data.isTeacher) {
+        if (this.hasClasses && !this.hasBatches) {
+          this.form.targetScope = 'School';
+          if (this.data.classes?.length === 1) {
+            this.form.classId = this.data.classes[0].id;
+          }
+        } else if (this.hasBatches && !this.hasClasses) {
+          this.form.targetScope = 'Coaching';
+          if (this.data.batches?.length === 1) {
+            this.form.batchId = this.data.batches[0].id;
+          }
+        }
+      }
+      if (this.data.subjects?.length > 0) {
+        this.form.subject = this.data.subjects[0].name;
+      }
+      if (this.form.classId) {
+        this.onClassSelected();
+      }
     }
   }
 
@@ -733,6 +763,7 @@ export class StudyMaterialUploadDialogComponent implements OnInit {
     } else if (scope === 'Coaching') {
       this.form.classId = null;
       this.form.sectionId = null;
+      this.classSubjects = [];
     }
   }
 
@@ -744,6 +775,25 @@ export class StudyMaterialUploadDialogComponent implements OnInit {
 
   onClassSelected() {
     this.form.sectionId = null;
+    if (this.form.classId) {
+      this.http.get<any[]>(`http://localhost:5000/api/Subjects/classes/${this.form.classId}`).subscribe({
+        next: (res) => {
+          this.classSubjects = (res || []).map(cs => ({
+            id: cs.subjectId || cs.id,
+            name: cs.subjectName || cs.name,
+            code: cs.subjectCode || cs.code
+          }));
+          if (this.classSubjects.length > 0 && !this.classSubjects.some(s => s.name === this.form.subject)) {
+            this.form.subject = this.classSubjects[0].name;
+          }
+        },
+        error: () => {
+          this.classSubjects = [];
+        }
+      });
+    } else {
+      this.classSubjects = [];
+    }
   }
 
   onFileSelected(event: Event, type: 'file' | 'solution') {

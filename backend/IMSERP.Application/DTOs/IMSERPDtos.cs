@@ -423,7 +423,14 @@ public record StudentDto(
     string? EmergencyContactName = null,
     string? EmergencyContactPhone = null,
     string? PreviousSchoolName = null,
-    string? PreviousBoard = null
+    string? PreviousBoard = null,
+    // Portal Login Status
+    Guid? UserId = null,
+    string? StudentUsername = null,
+    bool HasStudentAccount = false,
+    Guid? ParentUserId = null,
+    string? ParentUsername = null,
+    bool HasParentAccount = false
 );
 
 public record StudentLeavingClearanceDto(
@@ -1339,7 +1346,9 @@ public record TeacherDto(
     string? BloodGroup = null,
     string? EmergencyContactName = null,
     string? EmergencyContactPhone = null,
-    string? BiometricUserId = null
+    string? BiometricUserId = null,
+    string? ClassTeacherOf = null,
+    List<string>? AssignedClasses = null
 );
 
 public record CreateTeacherDto(
@@ -1882,7 +1891,10 @@ public record TeacherWorkloadReportDto(
     int TotalWeeklyClasses,
     decimal TotalWeeklyHours,
     int TotalStudentsReached,
-    List<TeacherWorkloadSummaryItemDto> Teachers
+    List<TeacherWorkloadSummaryItemDto> Teachers,
+    int TotalCount = 0,
+    int PageNumber = 1,
+    int PageSize = 10
 );
 
 public record TeacherBatchCoverageReportDto(
@@ -4571,4 +4583,48 @@ public record StudyMaterialSubjectCountDto(
     string Subject,
     int Count
 );
+
+// ── Student & Parent Portal Login DTOs ──
+public class StudentPortalLoginInfoDto
+{
+    public Guid StudentId { get; set; }
+    public string StudentName { get; set; } = string.Empty;
+    public string? RollNumber { get; set; }
+    public string? AdmissionNumber { get; set; }
+    public string? ClassOrBatch { get; set; }
+    public string ParentName { get; set; } = string.Empty;
+    public string ParentPhone { get; set; } = string.Empty;
+
+    // Student account details
+    public bool HasStudentAccount { get; set; }
+    public string? StudentUsername { get; set; }
+    public string DefaultStudentUsername { get; set; } = string.Empty;
+    public string DefaultStudentPassword { get; set; } = string.Empty;
+
+    // Parent account details
+    public bool HasParentAccount { get; set; }
+    public string? ParentUsername { get; set; }
+    public string DefaultParentUsername { get; set; } = string.Empty;
+    public string DefaultParentPassword { get; set; } = string.Empty;
+    public bool IsParentLinkedToSiblings { get; set; }
+    public List<string> SiblingNames { get; set; } = new();
+}
+
+public class CreateStudentPortalLoginRequestDto
+{
+    public string AccountType { get; set; } = "Both"; // "Student" | "Parent" | "Both"
+    public string? StudentUsername { get; set; }
+    public string? StudentPassword { get; set; }
+    public string? ParentUsername { get; set; }
+    public string? ParentPassword { get; set; }
+    public bool ResetExistingPassword { get; set; } = false;
+}
+
+public class StudentPortalLoginResultDto
+{
+    public bool Success { get; set; }
+    public string Message { get; set; } = string.Empty;
+    public StudentPortalLoginInfoDto LoginInfo { get; set; } = null!;
+}
+
 

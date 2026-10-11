@@ -205,6 +205,19 @@ export class AttendanceReportsComponent implements OnInit, OnDestroy {
   get logoUrl(): string | null { return this.authService.getInstituteLogoUrl(); }
   get instituteName(): string { return this.authService.currentUser()?.instituteName || 'Apex Coaching Academy'; }
   get isStudentOrParent(): boolean { return this.authService.isStudentOrParent(); }
+  get isTeacher(): boolean { return this.authService.isTeacher(); }
+  get canManageStaff(): boolean { return this.authService.canManageStaff(); }
+  get isTeacherSelfMode(): boolean { return this.isTeacher && !this.canManageStaff; }
+
+  teacherClassSection: {
+    isClassTeacher: boolean;
+    classId?: string;
+    className?: string;
+    sectionId?: string;
+    sectionName?: string;
+    assignedClasses?: Array<{ classId: string; className: string; sectionId?: string; sectionName?: string }>;
+    assignedBatches?: Array<{ batchId: string; batchName: string }>;
+  } | null = null;
 
   get isDualStudent(): boolean {
     if (!this.isStudentOrParent) return false;
@@ -255,7 +268,7 @@ export class AttendanceReportsComponent implements OnInit, OnDestroy {
   /** Paginated slice of filteredAndSortedRows */
   get sortedRows(): ReportRow[] {
     const all = this.filteredAndSortedRows;
-    if (this.isStudentOrParent) return all;
+    if (this.isStudentOrParent || (this.isTeacherSelfMode && this.reportType === 'teacher')) return all;
     const start = this.pageIndex * this.pageSize;
     return all.slice(start, start + this.pageSize);
   }
@@ -266,10 +279,31 @@ export class AttendanceReportsComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     // Search is client-side — no API call needed on search change
-    if (this.isStudentOrParent) { this.reportType = 'student'; }
-    else { this.loadBatches(); this.loadSchoolClasses(); }
+    if (this.isStudentOrParent) {
+      this.reportType = 'student';
+    } else if (this.isTeacherSelfMode) {
+      this.loadTeacherClassSection();
+    } else {
+      this.loadBatches();
+      this.loadSchoolClasses();
+    }
     this.loadHolidays();
     this.loadReport();
+  }
+
+  loadTeacherClassSection(): void {
+    this.http.get<any>(`${this.api}/teachers/my-class-section`).subscribe({
+      next: info => {
+        this.teacherClassSection = info;
+        this.loadBatches();
+        this.loadSchoolClasses();
+      },
+      error: () => {
+        this.teacherClassSection = { isClassTeacher: false };
+        this.loadBatches();
+        this.loadSchoolClasses();
+      }
+    });
   }
 
   loadHolidays(): void {
@@ -316,12 +350,64 @@ export class AttendanceReportsComponent implements OnInit, OnDestroy {
 
   loadBatches(): void {
     this.http.get<Array<{ id: string; name: string }>>(`${this.api}/batches`).subscribe({
-      next: b => this.batches = b || [], error: () => this.batches = []
+      next: b => {
+        let list = b || [];
+        if (this.isTeacherSelfMode && this.teacherClassSection) {
+          const assigned = this.teacherClassSection.assignedBatches || [];
+          if (assigned.length > 0) {
+            const batchIds = new Set(assigned.map(a => a.batchId.toLowerCase()));
+            list = list.filter(bt => batchIds.has(bt.id.toLowerCase()));
+          }
+        }
+        this.batches = list;
+      },
+      error: () => this.batches = []
     });
   }
 
   loadSchoolClasses(): void {
-    this.schoolService.getClasses(true).subscribe({ next: c => this.schoolClasses = c || [], error: () => this.schoolClasses = [] });
+    this.schoolService.getClasses(true).subscribe({
+      next: c => {
+        let list = c || [];
+        if (this.isTeacherSelfMode && this.teacherClassSection) {
+          const assigned = this.teacherClassSection.assignedClasses || [];
+          if (assigned.length > 0) {
+            const assignedClassIds = new Set(assigned.map(a => a.classId.toLowerCase()));
+            list = list.filter(cl => assignedClassIds.has(cl.id.toLowerCase()));
+            list = list.map(cl => {
+              const secIds = new Set(
+                assigned
+                  .filter(a => a.classId.toLowerCase() === cl.id.toLowerCase() && a.sectionId)
+                  .map(a => a.sectionId!.toLowerCase())
+              );
+              if (secIds.size > 0 && cl.sections) {
+                return { ...cl, sections: cl.sections.filter(s => secIds.has(s.id.toLowerCase())) };
+              }
+              return cl;
+            });
+          }
+        }
+        this.schoolClasses = list;
+
+        // Auto-select if teacher has assigned class
+        if (this.isTeacherSelfMode && this.schoolClasses.length > 0) {
+          this.studentFilterMode = 'school';
+          if (this.teacherClassSection?.classId && this.schoolClasses.some(x => x.id === this.teacherClassSection?.classId)) {
+            this.selectedClassId = this.teacherClassSection.classId;
+            const found = this.schoolClasses.find(x => x.id === this.selectedClassId);
+            this.classSections = found?.sections || [];
+            if (this.teacherClassSection?.sectionId) {
+              this.selectedSectionId = this.teacherClassSection.sectionId;
+            }
+          } else {
+            this.selectedClassId = this.schoolClasses[0].id;
+            this.classSections = this.schoolClasses[0].sections || [];
+          }
+          this.loadReport();
+        }
+      },
+      error: () => this.schoolClasses = []
+    });
   }
 
   onFilterModeChanged(): void {

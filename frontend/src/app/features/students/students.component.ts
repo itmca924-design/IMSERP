@@ -30,6 +30,7 @@ import { StudentIdCardDialogComponent } from './student-id-card-dialog.component
 import { StudentBonafideDialogComponent } from './student-bonafide-dialog.component';
 import { StudentProfile360DialogComponent } from './student-profile-360-dialog.component';
 import { StudentRollSequencerDialogComponent } from './student-roll-sequencer-dialog.component';
+import { StudentPortalLoginDialogComponent } from './student-portal-login-dialog.component';
 import { AuthService } from '../../core/services/auth.service';
 
 const API_BASE = 'http://localhost:5000';
@@ -57,7 +58,8 @@ const API_BASE = 'http://localhost:5000';
     MatCheckboxModule,
     MatDialogModule,
     StudentProfile360DialogComponent,
-    StudentRollSequencerDialogComponent
+    StudentRollSequencerDialogComponent,
+    StudentPortalLoginDialogComponent
   ],
   template: `
     <div class="students-wrapper">
@@ -875,6 +877,16 @@ const API_BASE = 'http://localhost:5000';
                       (click)="openStudent360(s)"
                       matTooltip="Student 360° Dossier &amp; KYC Vault">
                       <mat-icon>account_circle</mat-icon>
+                    </button>
+
+                    <!-- Student & Parent Portal Logins Action Button -->
+                    <button
+                      mat-icon-button
+                      class="btn-portal-login"
+                      style="color: #2563eb;"
+                      (click)="openPortalLogins(s)"
+                      matTooltip="Portal Logins: Student &amp; Parent Access Accounts">
+                      <mat-icon>vpn_key</mat-icon>
                     </button>
 
                     <!-- Active Student: Mark Attendance (Hidden for Left / TC students) -->
@@ -2559,6 +2571,29 @@ export class StudentsComponent implements OnInit, OnDestroy {
         studentId: student.id,
         studentName: student.studentName,
         studentData: student
+      }
+    });
+  }
+
+  // ── Student & Parent Portal Logins Dialog ──────────────────
+  openPortalLogins(student: any): void {
+    const dialogRef = this.dialog.open(StudentPortalLoginDialogComponent, {
+      width: '820px',
+      maxWidth: '96vw',
+      panelClass: 'portal-login-modal-container',
+      disableClose: false,
+      data: {
+        studentId: student.id,
+        studentName: student.studentName,
+        admissionNumber: student.admissionNumber,
+        rollNumber: student.rollNumber
+      }
+    });
+
+    dialogRef.afterClosed().subscribe((res) => {
+      if (res) {
+        student.hasStudentAccount = res.hasStudentAccount;
+        student.hasParentAccount = res.hasParentAccount;
       }
     });
   }

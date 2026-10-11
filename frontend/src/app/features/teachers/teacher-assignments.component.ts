@@ -65,8 +65,8 @@ export interface AssignmentSlot {
     </div>
   </div>
 
-  <!-- Top Primary Hub Navigation: Batch Timetable vs School Class Teachers (Hidden if School Module is disabled) -->
-  <div class="primary-nav-bar mat-elevation-z1" *ngIf="authService.hasSchoolModule()">
+  <!-- Top Primary Hub Navigation: Batch Timetable vs School Class Teachers (Hidden if School Module is disabled or user cannot manage staff) -->
+  <div class="primary-nav-bar mat-elevation-z1" *ngIf="authService.hasSchoolModule() && canManage">
     <button type="button" class="primary-nav-btn" [class.active]="mainTab === 'TIMETABLE'" (click)="setMainTab('TIMETABLE')">
       <mat-icon>calendar_view_week</mat-icon>
       <div class="nav-btn-info">
@@ -116,7 +116,7 @@ export interface AssignmentSlot {
   </div>
 
   <!-- Batch & Class Coverage Overview Banner -->
-  <div class="coverage-alert-banner" *ngIf="batchCoverage">
+  <div class="coverage-alert-banner" *ngIf="canManage && batchCoverage">
     <div class="coverage-info">
       <div class="coverage-icon-badge" [class.badge-warning]="scopeCoverageData.unassigned > 0">
         <mat-icon>{{scopeCoverageData.unassigned > 0 ? 'warning_amber' : 'verified'}}</mat-icon>
@@ -143,7 +143,7 @@ export interface AssignmentSlot {
   </div>
 
   <!-- Smart Unassigned Batches Hub -->
-  <div class="unassigned-hub" *ngIf="showUnassigned && batchCoverage && batchCoverage.unassignedBatches.length > 0">
+  <div class="unassigned-hub" *ngIf="canManage && showUnassigned && batchCoverage && batchCoverage.unassignedBatches.length > 0">
     <!-- Hub Header -->
     <div class="hub-header">
       <div class="hub-header-left">
@@ -411,7 +411,7 @@ export interface AssignmentSlot {
           <span class="btn-text">Print Routine</span>
         </button>
 
-        <button mat-raised-button color="primary" class="toggle-btn" (click)="toggleForm()">
+        <button mat-raised-button color="primary" class="toggle-btn" *ngIf="canManage" (click)="toggleForm()">
           <mat-icon>{{showForm ? 'close' : 'add'}}</mat-icon>
           <span class="btn-text">{{showForm ? 'Cancel' : 'Assign New Batch'}}</span>
         </button>
@@ -671,7 +671,7 @@ export interface AssignmentSlot {
                   </div>
                 </div>
               </div>
-              <button mat-icon-button color="warn" class="remove-btn" (click)="removeAssignment(a.id)"
+              <button mat-icon-button color="warn" class="remove-btn" *ngIf="canManage" (click)="removeAssignment(a.id)"
                 matTooltip="Remove this batch assignment">
                 <mat-icon>delete_outline</mat-icon>
               </button>
@@ -700,7 +700,7 @@ export interface AssignmentSlot {
         <mat-icon class="empty-icon">calendar_month</mat-icon>
         <h3>No Batches Assigned Yet</h3>
         <p>{{selectedTeacher.fullName}} currently has no active batch assignments. Click "Assign New Batch" above to configure routine schedule.</p>
-        <button mat-raised-button color="primary" (click)="showForm = true">
+        <button mat-raised-button color="primary" *ngIf="canManage" (click)="showForm = true">
           <mat-icon>add</mat-icon> Assign Batch
         </button>
       </div>
@@ -953,7 +953,7 @@ export interface AssignmentSlot {
         </div>
 
         <!-- Faculty Action Controls -->
-        <div class="ct-action-row">
+        <div class="ct-action-row" *ngIf="canManage">
           <button mat-flat-button color="primary" class="ct-assign-btn" *ngIf="!sec.classTeacherId" (click)="openAssignDialog(sec)">
             <mat-icon>person_add</mat-icon> Assign Class Teacher
           </button>
@@ -1058,7 +1058,7 @@ export interface AssignmentSlot {
             </div>
 
             <!-- Faculty Action Controls -->
-            <div class="ct-action-row">
+            <div class="ct-action-row" *ngIf="canManage">
               <button mat-flat-button color="primary" class="ct-assign-btn" *ngIf="!sec.classTeacherId" (click)="openAssignDialog(sec)">
                 <mat-icon>person_add</mat-icon> Assign Class Teacher
               </button>
@@ -1168,11 +1168,11 @@ export interface AssignmentSlot {
               </td>
               <td class="col-actions">
                 <div class="table-action-btns">
-                  <button mat-stroked-button color="primary" class="table-assign-btn" (click)="openAssignDialog(sec)">
+                  <button mat-stroked-button color="primary" class="table-assign-btn" *ngIf="canManage" (click)="openAssignDialog(sec)">
                     <mat-icon>{{ sec.classTeacherId ? 'edit' : 'person_add' }}</mat-icon>
                     {{ sec.classTeacherId ? 'Change' : 'Assign' }}
                   </button>
-                  <button mat-icon-button color="warn" *ngIf="sec.classTeacherId" (click)="confirmUnassign(sec)" matTooltip="Remove Class Teacher">
+                  <button mat-icon-button color="warn" *ngIf="canManage && sec.classTeacherId" (click)="confirmUnassign(sec)" matTooltip="Remove Class Teacher">
                     <mat-icon>person_remove</mat-icon>
                   </button>
                   <button mat-icon-button color="primary" (click)="openSectionRoutineDialog(sec)" matTooltip="Class Routine & Period Timetable">
@@ -2943,9 +2943,15 @@ export class TeacherAssignmentsComponent implements OnInit {
     public authService: AuthService
   ) {}
 
+  get canManage(): boolean {
+    return this.authService.canManageStaff();
+  }
+
   ngOnInit() {
-    if (!this.authService.hasSchoolModule()) {
+    if (!this.canManage || !this.authService.hasSchoolModule()) {
       this.mainTab = 'TIMETABLE';
+    }
+    if (!this.authService.hasSchoolModule()) {
       this.selectedScope = 'COACHING';
     } else if (!this.authService.hasCoachingModule()) {
       this.selectedScope = 'SCHOOL';
@@ -2953,23 +2959,25 @@ export class TeacherAssignmentsComponent implements OnInit {
 
     this.route.queryParams.subscribe(p => {
       if (p['teacherId']) this.preSelectId = p['teacherId'];
-      if (p['tab'] === 'class-teachers' && this.authService.hasSchoolModule()) {
+      if (p['tab'] === 'class-teachers' && this.authService.hasSchoolModule() && this.canManage) {
         this.setMainTab('CLASS_TEACHER');
       }
     });
     this.loadBatches();
-    if (this.authService.hasSchoolModule()) {
+    if (this.authService.hasSchoolModule() && this.canManage) {
       this.loadSchoolClasses();
       this.loadClassTeachersMatrix();
     }
     this.loadSubjects();
-    this.loadBatchCoverage();
+    if (this.canManage) {
+      this.loadBatchCoverage();
+    }
     this.loadAllTeachers();
     this.initSlots();
   }
 
   setMainTab(tab: 'TIMETABLE' | 'CLASS_TEACHER') {
-    if (tab === 'CLASS_TEACHER' && !this.authService.hasSchoolModule()) {
+    if (tab === 'CLASS_TEACHER' && (!this.authService.hasSchoolModule() || !this.canManage)) {
       return;
     }
     this.mainTab = tab;

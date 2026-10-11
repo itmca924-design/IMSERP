@@ -24,6 +24,8 @@ export interface TeacherDto {
   emergencyContactName?: string;
   emergencyContactPhone?: string;
   biometricUserId?: string;
+  classTeacherOf?: string;
+  assignedClasses?: string[];
 }
 export interface BatchAssignmentDto {
   id: string; teacherId: string; teacherName: string; batchId?: string;
@@ -230,6 +232,9 @@ export interface TeacherWorkloadReportDto {
   totalWeeklyHours: number;
   totalStudentsReached: number;
   teachers: TeacherWorkloadSummaryItemDto[];
+  totalCount?: number;
+  pageNumber?: number;
+  pageSize?: number;
 }
 
 export interface TeacherBatchCoverageReportDto {

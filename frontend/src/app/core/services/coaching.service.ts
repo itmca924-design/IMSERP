@@ -49,10 +49,11 @@ export class CoachingService {
     return this.http.get<TeacherDashboardSummary>(`${this.BASE_URL}/dashboard/teacher-summary`);
   }
 
-  getStudents(batchId?: string, classId?: string): Observable<any[]> {
+  getStudents(batchId?: string, classId?: string, sectionId?: string): Observable<any[]> {
     let params: any = {};
     if (batchId) params.batchId = batchId;
     if (classId) params.classId = classId;
+    if (sectionId) params.sectionId = sectionId;
     return this.http.get<any[]>(`${this.BASE_URL}/students`, { params });
   }
 
@@ -207,7 +208,10 @@ export class CoachingService {
     searchTerm: string = '',
     batchId: string = '',
     sortBy: string = 'testDate',
-    sortDescending: boolean = true
+    sortDescending: boolean = true,
+    classId: string = '',
+    sectionId: string = '',
+    category: string = ''
   ): Observable<any> {
     let params: any = {
       pageNumber: pageNumber.toString(),
@@ -217,6 +221,9 @@ export class CoachingService {
     };
     if (searchTerm) params.searchTerm = searchTerm;
     if (batchId) params.batchId = batchId;
+    if (classId) params.classId = classId;
+    if (sectionId) params.sectionId = sectionId;
+    if (category && category !== 'all') params.category = category;
     return this.http.get<any>(`${this.BASE_URL}/tests/paged`, { params });
   }
 
@@ -258,6 +265,10 @@ export class CoachingService {
 
   approveAndLockTestMarks(testId: string, remarks?: string): Observable<any> {
     return this.http.put(`${this.BASE_URL}/tests/${testId}/approve-and-lock`, { remarks });
+  }
+
+  getMyTeacherProfile(): Observable<any> {
+    return this.http.get<any>(`${this.BASE_URL}/teachers/my-class-section`);
   }
 
   unlockTestMarks(testId: string, reason: string): Observable<any> {
@@ -383,10 +394,55 @@ export class CoachingService {
     return this.http.get<StudentWeeklyTimetableDto>(`${this.BASE_URL}/students/${studentId}/timetable`, { params });
   }
 
+  // ── Portal Access & Credentials (Student & Parent) ───────
+  getStudentPortalLogins(studentId: string): Observable<StudentPortalLoginInfoDto> {
+    return this.http.get<StudentPortalLoginInfoDto>(`${this.BASE_URL}/students/${studentId}/portal-logins`);
+  }
+
+  createStudentPortalLogin(studentId: string, payload: CreateStudentPortalLoginRequestDto): Observable<StudentPortalLoginResultDto> {
+    return this.http.post<StudentPortalLoginResultDto>(`${this.BASE_URL}/students/${studentId}/create-portal-login`, payload);
+  }
+
   // ── Teachers & Faculty ─────────────────────────────────────
   getTeachers(): Observable<any[]> {
     return this.http.get<any[]>(`${this.BASE_URL}/teachers`);
   }
+}
+
+// ── Portal Access DTO Interfaces ──────────────────────────────────────────
+export interface StudentPortalLoginInfoDto {
+  studentId: string;
+  studentName: string;
+  rollNumber?: string | null;
+  admissionNumber?: string | null;
+  classOrBatch?: string | null;
+  parentName: string;
+  parentPhone: string;
+  hasStudentAccount: boolean;
+  studentUsername?: string | null;
+  defaultStudentUsername: string;
+  defaultStudentPassword: string;
+  hasParentAccount: boolean;
+  parentUsername?: string | null;
+  defaultParentUsername: string;
+  defaultParentPassword: string;
+  isParentLinkedToSiblings: boolean;
+  siblingNames: string[];
+}
+
+export interface CreateStudentPortalLoginRequestDto {
+  accountType: 'Student' | 'Parent' | 'Both';
+  studentUsername?: string;
+  studentPassword?: string;
+  parentUsername?: string;
+  parentPassword?: string;
+  resetExistingPassword?: boolean;
+}
+
+export interface StudentPortalLoginResultDto {
+  success: boolean;
+  message: string;
+  loginInfo: StudentPortalLoginInfoDto;
 }
 
 // ── Sibling & Roll Number Interfaces ───────────────────────────────────────

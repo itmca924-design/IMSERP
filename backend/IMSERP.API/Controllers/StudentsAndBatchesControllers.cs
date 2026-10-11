@@ -16,12 +16,14 @@ public class StudentsController : ControllerBase
 {
     private readonly IIMSERPDbContext _dbContext;
     private readonly ICurrentUserService _currentUser;
+    private readonly IPasswordHasherService _passwordHasher;
     private readonly IWebHostEnvironment _env;
 
-    public StudentsController(IIMSERPDbContext dbContext, ICurrentUserService currentUser, IWebHostEnvironment env)
+    public StudentsController(IIMSERPDbContext dbContext, ICurrentUserService currentUser, IPasswordHasherService passwordHasher, IWebHostEnvironment env)
     {
         _dbContext = dbContext;
         _currentUser = currentUser;
+        _passwordHasher = passwordHasher;
         _env = env;
     }
 
@@ -396,6 +398,47 @@ public class StudentsController : ControllerBase
         }
         else
         {
+            var user = await _dbContext.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
+            bool canManage = user != null && (user.Role == IMSERP.Domain.Enums.UserRole.SuperAdmin || user.Role == IMSERP.Domain.Enums.UserRole.InstituteAdmin || user.Role == IMSERP.Domain.Enums.UserRole.HR);
+            if (!canManage)
+            {
+                var teacher = await _dbContext.Teachers.AsNoTracking().FirstOrDefaultAsync(t =>
+                    (t.UserId.HasValue && t.UserId.Value == _currentUser.UserId) ||
+                    (user != null && !string.IsNullOrEmpty(user.Email) && t.Email == user.Email) ||
+                    (user != null && !string.IsNullOrEmpty(user.FullName) && t.FullName == user.FullName));
+
+                if (teacher != null)
+                {
+                    var ctSectionIds = await _dbContext.SchoolSections.AsNoTracking()
+                        .Where(s => s.ClassTeacherId == teacher.Id && s.IsActive)
+                        .Select(s => s.Id)
+                        .ToListAsync();
+
+                    var ctClassIds = await _dbContext.SchoolSections.AsNoTracking()
+                        .Where(s => s.ClassTeacherId == teacher.Id && s.IsActive)
+                        .Select(s => s.ClassId)
+                        .ToListAsync();
+
+                    var assignments = await _dbContext.TeacherBatchAssignments.AsNoTracking()
+                        .Where(a => a.TeacherId == teacher.Id && a.IsActive)
+                        .ToListAsync();
+
+                    var assignedSectionIds = assignments.Where(a => a.SectionId.HasValue).Select(a => a.SectionId!.Value).ToHashSet();
+                    foreach (var sId in ctSectionIds) assignedSectionIds.Add(sId);
+
+                    var assignedClassIds = assignments.Where(a => a.ClassId.HasValue).Select(a => a.ClassId!.Value).ToHashSet();
+                    foreach (var cId in ctClassIds) assignedClassIds.Add(cId);
+
+                    var assignedBatchIds = assignments.Where(a => a.BatchId.HasValue).Select(a => a.BatchId!.Value).ToHashSet();
+
+                    studentsQuery = studentsQuery.Where(student =>
+                        (student.SectionId.HasValue && assignedSectionIds.Contains(student.SectionId.Value)) ||
+                        (student.ClassId.HasValue && assignedClassIds.Contains(student.ClassId.Value)) ||
+                        (student.BatchId.HasValue && assignedBatchIds.Contains(student.BatchId.Value))
+                    );
+                }
+            }
+
             if (!string.IsNullOrWhiteSpace(stream))
             {
                 if (stream.Equals("school", StringComparison.OrdinalIgnoreCase))
@@ -3440,6 +3483,263 @@ public class StudentsController : ControllerBase
             dto.SortRule ?? "alphabetical",
             previewItems
         ));
+    }
+
+    // =========================================================================
+    // FEATURE: STUDENT & PARENT ERP PORTAL LOGINS
+    // =========================================================================
+
+    [HttpGet("{id}/portal-logins")]
+    public async Task<ActionResult<StudentPortalLoginInfoDto>> GetStudentPortalLogins(Guid id)
+    {
+        var student = await _dbContext.Students
+            .Include(s => s.Class)
+            .Include(s => s.Section)
+            .Include(s => s.Batch)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(s => s.Id == id);
+
+        if (student == null) return NotFound(new { message = "Student not found." });
+
+        // Retrieve student user if exists
+        string? studentUsername = null;
+        if (student.UserId.HasValue)
+        {
+            var sUser = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == student.UserId.Value && u.Role == UserRole.Student);
+            studentUsername = sUser?.Username;
+        }
+
+        // Retrieve parent user if exists
+        string? parentUsername = null;
+        if (student.ParentUserId.HasValue)
+        {
+            var pUser = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == student.ParentUserId.Value && u.Role == UserRole.Parent);
+            parentUsername = pUser?.Username;
+        }
+
+        // Check if Parent phone is linked to siblings
+        var cleanPhone = (student.ParentWhatsAppPhone ?? "").Trim();
+        var siblingNames = new List<string>();
+        if (!string.IsNullOrWhiteSpace(cleanPhone))
+        {
+            siblingNames = await _dbContext.Students
+                .AsNoTracking()
+                .Where(s => s.Id != student.Id && s.IsActive && s.ParentWhatsAppPhone == cleanPhone)
+                .Select(s => s.StudentName)
+                .ToListAsync();
+
+            // If parent user wasn't directly set on this student, check if another sibling already has a parent user with this phone!
+            if (string.IsNullOrEmpty(parentUsername))
+            {
+                var existingParentByPhone = await _dbContext.Users
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(u => (u.PhoneNumber == cleanPhone || u.Username == cleanPhone) && u.Role == UserRole.Parent);
+                if (existingParentByPhone != null)
+                {
+                    parentUsername = existingParentByPhone.Username;
+                }
+            }
+        }
+
+        // Calculate default credentials
+        // Student default username: Clean Admission No or Roll No
+        string defaultStudUser = !string.IsNullOrWhiteSpace(student.AdmissionNumber)
+            ? student.AdmissionNumber.Trim().ToLower().Replace(" ", "").Replace("/", "-")
+            : (!string.IsNullOrWhiteSpace(student.RollNumber)
+                ? student.RollNumber.Trim().ToLower().Replace(" ", "").Replace("/", "-")
+                : $"student.{student.StudentName.ToLower().Replace(" ", "")}");
+
+        // Student default password: DOB in DDMMYYYY or Student@2026
+        string defaultStudPass = student.DateOfBirth.HasValue
+            ? student.DateOfBirth.Value.ToString("ddMMyyyy")
+            : $"Student@{DateTime.UtcNow.Year}";
+
+        // Parent default username: Phone number or parent.name
+        string defaultParentUser = !string.IsNullOrWhiteSpace(cleanPhone)
+            ? cleanPhone
+            : $"parent.{student.ParentName.ToLower().Replace(" ", "")}";
+
+        string defaultParentPass = $"Parent@{DateTime.UtcNow.Year}";
+
+        string classOrBatch = student.Class != null
+            ? $"{student.Class.Name}{(student.Section != null ? " - " + student.Section.Name : "")}"
+            : (student.Batch != null ? student.Batch.Name : "");
+
+        var result = new StudentPortalLoginInfoDto
+        {
+            StudentId = student.Id,
+            StudentName = student.StudentName,
+            RollNumber = student.RollNumber,
+            AdmissionNumber = student.AdmissionNumber,
+            ClassOrBatch = classOrBatch,
+            ParentName = student.ParentName,
+            ParentPhone = cleanPhone,
+            HasStudentAccount = student.UserId.HasValue || !string.IsNullOrEmpty(studentUsername),
+            StudentUsername = studentUsername,
+            DefaultStudentUsername = defaultStudUser,
+            DefaultStudentPassword = defaultStudPass,
+            HasParentAccount = student.ParentUserId.HasValue || !string.IsNullOrEmpty(parentUsername),
+            ParentUsername = parentUsername,
+            DefaultParentUsername = defaultParentUser,
+            DefaultParentPassword = defaultParentPass,
+            IsParentLinkedToSiblings = siblingNames.Count > 0,
+            SiblingNames = siblingNames
+        };
+
+        return Ok(result);
+    }
+
+    [HttpPost("{id}/create-portal-login")]
+    public async Task<ActionResult<StudentPortalLoginResultDto>> CreateStudentPortalLogin(Guid id, [FromBody] CreateStudentPortalLoginRequestDto dto)
+    {
+        var student = await _dbContext.Students.FirstOrDefaultAsync(s => s.Id == id);
+        if (student == null) return NotFound(new { message = "Student not found." });
+
+        var messages = new List<string>();
+
+        // Find or create Student Role and Parent Role
+        var studentRole = await _dbContext.Roles.FirstOrDefaultAsync(r => r.Name.ToLower() == "student");
+        var studentRoleId = studentRole?.Id ?? Guid.NewGuid();
+
+        var parentRole = await _dbContext.Roles.FirstOrDefaultAsync(r => r.Name.ToLower() == "parent");
+        var parentRoleId = parentRole?.Id ?? Guid.NewGuid();
+
+        // 1. Handle Student Account
+        if (dto.AccountType == "Student" || dto.AccountType == "Both")
+        {
+            var sUsername = (dto.StudentUsername ?? (!string.IsNullOrWhiteSpace(student.AdmissionNumber) ? student.AdmissionNumber : student.RollNumber)).Trim();
+            var sPassword = (dto.StudentPassword ?? $"Student@{DateTime.UtcNow.Year}").Trim();
+
+            if (student.UserId.HasValue)
+            {
+                // Update / Reset existing student user
+                var existingUser = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == student.UserId.Value);
+                if (existingUser != null)
+                {
+                    if (dto.ResetExistingPassword)
+                    {
+                        existingUser.PasswordHash = _passwordHasher.HashPassword(sPassword);
+                        messages.Add("Student password reset successfully.");
+                    }
+                    if (!string.IsNullOrEmpty(sUsername) && !string.Equals(existingUser.Username, sUsername, StringComparison.OrdinalIgnoreCase))
+                    {
+                        var isTaken = await _dbContext.Users.AnyAsync(u => u.Id != existingUser.Id && u.Username.ToLower() == sUsername.ToLower());
+                        if (!isTaken)
+                        {
+                            existingUser.Username = sUsername;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                // Check if username taken
+                var isTaken = await _dbContext.Users.AnyAsync(u => u.Username.ToLower() == sUsername.ToLower());
+                if (isTaken)
+                {
+                    return BadRequest(new { message = $"Student username '{sUsername}' is already taken by another user." });
+                }
+
+                var newUser = new User
+                {
+                    TenantId = _currentUser.TenantId,
+                    BranchId = student.BranchId ?? _currentUser.BranchId,
+                    Username = sUsername,
+                    PasswordHash = _passwordHasher.HashPassword(sPassword),
+                    FullName = student.StudentName,
+                    PhoneNumber = student.ParentWhatsAppPhone,
+                    Role = UserRole.Student,
+                    RoleId = studentRoleId,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                };
+                _dbContext.Users.Add(newUser);
+                await _dbContext.SaveChangesAsync();
+
+                student.UserId = newUser.Id;
+                messages.Add($"Student login account '@{sUsername}' created.");
+            }
+        }
+
+        // 2. Handle Parent Account
+        if (dto.AccountType == "Parent" || dto.AccountType == "Both")
+        {
+            var pPhone = (student.ParentWhatsAppPhone ?? "").Trim();
+            var pUsername = (!string.IsNullOrWhiteSpace(dto.ParentUsername) ? dto.ParentUsername : pPhone).Trim();
+            var pPassword = (dto.ParentPassword ?? $"Parent@{DateTime.UtcNow.Year}").Trim();
+
+            if (string.IsNullOrWhiteSpace(pUsername))
+            {
+                return BadRequest(new { message = "Parent mobile phone / username is required to create parent login." });
+            }
+
+            if (student.ParentUserId.HasValue)
+            {
+                // Update / Reset existing parent user
+                var existingPUser = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == student.ParentUserId.Value);
+                if (existingPUser != null)
+                {
+                    if (dto.ResetExistingPassword)
+                    {
+                        existingPUser.PasswordHash = _passwordHasher.HashPassword(pPassword);
+                        messages.Add("Parent password reset successfully.");
+                    }
+                }
+            }
+            else
+            {
+                // Check if user already exists with this username or phone (e.g. Sibling's parent)
+                var existingPUser = await _dbContext.Users.FirstOrDefaultAsync(u =>
+                    (u.Username.ToLower() == pUsername.ToLower() ||
+                    (!string.IsNullOrEmpty(pPhone) && u.PhoneNumber == pPhone)) && u.Role == UserRole.Parent);
+
+                if (existingPUser != null)
+                {
+                    // Seamless Sibling linking!
+                    student.ParentUserId = existingPUser.Id;
+                    if (dto.ResetExistingPassword)
+                    {
+                        existingPUser.PasswordHash = _passwordHasher.HashPassword(pPassword);
+                    }
+                    messages.Add($"Linked to existing parent account '@{existingPUser.Username}'.");
+                }
+                else
+                {
+                    var newParentUser = new User
+                    {
+                        TenantId = _currentUser.TenantId,
+                        BranchId = student.BranchId ?? _currentUser.BranchId,
+                        Username = pUsername,
+                        PasswordHash = _passwordHasher.HashPassword(pPassword),
+                        FullName = student.ParentName,
+                        PhoneNumber = pPhone,
+                        Role = UserRole.Parent,
+                        RoleId = parentRoleId,
+                        IsActive = true,
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    _dbContext.Users.Add(newParentUser);
+                    await _dbContext.SaveChangesAsync();
+
+                    student.ParentUserId = newParentUser.Id;
+                    messages.Add($"Parent login account '@{pUsername}' created.");
+                }
+            }
+        }
+
+        await _dbContext.SaveChangesAsync();
+
+        // Get updated details
+        var updatedInfoResult = await GetStudentPortalLogins(student.Id);
+        var updatedInfo = (updatedInfoResult.Result as OkObjectResult)?.Value as StudentPortalLoginInfoDto
+            ?? updatedInfoResult.Value;
+
+        return Ok(new StudentPortalLoginResultDto
+        {
+            Success = true,
+            Message = string.Join(" ", messages),
+            LoginInfo = updatedInfo!
+        });
     }
 }
 

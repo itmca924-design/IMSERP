@@ -498,9 +498,12 @@ import { AuthService } from '../../core/services/auth.service';
           <div class="detail-row"><mat-icon>history_edu</mat-icon><span><strong>Experience:</strong> {{selectedTeacher.experienceYears}} years</span></div>
           <div class="detail-row" *ngIf="selectedTeacher.dateOfBirth"><mat-icon>cake</mat-icon><span><strong>DOB:</strong> {{selectedTeacher.dateOfBirth | date:'dd MMM yyyy'}}</span></div>
           <div class="detail-row" *ngIf="selectedTeacher.biometricUserId"><mat-icon>fingerprint</mat-icon><span><strong>Biometric ID:</strong> {{selectedTeacher.biometricUserId}}</span></div>
+          <div class="detail-row" *ngIf="isTeachingStaff(selectedTeacher) && selectedTeacher.classTeacherOf"><mat-icon style="color:#d97706">stars</mat-icon><span><strong>Class Teacher:</strong> {{selectedTeacher.classTeacherOf}}</span></div>
+          <div class="detail-row" *ngIf="isTeachingStaff(selectedTeacher) && selectedTeacher.assignedClasses && selectedTeacher.assignedClasses.length > 0"><mat-icon style="color:#2563eb">school</mat-icon><span><strong>Assigned Classes:</strong> {{selectedTeacher.assignedClasses.join(', ')}}</span></div>
         </div>
 
-        <div class="detail-block">
+        <!-- Bank & Statutory (Payroll) - Dynamically restricted to Admin/HR or Self -->
+        <div class="detail-block" *ngIf="canViewFinancials(selectedTeacher)">
           <span class="block-title"><mat-icon>account_balance</mat-icon> Bank &amp; Statutory (Payroll)</span>
           <div class="detail-row" *ngIf="selectedTeacher.bankName"><mat-icon>account_balance</mat-icon><span><strong>Bank:</strong> {{selectedTeacher.bankName}}</span></div>
           <div class="detail-row" *ngIf="selectedTeacher.bankAccountNumber"><mat-icon>credit_card</mat-icon><span><strong>A/C No:</strong> {{selectedTeacher.bankAccountNumber}}</span></div>
@@ -513,41 +516,59 @@ import { AuthService } from '../../core/services/auth.service';
             <span style="color:#64748b;font-style:italic">Bank &amp; PAN not configured yet. Click Edit to update.</span>
           </div>
         </div>
+
+        <!-- Privacy Shield for Colleagues (Dynamic) -->
+        <div class="detail-block private-block" *ngIf="!canViewFinancials(selectedTeacher)">
+          <span class="block-title"><mat-icon>security</mat-icon> Statutory &amp; Payroll Details</span>
+          <div class="private-notice">
+            <mat-icon>lock</mat-icon>
+            <div class="notice-text">
+              <strong>Confidential Employee Records</strong>
+              <p>Bank accounts, PAN, and payroll statements are private to the staff member &amp; Admin.</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       <mat-divider></mat-divider>
 
       <!-- Quick Navigation to Sub-Pages -->
       <div class="quick-nav">
-        <p class="quick-nav-title">Directly Jaao →</p>
+        <p class="quick-nav-title">{{ isSelf(selectedTeacher) ? 'My Self-Service Actions →' : 'Directly Jaao →' }}</p>
         <div class="quick-nav-grid">
-          <a mat-stroked-button *ngIf="isTeachingStaff(selectedTeacher)" [routerLink]="['/teachers/assignments']" [queryParams]="{teacherId: selectedTeacher.id}">
-            <mat-icon>class</mat-icon> Batch Assignments
+          <a mat-stroked-button *ngIf="isTeachingStaff(selectedTeacher) && (canManageStaff || isSelf(selectedTeacher))" [routerLink]="['/teachers/assignments']" [queryParams]="{teacherId: selectedTeacher.id}">
+            <mat-icon>class</mat-icon> {{ isSelf(selectedTeacher) ? 'My Teaching Schedule' : 'Batch Assignments' }}
           </a>
-          <a mat-stroked-button [routerLink]="['/teachers/attendance']" [queryParams]="{teacherId: selectedTeacher.id}">
-            <mat-icon>event_available</mat-icon> Attendance
+          <!-- Attendance: Self or Admin/HR can view logs -->
+          <a mat-stroked-button *ngIf="canManageStaff || isSelf(selectedTeacher)" [routerLink]="['/teachers/attendance']" [queryParams]="{teacherId: selectedTeacher.id}">
+            <mat-icon>event_available</mat-icon> {{ isSelf(selectedTeacher) ? 'My Attendance' : 'Attendance' }}
           </a>
           <!-- Salary Structure: Admin/HR only -->
           <a mat-stroked-button *ngIf="canManageStaff" [routerLink]="['/teachers/salary']" [queryParams]="{teacherId: selectedTeacher.id}">
             <mat-icon>account_balance_wallet</mat-icon> Salary Structure
           </a>
-          <a mat-stroked-button [routerLink]="['/teachers/payments']" [queryParams]="{teacherId: selectedTeacher.id}">
-            <mat-icon>payments</mat-icon> Salary Payments
+          <!-- Salary Payments: Admin/HR or Self only -->
+          <a mat-stroked-button *ngIf="canViewFinancials(selectedTeacher)" [routerLink]="['/teachers/payments']" [queryParams]="{teacherId: selectedTeacher.id}">
+            <mat-icon>payments</mat-icon> {{ isSelf(selectedTeacher) ? 'My Salary Slips' : 'Salary Payments' }}
           </a>
-          <a mat-stroked-button [routerLink]="['/teachers/advances']" [queryParams]="{teacherId: selectedTeacher.id}">
-            <mat-icon>currency_rupee</mat-icon> Advances
+          <!-- Advances: Admin/HR or Self only -->
+          <a mat-stroked-button *ngIf="canViewFinancials(selectedTeacher)" [routerLink]="['/teachers/advances']" [queryParams]="{teacherId: selectedTeacher.id}">
+            <mat-icon>currency_rupee</mat-icon> {{ isSelf(selectedTeacher) ? 'My Advances' : 'Advances' }}
           </a>
-          <a mat-stroked-button [routerLink]="['/teachers/leaves']" [queryParams]="{teacherId: selectedTeacher.id}">
-            <mat-icon>beach_access</mat-icon> Leave Management
+          <!-- Leaves: Self or Admin/HR only -->
+          <a mat-stroked-button *ngIf="canManageStaff || isSelf(selectedTeacher)" [routerLink]="['/teachers/leaves']" [queryParams]="{teacherId: selectedTeacher.id}">
+            <mat-icon>beach_access</mat-icon> {{ isSelf(selectedTeacher) ? 'My Leaves' : 'Leave Management' }}
           </a>
+          <!-- Proxy & Substitution: Academic coordination -->
           <a mat-stroked-button *ngIf="isTeachingStaff(selectedTeacher)" [routerLink]="['/teachers/substitution']">
             <mat-icon>swap_horiz</mat-icon> Proxy &amp; Substitution
           </a>
+          <!-- Lesson Diary: Academic planning -->
           <a mat-stroked-button *ngIf="isTeachingStaff(selectedTeacher)" [routerLink]="['/teachers/lesson-plans']" [queryParams]="{teacherId: selectedTeacher.id}">
             <mat-icon>menu_book</mat-icon> Lesson Diary
           </a>
           <!-- Transport Pass: shown if transport module is on -->
-          <a mat-stroked-button *ngIf="authService.hasTransportModule()" [routerLink]="['/transport']" style="color: #2563eb; border-color: #93c5fd;">
+          <a mat-stroked-button *ngIf="authService.hasTransportModule() && (canManageStaff || isSelf(selectedTeacher))" [routerLink]="['/transport']" style="color: #2563eb; border-color: #93c5fd;">
             <mat-icon style="color: #2563eb;">directions_bus</mat-icon> Transport Pass
           </a>
           <!-- Staff Quarters: Admin/HR only -->
@@ -555,7 +576,7 @@ import { AuthService } from '../../core/services/auth.service';
             <mat-icon style="color: #4f46e5;">apartment</mat-icon> Staff Quarters
           </a>
           <!-- Library Account: shown if library module is on -->
-          <a mat-stroked-button *ngIf="authService.hasLibraryModule()" [routerLink]="['/library/circulation']" [queryParams]="{teacherId: selectedTeacher.id}" style="color: #059669; border-color: #a7f3d0;">
+          <a mat-stroked-button *ngIf="authService.hasLibraryModule() && (canManageStaff || isSelf(selectedTeacher))" [routerLink]="['/library/circulation']" [queryParams]="{teacherId: selectedTeacher.id}" style="color: #059669; border-color: #a7f3d0;">
             <mat-icon style="color: #059669;">local_library</mat-icon> Library Account
           </a>
           <!-- Exit/FNF: Admin/HR only -->
@@ -572,19 +593,24 @@ import { AuthService } from '../../core/services/auth.service';
       <mat-divider></mat-divider>
 
       <div class="profile-actions">
-        <div class="account-actions-group" *ngIf="selectedTeacher.hasLoginAccount">
-          <div class="user-account-badge">
+        <div class="account-actions-group">
+          <!-- Active Badge: shown when login IS created -->
+          <div class="user-account-badge" *ngIf="selectedTeacher.hasLoginAccount">
             <mat-icon>verified_user</mat-icon>
             <span>ERP Login {{ selectedTeacher.isActive ? 'Active' : 'Locked' }}: <strong>&#64;{{selectedTeacher.username}}</strong></span>
           </div>
+          <!-- Create Login Button: Admin/HR only when login is NOT created yet -->
+          <button mat-stroked-button color="accent" *ngIf="canManageStaff && selectedTeacher.isActive && !selectedTeacher.hasLoginAccount" (click)="openCreateAccountDialog(selectedTeacher)">
+            <mat-icon>person_add_alt</mat-icon> Create ERP Login
+          </button>
         </div>
-        <!-- Staff ID Card: everyone can print their own -->
-        <button mat-stroked-button color="primary" *ngIf="selectedTeacher.isActive" (click)="openSingleIdCard(selectedTeacher)">
-          <mat-icon>badge</mat-icon> Staff ID Card
+        <!-- Staff ID Card: Admin/HR can print all; Teacher prints own only -->
+        <button mat-stroked-button color="primary" *ngIf="selectedTeacher.isActive && canViewDocs(selectedTeacher)" (click)="openSingleIdCard(selectedTeacher)">
+          <mat-icon>badge</mat-icon> {{ isSelf(selectedTeacher) ? 'My Staff ID Card' : 'Staff ID Card' }}
         </button>
-        <!-- KYC & Docs: visible to all, but full management only for Admin/HR -->
-        <button mat-stroked-button color="accent" *ngIf="selectedTeacher.isActive" (click)="openDocumentsModal(selectedTeacher)">
-          <mat-icon>folder_shared</mat-icon> KYC &amp; Docs
+        <!-- KYC & Docs: Admin/HR can view all; Teacher views own only -->
+        <button mat-stroked-button color="accent" *ngIf="selectedTeacher.isActive && canViewDocs(selectedTeacher)" (click)="openDocumentsModal(selectedTeacher)">
+          <mat-icon>folder_shared</mat-icon> {{ isSelf(selectedTeacher) ? 'My KYC & Docs' : 'KYC & Docs' }}
         </button>
 
         <!-- Exit / FNF Settlement: Admin/HR only -->
@@ -637,15 +663,42 @@ import { AuthService } from '../../core/services/auth.service';
           <span class="staff-mini-pill" [class.non-teach]="!isTeachingStaff(t)">
             {{ isTeachingStaff(t) ? 'Faculty' : (t.designation || 'Staff') }}
           </span>
+          <!-- Active login key icon -->
           <span class="login-badge-chip" *ngIf="t.hasLoginAccount" [matTooltip]="'ERP Login Active (@' + (t.username || '') + ')'">
             <mat-icon>vpn_key</mat-icon>
           </span>
+          <!-- Not created login: show + Login button -->
+          <button mat-button class="card-create-login-btn"
+                  *ngIf="!t.hasLoginAccount && canManageStaff && t.isActive"
+                  (click)="$event.stopPropagation(); openCreateAccountDialog(t)"
+                  matTooltip="Create ERP Login account for this staff member">
+            <mat-icon>person_add_alt</mat-icon> + Login
+          </button>
           <span class="active-dot" [class.active]="t.isActive" [class.inactive]="!t.isActive"></span>
         </div>
         <h4>{{t.fullName}}</h4>
         <p class="spec" *ngIf="isTeachingStaff(t)">{{t.specialization || 'Teaching Faculty'}}</p>
         <p class="spec non-teach-spec" *ngIf="!isTeachingStaff(t)">{{t.designation || 'Staff'}} <span *ngIf="t.department">({{t.department}})</span></p>
         <p class="qual">{{t.qualification || ''}}</p>
+
+        <!-- Class Teacher Pill (if assigned) -->
+        <div class="card-class-teacher-pill" *ngIf="isTeachingStaff(t) && t.classTeacherOf" [matTooltip]="'Designated Class Teacher: ' + t.classTeacherOf">
+          <mat-icon>stars</mat-icon>
+          <span>Class Teacher: <strong>{{t.classTeacherOf}}</strong></span>
+        </div>
+
+        <!-- Assigned Classes / Batches Pills -->
+        <div class="card-classes-row" *ngIf="isTeachingStaff(t) && t.assignedClasses && t.assignedClasses.length > 0" [matTooltip]="'All assigned classes/batches: ' + t.assignedClasses.join(', ')">
+          <span class="classes-label"><mat-icon>school</mat-icon> Classes:</span>
+          <span class="class-pill" *ngFor="let c of t.assignedClasses.slice(0, 2)">{{c}}</span>
+          <span class="class-pill-more" *ngIf="t.assignedClasses.length > 2">+{{t.assignedClasses.length - 2}} more</span>
+        </div>
+
+        <!-- No class assigned placeholder (for teaching faculty only) -->
+        <div class="card-classes-row no-class" *ngIf="isTeachingStaff(t) && (!t.assignedClasses || t.assignedClasses.length === 0) && !t.classTeacherOf">
+          <span class="no-class-text"><mat-icon>info_outline</mat-icon> No class assigned</span>
+        </div>
+
         <div class="card-meta">
           <span *ngIf="isTeachingStaff(t)"><mat-icon>class</mat-icon>{{t.assignedBatchCount}} Batches</span>
           <span *ngIf="!isTeachingStaff(t)"><mat-icon>apartment</mat-icon>{{t.department || 'Staff'}}</span>
@@ -1019,6 +1072,22 @@ import { AuthService } from '../../core/services/auth.service';
       display: flex;
       flex-direction: column;
       gap: 8px;
+      &.private-block {
+        background: #f8fafc;
+        border: 1px dashed #cbd5e1;
+      }
+    }
+    .private-notice {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 6px;
+      color: #64748b;
+      mat-icon { font-size: 24px; width: 24px; height: 24px; color: #94a3b8; flex-shrink: 0; }
+      .notice-text {
+        strong { display: block; color: #334155; font-size: 0.84rem; margin-bottom: 2px; }
+        p { margin: 0; font-size: 0.77rem; color: #64748b; line-height: 1.35; }
+      }
     }
     .block-title {
       display: flex;
@@ -1181,12 +1250,82 @@ import { AuthService } from '../../core/services/auth.service';
       .lightbox-full-img { max-width: 100%; max-height: 70vh; object-fit: contain; border-radius: 6px; }
     }
     .card-body { padding:14px; }
-    .card-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+    .card-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; gap:6px; flex-wrap:wrap; }
     .emp-code { font-size:.78rem; font-weight:700; color:#1976d2; background:#e3f2fd; padding:2px 8px; border-radius:8px; }
-    .active-dot { width:10px; height:10px; border-radius:50%; &.active{background:#4caf50;} &.inactive{background:#f44336;} }
+    .active-dot { width:10px; height:10px; border-radius:50%; margin-left:auto; &.active{background:#4caf50;} &.inactive{background:#f44336;} }
+    .card-create-login-btn {
+      height: 22px !important;
+      line-height: 22px !important;
+      padding: 0 8px !important;
+      font-size: 0.72rem !important;
+      font-weight: 600 !important;
+      color: #0284c7 !important;
+      background: #f0f9ff !important;
+      border: 1px dashed #7dd3fc !important;
+      border-radius: 6px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      gap: 3px !important;
+      cursor: pointer;
+      transition: all 0.2s ease !important;
+      mat-icon { font-size: 13px !important; width: 13px !important; height: 13px !important; line-height: 13px !important; }
+      &:hover {
+        background: #0284c7 !important;
+        color: #ffffff !important;
+        border-style: solid !important;
+        border-color: #0284c7 !important;
+      }
+    }
     h4 { font-size:1rem; font-weight:700; margin:0 0 2px; color:#1e293b; }
     .spec { font-size:.8rem; color:#1976d2; font-weight:600; margin:0 0 2px; }
-    .qual { font-size:.75rem; color:#64748b; margin:0 0 10px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .qual { font-size:.75rem; color:#64748b; margin:0 0 8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+    /* Class Teacher & Assigned Classes styling */
+    .card-class-teacher-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: linear-gradient(135deg, #fef3c7 0%, #fef9c3 100%);
+      color: #92400e;
+      border: 1px solid #fde68a;
+      border-radius: 6px;
+      padding: 3px 8px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      margin-bottom: 7px;
+      width: 100%;
+      box-sizing: border-box;
+      box-shadow: 0 1px 2px rgba(217, 119, 6, 0.08);
+      mat-icon { font-size: 15px; width: 15px; height: 15px; color: #d97706; }
+      strong { color: #78350f; font-weight: 700; }
+    }
+    .card-classes-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 5px;
+      font-size: 0.75rem;
+      margin-bottom: 8px;
+      .classes-label {
+        display: inline-flex; align-items: center; gap: 3px; color: #475569; font-weight: 600; font-size: 0.73rem;
+        mat-icon { font-size: 14px; width: 14px; height: 14px; color: #2563eb; }
+      }
+      .class-pill {
+        background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe;
+        border-radius: 4px; padding: 1px 6px; font-weight: 600; font-size: 0.73rem;
+      }
+      .class-pill-more {
+        background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0;
+        border-radius: 4px; padding: 1px 5px; font-size: 0.7rem; font-weight: 600;
+      }
+      &.no-class {
+        .no-class-text {
+          display: inline-flex; align-items: center; gap: 4px; color: #94a3b8; font-style: italic; font-size: 0.73rem;
+          mat-icon { font-size: 13px; width: 13px; height: 13px; color: #cbd5e1; }
+        }
+      }
+    }
+
     .card-meta { display:flex; gap:12px; font-size:.78rem; color:#64748b; margin-bottom:6px;
       span{display:flex;align-items:center;gap:3px;} mat-icon{font-size:14px;width:14px;height:14px;} }
     .card-phone { font-size:.8rem; color:#475569; display:flex; align-items:center; gap:4px;
@@ -1512,6 +1651,31 @@ export class TeacherProfilesComponent implements OnInit {
   isTeachingStaff(t: TeacherDto | null): boolean {
     if (!t) return false;
     return t.staffType !== 'NonTeaching' && t.staffType !== 2;
+  }
+
+  /** Dynamically checks if the selected teacher profile is the currently logged-in user */
+  isSelf(t: TeacherDto | null): boolean {
+    if (!t) return false;
+    const user = this.authService.currentUser();
+    if (!user) return false;
+    if (t.userId && user.userId && t.userId.toLowerCase() === user.userId.toLowerCase()) return true;
+    if (t.username && user.username && t.username.toLowerCase() === user.username.toLowerCase()) return true;
+    if (user.fullName && t.fullName && user.fullName.trim().toLowerCase() === t.fullName.trim().toLowerCase()) return true;
+    return false;
+  }
+
+  /** Dynamic permission: Financial & statutory data is only visible to Admin, HR, or the user themself */
+  canViewFinancials(t: TeacherDto | null): boolean {
+    if (!t) return false;
+    if (this.canManageStaff) return true;
+    return this.isSelf(t);
+  }
+
+  /** Dynamic permission: KYC Documents & ID Cards are only accessible to Admin, HR, or the user themself */
+  canViewDocs(t: TeacherDto | null): boolean {
+    if (!t) return false;
+    if (this.canManageStaff) return true;
+    return this.isSelf(t);
   }
 
   ngOnInit() {

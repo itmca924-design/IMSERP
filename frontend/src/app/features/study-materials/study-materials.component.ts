@@ -52,6 +52,12 @@ import { CoachingService } from '../../core/services/coaching.service';
           <span>Enrolled: <strong>{{ loggedInStudent.className || 'Class 3rd' }}</strong></span>
           <span *ngIf="loggedInStudent.batchName">&nbsp;• <strong>{{ loggedInStudent.batchName }}</strong></span>
         </span>
+        <span class="student-profile-badge" style="background:#f5f3ff; color:#6d28d9; border-color:#ddd6fe;" *ngIf="isTeacher()">
+          <mat-icon style="color:#7c3aed;">assignment_ind</mat-icon>
+          <span>Faculty: <strong>{{ currentUser()?.fullName || currentUser()?.username }}</strong></span>
+          <span *ngIf="classes.length > 0">&nbsp;• <strong>{{ classes.length }} Assigned {{ classes.length === 1 ? 'Class' : 'Classes' }}</strong></span>
+          <span *ngIf="batches.length > 0">&nbsp;• <strong>{{ batches.length }} Assigned {{ batches.length === 1 ? 'Batch' : 'Batches' }}</strong></span>
+        </span>
       </div>
       <h1 class="page-title">Study Material &amp; Question Bank Repository (डिजिटल नोट्स और PYQ)</h1>
       <p class="page-subtitle">
@@ -124,7 +130,7 @@ import { CoachingService } from '../../core/services/coaching.service';
           class="scope-pill" 
           [class.active]="currentScope === 'School'"
           (click)="setScope('School')"
-          *ngIf="hasSchoolAccess() && (!isStudent() || loggedInStudent?.isSchoolStudent)">
+          *ngIf="hasSchoolAccess() && (!isStudent() || loggedInStudent?.isSchoolStudent) && (!isTeacher() || classes.length > 0)">
           <mat-icon>school</mat-icon>
           <span>🏫 School Classes</span>
         </button>
@@ -133,7 +139,7 @@ import { CoachingService } from '../../core/services/coaching.service';
           class="scope-pill" 
           [class.active]="currentScope === 'Coaching'"
           (click)="setScope('Coaching')"
-          *ngIf="hasCoachingAccess() && (!isStudent() || loggedInStudent?.isCoachingStudent)">
+          *ngIf="hasCoachingAccess() && (!isStudent() || loggedInStudent?.isCoachingStudent) && (!isTeacher() || batches.length > 0)">
           <mat-icon>psychology</mat-icon>
           <span>🎯 Coaching Batches</span>
         </button>
@@ -203,18 +209,22 @@ import { CoachingService } from '../../core/services/coaching.service';
     <div class="dropdowns-row">
       <!-- School Class filter -->
       <mat-form-field appearance="outline" class="filter-field" *ngIf="shouldShowClassFilter()">
-        <mat-label>School Class</mat-label>
-        <mat-select [(ngModel)]="selectedClassId" (selectionChange)="loadMaterials()">
-          <mat-option [value]="null" *ngIf="!isStudent()">All Classes</mat-option>
+        <mat-label>{{ isTeacher() ? 'Assigned Class' : isStudent() ? 'Enrolled Class' : 'School Class' }}</mat-label>
+        <mat-select [(ngModel)]="selectedClassId" (selectionChange)="onClassFilterChanged()">
+          <mat-option [value]="null" *ngIf="isAdmin() || (isTeacher() && classes.length > 1)">
+            {{ isTeacher() ? 'All My Classes (' + classes.length + ')' : 'All Classes' }}
+          </mat-option>
           <mat-option *ngFor="let c of classes" [value]="c.id">{{ c.name }}</mat-option>
         </mat-select>
       </mat-form-field>
 
       <!-- Coaching Batch filter -->
       <mat-form-field appearance="outline" class="filter-field" *ngIf="shouldShowBatchFilter()">
-        <mat-label>Coaching Batch</mat-label>
-        <mat-select [(ngModel)]="selectedBatchId" (selectionChange)="loadMaterials()">
-          <mat-option [value]="null" *ngIf="!isStudent()">All Batches</mat-option>
+        <mat-label>{{ isTeacher() ? 'Assigned Batch' : isStudent() ? 'Enrolled Batch' : 'Coaching Batch' }}</mat-label>
+        <mat-select [(ngModel)]="selectedBatchId" (selectionChange)="onBatchFilterChanged()">
+          <mat-option [value]="null" *ngIf="isAdmin() || (isTeacher() && batches.length > 1)">
+            {{ isTeacher() ? 'All My Batches (' + batches.length + ')' : 'All Batches' }}
+          </mat-option>
           <mat-option *ngFor="let b of batches" [value]="b.id">{{ b.name }}</mat-option>
         </mat-select>
       </mat-form-field>
@@ -224,7 +234,9 @@ import { CoachingService } from '../../core/services/coaching.service';
         <mat-label>Subject</mat-label>
         <mat-select [(ngModel)]="selectedSubject" (selectionChange)="loadMaterials()">
           <mat-option value="All">All Subjects</mat-option>
-          <mat-option *ngFor="let s of subjects" [value]="s.name">{{ s.name }}</mat-option>
+          <mat-option *ngFor="let s of subjects" [value]="s.name">
+            {{ s.name }} <span *ngIf="s.isAssignedToMe" style="color: #2563eb; font-weight: 700; font-size: 0.76rem; margin-left: 4px;">(Assigned)</span>
+          </mat-option>
         </mat-select>
       </mat-form-field>
 
@@ -960,6 +972,7 @@ export class StudyMaterialsComponent implements OnInit {
 
   currentUser = this.authService.currentUser;
   loggedInStudent: any = null;
+  teacherClassSection: any = null;
 
   materials: StudyMaterialDto[] = [];
   stats: StudyMaterialStatsDto | null = null;
@@ -969,6 +982,7 @@ export class StudyMaterialsComponent implements OnInit {
   classes: any[] = [];
   batches: any[] = [];
   subjects: any[] = [];
+  allGlobalSubjects: any[] = [];
 
   // Active filters (all optional)
   currentScope: 'All' | 'School' | 'Coaching' = 'All';
@@ -984,12 +998,14 @@ export class StudyMaterialsComponent implements OnInit {
 
   ngOnInit() {
     this.initScopeDefaults();
-    this.loadMetadata();
-    this.loadStats();
 
     if (this.isStudent()) {
       this.initStudentProfile();
+    } else if (this.isTeacher()) {
+      this.initTeacherProfile();
     } else {
+      this.loadMetadata();
+      this.loadStats();
       this.loadMaterials();
     }
   }
@@ -997,6 +1013,184 @@ export class StudyMaterialsComponent implements OnInit {
   isStudent(): boolean {
     const role = (this.currentUser()?.role || '').toLowerCase();
     return role === 'student' || role === 'parent';
+  }
+
+  isTeacher(): boolean {
+    const role = (this.currentUser()?.role || '').toLowerCase();
+    return role.includes('teacher') || role.includes('faculty');
+  }
+
+  isAdmin(): boolean {
+    const role = (this.currentUser()?.role || '').toLowerCase();
+    return role.includes('admin') || role.includes('superadmin') || role.includes('principal') || role.includes('director');
+  }
+
+  isSubjectAssignedToTeacherInClass(subjectName: string, classId: string | null): boolean {
+    if (!this.isTeacher() || !this.teacherClassSection) return false;
+    const raw = this.teacherClassSection.rawAssignments || [];
+    if (!classId) {
+      return raw.some((a: any) => a.subject?.toLowerCase() === subjectName?.toLowerCase());
+    }
+    return raw.some((a: any) => 
+      a.classId?.toLowerCase() === classId?.toLowerCase() && 
+      a.subject?.toLowerCase() === subjectName?.toLowerCase()
+    );
+  }
+
+  onClassFilterChanged(): void {
+    if (this.selectedClassId) {
+      this.http.get<any[]>(`http://localhost:5000/api/Subjects/classes/${this.selectedClassId}`).subscribe({
+        next: (classSubjects) => {
+          const list = (classSubjects || []).map(cs => {
+            const sName = cs.subjectName || cs.name || '';
+            const isMine = this.isTeacher() && this.isSubjectAssignedToTeacherInClass(sName, this.selectedClassId);
+            return {
+              id: cs.subjectId || cs.id,
+              name: sName,
+              code: cs.subjectCode || cs.code,
+              isAssignedToMe: isMine
+            };
+          });
+
+          // Sort assigned subjects at top, then alphabetical
+          list.sort((a, b) => {
+            if (a.isAssignedToMe && !b.isAssignedToMe) return -1;
+            if (!a.isAssignedToMe && b.isAssignedToMe) return 1;
+            return a.name.localeCompare(b.name);
+          });
+
+          this.subjects = list;
+
+          // If current subject is not in this class, reset to All
+          if (this.selectedSubject !== 'All' && !this.subjects.some(s => s.name === this.selectedSubject)) {
+            this.selectedSubject = 'All';
+          }
+
+          this.loadMaterials();
+        },
+        error: () => {
+          this.loadMaterials();
+        }
+      });
+    } else {
+      this.populateDefaultSubjects();
+      this.loadMaterials();
+    }
+  }
+
+  onBatchFilterChanged(): void {
+    if (this.selectedBatchId) {
+      const b = this.batches.find(x => x.id === this.selectedBatchId);
+      if (b && b.subject) {
+        this.subjects = [{ id: b.id, name: b.subject, isAssignedToMe: true }];
+        this.selectedSubject = b.subject;
+      }
+    } else {
+      this.populateDefaultSubjects();
+    }
+    this.loadMaterials();
+  }
+
+  populateDefaultSubjects(): void {
+    if (this.isTeacher() && this.teacherClassSection?.rawAssignments?.length > 0) {
+      const raw = this.teacherClassSection.rawAssignments;
+      const mySubjNames = Array.from(new Set(raw.map((a: any) => a.subject).filter(Boolean))) as string[];
+      const list = this.allGlobalSubjects.map((s: any) => ({
+        ...s,
+        isAssignedToMe: mySubjNames.includes(s.name)
+      }));
+      list.sort((a: any, b: any) => {
+        if (a.isAssignedToMe && !b.isAssignedToMe) return -1;
+        if (!a.isAssignedToMe && b.isAssignedToMe) return 1;
+        return a.name.localeCompare(b.name);
+      });
+      this.subjects = list;
+    } else {
+      this.subjects = [...this.allGlobalSubjects];
+    }
+
+    if (this.selectedSubject !== 'All' && !this.subjects.some(s => s.name === this.selectedSubject)) {
+      this.selectedSubject = 'All';
+    }
+  }
+
+  initTeacherProfile() {
+    this.http.get<any>('http://localhost:5000/api/teachers/my-class-section').subscribe({
+      next: (res) => {
+        this.teacherClassSection = res;
+        const assignedCls = res?.assignedClasses || [];
+        const assignedBts = res?.assignedBatches || [];
+
+        // Build unique classes
+        const classMap = new Map<string, any>();
+        for (const a of assignedCls) {
+          if (a.classId) {
+            const id = a.classId.toLowerCase();
+            if (!classMap.has(id)) {
+              classMap.set(id, { id: a.classId, name: a.className });
+            }
+          }
+        }
+        this.classes = Array.from(classMap.values());
+
+        // Build unique batches
+        const batchMap = new Map<string, any>();
+        for (const b of assignedBts) {
+          if (b.batchId) {
+            const id = b.batchId.toLowerCase();
+            if (!batchMap.has(id)) {
+              batchMap.set(id, { id: b.batchId, name: b.batchName });
+            }
+          }
+        }
+        this.batches = Array.from(batchMap.values());
+
+        // Auto-adjust scope
+        if (this.classes.length > 0 && this.batches.length === 0) {
+          this.currentScope = 'School';
+        } else if (this.batches.length > 0 && this.classes.length === 0) {
+          this.currentScope = 'Coaching';
+        } else {
+          this.currentScope = 'All';
+        }
+
+        // Auto-select if single item
+        if (this.classes.length === 1) {
+          this.selectedClassId = this.classes[0].id;
+        } else {
+          this.selectedClassId = null;
+        }
+
+        if (this.batches.length === 1) {
+          this.selectedBatchId = this.batches[0].id;
+        } else {
+          this.selectedBatchId = null;
+        }
+
+        // Load subjects
+        this.http.get<any[]>('http://localhost:5000/api/Subjects?activeOnly=true').subscribe({
+          next: s => {
+            this.allGlobalSubjects = s || [];
+            if (this.selectedClassId) {
+              this.onClassFilterChanged();
+            } else {
+              this.populateDefaultSubjects();
+              this.loadStats();
+              this.loadMaterials();
+            }
+          },
+          error: () => {
+            this.loadStats();
+            this.loadMaterials();
+          }
+        });
+      },
+      error: () => {
+        this.loadMetadata();
+        this.loadStats();
+        this.loadMaterials();
+      }
+    });
   }
 
   initStudentProfile() {
@@ -1015,20 +1209,41 @@ export class StudyMaterialsComponent implements OnInit {
             this.currentScope = 'All';
           }
 
-          // Pre-populate School Class
+          // Pre-populate & lock School Class
           if (student.isSchoolStudent && student.classId) {
-            const classMatch = this.classes.find(c => c.id.toLowerCase() === student.classId?.toLowerCase());
-            this.selectedClassId = classMatch ? classMatch.id : student.classId;
+            this.classes = [{ id: student.classId, name: student.className || 'My Class' }];
+            this.selectedClassId = student.classId;
+          } else {
+            this.classes = [];
+            this.selectedClassId = null;
           }
 
-          // Pre-populate Coaching Batch
+          // Pre-populate & lock Coaching Batch
           if (student.isCoachingStudent && student.batchId) {
-            const batchMatch = this.batches.find(b => b.id.toLowerCase() === student.batchId?.toLowerCase());
-            this.selectedBatchId = batchMatch ? batchMatch.id : student.batchId;
+            this.batches = [{ id: student.batchId, name: student.batchName || 'My Batch' }];
+            this.selectedBatchId = student.batchId;
+          } else {
+            this.batches = [];
+            this.selectedBatchId = null;
           }
 
-          this.loadStats();
-          this.loadMaterials();
+          // Load subjects
+          this.http.get<any[]>('http://localhost:5000/api/Subjects?activeOnly=true').subscribe({
+            next: s => {
+              this.allGlobalSubjects = s || [];
+              if (this.selectedClassId) {
+                this.onClassFilterChanged();
+              } else {
+                this.populateDefaultSubjects();
+                this.loadStats();
+                this.loadMaterials();
+              }
+            },
+            error: () => {
+              this.loadStats();
+              this.loadMaterials();
+            }
+          });
         } else {
           this.loadMaterials();
         }
@@ -1041,14 +1256,20 @@ export class StudyMaterialsComponent implements OnInit {
 
   shouldShowClassFilter(): boolean {
     if (this.isStudent()) {
-      return this.loggedInStudent ? !!this.loggedInStudent.isSchoolStudent : true;
+      return this.loggedInStudent ? !!this.loggedInStudent.isSchoolStudent : false;
+    }
+    if (this.isTeacher()) {
+      return this.classes.length > 0;
     }
     return this.currentScope !== 'Coaching' && this.classes.length > 0;
   }
 
   shouldShowBatchFilter(): boolean {
     if (this.isStudent()) {
-      return this.loggedInStudent ? !!this.loggedInStudent.isCoachingStudent : true;
+      return this.loggedInStudent ? !!this.loggedInStudent.isCoachingStudent : false;
+    }
+    if (this.isTeacher()) {
+      return this.batches.length > 0;
     }
     return this.currentScope !== 'School' && this.batches.length > 0;
   }
@@ -1069,12 +1290,6 @@ export class StudyMaterialsComponent implements OnInit {
     this.http.get<any[]>('http://localhost:5000/api/school/classes?activeOnly=true').subscribe({
       next: res => {
         this.classes = res || [];
-        if (this.loggedInStudent?.isSchoolStudent && this.loggedInStudent?.classId) {
-          const classMatch = this.classes.find(c => c.id.toLowerCase() === this.loggedInStudent.classId?.toLowerCase());
-          if (classMatch) {
-            this.selectedClassId = classMatch.id;
-          }
-        }
       },
       error: () => {}
     });
@@ -1083,12 +1298,6 @@ export class StudyMaterialsComponent implements OnInit {
     this.http.get<any[]>('http://localhost:5000/api/batches?activeOnly=true').subscribe({
       next: res => {
         this.batches = res || [];
-        if (this.loggedInStudent?.isCoachingStudent && this.loggedInStudent?.batchId) {
-          const batchMatch = this.batches.find(b => b.id.toLowerCase() === this.loggedInStudent.batchId?.toLowerCase());
-          if (batchMatch) {
-            this.selectedBatchId = batchMatch.id;
-          }
-        }
       },
       error: () => {}
     });
@@ -1234,7 +1443,8 @@ export class StudyMaterialsComponent implements OnInit {
       data: {
         classes: this.classes,
         batches: this.batches,
-        subjects: this.subjects
+        subjects: this.subjects,
+        isTeacher: this.isTeacher()
       },
       width: '760px',
       maxWidth: '96vw',

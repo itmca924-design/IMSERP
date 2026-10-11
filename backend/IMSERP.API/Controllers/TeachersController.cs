@@ -29,7 +29,7 @@ public class TeachersController : ControllerBase
     }
 
     // ─── Helper ──────────────────────────────────────────────
-    private static TeacherDto MapTeacher(Teacher t, int batchCount) => new(
+    private static TeacherDto MapTeacher(Teacher t, int batchCount, string? classTeacherOf = null, List<string>? assignedClasses = null, bool maskFinancials = false) => new(
         t.Id, t.EmployeeCode, t.FullName, t.FatherName,
         t.Gender.ToString(), t.DateOfBirth, t.Qualification,
         t.Specialization, t.ExperienceYears, t.PhoneNumber,
@@ -47,10 +47,28 @@ public class TeachersController : ControllerBase
         t.HostelBed?.BedCode,
         0, 0,
         t.StaffType.ToString(), t.Department, t.Designation,
-        t.BankName, t.BankAccountNumber, t.BankIfscCode, t.BankAccountHolder,
-        t.PanNumber, t.AadhaarNumber, t.UanNumber, t.EmploymentType,
+        maskFinancials ? null : t.BankName,
+        maskFinancials ? null : t.BankAccountNumber,
+        maskFinancials ? null : t.BankIfscCode,
+        maskFinancials ? null : t.BankAccountHolder,
+        maskFinancials ? null : t.PanNumber,
+        maskFinancials ? null : t.AadhaarNumber,
+        maskFinancials ? null : t.UanNumber,
+        t.EmploymentType,
         t.BloodGroup, t.EmergencyContactName, t.EmergencyContactPhone,
-        t.BiometricUserId);
+        t.BiometricUserId,
+        classTeacherOf,
+        assignedClasses ?? new List<string>());
+
+    private async Task<bool> CanManageStaffAsync()
+    {
+        if (_currentUser.UserId == Guid.Empty) return false;
+        var user = await _db.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
+        if (user == null) return false;
+        return user.Role == IMSERP.Domain.Enums.UserRole.SuperAdmin ||
+               user.Role == IMSERP.Domain.Enums.UserRole.InstituteAdmin ||
+               user.Role == IMSERP.Domain.Enums.UserRole.HR;
+    }
 
     private async Task<bool> CanEditPublicHolidayOrSundayAsync()
     {
@@ -216,7 +234,9 @@ public class TeachersController : ControllerBase
     public async Task<ActionResult<IEnumerable<TeacherDto>>> GetTeachers([FromQuery] bool activeOnly = false, [FromQuery] string? staffType = null)
     {
         var q = _db.Teachers.AsNoTracking()
-            .Include(t => t.BatchAssignments)
+            .Include(t => t.BatchAssignments).ThenInclude(a => a.Class)
+            .Include(t => t.BatchAssignments).ThenInclude(a => a.Section)
+            .Include(t => t.BatchAssignments).ThenInclude(a => a.Batch)
             .Include(t => t.Branch)
             .Include(t => t.User)
             .AsQueryable();
@@ -238,7 +258,37 @@ public class TeachersController : ControllerBase
 
         // Pehle DB se raw data lo, phir C# mein map karo (EF Core translation issue avoid)
         var rawList = await q.OrderBy(t => t.FullName).ToListAsync();
-        var list = rawList.Select(t => MapTeacher(t, t.BatchAssignments.Count(a => a.IsActive))).ToList();
+        var allTeacherIds = rawList.Select(t => t.Id).ToList();
+        var ctSections = await _db.SchoolSections.AsNoTracking()
+            .Where(s => s.ClassTeacherId != null && allTeacherIds.Contains(s.ClassTeacherId.Value) && s.IsActive)
+            .Include(s => s.Class)
+            .ToListAsync();
+        var ctMap = ctSections
+            .GroupBy(s => s.ClassTeacherId!.Value)
+            .ToDictionary(
+                g => g.Key,
+                g => g.First().Class != null ? $"{g.First().Class!.Name} - {g.First().Name}" : g.First().Name
+            );
+
+        var canManage = await CanManageStaffAsync();
+        var currentUserId = _currentUser.UserId;
+
+        var list = rawList.Select(t => {
+            var assignedClasses = t.BatchAssignments
+                .Where(a => a.IsActive)
+                .Select(a => a.Class != null
+                    ? (a.Section != null ? $"{a.Class.Name}-{a.Section.Name}" : a.Class.Name)
+                    : (a.Batch != null ? a.Batch.Name : null))
+                .Where(x => !string.IsNullOrEmpty(x))
+                .Select(x => x!)
+                .Distinct()
+                .ToList();
+            ctMap.TryGetValue(t.Id, out var classTeacherOf);
+            bool isSelf = t.UserId.HasValue && t.UserId.Value == currentUserId;
+            bool maskFinancials = !canManage && !isSelf;
+            return MapTeacher(t, t.BatchAssignments.Count(a => a.IsActive), classTeacherOf, assignedClasses, maskFinancials);
+        }).ToList();
+
         return Ok(list);
     }
 
@@ -253,7 +303,9 @@ public class TeachersController : ControllerBase
         [FromQuery] string? staffType = null)
     {
         var q = _db.Teachers.AsNoTracking()
-            .Include(t => t.BatchAssignments)
+            .Include(t => t.BatchAssignments).ThenInclude(a => a.Class)
+            .Include(t => t.BatchAssignments).ThenInclude(a => a.Section)
+            .Include(t => t.BatchAssignments).ThenInclude(a => a.Batch)
             .Include(t => t.Branch)
             .Include(t => t.User)
             .AsQueryable();
@@ -310,8 +362,37 @@ public class TeachersController : ControllerBase
             .Take(pageSize)
             .ToListAsync();
 
+        var pageTeacherIds = rawItems.Select(t => t.Id).ToList();
+        var ctSections = await _db.SchoolSections.AsNoTracking()
+            .Where(s => s.ClassTeacherId != null && pageTeacherIds.Contains(s.ClassTeacherId.Value) && s.IsActive)
+            .Include(s => s.Class)
+            .ToListAsync();
+        var ctMap = ctSections
+            .GroupBy(s => s.ClassTeacherId!.Value)
+            .ToDictionary(
+                g => g.Key,
+                g => g.First().Class != null ? $"{g.First().Class!.Name} - {g.First().Name}" : g.First().Name
+            );
+
+        var canManagePaged = await CanManageStaffAsync();
+        var currentUserIdPaged = _currentUser.UserId;
+
         var items = rawItems
-            .Select(t => MapTeacher(t, t.BatchAssignments.Count(a => a.IsActive)))
+            .Select(t => {
+                var assignedClasses = t.BatchAssignments
+                    .Where(a => a.IsActive)
+                    .Select(a => a.Class != null
+                        ? (a.Section != null ? $"{a.Class.Name}-{a.Section.Name}" : a.Class.Name)
+                        : (a.Batch != null ? a.Batch.Name : null))
+                    .Where(x => !string.IsNullOrEmpty(x))
+                    .Select(x => x!)
+                    .Distinct()
+                    .ToList();
+                ctMap.TryGetValue(t.Id, out var classTeacherOf);
+                bool isSelf = t.UserId.HasValue && t.UserId.Value == currentUserIdPaged;
+                bool maskFinancials = !canManagePaged && !isSelf;
+                return MapTeacher(t, t.BatchAssignments.Count(a => a.IsActive), classTeacherOf, assignedClasses, maskFinancials);
+            })
             .ToList();
 
         return Ok(new PagedResult<TeacherDto>(items, totalCount, pageNumber, pageSize));
@@ -321,12 +402,37 @@ public class TeachersController : ControllerBase
     public async Task<ActionResult<TeacherDto>> GetTeacherById(Guid id)
     {
         var t = await _db.Teachers.AsNoTracking()
-            .Include(x => x.BatchAssignments)
+            .Include(x => x.BatchAssignments).ThenInclude(a => a.Class)
+            .Include(x => x.BatchAssignments).ThenInclude(a => a.Section)
+            .Include(x => x.BatchAssignments).ThenInclude(a => a.Batch)
             .Include(x => x.Branch)
             .Include(x => x.User)
             .FirstOrDefaultAsync(x => x.Id == id);
         if (t == null) return NotFound();
-        return Ok(MapTeacher(t, t.BatchAssignments.Count(a => a.IsActive)));
+
+        var ctSection = await _db.SchoolSections.AsNoTracking()
+            .Where(s => s.ClassTeacherId == id && s.IsActive)
+            .Include(s => s.Class)
+            .FirstOrDefaultAsync();
+        string? classTeacherOf = ctSection != null
+            ? (ctSection.Class != null ? $"{ctSection.Class.Name} - {ctSection.Name}" : ctSection.Name)
+            : null;
+
+        var assignedClasses = t.BatchAssignments
+            .Where(a => a.IsActive)
+            .Select(a => a.Class != null
+                ? (a.Section != null ? $"{a.Class.Name}-{a.Section.Name}" : a.Class.Name)
+                : (a.Batch != null ? a.Batch.Name : null))
+            .Where(x => !string.IsNullOrEmpty(x))
+            .Select(x => x!)
+            .Distinct()
+            .ToList();
+
+        var canManageSingle = await CanManageStaffAsync();
+        bool isSelfSingle = t.UserId.HasValue && t.UserId.Value == _currentUser.UserId;
+        bool maskFinancialsSingle = !canManageSingle && !isSelfSingle;
+
+        return Ok(MapTeacher(t, t.BatchAssignments.Count(a => a.IsActive), classTeacherOf, assignedClasses, maskFinancialsSingle));
     }
 
     /// <summary>
@@ -743,6 +849,11 @@ public class TeachersController : ControllerBase
     [HttpPost("batch-assignments")]
     public async Task<ActionResult<TeacherBatchAssignmentDto>> AssignBatch([FromBody] CreateTeacherBatchAssignmentDto dto)
     {
+        if (!await CanManageStaffAsync())
+        {
+            return Forbid();
+        }
+
         var teacher = await _db.Teachers.FindAsync(dto.TeacherId);
         if (teacher == null) return NotFound(new { message = "Teacher not found." });
 
@@ -807,6 +918,11 @@ public class TeachersController : ControllerBase
     [HttpPost("batch-assignments/bulk")]
     public async Task<ActionResult<IEnumerable<TeacherBatchAssignmentDto>>> AssignBatchesBulk([FromBody] BulkCreateTeacherBatchAssignmentDto dto)
     {
+        if (!await CanManageStaffAsync())
+        {
+            return Forbid();
+        }
+
         var teacher = await _db.Teachers.FindAsync(dto.TeacherId);
         if (teacher == null) return NotFound(new { message = "Teacher not found." });
 
@@ -882,6 +998,11 @@ public class TeachersController : ControllerBase
     [HttpDelete("batch-assignments/{assignmentId}")]
     public async Task<IActionResult> RemoveBatchAssignment(Guid assignmentId)
     {
+        if (!await CanManageStaffAsync())
+        {
+            return Forbid();
+        }
+
         var a = await _db.TeacherBatchAssignments.FindAsync(assignmentId);
         if (a == null) return NotFound();
         _db.TeacherBatchAssignments.Remove(a);
@@ -892,7 +1013,13 @@ public class TeachersController : ControllerBase
     // ─── Teacher Reports & Analytics ──────────────────────────
 
     [HttpGet("reports/workload")]
-    public async Task<ActionResult<TeacherWorkloadReportDto>> GetWorkloadReport()
+    public async Task<ActionResult<TeacherWorkloadReportDto>> GetWorkloadReport(
+        [FromQuery] string? search = null,
+        [FromQuery] string? loadCategory = null,
+        [FromQuery] string? sortBy = "name",
+        [FromQuery] string? sortDirection = "asc",
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10)
     {
         var teachers = await _db.Teachers.AsNoTracking()
             .Where(t => t.IsActive && t.StaffType == StaffType.Teaching)
@@ -903,27 +1030,51 @@ public class TeachersController : ControllerBase
             .Include(a => a.Teacher)
             .Include(a => a.Batch)
                 .ThenInclude(b => b!.Students)
+            .Include(a => a.Class)
+            .Include(a => a.Section)
             .Where(a => a.IsActive)
             .ToListAsync();
+
+        var sectionStudentCounts = await _db.Students.AsNoTracking()
+            .Where(s => s.IsActive && s.SectionId.HasValue)
+            .GroupBy(s => s.SectionId!.Value)
+            .Select(g => new { SectionId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.SectionId, x => x.Count);
 
         var teacherItems = teachers.Select(t =>
         {
             var tAssignments = assignments.Where(a => a.TeacherId == t.Id).ToList();
-            var assignedBatchesDto = tAssignments.Select(a => new TeacherBatchAssignmentDto(
-                a.Id, a.TeacherId, t.FullName, a.BatchId,
-                a.Batch?.Name ?? "Unknown Batch", a.Subject, a.DaysOfWeek, a.TimeSlot, a.IsActive, a.AssignedAt
-            )).ToList();
+            var assignedBatchesDto = tAssignments.Select(a =>
+            {
+                string targetName = a.Batch != null
+                    ? a.Batch.Name
+                    : (a.Class != null
+                        ? (a.Section != null ? $"{a.Class.Name} - {a.Section.Name}" : a.Class.Name)
+                        : "Teaching Unit");
+
+                return new TeacherBatchAssignmentDto(
+                    a.Id, a.TeacherId, t.FullName, a.BatchId,
+                    targetName, a.Subject, a.DaysOfWeek, a.TimeSlot, a.IsActive, a.AssignedAt,
+                    a.ClassId, a.Class?.Name, a.SectionId, a.Section?.Name
+                );
+            }).ToList();
 
             var weeklyClasses = tAssignments.Sum(a =>
                 string.IsNullOrWhiteSpace(a.DaysOfWeek) ? 0 : a.DaysOfWeek.Split(',', StringSplitOptions.RemoveEmptyEntries).Length);
 
             var weeklyHours = tAssignments.Sum(a => CalculateWeeklyHours(a.DaysOfWeek, a.TimeSlot));
 
-            var studentCount = tAssignments
+            var batchStudents = tAssignments
                 .Where(a => a.Batch != null)
-                .SelectMany(a => a.Batch!.Students.Where(s => s.IsActive).Select(s => s.Id))
+                .SelectMany(a => a.Batch!.Students.Where(s => s.IsActive).Select(s => s.Id));
+
+            var schoolStudents = tAssignments
+                .Where(a => a.SectionId.HasValue && sectionStudentCounts.ContainsKey(a.SectionId.Value))
+                .Select(a => a.SectionId!.Value)
                 .Distinct()
-                .Count();
+                .Sum(secId => sectionStudentCounts[secId]);
+
+            var studentCount = batchStudents.Distinct().Count() + schoolStudents;
 
             return new TeacherWorkloadSummaryItemDto(
                 t.Id,
@@ -940,14 +1091,83 @@ public class TeachersController : ControllerBase
         }).ToList();
 
         var totalTeachers = teachers.Count;
-        var totalAssignedBatches = assignments.Select(a => a.BatchId).Distinct().Count();
+        var totalAssignedBatches = assignments.Select(a => a.BatchId.HasValue ? a.BatchId.ToString() : (a.SectionId.HasValue ? a.SectionId.ToString() : a.ClassId.ToString())).Distinct().Count();
         var totalWeeklyClasses = teacherItems.Sum(i => i.WeeklyClassesCount);
         var totalWeeklyHours = teacherItems.Sum(i => i.WeeklyHours);
-        var totalStudentsReached = assignments
+        var totalBatchStudents = assignments
             .Where(a => a.Batch != null)
             .SelectMany(a => a.Batch!.Students.Where(s => s.IsActive).Select(s => s.Id))
             .Distinct()
             .Count();
+        var totalSchoolStudents = assignments
+            .Where(a => a.SectionId.HasValue && sectionStudentCounts.ContainsKey(a.SectionId.Value))
+            .Select(a => a.SectionId!.Value)
+            .Distinct()
+            .Sum(secId => sectionStudentCounts[secId]);
+        var totalStudentsReached = totalBatchStudents + totalSchoolStudents;
+
+        // 1. Server-side Search
+        var filteredList = teacherItems.AsEnumerable();
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var q = search.Trim().ToLowerInvariant();
+            filteredList = filteredList.Where(t =>
+                (!string.IsNullOrEmpty(t.TeacherName) && t.TeacherName.ToLowerInvariant().Contains(q)) ||
+                (!string.IsNullOrEmpty(t.EmployeeCode) && t.EmployeeCode.ToLowerInvariant().Contains(q)) ||
+                (!string.IsNullOrEmpty(t.Qualification) && t.Qualification.ToLowerInvariant().Contains(q)) ||
+                (!string.IsNullOrEmpty(t.Specialization) && t.Specialization.ToLowerInvariant().Contains(q)) ||
+                t.AssignedBatches.Any(b =>
+                    (!string.IsNullOrEmpty(b.BatchName) && b.BatchName.ToLowerInvariant().Contains(q)) ||
+                    (!string.IsNullOrEmpty(b.Subject) && b.Subject.ToLowerInvariant().Contains(q))
+                )
+            );
+        }
+
+        // 2. Server-side Load Category Filtering
+        if (!string.IsNullOrWhiteSpace(loadCategory) && !string.Equals(loadCategory, "all", StringComparison.OrdinalIgnoreCase))
+        {
+            switch (loadCategory.Trim().ToLowerInvariant())
+            {
+                case "no_load":
+                    filteredList = filteredList.Where(t => t.WeeklyHours == 0);
+                    break;
+                case "light":
+                    filteredList = filteredList.Where(t => t.WeeklyHours < 10);
+                    break;
+                case "optimal":
+                    filteredList = filteredList.Where(t => t.WeeklyHours >= 10 && t.WeeklyHours <= 25);
+                    break;
+                case "heavy":
+                    filteredList = filteredList.Where(t => t.WeeklyHours > 25);
+                    break;
+            }
+        }
+
+        // 3. Server-side Sorting
+        bool isDesc = string.Equals(sortDirection, "desc", StringComparison.OrdinalIgnoreCase);
+        filteredList = (sortBy?.ToLowerInvariant()) switch
+        {
+            "code" => isDesc ? filteredList.OrderByDescending(t => t.EmployeeCode) : filteredList.OrderBy(t => t.EmployeeCode),
+            "qualification" => isDesc ? filteredList.OrderByDescending(t => t.Qualification ?? "") : filteredList.OrderBy(t => t.Qualification ?? ""),
+            "batches" => isDesc ? filteredList.OrderByDescending(t => t.AssignedBatchCount) : filteredList.OrderBy(t => t.AssignedBatchCount),
+            "classes" => isDesc ? filteredList.OrderByDescending(t => t.WeeklyClassesCount) : filteredList.OrderBy(t => t.WeeklyClassesCount),
+            "hours" => isDesc ? filteredList.OrderByDescending(t => t.WeeklyHours) : filteredList.OrderBy(t => t.WeeklyHours),
+            "reach" => isDesc ? filteredList.OrderByDescending(t => t.TotalStudentReach) : filteredList.OrderBy(t => t.TotalStudentReach),
+            "status" => isDesc ? filteredList.OrderByDescending(t => t.WeeklyHours) : filteredList.OrderBy(t => t.WeeklyHours),
+            _ => isDesc ? filteredList.OrderByDescending(t => t.TeacherName) : filteredList.OrderBy(t => t.TeacherName),
+        };
+
+        var allFiltered = filteredList.ToList();
+        int totalFilteredCount = allFiltered.Count;
+
+        // 4. Server-side Pagination
+        if (pageSize <= 0) pageSize = 10;
+        if (page < 1) page = 1;
+
+        var pagedTeachers = allFiltered
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToList();
 
         return Ok(new TeacherWorkloadReportDto(
             totalTeachers,
@@ -955,23 +1175,38 @@ public class TeachersController : ControllerBase
             totalWeeklyClasses,
             totalWeeklyHours,
             totalStudentsReached,
-            teacherItems
+            pagedTeachers,
+            totalFilteredCount,
+            page,
+            pageSize
         ));
     }
 
     [HttpGet("reports/master-timetable")]
     public async Task<ActionResult<IEnumerable<TeacherBatchAssignmentDto>>> GetMasterTimetable()
     {
-        var list = await _db.TeacherBatchAssignments.AsNoTracking()
+        var rawList = await _db.TeacherBatchAssignments.AsNoTracking()
             .Include(a => a.Teacher)
             .Include(a => a.Batch)
+            .Include(a => a.Class)
+            .Include(a => a.Section)
             .Where(a => a.IsActive && a.Teacher != null && a.Teacher.IsActive && a.Teacher.StaffType == StaffType.Teaching)
             .OrderBy(a => a.Teacher!.FullName)
-            .ThenBy(a => a.Batch!.Name)
-            .Select(a => new TeacherBatchAssignmentDto(
-                a.Id, a.TeacherId, a.Teacher!.FullName, a.BatchId,
-                a.Batch!.Name, a.Subject, a.DaysOfWeek, a.TimeSlot, a.IsActive, a.AssignedAt))
             .ToListAsync();
+
+        var list = rawList.Select(a =>
+        {
+            string targetName = a.Batch != null
+                ? a.Batch.Name
+                : (a.Class != null
+                    ? (a.Section != null ? $"{a.Class.Name} - {a.Section.Name}" : a.Class.Name)
+                    : "Teaching Unit");
+
+            return new TeacherBatchAssignmentDto(
+                a.Id, a.TeacherId, a.Teacher!.FullName, a.BatchId,
+                targetName, a.Subject, a.DaysOfWeek, a.TimeSlot, a.IsActive, a.AssignedAt,
+                a.ClassId, a.Class?.Name, a.SectionId, a.Section?.Name);
+        }).ToList();
 
         return Ok(list);
     }
@@ -1205,6 +1440,17 @@ public class TeachersController : ControllerBase
         var monthEnd = new DateTime(year, month, DateTime.DaysInMonth(year, month));
         var offDates = await GetAttendanceOffDates(monthStart, monthEnd);
         var teachers = await _db.Teachers.AsNoTracking().Where(t => t.IsActive).OrderBy(t => t.FullName).ToListAsync();
+        var canManage = await CanManageStaffAsync();
+        if (!canManage)
+        {
+            var curUser = await _db.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
+            var selfTeacher = teachers.FirstOrDefault(t =>
+                (t.UserId.HasValue && t.UserId.Value == _currentUser.UserId) ||
+                (curUser != null && !string.IsNullOrEmpty(curUser.Email) && t.Email == curUser.Email) ||
+                (curUser != null && !string.IsNullOrEmpty(curUser.FullName) && t.FullName == curUser.FullName));
+
+            teachers = selfTeacher != null ? new List<Teacher> { selfTeacher } : new List<Teacher>();
+        }
         var teacherIds = teachers.Select(t => t.Id).ToList();
         var records = await _db.TeacherAttendances.AsNoTracking()
             .Where(a => teacherIds.Contains(a.TeacherId) && a.AttendanceDate >= monthStart && a.AttendanceDate <= monthEnd)
@@ -1697,6 +1943,10 @@ public class TeachersController : ControllerBase
             .FirstOrDefaultAsync(t => t.Id == id);
         if (teacher == null) return NotFound(new { message = "Teacher not found." });
 
+        var canManage = await CanManageStaffAsync();
+        bool isSelf = teacher.UserId.HasValue && teacher.UserId.Value == _currentUser.UserId;
+        if (!canManage && !isSelf) return Forbid();
+
         var sal = teacher.Salaries
             .Where(s => s.IsActive && s.EffectiveFrom <= new DateTime(year, month, DateTime.DaysInMonth(year, month)))
             .OrderByDescending(s => s.EffectiveFrom)
@@ -1853,6 +2103,10 @@ public class TeachersController : ControllerBase
     {
         var teacher = await _db.Teachers.AsNoTracking().FirstOrDefaultAsync(t => t.Id == id);
         if (teacher == null) return NotFound();
+
+        var canManage = await CanManageStaffAsync();
+        bool isSelf = teacher.UserId.HasValue && teacher.UserId.Value == _currentUser.UserId;
+        if (!canManage && !isSelf) return Forbid();
 
         var list = await _db.TeacherSalaryPayments.AsNoTracking()
             .Where(p => p.TeacherId == id)
@@ -2176,11 +2430,21 @@ public class TeachersController : ControllerBase
     {
         var tenantId = _currentUser.TenantId;
         var user = await _db.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
-        if (user == null) return Ok(new { isClassTeacher = false });
+        if (user == null) return Ok(new { 
+            isClassTeacher = false,
+            assignedClasses = new List<object>(),
+            assignedBatches = new List<object>(),
+            assignedSubjects = new List<string>()
+        });
 
         var linkedTeacher = await _db.Teachers.AsNoTracking().FirstOrDefaultAsync(t =>
             t.TenantId == tenantId && (t.UserId == user.Id || (user.Email != null && t.Email == user.Email) || (user.FullName != null && t.FullName == user.FullName)));
-        if (linkedTeacher == null) return Ok(new { isClassTeacher = false });
+        if (linkedTeacher == null) return Ok(new { 
+            isClassTeacher = false,
+            assignedClasses = new List<object>(),
+            assignedBatches = new List<object>(),
+            assignedSubjects = new List<string>()
+        });
 
         var section = await _db.SchoolSections
             .AsNoTracking()
@@ -2188,16 +2452,78 @@ public class TeachersController : ControllerBase
             .Where(s => s.ClassTeacherId == linkedTeacher.Id && s.IsActive && s.TenantId == tenantId)
             .FirstOrDefaultAsync();
 
-        if (section == null) return Ok(new { isClassTeacher = false, teacherId = linkedTeacher.Id });
+        var assignments = await _db.TeacherBatchAssignments
+            .AsNoTracking()
+            .Include(a => a.Class)
+            .Include(a => a.Section)
+            .Include(a => a.Batch)
+            .Where(a => a.TeacherId == linkedTeacher.Id && a.IsActive && a.TenantId == tenantId)
+            .ToListAsync();
+
+        var assignedClasses = assignments
+            .Where(a => a.ClassId.HasValue && a.Class != null)
+            .Select(a => new
+            {
+                classId = a.ClassId!.Value,
+                className = a.Class!.Name,
+                sectionId = a.SectionId,
+                sectionName = a.Section != null ? a.Section.Name : ""
+            })
+            .Distinct()
+            .ToList();
+
+        if (section != null && !assignedClasses.Any(c => c.classId == section.ClassId && c.sectionId == section.Id))
+        {
+            assignedClasses.Insert(0, new
+            {
+                classId = section.ClassId,
+                className = section.Class?.Name ?? "",
+                sectionId = (Guid?)section.Id,
+                sectionName = section.Name
+            });
+        }
+
+        var assignedBatches = assignments
+            .Where(a => a.BatchId.HasValue && a.Batch != null)
+            .Select(a => new
+            {
+                batchId = a.BatchId!.Value,
+                batchName = a.Batch!.Name
+            })
+            .Distinct()
+            .ToList();
+
+        var assignedSubjects = assignments
+            .Where(a => !string.IsNullOrWhiteSpace(a.Subject))
+            .Select(a => a.Subject.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var rawAssignments = assignments
+            .Select(a => new
+            {
+                classId = a.ClassId,
+                className = a.Class != null ? a.Class.Name : null,
+                sectionId = a.SectionId,
+                sectionName = a.Section != null ? a.Section.Name : null,
+                batchId = a.BatchId,
+                batchName = a.Batch != null ? a.Batch.Name : null,
+                subject = a.Subject
+            })
+            .ToList();
 
         return Ok(new
         {
-            isClassTeacher = true,
+            isClassTeacher = section != null,
             teacherId = linkedTeacher.Id,
-            classId = section.ClassId,
-            className = section.Class?.Name,
-            sectionId = section.Id,
-            sectionName = section.Name
+            classId = section?.ClassId,
+            className = section?.Class?.Name,
+            sectionId = section?.Id,
+            sectionName = section?.Name,
+            assignedClasses,
+            assignedBatches,
+            assignedSubjects,
+            rawAssignments
         });
     }
 

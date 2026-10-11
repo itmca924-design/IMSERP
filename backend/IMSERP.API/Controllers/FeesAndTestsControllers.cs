@@ -2013,7 +2013,11 @@ public class TestsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<TestDto>>> GetTests([FromQuery] Guid? batchId)
+    public async Task<ActionResult<IEnumerable<TestDto>>> GetTests(
+        [FromQuery] Guid? batchId = null,
+        [FromQuery] Guid? classId = null,
+        [FromQuery] Guid? sectionId = null,
+        [FromQuery] string? category = null)
     {
         var query = _dbContext.Tests.AsNoTracking()
             .Include(t => t.Batch)
@@ -2022,9 +2026,62 @@ public class TestsController : ControllerBase
             .Include(t => t.EvaluatorTeacher)
             .AsQueryable();
 
+        if (category?.ToLower() == "school")
+        {
+            query = query.Where(t => t.ClassId.HasValue);
+        }
+        else if (category?.ToLower() == "coaching")
+        {
+            query = query.Where(t => t.BatchId.HasValue);
+        }
+
         if (batchId.HasValue && batchId != Guid.Empty)
         {
             query = query.Where(t => t.BatchId == batchId);
+        }
+
+        if (classId.HasValue && classId != Guid.Empty)
+        {
+            query = query.Where(t => t.ClassId == classId);
+        }
+
+        if (sectionId.HasValue && sectionId != Guid.Empty)
+        {
+            query = query.Where(t => t.SectionId == sectionId);
+        }
+
+        var isTeacher = _currentUser.UserRole.Contains("Teacher", StringComparison.OrdinalIgnoreCase) ||
+                        _currentUser.UserRole.Contains("Faculty", StringComparison.OrdinalIgnoreCase);
+
+        if (isTeacher)
+        {
+            var user = await _dbContext.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
+            var linkedTeacher = await _dbContext.Teachers.AsNoTracking().FirstOrDefaultAsync(t =>
+                t.TenantId == _currentUser.TenantId && (t.UserId == _currentUser.UserId || (user != null && user.Email != null && t.Email == user.Email) || (user != null && user.FullName != null && t.FullName == user.FullName)));
+
+            if (linkedTeacher != null)
+            {
+                var assignedBatchIds = await _dbContext.TeacherBatchAssignments
+                    .Where(a => a.TeacherId == linkedTeacher.Id && a.IsActive && a.BatchId.HasValue)
+                    .Select(a => a.BatchId!.Value)
+                    .ToListAsync();
+
+                var assignedClassIds = await _dbContext.TeacherBatchAssignments
+                    .Where(a => a.TeacherId == linkedTeacher.Id && a.IsActive && a.ClassId.HasValue)
+                    .Select(a => a.ClassId!.Value)
+                    .ToListAsync();
+
+                var classTeacherSectionClassIds = await _dbContext.SchoolSections
+                    .Where(s => s.ClassTeacherId == linkedTeacher.Id && s.IsActive)
+                    .Select(s => s.ClassId)
+                    .ToListAsync();
+
+                var combinedClassIds = assignedClassIds.Concat(classTeacherSectionClassIds).Distinct().ToList();
+
+                query = query.Where(t => t.EvaluatorTeacherId == linkedTeacher.Id ||
+                                         (t.BatchId.HasValue && assignedBatchIds.Contains(t.BatchId.Value)) ||
+                                         (t.ClassId.HasValue && combinedClassIds.Contains(t.ClassId.Value)));
+            }
         }
 
         var rawList = await query.Select(t => new
@@ -2090,6 +2147,9 @@ public class TestsController : ControllerBase
         [FromQuery] int pageSize = 10,
         [FromQuery] string? searchTerm = null,
         [FromQuery] Guid? batchId = null,
+        [FromQuery] Guid? classId = null,
+        [FromQuery] Guid? sectionId = null,
+        [FromQuery] string? category = null, // "school", "coaching", or "all"
         [FromQuery] string? sortBy = "testDate",
         [FromQuery] bool sortDescending = true)
     {
@@ -2100,8 +2160,57 @@ public class TestsController : ControllerBase
             .Include(t => t.EvaluatorTeacher)
             .AsQueryable();
 
+        if (category?.ToLower() == "school")
+        {
+            query = query.Where(t => t.ClassId.HasValue);
+        }
+        else if (category?.ToLower() == "coaching")
+        {
+            query = query.Where(t => t.BatchId.HasValue);
+        }
+
         if (batchId.HasValue && batchId != Guid.Empty)
             query = query.Where(t => t.BatchId == batchId);
+
+        if (classId.HasValue && classId != Guid.Empty)
+            query = query.Where(t => t.ClassId == classId);
+
+        if (sectionId.HasValue && sectionId != Guid.Empty)
+            query = query.Where(t => t.SectionId == sectionId);
+
+        var isTeacher = _currentUser.UserRole.Contains("Teacher", StringComparison.OrdinalIgnoreCase) ||
+                        _currentUser.UserRole.Contains("Faculty", StringComparison.OrdinalIgnoreCase);
+
+        if (isTeacher)
+        {
+            var user = await _dbContext.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
+            var linkedTeacher = await _dbContext.Teachers.AsNoTracking().FirstOrDefaultAsync(t =>
+                t.TenantId == _currentUser.TenantId && (t.UserId == _currentUser.UserId || (user != null && user.Email != null && t.Email == user.Email) || (user != null && user.FullName != null && t.FullName == user.FullName)));
+
+            if (linkedTeacher != null)
+            {
+                var assignedBatchIds = await _dbContext.TeacherBatchAssignments
+                    .Where(a => a.TeacherId == linkedTeacher.Id && a.IsActive && a.BatchId.HasValue)
+                    .Select(a => a.BatchId!.Value)
+                    .ToListAsync();
+
+                var assignedClassIds = await _dbContext.TeacherBatchAssignments
+                    .Where(a => a.TeacherId == linkedTeacher.Id && a.IsActive && a.ClassId.HasValue)
+                    .Select(a => a.ClassId!.Value)
+                    .ToListAsync();
+
+                var classTeacherSectionClassIds = await _dbContext.SchoolSections
+                    .Where(s => s.ClassTeacherId == linkedTeacher.Id && s.IsActive)
+                    .Select(s => s.ClassId)
+                    .ToListAsync();
+
+                var combinedClassIds = assignedClassIds.Concat(classTeacherSectionClassIds).Distinct().ToList();
+
+                query = query.Where(t => t.EvaluatorTeacherId == linkedTeacher.Id ||
+                                         (t.BatchId.HasValue && assignedBatchIds.Contains(t.BatchId.Value)) ||
+                                         (t.ClassId.HasValue && combinedClassIds.Contains(t.ClassId.Value)));
+            }
+        }
 
         if (!string.IsNullOrWhiteSpace(searchTerm))
         {
@@ -2224,10 +2333,20 @@ public class TestsController : ControllerBase
             {
                 using var transaction = await _dbContext.Database.BeginTransactionAsync();
 
-                var batchIds = dtos.Select(d => d.BatchId).Distinct().ToList();
+                var batchIds = dtos.Where(d => d.BatchId.HasValue).Select(d => d.BatchId!.Value).Distinct().ToList();
                 var batches = await _dbContext.Batches
                     .Where(b => batchIds.Contains(b.Id))
                     .ToDictionaryAsync(b => b.Id, b => b);
+
+                var classIds = dtos.Where(d => d.ClassId.HasValue).Select(d => d.ClassId!.Value).Distinct().ToList();
+                var classes = await _dbContext.SchoolClasses
+                    .Where(c => classIds.Contains(c.Id))
+                    .ToDictionaryAsync(c => c.Id, c => c);
+
+                var sectionIds = dtos.Where(d => d.SectionId.HasValue).Select(d => d.SectionId!.Value).Distinct().ToList();
+                var sections = await _dbContext.SchoolSections
+                    .Where(s => sectionIds.Contains(s.Id))
+                    .ToDictionaryAsync(s => s.Id, s => s);
 
                 var tenantId = _currentUser.TenantId != Guid.Empty
                     ? _currentUser.TenantId
@@ -2236,12 +2355,17 @@ public class TestsController : ControllerBase
                 var tests = dtos.Select(dto => new Test
                 {
                     TenantId = tenantId,
-                    BranchId = (dto.BatchId.HasValue && batches.TryGetValue(dto.BatchId.Value, out var b) ? b.BranchId : null) ?? _currentUser.BranchId,
+                    BranchId = (dto.BatchId.HasValue && batches.TryGetValue(dto.BatchId.Value, out var b) ? b.BranchId : null) ??
+                               (dto.ClassId.HasValue && classes.TryGetValue(dto.ClassId.Value, out var c) ? c.BranchId : null) ??
+                               _currentUser.BranchId,
                     BatchId = dto.BatchId,
+                    ClassId = dto.ClassId,
+                    SectionId = dto.SectionId,
                     Title = string.IsNullOrWhiteSpace(dto.Title) ? "Untitled Exam" : dto.Title.Trim(),
                     Subject = string.IsNullOrWhiteSpace(dto.Subject) ? "General" : dto.Subject.Trim(),
                     MaxMarks = dto.MaxMarks > 0 ? dto.MaxMarks : 100,
-                    TestDate = dto.TestDate != default ? dto.TestDate : DateTime.UtcNow
+                    TestDate = dto.TestDate != default ? dto.TestDate : DateTime.UtcNow,
+                    EvaluationStatus = "Scheduled"
                 }).ToList();
 
                 _dbContext.Tests.AddRange(tests);
@@ -2251,12 +2375,18 @@ public class TestsController : ControllerBase
                 return tests.Select(t => new TestDto(
                     t.Id,
                     t.BatchId,
-                    t.BatchId.HasValue && batches.ContainsKey(t.BatchId.Value) ? batches[t.BatchId.Value].Name : "",
+                    t.BatchId.HasValue && batches.ContainsKey(t.BatchId.Value) ? batches[t.BatchId.Value].Name :
+                    (t.ClassId.HasValue && classes.ContainsKey(t.ClassId.Value) ? 
+                        (t.SectionId.HasValue && sections.ContainsKey(t.SectionId.Value) ? $"{classes[t.ClassId.Value].Name} ({sections[t.SectionId.Value].Name})" : classes[t.ClassId.Value].Name) : ""),
                     t.Title,
                     t.Subject,
                     t.MaxMarks,
                     DateTime.SpecifyKind(t.TestDate, DateTimeKind.Utc),
-                    0
+                    0,
+                    t.ClassId,
+                    t.ClassId.HasValue && classes.ContainsKey(t.ClassId.Value) ? classes[t.ClassId.Value].Name : null,
+                    t.SectionId,
+                    t.SectionId.HasValue && sections.ContainsKey(t.SectionId.Value) ? sections[t.SectionId.Value].Name : null
                 )).ToList();
             });
 
@@ -2301,6 +2431,16 @@ public class TestsController : ControllerBase
     [HttpDelete("{testId}")]
     public async Task<ActionResult> DeleteTest(Guid testId)
     {
+        var isPrivilegedAdmin = _currentUser.UserRole.Contains("Admin", StringComparison.OrdinalIgnoreCase) ||
+                                _currentUser.UserRole.Contains("Principal", StringComparison.OrdinalIgnoreCase) ||
+                                _currentUser.UserRole.Contains("Director", StringComparison.OrdinalIgnoreCase) ||
+                                _currentUser.UserRole.Contains("SuperAdmin", StringComparison.OrdinalIgnoreCase);
+
+        if (!isPrivilegedAdmin)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "Only administrators can delete examination sessions." });
+        }
+
         var test = await _dbContext.Tests.FirstOrDefaultAsync(t => t.Id == testId);
         if (test == null) return NotFound("Test not found");
 
@@ -2481,6 +2621,23 @@ public class TestsController : ControllerBase
             return BadRequest(new { message = "Marks for this exam have been officially approved and locked by the Principal/Administrator. Editing is prohibited." });
         }
 
+        if (!isPrivilegedAdmin)
+        {
+            if (!test.EvaluatorTeacherId.HasValue)
+            {
+                return BadRequest(new { message = "Answer sheets bundle has not yet been assigned by the administrator / exam coordinator." });
+            }
+
+            var user = await _dbContext.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
+            var linkedTeacher = await _dbContext.Teachers.AsNoTracking().FirstOrDefaultAsync(t =>
+                t.TenantId == _currentUser.TenantId && (t.UserId == _currentUser.UserId || (user != null && user.Email != null && t.Email == user.Email) || (user != null && user.FullName != null && t.FullName == user.FullName)));
+
+            if (linkedTeacher != null && test.EvaluatorTeacherId.Value != linkedTeacher.Id)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new { message = "You are not designated as the evaluator teacher for this exam bundle." });
+            }
+        }
+
         var strategy = _dbContext.Database.CreateExecutionStrategy();
         return await strategy.ExecuteAsync<ActionResult>(async () =>
         {
@@ -2557,7 +2714,12 @@ public class TestsController : ControllerBase
                                 _currentUser.UserRole.Contains("Director", StringComparison.OrdinalIgnoreCase) ||
                                 _currentUser.UserRole.Contains("SuperAdmin", StringComparison.OrdinalIgnoreCase);
 
-        if (test.IsMarksLocked && !isPrivilegedAdmin)
+        if (!isPrivilegedAdmin)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "Only administrators and exam coordinators can assign copy bundles to faculty." });
+        }
+
+        if (test.IsMarksLocked)
         {
             return BadRequest(new { message = "Exam marks are locked. Cannot alter evaluation assignments." });
         }

@@ -829,6 +829,12 @@ public class SchoolController : ControllerBase
     [HttpPatch("sections/{id}/class-teacher")]
     public async Task<IActionResult> QuickAssignClassTeacher(Guid id, [FromBody] QuickAssignClassTeacherDto dto)
     {
+        var caller = await _db.Users.FindAsync(_currentUser.UserId);
+        if (caller != null && (caller.Role == UserRole.Teacher || string.Equals(_currentUser.UserRole, "Teacher", StringComparison.OrdinalIgnoreCase)))
+        {
+            return Forbid();
+        }
+
         var section = await _db.SchoolSections
             .Include(s => s.Class)
             .FirstOrDefaultAsync(s => s.Id == id);
