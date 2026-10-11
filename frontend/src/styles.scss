@@ -636,7 +636,7 @@ body, p, span, h1, h2, h3, h4, h5, h6, a, button, input, select, textarea,
 // Custom panel for Exam Admit Card Dialog
 .admit-card-dialog-panel {
   max-width: 96vw !important;
-  width: 1020px !important;
+  width: 1260px !important;
 
   .mat-mdc-dialog-surface {
     border-radius: 12px !important;
@@ -660,7 +660,7 @@ body, p, span, h1, h2, h3, h4, h5, h6, a, button, input, select, textarea,
 // Custom panel for Exam Result & Report Cards Dialog
 .result-dialog-panel {
   max-width: 96vw !important;
-  width: 1240px !important;
+  width: 1260px !important;
 
   .mat-mdc-dialog-surface {
     border-radius: 12px !important;
@@ -1864,12 +1864,23 @@ mat-sidenav-container {
 /* Global Confirm / Alert Dialog Panel */
 .erp-confirm-dialog-panel {
   z-index: 1250 !important;
+  .mat-mdc-dialog-container {
+    padding: 0 !important;
+  }
   .mat-mdc-dialog-surface {
     border-radius: 14px !important;
     overflow: hidden !important;
     padding: 0 !important;
     background: #ffffff !important;
     box-shadow: 0 20px 30px -10px rgba(15, 23, 42, 0.2), 0 10px 15px -5px rgba(15, 23, 42, 0.1) !important;
+  }
+  .mat-mdc-dialog-content {
+    padding: 20px 24px !important;
+    margin: 0 !important;
+  }
+  .mat-mdc-dialog-actions {
+    padding: 14px 24px 18px !important;
+    margin: 0 !important;
   }
 }
 

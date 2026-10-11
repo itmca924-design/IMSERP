@@ -110,8 +110,11 @@ interface StudentRankRow {
           </button>
 
           <!-- Close Button -->
-          <button mat-icon-button class="header-close-btn" [mat-dialog-close]="null" matTooltip="Close (Esc)">
-            <mat-icon>close</mat-icon>
+          <button mat-icon-button class="header-close-btn" [mat-dialog-close]="null" matTooltip="Close (Esc)" aria-label="Close dialog">
+            <svg class="close-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
           </button>
         </div>
       </div>
@@ -134,10 +137,11 @@ interface StudentRankRow {
           <mat-icon>military_tech</mat-icon>
           <div>
             <span class="stat-num">{{ topperMarks }}<span class="stat-denom">/{{ data.maxMarks }}</span></span>
-            <span class="stat-lbl">Highest</span>
+            <span class="stat-lbl">{{ totalAppeared > 1 ? 'Highest' : 'Score' }}</span>
           </div>
         </div>
-        <div class="stat-chip stat-avg">
+        <!-- Average: Only displayed when multiple students appeared -->
+        <div class="stat-chip stat-avg" *ngIf="totalAppeared > 1">
           <mat-icon>analytics</mat-icon>
           <div>
             <span class="stat-num">{{ averageMarks | number:'1.1-1' }}</span>
@@ -151,14 +155,15 @@ interface StudentRankRow {
             <span class="stat-lbl">Passed</span>
           </div>
         </div>
-        <div class="stat-chip stat-absent">
+        <div class="stat-chip stat-absent" *ngIf="absentCount > 0">
           <mat-icon>person_off</mat-icon>
           <div>
             <span class="stat-num">{{ absentCount }}</span>
             <span class="stat-lbl">Absent</span>
           </div>
         </div>
-        <div class="stat-chip stat-pass-pct">
+        <!-- Pass Rate: Only displayed when multiple students appeared -->
+        <div class="stat-chip stat-pass-pct" *ngIf="totalAppeared > 1">
           <mat-icon>percent</mat-icon>
           <div>
             <span class="stat-num">{{ passPercentage | number:'1.0-0' }}%</span>
@@ -310,9 +315,9 @@ interface StudentRankRow {
                 </td>
                 <!-- Status -->
                 <td class="col-status">
-                  <span *ngIf="s.isAbsent" class="status-badge status-absent">Absent</span>
-                  <span *ngIf="!s.isAbsent && s.percentage >= 35" class="status-badge status-pass">Pass</span>
-                  <span *ngIf="!s.isAbsent && s.percentage < 35" class="status-badge status-fail">Fail</span>
+                  <span class="status-badge" [ngClass]="getPerformanceStatusClass(s)">
+                    {{ getPerformanceStatus(s) }}
+                  </span>
                 </td>
                 <!-- Remarks -->
                 <td class="col-remarks no-print">
@@ -444,9 +449,14 @@ interface StudentRankRow {
                   <span class="rc-stat-val rank-val">#{{ s.rank }}</span>
                   <span class="rc-stat-lbl">Class Rank</span>
                 </div>
-                <div class="rc-stat">
+                <!-- Class Avg: Only show when multiple students appeared -->
+                <div class="rc-stat" *ngIf="totalAppeared > 1">
                   <span class="rc-stat-val">{{ averageMarks | number:'1.1-1' }}</span>
                   <span class="rc-stat-lbl">Class Avg</span>
+                </div>
+                <div class="rc-stat" *ngIf="totalAppeared <= 1">
+                  <span class="rc-stat-val" style="color: #2563eb;">{{ s.grade }}</span>
+                  <span class="rc-stat-lbl">Grade</span>
                 </div>
               </div>
             </div>
@@ -458,7 +468,7 @@ interface StudentRankRow {
                     [class.chip-fail]="!s.isAbsent && s.percentage < 35"
                     [class.chip-absent]="s.isAbsent">
                 <mat-icon>{{ s.isAbsent ? 'person_off' : (s.percentage >= 35 ? 'verified' : 'cancel') }}</mat-icon>
-                {{ s.isAbsent ? 'Absent' : (s.percentage >= 35 ? 'Passed' : 'Needs Improvement') }}
+                {{ getPerformanceStatus(s) }}
               </span>
               <span class="rc-remarks" *ngIf="s.remarks">{{ s.remarks }}</span>
             </div>
@@ -507,37 +517,36 @@ interface StudentRankRow {
       width: 100%;
     }
 
-    /* ─── Top Toolbar (Fee Collection Style Light Header) ─── */
+    /* ─── Top Toolbar (Consistent Light Blue Gradient Header) ─── */
     .modal-actions {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 12px 20px;
-      background: #f8fafc;
-      border-bottom: 1px solid #e2e8f0;
+      padding: 10px 16px;
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+      border-bottom: 1px solid #bfdbfe;
       flex-shrink: 0;
-      gap: 16px;
-      min-height: 62px;
+      gap: 12px;
+      min-height: 58px;
       box-sizing: border-box;
     }
     .modal-title {
       display: flex;
       align-items: center;
-      gap: 12px;
-      min-width: 0;
-      flex: 1 1 auto;
+      gap: 10px;
+      flex-shrink: 0;
     }
     .title-badge {
       width: 40px;
       height: 40px;
       border-radius: 10px;
-      background: linear-gradient(135deg, #f59e0b, #d97706);
+      background: #2563eb;
       color: #ffffff;
       display: flex;
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
-      box-shadow: 0 4px 10px rgba(245, 158, 11, 0.25);
+      box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.25);
       mat-icon { font-size: 22px; width: 22px; height: 22px; }
     }
     .title-text-group {
@@ -553,17 +562,17 @@ interface StudentRankRow {
       flex-wrap: wrap;
     }
     .main-title {
-      font-size: 1.08rem;
+      font-size: 1.05rem;
       font-weight: 700;
-      color: #0f172a;
+      color: #1e3a8a;
       letter-spacing: -0.01em;
       white-space: nowrap;
     }
     .exam-title-badge {
       font-size: 0.72rem;
       font-weight: 700;
-      background: #eff6ff;
-      color: #2563eb;
+      background: #ffffff;
+      color: #1d4ed8;
       padding: 2px 8px;
       border-radius: 5px;
       border: 1px solid #bfdbfe;
@@ -571,8 +580,8 @@ interface StudentRankRow {
       white-space: nowrap;
     }
     .sub-title {
-      font-size: 0.78rem;
-      color: #64748b;
+      font-size: 0.76rem;
+      color: #3b82f6;
       display: flex;
       align-items: center;
       gap: 6px;
@@ -582,118 +591,134 @@ interface StudentRankRow {
         display: inline-flex;
         align-items: center;
         gap: 3px;
-        mat-icon { font-size: 14px; width: 14px; height: 14px; color: #64748b; }
+        mat-icon { font-size: 14px; width: 14px; height: 14px; color: #3b82f6; }
       }
-      .meta-dot { color: #cbd5e1; font-weight: bold; }
+      .meta-dot { color: #93c5fd; font-weight: bold; }
     }
 
     .btn-group {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       flex-shrink: 0;
     }
 
     /* Segmented View Switcher (Leaderboard vs Cards) */
     .view-toggle-group {
       display: flex;
-      background: #e2e8f0;
-      border: 1px solid #cbd5e1;
-      border-radius: 8px;
-      padding: 3px;
+      background: rgba(255, 255, 255, 0.7);
+      border: 1px solid #bfdbfe;
+      border-radius: 7px;
+      padding: 2px;
       gap: 2px;
 
       .view-tab {
         border: none;
         background: transparent;
-        padding: 5px 12px;
-        border-radius: 6px;
-        font-size: 0.78rem;
+        padding: 4px 10px;
+        border-radius: 5px;
+        font-size: 0.76rem;
         font-weight: 600;
         color: #475569;
         cursor: pointer;
         display: flex;
         align-items: center;
-        gap: 5px;
+        gap: 4px;
         transition: all 0.15s ease;
         white-space: nowrap;
 
-        mat-icon { font-size: 16px; width: 16px; height: 16px; color: #64748b; }
+        mat-icon { font-size: 15px; width: 15px; height: 15px; color: #64748b; }
 
         &:hover {
-          color: #0f172a;
-          background: rgba(255, 255, 255, 0.6);
+          color: #1e40af;
+          background: rgba(255, 255, 255, 0.9);
         }
 
         &.active {
-          background: #ffffff;
-          color: #2563eb;
-          box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+          background: #2563eb;
+          color: #ffffff;
+          box-shadow: 0 1px 3px rgba(37, 99, 235, 0.3);
           font-weight: 700;
-          mat-icon { color: #2563eb; }
+          mat-icon { color: #ffffff; }
         }
       }
     }
 
     .header-divider {
       width: 1px;
-      height: 24px;
-      background: #cbd5e1;
-      margin: 0 2px;
+      height: 22px;
+      background: #bfdbfe;
+      margin: 0 1px;
     }
 
     .header-action-btn {
-      height: 35px !important;
-      padding: 0 12px !important;
-      border-radius: 7px !important;
-      font-size: 0.78rem !important;
+      height: 32px !important;
+      padding: 0 10px !important;
+      border-radius: 6px !important;
+      font-size: 0.76rem !important;
       font-weight: 600 !important;
       display: inline-flex !important;
       align-items: center !important;
-      gap: 6px !important;
-      letter-spacing: 0.02em !important;
+      gap: 5px !important;
+      letter-spacing: 0.01em !important;
       white-space: nowrap !important;
       transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease !important;
 
-      mat-icon { font-size: 16px; width: 16px; height: 16px; }
+      mat-icon { font-size: 15px; width: 15px; height: 15px; }
 
       &.wa-btn {
         background: #16a34a !important;
         color: #ffffff !important;
-        box-shadow: 0 2px 6px rgba(22, 163, 74, 0.25);
-        .wa-icon { width: 15px; height: 15px; fill: #ffffff; }
+        box-shadow: 0 1px 4px rgba(22, 163, 74, 0.25);
+        .wa-icon { width: 14px; height: 14px; fill: #ffffff; }
         &:hover {
           background: #15803d !important;
           transform: translateY(-1px);
-          box-shadow: 0 4px 10px rgba(22, 163, 74, 0.35);
         }
       }
 
       &.print-btn {
         background: #0284c7 !important;
         color: #ffffff !important;
-        box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25);
+        box-shadow: 0 1px 4px rgba(2, 132, 199, 0.25);
         &:hover {
           background: #0369a1 !important;
           transform: translateY(-1px);
-          box-shadow: 0 4px 10px rgba(2, 132, 199, 0.35);
         }
       }
     }
 
     .header-close-btn {
       color: #64748b !important;
-      width: 34px !important;
-      height: 34px !important;
-      border-radius: 7px !important;
+      width: 32px !important;
+      height: 32px !important;
+      min-width: 32px !important;
+      padding: 0 !important;
+      border-radius: 6px !important;
+      border: 1px solid #bfdbfe !important;
+      background: #ffffff !important;
       display: inline-flex !important;
       align-items: center !important;
       justify-content: center !important;
+      flex-shrink: 0 !important;
+      cursor: pointer !important;
       transition: all 0.15s ease !important;
-      mat-icon { font-size: 20px; width: 20px; height: 20px; }
+
+      .close-svg-icon {
+        width: 15px;
+        height: 15px;
+        stroke: #64748b;
+        transition: stroke 0.15s ease;
+        display: block;
+      }
+
       &:hover {
         background: #fee2e2 !important;
+        border-color: #fca5a5 !important;
         color: #dc2626 !important;
+        .close-svg-icon {
+          stroke: #dc2626 !important;
+        }
       }
     }
 
@@ -796,7 +821,7 @@ interface StudentRankRow {
     .col-marks  { width: 85px; }
     .col-pct    { width: 75px; }
     .col-grade  { width: 70px; }
-    .col-status { width: 85px; }
+    .col-status { width: 110px; min-width: 105px; }
     .col-remarks{ width: 120px; }
     .col-actions{ width: 100px; text-align: right; min-width: 100px; padding-right: 20px !important; }
 
@@ -985,14 +1010,22 @@ interface StudentRankRow {
     .status-badge {
       display: inline-flex;
       align-items: center;
-      padding: 2px 8px;
+      justify-content: center;
+      padding: 2px 10px;
       border-radius: 9999px;
       font-size: 0.74rem;
-      font-weight: 600;
+      font-weight: 700;
+      white-space: nowrap;
+      letter-spacing: 0.01em;
+
+      &.status-excellent    { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+      &.status-proficient   { background: #ccfbf1; color: #0f766e; border: 1px solid #99f6e4; }
+      &.status-good         { background: #e0e7ff; color: #4338ca; border: 1px solid #c7d2fe; }
+      &.status-satisfactory { background: #fef9c3; color: #a16207; border: 1px solid #fde047; }
+      &.status-pass         { background: #ffedd5; color: #c2410c; border: 1px solid #fed7aa; }
+      &.status-fail         { background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; }
+      &.status-absent       { background: #f3f4f6; color: #6b7280; border: 1px solid #e5e7eb; }
     }
-    .status-pass   { background: #dcfce7; color: #15803d; }
-    .status-fail   { background: #fee2e2; color: #dc2626; }
-    .status-absent { background: #f3f4f6; color: #6b7280; }
     .remarks-text  { font-size: 0.78rem; color: #64748b; font-style: italic; }
 
     .row-act-btns {
@@ -1593,6 +1626,28 @@ export class ExamResultDialogComponent implements OnInit {
     return 'grade-f';
   }
 
+  getPerformanceStatus(student: { isAbsent?: boolean; percentage?: number }): string {
+    if (student.isAbsent) return 'Absent';
+    const pct = student.percentage ?? 0;
+    if (pct >= 90) return 'Excellent';
+    if (pct >= 75) return 'Proficient';
+    if (pct >= 60) return 'Good';
+    if (pct >= 45) return 'Satisfactory';
+    if (pct >= 35) return 'Pass';
+    return 'Fail';
+  }
+
+  getPerformanceStatusClass(student: { isAbsent?: boolean; percentage?: number }): string {
+    if (student.isAbsent) return 'status-absent';
+    const pct = student.percentage ?? 0;
+    if (pct >= 90) return 'status-excellent';
+    if (pct >= 75) return 'status-proficient';
+    if (pct >= 60) return 'status-good';
+    if (pct >= 45) return 'status-satisfactory';
+    if (pct >= 35) return 'status-pass';
+    return 'status-fail';
+  }
+
   private computeStats(): void {
     this.absentCount  = this.rankedList.filter(s => s.isAbsent).length;
     const appeared    = this.rankedList.filter(s => !s.isAbsent);
@@ -1742,7 +1797,7 @@ export class ExamResultDialogComponent implements OnInit {
                   <td class="pct-col">${s.isAbsent ? '—' : s.percentage.toFixed(1) + '%'}</td>
                   <td class="grade-col">${s.isAbsent ? 'AB' : s.grade}</td>
                   <td class="status-col ${s.isAbsent ? 'status-absent' : (s.percentage >= 35 ? 'status-pass' : 'status-fail')}">
-                    ${s.isAbsent ? 'ABSENT' : (s.percentage >= 35 ? 'PASS' : 'FAIL')}
+                    ${this.getPerformanceStatus(s).toUpperCase()}
                   </td>
                   <td style="color:#64748b;font-size:11px;">${s.remarks || '—'}</td>
                 </tr>
@@ -1815,8 +1870,8 @@ export class ExamResultDialogComponent implements OnInit {
             </div>
             <div>
               <div class="score-lbl">Status</div>
-              <div class="score-val" style="color: ${s.isAbsent ? '#64748b' : (s.percentage >= 35 ? '#16a34a' : '#dc2626')};">
-                ${s.isAbsent ? 'Absent' : (s.percentage >= 35 ? 'PASS' : 'FAIL')}
+              <div class="score-val" style="color: ${s.isAbsent ? '#64748b' : (s.percentage >= 60 ? '#16a34a' : s.percentage >= 35 ? '#d97706' : '#dc2626')};">
+                ${this.getPerformanceStatus(s)}
               </div>
             </div>
           </div>
@@ -1972,8 +2027,8 @@ export class ExamResultDialogComponent implements OnInit {
               </div>
               <div>
                 <div class="score-lbl">Status</div>
-                <div class="score-val" style="color: ${student.isAbsent ? '#64748b' : (student.percentage >= 35 ? '#16a34a' : '#dc2626')};">
-                  ${student.isAbsent ? 'Absent' : (student.percentage >= 35 ? 'PASS' : 'FAIL')}
+                <div class="score-val" style="color: ${student.isAbsent ? '#64748b' : (student.percentage >= 60 ? '#16a34a' : student.percentage >= 35 ? '#d97706' : '#dc2626')};">
+                  ${this.getPerformanceStatus(student)}
                 </div>
               </div>
             </div>
@@ -2004,8 +2059,8 @@ export class ExamResultDialogComponent implements OnInit {
     const rawPhone = student.parentWhatsAppPhone.replace(/\D/g, '');
     const formattedPhone = rawPhone.length === 10 ? '91' + rawPhone : rawPhone;
 
-    const statusEmoji = student.isAbsent ? '⚪' : (student.percentage >= 35 ? '✅' : '⚠️');
-    const statusText = student.isAbsent ? 'ABSENT' : (student.percentage >= 35 ? 'PASSED' : 'NEEDS IMPROVEMENT');
+    const statusEmoji = student.isAbsent ? '⚪' : (student.percentage >= 90 ? '🌟' : student.percentage >= 75 ? '🎯' : student.percentage >= 60 ? '👍' : student.percentage >= 35 ? '✅' : '⚠️');
+    const statusText = this.getPerformanceStatus(student).toUpperCase();
 
     const classInfo = (student.isSchoolStudent && student.isCoachingStudent)
       ? `${student.className || ''}${student.sectionName ? ' (' + student.sectionName + ')' : ''} & ${student.batchName || this.data.batchName || ''} (School + Coaching)`

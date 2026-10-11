@@ -54,14 +54,14 @@ export interface ExamAdmitCardDialogData {
         </div>
 
         <div class="btn-group">
-          <!-- Policy Switch (Routine / Weekly vs Strict Fee Policy) -->
+          <!-- Policy Switch (Routine / General vs Strict Fee Policy) -->
           <div class="sharp-toggle-chip" 
                [class.chip-weekly]="allowAllStudents" 
                [class.chip-strict]="!allowAllStudents"
                (click)="allowAllStudents = !allowAllStudents"
-               [matTooltip]="allowAllStudents ? 'Routine Mode: All students can sit (Click to switch to Strict)' : 'Strict Mode: Dues pending students held (Click to switch to Routine)'">
+               [matTooltip]="allowAllStudents ? 'General Exam Mode: All students can appear in exam (Click for Strict Mode)' : 'Strict Mode: Dues pending flagged (Click for General Exam Mode)'">
             <span class="indicator-dot"></span>
-            <span class="chip-text">{{ allowAllStudents ? 'Weekly Mode' : 'Strict Fee Check' }}</span>
+            <span class="chip-text">{{ allowAllStudents ? 'General Exam (Allow All)' : 'Strict Fee Check' }}</span>
             <mat-icon class="toggle-icon">swap_horiz</mat-icon>
           </div>
 
@@ -261,13 +261,13 @@ export interface ExamAdmitCardDialogData {
                     <mat-icon>verified</mat-icon> CLEARED &bull; VERIFIED
                   </span>
                   <span class="fee-pill dues" *ngIf="!student.isFeeCleared && allowAllStudents && showDueNoticeOnPrint">
-                    <mat-icon>info</mat-icon> PROVISIONAL (Due: ₹{{ student.outstandingDue | number:'1.2-2' }})
+                    <mat-icon>info</mat-icon> PROVISIONAL (Due: ₹{{ student.outstandingDue | number:'1.2-2' }} &bull; Clear before Result)
                   </span>
                   <span class="fee-pill cleared" *ngIf="!student.isFeeCleared && allowAllStudents && !showDueNoticeOnPrint">
-                    <mat-icon>verified</mat-icon> ELIGIBLE &bull; WEEKLY TEST PASS
+                    <mat-icon>verified</mat-icon> ELIGIBLE &bull; EXAM PASS
                   </span>
                   <span class="fee-pill dues-blocked" *ngIf="!student.isFeeCleared && !allowAllStudents">
-                    <mat-icon>warning</mat-icon> DUES PENDING (Clearance Required)
+                    <mat-icon>warning</mat-icon> PROVISIONAL ENTRY (Due: ₹{{ student.outstandingDue | number:'1.2-2' }} &bull; Clear before Result)
                   </span>
                 </span>
               </div>
@@ -345,32 +345,32 @@ export interface ExamAdmitCardDialogData {
       overflow: hidden;
     }
 
-    /* ── Modal Actions Header (Fee Collection Style Light Header) ── */
+    /* ── Modal Actions Header (Consistent Light Blue Gradient Header) ── */
     .modal-actions {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 12px 20px;
-      background: #f8fafc;
+      padding: 10px 16px;
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
       color: #0f172a;
-      border-bottom: 1px solid #e2e8f0;
+      border-bottom: 1px solid #bfdbfe;
       flex-shrink: 0;
-      gap: 16px;
-      min-height: 62px;
+      gap: 12px;
+      min-height: 58px;
       box-sizing: border-box;
 
       .modal-title {
         display: flex;
         align-items: center;
         gap: 12px;
-        min-width: 0;
+        flex-shrink: 0;
 
         .title-badge {
           width: 40px;
           height: 40px;
           border-radius: 10px;
-          background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%);
-          box-shadow: 0 4px 10px rgba(2, 132, 199, 0.25);
+          background: #2563eb;
+          box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.25);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -383,7 +383,7 @@ export interface ExamAdmitCardDialogData {
           display: flex;
           flex-direction: column;
           gap: 2px;
-          min-width: 0;
+          flex-shrink: 0;
 
           .title-row {
             display: flex;
@@ -394,8 +394,8 @@ export interface ExamAdmitCardDialogData {
 
           .main-title {
             font-weight: 700;
-            font-size: 1.05rem;
-            color: #0f172a;
+            font-size: 1.1rem;
+            color: #1e3a8a;
             letter-spacing: -0.015em;
             white-space: nowrap;
           }
@@ -405,19 +405,19 @@ export interface ExamAdmitCardDialogData {
             font-size: 0.72rem;
             font-weight: 700;
             color: #1d4ed8;
-            background: #eff6ff;
+            background: #ffffff;
             border: 1px solid #bfdbfe;
             padding: 2px 8px;
             border-radius: 5px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            max-width: 220px;
+            max-width: 240px;
           }
 
           .sub-title {
             font-size: 0.76rem;
-            color: #64748b;
+            color: #3b82f6;
             font-weight: 500;
             white-space: nowrap;
           }
@@ -427,17 +427,17 @@ export interface ExamAdmitCardDialogData {
       .btn-group {
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 6px;
         flex-shrink: 0;
 
         .sharp-toggle-chip {
           display: inline-flex;
           align-items: center;
-          gap: 6px;
-          height: 34px;
-          padding: 0 12px;
+          gap: 5px;
+          height: 32px;
+          padding: 0 9px;
           border-radius: 6px;
-          font-size: 0.76rem;
+          font-size: 0.74rem;
           font-weight: 600;
           cursor: pointer;
           user-select: none;
@@ -522,14 +522,14 @@ export interface ExamAdmitCardDialogData {
         }
 
         .header-action-btn {
-          height: 34px !important;
-          padding: 0 14px !important;
+          height: 32px !important;
+          padding: 0 11px !important;
           border-radius: 6px !important;
-          font-size: 0.78rem !important;
+          font-size: 0.76rem !important;
           font-weight: 600 !important;
           display: inline-flex !important;
           align-items: center !important;
-          gap: 6px !important;
+          gap: 5px !important;
           letter-spacing: 0.01em !important;
           flex-shrink: 0 !important;
           transition: all 0.15s ease !important;
@@ -562,13 +562,13 @@ export interface ExamAdmitCardDialogData {
 
         .header-close-btn {
           color: #64748b !important;
-          width: 34px !important;
-          height: 34px !important;
-          min-width: 34px !important;
+          width: 32px !important;
+          height: 32px !important;
+          min-width: 32px !important;
           padding: 0 !important;
           border-radius: 6px !important;
-          border: 1px solid #e2e8f0 !important;
-          background: #f1f5f9 !important;
+          border: 1px solid #bfdbfe !important;
+          background: #ffffff !important;
           display: inline-flex !important;
           align-items: center !important;
           justify-content: center !important;
@@ -685,7 +685,7 @@ export interface ExamAdmitCardDialogData {
     }
 
     .hall-ticket-paper {
-      max-width: 800px;
+      max-width: 880px;
       margin: 0 auto 16px auto;
       background: #ffffff;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
@@ -1343,6 +1343,7 @@ export class ExamAdmitCardDialogComponent implements OnInit {
             .fee-pill { padding: 2px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; }
             .fee-pill.cleared { background: #dcfce7; color: #15803d; }
             .fee-pill.dues { background: #fef3c7; color: #b45309; }
+            .fee-pill.dues-blocked { background: #fee2e2; color: #b91c1c; }
             .page-break { page-break-after: always; break-after: page; }
             @page { margin: 10mm; size: A4 portrait; }
           </style>
@@ -1369,7 +1370,7 @@ export class ExamAdmitCardDialogComponent implements OnInit {
 
     const feeNote = st.isFeeCleared
       ? `✅ *Fee Status*: Cleared & Verified`
-      : `⚠️ *Fee Status*: Pending (₹${st.outstandingDue})`;
+      : `ℹ️ *Fee Status*: Provisional (Due: ₹${st.outstandingDue} • To be cleared before Result)`;
 
     const textMsg = `*EXAMINATION ADMIT CARD / HALL TICKET*\n` +
       `*Institute*: ${this.instituteName}\n` +

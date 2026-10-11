@@ -20,8 +20,9 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { CoachingService } from '../../core/services/coaching.service';
-import { SchoolService, SchoolClassDto, SchoolSectionDto } from '../../core/services/school.service';
+import { SchoolService, SchoolClassDto, SchoolSectionDto, SectionPeriodRoutineDto } from '../../core/services/school.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { SubjectsService, SubjectDto } from '../../core/services/subjects.service';
 import { LocalDatetimePipe } from '../../shared/pipes/local-datetime.pipe';
@@ -37,7 +38,7 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
     CommonModule, FormsModule, ReactiveFormsModule,
     MatCardModule, MatTableModule, MatPaginatorModule, MatSortModule,
     MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule,
-    MatSelectModule, MatCheckboxModule, MatProgressBarModule,
+    MatSelectModule, MatCheckboxModule, MatProgressBarModule, MatProgressSpinnerModule,
     MatTooltipModule, MatChipsModule, MatDividerModule,
     MatDialogModule, LocalDatetimePipe, IstDatetimeDirective
   ],
@@ -336,7 +337,7 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                 </div>
               </div>
               <div class="marks-header-right">
-                <button mat-stroked-button class="result-btn" (click)="openResults(selectedTest)" matTooltip="View Leaderboard &amp; Student Result Cards">
+                <button *ngIf="canViewResults(selectedTest)" mat-stroked-button class="result-btn" (click)="openResults(selectedTest)" matTooltip="View Leaderboard &amp; Student Result Cards">
                   <mat-icon>emoji_events</mat-icon> Results &amp; Cards
                 </button>
                 <button mat-icon-button color="warn" class="close-btn" (click)="selectedTest = null" matTooltip="Close Marks Entry">
@@ -572,30 +573,35 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
               <button mat-stroked-button (click)="selectedTest = null">Cancel / Back</button>
 
               <!-- TEACHER ACTIONS (For Faculty/Teachers submitting marks) -->
-              <button *ngIf="!selectedTest.isMarksLocked && !isUserAdmin" mat-stroked-button color="primary" class="draft-marks-btn" (click)="saveMarks(false)" [disabled]="savingMarks">
-                <mat-icon>{{ savingMarks ? 'hourglass_empty' : 'save' }}</mat-icon>
+              <button *ngIf="!selectedTest.isMarksLocked && !isUserAdmin" mat-stroked-button color="primary" class="draft-marks-btn" (click)="saveMarks(false)" [disabled]="savingMarks || approvingMarks">
+                <mat-progress-spinner *ngIf="savingMarks" diameter="16" mode="indeterminate" class="btn-spinner"></mat-progress-spinner>
+                <mat-icon *ngIf="!savingMarks">save</mat-icon>
                 {{ savingMarks ? 'Saving...' : 'Save Draft' }}
               </button>
 
-              <button *ngIf="!selectedTest.isMarksLocked && !isUserAdmin" mat-raised-button color="primary" class="save-marks-btn" (click)="saveMarks(true)" [disabled]="savingMarks">
-                <mat-icon>{{ savingMarks ? 'hourglass_empty' : 'send' }}</mat-icon>
+              <button *ngIf="!selectedTest.isMarksLocked && !isUserAdmin" mat-raised-button color="primary" class="save-marks-btn" (click)="saveMarks(true)" [disabled]="savingMarks || approvingMarks">
+                <mat-progress-spinner *ngIf="savingMarks" diameter="16" mode="indeterminate" class="btn-spinner"></mat-progress-spinner>
+                <mat-icon *ngIf="!savingMarks">send</mat-icon>
                 {{ savingMarks ? 'Submitting...' : 'Save & Submit to Principal' }}
               </button>
 
               <!-- ADMIN / PRINCIPAL ACTIONS (For Admin reviewing & moderating marks) -->
-              <button *ngIf="isUserAdmin && !selectedTest.isMarksLocked" mat-stroked-button color="primary" class="draft-marks-btn" (click)="saveMarks(false)" [disabled]="savingMarks" matTooltip="Save any moderation corrections before approving">
-                <mat-icon>{{ savingMarks ? 'hourglass_empty' : 'save' }}</mat-icon>
+              <button *ngIf="isUserAdmin && !selectedTest.isMarksLocked" mat-stroked-button color="primary" class="draft-marks-btn" (click)="saveMarks(false)" [disabled]="savingMarks || approvingMarks" matTooltip="Save any moderation corrections before approving">
+                <mat-progress-spinner *ngIf="savingMarks" diameter="16" mode="indeterminate" class="btn-spinner"></mat-progress-spinner>
+                <mat-icon *ngIf="!savingMarks">save</mat-icon>
                 {{ savingMarks ? 'Saving...' : 'Save Corrections' }}
               </button>
 
               <button *ngIf="isUserAdmin && !selectedTest.isMarksLocked && (selectedTest.evaluationStatus === 'SubmittedForApproval' || selectedTest.evaluationStatus === 'MarksEntered')"
-                      mat-stroked-button color="warn" (click)="rejectForRevisionDirect(selectedTest)" matTooltip="Send back to teacher with notes for re-checking">
+                      mat-stroked-button color="warn" (click)="rejectForRevisionDirect(selectedTest)" [disabled]="savingMarks || approvingMarks" matTooltip="Send back to teacher with notes for re-checking">
                 <mat-icon>replay</mat-icon> Send Back for Revision
               </button>
 
               <button *ngIf="isUserAdmin && !selectedTest.isMarksLocked"
-                      mat-raised-button color="accent" class="approve-marks-direct-btn" (click)="openApprovalModal(selectedTest)" matTooltip="Review summary & officially approve and freeze marks">
-                <mat-icon>verified</mat-icon> Principal Approve &amp; Lock
+                      mat-raised-button color="accent" class="approve-marks-direct-btn" (click)="openApprovalModal(selectedTest)" [disabled]="savingMarks || approvingMarks" matTooltip="Review summary & officially approve and freeze marks">
+                <mat-progress-spinner *ngIf="approvingMarks" diameter="16" mode="indeterminate" class="btn-spinner"></mat-progress-spinner>
+                <mat-icon *ngIf="!approvingMarks">verified</mat-icon>
+                {{ approvingMarks ? 'Locking...' : 'Principal Approve & Lock' }}
               </button>
 
               <button *ngIf="isUserAdmin && selectedTest.isMarksLocked" mat-stroked-button color="warn" (click)="unlockMarks(selectedTest)">
@@ -770,17 +776,11 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                       <mat-icon>inventory_2</mat-icon> {{ t.evaluatorTeacherId ? 'Bundle' : 'Assign Bundle' }}
                     </button>
 
-                    <!-- Marking Foil / Award Sheet: Admin OR Assigned Teacher -->
-                    <button *ngIf="isUserAdmin || isMyBundle(t)" mat-stroked-button class="foil-btn" (click)="openAwardSheetModal(t)" matTooltip="Print Blank Award Sheet (Marking Foil)">
+                    <!-- Marking Foil / Award Sheet: Admin OR Assigned Teacher (Only before exam is officially locked) -->
+                    <button *ngIf="(isUserAdmin || isMyBundle(t)) && !t.isMarksLocked" mat-stroked-button class="foil-btn" (click)="openAwardSheetModal(t)" matTooltip="Print Blank Award Sheet (Marking Foil)">
                       <mat-icon>receipt_long</mat-icon> Foil
                     </button>
 
-                    <!-- Principal Review & Approve Button (When Submitted for Approval) -->
-                    <button *ngIf="isUserAdmin && t.evaluationStatus === 'SubmittedForApproval'"
-                            mat-raised-button color="accent" class="approval-btn" (click)="openApprovalModal(t)"
-                            matTooltip="Principal Verification: Review, Approve & Lock Marks">
-                      <mat-icon>verified</mat-icon> Approve
-                    </button>
 
                     <!-- Enter / Review / View Marks Button (If permitted) -->
                     <button *ngIf="canEnterMarks(t)" mat-raised-button color="primary" (click)="openMarksGrid(t)"
@@ -790,8 +790,8 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                       {{ t.isMarksLocked ? 'Marks 🔒' : (t.evaluationStatus === 'SubmittedForApproval' ? 'Review Marks' : 'Enter Marks') }}
                     </button>
 
-                    <!-- If Teacher but bundle is not assigned yet -->
-                    <button *ngIf="!isUserAdmin && !canEnterMarks(t)" mat-stroked-button class="enter-marks-disabled-btn" disabled
+                    <!-- If Teacher but bundle is not assigned yet and exam is not locked -->
+                    <button *ngIf="!isUserAdmin && !canEnterMarks(t) && !t.isMarksLocked" mat-stroked-button class="enter-marks-disabled-btn" disabled
                             [matTooltip]="!t.evaluatorTeacherId ? 'Bundle not yet assigned by Admin / Exam Cell' : 'Bundle assigned to ' + (t.evaluatorTeacherName || 'another evaluator')">
                       <mat-icon>lock</mat-icon> Enter Marks
                     </button>
@@ -801,20 +801,16 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                       <mat-icon>lock_open</mat-icon>
                     </button>
 
-                    <!-- Results Button: Enabled once marks entered/locked, disabled otherwise -->
+                    <!-- Results Button: Only visible once enter marks is officially locked & approved -->
                     <button *ngIf="canViewResults(t)" mat-stroked-button class="result-btn" (click)="openResults(t)" matTooltip="View Leaderboard &amp; Student Result Cards">
                       <mat-icon>emoji_events</mat-icon> Results
                     </button>
-                    <button *ngIf="!canViewResults(t)" mat-stroked-button class="result-btn-disabled" disabled
-                            [matTooltip]="isUserAdmin ? 'Enter &amp; save marks first to view results' : 'Results will be visible after evaluation &amp; Principal approval'">
-                      <mat-icon>emoji_events</mat-icon> Results
-                    </button>
 
-                    <!-- Admin Only Actions: Admit Cards and Delete -->
-                    <button *ngIf="isUserAdmin" mat-stroked-button class="admit-card-btn" (click)="openAdmitCards(t)" matTooltip="Generate &amp; Print Admit Cards / Hall Tickets">
+                    <!-- Admin Only Actions: Admit Cards and Delete (Hidden when exam results are officially locked) -->
+                    <button *ngIf="isUserAdmin && !t.isMarksLocked" mat-stroked-button class="admit-card-btn" (click)="openAdmitCards(t)" matTooltip="Generate &amp; Print Admit Cards / Hall Tickets">
                       <mat-icon>confirmation_number</mat-icon>
                     </button>
-                    <button *ngIf="isUserAdmin" mat-icon-button color="warn" (click)="deleteTest(t)" matTooltip="Delete Test">
+                    <button *ngIf="isUserAdmin && !t.isMarksLocked" mat-icon-button color="warn" (click)="deleteTest(t)" matTooltip="Delete Test">
                       <mat-icon>delete_outline</mat-icon>
                     </button>
                   </div>
@@ -922,9 +918,11 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                   <mat-icon>assignment_ind</mat-icon>
                   <div>
                     <label>Current Assigned Faculty</label>
-                    <strong [class.unassigned-text]="!bundleTest.evaluatorTeacherName">
-                      {{ bundleTest.evaluatorTeacherName || 'Not Assigned Yet' }}
-                      <span *ngIf="bundleTest.evaluatorTeacherPhone" class="spec-sub-phone">({{ bundleTest.evaluatorTeacherPhone }})</span>
+                    <strong [class.unassigned-text]="!bundleTest.evaluatorTeacherName && !bundleForm.get('evaluatorTeacherId')?.value">
+                      {{ bundleTest.evaluatorTeacherName || (getSelectedTeacherName(bundleForm.get('evaluatorTeacherId')?.value) ? getSelectedTeacherName(bundleForm.get('evaluatorTeacherId')?.value) + ' (Suggested)' : 'Not Assigned Yet') }}
+                      <span *ngIf="bundleTest.evaluatorTeacherPhone || getSelectedTeacherPhone(bundleForm.get('evaluatorTeacherId')?.value)" class="spec-sub-phone">
+                        ({{ bundleTest.evaluatorTeacherPhone || getSelectedTeacherPhone(bundleForm.get('evaluatorTeacherId')?.value) }})
+                      </span>
                     </strong>
                   </div>
                 </div>
@@ -1001,7 +999,14 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                   </mat-option>
                 </mat-select>
                 <mat-icon matPrefix>person</mat-icon>
-                <mat-hint>Choose the faculty member responsible for physical paper checking &amp; marks entry.</mat-hint>
+                <mat-hint>
+                  <span *ngIf="autoSuggestReason && !bundleTest?.evaluatorTeacherId" class="auto-fill-hint-pill">
+                    <mat-icon>auto_awesome</mat-icon> Auto-filled: <strong>{{ autoSuggestReason }}</strong>
+                  </span>
+                  <span *ngIf="!autoSuggestReason || bundleTest?.evaluatorTeacherId">
+                    Choose the faculty member responsible for physical paper checking &amp; marks entry.
+                  </span>
+                </mat-hint>
                 <mat-error *ngIf="bundleForm.get('evaluatorTeacherId')?.invalid">Please select an evaluator teacher.</mat-error>
               </mat-form-field>
 
@@ -1129,7 +1134,8 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
             <div class="footer-spacer"></div>
             <button mat-stroked-button (click)="closeApprovalModal()">Cancel</button>
             <button mat-raised-button color="primary" class="approve-seal-btn" (click)="confirmApproveAndLock()" [disabled]="approvingMarks">
-              <mat-icon>verified</mat-icon>
+              <mat-progress-spinner *ngIf="approvingMarks" diameter="16" mode="indeterminate" class="btn-spinner"></mat-progress-spinner>
+              <mat-icon *ngIf="!approvingMarks">verified</mat-icon>
               {{ approvingMarks ? 'Approving...' : 'Approve & Freeze Marks 🔒' }}
             </button>
           </div>
@@ -2070,6 +2076,11 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
       gap: 12px;
       flex-wrap: wrap;
     }
+    .btn-spinner {
+      display: inline-block;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
     .save-marks-btn {
       height: 44px;
       font-weight: 700;
@@ -2936,6 +2947,24 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
       }
     }
 
+    .auto-fill-hint-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      color: #1e40af;
+      font-weight: 500;
+      mat-icon {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
+        color: #2563eb;
+      }
+      strong {
+        color: #1e3a8a;
+        font-weight: 700;
+      }
+    }
+
     .modal-form-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
@@ -3655,6 +3684,8 @@ export class TestsComponent implements OnInit {
   teachersList: any[] = [];
   filteredTeachers: any[] = [];
   teacherSearchText = '';
+  schoolRoutines: SectionPeriodRoutineDto[] = [];
+  autoSuggestReason = '';
 
   // Principal Final Approval Modal State
   showApprovalModal = false;
@@ -3699,6 +3730,13 @@ export class TestsComponent implements OnInit {
       evaluationStatus: ['Evaluating', Validators.required],
       copiesSubmittedDate: [''],
       evaluationRemarks: ['']
+    });
+
+    this.bundleForm.get('evaluationStatus')?.valueChanges.subscribe(status => {
+      if (status === 'CopiesReturned' && !this.bundleForm.get('copiesSubmittedDate')?.value) {
+        const todayIst = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+        this.bundleForm.patchValue({ copiesSubmittedDate: todayIst });
+      }
     });
   }
 
@@ -3750,17 +3788,7 @@ export class TestsComponent implements OnInit {
 
   canViewResults(test: any): boolean {
     if (!test) return false;
-    if (test.isMarksLocked || test.evaluationStatus === 'ApprovedAndLocked' || test.evaluationStatus === 'MarksLocked') {
-      return true;
-    }
-    const evaluatedCount = test.totalStudentsEvaluated ?? test.evaluatedCount ?? 0;
-    if (this.isUserAdmin && evaluatedCount > 0) {
-      return true;
-    }
-    if (!this.isUserAdmin && this.isMyBundle(test) && evaluatedCount > 0 && test.evaluationStatus !== 'Evaluating' && test.evaluationStatus !== 'Scheduled') {
-      return true;
-    }
-    return false;
+    return !!(test.isMarksLocked || test.evaluationStatus === 'ApprovedAndLocked' || test.evaluationStatus === 'MarksLocked');
   }
 
   get instituteName(): string {
@@ -3788,9 +3816,9 @@ export class TestsComponent implements OnInit {
 
   openAdmitCards(test: any): void {
     this.dialog.open(ExamAdmitCardDialogComponent, {
-      width: '1020px',
+      width: '1280px',
       maxWidth: '96vw',
-      maxHeight: '92vh',
+      maxHeight: '94vh',
       panelClass: 'admit-card-dialog-panel',
       data: {
         testId: test.id,
@@ -3858,6 +3886,7 @@ export class TestsComponent implements OnInit {
     }
     if (this.hasSchool) {
       this.loadSchoolClasses();
+      this.loadSchoolRoutines();
     }
     this.loadTests();
     this.loadSubjects();
@@ -4299,13 +4328,36 @@ export class TestsComponent implements OnInit {
     d.setDate(d.getDate() + 3);
     const defaultDue = d.toISOString().split('T')[0];
 
-    // Ensure teacher id matches case-insensitively with teachersList item id
+    // Ensure teacher id matches case-insensitively with teachersList item id, or auto-detect
     let matchedTeacherId = '';
+    this.autoSuggestReason = '';
     if (test.evaluatorTeacherId) {
       const match = this.teachersList.find(
         t => (t.id || '').toLowerCase() === (test.evaluatorTeacherId || '').toLowerCase()
       );
       matchedTeacherId = match ? match.id : test.evaluatorTeacherId;
+    } else {
+      const detected = this.autoDetectEvaluatorTeacherId(test);
+      if (detected.teacherId) {
+        matchedTeacherId = detected.teacherId;
+        this.autoSuggestReason = detected.reason;
+      }
+    }
+
+    // Fallback: If routines were not yet loaded, load and re-detect
+    if (!matchedTeacherId && test.classId && (!this.schoolRoutines || this.schoolRoutines.length === 0)) {
+      this.schoolService.getAllSectionRoutines().subscribe({
+        next: routines => {
+          this.schoolRoutines = routines || [];
+          if (!this.bundleForm.get('evaluatorTeacherId')?.value) {
+            const reDetected = this.autoDetectEvaluatorTeacherId(test);
+            if (reDetected.teacherId) {
+              this.autoSuggestReason = reDetected.reason;
+              this.bundleForm.patchValue({ evaluatorTeacherId: reDetected.teacherId });
+            }
+          }
+        }
+      });
     }
 
     const suggestedCopies = test.totalCopiesIssued ?? (test.studentCount || (test.totalStudentsEvaluated > 0 ? test.totalStudentsEvaluated : null));
@@ -4319,6 +4371,101 @@ export class TestsComponent implements OnInit {
       evaluationRemarks: test.evaluationRemarks || ''
     });
     this.showBundleModal = true;
+  }
+
+  loadSchoolRoutines(): void {
+    this.schoolService.getAllSectionRoutines().subscribe({
+      next: routines => {
+        this.schoolRoutines = routines || [];
+      },
+      error: err => console.error('Error loading school routines:', err)
+    });
+  }
+
+  autoDetectEvaluatorTeacherId(test: any): { teacherId: string; reason: string } {
+    if (!test) return { teacherId: '', reason: '' };
+
+    // 1. If test already has evaluator assigned, preserve it
+    if (test.evaluatorTeacherId) {
+      const match = this.teachersList.find(
+        t => (t.id || '').toLowerCase() === (test.evaluatorTeacherId || '').toLowerCase()
+      );
+      if (match) {
+        return { teacherId: match.id, reason: 'Assigned Evaluator' };
+      }
+    }
+
+    // 2. School Mode:
+    if (test.classId) {
+      const cleanSub = (test.subject || '').trim().toLowerCase();
+
+      // 2a. Section + Subject Routine Match
+      if (cleanSub && this.schoolRoutines && this.schoolRoutines.length > 0) {
+        if (test.sectionId) {
+          const secRoutine = this.schoolRoutines.find(r =>
+            (r.sectionId || '').toLowerCase() === (test.sectionId || '').toLowerCase() &&
+            (r.subject || '').trim().toLowerCase() === cleanSub
+          );
+          if (secRoutine && secRoutine.teacherId) {
+            const t = this.teachersList.find(x => (x.id || '').toLowerCase() === (secRoutine.teacherId || '').toLowerCase());
+            if (t) return { teacherId: t.id, reason: `Subject Faculty for ${test.sectionName || 'Section'} (${test.subject})` };
+          }
+        }
+
+        // Class + Subject Routine Match (exact or substring)
+        const classRoutine = this.schoolRoutines.find(r =>
+          (r.classId || '').toLowerCase() === (test.classId || '').toLowerCase() &&
+          (
+            (r.subject || '').trim().toLowerCase() === cleanSub ||
+            cleanSub.includes((r.subject || '').trim().toLowerCase()) ||
+            (r.subject || '').trim().toLowerCase().includes(cleanSub)
+          )
+        );
+        if (classRoutine && classRoutine.teacherId) {
+          const t = this.teachersList.find(x => (x.id || '').toLowerCase() === (classRoutine.teacherId || '').toLowerCase());
+          if (t) return { teacherId: t.id, reason: `Subject Faculty for Class (${test.subject})` };
+        }
+      }
+
+      // 2b. Designated Class Teacher of Section or Class
+      const cls = this.schoolClasses?.find(c => (c.id || '').toLowerCase() === (test.classId || '').toLowerCase());
+      if (cls && cls.sections && cls.sections.length > 0) {
+        let targetSection = test.sectionId
+          ? cls.sections.find(s => (s.id || '').toLowerCase() === (test.sectionId || '').toLowerCase())
+          : cls.sections.find(s => !!s.classTeacherId) || cls.sections[0];
+
+        if (targetSection?.classTeacherId) {
+          const t = this.teachersList.find(x => (x.id || '').toLowerCase() === (targetSection.classTeacherId || '').toLowerCase());
+          if (t) return { teacherId: t.id, reason: `Class Teacher of ${cls.name}${targetSection.name ? ' (' + targetSection.name + ')' : ''}` };
+        }
+      }
+    }
+
+    // 3. Coaching Mode:
+    if (test.batchId) {
+      const batch = this.batches?.find(b => (b.id || '').toLowerCase() === (test.batchId || '').toLowerCase());
+      const bTeacherId = batch?.teacherId || batch?.facultyId || batch?.trainerId;
+      if (bTeacherId) {
+        const t = this.teachersList.find(x => (x.id || '').toLowerCase() === (bTeacherId || '').toLowerCase());
+        if (t) return { teacherId: t.id, reason: `Designated Batch Faculty (${batch.name || 'Batch'})` };
+      }
+    }
+
+    // 4. Specialization or Department Match across Teachers List
+    if (test.subject && this.teachersList && this.teachersList.length > 0) {
+      const cleanSub = (test.subject || '').trim().toLowerCase();
+      const specMatch = this.teachersList.find(t => {
+        const spec = (t.specialization || '').toLowerCase();
+        const dept = (t.department || '').toLowerCase();
+        return (spec && (cleanSub.includes(spec) || spec.includes(cleanSub))) ||
+               (dept && (cleanSub.includes(dept) || dept.includes(cleanSub)));
+      });
+      if (specMatch) {
+        return { teacherId: specMatch.id, reason: `Subject Specialist (${specMatch.specialization || specMatch.department})` };
+      }
+    }
+
+    return { teacherId: '', reason: '' };
   }
 
   filterTeachers(event: Event): void {
@@ -4441,12 +4588,7 @@ export class TestsComponent implements OnInit {
         next: () => {
           this.approvingMarks = false;
           this.closeApprovalModal();
-          if (this.selectedTest?.id === this.approvalTest?.id) {
-            this.selectedTest.isMarksLocked = true;
-            this.selectedTest.evaluationStatus = 'ApprovedAndLocked';
-            this.selectedTest.marksLockedBy = this.authService.currentUser()?.fullName || 'Principal';
-            this.selectedTest.marksLockedAt = new Date().toISOString();
-          }
+          this.selectedTest = null;
           this.loadTests();
           this.confirmDialog.alert('Approved & Locked! 🏆', 'Test marks have been officially approved by Principal/Admin and locked against edits.', 'success');
         },
@@ -4465,45 +4607,69 @@ export class TestsComponent implements OnInit {
 
   promptRejectRevision(): void {
     if (!this.approvalTest) return;
-    const reason = prompt('Please enter revision remarks / corrections required for the teacher:');
-    if (!reason || !reason.trim()) return;
-
-    this.approvingMarks = true;
-    this.coachingService.rejectTestMarksForRevision(this.approvalTest.id, reason.trim()).subscribe({
-      next: () => {
-        this.approvingMarks = false;
-        this.closeApprovalModal();
-        if (this.selectedTest && this.selectedTest.id === this.approvalTest?.id) {
-          this.selectedTest.evaluationStatus = 'RevisionRequested';
-          this.selectedTest.isMarksLocked = false;
-          this.selectedTest.evaluationRemarks = reason.trim();
-        }
-        this.loadTests();
-        this.confirmDialog.alert('Revision Requested ⚠️', `Marks sent back to evaluator teacher with remarks: "${reason.trim()}".`, 'warning');
-      },
-      error: err => {
-        this.approvingMarks = false;
-        this.confirmDialog.alert('Error', err?.error?.message || 'Failed to send back for revision.', 'danger');
+    this.confirmDialog.prompt(
+      'Send Back for Revision ⚠️',
+      `Specify the corrections and revision remarks required for faculty <strong>${this.approvalTest.evaluatorTeacherName || 'Evaluator'}</strong>:`,
+      {
+        inputLabel: 'Revision Remarks / Corrections Required *',
+        inputPlaceholder: 'e.g. Please re-check question 4 marking scheme for roll number 3 and 7',
+        confirmText: 'Send for Revision',
+        cancelText: 'Cancel',
+        type: 'warning',
+        inputType: 'textarea'
       }
+    ).subscribe(reason => {
+      if (!reason || !reason.trim()) return;
+
+      this.approvingMarks = true;
+      this.coachingService.rejectTestMarksForRevision(this.approvalTest.id, reason.trim()).subscribe({
+        next: () => {
+          this.approvingMarks = false;
+          this.closeApprovalModal();
+          if (this.selectedTest && this.selectedTest.id === this.approvalTest?.id) {
+            this.selectedTest.evaluationStatus = 'RevisionRequested';
+            this.selectedTest.isMarksLocked = false;
+            this.selectedTest.evaluationRemarks = reason.trim();
+          }
+          this.loadTests();
+          this.confirmDialog.alert('Revision Requested ⚠️', `Marks sent back to evaluator teacher with remarks: "${reason.trim()}".`, 'warning');
+        },
+        error: err => {
+          this.approvingMarks = false;
+          this.confirmDialog.alert('Error', err?.error?.message || 'Failed to send back for revision.', 'danger');
+        }
+      });
     });
   }
 
   unlockMarks(test: any): void {
-    const reason = prompt('Admin Authorization: Please enter the reason for unlocking marks for this test:');
-    if (!reason || !reason.trim()) return;
-
-    this.coachingService.unlockTestMarks(test.id, reason.trim()).subscribe({
-      next: () => {
-        this.loadTests();
-        if (this.selectedTest?.id === test.id) {
-          this.selectedTest.isMarksLocked = false;
-          this.selectedTest.evaluationStatus = 'MarksEntered';
-        }
-        this.confirmDialog.alert('Marks Unlocked 🔓', 'Test marks have been unlocked for corrections.', 'success');
-      },
-      error: err => {
-        this.confirmDialog.alert('Error', err?.error?.message || 'Failed to unlock marks.', 'danger');
+    this.confirmDialog.prompt(
+      'Admin Authorization: Unlock Marks 🔓',
+      `You are unlocking officially approved examination marks for <strong>"${test.title}"</strong>. Please provide an administrative reason for the audit trail:`,
+      {
+        inputLabel: 'Reason for Unlocking *',
+        inputPlaceholder: 'e.g. Correction needed in student marks as per re-evaluation request',
+        confirmText: 'Unlock Marks',
+        cancelText: 'Cancel',
+        type: 'warning',
+        inputType: 'textarea'
       }
+    ).subscribe(reason => {
+      if (!reason || !reason.trim()) return;
+
+      this.coachingService.unlockTestMarks(test.id, reason.trim()).subscribe({
+        next: () => {
+          this.loadTests();
+          if (this.selectedTest?.id === test.id) {
+            this.selectedTest.isMarksLocked = false;
+            this.selectedTest.evaluationStatus = 'MarksEntered';
+          }
+          this.confirmDialog.alert('Marks Unlocked 🔓', 'Test marks have been unlocked for corrections.', 'success');
+        },
+        error: err => {
+          this.confirmDialog.alert('Error', err?.error?.message || 'Failed to unlock marks.', 'danger');
+        }
+      });
     });
   }
 

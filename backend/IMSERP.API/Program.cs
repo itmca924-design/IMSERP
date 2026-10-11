@@ -161,7 +161,9 @@ using (var scope = app.Services.CreateScope())
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tests') AND name = 'MarksLockedBy')
                         ALTER TABLE Tests ADD MarksLockedBy NVARCHAR(150) NULL;
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tests') AND name = 'EvaluationRemarks')
-                        ALTER TABLE Tests ADD EvaluationRemarks NVARCHAR(500) NULL;
+                        ALTER TABLE Tests ADD EvaluationRemarks NVARCHAR(MAX) NULL;
+                    ELSE
+                        ALTER TABLE Tests ALTER COLUMN EvaluationRemarks NVARCHAR(MAX) NULL;
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('FeeInvoices') AND name = 'ClassId')
                         ALTER TABLE FeeInvoices ADD ClassId UNIQUEIDENTIFIER NULL;
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('FeeInvoices') AND name = 'SectionId')

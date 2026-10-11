@@ -1,9 +1,12 @@
 import { Component, Inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
 
 export interface ConfirmDialogData {
   title: string;
@@ -21,6 +24,11 @@ export interface ConfirmDialogData {
   type?: 'danger' | 'warning' | 'info' | 'success';
   isAlert?: boolean;
   defaultLang?: 'en' | 'hi';
+  isPrompt?: boolean;
+  inputLabel?: string;
+  inputPlaceholder?: string;
+  inputValue?: string;
+  inputType?: 'text' | 'textarea';
 }
 
 @Component({
@@ -28,10 +36,13 @@ export interface ConfirmDialogData {
   standalone: true,
   imports: [
     CommonModule,
+    FormsModule,
     MatDialogModule,
     MatButtonModule,
     MatIconModule,
-    MatTooltipModule
+    MatTooltipModule,
+    MatFormFieldModule,
+    MatInputModule
   ],
   template: `
     <div class="dialog-wrapper" [ngClass]="data.type || 'info'">
@@ -97,6 +108,27 @@ export interface ConfirmDialogData {
             </div>
           </div>
           <div class="dialog-message" [innerHTML]="currentMessage"></div>
+        </div>
+
+        <!-- Material Standard Prompt Input Field -->
+        <div class="prompt-field-wrap" *ngIf="data.isPrompt">
+          <mat-form-field appearance="outline" class="prompt-form-field" subscriptSizing="dynamic">
+            <mat-label>{{ data.inputLabel || 'Reason / Remarks' }}</mat-label>
+            <textarea
+              *ngIf="data.inputType === 'textarea'"
+              matInput
+              rows="3"
+              [(ngModel)]="promptValue"
+              [placeholder]="data.inputPlaceholder || 'Enter remarks...'">
+            </textarea>
+            <input
+              *ngIf="data.inputType !== 'textarea'"
+              matInput
+              [(ngModel)]="promptValue"
+              [placeholder]="data.inputPlaceholder || 'Enter remarks...'"
+              (keyup.enter)="onConfirm()" />
+            <mat-icon matPrefix>edit_note</mat-icon>
+          </mat-form-field>
         </div>
       </mat-dialog-content>
 
@@ -236,6 +268,7 @@ export interface ConfirmDialogData {
       .close-btn {
         color: #64748b;
         flex-shrink: 0;
+        margin-left: auto;
         &:hover {
           color: #1e293b;
         }
@@ -359,12 +392,50 @@ export interface ConfirmDialogData {
           background-color: #dc2626 !important;
           color: #ffffff !important;
         }
+        &.warning {
+          background: linear-gradient(135deg, #d97706 0%, #ea580c 100%) !important;
+          color: #ffffff !important;
+        }
+        &.success {
+          background: linear-gradient(135deg, #059669 0%, #10b981 100%) !important;
+          color: #ffffff !important;
+        }
+        &.info {
+          background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+          color: #ffffff !important;
+        }
+      }
+    }
+
+    /* Prompt Input Styling */
+    .prompt-field-wrap {
+      margin-top: 14px;
+      width: 100%;
+      box-sizing: border-box;
+
+      .prompt-form-field {
+        width: 100%;
+        display: block;
+
+        textarea {
+          font-size: 0.9rem;
+          color: #0f172a;
+          line-height: 1.5;
+          min-height: 72px;
+          resize: vertical;
+        }
+
+        input {
+          font-size: 0.9rem;
+          color: #0f172a;
+        }
       }
     }
   `]
 })
 export class ConfirmDialogComponent implements OnInit {
   activeLang: 'en' | 'hi' = 'hi';
+  promptValue: string = '';
 
   constructor(
     private dialogRef: MatDialogRef<ConfirmDialogComponent>,
@@ -372,6 +443,9 @@ export class ConfirmDialogComponent implements OnInit {
   ) { }
 
   ngOnInit(): void {
+    if (this.data.isPrompt) {
+      this.promptValue = this.data.inputValue || '';
+    }
     if (this.data.defaultLang) {
       this.activeLang = this.data.defaultLang;
     } else {
@@ -471,11 +545,19 @@ export class ConfirmDialogComponent implements OnInit {
   }
 
   onConfirm(): void {
-    this.dialogRef.close(true);
+    if (this.data.isPrompt) {
+      this.dialogRef.close(this.promptValue?.trim() || '');
+    } else {
+      this.dialogRef.close(true);
+    }
   }
 
   onCancel(): void {
-    this.dialogRef.close(false);
+    if (this.data.isPrompt) {
+      this.dialogRef.close(null);
+    } else {
+      this.dialogRef.close(false);
+    }
   }
 }
 

@@ -2444,6 +2444,11 @@ public class TestsController : ControllerBase
         var test = await _dbContext.Tests.FirstOrDefaultAsync(t => t.Id == testId);
         if (test == null) return NotFound("Test not found");
 
+        if (test.IsMarksLocked)
+        {
+            return BadRequest(new { message = "Cannot delete an examination session that is officially approved and locked. Unlock marks first if deletion is required." });
+        }
+
         var strategy = _dbContext.Database.CreateExecutionStrategy();
         await strategy.ExecuteAsync(async () =>
         {
@@ -2490,10 +2495,16 @@ public class TestsController : ControllerBase
                                         isSchool ? "School" :
                                         isCoaching ? "Coaching" : "General";
 
+                var displayRoll = !string.IsNullOrWhiteSpace(s?.SchoolRollNumber)
+                    ? s.SchoolRollNumber
+                    : (!string.IsNullOrWhiteSpace(s?.RollNumber)
+                        ? s.RollNumber
+                        : (!string.IsNullOrWhiteSpace(s?.AdmissionNumber) ? s.AdmissionNumber : "—"));
+
                 return new StudentRankItem(
                     m.StudentId,
                     s?.StudentName ?? "",
-                    s?.RollNumber ?? "",
+                    displayRoll,
                     m.MarksObtained,
                     test.MaxMarks > 0 ? (m.MarksObtained / test.MaxMarks) * 100 : 0,
                     index + 1,
@@ -2530,14 +2541,38 @@ public class TestsController : ControllerBase
         var test = await _dbContext.Tests
             .AsNoTracking()
             .Include(t => t.Batch)
+            .Include(t => t.Class)
+            .Include(t => t.Section)
             .Include(t => t.Branch)
             .FirstOrDefaultAsync(t => t.Id == testId);
 
         if (test == null) return NotFound("Test not found");
 
-        var students = await _dbContext.Students
+        var studentsQuery = _dbContext.Students
             .AsNoTracking()
-            .Where(s => s.BatchId == test.BatchId && s.IsActive)
+            .Include(s => s.Class)
+            .Include(s => s.Section)
+            .Include(s => s.Batch)
+            .Where(s => s.IsActive);
+
+        if (test.BatchId.HasValue && test.BatchId.Value != Guid.Empty)
+        {
+            studentsQuery = studentsQuery.Where(s => s.BatchId == test.BatchId.Value);
+        }
+        else if (test.ClassId.HasValue && test.ClassId.Value != Guid.Empty)
+        {
+            studentsQuery = studentsQuery.Where(s => s.ClassId == test.ClassId.Value);
+            if (test.SectionId.HasValue && test.SectionId.Value != Guid.Empty)
+            {
+                studentsQuery = studentsQuery.Where(s => s.SectionId == test.SectionId.Value);
+            }
+        }
+        else
+        {
+            studentsQuery = studentsQuery.Where(s => false);
+        }
+
+        var students = await studentsQuery
             .OrderBy(s => s.RollNumber)
             .ToListAsync();
 
@@ -2570,19 +2605,34 @@ public class TestsController : ControllerBase
         var examDateIst = TimeZoneInfo.ConvertTimeFromUtc(examDateUtc, istZone);
         var reportingTime = examDateIst.AddMinutes(-15).ToString("hh:mm tt");
 
+        string targetGroupName = test.Batch?.Name ??
+            (test.Class != null
+                ? (test.Section != null ? $"{test.Class.Name} ({test.Section.Name})" : test.Class.Name)
+                : "General");
+
         var studentCards = students.Select(s =>
         {
             var due = duesMap.TryGetValue(s.Id, out var d) ? d : 0m;
             var isFeeCleared = due <= 0;
-            var examRoll = $"EXAM-{s.RollNumber}";
+            var displayRoll = !string.IsNullOrWhiteSpace(s.SchoolRollNumber)
+                ? s.SchoolRollNumber
+                : (!string.IsNullOrWhiteSpace(s.RollNumber)
+                    ? s.RollNumber
+                    : (!string.IsNullOrWhiteSpace(s.AdmissionNumber) ? s.AdmissionNumber : "001"));
+            var examRoll = $"EXAM-{displayRoll}";
+
+            string studentGroupName = s.Batch?.Name ??
+                (s.Class != null
+                    ? (s.Section != null ? $"{s.Class.Name} - {s.Section.Name}" : s.Class.Name)
+                    : targetGroupName);
 
             return new StudentAdmitCardItemDto(
                 s.Id,
                 s.StudentName,
-                s.RollNumber,
-                test.Batch?.Name ?? "",
-                s.ParentName,
-                s.ParentWhatsAppPhone,
+                displayRoll,
+                studentGroupName,
+                s.ParentName ?? "",
+                s.ParentWhatsAppPhone ?? "",
                 s.ProfilePhoto,
                 due,
                 isFeeCleared,
@@ -2599,7 +2649,7 @@ public class TestsController : ControllerBase
             test.Subject,
             examDateUtc,
             test.MaxMarks,
-            test.Batch?.Name ?? "",
+            targetGroupName,
             branchName,
             studentCards
         ));

@@ -111,4 +111,39 @@ export class ConfirmDialogService {
 
     return dialogRef.afterClosed();
   }
+
+  prompt(
+    title: string,
+    message: string,
+    options?: {
+      inputLabel?: string;
+      inputPlaceholder?: string;
+      initialValue?: string;
+      confirmText?: string;
+      cancelText?: string;
+      type?: 'danger' | 'warning' | 'info' | 'success';
+      inputType?: 'text' | 'textarea';
+    }
+  ): Observable<string | null> {
+    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+      width: '520px',
+      maxWidth: '92vw',
+      panelClass: 'erp-confirm-dialog-panel',
+      disableClose: true,
+      data: {
+        title,
+        message,
+        confirmText: options?.confirmText || 'Submit',
+        cancelText: options?.cancelText || 'Cancel',
+        type: options?.type || 'warning',
+        isPrompt: true,
+        inputLabel: options?.inputLabel || 'Reason / Remarks',
+        inputPlaceholder: options?.inputPlaceholder || 'Enter remarks...',
+        inputValue: options?.initialValue || '',
+        inputType: options?.inputType || 'textarea'
+      } as ConfirmDialogData
+    });
+
+    return dialogRef.afterClosed();
+  }
 }
