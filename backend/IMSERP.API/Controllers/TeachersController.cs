@@ -1489,10 +1489,12 @@ public class TeachersController : ControllerBase
             var personRecords = records.Where(record => record.TeacherId == teacher.Id).ToList();
             var statuses = personRecords.Select(record => EvaluateSmartAttendanceStatus(record.Status, record.CheckInTime, record.CheckOutTime)).ToList();
             var present = statuses.Count(status => status == TeacherAttendanceStatus.Present);
-            var absent = statuses.Count(status => status == TeacherAttendanceStatus.Absent);
+            var recordedAbsent = statuses.Count(status => status == TeacherAttendanceStatus.Absent);
             var late = statuses.Count(status => status == TeacherAttendanceStatus.Late);
             var half = statuses.Count(status => status == TeacherAttendanceStatus.HalfDay);
 
+            var today = DateTime.UtcNow.Date;
+            var pastUnmarkedWorkingDays = 0;
             var dailyMap = new List<string>();
             for (int day = 1; day <= totalDaysInMonth; day++)
             {
@@ -1518,6 +1520,11 @@ public class TeachersController : ControllerBase
                         };
                         dailyMap.Add($"{day}:{code}");
                     }
+                    else if (curDate < today)
+                    {
+                        pastUnmarkedWorkingDays++;
+                        dailyMap.Add($"{day}:A");
+                    }
                     else
                     {
                         dailyMap.Add($"{day}:-");
@@ -1525,9 +1532,10 @@ public class TeachersController : ControllerBase
                 }
             }
 
+            var absent = recordedAbsent + pastUnmarkedWorkingDays;
             var attendedWeighted = present + late + (half * 0.5m);
             var evaluated = present + absent + late + half;
-            var denominator = Math.Max(totalWorkingDays, evaluated);
+            var denominator = evaluated > 0 ? evaluated : totalWorkingDays;
             var attendancePercentage = (denominator == 0 || attendedWeighted == 0)
                 ? 0m
                 : Math.Min(100m, Math.Round((attendedWeighted / (decimal)denominator) * 100m, 1));
@@ -1655,9 +1663,22 @@ public class TeachersController : ControllerBase
         int holiday = offDates.Count;
         int totalWorkingDays = Math.Max(0, daysInMonth - holiday);
 
+        var today = DateTime.UtcNow.Date;
+        for (int d = 1; d <= daysInMonth; d++)
+        {
+            var curDate = new DateTime(year, month, d);
+            if (curDate < today && !offDates.Contains(curDate.Date))
+            {
+                if (!records.Any(r => r.AttendanceDate.Date == curDate.Date))
+                {
+                    absent++;
+                }
+            }
+        }
+
         int evaluatedDays = present + absent + late + half;
         decimal pct = 0;
-        int denominator = Math.Max(totalWorkingDays, evaluatedDays);
+        int denominator = evaluatedDays > 0 ? evaluatedDays : totalWorkingDays;
         if (denominator > 0)
         {
             decimal attendedEffective = present + late + (half * 0.5m);

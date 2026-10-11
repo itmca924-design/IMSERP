@@ -418,6 +418,8 @@ public class StudentAttendance
     public Guid StudentId { get; set; }
     public DateTime AttendanceDate { get; set; }
     public TeacherAttendanceStatus Status { get; set; } = TeacherAttendanceStatus.Present;
+    public string? CheckInTime { get; set; }
+    public string? CheckOutTime { get; set; }
     public string? Remarks { get; set; }
     public string? MarkedBy { get; set; }
     public string CaptureSource { get; set; } = "Manual";

@@ -62,6 +62,8 @@ interface DailyDayItem {
   remarks?: string;
   holidayTitle?: string;
   checkInTime?: string;
+  checkOutTime?: string;
+  workDuration?: string;
   captureSource?: string;
 }
 
@@ -570,12 +572,53 @@ export class AttendanceReportsComponent implements OnInit, OnDestroy {
     return Math.round((onTime / present) * 100);
   }
 
+  parseTimeToMinutes(timeStr?: string | null): number | null {
+    if (!timeStr) return null;
+    const parts = timeStr.trim().split(':');
+    if (parts.length < 2) return null;
+    const h = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10);
+    if (isNaN(h) || isNaN(m)) return null;
+    return h * 60 + m;
+  }
+
+  getDiffMinutes(inTime?: string | null, outTime?: string | null): number | null {
+    const inM = this.parseTimeToMinutes(inTime);
+    const outM = this.parseTimeToMinutes(outTime);
+    if (inM === null || outM === null) return null;
+    const diff = outM - inM;
+    return diff >= 0 ? diff : null;
+  }
+
+  calculateDuration(inTime?: string | null, outTime?: string | null): string {
+    const diff = this.getDiffMinutes(inTime, outTime);
+    if (diff === null) return '';
+    const hours = Math.floor(diff / 60);
+    const mins = diff % 60;
+    if (hours === 0) return `${mins}m`;
+    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+  }
+
+  formatDisplayTime(timeStr?: string | null): string {
+    if (!timeStr) return '';
+    const parts = timeStr.trim().split(':');
+    if (parts.length < 2) return timeStr;
+    let h = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10);
+    if (isNaN(h) || isNaN(m)) return timeStr;
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12;
+    h = h ? h : 12;
+    const mStr = m < 10 ? '0' + m : m;
+    return `${h}:${mStr} ${ampm}`;
+  }
+
   getLastPunchInfo(row: ReportRow): DailyDayItem | null {
     const days = this.getDailyMatrix(row);
     if (!days || days.length === 0) return null;
     for (let i = days.length - 1; i >= 0; i--) {
       const d = days[i];
-      if (d.checkInTime || d.status === 'P' || d.status === 'LT') {
+      if (d.checkInTime || d.checkOutTime || d.status === 'P' || d.status === 'LT') {
         return d;
       }
     }
@@ -743,11 +786,17 @@ export class AttendanceReportsComponent implements OnInit, OnDestroy {
         if (code === 'L') {
           statusText = leaveRemarks ? `Leave: ${leaveRemarks}` : 'Sanctioned Leave';
         }
+        const checkIn = rec.checkInTime || rec.CheckInTime || undefined;
+        const checkOut = rec.checkOutTime || rec.CheckOutTime || undefined;
+        const duration = this.calculateDuration(checkIn, checkOut);
+
         const sl = rec.captureSource === 'ManualBulk' ? 'Coaching' : (rec.captureSource?.startsWith('ManualSchool') ? 'School' : (rec.captureSource || ''));
         const sourceStr = sl ? ` • ${sl}` : '';
-        const inTimeStr = rec.checkInTime ? ` • In: ${rec.checkInTime}` : '';
+        const inTimeStr = checkIn ? ` • In: ${this.formatDisplayTime(checkIn)}` : '';
+        const outTimeStr = checkOut ? ` • Out: ${this.formatDisplayTime(checkOut)}` : '';
+        const durStr = duration ? ` (${duration})` : '';
 
-        let fullLabel = `${d} ${this.months[this.selectedMonth - 1]} (${dayOfWeek}): ${statusText}${sourceStr}${inTimeStr}`;
+        let fullLabel = `${d} ${this.months[this.selectedMonth - 1]} (${dayOfWeek}): ${statusText}${sourceStr}${inTimeStr}${outTimeStr}${durStr}`;
         if (hTitle && code !== 'H') {
           fullLabel += ` [Holiday: ${hTitle}]`;
         }
@@ -761,7 +810,9 @@ export class AttendanceReportsComponent implements OnInit, OnDestroy {
           statusText: statusText,
           remarks: leaveRemarks || undefined,
           holidayTitle: hTitle,
-          checkInTime: rec.checkInTime || undefined,
+          checkInTime: checkIn,
+          checkOutTime: checkOut,
+          workDuration: duration || undefined,
           captureSource: sl || undefined
         });
       } else if (matchedHoliday) {
@@ -775,14 +826,31 @@ export class AttendanceReportsComponent implements OnInit, OnDestroy {
           holidayTitle: hTitle
         });
       } else {
-        daysArr.push({
-          day: d,
-          dayOfWeek,
-          isSunday: false,
-          status: '-',
-          label: `${d} ${this.months[this.selectedMonth - 1]} (${dayOfWeek}): Not Marked / Future`,
-          statusText: 'Not Marked'
-        });
+        const ymd = `${this.selectedYear}-${String(this.selectedMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const now = new Date();
+        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        const isPast = ymd < todayStr;
+        const isToday = ymd === todayStr;
+
+        if (isPast) {
+          daysArr.push({
+            day: d,
+            dayOfWeek,
+            isSunday: false,
+            status: 'A',
+            label: `${d} ${this.months[this.selectedMonth - 1]} (${dayOfWeek}): Absent (Unmarked)`,
+            statusText: 'Absent (Unmarked)'
+          });
+        } else {
+          daysArr.push({
+            day: d,
+            dayOfWeek,
+            isSunday: false,
+            status: '-',
+            label: `${d} ${this.months[this.selectedMonth - 1]} (${dayOfWeek}): ${isToday ? 'Today (Unmarked)' : 'Upcoming / Future Date'}`,
+            statusText: isToday ? 'Not Marked Yet' : 'Upcoming'
+          });
+        }
       }
     }
     this.dailyMatrixCache[personId] = daysArr;
@@ -795,6 +863,9 @@ export class AttendanceReportsComponent implements OnInit, OnDestroy {
     if (this.dailyMatrixCache[row.personId]) return this.dailyMatrixCache[row.personId];
     this.loadDailyAttendanceIfNeeded(row.personId);
     const wd = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
     return Array.from({length: this.getDaysInMonth()}, (_, i) => {
       const d = i+1; const dt = new Date(this.selectedYear, this.selectedMonth-1, d);
       const dow = wd[dt.getDay()]; const sun = dt.getDay()===0;
@@ -806,15 +877,21 @@ export class AttendanceReportsComponent implements OnInit, OnDestroy {
       });
       const hTitle = matchedH ? (matchedH.title || matchedH.name) : undefined;
       const isH = !sun && !!matchedH;
+      const isPast = ymd < todayStr;
+      const isToday = ymd === todayStr;
+
+      const cellStatus = sun ? 'OFF' : (isH ? 'H' : (isPast ? 'A' : '-'));
+      const cellText = sun ? 'Weekly Off' : (isH ? `Holiday: ${hTitle}` : (isPast ? 'Absent (Unmarked)' : (isToday ? 'Not Marked Yet' : 'Upcoming')));
+
       return {
         day: d,
         dayOfWeek: dow,
         isSunday: sun,
-        status: sun ? 'OFF' : (isH ? 'H' : '-'),
+        status: cellStatus,
         label: sun
           ? (hTitle ? `${d} ${this.months[this.selectedMonth-1]} (${dow}): Sunday • ${hTitle}` : `${d} ${this.months[this.selectedMonth-1]} (${dow}): Sunday (Weekly Off)`)
-          : (isH ? `${d} ${this.months[this.selectedMonth-1]} (${dow}): Holiday - ${hTitle}` : `${d} ${this.months[this.selectedMonth-1]} (${dow})`),
-        statusText: sun ? 'Weekly Off' : (isH ? `Holiday: ${hTitle}` : 'Not Marked'),
+          : (isH ? `${d} ${this.months[this.selectedMonth-1]} (${dow}): Holiday - ${hTitle}` : `${d} ${this.months[this.selectedMonth-1]} (${dow}): ${cellText}`),
+        statusText: cellText,
         holidayTitle: hTitle
       };
     });

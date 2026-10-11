@@ -1015,6 +1015,8 @@ export class TeacherAttendanceComponent implements OnInit {
       } else if (isSunday) {
         status = 'Holiday';
         holidayTitle = holidayTitle || 'Sunday (Weekly Off)';
+      } else if (dateStr < todayStr) {
+        status = 'Absent';
       }
 
       // Check if this date has a pending leave cancellation request
@@ -1058,8 +1060,11 @@ export class TeacherAttendanceComponent implements OnInit {
     if (d.isSunday) {
       return 'SUN';
     }
-    if (d.isSaturday) {
+    if (d.isSaturday && d.dateStr >= this.todayStr) {
       return 'SAT';
+    }
+    if (d.dateStr < this.todayStr) {
+      return 'A'; // Past working day unmarked -> Absent
     }
     return '—';
   }

@@ -177,7 +177,13 @@ export class CoachingService {
     batchId: string;
     attendanceDate: string;
     sendWhatsAppAlerts: boolean;
-    items: Array<{ studentId: string; status: string; remarks?: string | null }>;
+    items: Array<{
+      studentId: string;
+      status: string;
+      remarks?: string | null;
+      checkInTime?: string | null;
+      checkOutTime?: string | null;
+    }>;
   }): Observable<any> {
     return this.http.post<any>(`${this.BASE_URL}/students/batch/${batchId}/attendance/bulk`, payload);
   }

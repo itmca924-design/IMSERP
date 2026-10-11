@@ -53,6 +53,8 @@ interface BatchStudentRow {
   attendanceId?: string | null;
   capturedAt?: string | null;
   captureSource?: string | null;
+  checkInTime?: string | null;
+  checkOutTime?: string | null;
 }
 
 interface StudentAttendance {
@@ -68,6 +70,10 @@ interface StudentAttendance {
   CapturedAt?: string | null;
   createdAt?: string | null;
   CreatedAt?: string | null;
+  checkInTime?: string | null;
+  checkOutTime?: string | null;
+  CheckInTime?: string | null;
+  CheckOutTime?: string | null;
 }
 
 interface AttendanceSummary {
@@ -92,6 +98,9 @@ interface CalendarDay {
   record?: StudentAttendance;
   status: string;
   capturedTime?: string;
+  checkInTime?: string | null;
+  checkOutTime?: string | null;
+  workDuration?: string | null;
 }
 
 @Component({
@@ -262,6 +271,30 @@ interface CalendarDay {
           </button>
         </div>
       </div>
+
+      <!-- Quick Default Timings Strip -->
+      <div class="roll-call-timings-bar" *ngIf="isScopeSelected">
+        <div class="rct-label">
+          <mat-icon>schedule</mat-icon>
+          <span>Default {{ rollCallScope === 'school' ? 'Class' : 'Batch' }} Timings:</span>
+        </div>
+        <div class="rct-fields">
+          <div class="rct-input-wrap">
+            <label>In</label>
+            <input type="time" [(ngModel)]="bulkCheckInTime" (ngModelChange)="onBulkTimingsChanged()" [disabled]="isBatchPastLocked" title="Default Check-In Time">
+          </div>
+          <div class="rct-input-wrap">
+            <label>Out</label>
+            <input type="time" [(ngModel)]="bulkCheckOutTime" (ngModelChange)="onBulkTimingsChanged()" [disabled]="isBatchPastLocked" title="Default Check-Out Time">
+          </div>
+          <button type="button" class="rct-apply-btn" (click)="applyBulkTimingsToPresent()" [disabled]="isBatchPastLocked" matTooltip="Apply these timings to all Present students">
+            <mat-icon>sync</mat-icon> Apply to Present
+          </button>
+          <span class="rct-dur-badge" *ngIf="calculateDuration(bulkCheckInTime, bulkCheckOutTime)">
+            {{ calculateDuration(bulkCheckInTime, bulkCheckOutTime) }}
+          </span>
+        </div>
+      </div>
     </mat-card>
 
     <!-- Success Message Banner -->
@@ -312,7 +345,8 @@ interface CalendarDay {
               <th style="width: 110px;">{{ rollCallScope === 'school' ? 'School Roll / Adm' : 'Roll Number' }}</th>
               <th style="width: 135px;">Parent WhatsApp</th>
               <th style="width: 250px; text-align: center;">Attendance Status</th>
-              <th class="remarks-col" style="width: 180px; text-align: left;">Remarks / Note</th>
+              <th style="width: 210px; text-align: center;">Timings (In / Out)</th>
+              <th class="remarks-col" style="width: 160px; text-align: left;">Remarks / Note</th>
             </tr>
           </thead>
           <tbody>
@@ -367,6 +401,19 @@ interface CalendarDay {
                     <span class="label">Half</span>
                   </button>
                 </div>
+              </td>
+              <td class="timings-cell">
+                <div class="row-timings" *ngIf="s.status !== 'Absent'">
+                  <div class="time-field" matTooltip="Check-in Time">
+                    <span class="t-badge">In</span>
+                    <input type="time" [(ngModel)]="s.checkInTime" [disabled]="isBatchPastLocked" class="table-time-input">
+                  </div>
+                  <div class="time-field" matTooltip="Check-out Time">
+                    <span class="t-badge">Out</span>
+                    <input type="time" [(ngModel)]="s.checkOutTime" [disabled]="isBatchPastLocked" class="table-time-input">
+                  </div>
+                </div>
+                <span *ngIf="s.status === 'Absent'" class="absent-timings-dash">—</span>
               </td>
               <td class="remarks-cell">
                 <input type="text" [(ngModel)]="s.remarks" [disabled]="isBatchPastLocked" placeholder="Add note..." class="remarks-input" />
@@ -488,13 +535,51 @@ interface CalendarDay {
       </div>
 
       <mat-card class="form-card mat-elevation-z1" *ngIf="showForm">
-        <div class="form-heading"><div><strong>{{ editingRecordId ? 'Edit Attendance Record' : 'Log Attendance Record' }}</strong><small>Enter date, status, and remarks.</small></div><button mat-icon-button (click)="showForm = false"><mat-icon>close</mat-icon></button></div>
-        <div class="form-row">
-          <mat-form-field appearance="outline"><mat-label>Attendance Date</mat-label><input matInput type="date" [(ngModel)]="formData.attendanceDate" [min]="minAttendanceDate" [max]="todayStr"></mat-form-field>
-          <mat-form-field appearance="outline"><mat-label>Status</mat-label><mat-select [(ngModel)]="formData.status"><mat-option value="Present">Present</mat-option><mat-option value="Absent">Absent</mat-option><mat-option value="Late">Late</mat-option><mat-option value="HalfDay">Half Day</mat-option><mat-option value="Holiday">Holiday</mat-option></mat-select></mat-form-field>
-          <mat-form-field appearance="outline" class="remarks-field"><mat-label>Remarks</mat-label><input matInput [(ngModel)]="formData.remarks" placeholder="Optional notes"></mat-form-field>
+        <div class="form-heading">
+          <div>
+            <strong>{{ editingRecordId ? 'Edit Attendance Record' : 'Log Attendance Record' }}</strong>
+            <small>Enter date, status, check-in, check-out and remarks.</small>
+          </div>
+          <button mat-icon-button (click)="showForm = false"><mat-icon>close</mat-icon></button>
         </div>
-        <div class="form-actions"><button mat-button (click)="showForm = false">Cancel</button><button mat-raised-button color="primary" (click)="saveAttendance()" [disabled]="saving">Save Record</button></div>
+        <div class="form-row">
+          <mat-form-field appearance="outline">
+            <mat-label>Attendance Date</mat-label>
+            <input matInput type="date" [(ngModel)]="formData.attendanceDate" [min]="minAttendanceDate" [max]="todayStr">
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Status</mat-label>
+            <mat-select [(ngModel)]="formData.status" (selectionChange)="onFormStatusChanged()">
+              <mat-option value="Present">Present</mat-option>
+              <mat-option value="Absent">Absent</mat-option>
+              <mat-option value="Late">Late</mat-option>
+              <mat-option value="HalfDay">Half Day</mat-option>
+              <mat-option value="Holiday">Holiday</mat-option>
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline" *ngIf="formData.status !== 'Absent' && formData.status !== 'Holiday'">
+            <mat-label>In Time (Check-In)</mat-label>
+            <input matInput type="time" [(ngModel)]="formData.checkInTime">
+            <mat-icon matPrefix>login</mat-icon>
+          </mat-form-field>
+          <mat-form-field appearance="outline" *ngIf="formData.status !== 'Absent' && formData.status !== 'Holiday'">
+            <mat-label>Out Time (Check-Out)</mat-label>
+            <input matInput type="time" [(ngModel)]="formData.checkOutTime">
+            <mat-icon matPrefix>logout</mat-icon>
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="remarks-field">
+            <mat-label>Remarks</mat-label>
+            <input matInput [(ngModel)]="formData.remarks" placeholder="Optional notes">
+          </mat-form-field>
+        </div>
+        <div class="form-duration-hint" *ngIf="formData.status !== 'Absent' && formData.status !== 'Holiday' && calculateDuration(formData.checkInTime, formData.checkOutTime)">
+          <mat-icon>schedule</mat-icon>
+          <span>Calculated Duration: <strong>{{ calculateDuration(formData.checkInTime, formData.checkOutTime) }}</strong> (In: {{ formatDisplayTime(formData.checkInTime) }} &bull; Out: {{ formatDisplayTime(formData.checkOutTime) }})</span>
+        </div>
+        <div class="form-actions">
+          <button mat-button (click)="showForm = false">Cancel</button>
+          <button mat-raised-button color="primary" (click)="saveAttendance()" [disabled]="saving">Save Record</button>
+        </div>
       </mat-card>
 
       <mat-card class="calendar-card mat-elevation-z1">
@@ -547,7 +632,22 @@ interface CalendarDay {
             <span class="day-num">{{ day.dayNumber }}</span>
             <span class="day-name">{{ day.dayOfWeek }}</span>
             <span class="day-tag" *ngIf="day.status">{{ day.status === 'HalfDay' ? 'Half' : day.status }}</span>
-            <span class="day-time" *ngIf="day.capturedTime">{{ day.capturedTime }}</span>
+
+            <!-- Rich Punch Timings & Duration Display -->
+            <div class="day-times-wrap" *ngIf="day.checkInTime || day.checkOutTime || day.capturedTime">
+              <span class="day-punch punch-in" *ngIf="day.checkInTime">
+                <mat-icon>login</mat-icon> In {{ formatDisplayTime(day.checkInTime) }}
+              </span>
+              <span class="day-punch punch-out" *ngIf="day.checkOutTime">
+                <mat-icon>logout</mat-icon> Out {{ formatDisplayTime(day.checkOutTime) }}
+              </span>
+              <span class="day-punch punch-captured" *ngIf="!day.checkInTime && !day.checkOutTime && day.capturedTime">
+                {{ day.capturedTime }}
+              </span>
+              <span class="day-punch-dur" *ngIf="day.workDuration">
+                <mat-icon>timelapse</mat-icon> {{ day.workDuration }}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -557,7 +657,7 @@ interface CalendarDay {
             <div class="mfb-badge">{{ selectedMatrixDates.size }}</div>
             <div class="mfb-text">
               <strong>{{ selectedMatrixDates.size }} Dates Selected</strong>
-              <small>Choose status & apply in 1-click</small>
+              <small>Choose status, timings & apply in 1-click</small>
             </div>
           </div>
           <div class="mfb-center">
@@ -576,6 +676,17 @@ interface CalendarDay {
             <button type="button" class="mfb-pill pill-l" [class.active]="batchTargetStatus === 'Leave'" (click)="batchTargetStatus = 'Leave'">
               <mat-icon>event_busy</mat-icon> Leave
             </button>
+
+            <!-- Multi-Date Timings Inputs -->
+            <div class="mfb-time-wrap" *ngIf="batchTargetStatus !== 'Absent' && batchTargetStatus !== 'Leave'">
+              <label>In:</label>
+              <input type="time" class="mfb-time-input" [(ngModel)]="batchTargetCheckIn" title="In Time">
+            </div>
+            <div class="mfb-time-wrap" *ngIf="batchTargetStatus !== 'Absent' && batchTargetStatus !== 'Leave'">
+              <label>Out:</label>
+              <input type="time" class="mfb-time-input" [(ngModel)]="batchTargetCheckOut" title="Out Time">
+            </div>
+
             <input type="text" class="mfb-remarks-input" [(ngModel)]="batchTargetRemarks" placeholder="Optional notes / remarks...">
           </div>
           <div class="mfb-right">
@@ -594,14 +705,28 @@ interface CalendarDay {
       <mat-card class="records-card mat-elevation-z1">
         <div class="records-heading">
           <strong>Raw Attendance Logs ({{ records.length }} Events)</strong>
-          <span>Monthly timestamp, capture sources and notes</span>
+          <span>Monthly timestamp, punch in/out and duration</span>
         </div>
         <div *ngFor="let record of records" class="record-row">
           <div><strong>{{ record.attendanceDate | date:'fullDate' }}</strong><small>{{ record.attendanceDate | date:'EEEE' }}</small></div>
           <span class="status" [ngClass]="record.status.toLowerCase()">{{ record.status === 'HalfDay' ? 'Half Day' : record.status }}</span>
+          <div class="log-times">
+            <span class="log-time-in" *ngIf="record.checkInTime || record.CheckInTime">
+              <mat-icon>login</mat-icon> In: {{ formatDisplayTime(record.checkInTime || record.CheckInTime) }}
+            </span>
+            <span class="log-time-out" *ngIf="record.checkOutTime || record.CheckOutTime">
+              <mat-icon>logout</mat-icon> Out: {{ formatDisplayTime(record.checkOutTime || record.CheckOutTime) }}
+            </span>
+            <span class="log-duration" *ngIf="calculateDuration(record.checkInTime || record.CheckInTime, record.checkOutTime || record.CheckOutTime)">
+              <mat-icon>timelapse</mat-icon> {{ calculateDuration(record.checkInTime || record.CheckInTime, record.checkOutTime || record.CheckOutTime) }}
+            </span>
+            <span class="log-no-time" *ngIf="!record.checkInTime && !record.CheckInTime && !record.checkOutTime && !record.CheckOutTime">
+              {{ getRecordCapturedTime(record) ? (getRecordCapturedTime(record) + ' IST') : '—' }}
+            </span>
+          </div>
           <span class="source-tag">
             {{ record.captureSource || 'Manual' }}
-            <small *ngIf="getRecordCapturedTime(record)" class="time-sub">{{ getRecordCapturedTime(record) }}</small>
+            <small *ngIf="getRecordCapturedTime(record) && (record.checkInTime || record.CheckInTime)" class="time-sub">{{ getRecordCapturedTime(record) }}</small>
           </span>
           <span class="remarks">{{ record.remarks || '—' }}</span>
           <div class="record-actions">
@@ -1043,16 +1168,16 @@ interface CalendarDay {
     .status-pill.h-btn.selected { background: #9333ea; color: #ffffff; }
 
     .remarks-col {
-      width: 180px;
-      min-width: 170px;
+      width: 160px;
+      min-width: 150px;
     }
     .remarks-cell {
       padding-right: 32px !important;
-      width: 180px;
-      min-width: 170px;
+      width: 160px;
+      min-width: 150px;
     }
     .remarks-input {
-      width: 150px;
+      width: 140px;
       max-width: 100%;
       box-sizing: border-box;
       padding: 7px 11px;
@@ -1068,6 +1193,51 @@ interface CalendarDay {
       border-color: #2563eb;
       box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
     }
+
+    /* Roll Call Timings Bar & Table Timings */
+    .roll-call-timings-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 12px; margin-top: 14px; padding: 10px 16px;
+      background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+      border: 1px solid #e2e8f0; border-radius: 10px;
+    }
+    .rct-label {
+      display: inline-flex; align-items: center; gap: 6px; font-weight: 700;
+      font-size: 0.84rem; color: #1e293b;
+    }
+    .rct-label mat-icon { font-size: 18px; width: 18px; height: 18px; color: #2563eb; }
+    .rct-fields { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .rct-input-wrap { display: inline-flex; align-items: center; gap: 6px; }
+    .rct-input-wrap label { font-size: 0.76rem; font-weight: 700; color: #64748b; }
+    .rct-input-wrap input {
+      border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px 8px; font-size: 0.82rem;
+      background: #ffffff; color: #1e293b; font-weight: 600; outline: none;
+    }
+    .rct-input-wrap input:focus { border-color: #2563eb; }
+    .rct-apply-btn {
+      display: inline-flex; align-items: center; gap: 4px; border: 1px solid #93c5fd;
+      background: #eff6ff; color: #1d4ed8; font-weight: 700; font-size: 0.76rem;
+      padding: 5px 12px; border-radius: 6px; cursor: pointer; transition: all 0.15s;
+    }
+    .rct-apply-btn:hover { background: #dbeafe; }
+    .rct-apply-btn mat-icon { font-size: 15px; width: 15px; height: 15px; }
+    .rct-dur-badge {
+      background: #e0e7ff; color: #3730a3; font-size: 0.74rem; font-weight: 800;
+      padding: 3px 8px; border-radius: 6px;
+    }
+    .timings-cell { width: 210px; min-width: 200px; text-align: center; }
+    .row-timings { display: inline-flex; align-items: center; gap: 6px; justify-content: center; }
+    .time-field { display: inline-flex; align-items: center; gap: 3px; }
+    .time-field .t-badge {
+      font-size: 0.65rem; font-weight: 800; color: #64748b; text-transform: uppercase;
+      background: #f1f5f9; padding: 2px 4px; border-radius: 4px; border: 1px solid #e2e8f0;
+    }
+    .table-time-input {
+      border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px 6px; font-size: 0.78rem;
+      font-weight: 600; color: #1e293b; background: #ffffff; width: 80px; outline: none;
+    }
+    .table-time-input:focus { border-color: #2563eb; }
+    .absent-timings-dash { color: #94a3b8; font-weight: 600; font-size: 0.9rem; }
 
     /* Save Bar */
     .save-bar {
@@ -1300,6 +1470,15 @@ interface CalendarDay {
       min-width: 170px;
     }
     .mfb-remarks-input:focus { border-color: #3b82f6; }
+    .mfb-time-wrap {
+      display: inline-flex; align-items: center; gap: 4px; background: #1e293b;
+      padding: 3px 8px; border-radius: 6px; border: 1px solid #334155;
+    }
+    .mfb-time-wrap label { font-size: 0.68rem; font-weight: 700; color: #94a3b8; }
+    .mfb-time-input {
+      background: transparent; border: none; color: #ffffff; font-size: 0.74rem;
+      font-weight: 700; outline: none; width: 72px;
+    }
     .mfb-right { display: flex; align-items: center; gap: 8px; }
     .mfb-save-btn {
       display: inline-flex;
@@ -1331,14 +1510,34 @@ interface CalendarDay {
     }
     .mfb-close-btn:hover { background: #334155; color: #ffffff; }
 
+    .day-cell { min-height: 84px !important; }
     .day-cell:hover { transform: translateY(-1px); box-shadow: 0 4px 10px rgba(0,0,0,0.06); }
     .day-cell .day-num { font-weight: 800; font-size: 0.88rem; line-height: 1.1; }
     .day-cell .day-name { color: #94a3b8; font-size: .64rem; line-height: 1.1; }
-    .day-cell .day-tag { font-size: .72rem; line-height: 1.2; }
+    .day-cell .day-tag { font-size: .72rem; line-height: 1.2; font-weight: 700; }
     .day-cell .day-time {
       font-size: .62rem; font-weight: 700; line-height: 1.1; letter-spacing: -0.01em; opacity: 0.92;
       margin-top: 1px;
     }
+    .day-times-wrap {
+      display: flex; flex-direction: column; gap: 1px; width: 100%; margin-top: 2px;
+    }
+    .day-punch {
+      font-size: 0.58rem; font-weight: 700; line-height: 1.15;
+      display: flex; align-items: center; justify-content: center; gap: 2px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .day-punch mat-icon { font-size: 10px; width: 10px; height: 10px; }
+    .punch-in { color: #15803d; }
+    .punch-out { color: #0284c7; }
+    .punch-captured { color: #64748b; }
+    .day-punch-dur {
+      font-size: 0.54rem; font-weight: 800; background: rgba(0,0,0,0.06);
+      padding: 0 4px; border-radius: 4px; display: inline-flex; align-items: center;
+      justify-content: center; gap: 2px; align-self: center; margin-top: 1px; color: #334155;
+    }
+    .day-punch-dur mat-icon { font-size: 9px; width: 9px; height: 9px; }
+
     .day-cell.present { background: #dcfce7; border-color: #86efac; color: #15803d; }
     .day-cell.present .day-name { color: #16a34a; }
     .day-cell.absent { background: #fee2e2; border-color: #fca5a5; color: #b91c1c; }
@@ -1369,16 +1568,39 @@ interface CalendarDay {
     .day-cell.future.sunday { background: #fff1f2 !important; border-color: #fecdd3 !important; color: #fda4af !important; }
     .day-cell.future.saturday { background: #eff6ff !important; border-color: #dbeafe !important; color: #93c5fd !important; }
     .day-cell.future.holiday { background: #fefce8 !important; border-color: #fef08a !important; color: #fde047 !important; }
+    
+    .form-duration-hint {
+      display: flex; align-items: center; gap: 6px; background: #eff6ff; color: #1e40af;
+      padding: 6px 12px; border-radius: 8px; font-size: 0.82rem; margin: -6px 0 12px;
+      border: 1px solid #bfdbfe;
+    }
+    .form-duration-hint mat-icon { font-size: 18px; width: 18px; height: 18px; color: #2563eb; }
+
     .record-row .source-tag { display: flex; flex-direction: column; font-size: .78rem; font-weight: 600; color: #475569; }
     .record-row .source-tag .time-sub { font-size: .7rem; color: #059669; font-weight: 700; }
     .records-heading { padding-bottom: 10px; border-bottom: 1px solid #e2e8f0; }
     .records-heading span { color: #64748b; font-size: .78rem; }
     .record-row {
-      display: grid; grid-template-columns: 190px 120px 100px minmax(100px, 1fr) 104px;
+      display: grid; grid-template-columns: 160px 95px 150px 95px minmax(90px, 1fr) 104px;
       align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid #f1f5f9;
     }
     .record-row > div { display: flex; flex-direction: column; }
     .record-row small { color: #64748b; font-size: .72rem; }
+    .log-times { display: flex; flex-direction: column; gap: 2px; font-size: 0.78rem; min-width: 140px; }
+    .log-time-in, .log-time-out {
+      display: inline-flex; align-items: center; gap: 4px; font-weight: 600; font-size: 0.78rem;
+    }
+    .log-time-in { color: #15803d; }
+    .log-time-in mat-icon { font-size: 13px; width: 13px; height: 13px; }
+    .log-time-out { color: #0284c7; }
+    .log-time-out mat-icon { font-size: 13px; width: 13px; height: 13px; }
+    .log-duration {
+      display: inline-flex; align-items: center; gap: 3px; font-size: 0.70rem;
+      font-weight: 800; background: #f1f5f9; color: #334155; padding: 1px 6px;
+      border-radius: 4px; width: fit-content;
+    }
+    .log-duration mat-icon { font-size: 11px; width: 11px; height: 11px; }
+    .log-no-time { color: #94a3b8; font-size: 0.75rem; }
     .status { font-size: .75rem; font-weight: 700; }
     .status.present { color: #15803d; }
     .status.absent { color: #b91c1c; }
@@ -1627,7 +1849,11 @@ export class StudentAttendanceComponent implements OnInit {
   selectedMatrixDates = new Set<string>();
   batchTargetStatus = 'Present';
   batchTargetRemarks = '';
+  batchTargetCheckIn = '08:00';
+  batchTargetCheckOut = '14:00';
   batchSavingDates = false;
+  bulkCheckInTime = '08:00';
+  bulkCheckOutTime = '14:00';
   summary: AttendanceSummary | null = null;
   loading = false;
   saving = false;
@@ -1638,7 +1864,7 @@ export class StudentAttendanceComponent implements OnInit {
   attYear = new Date().getFullYear();
   months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   years = [2024, 2025, 2026, 2027];
-  formData = { attendanceDate: new Date().toISOString().split('T')[0], status: 'Present', remarks: '' };
+  formData = { attendanceDate: new Date().toISOString().split('T')[0], status: 'Present', remarks: '', checkInTime: '08:00', checkOutTime: '14:00' };
   attendanceMode: AttendanceSettingsDto['studentMode'] = 'Both';
   private attendanceSettings: AttendanceSettingsDto = { studentMode: 'Both', teacherMode: 'Both' };
   attendancePermissions: AttendancePermissionsDto = { canChangeMode: false, canManualMark: false, canBiometricCapture: false, canMapBiometric: false, canCorrectAttendance: false };
@@ -1828,6 +2054,13 @@ export class StudentAttendanceComponent implements OnInit {
     }
     for (const student of this.activeStudents) {
       student.status = status;
+      if (status === 'Absent') {
+        student.checkInTime = null;
+        student.checkOutTime = null;
+      } else {
+        if (!student.checkInTime) student.checkInTime = this.bulkCheckInTime;
+        if (!student.checkOutTime) student.checkOutTime = this.bulkCheckOutTime;
+      }
     }
   }
 
@@ -1837,6 +2070,80 @@ export class StudentAttendanceComponent implements OnInit {
       return;
     }
     student.status = status;
+    if (status === 'Absent') {
+      student.checkInTime = null;
+      student.checkOutTime = null;
+    } else {
+      if (!student.checkInTime) student.checkInTime = this.bulkCheckInTime;
+      if (!student.checkOutTime) student.checkOutTime = this.bulkCheckOutTime;
+    }
+  }
+
+  onBulkTimingsChanged(): void {
+    // If teachers adjust bulk timings, keep consistency
+  }
+
+  parseTimeToMinutes(timeStr?: string | null): number | null {
+    if (!timeStr) return null;
+    const parts = timeStr.trim().split(':');
+    if (parts.length < 2) return null;
+    const h = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10);
+    if (isNaN(h) || isNaN(m)) return null;
+    return h * 60 + m;
+  }
+
+  getDiffMinutes(inTime?: string | null, outTime?: string | null): number | null {
+    const inM = this.parseTimeToMinutes(inTime);
+    const outM = this.parseTimeToMinutes(outTime);
+    if (inM === null || outM === null) return null;
+    const diff = outM - inM;
+    return diff >= 0 ? diff : null;
+  }
+
+  calculateDuration(inTime?: string | null, outTime?: string | null): string {
+    const diff = this.getDiffMinutes(inTime, outTime);
+    if (diff === null) return '';
+    const hours = Math.floor(diff / 60);
+    const mins = diff % 60;
+    if (hours === 0) return `${mins}m`;
+    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+  }
+
+  formatDisplayTime(timeStr?: string | null): string {
+    if (!timeStr) return '';
+    const parts = timeStr.trim().split(':');
+    if (parts.length < 2) return timeStr;
+    let h = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10);
+    if (isNaN(h) || isNaN(m)) return timeStr;
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12;
+    h = h ? h : 12;
+    const mStr = m < 10 ? '0' + m : m;
+    return `${h}:${mStr} ${ampm}`;
+  }
+
+  onFormStatusChanged(): void {
+    if (this.formData.status === 'Absent' || this.formData.status === 'Holiday') {
+      this.formData.checkInTime = '';
+      this.formData.checkOutTime = '';
+    } else {
+      if (!this.formData.checkInTime) this.formData.checkInTime = this.bulkCheckInTime || '08:00';
+      if (!this.formData.checkOutTime) this.formData.checkOutTime = this.bulkCheckOutTime || '14:00';
+    }
+  }
+
+  applyBulkTimingsToPresent(): void {
+    let count = 0;
+    for (const student of this.activeStudents) {
+      if (student.status !== 'Absent') {
+        student.checkInTime = this.bulkCheckInTime;
+        student.checkOutTime = this.bulkCheckOutTime;
+        count++;
+      }
+    }
+    this.confirmDialog.alert('Timings Applied', `Applied In: ${this.formatDisplayTime(this.bulkCheckInTime)} and Out: ${this.formatDisplayTime(this.bulkCheckOutTime)} to ${count} students.`, 'success');
   }
 
   saveActiveAttendance(): void {
@@ -1985,7 +2292,9 @@ export class StudentAttendanceComponent implements OnInit {
           remarks: r.remarks || '',
           attendanceId: r.attendanceId,
           capturedAt: r.capturedAt,
-          captureSource: r.captureSource
+          captureSource: r.captureSource,
+          checkInTime: r.checkInTime || (r as any).CheckInTime || (r.status !== 'Absent' ? this.bulkCheckInTime : null),
+          checkOutTime: r.checkOutTime || (r as any).CheckOutTime || (r.status !== 'Absent' ? this.bulkCheckOutTime : null)
         }));
         this.schoolLoading = false;
       },
@@ -2037,7 +2346,9 @@ export class StudentAttendanceComponent implements OnInit {
       items: this.schoolStudents.map(s => ({
         studentId: s.studentId,
         status: s.status,
-        remarks: s.remarks || null
+        remarks: s.remarks || null,
+        checkInTime: s.status !== 'Absent' && s.status !== 'Holiday' ? (s.checkInTime || null) : null,
+        checkOutTime: s.status !== 'Absent' && s.status !== 'Holiday' ? (s.checkOutTime || null) : null
       }))
     };
 
@@ -2102,7 +2413,9 @@ export class StudentAttendanceComponent implements OnInit {
           remarks: r.remarks || '',
           attendanceId: r.attendanceId,
           capturedAt: r.capturedAt,
-          captureSource: r.captureSource
+          captureSource: r.captureSource,
+          checkInTime: r.checkInTime || (r as any).CheckInTime || (r.status !== 'Absent' ? this.bulkCheckInTime : null),
+          checkOutTime: r.checkOutTime || (r as any).CheckOutTime || (r.status !== 'Absent' ? this.bulkCheckOutTime : null)
         }));
         this.batchLoading = false;
       },
@@ -2190,7 +2503,9 @@ export class StudentAttendanceComponent implements OnInit {
       items: this.batchStudents.map(s => ({
         studentId: s.studentId,
         status: s.status,
-        remarks: s.remarks || null
+        remarks: s.remarks || null,
+        checkInTime: s.status !== 'Absent' && s.status !== 'Holiday' ? (s.checkInTime || null) : null,
+        checkOutTime: s.status !== 'Absent' && s.status !== 'Holiday' ? (s.checkOutTime || null) : null
       }))
     };
 
@@ -2500,6 +2815,10 @@ export class StudentAttendanceComponent implements OnInit {
       } else if (!isFuture && dateStr < today) {
         status = 'Absent';
       }
+      const checkIn = record?.checkInTime || (record as any)?.CheckInTime || null;
+      const checkOut = record?.checkOutTime || (record as any)?.CheckOutTime || null;
+      const duration = this.calculateDuration(checkIn, checkOut);
+
       return {
         dayNumber: dayNum,
         dateStr,
@@ -2511,7 +2830,10 @@ export class StudentAttendanceComponent implements OnInit {
         holiday,
         record,
         status,
-        capturedTime: this.getRecordCapturedTime(record)
+        capturedTime: this.getRecordCapturedTime(record),
+        checkInTime: checkIn,
+        checkOutTime: checkOut,
+        workDuration: duration
       };
     });
   }
@@ -2529,7 +2851,8 @@ export class StudentAttendanceComponent implements OnInit {
     if (day.isSaturday && !day.record && day.status !== 'Absent') details.push('Saturday (Class ON)');
     if (day.record) {
       const timeStr = day.capturedTime ? ` (${day.capturedTime} IST)` : '';
-      details.push(`Status: ${day.status}${timeStr}${day.record.remarks ? ` | ${day.record.remarks}` : ''}`);
+      const punchDetails = (day.checkInTime || day.checkOutTime) ? ` [In: ${this.formatDisplayTime(day.checkInTime) || '—'}, Out: ${this.formatDisplayTime(day.checkOutTime) || '—'}${day.workDuration ? ` (${day.workDuration})` : ''}]` : '';
+      details.push(`Status: ${day.status}${punchDetails}${timeStr}${day.record.remarks ? ` | ${day.record.remarks}` : ''}`);
     } else if (day.status === 'Absent') {
       const dayType = day.isSaturday ? 'Saturday class' : 'Working day';
       details.push(`Status: Absent (${dayType} passed without attendance)`);
@@ -2555,17 +2878,26 @@ export class StudentAttendanceComponent implements OnInit {
       this.confirmDialog.alert('Editing Disabled', 'Sunday/Public Holiday attendance editing is disabled for this role.', 'warning');
       return;
     }
+    const status = day.record?.status || (day.holiday || day.isSunday ? 'Holiday' : (day.status === 'Absent' ? 'Absent' : 'Present'));
     this.formData = {
       attendanceDate: day.dateStr,
-      status: day.record?.status || (day.holiday || day.isSunday ? 'Holiday' : (day.status === 'Absent' ? 'Absent' : 'Present')),
-      remarks: day.record?.remarks || (day.holiday?.title || (day.isSunday ? 'Sunday Weekly Off' : ''))
+      status: status,
+      remarks: day.record?.remarks || (day.holiday?.title || (day.isSunday ? 'Sunday Weekly Off' : '')),
+      checkInTime: day.checkInTime || (status !== 'Absent' && status !== 'Holiday' ? this.bulkCheckInTime : ''),
+      checkOutTime: day.checkOutTime || (status !== 'Absent' && status !== 'Holiday' ? this.bulkCheckOutTime : '')
     };
     this.editingRecordId = day.record?.id || null;
     this.showForm = true;
   }
 
   openNewRecord(): void {
-    this.formData = { attendanceDate: this.todayStr, status: 'Present', remarks: '' };
+    this.formData = {
+      attendanceDate: this.todayStr,
+      status: 'Present',
+      remarks: '',
+      checkInTime: this.bulkCheckInTime || '08:00',
+      checkOutTime: this.bulkCheckOutTime || '14:00'
+    };
     this.editingRecordId = null;
     this.showForm = true;
   }
@@ -2576,7 +2908,15 @@ export class StudentAttendanceComponent implements OnInit {
       this.confirmDialog.alert('Editing Disabled', 'Sunday/Public Holiday attendance editing is disabled for this role.', 'warning');
       return;
     }
-    this.formData = { attendanceDate: date, status: record.status, remarks: record.remarks || '' };
+    const checkIn = record.checkInTime || (record as any).CheckInTime || '';
+    const checkOut = record.checkOutTime || (record as any).CheckOutTime || '';
+    this.formData = {
+      attendanceDate: date,
+      status: record.status,
+      remarks: record.remarks || '',
+      checkInTime: checkIn,
+      checkOutTime: checkOut
+    };
     this.editingRecordId = record.id;
     this.showForm = true;
   }
@@ -2604,7 +2944,14 @@ export class StudentAttendanceComponent implements OnInit {
       return;
     }
     this.saving = true;
-    this.http.post(`${this.api}/students/${this.selectedStudentId}/attendance`, this.formData).subscribe({
+    const payload = {
+      attendanceDate: this.formData.attendanceDate,
+      status: this.formData.status,
+      remarks: this.formData.remarks || null,
+      checkInTime: this.formData.status !== 'Absent' && this.formData.status !== 'Holiday' ? (this.formData.checkInTime || null) : null,
+      checkOutTime: this.formData.status !== 'Absent' && this.formData.status !== 'Holiday' ? (this.formData.checkOutTime || null) : null
+    };
+    this.http.post(`${this.api}/students/${this.selectedStudentId}/attendance`, payload).subscribe({
       next: () => {
         this.saving = false;
         this.showForm = false;
@@ -2877,7 +3224,9 @@ export class StudentAttendanceComponent implements OnInit {
     const payload = {
       attendanceDates: dates,
       status: this.batchTargetStatus,
-      remarks: this.batchTargetRemarks || null
+      remarks: this.batchTargetRemarks || null,
+      checkInTime: this.batchTargetStatus !== 'Absent' && this.batchTargetStatus !== 'Leave' ? (this.batchTargetCheckIn || null) : null,
+      checkOutTime: this.batchTargetStatus !== 'Absent' && this.batchTargetStatus !== 'Leave' ? (this.batchTargetCheckOut || null) : null
     };
 
     this.http.post(

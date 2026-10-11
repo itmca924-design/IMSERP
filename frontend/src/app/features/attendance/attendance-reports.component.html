@@ -395,6 +395,12 @@
                               <span class="chip-status-dash">&bull;</span>
                             </div>
 
+                            <!-- Compact In / Out punch markers on cell -->
+                            <div class="cal-punch-micro" *ngIf="d && (d.checkInTime || d.checkOutTime)">
+                              <span class="cpm-in" *ngIf="d.checkInTime">In {{ formatDisplayTime(d.checkInTime) }}</span>
+                              <span class="cpm-out" *ngIf="d.checkOutTime">Out {{ formatDisplayTime(d.checkOutTime) }}</span>
+                            </div>
+
                             <!-- Smart Hover Tooltip Card (Instant & Rich) -->
                             <div class="cal-popover" *ngIf="d"
                               [class.pop-flip]="weekIdx === 0"
@@ -423,12 +429,30 @@
                                 </div>
                               </div>
 
-                              <!-- Punch Time -->
+                              <!-- Punch In Time -->
                               <div class="pop-item" *ngIf="d.checkInTime">
-                                <mat-icon class="pop-ic">schedule</mat-icon>
+                                <mat-icon class="pop-ic pop-ic-in">login</mat-icon>
                                 <div class="pop-text">
-                                  <span class="pop-sub">Punch Time</span>
-                                  <span class="pop-main">{{ d.checkInTime }}</span>
+                                  <span class="pop-sub">Punch In (Entry)</span>
+                                  <span class="pop-main pop-time-in">{{ formatDisplayTime(d.checkInTime) }}</span>
+                                </div>
+                              </div>
+
+                              <!-- Punch Out Time -->
+                              <div class="pop-item" *ngIf="d.checkOutTime">
+                                <mat-icon class="pop-ic pop-ic-out">logout</mat-icon>
+                                <div class="pop-text">
+                                  <span class="pop-sub">Punch Out (Exit)</span>
+                                  <span class="pop-main pop-time-out">{{ formatDisplayTime(d.checkOutTime) }}</span>
+                                </div>
+                              </div>
+
+                              <!-- Work / Attendance Duration -->
+                              <div class="pop-item" *ngIf="d.workDuration">
+                                <mat-icon class="pop-ic pop-ic-dur">timelapse</mat-icon>
+                                <div class="pop-text">
+                                  <span class="pop-sub">Total Duration</span>
+                                  <span class="pop-main pop-dur-val">{{ d.workDuration }}</span>
                                 </div>
                               </div>
 
@@ -611,7 +635,13 @@
                                     {{ getStatusBadgeName(lp.status) }}
                                   </span>
                                   <span class="act-time" *ngIf="lp.checkInTime">
-                                    <mat-icon class="act-clock">schedule</mat-icon> {{ lp.checkInTime }}
+                                    <mat-icon class="act-clock">login</mat-icon> In: {{ formatDisplayTime(lp.checkInTime) }}
+                                  </span>
+                                  <span class="act-time act-time-out" *ngIf="lp.checkOutTime">
+                                    <mat-icon class="act-clock">logout</mat-icon> Out: {{ formatDisplayTime(lp.checkOutTime) }}
+                                  </span>
+                                  <span class="act-duration" *ngIf="lp.workDuration">
+                                    <mat-icon class="act-clock">timelapse</mat-icon> {{ lp.workDuration }}
                                   </span>
                                 </div>
                                 <span class="act-meta-line" *ngIf="lp.captureSource">
@@ -642,11 +672,11 @@
                     <span class="leg-item"><span class="leg-dot dot-p"></span> <strong>P</strong> = Present</span>
                     <span class="leg-item"><span class="leg-dot dot-l"></span> <strong>L</strong> = Sanctioned Leave</span>
                     <span class="leg-item"><span class="leg-dot dot-lt"></span> <strong>LT</strong> = Late Arrival</span>
-                    <span class="leg-item"><span class="leg-dot dot-a"></span> <strong>A</strong> = Absent</span>
+                    <span class="leg-item"><span class="leg-dot dot-a"></span> <strong>A</strong> = Absent (Unmarked / Absent)</span>
                     <span class="leg-item"><span class="leg-dot dot-hd"></span> <strong>HD</strong> = Half Day</span>
                     <span class="leg-item"><span class="leg-dot dot-h"></span> <strong>H</strong> = Holiday</span>
                     <span class="leg-item"><span class="leg-dot dot-off"></span> <strong>OFF</strong> = Sunday / Off</span>
-                    <span class="leg-item"><span class="leg-dot dot-unmarked"></span> <strong>&#x2014;</strong> = Unmarked / Future Date</span>
+                    <span class="leg-item"><span class="leg-dot dot-unmarked"></span> <strong>&#x2014;</strong> = Upcoming / Future Date</span>
                   </div>
                 </div>
               </td>

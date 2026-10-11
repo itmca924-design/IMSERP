@@ -506,6 +506,8 @@ export interface SchoolAttendanceStudentRowDto {
   attendanceId?: string | null;
   capturedAt?: string | null;
   captureSource?: string | null;
+  checkInTime?: string | null;
+  checkOutTime?: string | null;
 }
 
 export interface BulkSchoolAttendanceDto {
@@ -513,7 +515,13 @@ export interface BulkSchoolAttendanceDto {
   sectionId?: string | null;
   attendanceDate: string;
   sendWhatsAppAlerts: boolean;
-  items: Array<{ studentId: string; status: string; remarks?: string | null }>;
+  items: Array<{
+    studentId: string;
+    status: string;
+    remarks?: string | null;
+    checkInTime?: string | null;
+    checkOutTime?: string | null;
+  }>;
 }
 
 @Injectable({

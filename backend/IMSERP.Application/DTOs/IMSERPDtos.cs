@@ -541,7 +541,9 @@ public record StudentAttendanceDto(
     string Status,
     string? Remarks,
     string CaptureSource,
-    DateTime? CapturedAt = null
+    DateTime? CapturedAt = null,
+    string? CheckInTime = null,
+    string? CheckOutTime = null
 );
 
 public record StudentAttendanceSummaryDto(
@@ -557,19 +559,25 @@ public record StudentAttendanceSummaryDto(
 public record MarkStudentAttendanceDto(
     DateTime AttendanceDate,
     string Status,
-    string? Remarks
+    string? Remarks,
+    string? CheckInTime = null,
+    string? CheckOutTime = null
 );
 
 public record BulkStudentMultiDatesAttendanceDto(
     List<DateTime> AttendanceDates,
     string Status,
-    string? Remarks
+    string? Remarks,
+    string? CheckInTime = null,
+    string? CheckOutTime = null
 );
 
 public record BatchStudentAttendanceItemDto(
     Guid StudentId,
     string Status,
-    string? Remarks
+    string? Remarks,
+    string? CheckInTime = null,
+    string? CheckOutTime = null
 );
 
 public record BulkBatchAttendanceDto(
@@ -589,7 +597,9 @@ public record BatchAttendanceStudentRowDto(
     string? Remarks,
     Guid? AttendanceId,
     DateTime? CapturedAt = null,
-    string? CaptureSource = null
+    string? CaptureSource = null,
+    string? CheckInTime = null,
+    string? CheckOutTime = null
 );
 
 public record BulkSchoolAttendanceDto(
@@ -613,7 +623,9 @@ public record SchoolAttendanceStudentRowDto(
     string? Remarks,
     Guid? AttendanceId,
     DateTime? CapturedAt = null,
-    string? CaptureSource = null
+    string? CaptureSource = null,
+    string? CheckInTime = null,
+    string? CheckOutTime = null
 );
 
 public record AttendanceReportRowDto(

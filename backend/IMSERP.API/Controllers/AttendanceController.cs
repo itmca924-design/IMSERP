@@ -160,6 +160,21 @@ public class AttendanceController : ControllerBase
             record.BiometricEventId = dto.EventId;
             record.CapturedAt = dto.EventTime;
             record.MarkedBy = "biometric-device";
+            if (dto.IsCheckOut)
+            {
+                record.CheckOutTime = indiaTime.ToString("HH:mm");
+            }
+            else
+            {
+                if (string.IsNullOrEmpty(record.CheckInTime))
+                {
+                    record.CheckInTime = indiaTime.ToString("HH:mm");
+                }
+                else if (string.IsNullOrEmpty(record.CheckOutTime))
+                {
+                    record.CheckOutTime = indiaTime.ToString("HH:mm");
+                }
+            }
 
             // If student had approved leave on this date, update remarks noting turnstile attendance
             var approvedStudentLeave = await _db.StudentLeaves.FirstOrDefaultAsync(l =>

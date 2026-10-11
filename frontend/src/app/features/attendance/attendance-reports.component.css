@@ -1398,3 +1398,47 @@
   color: #c2410c;
   border: 1px solid #ffedd5;
 }
+
+/* In/Out Micro Badges on Day Cells */
+.cal-punch-micro {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: calc(100% - 4px);
+  margin-top: 2px;
+  align-items: center;
+}
+.cpm-in, .cpm-out {
+  font-size: 0.52rem;
+  font-weight: 700;
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.cpm-in { color: #15803d; }
+.cpm-out { color: #0284c7; }
+
+/* In/Out Popover Items */
+.pop-ic-in { color: #4ade80 !important; }
+.pop-time-in { color: #86efac !important; font-weight: 700; }
+.pop-ic-out { color: #38bdf8 !important; }
+.pop-time-out { color: #7dd3fc !important; font-weight: 700; }
+.pop-ic-dur { color: #facc15 !important; }
+.pop-dur-val { color: #fde047 !important; font-weight: 700; }
+
+.act-time-out {
+  color: #0284c7 !important;
+}
+.act-duration {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #475569;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: #f1f5f9;
+  padding: 1px 6px;
+  border-radius: 4px;
+}

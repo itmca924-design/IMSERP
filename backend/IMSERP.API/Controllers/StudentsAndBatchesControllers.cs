@@ -54,7 +54,9 @@ public class StudentsController : ControllerBase
             attendance.Status.ToString(),
             attendance.Remarks,
             attendance.CaptureSource,
-            capturedUtc);
+            capturedUtc,
+            attendance.CheckInTime,
+            attendance.CheckOutTime);
     }
 
     private async Task<bool> IsManualAttendanceAllowedAsync()
@@ -488,13 +490,29 @@ public class StudentsController : ControllerBase
                 targetRecords = personRecords.Where(r => r.CaptureSource != "ManualBulk").ToList();
             }
 
+            var today = DateTime.UtcNow.Date;
+            var pastUnmarkedWorkingDays = 0;
+            var daysInMonth = DateTime.DaysInMonth(year, month);
+            for (int day = 1; day <= daysInMonth; day++)
+            {
+                var curDate = new DateTime(year, month, day);
+                if (curDate < today && !offDates.Contains(curDate.Date))
+                {
+                    if (!targetRecords.Any(r => r.AttendanceDate.Date == curDate.Date))
+                    {
+                        pastUnmarkedWorkingDays++;
+                    }
+                }
+            }
+
             var present = targetRecords.Count(record => record.Status == TeacherAttendanceStatus.Present);
-            var absent = targetRecords.Count(record => record.Status == TeacherAttendanceStatus.Absent);
+            var recordedAbsent = targetRecords.Count(record => record.Status == TeacherAttendanceStatus.Absent);
+            var absent = recordedAbsent + pastUnmarkedWorkingDays;
             var late = targetRecords.Count(record => record.Status == TeacherAttendanceStatus.Late);
             var half = targetRecords.Count(record => record.Status == TeacherAttendanceStatus.HalfDay);
             var evaluated = present + absent + late + half;
             var attendedWeighted = present + late + (half * 0.5m);
-            var denominator = Math.Max(totalWorkingDaysInMonth, evaluated);
+            var denominator = evaluated > 0 ? evaluated : totalWorkingDaysInMonth;
             var attendancePercentage = (denominator == 0 || attendedWeighted == 0)
                 ? 0m
                 : Math.Min(100m, Math.Round((attendedWeighted / (decimal)denominator) * 100m, 1));
@@ -628,9 +646,25 @@ public class StudentsController : ControllerBase
             offDates.Add(record.AttendanceDate.Date);
 
         int totalWorkingDays = Math.Max(0, DateTime.DaysInMonth(year, month) - offDates.Count);
+
+        var today = DateTime.UtcNow.Date;
+        int pastUnmarked = 0;
+        for (int d = 1; d <= DateTime.DaysInMonth(year, month); d++)
+        {
+            var curDate = new DateTime(year, month, d);
+            if (curDate < today && !offDates.Contains(curDate.Date))
+            {
+                if (!records.Any(r => r.AttendanceDate.Date == curDate.Date))
+                {
+                    pastUnmarked++;
+                }
+            }
+        }
+        absent += pastUnmarked;
+
         var evaluatedDays = present + absent + late + half;
         decimal attendedWeighted = present + late + (half * 0.5m);
-        int denominator = Math.Max(totalWorkingDays, evaluatedDays);
+        int denominator = evaluatedDays > 0 ? evaluatedDays : totalWorkingDays;
         decimal percentage = (denominator == 0 || attendedWeighted == 0)
             ? 0m
             : Math.Min(100m, Math.Round((attendedWeighted / (decimal)denominator) * 100m, 1));
@@ -690,6 +724,8 @@ public class StudentsController : ControllerBase
 
         record.Status = status;
         record.Remarks = dto.Remarks;
+        record.CheckInTime = dto.CheckInTime;
+        record.CheckOutTime = dto.CheckOutTime;
         record.MarkedBy = _currentUser.UserId.ToString();
         record.CaptureSource = "Manual";
         record.BiometricDeviceId = null;
@@ -748,6 +784,8 @@ public class StudentsController : ControllerBase
                 if (!canCorrect) continue; // cannot edit existing without correction permission
                 record.Status = status;
                 record.Remarks = dto.Remarks;
+                record.CheckInTime = dto.CheckInTime;
+                record.CheckOutTime = dto.CheckOutTime;
                 record.MarkedBy = _currentUser.UserId.ToString();
                 record.CaptureSource = "Manual";
                 record.CapturedAt ??= DateTime.UtcNow;
@@ -762,6 +800,8 @@ public class StudentsController : ControllerBase
                     AttendanceDate = date,
                     Status = status,
                     Remarks = dto.Remarks,
+                    CheckInTime = dto.CheckInTime,
+                    CheckOutTime = dto.CheckOutTime,
                     MarkedBy = _currentUser.UserId.ToString(),
                     CaptureSource = "Manual",
                     CreatedAt = DateTime.UtcNow,
@@ -811,7 +851,9 @@ public class StudentsController : ControllerBase
                 att?.Remarks,
                 att?.Id,
                 capturedUtc,
-                att?.CaptureSource
+                att?.CaptureSource,
+                att?.CheckInTime,
+                att?.CheckOutTime
             );
         }).ToList();
 
@@ -870,6 +912,8 @@ public class StudentsController : ControllerBase
             {
                 existing.Status = status;
                 existing.Remarks = item.Remarks;
+                existing.CheckInTime = item.CheckInTime;
+                existing.CheckOutTime = item.CheckOutTime;
                 existing.MarkedBy = _currentUser.UserId.ToString();
                 existing.BranchId = student.BranchId ?? batch.BranchId ?? _currentUser.BranchId;
                 existing.CaptureSource = "ManualBulk";
@@ -885,6 +929,8 @@ public class StudentsController : ControllerBase
                     AttendanceDate = date,
                     Status = status,
                     Remarks = item.Remarks,
+                    CheckInTime = item.CheckInTime,
+                    CheckOutTime = item.CheckOutTime,
                     MarkedBy = _currentUser.UserId.ToString(),
                     CaptureSource = "ManualBulk",
                     CapturedAt = DateTime.UtcNow,
@@ -955,7 +1001,9 @@ public class StudentsController : ControllerBase
                 att?.Remarks,
                 att?.Id,
                 capturedUtc,
-                att?.CaptureSource
+                att?.CaptureSource,
+                att?.CheckInTime,
+                att?.CheckOutTime
             );
         }).ToList();
 
@@ -1013,6 +1061,8 @@ public class StudentsController : ControllerBase
             {
                 existing.Status = status;
                 existing.Remarks = item.Remarks;
+                existing.CheckInTime = item.CheckInTime;
+                existing.CheckOutTime = item.CheckOutTime;
                 existing.MarkedBy = _currentUser.UserId.ToString();
                 existing.BranchId = student.BranchId ?? schoolClass.BranchId ?? _currentUser.BranchId;
                 existing.CaptureSource = "ManualSchoolBulk";
@@ -1028,6 +1078,8 @@ public class StudentsController : ControllerBase
                     AttendanceDate = date,
                     Status = status,
                     Remarks = item.Remarks,
+                    CheckInTime = item.CheckInTime,
+                    CheckOutTime = item.CheckOutTime,
                     MarkedBy = _currentUser.UserId.ToString(),
                     CaptureSource = "ManualSchoolBulk",
                     CapturedAt = DateTime.UtcNow,

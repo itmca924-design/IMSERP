@@ -173,6 +173,11 @@ using (var scope = app.Services.CreateScope())
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('FeeInvoices') AND name = 'SectionName')
                         ALTER TABLE FeeInvoices ADD SectionName NVARCHAR(50) NULL;
 
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('StudentAttendances') AND name = 'CheckInTime')
+                        ALTER TABLE StudentAttendances ADD CheckInTime NVARCHAR(20) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('StudentAttendances') AND name = 'CheckOutTime')
+                        ALTER TABLE StudentAttendances ADD CheckOutTime NVARCHAR(20) NULL;
+
                     IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'StudentPromotionHistories')
                     BEGIN
                         CREATE TABLE StudentPromotionHistories (
