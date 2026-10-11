@@ -2673,3 +2673,15 @@ mat-sidenav-container {
 .cdk-overlay-pane.mat-mdc-dialog-panel {
   overflow-x: hidden !important;
 }
+
+// Global Dialog Content Scrollbar Suppression (Smooth & Clean UI)
+.mat-mdc-dialog-content {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+
+  &::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
+}

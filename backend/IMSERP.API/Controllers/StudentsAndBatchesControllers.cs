@@ -1641,6 +1641,15 @@ public class StudentsController : ControllerBase
         student.ProfilePhoto = ImageStorageHelper.SaveBase64Image(dto.ProfilePhoto, "students", student.Id.ToString(), _env.ContentRootPath)
             ?? student.ProfilePhoto;
 
+        if (student.UserId.HasValue)
+        {
+            var linkedUser = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == student.UserId.Value);
+            if (linkedUser != null)
+            {
+                linkedUser.ProfilePhoto = student.ProfilePhoto;
+            }
+        }
+
         await _dbContext.SaveChangesAsync();
 
         var branchName = student.BranchId.HasValue
@@ -3574,6 +3583,7 @@ public class StudentsController : ControllerBase
             ClassOrBatch = classOrBatch,
             ParentName = student.ParentName,
             ParentPhone = cleanPhone,
+            ProfilePhoto = student.ProfilePhoto,
             HasStudentAccount = student.UserId.HasValue || !string.IsNullOrEmpty(studentUsername),
             StudentUsername = studentUsername,
             DefaultStudentUsername = defaultStudUser,
@@ -3610,6 +3620,20 @@ public class StudentsController : ControllerBase
             var sUsername = (dto.StudentUsername ?? (!string.IsNullOrWhiteSpace(student.AdmissionNumber) ? student.AdmissionNumber : student.RollNumber)).Trim();
             var sPassword = (dto.StudentPassword ?? $"Student@{DateTime.UtcNow.Year}").Trim();
 
+            string? sPhotoToSet = student.ProfilePhoto;
+            if (!string.IsNullOrWhiteSpace(dto.StudentProfilePhoto))
+            {
+                if (dto.StudentProfilePhoto.StartsWith("data:image"))
+                {
+                    sPhotoToSet = ImageStorageHelper.SaveBase64Image(dto.StudentProfilePhoto, "students", student.Id.ToString(), _env.ContentRootPath);
+                }
+                else
+                {
+                    sPhotoToSet = dto.StudentProfilePhoto.Trim();
+                }
+                student.ProfilePhoto = sPhotoToSet;
+            }
+
             if (student.UserId.HasValue)
             {
                 // Update / Reset existing student user
@@ -3628,6 +3652,10 @@ public class StudentsController : ControllerBase
                         {
                             existingUser.Username = sUsername;
                         }
+                    }
+                    if (!string.IsNullOrEmpty(sPhotoToSet))
+                    {
+                        existingUser.ProfilePhoto = sPhotoToSet;
                     }
                 }
             }
@@ -3651,7 +3679,8 @@ public class StudentsController : ControllerBase
                     Role = UserRole.Student,
                     RoleId = studentRoleId,
                     IsActive = true,
-                    CreatedAt = DateTime.UtcNow
+                    CreatedAt = DateTime.UtcNow,
+                    ProfilePhoto = sPhotoToSet
                 };
                 _dbContext.Users.Add(newUser);
                 await _dbContext.SaveChangesAsync();

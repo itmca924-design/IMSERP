@@ -2586,7 +2586,8 @@ export class StudentsComponent implements OnInit, OnDestroy {
         studentId: student.id,
         studentName: student.studentName,
         admissionNumber: student.admissionNumber,
-        rollNumber: student.rollNumber
+        rollNumber: student.rollNumber,
+        profilePhoto: student.profilePhoto
       }
     });
 

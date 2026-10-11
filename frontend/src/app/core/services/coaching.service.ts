@@ -418,6 +418,7 @@ export interface StudentPortalLoginInfoDto {
   classOrBatch?: string | null;
   parentName: string;
   parentPhone: string;
+  profilePhoto?: string | null;
   hasStudentAccount: boolean;
   studentUsername?: string | null;
   defaultStudentUsername: string;
@@ -437,6 +438,7 @@ export interface CreateStudentPortalLoginRequestDto {
   parentUsername?: string;
   parentPassword?: string;
   resetExistingPassword?: boolean;
+  studentProfilePhoto?: string;
 }
 
 export interface StudentPortalLoginResultDto {

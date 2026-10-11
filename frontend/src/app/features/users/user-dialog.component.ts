@@ -58,14 +58,6 @@ export class ImmediateErrorStateMatcher implements ErrorStateMatcher {
       <form [formGroup]="userForm" (ngSubmit)="onSubmit()" class="dialog-form">
         <mat-dialog-content class="dialog-content">
 
-          <!-- Info Callout -->
-          <div class="info-callout">
-            <mat-icon class="info-icon">auto_awesome</mat-icon>
-            <div class="info-text">
-              Role-based permissions ensure branch-scoped accounts only access data belonging to their campus.
-            </div>
-          </div>
-
           <!-- Section: Profile Photo -->
           <div class="photo-upload-row">
             <div class="avatar-preview-box">
@@ -157,7 +149,7 @@ export class ImmediateErrorStateMatcher implements ErrorStateMatcher {
               <mat-icon matSuffix color="primary">storefront</mat-icon>
             </mat-form-field>
 
-            <mat-form-field appearance="outline" class="half-width" subscriptSizing="fixed">
+            <mat-form-field appearance="outline" class="half-width" subscriptSizing="dynamic">
               <mat-label>Email Address</mat-label>
               <input
                 matInput
@@ -175,7 +167,7 @@ export class ImmediateErrorStateMatcher implements ErrorStateMatcher {
               </mat-error>
             </mat-form-field>
 
-            <mat-form-field appearance="outline" class="half-width" subscriptSizing="fixed">
+            <mat-form-field appearance="outline" class="half-width" subscriptSizing="dynamic">
               <mat-label>Phone Number</mat-label>
               <input
                 matInput
@@ -237,8 +229,8 @@ export class ImmediateErrorStateMatcher implements ErrorStateMatcher {
     .dialog-wrapper {
       padding: 0;
       box-sizing: border-box;
-      min-width: 480px;
-      max-width: 640px;
+      width: 100%;
+      max-width: 600px;
       display: flex;
       flex-direction: column;
     }
@@ -254,14 +246,14 @@ export class ImmediateErrorStateMatcher implements ErrorStateMatcher {
       display: flex;
       align-items: center;
       gap: 12px;
-      padding: 14px 20px 12px;
+      padding: 12px 18px 10px;
       background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
       border-bottom: 1px solid #bfdbfe;
       flex-shrink: 0;
 
       .header-icon-wrap {
-        width: 40px;
-        height: 40px;
+        width: 38px;
+        height: 38px;
         border-radius: 10px;
         background: #2563eb;
         color: #ffffff;
@@ -270,72 +262,84 @@ export class ImmediateErrorStateMatcher implements ErrorStateMatcher {
         justify-content: center;
         flex-shrink: 0;
         box-shadow: 0 4px 6px -1px rgba(37,99,235,0.25);
-        mat-icon { font-size: 22px; width: 22px; height: 22px; }
+        mat-icon { font-size: 20px; width: 20px; height: 20px; }
       }
 
       .header-titles {
         flex: 1 1 auto;
+        min-width: 0;
         .main-title {
           margin: 0;
-          font-size: 1.12rem;
+          font-size: 1.08rem;
           font-weight: 700;
           color: #1e3a8a;
           line-height: 1.25;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
         .subtitle {
           margin: 2px 0 0;
-          font-size: 0.77rem;
+          font-size: 0.75rem;
           color: #3b82f6;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
       }
 
-      .close-btn { color: #64748b; }
+      .close-btn { color: #64748b; flex-shrink: 0; }
+
+      @media (max-width: 520px) {
+        padding: 10px 12px;
+        gap: 8px;
+        .header-icon-wrap { width: 32px; height: 32px; border-radius: 8px; mat-icon { font-size: 18px; width: 18px; height: 18px; } }
+        .header-titles {
+          .main-title { font-size: 0.95rem; }
+          .subtitle { font-size: 0.7rem; }
+        }
+      }
     }
 
     .dialog-content {
-      padding: 12px 20px 8px !important;
+      padding: 12px 20px 4px !important;
       display: flex;
       flex-direction: column;
-      gap: 9px;
-      max-height: calc(90vh - 120px);
+      gap: 10px;
       overflow-y: auto;
+      scrollbar-width: none !important;
+      -ms-overflow-style: none !important;
 
       &::-webkit-scrollbar {
-        width: 6px;
-      }
-      &::-webkit-scrollbar-thumb {
-        background: #cbd5e1;
-        border-radius: 4px;
+        display: none !important;
+        width: 0 !important;
+        height: 0 !important;
       }
     }
 
-    .info-callout {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 6px 12px;
-      background: #f0fdf4;
-      border: 1px solid #bbf7d0;
-      border-radius: 8px;
-      flex-shrink: 0;
-
-      .info-icon { color: #16a34a; font-size: 17px; width: 17px; height: 17px; flex-shrink: 0; }
-      .info-text { font-size: 0.75rem; color: #166534; line-height: 1.35; }
+    :host ::ng-deep .mat-mdc-dialog-content {
+      scrollbar-width: none !important;
+      -ms-overflow-style: none !important;
+      &::-webkit-scrollbar {
+        display: none !important;
+        width: 0 !important;
+        height: 0 !important;
+      }
     }
 
     .photo-upload-row {
       display: flex;
       align-items: center;
-      gap: 14px;
-      padding: 10px 14px;
+      gap: 12px;
+      padding: 8px 12px;
       background: #f8fafc;
       border: 1px dashed #cbd5e1;
       border-radius: 10px;
       flex-shrink: 0;
 
       .avatar-preview-box {
-        width: 56px;
-        height: 56px;
+        width: 48px;
+        height: 48px;
         border-radius: 50%;
         background: #e2e8f0;
         display: flex;
@@ -354,49 +358,60 @@ export class ImmediateErrorStateMatcher implements ErrorStateMatcher {
         }
 
         .avatar-fallback-icon {
-          font-size: 50px;
-          width: 50px;
-          height: 50px;
+          font-size: 42px;
+          width: 42px;
+          height: 42px;
           color: #94a3b8;
         }
       }
 
       .photo-meta-group {
         flex: 1;
+        min-width: 0;
         .photo-title {
-          font-size: 0.82rem;
+          font-size: 0.8rem;
           font-weight: 700;
           color: #1e293b;
-          margin-bottom: 2px;
+          margin-bottom: 1px;
         }
         .photo-hint {
-          font-size: 0.72rem;
+          font-size: 0.7rem;
           color: #64748b;
-          margin-bottom: 6px;
+          margin-bottom: 5px;
         }
         .photo-buttons {
           display: flex;
           align-items: center;
-          gap: 8px;
+          flex-wrap: wrap;
+          gap: 6px;
 
           .upload-btn {
-            height: 30px;
-            line-height: 30px;
-            font-size: 0.75rem;
+            height: 28px;
+            line-height: 28px;
+            font-size: 0.74rem;
             padding: 0 10px;
             color: #2563eb;
             border-color: #bfdbfe;
-            mat-icon { font-size: 16px; width: 16px; height: 16px; margin-right: 4px; }
+            white-space: nowrap;
+            mat-icon { font-size: 15px; width: 15px; height: 15px; margin-right: 4px; }
           }
 
           .remove-btn {
-            height: 30px;
-            line-height: 30px;
-            font-size: 0.75rem;
+            height: 28px;
+            line-height: 28px;
+            font-size: 0.74rem;
             padding: 0 8px;
-            mat-icon { font-size: 16px; width: 16px; height: 16px; margin-right: 2px; }
+            white-space: nowrap;
+            mat-icon { font-size: 15px; width: 15px; height: 15px; margin-right: 2px; }
           }
         }
+      }
+
+      @media (max-width: 520px) {
+        padding: 8px 10px;
+        gap: 10px;
+        .photo-title { font-size: 0.76rem; }
+        .photo-hint { display: none; }
       }
     }
 
@@ -426,7 +441,13 @@ export class ImmediateErrorStateMatcher implements ErrorStateMatcher {
     }
     .half-width {
       flex: 1 1 calc(50% - 4px);
-      min-width: 210px;
+      min-width: 200px;
+
+      @media (max-width: 520px) {
+        flex: 1 1 100% !important;
+        min-width: 100% !important;
+        width: 100% !important;
+      }
     }
 
     .duplicate-banner {
@@ -457,7 +478,7 @@ export class ImmediateErrorStateMatcher implements ErrorStateMatcher {
       border-radius: 8px;
       overflow: hidden;
       margin-top: 2px;
-      margin-bottom: 6px;
+      margin-bottom: 2px;
       flex-shrink: 0;
 
       .preview-header {
@@ -465,7 +486,7 @@ export class ImmediateErrorStateMatcher implements ErrorStateMatcher {
         align-items: center;
         justify-content: space-between;
         gap: 8px;
-        padding: 6px 12px;
+        padding: 4px 10px;
         background: #f1f5f9;
         border-bottom: 1px solid #e2e8f0;
 
@@ -486,26 +507,26 @@ export class ImmediateErrorStateMatcher implements ErrorStateMatcher {
           color: #7c3aed;
           border: 1px solid #ddd6fe;
           font-weight: 700;
-          font-size: 0.73rem;
-          padding: 1px 8px;
+          font-size: 0.72rem;
+          padding: 1px 7px;
           border-radius: 4px;
         }
       }
 
       .preview-body {
-        padding: 8px 12px 10px;
+        padding: 5px 10px 6px;
         display: flex;
         flex-direction: column;
-        gap: 5px;
+        gap: 3px;
       }
 
       .preview-item {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        font-size: 0.8rem;
-        line-height: 1.35;
-        .preview-label { color: #64748b; font-size: 0.75rem; flex-shrink: 0; }
+        font-size: 0.78rem;
+        line-height: 1.3;
+        .preview-label { color: #64748b; font-size: 0.73rem; flex-shrink: 0; }
         .preview-val {
           color: #0f172a;
           font-weight: 600;

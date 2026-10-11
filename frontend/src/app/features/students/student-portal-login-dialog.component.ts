@@ -17,6 +17,7 @@ export interface StudentPortalLoginDialogData {
   studentName: string;
   admissionNumber?: string | null;
   rollNumber?: string | null;
+  profilePhoto?: string | null;
 }
 
 @Component({
@@ -78,7 +79,10 @@ export interface StudentPortalLoginDialogData {
           <div class="account-card student-card" [class.is-active]="loginInfo.hasStudentAccount">
             <div class="card-head">
               <div class="card-title-box">
-                <div class="card-icon student-ico"><mat-icon>school</mat-icon></div>
+                <div class="card-icon student-ico" [class.has-avatar]="!!(studentPhotoPreview || loginInfo.profilePhoto || data.profilePhoto)">
+                  <img *ngIf="studentPhotoPreview || loginInfo.profilePhoto || data.profilePhoto" [src]="getPhotoUrl(studentPhotoPreview || loginInfo.profilePhoto || data.profilePhoto)" [alt]="data.studentName" class="student-avatar-img" />
+                  <mat-icon *ngIf="!(studentPhotoPreview || loginInfo.profilePhoto || data.profilePhoto)">school</mat-icon>
+                </div>
                 <div>
                   <h3 class="card-title">Student Login Account</h3>
                   <span class="card-role-desc">Role: Student Portal User</span>
@@ -88,6 +92,31 @@ export interface StudentPortalLoginDialogData {
                 <mat-icon>{{ loginInfo.hasStudentAccount ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
                 <span>{{ loginInfo.hasStudentAccount ? 'Active (@' + loginInfo.studentUsername + ')' : 'Not Created' }}</span>
               </span>
+            </div>
+
+            <!-- Student Photo Upload Strip -->
+            <div class="photo-upload-strip">
+              <div class="avatar-preview-box">
+                <img *ngIf="studentPhotoPreview || loginInfo.profilePhoto || data.profilePhoto" 
+                     [src]="getPhotoUrl(studentPhotoPreview || loginInfo.profilePhoto || data.profilePhoto)" 
+                     class="avatar-preview-img" alt="Student Photo" />
+                <mat-icon *ngIf="!(studentPhotoPreview || loginInfo.profilePhoto || data.profilePhoto)" class="avatar-fallback-icon">account_circle</mat-icon>
+              </div>
+              <div class="photo-meta-group">
+                <div class="photo-title">Student Profile Photo</div>
+                <div class="photo-hint">PNG, JPG or WEBP up to 2MB</div>
+                <div class="photo-buttons">
+                  <input type="file" #studentPhotoInput (change)="onStudentPhotoSelected($event)" accept="image/png,image/jpeg,image/webp" style="display: none;" />
+                  <button mat-stroked-button type="button" class="upload-btn" (click)="studentPhotoInput.click()">
+                    <mat-icon>photo_camera</mat-icon>
+                    <span>{{ (studentPhotoPreview || loginInfo.profilePhoto || data.profilePhoto) ? 'Change Photo' : 'Upload Photo' }}</span>
+                  </button>
+                  <button mat-button color="warn" type="button" class="remove-btn" *ngIf="studentPhotoPreview || loginInfo.profilePhoto || data.profilePhoto" (click)="removeStudentPhoto()">
+                    <mat-icon>delete_outline</mat-icon>
+                    <span>Remove</span>
+                  </button>
+                </div>
+              </div>
             </div>
 
             <div class="card-fields">
@@ -348,16 +377,101 @@ export interface StudentPortalLoginDialogData {
       gap: 10px;
     }
     .card-icon {
-      width: 36px;
-      height: 36px;
+      width: 38px;
+      height: 38px;
       border-radius: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
+      overflow: hidden;
       mat-icon { font-size: 20px; width: 20px; height: 20px; }
       &.student-ico { background: #eff6ff; color: #2563eb; }
       &.parent-ico { background: #fdf2f8; color: #db2777; }
+      &.has-avatar {
+        background: #f1f5f9;
+        border: 1px solid #bfdbfe;
+        .student-avatar-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+      }
+    }
+
+    .photo-upload-strip {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 12px;
+      background: #f8fafc;
+      border: 1px dashed #cbd5e1;
+      border-radius: 10px;
+
+      .avatar-preview-box {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        background: #e2e8f0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        border: 2px solid #3b82f6;
+        box-shadow: 0 2px 6px rgba(59, 130, 246, 0.2);
+        flex-shrink: 0;
+
+        .avatar-preview-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+        }
+        .avatar-fallback-icon {
+          font-size: 34px;
+          width: 34px;
+          height: 34px;
+          color: #94a3b8;
+        }
+      }
+
+      .photo-meta-group {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        flex: 1;
+
+        .photo-title {
+          font-size: 0.8rem;
+          font-weight: 700;
+          color: #1e293b;
+        }
+        .photo-hint {
+          font-size: 0.7rem;
+          color: #64748b;
+        }
+        .photo-buttons {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          margin-top: 2px;
+
+          .upload-btn {
+            height: 26px;
+            font-size: 0.72rem;
+            padding: 0 8px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            border-color: #93c5fd;
+            color: #1d4ed8;
+            mat-icon { font-size: 14px; width: 14px; height: 14px; }
+          }
+          .remove-btn {
+            height: 26px;
+            font-size: 0.72rem;
+            padding: 0 4px;
+            color: #ef4444;
+            mat-icon { font-size: 14px; width: 14px; height: 14px; }
+          }
+        }
+      }
     }
     .card-title {
       margin: 0;
@@ -520,6 +634,7 @@ export class StudentPortalLoginDialogComponent implements OnInit {
   studentPassword = '';
   hideStudentPassword = true;
   editingStudentUsername = false;
+  studentPhotoPreview: string | null = null;
 
   parentUsername = '';
   parentPassword = '';
@@ -531,6 +646,35 @@ export class StudentPortalLoginDialogComponent implements OnInit {
     private coachingService: CoachingService,
     private confirmDialog: ConfirmDialogService
   ) {}
+
+  getPhotoUrl(photo: string | null | undefined): string {
+    if (!photo) return '';
+    if (photo.startsWith('http://') || photo.startsWith('https://') || photo.startsWith('data:')) {
+      return photo;
+    }
+    return `http://localhost:5000${photo.startsWith('/') ? photo : '/' + photo}`;
+  }
+
+  onStudentPhotoSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+    const file = input.files[0];
+    if (file.size > 2 * 1024 * 1024) {
+      this.confirmDialog.alert('File Too Large', 'Please select an image smaller than 2MB.', 'warning');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      this.studentPhotoPreview = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  removeStudentPhoto(): void {
+    this.studentPhotoPreview = '';
+    if (this.loginInfo) this.loginInfo.profilePhoto = '';
+    this.data.profilePhoto = '';
+  }
 
   ngOnInit(): void {
     this.loadLoginInfo();
@@ -571,13 +715,18 @@ export class StudentPortalLoginDialogComponent implements OnInit {
       accountType: 'Student',
       studentUsername: this.studentUsername.trim(),
       studentPassword: this.studentPassword.trim(),
-      resetExistingPassword: !!this.loginInfo?.hasStudentAccount
+      resetExistingPassword: !!this.loginInfo?.hasStudentAccount,
+      studentProfilePhoto: this.studentPhotoPreview || undefined
     };
 
     this.coachingService.createStudentPortalLogin(this.data.studentId, payload).subscribe({
       next: (res) => {
         this.saving = false;
         this.loginInfo = res.loginInfo;
+        if (res.loginInfo?.profilePhoto) {
+          this.studentPhotoPreview = null;
+          this.data.profilePhoto = res.loginInfo.profilePhoto;
+        }
         this.studentUsername = res.loginInfo.studentUsername || this.studentUsername;
         this.editingStudentUsername = false;
         this.confirmDialog.alert('Success', res.message || 'Student account processed successfully.', 'success');
@@ -634,12 +783,18 @@ export class StudentPortalLoginDialogComponent implements OnInit {
       studentPassword: this.studentPassword.trim(),
       parentUsername: this.parentUsername.trim(),
       parentPassword: this.parentPassword.trim(),
-      resetExistingPassword: false
+      resetExistingPassword: false,
+      studentProfilePhoto: this.studentPhotoPreview || undefined
     };
 
     this.coachingService.createStudentPortalLogin(this.data.studentId, payload).subscribe({
       next: (res) => {
         this.saving = false;
+        this.loginInfo = res.loginInfo;
+        if (res.loginInfo?.profilePhoto) {
+          this.studentPhotoPreview = null;
+          this.data.profilePhoto = res.loginInfo.profilePhoto;
+        }
         this.loginInfo = res.loginInfo;
         this.studentUsername = res.loginInfo.studentUsername || this.studentUsername;
         this.parentUsername = res.loginInfo.parentUsername || this.parentUsername;

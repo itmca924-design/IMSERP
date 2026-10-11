@@ -485,6 +485,20 @@ public class TeachersController : ControllerBase
             roleId = teacherRole?.Id ?? Guid.NewGuid();
         }
 
+        string? photoToSet = teacher.PhotoUrl;
+        if (!string.IsNullOrWhiteSpace(dto.ProfilePhoto))
+        {
+            if (dto.ProfilePhoto.StartsWith("data:image"))
+            {
+                photoToSet = ImageStorageHelper.SaveBase64Image(dto.ProfilePhoto, "teachers", teacher.Id.ToString(), _env.ContentRootPath);
+            }
+            else
+            {
+                photoToSet = dto.ProfilePhoto.Trim();
+            }
+            teacher.PhotoUrl = photoToSet;
+        }
+
         var user = new User
         {
             TenantId = _currentUser.TenantId,
@@ -497,7 +511,8 @@ public class TeachersController : ControllerBase
             Role = userRole,
             RoleId = roleId,
             IsActive = true,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow,
+            ProfilePhoto = photoToSet
         };
 
         _db.Users.Add(user);
@@ -507,7 +522,8 @@ public class TeachersController : ControllerBase
         return Ok(new { 
             message = "Staff user account created successfully.", 
             userId = user.Id, 
-            username = user.Username 
+            username = user.Username,
+            photoUrl = photoToSet
         });
     }
 
@@ -702,6 +718,15 @@ public class TeachersController : ControllerBase
 
         teacher.JoiningDate = dto.JoiningDate;
         teacher.IsActive = dto.IsActive;
+
+        if (teacher.UserId.HasValue)
+        {
+            var linkedUser = await _db.Users.FirstOrDefaultAsync(u => u.Id == teacher.UserId.Value);
+            if (linkedUser != null)
+            {
+                linkedUser.ProfilePhoto = teacher.PhotoUrl;
+            }
+        }
 
         await _db.SaveChangesAsync();
 

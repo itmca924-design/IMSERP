@@ -1432,7 +1432,8 @@ public record BulkCreateTeacherBatchAssignmentDto(
 public record CreateTeacherUserAccountDto(
     string Username,
     string Password,
-    Guid? RoleId = null
+    Guid? RoleId = null,
+    string? ProfilePhoto = null
 );
 
 public record SendTeacherSalarySlipWhatsAppDto(
@@ -4598,6 +4599,7 @@ public class StudentPortalLoginInfoDto
     public string? ClassOrBatch { get; set; }
     public string ParentName { get; set; } = string.Empty;
     public string ParentPhone { get; set; } = string.Empty;
+    public string? ProfilePhoto { get; set; }
 
     // Student account details
     public bool HasStudentAccount { get; set; }
@@ -4622,6 +4624,7 @@ public class CreateStudentPortalLoginRequestDto
     public string? ParentUsername { get; set; }
     public string? ParentPassword { get; set; }
     public bool ResetExistingPassword { get; set; } = false;
+    public string? StudentProfilePhoto { get; set; }
 }
 
 public class StudentPortalLoginResultDto

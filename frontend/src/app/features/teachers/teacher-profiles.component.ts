@@ -729,7 +729,10 @@ import { AuthService } from '../../core/services/auth.service';
   <div class="account-drawer-overlay" *ngIf="showAccountModal">
     <mat-card class="account-drawer-card mat-elevation-z4">
       <div class="account-drawer-header">
-        <div class="hdr-icon"><mat-icon>lock_person</mat-icon></div>
+        <div class="hdr-icon">
+          <img *ngIf="accountPhoto || accountTeacher?.photoUrl" [src]="getPhotoUrl(accountPhoto || accountTeacher?.photoUrl)" [alt]="accountTeacher?.fullName" class="hdr-avatar-img" />
+          <mat-icon *ngIf="!(accountPhoto || accountTeacher?.photoUrl)">lock_person</mat-icon>
+        </div>
         <div class="hdr-text">
           <h3>Create Staff ERP Login</h3>
           <p>Set up portal login credentials for <strong>{{accountTeacher?.fullName}}</strong></p>
@@ -737,6 +740,29 @@ import { AuthService } from '../../core/services/auth.service';
         <button mat-icon-button (click)="closeAccountModal()"><mat-icon>close</mat-icon></button>
       </div>
       <div class="account-drawer-body">
+        <!-- Photo Upload Row -->
+        <div class="photo-upload-row">
+          <div class="avatar-preview-box">
+            <img *ngIf="accountPhoto || accountTeacher?.photoUrl" [src]="getPhotoUrl(accountPhoto || accountTeacher?.photoUrl)" class="avatar-preview-img" alt="Staff Photo" />
+            <mat-icon *ngIf="!(accountPhoto || accountTeacher?.photoUrl)" class="avatar-fallback-icon">account_circle</mat-icon>
+          </div>
+          <div class="photo-meta-group">
+            <div class="photo-title">Staff Profile Photo</div>
+            <div class="photo-hint">PNG, JPG or WEBP up to 2MB</div>
+            <div class="photo-buttons">
+              <input type="file" #accountPhotoInput (change)="onAccountPhotoSelected($event)" accept="image/png,image/jpeg,image/webp" style="display: none;" />
+              <button mat-stroked-button type="button" class="upload-btn" (click)="accountPhotoInput.click()">
+                <mat-icon>photo_camera</mat-icon>
+                <span>{{ (accountPhoto || accountTeacher?.photoUrl) ? 'Change Photo' : 'Upload Photo' }}</span>
+              </button>
+              <button mat-button color="warn" type="button" class="remove-btn" *ngIf="accountPhoto || accountTeacher?.photoUrl" (click)="removeAccountPhoto()">
+                <mat-icon>delete_outline</mat-icon>
+                <span>Remove</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>Assign Portal Role *</mat-label>
           <mat-select [(ngModel)]="accountFormData.roleId">
@@ -1144,7 +1170,9 @@ import { AuthService } from '../../core/services/auth.service';
         background: #2563eb; color: #ffffff; border-radius: 10px;
         box-shadow: 0 4px 6px -1px rgba(37,99,235,0.25);
         width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
+        overflow: hidden; flex-shrink: 0;
         mat-icon { font-size: 22px; width: 22px; height: 22px; }
+        .hdr-avatar-img { width: 100%; height: 100%; object-fit: cover; display: block; }
       }
       .hdr-text {
         flex: 1;
@@ -1152,7 +1180,92 @@ import { AuthService } from '../../core/services/auth.service';
         p { color: #3b82f6; margin: 2px 0 0; font-size: 0.8rem; }
       }
     }
-    .account-drawer-body { padding: 20px 24px; display:flex; flex-direction:column; gap:8px; }
+    .account-drawer-body { 
+      padding: 20px 24px; 
+      display: flex; 
+      flex-direction: column; 
+      gap: 12px; 
+
+      .photo-upload-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 14px;
+        background: #f8fafc;
+        border: 1px dashed #cbd5e1;
+        border-radius: 10px;
+        margin-bottom: 2px;
+
+        .avatar-preview-box {
+          width: 50px;
+          height: 50px;
+          border-radius: 50%;
+          background: #e2e8f0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          overflow: hidden;
+          border: 2px solid #3b82f6;
+          box-shadow: 0 2px 6px rgba(59, 130, 246, 0.25);
+          flex-shrink: 0;
+
+          .avatar-preview-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+          }
+          .avatar-fallback-icon {
+            font-size: 38px;
+            width: 38px;
+            height: 38px;
+            color: #94a3b8;
+          }
+        }
+
+        .photo-meta-group {
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+          flex: 1;
+
+          .photo-title {
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: #1e293b;
+          }
+          .photo-hint {
+            font-size: 0.72rem;
+            color: #64748b;
+          }
+          .photo-buttons {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 4px;
+
+            .upload-btn {
+              height: 28px;
+              font-size: 0.74rem;
+              padding: 0 10px;
+              display: inline-flex;
+              align-items: center;
+              gap: 4px;
+              border-color: #93c5fd;
+              color: #1d4ed8;
+              mat-icon { font-size: 15px; width: 15px; height: 15px; }
+            }
+            .remove-btn {
+              height: 28px;
+              font-size: 0.74rem;
+              padding: 0 6px;
+              color: #ef4444;
+              mat-icon { font-size: 15px; width: 15px; height: 15px; }
+            }
+          }
+        }
+      }
+    }
     .account-drawer-footer {
       padding: 12px 24px; background: #f8fafc; border-top: 1px solid #e2e8f0;
       display: flex; justify-content: flex-end; gap: 10px;
@@ -2063,10 +2176,12 @@ export class TeacherProfilesComponent implements OnInit {
   showAccountModal = false;
   accountSaving = false;
   accountTeacher: TeacherDto | null = null;
-  accountFormData: { username: string; password: string; roleId?: string } = { username: '', password: '', roleId: '' };
+  accountPhoto: string | null = null;
+  accountFormData: { username: string; password: string; roleId?: string; profilePhoto?: string } = { username: '', password: '', roleId: '', profilePhoto: '' };
 
   openCreateAccountDialog(t: TeacherDto) {
     this.accountTeacher = t;
+    this.accountPhoto = t.photoUrl || null;
     const cleanPrefix = t.fullName.toLowerCase().replace(/[^a-z0-9]/g, '');
     const cleanEmp = t.employeeCode.toLowerCase().replace(/[^a-z0-9]/g, '');
 
@@ -2090,14 +2205,38 @@ export class TeacherProfilesComponent implements OnInit {
     this.accountFormData = {
       username: `${cleanPrefix}.${cleanEmp}`,
       password: `Staff@${new Date().getFullYear()}`,
-      roleId: defaultRoleId
+      roleId: defaultRoleId,
+      profilePhoto: t.photoUrl || ''
     };
     this.showAccountModal = true;
+  }
+
+  onAccountPhotoSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+    const file = input.files[0];
+    if (file.size > 2 * 1024 * 1024) {
+      this.confirmDialog.alert('File Too Large', 'Please select an image smaller than 2MB.', 'warning');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result as string;
+      this.accountPhoto = base64;
+      this.accountFormData.profilePhoto = base64;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  removeAccountPhoto(): void {
+    this.accountPhoto = null;
+    this.accountFormData.profilePhoto = '';
   }
 
   closeAccountModal() {
     this.showAccountModal = false;
     this.accountTeacher = null;
+    this.accountPhoto = null;
   }
 
   saveAccount() {
@@ -2107,13 +2246,16 @@ export class TeacherProfilesComponent implements OnInit {
     this.http.post<any>(`${this.api}/teachers/${this.accountTeacher.id}/create-user`, this.accountFormData).subscribe({
       next: (res) => {
         this.accountSaving = false;
+        const newPhoto = res?.photoUrl || this.accountPhoto;
         if (this.accountTeacher) {
           this.accountTeacher.hasLoginAccount = true;
           this.accountTeacher.username = this.accountFormData.username;
+          if (newPhoto) this.accountTeacher.photoUrl = newPhoto;
         }
         if (this.selectedTeacher && this.selectedTeacher.id === this.accountTeacher?.id) {
           this.selectedTeacher.hasLoginAccount = true;
           this.selectedTeacher.username = this.accountFormData.username;
+          if (newPhoto) this.selectedTeacher.photoUrl = newPhoto;
         }
         this.closeAccountModal();
         this.loadTeachers();
