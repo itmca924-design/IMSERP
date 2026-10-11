@@ -3067,7 +3067,10 @@ export class TeacherAssignmentsComponent implements OnInit {
 
   openAssignDialog(sec: ClassTeacherMatrixItemDto) {
     const dialogRef = this.dialog.open(QuickClassTeacherDialogComponent, {
-      width: '500px',
+      width: '520px',
+      maxWidth: '96vw',
+      maxHeight: '90vh',
+      autoFocus: false,
       data: {
         sectionId: sec.sectionId,
         sectionName: sec.sectionName,

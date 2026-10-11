@@ -300,6 +300,9 @@ import { SectionRoutineDialogComponent } from './section-routine-dialog.componen
                     <mat-icon>{{ s.classTeacherName ? 'supervisor_account' : 'person_add' }}</mat-icon>
                     <span>{{ s.classTeacherName || 'Assign Class Teacher' }}</span>
                     <mat-icon class="quick-caret">arrow_drop_down</mat-icon>
+                    <button *ngIf="s.classTeacherName" type="button" class="remove-teacher-chip-btn" (click)="$event.stopPropagation(); removeClassTeacher(s, c)" matTooltip="Remove Class Teacher">
+                      <mat-icon>close</mat-icon>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -351,8 +354,16 @@ import { SectionRoutineDialogComponent } from './section-routine-dialog.componen
     /* Modern Material 3 Stats Grid */
     .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; }
     .stat-card {
-      background: #ffffff !important; border-radius: 14px !important; padding: 16px 18px !important;
-      display: flex; align-items: center; gap: 14px;
+      background: #ffffff !important;
+      border-radius: 14px !important;
+      padding: 16px 14px !important;
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: center !important;
+      justify-content: center !important;
+      text-align: center !important;
+      gap: 8px !important;
+      min-height: 125px !important;
       border: 1px solid #e2e8f0 !important;
       box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04), 0 1px 2px rgba(15, 23, 42, 0.02) !important;
       transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
@@ -364,12 +375,53 @@ import { SectionRoutineDialogComponent } from './section-routine-dialog.componen
       }
 
       .stat-icon {
-        width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-        mat-icon { font-size: 24px; width: 24px; height: 24px; color: #ffffff; }
+        width: 44px !important;
+        height: 44px !important;
+        border-radius: 12px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        flex-shrink: 0 !important;
+        margin: 0 auto !important;
+
+        mat-icon {
+          font-size: 24px;
+          width: 24px;
+          height: 24px;
+          color: #ffffff;
+        }
       }
+
       .stat-info {
-        .stat-val { display: block; font-size: 1.6rem; font-weight: 800; color: #0f172a; line-height: 1.1; letter-spacing: -0.02em; }
-        .stat-lbl { font-size: 0.76rem; font-weight: 600; color: #64748b; margin-top: 2px; display: block; }
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        text-align: center !important;
+        width: 100% !important;
+
+        .stat-val {
+          display: block !important;
+          font-size: 1.75rem !important;
+          font-weight: 800 !important;
+          color: #0f172a !important;
+          line-height: 1.15 !important;
+          letter-spacing: -0.02em;
+          text-align: center !important;
+          width: 100% !important;
+          margin: 0 auto !important;
+        }
+
+        .stat-lbl {
+          font-size: 0.76rem !important;
+          font-weight: 600 !important;
+          color: #64748b !important;
+          margin-top: 3px !important;
+          display: block !important;
+          text-align: center !important;
+          width: 100% !important;
+          line-height: 1.25 !important;
+        }
       }
 
       &.classes .stat-icon { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25); }
@@ -516,23 +568,55 @@ import { SectionRoutineDialogComponent } from './section-routine-dialog.componen
       }
 
       .class-meta-bar {
-        display: flex; justify-content: space-between; align-items: center;
-        padding: 7px 12px; background: #f8fafc; border-radius: 10px; border: 1px solid #f1f5f9; margin-bottom: 14px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 10px;
+        background: #f8fafc;
+        border-radius: 8px;
+        border: 1px solid #f1f5f9;
+        margin-bottom: 12px;
+
         .meta-tag {
-          display: inline-flex; align-items: center; gap: 5px; font-size: 0.78rem; font-weight: 600;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          font-size: 0.72rem;
+          font-weight: 600;
+          white-space: nowrap !important;
+          flex-shrink: 0;
+
+          span {
+            white-space: nowrap !important;
+          }
+
           &.students-tag {
             color: #475569;
-            mat-icon { font-size: 16px; width: 16px; height: 16px; color: #64748b; }
+            mat-icon { font-size: 15px; width: 15px; height: 15px; line-height: 15px; color: #64748b; flex-shrink: 0; }
           }
           &.sections-tag {
-            color: #2563eb; background: #ffffff; padding: 2px 8px; border-radius: 8px; border: 1px solid #e2e8f0;
-            font-size: 0.74rem; font-weight: 700;
-            mat-icon { font-size: 15px; width: 15px; height: 15px; color: #2563eb; }
+            color: #2563eb;
+            background: #ffffff;
+            padding: 2px 7px;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+            font-size: 0.71rem;
+            font-weight: 700;
+            mat-icon { font-size: 14px; width: 14px; height: 14px; line-height: 14px; color: #2563eb; flex-shrink: 0; }
           }
           &.subjects-tag {
-            color: #1d4ed8; background: #eff6ff; padding: 2px 8px; border-radius: 8px; border: 1px solid #bfdbfe;
-            font-size: 0.74rem; font-weight: 700; text-decoration: none; cursor: pointer; transition: all 0.2s;
-            mat-icon { font-size: 15px; width: 15px; height: 15px; color: #2563eb; }
+            color: #1d4ed8;
+            background: #eff6ff;
+            padding: 2px 7px;
+            border-radius: 6px;
+            border: 1px solid #bfdbfe;
+            font-size: 0.71rem;
+            font-weight: 700;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            mat-icon { font-size: 14px; width: 14px; height: 14px; line-height: 14px; color: #2563eb; flex-shrink: 0; }
             &:hover { background: #dbeafe; border-color: #93c5fd; }
           }
         }
@@ -600,6 +684,34 @@ import { SectionRoutineDialogComponent } from './section-routine-dialog.componen
                     line-height: 14px;
                     margin-left: -2px;
                     opacity: 0.7;
+                  }
+                  .remove-teacher-chip-btn {
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    background: #fee2e2;
+                    border: 1px solid #fca5a5;
+                    color: #dc2626;
+                    border-radius: 50%;
+                    width: 16px;
+                    height: 16px;
+                    min-width: 16px;
+                    padding: 0;
+                    margin-left: 3px;
+                    cursor: pointer;
+                    transition: all 0.15s ease;
+                    mat-icon {
+                      font-size: 11px !important;
+                      width: 11px !important;
+                      height: 11px !important;
+                      line-height: 11px !important;
+                    }
+                    &:hover {
+                      background: #ef4444;
+                      border-color: #dc2626;
+                      color: #ffffff;
+                      transform: scale(1.15);
+                    }
                   }
                 }
               }
@@ -685,10 +797,50 @@ import { SectionRoutineDialogComponent } from './section-routine-dialog.componen
         gap: 12px;
       }
       .header-actions {
-        width: 100%;
-        display: flex;
-        gap: 10px;
-        button { flex: 1; }
+        width: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 8px !important;
+
+        .action-btn,
+        button {
+          width: 100% !important;
+          min-width: 0 !important;
+          height: 38px !important;
+          line-height: 38px !important;
+          padding: 0 12px !important;
+          font-size: 0.85rem !important;
+          white-space: nowrap !important;
+          display: inline-flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          box-sizing: border-box !important;
+
+          mat-icon {
+            font-size: 18px !important;
+            width: 18px !important;
+            height: 18px !important;
+            line-height: 18px !important;
+            margin-right: 6px !important;
+          }
+
+          span {
+            white-space: nowrap !important;
+          }
+        }
+      }
+
+      @media (min-width: 520px) and (max-width: 768px) {
+        .header-actions {
+          flex-direction: row !important;
+
+          .action-btn,
+          button {
+            flex: 1 !important;
+            width: auto !important;
+          }
+        }
       }
       .stats-grid {
         grid-template-columns: repeat(2, 1fr);
@@ -702,7 +854,7 @@ import { SectionRoutineDialogComponent } from './section-routine-dialog.componen
 
     @media (max-width: 480px) {
       .stats-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, 1fr) !important;
         gap: 10px;
       }
       .class-card {
@@ -837,7 +989,10 @@ export class SchoolClassesComponent implements OnInit {
 
   openQuickAssignTeacher(section: SchoolSectionDto, parentClass: SchoolClassDto): void {
     const dialogRef = this.dialog.open(QuickClassTeacherDialogComponent, {
-      width: '500px',
+      width: '520px',
+      maxWidth: '96vw',
+      maxHeight: '90vh',
+      autoFocus: false,
       data: {
         sectionId: section.id,
         sectionName: section.name,
@@ -854,6 +1009,31 @@ export class SchoolClassesComponent implements OnInit {
         section.classTeacherId = res.classTeacherId;
         section.classTeacherName = res.classTeacherName;
         this.loadData();
+      }
+    });
+  }
+
+  removeClassTeacher(section: SchoolSectionDto, parentClass: SchoolClassDto): void {
+    const teacherName = section.classTeacherName || 'Class Teacher';
+    this.confirmDialog.danger(
+      'Remove Class Teacher',
+      `Are you sure you want to remove ${teacherName} as Class Teacher for ${parentClass.name} - ${section.name}?`,
+      'Remove Class Teacher'
+    ).subscribe((confirmed) => {
+      if (confirmed) {
+        this.schoolService.quickAssignClassTeacher(section.id, null, false).subscribe({
+          next: () => {
+            section.classTeacherId = undefined;
+            section.classTeacherName = undefined;
+            section.classTeacherEmployeeCode = undefined;
+            section.classTeacherPhone = undefined;
+            this.loadData();
+            this.confirmDialog.alert('Class Teacher Removed', `Class Teacher unassigned from ${parentClass.name} - ${section.name}.`, 'success');
+          },
+          error: (err) => {
+            this.confirmDialog.alert('Failed', err?.error?.message || 'Failed to remove class teacher.', 'danger');
+          }
+        });
       }
     });
   }

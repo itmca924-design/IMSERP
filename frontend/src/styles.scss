@@ -193,8 +193,8 @@ body, p, span, h1, h2, h3, h4, h5, h6, a, button, input, select, textarea,
     flex-direction: column;
     align-items: stretch;
 
-    .add-btn, button[mat-raised-button] {
-      width: 100%;
+    .add-btn, button[mat-raised-button], button[mat-stroked-button], button[mat-flat-button], .action-btn {
+      width: 100% !important;
     }
   }
 }

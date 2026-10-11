@@ -50,7 +50,7 @@ export interface SectionAssignmentRecord {
           <div class="header-icon-box">
             <mat-icon>supervisor_account</mat-icon>
           </div>
-          <div>
+          <div class="header-text-block">
             <h2 class="dialog-title">Assign Class Teacher</h2>
             <p class="dialog-subtitle">
               Section Incharge for <strong>{{ data.className }} - {{ data.sectionName }}</strong>
@@ -67,11 +67,24 @@ export interface SectionAssignmentRecord {
       <div class="dialog-body">
         <!-- Current Status Banner -->
         <div class="current-status-banner" [class.assigned]="data.currentClassTeacherId" [class.unassigned]="!data.currentClassTeacherId">
-          <mat-icon class="status-icon">{{ data.currentClassTeacherId ? 'verified' : 'info' }}</mat-icon>
-          <div class="status-text">
-            <span class="status-label">Current Class Teacher:</span>
-            <strong class="status-val">{{ data.currentClassTeacherName || 'No Teacher Assigned Yet' }}</strong>
+          <div class="banner-left">
+            <mat-icon class="status-icon">{{ data.currentClassTeacherId ? 'verified' : 'info' }}</mat-icon>
+            <div class="status-text">
+              <span class="status-label">Current Class Teacher:</span>
+              <strong class="status-val">{{ data.currentClassTeacherName || 'No Teacher Assigned Yet' }}</strong>
+            </div>
           </div>
+          <button
+            *ngIf="data.currentClassTeacherId"
+            type="button"
+            class="banner-remove-btn"
+            (click)="unassignTeacher()"
+            [disabled]="saving"
+            matTooltip="Remove current Class Teacher"
+          >
+            <mat-icon>person_remove</mat-icon>
+            <span>Remove Teacher</span>
+          </button>
         </div>
 
         <!-- Conflict Alert if teacher is assigned elsewhere -->
@@ -91,48 +104,8 @@ export interface SectionAssignmentRecord {
 
         <!-- Teacher Search & Selection -->
         <div class="form-section">
-          <!-- Real-time Quick Search Bar -->
-          <div class="search-filter-box">
-            <mat-icon class="search-icon">search</mat-icon>
-            <input
-              type="text"
-              class="search-input"
-              [(ngModel)]="searchQuery"
-              (ngModelChange)="filterTeachers()"
-              placeholder="Search faculty by name, subject, code, class or 'available'..."
-            />
-            <button
-              *ngIf="searchQuery"
-              type="button"
-              class="clear-btn"
-              (click)="clearSearch()"
-              title="Clear search"
-            >
-              <mat-icon>close</mat-icon>
-            </button>
-            <span class="results-badge" *ngIf="searchQuery">
-              {{ filteredTeachers.length }} / {{ availableTeachers.length }}
-            </span>
-          </div>
-
-          <!-- Quick Matching Chips (when searching and 1-4 results match) -->
-          <div class="quick-chips-row" *ngIf="searchQuery && filteredTeachers.length > 0 && filteredTeachers.length <= 4">
-            <span class="quick-chip-lbl">Quick pick:</span>
-            <button
-              type="button"
-              class="quick-chip"
-              *ngFor="let t of filteredTeachers"
-              [class.active]="selectedTeacherId === t.id"
-              (click)="selectTeacher(t)"
-            >
-              <span class="chip-name">{{ t.fullName }}</span>
-              <span class="chip-assigned" *ngIf="getOtherAssignedText(t.id) as ot">({{ ot }})</span>
-              <span class="chip-spec" *ngIf="!getOtherAssignedText(t.id) && t.specialization">({{ t.specialization }})</span>
-            </button>
-          </div>
-
           <!-- Mat Select Dropdown with Sticky In-Dropdown Search Header -->
-          <mat-form-field appearance="outline" class="full-width faculty-field" style="margin-top: 10px;">
+          <mat-form-field appearance="outline" class="full-width faculty-field">
             <mat-label>Select Faculty (कक्षा अध्यापक)</mat-label>
             <mat-select
               [(ngModel)]="selectedTeacherId"
@@ -248,16 +221,22 @@ export interface SectionAssignmentRecord {
 
       <!-- Dialog Actions -->
       <div class="dialog-actions">
-        <button mat-button class="btn-cancel" (click)="onClose()" [disabled]="saving">Cancel</button>
-        <button mat-flat-button color="warn" class="btn-unassign" *ngIf="data.currentClassTeacherId && selectedTeacherId === null" (click)="saveAssignment(false)" [disabled]="saving">
-          <mat-icon>person_remove</mat-icon> Remove Class Teacher
+        <button mat-flat-button color="warn" class="btn-unassign" *ngIf="data.currentClassTeacherId" (click)="unassignTeacher()" [disabled]="saving">
+          <mat-icon>person_remove</mat-icon>
+          <span>Remove Class Teacher</span>
         </button>
-        <button mat-flat-button color="primary" class="btn-save" *ngIf="!conflictNotice && !getSelectedTeacherOtherAssignmentText()" (click)="saveAssignment(false)" [disabled]="saving || !hasChanged">
-          <mat-icon>{{ saving ? 'hourglass_empty' : 'save' }}</mat-icon> Save Assignment
-        </button>
-        <button mat-flat-button color="accent" class="btn-confirm-transfer" *ngIf="conflictNotice || getSelectedTeacherOtherAssignmentText()" (click)="saveAssignment(true)" [disabled]="saving || !hasChanged">
-          <mat-icon>swap_horiz</mat-icon> Confirm & Transfer
-        </button>
+        <span class="actions-spacer"></span>
+        <div class="primary-actions">
+          <button mat-button class="btn-cancel" (click)="onClose()" [disabled]="saving">Cancel</button>
+          <button mat-flat-button color="primary" class="btn-save" *ngIf="!conflictNotice && !getSelectedTeacherOtherAssignmentText()" (click)="saveAssignment(false)" [disabled]="saving || !hasChanged">
+            <mat-icon>{{ saving ? 'hourglass_empty' : 'save' }}</mat-icon>
+            <span>Save Assignment</span>
+          </button>
+          <button mat-flat-button color="accent" class="btn-confirm-transfer" *ngIf="conflictNotice || getSelectedTeacherOtherAssignmentText()" (click)="saveAssignment(true)" [disabled]="saving || !hasChanged">
+            <mat-icon>swap_horiz</mat-icon>
+            <span>Confirm & Transfer</span>
+          </button>
+        </div>
       </div>
     </div>
   `,
@@ -266,27 +245,35 @@ export interface SectionAssignmentRecord {
       width: 100%;
       max-width: 540px;
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      display: flex;
+      flex-direction: column;
+      max-height: 88vh;
+      overflow: hidden;
     }
 
     /* Strict Light Blue Gradient Header matching AGENTS.md rule */
     .dialog-header {
       background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
       border-bottom: 1px solid #bfdbfe;
-      padding: 16px 20px;
+      padding: 12px 16px;
       display: flex;
       align-items: center;
       justify-content: space-between;
+      gap: 10px;
+      flex-shrink: 0;
     }
 
     .header-left {
       display: flex;
       align-items: center;
-      gap: 14px;
+      gap: 10px;
+      min-width: 0;
+      flex: 1;
     }
 
     .header-icon-box {
-      width: 44px;
-      height: 44px;
+      width: 40px;
+      height: 40px;
       background: #2563eb;
       color: #ffffff;
       border-radius: 10px;
@@ -294,19 +281,39 @@ export interface SectionAssignmentRecord {
       display: flex;
       align-items: center;
       justify-content: center;
+      flex-shrink: 0;
+
+      mat-icon {
+        font-size: 22px;
+        width: 22px;
+        height: 22px;
+      }
+    }
+
+    .header-text-block {
+      min-width: 0;
+      flex: 1;
     }
 
     .dialog-title {
       margin: 0;
-      font-size: 1.15rem;
+      font-size: 1.08rem;
       font-weight: 700;
       color: #1e3a8a;
+      line-height: 1.25;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .dialog-subtitle {
       margin: 2px 0 0;
-      font-size: 0.85rem;
+      font-size: 0.8rem;
       color: #3b82f6;
+      line-height: 1.25;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .dialog-subtitle strong {
@@ -314,29 +321,62 @@ export interface SectionAssignmentRecord {
     }
 
     .close-btn {
-      color: #64748b;
-      transition: color 0.15s ease;
-    }
+      width: 32px !important;
+      height: 32px !important;
+      padding: 0 !important;
+      min-width: 32px !important;
+      color: #64748b !important;
+      background: rgba(148, 163, 184, 0.15) !important;
+      border-radius: 8px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      flex-shrink: 0;
+      transition: all 0.2s ease;
 
-    .close-btn:hover {
-      color: #1e293b;
+      mat-icon {
+        font-size: 18px !important;
+        width: 18px !important;
+        height: 18px !important;
+        line-height: 18px !important;
+      }
+
+      &:hover {
+        color: #0f172a !important;
+        background: rgba(148, 163, 184, 0.3) !important;
+      }
+
+      ::ng-deep .mat-mdc-button-touch-target {
+        display: none !important;
+      }
     }
 
     /* Dialog Body */
     .dialog-body {
-      padding: 20px;
+      padding: 16px;
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 14px;
+      flex: 1;
+      overflow-y: auto;
     }
 
     .current-status-banner {
       display: flex;
       align-items: center;
-      gap: 12px;
-      padding: 12px 14px;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px;
       border-radius: 8px;
-      font-size: 0.88rem;
+      font-size: 0.85rem;
+    }
+
+    .banner-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      flex: 1;
     }
 
     .current-status-banner.assigned {
@@ -352,14 +392,66 @@ export interface SectionAssignmentRecord {
     }
 
     .status-icon {
-      font-size: 22px;
-      width: 22px;
-      height: 22px;
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
     }
 
     .status-text {
       display: flex;
       flex-direction: column;
+      min-width: 0;
+    }
+
+    .banner-remove-btn {
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #b91c1c;
+      background: #ffffff;
+      border: 1px solid #f87171;
+      border-radius: 6px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s ease;
+
+      mat-icon {
+        font-size: 15px;
+        width: 15px;
+        height: 15px;
+        line-height: 15px;
+      }
+
+      &:hover:not([disabled]) {
+        background: #fee2e2;
+        border-color: #dc2626;
+        color: #991b1b;
+        box-shadow: 0 1px 3px rgba(220, 38, 38, 0.2);
+      }
+
+      &[disabled] {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+    }
+
+    @media (max-width: 420px) {
+      .current-status-banner {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+      }
+
+      .banner-remove-btn {
+        width: 100%;
+        justify-content: center;
+        padding: 6px 10px;
+      }
     }
 
     .status-label {
@@ -602,13 +694,57 @@ export interface SectionAssignmentRecord {
     }
 
     .dialog-actions {
-      padding: 14px 20px;
+      padding: 12px 18px;
       background: #f8fafc;
       border-top: 1px solid #e2e8f0;
       display: flex;
       align-items: center;
-      justify-content: flex-end;
+      justify-content: space-between;
       gap: 10px;
+      flex-shrink: 0;
+
+      .actions-spacer {
+        flex: 1;
+      }
+
+      .primary-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      button {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 6px !important;
+        white-space: nowrap !important;
+        height: 38px !important;
+        padding: 0 14px !important;
+        font-size: 0.85rem !important;
+
+        mat-icon {
+          font-size: 18px !important;
+          width: 18px !important;
+          height: 18px !important;
+          line-height: 18px !important;
+          margin: 0 !important;
+        }
+
+        span {
+          white-space: nowrap !important;
+        }
+      }
+    }
+
+    .btn-unassign {
+      background: #dc2626 !important;
+      color: #ffffff !important;
+      font-weight: 600;
+
+      &:hover:not([disabled]) {
+        background: #b91c1c !important;
+      }
     }
 
     .btn-save {
@@ -621,6 +757,46 @@ export interface SectionAssignmentRecord {
       background: #d97706 !important;
       color: #ffffff !important;
       font-weight: 600;
+    }
+
+    @media (max-width: 520px) {
+      .dialog-actions {
+        flex-direction: column !important;
+        gap: 8px !important;
+        padding: 10px 12px !important;
+
+        .actions-spacer {
+          display: none !important;
+        }
+
+        .primary-actions {
+          width: 100% !important;
+          display: flex !important;
+          gap: 8px !important;
+          order: 1 !important;
+
+          .btn-cancel {
+            flex: 1 !important;
+            min-width: 70px !important;
+            height: 38px !important;
+          }
+
+          .btn-save,
+          .btn-confirm-transfer {
+            flex: 1.5 !important;
+            height: 38px !important;
+            font-size: 0.82rem !important;
+            padding: 0 8px !important;
+          }
+        }
+
+        .btn-unassign {
+          width: 100% !important;
+          order: 2 !important;
+          height: 36px !important;
+          font-size: 0.82rem !important;
+        }
+      }
     }
 
     /* Badges for Assignment Status */
@@ -653,8 +829,14 @@ export interface SectionAssignmentRecord {
 
     /* In-Dropdown Sticky Search & Option Card Styling */
     ::ng-deep .faculty-select-panel {
-      max-height: 440px !important;
+      max-height: 280px !important;
+    }
 
+    ::ng-deep .cdk-overlay-pane:has(.faculty-select-panel) {
+      max-height: 320px !important;
+    }
+
+    ::ng-deep .faculty-select-panel {
       .mat-mdc-option {
         height: auto !important;
         min-height: 54px !important;
@@ -1045,6 +1227,12 @@ export class QuickClassTeacherDialogComponent implements OnInit {
         }
       }
     });
+  }
+
+  unassignTeacher(): void {
+    this.selectedTeacherId = null;
+    this.selectedTeacher = null;
+    this.saveAssignment(false);
   }
 
   onClose() {
