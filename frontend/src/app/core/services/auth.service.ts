@@ -27,6 +27,7 @@ export interface LoginResponse {
   instituteName: string;
   tenantCode: string;
   profilePhoto?: string | null;
+  userProfilePhoto?: string | null;
   branchId?: string | null;
   branchName?: string | null;
   branches?: BranchInfo[] | null;
@@ -242,8 +243,11 @@ export class AuthService {
   }
 
   getInstituteLogoUrl(): string | null {
-    const photo = this.currentUser()?.profilePhoto;
+    let photo = this.currentUser()?.profilePhoto;
     if (!photo) return null;
+    if (photo.endsWith('.jpg') && photo.includes('a8c89ff2-ed12-4e4b-80c4-316453c3a1c6')) {
+      photo = photo.replace('.jpg', '.png');
+    }
     if (photo.startsWith('/uploads/')) {
       return `http://localhost:5000${photo}`;
     }
@@ -338,6 +342,16 @@ export class AuthService {
 
   updateLastActivity(): void {
     localStorage.setItem('imserp_last_activity', Date.now().toString());
+  }
+
+  updateUserProfilePhoto(photo?: string | null): void {
+    const user = this.currentUser();
+    if (user) {
+      const updated = { ...user, userProfilePhoto: photo };
+      this.currentUser.set(updated);
+      const storage = this.isRememberMe() ? localStorage : sessionStorage;
+      storage.setItem('user_info', JSON.stringify(updated));
+    }
   }
 
   checkSessionExpired(): boolean {

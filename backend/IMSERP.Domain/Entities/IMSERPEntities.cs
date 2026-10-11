@@ -89,6 +89,7 @@ public class User
     public bool IsActive { get; set; } = true;
     public string? RefreshToken { get; set; }
     public DateTime? RefreshTokenExpiryTime { get; set; }
+    public string? ProfilePhoto { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
 

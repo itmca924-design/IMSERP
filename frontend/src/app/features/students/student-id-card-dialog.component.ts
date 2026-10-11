@@ -11,6 +11,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
 
 const API_BASE = 'http://localhost:5000/api';
+import { AuthService } from '../../core/services/auth.service';
 
 export interface StudentIdCardDto {
   id: string; studentName: string; admissionNumber?: string;
@@ -76,7 +77,10 @@ export interface StudentIdCardDialogData {
         <!-- FRONT -->
         <div class="id-card id-card-front" *ngIf="cardSide==='both'||cardSide==='front'">
           <div class="card-banner">
-            <div class="inst-icon"><mat-icon>school</mat-icon></div>
+            <div class="inst-icon" [class.has-img]="logoUrl && !logoFailed">
+              <img *ngIf="logoUrl && !logoFailed" [src]="logoUrl" (error)="logoFailed = true" class="inst-logo-img" alt="Logo">
+              <mat-icon *ngIf="!logoUrl || logoFailed">school</mat-icon>
+            </div>
             <div class="inst-info">
               <div class="inst-name" [title]="c.institutionName">{{c.institutionName}}</div>
               <div class="inst-sub">STUDENT IDENTITY CARD</div>
@@ -183,7 +187,9 @@ export interface StudentIdCardDialogData {
     .card-wrap{display:flex;gap:16px;flex-wrap:wrap}
     .id-card{width:240px;height:400px;background:#fff;border-radius:12px;border:1px solid #cbd5e1;box-shadow:0 4px 14px rgba(0,0,0,.08);display:flex;flex-direction:column;overflow:hidden;page-break-inside:avoid;position:relative}
     .card-banner{background:linear-gradient(135deg,#1e3a8a 0%,#2563eb 100%);color:#fff;padding:8px 10px;display:flex;align-items:center;gap:8px;flex-shrink:0}
-    .inst-icon{width:28px;height:28px;background:rgba(255,255,255,.2);border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+    .inst-icon{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;background:transparent}
+    .inst-icon.has-img{background:transparent!important;padding:0!important;box-shadow:none!important;border:none!important}
+    .inst-logo-img{width:100%;height:100%;border-radius:50%;object-fit:cover;display:block;filter:drop-shadow(0 1px 3px rgba(0,0,0,.35))}
     .inst-icon mat-icon{font-size:18px;width:18px;height:18px}
     .inst-info{flex:1;min-width:0;display:flex;flex-direction:column}
     .inst-name{font-size:11px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.5px;text-transform:uppercase}
@@ -229,11 +235,22 @@ export class StudentIdCardDialogComponent implements OnInit {
   cardSide: 'both'|'front'|'back' = 'both';
   selectedClassId = '';
   schoolClasses: any[] = [];
+  logoFailed = false;
+
+  get logoUrl(): string | null {
+    let p = this.authService.getInstituteLogoUrl();
+    if (!p) return null;
+    if (p.endsWith('.jpg') && p.includes('a8c89ff2-ed12-4e4b-80c4-316453c3a1c6')) {
+      p = p.replace('.jpg', '.png');
+    }
+    return this.getPhotoUrl(p);
+  }
 
   constructor(
     public dialogRef: MatDialogRef<StudentIdCardDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: StudentIdCardDialogData,
-    private http: HttpClient
+    private http: HttpClient,
+    public authService: AuthService
   ) {}
 
   ngOnInit() {

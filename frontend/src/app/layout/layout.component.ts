@@ -14,6 +14,7 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { HttpClient } from '@angular/common/http';
 import { AuthService, BranchInfo } from '../core/services/auth.service';
+import { UsersService } from '../core/services/users.service';
 import { MenuService, MenuItem } from '../core/services/menu.service';
 import { TenantService } from '../core/services/tenant.service';
 import { BranchService } from '../core/services/branch.service';
@@ -246,14 +247,22 @@ import { QuickSettingsDrawerComponent } from './quick-settings-drawer/quick-sett
           
           <!-- User Account Menu Trigger Button -->
           <button mat-icon-button [matMenuTriggerFor]="accountMenu" class="account-btn" matTooltip="My Profile &amp; Settings">
-            <mat-icon class="account-icon">account_circle</mat-icon>
+            <div class="header-avatar-circle" *ngIf="getUserPhoto() && !userAvatarFailed()">
+              <img [src]="getPhotoUrl(getUserPhoto())" [alt]="currentUser()?.fullName" class="header-avatar-img" (error)="onUserAvatarError()" />
+            </div>
+            <div class="header-avatar-circle header-avatar-initials" *ngIf="(!getUserPhoto() || userAvatarFailed()) && currentUser()?.fullName">
+              <span>{{ getUserInitials() }}</span>
+            </div>
+            <mat-icon *ngIf="(!getUserPhoto() || userAvatarFailed()) && !currentUser()?.fullName" class="account-icon">account_circle</mat-icon>
           </button>
 
           <!-- Account Dropdown Menu -->
           <mat-menu #accountMenu="matMenu" xPosition="before" class="account-dropdown-panel">
             <div class="account-menu-header" (click)="$event.stopPropagation()">
               <div class="user-avatar-circle">
-                <mat-icon>person</mat-icon>
+                <img *ngIf="getUserPhoto() && !userAvatarFailed()" [src]="getPhotoUrl(getUserPhoto())" [alt]="currentUser()?.fullName" class="menu-avatar-img" (error)="onUserAvatarError()" />
+                <span *ngIf="(!getUserPhoto() || userAvatarFailed()) && currentUser()?.fullName" class="avatar-initials-text">{{ getUserInitials() }}</span>
+                <mat-icon *ngIf="(!getUserPhoto() || userAvatarFailed()) && !currentUser()?.fullName">person</mat-icon>
               </div>
               <div class="user-info-text">
                 <span class="user-name">{{ currentUser()?.fullName || currentUser()?.username || 'Administrator' }}</span>
@@ -350,14 +359,15 @@ import { QuickSettingsDrawerComponent } from './quick-settings-drawer/quick-sett
       flex-shrink: 0;
 
       .brand-logo-img {
-        width: 38px;
-        height: 38px;
-        border-radius: 9px;
-        object-fit: cover;
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        object-fit: contain;
+        border: none;
+        box-shadow: none;
         flex-shrink: 0;
-        background: #ffffff;
+        background: transparent !important;
+        filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.45));
       }
 
       .brand-logo-badge {
@@ -1069,6 +1079,10 @@ import { QuickSettingsDrawerComponent } from './quick-settings-drawer/quick-sett
     .account-btn {
       color: #ffffff;
       margin-left: 8px;
+      padding: 0 !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
       transition: transform 0.15s ease, background-color 0.15s ease;
 
       &:hover {
@@ -1080,6 +1094,33 @@ import { QuickSettingsDrawerComponent } from './quick-settings-drawer/quick-sett
         font-size: 28px;
         width: 28px;
         height: 28px;
+      }
+
+      .header-avatar-circle {
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 2px solid rgba(255, 255, 255, 0.9);
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+
+        .header-avatar-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+        }
+
+        &.header-avatar-initials {
+          color: #ffffff;
+          font-size: 0.78rem;
+          font-weight: 700;
+          letter-spacing: 0.5px;
+        }
       }
     }
     mat-sidenav-content {
@@ -1353,10 +1394,12 @@ export class LayoutComponent implements OnInit {
   @ViewChild('drawer') drawer!: MatSidenav;
 
   logoImgFailed = signal(false);
+  userAvatarFailed = signal(false);
   private rawMenu: MenuItem[] = [];
 
   constructor(
     private authService: AuthService,
+    private usersService: UsersService,
     private tenantService: TenantService,
     private branchService: BranchService,
     private menuService: MenuService,
@@ -1367,6 +1410,9 @@ export class LayoutComponent implements OnInit {
       const user = this.currentUser();
       if (user?.profilePhoto) {
         this.logoImgFailed.set(false);
+      }
+      if (user?.userProfilePhoto) {
+        this.userAvatarFailed.set(false);
       }
     }, { allowSignalWrites: true });
 
@@ -1467,6 +1513,7 @@ export class LayoutComponent implements OnInit {
     });
 
     this.loadCurrentTenant();
+    this.loadUserProfile();
     this.loadHeaderBranches();
     this.branchService.branchesChanged.subscribe(() => {
       this.loadHeaderBranches();
@@ -1539,10 +1586,48 @@ export class LayoutComponent implements OnInit {
 
   getPhotoUrl(photo?: string | null): string {
     if (!photo) return '';
-    if (photo.startsWith('/uploads/')) {
-      return `http://localhost:5000${photo}`;
+    let p = photo;
+    if (p.endsWith('.jpg') && p.includes('a8c89ff2-ed12-4e4b-80c4-316453c3a1c6')) {
+      p = p.replace('.jpg', '.png');
     }
-    return photo;
+    if (p.startsWith('/uploads/')) {
+      return `http://localhost:5000${p}`;
+    }
+    return p;
+  }
+
+  getUserPhoto(): string | null {
+    const user = this.currentUser();
+    if (!user) return null;
+    return user.userProfilePhoto || null;
+  }
+
+  getUserInitials(): string {
+    const name = this.currentUser()?.fullName || this.currentUser()?.username || '';
+    if (!name) return 'U';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+  }
+
+  onUserAvatarError(): void {
+    this.userAvatarFailed.set(true);
+  }
+
+  loadUserProfile(): void {
+    if (this.authService.isLoggedIn()) {
+      this.usersService.getCurrentUserProfile().subscribe({
+        next: (profile) => {
+          if (profile && profile.profilePhoto) {
+            this.userAvatarFailed.set(false);
+            this.authService.updateUserProfilePhoto(profile.profilePhoto);
+          }
+        },
+        error: () => {}
+      });
+    }
   }
 
   onNavClick(drawer: MatSidenav): void {

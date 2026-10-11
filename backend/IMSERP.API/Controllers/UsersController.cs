@@ -16,12 +16,18 @@ public class UsersController : ControllerBase
     private readonly IIMSERPDbContext _dbContext;
     private readonly ICurrentUserService _currentUser;
     private readonly IPasswordHasherService _passwordHasher;
+    private readonly IWebHostEnvironment _env;
 
-    public UsersController(IIMSERPDbContext dbContext, ICurrentUserService currentUser, IPasswordHasherService passwordHasher)
+    public UsersController(
+        IIMSERPDbContext dbContext,
+        ICurrentUserService currentUser,
+        IPasswordHasherService passwordHasher,
+        IWebHostEnvironment env)
     {
         _dbContext = dbContext;
         _currentUser = currentUser;
         _passwordHasher = passwordHasher;
+        _env = env;
     }
 
     [HttpGet]
@@ -45,10 +51,38 @@ public class UsersController : ControllerBase
             u.IsActive,
             u.CreatedAt,
             u.BranchId,
-            u.Branch?.Name
+            u.Branch?.Name,
+            u.ProfilePhoto
         )).ToList();
 
         return Ok(dtos);
+    }
+
+    [HttpGet("me")]
+    public async Task<ActionResult<UserDto>> GetCurrentUserProfile()
+    {
+        var user = await _dbContext.Users
+            .AsNoTracking()
+            .Include(u => u.AssignedRole)
+            .Include(u => u.Branch)
+            .FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
+
+        if (user == null) return NotFound();
+
+        return Ok(new UserDto(
+            user.Id,
+            user.Username,
+            user.FullName,
+            user.Email,
+            user.PhoneNumber,
+            user.AssignedRole?.Name ?? user.Role.ToString(),
+            user.RoleId,
+            user.IsActive,
+            user.CreatedAt,
+            user.BranchId,
+            user.Branch?.Name,
+            user.ProfilePhoto
+        ));
     }
 
     [HttpGet("paged")]
@@ -145,7 +179,8 @@ public class UsersController : ControllerBase
             u.IsActive,
             u.CreatedAt,
             u.BranchId,
-            u.Branch?.Name
+            u.Branch?.Name,
+            u.ProfilePhoto
         )).ToList();
 
         return Ok(new PagedResult<UserDto>(dtos, totalCount, pageNumber, pageSize));
@@ -277,6 +312,11 @@ public class UsersController : ControllerBase
             CreatedAt = DateTime.UtcNow
         };
 
+        if (!string.IsNullOrWhiteSpace(dto.ProfilePhoto))
+        {
+            user.ProfilePhoto = Helpers.ImageStorageHelper.SaveBase64Image(dto.ProfilePhoto, "users", user.Id.ToString(), _env.ContentRootPath);
+        }
+
         _dbContext.Users.Add(user);
         await _dbContext.SaveChangesAsync();
 
@@ -293,7 +333,8 @@ public class UsersController : ControllerBase
             user.IsActive,
             user.CreatedAt,
             user.BranchId,
-            branchName
+            branchName,
+            user.ProfilePhoto
         ));
     }
 
@@ -369,6 +410,18 @@ public class UsersController : ControllerBase
             user.PasswordHash = _passwordHasher.HashPassword(dto.Password);
         }
 
+        if (dto.ProfilePhoto != null)
+        {
+            if (string.IsNullOrWhiteSpace(dto.ProfilePhoto))
+            {
+                user.ProfilePhoto = null;
+            }
+            else
+            {
+                user.ProfilePhoto = Helpers.ImageStorageHelper.SaveBase64Image(dto.ProfilePhoto, "users", user.Id.ToString(), _env.ContentRootPath);
+            }
+        }
+
         await _dbContext.SaveChangesAsync();
 
         var branchName = user.BranchId.HasValue ? (await _dbContext.Branches.AsNoTracking().FirstOrDefaultAsync(b => b.Id == user.BranchId.Value))?.Name : null;
@@ -384,7 +437,8 @@ public class UsersController : ControllerBase
             user.IsActive,
             user.CreatedAt,
             user.BranchId,
-            branchName
+            branchName,
+            user.ProfilePhoto
         ));
     }
 

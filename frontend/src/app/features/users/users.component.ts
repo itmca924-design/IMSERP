@@ -151,7 +151,20 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             <ng-container matColumnDef="fullName">
               <th mat-header-cell *matHeaderCellDef mat-sort-header="fullName"> Full Name </th>
               <td mat-cell *matCellDef="let element">
-                <strong>{{ element.fullName }}</strong>
+                <div class="user-profile-cell">
+                  <div class="user-avatar-circle">
+                    <img
+                      *ngIf="element.profilePhoto"
+                      [src]="getPhotoUrl(element.profilePhoto)"
+                      [alt]="element.fullName"
+                      class="avatar-img"
+                      (error)="onAvatarError($event, element.fullName)" />
+                    <span *ngIf="!element.profilePhoto" class="avatar-initials">{{ getInitials(element.fullName) }}</span>
+                  </div>
+                  <div class="user-name-text">
+                    <strong>{{ element.fullName }}</strong>
+                  </div>
+                </div>
               </td>
             </ng-container>
 
@@ -376,6 +389,41 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
       color: #1e293b;
       font-family: monospace;
       font-size: 0.92rem;
+    }
+    .user-profile-cell {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .user-avatar-circle {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      flex-shrink: 0;
+      font-weight: 700;
+      font-size: 0.75rem;
+      box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+
+      .avatar-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+
+      .avatar-initials {
+        letter-spacing: 0.5px;
+      }
+    }
+    .user-name-text {
+      display: flex;
+      flex-direction: column;
     }
     .role-chip {
       font-size: 0.75rem;
@@ -685,5 +733,33 @@ export class UsersComponent implements OnInit, OnDestroy {
         }
       });
     });
+  }
+
+  getPhotoUrl(photo?: string | null): string {
+    if (!photo) return '';
+    if (photo.startsWith('http://') || photo.startsWith('https://') || photo.startsWith('data:')) return photo;
+    if (photo.startsWith('/uploads/')) return `http://localhost:5000${photo}`;
+    if (photo.startsWith('/')) return photo;
+    return `http://localhost:5000/${photo}`;
+  }
+
+  getInitials(name?: string): string {
+    if (!name) return 'U';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+  }
+
+  onAvatarError(event: Event, name?: string): void {
+    const target = event.target as HTMLElement;
+    if (target && target.parentElement) {
+      target.style.display = 'none';
+      const initialsSpan = document.createElement('span');
+      initialsSpan.className = 'avatar-initials';
+      initialsSpan.textContent = this.getInitials(name);
+      target.parentElement.appendChild(initialsSpan);
+    }
   }
 }

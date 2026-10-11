@@ -13,6 +13,7 @@ import { ErrorStateMatcher } from '@angular/material/core';
 import { Subject, Subscription } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { UserDto, UsersService } from '../../core/services/users.service';
+import { AuthService } from '../../core/services/auth.service';
 import { RoleDto, RolesService } from '../../core/services/roles.service';
 import { BranchDto, BranchService } from '../../core/services/branch.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
@@ -62,6 +63,29 @@ export class ImmediateErrorStateMatcher implements ErrorStateMatcher {
             <mat-icon class="info-icon">auto_awesome</mat-icon>
             <div class="info-text">
               Role-based permissions ensure branch-scoped accounts only access data belonging to their campus.
+            </div>
+          </div>
+
+          <!-- Section: Profile Photo -->
+          <div class="photo-upload-row">
+            <div class="avatar-preview-box">
+              <img *ngIf="photoPreview" [src]="photoPreview" class="avatar-preview-img" alt="User Avatar" />
+              <mat-icon *ngIf="!photoPreview" class="avatar-fallback-icon">account_circle</mat-icon>
+            </div>
+            <div class="photo-meta-group">
+              <div class="photo-title">Profile Image (Avatar)</div>
+              <div class="photo-hint">PNG, JPG or WEBP up to 2MB. Saved as fast-loading disk file.</div>
+              <div class="photo-buttons">
+                <input type="file" #fileInput (change)="onFileSelected($event)" accept="image/png,image/jpeg,image/webp" style="display: none;" />
+                <button mat-stroked-button type="button" class="upload-btn" (click)="fileInput.click()">
+                  <mat-icon>photo_camera</mat-icon>
+                  <span>{{ photoPreview ? 'Change Photo' : 'Upload Photo' }}</span>
+                </button>
+                <button mat-button color="warn" type="button" class="remove-btn" *ngIf="photoPreview" (click)="removePhoto()">
+                  <mat-icon>delete_outline</mat-icon>
+                  <span>Remove</span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -299,6 +323,83 @@ export class ImmediateErrorStateMatcher implements ErrorStateMatcher {
       .info-text { font-size: 0.75rem; color: #166534; line-height: 1.35; }
     }
 
+    .photo-upload-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 10px 14px;
+      background: #f8fafc;
+      border: 1px dashed #cbd5e1;
+      border-radius: 10px;
+      flex-shrink: 0;
+
+      .avatar-preview-box {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        background: #e2e8f0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        border: 2px solid #3b82f6;
+        box-shadow: 0 2px 6px rgba(59, 130, 246, 0.25);
+        flex-shrink: 0;
+
+        .avatar-preview-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+        }
+
+        .avatar-fallback-icon {
+          font-size: 50px;
+          width: 50px;
+          height: 50px;
+          color: #94a3b8;
+        }
+      }
+
+      .photo-meta-group {
+        flex: 1;
+        .photo-title {
+          font-size: 0.82rem;
+          font-weight: 700;
+          color: #1e293b;
+          margin-bottom: 2px;
+        }
+        .photo-hint {
+          font-size: 0.72rem;
+          color: #64748b;
+          margin-bottom: 6px;
+        }
+        .photo-buttons {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+
+          .upload-btn {
+            height: 30px;
+            line-height: 30px;
+            font-size: 0.75rem;
+            padding: 0 10px;
+            color: #2563eb;
+            border-color: #bfdbfe;
+            mat-icon { font-size: 16px; width: 16px; height: 16px; margin-right: 4px; }
+          }
+
+          .remove-btn {
+            height: 30px;
+            line-height: 30px;
+            font-size: 0.75rem;
+            padding: 0 8px;
+            mat-icon { font-size: 16px; width: 16px; height: 16px; margin-right: 2px; }
+          }
+        }
+      }
+    }
+
     .section-label {
       display: flex;
       align-items: center;
@@ -458,6 +559,7 @@ export class UserDialogComponent implements OnInit, OnDestroy {
   phoneDuplicate = false;
   errorMatcher = new ImmediateErrorStateMatcher();
 
+  photoPreview: string | null = null;
   private subs = new Subscription();
 
   constructor(
@@ -466,12 +568,17 @@ export class UserDialogComponent implements OnInit, OnDestroy {
     private rolesService: RolesService,
     private branchService: BranchService,
     private confirmDialog: ConfirmDialogService,
+    private authService: AuthService,
     private dialogRef: MatDialogRef<UserDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data?: UserDto
   ) {}
 
   ngOnInit(): void {
     this.isEditMode = !!this.data?.id;
+
+    if (this.data?.profilePhoto) {
+      this.photoPreview = this.getPhotoUrl(this.data.profilePhoto);
+    }
 
     this.userForm = this.fb.group({
       username: [this.data?.username || '', [Validators.required]],
@@ -481,7 +588,8 @@ export class UserDialogComponent implements OnInit, OnDestroy {
       roleId: [this.data?.roleId || '', [Validators.required]],
       branchId: [this.data?.branchId || null],
       password: [this.isEditMode ? '' : 'admin123', this.isEditMode ? [] : [Validators.required]],
-      isActive: [this.data?.isActive ?? true]
+      isActive: [this.data?.isActive ?? true],
+      profilePhoto: [this.data?.profilePhoto || '']
     });
 
     this.rolesService.getRoles().subscribe({
@@ -601,6 +709,40 @@ export class UserDialogComponent implements OnInit, OnDestroy {
     ctrl.setErrors(Object.keys(errors).length > 0 ? errors : null);
   }
 
+  onFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+
+    const file = input.files[0];
+    if (file.size > 2 * 1024 * 1024) {
+      this.confirmDialog.alert('File Too Large', 'Please select an image smaller than 2MB.', 'warning');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result as string;
+      this.photoPreview = base64;
+      this.userForm.patchValue({ profilePhoto: base64 });
+      this.userForm.markAsDirty();
+    };
+    reader.readAsDataURL(file);
+  }
+
+  removePhoto(): void {
+    this.photoPreview = null;
+    this.userForm.patchValue({ profilePhoto: '' });
+    this.userForm.markAsDirty();
+  }
+
+  getPhotoUrl(photo?: string | null): string {
+    if (!photo) return '';
+    if (photo.startsWith('http://') || photo.startsWith('https://') || photo.startsWith('data:')) return photo;
+    if (photo.startsWith('/uploads/')) return `http://localhost:5000${photo}`;
+    if (photo.startsWith('/')) return photo;
+    return `http://localhost:5000/${photo}`;
+  }
+
   getSelectedRoleName(): string {
     const roleId = this.userForm?.get('roleId')?.value;
     if (!roleId) return 'No Role Assigned';
@@ -668,6 +810,9 @@ export class UserDialogComponent implements OnInit, OnDestroy {
       this.usersService.updateUser(this.data.id, formVal).subscribe({
         next: (updated) => {
           this.saving = false;
+          if (this.authService.currentUser()?.userId === updated.id) {
+            this.authService.updateUserProfilePhoto(updated.profilePhoto);
+          }
           this.confirmDialog.alert('User Updated', `User "${updated.username}" credentials updated successfully.`, 'success')
             .subscribe(() => this.dialogRef.close(true));
         },

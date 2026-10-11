@@ -10,6 +10,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { API_BASE, TeacherIdCardDto } from './teacher.models';
+import { AuthService } from '../../core/services/auth.service';
 
 export interface TeacherIdCardDialogData {
   teacherId?: string;
@@ -67,8 +68,13 @@ export interface TeacherIdCardDialogData {
         <div class="id-card id-card-front" *ngIf="cardSide === 'both' || cardSide === 'front'">
           <!-- Card Header -->
           <div class="card-header-banner">
-            <div class="inst-logo-badge">
-              <mat-icon>school</mat-icon>
+            <div class="inst-logo-badge" [class.has-img]="getCardLogo(card) && !logoFailed">
+              <img *ngIf="getCardLogo(card) && !logoFailed" 
+                   [src]="getCardLogo(card)" 
+                   (error)="logoFailed = true" 
+                   alt="Logo" 
+                   class="inst-logo-img">
+              <mat-icon *ngIf="!getCardLogo(card) || logoFailed">school</mat-icon>
             </div>
             <div class="inst-names">
               <div class="inst-title">{{card.institutionName}}</div>
@@ -79,7 +85,7 @@ export interface TeacherIdCardDialogData {
           <!-- Card Body -->
           <div class="card-body">
             <div class="photo-container">
-              <img *ngIf="card.photoUrl" [src]="card.photoUrl" alt="Photo" class="staff-photo">
+              <img *ngIf="card.photoUrl" [src]="getPhotoUrl(card.photoUrl)" alt="Photo" class="staff-photo">
               <div *ngIf="!card.photoUrl" class="photo-placeholder">
                 {{getInitials(card.fullName)}}
               </div>
@@ -305,20 +311,37 @@ export interface TeacherIdCardDialogData {
     }
 
     .inst-logo-badge {
-      width: 28px;
-      height: 28px;
-      background: rgba(255, 255, 255, 0.2);
-      border-radius: 6px;
+      width: 34px;
+      height: 34px;
+      background: transparent;
+      border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
+      overflow: hidden;
+    }
+
+    .inst-logo-badge.has-img {
+      background: transparent !important;
+      padding: 0 !important;
+      box-shadow: none !important;
+      border: none !important;
+    }
+
+    .inst-logo-img {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      object-fit: cover;
+      display: block;
+      filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.35));
     }
 
     .inst-logo-badge mat-icon {
-      font-size: 18px;
-      width: 18px;
-      height: 18px;
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
     }
 
     .inst-names {
@@ -602,12 +625,37 @@ export class TeacherIdCardDialogComponent implements OnInit {
   cards: TeacherIdCardDto[] = [];
   loading = false;
   cardSide: 'both' | 'front' | 'back' = 'both';
+  logoFailed = false;
 
   constructor(
     public dialogRef: MatDialogRef<TeacherIdCardDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: TeacherIdCardDialogData,
-    private http: HttpClient
+    private http: HttpClient,
+    public authService: AuthService
   ) {}
+
+  getCardLogo(card?: TeacherIdCardDto): string | null {
+    let raw = card?.institutionLogo || this.authService.getInstituteLogoUrl();
+    if (!raw) return null;
+    if (raw.endsWith('.jpg') && raw.includes('a8c89ff2-ed12-4e4b-80c4-316453c3a1c6')) {
+      raw = raw.replace('.jpg', '.png');
+    }
+    return this.getPhotoUrl(raw);
+  }
+
+  getPhotoUrl(photo?: string | null): string {
+    if (!photo) return '';
+    if (photo.startsWith('http://') || photo.startsWith('https://') || photo.startsWith('data:')) {
+      return photo;
+    }
+    if (photo.startsWith('/uploads/')) {
+      return `http://localhost:5000${photo}`;
+    }
+    if (photo.startsWith('/')) {
+      return photo;
+    }
+    return `http://localhost:5000/${photo}`;
+  }
 
   ngOnInit() {
     this.loadIdCards();

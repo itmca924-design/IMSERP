@@ -540,4 +540,5 @@ export interface TeacherIdCardDto {
   institutionPhone?: string;
   affiliationCode?: string;
   qrCodeData: string;
+  institutionLogo?: string;
 }

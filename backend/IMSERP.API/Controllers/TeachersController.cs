@@ -4527,7 +4527,8 @@ public class TeachersController : ControllerBase
                 instAddress,
                 instPhone,
                 affCode,
-                qrData
+                qrData,
+                tenant?.ProfilePhoto
             );
         });
 

@@ -143,7 +143,8 @@ public class AuthController : ControllerBase
             TrialDaysLeft: trialDaysLeft,
             MaxStudentsLimit: tenant.MaxStudentsLimit,
             MaxBranchesLimit: tenant.MaxBranchesLimit,
-            IsSubscriptionExpired: isExpired
+            IsSubscriptionExpired: isExpired,
+            UserProfilePhoto: user.ProfilePhoto
         ));
     }
 
@@ -255,7 +256,8 @@ public class AuthController : ControllerBase
             TrialDaysLeft: trialDaysLeft,
             MaxStudentsLimit: tenant?.MaxStudentsLimit ?? 50,
             MaxBranchesLimit: tenant?.MaxBranchesLimit ?? 2,
-            IsSubscriptionExpired: isExpired
+            IsSubscriptionExpired: isExpired,
+            UserProfilePhoto: user.ProfilePhoto
         ));
     }
 

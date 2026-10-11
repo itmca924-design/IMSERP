@@ -24,6 +24,7 @@ export interface UserDto {
   branchName?: string | null;
   isActive: boolean;
   createdAt: string;
+  profilePhoto?: string;
 }
 
 export interface CreateUserDto {
@@ -35,6 +36,7 @@ export interface CreateUserDto {
   roleId: string;
   branchId?: string | null;
   isActive: boolean;
+  profilePhoto?: string;
 }
 
 @Injectable({
@@ -102,5 +104,9 @@ export class UsersService {
 
   deleteUser(id: string): Observable<any> {
     return this.http.delete(`${this.BASE_URL}/${id}`);
+  }
+
+  getCurrentUserProfile(): Observable<UserDto> {
+    return this.http.get<UserDto>(`${this.BASE_URL}/me`);
   }
 }

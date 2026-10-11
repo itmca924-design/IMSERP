@@ -8,11 +8,11 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { 
-  CoachingService, 
-  Student360Data, 
+import {
+  CoachingService,
+  Student360Data,
   StudentAchievementDto,
-  StudentWeeklyTimetableDto 
+  StudentWeeklyTimetableDto
 } from '../../core/services/coaching.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
@@ -754,10 +754,10 @@ const API_BASE = 'http://localhost:5000';
       <!-- 🏆 PRINTABLE MERIT CERTIFICATE MODAL OVERLAY (Feature 1) -->
       <div class="cert-modal-backdrop" *ngIf="activeCertificateModal" (click)="activeCertificateModal = null">
         <div class="cert-dialog-window" (click)="$event.stopPropagation()">
-          <div class="cert-modal-top-bar">
+          <div class="cert-modal-top-bar no-print">
             <span>Certificate of Merit &amp; Excellence Preview</span>
             <div class="top-bar-actions">
-              <button mat-raised-button color="primary" class="primary-gradient-btn" (click)="triggerPrint()">
+              <button mat-raised-button color="primary" class="primary-gradient-btn" (click)="printCertificateModal()">
                 <mat-icon>print</mat-icon> Print Certificate
               </button>
               <button mat-icon-button (click)="activeCertificateModal = null">
@@ -819,10 +819,10 @@ const API_BASE = 'http://localhost:5000';
       <!-- 🩺 PRINTABLE POCKET EMERGENCY MEDICAL CARD MODAL (Feature 4) -->
       <div class="cert-modal-backdrop" *ngIf="showPrintMedicalCard" (click)="showPrintMedicalCard = false">
         <div class="medical-dialog-window" (click)="$event.stopPropagation()">
-          <div class="cert-modal-top-bar">
+          <div class="cert-modal-top-bar no-print">
             <span>Student Emergency Medical Pocket Card Preview</span>
             <div class="top-bar-actions">
-              <button mat-raised-button color="primary" class="primary-gradient-btn" (click)="triggerPrint()">
+              <button mat-raised-button color="primary" class="primary-gradient-btn" (click)="printPocketMedicalCard()">
                 <mat-icon>print</mat-icon> Print ID Card
               </button>
               <button mat-icon-button (click)="showPrintMedicalCard = false">
@@ -2374,15 +2374,25 @@ const API_BASE = 'http://localhost:5000';
     }
 
     @media print {
-      body * { visibility: hidden; }
-      #printCertificateArea, #printCertificateArea *,
-      #printMedicalCardArea, #printMedicalCardArea * {
-        visibility: visible;
+      .no-print,
+      .cert-modal-top-bar,
+      .portal-header-bar,
+      .profile-content-wrap,
+      .loading-state-box,
+      .header-actions {
+        display: none !important;
       }
-      #printCertificateArea, #printMedicalCardArea {
-        position: absolute;
-        left: 0; top: 0;
-        width: 100%;
+      .cert-modal-backdrop {
+        position: static !important;
+        background: transparent !important;
+        padding: 0 !important;
+      }
+      .medical-dialog-window,
+      .cert-dialog-window {
+        box-shadow: none !important;
+        border: none !important;
+        max-width: 100% !important;
+        width: 100% !important;
       }
     }
   `]
@@ -2406,7 +2416,7 @@ export class MyStudentProfileComponent implements OnInit {
     private confirmDialog: ConfirmDialogService,
     private dialog: MatDialog,
     private http: HttpClient
-  ) {}
+  ) { }
 
   ngOnInit(): void {
     this.loadProfile();
@@ -2419,7 +2429,7 @@ export class MyStudentProfileComponent implements OnInit {
       next: (res) => {
         this.timetableMiniData = res;
       },
-      error: () => {}
+      error: () => { }
     });
   }
 
@@ -2501,7 +2511,447 @@ export class MyStudentProfileComponent implements OnInit {
   }
 
   triggerPrint(): void {
-    window.print();
+    if (this.showPrintMedicalCard) {
+      this.printPocketMedicalCard();
+    } else if (this.activeCertificateModal) {
+      this.printCertificateModal();
+    } else {
+      window.print();
+    }
+  }
+
+  printPocketMedicalCard(): void {
+    const studentName = this.data360?.student?.studentName || 'Student';
+    const student = this.data360?.student;
+    const bloodGroup = this.data360?.healthRecord?.bloodGroup || this.data360?.healthProfile?.bloodGroup || student?.bloodGroup || 'N/A';
+    const allergies = this.data360?.healthRecord?.knownAllergies || this.data360?.healthProfile?.knownAllergies || '';
+    const chronic = this.data360?.healthRecord?.chronicConditions || this.data360?.healthProfile?.chronicConditions || '';
+    const branchName = student?.branchName || 'School & Coaching Institution';
+    const photoUrl = student?.profilePhoto ? this.getPhotoUrl(student.profilePhoto) : '';
+    const initials = this.getInitials(studentName);
+    const dobFormatted = student?.dateOfBirth ? new Date(student.dateOfBirth).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'N/A';
+    const parentPhone = student?.parentWhatsAppPhone || 'N/A';
+    const parentName = student?.parentName || 'N/A';
+    const docName = this.data360?.healthRecord?.emergencyDoctorName || this.data360?.healthProfile?.emergencyDoctorName || 'School Infirmary';
+    const docPhone = this.data360?.healthRecord?.emergencyDoctorPhone || this.data360?.healthProfile?.emergencyDoctorPhone || '+91 98765 43210';
+
+    const printWin = window.open('', '_blank', 'width=750,height=750');
+    if (!printWin) {
+      window.print();
+      return;
+    }
+
+    printWin.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Emergency Medical Pocket ID - ${studentName}</title>
+        <style>
+          @page {
+            size: A4 portrait;
+            margin: 15mm;
+          }
+          * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+            background: #ffffff;
+            margin: 0;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #0f172a;
+          }
+          .guide-cut-text {
+            font-size: 11px;
+            color: #64748b;
+            margin-bottom: 14px;
+            text-align: center;
+            font-weight: 600;
+          }
+          .card-cut-boundary {
+            width: 440px;
+            border: 2px dashed #94a3b8;
+            border-radius: 14px;
+            padding: 8px;
+            background: #f8fafc;
+          }
+          .pocket-card-shell {
+            background: #ffffff;
+            border: 1.5px solid #cbd5e1;
+            border-radius: 10px;
+            padding: 18px;
+          }
+          .card-top-banner {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+            border: 1px solid #bfdbfe;
+            border-radius: 8px;
+            padding: 10px 14px;
+            margin-bottom: 14px;
+          }
+          .cross-box {
+            width: 32px;
+            height: 32px;
+            background: #dc2626;
+            color: #ffffff;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            font-size: 20px;
+            flex-shrink: 0;
+            line-height: 1;
+          }
+          .banner-titles h4 {
+            margin: 0;
+            font-size: 13px;
+            font-weight: 800;
+            color: #1e3a8a;
+            letter-spacing: 0.5px;
+          }
+          .banner-titles span {
+            font-size: 11px;
+            color: #2563eb;
+            font-weight: 600;
+          }
+          .bio-section {
+            display: flex;
+            gap: 14px;
+            margin-bottom: 12px;
+            align-items: center;
+          }
+          .avatar-frame {
+            width: 66px;
+            height: 66px;
+            border-radius: 8px;
+            background: #f1f5f9;
+            overflow: hidden;
+            flex-shrink: 0;
+            border: 1.5px solid #cbd5e1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+          .avatar-frame img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+          }
+          .avatar-fallback {
+            font-size: 20px;
+            font-weight: 800;
+            color: #2563eb;
+          }
+          .bio-lines .stu-name {
+            font-size: 16px;
+            font-weight: 800;
+            color: #0f172a;
+            margin-bottom: 3px;
+          }
+          .bio-lines .meta-line {
+            font-size: 11px;
+            color: #475569;
+            margin-bottom: 2px;
+          }
+          .blood-badge {
+            color: #dc2626;
+            font-weight: 800;
+            font-size: 12px;
+          }
+          .alert-banner {
+            border-radius: 6px;
+            padding: 6px 10px;
+            font-size: 11px;
+            margin-bottom: 8px;
+          }
+          .alert-banner.red {
+            background: #fee2e2;
+            border: 1px solid #fecaca;
+            color: #991b1b;
+          }
+          .alert-banner.amber {
+            background: #fef3c7;
+            border: 1px solid #fde68a;
+            color: #92400e;
+          }
+          .contacts-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 10px;
+            background: #f1f5f9;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+          }
+          .contact-item {
+            font-size: 11px;
+          }
+          .contact-item .lbl {
+            font-size: 9.5px;
+            color: #64748b;
+            display: block;
+            margin-bottom: 2px;
+            text-transform: uppercase;
+            font-weight: 700;
+          }
+          .contact-item strong {
+            color: #0f172a;
+            font-size: 11px;
+          }
+          .contact-item .phone-num {
+            color: #1d4ed8;
+            font-weight: 700;
+            margin-top: 2px;
+            font-size: 11px;
+          }
+          .card-disclaimer {
+            margin-top: 10px;
+            font-size: 9.5px;
+            color: #64748b;
+            text-align: center;
+            font-style: italic;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="guide-cut-text">
+          ✂️ Cut along dashed border &amp; fold into student pocket, wallet, or ID badge holder.
+        </div>
+        <div class="card-cut-boundary">
+          <div class="pocket-card-shell">
+            <div class="card-top-banner">
+              <div class="cross-box">+</div>
+              <div class="banner-titles">
+                <h4>EMERGENCY MEDICAL IDENTITY CARD</h4>
+                <span>${branchName}</span>
+              </div>
+            </div>
+
+            <div class="bio-section">
+              <div class="avatar-frame">
+                ${photoUrl ? `<img src="${photoUrl}" alt="Photo" />` : `<div class="avatar-fallback">${initials}</div>`}
+              </div>
+              <div class="bio-lines">
+                <div class="stu-name">${studentName}</div>
+                <div class="meta-line">Class: <strong>${student?.className || 'N/A'}${student?.sectionName ? ' - ' + student.sectionName : ''}</strong> &bull; Roll: <strong>${student?.rollNumber || 'N/A'}</strong></div>
+                <div class="meta-line">DOB: <strong>${dobFormatted}</strong> &bull; Blood: <strong class="blood-badge">${bloodGroup}</strong></div>
+              </div>
+            </div>
+
+            ${allergies ? `<div class="alert-banner red"><strong>CRITICAL ALLERGIES:</strong> ${allergies}</div>` : ''}
+            ${chronic ? `<div class="alert-banner amber"><strong>CHRONIC CONDITIONS:</strong> ${chronic}</div>` : ''}
+
+            <div class="contacts-row">
+              <div class="contact-item">
+                <span class="lbl">Father / Guardian:</span>
+                <strong>${parentName}</strong>
+                <div class="phone-num">${parentPhone}</div>
+              </div>
+              <div class="contact-item">
+                <span class="lbl">Pediatrician / Emergency Doc:</span>
+                <strong>${docName}</strong>
+                <div class="phone-num">${docPhone}</div>
+              </div>
+            </div>
+
+            <div class="card-disclaimer">
+              In case of severe allergic reaction or sudden collapse, immediately contact doctor or campus infirmary.
+            </div>
+          </div>
+        </div>
+        <script>
+          window.onload = function() {
+            window.print();
+          };
+        </script>
+      </body>
+      </html>
+    `);
+    printWin.document.close();
+  }
+
+  printCertificateModal(): void {
+    if (!this.activeCertificateModal) return;
+    const ach = this.activeCertificateModal;
+    const studentName = this.data360?.student?.studentName || 'Student';
+    const branchName = this.data360?.student?.branchName || 'INTERNATIONAL ACADEMY OF EXCELLENCE';
+
+    const printWin = window.open('', '_blank', 'width=950,height=750');
+    if (!printWin) {
+      window.print();
+      return;
+    }
+
+    const rawAwardDate = ach.awardedDate || ach.awardDate;
+    const awardYear = rawAwardDate ? new Date(rawAwardDate).getFullYear() : '2026';
+    const awardDateFormatted = rawAwardDate ? new Date(rawAwardDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
+
+    printWin.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Merit Certificate - ${studentName}</title>
+        <style>
+          @page {
+            size: A4 landscape;
+            margin: 8mm;
+          }
+          * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          body {
+            font-family: 'Georgia', serif;
+            background: #ffffff;
+            margin: 0;
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+          .certificate-printable-frame {
+            width: 100%;
+            max-width: 920px;
+            border: 8px double #b45309;
+            background: #fffdf5;
+            padding: 24px;
+            border-radius: 12px;
+          }
+          .cert-inner-border {
+            border: 2px solid #d97706;
+            padding: 24px 30px;
+            border-radius: 8px;
+            text-align: center;
+          }
+          .cert-seal-icon { font-size: 36px; margin-bottom: 6px; }
+          .cert-school-name {
+            font-size: 22px;
+            font-weight: 800;
+            color: #78350f;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            margin: 0 0 6px;
+          }
+          .cert-heading {
+            font-size: 15px;
+            font-weight: 700;
+            color: #b45309;
+            letter-spacing: 2px;
+            margin: 0 0 10px;
+            text-transform: uppercase;
+          }
+          .cert-ribbon-sub {
+            font-size: 13px;
+            color: #64748b;
+            font-style: italic;
+            margin-bottom: 12px;
+          }
+          .cert-recipient-name {
+            font-size: 24px;
+            font-weight: 800;
+            color: #0f172a;
+            border-bottom: 2px solid #b45309;
+            display: inline-block;
+            padding: 0 24px 4px;
+            margin-bottom: 10px;
+          }
+          .cert-recipient-meta {
+            font-size: 12px;
+            color: #475569;
+            margin-bottom: 14px;
+          }
+          .cert-citation {
+            font-size: 13px;
+            color: #334155;
+            line-height: 1.6;
+            max-width: 650px;
+            margin: 0 auto 20px;
+          }
+          .cert-pos-highlight { font-weight: 800; color: #b45309; }
+          .cert-event-title { color: #1e3a8a; }
+          .cert-signatures-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-top: 25px;
+            padding: 0 15px;
+          }
+          .cert-sign-col { width: 180px; text-align: center; }
+          .cert-sign-line { border-bottom: 1.5px solid #475569; margin-bottom: 4px; }
+          .cert-sign-role { font-size: 11px; color: #475569; font-weight: 600; }
+          .stamp-circle {
+            width: 70px;
+            height: 70px;
+            border: 2px dashed #b45309;
+            border-radius: 50%;
+            margin: 0 auto 4px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #b45309;
+            font-size: 9px;
+            font-weight: 800;
+          }
+          .cert-date-text { font-size: 11px; color: #64748b; }
+          .cert-certno {
+            margin-top: 12px;
+            font-size: 10px;
+            color: #94a3b8;
+            font-family: monospace;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="certificate-printable-frame">
+          <div class="cert-inner-border">
+            <div class="cert-seal-icon">🏆</div>
+            <h1 class="cert-school-name">${branchName}</h1>
+            <h3 class="cert-heading">CERTIFICATE OF MERIT &amp; ACHIEVEMENT</h3>
+            <div class="cert-ribbon-sub">This accolade is proudly conferred upon</div>
+            <div class="cert-recipient-name">${studentName}</div>
+            <div class="cert-recipient-meta">
+              Class: <strong>${this.data360?.student?.className || 'N/A'}</strong> &bull; 
+              Roll No: <strong>${this.data360?.student?.rollNumber || 'N/A'}</strong> &bull; 
+              Admission No: <strong>${this.data360?.student?.admissionNumber || 'N/A'}</strong>
+            </div>
+            <p class="cert-citation">
+              in proud recognition of outstanding dedication, exemplary talent and securing
+              <span class="cert-pos-highlight">${ach.position || 'Merit Position'}</span>
+              in <strong class="cert-event-title">${ach.title}</strong> 
+              held at the <strong>${ach.level || ach.awardLevel || 'Institutional'}</strong> level.
+            </p>
+            <div class="cert-signatures-row">
+              <div class="cert-sign-col">
+                <div class="cert-sign-line"></div>
+                <span class="cert-sign-role">Class Teacher / Event Incharge</span>
+              </div>
+              <div class="cert-seal-stamp">
+                <div class="stamp-circle">
+                  <span>INSTITUTE SEAL</span>
+                  <small>${awardYear}</small>
+                </div>
+                ${awardDateFormatted ? `<div class="cert-date-text">Date: ${awardDateFormatted}</div>` : ''}
+              </div>
+              <div class="cert-sign-col">
+                <div class="cert-sign-line"></div>
+                <span class="cert-sign-role">Principal / Director</span>
+              </div>
+            </div>
+            ${ach.certificateNumber ? `<div class="cert-certno">Cert No: ${ach.certificateNumber}</div>` : ''}
+          </div>
+        </div>
+        <script>
+          window.onload = function() {
+            window.print();
+          };
+        </script>
+      </body>
+      </html>
+    `);
+    printWin.document.close();
   }
 
   getAchievementIcon(cat?: string): string {

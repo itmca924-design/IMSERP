@@ -29,7 +29,8 @@ public record LoginResponseDto(
     int? TrialDaysLeft = null,
     int MaxStudentsLimit = 50,
     int MaxBranchesLimit = 2,
-    bool IsSubscriptionExpired = false
+    bool IsSubscriptionExpired = false,
+    string? UserProfilePhoto = null
 );
 
 public record BranchDto(
@@ -1068,7 +1069,8 @@ public record UserDto(
     bool IsActive,
     DateTime CreatedAt,
     Guid? BranchId = null,
-    string? BranchName = null
+    string? BranchName = null,
+    string? ProfilePhoto = null
 );
 
 public record CreateUserDto(
@@ -1079,7 +1081,8 @@ public record CreateUserDto(
     string? PhoneNumber,
     Guid RoleId,
     bool IsActive,
-    Guid? BranchId = null
+    Guid? BranchId = null,
+    string? ProfilePhoto = null
 );
 
 public record BatchPagedQueryDto(
@@ -2830,7 +2833,8 @@ public record TeacherIdCardDto(
     string? InstitutionAddress,
     string? InstitutionPhone,
     string? AffiliationCode,
-    string QrCodeData
+    string QrCodeData,
+    string? InstitutionLogo = null
 );
 
 // =========================================================================
