@@ -1550,6 +1550,263 @@ public class SchoolController : ControllerBase
 
     #region School Examinations & Marks Entry
 
+    [HttpGet("my-exams")]
+    public async Task<ActionResult<StudentMyExamsDto>> GetMyExams(
+        [FromQuery] string? academicYear,
+        [FromQuery] string? examType)
+    {
+        var userId = _currentUser.UserId;
+        var tenantId = _currentUser.TenantId;
+
+        // 1. Resolve student for current user
+        var student = await _db.Students.AsNoTracking()
+            .Include(s => s.Class)
+            .Include(s => s.Section)
+            .Include(s => s.Batch)
+            .Include(s => s.Branch)
+            .FirstOrDefaultAsync(s => s.UserId == userId && s.TenantId == tenantId);
+
+        if (student == null)
+        {
+            student = await _db.Students.AsNoTracking()
+                .Include(s => s.Class)
+                .Include(s => s.Section)
+                .Include(s => s.Batch)
+                .Include(s => s.Branch)
+                .FirstOrDefaultAsync(s => s.ParentUserId == userId && s.TenantId == tenantId);
+        }
+
+        if (student == null)
+        {
+            var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
+            if (user != null)
+            {
+                student = await _db.Students.AsNoTracking()
+                    .Include(s => s.Class)
+                    .Include(s => s.Section)
+                    .Include(s => s.Batch)
+                    .Include(s => s.Branch)
+                    .FirstOrDefaultAsync(s =>
+                        s.TenantId == tenantId && (
+                            (!string.IsNullOrEmpty(user.PhoneNumber) && (s.ParentWhatsAppPhone == user.PhoneNumber || s.EmergencyContactPhone == user.PhoneNumber)) ||
+                            (!string.IsNullOrEmpty(user.FullName) && s.StudentName == user.FullName)
+                        ));
+            }
+        }
+
+        if (student == null)
+        {
+            // Staff / admin preview fallback: first active student
+            student = await _db.Students.AsNoTracking()
+                .Include(s => s.Class)
+                .Include(s => s.Section)
+                .Include(s => s.Batch)
+                .Include(s => s.Branch)
+                .FirstOrDefaultAsync(s => s.TenantId == tenantId && s.IsActive);
+        }
+
+        if (student == null)
+        {
+            return NotFound(new { message = "No active student record linked to this account." });
+        }
+
+        var activeSession = await GetActiveAcademicYearAsync();
+        var selectedSession = !string.IsNullOrWhiteSpace(academicYear) ? academicYear : activeSession;
+
+        // Query tests relevant to this student's class, section, or batch
+        var testsQuery = _db.Tests
+            .AsNoTracking()
+            .Include(t => t.EvaluatorTeacher)
+            .Include(t => t.MarksList)
+            .Where(t => 
+                (student.ClassId != null && t.ClassId == student.ClassId && (t.SectionId == null || t.SectionId == student.SectionId)) ||
+                (student.BatchId != null && t.BatchId == student.BatchId)
+            );
+
+        if (!string.IsNullOrWhiteSpace(selectedSession))
+        {
+            testsQuery = testsQuery.Where(t => t.AcademicYear == selectedSession);
+        }
+
+        if (!string.IsNullOrWhiteSpace(examType) && examType != "All")
+        {
+            testsQuery = testsQuery.Where(t => t.ExamType == examType);
+        }
+
+        var tests = await testsQuery
+            .OrderBy(t => t.TestDate)
+            .ThenBy(t => t.Subject)
+            .ToListAsync();
+
+        var today = DateTime.UtcNow.Date;
+
+        var examItems = new List<StudentMyExamItemDto>();
+        decimal totalMaxMarks = 0;
+        decimal totalMarksObtained = 0;
+        int evaluatedCount = 0;
+        int passedCount = 0;
+        int failedCount = 0;
+
+        foreach (var t in tests)
+        {
+            var mark = t.MarksList.FirstOrDefault(m => m.StudentId == student.Id);
+            decimal? obtained = mark != null && !mark.IsAbsent ? mark.MarksObtained : null;
+            bool isAbsent = mark?.IsAbsent ?? false;
+            string? remarks = mark?.Remarks;
+            int? rank = mark != null && mark.Rank > 0 ? mark.Rank : null;
+
+            decimal passMark = t.PassingMarks > 0 ? t.PassingMarks : Math.Round(t.MaxMarks * 0.33m, 1);
+            bool? isPassed = null;
+            decimal? pct = null;
+            string? grade = null;
+
+            if (mark != null)
+            {
+                evaluatedCount++;
+                totalMaxMarks += t.MaxMarks;
+
+                if (!isAbsent)
+                {
+                    totalMarksObtained += mark.MarksObtained;
+                    pct = t.MaxMarks > 0 ? Math.Round((mark.MarksObtained / t.MaxMarks) * 100, 1) : 0;
+                    isPassed = mark.MarksObtained >= passMark;
+
+                    if (pct >= 90) grade = "A+";
+                    else if (pct >= 80) grade = "A";
+                    else if (pct >= 70) grade = "B+";
+                    else if (pct >= 60) grade = "B";
+                    else if (pct >= 50) grade = "C";
+                    else if (pct >= 33) grade = "D";
+                    else grade = "F";
+
+                    if (isPassed.Value) passedCount++; else failedCount++;
+                }
+                else
+                {
+                    isPassed = false;
+                    grade = "ABS";
+                    failedCount++;
+                }
+            }
+
+            int daysRemaining = (int)(t.TestDate.Date - today).TotalDays;
+
+            examItems.Add(new StudentMyExamItemDto(
+                t.Id,
+                t.Title,
+                t.Subject,
+                t.ExamType ?? "Annual Exam",
+                t.AcademicYear ?? selectedSession,
+                t.TestDate,
+                t.MaxMarks,
+                passMark,
+                t.EvaluationStatus ?? (mark != null ? "MarksEntered" : "Scheduled"),
+                t.IsMarksLocked,
+                obtained,
+                isAbsent,
+                pct,
+                grade,
+                isPassed,
+                remarks,
+                rank,
+                daysRemaining,
+                t.EvaluatorTeacher?.FullName
+            ));
+        }
+
+        int upcomingCount = examItems.Count(e => e.DaysRemaining >= 0 && e.MarksObtained == null && !e.IsAbsent);
+        decimal overallPct = totalMaxMarks > 0 ? Math.Round((totalMarksObtained / totalMaxMarks) * 100, 1) : 0;
+        string overallGrade = "N/A";
+        if (evaluatedCount > 0)
+        {
+            if (overallPct >= 90) overallGrade = "A+";
+            else if (overallPct >= 80) overallGrade = "A";
+            else if (overallPct >= 70) overallGrade = "B+";
+            else if (overallPct >= 60) overallGrade = "B";
+            else if (overallPct >= 50) overallGrade = "C";
+            else if (overallPct >= 33) overallGrade = "D";
+            else overallGrade = "F";
+        }
+
+        string resultStatus = evaluatedCount == 0 
+            ? "Scheduled" 
+            : (failedCount == 0 ? "Passed" : (failedCount <= 2 ? "Compartment" : "Failed"));
+
+        var summary = new StudentExamPerformanceSummaryDto(
+            tests.Count,
+            evaluatedCount,
+            upcomingCount,
+            totalMaxMarks,
+            totalMarksObtained,
+            overallPct,
+            overallGrade,
+            passedCount,
+            failedCount,
+            resultStatus
+        );
+
+        var studentInfo = new StudentMyInfoSummaryDto(
+            student.Id,
+            student.StudentName,
+            student.RollNumber,
+            student.SchoolRollNumber,
+            student.AdmissionNumber,
+            student.ClassId,
+            student.Class?.Name ?? "General",
+            student.SectionId,
+            student.Section?.Name,
+            student.Batch?.Name,
+            student.Branch?.Name,
+            selectedSession,
+            student.ParentName,
+            student.ParentWhatsAppPhone ?? student.EmergencyContactPhone,
+            student.ParentName,
+            student.MotherName,
+            student.Gender,
+            student.DateOfBirth
+        );
+
+        // Also build consolidated student result if class is present
+        ConsolidatedStudentResultDto? consolidated = null;
+        if (student.ClassId.HasValue)
+        {
+            try
+            {
+                var consRes = await GetConsolidatedResults(
+                    student.ClassId.Value, 
+                    selectedSession, 
+                    !string.IsNullOrWhiteSpace(examType) && examType != "All" ? examType : "Annual Exam", 
+                    student.SectionId
+                );
+
+                if (consRes.Result is OkObjectResult okObj && okObj.Value is ConsolidatedClassResultDto classRes)
+                {
+                    consolidated = classRes.Students.FirstOrDefault(s => s.StudentId == student.Id);
+                }
+                else if (consRes.Value != null)
+                {
+                    consolidated = consRes.Value.Students.FirstOrDefault(s => s.StudentId == student.Id);
+                }
+            }
+            catch
+            {
+                // Non-blocking fallback
+            }
+        }
+
+        var availableSessionsList = GetDynamicRollingSessions().Split(',').Select(s => s.Trim()).ToList();
+        var availableExamTypesList = DefaultStandardExamTypes.Split(',').Select(s => s.Trim()).ToList();
+
+        return Ok(new StudentMyExamsDto(
+            studentInfo,
+            summary,
+            examItems,
+            availableSessionsList,
+            availableExamTypesList,
+            consolidated
+        ));
+    }
+
     [HttpGet("exams")]
     public async Task<ActionResult<object>> GetSchoolExams(
         [FromQuery] Guid? classId,
@@ -1683,6 +1940,12 @@ public class SchoolController : ControllerBase
     [HttpPost("exams/bulk")]
     public async Task<ActionResult<List<SchoolExamDto>>> CreateBulkSchoolExams([FromBody] CreateBulkSchoolExamsDto dto)
     {
+        if (_currentUser.UserRole.Contains("Student", StringComparison.OrdinalIgnoreCase) ||
+            _currentUser.UserRole.Contains("Parent", StringComparison.OrdinalIgnoreCase))
+        {
+            return Forbid();
+        }
+
         if (dto.ClassId == Guid.Empty)
             return BadRequest(new { message = "ClassId is required." });
 
@@ -1808,6 +2071,12 @@ public class SchoolController : ControllerBase
     [HttpPost("exams/bulk-marks")]
     public async Task<ActionResult<object>> SaveSchoolExamMarks([FromBody] SaveSchoolExamMarksDto dto)
     {
+        if (_currentUser.UserRole.Contains("Student", StringComparison.OrdinalIgnoreCase) ||
+            _currentUser.UserRole.Contains("Parent", StringComparison.OrdinalIgnoreCase))
+        {
+            return Forbid();
+        }
+
         var test = await _db.Tests.FirstOrDefaultAsync(t => t.Id == dto.ExamId);
         if (test == null)
             return NotFound(new { message = "Exam not found." });

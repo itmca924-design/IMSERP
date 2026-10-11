@@ -4627,4 +4627,70 @@ public class StudentPortalLoginResultDto
     public StudentPortalLoginInfoDto LoginInfo { get; set; } = null!;
 }
 
+// ─── Student & Parent Exam Datesheet & Results DTOs ──────────────────────────────
+public record StudentMyExamItemDto(
+    Guid Id,
+    string Title,
+    string Subject,
+    string ExamType,
+    string AcademicYear,
+    DateTime TestDate,
+    decimal MaxMarks,
+    decimal PassingMarks,
+    string EvaluationStatus,
+    bool IsMarksLocked,
+    decimal? MarksObtained,
+    bool IsAbsent,
+    decimal? Percentage,
+    string? Grade,
+    bool? IsPassed,
+    string? Remarks,
+    int? Rank,
+    int DaysRemaining,
+    string? EvaluatorTeacherName
+);
+
+public record StudentExamPerformanceSummaryDto(
+    int TotalExams,
+    int EvaluatedExams,
+    int UpcomingExams,
+    decimal TotalMaxMarks,
+    decimal TotalMarksObtained,
+    decimal OverallPercentage,
+    string OverallGrade,
+    int PassedExamsCount,
+    int FailedExamsCount,
+    string ResultStatus
+);
+
+public record StudentMyInfoSummaryDto(
+    Guid StudentId,
+    string StudentName,
+    string RollNumber,
+    string? SchoolRollNumber,
+    string? AdmissionNumber,
+    Guid? ClassId,
+    string ClassName,
+    Guid? SectionId,
+    string? SectionName,
+    string? BatchName,
+    string? BranchName,
+    string? AcademicYear,
+    string? ParentName,
+    string? ParentWhatsAppPhone,
+    string? FatherName,
+    string? MotherName,
+    string? Gender,
+    DateTime? DateOfBirth
+);
+
+public record StudentMyExamsDto(
+    StudentMyInfoSummaryDto Student,
+    StudentExamPerformanceSummaryDto Summary,
+    List<StudentMyExamItemDto> Exams,
+    List<string> AvailableSessions,
+    List<string> AvailableExamTypes,
+    ConsolidatedStudentResultDto? ConsolidatedResult
+);
+
 

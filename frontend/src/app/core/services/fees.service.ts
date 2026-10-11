@@ -322,6 +322,10 @@ export class FeesService {
     return this.http.get<StudentLedger>(`${this.apiUrl}/student-ledger/${studentId}`);
   }
 
+  getMyLedger(): Observable<StudentLedger> {
+    return this.http.get<StudentLedger>(`${this.apiUrl}/my-ledger`);
+  }
+
   getStudentLibraryDues(studentId: string): Observable<StudentLibraryDues> {
     return this.http.get<StudentLibraryDues>(`${this.apiUrl}/student/${studentId}/library-dues`);
   }

@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 const API_BASE = 'http://localhost:5000/api';
 
@@ -737,6 +737,13 @@ export class SchoolService {
     return this.http.get<BlankAwardSheetDto>(`${this.apiUrl}/exams/${examId}/award-sheet`);
   }
 
+  getMyExams(academicYear?: string, examType?: string): Observable<StudentMyExamsDto> {
+    let params = new HttpParams();
+    if (academicYear) params = params.set('academicYear', academicYear);
+    if (examType && examType !== 'All') params = params.set('examType', examType);
+    return this.http.get<StudentMyExamsDto>(`${this.apiUrl}/my-exams`, { params });
+  }
+
   getTeachers(activeOnly: boolean = true): Observable<any[]> {
     return this.http.get<any[]>(`${API_BASE}/teachers`, { params: { activeOnly } });
   }
@@ -830,5 +837,70 @@ export interface GeneratePeriodSlotsRequestDto {
   totalPeriods: number;
   breakAfterPeriod?: number;
   breakDurationMinutes?: number;
+}
+
+export interface StudentMyExamItemDto {
+  id: string;
+  title: string;
+  subject: string;
+  examType: string;
+  academicYear: string;
+  testDate: string;
+  maxMarks: number;
+  passingMarks: number;
+  evaluationStatus: string;
+  isMarksLocked: boolean;
+  marksObtained: number | null;
+  isAbsent: boolean;
+  percentage: number | null;
+  grade: string | null;
+  isPassed: boolean | null;
+  remarks: string | null;
+  rank: number | null;
+  daysRemaining: number;
+  evaluatorTeacherName?: string | null;
+}
+
+export interface StudentExamPerformanceSummaryDto {
+  totalExams: number;
+  evaluatedExams: number;
+  upcomingExams: number;
+  totalMaxMarks: number;
+  totalMarksObtained: number;
+  overallPercentage: number;
+  overallGrade: string;
+  passedExamsCount: number;
+  failedExamsCount: number;
+  resultStatus: string;
+}
+
+export interface StudentMyInfoSummaryDto {
+  studentId: string;
+  studentName: string;
+  rollNumber: string;
+  schoolRollNumber?: string | null;
+  admissionNumber?: string | null;
+  classId?: string | null;
+  className: string;
+  sectionId?: string | null;
+  sectionName?: string | null;
+  batchName?: string | null;
+  branchName?: string | null;
+  academicYear?: string | null;
+  parentName?: string | null;
+  parentWhatsAppPhone?: string | null;
+  fatherName?: string | null;
+  motherName?: string | null;
+  gender?: string | null;
+  dateOfBirth?: string | null;
+}
+
+export interface StudentMyExamsDto {
+  student: StudentMyInfoSummaryDto;
+  summary: StudentExamPerformanceSummaryDto;
+  exams: StudentMyExamItemDto[];
+  availableSessions: string[];
+  availableExamTypes: string[];
+  consolidatedResult?: ConsolidatedStudentResultDto | null;
 }
 

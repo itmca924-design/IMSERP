@@ -35,6 +35,12 @@ public class FeesController : ControllerBase
         [FromQuery] string? sortBy = "createdAt",
         [FromQuery] bool sortDescending = true)
     {
+        var roleClaim = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value?.ToLower() ?? "";
+        if (roleClaim.Contains("parent") || roleClaim.Contains("student"))
+        {
+            return Forbid();
+        }
+
         var tenantId = _currentUser.TenantId;
         // Base query: include navigation properties needed for filtering/sorting.
         // Do NOT eagerly include Items here — they are projected via Select() below,
@@ -194,6 +200,49 @@ public class FeesController : ControllerBase
         return Ok(new PagedResultDto<FeeInvoicePagedItemDto>(items, totalCount, pageNumber, pageSize));
     }
 
+    [HttpGet("my-ledger")]
+    public async Task<ActionResult<StudentLedgerDto>> GetMyLedger()
+    {
+        var userId = _currentUser.UserId;
+        var tenantId = _currentUser.TenantId;
+
+        // 1. Direct link by UserId (Student)
+        var student = await _dbContext.Students.AsNoTracking()
+            .FirstOrDefaultAsync(s => s.UserId == userId && s.TenantId == tenantId);
+
+        // 2. Direct link by ParentUserId (Parent)
+        if (student == null)
+        {
+            student = await _dbContext.Students.AsNoTracking()
+                .FirstOrDefaultAsync(s => s.ParentUserId == userId && s.TenantId == tenantId);
+        }
+
+        // 3. Fallback: match by user's phone or name
+        if (student == null)
+        {
+            var user = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
+            if (user != null)
+            {
+                student = await _dbContext.Students.AsNoTracking().FirstOrDefaultAsync(s =>
+                    s.TenantId == tenantId && (
+                        (!string.IsNullOrEmpty(user.PhoneNumber) && (s.ParentWhatsAppPhone == user.PhoneNumber || s.EmergencyContactPhone == user.PhoneNumber)) ||
+                        (!string.IsNullOrEmpty(user.FullName) && s.StudentName == user.FullName)
+                    ));
+            }
+        }
+
+        // 4. Fallback for staff/admin preview: first active student
+        if (student == null)
+        {
+            student = await _dbContext.Students.AsNoTracking()
+                .FirstOrDefaultAsync(s => s.TenantId == tenantId && s.IsActive);
+        }
+
+        if (student == null) return NotFound(new { message = "No student record associated with this account." });
+
+        return await GetStudentLedger(student.Id);
+    }
+
     [HttpGet("student-ledger/{studentId}")]
     public async Task<ActionResult<StudentLedgerDto>> GetStudentLedger(Guid studentId)
     {
@@ -205,6 +254,21 @@ public class FeesController : ControllerBase
             .FirstOrDefaultAsync(s => s.Id == studentId);
 
         if (student == null) return NotFound("Student not found");
+
+        var roleClaim = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value?.ToLower() ?? "";
+        if (roleClaim.Contains("parent") || roleClaim.Contains("student"))
+        {
+            var isOwn = student.UserId == _currentUser.UserId || student.ParentUserId == _currentUser.UserId;
+            if (!isOwn)
+            {
+                var user = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
+                if (user != null && !string.IsNullOrEmpty(user.PhoneNumber) && (student.ParentWhatsAppPhone == user.PhoneNumber || student.EmergencyContactPhone == user.PhoneNumber))
+                {
+                    isOwn = true;
+                }
+            }
+            if (!isOwn) return Forbid();
+        }
 
         var ledgerBranchName = student.Branch?.Name ?? student.Batch?.Branch?.Name;
         if (string.IsNullOrEmpty(ledgerBranchName))
@@ -356,6 +420,12 @@ public class FeesController : ControllerBase
     [HttpPost("collect-fifo")]
     public async Task<ActionResult<FeePaymentReceiptDto>> CollectFeeFifo([FromBody] CollectFifoFeeDto dto)
     {
+        var roleClaim = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value?.ToLower() ?? "";
+        if (roleClaim.Contains("parent") || roleClaim.Contains("student"))
+        {
+            return Forbid();
+        }
+
         var strategy = _dbContext.Database.CreateExecutionStrategy();
         return await strategy.ExecuteAsync<ActionResult<FeePaymentReceiptDto>>(async () =>
         {
@@ -1001,6 +1071,12 @@ public class FeesController : ControllerBase
     [HttpPost("generate-monthly-invoices")]
     public async Task<ActionResult<GenerateMonthlyInvoicesResultDto>> GenerateMonthlyInvoices([FromBody] GenerateMonthlyInvoicesRequestDto dto)
     {
+        var roleClaim = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value?.ToLower() ?? "";
+        if (roleClaim.Contains("parent") || roleClaim.Contains("student"))
+        {
+            return Forbid();
+        }
+
         if (dto.Year < 2020 || dto.Year > 2050 || dto.Month < 1 || dto.Month > 12)
         {
             return BadRequest("Invalid year or month.");

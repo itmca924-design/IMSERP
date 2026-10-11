@@ -1,8 +1,31 @@
-import { Routes } from '@angular/router';
+import { inject } from '@angular/core';
+import { Routes, Router, CanActivateFn } from '@angular/router';
 import { LayoutComponent } from './layout/layout.component';
 import { authGuard } from './core/guards/auth.guard';
+import { AuthService } from './core/services/auth.service';
 import { PeriodSettingsComponent } from './features/school/period-settings.component';
 
+// Security Guards for Administrative Desks
+
+export const adminFeeDeskGuard: CanActivateFn = () => {
+  const auth = inject(AuthService);
+  const router = inject(Router);
+  if (auth.isStudentOrParent()) {
+    router.navigate(['/my-fees']);
+    return false;
+  }
+  return true;
+};
+
+export const adminExamDeskGuard: CanActivateFn = () => {
+  const auth = inject(AuthService);
+  const router = inject(Router);
+  if (auth.isStudentOrParent()) {
+    router.navigate(['/my-exams']);
+    return false;
+  }
+  return true;
+};
 
 export const routes: Routes = [
   {
@@ -31,6 +54,7 @@ export const routes: Routes = [
       },
       {
         path: 'school/exams',
+        canActivate: [adminExamDeskGuard],
         loadComponent: () => import('./features/school/school-exams.component').then(m => m.SchoolExamsComponent)
       },
       {
@@ -160,7 +184,17 @@ export const routes: Routes = [
       // Academic Operations
       {
         path: 'fees',
+        canActivate: [adminFeeDeskGuard],
         loadComponent: () => import('./features/fees/fees.component').then(m => m.FeesComponent)
+      },
+      {
+        path: 'my-fees',
+        loadComponent: () => import('./features/fees/my-fees.component').then(m => m.MyFeesComponent)
+      },
+      // Student / Parent Portal - Exams & Datesheets
+      {
+        path: 'my-exams',
+        loadComponent: () => import('./features/school/my-exams.component').then(m => m.MyExamsComponent)
       },
       {
         path: 'study-materials',

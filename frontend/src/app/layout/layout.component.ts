@@ -1168,8 +1168,8 @@ export class LayoutComponent implements OnInit {
     { title: 'Download Notes & PYQ Bank', route: '/study-materials', icon: 'auto_stories', color: '#8b5cf6', roles: ['Student', 'Parent'] },
     { title: 'My Attendance Calendar', route: '/students/attendance', icon: 'calendar_month', color: '#0284c7', roles: ['Student', 'Parent'] },
     { title: 'My Homework Diary', route: '/school/homework', icon: 'auto_stories', color: '#7c3aed', roles: ['Student', 'Parent'] },
-    { title: 'My Exam Results', route: '/school/exams', icon: 'assignment_turned_in', color: '#d97706', roles: ['Student', 'Parent'] },
-    { title: 'Fee Receipts & Dues', route: '/fees', icon: 'receipt_long', color: '#059669', roles: ['Student', 'Parent'] },
+    { title: 'My Exam Results & Datesheet', route: '/my-exams', icon: 'assignment_turned_in', color: '#d97706', roles: ['Student', 'Parent'] },
+    { title: 'Fee Receipts & Dues', route: '/my-fees', icon: 'receipt_long', color: '#059669', roles: ['Student', 'Parent'] },
 
     // Accountant actions
     { title: 'Fee Collection Desk', route: '/fees', icon: 'payments', color: '#059669', roles: ['Accountant'] },
@@ -1957,18 +1957,32 @@ export class LayoutComponent implements OnInit {
     let found = false;
     const updated = (menu || []).map(m => {
       if (m.children && m.children.length > 0) {
-        const newChildren = m.children.map(c => {
-          if (c.routeUrl === '/students' || c.routeUrl === '/students/my-profile') {
-            found = true;
-            return { ...c, title: 'My 360° Profile & Wall of Fame', routeUrl: '/students/my-profile', icon: 'military_tech' };
-          }
-          return c;
-        });
+        const newChildren = m.children
+          .filter(c => c.routeUrl !== '/fee-heads')
+          .map(c => {
+            if (c.routeUrl === '/students' || c.routeUrl === '/students/my-profile') {
+              found = true;
+              return { ...c, title: 'My 360° Profile & Wall of Fame', routeUrl: '/students/my-profile', icon: 'military_tech' };
+            }
+            if (c.routeUrl === '/fees') {
+              return { ...c, title: 'My Fee Ledger & Receipts', routeUrl: '/my-fees', icon: 'receipt_long' };
+            }
+            if (c.routeUrl === '/school/exams') {
+              return { ...c, title: 'My Exams & Datesheet', routeUrl: '/my-exams', icon: 'event_available' };
+            }
+            return c;
+          });
         return { ...m, children: newChildren };
       }
       if (m.routeUrl === '/students' || m.routeUrl === '/students/my-profile') {
         found = true;
         return { ...m, title: 'My 360° Profile & Wall of Fame', routeUrl: '/students/my-profile', icon: 'military_tech' };
+      }
+      if (m.routeUrl === '/fees') {
+        return { ...m, title: 'My Fee Ledger & Receipts', routeUrl: '/my-fees', icon: 'receipt_long' };
+      }
+      if (m.routeUrl === '/school/exams') {
+        return { ...m, title: 'My Exams & Datesheet', routeUrl: '/my-exams', icon: 'event_available' };
       }
       return m;
     });
@@ -2045,15 +2059,23 @@ export class LayoutComponent implements OnInit {
       {
         id: '5', title: 'Academic Operations', routeUrl: '', icon: 'school', sortOrder: 5, module: 'Academic', isActive: true,
         children: [
-          { id: '51', title: 'Fee Collection', routeUrl: '/fees', icon: 'payments', sortOrder: 1, module: 'Academic', isActive: true, children: [] },
-          { id: '511', title: 'Fee Heads Master', routeUrl: '/fee-heads', icon: 'account_tree', sortOrder: 2, module: 'Academic', isActive: true, children: [] },
+          ...(isStudentOrParent ? [
+            { id: '51my', title: 'My Fee Ledger & Receipts', routeUrl: '/my-fees', icon: 'receipt_long', sortOrder: 1, module: 'Academic', isActive: true, children: [] }
+          ] : [
+            { id: '51', title: 'Fee Collection', routeUrl: '/fees', icon: 'payments', sortOrder: 1, module: 'Academic', isActive: true, children: [] },
+            { id: '511', title: 'Fee Heads Master', routeUrl: '/fee-heads', icon: 'account_tree', sortOrder: 2, module: 'Academic', isActive: true, children: [] }
+          ]),
           { id: '512', title: 'Homework & Daily Diary', routeUrl: '/school/homework', icon: 'menu_book', sortOrder: 3, module: 'Academic', isActive: true, children: [] },
           { id: '512tt', title: 'Class Timetable & Routine', routeUrl: '/students/timetable', icon: 'calendar_view_week', sortOrder: 3.5, module: 'Academic', isActive: true, children: [] },
           { id: '512sm', title: 'Study Material & PYQ Bank', routeUrl: '/study-materials', icon: 'auto_stories', sortOrder: 3.8, module: 'Academic', isActive: true, children: [] },
-          { id: '52', title: 'School Examinations', routeUrl: '/school/exams', icon: 'assignment', sortOrder: 4, module: 'Academic', isActive: true, children: [] },
-          { id: '521', title: 'Student Promotion', routeUrl: '/students/promotion', icon: 'trending_up', sortOrder: 5, module: 'Academic', isActive: true, children: [] },
-          { id: '5211', title: 'Academic & Exam Workflow', routeUrl: '/admin/academic-workflow', icon: 'tune', sortOrder: 5.5, module: 'Academic', isActive: true, children: [] },
-          { id: '522', title: 'Tests & Report Cards', routeUrl: '/tests', icon: 'quiz', sortOrder: 6, module: 'Academic', isActive: true, children: [] },
+          ...(isStudentOrParent ? [
+            { id: '52my', title: 'My Exams & Datesheet', routeUrl: '/my-exams', icon: 'event_available', sortOrder: 4, module: 'Academic', isActive: true, children: [] }
+          ] : [
+            { id: '52', title: 'School Examinations', routeUrl: '/school/exams', icon: 'assignment', sortOrder: 4, module: 'Academic', isActive: true, children: [] },
+            { id: '521', title: 'Student Promotion', routeUrl: '/students/promotion', icon: 'trending_up', sortOrder: 5, module: 'Academic', isActive: true, children: [] },
+            { id: '5211', title: 'Academic & Exam Workflow', routeUrl: '/admin/academic-workflow', icon: 'tune', sortOrder: 5.5, module: 'Academic', isActive: true, children: [] },
+            { id: '522', title: 'Tests & Report Cards', routeUrl: '/tests', icon: 'quiz', sortOrder: 6, module: 'Academic', isActive: true, children: [] }
+          ]),
           { id: '523', title: 'School Notices', routeUrl: '/school/notices', icon: 'campaign', sortOrder: 7, module: 'Academic', isActive: true, children: [] },
           { id: '53', title: 'WhatsApp Logs', routeUrl: '/whatsapp', icon: 'chat', sortOrder: 8, module: 'Academic', isActive: true, children: [] },
           { id: '54', title: 'Library Books', routeUrl: '/library/books', icon: 'local_library', sortOrder: 9, module: 'Academic', isActive: true, children: [] },

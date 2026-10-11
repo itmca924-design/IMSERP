@@ -131,7 +131,7 @@ INSERT INTO [dbo].[RolePermissions] ([Id], [RoleId], [MenuItemId], [CanView], [C
 SELECT NEWID(), @StudentRoleId, m.[Id], 1, 0, 0, 0
 FROM [dbo].[MenuItems] m
 WHERE m.[IsActive] = 1
-  AND m.[RouteUrl] IN ('/dashboard', '/students/my-profile', '/school/exams', '/school/homework', '/materials', '/school-notices', '/events', '/library', '/hostel', '/transport')
+  AND m.[RouteUrl] IN ('/dashboard', '/students/my-profile', '/my-exams', '/school/homework', '/materials', '/school-notices', '/events', '/library', '/hostel', '/transport')
   AND NOT EXISTS (
       SELECT 1 FROM [dbo].[RolePermissions] rp
       WHERE rp.[RoleId] = @StudentRoleId AND rp.[MenuItemId] = m.[Id]
@@ -142,7 +142,7 @@ INSERT INTO [dbo].[RolePermissions] ([Id], [RoleId], [MenuItemId], [CanView], [C
 SELECT NEWID(), @ParentRoleId, m.[Id], 1, 0, 0, 0
 FROM [dbo].[MenuItems] m
 WHERE m.[IsActive] = 1
-  AND m.[RouteUrl] IN ('/dashboard', '/students/my-profile', '/school/exams', '/school/homework', '/fees', '/school-notices', '/events')
+  AND m.[RouteUrl] IN ('/dashboard', '/students/my-profile', '/my-exams', '/school/homework', '/my-fees', '/school-notices', '/events')
   AND NOT EXISTS (
       SELECT 1 FROM [dbo].[RolePermissions] rp
       WHERE rp.[RoleId] = @ParentRoleId AND rp.[MenuItemId] = m.[Id]
