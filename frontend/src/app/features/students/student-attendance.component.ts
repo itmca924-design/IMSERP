@@ -119,17 +119,21 @@ interface CalendarDay {
   <!-- Top Global Page Loading Indicator -->
   <mat-progress-bar mode="indeterminate" class="global-page-loader" *ngIf="isAnyLoading"></mat-progress-bar>
   <div class="page-header">
-    <div>
+    <div class="header-top-row">
       <h1 class="page-title"><mat-icon>event_available</mat-icon> Student Attendance Management</h1>
-      <p class="page-subtitle">{{ hasSchool && hasCoaching ? 'Mark daily roll call for School Classes or Coaching Batches, or view individual student monthly registers.' : (hasSchool ? 'Mark daily roll call for School Classes and Sections, or view individual student monthly registers.' : 'Mark daily roll call for Coaching Batches, or view individual student monthly registers.') }}</p>
+      <div class="header-actions">
+        <button mat-stroked-button class="header-action-btn settings-btn" *ngIf="attendancePermissions.canChangeMode" (click)="openShiftSettingsDialog()" matTooltip="Configure Shift Timings & Attendance Policies for Students and Faculty">
+          <mat-icon>settings</mat-icon> <span>Shift &amp; Policy Settings</span>
+        </button>
+        <a mat-stroked-button class="header-action-btn report-btn" routerLink="/attendance/reports">
+          <mat-icon>summarize</mat-icon> <span>Attendance Reports</span>
+        </a>
+        <a *ngIf="!isTeacher" mat-stroked-button class="header-action-btn directory-btn" routerLink="/students">
+          <mat-icon>people</mat-icon> <span>Student Directory</span>
+        </a>
+      </div>
     </div>
-    <div class="header-actions">
-      <button mat-stroked-button color="primary" class="settings-btn" *ngIf="attendancePermissions.canChangeMode" (click)="openShiftSettingsDialog()" matTooltip="Configure Shift Timings & Attendance Policies for Students and Faculty">
-        <mat-icon>settings</mat-icon> Shift &amp; Policy Settings
-      </button>
-      <a mat-stroked-button routerLink="/attendance/reports"><mat-icon>summarize</mat-icon> Attendance Reports</a>
-      <a *ngIf="!isTeacher" mat-stroked-button routerLink="/students"><mat-icon>people</mat-icon> Student Directory</a>
-    </div>
+    <p class="page-subtitle">{{ hasSchool && hasCoaching ? 'Mark daily roll call for School Classes or Coaching Batches, or view individual student monthly registers.' : (hasSchool ? 'Mark daily roll call for School Classes and Sections, or view individual student monthly registers.' : 'Mark daily roll call for Coaching Batches, or view individual student monthly registers.') }}</p>
   </div>
 
   <!-- Mode Tab Switcher -->
@@ -200,7 +204,7 @@ interface CalendarDay {
             </div>
           </ng-container>
           <ng-template #classDropdowns>
-            <mat-form-field appearance="outline" class="class-select">
+            <mat-form-field appearance="outline" class="class-select" subscriptSizing="dynamic">
               <mat-label>Select School Class</mat-label>
               <mat-select [(ngModel)]="selectedClassId" (selectionChange)="onClassChanged()" [disabled]="isTeacher">
                 <mat-option *ngFor="let c of schoolClasses" [value]="c.id">
@@ -209,7 +213,7 @@ interface CalendarDay {
               </mat-select>
             </mat-form-field>
 
-            <mat-form-field appearance="outline" class="section-select">
+            <mat-form-field appearance="outline" class="section-select" subscriptSizing="dynamic">
               <mat-label>Select Section</mat-label>
               <mat-select [(ngModel)]="selectedSectionId" (selectionChange)="onSectionChanged()">
                 <mat-option value="">All Sections</mat-option>
@@ -223,7 +227,7 @@ interface CalendarDay {
 
         <!-- Coaching Batch Selector -->
         <ng-container *ngIf="rollCallScope === 'coaching'">
-          <mat-form-field appearance="outline" class="batch-select">
+          <mat-form-field appearance="outline" class="batch-select" subscriptSizing="dynamic">
             <mat-label>Select Batch</mat-label>
             <mat-select [(ngModel)]="selectedBatchId" (selectionChange)="onBatchChanged()">
               <mat-option *ngFor="let b of batches" [value]="b.id">
@@ -238,7 +242,7 @@ interface CalendarDay {
           <button mat-icon-button (click)="prevDay()" [disabled]="isBatchPastLocked" [matTooltip]="isBatchPastLocked ? 'Past attendance locked (Admin permission required)' : 'Previous Day'">
             <mat-icon>chevron_left</mat-icon>
           </button>
-          <mat-form-field appearance="outline" class="date-input">
+          <mat-form-field appearance="outline" class="date-input" subscriptSizing="dynamic">
             <mat-label>Attendance Date</mat-label>
             <input matInput type="date" [(ngModel)]="selectedBatchDate" [max]="todayStr" [min]="minAttendanceDate" (change)="onBatchDateChanged()">
           </mat-form-field>
@@ -249,7 +253,7 @@ interface CalendarDay {
         </div>
 
         <!-- Search in roll call -->
-        <mat-form-field appearance="outline" class="search-input">
+        <mat-form-field appearance="outline" class="search-input" subscriptSizing="dynamic">
           <mat-label>{{ rollCallScope === 'school' ? 'Search student, roll, adm' : 'Search student, roll' }}</mat-label>
           <input matInput [(ngModel)]="batchSearchQuery" placeholder="Filter by name / roll...">
           <mat-icon matPrefix>search</mat-icon>
@@ -973,14 +977,119 @@ interface CalendarDay {
       font-weight: 500;
       font-size: 0.9rem;
     }
-    .page-header { display: flex; justify-content: space-between; align-items: center; }
-    .page-title { margin: 0; color: #1976d2; font-size: 1.45rem; display: flex; align-items: center; gap: 8px; }
-    .page-subtitle { margin: 4px 0 0; color: #64748b; font-size: .88rem; }
+    .page-header {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      align-items: flex-start !important;
+      width: 100%;
+    }
+    .header-top-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      width: 100%;
+      flex-wrap: nowrap;
+      box-sizing: border-box;
+    }
+    .page-title {
+      margin: 0;
+      color: #1976d2;
+      font-size: 1.45rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+      text-align: left;
+    }
+    .page-subtitle {
+      margin: 0;
+      color: #64748b;
+      font-size: .88rem;
+      text-align: left;
+      width: 100%;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: nowrap;
+      flex-shrink: 0;
+
+      .header-action-btn {
+        height: 38px;
+        padding: 0 12px !important;
+        font-size: 0.82rem;
+        font-weight: 600;
+        white-space: nowrap;
+        border-radius: 8px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        text-decoration: none;
+        transition: all 0.2s ease-in-out;
+
+        mat-icon {
+          font-size: 18px;
+          width: 18px;
+          height: 18px;
+          line-height: 18px;
+          margin: 0 !important;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+
+        span {
+          white-space: nowrap;
+          line-height: 1;
+        }
+
+        &.settings-btn {
+          background: #eff6ff !important;
+          color: #1e40af !important;
+          border: 1px solid #bfdbfe !important;
+
+          mat-icon {
+            color: #2563eb !important;
+          }
+
+          &:hover {
+            background: #dbeafe !important;
+            border-color: #93c5fd !important;
+          }
+        }
+
+        &.report-btn, &.directory-btn {
+          background: #ffffff !important;
+          color: #334155 !important;
+          border: 1px solid #cbd5e1 !important;
+
+          mat-icon {
+            color: #64748b !important;
+          }
+
+          &:hover {
+            background: #f8fafc !important;
+            border-color: #94a3b8 !important;
+            color: #0f172a !important;
+
+            mat-icon {
+              color: #334155 !important;
+            }
+          }
+        }
+      }
+    }
     
     /* View Mode Tabs */
-    .view-mode-tabs { display: flex; gap: 12px; margin-bottom: 4px; }
+    .view-mode-tabs { display: flex; gap: 12px; margin-bottom: 4px; width: 100%; }
     .tab-btn {
-      flex: 1; max-width: 380px; display: flex; align-items: center; gap: 12px;
+      flex: 1; display: flex; align-items: center; gap: 12px;
       padding: 12px 18px; border: 1.5px solid #cbd5e1; border-radius: 12px;
       background: #ffffff; cursor: pointer; transition: all 0.2s ease-in-out;
       text-align: left; color: #475569;
@@ -1024,7 +1133,25 @@ interface CalendarDay {
     .section-select { flex: 1 1 140px; min-width: 120px; margin: 0; }
     .date-controls { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
     .date-input { width: 145px; margin: 0; }
-    .today-btn { height: 48px; border-radius: 8px; font-weight: 600; color: #2563eb; }
+    .today-btn {
+      height: 38px;
+      padding: 0 14px !important;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.84rem;
+      color: #2563eb;
+      border: 1px solid #bfdbfe;
+      background: #eff6ff;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      white-space: nowrap;
+      line-height: 1;
+      transition: all 0.2s ease-in-out;
+      &:hover {
+        background: #dbeafe;
+      }
+    }
     .search-input {
       flex: 2 1 220px;
       min-width: 190px;
@@ -1261,9 +1388,9 @@ interface CalendarDay {
     }
     .save-actions { display: flex; align-items: center; gap: 12px; }
     .btn-save-batch {
-      height: 46px; padding: 0 24px !important; font-size: 0.95rem !important;
+      height: 38px; padding: 0 16px !important; font-size: 0.84rem !important;
       font-weight: 600 !important; border-radius: 8px !important; display: inline-flex;
-      align-items: center; gap: 8px;
+      align-items: center; gap: 6px;
     }
     .batch-locked-badge {
       display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px;
