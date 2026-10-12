@@ -572,6 +572,22 @@ public record BulkStudentMultiDatesAttendanceDto(
     string? CheckOutTime = null
 );
 
+public record StudentMonthlyRegisterDayItem(
+    DateTime Date,
+    bool IsPresent,
+    string? CheckInTime = null,
+    string? CheckOutTime = null,
+    string? Remarks = null
+);
+
+public record SaveStudentMonthlyRegisterDto(
+    int Month,
+    int Year,
+    string? DefaultCheckInTime,
+    string? DefaultCheckOutTime,
+    List<StudentMonthlyRegisterDayItem> Days
+);
+
 public record BatchStudentAttendanceItemDto(
     Guid StudentId,
     string Status,
@@ -1474,7 +1490,21 @@ public record MarkTeacherAttendanceDto(
     string? Remarks
 );
 
-public record AttendanceSettingsDto(string StudentMode, string TeacherMode, string HostelMode = "Both");
+public record AttendanceSettingsDto(
+    string StudentMode,
+    string TeacherMode,
+    string HostelMode = "Both",
+    string TeacherShiftStartTime = "08:00",
+    string TeacherShiftEndTime = "17:00",
+    int TeacherGracePeriodMinutes = 15,
+    int TeacherHalfDayThresholdMinutes = 240,
+    int TeacherAllowedLateDaysPerMonth = 3,
+    string StudentShiftStartTime = "08:00",
+    string StudentShiftEndTime = "14:00",
+    int StudentGracePeriodMinutes = 15,
+    int StudentHalfDayThresholdMinutes = 240,
+    int StudentAllowedLateDaysPerMonth = 3
+);
 
 public record BiometricAttendanceEventDto(
     string PersonType,
@@ -1537,6 +1567,22 @@ public record BulkMarkAttendanceDto(
     List<BulkAttendanceEntryItem> Entries
 );
 
+public record TeacherMonthlyRegisterDayItem(
+    DateTime Date,
+    bool IsPresent,
+    string? CheckInTime = null,
+    string? CheckOutTime = null,
+    string? Remarks = null
+);
+
+public record SaveTeacherMonthlyRegisterDto(
+    int Month,
+    int Year,
+    string? DefaultCheckInTime,
+    string? DefaultCheckOutTime,
+    List<TeacherMonthlyRegisterDayItem> Days
+);
+
 public record TeacherAttendanceSummaryDto(
     int PresentDays,
     int AbsentDays,
@@ -1584,7 +1630,14 @@ public record TeacherPayrollPreviewDto(
     string? HostelRentInfo = null,
     string? TransportFareInfo = null,
     int UnpaidLeaveDays = 0,
-    int PaidLeaveDays = 0
+    int PaidLeaveDays = 0,
+    int UnmarkedDays = 0,
+    int PendingFutureDays = 0,
+    decimal LopDays = 0,
+    decimal PayableDays = 0,
+    decimal ArrearsAmount = 0,
+    string? ArrearsRemarks = null,
+    int PreJoiningDays = 0
 );
 
 public record TeacherSalaryDto(
@@ -1616,6 +1669,99 @@ public record CreateTeacherSalaryDto(
     DateTime? EffectiveTo
 );
 
+public record StaffSalaryOverviewItemDto(
+    TeacherDto Teacher,
+    TeacherSalaryDto? Salary,
+    string Status
+);
+
+public record StaffSalaryDirectoryKpisDto(
+    int TotalActiveStaff,
+    int SalaryConfigured,
+    int MissingSalaryStructure,
+    decimal AverageMonthlyGross
+);
+
+public record StaffSalaryDirectoryResponseDto(
+    List<StaffSalaryOverviewItemDto> Items,
+    int TotalCount,
+    int PageNumber,
+    int PageSize,
+    StaffSalaryDirectoryKpisDto Kpis,
+    List<string> Departments
+);
+
+public record MonthlyPayrollStaffItemDto(
+    Guid TeacherId,
+    string TeacherName,
+    string EmployeeCode,
+    string? Designation,
+    string? Department,
+    string? StaffType,
+    bool HasSalaryStructure,
+    bool IsAlreadyPaid,
+    Guid? PaidPaymentId,
+    string? PaidReceiptNumber,
+    DateTime? PaidDate,
+    decimal GrossAmount,
+    decimal AttendanceDeductions,
+    decimal StatutoryDeductions,
+    decimal AdvanceAdjusted,
+    decimal TotalDeductions,
+    decimal NetPaid,
+    int PresentDays,
+    int AbsentDays,
+    int TotalWorkingDays,
+    bool Selected = false,
+    decimal FacilityDeductions = 0,
+    int HalfDays = 0,
+    int LateDays = 0,
+    int PaidLeaveDays = 0,
+    int UnpaidLeaveDays = 0,
+    int UnmarkedDays = 0,
+    int PendingFutureDays = 0,
+    decimal LopDays = 0,
+    decimal PerDayRate = 0,
+    decimal ArrearsAmount = 0,
+    string? ArrearsRemarks = null
+);
+
+public record MonthlyPayrollSummaryDto(
+    int Month,
+    int Year,
+    int TotalStaff,
+    int AlreadyPaidCount,
+    int PendingCount,
+    decimal TotalGross,
+    decimal TotalDeductions,
+    decimal TotalNetPayable,
+    List<MonthlyPayrollStaffItemDto> Items
+);
+
+public record BulkSalaryPaymentItemDto(
+    Guid TeacherId,
+    decimal GrossAmount,
+    decimal Deductions,
+    decimal AdvanceAdjusted,
+    decimal NetPaid,
+    int PresentDays,
+    int AbsentDays,
+    string? TransactionRef,
+    string? Remarks,
+    decimal ArrearsAmount = 0,
+    string? ArrearsRemarks = null
+);
+
+public record BulkSalaryPaymentRequestDto(
+    int PaymentMonth,
+    int PaymentYear,
+    DateTime PaymentDate,
+    string PaymentMode,
+    string? TransactionRef,
+    string? Remarks,
+    List<BulkSalaryPaymentItemDto> Payments
+);
+
 public record TeacherSalaryPaymentDto(
     Guid Id,
     Guid TeacherId,
@@ -1634,7 +1780,25 @@ public record TeacherSalaryPaymentDto(
     string ReceiptNumber,
     int PresentDays,
     int AbsentDays,
-    string? Remarks
+    string? Remarks,
+    int? WorkingDays = null,
+    int? HalfDays = null,
+    int? LateDays = null,
+    int? PaidLeaveDays = null,
+    int? UnpaidLeaveDays = null,
+    decimal? LopDays = null,
+    decimal? PerDayRate = null,
+    decimal? BasicSalary = null,
+    decimal? HRA = null,
+    decimal? OtherAllowances = null,
+    decimal? AttendanceDeduction = null,
+    decimal? PFDeduction = null,
+    decimal? TDSDeduction = null,
+    decimal? OtherStatutoryDeduction = null,
+    decimal? HostelDeduction = null,
+    decimal? TransportDeduction = null,
+    decimal? ArrearsAmount = null,
+    string? ArrearsRemarks = null
 );
 
 public record CreateSalaryPaymentDto(
@@ -1650,7 +1814,9 @@ public record CreateSalaryPaymentDto(
     string? TransactionRef,
     int PresentDays,
     int AbsentDays,
-    string? Remarks
+    string? Remarks,
+    decimal ArrearsAmount = 0,
+    string? ArrearsRemarks = null
 );
 
 public record TeacherSalaryAdvanceDto(

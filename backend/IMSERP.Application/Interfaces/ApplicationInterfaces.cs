@@ -39,6 +39,7 @@ public interface IIMSERPDbContext
     DbSet<TeacherAttendanceRegularization> TeacherAttendanceRegularizations { get; }
     DbSet<StudentAttendanceRegularization> StudentAttendanceRegularizations { get; }
     DbSet<LeaveAndAttendancePolicySettings> LeaveAndAttendancePolicies { get; }
+    DbSet<StaffAppraisalPolicySettings> StaffAppraisalPolicies { get; }
     DbSet<Holiday> Holidays { get; }
     DbSet<SchoolEvent> SchoolEvents { get; }
     DbSet<EventPhoto> EventPhotos { get; }

@@ -25,7 +25,10 @@ export interface PayslipDialogData {
       <!-- Top Action Bar (hidden in print) -->
       <div class="modal-actions no-print">
         <div class="modal-hdr-left">
-          <div class="modal-hdr-icon"><mat-icon>receipt_long</mat-icon></div>
+          <div class="modal-hdr-icon" [class.has-logo-img]="logoUrl && !headerLogoFailed">
+            <img *ngIf="logoUrl && !headerLogoFailed" [src]="logoUrl" (error)="headerLogoFailed = true" alt="Logo" class="header-logo-img">
+            <mat-icon *ngIf="!logoUrl || headerLogoFailed">receipt_long</mat-icon>
+          </div>
           <div>
             <h3 class="modal-hdr-title">Staff Salary Payslip</h3>
             <p class="modal-hdr-sub">{{ data.teacher.fullName }} ({{ data.teacher.employeeCode }}) &bull; {{ data.payment.monthName }}</p>
@@ -50,10 +53,6 @@ export interface PayslipDialogData {
         <!-- Header -->
         <div class="paper-header">
           <div class="inst-info">
-            <div class="logo-mark" [class.has-img]="logoUrl && !logoFailed">
-              <img *ngIf="logoUrl && !logoFailed" [src]="logoUrl" (error)="logoFailed = true" alt="Logo" class="inst-logo-img">
-              <mat-icon *ngIf="!logoUrl || logoFailed">school</mat-icon>
-            </div>
             <div>
               <h2 class="inst-name">{{ data.instituteName || authService.currentUser()?.instituteName || 'Apex Coaching Academy' }}</h2>
               <p class="inst-subtitle">Faculty & Staff Payroll Management | Monthly Pay Advice</p>
@@ -109,16 +108,24 @@ export interface PayslipDialogData {
 
         <!-- Attendance Summary Row -->
         <div class="attendance-summary-box">
+          <div class="att-item" *ngIf="data.payment.workingDays">
+            <span class="att-lbl">Working Days:</span>
+            <span class="att-val">{{ data.payment.workingDays }} Days</span>
+          </div>
           <div class="att-item">
             <span class="att-lbl">Present Days:</span>
             <span class="att-val green">{{ data.payment.presentDays }} Days</span>
           </div>
           <div class="att-item">
-            <span class="att-lbl">Absent Days:</span>
+            <span class="att-lbl">Absent / LOP:</span>
             <span class="att-val" [class.red]="data.payment.absentDays > 0">{{ data.payment.absentDays }} Days</span>
           </div>
+          <div class="att-item" *ngIf="(data.payment.paidLeaveDays || 0) > 0">
+            <span class="att-lbl">Paid Leaves:</span>
+            <span class="att-val green">{{ data.payment.paidLeaveDays }} Days</span>
+          </div>
           <div class="att-item att-remarks" *ngIf="data.payment.remarks">
-            <span class="att-lbl">Attendance Remarks:</span>
+            <span class="att-lbl">Attendance Details:</span>
             <span class="att-val-sub">{{ data.payment.remarks }}</span>
           </div>
         </div>
@@ -139,21 +146,55 @@ export interface PayslipDialogData {
               </tr>
             </thead>
             <tbody>
+              <!-- Row 1: Basic / Gross vs Attendance LOP -->
               <tr>
-                <td>Gross Base Salary & Allowances</td>
-                <td class="text-right">₹{{ data.payment.grossAmount | number:'1.2-2' }}</td>
-                <td>Attendance & Other Deductions</td>
-                <td class="text-right">₹{{ data.payment.deductions | number:'1.2-2' }}</td>
+                <td>{{ data.payment.basicSalary != null ? 'Basic Salary' : 'Gross Base Salary & Allowances' }}</td>
+                <td class="text-right">₹{{ (data.payment.basicSalary != null ? data.payment.basicSalary : data.payment.grossAmount) | number:'1.2-2' }}</td>
+                <td>Attendance Loss of Pay (LOP)</td>
+                <td class="text-right" [class.text-danger]="(data.payment.attendanceDeduction || 0) > 0">
+                  ₹{{ (data.payment.attendanceDeduction != null ? data.payment.attendanceDeduction : (data.payment.deductions - (data.payment.pfDeduction || 0) - (data.payment.tdsDeduction || 0))) | number:'1.2-2' }}
+                </td>
               </tr>
-              <tr>
+              <!-- Row 2: HRA vs Statutory (PF / TDS) -->
+              <tr *ngIf="data.payment.basicSalary != null">
+                <td>House Rent Allowance (HRA)</td>
+                <td class="text-right">₹{{ (data.payment.hra || 0) | number:'1.2-2' }}</td>
+                <td>Provident Fund (PF)</td>
+                <td class="text-right">₹{{ (data.payment.pfDeduction || 0) | number:'1.2-2' }}</td>
+              </tr>
+              <!-- Row 3: Other Allowances vs TDS / Tax -->
+              <tr *ngIf="data.payment.basicSalary != null">
+                <td>Other Allowances</td>
+                <td class="text-right">₹{{ (data.payment.otherAllowances || 0) | number:'1.2-2' }}</td>
+                <td>TDS / Tax Deduction</td>
+                <td class="text-right">₹{{ (data.payment.tdsDeduction || 0) | number:'1.2-2' }}</td>
+              </tr>
+              <!-- Row 4: Facilities (Hostel / Transport) if applicable -->
+              <tr *ngIf="((data.payment.hostelDeduction || 0) + (data.payment.transportDeduction || 0)) > 0">
                 <td>&nbsp;</td>
                 <td></td>
+                <td>Facilities (Hostel / Transport)</td>
+                <td class="text-right">₹{{ ((data.payment.hostelDeduction || 0) + (data.payment.transportDeduction || 0)) | number:'1.2-2' }}</td>
+              </tr>
+              <!-- Advance Adjusted Row -->
+              <tr>
+                <td *ngIf="(data.payment.arrearsAmount || 0) > 0" style="color:#059669; font-weight:700;">
+                  Previous Month Arrears (पिछला बकाया)
+                  <div *ngIf="data.payment.arrearsRemarks" style="font-size:10px; color:#047857; font-weight:normal;">
+                    {{ data.payment.arrearsRemarks }}
+                  </div>
+                </td>
+                <td *ngIf="(data.payment.arrearsAmount || 0) > 0" class="text-right" style="color:#059669; font-weight:700;">
+                  +₹{{ data.payment.arrearsAmount | number:'1.2-2' }}
+                </td>
+                <td *ngIf="!(data.payment.arrearsAmount || 0)">&nbsp;</td>
+                <td *ngIf="!(data.payment.arrearsAmount || 0)"></td>
                 <td>Advance Salary Adjusted</td>
                 <td class="text-right">₹{{ data.payment.advanceAdjusted | number:'1.2-2' }}</td>
               </tr>
               <tr class="total-row">
                 <td><strong>Total Gross Earnings (A)</strong></td>
-                <td class="text-right"><strong>₹{{ data.payment.grossAmount | number:'1.2-2' }}</strong></td>
+                <td class="text-right"><strong>₹{{ ((data.payment.grossAmount || 0) + (data.payment.arrearsAmount || 0)) | number:'1.2-2' }}</strong></td>
                 <td><strong>Total Deductions (B)</strong></td>
                 <td class="text-right"><strong>₹{{ (data.payment.deductions + data.payment.advanceAdjusted) | number:'1.2-2' }}</strong></td>
               </tr>
@@ -215,8 +256,17 @@ export interface PayslipDialogData {
         .modal-hdr-icon {
           background: #2563eb; color: #ffffff; border-radius: 8px;
           box-shadow: 0 2px 4px rgba(37,99,235,0.25);
-          width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;
+          width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
+          overflow: hidden; flex-shrink: 0;
           mat-icon { font-size: 19px; width: 19px; height: 19px; }
+          &.has-logo-img {
+            background: #ffffff;
+            border: 1px solid #bfdbfe;
+            padding: 2px;
+          }
+          .header-logo-img {
+            width: 100%; height: 100%; object-fit: contain; border-radius: 6px;
+          }
         }
         .modal-hdr-title { margin: 0; font-size: 1.05rem; font-weight: 700; color: #1e3a8a; }
         .modal-hdr-sub { margin: 1px 0 0; font-size: 0.76rem; color: #3b82f6; }
@@ -375,6 +425,7 @@ export interface PayslipDialogData {
 export class TeacherPayslipDialogComponent {
   logoUrl: string | null = null;
   logoFailed = false;
+  headerLogoFailed = false;
   sendingWhatsApp = false;
 
   get effectiveBranchName(): string {
@@ -503,7 +554,7 @@ export class TeacherPayslipDialogComponent {
 function convertToIndianWords(n: number): string {
   if (n === 0) return 'Zero';
   const units = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
-                 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+    'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
   const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
 
   function numToWords(num: number): string {

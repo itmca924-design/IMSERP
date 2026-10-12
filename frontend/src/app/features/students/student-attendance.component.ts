@@ -20,6 +20,7 @@ import { CoachingService } from '../../core/services/coaching.service';
 import { SchoolService, SchoolClassDto, SchoolSectionDto } from '../../core/services/school.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ApplyStudentRegularizationDialogComponent, ReviewStudentRegularizationDialogComponent, StudentAttendanceRegularizationDto } from './student-regularization-dialog.component';
+import { AttendanceShiftSettingsDialogComponent } from '../../shared/components/attendance-shift-settings-dialog.component';
 import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.directive';
 
 interface StudentItem {
@@ -123,6 +124,9 @@ interface CalendarDay {
       <p class="page-subtitle">{{ hasSchool && hasCoaching ? 'Mark daily roll call for School Classes or Coaching Batches, or view individual student monthly registers.' : (hasSchool ? 'Mark daily roll call for School Classes and Sections, or view individual student monthly registers.' : 'Mark daily roll call for Coaching Batches, or view individual student monthly registers.') }}</p>
     </div>
     <div class="header-actions">
+      <button mat-stroked-button color="primary" class="settings-btn" *ngIf="attendancePermissions.canChangeMode" (click)="openShiftSettingsDialog()" matTooltip="Configure Shift Timings & Attendance Policies for Students and Faculty">
+        <mat-icon>settings</mat-icon> Shift &amp; Policy Settings
+      </button>
       <a mat-stroked-button routerLink="/attendance/reports"><mat-icon>summarize</mat-icon> Attendance Reports</a>
       <a *ngIf="!isTeacher" mat-stroked-button routerLink="/students"><mat-icon>people</mat-icon> Student Directory</a>
     </div>
@@ -603,6 +607,10 @@ interface CalendarDay {
             </button>
             <button type="button" class="mst-btn" (click)="selectAllAbsentDays()" matTooltip="Select all unmarked / absent days">
               <mat-icon>rule</mat-icon> Select Unmarked / Absent
+            </button>
+            <button type="button" class="mst-btn save-month" (click)="saveStudentMonthlyRegister()" [disabled]="batchSavingDates" matTooltip="Save full month: Checked dates as Present, Unchecked working dates as Absent">
+              <mat-icon>{{ batchSavingDates ? 'hourglass_empty' : 'save' }}</mat-icon>
+              <span>{{ batchSavingDates ? 'Saving...' : 'Save Full Month (' + selectedMatrixDates.size + ' P, ' + (getSelectableDaysCount() - selectedMatrixDates.size) + ' A)' }}</span>
             </button>
             <button type="button" class="mst-btn clear" *ngIf="selectedMatrixDates.size > 0" (click)="clearDateSelection()">
               <mat-icon>clear_all</mat-icon> Clear ({{ selectedMatrixDates.size }})
@@ -1394,6 +1402,15 @@ interface CalendarDay {
     .mst-btn:hover { background: #e0f2fe; color: #0284c7; border-color: #93c5fd; }
     .mst-btn.clear { background: #fee2e2; color: #dc2626; border-color: #fca5a5; }
     .mst-btn.clear:hover { background: #fecaca; }
+    .mst-btn.save-month {
+      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+      color: #ffffff;
+      border-color: #1d4ed8;
+      box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+      mat-icon { color: #ffffff; }
+      &:hover { background: #1d4ed8; }
+      &:disabled { opacity: 0.6; cursor: not-allowed; }
+    }
     .mst-counter-badge {
       background: #2563eb;
       color: #ffffff;
@@ -2682,8 +2699,49 @@ export class StudentAttendanceComponent implements OnInit {
 
   loadAttendanceSettings(): void {
     this.http.get<AttendanceSettingsDto>(`${this.api}/attendance/settings`).subscribe({
-      next: settings => { this.attendanceSettings = settings; this.attendanceMode = settings.studentMode; },
+      next: settings => {
+        this.attendanceSettings = settings;
+        this.attendanceMode = settings.studentMode;
+        if (settings.studentShiftStartTime) {
+          this.bulkCheckInTime = settings.studentShiftStartTime;
+          this.batchTargetCheckIn = settings.studentShiftStartTime;
+          this.formData.checkInTime = settings.studentShiftStartTime;
+        }
+        if (settings.studentShiftEndTime) {
+          this.bulkCheckOutTime = settings.studentShiftEndTime;
+          this.batchTargetCheckOut = settings.studentShiftEndTime;
+          this.formData.checkOutTime = settings.studentShiftEndTime;
+        }
+      },
       error: () => { this.attendanceMode = 'Both'; }
+    });
+  }
+
+  openShiftSettingsDialog(): void {
+    const ref = this.dialog.open(AttendanceShiftSettingsDialogComponent, {
+      width: '680px',
+      maxWidth: '95vw',
+      data: { initialTab: 'student' }
+    });
+    ref.afterClosed().subscribe(res => {
+      if (res?.saved && res?.settings) {
+        this.attendanceSettings = res.settings;
+        this.attendanceMode = res.settings.studentMode;
+        if (res.settings.studentShiftStartTime) {
+          this.bulkCheckInTime = res.settings.studentShiftStartTime;
+          this.batchTargetCheckIn = res.settings.studentShiftStartTime;
+          this.formData.checkInTime = res.settings.studentShiftStartTime;
+        }
+        if (res.settings.studentShiftEndTime) {
+          this.bulkCheckOutTime = res.settings.studentShiftEndTime;
+          this.batchTargetCheckOut = res.settings.studentShiftEndTime;
+          this.formData.checkOutTime = res.settings.studentShiftEndTime;
+        }
+        if (this.selectedStudent) {
+          this.loadAttendance();
+        }
+        this.confirmDialog.alert('Settings Saved', 'Student shift timings and policies updated successfully.', 'success');
+      }
     });
   }
 
@@ -2895,8 +2953,8 @@ export class StudentAttendanceComponent implements OnInit {
       attendanceDate: this.todayStr,
       status: 'Present',
       remarks: '',
-      checkInTime: this.bulkCheckInTime || '08:00',
-      checkOutTime: this.bulkCheckOutTime || '14:00'
+      checkInTime: this.bulkCheckInTime || this.attendanceSettings?.studentShiftStartTime || '08:00',
+      checkOutTime: this.bulkCheckOutTime || this.attendanceSettings?.studentShiftEndTime || '14:00'
     };
     this.editingRecordId = null;
     this.showForm = true;
@@ -3247,6 +3305,56 @@ export class StudentAttendanceComponent implements OnInit {
           err?.error?.message || 'Failed to save bulk attendance. Please try again.',
           'danger'
         );
+      }
+    });
+  }
+
+  getSelectableDaysCount(): number {
+    return this.calendarDays.filter(d => this.isDateSelectable(d)).length;
+  }
+
+  saveStudentMonthlyRegister(): void {
+    if (!this.selectedStudentId) {
+      this.confirmDialog.alert('No Student', 'Please select a student first.', 'warning');
+      return;
+    }
+    const selectableDays = this.calendarDays.filter(d => this.isDateSelectable(d));
+    if (selectableDays.length === 0) {
+      this.confirmDialog.alert('No Working Days', 'No eligible working days found in this month.', 'warning');
+      return;
+    }
+
+    const presentCount = this.selectedMatrixDates.size;
+    const absentCount = selectableDays.length - presentCount;
+
+    this.batchSavingDates = true;
+    const payload = {
+      month: this.attMonth,
+      year: this.attYear,
+      defaultCheckInTime: this.batchTargetCheckIn || '08:00',
+      defaultCheckOutTime: this.batchTargetCheckOut || '14:00',
+      days: selectableDays.map(d => ({
+        date: d.dateStr,
+        isPresent: this.selectedMatrixDates.has(d.dateStr),
+        checkInTime: this.selectedMatrixDates.has(d.dateStr) ? (this.batchTargetCheckIn || '08:00') : null,
+        checkOutTime: this.selectedMatrixDates.has(d.dateStr) ? (this.batchTargetCheckOut || '14:00') : null,
+        remarks: this.selectedMatrixDates.has(d.dateStr) ? 'Monthly Register (Present)' : 'Monthly Register (Absent)'
+      }))
+    };
+
+    this.http.post(
+      `${this.api}/students/${this.selectedStudentId}/attendance/monthly-register`,
+      payload
+    ).subscribe({
+      next: (res: any) => {
+        this.batchSavingDates = false;
+        this.clearDateSelection();
+        this.loadAttendance();
+        this.confirmDialog.alert('Monthly Register Saved', res?.message || `Saved: ${presentCount} Present, ${absentCount} Absent.`, 'success');
+      },
+      error: err => {
+        this.batchSavingDates = false;
+        this.confirmDialog.alert('Save Failed', err?.error?.message || 'Failed to save monthly register.', 'danger');
       }
     });
   }

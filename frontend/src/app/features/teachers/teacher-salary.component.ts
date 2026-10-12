@@ -1,7 +1,7 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
@@ -10,19 +10,16 @@ import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
+import { Subject, Subscription } from 'rxjs';
+import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { TeacherSelectorComponent } from './teacher-selector.component';
-import { API_BASE, TeacherDto, SalaryDto } from './teacher.models';
+import { API_BASE, TeacherDto, SalaryDto, StaffSalaryOverviewItem, StaffSalaryDirectoryResponse, StaffSalaryDirectoryKpis } from './teacher.models';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
-
-interface StaffSalaryOverviewItem {
-  teacher: TeacherDto;
-  salary: SalaryDto | null;
-  status: 'configured' | 'missing';
-  selected?: boolean;
-}
 
 interface ExperienceSlabRecommendation {
   slabName: string;
@@ -41,8 +38,8 @@ interface ExperienceSlabRecommendation {
   imports: [
     CommonModule, FormsModule, ReactiveFormsModule, RouterModule,
     MatCardModule, MatButtonModule, MatIconModule, MatInputModule,
-    MatFormFieldModule, MatSelectModule, MatProgressBarModule,
-    MatDividerModule, MatCheckboxModule, MatTooltipModule,
+    MatFormFieldModule, MatSelectModule, MatProgressBarModule, MatProgressSpinnerModule,
+    MatDividerModule, MatCheckboxModule, MatTooltipModule, MatPaginatorModule,
     TeacherSelectorComponent
   ],
   template: `
@@ -88,7 +85,7 @@ interface ExperienceSlabRecommendation {
     <div class="stat-card total">
       <div class="stat-icon-wrap"><mat-icon>badge</mat-icon></div>
       <div class="stat-data">
-        <span class="stat-val">{{ allTeachers.length }}</span>
+        <span class="stat-val">{{ totalActiveStaffCount }}</span>
         <span class="stat-lbl">Total Active Staff</span>
       </div>
     </div>
@@ -399,9 +396,9 @@ interface ExperienceSlabRecommendation {
             type="text"
             placeholder="Search staff by name, code, designation, department..."
             [(ngModel)]="batchSearchQuery"
-            (input)="applyBatchFilters()"
+            (ngModelChange)="onSearchChange($event)"
           />
-          <button type="button" class="clear-btn" *ngIf="batchSearchQuery" (click)="batchSearchQuery=''; applyBatchFilters()">
+          <button type="button" class="clear-btn" *ngIf="batchSearchQuery" (click)="clearSearch()">
             <mat-icon>close</mat-icon>
           </button>
         </div>
@@ -409,16 +406,16 @@ interface ExperienceSlabRecommendation {
         <div class="filter-dropdowns">
           <mat-form-field appearance="outline" class="mini-filter">
             <mat-label>Status Filter</mat-label>
-            <mat-select [(ngModel)]="batchStatusFilter" (selectionChange)="applyBatchFilters()">
-              <mat-option value="all">All Staff ({{ allTeachers.length }})</mat-option>
-              <mat-option value="missing">⚠️ Missing Structure Only ({{ unconfiguredCount }})</mat-option>
-              <mat-option value="configured">Configured Only ({{ configuredCount }})</mat-option>
+            <mat-select [(ngModel)]="batchStatusFilter" (selectionChange)="onFilterChange()">
+              <mat-option value="all">All Staff ({{ totalActiveStaffCount }})</mat-option>
+              <mat-option value="missing">⚠️ Missing Structure ({{ unconfiguredCount }})</mat-option>
+              <mat-option value="configured">Configured ({{ configuredCount }})</mat-option>
             </mat-select>
           </mat-form-field>
 
           <mat-form-field appearance="outline" class="mini-filter">
             <mat-label>Department</mat-label>
-            <mat-select [(ngModel)]="batchDeptFilter" (selectionChange)="applyBatchFilters()">
+            <mat-select [(ngModel)]="batchDeptFilter" (selectionChange)="onFilterChange()">
               <mat-option value="all">All Departments</mat-option>
               <mat-option *ngFor="let d of departments" [value]="d">{{ d }}</mat-option>
             </mat-select>
@@ -437,7 +434,7 @@ interface ExperienceSlabRecommendation {
             <strong>{{ selectedStaffCount }}</strong> Staff Selected
           </mat-checkbox>
           <button type="button" class="quick-link-btn" (click)="selectAllMissing()">
-            Select All Missing Structure ({{ unconfiguredCount }})
+            Filter Missing Structure ({{ unconfiguredCount }})
           </button>
         </div>
 
@@ -468,15 +465,51 @@ interface ExperienceSlabRecommendation {
                 (change)="toggleSelectAll($event.checked)"
               ></mat-checkbox>
             </th>
-            <th>Staff Member</th>
-            <th>Role &amp; Department</th>
-            <th>Experience (अनुभव)</th>
-            <th>Recommended Pay Band</th>
-            <th>Current Status</th>
+            <th class="sortable-th" (click)="onSort('name')" matTooltip="Click to sort by Staff Name">
+              <div class="th-content">
+                <span>Staff Member</span>
+                <mat-icon class="sort-icon" [class.active]="sortBy === 'name'">{{ getSortIcon('name') }}</mat-icon>
+              </div>
+            </th>
+            <th class="sortable-th" (click)="onSort('designation')" matTooltip="Click to sort by Role & Department">
+              <div class="th-content">
+                <span>Role &amp; Department</span>
+                <mat-icon class="sort-icon" [class.active]="sortBy === 'designation'">{{ getSortIcon('designation') }}</mat-icon>
+              </div>
+            </th>
+            <th class="sortable-th" (click)="onSort('experience')" matTooltip="Click to sort by Experience">
+              <div class="th-content">
+                <span>Experience (अनुभव)</span>
+                <mat-icon class="sort-icon" [class.active]="sortBy === 'experience'">{{ getSortIcon('experience') }}</mat-icon>
+              </div>
+            </th>
+            <th class="sortable-th" (click)="onSort('band')" matTooltip="Click to sort by Pay Band">
+              <div class="th-content">
+                <span>Recommended Pay Band</span>
+                <mat-icon class="sort-icon" [class.active]="sortBy === 'band'">{{ getSortIcon('band') }}</mat-icon>
+              </div>
+            </th>
+            <th class="sortable-th" (click)="onSort('grosssalary')" matTooltip="Click to sort by Salary Amount">
+              <div class="th-content">
+                <span>Current Status</span>
+                <mat-icon class="sort-icon" [class.active]="sortBy === 'grosssalary'">{{ getSortIcon('grosssalary') }}</mat-icon>
+              </div>
+            </th>
             <th class="text-right">Quick Action</th>
           </tr>
         </thead>
         <tbody>
+          <!-- Loading state when filteredBatchList is empty -->
+          <tr *ngIf="loading && filteredBatchList.length === 0">
+            <td colspan="7" class="text-center empty-td">
+              <div class="table-loader-wrap">
+                <mat-spinner diameter="32"></mat-spinner>
+                <span>Loading staff salary structures...</span>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Data Rows -->
           <tr *ngFor="let item of filteredBatchList" [class.selected-row]="item.selected">
             <td>
               <mat-checkbox [(ngModel)]="item.selected" (change)="onRowSelectChange()"></mat-checkbox>
@@ -528,7 +561,9 @@ interface ExperienceSlabRecommendation {
               </button>
             </td>
           </tr>
-          <tr *ngIf="filteredBatchList.length === 0">
+
+          <!-- Empty State -->
+          <tr *ngIf="!loading && filteredBatchList.length === 0">
             <td colspan="7" class="text-center empty-td">
               <div class="no-records-wrap">
                 <mat-icon>search_off</mat-icon>
@@ -538,6 +573,17 @@ interface ExperienceSlabRecommendation {
           </tr>
         </tbody>
       </table>
+
+      <!-- Server-Side Paginator -->
+      <mat-paginator
+        [length]="totalCount"
+        [pageSize]="pageSize"
+        [pageIndex]="pageIndex"
+        [pageSizeOptions]="pageSizeOptions"
+        [showFirstLastButtons]="true"
+        (page)="onPageChange($event)"
+        aria-label="Select page of staff salary structures"
+      ></mat-paginator>
     </div>
 
     <!-- Mobile Cards List (Mobile screens) -->
@@ -567,6 +613,18 @@ interface ExperienceSlabRecommendation {
           </button>
         </div>
       </div>
+
+      <!-- Mobile Server-Side Paginator -->
+      <mat-paginator
+        *ngIf="totalCount > 0"
+        [length]="totalCount"
+        [pageSize]="pageSize"
+        [pageIndex]="pageIndex"
+        [pageSizeOptions]="pageSizeOptions"
+        [showFirstLastButtons]="true"
+        (page)="onPageChange($event)"
+        aria-label="Select page of staff salary structures"
+      ></mat-paginator>
     </div>
   </div>
 
@@ -1351,6 +1409,36 @@ interface ExperienceSlabRecommendation {
         letter-spacing: 0.04em;
         white-space: nowrap;
       }
+      th.sortable-th {
+        cursor: pointer;
+        user-select: none;
+        transition: background 0.15s ease, color 0.15s ease;
+
+        &:hover {
+          background: #eff6ff;
+          color: #1d4ed8;
+          .sort-icon { color: #2563eb; }
+        }
+
+        .th-content {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .sort-icon {
+          font-size: 16px;
+          width: 16px;
+          height: 16px;
+          color: #94a3b8;
+          vertical-align: middle;
+          transition: all 0.2s ease;
+          &.active {
+            color: #2563eb;
+            font-weight: 700;
+          }
+        }
+      }
       td {
         padding: 12px 14px;
         border-bottom: 1px solid #f1f5f9;
@@ -1359,6 +1447,24 @@ interface ExperienceSlabRecommendation {
       }
       tbody tr:hover { background: #fafcff; }
       tbody tr.selected-row { background: #eff6ff !important; }
+    }
+
+    .table-loading-bar {
+      width: 100%;
+      height: 3px;
+      overflow: hidden;
+    }
+
+    .table-loader-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 36px 20px;
+      color: #64748b;
+      font-size: 0.9rem;
+      font-weight: 500;
     }
 
     .staff-row-cell {
@@ -1722,7 +1828,7 @@ interface ExperienceSlabRecommendation {
     }
   `]
 })
-export class TeacherSalaryComponent implements OnInit {
+export class TeacherSalaryComponent implements OnInit, OnDestroy {
   private api = API_BASE;
   selectedTeacher: TeacherDto | null = null;
   preSelectId: string | null = null;
@@ -1731,18 +1837,31 @@ export class TeacherSalaryComponent implements OnInit {
   loading = false;
   submitting = false;
   showForm = false;
-  viewMode: 'single' | 'batch' = 'single';
+  viewMode: 'single' | 'batch' = 'batch';
 
   allTeachers: TeacherDto[] = [];
   salaryMap = new Map<string, SalaryDto | null>();
   departments: string[] = [];
 
-  // Batch Table State
-  batchList: StaffSalaryOverviewItem[] = [];
+  // Batch Table & Server-Side Grid State
   filteredBatchList: StaffSalaryOverviewItem[] = [];
   batchSearchQuery = '';
   batchStatusFilter = 'all';
   batchDeptFilter = 'all';
+  sortBy = 'name';
+  sortDescending = false;
+  pageIndex = 0;
+  pageSize = 10;
+  totalCount = 0;
+  pageSizeOptions = [10, 25, 50, 100];
+
+  totalActiveStaffCount = 0;
+  configuredCount = 0;
+  unconfiguredCount = 0;
+  averageGross = 0;
+
+  private searchSubject = new Subject<string>();
+  private searchSub?: Subscription;
 
   // Bulk Modal State
   showBulkModal = false;
@@ -1792,58 +1911,71 @@ export class TeacherSalaryComponent implements OnInit {
       effectiveFrom: [today, Validators.required]
     });
 
-    this.loadAllTeachers();
+    this.searchSub = this.searchSubject.pipe(
+      debounceTime(350),
+      distinctUntilChanged()
+    ).subscribe(() => {
+      this.pageIndex = 0;
+      this.loadSalaryDirectory();
+    });
+
+    this.loadSalaryDirectory();
   }
 
-  loadAllTeachers() {
+  ngOnDestroy() {
+    this.searchSub?.unsubscribe();
+  }
+
+  loadSalaryDirectory() {
     this.loading = true;
-    this.http.get<TeacherDto[]>(`${this.api}/teachers?activeOnly=true`).subscribe({
+    let params = new HttpParams()
+      .set('pageNumber', (this.pageIndex + 1).toString())
+      .set('pageSize', this.pageSize.toString())
+      .set('status', this.batchStatusFilter)
+      .set('department', this.batchDeptFilter)
+      .set('sortBy', this.sortBy)
+      .set('sortDescending', this.sortDescending.toString());
+
+    if (this.batchSearchQuery?.trim()) {
+      params = params.set('searchTerm', this.batchSearchQuery.trim());
+    }
+
+    this.http.get<StaffSalaryDirectoryResponse>(`${this.api}/teachers/salary-directory`, { params }).subscribe({
       next: (res) => {
-        this.allTeachers = res || [];
-        this.departments = Array.from(new Set(this.allTeachers.map(t => t.department?.trim()).filter(d => !!d) as string[])).sort();
+        this.loading = false;
+        if (!res) return;
+        this.filteredBatchList = res.items || [];
+        this.totalCount = res.totalCount || 0;
+        if (res.kpis) {
+          this.totalActiveStaffCount = res.kpis.totalActiveStaff || 0;
+          this.configuredCount = res.kpis.salaryConfigured || 0;
+          this.unconfiguredCount = res.kpis.missingSalaryStructure || 0;
+          this.averageGross = res.kpis.averageMonthlyGross || 0;
+        }
+        if (res.departments && res.departments.length > 0) {
+          this.departments = res.departments;
+        }
 
-        // Build batch list
-        this.batchList = this.allTeachers.map(t => ({
-          teacher: t,
-          salary: null,
-          status: 'missing',
-          selected: false
-        }));
-
-        this.applyBatchFilters();
-        this.loadExistingSalaries();
+        // Cache salary records for loaded teachers
+        this.filteredBatchList.forEach(item => {
+          if (item.salary) {
+            this.salaryMap.set(item.teacher.id, item.salary);
+          }
+        });
 
         // If pre-selected teacher ID, load immediately
-        if (this.preSelectId) {
-          const found = this.allTeachers.find(t => t.id === this.preSelectId);
+        if (this.preSelectId && !this.selectedTeacher) {
+          const found = this.filteredBatchList.find(b => b.teacher.id === this.preSelectId);
           if (found) {
-            this.onTeacherSelected(found);
+            this.onTeacherSelected(found.teacher);
           }
         }
       },
-      error: () => {
+      error: (err) => {
         this.loading = false;
+        console.error('Failed to load salary directory', err);
       }
     });
-  }
-
-  loadExistingSalaries() {
-    // Check salaries for teachers
-    this.allTeachers.forEach(t => {
-      this.http.get<SalaryDto | null>(`${this.api}/teachers/${t.id}/salary`).subscribe({
-        next: (sal) => {
-          if (sal && sal.basicSalary > 0) {
-            this.salaryMap.set(t.id, sal);
-            const item = this.batchList.find(b => b.teacher.id === t.id);
-            if (item) {
-              item.salary = sal;
-              item.status = 'configured';
-            }
-          }
-        }
-      });
-    });
-    this.loading = false;
   }
 
   switchViewMode(mode: 'single' | 'batch') {
@@ -2066,7 +2198,7 @@ export class TeacherSalaryComponent implements OnInit {
       next: (r) => {
         this.salaryStructure = r;
         this.salaryMap.set(this.selectedTeacher!.id, r);
-        const item = this.batchList.find(b => b.teacher.id === this.selectedTeacher!.id);
+        const item = this.filteredBatchList.find(b => b.teacher.id === this.selectedTeacher!.id);
         if (item) {
           item.salary = r;
           item.status = 'configured';
@@ -2074,6 +2206,7 @@ export class TeacherSalaryComponent implements OnInit {
         this.submitting = false;
         this.showForm = false;
         this.confirmDialog.alert('Salary Structure Saved', `Salary structure saved successfully for ${this.selectedTeacher!.fullName}!`, 'success');
+        this.loadSalaryDirectory();
       },
       error: (e) => {
         this.submitting = false;
@@ -2099,26 +2232,49 @@ export class TeacherSalaryComponent implements OnInit {
   }
 
   // =========================================================================
-  // BATCH / MULTIPLE STAFF METHODS
+  // SERVER-SIDE BATCH / GRID METHODS
   // =========================================================================
-  applyBatchFilters() {
-    const q = (this.batchSearchQuery || '').trim().toLowerCase();
-    this.filteredBatchList = this.batchList.filter(item => {
-      const matchQ = !q ||
-        item.teacher.fullName.toLowerCase().includes(q) ||
-        item.teacher.employeeCode.toLowerCase().includes(q) ||
-        (item.teacher.designation && item.teacher.designation.toLowerCase().includes(q)) ||
-        (item.teacher.department && item.teacher.department.toLowerCase().includes(q));
+  onSort(col: string) {
+    if (this.sortBy === col) {
+      this.sortDescending = !this.sortDescending;
+    } else {
+      this.sortBy = col;
+      this.sortDescending = false;
+    }
+    this.pageIndex = 0;
+    this.loadSalaryDirectory();
+  }
 
-      const matchStatus = this.batchStatusFilter === 'all' ||
-        (this.batchStatusFilter === 'missing' && item.status === 'missing') ||
-        (this.batchStatusFilter === 'configured' && item.status === 'configured');
+  getSortIcon(col: string): string {
+    if (this.sortBy !== col) return 'unfold_more';
+    return this.sortDescending ? 'arrow_downward' : 'arrow_upward';
+  }
 
-      const matchDept = this.batchDeptFilter === 'all' ||
-        (item.teacher.department && item.teacher.department.toLowerCase() === this.batchDeptFilter.toLowerCase());
+  onSearchChange(term: string) {
+    this.searchSubject.next(term);
+  }
 
-      return matchQ && matchStatus && matchDept;
-    });
+  clearSearch() {
+    this.batchSearchQuery = '';
+    this.pageIndex = 0;
+    this.loadSalaryDirectory();
+  }
+
+  onFilterChange() {
+    this.pageIndex = 0;
+    this.loadSalaryDirectory();
+  }
+
+  onPageChange(event: PageEvent) {
+    this.pageIndex = event.pageIndex;
+    this.pageSize = event.pageSize;
+    this.loadSalaryDirectory();
+  }
+
+  selectAllMissing() {
+    this.batchStatusFilter = 'missing';
+    this.pageIndex = 0;
+    this.loadSalaryDirectory();
   }
 
   get selectedStaffCount(): number {
@@ -2136,12 +2292,6 @@ export class TeacherSalaryComponent implements OnInit {
 
   toggleSelectAll(checked: boolean) {
     this.filteredBatchList.forEach(i => i.selected = checked);
-  }
-
-  selectAllMissing() {
-    this.batchStatusFilter = 'missing';
-    this.applyBatchFilters();
-    this.filteredBatchList.forEach(i => i.selected = true);
   }
 
   onRowSelectChange() {
@@ -2209,7 +2359,7 @@ export class TeacherSalaryComponent implements OnInit {
           completed++;
           this.batchProgressCount = completed;
           this.salaryMap.set(t.id, res);
-          const item = this.batchList.find(b => b.teacher.id === t.id);
+          const item = this.filteredBatchList.find(b => b.teacher.id === t.id);
           if (item) {
             item.salary = res;
             item.status = 'configured';
@@ -2239,22 +2389,6 @@ export class TeacherSalaryComponent implements OnInit {
       `Salary structures successfully created and activated for ${total} staff members!`,
       'success'
     );
-    this.applyBatchFilters();
-  }
-
-  // Summary Metrics
-  get configuredCount(): number {
-    return Array.from(this.salaryMap.values()).filter(s => !!s && s.basicSalary > 0).length;
-  }
-
-  get unconfiguredCount(): number {
-    return Math.max(0, this.allTeachers.length - this.configuredCount);
-  }
-
-  get averageGross(): number {
-    const list = Array.from(this.salaryMap.values()).filter(s => !!s && s.grossSalary > 0) as SalaryDto[];
-    if (list.length === 0) return 0;
-    const sum = list.reduce((acc, curr) => acc + (curr.grossSalary || 0), 0);
-    return Math.round(sum / list.length);
+    this.loadSalaryDirectory();
   }
 }

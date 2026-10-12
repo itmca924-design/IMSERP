@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, ActivatedRoute } from '@angular/router';
@@ -13,7 +13,11 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatDialogModule } from '@angular/material/dialog';
-import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionIncrementDto, BulkIncrementDto, StaffPromotionSummaryDto } from './teacher.models';
+import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { AuthService } from '../../core/services/auth.service';
+import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
+import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionIncrementDto, BulkIncrementDto, StaffPromotionSummaryDto, StaffAppraisalPolicy } from './teacher.models';
 
 @Component({
   selector: 'app-staff-promotions',
@@ -31,7 +35,9 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
     MatTooltipModule,
     MatProgressBarModule,
     MatChipsModule,
-    MatDialogModule
+    MatDialogModule,
+    MatCheckboxModule,
+    MatSlideToggleModule
   ],
   template: `
     <div class="page-container">
@@ -47,6 +53,10 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
           </p>
         </div>
         <div class="header-actions">
+          <button mat-stroked-button color="primary" class="action-btn" (click)="openPolicyModal()" *ngIf="canManagePolicy" matTooltip="Configure Minimum Service Tenure & Appraisal Guidelines (HR / Admin)">
+            <mat-icon>tune</mat-icon>
+            <span>Policy Rules</span>
+          </button>
           <button mat-stroked-button color="primary" class="action-btn" (click)="openBulkModal()">
             <mat-icon>auto_graph</mat-icon>
             <span>Bulk Annual Hike</span>
@@ -405,6 +415,14 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
                   <span>&bull; Allowances: <strong>₹{{ currentSalaryInfo.otherAllowances | number:'1.0-0' }}</strong></span>
                   <span>&bull; Current Gross: <strong class="text-primary">₹{{ currentSalaryInfo.grossSalary | number:'1.0-0' }}</strong></span>
                 </div>
+                <!-- Joining Date & Service Tenure -->
+                <div class="prof-tenure-row" *ngIf="selectedTeacher">
+                  <span>Joining: <strong>{{ (selectedTeacher.joiningDate || selectedTeacher.createdAt) | date:'mediumDate' }}</strong></span>
+                  <span>&bull; Service Tenure: <strong [class.text-amber]="isUnderProbation" [class.text-green]="!isUnderProbation">{{ selectedTeacherTenureDisplay }}</strong></span>
+                  <span *ngIf="isUnderProbation" class="probation-tag">
+                    <mat-icon>hourglass_top</mat-icon> Under Policy Threshold (&lt; {{ policy.minServiceMonthsForIncrement }} Mo)
+                  </span>
+                </div>
                 <div class="prof-salary-missing-row" *ngIf="!currentSalaryInfo">
                   <mat-icon class="warn-icon">warning_amber</mat-icon>
                   <span>Salary Structure not configured yet (संरचना नहीं बनी है).</span>
@@ -446,6 +464,35 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
                   <mat-icon>trending_up</mat-icon>
                   <span>Promotion Only (Dry)</span>
                 </button>
+              </div>
+
+              <!-- Probation Policy Advisory & Special Bypass -->
+              <div class="probation-policy-banner" *ngIf="isUnderProbation">
+                <div class="banner-top">
+                  <mat-icon class="banner-icon">info</mat-icon>
+                  <div class="banner-text">
+                    <strong>Tenure Policy Advisory:</strong>
+                    Staff member has completed <strong>{{ selectedTeacherTenureDisplay }}</strong> of service. Institute policy requires minimum <strong>{{ policy.minServiceMonthsForIncrement }} months</strong> for financial increments.
+                    <span *ngIf="policy.enforceDryPromotionInProbation">
+                      <em>"Promotion Only (Dry)"</em> is recommended during initial service duration.
+                    </span>
+                  </div>
+                </div>
+
+                <div class="bypass-box" *ngIf="policy.allowSpecialBypass && canManagePolicy">
+                  <mat-checkbox [(ngModel)]="formData.isSpecialBypass" (ngModelChange)="onBypassToggle()" color="primary">
+                    <span class="bypass-chk-lbl">
+                      <strong>Special Management / HR Approval Bypass (विशेष अनुमोदन)</strong>
+                      <small>Authorize salary increment for staff under probation with approval justification</small>
+                    </span>
+                  </mat-checkbox>
+                  <div class="bypass-reason-wrap" *ngIf="formData.isSpecialBypass">
+                    <mat-form-field appearance="outline" class="full-width">
+                      <mat-label>Bypass Justification / Approval Authority Note *</mat-label>
+                      <input matInput [(ngModel)]="formData.specialBypassReason" placeholder="e.g. Approved by Director / HR Committee for exceptional performance" />
+                    </mat-form-field>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -592,7 +639,7 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
             <div class="form-row">
               <mat-form-field appearance="outline" class="flex-1">
                 <mat-label>Effective Date (लागू होने की तिथि)</mat-label>
-                <input matInput type="date" [(ngModel)]="effectiveDateStr" />
+                <input matInput type="date" [(ngModel)]="effectiveDateStr" (ngModelChange)="calcTeacherTenure()" />
                 <mat-hint>Date from which new designation and salary takes effect</mat-hint>
               </mat-form-field>
 
@@ -813,6 +860,82 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
           </div>
         </div>
       </div>
+
+      <!-- Staff Appraisal Policy Configuration Modal (Admin & HR) -->
+      <div class="modal-overlay" *ngIf="showPolicyModal" (click)="closePolicyModal()">
+        <div class="modal-card policy-card" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <div class="header-left">
+              <div class="header-icon-box">
+                <mat-icon>tune</mat-icon>
+              </div>
+              <div class="header-title-box">
+                <h2 class="modal-title">Staff Appraisal &amp; Promotion Policy Rules</h2>
+                <p class="modal-subtitle">Dynamic institute tenure guidelines (संस्थान पदोन्नति एवं वेतन वृद्धि नीति)</p>
+              </div>
+            </div>
+            <button mat-icon-button class="close-btn" (click)="closePolicyModal()">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+
+          <div class="modal-body">
+            <div class="policy-info-box">
+              <mat-icon>gavel</mat-icon>
+              <div>
+                <strong>Central Institute Appraisal Policy</strong>
+                <p>This dynamic policy is shared by SuperAdmin, InstituteAdmin, and HR. All staff appraisal workflows automatically validate against these parameters.</p>
+              </div>
+            </div>
+
+            <div class="policy-setting-row">
+              <div class="setting-info">
+                <label class="setting-title">Minimum Service Tenure for Salary Increment</label>
+                <p class="setting-desc">Minimum continuous months of service required before staff qualifies for financial salary revision (e.g. 12 months = 1 Year).</p>
+              </div>
+              <div class="setting-input-wrap">
+                <input type="number" min="0" max="60" [(ngModel)]="policy.minServiceMonthsForIncrement" class="policy-num-input" />
+                <span class="unit-lbl">Months (माह)</span>
+              </div>
+            </div>
+
+            <div class="policy-setting-row">
+              <div class="setting-info">
+                <label class="setting-title">Enforce "Dry Promotion" During Initial Tenure</label>
+                <p class="setting-desc">When staff has not completed minimum tenure, require rank/cadre upgrade only without immediate salary hike.</p>
+              </div>
+              <div class="setting-control">
+                <mat-slide-toggle [(ngModel)]="policy.enforceDryPromotionInProbation" color="primary"></mat-slide-toggle>
+              </div>
+            </div>
+
+            <div class="policy-setting-row">
+              <div class="setting-info">
+                <label class="setting-title">Allow Special Management / HR Approval Bypass</label>
+                <p class="setting-desc">Permit Admin &amp; HR to grant out-of-turn financial increments with an official approval reason/justification.</p>
+              </div>
+              <div class="setting-control">
+                <mat-slide-toggle [(ngModel)]="policy.allowSpecialBypass" color="primary"></mat-slide-toggle>
+              </div>
+            </div>
+
+            <div class="policy-roles-chip-box">
+              <span class="chip-lbl">Authorized Roles:</span>
+              <span class="role-badge">SuperAdmin</span>
+              <span class="role-badge">InstituteAdmin</span>
+              <span class="role-badge">HR Manager</span>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button mat-button class="btn-cancel" (click)="closePolicyModal()" [disabled]="savingPolicy">Cancel</button>
+            <button mat-flat-button color="primary" class="btn-save" (click)="savePolicy()" [disabled]="savingPolicy">
+              <mat-icon>{{ savingPolicy ? 'hourglass_empty' : 'check_circle' }}</mat-icon>
+              <span>{{ savingPolicy ? 'Saving Rules...' : 'Save & Update Policy' }}</span>
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   `,
   styles: [`
@@ -1020,13 +1143,20 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
       }
     }
 
-    /* Table Styles */
+    /* Records Container & Table Styles */
+    .records-container {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
     .table-responsive {
       background: #ffffff;
       border-radius: 14px;
       border: 1px solid #e2e8f0;
       overflow-x: auto;
       box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+      margin-bottom: 8px;
     }
 
     .erp-table {
@@ -1305,17 +1435,19 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
     .cards-list {
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 16px;
+      margin-top: 10px;
     }
 
     .mobile-record-card {
-      padding: 14px !important;
+      padding: 16px !important;
       border-radius: 12px !important;
       border: 1px solid #e2e8f0 !important;
       background: #ffffff !important;
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 12px;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05) !important;
 
       .m-card-header {
         display: flex;
@@ -1411,6 +1543,10 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
 
     .letter-modal {
       max-width: 760px;
+    }
+
+    .policy-card {
+      max-width: 620px;
     }
 
     /* Strict Light Blue Gradient Header matching AGENTS.md rule */
@@ -1573,6 +1709,35 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
           .text-primary { color: #2563eb; font-weight: 700; }
         }
 
+        .prof-tenure-row {
+          color: #334155;
+          font-size: 0.78rem;
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 4px 8px;
+          margin-top: 3px;
+          padding-top: 3px;
+          border-top: 1px dashed #e2e8f0;
+          strong { color: #1e293b; }
+          .text-amber { color: #b45309; font-weight: 700; }
+          .text-green { color: #047857; font-weight: 700; }
+
+          .probation-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            background: #fffbeb;
+            color: #92400e;
+            border: 1px solid #fde68a;
+            border-radius: 6px;
+            padding: 1px 6px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            mat-icon { font-size: 14px; width: 14px; height: 14px; color: #d97706; }
+          }
+        }
+
         .prof-salary-missing-row {
           display: flex;
           align-items: center;
@@ -1650,6 +1815,189 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
           box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
           mat-icon { color: #2563eb; }
         }
+      }
+    }
+
+    .probation-policy-banner {
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+
+      .banner-top {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+
+        .banner-icon {
+          color: #d97706;
+          font-size: 20px;
+          width: 20px;
+          height: 20px;
+          flex-shrink: 0;
+          margin-top: 1px;
+        }
+
+        .banner-text {
+          font-size: 0.82rem;
+          color: #92400e;
+          line-height: 1.4;
+          strong { color: #78350f; }
+          em { font-style: normal; font-weight: 600; text-decoration: underline; }
+        }
+      }
+
+      .bypass-box {
+        background: #ffffff;
+        border: 1px dashed #f59e0b;
+        border-radius: 8px;
+        padding: 8px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+
+        .bypass-chk-lbl {
+          display: flex;
+          flex-direction: column;
+          gap: 1px;
+          strong { font-size: 0.82rem; color: #92400e; }
+          small { font-size: 0.74rem; color: #b45309; }
+        }
+
+        .bypass-reason-wrap {
+          margin-top: 4px;
+          mat-form-field { margin-bottom: -1.25em; }
+        }
+      }
+    }
+
+    /* Policy Modal Inner Styles */
+    .policy-info-box {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 10px;
+      padding: 12px 14px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      color: #1e40af;
+      margin-bottom: 8px;
+
+      mat-icon {
+        color: #2563eb;
+        font-size: 24px;
+        width: 24px;
+        height: 24px;
+        flex-shrink: 0;
+      }
+
+      strong {
+        font-size: 0.88rem;
+        color: #1e3a8a;
+        display: block;
+        margin-bottom: 2px;
+      }
+
+      p {
+        margin: 0;
+        font-size: 0.8rem;
+        line-height: 1.35;
+        color: #3b82f6;
+      }
+    }
+
+    .policy-setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 14px 0;
+      border-bottom: 1px solid #f1f5f9;
+
+      .setting-info {
+        flex: 1;
+        min-width: 0;
+
+        .setting-title {
+          font-size: 0.88rem;
+          font-weight: 600;
+          color: #0f172a;
+          display: block;
+          margin-bottom: 3px;
+        }
+
+        .setting-desc {
+          margin: 0;
+          font-size: 0.78rem;
+          color: #64748b;
+          line-height: 1.3;
+        }
+      }
+
+      .setting-input-wrap {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-shrink: 0;
+
+        .policy-num-input {
+          width: 70px;
+          padding: 7px 10px;
+          border: 1px solid #cbd5e1;
+          border-radius: 8px;
+          text-align: center;
+          font-size: 0.95rem;
+          font-weight: 700;
+          color: #1e3a8a;
+          outline: none;
+
+          &:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+          }
+        }
+
+        .unit-lbl {
+          font-size: 0.78rem;
+          color: #64748b;
+          font-weight: 500;
+        }
+      }
+
+      .setting-control {
+        flex-shrink: 0;
+      }
+    }
+
+    .policy-roles-chip-box {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 14px;
+      padding: 8px 12px;
+      background: #f8fafc;
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
+      flex-wrap: wrap;
+
+      .chip-lbl {
+        font-size: 0.76rem;
+        color: #64748b;
+        font-weight: 600;
+      }
+
+      .role-badge {
+        font-size: 0.72rem;
+        padding: 2px 8px;
+        border-radius: 12px;
+        background: #eff6ff;
+        color: #1d4ed8;
+        font-weight: 600;
+        border: 1px solid #bfdbfe;
       }
     }
 
@@ -2280,6 +2628,25 @@ export class StaffPromotionsComponent implements OnInit {
   selectedStaffType = 'All';
   selectedType = '';
 
+  // Policy, Access Control & Tenure State
+  private authService = inject(AuthService, { optional: true });
+  private confirmDialog = inject(ConfirmDialogService);
+  get canManagePolicy(): boolean {
+    return this.authService ? (this.authService.isAdmin() || this.authService.isHR()) : true;
+  }
+  showPolicyModal = false;
+  savingPolicy = false;
+  policy: StaffAppraisalPolicy = {
+    minServiceMonthsForIncrement: 12,
+    enforceDryPromotionInProbation: true,
+    allowSpecialBypass: true,
+    bypassApprovalRole: 'SuperAdmin,InstituteAdmin,HR'
+  };
+
+  selectedTeacherTenureMonths: number = 0;
+  selectedTeacherTenureDisplay: string = '';
+  isUnderProbation: boolean = false;
+
   // New Promotion / Increment Drawer Modal
   showDrawer = false;
   selectedTeacher: TeacherDto | null = null;
@@ -2295,7 +2662,9 @@ export class StaffPromotionsComponent implements OnInit {
     newOtherAllowances: 0,
     effectiveDate: '',
     reason: 'Annual Appraisal Cycle (वार्षिक वेतन वृद्धि)',
-    remarks: ''
+    remarks: '',
+    isSpecialBypass: false,
+    specialBypassReason: ''
   };
 
   hikePercent: number = 10;
@@ -2331,6 +2700,7 @@ export class StaffPromotionsComponent implements OnInit {
         this.targetTeacherIdFromRoute = params['teacherId'];
       }
     });
+    this.loadPolicy();
     this.loadData();
     this.loadTeachers();
   }
@@ -2350,6 +2720,43 @@ export class StaffPromotionsComponent implements OnInit {
         this.loading = false;
         this.records = [];
         this.applyFilters();
+      }
+    });
+  }
+
+  loadPolicy() {
+    this.http.get<StaffAppraisalPolicy>(`${this.api}/staff-promotions/policy`).subscribe({
+      next: (res) => {
+        if (res) {
+          this.policy = res;
+          this.calcTeacherTenure();
+        }
+      },
+      error: (err) => console.warn('Could not load staff appraisal policy', err)
+    });
+  }
+
+  openPolicyModal() {
+    this.showPolicyModal = true;
+  }
+
+  closePolicyModal() {
+    this.showPolicyModal = false;
+  }
+
+  savePolicy() {
+    this.savingPolicy = true;
+    this.http.post<StaffAppraisalPolicy>(`${this.api}/staff-promotions/policy`, this.policy).subscribe({
+      next: (res) => {
+        this.savingPolicy = false;
+        if (res) this.policy = res;
+        this.showPolicyModal = false;
+        this.calcTeacherTenure();
+        this.confirmDialog.alert('Policy Rules Updated', 'Staff Appraisal & Promotion Policy rules have been successfully saved.', 'success');
+      },
+      error: (err) => {
+        this.savingPolicy = false;
+        this.confirmDialog.alert('Update Failed', err?.error?.message || 'Failed to update policy settings.', 'danger');
       }
     });
   }
@@ -2508,7 +2915,9 @@ export class StaffPromotionsComponent implements OnInit {
       newOtherAllowances: 0,
       effectiveDate: new Date().toISOString(),
       reason: 'Annual Appraisal Cycle (वार्षिक वेतन वृद्धि)',
-      remarks: ''
+      remarks: '',
+      isSpecialBypass: false,
+      specialBypassReason: ''
     };
     this.hikePercent = 10;
     this.effectiveDateStr = new Date().toISOString().substring(0, 10);
@@ -2524,10 +2933,13 @@ export class StaffPromotionsComponent implements OnInit {
     if (!this.formData.teacherId) {
       this.selectedTeacher = null;
       this.currentSalaryInfo = null;
+      this.calcTeacherTenure();
       return;
     }
 
     this.selectedTeacher = this.teachers.find(t => t.id === this.formData.teacherId) || null;
+    this.calcTeacherTenure();
+
     if (this.selectedTeacher) {
       this.formData.newDesignation = this.selectedTeacher.designation || '';
       this.formData.newDepartment = this.selectedTeacher.department || '';
@@ -2563,6 +2975,54 @@ export class StaffPromotionsComponent implements OnInit {
           this.formData.newOtherAllowances = 0;
         }
       });
+    }
+  }
+
+  calcTeacherTenure() {
+    if (!this.selectedTeacher) {
+      this.selectedTeacherTenureMonths = 0;
+      this.selectedTeacherTenureDisplay = '';
+      this.isUnderProbation = false;
+      return;
+    }
+
+    const joinStr = this.selectedTeacher.joiningDate || this.selectedTeacher.createdAt;
+    if (!joinStr) {
+      this.selectedTeacherTenureMonths = 0;
+      this.selectedTeacherTenureDisplay = 'N/A';
+      this.isUnderProbation = false;
+      return;
+    }
+
+    const joinDate = new Date(joinStr);
+    const effDate = this.effectiveDateStr ? new Date(this.effectiveDateStr) : new Date();
+    let months = (effDate.getFullYear() - joinDate.getFullYear()) * 12 + (effDate.getMonth() - joinDate.getMonth());
+    if (effDate.getDate() < joinDate.getDate()) months--;
+    this.selectedTeacherTenureMonths = Math.max(0, months);
+
+    const yrs = Math.floor(this.selectedTeacherTenureMonths / 12);
+    const remMo = this.selectedTeacherTenureMonths % 12;
+    this.selectedTeacherTenureDisplay = yrs > 0
+      ? `${yrs} yr ${remMo} mo (${this.selectedTeacherTenureMonths} mos)`
+      : `${this.selectedTeacherTenureMonths} month(s)`;
+
+    const minMonths = this.policy?.minServiceMonthsForIncrement ?? 12;
+    const enforce = this.policy?.enforceDryPromotionInProbation ?? true;
+
+    this.isUnderProbation = enforce && (this.selectedTeacherTenureMonths < minMonths);
+
+    // If staff is under probation threshold and bypass is not active, enforce Promotion Only (Dry)
+    if (this.isUnderProbation && !this.formData.isSpecialBypass) {
+      this.formData.type = 'Promotion';
+    }
+  }
+
+  onBypassToggle() {
+    if (!this.formData.isSpecialBypass && this.isUnderProbation) {
+      this.formData.type = 'Promotion';
+    } else if (this.formData.isSpecialBypass && this.formData.type === 'Promotion') {
+      this.formData.type = 'PromotionAndIncrement';
+      this.applyPercentHike();
     }
   }
 
@@ -2607,6 +3067,15 @@ export class StaffPromotionsComponent implements OnInit {
   savePromotion() {
     if (!this.formData.teacherId) return;
 
+    if (this.isUnderProbation && this.formData.type !== 'Promotion' && !this.formData.isSpecialBypass) {
+      this.confirmDialog.alert(
+        'Tenure Requirement Notice',
+        `Staff member has completed only ${this.selectedTeacherTenureMonths} month(s) of service. Institute policy requires minimum ${this.policy.minServiceMonthsForIncrement} months for financial increments. Please select 'Promotion Only (Dry)' or authorize a Special Management/HR Approval Bypass.`,
+        'warning'
+      );
+      return;
+    }
+
     this.submitting = true;
     this.formData.effectiveDate = new Date(this.effectiveDateStr).toISOString();
 
@@ -2620,12 +3089,17 @@ export class StaffPromotionsComponent implements OnInit {
       next: () => {
         this.submitting = false;
         this.closeDrawer();
+        this.confirmDialog.alert(
+          'Appraisal Recorded',
+          `Staff promotion and salary appraisal record for ${this.selectedTeacher?.fullName || 'staff member'} has been successfully saved.`,
+          'success'
+        );
         this.loadData();
         this.loadTeachers();
       },
       error: (err) => {
         this.submitting = false;
-        alert(err?.error?.message || 'Failed to record staff promotion.');
+        this.confirmDialog.alert('Promotion Save Failed', err?.error?.message || 'Failed to record staff promotion.', 'danger');
       }
     });
   }
@@ -2656,23 +3130,31 @@ export class StaffPromotionsComponent implements OnInit {
       next: (res) => {
         this.submitting = false;
         this.closeBulkModal();
-        alert(res?.message || 'Bulk increment applied successfully.');
+        this.confirmDialog.alert('Bulk Increment Applied', res?.message || 'Bulk increment applied successfully across selected staff members.', 'success');
         this.loadData();
       },
       error: (err) => {
         this.submitting = false;
-        alert(err?.error?.message || 'Failed to apply bulk increment.');
+        this.confirmDialog.alert('Bulk Increment Failed', err?.error?.message || 'Failed to apply bulk increment.', 'danger');
       }
     });
   }
 
   // Delete Action
   deleteRecord(r: StaffPromotionIncrementDto) {
-    if (!confirm(`Are you sure you want to delete this promotion/appraisal audit record for ${r.teacherName}?`)) return;
+    this.confirmDialog.danger(
+      'Delete Promotion Audit Record',
+      `Are you sure you want to delete this promotion/appraisal audit record for ${r.teacherName}? This action cannot be undone.`
+    ).subscribe(confirmed => {
+      if (!confirmed) return;
 
-    this.http.delete(`${this.api}/staff-promotions/${r.id}`).subscribe({
-      next: () => this.loadData(),
-      error: (err) => alert(err?.error?.message || 'Failed to delete record.')
+      this.http.delete(`${this.api}/staff-promotions/${r.id}`).subscribe({
+        next: () => {
+          this.confirmDialog.alert('Record Deleted', 'Promotion audit record has been deleted.', 'success');
+          this.loadData();
+        },
+        error: (err) => this.confirmDialog.alert('Delete Failed', err?.error?.message || 'Failed to delete record.', 'danger')
+      });
     });
   }
 

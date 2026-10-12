@@ -25,8 +25,20 @@ BEGIN
     (
         [Id] UNIQUEIDENTIFIER NOT NULL CONSTRAINT [PK_AttendanceSettings] PRIMARY KEY,
         [TenantId] UNIQUEIDENTIFIER NOT NULL,
+        [BranchId] UNIQUEIDENTIFIER NULL,
         [StudentMode] NVARCHAR(20) NOT NULL CONSTRAINT [DF_AttendanceSettings_StudentMode] DEFAULT ('Both'),
         [TeacherMode] NVARCHAR(20) NOT NULL CONSTRAINT [DF_AttendanceSettings_TeacherMode] DEFAULT ('Both'),
+        [HostelMode] NVARCHAR(20) NOT NULL CONSTRAINT [DF_AttendanceSettings_HostelMode] DEFAULT ('Both'),
+        [TeacherShiftStartTime] NVARCHAR(20) NOT NULL CONSTRAINT [DF_AttendanceSettings_TeacherShiftStartTime] DEFAULT ('08:00'),
+        [TeacherShiftEndTime] NVARCHAR(20) NOT NULL CONSTRAINT [DF_AttendanceSettings_TeacherShiftEndTime] DEFAULT ('17:00'),
+        [TeacherGracePeriodMinutes] INT NOT NULL CONSTRAINT [DF_AttendanceSettings_TeacherGracePeriodMinutes] DEFAULT (15),
+        [TeacherHalfDayThresholdMinutes] INT NOT NULL CONSTRAINT [DF_AttendanceSettings_TeacherHalfDayThresholdMinutes] DEFAULT (240),
+        [TeacherAllowedLateDaysPerMonth] INT NOT NULL CONSTRAINT [DF_AttendanceSettings_TeacherAllowedLateDaysPerMonth] DEFAULT (3),
+        [StudentShiftStartTime] NVARCHAR(20) NOT NULL CONSTRAINT [DF_AttendanceSettings_StudentShiftStartTime] DEFAULT ('08:00'),
+        [StudentShiftEndTime] NVARCHAR(20) NOT NULL CONSTRAINT [DF_AttendanceSettings_StudentShiftEndTime] DEFAULT ('14:00'),
+        [StudentGracePeriodMinutes] INT NOT NULL CONSTRAINT [DF_AttendanceSettings_StudentGracePeriodMinutes] DEFAULT (15),
+        [StudentHalfDayThresholdMinutes] INT NOT NULL CONSTRAINT [DF_AttendanceSettings_StudentHalfDayThresholdMinutes] DEFAULT (240),
+        [StudentAllowedLateDaysPerMonth] INT NOT NULL CONSTRAINT [DF_AttendanceSettings_StudentAllowedLateDaysPerMonth] DEFAULT (3),
         [UpdatedAt] DATETIME2 NOT NULL CONSTRAINT [DF_AttendanceSettings_UpdatedAt] DEFAULT (SYSUTCDATETIME()),
         CONSTRAINT [FK_AttendanceSettings_Tenants] FOREIGN KEY ([TenantId]) REFERENCES [dbo].[Tenants]([Id])
     );
@@ -39,9 +51,9 @@ FROM [dbo].[Tenants] t
 WHERE NOT EXISTS (SELECT 1 FROM [dbo].[AttendanceSettings] s WHERE s.[TenantId] = t.[Id]);
 
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UX_Students_Tenant_BiometricUserId' AND object_id = OBJECT_ID(N'[dbo].[Students]'))
-    EXEC(N'CREATE UNIQUE INDEX [UX_Students_Tenant_BiometricUserId] ON [dbo].[Students] ([TenantId], [BiometricUserId]) WHERE [BiometricUserId] IS NOT NULL');
+    EXEC(N'CREATE UNIQUE INDEX [UX_Students_Tenant_BiometricUserId] ON [dbo].[Students] ([TenantId], [BiometricUserId]) WHERE [BiometricUserId] IS NOT NULL AND [BiometricUserId] <> ''''');
 
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UX_Teachers_Tenant_BiometricUserId' AND object_id = OBJECT_ID(N'[dbo].[Teachers]'))
-    EXEC(N'CREATE UNIQUE INDEX [UX_Teachers_Tenant_BiometricUserId] ON [dbo].[Teachers] ([TenantId], [BiometricUserId]) WHERE [BiometricUserId] IS NOT NULL');
+    EXEC(N'CREATE UNIQUE INDEX [UX_Teachers_Tenant_BiometricUserId] ON [dbo].[Teachers] ([TenantId], [BiometricUserId]) WHERE [BiometricUserId] IS NOT NULL AND [BiometricUserId] <> ''''');
 
 PRINT 'Biometric attendance schema is ready. Default mode is Both.';

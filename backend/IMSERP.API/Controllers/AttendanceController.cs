@@ -46,7 +46,17 @@ public class AttendanceController : ControllerBase
         return Ok(new AttendanceSettingsDto(
             settings?.StudentMode ?? "Both",
             settings?.TeacherMode ?? "Both",
-            settings?.HostelMode ?? "Both"
+            settings?.HostelMode ?? "Both",
+            settings?.TeacherShiftStartTime ?? "08:00",
+            settings?.TeacherShiftEndTime ?? "17:00",
+            settings?.TeacherGracePeriodMinutes ?? 15,
+            settings?.TeacherHalfDayThresholdMinutes ?? 240,
+            settings?.TeacherAllowedLateDaysPerMonth ?? 3,
+            settings?.StudentShiftStartTime ?? "08:00",
+            settings?.StudentShiftEndTime ?? "14:00",
+            settings?.StudentGracePeriodMinutes ?? 15,
+            settings?.StudentHalfDayThresholdMinutes ?? 240,
+            settings?.StudentAllowedLateDaysPerMonth ?? 3
         ));
     }
 
@@ -85,8 +95,12 @@ public class AttendanceController : ControllerBase
         var settings = await _db.AttendanceSettings.FirstOrDefaultAsync(s => s.TenantId == _currentUser.TenantId);
         if (settings == null)
         {
-            settings = new AttendanceSettings { TenantId = _currentUser.TenantId };
+            settings = new AttendanceSettings { TenantId = _currentUser.TenantId, BranchId = _currentUser.BranchId };
             _db.AttendanceSettings.Add(settings);
+        }
+        else if (!settings.BranchId.HasValue && _currentUser.BranchId.HasValue)
+        {
+            settings.BranchId = _currentUser.BranchId;
         }
 
         settings.StudentMode = dto.StudentMode;
@@ -95,9 +109,38 @@ public class AttendanceController : ControllerBase
         {
             settings.HostelMode = dto.HostelMode;
         }
+
+        // Save dynamic shift & policy settings
+        if (!string.IsNullOrWhiteSpace(dto.TeacherShiftStartTime)) settings.TeacherShiftStartTime = dto.TeacherShiftStartTime.Trim();
+        if (!string.IsNullOrWhiteSpace(dto.TeacherShiftEndTime)) settings.TeacherShiftEndTime = dto.TeacherShiftEndTime.Trim();
+        if (dto.TeacherGracePeriodMinutes >= 0) settings.TeacherGracePeriodMinutes = dto.TeacherGracePeriodMinutes;
+        if (dto.TeacherHalfDayThresholdMinutes > 0) settings.TeacherHalfDayThresholdMinutes = dto.TeacherHalfDayThresholdMinutes;
+        if (dto.TeacherAllowedLateDaysPerMonth >= 0) settings.TeacherAllowedLateDaysPerMonth = dto.TeacherAllowedLateDaysPerMonth;
+
+        if (!string.IsNullOrWhiteSpace(dto.StudentShiftStartTime)) settings.StudentShiftStartTime = dto.StudentShiftStartTime.Trim();
+        if (!string.IsNullOrWhiteSpace(dto.StudentShiftEndTime)) settings.StudentShiftEndTime = dto.StudentShiftEndTime.Trim();
+        if (dto.StudentGracePeriodMinutes >= 0) settings.StudentGracePeriodMinutes = dto.StudentGracePeriodMinutes;
+        if (dto.StudentHalfDayThresholdMinutes > 0) settings.StudentHalfDayThresholdMinutes = dto.StudentHalfDayThresholdMinutes;
+        if (dto.StudentAllowedLateDaysPerMonth >= 0) settings.StudentAllowedLateDaysPerMonth = dto.StudentAllowedLateDaysPerMonth;
+
         settings.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
-        return Ok(new AttendanceSettingsDto(settings.StudentMode, settings.TeacherMode, settings.HostelMode));
+
+        return Ok(new AttendanceSettingsDto(
+            settings.StudentMode,
+            settings.TeacherMode,
+            settings.HostelMode,
+            settings.TeacherShiftStartTime,
+            settings.TeacherShiftEndTime,
+            settings.TeacherGracePeriodMinutes,
+            settings.TeacherHalfDayThresholdMinutes,
+            settings.TeacherAllowedLateDaysPerMonth,
+            settings.StudentShiftStartTime,
+            settings.StudentShiftEndTime,
+            settings.StudentGracePeriodMinutes,
+            settings.StudentHalfDayThresholdMinutes,
+            settings.StudentAllowedLateDaysPerMonth
+        ));
     }
 
     [HttpPost("biometric-events")]

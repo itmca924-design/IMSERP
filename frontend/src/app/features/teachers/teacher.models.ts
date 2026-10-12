@@ -42,7 +42,21 @@ export interface AttendanceDto {
   id: string; teacherId: string; teacherName: string; employeeCode: string;
   attendanceDate: string; status: string; checkInTime?: string; checkOutTime?: string; remarks?: string; captureSource?: string; capturedAt?: string;
 }
-export interface AttendanceSettingsDto { studentMode: 'Manual' | 'Biometric' | 'Both'; teacherMode: 'Manual' | 'Biometric' | 'Both'; }
+export interface AttendanceSettingsDto {
+  studentMode: 'Manual' | 'Biometric' | 'Both';
+  teacherMode: 'Manual' | 'Biometric' | 'Both';
+  hostelMode?: 'Manual' | 'Biometric' | 'Both';
+  teacherShiftStartTime?: string;
+  teacherShiftEndTime?: string;
+  teacherGracePeriodMinutes?: number;
+  teacherHalfDayThresholdMinutes?: number;
+  teacherAllowedLateDaysPerMonth?: number;
+  studentShiftStartTime?: string;
+  studentShiftEndTime?: string;
+  studentGracePeriodMinutes?: number;
+  studentHalfDayThresholdMinutes?: number;
+  studentAllowedLateDaysPerMonth?: number;
+}
 export interface AttendancePermissionsDto {
   canChangeMode: boolean; canManualMark: boolean; canBiometricCapture: boolean;
   canMapBiometric: boolean; canCorrectAttendance: boolean;
@@ -69,6 +83,9 @@ export interface PayrollPreviewDto {
   transportFareInfo?: string;
   unpaidLeaveDays?: number;
   paidLeaveDays?: number;
+  arrearsAmount?: number;
+  arrearsRemarks?: string;
+  preJoiningDays?: number;
 }
 export interface SalaryDto {
   id: string; teacherId: string; teacherName: string;
@@ -76,12 +93,124 @@ export interface SalaryDto {
   pfDeduction: number; tdsDeduction: number; otherDeductions: number; netSalary: number;
   effectiveFrom: string; effectiveTo?: string; isActive: boolean;
 }
+
+export interface StaffSalaryOverviewItem {
+  teacher: TeacherDto;
+  salary: SalaryDto | null;
+  status: 'configured' | 'missing';
+  selected?: boolean;
+}
+
+export interface StaffSalaryDirectoryKpis {
+  totalActiveStaff: number;
+  salaryConfigured: number;
+  missingSalaryStructure: number;
+  averageMonthlyGross: number;
+}
+
+export interface StaffSalaryDirectoryResponse {
+  items: StaffSalaryOverviewItem[];
+  totalCount: number;
+  pageNumber: number;
+  pageSize: number;
+  kpis: StaffSalaryDirectoryKpis;
+  departments: string[];
+}
 export interface SalaryPaymentDto {
   id: string; teacherId: string; teacherName: string; employeeCode: string;
   paymentMonth: number; paymentYear: number; monthName: string; paymentDate: string;
   grossAmount: number; deductions: number; advanceAdjusted: number; netPaid: number;
   paymentMode: string; transactionRef?: string; receiptNumber: string;
   presentDays: number; absentDays: number; remarks?: string;
+  workingDays?: number;
+  halfDays?: number;
+  lateDays?: number;
+  paidLeaveDays?: number;
+  unpaidLeaveDays?: number;
+  lopDays?: number;
+  perDayRate?: number;
+  basicSalary?: number;
+  hra?: number;
+  otherAllowances?: number;
+  attendanceDeduction?: number;
+  pfDeduction?: number;
+  tdsDeduction?: number;
+  otherStatutoryDeduction?: number;
+  hostelDeduction?: number;
+  transportDeduction?: number;
+  arrearsAmount?: number;
+  arrearsRemarks?: string;
+}
+
+export interface MonthlyPayrollStaffItemDto {
+  teacherId: string;
+  teacherName: string;
+  employeeCode: string;
+  designation?: string;
+  department?: string;
+  staffType?: string;
+  hasSalaryStructure: boolean;
+  isAlreadyPaid: boolean;
+  paidPaymentId?: string;
+  paidReceiptNumber?: string;
+  paidDate?: string;
+  grossAmount: number;
+  attendanceDeductions: number;
+  statutoryDeductions: number;
+  advanceAdjusted: number;
+  totalDeductions: number;
+  netPaid: number;
+  presentDays: number;
+  absentDays: number;
+  totalWorkingDays: number;
+  selected?: boolean;
+  facilityDeductions?: number;
+  halfDays?: number;
+  lateDays?: number;
+  paidLeaveDays?: number;
+  unpaidLeaveDays?: number;
+  unmarkedDays?: number;
+  pendingFutureDays?: number;
+  lopDays?: number;
+  perDayRate?: number;
+  arrearsAmount?: number;
+  arrearsRemarks?: string;
+}
+
+export interface MonthlyPayrollSummaryDto {
+  month: number;
+  year: number;
+  totalStaff: number;
+  alreadyPaidCount: number;
+  pendingCount: number;
+  totalGross: number;
+  totalDeductions: number;
+  totalNetPayable: number;
+  items: MonthlyPayrollStaffItemDto[];
+}
+
+export interface BulkSalaryPaymentItemDto {
+  teacherId: string;
+  grossAmount: number;
+  deductions: number;
+  advanceAdjusted: number;
+  netPaid: number;
+  presentDays: number;
+  absentDays: number;
+  transactionRef?: string;
+  remarks?: string;
+  arrearsAmount?: number;
+  arrearsRemarks?: string;
+}
+
+export interface BulkSalaryPaymentRequestDto {
+  paymentMonth: number;
+  paymentYear: number;
+  paymentDate: string;
+  paymentMode: string;
+  transactionRef?: string;
+  remarks?: string;
+  payments: BulkSalaryPaymentItemDto[];
 }
 export interface AdvanceDto {
   id: string; teacherId: string; teacherName: string; employeeCode: string;
@@ -587,6 +716,16 @@ export interface CreateStaffPromotionIncrementDto {
   effectiveDate: string;
   reason?: string;
   remarks?: string;
+  isSpecialBypass?: boolean;
+  specialBypassReason?: string;
+}
+
+export interface StaffAppraisalPolicy {
+  minServiceMonthsForIncrement: number;
+  enforceDryPromotionInProbation: boolean;
+  allowSpecialBypass: boolean;
+  bypassApprovalRole?: string;
+  updatedAt?: string;
 }
 
 export interface BulkIncrementDto {

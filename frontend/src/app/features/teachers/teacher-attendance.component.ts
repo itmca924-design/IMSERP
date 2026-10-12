@@ -15,6 +15,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { TeacherSelectorComponent } from './teacher-selector.component';
 import { API_BASE, AttendancePermissionsDto, AttendanceSettingsDto, TeacherDto, AttendanceDto, AttendanceSummaryDto, HolidayDto, LeaveDto } from './teacher.models';
 import { ApplyTeacherRegularizationDialogComponent } from './teacher-regularization-dialog.component';
+import { AttendanceShiftSettingsDialogComponent } from '../../shared/components/attendance-shift-settings-dialog.component';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { LocalDatetimePipe } from '../../shared/pipes/local-datetime.pipe';
 import { AuthService } from '../../core/services/auth.service';
@@ -65,8 +66,8 @@ export interface CalendarDayItem {
     <div class="attendance-toolbar mat-elevation-z1">
       <div class="toolbar-left">
         <div class="period-selectors">
-          <!-- Month Dropdown with wide width to fit September without truncation -->
-          <mat-form-field appearance="outline" class="month-select-field">
+          <!-- Month Dropdown -->
+          <mat-form-field appearance="outline" class="month-select-field" subscriptSizing="dynamic">
             <mat-label>Month</mat-label>
             <mat-select [(ngModel)]="attMonth" (ngModelChange)="loadAttendance()">
               <mat-option *ngFor="let m of months; let i = index" [value]="i+1">{{m}}</mat-option>
@@ -74,18 +75,29 @@ export interface CalendarDayItem {
           </mat-form-field>
 
           <!-- Year Dropdown -->
-          <mat-form-field appearance="outline" class="year-select-field">
+          <mat-form-field appearance="outline" class="year-select-field" subscriptSizing="dynamic">
             <mat-label>Year</mat-label>
             <mat-select [(ngModel)]="attYear" (ngModelChange)="loadAttendance()">
               <mat-option *ngFor="let y of years" [value]="y">{{y}}</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <!-- Attendance Mode -->
+          <mat-form-field appearance="outline" class="mode-select" subscriptSizing="dynamic" *ngIf="canManageAttendance">
+            <mat-label>Attendance Mode</mat-label>
+            <mat-select [(ngModel)]="attendanceMode" (selectionChange)="saveAttendanceMode()" [disabled]="!attendancePermissions.canChangeMode">
+              <mat-option value="Both">Manual + Biometric</mat-option>
+              <mat-option value="Manual">Manual Only</mat-option>
+              <mat-option value="Biometric">Biometric Only</mat-option>
             </mat-select>
           </mat-form-field>
         </div>
       </div>
 
       <div class="toolbar-right">
-        <!-- Quick 1-Click Today Action -->
-        <mat-form-field appearance="outline" class="mode-select" *ngIf="canManageAttendance"><mat-label>Teacher Attendance Mode</mat-label><mat-select [(ngModel)]="attendanceMode" (selectionChange)="saveAttendanceMode()" [disabled]="!attendancePermissions.canChangeMode"><mat-option value="Both">Manual + Biometric</mat-option><mat-option value="Manual">Manual Only</mat-option><mat-option value="Biometric">Biometric Only</mat-option></mat-select></mat-form-field>
+        <button mat-stroked-button color="primary" class="settings-toolbar-btn" *ngIf="canManageAttendance && attendancePermissions.canChangeMode" (click)="openShiftSettingsDialog()" matTooltip="Configure Shift Timings & Attendance Policies for Faculty and Students">
+          <mat-icon>settings</mat-icon> Shift &amp; Policies
+        </button>
         <button mat-stroked-button color="accent" class="quick-today-btn" (click)="quickMarkTodayPresent()" [disabled]="!attendancePermissions.canManualMark || attendanceMode === 'Biometric'" matTooltip="Manual marking is disabled by permission or mode">
           <mat-icon>verified</mat-icon> Today Present
         </button>
@@ -248,7 +260,17 @@ export interface CalendarDayItem {
           <mat-icon color="primary">calendar_view_month</mat-icon>
           <strong>{{months[attMonth - 1]}} {{attYear}} Monthly Day-by-Day Roster</strong>
         </div>
-        <div class="legend-chips">
+
+        <div class="cal-header-actions">
+          <button mat-stroked-button [color]="isRegisterMode ? 'warn' : 'primary'" class="monthly-reg-toggle-btn"
+            *ngIf="canManageAttendance && attendanceMode !== 'Biometric'"
+            (click)="toggleRegisterMode()">
+            <mat-icon>{{ isRegisterMode ? 'close' : 'checklist' }}</mat-icon>
+            {{ isRegisterMode ? 'Exit Register Mode' : 'Quick Monthly Register' }}
+          </button>
+        </div>
+
+        <div class="legend-chips" *ngIf="!isRegisterMode">
           <span class="leg present">● Present</span>
           <span class="leg absent">● Absent</span>
           <span class="leg late">● Late</span>
@@ -262,12 +284,57 @@ export interface CalendarDayItem {
         </div>
       </div>
 
-      <div class="days-heatmap-grid">
+      <!-- Interactive Monthly Register Control Bar -->
+      <div class="monthly-register-bar" *ngIf="isRegisterMode">
+        <div class="mrb-top">
+          <div class="mrb-info">
+            <span class="mrb-title"><mat-icon>edit_calendar</mat-icon> Monthly Attendance Sheet:</span>
+            <span class="mrb-desc">Checked (✓) = <strong>Present</strong>, Unchecked (✗) = <strong>Absent</strong>. Sundays, Public Holidays and Approved Leaves are auto-locked.</span>
+          </div>
+          <div class="mrb-quick-actions">
+            <button type="button" class="mrb-chip-btn present" (click)="markAllRegisterPresent()">
+              <mat-icon>done_all</mat-icon> Select All (Present)
+            </button>
+            <button type="button" class="mrb-chip-btn absent" (click)="markAllRegisterAbsent()">
+              <mat-icon>clear_all</mat-icon> Clear All (Absent)
+            </button>
+          </div>
+        </div>
+
+        <div class="mrb-bottom">
+          <div class="mrb-timing-group">
+            <span class="time-label"><mat-icon>schedule</mat-icon> Default Shift:</span>
+            <label class="time-sub-label">In:</label>
+            <input type="time" class="time-input" [(ngModel)]="registerCheckInTime">
+            <label class="time-sub-label">Out:</label>
+            <input type="time" class="time-input" [(ngModel)]="registerCheckOutTime">
+            <span class="time-grace-hint">(Grace cutoff: 08:15 AM)</span>
+          </div>
+
+          <div class="mrb-counters">
+            <span class="cnt-badge present">
+              <mat-icon>check_circle</mat-icon> {{ registerPresentCount }} Present
+            </span>
+            <span class="cnt-badge absent">
+              <mat-icon>cancel</mat-icon> {{ registerAbsentCount }} Absent
+            </span>
+          </div>
+
+          <button mat-raised-button color="primary" class="mrb-save-btn"
+            [disabled]="savingMonthlyRegister"
+            (click)="saveMonthlyRegister()">
+            <mat-icon>{{ savingMonthlyRegister ? 'hourglass_empty' : 'save' }}</mat-icon>
+            {{ savingMonthlyRegister ? 'Saving Register...' : 'Save Register (' + registerPresentCount + ' Present, ' + registerAbsentCount + ' Absent)' }}
+          </button>
+        </div>
+      </div>
+
+      <div class="days-heatmap-grid" [class.register-grid-active]="isRegisterMode">
         <div class="day-cell" *ngFor="let d of calendarDays"
-          [class.present]="d.status === 'Present'"
-          [class.absent]="d.status === 'Absent'"
-          [class.late]="d.status === 'Late'"
-          [class.half]="d.status === 'HalfDay'"
+          [class.present]="isRegisterMode && isSelectableWorkingDay(d) ? isRegisterDayChecked(d) : d.status === 'Present'"
+          [class.absent]="isRegisterMode && isSelectableWorkingDay(d) ? !isRegisterDayChecked(d) : d.status === 'Absent'"
+          [class.late]="!isRegisterMode && d.status === 'Late'"
+          [class.half]="!isRegisterMode && d.status === 'HalfDay'"
           [class.leave]="d.status === 'Leave'"
           [class.cancel-pending]="d.isCancellationPending"
           [class.public-holiday]="d.isDeclaredHoliday && !d.record"
@@ -275,11 +342,23 @@ export interface CalendarDayItem {
           [class.saturday-off]="d.isSaturday && !d.record && !d.isDeclaredHoliday"
           [class.today]="d.isToday"
           [class.future-date]="d.dateStr > todayStr"
+          [class.register-selectable]="isRegisterMode && isSelectableWorkingDay(d)"
+          [class.register-checked]="isRegisterMode && isSelectableWorkingDay(d) && isRegisterDayChecked(d)"
+          [class.register-unchecked]="isRegisterMode && isSelectableWorkingDay(d) && !isRegisterDayChecked(d)"
           (click)="onDayCellClick(d)"
-          [matTooltip]="d.status === 'Leave' && d.dateStr > todayStr ? ('Approved Leave — ' + d.dateStr + ' (' + d.dayOfWeek + ')') : (d.dateStr > todayStr ? 'Future date — attendance cannot be marked in advance' : (d.dateStr < todayStr && !attendancePermissions.canCorrectAttendance ? 'Back-date correction requires Admin permission' : ((d.isCancellationPending ? ('[Cancellation Requested: ' + d.cancellationDetails + ' (Pending Admin Review)] | ') : '') + d.dateStr + ' (' + d.dayOfWeek + '): ' + (d.isDeclaredHoliday ? ('Public Holiday: ' + d.holidayTitle) : (d.isSunday ? 'Sunday Weekly Off' : (d.isSaturday ? 'Saturday' : d.status))) + (d.record?.checkInTime ? ' | Punch-in: ' + d.record?.checkInTime : ''))))">
+          [matTooltip]="isRegisterMode && isSelectableWorkingDay(d) ? (isRegisterDayChecked(d) ? (d.dateStr + ' (' + d.dayOfWeek + '): Present (Click cell/box to mark Absent)') : (d.dateStr + ' (' + d.dayOfWeek + '): Absent (Click cell/box to mark Present)')) : (d.status === 'Leave' && d.dateStr > todayStr ? ('Approved Leave — ' + d.dateStr + ' (' + d.dayOfWeek + ')') : (d.dateStr > todayStr ? 'Future date — attendance cannot be marked in advance' : (d.dateStr < todayStr && !attendancePermissions.canCorrectAttendance ? 'Back-date correction requires Admin permission' : ((d.isCancellationPending ? ('[Cancellation Requested: ' + d.cancellationDetails + ' (Pending Admin Review)] | ') : '') + d.dateStr + ' (' + d.dayOfWeek + '): ' + (d.isDeclaredHoliday ? ('Public Holiday: ' + d.holidayTitle) : (d.isSunday ? 'Sunday Weekly Off' : (d.isSaturday ? 'Saturday' : d.status))) + (d.record?.checkInTime ? ' | Punch-in: ' + d.record?.checkInTime : '')))))">
+
+          <!-- Checkbox for interactive monthly register mode -->
+          <div class="cell-check-box" *ngIf="isRegisterMode && isSelectableWorkingDay(d)" (click)="$event.stopPropagation()">
+            <input type="checkbox"
+              class="day-register-checkbox"
+              [checked]="isRegisterDayChecked(d)"
+              (change)="toggleRegisterDay(d)">
+          </div>
+
           <span class="cell-num">{{d.dayNumber}}</span>
           <span class="cell-sub">{{d.dayOfWeek.charAt(0)}}</span>
-          <span class="cell-tag">{{getCellShortTag(d)}}</span>
+          <span class="cell-tag">{{ isRegisterMode && isSelectableWorkingDay(d) ? (isRegisterDayChecked(d) ? 'P' : 'A') : getCellShortTag(d) }}</span>
         </div>
       </div>
     </div>
@@ -382,43 +461,62 @@ export interface CalendarDayItem {
 
     .attendance-wrapper { display:flex; flex-direction:column; gap:18px; }
 
-    /* Fixed Horizontal Toolbar (No vertical center stacking!) */
+    /* Fixed Horizontal Toolbar (Single Line, Non-Wrapping) */
     .attendance-toolbar {
-      background:#ffffff;
-      border-radius:12px;
-      padding:12px 20px;
-      display:flex;
-      flex-direction:row;
-      align-items:center;
-      justify-content:space-between;
-      gap:16px;
-      flex-wrap:wrap;
-      border:1px solid #e2e8f0;
+      background: #ffffff;
+      border-radius: 12px;
+      padding: 10px 16px;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: nowrap;
+      border: 1px solid #e2e8f0;
     }
     .toolbar-left {
-      display:flex;
-      align-items:center;
-      gap:20px;
-      flex-wrap:wrap;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
     }
     .period-selectors {
-      display:flex;
-      align-items:center;
-      gap:12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
-    /* Fixed generous width and aligned margins for Month, Year, and Mode */
-    .month-select-field { width:180px; min-width:175px; margin-bottom:-1.25em; }
-    .year-select-field { width:115px; min-width:110px; margin-bottom:-1.25em; }
-    .mode-select { width:235px; min-width:220px; margin-bottom:-1.25em; }
+    /* Compact widths ensuring everything stays in a single line */
+    .month-select-field { width: 125px; min-width: 115px; }
+    .year-select-field { width: 96px; min-width: 90px; }
+    .mode-select { width: 170px; min-width: 160px; }
 
     .toolbar-right {
-      display:flex;
-      align-items:center;
-      gap:12px;
-      margin-left:auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: auto;
+      flex-shrink: 0;
     }
-    .quick-today-btn { font-weight:600; border-radius:8px; border-color:#0284c7; color:#0284c7; }
-    .mark-btn { font-weight:600; border-radius:8px; }
+    .settings-toolbar-btn, .quick-today-btn, .regularize-toolbar-btn, .mark-btn {
+      height: 38px;
+      padding: 0 10px !important;
+      font-size: 0.82rem;
+      font-weight: 600;
+      white-space: nowrap;
+      flex-shrink: 0;
+      border-radius: 8px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        margin: 0;
+      }
+    }
+    .quick-today-btn { border-color: #0284c7; color: #0284c7; }
+    .mark-btn { font-weight: 600; }
 
     /* Mark Attendance Form Card */
     .mark-form-card { padding:20px; border-radius:12px; display:flex; flex-direction:column; gap:16px; background:#fff; border:1px solid #cbd5e1; }
@@ -480,6 +578,159 @@ export interface CalendarDayItem {
     .calendar-card { background:#ffffff; border-radius:12px; padding:16px 20px; border:1px solid #e2e8f0; display:flex; flex-direction:column; gap:12px; }
     .calendar-header { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; }
     .cal-title { display:flex; align-items:center; gap:8px; font-size:.95rem; color:#1e293b; }
+    .cal-header-actions { display: flex; align-items: center; gap: 8px; }
+    .monthly-reg-toggle-btn {
+      font-size: 0.8rem !important;
+      font-weight: 700 !important;
+      height: 32px !important;
+      line-height: 32px !important;
+      border-radius: 8px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      gap: 4px !important;
+      mat-icon { font-size: 18px; width: 18px; height: 18px; }
+    }
+
+    .monthly-register-bar {
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+      border: 1px solid #bfdbfe;
+      border-radius: 10px;
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      box-shadow: 0 2px 8px rgba(37,99,235,0.08);
+
+      .mrb-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .mrb-info {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        .mrb-title {
+          font-weight: 700;
+          color: #1e3a8a;
+          font-size: 0.88rem;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          mat-icon { font-size: 18px; width: 18px; height: 18px; color: #2563eb; }
+        }
+        .mrb-desc {
+          font-size: 0.8rem;
+          color: #1e40af;
+          strong { color: #1e3a8a; }
+        }
+      }
+      .mrb-quick-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .mrb-chip-btn {
+        border: none;
+        border-radius: 6px;
+        padding: 4px 10px;
+        font-size: 0.78rem;
+        font-weight: 700;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        transition: all 0.15s;
+        mat-icon { font-size: 16px; width: 16px; height: 16px; }
+        &.present {
+          background: #dcfce7; color: #15803d; border: 1px solid #86efac;
+          &:hover { background: #bbf7d0; }
+        }
+        &.absent {
+          background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5;
+          &:hover { background: #fecaca; }
+        }
+      }
+
+      .mrb-bottom {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+        border-top: 1px dashed #bfdbfe;
+        padding-top: 8px;
+      }
+      .mrb-timing-group {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.82rem;
+        color: #1e40af;
+        font-weight: 600;
+        .time-label {
+          display: inline-flex;
+          align-items: center;
+          gap: 3px;
+          font-weight: 700;
+          mat-icon { font-size: 16px; width: 16px; height: 16px; }
+        }
+        .time-sub-label {
+          font-size: 0.78rem;
+          color: #475569;
+          font-weight: 700;
+          margin-left: 2px;
+        }
+        .time-input {
+          border: 1px solid #93c5fd;
+          border-radius: 6px;
+          padding: 3px 6px;
+          font-size: 0.82rem;
+          font-weight: 600;
+          color: #0f172a;
+          background: #ffffff;
+          outline: none;
+          &:focus { border-color: #2563eb; }
+        }
+        .time-grace-hint {
+          font-size: 0.72rem;
+          color: #2563eb;
+          font-weight: 600;
+          background: #eff6ff;
+          padding: 2px 6px;
+          border-radius: 4px;
+          border: 1px solid #bfdbfe;
+        }
+      }
+      .mrb-counters {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        .cnt-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          padding: 3px 10px;
+          border-radius: 20px;
+          font-size: 0.8rem;
+          font-weight: 800;
+          mat-icon { font-size: 16px; width: 16px; height: 16px; }
+          &.present { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+          &.absent { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+        }
+      }
+      .mrb-save-btn {
+        font-weight: 700 !important;
+        font-size: 0.82rem !important;
+        height: 36px !important;
+        line-height: 36px !important;
+        border-radius: 8px !important;
+        box-shadow: 0 4px 6px -1px rgba(37,99,235,0.25) !important;
+      }
+    }
     .legend-chips { display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-size:.76rem; font-weight:600;
       .leg.present{color:#16a34a;} .leg.leave{color:#d97706;font-weight:700;} .leg.cancel-req{color:#ea580c;font-weight:700;} .leg.absent{color:#dc2626;} .leg.late{color:#ea580c;}
       .leg.half{color:#9333ea;} .leg.pub-holiday{color:#b45309;font-weight:700;}
@@ -491,6 +742,34 @@ export interface CalendarDayItem {
       border:1px solid #e2e8f0; border-radius:8px; padding:6px 2px; text-align:center;
       cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:1px;
       background:#f8fafc; transition:all .15s;
+      position: relative;
+    }
+    .cell-check-box {
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      z-index: 3;
+      line-height: 0;
+      .day-register-checkbox {
+        width: 14px;
+        height: 14px;
+        cursor: pointer;
+        margin: 0;
+        accent-color: #16a34a;
+      }
+    }
+    .day-cell.register-checked {
+      background: #dcfce7 !important;
+      border: 1.5px solid #22c55e !important;
+      box-shadow: 0 1px 3px rgba(34, 197, 94, 0.2);
+      .cell-num { color: #15803d !important; font-weight: 800; }
+      .cell-tag { color: #166534 !important; font-weight: 800; background: #bbf7d0; border-radius: 3px; padding: 0 3px; }
+    }
+    .day-cell.register-unchecked {
+      background: #fee2e2 !important;
+      border: 1.5px dashed #ef4444 !important;
+      .cell-num { color: #b91c1c !important; font-weight: 800; }
+      .cell-tag { color: #991b1b !important; font-weight: 800; background: #fecaca; border-radius: 3px; padding: 0 3px; }
     }
     .day-cell:hover { transform:scale(1.06); box-shadow:0 2px 8px rgba(0,0,0,0.1); }
     .day-cell.today { border:2px solid #0284c7; }
@@ -797,6 +1076,13 @@ export class TeacherAttendanceComponent implements OnInit {
   calendarDays: CalendarDayItem[] = [];
   teacherLeaves: LeaveDto[] = [];
 
+  // Interactive Quick Monthly Register state
+  isRegisterMode = false;
+  registerCheckedDates = new Set<string>();
+  registerCheckInTime = '08:00';
+  registerCheckOutTime = '17:00';
+  savingMonthlyRegister = false;
+
   constructor(
     private http: HttpClient,
     private route: ActivatedRoute,
@@ -811,6 +1097,117 @@ export class TeacherAttendanceComponent implements OnInit {
 
   get canManageAttendance(): boolean {
     return !this.auth.isTeacher() && (this.auth.isAdmin() || this.auth.isHR() || this.attendancePermissions.canCorrectAttendance);
+  }
+
+  // ================= INTERACTIVE MONTHLY REGISTER METHODS =================
+  isSelectableWorkingDay(d: CalendarDayItem): boolean {
+    if (d.isSunday || d.isDeclaredHoliday) return false;
+    if (d.status === 'Leave' || (d.record && (d.record.status === 'Leave' || d.record.captureSource === 'LeaveApplication'))) return false;
+    if (d.dateStr > this.todayStr) return false;
+    if (this.selectedTeacher?.joiningDate) {
+      const joinStr = this.selectedTeacher.joiningDate.split('T')[0];
+      if (d.dateStr < joinStr) return false;
+    }
+    return true;
+  }
+
+  toggleRegisterMode(): void {
+    this.isRegisterMode = !this.isRegisterMode;
+    if (this.isRegisterMode) {
+      this.initRegisterModeSelection();
+    }
+  }
+
+  initRegisterModeSelection(): void {
+    this.registerCheckedDates.clear();
+    const selectableDays = this.calendarDays.filter(d => this.isSelectableWorkingDay(d));
+    const hasRecordedDays = selectableDays.some(d => !!d.record);
+
+    if (hasRecordedDays) {
+      for (const d of selectableDays) {
+        if (d.record && d.record.status !== 'Absent') {
+          this.registerCheckedDates.add(d.dateStr);
+        }
+      }
+    } else {
+      // Default: If month had no capture, pre-tick all working days as Present!
+      for (const d of selectableDays) {
+        this.registerCheckedDates.add(d.dateStr);
+      }
+    }
+    this.registerCheckedDates = new Set(this.registerCheckedDates);
+  }
+
+  markAllRegisterPresent(): void {
+    const selectableDays = this.calendarDays.filter(d => this.isSelectableWorkingDay(d));
+    this.registerCheckedDates = new Set(selectableDays.map(d => d.dateStr));
+  }
+
+  markAllRegisterAbsent(): void {
+    this.registerCheckedDates = new Set();
+  }
+
+  toggleRegisterDay(d: CalendarDayItem): void {
+    if (!this.isSelectableWorkingDay(d)) return;
+    if (this.registerCheckedDates.has(d.dateStr)) {
+      this.registerCheckedDates.delete(d.dateStr);
+    } else {
+      this.registerCheckedDates.add(d.dateStr);
+    }
+    this.registerCheckedDates = new Set(this.registerCheckedDates);
+  }
+
+  isRegisterDayChecked(d: CalendarDayItem): boolean {
+    return this.registerCheckedDates.has(d.dateStr);
+  }
+
+  get selectableWorkingDaysCount(): number {
+    return this.calendarDays.filter(d => this.isSelectableWorkingDay(d)).length;
+  }
+
+  get registerPresentCount(): number {
+    return this.registerCheckedDates.size;
+  }
+
+  get registerAbsentCount(): number {
+    return Math.max(0, this.selectableWorkingDaysCount - this.registerPresentCount);
+  }
+
+  saveMonthlyRegister(): void {
+    if (!this.selectedTeacher) return;
+    const selectableDays = this.calendarDays.filter(d => this.isSelectableWorkingDay(d));
+    if (selectableDays.length === 0) {
+      this.confirmDialog.alert('No Eligible Days', 'There are no eligible working days to save for this month.', 'warning');
+      return;
+    }
+
+    this.savingMonthlyRegister = true;
+    const payload = {
+      month: this.attMonth,
+      year: this.attYear,
+      defaultCheckInTime: this.registerCheckInTime,
+      defaultCheckOutTime: this.registerCheckOutTime,
+      days: selectableDays.map(d => ({
+        date: d.dateStr,
+        isPresent: this.registerCheckedDates.has(d.dateStr),
+        checkInTime: this.registerCheckedDates.has(d.dateStr) ? this.registerCheckInTime : null,
+        checkOutTime: this.registerCheckedDates.has(d.dateStr) ? this.registerCheckOutTime : null,
+        remarks: this.registerCheckedDates.has(d.dateStr) ? 'Monthly Register (Present)' : 'Monthly Register (Absent)'
+      }))
+    };
+
+    this.http.post<any>(`${this.api}/teachers/${this.selectedTeacher.id}/attendance/monthly-register`, payload).subscribe({
+      next: (res) => {
+        this.savingMonthlyRegister = false;
+        this.isRegisterMode = false;
+        this.loadAttendance();
+        this.confirmDialog.alert('Register Saved', res?.message || 'Monthly attendance register saved successfully!', 'success');
+      },
+      error: (err) => {
+        this.savingMonthlyRegister = false;
+        this.confirmDialog.alert('Save Failed', err?.error?.message || 'Failed to save monthly attendance register.', 'danger');
+      }
+    });
   }
 
   canRegularizeRecord(a: AttendanceDto): boolean {
@@ -895,8 +1292,43 @@ export class TeacherAttendanceComponent implements OnInit {
 
   loadAttendanceSettings() {
     this.http.get<AttendanceSettingsDto>(`${this.api}/attendance/settings`).subscribe({
-      next: settings => { this.attendanceSettings = settings; this.attendanceMode = settings.teacherMode; },
+      next: settings => {
+        this.attendanceSettings = settings;
+        this.attendanceMode = settings.teacherMode;
+        if (settings.teacherShiftStartTime) {
+          this.registerCheckInTime = settings.teacherShiftStartTime;
+          this.markData.checkInTime = settings.teacherShiftStartTime;
+        }
+        if (settings.teacherShiftEndTime) {
+          this.registerCheckOutTime = settings.teacherShiftEndTime;
+          this.markData.checkOutTime = settings.teacherShiftEndTime;
+        }
+      },
       error: () => { this.attendanceMode = 'Both'; }
+    });
+  }
+
+  openShiftSettingsDialog() {
+    const ref = this.dialog.open(AttendanceShiftSettingsDialogComponent, {
+      width: '680px',
+      maxWidth: '95vw',
+      data: { initialTab: 'teacher' }
+    });
+    ref.afterClosed().subscribe(res => {
+      if (res?.saved && res?.settings) {
+        this.attendanceSettings = res.settings;
+        this.attendanceMode = res.settings.teacherMode;
+        if (res.settings.teacherShiftStartTime) {
+          this.registerCheckInTime = res.settings.teacherShiftStartTime;
+          this.markData.checkInTime = res.settings.teacherShiftStartTime;
+        }
+        if (res.settings.teacherShiftEndTime) {
+          this.registerCheckOutTime = res.settings.teacherShiftEndTime;
+          this.markData.checkOutTime = res.settings.teacherShiftEndTime;
+        }
+        this.loadAttendance();
+        this.confirmDialog.alert('Settings Saved', 'Attendance shift timings and policies updated successfully.', 'success');
+      }
     });
   }
 
@@ -1045,6 +1477,9 @@ export class TeacherAttendanceComponent implements OnInit {
     }
 
     this.calendarDays = items;
+    if (this.isRegisterMode) {
+      this.initRegisterModeSelection();
+    }
   }
 
   getCellShortTag(d: CalendarDayItem): string {
@@ -1082,6 +1517,13 @@ export class TeacherAttendanceComponent implements OnInit {
   }
 
   onDayCellClick(d: CalendarDayItem) {
+    if (this.isRegisterMode) {
+      if (this.isSelectableWorkingDay(d)) {
+        this.toggleRegisterDay(d);
+      }
+      return;
+    }
+
     // 1. If it's a sanctioned leave date, provide clear information
     const hasApprovedLeave = d.status === 'Leave' || (d.record && (d.record.status === 'Leave' || d.record.captureSource === 'LeaveApplication')) || this.teacherLeaves.some(l => {
       if (l.status !== 'Approved' && l.status !== 'PartiallyCancelled') return false;
@@ -1134,8 +1576,8 @@ export class TeacherAttendanceComponent implements OnInit {
     this.markData.attendanceDate = d.dateStr;
     if (d.record) {
       this.markData.status = d.record.status;
-      this.markData.checkInTime = d.record.checkInTime || '08:00';
-      this.markData.checkOutTime = d.record.checkOutTime || '17:00';
+      this.markData.checkInTime = d.record.checkInTime || this.attendanceSettings?.teacherShiftStartTime || '08:00';
+      this.markData.checkOutTime = d.record.checkOutTime || this.attendanceSettings?.teacherShiftEndTime || '17:00';
       this.markData.remarks = d.record.remarks || '';
     } else {
       if (d.isDeclaredHoliday) {
@@ -1148,8 +1590,8 @@ export class TeacherAttendanceComponent implements OnInit {
         this.markData.status = 'Present';
         this.markData.remarks = '';
       }
-      this.markData.checkInTime = '08:00';
-      this.markData.checkOutTime = '17:00';
+      this.markData.checkInTime = this.attendanceSettings?.teacherShiftStartTime || '08:00';
+      this.markData.checkOutTime = this.attendanceSettings?.teacherShiftEndTime || '17:00';
     }
     this.showMarkForm = true;
   }
@@ -1242,6 +1684,13 @@ export class TeacherAttendanceComponent implements OnInit {
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
   }
 
+  minutesToTimeString(mins: number): string {
+    const wrapped = (mins % 1440 + 1440) % 1440;
+    const h = Math.floor(wrapped / 60);
+    const m = wrapped % 60;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  }
+
   getEffectiveStatus(record?: { status?: string; checkInTime?: string; checkOutTime?: string }): 'Present' | 'Absent' | 'Late' | 'HalfDay' | 'Holiday' | 'Leave' | 'Unmarked' {
     if (!record || !record.status) return 'Unmarked';
     if (record.status === 'Absent' || record.status === 'Holiday' || record.status === 'WeekOff' || record.status === 'Leave') {
@@ -1249,8 +1698,14 @@ export class TeacherAttendanceComponent implements OnInit {
     }
     const diff = this.getDiffMinutes(record.checkInTime, record.checkOutTime);
     const inMin = this.parseTimeToMinutes(record.checkInTime);
-    if (diff !== null && diff > 0 && diff < 240) return 'HalfDay';
-    if (diff !== null && diff >= 240 && inMin !== null && inMin > 495 && (record.status === 'Present' || record.status === 'Late')) return 'Late';
+
+    const halfThreshold = this.attendanceSettings?.teacherHalfDayThresholdMinutes ?? 240;
+    const shiftStart = this.parseTimeToMinutes(this.attendanceSettings?.teacherShiftStartTime || '08:00') ?? 480;
+    const graceMin = this.attendanceSettings?.teacherGracePeriodMinutes ?? 15;
+    const lateCutoff = shiftStart + graceMin;
+
+    if (diff !== null && diff > 0 && diff < halfThreshold) return 'HalfDay';
+    if (diff !== null && diff >= halfThreshold && inMin !== null && inMin > lateCutoff && (record.status === 'Present' || record.status === 'Late')) return 'Late';
     return record.status as any;
   }
 
@@ -1277,25 +1732,32 @@ export class TeacherAttendanceComponent implements OnInit {
     const m = diff % 60;
     const durStr = m > 0 ? `${h}h ${m}m` : `${h}h`;
 
-    if (diff < 240) {
-      return `Work Duration: ${durStr} (< 4 hours) — Auto-detected as Half Day`;
+    const halfThreshold = this.attendanceSettings?.teacherHalfDayThresholdMinutes ?? 240;
+    const shiftStart = this.parseTimeToMinutes(this.attendanceSettings?.teacherShiftStartTime || '08:00') ?? 480;
+    const graceMin = this.attendanceSettings?.teacherGracePeriodMinutes ?? 15;
+    const lateCutoff = shiftStart + graceMin;
+    const cutoffFormatted = this.formatDisplayTime(this.minutesToTimeString(lateCutoff));
+    const halfHours = (halfThreshold / 60).toFixed(1).replace('.0', '');
+
+    if (diff < halfThreshold) {
+      return `Work Duration: ${durStr} (< ${halfHours} hours) — Auto-detected as Half Day`;
     }
-    if (inMin > 495) {
-      return `Punch-in: ${this.markData.checkInTime} (After 08:15 AM grace cutoff) — Auto-detected as Late Mark (${durStr} duration)`;
+    if (inMin > lateCutoff) {
+      return `Punch-in: ${this.markData.checkInTime} (After ${cutoffFormatted} grace cutoff) — Auto-detected as Late Mark (${durStr} duration)`;
     }
     return `Work Duration: ${durStr} (On-time punch-in) — Full Day Present`;
   }
 
   getLateQuotaTooltip(): string {
     if (!this.summary) return '';
-    const allowed = this.summary.allowedLateDays || 3;
+    const allowed = this.summary.allowedLateDays ?? this.attendanceSettings?.teacherAllowedLateDaysPerMonth ?? 3;
     const lates = this.summary.lateDays || 0;
     if (lates <= allowed) {
-      return `Coaching Policy: 3 free grace lates/month. ${allowed - lates} grace marks remaining (₹0 penalty).`;
+      return `Attendance Policy: ${allowed} free grace lates/month. ${allowed - lates} grace marks remaining (₹0 penalty).`;
     }
     const excess = this.summary.excessLateDays || (lates - allowed);
     const penalty = this.summary.latePenaltyDays || 0;
-    return `Grace limit exceeded by ${excess} lates! Incurring ${penalty} day loss-of-pay deduction in payroll (3 excess = 0.5 day cut).`;
+    return `Grace limit exceeded by ${excess} lates! Incurring ${penalty} day loss-of-pay deduction in payroll (${allowed} free lates allowed).`;
   }
 
   quickMarkTodayPresent() {
@@ -1303,8 +1765,8 @@ export class TeacherAttendanceComponent implements OnInit {
     const todayStr = new Date().toISOString().split('T')[0];
     this.markData.attendanceDate = todayStr;
     this.markData.status = 'Present';
-    this.markData.checkInTime = '08:00';
-    this.markData.checkOutTime = '17:00';
+    this.markData.checkInTime = this.attendanceSettings?.teacherShiftStartTime || '08:00';
+    this.markData.checkOutTime = this.attendanceSettings?.teacherShiftEndTime || '17:00';
     this.markData.remarks = 'Marked via Quick Present';
     this.saveAttendance();
   }

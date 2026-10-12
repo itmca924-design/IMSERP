@@ -690,6 +690,21 @@ public class AttendanceSettings
     public string StudentMode { get; set; } = "Both";
     public string TeacherMode { get; set; } = "Both";
     public string HostelMode { get; set; } = "Both";
+
+    // Dynamic Teacher Shift & Attendance Policy
+    public string TeacherShiftStartTime { get; set; } = "08:00";
+    public string TeacherShiftEndTime { get; set; } = "17:00";
+    public int TeacherGracePeriodMinutes { get; set; } = 15;
+    public int TeacherHalfDayThresholdMinutes { get; set; } = 240;
+    public int TeacherAllowedLateDaysPerMonth { get; set; } = 3;
+
+    // Dynamic Student Shift & Attendance Policy
+    public string StudentShiftStartTime { get; set; } = "08:00";
+    public string StudentShiftEndTime { get; set; } = "14:00";
+    public int StudentGracePeriodMinutes { get; set; } = 15;
+    public int StudentHalfDayThresholdMinutes { get; set; } = 240;
+    public int StudentAllowedLateDaysPerMonth { get; set; } = 3;
+
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     [ForeignKey("BranchId")]
@@ -808,6 +823,26 @@ public class TeacherSalaryPayment
     public int AbsentDays { get; set; }
     public string? Remarks { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    // ── Payslip snapshot (frozen at time of payment) ──
+    public int? WorkingDays { get; set; }
+    public int? HalfDays { get; set; }
+    public int? LateDays { get; set; }
+    public int? PaidLeaveDays { get; set; }
+    public int? UnpaidLeaveDays { get; set; }
+    public decimal? LopDays { get; set; }
+    public decimal? PerDayRate { get; set; }
+    public decimal? BasicSalary { get; set; }
+    public decimal? HRA { get; set; }
+    public decimal? OtherAllowances { get; set; }
+    public decimal? AttendanceDeduction { get; set; }
+    public decimal? PFDeduction { get; set; }
+    public decimal? TDSDeduction { get; set; }
+    public decimal? OtherStatutoryDeduction { get; set; }
+    public decimal? HostelDeduction { get; set; }
+    public decimal? TransportDeduction { get; set; }
+    public decimal? ArrearsAmount { get; set; }
+    public string? ArrearsRemarks { get; set; }
 
     public Teacher? Teacher { get; set; }
 }
@@ -960,6 +995,17 @@ public class LeaveAndAttendancePolicySettings
     public bool AllowFullDayLeaveIfMarkedPresent { get; set; } = false;
     public bool ExcludeHolidaysFromLeaveCount { get; set; } = true;
     public bool ExcludeSundaysFromLeaveCount { get; set; } = true;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+}
+
+public class StaffAppraisalPolicySettings
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public int MinServiceMonthsForIncrement { get; set; } = 12; // Standard 1 year default
+    public bool EnforceDryPromotionInProbation { get; set; } = true;
+    public bool AllowSpecialBypass { get; set; } = true;
+    public string? BypassApprovalRole { get; set; } = "SuperAdmin,InstituteAdmin,HR";
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }
 

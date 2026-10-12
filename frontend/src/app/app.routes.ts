@@ -134,6 +134,10 @@ export const routes: Routes = [
         path: 'attendance/devices',
         loadComponent: () => import('./features/attendance/biometric-devices.component').then(m => m.BiometricDevicesComponent)
       },
+      {
+        path: 'attendance/settings',
+        loadComponent: () => import('./features/attendance/attendance-settings.component').then(m => m.AttendanceSettingsComponent)
+      },
 
       // Teacher Module – 7 dedicated pages
       {

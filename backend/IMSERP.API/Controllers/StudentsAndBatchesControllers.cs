@@ -38,6 +38,76 @@ public class StudentsController : ControllerBase
             or TeacherAttendanceStatus.Leave;
     }
 
+    public static TeacherAttendanceStatus EvaluateStudentSmartAttendanceStatus(
+        TeacherAttendanceStatus declaredStatus, string? inTime, string? outTime, AttendanceSettings? settings = null)
+    {
+        if (declaredStatus == TeacherAttendanceStatus.Absent || declaredStatus == TeacherAttendanceStatus.Holiday || declaredStatus == TeacherAttendanceStatus.WeekOff || declaredStatus == TeacherAttendanceStatus.Leave)
+            return declaredStatus;
+
+        if (string.IsNullOrWhiteSpace(inTime) || string.IsNullOrWhiteSpace(outTime))
+            return declaredStatus;
+
+        var inMin = ParseTimeToMinutes(inTime);
+        var outMin = ParseTimeToMinutes(outTime);
+        if (inMin == null || outMin == null)
+            return declaredStatus;
+
+        int calculatedOut = outMin.Value;
+        if (calculatedOut <= inMin.Value)
+        {
+            if (!outTime.Contains("AM", StringComparison.OrdinalIgnoreCase) && !outTime.Contains("PM", StringComparison.OrdinalIgnoreCase))
+            {
+                if (calculatedOut + 720 > inMin.Value && calculatedOut + 720 <= 1440)
+                {
+                    calculatedOut += 720;
+                }
+            }
+        }
+
+        int diff = calculatedOut - inMin.Value;
+        int halfDayThreshold = settings?.StudentHalfDayThresholdMinutes ?? 240;
+        int shiftStartMin = ParseTimeToMinutes(settings?.StudentShiftStartTime ?? "08:00") ?? 480;
+        int graceMinutes = settings?.StudentGracePeriodMinutes ?? 15;
+        int lateCutoffMin = shiftStartMin + graceMinutes;
+
+        if (diff > 0 && diff < halfDayThreshold)
+        {
+            return TeacherAttendanceStatus.HalfDay;
+        }
+        else if (diff >= halfDayThreshold)
+        {
+            if (inMin.Value > lateCutoffMin && declaredStatus == TeacherAttendanceStatus.Present)
+            {
+                return TeacherAttendanceStatus.Late;
+            }
+        }
+
+        return declaredStatus;
+    }
+
+    private static int? ParseTimeToMinutes(string timeStr)
+    {
+        if (string.IsNullOrWhiteSpace(timeStr)) return null;
+        var str = timeStr.Trim();
+        var match = System.Text.RegularExpressions.Regex.Match(str, @"^(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)?$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        if (!match.Success) return null;
+
+        if (!int.TryParse(match.Groups[1].Value, out int hour) || !int.TryParse(match.Groups[2].Value, out int minute))
+            return null;
+
+        string meridiem = match.Groups[3].Value.ToUpperInvariant();
+        if (meridiem == "PM")
+        {
+            if (hour < 12) hour += 12;
+        }
+        else if (meridiem == "AM")
+        {
+            if (hour == 12) hour = 0;
+        }
+
+        return hour * 60 + minute;
+    }
+
     private static StudentAttendanceDto MapStudentAttendance(StudentAttendance attendance, Student student)
     {
         var rawDt = attendance.CapturedAt ?? (attendance.CreatedAt != default ? attendance.CreatedAt : (DateTime?)null);
@@ -620,10 +690,13 @@ public class StudentsController : ControllerBase
             .Where(a => a.StudentId == id && a.AttendanceDate >= monthStart && a.AttendanceDate <= monthEnd)
             .ToListAsync();
 
-        int present = records.Count(a => a.Status == TeacherAttendanceStatus.Present);
-        int absent = records.Count(a => a.Status == TeacherAttendanceStatus.Absent);
-        int late = records.Count(a => a.Status == TeacherAttendanceStatus.Late);
-        int half = records.Count(a => a.Status == TeacherAttendanceStatus.HalfDay);
+        var attSettings = await _dbContext.AttendanceSettings.AsNoTracking().FirstOrDefaultAsync(s => s.TenantId == _currentUser.TenantId);
+        var evaluatedStatuses = records.Select(a => EvaluateStudentSmartAttendanceStatus(a.Status, a.CheckInTime, a.CheckOutTime, attSettings)).ToList();
+
+        int present = evaluatedStatuses.Count(s => s == TeacherAttendanceStatus.Present);
+        int absent = evaluatedStatuses.Count(s => s == TeacherAttendanceStatus.Absent);
+        int late = evaluatedStatuses.Count(s => s == TeacherAttendanceStatus.Late);
+        int half = evaluatedStatuses.Count(s => s == TeacherAttendanceStatus.HalfDay);
 
         var offDates = new HashSet<DateTime>();
         for (var date = monthStart; date <= monthEnd; date = date.AddDays(1))
@@ -722,6 +795,12 @@ public class StudentsController : ControllerBase
             record.BranchId = student.BranchId;
         }
 
+        var attSettings = await _dbContext.AttendanceSettings.AsNoTracking().FirstOrDefaultAsync(s => s.TenantId == student.TenantId);
+        if (status == TeacherAttendanceStatus.Present)
+        {
+            status = EvaluateStudentSmartAttendanceStatus(status, dto.CheckInTime, dto.CheckOutTime, attSettings);
+        }
+
         record.Status = status;
         record.Remarks = dto.Remarks;
         record.CheckInTime = dto.CheckInTime;
@@ -813,6 +892,139 @@ public class StudentsController : ControllerBase
 
         await _dbContext.SaveChangesAsync();
         return Ok(new { message = $"Successfully marked attendance for {validDates.Count} date(s).", count = validDates.Count });
+    }
+
+    [HttpPost("{id}/attendance/monthly-register")]
+    public async Task<ActionResult> SaveStudentMonthlyRegister(
+        Guid id, [FromBody] SaveStudentMonthlyRegisterDto dto)
+    {
+        if (!await HasAttendancePermissionAsync("/attendance/permissions/manual", false))
+            return Forbid();
+
+        if (!await IsManualAttendanceAllowedAsync())
+            return Conflict(new { message = "Manual student attendance is disabled. Current mode is Biometric Only." });
+
+        var student = await _dbContext.Students.FirstOrDefaultAsync(s => s.Id == id);
+        if (student == null) return NotFound(new { message = "Student not found." });
+
+        if (dto.Days == null || dto.Days.Count == 0)
+            return BadRequest(new { message = "No days provided in monthly register payload." });
+
+        var monthStart = new DateTime(dto.Year, dto.Month, 1);
+        var monthEnd = new DateTime(dto.Year, dto.Month, DateTime.DaysInMonth(dto.Year, dto.Month));
+        var today = DateTime.UtcNow.Date;
+
+        // Fetch declared holidays for the month
+        var holidays = await _dbContext.Holidays.AsNoTracking()
+            .Where(h => h.IsActive && h.StartDate.Date <= monthEnd && h.EndDate.Date >= monthStart)
+            .ToListAsync();
+
+        var holidayDates = new HashSet<DateTime>();
+        foreach (var h in holidays)
+        {
+            var cur = h.StartDate.Date < monthStart ? monthStart : h.StartDate.Date;
+            var end = h.EndDate.Date > monthEnd ? monthEnd : h.EndDate.Date;
+            for (var dt = cur; dt <= end; dt = dt.AddDays(1)) holidayDates.Add(dt);
+        }
+
+        // Fetch student approved leaves
+        var approvedLeaves = await _dbContext.StudentLeaves.AsNoTracking()
+            .Where(l => l.StudentId == id && l.Status == "Approved" &&
+                        l.FromDate.Date <= monthEnd && l.ToDate.Date >= monthStart)
+            .ToListAsync();
+
+        var leaveDates = new HashSet<DateTime>();
+        foreach (var l in approvedLeaves)
+        {
+            for (var dt = l.FromDate.Date; dt <= l.ToDate.Date; dt = dt.AddDays(1))
+            {
+                leaveDates.Add(dt);
+            }
+        }
+
+        var existingRecords = await _dbContext.StudentAttendances
+            .Where(a => a.StudentId == id && a.AttendanceDate >= monthStart && a.AttendanceDate <= monthEnd)
+            .ToListAsync();
+
+        var existingMap = existingRecords.ToDictionary(a => a.AttendanceDate.Date);
+
+        var markedBy = _currentUser.UserId.ToString();
+        var attSettings = await _dbContext.AttendanceSettings.AsNoTracking().FirstOrDefaultAsync(s => s.TenantId == student.TenantId);
+        int presentSaved = 0, absentSaved = 0;
+
+        foreach (var day in dto.Days)
+        {
+            var date = day.Date.Date;
+            if (date.Month != dto.Month || date.Year != dto.Year) continue;
+
+            // Never mark future dates
+            if (date > today) continue;
+
+            // Never mark before student admission / joining date
+            if (student.JoiningDate != default && date < student.JoiningDate.Date) continue;
+
+            // Sunday or declared holiday: skip
+            if (date.DayOfWeek == DayOfWeek.Sunday || holidayDates.Contains(date)) continue;
+
+            // Sanctioned approved leave: skip
+            if (leaveDates.Contains(date)) continue;
+
+            var status = day.IsPresent ? TeacherAttendanceStatus.Present : TeacherAttendanceStatus.Absent;
+            string? inTime = day.IsPresent ? (day.CheckInTime ?? dto.DefaultCheckInTime ?? attSettings?.StudentShiftStartTime ?? "08:00") : null;
+            string? outTime = day.IsPresent ? (day.CheckOutTime ?? dto.DefaultCheckOutTime ?? attSettings?.StudentShiftEndTime ?? "14:00") : null;
+            string? remarks = day.Remarks ?? (day.IsPresent ? "Manual Monthly Register (Present)" : "Manual Monthly Register (Absent)");
+
+            if (day.IsPresent)
+            {
+                status = EvaluateStudentSmartAttendanceStatus(status, inTime, outTime, attSettings);
+            }
+
+            if (existingMap.TryGetValue(date, out var existing))
+            {
+                // If it originated from LeaveApplication, do not overwrite
+                if (existing.CaptureSource == "LeaveApplication" || existing.Status == TeacherAttendanceStatus.Leave)
+                    continue;
+
+                existing.Status = status;
+                existing.CheckInTime = inTime;
+                existing.CheckOutTime = outTime;
+                existing.Remarks = remarks;
+                existing.CaptureSource = "Manual";
+                existing.MarkedBy = markedBy;
+                existing.CapturedAt ??= DateTime.UtcNow;
+            }
+            else
+            {
+                var newRecord = new StudentAttendance
+                {
+                    TenantId = _currentUser.TenantId,
+                    BranchId = student.BranchId ?? _currentUser.BranchId,
+                    StudentId = id,
+                    AttendanceDate = date,
+                    Status = status,
+                    CheckInTime = inTime,
+                    CheckOutTime = outTime,
+                    Remarks = remarks,
+                    CaptureSource = "Manual",
+                    MarkedBy = markedBy,
+                    CreatedAt = DateTime.UtcNow,
+                    CapturedAt = DateTime.UtcNow
+                };
+                _dbContext.StudentAttendances.Add(newRecord);
+            }
+
+            if (day.IsPresent) presentSaved++;
+            else absentSaved++;
+        }
+
+        await _dbContext.SaveChangesAsync();
+
+        return Ok(new
+        {
+            message = $"Monthly attendance register saved for {student.StudentName}: {presentSaved} Present, {absentSaved} Absent.",
+            presentSaved,
+            absentSaved
+        });
     }
 
     [HttpGet("batch/{batchId}/attendance")]

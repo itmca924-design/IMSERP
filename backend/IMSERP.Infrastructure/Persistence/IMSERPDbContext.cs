@@ -47,6 +47,7 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
     public DbSet<TeacherAttendanceRegularization> TeacherAttendanceRegularizations => Set<TeacherAttendanceRegularization>();
     public DbSet<StudentAttendanceRegularization> StudentAttendanceRegularizations => Set<StudentAttendanceRegularization>();
     public DbSet<LeaveAndAttendancePolicySettings> LeaveAndAttendancePolicies => Set<LeaveAndAttendancePolicySettings>();
+    public DbSet<StaffAppraisalPolicySettings> StaffAppraisalPolicies => Set<StaffAppraisalPolicySettings>();
     public DbSet<Holiday> Holidays => Set<Holiday>();
     public DbSet<SchoolEvent> SchoolEvents => Set<SchoolEvent>();
     public DbSet<EventPhoto> EventPhotos => Set<EventPhoto>();
@@ -1006,6 +1007,15 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
                             branchProp.CurrentValue = branchProp.Metadata.ClrType == typeof(Guid) ? (object)branchId.Value : (Guid?)branchId.Value;
                         }
                     }
+                }
+            }
+
+            if (entry.State == EntityState.Added || entry.State == EntityState.Modified)
+            {
+                var bioProp = entry.Properties.FirstOrDefault(p => p.Metadata.Name == "BiometricUserId");
+                if (bioProp != null && bioProp.CurrentValue is string bioStr && string.IsNullOrWhiteSpace(bioStr))
+                {
+                    bioProp.CurrentValue = null;
                 }
             }
         }

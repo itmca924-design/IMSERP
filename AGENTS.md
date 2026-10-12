@@ -18,3 +18,7 @@
   - ALWAYS display timestamps and datetimes in **Indian Standard Time (IST - Asia/Kolkata)**.
   - Never display raw UTC strings or rely on raw browser default date pipes without timezone.
   - Use the shared `[appIstDatetime]` directive (`src/app/shared/directives/ist-datetime.directive.ts`) or `localDatetime` pipe across the entire application for all date/time rendering.
+- **Database Multi-Branch Architecture (Strict DB Rule)**:
+  - ALWAYS include `BranchId` (`public Guid? BranchId { get; set; }` with `[ForeignKey("BranchId")] public Branch? Branch { get; set; }`) in every new database table / entity created.
+  - In SQL scripts and table migrations, always define `[BranchId] UNIQUEIDENTIFIER NULL` along with `[TenantId]`.
+

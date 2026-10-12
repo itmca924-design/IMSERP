@@ -1172,6 +1172,7 @@ export class LayoutComponent implements OnInit {
     { title: 'Teacher Attendance', route: '/teachers/attendance', icon: 'event_available' },
     { title: 'Attendance Reports', route: '/attendance/reports', icon: 'summarize' },
     { title: 'Biometric Devices', route: '/attendance/devices', icon: 'fingerprint' },
+    { title: 'Shift & Policy Settings', route: '/attendance/settings', icon: 'settings_suggest' },
     { title: 'Fee Collection', route: '/fees', icon: 'payments' },
     { title: 'School Examinations & Marks', route: '/school/exams', icon: 'assignment' },
     { title: 'Student Promotion', route: '/students/promotion', icon: 'trending_up' },
@@ -2116,7 +2117,8 @@ export class LayoutComponent implements OnInit {
           { id: '3012', title: 'Student Gate Pass', routeUrl: '/students/gate-pass', icon: 'badge', sortOrder: 3, module: 'Attendance', isActive: true, children: [] },
           { id: '302', title: 'Teacher Attendance', routeUrl: '/teachers/attendance', icon: 'co_present', sortOrder: 4, module: 'Attendance', isActive: true, children: [] },
           { id: '303', title: 'Attendance Reports', routeUrl: '/attendance/reports', icon: 'summarize', sortOrder: 5, module: 'Attendance', isActive: true, children: [] },
-          { id: '304', title: 'Biometric Devices', routeUrl: '/attendance/devices', icon: 'fingerprint', sortOrder: 6, module: 'Attendance', isActive: true, children: [] }
+          { id: '304', title: 'Biometric Devices', routeUrl: '/attendance/devices', icon: 'fingerprint', sortOrder: 6, module: 'Attendance', isActive: true, children: [] },
+          { id: '305', title: 'Shift & Policy Settings', routeUrl: '/attendance/settings', icon: 'settings_suggest', sortOrder: 7, module: 'Attendance', isActive: true, children: [] }
         ]
       },
       {

@@ -90,6 +90,35 @@ using (var scope = app.Services.CreateScope())
         
         context.Database.EnsureCreated();
 
+        // Payslip snapshot columns on TeacherSalaryPayments
+        try
+        {
+            context.Database.ExecuteSqlRaw(@"
+                IF OBJECT_ID('TeacherSalaryPayments') IS NOT NULL
+                BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('TeacherSalaryPayments') AND name = 'WorkingDays') ALTER TABLE TeacherSalaryPayments ADD WorkingDays INT NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('TeacherSalaryPayments') AND name = 'HalfDays') ALTER TABLE TeacherSalaryPayments ADD HalfDays INT NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('TeacherSalaryPayments') AND name = 'LateDays') ALTER TABLE TeacherSalaryPayments ADD LateDays INT NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('TeacherSalaryPayments') AND name = 'PaidLeaveDays') ALTER TABLE TeacherSalaryPayments ADD PaidLeaveDays INT NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('TeacherSalaryPayments') AND name = 'UnpaidLeaveDays') ALTER TABLE TeacherSalaryPayments ADD UnpaidLeaveDays INT NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('TeacherSalaryPayments') AND name = 'LopDays') ALTER TABLE TeacherSalaryPayments ADD LopDays DECIMAL(18,2) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('TeacherSalaryPayments') AND name = 'PerDayRate') ALTER TABLE TeacherSalaryPayments ADD PerDayRate DECIMAL(18,2) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('TeacherSalaryPayments') AND name = 'BasicSalary') ALTER TABLE TeacherSalaryPayments ADD BasicSalary DECIMAL(18,2) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('TeacherSalaryPayments') AND name = 'HRA') ALTER TABLE TeacherSalaryPayments ADD HRA DECIMAL(18,2) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('TeacherSalaryPayments') AND name = 'OtherAllowances') ALTER TABLE TeacherSalaryPayments ADD OtherAllowances DECIMAL(18,2) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('TeacherSalaryPayments') AND name = 'AttendanceDeduction') ALTER TABLE TeacherSalaryPayments ADD AttendanceDeduction DECIMAL(18,2) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('TeacherSalaryPayments') AND name = 'PFDeduction') ALTER TABLE TeacherSalaryPayments ADD PFDeduction DECIMAL(18,2) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('TeacherSalaryPayments') AND name = 'TDSDeduction') ALTER TABLE TeacherSalaryPayments ADD TDSDeduction DECIMAL(18,2) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('TeacherSalaryPayments') AND name = 'OtherStatutoryDeduction') ALTER TABLE TeacherSalaryPayments ADD OtherStatutoryDeduction DECIMAL(18,2) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('TeacherSalaryPayments') AND name = 'HostelDeduction') ALTER TABLE TeacherSalaryPayments ADD HostelDeduction DECIMAL(18,2) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('TeacherSalaryPayments') AND name = 'TransportDeduction') ALTER TABLE TeacherSalaryPayments ADD TransportDeduction DECIMAL(18,2) NULL;
+                END");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Startup] TeacherSalaryPayments snapshot columns patch failed: {ex.Message}");
+        }
+
         if (!string.IsNullOrEmpty(connectionString))
         {
             try
@@ -177,6 +206,34 @@ using (var scope = app.Services.CreateScope())
                         ALTER TABLE StudentAttendances ADD CheckInTime NVARCHAR(20) NULL;
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('StudentAttendances') AND name = 'CheckOutTime')
                         ALTER TABLE StudentAttendances ADD CheckOutTime NVARCHAR(20) NULL;
+
+                    IF OBJECT_ID('dbo.AttendanceSettings', 'U') IS NOT NULL
+                    BEGIN
+                        IF COL_LENGTH('dbo.AttendanceSettings', 'BranchId') IS NULL
+                            ALTER TABLE [dbo].[AttendanceSettings] ADD [BranchId] UNIQUEIDENTIFIER NULL;
+                        IF COL_LENGTH('dbo.AttendanceSettings', 'HostelMode') IS NULL
+                            ALTER TABLE [dbo].[AttendanceSettings] ADD [HostelMode] NVARCHAR(20) NOT NULL CONSTRAINT [DF_AttendanceSettings_HostelMode] DEFAULT ('Both');
+                        IF COL_LENGTH('dbo.AttendanceSettings', 'TeacherShiftStartTime') IS NULL
+                            ALTER TABLE [dbo].[AttendanceSettings] ADD [TeacherShiftStartTime] NVARCHAR(20) NOT NULL CONSTRAINT [DF_AttendanceSettings_TeacherShiftStartTime] DEFAULT ('08:00');
+                        IF COL_LENGTH('dbo.AttendanceSettings', 'TeacherShiftEndTime') IS NULL
+                            ALTER TABLE [dbo].[AttendanceSettings] ADD [TeacherShiftEndTime] NVARCHAR(20) NOT NULL CONSTRAINT [DF_AttendanceSettings_TeacherShiftEndTime] DEFAULT ('17:00');
+                        IF COL_LENGTH('dbo.AttendanceSettings', 'TeacherGracePeriodMinutes') IS NULL
+                            ALTER TABLE [dbo].[AttendanceSettings] ADD [TeacherGracePeriodMinutes] INT NOT NULL CONSTRAINT [DF_AttendanceSettings_TeacherGracePeriodMinutes] DEFAULT (15);
+                        IF COL_LENGTH('dbo.AttendanceSettings', 'TeacherHalfDayThresholdMinutes') IS NULL
+                            ALTER TABLE [dbo].[AttendanceSettings] ADD [TeacherHalfDayThresholdMinutes] INT NOT NULL CONSTRAINT [DF_AttendanceSettings_TeacherHalfDayThresholdMinutes] DEFAULT (240);
+                        IF COL_LENGTH('dbo.AttendanceSettings', 'TeacherAllowedLateDaysPerMonth') IS NULL
+                            ALTER TABLE [dbo].[AttendanceSettings] ADD [TeacherAllowedLateDaysPerMonth] INT NOT NULL CONSTRAINT [DF_AttendanceSettings_TeacherAllowedLateDaysPerMonth] DEFAULT (3);
+                        IF COL_LENGTH('dbo.AttendanceSettings', 'StudentShiftStartTime') IS NULL
+                            ALTER TABLE [dbo].[AttendanceSettings] ADD [StudentShiftStartTime] NVARCHAR(20) NOT NULL CONSTRAINT [DF_AttendanceSettings_StudentShiftStartTime] DEFAULT ('08:00');
+                        IF COL_LENGTH('dbo.AttendanceSettings', 'StudentShiftEndTime') IS NULL
+                            ALTER TABLE [dbo].[AttendanceSettings] ADD [StudentShiftEndTime] NVARCHAR(20) NOT NULL CONSTRAINT [DF_AttendanceSettings_StudentShiftEndTime] DEFAULT ('14:00');
+                        IF COL_LENGTH('dbo.AttendanceSettings', 'StudentGracePeriodMinutes') IS NULL
+                            ALTER TABLE [dbo].[AttendanceSettings] ADD [StudentGracePeriodMinutes] INT NOT NULL CONSTRAINT [DF_AttendanceSettings_StudentGracePeriodMinutes] DEFAULT (15);
+                        IF COL_LENGTH('dbo.AttendanceSettings', 'StudentHalfDayThresholdMinutes') IS NULL
+                            ALTER TABLE [dbo].[AttendanceSettings] ADD [StudentHalfDayThresholdMinutes] INT NOT NULL CONSTRAINT [DF_AttendanceSettings_StudentHalfDayThresholdMinutes] DEFAULT (240);
+                        IF COL_LENGTH('dbo.AttendanceSettings', 'StudentAllowedLateDaysPerMonth') IS NULL
+                            ALTER TABLE [dbo].[AttendanceSettings] ADD [StudentAllowedLateDaysPerMonth] INT NOT NULL CONSTRAINT [DF_AttendanceSettings_StudentAllowedLateDaysPerMonth] DEFAULT (3);
+                    END
 
                     IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'StudentPromotionHistories')
                     BEGIN
@@ -865,6 +922,20 @@ using (var scope = app.Services.CreateScope())
                         BEGIN
                             ALTER TABLE LeaveAndAttendancePolicies ADD ExcludeSundaysFromLeaveCount BIT NOT NULL DEFAULT 1;
                         END
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'StaffAppraisalPolicies')
+                    BEGIN
+                        CREATE TABLE StaffAppraisalPolicies (
+                            Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
+                            TenantId UNIQUEIDENTIFIER NOT NULL,
+                            MinServiceMonthsForIncrement INT NOT NULL DEFAULT 12,
+                            EnforceDryPromotionInProbation BIT NOT NULL DEFAULT 1,
+                            AllowSpecialBypass BIT NOT NULL DEFAULT 1,
+                            BypassApprovalRole NVARCHAR(MAX) NULL,
+                            UpdatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
+                        );
+                        CREATE INDEX IX_StaffAppraisalPolicies_TenantId ON StaffAppraisalPolicies (TenantId);
                     END
 
                     -- TeacherLeaves Cancellation, Revocation & DeductibleDays Columns

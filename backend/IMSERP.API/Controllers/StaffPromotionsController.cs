@@ -146,6 +146,75 @@ public class StaffPromotionsController : ControllerBase
         return Ok(dbDepts);
     }
 
+    [HttpGet("policy")]
+    public async Task<IActionResult> GetPolicy()
+    {
+        var tenantId = _currentUserService.TenantId;
+        StaffAppraisalPolicySettings? policy = null;
+        try
+        {
+            policy = await _context.StaffAppraisalPolicies
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.TenantId == tenantId);
+        }
+        catch
+        {
+            // Fallback to default policy if table is not yet initialized
+        }
+
+        if (policy == null)
+        {
+            policy = new StaffAppraisalPolicySettings
+            {
+                TenantId = tenantId,
+                MinServiceMonthsForIncrement = 12,
+                EnforceDryPromotionInProbation = true,
+                AllowSpecialBypass = true,
+                BypassApprovalRole = "SuperAdmin,InstituteAdmin,HR"
+            };
+        }
+
+        return Ok(new StaffAppraisalPolicyDto(
+            policy.MinServiceMonthsForIncrement,
+            policy.EnforceDryPromotionInProbation,
+            policy.AllowSpecialBypass,
+            policy.BypassApprovalRole,
+            policy.UpdatedAt
+        ));
+    }
+
+    [HttpPost("policy")]
+    public async Task<IActionResult> UpdatePolicy([FromBody] UpdateStaffAppraisalPolicyDto dto)
+    {
+        var tenantId = _currentUserService.TenantId;
+        var policy = await _context.StaffAppraisalPolicies
+            .FirstOrDefaultAsync(p => p.TenantId == tenantId);
+
+        if (policy == null)
+        {
+            policy = new StaffAppraisalPolicySettings
+            {
+                TenantId = tenantId
+            };
+            _context.StaffAppraisalPolicies.Add(policy);
+        }
+
+        policy.MinServiceMonthsForIncrement = Math.Max(0, dto.MinServiceMonthsForIncrement);
+        policy.EnforceDryPromotionInProbation = dto.EnforceDryPromotionInProbation;
+        policy.AllowSpecialBypass = dto.AllowSpecialBypass;
+        policy.UpdatedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+
+        return Ok(new StaffAppraisalPolicyDto(
+            policy.MinServiceMonthsForIncrement,
+            policy.EnforceDryPromotionInProbation,
+            policy.AllowSpecialBypass,
+            policy.BypassApprovalRole,
+            policy.UpdatedAt
+        ));
+    }
+
     [HttpPost]
     public async Task<IActionResult> CreatePromotion([FromBody] CreateStaffPromotionIncrementDto dto)
     {
@@ -205,6 +274,41 @@ public class StaffPromotionsController : ControllerBase
         }
 
         var effectiveDate = dto.EffectiveDate != default ? dto.EffectiveDate : DateTime.UtcNow;
+
+        // Dynamic Tenure & Policy Check for Financial Salary Increment
+        if (isIncrement)
+        {
+            StaffAppraisalPolicySettings? policy = null;
+            try
+            {
+                policy = await _context.StaffAppraisalPolicies
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(p => p.TenantId == tenantId);
+            }
+            catch {}
+
+            int minMonths = policy?.MinServiceMonthsForIncrement ?? 12;
+            bool enforce = policy?.EnforceDryPromotionInProbation ?? true;
+
+            if (enforce && minMonths > 0)
+            {
+                var joiningDate = teacher.JoiningDate != default ? teacher.JoiningDate : teacher.CreatedAt;
+                var tenureMonths = ((effectiveDate.Year - joiningDate.Year) * 12) + effectiveDate.Month - joiningDate.Month;
+                if (effectiveDate.Day < joiningDate.Day) tenureMonths--;
+                tenureMonths = Math.Max(0, tenureMonths);
+
+                if (tenureMonths < minMonths)
+                {
+                    bool allowBypass = policy?.AllowSpecialBypass ?? true;
+                    if (!dto.IsSpecialBypass || !allowBypass)
+                    {
+                        return BadRequest(new { 
+                            message = $"Staff member {teacher.FullName} has completed {tenureMonths} month(s) of service. Institute policy requires minimum {minMonths} months for financial increments. Only 'Promotion Only (Dry)' is allowed during this period." 
+                        });
+                    }
+                }
+            }
+        }
 
         // 1. Update Teacher profile designation & department if promotion
         if (isPromotion)
@@ -266,7 +370,9 @@ public class StaffPromotionsController : ControllerBase
             IncrementPercentage = incrementPct,
             IncrementAmount = incrementAmount,
             EffectiveDate = effectiveDate,
-            Reason = dto.Reason ?? "Annual Appraisal / Performance Promotion",
+            Reason = dto.IsSpecialBypass 
+                ? $"[Special Bypass: {dto.SpecialBypassReason ?? "Management Approval"}] {dto.Reason ?? "Annual Appraisal"}" 
+                : (dto.Reason ?? "Annual Appraisal / Performance Promotion"),
             Remarks = dto.Remarks,
             ApprovedBy = "Admin",
             ApprovalDate = DateTime.UtcNow,
@@ -499,7 +605,23 @@ public record CreateStaffPromotionIncrementDto(
     decimal? IncrementAmount,
     DateTime EffectiveDate,
     string? Reason,
-    string? Remarks
+    string? Remarks,
+    bool IsSpecialBypass = false,
+    string? SpecialBypassReason = null
+);
+
+public record StaffAppraisalPolicyDto(
+    int MinServiceMonthsForIncrement,
+    bool EnforceDryPromotionInProbation,
+    bool AllowSpecialBypass,
+    string? BypassApprovalRole,
+    DateTime? UpdatedAt
+);
+
+public record UpdateStaffAppraisalPolicyDto(
+    int MinServiceMonthsForIncrement,
+    bool EnforceDryPromotionInProbation,
+    bool AllowSpecialBypass
 );
 
 public record BulkIncrementDto(
