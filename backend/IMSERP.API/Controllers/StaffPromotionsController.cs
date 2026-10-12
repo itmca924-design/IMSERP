@@ -1,0 +1,521 @@
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using IMSERP.Application.Interfaces;
+using IMSERP.Domain.Entities;
+
+namespace IMSERP.API.Controllers;
+
+[ApiController]
+[Route("api/staff-promotions")]
+[Authorize]
+public class StaffPromotionsController : ControllerBase
+{
+    private readonly IIMSERPDbContext _context;
+    private readonly ICurrentUserService _currentUserService;
+
+    public StaffPromotionsController(IIMSERPDbContext context, ICurrentUserService currentUserService)
+    {
+        _context = context;
+        _currentUserService = currentUserService;
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetPromotions(
+        [FromQuery] Guid? teacherId,
+        [FromQuery] string? type,
+        [FromQuery] string? staffType,
+        [FromQuery] string? department,
+        [FromQuery] DateTime? startDate,
+        [FromQuery] DateTime? endDate,
+        [FromQuery] string? search)
+    {
+        var query = _context.StaffPromotionIncrements
+            .Include(p => p.Teacher)
+            .AsNoTracking()
+            .AsQueryable();
+
+        if (teacherId.HasValue && teacherId.Value != Guid.Empty)
+        {
+            query = query.Where(p => p.TeacherId == teacherId.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(type))
+        {
+            query = query.Where(p => p.Type.ToLower() == type.ToLower());
+        }
+
+        if (!string.IsNullOrWhiteSpace(staffType))
+        {
+            var stStr = staffType.Trim();
+            if (Enum.TryParse<IMSERP.Domain.Enums.StaffType>(stStr, true, out var parsedSt))
+            {
+                query = query.Where(p => p.Teacher != null && p.Teacher.StaffType == parsedSt);
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(department))
+        {
+            query = query.Where(p => p.Teacher != null && p.Teacher.Department != null && p.Teacher.Department.ToLower() == department.ToLower());
+        }
+
+        if (startDate.HasValue)
+        {
+            query = query.Where(p => p.EffectiveDate >= startDate.Value);
+        }
+
+        if (endDate.HasValue)
+        {
+            query = query.Where(p => p.EffectiveDate <= endDate.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var q = search.Trim().ToLower();
+            query = query.Where(p =>
+                (p.Teacher != null && (p.Teacher.FullName.ToLower().Contains(q) || p.Teacher.EmployeeCode.ToLower().Contains(q))) ||
+                p.NewDesignation.ToLower().Contains(q) ||
+                p.OldDesignation.ToLower().Contains(q) ||
+                (p.Reason != null && p.Reason.ToLower().Contains(q)));
+        }
+
+        var allRecords = await query.OrderByDescending(p => p.EffectiveDate).ThenByDescending(p => p.CreatedAt).ToListAsync();
+
+        var totalRecords = allRecords.Count;
+        var totalPromotions = allRecords.Count(r => r.Type == "Promotion" || r.Type == "PromotionAndIncrement");
+        var totalIncrements = allRecords.Count(r => r.Type == "Increment" || r.Type == "PromotionAndIncrement");
+        var totalMonthlyGrossHike = allRecords.Sum(r => Math.Max(0, r.NewGrossSalary - r.OldGrossSalary));
+        var validHikes = allRecords.Where(r => r.IncrementPercentage.HasValue && r.IncrementPercentage > 0).ToList();
+        var avgHike = validHikes.Any() ? Math.Round(validHikes.Average(r => r.IncrementPercentage!.Value), 1) : 0;
+
+        var dtos = allRecords.Select(r => new StaffPromotionIncrementDto(
+            r.Id,
+            r.TenantId,
+            r.TeacherId,
+            r.Teacher?.FullName ?? "Unknown",
+            r.Teacher?.EmployeeCode ?? "-",
+            r.Teacher?.StaffType.ToString() ?? "Teaching",
+            r.Type,
+            r.OldDesignation,
+            r.NewDesignation,
+            r.OldDepartment,
+            r.NewDepartment,
+            r.OldBasicSalary,
+            r.NewBasicSalary,
+            r.OldHRA,
+            r.NewHRA,
+            r.OldOtherAllowances,
+            r.NewOtherAllowances,
+            r.OldGrossSalary,
+            r.NewGrossSalary,
+            r.IncrementPercentage,
+            r.IncrementAmount,
+            r.EffectiveDate,
+            r.Reason,
+            r.Remarks,
+            r.ApprovedBy,
+            r.ApprovalDate,
+            r.Status,
+            r.CreatedAt
+        )).ToList();
+
+        return Ok(new
+        {
+            summary = new StaffPromotionSummaryDto(
+                totalRecords,
+                totalPromotions,
+                totalIncrements,
+                totalMonthlyGrossHike,
+                avgHike
+            ),
+            records = dtos
+        });
+    }
+
+    [HttpGet("departments")]
+    public async Task<IActionResult> GetDepartments()
+    {
+        var dbDepts = await _context.Teachers
+            .AsNoTracking()
+            .Where(t => !string.IsNullOrWhiteSpace(t.Department))
+            .Select(t => t.Department!.Trim())
+            .Distinct()
+            .OrderBy(d => d)
+            .ToListAsync();
+
+        return Ok(dbDepts);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> CreatePromotion([FromBody] CreateStaffPromotionIncrementDto dto)
+    {
+        if (dto.TeacherId == Guid.Empty)
+            return BadRequest(new { message = "TeacherId is required." });
+
+        var teacher = await _context.Teachers.FirstOrDefaultAsync(t => t.Id == dto.TeacherId);
+        if (teacher == null)
+            return NotFound(new { message = "Staff member not found." });
+
+        var tenantId = _currentUserService.TenantId != Guid.Empty ? _currentUserService.TenantId : teacher.TenantId;
+
+        // Current active salary snapshot
+        var currentActiveSalary = await _context.TeacherSalaries
+            .Where(s => s.TeacherId == teacher.Id && s.IsActive)
+            .OrderByDescending(s => s.EffectiveFrom)
+            .FirstOrDefaultAsync();
+
+        var oldBasic = currentActiveSalary?.BasicSalary ?? 0;
+        var oldHRA = currentActiveSalary?.HRA ?? 0;
+        var oldAllowances = currentActiveSalary?.OtherAllowances ?? 0;
+        var oldGross = oldBasic + oldHRA + oldAllowances;
+
+        var oldDesignation = teacher.Designation ?? "Faculty";
+        var oldDept = teacher.Department;
+
+        var type = string.IsNullOrWhiteSpace(dto.Type) ? "PromotionAndIncrement" : dto.Type.Trim();
+        var isPromotion = type == "Promotion" || type == "PromotionAndIncrement";
+        var isIncrement = type == "Increment" || type == "PromotionAndIncrement";
+
+        var newDesignation = isPromotion && !string.IsNullOrWhiteSpace(dto.NewDesignation) ? dto.NewDesignation.Trim() : oldDesignation;
+        var newDept = isPromotion && !string.IsNullOrWhiteSpace(dto.NewDepartment) ? dto.NewDepartment.Trim() : oldDept;
+
+        decimal newBasic = oldBasic;
+        decimal newHRA = oldHRA;
+        decimal newAllowances = oldAllowances;
+
+        if (isIncrement)
+        {
+            newBasic = dto.NewBasicSalary ?? oldBasic;
+            newHRA = dto.NewHRA ?? oldHRA;
+            newAllowances = dto.NewOtherAllowances ?? oldAllowances;
+        }
+
+        var newGross = newBasic + newHRA + newAllowances;
+
+        decimal? incrementAmount = dto.IncrementAmount;
+        if (!incrementAmount.HasValue && isIncrement)
+        {
+            incrementAmount = Math.Max(0, newGross - oldGross);
+        }
+
+        decimal? incrementPct = dto.IncrementPercentage;
+        if (!incrementPct.HasValue && isIncrement && oldGross > 0)
+        {
+            incrementPct = Math.Round(((newGross - oldGross) / oldGross) * 100, 2);
+        }
+
+        var effectiveDate = dto.EffectiveDate != default ? dto.EffectiveDate : DateTime.UtcNow;
+
+        // 1. Update Teacher profile designation & department if promotion
+        if (isPromotion)
+        {
+            teacher.Designation = newDesignation;
+            if (!string.IsNullOrWhiteSpace(newDept))
+            {
+                teacher.Department = newDept;
+            }
+        }
+
+        // 2. Update TeacherSalary active structure if increment
+        if (isIncrement && (newBasic != oldBasic || newHRA != oldHRA || newAllowances != oldAllowances || currentActiveSalary == null))
+        {
+            if (currentActiveSalary != null)
+            {
+                currentActiveSalary.IsActive = false;
+                currentActiveSalary.EffectiveTo = effectiveDate.AddDays(-1);
+            }
+
+            var newSalary = new TeacherSalary
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                TeacherId = teacher.Id,
+                BasicSalary = newBasic,
+                HRA = newHRA,
+                OtherAllowances = newAllowances,
+                PFDeduction = currentActiveSalary?.PFDeduction ?? 0,
+                TDSDeduction = currentActiveSalary?.TDSDeduction ?? 0,
+                OtherDeductions = currentActiveSalary?.OtherDeductions ?? 0,
+                EffectiveFrom = effectiveDate,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.TeacherSalaries.Add(newSalary);
+        }
+
+        // 3. Create StaffPromotionIncrement audit record
+        var record = new StaffPromotionIncrement
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            BranchId = teacher.BranchId,
+            TeacherId = teacher.Id,
+            Type = type,
+            OldDesignation = oldDesignation,
+            NewDesignation = newDesignation,
+            OldDepartment = oldDept,
+            NewDepartment = newDept,
+            OldBasicSalary = oldBasic,
+            NewBasicSalary = newBasic,
+            OldHRA = oldHRA,
+            NewHRA = newHRA,
+            OldOtherAllowances = oldAllowances,
+            NewOtherAllowances = newAllowances,
+            OldGrossSalary = oldGross,
+            NewGrossSalary = newGross,
+            IncrementPercentage = incrementPct,
+            IncrementAmount = incrementAmount,
+            EffectiveDate = effectiveDate,
+            Reason = dto.Reason ?? "Annual Appraisal / Performance Promotion",
+            Remarks = dto.Remarks,
+            ApprovedBy = "Admin",
+            ApprovalDate = DateTime.UtcNow,
+            Status = "Approved",
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _context.StaffPromotionIncrements.Add(record);
+        await _context.SaveChangesAsync();
+
+        var resultDto = new StaffPromotionIncrementDto(
+            record.Id,
+            record.TenantId,
+            record.TeacherId,
+            teacher.FullName,
+            teacher.EmployeeCode,
+            teacher.StaffType.ToString(),
+            record.Type,
+            record.OldDesignation,
+            record.NewDesignation,
+            record.OldDepartment,
+            record.NewDepartment,
+            record.OldBasicSalary,
+            record.NewBasicSalary,
+            record.OldHRA,
+            record.NewHRA,
+            record.OldOtherAllowances,
+            record.NewOtherAllowances,
+            record.OldGrossSalary,
+            record.NewGrossSalary,
+            record.IncrementPercentage,
+            record.IncrementAmount,
+            record.EffectiveDate,
+            record.Reason,
+            record.Remarks,
+            record.ApprovedBy,
+            record.ApprovalDate,
+            record.Status,
+            record.CreatedAt
+        );
+
+        return Ok(new { success = true, message = "Staff promotion / appraisal recorded successfully.", data = resultDto });
+    }
+
+    [HttpPost("bulk-increment")]
+    public async Task<IActionResult> BulkIncrement([FromBody] BulkIncrementDto dto)
+    {
+        if (dto.IncrementValue <= 0)
+            return BadRequest(new { message = "Increment value must be greater than zero." });
+
+        var query = _context.Teachers.Where(t => t.IsActive).AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(dto.StaffType) && dto.StaffType.ToLower() != "all")
+        {
+            if (Enum.TryParse<IMSERP.Domain.Enums.StaffType>(dto.StaffType.Trim(), true, out var parsedSt))
+            {
+                query = query.Where(t => t.StaffType == parsedSt);
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(dto.Department) && dto.Department.ToLower() != "all")
+        {
+            query = query.Where(t => t.Department != null && t.Department.ToLower() == dto.Department.ToLower());
+        }
+
+        var teachers = await query.ToListAsync();
+        if (!teachers.Any())
+            return NotFound(new { message = "No matching active staff members found for bulk increment." });
+
+        var effectiveDate = dto.EffectiveDate != default ? dto.EffectiveDate : DateTime.UtcNow;
+        var count = 0;
+        decimal totalMonthlyBudgetHike = 0;
+
+        foreach (var teacher in teachers)
+        {
+            var currentSalary = await _context.TeacherSalaries
+                .Where(s => s.TeacherId == teacher.Id && s.IsActive)
+                .OrderByDescending(s => s.EffectiveFrom)
+                .FirstOrDefaultAsync();
+
+            var oldBasic = currentSalary?.BasicSalary ?? 0;
+            var oldHRA = currentSalary?.HRA ?? 0;
+            var oldAllowances = currentSalary?.OtherAllowances ?? 0;
+            var oldGross = oldBasic + oldHRA + oldAllowances;
+
+            decimal newBasic;
+            decimal newHRA = oldHRA;
+            decimal newAllowances = oldAllowances;
+
+            if (dto.IncrementType.ToLower() == "percentage")
+            {
+                var factor = 1 + (dto.IncrementValue / 100m);
+                newBasic = Math.Round(oldBasic * factor, 2);
+                newHRA = Math.Round(oldHRA * factor, 2);
+                newAllowances = Math.Round(oldAllowances * factor, 2);
+            }
+            else
+            {
+                // Flat amount added to basic
+                newBasic = oldBasic + dto.IncrementValue;
+            }
+
+            var newGross = newBasic + newHRA + newAllowances;
+            var hikeAmount = Math.Max(0, newGross - oldGross);
+            totalMonthlyBudgetHike += hikeAmount;
+
+            if (currentSalary != null)
+            {
+                currentSalary.IsActive = false;
+                currentSalary.EffectiveTo = effectiveDate.AddDays(-1);
+            }
+
+            var newSalary = new TeacherSalary
+            {
+                Id = Guid.NewGuid(),
+                TenantId = teacher.TenantId,
+                TeacherId = teacher.Id,
+                BasicSalary = newBasic,
+                HRA = newHRA,
+                OtherAllowances = newAllowances,
+                PFDeduction = currentSalary?.PFDeduction ?? 0,
+                TDSDeduction = currentSalary?.TDSDeduction ?? 0,
+                OtherDeductions = currentSalary?.OtherDeductions ?? 0,
+                EffectiveFrom = effectiveDate,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.TeacherSalaries.Add(newSalary);
+
+            var pct = oldGross > 0 ? Math.Round(((newGross - oldGross) / oldGross) * 100, 2) : dto.IncrementValue;
+
+            var record = new StaffPromotionIncrement
+            {
+                Id = Guid.NewGuid(),
+                TenantId = teacher.TenantId,
+                BranchId = teacher.BranchId,
+                TeacherId = teacher.Id,
+                Type = "Increment",
+                OldDesignation = teacher.Designation ?? "Staff",
+                NewDesignation = teacher.Designation ?? "Staff",
+                OldDepartment = teacher.Department,
+                NewDepartment = teacher.Department,
+                OldBasicSalary = oldBasic,
+                NewBasicSalary = newBasic,
+                OldHRA = oldHRA,
+                NewHRA = newHRA,
+                OldOtherAllowances = oldAllowances,
+                NewOtherAllowances = newAllowances,
+                OldGrossSalary = oldGross,
+                NewGrossSalary = newGross,
+                IncrementPercentage = pct,
+                IncrementAmount = hikeAmount,
+                EffectiveDate = effectiveDate,
+                Reason = dto.Reason ?? $"Bulk Annual Appraisal ({dto.IncrementValue}{(dto.IncrementType.ToLower() == "percentage" ? "%" : " flat")})",
+                Remarks = dto.Remarks,
+                ApprovedBy = "Admin",
+                ApprovalDate = DateTime.UtcNow,
+                Status = "Approved",
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.StaffPromotionIncrements.Add(record);
+            count++;
+        }
+
+        await _context.SaveChangesAsync();
+
+        return Ok(new
+        {
+            success = true,
+            message = $"Bulk increment applied successfully to {count} staff members.",
+            totalStaffUpdated = count,
+            totalMonthlyGrossHike = totalMonthlyBudgetHike
+        });
+    }
+
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> DeletePromotion(Guid id)
+    {
+        var record = await _context.StaffPromotionIncrements.FirstOrDefaultAsync(p => p.Id == id);
+        if (record == null)
+            return NotFound(new { message = "Promotion/Appraisal record not found." });
+
+        _context.StaffPromotionIncrements.Remove(record);
+        await _context.SaveChangesAsync();
+
+        return Ok(new { success = true, message = "Record deleted successfully." });
+    }
+}
+
+public record StaffPromotionIncrementDto(
+    Guid Id,
+    Guid TenantId,
+    Guid TeacherId,
+    string TeacherName,
+    string EmployeeCode,
+    string? StaffType,
+    string Type,
+    string OldDesignation,
+    string NewDesignation,
+    string? OldDepartment,
+    string? NewDepartment,
+    decimal OldBasicSalary,
+    decimal NewBasicSalary,
+    decimal OldHRA,
+    decimal NewHRA,
+    decimal OldOtherAllowances,
+    decimal NewOtherAllowances,
+    decimal OldGrossSalary,
+    decimal NewGrossSalary,
+    decimal? IncrementPercentage,
+    decimal? IncrementAmount,
+    DateTime EffectiveDate,
+    string? Reason,
+    string? Remarks,
+    string? ApprovedBy,
+    DateTime? ApprovalDate,
+    string Status,
+    DateTime CreatedAt
+);
+
+public record CreateStaffPromotionIncrementDto(
+    Guid TeacherId,
+    string Type,
+    string? NewDesignation,
+    string? NewDepartment,
+    decimal? NewBasicSalary,
+    decimal? NewHRA,
+    decimal? NewOtherAllowances,
+    decimal? IncrementPercentage,
+    decimal? IncrementAmount,
+    DateTime EffectiveDate,
+    string? Reason,
+    string? Remarks
+);
+
+public record BulkIncrementDto(
+    string? StaffType,
+    string? Department,
+    string IncrementType,
+    decimal IncrementValue,
+    DateTime EffectiveDate,
+    string? Reason,
+    string? Remarks
+);
+
+public record StaffPromotionSummaryDto(
+    int TotalRecords,
+    int TotalPromotions,
+    int TotalIncrements,
+    decimal TotalMonthlyGrossHike,
+    decimal AverageHikePercentage
+);

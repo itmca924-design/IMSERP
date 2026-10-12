@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using IMSERP.Application.DTOs;
@@ -8,6 +9,7 @@ namespace IMSERP.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class NoticesController : ControllerBase
 {
     private readonly IIMSERPDbContext _db;

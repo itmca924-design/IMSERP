@@ -32,6 +32,7 @@ public interface IIMSERPDbContext
     DbSet<TeacherSalary> TeacherSalaries { get; }
     DbSet<TeacherSalaryPayment> TeacherSalaryPayments { get; }
     DbSet<TeacherSalaryAdvance> TeacherSalaryAdvances { get; }
+    DbSet<StaffPromotionIncrement> StaffPromotionIncrements { get; }
     DbSet<Branch> Branches { get; }
     DbSet<Room> Rooms { get; }
     DbSet<TeacherLeave> TeacherLeaves { get; }

@@ -173,6 +173,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/teachers/teacher-fnf.component').then(m => m.TeacherFnFComponent)
       },
       {
+        path: 'teachers/promotions',
+        loadComponent: () => import('./features/teachers/staff-promotions.component').then(m => m.StaffPromotionsComponent)
+      },
+      {
         path: 'teachers/substitution',
         loadComponent: () => import('./features/teachers/teacher-substitution.component').then(m => m.TeacherSubstitutionComponent)
       },

@@ -579,6 +579,10 @@ import { AuthService } from '../../core/services/auth.service';
           <a mat-stroked-button *ngIf="authService.hasLibraryModule() && (canManageStaff || isSelf(selectedTeacher))" [routerLink]="['/library/circulation']" [queryParams]="{teacherId: selectedTeacher.id}" style="color: #059669; border-color: #a7f3d0;">
             <mat-icon style="color: #059669;">local_library</mat-icon> Library Account
           </a>
+          <!-- Promotion & Appraisals: Admin/HR only -->
+          <a mat-stroked-button *ngIf="canManageStaff" [routerLink]="['/teachers/promotions']" [queryParams]="{teacherId: selectedTeacher.id}" style="color: #7c3aed; border-color: #ddd6fe;">
+            <mat-icon style="color: #7c3aed;">military_tech</mat-icon> Promotion &amp; Appraisal
+          </a>
           <!-- Exit/FNF: Admin/HR only -->
           <a mat-stroked-button *ngIf="canManageStaff && selectedTeacher.isActive" [routerLink]="['/teachers/fnf']" [queryParams]="{teacherId: selectedTeacher.id}" style="color: #dc2626; border-color: #fca5a5;">
             <mat-icon style="color: #dc2626;">exit_to_app</mat-icon> Exit / FNF

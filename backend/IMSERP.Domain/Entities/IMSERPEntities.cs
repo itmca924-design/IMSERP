@@ -631,6 +631,7 @@ public class Teacher
     public ICollection<TeacherSubstitution> ProxySubstitutions { get; set; } = new List<TeacherSubstitution>();
     public ICollection<TeacherLessonPlan> LessonPlans { get; set; } = new List<TeacherLessonPlan>();
     public ICollection<TeacherDocument> Documents { get; set; } = new List<TeacherDocument>();
+    public ICollection<StaffPromotionIncrement> PromotionIncrements { get; set; } = new List<StaffPromotionIncrement>();
 }
 
 public class TeacherBatchAssignment
@@ -826,6 +827,39 @@ public class TeacherSalaryAdvance
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public Teacher? Teacher { get; set; }
+}
+
+public class StaffPromotionIncrement
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid TeacherId { get; set; }
+    public string Type { get; set; } = "PromotionAndIncrement"; // "Promotion", "Increment", "PromotionAndIncrement"
+    public string OldDesignation { get; set; } = string.Empty;
+    public string NewDesignation { get; set; } = string.Empty;
+    public string? OldDepartment { get; set; }
+    public string? NewDepartment { get; set; }
+    public decimal OldBasicSalary { get; set; } = 0;
+    public decimal NewBasicSalary { get; set; } = 0;
+    public decimal OldHRA { get; set; } = 0;
+    public decimal NewHRA { get; set; } = 0;
+    public decimal OldOtherAllowances { get; set; } = 0;
+    public decimal NewOtherAllowances { get; set; } = 0;
+    public decimal OldGrossSalary { get; set; } = 0;
+    public decimal NewGrossSalary { get; set; } = 0;
+    public decimal? IncrementPercentage { get; set; }
+    public decimal? IncrementAmount { get; set; }
+    public DateTime EffectiveDate { get; set; } = DateTime.UtcNow;
+    public string? Reason { get; set; }
+    public string? Remarks { get; set; }
+    public string? ApprovedBy { get; set; }
+    public DateTime? ApprovalDate { get; set; }
+    public string Status { get; set; } = "Approved"; // "Approved", "Pending", "Rejected"
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    public Teacher? Teacher { get; set; }
+    public Branch? Branch { get; set; }
 }
 
 public class TeacherLeave

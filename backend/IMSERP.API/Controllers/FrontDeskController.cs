@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using IMSERP.Application.Interfaces;
@@ -118,6 +119,7 @@ public class FrontDeskStatsDto
 
 [ApiController]
 [Route("api/front-desk")]
+[Authorize]
 public class FrontDeskController : ControllerBase
 {
     private readonly IIMSERPDbContext _db;

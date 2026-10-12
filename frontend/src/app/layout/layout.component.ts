@@ -2128,7 +2128,8 @@ export class LayoutComponent implements OnInit {
           { id: '46', title: 'Salary Advances', routeUrl: '/teachers/advances', icon: 'currency_rupee', sortOrder: 4, module: 'Teachers', isActive: true, children: [] },
           { id: '47', title: 'Leave Management', routeUrl: '/teachers/leaves', icon: 'beach_access', sortOrder: 5, module: 'Teachers', isActive: true, children: [] },
           { id: '48', title: 'Payroll & Staff Reports', routeUrl: '/teachers/reports', icon: 'summarize', sortOrder: 6, module: 'Teachers', isActive: true, children: [] },
-          { id: '49', title: 'Exit & FNF Settlement', routeUrl: '/teachers/fnf', icon: 'exit_to_app', sortOrder: 7, module: 'Teachers', isActive: true, children: [] }
+          { id: '410p', title: 'Promotions & Appraisals', routeUrl: '/teachers/promotions', icon: 'military_tech', sortOrder: 7, module: 'Teachers', isActive: true, children: [] },
+          { id: '49', title: 'Exit & FNF Settlement', routeUrl: '/teachers/fnf', icon: 'exit_to_app', sortOrder: 8, module: 'Teachers', isActive: true, children: [] }
         ]
       },
       {

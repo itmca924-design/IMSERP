@@ -40,6 +40,7 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
     public DbSet<TeacherSalary> TeacherSalaries => Set<TeacherSalary>();
     public DbSet<TeacherSalaryPayment> TeacherSalaryPayments => Set<TeacherSalaryPayment>();
     public DbSet<TeacherSalaryAdvance> TeacherSalaryAdvances => Set<TeacherSalaryAdvance>();
+    public DbSet<StaffPromotionIncrement> StaffPromotionIncrements => Set<StaffPromotionIncrement>();
     public DbSet<Branch> Branches => Set<Branch>();
     public DbSet<Room> Rooms => Set<Room>();
     public DbSet<TeacherLeave> TeacherLeaves => Set<TeacherLeave>();
@@ -233,6 +234,7 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
         modelBuilder.Entity<TeacherSalary>().HasQueryFilter(x => _currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId);
         modelBuilder.Entity<TeacherSalaryPayment>().HasQueryFilter(x => _currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId);
         modelBuilder.Entity<TeacherSalaryAdvance>().HasQueryFilter(x => _currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId);
+        modelBuilder.Entity<StaffPromotionIncrement>().HasQueryFilter(x => _currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId);
         modelBuilder.Entity<TeacherLeave>().HasQueryFilter(x => _currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId);
         modelBuilder.Entity<Holiday>().HasQueryFilter(x => _currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId);
         modelBuilder.Entity<SchoolEvent>().HasQueryFilter(x => 
@@ -566,6 +568,16 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
         modelBuilder.Entity<TeacherSalaryPayment>().Property(t => t.AdvanceAdjusted).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<TeacherSalaryPayment>().Property(t => t.NetPaid).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<TeacherSalaryAdvance>().Property(t => t.Amount).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<StaffPromotionIncrement>().Property(t => t.OldBasicSalary).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<StaffPromotionIncrement>().Property(t => t.NewBasicSalary).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<StaffPromotionIncrement>().Property(t => t.OldHRA).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<StaffPromotionIncrement>().Property(t => t.NewHRA).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<StaffPromotionIncrement>().Property(t => t.OldOtherAllowances).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<StaffPromotionIncrement>().Property(t => t.NewOtherAllowances).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<StaffPromotionIncrement>().Property(t => t.OldGrossSalary).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<StaffPromotionIncrement>().Property(t => t.NewGrossSalary).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<StaffPromotionIncrement>().Property(t => t.IncrementPercentage).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<StaffPromotionIncrement>().Property(t => t.IncrementAmount).HasColumnType("decimal(18,2)");
 
         // Ignore computed properties (EF cannot map them to columns)
         modelBuilder.Entity<TeacherSalary>().Ignore(t => t.GrossSalary).Ignore(t => t.NetSalary);

@@ -15,22 +15,25 @@ import { AuthService } from '../../core/services/auth.service';
   selector: 'app-teacher-selector',
   standalone: true,
   imports: [
-    CommonModule, 
-    FormsModule, 
-    MatFormFieldModule, 
-    MatSelectModule, 
-    MatIconModule, 
-    MatCardModule, 
+    CommonModule,
+    FormsModule,
+    MatFormFieldModule,
+    MatSelectModule,
+    MatIconModule,
+    MatCardModule,
     MatTooltipModule,
     MatButtonModule
   ],
   template: `
     <mat-card class="selector-card mat-elevation-z1">
-      <div class="selector-row">
-        <div class="selector-left">
-          <mat-icon color="primary" class="selector-icon">person_search</mat-icon>
+      <div class="selector-container">
+        <!-- Left: Icon Box + Dropdown Field -->
+        <div class="selector-control-group">
+          <div class="selector-icon-box">
+            <mat-icon>person_search</mat-icon>
+          </div>
           
-          <mat-form-field appearance="outline" class="selector-field">
+          <mat-form-field appearance="outline" class="selector-field" subscriptSizing="dynamic">
             <mat-label>Select Staff / Faculty Member</mat-label>
             <mat-select [(ngModel)]="selectedId" 
                         (ngModelChange)="onSelect($event)"
@@ -38,19 +41,9 @@ import { AuthService } from '../../core/services/auth.service';
                         panelClass="teacher-select-panel"
                         (openedChange)="onSelectOpened($event)">
 
-              <!-- Custom Trigger when Select is closed -->
+              <!-- Custom Trigger when Select is closed (Only Teacher Name) -->
               <mat-select-trigger>
-                <div class="selected-trigger-view" *ngIf="selected">
-                  <span class="trigger-name">{{ selected.fullName }}</span>
-                  <span class="trigger-code">[{{ selected.employeeCode }}]</span>
-                  <span class="trigger-subj-badge" *ngIf="getTeacherSubject(selected)"
-                        [style.background]="getSubjectTheme(getTeacherSubject(selected)).bg"
-                        [style.border-color]="getSubjectTheme(getTeacherSubject(selected)).border"
-                        [style.color]="getSubjectTheme(getTeacherSubject(selected)).darkText">
-                    <mat-icon class="trigger-icon">{{ getSubjectTheme(getTeacherSubject(selected)).icon }}</mat-icon>
-                    <span>{{ getTeacherSubject(selected) }}</span>
-                  </span>
-                </div>
+                <span class="trigger-name" *ngIf="selected">{{ selected.fullName }}</span>
               </mat-select-trigger>
 
               <!-- Sticky Search Box Option inside Dropdown -->
@@ -147,210 +140,340 @@ import { AuthService } from '../../core/services/auth.service';
               Viewing your own records
             </mat-hint>
           </mat-form-field>
-
-          <!-- Selected Teacher Quick Info Strip -->
-          <div class="teacher-quick" *ngIf="selected">
-            <span class="tq-subj-badge" *ngIf="getTeacherSubject(selected)"
-                  [style.background]="getSubjectTheme(getTeacherSubject(selected)).bg"
-                  [style.border-color]="getSubjectTheme(getTeacherSubject(selected)).border"
-                  [style.color]="getSubjectTheme(getTeacherSubject(selected)).darkText">
-              <mat-icon class="tq-icon">{{ getSubjectTheme(getTeacherSubject(selected)).icon }}</mat-icon>
-              <span>{{ getTeacherSubject(selected) }}</span>
-            </span>
-
-            <span class="tq-phone" *ngIf="selected.phoneNumber">
-              <mat-icon>phone</mat-icon>
-              <span>{{ selected.phoneNumber }}</span>
-            </span>
-
-            <span class="exp-badge" *ngIf="isNonTeaching(selected)" style="background:#e0e7ff; color:#3730a3;">
-              {{ selected.department || 'Non-Teaching' }}
-            </span>
-            <span class="exp-badge" *ngIf="!isNonTeaching(selected) && selected.experienceYears">
-              {{ selected.experienceYears }} yrs exp
-            </span>
-          </div>
         </div>
 
-        <!-- Teacher Info Badge on Right -->
-        <div class="teacher-info-badge" *ngIf="selected">
-          <mat-icon class="badge-icon">account_circle</mat-icon>
-          <div class="teacher-meta-text">
-            <strong>{{ selected.fullName }}</strong>
-            <div class="meta-sub-row">
-              <span class="emp-code">{{ selected.employeeCode }}</span>
-              <span class="badge-dot" *ngIf="getTeacherSubject(selected)">&bull;</span>
-              <span class="badge-subj" *ngIf="getTeacherSubject(selected)">{{ getTeacherSubject(selected) }}</span>
-            </div>
-          </div>
+        <!-- Right: Clean Quick Status & Metadata Badges -->
+        <div class="selector-quick-meta" *ngIf="selected">
+          <div class="selector-v-divider"></div>
+
+          <!-- Subject Pill -->
+          <span class="meta-pill subj" 
+                *ngIf="getTeacherSubject(selected)"
+                [style.background]="getSubjectTheme(getTeacherSubject(selected)).bg"
+                [style.border-color]="getSubjectTheme(getTeacherSubject(selected)).border"
+                [style.color]="getSubjectTheme(getTeacherSubject(selected)).darkText">
+            <mat-icon class="pill-icon">{{ getSubjectTheme(getTeacherSubject(selected)).icon }}</mat-icon>
+            <span class="pill-text">{{ getTeacherSubject(selected) }}</span>
+          </span>
+
+          <!-- Department Pill (if no subject) -->
+          <span class="meta-pill dept" *ngIf="!getTeacherSubject(selected) && selected.department">
+            <mat-icon class="pill-icon">apartment</mat-icon>
+            <span class="pill-text">{{ selected.department }}</span>
+          </span>
+
+          <!-- Contact Phone Pill -->
+          <span class="meta-pill phone" *ngIf="selected.phoneNumber">
+            <mat-icon class="pill-icon">call</mat-icon>
+            <span>{{ selected.phoneNumber }}</span>
+          </span>
+
+          <!-- Experience Pill -->
+          <span class="meta-pill exp" *ngIf="selected.experienceYears !== undefined && selected.experienceYears !== null">
+            <mat-icon class="pill-icon">history_edu</mat-icon>
+            <span>{{ selected.experienceYears }} Yrs Exp</span>
+          </span>
+
+          <!-- Active Status Pill -->
+          <span class="meta-pill status" [class.active]="selected.isActive" [class.inactive]="!selected.isActive">
+            <span class="status-dot"></span>
+            <span>{{ selected.isActive ? 'Active Staff' : 'Inactive' }}</span>
+          </span>
+        </div>
+
+        <!-- Placeholder hint when no staff is selected -->
+        <div class="selector-empty-hint" *ngIf="!selected">
+          <mat-icon>touch_app</mat-icon>
+          <span>Select any staff member from the dropdown to load records</span>
         </div>
       </div>
     </mat-card>
   `,
   styles: [`
     .selector-card { 
-      padding: 12px 20px; 
+      padding: 10px 18px; 
       border-radius: 12px; 
-      background: #f0f7ff; 
-      border: 1px solid #bbdefb; 
+      background: #ffffff; 
+      border: 1px solid #e2e8f0; 
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+      box-sizing: border-box;
+      width: 100%;
+      max-width: 100%;
     }
-    .selector-row { 
-      display: flex; 
-      align-items: center; 
-      justify-content: space-between; 
-      gap: 16px; 
-      flex-wrap: wrap; 
+
+    .selector-container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: nowrap;
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
     }
-    .selector-left { 
-      display: flex; 
-      align-items: center; 
-      gap: 14px; 
-      flex-wrap: wrap; 
-      flex: 1; 
+
+    .selector-control-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex: 0 0 380px;
+      max-width: 420px;
+      min-width: 0;
     }
-    .selector-icon { 
-      font-size: 28px; 
-      width: 28px; 
-      height: 28px; 
+
+    .selector-icon-box {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: #eff6ff;
+      color: #2563eb;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 2px 4px rgba(37, 99, 235, 0.12);
+      mat-icon { font-size: 22px; width: 22px; height: 22px; }
     }
-    .selector-field { 
-      flex: 1; 
-      min-width: 320px; 
-      max-width: 440px; 
+
+    .selector-field {
+      flex: 1 1 auto;
+      width: 100%;
+      min-width: 0 !important;
+      margin-bottom: 0 !important;
+
+      ::ng-deep .mat-mdc-form-field-subscript-wrapper {
+        display: none;
+      }
+
+      ::ng-deep .mat-mdc-text-field-wrapper {
+        width: 100% !important;
+        box-sizing: border-box !important;
+        height: 42px !important;
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
+      }
+      ::ng-deep .mat-mdc-form-field-flex {
+        width: 100% !important;
+        height: 42px !important;
+        align-items: center !important;
+        box-sizing: border-box !important;
+      }
+      ::ng-deep .mat-mdc-form-field-infix {
+        min-width: 0 !important;
+        width: 100% !important;
+        min-height: unset !important;
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
+        display: flex !important;
+        align-items: center !important;
+        box-sizing: border-box !important;
+      }
+      ::ng-deep .mat-mdc-floating-label {
+        top: 50% !important;
+        transform: translateY(-50%) !important;
+      }
+      ::ng-deep .mat-mdc-floating-label.mdc-floating-label--float-above {
+        top: 0 !important;
+        transform: translateY(-50%) scale(0.75) !important;
+      }
+
+      ::ng-deep .mat-mdc-select-trigger {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        height: 100% !important;
+        min-height: unset !important;
+        box-sizing: border-box;
+        width: 100% !important;
+      }
+      ::ng-deep .mat-mdc-select-value {
+        flex: 1 1 auto !important;
+        min-width: 0 !important;
+        overflow: hidden !important;
+      }
+      ::ng-deep .mat-mdc-select-arrow-wrapper {
+        flex-shrink: 0 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: 20px !important;
+        height: 20px !important;
+        margin-left: 6px !important;
+        transform: none !important;
+      }
+      ::ng-deep .mat-mdc-select-arrow {
+        color: #475569 !important;
+        svg {
+          fill: #475569 !important;
+        }
+      }
     }
 
     /* Selected Trigger view */
-    .selected-trigger-view {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      max-width: 100%;
-    }
     .trigger-name {
       font-weight: 700;
       color: #0f172a;
-    }
-    .trigger-code {
-      font-size: 0.78rem;
-      font-weight: 700;
-      color: #2563eb;
-    }
-    .trigger-subj-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 3px;
-      font-size: 0.72rem;
-      font-weight: 700;
-      padding: 1px 6px;
-      border-radius: 5px;
-      border: 1px solid;
-      max-width: 160px;
+      font-size: 0.94rem;
+      white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .trigger-icon {
-      font-size: 12px !important;
-      width: 12px !important;
-      height: 12px !important;
+      display: block;
+      width: 100%;
     }
 
-    /* Teacher Quick Info Strip */
-    .teacher-quick { 
-      display: flex; 
-      align-items: center; 
-      gap: 8px; 
-      font-size: .85rem; 
-      color: #334155; 
-      flex-wrap: wrap;
-    }
-    .tq-subj-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      font-size: 0.78rem;
-      font-weight: 700;
-      padding: 2px 8px;
-      border-radius: 6px;
-      border: 1px solid;
-    }
-    .tq-icon {
-      font-size: 14px !important;
-      width: 14px !important;
-      height: 14px !important;
-    }
-    .tq-phone {
-      display: inline-flex;
-      align-items: center;
-      gap: 3px;
-      color: #475569;
-      font-size: 0.8rem;
-      mat-icon { font-size: 14px; width: 14px; height: 14px; color: #1976d2; }
-    }
-    .exp-badge { 
-      background: #e3f2fd; 
-      color: #1565c0; 
-      font-size: .72rem; 
-      padding: 2px 8px; 
-      border-radius: 10px; 
-      font-weight: 700; 
-    }
-    .opt-code { font-weight: 700; color: #1976d2; }
-    .staff-tag { 
-      font-size: 0.7rem; 
-      padding: 1px 6px; 
-      border-radius: 4px; 
-      background: #e0f2fe; 
-      color: #0369a1; 
-      font-weight: 700; 
-      margin-left: auto;
-    }
-    .staff-tag.non-teach { background: #ede9fe; color: #6d28d9; }
-    .opt-dot { 
-      display: inline-block; 
-      width: 8px; 
-      height: 8px; 
-      border-radius: 50%; 
-      margin-left: 6px; 
-      vertical-align: middle;
+    .selector-v-divider {
+      width: 1px;
+      height: 28px;
+      background: #e2e8f0;
+      margin: 0 4px;
       flex-shrink: 0;
-      &.active { background: #22c55e; } 
-      &.inactive { background: #ef4444; } 
     }
-    .self-hint { color: #16a34a; font-size: 0.72rem; font-weight: 600; display: flex; align-items: center; gap: 3px; }
 
-    /* Teacher Info Badge shifted to right */
-    .teacher-info-badge {
+    /* Right Quick Meta Strip */
+    .selector-quick-meta {
       display: flex;
       align-items: center;
-      gap: 10px;
-      padding: 6px 14px;
-      background: #ffffff;
-      border: 1px solid #bfdbfe;
-      border-radius: 10px;
-      box-shadow: 0 1px 3px rgba(37, 99, 235, 0.08);
-      margin-left: auto;
+      gap: 8px;
+      flex-wrap: nowrap;
+      justify-content: flex-end;
+      flex: 1 1 auto;
+      min-width: 0;
     }
-    .badge-icon {
-      font-size: 30px;
-      width: 30px;
-      height: 30px;
-      color: #2563eb;
-    }
-    .teacher-meta-text {
-      strong { font-size: .92rem; color: #0f172a; display: block; font-weight: 700; }
-      .meta-sub-row {
-        display: flex;
-        align-items: center;
-        gap: 5px;
-        font-size: .74rem;
+
+    .meta-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.74rem;
+      font-weight: 600;
+      padding: 4px 9px;
+      border-radius: 7px;
+      border: 1px solid #e2e8f0;
+      background: #f8fafc;
+      color: #334155;
+      white-space: nowrap;
+      flex-shrink: 0;
+      transition: all 0.15s ease;
+
+      .pill-icon {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
       }
-      .emp-code { color: #2563eb; font-weight: 700; letter-spacing: 0.2px; }
-      .badge-dot { color: #94a3b8; }
-      .badge-subj { color: #475569; font-weight: 600; }
+
+      &.subj {
+        border: 1px solid;
+        white-space: nowrap;
+        flex-shrink: 0;
+        .pill-text {
+          white-space: nowrap;
+        }
+      }
+
+      &.dept {
+        background: #f1f5f9;
+        color: #475569;
+        border-color: #cbd5e1;
+        .pill-icon { color: #64748b; }
+      }
+
+      &.phone {
+        background: #f0fdf4;
+        color: #166534;
+        border-color: #bbf7d0;
+        .pill-icon { color: #16a34a; }
+      }
+
+      &.exp {
+        background: #eff6ff;
+        color: #1e40af;
+        border-color: #bfdbfe;
+        .pill-icon { color: #2563eb; }
+      }
+
+      &.status {
+        background: #f8fafc;
+        border-color: #e2e8f0;
+        color: #475569;
+
+        .status-dot {
+          width: 7px;
+          height: 7px;
+          border-radius: 50%;
+          display: inline-block;
+        }
+
+        &.active {
+          background: #f0fdf4;
+          border-color: #bbf7d0;
+          color: #15803d;
+          .status-dot { background: #22c55e; }
+        }
+
+        &.inactive {
+          background: #fef2f2;
+          border-color: #fecaca;
+          color: #b91c1c;
+          .status-dot { background: #ef4444; }
+        }
+      }
+    }
+
+    .selector-empty-hint {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: #64748b;
+      font-size: 0.82rem;
+      margin-left: auto;
+      mat-icon { font-size: 18px; width: 18px; height: 18px; color: #94a3b8; }
+    }
+
+    .self-hint { color: #16a34a; font-size: 0.72rem; font-weight: 600; display: flex; align-items: center; gap: 3px; }
+
+    /* Mobile Responsive Rules */
+    @media (max-width: 768px) {
+      .selector-card {
+        padding: 10px 12px;
+      }
+      .selector-container {
+        gap: 10px;
+        flex-wrap: wrap !important;
+      }
+      .selector-v-divider {
+        display: none;
+      }
+      .selector-control-group {
+        width: 100% !important;
+        max-width: 100% !important;
+        flex: 1 1 100% !important;
+        gap: 8px;
+      }
+      .selector-icon-box {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        mat-icon { font-size: 20px; width: 20px; height: 20px; }
+      }
+      .selector-field {
+        width: 100% !important;
+        flex: 1 1 auto !important;
+        min-width: 0 !important;
+      }
+      .selector-quick-meta {
+        width: 100% !important;
+        flex: 1 1 100% !important;
+        justify-content: flex-start !important;
+        border-top: 1px solid #f1f5f9;
+        padding-top: 8px;
+        margin-top: 2px;
+        gap: 6px;
+        flex-wrap: wrap !important;
+      }
+      .meta-pill {
+        font-size: 0.72rem;
+        padding: 3px 8px;
+      }
     }
 
     /* ═══════════════════════════════════════════════════════════════════════
@@ -674,7 +797,7 @@ export class TeacherSelectorComponent implements OnInit, OnChanges {
   isSelfOnlyMode = false;
   private loggedInUserId: string | null = null;
 
-  constructor(private http: HttpClient, private auth: AuthService) {}
+  constructor(private http: HttpClient, private auth: AuthService) { }
 
   isNonTeaching(t: TeacherDto | null): boolean {
     if (!t) return false;
@@ -808,7 +931,7 @@ export class TeacherSelectorComponent implements OnInit, OnChanges {
       const phone = (t.phoneNumber || '').toLowerCase();
 
       // Every typed word must match at least one attribute of the teacher
-      return tokens.every(token => 
+      return tokens.every(token =>
         name.includes(token) ||
         code.includes(token) ||
         subject.includes(token) ||

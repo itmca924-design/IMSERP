@@ -542,3 +542,67 @@ export interface TeacherIdCardDto {
   qrCodeData: string;
   institutionLogo?: string;
 }
+
+export interface StaffPromotionIncrementDto {
+  id: string;
+  tenantId: string;
+  teacherId: string;
+  teacherName: string;
+  employeeCode: string;
+  staffType?: string;
+  type: string;
+  oldDesignation: string;
+  newDesignation: string;
+  oldDepartment?: string;
+  newDepartment?: string;
+  oldBasicSalary: number;
+  newBasicSalary: number;
+  oldHRA: number;
+  newHRA: number;
+  oldOtherAllowances: number;
+  newOtherAllowances: number;
+  oldGrossSalary: number;
+  newGrossSalary: number;
+  incrementPercentage?: number;
+  incrementAmount?: number;
+  effectiveDate: string;
+  reason?: string;
+  remarks?: string;
+  approvedBy?: string;
+  approvalDate?: string;
+  status: string;
+  createdAt: string;
+}
+
+export interface CreateStaffPromotionIncrementDto {
+  teacherId: string;
+  type: string;
+  newDesignation?: string;
+  newDepartment?: string;
+  newBasicSalary?: number;
+  newHRA?: number;
+  newOtherAllowances?: number;
+  incrementPercentage?: number;
+  incrementAmount?: number;
+  effectiveDate: string;
+  reason?: string;
+  remarks?: string;
+}
+
+export interface BulkIncrementDto {
+  staffType?: string;
+  department?: string;
+  incrementType: string;
+  incrementValue: number;
+  effectiveDate: string;
+  reason?: string;
+  remarks?: string;
+}
+
+export interface StaffPromotionSummaryDto {
+  totalRecords: number;
+  totalPromotions: number;
+  totalIncrements: number;
+  totalMonthlyGrossHike: number;
+  averageHikePercentage: number;
+}

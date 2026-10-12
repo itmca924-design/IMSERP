@@ -334,6 +334,38 @@ using (var scope = app.Services.CreateScope())
                         );
                     END
 
+                    IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'StaffPromotionIncrements')
+                    BEGIN
+                        CREATE TABLE StaffPromotionIncrements (
+                            Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
+                            TenantId UNIQUEIDENTIFIER NOT NULL,
+                            BranchId UNIQUEIDENTIFIER NULL,
+                            TeacherId UNIQUEIDENTIFIER NOT NULL,
+                            Type NVARCHAR(50) NOT NULL DEFAULT 'PromotionAndIncrement',
+                            OldDesignation NVARCHAR(150) NOT NULL,
+                            NewDesignation NVARCHAR(150) NOT NULL,
+                            OldDepartment NVARCHAR(150) NULL,
+                            NewDepartment NVARCHAR(150) NULL,
+                            OldBasicSalary DECIMAL(18,2) NOT NULL DEFAULT 0,
+                            NewBasicSalary DECIMAL(18,2) NOT NULL DEFAULT 0,
+                            OldHRA DECIMAL(18,2) NOT NULL DEFAULT 0,
+                            NewHRA DECIMAL(18,2) NOT NULL DEFAULT 0,
+                            OldOtherAllowances DECIMAL(18,2) NOT NULL DEFAULT 0,
+                            NewOtherAllowances DECIMAL(18,2) NOT NULL DEFAULT 0,
+                            OldGrossSalary DECIMAL(18,2) NOT NULL DEFAULT 0,
+                            NewGrossSalary DECIMAL(18,2) NOT NULL DEFAULT 0,
+                            IncrementPercentage DECIMAL(18,2) NULL,
+                            IncrementAmount DECIMAL(18,2) NULL,
+                            EffectiveDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+                            Reason NVARCHAR(MAX) NULL,
+                            Remarks NVARCHAR(MAX) NULL,
+                            ApprovedBy NVARCHAR(150) NULL,
+                            ApprovalDate DATETIME2 NULL,
+                            Status NVARCHAR(50) NOT NULL DEFAULT 'Approved',
+                            CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
+                        );
+                    END
+
                     IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'TeacherSubstitutions')
                     BEGIN
                         CREATE TABLE TeacherSubstitutions (
@@ -1128,6 +1160,7 @@ using (var scope = app.Services.CreateScope())
                     "/teachers", "/teachers/assignments", "/teachers/attendance",
                     "/teachers/salary", "/teachers/payments", "/teachers/advances",
                     "/teachers/leaves", "/teachers/reports", "/teachers/fnf",
+                    "/teachers/promotions",
                     "/teachers/substitution", "/teachers/lesson-plans",
                     "/dashboard", "/attendance/reports",
                     "/attendance/permissions/manual", "/attendance/permissions/correction"
@@ -1514,8 +1547,9 @@ using (var scope = app.Services.CreateScope())
             }
         }
 
-        // Auto-seed 'Exit & FNF Settlement' MenuItem under Teacher Module
-        var teacherMenu = context.MenuItems.FirstOrDefault(m => m.Title == "Teacher Module" && m.ParentId == null);
+        // Auto-seed 'Exit & FNF Settlement' MenuItem under HRMS & Staff / Teacher Module
+        var teacherMenu = context.MenuItems.FirstOrDefault(m => (m.Title == "HRMS & Staff" || m.Title == "Teacher Module") && m.ParentId == null)
+            ?? context.MenuItems.FirstOrDefault(m => m.Module == "Teachers" && m.ParentId == null);
         if (teacherMenu != null)
         {
             var fnfMenu = context.MenuItems.FirstOrDefault(m => m.RouteUrl == "/teachers/fnf");
@@ -1623,6 +1657,42 @@ using (var scope = app.Services.CreateScope())
                 }
                 context.SaveChanges();
                 Console.WriteLine("[Database] Auto-seeded 'Daily Lesson Diary' menu item under Teacher Module.");
+            }
+
+            // Auto-seed 'Promotions & Appraisals' MenuItem under Teacher Module
+            var promoMenu = context.MenuItems.FirstOrDefault(m => m.RouteUrl == "/teachers/promotions");
+            if (promoMenu == null)
+            {
+                var newPromoMenu = new IMSERP.Domain.Entities.MenuItem
+                {
+                    Id = Guid.NewGuid(),
+                    Title = "Promotions & Appraisals",
+                    RouteUrl = "/teachers/promotions",
+                    Icon = "military_tech",
+                    ParentId = teacherMenu.Id,
+                    SortOrder = 8,
+                    Module = "Teachers",
+                    IsActive = true
+                };
+                context.MenuItems.Add(newPromoMenu);
+                context.SaveChanges();
+
+                var roles = context.Roles.ToList();
+                foreach (var role in roles)
+                {
+                    context.RolePermissions.Add(new IMSERP.Domain.Entities.RolePermission
+                    {
+                        Id = Guid.NewGuid(),
+                        RoleId = role.Id,
+                        MenuItemId = newPromoMenu.Id,
+                        CanView = true,
+                        CanCreate = true,
+                        CanEdit = true,
+                        CanDelete = true
+                    });
+                }
+                context.SaveChanges();
+                Console.WriteLine("[Database] Auto-seeded 'Promotions & Appraisals' menu item under Teacher Module.");
             }
         }
 

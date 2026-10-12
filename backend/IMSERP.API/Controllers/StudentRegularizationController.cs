@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using IMSERP.Application.DTOs;
@@ -9,6 +10,7 @@ namespace IMSERP.API.Controllers;
 
 [ApiController]
 [Route("api/student-regularizations")]
+[Authorize]
 public class StudentRegularizationController : ControllerBase
 {
     private readonly IIMSERPDbContext _db;

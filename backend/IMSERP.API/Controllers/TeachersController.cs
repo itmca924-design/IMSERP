@@ -239,6 +239,7 @@ public class TeachersController : ControllerBase
             .Include(t => t.BatchAssignments).ThenInclude(a => a.Batch)
             .Include(t => t.Branch)
             .Include(t => t.User)
+            .AsSplitQuery()
             .AsQueryable();
         if (activeOnly)
         {
