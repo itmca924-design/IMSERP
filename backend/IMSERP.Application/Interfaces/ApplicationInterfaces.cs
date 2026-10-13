@@ -80,6 +80,7 @@ public interface IIMSERPDbContext
     DbSet<AccountLedger> AccountLedgers { get; }
     DbSet<StudentHomework> StudentHomeworks { get; }
     DbSet<StudentHomeworkSubmission> StudentHomeworkSubmissions { get; }
+    DbSet<DailyStudentDiary> DailyStudentDiaries { get; }
     DbSet<AdmissionEnquiry> AdmissionEnquiries { get; }
     DbSet<SchoolNotice> SchoolNotices { get; }
     DbSet<StudentLeave> StudentLeaves { get; }
@@ -94,6 +95,7 @@ public interface IIMSERPDbContext
     DbSet<StudentSibling> StudentSiblings { get; }
     DbSet<StudyMaterial> StudyMaterials { get; }
     DbSet<SchoolPeriodSlot> SchoolPeriodSlots { get; }
+    DbSet<SchoolActivityType> SchoolActivityTypes { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

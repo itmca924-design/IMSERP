@@ -64,7 +64,7 @@ import { QuickSettingsDrawerComponent } from './quick-settings-drawer/quick-sett
                alt="Institute Logo">
           <div class="brand-titles">
             <span class="brand-name" [matTooltip]="currentUser()?.instituteName || 'Apex Coaching Academy'">{{ currentUser()?.instituteName || 'Apex Coaching Academy' }}</span>
-            <span class="brand-sub">{{ currentUser()?.tenantCode || 'APEX' }} &bull; {{ getTenantModuleBadge() }}</span>
+            <span class="brand-sub">{{ getTenantModuleBadge() }}</span>
           </div>
           <button *ngIf="isMobile()" mat-icon-button class="close-drawer-btn" (click)="drawer.close()">
             <mat-icon>close</mat-icon>
@@ -1660,7 +1660,7 @@ export class LayoutComponent implements OnInit {
   getHeaderTitle(): string {
     const s = this.authService.hasSchoolModule();
     const c = this.authService.hasCoachingModule();
-    if (s && c) return 'IMSERP • School + Coaching ERP';
+    if (s && c) return 'School + Coaching ERP';
     if (s && !c) return 'IMSERP • School Management System';
     if (!s && c) return 'IMSERP • Coaching & Tuitions ERP';
     return 'IMSERP • Enterprise ERP';

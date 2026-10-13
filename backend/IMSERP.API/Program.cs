@@ -749,6 +749,30 @@ using (var scope = app.Services.CreateScope())
                         );
                     END
 
+                    -- Daily Student Classwork & Homework Diary Table
+                    IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'DailyStudentDiaries')
+                    BEGIN
+                        CREATE TABLE DailyStudentDiaries (
+                            Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
+                            TenantId UNIQUEIDENTIFIER NOT NULL,
+                            BranchId UNIQUEIDENTIFIER NULL,
+                            StudentId UNIQUEIDENTIFIER NOT NULL,
+                            ClassId UNIQUEIDENTIFIER NULL,
+                            SectionId UNIQUEIDENTIFIER NULL,
+                            DiaryDate DATETIME2 NOT NULL,
+                            ClassWorkJson NVARCHAR(MAX) NULL,
+                            HomeWorkJson NVARCHAR(MAX) NULL,
+                            IsAbsent BIT NOT NULL DEFAULT 0,
+                            TeacherRemarks NVARCHAR(500) NULL,
+                            TeacherId UNIQUEIDENTIFIER NULL,
+                            CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+                            UpdatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
+                        );
+
+                        CREATE INDEX IX_DailyStudentDiaries_Tenant_Date_Class ON DailyStudentDiaries (TenantId, DiaryDate, ClassId);
+                        CREATE INDEX IX_DailyStudentDiaries_Student_Date ON DailyStudentDiaries (TenantId, StudentId, DiaryDate);
+                    END
+
                     -- Option C: Admission Enquiry & CRM Table
                     IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'AdmissionEnquiries')
                     BEGIN
@@ -891,6 +915,27 @@ using (var scope = app.Services.CreateScope())
 
                         CREATE INDEX IX_StudentAttendanceRegularizations_Student_Date ON StudentAttendanceRegularizations (TenantId, StudentId, AttendanceDate);
                         CREATE INDEX IX_StudentAttendanceRegularizations_Status ON StudentAttendanceRegularizations (TenantId, Status);
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_StudentAttendances_Tenant_Date_Student' AND object_id = OBJECT_ID('StudentAttendances'))
+                    BEGIN
+                        CREATE NONCLUSTERED INDEX IX_StudentAttendances_Tenant_Date_Student 
+                        ON StudentAttendances (TenantId, AttendanceDate, StudentId) 
+                        INCLUDE (Status, CheckInTime, CheckOutTime);
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_Students_Tenant_Class_Active' AND object_id = OBJECT_ID('Students'))
+                    BEGIN
+                        CREATE NONCLUSTERED INDEX IX_Students_Tenant_Class_Active 
+                        ON Students (TenantId, ClassId, IsActive, IsSchoolStudent) 
+                        INCLUDE (StudentName, SchoolRollNumber, AdmissionNumber, SectionId, JoiningDate);
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_Students_Tenant_Batch_Active' AND object_id = OBJECT_ID('Students'))
+                    BEGIN
+                        CREATE NONCLUSTERED INDEX IX_Students_Tenant_Batch_Active 
+                        ON Students (TenantId, BatchId, IsActive) 
+                        INCLUDE (StudentName, RollNumber, JoiningDate);
                     END
 
                     IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'LeaveAndAttendancePolicies')

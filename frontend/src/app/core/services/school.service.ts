@@ -805,6 +805,41 @@ export class SchoolService {
   deletePeriodSlot(id: string): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/period-slots/${id}`);
   }
+
+  getActivityTypes(branchId?: string | null): Observable<SchoolActivityTypeDto[]> {
+    const params: any = {};
+    if (branchId) params.branchId = branchId;
+    return this.http.get<SchoolActivityTypeDto[]>(`${this.apiUrl}/activity-types`, { params });
+  }
+
+  createActivityType(dto: CreateSchoolActivityTypeDto): Observable<SchoolActivityTypeDto> {
+    return this.http.post<SchoolActivityTypeDto>(`${this.apiUrl}/activity-types`, dto);
+  }
+
+  deleteActivityType(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/activity-types/${id}`);
+  }
+}
+
+export interface SchoolActivityTypeDto {
+  id: string;
+  branchId?: string | null;
+  name: string;
+  displayNameHi?: string;
+  icon?: string;
+  colorHex?: string;
+  displayOrder: number;
+  isActive: boolean;
+}
+
+export interface CreateSchoolActivityTypeDto {
+  branchId?: string | null;
+  name: string;
+  displayNameHi?: string;
+  icon?: string;
+  colorHex?: string;
+  displayOrder?: number;
+  isActive?: boolean;
 }
 
 export interface SchoolPeriodSlotDto {
@@ -820,6 +855,7 @@ export interface SchoolPeriodSlotDto {
   displayOrder: number;
   isActive: boolean;
   createdAt: string;
+  slotType?: string;
 }
 
 export interface CreateSchoolPeriodSlotDto {
@@ -831,6 +867,7 @@ export interface CreateSchoolPeriodSlotDto {
   isBreak: boolean;
   displayOrder: number;
   isActive?: boolean;
+  slotType?: string;
 }
 
 export interface BulkSaveSchoolPeriodSlotsDto {
@@ -845,6 +882,10 @@ export interface GeneratePeriodSlotsRequestDto {
   totalPeriods: number;
   breakAfterPeriod?: number;
   breakDurationMinutes?: number;
+  activityAfterPeriod?: number;
+  activityDurationMinutes?: number;
+  activityName?: string;
+  activityType?: string;
 }
 
 export interface StudentMyExamItemDto {

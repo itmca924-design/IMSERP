@@ -365,11 +365,27 @@
                     <!-- Left: Google Style Calendar Card -->
                     <div class="cal-card-box">
                       <div class="cal-card-header">
-                        <div class="cal-card-title">
-                          <mat-icon class="cal-title-ic">calendar_month</mat-icon>
-                          <span>{{ months[selectedMonth - 1] }} {{ selectedYear }}</span>
+                        <div class="cal-card-nav-title">
+                          <div class="cal-card-title">
+                            <mat-icon class="cal-title-ic">calendar_month</mat-icon>
+                            <span class="cal-title-month-text">{{ months[selectedMonth - 1] }} {{ selectedYear }}</span>
+                          </div>
+                          <div class="cal-nav-group">
+                            <button type="button" class="cal-nav-btn" (click)="navigateMonth(-1, row.personId); $event.stopPropagation()" matTooltip="Previous Month">
+                              <mat-icon>chevron_left</mat-icon>
+                            </button>
+                            <button type="button" class="cal-today-btn" *ngIf="!isCurrentSelectedMonth()" (click)="goToCurrentMonth(row.personId); $event.stopPropagation()" matTooltip="Go to Current Month">
+                              Today
+                            </button>
+                            <button type="button" class="cal-nav-btn" (click)="navigateMonth(1, row.personId); $event.stopPropagation()" matTooltip="Next Month">
+                              <mat-icon>chevron_right</mat-icon>
+                            </button>
+                          </div>
                         </div>
-                        <span class="cal-active-tag">Month Matrix</span>
+                        <div class="cal-card-badges">
+                          <span class="cal-active-tag">Month Matrix</span>
+                          <span class="cal-chip-stat">{{ row.presentDays }} Present</span>
+                        </div>
                       </div>
 
                       <div class="cal-grid">
@@ -380,7 +396,11 @@
                             [class.cal-empty]="!d"
                             [ngClass]="d ? 'day-' + d.status.toLowerCase() : ''"
                             [class.day-is-sunday]="d?.isSunday"
-                            [class.day-today]="d != null && isToday(d.day)">
+                            [class.day-today]="d != null && isToday(d.day)"
+                            [class.cal-selected]="d != null && isDaySelected(row.personId, d.day)"
+                            [class.cal-highlighted]="d != null && isDayHighlighted(row.personId, d)"
+                            [class.cal-dimmed]="d != null && isDayDimmed(row.personId, d)"
+                            (click)="selectDay(row.personId, d)">
                             
                             <!-- Day Number (Google Blue Circle if Today) -->
                             <div class="cal-day-num-wrap" *ngIf="d">
@@ -397,14 +417,18 @@
 
                             <!-- Compact In / Out punch markers on cell -->
                             <div class="cal-punch-micro" *ngIf="d && (d.checkInTime || d.checkOutTime)">
-                              <span class="cpm-in" *ngIf="d.checkInTime">In {{ formatDisplayTime(d.checkInTime) }}</span>
-                              <span class="cpm-out" *ngIf="d.checkOutTime">Out {{ formatDisplayTime(d.checkOutTime) }}</span>
+                              <span class="cpm-badge cpm-in" *ngIf="d.checkInTime" [matTooltip]="'In: ' + formatDisplayTime(d.checkInTime)">
+                                <span class="cpm-lbl">In</span> {{ formatDisplayTime(d.checkInTime) }}
+                              </span>
+                              <span class="cpm-badge cpm-out" *ngIf="d.checkOutTime" [matTooltip]="'Out: ' + formatDisplayTime(d.checkOutTime)">
+                                <span class="cpm-lbl">Out</span> {{ formatDisplayTime(d.checkOutTime) }}
+                              </span>
                             </div>
 
                             <!-- Smart Hover Tooltip Card (Instant & Rich) -->
                             <div class="cal-popover" *ngIf="d"
                               [class.pop-flip]="weekIdx === 0"
-                              [class.pop-left]="colIdx <= 4"
+                              [class.pop-left]="colIdx <= 1"
                               [class.pop-right]="colIdx >= 5">
                               <div class="pop-header">
                                 <span class="pop-date">{{ d.day }} {{ months[selectedMonth - 1] }} ({{ d.dayOfWeek }})</span>
@@ -463,6 +487,10 @@
                                   <span class="pop-sub">Stream</span>
                                   <span class="pop-main">{{ d.captureSource }}</span>
                                 </div>
+                              </div>
+
+                              <div class="pop-footer-hint">
+                                <span>💡 Click day to pin details</span>
                               </div>
                             </div>
                           </div>
@@ -533,71 +561,104 @@
 
                       <!-- Key Metrics Cards (Modern Google Material 3 Design) -->
                       <div class="intel-metrics-strip">
-                        <div class="metric-card metric-p">
+                        <div class="metric-card metric-p"
+                          [class.metric-active]="statusFilterMap[row.personId] === 'P'"
+                          (click)="toggleStatusFilter(row.personId, 'P')"
+                          matTooltip="Click to highlight Present days on calendar">
                           <div class="metric-top">
                             <span class="metric-dot dot-p"></span>
                             <span class="metric-name">Present</span>
+                            <span class="filter-clear-ic" *ngIf="statusFilterMap[row.personId] === 'P'">&times;</span>
                           </div>
                           <span class="metric-val">{{ row.presentDays }}</span>
                           <span class="metric-footer">Days on-site</span>
                         </div>
 
-                        <div class="metric-card metric-a" [class.metric-muted]="row.absentDays === 0">
+                        <div class="metric-card metric-a"
+                          [class.metric-muted]="row.absentDays === 0"
+                          [class.metric-active]="statusFilterMap[row.personId] === 'A'"
+                          (click)="row.absentDays > 0 ? toggleStatusFilter(row.personId, 'A') : null"
+                          [matTooltip]="row.absentDays > 0 ? 'Click to highlight Absent days' : 'No absent days'">
                           <div class="metric-top">
                             <span class="metric-dot dot-a"></span>
                             <span class="metric-name">Absent</span>
+                            <span class="filter-clear-ic" *ngIf="statusFilterMap[row.personId] === 'A'">&times;</span>
                           </div>
                           <span class="metric-val">{{ row.absentDays }}</span>
                           <span class="metric-footer">{{ row.absentDays === 0 ? 'Clean Record' : 'Missed' }}</span>
                         </div>
 
-                        <div class="metric-card metric-lt" [class.metric-muted]="row.lateDays === 0">
+                        <div class="metric-card metric-lt"
+                          [class.metric-muted]="row.lateDays === 0"
+                          [class.metric-active]="statusFilterMap[row.personId] === 'LT'"
+                          (click)="row.lateDays > 0 ? toggleStatusFilter(row.personId, 'LT') : null"
+                          [matTooltip]="row.lateDays > 0 ? 'Click to highlight Late days' : 'Zero late days'">
                           <div class="metric-top">
                             <span class="metric-dot dot-lt"></span>
                             <span class="metric-name">Late</span>
+                            <span class="filter-clear-ic" *ngIf="statusFilterMap[row.personId] === 'LT'">&times;</span>
                           </div>
                           <span class="metric-val">{{ row.lateDays }}</span>
                           <span class="metric-footer">{{ row.lateDays === 0 ? 'Zero Late' : 'Delayed' }}</span>
                         </div>
 
-                        <div class="metric-card metric-hd" [class.metric-muted]="row.halfDays === 0">
+                        <div class="metric-card metric-hd"
+                          [class.metric-muted]="row.halfDays === 0"
+                          [class.metric-active]="statusFilterMap[row.personId] === 'HD'"
+                          (click)="row.halfDays > 0 ? toggleStatusFilter(row.personId, 'HD') : null"
+                          [matTooltip]="row.halfDays > 0 ? 'Click to highlight Half Days' : 'No half days'">
                           <div class="metric-top">
                             <span class="metric-dot dot-hd"></span>
                             <span class="metric-name">Half Day</span>
+                            <span class="filter-clear-ic" *ngIf="statusFilterMap[row.personId] === 'HD'">&times;</span>
                           </div>
                           <span class="metric-val">{{ row.halfDays }}</span>
                           <span class="metric-footer">Partial</span>
                         </div>
 
-                        <div class="metric-card metric-l" *ngIf="getLeaveDays(row) > 0">
+                        <div class="metric-card metric-l"
+                          *ngIf="getLeaveDays(row) > 0"
+                          [class.metric-active]="statusFilterMap[row.personId] === 'L'"
+                          (click)="toggleStatusFilter(row.personId, 'L')"
+                          matTooltip="Click to highlight Leave days">
                           <div class="metric-top">
                             <span class="metric-dot dot-l"></span>
                             <span class="metric-name">Leave</span>
+                            <span class="filter-clear-ic" *ngIf="statusFilterMap[row.personId] === 'L'">&times;</span>
                           </div>
                           <span class="metric-val">{{ getLeaveDays(row) }}</span>
                           <span class="metric-footer">Approved</span>
                         </div>
 
-                        <div class="metric-card metric-off">
+                        <div class="metric-card metric-off"
+                          [class.metric-active]="statusFilterMap[row.personId] === 'OFF'"
+                          (click)="toggleStatusFilter(row.personId, 'OFF')"
+                          matTooltip="Click to highlight Sundays / Rest Days">
                           <div class="metric-top">
                             <span class="metric-dot dot-off"></span>
                             <span class="metric-name">Sundays / Off</span>
+                            <span class="filter-clear-ic" *ngIf="statusFilterMap[row.personId] === 'OFF'">&times;</span>
                           </div>
                           <span class="metric-val">{{ row.holidayDays }}</span>
                           <span class="metric-footer">Rest Days</span>
                         </div>
 
-                        <div class="metric-card metric-unmarked" *ngIf="getUnmarkedDays(row) > 0">
+                        <div class="metric-card metric-unmarked"
+                          *ngIf="getUnmarkedDays(row) > 0"
+                          [class.metric-active]="statusFilterMap[row.personId] === '-'"
+                          (click)="toggleStatusFilter(row.personId, '-')"
+                          matTooltip="Click to highlight Upcoming / Pending days">
                           <div class="metric-top">
                             <span class="metric-dot dot-unmarked"></span>
                             <span class="metric-name">Unmarked</span>
+                            <span class="filter-clear-ic" *ngIf="statusFilterMap[row.personId] === '-'">&times;</span>
                           </div>
                           <span class="metric-val">{{ getUnmarkedDays(row) }}</span>
                           <span class="metric-footer">Future / Pending</span>
                         </div>
                       </div>
 
-                      <!-- Bottom Insights: Weekly Regularity Sparkline + Latest Punch Snapshot -->
+                      <!-- Bottom Insights: Weekly Regularity Sparkline + Dynamic Activity Card -->
                       <div class="intel-bottom-row">
                         <!-- Weekly Regularity Heatmap -->
                         <div class="intel-weekly-card">
@@ -617,17 +678,28 @@
                           </div>
                         </div>
 
-                        <!-- Latest Punch Activity Card -->
-                        <div class="intel-activity-card">
+                        <!-- Selected Day or Latest Punch Activity Card -->
+                        <div class="intel-activity-card" [class.activity-pinned]="selectedDayMap[row.personId] != null">
                           <div class="intel-card-header">
-                            <mat-icon class="card-h-ic">touch_app</mat-icon>
-                            <span>Latest Recorded Activity</span>
+                            <div class="activity-header-left">
+                              <mat-icon class="card-h-ic">{{ selectedDayMap[row.personId] ? 'event_available' : 'touch_app' }}</mat-icon>
+                              <span *ngIf="selectedDayMap[row.personId]">Pinned Day Details</span>
+                              <span *ngIf="!selectedDayMap[row.personId]">Latest Recorded Activity</span>
+                            </div>
+                            <div class="activity-header-right">
+                              <span class="activity-click-hint" *ngIf="!selectedDayMap[row.personId]">Tap any day to pin</span>
+                              <button type="button" class="btn-activity-reset" *ngIf="selectedDayMap[row.personId]" (click)="selectDay(row.personId, null); $event.stopPropagation()" matTooltip="Show latest activity">
+                                <mat-icon>history</mat-icon> Show Latest
+                              </button>
+                            </div>
                           </div>
-                          <div class="activity-content" *ngIf="getLastPunchInfo(row) as lp">
+
+                          <div class="activity-content" *ngIf="getSelectedOrLastActivity(row) as lp">
                             <div class="activity-punch-row">
-                              <div class="activity-date-badge">
+                              <div class="activity-date-badge" [class.badge-is-pinned]="selectedDayMap[row.personId] != null">
                                 <span class="act-day">{{ lp.day }}</span>
                                 <span class="act-month">{{ months[selectedMonth - 1].slice(0, 3) }}</span>
+                                <span class="act-weekday">{{ lp.dayOfWeek }}</span>
                               </div>
                               <div class="activity-details">
                                 <div class="act-status-line">
@@ -644,9 +716,14 @@
                                     <mat-icon class="act-clock">timelapse</mat-icon> {{ lp.workDuration }}
                                   </span>
                                 </div>
-                                <span class="act-meta-line" *ngIf="lp.captureSource">
-                                  Stream: <strong>{{ lp.captureSource }}</strong>
-                                </span>
+                                <div class="act-sub-info">
+                                  <span class="act-meta-line" *ngIf="lp.captureSource">
+                                    Stream: <strong>{{ lp.captureSource }}</strong>
+                                  </span>
+                                  <span class="act-meta-line" *ngIf="!lp.checkInTime && !lp.checkOutTime && lp.status !== 'OFF' && lp.status !== 'H'">
+                                    {{ lp.status === 'P' ? 'Attendance marked without punch timestamp' : (lp.status === 'A' ? 'Marked absent for the day' : (lp.status === 'L' ? 'Sanctioned leave' : 'No punch records')) }}
+                                  </span>
+                                </div>
                                 <div class="act-remarks-box" *ngIf="lp.remarks">
                                   <mat-icon class="act-rem-ic">comment</mat-icon>
                                   <span>{{ lp.remarks }}</span>
@@ -658,7 +735,7 @@
                               </div>
                             </div>
                           </div>
-                          <div class="activity-empty" *ngIf="!getLastPunchInfo(row)">
+                          <div class="activity-empty" *ngIf="!getSelectedOrLastActivity(row)">
                             <mat-icon class="empty-act-ic">info_outline</mat-icon>
                             <span>No attendance punches recorded yet this month</span>
                           </div>

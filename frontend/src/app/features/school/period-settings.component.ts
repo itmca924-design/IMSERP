@@ -11,9 +11,12 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatChipsModule } from '@angular/material/chips';
-import { SchoolService, SchoolPeriodSlotDto, CreateSchoolPeriodSlotDto, BulkSaveSchoolPeriodSlotsDto } from '../../core/services/school.service';
+import { MatMenuModule } from '@angular/material/menu';
+import { MatDividerModule } from '@angular/material/divider';
+import { SchoolService, SchoolPeriodSlotDto, CreateSchoolPeriodSlotDto, BulkSaveSchoolPeriodSlotsDto, SchoolActivityTypeDto } from '../../core/services/school.service';
 import { BranchService, BranchDto } from '../../core/services/branch.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
+import { AuthService } from '../../core/services/auth.service';
 
 interface PeriodEditorRow {
   id?: string;
@@ -22,6 +25,7 @@ interface PeriodEditorRow {
   endTime: string;
   timeSlot: string;
   isBreak: boolean;
+  slotType: string;
   displayOrder: number;
   isActive: boolean;
 }
@@ -41,7 +45,9 @@ interface PeriodEditorRow {
     MatSlideToggleModule,
     MatProgressBarModule,
     MatTooltipModule,
-    MatChipsModule
+    MatChipsModule,
+    MatMenuModule,
+    MatDividerModule
   ],
   template: `
     <div class="page-container">
@@ -87,6 +93,14 @@ interface PeriodEditorRow {
             </mat-select>
           </div>
 
+          <button type="button" class="btn-header-action" (click)="exportToCsv()" [disabled]="rows.length === 0" matTooltip="Download CSV / Excel Schedule">
+            <mat-icon>file_download</mat-icon>
+            <span>Export CSV</span>
+          </button>
+          <button type="button" class="btn-header-action" (click)="printReport()" [disabled]="rows.length === 0" matTooltip="Print or Download Official Schedule PDF">
+            <mat-icon>print</mat-icon>
+            <span>Print Schedule</span>
+          </button>
           <button mat-flat-button color="primary" class="btn-save-master" (click)="saveSlots()" [disabled]="saving || loading">
             <mat-icon>{{ saving ? 'hourglass_empty' : 'save' }}</mat-icon>
             {{ saving ? 'Saving...' : 'Save Schedule' }}
@@ -165,6 +179,43 @@ interface PeriodEditorRow {
               </select>
             </div>
 
+            <div class="gen-field">
+              <label class="g-label">Activity Slot After</label>
+              <select [(ngModel)]="genActivityAfter" class="g-select">
+                <option [value]="0">None (कोई नहीं)</option>
+                <option *ngFor="let p of getPeriodNumbersList()" [value]="p">After Period {{ p }}</option>
+              </select>
+            </div>
+
+            <div class="gen-field" *ngIf="genActivityAfter > 0">
+              <label class="g-label">Activity Type</label>
+              <select [(ngModel)]="genActivityType" (change)="onActivityTypeChange()" class="g-select">
+                <option *ngFor="let act of activityTypes" [value]="act.name">
+                  {{ act.name }} {{ act.displayNameHi ? '(' + act.displayNameHi + ')' : '' }}
+                </option>
+                <option value="Custom">+ Custom (नया जोड़ें)</option>
+              </select>
+            </div>
+
+            <div class="gen-field" *ngIf="genActivityAfter > 0">
+              <label class="g-label">Activity Slot Name</label>
+              <input type="text" [(ngModel)]="genActivityName" class="g-input" placeholder="e.g. Quiz Time" />
+            </div>
+
+            <div class="gen-field" *ngIf="genActivityAfter > 0">
+              <label class="g-label">Duration</label>
+              <select [(ngModel)]="genActivityDuration" class="g-select">
+                <option [value]="10">10 Minutes</option>
+                <option [value]="15">15 Minutes</option>
+                <option [value]="20">20 Minutes</option>
+                <option [value]="25">25 Minutes</option>
+                <option [value]="30">30 Minutes</option>
+                <option [value]="40">40 Minutes</option>
+                <option [value]="45">45 Minutes</option>
+                <option [value]="60">60 Minutes</option>
+              </select>
+            </div>
+
             <div class="gen-action-col">
               <label class="g-label">&nbsp;</label>
               <button type="button" class="btn-run-generator" (click)="generateSchedule()">
@@ -188,6 +239,10 @@ interface PeriodEditorRow {
             <mat-icon>restaurant</mat-icon>
             <span>Breaks / Recess: <strong>{{ breakCount }}</strong></span>
           </div>
+          <div class="summary-pill" *ngIf="activityCount > 0" style="background:#fdf4ff; border-color:#f0abfc; color:#9333ea;">
+            <mat-icon style="color:#a855f7;">local_activity</mat-icon>
+            <span>Activities / Quiz: <strong>{{ activityCount }}</strong></span>
+          </div>
           <div class="summary-pill branch-pill">
             <mat-icon>domain</mat-icon>
             <span>Scope: <strong>{{ currentScopeText }}</strong></span>
@@ -201,9 +256,17 @@ interface PeriodEditorRow {
               <h3 class="table-title">Configured Period Slots ({{ rows.length }})</h3>
               <p class="table-subtitle">Review, fine-tune individual slot times, or add custom periods.</p>
             </div>
-            <button type="button" class="btn-add-row" (click)="addNewRow()">
-              <mat-icon>add_circle_outline</mat-icon> + Add Custom Slot (कस्टम स्लॉट जोड़ें)
-            </button>
+            <div class="table-header-actions">
+              <button type="button" class="btn-table-action" (click)="exportToCsv()" [disabled]="rows.length === 0" matTooltip="Download CSV / Excel Schedule">
+                <mat-icon>file_download</mat-icon> Export CSV
+              </button>
+              <button type="button" class="btn-table-action" (click)="printReport()" [disabled]="rows.length === 0" matTooltip="Print or Download PDF Schedule">
+                <mat-icon>print</mat-icon> Print / PDF Report
+              </button>
+              <button type="button" class="btn-add-row" (click)="addNewRow()">
+                <mat-icon>add_circle_outline</mat-icon> Add Custom Slot (कस्टम स्लॉट जोड़ें)
+              </button>
+            </div>
           </div>
 
           <div class="table-responsive">
@@ -215,20 +278,20 @@ interface PeriodEditorRow {
                   <th style="width: 140px;">Start Time</th>
                   <th style="width: 140px;">End Time</th>
                   <th style="min-width: 170px;">Formatted Time Slot</th>
-                  <th style="width: 120px; text-align: center;">Type</th>
+                  <th style="width: 140px; text-align: center;">Type</th>
                   <th style="width: 80px; text-align: center;">Status</th>
                   <th style="width: 110px; text-align: center;">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let row of rows; let i = index" [class.is-break-row]="row.isBreak">
+                <tr *ngFor="let row of rows; let i = index" [class.is-break-row]="row.isBreak" [class.is-activity-row]="isActivitySlot(row)">
                   <td style="text-align: center;">
-                    <div class="order-badge" [class.break-order]="row.isBreak">{{ i + 1 }}</div>
+                    <div class="order-badge" [class.break-order]="row.isBreak" [class.activity-order]="isActivitySlot(row)">{{ i + 1 }}</div>
                   </td>
                   <td>
                     <div class="name-cell">
-                      <div class="slot-icon-box" [class.is-break]="row.isBreak">
-                        <mat-icon>{{ row.isBreak ? 'free_breakfast' : 'schedule' }}</mat-icon>
+                      <div class="slot-icon-box" [class.is-break]="row.isBreak" [class.is-activity]="isActivitySlot(row)">
+                        <mat-icon>{{ getSlotTypeIcon(row.slotType) }}</mat-icon>
                       </div>
                       <input type="text" [(ngModel)]="row.name" class="row-input" placeholder="e.g. Period 1" (change)="updateRowTimeSlot(row)" />
                     </div>
@@ -248,15 +311,42 @@ interface PeriodEditorRow {
                            title="Click clock icon to pick End Time" />
                   </td>
                   <td>
-                    <span class="preview-slot-pill" [class.break-pill]="row.isBreak">
+                    <span class="preview-slot-pill" [class.break-pill]="row.isBreak" [class.activity-pill]="isActivitySlot(row)">
                       {{ row.timeSlot }}
                     </span>
                   </td>
                   <td style="text-align: center;">
-                    <button type="button" class="type-toggle-btn" [class.btn-break]="row.isBreak" (click)="row.isBreak = !row.isBreak" matTooltip="Click to toggle Teaching vs Break">
-                      <mat-icon>{{ row.isBreak ? 'restaurant' : 'school' }}</mat-icon>
-                      <span>{{ row.isBreak ? 'Break' : 'Teaching' }}</span>
+                    <button type="button" 
+                            class="type-pill-btn" 
+                            [ngClass]="getSlotBadgeClass(row.slotType)"
+                            [matMenuTriggerFor]="slotTypeMenu" 
+                            matTooltip="Click to change Slot Type">
+                      <mat-icon class="slot-badge-icon">{{ getSlotTypeIcon(row.slotType) }}</mat-icon>
+                      <span class="slot-badge-label">{{ row.slotType || (row.isBreak ? 'Break' : 'Teaching') }}</span>
+                      <mat-icon class="slot-badge-arrow">arrow_drop_down</mat-icon>
                     </button>
+                    <mat-menu #slotTypeMenu="matMenu" class="slot-type-menu-panel">
+                      <div class="menu-head">Main Schedule:</div>
+                      <button mat-menu-item (click)="setRowType(row, 'Teaching')">
+                        <mat-icon color="primary">school</mat-icon>
+                        <span>Teaching Period</span>
+                      </button>
+                      <button mat-menu-item (click)="setRowType(row, 'Break')">
+                        <mat-icon style="color: #b45309;">restaurant</mat-icon>
+                        <span>Lunch / Recess Break</span>
+                      </button>
+                      <mat-divider></mat-divider>
+                      <div class="menu-head">Activity / Co-Curricular (DB Master):</div>
+                      <button mat-menu-item *ngFor="let act of activityTypes" (click)="setRowType(row, act.name)">
+                        <mat-icon [style.color]="act.colorHex || '#7e22ce'">{{ act.icon || 'local_activity' }}</mat-icon>
+                        <span>{{ act.name }} {{ act.displayNameHi ? '(' + act.displayNameHi + ')' : '' }}</span>
+                      </button>
+                      <mat-divider></mat-divider>
+                      <button mat-menu-item (click)="promptCustomType(row)">
+                        <mat-icon color="primary">add_circle_outline</mat-icon>
+                        <span>+ Add New Activity to DB (नया जोड़ें)</span>
+                      </button>
+                    </mat-menu>
                   </td>
                   <td style="text-align: center;">
                     <mat-slide-toggle [(ngModel)]="row.isActive" color="primary"></mat-slide-toggle>
@@ -287,14 +377,113 @@ interface PeriodEditorRow {
           </div>
 
           <div class="table-footer">
-            <button mat-button class="btn-reset" (click)="loadSlots()">
-              <mat-icon>refresh</mat-icon> Reset / Reload
-            </button>
+            <div class="footer-left-actions">
+              <button mat-button class="btn-reset" (click)="loadSlots()">
+                <mat-icon>refresh</mat-icon> Reset / Reload
+              </button>
+              <button mat-button class="btn-footer-report" (click)="exportToCsv()" [disabled]="rows.length === 0">
+                <mat-icon>file_download</mat-icon> Export CSV
+              </button>
+              <button mat-button class="btn-footer-report" (click)="printReport()" [disabled]="rows.length === 0">
+                <mat-icon>print</mat-icon> Print / PDF Report
+              </button>
+            </div>
             <button mat-flat-button color="primary" class="btn-save-master-bottom" (click)="saveSlots()" [disabled]="saving || rows.length === 0">
               <mat-icon>save</mat-icon> Save Bell Schedule
             </button>
           </div>
         </mat-card>
+      </div>
+    </div>
+
+    <!-- 🖨️ PRINTABLE BELL SCHEDULE SHEET (Hidden on screen, visible during window.print) -->
+    <div class="printable-bell-schedule-sheet" id="printBellScheduleArea" *ngIf="rows.length > 0">
+      <div class="print-header">
+        <div class="print-brand-badge">IMSERP ACADEMIC TIMETABLE SYSTEM</div>
+        <h1 class="print-institute-name">{{ instituteName }}</h1>
+        <div class="print-branch-name">{{ currentBranchDisplayName }}</div>
+        <h2 class="print-doc-title">OFFICIAL PERIOD & BELL TIMINGS SCHEDULE (दैनिक घंटी व समय सारणी)</h2>
+        <div class="print-meta-grid">
+          <div class="meta-item">
+            <span class="meta-lbl">School Timings:</span>
+            <span class="meta-val">{{ computedSchoolHours }}</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-lbl">Teaching Periods:</span>
+            <span class="meta-val">{{ teachingPeriodCount }} Periods</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-lbl">Breaks / Recess:</span>
+            <span class="meta-val">{{ breakCount }}</span>
+          </div>
+          <div class="meta-item" *ngIf="activityCount > 0">
+            <span class="meta-lbl">Activities / Co-Curricular:</span>
+            <span class="meta-val">{{ activityCount }}</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-lbl">Applicable Campus:</span>
+            <span class="meta-val">{{ currentScopeText }}</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-lbl">Generated On (IST):</span>
+            <span class="meta-val">{{ reportGeneratedOnIst }}</span>
+          </div>
+        </div>
+      </div>
+
+      <table class="print-table">
+        <thead>
+          <tr>
+            <th style="width: 50px; text-align: center;">#</th>
+            <th>Period / Slot Name</th>
+            <th style="width: 120px; text-align: center;">Start Time</th>
+            <th style="width: 120px; text-align: center;">End Time</th>
+            <th style="width: 150px; text-align: center;">Time Slot</th>
+            <th style="width: 90px; text-align: center;">Duration</th>
+            <th style="width: 130px; text-align: center;">Slot Type</th>
+            <th style="width: 80px; text-align: center;">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let r of rows; let idx = index" [class.print-break-row]="r.isBreak" [class.print-act-row]="isActivitySlot(r)">
+            <td style="text-align: center; font-weight: bold;">{{ idx + 1 }}</td>
+            <td class="print-name-cell">
+              <strong>{{ r.name }}</strong>
+              <span *ngIf="r.isBreak" class="print-tag-break">(Interval)</span>
+              <span *ngIf="isActivitySlot(r)" class="print-tag-act">({{ r.slotType }})</span>
+            </td>
+            <td style="text-align: center;">{{ r.startTime }}</td>
+            <td style="text-align: center;">{{ r.endTime }}</td>
+            <td style="text-align: center; font-weight: 600;">{{ r.timeSlot }}</td>
+            <td style="text-align: center;">{{ getSlotDurationMinutes(r.startTime, r.endTime) }} mins</td>
+            <td style="text-align: center;">{{ r.slotType || (r.isBreak ? 'Break' : 'Teaching') }}</td>
+            <td style="text-align: center;">{{ r.isActive ? 'Active' : 'Inactive' }}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="print-footer-signatures">
+        <div class="print-sign-col">
+          <div class="sign-line"></div>
+          <div class="sign-title">Timetable In-charge</div>
+          <div class="sign-sub">Prepared By</div>
+        </div>
+        <div class="print-sign-col">
+          <div class="sign-line"></div>
+          <div class="sign-title">Academic Coordinator</div>
+          <div class="sign-sub">Verified By</div>
+        </div>
+        <div class="print-sign-col">
+          <div class="sign-seal-box">Institutional Seal / Stamp</div>
+          <div class="sign-line"></div>
+          <div class="sign-title">Principal / Director</div>
+          <div class="sign-sub">Approved By</div>
+        </div>
+      </div>
+
+      <div class="print-system-footer">
+        <span>IMSERP • School & Coaching Management System</span>
+        <span>Official Timings Schedule • Generated in Indian Standard Time (IST)</span>
       </div>
     </div>
   `,
@@ -543,6 +732,36 @@ interface PeriodEditorRow {
     @keyframes panelFadeIn {
       from { opacity: 0; }
       to { opacity: 1; }
+    }
+
+    .btn-header-action {
+      display: inline-flex !important;
+      align-items: center !important;
+      gap: 6px;
+      background: #ffffff;
+      border: 1px solid #bfdbfe;
+      color: #1e40af;
+      font-weight: 600;
+      font-size: 0.84rem;
+      border-radius: 8px;
+      padding: 0 14px;
+      height: 40px;
+      box-sizing: border-box;
+      cursor: pointer;
+      white-space: nowrap !important;
+      flex-shrink: 0;
+      transition: all 0.2s;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+      &:hover:not(:disabled) {
+        background: #eff6ff;
+        border-color: #93c5fd;
+        color: #1d4ed8;
+      }
+      &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      mat-icon { font-size: 18px; width: 18px; height: 18px; color: #2563eb; }
     }
 
     .btn-save-master {
@@ -806,6 +1025,39 @@ interface PeriodEditorRow {
       }
     }
 
+    .table-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .btn-table-action {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      color: #334155;
+      font-weight: 600;
+      font-size: 0.82rem;
+      border-radius: 6px;
+      padding: 6px 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+      &:hover:not(:disabled) {
+        background: #f1f5f9;
+        border-color: #94a3b8;
+        color: #0f172a;
+      }
+      &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      mat-icon { font-size: 17px; width: 17px; height: 17px; color: #2563eb; }
+    }
+
     .btn-add-row {
       display: flex;
       align-items: center;
@@ -819,6 +1071,7 @@ interface PeriodEditorRow {
       padding: 6px 14px;
       cursor: pointer;
       transition: all 0.2s;
+      white-space: nowrap;
       &:hover { background: #dbeafe; }
       mat-icon { font-size: 18px; width: 18px; height: 18px; color: #2563eb; }
     }
@@ -944,27 +1197,162 @@ interface PeriodEditorRow {
       }
     }
 
-    .type-toggle-btn {
+    .type-pill-btn {
       display: inline-flex;
       align-items: center;
-      gap: 4px;
-      background: #f1f5f9;
-      border: 1px solid #cbd5e1;
-      border-radius: 6px;
-      padding: 3px 10px;
-      font-size: 0.75rem;
+      gap: 5px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 0.76rem;
       font-weight: 700;
+      border: 1px solid #cbd5e1;
+      background: #f8fafc;
       color: #475569;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: all 0.2s ease;
+      white-space: nowrap;
 
-      mat-icon { font-size: 14px; width: 14px; height: 14px; color: #2563eb; }
+      &:hover {
+        filter: brightness(0.95);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      }
 
-      &.btn-break {
-        background: #fef3c7;
-        border-color: #fde68a;
-        color: #92400e;
-        mat-icon { color: #d97706; }
+      .slot-badge-icon {
+        font-size: 15px;
+        width: 15px;
+        height: 15px;
+        line-height: 15px;
+      }
+      .slot-badge-label {
+        font-size: 0.76rem;
+      }
+      .slot-badge-arrow {
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+        line-height: 16px;
+        opacity: 0.6;
+        margin-left: -2px;
+      }
+    }
+
+    /* Slot type badge color schemes */
+    .badge-teaching {
+      background: #eff6ff !important;
+      border-color: #bfdbfe !important;
+      color: #1e40af !important;
+      .slot-badge-icon { color: #2563eb !important; }
+    }
+    .badge-break {
+      background: #fef3c7 !important;
+      border-color: #fde68a !important;
+      color: #92400e !important;
+      .slot-badge-icon { color: #d97706 !important; }
+    }
+    .badge-quiz {
+      background: #f3e8ff !important;
+      border-color: #e9d5ff !important;
+      color: #6b21a8 !important;
+      .slot-badge-icon { color: #9333ea !important; }
+    }
+    .badge-play {
+      background: #dcfce7 !important;
+      border-color: #bbf7d0 !important;
+      color: #166534 !important;
+      .slot-badge-icon { color: #16a34a !important; }
+    }
+    .badge-activity {
+      background: #ccfbf1 !important;
+      border-color: #99f6e4 !important;
+      color: #115e59 !important;
+      .slot-badge-icon { color: #0d9488 !important; }
+    }
+    .badge-assembly {
+      background: #ffedd5 !important;
+      border-color: #fed7aa !important;
+      color: #9a3412 !important;
+      .slot-badge-icon { color: #ea580c !important; }
+    }
+    .badge-dance {
+      background: #fce7f3 !important;
+      border-color: #fbcfe8 !important;
+      color: #9d174d !important;
+      .slot-badge-icon { color: #db2777 !important; }
+    }
+    .badge-singing {
+      background: #ede9fe !important;
+      border-color: #ddd6fe !important;
+      color: #5b21b6 !important;
+      .slot-badge-icon { color: #7c3aed !important; }
+    }
+    .badge-art {
+      background: #cffafe !important;
+      border-color: #a5f3fc !important;
+      color: #155e75 !important;
+      .slot-badge-icon { color: #0891b2 !important; }
+    }
+    .badge-drawing {
+      background: #e0e7ff !important;
+      border-color: #c7d2fe !important;
+      color: #3730a3 !important;
+      .slot-badge-icon { color: #4f46e5 !important; }
+    }
+    .badge-antakshri {
+      background: #fef9c3 !important;
+      border-color: #fef08a !important;
+      color: #854d0e !important;
+      .slot-badge-icon { color: #ca8a04 !important; }
+    }
+    .badge-custom {
+      background: #f1f5f9 !important;
+      border-color: #cbd5e1 !important;
+      color: #334155 !important;
+      .slot-badge-icon { color: #64748b !important; }
+    }
+
+    tr.is-activity-row td {
+      background: #faf5ff;
+    }
+
+    .order-badge.activity-order {
+      background: #f3e8ff;
+      color: #7e22ce;
+    }
+
+    .slot-icon-box.is-activity {
+      background: #f3e8ff;
+      color: #9333ea;
+      border-color: #e9d5ff;
+    }
+
+    .preview-slot-pill.activity-pill {
+      background: #f3e8ff;
+      border-color: #e9d5ff;
+      color: #7e22ce;
+    }
+
+    ::ng-deep .slot-type-menu-panel {
+      border-radius: 10px !important;
+      overflow: hidden;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.08) !important;
+
+      .menu-head {
+        padding: 6px 16px;
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: #94a3b8;
+        letter-spacing: 0.5px;
+      }
+      .mat-mdc-menu-item {
+        min-height: 40px;
+        font-size: 0.85rem;
+        mat-icon {
+          margin-right: 10px;
+          font-size: 20px;
+          width: 20px;
+          height: 20px;
+        }
       }
     }
 
@@ -1001,6 +1389,33 @@ interface PeriodEditorRow {
       margin-top: 18px;
       padding-top: 14px;
       border-top: 1px solid #f1f5f9;
+      flex-wrap: wrap;
+      gap: 12px;
+
+      .footer-left-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .btn-footer-report {
+        color: #1e40af !important;
+        font-weight: 600 !important;
+        font-size: 0.82rem !important;
+        border: 1px solid #bfdbfe !important;
+        border-radius: 6px !important;
+        padding: 0 12px !important;
+        height: 38px !important;
+        background: #eff6ff !important;
+        &:hover:not(:disabled) {
+          background: #dbeafe !important;
+        }
+        &:disabled {
+          opacity: 0.5;
+        }
+        mat-icon { font-size: 17px; width: 17px; height: 17px; color: #2563eb; margin-right: 4px; }
+      }
     }
 
     .btn-save-master-bottom {
@@ -1177,6 +1592,215 @@ interface PeriodEditorRow {
         width: calc(100% + 28px);
       }
     }
+
+    /* =========================================================================
+       🖨️ PRINTABLE BELL SCHEDULE STYLES
+       ========================================================================= */
+    .printable-bell-schedule-sheet {
+      display: none;
+    }
+
+    @media print {
+      body {
+        background: #ffffff !important;
+        color: #0f172a !important;
+      }
+
+      .page-container,
+      .page-header,
+      .generator-card,
+      .summary-bar,
+      .slots-table-card,
+      .no-print,
+      mat-progress-bar {
+        display: none !important;
+      }
+
+      ::ng-deep .mat-toolbar,
+      ::ng-deep .sidenav,
+      ::ng-deep .sidebar,
+      ::ng-deep app-footer,
+      ::ng-deep app-quick-settings-drawer,
+      ::ng-deep .app-sidebar,
+      ::ng-deep .app-header {
+        display: none !important;
+      }
+
+      .printable-bell-schedule-sheet {
+        display: block !important;
+        position: relative !important;
+        width: 100% !important;
+        padding: 8mm 12mm !important;
+        background: #ffffff !important;
+        color: #0f172a !important;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+        box-sizing: border-box !important;
+      }
+
+      .print-header {
+        text-align: center;
+        border-bottom: 2px solid #1e3a8a;
+        padding-bottom: 10px;
+        margin-bottom: 14px;
+      }
+
+      .print-brand-badge {
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 1.5px;
+        color: #2563eb;
+        text-transform: uppercase;
+        margin-bottom: 3px;
+      }
+
+      .print-institute-name {
+        font-size: 18pt;
+        font-weight: 800;
+        color: #1e3a8a;
+        margin: 0 0 3px 0;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .print-branch-name {
+        font-size: 10.5pt;
+        font-weight: 600;
+        color: #475569;
+        margin-bottom: 6px;
+      }
+
+      .print-doc-title {
+        font-size: 12pt;
+        font-weight: 700;
+        color: #0f172a;
+        margin: 4px 0 10px 0;
+        background: #eff6ff;
+        padding: 5px 12px;
+        border: 1px solid #bfdbfe;
+        border-radius: 6px;
+        display: inline-block;
+      }
+
+      .print-meta-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 6px;
+        text-align: left;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        padding: 6px 10px;
+        border-radius: 6px;
+        font-size: 8.5pt;
+
+        .meta-item {
+          display: flex;
+          gap: 6px;
+          .meta-lbl { color: #64748b; font-weight: 500; }
+          .meta-val { color: #0f172a; font-weight: 700; }
+        }
+      }
+
+      .print-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 12px;
+        font-size: 9pt;
+
+        th, td {
+          border: 1px solid #cbd5e1;
+          padding: 6px 8px;
+          text-align: left;
+        }
+
+        th {
+          background: #eff6ff !important;
+          color: #1e3a8a !important;
+          font-weight: 700;
+          font-size: 8.5pt;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+
+        tr.print-break-row {
+          background: #fefce8 !important;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+
+        tr.print-act-row {
+          background: #fdf4ff !important;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+
+        .print-tag-break {
+          font-size: 7.5pt;
+          color: #b45309;
+          font-weight: 600;
+          margin-left: 5px;
+        }
+
+        .print-tag-act {
+          font-size: 7.5pt;
+          color: #7e22ce;
+          font-weight: 600;
+          margin-left: 5px;
+        }
+      }
+
+      .print-footer-signatures {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 36px;
+        padding-top: 16px;
+        page-break-inside: avoid;
+
+        .print-sign-col {
+          text-align: center;
+          width: 160px;
+
+          .sign-seal-box {
+            border: 1px dashed #94a3b8;
+            height: 40px;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 7pt;
+            color: #94a3b8;
+            text-transform: uppercase;
+          }
+
+          .sign-line {
+            border-top: 1px solid #0f172a;
+            margin-bottom: 4px;
+          }
+
+          .sign-title {
+            font-size: 9pt;
+            font-weight: 700;
+            color: #0f172a;
+          }
+
+          .sign-sub {
+            font-size: 7.5pt;
+            color: #64748b;
+          }
+        }
+      }
+
+      .print-system-footer {
+        margin-top: 20px;
+        border-top: 1px solid #e2e8f0;
+        padding-top: 6px;
+        display: flex;
+        justify-content: space-between;
+        font-size: 7pt;
+        color: #94a3b8;
+      }
+    }
   `]
 })
 export class PeriodSettingsComponent implements OnInit {
@@ -1191,6 +1815,7 @@ export class PeriodSettingsComponent implements OnInit {
   }
 
   rows: PeriodEditorRow[] = [];
+  activityTypes: SchoolActivityTypeDto[] = [];
 
   // Generator inputs
   genStartTime = '08:00 AM';
@@ -1199,15 +1824,21 @@ export class PeriodSettingsComponent implements OnInit {
   genTotalPeriods = 8;
   genBreakAfter = 4;
   genBreakDuration = 30;
+  genActivityAfter = 0;
+  genActivityType = 'Quiz';
+  genActivityName = 'Quiz Time (प्रश्नोत्तरी)';
+  genActivityDuration = 20;
 
   constructor(
     private schoolService: SchoolService,
     private branchService: BranchService,
-    private confirmDialog: ConfirmDialogService
+    private confirmDialog: ConfirmDialogService,
+    private authService: AuthService
   ) {}
 
   ngOnInit(): void {
     this.loadBranches();
+    this.loadActivityTypes();
     this.loadSlots();
   }
 
@@ -1218,7 +1849,24 @@ export class PeriodSettingsComponent implements OnInit {
     });
   }
 
+  loadActivityTypes(): void {
+    this.schoolService.getActivityTypes(this.effectiveBranchId).subscribe({
+      next: (list) => {
+        this.activityTypes = list || [];
+        if (this.activityTypes.length > 0) {
+          const currentMatches = this.activityTypes.some(a => a.name === this.genActivityType);
+          if (!currentMatches) {
+            this.genActivityType = this.activityTypes[0].name;
+            this.onActivityTypeChange();
+          }
+        }
+      },
+      error: () => this.activityTypes = []
+    });
+  }
+
   onBranchChange(): void {
+    this.loadActivityTypes();
     this.loadSlots();
   }
 
@@ -1235,6 +1883,7 @@ export class PeriodSettingsComponent implements OnInit {
             endTime: s.endTime,
             timeSlot: s.timeSlot,
             isBreak: s.isBreak,
+            slotType: s.slotType || (s.isBreak ? 'Break' : 'Teaching'),
             displayOrder: s.displayOrder || (index + 1),
             isActive: s.isActive
           }));
@@ -1314,6 +1963,166 @@ export class PeriodSettingsComponent implements OnInit {
     this.updateRowTimeSlot(row);
   }
 
+  getPeriodNumbersList(): number[] {
+    const list: number[] = [];
+    for (let i = 1; i <= this.genTotalPeriods; i++) {
+      list.push(i);
+    }
+    return list;
+  }
+
+  onActivityTypeChange(): void {
+    if (this.genActivityType === 'Custom') {
+      this.confirmDialog.prompt(
+        'Add New Activity / Co-Curricular',
+        'Enter the activity name below. It will be saved into the database and available for all period slots.',
+        {
+          inputLabel: 'Activity Name (गतिविधि का नाम)',
+          inputPlaceholder: 'e.g. Yoga, Karate, Robotics, Library...',
+          initialValue: '',
+          confirmText: 'Save to Database',
+          cancelText: 'Cancel',
+          type: 'info',
+          inputType: 'text'
+        }
+      ).subscribe((res) => {
+        if (res && res.trim()) {
+          const clean = res.trim();
+          this.schoolService.createActivityType({
+            branchId: this.effectiveBranchId,
+            name: clean,
+            displayNameHi: clean,
+            icon: 'local_activity',
+            colorHex: '#7e22ce'
+          }).subscribe({
+            next: (created) => {
+              if (!this.activityTypes.some(a => a.name.toLowerCase() === created.name.toLowerCase())) {
+                this.activityTypes.push(created);
+              }
+              this.genActivityType = created.name;
+              this.genActivityName = `${created.name} Session`;
+            }
+          });
+        } else {
+          this.genActivityType = this.activityTypes[0]?.name || 'Quiz';
+        }
+      });
+      return;
+    }
+
+    const found = this.activityTypes.find(a => a.name === this.genActivityType);
+    if (found) {
+      this.genActivityName = found.displayNameHi ? `${found.name} (${found.displayNameHi})` : `${found.name} Session`;
+    } else {
+      this.genActivityName = `${this.genActivityType} Session`;
+    }
+  }
+
+  get activityCount(): number {
+    return this.rows.filter(r => !r.isBreak && r.slotType && r.slotType !== 'Teaching' && r.isActive).length;
+  }
+
+  isActivitySlot(row: PeriodEditorRow): boolean {
+    return !row.isBreak && !!row.slotType && row.slotType !== 'Teaching';
+  }
+
+  getSlotTypeIcon(type: string | undefined): string {
+    if (!type || type === 'Teaching') return 'school';
+    if (type === 'Break') return 'restaurant';
+    const found = this.activityTypes.find(a => a.name.toLowerCase() === type.toLowerCase());
+    if (found && found.icon) return found.icon;
+    switch (type) {
+      case 'Quiz': return 'psychology';
+      case 'Play': return 'sports_soccer';
+      case 'Activity': return 'local_activity';
+      case 'Assembly': return 'groups';
+      case 'Dance': return 'music_note';
+      case 'Singing': return 'mic';
+      case 'Art': return 'palette';
+      case 'Drawing': return 'brush';
+      case 'Antakshri': return 'celebration';
+      default: return 'local_activity';
+    }
+  }
+
+  getSlotBadgeClass(type: string | undefined): string {
+    switch (type) {
+      case 'Teaching': return 'badge-teaching';
+      case 'Break': return 'badge-break';
+      case 'Quiz': return 'badge-quiz';
+      case 'Play': return 'badge-play';
+      case 'Activity': return 'badge-activity';
+      case 'Assembly': return 'badge-assembly';
+      case 'Dance': return 'badge-dance';
+      case 'Singing': return 'badge-singing';
+      case 'Art': return 'badge-art';
+      case 'Drawing': return 'badge-drawing';
+      case 'Antakshri': return 'badge-antakshri';
+      default: return 'badge-custom';
+    }
+  }
+
+  setRowType(row: PeriodEditorRow, type: string): void {
+    row.slotType = type;
+    if (type === 'Break') {
+      row.isBreak = true;
+      if (!row.name || row.name.startsWith('Period')) {
+        row.name = 'Recess / Lunch Break';
+      }
+    } else if (type === 'Teaching') {
+      row.isBreak = false;
+      if (!row.name || row.name === 'Recess / Lunch Break') {
+        const teachingIndex = this.rows.filter((r) => !r.isBreak && r.slotType === 'Teaching' && this.rows.indexOf(r) < this.rows.indexOf(row)).length + 1;
+        row.name = `Period ${teachingIndex}`;
+      }
+    } else {
+      row.isBreak = false;
+      const found = this.activityTypes.find(a => a.name.toLowerCase() === type.toLowerCase());
+      const defaultName = found ? (found.displayNameHi ? `${found.name} (${found.displayNameHi})` : `${found.name} Session`) : `${type} Activity`;
+      if (!row.name || row.name.startsWith('Period') || row.name === 'Recess / Lunch Break') {
+        row.name = defaultName;
+      }
+    }
+  }
+
+  promptCustomType(row: PeriodEditorRow): void {
+    this.confirmDialog.prompt(
+      'Add New Activity to Database',
+      'Enter the activity name below. It will be saved into the database and assigned to this period slot:',
+      {
+        inputLabel: 'Activity Name (गतिविधि का नाम)',
+        inputPlaceholder: 'e.g. Yoga, Karate, Robotics, Library...',
+        initialValue: (row.slotType && row.slotType !== 'Teaching' && row.slotType !== 'Break') ? row.slotType : '',
+        confirmText: 'Save & Assign',
+        cancelText: 'Cancel',
+        type: 'info',
+        inputType: 'text'
+      }
+    ).subscribe((res) => {
+      if (res && res.trim()) {
+        const clean = res.trim();
+        this.schoolService.createActivityType({
+          branchId: this.effectiveBranchId,
+          name: clean,
+          displayNameHi: clean,
+          icon: 'local_activity',
+          colorHex: '#7e22ce'
+        }).subscribe({
+          next: (created) => {
+            if (!this.activityTypes.some(a => a.name.toLowerCase() === created.name.toLowerCase())) {
+              this.activityTypes.push(created);
+            }
+            row.slotType = created.name;
+            row.isBreak = false;
+            if (!row.name || row.name.startsWith('Period') || row.name === 'Recess / Lunch Break') {
+              row.name = created.name;
+            }
+          }
+        });
+      }
+    });
+  }
+
   generateSchedule(showAlert: boolean = true): void {
     // Generate locally for snappy UI response
     const startParts = this.parseTimeStr(this.genStartTime);
@@ -1338,12 +2147,14 @@ export class PeriodSettingsComponent implements OnInit {
         endTime: eStr,
         timeSlot: `${sStr} - ${eStr}`,
         isBreak: false,
+        slotType: 'Teaching',
         displayOrder: order++,
         isActive: true
       });
 
       periodNum++;
 
+      // Lunch break after period i
       if (this.genBreakAfter > 0 && i === Number(this.genBreakAfter) && this.genBreakDuration > 0) {
         const bStart = new Date(curDate);
         curDate.setMinutes(curDate.getMinutes() + Number(this.genBreakDuration));
@@ -1358,6 +2169,30 @@ export class PeriodSettingsComponent implements OnInit {
           endTime: beStr,
           timeSlot: `${bsStr} - ${beStr}`,
           isBreak: true,
+          slotType: 'Break',
+          displayOrder: order++,
+          isActive: true
+        });
+      }
+
+      // Dynamic activity slot after period i
+      if (this.genActivityAfter > 0 && i === Number(this.genActivityAfter) && this.genActivityDuration > 0) {
+        const actStart = new Date(curDate);
+        curDate.setMinutes(curDate.getMinutes() + Number(this.genActivityDuration));
+        const actEnd = new Date(curDate);
+
+        const asStr = this.formatTimeStr(actStart);
+        const aeStr = this.formatTimeStr(actEnd);
+        const actType = this.genActivityType || 'Activity';
+        const actName = this.genActivityName ? this.genActivityName.trim() : `${actType} Slot`;
+
+        generated.push({
+          name: actName,
+          startTime: asStr,
+          endTime: aeStr,
+          timeSlot: `${asStr} - ${aeStr}`,
+          isBreak: false,
+          slotType: actType,
           displayOrder: order++,
           isActive: true
         });
@@ -1368,8 +2203,10 @@ export class PeriodSettingsComponent implements OnInit {
 
     if (showAlert) {
       const lastRow = generated[generated.length - 1];
-      const recessInfoEn = this.genBreakAfter > 0 ? `${this.genBreakDuration} mins recess break` : 'No recess break';
-      const recessInfoHi = this.genBreakAfter > 0 ? `${this.genBreakDuration} मिनट का लंच/रिसेस ब्रेक` : 'कोई ब्रेक नहीं';
+      const recessInfoEn = this.genBreakAfter > 0 ? `${this.genBreakDuration} mins recess` : 'No recess break';
+      const recessInfoHi = this.genBreakAfter > 0 ? `${this.genBreakDuration} मिनट का लंच/रिसेस` : 'कोई ब्रेक नहीं';
+      const activityInfoEn = this.genActivityAfter > 0 ? `${this.genActivityDuration} mins ${this.genActivityType}` : 'None';
+      const activityInfoHi = this.genActivityAfter > 0 ? `${this.genActivityDuration} मिनट की गतिविधि (${this.genActivityType})` : 'कोई नहीं';
 
       this.confirmDialog.bilingualAlert({
         titleEn: 'Schedule Generated Successfully!',
@@ -1388,9 +2225,13 @@ export class PeriodSettingsComponent implements OnInit {
             <span style="background: #fefce8; color: #a16207; border: 1px solid #fef08a; padding: 2px 8px; border-radius: 6px; font-size: 0.8rem; font-weight: 600;">
               Recess: ${recessInfoEn}
             </span>
+            ${this.genActivityAfter > 0 ? `
+            <span style="background: #fdf4ff; color: #9333ea; border: 1px solid #f0abfc; padding: 2px 8px; border-radius: 6px; font-size: 0.8rem; font-weight: 600;">
+              Activity: ${activityInfoEn}
+            </span>` : ''}
           </div>
           <p style="margin: 0; color: #475569; line-height: 1.6;">
-            All ${generated.length} period slots have been calculated. Please review the timings in the table below and click <strong>'Save Schedule'</strong> to apply changes to the database.
+            All ${generated.length} period slots have been calculated. You can customize slot types (Quiz, Play, Dance, etc.) directly in the table below and click <strong>'Save Schedule'</strong> to apply changes to the database.
           </p>
         `,
         messageHi: `
@@ -1407,9 +2248,13 @@ export class PeriodSettingsComponent implements OnInit {
             <span style="background: #fefce8; color: #a16207; border: 1px solid #fef08a; padding: 2px 8px; border-radius: 6px; font-size: 0.8rem; font-weight: 600;">
               इंटरवल/लंच: ${recessInfoHi}
             </span>
+            ${this.genActivityAfter > 0 ? `
+            <span style="background: #fdf4ff; color: #9333ea; border: 1px solid #f0abfc; padding: 2px 8px; border-radius: 6px; font-size: 0.8rem; font-weight: 600;">
+              गतिविधि: ${activityInfoHi}
+            </span>` : ''}
           </div>
           <p style="margin: 0; color: #475569; line-height: 1.6;">
-            कुल ${generated.length} पीरियड स्लॉट्स सफलतापूर्वक जनरेट कर लिए गए हैं। कृपया नीचे दी गई तालिका में समय की समीक्षा करें और डेटाबेस में सुरक्षित करने के लिए <strong>'Save Schedule'</strong> बटन पर क्लिक करें।
+            कुल ${generated.length} पीरियड स्लॉट्स सफलतापूर्वक जनरेट कर लिए गए हैं। आप नीचे दी गई तालिका में किसी भी स्लॉट को Quiz, Dance, Sports आदि में बदल सकते हैं और डेटाबेस में सुरक्षित करने के लिए <strong>'Save Schedule'</strong> बटन पर क्लिक करें।
           </p>
         `,
         type: 'success'
@@ -1430,13 +2275,14 @@ export class PeriodSettingsComponent implements OnInit {
       endStr = this.formatTimeStr(d);
     }
 
-    const nextNum = this.rows.filter(r => !r.isBreak).length + 1;
+    const nextNum = this.rows.filter(r => !r.isBreak && r.slotType === 'Teaching').length + 1;
     this.rows.push({
       name: `Period ${nextNum}`,
       startTime: startStr,
       endTime: endStr,
       timeSlot: `${startStr} - ${endStr}`,
       isBreak: false,
+      slotType: 'Teaching',
       displayOrder: this.rows.length + 1,
       isActive: true
     });
@@ -1484,7 +2330,8 @@ export class PeriodSettingsComponent implements OnInit {
         startTime: r.startTime.trim(),
         endTime: r.endTime.trim(),
         timeSlot: r.timeSlot.trim(),
-        isBreak: r.isBreak,
+        isBreak: r.isBreak || (r.slotType === 'Break'),
+        slotType: r.slotType || (r.isBreak ? 'Break' : 'Teaching'),
         displayOrder: idx + 1,
         isActive: r.isActive
       }))
@@ -1548,7 +2395,7 @@ export class PeriodSettingsComponent implements OnInit {
   }
 
   get teachingPeriodCount(): number {
-    return this.rows.filter(r => !r.isBreak && r.isActive).length;
+    return this.rows.filter(r => !r.isBreak && (r.slotType === 'Teaching' || !r.slotType) && r.isActive).length;
   }
 
   get breakCount(): number {
@@ -1574,6 +2421,64 @@ export class PeriodSettingsComponent implements OnInit {
     if (!bId) return 'All Branches (Default / Main Campus)';
     const b = this.branches.find(x => x.id === bId);
     return b ? `${b.name} (${b.code})` : 'All Branches (Default / Main Campus)';
+  }
+
+  get instituteName(): string {
+    return this.authService.currentUser()?.instituteName || 'Jnandeep Campus';
+  }
+
+  get reportGeneratedOnIst(): string {
+    const d = new Date();
+    return d.toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      dateStyle: 'medium',
+      timeStyle: 'short'
+    });
+  }
+
+  getSlotDurationMinutes(startTime: string, endTime: string): number {
+    if (!startTime || !endTime) return 0;
+    const s = this.parseTimeStr(startTime);
+    const e = this.parseTimeStr(endTime);
+    let diff = (e.hours * 60 + e.minutes) - (s.hours * 60 + s.minutes);
+    if (diff < 0) diff += 24 * 60;
+    return diff;
+  }
+
+  exportToCsv(): void {
+    if (this.rows.length === 0) return;
+
+    let csvContent = 'Order,Slot / Period Name,Start Time,End Time,Time Slot,Duration (Minutes),Slot Type,Is Break,Status\n';
+
+    this.rows.forEach((r, idx) => {
+      const duration = this.getSlotDurationMinutes(r.startTime, r.endTime);
+      const slotType = r.slotType || (r.isBreak ? 'Break' : 'Teaching');
+      const isBreak = r.isBreak ? 'Yes' : 'No';
+      const status = r.isActive ? 'Active' : 'Inactive';
+
+      const escapedName = `"${(r.name || '').replace(/"/g, '""')}"`;
+      const escapedSlot = `"${(r.timeSlot || '').replace(/"/g, '""')}"`;
+
+      csvContent += `${idx + 1},${escapedName},"${r.startTime}","${r.endTime}",${escapedSlot},${duration},"${slotType}","${isBreak}","${status}"\n`;
+    });
+
+    const branchSlug = (this.currentScopeText || 'School').replace(/[^a-zA-Z0-9]/g, '_');
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const filename = `School_Bell_Timings_${branchSlug}_${dateStr}.csv`;
+
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  printReport(): void {
+    window.print();
   }
 
   private parseTimeStr(tStr: string): { hours: number; minutes: number } {

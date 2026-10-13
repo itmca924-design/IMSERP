@@ -4,7 +4,9 @@ using Microsoft.EntityFrameworkCore;
 using IMSERP.Application.DTOs;
 using IMSERP.Application.Interfaces;
 using IMSERP.Domain.Entities;
+using IMSERP.Domain.Enums;
 using IMSERP.API.Helpers;
+using System.Text.Json;
 
 namespace IMSERP.API.Controllers;
 
@@ -680,6 +682,219 @@ public class HomeworkController : ControllerBase
 
         await _db.SaveChangesAsync();
         return Ok(new { message = "Submission review updated successfully." });
+    }
+
+    private static DateTime GetIstToday()
+    {
+        try
+        {
+            var istZone = TimeZoneInfo.FindSystemTimeZoneById("India Standard Time");
+            return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, istZone).Date;
+        }
+        catch
+        {
+            return DateTime.UtcNow.AddHours(5).AddMinutes(30).Date;
+        }
+    }
+
+    // =========================================================================
+    // DAILY CLASSWORK & HOMEWORK DIARY APIS
+    // =========================================================================
+
+    [HttpGet("daily-diary")]
+    public async Task<ActionResult<IEnumerable<DailyStudentDiaryRowDto>>> GetDailyDiaryList(
+        [FromQuery] DateTime? date,
+        [FromQuery] Guid? classId,
+        [FromQuery] Guid? sectionId)
+    {
+        var tenantId = _currentUser.TenantId;
+        var targetDate = (date ?? GetIstToday()).Date;
+
+        var studentsQuery = _db.Students.AsNoTracking()
+            .Include(s => s.Class)
+            .Include(s => s.Section)
+            .Where(s => s.TenantId == tenantId && s.IsActive != false && (s.JoiningDate == default || s.JoiningDate.Date <= targetDate));
+
+        if (classId.HasValue && classId.Value != Guid.Empty)
+            studentsQuery = studentsQuery.Where(s => s.ClassId == classId.Value);
+
+        if (sectionId.HasValue && sectionId.Value != Guid.Empty)
+            studentsQuery = studentsQuery.Where(s => s.SectionId == sectionId.Value);
+
+        if (_currentUser.BranchId.HasValue)
+        {
+            var branchId = _currentUser.BranchId.Value;
+            studentsQuery = studentsQuery.Where(s => !s.BranchId.HasValue || s.BranchId == branchId);
+        }
+
+        var students = await studentsQuery
+            .OrderBy(s => s.SchoolRollNumber)
+            .ThenBy(s => s.RollNumber)
+            .ThenBy(s => s.StudentName)
+            .ToListAsync();
+
+        var studentIds = students.Select(s => s.Id).ToList();
+
+        // 1. Fetch attendance records for this date
+        var attendances = await _db.StudentAttendances.AsNoTracking()
+            .Where(a => a.TenantId == tenantId && a.AttendanceDate == targetDate && studentIds.Contains(a.StudentId))
+            .ToDictionaryAsync(a => a.StudentId);
+
+        // 2. Fetch existing daily diaries for this date
+        var diaries = await _db.DailyStudentDiaries.AsNoTracking()
+            .Where(d => d.TenantId == tenantId && d.DiaryDate == targetDate && studentIds.Contains(d.StudentId))
+            .ToDictionaryAsync(d => d.StudentId);
+
+        var result = students.Select(st =>
+        {
+            diaries.TryGetValue(st.Id, out var diary);
+            attendances.TryGetValue(st.Id, out var att);
+
+            bool isAbsent = diary != null 
+                ? diary.IsAbsent 
+                : (att != null && att.Status == TeacherAttendanceStatus.Absent);
+
+            var cwList = new List<DailySubjectTaskItem>();
+            var hwList = new List<DailySubjectTaskItem>();
+
+            if (diary != null)
+            {
+                if (!string.IsNullOrWhiteSpace(diary.ClassWorkJson))
+                {
+                    try { cwList = JsonSerializer.Deserialize<List<DailySubjectTaskItem>>(diary.ClassWorkJson) ?? new(); } catch { }
+                }
+                if (!string.IsNullOrWhiteSpace(diary.HomeWorkJson))
+                {
+                    try { hwList = JsonSerializer.Deserialize<List<DailySubjectTaskItem>>(diary.HomeWorkJson) ?? new(); } catch { }
+                }
+            }
+
+            return new DailyStudentDiaryRowDto(
+                st.Id,
+                st.StudentName,
+                st.SchoolRollNumber ?? st.RollNumber ?? "",
+                st.AdmissionNumber,
+                st.ClassId,
+                st.Class != null ? st.Class.Name : null,
+                st.SectionId,
+                st.Section != null ? st.Section.Name : null,
+                isAbsent,
+                cwList,
+                hwList,
+                diary?.TeacherRemarks,
+                diary?.Id
+            );
+        }).ToList();
+
+        return Ok(result);
+    }
+
+    [HttpPost("daily-diary/bulk")]
+    public async Task<IActionResult> SaveBulkDailyDiary([FromBody] BulkSaveDailyStudentDiaryDto dto)
+    {
+        if (dto.Items == null || dto.Items.Count == 0)
+            return BadRequest(new { message = "No diary items provided." });
+
+        var tenantId = _currentUser.TenantId;
+        var targetDate = dto.DiaryDate.Date;
+        var studentIds = dto.Items.Select(i => i.StudentId).ToList();
+
+        var existingDiaries = await _db.DailyStudentDiaries
+            .Where(d => d.TenantId == tenantId && d.DiaryDate == targetDate && studentIds.Contains(d.StudentId))
+            .ToDictionaryAsync(d => d.StudentId);
+
+        var students = await _db.Students.AsNoTracking()
+            .Where(s => s.TenantId == tenantId && studentIds.Contains(s.Id))
+            .ToDictionaryAsync(s => s.Id);
+
+        var now = DateTime.UtcNow;
+
+        foreach (var item in dto.Items)
+        {
+            if (!students.TryGetValue(item.StudentId, out var student)) continue;
+
+            string? cwJson = item.ClassWork != null && item.ClassWork.Count > 0 
+                ? JsonSerializer.Serialize(item.ClassWork) : null;
+            string? hwJson = item.HomeWork != null && item.HomeWork.Count > 0 
+                ? JsonSerializer.Serialize(item.HomeWork) : null;
+
+            if (existingDiaries.TryGetValue(item.StudentId, out var existing))
+            {
+                existing.ClassWorkJson = cwJson;
+                existing.HomeWorkJson = hwJson;
+                existing.IsAbsent = item.IsAbsent;
+                existing.TeacherRemarks = item.Remarks;
+                existing.UpdatedAt = now;
+            }
+            else
+            {
+                var newDiary = new DailyStudentDiary
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    BranchId = student.BranchId ?? _currentUser.BranchId,
+                    StudentId = item.StudentId,
+                    ClassId = dto.ClassId ?? student.ClassId,
+                    SectionId = dto.SectionId ?? student.SectionId,
+                    DiaryDate = targetDate,
+                    ClassWorkJson = cwJson,
+                    HomeWorkJson = hwJson,
+                    IsAbsent = item.IsAbsent,
+                    TeacherRemarks = item.Remarks,
+                    TeacherId = null,
+                    CreatedAt = now,
+                    UpdatedAt = now
+                };
+                _db.DailyStudentDiaries.Add(newDiary);
+            }
+        }
+
+        await _db.SaveChangesAsync();
+        return Ok(new { message = "Daily classwork & homework diary saved successfully!" });
+    }
+
+    [HttpGet("daily-diary/report")]
+    public async Task<ActionResult<DailyDiaryReportHeaderDto>> GetDailyDiaryReport(
+        [FromQuery] DateTime? date,
+        [FromQuery] Guid? classId,
+        [FromQuery] Guid? sectionId)
+    {
+        var tenantId = _currentUser.TenantId;
+        var targetDate = (date ?? GetIstToday()).Date;
+
+        var tenant = await _db.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.Id == tenantId);
+        var branch = _currentUser.BranchId.HasValue 
+            ? await _db.Branches.AsNoTracking().FirstOrDefaultAsync(b => b.Id == _currentUser.BranchId.Value) 
+            : null;
+
+        string? className = null;
+        if (classId.HasValue && classId.Value != Guid.Empty)
+        {
+            var cls = await _db.SchoolClasses.AsNoTracking().FirstOrDefaultAsync(c => c.Id == classId.Value);
+            className = cls?.Name;
+        }
+
+        string? sectionName = null;
+        if (sectionId.HasValue && sectionId.Value != Guid.Empty)
+        {
+            var sec = await _db.SchoolSections.AsNoTracking().FirstOrDefaultAsync(s => s.Id == sectionId.Value);
+            sectionName = sec?.Name;
+        }
+
+        var diaryActionResult = await GetDailyDiaryList(targetDate, classId, sectionId);
+        var rows = (diaryActionResult.Result as OkObjectResult)?.Value as List<DailyStudentDiaryRowDto> ?? new();
+
+        var header = new DailyDiaryReportHeaderDto(
+            tenant?.Name ?? "Jnandeep Campus",
+            branch?.Address ?? tenant?.Address ?? "Anjani, Parsa, Saran, Bihar",
+            "STUDENT DAILY CLASS WORK & HOME WORK REPORT",
+            targetDate,
+            className,
+            sectionName,
+            rows
+        );
+
+        return Ok(header);
     }
 
     private async Task<Student?> ResolveCurrentStudentAsync()

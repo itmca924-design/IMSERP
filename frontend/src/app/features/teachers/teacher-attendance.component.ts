@@ -1051,13 +1051,39 @@ export class TeacherAttendanceComponent implements OnInit {
   saving = false;
   showMarkForm = false;
   canEditPublicHolidayOrSunday = false;
-  todayStr = new Date().toISOString().split('T')[0];
+
+  private static getTodayIstDateParts(): { year: number; month: number; day: number; str: string } {
+    try {
+      const parts = new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      }).formatToParts(new Date());
+      const year = parseInt(parts.find(p => p.type === 'year')?.value || '2026', 10);
+      const month = parseInt(parts.find(p => p.type === 'month')?.value || '10', 10);
+      const day = parseInt(parts.find(p => p.type === 'day')?.value || '13', 10);
+      const str = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      return { year, month, day, str };
+    } catch {
+      const d = new Date();
+      const year = d.getFullYear();
+      const month = d.getMonth() + 1;
+      const day = d.getDate();
+      return { year, month, day, str: `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}` };
+    }
+  }
+
+  get todayStr(): string {
+    return TeacherAttendanceComponent.getTodayIstDateParts().str;
+  }
+
   attendanceMode: AttendanceSettingsDto['teacherMode'] = 'Both';
   private attendanceSettings: AttendanceSettingsDto = { studentMode: 'Both', teacherMode: 'Both' };
   attendancePermissions: AttendancePermissionsDto = { canChangeMode: false, canManualMark: false, canBiometricCapture: false, canMapBiometric: false, canCorrectAttendance: false };
 
-  attMonth = new Date().getMonth() + 1;
-  attYear = new Date().getFullYear();
+  attMonth = TeacherAttendanceComponent.getTodayIstDateParts().month;
+  attYear = TeacherAttendanceComponent.getTodayIstDateParts().year;
 
   months = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -1066,7 +1092,7 @@ export class TeacherAttendanceComponent implements OnInit {
   years = [2024, 2025, 2026, 2027];
 
   markData: any = {
-    attendanceDate: new Date().toISOString().split('T')[0],
+    attendanceDate: TeacherAttendanceComponent.getTodayIstDateParts().str,
     status: 'Present',
     checkInTime: '08:00',
     checkOutTime: '17:00',
@@ -1411,7 +1437,7 @@ export class TeacherAttendanceComponent implements OnInit {
 
   buildCalendarGrid() {
     const daysInMonth = new Date(this.attYear, this.attMonth, 0).getDate();
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = this.todayStr;
     const items: CalendarDayItem[] = [];
 
     const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -1762,7 +1788,7 @@ export class TeacherAttendanceComponent implements OnInit {
 
   quickMarkTodayPresent() {
     if (!this.selectedTeacher) return;
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = this.todayStr;
     this.markData.attendanceDate = todayStr;
     this.markData.status = 'Present';
     this.markData.checkInTime = this.attendanceSettings?.teacherShiftStartTime || '08:00';

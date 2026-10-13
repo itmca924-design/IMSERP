@@ -1,8 +1,10 @@
-import { Component, OnInit, ViewChild } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
+import { Subject, Subscription } from 'rxjs';
+import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { MatTableModule } from '@angular/material/table';
 import { MatPaginator, MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatSort, MatSortModule, Sort } from '@angular/material/sort';
@@ -111,7 +113,7 @@ interface ClassSubjectRowState {
               <div class="filter-toolbar">
                 <mat-form-field appearance="outline" class="search-field">
                   <mat-label>Search Subjects...</mat-label>
-                  <input matInput [(ngModel)]="searchTerm" (keyup.enter)="onSearch()" placeholder="Search by name, code or description" />
+                  <input matInput [(ngModel)]="searchTerm" (ngModelChange)="onSearchInput($event)" (input)="onSearchInput(searchTerm)" (keyup.enter)="onSearch()" placeholder="Search by name, code or description" />
                   <button *ngIf="searchTerm" matSuffix mat-icon-button aria-label="Clear" (click)="clearSearch()">
                     <mat-icon>close</mat-icon>
                   </button>
@@ -888,7 +890,7 @@ interface ClassSubjectRowState {
     }
   `]
 })
-export class SubjectsComponent implements OnInit {
+export class SubjectsComponent implements OnInit, OnDestroy {
   activeTabIndex = 0;
 
   // TAB 1: Catalog
@@ -902,6 +904,9 @@ export class SubjectsComponent implements OnInit {
   sortBy = 'name';
   sortDescending = false;
   statusFilter: boolean | null = null;
+
+  private searchSubject = new Subject<string>();
+  private searchSub?: Subscription;
 
   @ViewChild(MatPaginator) paginator!: MatPaginator;
   @ViewChild(MatSort) sort!: MatSort;
@@ -926,6 +931,18 @@ export class SubjectsComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    this.searchSub = this.searchSubject.pipe(
+      debounceTime(300),
+      distinctUntilChanged()
+    ).subscribe((term) => {
+      this.searchTerm = term;
+      this.pageIndex = 0;
+      if (this.paginator) {
+        this.paginator.pageIndex = 0;
+      }
+      this.loadSubjects();
+    });
+
     this.route.queryParams.subscribe(params => {
       if (params['tab'] !== undefined) {
         this.activeTabIndex = Number(params['tab']);
@@ -937,6 +954,10 @@ export class SubjectsComponent implements OnInit {
 
     this.loadSubjects();
     this.loadClassAllocationMasters();
+  }
+
+  ngOnDestroy(): void {
+    this.searchSub?.unsubscribe();
   }
 
   onTabChange(index: number): void {
@@ -985,19 +1006,33 @@ export class SubjectsComponent implements OnInit {
     this.loadSubjects();
   }
 
+  onSearchInput(val: string): void {
+    this.searchSubject.next(val || '');
+  }
+
   onStatusFilterChange(): void {
     this.pageIndex = 0;
+    if (this.paginator) {
+      this.paginator.pageIndex = 0;
+    }
     this.loadSubjects();
   }
 
   onSearch(): void {
     this.pageIndex = 0;
+    if (this.paginator) {
+      this.paginator.pageIndex = 0;
+    }
     this.loadSubjects();
   }
 
   clearSearch(): void {
     this.searchTerm = '';
+    this.searchSubject.next('');
     this.pageIndex = 0;
+    if (this.paginator) {
+      this.paginator.pageIndex = 0;
+    }
     this.loadSubjects();
   }
 

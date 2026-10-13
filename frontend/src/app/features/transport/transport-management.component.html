@@ -422,6 +422,9 @@
                 <td>₹{{ (s.annualFare || s.monthlyFare * 11) | number }}</td>
                 <td><span class="riders-count-pill">{{ s.allocatedStudentsCount || 0 }}</span></td>
                 <td style="text-align: right;">
+                  <button mat-icon-button color="primary" (click)="openEditStop(r, s)" matTooltip="Edit Stop &amp; Fares">
+                    <mat-icon>edit</mat-icon>
+                  </button>
                   <button mat-icon-button color="warn" (click)="deleteStop(s)" matTooltip="Remove Stop">
                     <mat-icon>delete_outline</mat-icon>
                   </button>
@@ -1080,8 +1083,8 @@
           <mat-icon>add_location_alt</mat-icon>
         </div>
         <div>
-          <h3 class="modal-title">Add Boarding Stop to {{ selectedRouteForStops?.routeCode }}</h3>
-          <p class="modal-subtitle">Specify pickup time and distance-based fare heads</p>
+          <h3 class="modal-title">{{ editingStopId ? 'Edit Boarding Stop in ' + selectedRouteForStops?.routeCode : 'Add Boarding Stop to ' + selectedRouteForStops?.routeCode }}</h3>
+          <p class="modal-subtitle">{{ editingStopId ? 'Update stop timings, distance, and distance-based fare heads' : 'Specify pickup time and distance-based fare heads' }}</p>
         </div>
       </div>
       <button class="modal-close-btn" (click)="showStopModal = false"><mat-icon>close</mat-icon></button>
@@ -1111,25 +1114,50 @@
           </mat-form-field>
 
           <mat-form-field appearance="outline">
-            <mat-label>Monthly Fare (₹) *</mat-label>
-            <input matInput type="number" formControlName="monthlyFare" min="0" />
-            <span matPrefix>₹&nbsp;</span>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline">
-            <mat-label>Quarterly Fare (₹)</mat-label>
-            <input matInput type="number" formControlName="quarterlyFare" min="0" />
-            <span matPrefix>₹&nbsp;</span>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline">
             <mat-label>Distance from Campus (km)</mat-label>
-            <input matInput type="number" formControlName="distanceKm" min="0" />
+            <input matInput type="number" formControlName="distanceKm" min="0" step="0.5" />
           </mat-form-field>
 
           <mat-form-field appearance="outline">
             <mat-label>Landmark</mat-label>
             <input matInput formControlName="landmark" placeholder="e.g. Near HDFC Bank ATM" />
+          </mat-form-field>
+
+          <!-- Term Fare Matrix Section Header -->
+          <div class="fare-slabs-header col-span-2">
+            <mat-icon>payments</mat-icon>
+            <div>
+              <strong>Transport Fare Matrix / शुल्क स्लैब (Monthly, Quarterly, Half-Yearly, Annual)</strong>
+              <span>Enter Monthly Fare below &bull; Quarterly, Half-Yearly, and Annual calculate automatically (editable if custom discount needed)</span>
+            </div>
+          </div>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Monthly Fare (1 Month) *</mat-label>
+            <input matInput type="number" formControlName="monthlyFare" min="0" (input)="onStopMonthlyFareChange()" />
+            <span matPrefix>₹&nbsp;</span>
+            <mat-hint>Base fee billed every month</mat-hint>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Quarterly Fare (3 Months)</mat-label>
+            <input matInput type="number" formControlName="quarterlyFare" min="0" />
+            <span matPrefix>₹&nbsp;</span>
+            <mat-hint>3 Months (Auto: Monthly &times; 3)</mat-hint>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Half-Yearly Fare (6 Months)</mat-label>
+            <input matInput type="number" formControlName="halfYearlyFare" min="0" />
+            <span matPrefix>₹&nbsp;</span>
+            <mat-hint>6 Months (Auto: Monthly &times; 6)</mat-hint>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Annual Fare (Full Session)</mat-label>
+            <input matInput type="number" formControlName="annualFare" min="0" />
+            <span matPrefix>₹&nbsp;</span>
+            <mat-hint>11 Months (Auto: Monthly &times; 11)</mat-hint>
           </mat-form-field>
         </div>
       </div>
@@ -1137,7 +1165,7 @@
       <div class="modal-footer">
         <button mat-stroked-button type="button" (click)="showStopModal = false">Cancel</button>
         <button mat-flat-button color="primary" type="submit" [disabled]="stopForm.invalid">
-          <mat-icon>save</mat-icon> Save Stop
+          <mat-icon>save</mat-icon> {{ editingStopId ? 'Update Stop' : 'Save Stop' }}
         </button>
       </div>
     </form>
@@ -1184,29 +1212,145 @@
           <mat-form-field appearance="outline" class="col-span-2" *ngIf="allocationForm.get('memberType')?.value === 'Student'">
             <mat-label>Filter by Class / Batch</mat-label>
             <mat-select [(ngModel)]="selectedAllocationClassFilter" [ngModelOptions]="{standalone: true}" (selectionChange)="onAllocationClassFilterChange()">
-              <mat-option value="ALL">All Classes &amp; Batches ({{ studentsList.length }})</mat-option>
+              <mat-option value="ALL">All Classes &amp; Batches ({{ getGlobalUnassignedStudentsCount() }} Needs Pass &bull; {{ studentAllocations.length }} Assigned)</mat-option>
               
               <mat-optgroup label="School Classes (Nursery to 12th)" *ngIf="schoolClassFilterOptions.length > 0">
                 <mat-option *ngFor="let c of schoolClassFilterOptions" [value]="c.key">
-                  {{ c.name }} ({{ c.count }} students)
+                  {{ c.name }} ({{ c.unassignedCount }} Needs Pass &bull; {{ c.assignedCount }} Assigned)
                 </mat-option>
               </mat-optgroup>
 
               <mat-optgroup label="Coaching Batches" *ngIf="batchFilterOptions.length > 0">
                 <mat-option *ngFor="let b of batchFilterOptions" [value]="b.key">
-                  {{ b.name }} ({{ b.count }} students)
+                  {{ b.name }} ({{ b.unassignedCount }} Needs Pass &bull; {{ b.assignedCount }} Assigned)
                 </mat-option>
               </mat-optgroup>
             </mat-select>
           </mat-form-field>
 
-          <!-- Student Dropdown with Class Grouping -->
-          <mat-form-field appearance="outline" class="col-span-2" *ngIf="allocationForm.get('memberType')?.value === 'Student'">
+          <!-- Student Transport Pass Filter Pills Bar -->
+          <div class="allocation-filter-pills-bar col-span-2" *ngIf="allocationForm.get('memberType')?.value === 'Student' && !editingAllocationId">
+            <div class="af-filter-label">
+              <mat-icon>filter_list</mat-icon>
+              <span>Student Pass Status:</span>
+            </div>
+            <div class="af-pills-container">
+              <button type="button" class="af-pill-btn needs-pass" [class.active]="allocationAssignmentFilter === 'Unassigned'" (click)="setAllocationAssignmentFilter('Unassigned')">
+                <mat-icon>star</mat-icon>
+                <span>Needs Pass ({{ getUnassignedStudentsCount() }})</span>
+              </button>
+              <button type="button" class="af-pill-btn assigned" [class.active]="allocationAssignmentFilter === 'Assigned'" (click)="setAllocationAssignmentFilter('Assigned')">
+                <mat-icon>directions_bus</mat-icon>
+                <span>Already Assigned ({{ getAssignedStudentsCount() }})</span>
+              </button>
+              <button type="button" class="af-pill-btn all" [class.active]="allocationAssignmentFilter === 'All'" (click)="setAllocationAssignmentFilter('All')">
+                <mat-icon>people</mat-icon>
+                <span>All Students ({{ getAllStudentsCount() }})</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Multi-Student Selection Header with Fast Action Controls (When Adding Passes) -->
+          <div class="student-multi-select-header" *ngIf="allocationForm.get('memberType')?.value === 'Student' && !editingAllocationId">
+            <div class="multi-select-title">
+              <mat-icon>group_add</mat-icon>
+              <div>
+                <strong>Assign Transport Pass to Student(s)</strong>
+                <span class="selection-guide">Check one or multiple students for this stop (e.g. siblings / same locality)</span>
+              </div>
+            </div>
+            <div class="multi-select-actions">
+              <button type="button" class="btn-action-text" (click)="selectAllVisibleAllocationStudents()" [title]="'Select all visible students'">
+                <mat-icon>select_all</mat-icon> Select All ({{ getVisibleAllocationStudentsCount() }})
+              </button>
+              <button type="button" class="btn-action-text clear-btn" (click)="clearSelectedAllocationStudents()" *ngIf="selectedStudentIds.length > 0">
+                <mat-icon>clear_all</mat-icon> Clear All
+              </button>
+            </div>
+          </div>
+
+          <!-- Multi-Student Dropdown (When Adding Pass) -->
+          <mat-form-field appearance="outline" class="col-span-2 multi-select-field" *ngIf="allocationForm.get('memberType')?.value === 'Student' && !editingAllocationId">
+            <mat-label>Select Student(s) &bull; Multi-Check Enabled *</mat-label>
+            <mat-select [(ngModel)]="selectedStudentIds" [ngModelOptions]="{standalone: true}" multiple placeholder="Click to choose students...">
+              <mat-select-trigger>
+                <span class="multi-trigger-content" *ngIf="selectedStudentIds.length > 0">
+                  <span class="trigger-badge">{{ selectedStudentIds.length }} Selected</span>
+                  <span class="trigger-names">{{ getSelectedStudentsSummaryText() }}</span>
+                </span>
+                <span class="placeholder-text" *ngIf="selectedStudentIds.length === 0">
+                  Click here to select student(s)... (Tick multiple checkboxes)
+                </span>
+              </mat-select-trigger>
+
+              <mat-optgroup *ngFor="let grp of allocationStudentGroups" [label]="grp.groupName">
+                <mat-option *ngFor="let s of grp.students" [value]="s.id">
+                  <div class="student-option-row">
+                    <div class="student-opt-main">
+                      <span class="student-opt-name">{{ s.studentName }}</span>
+                      <span class="student-pass-badge needs-pass" *ngIf="!isStudentAssigned(s.id)">
+                        <mat-icon>star</mat-icon> Needs Pass
+                      </span>
+                      <span class="student-pass-badge already-assigned" *ngIf="isStudentAssigned(s.id)" [title]="'Assigned: ' + getActiveAllocationForStudent(s.id)?.routeCode + ' (' + getActiveAllocationForStudent(s.id)?.stopName + ')'">
+                        <mat-icon>directions_bus</mat-icon> {{ getActiveAllocationForStudent(s.id)?.routeCode }} &bull; {{ getActiveAllocationForStudent(s.id)?.stopName }}
+                      </span>
+                    </div>
+                    <span class="student-opt-meta">
+                      Roll: <strong>{{ s.schoolRollNumber || s.rollNumber || s.coachingRollNumber || 'N/A' }}</strong>
+                      &bull; {{ s.admissionNumber ? 'Adm: ' + s.admissionNumber : 'No Adm' }}
+                      <span class="student-opt-cls" *ngIf="selectedAllocationClassFilter === 'ALL'">({{ getStudentClassName(s) }})</span>
+                    </span>
+                  </div>
+                </mat-option>
+              </mat-optgroup>
+              <mat-option *ngIf="allocationStudentGroups.length === 0" disabled>
+                ⚠️ No students found for this filter
+              </mat-option>
+            </mat-select>
+            <mat-hint>
+              <span *ngIf="selectedStudentIds.length === 0">Tip: Ek hi boarding stop ke liye aap multiple students ko ek saath tick kar sakte hain.</span>
+              <span *ngIf="selectedStudentIds.length > 0" class="selected-count-hint">✓ {{ selectedStudentIds.length }} student(s) selected</span>
+            </mat-hint>
+          </mat-form-field>
+
+          <!-- Selected Students Preview Chips Box (When Adding Pass) -->
+          <div class="selected-students-pills-box col-span-2" *ngIf="allocationForm.get('memberType')?.value === 'Student' && !editingAllocationId && selectedStudentIds.length > 0">
+            <div class="pills-box-header">
+              <span class="pills-count-tag">
+                <mat-icon>check_circle</mat-icon> {{ selectedStudentIds.length }} Student{{ selectedStudentIds.length > 1 ? 's' : '' }} Selected for this Boarding Stop:
+              </span>
+              <button type="button" class="btn-clear-pills" (click)="clearSelectedAllocationStudents()">Deselect All</button>
+            </div>
+            <div class="pills-list">
+              <span class="student-pill" *ngFor="let st of getSelectedStudentObjects()">
+                <span class="pill-name">{{ st.studentName }}</span>
+                <span class="pill-meta">(Roll: {{ st.schoolRollNumber || st.rollNumber || 'N/A' }})</span>
+                <button type="button" class="pill-remove-btn" (click)="removeSelectedStudent(st.id)" title="Remove student">
+                  <mat-icon>close</mat-icon>
+                </button>
+              </span>
+            </div>
+          </div>
+
+          <!-- Single Student Dropdown (When Editing Existing Pass) -->
+          <mat-form-field appearance="outline" class="col-span-2" *ngIf="allocationForm.get('memberType')?.value === 'Student' && editingAllocationId">
             <mat-label>Select Student *</mat-label>
             <mat-select formControlName="studentId" (selectionChange)="onAllocationStudentSelect($event.value)">
               <mat-optgroup *ngFor="let grp of allocationStudentGroups" [label]="grp.groupName">
                 <mat-option *ngFor="let s of grp.students" [value]="s.id">
-                  {{ s.studentName }} (Roll: {{ s.schoolRollNumber || s.rollNumber || s.coachingRollNumber || 'N/A' }} &bull; {{ s.admissionNumber ? 'Adm: ' + s.admissionNumber : 'No Adm' }})
+                  <div class="student-option-row">
+                    <div class="student-opt-main">
+                      <span class="student-opt-name">{{ s.studentName }}</span>
+                      <span class="student-pass-badge already-assigned" *ngIf="isStudentAssigned(s.id)">
+                        <mat-icon>directions_bus</mat-icon> Active Pass
+                      </span>
+                    </div>
+                    <span class="student-opt-meta">
+                      Roll: <strong>{{ s.schoolRollNumber || s.rollNumber || s.coachingRollNumber || 'N/A' }}</strong>
+                      &bull; {{ s.admissionNumber ? 'Adm: ' + s.admissionNumber : 'No Adm' }}
+                      <span class="student-opt-cls">({{ getStudentClassName(s) }})</span>
+                    </span>
+                  </div>
                 </mat-option>
               </mat-optgroup>
               <mat-option *ngIf="allocationStudentGroups.length === 0" disabled>
@@ -1218,12 +1362,50 @@
             </mat-hint>
           </mat-form-field>
 
+          <!-- Teacher Transport Pass Filter Pills Bar -->
+          <div class="allocation-filter-pills-bar col-span-2" *ngIf="allocationForm.get('memberType')?.value === 'Teacher' && !editingAllocationId">
+            <div class="af-filter-label">
+              <mat-icon>filter_list</mat-icon>
+              <span>Staff Pass Status:</span>
+            </div>
+            <div class="af-pills-container">
+              <button type="button" class="af-pill-btn needs-pass" [class.active]="teacherAssignmentFilter === 'Unassigned'" (click)="setTeacherAssignmentFilter('Unassigned')">
+                <mat-icon>star</mat-icon>
+                <span>Needs Pass ({{ getUnassignedTeachersCount() }})</span>
+              </button>
+              <button type="button" class="af-pill-btn assigned" [class.active]="teacherAssignmentFilter === 'Assigned'" (click)="setTeacherAssignmentFilter('Assigned')">
+                <mat-icon>directions_bus</mat-icon>
+                <span>Already Assigned ({{ getAssignedTeachersCount() }})</span>
+              </button>
+              <button type="button" class="af-pill-btn all" [class.active]="teacherAssignmentFilter === 'All'" (click)="setTeacherAssignmentFilter('All')">
+                <mat-icon>people</mat-icon>
+                <span>All Staff ({{ getAllTeachersCount() }})</span>
+              </button>
+            </div>
+          </div>
+
           <!-- Teacher Dropdown -->
           <mat-form-field appearance="outline" class="col-span-2" *ngIf="allocationForm.get('memberType')?.value === 'Teacher'">
             <mat-label>Select Faculty Member *</mat-label>
             <mat-select formControlName="teacherId">
-              <mat-option *ngFor="let t of teachersList" [value]="t.id">
-                {{ t.fullName }} ({{ t.employeeCode }} &bull; {{ t.specialization || 'Faculty' }})
+              <mat-option *ngFor="let t of getFilteredTeachers()" [value]="t.id">
+                <div class="student-option-row">
+                  <div class="student-opt-main">
+                    <span class="student-opt-name">{{ t.fullName }}</span>
+                    <span class="student-pass-badge needs-pass" *ngIf="!isTeacherAssigned(t.id)">
+                      <mat-icon>star</mat-icon> Needs Pass
+                    </span>
+                    <span class="student-pass-badge already-assigned" *ngIf="isTeacherAssigned(t.id)" [title]="'Assigned: ' + getActiveAllocationForTeacher(t.id)?.routeCode + ' (' + getActiveAllocationForTeacher(t.id)?.stopName + ')'">
+                      <mat-icon>directions_bus</mat-icon> {{ getActiveAllocationForTeacher(t.id)?.routeCode }} &bull; {{ getActiveAllocationForTeacher(t.id)?.stopName }}
+                    </span>
+                  </div>
+                  <span class="student-opt-meta">
+                    Emp: <strong>{{ t.employeeCode }}</strong> &bull; {{ t.specialization || 'Faculty' }}
+                  </span>
+                </div>
+              </mat-option>
+              <mat-option *ngIf="getFilteredTeachers().length === 0" disabled>
+                ⚠️ No faculty members found for this status filter
               </mat-option>
             </mat-select>
           </mat-form-field>
@@ -1238,15 +1420,78 @@
             </mat-select>
           </mat-form-field>
 
-          <!-- Stop Selection -->
+          <!-- Stop Selection with Empty Stop Warning -->
           <mat-form-field appearance="outline">
             <mat-label>Select Boarding Stop *</mat-label>
             <mat-select formControlName="routeStopId" (selectionChange)="onStopChangeForAllocation($event.value)">
               <mat-option *ngFor="let s of getStopsForSelectedRoute()" [value]="s.id">
                 {{ s.stopOrder }}. {{ s.stopName }} (₹{{ s.monthlyFare }}/mo)
               </mat-option>
+              <mat-option *ngIf="allocationForm.get('routeId')?.value && getStopsForSelectedRoute().length === 0" disabled>
+                ⚠️ No stops configured for this route yet
+              </mat-option>
             </mat-select>
+            <mat-hint *ngIf="!allocationForm.get('routeId')?.value">Select a route first</mat-hint>
+            <mat-hint *ngIf="allocationForm.get('routeId')?.value && getStopsForSelectedRoute().length === 0" class="stop-warning-hint">
+              ⚠️ Is Route me koi Boarding Stop nahi hai. "Routes & Stops" tab me jakar "+ Add Stop" karein.
+            </mat-hint>
           </mat-form-field>
+
+          <!-- Interactive Plan Selector (Monthly / Quarterly / Half-Yearly / Annual) -->
+          <div class="transport-plan-selector-box col-span-2" *ngIf="getSelectedStopDetails() && allocationForm.get('memberType')?.value === 'Student'">
+            <div class="plan-selector-header">
+              <div class="plan-header-title">
+                <mat-icon>tune</mat-icon>
+                <div>
+                  <strong>Student Fee Plan / भुगतान योजना ({{ getSelectedStopDetails()?.stopName }}):</strong>
+                  <span>Click a plan below to set Monthly, Quarterly, Half-Yearly or Annual rate</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="plan-pills-grid">
+              <button type="button" class="plan-pill-btn" [class.active]="selectedBillingPlan === 'Monthly'" (click)="selectBillingPlan('Monthly')">
+                <div class="plan-pill-top">
+                  <mat-icon>{{ selectedBillingPlan === 'Monthly' ? 'radio_button_checked' : 'radio_button_unchecked' }}</mat-icon>
+                  <span class="plan-name">Monthly</span>
+                </div>
+                <div class="plan-amount">₹{{ getStopFareForPlan('Monthly') | number }}<span class="plan-unit">/mo</span></div>
+                <span class="plan-sub">1 Month</span>
+              </button>
+
+              <button type="button" class="plan-pill-btn" [class.active]="selectedBillingPlan === 'Quarterly'" (click)="selectBillingPlan('Quarterly')">
+                <div class="plan-pill-top">
+                  <mat-icon>{{ selectedBillingPlan === 'Quarterly' ? 'radio_button_checked' : 'radio_button_unchecked' }}</mat-icon>
+                  <span class="plan-name">Quarterly</span>
+                </div>
+                <div class="plan-amount">₹{{ getStopFareForPlan('Quarterly') | number }}</div>
+                <span class="plan-sub">3 Months</span>
+              </button>
+
+              <button type="button" class="plan-pill-btn" [class.active]="selectedBillingPlan === 'HalfYearly'" (click)="selectBillingPlan('HalfYearly')">
+                <div class="plan-pill-top">
+                  <mat-icon>{{ selectedBillingPlan === 'HalfYearly' ? 'radio_button_checked' : 'radio_button_unchecked' }}</mat-icon>
+                  <span class="plan-name">Half-Yearly</span>
+                </div>
+                <div class="plan-amount">₹{{ getStopFareForPlan('HalfYearly') | number }}</div>
+                <span class="plan-sub">6 Months</span>
+              </button>
+
+              <button type="button" class="plan-pill-btn" [class.active]="selectedBillingPlan === 'Annual'" (click)="selectBillingPlan('Annual')">
+                <div class="plan-pill-top">
+                  <mat-icon>{{ selectedBillingPlan === 'Annual' ? 'radio_button_checked' : 'radio_button_unchecked' }}</mat-icon>
+                  <span class="plan-name">Annual</span>
+                </div>
+                <div class="plan-amount">₹{{ getStopFareForPlan('Annual') | number }}</div>
+                <span class="plan-sub">Full Session</span>
+              </button>
+            </div>
+
+            <div class="plan-selected-summary">
+              <mat-icon>verified</mat-icon>
+              <span>Active Plan: <strong>{{ selectedBillingPlan }}</strong> &bull; Total Slab Fare: <strong>₹{{ getStopFareForPlan(selectedBillingPlan) | number }}</strong> &bull; Monthly Rate: <strong>₹{{ allocationForm.get('monthlyFare')?.value | number }}/mo</strong></span>
+            </div>
+          </div>
 
           <mat-form-field appearance="outline">
             <mat-label>Trip Coverage *</mat-label>
@@ -1263,9 +1508,12 @@
           </mat-form-field>
 
           <mat-form-field appearance="outline">
-            <mat-label>Monthly Transport Fare (₹)</mat-label>
+            <mat-label>{{ allocationForm.get('memberType')?.value === 'Student' ? 'Monthly Fare Per Student (₹) *' : 'Monthly Transport Fare (₹) *' }}</mat-label>
             <input matInput type="number" formControlName="monthlyFare" />
             <span matPrefix>₹&nbsp;</span>
+            <mat-hint class="fare-calc-hint">
+              💡 <strong>{{ getFareCalculationHint() }}</strong>
+            </mat-hint>
           </mat-form-field>
 
           <mat-form-field appearance="outline">
@@ -1288,8 +1536,9 @@
 
       <div class="modal-footer">
         <button mat-stroked-button type="button" (click)="showAllocationModal = false">Cancel</button>
-        <button mat-flat-button color="primary" type="submit" [disabled]="allocationForm.invalid">
-          <mat-icon>{{ editingAllocationId ? 'save' : 'verified' }}</mat-icon> {{ editingAllocationId ? 'Update Pass' : 'Issue Pass' }}
+        <button mat-flat-button color="primary" type="submit" [disabled]="isSaveAllocationDisabled() || isSavingAllocation">
+          <mat-icon>{{ isSavingAllocation ? 'hourglass_top' : (editingAllocationId ? 'save' : 'verified') }}</mat-icon>
+          {{ getSubmitButtonLabel() }}
         </button>
       </div>
     </form>

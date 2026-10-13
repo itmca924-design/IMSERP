@@ -87,6 +87,7 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
     public DbSet<AccountLedger> AccountLedgers => Set<AccountLedger>();
     public DbSet<StudentHomework> StudentHomeworks => Set<StudentHomework>();
     public DbSet<StudentHomeworkSubmission> StudentHomeworkSubmissions => Set<StudentHomeworkSubmission>();
+    public DbSet<DailyStudentDiary> DailyStudentDiaries => Set<DailyStudentDiary>();
     public DbSet<AdmissionEnquiry> AdmissionEnquiries => Set<AdmissionEnquiry>();
     public DbSet<SchoolNotice> SchoolNotices => Set<SchoolNotice>();
     public DbSet<StudentLeave> StudentLeaves => Set<StudentLeave>();
@@ -101,6 +102,7 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
     public DbSet<StudentSibling> StudentSiblings => Set<StudentSibling>();
     public DbSet<StudyMaterial> StudyMaterials => Set<StudyMaterial>();
     public DbSet<SchoolPeriodSlot> SchoolPeriodSlots => Set<SchoolPeriodSlot>();
+    public DbSet<SchoolActivityType> SchoolActivityTypes => Set<SchoolActivityType>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -340,6 +342,9 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
             (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<StudentHomeworkSubmission>().HasQueryFilter(x =>
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<DailyStudentDiary>().HasQueryFilter(x =>
             (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<AdmissionEnquiry>().HasQueryFilter(x =>

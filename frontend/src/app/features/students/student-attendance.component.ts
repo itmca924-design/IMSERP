@@ -37,6 +37,7 @@ interface StudentItem {
   admissionNumber?: string;
   isSchoolStudent?: boolean;
   isCoachingStudent?: boolean;
+  joiningDate?: string;
 }
 
 interface BatchStudentRow {
@@ -95,6 +96,7 @@ interface CalendarDay {
   isSunday: boolean;
   isSaturday: boolean;
   isFuture: boolean;
+  isPriorToAdmission?: boolean;
   holiday?: HolidayDto;
   record?: StudentAttendance;
   status: string;
@@ -350,7 +352,7 @@ interface CalendarDay {
               <th style="width: 44px; text-align: center;">#</th>
               <th style="min-width: 170px;">Student Details</th>
               <th *ngIf="rollCallScope === 'school'" style="width: 130px;">Class & Section</th>
-              <th style="width: 110px;">{{ rollCallScope === 'school' ? 'School Roll / Adm' : 'Roll Number' }}</th>
+              <th style="width: 140px;">{{ rollCallScope === 'school' ? 'School Roll / Adm' : 'Roll Number' }}</th>
               <th style="width: 135px;">Parent WhatsApp</th>
               <th style="width: 250px; text-align: center;">Attendance Status</th>
               <th style="width: 210px; text-align: center;">Timings (In / Out)</th>
@@ -366,7 +368,7 @@ interface CalendarDay {
                 </div>
                 <div class="student-meta">
                   <span class="name">{{ s.studentName }}</span>
-                  <span class="adm-pill" *ngIf="s.admissionNumber">ADM: {{ s.admissionNumber }}</span>
+                  <span class="adm-pill" *ngIf="s.admissionNumber && rollCallScope === 'coaching'">ADM: {{ s.admissionNumber }}</span>
                   <span class="sub" *ngIf="s.attendanceId">
                     <mat-icon class="saved-dot">check_circle</mat-icon>
                     <span>Marked {{ formatCapturedTime(s.capturedAt) }}</span>
@@ -378,9 +380,12 @@ interface CalendarDay {
                   {{ s.className || 'Class' }} <strong *ngIf="s.sectionName">({{ s.sectionName }})</strong>
                 </span>
               </td>
-              <td>
-                <span class="roll-pill" *ngIf="rollCallScope === 'school'">{{ s.schoolRollNumber || s.rollNumber || '—' }}</span>
-                <span class="roll-pill" *ngIf="rollCallScope === 'coaching'">{{ s.rollNumber }}</span>
+              <td class="roll-adm-col">
+                <div class="roll-adm-stack">
+                  <span class="roll-pill" *ngIf="rollCallScope === 'school'" [matTooltip]="'School Roll No: ' + (s.schoolRollNumber || s.rollNumber || '—')">{{ s.schoolRollNumber || s.rollNumber || '—' }}</span>
+                  <span class="roll-pill" *ngIf="rollCallScope === 'coaching'" [matTooltip]="'Coaching Roll No: ' + (s.rollNumber || '—')">{{ s.rollNumber || '—' }}</span>
+                  <span class="adm-pill" *ngIf="s.admissionNumber" matTooltip="Admission Number">{{ s.admissionNumber }}</span>
+                </div>
               </td>
               <td class="whatsapp-cell">
                 <a *ngIf="s.parentWhatsAppPhone" [href]="'https://wa.me/' + cleanPhone(s.parentWhatsAppPhone)" target="_blank" class="wa-link" matTooltip="Chat on WhatsApp">
@@ -414,11 +419,11 @@ interface CalendarDay {
                 <div class="row-timings" *ngIf="s.status !== 'Absent'">
                   <div class="time-field" matTooltip="Check-in Time">
                     <span class="t-badge">In</span>
-                    <input type="time" [(ngModel)]="s.checkInTime" [disabled]="isBatchPastLocked" class="table-time-input">
+                    <input type="time" [(ngModel)]="s.checkInTime" (ngModelChange)="onStudentRowTimeChanged(s)" [disabled]="isBatchPastLocked" class="table-time-input">
                   </div>
                   <div class="time-field" matTooltip="Check-out Time">
                     <span class="t-badge">Out</span>
-                    <input type="time" [(ngModel)]="s.checkOutTime" [disabled]="isBatchPastLocked" class="table-time-input">
+                    <input type="time" [(ngModel)]="s.checkOutTime" (ngModelChange)="onStudentRowTimeChanged(s)" [disabled]="isBatchPastLocked" class="table-time-input">
                   </div>
                 </div>
                 <span *ngIf="s.status === 'Absent'" class="absent-timings-dash">—</span>
@@ -567,12 +572,12 @@ interface CalendarDay {
           </mat-form-field>
           <mat-form-field appearance="outline" *ngIf="formData.status !== 'Absent' && formData.status !== 'Holiday'">
             <mat-label>In Time (Check-In)</mat-label>
-            <input matInput type="time" [(ngModel)]="formData.checkInTime">
+            <input matInput type="time" [(ngModel)]="formData.checkInTime" (ngModelChange)="onFormTimeChanged()">
             <mat-icon matPrefix>login</mat-icon>
           </mat-form-field>
           <mat-form-field appearance="outline" *ngIf="formData.status !== 'Absent' && formData.status !== 'Holiday'">
             <mat-label>Out Time (Check-Out)</mat-label>
-            <input matInput type="time" [(ngModel)]="formData.checkOutTime">
+            <input matInput type="time" [(ngModel)]="formData.checkOutTime" (ngModelChange)="onFormTimeChanged()">
             <mat-icon matPrefix>logout</mat-icon>
           </mat-form-field>
           <mat-form-field appearance="outline" class="remarks-field">
@@ -580,9 +585,15 @@ interface CalendarDay {
             <input matInput [(ngModel)]="formData.remarks" placeholder="Optional notes">
           </mat-form-field>
         </div>
-        <div class="form-duration-hint" *ngIf="formData.status !== 'Absent' && formData.status !== 'Holiday' && calculateDuration(formData.checkInTime, formData.checkOutTime)">
-          <mat-icon>schedule</mat-icon>
-          <span>Calculated Duration: <strong>{{ calculateDuration(formData.checkInTime, formData.checkOutTime) }}</strong> (In: {{ formatDisplayTime(formData.checkInTime) }} &bull; Out: {{ formatDisplayTime(formData.checkOutTime) }})</span>
+        <div class="form-duration-hint" *ngIf="formData.status !== 'Absent' && formData.status !== 'Holiday'">
+          <div class="form-hint-line" *ngIf="calculateDuration(formData.checkInTime, formData.checkOutTime)">
+            <mat-icon>schedule</mat-icon>
+            <span>Calculated Duration: <strong>{{ calculateDuration(formData.checkInTime, formData.checkOutTime) }}</strong> (In: {{ formatDisplayTime(formData.checkInTime) }} &bull; Out: {{ formatDisplayTime(formData.checkOutTime) }})</span>
+          </div>
+          <div class="form-hint-late" *ngIf="formData.status === 'Late'">
+            <mat-icon>warning_amber</mat-icon>
+            <span>Late arrival detected (Shift starts at {{ attendanceSettings.studentShiftStartTime || '08:00' }} + {{ attendanceSettings.studentGracePeriodMinutes ?? 15 }}m grace cutoff).</span>
+          </div>
         </div>
         <div class="form-actions">
           <button mat-button (click)="showForm = false">Cancel</button>
@@ -643,7 +654,7 @@ interface CalendarDay {
 
             <span class="day-num">{{ day.dayNumber }}</span>
             <span class="day-name">{{ day.dayOfWeek }}</span>
-            <span class="day-tag" *ngIf="day.status">{{ day.status === 'HalfDay' ? 'Half' : day.status }}</span>
+            <span class="day-tag" *ngIf="day.status">{{ day.status === 'PriorAdmission' ? 'Unenrolled' : (day.status === 'HalfDay' ? 'Half' : day.status) }}</span>
 
             <!-- Rich Punch Timings & Duration Display -->
             <div class="day-times-wrap" *ngIf="day.checkInTime || day.checkOutTime || day.capturedTime">
@@ -714,40 +725,78 @@ interface CalendarDay {
         </div>
       </mat-card>
 
-      <mat-card class="records-card mat-elevation-z1">
-        <div class="records-heading">
-          <strong>Raw Attendance Logs ({{ records.length }} Events)</strong>
-          <span>Monthly timestamp, punch in/out and duration</span>
+      <!-- Detailed Attendance Register Table -->
+      <mat-card class="table-card mat-elevation-z1" *ngIf="records.length > 0">
+        <div class="table-card-header">
+          <div class="table-title-group">
+            <strong><mat-icon style="vertical-align:middle;margin-right:6px;font-size:1.15rem;width:1.15rem;height:1.15rem;color:#2563eb;">event_note</mat-icon>Detailed Attendance Register ({{ records.length }} Records)</strong>
+            <span class="table-scroll-hint"><mat-icon>swap_horiz</mat-icon> Swipe to view all columns &amp; actions</span>
+          </div>
         </div>
-        <div *ngFor="let record of records" class="record-row">
-          <div><strong>{{ record.attendanceDate | date:'fullDate' }}</strong><small>{{ record.attendanceDate | date:'EEEE' }}</small></div>
-          <span class="status" [ngClass]="record.status.toLowerCase()">{{ record.status === 'HalfDay' ? 'Half Day' : record.status }}</span>
-          <div class="log-times">
-            <span class="log-time-in" *ngIf="record.checkInTime || record.CheckInTime">
-              <mat-icon>login</mat-icon> In: {{ formatDisplayTime(record.checkInTime || record.CheckInTime) }}
-            </span>
-            <span class="log-time-out" *ngIf="record.checkOutTime || record.CheckOutTime">
-              <mat-icon>logout</mat-icon> Out: {{ formatDisplayTime(record.checkOutTime || record.CheckOutTime) }}
-            </span>
-            <span class="log-duration" *ngIf="calculateDuration(record.checkInTime || record.CheckInTime, record.checkOutTime || record.CheckOutTime)">
-              <mat-icon>timelapse</mat-icon> {{ calculateDuration(record.checkInTime || record.CheckInTime, record.checkOutTime || record.CheckOutTime) }}
-            </span>
-            <span class="log-no-time" *ngIf="!record.checkInTime && !record.CheckInTime && !record.checkOutTime && !record.CheckOutTime">
-              {{ getRecordCapturedTime(record) ? (getRecordCapturedTime(record) + ' IST') : '—' }}
-            </span>
-          </div>
-          <span class="source-tag">
-            {{ record.captureSource || 'Manual' }}
-            <small *ngIf="getRecordCapturedTime(record) && (record.checkInTime || record.CheckInTime)" class="time-sub">{{ getRecordCapturedTime(record) }}</small>
-          </span>
-          <span class="remarks">{{ record.remarks || '—' }}</span>
-          <div class="record-actions">
-            <button mat-icon-button color="accent" (click)="openApplyRegularization(selectedStudent, record.attendanceDate)" matTooltip="Request Regularization for this date"><mat-icon>edit_calendar</mat-icon></button>
-            <button mat-icon-button color="primary" (click)="editRecord(record)" [disabled]="!attendancePermissions.canCorrectAttendance || attendanceMode === 'Biometric' || (isPublicHolidayOrSunday(record.attendanceDate) && !canEditPublicHolidayOrSunday)" matTooltip="Edit record"><mat-icon>edit</mat-icon></button>
-            <button mat-icon-button color="warn" (click)="deleteRecord(record.id)" [disabled]="!attendancePermissions.canCorrectAttendance || attendanceMode === 'Biometric' || (isPublicHolidayOrSunday(record.attendanceDate) && !canEditPublicHolidayOrSunday)" matTooltip="Delete record"><mat-icon>delete_outline</mat-icon></button>
-          </div>
+        <div class="table-responsive">
+          <table class="att-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Day</th>
+                <th>Status</th>
+                <th>Check-in (IST)</th>
+                <th>Check-out (IST)</th>
+                <th>Duration</th>
+                <th>Source / Mode</th>
+                <th>Remarks</th>
+                <th class="actions-col">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let record of records">
+                <td><strong>{{ record.attendanceDate | date:'dd MMM yyyy' }}</strong></td>
+                <td><span class="day-label">{{ record.attendanceDate | date:'EEEE' }}</span></td>
+                <td>
+                  <span class="status-badge" [ngClass]="record.status.toLowerCase()">
+                    {{ record.status === 'HalfDay' ? 'Half Day' : record.status }}
+                  </span>
+                </td>
+                <td>
+                  <span class="time-main">{{ record.checkInTime || record.CheckInTime || '—' }}</span>
+                  <small class="time-sub" *ngIf="(record.checkInTime || record.CheckInTime) && formatDisplayTime(record.checkInTime || record.CheckInTime) !== (record.checkInTime || record.CheckInTime)">
+                    ({{ formatDisplayTime(record.checkInTime || record.CheckInTime) }})
+                  </small>
+                </td>
+                <td>
+                  <span class="time-main">{{ record.checkOutTime || record.CheckOutTime || '—' }}</span>
+                  <small class="time-sub" *ngIf="(record.checkOutTime || record.CheckOutTime) && formatDisplayTime(record.checkOutTime || record.CheckOutTime) !== (record.checkOutTime || record.CheckOutTime)">
+                    ({{ formatDisplayTime(record.checkOutTime || record.CheckOutTime) }})
+                  </small>
+                </td>
+                <td>
+                  <span class="work-duration" *ngIf="calculateDuration(record.checkInTime || record.CheckInTime, record.checkOutTime || record.CheckOutTime)">
+                    {{ calculateDuration(record.checkInTime || record.CheckInTime, record.checkOutTime || record.CheckOutTime) }}
+                  </span>
+                  <span *ngIf="!calculateDuration(record.checkInTime || record.CheckInTime, record.checkOutTime || record.CheckOutTime)" class="no-dur">—</span>
+                </td>
+                <td>
+                  <span class="source-tag" [matTooltip]="getRecordCapturedTime(record) ? ('Logged at: ' + getRecordCapturedTime(record) + ' IST') : 'Logged manually'">
+                    {{ record.captureSource || 'Manual' }}
+                  </span>
+                </td>
+                <td class="remarks-cell">{{ record.remarks || '—' }}</td>
+                <td class="actions-col">
+                  <button mat-icon-button color="accent" (click)="openApplyRegularization(selectedStudent, record.attendanceDate)" matTooltip="Request Regularization for this date"><mat-icon>edit_calendar</mat-icon></button>
+                  <button mat-icon-button color="primary" (click)="editRecord(record)" [disabled]="!attendancePermissions.canCorrectAttendance || attendanceMode === 'Biometric' || (isPublicHolidayOrSunday(record.attendanceDate) && !canEditPublicHolidayOrSunday)" matTooltip="Edit record"><mat-icon>edit</mat-icon></button>
+                  <button mat-icon-button color="warn" (click)="deleteRecord(record.id)" [disabled]="!attendancePermissions.canCorrectAttendance || attendanceMode === 'Biometric' || (isPublicHolidayOrSunday(record.attendanceDate) && !canEditPublicHolidayOrSunday)" matTooltip="Delete record"><mat-icon>delete_outline</mat-icon></button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </mat-card>
+
+      <div class="empty-state" *ngIf="records.length === 0 && !loading && !showForm">
+        <mat-icon>event_busy</mat-icon>
+        <h3>No Attendance Records Found</h3>
+        <p>No records found for {{ months[attMonth - 1] }} {{ attYear }}. Click "Mark Attendance" or select dates on the matrix above to begin logging attendance.</p>
+      </div>
     </div>
   </div>
 
@@ -1265,9 +1314,11 @@ interface CalendarDay {
       font-weight: 600; font-size: 0.78rem; display: inline-flex; align-items: center; gap: 4px;
     }
     .class-pill strong { color: #2563eb; }
+    .roll-adm-col { vertical-align: middle; }
+    .roll-adm-stack { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
     .roll-pill {
-      background: #e2e8f0; color: #334155; padding: 3px 8px; border-radius: 6px;
-      font-weight: 600; font-size: 0.78rem; font-family: monospace;
+      background: #e2e8f0; color: #1e293b; padding: 2.5px 8px; border-radius: 6px;
+      font-weight: 700; font-size: 0.8rem; font-family: monospace; display: inline-flex; align-items: center;
     }
     
     .whatsapp-cell .wa-link {
@@ -1621,7 +1672,18 @@ interface CalendarDay {
     .mfb-time-wrap label { font-size: 0.68rem; font-weight: 700; color: #94a3b8; }
     .mfb-time-input {
       background: transparent; border: none; color: #ffffff; font-size: 0.74rem;
-      font-weight: 700; outline: none; width: 72px;
+      font-weight: 700; outline: none; width: 82px;
+      color-scheme: dark;
+    }
+    .mfb-time-input::-webkit-calendar-picker-indicator {
+      filter: brightness(0) invert(1);
+      cursor: pointer;
+      opacity: 0.9;
+      padding: 0;
+      margin-left: 2px;
+    }
+    .mfb-time-input::-webkit-calendar-picker-indicator:hover {
+      opacity: 1;
     }
     .mfb-right { display: flex; align-items: center; gap: 8px; }
     .mfb-save-btn {
@@ -1691,6 +1753,17 @@ interface CalendarDay {
     .day-cell.holiday { background: #fef3c7; border-color: #fbbf24; color: #b45309; }
     .day-cell.sunday { background: #ffe4e6; color: #be123c; }
     .day-cell.saturday { background: #e0e7ff; color: #4338ca; }
+    .day-cell.prioradmission {
+      background: #f8fafc !important;
+      border-color: #e2e8f0 !important;
+      color: #94a3b8 !important;
+      cursor: not-allowed !important;
+      opacity: 0.65;
+      box-shadow: none !important;
+      transform: none !important;
+      .day-name { color: #94a3b8 !important; }
+      .day-tag { background: #f1f5f9 !important; color: #64748b !important; font-size: 0.6rem !important; }
+    }
     .day-cell.today { box-shadow: 0 0 0 2px #2563eb inset; }
     .day-cell.locked, .day-cell.locked-past {
       cursor: not-allowed !important;
@@ -1714,49 +1787,46 @@ interface CalendarDay {
     .day-cell.future.holiday { background: #fefce8 !important; border-color: #fef08a !important; color: #fde047 !important; }
     
     .form-duration-hint {
-      display: flex; align-items: center; gap: 6px; background: #eff6ff; color: #1e40af;
-      padding: 6px 12px; border-radius: 8px; font-size: 0.82rem; margin: -6px 0 12px;
+      display: flex; flex-direction: column; gap: 4px; background: #eff6ff; color: #1e40af;
+      padding: 8px 12px; border-radius: 8px; font-size: 0.82rem; margin: -6px 0 12px;
       border: 1px solid #bfdbfe;
     }
-    .form-duration-hint mat-icon { font-size: 18px; width: 18px; height: 18px; color: #2563eb; }
+    .form-hint-line, .form-hint-late { display: flex; align-items: center; gap: 6px; }
+    .form-hint-line mat-icon { font-size: 17px; width: 17px; height: 17px; color: #2563eb; }
+    .form-hint-late { color: #c2410c; font-weight: 600; }
+    .form-hint-late mat-icon { font-size: 17px; width: 17px; height: 17px; color: #ea580c; }
 
-    .record-row .source-tag { display: flex; flex-direction: column; font-size: .78rem; font-weight: 600; color: #475569; }
-    .record-row .source-tag .time-sub { font-size: .7rem; color: #059669; font-weight: 700; }
-    .records-heading { padding-bottom: 10px; border-bottom: 1px solid #e2e8f0; }
-    .records-heading span { color: #64748b; font-size: .78rem; }
-    .record-row {
-      display: grid; grid-template-columns: 160px 95px 150px 95px minmax(90px, 1fr) 104px;
-      align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid #f1f5f9;
+    /* Detailed Attendance Table (Matching Faculty Attendance Design) */
+    .table-card { border-radius: 12px; overflow: hidden; padding: 0; border: 1px solid #e2e8f0; width: 100%; max-width: 100%; box-sizing: border-box; margin-top: 14px; background: #ffffff; }
+    .table-card-header { padding: 12px 18px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; font-size: .92rem; color: #1e293b; }
+    .table-title-group { display: flex; justify-content: space-between; align-items: center; width: 100%; flex-wrap: wrap; gap: 8px; }
+    .table-scroll-hint { display: none; align-items: center; gap: 5px; font-size: .74rem; color: #0369a1; background: #e0f2fe; border: 1px solid #bae6fd; padding: 3px 8px; border-radius: 6px; font-weight: 600; mat-icon { font-size: 15px; width: 15px; height: 15px; } }
+    .table-responsive { width: 100%; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .att-table { width: 100%; min-width: 860px; border-collapse: collapse; font-size: .86rem; }
+    .att-table th, .att-table td { padding: 12px 14px; border-bottom: 1px solid #f1f5f9; text-align: left; white-space: nowrap; }
+    .att-table th { background: #f8fafc; font-weight: 700; color: #64748b; font-size: .78rem; text-transform: uppercase; letter-spacing: .4px; position: sticky; top: 0; z-index: 1; }
+    .att-table tr:hover td { background: #fbfcfd; }
+    .att-table td.remarks-cell { white-space: normal; min-width: 130px; max-width: 220px; line-height: 1.35; color: #64748b; font-size: .82rem; }
+    .att-table th:first-child, .att-table td:first-child {
+      position: sticky; left: 0; background: #ffffff; z-index: 2; box-shadow: 2px 0 6px rgba(0,0,0,0.04);
     }
-    .record-row > div { display: flex; flex-direction: column; }
-    .record-row small { color: #64748b; font-size: .72rem; }
-    .log-times { display: flex; flex-direction: column; gap: 2px; font-size: 0.78rem; min-width: 140px; }
-    .log-time-in, .log-time-out {
-      display: inline-flex; align-items: center; gap: 4px; font-weight: 600; font-size: 0.78rem;
-    }
-    .log-time-in { color: #15803d; }
-    .log-time-in mat-icon { font-size: 13px; width: 13px; height: 13px; }
-    .log-time-out { color: #0284c7; }
-    .log-time-out mat-icon { font-size: 13px; width: 13px; height: 13px; }
-    .log-duration {
-      display: inline-flex; align-items: center; gap: 3px; font-size: 0.70rem;
-      font-weight: 800; background: #f1f5f9; color: #334155; padding: 1px 6px;
-      border-radius: 4px; width: fit-content;
-    }
-    .log-duration mat-icon { font-size: 11px; width: 11px; height: 11px; }
-    .log-no-time { color: #94a3b8; font-size: 0.75rem; }
-    .status { font-size: .75rem; font-weight: 700; }
-    .status.present { color: #15803d; }
-    .status.absent { color: #b91c1c; }
-    .status.late { color: #c2410c; }
-    .status.halfday { color: #7e22ce; }
-    .status.holiday { color: #1d4ed8; }
-    .remarks { color: #64748b; font-size: .82rem; }
-    .record-actions {
-      display: flex !important; flex-direction: row !important; align-items: center;
-      justify-content: flex-end; gap: 0; white-space: nowrap; width: 104px; min-width: 104px;
-    }
-    .record-actions button { display: inline-flex; flex: 0 0 48px; width: 48px; height: 48px; }
+    .att-table th:first-child { background: #f8fafc; z-index: 3; }
+    .att-table tr:hover td:first-child { background: #fbfcfd; }
+
+    .day-label { font-size: .8rem; color: #64748b; }
+    .status-badge { display: inline-block; padding: 3px 10px; border-radius: 6px; font-size: .76rem; font-weight: 700; text-transform: uppercase; letter-spacing: .3px; }
+    .status-badge.present { background: #dcfce7; color: #15803d; }
+    .status-badge.absent { background: #fee2e2; color: #b91c1c; }
+    .status-badge.late { background: #ffedd5; color: #c2410c; }
+    .status-badge.halfday { background: #f3e8ff; color: #7e22ce; }
+    .status-badge.leave { background: #e0e7ff; color: #3730a3; }
+    .status-badge.holiday { background: #fef3c7; color: #b45309; }
+    .time-main { font-weight: 600; color: #1e293b; }
+    .time-sub { display: block; font-size: .72rem; color: #64748b; }
+    .work-duration { background: #f1f5f9; color: #334155; padding: 2px 8px; border-radius: 6px; font-weight: 600; font-size: .78rem; }
+    .no-dur { color: #94a3b8; }
+    .source-tag { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: .76rem; font-weight: 600; background: #f1f5f9; color: #475569; }
+    .actions-col { text-align: right; width: 120px; white-space: nowrap; button { width: 36px; height: 36px; line-height: 36px; } }
 
     .teacher-class-locked-badge {
       display: flex; align-items: center; gap: 10px;
@@ -1965,10 +2035,32 @@ export class StudentAttendanceComponent implements OnInit {
   // Teacher's class section (if class teacher)
   teacherClassSection: { isClassTeacher: boolean; classId?: string; sectionId?: string; className?: string; sectionName?: string } | null = null;
 
+  private static getTodayIstDateParts(): { year: number; month: number; day: number; str: string } {
+    try {
+      const parts = new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      }).formatToParts(new Date());
+      const year = parseInt(parts.find(p => p.type === 'year')?.value || '2026', 10);
+      const month = parseInt(parts.find(p => p.type === 'month')?.value || '10', 10);
+      const day = parseInt(parts.find(p => p.type === 'day')?.value || '13', 10);
+      const str = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      return { year, month, day, str };
+    } catch {
+      const d = new Date();
+      const year = d.getFullYear();
+      const month = d.getMonth() + 1;
+      const day = d.getDate();
+      return { year, month, day, str: `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}` };
+    }
+  }
+
   // Batch Bulk Roll Call State
   batches: any[] = [];
   selectedBatchId = '';
-  selectedBatchDate = new Date().toISOString().split('T')[0];
+  selectedBatchDate = StudentAttendanceComponent.getTodayIstDateParts().str;
   batchStudents: BatchStudentRow[] = [];
   batchSearchQuery = '';
   batchLoading = false;
@@ -2004,13 +2096,13 @@ export class StudentAttendanceComponent implements OnInit {
   showForm = false;
   canEditPublicHolidayOrSunday = false;
   editingRecordId: string | null = null;
-  attMonth = new Date().getMonth() + 1;
-  attYear = new Date().getFullYear();
+  attMonth = StudentAttendanceComponent.getTodayIstDateParts().month;
+  attYear = StudentAttendanceComponent.getTodayIstDateParts().year;
   months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   years = [2024, 2025, 2026, 2027];
-  formData = { attendanceDate: new Date().toISOString().split('T')[0], status: 'Present', remarks: '', checkInTime: '08:00', checkOutTime: '14:00' };
+  formData = { attendanceDate: StudentAttendanceComponent.getTodayIstDateParts().str, status: 'Present', remarks: '', checkInTime: '08:00', checkOutTime: '14:00' };
   attendanceMode: AttendanceSettingsDto['studentMode'] = 'Both';
-  private attendanceSettings: AttendanceSettingsDto = { studentMode: 'Both', teacherMode: 'Both' };
+  attendanceSettings: AttendanceSettingsDto = { studentMode: 'Both', teacherMode: 'Both' };
   attendancePermissions: AttendancePermissionsDto = { canChangeMode: false, canManualMark: false, canBiometricCapture: false, canMapBiometric: false, canCorrectAttendance: false };
 
   private avatarColors = [
@@ -2077,16 +2169,26 @@ export class StudentAttendanceComponent implements OnInit {
     }
 
     this.loadAttendanceSettings();
-    this.http.get<AttendancePermissionsDto>(`${this.api}/attendance/permissions`).subscribe({
+    this.http.get<AttendancePermissionsDto>(`${this.api}/attendance/permissions`, {
+      headers: { 'X-Skip-Loader': 'true' }
+    }).subscribe({
       next: permissions => this.attendancePermissions = permissions
     });
 
     this.loadRegularizationStats();
 
     const requestedTab = this.route.snapshot.queryParamMap.get('tab');
+    const requestedStudentId = this.route.snapshot.queryParamMap.get('studentId');
+
     if (requestedTab === 'regularization') {
       this.activeTab = 'regularization';
       this.loadRegularizations();
+    } else if (requestedStudentId) {
+      this.activeTab = 'single';
+      this.loadStudents(false);
+    } else {
+      // In background, prefetch student lookup silently with X-Skip-Loader
+      this.loadStudents(true);
     }
 
     // If teacher, load their assigned class section first
@@ -2097,15 +2199,12 @@ export class StudentAttendanceComponent implements OnInit {
     // Load School Classes only if School Module is active
     if (this.hasSchool) {
       this.loadSchoolClasses();
+      if (this.hasCoaching) {
+        this.loadBatches(true);
+      }
+    } else if (this.hasCoaching) {
+      this.loadBatches(false);
     }
-
-    // Load Batches only if Coaching Module is active
-    if (this.hasCoaching) {
-      this.loadBatches();
-    }
-
-    // Load Students for Tab 2
-    this.loadStudents();
   }
 
   // ================= SCOPE SWITCHER & ACTIVE GETTERS =================
@@ -2121,7 +2220,9 @@ export class StudentAttendanceComponent implements OnInit {
         this.loadSchoolAttendance();
       }
     } else {
-      if (this.batches.length > 0 && !this.selectedBatchId) {
+      if (this.batches.length === 0) {
+        this.loadBatches(false);
+      } else if (!this.selectedBatchId) {
         this.selectedBatchId = this.batches[0].id;
         this.loadBatchAttendance();
       } else if (this.selectedBatchId) {
@@ -2268,6 +2369,54 @@ export class StudentAttendanceComponent implements OnInit {
     return `${h}:${mStr} ${ampm}`;
   }
 
+  getStudentSmartStatus(declaredStatus: string, inTime?: string | null, outTime?: string | null): string {
+    if (declaredStatus === 'Absent' || declaredStatus === 'Holiday' || declaredStatus === 'Leave') {
+      return declaredStatus;
+    }
+    if (!inTime) return declaredStatus;
+
+    const inMin = this.parseTimeToMinutes(inTime);
+    if (inMin === null) return declaredStatus;
+
+    const shiftStart = this.parseTimeToMinutes(this.attendanceSettings?.studentShiftStartTime || '08:00') ?? 480;
+    const grace = this.attendanceSettings?.studentGracePeriodMinutes ?? 15;
+    const lateCutoff = shiftStart + grace; // 08:15 AM
+    const halfDayThreshold = this.attendanceSettings?.studentHalfDayThresholdMinutes ?? 240;
+
+    if (outTime) {
+      let outMin = this.parseTimeToMinutes(outTime);
+      if (outMin !== null) {
+        if (outMin <= inMin) {
+          if (outMin + 720 > inMin && outMin + 720 <= 1440) {
+            outMin += 720;
+          }
+        }
+        const diff = outMin - inMin;
+        if (diff > 0 && diff < halfDayThreshold) {
+          return 'HalfDay';
+        }
+      }
+    }
+
+    if (inMin > lateCutoff) {
+      return 'Late';
+    } else if (inMin <= lateCutoff && declaredStatus === 'Late') {
+      return 'Present';
+    }
+
+    return declaredStatus;
+  }
+
+  onStudentRowTimeChanged(student: BatchStudentRow): void {
+    if (student.status === 'Absent') return;
+    student.status = this.getStudentSmartStatus(student.status, student.checkInTime, student.checkOutTime);
+  }
+
+  onFormTimeChanged(): void {
+    if (this.formData.status === 'Absent' || this.formData.status === 'Holiday') return;
+    this.formData.status = this.getStudentSmartStatus(this.formData.status, this.formData.checkInTime, this.formData.checkOutTime);
+  }
+
   onFormStatusChanged(): void {
     if (this.formData.status === 'Absent' || this.formData.status === 'Holiday') {
       this.formData.checkInTime = '';
@@ -2275,6 +2424,7 @@ export class StudentAttendanceComponent implements OnInit {
     } else {
       if (!this.formData.checkInTime) this.formData.checkInTime = this.bulkCheckInTime || '08:00';
       if (!this.formData.checkOutTime) this.formData.checkOutTime = this.bulkCheckOutTime || '14:00';
+      this.formData.status = this.getStudentSmartStatus(this.formData.status, this.formData.checkInTime, this.formData.checkOutTime);
     }
   }
 
@@ -2284,6 +2434,7 @@ export class StudentAttendanceComponent implements OnInit {
       if (student.status !== 'Absent') {
         student.checkInTime = this.bulkCheckInTime;
         student.checkOutTime = this.bulkCheckOutTime;
+        student.status = this.getStudentSmartStatus(student.status, student.checkInTime, student.checkOutTime);
         count++;
       }
     }
@@ -2357,7 +2508,9 @@ export class StudentAttendanceComponent implements OnInit {
   }
 
   loadTeacherClassSection(): void {
-    this.http.get<any>(`${this.api}/teachers/my-class-section`).subscribe({
+    this.http.get<any>(`${this.api}/teachers/my-class-section`, {
+      headers: { 'X-Skip-Loader': 'true' }
+    }).subscribe({
       next: info => {
         this.teacherClassSection = info;
         this.syncTeacherClassSection();
@@ -2374,6 +2527,7 @@ export class StudentAttendanceComponent implements OnInit {
     this.schoolService.getClasses(true).subscribe({
       next: classes => {
         this.schoolLoading = false;
+        this.pageLoading = false;
         this.schoolClasses = classes || [];
         const requestedClassId = this.route.snapshot.queryParamMap.get('classId');
         const requestedSectionId = this.route.snapshot.queryParamMap.get('sectionId');
@@ -2395,10 +2549,14 @@ export class StudentAttendanceComponent implements OnInit {
           this.onClassChanged();
         } else if (this.schoolClasses.length === 0) {
           this.rollCallScope = 'coaching';
+          if (this.batches.length === 0) {
+            this.loadBatches(false);
+          }
         }
       },
       error: () => {
         this.schoolLoading = false;
+        this.pageLoading = false;
         this.schoolClasses = [];
       }
     });
@@ -2422,7 +2580,12 @@ export class StudentAttendanceComponent implements OnInit {
     this.schoolLoading = true;
     this.schoolService.getSchoolAttendance(this.selectedClassId, this.selectedSectionId || undefined, this.selectedBatchDate).subscribe({
       next: rows => {
-        this.schoolStudents = (rows || []).map(r => ({
+        const parseRoll = (val?: string | null): number => {
+          if (!val) return 999999;
+          const num = parseInt(val.replace(/[^0-9]/g, ''), 10);
+          return isNaN(num) ? 999999 : num;
+        };
+        const mapped = (rows || []).map(r => ({
           studentId: r.studentId,
           studentName: r.studentName,
           rollNumber: r.schoolRollNumber || '',
@@ -2440,11 +2603,20 @@ export class StudentAttendanceComponent implements OnInit {
           checkInTime: r.checkInTime || (r as any).CheckInTime || (r.status !== 'Absent' ? this.bulkCheckInTime : null),
           checkOutTime: r.checkOutTime || (r as any).CheckOutTime || (r.status !== 'Absent' ? this.bulkCheckOutTime : null)
         }));
+        mapped.sort((a, b) => {
+          const rA = parseRoll(a.schoolRollNumber || a.rollNumber);
+          const rB = parseRoll(b.schoolRollNumber || b.rollNumber);
+          if (rA !== rB) return rA - rB;
+          return (a.studentName || '').localeCompare(b.studentName || '');
+        });
+        this.schoolStudents = mapped;
         this.schoolLoading = false;
+        this.pageLoading = false;
       },
       error: () => {
         this.schoolStudents = [];
         this.schoolLoading = false;
+        this.pageLoading = false;
       }
     });
   }
@@ -2487,13 +2659,17 @@ export class StudentAttendanceComponent implements OnInit {
       sectionId: this.selectedSectionId || null,
       attendanceDate: this.selectedBatchDate,
       sendWhatsAppAlerts: this.sendWhatsAppAlerts,
-      items: this.schoolStudents.map(s => ({
-        studentId: s.studentId,
-        status: s.status,
-        remarks: s.remarks || null,
-        checkInTime: s.status !== 'Absent' && s.status !== 'Holiday' ? (s.checkInTime || null) : null,
-        checkOutTime: s.status !== 'Absent' && s.status !== 'Holiday' ? (s.checkOutTime || null) : null
-      }))
+      items: this.schoolStudents.map(s => {
+        const effStatus = this.getStudentSmartStatus(s.status, s.checkInTime, s.checkOutTime);
+        s.status = effStatus;
+        return {
+          studentId: s.studentId,
+          status: effStatus,
+          remarks: s.remarks || null,
+          checkInTime: effStatus !== 'Absent' && effStatus !== 'Holiday' ? (s.checkInTime || null) : null,
+          checkOutTime: effStatus !== 'Absent' && effStatus !== 'Holiday' ? (s.checkOutTime || null) : null
+        };
+      })
     };
 
     this.schoolService.saveBulkSchoolAttendance(payload).subscribe({
@@ -2513,11 +2689,15 @@ export class StudentAttendanceComponent implements OnInit {
 
   // ================= BATCH ROLL CALL METHODS =================
 
-  loadBatches(): void {
-    this.batchLoading = true;
-    this.coachingService.getBatches().subscribe({
+  loadBatches(silent: boolean = false): void {
+    if (!silent) {
+      this.batchLoading = true;
+    }
+    const headers: any = silent ? { 'X-Skip-Loader': 'true' } : {};
+    this.http.get<any[]>(`${this.api}/batches`, { headers }).subscribe({
       next: batches => {
         this.batchLoading = false;
+        this.pageLoading = false;
         this.batches = batches || [];
         const requestedBatchId = this.route.snapshot.queryParamMap.get('batchId');
         if (requestedBatchId && this.batches.some(b => b.id === requestedBatchId)) {
@@ -2532,6 +2712,7 @@ export class StudentAttendanceComponent implements OnInit {
       },
       error: () => {
         this.batchLoading = false;
+        this.pageLoading = false;
         this.batches = [];
       }
     });
@@ -2575,17 +2756,19 @@ export class StudentAttendanceComponent implements OnInit {
       this.confirmDialog.alert('Permission Denied', 'Past date attendance cannot be viewed or modified without Admin Attendance Correction permission.', 'warning');
       return;
     }
-    const d = new Date(this.selectedBatchDate);
-    d.setDate(d.getDate() - 1);
-    this.selectedBatchDate = d.toISOString().split('T')[0];
+    const [y, m, d] = this.selectedBatchDate.split('-').map(Number);
+    const dateObj = new Date(y, m - 1, d);
+    dateObj.setDate(dateObj.getDate() - 1);
+    this.selectedBatchDate = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
     this.loadActiveScopeAttendance();
   }
 
   nextDay(): void {
     if (this.selectedBatchDate >= this.todayStr) return;
-    const d = new Date(this.selectedBatchDate);
-    d.setDate(d.getDate() + 1);
-    const nextStr = d.toISOString().split('T')[0];
+    const [y, m, d] = this.selectedBatchDate.split('-').map(Number);
+    const dateObj = new Date(y, m - 1, d);
+    dateObj.setDate(dateObj.getDate() + 1);
+    const nextStr = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
     if (nextStr > this.todayStr) return;
     this.selectedBatchDate = nextStr;
     this.loadActiveScopeAttendance();
@@ -2644,13 +2827,17 @@ export class StudentAttendanceComponent implements OnInit {
       batchId: this.selectedBatchId,
       attendanceDate: this.selectedBatchDate,
       sendWhatsAppAlerts: this.sendWhatsAppAlerts,
-      items: this.batchStudents.map(s => ({
-        studentId: s.studentId,
-        status: s.status,
-        remarks: s.remarks || null,
-        checkInTime: s.status !== 'Absent' && s.status !== 'Holiday' ? (s.checkInTime || null) : null,
-        checkOutTime: s.status !== 'Absent' && s.status !== 'Holiday' ? (s.checkOutTime || null) : null
-      }))
+      items: this.batchStudents.map(s => {
+        const effStatus = this.getStudentSmartStatus(s.status, s.checkInTime, s.checkOutTime);
+        s.status = effStatus;
+        return {
+          studentId: s.studentId,
+          status: effStatus,
+          remarks: s.remarks || null,
+          checkInTime: effStatus !== 'Absent' && effStatus !== 'Holiday' ? (s.checkInTime || null) : null,
+          checkOutTime: effStatus !== 'Absent' && effStatus !== 'Holiday' ? (s.checkOutTime || null) : null
+        };
+      })
     };
 
     this.coachingService.saveBulkBatchAttendance(this.selectedBatchId, payload).subscribe({
@@ -2670,9 +2857,12 @@ export class StudentAttendanceComponent implements OnInit {
 
   // ================= SINGLE STUDENT ATTENDANCE METHODS =================
 
-  loadStudents(): void {
-    this.loading = true;
-    this.http.get<any[]>(`${this.api}/students`).subscribe({
+  loadStudents(silent: boolean = false): void {
+    if (!silent) {
+      this.loading = true;
+    }
+    const headers: any = silent ? { 'X-Skip-Loader': 'true' } : {};
+    this.http.get<any[]>(`${this.api}/students/lookup`, { headers }).subscribe({
       next: students => {
         this.loading = false;
         this.pageLoading = false;
@@ -2689,7 +2879,8 @@ export class StudentAttendanceComponent implements OnInit {
           schoolRollNumber: s.schoolRollNumber || '',
           admissionNumber: s.admissionNumber || '',
           isSchoolStudent: s.isSchoolStudent,
-          isCoachingStudent: s.isCoachingStudent
+          isCoachingStudent: s.isCoachingStudent,
+          joiningDate: s.joiningDate || s.JoiningDate || ''
         }));
         const requestedStudentId = this.route.snapshot.queryParamMap.get('studentId');
         if (requestedStudentId && this.students.some(s => s.id === requestedStudentId)) {
@@ -2706,6 +2897,7 @@ export class StudentAttendanceComponent implements OnInit {
             this.singleStreamFilter = 'coaching';
             this.singleSelectedBatchId = found.batchId;
           }
+          this.onStudentChanged();
         } else {
           if (this.isTeacher && this.teacherClassSection?.isClassTeacher && this.teacherClassSection.classId) {
             this.singleStreamFilter = 'school';
@@ -2723,9 +2915,10 @@ export class StudentAttendanceComponent implements OnInit {
             }
           }
           this.selectedStudentId = this.filteredSingleStudents[0]?.id || '';
-        }
-        if (this.selectedStudentId) {
-          this.onStudentChanged();
+          // Only trigger single student attendance calls if the user is actively on Tab 2
+          if (this.activeTab === 'single' && this.selectedStudentId) {
+            this.onStudentChanged();
+          }
         }
       },
       error: () => {
@@ -2758,6 +2951,7 @@ export class StudentAttendanceComponent implements OnInit {
       this.singleSelectedBatchId = this.batches[0].id;
     }
 
+    this.clearDateSelection();
     this.syncSingleSelectedStudent();
   }
 
@@ -2765,14 +2959,17 @@ export class StudentAttendanceComponent implements OnInit {
     const found = this.schoolClasses.find(c => c.id === this.singleSelectedClassId);
     this.singleClassSections = found?.sections || [];
     this.singleSelectedSectionId = '';
+    this.clearDateSelection();
     this.syncSingleSelectedStudent();
   }
 
   onSingleSectionChanged(): void {
+    this.clearDateSelection();
     this.syncSingleSelectedStudent();
   }
 
   onSingleBatchChanged(): void {
+    this.clearDateSelection();
     this.syncSingleSelectedStudent();
   }
 
@@ -2781,7 +2978,14 @@ export class StudentAttendanceComponent implements OnInit {
     const currentStillMatches = list.some(s => s.id === this.selectedStudentId);
     if (!currentStillMatches) {
       this.selectedStudentId = list[0]?.id || '';
+    }
+    if (this.selectedStudentId) {
       this.onStudentChanged();
+    } else {
+      this.selectedStudent = undefined;
+      this.records = [];
+      this.summary = null;
+      this.buildCalendar();
     }
   }
 
@@ -2825,7 +3029,9 @@ export class StudentAttendanceComponent implements OnInit {
   }
 
   loadAttendanceSettings(): void {
-    this.http.get<AttendanceSettingsDto>(`${this.api}/attendance/settings`).subscribe({
+    this.http.get<AttendanceSettingsDto>(`${this.api}/attendance/settings`, {
+      headers: { 'X-Skip-Loader': 'true' }
+    }).subscribe({
       next: settings => {
         this.attendanceSettings = settings;
         this.attendanceMode = settings.studentMode;
@@ -2883,6 +3089,7 @@ export class StudentAttendanceComponent implements OnInit {
   onStudentChanged(): void {
     this.selectedStudent = this.students.find(student => student.id === this.selectedStudentId);
     if (this.selectedStudent) {
+      this.clearDateSelection();
       this.loadPublicHolidaySundayPermission();
       this.loadAttendance();
     }
@@ -2963,11 +3170,35 @@ export class StudentAttendanceComponent implements OnInit {
   }
 
   get todayStr(): string {
-    return new Date().toISOString().split('T')[0];
+    return StudentAttendanceComponent.getTodayIstDateParts().str;
+  }
+
+  get currentSelectedStudent(): StudentItem | undefined {
+    return this.students.find(s => s.id === this.selectedStudentId);
+  }
+
+  get studentJoiningDateStr(): string | null {
+    const raw = this.currentSelectedStudent?.joiningDate;
+    if (!raw) return null;
+    return raw.split('T')[0];
+  }
+
+  formatDateDisplay(dateStr?: string | null): string {
+    if (!dateStr) return '';
+    try {
+      const d = new Date(dateStr.split('T')[0] + 'T00:00:00Z');
+      return d.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric' });
+    } catch {
+      return dateStr;
+    }
   }
 
   get minAttendanceDate(): string | null {
-    return this.attendancePermissions.canCorrectAttendance ? null : this.todayStr;
+    const jDate = this.studentJoiningDateStr;
+    if (this.attendancePermissions.canCorrectAttendance) {
+      return jDate || null;
+    }
+    return jDate && jDate > this.todayStr ? jDate : this.todayStr;
   }
 
   get isBatchPastLocked(): boolean {
@@ -2988,9 +3219,14 @@ export class StudentAttendanceComponent implements OnInit {
       const isFuture = dateStr > today;
       const holiday = this.holidays.find(item => dateStr >= item.startDate.split('T')[0] && dateStr <= item.endDate.split('T')[0]);
       const record = this.records.find(item => item.attendanceDate.split('T')[0] === dateStr);
+      const jDate = this.studentJoiningDateStr;
+      const isPriorToAdmission = !!(jDate && dateStr < jDate);
+
       let status = '';
       if (record) {
         status = record.status;
+      } else if (isPriorToAdmission) {
+        status = 'PriorAdmission';
       } else if (holiday) {
         status = 'Holiday';
       } else if (isSunday) {
@@ -3012,6 +3248,7 @@ export class StudentAttendanceComponent implements OnInit {
         isSunday,
         isSaturday,
         isFuture,
+        isPriorToAdmission,
         holiday,
         record,
         status,
@@ -3024,6 +3261,10 @@ export class StudentAttendanceComponent implements OnInit {
   }
 
   getDayTooltip(day: CalendarDay): string {
+    if (day.isPriorToAdmission) {
+      const joinFmt = this.currentSelectedStudent?.joiningDate ? this.formatDateDisplay(this.currentSelectedStudent.joiningDate) : '';
+      return `${day.dateStr} (${day.dayOfWeek}) - Prior to Admission${joinFmt ? ` (Student admitted on ${joinFmt})` : ''} — Attendance not applicable`;
+    }
     if (day.isFuture) {
       if (day.holiday) return `${day.dateStr} - ${day.holiday.title} (Future Holiday)`;
       if (day.isSunday) return `${day.dateStr} - Sunday Weekly Off (Future)`;
@@ -3108,6 +3349,16 @@ export class StudentAttendanceComponent implements OnInit {
 
   saveAttendance(): void {
     if (!this.selectedStudentId || !this.formData.attendanceDate) return;
+    const joinDateStr = this.studentJoiningDateStr;
+    if (joinDateStr && this.formData.attendanceDate < joinDateStr) {
+      const joinFmt = this.formatDateDisplay(joinDateStr);
+      this.confirmDialog.alert(
+        'Before Admission Date',
+        `Cannot mark attendance for ${this.formData.attendanceDate}. Student was admitted on ${joinFmt}. Attendance prior to admission date is not allowed.`,
+        'warning'
+      );
+      return;
+    }
     if (this.formData.attendanceDate > this.todayStr) {
       this.confirmDialog.alert('Future Date', 'Cannot mark attendance for future dates.', 'warning');
       return;
@@ -3129,12 +3380,15 @@ export class StudentAttendanceComponent implements OnInit {
       return;
     }
     this.saving = true;
+    const effStatus = this.getStudentSmartStatus(this.formData.status, this.formData.checkInTime, this.formData.checkOutTime);
+    this.formData.status = effStatus;
     const payload = {
       attendanceDate: this.formData.attendanceDate,
-      status: this.formData.status,
+      status: effStatus,
       remarks: this.formData.remarks || null,
-      checkInTime: this.formData.status !== 'Absent' && this.formData.status !== 'Holiday' ? (this.formData.checkInTime || null) : null,
-      checkOutTime: this.formData.status !== 'Absent' && this.formData.status !== 'Holiday' ? (this.formData.checkOutTime || null) : null
+      checkInTime: effStatus !== 'Absent' && effStatus !== 'Holiday' ? (this.formData.checkInTime || null) : null,
+      checkOutTime: effStatus !== 'Absent' && effStatus !== 'Holiday' ? (this.formData.checkOutTime || null) : null,
+      stream: this.singleStreamFilter !== 'all' ? this.singleStreamFilter : null
     };
     this.http.post(`${this.api}/students/${this.selectedStudentId}/attendance`, payload).subscribe({
       next: () => {
@@ -3225,6 +3479,13 @@ export class StudentAttendanceComponent implements OnInit {
 
   setTab(tab: 'batch' | 'single' | 'regularization'): void {
     this.activeTab = tab;
+    if (tab === 'single') {
+      if (this.students.length === 0) {
+        this.loadStudents(false);
+      } else if (this.selectedStudentId && !this.selectedStudent) {
+        this.onStudentChanged();
+      }
+    }
     if (tab === 'regularization') {
       this.loadRegularizations();
       this.loadRegularizationStats();
@@ -3268,7 +3529,8 @@ export class StudentAttendanceComponent implements OnInit {
 
   loadRegularizationStats(): void {
     this.http.get<{ totalRequests: number; pendingRequests: number; approvedRequests: number; rejectedRequests: number }>(
-      `${this.api}/student-regularizations/stats`
+      `${this.api}/student-regularizations/stats`,
+      { headers: { 'X-Skip-Loader': 'true' } }
     ).subscribe({
       next: (stats) => {
         if (stats) this.regularizationStats = stats;
@@ -3341,6 +3603,9 @@ export class StudentAttendanceComponent implements OnInit {
 
   /** Whether a calendar cell can be multi-selected (not future, not holiday, not Sunday, and user has correction permission if past) */
   isDateSelectable(day: CalendarDay): boolean {
+    if (day.isPriorToAdmission) return false;
+    const jDate = this.studentJoiningDateStr;
+    if (jDate && day.dateStr < jDate) return false;
     if (day.isFuture) return false;
     if (day.isSunday) return false;
     if (day.holiday) return false;
@@ -3352,6 +3617,15 @@ export class StudentAttendanceComponent implements OnInit {
 
   /** Click on a calendar day cell: if selectable toggle selection, else open single-day form */
   onDayCellClick(day: CalendarDay, event: MouseEvent): void {
+    if (day.isPriorToAdmission) {
+      const joinFmt = this.currentSelectedStudent?.joiningDate ? this.formatDateDisplay(this.currentSelectedStudent.joiningDate) : '';
+      this.confirmDialog.alert(
+        'Prior to Admission',
+        `Student was admitted on ${joinFmt || day.dateStr}. Attendance prior to the admission date is not applicable.`,
+        'info'
+      );
+      return;
+    }
     if (this.isDateSelectable(day)) {
       this.toggleDateSelect(day);
     } else {
@@ -3406,12 +3680,16 @@ export class StudentAttendanceComponent implements OnInit {
 
     this.batchSavingDates = true;
 
+    const effStatus = this.getStudentSmartStatus(this.batchTargetStatus, this.batchTargetCheckIn, this.batchTargetCheckOut);
+    this.batchTargetStatus = effStatus;
+
     const payload = {
       attendanceDates: dates,
-      status: this.batchTargetStatus,
+      status: effStatus,
       remarks: this.batchTargetRemarks || null,
-      checkInTime: this.batchTargetStatus !== 'Absent' && this.batchTargetStatus !== 'Leave' ? (this.batchTargetCheckIn || null) : null,
-      checkOutTime: this.batchTargetStatus !== 'Absent' && this.batchTargetStatus !== 'Leave' ? (this.batchTargetCheckOut || null) : null
+      checkInTime: effStatus !== 'Absent' && effStatus !== 'Leave' ? (this.batchTargetCheckIn || null) : null,
+      checkOutTime: effStatus !== 'Absent' && effStatus !== 'Leave' ? (this.batchTargetCheckOut || null) : null,
+      stream: this.singleStreamFilter !== 'all' ? this.singleStreamFilter : null
     };
 
     this.http.post(
@@ -3460,6 +3738,7 @@ export class StudentAttendanceComponent implements OnInit {
       year: this.attYear,
       defaultCheckInTime: this.batchTargetCheckIn || '08:00',
       defaultCheckOutTime: this.batchTargetCheckOut || '14:00',
+      stream: this.singleStreamFilter !== 'all' ? this.singleStreamFilter : null,
       days: selectableDays.map(d => ({
         date: d.dateStr,
         isPresent: this.selectedMatrixDates.has(d.dateStr),

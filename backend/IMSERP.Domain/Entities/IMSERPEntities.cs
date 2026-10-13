@@ -1881,6 +1881,36 @@ public class StudentHomeworkSubmission
     public Teacher? ReviewedByTeacher { get; set; }
 }
 
+public class DailyStudentDiary
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid StudentId { get; set; }
+    public Guid? ClassId { get; set; }
+    public Guid? SectionId { get; set; }
+    public DateTime DiaryDate { get; set; }
+    public string? ClassWorkJson { get; set; }
+    public string? HomeWorkJson { get; set; }
+    public bool IsAbsent { get; set; } = false;
+    public string? TeacherRemarks { get; set; }
+    public Guid? TeacherId { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+    public Tenant? Tenant { get; set; }
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+    [ForeignKey("StudentId")]
+    public Student? Student { get; set; }
+    [ForeignKey("ClassId")]
+    public SchoolClass? Class { get; set; }
+    [ForeignKey("SectionId")]
+    public SchoolSection? Section { get; set; }
+    [ForeignKey("TeacherId")]
+    public Teacher? Teacher { get; set; }
+}
+
 public class AdmissionEnquiry
 {
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -2280,6 +2310,24 @@ public class SchoolPeriodSlot
     public string EndTime { get; set; } = string.Empty;
     public string TimeSlot { get; set; } = string.Empty;
     public bool IsBreak { get; set; } = false;
+    public string? SlotType { get; set; } = "Teaching";
+    public int DisplayOrder { get; set; } = 1;
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+}
+
+public class SchoolActivityType
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? DisplayNameHi { get; set; }
+    public string? Icon { get; set; } = "local_activity";
+    public string? ColorHex { get; set; } = "#7e22ce";
     public int DisplayOrder { get; set; } = 1;
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

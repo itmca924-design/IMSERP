@@ -131,6 +131,10 @@ export class AttendanceReportsComponent implements OnInit, OnDestroy {
   skeletonDays = Array(31).fill(0);
   weekDayHeaders = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
+  selectedDayMap: { [personId: string]: DailyDayItem | null } = {};
+  statusFilterMap: { [personId: string]: string | null } = {};
+  pendingExpandedPersonId: string | null = null;
+
   // === Circular Ring ===
   readonly circumference = +(2 * Math.PI * 21).toFixed(3); // r=21
 
@@ -140,8 +144,8 @@ export class AttendanceReportsComponent implements OnInit, OnDestroy {
 
   isToday(day: number): boolean {
     const now = new Date();
-    return now.getFullYear() === this.selectedYear &&
-           now.getMonth() + 1 === this.selectedMonth &&
+    return now.getFullYear() === Number(this.selectedYear) &&
+           now.getMonth() + 1 === Number(this.selectedMonth) &&
            now.getDate() === day;
   }
 
@@ -434,9 +438,13 @@ export class AttendanceReportsComponent implements OnInit, OnDestroy {
 
   loadReport(): void {
     this.loading = true;
+    const keepId = this.pendingExpandedPersonId;
     this.expandedPersonIds.clear(); this.collapsingPersonIds.clear(); this.expandAll = false;
     this.resetDailyCaches();
     this.loadingDaily.clear();
+    if (keepId) {
+      this.expandedPersonIds.add(keepId);
+    }
     if (this.isStudentOrParent) this.reportType = 'student';
 
     const endpoint = this.reportType === 'student'
@@ -467,7 +475,10 @@ export class AttendanceReportsComponent implements OnInit, OnDestroy {
         this.report = report;
         this.totalCount = report.totalCount ?? report.totalPeople ?? report.rows?.length ?? 0;
         this.loading = false;
-        if (this.isStudentOrParent && report?.rows?.length > 0) {
+        if (keepId) {
+          this.pendingExpandedPersonId = null;
+          this.loadDailyAttendanceIfNeeded(keepId);
+        } else if (this.isStudentOrParent && report?.rows?.length > 0) {
           const firstRow = report.rows[0];
           if (!this.streamInitialized) {
             this.streamInitialized = true;
@@ -479,7 +490,7 @@ export class AttendanceReportsComponent implements OnInit, OnDestroy {
           this.loadDailyAttendanceIfNeeded(firstRow.personId);
         }
       },
-      error: () => { this.report = null; this.totalCount = 0; this.loading = false; }
+      error: () => { this.report = null; this.totalCount = 0; this.loading = false; this.pendingExpandedPersonId = null; }
     });
   }
 
@@ -516,6 +527,87 @@ export class AttendanceReportsComponent implements OnInit, OnDestroy {
     this.dailyCalendarCache = {};
     this.streakCache = {};
     this.weeklyPatternCache = {};
+    this.selectedDayMap = {};
+    this.statusFilterMap = {};
+  }
+
+  // === Smart Interactive Calendar Methods ===
+  selectDay(personId: string, day: DailyDayItem | null): void {
+    if (!day) {
+      this.selectedDayMap[personId] = null;
+      return;
+    }
+    if (this.selectedDayMap[personId]?.day === day.day) {
+      this.selectedDayMap[personId] = null;
+    } else {
+      this.selectedDayMap[personId] = day;
+    }
+  }
+
+  isDaySelected(personId: string, dayNum: number): boolean {
+    return this.selectedDayMap[personId]?.day === dayNum;
+  }
+
+  toggleStatusFilter(personId: string, status: string): void {
+    if (this.statusFilterMap[personId] === status) {
+      this.statusFilterMap[personId] = null;
+    } else {
+      this.statusFilterMap[personId] = status;
+    }
+  }
+
+  isDayHighlighted(personId: string, d: DailyDayItem | null): boolean {
+    const f = this.statusFilterMap[personId];
+    if (!f || !d) return false;
+    if (f === 'P') return d.status === 'P' || d.status === 'LT';
+    if (f === 'OFF') return d.isSunday || d.status === 'OFF';
+    return d.status === f;
+  }
+
+  isDayDimmed(personId: string, d: DailyDayItem | null): boolean {
+    const f = this.statusFilterMap[personId];
+    if (!f || !d) return false;
+    return !this.isDayHighlighted(personId, d);
+  }
+
+  getSelectedOrLastActivity(row: ReportRow): DailyDayItem | null {
+    if (this.selectedDayMap[row.personId]) {
+      return this.selectedDayMap[row.personId];
+    }
+    return this.getLastPunchInfo(row);
+  }
+
+  navigateMonth(delta: number, personIdToKeepExpanded?: string): void {
+    let m = Number(this.selectedMonth) + delta;
+    let y = Number(this.selectedYear);
+    if (m < 1) {
+      m = 12;
+      y -= 1;
+    } else if (m > 12) {
+      m = 1;
+      y += 1;
+    }
+    this.selectedMonth = m;
+    this.selectedYear = y;
+    if (personIdToKeepExpanded) {
+      this.pendingExpandedPersonId = personIdToKeepExpanded;
+    }
+    this.loadReport();
+  }
+
+  isCurrentSelectedMonth(): boolean {
+    const now = new Date();
+    return Number(this.selectedMonth) === now.getMonth() + 1 && Number(this.selectedYear) === now.getFullYear();
+  }
+
+  goToCurrentMonth(personIdToKeepExpanded?: string): void {
+    const now = new Date();
+    this.selectedMonth = now.getMonth() + 1;
+    this.selectedYear = now.getFullYear();
+    if (personIdToKeepExpanded) {
+      this.pendingExpandedPersonId = personIdToKeepExpanded;
+    }
+    this.loadReport();
   }
 
   getPctColor(pct: number): string {

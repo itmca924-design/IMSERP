@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormBuilder, FormGroup, ReactiveFormsModule, FormsModule, Validators } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
+import { lastValueFrom } from 'rxjs';
 import { MatCardModule } from '@angular/material/card';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatButtonModule } from '@angular/material/button';
@@ -86,10 +87,12 @@ export class TransportManagementComponent implements OnInit {
   teachersList: any[] = [];
   schoolClasses: SchoolClassDto[] = [];
   batchesList: any[] = [];
-  schoolClassFilterOptions: { key: string; name: string; count: number; classId?: string; sectionId?: string; type: 'class' | 'section' }[] = [];
-  batchFilterOptions: { key: string; name: string; count: number; batchId: string }[] = [];
+  schoolClassFilterOptions: { key: string; name: string; count: number; unassignedCount?: number; assignedCount?: number; classId?: string; sectionId?: string; type: 'class' | 'section' }[] = [];
+  batchFilterOptions: { key: string; name: string; count: number; unassignedCount?: number; assignedCount?: number; batchId: string }[] = [];
   selectedAllocationClassFilter = 'ALL';
   selectedGatePassClassFilter = 'ALL';
+  allocationAssignmentFilter: 'Unassigned' | 'Assigned' | 'All' = 'Unassigned';
+  teacherAssignmentFilter: 'Unassigned' | 'Assigned' | 'All' = 'Unassigned';
 
   // Filter & Search
   allocationSearch = '';
@@ -114,6 +117,8 @@ export class TransportManagementComponent implements OnInit {
   editingRouteId: string | null = null;
   editingStopId: string | null = null;
   editingAllocationId: string | null = null;
+  selectedStudentIds: string[] = [];
+  isSavingAllocation = false;
   selectedRouteForStops: TransportRouteDto | null = null;
   selectedGatePassForClose: CampusGatePassDto | null = null;
 
@@ -225,9 +230,10 @@ export class TransportManagementComponent implements OnInit {
       stopOrder: [1, [Validators.required, Validators.min(1)]],
       pickupTime: ['07:15 AM'],
       dropTime: ['03:45 PM'],
-      monthlyFare: [1200, [Validators.required, Validators.min(0)]],
-      quarterlyFare: [3400],
-      annualFare: [13000],
+      monthlyFare: [0, [Validators.required, Validators.min(0)]],
+      quarterlyFare: [0],
+      halfYearlyFare: [0],
+      annualFare: [0],
       landmark: [''],
       distanceKm: [0]
     });
@@ -310,6 +316,7 @@ export class TransportManagementComponent implements OnInit {
       next: (res) => {
         this.studentAllocations = res.filter(a => a.memberType === 'Student');
         this.teacherAllocations = res.filter(a => a.memberType === 'Teacher');
+        this.rebuildClassFiltersAndGroups();
         this.loading = false;
       },
       error: (err) => {
@@ -608,13 +615,44 @@ export class TransportManagementComponent implements OnInit {
       stopOrder: nextOrder,
       pickupTime: '07:15 AM',
       dropTime: '03:45 PM',
-      monthlyFare: 1200,
-      quarterlyFare: 3400,
-      annualFare: 13000,
+      monthlyFare: 0,
+      quarterlyFare: 0,
+      halfYearlyFare: 0,
+      annualFare: 0,
       landmark: '',
       distanceKm: 0
     });
     this.showStopModal = true;
+  }
+
+  openEditStop(route: TransportRouteDto, stop: TransportRouteStopDto): void {
+    this.selectedRouteForStops = route;
+    this.editingStopId = stop.id;
+    const monthly = Number(stop.monthlyFare) || 0;
+    this.stopForm.reset({
+      stopName: stop.stopName,
+      stopOrder: stop.stopOrder,
+      pickupTime: stop.pickupTime || '07:15 AM',
+      dropTime: stop.dropTime || '03:45 PM',
+      monthlyFare: monthly,
+      quarterlyFare: (stop.quarterlyFare !== undefined && stop.quarterlyFare !== null) ? stop.quarterlyFare : (monthly * 3),
+      halfYearlyFare: (stop.halfYearlyFare !== undefined && stop.halfYearlyFare !== null) ? stop.halfYearlyFare : (monthly * 6),
+      annualFare: (stop.annualFare !== undefined && stop.annualFare !== null) ? stop.annualFare : (monthly * 11),
+      landmark: stop.landmark || '',
+      distanceKm: stop.distanceKm || 0
+    });
+    this.showStopModal = true;
+  }
+
+  onStopMonthlyFareChange(val?: any): void {
+    const monthly = val !== undefined && val !== null
+      ? (Number(val) || 0)
+      : (Number(this.stopForm.get('monthlyFare')?.value) || 0);
+    this.stopForm.patchValue({
+      quarterlyFare: monthly * 3,
+      halfYearlyFare: monthly * 6,
+      annualFare: monthly * 11
+    });
   }
 
   saveStop(): void {
@@ -698,7 +736,12 @@ export class TransportManagementComponent implements OnInit {
     this.editingAllocationId = null;
     this.activeTopAction = memberType === 'Student' ? 'student' : 'faculty';
     this.selectedAllocationClassFilter = 'ALL';
+    this.allocationAssignmentFilter = 'Unassigned';
+    this.teacherAssignmentFilter = 'Unassigned';
     this.selectedAllocationStudentInfo = '';
+    this.selectedStudentIds = [];
+    this.selectedBillingPlan = 'Monthly';
+    this.isSavingAllocation = false;
     this.rebuildAllocationGroups();
     this.allocationForm.reset({
       memberType,
@@ -715,9 +758,13 @@ export class TransportManagementComponent implements OnInit {
     this.editingAllocationId = a.id;
     this.activeTopAction = a.memberType === 'Student' ? 'student' : 'faculty';
     this.selectedAllocationClassFilter = 'ALL';
+    this.allocationAssignmentFilter = 'All';
+    this.teacherAssignmentFilter = 'All';
     this.selectedAllocationStudentInfo = a.studentName
       ? `${a.studentName} (Roll: ${a.studentRollNumber || a.rollNumber || 'N/A'})`
       : (a.teacherName || '');
+    this.selectedStudentIds = a.studentId ? [a.studentId] : [];
+    this.isSavingAllocation = false;
     this.rebuildAllocationGroups();
 
     const formattedDate = a.effectiveFrom
@@ -760,9 +807,58 @@ export class TransportManagementComponent implements OnInit {
     if (selectedRoute?.vehicleId) {
       this.allocationForm.patchValue({ vehicleId: selectedRoute.vehicleId });
     }
+    // Reset stop when route changes so stale stop is not left
+    this.allocationForm.patchValue({ routeStopId: null, monthlyFare: 0 });
+  }
+
+  selectedBillingPlan: 'Monthly' | 'Quarterly' | 'HalfYearly' | 'Annual' = 'Monthly';
+
+  getSelectedStopDetails(): TransportRouteStopDto | null {
+    const routeId = this.allocationForm.get('routeId')?.value;
+    const stopId = this.allocationForm.get('routeStopId')?.value;
+    if (!routeId || !stopId) return null;
+    const route = this.routes.find(r => r.id === routeId);
+    return route?.stops?.find(s => s.id === stopId) || null;
+  }
+
+  getStopFareForPlan(plan: 'Monthly' | 'Quarterly' | 'HalfYearly' | 'Annual'): number {
+    const stop = this.getSelectedStopDetails();
+    if (!stop) return 0;
+    const m = Number(stop.monthlyFare) || 0;
+    if (plan === 'Monthly') return m;
+    if (plan === 'Quarterly') return (stop.quarterlyFare !== undefined && stop.quarterlyFare !== null && stop.quarterlyFare > 0) ? stop.quarterlyFare : (m * 3);
+    if (plan === 'HalfYearly') return (stop.halfYearlyFare !== undefined && stop.halfYearlyFare !== null && stop.halfYearlyFare > 0) ? stop.halfYearlyFare : (m * 6);
+    if (plan === 'Annual') return (stop.annualFare !== undefined && stop.annualFare !== null && stop.annualFare > 0) ? stop.annualFare : (m * 11);
+    return m;
+  }
+
+  selectBillingPlan(plan: 'Monthly' | 'Quarterly' | 'HalfYearly' | 'Annual'): void {
+    this.selectedBillingPlan = plan;
+    const stop = this.getSelectedStopDetails();
+    if (!stop) return;
+    if (this.allocationForm.get('isFreeAllocation')?.value) {
+      this.allocationForm.patchValue({ monthlyFare: 0 });
+      return;
+    }
+    const m = Number(stop.monthlyFare) || 0;
+    let effectiveMonthly = m;
+    if (plan === 'Monthly') {
+      effectiveMonthly = m;
+    } else if (plan === 'Quarterly') {
+      const qFare = this.getStopFareForPlan('Quarterly');
+      effectiveMonthly = Math.round((qFare / 3) * 100) / 100;
+    } else if (plan === 'HalfYearly') {
+      const hFare = this.getStopFareForPlan('HalfYearly');
+      effectiveMonthly = Math.round((hFare / 6) * 100) / 100;
+    } else if (plan === 'Annual') {
+      const aFare = this.getStopFareForPlan('Annual');
+      effectiveMonthly = Math.round((aFare / 11) * 100) / 100;
+    }
+    this.allocationForm.patchValue({ monthlyFare: effectiveMonthly });
   }
 
   onStopChangeForAllocation(stopId: string): void {
+    this.selectedBillingPlan = 'Monthly';
     const routeId = this.allocationForm.get('routeId')?.value;
     const selectedRoute = this.routes.find(r => r.id === routeId);
     const stop = selectedRoute?.stops?.find(s => s.id === stopId);
@@ -772,8 +868,172 @@ export class TransportManagementComponent implements OnInit {
     }
   }
 
-  saveAllocation(): void {
-    if (this.allocationForm.invalid) return;
+  // --- Multi-Student & Pass Assignment Helpers ---
+  getActiveAllocationForStudent(studentId: string): TransportAllocationDto | undefined {
+    return this.studentAllocations.find(a => a.studentId === studentId && (a.status === 'Active' || !a.status));
+  }
+
+  isStudentAssigned(studentId: string): boolean {
+    return !!this.getActiveAllocationForStudent(studentId);
+  }
+
+  getActiveAllocationForTeacher(teacherId: string): TransportAllocationDto | undefined {
+    return this.teacherAllocations.find(a => a.teacherId === teacherId && (a.status === 'Active' || !a.status));
+  }
+
+  isTeacherAssigned(teacherId: string): boolean {
+    return !!this.getActiveAllocationForTeacher(teacherId);
+  }
+
+  setAllocationAssignmentFilter(filter: 'Unassigned' | 'Assigned' | 'All'): void {
+    this.allocationAssignmentFilter = filter;
+    this.rebuildAllocationGroups();
+  }
+
+  getFilteredStudentsForAllocation(): any[] {
+    const list = this.filterStudentsBySelection(this.selectedAllocationClassFilter, this.studentsList);
+    if (this.allocationAssignmentFilter === 'Unassigned') {
+      return list.filter(s => !this.isStudentAssigned(s.id));
+    } else if (this.allocationAssignmentFilter === 'Assigned') {
+      return list.filter(s => this.isStudentAssigned(s.id));
+    }
+    return list;
+  }
+
+  getUnassignedStudentsCount(): number {
+    const list = this.filterStudentsBySelection(this.selectedAllocationClassFilter, this.studentsList);
+    return list.filter(s => !this.isStudentAssigned(s.id)).length;
+  }
+
+  getAssignedStudentsCount(): number {
+    const list = this.filterStudentsBySelection(this.selectedAllocationClassFilter, this.studentsList);
+    return list.filter(s => this.isStudentAssigned(s.id)).length;
+  }
+
+  getAllStudentsCount(): number {
+    const list = this.filterStudentsBySelection(this.selectedAllocationClassFilter, this.studentsList);
+    return list.length;
+  }
+
+  getGlobalUnassignedStudentsCount(): number {
+    return this.studentsList.filter(s => !this.isStudentAssigned(s.id)).length;
+  }
+
+  setTeacherAssignmentFilter(filter: 'Unassigned' | 'Assigned' | 'All'): void {
+    this.teacherAssignmentFilter = filter;
+  }
+
+  getFilteredTeachers(): any[] {
+    if (this.teacherAssignmentFilter === 'Unassigned') {
+      return this.teachersList.filter(t => !this.isTeacherAssigned(t.id));
+    } else if (this.teacherAssignmentFilter === 'Assigned') {
+      return this.teachersList.filter(t => this.isTeacherAssigned(t.id));
+    }
+    return this.teachersList;
+  }
+
+  getUnassignedTeachersCount(): number {
+    return this.teachersList.filter(t => !this.isTeacherAssigned(t.id)).length;
+  }
+
+  getAssignedTeachersCount(): number {
+    return this.teachersList.filter(t => this.isTeacherAssigned(t.id)).length;
+  }
+
+  getAllTeachersCount(): number {
+    return this.teachersList.length;
+  }
+
+  getVisibleAllocationStudentsCount(): number {
+    const list = this.getFilteredStudentsForAllocation();
+    return list ? list.length : 0;
+  }
+
+  selectAllVisibleAllocationStudents(): void {
+    const list = this.getFilteredStudentsForAllocation();
+    const newIds = list.map(s => s.id);
+    this.selectedStudentIds = Array.from(new Set([...this.selectedStudentIds, ...newIds]));
+  }
+
+  clearSelectedAllocationStudents(): void {
+    this.selectedStudentIds = [];
+  }
+
+  removeSelectedStudent(id: string): void {
+    this.selectedStudentIds = this.selectedStudentIds.filter(sId => sId !== id);
+  }
+
+  getSelectedStudentObjects(): any[] {
+    if (!this.selectedStudentIds || this.selectedStudentIds.length === 0) return [];
+    const idSet = new Set(this.selectedStudentIds);
+    return this.studentsList.filter(s => idSet.has(s.id));
+  }
+
+  getSelectedStudentsSummaryText(): string {
+    const count = this.selectedStudentIds.length;
+    if (count === 0) return 'Choose one or more students (Multi-Select enabled)';
+    if (count === 1) {
+      const s = this.studentsList.find(x => x.id === this.selectedStudentIds[0]);
+      return s ? `${s.studentName} (${this.getStudentClassName(s)})` : '1 student selected';
+    }
+    const first = this.studentsList.find(x => x.id === this.selectedStudentIds[0]);
+    const firstName = first ? first.studentName : 'Student';
+    return `${firstName} + ${count - 1} other${count > 2 ? 's' : ''}`;
+  }
+
+  isSaveAllocationDisabled(): boolean {
+    if (this.allocationForm.invalid) return true;
+    const memberType = this.allocationForm.get('memberType')?.value;
+    if (memberType === 'Student') {
+      if (this.editingAllocationId) {
+        return !this.allocationForm.get('studentId')?.value;
+      }
+      return this.selectedStudentIds.length === 0;
+    }
+    if (memberType === 'Teacher') {
+      return !this.allocationForm.get('teacherId')?.value;
+    }
+    return false;
+  }
+
+  getFareCalculationHint(): string {
+    const isFree = this.allocationForm.get('isFreeAllocation')?.value;
+    if (isFree) return 'Concession: 100% Free Pass (₹0 billed)';
+    const memberType = this.allocationForm.get('memberType')?.value;
+    if (memberType === 'Student') {
+      const count = this.editingAllocationId ? 1 : this.selectedStudentIds.length;
+      const plan = this.selectedBillingPlan;
+      const planFare = this.getStopFareForPlan(plan);
+      const monthlyRate = Number(this.allocationForm.get('monthlyFare')?.value) || 0;
+
+      if (count <= 1) {
+        if (plan === 'Monthly') {
+          return `Plan: Monthly • ₹${planFare}/माह per student`;
+        }
+        return `Plan: ${plan} • ₹${planFare}/छात्र (मासिक: ₹${monthlyRate}/माह)`;
+      } else {
+        const totalPlanFare = planFare * count;
+        if (plan === 'Monthly') {
+          return `Plan: Monthly • ₹${planFare} × ${count} छात्र = Total ₹${totalPlanFare}/माह`;
+        }
+        return `Plan: ${plan} • ₹${planFare} × ${count} छात्र = Total ₹${totalPlanFare} (₹${monthlyRate}/माह प्रति छात्र)`;
+      }
+    }
+    const fare = Number(this.allocationForm.get('monthlyFare')?.value) || 0;
+    return `₹${fare} / माह`;
+  }
+
+  getSubmitButtonLabel(): string {
+    if (this.isSavingAllocation) return 'Issuing Passes...';
+    if (this.editingAllocationId) return 'Update Pass';
+    if (this.allocationForm.get('memberType')?.value === 'Student' && this.selectedStudentIds.length > 1) {
+      return `Issue Passes (${this.selectedStudentIds.length} Students)`;
+    }
+    return 'Issue Pass';
+  }
+
+  async saveAllocation(): Promise<void> {
+    if (this.isSaveAllocationDisabled() || this.isSavingAllocation) return;
     const formVal = this.allocationForm.value;
     const dto: CreateTransportAllocationDto = {
       memberType: formVal.memberType,
@@ -790,25 +1050,79 @@ export class TransportManagementComponent implements OnInit {
     };
 
     if (this.editingAllocationId) {
+      this.isSavingAllocation = true;
       this.transportService.updateAllocation(this.editingAllocationId, dto).subscribe({
         next: () => {
+          this.isSavingAllocation = false;
           this.showAllocationModal = false;
           this.editingAllocationId = null;
           this.loadAllocations();
           this.loadOverview();
           this.confirmDialog.alert('Pass Updated', 'Transport pass updated successfully! Monthly fare and billing details have been updated.', 'success');
         },
-        error: (err) => this.confirmDialog.alert('Update Failed', err.error?.message || 'Failed to update transport pass.', 'danger')
+        error: (err) => {
+          this.isSavingAllocation = false;
+          this.confirmDialog.alert('Update Failed', err.error?.message || 'Failed to update transport pass.', 'danger');
+        }
       });
+      return;
+    }
+
+    // New Pass: Student (Multi-Select Supported)
+    if (formVal.memberType === 'Student') {
+      if (this.selectedStudentIds.length === 0) {
+        this.confirmDialog.alert('Select Student', 'Please select at least one student to issue transport pass.', 'warning');
+        return;
+      }
+
+      this.isSavingAllocation = true;
+      let successCount = 0;
+      let failedCount = 0;
+
+      for (const sId of this.selectedStudentIds) {
+        try {
+          const studentDto: CreateTransportAllocationDto = { ...dto, studentId: sId };
+          await lastValueFrom(this.transportService.allocateTransport(studentDto));
+          successCount++;
+        } catch (err: any) {
+          console.error(`Failed to allocate pass for student ${sId}`, err);
+          failedCount++;
+        }
+      }
+
+      this.isSavingAllocation = false;
+      this.showAllocationModal = false;
+      this.selectedStudentIds = [];
+      this.loadAllocations();
+      this.loadOverview();
+
+      if (failedCount === 0) {
+        const msg = successCount === 1
+          ? 'Transport pass allocated and smart card generated successfully!'
+          : `Transport passes allocated and smart cards generated for all ${successCount} students successfully!`;
+        this.confirmDialog.alert('Pass Issued', msg, 'success');
+      } else {
+        this.confirmDialog.alert(
+          'Pass Allocation Summary',
+          `Successfully issued passes for ${successCount} student(s). Failed for ${failedCount} student(s).`,
+          failedCount > 0 && successCount === 0 ? 'danger' : 'warning'
+        );
+      }
     } else {
+      // Teacher Pass Allocation
+      this.isSavingAllocation = true;
       this.transportService.allocateTransport(dto).subscribe({
         next: () => {
+          this.isSavingAllocation = false;
           this.showAllocationModal = false;
           this.loadAllocations();
           this.loadOverview();
-          this.confirmDialog.alert('Pass Issued', 'Transport pass allocated and smart card generated successfully!', 'success');
+          this.confirmDialog.alert('Pass Issued', 'Faculty transport pass allocated and smart card generated successfully!', 'success');
         },
-        error: (err) => this.confirmDialog.alert('Allocation Failed', err.error?.message || 'Failed to allocate transport.', 'danger')
+        error: (err) => {
+          this.isSavingAllocation = false;
+          this.confirmDialog.alert('Allocation Failed', err.error?.message || 'Failed to allocate transport.', 'danger')
+        }
       });
     }
   }
@@ -1111,11 +1425,15 @@ export class TransportManagementComponent implements OnInit {
       const classStudents = this.studentsList.filter(s =>
         s.classId === c.id || (s.className && s.className.trim().toLowerCase() === c.name.trim().toLowerCase())
       );
+      const unassignedCount = classStudents.filter(s => !this.isStudentAssigned(s.id)).length;
+      const assignedCount = classStudents.filter(s => this.isStudentAssigned(s.id)).length;
 
       this.schoolClassFilterOptions.push({
         key: `CLASS_${c.id}`,
         name: c.name,
         count: classStudents.length,
+        unassignedCount,
+        assignedCount,
         classId: c.id,
         type: 'class'
       });
@@ -1125,10 +1443,14 @@ export class TransportManagementComponent implements OnInit {
           const secStudents = classStudents.filter(s =>
             s.sectionId === sec.id || (s.sectionName && s.sectionName.trim().toLowerCase() === sec.name.trim().toLowerCase())
           );
+          const secUnassigned = secStudents.filter(s => !this.isStudentAssigned(s.id)).length;
+          const secAssigned = secStudents.filter(s => this.isStudentAssigned(s.id)).length;
           this.schoolClassFilterOptions.push({
             key: `SECTION_${c.id}_${sec.id}`,
             name: `${c.name} - ${sec.name}`,
             count: secStudents.length,
+            unassignedCount: secUnassigned,
+            assignedCount: secAssigned,
             classId: c.id,
             sectionId: sec.id,
             type: 'section'
@@ -1143,10 +1465,14 @@ export class TransportManagementComponent implements OnInit {
       const batchStudents = this.studentsList.filter(s =>
         s.batchId === b.id || (s.batchName && s.batchName.trim().toLowerCase() === b.name.trim().toLowerCase())
       );
+      const batchUnassigned = batchStudents.filter(s => !this.isStudentAssigned(s.id)).length;
+      const batchAssigned = batchStudents.filter(s => this.isStudentAssigned(s.id)).length;
       this.batchFilterOptions.push({
         key: `BATCH_${b.id}`,
         name: b.name,
         count: batchStudents.length,
+        unassignedCount: batchUnassigned,
+        assignedCount: batchAssigned,
         batchId: b.id
       });
     }
@@ -1196,7 +1522,7 @@ export class TransportManagementComponent implements OnInit {
   }
 
   rebuildAllocationGroups(): void {
-    const list = this.filterStudentsBySelection(this.selectedAllocationClassFilter, this.studentsList);
+    const list = this.getFilteredStudentsForAllocation();
 
     const map = new Map<string, any[]>();
     for (const s of list) {

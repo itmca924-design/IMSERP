@@ -328,7 +328,8 @@ public record SchoolPeriodSlotDto(
     bool IsBreak,
     int DisplayOrder,
     bool IsActive,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    string? SlotType = "Teaching"
 );
 
 public record CreateSchoolPeriodSlotDto(
@@ -339,7 +340,8 @@ public record CreateSchoolPeriodSlotDto(
     string? TimeSlot,
     bool IsBreak,
     int DisplayOrder,
-    bool IsActive = true
+    bool IsActive = true,
+    string? SlotType = "Teaching"
 );
 
 public record BulkSaveSchoolPeriodSlotsDto(
@@ -353,7 +355,32 @@ public record GeneratePeriodSlotsRequestDto(
     int PeriodDurationMinutes,
     int TotalPeriods,
     int? BreakAfterPeriod = 4,
-    int? BreakDurationMinutes = 30
+    int? BreakDurationMinutes = 30,
+    int? ActivityAfterPeriod = null,
+    int? ActivityDurationMinutes = null,
+    string? ActivityName = null,
+    string? ActivityType = null
+);
+
+public record SchoolActivityTypeDto(
+    Guid Id,
+    Guid? BranchId,
+    string Name,
+    string? DisplayNameHi,
+    string? Icon,
+    string? ColorHex,
+    int DisplayOrder,
+    bool IsActive
+);
+
+public record CreateSchoolActivityTypeDto(
+    Guid? BranchId,
+    string Name,
+    string? DisplayNameHi,
+    string? Icon = "local_activity",
+    string? ColorHex = "#7e22ce",
+    int DisplayOrder = 1,
+    bool IsActive = true
 );
 
 public record EnrollSchoolStudentInCoachingDto(
@@ -561,7 +588,8 @@ public record MarkStudentAttendanceDto(
     string Status,
     string? Remarks,
     string? CheckInTime = null,
-    string? CheckOutTime = null
+    string? CheckOutTime = null,
+    string? Stream = null
 );
 
 public record BulkStudentMultiDatesAttendanceDto(
@@ -569,7 +597,8 @@ public record BulkStudentMultiDatesAttendanceDto(
     string Status,
     string? Remarks,
     string? CheckInTime = null,
-    string? CheckOutTime = null
+    string? CheckOutTime = null,
+    string? Stream = null
 );
 
 public record StudentMonthlyRegisterDayItem(
@@ -585,7 +614,8 @@ public record SaveStudentMonthlyRegisterDto(
     int Year,
     string? DefaultCheckInTime,
     string? DefaultCheckOutTime,
-    List<StudentMonthlyRegisterDayItem> Days
+    List<StudentMonthlyRegisterDayItem> Days,
+    string? Stream = null
 );
 
 public record BatchStudentAttendanceItemDto(
@@ -3892,6 +3922,57 @@ public record ClassStudentSubmissionRosterDto(
     bool HasSubmitted,
     StudentHomeworkSubmissionDto? Submission
 );
+
+// =========================================================================
+// DAILY STUDENT CLASSWORK & HOMEWORK DIARY DTOs
+// =========================================================================
+
+public record DailySubjectTaskItem(
+    string Subject,
+    string Task
+);
+
+public record DailyStudentDiaryRowDto(
+    Guid StudentId,
+    string StudentName,
+    string RollNumber,
+    string? AdmissionNumber,
+    Guid? ClassId,
+    string? ClassName,
+    Guid? SectionId,
+    string? SectionName,
+    bool IsAbsent,
+    List<DailySubjectTaskItem> ClassWork,
+    List<DailySubjectTaskItem> HomeWork,
+    string? Remarks,
+    Guid? DiaryId
+);
+
+public record DailyStudentDiarySaveItemDto(
+    Guid StudentId,
+    bool IsAbsent,
+    List<DailySubjectTaskItem> ClassWork,
+    List<DailySubjectTaskItem> HomeWork,
+    string? Remarks
+);
+
+public record BulkSaveDailyStudentDiaryDto(
+    DateTime DiaryDate,
+    Guid? ClassId,
+    Guid? SectionId,
+    List<DailyStudentDiarySaveItemDto> Items
+);
+
+public record DailyDiaryReportHeaderDto(
+    string InstitutionName,
+    string SubtitleOrAddress,
+    string ReportTitle,
+    DateTime DiaryDate,
+    string? ClassName,
+    string? SectionName,
+    List<DailyStudentDiaryRowDto> Rows
+);
+
 
 // =========================================================================
 // OPTION C: ADMISSION ENQUIRY CRM DTOs

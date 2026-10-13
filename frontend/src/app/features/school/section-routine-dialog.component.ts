@@ -143,15 +143,33 @@ export interface SectionRoutineDialogData {
               </button>
             </div>
 
+            <!-- Activity Slot Notification -->
+            <div class="activity-slot-alert" *ngIf="isCurrentSelectedSlotActivity">
+              <div class="act-alert-icon">
+                <mat-icon>celebration</mat-icon>
+              </div>
+              <div class="act-alert-content">
+                <strong>Activity / Co-Curricular Period: {{ currentSelectedSlotObj?.name }}</strong>
+                <p>
+                  यह एक सह-शैक्षणिक गतिविधि (Activity Slot) है। विषय अपने-आप <strong>{{ currentSelectedSlotObj?.name }}</strong> सेट हो गया है। इसके लिए आप नीचे एक्टिविटी शिक्षक चुन सकते हैं। आपके 6 मुख्य विषय सुरक्षित हैं।
+                </p>
+              </div>
+            </div>
+
             <!-- Quick Subject Suggestions -->
-            <div class="form-group">
+            <div class="form-group" [class.dimmed-by-activity]="isCurrentSelectedSlotActivity">
               <div class="subject-header-row">
-                <label class="field-label">Subject (विषय) *</label>
-                <span class="curr-pill" *ngIf="classSubjects.length > 0">
+                <label class="field-label">
+                  Subject (विषय) *
+                  <span class="act-auto-pill" *ngIf="isCurrentSelectedSlotActivity">
+                    <mat-icon>auto_awesome</mat-icon> Auto-Mapped Activity
+                  </span>
+                </label>
+                <span class="curr-pill" *ngIf="classSubjects.length > 0 && !isCurrentSelectedSlotActivity">
                   <mat-icon>verified</mat-icon> {{ classSubjects.length }} Curriculum Subjects
                 </span>
               </div>
-              <div class="subject-chips">
+              <div class="subject-chips" *ngIf="!isCurrentSelectedSlotActivity">
                 <button type="button" *ngFor="let s of displaySubjects; trackBy: trackBySubject"
                   class="subj-chip"
                   [class.curriculum-chip]="s.isCurriculum"
@@ -165,7 +183,7 @@ export interface SectionRoutineDialogData {
                   <span *ngIf="!isSubjectAssigned(s.name)" class="badge-pending">Unassigned</span>
                 </button>
               </div>
-              <input type="text" [(ngModel)]="newSubject" placeholder="Or enter subject name (e.g. Sanskrit, Moral Science)..." class="custom-input" />
+              <input type="text" [(ngModel)]="newSubject" [readonly]="isCurrentSelectedSlotActivity" placeholder="Or enter subject name (e.g. Sanskrit, Moral Science)..." class="custom-input" [class.activity-locked-input]="isCurrentSelectedSlotActivity" />
             </div>
 
             <!-- Faculty Selection -->
@@ -236,13 +254,18 @@ export interface SectionRoutineDialogData {
               <div class="period-chips">
                 <button type="button" *ngFor="let p of presetPeriods"
                   class="p-chip"
+                  [class.is-activity-chip]="isActivitySlot(p)"
                   [class.active]="selectedTimeSlot === p.slot"
                   [class.period-taken]="isPeriodAssigned(p.slot)"
                   (click)="onSelectPeriodSlot(p.slot)">
                   <div class="p-top-row">
-                    <span class="p-name">{{ p.name }}</span>
-                    <span class="p-tag-pill" *ngIf="getPeriodSubjectName(p.slot)">✓ {{ getPeriodSubjectName(p.slot) }}</span>
-                    <span class="p-tag-pill free-tag" *ngIf="!getPeriodSubjectName(p.slot)">🟢 Free</span>
+                    <span class="p-name">
+                      <mat-icon *ngIf="isActivitySlot(p)" class="chip-act-icon">celebration</mat-icon>
+                      {{ p.name }}
+                    </span>
+                    <span class="p-tag-pill act-tag" *ngIf="isActivitySlot(p)">Activity</span>
+                    <span class="p-tag-pill" *ngIf="!isActivitySlot(p) && getPeriodSubjectName(p.slot)">✓ {{ getPeriodSubjectName(p.slot) }}</span>
+                    <span class="p-tag-pill free-tag" *ngIf="!isActivitySlot(p) && !getPeriodSubjectName(p.slot)">🟢 Free</span>
                   </div>
                   <span class="p-time">{{ p.slot }}</span>
                 </button>
@@ -281,7 +304,10 @@ export interface SectionRoutineDialogData {
                     </div>
                   </td>
                   <td class="col-subject">
-                    <span class="subject-tag">{{ p.subject }}</span>
+                    <span class="subject-tag" [class.activity-tag]="isSubjectActivity(p.subject)">
+                      <mat-icon *ngIf="isSubjectActivity(p.subject)" class="table-act-icon">celebration</mat-icon>
+                      {{ p.subject }}
+                    </span>
                   </td>
                   <td class="col-teacher">
                     <div class="teacher-cell">
@@ -893,6 +919,21 @@ export interface SectionRoutineDialogData {
         border-color: #bfdbfe;
         background: #f8fafc;
       }
+      &.is-activity-chip {
+        background: #fdf4ff;
+        border-color: #f0abfc;
+        .p-name { color: #7e22ce; display: flex; align-items: center; gap: 3px; }
+        .p-time { color: #a855f7; }
+        .chip-act-icon { font-size: 13px; width: 13px; height: 13px; color: #a855f7; }
+        &:hover { background: #fae8ff; border-color: #e879f9; }
+        &.active {
+          background: #f3e8ff;
+          border-color: #a855f7;
+          box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.2);
+          .p-name { color: #6b21a8; }
+          .p-time { color: #7e22ce; font-weight: 600; }
+        }
+      }
     }
 
     .p-top-row {
@@ -913,6 +954,11 @@ export interface SectionRoutineDialogData {
       &.free-tag {
         background: #dcfce7;
         color: #15803d;
+      }
+      &.act-tag {
+        background: #f3e8ff;
+        color: #7e22ce;
+        border: 1px solid #d8b4fe;
       }
     }
 
@@ -1009,7 +1055,9 @@ export interface SectionRoutineDialogData {
     }
 
     .subject-tag {
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
       background: #eff6ff;
       border: 1px solid #bfdbfe;
       color: #1e40af;
@@ -1017,6 +1065,81 @@ export interface SectionRoutineDialogData {
       font-size: 0.8rem;
       padding: 3px 10px;
       border-radius: 6px;
+
+      &.activity-tag {
+        background: #fdf4ff;
+        border-color: #f0abfc;
+        color: #7e22ce;
+      }
+      .table-act-icon {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
+        color: #a855f7;
+      }
+    }
+
+    .activity-slot-alert {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      background: linear-gradient(135deg, #fdf4ff 0%, #fae8ff 100%);
+      border: 1px solid #f0abfc;
+      border-radius: 10px;
+      padding: 10px 14px;
+      margin-bottom: 12px;
+      animation: fadeIn 0.2s ease-in-out;
+
+      .act-alert-icon {
+        background: #a855f7;
+        color: #ffffff;
+        border-radius: 8px;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        mat-icon { font-size: 18px; width: 18px; height: 18px; }
+      }
+
+      .act-alert-content {
+        strong {
+          color: #6b21a8;
+          font-size: 0.83rem;
+          display: block;
+          margin-bottom: 2px;
+        }
+        p {
+          color: #7e22ce;
+          font-size: 0.77rem;
+          margin: 0;
+          line-height: 1.4;
+        }
+      }
+    }
+
+    .act-auto-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: #f3e8ff;
+      color: #7e22ce;
+      border: 1px solid #d8b4fe;
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 6px;
+      margin-left: 8px;
+      mat-icon { font-size: 14px; width: 14px; height: 14px; color: #a855f7; }
+    }
+
+    .activity-locked-input {
+      background: #fdf4ff !important;
+      border-color: #d8b4fe !important;
+      color: #6b21a8 !important;
+      font-weight: 700 !important;
+      cursor: default;
     }
 
     .teacher-cell {
@@ -1197,7 +1320,30 @@ export class SectionRoutineDialogComponent implements OnInit {
 
   readonly weekDaysList = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-  presetPeriods: { name: string; slot: string; isBreak?: boolean }[] = [];
+  presetPeriods: { name: string; slot: string; isBreak?: boolean; slotType?: string }[] = [];
+
+  isActivitySlot(p?: { name?: string; slot?: string; slotType?: string } | null): boolean {
+    if (!p) return false;
+    if (p.slotType && p.slotType !== 'Teaching' && p.slotType !== 'Break') return true;
+    const n = (p.name || '').toLowerCase();
+    return n.includes('dance') || n.includes('quiz') || n.includes('play') || n.includes('activity') || n.includes('assembly') || n.includes('singing') || n.includes('art') || n.includes('drawing') || n.includes('antakshri');
+  }
+
+  get currentSelectedSlotObj(): { name: string; slot: string; isBreak?: boolean; slotType?: string } | undefined {
+    return this.presetPeriods.find(p => p.slot === this.selectedTimeSlot);
+  }
+
+  get isCurrentSelectedSlotActivity(): boolean {
+    return this.isActivitySlot(this.currentSelectedSlotObj);
+  }
+
+  isSubjectActivity(subjectName?: string): boolean {
+    if (!subjectName) return false;
+    const s = subjectName.toLowerCase();
+    const actSlot = this.presetPeriods.find(p => this.isActivitySlot(p) && p.name.toLowerCase() === s);
+    if (actSlot) return true;
+    return s.includes('dance') || s.includes('quiz') || s.includes('play') || s.includes('activity') || s.includes('assembly') || s.includes('singing') || s.includes('art') || s.includes('drawing') || s.includes('antakshri');
+  }
 
   newSubject = '';
   selectedTeacherId = '';
@@ -1350,6 +1496,21 @@ export class SectionRoutineDialogComponent implements OnInit {
   onSelectPeriodSlot(slot: string): void {
     this.selectedTimeSlot = slot;
     this.clashWarning = null;
+
+    const matchedPeriod = this.presetPeriods.find(p => p.slot === slot);
+    if (matchedPeriod && this.isActivitySlot(matchedPeriod)) {
+      // 🎯 SMART AUTO-MAPPING: Automatically pre-fill and lock Subject to the activity name!
+      this.newSubject = matchedPeriod.name;
+    } else {
+      // If switching back from an activity slot to a regular teaching slot,
+      // and newSubject was the activity name, restore first unassigned academic subject!
+      const isCurSubjActivity = this.presetPeriods.some(p => this.isActivitySlot(p) && p.name === this.newSubject);
+      if (isCurSubjActivity) {
+        const nextSubj = this.displaySubjects.find(s => !this.isSubjectAssigned(s.name)) || this.displaySubjects[0];
+        this.newSubject = nextSubj ? nextSubj.name : '';
+      }
+    }
+
     if (this.selectedTeacherId && this.isTeacherClashed(this.selectedTeacherId)) {
       this.pickFirstAvailableTeacher();
     }
@@ -1362,11 +1523,12 @@ export class SectionRoutineDialogComponent implements OnInit {
       this.newSubject = item.name;
       this.clashWarning = null;
 
-      // Auto-assign next free period if current period is already taken by another subject
-      if (this.isPeriodAssigned(this.selectedTimeSlot)) {
-        const nextFreePeriod = this.presetPeriods.find(p => !this.isPeriodAssigned(p.slot));
-        if (nextFreePeriod) {
-          this.selectedTimeSlot = nextFreePeriod.slot;
+      // Auto-assign next free TEACHING period if current period is already taken OR is an activity slot
+      const curSlotObj = this.presetPeriods.find(p => p.slot === this.selectedTimeSlot);
+      if (this.isPeriodAssigned(this.selectedTimeSlot) || this.isActivitySlot(curSlotObj)) {
+        const nextFreeTeachingPeriod = this.presetPeriods.find(p => !this.isActivitySlot(p) && !this.isPeriodAssigned(p.slot));
+        if (nextFreeTeachingPeriod) {
+          this.selectedTimeSlot = nextFreeTeachingPeriod.slot;
         }
       }
 
@@ -1381,24 +1543,44 @@ export class SectionRoutineDialogComponent implements OnInit {
   autoFillNextSlot(): void {
     this.clashWarning = null;
 
-    // 1. Next Unassigned Subject
-    const unassignedSubj = this.displaySubjects.find(s => !this.isSubjectAssigned(s.name)) || this.displaySubjects[0];
-    if (unassignedSubj) {
+    // 1. Next Unassigned Academic Subject
+    const unassignedSubj = this.displaySubjects.find(s => !this.isSubjectAssigned(s.name));
+
+    // 2. Next Unassigned Teaching Period Slot (skipping Activity slots like Dance)
+    const unassignedTeachingPeriod = this.presetPeriods.find(p => !this.isActivitySlot(p) && !this.isPeriodAssigned(p.slot));
+
+    if (unassignedSubj && unassignedTeachingPeriod) {
       this.newSubject = unassignedSubj.name;
+      this.selectedTimeSlot = unassignedTeachingPeriod.slot;
+
+      // Faculty: If subject's curriculum teacher is available, use them; otherwise pick first available teacher!
+      if (unassignedSubj.teacherId && !this.isTeacherClashed(unassignedSubj.teacherId)) {
+        this.selectedTeacherId = unassignedSubj.teacherId;
+      } else {
+        this.pickFirstAvailableTeacher();
+      }
+      return;
     }
 
-    // 2. Next Unassigned Period Slot
-    const unassignedPeriod = this.presetPeriods.find(p => !this.isPeriodAssigned(p.slot)) || this.presetPeriods[0];
-    if (unassignedPeriod) {
-      this.selectedTimeSlot = unassignedPeriod.slot;
-    }
-
-    // 3. Faculty: If subject's curriculum teacher is available, use them; otherwise pick first available teacher!
-    if (unassignedSubj?.teacherId && !this.isTeacherClashed(unassignedSubj.teacherId)) {
-      this.selectedTeacherId = unassignedSubj.teacherId;
-    } else {
+    // 3. If all teaching periods are assigned, check if an Activity slot is pending
+    const unassignedActivityPeriod = this.presetPeriods.find(p => this.isActivitySlot(p) && !this.isPeriodAssigned(p.slot));
+    if (unassignedActivityPeriod) {
+      this.selectedTimeSlot = unassignedActivityPeriod.slot;
+      this.newSubject = unassignedActivityPeriod.name;
       this.pickFirstAvailableTeacher();
+      return;
     }
+
+    // Fallback if everything is filled
+    const fallbackPeriod = this.presetPeriods[0];
+    if (fallbackPeriod) {
+      this.selectedTimeSlot = fallbackPeriod.slot;
+    }
+    const fallbackSubj = this.displaySubjects[0];
+    if (fallbackSubj) {
+      this.newSubject = fallbackSubj.name;
+    }
+    this.pickFirstAvailableTeacher();
   }
 
   toggleAddForm(): void {
@@ -1445,15 +1627,21 @@ export class SectionRoutineDialogComponent implements OnInit {
             .map(s => ({
               name: s.name,
               slot: s.timeSlot,
-              isBreak: s.isBreak
+              isBreak: s.isBreak,
+              slotType: s.slotType || (s.isBreak ? 'Break' : 'Teaching')
             }));
 
           if (teachingSlots.length > 0) {
             this.presetPeriods = teachingSlots;
 
             if (!this.editingPeriodId) {
-              const unassignedPeriod = this.presetPeriods.find(p => !this.isPeriodAssigned(p.slot)) || this.presetPeriods[0];
-              this.selectedTimeSlot = unassignedPeriod.slot;
+              const unassignedTeaching = this.presetPeriods.find(p => !this.isActivitySlot(p) && !this.isPeriodAssigned(p.slot))
+                || this.presetPeriods.find(p => !this.isPeriodAssigned(p.slot))
+                || this.presetPeriods[0];
+              this.selectedTimeSlot = unassignedTeaching.slot;
+              if (this.isActivitySlot(unassignedTeaching)) {
+                this.newSubject = unassignedTeaching.name;
+              }
             }
           }
         }

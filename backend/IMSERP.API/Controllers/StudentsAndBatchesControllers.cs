@@ -44,42 +44,52 @@ public class StudentsController : ControllerBase
         if (declaredStatus == TeacherAttendanceStatus.Absent || declaredStatus == TeacherAttendanceStatus.Holiday || declaredStatus == TeacherAttendanceStatus.WeekOff || declaredStatus == TeacherAttendanceStatus.Leave)
             return declaredStatus;
 
-        if (string.IsNullOrWhiteSpace(inTime) || string.IsNullOrWhiteSpace(outTime))
+        if (string.IsNullOrWhiteSpace(inTime))
             return declaredStatus;
 
         var inMin = ParseTimeToMinutes(inTime);
-        var outMin = ParseTimeToMinutes(outTime);
-        if (inMin == null || outMin == null)
+        if (inMin == null)
             return declaredStatus;
 
-        int calculatedOut = outMin.Value;
-        if (calculatedOut <= inMin.Value)
-        {
-            if (!outTime.Contains("AM", StringComparison.OrdinalIgnoreCase) && !outTime.Contains("PM", StringComparison.OrdinalIgnoreCase))
-            {
-                if (calculatedOut + 720 > inMin.Value && calculatedOut + 720 <= 1440)
-                {
-                    calculatedOut += 720;
-                }
-            }
-        }
-
-        int diff = calculatedOut - inMin.Value;
         int halfDayThreshold = settings?.StudentHalfDayThresholdMinutes ?? 240;
         int shiftStartMin = ParseTimeToMinutes(settings?.StudentShiftStartTime ?? "08:00") ?? 480;
         int graceMinutes = settings?.StudentGracePeriodMinutes ?? 15;
         int lateCutoffMin = shiftStartMin + graceMinutes;
 
-        if (diff > 0 && diff < halfDayThreshold)
+        // If outTime is provided, evaluate work duration for half day
+        if (!string.IsNullOrWhiteSpace(outTime))
         {
-            return TeacherAttendanceStatus.HalfDay;
-        }
-        else if (diff >= halfDayThreshold)
-        {
-            if (inMin.Value > lateCutoffMin && declaredStatus == TeacherAttendanceStatus.Present)
+            var outMin = ParseTimeToMinutes(outTime);
+            if (outMin != null)
             {
-                return TeacherAttendanceStatus.Late;
+                int calculatedOut = outMin.Value;
+                if (calculatedOut <= inMin.Value)
+                {
+                    if (!outTime.Contains("AM", StringComparison.OrdinalIgnoreCase) && !outTime.Contains("PM", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (calculatedOut + 720 > inMin.Value && calculatedOut + 720 <= 1440)
+                        {
+                            calculatedOut += 720;
+                        }
+                    }
+                }
+
+                int diff = calculatedOut - inMin.Value;
+                if (diff > 0 && diff < halfDayThreshold)
+                {
+                    return TeacherAttendanceStatus.HalfDay;
+                }
             }
+        }
+
+        // Late detection based on check-in arrival time
+        if (inMin.Value > lateCutoffMin)
+        {
+            return TeacherAttendanceStatus.Late;
+        }
+        else if (inMin.Value <= lateCutoffMin && declaredStatus == TeacherAttendanceStatus.Late)
+        {
+            return TeacherAttendanceStatus.Present;
         }
 
         return declaredStatus;
@@ -108,12 +118,14 @@ public class StudentsController : ControllerBase
         return hour * 60 + minute;
     }
 
-    private static StudentAttendanceDto MapStudentAttendance(StudentAttendance attendance, Student student)
+    private static StudentAttendanceDto MapStudentAttendance(StudentAttendance attendance, Student student, AttendanceSettings? settings = null)
     {
         var rawDt = attendance.CapturedAt ?? (attendance.CreatedAt != default ? attendance.CreatedAt : (DateTime?)null);
         DateTime? capturedUtc = rawDt.HasValue
             ? DateTime.SpecifyKind(rawDt.Value, DateTimeKind.Utc)
             : null;
+
+        var effStatus = EvaluateStudentSmartAttendanceStatus(attendance.Status, attendance.CheckInTime, attendance.CheckOutTime, settings);
 
         return new(
             attendance.Id,
@@ -121,7 +133,7 @@ public class StudentsController : ControllerBase
             student.StudentName,
             student.RollNumber,
             attendance.AttendanceDate,
-            attendance.Status.ToString(),
+            effStatus.ToString(),
             attendance.Remarks,
             attendance.CaptureSource,
             capturedUtc,
@@ -183,6 +195,47 @@ public class StudentsController : ControllerBase
 
         return await _dbContext.Holidays.AsNoTracking()
             .AnyAsync(holiday => holiday.IsActive && holiday.StartDate.Date <= date.Date && holiday.EndDate.Date >= date.Date);
+    }
+
+    [HttpGet("lookup")]
+    public async Task<IActionResult> GetStudentsLookup([FromQuery] Guid? classId = null, [FromQuery] Guid? sectionId = null, [FromQuery] Guid? batchId = null)
+    {
+        var tenantId = _currentUser.TenantId;
+        var query = _dbContext.Students.AsNoTracking()
+            .Where(s => s.TenantId == tenantId && s.IsActive);
+
+        if (classId.HasValue && classId != Guid.Empty)
+            query = query.Where(s => s.ClassId == classId.Value);
+
+        if (sectionId.HasValue && sectionId != Guid.Empty)
+            query = query.Where(s => s.SectionId == sectionId.Value);
+
+        if (batchId.HasValue && batchId != Guid.Empty)
+            query = query.Where(s => s.BatchId == batchId.Value);
+
+        var list = await query
+            .OrderBy(s => s.SchoolRollNumber)
+            .ThenBy(s => s.RollNumber)
+            .ThenBy(s => s.StudentName)
+            .Select(s => new {
+                id = s.Id,
+                rollNumber = s.SchoolRollNumber ?? s.RollNumber ?? s.CoachingRollNumber ?? "",
+                studentName = s.StudentName,
+                batchId = s.BatchId,
+                batchName = s.Batch != null ? s.Batch.Name : "",
+                classId = s.ClassId,
+                className = s.Class != null ? s.Class.Name : "",
+                sectionId = s.SectionId,
+                sectionName = s.Section != null ? s.Section.Name : "",
+                schoolRollNumber = s.SchoolRollNumber ?? "",
+                admissionNumber = s.AdmissionNumber ?? "",
+                isSchoolStudent = s.IsSchoolStudent,
+                isCoachingStudent = s.IsCoachingStudent,
+                joiningDate = s.JoiningDate
+            })
+            .ToListAsync();
+
+        return Ok(list);
     }
 
     [HttpGet]
@@ -366,16 +419,26 @@ public class StudentsController : ControllerBase
 
         if (string.Equals(stream, "coaching", StringComparison.OrdinalIgnoreCase))
         {
-            query = query.Where(a => a.CaptureSource == "ManualBulk");
+            query = query.Where(a => a.CaptureSource == "ManualBulk" 
+                                  || a.CaptureSource == "Coaching" 
+                                  || a.CaptureSource == "CoachingManual" 
+                                  || a.CaptureSource == "ManualCoaching"
+                                  || a.CaptureSource == "Manual"
+                                  || (student.IsCoachingStudent && a.CaptureSource != "ManualSchoolBulk"));
         }
         else if (string.Equals(stream, "school", StringComparison.OrdinalIgnoreCase))
         {
-            query = query.Where(a => a.CaptureSource != "ManualBulk");
+            query = query.Where(a => a.CaptureSource == "ManualSchoolBulk" 
+                                  || a.CaptureSource == "School" 
+                                  || a.CaptureSource == "SchoolManual" 
+                                  || a.CaptureSource == "ManualSchool"
+                                  || (a.CaptureSource != "ManualBulk" && a.CaptureSource != "Coaching" && a.CaptureSource != "CoachingManual" && a.CaptureSource != "ManualCoaching"));
         }
 
         var records = await query.OrderBy(a => a.AttendanceDate).ToListAsync();
+        var attSettings = await _dbContext.AttendanceSettings.AsNoTracking().FirstOrDefaultAsync(s => s.TenantId == _currentUser.TenantId);
 
-        return Ok(records.Select(a => MapStudentAttendance(a, student)));
+        return Ok(records.Select(a => MapStudentAttendance(a, student, attSettings)));
     }
 
     private async Task<Student?> ResolveCurrentStudentAsync()
@@ -407,6 +470,19 @@ public class StudentsController : ControllerBase
         }
 
         return student;
+    }
+
+    private static DateTime GetIstToday()
+    {
+        try
+        {
+            var tz = TimeZoneInfo.FindSystemTimeZoneById(OperatingSystem.IsWindows() ? "India Standard Time" : "Asia/Kolkata");
+            return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz).Date;
+        }
+        catch
+        {
+            return DateTime.UtcNow.AddMinutes(330).Date;
+        }
     }
 
     [HttpGet("attendance/ph-sun-edit-permission")]
@@ -536,6 +612,7 @@ public class StudentsController : ControllerBase
             .ToListAsync();
 
         var totalWorkingDaysInMonth = Math.Max(0, DateTime.DaysInMonth(year, month) - offDates.Count);
+        var attSettings = await _dbContext.AttendanceSettings.AsNoTracking().FirstOrDefaultAsync(s => s.TenantId == _currentUser.TenantId);
 
         bool isDual = false;
         string? defaultStream = null;
@@ -553,19 +630,30 @@ public class StudentsController : ControllerBase
             var targetRecords = personRecords;
             if (string.Equals(stream, "coaching", StringComparison.OrdinalIgnoreCase))
             {
-                targetRecords = personRecords.Where(r => r.CaptureSource == "ManualBulk").ToList();
+                targetRecords = personRecords.Where(r => r.CaptureSource == "ManualBulk" 
+                                                      || r.CaptureSource == "Coaching" 
+                                                      || r.CaptureSource == "CoachingManual" 
+                                                      || r.CaptureSource == "ManualCoaching"
+                                                      || r.CaptureSource == "Manual"
+                                                      || (student.IsCoachingStudent && r.CaptureSource != "ManualSchoolBulk")).ToList();
             }
             else if (string.Equals(stream, "school", StringComparison.OrdinalIgnoreCase))
             {
-                targetRecords = personRecords.Where(r => r.CaptureSource != "ManualBulk").ToList();
+                targetRecords = personRecords.Where(r => r.CaptureSource == "ManualSchoolBulk" 
+                                                      || r.CaptureSource == "School" 
+                                                      || r.CaptureSource == "SchoolManual" 
+                                                      || r.CaptureSource == "ManualSchool"
+                                                      || (r.CaptureSource != "ManualBulk" && r.CaptureSource != "Coaching" && r.CaptureSource != "CoachingManual" && r.CaptureSource != "ManualCoaching")).ToList();
             }
 
-            var today = DateTime.UtcNow.Date;
+            var today = GetIstToday();
             var pastUnmarkedWorkingDays = 0;
             var daysInMonth = DateTime.DaysInMonth(year, month);
             for (int day = 1; day <= daysInMonth; day++)
             {
                 var curDate = new DateTime(year, month, day);
+                if (student.JoiningDate != default && curDate < student.JoiningDate.Date) continue;
+
                 if (curDate < today && !offDates.Contains(curDate.Date))
                 {
                     if (!targetRecords.Any(r => r.AttendanceDate.Date == curDate.Date))
@@ -575,11 +663,12 @@ public class StudentsController : ControllerBase
                 }
             }
 
-            var present = targetRecords.Count(record => record.Status == TeacherAttendanceStatus.Present);
-            var recordedAbsent = targetRecords.Count(record => record.Status == TeacherAttendanceStatus.Absent);
+            var evaluatedStatuses = targetRecords.Select(r => EvaluateStudentSmartAttendanceStatus(r.Status, r.CheckInTime, r.CheckOutTime, attSettings)).ToList();
+            var present = evaluatedStatuses.Count(st => st == TeacherAttendanceStatus.Present);
+            var recordedAbsent = evaluatedStatuses.Count(st => st == TeacherAttendanceStatus.Absent);
             var absent = recordedAbsent + pastUnmarkedWorkingDays;
-            var late = targetRecords.Count(record => record.Status == TeacherAttendanceStatus.Late);
-            var half = targetRecords.Count(record => record.Status == TeacherAttendanceStatus.HalfDay);
+            var late = evaluatedStatuses.Count(st => st == TeacherAttendanceStatus.Late);
+            var half = evaluatedStatuses.Count(st => st == TeacherAttendanceStatus.HalfDay);
             var evaluated = present + absent + late + half;
             var attendedWeighted = present + late + (half * 0.5m);
             var denominator = evaluated > 0 ? evaluated : totalWorkingDaysInMonth;
@@ -677,18 +766,38 @@ public class StudentsController : ControllerBase
 
     [HttpGet("{id}/attendance/summary")]
     public async Task<ActionResult<StudentAttendanceSummaryDto>> GetAttendanceSummary(
-        Guid id, [FromQuery] int month = 0, [FromQuery] int year = 0)
+        Guid id, [FromQuery] int month = 0, [FromQuery] int year = 0, [FromQuery] string? stream = null)
     {
         if (month == 0) month = DateTime.UtcNow.Month;
         if (year == 0) year = DateTime.UtcNow.Year;
 
-        if (!await _dbContext.Students.AnyAsync(s => s.Id == id)) return NotFound(new { message = "Student not found." });
+        var student = await _dbContext.Students.AsNoTracking().FirstOrDefaultAsync(s => s.Id == id);
+        if (student == null) return NotFound(new { message = "Student not found." });
 
         var monthStart = new DateTime(year, month, 1);
         var monthEnd = new DateTime(year, month, DateTime.DaysInMonth(year, month));
-        var records = await _dbContext.StudentAttendances.AsNoTracking()
-            .Where(a => a.StudentId == id && a.AttendanceDate >= monthStart && a.AttendanceDate <= monthEnd)
-            .ToListAsync();
+        var query = _dbContext.StudentAttendances.AsNoTracking()
+            .Where(a => a.StudentId == id && a.AttendanceDate >= monthStart && a.AttendanceDate <= monthEnd);
+
+        if (string.Equals(stream, "coaching", StringComparison.OrdinalIgnoreCase))
+        {
+            query = query.Where(a => a.CaptureSource == "ManualBulk" 
+                                  || a.CaptureSource == "Coaching" 
+                                  || a.CaptureSource == "CoachingManual" 
+                                  || a.CaptureSource == "ManualCoaching"
+                                  || a.CaptureSource == "Manual"
+                                  || (student.IsCoachingStudent && a.CaptureSource != "ManualSchoolBulk"));
+        }
+        else if (string.Equals(stream, "school", StringComparison.OrdinalIgnoreCase))
+        {
+            query = query.Where(a => a.CaptureSource == "ManualSchoolBulk" 
+                                  || a.CaptureSource == "School" 
+                                  || a.CaptureSource == "SchoolManual" 
+                                  || a.CaptureSource == "ManualSchool"
+                                  || (a.CaptureSource != "ManualBulk" && a.CaptureSource != "Coaching" && a.CaptureSource != "CoachingManual" && a.CaptureSource != "ManualCoaching"));
+        }
+
+        var records = await query.ToListAsync();
 
         var attSettings = await _dbContext.AttendanceSettings.AsNoTracking().FirstOrDefaultAsync(s => s.TenantId == _currentUser.TenantId);
         var evaluatedStatuses = records.Select(a => EvaluateStudentSmartAttendanceStatus(a.Status, a.CheckInTime, a.CheckOutTime, attSettings)).ToList();
@@ -720,11 +829,13 @@ public class StudentsController : ControllerBase
 
         int totalWorkingDays = Math.Max(0, DateTime.DaysInMonth(year, month) - offDates.Count);
 
-        var today = DateTime.UtcNow.Date;
+        var today = GetIstToday();
         int pastUnmarked = 0;
         for (int d = 1; d <= DateTime.DaysInMonth(year, month); d++)
         {
             var curDate = new DateTime(year, month, d);
+            if (student.JoiningDate != default && curDate < student.JoiningDate.Date) continue;
+
             if (curDate < today && !offDates.Contains(curDate.Date))
             {
                 if (!records.Any(r => r.AttendanceDate.Date == curDate.Date))
@@ -734,6 +845,20 @@ public class StudentsController : ControllerBase
             }
         }
         absent += pastUnmarked;
+
+        if (student.JoiningDate != default && student.JoiningDate.Year == year && student.JoiningDate.Month == month)
+        {
+            int workingDaysPriorToAdmission = 0;
+            for (var d = monthStart; d < student.JoiningDate.Date; d = d.AddDays(1))
+            {
+                if (!offDates.Contains(d)) workingDaysPriorToAdmission++;
+            }
+            totalWorkingDays = Math.Max(0, totalWorkingDays - workingDaysPriorToAdmission);
+        }
+        else if (student.JoiningDate != default && monthStart < new DateTime(student.JoiningDate.Year, student.JoiningDate.Month, 1))
+        {
+            totalWorkingDays = 0;
+        }
 
         var evaluatedDays = present + absent + late + half;
         decimal attendedWeighted = present + late + (half * 0.5m);
@@ -762,11 +887,15 @@ public class StudentsController : ControllerBase
         if (!TryParseAttendanceStatus(dto.Status, out var status))
             return BadRequest(new { message = "Invalid attendance status." });
 
+        var today = GetIstToday();
         var date = dto.AttendanceDate.Date;
-        if (date > DateTime.UtcNow.Date)
+        if (date > today)
             return BadRequest(new { message = "Cannot mark attendance for future dates." });
 
-        if (date < DateTime.UtcNow.Date && !await HasAttendancePermissionAsync("/attendance/permissions/correction", true))
+        if (student.JoiningDate != default && date < student.JoiningDate.Date)
+            return BadRequest(new { message = $"Cannot mark attendance for {date:dd MMM yyyy}. Student admission date is {student.JoiningDate:dd MMM yyyy}. Attendance prior to admission date is not allowed." });
+
+        if (date < today && !await HasAttendancePermissionAsync("/attendance/permissions/correction", true))
             return StatusCode(StatusCodes.Status403Forbidden, new { message = "Marking or modifying past attendance requires Admin Attendance Correction permission." });
 
         if (!await CanEditPublicHolidayOrSundayAsync() && await IsPublicHolidayOrSundayAsync(date))
@@ -796,23 +925,26 @@ public class StudentsController : ControllerBase
         }
 
         var attSettings = await _dbContext.AttendanceSettings.AsNoTracking().FirstOrDefaultAsync(s => s.TenantId == student.TenantId);
-        if (status == TeacherAttendanceStatus.Present)
-        {
-            status = EvaluateStudentSmartAttendanceStatus(status, dto.CheckInTime, dto.CheckOutTime, attSettings);
-        }
+        status = EvaluateStudentSmartAttendanceStatus(status, dto.CheckInTime, dto.CheckOutTime, attSettings);
+
+        string targetSource = string.Equals(dto.Stream, "coaching", StringComparison.OrdinalIgnoreCase)
+            ? "ManualBulk"
+            : (string.Equals(dto.Stream, "school", StringComparison.OrdinalIgnoreCase)
+                ? "ManualSchoolBulk"
+                : (student.IsCoachingStudent && !student.IsSchoolStudent ? "ManualBulk" : "Manual"));
 
         record.Status = status;
         record.Remarks = dto.Remarks;
         record.CheckInTime = dto.CheckInTime;
         record.CheckOutTime = dto.CheckOutTime;
         record.MarkedBy = _currentUser.UserId.ToString();
-        record.CaptureSource = "Manual";
+        record.CaptureSource = targetSource;
         record.BiometricDeviceId = null;
         record.BiometricEventId = null;
         record.CapturedAt ??= DateTime.UtcNow;
         await _dbContext.SaveChangesAsync();
 
-        return Ok(MapStudentAttendance(record, student));
+        return Ok(MapStudentAttendance(record, student, attSettings));
     }
 
     [HttpPost("{id}/attendance/multi-dates")]
@@ -833,7 +965,7 @@ public class StudentsController : ControllerBase
         if (dto.AttendanceDates == null || dto.AttendanceDates.Count == 0)
             return BadRequest(new { message = "No dates provided." });
 
-        var today = DateTime.UtcNow.Date;
+        var today = GetIstToday();
         var canCorrect = await HasAttendancePermissionAsync("/attendance/permissions/correction", true);
         var canEditHoliday = await CanEditPublicHolidayOrSundayAsync();
 
@@ -842,6 +974,7 @@ public class StudentsController : ControllerBase
         {
             var date = rawDate.Date;
             if (date > today) continue; // skip future
+            if (student.JoiningDate != default && date < student.JoiningDate.Date) continue; // skip prior to admission
             if (date < today && !canCorrect) continue; // skip past if no permission
             if (!canEditHoliday && await IsPublicHolidayOrSundayAsync(date)) continue; // skip holiday/sunday
             validDates.Add(date);
@@ -855,18 +988,27 @@ public class StudentsController : ControllerBase
             .ToListAsync();
 
         var existingMap = existingRecords.ToDictionary(a => a.AttendanceDate.Date);
+        var attSettings = await _dbContext.AttendanceSettings.AsNoTracking().FirstOrDefaultAsync(s => s.TenantId == student.TenantId);
+
+        string targetSource = string.Equals(dto.Stream, "coaching", StringComparison.OrdinalIgnoreCase)
+            ? "ManualBulk"
+            : (string.Equals(dto.Stream, "school", StringComparison.OrdinalIgnoreCase)
+                ? "ManualSchoolBulk"
+                : (student.IsCoachingStudent && !student.IsSchoolStudent ? "ManualBulk" : "Manual"));
 
         foreach (var date in validDates)
         {
+            var effectiveStatus = EvaluateStudentSmartAttendanceStatus(status, dto.CheckInTime, dto.CheckOutTime, attSettings);
+
             if (existingMap.TryGetValue(date, out var record))
             {
                 if (!canCorrect) continue; // cannot edit existing without correction permission
-                record.Status = status;
+                record.Status = effectiveStatus;
                 record.Remarks = dto.Remarks;
                 record.CheckInTime = dto.CheckInTime;
                 record.CheckOutTime = dto.CheckOutTime;
                 record.MarkedBy = _currentUser.UserId.ToString();
-                record.CaptureSource = "Manual";
+                record.CaptureSource = targetSource;
                 record.CapturedAt ??= DateTime.UtcNow;
             }
             else
@@ -877,12 +1019,12 @@ public class StudentsController : ControllerBase
                     BranchId = student.BranchId ?? _currentUser.BranchId,
                     StudentId = id,
                     AttendanceDate = date,
-                    Status = status,
+                    Status = effectiveStatus,
                     Remarks = dto.Remarks,
                     CheckInTime = dto.CheckInTime,
                     CheckOutTime = dto.CheckOutTime,
                     MarkedBy = _currentUser.UserId.ToString(),
-                    CaptureSource = "Manual",
+                    CaptureSource = targetSource,
                     CreatedAt = DateTime.UtcNow,
                     CapturedAt = DateTime.UtcNow
                 };
@@ -912,7 +1054,7 @@ public class StudentsController : ControllerBase
 
         var monthStart = new DateTime(dto.Year, dto.Month, 1);
         var monthEnd = new DateTime(dto.Year, dto.Month, DateTime.DaysInMonth(dto.Year, dto.Month));
-        var today = DateTime.UtcNow.Date;
+        var today = GetIstToday();
 
         // Fetch declared holidays for the month
         var holidays = await _dbContext.Holidays.AsNoTracking()
@@ -952,6 +1094,12 @@ public class StudentsController : ControllerBase
         var attSettings = await _dbContext.AttendanceSettings.AsNoTracking().FirstOrDefaultAsync(s => s.TenantId == student.TenantId);
         int presentSaved = 0, absentSaved = 0;
 
+        string targetSource = string.Equals(dto.Stream, "coaching", StringComparison.OrdinalIgnoreCase)
+            ? "ManualBulk"
+            : (string.Equals(dto.Stream, "school", StringComparison.OrdinalIgnoreCase)
+                ? "ManualSchoolBulk"
+                : (student.IsCoachingStudent && !student.IsSchoolStudent ? "ManualBulk" : "Manual"));
+
         foreach (var day in dto.Days)
         {
             var date = day.Date.Date;
@@ -989,7 +1137,7 @@ public class StudentsController : ControllerBase
                 existing.CheckInTime = inTime;
                 existing.CheckOutTime = outTime;
                 existing.Remarks = remarks;
-                existing.CaptureSource = "Manual";
+                existing.CaptureSource = targetSource;
                 existing.MarkedBy = markedBy;
                 existing.CapturedAt ??= DateTime.UtcNow;
             }
@@ -1005,7 +1153,7 @@ public class StudentsController : ControllerBase
                     CheckInTime = inTime,
                     CheckOutTime = outTime,
                     Remarks = remarks,
-                    CaptureSource = "Manual",
+                    CaptureSource = targetSource,
                     MarkedBy = markedBy,
                     CreatedAt = DateTime.UtcNow,
                     CapturedAt = DateTime.UtcNow
@@ -1031,35 +1179,48 @@ public class StudentsController : ControllerBase
     public async Task<ActionResult<IEnumerable<BatchAttendanceStudentRowDto>>> GetBatchAttendance(
         Guid batchId, [FromQuery] DateTime? date = null)
     {
-        var targetDate = (date ?? DateTime.UtcNow).Date;
+        var targetDate = (date ?? GetIstToday()).Date;
         var tenantId = _currentUser.TenantId;
 
         var students = await _dbContext.Students
             .AsNoTracking()
-            .Where(s => s.TenantId == tenantId && s.BatchId == batchId && s.IsActive)
+            .Where(s => s.TenantId == tenantId && s.BatchId == batchId && s.IsActive 
+                     && (s.JoiningDate == default || s.JoiningDate.Date <= targetDate))
             .OrderBy(s => s.RollNumber)
             .ThenBy(s => s.StudentName)
+            .Select(s => new {
+                s.Id,
+                s.StudentName,
+                s.RollNumber,
+                s.ProfilePhoto,
+                s.ParentWhatsAppPhone
+            })
             .ToListAsync();
 
         var studentIds = students.Select(s => s.Id).ToList();
 
-        var existingRecords = await _dbContext.StudentAttendances
-            .AsNoTracking()
-            .Where(a => a.TenantId == tenantId && studentIds.Contains(a.StudentId) && a.AttendanceDate == targetDate)
-            .ToDictionaryAsync(a => a.StudentId);
+        var existingRecords = studentIds.Count > 0
+            ? await _dbContext.StudentAttendances
+                .AsNoTracking()
+                .Where(a => a.TenantId == tenantId && studentIds.Contains(a.StudentId) && a.AttendanceDate == targetDate)
+                .ToDictionaryAsync(a => a.StudentId)
+            : new Dictionary<Guid, StudentAttendance>();
+
+        var attSettings = await _dbContext.AttendanceSettings.AsNoTracking().FirstOrDefaultAsync(s => s.TenantId == tenantId);
 
         var result = students.Select(s =>
         {
             existingRecords.TryGetValue(s.Id, out var att);
             DateTime? captured = att?.CapturedAt ?? att?.CreatedAt;
             DateTime? capturedUtc = captured.HasValue ? DateTime.SpecifyKind(captured.Value, DateTimeKind.Utc) : null;
+            var effStatus = att != null ? EvaluateStudentSmartAttendanceStatus(att.Status, att.CheckInTime, att.CheckOutTime, attSettings).ToString() : "Present";
             return new BatchAttendanceStudentRowDto(
                 s.Id,
                 s.StudentName,
                 s.RollNumber,
                 s.ProfilePhoto,
                 s.ParentWhatsAppPhone,
-                att != null ? att.Status.ToString() : "Present",
+                effStatus,
                 att?.Remarks,
                 att?.Id,
                 capturedUtc,
@@ -1082,11 +1243,12 @@ public class StudentsController : ControllerBase
         if (!await IsManualAttendanceAllowedAsync())
             return Conflict(new { message = "Manual student attendance is disabled. Current mode is Biometric." });
 
+        var today = GetIstToday();
         var date = dto.AttendanceDate.Date;
-        if (date > DateTime.UtcNow.Date)
+        if (date > today)
             return BadRequest(new { message = "Cannot mark attendance for future dates." });
 
-        if (date < DateTime.UtcNow.Date && !await HasAttendancePermissionAsync("/attendance/permissions/correction", true))
+        if (date < today && !await HasAttendancePermissionAsync("/attendance/permissions/correction", true))
             return StatusCode(StatusCodes.Status403Forbidden, new { message = "Marking or modifying past attendance requires Admin Attendance Correction permission." });
 
         if (!await CanEditPublicHolidayOrSundayAsync() && await IsPublicHolidayOrSundayAsync(date))
@@ -1105,6 +1267,8 @@ public class StudentsController : ControllerBase
             .Where(a => a.TenantId == tenantId && studentIds.Contains(a.StudentId) && a.AttendanceDate == date)
             .ToDictionaryAsync(a => a.StudentId);
 
+        var attSettings = await _dbContext.AttendanceSettings.AsNoTracking().FirstOrDefaultAsync(s => s.TenantId == tenantId);
+
         int presentCount = 0;
         int absentCount = 0;
         int lateCount = 0;
@@ -1113,7 +1277,10 @@ public class StudentsController : ControllerBase
         foreach (var item in dto.Items)
         {
             if (!students.TryGetValue(item.StudentId, out var student)) continue;
+            if (student.JoiningDate != default && date < student.JoiningDate.Date) continue; // skip prior to admission
             if (!TryParseAttendanceStatus(item.Status, out var status)) continue;
+
+            status = EvaluateStudentSmartAttendanceStatus(status, item.CheckInTime, item.CheckOutTime, attSettings);
 
             if (status == TeacherAttendanceStatus.Present) presentCount++;
             else if (status == TeacherAttendanceStatus.Absent) absentCount++;
@@ -1169,14 +1336,13 @@ public class StudentsController : ControllerBase
     public async Task<ActionResult<IEnumerable<SchoolAttendanceStudentRowDto>>> GetSchoolAttendance(
         [FromQuery] Guid classId, [FromQuery] Guid? sectionId = null, [FromQuery] DateTime? date = null)
     {
-        var targetDate = (date ?? DateTime.UtcNow).Date;
+        var targetDate = (date ?? GetIstToday()).Date;
         var tenantId = _currentUser.TenantId;
 
         var query = _dbContext.Students
             .AsNoTracking()
-            .Include(s => s.Class)
-            .Include(s => s.Section)
-            .Where(s => s.TenantId == tenantId && s.ClassId == classId && s.IsActive && s.IsSchoolStudent);
+            .Where(s => s.TenantId == tenantId && s.ClassId == classId && s.IsActive && s.IsSchoolStudent
+                     && (s.JoiningDate == default || s.JoiningDate.Date <= targetDate));
 
         if (sectionId.HasValue && sectionId != Guid.Empty)
         {
@@ -1186,30 +1352,45 @@ public class StudentsController : ControllerBase
         var students = await query
             .OrderBy(s => s.SchoolRollNumber)
             .ThenBy(s => s.StudentName)
+            .Select(s => new {
+                s.Id,
+                s.StudentName,
+                s.SchoolRollNumber,
+                s.AdmissionNumber,
+                ClassName = s.Class != null ? s.Class.Name : null,
+                SectionName = s.Section != null ? s.Section.Name : null,
+                s.ProfilePhoto,
+                s.ParentWhatsAppPhone
+            })
             .ToListAsync();
 
         var studentIds = students.Select(s => s.Id).ToList();
 
-        var existingRecords = await _dbContext.StudentAttendances
-            .AsNoTracking()
-            .Where(a => a.TenantId == tenantId && studentIds.Contains(a.StudentId) && a.AttendanceDate == targetDate)
-            .ToDictionaryAsync(a => a.StudentId);
+        var existingRecords = studentIds.Count > 0
+            ? await _dbContext.StudentAttendances
+                .AsNoTracking()
+                .Where(a => a.TenantId == tenantId && studentIds.Contains(a.StudentId) && a.AttendanceDate == targetDate)
+                .ToDictionaryAsync(a => a.StudentId)
+            : new Dictionary<Guid, StudentAttendance>();
+
+        var attSettings = await _dbContext.AttendanceSettings.AsNoTracking().FirstOrDefaultAsync(s => s.TenantId == tenantId);
 
         var result = students.Select(s =>
         {
             existingRecords.TryGetValue(s.Id, out var att);
             DateTime? captured = att?.CapturedAt ?? att?.CreatedAt;
             DateTime? capturedUtc = captured.HasValue ? DateTime.SpecifyKind(captured.Value, DateTimeKind.Utc) : null;
+            var effStatus = att != null ? EvaluateStudentSmartAttendanceStatus(att.Status, att.CheckInTime, att.CheckOutTime, attSettings).ToString() : "Present";
             return new SchoolAttendanceStudentRowDto(
                 s.Id,
                 s.StudentName,
                 s.SchoolRollNumber,
                 s.AdmissionNumber,
-                s.Class != null ? s.Class.Name : null,
-                s.Section != null ? s.Section.Name : null,
+                s.ClassName,
+                s.SectionName,
                 s.ProfilePhoto,
                 s.ParentWhatsAppPhone,
-                att != null ? att.Status.ToString() : "Present",
+                effStatus,
                 att?.Remarks,
                 att?.Id,
                 capturedUtc,
@@ -1231,11 +1412,12 @@ public class StudentsController : ControllerBase
         if (!await IsManualAttendanceAllowedAsync())
             return Conflict(new { message = "Manual student attendance is disabled. Current mode is Biometric." });
 
+        var today = GetIstToday();
         var date = dto.AttendanceDate.Date;
-        if (date > DateTime.UtcNow.Date)
+        if (date > today)
             return BadRequest(new { message = "Cannot mark attendance for future dates." });
 
-        if (date < DateTime.UtcNow.Date && !await HasAttendancePermissionAsync("/attendance/permissions/correction", true))
+        if (date < today && !await HasAttendancePermissionAsync("/attendance/permissions/correction", true))
             return StatusCode(StatusCodes.Status403Forbidden, new { message = "Marking or modifying past attendance requires Admin Attendance Correction permission." });
 
         if (!await CanEditPublicHolidayOrSundayAsync() && await IsPublicHolidayOrSundayAsync(date))
@@ -1254,6 +1436,8 @@ public class StudentsController : ControllerBase
             .Where(a => a.TenantId == tenantId && studentIds.Contains(a.StudentId) && a.AttendanceDate == date)
             .ToDictionaryAsync(a => a.StudentId);
 
+        var attSettings = await _dbContext.AttendanceSettings.AsNoTracking().FirstOrDefaultAsync(s => s.TenantId == tenantId);
+
         int presentCount = 0;
         int absentCount = 0;
         int lateCount = 0;
@@ -1262,7 +1446,10 @@ public class StudentsController : ControllerBase
         foreach (var item in dto.Items)
         {
             if (!students.TryGetValue(item.StudentId, out var student)) continue;
+            if (student.JoiningDate != default && date < student.JoiningDate.Date) continue; // skip prior to admission
             if (!TryParseAttendanceStatus(item.Status, out var status)) continue;
+
+            status = EvaluateStudentSmartAttendanceStatus(status, item.CheckInTime, item.CheckOutTime, attSettings);
 
             if (status == TeacherAttendanceStatus.Present) presentCount++;
             else if (status == TeacherAttendanceStatus.Absent) absentCount++;

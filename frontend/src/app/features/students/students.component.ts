@@ -666,8 +666,11 @@ const API_BASE = 'http://localhost:5000';
                     <div class="school-adm-pill" *ngIf="s.isSchoolStudent && s.admissionNumber">
                       <span class="lbl">Adm:</span> <strong>{{ s.admissionNumber }}</strong>
                     </div>
-                    <div class="school-roll-pill" *ngIf="s.isSchoolStudent && s.schoolRollNumber">
-                      <span class="lbl">Sec Roll:</span> {{ s.schoolRollNumber }}
+                    <div class="school-roll-pill" *ngIf="s.isSchoolStudent && s.schoolRollNumber && !isDuplicateRoll(s.schoolRollNumber, s.admissionNumber)">
+                      <span class="lbl">School Roll:</span> <strong>{{ s.schoolRollNumber }}</strong>
+                    </div>
+                    <div class="school-adm-date-pill" *ngIf="s.joiningDate">
+                      <span class="lbl">Adm Date:</span> <strong>{{ s.joiningDate | date:'dd MMM yyyy':'Asia/Kolkata' }}</strong>
                     </div>
                     <div class="lib-card-pill" *ngIf="s.isLibraryMember && s.libraryCardNumber">
                       <span class="lbl">Lib:</span> <strong>{{ s.libraryCardNumber }}</strong>
@@ -1366,6 +1369,16 @@ const API_BASE = 'http://localhost:5000';
       .school-roll-pill {
         font-size: 0.75rem;
         color: #64748b;
+        .lbl { font-size: 0.7rem; color: #94a3b8; }
+      }
+      .school-adm-date-pill {
+        font-size: 0.75rem;
+        color: #475569;
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        .lbl { font-size: 0.7rem; color: #64748b; font-weight: 500; }
+        strong { font-weight: 600; color: #1e293b; }
       }
       .lib-card-pill {
         font-size: 0.78rem;
@@ -2753,6 +2766,16 @@ export class StudentsComponent implements OnInit, OnDestroy {
       this.availableBedsList = [];
       this.selectedBedRent = null;
     }
+  }
+
+  isDuplicateRoll(schoolRoll?: string | null, admNo?: string | null): boolean {
+    if (!schoolRoll) return true;
+    const cleanRoll = String(schoolRoll).replace(/[^a-zA-Z0-9]/g, '').toLowerCase().trim();
+    if (!cleanRoll) return true;
+    if (cleanRoll.startsWith('adm')) return true;
+    if (!admNo) return false;
+    const cleanAdm = String(admNo).replace(/[^a-zA-Z0-9]/g, '').toLowerCase().trim();
+    return cleanRoll === cleanAdm || cleanRoll.includes(cleanAdm) || cleanAdm.includes(cleanRoll);
   }
 
   private formatDateForInput(dateVal: any): string {

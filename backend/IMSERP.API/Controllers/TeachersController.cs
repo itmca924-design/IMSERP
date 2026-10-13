@@ -133,8 +133,48 @@ public class TeachersController : ControllerBase
     // ─── Teacher CRUD ─────────────────────────────────────────
 
     /// <summary>
+    /// Generates a clean, short company prefix (2-4 uppercase characters) based on Company / Tenant Name.
+    /// E.g. "Jnandeep Campus" -> "JC", "Delhi Coaching Hub" -> "DCH", "Galaxy Academy" -> "GA"
+    /// </summary>
+    public static string GenerateShortCompanyPrefix(string? companyName, string? tenantCode)
+    {
+        if (!string.IsNullOrWhiteSpace(companyName))
+        {
+            var cleaned = System.Text.RegularExpressions.Regex.Replace(companyName.Trim(), @"[^\w\s]", " ");
+            var words = cleaned.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            if (words.Length >= 2)
+            {
+                var significant = words
+                    .Where(w => !new[] { "AND", "THE", "OF", "FOR", "IN", "TO", "A", "AN" }.Contains(w.ToUpperInvariant()))
+                    .ToList();
+
+                var targetWords = significant.Count >= 2 ? significant : words.ToList();
+                var initials = string.Concat(targetWords.Take(3).Select(w => char.ToUpperInvariant(w[0])));
+                if (initials.Length >= 2)
+                {
+                    return initials;
+                }
+            }
+            else if (words.Length == 1 && words[0].Length >= 2)
+            {
+                var w = words[0].Trim();
+                return (w.Length <= 3 ? w : w.Substring(0, 3)).ToUpperInvariant();
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(tenantCode))
+        {
+            var code = tenantCode.Trim();
+            return (code.Length <= 4 ? code : code.Substring(0, 3)).ToUpperInvariant();
+        }
+
+        return "EMP";
+    }
+
+    /// <summary>
     /// Auto-generate next employee code for this tenant.
-    /// Format: {TenantCode}-TCH-{001}  e.g. ACA-TCH-003
+    /// Format: {DynamicCompanyPrefix}-{StaffType}-{001}  e.g. JC-TCH-040
     /// </summary>
     [HttpGet("next-employee-code")]
     public async Task<ActionResult<object>> GetNextEmployeeCode([FromQuery] string? staffType = null)
@@ -143,7 +183,7 @@ public class TeachersController : ControllerBase
             .AsNoTracking()
             .FirstOrDefaultAsync(t => t.Id == _currentUser.TenantId);
 
-        var tenantPrefix = (tenant?.Code ?? "TCH").ToUpper();
+        var tenantPrefix = GenerateShortCompanyPrefix(tenant?.Name, tenant?.Code);
 
         // Approach 1: Category-specific prefix
         var normalized = (staffType ?? "1").Trim().ToLowerInvariant();
@@ -159,16 +199,17 @@ public class TeachersController : ControllerBase
 
         var prefixPattern = $"{tenantPrefix}-{typePrefix}-";
         var existingCodes = await _db.Teachers
-            .Where(t => t.EmployeeCode.StartsWith(prefixPattern))
+            .Where(t => t.TenantId == _currentUser.TenantId && (t.EmployeeCode.StartsWith(prefixPattern) || t.EmployeeCode.Contains($"-{typePrefix}-")))
             .Select(t => t.EmployeeCode)
             .ToListAsync();
 
         int maxNumber = 0;
         foreach (var c in existingCodes)
         {
-            if (c.Length > prefixPattern.Length)
+            var idx = c.LastIndexOf('-');
+            if (idx >= 0 && idx < c.Length - 1)
             {
-                var suffix = c.Substring(prefixPattern.Length);
+                var suffix = c.Substring(idx + 1);
                 if (int.TryParse(suffix, out var num) && num > maxNumber)
                 {
                     maxNumber = num;
@@ -179,7 +220,7 @@ public class TeachersController : ControllerBase
         var nextNumber = maxNumber + 1;
         var code = $"{tenantPrefix}-{typePrefix}-{nextNumber:D3}";
 
-        while (await _db.Teachers.AnyAsync(t => t.EmployeeCode == code))
+        while (await _db.Teachers.AnyAsync(t => t.TenantId == _currentUser.TenantId && t.EmployeeCode == code))
         {
             nextNumber++;
             code = $"{tenantPrefix}-{typePrefix}-{nextNumber:D3}";
@@ -1491,7 +1532,7 @@ public class TeachersController : ControllerBase
             var late = statuses.Count(status => status == TeacherAttendanceStatus.Late);
             var half = statuses.Count(status => status == TeacherAttendanceStatus.HalfDay);
 
-            var today = DateTime.UtcNow.Date;
+            var today = GetIstToday();
             var pastUnmarkedWorkingDays = 0;
             var dailyMap = new List<string>();
             for (int day = 1; day <= totalDaysInMonth; day++)
@@ -1664,7 +1705,7 @@ public class TeachersController : ControllerBase
         int holiday = offDates.Count;
         int totalWorkingDays = Math.Max(0, daysInMonth - holiday);
 
-        var today = DateTime.UtcNow.Date;
+        var today = GetIstToday();
         for (int d = 1; d <= daysInMonth; d++)
         {
             var curDate = new DateTime(year, month, d);
@@ -1776,16 +1817,17 @@ public class TeachersController : ControllerBase
 
         var attSettings = await _db.AttendanceSettings.AsNoTracking().FirstOrDefaultAsync(s => s.TenantId == teacher.TenantId);
         var smartStatus = EvaluateSmartAttendanceStatus(status, dto.CheckInTime, dto.CheckOutTime, attSettings);
+        var today = GetIstToday();
         var date = dto.AttendanceDate.Date;
 
         // 1. Attendance cannot be marked in advance for future dates
-        if (date > DateTime.Today)
+        if (date > today)
             return BadRequest(new { message = "Attendance cannot be marked for future dates." });
 
         var user = await _db.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
 
         // 2. Teachers cannot directly mark or edit past date attendance (must use Regularization)
-        if (user?.Role == IMSERP.Domain.Enums.UserRole.Teacher && date < DateTime.Today)
+        if (user?.Role == IMSERP.Domain.Enums.UserRole.Teacher && date < today)
             return BadRequest(new { message = "Faculty cannot directly log or edit past date attendance. Please submit an Attendance Regularization request." });
 
         if (!await CanEditPublicHolidayOrSundayAsync() && await IsPublicHolidayOrSundayAsync(date))
@@ -1903,7 +1945,7 @@ public class TeachersController : ControllerBase
 
         var monthStart = new DateTime(dto.Year, dto.Month, 1);
         var monthEnd = new DateTime(dto.Year, dto.Month, DateTime.DaysInMonth(dto.Year, dto.Month));
-        var today = DateTime.Today;
+        var today = GetIstToday();
 
         // Fetch declared holidays for the month
         var holidays = await _db.Holidays.AsNoTracking()
@@ -4295,27 +4337,12 @@ public class TeachersController : ControllerBase
         if (declaredStatus == TeacherAttendanceStatus.Absent || declaredStatus == TeacherAttendanceStatus.Holiday || declaredStatus == TeacherAttendanceStatus.WeekOff || declaredStatus == TeacherAttendanceStatus.Leave)
             return declaredStatus;
 
-        if (string.IsNullOrWhiteSpace(inTime) || string.IsNullOrWhiteSpace(outTime))
+        if (string.IsNullOrWhiteSpace(inTime))
             return declaredStatus;
 
         var inMin = ParseTimeToMinutes(inTime);
-        var outMin = ParseTimeToMinutes(outTime);
-        if (inMin == null || outMin == null)
+        if (inMin == null)
             return declaredStatus;
-
-        int calculatedOut = outMin.Value;
-        if (calculatedOut <= inMin.Value)
-        {
-            if (!outTime.Contains("AM", StringComparison.OrdinalIgnoreCase) && !outTime.Contains("PM", StringComparison.OrdinalIgnoreCase))
-            {
-                if (calculatedOut + 720 > inMin.Value && calculatedOut + 720 <= 1440)
-                {
-                    calculatedOut += 720;
-                }
-            }
-        }
-
-        int diff = calculatedOut - inMin.Value;
 
         // Dynamic thresholds from AttendanceSettings (no hardcoding)
         int halfDayThreshold = settings?.TeacherHalfDayThresholdMinutes ?? 240;
@@ -4323,16 +4350,40 @@ public class TeachersController : ControllerBase
         int graceMinutes = settings?.TeacherGracePeriodMinutes ?? 15;
         int lateCutoffMin = shiftStartMin + graceMinutes;
 
-        if (diff > 0 && diff < halfDayThreshold)
+        // If outTime is provided, evaluate work duration for half day
+        if (!string.IsNullOrWhiteSpace(outTime))
         {
-            return TeacherAttendanceStatus.HalfDay;
-        }
-        else if (diff >= halfDayThreshold)
-        {
-            if (inMin.Value > lateCutoffMin && declaredStatus == TeacherAttendanceStatus.Present)
+            var outMin = ParseTimeToMinutes(outTime);
+            if (outMin != null)
             {
-                return TeacherAttendanceStatus.Late;
+                int calculatedOut = outMin.Value;
+                if (calculatedOut <= inMin.Value)
+                {
+                    if (!outTime.Contains("AM", StringComparison.OrdinalIgnoreCase) && !outTime.Contains("PM", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (calculatedOut + 720 > inMin.Value && calculatedOut + 720 <= 1440)
+                        {
+                            calculatedOut += 720;
+                        }
+                    }
+                }
+
+                int diff = calculatedOut - inMin.Value;
+                if (diff > 0 && diff < halfDayThreshold)
+                {
+                    return TeacherAttendanceStatus.HalfDay;
+                }
             }
+        }
+
+        // Late detection based on check-in arrival time
+        if (inMin.Value > lateCutoffMin)
+        {
+            return TeacherAttendanceStatus.Late;
+        }
+        else if (inMin.Value <= lateCutoffMin && declaredStatus == TeacherAttendanceStatus.Late)
+        {
+            return TeacherAttendanceStatus.Present;
         }
 
         return declaredStatus;

@@ -92,7 +92,7 @@ export const EN_TRANSLATIONS: Record<string, string> = {
   'Settings': 'Settings',
 
   // Header & Tools
-  'HEADER.TITLE': 'IMSERP • School + Coaching ERP',
+  'HEADER.TITLE': 'School + Coaching ERP',
   'HEADER.SEARCH_PAGES': 'Search pages...',
   'HEADER.NOTIFICATIONS': 'Notifications',
   'HEADER.QUICK_ACTIONS': 'Quick Actions',

@@ -29,46 +29,64 @@ public class SchoolController : ControllerBase
     [HttpGet("classes")]
     public async Task<ActionResult<IEnumerable<SchoolClassDto>>> GetClasses([FromQuery] bool activeOnly = false)
     {
-        var query = _db.SchoolClasses.AsNoTracking();
+        var tenantId = _currentUser.TenantId;
+        var query = _db.SchoolClasses.AsNoTracking().Where(c => c.TenantId == tenantId);
         if (activeOnly)
         {
             query = query.Where(c => c.IsActive);
         }
 
-        var classes = await query
+        var classesRaw = await query
+            .Include(c => c.Sections)
+                .ThenInclude(s => s.Room)
+            .Include(c => c.Sections)
+                .ThenInclude(s => s.ClassTeacher)
             .OrderBy(c => c.DisplayOrder)
             .ThenBy(c => c.Name)
-            .Select(c => new SchoolClassDto(
-                c.Id,
-                c.TenantId,
-                c.Name,
-                c.Code,
-                c.DisplayOrder,
-                c.IsActive,
-                c.CreatedAt,
-                c.BranchId,
-                c.Sections.Count,
-                _db.Students.Count(s => s.ClassId == c.Id && s.IsActive),
-                c.Sections.OrderBy(s => s.Name).Select(s => new SchoolSectionDto(
-                    s.Id,
-                    s.TenantId,
-                    s.ClassId,
-                    c.Name,
-                    s.Name,
-                    s.MaxCapacity,
-                    s.RoomId,
-                    s.Room != null ? s.Room.RoomNumber : null,
-                    s.IsActive,
-                    s.CreatedAt,
-                    s.BranchId,
-                    _db.Students.Count(st => st.SectionId == s.Id && st.IsActive),
-                    s.ClassTeacherId,
-                    s.ClassTeacher != null ? s.ClassTeacher.FullName : null,
-                    s.ClassTeacher != null ? s.ClassTeacher.EmployeeCode : null,
-                    s.ClassTeacher != null ? s.ClassTeacher.PhoneNumber : null
-                )).ToList()
-            ))
             .ToListAsync();
+
+        var studentCountsByClass = await _db.Students.AsNoTracking()
+            .Where(s => s.TenantId == tenantId && s.IsActive && s.ClassId != null)
+            .GroupBy(s => s.ClassId!.Value)
+            .Select(g => new { ClassId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.ClassId, x => x.Count);
+
+        var studentCountsBySection = await _db.Students.AsNoTracking()
+            .Where(s => s.TenantId == tenantId && s.IsActive && s.SectionId != null)
+            .GroupBy(s => s.SectionId!.Value)
+            .Select(g => new { SectionId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.SectionId, x => x.Count);
+
+        var classes = classesRaw.Select(c => new SchoolClassDto(
+            c.Id,
+            c.TenantId,
+            c.Name,
+            c.Code,
+            c.DisplayOrder,
+            c.IsActive,
+            c.CreatedAt,
+            c.BranchId,
+            c.Sections.Count,
+            studentCountsByClass.GetValueOrDefault(c.Id, 0),
+            c.Sections.OrderBy(s => s.Name).Select(s => new SchoolSectionDto(
+                s.Id,
+                s.TenantId,
+                s.ClassId,
+                c.Name,
+                s.Name,
+                s.MaxCapacity,
+                s.RoomId,
+                s.Room != null ? s.Room.RoomNumber : null,
+                s.IsActive,
+                s.CreatedAt,
+                s.BranchId,
+                studentCountsBySection.GetValueOrDefault(s.Id, 0),
+                s.ClassTeacherId,
+                s.ClassTeacher != null ? s.ClassTeacher.FullName : null,
+                s.ClassTeacher != null ? s.ClassTeacher.EmployeeCode : null,
+                s.ClassTeacher != null ? s.ClassTeacher.PhoneNumber : null
+            )).ToList()
+        )).ToList();
 
         return Ok(classes);
     }
@@ -484,7 +502,8 @@ public class SchoolController : ControllerBase
         s.IsBreak,
         s.DisplayOrder,
         s.IsActive,
-        s.CreatedAt
+        s.CreatedAt,
+        !string.IsNullOrWhiteSpace(s.SlotType) ? s.SlotType : (s.IsBreak ? "Break" : "Teaching")
     );
 
     [HttpGet("period-slots")]
@@ -512,28 +531,37 @@ public class SchoolController : ControllerBase
         var globalSlots = await query
             .Where(s => s.BranchId == null && (!activeOnly || s.IsActive))
             .OrderBy(s => s.DisplayOrder)
-                .ToListAsync();
+            .ToListAsync();
 
         if (globalSlots.Any())
         {
             return Ok(globalSlots.Select(ToPeriodSlotDto));
         }
 
-        // Fallback to any configured slots
-        var allSlots = await query
-            .Where(s => !activeOnly || s.IsActive)
-            .OrderBy(s => s.DisplayOrder)
-            .ToListAsync();
+        var effectiveBranch = branchId ?? _currentUser.BranchId;
+        if (effectiveBranch.HasValue)
+        {
+            var userBranchSlots = await query
+                .Where(s => s.BranchId == effectiveBranch.Value && (!activeOnly || s.IsActive))
+                .OrderBy(s => s.DisplayOrder)
+                .ToListAsync();
 
-        return Ok(allSlots.Select(ToPeriodSlotDto));
+            if (userBranchSlots.Any())
+            {
+                return Ok(userBranchSlots.Select(ToPeriodSlotDto));
+            }
+        }
+
+        return Ok(Enumerable.Empty<SchoolPeriodSlotDto>());
     }
 
     [HttpPost("period-slots/bulk")]
     public async Task<ActionResult<IEnumerable<SchoolPeriodSlotDto>>> BulkSavePeriodSlots([FromBody] BulkSaveSchoolPeriodSlotsDto dto)
     {
         var tenantId = _currentUser.TenantId;
+        var targetBranchId = dto.BranchId ?? _currentUser.BranchId;
         var existing = await _db.SchoolPeriodSlots
-            .Where(s => s.TenantId == tenantId && s.BranchId == dto.BranchId)
+            .Where(s => s.TenantId == tenantId && (s.BranchId == targetBranchId || s.BranchId == dto.BranchId || (dto.BranchId == null && s.BranchId == null)))
             .ToListAsync();
 
         _db.SchoolPeriodSlots.RemoveRange(existing);
@@ -546,15 +574,20 @@ public class SchoolController : ControllerBase
                 ? item.TimeSlot.Trim()
                 : $"{item.StartTime.Trim()} - {item.EndTime.Trim()}";
 
+            var slotType = !string.IsNullOrWhiteSpace(item.SlotType)
+                ? item.SlotType.Trim()
+                : (item.IsBreak ? "Break" : "Teaching");
+
             newSlots.Add(new SchoolPeriodSlot
             {
                 TenantId = tenantId,
-                BranchId = dto.BranchId,
+                BranchId = targetBranchId,
                 Name = item.Name.Trim(),
                 StartTime = item.StartTime.Trim(),
                 EndTime = item.EndTime.Trim(),
                 TimeSlot = timeSlot,
-                IsBreak = item.IsBreak,
+                IsBreak = item.IsBreak || slotType.Equals("Break", StringComparison.OrdinalIgnoreCase),
+                SlotType = slotType,
                 DisplayOrder = item.DisplayOrder > 0 ? item.DisplayOrder : order++,
                 IsActive = item.IsActive
             });
@@ -593,7 +626,9 @@ public class SchoolController : ControllerBase
                 endStr,
                 slotStr,
                 false,
-                order++
+                order++,
+                true,
+                "Teaching"
             ));
 
             currentStart = periodEnd;
@@ -613,10 +648,36 @@ public class SchoolController : ControllerBase
                     breakEndStr,
                     breakSlotStr,
                     true,
-                    order++
+                    order++,
+                    true,
+                    "Break"
                 ));
 
                 currentStart = breakEnd;
+            }
+
+            if (req.ActivityAfterPeriod.HasValue && req.ActivityAfterPeriod.Value == i && req.ActivityDurationMinutes.HasValue && req.ActivityDurationMinutes.Value > 0)
+            {
+                var actEnd = currentStart.AddMinutes(req.ActivityDurationMinutes.Value);
+                var actStartStr = currentStart.ToString("hh:mm tt");
+                var actEndStr = actEnd.ToString("hh:mm tt");
+                var actSlotStr = $"{actStartStr} - {actEndStr}";
+                var actName = !string.IsNullOrWhiteSpace(req.ActivityName) ? req.ActivityName.Trim() : "Quiz / Activity";
+                var actType = !string.IsNullOrWhiteSpace(req.ActivityType) ? req.ActivityType.Trim() : "Activity";
+
+                result.Add(new CreateSchoolPeriodSlotDto(
+                    req.BranchId,
+                    actName,
+                    actStartStr,
+                    actEndStr,
+                    actSlotStr,
+                    false,
+                    order++,
+                    true,
+                    actType
+                ));
+
+                currentStart = actEnd;
             }
         }
 
@@ -633,6 +694,95 @@ public class SchoolController : ControllerBase
         _db.SchoolPeriodSlots.Remove(slot);
         await _db.SaveChangesAsync();
         return Ok(new { message = "Period slot removed successfully." });
+    }
+
+    private static SchoolActivityTypeDto ToActivityTypeDto(SchoolActivityType a) => new(
+        a.Id,
+        a.BranchId,
+        a.Name,
+        a.DisplayNameHi,
+        a.Icon,
+        a.ColorHex,
+        a.DisplayOrder,
+        a.IsActive
+    );
+
+    [HttpGet("activity-types")]
+    public async Task<ActionResult<IEnumerable<SchoolActivityTypeDto>>> GetActivityTypes([FromQuery] Guid? branchId = null)
+    {
+        var tenantId = _currentUser.TenantId;
+        var existing = await _db.SchoolActivityTypes
+            .Where(a => a.TenantId == tenantId && (branchId == null || a.BranchId == null || a.BranchId == branchId))
+            .OrderBy(a => a.DisplayOrder)
+            .ToListAsync();
+
+        if (existing.Count == 0)
+        {
+            var defaults = new List<SchoolActivityType>
+            {
+                new() { TenantId = tenantId, BranchId = branchId, Name = "Quiz", DisplayNameHi = "प्रश्नोत्तरी", Icon = "psychology", ColorHex = "#7e22ce", DisplayOrder = 1 },
+                new() { TenantId = tenantId, BranchId = branchId, Name = "Play", DisplayNameHi = "खेलकूद", Icon = "sports_soccer", ColorHex = "#15803d", DisplayOrder = 2 },
+                new() { TenantId = tenantId, BranchId = branchId, Name = "Activity", DisplayNameHi = "गतिविधि", Icon = "local_activity", ColorHex = "#0f766e", DisplayOrder = 3 },
+                new() { TenantId = tenantId, BranchId = branchId, Name = "Assembly", DisplayNameHi = "प्रार्थना सभा", Icon = "groups", ColorHex = "#c2410c", DisplayOrder = 4 },
+                new() { TenantId = tenantId, BranchId = branchId, Name = "Dance", DisplayNameHi = "नृत्य", Icon = "music_note", ColorHex = "#be185d", DisplayOrder = 5 },
+                new() { TenantId = tenantId, BranchId = branchId, Name = "Singing", DisplayNameHi = "गायन", Icon = "mic", ColorHex = "#6d28d9", DisplayOrder = 6 },
+                new() { TenantId = tenantId, BranchId = branchId, Name = "Art", DisplayNameHi = "कला", Icon = "palette", ColorHex = "#0e7490", DisplayOrder = 7 },
+                new() { TenantId = tenantId, BranchId = branchId, Name = "Drawing", DisplayNameHi = "ड्राइंग", Icon = "brush", ColorHex = "#4338ca", DisplayOrder = 8 },
+                new() { TenantId = tenantId, BranchId = branchId, Name = "Antakshri", DisplayNameHi = "अंताक्षरी", Icon = "celebration", ColorHex = "#a16207", DisplayOrder = 9 }
+            };
+            await _db.SchoolActivityTypes.AddRangeAsync(defaults);
+            await _db.SaveChangesAsync();
+            existing = defaults;
+        }
+
+        return Ok(existing.Select(ToActivityTypeDto));
+    }
+
+    [HttpPost("activity-types")]
+    public async Task<ActionResult<SchoolActivityTypeDto>> CreateActivityType([FromBody] CreateSchoolActivityTypeDto dto)
+    {
+        var tenantId = _currentUser.TenantId;
+        var cleanName = dto.Name.Trim();
+
+        var existing = await _db.SchoolActivityTypes
+            .FirstOrDefaultAsync(a => a.TenantId == tenantId && a.Name.ToLower() == cleanName.ToLower());
+        if (existing != null)
+        {
+            return Ok(ToActivityTypeDto(existing));
+        }
+
+        var maxOrder = await _db.SchoolActivityTypes
+            .Where(a => a.TenantId == tenantId)
+            .MaxAsync(a => (int?)a.DisplayOrder) ?? 0;
+
+        var entity = new SchoolActivityType
+        {
+            TenantId = tenantId,
+            BranchId = dto.BranchId,
+            Name = cleanName,
+            DisplayNameHi = !string.IsNullOrWhiteSpace(dto.DisplayNameHi) ? dto.DisplayNameHi.Trim() : cleanName,
+            Icon = !string.IsNullOrWhiteSpace(dto.Icon) ? dto.Icon.Trim() : "local_activity",
+            ColorHex = !string.IsNullOrWhiteSpace(dto.ColorHex) ? dto.ColorHex.Trim() : "#7e22ce",
+            DisplayOrder = dto.DisplayOrder > 0 ? dto.DisplayOrder : maxOrder + 1,
+            IsActive = dto.IsActive
+        };
+
+        _db.SchoolActivityTypes.Add(entity);
+        await _db.SaveChangesAsync();
+
+        return Ok(ToActivityTypeDto(entity));
+    }
+
+    [HttpDelete("activity-types/{id}")]
+    public async Task<ActionResult> DeleteActivityType(Guid id)
+    {
+        var tenantId = _currentUser.TenantId;
+        var act = await _db.SchoolActivityTypes.FirstOrDefaultAsync(a => a.Id == id && a.TenantId == tenantId);
+        if (act == null) return NotFound(new { message = "Activity type not found." });
+
+        _db.SchoolActivityTypes.Remove(act);
+        await _db.SaveChangesAsync();
+        return Ok(new { message = "Activity type deleted successfully." });
     }
 
     #endregion
