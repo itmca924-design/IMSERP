@@ -109,7 +109,11 @@ export interface FeeReceiptDialogData {
               <span class="k">Roll / Admission No:</span>
               <span class="v"><strong>{{ data.receipt.rollNumber || 'N/A' }}</strong></span>
             </div>
-            <div class="prof-row">
+            <div class="prof-row" *ngIf="data.receipt.className">
+              <span class="k">Class & Section:</span>
+              <span class="v"><strong>{{ data.receipt.className }}<span *ngIf="data.receipt.sectionName"> (Section {{ data.receipt.sectionName }})</span></strong></span>
+            </div>
+            <div class="prof-row" *ngIf="!data.receipt.className">
               <span class="k">Assigned Batch / Course:</span>
               <span class="v">{{ data.receipt.batchName || 'General Academic' }}</span>
             </div>
@@ -1043,16 +1047,28 @@ export class FeeReceiptDialogComponent {
     }
 
     const branchLine = this.effectiveBranchName ? `*Branch*: ${this.effectiveBranchName}\n` : '';
+    const classOrBatch = this.data.receipt.className
+      ? `${this.data.receipt.className}${this.data.receipt.sectionName ? ' (' + this.data.receipt.sectionName + ')' : ''}`
+      : (this.data.receipt.batchName || 'General');
+    const instName = this.data.receipt.instituteName || this.data.instituteName || this.authService.currentUser()?.instituteName || 'School & Coaching ERP';
+    let origin = window.location.origin;
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      const port = window.location.port ? `:${window.location.port}` : '';
+      origin = `${window.location.protocol}//localhost.nip.io${port}`;
+    }
+    const receiptPublicUrl = `${origin}/receipt/${this.data.receipt.receiptNumber}`;
+
     const textMsg = `*OFFICIAL FEE PAYMENT RECEIPT*\n` +
-      `*Institute*: ${this.data.instituteName || this.authService.currentUser()?.instituteName || 'Apex Coaching Academy'}\n` +
+      `*Institute*: ${instName}\n` +
       branchLine +
       `*Receipt No*: #${this.data.receipt.receiptNumber}\n` +
       `*Date*: ${this.formatToIST(this.data.receipt.paymentDate)}\n\n` +
-      `Dear Parent, we have received payment of *₹${this.data.receipt.amountPaid}* for student *${this.data.receipt.studentName}* (${this.data.receipt.batchName || 'General'}).\n` +
+      `Dear Parent, we have received payment of *₹${this.data.receipt.amountPaid}* for student *${this.data.receipt.studentName}* (${classOrBatch}).\n` +
       `*Mode*: ${this.getPaymentModeName(this.data.receipt.mode)}\n` +
       headsSection +
       `*Remaining Balance Due*: ₹${this.data.receipt.remainingDue}\n\n` +
-      `Thank you for trusting our academy!`;
+      `📄 *Download / View Official PDF Receipt*:\n${receiptPublicUrl}\n\n` +
+      `Thank you for trusting ${instName}!`;
     const waUrl = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(textMsg)}`;
     window.open(waUrl, '_blank');
   }

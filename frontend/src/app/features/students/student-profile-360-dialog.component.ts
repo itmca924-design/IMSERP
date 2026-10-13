@@ -100,6 +100,9 @@ const API_BASE = 'http://localhost:5000';
               <span *ngIf="data360?.student?.admissionNumber" class="meta-sep">
                 &bull; SR/Adm: <strong>{{ data360!.student.admissionNumber }}</strong>
               </span>
+              <span *ngIf="data360?.student?.joiningDate" class="meta-sep">
+                &bull; Adm Date: <strong>{{ data360!.student.joiningDate | date:'dd MMM yyyy':'Asia/Kolkata' }}</strong>
+              </span>
             </p>
           </div>
         </div>
@@ -242,7 +245,7 @@ const API_BASE = 'http://localhost:5000';
                     </div>
                     <div class="info-row">
                       <span class="row-label">Joining Date:</span>
-                      <span class="row-val">{{ data360.student.joiningDate | date:'dd MMM yyyy' }}</span>
+                      <span class="row-val font-semibold">{{ data360.student.joiningDate | date:'dd MMM yyyy':'Asia/Kolkata' }}</span>
                     </div>
                   </div>
                 </div>

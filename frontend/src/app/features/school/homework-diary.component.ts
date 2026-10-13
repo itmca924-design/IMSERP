@@ -99,6 +99,7 @@ export interface DailyStudentDiaryRow {
   sectionId?: string;
   sectionName?: string;
   isAbsent: boolean;
+  attendanceStatus?: string;
   classWork: DailySubjectTaskItem[];
   homeWork: DailySubjectTaskItem[];
   remarks?: string;
@@ -267,7 +268,7 @@ export interface DailyDiaryReportHeader {
               <div class="qf-actions-wrap">
                 <button mat-flat-button class="apply-all-btn" [class.student-mode]="!!selectedDiaryStudent" (click)="applyCommonToAllPresent()" [disabled]="diaryStudents.length === 0">
                   <mat-icon>{{selectedDiaryStudent ? 'person_add' : 'done_all'}}</mat-icon>
-                  <span *ngIf="!selectedDiaryStudent">Apply to All Present ({{diaryPresentCount}})</span>
+                  <span *ngIf="!selectedDiaryStudent">Apply to All Present ({{diaryEligibleForWorkCount}})</span>
                   <span *ngIf="selectedDiaryStudent">Apply to {{selectedDiaryStudent.studentName}}</span>
                 </button>
                 <button mat-stroked-button class="qf-switch-all-btn" *ngIf="selectedDiaryStudent" (click)="selectedDiaryStudentId = ''">
@@ -431,7 +432,11 @@ export interface DailyDiaryReportHeader {
                 <ng-container *ngIf="!selectedDiaryStudent">
                   <span class="count-pill all">Total Students: <strong>{{diaryStudents.length}}</strong></span>
                   <span class="count-pill present">Present: <strong>{{diaryPresentCount}}</strong></span>
+                  <span class="count-pill late" *ngIf="diaryLateCount > 0">Late: <strong>{{diaryLateCount}}</strong></span>
+                  <span class="count-pill halfday" *ngIf="diaryHalfDayCount > 0">Half Day: <strong>{{diaryHalfDayCount}}</strong></span>
                   <span class="count-pill absent">Absent: <strong>{{diaryAbsentCount}}</strong></span>
+                  <span class="count-pill leave" *ngIf="diaryLeaveCount > 0">Leave: <strong>{{diaryLeaveCount}}</strong></span>
+                  <span class="count-pill not-marked" *ngIf="diaryNotMarkedCount > 0">Not Marked: <strong>{{diaryNotMarkedCount}}</strong></span>
                 </ng-container>
 
                 <ng-container *ngIf="selectedDiaryStudent">
@@ -474,7 +479,7 @@ export interface DailyDiaryReportHeader {
                   </tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let s of filteredDiaryStudents; let idx = index" [class.student-absent-row]="s.isAbsent">
+                  <tr *ngFor="let s of filteredDiaryStudents; let idx = index" [class.student-absent-row]="s.isAbsent" [class.student-notmarked-row]="!s.isAbsent && s.attendanceStatus === 'NotMarked'">
                     <td class="text-center idx-cell">{{diaryStudents.indexOf(s) + 1}}</td>
                     <td class="student-info-cell">
                       <div class="student-name-text">{{s.studentName}}</div>
@@ -485,9 +490,9 @@ export interface DailyDiaryReportHeader {
                       </div>
                     </td>
                     <td class="attendance-cell text-center">
-                      <button type="button" class="att-toggle-btn" [class.is-absent]="s.isAbsent" (click)="toggleStudentAbsent(s)" [matTooltip]="s.isAbsent ? 'Click to mark Present' : 'Click to mark Absent'">
-                        <mat-icon>{{s.isAbsent ? 'cancel' : 'check_circle'}}</mat-icon>
-                        <span>{{s.isAbsent ? 'ABSENT' : 'PRESENT'}}</span>
+                      <button type="button" class="att-toggle-btn" [ngClass]="getAttendanceBadgeClass(s)" (click)="toggleStudentAbsent(s)" [matTooltip]="getAttendanceTooltip(s)">
+                        <mat-icon>{{getAttendanceIcon(s)}}</mat-icon>
+                        <span>{{getAttendanceLabel(s)}}</span>
                       </button>
                     </td>
 
@@ -495,14 +500,33 @@ export interface DailyDiaryReportHeader {
                     <ng-container *ngIf="s.isAbsent">
                       <td colspan="2" class="absent-banner-cell">
                         <div class="row-absent-badge-wrap">
-                          <span class="roster-absent-pill">ABSENT TODAY</span>
-                          <span class="absent-hint-text">Auto-marked absent. Click "ABSENT" toggle above if student is present.</span>
+                          <span class="roster-absent-pill" [class.leave]="s.attendanceStatus === 'Leave'">
+                            {{s.attendanceStatus === 'Leave' ? 'ON LEAVE TODAY' : 'ABSENT TODAY'}}
+                          </span>
+                          <span class="absent-hint-text">
+                            {{s.attendanceStatus === 'Leave' ? 'Student is officially on leave today. Click button above if attending.' : 'Auto-marked absent. Click attendance toggle above if student is present.'}}
+                          </span>
                         </div>
                       </td>
                     </ng-container>
 
-                    <!-- If Student is Present -->
-                    <ng-container *ngIf="!s.isAbsent">
+                    <!-- If Attendance is NOT MARKED: Disabled / Locked Banner -->
+                    <ng-container *ngIf="!s.isAbsent && s.attendanceStatus === 'NotMarked'">
+                      <td colspan="2" class="notmarked-banner-cell">
+                        <div class="row-notmarked-badge-wrap">
+                          <span class="roster-notmarked-pill">
+                            <mat-icon>lock</mat-icon>
+                            <span>ATTENDANCE NOT MARKED &bull; EDITING DISABLED</span>
+                          </span>
+                          <span class="notmarked-hint-text">
+                            Student is unmarked. Click "NOT MARKED" button above to mark Present &amp; unlock homework entry.
+                          </span>
+                        </div>
+                      </td>
+                    </ng-container>
+
+                    <!-- If Student is Present / Late (Attending) -->
+                    <ng-container *ngIf="!s.isAbsent && s.attendanceStatus !== 'NotMarked'">
                       <!-- C.W. Cell -->
                       <td class="tasks-entry-cell">
                         <div class="entry-task-list">
@@ -607,7 +631,18 @@ export interface DailyDiaryReportHeader {
                     </ng-container>
 
                     <td class="remarks-cell">
-                      <input type="text" class="entry-remarks-input" [(ngModel)]="s.remarks" placeholder="Optional notes...">
+                      <div class="remarks-input-wrap">
+                        <input
+                          type="text"
+                          class="entry-remarks-input"
+                          [(ngModel)]="s.remarks"
+                          [disabled]="s.isAbsent || s.attendanceStatus === 'NotMarked'"
+                          [placeholder]="s.attendanceStatus === 'NotMarked' ? 'Attendance pending...' : 'Optional notes...'"
+                        >
+                        <button type="button" class="row-clear-tasks-btn" (click)="clearStudentTasks(s)" *ngIf="hasStudentTasks(s)" matTooltip="Clear tasks for this student">
+                          <mat-icon>delete_sweep</mat-icon>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 </tbody>
@@ -617,7 +652,15 @@ export interface DailyDiaryReportHeader {
             <!-- Bottom Floating Action Bar -->
             <div class="diary-bottom-action-bar">
               <div class="bottom-left-summary">
-                <span *ngIf="!selectedDiaryStudent">Showing <strong>{{diaryStudents.length}}</strong> students &bull; <strong>{{diaryPresentCount}}</strong> Present &bull; <strong class="text-red">{{diaryAbsentCount}}</strong> Absent</span>
+                <span *ngIf="!selectedDiaryStudent">
+                  Showing <strong>{{diaryStudents.length}}</strong> students &bull; 
+                  <strong>{{diaryPresentCount}}</strong> Present
+                  <span *ngIf="diaryLateCount > 0"> &bull; <strong>{{diaryLateCount}}</strong> Late</span>
+                  <span *ngIf="diaryHalfDayCount > 0"> &bull; <strong>{{diaryHalfDayCount}}</strong> Half Day</span>
+                  <span *ngIf="diaryNotMarkedCount > 0"> &bull; <strong>{{diaryNotMarkedCount}}</strong> Not Marked</span>
+                  &bull; <strong class="text-red">{{diaryAbsentCount}}</strong> Absent
+                  <span *ngIf="diaryLeaveCount > 0"> &bull; <strong class="text-purple">{{diaryLeaveCount}}</strong> Leave</span>
+                </span>
                 <span *ngIf="selectedDiaryStudent">Showing student: <strong>{{selectedDiaryStudent.studentName}}</strong> (1 of {{diaryStudents.length}} in class)</span>
               </div>
               <div class="bottom-right-actions">
@@ -1983,7 +2026,11 @@ export interface DailyDiaryReportHeader {
     }
     .count-pill.all { background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; }
     .count-pill.present { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
+    .count-pill.late { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
+    .count-pill.halfday { background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
     .count-pill.absent { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+    .count-pill.leave { background: #faf5ff; color: #7e22ce; border: 1px solid #e9d5ff; }
+    .count-pill.not-marked { background: #f8fafc; color: #475569; border: 1px solid #e2e8f0; }
     .count-pill.student-focus {
       background: #f5f3ff;
       color: #6d28d9;
@@ -2090,15 +2137,81 @@ export interface DailyDiaryReportHeader {
       white-space: nowrap;
     }
     .att-toggle-btn mat-icon { font-size: 16px; width: 16px; height: 16px; }
-    .att-toggle-btn.is-absent {
+    .att-toggle-btn.status-present {
+      background: #f0fdf4;
+      color: #16a34a;
+      border-color: #86efac;
+    }
+    .att-toggle-btn.status-late {
+      background: #fffbeb;
+      color: #d97706;
+      border-color: #fcd34d;
+    }
+    .att-toggle-btn.status-halfday {
+      background: #f0f9ff;
+      color: #0284c7;
+      border-color: #7dd3fc;
+    }
+    .att-toggle-btn.status-absent, .att-toggle-btn.is-absent {
       background: #fee2e2;
       color: #dc2626;
       border-color: #f87171;
     }
+    .att-toggle-btn.status-leave {
+      background: #faf5ff;
+      color: #9333ea;
+      border-color: #d8b4fe;
+    }
+    .att-toggle-btn.status-notmarked {
+      background: #f1f5f9;
+      color: #64748b;
+      border-color: #cbd5e1;
+    }
+    .roster-absent-pill.leave {
+      background: #faf5ff;
+      color: #9333ea;
+      border-color: #d8b4fe;
+    }
+    .text-purple { color: #9333ea; }
 
     /* Absent Row Styling */
     .student-absent-row td {
       background: #fff8f8;
+    }
+    /* Not Marked Row Styling */
+    .student-notmarked-row td {
+      background: #fafafa;
+    }
+    .notmarked-banner-cell {
+      text-align: center;
+      vertical-align: middle !important;
+      padding: 16px !important;
+      background: #f8fafc;
+    }
+    .row-notmarked-badge-wrap {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+    }
+    .roster-notmarked-pill {
+      background: #f1f5f9;
+      color: #475569;
+      border: 1.5px dashed #94a3b8;
+      font-weight: 800;
+      font-size: 12px;
+      letter-spacing: 0.8px;
+      padding: 5px 18px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .roster-notmarked-pill mat-icon { font-size: 16px; width: 16px; height: 16px; color: #64748b; }
+    .notmarked-hint-text {
+      font-size: 11.5px;
+      color: #64748b;
+      font-weight: 600;
     }
     .absent-banner-cell {
       text-align: center;
@@ -2267,6 +2380,28 @@ export interface DailyDiaryReportHeader {
     .add-sub-link-btn:hover { text-decoration: underline; }
 
     .remarks-cell { width: 160px; }
+    .remarks-input-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .row-clear-tasks-btn {
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      cursor: pointer;
+      color: #64748b;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px;
+      border-radius: 6px;
+      height: 28px;
+      width: 28px;
+      flex-shrink: 0;
+      transition: all 0.15s ease;
+    }
+    .row-clear-tasks-btn mat-icon { font-size: 16px; width: 16px; height: 16px; }
+    .row-clear-tasks-btn:hover { color: #dc2626; background: #fee2e2; border-color: #fca5a5; }
     .entry-remarks-input {
       width: 100%;
       background: #f8fafc;
@@ -2380,11 +2515,37 @@ export class HomeworkDiaryComponent implements OnInit {
   };
 
   get diaryPresentCount(): number {
-    return this.diaryStudents.filter(s => !s.isAbsent).length;
+    return this.diaryStudents.filter(s => !s.isAbsent && (s.attendanceStatus || 'Present').toLowerCase() === 'present').length;
+  }
+
+  get diaryLateCount(): number {
+    return this.diaryStudents.filter(s => !s.isAbsent && (s.attendanceStatus || '').toLowerCase() === 'late').length;
+  }
+
+  get diaryHalfDayCount(): number {
+    return this.diaryStudents.filter(s => !s.isAbsent && (s.attendanceStatus || '').toLowerCase() === 'halfday').length;
   }
 
   get diaryAbsentCount(): number {
-    return this.diaryStudents.filter(s => s.isAbsent).length;
+    return this.diaryStudents.filter(s => s.isAbsent || (s.attendanceStatus || '').toLowerCase() === 'absent').length;
+  }
+
+  get diaryLeaveCount(): number {
+    return this.diaryStudents.filter(s => (s.attendanceStatus || '').toLowerCase() === 'leave').length;
+  }
+
+  get diaryNotMarkedCount(): number {
+    return this.diaryStudents.filter(s => !s.isAbsent && (s.attendanceStatus || '').toLowerCase() === 'notmarked').length;
+  }
+
+  isStudentAttending(student: DailyStudentDiaryRow): boolean {
+    if (student.isAbsent) return false;
+    const status = (student.attendanceStatus || '').toLowerCase();
+    return status === 'present' || status === 'late' || status === 'halfday';
+  }
+
+  get diaryEligibleForWorkCount(): number {
+    return this.diaryStudents.filter(s => this.isStudentAttending(s)).length;
   }
 
   filterClassId = '';
@@ -2789,19 +2950,32 @@ export class HomeworkDiaryComponent implements OnInit {
       return;
     }
 
-    // Whole Class Common Assignment Mode
+    // Whole Class Common Assignment Mode: ONLY apply to students who are genuinely attending!
     let appliedCount = 0;
     for (const s of this.diaryStudents) {
-      if (!s.isAbsent) {
+      if (this.isStudentAttending(s)) {
         s.classWork = cwToCopy.map(x => ({ ...x }));
         s.homeWork = hwToCopy.map(x => ({ ...x }));
         appliedCount++;
+      } else if ((s.attendanceStatus || '').toLowerCase() === 'notmarked') {
+        // Unmarked students must NOT have common tasks copied! Reset their tasks so common fill does not apply to them
+        s.classWork = this.getDefaultTasksForStudent();
+        s.homeWork = this.getDefaultTasksForStudent();
       }
+    }
+
+    if (appliedCount === 0) {
+      this.confirmDialog.alert(
+        'No Present Students',
+        'No students are marked Present or Late today. Please mark student attendance first.',
+        'warning'
+      );
+      return;
     }
 
     this.confirmDialog.alert(
       'Common Work Applied to Class 🎉',
-      `Classwork & Homework successfully filled for ${appliedCount} present students. You can make individual adjustments if needed or click "Save Diary Sheet".`,
+      `Classwork & Homework successfully filled for ${appliedCount} present students. Unmarked and absent students were skipped.`,
       'success'
     );
   }
@@ -2885,8 +3059,100 @@ export class HomeworkDiaryComponent implements OnInit {
     }
   }
 
+  getAttendanceLabel(student: DailyStudentDiaryRow): string {
+    if (student.isAbsent) return 'ABSENT';
+    const status = (student.attendanceStatus || '').toLowerCase();
+    switch (status) {
+      case 'late': return 'LATE';
+      case 'halfday': return 'HALF DAY';
+      case 'leave': return 'LEAVE';
+      case 'notmarked': return 'NOT MARKED';
+      case 'absent': return 'ABSENT';
+      case 'present': default: return 'PRESENT';
+    }
+  }
+
+  getAttendanceIcon(student: DailyStudentDiaryRow): string {
+    if (student.isAbsent) return 'cancel';
+    const status = (student.attendanceStatus || '').toLowerCase();
+    switch (status) {
+      case 'late': return 'schedule';
+      case 'halfday': return 'hourglass_bottom';
+      case 'leave': return 'event_busy';
+      case 'notmarked': return 'help_outline';
+      case 'absent': return 'cancel';
+      case 'present': default: return 'check_circle';
+    }
+  }
+
+  getAttendanceBadgeClass(student: DailyStudentDiaryRow): string {
+    if (student.isAbsent) return 'status-absent is-absent';
+    const status = (student.attendanceStatus || '').toLowerCase();
+    switch (status) {
+      case 'late': return 'status-late';
+      case 'halfday': return 'status-halfday';
+      case 'leave': return 'status-leave is-absent';
+      case 'notmarked': return 'status-notmarked';
+      case 'absent': return 'status-absent is-absent';
+      case 'present': default: return 'status-present';
+    }
+  }
+
+  getDefaultTasksForStudent(): DailySubjectTaskItem[] {
+    const dynamicTopSubs = this.subjectOptions.slice(0, Math.min(2, this.subjectOptions.length));
+    return dynamicTopSubs.length > 0
+      ? dynamicTopSubs.map(s => ({ subject: s, task: '' }))
+      : [{ subject: '', task: '' }];
+  }
+
+  hasStudentTasks(student: DailyStudentDiaryRow): boolean {
+    const hasCw = (student.classWork || []).some(t => t.task && t.task.trim().length > 0);
+    const hasHw = (student.homeWork || []).some(t => t.task && t.task.trim().length > 0);
+    return hasCw || hasHw;
+  }
+
+  clearStudentTasks(student: DailyStudentDiaryRow): void {
+    student.classWork = this.getDefaultTasksForStudent();
+    student.homeWork = this.getDefaultTasksForStudent();
+    student.remarks = '';
+  }
+
+  getAttendanceTooltip(student: DailyStudentDiaryRow): string {
+    const status = (student.attendanceStatus || '').toLowerCase();
+    if (student.isAbsent || status === 'absent') {
+      return 'Marked Absent today. Click to switch to Present';
+    }
+    if (status === 'leave') {
+      return 'Student is on Leave today. Click to switch to Present';
+    }
+    if (status === 'late') {
+      return 'Marked LATE in attendance today. Click to switch to Absent';
+    }
+    if (status === 'halfday') {
+      return 'Marked HALF DAY in attendance today. Click to switch to Absent';
+    }
+    if (status === 'notmarked') {
+      return 'Attendance not yet marked today. Click to mark Present';
+    }
+    return 'Marked PRESENT today. Click to switch to Absent';
+  }
+
   toggleStudentAbsent(student: DailyStudentDiaryRow): void {
-    student.isAbsent = !student.isAbsent;
+    const status = (student.attendanceStatus || '').toLowerCase();
+    if (student.isAbsent || status === 'absent' || status === 'leave') {
+      student.isAbsent = false;
+      student.attendanceStatus = 'Present';
+    } else if (status === 'notmarked') {
+      // If student was NOT MARKED, clicking it marks them Present today
+      student.isAbsent = false;
+      student.attendanceStatus = 'Present';
+    } else {
+      // If student was Present / Late, clicking toggles them to Absent
+      student.isAbsent = true;
+      student.attendanceStatus = 'Absent';
+      student.classWork = this.getDefaultTasksForStudent();
+      student.homeWork = this.getDefaultTasksForStudent();
+    }
   }
 
   saveDailyDiary(): void {
@@ -2907,6 +3173,7 @@ export class HomeworkDiaryComponent implements OnInit {
       items: this.diaryStudents.map(s => ({
         studentId: s.studentId,
         isAbsent: s.isAbsent,
+        attendanceStatus: s.attendanceStatus,
         classWork: (s.classWork || []).filter(w => w.task && w.task.trim().length > 0),
         homeWork: (s.homeWork || []).filter(w => w.task && w.task.trim().length > 0),
         remarks: s.remarks || undefined
@@ -2943,6 +3210,7 @@ export class HomeworkDiaryComponent implements OnInit {
         sectionId: this.diarySectionId,
         className: selectedClass?.name || 'Class',
         sectionName: selectedSection?.name || '',
+        subjectOptions: this.subjectOptions,
         students: this.selectedDiaryStudent ? [this.selectedDiaryStudent] : this.diaryStudents
       }
     });
@@ -4342,30 +4610,47 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
                 </td>
                 <td class="col-class-data text-center">{{row.className || reportHeader?.className || data.className}}</td>
 
-                <!-- Absent Student: Centered ABSENT badge spanning across both work columns -->
-                <ng-container *ngIf="row.isAbsent">
-                  <td colspan="2" class="col-absent-merged text-center">
-                    <span class="report-absent-badge">ABSENT</span>
+                <!-- Absent / Unmarked Student: Subjects } Absent matching reference photo rows 7 & 8 -->
+                <ng-container *ngIf="isAbsentStudent(row)">
+                  <td class="col-bracket-cell text-center">
+                    <div class="absent-bracket-layout">
+                      <div class="absent-subjects-col">
+                        <span class="subject-pill" *ngFor="let s of getClassSubjects()" [ngClass]="getSubjectColorClass(s)">{{s}}</span>
+                      </div>
+                      <svg class="brace-svg" viewBox="0 0 14 56" preserveAspectRatio="none">
+                        <path d="M 2 2 C 8 8, 8 22, 13 28 C 8 34, 8 48, 2 54" fill="none" stroke="#0f172a" stroke-width="2.2" stroke-linecap="round" />
+                      </svg>
+                      <span class="absent-text-red">Absent</span>
+                    </div>
+                  </td>
+                  <td class="col-bracket-cell text-center">
+                    <div class="absent-bracket-layout">
+                      <div class="absent-subjects-col">
+                        <span class="subject-pill" *ngFor="let s of getClassSubjects()" [ngClass]="getSubjectColorClass(s)">{{s}}</span>
+                      </div>
+                      <svg class="brace-svg" viewBox="0 0 14 56" preserveAspectRatio="none">
+                        <path d="M 2 2 C 8 8, 8 22, 13 28 C 8 34, 8 48, 2 54" fill="none" stroke="#0f172a" stroke-width="2.2" stroke-linecap="round" />
+                      </svg>
+                      <span class="absent-text-red">Absent</span>
+                    </div>
                   </td>
                 </ng-container>
 
-                <!-- Present Student: Subjects & Tasks -->
-                <ng-container *ngIf="!row.isAbsent">
+                <!-- Attending Student (Present / Late / HalfDay) with active tasks -->
+                <ng-container *ngIf="!isAbsentStudent(row)">
                   <td class="col-work-data">
-                    <div class="task-entry" *ngFor="let cw of row.classWork">
+                    <div class="task-entry" *ngFor="let cw of getActiveTasks(row.classWork)">
                       <span class="subject-pill" [ngClass]="getSubjectColorClass(cw.subject)">{{cw.subject}}</span>
                       <span class="task-arrow">&rarr;</span>
                       <span class="task-text">{{cw.task}}</span>
                     </div>
-                    <div class="no-tasks-text" *ngIf="!row.classWork || row.classWork.length === 0">-</div>
                   </td>
                   <td class="col-work-data">
-                    <div class="task-entry" *ngFor="let hw of row.homeWork">
+                    <div class="task-entry" *ngFor="let hw of getActiveTasks(row.homeWork)">
                       <span class="subject-pill" [ngClass]="getSubjectColorClass(hw.subject)">{{hw.subject}}</span>
                       <span class="task-arrow">&rarr;</span>
                       <span class="task-text">{{hw.task}}</span>
                     </div>
-                    <div class="no-tasks-text" *ngIf="!row.homeWork || row.homeWork.length === 0">-</div>
                   </td>
                 </ng-container>
               </tr>
@@ -4381,18 +4666,28 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
     </div>
   `,
   styles: [`
-    .report-dialog-container { display: flex; flex-direction: column; max-height: 90vh; background: #f8fafc; }
+    .report-dialog-container {
+      display: flex;
+      flex-direction: column;
+      height: 88vh;
+      max-height: 88vh;
+      background: #f1f5f9;
+      border-radius: 12px;
+      overflow: hidden;
+    }
     
     /* Strict Light Blue Gradient Dialog Header */
     .modal-header {
+      flex-shrink: 0;
       background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
       border-bottom: 1px solid #bfdbfe;
-      padding: 16px 24px;
+      padding: 14px 24px;
       display: flex;
       justify-content: space-between;
       align-items: center;
       gap: 16px;
-      flex-wrap: wrap;
+      position: relative;
+      z-index: 10;
     }
     .header-left { display: flex; align-items: center; gap: 14px; }
     .header-icon-box {
@@ -4419,25 +4714,36 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
     .close-btn { color: #64748b; }
     .close-btn:hover { color: #1e293b; }
 
-    .modal-body-scroll { padding: 24px; overflow-y: auto; display: flex; justify-content: center; }
+    .modal-body-scroll {
+      flex: 1;
+      min-height: 0;
+      padding: 24px 20px 48px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      display: flex;
+      justify-content: center;
+      background: #cbd5e1;
+    }
 
     /* Printable Sheet Layout matching user reference photo */
     .print-paper-sheet {
       background: #ffffff;
       width: 100%;
-      max-width: 880px;
+      max-width: 840px;
       border: 1.5px solid #0f172a;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-      padding: 20px 24px;
+      box-shadow: 0 10px 25px -5px rgba(0,0,0,0.18), 0 8px 10px -6px rgba(0,0,0,0.15);
+      padding: 24px 28px;
       box-sizing: border-box;
       color: #0f172a;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      height: fit-content;
+      margin: 0 auto 30px;
     }
 
-    .report-top-header { text-align: center; margin-bottom: 12px; }
+    .report-top-header { text-align: center; margin-bottom: 12px; padding-top: 4px; }
     .school-title {
       margin: 0;
-      font-size: 26px;
+      font-size: 24px;
       font-weight: 900;
       color: #1e3a8a;
       letter-spacing: 0.5px;
@@ -4535,6 +4841,12 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
     .sub-roll { font-size: 11px; color: #64748b; font-weight: 600; }
     .col-class-data { font-weight: 700; color: #1e3a8a; }
 
+    .col-absent-cell {
+      background: #fff5f5;
+      padding: 10px !important;
+      text-align: center;
+      vertical-align: middle !important;
+    }
     .col-absent-merged {
       background: #fff5f5;
       padding: 12px !important;
@@ -4551,7 +4863,55 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
       border-radius: 999px;
       box-shadow: 0 1px 2px rgba(220,38,38,0.1);
     }
+    .report-absent-badge.badge-leave {
+      background: #faf5ff;
+      color: #9333ea;
+      border-color: #d8b4fe;
+      box-shadow: 0 1px 2px rgba(147,51,234,0.1);
+    }
 
+    .col-bracket-cell {
+      padding: 8px 10px !important;
+      vertical-align: middle !important;
+      text-align: center !important;
+      background: #ffffff;
+    }
+    .absent-bracket-layout {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .absent-subjects-col {
+      display: inline-flex;
+      flex-direction: column;
+      gap: 4px;
+      align-items: flex-start;
+    }
+    .brace-svg {
+      width: 14px;
+      align-self: stretch;
+      min-height: 48px;
+      flex-shrink: 0;
+    }
+    .absent-text-red {
+      font-size: 15px;
+      font-weight: 800;
+      color: #dc2626;
+      letter-spacing: 0.3px;
+    }
+
+    .col-notmarked-cell {
+      background: #fafafa;
+      padding: 10px !important;
+      text-align: center;
+      vertical-align: middle !important;
+    }
+    .report-dash {
+      font-size: 16px;
+      font-weight: 700;
+      color: #94a3b8;
+    }
     .col-work-data { text-align: left; }
     .task-entry {
       display: flex;
@@ -4575,13 +4935,14 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
       white-space: nowrap;
       flex-shrink: 0;
     }
-    .sub-hindi { background: #f3e8ff; color: #7e22ce; border: 1px solid #d8b4fe; }
-    .sub-english { background: #e0f2fe; color: #0284c7; border: 1px solid #bae6fd; }
-    .sub-math { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }
-    .sub-science { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
-    .sub-drawing { background: #fce7f3; color: #be185d; border: 1px solid #fbcfe8; }
-    .sub-gk { background: #e0e7ff; color: #4338ca; border: 1px solid #c7d2fe; }
-    .sub-default { background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; }
+    .sub-theme-0 { background: #f3e8ff; color: #7e22ce; border: 1px solid #d8b4fe; } /* Lavender Purple */
+    .sub-theme-1 { background: #e0f2fe; color: #0284c7; border: 1px solid #bae6fd; } /* Sky Blue */
+    .sub-theme-2 { background: #dcfce7; color: #15803d; border: 1px solid #86efac; } /* Emerald Green */
+    .sub-theme-3 { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; } /* Amber Gold */
+    .sub-theme-4 { background: #fce7f3; color: #be185d; border: 1px solid #fbcfe8; } /* Rose Pink */
+    .sub-theme-5 { background: #e0e7ff; color: #4338ca; border: 1px solid #c7d2fe; } /* Royal Indigo */
+    .sub-theme-6 { background: #ccfbf1; color: #0f766e; border: 1px solid #99f6e4; } /* Teal Mint */
+    .sub-theme-7 { background: #ffedd5; color: #c2410c; border: 1px solid #fed7aa; } /* Coral Orange */
 
     @media print {
       body * { visibility: hidden !important; }
@@ -4636,6 +4997,46 @@ export class DailyDiaryReportDialogComponent implements OnInit {
     return raw;
   }
 
+  getActiveTasks(tasks?: DailySubjectTaskItem[]): DailySubjectTaskItem[] {
+    if (!tasks) return [];
+    return tasks.filter(t => t.task && t.task.trim().length > 0);
+  }
+
+  getClassSubjects(): string[] {
+    const list: string[] = [];
+    for (const r of this.rows) {
+      for (const cw of r.classWork || []) {
+        if (cw.subject && cw.subject.trim() && cw.task && cw.task.trim().length > 0) {
+          const s = cw.subject.trim();
+          if (!list.includes(s)) list.push(s);
+        }
+      }
+      for (const hw of r.homeWork || []) {
+        if (hw.subject && hw.subject.trim() && hw.task && hw.task.trim().length > 0) {
+          const s = hw.subject.trim();
+          if (!list.includes(s)) list.push(s);
+        }
+      }
+    }
+    if (list.length > 0) {
+      return list;
+    }
+    // If no student has work yet, check if subjectOptions was passed
+    if (this.data?.subjectOptions && Array.isArray(this.data.subjectOptions) && this.data.subjectOptions.length > 0) {
+      return this.data.subjectOptions;
+    }
+    return [];
+  }
+
+  isAbsentStudent(row: DailyStudentDiaryRow): boolean {
+    if (row.isAbsent) return true;
+    const status = (row.attendanceStatus || '').toLowerCase();
+    if (status === 'absent' || status === 'leave' || status === 'notmarked') return true;
+    const hasCw = this.getActiveTasks(row.classWork).length > 0;
+    const hasHw = this.getActiveTasks(row.homeWork).length > 0;
+    return !hasCw && !hasHw;
+  }
+
   ngOnInit(): void {
     this.fetchFreshReport();
   }
@@ -4648,8 +5049,10 @@ export class DailyDiaryReportDialogComponent implements OnInit {
     this.http.get<DailyDiaryReportHeader>(url).subscribe({
       next: r => {
         this.reportHeader = r;
-        if (r.items && r.items.length > 0) {
-          this.rows = r.items;
+        if (!this.data?.students || this.data.students.length === 0) {
+          if (r.items && r.items.length > 0) {
+            this.rows = r.items;
+          }
         }
       },
       error: () => {}
@@ -4657,7 +5060,213 @@ export class DailyDiaryReportDialogComponent implements OnInit {
   }
 
   printReport(): void {
-    window.print();
+    const el = document.getElementById('printableDiaryReport');
+    if (!el) {
+      window.print();
+      return;
+    }
+
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow?.document;
+    if (!doc) {
+      window.print();
+      return;
+    }
+
+    doc.open();
+    doc.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>${this.reportHeader?.tenantName || 'Jnandeep Campus'} - Daily Diary Report</title>
+        <style>
+          * { box-sizing: border-box; margin: 0; padding: 0; }
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: #ffffff;
+            color: #0f172a;
+            padding: 8mm 10mm;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          @page {
+            size: A4 portrait;
+            margin: 6mm;
+          }
+          .report-top-header { text-align: center; margin-bottom: 8px; }
+          .school-title {
+            margin: 0;
+            font-size: 22px;
+            font-weight: 900;
+            color: #1e3a8a;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            line-height: 1.2;
+          }
+          .school-address-text {
+            font-size: 12.5px;
+            font-weight: 700;
+            color: #334155;
+            margin-top: 2px;
+          }
+          .navy-title-banner {
+            background: #1e3a8a !important;
+            color: #ffffff !important;
+            text-align: center;
+            padding: 5px 12px;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin: 6px 0;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          .navy-footer-banner {
+            background: #1e3a8a !important;
+            color: #ffffff !important;
+            text-align: center;
+            padding: 5px 12px;
+            border-radius: 4px;
+            font-size: 11.5px;
+            font-weight: 800;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-top: 8px;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          .report-meta-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+            padding: 2px 0;
+          }
+          .meta-class { font-size: 13px; font-weight: 700; color: #0f172a; }
+          .meta-class .lbl { color: #475569; margin-right: 4px; }
+          .meta-class .val { color: #1e3a8a; }
+          .meta-date-pill {
+            border: 1.5px solid #1e3a8a;
+            background: #eff6ff !important;
+            color: #1e3a8a;
+            padding: 2px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 800;
+          }
+          .report-data-table {
+            width: 100%;
+            border-collapse: collapse;
+            border: 1.5px solid #0f172a;
+            font-size: 12px;
+          }
+          .report-data-table th, .report-data-table td {
+            border: 1.2px solid #0f172a;
+            padding: 6px 8px;
+            vertical-align: middle;
+          }
+          .report-data-table th {
+            background: #f1f5f9 !important;
+            color: #0f172a;
+            font-weight: 800;
+            text-align: center;
+            font-size: 11.5px;
+            letter-spacing: 0.3px;
+          }
+          .col-sno { width: 40px; }
+          .col-name { width: 140px; text-align: left !important; }
+          .col-class { width: 60px; }
+          .col-cw { width: 42%; }
+          .col-hw { width: 42%; }
+          .text-center { text-align: center; }
+          .col-sno-data { font-weight: 800; color: #1e293b; }
+          .col-name-data { text-align: left; }
+          .name-bold { font-weight: 800; color: #0f172a; font-size: 12.5px; }
+          .sub-roll { font-size: 10.5px; color: #64748b; font-weight: 600; }
+          .col-class-data { font-weight: 700; color: #1e3a8a; }
+          .col-work-data { text-align: left; }
+          .task-entry {
+            display: flex;
+            align-items: baseline;
+            gap: 5px;
+            margin-bottom: 3px;
+            line-height: 1.35;
+          }
+          .task-entry:last-child { margin-bottom: 0; }
+          .task-arrow { font-weight: 700; color: #64748b; }
+          .task-text { font-weight: 600; color: #1e293b; font-size: 11.5px; }
+          .subject-pill {
+            display: inline-block;
+            padding: 1px 6px;
+            border-radius: 4px;
+            font-size: 10.5px;
+            font-weight: 800;
+            white-space: nowrap;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          .sub-theme-0 { background: #f3e8ff !important; color: #7e22ce !important; border: 1px solid #d8b4fe !important; }
+          .sub-theme-1 { background: #e0f2fe !important; color: #0284c7 !important; border: 1px solid #bae6fd !important; }
+          .sub-theme-2 { background: #dcfce7 !important; color: #15803d !important; border: 1px solid #86efac !important; }
+          .sub-theme-3 { background: #fef3c7 !important; color: #b45309 !important; border: 1px solid #fde68a !important; }
+          .sub-theme-4 { background: #fce7f3 !important; color: #be185d !important; border: 1px solid #fbcfe8 !important; }
+          .sub-theme-5 { background: #e0e7ff !important; color: #4338ca !important; border: 1px solid #c7d2fe !important; }
+          .sub-theme-6 { background: #ccfbf1 !important; color: #0f766e !important; border: 1px solid #99f6e4 !important; }
+          .sub-theme-7 { background: #ffedd5 !important; color: #c2410c !important; border: 1px solid #fed7aa !important; }
+          
+          .col-bracket-cell {
+            padding: 6px 8px !important;
+            vertical-align: middle !important;
+            text-align: center !important;
+          }
+          .absent-bracket-layout {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+          }
+          .absent-subjects-col {
+            display: inline-flex;
+            flex-direction: column;
+            gap: 3px;
+            align-items: flex-start;
+          }
+          .brace-svg {
+            width: 12px;
+            align-self: stretch;
+            min-height: 44px;
+          }
+          .absent-text-red {
+            font-size: 13.5px;
+            font-weight: 800;
+            color: #dc2626 !important;
+          }
+        </style>
+      </head>
+      <body>
+        ${el.innerHTML}
+      </body>
+      </html>
+    `);
+    doc.close();
+
+    setTimeout(() => {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+      }, 1000);
+    }, 250);
   }
 
   copyWhatsAppText(): void {
@@ -4701,15 +5310,14 @@ export class DailyDiaryReportDialogComponent implements OnInit {
   }
 
   getSubjectColorClass(subject: string): string {
-    if (!subject) return 'sub-default';
-    const s = subject.toLowerCase().trim();
-    if (s.includes('hindi')) return 'sub-hindi';
-    if (s.includes('eng')) return 'sub-english';
-    if (s.includes('math') || s.includes('ganit')) return 'sub-math';
-    if (s.includes('evs') || s.includes('sci')) return 'sub-science';
-    if (s.includes('draw') || s.includes('art') || s.includes('craft')) return 'sub-drawing';
-    if (s.includes('gk') || s.includes('comp') || s.includes('sanskrit')) return 'sub-gk';
-    return 'sub-default';
+    if (!subject) return 'sub-theme-0';
+    let hash = 0;
+    const clean = subject.trim().toLowerCase();
+    for (let i = 0; i < clean.length; i++) {
+      hash = clean.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const idx = Math.abs(hash) % 8;
+    return `sub-theme-${idx}`;
   }
 }
 

@@ -10,6 +10,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { firstValueFrom } from 'rxjs';
 import { FeesService, StudentLibraryDues, FeeInvoiceItem, FeeItemPayment } from '../../core/services/fees.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { QuickSettingsService } from '../../core/services/quick-settings.service';
@@ -30,6 +31,8 @@ export interface FeeDialogData {
   hostelInfo?: string;
   branchName?: string;
   items?: FeeInvoiceItem[];
+  invoiceDueDate?: string;
+  invoiceTitle?: string;
 }
 
 export interface FeeCollectionItemRow {
@@ -40,6 +43,15 @@ export interface FeeCollectionItemRow {
   dueAmount: number;
   selected: boolean;
   payingAmount: number;
+}
+
+export interface AdvanceMonthOption {
+  monthCount: number;
+  label: string;
+  badgeLabel: string;
+  periodSummary: string;
+  monthsList: { year: number; month: number; monthName: string; dueDate: string }[];
+  totalAmount: number;
 }
 
 @Component({
@@ -182,6 +194,60 @@ export interface FeeCollectionItemRow {
           </div>
         </div>
 
+        <!-- Advance Tuition Bundling Card (Optional) -->
+        <div class="advance-payment-card" *ngIf="advanceMonthOptions.length > 1 && (!data.selectedInvoicesCount || data.selectedInvoicesCount <= 1)">
+          <div class="adv-card-header">
+            <div class="adv-header-left">
+              <div class="adv-icon-wrap">
+                <mat-icon>event_repeat</mat-icon>
+              </div>
+              <div class="adv-header-text">
+                <div class="adv-title-row">
+                  <span class="adv-title">Pay Advance Monthly Fees</span>
+                  <span class="adv-rate-pill">
+                    Recurring: <strong>₹{{ detectedMonthlyRate | number:'1.2-2' }}/mo</strong>
+                  </span>
+                </div>
+                <span class="adv-sub">Bundle upcoming monthly recurring fees (Tuition + Transport) into this collection receipt</span>
+              </div>
+            </div>
+            <div class="adv-header-right" *ngIf="selectedAdvanceOption && selectedAdvanceOption.monthCount > 0">
+              <span class="adv-added-badge">
+                Advance: +₹{{ selectedAdvanceOption.totalAmount | number:'1.2-2' }}
+              </span>
+            </div>
+          </div>
+
+          <div class="adv-options-grid">
+            <button
+              type="button"
+              *ngFor="let opt of advanceMonthOptions"
+              class="adv-option-btn"
+              [class.active]="selectedAdvanceOption?.monthCount === opt.monthCount"
+              (click)="onSelectAdvanceOption(opt)">
+              <div class="btn-top">
+                <span class="opt-label">{{ opt.label }}</span>
+                <mat-icon class="opt-check-icon" *ngIf="selectedAdvanceOption?.monthCount === opt.monthCount">check_circle</mat-icon>
+              </div>
+              <div class="btn-meta">
+                <span class="opt-period">{{ opt.badgeLabel }}</span>
+                <strong class="opt-cost" [class.free]="opt.totalAmount === 0">
+                  {{ opt.totalAmount === 0 ? 'Current Only' : '+₹' + (opt.totalAmount | number:'1.0-0') }}
+                </strong>
+              </div>
+            </button>
+          </div>
+
+          <!-- Informational Callout when an advance option is selected -->
+          <div class="adv-notice-callout" *ngIf="selectedAdvanceOption && selectedAdvanceOption.monthCount > 0">
+            <mat-icon class="notice-icon">verified</mat-icon>
+            <div class="notice-text">
+              <strong>Advance Settlement Active:</strong>
+              {{ selectedAdvanceOption.periodSummary }} recurring fee (+₹{{ selectedAdvanceOption.totalAmount | number:'1.2-2' }}) will be bundled into this single receipt. Upcoming monthly invoices will be pre-generated and marked Paid automatically.
+            </div>
+          </div>
+        </div>
+
         <!-- Library Dues Card (if student has pending library fines) -->
         <div class="library-fine-box" *ngIf="libraryDues && libraryDues.pendingFineAmount > 0">
           <div class="fine-header">
@@ -278,7 +344,9 @@ export interface FeeCollectionItemRow {
         <button mat-raised-button color="primary" type="submit" class="btn-confirm" [disabled]="feeForm.invalid || saving || (feeForm.get('amountPaid')?.value || 0) <= 0">
           <mat-spinner diameter="18" *ngIf="saving" class="spinner"></mat-spinner>
           <mat-icon *ngIf="!saving">receipt_long</mat-icon>
-          <span>Confirm &amp; Issue Receipt</span>
+          <span *ngIf="saving && selectedAdvanceOption && selectedAdvanceOption.monthCount > 0">Bundling Advance &amp; Settling...</span>
+          <span *ngIf="saving && (!selectedAdvanceOption || selectedAdvanceOption.monthCount === 0)">Processing Payment...</span>
+          <span *ngIf="!saving">Confirm &amp; Issue Receipt</span>
         </button>
       </mat-dialog-actions>
     </form>
@@ -663,6 +731,201 @@ export interface FeeCollectionItemRow {
       }
     }
 
+  /* Advance Tuition Bundling Card */
+  .advance-payment-card {
+      background: #f8fafc;
+      border: 1px solid #bfdbfe;
+      border-radius: 10px;
+      margin-bottom: 16px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(37,99,235,0.06);
+
+      .adv-card-header {
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        border-bottom: 1px solid #bfdbfe;
+        padding: 10px 14px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+
+        .adv-header-left {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+
+          .adv-icon-wrap {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            background: #2563eb;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            box-shadow: 0 2px 4px rgba(37,99,235,0.2);
+            mat-icon { font-size: 18px; width: 18px; height: 18px; }
+          }
+
+          .adv-header-text {
+            display: flex;
+            flex-direction: column;
+
+            .adv-title-row {
+              display: flex;
+              align-items: center;
+              gap: 8px;
+
+              .adv-title {
+                font-weight: 700;
+                font-size: 0.88rem;
+                color: #1e3a8a;
+              }
+
+              .adv-rate-pill {
+                background: #dbeafe;
+                color: #1e40af;
+                font-size: 0.72rem;
+                padding: 1px 6px;
+                border-radius: 4px;
+                border: 1px solid #bfdbfe;
+                strong { font-weight: 700; }
+              }
+            }
+
+            .adv-sub {
+              font-size: 0.72rem;
+              color: #3b82f6;
+              margin-top: 1px;
+            }
+          }
+        }
+
+        .adv-header-right {
+          .adv-added-badge {
+            background: #10b981;
+            color: #ffffff;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(16,185,129,0.25);
+            white-space: nowrap;
+          }
+        }
+      }
+
+      .adv-options-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+        gap: 8px;
+        padding: 12px;
+
+        .adv-option-btn {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          padding: 8px 10px;
+          background: #ffffff;
+          border: 1.5px solid #cbd5e1;
+          border-radius: 8px;
+          cursor: pointer;
+          text-align: left;
+          transition: all 0.15s ease;
+          outline: none;
+
+          &:hover:not(.active) {
+            border-color: #93c5fd;
+            background: #f0f7ff;
+            transform: translateY(-1px);
+          }
+
+          &.active {
+            border-color: #2563eb;
+            background: #eff6ff;
+            box-shadow: 0 0 0 2px rgba(37,99,235,0.18);
+            transform: translateY(-1px);
+
+            .opt-label { color: #1e40af; }
+            .opt-cost:not(.free) { color: #1d4ed8; }
+          }
+
+          .btn-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+
+            .opt-label {
+              font-size: 0.76rem;
+              font-weight: 700;
+              color: #334155;
+            }
+
+            .opt-check-icon {
+              font-size: 14px;
+              width: 14px;
+              height: 14px;
+              color: #2563eb;
+            }
+          }
+
+          .btn-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 4px;
+
+            .opt-period {
+              font-size: 0.68rem;
+              color: #64748b;
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
+            }
+
+            .opt-cost {
+              font-size: 0.8rem;
+              font-weight: 700;
+              color: #059669;
+              white-space: nowrap;
+
+              &.free {
+                color: #94a3b8;
+                font-weight: 600;
+              }
+            }
+          }
+        }
+      }
+
+      .adv-notice-callout {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0 12px 12px;
+        padding: 8px 12px;
+        background: #ecfdf5;
+        border: 1px solid #a7f3d0;
+        border-radius: 6px;
+        font-size: 0.77rem;
+        color: #065f46;
+        line-height: 1.4;
+
+        .notice-icon {
+          font-size: 17px;
+          width: 17px;
+          height: 17px;
+          color: #059669;
+          flex-shrink: 0;
+        }
+
+        .notice-text {
+          strong { font-weight: 700; }
+        }
+      }
+    }
+
     /* Library fine box */
     .library-fine-box {
       background: #fdf4ff;
@@ -892,6 +1155,31 @@ export class FeeCollectionDialogComponent implements OnInit {
   libraryDues?: StudentLibraryDues;
   baseTuitionAmount: number = 0;
   itemRows: FeeCollectionItemRow[] = [];
+  advanceMonthOptions: AdvanceMonthOption[] = [];
+  selectedAdvanceOption: AdvanceMonthOption | null = null;
+  advanceAmountTotal: number = 0;
+
+  get recurringTuitionItems(): FeeCollectionItemRow[] {
+    return this.itemRows.filter(r => {
+      const name = r.headName.toLowerCase();
+      return name.includes('tuition') || name.includes('monthly') || name.includes('coaching fee') ||
+             name.includes('transport') || name.includes('bus') || name.includes('van');
+    });
+  }
+
+  get detectedMonthlyRate(): number {
+    const tuitionItems = this.recurringTuitionItems;
+    if (tuitionItems.length > 0) {
+      return tuitionItems.reduce((sum, it) => sum + it.amount, 0);
+    }
+    if (this.itemRows.length === 1) {
+      const name = this.itemRows[0].headName.toLowerCase();
+      if (!name.includes('admission') && !name.includes('registration') && !name.includes('uniform') && !name.includes('book')) {
+        return this.itemRows[0].amount;
+      }
+    }
+    return 0;
+  }
 
   get effectiveBranchName(): string {
     if (this.data?.branchName) return this.data.branchName;
@@ -1002,6 +1290,9 @@ export class FeeCollectionDialogComponent implements OnInit {
 
     // Fetch student's pending library fines in background
     this.loadStudentLibraryDues();
+
+    // Initialize Advance Months options (if recurring tuition detected)
+    this.initAdvanceMonthOptions();
   }
 
   get selectedCount(): number {
@@ -1053,10 +1344,144 @@ export class FeeCollectionDialogComponent implements OnInit {
     const libFine = (this.libraryDues && this.libraryDues.pendingFineAmount > 0 && this.feeForm.get('includeLibraryFine')?.value)
       ? Math.round(this.libraryDues.pendingFineAmount * 100) / 100
       : 0;
-    // Safety net: if all items are unselected (e.g. user manually unchecked all), don't leave textbox at 0
-    // unless they genuinely set it to 0 deliberately
-    const newAmount = Math.round((tuitionTotal + libFine) * 100) / 100;
+    const advanceTotal = (this.selectedAdvanceOption && this.selectedAdvanceOption.monthCount > 0)
+      ? this.selectedAdvanceOption.totalAmount
+      : 0;
+    const newAmount = Math.round((tuitionTotal + libFine + advanceTotal) * 100) / 100;
     this.feeForm.patchValue({ amountPaid: newAmount }, { emitEvent: false });
+  }
+
+  initAdvanceMonthOptions(): void {
+    const rate = this.detectedMonthlyRate;
+    if (rate <= 0 || (this.data.selectedInvoicesCount && this.data.selectedInvoicesCount > 1)) {
+      this.advanceMonthOptions = [];
+      this.selectedAdvanceOption = null;
+      return;
+    }
+
+    let baseYear = new Date().getFullYear();
+    let baseMonth = new Date().getMonth() + 1;
+
+    if (this.data.invoiceDueDate) {
+      const d = new Date(this.data.invoiceDueDate);
+      if (!isNaN(d.getTime())) {
+        baseYear = d.getFullYear();
+        baseMonth = d.getMonth() + 1;
+      }
+    }
+
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    const shortMonthNames = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+
+    const makeMonthInfo = (offset: number) => {
+      let m = baseMonth + offset;
+      let y = baseYear;
+      while (m > 12) {
+        m -= 12;
+        y += 1;
+      }
+      return {
+        year: y,
+        month: m,
+        monthName: `${monthNames[m - 1]} ${y}`,
+        shortName: `${shortMonthNames[m - 1]} ${y}`,
+        dueDate: `${y}-${String(m).padStart(2, '0')}-10`
+      };
+    };
+
+    const options: AdvanceMonthOption[] = [
+      {
+        monthCount: 0,
+        label: 'Current Only',
+        badgeLabel: 'None',
+        periodSummary: 'No advance added',
+        monthsList: [],
+        totalAmount: 0
+      }
+    ];
+
+    // +1 Month
+    const m1 = makeMonthInfo(1);
+    options.push({
+      monthCount: 1,
+      label: '+1 Month',
+      badgeLabel: m1.shortName,
+      periodSummary: m1.monthName,
+      monthsList: [m1],
+      totalAmount: Math.round(rate * 1 * 100) / 100
+    });
+
+    // +2 Months
+    const m2 = makeMonthInfo(2);
+    options.push({
+      monthCount: 2,
+      label: '+2 Months',
+      badgeLabel: `${shortMonthNames[m1.month - 1]} & ${shortMonthNames[m2.month - 1]}`,
+      periodSummary: `${m1.monthName} & ${m2.monthName}`,
+      monthsList: [m1, m2],
+      totalAmount: Math.round(rate * 2 * 100) / 100
+    });
+
+    // +3 Months (Quarter)
+    const m3 = makeMonthInfo(3);
+    options.push({
+      monthCount: 3,
+      label: '+3 Months (Quarter)',
+      badgeLabel: `Till ${shortMonthNames[m3.month - 1]} '${String(m3.year).slice(-2)}`,
+      periodSummary: `${m1.monthName} – ${m3.monthName}`,
+      monthsList: [m1, m2, m3],
+      totalAmount: Math.round(rate * 3 * 100) / 100
+    });
+
+    // Academic session ends in March
+    let sessionEndOffset = 0;
+    if (baseMonth >= 4 && baseMonth <= 10) {
+      sessionEndOffset = (12 - baseMonth) + 3;
+    } else if (baseMonth >= 11 && baseMonth <= 12) {
+      sessionEndOffset = (12 - baseMonth) + 3;
+    }
+
+    if (sessionEndOffset > 3 && sessionEndOffset <= 11) {
+      const fullList = [];
+      for (let o = 1; o <= sessionEndOffset; o++) {
+        fullList.push(makeMonthInfo(o));
+      }
+      const endMonthInfo = fullList[fullList.length - 1];
+      options.push({
+        monthCount: sessionEndOffset,
+        label: `Till Session End (${sessionEndOffset} Mos)`,
+        badgeLabel: `Till ${endMonthInfo.shortName}`,
+        periodSummary: `${m1.monthName} – ${endMonthInfo.monthName}`,
+        monthsList: fullList,
+        totalAmount: Math.round(rate * sessionEndOffset * 100) / 100
+      });
+    }
+
+    this.advanceMonthOptions = options;
+    this.selectedAdvanceOption = options[0];
+  }
+
+  onSelectAdvanceOption(opt: AdvanceMonthOption): void {
+    this.selectedAdvanceOption = opt;
+    this.advanceAmountTotal = opt.totalAmount;
+    this.recalculateTotal();
+
+    const currentRemarks = this.feeForm.get('remarks')?.value || '';
+    if (opt.monthCount > 0) {
+      this.feeForm.patchValue({
+        remarks: `Fee Payment (Includes Advance: ${opt.badgeLabel})`
+      });
+    } else if (currentRemarks.includes('Includes Advance')) {
+      this.feeForm.patchValue({
+        remarks: 'Fee Payment'
+      });
+    }
   }
 
   getStreamBadgeClass(name: string): string {
@@ -1099,13 +1524,38 @@ export class FeeCollectionDialogComponent implements OnInit {
     this.recalculateTotal();
   }
 
-  onSubmit(): void {
-    if (this.feeForm.invalid) return;
+  async onSubmit(): Promise<void> {
+    if (this.feeForm.invalid || this.saving) return;
 
     this.saving = true;
     const formVal = this.feeForm.value;
     const includeLibFine = this.libraryDues && this.libraryDues.pendingFineAmount > 0 && formVal.includeLibraryFine;
 
+    // ── STEP 1: Pre-generate advance invoices if advance months selected ──
+    if (this.selectedAdvanceOption && this.selectedAdvanceOption.monthCount > 0) {
+      try {
+        for (const m of this.selectedAdvanceOption.monthsList) {
+          await firstValueFrom(this.feesService.generateMonthlyInvoices({
+            year: m.year,
+            month: m.month,
+            studentId: this.data.studentId,
+            dueDate: m.dueDate,
+            billingCycle: 1
+          }));
+        }
+      } catch (err: any) {
+        console.error('Failed to pre-generate advance month invoices:', err);
+        this.saving = false;
+        this.confirmDialog.alert(
+          'Advance Invoicing Failed',
+          err?.error?.message || err?.message || 'Could not generate advance month invoice. Please try again.',
+          'danger'
+        );
+        return;
+      }
+    }
+
+    // ── STEP 2: Collect payment & settle dues via FIFO ──
     const itemPayments: FeeItemPayment[] | undefined = this.itemRows.length > 0
       ? this.itemRows
           .filter(r => r.selected && r.payingAmount > 0)

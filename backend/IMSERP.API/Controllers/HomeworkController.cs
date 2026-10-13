@@ -750,9 +750,33 @@ public class HomeworkController : ControllerBase
             diaries.TryGetValue(st.Id, out var diary);
             attendances.TryGetValue(st.Id, out var att);
 
-            bool isAbsent = diary != null 
-                ? diary.IsAbsent 
-                : (att != null && att.Status == TeacherAttendanceStatus.Absent);
+            string attendanceStatus;
+            bool isAbsent;
+
+            if (att != null)
+            {
+                attendanceStatus = att.Status switch
+                {
+                    TeacherAttendanceStatus.Present => "Present",
+                    TeacherAttendanceStatus.Absent => "Absent",
+                    TeacherAttendanceStatus.Late => "Late",
+                    TeacherAttendanceStatus.HalfDay => "HalfDay",
+                    TeacherAttendanceStatus.Leave => "Leave",
+                    _ => att.Status.ToString()
+                };
+                // Ground truth: If attendance register marked Absent or Leave, mark absent
+                isAbsent = att.Status == TeacherAttendanceStatus.Absent || att.Status == TeacherAttendanceStatus.Leave;
+            }
+            else if (diary != null && diary.IsAbsent)
+            {
+                isAbsent = true;
+                attendanceStatus = "Absent";
+            }
+            else
+            {
+                isAbsent = false;
+                attendanceStatus = "NotMarked";
+            }
 
             var cwList = new List<DailySubjectTaskItem>();
             var hwList = new List<DailySubjectTaskItem>();
@@ -782,7 +806,8 @@ public class HomeworkController : ControllerBase
                 cwList,
                 hwList,
                 diary?.TeacherRemarks,
-                diary?.Id
+                diary?.Id,
+                attendanceStatus
             );
         }).ToList();
 

@@ -33,6 +33,10 @@ export const routes: Routes = [
     loadComponent: () => import('./features/login/login.component').then(m => m.LoginComponent)
   },
   {
+    path: 'receipt/:receiptNumber',
+    loadComponent: () => import('./features/fees/public-receipt.component').then(m => m.PublicReceiptComponent)
+  },
+  {
     path: '',
     component: LayoutComponent,
     canActivate: [authGuard],

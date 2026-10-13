@@ -1583,7 +1583,7 @@ export class FeesComponent implements OnInit, OnDestroy {
           : undefined;
 
         const dialogRef = this.dialog.open(FeeCollectionDialogComponent, {
-          width: '680px',
+          width: '740px',
           maxWidth: '96vw',
           data: {
             studentId: inv.studentId,
@@ -1596,7 +1596,9 @@ export class FeesComponent implements OnInit, OnDestroy {
             totalOutstandingDue: inv.dueAmount,
             hostelInfo,
             items: inv.items,
-            branchName: inv.branchName || this.authService.getCurrentBranchName()
+            branchName: inv.branchName || this.authService.getCurrentBranchName(),
+            invoiceDueDate: inv.dueDate,
+            invoiceTitle: inv.title
           }
         });
 
@@ -1621,7 +1623,7 @@ export class FeesComponent implements OnInit, OnDestroy {
       error: () => {
         // If allocation lookup fails, still open dialog without hostel info
         const dialogRef = this.dialog.open(FeeCollectionDialogComponent, {
-          width: '680px',
+          width: '740px',
           maxWidth: '96vw',
           data: {
             studentId: inv.studentId,
@@ -1633,7 +1635,9 @@ export class FeesComponent implements OnInit, OnDestroy {
             parentWhatsAppPhone: inv.parentWhatsAppPhone,
             totalOutstandingDue: inv.dueAmount,
             items: inv.items,
-            branchName: inv.branchName || this.authService.getCurrentBranchName()
+            branchName: inv.branchName || this.authService.getCurrentBranchName(),
+            invoiceDueDate: inv.dueDate,
+            invoiceTitle: inv.title
           }
         });
 

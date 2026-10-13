@@ -190,7 +190,49 @@ interface BillingCycleOption {
               <mat-error *ngIf="form.get('year')?.hasError('required')">Year is required</mat-error>
             </mat-form-field>
 
-            <mat-form-field appearance="outline" class="full-width" *ngIf="hasSchoolModule">
+            <!-- Target Scope Mode Selector (Universal vs By School Class vs By Coaching Batch) -->
+            <div class="scope-mode-box full-width" *ngIf="!data.targetStudentName && (hasSchoolModule || hasCoachingModule)">
+              <div class="scope-mode-label">Target Audience Scope</div>
+              <div class="scope-pills-row">
+                <button
+                  type="button"
+                  class="scope-pill-btn"
+                  [class.active]="scopeMode === 'all'"
+                  (click)="setScopeMode('all')">
+                  <mat-icon class="pill-ic">public</mat-icon>
+                  <span>All Students (Universal)</span>
+                </button>
+
+                <button
+                  type="button"
+                  class="scope-pill-btn"
+                  *ngIf="hasSchoolModule"
+                  [class.active]="scopeMode === 'school'"
+                  (click)="setScopeMode('school')">
+                  <mat-icon class="pill-ic">school</mat-icon>
+                  <span>By School Class</span>
+                </button>
+
+                <button
+                  type="button"
+                  class="scope-pill-btn"
+                  *ngIf="hasCoachingModule"
+                  [class.active]="scopeMode === 'coaching'"
+                  (click)="setScopeMode('coaching')">
+                  <mat-icon class="pill-ic">groups</mat-icon>
+                  <span>By Coaching Batch</span>
+                </button>
+              </div>
+
+              <!-- Universal Bulk Mode Informational Callout -->
+              <div class="universal-scope-callout" *ngIf="scopeMode === 'all'">
+                <mat-icon class="uni-ic">auto_awesome</mat-icon>
+                <span><strong>Universal Bulk Billing Active:</strong> Invoices will be generated across all active school classes and coaching batches. Zero manual filtering needed.</span>
+              </div>
+            </div>
+
+            <!-- Target School Class (Shown ONLY if 'By School Class' is active) -->
+            <mat-form-field appearance="outline" class="full-width" *ngIf="!data.targetStudentName && scopeMode === 'school' && hasSchoolModule">
               <mat-label>Target School Class</mat-label>
               <mat-select formControlName="classId" panelClass="smart-batch-panel">
                 <mat-option value="">✨ All School Classes</mat-option>
@@ -201,7 +243,8 @@ interface BillingCycleOption {
               <mat-icon matSuffix color="primary">school</mat-icon>
             </mat-form-field>
 
-            <mat-form-field appearance="outline" class="full-width" *ngIf="hasCoachingModule">
+            <!-- Target Coaching Batch (Shown ONLY if 'By Coaching Batch' is active) -->
+            <mat-form-field appearance="outline" class="full-width" *ngIf="!data.targetStudentName && scopeMode === 'coaching' && hasCoachingModule">
               <mat-label>Target Coaching Batch</mat-label>
               <mat-select formControlName="batchId" panelClass="smart-batch-panel">
                 <mat-option value="">✨ All Coaching Batches</mat-option>
@@ -649,6 +692,90 @@ interface BillingCycleOption {
       .full-width  { width: 100%; flex: 1 1 100%; }
     }
 
+    /* Scope Mode Selector */
+    .scope-mode-box {
+      margin-bottom: 2px;
+      .scope-mode-label {
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #475569;
+        margin-bottom: 6px;
+      }
+      .scope-pills-row {
+        display: flex;
+        gap: 6px;
+        background: #f1f5f9;
+        padding: 4px;
+        border-radius: 10px;
+        border: 1px solid #e2e8f0;
+      }
+      .scope-pill-btn {
+        flex: 1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 8px 10px;
+        border: none;
+        background: transparent;
+        color: #64748b;
+        font-size: 0.8rem;
+        font-weight: 600;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+
+        .pill-ic {
+          font-size: 16px;
+          width: 16px;
+          height: 16px;
+          color: #94a3b8;
+          transition: color 0.2s ease;
+        }
+
+        &:hover:not(.active) {
+          color: #1e293b;
+          background: rgba(255, 255, 255, 0.6);
+        }
+
+        &.active {
+          background: #ffffff;
+          color: #2563eb;
+          font-weight: 700;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+          .pill-ic { color: #2563eb; }
+        }
+      }
+
+      .universal-scope-callout {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 9px 12px;
+        margin-top: 8px;
+        background: linear-gradient(135deg, #eff6ff 0%, #f0fdfa 100%);
+        border: 1px solid #bfdbfe;
+        border-left: 3px solid #2563eb;
+        border-radius: 8px;
+        font-size: 0.77rem;
+        color: #1e40af;
+        line-height: 1.45;
+
+        .uni-ic {
+          font-size: 17px;
+          width: 17px;
+          height: 17px;
+          color: #2563eb;
+          flex-shrink: 0;
+        }
+        strong {
+          color: #0f172a;
+        }
+      }
+    }
+
     .preview-box {
       background: #f8fafc;
       border: 1px solid #e2e8f0;
@@ -742,6 +869,7 @@ export class GenerateInvoicesDialogComponent implements OnInit {
   form: FormGroup;
   saving = false;
   selectedCycle = 1;
+  scopeMode: 'all' | 'school' | 'coaching' = 'all';
 
   billingCycles: BillingCycleOption[] = [
     { value: 1,  label: 'Monthly',     icon: 'calendar_view_month', description: '1 month',   color: '#2563eb', bgColor: '#eff6ff', borderColor: '#93c5fd' },
@@ -774,6 +902,15 @@ export class GenerateInvoicesDialogComponent implements OnInit {
     const defaultYear  = data?.defaultYear ?? today.getFullYear();
     this.years = [defaultYear - 1, defaultYear, defaultYear + 1];
     const defaultDueDate = `${defaultYear}-${String(defaultMonth).padStart(2, '0')}-10`;
+
+    if (data?.defaultClassId) {
+      this.scopeMode = 'school';
+    } else if (data?.defaultBatchId) {
+      this.scopeMode = 'coaching';
+    } else {
+      this.scopeMode = 'all';
+    }
+
     this.form = this.fb.group({
       month:   [defaultMonth,              [Validators.required]],
       year:    [defaultYear,               [Validators.required]],
@@ -827,17 +964,36 @@ export class GenerateInvoicesDialogComponent implements OnInit {
   }
 
   getSelectedScopeLabel(): string {
-    const classId = this.form.get('classId')?.value;
-    const batchId = this.form.get('batchId')?.value;
-    const c = classId ? this.data.classes?.find(x => x.id === classId) : null;
-    const b = batchId ? this.data.batches?.find(x => x.id === batchId) : null;
-    if (c && b) return `🏫 ${c.name} + 🎯 ${b.name}`;
-    if (c) return `🏫 ${c.name} (School)`;
-    if (b) return `🎯 ${b.name} (Coaching)`;
-    return '✨ All Students (Universal)';
+    if (this.data?.targetStudentName) {
+      return `👤 ${this.data.targetStudentName}`;
+    }
+    if (this.scopeMode === 'school') {
+      const classId = this.form.get('classId')?.value;
+      const c = classId ? this.data.classes?.find(x => x.id === classId) : null;
+      return c ? `🏫 ${c.name} (School Class)` : '🏫 All School Classes';
+    }
+    if (this.scopeMode === 'coaching') {
+      const batchId = this.form.get('batchId')?.value;
+      const b = batchId ? this.data.batches?.find(x => x.id === batchId) : null;
+      return b ? `🎯 ${b.name} (Coaching Batch)` : '🎯 All Coaching Batches';
+    }
+    return '✨ All Students (Universal Bulk)';
+  }
+
+  setScopeMode(mode: 'all' | 'school' | 'coaching'): void {
+    this.scopeMode = mode;
+    if (mode === 'all') {
+      this.form.get('classId')?.setValue('');
+      this.form.get('batchId')?.setValue('');
+    } else if (mode === 'school') {
+      this.form.get('batchId')?.setValue('');
+    } else if (mode === 'coaching') {
+      this.form.get('classId')?.setValue('');
+    }
   }
 
   getSelectedBatch(): BatchDto | undefined {
+    if (this.scopeMode !== 'coaching') return undefined;
     const batchId = this.form.get('batchId')?.value;
     if (!batchId) return undefined;
     return this.data.batches.find(x => x.id === batchId);
@@ -854,11 +1010,14 @@ export class GenerateInvoicesDialogComponent implements OnInit {
     if (this.form.invalid || this.saving) return;
     this.saving = true;
     const val = this.form.value;
+    const targetClassId = (this.scopeMode === 'school' && val.classId) ? val.classId : null;
+    const targetBatchId = (this.scopeMode === 'coaching' && val.batchId) ? val.batchId : null;
+
     this.feesService.generateMonthlyInvoices({
       year:         Number(val.year),
       month:        Number(val.month),
-      classId:      val.classId ? val.classId : null,
-      batchId:      val.batchId ? val.batchId : null,
+      classId:      targetClassId,
+      batchId:      targetBatchId,
       studentId:    this.data?.targetStudentId || null,
       dueDate:      val.dueDate,
       billingCycle: this.selectedCycle

@@ -434,6 +434,8 @@ public class FeesController : ControllerBase
 
             var student = await _dbContext.Students
                 .Include(s => s.Branch)
+                .Include(s => s.Class)
+                .Include(s => s.Section)
                 .Include(s => s.Batch)
                     .ThenInclude(b => b!.Branch)
                 .FirstOrDefaultAsync(s => s.Id == dto.StudentId);
@@ -536,9 +538,12 @@ public class FeesController : ControllerBase
                     // Update invoice items' PaidAmount as well
                     if (inv.Items != null && inv.Items.Count > 0)
                     {
-                        if (dto.ItemPayments != null && dto.ItemPayments.Count > 0)
+                        var itemPaymentDict = (dto.ItemPayments != null && dto.ItemPayments.Count > 0)
+                            ? dto.ItemPayments.ToDictionary(p => p.ItemId, p => p.Amount)
+                            : null;
+
+                        if (itemPaymentDict != null && inv.Items.Any(it => itemPaymentDict.ContainsKey(it.Id)))
                         {
-                            var itemPaymentDict = dto.ItemPayments.ToDictionary(p => p.ItemId, p => p.Amount);
                             foreach (var it in inv.Items)
                             {
                                 if (itemPaymentDict.TryGetValue(it.Id, out var itPaidAmt) && itPaidAmt > 0)
@@ -617,7 +622,7 @@ public class FeesController : ControllerBase
                 {
                     if (inv.Items != null && inv.Items.Count > 0)
                     {
-                        if (itemPaymentDict != null)
+                        if (itemPaymentDict != null && inv.Items.Any(it => itemPaymentDict.ContainsKey(it.Id)))
                         {
                             foreach (var it in inv.Items)
                             {
@@ -626,7 +631,7 @@ public class FeesController : ControllerBase
                                     lineItems.Add(new FeeReceiptLineItemDto(
                                         lineItems.Count + 1,
                                         it.HeadName,
-                                        inv.Title,
+                                        FormatReceiptItemSubtitle(it.HeadName, inv.Title),
                                         inv.InvoiceNumber,
                                         itPaidAmt
                                     ));
@@ -659,7 +664,7 @@ public class FeesController : ControllerBase
                                     lineItems.Add(new FeeReceiptLineItemDto(
                                         lineItems.Count + 1,
                                         it.HeadName,
-                                        inv.Title,
+                                        FormatReceiptItemSubtitle(it.HeadName, inv.Title),
                                         inv.InvoiceNumber,
                                         itShare
                                     ));
@@ -735,6 +740,9 @@ public class FeesController : ControllerBase
                 collectBranchName = mainBr?.Name;
             }
 
+            var tenant = await _dbContext.Tenants.AsNoTracking()
+                .FirstOrDefaultAsync(t => t.Id == student.TenantId);
+
             return Ok(new FeePaymentReceiptDto(
                 lastPayment?.Id ?? (selectedCirculations.FirstOrDefault()?.Id ?? Guid.NewGuid()),
                 receiptNo,
@@ -756,12 +764,20 @@ public class FeesController : ControllerBase
                 remainingPendingLibFine,
                 lineItems,
                 hostelInfo,
-                collectBranchName
+                collectBranchName,
+                student.Class?.Name,
+                student.Section?.Name,
+                tenant?.Name,
+                tenant?.ProfilePhoto,
+                tenant?.ContactPhone,
+                tenant?.Address
             ));
         });
     }
 
     [HttpGet("receipt/{receiptNumber}")]
+    [HttpGet("public-receipt/{receiptNumber}")]
+    [AllowAnonymous]
     public async Task<ActionResult<FeePaymentReceiptDto>> GetReceiptByNumber(string receiptNumber)
     {
         var payments = await _dbContext.FeePayments
@@ -778,6 +794,12 @@ public class FeesController : ControllerBase
                 .ThenInclude(i => i!.Student)
                     .ThenInclude(s => s!.Batch)
                         .ThenInclude(b => b!.Branch)
+            .Include(p => p.Invoice)
+                .ThenInclude(i => i!.Student)
+                    .ThenInclude(s => s!.Class)
+            .Include(p => p.Invoice)
+                .ThenInclude(i => i!.Student)
+                    .ThenInclude(s => s!.Section)
             .Where(p => p.ReceiptNumber == receiptNumber)
             .ToListAsync();
 
@@ -787,6 +809,10 @@ public class FeesController : ControllerBase
                 .ThenInclude(bc => bc!.Book)
             .Include(c => c.Student)
                 .ThenInclude(s => s!.Batch)
+            .Include(c => c.Student)
+                .ThenInclude(s => s!.Class)
+            .Include(c => c.Student)
+                .ThenInclude(s => s!.Section)
             .Where(c => c.FinePaymentReceiptNumber == receiptNumber)
             .ToListAsync();
 
@@ -842,7 +868,7 @@ public class FeesController : ControllerBase
                             lineItems.Add(new FeeReceiptLineItemDto(
                                 lineItems.Count + 1,
                                 it.HeadName,
-                                p.Invoice.Title,
+                                FormatReceiptItemSubtitle(it.HeadName, p.Invoice.Title),
                                 p.Invoice.InvoiceNumber,
                                 itShare
                             ));
@@ -892,6 +918,11 @@ public class FeesController : ControllerBase
                 : null;
         }
 
+        var tenantId = student?.TenantId ?? firstPayment?.TenantId ?? circulations.FirstOrDefault()?.TenantId ?? _currentUser.TenantId;
+        var tenant = tenantId != Guid.Empty
+            ? await _dbContext.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.Id == tenantId)
+            : null;
+
         return Ok(new FeePaymentReceiptDto(
             firstPayment?.Id ?? (circulations.FirstOrDefault()?.Id ?? Guid.NewGuid()),
             receiptNumber,
@@ -913,8 +944,34 @@ public class FeesController : ControllerBase
             remainingLibFine,
             lineItems,
             receiptHostelInfo,
-            firstPayment?.Branch?.Name ?? firstPayment?.Invoice?.Branch?.Name ?? student?.Branch?.Name ?? student?.Batch?.Branch?.Name ?? (await _dbContext.Branches.AsNoTracking().Where(b => b.TenantId == (student != null ? student.TenantId : _currentUser.TenantId) && b.IsActive).OrderByDescending(b => b.IsMainBranch).FirstOrDefaultAsync())?.Name
+            firstPayment?.Branch?.Name ?? firstPayment?.Invoice?.Branch?.Name ?? student?.Branch?.Name ?? student?.Batch?.Branch?.Name ?? (await _dbContext.Branches.AsNoTracking().Where(b => b.TenantId == (student != null ? student.TenantId : _currentUser.TenantId) && b.IsActive).OrderByDescending(b => b.IsMainBranch).FirstOrDefaultAsync())?.Name,
+            student?.Class?.Name,
+            student?.Section?.Name,
+            tenant?.Name,
+            tenant?.ProfilePhoto,
+            tenant?.ContactPhone,
+            tenant?.Address
         ));
+    }
+
+    private static string FormatReceiptItemSubtitle(string headName, string? invoiceTitle)
+    {
+        var lower = (headName ?? "").ToLowerInvariant();
+        if (lower.Contains("admission") || lower.Contains("registration"))
+            return "One-Time Admission & Registration Charge";
+        if (lower.Contains("book") || lower.Contains("syllabus"))
+            return "Annual Curriculum Books & Study Material Kit";
+        if (lower.Contains("uniform") || lower.Contains("dress"))
+            return "Annual School Uniform & ID Card Kit";
+        if (lower.Contains("development"))
+            return "Annual Campus & Infrastructure Development";
+        if (lower.Contains("exam"))
+            return "Academic Assessment & Examination Fee";
+        if (lower.Contains("transport") || lower.Contains("bus") || lower.Contains("van"))
+            return !string.IsNullOrWhiteSpace(invoiceTitle) ? invoiceTitle : "Monthly Commute / Transport Bus Charge";
+        if (lower.Contains("tuition") || lower.Contains("coaching"))
+            return !string.IsNullOrWhiteSpace(invoiceTitle) ? invoiceTitle : "Monthly Academic Tuition Fee";
+        return invoiceTitle ?? "Fee Installment Settlement";
     }
 
     [HttpGet("due-slip/{studentId}")]
@@ -1044,12 +1101,12 @@ public class FeesController : ControllerBase
             .Distinct()
             .ToListAsync();
 
-        // Active students who DO NOT have an invoice for this month
+        // Active students who DO NOT have an invoice for this month AND had already joined by this billing period
         var pendingStudents = await _dbContext.Students
             .AsNoTracking()
             .Include(s => s.Class)
             .Include(s => s.Batch)
-            .Where(s => s.TenantId == tenantId && s.IsActive && !invoicedStudentIds.Contains(s.Id))
+            .Where(s => s.TenantId == tenantId && s.IsActive && !invoicedStudentIds.Contains(s.Id) && s.JoiningDate.Date <= periodEnd.Date)
             .OrderByDescending(s => s.JoiningDate)
             .Select(s => new PendingInvoicingStudentDto(
                 s.Id,
@@ -1193,6 +1250,35 @@ public class FeesController : ControllerBase
             .Where(a => a.StudentId.HasValue)
             .GroupBy(a => a.StudentId!.Value)
             .ToDictionary(g => g.Key, g => g.First());
+        // ── Academic Session Window (April 1 to March 31 in Indian Curriculum) ──
+        int sessionStartYear = (dto.Month >= 4) ? dto.Year : (dto.Year - 1);
+        var sessionStartDate = new DateTime(sessionStartYear, 4, 1);
+        var sessionEndDate = new DateTime(sessionStartYear + 1, 3, 31, 23, 59, 59);
+
+        // Pre-load all FeeHeadIds previously billed to these students in the current academic session
+        var billedHeadsInSession = await _dbContext.FeeInvoiceItems
+            .AsNoTracking()
+            .Where(it => studentIds.Contains(it.Invoice!.StudentId) &&
+                         it.Invoice!.Status != InvoiceStatus.Cancelled &&
+                         it.Invoice.DueDate >= sessionStartDate && it.Invoice.DueDate <= sessionEndDate &&
+                         it.FeeHeadId.HasValue)
+            .Select(it => new { it.Invoice!.StudentId, it.FeeHeadId!.Value })
+            .ToListAsync();
+
+        var billedHeadsLookup = billedHeadsInSession
+            .GroupBy(x => x.StudentId)
+            .ToDictionary(g => g.Key, g => g.Select(x => x.Value).ToHashSet());
+
+        // Students who already have at least one active invoice in this academic session
+        var studentIdsWithSessionInvoice = await _dbContext.FeeInvoices
+            .AsNoTracking()
+            .Where(i => studentIds.Contains(i.StudentId) &&
+                        i.Status != InvoiceStatus.Cancelled &&
+                        i.DueDate >= sessionStartDate && i.DueDate <= sessionEndDate)
+            .Select(i => i.StudentId)
+            .Distinct()
+            .ToListAsync();
+        var studentsWithPriorInvoiceSet = studentIdsWithSessionInvoice.ToHashSet();
         // ────────────────────────────────────────────────────────────────────
 
         var newInvoices = new List<FeeInvoice>();
@@ -1201,6 +1287,16 @@ public class FeesController : ControllerBase
 
         foreach (var s in students)
         {
+            // Safeguard 1: Past-Month Invoicing Shield
+            // If student took admission AFTER this billing window ends, they were not enrolled yet!
+            // e.g. A student admitted on 10 October 2026 cannot be billed for April/May/June/July/August/September 2026.
+            if (s.JoiningDate.Date > periodEnd.Date)
+            {
+                skippedCount++;
+                continue;
+            }
+
+            // Safeguard 2: Duplicate Invoicing Shield for this specific month / window
             bool alreadyBilled = existingStudentInvoices.Any(e => e.StudentId == s.Id && (e.ClassId == null || e.ClassId == s.ClassId));
             if (alreadyBilled)
             {
@@ -1213,9 +1309,38 @@ public class FeesController : ControllerBase
                               (s.BatchId.HasValue && cfs.BatchId == s.BatchId.Value))
                 .ToList();
 
-            var applicableHeads = studentStructures
-                .Where(cfs => cfs.ApplicableMonth == null || cfs.ApplicableMonth == dto.Month)
-                .ToList();
+            var alreadyBilledHeadIds = billedHeadsLookup.GetValueOrDefault(s.Id) ?? new HashSet<Guid>();
+            bool hasPriorInvoiceThisSession = studentsWithPriorInvoiceSet.Contains(s.Id);
+            bool isStudentAdmissionMonth = (s.JoiningDate >= periodStart && s.JoiningDate <= periodEnd);
+            bool isFirstInvoiceForStudent = !hasPriorInvoiceThisSession || isStudentAdmissionMonth;
+
+            var applicableHeads = new List<ClassFeeStructure>();
+            foreach (var cfs in studentStructures)
+            {
+                // A. Regular Match: recurring monthly fee (ApplicableMonth == null) OR explicitly configured for this month
+                if (cfs.ApplicableMonth == null || cfs.ApplicableMonth == dto.Month)
+                {
+                    bool isOneTimeOrAnnual = cfs.FeeHead != null && (cfs.FeeHead.Frequency == "OneTime" || cfs.FeeHead.Frequency == "Annual");
+                    // Guard: If OneTime/Annual head was already billed to this student in this session, do not re-charge!
+                    if (isOneTimeOrAnnual && alreadyBilledHeadIds.Contains(cfs.FeeHeadId))
+                    {
+                        continue;
+                    }
+                    applicableHeads.Add(cfs);
+                }
+                // B. Dynamic Mid-Session New Admission Auto-Bundle:
+                // If a student joined mid-session (or this is their first invoice in this session)
+                // and a OneTime (e.g. Admission / Registration Fee) or Annual (e.g. Books, Uniform) fee head
+                // was configured in the matrix (even if its ApplicableMonth was April / 4):
+                // Dynamically include it in this student's very first admission invoice!
+                else if (cfs.FeeHead != null && (cfs.FeeHead.Frequency == "OneTime" || cfs.FeeHead.Frequency == "Annual"))
+                {
+                    if (isFirstInvoiceForStudent && !alreadyBilledHeadIds.Contains(cfs.FeeHeadId))
+                    {
+                        applicableHeads.Add(cfs);
+                    }
+                }
+            }
 
             var invoiceItems = new List<FeeInvoiceItem>();
             decimal totalAmount = 0;

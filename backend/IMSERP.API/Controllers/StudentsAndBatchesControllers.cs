@@ -1884,7 +1884,7 @@ public class StudentsController : ControllerBase
                 EmergencyContactPhone = dto.EmergencyContactPhone,
                 PreviousSchoolName = dto.PreviousSchoolName,
                 PreviousBoard = dto.PreviousBoard,
-                JoiningDate = DateTime.UtcNow,
+                JoiningDate = dto.JoiningDate ?? DateTime.UtcNow,
                 IsActive = true
             };
 
@@ -2023,6 +2023,10 @@ public class StudentsController : ControllerBase
         student.SchoolRollNumber = dto.SchoolRollNumber;
         student.CoachingRollNumber = dto.CoachingRollNumber;
         student.AdmissionNumber = dto.AdmissionNumber;
+        if (dto.JoiningDate.HasValue)
+        {
+            student.JoiningDate = dto.JoiningDate.Value;
+        }
         // Hostel Bed Allocation / Reallocation / Deallocation
         if (student.IsHostelStudent != dto.IsHostelStudent || student.HostelBedId != dto.HostelBedId)
         {

@@ -101,6 +101,7 @@ const API_BASE = 'http://localhost:5000';
                 <div class="meta-pill"><mat-icon>school</mat-icon> Class: <strong>{{ data360.student.className || 'General' }}{{ data360.student.sectionName ? ' - ' + data360.student.sectionName : '' }}</strong></div>
                 <div class="meta-pill"><mat-icon>pin</mat-icon> Roll No: <strong>{{ data360.student.rollNumber }}</strong></div>
                 <div class="meta-pill" *ngIf="data360.student.admissionNumber"><mat-icon>badge</mat-icon> Adm No: <strong>{{ data360.student.admissionNumber }}</strong></div>
+                <div class="meta-pill" *ngIf="data360.student.joiningDate"><mat-icon>event</mat-icon> Joining Date: <strong>{{ data360.student.joiningDate | date:'dd MMM yyyy':'Asia/Kolkata' }}</strong></div>
                 <div class="meta-pill" *ngIf="data360.student.branchName"><mat-icon>store</mat-icon> Campus: <strong>{{ data360.student.branchName }}</strong></div>
                 <div class="meta-pill" *ngIf="data360.student.bloodGroup"><mat-icon>bloodtype</mat-icon> Blood: <strong class="blood-text">{{ data360.student.bloodGroup }}</strong></div>
                 <div class="meta-pill" *ngIf="data360.student.parentName"><mat-icon>family_restroom</mat-icon> Guardian: <strong>{{ data360.student.parentName }}</strong></div>

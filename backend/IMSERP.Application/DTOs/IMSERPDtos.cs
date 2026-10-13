@@ -556,7 +556,8 @@ public record CreateStudentDto(
     string? EmergencyContactName = null,
     string? EmergencyContactPhone = null,
     string? PreviousSchoolName = null,
-    string? PreviousBoard = null
+    string? PreviousBoard = null,
+    DateTime? JoiningDate = null
 );
 
 public record StudentAttendanceDto(
@@ -797,7 +798,13 @@ public record FeePaymentReceiptDto(
     decimal PendingLibraryFine = 0,
     List<FeeReceiptLineItemDto>? Items = null,
     string? HostelInfo = null,
-    string? BranchName = null
+    string? BranchName = null,
+    string? ClassName = null,
+    string? SectionName = null,
+    string? InstituteName = null,
+    string? InstituteLogoUrl = null,
+    string? InstituteContactPhone = null,
+    string? InstituteAddress = null
 );
 
 public record StudentPendingFineItemDto(
@@ -3945,7 +3952,8 @@ public record DailyStudentDiaryRowDto(
     List<DailySubjectTaskItem> ClassWork,
     List<DailySubjectTaskItem> HomeWork,
     string? Remarks,
-    Guid? DiaryId
+    Guid? DiaryId,
+    string AttendanceStatus = "Present"
 );
 
 public record DailyStudentDiarySaveItemDto(
@@ -3953,7 +3961,8 @@ public record DailyStudentDiarySaveItemDto(
     bool IsAbsent,
     List<DailySubjectTaskItem> ClassWork,
     List<DailySubjectTaskItem> HomeWork,
-    string? Remarks
+    string? Remarks,
+    string? AttendanceStatus = null
 );
 
 public record BulkSaveDailyStudentDiaryDto(

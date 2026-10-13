@@ -239,6 +239,12 @@ export interface FeePaymentReceipt {
   items?: FeeReceiptLineItem[];
   hostelInfo?: string;
   branchName?: string;
+  className?: string;
+  sectionName?: string;
+  instituteName?: string;
+  instituteLogoUrl?: string;
+  instituteContactPhone?: string;
+  instituteAddress?: string;
 }
 
 export interface StudentPendingFineItem {
