@@ -292,6 +292,117 @@
   }
 }
 
+/* Section Toolbar Extended (For Student Passes Tab with filters & search) */
+.section-toolbar-extended {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  .toolbar-title {
+    h3 {
+      margin: 0;
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #0f172a;
+    }
+    p {
+      margin: 2px 0 0;
+      font-size: 0.8rem;
+      color: #64748b;
+
+      strong {
+        color: #2563eb;
+      }
+    }
+  }
+
+  .filters-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+
+    .filter-field {
+      margin-bottom: -16px;
+
+      &.class-filter-field {
+        width: 250px;
+        min-width: 220px;
+      }
+
+      &.route-filter-field {
+        width: 190px;
+        min-width: 170px;
+      }
+
+      &.search-filter-field {
+        width: 320px;
+        min-width: 250px;
+
+        input.mat-mdc-input-element {
+          padding-right: 6px;
+        }
+
+        .search-suffix-btn {
+          width: 34px;
+          height: 34px;
+          line-height: 34px;
+          padding: 0;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          color: #64748b;
+          margin-right: -4px;
+
+          mat-icon {
+            font-size: 20px;
+            width: 20px;
+            height: 20px;
+          }
+
+          &:hover {
+            color: #2563eb;
+            background: #eff6ff;
+          }
+        }
+      }
+    }
+
+    .btn-reset-filters {
+      height: 48px;
+      border-radius: 8px;
+      border-color: #cbd5e1;
+      color: #64748b;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+
+      mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+      }
+
+      &:hover {
+        background: #f1f5f9;
+        color: #0f172a;
+        border-color: #94a3b8;
+      }
+    }
+
+    .btn-issue-pass {
+      height: 48px;
+      border-radius: 8px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-left: auto;
+    }
+  }
+}
+
 /* Stats Grid (Overview) */
 .stats-grid {
   display: grid;
@@ -795,9 +906,13 @@
 
     .stops-wrapper {
       padding: 0;
+      width: 100%;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
 
       .stops-table {
         width: 100%;
+        min-width: 780px;
         border-collapse: collapse;
         font-size: 0.82rem;
 
@@ -907,8 +1022,59 @@
   border: 1px solid #e2e8f0;
   overflow: hidden;
 
+  &.table-relative-container {
+    position: relative;
+    min-height: 220px;
+  }
+
+  .grid-loading-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 10;
+    height: 3px;
+  }
+
+  .grid-loading-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(255, 255, 255, 0.75);
+    backdrop-filter: blur(2px);
+    z-index: 9;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    .grid-loading-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      color: #1e40af;
+      font-size: 0.88rem;
+      font-weight: 700;
+
+      .spinner-circle {
+        width: 34px;
+        height: 34px;
+        border: 3px solid #bfdbfe;
+        border-top-color: #2563eb;
+        border-radius: 50%;
+        animation: tableSpinner 0.8s linear infinite;
+      }
+    }
+  }
+
+  .table-scroll-container {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
   .erp-table {
     width: 100%;
+    min-width: 860px;
     border-collapse: collapse;
     font-size: 0.85rem;
 
@@ -919,6 +1085,44 @@
       font-weight: 700;
       color: #475569;
       border-bottom: 1px solid #e2e8f0;
+
+      &.sortable-th {
+        cursor: pointer;
+        user-select: none;
+        transition: background 0.15s ease, color 0.15s ease;
+
+        &:hover {
+          background: #f1f5f9;
+          color: #1e40af;
+
+          .sort-hint {
+            opacity: 0.8 !important;
+          }
+        }
+
+        &.active-sort {
+          background: #eff6ff;
+          color: #1d4ed8;
+        }
+
+        .th-content {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+
+          .sort-icon {
+            font-size: 16px;
+            width: 16px;
+            height: 16px;
+            color: #2563eb;
+
+            &.sort-hint {
+              color: #94a3b8;
+              opacity: 0.3;
+            }
+          }
+        }
+      }
     }
 
     td {
@@ -1086,11 +1290,219 @@
       color: #94a3b8;
     }
 
+    td.actions-cell {
+      text-align: right;
+      white-space: nowrap;
+      width: 130px;
+    }
+
+    .table-actions-row {
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 6px;
+      white-space: nowrap;
+
+      .action-icon-btn {
+        width: 32px;
+        height: 32px;
+        line-height: 32px;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        transition: all 0.15s ease;
+
+        mat-icon {
+          font-size: 18px;
+          width: 18px;
+          height: 18px;
+        }
+
+        &.edit-btn {
+          color: #2563eb;
+          background: #eff6ff;
+
+          &:hover {
+            background: #dbeafe;
+            color: #1d4ed8;
+            transform: scale(1.05);
+          }
+        }
+
+        &.pass-btn {
+          color: #0d9488;
+          background: #f0fdfa;
+
+          &:hover {
+            background: #ccfbf1;
+            color: #0f766e;
+            transform: scale(1.05);
+          }
+        }
+
+        &.remove-btn {
+          color: #e11d48;
+          background: #fff1f2;
+
+          &:hover {
+            background: #ffe4e6;
+            color: #be123c;
+            transform: scale(1.05);
+          }
+        }
+      }
+    }
+
     .btn-sm {
       height: 30px;
       font-size: 0.75rem;
       padding: 0 10px;
       margin-right: 6px;
+    }
+  }
+}
+
+@keyframes tableSpinner {
+  to { transform: rotate(360deg); }
+}
+
+/* ERP Pagination Bar */
+.erp-pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+  flex-wrap: wrap;
+  gap: 14px;
+
+  .pagination-info {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    font-size: 0.8rem;
+    color: #475569;
+
+    strong {
+      color: #0f172a;
+    }
+
+    .page-size-selector {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+
+      label {
+        color: #64748b;
+      }
+
+      select {
+        padding: 4px 8px;
+        border-radius: 6px;
+        border: 1px solid #cbd5e1;
+        background: #ffffff;
+        font-size: 0.8rem;
+        color: #0f172a;
+        font-weight: 600;
+        cursor: pointer;
+        outline: none;
+
+        &:focus {
+          border-color: #2563eb;
+        }
+      }
+    }
+  }
+
+  .pagination-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+
+    .page-nav-btn {
+      width: 32px;
+      height: 32px;
+      min-width: 32px;
+      border-radius: 8px;
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      color: #475569;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      margin: 0;
+      cursor: pointer;
+      transition: all 0.15s ease;
+
+      mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        line-height: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      &:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+        background: #f8fafc;
+        border-color: #e2e8f0;
+      }
+
+      &:not(:disabled):hover {
+        background: #f1f5f9;
+        border-color: #94a3b8;
+        color: #0f172a;
+      }
+    }
+
+    .page-numbers-list {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+
+      .page-num-btn {
+        min-width: 32px;
+        height: 32px;
+        padding: 0 8px;
+        border-radius: 8px;
+        border: 1px solid #cbd5e1;
+        background: #ffffff;
+        color: #475569;
+        font-size: 0.85rem;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0;
+        cursor: pointer;
+        transition: all 0.15s ease;
+
+        &:hover:not(:disabled) {
+          background: #f1f5f9;
+          border-color: #94a3b8;
+          color: #0f172a;
+        }
+
+        &.active {
+          background: #2563eb;
+          border-color: #2563eb;
+          color: #ffffff;
+          font-weight: 700;
+          box-shadow: 0 2px 4px rgba(37, 99, 235, 0.25);
+        }
+
+        &:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+      }
     }
   }
 }
@@ -1284,8 +1696,15 @@
     }
   }
 
+  .table-scroll-container {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
   .manifest-table {
     width: 100%;
+    min-width: 860px;
     border-collapse: collapse;
     font-size: 0.82rem;
 
@@ -2591,5 +3010,590 @@ mat-hint {
     z-index: 999999 !important;
   }
 }
+
+/* ========================================================================= */
+/* RESPONSIVE DESIGN - ALL MODES (DESKTOP, LAPTOP, TABLET, MOBILE)           */
+/* ========================================================================= */
+
+/* General Table Scroll Handling across all viewports */
+.table-scroll-container {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+
+  .erp-table, .manifest-table {
+    min-width: 860px;
+  }
+}
+
+/* --- TABLETS & MEDIUM SCREENS (<= 1024px) --- */
+@media (max-width: 1024px) {
+  .page-header-card {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+
+    .header-right-actions {
+      display: flex;
+      flex-wrap: wrap;
+      width: 100%;
+
+      .action-btn {
+        flex: 1 1 180px;
+        justify-content: center;
+      }
+    }
+  }
+
+  .section-toolbar-extended {
+    .filters-bar-row {
+      flex-wrap: wrap;
+      gap: 10px;
+
+      .filter-field {
+        &.class-filter-field {
+          flex: 1 1 220px;
+          width: auto;
+          min-width: 200px;
+        }
+
+        &.route-filter-field {
+          flex: 1 1 180px;
+          width: auto;
+          min-width: 160px;
+        }
+
+        &.search-filter-field {
+          flex: 2 1 260px;
+          width: auto;
+          min-width: 220px;
+        }
+      }
+
+      .btn-reset-filters {
+        height: 48px;
+      }
+
+      .btn-issue-pass {
+        height: 48px;
+        margin-left: 0;
+      }
+    }
+  }
+}
+
+/* --- TABLET & MOBILE BREAKPOINT (<= 768px) --- */
+@media (max-width: 768px) {
+  .transport-page-wrapper {
+    padding: 0 0 24px;
+    gap: 14px;
+  }
+
+  /* Page Header */
+  .page-header-card {
+    padding: 14px;
+    border-radius: 12px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+
+    .header-left {
+      gap: 12px;
+
+      .header-icon-badge {
+        width: 44px;
+        height: 44px;
+        min-width: 44px;
+
+        mat-icon {
+          font-size: 24px;
+          width: 24px;
+          height: 24px;
+        }
+      }
+
+      .header-title-box {
+        .title-row {
+          gap: 6px;
+
+          h1 {
+            font-size: 1.25rem;
+          }
+
+          .live-pill, .optional-tag {
+            font-size: 0.7rem;
+            padding: 2px 7px;
+          }
+        }
+
+        .subtitle {
+          font-size: 0.8rem;
+          line-height: 1.4;
+        }
+      }
+    }
+
+    .header-right-actions {
+      display: grid;
+      grid-template-columns: 1fr;
+      width: 100%;
+      gap: 8px;
+
+      .action-btn {
+        width: 100%;
+        height: 42px;
+        justify-content: center;
+        font-size: 0.84rem;
+      }
+    }
+  }
+
+  /* Tabs Navigation */
+  .nav-tabs-wrapper {
+    border-radius: 10px;
+    padding: 4px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+
+    .custom-tabs {
+      .tab-btn {
+        padding: 7px 11px;
+        font-size: 0.78rem;
+        gap: 5px;
+        white-space: nowrap;
+
+        mat-icon {
+          font-size: 16px;
+          width: 16px;
+          height: 16px;
+        }
+      }
+    }
+  }
+
+  /* Common Section Toolbar */
+  .section-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+
+    .toolbar-title {
+      h3 {
+        font-size: 1.05rem;
+      }
+
+      p {
+        font-size: 0.75rem;
+      }
+    }
+
+    button {
+      width: 100%;
+      justify-content: center;
+    }
+
+    .search-and-action {
+      flex-direction: column;
+      align-items: stretch;
+      width: 100%;
+      gap: 10px;
+
+      .filter-input {
+        width: 100% !important;
+        margin-bottom: 0 !important;
+      }
+
+      button {
+        width: 100%;
+        justify-content: center;
+      }
+    }
+  }
+
+  /* Tab 4 Extended Toolbar (Student Passes) */
+  .section-toolbar-extended {
+    .filters-bar-row {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 10px;
+
+      .filter-field {
+        &.class-filter-field,
+        &.route-filter-field,
+        &.search-filter-field {
+          width: 100% !important;
+          min-width: 0 !important;
+          margin-bottom: 0 !important;
+        }
+      }
+
+      .btn-reset-filters,
+      .btn-issue-pass {
+        width: 100% !important;
+        margin-left: 0 !important;
+        justify-content: center;
+        height: 44px;
+      }
+    }
+  }
+
+  /* ERP Pagination Bar */
+  .erp-pagination-bar {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 12px 14px;
+    text-align: center;
+
+    .pagination-info {
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.78rem;
+
+      .page-size-selector {
+        justify-content: center;
+      }
+    }
+
+    .pagination-controls {
+      width: 100%;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 4px;
+
+      .page-numbers-list {
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+    }
+  }
+
+  /* Tab 6: Daily Manifest */
+  .manifest-selectors {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    gap: 10px;
+
+    .selector-field {
+      width: 100% !important;
+      margin-bottom: 0 !important;
+    }
+  }
+
+  .manifest-action-btns {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
+    gap: 8px;
+
+    button {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+
+  .manifest-stats-strip {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+
+    .stat-items {
+      gap: 12px;
+      justify-content: space-around;
+      width: 100%;
+    }
+
+    .quick-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      width: 100%;
+      gap: 8px;
+
+      button {
+        width: 100%;
+        justify-content: center;
+      }
+    }
+  }
+
+  .manifest-sheet {
+    padding: 14px;
+
+    .manifest-header-print {
+      .mh-top {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+      }
+
+      .mh-meta-grid {
+        grid-template-columns: 1fr;
+        gap: 6px;
+        font-size: 0.8rem;
+      }
+    }
+  }
+
+  /* Tab 3: Routes & Stops */
+  .route-panel {
+    .route-header-bar {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 12px;
+      padding: 14px;
+
+      .rh-left {
+        align-items: flex-start;
+        gap: 10px;
+
+        .rh-names h4 {
+          font-size: 0.95rem;
+        }
+      }
+
+      .rh-meta {
+        width: 100%;
+        gap: 6px;
+
+        .time-pill, .bus-pill {
+          font-size: 0.72rem;
+          padding: 3px 8px;
+        }
+      }
+
+      .rh-actions {
+        display: grid;
+        grid-template-columns: 1fr auto auto;
+        width: 100%;
+        gap: 6px;
+
+        button {
+          justify-content: center;
+        }
+      }
+    }
+  }
+
+  /* Cards Grid (Vehicles & Drivers) */
+  .cards-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px;
+  }
+
+  /* Modals & Dialogs on Mobile */
+  .modal-backdrop {
+    padding: 8px;
+  }
+
+  .modal-dialog {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 94vh;
+    border-radius: 12px;
+    margin: 0;
+  }
+
+  .modal-header {
+    padding: 12px 14px;
+
+    .modal-header-left {
+      gap: 10px;
+
+      .modal-header-icon {
+        width: 38px;
+        height: 38px;
+        min-width: 38px;
+
+        mat-icon {
+          font-size: 20px;
+          width: 20px;
+          height: 20px;
+        }
+      }
+
+      .modal-title {
+        font-size: 1.02rem;
+      }
+
+      .modal-subtitle {
+        font-size: 0.74rem;
+      }
+    }
+  }
+
+  .modal-body {
+    padding: 14px;
+
+    .form-grid {
+      grid-template-columns: 1fr !important;
+      gap: 10px;
+
+      .col-span-2 {
+        grid-column: 1 / -1;
+      }
+    }
+
+    .commuter-type-switcher,
+    .pass-category-switcher {
+      flex-direction: column;
+      gap: 6px;
+
+      .type-pill-btn,
+      .category-pill-btn {
+        width: 100%;
+        min-width: 0;
+        height: 36px;
+      }
+    }
+
+    .plan-pills-grid {
+      grid-template-columns: 1fr 1fr !important;
+      gap: 6px;
+    }
+
+    .student-multi-select-header {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 8px;
+
+      .multi-select-actions {
+        width: 100%;
+        justify-content: flex-end;
+      }
+    }
+
+    .allocation-filter-pills-bar {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 8px;
+
+      .af-pills-container {
+        width: 100%;
+        gap: 6px;
+      }
+    }
+
+    .fare-slabs-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 6px;
+    }
+  }
+
+  .modal-footer {
+    padding: 12px 14px;
+    flex-direction: column-reverse;
+    gap: 8px;
+
+    button {
+      width: 100%;
+      justify-content: center;
+      height: 42px;
+      margin: 0 !important;
+    }
+  }
+
+  /* Bus Pass Preview Card */
+  .bus-pass-card {
+    padding: 12px;
+
+    .bp-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .bp-body {
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 12px;
+
+      .bp-details {
+        width: 100%;
+
+        .bp-route-box {
+          text-align: left;
+        }
+      }
+    }
+  }
+}
+
+/* --- SMALL PHONES (<= 480px, e.g. iPhone, compact Android) --- */
+@media (max-width: 480px) {
+  .page-header-card {
+    .header-left {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
+    }
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 6px;
+
+    .stat-card {
+      padding: 8px 10px;
+      gap: 8px;
+
+      .stat-icon-wrap {
+        width: 34px;
+        height: 34px;
+        min-width: 34px;
+
+        mat-icon {
+          font-size: 18px;
+          width: 18px;
+          height: 18px;
+        }
+      }
+
+      .stat-info {
+        .stat-value {
+          font-size: 1.15rem;
+        }
+
+        .stat-label {
+          font-size: 0.65rem;
+        }
+      }
+    }
+  }
+
+  .quick-launchers-row {
+    grid-template-columns: 1fr !important;
+    gap: 6px;
+
+    .ql-card {
+      padding: 10px 12px;
+    }
+  }
+
+  .modal-body {
+    .plan-pills-grid {
+      grid-template-columns: 1fr !important;
+    }
+  }
+
+  .manifest-stats-strip {
+    .quick-actions {
+      grid-template-columns: 1fr !important;
+    }
+  }
+}
+
+/* --- VERY SMALL PHONES (<= 380px) --- */
+@media (max-width: 380px) {
+  .stats-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
 
 

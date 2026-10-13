@@ -71,7 +71,7 @@
       </button>
       <button class="tab-btn" [class.active]="activeTab === 4" (click)="selectTab(4)">
         <mat-icon>school</mat-icon>
-        <span>Student Passes ({{ studentAllocations.length }})</span>
+        <span>Student Passes ({{ studentPassTotalCount || studentAllocations.length }})</span>
       </button>
       <button class="tab-btn" [class.active]="activeTab === 5" (click)="selectTab(5)">
         <mat-icon>co_present</mat-icon>
@@ -443,101 +443,230 @@
 
   <!-- TAB 4: STUDENT PASSES -->
   <div class="tab-content" *ngIf="activeTab === 4">
-    <div class="section-toolbar">
+    <div class="section-toolbar-extended">
       <div class="toolbar-title">
         <h3>Enrolled Student Riders</h3>
-        <p>Active transport passes with automated monthly billing on fee invoices</p>
+        <p>Active transport passes with automated monthly billing on fee invoices &bull; <strong>{{ studentPassTotalCount }} Total Allocated</strong></p>
       </div>
-      <div class="search-and-action">
-        <mat-form-field appearance="outline" class="filter-input">
-          <mat-label>Search student or route...</mat-label>
-          <input matInput [(ngModel)]="allocationSearch" (keyup.enter)="loadAllocations()" placeholder="e.g. Rahul, R-01..." />
-          <mat-icon matSuffix>search</mat-icon>
+
+      <div class="filters-bar-row">
+        <!-- Class / Batch Filter -->
+        <mat-form-field appearance="outline" class="filter-field class-filter-field">
+          <mat-label>Filter Class / Batch</mat-label>
+          <mat-select [(ngModel)]="studentPassFilterClass" (selectionChange)="onStudentPassClassFilterChange()">
+            <mat-option value="ALL">All Classes &amp; Batches</mat-option>
+            
+            <mat-optgroup label="School Classes (Nursery to 12th)" *ngIf="schoolClassFilterOptions.length > 0">
+              <mat-option *ngFor="let c of schoolClassFilterOptions" [value]="c.key">
+                {{ c.name }} ({{ c.count }} students)
+              </mat-option>
+            </mat-optgroup>
+
+            <mat-optgroup label="Coaching Batches" *ngIf="batchFilterOptions.length > 0">
+              <mat-option *ngFor="let b of batchFilterOptions" [value]="b.key">
+                {{ b.name }} ({{ b.count }} students)
+              </mat-option>
+            </mat-optgroup>
+          </mat-select>
         </mat-form-field>
-        <button mat-flat-button color="primary" (click)="openAddAllocation('Student')">
+
+        <!-- Route Filter -->
+        <mat-form-field appearance="outline" class="filter-field route-filter-field">
+          <mat-label>Filter Route</mat-label>
+          <mat-select [(ngModel)]="studentPassFilterRoute" (selectionChange)="onStudentPassRouteChange()">
+            <mat-option value="ALL">All Routes</mat-option>
+            <mat-option *ngFor="let r of routes" [value]="r.id">
+              {{ r.routeCode }} &bull; {{ r.routeName }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <!-- Search Input -->
+        <mat-form-field appearance="outline" class="filter-field search-filter-field">
+          <mat-label>Search student, roll, route...</mat-label>
+          <input matInput [(ngModel)]="studentPassSearch" (keyup.enter)="onStudentPassSearchChange()" placeholder="Type and press enter..." />
+          <button mat-icon-button matSuffix (click)="onStudentPassSearchChange()" title="Search" class="search-suffix-btn">
+            <mat-icon>search</mat-icon>
+          </button>
+        </mat-form-field>
+
+        <!-- Reset Button -->
+        <button mat-stroked-button class="btn-reset-filters" *ngIf="studentPassSearch || studentPassFilterClass !== 'ALL' || studentPassFilterRoute !== 'ALL'" (click)="resetStudentPassFilters()" title="Reset Filters">
+          <mat-icon>filter_alt_off</mat-icon> Reset
+        </button>
+
+        <!-- Action Button -->
+        <button mat-flat-button color="primary" class="btn-issue-pass" (click)="openAddAllocation('Student')">
           <mat-icon>add</mat-icon> Issue Student Pass
         </button>
       </div>
     </div>
 
-    <div class="table-card mat-elevation-z1">
-      <table class="erp-table">
-        <thead>
-          <tr>
-            <th>Student Name &amp; ID</th>
-            <th>Route &amp; Code</th>
-            <th>Boarding Stop</th>
-            <th>Timings</th>
-            <th>Trip Type</th>
-            <th>Monthly Fee</th>
-            <th>Effective From</th>
-            <th>Status</th>
-            <th style="text-align: right;">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let a of studentAllocations">
-            <td>
-              <div class="user-cell">
-                <div class="user-avatar"><mat-icon>person</mat-icon></div>
-                <div class="user-info">
-                  <strong class="user-name">{{ a.studentName }}</strong>
-                  <div class="meta-badges-row">
-                    <ng-container *ngIf="a.studentRollNumber && a.studentRollNumber.includes(' • ')">
-                      <span 
-                        *ngFor="let seg of getRollSegments(a.studentRollNumber)" 
-                        class="badge-roll"
-                        [class.sch-pill]="seg.startsWith('Sch:')"
-                        [class.cch-pill]="seg.startsWith('Cch:')">
-                        {{ seg }}
+    <div class="table-card mat-elevation-z1 table-relative-container">
+      <!-- Loading Progress Bar & Overlay -->
+      <mat-progress-bar mode="indeterminate" *ngIf="isStudentPassesLoading" class="grid-loading-bar"></mat-progress-bar>
+      <div class="grid-loading-overlay" *ngIf="isStudentPassesLoading">
+        <div class="grid-loading-content">
+          <div class="spinner-circle"></div>
+          <span>Loading student passes...</span>
+        </div>
+      </div>
+
+      <div class="table-scroll-container">
+        <table class="erp-table">
+          <thead>
+            <tr>
+              <th class="sortable-th" [class.active-sort]="studentPassSortBy === 'studentName'" (click)="onStudentPassSort('studentName')" title="Sort by Student Name">
+                <div class="th-content">
+                  <span>Student Name &amp; ID</span>
+                  <mat-icon class="sort-icon" *ngIf="studentPassSortBy === 'studentName'">{{ studentPassSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
+                  <mat-icon class="sort-icon sort-hint" *ngIf="studentPassSortBy !== 'studentName'">unfold_more</mat-icon>
+                </div>
+              </th>
+              <th class="sortable-th" [class.active-sort]="studentPassSortBy === 'routeCode'" (click)="onStudentPassSort('routeCode')" title="Sort by Route">
+                <div class="th-content">
+                  <span>Route &amp; Code</span>
+                  <mat-icon class="sort-icon" *ngIf="studentPassSortBy === 'routeCode'">{{ studentPassSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
+                  <mat-icon class="sort-icon sort-hint" *ngIf="studentPassSortBy !== 'routeCode'">unfold_more</mat-icon>
+                </div>
+              </th>
+              <th class="sortable-th" [class.active-sort]="studentPassSortBy === 'stopName'" (click)="onStudentPassSort('stopName')" title="Sort by Boarding Stop">
+                <div class="th-content">
+                  <span>Boarding Stop</span>
+                  <mat-icon class="sort-icon" *ngIf="studentPassSortBy === 'stopName'">{{ studentPassSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
+                  <mat-icon class="sort-icon sort-hint" *ngIf="studentPassSortBy !== 'stopName'">unfold_more</mat-icon>
+                </div>
+              </th>
+              <th>Timings</th>
+              <th>Trip Type</th>
+              <th class="sortable-th" [class.active-sort]="studentPassSortBy === 'monthlyFare'" (click)="onStudentPassSort('monthlyFare')" title="Sort by Monthly Fare">
+                <div class="th-content">
+                  <span>Monthly Fee</span>
+                  <mat-icon class="sort-icon" *ngIf="studentPassSortBy === 'monthlyFare'">{{ studentPassSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
+                  <mat-icon class="sort-icon sort-hint" *ngIf="studentPassSortBy !== 'monthlyFare'">unfold_more</mat-icon>
+                </div>
+              </th>
+              <th class="sortable-th" [class.active-sort]="studentPassSortBy === 'effectiveFrom'" (click)="onStudentPassSort('effectiveFrom')" title="Sort by Effective Date">
+                <div class="th-content">
+                  <span>Effective From</span>
+                  <mat-icon class="sort-icon" *ngIf="studentPassSortBy === 'effectiveFrom'">{{ studentPassSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
+                  <mat-icon class="sort-icon sort-hint" *ngIf="studentPassSortBy !== 'effectiveFrom'">unfold_more</mat-icon>
+                </div>
+              </th>
+              <th class="sortable-th" [class.active-sort]="studentPassSortBy === 'status'" (click)="onStudentPassSort('status')" title="Sort by Status">
+                <div class="th-content">
+                  <span>Status</span>
+                  <mat-icon class="sort-icon" *ngIf="studentPassSortBy === 'status'">{{ studentPassSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
+                  <mat-icon class="sort-icon sort-hint" *ngIf="studentPassSortBy !== 'status'">unfold_more</mat-icon>
+                </div>
+              </th>
+              <th style="text-align: right;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let a of studentAllocations">
+              <td>
+                <div class="user-cell">
+                  <div class="user-avatar"><mat-icon>person</mat-icon></div>
+                  <div class="user-info">
+                    <strong class="user-name">{{ a.studentName }}</strong>
+                    <div class="meta-badges-row">
+                      <ng-container *ngIf="a.studentRollNumber && a.studentRollNumber.includes(' • ')">
+                        <span 
+                          *ngFor="let seg of getRollSegments(a.studentRollNumber)" 
+                          class="badge-roll"
+                          [class.sch-pill]="seg.startsWith('Sch:')"
+                          [class.cch-pill]="seg.startsWith('Cch:')">
+                          {{ seg }}
+                        </span>
+                      </ng-container>
+                      <span class="badge-roll" *ngIf="!a.studentRollNumber || !a.studentRollNumber.includes(' • ')">
+                        Roll: {{ a.studentRollNumber || a.rollNumber || 'N/A' }}
                       </span>
-                    </ng-container>
-                    <span class="badge-roll" *ngIf="!a.studentRollNumber || !a.studentRollNumber.includes(' • ')">
-                      Roll: {{ a.studentRollNumber || a.rollNumber || 'N/A' }}
-                    </span>
-                    <span class="badge-school" *ngIf="a.studentClass || a.className" title="School Class">
-                      <mat-icon>school</mat-icon> {{ a.studentClass || a.className }}
-                    </span>
-                    <span class="badge-coaching" *ngIf="a.studentBatch || a.batchName" title="Coaching Batch">
-                      <mat-icon>menu_book</mat-icon> {{ a.studentBatch || a.batchName }}
-                    </span>
+                      <span class="badge-school" *ngIf="a.studentClass || a.className" title="School Class">
+                        <mat-icon>school</mat-icon> {{ a.studentClass || a.className }}
+                      </span>
+                      <span class="badge-coaching" *ngIf="a.studentBatch || a.batchName" title="Coaching Batch">
+                        <mat-icon>menu_book</mat-icon> {{ a.studentBatch || a.batchName }}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </td>
-            <td>
-              <span class="route-tag">{{ a.routeCode }}</span>
-              <span class="route-name-sub">{{ a.routeName }}</span>
-            </td>
-            <td><strong>{{ a.stopName }}</strong></td>
-            <td>
-              <span class="timing-badge am">{{ a.pickupTime || '—' }}</span>
-              <span class="timing-badge pm" style="margin-left: 4px;">{{ a.dropTime || '—' }}</span>
-            </td>
-            <td><span class="trip-pill">{{ a.pickupDropType }}</span></td>
-            <td>
-              <strong *ngIf="!a.isFreeAllocation" class="fare-text">₹{{ a.monthlyFare | number }}/mo</strong>
-              <span *ngIf="a.isFreeAllocation" class="free-badge">FREE PASS</span>
-            </td>
-            <td>{{ a.effectiveFrom | date:'dd MMM yyyy' }}</td>
-            <td><span class="status-pill active">{{ a.status }}</span></td>
-            <td style="text-align: right;">
-              <button mat-icon-button color="primary" (click)="openEditAllocation(a)" matTooltip="Edit Pass / Fare">
-                <mat-icon>edit</mat-icon>
-              </button>
-              <button mat-stroked-button color="primary" class="btn-sm" (click)="viewBusPass(a.id)">
-                <mat-icon>badge</mat-icon> Bus Pass
-              </button>
-              <button mat-icon-button color="warn" (click)="discontinueAllocation(a)" matTooltip="Discontinue Service">
-                <mat-icon>person_remove</mat-icon>
-              </button>
-            </td>
-          </tr>
-          <tr *ngIf="studentAllocations.length === 0">
-            <td colspan="9" class="empty-row">No active student transport passes found.</td>
-          </tr>
-        </tbody>
-      </table>
+              </td>
+              <td>
+                <span class="route-tag">{{ a.routeCode }}</span>
+                <span class="route-name-sub">{{ a.routeName }}</span>
+              </td>
+              <td><strong>{{ a.stopName }}</strong></td>
+              <td>
+                <span class="timing-badge am">{{ a.pickupTime || '—' }}</span>
+                <span class="timing-badge pm" style="margin-left: 4px;">{{ a.dropTime || '—' }}</span>
+              </td>
+              <td><span class="trip-pill">{{ a.pickupDropType }}</span></td>
+              <td>
+                <strong *ngIf="!a.isFreeAllocation" class="fare-text">₹{{ a.monthlyFare | number }}/mo</strong>
+                <span *ngIf="a.isFreeAllocation" class="free-badge">FREE PASS</span>
+              </td>
+              <td>{{ a.effectiveFrom | date:'dd MMM yyyy' }}</td>
+              <td><span class="status-pill active">{{ a.status }}</span></td>
+              <td class="actions-cell">
+                <div class="table-actions-row">
+                  <button mat-icon-button class="action-icon-btn edit-btn" (click)="openEditAllocation(a)" matTooltip="Edit Pass / Fare">
+                    <mat-icon>edit</mat-icon>
+                  </button>
+                  <button mat-icon-button class="action-icon-btn pass-btn" (click)="viewBusPass(a.id)" matTooltip="View / Print Bus Pass">
+                    <mat-icon>badge</mat-icon>
+                  </button>
+                  <button mat-icon-button class="action-icon-btn remove-btn" (click)="discontinueAllocation(a)" matTooltip="Discontinue Service">
+                    <mat-icon>person_remove</mat-icon>
+                  </button>
+                </div>
+              </td>
+            </tr>
+            <tr *ngIf="studentAllocations.length === 0 && !isStudentPassesLoading">
+              <td colspan="9" class="empty-row">No active student transport passes found matching the filters.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Server-Side Pagination Bar -->
+      <div class="erp-pagination-bar" *ngIf="studentPassTotalCount > 0">
+        <div class="pagination-info">
+          <span>Showing <strong>{{ getStudentPassStartItemIndex() }}</strong> to <strong>{{ getStudentPassEndItemIndex() }}</strong> of <strong>{{ studentPassTotalCount }}</strong> riders</span>
+          <div class="page-size-selector">
+            <label>Rows per page:</label>
+            <select [ngModel]="studentPassPageSize" (ngModelChange)="onStudentPassPageSizeChange($event)">
+              <option [value]="10">10</option>
+              <option [value]="25">25</option>
+              <option [value]="50">50</option>
+              <option [value]="100">100</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="pagination-controls">
+          <button type="button" class="page-nav-btn" [disabled]="studentPassPageNumber === 1 || isStudentPassesLoading" (click)="onStudentPassPageChange(1)" title="First Page">
+            <mat-icon>first_page</mat-icon>
+          </button>
+          <button type="button" class="page-nav-btn" [disabled]="studentPassPageNumber === 1 || isStudentPassesLoading" (click)="onStudentPassPageChange(studentPassPageNumber - 1)" title="Previous Page">
+            <mat-icon>chevron_left</mat-icon>
+          </button>
+
+          <div class="page-numbers-list">
+            <button *ngFor="let p of getStudentPassPagesArray()" type="button" class="page-num-btn" [class.active]="p === studentPassPageNumber" [disabled]="isStudentPassesLoading" (click)="onStudentPassPageChange(p)">
+              {{ p }}
+            </button>
+          </div>
+
+          <button type="button" class="page-nav-btn" [disabled]="studentPassPageNumber === studentPassTotalPages || isStudentPassesLoading" (click)="onStudentPassPageChange(studentPassPageNumber + 1)" title="Next Page">
+            <mat-icon>chevron_right</mat-icon>
+          </button>
+          <button type="button" class="page-nav-btn" [disabled]="studentPassPageNumber === studentPassTotalPages || isStudentPassesLoading" (click)="onStudentPassPageChange(studentPassTotalPages)" title="Last Page">
+            <mat-icon>last_page</mat-icon>
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -554,56 +683,60 @@
     </div>
 
     <div class="table-card mat-elevation-z1">
-      <table class="erp-table">
-        <thead>
-          <tr>
-            <th>Faculty</th>
-            <th>Emp Code</th>
-            <th>Route</th>
-            <th>Boarding Stop</th>
-            <th>Timings</th>
-            <th>Pickup/Drop</th>
-            <th>Status</th>
-            <th style="text-align: right;">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let a of teacherAllocations">
-            <td>
-              <div class="user-cell">
-                <div class="user-avatar teacher"><mat-icon>school</mat-icon></div>
-                <strong>{{ a.teacherName }}</strong>
-              </div>
-            </td>
-            <td><code>{{ a.employeeCode || 'TCH' }}</code></td>
-            <td>
-              <span class="route-tag">{{ a.routeCode }}</span>
-              <span class="route-name-sub">{{ a.routeName }}</span>
-            </td>
-            <td><strong>{{ a.stopName }}</strong></td>
-            <td>
-              <span class="timing-badge am">{{ a.pickupTime || '—' }}</span>
-              <span class="timing-badge pm" style="margin-left: 4px;">{{ a.dropTime || '—' }}</span>
-            </td>
-            <td><span class="trip-pill">{{ a.pickupDropType }}</span></td>
-            <td><span class="status-pill active">{{ a.status }}</span></td>
-            <td style="text-align: right;">
-              <button mat-icon-button color="primary" (click)="openEditAllocation(a)" matTooltip="Edit Pass / Fare">
-                <mat-icon>edit</mat-icon>
-              </button>
-              <button mat-stroked-button color="primary" class="btn-sm" (click)="viewBusPass(a.id)">
-                <mat-icon>badge</mat-icon> Pass
-              </button>
-              <button mat-icon-button color="warn" (click)="discontinueAllocation(a)" matTooltip="Discontinue Service">
-                <mat-icon>person_remove</mat-icon>
-              </button>
-            </td>
-          </tr>
-          <tr *ngIf="teacherAllocations.length === 0">
-            <td colspan="8" class="empty-row">No active faculty transport passes assigned yet.</td>
-          </tr>
-        </tbody>
-      </table>
+      <div class="table-scroll-container">
+        <table class="erp-table">
+          <thead>
+            <tr>
+              <th>Faculty</th>
+              <th>Emp Code</th>
+              <th>Route</th>
+              <th>Boarding Stop</th>
+              <th>Timings</th>
+              <th>Pickup/Drop</th>
+              <th>Status</th>
+              <th style="text-align: right;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let a of teacherAllocations">
+              <td>
+                <div class="user-cell">
+                  <div class="user-avatar teacher"><mat-icon>school</mat-icon></div>
+                  <strong>{{ a.teacherName }}</strong>
+                </div>
+              </td>
+              <td><code>{{ a.employeeCode || 'TCH' }}</code></td>
+              <td>
+                <span class="route-tag">{{ a.routeCode }}</span>
+                <span class="route-name-sub">{{ a.routeName }}</span>
+              </td>
+              <td><strong>{{ a.stopName }}</strong></td>
+              <td>
+                <span class="timing-badge am">{{ a.pickupTime || '—' }}</span>
+                <span class="timing-badge pm" style="margin-left: 4px;">{{ a.dropTime || '—' }}</span>
+              </td>
+              <td><span class="trip-pill">{{ a.pickupDropType }}</span></td>
+              <td><span class="status-pill active">{{ a.status }}</span></td>
+              <td class="actions-cell">
+                <div class="table-actions-row">
+                  <button mat-icon-button class="action-icon-btn edit-btn" (click)="openEditAllocation(a)" matTooltip="Edit Pass / Fare">
+                    <mat-icon>edit</mat-icon>
+                  </button>
+                  <button mat-icon-button class="action-icon-btn pass-btn" (click)="viewBusPass(a.id)" matTooltip="View / Print Faculty Pass">
+                    <mat-icon>badge</mat-icon>
+                  </button>
+                  <button mat-icon-button class="action-icon-btn remove-btn" (click)="discontinueAllocation(a)" matTooltip="Discontinue Service">
+                    <mat-icon>person_remove</mat-icon>
+                  </button>
+                </div>
+              </td>
+            </tr>
+            <tr *ngIf="teacherAllocations.length === 0">
+              <td colspan="8" class="empty-row">No active faculty transport passes assigned yet.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 
@@ -693,55 +826,57 @@
         </div>
       </div>
 
-      <table class="manifest-table">
-        <thead>
-          <tr>
-            <th style="width: 45px;">Sr.</th>
-            <th style="width: 80px;">Type</th>
-            <th>Commuter Name</th>
-            <th>Roll / Emp ID</th>
-            <th>Class / Batch</th>
-            <th>Boarding Stop</th>
-            <th>Scheduled Time</th>
-            <th>Emergency Phone</th>
-            <th style="width: 80px; text-align: center;">Boarded</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let p of manifest.passengers">
-            <td>{{ p.srNo }}</td>
-            <td><span class="member-tag" [class.tch]="p.memberType === 'Teacher'">{{ p.memberType }}</span></td>
-            <td>
-              <strong class="commuter-name">{{ p.name || p.memberName || 'N/A' }}</strong>
-            </td>
-            <td>
-              <div class="roll-badge-box" *ngIf="p.code">
-                <span 
-                  *ngFor="let seg of getRollSegments(p.code)" 
-                  class="roll-code-pill"
-                  [class.sch-pill]="seg.startsWith('Sch:')"
-                  [class.cch-pill]="seg.startsWith('Cch:')">
-                  {{ seg }}
-                </span>
-              </div>
-              <code *ngIf="!p.code">{{ p.rollOrEmpCode || '—' }}</code>
-            </td>
-            <td>
-              <span class="manifest-class" *ngIf="p.className">{{ p.className }}</span>
-              <span *ngIf="!p.className" class="text-muted">—</span>
-            </td>
-            <td><strong>{{ p.stopName }}</strong></td>
-            <td><span class="time-pill">{{ p.pickupTime || p.scheduledTime || '—' }}</span></td>
-            <td>{{ p.parentPhone || p.contactNumber || '—' }}</td>
-            <td style="text-align: center;">
-              <mat-checkbox [(ngModel)]="p.isBoarded"></mat-checkbox>
-            </td>
-          </tr>
-          <tr *ngIf="manifest.passengers.length === 0">
-            <td colspan="9" class="empty-row">No commuters allocated for this route and departure window.</td>
-          </tr>
-        </tbody>
-      </table>
+      <div class="table-scroll-container">
+        <table class="manifest-table">
+          <thead>
+            <tr>
+              <th style="width: 45px;">Sr.</th>
+              <th style="width: 80px;">Type</th>
+              <th>Commuter Name</th>
+              <th>Roll / Emp ID</th>
+              <th>Class / Batch</th>
+              <th>Boarding Stop</th>
+              <th>Scheduled Time</th>
+              <th>Emergency Phone</th>
+              <th style="width: 80px; text-align: center;">Boarded</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let p of manifest.passengers">
+              <td>{{ p.srNo }}</td>
+              <td><span class="member-tag" [class.tch]="p.memberType === 'Teacher'">{{ p.memberType }}</span></td>
+              <td>
+                <strong class="commuter-name">{{ p.name || p.memberName || 'N/A' }}</strong>
+              </td>
+              <td>
+                <div class="roll-badge-box" *ngIf="p.code">
+                  <span 
+                    *ngFor="let seg of getRollSegments(p.code)" 
+                    class="roll-code-pill"
+                    [class.sch-pill]="seg.startsWith('Sch:')"
+                    [class.cch-pill]="seg.startsWith('Cch:')">
+                    {{ seg }}
+                  </span>
+                </div>
+                <code *ngIf="!p.code">{{ p.rollOrEmpCode || '—' }}</code>
+              </td>
+              <td>
+                <span class="manifest-class" *ngIf="p.className">{{ p.className }}</span>
+                <span *ngIf="!p.className" class="text-muted">—</span>
+              </td>
+              <td><strong>{{ p.stopName }}</strong></td>
+              <td><span class="time-pill">{{ p.pickupTime || p.scheduledTime || '—' }}</span></td>
+              <td>{{ p.parentPhone || p.contactNumber || '—' }}</td>
+              <td style="text-align: center;">
+                <mat-checkbox [(ngModel)]="p.isBoarded"></mat-checkbox>
+              </td>
+            </tr>
+            <tr *ngIf="manifest.passengers.length === 0">
+              <td colspan="9" class="empty-row">No commuters allocated for this route and departure window.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
       <!-- Official Print Footer (Shown when printing clipboard sheet) -->
       <div class="manifest-print-footer">
@@ -774,61 +909,63 @@
     </div>
 
     <div class="table-card mat-elevation-z1">
-      <table class="erp-table">
-        <thead>
-          <tr>
-            <th>Pass #</th>
-            <th>Pass Type</th>
-            <th>Person / Student / Vehicle</th>
-            <th>Purpose</th>
-            <th>Out Time</th>
-            <th>Expected In</th>
-            <th>Actual In</th>
-            <th>Approved By</th>
-            <th>Status</th>
-            <th style="text-align: right;">Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let g of gatePasses">
-            <td><strong class="pass-no">{{ g.passNumber }}</strong></td>
-            <td><span class="gate-type-pill" [ngClass]="g.passType.toLowerCase()">{{ g.passType }}</span></td>
-            <td>
-              <div class="person-line">
-                <strong *ngIf="g.studentName">{{ g.studentName }} (Roll: {{ g.studentRollNumber || g.rollNumber || 'N/A' }})</strong>
-                <strong *ngIf="g.teacherName">{{ g.teacherName }} (Staff)</strong>
-                <strong *ngIf="g.vehicleNumber">Bus {{ g.vehicleNumber }} (Pax: {{ g.passengerCount || 0 }})</strong>
-                <strong *ngIf="g.personName">{{ g.personName }} (Visitor)</strong>
-                <span class="contact-sub" *ngIf="g.contactNumber">&bull; {{ g.contactNumber }}</span>
-              </div>
-            </td>
-            <td>{{ g.purpose }}</td>
-            <td>{{ g.outDateTime | date:'dd MMM, hh:mm a' }}</td>
-            <td>{{ g.expectedInDateTime ? (g.expectedInDateTime | date:'dd MMM, hh:mm a') : '—' }}</td>
-            <td>
-              <span *ngIf="g.actualInDateTime" class="in-time">{{ g.actualInDateTime | date:'dd MMM, hh:mm a' }}</span>
-              <span *ngIf="!g.actualInDateTime" class="out-status">Still Outside</span>
-            </td>
-            <td>{{ g.approvedBy || 'Security' }}</td>
-            <td>
-              <span class="status-pill" [class.active]="g.status === 'Closed'" [class.pending]="g.status === 'Issued'">
-                {{ g.status }}
-              </span>
-            </td>
-            <td style="text-align: right;">
-              <button *ngIf="g.status === 'Issued'" mat-flat-button color="accent" class="btn-sm" (click)="openCloseGatePass(g)">
-                <mat-icon>login</mat-icon> Mark Return
-              </button>
-              <span *ngIf="g.status === 'Closed'" class="closed-label">
-                <mat-icon>verified</mat-icon> Closed
-              </span>
-            </td>
-          </tr>
-          <tr *ngIf="gatePasses.length === 0">
-            <td colspan="10" class="empty-row">No campus gate passes registered yet today.</td>
-          </tr>
-        </tbody>
-      </table>
+      <div class="table-scroll-container">
+        <table class="erp-table">
+          <thead>
+            <tr>
+              <th>Pass #</th>
+              <th>Pass Type</th>
+              <th>Person / Student / Vehicle</th>
+              <th>Purpose</th>
+              <th>Out Time</th>
+              <th>Expected In</th>
+              <th>Actual In</th>
+              <th>Approved By</th>
+              <th>Status</th>
+              <th style="text-align: right;">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let g of gatePasses">
+              <td><strong class="pass-no">{{ g.passNumber }}</strong></td>
+              <td><span class="gate-type-pill" [ngClass]="g.passType.toLowerCase()">{{ g.passType }}</span></td>
+              <td>
+                <div class="person-line">
+                  <strong *ngIf="g.studentName">{{ g.studentName }} (Roll: {{ g.studentRollNumber || g.rollNumber || 'N/A' }})</strong>
+                  <strong *ngIf="g.teacherName">{{ g.teacherName }} (Staff)</strong>
+                  <strong *ngIf="g.vehicleNumber">Bus {{ g.vehicleNumber }} (Pax: {{ g.passengerCount || 0 }})</strong>
+                  <strong *ngIf="g.personName">{{ g.personName }} (Visitor)</strong>
+                  <span class="contact-sub" *ngIf="g.contactNumber">&bull; {{ g.contactNumber }}</span>
+                </div>
+              </td>
+              <td>{{ g.purpose }}</td>
+              <td>{{ g.outDateTime | date:'dd MMM, hh:mm a' }}</td>
+              <td>{{ g.expectedInDateTime ? (g.expectedInDateTime | date:'dd MMM, hh:mm a') : '—' }}</td>
+              <td>
+                <span *ngIf="g.actualInDateTime" class="in-time">{{ g.actualInDateTime | date:'dd MMM, hh:mm a' }}</span>
+                <span *ngIf="!g.actualInDateTime" class="out-status">Still Outside</span>
+              </td>
+              <td>{{ g.approvedBy || 'Security' }}</td>
+              <td>
+                <span class="status-pill" [class.active]="g.status === 'Closed'" [class.pending]="g.status === 'Issued'">
+                  {{ g.status }}
+                </span>
+              </td>
+              <td style="text-align: right;">
+                <button *ngIf="g.status === 'Issued'" mat-flat-button color="accent" class="btn-sm" (click)="openCloseGatePass(g)">
+                  <mat-icon>login</mat-icon> Mark Return
+                </button>
+                <span *ngIf="g.status === 'Closed'" class="closed-label">
+                  <mat-icon>verified</mat-icon> Closed
+                </span>
+              </td>
+            </tr>
+            <tr *ngIf="gatePasses.length === 0">
+              <td colspan="10" class="empty-row">No campus gate passes registered yet today.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 </div>

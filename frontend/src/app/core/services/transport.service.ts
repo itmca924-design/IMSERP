@@ -4,6 +4,16 @@ import { Observable } from 'rxjs';
 
 const API_BASE = 'http://localhost:5000/api';
 
+export interface PagedResult<T> {
+  items: T[];
+  totalCount: number;
+  pageNumber: number;
+  pageSize: number;
+  totalPages: number;
+  hasPreviousPage: boolean;
+  hasNextPage: boolean;
+}
+
 export interface TransportOverviewDto {
   totalVehicles: number;
   activeRoutes: number;
@@ -394,6 +404,35 @@ export class TransportService {
     if (routeId) params = params.set('routeId', routeId);
     if (search) params = params.set('search', search);
     return this.http.get<TransportAllocationDto[]>(`${API_BASE}/transport/allocations`, { params });
+  }
+
+  getAllocationsPaged(params: {
+    memberType?: string;
+    classId?: string;
+    sectionId?: string;
+    batchId?: string;
+    routeId?: string;
+    status?: string;
+    search?: string;
+    sortBy?: string;
+    sortDirection?: string;
+    pageNumber?: number;
+    pageSize?: number;
+  }): Observable<PagedResult<TransportAllocationDto>> {
+    let httpParams = new HttpParams();
+    if (params.memberType) httpParams = httpParams.set('memberType', params.memberType);
+    if (params.classId) httpParams = httpParams.set('classId', params.classId);
+    if (params.sectionId) httpParams = httpParams.set('sectionId', params.sectionId);
+    if (params.batchId) httpParams = httpParams.set('batchId', params.batchId);
+    if (params.routeId) httpParams = httpParams.set('routeId', params.routeId);
+    if (params.status) httpParams = httpParams.set('status', params.status);
+    if (params.search) httpParams = httpParams.set('search', params.search);
+    if (params.sortBy) httpParams = httpParams.set('sortBy', params.sortBy);
+    if (params.sortDirection) httpParams = httpParams.set('sortDirection', params.sortDirection);
+    if (params.pageNumber) httpParams = httpParams.set('pageNumber', params.pageNumber.toString());
+    if (params.pageSize) httpParams = httpParams.set('pageSize', params.pageSize.toString());
+
+    return this.http.get<PagedResult<TransportAllocationDto>>(`${API_BASE}/transport/allocations/paged`, { params: httpParams });
   }
 
   getAllocation(id: string): Observable<TransportAllocationDto> {

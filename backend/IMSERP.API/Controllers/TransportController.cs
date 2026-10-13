@@ -222,6 +222,78 @@ public class TransportController : ControllerBase
         return Ok(allocations.Select(a => MapAllocationDto(a)));
     }
 
+    [HttpGet("allocations/paged")]
+    public async Task<ActionResult<PagedResult<TransportAllocationDto>>> GetAllocationsPaged(
+        [FromQuery] string? memberType = null,
+        [FromQuery] Guid? classId = null,
+        [FromQuery] Guid? sectionId = null,
+        [FromQuery] Guid? batchId = null,
+        [FromQuery] Guid? routeId = null,
+        [FromQuery] string? status = "Active",
+        [FromQuery] string? search = null,
+        [FromQuery] string? sortBy = "createdAt",
+        [FromQuery] string? sortDirection = "desc",
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10)
+    {
+        await AutoHealInactiveTeacherTransportAllocationsAsync();
+
+        if (pageNumber < 1) pageNumber = 1;
+        if (pageSize < 1) pageSize = 10;
+        if (pageSize > 100) pageSize = 100;
+
+        var query = _db.TransportAllocations.AsNoTracking()
+            .Include(a => a.Student).ThenInclude(s => s!.Class)
+            .Include(a => a.Student).ThenInclude(s => s!.Section)
+            .Include(a => a.Student).ThenInclude(s => s!.Batch)
+            .Include(a => a.Teacher)
+            .Include(a => a.Route)
+            .Include(a => a.Stop)
+            .Include(a => a.Vehicle)
+            .AsQueryable();
+
+        if (!string.IsNullOrEmpty(memberType)) query = query.Where(a => a.MemberType == memberType);
+        if (classId.HasValue) query = query.Where(a => a.Student != null && a.Student.ClassId == classId.Value);
+        if (sectionId.HasValue) query = query.Where(a => a.Student != null && a.Student.SectionId == sectionId.Value);
+        if (batchId.HasValue) query = query.Where(a => a.Student != null && a.Student.BatchId == batchId.Value);
+        if (routeId.HasValue) query = query.Where(a => a.RouteId == routeId.Value);
+        if (!string.IsNullOrEmpty(status) && status != "All") query = query.Where(a => a.Status == status);
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim().ToLower();
+            query = query.Where(a =>
+                (a.Student != null && a.Student.StudentName.ToLower().Contains(term)) ||
+                (a.Student != null && a.Student.SchoolRollNumber != null && a.Student.SchoolRollNumber.ToLower().Contains(term)) ||
+                (a.Student != null && a.Student.RollNumber != null && a.Student.RollNumber.ToLower().Contains(term)) ||
+                (a.Student != null && a.Student.AdmissionNumber != null && a.Student.AdmissionNumber.ToLower().Contains(term)) ||
+                (a.Teacher != null && a.Teacher.FullName.ToLower().Contains(term)) ||
+                (a.Route != null && a.Route.RouteName.ToLower().Contains(term)) ||
+                (a.Route != null && a.Route.RouteCode.ToLower().Contains(term)) ||
+                (a.Stop != null && a.Stop.StopName.ToLower().Contains(term)));
+        }
+
+        var isAsc = string.Equals(sortDirection, "asc", StringComparison.OrdinalIgnoreCase);
+        query = (sortBy?.ToLower()) switch
+        {
+            "studentname" => isAsc ? query.OrderBy(a => a.Student != null ? a.Student.StudentName : (a.Teacher != null ? a.Teacher.FullName : ""))
+                                   : query.OrderByDescending(a => a.Student != null ? a.Student.StudentName : (a.Teacher != null ? a.Teacher.FullName : "")),
+            "routecode" => isAsc ? query.OrderBy(a => a.Route != null ? a.Route.RouteCode : "")
+                                 : query.OrderByDescending(a => a.Route != null ? a.Route.RouteCode : ""),
+            "stopname" => isAsc ? query.OrderBy(a => a.Stop != null ? a.Stop.StopName : "")
+                                : query.OrderByDescending(a => a.Stop != null ? a.Stop.StopName : ""),
+            "monthlyfare" => isAsc ? query.OrderBy(a => a.MonthlyFare) : query.OrderByDescending(a => a.MonthlyFare),
+            "effectivefrom" => isAsc ? query.OrderBy(a => a.EffectiveFrom) : query.OrderByDescending(a => a.EffectiveFrom),
+            "status" => isAsc ? query.OrderBy(a => a.Status) : query.OrderByDescending(a => a.Status),
+            _ => isAsc ? query.OrderBy(a => a.CreatedAt) : query.OrderByDescending(a => a.CreatedAt)
+        };
+
+        var totalCount = await query.CountAsync();
+        var items = await query.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync();
+
+        return Ok(new PagedResult<TransportAllocationDto>(items.Select(MapAllocationDto), totalCount, pageNumber, pageSize));
+    }
+
     [HttpGet("allocations/{id}")]
     public async Task<ActionResult<TransportAllocationDto>> GetAllocation(Guid id)
     {

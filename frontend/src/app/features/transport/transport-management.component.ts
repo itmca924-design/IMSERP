@@ -101,6 +101,19 @@ export class TransportManagementComponent implements OnInit {
   manifestRouteId = '';
   manifestDeparture = 'Morning';
 
+  // Server-side Student Passes Table State
+  studentPassFilterClass: string = 'ALL';
+  studentPassFilterRoute: string = 'ALL';
+  studentPassSearch: string = '';
+  studentPassSortBy: string = 'createdAt';
+  studentPassSortDirection: 'asc' | 'desc' = 'desc';
+  studentPassPageNumber: number = 1;
+  studentPassPageSize: number = 10;
+  studentPassTotalCount: number = 0;
+  studentPassTotalPages: number = 0;
+  isStudentPassesLoading: boolean = false;
+  allActiveStudentAllocations: TransportAllocationDto[] = [];
+
   // Modals visibility
   showVehicleModal = false;
   showDriverModal = false;
@@ -312,9 +325,9 @@ export class TransportManagementComponent implements OnInit {
 
   loadAllocations(): void {
     this.loading = true;
-    this.transportService.getAllocations(undefined, undefined, 'Active', this.allocationSearch).subscribe({
+    this.transportService.getAllocations(undefined, undefined, 'Active').subscribe({
       next: (res) => {
-        this.studentAllocations = res.filter(a => a.memberType === 'Student');
+        this.allActiveStudentAllocations = res.filter(a => a.memberType === 'Student');
         this.teacherAllocations = res.filter(a => a.memberType === 'Teacher');
         this.rebuildClassFiltersAndGroups();
         this.loading = false;
@@ -324,6 +337,124 @@ export class TransportManagementComponent implements OnInit {
         this.loading = false;
       }
     });
+    this.loadStudentAllocationsPaged();
+  }
+
+  loadStudentAllocationsPaged(): void {
+    this.isStudentPassesLoading = true;
+
+    let classId: string | undefined;
+    let sectionId: string | undefined;
+    let batchId: string | undefined;
+
+    if (this.studentPassFilterClass.startsWith('CLASS_')) {
+      classId = this.studentPassFilterClass.replace('CLASS_', '');
+    } else if (this.studentPassFilterClass.startsWith('SECTION_')) {
+      const parts = this.studentPassFilterClass.split('_');
+      classId = parts[1];
+      sectionId = parts[2];
+    } else if (this.studentPassFilterClass.startsWith('BATCH_')) {
+      batchId = this.studentPassFilterClass.replace('BATCH_', '');
+    }
+
+    const routeId = this.studentPassFilterRoute !== 'ALL' ? this.studentPassFilterRoute : undefined;
+
+    this.transportService.getAllocationsPaged({
+      memberType: 'Student',
+      classId,
+      sectionId,
+      batchId,
+      routeId,
+      status: 'Active',
+      search: this.studentPassSearch?.trim() || undefined,
+      sortBy: this.studentPassSortBy,
+      sortDirection: this.studentPassSortDirection,
+      pageNumber: this.studentPassPageNumber,
+      pageSize: this.studentPassPageSize
+    }).subscribe({
+      next: (res) => {
+        this.studentAllocations = res.items || [];
+        this.studentPassTotalCount = res.totalCount || 0;
+        this.studentPassTotalPages = res.totalPages || Math.ceil(this.studentPassTotalCount / this.studentPassPageSize) || 1;
+        this.isStudentPassesLoading = false;
+      },
+      error: (err) => {
+        console.error('Failed to load paginated student passes', err);
+        this.isStudentPassesLoading = false;
+      }
+    });
+  }
+
+  onStudentPassSort(column: string): void {
+    if (this.studentPassSortBy === column) {
+      this.studentPassSortDirection = this.studentPassSortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+      this.studentPassSortBy = column;
+      this.studentPassSortDirection = 'asc';
+    }
+    this.studentPassPageNumber = 1;
+    this.loadStudentAllocationsPaged();
+  }
+
+  onStudentPassSearchChange(): void {
+    this.studentPassPageNumber = 1;
+    this.loadStudentAllocationsPaged();
+  }
+
+  onStudentPassClassFilterChange(): void {
+    this.studentPassPageNumber = 1;
+    this.loadStudentAllocationsPaged();
+  }
+
+  onStudentPassRouteChange(): void {
+    this.studentPassPageNumber = 1;
+    this.loadStudentAllocationsPaged();
+  }
+
+  resetStudentPassFilters(): void {
+    this.studentPassSearch = '';
+    this.studentPassFilterClass = 'ALL';
+    this.studentPassFilterRoute = 'ALL';
+    this.studentPassSortBy = 'createdAt';
+    this.studentPassSortDirection = 'desc';
+    this.studentPassPageNumber = 1;
+    this.loadStudentAllocationsPaged();
+  }
+
+  onStudentPassPageChange(page: number): void {
+    if (page < 1 || page > this.studentPassTotalPages || page === this.studentPassPageNumber) return;
+    this.studentPassPageNumber = page;
+    this.loadStudentAllocationsPaged();
+  }
+
+  onStudentPassPageSizeChange(size: number | string): void {
+    this.studentPassPageSize = Number(size);
+    this.studentPassPageNumber = 1;
+    this.loadStudentAllocationsPaged();
+  }
+
+  getStudentPassStartItemIndex(): number {
+    if (this.studentPassTotalCount === 0) return 0;
+    return (this.studentPassPageNumber - 1) * this.studentPassPageSize + 1;
+  }
+
+  getStudentPassEndItemIndex(): number {
+    return Math.min(this.studentPassPageNumber * this.studentPassPageSize, this.studentPassTotalCount);
+  }
+
+  getStudentPassPagesArray(): number[] {
+    const total = this.studentPassTotalPages;
+    const current = this.studentPassPageNumber;
+    if (total <= 5) {
+      return Array.from({ length: total }, (_, i) => i + 1);
+    }
+    if (current <= 3) {
+      return [1, 2, 3, 4, 5];
+    }
+    if (current >= total - 2) {
+      return [total - 4, total - 3, total - 2, total - 1, total];
+    }
+    return [current - 2, current - 1, current, current + 1, current + 2];
   }
 
   loadGatePasses(): void {
@@ -870,7 +1001,8 @@ export class TransportManagementComponent implements OnInit {
 
   // --- Multi-Student & Pass Assignment Helpers ---
   getActiveAllocationForStudent(studentId: string): TransportAllocationDto | undefined {
-    return this.studentAllocations.find(a => a.studentId === studentId && (a.status === 'Active' || !a.status));
+    return this.allActiveStudentAllocations.find(a => a.studentId === studentId && (a.status === 'Active' || !a.status))
+      || this.studentAllocations.find(a => a.studentId === studentId && (a.status === 'Active' || !a.status));
   }
 
   isStudentAssigned(studentId: string): boolean {
