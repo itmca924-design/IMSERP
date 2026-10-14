@@ -19,8 +19,9 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { ApplyStudentRegularizationDialogComponent, StudentAttendanceRegularizationDto } from './student-regularization-dialog.component';
 import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.directive';
+import { environment } from '../../../environments/environment';
 
-const API_BASE = 'http://localhost:5000';
+const API_BASE = environment.apiBaseUrl;
 
 @Component({
   selector: 'app-my-student-profile',
@@ -2450,7 +2451,7 @@ export class MyStudentProfileComponent implements OnInit {
 
   loadMyRegularizations(): void {
     this.loadingRegularizations = true;
-    this.http.get<StudentAttendanceRegularizationDto[]>(`${API_BASE}/api/student-regularizations`).subscribe({
+    this.http.get<StudentAttendanceRegularizationDto[]>(`${environment.apiUrl}/student-regularizations`).subscribe({
       next: (list) => {
         this.myRegularizations = list || [];
         this.loadingRegularizations = false;
@@ -2474,7 +2475,7 @@ export class MyStudentProfileComponent implements OnInit {
 
   cancelMyRegularization(reg: StudentAttendanceRegularizationDto): void {
     if (!confirm(`Are you sure you want to cancel the regularization request for ${reg.attendanceDate}?`)) return;
-    this.http.delete(`${API_BASE}/api/student-regularizations/${reg.id}`).subscribe({
+    this.http.delete(`${environment.apiUrl}/student-regularizations/${reg.id}`).subscribe({
       next: () => {
         this.loadMyRegularizations();
         this.confirmDialog.alert('Cancelled', 'Your regularization request has been cancelled.', 'info');
@@ -2980,7 +2981,7 @@ export class MyStudentProfileComponent implements OnInit {
   getPhotoUrl(photo?: string | null): string {
     if (!photo) return '';
     if (photo.startsWith('http') || photo.startsWith('data:')) return photo;
-    return `${API_BASE}${photo.startsWith('/') ? '' : '/'}${photo}`;
+    return `${environment.apiBaseUrl}${photo.startsWith('/') ? '' : '/'}${photo}`;
   }
 
   getInitials(name?: string): string {

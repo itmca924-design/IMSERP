@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, Subject } from 'rxjs';
 import { tap } from 'rxjs/operators';
+import { environment } from '../../../environments/environment';
 
 export interface BranchDto {
   id: string;
@@ -37,7 +38,7 @@ export interface UpdateBranchDto {
   providedIn: 'root'
 })
 export class BranchService {
-  private readonly API_URL = 'http://localhost:5000/api/branches';
+  private readonly API_URL = `${environment.apiUrl}/branches`;
   private branchesChanged$ = new Subject<void>();
 
   get branchesChanged(): Observable<void> {

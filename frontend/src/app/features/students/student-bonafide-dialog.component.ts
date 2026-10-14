@@ -10,8 +10,9 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatRadioModule } from '@angular/material/radio';
+import { environment } from '../../../environments/environment';
 
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = environment.apiUrl;
 
 export interface BonafideCertificateDto {
   studentId: string; studentName: string; admissionNumber?: string;
@@ -490,7 +491,7 @@ export class StudentBonafideDialogComponent implements OnInit {
   getPhotoUrl(path: string): string {
     if (!path) return '';
     if (path.startsWith('http')||path.startsWith('data:')) return path;
-    return `http://localhost:5000${path}`;
+    return `${environment.apiBaseUrl}${path}`;
   }
 
   imgErr(e: Event): void { (e.target as HTMLImageElement).style.display = 'none'; }

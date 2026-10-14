@@ -1,4 +1,6 @@
-export const API_BASE = 'http://localhost:5000/api';
+import { environment } from '../../../environments/environment';
+
+export const API_BASE = environment.apiUrl;
 
 export interface TeacherDto {
   id: string; employeeCode: string; fullName: string; fatherName?: string;

@@ -1,7 +1,8 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { API_BASE, HolidayDto } from '../../features/teachers/teacher.models';
+import { HolidayDto } from '../../features/teachers/teacher.models';
+import { environment } from '../../../environments/environment';
 
 export interface MenuItem {
   id: string;
@@ -19,7 +20,7 @@ export interface MenuItem {
   providedIn: 'root'
 })
 export class MenuService {
-  private readonly BASE_URL = 'http://localhost:5000/api/menu';
+  private readonly BASE_URL = `${environment.apiUrl}/menu`;
 
   constructor(private http: HttpClient) {}
 
@@ -32,7 +33,7 @@ export class MenuService {
   }
 
   getHolidayCalendar(year: number, month: number): Observable<HolidayDto[]> {
-    return this.http.get<HolidayDto[]>(`${API_BASE}/holidays`, {
+    return this.http.get<HolidayDto[]>(`${environment.apiUrl}/holidays`, {
       params: { year, month, activeOnly: true }
     });
   }

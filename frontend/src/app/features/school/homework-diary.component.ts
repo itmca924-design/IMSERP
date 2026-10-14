@@ -15,8 +15,9 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
 import { AuthService } from '../../core/services/auth.service';
 import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.directive';
 import { HindiTransliterationService, HINDI_QUICK_PRESETS } from '../../core/services/hindi-transliteration.service';
+import { environment } from '../../../environments/environment';
 
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = environment.apiUrl;
 
 export interface StudentHomeworkDto {
   id: string;
@@ -3235,7 +3236,7 @@ export class HomeworkDiaryComponent implements OnInit {
   getFileUrl(url?: string): string {
     if (!url) return '';
     if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) return url;
-    return `http://localhost:5000${url.startsWith('/') ? '' : '/'}${url}`;
+    return `${environment.apiBaseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
   }
 
   loadClasses(): void {
@@ -3895,7 +3896,7 @@ export class HomeworkFormDialogComponent implements OnInit {
   getFileUrl(url?: string): string {
     if (!url) return '';
     if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) return url;
-    return `http://localhost:5000${url.startsWith('/') ? '' : '/'}${url}`;
+    return `${environment.apiBaseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
   }
 
   onFileSelected(event: any): void {
@@ -4222,7 +4223,7 @@ export class HomeworkSubmissionsDialogComponent implements OnInit {
   getFileUrl(url?: string): string {
     if (!url) return '';
     if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) return url;
-    return `http://localhost:5000${url.startsWith('/') ? '' : '/'}${url}`;
+    return `${environment.apiBaseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
   }
 
   loadRoster(): void {
@@ -4460,7 +4461,7 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
   getFileUrl(url?: string): string {
     if (!url) return '';
     if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) return url;
-    return `http://localhost:5000${url.startsWith('/') ? '' : '/'}${url}`;
+    return `${environment.apiBaseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
   }
 
   onFileSelected(event: any): void {

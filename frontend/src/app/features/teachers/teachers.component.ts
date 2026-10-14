@@ -17,6 +17,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatBadgeModule } from '@angular/material/badge';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
+import { environment } from '../../../environments/environment';
 
 
 interface TeacherDto {
@@ -636,7 +637,7 @@ interface BatchDto { id: string; name: string; subject: string; academicYear: st
   `]
 })
 export class TeachersComponent implements OnInit {
-  private api = 'http://localhost:5000/api';
+  private api = environment.apiUrl;
 
   teachers: TeacherDto[] = [];
   selectedTeacher: TeacherDto | null = null;

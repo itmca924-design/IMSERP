@@ -1,6 +1,7 @@
 import { Injectable, signal, effect, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, tap } from 'rxjs';
+import { environment } from '../../../environments/environment';
 
 export type ErpThemeMode = 'light' | 'dark' | 'auto';
 export type ErpAccentColor = 'indigo' | 'emerald' | 'blue' | 'purple' | 'amber' | 'rose' | 'teal' | 'cyan' | 'orange' | 'lime' | 'crimson' | 'slate';
@@ -73,7 +74,7 @@ const DEFAULT_SETTINGS: ErpSettingsState = {
 })
 export class QuickSettingsService {
   private http = inject(HttpClient);
-  private readonly API_URL = 'http://localhost:5000/api/automation-settings';
+  private readonly API_URL = `${environment.apiUrl}/automation-settings`;
 
   // Drawer open/close state
   readonly isDrawerOpen = signal<boolean>(false);

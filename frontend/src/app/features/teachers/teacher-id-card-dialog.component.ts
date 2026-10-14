@@ -11,6 +11,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { API_BASE, TeacherIdCardDto } from './teacher.models';
 import { AuthService } from '../../core/services/auth.service';
+import { environment } from '../../../environments/environment';
 
 export interface TeacherIdCardDialogData {
   teacherId?: string;
@@ -649,12 +650,12 @@ export class TeacherIdCardDialogComponent implements OnInit {
       return photo;
     }
     if (photo.startsWith('/uploads/')) {
-      return `http://localhost:5000${photo}`;
+      return `${environment.apiBaseUrl}${photo}`;
     }
     if (photo.startsWith('/')) {
       return photo;
     }
-    return `http://localhost:5000/${photo}`;
+    return `${environment.apiBaseUrl}/${photo}`;
   }
 
   ngOnInit() {

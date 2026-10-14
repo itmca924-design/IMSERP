@@ -32,13 +32,35 @@
             "optimization": {
               "fonts": false
             }
-          }
+          },
+          "configurations": {
+            "production": {
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.prod.ts"
+                }
+              ]
+            },
+            "development": {
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true
+            }
+          },
+          "defaultConfiguration": "production"
         },
         "serve": {
           "builder": "@angular-devkit/build-angular:dev-server",
-          "options": {
-            "buildTarget": "imserp-frontend:build"
-          }
+          "configurations": {
+            "production": {
+              "buildTarget": "imserp-frontend:build:production"
+            },
+            "development": {
+              "buildTarget": "imserp-frontend:build:development"
+            }
+          },
+          "defaultConfiguration": "development"
         }
       }
     }

@@ -17,6 +17,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { RoleDto, RolesService } from '../../core/services/roles.service';
 import { BranchDto, BranchService } from '../../core/services/branch.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
+import { environment } from '../../../environments/environment';
 
 /** Immediate Error State Matcher so errors & duplicates show up as soon as typed/invalid */
 export class ImmediateErrorStateMatcher implements ErrorStateMatcher {
@@ -759,9 +760,9 @@ export class UserDialogComponent implements OnInit, OnDestroy {
   getPhotoUrl(photo?: string | null): string {
     if (!photo) return '';
     if (photo.startsWith('http://') || photo.startsWith('https://') || photo.startsWith('data:')) return photo;
-    if (photo.startsWith('/uploads/')) return `http://localhost:5000${photo}`;
+    if (photo.startsWith('/uploads/')) return `${environment.apiBaseUrl}${photo}`;
     if (photo.startsWith('/')) return photo;
-    return `http://localhost:5000/${photo}`;
+    return `${environment.apiBaseUrl}/${photo}`;
   }
 
   getSelectedRoleName(): string {

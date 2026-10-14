@@ -17,3 +17,5 @@ frontend/.angular/
 # Logs and local secrets
 *.log
 appsettings.Development.json
+.env
+!.env.example

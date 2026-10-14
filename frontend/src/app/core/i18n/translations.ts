@@ -298,7 +298,7 @@ export const HI_TRANSLATIONS: Record<string, string> = {
   'Settings': 'सेटिंग्स',
 
   // Header & Tools
-  'HEADER.TITLE': 'IMSERP • स्कूल + कोचिंग ईआरपी',
+  'HEADER.TITLE': 'School ERP • स्कूल + कोचिंग ईआरपी',
   'HEADER.SEARCH_PAGES': 'पेज खोजें...',
   'HEADER.NOTIFICATIONS': 'सूचनाएं',
   'HEADER.QUICK_ACTIONS': 'त्वरित कार्य',

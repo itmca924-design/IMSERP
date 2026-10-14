@@ -15,8 +15,9 @@ import { MatTabsModule } from '@angular/material/tabs';
 import { ActivatedRoute } from '@angular/router';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { AuthService } from '../../core/services/auth.service';
+import { environment } from '../../../environments/environment';
 
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = environment.apiUrl;
 
 // ─── Interfaces ───────────────────────────────────────────────────
 

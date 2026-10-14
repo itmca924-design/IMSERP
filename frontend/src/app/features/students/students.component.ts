@@ -34,8 +34,9 @@ import { StudentProfile360DialogComponent } from './student-profile-360-dialog.c
 import { StudentRollSequencerDialogComponent } from './student-roll-sequencer-dialog.component';
 import { StudentPortalLoginDialogComponent } from './student-portal-login-dialog.component';
 import { AuthService } from '../../core/services/auth.service';
+import { environment } from '../../../environments/environment';
 
-const API_BASE = 'http://localhost:5000';
+const API_BASE = environment.apiBaseUrl;
 
 @Component({
   selector: 'app-students',

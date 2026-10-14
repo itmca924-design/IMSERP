@@ -10,8 +10,9 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { environment } from '../../../environments/environment';
 
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = environment.apiUrl;
 
 export interface StudentRegularizationDialogData {
   studentId?: string;

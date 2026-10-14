@@ -7,13 +7,14 @@ import {
   StudyMaterialStatsDto,
   StudyMaterialPagedResult
 } from './study-material.models';
+import { environment } from '../../../environments/environment';
 
 @Injectable({
   providedIn: 'root'
 })
 export class StudyMaterialService {
   private readonly http = inject(HttpClient);
-  private readonly apiUrl = 'http://localhost:5000/api/study-materials';
+  private readonly apiUrl = `${environment.apiUrl}/study-materials`;
 
   getMaterials(filters: {
     scope?: string;

@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { environment } from '../../../environments/environment';
 
 export const HINDI_QUICK_PRESETS: string[] = [
   "'अ' से 'अः' तक",
@@ -158,7 +159,7 @@ export class HindiTransliterationService {
 
     // 2. Call backend proxy endpoint (which forwards to Google Input Tools with zero CORS blocks)
     try {
-      const url = `http://localhost:5000/api/homework/transliterate?text=${encodeURIComponent(cleanWord)}&num=4`;
+      const url = `${environment.apiUrl}/homework/transliterate?text=${encodeURIComponent(cleanWord)}&num=4`;
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 2000);
 
@@ -195,7 +196,7 @@ export class HindiTransliterationService {
     // If text has English characters, try translating the full sentence via backend proxy first
     if (/[a-zA-Z]/.test(text)) {
       try {
-        const url = `http://localhost:5000/api/homework/transliterate?text=${encodeURIComponent(text.trim())}&num=2`;
+        const url = `${environment.apiUrl}/homework/transliterate?text=${encodeURIComponent(text.trim())}&num=2`;
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 2500);
 

@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../../environments/environment';
 
 export interface StudentAdmitCardItemDto {
   studentId: string;
@@ -33,7 +34,7 @@ export interface ExamAdmitCardDto {
   providedIn: 'root'
 })
 export class CoachingService {
-  private readonly BASE_URL = 'http://localhost:5000/api';
+  private readonly BASE_URL = environment.apiUrl;
 
   constructor(private http: HttpClient) {}
 

@@ -24,6 +24,7 @@ import { TranslatePipe } from '../core/pipes/translate.pipe';
 import { API_BASE, HolidayDto } from '../features/teachers/teacher.models';
 import { FooterComponent } from './footer/footer.component';
 import { QuickSettingsDrawerComponent } from './quick-settings-drawer/quick-settings-drawer.component';
+import { environment } from '../../environments/environment';
 
 @Component({
   selector: 'app-layout',
@@ -1593,7 +1594,7 @@ export class LayoutComponent implements OnInit {
       p = p.replace('.jpg', '.png');
     }
     if (p.startsWith('/uploads/')) {
-      return `http://localhost:5000${p}`;
+      return `${environment.apiBaseUrl}${p}`;
     }
     return p;
   }
@@ -1662,9 +1663,9 @@ export class LayoutComponent implements OnInit {
     const s = this.authService.hasSchoolModule();
     const c = this.authService.hasCoachingModule();
     if (s && c) return 'School + Coaching ERP';
-    if (s && !c) return 'IMSERP • School Management System';
-    if (!s && c) return 'IMSERP • Coaching & Tuitions ERP';
-    return 'IMSERP • Enterprise ERP';
+    if (s && !c) return 'School ERP • Management System';
+    if (!s && c) return 'School ERP • Coaching & Tuitions';
+    return 'School ERP • Enterprise System';
   }
 
   filterMenuByModules(menu: MenuItem[]): MenuItem[] {

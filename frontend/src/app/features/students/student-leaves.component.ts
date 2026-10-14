@@ -14,8 +14,9 @@ import { MatDividerModule } from '@angular/material/divider';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { AuthService } from '../../core/services/auth.service';
 import { RequestStudentLeaveCancellationDialogComponent, ReviewStudentLeaveCancellationDialogComponent } from './student-leave-cancel-dialog.component';
+import { environment } from '../../../environments/environment';
 
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = environment.apiUrl;
 
 export interface StudentLeaveDto {
   id: string;

@@ -11,6 +11,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { CoachingService, StudentPortalLoginInfoDto, CreateStudentPortalLoginRequestDto } from '../../core/services/coaching.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
+import { environment } from '../../../environments/environment';
 
 export interface StudentPortalLoginDialogData {
   studentId: string;
@@ -652,7 +653,7 @@ export class StudentPortalLoginDialogComponent implements OnInit {
     if (photo.startsWith('http://') || photo.startsWith('https://') || photo.startsWith('data:')) {
       return photo;
     }
-    return `http://localhost:5000${photo.startsWith('/') ? photo : '/' + photo}`;
+    return `${environment.apiBaseUrl}${photo.startsWith('/') ? photo : '/' + photo}`;
   }
 
   onStudentPhotoSelected(event: Event): void {

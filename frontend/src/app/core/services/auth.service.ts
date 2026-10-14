@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { Observable, tap } from 'rxjs';
 import { MatDialog } from '@angular/material/dialog';
+import { environment } from '../../../environments/environment';
 
 export interface BranchInfo {
   id: string;
@@ -65,7 +66,7 @@ export interface RegisterTrialTenantDto {
   providedIn: 'root'
 })
 export class AuthService {
-  private readonly API_URL = 'http://localhost:5000/api/auth';
+  private readonly API_URL = `${environment.apiUrl}/auth`;
   
   currentUser = signal<LoginResponse | null>(this.getUserFromStorage());
   selectedBranchId = signal<string | null>(this.getStoredBranchId());
@@ -249,7 +250,7 @@ export class AuthService {
       photo = photo.replace('.jpg', '.png');
     }
     if (photo.startsWith('/uploads/')) {
-      return `http://localhost:5000${photo}`;
+      return `${environment.apiBaseUrl}${photo}`;
     }
     return photo;
   }

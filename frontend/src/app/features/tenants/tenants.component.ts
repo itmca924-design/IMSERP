@@ -14,6 +14,7 @@ import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { TenantService, TenantDto, CreateTenantDto, UpdateTenantDto } from '../../core/services/tenant.service';
 import { AuthService } from '../../core/services/auth.service';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-tenants',
@@ -1439,7 +1440,7 @@ export class TenantsComponent implements OnInit {
   getPhotoUrl(photo?: string | null): string {
     if (!photo) return '';
     if (photo.startsWith('/uploads/')) {
-      return `http://localhost:5000${photo}`;
+      return `${environment.apiBaseUrl}${photo}`;
     }
     return photo;
   }

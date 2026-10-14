@@ -7,6 +7,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { StudyMaterialDto } from './study-material.models';
 import { StudyMaterialService } from './study-material.service';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-study-material-viewer-dialog',
@@ -416,7 +417,7 @@ export class StudyMaterialViewerDialogComponent {
   }
 
   sanitizeUrl(url: string): SafeResourceUrl {
-    const fullUrl = url.startsWith('http') ? url : `http://localhost:5000${url}`;
+    const fullUrl = url.startsWith('http') ? url : `${environment.apiBaseUrl}${url}`;
     return this.sanitizer.bypassSecurityTrustResourceUrl(fullUrl);
   }
 
@@ -431,7 +432,7 @@ export class StudyMaterialViewerDialogComponent {
   }
 
   downloadCurrentFile() {
-    const url = this.activeUrl.startsWith('http') ? this.activeUrl : `http://localhost:5000${this.activeUrl}`;
+    const url = this.activeUrl.startsWith('http') ? this.activeUrl : `${environment.apiBaseUrl}${this.activeUrl}`;
     const filename = this.viewingSolution && this.data.material.solutionFileName
       ? this.data.material.solutionFileName
       : this.data.material.fileName;

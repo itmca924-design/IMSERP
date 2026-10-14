@@ -38,7 +38,9 @@ export interface StudentProfile360DialogData {
   isReadOnly?: boolean;
 }
 
-const API_BASE = 'http://localhost:5000';
+import { environment } from '../../../environments/environment';
+
+const API_BASE = environment.apiBaseUrl;
 
 @Component({
   selector: 'app-student-profile-360-dialog',

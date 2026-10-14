@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../../environments/environment';
 
 export interface EventPhoto {
   id: string;
@@ -120,7 +121,7 @@ export interface PagedResult<T> {
   providedIn: 'root'
 })
 export class EventsService {
-  private apiUrl = 'http://localhost:5000/api/events';
+  private apiUrl = `${environment.apiUrl}/events`;
 
   constructor(private http: HttpClient) {}
 

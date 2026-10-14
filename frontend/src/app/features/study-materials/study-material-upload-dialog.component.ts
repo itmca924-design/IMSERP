@@ -13,6 +13,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { HttpClient } from '@angular/common/http';
 import { StudyMaterialService } from './study-material.service';
 import { StudyMaterialDto } from './study-material.models';
+import { environment } from '../../../environments/environment';
 
 export interface StudyMaterialDialogData {
   material?: StudyMaterialDto | null;
@@ -776,7 +777,7 @@ export class StudyMaterialUploadDialogComponent implements OnInit {
   onClassSelected() {
     this.form.sectionId = null;
     if (this.form.classId) {
-      this.http.get<any[]>(`http://localhost:5000/api/Subjects/classes/${this.form.classId}`).subscribe({
+      this.http.get<any[]>(`${environment.apiUrl}/Subjects/classes/${this.form.classId}`).subscribe({
         next: (res) => {
           this.classSubjects = (res || []).map(cs => ({
             id: cs.subjectId || cs.id,

@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../../environments/environment';
 
 export interface SubjectDto {
   id: string;
@@ -56,7 +57,7 @@ export interface ClassSubjectSummaryDto {
   providedIn: 'root'
 })
 export class SubjectsService {
-  private readonly BASE_URL = 'http://localhost:5000/api/subjects';
+  private readonly BASE_URL = `${environment.apiUrl}/subjects`;
 
   constructor(private http: HttpClient) {}
 

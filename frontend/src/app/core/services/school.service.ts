@@ -1,7 +1,9 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-const API_BASE = 'http://localhost:5000/api';
+import { environment } from '../../../environments/environment';
+
+const API_BASE = environment.apiUrl;
 
 export interface SchoolClassDto {
   id: string;

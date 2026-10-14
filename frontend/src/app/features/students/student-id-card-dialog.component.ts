@@ -9,9 +9,10 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
-
-const API_BASE = 'http://localhost:5000/api';
 import { AuthService } from '../../core/services/auth.service';
+import { environment } from '../../../environments/environment';
+
+const API_BASE = environment.apiUrl;
 
 export interface StudentIdCardDto {
   id: string; studentName: string; admissionNumber?: string;
@@ -281,7 +282,7 @@ export class StudentIdCardDialogComponent implements OnInit {
   getPhotoUrl(path: string): string {
     if (!path) return '';
     if (path.startsWith('http')||path.startsWith('data:')) return path;
-    return `http://localhost:5000${path}`;
+    return `${environment.apiBaseUrl}${path}`;
   }
 
   imgErr(e: Event): void {

@@ -34,6 +34,7 @@ import {
 import { SchoolService, SchoolClassDto } from '../../core/services/school.service';
 import { SubjectDialogComponent } from './subject-dialog.component';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
+import { environment } from '../../../environments/environment';
 
 interface ClassSubjectRowState {
   subjectId: string;
@@ -1088,7 +1089,7 @@ export class SubjectsComponent implements OnInit, OnDestroy {
     });
 
     // Load teaching staff
-    this.http.get<any[]>('http://localhost:5000/api/teachers?activeOnly=true&staffType=Teaching').subscribe({
+    this.http.get<any[]>(`${environment.apiUrl}/teachers?activeOnly=true&staffType=Teaching`).subscribe({
       next: (teachers) => {
         this.teachers = teachers || [];
       },

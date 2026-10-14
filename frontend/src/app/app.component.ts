@@ -5,6 +5,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialog } from '@angular/material/dialog';
 import { LoadingService } from './core/services/loading.service';
+import { BrandingService } from './core/services/branding.service';
 import { filter } from 'rxjs';
 
 @Component({
@@ -115,6 +116,7 @@ import { filter } from 'rxjs';
 export class AppComponent {
   private router = inject(Router);
   private dialog = inject(MatDialog, { optional: true });
+  private brandingService = inject(BrandingService);
 
   constructor(public loadingService: LoadingService) {
     this.router.events.pipe(

@@ -19,6 +19,7 @@ import { StudyMaterialDto, StudyMaterialStatsDto } from './study-material.models
 import { StudyMaterialUploadDialogComponent } from './study-material-upload-dialog.component';
 import { StudyMaterialViewerDialogComponent } from './study-material-viewer-dialog.component';
 import { CoachingService } from '../../core/services/coaching.service';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-study-materials',
@@ -1039,7 +1040,7 @@ export class StudyMaterialsComponent implements OnInit {
 
   onClassFilterChanged(): void {
     if (this.selectedClassId) {
-      this.http.get<any[]>(`http://localhost:5000/api/Subjects/classes/${this.selectedClassId}`).subscribe({
+      this.http.get<any[]>(`${environment.apiUrl}/Subjects/classes/${this.selectedClassId}`).subscribe({
         next: (classSubjects) => {
           const list = (classSubjects || []).map(cs => {
             const sName = cs.subjectName || cs.name || '';
@@ -1115,7 +1116,7 @@ export class StudyMaterialsComponent implements OnInit {
   }
 
   initTeacherProfile() {
-    this.http.get<any>('http://localhost:5000/api/teachers/my-class-section').subscribe({
+    this.http.get<any>(`${environment.apiUrl}/teachers/my-class-section`).subscribe({
       next: (res) => {
         this.teacherClassSection = res;
         const assignedCls = res?.assignedClasses || [];
@@ -1168,7 +1169,7 @@ export class StudyMaterialsComponent implements OnInit {
         }
 
         // Load subjects
-        this.http.get<any[]>('http://localhost:5000/api/Subjects?activeOnly=true').subscribe({
+        this.http.get<any[]>(`${environment.apiUrl}/Subjects?activeOnly=true`).subscribe({
           next: s => {
             this.allGlobalSubjects = s || [];
             if (this.selectedClassId) {
@@ -1228,7 +1229,7 @@ export class StudyMaterialsComponent implements OnInit {
           }
 
           // Load subjects
-          this.http.get<any[]>('http://localhost:5000/api/Subjects?activeOnly=true').subscribe({
+          this.http.get<any[]>(`${environment.apiUrl}/Subjects?activeOnly=true`).subscribe({
             next: s => {
               this.allGlobalSubjects = s || [];
               if (this.selectedClassId) {
@@ -1287,7 +1288,7 @@ export class StudyMaterialsComponent implements OnInit {
 
   loadMetadata() {
     // 1. Classes
-    this.http.get<any[]>('http://localhost:5000/api/school/classes?activeOnly=true').subscribe({
+    this.http.get<any[]>(`${environment.apiUrl}/school/classes?activeOnly=true`).subscribe({
       next: res => {
         this.classes = res || [];
       },
@@ -1295,7 +1296,7 @@ export class StudyMaterialsComponent implements OnInit {
     });
 
     // 2. Batches
-    this.http.get<any[]>('http://localhost:5000/api/batches?activeOnly=true').subscribe({
+    this.http.get<any[]>(`${environment.apiUrl}/batches?activeOnly=true`).subscribe({
       next: res => {
         this.batches = res || [];
       },
@@ -1303,7 +1304,7 @@ export class StudyMaterialsComponent implements OnInit {
     });
 
     // 3. Subjects
-    this.http.get<any[]>('http://localhost:5000/api/Subjects?activeOnly=true').subscribe({
+    this.http.get<any[]>(`${environment.apiUrl}/Subjects?activeOnly=true`).subscribe({
       next: res => this.subjects = res || [],
       error: () => {}
     });
@@ -1415,7 +1416,7 @@ export class StudyMaterialsComponent implements OnInit {
   }
 
   downloadMaterial(item: StudyMaterialDto) {
-    const url = item.fileUrl.startsWith('http') ? item.fileUrl : `http://localhost:5000${item.fileUrl}`;
+    const url = item.fileUrl.startsWith('http') ? item.fileUrl : `${environment.apiBaseUrl}${item.fileUrl}`;
     this.studyMaterialService.trackDownload(item.id).subscribe({
       next: res => {
         item.downloadCount = res.downloadCount;
@@ -1432,7 +1433,7 @@ export class StudyMaterialsComponent implements OnInit {
   }
 
   shareViaWhatsApp(item: StudyMaterialDto) {
-    const fileFullUrl = item.fileUrl.startsWith('http') ? item.fileUrl : `http://localhost:5000${item.fileUrl}`;
+    const fileFullUrl = item.fileUrl.startsWith('http') ? item.fileUrl : `${environment.apiBaseUrl}${item.fileUrl}`;
     const text = `📚 *Study Material Shared*: ${item.title}\n📖 *Subject*: ${item.subject} (${item.materialType})\n🔗 *Download Link*: ${fileFullUrl}\n\nShared via Apex Academy IMSERP.`;
     const waUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
     window.open(waUrl, '_blank');

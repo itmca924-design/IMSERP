@@ -41,7 +41,7 @@ import { TranslatePipe } from '../../core/pipes/translate.pipe';
             <span class="pulse-dot"></span>
             <span class="status-text">{{ 'HEADER.SYSTEM_LIVE' | translate }}</span>
           </div>
-          <div class="version-badge" matTooltip="IMSERP Micro-SaaS Engine Version">
+          <div class="version-badge" matTooltip="School ERP Engine Version">
             {{ appVersion }}
           </div>
         </div>

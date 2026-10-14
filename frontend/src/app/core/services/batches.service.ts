@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../../environments/environment';
 
 export interface BatchDto {
   id: string;
@@ -39,7 +40,7 @@ export interface PagedResult<T> {
   providedIn: 'root'
 })
 export class BatchesService {
-  private readonly BASE_URL = 'http://localhost:5000/api/batches';
+  private readonly BASE_URL = `${environment.apiUrl}/batches`;
 
   constructor(private http: HttpClient) {}
 

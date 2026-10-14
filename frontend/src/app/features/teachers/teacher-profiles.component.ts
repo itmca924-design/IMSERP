@@ -20,6 +20,7 @@ import { TeacherIdCardDialogComponent } from './teacher-id-card-dialog.component
 import { TeacherDocumentsDialogComponent } from './teacher-documents-dialog.component';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { AuthService } from '../../core/services/auth.service';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-teacher-profiles',
@@ -1917,7 +1918,7 @@ export class TeacherProfilesComponent implements OnInit {
     if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
       return url;
     }
-    return `http://localhost:5000${url.startsWith('/') ? '' : '/'}${url}`;
+    return `${environment.apiBaseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
   }
 
   openPhotoPreview(url: string, title: string) {

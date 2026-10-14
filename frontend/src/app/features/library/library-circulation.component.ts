@@ -16,6 +16,7 @@ import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { LibraryService, LibraryCirculationDto, BookCopyDto, LibrarySettingDto, LibraryMembershipPlanDto } from '../../core/services/library.service';
 import { CoachingService } from '../../core/services/coaching.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-library-circulation',
@@ -1242,7 +1243,7 @@ export class LibraryCirculationComponent implements OnInit {
   }
 
   loadTeachers(): void {
-    this.http.get<any[]>('http://localhost:5000/api/teachers?activeOnly=true').subscribe({
+    this.http.get<any[]>(`${environment.apiUrl}/teachers?activeOnly=true`).subscribe({
       next: (res) => this.teachers = res || [],
       error: (err) => console.error('Failed to load teachers for library circulation', err)
     });

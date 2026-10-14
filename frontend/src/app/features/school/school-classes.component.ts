@@ -21,6 +21,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { QuickClassTeacherDialogComponent } from './quick-class-teacher-dialog.component';
 import { SectionRoutineDialogComponent } from './section-routine-dialog.component';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-school-classes',
@@ -981,7 +982,7 @@ export class SchoolClassesComponent implements OnInit {
   }
 
   loadTeachers(): void {
-    this.http.get<any[]>('http://localhost:5000/api/teachers?activeOnly=true&staffType=Teaching').subscribe({
+    this.http.get<any[]>(`${environment.apiUrl}/teachers?activeOnly=true&staffType=Teaching`).subscribe({
       next: (res) => this.teachers = (res || []).filter(t => this.isTeachingStaff(t)),
       error: () => this.teachers = []
     });

@@ -21,6 +21,7 @@ import { RoleDto, RolesService } from '../../core/services/roles.service';
 import { BranchDto, BranchService } from '../../core/services/branch.service';
 import { UserDialogComponent } from './user-dialog.component';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-users',
@@ -738,9 +739,9 @@ export class UsersComponent implements OnInit, OnDestroy {
   getPhotoUrl(photo?: string | null): string {
     if (!photo) return '';
     if (photo.startsWith('http://') || photo.startsWith('https://') || photo.startsWith('data:')) return photo;
-    if (photo.startsWith('/uploads/')) return `http://localhost:5000${photo}`;
+    if (photo.startsWith('/uploads/')) return `${environment.apiBaseUrl}${photo}`;
     if (photo.startsWith('/')) return photo;
-    return `http://localhost:5000/${photo}`;
+    return `${environment.apiBaseUrl}/${photo}`;
   }
 
   getInitials(name?: string): string {

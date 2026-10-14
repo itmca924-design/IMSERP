@@ -16,6 +16,7 @@ import { SchoolService, SchoolClassDto, SchoolSectionDto } from '../../core/serv
 import { CoachingService } from '../../core/services/coaching.service';
 import { AuthService } from '../../core/services/auth.service';
 import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.directive';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-fee-card',
@@ -1942,7 +1943,7 @@ export class FeeCardComponent implements OnInit {
       return path;
     }
     const clean = path.startsWith('/') ? path : `/${path}`;
-    return `http://localhost:5000${clean}`;
+    return `${environment.apiBaseUrl}${clean}`;
   }
 
   onLogoError(event: any): void {

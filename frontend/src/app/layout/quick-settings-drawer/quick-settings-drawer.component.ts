@@ -276,7 +276,7 @@ export class QuickSettingsDrawerComponent implements OnInit {
   clearCacheAndReload(): void {
     this.confirmDialog.confirm(
       'Clear Local Cache',
-      'Are you sure you want to clear local cache and refresh IMSERP? Unsaved form drafts may be reset.',
+      'Are you sure you want to clear local cache and refresh School ERP? Unsaved form drafts may be reset.',
       'warning',
       'Clear & Refresh'
     ).subscribe(confirmed => {

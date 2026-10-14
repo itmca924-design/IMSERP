@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../../environments/environment';
 
 export interface TenantModulesDto {
   hasSchoolModule: boolean;
@@ -116,7 +117,7 @@ export interface MySubscriptionDto {
   providedIn: 'root'
 })
 export class TenantService {
-  private readonly API_URL = 'http://localhost:5000/api/tenants';
+  private readonly API_URL = `${environment.apiUrl}/tenants`;
 
   constructor(private http: HttpClient) {}
 

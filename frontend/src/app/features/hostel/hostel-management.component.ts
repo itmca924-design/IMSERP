@@ -34,8 +34,9 @@ import {
   GatePassPagedResultDto
 } from '../../core/services/hostel.service';
 import { CoachingService } from '../../core/services/coaching.service';
+import { environment } from '../../../environments/environment';
 
-const API_BASE = 'http://localhost:5000';
+const API_BASE = environment.apiBaseUrl;
 
 @Component({
   selector: 'app-hostel-management',
