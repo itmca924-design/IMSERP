@@ -448,4 +448,71 @@ export class FeesService {
   updateInvoiceItems(invoiceId: string, items: { feeHeadId?: string; headName: string; amount: number }[]): Observable<any> {
     return this.http.put<any>(`${this.apiUrl}/invoices/${invoiceId}/items`, { items });
   }
+
+  getStudentFeeCard(studentId: string, sessionStartYear?: number): Observable<StudentFeeCard> {
+    let params = new HttpParams();
+    if (sessionStartYear) params = params.set('sessionStartYear', sessionStartYear.toString());
+    return this.http.get<StudentFeeCard>(`${this.apiUrl}/student-fee-card/${studentId}`, { params });
+  }
+
+  getStudentFeeCardsByClass(classId?: string, sectionId?: string, batchId?: string, sessionStartYear?: number): Observable<StudentFeeCard[]> {
+    let params = new HttpParams();
+    if (classId) params = params.set('classId', classId);
+    if (sectionId) params = params.set('sectionId', sectionId);
+    if (batchId) params = params.set('batchId', batchId);
+    if (sessionStartYear) params = params.set('sessionStartYear', sessionStartYear.toString());
+    return this.http.get<StudentFeeCard[]>(`${this.apiUrl}/student-fee-cards-by-class`, { params });
+  }
 }
+
+export interface FeeCardMonthEntry {
+  monthIndex: number;
+  monthName: string;
+  monthShort: string;
+  calendarMonth: number;
+  calendarYear: number;
+  status: 'Paid' | 'PartiallyPaid' | 'Due' | 'Overdue' | 'Upcoming' | string;
+  amountPayable: number;
+  concessionAmount: number;
+  netPayable: number;
+  amountPaid: number;
+  balanceDue: number;
+  invoiceNumber?: string | null;
+  receiptNumber?: string | null;
+  paymentDate?: string | null;
+  paymentMode?: string | null;
+  remarks?: string | null;
+}
+
+export interface StudentFeeCard {
+  studentId: string;
+  studentName: string;
+  admissionNumber?: string | null;
+  rollNumber?: string | null;
+  className?: string | null;
+  sectionName?: string | null;
+  batchName?: string | null;
+  gender?: string | null;
+  joiningDate?: string | null;
+  parentName?: string | null;
+  motherName?: string | null;
+  parentWhatsAppPhone?: string | null;
+  emergencyContactPhone?: string | null;
+  address?: string | null;
+  profilePhoto?: string | null;
+  monthlyFeeRate: number;
+  sessionName: string;
+  instituteName: string;
+  instituteAddress?: string | null;
+  institutePhone?: string | null;
+  instituteEmail?: string | null;
+  instituteLogo?: string | null;
+  branchName?: string | null;
+  months: FeeCardMonthEntry[];
+  totalAnnualFee: number;
+  totalConcession: number;
+  totalPaid: number;
+  totalBalanceDue: number;
+  pendingLibraryFine: number;
+}
+

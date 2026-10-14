@@ -353,6 +353,198 @@ public class FeesController : ControllerBase
         ));
     }
 
+    [HttpGet("student-fee-card/{studentId}")]
+    public async Task<ActionResult<StudentFeeCardDto>> GetStudentFeeCard(Guid studentId, [FromQuery] int? sessionStartYear)
+    {
+        var student = await _dbContext.Students
+            .AsNoTracking()
+            .Include(s => s.Class)
+            .Include(s => s.Section)
+            .Include(s => s.Branch)
+            .Include(s => s.Batch)
+                .ThenInclude(b => b!.Branch)
+            .FirstOrDefaultAsync(s => s.Id == studentId);
+
+        if (student == null) return NotFound("Student not found");
+
+        var card = await BuildFeeCardForStudentAsync(student, sessionStartYear);
+        return Ok(card);
+    }
+
+    [HttpGet("student-fee-cards-by-class")]
+    public async Task<ActionResult<List<StudentFeeCardDto>>> GetStudentFeeCardsByClass(
+        [FromQuery] Guid? classId,
+        [FromQuery] Guid? sectionId,
+        [FromQuery] Guid? batchId,
+        [FromQuery] int? sessionStartYear)
+    {
+        var query = _dbContext.Students
+            .AsNoTracking()
+            .Include(s => s.Class)
+            .Include(s => s.Section)
+            .Include(s => s.Branch)
+            .Include(s => s.Batch)
+                .ThenInclude(b => b!.Branch)
+            .Where(s => s.IsActive != false);
+
+        if (classId.HasValue && classId.Value != Guid.Empty)
+        {
+            query = query.Where(s => s.ClassId == classId.Value);
+        }
+        if (sectionId.HasValue && sectionId.Value != Guid.Empty)
+        {
+            query = query.Where(s => s.SectionId == sectionId.Value);
+        }
+        if (batchId.HasValue && batchId.Value != Guid.Empty)
+        {
+            query = query.Where(s => s.BatchId == batchId.Value);
+        }
+
+        var students = await query.OrderBy(s => s.RollNumber).ThenBy(s => s.StudentName).ToListAsync();
+        var cards = new List<StudentFeeCardDto>();
+        foreach (var s in students)
+        {
+            cards.Add(await BuildFeeCardForStudentAsync(s, sessionStartYear));
+        }
+        return Ok(cards);
+    }
+
+    private async Task<StudentFeeCardDto> BuildFeeCardForStudentAsync(Student student, int? sessionStartYear)
+    {
+        var now = DateTime.UtcNow;
+        int startYear = sessionStartYear ?? (now.Month >= 4 ? now.Year : now.Year - 1);
+        string sessionName = $"{startYear}-{startYear + 1}";
+
+        var tenant = await _dbContext.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.Id == student.TenantId);
+        var branchName = student.Branch?.Name ?? student.Batch?.Branch?.Name;
+
+        var invoices = await _dbContext.FeeInvoices
+            .AsNoTracking()
+            .Include(i => i.Items)
+            .Where(i => i.StudentId == student.Id && i.Status != InvoiceStatus.Cancelled)
+            .ToListAsync();
+
+        var invoiceIds = invoices.Select(i => i.Id).ToList();
+
+        var payments = await _dbContext.FeePayments
+            .AsNoTracking()
+            .Where(p => invoiceIds.Contains(p.InvoiceId))
+            .OrderByDescending(p => p.PaymentDate)
+            .ToListAsync();
+
+        var monthsList = new List<FeeCardMonthEntryDto>();
+        decimal monthlyFeeRate = student.Batch?.StandardMonthlyFee ?? 0m;
+
+        for (int i = 1; i <= 12; i++)
+        {
+            int calMonth = i <= 9 ? i + 3 : i - 9;
+            int calYear = i <= 9 ? startYear : startYear + 1;
+            var monthDate = new DateTime(calYear, calMonth, 1);
+            string monthName = monthDate.ToString("MMMM yyyy");
+            string monthShort = monthDate.ToString("MMM yyyy");
+
+            var inv = invoices.FirstOrDefault(iv => iv.DueDate.Year == calYear && iv.DueDate.Month == calMonth)
+                   ?? invoices.FirstOrDefault(iv => (iv.Title != null && iv.Title.ToLower().Contains(monthDate.ToString("MMM").ToLower())) && iv.DueDate.Year == calYear);
+
+            if (inv != null)
+            {
+                var pmt = payments.FirstOrDefault(p => p.InvoiceId == inv.Id);
+                decimal payable = inv.TotalAmount;
+                decimal paid = inv.PaidAmount;
+                decimal balance = Math.Max(0m, payable - paid);
+                string status = inv.Status.ToString();
+                if (paid >= payable && payable > 0) status = "Paid";
+                else if (paid > 0 && paid < payable) status = "PartiallyPaid";
+                else if (inv.DueDate < now && paid == 0) status = "Overdue";
+                else if (paid == 0) status = "Due";
+
+                monthsList.Add(new FeeCardMonthEntryDto(
+                    i,
+                    monthName,
+                    monthShort,
+                    calMonth,
+                    calYear,
+                    status,
+                    payable,
+                    0m,
+                    payable,
+                    paid,
+                    balance,
+                    inv.InvoiceNumber,
+                    pmt?.ReceiptNumber,
+                    pmt != null ? DateTime.SpecifyKind(pmt.PaymentDate, DateTimeKind.Utc) : null,
+                    pmt?.Mode.ToString(),
+                    pmt?.Remarks ?? inv.Title
+                ));
+            }
+            else
+            {
+                bool isPast = calYear < now.Year || (calYear == now.Year && calMonth < now.Month);
+                string status = isPast ? "Due" : "Upcoming";
+
+                monthsList.Add(new FeeCardMonthEntryDto(
+                    i,
+                    monthName,
+                    monthShort,
+                    calMonth,
+                    calYear,
+                    status,
+                    monthlyFeeRate,
+                    0m,
+                    monthlyFeeRate,
+                    0m,
+                    monthlyFeeRate,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null
+                ));
+            }
+        }
+
+        decimal totalAnnualFee = monthsList.Sum(m => m.AmountPayable);
+        decimal totalConcession = monthsList.Sum(m => m.ConcessionAmount);
+        decimal totalPaid = monthsList.Sum(m => m.AmountPaid);
+        decimal totalBalanceDue = monthsList.Sum(m => m.BalanceDue);
+
+        decimal pendingLibFine = await _dbContext.LibraryCirculations
+            .Where(c => c.StudentId == student.Id && c.FineStatus == "Pending")
+            .SumAsync(c => c.FineAmount);
+
+        return new StudentFeeCardDto(
+            student.Id,
+            student.StudentName,
+            student.AdmissionNumber,
+            student.RollNumber,
+            student.Class?.Name,
+            student.Section?.Name,
+            student.Batch?.Name,
+            student.Gender,
+            student.JoiningDate,
+            student.ParentName,
+            student.MotherName,
+            student.ParentWhatsAppPhone,
+            student.EmergencyContactPhone,
+            student.Address,
+            student.ProfilePhoto,
+            monthlyFeeRate,
+            sessionName,
+            tenant?.Name ?? "Jnandeep Campus",
+            tenant?.Address ?? "Anjani, Parsa, Saran, Bihar",
+            tenant?.ContactPhone,
+            null,
+            tenant?.ProfilePhoto,
+            branchName,
+            monthsList,
+            totalAnnualFee,
+            totalConcession,
+            totalPaid,
+            totalBalanceDue,
+            pendingLibFine
+        );
+    }
+
     [HttpGet("student/{studentId:guid}/library-dues")]
     public async Task<ActionResult<StudentLibraryDuesDto>> GetStudentLibraryDues(Guid studentId)
     {
@@ -2921,23 +3113,69 @@ public class TestsController : ControllerBase
                 entities.Add(entity);
 
                 if (!item.IsAbsent) currentRank++;
+            }
 
-                if (dto.NotifyParentsViaWhatsApp)
+            if (dto.NotifyParentsViaWhatsApp)
+            {
+                var studentResults = new List<(string Name, decimal Marks, int Rank, bool Absent)>();
+
+                foreach (var item in sorted)
                 {
+                    var entity = entities.First(e => e.StudentId == item.StudentId);
                     var student = await _dbContext.Students.FindAsync(item.StudentId);
-                    if (student != null && !string.IsNullOrEmpty(student.ParentWhatsAppPhone))
+                    if (student != null)
                     {
-                        await _whatsAppService.SendTestMarksReportAsync(
-                            tenantId,
-                            student.ParentWhatsAppPhone,
-                            student.StudentName,
-                            test.Title,
-                            item.MarksObtained,
-                            test.MaxMarks,
-                            entity.Rank
-                        );
+                        studentResults.Add((student.StudentName, item.MarksObtained, entity.Rank, item.IsAbsent));
+
+                        if (!string.IsNullOrEmpty(student.ParentWhatsAppPhone))
+                        {
+                            await _whatsAppService.SendTestMarksReportAsync(
+                                tenantId,
+                                student.ParentWhatsAppPhone,
+                                student.StudentName,
+                                test.Title,
+                                item.MarksObtained,
+                                test.MaxMarks,
+                                entity.Rank
+                            );
+                        }
                     }
                 }
+
+                // Automated Class WhatsApp Group Result Announcement
+                var testClass = test.ClassId.HasValue ? await _dbContext.SchoolClasses.FindAsync(test.ClassId.Value) : null;
+                var testBatch = test.BatchId.HasValue ? await _dbContext.Batches.FindAsync(test.BatchId.Value) : null;
+                var groupTitle = testClass?.Name ?? testBatch?.Name ?? "Class Group";
+
+                var sb = new System.Text.StringBuilder();
+                sb.AppendLine($"📢 *AUTOMATED CLASS TEST RESULT: {test.Title.ToUpper()}*");
+                sb.AppendLine($"• Subject: *{test.Subject}*");
+                sb.AppendLine($"• Class / Batch: *{groupTitle}*");
+                sb.AppendLine($"• Max Marks: *{test.MaxMarks}*");
+                sb.AppendLine();
+                sb.AppendLine($"🏆 *Class Scorecard / Leaderboard:*");
+
+                foreach (var r in studentResults.OrderBy(s => s.Absent ? 1 : 0).ThenBy(s => s.Rank))
+                {
+                    if (r.Absent)
+                        sb.AppendLine($"• {r.Name}: _ABSENT_");
+                    else
+                        sb.AppendLine($"• Rank #{r.Rank}: {r.Name} — *{r.Marks}/{test.MaxMarks}*");
+                }
+
+                sb.AppendLine();
+                sb.AppendLine($"Congratulations to all students! Detailed report cards have been dispatched to parents.");
+
+                _dbContext.WhatsAppLogs.Add(new WhatsAppLog
+                {
+                    TenantId = tenantId,
+                    RecipientPhone = "CLASS-WHATSAPP-GROUP",
+                    StudentName = groupTitle,
+                    MessageType = MessageType.Announcement,
+                    Content = sb.ToString().TrimEnd(),
+                    Status = "Delivered",
+                    SentAt = DateTime.UtcNow
+                });
             }
 
             _dbContext.TestMarks.AddRange(entities);
@@ -2998,19 +3236,30 @@ public class TestsController : ControllerBase
         }
 
         test.EvaluatorTeacherId = dto.EvaluatorTeacherId ?? test.EvaluatorTeacherId;
-        test.EvaluationStatus = !string.IsNullOrWhiteSpace(dto.EvaluationStatus) ? dto.EvaluationStatus : (test.EvaluationStatus ?? "Scheduled");
+
+        if (!string.IsNullOrWhiteSpace(dto.EvaluationStatus))
+        {
+            var st = dto.EvaluationStatus.Trim();
+            if (st.Equals("Evaluating", StringComparison.OrdinalIgnoreCase))
+                test.EvaluationStatus = "CopiesUnderEvaluation";
+            else if (st.Equals("CopiesReturned", StringComparison.OrdinalIgnoreCase))
+                test.EvaluationStatus = "EvaluationCompleted";
+            else
+                test.EvaluationStatus = st;
+        }
+        else
+        {
+            test.EvaluationStatus = test.EvaluationStatus ?? "Scheduled";
+        }
+
         test.EvaluationDueDate = dto.EvaluationDueDate ?? test.EvaluationDueDate;
         test.TotalCopiesIssued = dto.TotalCopiesIssued ?? test.TotalCopiesIssued;
         test.CopiesSubmittedDate = dto.CopiesSubmittedDate ?? test.CopiesSubmittedDate;
         test.EvaluationRemarks = dto.EvaluationRemarks ?? test.EvaluationRemarks;
 
-        if (dto.CopiesSubmittedDate.HasValue && (test.EvaluationStatus == "CopiesUnderEvaluation" || test.EvaluationStatus == "Scheduled"))
+        if (dto.CopiesSubmittedDate.HasValue && (test.EvaluationStatus == "CopiesUnderEvaluation" || test.EvaluationStatus == "Scheduled" || test.EvaluationStatus == "Evaluating"))
         {
             test.EvaluationStatus = "EvaluationCompleted";
-        }
-        else if (test.EvaluatorTeacherId.HasValue && test.EvaluationStatus == "Scheduled")
-        {
-            test.EvaluationStatus = "CopiesUnderEvaluation";
         }
 
         await _dbContext.SaveChangesAsync();

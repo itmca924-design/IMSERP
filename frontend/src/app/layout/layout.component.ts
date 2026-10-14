@@ -2148,9 +2148,11 @@ export class LayoutComponent implements OnInit {
         id: '5', title: 'Academic Operations', routeUrl: '', icon: 'school', sortOrder: 5, module: 'Academic', isActive: true,
         children: [
           ...(isStudentOrParent ? [
-            { id: '51my', title: 'My Fee Ledger & Receipts', routeUrl: '/my-fees', icon: 'receipt_long', sortOrder: 1, module: 'Academic', isActive: true, children: [] }
+            { id: '51my', title: 'My Fee Ledger & Receipts', routeUrl: '/my-fees', icon: 'receipt_long', sortOrder: 1, module: 'Academic', isActive: true, children: [] },
+            { id: '51myfc', title: 'My Fee Card', routeUrl: '/fees/fee-card', icon: 'contact_page', sortOrder: 1.5, module: 'Academic', isActive: true, children: [] }
           ] : [
             { id: '51', title: 'Fee Collection', routeUrl: '/fees', icon: 'payments', sortOrder: 1, module: 'Academic', isActive: true, children: [] },
+            { id: '51fc', title: 'Student Fee Card', routeUrl: '/fees/fee-card', icon: 'contact_page', sortOrder: 1.5, module: 'Academic', isActive: true, children: [] },
             { id: '511', title: 'Fee Heads Master', routeUrl: '/fee-heads', icon: 'account_tree', sortOrder: 2, module: 'Academic', isActive: true, children: [] }
           ]),
           { id: '512', title: 'Homework & Daily Diary', routeUrl: '/school/homework', icon: 'menu_book', sortOrder: 3, module: 'Academic', isActive: true, children: [] },

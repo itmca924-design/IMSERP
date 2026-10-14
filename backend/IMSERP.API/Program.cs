@@ -2113,6 +2113,57 @@ using (var scope = app.Services.CreateScope())
                 }
                 context.SaveChanges();
             }
+
+            // Ensure 'Student Fee Card' menu item exists and has default role permissions
+            var feeCardMenu = context.MenuItems.FirstOrDefault(m => m.RouteUrl == "/fees/fee-card");
+            if (feeCardMenu == null)
+            {
+                var academicParent = context.MenuItems.FirstOrDefault(m => m.Title == "Academic Operations" || m.Id == Guid.Parse("00000000-0000-0000-0000-000000000004"));
+                feeCardMenu = new IMSERP.Domain.Entities.MenuItem
+                {
+                    Id = Guid.Parse("FEE00000-0000-0000-0000-0000000000FC"),
+                    Title = "Student Fee Card",
+                    RouteUrl = "/fees/fee-card",
+                    Icon = "contact_page",
+                    Module = "Academic",
+                    SortOrder = 2,
+                    ParentId = academicParent?.Id ?? Guid.Parse("00000000-0000-0000-0000-000000000004"),
+                    IsActive = true
+                };
+                context.MenuItems.Add(feeCardMenu);
+                context.SaveChanges();
+
+                var allRolesList = context.Roles.ToList();
+                foreach (var r in allRolesList)
+                {
+                    bool isAdmin = r.Name.Contains("Admin", StringComparison.OrdinalIgnoreCase) ||
+                                  r.Name.Contains("Director", StringComparison.OrdinalIgnoreCase) ||
+                                  r.Name.Contains("Principal", StringComparison.OrdinalIgnoreCase) ||
+                                  r.Name.Contains("Accountant", StringComparison.OrdinalIgnoreCase) ||
+                                  r.Name.Contains("Manager", StringComparison.OrdinalIgnoreCase);
+
+                    bool isReceptionistOrStaff = r.Name.Contains("Receptionist", StringComparison.OrdinalIgnoreCase) ||
+                                                r.Name.Contains("Front Desk", StringComparison.OrdinalIgnoreCase) ||
+                                                r.Name.Contains("Cashier", StringComparison.OrdinalIgnoreCase) ||
+                                                r.Name.Contains("Teacher", StringComparison.OrdinalIgnoreCase);
+
+                    if (!context.RolePermissions.Any(rp => rp.RoleId == r.Id && rp.MenuItemId == feeCardMenu.Id))
+                    {
+                        context.RolePermissions.Add(new IMSERP.Domain.Entities.RolePermission
+                        {
+                            Id = Guid.NewGuid(),
+                            RoleId = r.Id,
+                            MenuItemId = feeCardMenu.Id,
+                            CanView = isAdmin || isReceptionistOrStaff,
+                            CanCreate = isAdmin,
+                            CanEdit = isAdmin,
+                            CanDelete = isAdmin
+                        });
+                    }
+                }
+                context.SaveChanges();
+                Console.WriteLine("[Database] Auto-seeded 'Student Fee Card' menu item and role permissions.");
+            }
         }
 
         Console.WriteLine("[Database] IMSERP Database ensured and ready.");

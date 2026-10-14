@@ -2371,9 +2371,9 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
       }
     }
     .badge-scheduled {
-      background: #f1f5f9;
-      color: #475569;
-      border: 1px solid #cbd5e1;
+      background: #eff6ff;
+      color: #1e40af;
+      border: 1px solid #bfdbfe;
     }
     .badge-evaluating {
       background: #fff7ed;
@@ -4305,6 +4305,11 @@ export class TestsComponent implements OnInit {
       case 'NeedsRevision':
         return { label: 'Revision Requested', class: 'badge-revision', icon: 'error_outline' };
       case 'Scheduled':
+        return {
+          label: test.evaluatorTeacherName ? `Bundle Scheduled (${test.evaluatorTeacherName})` : 'Exam Scheduled',
+          class: 'badge-scheduled',
+          icon: 'event'
+        };
       default:
         return { label: 'Exam Scheduled', class: 'badge-scheduled', icon: 'event' };
     }
@@ -4362,11 +4367,15 @@ export class TestsComponent implements OnInit {
 
     const suggestedCopies = test.totalCopiesIssued ?? (test.studentCount || (test.totalStudentsEvaluated > 0 ? test.totalStudentsEvaluated : null));
 
+    let mappedStatus = test.evaluationStatus || 'Scheduled';
+    if (mappedStatus === 'CopiesUnderEvaluation') mappedStatus = 'Evaluating';
+    if (mappedStatus === 'EvaluationCompleted') mappedStatus = 'CopiesReturned';
+
     this.bundleForm.patchValue({
       evaluatorTeacherId: matchedTeacherId,
       totalCopiesIssued: suggestedCopies,
       evaluationDueDate: test.evaluationDueDate ? new Date(test.evaluationDueDate).toISOString().split('T')[0] : defaultDue,
-      evaluationStatus: test.evaluationStatus || 'Evaluating',
+      evaluationStatus: mappedStatus,
       copiesSubmittedDate: test.copiesSubmittedDate ? new Date(test.copiesSubmittedDate).toISOString().split('T')[0] : '',
       evaluationRemarks: test.evaluationRemarks || ''
     });

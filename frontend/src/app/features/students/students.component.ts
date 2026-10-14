@@ -18,6 +18,8 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatMenuModule } from '@angular/material/menu';
+import { MatDividerModule } from '@angular/material/divider';
 import { CoachingService } from '../../core/services/coaching.service';
 import { SchoolService, SchoolClassDto, SchoolSectionDto } from '../../core/services/school.service';
 import { HostelService, HostelDto, HostelBedDto } from '../../core/services/hostel.service';
@@ -57,6 +59,8 @@ const API_BASE = 'http://localhost:5000';
     MatTooltipModule,
     MatCheckboxModule,
     MatDialogModule,
+    MatMenuModule,
+    MatDividerModule,
     StudentProfile360DialogComponent,
     StudentRollSequencerDialogComponent,
     StudentPortalLoginDialogComponent
@@ -681,17 +685,14 @@ const API_BASE = 'http://localhost:5000';
                 <th mat-header-cell *matHeaderCellDef mat-sort-header="rollNumber">Identifiers</th>
                 <td mat-cell *matCellDef="let s">
                   <div class="id-stack">
-                    <div class="coaching-roll-pill" *ngIf="s.isCoachingStudent && (s.coachingRollNumber || s.rollNumber)">
-                      <span class="lbl">Roll:</span> <strong>{{ s.coachingRollNumber || s.rollNumber }}</strong>
-                    </div>
-                    <div class="school-adm-pill" *ngIf="s.isSchoolStudent && s.admissionNumber">
+                    <div class="school-adm-pill" *ngIf="s.admissionNumber">
                       <span class="lbl">Adm:</span> <strong>{{ s.admissionNumber }}</strong>
                     </div>
-                    <div class="school-roll-pill" *ngIf="s.isSchoolStudent && s.schoolRollNumber && !isDuplicateRoll(s.schoolRollNumber, s.admissionNumber)">
-                      <span class="lbl">School Roll:</span> <strong>{{ s.schoolRollNumber }}</strong>
+                    <div class="school-adm-pill" *ngIf="!s.admissionNumber && (s.admissionNo || s.rollNumber || s.coachingRollNumber)">
+                      <span class="lbl">Adm:</span> <strong>{{ s.admissionNo || s.rollNumber || s.coachingRollNumber }}</strong>
                     </div>
                     <div class="school-adm-date-pill" *ngIf="s.joiningDate">
-                      <span class="lbl">Adm Date:</span> <strong>{{ s.joiningDate | date:'dd MMM yyyy':'Asia/Kolkata' }}</strong>
+                      <span class="lbl">DOJ:</span> <strong>{{ s.joiningDate | date:'dd MMM yyyy':'Asia/Kolkata' }}</strong>
                     </div>
                     <div class="lib-card-pill" *ngIf="s.isLibraryMember && s.libraryCardNumber">
                       <span class="lbl">Lib:</span> <strong>{{ s.libraryCardNumber }}</strong>
@@ -755,7 +756,7 @@ const API_BASE = 'http://localhost:5000';
 
               <!-- Academic Allocation: Class & Batch -->
               <ng-container matColumnDef="batchOrClass">
-                <th mat-header-cell *matHeaderCellDef>Academic &amp; Facilities</th>
+                <th mat-header-cell *matHeaderCellDef>Academic</th>
                 <td mat-cell *matCellDef="let s">
                   <div class="academic-stack">
                     <div class="school-alloc" *ngIf="s.isSchoolStudent">
@@ -784,7 +785,7 @@ const API_BASE = 'http://localhost:5000';
 
               <!-- Parent Info -->
               <ng-container matColumnDef="parentName">
-                <th mat-header-cell *matHeaderCellDef mat-sort-header="parentName">Parent / Guardian</th>
+                <th mat-header-cell *matHeaderCellDef mat-sort-header="parentName">Guardian</th>
                 <td mat-cell *matCellDef="let s">
                   <div class="parent-cell-wrap">
                     <span class="father-name">{{ s.parentName }}</span>
@@ -799,7 +800,7 @@ const API_BASE = 'http://localhost:5000';
                 <td mat-cell *matCellDef="let s">
                   <span class="wa-phone" *ngIf="s.parentWhatsAppPhone">
                     <mat-icon class="wa-icon">chat</mat-icon>
-                    {{ s.parentWhatsAppPhone }}
+                    {{ formatDisplayPhone(s.parentWhatsAppPhone) }}
                   </span>
                   <span *ngIf="!s.parentWhatsAppPhone" class="text-muted">-</span>
                 </td>
@@ -810,91 +811,7 @@ const API_BASE = 'http://localhost:5000';
                 <th mat-header-cell *matHeaderCellDef class="text-right">Actions</th>
                 <td mat-cell *matCellDef="let s" class="text-right">
                   <div class="action-buttons">
-                    <!-- 1-Click Coaching Enrollment Button for School Students -->
-                    <button
-                      mat-stroked-button
-                      color="primary"
-                      class="btn-quick-coaching"
-                      *ngIf="authService.hasCoachingModule() && s.isSchoolStudent && !s.isCoachingStudent && s.isActive !== false"
-                      (click)="openEnrollCoachingModal(s)"
-                      matTooltip="Enroll this school student into Coaching batch">
-                      <mat-icon>add_task</mat-icon>
-                      <span>Add Coaching</span>
-                    </button>
-
-                    <!-- Active Student: Mark Left / Issue TC Button -->
-                    <button
-                      mat-icon-button
-                      class="btn-tc-action"
-                      *ngIf="s.isActive !== false"
-                      (click)="openStudentLeavingModal(s)"
-                      matTooltip="Student Leaving / Issue Transfer Certificate (TC)">
-                      <mat-icon>exit_to_app</mat-icon>
-                    </button>
-
-                    <!-- Left Student: View/Print Certificate (SLC / TC) -->
-                    <button
-                      mat-icon-button
-                      class="btn-tc-print"
-                      *ngIf="s.isActive === false"
-                      (click)="openStudentLeavingModal(s, true)"
-                      [matTooltip]="isStudentPassedOut(s) ? 'View & Print School Leaving Certificate (SLC)' : 'View & Print Transfer Certificate (TC)'">
-                      <mat-icon>{{ isStudentPassedOut(s) ? 'workspace_premium' : 'description' }}</mat-icon>
-                    </button>
-                    <!-- Re-Admit Button: ONLY for mid-session left students -->
-                    <button
-                      mat-icon-button
-                      class="btn-tc-readmit"
-                      *ngIf="s.isActive === false && !isStudentPassedOut(s)"
-                      (click)="openReAdmitModal(s)"
-                      matTooltip="Re-Admit Student (Structured Workflow)">
-                      <mat-icon>replay</mat-icon>
-                    </button>
-                    <!-- Disabled icon button for passed-out alumni wrapped in span for hover tooltip -->
-                    <span
-                      *ngIf="s.isActive === false && isStudentPassedOut(s)"
-                      matTooltip="Passed-Out Alumnus: Re-admission not permitted (Register fresh admission for higher class)"
-                      style="display: inline-block;">
-                      <button
-                        mat-icon-button
-                        disabled
-                        style="pointer-events: none;">
-                        <mat-icon style="color: #cbd5e1;">block</mat-icon>
-                      </button>
-                    </span>
-
-                    <!-- School Student: Print ID Card -->
-                    <button
-                      mat-icon-button
-                      class="btn-id-card"
-                      *ngIf="s.isSchoolStudent && s.isActive !== false"
-                      (click)="openIdCardDialog(s)"
-                      matTooltip="Print Student ID Card">
-                      <mat-icon>badge</mat-icon>
-                    </button>
-
-                    <!-- School Student: Bonafide / Character Certificate -->
-                    <button
-                      mat-icon-button
-                      class="btn-certificate"
-                      *ngIf="s.isSchoolStudent"
-                      (click)="openBonafideDialog(s)"
-                      matTooltip="Generate Bonafide / Character Certificate">
-                      <mat-icon>workspace_premium</mat-icon>
-                    </button>
-
-                    <!-- School Student: Academic Marksheet & Report Card -->
-                    <a
-                      mat-icon-button
-                      style="color: #2563eb;"
-                      *ngIf="s.isSchoolStudent && s.classId"
-                      [routerLink]="['/school/exams']"
-                      [queryParams]="{classId: s.classId}"
-                      matTooltip="School Annual Exam &amp; Marksheet">
-                      <mat-icon>analytics</mat-icon>
-                    </a>
-
-                    <!-- Student 360° Profile & KYC Vault -->
+                    <!-- Primary 1: Student 360° Profile & KYC Dossier -->
                     <button
                       mat-icon-button
                       class="btn-profile-360"
@@ -903,26 +820,111 @@ const API_BASE = 'http://localhost:5000';
                       <mat-icon>account_circle</mat-icon>
                     </button>
 
-                    <!-- Student & Parent Portal Logins Action Button -->
-                    <button
-                      mat-icon-button
-                      class="btn-portal-login"
-                      style="color: #2563eb;"
-                      (click)="openPortalLogins(s)"
-                      matTooltip="Portal Logins: Student &amp; Parent Access Accounts">
-                      <mat-icon>vpn_key</mat-icon>
-                    </button>
-
-                    <!-- Active Student: Mark Attendance (Hidden for Left / TC students) -->
-                    <a mat-icon-button color="primary" [routerLink]="['/students/attendance']" [queryParams]="{studentId: s.id}" matTooltip="Student Attendance" *ngIf="s.isActive !== false">
-                      <mat-icon>event_available</mat-icon>
-                    </a>
+                    <!-- Primary 2: Edit Student Record -->
                     <button mat-icon-button color="primary" (click)="editStudent(s)" matTooltip="Edit Student">
                       <mat-icon>edit</mat-icon>
                     </button>
-                    <button mat-icon-button color="warn" (click)="deleteStudent(s)" matTooltip="Delete Student">
-                      <mat-icon>delete</mat-icon>
+
+                    <!-- Primary 3: More Actions Dropdown Menu (⋮) -->
+                    <button mat-icon-button [matMenuTriggerFor]="studentActionMenu" matTooltip="More Actions">
+                      <mat-icon>more_vert</mat-icon>
                     </button>
+
+                    <mat-menu #studentActionMenu="matMenu" xPosition="before" class="student-actions-dropdown">
+                      <!-- 1-Click Coaching Enrollment Button for School Students -->
+                      <button
+                        mat-menu-item
+                        *ngIf="authService.hasCoachingModule() && s.isSchoolStudent && !s.isCoachingStudent && s.isActive !== false"
+                        (click)="openEnrollCoachingModal(s)">
+                        <mat-icon style="color: #7c3aed;">add_task</mat-icon>
+                        <span>Enroll in Coaching Batch</span>
+                      </button>
+
+                      <!-- School Student: Print ID Card -->
+                      <button
+                        mat-menu-item
+                        *ngIf="s.isSchoolStudent && s.isActive !== false"
+                        (click)="openIdCardDialog(s)">
+                        <mat-icon style="color: #0284c7;">badge</mat-icon>
+                        <span>Print Student ID Card</span>
+                      </button>
+
+                      <!-- School Student: Bonafide / Character Certificate -->
+                      <button
+                        mat-menu-item
+                        *ngIf="s.isSchoolStudent"
+                        (click)="openBonafideDialog(s)">
+                        <mat-icon style="color: #b45309;">workspace_premium</mat-icon>
+                        <span>Bonafide Certificate</span>
+                      </button>
+
+                      <!-- School Student: Academic Marksheet & Report Card -->
+                      <a
+                        mat-menu-item
+                        *ngIf="s.isSchoolStudent && s.classId"
+                        [routerLink]="['/school/exams']"
+                        [queryParams]="{classId: s.classId}">
+                        <mat-icon style="color: #2563eb;">analytics</mat-icon>
+                        <span>Exams &amp; Marksheets</span>
+                      </a>
+
+                      <!-- Student & Parent Portal Logins Action Button -->
+                      <button
+                        mat-menu-item
+                        (click)="openPortalLogins(s)">
+                        <mat-icon style="color: #4f46e5;">vpn_key</mat-icon>
+                        <span>Portal Logins (Access Keys)</span>
+                      </button>
+
+                      <!-- Active Student: Mark Attendance -->
+                      <a
+                        mat-menu-item
+                        [routerLink]="['/students/attendance']"
+                        [queryParams]="{studentId: s.id}"
+                        *ngIf="s.isActive !== false">
+                        <mat-icon style="color: #059669;">event_available</mat-icon>
+                        <span>View / Mark Attendance</span>
+                      </a>
+
+                      <mat-divider></mat-divider>
+
+                      <!-- Active Student: Mark Left / Issue TC Button -->
+                      <button
+                        mat-menu-item
+                        *ngIf="s.isActive !== false"
+                        (click)="openStudentLeavingModal(s)">
+                        <mat-icon style="color: #ea580c;">exit_to_app</mat-icon>
+                        <span>Student Leaving / Issue TC</span>
+                      </button>
+
+                      <!-- Left Student: View/Print Certificate (SLC / TC) -->
+                      <button
+                        mat-menu-item
+                        *ngIf="s.isActive === false"
+                        (click)="openStudentLeavingModal(s, true)">
+                        <mat-icon style="color: #0284c7;">{{ isStudentPassedOut(s) ? 'workspace_premium' : 'description' }}</mat-icon>
+                        <span>{{ isStudentPassedOut(s) ? 'Print SLC Certificate' : 'Print Transfer Certificate (TC)' }}</span>
+                      </button>
+
+                      <!-- Re-Admit Button: ONLY for mid-session left students -->
+                      <button
+                        mat-menu-item
+                        *ngIf="s.isActive === false && !isStudentPassedOut(s)"
+                        (click)="openReAdmitModal(s)">
+                        <mat-icon style="color: #16a34a;">replay</mat-icon>
+                        <span>Re-Admit Student</span>
+                      </button>
+
+                      <mat-divider></mat-divider>
+
+                      <!-- Delete Student -->
+                      <button
+                        mat-menu-item
+                        (click)="deleteStudent(s)">
+                        <mat-icon style="color: #dc2626;">delete</mat-icon>
+                        <span style="color: #dc2626;">Delete Student</span>
+                      </button>
+                    </mat-menu>
                   </div>
                 </td>
               </ng-container>
@@ -1020,6 +1022,10 @@ const API_BASE = 'http://localhost:5000';
       display: flex;
       flex-direction: column;
       gap: 16px;
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
     }
     .header-actions {
       display: flex;
@@ -1034,6 +1040,7 @@ const API_BASE = 'http://localhost:5000';
       display: flex;
       align-items: center;
       gap: 10px;
+      flex-wrap: wrap;
     }
     .promotion-link-btn {
       color: #059669 !important;
@@ -1054,7 +1061,20 @@ const API_BASE = 'http://localhost:5000';
       display: flex;
       gap: 8px;
       margin-bottom: 2px;
-      flex-wrap: wrap;
+      overflow-x: auto;
+      flex-wrap: nowrap;
+      padding-bottom: 6px;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: thin;
+      max-width: 100%;
+
+      &::-webkit-scrollbar {
+        height: 4px;
+      }
+      &::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 4px;
+      }
     }
     .stream-tab {
       display: inline-flex;
@@ -1346,21 +1366,85 @@ const API_BASE = 'http://localhost:5000';
     .photo-actions { display: flex; align-items: center; gap: 6px; }
 
     /* Directory Table */
-    .directory-container { display: flex; flex-direction: column; gap: 10px; }
-    .table-card { border-radius: 10px; overflow: hidden; }
-    .filter-toolbar {
-      padding: 16px 20px 4px 20px;
+    .directory-container {
       display: flex;
-      gap: 14px;
+      flex-direction: column;
+      gap: 10px;
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+    }
+    .table-card {
+      border-radius: 10px;
+      overflow: hidden;
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+    }
+    .filter-toolbar {
+      padding: 16px 16px 4px 16px;
+      display: flex;
+      gap: 12px;
       align-items: center;
       flex-wrap: wrap;
 
-      .search-field { width: 280px; }
-      .filter-select { width: 240px; }
-      .section-select { width: 180px; }
+      .search-field {
+        flex: 1 1 240px;
+        min-width: 180px;
+      }
+      .filter-select {
+        flex: 1 1 180px;
+        min-width: 140px;
+      }
+      .section-select {
+        flex: 1 1 140px;
+        min-width: 120px;
+      }
+      .status-select {
+        flex: 1 1 140px;
+        min-width: 120px;
+        max-width: 160px;
+      }
     }
-    .table-container { padding: 0; }
-    .full-width { width: 100%; }
+    .table-container {
+      padding: 0;
+      width: 100%;
+      max-width: 100%;
+      overflow-x: auto !important;
+      -webkit-overflow-scrolling: touch;
+      display: block;
+
+      &::-webkit-scrollbar {
+        height: 6px;
+      }
+      &::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 4px;
+      }
+      &::-webkit-scrollbar-track {
+        background: #f1f5f9;
+      }
+    }
+    .full-width {
+      width: 100%;
+      min-width: 860px;
+
+      tr.mat-mdc-row {
+        height: auto !important;
+      }
+
+      td.mat-mdc-cell {
+        padding-top: 6px !important;
+        padding-bottom: 6px !important;
+        vertical-align: middle;
+      }
+
+      th.mat-mdc-header-cell {
+        padding-top: 8px !important;
+        padding-bottom: 8px !important;
+        font-weight: 700;
+      }
+    }
     .photo-cell { width: 48px; padding-right: 0 !important; }
     .avatar-wrap {
       width: 36px;
@@ -1560,21 +1644,42 @@ const API_BASE = 'http://localhost:5000';
       .mother-name { font-size: 0.72rem; color: #64748b; }
     }
 
+    .mat-column-parentWhatsAppPhone {
+      white-space: nowrap !important;
+      min-width: 145px;
+    }
+
     .wa-phone {
       display: inline-flex;
       align-items: center;
-      gap: 5px;
+      gap: 6px;
       color: #16a34a;
       font-weight: 600;
-      font-size: 0.85rem;
-      .wa-icon { font-size: 16px; width: 16px; height: 16px; color: #16a34a; }
+      font-size: 0.83rem;
+      white-space: nowrap !important;
+      letter-spacing: 0.2px;
+      .wa-icon {
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+        color: #16a34a;
+        flex-shrink: 0;
+        vertical-align: middle;
+      }
+    }
+
+    .mat-column-actions {
+      width: 125px !important;
+      min-width: 125px !important;
+      text-align: right;
+      white-space: nowrap;
     }
 
     .action-buttons {
       display: flex;
       align-items: center;
       justify-content: flex-end;
-      gap: 4px;
+      gap: 2px;
     }
 
     .btn-quick-coaching {
@@ -1858,6 +1963,80 @@ const API_BASE = 'http://localhost:5000';
     @keyframes modalPop {
       from { transform: scale(0.94); opacity: 0; }
       to { transform: scale(1); opacity: 1; }
+    }
+
+    /* Responsive Media Queries */
+    @media (max-width: 992px) {
+      .header-actions {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .header-btns {
+        width: 100%;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .header-actions {
+        h2 { font-size: 1.25rem; }
+        p { font-size: 0.82rem; }
+      }
+
+      .header-btns {
+        gap: 6px;
+
+        a, button {
+          font-size: 0.78rem !important;
+          padding: 0 10px !important;
+          height: 32px !important;
+          line-height: 32px !important;
+
+          mat-icon {
+            font-size: 16px !important;
+            width: 16px !important;
+            height: 16px !important;
+            margin-right: 2px !important;
+          }
+        }
+
+        .add-btn {
+          flex: 1 1 100%;
+          justify-content: center;
+          height: 36px !important;
+          line-height: 36px !important;
+        }
+      }
+
+      .form-grid {
+        grid-template-columns: 1fr !important;
+      }
+      .full-span {
+        grid-column: span 1 !important;
+      }
+
+      .filter-toolbar {
+        padding: 12px 12px 2px 12px;
+        gap: 8px;
+
+        .search-field,
+        .filter-select,
+        .section-select,
+        .status-select {
+          flex: 1 1 100% !important;
+          min-width: 100% !important;
+          max-width: 100% !important;
+        }
+      }
+    }
+
+    @media (max-width: 480px) {
+      .header-btns a, .header-btns button {
+        flex: 1 1 calc(50% - 6px);
+        justify-content: center;
+      }
+      .header-btns .add-btn {
+        flex: 1 1 100%;
+      }
     }
   `]
 })
@@ -2889,6 +3068,19 @@ export class StudentsComponent implements OnInit, OnDestroy {
     }
   }
 
+  formatDisplayPhone(phone: string | null | undefined): string {
+    if (!phone) return '-';
+    const clean = phone.replace(/\s+/g, '');
+    const digits = clean.replace(/\D/g, '');
+    if (digits.length === 10) {
+      return `+91\u00A0${digits.substring(0, 5)}\u00A0${digits.substring(5)}`;
+    } else if (digits.length === 12 && digits.startsWith('91')) {
+      const main = digits.substring(2);
+      return `+91\u00A0${main.substring(0, 5)}\u00A0${main.substring(5)}`;
+    }
+    return phone.startsWith('+') ? phone : '+91\u00A0' + phone;
+  }
+
   getCalculatedAge(): { years: number; months: number; displayText: string } | null {
     const dobVal = this.studentForm.get('dateOfBirth')?.value;
     if (!dobVal) return null;
@@ -3014,7 +3206,15 @@ export class StudentsComponent implements OnInit, OnDestroy {
     }
 
     this.saving = true;
-    const cleanPhone = formVal.parentWhatsAppPhone ? formVal.parentWhatsAppPhone.replace(/\s+/g, '') : '';
+    let cleanPhone = formVal.parentWhatsAppPhone ? formVal.parentWhatsAppPhone.replace(/\s+/g, '') : '';
+    if (cleanPhone) {
+      const rawDigits = cleanPhone.replace(/\D/g, '');
+      if (rawDigits.length === 10) {
+        cleanPhone = '+91' + rawDigits;
+      } else if (rawDigits.length === 12 && rawDigits.startsWith('91')) {
+        cleanPhone = '+' + rawDigits;
+      }
+    }
     const payload = {
       ...formVal,
       isHostelStudent: !!formVal.isHostelStudent,

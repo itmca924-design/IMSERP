@@ -4532,35 +4532,44 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
       <!-- Dialog Header matching strict UI guidelines -->
       <div class="modal-header">
         <div class="header-left">
-          <div class="header-icon-box">
-            <mat-icon>print</mat-icon>
+          <div class="header-icon-box" [class.has-logo]="logoUrl && !logoFailed">
+            <img *ngIf="logoUrl && !logoFailed" [src]="logoUrl" (error)="logoFailed = true" alt="Company Logo" class="header-logo-img" />
+            <mat-icon *ngIf="!logoUrl || logoFailed">school</mat-icon>
           </div>
-          <div>
-            <h2 class="dialog-title">Student Daily Class Work &amp; Home Work Report</h2>
+          <div class="header-title-wrap">
+            <div class="title-row">
+              <h2 class="dialog-title">Daily CW &amp; HW Report</h2>
+              <span class="report-badge">Daily Diary</span>
+            </div>
             <div class="dialog-meta">
-              <span>Date: <strong>{{formattedDate}}</strong></span>
+              <span class="meta-item"><mat-icon class="meta-icon">event</mat-icon> Date: <strong>{{formattedDate}}</strong></span>
               <span class="meta-dot">&bull;</span>
-              <span>Class: <strong>{{reportHeader?.className || data.className}}</strong></span>
-              <span *ngIf="reportHeader?.sectionName || data.sectionName">({{reportHeader?.sectionName || data.sectionName}})</span>
+              <span class="meta-item"><mat-icon class="meta-icon">domain</mat-icon> Class: <strong>{{reportHeader?.className || data.className}}</strong></span>
+              <span *ngIf="reportHeader?.sectionName || data.sectionName" class="meta-sec-badge">Sec {{reportHeader?.sectionName || data.sectionName}}</span>
             </div>
           </div>
         </div>
 
         <div class="header-right-actions">
-          <button mat-flat-button class="whatsapp-btn" (click)="copyWhatsAppText()" matTooltip="Copy Formatted Summary for WhatsApp Groups">
+          <button mat-flat-button class="whatsapp-btn" (click)="copyClassSummaryWhatsApp()" matTooltip="Copy compact Class Summary (C.W. + H.W. + Absentees) - fits in photo caption without cutting">
             <mat-icon>content_copy</mat-icon>
-            <span>Copy for WhatsApp</span>
+            <span>Copy Class Summary</span>
+          </button>
+
+          <button mat-stroked-button class="whatsapp-sub-btn" (click)="copyWhatsAppText()" matTooltip="Copy full student-by-student diary (for direct chat box without photo)">
+            <mat-icon>format_list_numbered</mat-icon>
+            <span>Student-wise</span>
           </button>
 
           <button mat-flat-button class="print-action-btn" (click)="printReport()">
             <mat-icon>print</mat-icon>
             <span>Print Report (A4)</span>
           </button>
-
-          <button mat-icon-button class="close-btn" (click)="dialogRef.close()">
-            <mat-icon>close</mat-icon>
-          </button>
         </div>
+
+        <button mat-icon-button class="close-btn" (click)="dialogRef.close()" matTooltip="Close (Esc)">
+          <mat-icon>close</mat-icon>
+        </button>
       </div>
 
       <!-- Printable Report Body -->
@@ -4681,38 +4690,147 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
       flex-shrink: 0;
       background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
       border-bottom: 1px solid #bfdbfe;
-      padding: 14px 24px;
+      padding: 13px 64px 13px 22px;
       display: flex;
       justify-content: space-between;
       align-items: center;
       gap: 16px;
       position: relative;
       z-index: 10;
+      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
     }
-    .header-left { display: flex; align-items: center; gap: 14px; }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
     .header-icon-box {
-      width: 44px;
-      height: 44px;
-      border-radius: 10px;
+      width: 46px;
+      height: 46px;
+      border-radius: 12px;
       background: #2563eb;
       color: #ffffff;
       display: flex;
       align-items: center;
       justify-content: center;
       box-shadow: 0 4px 6px -1px rgba(37,99,235,0.25);
+      flex-shrink: 0;
+      overflow: hidden;
+
+      &.has-logo {
+        background: #ffffff;
+        border: 2px solid #bfdbfe;
+        box-shadow: 0 4px 10px -2px rgba(37,99,235,0.2);
+        padding: 2px;
+      }
+
+      .header-logo-img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        border-radius: 9px;
+      }
+
+      mat-icon {
+        font-size: 26px;
+        width: 26px;
+        height: 26px;
+      }
     }
-    .dialog-title { margin: 0; font-size: 18px; font-weight: 700; color: #1e3a8a; }
-    .dialog-meta { font-size: 12.5px; color: #3b82f6; display: flex; align-items: center; gap: 8px; margin-top: 2px; }
-    .dialog-meta strong { color: #1e40af; }
+    .header-title-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .title-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .dialog-title {
+      margin: 0;
+      font-size: 19px;
+      font-weight: 800;
+      color: #1e3a8a;
+      letter-spacing: -0.2px;
+      line-height: 1.2;
+    }
+    .report-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 7px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      background: #dbeafe;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+      letter-spacing: 0.2px;
+    }
+    .dialog-meta {
+      font-size: 12.5px;
+      color: #3b82f6;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+
+      .meta-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+      }
+      .meta-icon {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
+        color: #2563eb;
+      }
+      strong { color: #1e40af; font-weight: 700; }
+    }
+    .meta-sec-badge {
+      background: #eff6ff;
+      color: #1e40af;
+      border: 1px solid #bfdbfe;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+    }
     .meta-dot { font-size: 14px; opacity: 0.6; }
 
-    .header-right-actions { display: flex; align-items: center; gap: 10px; }
-    .whatsapp-btn { background: #22c55e !important; color: #ffffff !important; font-weight: 700; border-radius: 8px; font-size: 12px; height: 38px; }
+    .header-right-actions { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; }
+    .whatsapp-btn { background: #16a34a !important; color: #ffffff !important; font-weight: 700; border-radius: 8px; font-size: 11.5px; height: 36px; padding: 0 12px !important; white-space: nowrap; box-shadow: 0 2px 4px -1px rgba(22, 163, 74, 0.3); }
     .whatsapp-btn mat-icon { font-size: 16px; width: 16px; height: 16px; margin-right: 4px; }
-    .print-action-btn { background: #2563eb !important; color: #ffffff !important; font-weight: 700; border-radius: 8px; font-size: 12px; height: 38px; }
+    .whatsapp-sub-btn {
+      color: #15803d !important;
+      border: 1.5px solid #86efac !important;
+      background: #f0fdf4 !important;
+      font-weight: 700;
+      border-radius: 8px;
+      font-size: 11.5px;
+      height: 36px;
+      padding: 0 12px !important;
+      white-space: nowrap;
+      &:hover { background: #dcfce7 !important; }
+    }
+    .whatsapp-sub-btn mat-icon { font-size: 16px; width: 16px; height: 16px; margin-right: 4px; }
+    .print-action-btn { background: #2563eb !important; color: #ffffff !important; font-weight: 700; border-radius: 8px; font-size: 11.5px; height: 36px; padding: 0 12px !important; white-space: nowrap; box-shadow: 0 2px 4px -1px rgba(37, 99, 235, 0.3); }
     .print-action-btn mat-icon { font-size: 16px; width: 16px; height: 16px; margin-right: 4px; }
-    .close-btn { color: #64748b; }
-    .close-btn:hover { color: #1e293b; }
+    .close-btn {
+      position: absolute;
+      right: 14px;
+      top: 14px;
+      color: #64748b;
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px;
+      transition: all 0.15s ease;
+      &:hover { color: #0f172a; background: #e2e8f0; }
+    }
 
     .modal-body-scroll {
       flex: 1;
@@ -4975,16 +5093,22 @@ export class DailyDiaryReportDialogComponent implements OnInit {
   reportHeader?: DailyDiaryReportHeader;
   rows: DailyStudentDiaryRow[] = [];
   loading = false;
+  logoFailed = false;
 
   constructor(
     public dialogRef: MatDialogRef<DailyDiaryReportDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: any,
     private http: HttpClient,
-    private confirmDialog: ConfirmDialogService
+    private confirmDialog: ConfirmDialogService,
+    public authService: AuthService
   ) {
     if (data?.students) {
       this.rows = data.students;
     }
+  }
+
+  get logoUrl(): string | null {
+    return this.authService.getInstituteLogoUrl();
   }
 
   get formattedDate(): string {
@@ -5269,6 +5393,84 @@ export class DailyDiaryReportDialogComponent implements OnInit {
     }, 250);
   }
 
+  copyClassSummaryWhatsApp(): void {
+    const school = this.reportHeader?.tenantName || 'Jnandeep Campus';
+    const address = this.reportHeader?.tenantAddress || 'Anjani, Parsa, Saran, Bihar';
+    const cls = this.reportHeader?.className || this.data.className || 'All Classes';
+    const sec = this.reportHeader?.sectionName || this.data.sectionName;
+    const classLabel = sec ? `${cls} (${sec})` : cls;
+    const date = this.formattedDate;
+
+    // Collect distinct subject-wise C.W. and H.W.
+    const cwMap = new Map<string, string>();
+    const hwMap = new Map<string, string>();
+    const absentList: string[] = [];
+
+    for (const r of this.rows) {
+      if (this.isAbsentStudent(r)) {
+        absentList.push(r.studentName);
+      }
+      for (const cw of r.classWork || []) {
+        if (cw.subject && cw.task && cw.task.trim()) {
+          const s = cw.subject.trim();
+          if (!cwMap.has(s)) cwMap.set(s, cw.task.trim());
+        }
+      }
+      for (const hw of r.homeWork || []) {
+        if (hw.subject && hw.task && hw.task.trim()) {
+          const s = hw.subject.trim();
+          if (!hwMap.has(s)) hwMap.set(s, hw.task.trim());
+        }
+      }
+    }
+
+    let text = `🏫 *${school}*\n`;
+    text += `📍 ${address}\n\n`;
+    text += `📋 *DAILY CLASS WORK & HOME WORK REPORT*\n`;
+    text += `📅 *Date:* ${date}  |  *Class:* ${classLabel}\n`;
+    text += `───────────────────────────\n`;
+
+    text += `📝 *CLASS WORK (C.W.):*\n`;
+    if (cwMap.size > 0) {
+      cwMap.forEach((task, subj) => {
+        text += `• *[${subj}]:* ${task}\n`;
+      });
+    } else {
+      text += `• No Class Work recorded today\n`;
+    }
+    text += `\n`;
+
+    text += `🏠 *HOME WORK (H.W.):*\n`;
+    if (hwMap.size > 0) {
+      hwMap.forEach((task, subj) => {
+        text += `• *[${subj}]:* ${task}\n`;
+      });
+    } else {
+      text += `• No Home Work recorded today\n`;
+    }
+    text += `\n`;
+
+    text += `❌ *ABSENT STUDENTS:* `;
+    if (absentList.length > 0) {
+      text += `${absentList.join(', ')}\n`;
+    } else {
+      text += `None (All Present ✅)\n`;
+    }
+
+    text += `───────────────────────────\n`;
+    text += `⭐ *DISCIPLINE  |  GOOD HABITS  |  BRIGHT FUTURE* ⭐`;
+
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text).then(() => {
+        this.confirmDialog.alert('Class Summary Copied 📋', 'WhatsApp Class Summary copied! Yeh compact summary photo ke caption me bhi 100% bina kate paste ho jayegi.', 'success');
+      }).catch(() => {
+        this.confirmDialog.alert('WhatsApp Text', text, 'info');
+      });
+    } else {
+      this.confirmDialog.alert('WhatsApp Text', text, 'info');
+    }
+  }
+
   copyWhatsAppText(): void {
     const school = this.reportHeader?.tenantName || 'Jnandeep Campus';
     const address = this.reportHeader?.tenantAddress || 'Anjani, Parsa, Saran, Bihar';
@@ -5300,7 +5502,7 @@ export class DailyDiaryReportDialogComponent implements OnInit {
 
     if (navigator.clipboard) {
       navigator.clipboard.writeText(text).then(() => {
-        this.confirmDialog.alert('Copied to Clipboard 📋', 'WhatsApp diary report summary copied! You can now paste directly into your class WhatsApp group.', 'success');
+        this.confirmDialog.alert('Student-wise Diary Copied 📋', 'Student-wise detailed report copied! Is text ko WhatsApp ke "Type a message" direct chat box me paste karein (photo caption me na karein taaki text cut na ho).', 'success');
       }).catch(() => {
         this.confirmDialog.alert('WhatsApp Text', text, 'info');
       });

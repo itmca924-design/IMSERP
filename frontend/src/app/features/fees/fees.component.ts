@@ -16,6 +16,8 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatMenuModule } from '@angular/material/menu';
+import { MatDividerModule } from '@angular/material/divider';
 import { FeesService, FeeInvoicePagedItem, FeePaymentReceipt, PendingInvoicingStudent } from '../../core/services/fees.service';
 import { BatchesService, BatchDto } from '../../core/services/batches.service';
 import { SchoolService, SchoolClassDto } from '../../core/services/school.service';
@@ -61,7 +63,9 @@ export interface UpcomingBillingCycleInfo {
     MatTooltipModule,
     MatDialogModule,
     MatCheckboxModule,
-    MatProgressSpinnerModule
+    MatProgressSpinnerModule,
+    MatMenuModule,
+    MatDividerModule
   ],
   template: `
     <div class="fees-wrapper">
@@ -273,8 +277,8 @@ export interface UpcomingBillingCycleInfo {
             </ng-container>
 
             <ng-container matColumnDef="title">
-              <th mat-header-cell *matHeaderCellDef>Billing Period / Heads</th>
-              <td mat-cell *matCellDef="let inv">
+              <th mat-header-cell *matHeaderCellDef class="col-billing-head">Billing Period / Heads</th>
+              <td mat-cell *matCellDef="let inv" class="col-billing-head">
                 <div class="billing-head-container">
                   <ng-container *ngIf="formatBillingTitle(inv.title) as ft">
                     <span class="period-badge" [class.is-multiline]="!!ft.line2">
@@ -286,8 +290,13 @@ export interface UpcomingBillingCycleInfo {
                     </span>
                   </ng-container>
                   <div *ngIf="inv.items && inv.items.length > 0" class="mini-heads-row">
-                    <span *ngFor="let it of inv.items" class="mini-head-chip">
-                      {{ it.headName }}: ₹{{ it.amount | number:'1.0-0' }}
+                    <ng-container *ngFor="let it of inv.items; let i = index">
+                      <span *ngIf="i < 2" class="mini-head-chip">
+                        {{ it.headName }}: ₹{{ it.amount | number:'1.0-0' }}
+                      </span>
+                    </ng-container>
+                    <span *ngIf="inv.items.length > 2" class="mini-head-more" [matTooltip]="getRemainingHeadsTooltip(inv.items)">
+                      +{{ inv.items.length - 2 }} more
                     </span>
                   </div>
                 </div>
@@ -336,79 +345,86 @@ export interface UpcomingBillingCycleInfo {
             </ng-container>
 
             <ng-container matColumnDef="actions">
-              <th mat-header-cell *matHeaderCellDef class="text-right">Actions</th>
-              <td mat-cell *matCellDef="let inv" class="text-right">
-                <div class="action-buttons">
-                  <!-- Collect Fee: hide for Cancelled/Paid -->
-                  <button
-                    *ngIf="inv.dueAmount > 0 && inv.status !== 'Cancelled'"
-                    mat-stroked-button
-                    color="primary"
-                    (click)="openCollectFeeModal(inv)"
-                    matTooltip="Collect Fee (FIFO Settlement)">
-                    <mat-icon>payments</mat-icon> Collect Fee
-                  </button>
-
-                  <!-- Due Receipt / Slip: for rows with dueAmount > 0 and not Cancelled -->
-                  <button
-                    *ngIf="inv.dueAmount > 0 && inv.status !== 'Cancelled'"
-                    mat-icon-button
-                    class="due-receipt-btn"
-                    (click)="openDueReceiptModal(inv)"
-                    matTooltip="Print / View Due Slip (बकाया पर्ची)">
-                    <mat-icon>receipt_long</mat-icon>
-                  </button>
-
-                  <!-- View/Print Paid Receipt: for Paid invoices -->
-                  <button
-                    *ngIf="inv.status === 'Paid'"
-                    mat-icon-button
-                    class="view-receipt-btn"
-                    (click)="openReceiptForInvoice(inv)"
-                    matTooltip="Print / View Payment Receipt (फीस रसीद)">
-                    <mat-icon>receipt</mat-icon>
-                  </button>
-
-                  <!-- WhatsApp: hide for Cancelled -->
-                  <button
-                    *ngIf="inv.status !== 'Cancelled'"
-                    mat-icon-button
-                    class="whatsapp-btn"
-                    (click)="sendReminder(inv)"
-                    [matTooltip]="inv.dueAmount > 0 ? 'Send WhatsApp Fee Due Reminder' : 'Send WhatsApp Paid Receipt'">
-                    <svg class="wa-svg-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
-                    </svg>
-                  </button>
-
-                  <!-- Passbook/Ledger always visible -->
+              <th mat-header-cell *matHeaderCellDef class="text-center col-actions">Actions</th>
+              <td mat-cell *matCellDef="let inv" class="text-center col-actions">
+                <div class="smart-action-group">
+                  <!-- 3-Dots Action Menu Trigger -->
                   <button
                     mat-icon-button
-                    class="ledger-btn"
-                    (click)="openStudentLedger(inv.studentId)"
-                    matTooltip="View Student Passbook & Ledger">
-                    <mat-icon>menu_book</mat-icon>
+                    [matMenuTriggerFor]="actionMenu"
+                    class="btn-more-dots"
+                    matTooltip="Options & Actions"
+                    aria-label="Actions Menu">
+                    <mat-icon>more_vert</mat-icon>
                   </button>
 
-                  <!-- Edit / Add Fee Heads: only for Pending unpaid invoices -->
-                  <button
-                    *ngIf="inv.status === 'Pending' && inv.paidAmount === 0"
-                    mat-icon-button
-                    class="edit-invoice-btn"
-                    (click)="openEditInvoiceModal(inv)"
-                    matTooltip="Edit / Add Fee Heads on this Invoice">
-                    <mat-icon>edit_note</mat-icon>
-                  </button>
+                  <!-- 3-Dots Menu (Lazy rendered by Angular Material) -->
+                  <mat-menu #actionMenu="matMenu" xPosition="before" class="smart-fees-menu">
+                    <!-- Collect Fee -->
+                    <button
+                      *ngIf="inv.dueAmount > 0 && inv.status !== 'Cancelled'"
+                      mat-menu-item
+                      (click)="openCollectFeeModal(inv)">
+                      <mat-icon class="menu-icon-blue">payments</mat-icon>
+                      <span>Collect Fee (फीस जमा करें)</span>
+                    </button>
 
-                  <!-- Cancel Invoice: only for Pending/Partial (no partial payment) -->
-                  <button
-                    *ngIf="inv.status === 'Pending' || inv.status === 'Partial'"
-                    mat-icon-button
-                    class="cancel-invoice-btn"
-                    (click)="confirmCancelInvoice(inv)"
-                    matTooltip="Cancel Invoice (Student Left / Error)">
-                    <mat-icon>cancel</mat-icon>
-                  </button>
+                    <!-- Due Receipt / Demand Notice -->
+                    <button
+                      *ngIf="inv.dueAmount > 0 && inv.status !== 'Cancelled'"
+                      mat-menu-item
+                      (click)="openDueReceiptModal(inv)">
+                      <mat-icon class="menu-icon-amber">receipt_long</mat-icon>
+                      <span>Print Due Slip (बकाया पर्ची)</span>
+                    </button>
+
+                    <!-- View / Print Paid Receipt -->
+                    <button
+                      *ngIf="inv.status === 'Paid'"
+                      mat-menu-item
+                      (click)="openReceiptForInvoice(inv)">
+                      <mat-icon class="menu-icon-green">receipt</mat-icon>
+                      <span>Print Payment Receipt (रसीद)</span>
+                    </button>
+
+                    <!-- Send WhatsApp Receipt / Reminder -->
+                    <button
+                      *ngIf="inv.status !== 'Cancelled'"
+                      mat-menu-item
+                      (click)="sendReminder(inv)">
+                      <mat-icon class="menu-icon-green">chat</mat-icon>
+                      <span>{{ inv.dueAmount > 0 ? 'Send WhatsApp Due Notice' : 'Send WhatsApp Paid Receipt' }}</span>
+                    </button>
+
+                    <!-- Student Ledger / Passbook -->
+                    <button
+                      mat-menu-item
+                      (click)="openStudentLedger(inv.studentId)">
+                      <mat-icon class="menu-icon-rose">menu_book</mat-icon>
+                      <span>Student Ledger & Passbook</span>
+                    </button>
+
+                    <!-- Edit / Add Fee Heads -->
+                    <button
+                      *ngIf="inv.status === 'Pending' && inv.paidAmount === 0"
+                      mat-menu-item
+                      (click)="openEditInvoiceModal(inv)">
+                      <mat-icon class="menu-icon-purple">edit_note</mat-icon>
+                      <span>Edit / Add Fee Heads</span>
+                    </button>
+
+                    <!-- Cancel Invoice -->
+                    <ng-container *ngIf="inv.status === 'Pending' || inv.status === 'Partial'">
+                      <mat-divider></mat-divider>
+                      <button
+                        mat-menu-item
+                        class="cancel-menu-item"
+                        (click)="confirmCancelInvoice(inv)">
+                        <mat-icon class="menu-icon-red">cancel</mat-icon>
+                        <span class="text-danger">Cancel Invoice (रद्द करें)</span>
+                      </button>
+                    </ng-container>
+                  </mat-menu>
                 </div>
               </td>
             </ng-container>
@@ -561,21 +577,35 @@ export interface UpcomingBillingCycleInfo {
     .mini-heads-row {
       display: flex;
       flex-wrap: wrap;
-      gap: 5px;
+      gap: 4px;
       margin-top: 2px;
 
       .mini-head-chip {
-        font-size: 0.73rem;
+        font-size: 0.7rem;
         background: #f0fdf4;
         color: #15803d;
         border: 1px solid #bbf7d0;
-        padding: 2px 8px;
-        border-radius: 12px;
+        padding: 1px 6px;
+        border-radius: 8px;
         font-weight: 600;
         display: inline-flex;
         align-items: center;
         white-space: nowrap;
         box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+      }
+
+      .mini-head-more {
+        font-size: 0.68rem;
+        background: #eff6ff;
+        color: #1d4ed8;
+        border: 1px solid #bfdbfe;
+        padding: 1px 6px;
+        border-radius: 8px;
+        font-weight: 700;
+        cursor: help;
+        display: inline-flex;
+        align-items: center;
+        white-space: nowrap;
       }
     }
     .generate-btn {
@@ -926,22 +956,32 @@ export interface UpcomingBillingCycleInfo {
       position: relative;
     }
     .filter-toolbar {
-      padding: 16px 20px 0 20px;
+      padding: 16px 20px 8px 20px;
       display: flex;
-      gap: 14px;
+      gap: 12px;
       align-items: center;
       flex-wrap: wrap;
 
       .search-field { 
-        width: 320px; 
+        flex: 2 1 240px;
+        min-width: 200px;
         .search-prefix-icon {
           color: #64748b;
           margin-right: 6px;
         }
       }
-      .status-filter { width: 150px; }
-      .class-filter { width: 220px; }
-      .batch-filter { width: 280px; }
+      .status-filter {
+        flex: 1 1 140px;
+        min-width: 130px;
+      }
+      .class-filter {
+        flex: 1.2 1 180px;
+        min-width: 160px;
+      }
+      .batch-filter {
+        flex: 1.2 1 190px;
+        min-width: 170px;
+      }
     }
     .academic-enrollment-cell {
       display: flex;
@@ -1000,39 +1040,93 @@ export interface UpcomingBillingCycleInfo {
       padding: 0;
       overflow-x: auto;
       width: 100%;
+      position: relative;
     }
     .full-width {
       width: 100%;
-      min-width: 980px;
+      min-width: 100%;
+      border-collapse: collapse;
     }
+
+    /* Compact ERP Table Cells */
+    .mat-mdc-table .mat-mdc-cell,
+    .mat-mdc-table .mat-mdc-header-cell {
+      padding: 7px 8px !important;
+    }
+
+    .select-col,
+    .mat-column-select {
+      width: 36px !important;
+      min-width: 36px !important;
+      padding: 0 4px 0 8px !important;
+      text-align: center !important;
+    }
+
+    .mat-column-invoiceNumber {
+      white-space: nowrap !important;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #1e3a8a;
+      width: 105px;
+      min-width: 95px;
+    }
+
+    .mat-column-studentName {
+      min-width: 105px;
+      .st-name-text {
+        font-weight: 700;
+        color: #0f172a;
+        font-size: 0.84rem;
+        white-space: nowrap;
+      }
+      .st-roll-text {
+        color: #64748b;
+        font-size: 0.74rem;
+      }
+    }
+
+    .mat-column-batchName {
+      min-width: 85px;
+    }
+
+    .col-billing-head,
+    .mat-column-title {
+      min-width: 140px;
+    }
+
+    .mat-column-totalAmount,
+    .mat-column-paidAmount,
+    .mat-column-dueAmount {
+      white-space: nowrap !important;
+      min-width: 68px;
+      font-size: 0.83rem;
+    }
+
     .col-due-date,
     .mat-column-dueDate {
       white-space: nowrap !important;
-      min-width: 115px !important;
-      width: 115px;
+      min-width: 80px !important;
+      width: 82px;
 
       .due-date-pill {
         white-space: nowrap !important;
         font-weight: 500;
         color: #334155;
-        font-size: 0.84rem;
+        font-size: 0.78rem;
         display: inline-block;
       }
     }
-    .mat-column-dueAmount {
-      white-space: nowrap !important;
-      min-width: 100px !important;
-    }
-    .mat-column-totalFee,
-    .mat-column-paidAmount {
-      white-space: nowrap !important;
-      min-width: 90px !important;
-    }
+
     .mat-column-status {
       white-space: nowrap !important;
-      min-width: 90px !important;
+      min-width: 68px !important;
       text-align: center;
+      .status-badge {
+        padding: 2px 7px;
+        font-size: 0.7rem;
+      }
     }
+
     .st-cell {
       display: flex;
       flex-direction: column;
@@ -1062,88 +1156,87 @@ export interface UpcomingBillingCycleInfo {
       text-decoration: line-through;
       cursor: help;
     }
-    .action-buttons {
+
+    /* PERMANENT STICKY RIGHT ACTIONS COLUMN (Zero horizontal scroll needed!) */
+    .col-actions,
+    .mat-column-actions {
+      position: sticky !important;
+      right: 0 !important;
+      background: #ffffff !important;
+      z-index: 10 !important;
+      box-shadow: -4px 0 8px -2px rgba(0, 0, 0, 0.08) !important;
+      width: 48px !important;
+      min-width: 48px !important;
+      max-width: 50px !important;
+      white-space: nowrap !important;
+      text-align: center !important;
+      padding: 0 4px !important;
+    }
+
+    th.col-actions,
+    th.mat-column-actions {
+      position: sticky !important;
+      right: 0 !important;
+      background: #f8fafc !important;
+      z-index: 11 !important;
+      box-shadow: -4px 0 8px -2px rgba(0, 0, 0, 0.08) !important;
+      text-align: center !important;
+    }
+
+    tr.mat-mdc-row:hover .mat-column-actions {
+      background: #f1f5f9 !important;
+    }
+
+    .smart-action-group {
       display: inline-flex;
       align-items: center;
-      justify-content: flex-end;
-      gap: 4px;
+      justify-content: center;
       white-space: nowrap;
 
-      button.mat-mdc-icon-button {
-        width: 36px !important;
-        height: 36px !important;
-        min-width: 36px !important;
+      .btn-more-dots {
+        width: 32px !important;
+        height: 32px !important;
+        min-width: 32px !important;
         padding: 0 !important;
+        border-radius: 6px !important;
+        color: #475569;
+        background: #f1f5f9;
+        border: 1px solid #e2e8f0;
         display: inline-flex !important;
         align-items: center !important;
         justify-content: center !important;
-        border-radius: 50% !important;
-        background: transparent !important;
+        transition: all 0.15s ease;
 
         mat-icon {
-          font-size: 20px !important;
-          width: 20px !important;
-          height: 20px !important;
-          line-height: 20px !important;
+          font-size: 19px !important;
+          width: 19px !important;
+          height: 19px !important;
+          line-height: 19px !important;
+        }
+
+        &:hover {
+          background: #e0e7ff;
+          color: #1e40af;
+          border-color: #c7d2fe;
+          transform: scale(1.05);
         }
       }
     }
-    .whatsapp-btn {
-      color: #16a34a !important;
-      transition: color 0.15s ease, transform 0.15s ease, background-color 0.15s ease;
 
-      &:hover {
-        background-color: #dcfce7 !important;
-        transform: scale(1.1);
-      }
+    .menu-icon-blue { color: #2563eb !important; }
+    .menu-icon-amber { color: #d97706 !important; }
+    .menu-icon-green { color: #16a34a !important; }
+    .menu-icon-rose { color: #e11d48 !important; }
+    .menu-icon-purple { color: #7c3aed !important; }
+    .menu-icon-red { color: #dc2626 !important; }
 
-      .wa-svg-icon {
-        width: 20px;
-        height: 20px;
-        fill: #16a34a;
-        display: block;
-        flex-shrink: 0;
-      }
-    }
-    .due-receipt-btn {
-      color: #dc2626 !important;
-      transition: color 0.15s ease, transform 0.15s ease, background-color 0.15s ease;
+    .cancel-menu-item {
       &:hover {
-        background-color: #fee2e2 !important;
-        transform: scale(1.1);
+        background-color: #fef2f2 !important;
       }
-    }
-    .view-receipt-btn {
-      color: #16a34a !important;
-      transition: color 0.15s ease, transform 0.15s ease, background-color 0.15s ease;
-      &:hover {
-        background-color: #dcfce7 !important;
-        transform: scale(1.1);
-      }
-    }
-    .ledger-btn {
-      color: #e11d48 !important;
-      transition: color 0.15s ease, transform 0.15s ease, background-color 0.15s ease;
-      &:hover {
-        background-color: #ffe4e6 !important;
-        transform: scale(1.1);
-      }
-    }
-    .edit-invoice-btn {
-      color: #7c3aed !important;
-      transition: color 0.15s ease, transform 0.15s ease, background-color 0.15s ease;
-      &:hover {
-        background-color: #f5f3ff !important;
-        transform: scale(1.1);
-      }
-    }
-    .cancel-invoice-btn {
-      color: #94a3b8 !important;
-      transition: color 0.15s ease, transform 0.15s ease, background-color 0.15s ease;
-      &:hover {
-        color: #dc2626 !important;
-        background-color: #fee2e2 !important;
-        transform: scale(1.1);
+      .text-danger {
+        color: #dc2626;
+        font-weight: 500;
       }
     }
     .empty-cell { padding: 40px; text-align: center; }
@@ -1269,6 +1362,71 @@ export interface UpcomingBillingCycleInfo {
       to {
         transform: translate(-50%, 0);
         opacity: 1;
+      }
+    }
+
+    /* All Mode Responsive Layout Rules */
+    @media (max-width: 1024px) {
+      .filter-toolbar {
+        gap: 8px;
+        .search-field { flex: 2 1 200px; }
+        .status-filter { flex: 1 1 120px; }
+        .class-filter { flex: 1 1 150px; }
+        .batch-filter { flex: 1 1 160px; }
+      }
+    }
+
+    @media (max-width: 768px) {
+      .header-actions {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+
+        .header-action-buttons {
+          width: 100%;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+
+          button {
+            width: 100%;
+            justify-content: center;
+          }
+        }
+      }
+
+      .filter-toolbar {
+        padding: 12px 14px 0 14px;
+        flex-direction: column;
+        align-items: stretch;
+
+        .search-field,
+        .status-filter,
+        .class-filter,
+        .batch-filter {
+          width: 100% !important;
+          min-width: 100% !important;
+          flex: none;
+        }
+      }
+
+      .multi-collect-bar {
+        width: calc(100% - 24px);
+        max-width: 500px;
+        flex-direction: column;
+        gap: 10px;
+        padding: 12px 16px;
+        border-radius: 16px;
+
+        .bar-center {
+          border: none;
+          padding: 0;
+        }
+
+        .bar-right {
+          width: 100%;
+          justify-content: space-between;
+        }
       }
     }
   `]
@@ -1495,6 +1653,11 @@ export class FeesComponent implements OnInit, OnDestroy {
       }
     }
     return { line1: title };
+  }
+
+  getRemainingHeadsTooltip(items?: any[]): string {
+    if (!items || items.length <= 2) return '';
+    return items.slice(2).map(it => `${it.headName}: ₹${it.amount}`).join('\n');
   }
 
   ngOnDestroy(): void {

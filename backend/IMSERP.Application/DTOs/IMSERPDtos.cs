@@ -1288,6 +1288,57 @@ public record StudentLedgerDto(
     string? BranchName = null
 );
 
+public record FeeCardMonthEntryDto(
+    int MonthIndex,
+    string MonthName,
+    string MonthShort,
+    int CalendarMonth,
+    int CalendarYear,
+    string Status,
+    decimal AmountPayable,
+    decimal ConcessionAmount,
+    decimal NetPayable,
+    decimal AmountPaid,
+    decimal BalanceDue,
+    string? InvoiceNumber,
+    string? ReceiptNumber,
+    DateTime? PaymentDate,
+    string? PaymentMode,
+    string? Remarks
+);
+
+public record StudentFeeCardDto(
+    Guid StudentId,
+    string StudentName,
+    string? AdmissionNumber,
+    string? RollNumber,
+    string? ClassName,
+    string? SectionName,
+    string? BatchName,
+    string? Gender,
+    DateTime? JoiningDate,
+    string? ParentName,
+    string? MotherName,
+    string? ParentWhatsAppPhone,
+    string? EmergencyContactPhone,
+    string? Address,
+    string? ProfilePhoto,
+    decimal MonthlyFeeRate,
+    string SessionName,
+    string InstituteName,
+    string? InstituteAddress,
+    string? InstitutePhone,
+    string? InstituteEmail,
+    string? InstituteLogo,
+    string? BranchName,
+    List<FeeCardMonthEntryDto> Months,
+    decimal TotalAnnualFee,
+    decimal TotalConcession,
+    decimal TotalPaid,
+    decimal TotalBalanceDue,
+    decimal PendingLibraryFine = 0
+);
+
 public record FeeItemPaymentDto(
     Guid ItemId,
     decimal Amount

@@ -27,6 +27,15 @@ public class StudentsController : ControllerBase
         _env = env;
     }
 
+    private static string NormalizePhoneWithPrefix(string? phone)
+    {
+        if (string.IsNullOrWhiteSpace(phone)) return string.Empty;
+        var digits = System.Text.RegularExpressions.Regex.Replace(phone, @"\D", "");
+        if (digits.Length == 10) return "+91" + digits;
+        if (digits.Length == 12 && digits.StartsWith("91")) return "+" + digits;
+        return phone.Trim();
+    }
+
     private static bool TryParseAttendanceStatus(string value, out TeacherAttendanceStatus status)
     {
         if (!Enum.TryParse(value, true, out status)) return false;
@@ -1869,7 +1878,7 @@ public class StudentsController : ControllerBase
                 MonthlyLibraryFee = dto.IsLibraryMember ? dto.MonthlyLibraryFee : 0,
                 StudentName = dto.StudentName,
                 ParentName = dto.ParentName,
-                ParentWhatsAppPhone = dto.ParentWhatsAppPhone,
+                ParentWhatsAppPhone = NormalizePhoneWithPrefix(dto.ParentWhatsAppPhone),
                 MotherName = dto.MotherName,
                 Gender = dto.Gender,
                 DateOfBirth = dto.DateOfBirth,
@@ -2078,7 +2087,7 @@ public class StudentsController : ControllerBase
         student.MonthlyLibraryFee = dto.IsLibraryMember ? dto.MonthlyLibraryFee : 0;
         student.StudentName = dto.StudentName;
         student.ParentName = dto.ParentName;
-        student.ParentWhatsAppPhone = dto.ParentWhatsAppPhone;
+        student.ParentWhatsAppPhone = NormalizePhoneWithPrefix(dto.ParentWhatsAppPhone);
         student.MotherName = dto.MotherName;
         student.Gender = dto.Gender;
         student.DateOfBirth = dto.DateOfBirth;

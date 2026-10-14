@@ -2685,3 +2685,46 @@ mat-sidenav-container {
     height: 0 !important;
   }
 }
+
+// =====================================================================
+// Global Print Engine: Hides Sidenav, Topbar, Footer & Shell Margins
+// =====================================================================
+@media print {
+  mat-sidenav,
+  .sidenav,
+  .brand-section,
+  mat-toolbar,
+  .mat-toolbar,
+  app-footer,
+  .footer,
+  .no-print,
+  .quick-settings-drawer,
+  .mat-drawer-backdrop {
+    display: none !important;
+  }
+
+  html, body {
+    background: #ffffff !important;
+    height: auto !important;
+    min-height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  mat-sidenav-container,
+  mat-sidenav-content,
+  .mat-drawer-content,
+  .main-content,
+  .sidenav-container {
+    margin: 0 !important;
+    margin-left: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    height: auto !important;
+    min-height: auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    transform: none !important;
+  }
+}
+

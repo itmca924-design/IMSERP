@@ -200,6 +200,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/fees/fees.component').then(m => m.FeesComponent)
       },
       {
+        path: 'fees/fee-card',
+        loadComponent: () => import('./features/fees/fee-card.component').then(m => m.FeeCardComponent)
+      },
+      {
         path: 'my-fees',
         loadComponent: () => import('./features/fees/my-fees.component').then(m => m.MyFeesComponent)
       },
