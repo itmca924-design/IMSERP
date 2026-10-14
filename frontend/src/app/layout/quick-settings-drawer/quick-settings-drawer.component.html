@@ -39,8 +39,8 @@
         <mat-icon>tune</mat-icon>
       </div>
       <div class="header-text">
-        <h3 class="drawer-title">{{ 'SETTINGS.TITLE' | translate }}</h3>
-        <p class="drawer-subtitle">{{ 'SETTINGS.SUBTITLE' | translate }}</p>
+        <h3 class="drawer-title">Quick Settings &amp; Workspace</h3>
+        <p class="drawer-subtitle">Personalize ERP theme, regional preferences and system diagnostics</p>
       </div>
     </div>
     <div class="header-actions">
@@ -49,7 +49,7 @@
         mat-icon-button
         class="header-btn reset-btn"
         (click)="resetDefaults()"
-        [matTooltip]="'SETTINGS.RESET_TOOLTIP' | translate">
+        matTooltip="Reset all settings to system defaults">
         <mat-icon>restart_alt</mat-icon>
       </button>
       <button
@@ -57,7 +57,7 @@
         mat-icon-button
         class="header-btn close-btn"
         (click)="onCloseDrawer()"
-        [matTooltip]="'SETTINGS.CLOSE_TOOLTIP' | translate">
+        matTooltip="Close settings panel">
         <mat-icon>close</mat-icon>
       </button>
     </div>
@@ -72,7 +72,7 @@
       [class.active]="activeTab === 'general'"
       (click)="activeTab = 'general'">
       <mat-icon>school</mat-icon>
-      <span>{{ 'SETTINGS.TAB_GENERAL' | translate }}</span>
+      <span>General</span>
     </button>
     <button
       type="button"
@@ -91,7 +91,7 @@
       [class.active]="activeTab === 'automation'"
       (click)="activeTab = 'automation'">
       <mat-icon>bolt</mat-icon>
-      <span>{{ 'SETTINGS.TAB_AUTOMATION' | translate }}</span>
+      <span>Automation</span>
       <span class="tab-badge">Pro</span>
     </button>
     <button
@@ -101,7 +101,7 @@
       [class.active]="activeTab === 'appearance'"
       (click)="activeTab = 'appearance'">
       <mat-icon>palette</mat-icon>
-      <span>{{ 'SETTINGS.TAB_THEME' | translate }}</span>
+      <span>Theme &amp; Layout</span>
     </button>
     <button
       type="button"
@@ -110,7 +110,7 @@
       [class.active]="activeTab === 'shortcuts'"
       (click)="activeTab = 'shortcuts'">
       <mat-icon>grid_view</mat-icon>
-      <span>{{ 'SETTINGS.TAB_SHORTCUTS' | translate }}</span>
+      <span>Shortcuts</span>
     </button>
   </div>
 
@@ -181,20 +181,20 @@
         <div class="section-title-row">
           <mat-icon class="section-icon">language</mat-icon>
           <div>
-            <h4 class="section-title">{{ 'SETTINGS.REGIONAL_STANDARDS' | translate }}</h4>
-            <p class="section-desc">{{ 'SETTINGS.REGIONAL_STANDARDS_DESC' | translate }}</p>
+            <h4 class="section-title">Regional Standards &amp; Locale</h4>
+            <p class="section-desc">Global date format, active currency and timezone presets</p>
           </div>
         </div>
 
         <!-- Language Switcher Card -->
         <div class="lang-selector-card">
           <div class="lang-card-header">
-            <span class="lang-card-label">{{ 'SETTINGS.APP_LANGUAGE' | translate }}</span>
+            <span class="lang-card-label">ERP Language</span>
             <span class="lang-card-badge" [class.badge-hi]="translationService.isHindi()">
               {{ translationService.isHindi() ? 'हिन्दी सक्रिय' : 'English Active' }}
             </span>
           </div>
-          <p class="lang-card-desc">{{ 'SETTINGS.APP_LANGUAGE_DESC' | translate }}</p>
+          <p class="lang-card-desc">Toggle between English and Hindi interface</p>
           <div class="lang-toggle-options">
             <button
               type="button"
@@ -225,19 +225,19 @@
 
         <div class="settings-grid-2">
           <div class="mini-spec-box">
-            <span class="spec-label">{{ 'SETTINGS.CURRENCY_SYMBOL' | translate }}</span>
+            <span class="spec-label">Currency Symbol</span>
             <span class="spec-val">₹ INR (Indian Rupee)</span>
           </div>
           <div class="mini-spec-box">
-            <span class="spec-label">{{ 'SETTINGS.DATE_FORMAT' | translate }}</span>
+            <span class="spec-label">Date Format</span>
             <span class="spec-val">DD/MM/YYYY</span>
           </div>
           <div class="mini-spec-box">
-            <span class="spec-label">{{ 'SETTINGS.TIMEZONE' | translate }}</span>
+            <span class="spec-label">Timezone (IST)</span>
             <span class="spec-val">IST (UTC+05:30)</span>
           </div>
           <div class="mini-spec-box">
-            <span class="spec-label">{{ 'SETTINGS.SMS_SENDER_ID' | translate }}</span>
+            <span class="spec-label">SMS Sender ID</span>
             <span class="spec-val text-green">APEXED (Approved)</span>
           </div>
         </div>
@@ -891,13 +891,13 @@
   <div class="drawer-footer">
     <div class="footer-status">
       <span class="status-indicator"></span>
-      <span class="status-text">{{ 'SETTINGS.ALL_SYNCED' | translate }}</span>
+      <span class="status-text">All preferences synced</span>
     </div>
     <button
       type="button"
       class="done-btn"
       (click)="onCloseDrawer()">
-      {{ 'COMMON.DONE' | translate }}
+      Done
     </button>
   </div>
 

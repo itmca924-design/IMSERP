@@ -73,32 +73,55 @@ body, p, span, h1, h2, h3, h4, h5, h6, a, button, input, select, textarea,
   translate: no !important;
 }
 
-// Global Google Translate Clean Display Rules (Completely suppress all Google badges, spinners, and floating widgets)
+// Global Google Translate Clean Display Rules (Completely suppress top toolbar, banner, header bar, spinners, floating logos, and tooltips)
 .goog-te-banner-frame,
-.goog-te-gadget,
-.goog-te-gadget-simple,
-.goog-logo-link,
+iframe.goog-te-banner-frame,
+.VIpgJd-ZVi9od-ORHb-OEVmcd,
+#goog-gt-tt,
+.goog-te-balloon-frame,
 .goog-te-spinner-pos,
 .goog-te-spinner-animation,
 .goog-te-spinner,
-[class*="VIpgJd"],
-[class*="goog-te"],
-iframe.skiptranslate,
-.skiptranslate:not(.lang-pill):not(.row-lang-pill),
-#goog-gt-tt,
-.goog-te-balloon-frame {
+.goog-logo-link,
+.goog-te-gadget,
+.goog-te-gadget-simple,
+[class*="VIpgJd-ZVi9od-aZ2wEe"],
+[class*="VIpgJd-ZVi9od"],
+[class*="VIpgJd-yAWNEb"],
+[class*="goog-te-spinner"],
+.goog-te-gadget-icon,
+img[src*="translate.google.com"],
+div[id^="goog-gt-"] {
   display: none !important;
   visibility: hidden !important;
   opacity: 0 !important;
-  pointer-events: none !important;
-  width: 0 !important;
   height: 0 !important;
-  max-width: 0 !important;
+  width: 0 !important;
   max-height: 0 !important;
-  position: absolute !important;
-  left: -99999px !important;
-  top: -99999px !important;
-  z-index: -99999 !important;
+  pointer-events: none !important;
+  animation: none !important;
+}
+
+body > .skiptranslate:not(#google_translate_element) {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+}
+
+body {
+  top: 0px !important;
+  position: static !important;
+}
+
+.goog-tooltip,
+.goog-tooltip:hover {
+  display: none !important;
+}
+
+.goog-text-highlight {
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 // Brand Logo & Header Z-Index Priority (Ensures Institute Logo is crisp, still, and never obscured)

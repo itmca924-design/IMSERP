@@ -14,7 +14,6 @@ import { CoachingService, StudentDashboardSummary, TeacherDashboardSummary } fro
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { AuthService } from '../../core/services/auth.service';
 import { EventsService, DashboardCelebrationsSummary, SchoolEvent, BirthdayItem } from '../../core/services/events.service';
-import { TranslatePipe } from '../../core/pipes/translate.pipe';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { EventFormDialogComponent } from '../events/event-form-dialog.component';
 import { EventGalleryDialogComponent } from '../events/event-gallery-dialog.component';
@@ -34,8 +33,7 @@ import ApexCharts from 'apexcharts';
     MatChipsModule,
     MatTooltipModule,
     MatDialogModule,
-    RouterModule,
-    TranslatePipe
+    RouterModule
   ],
   template: `
     <div class="dashboard-wrapper">
@@ -51,13 +49,13 @@ import ApexCharts from 'apexcharts';
             <p>Welcome, <strong>{{ teacherSummary()?.teacherName || 'Faculty' }}</strong>! Here is your lecture routine, assigned classrooms, and grading schedule.</p>
           }
           @if (!authService.isStudentOrParent() && !authService.isTeacher()) {
-            <h2>{{ 'DASHBOARD.BANNER_TITLE' | translate }}</h2>
-            <p>{{ 'DASHBOARD.BANNER_SUBTITLE' | translate }}</p>
+            <h2>Institution Overview &amp; Real-Time Performance Analytics</h2>
+            <p>Monitor your academic institutions, branches, students, faculty, and collections from a single command center.</p>
           }
         </div>
-        <button mat-raised-button color="primary" class="refresh-btn" (click)="loadSummary()" [matTooltip]="'DASHBOARD.REFRESH_ANALYTICS' | translate">
+        <button mat-raised-button color="primary" class="refresh-btn" (click)="loadSummary()" matTooltip="Refresh Analytics">
           <mat-icon [class.spin-icon]="loading()">sync</mat-icon>
-          <span>{{ 'DASHBOARD.REFRESH_ANALYTICS' | translate }}</span>
+          <span>Refresh Analytics</span>
         </button>
       </div>
 
@@ -904,7 +902,7 @@ import ApexCharts from 'apexcharts';
             <mat-card class="stat-card blue mat-elevation-z2">
             <mat-card-content class="stat-content">
               <div class="stat-header">
-                <span class="label">{{ 'DASHBOARD.TOTAL_ACTIVE_STUDENTS' | translate }}</span>
+                <span class="label">Total Active Students</span>
                 <div class="stat-icon-wrap">
                   <mat-icon class="stat-icon">people</mat-icon>
                 </div>
@@ -913,7 +911,7 @@ import ApexCharts from 'apexcharts';
                 <span class="value">{{ summary.totalStudents }}</span>
                 <div class="stat-footer">
                   <span class="stat-badge-pill">Live Roster</span>
-                  <span class="sub-label">{{ 'DASHBOARD.ENROLLED_INSTITUTE' | translate }}</span>
+                  <span class="sub-label">Enrolled in institute</span>
                 </div>
               </div>
             </mat-card-content>
@@ -922,7 +920,7 @@ import ApexCharts from 'apexcharts';
           <mat-card class="stat-card green mat-elevation-z2">
             <mat-card-content class="stat-content">
               <div class="stat-header">
-                <span class="label">{{ 'DASHBOARD.MONTHLY_FEE_COLLECTED' | translate }}</span>
+                <span class="label">Monthly Fee Collected</span>
                 <div class="stat-icon-wrap">
                   <mat-icon class="stat-icon">account_balance_wallet</mat-icon>
                 </div>
@@ -931,7 +929,7 @@ import ApexCharts from 'apexcharts';
                 <span class="value">₹{{ summary.totalFeeCollectedThisMonth | number:'1.0-0' }}</span>
                 <div class="stat-footer">
                   <span class="stat-badge-pill">This Month</span>
-                  <span class="sub-label">{{ 'DASHBOARD.RECEIVED_THIS_MONTH' | translate }}</span>
+                  <span class="sub-label">Received this month</span>
                 </div>
               </div>
             </mat-card-content>
@@ -940,7 +938,7 @@ import ApexCharts from 'apexcharts';
           <mat-card class="stat-card orange mat-elevation-z2">
             <mat-card-content class="stat-content">
               <div class="stat-header">
-                <span class="label">{{ 'DASHBOARD.PENDING_FEE_DUES' | translate }}</span>
+                <span class="label">Pending Fee Dues</span>
                 <div class="stat-icon-wrap">
                   <mat-icon class="stat-icon">warning_amber</mat-icon>
                 </div>
@@ -949,7 +947,7 @@ import ApexCharts from 'apexcharts';
                 <span class="value">₹{{ summary.pendingFeesTotal | number:'1.0-0' }}</span>
                 <div class="stat-footer">
                   <span class="stat-badge-pill">Receivables</span>
-                  <span class="sub-label">{{ 'DASHBOARD.OUTSTANDING_BALANCE' | translate }}</span>
+                  <span class="sub-label">Outstanding balance</span>
                 </div>
               </div>
             </mat-card-content>
@@ -958,7 +956,7 @@ import ApexCharts from 'apexcharts';
           <mat-card class="stat-card purple mat-elevation-z2">
             <mat-card-content class="stat-content">
               <div class="stat-header">
-                <span class="label">{{ 'DASHBOARD.TESTS_CONDUCTED' | translate }}</span>
+                <span class="label">Tests Conducted</span>
                 <div class="stat-icon-wrap">
                   <mat-icon class="stat-icon">quiz</mat-icon>
                 </div>
@@ -967,7 +965,7 @@ import ApexCharts from 'apexcharts';
                 <span class="value">{{ summary.totalTestsConducted }}</span>
                 <div class="stat-footer">
                   <span class="stat-badge-pill">Academic</span>
-                  <span class="sub-label">{{ 'DASHBOARD.EXAMS_EVALUATED' | translate }}</span>
+                  <span class="sub-label">Exams evaluated</span>
                 </div>
               </div>
             </mat-card-content>
@@ -976,7 +974,7 @@ import ApexCharts from 'apexcharts';
           <mat-card class="stat-card teal mat-elevation-z2">
             <mat-card-content class="stat-content">
               <div class="stat-header">
-                <span class="label">{{ 'DASHBOARD.ACTIVE_BATCHES' | translate }}</span>
+                <span class="label">Active Batches</span>
                 <div class="stat-icon-wrap">
                   <mat-icon class="stat-icon">groups</mat-icon>
                 </div>
@@ -985,7 +983,7 @@ import ApexCharts from 'apexcharts';
                 <span class="value">{{ summary.activeBatches }}</span>
                 <div class="stat-footer">
                   <span class="stat-badge-pill">Running</span>
-                  <span class="sub-label">{{ 'DASHBOARD.ACADEMIC_CLASSROOMS' | translate }}</span>
+                  <span class="sub-label">Academic classrooms</span>
                 </div>
               </div>
             </mat-card-content>
@@ -994,7 +992,7 @@ import ApexCharts from 'apexcharts';
           <mat-card class="stat-card emerald mat-elevation-z2" routerLink="/students/attendance" style="cursor: pointer;" matTooltip="Open Student Attendance & Roll Call">
             <mat-card-content class="stat-content">
               <div class="stat-header">
-                <span class="label">{{ 'DASHBOARD.TODAY_ATTENDANCE' | translate }}</span>
+                <span class="label">Today's Attendance</span>
                 <div class="stat-icon-wrap">
                   <mat-icon class="stat-icon">how_to_reg</mat-icon>
                 </div>
@@ -1118,20 +1116,20 @@ import ApexCharts from 'apexcharts';
                 <mat-icon>school</mat-icon>
               </div>
               <div>
-                <h3 class="chart-title">{{ 'DASHBOARD.BATCH_CHART_TITLE' | translate }}</h3>
-                <p class="chart-subtitle">{{ 'DASHBOARD.BATCH_CHART_SUB' | translate }}</p>
+                <h3 class="chart-title">Batch-Wise Enrollment &amp; Monthly Revenue Capacity</h3>
+                <p class="chart-subtitle">Live student enrollment distribution across active academic batches</p>
               </div>
             </div>
             <div class="chart-header-right">
               <div class="batch-filter-toggle">
                 <button type="button" class="toggle-btn" [class.active]="batchViewFilter === 'top10'" (click)="setBatchViewFilter('top10')">
-                  {{ 'DASHBOARD.TOP_10_BATCHES' | translate }}
+                  Top 10 Batches
                 </button>
                 <button type="button" class="toggle-btn" [class.active]="batchViewFilter === 'active'" (click)="setBatchViewFilter('active')">
-                  {{ 'DASHBOARD.ACTIVE_WITH_STUDENTS' | translate }}
+                  Active (With Students)
                 </button>
                 <button type="button" class="toggle-btn" [class.active]="batchViewFilter === 'all'" (click)="setBatchViewFilter('all')">
-                  {{ 'DASHBOARD.ALL_BATCHES' | translate }} ({{ summary.batchDistributions.length }})
+                  All Batches ({{ summary.batchDistributions.length }})
                 </button>
               </div>
             </div>
@@ -1309,18 +1307,18 @@ import ApexCharts from 'apexcharts';
               <div class="section-title">
                 <mat-icon class="section-icon warning-icon">warning_amber</mat-icon>
                 <div>
-                  <h3>{{ 'DASHBOARD.URGENT_REMINDERS_TITLE' | translate }}</h3>
-                  <p>{{ 'DASHBOARD.URGENT_REMINDERS_SUB' | translate }}</p>
+                  <h3>Urgent Pending Fee Reminders</h3>
+                  <p>Students with overdue fee invoices</p>
                 </div>
               </div>
               <a mat-stroked-button color="warn" routerLink="/fees" class="view-all-btn">
-                {{ 'COMMON.VIEW_ALL' | translate }} <mat-icon>arrow_forward</mat-icon>
+                View All <mat-icon>arrow_forward</mat-icon>
               </a>
             </div>
             <mat-card-content>
               <table mat-table [dataSource]="summary.overdueInvoices" class="full-width">
                 <ng-container matColumnDef="studentName">
-                  <th mat-header-cell *matHeaderCellDef>{{ 'DASHBOARD.STUDENT' | translate }}</th>
+                  <th mat-header-cell *matHeaderCellDef>Student</th>
                   <td mat-cell *matCellDef="let el">
                     <div class="student-cell">
                       <span class="student-avatar-badge">{{ (el.studentName || 'S').charAt(0).toUpperCase() }}</span>
@@ -1333,24 +1331,24 @@ import ApexCharts from 'apexcharts';
                 </ng-container>
 
                 <ng-container matColumnDef="invoiceNumber">
-                  <th mat-header-cell *matHeaderCellDef>{{ 'DASHBOARD.INVOICE' | translate }}</th>
+                  <th mat-header-cell *matHeaderCellDef>Invoice</th>
                   <td mat-cell *matCellDef="let el">{{ el.invoiceNumber }}</td>
                 </ng-container>
 
                 <ng-container matColumnDef="dueAmount">
-                  <th mat-header-cell *matHeaderCellDef class="text-right">{{ 'DASHBOARD.AMOUNT_DUE' | translate }}</th>
+                  <th mat-header-cell *matHeaderCellDef class="text-right">Amount Due</th>
                   <td mat-cell *matCellDef="let el" class="amount-due text-right">
                     ₹{{ el.dueAmount | number:'1.0-0' }}
                   </td>
                 </ng-container>
 
                 <ng-container matColumnDef="dueDate">
-                  <th mat-header-cell *matHeaderCellDef>{{ 'DASHBOARD.DUE_DATE' | translate }}</th>
+                  <th mat-header-cell *matHeaderCellDef>Due Date</th>
                   <td mat-cell *matCellDef="let el">{{ el.dueDate | date:'mediumDate' }}</td>
                 </ng-container>
 
                 <ng-container matColumnDef="actions">
-                  <th mat-header-cell *matHeaderCellDef class="text-right">{{ 'DASHBOARD.WHATSAPP' | translate }}</th>
+                  <th mat-header-cell *matHeaderCellDef class="text-right">WhatsApp</th>
                   <td mat-cell *matCellDef="let el" class="text-right">
                     <button mat-flat-button class="wa-remind-btn" (click)="sendReminder(el)" matTooltip="Send Fee Reminder on WhatsApp">
                       <mat-icon>chat</mat-icon> Remind
@@ -1365,7 +1363,7 @@ import ApexCharts from 'apexcharts';
                   <td class="mat-cell" [attr.colspan]="feeColumns.length">
                     <div class="empty-inline">
                       <mat-icon style="color:#16a34a">check_circle</mat-icon>
-                      <span>{{ 'DASHBOARD.NO_OVERDUE_FEES' | translate }}</span>
+                      <span>No overdue fee invoices. All fees are up to date! 🎉</span>
                     </div>
                   </td>
                 </tr>
@@ -1379,19 +1377,19 @@ import ApexCharts from 'apexcharts';
               <div class="section-title">
                 <mat-icon class="section-icon test-icon">quiz</mat-icon>
                 <div>
-                  <h3>{{ 'DASHBOARD.RECENT_TESTS_TITLE' | translate }}</h3>
-                  <p>{{ 'DASHBOARD.RECENT_TESTS_SUB' | translate }}</p>
+                  <h3>Recent Test Exams</h3>
+                  <p>Last 5 exams conducted</p>
                 </div>
               </div>
               <a mat-stroked-button color="primary" routerLink="/tests" class="view-all-btn">
-                {{ 'COMMON.VIEW_ALL' | translate }} <mat-icon>arrow_forward</mat-icon>
+                View All <mat-icon>arrow_forward</mat-icon>
               </a>
             </div>
             <mat-card-content>
               <table mat-table [dataSource]="summary.recentTests" class="full-width recent-tests-table">
 
                 <ng-container matColumnDef="title">
-                  <th mat-header-cell *matHeaderCellDef>{{ 'DASHBOARD.TEST_TITLE' | translate }}</th>
+                  <th mat-header-cell *matHeaderCellDef>Test Title</th>
                   <td mat-cell *matCellDef="let t">
                     <div class="test-cell">
                       <strong>{{ t.title }}</strong>
@@ -1401,21 +1399,21 @@ import ApexCharts from 'apexcharts';
                 </ng-container>
 
                 <ng-container matColumnDef="batchName">
-                  <th mat-header-cell *matHeaderCellDef>{{ 'DASHBOARD.BATCH' | translate }}</th>
+                  <th mat-header-cell *matHeaderCellDef>Batch</th>
                   <td mat-cell *matCellDef="let t">
                     <span class="batch-badge" [matTooltip]="t.batchName">{{ t.batchName }}</span>
                   </td>
                 </ng-container>
 
                 <ng-container matColumnDef="maxMarks">
-                  <th mat-header-cell *matHeaderCellDef class="text-center">{{ 'DASHBOARD.MAX_MARKS' | translate }}</th>
+                  <th mat-header-cell *matHeaderCellDef class="text-center">Max Marks</th>
                   <td mat-cell *matCellDef="let t" class="text-center">
                     <span class="marks-badge">{{ t.maxMarks }}</span>
                   </td>
                 </ng-container>
 
                 <ng-container matColumnDef="marksEnteredCount">
-                  <th mat-header-cell *matHeaderCellDef class="text-center">{{ 'DASHBOARD.ENTRIES' | translate }}</th>
+                  <th mat-header-cell *matHeaderCellDef class="text-center">Entries</th>
                   <td mat-cell *matCellDef="let t" class="text-center">
                     <span class="entries-badge" [class.no-entries]="(t.totalStudentsEvaluated ?? t.marksEnteredCount ?? 0) === 0">
                       {{ (t.totalStudentsEvaluated ?? t.marksEnteredCount ?? 0) === 0 ? 'Pending' : (t.totalStudentsEvaluated ?? t.marksEnteredCount) + ' evaluated' }}
@@ -1424,7 +1422,7 @@ import ApexCharts from 'apexcharts';
                 </ng-container>
 
                 <ng-container matColumnDef="testDate">
-                  <th mat-header-cell *matHeaderCellDef class="text-right">{{ 'DASHBOARD.DATE' | translate }}</th>
+                  <th mat-header-cell *matHeaderCellDef class="text-right">Date</th>
                   <td mat-cell *matCellDef="let t" class="date-cell text-right">{{ t.testDate | date:'dd MMM yyyy' }}</td>
                 </ng-container>
 

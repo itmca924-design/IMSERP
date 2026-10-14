@@ -1,5 +1,6 @@
 import { Injectable, signal, computed, effect } from '@angular/core';
-import { SupportedLanguage, EN_TRANSLATIONS, HI_TRANSLATIONS } from '../i18n/translations';
+
+export type SupportedLanguage = 'en' | 'hi';
 
 const STORAGE_KEY = 'imserp_lang';
 
@@ -9,7 +10,7 @@ const STORAGE_KEY = 'imserp_lang';
 export class TranslationService {
   private readonly defaultLang: SupportedLanguage = 'en';
 
-  readonly currentLang = signal<SupportedLanguage>(this.getInitialLanguage());
+  readonly currentLang = signal<SupportedLanguage>('en');
 
   readonly isHindi = computed(() => this.currentLang() === 'hi');
   readonly isEnglish = computed(() => this.currentLang() === 'en');
@@ -25,28 +26,14 @@ export class TranslationService {
       } catch {}
     });
 
-    // Sync Google Translate cookie on boot
-    const initial = this.currentLang();
-    if (initial === 'hi') {
-      try {
-        const expires = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toUTCString();
-        document.cookie = `googtrans=/en/hi; expires=${expires}; path=/;`;
-      } catch {}
-    }
-  }
-
-  private getInitialLanguage(): SupportedLanguage {
+    // Always boot cleanly in English on application load
     try {
-      const saved = localStorage.getItem(STORAGE_KEY) as SupportedLanguage;
-      if (saved === 'hi' || saved === 'en') {
-        return saved;
-      }
+      localStorage.setItem(STORAGE_KEY, 'en');
     } catch {}
-    return this.defaultLang;
+    this.syncGoogleTranslate('en');
   }
 
   setLanguage(lang: SupportedLanguage): void {
-    if (this.currentLang() === lang) return;
     this.currentLang.set(lang);
     try {
       localStorage.setItem(STORAGE_KEY, lang);
@@ -54,35 +41,67 @@ export class TranslationService {
     this.syncGoogleTranslate(lang);
   }
 
-  syncGoogleTranslate(lang: SupportedLanguage): void {
+  syncGoogleTranslate(lang: SupportedLanguage, retryCount = 0): void {
     if (typeof document === 'undefined') return;
 
     try {
-      const targetVal = lang === 'hi' ? '/en/hi' : '/en/en';
-      const expires = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toUTCString();
+      const isHindi = lang === 'hi';
+      const hostname = window.location.hostname;
 
-      // Write cookie to root
-      document.cookie = `googtrans=${targetVal}; expires=${expires}; path=/;`;
-      if (window.location.hostname && window.location.hostname !== 'localhost') {
-        document.cookie = `googtrans=${targetVal}; expires=${expires}; path=/; domain=.${window.location.hostname};`;
+      // 1. Sync cookies across root and domain paths
+      if (isHindi) {
+        const expires = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toUTCString();
+        document.cookie = `googtrans=/en/hi; expires=${expires}; path=/;`;
+        if (hostname && hostname !== 'localhost') {
+          document.cookie = `googtrans=/en/hi; expires=${expires}; path=/; domain=.${hostname};`;
+          document.cookie = `googtrans=/en/hi; expires=${expires}; path=/; domain=${hostname};`;
+        }
+      } else {
+        // Complete clear of translation cookie for English
+        const past = 'Thu, 01 Jan 1970 00:00:00 GMT';
+        document.cookie = `googtrans=; expires=${past}; path=/;`;
+        document.cookie = `googtrans=/en/en; path=/;`;
+        if (hostname && hostname !== 'localhost') {
+          document.cookie = `googtrans=; expires=${past}; path=/; domain=.${hostname};`;
+          document.cookie = `googtrans=; expires=${past}; path=/; domain=${hostname};`;
+          document.cookie = `googtrans=/en/en; path=/; domain=.${hostname};`;
+        }
       }
 
-      // Check if Google Translate combo select exists in DOM
+      // 2. Select language in Google's combo dropdown
       const combo = document.querySelector<HTMLSelectElement>('.goog-te-combo');
       if (combo) {
-        combo.value = lang;
-        combo.dispatchEvent(new Event('change'));
-      } else {
-        // If Google Translate element isn't in DOM yet, reload with cookie active
-        setTimeout(() => {
-          const combo2 = document.querySelector<HTMLSelectElement>('.goog-te-combo');
-          if (combo2) {
-            combo2.value = lang;
-            combo2.dispatchEvent(new Event('change'));
-          } else {
-            window.location.reload();
-          }
-        }, 150);
+        if (isHindi) {
+          combo.value = 'hi';
+        } else {
+          // In Google Translate, setting combo value to '' (index 0) triggers restoration to pageLanguage
+          combo.value = '';
+          combo.selectedIndex = 0;
+
+          // Trigger Google's original text restoration button if present in any frame
+          try {
+            const iframes = document.querySelectorAll<HTMLIFrameElement>('iframe');
+            iframes.forEach(f => {
+              try {
+                const btn = f.contentDocument?.querySelector<HTMLElement>('.goog-close-link, [id$=".restore"]');
+                if (btn) btn.click();
+              } catch {}
+            });
+            document.documentElement.classList.remove('translated-ltr', 'translated-rtl');
+          } catch {}
+        }
+
+        // Fire standard change events
+        combo.dispatchEvent(new Event('change', { bubbles: true }));
+        if (typeof (combo as any).onchange === 'function') {
+          (combo as any).onchange();
+        }
+        return;
+      }
+
+      // 3. If Google widget is still initializing, retry smoothly up to 15 times (1.5 seconds)
+      if (retryCount < 15) {
+        setTimeout(() => this.syncGoogleTranslate(lang, retryCount + 1), 100);
       }
     } catch (e) {
       console.warn('Google Translate sync exception:', e);
@@ -95,31 +114,10 @@ export class TranslationService {
   }
 
   translate(keyOrText: string, params?: Record<string, any>): string {
-    if (!keyOrText) return '';
-
-    const lang = this.currentLang();
-    let text = '';
-
-    if (lang === 'hi') {
-      text = HI_TRANSLATIONS[keyOrText] || HI_TRANSLATIONS[keyOrText.trim()] || '';
-      if (!text) {
-        // Fallback to English dictionary or key itself
-        text = EN_TRANSLATIONS[keyOrText] || keyOrText;
-      }
-    } else {
-      text = EN_TRANSLATIONS[keyOrText] || EN_TRANSLATIONS[keyOrText.trim()] || keyOrText;
-    }
-
-    if (params && Object.keys(params).length > 0) {
-      for (const [paramKey, paramVal] of Object.entries(params)) {
-        text = text.replace(new RegExp(`{{${paramKey}}}`, 'g'), String(paramVal));
-      }
-    }
-
-    return text;
+    return keyOrText || '';
   }
 
   t(keyOrText: string, params?: Record<string, any>): string {
-    return this.translate(keyOrText, params);
+    return keyOrText || '';
   }
 }

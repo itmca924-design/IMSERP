@@ -4,12 +4,11 @@ import { RouterModule } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { AuthService } from '../../core/services/auth.service';
-import { TranslatePipe } from '../../core/pipes/translate.pipe';
 
 @Component({
   selector: 'app-footer',
   standalone: true,
-  imports: [CommonModule, RouterModule, MatIconModule, MatTooltipModule, TranslatePipe],
+  imports: [CommonModule, RouterModule, MatIconModule, MatTooltipModule],
   template: `
     <footer class="app-footer">
       <div class="footer-container">
@@ -26,7 +25,7 @@ import { TranslatePipe } from '../../core/pipes/translate.pipe';
 
         <!-- Center: Quick Helpful Links -->
         <div class="footer-center">
-          <a routerLink="/dashboard" class="footer-link">{{ 'NAV.DASHBOARD' | translate }}</a>
+          <a routerLink="/dashboard" class="footer-link">Dashboard</a>
           <span class="divider-dot">&bull;</span>
           <a routerLink="/whatsapp" class="footer-link">WhatsApp Logs</a>
           <span class="divider-dot">&bull;</span>
@@ -39,7 +38,7 @@ import { TranslatePipe } from '../../core/pipes/translate.pipe';
         <div class="footer-right">
           <div class="status-indicator" matTooltip="Cloud API &amp; Database live and healthy">
             <span class="pulse-dot"></span>
-            <span class="status-text">{{ 'HEADER.SYSTEM_LIVE' | translate }}</span>
+            <span class="status-text">System Live</span>
           </div>
           <div class="version-badge" matTooltip="School ERP Engine Version">
             {{ appVersion }}

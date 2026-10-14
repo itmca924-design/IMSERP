@@ -20,7 +20,6 @@ import { TenantService } from '../core/services/tenant.service';
 import { BranchService } from '../core/services/branch.service';
 import { IdleTimeoutService } from '../core/services/idle-timeout.service';
 import { TranslationService } from '../core/services/translation.service';
-import { TranslatePipe } from '../core/pipes/translate.pipe';
 import { API_BASE, HolidayDto } from '../features/teachers/teacher.models';
 import { FooterComponent } from './footer/footer.component';
 import { QuickSettingsDrawerComponent } from './quick-settings-drawer/quick-settings-drawer.component';
@@ -43,8 +42,7 @@ import { environment } from '../../environments/environment';
     MatMenuModule,
     MatTooltipModule,
     FooterComponent,
-    QuickSettingsDrawerComponent,
-    TranslatePipe
+    QuickSettingsDrawerComponent
   ],
   template: `
     <mat-sidenav-container class="sidenav-container">
@@ -54,19 +52,18 @@ import { environment } from '../../environments/environment';
         [mode]="isMobile() ? 'over' : 'side'"
         [opened]="!isMobile()">
 
-        <div class="brand-section notranslate" translate="no">
-          <div class="brand-logo-badge notranslate" translate="no" *ngIf="!currentUser()?.profilePhoto || logoImgFailed()">
-            <mat-icon class="brand-icon notranslate" translate="no">school</mat-icon>
+        <div class="brand-section">
+          <div class="brand-logo-badge" *ngIf="!currentUser()?.profilePhoto || logoImgFailed()">
+            <mat-icon class="brand-icon">school</mat-icon>
           </div>
           <img *ngIf="currentUser()?.profilePhoto && !logoImgFailed()" 
                [src]="getPhotoUrl(currentUser()?.profilePhoto)" 
                (error)="onLogoImgError()"
-               class="brand-logo-img notranslate" 
-               translate="no"
+               class="brand-logo-img" 
                alt="Institute Logo">
-          <div class="brand-titles notranslate" translate="no">
-            <span class="brand-name notranslate" translate="no" [matTooltip]="currentUser()?.instituteName || 'Apex Coaching Academy'">{{ currentUser()?.instituteName || 'Apex Coaching Academy' }}</span>
-            <span class="brand-sub notranslate" translate="no">{{ getTenantModuleBadge() }}</span>
+          <div class="brand-titles">
+            <span class="brand-name" [matTooltip]="currentUser()?.instituteName || 'Apex Coaching Academy'">{{ currentUser()?.instituteName || 'Apex Coaching Academy' }}</span>
+            <span class="brand-sub">{{ getTenantModuleBadge() }}</span>
           </div>
           <button *ngIf="isMobile()" mat-icon-button class="close-drawer-btn" (click)="drawer.close()">
             <mat-icon>close</mat-icon>
@@ -78,12 +75,12 @@ import { environment } from '../../environments/environment';
             <ng-container *ngFor="let item of menuTree()">
               <!-- Item with sub-menus (e.g. Master Management, Admin Settings) -->
               <mat-expansion-panel *ngIf="item.children && item.children.length > 0" class="mat-elevation-z0" [expanded]="false">
-                <mat-expansion-panel-header [matTooltip]="item.title | translate" matTooltipPosition="right">
+                <mat-expansion-panel-header [matTooltip]="item.title" matTooltipPosition="right">
                   <mat-panel-title class="accordion-title">
                     <span class="menu-icon-badge" [ngClass]="'badge-' + ((item.module || '') | lowercase)">
                       <mat-icon class="menu-icon">{{ item.icon || 'category' }}</mat-icon>
                     </span>
-                    <span class="module-title">{{ item.title | translate }}</span>
+                    <span class="module-title">{{ item.title }}</span>
                   </mat-panel-title>
                 </mat-expansion-panel-header>
 
@@ -93,11 +90,11 @@ import { environment } from '../../environments/environment';
                        mat-list-item
                        [routerLink]="sub.routeUrl"
                        routerLinkActive="active-link"
-                       [matTooltip]="sub.title | translate"
+                       [matTooltip]="sub.title"
                        matTooltipPosition="right"
                        (click)="onNavClick(drawer)">
                       <mat-icon matListItemIcon class="sub-icon">{{ sub.icon || 'star' }}</mat-icon>
-                      <span matListItemTitle class="sub-title-text">{{ sub.title | translate }}</span>
+                      <span matListItemTitle class="sub-title-text">{{ sub.title }}</span>
                     </a>
                   </mat-nav-list>
                 </div>
@@ -109,13 +106,13 @@ import { environment } from '../../environments/environment';
                    [routerLink]="item.routeUrl"
                    routerLinkActive="active-link"
                    [routerLinkActiveOptions]="{ exact: item.routeUrl === '/' || item.routeUrl === '/dashboard' }"
-                   [matTooltip]="item.title | translate"
+                   [matTooltip]="item.title"
                    matTooltipPosition="right"
                    (click)="onNavClick(drawer)">
                   <span class="menu-icon-badge badge-main">
                     <mat-icon>{{ item.icon || 'space_dashboard' }}</mat-icon>
                   </span>
-                  <span class="direct-title-text">{{ item.title | translate }}</span>
+                  <span class="direct-title-text">{{ item.title }}</span>
                 </a>
               </div>
             </ng-container>
@@ -124,7 +121,7 @@ import { environment } from '../../environments/environment';
 
         <div class="sidebar-calendar">
           <div class="calendar-title-row">
-            <strong><mat-icon>event</mat-icon> {{ 'NAV.HOLIDAY_CALENDAR' | translate }}</strong>
+            <strong><mat-icon>event</mat-icon> Holiday Calendar</strong>
             <span>{{ calendarYear }}</span>
           </div>
           <div class="calendar-controls">
@@ -172,36 +169,36 @@ import { environment } from '../../environments/environment';
           <div class="header-tools">
             <div class="header-search" [class.open]="headerSearchFocused">
               <mat-icon>search</mat-icon>
-              <input type="search" [placeholder]="'HEADER.SEARCH_PAGES' | translate" [value]="headerSearch" (input)="onHeaderSearch($event)" (focus)="onSearchFocus()" (blur)="closeHeaderSearch()" aria-label="Search pages">
+              <input type="search" placeholder="Search pages" [value]="headerSearch" (input)="onHeaderSearch($event)" (focus)="onSearchFocus()" (blur)="closeHeaderSearch()" aria-label="Search pages">
               <div class="search-results" *ngIf="headerSearchFocused && headerSearchResults.length > 0">
                 <a *ngFor="let result of headerSearchResults" [routerLink]="result.route" (mousedown)="$event.preventDefault()" (click)="headerSearch = ''; headerSearchFocused = false">
-                  <mat-icon>{{ result.icon }}</mat-icon><span>{{ result.title | translate }}</span>
+                  <mat-icon>{{ result.icon }}</mat-icon><span>{{ result.title }}</span>
                 </a>
               </div>
             </div>
 
-            <button mat-icon-button [matMenuTriggerFor]="notificationMenu" class="header-tool-button" [matTooltip]="'HEADER.NOTIFICATIONS' | translate" aria-label="Notifications">
+            <button mat-icon-button [matMenuTriggerFor]="notificationMenu" class="header-tool-button" matTooltip="Notifications" aria-label="Notifications">
               <mat-icon>notifications_none</mat-icon><span class="notification-dot"></span>
             </button>
             <mat-menu #notificationMenu="matMenu" xPosition="before">
-              <div class="menu-section-title">{{ 'HEADER.NOTIFICATIONS' | translate }}</div>
+              <div class="menu-section-title">Notifications</div>
               <button mat-menu-item routerLink="/fees" *ngIf="isRoutePermitted('/fees') && isUpcomingBillingWindowActive()">
                 <mat-icon style="color: #2563eb;">calendar_month</mat-icon>
                 <span>Upcoming Fee Invoicing Alert ({{ getUpcomingBillingCycleLabel() }})</span>
               </button>
-              <button mat-menu-item routerLink="/holidays"><mat-icon color="primary">event</mat-icon><span>{{ 'HEADER.VIEW_HOLIDAYS' | translate }}</span></button>
-              <button mat-menu-item routerLink="/fees" *ngIf="isRoutePermitted('/fees')"><mat-icon color="warn">payments</mat-icon><span>{{ 'HEADER.REVIEW_FEES' | translate }}</span></button>
-              <button mat-menu-item routerLink="/attendance/reports" *ngIf="isRoutePermitted('/attendance/reports')"><mat-icon color="accent">summarize</mat-icon><span>{{ 'HEADER.OPEN_ATTENDANCE_REPORTS' | translate }}</span></button>
+              <button mat-menu-item routerLink="/holidays"><mat-icon color="primary">event</mat-icon><span>View Holidays</span></button>
+              <button mat-menu-item routerLink="/fees" *ngIf="isRoutePermitted('/fees')"><mat-icon color="warn">payments</mat-icon><span>Review Overdue Fees</span></button>
+              <button mat-menu-item routerLink="/attendance/reports" *ngIf="isRoutePermitted('/attendance/reports')"><mat-icon color="accent">summarize</mat-icon><span>Open Attendance Reports</span></button>
               <button mat-menu-item routerLink="/school/notices" *ngIf="isRoutePermitted('/school/notices')"><mat-icon color="primary">campaign</mat-icon><span>School Notices</span></button>
             </mat-menu>
 
-            <button mat-stroked-button [matMenuTriggerFor]="quickActionsMenu" class="quick-actions-button" [matTooltip]="'HEADER.QUICK_ACTIONS' | translate">
-              <mat-icon>bolt</mat-icon><span>{{ 'HEADER.QUICK_ACTIONS' | translate }}</span>
+            <button mat-stroked-button [matMenuTriggerFor]="quickActionsMenu" class="quick-actions-button" matTooltip="Quick Actions">
+              <mat-icon>bolt</mat-icon><span>Quick Actions</span>
             </button>
             <mat-menu #quickActionsMenu="matMenu" xPosition="before" class="quick-actions-menu">
               <div class="menu-section-title">
                 <mat-icon style="font-size:16px; width:16px; height:16px; margin-right:4px; vertical-align:middle;">bolt</mat-icon>
-                <span>{{ 'HEADER.QUICK_ACTIONS' | translate }} ({{ currentUser()?.role || 'User' }})</span>
+                <span>Quick Actions ({{ currentUser()?.role || 'User' }})</span>
               </div>
               <button mat-menu-item *ngFor="let a of dynamicQuickActions" [routerLink]="a.route">
                 <mat-icon [style.color]="a.color">{{ a.icon }}</mat-icon>

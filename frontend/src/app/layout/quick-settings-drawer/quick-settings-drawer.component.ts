@@ -8,7 +8,6 @@ import { QuickSettingsService, ErpThemeMode, ErpAccentColor, ErpDensity } from '
 import { AuthService } from '../../core/services/auth.service';
 import { TenantService } from '../../core/services/tenant.service';
 import { TranslationService } from '../../core/services/translation.service';
-import { TranslatePipe } from '../../core/pipes/translate.pipe';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { RolesService, UserPermissionSummary } from '../../core/services/roles.service';
 
@@ -20,8 +19,7 @@ import { RolesService, UserPermissionSummary } from '../../core/services/roles.s
     RouterModule,
     MatIconModule,
     MatButtonModule,
-    MatTooltipModule,
-    TranslatePipe
+    MatTooltipModule
   ],
   templateUrl: './quick-settings-drawer.component.html',
   styleUrls: ['./quick-settings-drawer.component.scss']
