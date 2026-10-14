@@ -180,8 +180,8 @@ interface ModuleHeaderState {
                 <!-- Module Header Bar -->
                 <div class="module-header" (click)="toggleModuleCollapse(mod.moduleName)">
                   <div class="module-title-box">
-                    <mat-icon class="collapse-toggle-icon">
-                      {{ isModuleCollapsed(mod.moduleName) ? 'chevron_right' : 'expand_more' }}
+                    <mat-icon class="collapse-toggle-icon" [class.rotated]="!isModuleCollapsed(mod.moduleName)">
+                      chevron_right
                     </mat-icon>
                     <mat-icon color="primary" class="mod-icon">category</mat-icon>
                     <span class="mod-title-text">{{ mod.moduleName }} Module</span>
@@ -225,44 +225,48 @@ interface ModuleHeaderState {
                   </div>
                 </div>
 
-                <!-- Child Pages Table in Responsive Wrapper -->
-                <div class="table-responsive-wrapper" *ngIf="!isModuleCollapsed(mod.moduleName)">
-                  <table class="rights-table">
-                    <thead>
-                      <tr>
-                        <th class="page-col">Page Title / Navigation Route</th>
-                        <th class="text-center action-col">View / Access Page</th>
-                        <th class="text-center action-col">Create Right</th>
-                        <th class="text-center action-col">Edit Right</th>
-                        <th class="text-center action-col">Delete Right</th>
-                      </tr>
-                    </thead>
-                    <tbody formArrayName="permissions">
-                      <tr *ngFor="let item of mod.items" [formGroupName]="item.index">
-                        <td class="menu-title-cell" style="vertical-align: middle !important;">
-                          <div class="menu-title-wrap" style="display: flex !important; flex-direction: row !important; align-items: center !important; gap: 12px !important;">
-                            <mat-icon color="primary" class="menu-icon" style="font-size: 22px !important; width: 22px !important; height: 22px !important; line-height: 22px !important; margin: 0 !important; padding: 0 !important; flex-shrink: 0 !important; align-self: center !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; vertical-align: middle !important;">{{ item.group.get('icon')?.value || 'web' }}</mat-icon>
-                            <div class="menu-titles" style="display: flex !important; flex-direction: column !important; justify-content: center !important; align-self: center !important;">
-                              <span class="item-title" style="font-size: 0.9rem !important; font-weight: 600 !important; color: #1e293b !important; line-height: 1.25 !important; margin: 0 !important; padding: 0 !important;">{{ item.group.get('menuTitle')?.value }}</span>
-                              <span class="route-subtitle" style="font-size: 0.75rem !important; color: #94a3b8 !important; line-height: 1.2 !important; margin: 0 !important; margin-top: 2px !important; padding: 0 !important;">{{ item.group.get('routeUrl')?.value || 'Folder' }}</span>
-                            </div>
-                          </div>
-                        </td>
-                        <td class="text-center action-col">
-                          <mat-checkbox formControlName="canView" color="primary"></mat-checkbox>
-                        </td>
-                        <td class="text-center action-col">
-                          <mat-checkbox formControlName="canCreate" color="primary"></mat-checkbox>
-                        </td>
-                        <td class="text-center action-col">
-                          <mat-checkbox formControlName="canEdit" color="primary"></mat-checkbox>
-                        </td>
-                        <td class="text-center action-col">
-                          <mat-checkbox formControlName="canDelete" color="warn"></mat-checkbox>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
+                <!-- Child Pages Table in Animated Collapsible Wrapper -->
+                <div class="module-collapse-wrapper" [class.is-expanded]="!isModuleCollapsed(mod.moduleName)">
+                  <div class="module-collapse-inner">
+                    <div class="table-responsive-wrapper">
+                      <table class="rights-table">
+                        <thead>
+                          <tr>
+                            <th class="page-col">Page Title / Navigation Route</th>
+                            <th class="text-center action-col">View / Access Page</th>
+                            <th class="text-center action-col">Create Right</th>
+                            <th class="text-center action-col">Edit Right</th>
+                            <th class="text-center action-col">Delete Right</th>
+                          </tr>
+                        </thead>
+                        <tbody formArrayName="permissions">
+                          <tr *ngFor="let item of mod.items" [formGroupName]="item.index">
+                            <td class="menu-title-cell" style="vertical-align: middle !important;">
+                              <div class="menu-title-wrap" style="display: flex !important; flex-direction: row !important; align-items: center !important; gap: 12px !important;">
+                                <mat-icon color="primary" class="menu-icon" style="font-size: 22px !important; width: 22px !important; height: 22px !important; line-height: 22px !important; margin: 0 !important; padding: 0 !important; flex-shrink: 0 !important; align-self: center !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; vertical-align: middle !important;">{{ item.group.get('icon')?.value || 'web' }}</mat-icon>
+                                <div class="menu-titles" style="display: flex !important; flex-direction: column !important; justify-content: center !important; align-self: center !important;">
+                                  <span class="item-title" style="font-size: 0.9rem !important; font-weight: 600 !important; color: #1e293b !important; line-height: 1.25 !important; margin: 0 !important; padding: 0 !important;">{{ item.group.get('menuTitle')?.value }}</span>
+                                  <span class="route-subtitle" style="font-size: 0.75rem !important; color: #94a3b8 !important; line-height: 1.2 !important; margin: 0 !important; margin-top: 2px !important; padding: 0 !important;">{{ item.group.get('routeUrl')?.value || 'Folder' }}</span>
+                                </div>
+                              </div>
+                            </td>
+                            <td class="text-center action-col">
+                              <mat-checkbox formControlName="canView" color="primary"></mat-checkbox>
+                            </td>
+                            <td class="text-center action-col">
+                              <mat-checkbox formControlName="canCreate" color="primary"></mat-checkbox>
+                            </td>
+                            <td class="text-center action-col">
+                              <mat-checkbox formControlName="canEdit" color="primary"></mat-checkbox>
+                            </td>
+                            <td class="text-center action-col">
+                              <mat-checkbox formControlName="canDelete" color="warn"></mat-checkbox>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -558,6 +562,39 @@ interface ModuleHeaderState {
           font-size: 0.82rem;
         }
       }
+      .collapse-all-btn {
+        font-weight: 600;
+        border-radius: 8px;
+        padding: 0 14px;
+        background: #f8fafc;
+        border-color: #cbd5e1;
+        color: #334155;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+
+        mat-icon {
+          font-size: 20px;
+          width: 20px;
+          height: 20px;
+          margin-right: 6px;
+          transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        &:hover {
+          background: #eff6ff;
+          border-color: #93c5fd;
+          color: #1d4ed8;
+          transform: translateY(-1px);
+          box-shadow: 0 4px 10px -2px rgba(37, 99, 235, 0.18);
+
+          mat-icon {
+            transform: scale(1.15);
+          }
+        }
+
+        &:active {
+          transform: translateY(0);
+        }
+      }
       @media (max-width: 540px) {
         flex-direction: column;
         align-items: stretch;
@@ -583,23 +620,62 @@ interface ModuleHeaderState {
     }
     .module-block {
       border: 1px solid #e2e8f0;
-      border-radius: 8px;
+      border-radius: 10px;
       overflow: hidden;
       width: 100%;
       background: #ffffff;
-      transition: all 0.2s ease-in-out;
+      transition: border-color 0.35s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+
+      &:hover {
+        border-color: #cbd5e1;
+      }
+
+      &:not(.is-collapsed) {
+        border-color: #93c5fd;
+        box-shadow: 0 8px 24px -4px rgba(37, 99, 235, 0.12), 0 4px 8px -2px rgba(37, 99, 235, 0.05);
+
+        .module-header {
+          background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+          border-bottom: 1px solid #bfdbfe;
+
+          .mod-title-text {
+            color: #1e3a8a;
+          }
+
+          .module-items-badge {
+            background: #dbeafe;
+            color: #1e40af;
+            box-shadow: 0 1px 2px rgba(37, 99, 235, 0.1);
+          }
+        }
+
+        .mod-icon {
+          color: #2563eb;
+          transform: scale(1.1);
+        }
+      }
 
       &.is-collapsed {
-        box-shadow: 0 1px 2px rgba(0,0,0,0.03);
         .module-header {
-          border-bottom: none;
+          border-bottom: 1px solid transparent;
+          background: #f8fafc;
+
+          &:hover {
+            background: #f1f5f9;
+
+            .collapse-toggle-icon:not(.rotated) {
+              transform: translateX(3px);
+              color: #2563eb;
+            }
+          }
         }
       }
     }
     .module-header {
       background: #f1f5f9;
       border-bottom: 1px solid #e2e8f0;
-      padding: 10px 16px;
+      padding: 11px 16px;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -607,11 +683,7 @@ interface ModuleHeaderState {
       gap: 12px;
       cursor: pointer;
       user-select: none;
-      transition: background 0.15s ease-in-out;
-
-      &:hover {
-        background: #e9eff5;
-      }
+      transition: background 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
       @media (max-width: 768px) {
         flex-direction: column;
@@ -626,16 +698,22 @@ interface ModuleHeaderState {
         font-size: 0.95rem;
 
         .collapse-toggle-icon {
-          font-size: 20px;
-          width: 20px;
-          height: 20px;
-          color: #475569;
-          transition: transform 0.2s ease;
+          font-size: 22px;
+          width: 22px;
+          height: 22px;
+          color: #64748b;
+          transition: transform 0.35s cubic-bezier(0.34, 1.25, 0.64, 1), color 0.25s ease;
+
+          &.rotated {
+            transform: rotate(90deg);
+            color: #2563eb;
+          }
         }
         .mod-icon {
           font-size: 20px;
           width: 20px;
           height: 20px;
+          transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.3s ease;
         }
         .mod-title-text {
           font-weight: 700;
@@ -649,8 +727,10 @@ interface ModuleHeaderState {
           padding: 2px 8px;
           border-radius: 12px;
           margin-left: 4px;
+          transition: all 0.25s ease;
         }
       }
+
       .module-master-toggles {
         display: flex;
         align-items: center;
@@ -680,6 +760,30 @@ interface ModuleHeaderState {
         }
       }
     }
+
+    /* Silky-smooth CSS Grid Animated Collapsible Wrapper */
+    .module-collapse-wrapper {
+      display: grid;
+      grid-template-rows: 0fr;
+      transition: grid-template-rows 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+
+      &.is-expanded {
+        grid-template-rows: 1fr;
+
+        .module-collapse-inner {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .module-collapse-inner {
+        overflow: hidden;
+        min-height: 0;
+        opacity: 0;
+        transform: translateY(-8px);
+        transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+    }
     .table-responsive-wrapper {
       width: 100%;
       overflow-x: auto;
@@ -689,6 +793,12 @@ interface ModuleHeaderState {
       width: 100%;
       min-width: 680px;
       border-collapse: collapse;
+      tr {
+        transition: background-color 0.2s ease;
+      }
+      tbody tr:hover {
+        background-color: #f8fafc;
+      }
       th, td {
         padding: 10px 16px;
         border-bottom: 1px solid #f1f5f9;

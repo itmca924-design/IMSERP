@@ -270,23 +270,29 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
                   <th class="th-amount">Paid (₹)</th>
                   <th class="th-amount">Balance (₹)</th>
                   <th class="th-status">Status</th>
-                  <th class="th-receipt">Receipt No & Date</th>
+                  <th class="th-receipt">Receipt No & Date / Time (IST)</th>
                   <th class="th-mode">Mode</th>
                   <th class="th-sign">Cashier Stamp / Sign</th>
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let m of currentCard.months; let idx = index" [class.row-paid]="m.status === 'Paid'" [class.row-due]="m.status === 'Due' || m.status === 'Overdue'">
+                <tr *ngFor="let m of currentCard.months; let idx = index" [class.row-paid]="m.status === 'Paid'" [class.row-due]="m.status === 'Due' || m.status === 'Overdue'" [class.row-na]="m.status === 'N/A'">
                   <td class="td-sn">{{ m.monthIndex }}</td>
                   <td class="td-month">
                     <strong>{{ m.monthShort }}</strong>
                   </td>
-                  <td class="td-amount">₹{{ m.amountPayable | number:'1.2-2' }}</td>
+                  <td class="td-amount">
+                    <ng-container *ngIf="m.status !== 'N/A'">₹{{ m.amountPayable | number:'1.2-2' }}</ng-container>
+                    <span *ngIf="m.status === 'N/A'" class="text-muted">-</span>
+                  </td>
                   <td class="td-amount font-bold-amt" [class.text-green]="m.amountPaid > 0">
                     {{ m.amountPaid > 0 ? ('₹' + (m.amountPaid | number:'1.2-2')) : '-' }}
                   </td>
                   <td class="td-amount" [class.text-red]="m.balanceDue > 0">
-                    {{ m.balanceDue > 0 ? ('₹' + (m.balanceDue | number:'1.2-2')) : '₹0.00' }}
+                    <ng-container *ngIf="m.status !== 'N/A'">
+                      {{ m.balanceDue > 0 ? ('₹' + (m.balanceDue | number:'1.2-2')) : (m.status === 'Upcoming' ? '-' : '₹0.00') }}
+                    </ng-container>
+                    <span *ngIf="m.status === 'N/A'" class="text-muted">-</span>
                   </td>
                   <td class="td-status">
                     <span class="status-pill" [ngClass]="getStatusClass(m.status)">
@@ -297,7 +303,7 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
                     <ng-container *ngIf="m.receiptNumber">
                       <span class="rcpt-num">{{ m.receiptNumber }}</span>
                       <small class="rcpt-date" *ngIf="m.paymentDate">
-                        <span [appIstDatetime]="m.paymentDate" [format]="'date'"></span>
+                        <span [appIstDatetime]="m.paymentDate" [format]="'datetime'"></span>
                       </small>
                     </ng-container>
                     <span *ngIf="!m.receiptNumber" class="text-muted">-</span>
@@ -487,21 +493,27 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
                       <th class="th-amount">Paid (₹)</th>
                       <th class="th-amount">Balance (₹)</th>
                       <th class="th-status">Status</th>
-                      <th class="th-receipt">Receipt No & Date</th>
+                      <th class="th-receipt">Receipt No & Date / Time (IST)</th>
                       <th class="th-mode">Mode</th>
                       <th class="th-sign">Cashier Stamp / Sign</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr *ngFor="let m of card.months" [class.row-paid]="m.status === 'Paid'" [class.row-due]="m.status === 'Due' || m.status === 'Overdue'">
+                    <tr *ngFor="let m of card.months" [class.row-paid]="m.status === 'Paid'" [class.row-due]="m.status === 'Due' || m.status === 'Overdue'" [class.row-na]="m.status === 'N/A'">
                       <td class="td-sn">{{ m.monthIndex }}</td>
                       <td class="td-month"><strong>{{ m.monthShort }}</strong></td>
-                      <td class="td-amount">₹{{ m.amountPayable | number:'1.2-2' }}</td>
+                      <td class="td-amount">
+                        <ng-container *ngIf="m.status !== 'N/A'">₹{{ m.amountPayable | number:'1.2-2' }}</ng-container>
+                        <span *ngIf="m.status === 'N/A'" class="text-muted">-</span>
+                      </td>
                       <td class="td-amount font-bold-amt" [class.text-green]="m.amountPaid > 0">
                         {{ m.amountPaid > 0 ? ('₹' + (m.amountPaid | number:'1.2-2')) : '-' }}
                       </td>
                       <td class="td-amount" [class.text-red]="m.balanceDue > 0">
-                        {{ m.balanceDue > 0 ? ('₹' + (m.balanceDue | number:'1.2-2')) : '₹0.00' }}
+                        <ng-container *ngIf="m.status !== 'N/A'">
+                          {{ m.balanceDue > 0 ? ('₹' + (m.balanceDue | number:'1.2-2')) : (m.status === 'Upcoming' ? '-' : '₹0.00') }}
+                        </ng-container>
+                        <span *ngIf="m.status === 'N/A'" class="text-muted">-</span>
                       </td>
                       <td class="td-status">
                         <span class="status-pill" [ngClass]="getStatusClass(m.status)">
@@ -512,7 +524,7 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
                         <ng-container *ngIf="m.receiptNumber">
                           <span class="rcpt-num">{{ m.receiptNumber }}</span>
                           <small class="rcpt-date" *ngIf="m.paymentDate">
-                            <span [appIstDatetime]="m.paymentDate" [format]="'date'"></span>
+                            <span [appIstDatetime]="m.paymentDate" [format]="'datetime'"></span>
                           </small>
                         </ng-container>
                         <span *ngIf="!m.receiptNumber" class="text-muted">-</span>
@@ -1169,6 +1181,17 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
       background: #f1f5f9;
       color: #475569;
       border: 1px solid #e2e8f0;
+    }
+
+    .pill-na {
+      background: #f8fafc;
+      color: #94a3b8;
+      border: 1px solid #e2e8f0;
+    }
+
+    .row-na {
+      background-color: #fafbfc;
+      color: #94a3b8;
     }
 
     .rcpt-num {
@@ -1941,6 +1964,7 @@ export class FeeCardComponent implements OnInit {
       case 'Overdue': return 'Overdue (अतिदेय)';
       case 'Due': return 'Due (देय)';
       case 'Upcoming': return 'Upcoming (आगामी)';
+      case 'N/A': return 'N/A (पूर्व नामांकन)';
       default: return status;
     }
   }
@@ -1952,6 +1976,7 @@ export class FeeCardComponent implements OnInit {
       case 'Overdue': return 'pill-overdue';
       case 'Due': return 'pill-due';
       case 'Upcoming': return 'pill-upcoming';
+      case 'N/A': return 'pill-na';
       default: return 'pill-upcoming';
     }
   }

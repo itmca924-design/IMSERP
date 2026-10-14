@@ -435,6 +435,12 @@ public class FeesController : ControllerBase
         var monthsList = new List<FeeCardMonthEntryDto>();
         decimal monthlyFeeRate = student.Batch?.StandardMonthlyFee ?? 0m;
 
+        DateTime joinRefDate = student.JoiningDate != default 
+            ? student.JoiningDate 
+            : new DateTime(startYear, 4, 1);
+        DateTime studentEnrollmentStart = new DateTime(joinRefDate.Year, joinRefDate.Month, 1);
+        var currentMonthStart = new DateTime(now.Year, now.Month, 1);
+
         for (int i = 1; i <= 12; i++)
         {
             int calMonth = i <= 9 ? i + 3 : i - 9;
@@ -477,10 +483,33 @@ public class FeesController : ControllerBase
                     pmt?.Remarks ?? inv.Title
                 ));
             }
+            else if (monthDate < studentEnrollmentStart)
+            {
+                // Month prior to student admission — no fees applicable for pre-admission period
+                monthsList.Add(new FeeCardMonthEntryDto(
+                    i,
+                    monthName,
+                    monthShort,
+                    calMonth,
+                    calYear,
+                    "N/A",
+                    0m,
+                    0m,
+                    0m,
+                    0m,
+                    0m,
+                    null,
+                    null,
+                    null,
+                    null,
+                    "Pre-Admission (पूर्व नामांकन)"
+                ));
+            }
             else
             {
-                bool isPast = calYear < now.Year || (calYear == now.Year && calMonth < now.Month);
-                string status = isPast ? "Due" : "Upcoming";
+                bool isFuture = monthDate > currentMonthStart;
+                string status = isFuture ? "Upcoming" : "Due";
+                decimal balanceDue = isFuture ? 0m : monthlyFeeRate;
 
                 monthsList.Add(new FeeCardMonthEntryDto(
                     i,
@@ -493,7 +522,7 @@ public class FeesController : ControllerBase
                     0m,
                     monthlyFeeRate,
                     0m,
-                    monthlyFeeRate,
+                    balanceDue,
                     null,
                     null,
                     null,

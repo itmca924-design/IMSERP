@@ -309,11 +309,12 @@ export interface DailyDiaryReportHeader {
                         <div class="qf-input-badges">
                           <button
                             type="button"
-                            class="lang-pill"
+                            class="lang-pill notranslate"
+                            translate="no"
                             [class.active]="isHindiActive(item)"
                             (click)="toggleHindiMode(item)"
                             [matTooltip]="isHindiActive(item) ? '🇮🇳 हिन्दी टाइपिंग चालू है (ki + Space = कि). Click to switch to English' : 'Click to enable Hindi phonetic typing'">
-                            <span>{{isHindiActive(item) ? '🇮🇳 हिन्दी' : 'ENG'}}</span>
+                            <span class="notranslate" translate="no">{{isHindiActive(item) ? '🇮🇳 हिन्दी' : 'ENG'}}</span>
                           </button>
                           <button
                             type="button"
@@ -374,11 +375,12 @@ export interface DailyDiaryReportHeader {
                         <div class="qf-input-badges">
                           <button
                             type="button"
-                            class="lang-pill"
+                            class="lang-pill notranslate"
+                            translate="no"
                             [class.active]="isHindiActive(item)"
                             (click)="toggleHindiMode(item)"
                             [matTooltip]="isHindiActive(item) ? '🇮🇳 हिन्दी टाइपिंग चालू है (ki + Space = कि). Click to switch to English' : 'Click to enable Hindi phonetic typing'">
-                            <span>{{isHindiActive(item) ? '🇮🇳 हिन्दी' : 'ENG'}}</span>
+                            <span class="notranslate" translate="no">{{isHindiActive(item) ? '🇮🇳 हिन्दी' : 'ENG'}}</span>
                           </button>
                           <button
                             type="button"
@@ -548,11 +550,12 @@ export interface DailyDiaryReportHeader {
                                 >
                                 <button
                                   type="button"
-                                  class="row-lang-pill"
+                                  class="row-lang-pill notranslate"
+                                  translate="no"
                                   [class.active]="isHindiActive(cw)"
                                   (click)="toggleHindiMode(cw)"
                                   [matTooltip]="isHindiActive(cw) ? 'हिन्दी मोड चालू (ki + Space = कि). Click to switch to English' : 'Click to enable Hindi phonetic typing'">
-                                  {{isHindiActive(cw) ? '🇮🇳' : 'EN'}}
+                                  <span class="notranslate" translate="no">{{isHindiActive(cw) ? '🇮🇳' : 'EN'}}</span>
                                 </button>
                                 <button
                                   type="button"
@@ -599,11 +602,12 @@ export interface DailyDiaryReportHeader {
                                 >
                                 <button
                                   type="button"
-                                  class="row-lang-pill"
+                                  class="row-lang-pill notranslate"
+                                  translate="no"
                                   [class.active]="isHindiActive(hw)"
                                   (click)="toggleHindiMode(hw)"
                                   [matTooltip]="isHindiActive(hw) ? 'हिन्दी मोड चालू (ki + Space = कि). Click to switch to English' : 'Click to enable Hindi phonetic typing'">
-                                  {{isHindiActive(hw) ? '🇮🇳' : 'EN'}}
+                                  <span class="notranslate" translate="no">{{isHindiActive(hw) ? '🇮🇳' : 'EN'}}</span>
                                 </button>
                                 <button
                                   type="button"

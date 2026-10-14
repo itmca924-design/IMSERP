@@ -53,18 +53,19 @@ import { QuickSettingsDrawerComponent } from './quick-settings-drawer/quick-sett
         [mode]="isMobile() ? 'over' : 'side'"
         [opened]="!isMobile()">
 
-        <div class="brand-section">
-          <div class="brand-logo-badge" *ngIf="!currentUser()?.profilePhoto || logoImgFailed()">
-            <mat-icon class="brand-icon">school</mat-icon>
+        <div class="brand-section notranslate" translate="no">
+          <div class="brand-logo-badge notranslate" translate="no" *ngIf="!currentUser()?.profilePhoto || logoImgFailed()">
+            <mat-icon class="brand-icon notranslate" translate="no">school</mat-icon>
           </div>
           <img *ngIf="currentUser()?.profilePhoto && !logoImgFailed()" 
                [src]="getPhotoUrl(currentUser()?.profilePhoto)" 
                (error)="onLogoImgError()"
-               class="brand-logo-img" 
+               class="brand-logo-img notranslate" 
+               translate="no"
                alt="Institute Logo">
-          <div class="brand-titles">
-            <span class="brand-name" [matTooltip]="currentUser()?.instituteName || 'Apex Coaching Academy'">{{ currentUser()?.instituteName || 'Apex Coaching Academy' }}</span>
-            <span class="brand-sub">{{ getTenantModuleBadge() }}</span>
+          <div class="brand-titles notranslate" translate="no">
+            <span class="brand-name notranslate" translate="no" [matTooltip]="currentUser()?.instituteName || 'Apex Coaching Academy'">{{ currentUser()?.instituteName || 'Apex Coaching Academy' }}</span>
+            <span class="brand-sub notranslate" translate="no">{{ getTenantModuleBadge() }}</span>
           </div>
           <button *ngIf="isMobile()" mat-icon-button class="close-drawer-btn" (click)="drawer.close()">
             <mat-icon>close</mat-icon>

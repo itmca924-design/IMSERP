@@ -69,6 +69,63 @@ body, p, span, h1, h2, h3, h4, h5, h6, a, button, input, select, textarea,
   text-rendering: optimizeLegibility;
   -moz-osx-font-smoothing: grayscale;
   font-feature-settings: 'liga';
+  // Protect material icon ligatures from being translated into Hindi text by Google Translate
+  translate: no !important;
+}
+
+// Global Google Translate Clean Display Rules (Completely suppress all Google badges, spinners, and floating widgets)
+.goog-te-banner-frame,
+.goog-te-gadget,
+.goog-te-gadget-simple,
+.goog-logo-link,
+.goog-te-spinner-pos,
+.goog-te-spinner-animation,
+.goog-te-spinner,
+[class*="VIpgJd"],
+[class*="goog-te"],
+iframe.skiptranslate,
+.skiptranslate:not(.lang-pill):not(.row-lang-pill),
+#goog-gt-tt,
+.goog-te-balloon-frame {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  max-width: 0 !important;
+  max-height: 0 !important;
+  position: absolute !important;
+  left: -99999px !important;
+  top: -99999px !important;
+  z-index: -99999 !important;
+}
+
+// Brand Logo & Header Z-Index Priority (Ensures Institute Logo is crisp, still, and never obscured)
+.brand-section {
+  position: relative !important;
+  z-index: 50 !important;
+
+  .brand-logo-img,
+  .brand-logo-badge {
+    position: relative !important;
+    z-index: 51 !important;
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    animation: none !important;
+    transform: none !important;
+  }
+}
+
+body {
+  top: 0px !important;
+  position: static !important;
+}
+
+.goog-text-highlight {
+  background: none !important;
+  box-shadow: none !important;
 }
 
 .spacer {

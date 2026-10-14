@@ -24,6 +24,15 @@ export class TranslationService {
         }
       } catch {}
     });
+
+    // Sync Google Translate cookie on boot
+    const initial = this.currentLang();
+    if (initial === 'hi') {
+      try {
+        const expires = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toUTCString();
+        document.cookie = `googtrans=/en/hi; expires=${expires}; path=/;`;
+      } catch {}
+    }
   }
 
   private getInitialLanguage(): SupportedLanguage {
@@ -42,6 +51,42 @@ export class TranslationService {
     try {
       localStorage.setItem(STORAGE_KEY, lang);
     } catch {}
+    this.syncGoogleTranslate(lang);
+  }
+
+  syncGoogleTranslate(lang: SupportedLanguage): void {
+    if (typeof document === 'undefined') return;
+
+    try {
+      const targetVal = lang === 'hi' ? '/en/hi' : '/en/en';
+      const expires = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toUTCString();
+
+      // Write cookie to root
+      document.cookie = `googtrans=${targetVal}; expires=${expires}; path=/;`;
+      if (window.location.hostname && window.location.hostname !== 'localhost') {
+        document.cookie = `googtrans=${targetVal}; expires=${expires}; path=/; domain=.${window.location.hostname};`;
+      }
+
+      // Check if Google Translate combo select exists in DOM
+      const combo = document.querySelector<HTMLSelectElement>('.goog-te-combo');
+      if (combo) {
+        combo.value = lang;
+        combo.dispatchEvent(new Event('change'));
+      } else {
+        // If Google Translate element isn't in DOM yet, reload with cookie active
+        setTimeout(() => {
+          const combo2 = document.querySelector<HTMLSelectElement>('.goog-te-combo');
+          if (combo2) {
+            combo2.value = lang;
+            combo2.dispatchEvent(new Event('change'));
+          } else {
+            window.location.reload();
+          }
+        }, 150);
+      }
+    } catch (e) {
+      console.warn('Google Translate sync exception:', e);
+    }
   }
 
   toggleLanguage(): void {

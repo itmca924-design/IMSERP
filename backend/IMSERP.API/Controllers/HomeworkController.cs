@@ -954,5 +954,72 @@ public class HomeworkController : ControllerBase
 
         return student;
     }
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, List<string>> _transliterationCache = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly HttpClient _transliterationHttpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(3) };
+
+    [HttpGet("transliterate")]
+    [AllowAnonymous]
+    public async Task<IActionResult> Transliterate([FromQuery] string text, [FromQuery] int num = 4)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return Ok(new { success = true, result = "", candidates = Array.Empty<string>() });
+        }
+
+        var trimmed = text.Trim();
+        if (_transliterationCache.TryGetValue(trimmed, out var cachedCandidates))
+        {
+            return Ok(new { success = true, result = cachedCandidates.FirstOrDefault() ?? trimmed, candidates = cachedCandidates });
+        }
+
+        try
+        {
+            var url = $"https://inputtools.google.com/request?text={Uri.EscapeDataString(trimmed)}&itc=hi-t-i0-und&num={num}&cp=0&cs=1&ie=utf-8&oe=utf-8&app=demopage";
+            using var req = new HttpRequestMessage(HttpMethod.Get, url);
+            req.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
+
+            var resp = await _transliterationHttpClient.SendAsync(req);
+            if (resp.IsSuccessStatusCode)
+            {
+                var jsonStr = await resp.Content.ReadAsStringAsync();
+                using var doc = JsonDocument.Parse(jsonStr);
+                var root = doc.RootElement;
+                if (root.ValueKind == JsonValueKind.Array && root.GetArrayLength() >= 2)
+                {
+                    var status = root[0].GetString();
+                    if (status == "SUCCESS")
+                    {
+                        var dataArray = root[1];
+                        if (dataArray.GetArrayLength() > 0)
+                        {
+                            var firstEntry = dataArray[0];
+                            if (firstEntry.GetArrayLength() >= 2)
+                            {
+                                var candidatesElement = firstEntry[1];
+                                var list = new List<string>();
+                                foreach (var c in candidatesElement.EnumerateArray())
+                                {
+                                    var val = c.GetString();
+                                    if (!string.IsNullOrEmpty(val)) list.Add(val);
+                                }
+                                if (list.Count > 0)
+                                {
+                                    _transliterationCache.TryAdd(trimmed, list);
+                                    return Ok(new { success = true, result = list[0], candidates = list });
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // Fallback gracefully on timeout/network issue
+        }
+
+        return Ok(new { success = true, result = trimmed, candidates = new[] { trimmed } });
+    }
 }
 

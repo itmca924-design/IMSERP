@@ -137,6 +137,9 @@ export class HindiTransliterationService {
   /**
    * Transliterates a single English word to Hindi Devanagari.
    */
+  /**
+   * Transliterates a single English word to Hindi Devanagari.
+   */
   async transliterateWord(rawWord: string): Promise<string> {
     const cleanWord = rawWord.trim();
     if (!cleanWord) return rawWord;
@@ -153,22 +156,20 @@ export class HindiTransliterationService {
       return this.cache.get(lower)!;
     }
 
-    // 2. Try Google Input Tools API
+    // 2. Call backend proxy endpoint (which forwards to Google Input Tools with zero CORS blocks)
     try {
-      const url = `https://inputtools.google.com/request?text=${encodeURIComponent(cleanWord)}&itc=hi-t-i0-und&num=3&app=demopage`;
+      const url = `http://localhost:5000/api/homework/transliterate?text=${encodeURIComponent(cleanWord)}&num=4`;
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 1400);
+      const timeoutId = setTimeout(() => controller.abort(), 2000);
 
       const resp = await fetch(url, { signal: controller.signal });
       clearTimeout(timeoutId);
 
       if (resp.ok) {
         const json = await resp.json();
-        if (json?.[0] === 'SUCCESS' && json?.[1]?.[0]?.[1]?.length > 0) {
-          const candidates: string[] = json[1][0][1];
-          // For 'ki', prioritize 'कि' if candidate exists, else first candidate
-          let chosen = candidates[0];
-          if (lower === 'ki' && candidates.includes('कि')) {
+        if (json?.success && json?.result) {
+          let chosen = json.result;
+          if (lower === 'ki' && json.candidates?.includes('कि')) {
             chosen = 'कि';
           }
           this.cache.set(lower, chosen);
@@ -190,6 +191,27 @@ export class HindiTransliterationService {
    */
   async transliterateSentence(text: string): Promise<string> {
     if (!text || !text.trim()) return text;
+
+    // If text has English characters, try translating the full sentence via backend proxy first
+    if (/[a-zA-Z]/.test(text)) {
+      try {
+        const url = `http://localhost:5000/api/homework/transliterate?text=${encodeURIComponent(text.trim())}&num=2`;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2500);
+
+        const resp = await fetch(url, { signal: controller.signal });
+        clearTimeout(timeoutId);
+
+        if (resp.ok) {
+          const json = await resp.json();
+          if (json?.success && json?.result) {
+            return json.result;
+          }
+        }
+      } catch {
+        // Fallback to token-by-token below
+      }
+    }
 
     // Split keeping whitespace and punctuation
     const tokens = text.split(/(\s+|[.,;!?()[\]{}'"`]+)/);
