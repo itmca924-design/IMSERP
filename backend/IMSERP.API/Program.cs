@@ -255,6 +255,10 @@ using (var scope = app.Services.CreateScope())
                             ALTER TABLE [dbo].[AttendanceSettings] ADD [StudentHalfDayThresholdMinutes] INT NOT NULL CONSTRAINT [DF_AttendanceSettings_StudentHalfDayThresholdMinutes] DEFAULT (240);
                         IF COL_LENGTH('dbo.AttendanceSettings', 'StudentAllowedLateDaysPerMonth') IS NULL
                             ALTER TABLE [dbo].[AttendanceSettings] ADD [StudentAllowedLateDaysPerMonth] INT NOT NULL CONSTRAINT [DF_AttendanceSettings_StudentAllowedLateDaysPerMonth] DEFAULT (3);
+                        IF COL_LENGTH('dbo.AttendanceSettings', 'TeacherWeeklyOffPattern') IS NULL
+                            ALTER TABLE [dbo].[AttendanceSettings] ADD [TeacherWeeklyOffPattern] NVARCHAR(50) NOT NULL CONSTRAINT [DF_AttendanceSettings_TeacherWeeklyOffPattern] DEFAULT ('SundayOnly');
+                        IF COL_LENGTH('dbo.AttendanceSettings', 'StudentWeeklyOffPattern') IS NULL
+                            ALTER TABLE [dbo].[AttendanceSettings] ADD [StudentWeeklyOffPattern] NVARCHAR(50) NOT NULL CONSTRAINT [DF_AttendanceSettings_StudentWeeklyOffPattern] DEFAULT ('SundayOnly');
                     END
 
                     IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'StudentPromotionHistories')
@@ -1223,6 +1227,43 @@ using (var scope = app.Services.CreateScope())
                             SELECT NEWID(), r.Id, @ChatMenuId, 1, 1, 1, 1
                             FROM Roles r;
                         END
+                    END
+
+                    -- Critical Performance Indexes for Fast Menu Routing & User Lookups
+                    IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_RolePermissions_RoleId_CanView' AND object_id = OBJECT_ID('RolePermissions'))
+                    BEGIN
+                        CREATE NONCLUSTERED INDEX IX_RolePermissions_RoleId_CanView ON RolePermissions(RoleId, CanView) INCLUDE (MenuItemId);
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_MenuItems_IsActive_SortOrder' AND object_id = OBJECT_ID('MenuItems'))
+                    BEGIN
+                        CREATE NONCLUSTERED INDEX IX_MenuItems_IsActive_SortOrder ON MenuItems(IsActive, SortOrder);
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_Users_RoleId' AND object_id = OBJECT_ID('Users'))
+                    BEGIN
+                        CREATE NONCLUSTERED INDEX IX_Users_RoleId ON Users(RoleId);
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_Users_TenantId' AND object_id = OBJECT_ID('Users'))
+                    BEGIN
+                        CREATE NONCLUSTERED INDEX IX_Users_TenantId ON Users(TenantId);
+                    END
+
+                    -- Performance Indexes for Subjects & Curriculum Mapping
+                    IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_Subjects_TenantId_IsActive_Name' AND object_id = OBJECT_ID('Subjects'))
+                    BEGIN
+                        CREATE NONCLUSTERED INDEX IX_Subjects_TenantId_IsActive_Name ON Subjects(TenantId, IsActive, Name);
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_ClassSubjects_Tenant_Class' AND object_id = OBJECT_ID('ClassSubjects'))
+                    BEGIN
+                        CREATE NONCLUSTERED INDEX IX_ClassSubjects_Tenant_Class ON ClassSubjects(TenantId, ClassId) INCLUDE (SubjectId, TeacherId, DisplayOrder);
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_SchoolClasses_Tenant_Active_Display' AND object_id = OBJECT_ID('SchoolClasses'))
+                    BEGIN
+                        CREATE NONCLUSTERED INDEX IX_SchoolClasses_Tenant_Active_Display ON SchoolClasses(TenantId, IsActive, DisplayOrder) INCLUDE (Name, Code);
                     END
                 ");
             }

@@ -178,6 +178,17 @@ export class ChatService {
         }
       });
 
+      this.hubConnection.on('MessageDeleted', (data: { conversationId: string; messageId: string }) => {
+        this.messages.update(list => list.filter(m => m.id !== data.messageId));
+      });
+
+      this.hubConnection.on('ConversationCleared', (data: { conversationId: string }) => {
+        const active = this.activeConversation();
+        if (active?.id === data.conversationId) {
+          this.messages.set([]);
+        }
+      });
+
       this.hubConnection.start()
         .then(() => {
           this.isConnected.set(true);
@@ -310,6 +321,30 @@ export class ChatService {
     return this.http.post<{ url: string; fileName: string; fileSizeBytes: number; messageType: string }>(
       `${environment.apiUrl}/chat/upload-attachment`,
       formData
+    );
+  }
+
+  deleteMessage(messageId: string): Observable<{ success: boolean; messageId: string }> {
+    if (this.hubConnection?.state === 'Connected') {
+      this.hubConnection.invoke('DeleteMessage', messageId).catch(err => console.warn('Hub DeleteMessage fallback to HTTP', err));
+    }
+    return this.http.delete<{ success: boolean; messageId: string }>(`${environment.apiUrl}/chat/messages/${messageId}`).pipe(
+      tap(() => {
+        this.messages.update(list => list.filter(m => m.id !== messageId));
+      })
+    );
+  }
+
+  clearConversation(conversationId: string): Observable<{ success: boolean }> {
+    if (this.hubConnection?.state === 'Connected') {
+      this.hubConnection.invoke('ClearConversation', conversationId).catch(err => console.warn('Hub ClearConversation fallback to HTTP', err));
+    }
+    return this.http.delete<{ success: boolean }>(`${environment.apiUrl}/chat/conversations/${conversationId}/clear`).pipe(
+      tap(() => {
+        if (this.activeConversation()?.id === conversationId) {
+          this.messages.set([]);
+        }
+      })
     );
   }
 

@@ -53,11 +53,13 @@ export interface AttendanceSettingsDto {
   teacherGracePeriodMinutes?: number;
   teacherHalfDayThresholdMinutes?: number;
   teacherAllowedLateDaysPerMonth?: number;
+  teacherWeeklyOffPattern?: 'SundayOnly' | 'SaturdaySunday' | 'SecondFourthSaturday';
   studentShiftStartTime?: string;
   studentShiftEndTime?: string;
   studentGracePeriodMinutes?: number;
   studentHalfDayThresholdMinutes?: number;
   studentAllowedLateDaysPerMonth?: number;
+  studentWeeklyOffPattern?: 'SundayOnly' | 'SaturdaySunday' | 'SecondFourthSaturday';
 }
 export interface AttendancePermissionsDto {
   canChangeMode: boolean; canManualMark: boolean; canBiometricCapture: boolean;

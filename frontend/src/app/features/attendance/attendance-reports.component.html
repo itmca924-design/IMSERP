@@ -148,8 +148,13 @@
     <div class="kpi-card kpi-total">
       <div class="kpi-icon-box"><mat-icon>{{ (isStudentOrParent || (isTeacherSelfMode && reportType === 'teacher')) ? 'calendar_month' : (reportType === 'student' ? 'school' : 'badge') }}</mat-icon></div>
       <div class="kpi-data">
-        <span class="kpi-label">{{ (isStudentOrParent || (isTeacherSelfMode && reportType === 'teacher')) ? 'Total Working Days' : ('Total ' + (reportType === 'student' ? 'Students' : 'Faculty')) }}</span>
-        <span class="kpi-val">{{ (isStudentOrParent || (isTeacherSelfMode && reportType === 'teacher')) ? ((report.totalWorkingDaysInMonth || 30) + ' Days') : (report.totalCount ?? report.totalPeople) }}</span>
+        <span class="kpi-label">{{ (isStudentOrParent || (isTeacherSelfMode && reportType === 'teacher')) ? 'Working Days (Held / Total)' : ('Total ' + (reportType === 'student' ? 'Students' : 'Faculty')) }}</span>
+        <span class="kpi-val" *ngIf="isStudentOrParent || (isTeacherSelfMode && reportType === 'teacher')">
+          {{ (elapsedWorkingDaysInMonth < totalWorkingDaysInMonth) ? (elapsedWorkingDaysInMonth + ' / ' + totalWorkingDaysInMonth + ' Days') : (totalWorkingDaysInMonth + ' Days') }}
+        </span>
+        <span class="kpi-val" *ngIf="!(isStudentOrParent || (isTeacherSelfMode && reportType === 'teacher'))">
+          {{ report.totalCount ?? report.totalPeople }}
+        </span>
       </div>
     </div>
     <div class="kpi-card kpi-present">
@@ -296,7 +301,14 @@
               <td class="text-center text-amber"><span class="stat-pill pill-late"><strong>{{ row.lateDays }}</strong></span></td>
               <td class="text-center text-purple"><span class="stat-pill pill-half"><strong>{{ row.halfDays }}</strong></span></td>
               <td class="text-center"><span class="stat-pill pill-off">{{ row.holidayDays }}</span></td>
-              <td class="text-center"><span class="stat-pill pill-work">{{ row.totalWorkingDays }}</span></td>
+              <td class="text-center">
+                <span class="stat-pill pill-work" *ngIf="row.elapsedWorkingDays && row.elapsedWorkingDays < row.totalWorkingDays" [matTooltip]="row.elapsedWorkingDays + ' elapsed working days held to date (' + row.totalWorkingDays + ' total working days this month)'">
+                  {{ row.elapsedWorkingDays }} / {{ row.totalWorkingDays }}
+                </span>
+                <span class="stat-pill pill-work" *ngIf="!row.elapsedWorkingDays || row.elapsedWorkingDays >= row.totalWorkingDays">
+                  {{ row.totalWorkingDays }}
+                </span>
+              </td>
               <td>
                 <div class="ring-cell">
                   <div class="ring-wrap">
@@ -316,7 +328,12 @@
                     <span class="ring-badge" [ngClass]="row.attendancePercentage >= 75 ? 'badge-good' : row.attendancePercentage >= 50 ? 'badge-warn' : 'badge-low'">
                       {{ row.attendancePercentage >= 75 ? 'Good' : row.attendancePercentage >= 50 ? 'Moderate' : 'Low' }}
                     </span>
-                    <span class="ring-sub">{{ row.presentDays + row.lateDays }} / {{ row.totalWorkingDays }} days</span>
+                    <span class="ring-sub" *ngIf="row.elapsedWorkingDays && row.elapsedWorkingDays < row.totalWorkingDays" [matTooltip]="(row.presentDays + row.lateDays) + ' days present out of ' + row.elapsedWorkingDays + ' elapsed working days held to date (' + row.totalWorkingDays + ' total in month)'">
+                      {{ row.presentDays + row.lateDays }} / {{ row.elapsedWorkingDays }} days held
+                    </span>
+                    <span class="ring-sub" *ngIf="!row.elapsedWorkingDays || row.elapsedWorkingDays >= row.totalWorkingDays">
+                      {{ row.presentDays + row.lateDays }} / {{ row.totalWorkingDays }} days
+                    </span>
                   </div>
                 </div>
               </td>
@@ -554,7 +571,8 @@
                           </div>
                           <div class="gauge-label-wrap">
                             <span class="gauge-title" [style.color]="getPctColor(row.attendancePercentage)">{{ getDisciplineBadge(row).text }}</span>
-                            <span class="gauge-count">{{ row.presentDays + row.lateDays }} of {{ row.totalWorkingDays }} Working Days</span>
+                            <span class="gauge-count" *ngIf="row.elapsedWorkingDays && row.elapsedWorkingDays < row.totalWorkingDays">{{ row.presentDays + row.lateDays }} of {{ row.elapsedWorkingDays }} Days Held ({{ row.totalWorkingDays }} Total)</span>
+                            <span class="gauge-count" *ngIf="!row.elapsedWorkingDays || row.elapsedWorkingDays >= row.totalWorkingDays">{{ row.presentDays + row.lateDays }} of {{ row.totalWorkingDays }} Working Days</span>
                           </div>
                         </div>
                       </div>

@@ -154,11 +154,6 @@ import { environment } from '../../../environments/environment';
         </div>
       </div>
 
-      <!-- Loading State -->
-      <div class="loading-container no-print" *ngIf="loading">
-        <mat-spinner diameter="44"></mat-spinner>
-        <p>Loading fee card details...</p>
-      </div>
 
       <!-- Empty / Prompt State -->
       <div class="empty-container no-print" *ngIf="!loading && !currentCard && viewMode === 'single'">

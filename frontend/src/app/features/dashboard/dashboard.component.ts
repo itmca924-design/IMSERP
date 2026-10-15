@@ -59,12 +59,6 @@ import ApexCharts from 'apexcharts';
         </button>
       </div>
 
-      @if (loading() && !summary() && !studentSummary() && !teacherSummary()) {
-        <div class="spinner-center">
-          <mat-spinner diameter="44"></mat-spinner>
-        </div>
-      }
-
       <!-- ========================================== -->
       <!-- 🎓 1. STUDENT & PARENT ACADEMIC HUB       -->
       <!-- ========================================== -->

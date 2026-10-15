@@ -237,6 +237,145 @@ public class ChatHub : Hub
         }
     }
 
+    public async Task<bool> DeleteMessage(string messageId)
+    {
+        if (!Guid.TryParse(messageId, out var msgGuid)) return false;
+
+        var userId = GetCurrentUserId();
+        var tenantId = GetCurrentTenantId();
+        var userRole = Context.User?.FindFirst(ClaimTypes.Role)?.Value ?? "";
+
+        var message = await _dbContext.ChatMessages
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(m => m.Id == msgGuid && m.TenantId == tenantId);
+
+        if (message == null || message.IsDeleted) return false;
+
+        var isOwner = message.SenderUserId == userId;
+        var isAdminOrTeacher = userRole.Contains("Admin", StringComparison.OrdinalIgnoreCase) ||
+                               userRole.Contains("Teacher", StringComparison.OrdinalIgnoreCase) ||
+                               userRole.Contains("Principal", StringComparison.OrdinalIgnoreCase);
+
+        if (!isOwner && !isAdminOrTeacher) return false;
+
+        message.IsDeleted = true;
+
+        var conversation = await _dbContext.ChatConversations
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(c => c.Id == message.ConversationId && c.TenantId == tenantId);
+
+        if (conversation != null)
+        {
+            var prevMessage = await _dbContext.ChatMessages
+                .IgnoreQueryFilters()
+                .Where(m => m.ConversationId == message.ConversationId && !m.IsDeleted && m.Id != msgGuid)
+                .OrderByDescending(m => m.CreatedAt)
+                .FirstOrDefaultAsync();
+
+            conversation.LastMessageContent = prevMessage?.Content ?? (prevMessage?.AttachmentUrl != null ? "📎 Attachment" : null);
+            conversation.LastMessageAt = prevMessage?.CreatedAt;
+            conversation.LastMessageSenderId = prevMessage?.SenderUserId;
+            conversation.LastMessageSenderName = prevMessage?.SenderName;
+        }
+
+        await _dbContext.SaveChangesAsync();
+
+        await Clients.Group($"conv_{message.ConversationId}").SendAsync("MessageDeleted", new
+        {
+            conversationId = message.ConversationId,
+            messageId = msgGuid
+        });
+
+        var participants = await _dbContext.ChatParticipants
+            .IgnoreQueryFilters()
+            .Where(p => p.ConversationId == message.ConversationId && p.TenantId == tenantId)
+            .ToListAsync();
+
+        foreach (var p in participants)
+        {
+            await Clients.Group($"user_{p.UserId}").SendAsync("ConversationUpdated", new
+            {
+                conversationId = message.ConversationId,
+                lastMessageContent = conversation?.LastMessageContent,
+                lastMessageAt = conversation?.LastMessageAt,
+                lastMessageSenderName = conversation?.LastMessageSenderName,
+                unreadCount = p.UnreadCount
+            });
+        }
+
+        return true;
+    }
+
+    public async Task<bool> ClearConversation(string conversationId)
+    {
+        if (!Guid.TryParse(conversationId, out var convGuid)) return false;
+
+        var userId = GetCurrentUserId();
+        var tenantId = GetCurrentTenantId();
+        var userRole = Context.User?.FindFirst(ClaimTypes.Role)?.Value ?? "";
+
+        var conversation = await _dbContext.ChatConversations
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(c => c.Id == convGuid && c.TenantId == tenantId);
+
+        if (conversation == null) return false;
+
+        var isParticipant = await _dbContext.ChatParticipants
+            .IgnoreQueryFilters()
+            .AnyAsync(p => p.ConversationId == convGuid && p.UserId == userId && p.TenantId == tenantId);
+
+        if (!isParticipant) return false;
+
+        var isAdminOrTeacher = userRole.Contains("Admin", StringComparison.OrdinalIgnoreCase) ||
+                               userRole.Contains("Teacher", StringComparison.OrdinalIgnoreCase) ||
+                               userRole.Contains("Principal", StringComparison.OrdinalIgnoreCase);
+
+        if (conversation.ConversationType == ChatConversationType.ClassGroup && !isAdminOrTeacher)
+        {
+            return false;
+        }
+
+        var messages = await _dbContext.ChatMessages
+            .IgnoreQueryFilters()
+            .Where(m => m.ConversationId == convGuid && m.TenantId == tenantId && !m.IsDeleted)
+            .ToListAsync();
+
+        foreach (var msg in messages)
+        {
+            msg.IsDeleted = true;
+        }
+
+        conversation.LastMessageContent = null;
+        conversation.LastMessageSenderId = null;
+        conversation.LastMessageSenderName = null;
+
+        await _dbContext.SaveChangesAsync();
+
+        await Clients.Group($"conv_{convGuid}").SendAsync("ConversationCleared", new
+        {
+            conversationId = convGuid
+        });
+
+        var participants = await _dbContext.ChatParticipants
+            .IgnoreQueryFilters()
+            .Where(p => p.ConversationId == convGuid && p.TenantId == tenantId)
+            .ToListAsync();
+
+        foreach (var p in participants)
+        {
+            await Clients.Group($"user_{p.UserId}").SendAsync("ConversationUpdated", new
+            {
+                conversationId = convGuid,
+                lastMessageContent = (string?)null,
+                lastMessageAt = conversation.LastMessageAt,
+                lastMessageSenderName = (string?)null,
+                unreadCount = 0
+            });
+        }
+
+        return true;
+    }
+
     private Guid GetCurrentUserId()
     {
         var idStr = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;

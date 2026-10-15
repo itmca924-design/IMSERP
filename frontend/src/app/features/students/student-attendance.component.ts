@@ -86,6 +86,7 @@ interface AttendanceSummary {
   holidayDays: number;
   totalWorkingDays: number;
   attendancePercentage: number;
+  elapsedWorkingDays?: number;
 }
 
 interface CalendarDay {
@@ -95,6 +96,7 @@ interface CalendarDay {
   isToday: boolean;
   isSunday: boolean;
   isSaturday: boolean;
+  isWeeklyOffDay?: boolean;
   isFuture: boolean;
   isPriorToAdmission?: boolean;
   holiday?: HolidayDto;
@@ -327,11 +329,6 @@ interface CalendarDay {
       <p>Please select a batch from the dropdown above to mark attendance.</p>
     </mat-card>
 
-    <!-- Loading State: Scope Loading -->
-    <mat-card class="mat-elevation-z1 loading-card" *ngIf="isScopeLoading">
-      <mat-spinner diameter="34"></mat-spinner>
-      <span>Loading class & batch attendance records...</span>
-    </mat-card>
 
     <!-- Empty State: Zero Students -->
     <mat-card class="mat-elevation-z1 empty-card" *ngIf="isScopeSelected && !isScopeLoading && filteredActiveStudents.length === 0">
@@ -514,11 +511,6 @@ interface CalendarDay {
       </mat-form-field>
     </mat-card>
 
-    <!-- Loading State: Student Matrix Loading -->
-    <mat-card class="mat-elevation-z1 loading-card" *ngIf="loading">
-      <mat-spinner diameter="34"></mat-spinner>
-      <span>Loading student attendance calendar matrix...</span>
-    </mat-card>
 
     <div *ngIf="selectedStudent" class="attendance-wrapper">
       <mat-card class="period-card mat-elevation-z1">
@@ -533,8 +525,6 @@ interface CalendarDay {
           <mat-form-field appearance="outline"><mat-label>Month</mat-label><mat-select [(ngModel)]="attMonth" (selectionChange)="loadAttendance()"><mat-option *ngFor="let month of months; let i = index" [value]="i + 1">{{ month }}</mat-option></mat-select></mat-form-field>
           <mat-form-field appearance="outline"><mat-label>Year</mat-label><mat-select [(ngModel)]="attYear" (selectionChange)="loadAttendance()"><mat-option *ngFor="let year of years" [value]="year">{{ year }}</mat-option></mat-select></mat-form-field>
         </div>
-        <mat-form-field appearance="outline" class="mode-select"><mat-label>Student Attendance Mode</mat-label><mat-select [(ngModel)]="attendanceMode" (selectionChange)="saveAttendanceMode()" [disabled]="!attendancePermissions.canChangeMode"><mat-option value="Both">Manual + Biometric</mat-option><mat-option value="Manual">Manual Only</mat-option><mat-option value="Biometric">Biometric Only</mat-option></mat-select></mat-form-field>
-        <button mat-raised-button color="primary" (click)="openNewRecord()" [disabled]="!attendancePermissions.canManualMark || attendanceMode === 'Biometric'" matTooltip="Manual marking is disabled by permission or mode"><mat-icon>add_task</mat-icon> Mark Attendance</button>
       </mat-card>
 
       <div class="summary-grid" *ngIf="effectiveSummary as sum">
@@ -543,63 +533,19 @@ interface CalendarDay {
         <div class="summary-card late"><mat-icon>schedule</mat-icon><strong>{{ sum.lateDays }}</strong><small>Late Marks</small></div>
         <div class="summary-card half"><mat-icon>hourglass_bottom</mat-icon><strong>{{ sum.halfDays }}</strong><small>Half Days</small></div>
         <div class="summary-card holiday"><mat-icon>beach_access</mat-icon><strong>{{ sum.holidayDays }}</strong><small>Holidays / Off</small></div>
-        <div class="summary-card compliance"><mat-icon>analytics</mat-icon><strong>{{ sum.attendancePercentage }}%</strong><small>Compliance</small></div>
-        <div class="summary-card working"><mat-icon>calendar_today</mat-icon><strong>{{ sum.totalWorkingDays }}</strong><small>Working Days</small></div>
+        <div class="summary-card compliance" [matTooltip]="(sum.elapsedWorkingDays && sum.elapsedWorkingDays < sum.totalWorkingDays) ? (sum.presentDays + sum.lateDays + (sum.halfDays * 0.5)) + ' days attended out of ' + sum.elapsedWorkingDays + ' elapsed working days held so far (' + sum.totalWorkingDays + ' total working days in month)' : ''">
+          <mat-icon>analytics</mat-icon>
+          <strong>{{ sum.attendancePercentage }}%</strong>
+          <small *ngIf="sum.elapsedWorkingDays && sum.elapsedWorkingDays < sum.totalWorkingDays">Compliance ({{ sum.elapsedWorkingDays }} Held)</small>
+          <small *ngIf="!sum.elapsedWorkingDays || sum.elapsedWorkingDays >= sum.totalWorkingDays">Compliance</small>
+        </div>
+        <div class="summary-card working" [matTooltip]="(sum.elapsedWorkingDays && sum.elapsedWorkingDays < sum.totalWorkingDays) ? sum.elapsedWorkingDays + ' days held to date out of ' + sum.totalWorkingDays + ' total working days this month' : ''">
+          <mat-icon>calendar_today</mat-icon>
+          <strong>{{ (sum.elapsedWorkingDays && sum.elapsedWorkingDays < sum.totalWorkingDays) ? (sum.elapsedWorkingDays + ' / ' + sum.totalWorkingDays) : sum.totalWorkingDays }}</strong>
+          <small *ngIf="sum.elapsedWorkingDays && sum.elapsedWorkingDays < sum.totalWorkingDays">Working Days (Held / Total)</small>
+          <small *ngIf="!sum.elapsedWorkingDays || sum.elapsedWorkingDays >= sum.totalWorkingDays">Working Days</small>
+        </div>
       </div>
-
-      <mat-card class="form-card mat-elevation-z1" *ngIf="showForm">
-        <div class="form-heading">
-          <div>
-            <strong>{{ editingRecordId ? 'Edit Attendance Record' : 'Log Attendance Record' }}</strong>
-            <small>Enter date, status, check-in, check-out and remarks.</small>
-          </div>
-          <button mat-icon-button (click)="showForm = false"><mat-icon>close</mat-icon></button>
-        </div>
-        <div class="form-row">
-          <mat-form-field appearance="outline">
-            <mat-label>Attendance Date</mat-label>
-            <input matInput type="date" [(ngModel)]="formData.attendanceDate" [min]="minAttendanceDate" [max]="todayStr">
-          </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>Status</mat-label>
-            <mat-select [(ngModel)]="formData.status" (selectionChange)="onFormStatusChanged()">
-              <mat-option value="Present">Present</mat-option>
-              <mat-option value="Absent">Absent</mat-option>
-              <mat-option value="Late">Late</mat-option>
-              <mat-option value="HalfDay">Half Day</mat-option>
-              <mat-option value="Holiday">Holiday</mat-option>
-            </mat-select>
-          </mat-form-field>
-          <mat-form-field appearance="outline" *ngIf="formData.status !== 'Absent' && formData.status !== 'Holiday'">
-            <mat-label>In Time (Check-In)</mat-label>
-            <input matInput type="time" [(ngModel)]="formData.checkInTime" (ngModelChange)="onFormTimeChanged()">
-            <mat-icon matPrefix>login</mat-icon>
-          </mat-form-field>
-          <mat-form-field appearance="outline" *ngIf="formData.status !== 'Absent' && formData.status !== 'Holiday'">
-            <mat-label>Out Time (Check-Out)</mat-label>
-            <input matInput type="time" [(ngModel)]="formData.checkOutTime" (ngModelChange)="onFormTimeChanged()">
-            <mat-icon matPrefix>logout</mat-icon>
-          </mat-form-field>
-          <mat-form-field appearance="outline" class="remarks-field">
-            <mat-label>Remarks</mat-label>
-            <input matInput [(ngModel)]="formData.remarks" placeholder="Optional notes">
-          </mat-form-field>
-        </div>
-        <div class="form-duration-hint" *ngIf="formData.status !== 'Absent' && formData.status !== 'Holiday'">
-          <div class="form-hint-line" *ngIf="calculateDuration(formData.checkInTime, formData.checkOutTime)">
-            <mat-icon>schedule</mat-icon>
-            <span>Calculated Duration: <strong>{{ calculateDuration(formData.checkInTime, formData.checkOutTime) }}</strong> (In: {{ formatDisplayTime(formData.checkInTime) }} &bull; Out: {{ formatDisplayTime(formData.checkOutTime) }})</span>
-          </div>
-          <div class="form-hint-late" *ngIf="formData.status === 'Late'">
-            <mat-icon>warning_amber</mat-icon>
-            <span>Late arrival detected (Shift starts at {{ attendanceSettings.studentShiftStartTime || '08:00' }} + {{ attendanceSettings.studentGracePeriodMinutes ?? 15 }}m grace cutoff).</span>
-          </div>
-        </div>
-        <div class="form-actions">
-          <button mat-button (click)="showForm = false">Cancel</button>
-          <button mat-raised-button color="primary" (click)="saveAttendance()" [disabled]="saving">Save Record</button>
-        </div>
-      </mat-card>
 
       <mat-card class="calendar-card mat-elevation-z1">
         <div class="calendar-heading">
@@ -613,26 +559,26 @@ interface CalendarDay {
           </div>
         </div>
 
-        <!-- Multi-Check Quick Toolbar -->
+        <!-- Quick Action Toolbar -->
         <div class="multi-select-toolbar" *ngIf="attendancePermissions.canManualMark && attendanceMode !== 'Biometric'">
           <div class="mst-left">
-            <span class="mst-title"><mat-icon>fact_check</mat-icon> Multi-Check:</span>
+            <span class="mst-title"><mat-icon>checklist</mat-icon> Quick Selection:</span>
             <button type="button" class="mst-btn" (click)="selectAllWorkingDays()" matTooltip="Select all working days in this month">
-              <mat-icon>checklist</mat-icon> Select All Working Days
+              <mat-icon>fact_check</mat-icon> Select All Working Days
             </button>
             <button type="button" class="mst-btn" (click)="selectAllAbsentDays()" matTooltip="Select all unmarked / absent days">
               <mat-icon>rule</mat-icon> Select Unmarked / Absent
             </button>
-            <button type="button" class="mst-btn save-month" (click)="saveStudentMonthlyRegister()" [disabled]="batchSavingDates" matTooltip="Save full month: Checked dates as Present, Unchecked working dates as Absent">
-              <mat-icon>{{ batchSavingDates ? 'hourglass_empty' : 'save' }}</mat-icon>
-              <span>{{ batchSavingDates ? 'Saving...' : 'Save Full Month (' + selectedMatrixDates.size + ' P, ' + (getSelectableDaysCount() - selectedMatrixDates.size) + ' A)' }}</span>
+            <button type="button" class="mst-btn save-month" (click)="saveStudentMonthlyRegister()" [disabled]="batchSavingDates" matTooltip="Auto-fill entire month: Checked dates as Present, Unchecked working dates as Absent">
+              <mat-icon>{{ batchSavingDates ? 'hourglass_empty' : 'save_as' }}</mat-icon>
+              <span>{{ batchSavingDates ? 'Saving...' : 'Auto-Fill Full Month Register' }}</span>
             </button>
             <button type="button" class="mst-btn clear" *ngIf="selectedMatrixDates.size > 0" (click)="clearDateSelection()">
-              <mat-icon>clear_all</mat-icon> Clear ({{ selectedMatrixDates.size }})
+              <mat-icon>clear_all</mat-icon> Clear Selection ({{ selectedMatrixDates.size }})
             </button>
           </div>
           <div class="mst-right" *ngIf="selectedMatrixDates.size > 0">
-            <span class="mst-counter-badge">{{ selectedMatrixDates.size }} Days Selected</span>
+            <span class="mst-counter-badge">{{ selectedMatrixDates.size === 1 ? '1 Day Selected' : selectedMatrixDates.size + ' Days Selected' }}</span>
           </div>
         </div>
 
@@ -640,7 +586,7 @@ interface CalendarDay {
           <div *ngFor="let day of calendarDays"
             class="day-cell"
             [class.selected-for-batch]="selectedMatrixDates.has(day.dateStr)"
-            [ngClass]="[day.status.toLowerCase(), day.isSunday ? 'sunday' : '', day.isSaturday ? 'saturday' : '', day.isToday ? 'today' : '', day.isFuture ? 'future' : '', (!day.isToday && !day.isFuture && !attendancePermissions.canCorrectAttendance) ? 'locked-past' : '']"
+            [ngClass]="[day.status.toLowerCase(), (day.isSunday || day.isWeeklyOffDay) ? 'sunday' : '', day.isSaturday ? 'saturday' : '', day.isToday ? 'today' : '', day.isFuture ? 'future' : '', (!day.isToday && !day.isFuture && !attendancePermissions.canCorrectAttendance) ? 'locked-past' : '']"
             [matTooltip]="getDayTooltip(day)"
             (click)="onDayCellClick(day, $event)">
 
@@ -674,13 +620,13 @@ interface CalendarDay {
           </div>
         </div>
 
-        <!-- Floating Batch Action Bar -->
+        <!-- Floating Action Bar (Unified Single & Multi-Day) -->
         <div class="matrix-floating-bar" *ngIf="selectedMatrixDates.size > 0">
           <div class="mfb-left">
             <div class="mfb-badge">{{ selectedMatrixDates.size }}</div>
             <div class="mfb-text">
-              <strong>{{ selectedMatrixDates.size }} Dates Selected</strong>
-              <small>Choose status, timings & apply in 1-click</small>
+              <strong>{{ getSelectedDateSummaryTitle() }}</strong>
+              <small>{{ selectedMatrixDates.size === 1 ? 'Choose status, timings & click Save' : 'Apply status & timings to all ' + selectedMatrixDates.size + ' selected dates' }}</small>
             </div>
           </div>
           <div class="mfb-center">
@@ -700,7 +646,7 @@ interface CalendarDay {
               <mat-icon>event_busy</mat-icon> Leave
             </button>
 
-            <!-- Multi-Date Timings Inputs -->
+            <!-- Timings Inputs -->
             <div class="mfb-time-wrap" *ngIf="batchTargetStatus !== 'Absent' && batchTargetStatus !== 'Leave'">
               <label>In:</label>
               <input type="time" class="mfb-time-input" [(ngModel)]="batchTargetCheckIn" title="In Time">
@@ -716,7 +662,7 @@ interface CalendarDay {
             <button type="button" class="mfb-save-btn" [disabled]="batchSavingDates" (click)="applyMultiDatesAttendance()">
               <mat-icon *ngIf="!batchSavingDates">save</mat-icon>
               <mat-icon class="spin" *ngIf="batchSavingDates">refresh</mat-icon>
-              <span>Save ({{ selectedMatrixDates.size }} Days)</span>
+              <span>{{ selectedMatrixDates.size === 1 ? 'Save Record' : 'Save (' + selectedMatrixDates.size + ' Days)' }}</span>
             </button>
             <button type="button" class="mfb-close-btn" (click)="clearDateSelection()" matTooltip="Cancel selection">
               <mat-icon>close</mat-icon>
@@ -792,10 +738,10 @@ interface CalendarDay {
         </div>
       </mat-card>
 
-      <div class="empty-state" *ngIf="records.length === 0 && !loading && !showForm">
+      <div class="empty-state" *ngIf="records.length === 0 && !loading">
         <mat-icon>event_busy</mat-icon>
         <h3>No Attendance Records Found</h3>
-        <p>No records found for {{ months[attMonth - 1] }} {{ attYear }}. Click "Mark Attendance" or select dates on the matrix above to begin logging attendance.</p>
+        <p>No records found for {{ months[attMonth - 1] }} {{ attYear }}. Select dates on the calendar matrix above to begin logging attendance.</p>
       </div>
     </div>
   </div>
@@ -891,10 +837,6 @@ interface CalendarDay {
 
     <!-- Requests Data Table / List -->
     <mat-card class="reg-table-card mat-elevation-z1">
-      <div *ngIf="regularizationLoading" class="reg-loading-box">
-        <mat-spinner diameter="40"></mat-spinner>
-        <p>Loading regularization requests...</p>
-      </div>
 
       <div *ngIf="!regularizationLoading && regularizations.length === 0" class="reg-empty-box">
         <mat-icon>task_alt</mat-icon>
@@ -3160,8 +3102,10 @@ export class StudentAttendanceComponent implements OnInit {
     const pastUnmarkedAbsents = this.calendarDays.filter(d => d.status === 'Absent' && !d.record).length;
     if (pastUnmarkedAbsents === 0) return this.summary;
     const totalAbsent = this.summary.absentDays + pastUnmarkedAbsents;
-    const evaluated = this.summary.presentDays + totalAbsent + this.summary.lateDays + this.summary.halfDays;
-    const percentage = evaluated === 0 ? 0 : Math.round(((this.summary.presentDays + this.summary.lateDays + (this.summary.halfDays * 0.5)) / evaluated) * 100);
+    const denominator = (this.summary.elapsedWorkingDays && this.summary.elapsedWorkingDays > 0)
+      ? this.summary.elapsedWorkingDays
+      : (this.summary.presentDays + totalAbsent + this.summary.lateDays + this.summary.halfDays);
+    const percentage = denominator === 0 ? 0 : Math.round(((this.summary.presentDays + this.summary.lateDays + (this.summary.halfDays * 0.5)) / denominator) * 100);
     return {
       ...this.summary,
       absentDays: totalAbsent,
@@ -3223,16 +3167,15 @@ export class StudentAttendanceComponent implements OnInit {
       const isPriorToAdmission = !!(jDate && dateStr < jDate);
 
       let status = '';
+      const isOff = this.isWeeklyOff(new Date(this.attYear, this.attMonth - 1, dayNum));
       if (record) {
         status = record.status;
       } else if (isPriorToAdmission) {
         status = 'PriorAdmission';
       } else if (holiday) {
         status = 'Holiday';
-      } else if (isSunday) {
+      } else if (isOff) {
         status = 'Sunday';
-      } else if (isSaturday) {
-        status = isFuture ? '' : 'Absent';
       } else if (!isFuture && dateStr < today) {
         status = 'Absent';
       }
@@ -3247,6 +3190,7 @@ export class StudentAttendanceComponent implements OnInit {
         isToday,
         isSunday,
         isSaturday,
+        isWeeklyOffDay: isOff,
         isFuture,
         isPriorToAdmission,
         holiday,
@@ -3267,14 +3211,14 @@ export class StudentAttendanceComponent implements OnInit {
     }
     if (day.isFuture) {
       if (day.holiday) return `${day.dateStr} - ${day.holiday.title} (Future Holiday)`;
-      if (day.isSunday) return `${day.dateStr} - Sunday Weekly Off (Future)`;
+      if (day.isWeeklyOffDay || day.isSunday) return `${day.dateStr} - Weekly Off (${day.dayOfWeek}) (Future)`;
       if (day.isSaturday) return `${day.dateStr} - Saturday (Future - Class ON)`;
       return `${day.dateStr} (${day.dayOfWeek}) - Future Date (Attendance cannot be marked in advance)`;
     }
     const details: string[] = [];
     if (day.holiday) details.push(`${day.holiday.title} (${day.holiday.holidayType})${day.holiday.description ? ` - ${day.holiday.description}` : ''}`);
-    if (day.isSunday) details.push('Sunday Weekly Off');
-    if (day.isSaturday && !day.record && day.status !== 'Absent') details.push('Saturday (Class ON)');
+    if (day.isWeeklyOffDay || day.isSunday) details.push(`Weekly Off (${day.dayOfWeek})`);
+    if (day.isSaturday && !day.isWeeklyOffDay && !day.record && day.status !== 'Absent') details.push('Saturday (Class ON)');
     if (day.record) {
       const timeStr = day.capturedTime ? ` (${day.capturedTime} IST)` : '';
       const punchDetails = (day.checkInTime || day.checkOutTime) ? ` [In: ${this.formatDisplayTime(day.checkInTime) || '—'}, Out: ${this.formatDisplayTime(day.checkOutTime) || '—'}${day.workDuration ? ` (${day.workDuration})` : ''}]` : '';
@@ -3336,15 +3280,15 @@ export class StudentAttendanceComponent implements OnInit {
     }
     const checkIn = record.checkInTime || (record as any).CheckInTime || '';
     const checkOut = record.checkOutTime || (record as any).CheckOutTime || '';
-    this.formData = {
-      attendanceDate: date,
-      status: record.status,
-      remarks: record.remarks || '',
-      checkInTime: checkIn,
-      checkOutTime: checkOut
-    };
-    this.editingRecordId = record.id;
-    this.showForm = true;
+    this.selectedMatrixDates = new Set([date]);
+    this.batchTargetStatus = record.status;
+    this.batchTargetCheckIn = checkIn;
+    this.batchTargetCheckOut = checkOut;
+    this.batchTargetRemarks = record.remarks || '';
+    const calEl = document.querySelector('.calendar-card');
+    if (calEl) {
+      calEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
   }
 
   saveAttendance(): void {
@@ -3424,7 +3368,7 @@ export class StudentAttendanceComponent implements OnInit {
 
   isPublicHolidayOrSunday(dateValue: string): boolean {
     const dateOnly = dateValue.split('T')[0];
-    if (new Date(`${dateOnly}T00:00:00`).getDay() === 0) return true;
+    if (this.isWeeklyOff(new Date(`${dateOnly}T00:00:00`))) return true;
     return this.holidays.some(holiday => dateOnly >= holiday.startDate.split('T')[0] && dateOnly <= holiday.endDate.split('T')[0]);
   }
 
@@ -3601,13 +3545,31 @@ export class StudentAttendanceComponent implements OnInit {
 
   // ================= MULTI-DATE SELECTION METHODS =================
 
-  /** Whether a calendar cell can be multi-selected (not future, not holiday, not Sunday, and user has correction permission if past) */
+  isWeeklyOff(day: CalendarDay | Date): boolean {
+    const date: Date = day instanceof Date ? day : new Date(`${day.dateStr}T00:00:00`);
+    const p = this.attendanceSettings?.studentWeeklyOffPattern || 'SundayOnly';
+    const dayOfWeek = date.getDay(); // 0 = Sun, 6 = Sat
+    if (dayOfWeek === 0) return true; // Sunday is always off
+
+    if (p === 'SaturdaySunday') {
+      return dayOfWeek === 6; // Every Saturday is off
+    }
+
+    if (p === 'SecondFourthSaturday' && dayOfWeek === 6) {
+      const dayOfMonth = date.getDate();
+      const saturdayIndex = Math.ceil(dayOfMonth / 7);
+      return saturdayIndex === 2 || saturdayIndex === 4;
+    }
+
+    return false;
+  }
+
   isDateSelectable(day: CalendarDay): boolean {
     if (day.isPriorToAdmission) return false;
     const jDate = this.studentJoiningDateStr;
     if (jDate && day.dateStr < jDate) return false;
     if (day.isFuture) return false;
-    if (day.isSunday) return false;
+    if (this.isWeeklyOff(day)) return false;
     if (day.holiday) return false;
     if (!this.attendancePermissions.canManualMark) return false;
     if (this.attendanceMode === 'Biometric') return false;
@@ -3615,7 +3577,7 @@ export class StudentAttendanceComponent implements OnInit {
     return true;
   }
 
-  /** Click on a calendar day cell: if selectable toggle selection, else open single-day form */
+  /** Click on a calendar day cell: if selectable toggle selection, else show informative alert */
   onDayCellClick(day: CalendarDay, event: MouseEvent): void {
     if (day.isPriorToAdmission) {
       const joinFmt = this.currentSelectedStudent?.joiningDate ? this.formatDateDisplay(this.currentSelectedStudent.joiningDate) : '';
@@ -3629,8 +3591,24 @@ export class StudentAttendanceComponent implements OnInit {
     if (this.isDateSelectable(day)) {
       this.toggleDateSelect(day);
     } else {
-      this.openDay(day);
+      if (day.isFuture) {
+        this.confirmDialog.alert('Future Date', 'Advance attendance cannot be marked for future dates.', 'warning');
+      } else if (day.holiday) {
+        this.confirmDialog.alert('Official Holiday', `${day.holiday.title || 'Official Holiday'} on ${this.formatDateDisplay(day.dateStr)}.`, 'info');
+      } else if (day.isWeeklyOffDay || day.isSunday) {
+        this.confirmDialog.alert('Weekly Off', `${day.dayOfWeek} Weekly Off on ${this.formatDateDisplay(day.dateStr)}.`, 'info');
+      } else if (!this.attendancePermissions.canCorrectAttendance) {
+        this.confirmDialog.alert('Permission Denied', 'Past date attendance cannot be modified without Attendance Correction permission.', 'warning');
+      }
     }
+  }
+
+  getSelectedDateSummaryTitle(): string {
+    if (this.selectedMatrixDates.size === 1) {
+      const dateStr = Array.from(this.selectedMatrixDates)[0];
+      return `${this.formatDateDisplay(dateStr)} (Single Day)`;
+    }
+    return `${this.selectedMatrixDates.size} Dates Selected (Multi)`;
   }
 
   toggleDateSelect(day: CalendarDay): void {
@@ -3639,6 +3617,17 @@ export class StudentAttendanceComponent implements OnInit {
       this.selectedMatrixDates.delete(day.dateStr);
     } else {
       this.selectedMatrixDates.add(day.dateStr);
+      // Pre-fill floating bar if single day selected
+      if (this.selectedMatrixDates.size === 1) {
+        if (day.record?.status) {
+          this.batchTargetStatus = day.record.status;
+        } else if (day.status && day.status !== 'Unmarked' && day.status !== '-') {
+          this.batchTargetStatus = day.status === 'HalfDay' ? 'HalfDay' : (day.status as any);
+        }
+        if (day.checkInTime) this.batchTargetCheckIn = day.checkInTime;
+        if (day.checkOutTime) this.batchTargetCheckOut = day.checkOutTime;
+        if (day.record?.remarks) this.batchTargetRemarks = day.record.remarks;
+      }
     }
     // Trigger change detection on the Set
     this.selectedMatrixDates = new Set(this.selectedMatrixDates);
@@ -3698,16 +3687,19 @@ export class StudentAttendanceComponent implements OnInit {
     ).subscribe({
       next: (res: any) => {
         this.batchSavingDates = false;
-        const msg = res?.message || `Attendance marked as "${this.batchTargetStatus}" for ${dates.length} date(s) successfully.`;
+        const isSingle = dates.length === 1;
+        const msg = res?.message || (isSingle
+          ? `Attendance for ${this.formatDateDisplay(dates[0])} saved as "${this.batchTargetStatus}" successfully.`
+          : `Attendance marked as "${this.batchTargetStatus}" for ${dates.length} date(s) successfully.`);
         this.clearDateSelection();
         this.loadAttendance();
-        this.confirmDialog.alert('Bulk Attendance Saved', msg, 'success');
+        this.confirmDialog.alert(isSingle ? 'Attendance Saved' : 'Bulk Attendance Saved', msg, 'success');
       },
       error: err => {
         this.batchSavingDates = false;
         this.confirmDialog.alert(
           'Save Failed',
-          err?.error?.message || 'Failed to save bulk attendance. Please try again.',
+          err?.error?.message || 'Failed to save attendance. Please try again.',
           'danger'
         );
       }

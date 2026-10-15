@@ -10,6 +10,7 @@ export const loadingInterceptor: HttpInterceptorFn = (req, next) => {
   const isSilent = 
     req.url.includes('/api/auth/refresh-token') ||
     req.url.includes('/api/auth/revoke-token') ||
+    req.url.includes('/api/chat') ||
     req.headers.has('X-Skip-Loader');
 
   if (isSilent) {
@@ -26,6 +27,18 @@ export const loadingInterceptor: HttpInterceptorFn = (req, next) => {
     msg = 'Removing record...';
   } else if (req.url.includes('/dashboard/summary')) {
     msg = 'Syncing Institute Analytics...';
+  } else if (req.url.includes('/students')) {
+    msg = 'Loading Student Records...';
+  } else if (req.url.includes('/fees')) {
+    msg = 'Loading Fee & Financial Data...';
+  } else if (req.url.includes('/attendance')) {
+    msg = 'Loading Attendance Records...';
+  } else if (req.url.includes('/exams')) {
+    msg = 'Loading Examination Data...';
+  } else if (req.url.includes('/subjects')) {
+    msg = 'Loading Subject Catalog & Curriculum...';
+  } else if (req.url.includes('/events')) {
+    msg = 'Loading Events & Activities...';
   }
 
   loadingService.show(msg);

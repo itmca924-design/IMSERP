@@ -53,11 +53,6 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
         </div>
       </div>
 
-      <!-- Loading State -->
-      <div class="loading-state" *ngIf="loading">
-        <mat-spinner diameter="42"></mat-spinner>
-        <p>Loading Academic Session & Workflow settings...</p>
-      </div>
 
       <div class="content-body" *ngIf="!loading">
         <!-- Live Status Bar -->

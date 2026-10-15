@@ -699,6 +699,7 @@ public class AttendanceSettings
     public int TeacherGracePeriodMinutes { get; set; } = 15;
     public int TeacherHalfDayThresholdMinutes { get; set; } = 240;
     public int TeacherAllowedLateDaysPerMonth { get; set; } = 3;
+    public string TeacherWeeklyOffPattern { get; set; } = "SundayOnly";
 
     // Dynamic Student Shift & Attendance Policy
     public string StudentShiftStartTime { get; set; } = "08:00";
@@ -706,6 +707,7 @@ public class AttendanceSettings
     public int StudentGracePeriodMinutes { get; set; } = 15;
     public int StudentHalfDayThresholdMinutes { get; set; } = 240;
     public int StudentAllowedLateDaysPerMonth { get; set; } = 3;
+    public string StudentWeeklyOffPattern { get; set; } = "SundayOnly";
 
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 

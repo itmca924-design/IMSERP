@@ -81,11 +81,6 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
         </mat-form-field>
       </div>
 
-      <!-- Loading State -->
-      <div *ngIf="loading" class="spinner-wrap">
-        <mat-spinner diameter="44"></mat-spinner>
-      </div>
-
       <div *ngIf="!loading && subData" class="content-body">
 
         <!-- Subscription Expired / Locked Alert Notice -->

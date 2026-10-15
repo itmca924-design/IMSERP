@@ -163,11 +163,6 @@ import { environment } from '../../../environments/environment';
         </button>
       </div>
 
-      <!-- Loading Spinner -->
-      <div *ngIf="loading && tenants.length === 0" class="spinner-center">
-        <mat-spinner diameter="44"></mat-spinner>
-      </div>
-
       <!-- Institutes Grid -->
       <div class="tenants-grid" *ngIf="!loading || tenants.length > 0">
         <mat-card *ngFor="let t of filteredTenants" class="tenant-card mat-elevation-z2" [class.inactive-card]="!t.isActive">

@@ -24,7 +24,13 @@ public class SubjectsController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<SubjectDto>>> GetSubjects([FromQuery] bool activeOnly = false)
     {
+        var tenantId = _currentUser.TenantId;
         var query = _dbContext.Subjects.AsNoTracking();
+        if (tenantId != Guid.Empty)
+        {
+            query = query.Where(s => s.TenantId == tenantId);
+        }
+
         if (activeOnly)
         {
             query = query.Where(s => s.IsActive);
@@ -53,7 +59,12 @@ public class SubjectsController : ControllerBase
         [FromQuery] bool sortDescending = false,
         [FromQuery] bool? isActive = null)
     {
+        var tenantId = _currentUser.TenantId;
         var query = _dbContext.Subjects.AsNoTracking();
+        if (tenantId != Guid.Empty)
+        {
+            query = query.Where(s => s.TenantId == tenantId);
+        }
 
         if (isActive.HasValue)
         {
@@ -62,11 +73,13 @@ public class SubjectsController : ControllerBase
 
         if (!string.IsNullOrWhiteSpace(searchTerm))
         {
-            var term = searchTerm.Trim().ToLower();
-            query = query.Where(s => s.Name.ToLower().Contains(term) ||
-                                     (s.Code != null && s.Code.ToLower().Contains(term)) ||
-                                     (s.Description != null && s.Description.ToLower().Contains(term)));
+            var term = searchTerm.Trim();
+            query = query.Where(s => EF.Functions.Like(s.Name, $"%{term}%") ||
+                                     (s.Code != null && EF.Functions.Like(s.Code, $"%{term}%")) ||
+                                     (s.Description != null && EF.Functions.Like(s.Description, $"%{term}%")));
         }
+
+        var totalCount = await query.CountAsync();
 
         query = (sortBy?.ToLower()) switch
         {
@@ -76,7 +89,6 @@ public class SubjectsController : ControllerBase
             _ => sortDescending ? query.OrderByDescending(s => s.Name) : query.OrderBy(s => s.Name)
         };
 
-        var totalCount = await query.CountAsync();
         var items = await query
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
@@ -159,29 +171,41 @@ public class SubjectsController : ControllerBase
     [HttpGet("class-summary")]
     public async Task<ActionResult<IEnumerable<ClassSubjectSummaryDto>>> GetClassSubjectSummaries()
     {
-        var classes = await _dbContext.SchoolClasses
-            .AsNoTracking()
-            .Where(c => c.IsActive)
+        var tenantId = _currentUser.TenantId;
+        var classesQuery = _dbContext.SchoolClasses.AsNoTracking().Where(c => c.IsActive);
+        if (tenantId != Guid.Empty)
+        {
+            classesQuery = classesQuery.Where(c => c.TenantId == tenantId);
+        }
+
+        var classes = await classesQuery
             .OrderBy(c => c.DisplayOrder)
             .ThenBy(c => c.Name)
+            .Select(c => new { c.Id, c.Name, c.Code, c.DisplayOrder })
             .ToListAsync();
 
-        var allocations = await _dbContext.ClassSubjects
-            .AsNoTracking()
-            .Include(cs => cs.Subject)
-            .OrderBy(cs => cs.DisplayOrder)
+        var allocationsQuery = _dbContext.ClassSubjects.AsNoTracking();
+        if (tenantId != Guid.Empty)
+        {
+            allocationsQuery = allocationsQuery.Where(cs => cs.TenantId == tenantId);
+        }
+
+        var allocations = await allocationsQuery
+            .Select(cs => new { cs.ClassId, SubjectName = cs.Subject != null ? cs.Subject.Name : "Subject" })
             .ToListAsync();
+
+        var allocLookup = allocations.ToLookup(a => a.ClassId);
 
         var summaries = classes.Select(c =>
         {
-            var classAllocations = allocations.Where(a => a.ClassId == c.Id).ToList();
+            var classAllocations = allocLookup[c.Id];
             return new ClassSubjectSummaryDto(
                 c.Id,
                 c.Name,
                 c.Code,
                 c.DisplayOrder,
-                classAllocations.Count,
-                classAllocations.Select(a => a.Subject?.Name ?? "Subject").ToList()
+                classAllocations.Count(),
+                classAllocations.Select(a => a.SubjectName).ToList()
             );
         }).ToList();
 
@@ -191,20 +215,28 @@ public class SubjectsController : ControllerBase
     [HttpGet("classes/{classId}")]
     public async Task<ActionResult<IEnumerable<ClassSubjectDto>>> GetClassSubjects(Guid classId)
     {
-        var classObj = await _dbContext.SchoolClasses
-            .AsNoTracking()
-            .FirstOrDefaultAsync(c => c.Id == classId);
+        var tenantId = _currentUser.TenantId;
+        var classQuery = _dbContext.SchoolClasses.AsNoTracking().Where(c => c.Id == classId);
+        if (tenantId != Guid.Empty)
+        {
+            classQuery = classQuery.Where(c => c.TenantId == tenantId);
+        }
+
+        var classObj = await classQuery
+            .Select(c => new { c.Id, c.Name })
+            .FirstOrDefaultAsync();
 
         if (classObj == null)
             return NotFound(new { message = "Class not found." });
 
-        var items = await _dbContext.ClassSubjects
-            .AsNoTracking()
-            .Include(cs => cs.Subject)
-            .Include(cs => cs.Teacher)
-            .Where(cs => cs.ClassId == classId)
+        var allocQuery = _dbContext.ClassSubjects.AsNoTracking().Where(cs => cs.ClassId == classId);
+        if (tenantId != Guid.Empty)
+        {
+            allocQuery = allocQuery.Where(cs => cs.TenantId == tenantId);
+        }
+
+        var items = await allocQuery
             .OrderBy(cs => cs.DisplayOrder)
-            .ThenBy(cs => cs.Subject != null ? cs.Subject.Name : string.Empty)
             .Select(cs => new ClassSubjectDto(
                 cs.Id,
                 cs.ClassId,

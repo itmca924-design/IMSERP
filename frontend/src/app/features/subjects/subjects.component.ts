@@ -138,8 +138,6 @@ interface ClassSubjectRowState {
                 </button>
               </div>
 
-              <!-- Loader -->
-              <mat-progress-bar mode="indeterminate" *ngIf="loading" class="grid-loader"></mat-progress-bar>
 
               <div class="table-responsive">
                 <table mat-table [dataSource]="subjects" matSort (matSortChange)="onSortChange($event)" class="mat-elevation-z0 full-width-table">
@@ -311,8 +309,6 @@ interface ClassSubjectRowState {
                   </div>
                 </div>
 
-                <!-- Allocation Loader -->
-                <mat-progress-bar mode="indeterminate" *ngIf="loadingAllocation" class="grid-loader"></mat-progress-bar>
 
                 <!-- Subject Rows Checklist Table -->
                 <div class="subject-rows-table-wrap" *ngIf="!loadingAllocation && selectedClass">
@@ -953,8 +949,11 @@ export class SubjectsComponent implements OnInit, OnDestroy {
       }
     });
 
-    this.loadSubjects();
-    this.loadClassAllocationMasters();
+    if (this.activeTabIndex === 1) {
+      this.loadClassAllocationMasters();
+    } else {
+      this.loadSubjects();
+    }
   }
 
   ngOnDestroy(): void {
@@ -964,9 +963,13 @@ export class SubjectsComponent implements OnInit, OnDestroy {
   onTabChange(index: number): void {
     this.activeTabIndex = index;
     if (index === 1) {
-      this.loadClassAllocationMasters();
+      if (this.classSummaries.length === 0) {
+        this.loadClassAllocationMasters();
+      }
     } else {
-      this.loadSubjects();
+      if (this.subjects.length === 0) {
+        this.loadSubjects();
+      }
     }
   }
 

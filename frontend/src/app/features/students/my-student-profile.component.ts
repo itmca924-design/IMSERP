@@ -68,12 +68,6 @@ const API_BASE = environment.apiBaseUrl;
         </div>
       </div>
 
-      <!-- Loading State -->
-      <div class="loading-state-box" *ngIf="loading">
-        <mat-spinner diameter="44"></mat-spinner>
-        <p>Loading your verified student dossier...</p>
-      </div>
-
       <!-- Main Profile Content -->
       <div class="profile-content-wrap" *ngIf="!loading && data360">
         

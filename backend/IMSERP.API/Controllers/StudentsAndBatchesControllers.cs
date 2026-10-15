@@ -658,14 +658,20 @@ public class StudentsController : ControllerBase
             var today = GetIstToday();
             var pastUnmarkedWorkingDays = 0;
             var daysInMonth = DateTime.DaysInMonth(year, month);
+            var elapsedWorkingDaysForStudent = 0;
             for (int day = 1; day <= daysInMonth; day++)
             {
                 var curDate = new DateTime(year, month, day);
                 if (student.JoiningDate != default && curDate < student.JoiningDate.Date) continue;
 
-                if (curDate < today && !offDates.Contains(curDate.Date))
+                if (!offDates.Contains(curDate.Date))
                 {
-                    if (!targetRecords.Any(r => r.AttendanceDate.Date == curDate.Date))
+                    if (curDate <= today)
+                    {
+                        elapsedWorkingDaysForStudent++;
+                    }
+
+                    if (curDate < today && !targetRecords.Any(r => r.AttendanceDate.Date == curDate.Date))
                     {
                         pastUnmarkedWorkingDays++;
                     }
@@ -678,9 +684,13 @@ public class StudentsController : ControllerBase
             var absent = recordedAbsent + pastUnmarkedWorkingDays;
             var late = evaluatedStatuses.Count(st => st == TeacherAttendanceStatus.Late);
             var half = evaluatedStatuses.Count(st => st == TeacherAttendanceStatus.HalfDay);
-            var evaluated = present + absent + late + half;
             var attendedWeighted = present + late + (half * 0.5m);
-            var denominator = evaluated > 0 ? evaluated : totalWorkingDaysInMonth;
+
+            bool isPastMonth = year < today.Year || (year == today.Year && month < today.Month);
+            var denominator = elapsedWorkingDaysForStudent > 0 
+                ? elapsedWorkingDaysForStudent 
+                : (isPastMonth ? totalWorkingDaysInMonth : 0);
+
             var attendancePercentage = (denominator == 0 || attendedWeighted == 0)
                 ? 0m
                 : Math.Min(100m, Math.Round((attendedWeighted / (decimal)denominator) * 100m, 1));
@@ -753,9 +763,21 @@ public class StudentsController : ControllerBase
                 student.SchoolRollNumber,
                 student.CoachingRollNumber,
                 student.IsSchoolStudent,
-                student.IsCoachingStudent
+                student.IsCoachingStudent,
+                elapsedWorkingDaysForStudent,
+                student.JoiningDate != default ? student.JoiningDate.ToString("yyyy-MM-dd") : null
             );
         }).ToList();
+
+        var todayDate = GetIstToday();
+        int monthElapsedWorkingDays = 0;
+        for (var d = monthStart; d <= monthEnd; d = d.AddDays(1))
+        {
+            if (d.Date <= todayDate && !offDates.Contains(d.Date))
+            {
+                monthElapsedWorkingDays++;
+            }
+        }
 
         return Ok(new AttendanceReportDto(
             "Student", 
@@ -769,7 +791,9 @@ public class StudentsController : ControllerBase
             rows.Sum(row => row.HolidayDays), 
             rows,
             isDual,
-            defaultStream
+            defaultStream,
+            totalWorkingDaysInMonth,
+            monthElapsedWorkingDays
         ));
     }
 
@@ -840,16 +864,25 @@ public class StudentsController : ControllerBase
 
         var today = GetIstToday();
         int pastUnmarked = 0;
+        int elapsedWorkingDays = 0;
         for (int d = 1; d <= DateTime.DaysInMonth(year, month); d++)
         {
             var curDate = new DateTime(year, month, d);
             if (student.JoiningDate != default && curDate < student.JoiningDate.Date) continue;
 
-            if (curDate < today && !offDates.Contains(curDate.Date))
+            if (!offDates.Contains(curDate.Date))
             {
-                if (!records.Any(r => r.AttendanceDate.Date == curDate.Date))
+                if (curDate <= today)
                 {
-                    pastUnmarked++;
+                    elapsedWorkingDays++;
+                }
+
+                if (curDate < today)
+                {
+                    if (!records.Any(r => r.AttendanceDate.Date == curDate.Date))
+                    {
+                        pastUnmarked++;
+                    }
                 }
             }
         }
@@ -867,18 +900,20 @@ public class StudentsController : ControllerBase
         else if (student.JoiningDate != default && monthStart < new DateTime(student.JoiningDate.Year, student.JoiningDate.Month, 1))
         {
             totalWorkingDays = 0;
+            elapsedWorkingDays = 0;
         }
 
         var evaluatedDays = present + absent + late + half;
         decimal attendedWeighted = present + late + (half * 0.5m);
-        int denominator = evaluatedDays > 0 ? evaluatedDays : totalWorkingDays;
+        bool isPastMonth = year < today.Year || (year == today.Year && month < today.Month);
+        int denominator = elapsedWorkingDays > 0 ? elapsedWorkingDays : (isPastMonth ? totalWorkingDays : 0);
         decimal percentage = (denominator == 0 || attendedWeighted == 0)
             ? 0m
             : Math.Min(100m, Math.Round((attendedWeighted / (decimal)denominator) * 100m, 1));
 
         return Ok(new StudentAttendanceSummaryDto(
             present, absent, late, half, offDates.Count,
-            totalWorkingDays, percentage));
+            totalWorkingDays, percentage, elapsedWorkingDays));
     }
 
     [HttpPost("{id}/attendance")]

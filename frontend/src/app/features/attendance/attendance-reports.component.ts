@@ -33,6 +33,8 @@ interface ReportRow {
   coachingRoll?: string | null;
   isSchoolStudent?: boolean;
   isCoachingStudent?: boolean;
+  elapsedWorkingDays?: number;
+  joiningDate?: string | null;
 }
 
 interface AttendanceReport {
@@ -46,6 +48,7 @@ interface AttendanceReport {
   totalHalfDays: number;
   totalHolidayDays: number;
   totalWorkingDaysInMonth?: number;
+  elapsedWorkingDaysInMonth?: number;
   rows: ReportRow[];
   isDualEnrolled?: boolean;
   defaultStream?: string | null;
@@ -500,10 +503,17 @@ export class AttendanceReportsComponent implements OnInit, OnDestroy {
   }
 
   get totalWorkingDaysInMonth(): number {
+    if (this.report?.totalWorkingDaysInMonth) return this.report.totalWorkingDaysInMonth;
     if (this.report?.rows?.length) return this.report.rows[0].totalWorkingDays;
     const dm = this.getDaysInMonth(); let s = 0;
     for (let d = 1; d <= dm; d++) { if (new Date(this.selectedYear, this.selectedMonth - 1, d).getDay() === 0) s++; }
     return Math.max(0, dm - s);
+  }
+
+  get elapsedWorkingDaysInMonth(): number {
+    if (this.report?.elapsedWorkingDaysInMonth) return this.report.elapsedWorkingDaysInMonth;
+    if (this.report?.rows?.length && this.report.rows[0].elapsedWorkingDays) return this.report.rows[0].elapsedWorkingDays;
+    return this.totalWorkingDaysInMonth;
   }
 
   getDaysInMonth(): number { return new Date(this.selectedYear, this.selectedMonth, 0).getDate(); }
@@ -924,7 +934,19 @@ export class AttendanceReportsComponent implements OnInit, OnDestroy {
         const isPast = ymd < todayStr;
         const isToday = ymd === todayStr;
 
-        if (isPast) {
+        const row = this.report?.rows?.find(r => r.personId === personId);
+        const isPrior = !!(row?.joiningDate && ymd < row.joiningDate.split('T')[0]);
+
+        if (isPrior) {
+          daysArr.push({
+            day: d,
+            dayOfWeek,
+            isSunday: false,
+            status: '-',
+            label: `${d} ${this.months[this.selectedMonth - 1]} (${dayOfWeek}): Prior to Joining (Joined ${row!.joiningDate!.split('T')[0]}) — N/A`,
+            statusText: 'Prior to Joining'
+          });
+        } else if (isPast) {
           daysArr.push({
             day: d,
             dayOfWeek,
@@ -972,8 +994,9 @@ export class AttendanceReportsComponent implements OnInit, OnDestroy {
       const isPast = ymd < todayStr;
       const isToday = ymd === todayStr;
 
-      const cellStatus = sun ? 'OFF' : (isH ? 'H' : (isPast ? 'A' : '-'));
-      const cellText = sun ? 'Weekly Off' : (isH ? `Holiday: ${hTitle}` : (isPast ? 'Absent (Unmarked)' : (isToday ? 'Not Marked Yet' : 'Upcoming')));
+      const isPrior = !!(row.joiningDate && ymd < row.joiningDate.split('T')[0]);
+      const cellStatus = sun ? 'OFF' : (isH ? 'H' : (isPrior ? '-' : (isPast ? 'A' : '-')));
+      const cellText = sun ? 'Weekly Off' : (isH ? `Holiday: ${hTitle}` : (isPrior ? 'Prior to Joining' : (isPast ? 'Absent (Unmarked)' : (isToday ? 'Not Marked Yet' : 'Upcoming'))));
 
       return {
         day: d,

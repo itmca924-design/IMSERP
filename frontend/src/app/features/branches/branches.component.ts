@@ -123,11 +123,6 @@ import { BranchDialogComponent } from './branch-dialog.component';
           </div>
         </div>
 
-        <!-- Loading Spinner -->
-        <div class="spinner-center" *ngIf="loading">
-          <mat-spinner diameter="40"></mat-spinner>
-        </div>
-
         <!-- Branches Table -->
         <div class="table-responsive" *ngIf="!loading">
           <table mat-table [dataSource]="filteredBranches" class="branches-table">

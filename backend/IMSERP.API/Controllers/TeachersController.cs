@@ -1559,6 +1559,10 @@ public class TeachersController : ControllerBase
                         };
                         dailyMap.Add($"{day}:{code}");
                     }
+                    else if (teacher.JoiningDate != default && curDate < teacher.JoiningDate.Date)
+                    {
+                        dailyMap.Add($"{day}:-");
+                    }
                     else if (curDate < today)
                     {
                         pastUnmarkedWorkingDays++;
@@ -1571,10 +1575,32 @@ public class TeachersController : ControllerBase
                 }
             }
 
+            int elapsedWorkingDays = 0;
+            for (int day = 1; day <= totalDaysInMonth; day++)
+            {
+                var curDate = new DateTime(year, month, day);
+                if (teacher.JoiningDate != default && curDate < teacher.JoiningDate.Date) continue;
+                if (curDate <= today && !offDates.Contains(curDate.Date))
+                {
+                    elapsedWorkingDays++;
+                }
+            }
+
+            var teacherWorkingDays = totalWorkingDays;
+            if (teacher.JoiningDate != default && teacher.JoiningDate.Year == year && teacher.JoiningDate.Month == month)
+            {
+                int priorDays = 0;
+                for (var d = monthStart; d < teacher.JoiningDate.Date; d = d.AddDays(1))
+                {
+                    if (!offDates.Contains(d)) priorDays++;
+                }
+                teacherWorkingDays = Math.Max(0, totalWorkingDays - priorDays);
+            }
+
             var absent = recordedAbsent + pastUnmarkedWorkingDays;
             var attendedWeighted = present + late + (half * 0.5m);
-            var evaluated = present + absent + late + half;
-            var denominator = evaluated > 0 ? evaluated : totalWorkingDays;
+            bool isPastMonth = year < today.Year || (year == today.Year && month < today.Month);
+            var denominator = elapsedWorkingDays > 0 ? elapsedWorkingDays : (isPastMonth ? teacherWorkingDays : 0);
             var attendancePercentage = (denominator == 0 || attendedWeighted == 0)
                 ? 0m
                 : Math.Min(100m, Math.Round((attendedWeighted / (decimal)denominator) * 100m, 1));
@@ -1589,13 +1615,46 @@ public class TeachersController : ControllerBase
                 late,
                 half,
                 offDates.Count,
-                totalWorkingDays,
+                teacherWorkingDays,
                 attendancePercentage,
-                string.Join(",", dailyMap)
+                string.Join(",", dailyMap),
+                null,
+                null,
+                null,
+                null,
+                false,
+                false,
+                elapsedWorkingDays,
+                teacher.JoiningDate != default ? teacher.JoiningDate.ToString("yyyy-MM-dd") : null
             );
         }).ToList();
 
-        return Ok(new AttendanceReportDto("Teacher", month, year, rows.Count, rows.Sum(row => row.PresentDays), rows.Sum(row => row.AbsentDays), rows.Sum(row => row.LateDays), rows.Sum(row => row.HalfDays), rows.Sum(row => row.HolidayDays), rows));
+        var todayDate = GetIstToday();
+        int monthElapsedWorkingDays = 0;
+        for (var d = monthStart; d <= monthEnd; d = d.AddDays(1))
+        {
+            if (d.Date <= todayDate && !offDates.Contains(d.Date))
+            {
+                monthElapsedWorkingDays++;
+            }
+        }
+
+        return Ok(new AttendanceReportDto(
+            "Teacher", 
+            month, 
+            year, 
+            rows.Count, 
+            rows.Sum(row => row.PresentDays), 
+            rows.Sum(row => row.AbsentDays), 
+            rows.Sum(row => row.LateDays), 
+            rows.Sum(row => row.HalfDays), 
+            rows.Sum(row => row.HolidayDays), 
+            rows,
+            false,
+            null,
+            totalWorkingDays,
+            monthElapsedWorkingDays
+        ));
     }
 
 
@@ -1706,9 +1765,22 @@ public class TeachersController : ControllerBase
         int totalWorkingDays = Math.Max(0, daysInMonth - holiday);
 
         var today = GetIstToday();
+        var teacher = await _db.Teachers.AsNoTracking().FirstOrDefaultAsync(t => t.Id == id);
+        if (teacher != null && teacher.JoiningDate != default && teacher.JoiningDate.Year == year && teacher.JoiningDate.Month == month)
+        {
+            int workingDaysPriorToJoining = 0;
+            for (var d = monthStart; d < teacher.JoiningDate.Date; d = d.AddDays(1))
+            {
+                if (!offDates.Contains(d)) workingDaysPriorToJoining++;
+            }
+            totalWorkingDays = Math.Max(0, totalWorkingDays - workingDaysPriorToJoining);
+        }
+
         for (int d = 1; d <= daysInMonth; d++)
         {
             var curDate = new DateTime(year, month, d);
+            if (teacher != null && teacher.JoiningDate != default && curDate < teacher.JoiningDate.Date) continue;
+
             if (curDate < today && !offDates.Contains(curDate.Date))
             {
                 if (!records.Any(r => r.AttendanceDate.Date == curDate.Date))
@@ -2060,6 +2132,93 @@ public class TeachersController : ControllerBase
             presentSaved,
             absentSaved
         });
+    }
+
+    [HttpPost("{id}/attendance/multi-dates")]
+    public async Task<ActionResult> MarkMultiDatesAttendance(
+        Guid id, [FromBody] BulkTeacherMultiDatesAttendanceDto dto)
+    {
+        if (!await HasAttendancePermissionAsync("/attendance/permissions/manual", false))
+            return Forbid();
+
+        if (!await IsManualAttendanceAllowedAsync())
+            return Conflict(new { message = "Manual teacher attendance is disabled. Current mode is Biometric Only." });
+
+        var teacher = await _db.Teachers.FindAsync(id);
+        if (teacher == null) return NotFound(new { message = "Teacher not found." });
+
+        if (!Enum.TryParse<TeacherAttendanceStatus>(dto.Status, true, out var status))
+            return BadRequest(new { message = "Invalid attendance status." });
+
+        if (dto.AttendanceDates == null || dto.AttendanceDates.Count == 0)
+            return BadRequest(new { message = "No dates provided." });
+
+        var today = GetIstToday();
+        var canCorrect = await HasAttendancePermissionAsync("/attendance/permissions/correction", true);
+        var canEditHoliday = await CanEditPublicHolidayOrSundayAsync();
+
+        var validDates = new List<DateTime>();
+        foreach (var rawDate in dto.AttendanceDates)
+        {
+            var date = rawDate.Date;
+            if (date > today) continue;
+            if (teacher.JoiningDate != default && date < teacher.JoiningDate.Date) continue;
+            if (date < today && !canCorrect) continue;
+            if (!canEditHoliday && await IsPublicHolidayOrSundayAsync(date)) continue;
+            validDates.Add(date);
+        }
+
+        if (validDates.Count == 0)
+            return BadRequest(new { message = "No valid dates eligible for marking attendance." });
+
+        var existingRecords = await _db.TeacherAttendances
+            .Where(a => a.TeacherId == id && validDates.Contains(a.AttendanceDate))
+            .ToListAsync();
+
+        var existingMap = existingRecords.ToDictionary(a => a.AttendanceDate.Date);
+        var attSettings = await _db.AttendanceSettings.AsNoTracking().FirstOrDefaultAsync(s => s.TenantId == teacher.TenantId);
+
+        foreach (var date in validDates)
+        {
+            var effectiveStatus = EvaluateSmartAttendanceStatus(status, dto.CheckInTime, dto.CheckOutTime, attSettings);
+
+            if (existingMap.TryGetValue(date, out var record))
+            {
+                if (record.CaptureSource == "LeaveApplication" || record.Status == TeacherAttendanceStatus.Leave)
+                    continue;
+
+                if (!canCorrect) continue;
+                record.Status = effectiveStatus;
+                record.Remarks = dto.Remarks;
+                record.CheckInTime = effectiveStatus != TeacherAttendanceStatus.Absent && effectiveStatus != TeacherAttendanceStatus.Holiday ? dto.CheckInTime : null;
+                record.CheckOutTime = effectiveStatus != TeacherAttendanceStatus.Absent && effectiveStatus != TeacherAttendanceStatus.Holiday ? dto.CheckOutTime : null;
+                record.MarkedBy = _currentUser.UserId.ToString();
+                record.CaptureSource = "ManualBulk";
+                record.CapturedAt ??= DateTime.UtcNow;
+            }
+            else
+            {
+                var newRecord = new TeacherAttendance
+                {
+                    TenantId = _currentUser.TenantId,
+                    BranchId = teacher.BranchId ?? _currentUser.BranchId,
+                    TeacherId = id,
+                    AttendanceDate = date,
+                    Status = effectiveStatus,
+                    Remarks = dto.Remarks,
+                    CheckInTime = effectiveStatus != TeacherAttendanceStatus.Absent && effectiveStatus != TeacherAttendanceStatus.Holiday ? dto.CheckInTime : null,
+                    CheckOutTime = effectiveStatus != TeacherAttendanceStatus.Absent && effectiveStatus != TeacherAttendanceStatus.Holiday ? dto.CheckOutTime : null,
+                    MarkedBy = _currentUser.UserId.ToString(),
+                    CaptureSource = "ManualBulk",
+                    CreatedAt = DateTime.UtcNow,
+                    CapturedAt = DateTime.UtcNow
+                };
+                _db.TeacherAttendances.Add(newRecord);
+            }
+        }
+
+        await _db.SaveChangesAsync();
+        return Ok(new { message = $"Successfully marked attendance for {validDates.Count} date(s).", count = validDates.Count });
     }
 
     [HttpDelete("attendance/{attendanceId}")]

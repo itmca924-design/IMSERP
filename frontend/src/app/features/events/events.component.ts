@@ -171,12 +171,6 @@ import { EventGalleryDialogComponent } from './event-gallery-dialog.component';
         </div>
       </div>
 
-      <!-- Loading State -->
-      <div class="loading-state" *ngIf="loading">
-        <mat-spinner diameter="40"></mat-spinner>
-        <span>Loading events & celebrations...</span>
-      </div>
-
       <!-- Empty State -->
       <div class="empty-state" *ngIf="!loading && filteredEvents.length === 0">
         <div class="empty-icon-wrap">

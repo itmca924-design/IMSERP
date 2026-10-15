@@ -115,11 +115,6 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
         </div>
       </div>
 
-      <!-- Loading State -->
-      <div class="loading-state-card" *ngIf="loading">
-        <mat-spinner diameter="44"></mat-spinner>
-        <p>Loading class routine and teacher assignments...</p>
-      </div>
 
       <!-- Error State -->
       <div class="error-state-card" *ngIf="!loading && errorMessage">

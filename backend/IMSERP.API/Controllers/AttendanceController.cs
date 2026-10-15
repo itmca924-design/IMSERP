@@ -56,7 +56,9 @@ public class AttendanceController : ControllerBase
             settings?.StudentShiftEndTime ?? "14:00",
             settings?.StudentGracePeriodMinutes ?? 15,
             settings?.StudentHalfDayThresholdMinutes ?? 240,
-            settings?.StudentAllowedLateDaysPerMonth ?? 3
+            settings?.StudentAllowedLateDaysPerMonth ?? 3,
+            settings?.TeacherWeeklyOffPattern ?? "SundayOnly",
+            settings?.StudentWeeklyOffPattern ?? "SundayOnly"
         ));
     }
 
@@ -116,12 +118,14 @@ public class AttendanceController : ControllerBase
         if (dto.TeacherGracePeriodMinutes >= 0) settings.TeacherGracePeriodMinutes = dto.TeacherGracePeriodMinutes;
         if (dto.TeacherHalfDayThresholdMinutes > 0) settings.TeacherHalfDayThresholdMinutes = dto.TeacherHalfDayThresholdMinutes;
         if (dto.TeacherAllowedLateDaysPerMonth >= 0) settings.TeacherAllowedLateDaysPerMonth = dto.TeacherAllowedLateDaysPerMonth;
+        if (!string.IsNullOrWhiteSpace(dto.TeacherWeeklyOffPattern)) settings.TeacherWeeklyOffPattern = dto.TeacherWeeklyOffPattern.Trim();
 
         if (!string.IsNullOrWhiteSpace(dto.StudentShiftStartTime)) settings.StudentShiftStartTime = dto.StudentShiftStartTime.Trim();
         if (!string.IsNullOrWhiteSpace(dto.StudentShiftEndTime)) settings.StudentShiftEndTime = dto.StudentShiftEndTime.Trim();
         if (dto.StudentGracePeriodMinutes >= 0) settings.StudentGracePeriodMinutes = dto.StudentGracePeriodMinutes;
         if (dto.StudentHalfDayThresholdMinutes > 0) settings.StudentHalfDayThresholdMinutes = dto.StudentHalfDayThresholdMinutes;
         if (dto.StudentAllowedLateDaysPerMonth >= 0) settings.StudentAllowedLateDaysPerMonth = dto.StudentAllowedLateDaysPerMonth;
+        if (!string.IsNullOrWhiteSpace(dto.StudentWeeklyOffPattern)) settings.StudentWeeklyOffPattern = dto.StudentWeeklyOffPattern.Trim();
 
         settings.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
@@ -139,7 +143,9 @@ public class AttendanceController : ControllerBase
             settings.StudentShiftEndTime,
             settings.StudentGracePeriodMinutes,
             settings.StudentHalfDayThresholdMinutes,
-            settings.StudentAllowedLateDaysPerMonth
+            settings.StudentAllowedLateDaysPerMonth,
+            settings.TeacherWeeklyOffPattern,
+            settings.StudentWeeklyOffPattern
         ));
     }
 

@@ -102,6 +102,18 @@ export interface AttendanceShiftSettingsDialogData {
                   <mat-hint>Choose whether faculty attendance is captured manually, via biometric device, or both.</mat-hint>
                 </mat-form-field>
 
+                <!-- Weekly Off Pattern -->
+                <mat-form-field appearance="outline" class="col-full">
+                  <mat-label>Faculty Weekly Off Pattern</mat-label>
+                  <mat-select [(ngModel)]="settings.teacherWeeklyOffPattern">
+                    <mat-option value="SundayOnly">6-Day Week: Sunday Only Off (Mon – Sat Working)</mat-option>
+                    <mat-option value="SaturdaySunday">5-Day Week: Saturday & Sunday Off (Mon – Fri Working)</mat-option>
+                    <mat-option value="SecondFourthSaturday">CBSE/ICSE: 2nd & 4th Saturday + All Sundays Off</mat-option>
+                  </mat-select>
+                  <mat-icon matPrefix>event_available</mat-icon>
+                  <mat-hint>Configures off days vs working days on faculty calendar roster & payroll.</mat-hint>
+                </mat-form-field>
+
                 <!-- Shift Start Time -->
                 <mat-form-field appearance="outline" class="col-half">
                   <mat-label>Shift Start Time</mat-label>
@@ -190,6 +202,18 @@ export interface AttendanceShiftSettingsDialogData {
                   <mat-hint>Choose whether student roll call is manual, biometric turnstile, or hybrid.</mat-hint>
                 </mat-form-field>
 
+                <!-- Weekly Off Pattern -->
+                <mat-form-field appearance="outline" class="col-full">
+                  <mat-label>Student Weekly Off Pattern</mat-label>
+                  <mat-select [(ngModel)]="settings.studentWeeklyOffPattern">
+                    <mat-option value="SundayOnly">6-Day Week: Sunday Only Off (Mon – Sat Classes)</mat-option>
+                    <mat-option value="SaturdaySunday">5-Day Week: Saturday & Sunday Off (Mon – Fri Classes)</mat-option>
+                    <mat-option value="SecondFourthSaturday">CBSE/ICSE: 2nd & 4th Saturday + All Sundays Off</mat-option>
+                  </mat-select>
+                  <mat-icon matPrefix>event_available</mat-icon>
+                  <mat-hint>Configures academic class days vs weekly off days on student calendar.</mat-hint>
+                </mat-form-field>
+
                 <!-- Shift Start Time -->
                 <mat-form-field appearance="outline" class="col-half">
                   <mat-label>Class / Assembly Start Time</mat-label>
@@ -242,7 +266,7 @@ export interface AttendanceShiftSettingsDialogData {
         <button mat-raised-button color="primary" class="save-btn" (click)="saveSettings()" [disabled]="saving || loading">
           <mat-spinner diameter="18" *ngIf="saving"></mat-spinner>
           <mat-icon *ngIf="!saving">save</mat-icon>
-          <span>{{ saving ? 'Saving Changes...' : 'Save Shift Settings' }}</span>
+          <span>{{ saving ? 'Saving Policies...' : 'Save Policies & Settings' }}</span>
         </button>
       </div>
     </div>
@@ -460,11 +484,13 @@ export class AttendanceShiftSettingsDialogComponent implements OnInit {
     teacherGracePeriodMinutes: 15,
     teacherHalfDayThresholdMinutes: 240,
     teacherAllowedLateDaysPerMonth: 3,
+    teacherWeeklyOffPattern: 'SundayOnly',
     studentShiftStartTime: '08:00',
     studentShiftEndTime: '14:00',
     studentGracePeriodMinutes: 15,
     studentHalfDayThresholdMinutes: 240,
-    studentAllowedLateDaysPerMonth: 3
+    studentAllowedLateDaysPerMonth: 3,
+    studentWeeklyOffPattern: 'SundayOnly'
   };
 
   constructor(
@@ -494,11 +520,13 @@ export class AttendanceShiftSettingsDialogComponent implements OnInit {
           teacherGracePeriodMinutes: res.teacherGracePeriodMinutes ?? 15,
           teacherHalfDayThresholdMinutes: res.teacherHalfDayThresholdMinutes ?? 240,
           teacherAllowedLateDaysPerMonth: res.teacherAllowedLateDaysPerMonth ?? 3,
+          teacherWeeklyOffPattern: res.teacherWeeklyOffPattern || 'SundayOnly',
           studentShiftStartTime: res.studentShiftStartTime || '08:00',
           studentShiftEndTime: res.studentShiftEndTime || '14:00',
           studentGracePeriodMinutes: res.studentGracePeriodMinutes ?? 15,
           studentHalfDayThresholdMinutes: res.studentHalfDayThresholdMinutes ?? 240,
-          studentAllowedLateDaysPerMonth: res.studentAllowedLateDaysPerMonth ?? 3
+          studentAllowedLateDaysPerMonth: res.studentAllowedLateDaysPerMonth ?? 3,
+          studentWeeklyOffPattern: res.studentWeeklyOffPattern || 'SundayOnly'
         };
         this.loading = false;
       },

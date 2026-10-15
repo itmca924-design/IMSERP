@@ -150,11 +150,6 @@ interface EditableStudentRow {
 
       <!-- Matrix Content Body -->
       <div class="dialog-body">
-        <!-- Loading State -->
-        <div class="matrix-loading" *ngIf="loading">
-          <mat-spinner diameter="44"></mat-spinner>
-          <p>Loading multi-subject exam matrix for {{ getClassName() }}...</p>
-        </div>
 
         <!-- Empty State: No Exams -->
         <div class="matrix-empty" *ngIf="!loading && subjects.length === 0">

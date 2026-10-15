@@ -17,6 +17,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { LocalDatetimePipe } from '../../shared/pipes/local-datetime.pipe';
 import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.directive';
 import { ChatDirectoryDialogComponent } from './chat-directory-dialog.component';
+import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { environment } from '../../../environments/environment';
 
 @Component({
@@ -236,6 +237,17 @@ import { environment } from '../../../environments/environment';
                   <button mat-icon-button type="button" (click)="refreshActiveMessages()" matTooltip="Reload messages">
                     <mat-icon>sync</mat-icon>
                   </button>
+
+                  <button mat-icon-button type="button" [matMenuTriggerFor]="activeChatMenu" matTooltip="Conversation options">
+                    <mat-icon>more_vert</mat-icon>
+                  </button>
+
+                  <mat-menu #activeChatMenu="matMenu">
+                    <button mat-menu-item (click)="onClearChatHistory()">
+                      <mat-icon style="color: #ef4444;">delete_sweep</mat-icon>
+                      <span style="color: #ef4444; font-weight: 600;">Clear Chat History</span>
+                    </button>
+                  </mat-menu>
                 </div>
               </div>
 
@@ -261,6 +273,13 @@ import { environment } from '../../../environments/environment';
                     {{ getInitials(msg.senderName) }}
                   </div>
                   <div *ngIf="!msg.isMe && (i > 0 && chatService.messages()[i - 1].senderUserId === msg.senderUserId)" class="avatar-spacer"></div>
+
+                  <!-- Hover Action Toolbar (Delete Message) -->
+                  <div *ngIf="canDeleteMessage(msg)" class="msg-actions-hover">
+                    <button type="button" class="bubble-action-btn delete-action" (click)="onDeleteMessage(msg, $event)" matTooltip="Delete message">
+                      <mat-icon>delete_outline</mat-icon>
+                    </button>
+                  </div>
 
                   <div class="message-bubble" [class.outgoing-bubble]="msg.isMe">
                     <!-- Sender Name in Group Chat -->
@@ -929,6 +948,57 @@ import { environment } from '../../../environments/environment';
         width: 32px;
         flex-shrink: 0;
       }
+
+      .msg-actions-hover {
+        opacity: 0;
+        visibility: hidden;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        align-self: center;
+        transition: opacity 0.15s ease, visibility 0.15s ease;
+
+        .bubble-action-btn {
+          width: 26px;
+          height: 26px;
+          min-width: 26px;
+          min-height: 26px;
+          padding: 0;
+          margin: 0;
+          border-radius: 50%;
+          border: 1px solid #e2e8f0;
+          background: #ffffff;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          color: #94a3b8;
+          transition: all 0.15s ease;
+
+          mat-icon {
+            font-size: 15px;
+            width: 15px;
+            height: 15px;
+            line-height: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+
+          &.delete-action:hover {
+            background: #fee2e2;
+            color: #ef4444;
+            border-color: #fca5a5;
+            transform: scale(1.1);
+          }
+        }
+      }
+
+      &:hover .msg-actions-hover {
+        opacity: 1;
+        visibility: visible;
+      }
     }
 
     .message-bubble {
@@ -1391,6 +1461,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
   chatService = inject(ChatService);
   authService = inject(AuthService);
   private dialog = inject(MatDialog);
+  private confirmDialog = inject(ConfirmDialogService);
 
   readonly searchControl = new FormControl('');
   readonly tabFilterControl = new FormControl('all');
@@ -1651,6 +1722,42 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
         console.warn('[Chat] Direct download failed, fallback to window.open', err);
         window.open(fullUrl, '_blank');
       });
+  }
+
+  canDeleteMessage(msg: ChatMessage): boolean {
+    if (msg.isMe) return true;
+    const role = this.authService.currentUser()?.role || '';
+    return role.includes('Admin') || role.includes('Teacher') || role.includes('Principal');
+  }
+
+  onDeleteMessage(msg: ChatMessage, event?: Event): void {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    this.confirmDialog.danger(
+      'Delete Message',
+      'Are you sure you want to delete this message? This action will remove it for everyone.',
+      'Delete'
+    ).subscribe(confirmed => {
+      if (confirmed) {
+        this.chatService.deleteMessage(msg.id).subscribe();
+      }
+    });
+  }
+
+  onClearChatHistory(): void {
+    const active = this.activeChat();
+    if (!active) return;
+    this.confirmDialog.danger(
+      'Clear Chat History',
+      `Are you sure you want to clear all messages in "${active.title}"? This cannot be undone.`,
+      'Clear All'
+    ).subscribe(confirmed => {
+      if (confirmed) {
+        this.chatService.clearConversation(active.id).subscribe();
+      }
+    });
   }
 
   formatFileSize(bytes: number): string {

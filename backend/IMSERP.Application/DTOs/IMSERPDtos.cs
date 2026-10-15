@@ -582,7 +582,8 @@ public record StudentAttendanceSummaryDto(
     int HalfDays,
     int HolidayDays,
     int TotalWorkingDays,
-    decimal AttendancePercentage
+    decimal AttendancePercentage,
+    int ElapsedWorkingDays = 0
 );
 
 public record MarkStudentAttendanceDto(
@@ -694,7 +695,9 @@ public record AttendanceReportRowDto(
     string? SchoolRoll = null,
     string? CoachingRoll = null,
     bool IsSchoolStudent = false,
-    bool IsCoachingStudent = false
+    bool IsCoachingStudent = false,
+    int ElapsedWorkingDays = 0,
+    string? JoiningDate = null
 );
 
 
@@ -710,7 +713,9 @@ public record AttendanceReportDto(
     int TotalHolidayDays,
     List<AttendanceReportRowDto> Rows,
     bool IsDualEnrolled = false,
-    string? DefaultStream = null
+    string? DefaultStream = null,
+    int TotalWorkingDaysInMonth = 0,
+    int ElapsedWorkingDaysInMonth = 0
 );
 
 public record BatchDto(
@@ -1592,7 +1597,9 @@ public record AttendanceSettingsDto(
     string StudentShiftEndTime = "14:00",
     int StudentGracePeriodMinutes = 15,
     int StudentHalfDayThresholdMinutes = 240,
-    int StudentAllowedLateDaysPerMonth = 3
+    int StudentAllowedLateDaysPerMonth = 3,
+    string TeacherWeeklyOffPattern = "SundayOnly",
+    string StudentWeeklyOffPattern = "SundayOnly"
 );
 
 public record BiometricAttendanceEventDto(
@@ -1670,6 +1677,14 @@ public record SaveTeacherMonthlyRegisterDto(
     string? DefaultCheckInTime,
     string? DefaultCheckOutTime,
     List<TeacherMonthlyRegisterDayItem> Days
+);
+
+public record BulkTeacherMultiDatesAttendanceDto(
+    List<DateTime> AttendanceDates,
+    string Status,
+    string? Remarks,
+    string? CheckInTime = null,
+    string? CheckOutTime = null
 );
 
 public record TeacherAttendanceSummaryDto(

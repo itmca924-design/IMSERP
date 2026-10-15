@@ -101,11 +101,6 @@
           </div>
         </mat-card>
 
-        <!-- Loading Spinner -->
-        <div class="loading-state" *ngIf="loadingExams">
-          <mat-spinner diameter="40"></mat-spinner>
-          <p>Loading scheduled exams...</p>
-        </div>
 
 
         <!-- Empty State (Admin) -->
@@ -668,11 +663,6 @@
           </div>
         </mat-card>
 
-        <!-- Loading State -->
-        <div class="loading-state" *ngIf="loadingResults">
-          <mat-spinner diameter="40"></mat-spinner>
-          <p>Compiling consolidated marksheet matrix...</p>
-        </div>
 
         <!-- Initial or Empty State -->
         <div class="empty-state" *ngIf="!loadingResults && !consolidatedResult">
@@ -920,10 +910,6 @@
           </div>
         </div>
 
-        <div class="modal-loading" *ngIf="loadingMarks">
-          <mat-spinner diameter="36"></mat-spinner>
-          <p>Loading student list...</p>
-        </div>
 
         <!-- Marks Grid -->
         <div class="modal-marks-table-wrapper" *ngIf="!loadingMarks">
@@ -1195,10 +1181,6 @@
 
       <!-- Modal Body / Printable Document -->
       <div class="modal-body award-sheet-scrollable-body">
-        <div class="loading-state" *ngIf="loadingAwardSheet">
-          <mat-spinner diameter="40"></mat-spinner>
-          <p>Preparing Blank Award Sheet...</p>
-        </div>
 
         <!-- THE PRINTABLE AWARD SHEET DOCUMENT -->
         <div class="blank-award-sheet-sheet" *ngIf="!loadingAwardSheet && awardSheetData" id="printable-award-sheet">

@@ -446,6 +446,168 @@ public class ChatController : ControllerBase
     }
 
     /// <summary>
+    /// Deletes a specific message (Soft delete)
+    /// </summary>
+    [HttpDelete("messages/{messageId}")]
+    public async Task<IActionResult> DeleteMessage(Guid messageId)
+    {
+        var tenantId = _currentUser.TenantId;
+        var userId = _currentUser.UserId;
+        var role = User.FindFirst(ClaimTypes.Role)?.Value ?? "";
+
+        var message = await _dbContext.ChatMessages
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(m => m.Id == messageId && m.TenantId == tenantId);
+
+        if (message == null)
+        {
+            return NotFound(new { message = "Message not found." });
+        }
+
+        if (message.IsDeleted)
+        {
+            return Ok(new { success = true });
+        }
+
+        var isOwner = message.SenderUserId == userId;
+        var isAdminOrTeacher = role.Contains("Admin", StringComparison.OrdinalIgnoreCase) ||
+                               role.Contains("Teacher", StringComparison.OrdinalIgnoreCase) ||
+                               role.Contains("Principal", StringComparison.OrdinalIgnoreCase);
+
+        if (!isOwner && !isAdminOrTeacher)
+        {
+            return Forbid("You can only delete your own messages.");
+        }
+
+        message.IsDeleted = true;
+
+        var conversation = await _dbContext.ChatConversations
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(c => c.Id == message.ConversationId && c.TenantId == tenantId);
+
+        if (conversation != null)
+        {
+            var prevMessage = await _dbContext.ChatMessages
+                .IgnoreQueryFilters()
+                .Where(m => m.ConversationId == message.ConversationId && !m.IsDeleted && m.Id != messageId)
+                .OrderByDescending(m => m.CreatedAt)
+                .FirstOrDefaultAsync();
+
+            conversation.LastMessageContent = prevMessage?.Content ?? (prevMessage?.AttachmentUrl != null ? "📎 Attachment" : null);
+            conversation.LastMessageAt = prevMessage?.CreatedAt;
+            conversation.LastMessageSenderId = prevMessage?.SenderUserId;
+            conversation.LastMessageSenderName = prevMessage?.SenderName;
+        }
+
+        await _dbContext.SaveChangesAsync();
+
+        // Broadcast SignalR MessageDeleted event
+        await _chatHubContext.Clients.Group($"conv_{message.ConversationId}").SendAsync("MessageDeleted", new
+        {
+            conversationId = message.ConversationId,
+            messageId = message.Id
+        });
+
+        // Broadcast updated conversation preview
+        var participants = await _dbContext.ChatParticipants
+            .IgnoreQueryFilters()
+            .Where(p => p.ConversationId == message.ConversationId && p.TenantId == tenantId)
+            .ToListAsync();
+
+        foreach (var p in participants)
+        {
+            await _chatHubContext.Clients.Group($"user_{p.UserId}").SendAsync("ConversationUpdated", new
+            {
+                conversationId = message.ConversationId,
+                lastMessageContent = conversation?.LastMessageContent,
+                lastMessageAt = conversation?.LastMessageAt,
+                lastMessageSenderName = conversation?.LastMessageSenderName,
+                unreadCount = p.UnreadCount
+            });
+        }
+
+        return Ok(new { success = true, messageId = message.Id });
+    }
+
+    /// <summary>
+    /// Clears all messages in a conversation
+    /// </summary>
+    [HttpDelete("conversations/{conversationId}/clear")]
+    public async Task<IActionResult> ClearConversation(Guid conversationId)
+    {
+        var tenantId = _currentUser.TenantId;
+        var userId = _currentUser.UserId;
+        var role = User.FindFirst(ClaimTypes.Role)?.Value ?? "";
+
+        var conversation = await _dbContext.ChatConversations
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(c => c.Id == conversationId && c.TenantId == tenantId);
+
+        if (conversation == null)
+        {
+            return NotFound(new { message = "Conversation not found." });
+        }
+
+        var isParticipant = await _dbContext.ChatParticipants
+            .IgnoreQueryFilters()
+            .AnyAsync(p => p.ConversationId == conversationId && p.UserId == userId && p.TenantId == tenantId);
+
+        if (!isParticipant)
+        {
+            return Forbid("You are not a participant in this conversation.");
+        }
+
+        var isAdminOrTeacher = role.Contains("Admin", StringComparison.OrdinalIgnoreCase) ||
+                               role.Contains("Teacher", StringComparison.OrdinalIgnoreCase) ||
+                               role.Contains("Principal", StringComparison.OrdinalIgnoreCase);
+
+        if (conversation.ConversationType == ChatConversationType.ClassGroup && !isAdminOrTeacher)
+        {
+            return Forbid("Only teachers and administrators can clear class channel history.");
+        }
+
+        var messages = await _dbContext.ChatMessages
+            .IgnoreQueryFilters()
+            .Where(m => m.ConversationId == conversationId && m.TenantId == tenantId && !m.IsDeleted)
+            .ToListAsync();
+
+        foreach (var msg in messages)
+        {
+            msg.IsDeleted = true;
+        }
+
+        conversation.LastMessageContent = null;
+        conversation.LastMessageSenderId = null;
+        conversation.LastMessageSenderName = null;
+
+        await _dbContext.SaveChangesAsync();
+
+        await _chatHubContext.Clients.Group($"conv_{conversationId}").SendAsync("ConversationCleared", new
+        {
+            conversationId = conversationId
+        });
+
+        var participants = await _dbContext.ChatParticipants
+            .IgnoreQueryFilters()
+            .Where(p => p.ConversationId == conversationId && p.TenantId == tenantId)
+            .ToListAsync();
+
+        foreach (var p in participants)
+        {
+            await _chatHubContext.Clients.Group($"user_{p.UserId}").SendAsync("ConversationUpdated", new
+            {
+                conversationId = conversationId,
+                lastMessageContent = (string?)null,
+                lastMessageAt = conversation.LastMessageAt,
+                lastMessageSenderName = (string?)null,
+                unreadCount = 0
+            });
+        }
+
+        return Ok(new { success = true });
+    }
+
+    /// <summary>
     /// Auto provisions Class Group Channels for the student or teacher
     /// </summary>
     private async Task AutoProvisionClassRoomsAsync(Guid tenantId, Guid userId, Guid? branchId)

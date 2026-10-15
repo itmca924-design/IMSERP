@@ -29,8 +29,9 @@ export interface CalendarDayItem {
   isSaturday: boolean;
   isDeclaredHoliday?: boolean;
   holidayTitle?: string;
-  status: 'Present' | 'Absent' | 'Late' | 'HalfDay' | 'Holiday' | 'Leave' | 'Unmarked';
+  status: 'Present' | 'Absent' | 'Late' | 'HalfDay' | 'Holiday' | 'Leave' | 'Unmarked' | 'PriorJoining';
   record?: AttendanceDto;
+  isPriorToJoining?: boolean;
   isCancellationPending?: boolean;
   cancellationDetails?: string;
 }
@@ -81,16 +82,6 @@ export interface CalendarDayItem {
               <mat-option *ngFor="let y of years" [value]="y">{{y}}</mat-option>
             </mat-select>
           </mat-form-field>
-
-          <!-- Attendance Mode -->
-          <mat-form-field appearance="outline" class="mode-select" subscriptSizing="dynamic" *ngIf="canManageAttendance">
-            <mat-label>Attendance Mode</mat-label>
-            <mat-select [(ngModel)]="attendanceMode" (selectionChange)="saveAttendanceMode()" [disabled]="!attendancePermissions.canChangeMode">
-              <mat-option value="Both">Manual + Biometric</mat-option>
-              <mat-option value="Manual">Manual Only</mat-option>
-              <mat-option value="Biometric">Biometric Only</mat-option>
-            </mat-select>
-          </mat-form-field>
         </div>
       </div>
 
@@ -98,93 +89,13 @@ export interface CalendarDayItem {
         <button mat-stroked-button color="primary" class="settings-toolbar-btn" *ngIf="canManageAttendance && attendancePermissions.canChangeMode" (click)="openShiftSettingsDialog()" matTooltip="Configure Shift Timings & Attendance Policies for Faculty and Students">
           <mat-icon>settings</mat-icon> Shift &amp; Policies
         </button>
-        <button mat-stroked-button color="accent" class="quick-today-btn" (click)="quickMarkTodayPresent()" [disabled]="!attendancePermissions.canManualMark || attendanceMode === 'Biometric'" matTooltip="Manual marking is disabled by permission or mode">
-          <mat-icon>verified</mat-icon> Today Present
-        </button>
 
         <button mat-stroked-button class="regularize-toolbar-btn" (click)="openRegularizationDialog()" matTooltip="Request Attendance Regularization for missed punches or duty tour">
           <mat-icon>build_circle</mat-icon> Regularize
         </button>
 
-        <button mat-raised-button color="primary" class="mark-btn" *ngIf="canManageAttendance" (click)="showMarkForm = !showMarkForm" [disabled]="!attendancePermissions.canManualMark || attendanceMode === 'Biometric'">
-          <mat-icon>{{showMarkForm ? 'close' : 'add_task'}}</mat-icon>
-          {{showMarkForm ? 'Close Form' : 'Mark Attendance'}}
-        </button>
       </div>
     </div>
-
-    <!-- Mark Attendance Form Drawer -->
-    <mat-card class="mark-form-card mat-elevation-z2" *ngIf="showMarkForm">
-      <div class="form-card-header">
-        <div class="card-title">
-          <mat-icon color="primary">edit_calendar</mat-icon>
-          <div>
-            <strong>Log Attendance Record</strong>
-            <p>Enter date, status, and punch-in/out timestamps.</p>
-          </div>
-        </div>
-        <button mat-icon-button (click)="showMarkForm = false">
-          <mat-icon>close</mat-icon>
-        </button>
-      </div>
-
-      <div class="form-row">
-        <mat-form-field appearance="outline" class="field-date">
-          <mat-label>Attendance Date *</mat-label>
-          <input matInput type="date" [(ngModel)]="markData.attendanceDate" [max]="todayStr">
-        </mat-form-field>
-
-        <mat-form-field appearance="outline" class="field-status">
-          <mat-label>Attendance Status *</mat-label>
-          <mat-select [(ngModel)]="markData.status">
-            <mat-option value="Present">
-              <span class="status-option present">● Present</span>
-            </mat-option>
-            <mat-option value="Absent">
-              <span class="status-option absent">● Absent</span>
-            </mat-option>
-            <mat-option value="Late">
-              <span class="status-option late">● Late</span>
-            </mat-option>
-            <mat-option value="HalfDay">
-              <span class="status-option half">● Half Day</span>
-            </mat-option>
-            <mat-option value="Holiday">
-              <span class="status-option holiday">● Holiday / Off</span>
-            </mat-option>
-          </mat-select>
-        </mat-form-field>
-
-        <mat-form-field appearance="outline" class="field-time">
-          <mat-label>Check-in Time</mat-label>
-          <input matInput type="time" [(ngModel)]="markData.checkInTime" (ngModelChange)="onTimeChanged()">
-        </mat-form-field>
-
-        <mat-form-field appearance="outline" class="field-time">
-          <mat-label>Check-out Time</mat-label>
-          <input matInput type="time" [(ngModel)]="markData.checkOutTime" (ngModelChange)="onTimeChanged()">
-        </mat-form-field>
-
-        <mat-form-field appearance="outline" class="field-remarks">
-          <mat-label>Remarks / Notes</mat-label>
-          <input matInput [(ngModel)]="markData.remarks" placeholder="e.g. Taken extra doubt lecture">
-        </mat-form-field>
-      </div>
-
-      <!-- Coaching Smart Rule Auto-detection Hint -->
-      <div class="smart-rule-hint" *ngIf="getTimeCalculationHint()">
-        <mat-icon>lightbulb</mat-icon>
-        <span>{{ getTimeCalculationHint() }}</span>
-      </div>
-
-      <div class="form-actions">
-        <button mat-button (click)="showMarkForm = false">Cancel</button>
-        <button mat-raised-button color="primary" (click)="saveAttendance()"
-          [disabled]="!markData.attendanceDate || !markData.status || saving">
-          <mat-icon>{{saving ? 'hourglass_empty' : 'save'}}</mat-icon> Save Record
-        </button>
-      </div>
-    </mat-card>
 
     <!-- Monthly Summary KPI Badges -->
     <div class="summary-cards-grid" *ngIf="summary">
@@ -261,16 +172,7 @@ export interface CalendarDayItem {
           <strong>{{months[attMonth - 1]}} {{attYear}} Monthly Day-by-Day Roster</strong>
         </div>
 
-        <div class="cal-header-actions">
-          <button mat-stroked-button [color]="isRegisterMode ? 'warn' : 'primary'" class="monthly-reg-toggle-btn"
-            *ngIf="canManageAttendance && attendanceMode !== 'Biometric'"
-            (click)="toggleRegisterMode()">
-            <mat-icon>{{ isRegisterMode ? 'close' : 'checklist' }}</mat-icon>
-            {{ isRegisterMode ? 'Exit Register Mode' : 'Quick Monthly Register' }}
-          </button>
-        </div>
-
-        <div class="legend-chips" *ngIf="!isRegisterMode">
+        <div class="legend-chips">
           <span class="leg present">● Present</span>
           <span class="leg absent">● Absent</span>
           <span class="leg late">● Late</span>
@@ -279,86 +181,112 @@ export interface CalendarDayItem {
           <span class="leg cancel-req">⏳ Cancel Pending</span>
           <span class="leg pub-holiday">★ Public Holiday</span>
           <span class="leg sunday">● Sunday Off</span>
-          <span class="leg saturday">● Saturday</span>
+          <span class="leg prior-joining">◌ Prior to Joining</span>
           <span class="leg unmarked">○ Unmarked</span>
         </div>
       </div>
 
-      <!-- Interactive Monthly Register Control Bar -->
-      <div class="monthly-register-bar" *ngIf="isRegisterMode">
-        <div class="mrb-top">
-          <div class="mrb-info">
-            <span class="mrb-title"><mat-icon>edit_calendar</mat-icon> Monthly Attendance Sheet:</span>
-            <span class="mrb-desc">Checked (✓) = <strong>Present</strong>, Unchecked (✗) = <strong>Absent</strong>. Sundays, Public Holidays and Approved Leaves are auto-locked.</span>
-          </div>
-          <div class="mrb-quick-actions">
-            <button type="button" class="mrb-chip-btn present" (click)="markAllRegisterPresent()">
-              <mat-icon>done_all</mat-icon> Select All (Present)
-            </button>
-            <button type="button" class="mrb-chip-btn absent" (click)="markAllRegisterAbsent()">
-              <mat-icon>clear_all</mat-icon> Clear All (Absent)
-            </button>
-          </div>
-        </div>
-
-        <div class="mrb-bottom">
-          <div class="mrb-timing-group">
-            <span class="time-label"><mat-icon>schedule</mat-icon> Default Shift:</span>
-            <label class="time-sub-label">In:</label>
-            <input type="time" class="time-input" [(ngModel)]="registerCheckInTime">
-            <label class="time-sub-label">Out:</label>
-            <input type="time" class="time-input" [(ngModel)]="registerCheckOutTime">
-            <span class="time-grace-hint">(Grace cutoff: 08:15 AM)</span>
-          </div>
-
-          <div class="mrb-counters">
-            <span class="cnt-badge present">
-              <mat-icon>check_circle</mat-icon> {{ registerPresentCount }} Present
-            </span>
-            <span class="cnt-badge absent">
-              <mat-icon>cancel</mat-icon> {{ registerAbsentCount }} Absent
-            </span>
-          </div>
-
-          <button mat-raised-button color="primary" class="mrb-save-btn"
-            [disabled]="savingMonthlyRegister"
-            (click)="saveMonthlyRegister()">
-            <mat-icon>{{ savingMonthlyRegister ? 'hourglass_empty' : 'save' }}</mat-icon>
-            {{ savingMonthlyRegister ? 'Saving Register...' : 'Save Register (' + registerPresentCount + ' Present, ' + registerAbsentCount + ' Absent)' }}
+      <!-- Quick Action Selection Toolbar -->
+      <div class="multi-select-toolbar" *ngIf="canManageAttendance && attendanceMode !== 'Biometric'">
+        <div class="mst-left">
+          <span class="mst-title"><mat-icon>checklist</mat-icon> Quick Selection:</span>
+          <button type="button" class="mst-btn" (click)="selectAllWorkingDays()" matTooltip="Select all working days in this month">
+            <mat-icon>fact_check</mat-icon> Select All Working Days
           </button>
+          <button type="button" class="mst-btn" (click)="selectAllAbsentDays()" matTooltip="Select all unmarked / absent days">
+            <mat-icon>rule</mat-icon> Select Unmarked / Absent
+          </button>
+          <button type="button" class="mst-btn save-month" (click)="saveFacultyMonthlyRegister()" [disabled]="batchSavingDates" matTooltip="Auto-fill entire month: Checked days as Present, Unchecked working days as Absent">
+            <mat-icon>{{ batchSavingDates ? 'hourglass_empty' : 'save_as' }}</mat-icon>
+            <span>{{ batchSavingDates ? 'Saving...' : 'Auto-Fill Full Month Register' }}</span>
+          </button>
+          <button type="button" class="mst-btn clear" *ngIf="selectedMatrixDates.size > 0" (click)="clearDateSelection()">
+            <mat-icon>clear_all</mat-icon> Clear Selection ({{ selectedMatrixDates.size }})
+          </button>
+        </div>
+        <div class="mst-right" *ngIf="selectedMatrixDates.size > 0">
+          <span class="mst-counter-badge">{{ selectedMatrixDates.size === 1 ? '1 Day Selected' : selectedMatrixDates.size + ' Days Selected' }}</span>
         </div>
       </div>
 
-      <div class="days-heatmap-grid" [class.register-grid-active]="isRegisterMode">
+      <div class="days-heatmap-grid">
         <div class="day-cell" *ngFor="let d of calendarDays"
-          [class.present]="isRegisterMode && isSelectableWorkingDay(d) ? isRegisterDayChecked(d) : d.status === 'Present'"
-          [class.absent]="isRegisterMode && isSelectableWorkingDay(d) ? !isRegisterDayChecked(d) : d.status === 'Absent'"
-          [class.late]="!isRegisterMode && d.status === 'Late'"
-          [class.half]="!isRegisterMode && d.status === 'HalfDay'"
+          [class.present]="d.status === 'Present'"
+          [class.absent]="d.status === 'Absent'"
+          [class.late]="d.status === 'Late'"
+          [class.half]="d.status === 'HalfDay'"
           [class.leave]="d.status === 'Leave'"
           [class.cancel-pending]="d.isCancellationPending"
           [class.public-holiday]="d.isDeclaredHoliday && !d.record"
-          [class.sunday-off]="d.isSunday && !d.record && !d.isDeclaredHoliday"
-          [class.saturday-off]="d.isSaturday && !d.record && !d.isDeclaredHoliday"
+          [class.sunday-off]="isWeeklyOffDay(d) && !d.record && !d.isDeclaredHoliday"
           [class.today]="d.isToday"
           [class.future-date]="d.dateStr > todayStr"
-          [class.register-selectable]="isRegisterMode && isSelectableWorkingDay(d)"
-          [class.register-checked]="isRegisterMode && isSelectableWorkingDay(d) && isRegisterDayChecked(d)"
-          [class.register-unchecked]="isRegisterMode && isSelectableWorkingDay(d) && !isRegisterDayChecked(d)"
+          [class.prior-joining]="d.isPriorToJoining"
+          [class.selected-for-batch]="selectedMatrixDates.has(d.dateStr)"
           (click)="onDayCellClick(d)"
-          [matTooltip]="isRegisterMode && isSelectableWorkingDay(d) ? (isRegisterDayChecked(d) ? (d.dateStr + ' (' + d.dayOfWeek + '): Present (Click cell/box to mark Absent)') : (d.dateStr + ' (' + d.dayOfWeek + '): Absent (Click cell/box to mark Present)')) : (d.status === 'Leave' && d.dateStr > todayStr ? ('Approved Leave — ' + d.dateStr + ' (' + d.dayOfWeek + ')') : (d.dateStr > todayStr ? 'Future date — attendance cannot be marked in advance' : (d.dateStr < todayStr && !attendancePermissions.canCorrectAttendance ? 'Back-date correction requires Admin permission' : ((d.isCancellationPending ? ('[Cancellation Requested: ' + d.cancellationDetails + ' (Pending Admin Review)] | ') : '') + d.dateStr + ' (' + d.dayOfWeek + '): ' + (d.isDeclaredHoliday ? ('Public Holiday: ' + d.holidayTitle) : (d.isSunday ? 'Sunday Weekly Off' : (d.isSaturday ? 'Saturday' : d.status))) + (d.record?.checkInTime ? ' | Punch-in: ' + d.record?.checkInTime : '')))))">
+          [matTooltip]="getDayTooltip(d)">
 
-          <!-- Checkbox for interactive monthly register mode -->
-          <div class="cell-check-box" *ngIf="isRegisterMode && isSelectableWorkingDay(d)" (click)="$event.stopPropagation()">
+          <!-- Smart Checkbox on selectable days -->
+          <div class="cell-check-box" *ngIf="isSelectableWorkingDay(d)" (click)="$event.stopPropagation()">
             <input type="checkbox"
               class="day-register-checkbox"
-              [checked]="isRegisterDayChecked(d)"
-              (change)="toggleRegisterDay(d)">
+              [checked]="selectedMatrixDates.has(d.dateStr)"
+              (change)="toggleDateSelect(d)">
           </div>
 
           <span class="cell-num">{{d.dayNumber}}</span>
-          <span class="cell-sub">{{d.dayOfWeek.charAt(0)}}</span>
-          <span class="cell-tag">{{ isRegisterMode && isSelectableWorkingDay(d) ? (isRegisterDayChecked(d) ? 'P' : 'A') : getCellShortTag(d) }}</span>
+          <span class="cell-sub">{{d.dayOfWeek}}</span>
+          <span class="cell-tag">{{ getCellShortTag(d) }}</span>
+        </div>
+      </div>
+
+      <!-- Floating Action Bar (Unified Single & Multi-Day) -->
+      <div class="matrix-floating-bar" *ngIf="selectedMatrixDates.size > 0">
+        <div class="mfb-left">
+          <div class="mfb-badge">{{ selectedMatrixDates.size }}</div>
+          <div class="mfb-text">
+            <strong>{{ getSelectedDateSummaryTitle() }}</strong>
+            <small>{{ selectedMatrixDates.size === 1 ? 'Choose status, timings & click Save' : 'Apply status & timings to all ' + selectedMatrixDates.size + ' selected dates' }}</small>
+          </div>
+        </div>
+        <div class="mfb-center">
+          <button type="button" class="mfb-pill pill-p" [class.active]="batchTargetStatus === 'Present'" (click)="batchTargetStatus = 'Present'">
+            <mat-icon>check_circle</mat-icon> Present
+          </button>
+          <button type="button" class="mfb-pill pill-a" [class.active]="batchTargetStatus === 'Absent'" (click)="batchTargetStatus = 'Absent'">
+            <mat-icon>cancel</mat-icon> Absent
+          </button>
+          <button type="button" class="mfb-pill pill-lt" [class.active]="batchTargetStatus === 'Late'" (click)="batchTargetStatus = 'Late'">
+            <mat-icon>schedule</mat-icon> Late
+          </button>
+          <button type="button" class="mfb-pill pill-hd" [class.active]="batchTargetStatus === 'HalfDay'" (click)="batchTargetStatus = 'HalfDay'">
+            <mat-icon>hourglass_bottom</mat-icon> Half Day
+          </button>
+          <button type="button" class="mfb-pill pill-l" [class.active]="batchTargetStatus === 'Leave'" (click)="batchTargetStatus = 'Leave'">
+            <mat-icon>event_busy</mat-icon> Leave
+          </button>
+
+          <!-- Timings Inputs -->
+          <div class="mfb-time-wrap" *ngIf="batchTargetStatus !== 'Absent' && batchTargetStatus !== 'Leave'">
+            <label>In:</label>
+            <input type="time" class="mfb-time-input" [(ngModel)]="batchTargetCheckIn" title="In Time">
+          </div>
+          <div class="mfb-time-wrap" *ngIf="batchTargetStatus !== 'Absent' && batchTargetStatus !== 'Leave'">
+            <label>Out:</label>
+            <input type="time" class="mfb-time-input" [(ngModel)]="batchTargetCheckOut" title="Out Time">
+          </div>
+
+          <input type="text" class="mfb-remarks-input" [(ngModel)]="batchTargetRemarks" placeholder="Optional notes / remarks...">
+        </div>
+        <div class="mfb-right">
+          <button type="button" class="mfb-save-btn" [disabled]="batchSavingDates" (click)="applyMultiDatesAttendance()">
+            <mat-icon *ngIf="!batchSavingDates">save</mat-icon>
+            <mat-icon class="spin" *ngIf="batchSavingDates">refresh</mat-icon>
+            <span>{{ selectedMatrixDates.size === 1 ? 'Save Record' : 'Save (' + selectedMatrixDates.size + ' Days)' }}</span>
+          </button>
+          <button type="button" class="mfb-close-btn" (click)="clearDateSelection()" matTooltip="Cancel selection">
+            <mat-icon>close</mat-icon>
+          </button>
         </div>
       </div>
     </div>
@@ -441,10 +369,10 @@ export interface CalendarDayItem {
       </div>
     </mat-card>
 
-    <div class="empty-state" *ngIf="records.length === 0 && !loading && !showMarkForm">
+    <div class="empty-state" *ngIf="records.length === 0 && !loading">
       <mat-icon>event_busy</mat-icon>
       <h3>No Attendance Records Found</h3>
-      <p>No records found for {{months[attMonth - 1]}} {{attYear}}. Click "Mark Attendance" or "Today Present" to begin logging attendance.</p>
+      <p>No records found for {{months[attMonth - 1]}} {{attYear}}. Select dates on the calendar roster above to begin logging attendance.</p>
     </div>
   </div>
 </div>
@@ -488,7 +416,7 @@ export interface CalendarDayItem {
     /* Compact widths ensuring everything stays in a single line */
     .month-select-field { width: 125px; min-width: 115px; }
     .year-select-field { width: 96px; min-width: 90px; }
-    .mode-select { width: 170px; min-width: 160px; }
+    .mode-select { width: 215px; min-width: 200px; }
 
     .toolbar-right {
       display: flex;
@@ -578,166 +506,184 @@ export interface CalendarDayItem {
     .calendar-card { background:#ffffff; border-radius:12px; padding:16px 20px; border:1px solid #e2e8f0; display:flex; flex-direction:column; gap:12px; }
     .calendar-header { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; }
     .cal-title { display:flex; align-items:center; gap:8px; font-size:.95rem; color:#1e293b; }
-    .cal-header-actions { display: flex; align-items: center; gap: 8px; }
-    .monthly-reg-toggle-btn {
-      font-size: 0.8rem !important;
-      font-weight: 700 !important;
-      height: 32px !important;
-      line-height: 32px !important;
-      border-radius: 8px !important;
-      display: inline-flex !important;
-      align-items: center !important;
-      gap: 4px !important;
-      mat-icon { font-size: 18px; width: 18px; height: 18px; }
+    .multi-select-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 8px 12px;
+      background: #f1f5f9;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      border: 1px solid #e2e8f0;
+    }
+    .mst-left { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .mst-right { display: flex; align-items: center; }
+    .mst-title { font-size: 0.8rem; font-weight: 700; color: #334155; display: inline-flex; align-items: center; gap: 4px; }
+    .mst-title mat-icon { font-size: 18px; width: 18px; height: 18px; color: #2563eb; }
+    .mst-btn {
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      color: #334155;
+      font-size: 0.74rem;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.15s ease;
+      mat-icon { font-size: 15px; width: 15px; height: 15px; color: #64748b; }
+      &:hover { background: #e0f2fe; color: #0284c7; border-color: #93c5fd; }
+      &.clear { background: #fee2e2; color: #dc2626; border-color: #fca5a5; }
+      &.clear:hover { background: #fecaca; }
+      &.save-month {
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        color: #ffffff;
+        border-color: #1d4ed8;
+        box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+        mat-icon { color: #ffffff; }
+        &:hover { background: #1d4ed8; }
+        &:disabled { opacity: 0.6; cursor: not-allowed; }
+      }
+    }
+    .mst-counter-badge {
+      background: #2563eb;
+      color: #ffffff;
+      font-size: 0.74rem;
+      font-weight: 800;
+      padding: 3px 9px;
+      border-radius: 12px;
     }
 
-    .monthly-register-bar {
-      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-      border: 1px solid #bfdbfe;
-      border-radius: 10px;
-      padding: 12px 16px;
+    .matrix-floating-bar {
+      position: sticky;
+      bottom: 12px;
+      margin-top: 14px;
+      background: #0f172a;
+      color: #ffffff;
+      border-radius: 12px;
+      padding: 10px 16px;
       display: flex;
-      flex-direction: column;
-      gap: 10px;
-      box-shadow: 0 2px 8px rgba(37,99,235,0.08);
-
-      .mrb-top {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        flex-wrap: wrap;
-        gap: 8px;
-      }
-      .mrb-info {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        flex-wrap: wrap;
-        .mrb-title {
-          font-weight: 700;
-          color: #1e3a8a;
-          font-size: 0.88rem;
-          display: inline-flex;
-          align-items: center;
-          gap: 4px;
-          mat-icon { font-size: 18px; width: 18px; height: 18px; color: #2563eb; }
-        }
-        .mrb-desc {
-          font-size: 0.8rem;
-          color: #1e40af;
-          strong { color: #1e3a8a; }
-        }
-      }
-      .mrb-quick-actions {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
-      .mrb-chip-btn {
-        border: none;
-        border-radius: 6px;
-        padding: 4px 10px;
-        font-size: 0.78rem;
-        font-weight: 700;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+      z-index: 50;
+      border: 1px solid rgba(255,255,255,0.15);
+      animation: mfbSlideUp 0.22s ease-out;
+    }
+    @keyframes mfbSlideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+    .mfb-left { display: flex; align-items: center; gap: 10px; }
+    .mfb-badge {
+      background: #2563eb;
+      color: #fff;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      font-size: 0.88rem;
+    }
+    .mfb-text { display: flex; flex-direction: column; }
+    .mfb-text strong { font-size: 0.85rem; color: #f8fafc; }
+    .mfb-text small { font-size: 0.7rem; color: #94a3b8; }
+    .mfb-center { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; flex: 1; justify-content: center; }
+    .mfb-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.74rem;
+      font-weight: 700;
+      padding: 5px 11px;
+      border-radius: 20px;
+      border: 1.5px solid transparent;
+      cursor: pointer;
+      background: #1e293b;
+      color: #cbd5e1;
+      transition: all 0.15s ease;
+      mat-icon { font-size: 16px; width: 16px; height: 16px; }
+      &:hover { background: #334155; color: #ffffff; }
+      &.pill-p.active { background: #16a34a; color: #fff; border-color: #22c55e; }
+      &.pill-a.active { background: #dc2626; color: #fff; border-color: #ef4444; }
+      &.pill-lt.active { background: #d97706; color: #fff; border-color: #f59e0b; }
+      &.pill-hd.active { background: #7c3aed; color: #fff; border-color: #8b5cf6; }
+      &.pill-l.active { background: #ea580c; color: #fff; border-color: #f97316; }
+    }
+    .mfb-remarks-input {
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: #ffffff;
+      font-size: 0.76rem;
+      padding: 6px 10px;
+      border-radius: 6px;
+      outline: none;
+      min-width: 170px;
+      &:focus { border-color: #3b82f6; }
+    }
+    .mfb-time-wrap {
+      display: inline-flex; align-items: center; gap: 4px; background: #1e293b;
+      padding: 3px 8px; border-radius: 6px; border: 1px solid #334155;
+      label { font-size: 0.68rem; font-weight: 700; color: #94a3b8; }
+    }
+    .mfb-time-input {
+      background: transparent; border: none; color: #ffffff; font-size: 0.74rem;
+      font-weight: 700; outline: none; width: 82px;
+      color-scheme: dark;
+      &::-webkit-calendar-picker-indicator {
+        filter: brightness(0) invert(1);
         cursor: pointer;
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        transition: all 0.15s;
-        mat-icon { font-size: 16px; width: 16px; height: 16px; }
-        &.present {
-          background: #dcfce7; color: #15803d; border: 1px solid #86efac;
-          &:hover { background: #bbf7d0; }
-        }
-        &.absent {
-          background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5;
-          &:hover { background: #fecaca; }
-        }
+        opacity: 0.9;
+        padding: 0;
+        margin-left: 2px;
+        &:hover { opacity: 1; }
       }
-
-      .mrb-bottom {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        flex-wrap: wrap;
-        gap: 12px;
-        border-top: 1px dashed #bfdbfe;
-        padding-top: 8px;
-      }
-      .mrb-timing-group {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        font-size: 0.82rem;
-        color: #1e40af;
-        font-weight: 600;
-        .time-label {
-          display: inline-flex;
-          align-items: center;
-          gap: 3px;
-          font-weight: 700;
-          mat-icon { font-size: 16px; width: 16px; height: 16px; }
-        }
-        .time-sub-label {
-          font-size: 0.78rem;
-          color: #475569;
-          font-weight: 700;
-          margin-left: 2px;
-        }
-        .time-input {
-          border: 1px solid #93c5fd;
-          border-radius: 6px;
-          padding: 3px 6px;
-          font-size: 0.82rem;
-          font-weight: 600;
-          color: #0f172a;
-          background: #ffffff;
-          outline: none;
-          &:focus { border-color: #2563eb; }
-        }
-        .time-grace-hint {
-          font-size: 0.72rem;
-          color: #2563eb;
-          font-weight: 600;
-          background: #eff6ff;
-          padding: 2px 6px;
-          border-radius: 4px;
-          border: 1px solid #bfdbfe;
-        }
-      }
-      .mrb-counters {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        .cnt-badge {
-          display: inline-flex;
-          align-items: center;
-          gap: 4px;
-          padding: 3px 10px;
-          border-radius: 20px;
-          font-size: 0.8rem;
-          font-weight: 800;
-          mat-icon { font-size: 16px; width: 16px; height: 16px; }
-          &.present { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
-          &.absent { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
-        }
-      }
-      .mrb-save-btn {
-        font-weight: 700 !important;
-        font-size: 0.82rem !important;
-        height: 36px !important;
-        line-height: 36px !important;
-        border-radius: 8px !important;
-        box-shadow: 0 4px 6px -1px rgba(37,99,235,0.25) !important;
-      }
+    }
+    .mfb-right { display: flex; align-items: center; gap: 8px; }
+    .mfb-save-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+      color: #ffffff;
+      border: none;
+      padding: 7px 16px;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 0.82rem;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+      transition: all 0.15s ease;
+      &:hover:not([disabled]) { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(37, 99, 235, 0.45); }
+      mat-icon { font-size: 18px; width: 18px; height: 18px; }
+      mat-icon.spin { animation: spin 1s linear infinite; }
+    }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    .mfb-close-btn {
+      background: transparent;
+      border: none;
+      color: #94a3b8;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px;
+      border-radius: 6px;
+      &:hover { background: #334155; color: #ffffff; }
     }
     .legend-chips { display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-size:.76rem; font-weight:600;
       .leg.present{color:#16a34a;} .leg.leave{color:#d97706;font-weight:700;} .leg.cancel-req{color:#ea580c;font-weight:700;} .leg.absent{color:#dc2626;} .leg.late{color:#ea580c;}
       .leg.half{color:#9333ea;} .leg.pub-holiday{color:#b45309;font-weight:700;}
       .leg.sunday{color:#e11d48;font-weight:700;} .leg.saturday{color:#6366f1;font-weight:700;}
+      .leg.prior-joining{color:#94a3b8;font-style:italic;}
       .leg.unmarked{color:#94a3b8;} }
 
-    .days-heatmap-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(42px, 1fr)); gap:6px; }
+    .days-heatmap-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(48px, 1fr)); gap:6px; }
     .day-cell {
       border:1px solid #e2e8f0; border-radius:8px; padding:6px 2px; text-align:center;
       cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:1px;
@@ -755,21 +701,13 @@ export interface CalendarDayItem {
         height: 14px;
         cursor: pointer;
         margin: 0;
-        accent-color: #16a34a;
+        accent-color: #2563eb;
       }
     }
-    .day-cell.register-checked {
-      background: #dcfce7 !important;
-      border: 1.5px solid #22c55e !important;
-      box-shadow: 0 1px 3px rgba(34, 197, 94, 0.2);
-      .cell-num { color: #15803d !important; font-weight: 800; }
-      .cell-tag { color: #166534 !important; font-weight: 800; background: #bbf7d0; border-radius: 3px; padding: 0 3px; }
-    }
-    .day-cell.register-unchecked {
-      background: #fee2e2 !important;
-      border: 1.5px dashed #ef4444 !important;
-      .cell-num { color: #b91c1c !important; font-weight: 800; }
-      .cell-tag { color: #991b1b !important; font-weight: 800; background: #fecaca; border-radius: 3px; padding: 0 3px; }
+    .day-cell.selected-for-batch {
+      border: 2.5px solid #2563eb !important;
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25) !important;
+      transform: translateY(-2px);
     }
     .day-cell:hover { transform:scale(1.06); box-shadow:0 2px 8px rgba(0,0,0,0.1); }
     .day-cell.today { border:2px solid #0284c7; }
@@ -833,6 +771,18 @@ export interface CalendarDayItem {
     }
     .day-cell.future-date:hover { transform: none; box-shadow: none; }
 
+    /* Prior to joining date — muted neutral grey, not counted as absent */
+    .day-cell.prior-joining {
+      background: #f8fafc;
+      border: 1px dashed #cbd5e1;
+      opacity: 0.6;
+      cursor: help;
+      .cell-num { color: #94a3b8; }
+      .cell-tag { color: #94a3b8; font-weight: 600; }
+      .cell-sub { color: #cbd5e1; }
+      &:hover { transform: none; box-shadow: none; border-color: #94a3b8; }
+    }
+
     /* When a future date has an approved Leave — do NOT grey out, keep vibrant warm amber & colorful 'L' tag */
     .day-cell.leave.future-date {
       background: #fef3c7 !important;
@@ -878,8 +828,180 @@ export interface CalendarDayItem {
     }
 
     .cell-num { font-size:.82rem; font-weight:700; color:#334155; }
-    .cell-sub { font-size:.65rem; color:#94a3b8; }
+    .cell-sub { font-size:.68rem; font-weight:600; color:#64748b; line-height:1.1; }
     .cell-tag { font-size:.64rem; }
+
+    /* Unified Multi-Date Quick Selection Toolbar */
+    .multi-select-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 8px 12px;
+      background: #f1f5f9;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      border: 1px solid #e2e8f0;
+    }
+    .mst-left { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .mst-title { font-size: 0.8rem; font-weight: 700; color: #334155; display: inline-flex; align-items: center; gap: 4px; }
+    .mst-title mat-icon { font-size: 18px; width: 18px; height: 18px; color: #2563eb; }
+    .mst-btn {
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      color: #334155;
+      font-size: 0.74rem;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.15s ease;
+    }
+    .mst-btn mat-icon { font-size: 15px; width: 15px; height: 15px; color: #64748b; }
+    .mst-btn:hover { background: #e0f2fe; color: #0284c7; border-color: #93c5fd; }
+    .mst-btn.clear { background: #fee2e2; color: #dc2626; border-color: #fca5a5; }
+    .mst-btn.clear:hover { background: #fecaca; }
+    .mst-btn.save-month {
+      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+      color: #ffffff;
+      border-color: #1d4ed8;
+      box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+      mat-icon { color: #ffffff; }
+      &:hover { background: #1d4ed8; }
+      &:disabled { opacity: 0.6; cursor: not-allowed; }
+    }
+    .mst-counter-badge {
+      background: #2563eb;
+      color: #ffffff;
+      font-size: 0.74rem;
+      font-weight: 800;
+      padding: 3px 9px;
+      border-radius: 12px;
+    }
+
+    /* Floating Action Bar (Single & Multi-Select) */
+    .matrix-floating-bar {
+      position: sticky;
+      bottom: 12px;
+      margin-top: 14px;
+      background: #0f172a;
+      color: #ffffff;
+      border-radius: 12px;
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+      z-index: 50;
+      border: 1px solid rgba(255,255,255,0.15);
+      animation: mfbSlideUp 0.22s ease-out;
+    }
+    @keyframes mfbSlideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+    .mfb-left { display: flex; align-items: center; gap: 10px; }
+    .mfb-badge {
+      background: #2563eb;
+      color: #fff;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      font-size: 0.88rem;
+    }
+    .mfb-text { display: flex; flex-direction: column; }
+    .mfb-text strong { font-size: 0.85rem; color: #f8fafc; }
+    .mfb-text small { font-size: 0.7rem; color: #94a3b8; }
+    .mfb-center { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; flex: 1; justify-content: center; }
+    .mfb-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.74rem;
+      font-weight: 700;
+      padding: 5px 11px;
+      border-radius: 20px;
+      border: 1.5px solid transparent;
+      cursor: pointer;
+      background: #1e293b;
+      color: #cbd5e1;
+      transition: all 0.15s ease;
+    }
+    .mfb-pill mat-icon { font-size: 16px; width: 16px; height: 16px; }
+    .mfb-pill:hover { background: #334155; color: #ffffff; }
+    .mfb-pill.pill-p.active { background: #16a34a; color: #fff; border-color: #22c55e; }
+    .mfb-pill.pill-a.active { background: #dc2626; color: #fff; border-color: #ef4444; }
+    .mfb-pill.pill-lt.active { background: #d97706; color: #fff; border-color: #f59e0b; }
+    .mfb-pill.pill-hd.active { background: #7c3aed; color: #fff; border-color: #8b5cf6; }
+    .mfb-pill.pill-l.active { background: #ea580c; color: #fff; border-color: #f97316; }
+    .mfb-remarks-input {
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: #ffffff;
+      font-size: 0.76rem;
+      padding: 6px 10px;
+      border-radius: 6px;
+      outline: none;
+      min-width: 170px;
+    }
+    .mfb-remarks-input:focus { border-color: #3b82f6; }
+    .mfb-time-wrap {
+      display: inline-flex; align-items: center; gap: 4px; background: #1e293b;
+      padding: 3px 8px; border-radius: 6px; border: 1px solid #334155;
+    }
+    .mfb-time-wrap label { font-size: 0.68rem; font-weight: 700; color: #94a3b8; }
+    .mfb-time-input {
+      background: transparent; border: none; color: #ffffff; font-size: 0.74rem;
+      font-weight: 700; outline: none; width: 82px;
+      color-scheme: dark;
+    }
+    .mfb-time-input::-webkit-calendar-picker-indicator {
+      filter: brightness(0) invert(1);
+      cursor: pointer;
+      opacity: 0.9;
+      padding: 0;
+      margin-left: 2px;
+    }
+    .mfb-time-input::-webkit-calendar-picker-indicator:hover {
+      opacity: 1;
+    }
+    .mfb-right { display: flex; align-items: center; gap: 8px; }
+    .mfb-save-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+      color: #ffffff;
+      border: none;
+      padding: 7px 16px;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 0.82rem;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+      transition: all 0.15s ease;
+    }
+    .mfb-save-btn:hover:not([disabled]) { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(37, 99, 235, 0.45); }
+    .mfb-save-btn mat-icon { font-size: 18px; width: 18px; height: 18px; }
+    .mfb-close-btn {
+      background: transparent;
+      border: none;
+      color: #94a3b8;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px;
+      border-radius: 6px;
+    }
+    .mfb-close-btn:hover { background: #334155; color: #ffffff; }
 
     /* Table */
     .table-card { border-radius:12px; overflow:hidden; padding:0; border:1px solid #e2e8f0; width:100%; max-width:100%; box-sizing:border-box; }
@@ -1102,12 +1224,13 @@ export class TeacherAttendanceComponent implements OnInit {
   calendarDays: CalendarDayItem[] = [];
   teacherLeaves: LeaveDto[] = [];
 
-  // Interactive Quick Monthly Register state
-  isRegisterMode = false;
-  registerCheckedDates = new Set<string>();
-  registerCheckInTime = '08:00';
-  registerCheckOutTime = '17:00';
-  savingMonthlyRegister = false;
+  // Unified Multi-Date Matrix Selection & Floating Action Bar
+  selectedMatrixDates = new Set<string>();
+  batchTargetStatus: 'Present' | 'Absent' | 'Late' | 'HalfDay' | 'Leave' = 'Present';
+  batchTargetCheckIn = '08:00';
+  batchTargetCheckOut = '17:00';
+  batchTargetRemarks = '';
+  batchSavingDates = false;
 
   constructor(
     private http: HttpClient,
@@ -1125,11 +1248,33 @@ export class TeacherAttendanceComponent implements OnInit {
     return !this.auth.isTeacher() && (this.auth.isAdmin() || this.auth.isHR() || this.attendancePermissions.canCorrectAttendance);
   }
 
-  // ================= INTERACTIVE MONTHLY REGISTER METHODS =================
+  // ================= UNIFIED MULTI-DATE SELECTION METHODS =================
+  isWeeklyOffDay(d: CalendarDayItem | Date): boolean {
+    const date: Date = d instanceof Date ? d : new Date(`${d.dateStr}T00:00:00`);
+    const p = this.attendanceSettings?.teacherWeeklyOffPattern || 'SundayOnly';
+    const dayOfWeek = date.getDay(); // 0 = Sun, 6 = Sat
+    if (dayOfWeek === 0) return true; // Sunday is always weekly off
+
+    if (p === 'SaturdaySunday') {
+      return dayOfWeek === 6; // Every Saturday is off
+    }
+
+    if (p === 'SecondFourthSaturday' && dayOfWeek === 6) {
+      const dayOfMonth = date.getDate();
+      const saturdayIndex = Math.ceil(dayOfMonth / 7);
+      return saturdayIndex === 2 || saturdayIndex === 4;
+    }
+
+    return false;
+  }
+
   isSelectableWorkingDay(d: CalendarDayItem): boolean {
-    if (d.isSunday || d.isDeclaredHoliday) return false;
+    if (this.isWeeklyOffDay(d) || d.isDeclaredHoliday) return false;
     if (d.status === 'Leave' || (d.record && (d.record.status === 'Leave' || d.record.captureSource === 'LeaveApplication'))) return false;
     if (d.dateStr > this.todayStr) return false;
+    if (!this.canManageAttendance) return false;
+    if (this.attendanceMode === 'Biometric') return false;
+    if (d.dateStr < this.todayStr && !this.attendancePermissions.canCorrectAttendance) return false;
     if (this.selectedTeacher?.joiningDate) {
       const joinStr = this.selectedTeacher.joiningDate.split('T')[0];
       if (d.dateStr < joinStr) return false;
@@ -1137,69 +1282,147 @@ export class TeacherAttendanceComponent implements OnInit {
     return true;
   }
 
-  toggleRegisterMode(): void {
-    this.isRegisterMode = !this.isRegisterMode;
-    if (this.isRegisterMode) {
-      this.initRegisterModeSelection();
-    }
-  }
-
-  initRegisterModeSelection(): void {
-    this.registerCheckedDates.clear();
-    const selectableDays = this.calendarDays.filter(d => this.isSelectableWorkingDay(d));
-    const hasRecordedDays = selectableDays.some(d => !!d.record);
-
-    if (hasRecordedDays) {
-      for (const d of selectableDays) {
-        if (d.record && d.record.status !== 'Absent') {
-          this.registerCheckedDates.add(d.dateStr);
-        }
-      }
-    } else {
-      // Default: If month had no capture, pre-tick all working days as Present!
-      for (const d of selectableDays) {
-        this.registerCheckedDates.add(d.dateStr);
-      }
-    }
-    this.registerCheckedDates = new Set(this.registerCheckedDates);
-  }
-
-  markAllRegisterPresent(): void {
-    const selectableDays = this.calendarDays.filter(d => this.isSelectableWorkingDay(d));
-    this.registerCheckedDates = new Set(selectableDays.map(d => d.dateStr));
-  }
-
-  markAllRegisterAbsent(): void {
-    this.registerCheckedDates = new Set();
-  }
-
-  toggleRegisterDay(d: CalendarDayItem): void {
+  toggleDateSelect(d: CalendarDayItem): void {
     if (!this.isSelectableWorkingDay(d)) return;
-    if (this.registerCheckedDates.has(d.dateStr)) {
-      this.registerCheckedDates.delete(d.dateStr);
+    if (this.selectedMatrixDates.has(d.dateStr)) {
+      this.selectedMatrixDates.delete(d.dateStr);
     } else {
-      this.registerCheckedDates.add(d.dateStr);
+      this.selectedMatrixDates.add(d.dateStr);
+      if (this.selectedMatrixDates.size === 1) {
+        if (d.record?.status) {
+          this.batchTargetStatus = this.getEffectiveStatus(d.record) as any;
+        } else if (d.status && d.status !== 'Unmarked' && d.status !== 'Holiday') {
+          this.batchTargetStatus = d.status as any;
+        } else {
+          this.batchTargetStatus = 'Present';
+        }
+        if (d.record?.checkInTime) this.batchTargetCheckIn = d.record.checkInTime;
+        else this.batchTargetCheckIn = this.attendanceSettings?.teacherShiftStartTime || '08:00';
+        if (d.record?.checkOutTime) this.batchTargetCheckOut = d.record.checkOutTime;
+        else this.batchTargetCheckOut = this.attendanceSettings?.teacherShiftEndTime || '17:00';
+        if (d.record?.remarks) this.batchTargetRemarks = d.record.remarks;
+      }
     }
-    this.registerCheckedDates = new Set(this.registerCheckedDates);
+    this.selectedMatrixDates = new Set(this.selectedMatrixDates);
   }
 
-  isRegisterDayChecked(d: CalendarDayItem): boolean {
-    return this.registerCheckedDates.has(d.dateStr);
+  selectAllWorkingDays(): void {
+    const selectable = this.calendarDays.filter(d => this.isSelectableWorkingDay(d));
+    this.selectedMatrixDates = new Set(selectable.map(d => d.dateStr));
   }
 
-  get selectableWorkingDaysCount(): number {
-    return this.calendarDays.filter(d => this.isSelectableWorkingDay(d)).length;
+  selectAllAbsentDays(): void {
+    const absentSelectable = this.calendarDays.filter(d =>
+      this.isSelectableWorkingDay(d) && (d.status === 'Absent' || !d.record)
+    );
+    this.selectedMatrixDates = new Set(absentSelectable.map(d => d.dateStr));
   }
 
-  get registerPresentCount(): number {
-    return this.registerCheckedDates.size;
+  clearDateSelection(): void {
+    this.selectedMatrixDates = new Set();
+    this.batchTargetStatus = 'Present';
+    this.batchTargetRemarks = '';
   }
 
-  get registerAbsentCount(): number {
-    return Math.max(0, this.selectableWorkingDaysCount - this.registerPresentCount);
+  getSelectedDateSummaryTitle(): string {
+    if (this.selectedMatrixDates.size === 1) {
+      const dateStr = Array.from(this.selectedMatrixDates)[0];
+      return `${dateStr} (Single Day)`;
+    }
+    return `${this.selectedMatrixDates.size} Dates Selected (Multi)`;
   }
 
-  saveMonthlyRegister(): void {
+  applyMultiDatesAttendance(): void {
+    if (this.selectedMatrixDates.size === 0) {
+      this.confirmDialog.alert('No Dates Selected', 'Please select at least one date to apply attendance.', 'warning');
+      return;
+    }
+    if (!this.selectedTeacher) {
+      this.confirmDialog.alert('No Faculty Selected', 'Please select a faculty member first.', 'warning');
+      return;
+    }
+
+    const dates = Array.from(this.selectedMatrixDates).sort();
+    this.batchSavingDates = true;
+
+    const payload = {
+      attendanceDates: dates,
+      status: this.batchTargetStatus,
+      remarks: this.batchTargetRemarks || null,
+      checkInTime: this.batchTargetStatus !== 'Absent' && this.batchTargetStatus !== 'Leave' ? (this.batchTargetCheckIn || null) : null,
+      checkOutTime: this.batchTargetStatus !== 'Absent' && this.batchTargetStatus !== 'Leave' ? (this.batchTargetCheckOut || null) : null
+    };
+
+    this.http.post(
+      `${this.api}/teachers/${this.selectedTeacher.id}/attendance/multi-dates`,
+      payload
+    ).subscribe({
+      next: (res: any) => {
+        this.batchSavingDates = false;
+        const isSingle = dates.length === 1;
+        const msg = res?.message || (isSingle
+          ? `Attendance for ${dates[0]} saved as "${this.batchTargetStatus}" successfully.`
+          : `Attendance marked as "${this.batchTargetStatus}" for ${dates.length} date(s) successfully.`);
+        this.clearDateSelection();
+        this.loadAttendance();
+        this.confirmDialog.alert(isSingle ? 'Attendance Saved' : 'Bulk Attendance Saved', msg, 'success');
+      },
+      error: err => {
+        if (err?.status === 404) {
+          // Seamless fallback: save through existing monthly-register endpoint if backend hasn't been restarted yet
+          const inTime = (this.batchTargetStatus !== 'Absent' && this.batchTargetStatus !== 'Leave') ? this.batchTargetCheckIn : null;
+          const outTime = (this.batchTargetStatus !== 'Absent' && this.batchTargetStatus !== 'Leave') ? this.batchTargetCheckOut : null;
+          const inNorm = inTime ? this.normalizeTo24h(inTime) : null;
+          const outNorm = outTime ? this.normalizeTo24h(outTime, inTime || undefined) : null;
+
+          const fallbackPayload = {
+            month: this.attMonth,
+            year: this.attYear,
+            defaultCheckInTime: inNorm || '08:00',
+            defaultCheckOutTime: outNorm || '17:00',
+            days: dates.map(d => ({
+              date: d,
+              isPresent: this.batchTargetStatus !== 'Absent',
+              checkInTime: inNorm,
+              checkOutTime: outNorm,
+              remarks: this.batchTargetRemarks || `Marked as ${this.batchTargetStatus}`
+            }))
+          };
+
+          this.http.post<any>(`${this.api}/teachers/${this.selectedTeacher!.id}/attendance/monthly-register`, fallbackPayload).subscribe({
+            next: (res: any) => {
+              this.batchSavingDates = false;
+              const isSingle = dates.length === 1;
+              const msg = res?.message || (isSingle
+                ? `Attendance for ${dates[0]} saved successfully.`
+                : `Attendance marked for ${dates.length} date(s) successfully.`);
+              this.clearDateSelection();
+              this.loadAttendance();
+              this.confirmDialog.alert(isSingle ? 'Attendance Saved' : 'Bulk Attendance Saved', msg, 'success');
+            },
+            error: fErr => {
+              this.batchSavingDates = false;
+              this.confirmDialog.alert(
+                'Save Failed',
+                fErr?.error?.message || 'Failed to save attendance. Please restart backend in Visual Studio to load updated endpoints.',
+                'danger'
+              );
+            }
+          });
+          return;
+        }
+
+        this.batchSavingDates = false;
+        this.confirmDialog.alert(
+          'Save Failed',
+          err?.error?.message || 'Failed to save attendance. Please try again.',
+          'danger'
+        );
+      }
+    });
+  }
+
+  saveFacultyMonthlyRegister(): void {
     if (!this.selectedTeacher) return;
     const selectableDays = this.calendarDays.filter(d => this.isSelectableWorkingDay(d));
     if (selectableDays.length === 0) {
@@ -1207,32 +1430,47 @@ export class TeacherAttendanceComponent implements OnInit {
       return;
     }
 
-    this.savingMonthlyRegister = true;
-    const payload = {
-      month: this.attMonth,
-      year: this.attYear,
-      defaultCheckInTime: this.registerCheckInTime,
-      defaultCheckOutTime: this.registerCheckOutTime,
-      days: selectableDays.map(d => ({
-        date: d.dateStr,
-        isPresent: this.registerCheckedDates.has(d.dateStr),
-        checkInTime: this.registerCheckedDates.has(d.dateStr) ? this.registerCheckInTime : null,
-        checkOutTime: this.registerCheckedDates.has(d.dateStr) ? this.registerCheckOutTime : null,
-        remarks: this.registerCheckedDates.has(d.dateStr) ? 'Monthly Register (Present)' : 'Monthly Register (Absent)'
-      }))
-    };
+    const hasSelection = this.selectedMatrixDates.size > 0;
+    const confirmPrompt = hasSelection
+      ? `Save Monthly Register for ${this.selectedTeacher.fullName}?\n\n• ${this.selectedMatrixDates.size} Selected Day(s) will be marked as ${this.batchTargetStatus}.\n• Remaining ${selectableDays.length - this.selectedMatrixDates.size} Working Day(s) will be marked as Absent.`
+      : `Save Monthly Register for ${this.selectedTeacher.fullName}?\n\nNo specific days are checked: all ${selectableDays.length} working days will be saved based on their current register state.`;
 
-    this.http.post<any>(`${this.api}/teachers/${this.selectedTeacher.id}/attendance/monthly-register`, payload).subscribe({
-      next: (res) => {
-        this.savingMonthlyRegister = false;
-        this.isRegisterMode = false;
-        this.loadAttendance();
-        this.confirmDialog.alert('Register Saved', res?.message || 'Monthly attendance register saved successfully!', 'success');
-      },
-      error: (err) => {
-        this.savingMonthlyRegister = false;
-        this.confirmDialog.alert('Save Failed', err?.error?.message || 'Failed to save monthly attendance register.', 'danger');
-      }
+    this.confirmDialog.confirm('Auto-Fill Monthly Register', confirmPrompt, 'Proceed & Save', 'Cancel').subscribe(confirmed => {
+      if (!confirmed) return;
+
+      this.batchSavingDates = true;
+      const defaultIn = this.attendanceSettings?.teacherShiftStartTime || '08:00';
+      const defaultOut = this.attendanceSettings?.teacherShiftEndTime || '17:00';
+
+      const payload = {
+        month: this.attMonth,
+        year: this.attYear,
+        defaultCheckInTime: defaultIn,
+        defaultCheckOutTime: defaultOut,
+        days: selectableDays.map(d => {
+          const isPresent = hasSelection ? this.selectedMatrixDates.has(d.dateStr) : (d.record ? d.record.status !== 'Absent' : true);
+          return {
+            date: d.dateStr,
+            isPresent,
+            checkInTime: isPresent ? defaultIn : null,
+            checkOutTime: isPresent ? defaultOut : null,
+            remarks: isPresent ? 'Monthly Register (Present)' : 'Monthly Register (Absent)'
+          };
+        })
+      };
+
+      this.http.post<any>(`${this.api}/teachers/${this.selectedTeacher!.id}/attendance/monthly-register`, payload).subscribe({
+        next: (res) => {
+          this.batchSavingDates = false;
+          this.clearDateSelection();
+          this.loadAttendance();
+          this.confirmDialog.alert('Register Saved', res?.message || 'Monthly attendance register saved successfully!', 'success');
+        },
+        error: (err) => {
+          this.batchSavingDates = false;
+          this.confirmDialog.alert('Save Failed', err?.error?.message || 'Failed to save monthly attendance register.', 'danger');
+        }
+      });
     });
   }
 
@@ -1322,11 +1560,11 @@ export class TeacherAttendanceComponent implements OnInit {
         this.attendanceSettings = settings;
         this.attendanceMode = settings.teacherMode;
         if (settings.teacherShiftStartTime) {
-          this.registerCheckInTime = settings.teacherShiftStartTime;
+          this.batchTargetCheckIn = settings.teacherShiftStartTime;
           this.markData.checkInTime = settings.teacherShiftStartTime;
         }
         if (settings.teacherShiftEndTime) {
-          this.registerCheckOutTime = settings.teacherShiftEndTime;
+          this.batchTargetCheckOut = settings.teacherShiftEndTime;
           this.markData.checkOutTime = settings.teacherShiftEndTime;
         }
       },
@@ -1345,11 +1583,11 @@ export class TeacherAttendanceComponent implements OnInit {
         this.attendanceSettings = res.settings;
         this.attendanceMode = res.settings.teacherMode;
         if (res.settings.teacherShiftStartTime) {
-          this.registerCheckInTime = res.settings.teacherShiftStartTime;
+          this.batchTargetCheckIn = res.settings.teacherShiftStartTime;
           this.markData.checkInTime = res.settings.teacherShiftStartTime;
         }
         if (res.settings.teacherShiftEndTime) {
-          this.registerCheckOutTime = res.settings.teacherShiftEndTime;
+          this.batchTargetCheckOut = res.settings.teacherShiftEndTime;
           this.markData.checkOutTime = res.settings.teacherShiftEndTime;
         }
         this.loadAttendance();
@@ -1465,14 +1703,21 @@ export class TeacherAttendanceComponent implements OnInit {
       // Find record in logged attendance records
       const found = this.records.find(r => r.attendanceDate.split('T')[0] === dateStr);
       let status: CalendarDayItem['status'] = 'Unmarked';
+      const isOff = this.isWeeklyOffDay(d);
+
+      // Check if date is prior to teacher joining date
+      const joinStr = this.selectedTeacher?.joiningDate ? this.selectedTeacher.joiningDate.split('T')[0] : null;
+      const isPriorToJoining = !!(joinStr && dateStr < joinStr);
 
       if (found) {
         status = this.getEffectiveStatus(found) as any;
+      } else if (isPriorToJoining) {
+        status = 'PriorJoining';
       } else if (isDeclaredHoliday) {
         status = 'Holiday';
-      } else if (isSunday) {
+      } else if (isOff) {
         status = 'Holiday';
-        holidayTitle = holidayTitle || 'Sunday (Weekly Off)';
+        holidayTitle = holidayTitle || (isSunday ? 'Sunday (Weekly Off)' : 'Saturday (Weekly Off)');
       } else if (dateStr < todayStr) {
         status = 'Absent';
       }
@@ -1497,20 +1742,46 @@ export class TeacherAttendanceComponent implements OnInit {
         holidayTitle,
         status,
         record: found,
+        isPriorToJoining,
         isCancellationPending,
         cancellationDetails
       });
     }
 
     this.calendarDays = items;
-    if (this.isRegisterMode) {
-      this.initRegisterModeSelection();
+  }
+
+  getDayTooltip(d: CalendarDayItem): string {
+    if (d.isPriorToJoining) {
+      const joinStr = this.selectedTeacher?.joiningDate ? this.selectedTeacher.joiningDate.split('T')[0] : '';
+      return `Prior to Joining (Joined on ${joinStr || d.dateStr}) — Attendance not applicable`;
     }
+    if (d.status === 'Leave' && d.dateStr > this.todayStr) {
+      return `Approved Leave — ${d.dateStr} (${d.dayOfWeek})`;
+    }
+    if (d.dateStr > this.todayStr) {
+      return 'Future date — attendance cannot be marked in advance';
+    }
+    if (d.dateStr < this.todayStr && !this.attendancePermissions.canCorrectAttendance) {
+      return 'Back-date correction requires Admin permission';
+    }
+    const cancelPrefix = d.isCancellationPending ? `[Cancellation Requested: ${d.cancellationDetails} (Pending Admin Review)] | ` : '';
+    const mainStatus = d.isDeclaredHoliday ? `Public Holiday: ${d.holidayTitle}` : (this.isWeeklyOffDay(d) ? 'Weekly Off' : d.status);
+    const punchStr = d.record?.checkInTime ? ` | Punch-in: ${d.record.checkInTime}` : '';
+    return `${cancelPrefix}${d.dateStr} (${d.dayOfWeek}): ${mainStatus}${punchStr}`;
   }
 
   getCellShortTag(d: CalendarDayItem): string {
     if (d.isCancellationPending) {
       return 'L-REQ';
+    }
+    if (d.isPriorToJoining) {
+      return '—';
+    }
+    const isOff = this.isWeeklyOffDay(d);
+    // Configured Weekly Off — always display 'OFF' unless specifically worked (Present/Late/HalfDay)
+    if (isOff && (d.status === 'Holiday' || !d.record || (d.record && (d.record.status === 'Holiday' || (d.record.status as string) === 'WeekOff')))) {
+      return 'OFF';
     }
     if (d.record) {
       return this.getStatusShortTag(d.status);
@@ -1518,11 +1789,8 @@ export class TeacherAttendanceComponent implements OnInit {
     if (d.isDeclaredHoliday) {
       return 'PH'; // Public Holiday from Holiday Master
     }
-    if (d.isSunday) {
-      return 'SUN';
-    }
-    if (d.isSaturday && d.dateStr >= this.todayStr) {
-      return 'SAT';
+    if (isOff) {
+      return 'OFF';
     }
     if (d.dateStr < this.todayStr) {
       return 'A'; // Past working day unmarked -> Absent
@@ -1537,19 +1805,12 @@ export class TeacherAttendanceComponent implements OnInit {
       case 'Leave': return 'L';
       case 'Late': return 'LT';
       case 'HalfDay': return 'HD';
-      case 'Holiday': return 'H';
+      case 'Holiday': return 'PH';
       default: return '—';
     }
   }
 
   onDayCellClick(d: CalendarDayItem) {
-    if (this.isRegisterMode) {
-      if (this.isSelectableWorkingDay(d)) {
-        this.toggleRegisterDay(d);
-      }
-      return;
-    }
-
     // 1. If it's a sanctioned leave date, provide clear information
     const hasApprovedLeave = d.status === 'Leave' || (d.record && (d.record.status === 'Leave' || d.record.captureSource === 'LeaveApplication')) || this.teacherLeaves.some(l => {
       if (l.status !== 'Approved' && l.status !== 'PartiallyCancelled') return false;
@@ -1577,7 +1838,6 @@ export class TeacherAttendanceComponent implements OnInit {
     // 3. If Teacher clicks:
     if (this.isTeacher) {
       if (d.dateStr < this.todayStr) {
-        // Teacher clicked a past date: guide them to Regularization request
         this.openRegularizationDialog(d.dateStr);
         return;
       }
@@ -1587,39 +1847,34 @@ export class TeacherAttendanceComponent implements OnInit {
       }
     }
 
-    // 4. For Admin / HR:
-    if (d.dateStr < this.todayStr && !this.canManageAttendance) {
+    // 4. If selectable working day, toggle selection
+    if (this.isSelectableWorkingDay(d)) {
+      this.toggleDateSelect(d);
+      return;
+    }
+
+    // 5. Informative alerts when day is not selectable
+    if (d.isPriorToJoining) {
+      const joinFmt = this.selectedTeacher?.joiningDate ? this.selectedTeacher.joiningDate.split('T')[0] : '';
+      this.confirmDialog.alert(
+        'Prior to Joining',
+        `Teacher joined on ${joinFmt || d.dateStr}. Attendance prior to the joining date is not applicable.`,
+        'info'
+      );
+      return;
+    }
+    if (d.isDeclaredHoliday) {
+      this.confirmDialog.alert('Public Holiday', `${d.holidayTitle || 'Official Holiday'} on ${d.dateStr}. Attendance marking is not applicable on official holidays.`, 'info');
+      return;
+    }
+    if (d.isSunday) {
+      this.confirmDialog.alert('Sunday Weekly Off', `Date ${d.dateStr} is Sunday Weekly Off.`, 'info');
+      return;
+    }
+    if (d.dateStr < this.todayStr && !this.attendancePermissions.canCorrectAttendance) {
       this.confirmDialog.alert('Back-Date Restricted', 'You do not have permission to mark or correct past date attendance. Please contact Admin.', 'warning');
       return;
     }
-
-    if (this.isPublicHolidayOrSunday(d.dateStr) && !this.canEditPublicHolidayOrSunday) {
-      this.confirmDialog.alert('Editing Disabled', 'PH/SUN attendance editing is disabled for your role.', 'warning');
-      return;
-    }
-
-    this.showMarkForm = true;
-    this.markData.attendanceDate = d.dateStr;
-    if (d.record) {
-      this.markData.status = d.record.status;
-      this.markData.checkInTime = d.record.checkInTime || this.attendanceSettings?.teacherShiftStartTime || '08:00';
-      this.markData.checkOutTime = d.record.checkOutTime || this.attendanceSettings?.teacherShiftEndTime || '17:00';
-      this.markData.remarks = d.record.remarks || '';
-    } else {
-      if (d.isDeclaredHoliday) {
-        this.markData.status = 'Holiday';
-        this.markData.remarks = `${d.holidayTitle || 'Official Holiday'} (Academic Calendar)`;
-      } else if (d.isSunday) {
-        this.markData.status = 'Holiday';
-        this.markData.remarks = 'Sunday Weekly Off';
-      } else {
-        this.markData.status = 'Present';
-        this.markData.remarks = '';
-      }
-      this.markData.checkInTime = this.attendanceSettings?.teacherShiftStartTime || '08:00';
-      this.markData.checkOutTime = this.attendanceSettings?.teacherShiftEndTime || '17:00';
-    }
-    this.showMarkForm = true;
   }
 
   parseTimeToMinutes(timeStr?: string): number | null {
@@ -1917,12 +2172,15 @@ export class TeacherAttendanceComponent implements OnInit {
       return;
     }
 
-    this.markData.attendanceDate = date;
-    this.markData.checkInTime = record.checkInTime || '';
-    this.markData.checkOutTime = record.checkOutTime || '';
-    this.markData.status = this.getEffectiveStatus(record);
-    this.markData.remarks = record.remarks || '';
-    this.showMarkForm = true;
+    this.selectedMatrixDates = new Set([date]);
+    this.batchTargetStatus = this.getEffectiveStatus(record) as any;
+    this.batchTargetCheckIn = record.checkInTime || this.attendanceSettings?.teacherShiftStartTime || '08:00';
+    this.batchTargetCheckOut = record.checkOutTime || this.attendanceSettings?.teacherShiftEndTime || '17:00';
+    this.batchTargetRemarks = record.remarks || '';
+    const calEl = document.querySelector('.calendar-card');
+    if (calEl) {
+      calEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
   }
 
   deleteRecord(id: string) {
@@ -1963,7 +2221,7 @@ export class TeacherAttendanceComponent implements OnInit {
   isPublicHolidayOrSunday(dateValue: string): boolean {
     const dateOnly = dateValue.split('T')[0];
     const date = new Date(`${dateOnly}T00:00:00`);
-    if (date.getDay() === 0) return true;
+    if (this.isWeeklyOffDay(date)) return true;
 
     return this.holidays.some(h => {
       const start = h.startDate.split('T')[0];

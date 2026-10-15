@@ -24,16 +24,35 @@ public class MenuController : ControllerBase
     [HttpGet("my-menu")]
     public async Task<ActionResult<IEnumerable<MenuItemDto>>> GetMyMenu()
     {
-        var user = await _dbContext.Users
-            .AsNoTracking()
-            .Include(u => u.AssignedRole)
-            .FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
+        var userId = _currentUser.UserId;
+        var tenantId = _currentUser.TenantId;
 
-        var tenant = await _dbContext.Tenants
+        // 1. Lightweight projection: fetch only RoleId & RoleName (index seek on Users PK)
+        var userRoleInfo = await _dbContext.Users
             .AsNoTracking()
-            .FirstOrDefaultAsync(t => t.Id == _currentUser.TenantId);
+            .Where(u => u.Id == userId)
+            .Select(u => new 
+            { 
+                u.RoleId, 
+                RoleName = u.AssignedRole != null ? u.AssignedRole.Name : null 
+            })
+            .FirstOrDefaultAsync();
 
-        var permissionOnlyRoutes = new[]
+        // 2. Lightweight projection: fetch only module flags
+        var tenantModules = await _dbContext.Tenants
+            .AsNoTracking()
+            .Where(t => t.Id == tenantId)
+            .Select(t => new 
+            {
+                t.HasSchoolModule,
+                t.HasCoachingModule,
+                t.HasHostelModule,
+                t.HasLibraryModule,
+                t.HasTransportModule
+            })
+            .FirstOrDefaultAsync();
+
+        var permissionOnlyRoutes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             "/teachers/attendance/ph-sun-edit",
             "/attendance/permissions/mode-settings",
@@ -49,64 +68,77 @@ public class MenuController : ControllerBase
         };
 
         var disabledRoutes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        if (tenant != null)
+        if (tenantModules != null)
         {
-            if (!tenant.HasSchoolModule)
+            if (!tenantModules.HasSchoolModule)
             {
                 disabledRoutes.Add("/school/classes");
                 disabledRoutes.Add("/school/exams");
                 disabledRoutes.Add("/students/promotion");
                 disabledRoutes.Add("/fee-heads");
             }
-            if (!tenant.HasCoachingModule)
+            if (!tenantModules.HasCoachingModule)
             {
                 disabledRoutes.Add("/batches");
             }
-            if (!tenant.HasSchoolModule && !tenant.HasCoachingModule)
+            if (!tenantModules.HasSchoolModule && !tenantModules.HasCoachingModule)
             {
                 disabledRoutes.Add("/tests");
             }
-            if (!tenant.HasHostelModule)
+            if (!tenantModules.HasHostelModule)
             {
                 disabledRoutes.Add("/hostel");
             }
-            if (!tenant.HasLibraryModule)
+            if (!tenantModules.HasLibraryModule)
             {
                 disabledRoutes.Add("/library/books");
                 disabledRoutes.Add("/library/circulation");
                 disabledRoutes.Add("/library/plans");
             }
-            if (!tenant.HasTransportModule)
+            if (!tenantModules.HasTransportModule)
             {
                 disabledRoutes.Add("/transport");
             }
         }
 
-        var allMenuItems = await _dbContext.MenuItems
+        // 3. Fast index scan on MenuItems using IX_MenuItems_IsActive_SortOrder
+        var allActiveMenuItems = await _dbContext.MenuItems
             .AsNoTracking()
-            .Where(m => m.IsActive && !permissionOnlyRoutes.Contains(m.RouteUrl!) && (m.RouteUrl == null || !disabledRoutes.Contains(m.RouteUrl)))
+            .Where(m => m.IsActive)
             .OrderBy(m => m.SortOrder)
             .ToListAsync();
 
+        // Filter out permission-only routes and module-disabled routes in memory
+        var allMenuItems = allActiveMenuItems
+            .Where(m => m.RouteUrl == null || (!permissionOnlyRoutes.Contains(m.RouteUrl) && !disabledRoutes.Contains(m.RouteUrl)))
+            .ToList();
+
         HashSet<Guid> allowedMenuIds;
 
-        if (user?.RoleId != null)
+        if (userRoleInfo?.RoleId != null)
         {
+            // 4. Index-backed seek on RolePermissions (IX_RolePermissions_RoleId_CanView)
             var permissions = await _dbContext.RolePermissions
                 .AsNoTracking()
-                .Where(rp => rp.RoleId == user.RoleId && rp.CanView)
+                .Where(rp => rp.RoleId == userRoleInfo.RoleId.Value && rp.CanView)
                 .Select(rp => rp.MenuItemId)
                 .ToListAsync();
 
             allowedMenuIds = new HashSet<Guid>(permissions);
 
-            // Ensure Teacher / Faculty roles have access to Tests / Marks Entry and Exams
-            var roleNameLower = user.AssignedRole?.Name?.ToLower() ?? "";
+            // Ensure Teacher / Faculty / Admin / Principal roles have access to Tests / Marks Entry and Exams
+            var roleNameLower = userRoleInfo.RoleName?.ToLower() ?? "";
             if (roleNameLower.Contains("teacher") || roleNameLower.Contains("faculty") || roleNameLower.Contains("admin") || roleNameLower.Contains("principal"))
             {
-                var essentialRoutes = new[] { "/tests", "/school/exams", "/teachers/lesson-plans", "/school/homework" };
+                var essentialRoutes = new HashSet<string>(StringComparer.OrdinalIgnoreCase) 
+                { 
+                    "/tests", 
+                    "/school/exams", 
+                    "/teachers/lesson-plans", 
+                    "/school/homework" 
+                };
                 var testMenuIds = allMenuItems
-                    .Where(m => m.RouteUrl != null && essentialRoutes.Contains(m.RouteUrl.ToLower()))
+                    .Where(m => m.RouteUrl != null && essentialRoutes.Contains(m.RouteUrl))
                     .Select(m => m.Id);
                 foreach (var id in testMenuIds)
                 {
