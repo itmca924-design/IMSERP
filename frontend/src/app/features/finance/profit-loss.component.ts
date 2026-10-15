@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { ReactiveFormsModule, FormGroup, FormControl } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
@@ -10,13 +10,14 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatCardModule } from '@angular/material/card';
 import { FinanceService, ProfitLossReportDto } from '../../core/services/finance.service';
 import { BranchService } from '../../core/services/branch.service';
+import { AuthService } from '../../core/services/auth.service';
 
 @Component({
   selector: 'app-profit-loss',
   standalone: true,
   imports: [
     CommonModule,
-    FormsModule,
+    ReactiveFormsModule,
     MatButtonModule,
     MatIconModule,
     MatSelectModule,
@@ -26,7 +27,7 @@ import { BranchService } from '../../core/services/branch.service';
     MatCardModule
   ],
   template: `
-<div class="page-container">
+<div class="page-container" [formGroup]="filterForm">
   <!-- Header Bar -->
   <div class="header-card no-print">
     <div class="header-left">
@@ -46,24 +47,24 @@ import { BranchService } from '../../core/services/branch.service';
         </div>
         <div class="unit-details">
           <span class="unit-label">Financial Period</span>
-          <mat-select [(ngModel)]="selectedFy" (selectionChange)="loadReport()" class="unit-select fy-select">
-            <mat-option value="2026-2027">FY 2026 - 2027 (Current)</mat-option>
-            <mat-option value="2025-2026">FY 2025 - 2026</mat-option>
-            <mat-option value="2024-2025">FY 2024 - 2025</mat-option>
+          <mat-select formControlName="financialYear" class="unit-select fy-select">
+            <mat-option *ngFor="let fy of availableFinancialYears" [value]="fy.value">
+              {{ fy.label }}
+            </mat-option>
           </mat-select>
         </div>
       </div>
 
       <div class="unit-separator" *ngIf="branches.length > 0"></div>
 
-      <!-- Branch Filter -->
+      <!-- Campus / Branch Filter -->
       <div class="control-unit unit-branch" *ngIf="branches.length > 0">
         <div class="unit-icon-badge">
           <mat-icon>apartment</mat-icon>
         </div>
         <div class="unit-details">
           <span class="unit-label">Campus Scope</span>
-          <mat-select [(ngModel)]="selectedBranchId" (selectionChange)="loadReport()" class="unit-select branch-select">
+          <mat-select formControlName="branchId" class="unit-select branch-select">
             <mat-select-trigger>
               <span class="select-value-text">{{ getSelectedBranchName() }}</span>
             </mat-select-trigger>
@@ -71,6 +72,23 @@ import { BranchService } from '../../core/services/branch.service';
             <mat-option *ngFor="let b of branches" [value]="b.id">
               {{ b.name }}
             </mat-option>
+          </mat-select>
+        </div>
+      </div>
+
+      <div class="unit-separator"></div>
+
+      <!-- Academic Division Scope Filter (School / Coaching / Hybrid) -->
+      <div class="control-unit unit-division">
+        <div class="unit-icon-badge">
+          <mat-icon>hub</mat-icon>
+        </div>
+        <div class="unit-details">
+          <span class="unit-label">Division Scope</span>
+          <mat-select formControlName="academicScope" class="unit-select division-select">
+            <mat-option value="All">All Divisions (Hybrid Consolidated)</mat-option>
+            <mat-option value="School">School Operations Only</mat-option>
+            <mat-option value="Coaching">Coaching / Prep Division Only</mat-option>
           </mat-select>
         </div>
       </div>
@@ -99,7 +117,7 @@ import { BranchService } from '../../core/services/branch.service';
     <div class="print-title-box">
       <h2>IMSERP EDUCATIONAL INSTITUTION</h2>
       <h3>PROFIT &amp; LOSS STATEMENT (INCOME &amp; EXPENDITURE A/C)</h3>
-      <p>Financial Period: <strong>{{ report?.financialYear }}</strong> ({{ report?.fromDate | date:'mediumDate' }} to {{ report?.toDate | date:'mediumDate' }}) &bull; Campus: <strong>{{ report?.branchName }}</strong></p>
+      <p>Financial Period: <strong>{{ report?.financialYear }}</strong> ({{ report?.fromDate | date:'mediumDate' }} to {{ report?.toDate | date:'mediumDate' }}) &bull; Campus: <strong>{{ report?.branchName }}</strong> &bull; Scope: <strong>{{ selectedAcademicScope === 'All' ? 'Hybrid Consolidated' : (selectedAcademicScope + ' Division') }}</strong></p>
     </div>
   </div>
 
@@ -108,9 +126,16 @@ import { BranchService } from '../../core/services/branch.service';
     <div class="kpi-card income">
       <div class="kpi-icon income"><mat-icon>trending_up</mat-icon></div>
       <div class="kpi-info">
-        <span class="kpi-label">Gross Revenue (Incomes)</span>
+        <span class="kpi-label">Earned Revenue (Accrual)</span>
         <span class="kpi-value text-green">₹{{ report.totalDirectIncome | number:'1.2-2' }}</span>
-        <span class="kpi-sub">Fees, tuition, transport, hostel &amp; fines</span>
+        <div class="kpi-mini-stats">
+          <span class="stat-tag realized" matTooltip="Actual cash received in counter & bank">
+            Cash Collected: <strong>₹{{ (report.realizedCashCollections || 0) | number:'1.2-2' }}</strong>
+          </span>
+          <span class="stat-tag pending" *ngIf="report.accruedFeeReceivables" matTooltip="Billed tuition fees awaiting collection">
+            Pending Dues: <strong>₹{{ (report.accruedFeeReceivables || 0) | number:'1.2-2' }}</strong>
+          </span>
+        </div>
       </div>
     </div>
 
@@ -119,7 +144,7 @@ import { BranchService } from '../../core/services/branch.service';
       <div class="kpi-info">
         <span class="kpi-label">Staff Payroll Outflow</span>
         <span class="kpi-value text-orange">₹{{ report.totalPayrollExpense | number:'1.2-2' }}</span>
-        <span class="kpi-sub">{{ getPayrollShare() }}% of total expenditure</span>
+        <span class="kpi-sub">{{ getPayrollShare() }}% of total institutional expenditure</span>
       </div>
     </div>
 
@@ -170,7 +195,10 @@ import { BranchService } from '../../core/services/branch.service';
           <tbody>
             <tr *ngFor="let inc of report.incomes">
               <td>
-                <div class="head-title">{{ inc.headName }}</div>
+                <div class="head-title-row">
+                  <span class="head-title">{{ inc.headName }}</span>
+                  <span class="division-badge" *ngIf="inc.division">{{ inc.division }}</span>
+                </div>
                 <div class="progress-wrap">
                   <div class="progress-bar-fill green" [style.width.%]="inc.percentageOfTotal"></div>
                 </div>
@@ -272,16 +300,18 @@ import { BranchService } from '../../core/services/branch.service';
         <thead>
           <tr>
             <th>Month</th>
-            <th class="text-right">Fees Collected (₹)</th>
-            <th class="text-right">Total Outflow (₹)</th>
-            <th class="text-right">Net Surplus (₹)</th>
+            <th class="text-right">Monthly Income (अर्जित आय)</th>
+            <th class="text-right">Fees Collected (वसूल शुल्क)</th>
+            <th class="text-right">Total Outflow (कुल खर्च)</th>
+            <th class="text-right">Net Surplus / Deficit</th>
             <th class="text-center">Status</th>
           </tr>
         </thead>
         <tbody>
           <tr *ngFor="let m of report.monthlyTrends">
             <td class="font-bold">{{ m.monthName }}</td>
-            <td class="text-right text-green font-semibold">₹{{ m.totalIncome | number:'1.2-2' }}</td>
+            <td class="text-right text-green font-bold">₹{{ m.totalIncome | number:'1.2-2' }}</td>
+            <td class="text-right font-medium">₹{{ (m.realizedCollections ?? m.totalIncome) | number:'1.2-2' }}</td>
             <td class="text-right text-red font-semibold">₹{{ m.totalExpense | number:'1.2-2' }}</td>
             <td class="text-right font-bold" [ngClass]="m.netSurplus > 0 ? 'text-green' : (m.netSurplus < 0 ? 'text-red' : 'text-muted')">
               {{ m.netSurplus < 0 ? '-₹' + ((-m.netSurplus) | number:'1.2-2') : '₹' + (m.netSurplus | number:'1.2-2') }}
@@ -302,6 +332,7 @@ import { BranchService } from '../../core/services/branch.service';
               </div>
             </td>
             <td class="text-right text-green font-extrabold total-val">₹{{ report.totalDirectIncome | number:'1.2-2' }}</td>
+            <td class="text-right font-extrabold total-val">₹{{ (report.realizedCashCollections || 0) | number:'1.2-2' }}</td>
             <td class="text-right text-red font-extrabold total-val">₹{{ report.totalExpense | number:'1.2-2' }}</td>
             <td class="text-right font-black total-val" [ngClass]="report.isSurplus ? 'text-green' : 'text-red'">
               {{ report.netProfitOrLoss < 0 ? '-₹' + ((-report.netProfitOrLoss) | number:'1.2-2') : '₹' + (report.netProfitOrLoss | number:'1.2-2') }}
@@ -510,8 +541,56 @@ import { BranchService } from '../../core/services/branch.service';
       }
 
       &.branch-select {
-        min-width: 260px;
+        min-width: 220px;
       }
+
+      &.division-select {
+        min-width: 220px;
+      }
+    }
+
+    .kpi-mini-stats {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-top: 6px;
+    }
+
+    .stat-tag {
+      font-size: 11px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 500;
+
+      &.realized {
+        background: #dcfce7;
+        color: #166534;
+      }
+
+      &.pending {
+        background: #fef3c7;
+        color: #92400e;
+      }
+    }
+
+    .head-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .division-badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      white-space: nowrap;
     }
 
     ::ng-deep .unit-select .mat-mdc-select-trigger {
@@ -1100,23 +1179,97 @@ import { BranchService } from '../../core/services/branch.service';
 export class ProfitLossComponent implements OnInit {
   report: ProfitLossReportDto | null = null;
   loading = false;
-  selectedFy = '2025-2026';
-  selectedBranchId: string | null = null;
+
+  filterForm = new FormGroup({
+    financialYear: new FormControl<string>('', { nonNullable: true }),
+    branchId: new FormControl<string | null>(null),
+    academicScope: new FormControl<string>('All', { nonNullable: true })
+  });
+
   branches: any[] = [];
+  availableFinancialYears: { value: string; label: string; isCurrent: boolean }[] = [];
 
   constructor(
     private financeService: FinanceService,
-    private branchService: BranchService
+    private branchService: BranchService,
+    public authService: AuthService
   ) {}
 
+  get selectedFy(): string {
+    return this.filterForm.controls.financialYear.value;
+  }
+  set selectedFy(val: string) {
+    this.filterForm.controls.financialYear.setValue(val);
+  }
+
+  get selectedBranchId(): string | null {
+    return this.filterForm.controls.branchId.value;
+  }
+  set selectedBranchId(val: string | null) {
+    this.filterForm.controls.branchId.setValue(val);
+  }
+
+  get selectedAcademicScope(): string {
+    return this.filterForm.controls.academicScope.value;
+  }
+  set selectedAcademicScope(val: string) {
+    this.filterForm.controls.academicScope.setValue(val);
+  }
+
   ngOnInit(): void {
-    // Current Indian Financial Year
-    const now = new Date();
-    const curYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
-    this.selectedFy = `${curYear}-${curYear + 1}`;
+    const activeBranch = this.authService.selectedBranchId();
+    if (activeBranch) {
+      this.filterForm.patchValue({ branchId: activeBranch }, { emitEvent: false });
+    }
+
+    this.generateFinancialYears();
+
+    // Reactively trigger loadReport on filter changes
+    this.filterForm.valueChanges.subscribe(() => this.loadReport());
 
     this.loadBranches();
     this.loadReport();
+  }
+
+  generateFinancialYears(): void {
+    const now = new Date();
+    // In India, Financial Year starts on April 1 (Month index 3)
+    const currentStartYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+    const currentFy = `${currentStartYear}-${currentStartYear + 1}`;
+
+    const list: { value: string; label: string; isCurrent: boolean }[] = [];
+
+    // Next upcoming FY for advance budgeting / projections
+    const nextStart = currentStartYear + 1;
+    list.push({
+      value: `${nextStart}-${nextStart + 1}`,
+      label: `FY ${nextStart} - ${nextStart + 1} (Upcoming)`,
+      isCurrent: false
+    });
+
+    // Current Financial Year
+    list.push({
+      value: currentFy,
+      label: `FY ${currentStartYear} - ${currentStartYear + 1} (Current)`,
+      isCurrent: true
+    });
+
+    // Past 5 Financial Years for historical comparison & audit
+    for (let i = 1; i <= 5; i++) {
+      const pastStart = currentStartYear - i;
+      list.push({
+        value: `${pastStart}-${pastStart + 1}`,
+        label: `FY ${pastStart} - ${pastStart + 1}`,
+        isCurrent: false
+      });
+    }
+
+    this.availableFinancialYears = list;
+
+    // Default to current FY if not set or invalid
+    if (!this.selectedFy || !list.some(f => f.value === this.selectedFy)) {
+      this.selectedFy = currentFy;
+    }
   }
 
   loadBranches(): void {
@@ -1131,7 +1284,8 @@ export class ProfitLossComponent implements OnInit {
     this.financeService
       .getProfitLoss({
         financialYear: this.selectedFy,
-        branchId: this.selectedBranchId || undefined
+        branchId: this.selectedBranchId || undefined,
+        academicScope: this.selectedAcademicScope
       })
       .subscribe({
         next: (data) => {

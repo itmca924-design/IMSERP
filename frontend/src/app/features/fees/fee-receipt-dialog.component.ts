@@ -84,10 +84,6 @@ export interface FeeReceiptDialogData {
             <span class="meta-label">Date & Time (IST):</span>
             <span class="meta-val date-time-val">{{ formatToIST(data.receipt.paymentDate) }}</span>
           </div>
-          <div class="meta-item branch-meta-item" *ngIf="effectiveBranchName">
-            <span class="meta-label">Branch / Centre:</span>
-            <span class="meta-val branch-val">🏛️ {{ effectiveBranchName }}</span>
-          </div>
           <div class="meta-item">
             <span class="meta-label">Payment Mode:</span>
             <span class="meta-val mode-pill">{{ getPaymentModeName(data.receipt.mode) }}</span>
@@ -145,8 +141,7 @@ export interface FeeReceiptDialogData {
               <tr>
                 <th class="text-center" style="width: 48px;">#</th>
                 <th>Fee Head / Particulars</th>
-                <th>Settlement Reference</th>
-                <th class="text-right">Amount Received (₹)</th>
+                <th class="text-right" style="width: 180px;">Amount Received (₹)</th>
               </tr>
             </thead>
             <tbody>
@@ -158,7 +153,6 @@ export interface FeeReceiptDialogData {
                     <strong class="fee-head-title">{{ item.particulars }}</strong>
                     <div class="fee-head-sub" *ngIf="item.subTitle">{{ item.subTitle }}</div>
                   </td>
-                  <td>{{ item.reference || '-' }}</td>
                   <td class="text-right amount-col">
                     <strong>₹{{ item.amount | number:'1.2-2' }}</strong>
                   </td>
@@ -172,7 +166,6 @@ export interface FeeReceiptDialogData {
                     <strong class="fee-head-title">Tuition & Coaching Fee Settlement</strong>
                     <div class="fee-head-sub">{{ data.receipt.remarks || 'Standard Monthly Tuition Fee installment' }}</div>
                   </td>
-                  <td>{{ data.receipt.invoiceNumber || 'Monthly Invoices' }}</td>
                   <td class="text-right amount-col">
                     <strong>₹{{ (data.receipt.tuitionAmountPaid !== undefined && data.receipt.tuitionAmountPaid > 0 ? data.receipt.tuitionAmountPaid : data.receipt.amountPaid) | number:'1.2-2' }}</strong>
                   </td>
@@ -183,7 +176,6 @@ export interface FeeReceiptDialogData {
                     <strong class="fee-head-title">Library Overdue Fine Settlement</strong>
                     <div class="fee-head-sub">{{ data.receipt.libraryFineParticulars || 'Late Return Fine Settlement' }}</div>
                   </td>
-                  <td>Library Clearance</td>
                   <td class="text-right amount-col">
                     <strong>₹{{ data.receipt.libraryFineAmountPaid | number:'1.2-2' }}</strong>
                   </td>
@@ -191,7 +183,7 @@ export interface FeeReceiptDialogData {
               </ng-template>
 
               <tr class="summary-subtotal">
-                <td colspan="3" class="text-right"><strong>Total Amount Received:</strong></td>
+                <td colspan="2" class="text-right"><strong>Total Amount Received:</strong></td>
                 <td class="text-right grand-paid">₹{{ data.receipt.amountPaid | number:'1.2-2' }}</td>
               </tr>
             </tbody>
@@ -593,7 +585,7 @@ export interface FeeReceiptDialogData {
         .prof-row {
           display: flex;
           font-size: 0.86rem;
-          .k { width: 140px; color: #475569; font-weight: 600; flex-shrink: 0; }
+          .k { width: 165px; white-space: nowrap; color: #475569; font-weight: 600; flex-shrink: 0; }
           .v { color: #0f172a; flex: 1; }
           .student-highlight { font-weight: 800; color: #15803d; font-size: 0.95rem; }
           .status-pill {
@@ -951,7 +943,7 @@ export class FeeReceiptDialogComponent {
             .mode-pill { display: inline-block; background: #dcfce7; color: #15803d; padding: 1px 8px; border-radius: 4px; font-size: 0.78rem; white-space: nowrap; }
             .student-profile-card { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 12px 16px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; margin-bottom: 14px; }
             .prof-row { display: flex; font-size: 0.82rem; margin-bottom: 4px; }
-            .prof-row .k { width: 140px; color: #475569; font-weight: 600; }
+            .prof-row .k { width: 165px; white-space: nowrap; color: #475569; font-weight: 600; flex-shrink: 0; }
             .prof-row .v { color: #0f172a; flex: 1; }
             .student-highlight { font-weight: 800; color: #15803d; font-size: 0.92rem; }
             .status-pill { display: inline-block; background: #e0f2fe; color: #0369a1; padding: 1px 8px; border-radius: 4px; font-size: 0.74rem; font-weight: 600; }

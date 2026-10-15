@@ -87,6 +87,11 @@ export class AuthService {
   readonly hasTransportModule = computed(() => this.currentUser()?.hasTransportModule ?? true);
   readonly licensedModules = computed(() => this.currentUser()?.licensedModules ?? null);
 
+  /** Returns the institute / coaching center name for the current tenant */
+  getInstituteName(): string {
+    return this.currentUser()?.instituteName || sessionStorage.getItem('instituteName') || localStorage.getItem('instituteName') || '';
+  }
+
   /** Checks whether a functional module is licensed/subscribed for the current tenant */
   isModuleLicensed(moduleKey: string): boolean {
     if (this.isSuperAdmin()) return true;

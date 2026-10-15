@@ -1772,6 +1772,9 @@ public class FeesController : ControllerBase
                 SectionName   = s.Section?.Name,
                 InvoiceNumber = $"INV-{dto.Year}{dto.Month:D2}{cycleSuffix}-{random.Next(100, 999)}",
                 Title         = $"{periodLabel} Fee ({cycleLabel})",
+                InvoiceCategory = (s.ClassId.HasValue && s.BatchId.HasValue) ? "Integrated" :
+                                  (s.ClassId.HasValue || s.IsSchoolStudent) ? "School" :
+                                  (s.BatchId.HasValue || s.IsCoachingStudent) ? "Coaching" : "General",
                 TotalAmount   = totalAmount,
                 PaidAmount    = 0,
                 DueDate       = dto.DueDate,

@@ -139,6 +139,7 @@ export interface IncomeHeadSummaryDto {
   headName: string;
   amount: number;
   percentageOfTotal: number;
+  division?: string;
 }
 
 export interface ExpenseHeadSummaryDto {
@@ -156,6 +157,7 @@ export interface MonthlySurplusTrendDto {
   totalIncome: number;
   totalExpense: number;
   netSurplus: number;
+  realizedCollections?: number;
 }
 
 export interface ProfitLossReportDto {
@@ -174,6 +176,10 @@ export interface ProfitLossReportDto {
   incomes: IncomeHeadSummaryDto[];
   expenses: ExpenseHeadSummaryDto[];
   monthlyTrends: MonthlySurplusTrendDto[];
+  academicScope?: string;
+  realizedCashCollections?: number;
+  accruedFeeReceivables?: number;
+  libraryFinesIncome?: number;
 }
 
 export interface BalanceSheetItemDto {
@@ -205,6 +211,10 @@ export interface BalanceSheetReportDto {
   difference: number;
   isBalanced: boolean;
   currentPeriodProfit: number;
+  academicScope?: string;
+  realizedCashBalance?: number;
+  accountsReceivableTotal?: number;
+  staffAdvancesTotal?: number;
 }
 
 export interface FinanceDashboardKpiDto {
@@ -253,6 +263,50 @@ export interface PagedLedgerResultDto {
   equityCount: number;
 }
 
+export interface DayBookTransactionDto {
+  id: string;
+  timestamp: string;
+  voucherNumber: string;
+  voucherType: 'Receipt' | 'Payment';
+  accountHead: string;
+  particulars: string;
+  division: string;
+  paymentMode: string;
+  referenceNumber?: string;
+  debitAmount: number;
+  creditAmount: number;
+  runningBalance: number;
+  payeeOrPayerName?: string;
+  remarks?: string;
+  createdBy?: string;
+}
+
+export interface DayBookReportDto {
+  date: string;
+  fromDate?: string;
+  toDate?: string;
+  branchId?: string;
+  branchName: string;
+  openingBalance: number;
+  totalInflow: number;
+  totalOutflow: number;
+  netDailyChange: number;
+  closingBalance: number;
+  cashInflow: number;
+  bankInflow: number;
+  cashOutflow: number;
+  bankOutflow: number;
+  totalTransactions: number;
+  receiptCount: number;
+  paymentCount: number;
+  transactions: DayBookTransactionDto[];
+  academicScope: string;
+  pageNumber?: number;
+  pageSize?: number;
+  totalCount?: number;
+  totalPages?: number;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -262,20 +316,22 @@ export class FinanceService {
   constructor(private http: HttpClient) {}
 
   // 1. Profit & Loss
-  getProfitLoss(params?: { fromDate?: string; toDate?: string; financialYear?: string; branchId?: string }): Observable<ProfitLossReportDto> {
+  getProfitLoss(params?: { fromDate?: string; toDate?: string; financialYear?: string; branchId?: string; academicScope?: string }): Observable<ProfitLossReportDto> {
     let httpParams = new HttpParams();
     if (params?.financialYear) httpParams = httpParams.set('financialYear', params.financialYear);
     if (params?.fromDate) httpParams = httpParams.set('fromDate', params.fromDate);
     if (params?.toDate) httpParams = httpParams.set('toDate', params.toDate);
     if (params?.branchId) httpParams = httpParams.set('branchId', params.branchId);
+    if (params?.academicScope) httpParams = httpParams.set('academicScope', params.academicScope);
     return this.http.get<ProfitLossReportDto>(`${this.apiUrl}/profit-loss`, { params: httpParams });
   }
 
   // 2. Balance Sheet
-  getBalanceSheet(params?: { asOfDate?: string; branchId?: string }): Observable<BalanceSheetReportDto> {
+  getBalanceSheet(params?: { asOfDate?: string; branchId?: string; academicScope?: string }): Observable<BalanceSheetReportDto> {
     let httpParams = new HttpParams();
     if (params?.asOfDate) httpParams = httpParams.set('asOfDate', params.asOfDate);
     if (params?.branchId) httpParams = httpParams.set('branchId', params.branchId);
+    if (params?.academicScope) httpParams = httpParams.set('academicScope', params.academicScope);
     return this.http.get<BalanceSheetReportDto>(`${this.apiUrl}/balance-sheet`, { params: httpParams });
   }
 
@@ -382,5 +438,36 @@ export class FinanceService {
     let httpParams = new HttpParams();
     if (branchId) httpParams = httpParams.set('branchId', branchId);
     return this.http.get<FinanceDashboardKpiDto>(`${this.apiUrl}/summary`, { params: httpParams });
+  }
+
+  // 7. Day Book (दैनिक रोकड़ / रोजनामचा बही)
+  getDayBook(params?: {
+    date?: string;
+    fromDate?: string;
+    toDate?: string;
+    branchId?: string;
+    voucherType?: string;
+    paymentMode?: string;
+    academicScope?: string;
+    searchTerm?: string;
+    sortBy?: string;
+    sortDescending?: boolean;
+    pageNumber?: number;
+    pageSize?: number;
+  }): Observable<DayBookReportDto> {
+    let httpParams = new HttpParams();
+    if (params?.date) httpParams = httpParams.set('date', params.date);
+    if (params?.fromDate) httpParams = httpParams.set('fromDate', params.fromDate);
+    if (params?.toDate) httpParams = httpParams.set('toDate', params.toDate);
+    if (params?.branchId) httpParams = httpParams.set('branchId', params.branchId);
+    if (params?.voucherType) httpParams = httpParams.set('voucherType', params.voucherType);
+    if (params?.paymentMode) httpParams = httpParams.set('paymentMode', params.paymentMode);
+    if (params?.academicScope) httpParams = httpParams.set('academicScope', params.academicScope);
+    if (params?.searchTerm) httpParams = httpParams.set('searchTerm', params.searchTerm);
+    if (params?.sortBy) httpParams = httpParams.set('sortBy', params.sortBy);
+    if (params?.sortDescending !== undefined) httpParams = httpParams.set('sortDescending', params.sortDescending.toString());
+    if (params?.pageNumber !== undefined) httpParams = httpParams.set('pageNumber', params.pageNumber.toString());
+    if (params?.pageSize !== undefined) httpParams = httpParams.set('pageSize', params.pageSize.toString());
+    return this.http.get<DayBookReportDto>(`${this.apiUrl}/daybook`, { params: httpParams });
   }
 }

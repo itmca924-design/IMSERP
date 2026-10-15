@@ -256,7 +256,11 @@ export const routes: Routes = [
         loadComponent: () => import('./features/transport/transport-management.component').then(m => m.TransportManagementComponent)
       },
 
-      // Finance & Accounts (Profit & Loss, Balance Sheet, Expenses, Chart of Accounts)
+      // Finance & Accounts (Day Book, Profit & Loss, Balance Sheet, Expenses, Chart of Accounts)
+      {
+        path: 'finance/day-book',
+        loadComponent: () => import('./features/finance/day-book.component').then(m => m.DayBookComponent)
+      },
       {
         path: 'finance/profit-loss',
         loadComponent: () => import('./features/finance/profit-loss.component').then(m => m.ProfitLossComponent)

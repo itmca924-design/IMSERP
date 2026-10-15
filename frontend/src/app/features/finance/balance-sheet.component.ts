@@ -14,6 +14,7 @@ import { MatCardModule } from '@angular/material/card';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { FinanceService, BalanceSheetReportDto, BalanceSheetItemDto } from '../../core/services/finance.service';
 import { BranchService } from '../../core/services/branch.service';
+import { AuthService } from '../../core/services/auth.service';
 
 @Component({
   selector: 'app-balance-sheet',
@@ -86,6 +87,23 @@ import { BranchService } from '../../core/services/branch.service';
 
       <div class="unit-separator"></div>
 
+      <!-- Academic Division Scope Filter (School / Coaching / Hybrid) -->
+      <div class="control-unit division-unit">
+        <div class="unit-icon-badge">
+          <mat-icon>hub</mat-icon>
+        </div>
+        <div class="unit-details">
+          <span class="unit-label">Division Scope</span>
+          <mat-select [(ngModel)]="selectedAcademicScope" (selectionChange)="loadReport()" class="unit-select division-select">
+            <mat-option value="All">All Divisions (Hybrid Consolidated)</mat-option>
+            <mat-option value="School">School Operations Only</mat-option>
+            <mat-option value="Coaching">Coaching / Prep Division Only</mat-option>
+          </mat-select>
+        </div>
+      </div>
+
+      <div class="unit-separator"></div>
+
       <!-- Action Buttons -->
       <div class="deck-actions">
         <button mat-button class="smart-btn refresh-btn" (click)="loadReport()" matTooltip="Recalculate Balance Sheet" [disabled]="loading">
@@ -108,7 +126,7 @@ import { BranchService } from '../../core/services/branch.service';
     <div class="print-title-box">
       <h2>IMSERP EDUCATIONAL INSTITUTION</h2>
       <h3>BALANCE SHEET (STATEMENT OF FINANCIAL POSITION)</h3>
-      <p>As of Date: <strong>{{ report?.asOfDate | date:'fullDate' }}</strong> &bull; Campus: <strong>{{ report?.branchName }}</strong></p>
+      <p>As of Date: <strong>{{ report?.asOfDate | date:'fullDate' }}</strong> &bull; Campus: <strong>{{ report?.branchName }}</strong> &bull; Division: <strong>{{ selectedAcademicScope === 'All' ? 'Hybrid Consolidated' : (selectedAcademicScope + ' Division') }}</strong></p>
     </div>
   </div>
 
@@ -122,6 +140,9 @@ import { BranchService } from '../../core/services/branch.service';
         <h4>{{ report.isBalanced ? 'FINANCIAL POSITION IS BALANCED & AUDIT-VERIFIED' : 'BALANCE MISMATCH DETECTED' }}</h4>
         <p *ngIf="report.isBalanced">
           Total Assets (<strong>₹{{ report.totalAssets | number:'1.2-2' }}</strong>) strictly equals Total Liabilities &amp; Equity (<strong>₹{{ report.totalLiabilitiesAndEquity | number:'1.2-2' }}</strong>).
+          <span class="ml-2 text-xs text-muted" *ngIf="report.academicScope && report.academicScope !== 'All'">
+            (Scope: {{ report.academicScope }} Division)
+          </span>
         </p>
         <p *ngIf="!report.isBalanced">
           Discrepancy of ₹{{ report.difference | number:'1.2-2' }} between Assets and Liabilities + Equity.
@@ -131,6 +152,14 @@ import { BranchService } from '../../core/services/branch.service';
     <div class="banner-right">
       <div class="equation-chip">
         <span>Assets = Liabilities + Equity</span>
+      </div>
+      <div class="quick-audit-chips" *ngIf="report">
+        <span class="audit-pill cash-pill" matTooltip="Combined liquid cash drawer and bank balance">
+          Cash/Bank: <strong>₹{{ (report.realizedCashBalance || 0) | number:'1.2-2' }}</strong>
+        </span>
+        <span class="audit-pill fees-pill" matTooltip="Historical student fee dues as of cutoff">
+          Receivables: <strong>₹{{ (report.accountsReceivableTotal || 0) | number:'1.2-2' }}</strong>
+        </span>
       </div>
     </div>
   </div>
@@ -1029,16 +1058,22 @@ export class BalanceSheetComponent implements OnInit {
   loading = false;
   asOfDate: Date = new Date();
   selectedBranchId: string | null = null;
+  selectedAcademicScope: string = 'All';
   branches: any[] = [];
   viewMode: 't_format' | 'vertical' = 't_format';
 
   constructor(
     private financeService: FinanceService,
     private branchService: BranchService,
+    public authService: AuthService,
     private dialog: MatDialog
   ) {}
 
   ngOnInit(): void {
+    const activeBranch = this.authService.selectedBranchId();
+    if (activeBranch) {
+      this.selectedBranchId = activeBranch;
+    }
     this.loadBranches();
     this.loadReport();
   }
@@ -1055,7 +1090,8 @@ export class BalanceSheetComponent implements OnInit {
     this.financeService
       .getBalanceSheet({
         asOfDate: this.asOfDate.toISOString(),
-        branchId: this.selectedBranchId || undefined
+        branchId: this.selectedBranchId || undefined,
+        academicScope: this.selectedAcademicScope
       })
       .subscribe({
         next: (data) => {

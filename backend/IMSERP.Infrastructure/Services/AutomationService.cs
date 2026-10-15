@@ -702,6 +702,9 @@ public class AutomationService : IAutomationService
                 SectionName = s.Section?.Name,
                 InvoiceNumber = $"INV-{targetYear}{targetMonth:D2}-{random.Next(100, 999)}",
                 Title = $"{periodLabel} Fee (Auto-Pilot)",
+                InvoiceCategory = (s.ClassId.HasValue && s.BatchId.HasValue) ? "Integrated" :
+                                  (s.ClassId.HasValue || s.IsSchoolStudent) ? "School" :
+                                  (s.BatchId.HasValue || s.IsCoachingStudent) ? "Coaching" : "General",
                 TotalAmount = totalAmount,
                 PaidAmount = 0,
                 DueDate = dueDate,

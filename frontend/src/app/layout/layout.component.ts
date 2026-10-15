@@ -1183,6 +1183,7 @@ export class LayoutComponent implements OnInit {
     { title: 'Branches Master', route: '/branches', icon: 'store' },
     { title: 'School Notices & Circulars', route: '/school/notices', icon: 'campaign' },
     { title: 'Transport & Fleet Management', route: '/transport', icon: 'directions_bus' },
+    { title: 'Day Book (Daily Cash & Bank Journal)', route: '/finance/day-book', icon: 'auto_stories' },
     { title: 'Profit & Loss Statement', route: '/finance/profit-loss', icon: 'query_stats' },
     { title: 'Balance Sheet', route: '/finance/balance-sheet', icon: 'account_balance_wallet' },
     { title: 'Expense Vouchers', route: '/finance/expenses', icon: 'receipt_long' },
@@ -1213,6 +1214,7 @@ export class LayoutComponent implements OnInit {
     { title: 'Fee Receipts & Dues', route: '/my-fees', icon: 'receipt_long', color: '#059669', roles: ['Student', 'Parent'] },
 
     // Accountant actions
+    { title: 'Day Book (Daily Cash Journal)', route: '/finance/day-book', icon: 'auto_stories', color: '#0ea5e9', roles: ['Accountant'] },
     { title: 'Fee Collection Desk', route: '/fees', icon: 'payments', color: '#059669', roles: ['Accountant'] },
     { title: 'Record Expense Voucher', route: '/finance/expenses', icon: 'receipt_long', color: '#d97706', roles: ['Accountant'] },
     { title: 'Profit & Loss Statement', route: '/finance/profit-loss', icon: 'query_stats', color: '#2563eb', roles: ['Accountant'] },
@@ -2178,6 +2180,7 @@ export class LayoutComponent implements OnInit {
       ...(canAccessFinance ? [{
         id: '5f', title: 'Finance & Accounts', routeUrl: '', icon: 'account_balance', sortOrder: 5.5, module: 'Finance', isActive: true,
         children: [
+          { id: '5f0', title: 'Day Book (दैनिक बही)', routeUrl: '/finance/day-book', icon: 'auto_stories', sortOrder: 0.5, module: 'Finance', isActive: true, children: [] },
           { id: '5f1', title: 'Profit & Loss', routeUrl: '/finance/profit-loss', icon: 'query_stats', sortOrder: 1, module: 'Finance', isActive: true, children: [] },
           { id: '5f2', title: 'Balance Sheet', routeUrl: '/finance/balance-sheet', icon: 'account_balance_wallet', sortOrder: 2, module: 'Finance', isActive: true, children: [] },
           { id: '5f3', title: 'Expense Vouchers', routeUrl: '/finance/expenses', icon: 'receipt_long', sortOrder: 3, module: 'Finance', isActive: true, children: [] },

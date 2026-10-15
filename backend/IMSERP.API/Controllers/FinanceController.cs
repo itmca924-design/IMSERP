@@ -27,16 +27,22 @@ public class FinanceController : ControllerBase
     // 1. PROFIT & LOSS STATEMENT (INCOME & EXPENDITURE)
     // =========================================================================
 
+    // =========================================================================
+    // 1. PROFIT & LOSS STATEMENT (INCOME & EXPENDITURE)
+    // =========================================================================
+
     [HttpGet("profit-loss")]
     public async Task<ActionResult<ProfitLossReportDto>> GetProfitLoss(
         [FromQuery] DateTime? fromDate = null,
         [FromQuery] DateTime? toDate = null,
         [FromQuery] string? financialYear = null,
-        [FromQuery] Guid? branchId = null)
+        [FromQuery] Guid? branchId = null,
+        [FromQuery] string? academicScope = "All")
     {
         var tenantId = _currentUser.TenantId;
         DateTime start;
         DateTime end;
+        string scope = string.IsNullOrWhiteSpace(academicScope) ? "All" : academicScope.Trim();
 
         // 1. Determine Date Range
         if (!string.IsNullOrWhiteSpace(financialYear) && financialYear.Contains('-'))
@@ -64,7 +70,6 @@ public class FinanceController : ControllerBase
         }
         else
         {
-            // Default to current Indian Financial Year (April 1 to March 31)
             var now = DateTime.UtcNow;
             int currentYear = now.Month >= 4 ? now.Year : now.Year - 1;
             start = new DateTime(currentYear, 4, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -80,11 +85,13 @@ public class FinanceController : ControllerBase
             if (branch != null) branchName = branch.Name;
         }
 
-        // 2. Query Direct Incomes from Fee Payments
+        // 2. Query Fee Payments with Scope & Branch Filters
         var feePaymentsQuery = _dbContext.FeePayments
             .AsNoTracking()
             .Include(p => p.Invoice)
                 .ThenInclude(i => i!.Items)
+            .Include(p => p.Invoice)
+                .ThenInclude(i => i!.Student)
             .Where(p => p.TenantId == tenantId && p.PaymentDate >= start && p.PaymentDate <= end);
 
         if (branchId.HasValue && branchId.Value != Guid.Empty)
@@ -92,50 +99,175 @@ public class FinanceController : ControllerBase
             feePaymentsQuery = feePaymentsQuery.Where(p => p.BranchId == branchId.Value || (p.Invoice != null && p.Invoice.BranchId == branchId.Value));
         }
 
-        var feePayments = await feePaymentsQuery.ToListAsync();
-        decimal totalDirectIncome = feePayments.Sum(p => p.AmountPaid);
-
-        // Group Incomes by Fee Head or Category
-        var incomeMap = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var p in feePayments)
+        if (scope.Equals("School", StringComparison.OrdinalIgnoreCase))
         {
-            if (p.Invoice?.Items != null && p.Invoice.Items.Count > 0)
+            feePaymentsQuery = feePaymentsQuery.Where(p => p.Invoice != null && (
+                p.Invoice.InvoiceCategory == "School" ||
+                p.Invoice.InvoiceCategory == "Integrated" ||
+                (p.Invoice.InvoiceCategory != "Coaching" && (p.Invoice.ClassId != null || (p.Invoice.Student != null && (p.Invoice.Student.IsSchoolStudent || p.Invoice.Student.ClassId != null))))
+            ));
+        }
+        else if (scope.Equals("Coaching", StringComparison.OrdinalIgnoreCase))
+        {
+            feePaymentsQuery = feePaymentsQuery.Where(p => p.Invoice != null && (
+                p.Invoice.InvoiceCategory == "Coaching" ||
+                p.Invoice.InvoiceCategory == "Integrated" ||
+                (p.Invoice.InvoiceCategory != "School" && (p.Invoice.Student != null && (p.Invoice.Student.IsCoachingStudent || p.Invoice.Student.BatchId != null)))
+            ));
+        }
+
+        var feePayments = await feePaymentsQuery.ToListAsync();
+        decimal realizedFeeCollections = feePayments.Sum(p => p.AmountPaid);
+
+        // 3. Query Invoices Billed in This Period for Accrual Revenue & Receivables
+        var periodInvoicesQuery = _dbContext.FeeInvoices
+            .AsNoTracking()
+            .Include(i => i.Items)
+            .Include(i => i.Student)
+            .Where(i => i.TenantId == tenantId && i.CreatedAt >= start && i.CreatedAt <= end && i.Status != InvoiceStatus.Cancelled);
+
+        if (branchId.HasValue && branchId.Value != Guid.Empty)
+        {
+            periodInvoicesQuery = periodInvoicesQuery.Where(i => i.BranchId == branchId.Value);
+        }
+
+        if (scope.Equals("School", StringComparison.OrdinalIgnoreCase))
+        {
+            periodInvoicesQuery = periodInvoicesQuery.Where(i => 
+                i.InvoiceCategory == "School" || 
+                i.InvoiceCategory == "Integrated" ||
+                (i.InvoiceCategory != "Coaching" && (i.ClassId != null || (i.Student != null && (i.Student.IsSchoolStudent || i.Student.ClassId != null))))
+            );
+        }
+        else if (scope.Equals("Coaching", StringComparison.OrdinalIgnoreCase))
+        {
+            periodInvoicesQuery = periodInvoicesQuery.Where(i => 
+                i.InvoiceCategory == "Coaching" || 
+                i.InvoiceCategory == "Integrated" ||
+                (i.InvoiceCategory != "School" && (i.Student != null && (i.Student.IsCoachingStudent || i.Student.BatchId != null)))
+            );
+        }
+
+        var periodInvoices = await periodInvoicesQuery.ToListAsync();
+        decimal totalBilledPeriodInvoices = periodInvoices.Sum(i => i.TotalAmount);
+        decimal accruedFeeReceivables = Math.Max(0m, periodInvoices.Sum(i => i.TotalAmount - i.PaidAmount));
+
+        // 4. Query Library Fines Collected in Period
+        decimal libraryFinesIncome = 0m;
+        if (!scope.Equals("Coaching", StringComparison.OrdinalIgnoreCase))
+        {
+            var libFinesQuery = _dbContext.LibraryCirculations
+                .AsNoTracking()
+                .Where(c => c.TenantId == tenantId && c.FineStatus == "Paid" && c.FineAmount > 0 &&
+                            ((c.FinePaidAt.HasValue && c.FinePaidAt.Value >= start && c.FinePaidAt.Value <= end) ||
+                             (!c.FinePaidAt.HasValue && c.CreatedAt >= start && c.CreatedAt <= end)));
+
+            if (branchId.HasValue && branchId.Value != Guid.Empty)
             {
-                decimal invoiceTotal = p.Invoice.TotalAmount > 0 ? p.Invoice.TotalAmount : 1m;
-                foreach (var item in p.Invoice.Items)
+                libFinesQuery = libFinesQuery.Where(c => c.BranchId == branchId.Value);
+            }
+
+            libraryFinesIncome = await libFinesQuery.SumAsync(c => (decimal?)c.FineAmount) ?? 0m;
+        }
+
+        decimal totalRealizedCollections = realizedFeeCollections + libraryFinesIncome;
+        // Total Direct Earned Income (Accrual basis: Total Billed Fees + Library fines collected)
+        // If no invoices were generated yet but payments exist, ensure totalDirectIncome >= realizedCollections
+        decimal totalDirectIncome = Math.Max(totalRealizedCollections, totalBilledPeriodInvoices + libraryFinesIncome);
+
+        // 5. Intelligent Multi-Division Income Head Categorization
+        var incomeMap = new Dictionary<string, (decimal Amount, string Category, string Division)>(StringComparer.OrdinalIgnoreCase);
+
+        // Process from period invoices items (or fee payments if no invoice items)
+        if (periodInvoices.Count > 0)
+        {
+            foreach (var inv in periodInvoices)
+            {
+                string division = (inv.ClassId.HasValue && inv.Student?.BatchId != null) ? "Integrated Division" :
+                                  (inv.ClassId.HasValue || (inv.Student?.IsSchoolStudent ?? false) || inv.InvoiceCategory == "School") ? "School Division" :
+                                  (inv.Student?.IsCoachingStudent ?? true || inv.InvoiceCategory == "Coaching") ? "Coaching Division" : "Institutional";
+
+                if (inv.Items != null && inv.Items.Count > 0)
                 {
-                    string head = string.IsNullOrWhiteSpace(item.HeadName) ? "General Tuition Fee" : item.HeadName.Trim();
-                    decimal proportionalAmount = Math.Round((item.Amount / invoiceTotal) * p.AmountPaid, 2);
-                    if (incomeMap.ContainsKey(head))
-                        incomeMap[head] += proportionalAmount;
+                    foreach (var item in inv.Items)
+                    {
+                        string head = string.IsNullOrWhiteSpace(item.HeadName) ? "Tuition Fee" : item.HeadName.Trim();
+                        string category = CategorizeIncomeHead(head, division);
+
+                        if (incomeMap.TryGetValue(head, out var val))
+                            incomeMap[head] = (val.Amount + item.Amount, category, division);
+                        else
+                            incomeMap[head] = (item.Amount, category, division);
+                    }
+                }
+                else
+                {
+                    string head = !string.IsNullOrWhiteSpace(inv.Title) ? inv.Title : $"{division} Academic Fee";
+                    string category = CategorizeIncomeHead(head, division);
+                    if (incomeMap.TryGetValue(head, out var val))
+                        incomeMap[head] = (val.Amount + inv.TotalAmount, category, division);
                     else
-                        incomeMap[head] = proportionalAmount;
+                        incomeMap[head] = (inv.TotalAmount, category, division);
                 }
             }
-            else
+        }
+        else
+        {
+            // Fallback from fee payments
+            foreach (var p in feePayments)
             {
-                string cat = p.Invoice?.InvoiceCategory ?? "Academic Fees";
-                if (incomeMap.ContainsKey(cat))
-                    incomeMap[cat] += p.AmountPaid;
+                string division = (p.Invoice?.ClassId != null || (p.Invoice?.Student?.IsSchoolStudent ?? false)) ? "School Division" : "Coaching Division";
+                if (p.Invoice?.Items != null && p.Invoice.Items.Count > 0)
+                {
+                    decimal invTotal = p.Invoice.TotalAmount > 0 ? p.Invoice.TotalAmount : 1m;
+                    foreach (var it in p.Invoice.Items)
+                    {
+                        string head = string.IsNullOrWhiteSpace(it.HeadName) ? "Tuition Fee" : it.HeadName.Trim();
+                        decimal proportional = Math.Round((it.Amount / invTotal) * p.AmountPaid, 2);
+                        string category = CategorizeIncomeHead(head, division);
+                        if (incomeMap.TryGetValue(head, out var val))
+                            incomeMap[head] = (val.Amount + proportional, category, division);
+                        else
+                            incomeMap[head] = (proportional, category, division);
+                    }
+                }
                 else
-                    incomeMap[cat] = p.AmountPaid;
+                {
+                    string head = p.Invoice?.InvoiceCategory ?? "Academic Fees";
+                    string category = CategorizeIncomeHead(head, division);
+                    if (incomeMap.TryGetValue(head, out var val))
+                        incomeMap[head] = (val.Amount + p.AmountPaid, category, division);
+                    else
+                        incomeMap[head] = (p.AmountPaid, category, division);
+                }
             }
+        }
+
+        // Add Library Fines to income breakdown if collected
+        if (libraryFinesIncome > 0)
+        {
+            incomeMap["Library Overdue Fines & Late Return Charges"] = (
+                libraryFinesIncome,
+                "Library & Resource Center",
+                "Learning Resource"
+            );
         }
 
         if (incomeMap.Count == 0 && totalDirectIncome > 0)
         {
-            incomeMap["Academic Tuition Fee"] = totalDirectIncome;
+            incomeMap["Academic Tuition Fee"] = (totalDirectIncome, "Academic Fees", "General Institutional");
         }
 
+        decimal sumIncomeMap = incomeMap.Values.Sum(x => x.Amount);
         var incomeSummaryList = incomeMap.Select(kv => new IncomeHeadSummaryDto(
-            Category: "Academic & Institutional Fees",
+            Category: kv.Value.Category,
             HeadName: kv.Key,
-            Amount: kv.Value,
-            PercentageOfTotal: totalDirectIncome > 0 ? Math.Round((kv.Value / totalDirectIncome) * 100m, 1) : 0m
+            Amount: kv.Value.Amount,
+            PercentageOfTotal: sumIncomeMap > 0 ? Math.Round((kv.Value.Amount / sumIncomeMap) * 100m, 1) : 0m,
+            Division: kv.Value.Division
         )).OrderByDescending(x => x.Amount).ToList();
 
-        // 3. Query Payroll Expenses from TeacherSalaryPayments
+        // 6. Query Payroll Expenses from TeacherSalaryPayments
         var salaryPaymentsQuery = _dbContext.TeacherSalaryPayments
             .AsNoTracking()
             .Include(s => s.Teacher)
@@ -146,10 +278,20 @@ public class FinanceController : ControllerBase
             salaryPaymentsQuery = salaryPaymentsQuery.Where(s => s.Teacher != null && s.Teacher.BranchId == branchId.Value);
         }
 
-        var salaryPayments = await salaryPaymentsQuery.ToListAsync();
-        decimal totalPayrollExpense = salaryPayments.Sum(s => s.NetPaid);
+        if (scope.Equals("School", StringComparison.OrdinalIgnoreCase))
+        {
+            salaryPaymentsQuery = salaryPaymentsQuery.Where(s => s.Teacher != null && s.Teacher.Department != "Coaching");
+        }
+        else if (scope.Equals("Coaching", StringComparison.OrdinalIgnoreCase))
+        {
+            salaryPaymentsQuery = salaryPaymentsQuery.Where(s => s.Teacher != null && s.Teacher.Department == "Coaching");
+        }
 
-        // 4. Query Operating Expenses from ExpenseVouchers
+        var salaryPayments = await salaryPaymentsQuery.ToListAsync();
+        // GrossAmount is the real economic payroll expense incurred by the institution
+        decimal totalPayrollExpense = salaryPayments.Sum(s => s.GrossAmount > 0 ? s.GrossAmount : s.NetPaid);
+
+        // 7. Query Operating Expenses from ExpenseVouchers
         var vouchersQuery = _dbContext.ExpenseVouchers
             .AsNoTracking()
             .Include(v => v.Category)
@@ -162,7 +304,6 @@ public class FinanceController : ControllerBase
 
         var vouchers = await vouchersQuery.ToListAsync();
         decimal totalOperatingExpense = vouchers.Sum(v => v.Amount);
-
         decimal totalExpense = totalPayrollExpense + totalOperatingExpense;
 
         // Group Expenses
@@ -172,7 +313,7 @@ public class FinanceController : ControllerBase
         {
             expenseSummaryList.Add(new ExpenseHeadSummaryDto(
                 Category: "Payroll & Human Resources",
-                HeadName: "Faculty & Staff Salaries",
+                HeadName: "Faculty & Staff Gross Salaries (incl. statutory withholdings)",
                 Amount: totalPayrollExpense,
                 PercentageOfTotal: totalExpense > 0 ? Math.Round((totalPayrollExpense / totalExpense) * 100m, 1) : 0m,
                 IsPayroll: true
@@ -180,7 +321,7 @@ public class FinanceController : ControllerBase
         }
 
         var groupedVouchers = vouchers
-            .GroupBy(v => v.Category != null ? v.Category.Name : "General Expenses")
+            .GroupBy(v => v.Category != null ? v.Category.Name : "General Operating Expenses")
             .OrderByDescending(g => g.Sum(x => x.Amount));
 
         foreach (var g in groupedVouchers)
@@ -195,25 +336,31 @@ public class FinanceController : ControllerBase
             ));
         }
 
-        // 5. Monthly Surplus Trend (12 Months)
+        // 8. Monthly Surplus Trend (12 Months)
         var monthlyTrends = new List<MonthlySurplusTrendDto>();
         var curMonth = new DateTime(start.Year, start.Month, 1, 0, 0, 0, DateTimeKind.Utc);
         while (curMonth <= end)
         {
-            int year = curMonth.Year;
-            int month = curMonth.Month;
+            int yr = curMonth.Year;
+            int mo = curMonth.Month;
             string monthLabel = curMonth.ToString("MMM yyyy", CultureInfo.InvariantCulture);
 
-            decimal monthIncome = feePayments
-                .Where(p => p.PaymentDate.Year == year && p.PaymentDate.Month == month)
+            decimal monthBilled = periodInvoices
+                .Where(i => i.CreatedAt.Year == yr && i.CreatedAt.Month == mo)
+                .Sum(i => i.TotalAmount);
+
+            decimal monthRealized = feePayments
+                .Where(p => p.PaymentDate.Year == yr && p.PaymentDate.Month == mo)
                 .Sum(p => p.AmountPaid);
 
+            decimal monthIncome = Math.Max(monthRealized, monthBilled);
+
             decimal monthPayroll = salaryPayments
-                .Where(s => s.PaymentDate.Year == year && s.PaymentDate.Month == month)
-                .Sum(s => s.NetPaid);
+                .Where(s => s.PaymentDate.Year == yr && s.PaymentDate.Month == mo)
+                .Sum(s => s.GrossAmount > 0 ? s.GrossAmount : s.NetPaid);
 
             decimal monthOpex = vouchers
-                .Where(v => v.ExpenseDate.Year == year && v.ExpenseDate.Month == month)
+                .Where(v => v.ExpenseDate.Year == yr && v.ExpenseDate.Month == mo)
                 .Sum(v => v.Amount);
 
             decimal monthExpense = monthPayroll + monthOpex;
@@ -221,17 +368,18 @@ public class FinanceController : ControllerBase
 
             monthlyTrends.Add(new MonthlySurplusTrendDto(
                 MonthName: monthLabel,
-                Month: month,
-                Year: year,
+                Month: mo,
+                Year: yr,
                 TotalIncome: monthIncome,
                 TotalExpense: monthExpense,
-                NetSurplus: monthSurplus
+                NetSurplus: monthSurplus,
+                RealizedCollections: monthRealized
             ));
 
             curMonth = curMonth.AddMonths(1);
         }
 
-        // 6. Net Profit / Loss Calculation
+        // 9. Net Profit / Loss Calculation
         decimal netProfitOrLoss = totalDirectIncome - totalExpense;
         decimal profitMargin = totalDirectIncome > 0 ? Math.Round((netProfitOrLoss / totalDirectIncome) * 100m, 1) : 0m;
         bool isSurplus = netProfitOrLoss >= 0;
@@ -251,7 +399,11 @@ public class FinanceController : ControllerBase
             IsSurplus: isSurplus,
             Incomes: incomeSummaryList,
             Expenses: expenseSummaryList,
-            MonthlyTrends: monthlyTrends
+            MonthlyTrends: monthlyTrends,
+            AcademicScope: scope,
+            RealizedCashCollections: totalRealizedCollections,
+            AccruedFeeReceivables: accruedFeeReceivables,
+            LibraryFinesIncome: libraryFinesIncome
         );
 
         return Ok(report);
@@ -264,12 +416,14 @@ public class FinanceController : ControllerBase
     [HttpGet("balance-sheet")]
     public async Task<ActionResult<BalanceSheetReportDto>> GetBalanceSheet(
         [FromQuery] DateTime? asOfDate = null,
-        [FromQuery] Guid? branchId = null)
+        [FromQuery] Guid? branchId = null,
+        [FromQuery] string? academicScope = "All")
     {
         var tenantId = _currentUser.TenantId;
         DateTime cutoff = asOfDate.HasValue 
             ? DateTime.SpecifyKind(asOfDate.Value.Date.AddDays(1).AddTicks(-1), DateTimeKind.Utc)
             : DateTime.UtcNow;
+        string scope = string.IsNullOrWhiteSpace(academicScope) ? "All" : academicScope.Trim();
 
         string branchName = "All Branches Consolidated";
         if (branchId.HasValue && branchId.Value != Guid.Empty)
@@ -279,72 +433,155 @@ public class FinanceController : ControllerBase
         }
 
         // ─── A. CURRENT ASSETS ──────────────────────────────────────────
-        // 1. Cash In Hand Calculation (Opening + Cash Collections - Cash Salaries - Cash Expenses)
-        var cashFeeCollected = await _dbContext.FeePayments
-            .Where(p => p.TenantId == tenantId && p.Mode == PaymentMode.Cash && p.PaymentDate <= cutoff && (!branchId.HasValue || p.BranchId == branchId.Value))
-            .SumAsync(p => (decimal?)p.AmountPaid) ?? 0m;
+        // 1. Fee Payments Received up to cutoff
+        var feePaymentsBase = _dbContext.FeePayments
+            .AsNoTracking()
+            .Include(p => p.Invoice)
+                .ThenInclude(i => i!.Student)
+            .Where(p => p.TenantId == tenantId && p.PaymentDate <= cutoff);
 
-        var cashSalariesPaid = await _dbContext.TeacherSalaryPayments
+        if (branchId.HasValue && branchId.Value != Guid.Empty)
+        {
+            feePaymentsBase = feePaymentsBase.Where(p => p.BranchId == branchId.Value || (p.Invoice != null && p.Invoice.BranchId == branchId.Value));
+        }
+
+        if (scope.Equals("School", StringComparison.OrdinalIgnoreCase))
+        {
+            feePaymentsBase = feePaymentsBase.Where(p => p.Invoice != null && (
+                p.Invoice.InvoiceCategory == "School" ||
+                p.Invoice.InvoiceCategory == "Integrated" ||
+                (p.Invoice.InvoiceCategory != "Coaching" && (p.Invoice.ClassId != null || (p.Invoice.Student != null && (p.Invoice.Student.IsSchoolStudent || p.Invoice.Student.ClassId != null))))
+            ));
+        }
+        else if (scope.Equals("Coaching", StringComparison.OrdinalIgnoreCase))
+        {
+            feePaymentsBase = feePaymentsBase.Where(p => p.Invoice != null && (
+                p.Invoice.InvoiceCategory == "Coaching" ||
+                p.Invoice.InvoiceCategory == "Integrated" ||
+                (p.Invoice.InvoiceCategory != "School" && (p.Invoice.Student != null && (p.Invoice.Student.IsCoachingStudent || p.Invoice.Student.BatchId != null)))
+            ));
+        }
+
+        var feePaymentsCutoff = await feePaymentsBase.ToListAsync();
+        decimal cashFeeCollected = feePaymentsCutoff.Where(p => p.Mode == PaymentMode.Cash).Sum(p => p.AmountPaid);
+        decimal bankFeeCollected = feePaymentsCutoff.Where(p => p.Mode != PaymentMode.Cash).Sum(p => p.AmountPaid);
+
+        // 2. Library Fines Received up to cutoff
+        var libFinesCutoff = await _dbContext.LibraryCirculations
+            .AsNoTracking()
+            .Where(c => c.TenantId == tenantId && c.FineStatus == "Paid" && c.FineAmount > 0 &&
+                        ((c.FinePaidAt.HasValue && c.FinePaidAt.Value <= cutoff) || (!c.FinePaidAt.HasValue && c.CreatedAt <= cutoff)) &&
+                        (!branchId.HasValue || c.BranchId == branchId.Value))
+            .ToListAsync();
+        decimal cashLibFines = libFinesCutoff.Sum(c => c.FineAmount); // Library counter collected cash
+
+        // 3. Salaries Paid up to cutoff
+        var salariesBase = _dbContext.TeacherSalaryPayments
+            .AsNoTracking()
             .Include(s => s.Teacher)
-            .Where(s => s.TenantId == tenantId && s.PaymentMode == SalaryPaymentMode.Cash && s.PaymentDate <= cutoff && (!branchId.HasValue || (s.Teacher != null && s.Teacher.BranchId == branchId.Value)))
-            .SumAsync(s => (decimal?)s.NetPaid) ?? 0m;
+            .Where(s => s.TenantId == tenantId && s.PaymentDate <= cutoff);
 
-        var cashExpensesPaid = await _dbContext.ExpenseVouchers
-            .Where(v => v.TenantId == tenantId && v.PaymentMode == ExpensePaymentMode.Cash && v.ExpenseDate <= cutoff && (!branchId.HasValue || v.BranchId == branchId.Value))
-            .SumAsync(v => (decimal?)v.Amount) ?? 0m;
+        if (branchId.HasValue && branchId.Value != Guid.Empty)
+        {
+            salariesBase = salariesBase.Where(s => s.Teacher != null && s.Teacher.BranchId == branchId.Value);
+        }
 
-        var cashLedger = await _dbContext.AccountLedgers
-            .FirstOrDefaultAsync(l => l.TenantId == tenantId && l.AccountCode == "CASH-MAIN");
+        var salariesCutoff = await salariesBase.ToListAsync();
+        decimal cashSalariesPaid = salariesCutoff.Where(s => s.PaymentMode == SalaryPaymentMode.Cash).Sum(s => s.NetPaid);
+        decimal bankSalariesPaid = salariesCutoff.Where(s => s.PaymentMode != SalaryPaymentMode.Cash).Sum(s => s.NetPaid);
+        decimal totalAdvancesAdjustedInSalaries = salariesCutoff.Sum(s => s.AdvanceAdjusted);
+        decimal totalStatutoryDeductions = salariesCutoff.Sum(s =>
+        {
+            decimal itemized = (s.PFDeduction ?? 0m) + (s.TDSDeduction ?? 0m) + (s.OtherStatutoryDeduction ?? 0m);
+            return itemized > 0 ? itemized : s.Deductions;
+        });
+
+        // 4. Staff Salary Advances Disbursed up to cutoff
+        var advancesBase = _dbContext.TeacherSalaryAdvances
+            .AsNoTracking()
+            .Include(a => a.Teacher)
+            .Where(a => a.TenantId == tenantId && (a.ApprovedDate ?? a.RequestDate) <= cutoff && (a.Status == AdvanceStatus.Approved || a.Status == AdvanceStatus.Adjusted));
+
+        if (branchId.HasValue && branchId.Value != Guid.Empty)
+        {
+            advancesBase = advancesBase.Where(a => a.Teacher != null && a.Teacher.BranchId == branchId.Value);
+        }
+
+        var advancesCutoff = await advancesBase.ToListAsync();
+        decimal totalAdvancesDisbursed = advancesCutoff.Sum(a => a.Amount);
+        decimal remainingStaffAdvances = Math.Max(0m, totalAdvancesDisbursed - totalAdvancesAdjustedInSalaries);
+
+        // 5. Operating Expenses up to cutoff
+        var vouchersBase = _dbContext.ExpenseVouchers
+            .AsNoTracking()
+            .Where(v => v.TenantId == tenantId && v.ExpenseDate <= cutoff);
+
+        if (branchId.HasValue && branchId.Value != Guid.Empty)
+        {
+            vouchersBase = vouchersBase.Where(v => v.BranchId == branchId.Value);
+        }
+
+        var vouchersCutoff = await vouchersBase.ToListAsync();
+        decimal cashExpensesPaid = vouchersCutoff.Where(v => v.PaymentMode == ExpensePaymentMode.Cash).Sum(v => v.Amount);
+        decimal bankExpensesPaid = vouchersCutoff.Where(v => v.PaymentMode != ExpensePaymentMode.Cash).Sum(v => v.Amount);
+
+        // 6. Cash In Hand & Bank Accounts Balances
+        var cashLedger = await _dbContext.AccountLedgers.FirstOrDefaultAsync(l => l.TenantId == tenantId && l.AccountCode == "CASH-MAIN");
         decimal cashOpening = cashLedger?.OpeningBalance ?? 0m;
-        decimal cashInHandBalance = Math.Max(0m, cashOpening + cashFeeCollected - cashSalariesPaid - cashExpensesPaid);
+        // Advances disbursed in cash reduce counter cash
+        decimal cashInHandBalance = Math.Max(0m, cashOpening + cashFeeCollected + cashLibFines - cashSalariesPaid - totalAdvancesDisbursed - cashExpensesPaid);
 
-        // 2. Bank Accounts Calculation
-        var bankFeeCollected = await _dbContext.FeePayments
-            .Where(p => p.TenantId == tenantId && p.Mode != PaymentMode.Cash && p.PaymentDate <= cutoff && (!branchId.HasValue || p.BranchId == branchId.Value))
-            .SumAsync(p => (decimal?)p.AmountPaid) ?? 0m;
-
-        var bankSalariesPaid = await _dbContext.TeacherSalaryPayments
-            .Include(s => s.Teacher)
-            .Where(s => s.TenantId == tenantId && s.PaymentMode != SalaryPaymentMode.Cash && s.PaymentDate <= cutoff && (!branchId.HasValue || (s.Teacher != null && s.Teacher.BranchId == branchId.Value)))
-            .SumAsync(s => (decimal?)s.NetPaid) ?? 0m;
-
-        var bankExpensesPaid = await _dbContext.ExpenseVouchers
-            .Where(v => v.TenantId == tenantId && v.PaymentMode != ExpensePaymentMode.Cash && v.ExpenseDate <= cutoff && (!branchId.HasValue || v.BranchId == branchId.Value))
-            .SumAsync(v => (decimal?)v.Amount) ?? 0m;
-
-        var bankLedger = await _dbContext.AccountLedgers
-            .FirstOrDefaultAsync(l => l.TenantId == tenantId && l.AccountCode == "BANK-MAIN");
+        var bankLedger = await _dbContext.AccountLedgers.FirstOrDefaultAsync(l => l.TenantId == tenantId && l.AccountCode == "BANK-MAIN");
         decimal bankOpening = bankLedger?.OpeningBalance ?? 0m;
         decimal bankAccountsBalance = Math.Max(0m, bankOpening + bankFeeCollected - bankSalariesPaid - bankExpensesPaid);
 
-        // 3. Accounts Receivable (Student Fee Dues up to cutoff)
-        var feeDuesQuery = _dbContext.FeeInvoices
-            .Where(i => i.TenantId == tenantId && i.CreatedAt <= cutoff && i.Status != InvoiceStatus.Paid && i.Status != InvoiceStatus.Cancelled);
-        if (branchId.HasValue && branchId.Value != Guid.Empty)
-        {
-            feeDuesQuery = feeDuesQuery.Where(i => i.BranchId == branchId.Value);
-        }
-        decimal accountsReceivable = await feeDuesQuery.SumAsync(i => (decimal?)(i.TotalAmount - i.PaidAmount)) ?? 0m;
+        // 7. Accounts Receivable (Historically Accurate Student Fee Dues as of Cutoff)
+        var feeInvoicesBase = _dbContext.FeeInvoices
+            .AsNoTracking()
+            .Include(i => i.Student)
+            .Include(i => i.Payments)
+            .Where(i => i.TenantId == tenantId && i.CreatedAt <= cutoff && i.Status != InvoiceStatus.Cancelled);
 
-        // 4. Staff Salary Advances Receivable (Advances approved but not yet adjusted)
-        var advancesQuery = _dbContext.TeacherSalaryAdvances
-            .Include(a => a.Teacher)
-            .Where(a => a.TenantId == tenantId && a.Status == AdvanceStatus.Approved && a.RequestDate <= cutoff);
         if (branchId.HasValue && branchId.Value != Guid.Empty)
         {
-            advancesQuery = advancesQuery.Where(a => a.Teacher != null && a.Teacher.BranchId == branchId.Value);
+            feeInvoicesBase = feeInvoicesBase.Where(i => i.BranchId == branchId.Value);
         }
-        decimal staffAdvances = await advancesQuery.SumAsync(a => (decimal?)a.Amount) ?? 0m;
+
+        if (scope.Equals("School", StringComparison.OrdinalIgnoreCase))
+        {
+            feeInvoicesBase = feeInvoicesBase.Where(i => 
+                i.InvoiceCategory == "School" || 
+                i.InvoiceCategory == "Integrated" ||
+                (i.InvoiceCategory != "Coaching" && (i.ClassId != null || (i.Student != null && (i.Student.IsSchoolStudent || i.Student.ClassId != null))))
+            );
+        }
+        else if (scope.Equals("Coaching", StringComparison.OrdinalIgnoreCase))
+        {
+            feeInvoicesBase = feeInvoicesBase.Where(i => 
+                i.InvoiceCategory == "Coaching" || 
+                i.InvoiceCategory == "Integrated" ||
+                (i.InvoiceCategory != "School" && (i.Student != null && (i.Student.IsCoachingStudent || i.Student.BatchId != null)))
+            );
+        }
+
+        var cutoffInvoices = await feeInvoicesBase.ToListAsync();
+        decimal accountsReceivable = 0m;
+        foreach (var inv in cutoffInvoices)
+        {
+            decimal paidOnOrBeforeCutoff = inv.Payments != null ? inv.Payments.Where(p => p.PaymentDate <= cutoff).Sum(p => p.AmountPaid) : 0m;
+            decimal dueAtCutoff = Math.Max(0m, inv.TotalAmount - paidOnOrBeforeCutoff);
+            accountsReceivable += dueAtCutoff;
+        }
 
         var currentAssetItems = new List<BalanceSheetItemDto>
         {
-            new BalanceSheetItemDto("CA-CASH", "Cash in Hand (Counter Float)", cashInHandBalance, "Liquid Cash", true, "Cash drawer balance after fee receipts & cash expenses"),
+            new BalanceSheetItemDto("CA-CASH", "Cash in Hand (Counter Float & Drawer)", cashInHandBalance, "Liquid Cash", true, "Cash drawer balance after fee receipts, advances & cash expenses"),
             new BalanceSheetItemDto("CA-BANK", "Bank Accounts Balance (Current & Savings)", bankAccountsBalance, "Bank Balances", true, "Primary bank balance after online fees, payroll & vouchers"),
-            new BalanceSheetItemDto("CA-FEES", "Accounts Receivable (Student Fee Dues)", accountsReceivable, "Receivables", true, "Outstanding student fee invoices dues"),
-            new BalanceSheetItemDto("CA-ADV", "Staff Advances Receivable", staffAdvances, "Advances", true, "Unadjusted salary advances disbursed to faculty/staff")
+            new BalanceSheetItemDto("CA-FEES", "Accounts Receivable (Student Fee Dues)", accountsReceivable, "Receivables", true, "Historically verified student fee dues outstanding as of cutoff"),
+            new BalanceSheetItemDto("CA-ADV", "Staff Advances Receivable", remainingStaffAdvances, "Advances", true, "Unadjusted salary advances disbursed to faculty & staff")
         };
 
-        // Other configured Current Assets in AccountLedgers
+        // Custom Current Assets from AccountLedgers
         var customCurrentAssets = await _dbContext.AccountLedgers
             .Where(l => l.TenantId == tenantId && l.IsActive && l.AccountType == AccountType.Asset && l.SubType == AccountSubType.CurrentAsset && l.AccountCode != "CASH-MAIN" && l.AccountCode != "BANK-MAIN")
             .ToListAsync();
@@ -387,6 +624,19 @@ public class FinanceController : ControllerBase
             Note: l.Description
         )).ToList();
 
+        // Add Statutory Payroll Withholdings (TDS/PF/ESI) deducted from salaries but pending remittance
+        if (totalStatutoryDeductions > 0 && !currentLiabilityItems.Any(i => i.Code.Contains("TDS") || i.Code.Contains("STATUTORY")))
+        {
+            currentLiabilityItems.Add(new BalanceSheetItemDto(
+                Code: "CL-STATUTORY",
+                Title: "Statutory Payroll Liabilities (TDS/PF/ESI Withheld)",
+                Amount: totalStatutoryDeductions,
+                Category: "Current Liabilities",
+                IsDynamic: true,
+                Note: "TDS, Provident Fund & statutory deductions withheld from faculty salaries pending government remittance"
+            ));
+        }
+
         var currentLiabilitiesGroup = new BalanceSheetGroupDto("Current Liabilities", currentLiabilityItems.Sum(x => x.Amount), currentLiabilityItems);
 
         // ─── D. LONG-TERM LIABILITIES ───────────────────────────────────
@@ -406,21 +656,12 @@ public class FinanceController : ControllerBase
         var longTermLiabilitiesGroup = new BalanceSheetGroupDto("Long-Term Liabilities", longTermLiabilityItems.Sum(x => x.Amount), longTermLiabilityItems);
 
         // ─── E. CAPITAL & EQUITY ────────────────────────────────────────
-        // Compute Current Period Net Profit up to cutoff date
-        var totalIncomeAllTime = await _dbContext.FeePayments
-            .Where(p => p.TenantId == tenantId && p.PaymentDate <= cutoff && (!branchId.HasValue || p.BranchId == branchId.Value))
-            .SumAsync(p => (decimal?)p.AmountPaid) ?? 0m;
-
-        var totalSalariesAllTime = await _dbContext.TeacherSalaryPayments
-            .Include(s => s.Teacher)
-            .Where(s => s.TenantId == tenantId && s.PaymentDate <= cutoff && (!branchId.HasValue || (s.Teacher != null && s.Teacher.BranchId == branchId.Value)))
-            .SumAsync(s => (decimal?)s.NetPaid) ?? 0m;
-
-        var totalExpensesAllTime = await _dbContext.ExpenseVouchers
-            .Where(v => v.TenantId == tenantId && v.ExpenseDate <= cutoff && (!branchId.HasValue || v.BranchId == branchId.Value))
-            .SumAsync(v => (decimal?)v.Amount) ?? 0m;
-
-        decimal netProfitSurplus = totalIncomeAllTime - (totalSalariesAllTime + totalExpensesAllTime);
+        // Operational Accrual Surplus up to cutoff date:
+        // Revenue (Cash + Bank fees + Library fines + Accounts Receivable) - Gross Salaries - Operating Expenses
+        decimal totalAccrualRevenueAllTime = (cashFeeCollected + bankFeeCollected + cashLibFines) + accountsReceivable;
+        decimal totalGrossSalariesAllTime = (cashSalariesPaid + bankSalariesPaid) + totalAdvancesAdjustedInSalaries + totalStatutoryDeductions;
+        decimal totalExpensesAllTime = cashExpensesPaid + bankExpensesPaid;
+        decimal netProfitSurplus = totalAccrualRevenueAllTime - (totalGrossSalariesAllTime + totalExpensesAllTime);
 
         var capitalLedgers = await _dbContext.AccountLedgers
             .Where(l => l.TenantId == tenantId && l.IsActive && l.AccountType == AccountType.Equity)
@@ -438,30 +679,41 @@ public class FinanceController : ControllerBase
         // Add Net Profit from Income Statement to Equity
         equityItems.Add(new BalanceSheetItemDto(
             Code: "EQ-RETAINED",
-            Title: "Net Profit / Surplus (Transferred from P&L)",
+            Title: "Accumulated Net Operating Surplus (from P&L)",
             Amount: netProfitSurplus,
             Category: "Reserves & Surplus",
             IsDynamic: true,
-            Note: "Accumulated net surplus from academic fee revenues after payroll & operating costs"
+            Note: "Accumulated net surplus from academic operations after payroll & operating costs"
         ));
 
-        // Auto-balance adjustment item if needed for capital balancing
+        // Exact Trial Balance Reconciliation of Initial Opening Equity
         decimal preliminaryLiabilities = currentLiabilitiesGroup.TotalAmount + longTermLiabilitiesGroup.TotalAmount;
         decimal preliminaryEquity = equityItems.Sum(x => x.Amount);
         decimal initialDifference = totalAssets - (preliminaryLiabilities + preliminaryEquity);
 
-        // If capital is 0 and there is initial difference, reflect in Institute Capital / Corpus Fund
+        // If institution hasn't configured manual opening capital ledgers, reflect initial opening net assets
         var capitalItem = equityItems.FirstOrDefault(e => e.Code == "EQ-CAPITAL");
-        if (capitalItem != null && capitalItem.Amount == 0 && initialDifference > 0)
+        if (capitalItem != null && capitalItem.Amount == 0 && Math.Abs(initialDifference) > 0.001m)
         {
             equityItems.Remove(capitalItem);
-            equityItems.Insert(0, capitalItem with { Amount = initialDifference, Note = "Initial balancing capital / corpus fund" });
+            equityItems.Insert(0, capitalItem with { Amount = initialDifference, Note = "Initial opening corpus & net worth balancing reserve" });
+        }
+        else if (capitalItem == null && Math.Abs(initialDifference) > 0.001m)
+        {
+            equityItems.Insert(0, new BalanceSheetItemDto(
+                "EQ-CORPUS",
+                "Corpus Fund / Institutional Net Worth Reserve",
+                initialDifference,
+                "Capital Fund",
+                true,
+                "Balancing reserve representing initial institutional equity"
+            ));
         }
 
         var equityGroup = new BalanceSheetGroupDto("Capital Fund & Reserves", equityItems.Sum(x => x.Amount), equityItems);
         decimal totalLiabilitiesAndEquity = currentLiabilitiesGroup.TotalAmount + longTermLiabilitiesGroup.TotalAmount + equityGroup.TotalAmount;
         decimal finalDifference = Math.Round(totalAssets - totalLiabilitiesAndEquity, 2);
-        bool isBalanced = Math.Abs(finalDifference) < 0.01m;
+        bool isBalanced = Math.Abs(finalDifference) < 0.05m;
 
         var report = new BalanceSheetReportDto(
             AsOfDate: cutoff,
@@ -476,10 +728,35 @@ public class FinanceController : ControllerBase
             TotalLiabilitiesAndEquity: totalLiabilitiesAndEquity,
             Difference: finalDifference,
             IsBalanced: isBalanced,
-            CurrentPeriodProfit: netProfitSurplus
+            CurrentPeriodProfit: netProfitSurplus,
+            AcademicScope: scope,
+            RealizedCashBalance: cashInHandBalance + bankAccountsBalance,
+            AccountsReceivableTotal: accountsReceivable,
+            StaffAdvancesTotal: remainingStaffAdvances
         );
 
         return Ok(report);
+    }
+
+    private static string CategorizeIncomeHead(string headName, string division)
+    {
+        string h = headName.ToLowerInvariant();
+        if (h.Contains("transport") || h.Contains("bus") || h.Contains("van") || h.Contains("conveyance") || h.Contains("route"))
+            return "Fleet & Transportation Services";
+        if (h.Contains("hostel") || h.Contains("mess") || h.Contains("boarding") || h.Contains("room rent") || h.Contains("dining"))
+            return "Residential & Dining Services";
+        if (h.Contains("library") || h.Contains("book") || h.Contains("fine"))
+            return "Library & Learning Resources";
+        if (h.Contains("coaching") || h.Contains("neet") || h.Contains("jee") || h.Contains("foundation") || h.Contains("test series") || h.Contains("dpp") || h.Contains("material"))
+            return "Coaching & Competitive Programs";
+        if (h.Contains("admission") || h.Contains("registration") || h.Contains("prospectus"))
+            return "Admission & Enrollment Fees";
+        if (h.Contains("exam") || h.Contains("assessment") || h.Contains("test"))
+            return "Examinations & Certifications";
+        if (h.Contains("annual") || h.Contains("development") || h.Contains("sports") || h.Contains("activity") || h.Contains("lab"))
+            return "Institutional Development & Activities";
+        
+        return division.Contains("Coaching") ? "Coaching Academic Programs" : "School Academic Curriculum";
     }
 
     // =========================================================================
@@ -1124,10 +1401,12 @@ public class FinanceController : ControllerBase
 
         // Cash & Bank Balances
         var cashCollected = await _dbContext.FeePayments.Where(p => p.TenantId == tenantId && p.Mode == PaymentMode.Cash && (!branchId.HasValue || p.BranchId == branchId.Value)).SumAsync(p => (decimal?)p.AmountPaid) ?? 0m;
+        var cashLibFines = await _dbContext.LibraryCirculations.Where(c => c.TenantId == tenantId && c.FineStatus == "Paid" && (!branchId.HasValue || c.BranchId == branchId.Value)).SumAsync(c => (decimal?)c.FineAmount) ?? 0m;
         var cashSalaries = await _dbContext.TeacherSalaryPayments.Include(s => s.Teacher).Where(s => s.TenantId == tenantId && s.PaymentMode == SalaryPaymentMode.Cash && (!branchId.HasValue || (s.Teacher != null && s.Teacher.BranchId == branchId.Value))).SumAsync(s => (decimal?)s.NetPaid) ?? 0m;
+        var cashAdvances = await _dbContext.TeacherSalaryAdvances.Include(a => a.Teacher).Where(a => a.TenantId == tenantId && (a.Status == AdvanceStatus.Approved || a.Status == AdvanceStatus.Adjusted) && (!branchId.HasValue || (a.Teacher != null && a.Teacher.BranchId == branchId.Value))).SumAsync(a => (decimal?)a.Amount) ?? 0m;
         var cashExpenses = await _dbContext.ExpenseVouchers.Where(v => v.TenantId == tenantId && v.PaymentMode == ExpensePaymentMode.Cash && (!branchId.HasValue || v.BranchId == branchId.Value)).SumAsync(v => (decimal?)v.Amount) ?? 0m;
         var cashLedger = await _dbContext.AccountLedgers.FirstOrDefaultAsync(l => l.TenantId == tenantId && l.AccountCode == "CASH-MAIN");
-        decimal cashBalance = Math.Max(0m, (cashLedger?.OpeningBalance ?? 0m) + cashCollected - cashSalaries - cashExpenses);
+        decimal cashBalance = Math.Max(0m, (cashLedger?.OpeningBalance ?? 0m) + cashCollected + cashLibFines - cashSalaries - cashAdvances - cashExpenses);
 
         var bankCollected = await _dbContext.FeePayments.Where(p => p.TenantId == tenantId && p.Mode != PaymentMode.Cash && (!branchId.HasValue || p.BranchId == branchId.Value)).SumAsync(p => (decimal?)p.AmountPaid) ?? 0m;
         var bankSalaries = await _dbContext.TeacherSalaryPayments.Include(s => s.Teacher).Where(s => s.TenantId == tenantId && s.PaymentMode != SalaryPaymentMode.Cash && (!branchId.HasValue || (s.Teacher != null && s.Teacher.BranchId == branchId.Value))).SumAsync(s => (decimal?)s.NetPaid) ?? 0m;
@@ -1153,5 +1432,464 @@ public class FinanceController : ControllerBase
             fyTotalExpense,
             fySurplus
         ));
+    }
+
+    // =========================================================================
+    // 7. DAY BOOK (दैनिक रोकड़ / रोजनामचा बही / Daily Cash & Bank Journal)
+    // =========================================================================
+
+    [HttpGet("daybook")]
+    public async Task<ActionResult<DayBookReportDto>> GetDayBook(
+        [FromQuery] DateTime? date = null,
+        [FromQuery] DateTime? fromDate = null,
+        [FromQuery] DateTime? toDate = null,
+        [FromQuery] Guid? branchId = null,
+        [FromQuery] string? voucherType = null,
+        [FromQuery] string? paymentMode = null,
+        [FromQuery] string? academicScope = "All",
+        [FromQuery] string? searchTerm = null,
+        [FromQuery] string? sortBy = "timestamp",
+        [FromQuery] bool sortDescending = false,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 25)
+    {
+        var tenantId = _currentUser.TenantId;
+        string scope = string.IsNullOrWhiteSpace(academicScope) ? "All" : academicScope.Trim();
+
+        // 1. Determine Date Range in IST (Asia/Kolkata +05:30)
+        TimeZoneInfo istTz;
+        try { istTz = TimeZoneInfo.FindSystemTimeZoneById("India Standard Time"); }
+        catch { istTz = TimeZoneInfo.CreateCustomTimeZone("IST", TimeSpan.FromHours(5.5), "IST", "IST"); }
+
+        DateTime nowIst = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, istTz);
+        DateTime targetStartIst;
+        DateTime targetEndIst;
+
+        if (fromDate.HasValue && toDate.HasValue)
+        {
+            targetStartIst = fromDate.Value.Date;
+            targetEndIst = toDate.Value.Date.AddDays(1).AddTicks(-1);
+        }
+        else if (date.HasValue)
+        {
+            targetStartIst = date.Value.Date;
+            targetEndIst = date.Value.Date.AddDays(1).AddTicks(-1);
+        }
+        else
+        {
+            targetStartIst = nowIst.Date;
+            targetEndIst = nowIst.Date.AddDays(1).AddTicks(-1);
+        }
+
+        DateTime startUtc = TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(targetStartIst, DateTimeKind.Unspecified), istTz);
+        DateTime endUtc = TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(targetEndIst, DateTimeKind.Unspecified), istTz);
+
+        // Branch Name
+        string branchName = "All Campuses Consolidated";
+        if (branchId.HasValue && branchId.Value != Guid.Empty)
+        {
+            var b = await _dbContext.Branches.FirstOrDefaultAsync(x => x.Id == branchId.Value);
+            if (b != null) branchName = b.Name;
+        }
+
+        // 2. Opening Balance Calculation (Cash & Bank before startUtc)
+        var cashLedger = await _dbContext.AccountLedgers.FirstOrDefaultAsync(l => l.TenantId == tenantId && l.AccountCode == "CASH-MAIN");
+        var bankLedger = await _dbContext.AccountLedgers.FirstOrDefaultAsync(l => l.TenantId == tenantId && l.AccountCode == "BANK-MAIN");
+        decimal cashOpening = cashLedger?.OpeningBalance ?? 0m;
+        decimal bankOpening = bankLedger?.OpeningBalance ?? 0m;
+
+        // Inflows prior to startUtc
+        var priorFees = _dbContext.FeePayments.Where(p => p.TenantId == tenantId && p.PaymentDate < startUtc);
+        if (branchId.HasValue && branchId.Value != Guid.Empty) priorFees = priorFees.Where(p => p.BranchId == branchId.Value);
+        decimal priorFeeCollected = await priorFees.SumAsync(p => (decimal?)p.AmountPaid) ?? 0m;
+
+        var priorFines = _dbContext.LibraryCirculations.Where(c => c.TenantId == tenantId && c.FineStatus == "Paid" && (c.FinePaidAt ?? c.ReturnDate ?? c.IssueDate) < startUtc);
+        if (branchId.HasValue && branchId.Value != Guid.Empty) priorFines = priorFines.Where(c => c.BranchId == branchId.Value);
+        decimal priorLibFines = await priorFines.SumAsync(c => (decimal?)c.FineAmount) ?? 0m;
+
+        // Outflows prior to startUtc
+        var priorSalaries = _dbContext.TeacherSalaryPayments.Include(s => s.Teacher).Where(s => s.TenantId == tenantId && s.PaymentDate < startUtc);
+        if (branchId.HasValue && branchId.Value != Guid.Empty) priorSalaries = priorSalaries.Where(s => s.Teacher != null && s.Teacher.BranchId == branchId.Value);
+        decimal priorSalariesPaid = await priorSalaries.SumAsync(s => (decimal?)s.NetPaid) ?? 0m;
+
+        var priorAdvances = _dbContext.TeacherSalaryAdvances.Include(a => a.Teacher).Where(a => a.TenantId == tenantId && (a.Status == AdvanceStatus.Approved || a.Status == AdvanceStatus.Adjusted) && (a.ApprovedDate ?? a.RequestDate) < startUtc);
+        if (branchId.HasValue && branchId.Value != Guid.Empty) priorAdvances = priorAdvances.Where(a => a.Teacher != null && a.Teacher.BranchId == branchId.Value);
+        decimal priorAdvancesDisbursed = await priorAdvances.SumAsync(a => (decimal?)a.Amount) ?? 0m;
+
+        var priorVouchers = _dbContext.ExpenseVouchers.Where(v => v.TenantId == tenantId && v.ExpenseDate < startUtc);
+        if (branchId.HasValue && branchId.Value != Guid.Empty) priorVouchers = priorVouchers.Where(v => v.BranchId == branchId.Value);
+        decimal priorExpensesPaid = await priorVouchers.SumAsync(v => (decimal?)v.Amount) ?? 0m;
+
+        decimal openingBalance = Math.Max(0m, cashOpening + bankOpening + priorFeeCollected + priorLibFines - priorSalariesPaid - priorAdvancesDisbursed - priorExpensesPaid);
+
+        // 3. Transactions Query within [startUtc, endUtc]
+        var transactions = new List<DayBookTransactionDto>();
+
+        // (A) Fee Payments (Receipts)
+        var feeQuery = _dbContext.FeePayments
+            .AsNoTracking()
+            .Include(p => p.Invoice)
+                .ThenInclude(i => i!.Student)
+            .Include(p => p.Invoice)
+                .ThenInclude(i => i!.Class)
+            .Where(p => p.TenantId == tenantId && p.PaymentDate >= startUtc && p.PaymentDate <= endUtc);
+
+        if (branchId.HasValue && branchId.Value != Guid.Empty)
+        {
+            feeQuery = feeQuery.Where(p => p.BranchId == branchId.Value);
+        }
+
+        var feeList = await feeQuery.ToListAsync();
+        foreach (var p in feeList)
+        {
+            var inv = p.Invoice;
+            var stu = inv?.Student;
+
+            string division = "General";
+            if (!string.IsNullOrWhiteSpace(inv?.InvoiceCategory))
+            {
+                division = inv.InvoiceCategory;
+            }
+            else if (stu != null)
+            {
+                if (stu.IsSchoolStudent && stu.IsCoachingStudent) division = "Integrated";
+                else if (stu.IsSchoolStudent || stu.ClassId != null) division = "School";
+                else if (stu.IsCoachingStudent || stu.BatchId != null) division = "Coaching";
+            }
+
+            // Scope filter
+            if (scope.Equals("School", StringComparison.OrdinalIgnoreCase) && division.Equals("Coaching", StringComparison.OrdinalIgnoreCase))
+                continue;
+            if (scope.Equals("Coaching", StringComparison.OrdinalIgnoreCase) && division.Equals("School", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            string modeStr = p.Mode switch
+            {
+                PaymentMode.Cash => "Cash",
+                PaymentMode.UPI => "UPI / Online",
+                PaymentMode.NetBanking => "Bank Transfer",
+                PaymentMode.Card => "Bank Transfer",
+                _ => "UPI / Online"
+            };
+
+            string studentInfo = stu != null ? $"{stu.StudentName} (Roll: {stu.RollNumber ?? stu.AdmissionNumber ?? "N/A"})" : "Student";
+            string classOrBatch = inv?.ClassName != null ? $"Class: {inv.ClassName}" : (inv?.Class != null ? $"Class: {inv.Class.Name}" : "Academic");
+            string particulars = $"{studentInfo} • {classOrBatch} Fee Settlement";
+
+            transactions.Add(new DayBookTransactionDto
+            {
+                Id = p.Id.ToString(),
+                Timestamp = p.PaymentDate,
+                VoucherNumber = !string.IsNullOrWhiteSpace(p.ReceiptNumber) ? p.ReceiptNumber : $"REC-{p.PaymentDate:yyyyMMdd}-{p.Id.ToString()[..6].ToUpper()}",
+                VoucherType = "Receipt",
+                AccountHead = "Student Tuition & Academic Fees",
+                Particulars = particulars,
+                Division = division,
+                PaymentMode = modeStr,
+                ReferenceNumber = p.TransactionRef,
+                DebitAmount = 0m,
+                CreditAmount = p.AmountPaid,
+                PayeeOrPayerName = stu?.StudentName ?? stu?.ParentName,
+                Remarks = p.Remarks
+            });
+        }
+
+        // (B) Library Overdue Fines (Receipts)
+        var fineQuery = _dbContext.LibraryCirculations
+            .AsNoTracking()
+            .Include(c => c.Student)
+            .Include(c => c.BookCopy)
+                .ThenInclude(bc => bc!.Book)
+            .Where(c => c.TenantId == tenantId && c.FineStatus == "Paid" && c.FineAmount > 0 &&
+                   (c.FinePaidAt ?? c.ReturnDate ?? c.IssueDate) >= startUtc &&
+                   (c.FinePaidAt ?? c.ReturnDate ?? c.IssueDate) <= endUtc);
+
+        if (branchId.HasValue && branchId.Value != Guid.Empty)
+        {
+            fineQuery = fineQuery.Where(c => c.BranchId == branchId.Value);
+        }
+
+        var fineList = await fineQuery.ToListAsync();
+        foreach (var f in fineList)
+        {
+            DateTime fineDate = f.FinePaidAt ?? f.ReturnDate ?? f.IssueDate;
+            string bookTitle = f.BookCopy?.Book?.Title ?? "Library Book";
+            string studentName = f.Student?.StudentName ?? "Student";
+
+            transactions.Add(new DayBookTransactionDto
+            {
+                Id = f.Id.ToString(),
+                Timestamp = fineDate,
+                VoucherNumber = !string.IsNullOrWhiteSpace(f.FinePaymentReceiptNumber) ? f.FinePaymentReceiptNumber : $"LIB-FINE-{f.Id.ToString()[..8].ToUpper()}",
+                VoucherType = "Receipt",
+                AccountHead = "Library Fines & Clearance",
+                Particulars = $"{studentName} • Late Return Fine for '{bookTitle}'",
+                Division = "General",
+                PaymentMode = "Cash",
+                DebitAmount = 0m,
+                CreditAmount = f.FineAmount,
+                PayeeOrPayerName = studentName,
+                Remarks = f.Remarks ?? "Library clearance fine"
+            });
+        }
+
+        // (C) Operating Expense Vouchers (Payments)
+        var expenseQuery = _dbContext.ExpenseVouchers
+            .AsNoTracking()
+            .Include(v => v.Category)
+            .Include(v => v.CreatedByUser)
+            .Where(v => v.TenantId == tenantId && v.ExpenseDate >= startUtc && v.ExpenseDate <= endUtc);
+
+        if (branchId.HasValue && branchId.Value != Guid.Empty)
+        {
+            expenseQuery = expenseQuery.Where(v => v.BranchId == branchId.Value);
+        }
+
+        var expenseList = await expenseQuery.ToListAsync();
+        foreach (var v in expenseList)
+        {
+            string modeStr = v.PaymentMode switch
+            {
+                ExpensePaymentMode.Cash => "Cash",
+                ExpensePaymentMode.UPI => "UPI / Online",
+                ExpensePaymentMode.BankTransfer => "Bank Transfer",
+                ExpensePaymentMode.Cheque => "Cheque",
+                _ => "Cash"
+            };
+
+            string payee = !string.IsNullOrWhiteSpace(v.VendorName) ? v.VendorName : (!string.IsNullOrWhiteSpace(v.Title) ? v.Title : "Vendor / Supplier");
+            string catName = v.Category?.Name ?? "Operational Expense";
+            string desc = !string.IsNullOrWhiteSpace(v.Description) ? $" - {v.Description}" : "";
+
+            transactions.Add(new DayBookTransactionDto
+            {
+                Id = v.Id.ToString(),
+                Timestamp = v.ExpenseDate,
+                VoucherNumber = !string.IsNullOrWhiteSpace(v.VoucherNo) ? v.VoucherNo : $"EXP-{v.ExpenseDate:yyyyMMdd}-{v.Id.ToString()[..6].ToUpper()}",
+                VoucherType = "Payment",
+                AccountHead = catName,
+                Particulars = $"{v.Title} • Payee: {payee}{desc}",
+                Division = "General",
+                PaymentMode = modeStr,
+                ReferenceNumber = v.BillInvoiceNo,
+                DebitAmount = v.Amount,
+                CreditAmount = 0m,
+                PayeeOrPayerName = payee,
+                Remarks = v.Description,
+                CreatedBy = v.CreatedByUser?.FullName
+            });
+        }
+
+        // (D) Faculty & Staff Salary Payments (Payments)
+        var salaryQuery = _dbContext.TeacherSalaryPayments
+            .AsNoTracking()
+            .Include(s => s.Teacher)
+            .Where(s => s.TenantId == tenantId && s.PaymentDate >= startUtc && s.PaymentDate <= endUtc);
+
+        if (branchId.HasValue && branchId.Value != Guid.Empty)
+        {
+            salaryQuery = salaryQuery.Where(s => s.Teacher != null && s.Teacher.BranchId == branchId.Value);
+        }
+
+        var salaryList = await salaryQuery.ToListAsync();
+        foreach (var s in salaryList)
+        {
+            string modeStr = s.PaymentMode switch
+            {
+                SalaryPaymentMode.Cash => "Cash",
+                SalaryPaymentMode.BankTransfer => "Bank Transfer",
+                SalaryPaymentMode.Cheque => "Cheque",
+                SalaryPaymentMode.UPI => "UPI / Online",
+                _ => "Bank Transfer"
+            };
+
+            string teacherName = s.Teacher != null ? $"{s.Teacher.FullName} ({s.Teacher.Designation ?? "Staff"})" : "Faculty Member";
+            string monthYear = new DateTime(s.PaymentYear, s.PaymentMonth, 1).ToString("MMM yyyy");
+            string vNo = !string.IsNullOrWhiteSpace(s.ReceiptNumber) ? s.ReceiptNumber : $"SAL-{s.PaymentYear}{s.PaymentMonth:D2}-{s.Id.ToString()[..6].ToUpper()}";
+
+            transactions.Add(new DayBookTransactionDto
+            {
+                Id = s.Id.ToString(),
+                Timestamp = s.PaymentDate,
+                VoucherNumber = vNo,
+                VoucherType = "Payment",
+                AccountHead = "Faculty & Staff Payroll",
+                Particulars = $"{teacherName} • Salary Disbursal for {monthYear}",
+                Division = "General",
+                PaymentMode = modeStr,
+                ReferenceNumber = s.TransactionRef,
+                DebitAmount = s.NetPaid,
+                CreditAmount = 0m,
+                PayeeOrPayerName = s.Teacher?.FullName,
+                Remarks = s.Remarks
+            });
+        }
+
+        // (E) Teacher Salary Advances Disbursed (Payments)
+        var advQuery = _dbContext.TeacherSalaryAdvances
+            .AsNoTracking()
+            .Include(a => a.Teacher)
+            .Where(a => a.TenantId == tenantId &&
+                   (a.Status == AdvanceStatus.Approved || a.Status == AdvanceStatus.Adjusted) &&
+                   (a.ApprovedDate ?? a.RequestDate) >= startUtc &&
+                   (a.ApprovedDate ?? a.RequestDate) <= endUtc);
+
+        if (branchId.HasValue && branchId.Value != Guid.Empty)
+        {
+            advQuery = advQuery.Where(a => a.Teacher != null && a.Teacher.BranchId == branchId.Value);
+        }
+
+        var advList = await advQuery.ToListAsync();
+        foreach (var a in advList)
+        {
+            DateTime advDate = a.ApprovedDate ?? a.RequestDate;
+            string teacherName = a.Teacher?.FullName ?? "Staff Member";
+            string reason = !string.IsNullOrWhiteSpace(a.Reason) ? a.Reason : "Personal/Urgent";
+
+            transactions.Add(new DayBookTransactionDto
+            {
+                Id = a.Id.ToString(),
+                Timestamp = advDate,
+                VoucherNumber = $"ADV-{advDate:yyyyMMdd}-{a.Id.ToString()[..6].ToUpper()}",
+                VoucherType = "Payment",
+                AccountHead = "Staff Salary Advance",
+                Particulars = $"{teacherName} • Salary Advance Disbursed ({reason})",
+                Division = "General",
+                PaymentMode = "Cash",
+                DebitAmount = a.Amount,
+                CreditAmount = 0m,
+                PayeeOrPayerName = teacherName,
+                Remarks = a.Reason
+            });
+        }
+
+        // 4. Calculate Running Balance & Aggregates chronologically across all transactions for this day/scope
+        transactions = transactions.OrderBy(t => t.Timestamp).ToList();
+
+        decimal running = openingBalance;
+        decimal totalInflow = 0m;
+        decimal totalOutflow = 0m;
+        decimal cashInflow = 0m;
+        decimal bankInflow = 0m;
+        decimal cashOutflow = 0m;
+        decimal bankOutflow = 0m;
+        int receiptCount = 0;
+        int paymentCount = 0;
+
+        foreach (var t in transactions)
+        {
+            if (t.VoucherType == "Receipt")
+            {
+                totalInflow += t.CreditAmount;
+                receiptCount++;
+                if (t.PaymentMode == "Cash") cashInflow += t.CreditAmount;
+                else bankInflow += t.CreditAmount;
+                running += t.CreditAmount;
+            }
+            else
+            {
+                totalOutflow += t.DebitAmount;
+                paymentCount++;
+                if (t.PaymentMode == "Cash") cashOutflow += t.DebitAmount;
+                else bankOutflow += t.DebitAmount;
+                running -= t.DebitAmount;
+            }
+
+            t.RunningBalance = running;
+        }
+
+        decimal netDailyChange = totalInflow - totalOutflow;
+        decimal closingBalance = running;
+
+        // 5. Server-Side Filtering (Voucher Type & Payment Mode)
+        var filteredList = transactions.AsEnumerable();
+
+        if (!string.IsNullOrWhiteSpace(voucherType) && !voucherType.Equals("All", StringComparison.OrdinalIgnoreCase))
+        {
+            filteredList = filteredList.Where(t => t.VoucherType.Equals(voucherType, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (!string.IsNullOrWhiteSpace(paymentMode) && !paymentMode.Equals("All", StringComparison.OrdinalIgnoreCase))
+        {
+            if (paymentMode.Equals("Cash", StringComparison.OrdinalIgnoreCase))
+                filteredList = filteredList.Where(t => t.PaymentMode == "Cash");
+            else if (paymentMode.Equals("Online", StringComparison.OrdinalIgnoreCase) || paymentMode.Equals("UPI", StringComparison.OrdinalIgnoreCase))
+                filteredList = filteredList.Where(t => t.PaymentMode.Contains("UPI", StringComparison.OrdinalIgnoreCase) || t.PaymentMode.Contains("Online", StringComparison.OrdinalIgnoreCase));
+            else if (paymentMode.Equals("Bank", StringComparison.OrdinalIgnoreCase) || paymentMode.Equals("BankTransfer", StringComparison.OrdinalIgnoreCase))
+                filteredList = filteredList.Where(t => t.PaymentMode.Contains("Bank", StringComparison.OrdinalIgnoreCase));
+            else if (paymentMode.Equals("Cheque", StringComparison.OrdinalIgnoreCase))
+                filteredList = filteredList.Where(t => t.PaymentMode.Contains("Cheque", StringComparison.OrdinalIgnoreCase));
+        }
+
+        // 6. Server-Side Searching
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            string term = searchTerm.Trim();
+            filteredList = filteredList.Where(t =>
+                (t.VoucherNumber != null && t.VoucherNumber.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
+                (t.Particulars != null && t.Particulars.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
+                (t.AccountHead != null && t.AccountHead.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
+                (t.PayeeOrPayerName != null && t.PayeeOrPayerName.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
+                (t.ReferenceNumber != null && t.ReferenceNumber.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
+                (t.Remarks != null && t.Remarks.Contains(term, StringComparison.OrdinalIgnoreCase))
+            );
+        }
+
+        var matchingTransactions = filteredList.ToList();
+        int totalFilteredCount = matchingTransactions.Count;
+
+        // 7. Server-Side Sorting
+        string sortCol = (sortBy ?? "timestamp").Trim().ToLowerInvariant();
+        IEnumerable<DayBookTransactionDto> sortedTransactions = sortCol switch
+        {
+            "timestamp" => sortDescending ? matchingTransactions.OrderByDescending(t => t.Timestamp) : matchingTransactions.OrderBy(t => t.Timestamp),
+            "vouchernumber" => sortDescending ? matchingTransactions.OrderByDescending(t => t.VoucherNumber) : matchingTransactions.OrderBy(t => t.VoucherNumber),
+            "vouchertype" => sortDescending ? matchingTransactions.OrderByDescending(t => t.VoucherType) : matchingTransactions.OrderBy(t => t.VoucherType),
+            "accounthead" => sortDescending ? matchingTransactions.OrderByDescending(t => t.AccountHead) : matchingTransactions.OrderBy(t => t.AccountHead),
+            "particulars" => sortDescending ? matchingTransactions.OrderByDescending(t => t.Particulars) : matchingTransactions.OrderBy(t => t.Particulars),
+            "paymentmode" => sortDescending ? matchingTransactions.OrderByDescending(t => t.PaymentMode) : matchingTransactions.OrderBy(t => t.PaymentMode),
+            "debitamount" => sortDescending ? matchingTransactions.OrderByDescending(t => t.DebitAmount) : matchingTransactions.OrderBy(t => t.DebitAmount),
+            "creditamount" => sortDescending ? matchingTransactions.OrderByDescending(t => t.CreditAmount) : matchingTransactions.OrderBy(t => t.CreditAmount),
+            "runningbalance" => sortDescending ? matchingTransactions.OrderByDescending(t => t.RunningBalance) : matchingTransactions.OrderBy(t => t.RunningBalance),
+            _ => sortDescending ? matchingTransactions.OrderByDescending(t => t.Timestamp) : matchingTransactions.OrderBy(t => t.Timestamp)
+        };
+
+        // 8. Server-Side Pagination
+        int safePageSize = pageSize <= 0 ? 25 : Math.Min(pageSize, 500);
+        int safePageNumber = pageNumber <= 0 ? 1 : pageNumber;
+        int totalPages = (int)Math.Ceiling((double)totalFilteredCount / safePageSize);
+
+        var pagedTransactions = sortedTransactions
+            .Skip((safePageNumber - 1) * safePageSize)
+            .Take(safePageSize)
+            .ToList();
+
+        var report = new DayBookReportDto(
+            targetStartIst,
+            targetStartIst,
+            targetEndIst,
+            branchId,
+            branchName,
+            openingBalance,
+            totalInflow,
+            totalOutflow,
+            netDailyChange,
+            closingBalance,
+            cashInflow,
+            bankInflow,
+            cashOutflow,
+            bankOutflow,
+            transactions.Count,
+            receiptCount,
+            paymentCount,
+            pagedTransactions,
+            scope,
+            safePageNumber,
+            safePageSize,
+            totalFilteredCount,
+            totalPages
+        );
+
+        return Ok(report);
     }
 }

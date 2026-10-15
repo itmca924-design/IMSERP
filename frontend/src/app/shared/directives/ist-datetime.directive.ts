@@ -6,7 +6,7 @@ import { Directive, ElementRef, Input, OnChanges, SimpleChanges } from '@angular
 })
 export class IstDatetimeDirective implements OnChanges {
   @Input('appIstDatetime') value: string | Date | null | undefined;
-  @Input() format: 'datetime' | 'date' | 'time' | 'shortTime' | 'time24' | 'shortDatetime' = 'shortDatetime';
+  @Input() format: 'datetime' | 'date' | 'time' | 'shortTime' | 'time24' | 'timeWithSeconds' | 'timeSec' | 'shortDatetime' = 'shortDatetime';
   @Input() prefix = '';
   @Input() suffix = '';
   @Input() timeZone = 'Asia/Kolkata';
@@ -61,6 +61,14 @@ export class IstDatetimeDirective implements OnChanges {
         timeZone: tz,
         hour: '2-digit',
         minute: '2-digit',
+        hour12: true
+      });
+    } else if (this.format === 'timeWithSeconds' || this.format === 'timeSec') {
+      formatted = dateObj.toLocaleTimeString('en-US', {
+        timeZone: tz,
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
         hour12: true
       });
     } else if (this.format === 'time24') {

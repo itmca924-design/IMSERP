@@ -18,6 +18,7 @@ export interface BranchDto {
   batchCount: number;
   roomCount: number;
 }
+export type Branch = BranchDto;
 
 export interface CreateBranchDto {
   name: string;

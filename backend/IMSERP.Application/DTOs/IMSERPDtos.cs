@@ -3597,7 +3597,8 @@ public record IncomeHeadSummaryDto(
     string Category,
     string HeadName,
     decimal Amount,
-    decimal PercentageOfTotal
+    decimal PercentageOfTotal,
+    string Division = "Consolidated"
 );
 
 public record ExpenseHeadSummaryDto(
@@ -3614,7 +3615,8 @@ public record MonthlySurplusTrendDto(
     int Year,
     decimal TotalIncome,
     decimal TotalExpense,
-    decimal NetSurplus
+    decimal NetSurplus,
+    decimal RealizedCollections = 0m
 );
 
 public record ProfitLossReportDto(
@@ -3632,7 +3634,11 @@ public record ProfitLossReportDto(
     bool IsSurplus,
     List<IncomeHeadSummaryDto> Incomes,
     List<ExpenseHeadSummaryDto> Expenses,
-    List<MonthlySurplusTrendDto> MonthlyTrends
+    List<MonthlySurplusTrendDto> MonthlyTrends,
+    string AcademicScope = "All",
+    decimal RealizedCashCollections = 0m,
+    decimal AccruedFeeReceivables = 0m,
+    decimal LibraryFinesIncome = 0m
 );
 
 // ─── Balance Sheet Models ───────────────────────────────────────
@@ -3664,7 +3670,11 @@ public record BalanceSheetReportDto(
     decimal TotalLiabilitiesAndEquity,
     decimal Difference,
     bool IsBalanced,
-    decimal CurrentPeriodProfit
+    decimal CurrentPeriodProfit,
+    string AcademicScope = "All",
+    decimal RealizedCashBalance = 0m,
+    decimal AccountsReceivableTotal = 0m,
+    decimal StaffAdvancesTotal = 0m
 );
 
 // ─── Finance Overview KPI DTO ──────────────────────────────────
@@ -3678,6 +3688,52 @@ public record FinanceDashboardKpiDto(
     decimal CurrentFinancialYearRevenue,
     decimal CurrentFinancialYearExpense,
     decimal CurrentFinancialYearSurplus
+);
+
+// ─── Day Book (दैनिक रोकड़ / रोजनामचा बही) DTOs ──────────────────────────────
+public class DayBookTransactionDto
+{
+    public string Id { get; set; } = string.Empty;
+    public DateTime Timestamp { get; set; }
+    public string VoucherNumber { get; set; } = string.Empty;
+    public string VoucherType { get; set; } = "Receipt"; // "Receipt", "Payment"
+    public string AccountHead { get; set; } = string.Empty;
+    public string Particulars { get; set; } = string.Empty;
+    public string Division { get; set; } = "General"; // "School", "Coaching", "Integrated", "General"
+    public string PaymentMode { get; set; } = "Cash"; // "Cash", "UPI / Online", "Bank Transfer", "Cheque"
+    public string? ReferenceNumber { get; set; }
+    public decimal DebitAmount { get; set; } // Outflow (₹)
+    public decimal CreditAmount { get; set; } // Inflow (₹)
+    public decimal RunningBalance { get; set; }
+    public string? PayeeOrPayerName { get; set; }
+    public string? Remarks { get; set; }
+    public string? CreatedBy { get; set; }
+}
+
+public record DayBookReportDto(
+    DateTime Date,
+    DateTime? FromDate,
+    DateTime? ToDate,
+    Guid? BranchId,
+    string BranchName,
+    decimal OpeningBalance,
+    decimal TotalInflow,
+    decimal TotalOutflow,
+    decimal NetDailyChange,
+    decimal ClosingBalance,
+    decimal CashInflow,
+    decimal BankInflow,
+    decimal CashOutflow,
+    decimal BankOutflow,
+    int TotalTransactions,
+    int ReceiptCount,
+    int PaymentCount,
+    List<DayBookTransactionDto> Transactions,
+    string AcademicScope = "All",
+    int PageNumber = 1,
+    int PageSize = 25,
+    int TotalCount = 0,
+    int TotalPages = 0
 );
 
 // ─── School Events, Functions & Celebrations DTOs ──────────────────────

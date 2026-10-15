@@ -1213,7 +1213,7 @@ using (var scope = app.Services.CreateScope())
                 context.Roles.Add(role);
                 context.SaveChanges();
 
-                var accRoutes = new[] { "/dashboard", "/school/classes", "/batches", "/students", "/fees", "/fee-heads", "/whatsapp", "/finance/profit-loss", "/finance/balance-sheet", "/finance/expenses", "/finance/chart-of-accounts", "/attendance/reports" };
+                var accRoutes = new[] { "/dashboard", "/school/classes", "/batches", "/students", "/fees", "/fee-heads", "/whatsapp", "/finance/profit-loss", "/finance/balance-sheet", "/finance/day-book", "/finance/expenses", "/finance/chart-of-accounts", "/attendance/reports" };
                 var accMenus = context.MenuItems.Where(m => accRoutes.Contains(m.RouteUrl)).ToList();
                 foreach (var m in accMenus)
                 {
@@ -1963,8 +1963,9 @@ using (var scope = app.Services.CreateScope())
         {
             new { Title = "Profit & Loss", Route = "/finance/profit-loss", Icon = "query_stats", Order = 1 },
             new { Title = "Balance Sheet", Route = "/finance/balance-sheet", Icon = "account_balance_wallet", Order = 2 },
-            new { Title = "Expense Vouchers", Route = "/finance/expenses", Icon = "receipt_long", Order = 3 },
-            new { Title = "Chart of Accounts", Route = "/finance/chart-of-accounts", Icon = "account_tree", Order = 4 }
+            new { Title = "Day Book", Route = "/finance/day-book", Icon = "auto_stories", Order = 3 },
+            new { Title = "Expense Vouchers", Route = "/finance/expenses", Icon = "receipt_long", Order = 4 },
+            new { Title = "Chart of Accounts", Route = "/finance/chart-of-accounts", Icon = "account_tree", Order = 5 }
         };
 
         foreach (var sub in financeSubmenus)

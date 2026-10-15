@@ -98,10 +98,6 @@ import { FeesService, FeePaymentReceipt } from '../../core/services/fees.service
               <span class="meta-label">Date & Time (IST):</span>
               <span class="meta-val">{{ formatToIST(receipt.paymentDate) }}</span>
             </div>
-            <div class="meta-item" *ngIf="receipt.branchName">
-              <span class="meta-label">Branch / Centre:</span>
-              <span class="meta-val">🏛️ {{ receipt.branchName }}</span>
-            </div>
             <div class="meta-item">
               <span class="meta-label">Payment Mode:</span>
               <span class="meta-val mode-pill">{{ getPaymentModeName(receipt.mode) }}</span>
@@ -159,8 +155,7 @@ import { FeesService, FeePaymentReceipt } from '../../core/services/fees.service
                 <tr>
                   <th class="text-center" style="width: 48px;">#</th>
                   <th>Fee Head / Particulars</th>
-                  <th>Settlement Reference</th>
-                  <th class="text-right">Amount Received (₹)</th>
+                  <th class="text-right" style="width: 180px;">Amount Received (₹)</th>
                 </tr>
               </thead>
               <tbody>
@@ -171,7 +166,6 @@ import { FeesService, FeePaymentReceipt } from '../../core/services/fees.service
                       <strong class="fee-head-title">{{ item.particulars }}</strong>
                       <div class="fee-head-sub" *ngIf="item.subTitle">{{ item.subTitle }}</div>
                     </td>
-                    <td>{{ item.reference || '-' }}</td>
                     <td class="text-right amount-col">
                       <strong>₹{{ item.amount | number:'1.2-2' }}</strong>
                     </td>
@@ -185,7 +179,6 @@ import { FeesService, FeePaymentReceipt } from '../../core/services/fees.service
                       <strong class="fee-head-title">Fee Installment Settlement</strong>
                       <div class="fee-head-sub">{{ receipt.remarks || 'Tuition & Academic installment' }}</div>
                     </td>
-                    <td>{{ receipt.invoiceNumber || 'Official Invoice' }}</td>
                     <td class="text-right amount-col">
                       <strong>₹{{ receipt.amountPaid | number:'1.2-2' }}</strong>
                     </td>
@@ -193,7 +186,7 @@ import { FeesService, FeePaymentReceipt } from '../../core/services/fees.service
                 </ng-template>
 
                 <tr class="summary-subtotal">
-                  <td colspan="3" class="text-right"><strong>Total Amount Received:</strong></td>
+                  <td colspan="2" class="text-right"><strong>Total Amount Received:</strong></td>
                   <td class="text-right grand-paid">₹{{ receipt.amountPaid | number:'1.2-2' }}</td>
                 </tr>
               </tbody>
@@ -544,7 +537,7 @@ import { FeesService, FeePaymentReceipt } from '../../core/services/fees.service
           margin-bottom: 5px;
           &:last-child { margin-bottom: 0; }
 
-          .k { width: 150px; color: #475569; font-weight: 600; }
+          .k { width: 165px; white-space: nowrap; color: #475569; font-weight: 600; flex-shrink: 0; }
           .v { color: #0f172a; flex: 1; }
           .student-highlight { font-weight: 800; color: #15803d; font-size: 0.96rem; }
           .status-pill {
