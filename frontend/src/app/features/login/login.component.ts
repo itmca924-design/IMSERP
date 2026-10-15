@@ -456,6 +456,8 @@ export class LoginComponent implements OnInit {
       this.sessionNotice = 'Your session expired due to inactivity. Please sign in again.';
     } else if (reason === 'session_expired') {
       this.sessionNotice = 'Your security session has expired. Please sign in again.';
+    } else if (reason === 'kicked_out') {
+      this.sessionNotice = 'Your account was logged in from another browser or device. This session has been terminated.';
     }
   }
 

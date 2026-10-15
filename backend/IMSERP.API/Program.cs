@@ -58,9 +58,26 @@ builder.Services.AddAuthentication(options =>
         ValidateIssuerSigningKey = true,
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey))
     };
+    options.Events = new Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
+            {
+                context.Token = accessToken;
+            }
+            return System.Threading.Tasks.Task.CompletedTask;
+        }
+    };
 });
 
 builder.Services.AddAuthorization();
+
+// SignalR & Presence Tracking
+builder.Services.AddSignalR();
+builder.Services.AddSingleton<IMSERP.API.Services.PresenceTracker>();
 
 // 4. Controllers & OpenAPI
 builder.Services.AddControllers();
@@ -134,6 +151,11 @@ using (var scope = app.Services.CreateScope())
                         ALTER TABLE Tenants ADD HasLibraryModule BIT NOT NULL DEFAULT 1;
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tenants') AND name = 'HasTransportModule')
                         ALTER TABLE Tenants ADD HasTransportModule BIT NOT NULL DEFAULT 1;
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Users') AND name = 'ActiveSessionId')
+                        ALTER TABLE Users ADD ActiveSessionId NVARCHAR(100) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Users') AND name = 'LastActiveAt')
+                        ALTER TABLE Users ADD LastActiveAt DATETIME2 NULL;
 
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Students') AND name = 'LeavingDate')
                         ALTER TABLE Students ADD LeavingDate DATETIME2 NULL;
@@ -1123,6 +1145,84 @@ using (var scope = app.Services.CreateScope())
                         CREATE INDEX IX_StudyMaterials_Class_Batch ON StudyMaterials (TenantId, ClassId, BatchId);
                         CREATE INDEX IX_StudyMaterials_Subject ON StudyMaterials (TenantId, Subject);
                         CREATE INDEX IX_StudyMaterials_CreatedAt ON StudyMaterials (TenantId, CreatedAt DESC);
+                    END
+
+                    -- Multi-Tenant & Branch-Wise Chat System Tables
+                    IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'ChatConversations')
+                    BEGIN
+                        CREATE TABLE ChatConversations (
+                            Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
+                            TenantId UNIQUEIDENTIFIER NOT NULL,
+                            BranchId UNIQUEIDENTIFIER NULL,
+                            ConversationType INT NOT NULL DEFAULT 1,
+                            ClassId UNIQUEIDENTIFIER NULL,
+                            SectionId UNIQUEIDENTIFIER NULL,
+                            Title NVARCHAR(200) NOT NULL DEFAULT '',
+                            Description NVARCHAR(500) NULL,
+                            LastMessageContent NVARCHAR(500) NULL,
+                            LastMessageAt DATETIME2 NULL,
+                            LastMessageSenderId UNIQUEIDENTIFIER NULL,
+                            LastMessageSenderName NVARCHAR(150) NULL,
+                            CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+                            CreatedByUserId UNIQUEIDENTIFIER NOT NULL,
+                            IsActive BIT NOT NULL DEFAULT 1
+                        );
+                        CREATE INDEX IX_ChatConversations_Tenant_Branch ON ChatConversations (TenantId, BranchId);
+                        CREATE INDEX IX_ChatConversations_Class_Section ON ChatConversations (TenantId, ClassId, SectionId);
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'ChatParticipants')
+                    BEGIN
+                        CREATE TABLE ChatParticipants (
+                            Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
+                            TenantId UNIQUEIDENTIFIER NOT NULL,
+                            BranchId UNIQUEIDENTIFIER NULL,
+                            ConversationId UNIQUEIDENTIFIER NOT NULL,
+                            UserId UNIQUEIDENTIFIER NOT NULL,
+                            RoleInChat NVARCHAR(50) NOT NULL DEFAULT 'Member',
+                            LastReadMessageId UNIQUEIDENTIFIER NULL,
+                            UnreadCount INT NOT NULL DEFAULT 0,
+                            JoinedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+                            IsMuted BIT NOT NULL DEFAULT 0
+                        );
+                        CREATE INDEX IX_ChatParticipants_User ON ChatParticipants (TenantId, UserId);
+                        CREATE INDEX IX_ChatParticipants_Conv_User ON ChatParticipants (TenantId, ConversationId, UserId);
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'ChatMessages')
+                    BEGIN
+                        CREATE TABLE ChatMessages (
+                            Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
+                            TenantId UNIQUEIDENTIFIER NOT NULL,
+                            BranchId UNIQUEIDENTIFIER NULL,
+                            ConversationId UNIQUEIDENTIFIER NOT NULL,
+                            SenderUserId UNIQUEIDENTIFIER NOT NULL,
+                            SenderName NVARCHAR(150) NOT NULL DEFAULT '',
+                            SenderRole NVARCHAR(50) NOT NULL DEFAULT '',
+                            Content NVARCHAR(MAX) NOT NULL DEFAULT '',
+                            MessageType NVARCHAR(50) NOT NULL DEFAULT 'Text',
+                            AttachmentUrl NVARCHAR(1000) NULL,
+                            AttachmentFileName NVARCHAR(300) NULL,
+                            FileSizeBytes BIGINT NULL,
+                            CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+                            IsDeleted BIT NOT NULL DEFAULT 0
+                        );
+                        CREATE INDEX IX_ChatMessages_Conv_Created ON ChatMessages (TenantId, ConversationId, CreatedAt);
+                    END
+
+                    -- Seed 'Campus Chat' Menu Item & Role Permissions
+                    IF NOT EXISTS (SELECT 1 FROM MenuItems WHERE RouteUrl = '/chat')
+                    BEGIN
+                        DECLARE @ChatMenuId UNIQUEIDENTIFIER = NEWID();
+                        INSERT INTO MenuItems (Id, Title, RouteUrl, Icon, ParentId, SortOrder, Module, IsActive)
+                        VALUES (@ChatMenuId, 'Campus Chat', '/chat', 'forum', NULL, 15, 'Communication', 1);
+
+                        IF EXISTS (SELECT 1 FROM Roles)
+                        BEGIN
+                            INSERT INTO RolePermissions (Id, RoleId, MenuItemId, CanView, CanCreate, CanEdit, CanDelete)
+                            SELECT NEWID(), r.Id, @ChatMenuId, 1, 1, 1, 1
+                            FROM Roles r;
+                        END
                     END
                 ");
             }
@@ -2186,13 +2286,57 @@ app.UseStaticFiles(new StaticFileOptions
 {
     OnPrepareResponse = ctx =>
     {
-        ctx.Context.Response.Headers.Append("Cache-Control", "public,max-age=2592000");
-        ctx.Context.Response.Headers.Append("Access-Control-Allow-Origin", "*");
+        ctx.Context.Response.Headers["Cache-Control"] = "public,max-age=2592000";
+        var origin = ctx.Context.Request.Headers.Origin.ToString();
+        if (!string.IsNullOrEmpty(origin))
+        {
+            ctx.Context.Response.Headers["Access-Control-Allow-Origin"] = origin;
+            ctx.Context.Response.Headers["Access-Control-Allow-Credentials"] = "true";
+        }
+        else
+        {
+            ctx.Context.Response.Headers["Access-Control-Allow-Origin"] = "*";
+        }
+        ctx.Context.Response.Headers["Access-Control-Allow-Methods"] = "GET, HEAD, OPTIONS";
+        ctx.Context.Response.Headers["Access-Control-Allow-Headers"] = "*";
     }
 });
 app.UseAuthentication();
 app.UseAuthorization();
 
+// Fallback HTTP Middleware: Verifies SessionId against active session to prevent stale concurrent usage
+app.Use(async (context, next) =>
+{
+    if (context.User?.Identity?.IsAuthenticated == true)
+    {
+        var tokenSessionId = context.User.FindFirst("sessionId")?.Value;
+        var userIdStr = context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+        if (!string.IsNullOrEmpty(tokenSessionId) && Guid.TryParse(userIdStr, out var userId))
+        {
+            var presenceTracker = context.RequestServices.GetRequiredService<IMSERP.API.Services.PresenceTracker>();
+            var activeSession = presenceTracker.GetActiveSession(userId);
+
+            if (!string.IsNullOrEmpty(activeSession) && activeSession != tokenSessionId)
+            {
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                context.Response.Headers["X-Session-Terminated"] = "true";
+                context.Response.ContentType = "application/json";
+                await context.Response.WriteAsJsonAsync(new
+                {
+                    error = "SessionTerminated",
+                    message = "Your account has been logged in from another browser or device. For security reasons, this session has been terminated."
+                });
+                return;
+            }
+        }
+    }
+
+    await next();
+});
+
 app.MapControllers();
+app.MapHub<IMSERP.API.Hubs.PresenceHub>("/hubs/presence");
+app.MapHub<IMSERP.API.Hubs.ChatHub>("/hubs/chat");
 
 app.Run();

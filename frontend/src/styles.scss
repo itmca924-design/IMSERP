@@ -1986,11 +1986,12 @@ mat-sidenav-container {
     padding: 0 !important;
   }
   .mat-mdc-dialog-surface {
-    border-radius: 14px !important;
+    border-radius: 10px !important;
     overflow: hidden !important;
     padding: 0 !important;
     background: #ffffff !important;
-    box-shadow: 0 20px 30px -10px rgba(15, 23, 42, 0.2), 0 10px 15px -5px rgba(15, 23, 42, 0.1) !important;
+    border: 1px solid #bfdbfe !important;
+    box-shadow: 0 20px 25px -5px rgba(15, 23, 42, 0.18), 0 8px 10px -6px rgba(15, 23, 42, 0.12) !important;
   }
   .mat-mdc-dialog-content {
     padding: 20px 24px !important;
@@ -1999,6 +2000,41 @@ mat-sidenav-container {
   .mat-mdc-dialog-actions {
     padding: 14px 24px 18px !important;
     margin: 0 !important;
+  }
+  .close-btn {
+    width: 28px !important;
+    height: 28px !important;
+    min-width: 28px !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    border: 1.5px solid #bfdbfe !important;
+    border-radius: 6px !important;
+    color: #1e3a8a !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    box-shadow: 0 1px 2px rgba(30, 58, 138, 0.08) !important;
+    transition: all 0.15s ease-in-out !important;
+
+    mat-icon {
+      font-size: 16px !important;
+      width: 16px !important;
+      height: 16px !important;
+      line-height: 16px !important;
+      font-weight: 700 !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+    }
+
+    &:hover {
+      background: #fee2e2 !important;
+      border-color: #ef4444 !important;
+      color: #dc2626 !important;
+      box-shadow: 0 2px 4px rgba(220, 38, 38, 0.2) !important;
+      transform: translateY(-1px) !important;
+    }
   }
 }
 

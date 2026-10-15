@@ -58,5 +58,11 @@
   - NEVER use `MatSnackBar`, toasts, or floating snackbar banners anywhere in the application.
   - ALWAYS use **Angular Material Dialogs / Popups (`ConfirmDialogService.alert()`, `ConfirmDialogService.confirm()`, or `MatDialog`)** for displaying all user messages, success feedback, error alerts, informational notices, and confirmations.
   - All popups must strictly maintain the standard light-blue gradient header styling.
+- **Responsive UI Across All Devices (Strict UI Standard)**:
+  - Every page, module, control deck, filter bar, KPI deck, table, dialog, and report MUST be 100% fully responsive across **Mobile (< 640px), Tablet (640px - 1024px), and Desktop (> 1024px)**.
+  - Decks and filters must flex-wrap or switch to column layout on smaller screens with full-width search and control units.
+  - Tables must always be wrapped in `.table-responsive` (`overflow-x: auto; -webkit-overflow-scrolling: touch;`) with explicit column min-widths (`white-space: nowrap`) to avoid content squishing or clipping.
+  - KPI grids must automatically adapt from 4 columns on large screens to 2 columns on tablets, and 1 column on mobile phones.
+
 
 

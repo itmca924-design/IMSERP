@@ -46,39 +46,43 @@ export interface ConfirmDialogData {
   ],
   template: `
     <div class="dialog-wrapper" [ngClass]="data.type || 'info'">
-      <!-- Strict Light Blue Gradient Header matching AGENTS.md rule -->
+      <!-- Strict Sharp Light Blue Gradient Header matching AGENTS.md rule -->
       <div class="dialog-header">
-        <div class="header-icon-wrap" [ngClass]="data.type || 'info'">
-          <mat-icon>{{ getIconName() }}</mat-icon>
-        </div>
-        <div class="header-titles">
-          <h2 mat-dialog-title class="main-title">{{ currentTitle }}</h2>
-          <p class="subtitle">{{ getSubtitleText() }}</p>
-        </div>
-
-        <!-- HIN / EN Switch Pills in Header -->
-        <div class="lang-switch-wrap" *ngIf="hasBilingual()">
-          <button 
-            type="button" 
-            class="lang-pill-btn" 
-            [class.active]="activeLang === 'hi'" 
-            (click)="setLang('hi')"
-            matTooltip="हिन्दी भाषा में देखें">
-            HIN
-          </button>
-          <button 
-            type="button" 
-            class="lang-pill-btn" 
-            [class.active]="activeLang === 'en'" 
-            (click)="setLang('en')"
-            matTooltip="View in English">
-            EN
-          </button>
+        <div class="header-left">
+          <div class="header-icon-wrap" [ngClass]="data.type || 'info'">
+            <mat-icon>{{ getIconName() }}</mat-icon>
+          </div>
+          <div class="header-titles">
+            <h2 mat-dialog-title class="main-title">{{ currentTitle }}</h2>
+            <p class="subtitle">{{ getSubtitleText() }}</p>
+          </div>
         </div>
 
-        <button mat-icon-button type="button" class="close-btn" (click)="onCancel()" matTooltip="Close">
-          <mat-icon>close</mat-icon>
-        </button>
+        <div class="header-right-actions">
+          <!-- HIN / EN Switch Pills in Header -->
+          <div class="lang-switch-wrap" *ngIf="hasBilingual()">
+            <button 
+              type="button" 
+              class="lang-pill-btn" 
+              [class.active]="activeLang === 'hi'" 
+              (click)="setLang('hi')"
+              matTooltip="हिन्दी भाषा में देखें">
+              HIN
+            </button>
+            <button 
+              type="button" 
+              class="lang-pill-btn" 
+              [class.active]="activeLang === 'en'" 
+              (click)="setLang('en')"
+              matTooltip="View in English">
+              EN
+            </button>
+          </div>
+
+          <button type="button" class="close-btn" (click)="onCancel()" aria-label="Close dialog">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
       </div>
 
       <!-- Dialog Body -->
@@ -167,19 +171,28 @@ export interface ConfirmDialogData {
       width: 100%;
     }
 
-    /* Strict Light Blue Gradient Header matching AGENTS.md rule */
+    /* Strict Sharp Light Blue Gradient Header matching AGENTS.md rule */
     .dialog-header {
       background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-      border-bottom: 1px solid #bfdbfe;
-      padding: 18px 24px;
+      border-bottom: 1.5px solid #bfdbfe;
+      padding: 12px 14px 12px 18px;
       display: flex;
       align-items: center;
-      gap: 14px;
+      justify-content: space-between;
+      gap: 12px;
+
+      .header-left {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex: 1 1 auto;
+        min-width: 0;
+      }
 
       .header-icon-wrap {
-        width: 42px;
-        height: 42px;
-        border-radius: 10px;
+        width: 38px;
+        height: 38px;
+        border-radius: 8px;
         background: #2563eb;
         color: #ffffff;
         display: flex;
@@ -189,9 +202,9 @@ export interface ConfirmDialogData {
         box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.25);
 
         mat-icon {
-          font-size: 24px;
-          width: 24px;
-          height: 24px;
+          font-size: 22px;
+          width: 22px;
+          height: 22px;
         }
 
         &.danger {
@@ -214,18 +227,28 @@ export interface ConfirmDialogData {
 
         .main-title {
           margin: 0;
-          font-size: 1.12rem;
+          font-size: 1.14rem;
           font-weight: 700;
           color: #1e3a8a;
-          line-height: 1.3;
+          letter-spacing: -0.01em;
+          line-height: 1.25;
         }
 
         .subtitle {
           margin: 2px 0 0;
-          font-size: 0.78rem;
-          color: #3b82f6;
-          font-weight: 500;
+          font-size: 0.76rem;
+          color: #2563eb;
+          font-weight: 600;
+          line-height: 1.2;
         }
+      }
+
+      .header-right-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+        margin-left: auto;
       }
 
       /* Language Switcher in Header */
@@ -234,22 +257,21 @@ export interface ConfirmDialogData {
         align-items: center;
         background: #ffffff;
         border: 1px solid #bfdbfe;
-        border-radius: 20px;
+        border-radius: 6px;
         padding: 2px;
         gap: 2px;
-        flex-shrink: 0;
-        box-shadow: 0 1px 3px rgba(37, 99, 235, 0.08);
+        box-shadow: 0 1px 2px rgba(37, 99, 235, 0.06);
 
         .lang-pill-btn {
           border: none;
           background: transparent;
-          font-size: 0.72rem;
+          font-size: 0.7rem;
           font-weight: 700;
           color: #3b82f6;
-          padding: 3px 10px;
-          border-radius: 14px;
+          padding: 2px 8px;
+          border-radius: 4px;
           cursor: pointer;
-          transition: all 0.2s ease;
+          transition: all 0.15s ease;
           line-height: 1.2;
 
           &:hover {
@@ -260,17 +282,49 @@ export interface ConfirmDialogData {
           &.active {
             background: #2563eb;
             color: #ffffff;
-            box-shadow: 0 2px 4px rgba(37, 99, 235, 0.25);
+            box-shadow: 0 1px 3px rgba(37, 99, 235, 0.25);
           }
         }
       }
 
       .close-btn {
-        color: #64748b;
+        width: 28px;
+        height: 28px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        color: #1e3a8a;
+        background: #ffffff;
+        border: 1.5px solid #bfdbfe;
+        padding: 0;
+        cursor: pointer;
+        transition: all 0.15s ease-in-out;
+        box-shadow: 0 1px 2px rgba(30, 58, 138, 0.08);
         flex-shrink: 0;
-        margin-left: auto;
+
+        mat-icon {
+          font-size: 16px;
+          width: 16px;
+          height: 16px;
+          line-height: 16px;
+          font-weight: 700;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
         &:hover {
-          color: #1e293b;
+          background: #fee2e2;
+          border-color: #ef4444;
+          color: #dc2626;
+          box-shadow: 0 2px 4px rgba(220, 38, 38, 0.2);
+          transform: translateY(-1px);
+        }
+
+        &:active {
+          transform: translateY(0);
+          box-shadow: none;
         }
       }
     }

@@ -30,7 +30,8 @@ public record LoginResponseDto(
     int MaxStudentsLimit = 50,
     int MaxBranchesLimit = 2,
     bool IsSubscriptionExpired = false,
-    string? UserProfilePhoto = null
+    string? UserProfilePhoto = null,
+    string? SessionId = null
 );
 
 public record BranchDto(

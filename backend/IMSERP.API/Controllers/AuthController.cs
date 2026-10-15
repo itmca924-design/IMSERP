@@ -11,6 +11,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
 using IMSERP.API.Helpers;
+using IMSERP.API.Hubs;
+using IMSERP.API.Services;
+using Microsoft.AspNetCore.SignalR;
 
 namespace IMSERP.API.Controllers;
 
@@ -22,13 +25,23 @@ public class AuthController : ControllerBase
     private readonly IPasswordHasherService _passwordHasher;
     private readonly IConfiguration _config;
     private readonly IWebHostEnvironment _env;
+    private readonly PresenceTracker _presenceTracker;
+    private readonly IHubContext<PresenceHub> _presenceHubContext;
 
-    public AuthController(IIMSERPDbContext dbContext, IPasswordHasherService passwordHasher, IConfiguration config, IWebHostEnvironment env)
+    public AuthController(
+        IIMSERPDbContext dbContext,
+        IPasswordHasherService passwordHasher,
+        IConfiguration config,
+        IWebHostEnvironment env,
+        PresenceTracker presenceTracker,
+        IHubContext<PresenceHub> presenceHubContext)
     {
         _dbContext = dbContext;
         _passwordHasher = passwordHasher;
         _config = config;
         _env = env;
+        _presenceTracker = presenceTracker;
+        _presenceHubContext = presenceHubContext;
     }
 
     [HttpPost("login")]
@@ -92,6 +105,30 @@ public class AuthController : ControllerBase
             }
         }
 
+        // Enforce Single Active Session per user:
+        // Check if user is currently active on another browser/device and terminate previous session
+        var oldConnections = _presenceTracker.GetConnectionsForUser(user.Id).ToList();
+        if (oldConnections.Count > 0)
+        {
+            foreach (var conn in oldConnections)
+            {
+                try
+                {
+                    await _presenceHubContext.Clients.Client(conn.ConnectionId).SendAsync("ForceLogout", new
+                    {
+                        title = "Session Terminated",
+                        message = "Your account has been logged in from another browser or device. For security reasons, this session has been terminated."
+                    });
+                }
+                catch { }
+            }
+        }
+
+        var newSessionId = Guid.NewGuid().ToString();
+        user.ActiveSessionId = newSessionId;
+        user.LastActiveAt = DateTime.UtcNow;
+        _presenceTracker.SetActiveSession(user.Id, newSessionId);
+
         // 3. Generate Access Token (30 min) + Refresh Token (7 days)
         var accessToken = GenerateJwtToken(user, tenant.Name, tenant.Code, effectiveRole);
         var refreshToken = GenerateRefreshToken();
@@ -144,7 +181,8 @@ public class AuthController : ControllerBase
             MaxStudentsLimit: tenant.MaxStudentsLimit,
             MaxBranchesLimit: tenant.MaxBranchesLimit,
             IsSubscriptionExpired: isExpired,
-            UserProfilePhoto: user.ProfilePhoto
+            UserProfilePhoto: user.ProfilePhoto,
+            SessionId: newSessionId
         ));
     }
 
@@ -257,7 +295,8 @@ public class AuthController : ControllerBase
             MaxStudentsLimit: tenant?.MaxStudentsLimit ?? 50,
             MaxBranchesLimit: tenant?.MaxBranchesLimit ?? 2,
             IsSubscriptionExpired: isExpired,
-            UserProfilePhoto: user.ProfilePhoto
+            UserProfilePhoto: user.ProfilePhoto,
+            SessionId: user.ActiveSessionId
         ));
     }
 
@@ -273,7 +312,9 @@ public class AuthController : ControllerBase
             {
                 user.RefreshToken = null;
                 user.RefreshTokenExpiryTime = null;
+                user.ActiveSessionId = null;
                 await _dbContext.SaveChangesAsync();
+                _presenceTracker.SetActiveSession(userId, string.Empty);
             }
         }
         return Ok(new { message = "Token revoked successfully." });
@@ -730,16 +771,22 @@ public class AuthController : ControllerBase
             new Claim(ClaimTypes.GivenName, user.FullName),
             new Claim(ClaimTypes.Role, effectiveRole),
             new Claim("TenantId", user.TenantId.ToString()),
+            new Claim("tenantId", user.TenantId.ToString()),
             new Claim("TenantCode", tenantCode),
-            new Claim("InstituteName", instituteName)
+            new Claim("InstituteName", instituteName),
+            new Claim("username", user.Username),
+            new Claim("fullName", user.FullName),
+            new Claim("sessionId", user.ActiveSessionId ?? "")
         };
 
         if (user.BranchId.HasValue && user.BranchId.Value != Guid.Empty)
         {
             claims.Add(new Claim("BranchId", user.BranchId.Value.ToString()));
+            claims.Add(new Claim("branchId", user.BranchId.Value.ToString()));
             if (!string.IsNullOrWhiteSpace(user.Branch?.Name))
             {
                 claims.Add(new Claim("BranchName", user.Branch.Name));
+                claims.Add(new Claim("branchName", user.Branch.Name));
             }
         }
 

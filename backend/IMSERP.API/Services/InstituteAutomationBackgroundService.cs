@@ -1,9 +1,6 @@
 using IMSERP.Application.Interfaces;
 using IMSERP.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 
 namespace IMSERP.Infrastructure.Services;
 

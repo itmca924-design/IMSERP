@@ -96,6 +96,9 @@ public interface IIMSERPDbContext
     DbSet<StudyMaterial> StudyMaterials { get; }
     DbSet<SchoolPeriodSlot> SchoolPeriodSlots { get; }
     DbSet<SchoolActivityType> SchoolActivityTypes { get; }
+    DbSet<ChatConversation> ChatConversations { get; }
+    DbSet<ChatParticipant> ChatParticipants { get; }
+    DbSet<ChatMessage> ChatMessages { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

@@ -710,6 +710,16 @@ import { environment } from '../../../environments/environment';
           <span><mat-icon>work_history</mat-icon>{{t.experienceYears}}y exp</span>
         </div>
         <div class="card-phone"><mat-icon>phone</mat-icon>{{t.phoneNumber}}</div>
+
+        <!-- Quick Action Buttons -->
+        <div class="card-footer-actions">
+          <button mat-button class="card-action-btn edit-btn" *ngIf="canManageStaff && t.isActive" (click)="$event.stopPropagation(); editTeacher(t)" matTooltip="Edit details at top">
+            <mat-icon>edit</mat-icon> Edit
+          </button>
+          <button mat-button class="card-action-btn view-btn" (click)="$event.stopPropagation(); viewTeacherProfile(t)" matTooltip="View Full Profile &amp; Records">
+            <mat-icon>visibility</mat-icon> Profile
+          </button>
+        </div>
       </div>
     </mat-card>
 
@@ -1448,6 +1458,56 @@ import { environment } from '../../../environments/environment';
       span{display:flex;align-items:center;gap:3px;} mat-icon{font-size:14px;width:14px;height:14px;} }
     .card-phone { font-size:.8rem; color:#475569; display:flex; align-items:center; gap:4px;
       mat-icon{font-size:14px;width:14px;height:14px;color:#94a3b8;} }
+    .card-footer-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px dashed #e2e8f0;
+
+      .card-action-btn {
+        flex: 1;
+        height: 28px !important;
+        line-height: 28px !important;
+        padding: 0 8px !important;
+        font-size: 0.74rem !important;
+        font-weight: 600 !important;
+        border-radius: 6px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 4px !important;
+
+        mat-icon {
+          font-size: 14px !important;
+          width: 14px !important;
+          height: 14px !important;
+          line-height: 14px !important;
+        }
+
+        &.edit-btn {
+          color: #2563eb !important;
+          background: #eff6ff !important;
+          border: 1px solid #bfdbfe !important;
+          &:hover {
+            background: #2563eb !important;
+            color: #ffffff !important;
+            border-color: #2563eb !important;
+          }
+        }
+
+        &.view-btn {
+          color: #475569 !important;
+          background: #f8fafc !important;
+          border: 1px solid #e2e8f0 !important;
+          &:hover {
+            background: #e2e8f0 !important;
+            color: #1e293b !important;
+          }
+        }
+      }
+    }
     .empty-state { grid-column:1/-1; display:flex; flex-direction:column; align-items:center; padding:60px; color:#94a3b8;
       mat-icon{font-size:48px;width:48px;height:48px;margin-bottom:12px;} }
     .pagination { display:flex; justify-content:center; align-items:center; gap:16px; margin-top:8px;
@@ -2020,8 +2080,40 @@ export class TeacherProfilesComponent implements OnInit {
   onSearch() { this.pageNumber = 1; this.loadTeachers(); }
   changePage(dir: number) { this.pageNumber += dir; this.loadTeachers(); }
 
+  scrollToTop(): void {
+    setTimeout(() => {
+      // 1. Scroll the outer .main-content scroll container
+      const mainContent = document.querySelector('.main-content');
+      if (mainContent) {
+        mainContent.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+      // 2. Scroll into view target form / profile card
+      const targetElement = document.querySelector('.form-card') ||
+                           document.querySelector('.profile-view') ||
+                           document.querySelector('.page-container');
+      if (targetElement) {
+        targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      // 3. Fallback window scroll
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, 60);
+  }
+
   selectTeacher(t: TeacherDto) {
+    if (this.canManageStaff && t.isActive) {
+      this.editTeacher(t);
+    } else {
+      this.viewTeacherProfile(t);
+    }
+  }
+
+  viewTeacherProfile(t: TeacherDto) {
+    this.showForm = false;
+    this.editingId = null;
     this.selectedTeacher = this.selectedTeacher?.id === t.id ? null : t;
+    if (this.selectedTeacher) {
+      this.scrollToTop();
+    }
   }
 
   onStaffTypeChange(type: number) {
@@ -2065,10 +2157,11 @@ export class TeacherProfilesComponent implements OnInit {
       joiningDate: new Date().toISOString().split('T')[0]
     });
     this.generateEmployeeCode(1);
+    this.scrollToTop();
   }
 
   editTeacher(t: TeacherDto) {
-    this.editingId = t.id; this.showForm = true;
+    this.editingId = t.id; this.showForm = true; this.selectedTeacher = t;
     this.phoneDuplicate = false; this.whatsAppDuplicate = false; this.emailDuplicate = false;
     this.previewImgError = false;
     this.allowManualCode = false;
@@ -2093,6 +2186,7 @@ export class TeacherProfilesComponent implements OnInit {
       joiningDate: t.joiningDate?.split('T')[0],
       dateOfBirth: t.dateOfBirth?.split('T')[0]
     });
+    this.scrollToTop();
   }
 
   cancelForm() {

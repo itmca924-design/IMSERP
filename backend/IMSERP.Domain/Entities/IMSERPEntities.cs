@@ -89,6 +89,8 @@ public class User
     public bool IsActive { get; set; } = true;
     public string? RefreshToken { get; set; }
     public DateTime? RefreshTokenExpiryTime { get; set; }
+    public string? ActiveSessionId { get; set; }
+    public DateTime? LastActiveAt { get; set; }
     public string? ProfilePhoto { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
@@ -2336,4 +2338,93 @@ public class SchoolActivityType
     public Branch? Branch { get; set; }
 }
 
+// ─── Multi-Tenant & Branch-Wise Chat Entities ─────────────────
 
+public enum ChatConversationType
+{
+    Direct1on1 = 1,
+    ClassGroup = 2,
+    StaffGroup = 3,
+    Broadcast = 4
+}
+
+public class ChatConversation
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public ChatConversationType ConversationType { get; set; } = ChatConversationType.Direct1on1;
+    public Guid? ClassId { get; set; }
+    public Guid? SectionId { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public string? LastMessageContent { get; set; }
+    public DateTime? LastMessageAt { get; set; }
+    public Guid? LastMessageSenderId { get; set; }
+    public string? LastMessageSenderName { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public Guid CreatedByUserId { get; set; }
+    public bool IsActive { get; set; } = true;
+
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+
+    [ForeignKey("ClassId")]
+    public SchoolClass? SchoolClass { get; set; }
+
+    [ForeignKey("SectionId")]
+    public SchoolSection? SchoolSection { get; set; }
+
+    public ICollection<ChatParticipant> Participants { get; set; } = new List<ChatParticipant>();
+    public ICollection<ChatMessage> Messages { get; set; } = new List<ChatMessage>();
+}
+
+public class ChatParticipant
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid ConversationId { get; set; }
+    public Guid UserId { get; set; }
+    public string RoleInChat { get; set; } = "Member"; // Admin, Member
+    public Guid? LastReadMessageId { get; set; }
+    public int UnreadCount { get; set; } = 0;
+    public DateTime JoinedAt { get; set; } = DateTime.UtcNow;
+    public bool IsMuted { get; set; } = false;
+
+    [ForeignKey("ConversationId")]
+    public ChatConversation? Conversation { get; set; }
+
+    [ForeignKey("UserId")]
+    public User? User { get; set; }
+
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+}
+
+public class ChatMessage
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid ConversationId { get; set; }
+    public Guid SenderUserId { get; set; }
+    public string SenderName { get; set; } = string.Empty;
+    public string SenderRole { get; set; } = string.Empty; // Student, Teacher, Admin
+    public string Content { get; set; } = string.Empty;
+    public string MessageType { get; set; } = "Text"; // Text, Image, File
+    public string? AttachmentUrl { get; set; }
+    public string? AttachmentFileName { get; set; }
+    public long? FileSizeBytes { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public bool IsDeleted { get; set; } = false;
+
+    [ForeignKey("ConversationId")]
+    public ChatConversation? Conversation { get; set; }
+
+    [ForeignKey("SenderUserId")]
+    public User? SenderUser { get; set; }
+
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+}

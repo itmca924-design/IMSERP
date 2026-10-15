@@ -103,6 +103,9 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
     public DbSet<StudyMaterial> StudyMaterials => Set<StudyMaterial>();
     public DbSet<SchoolPeriodSlot> SchoolPeriodSlots => Set<SchoolPeriodSlot>();
     public DbSet<SchoolActivityType> SchoolActivityTypes => Set<SchoolActivityType>();
+    public DbSet<ChatConversation> ChatConversations => Set<ChatConversation>();
+    public DbSet<ChatParticipant> ChatParticipants => Set<ChatParticipant>();
+    public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -184,6 +187,30 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
         modelBuilder.Entity<StudentHealthRecord>().HasQueryFilter(x => 
             (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+
+        modelBuilder.Entity<ChatConversation>().HasQueryFilter(x => 
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+
+        modelBuilder.Entity<ChatParticipant>().HasQueryFilter(x => 
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+
+        modelBuilder.Entity<ChatMessage>().HasQueryFilter(x => 
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+
+        modelBuilder.Entity<ChatParticipant>()
+            .HasOne(p => p.User)
+            .WithMany()
+            .HasForeignKey(p => p.UserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<ChatMessage>()
+            .HasOne(m => m.SenderUser)
+            .WithMany()
+            .HasForeignKey(m => m.SenderUserId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         // Dynamic Global Multi-Tenant & Multi-Branch Query Filters
         modelBuilder.Entity<Branch>().HasQueryFilter(x => _currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId);

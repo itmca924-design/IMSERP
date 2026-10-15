@@ -23,6 +23,8 @@ import { TranslationService } from '../core/services/translation.service';
 import { API_BASE, HolidayDto } from '../features/teachers/teacher.models';
 import { FooterComponent } from './footer/footer.component';
 import { QuickSettingsDrawerComponent } from './quick-settings-drawer/quick-settings-drawer.component';
+import { PresenceService } from '../core/services/presence.service';
+import { ChatService } from '../core/services/chat.service';
 import { environment } from '../../environments/environment';
 
 @Component({
@@ -177,11 +179,69 @@ import { environment } from '../../environments/environment';
               </div>
             </div>
 
+            <!-- Real-time Multi-tenant Branch-wise Active Users Live Button -->
+            <button mat-stroked-button [matMenuTriggerFor]="activeUsersMenu" class="active-users-pill-btn" [matTooltip]="presenceService.activeUsersCount() + ' user(s) currently active in ' + getCurrentBranchLabel()" aria-label="Active Users">
+              <span class="active-pulse-dot"></span>
+              <mat-icon class="active-icon">group</mat-icon>
+              <span class="active-count">{{ presenceService.activeUsersCount() }}</span>
+              <span class="active-text">Online</span>
+            </button>
+            <mat-menu #activeUsersMenu="matMenu" xPosition="before" class="active-users-menu-panel">
+              <div class="active-menu-header">
+                <div class="title-row">
+                  <span class="live-dot"></span>
+                  <strong>Active Sessions ({{ presenceService.activeUsersCount() }})</strong>
+                </div>
+                <span class="branch-tag">{{ getCurrentBranchCode() }}</span>
+              </div>
+              <div class="active-menu-branch-scope">
+                <mat-icon>storefront</mat-icon>
+                <span>{{ getCurrentBranchLabel() }}</span>
+              </div>
+              <mat-divider></mat-divider>
+              <div class="active-users-scroll-container">
+                <div class="active-user-item-row" *ngFor="let u of presenceService.activeUsers()">
+                  <div class="user-avatar-circle">{{ getInitials(u.fullName) }}</div>
+                  <div class="user-details">
+                    <div class="name-line">
+                      <span class="user-name">{{ u.fullName }}</span>
+                      <span class="self-badge" *ngIf="u.userId === currentUser()?.userId">You</span>
+                    </div>
+                    <div class="sub-line">
+                      <span class="role-pill">{{ u.role }}</span>
+                      <span class="branch-info" *ngIf="u.branchName">&bull; {{ u.branchName }}</span>
+                    </div>
+                  </div>
+                  <span class="live-badge"><span class="dot"></span> Live</span>
+                </div>
+                <div class="no-other-users" *ngIf="presenceService.activeUsers().length === 0">
+                  <mat-icon>person</mat-icon>
+                  <span>1 active user online (You)</span>
+                </div>
+              </div>
+            </mat-menu>
+
+            <button mat-icon-button routerLink="/chat" class="header-tool-button" matTooltip="Campus & Class Chat" aria-label="Campus & Class Chat">
+              <mat-icon>forum</mat-icon>
+              <span class="chat-unread-badge" *ngIf="chatService.totalUnreadCount() > 0">
+                {{ chatService.totalUnreadCount() > 99 ? '99+' : chatService.totalUnreadCount() }}
+              </span>
+            </button>
+
             <button mat-icon-button [matMenuTriggerFor]="notificationMenu" class="header-tool-button" matTooltip="Notifications" aria-label="Notifications">
               <mat-icon>notifications_none</mat-icon><span class="notification-dot"></span>
             </button>
             <mat-menu #notificationMenu="matMenu" xPosition="before">
               <div class="menu-section-title">Notifications</div>
+              <div class="notification-active-users-card" [matMenuTriggerFor]="activeUsersMenu">
+                <div class="pulse-indicator"></div>
+                <div class="text-content">
+                  <strong>{{ presenceService.activeUsersCount() }} Active Users in Branch</strong>
+                  <small>{{ getCurrentBranchLabel() }}</small>
+                </div>
+                <mat-icon class="chevron">chevron_right</mat-icon>
+              </div>
+              <mat-divider></mat-divider>
               <button mat-menu-item routerLink="/fees" *ngIf="isRoutePermitted('/fees') && isUpcomingBillingWindowActive()">
                 <mat-icon style="color: #2563eb;">calendar_month</mat-icon>
                 <span>Upcoming Fee Invoicing Alert ({{ getUpcomingBillingCycleLabel() }})</span>
@@ -832,6 +892,25 @@ import { environment } from '../../environments/environment';
     .search-results mat-icon { font-size:18px; width:18px; height:18px; color:#2563eb; }
     .header-tool-button { position:relative; color:#fff; flex-shrink: 0; }
     .notification-dot { position:absolute; top:9px; right:9px; width:6px; height:6px; border-radius:50%; background:#fbbf24; border:1px solid #3f51b5; }
+    .chat-unread-badge {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      min-width: 17px;
+      height: 17px;
+      padding: 0 4px;
+      border-radius: 9px;
+      background: #ef4444;
+      color: #ffffff;
+      font-size: 0.65rem;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+      border: 1.5px solid #ffffff;
+      line-height: 1;
+    }
     .quick-actions-button {
       height: 34px;
       color: #fff;
@@ -848,6 +927,308 @@ import { environment } from '../../environments/environment';
         display: none !important;
       }
     }
+    /* Real-time Multi-tenant Branch-wise Active Users Badge & Dropdown */
+    .active-users-pill-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      height: 34px !important;
+      padding: 0 10px !important;
+      border-radius: 18px !important;
+      background: rgba(16, 185, 129, 0.16) !important;
+      border: 1px solid rgba(52, 211, 153, 0.45) !important;
+      color: #ffffff !important;
+      font-size: 0.8rem !important;
+      font-weight: 600 !important;
+      cursor: pointer;
+      transition: all 0.2s ease !important;
+      flex-shrink: 0;
+
+      &:hover {
+        background: rgba(16, 185, 129, 0.28) !important;
+        border-color: rgba(52, 211, 153, 0.75) !important;
+        box-shadow: 0 0 12px rgba(16, 185, 129, 0.35) !important;
+      }
+
+      .active-pulse-dot {
+        width: 8px;
+        height: 8px;
+        background: #10b981;
+        border-radius: 50%;
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+        animation: activePulse 1.8s infinite;
+      }
+
+      .active-icon {
+        font-size: 16px !important;
+        width: 16px !important;
+        height: 16px !important;
+        line-height: 16px !important;
+        color: #6ee7b7 !important;
+        margin: 0 !important;
+      }
+
+      .active-count {
+        font-size: 0.84rem !important;
+        font-weight: 700 !important;
+        color: #ffffff !important;
+      }
+
+      .active-text {
+        font-size: 0.72rem !important;
+        font-weight: 500 !important;
+        color: #a7f3d0 !important;
+      }
+
+      @media (max-width: 650px) {
+        padding: 0 6px !important;
+        .active-text { display: none; }
+      }
+    }
+
+    @keyframes activePulse {
+      0% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+      }
+      70% {
+        transform: scale(1.1);
+        box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+      }
+      100% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+      }
+    }
+
+    /* Active Users Dropdown Menu */
+    ::ng-deep .active-users-menu-panel {
+      min-width: 290px !important;
+      max-width: 340px !important;
+      border-radius: 12px !important;
+      border: 1px solid #bfdbfe !important;
+      box-shadow: 0 14px 30px rgba(15, 23, 42, 0.18) !important;
+      overflow: hidden !important;
+
+      .active-menu-header {
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        padding: 12px 14px 6px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+
+        .title-row {
+          display: flex;
+          align-items: center;
+          gap: 7px;
+          color: #1e3a8a;
+          font-size: 0.88rem;
+
+          .live-dot {
+            width: 8px;
+            height: 8px;
+            background: #10b981;
+            border-radius: 50%;
+            display: inline-block;
+          }
+        }
+
+        .branch-tag {
+          font-size: 0.7rem;
+          font-weight: 700;
+          color: #1d4ed8;
+          background: #dbeafe;
+          padding: 2px 7px;
+          border-radius: 6px;
+          border: 1px solid #bfdbfe;
+        }
+      }
+
+      .active-menu-branch-scope {
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        padding: 0 14px 10px;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 0.75rem;
+        color: #2563eb;
+        font-weight: 600;
+
+        mat-icon {
+          font-size: 14px;
+          width: 14px;
+          height: 14px;
+          line-height: 14px;
+        }
+      }
+
+      .active-users-scroll-container {
+        max-height: 260px;
+        overflow-y: auto;
+        padding: 6px 0;
+
+        .active-user-item-row {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 8px 14px;
+          transition: background 0.15s ease;
+
+          &:hover {
+            background: #f8fafc;
+          }
+
+          .user-avatar-circle {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+            color: #ffffff;
+            font-size: 0.76rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            border: 2px solid #ffffff;
+            box-shadow: 0 2px 5px rgba(37, 99, 235, 0.2);
+          }
+
+          .user-details {
+            flex: 1;
+            min-width: 0;
+
+            .name-line {
+              display: flex;
+              align-items: center;
+              gap: 5px;
+
+              .user-name {
+                font-size: 0.82rem;
+                font-weight: 600;
+                color: #1e293b;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+              }
+
+              .self-badge {
+                font-size: 0.65rem;
+                font-weight: 700;
+                color: #2563eb;
+                background: #eff6ff;
+                padding: 1px 5px;
+                border-radius: 4px;
+                border: 1px solid #bfdbfe;
+              }
+            }
+
+            .sub-line {
+              font-size: 0.72rem;
+              color: #64748b;
+              display: flex;
+              align-items: center;
+              gap: 4px;
+              margin-top: 1px;
+
+              .role-pill {
+                font-weight: 600;
+                color: #475569;
+              }
+
+              .branch-info {
+                color: #94a3b8;
+              }
+            }
+          }
+
+          .live-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.68rem;
+            font-weight: 700;
+            color: #059669;
+            background: #ecfdf5;
+            padding: 2px 7px;
+            border-radius: 10px;
+            border: 1px solid #a7f3d0;
+
+            .dot {
+              width: 5px;
+              height: 5px;
+              background: #10b981;
+              border-radius: 50%;
+            }
+          }
+        }
+
+        .no-other-users {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 16px;
+          color: #64748b;
+          font-size: 0.8rem;
+          justify-content: center;
+
+          mat-icon {
+            font-size: 18px;
+            width: 18px;
+            height: 18px;
+            color: #94a3b8;
+          }
+        }
+      }
+    }
+
+    .notification-active-users-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+      cursor: pointer;
+      transition: background 0.2s ease;
+
+      &:hover {
+        background: #bbf7d0;
+      }
+
+      .pulse-indicator {
+        width: 10px;
+        height: 10px;
+        background: #16a34a;
+        border-radius: 50%;
+        animation: activePulse 1.8s infinite;
+        flex-shrink: 0;
+      }
+
+      .text-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+
+        strong {
+          color: #166534;
+          font-size: 0.82rem;
+          font-weight: 700;
+        }
+
+        small {
+          color: #15803d;
+          font-size: 0.72rem;
+        }
+      }
+
+      .chevron {
+        color: #16a34a;
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+      }
+    }
+
     .quick-actions-button mat-icon { font-size:17px; width:17px; height:17px; margin-right:3px; }
     .header-lang-btn {
       display: inline-flex;
@@ -1148,7 +1529,18 @@ import { environment } from '../../environments/environment';
 })
 export class LayoutComponent implements OnInit {
   readonly translationService = inject(TranslationService);
+  readonly presenceService = inject(PresenceService);
+  readonly chatService = inject(ChatService);
   currentUser = this.authService.currentUser;
+
+  getInitials(name?: string | null): string {
+    if (!name) return 'U';
+    const clean = name.replace(/[()[\]{}_-]/g, ' ').replace(/[^a-zA-Z0-9\s]/g, '').trim();
+    const parts = clean.split(/\s+/).filter(p => p.length > 0);
+    if (parts.length === 0) return 'U';
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
   menuTree = signal<MenuItem[]>([]);
   isMobile = signal<boolean>(false);
   headerSearch = '';
@@ -1191,7 +1583,8 @@ export class LayoutComponent implements OnInit {
     { title: 'Roles & Permissions', route: '/roles', icon: 'admin_panel_settings' },
     { title: 'Institutes & Tenants', route: '/admin/tenants', icon: 'corporate_fare' },
     { title: 'Subscription & Plan', route: '/subscription', icon: 'workspace_premium' },
-    { title: 'Study Material & Question Bank Repository (Notes & PYQ)', route: '/study-materials', icon: 'auto_stories' }
+    { title: 'Study Material & Question Bank Repository (Notes & PYQ)', route: '/study-materials', icon: 'auto_stories' },
+    { title: 'Campus & Class Chat', route: '/chat', icon: 'forum' }
   ];
 
   readonly allQuickActionCatalog: Array<{ title: string; route: string; icon: string; color: string; roles?: string[] }> = [
@@ -1523,10 +1916,15 @@ export class LayoutComponent implements OnInit {
     this.loadMenu();
     this.loadCalendarHolidays();
     this.idleTimeout.startMonitoring();
+    this.presenceService.init();
+    this.chatService.initHub();
+    this.chatService.loadConversations().subscribe({ error: () => {} });
   }
 
   ngOnDestroy(): void {
     this.idleTimeout.stopMonitoring();
+    this.presenceService.stopConnection();
+    this.chatService.stopHub();
   }
 
   changeCalendarMonth(offset: number): void {
@@ -2169,6 +2567,7 @@ export class LayoutComponent implements OnInit {
           ]),
           { id: '523', title: 'School Notices', routeUrl: '/school/notices', icon: 'campaign', sortOrder: 7, module: 'Academic', isActive: true, children: [] },
           { id: '53', title: 'WhatsApp Logs', routeUrl: '/whatsapp', icon: 'chat', sortOrder: 8, module: 'Academic', isActive: true, children: [] },
+          { id: '53chat', title: 'Campus & Class Chat', routeUrl: '/chat', icon: 'forum', sortOrder: 8.5, module: 'Academic', isActive: true, children: [] },
           { id: '54', title: 'Library Books', routeUrl: '/library/books', icon: 'local_library', sortOrder: 9, module: 'Academic', isActive: true, children: [] },
           { id: '55', title: 'Issue & Return Desk', routeUrl: '/library/circulation', icon: 'sync_alt', sortOrder: 10, module: 'Academic', isActive: true, children: [] },
           { id: '551', title: 'Library Shifts & Plans', routeUrl: '/library/plans', icon: 'schedule', sortOrder: 11, module: 'Academic', isActive: true, children: [] },

@@ -751,14 +751,30 @@ export class TeachersComponent implements OnInit {
   onSearch() { this.pageNumber = 1; this.loadTeachers(); }
   changePage(dir: number) { this.pageNumber += dir; this.loadTeachers(); }
 
+  scrollToTop(): void {
+    setTimeout(() => {
+      const mainContent = document.querySelector('.main-content');
+      if (mainContent) {
+        mainContent.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+      const target = document.querySelector('.form-card') || document.querySelector('.page-container');
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, 60);
+  }
+
   openAddTeacher() {
     this.editingId = null; this.showForm = true; this.selectedTeacher = null;
     this.teacherForm.reset({ gender: 'Male', experienceYears: 0, joiningDate: new Date().toISOString().split('T')[0] });
+    this.scrollToTop();
   }
 
   editTeacher(t: TeacherDto) {
     this.editingId = t.id; this.showForm = true;
     this.teacherForm.patchValue({ ...t, joiningDate: t.joiningDate?.split('T')[0], dateOfBirth: t.dateOfBirth?.split('T')[0] });
+    this.scrollToTop();
   }
 
   cancelForm() { this.showForm = false; this.editingId = null; }

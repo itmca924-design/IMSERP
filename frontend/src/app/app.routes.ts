@@ -301,6 +301,10 @@ export const routes: Routes = [
         path: 'admin/academic-workflow',
         loadComponent: () => import('./features/school/academic-workflow-settings.component').then(m => m.AcademicWorkflowSettingsComponent)
       },
+      {
+        path: 'chat',
+        loadComponent: () => import('./features/chat/chat.component').then(m => m.ChatComponent)
+      },
 
       // Front Desk — Visitor Book & Student Gate Pass
       {

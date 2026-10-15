@@ -56,44 +56,10 @@ export class BrandingService {
       return;
     }
 
-    // 1. Instantly inject the company logo URL directly so the tab immediately updates
+    // Instantly inject the company logo URL directly so the tab immediately updates
     const isSvg = iconUrl.endsWith('.svg');
     const directType = isSvg ? 'image/svg+xml' : 'image/png';
     this.injectFaviconLink(iconUrl, directType);
-
-    // 2. Preload and render to a 64x64 Canvas data URL to bypass any Chrome favicon caching quirks
-    const testImg = new Image();
-    testImg.crossOrigin = 'anonymous';
-
-    testImg.onload = () => {
-      try {
-        const canvas = document.createElement('canvas');
-        canvas.width = 64;
-        canvas.height = 64;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.clearRect(0, 0, 64, 64);
-          const maxDim = Math.max(testImg.naturalWidth, testImg.naturalHeight);
-          const scale = 64 / (maxDim || 64);
-          const w = (testImg.naturalWidth || 64) * scale;
-          const h = (testImg.naturalHeight || 64) * scale;
-          const x = (64 - w) / 2;
-          const y = (64 - h) / 2;
-          ctx.drawImage(testImg, x, y, w, h);
-          const dataUrl = canvas.toDataURL('image/png');
-          this.injectFaviconLink(dataUrl, 'image/png');
-        }
-      } catch (e) {
-        // Canvas tainted by CORS? No problem, direct logo URL is already set!
-      }
-    };
-
-    testImg.onerror = () => {
-      // In case of CORS error on canvas preload, direct logo URL is already active
-      // Never fall back to Angular logo!
-    };
-
-    testImg.src = iconUrl;
   }
 
   private injectFaviconLink(href: string, type: string): void {
