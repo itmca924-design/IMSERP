@@ -15,6 +15,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
 import { AuthService } from '../../core/services/auth.service';
 import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.directive';
 import { HindiTransliterationService, HINDI_QUICK_PRESETS } from '../../core/services/hindi-transliteration.service';
+import { HwCheckPanelComponent, HwAnalyticsPanelComponent } from './homework-hw-check.component';
 import { environment } from '../../../environments/environment';
 
 const API_BASE = environment.apiUrl;
@@ -84,10 +85,18 @@ export interface HomeworkStatsDto {
   completed: number;
 }
 
+export type HwStatus = 'Pending' | 'Completed' | 'Partial' | 'NotDone';
+
 export interface DailySubjectTaskItem {
   subject: string;
   task: string;
   isHindiMode?: boolean;
+  teacherId?: string | null;
+  teacherName?: string | null;
+  status?: HwStatus | null;
+  statusRemark?: string | null;
+  checkedAt?: string | null;
+  checkedByName?: string | null;
 }
 
 export interface DailyStudentDiaryRow {
@@ -105,16 +114,30 @@ export interface DailyStudentDiaryRow {
   homeWork: DailySubjectTaskItem[];
   remarks?: string;
   diaryId?: string;
+  parentWhatsAppPhone?: string;
 }
 
 export interface DailyDiaryReportHeader {
-  tenantName: string;
+  tenantName?: string;
+  institutionName?: string;
   tenantAddress?: string;
+  subtitleOrAddress?: string;
   reportTitle: string;
-  reportDate: string;
+  reportDate?: string;
+  diaryDate?: string;
   className?: string;
   sectionName?: string;
-  items: DailyStudentDiaryRow[];
+  classTeacherName?: string | null;
+  items?: DailyStudentDiaryRow[];
+  rows?: DailyStudentDiaryRow[];
+  previousHwDate?: string | null;
+  previousHw?: {
+    studentId: string;
+    studentName: string;
+    rollNumber: string;
+    isAbsent: boolean;
+    homeWork: DailySubjectTaskItem[];
+  }[] | null;
 }
 
 
@@ -124,7 +147,7 @@ export interface DailyDiaryReportHeader {
   imports: [
     CommonModule, FormsModule, MatDialogModule, MatButtonModule, MatIconModule,
     MatFormFieldModule, MatInputModule, MatSelectModule, MatTooltipModule, MatProgressBarModule,
-    MatMenuModule, IstDatetimeDirective
+    MatMenuModule, IstDatetimeDirective, HwCheckPanelComponent, HwAnalyticsPanelComponent
   ],
   template: `
     <div class="hw-page-container">
@@ -169,18 +192,33 @@ export interface DailyDiaryReportHeader {
 
       <!-- TEACHER / ADMIN VIEW -->
       <ng-container *ngIf="activeTab === 'teacher'">
-        <!-- Sub-Navigation Bar: Daily Diary Sheet vs Worksheets -->
+        <!-- Sub-Navigation Bar: Daily Diary Sheet vs Check HW vs Analytics vs Worksheets -->
         <div class="diary-subtabs-nav">
           <button class="subtab-pill" [class.active]="diarySubTab === 'daily-diary'" (click)="setDiarySubTab('daily-diary')">
-            <mat-icon>menu_book</mat-icon>
+            <div class="subtab-icon-wrap"><mat-icon>menu_book</mat-icon></div>
             <div class="pill-labels">
-              <span class="pill-title">Daily Classwork &amp; Homework Diary</span>
-              <span class="pill-desc">Play, Nursery, LKG, UKG &amp; All Classes Daily Sheet</span>
+              <span class="pill-title">Daily CW &amp; HW Diary</span>
+              <span class="pill-desc">Daily Sheet, Assigning &amp; Print Report</span>
             </div>
             <span class="pill-badge">Daily Report</span>
           </button>
+          <button class="subtab-pill" [class.active]="diarySubTab === 'check-hw'" (click)="setDiarySubTab('check-hw')">
+            <div class="subtab-icon-wrap"><mat-icon>fact_check</mat-icon></div>
+            <div class="pill-labels">
+              <span class="pill-title">Check H.W.</span>
+              <span class="pill-desc">Same-Day / Next-Day Verification &amp; Ticks</span>
+            </div>
+            <span class="pill-badge">Verify Ticks</span>
+          </button>
+          <button class="subtab-pill" [class.active]="diarySubTab === 'hw-analytics'" (click)="setDiarySubTab('hw-analytics')">
+            <div class="subtab-icon-wrap"><mat-icon>insights</mat-icon></div>
+            <div class="pill-labels">
+              <span class="pill-title">H.W. Analytics</span>
+              <span class="pill-desc">Student &amp; Subject Wise Defaulter Analysis</span>
+            </div>
+          </button>
           <button class="subtab-pill" [class.active]="diarySubTab === 'worksheets'" (click)="setDiarySubTab('worksheets')">
-            <mat-icon>assignment</mat-icon>
+            <div class="subtab-icon-wrap"><mat-icon>assignment</mat-icon></div>
             <div class="pill-labels">
               <span class="pill-title">Worksheets &amp; Copy Submissions</span>
               <span class="pill-desc">Subject Assignments &amp; Digital Copy Submissions</span>
@@ -200,25 +238,28 @@ export interface DailyDiaryReportHeader {
                 <input matInput type="date" [(ngModel)]="diaryDate" (change)="loadDailyDiary()">
               </mat-form-field>
 
-              <mat-form-field appearance="outline" class="dd-class-field">
+              <mat-form-field appearance="outline" class="dd-class-field" [class.field-locked]="isClassTeacherLocked">
                 <mat-label>Select Class (कक्षा) *</mat-label>
-                <mat-select [(ngModel)]="diaryClassId" (selectionChange)="onDiaryClassChange()">
-                  <mat-option *ngFor="let c of classes" [value]="c.id">{{c.name}}</mat-option>
+                <mat-select [(ngModel)]="diaryClassId" (selectionChange)="onDiaryClassChange()" [disabled]="isClassTeacherLocked">
+                  <mat-option *ngFor="let c of classes" [value]="c.id" [class.ct-highlight-opt]="isClassTeacherOf(c)">
+                    {{c.name}}
+                    <span class="ct-pill-badge" *ngIf="isClassTeacherOf(c)">⭐ Class Teacher</span>
+                  </mat-option>
                 </mat-select>
               </mat-form-field>
 
-              <mat-form-field appearance="outline" class="dd-section-field" *ngIf="diarySections.length > 0">
+              <mat-form-field appearance="outline" class="dd-section-field" *ngIf="diarySections.length > 0" [class.field-locked]="isClassTeacherLocked && !!teacherAssignedSectionId">
                 <mat-label>Section (वर्ग)</mat-label>
-                <mat-select [(ngModel)]="diarySectionId" (selectionChange)="onDiarySectionChange()">
+                <mat-select [(ngModel)]="diarySectionId" (selectionChange)="onDiarySectionChange()" [disabled]="isClassTeacherLocked && !!teacherAssignedSectionId">
                   <mat-option value="">All Sections</mat-option>
                   <mat-option *ngFor="let s of diarySections" [value]="s.id">{{s.name}}</mat-option>
                 </mat-select>
               </mat-form-field>
 
-              <!-- Student Filter Dropdown (All Students vs Individual Student) -->
+              <!-- Student Filter Dropdown (All Students vs Individual Student) - Expanded Full Width -->
               <mat-form-field appearance="outline" class="dd-student-field" *ngIf="diaryStudents.length > 0">
                 <mat-label>Student (विद्यार्थी)</mat-label>
-                <mat-select [(ngModel)]="selectedDiaryStudentId" (selectionChange)="onDiaryStudentSelectChange()">
+                <mat-select [(ngModel)]="selectedDiaryStudentId" (selectionChange)="onDiaryStudentSelectChange()" panelClass="dd-student-select-panel">
                   <mat-option value="">👥 All Students (सम्पूर्ण कक्षा - {{diaryStudents.length}} बच्चे)</mat-option>
                   <mat-option *ngFor="let st of diaryStudents" [value]="st.studentId">
                     👤 {{st.studentName}} <span *ngIf="st.rollNumber">(Roll: {{st.rollNumber}})</span>
@@ -474,29 +515,53 @@ export interface DailyDiaryReportHeader {
                 <thead>
                   <tr>
                     <th style="width: 44px;" class="text-center">#</th>
-                    <th style="width: 190px;">Student Details</th>
+                    <th style="width: 210px;">Student Details</th>
                     <th style="width: 125px;" class="text-center">Attendance</th>
-                    <th style="min-width: 280px;">CLASS WORK (C.W.)</th>
-                    <th style="min-width: 280px;">HOME WORK (H.W.)</th>
-                    <th style="width: 160px;">Remarks</th>
+                    <th style="min-width: 380px;">CLASS WORK (C.W.)</th>
+                    <th style="min-width: 300px;">HOME WORK (H.W.)</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr *ngFor="let s of filteredDiaryStudents; let idx = index" [class.student-absent-row]="s.isAbsent" [class.student-notmarked-row]="!s.isAbsent && s.attendanceStatus === 'NotMarked'">
                     <td class="text-center idx-cell">{{diaryStudents.indexOf(s) + 1}}</td>
                     <td class="student-info-cell">
-                      <div class="student-name-text">{{s.studentName}}</div>
+                      <div class="student-info-header">
+                        <div class="student-name-text">{{s.studentName}}</div>
+                        <button mat-icon-button class="student-action-dots-btn" [matMenuTriggerFor]="studentActionMenu" matTooltip="Student actions">
+                          <mat-icon>more_vert</mat-icon>
+                        </button>
+                      </div>
                       <div class="student-meta-sub">
                         <span *ngIf="s.rollNumber">Roll: {{s.rollNumber}}</span>
                         <span *ngIf="s.admissionNumber">Adm: {{s.admissionNumber}}</span>
                         <span *ngIf="s.className">{{s.className}}</span>
                       </div>
+                      <div class="student-general-note-pill" *ngIf="s.remarks" (click)="openRemarkDialog(s)" [matTooltip]="s.remarks">
+                        <mat-icon>chat_bubble</mat-icon>
+                        <span class="note-pill-text">{{s.remarks}}</span>
+                        <mat-icon class="note-pill-del" (click)="$event.stopPropagation(); s.remarks = ''">close</mat-icon>
+                      </div>
+
+                      <mat-menu #studentActionMenu="matMenu">
+                        <button mat-menu-item (click)="openRemarkDialog(s)">
+                          <mat-icon color="primary">edit_note</mat-icon>
+                          <span>{{ s.remarks ? 'Edit General Note' : 'Add General Note' }}</span>
+                        </button>
+                        <button mat-menu-item *ngIf="s.remarks" (click)="s.remarks = ''">
+                          <mat-icon class="text-danger">clear</mat-icon>
+                          <span>Clear General Note</span>
+                        </button>
+                        <button mat-menu-item (click)="clearStudentTasks(s)" [disabled]="!hasStudentTasks(s)">
+                          <mat-icon class="text-danger">delete_sweep</mat-icon>
+                          <span>Clear All Tasks</span>
+                        </button>
+                      </mat-menu>
                     </td>
                     <td class="attendance-cell text-center">
-                      <button type="button" class="att-toggle-btn" [ngClass]="getAttendanceBadgeClass(s)" (click)="toggleStudentAbsent(s)" [matTooltip]="getAttendanceTooltip(s)">
+                      <span class="att-status-badge" [ngClass]="getAttendanceBadgeClass(s)">
                         <mat-icon>{{getAttendanceIcon(s)}}</mat-icon>
                         <span>{{getAttendanceLabel(s)}}</span>
-                      </button>
+                      </span>
                     </td>
 
                     <!-- If Student is Absent -->
@@ -507,7 +572,7 @@ export interface DailyDiaryReportHeader {
                             {{s.attendanceStatus === 'Leave' ? 'ON LEAVE TODAY' : 'ABSENT TODAY'}}
                           </span>
                           <span class="absent-hint-text">
-                            {{s.attendanceStatus === 'Leave' ? 'Student is officially on leave today. Click button above if attending.' : 'Auto-marked absent. Click attendance toggle above if student is present.'}}
+                            {{s.attendanceStatus === 'Leave' ? 'Student is officially on leave today.' : 'Student is marked absent in daily attendance.'}}
                           </span>
                         </div>
                       </td>
@@ -519,10 +584,10 @@ export interface DailyDiaryReportHeader {
                         <div class="row-notmarked-badge-wrap">
                           <span class="roster-notmarked-pill">
                             <mat-icon>lock</mat-icon>
-                            <span>ATTENDANCE NOT MARKED &bull; EDITING DISABLED</span>
+                            <span>ATTENDANCE NOT MARKED &bull; DIARY LOCKED</span>
                           </span>
                           <span class="notmarked-hint-text">
-                            Student is unmarked. Click "NOT MARKED" button above to mark Present &amp; unlock homework entry.
+                            Please mark attendance first in Attendance Management to unlock diary entry.
                           </span>
                         </div>
                       </td>
@@ -567,6 +632,48 @@ export interface DailyDiaryReportHeader {
                                   अ
                                 </button>
                               </div>
+
+                              <!-- Subject-wise C.W. Note / Status Button -->
+                              <button
+                                type="button"
+                                class="cw-sub-note-btn"
+                                [class.has-note]="cw.statusRemark"
+                                [ngClass]="getCwNoteBadgeClass(cw.statusRemark)"
+                                [matMenuTriggerFor]="cwRowNoteMenu"
+                                matTooltip="Click to set subject-wise C.W. note (Checked, Remember, etc.)">
+                                <span class="note-btn-label">{{ cw.statusRemark || '+ Note' }}</span>
+                                <mat-icon class="note-btn-caret">arrow_drop_down</mat-icon>
+                              </button>
+                              <mat-menu #cwRowNoteMenu="matMenu" class="cw-note-dropdown-panel">
+                                <button mat-menu-item (click)="cw.statusRemark = '✅ Checked'">
+                                  <span class="cw-item-opt ok">✅ Checked</span>
+                                </button>
+                                <button mat-menu-item (click)="cw.statusRemark = '⏳ Unchecked'">
+                                  <span class="cw-item-opt warn">⏳ Unchecked</span>
+                                </button>
+                                <button mat-menu-item (click)="cw.statusRemark = '🧠 Remember'">
+                                  <span class="cw-item-opt purple">🧠 Remember</span>
+                                </button>
+                                <button mat-menu-item (click)="cw.statusRemark = '❌ No Remember'">
+                                  <span class="cw-item-opt red">❌ No Remember</span>
+                                </button>
+                                <button mat-menu-item (click)="cw.statusRemark = '⭐ Very Good'">
+                                  <span class="cw-item-opt gold">⭐ Very Good</span>
+                                </button>
+                                <button mat-menu-item (click)="cw.statusRemark = '✍️ Needs Writing'">
+                                  <span class="cw-item-opt blue">✍️ Needs Writing</span>
+                                </button>
+                                <div class="cw-menu-divider"></div>
+                                <button mat-menu-item (click)="openCustomCwNoteDialog(cw, s)">
+                                  <mat-icon color="primary">edit_note</mat-icon>
+                                  <span>Custom Note / Type...</span>
+                                </button>
+                                <button mat-menu-item *ngIf="cw.statusRemark" (click)="cw.statusRemark = ''">
+                                  <mat-icon class="text-danger">clear</mat-icon>
+                                  <span class="text-danger">Clear Note</span>
+                                </button>
+                              </mat-menu>
+
                               <button type="button" class="entry-del-btn" (click)="removeSubjectTask(s.classWork, cIdx)">
                                 <mat-icon>close</mat-icon>
                               </button>
@@ -623,6 +730,9 @@ export interface DailyDiaryReportHeader {
                                 <mat-icon>close</mat-icon>
                               </button>
                             </div>
+                            <div class="hw-entry-meta" *ngIf="hw.teacherName">
+                              <span>Assigned by {{hw.teacherName}}</span>
+                            </div>
                             <div class="row-mini-presets" *ngIf="isHindiActive(hw) && !hw.task">
                               <button type="button" class="mini-chip" *ngFor="let p of hindiMiniPresets" (click)="applyHindiPreset(hw, p)">{{p}}</button>
                             </div>
@@ -635,20 +745,7 @@ export interface DailyDiaryReportHeader {
                       </td>
                     </ng-container>
 
-                    <td class="remarks-cell">
-                      <div class="remarks-input-wrap">
-                        <input
-                          type="text"
-                          class="entry-remarks-input"
-                          [(ngModel)]="s.remarks"
-                          [disabled]="s.isAbsent || s.attendanceStatus === 'NotMarked'"
-                          [placeholder]="s.attendanceStatus === 'NotMarked' ? 'Attendance pending...' : 'Optional notes...'"
-                        >
-                        <button type="button" class="row-clear-tasks-btn" (click)="clearStudentTasks(s)" *ngIf="hasStudentTasks(s)" matTooltip="Clear tasks for this student">
-                          <mat-icon>delete_sweep</mat-icon>
-                        </button>
-                      </div>
-                    </td>
+
                   </tr>
                 </tbody>
               </table>
@@ -681,6 +778,34 @@ export interface DailyDiaryReportHeader {
               </div>
             </div>
           </div>
+        </ng-container>
+
+        <!-- =================================================================== -->
+        <!-- TAB: CHECK HOMEWORK (SAME-DAY / NEXT-DAY / BACK-DATED VERIFICATION) -->
+        <!-- =================================================================== -->
+        <ng-container *ngIf="diarySubTab === 'check-hw'">
+          <app-hw-check-panel
+            [classes]="classes"
+            [classId]="diaryClassId"
+            [sectionId]="diarySectionId"
+            [isClassTeacherLocked]="isClassTeacherLocked"
+            [teacherAssignedSectionId]="teacherAssignedSectionId"
+            (openReport)="openReportFromCheckHw($event)"
+            (saved)="onHwCheckSaved()">
+          </app-hw-check-panel>
+        </ng-container>
+
+        <!-- =================================================================== -->
+        <!-- TAB: HOMEWORK COMPLETION ANALYTICS & DEFAULTER LIST                -->
+        <!-- =================================================================== -->
+        <ng-container *ngIf="diarySubTab === 'hw-analytics'">
+          <app-hw-analytics-panel
+            [classes]="classes"
+            [classId]="diaryClassId"
+            [sectionId]="diarySectionId"
+            [isClassTeacherLocked]="isClassTeacherLocked"
+            [teacherAssignedSectionId]="teacherAssignedSectionId">
+          </app-hw-analytics-panel>
         </ng-container>
 
         <!-- =================================================================== -->
@@ -1604,10 +1729,14 @@ export interface DailyDiaryReportHeader {
       display: flex;
       gap: 12px;
       flex-wrap: wrap;
-      background: #f8fafc;
+      background: #ffffff;
       padding: 6px;
       border-radius: 12px;
-      border: 1px solid #e2e8f0;
+      border: 1px solid #bfdbfe;
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      box-shadow: 0 4px 14px rgba(15,23,42,0.08);
     }
     .subtab-pill {
       flex: 1;
@@ -1615,31 +1744,56 @@ export interface DailyDiaryReportHeader {
       display: flex;
       align-items: center;
       gap: 12px;
-      padding: 12px 18px;
-      border: 1px solid transparent;
-      border-radius: 10px;
+      padding: 10px 16px;
+      border: 1.5px solid transparent;
+      border-radius: 12px;
       background: transparent;
       cursor: pointer;
       text-align: left;
       transition: all 0.2s ease;
       position: relative;
     }
+    .subtab-icon-wrap {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      color: #64748b;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: all 0.2s ease;
+    }
     .subtab-pill:hover {
       background: #f1f5f9;
+    }
+    .subtab-pill:hover .subtab-icon-wrap {
+      background: #eff6ff;
+      color: #2563eb;
+      border-color: #bfdbfe;
     }
     .subtab-pill.active {
       background: #ffffff;
       border-color: #bfdbfe;
       box-shadow: 0 2px 8px rgba(37,99,235,0.08);
     }
-    .subtab-pill mat-icon {
-      font-size: 26px;
-      width: 26px;
-      height: 26px;
-      color: #64748b;
+    .subtab-pill.active .subtab-icon-wrap {
+      background: #2563eb;
+      color: #ffffff;
+      border-color: #2563eb;
+      box-shadow: 0 4px 6px -1px rgba(37,99,235,0.25);
     }
-    .subtab-pill.active mat-icon {
-      color: #2563eb;
+    .subtab-icon-wrap mat-icon {
+      font-size: 22px;
+      width: 22px;
+      height: 22px;
+      line-height: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: visible;
     }
     .pill-labels {
       display: flex;
@@ -1680,13 +1834,52 @@ export interface DailyDiaryReportHeader {
     .dd-filter-row {
       display: flex;
       align-items: center;
-      gap: 14px;
+      gap: 12px;
       flex-wrap: wrap;
     }
-    .dd-date-field { min-width: 170px; }
-    .dd-class-field { min-width: 180px; }
-    .dd-section-field { min-width: 140px; }
-    .dd-student-field { min-width: 220px; }
+    .dd-date-field { min-width: 165px; flex: 0 0 auto; }
+    .dd-class-field { min-width: 175px; flex: 0 0 auto; }
+    .dd-section-field { min-width: 130px; flex: 0 0 auto; }
+    .dd-student-field {
+      flex: 1 1 340px;
+      min-width: 280px;
+      max-width: 100%;
+    }
+    .dd-student-field ::ng-deep .mat-mdc-select-value {
+      max-width: 100%;
+    }
+    .dd-student-field ::ng-deep .mat-mdc-select-value-text {
+      font-weight: 700;
+      color: #1e3a8a;
+      font-size: 13px;
+    }
+    ::ng-deep .dd-student-select-panel {
+      min-width: 360px !important;
+      max-width: 92vw !important;
+    }
+    .field-locked ::ng-deep .mat-mdc-text-field-wrapper {
+      background-color: #f1f5f9 !important;
+      cursor: not-allowed !important;
+    }
+    .field-locked ::ng-deep .mat-mdc-select-value-text {
+      color: #1e40af !important;
+      font-weight: 800 !important;
+    }
+    .ct-pill-badge {
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+      border-radius: 4px;
+      font-size: 10.5px;
+      font-weight: 800;
+      padding: 1px 6px;
+      margin-left: 6px;
+    }
+    .ct-highlight-opt {
+      background: #eff6ff !important;
+      font-weight: 800 !important;
+      color: #1d4ed8 !important;
+    }
     .daily-diary-filter-card ::ng-deep .mat-mdc-form-field-subscript-wrapper { display: none; }
     
     .dd-action-buttons {
@@ -2111,7 +2304,32 @@ export interface DailyDiaryReportHeader {
       box-sizing: border-box;
     }
     .idx-cell { font-weight: 800; color: #64748b; text-align: center; }
-    .student-info-cell { min-width: 170px; }
+    .student-info-cell { min-width: 190px; }
+    .student-info-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 4px;
+    }
+    .student-action-dots-btn {
+      width: 24px !important;
+      height: 24px !important;
+      line-height: 24px !important;
+      color: #94a3b8;
+      padding: 0 !important;
+      flex-shrink: 0;
+      mat-icon {
+        font-size: 17px !important;
+        width: 17px !important;
+        height: 17px !important;
+        line-height: 17px !important;
+      }
+      &:hover {
+        color: #1e293b;
+        background: #f1f5f9;
+        border-radius: 4px;
+      }
+    }
     .student-name-text { font-size: 14px; font-weight: 800; color: #0f172a; }
     .student-meta-sub {
       font-size: 11.5px;
@@ -2122,52 +2340,95 @@ export interface DailyDiaryReportHeader {
       gap: 6px;
       margin-top: 3px;
     }
+    .student-general-note-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1e40af;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      margin-top: 6px;
+      cursor: pointer;
+      max-width: 100%;
+      box-shadow: 0 1px 2px rgba(37,99,235,0.06);
+      transition: all 0.15s ease;
+      &:hover {
+        background: #dbeafe;
+        border-color: #93c5fd;
+      }
+      mat-icon {
+        font-size: 13px !important;
+        width: 13px !important;
+        height: 13px !important;
+        line-height: 13px !important;
+        color: #2563eb;
+      }
+      .note-pill-text {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 120px;
+      }
+      .note-pill-del {
+        font-size: 12px !important;
+        width: 12px !important;
+        height: 12px !important;
+        line-height: 12px !important;
+        color: #64748b;
+        margin-left: 2px;
+        &:hover { color: #dc2626; }
+      }
+    }
 
-    /* Attendance Toggle Button */
-    .att-toggle-btn {
+    /* Attendance Status Read-Only Badge */
+    .att-status-badge {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 6px;
-      padding: 6px 14px;
+      gap: 5px;
+      padding: 5px 12px;
       border-radius: 20px;
-      font-size: 12px;
+      font-size: 11.5px;
       font-weight: 800;
       letter-spacing: 0.5px;
-      cursor: pointer;
+      cursor: default;
+      user-select: none;
       border: 1.5px solid #86efac;
       background: #f0fdf4;
       color: #16a34a;
-      transition: all 0.15s ease;
       white-space: nowrap;
     }
-    .att-toggle-btn mat-icon { font-size: 16px; width: 16px; height: 16px; }
-    .att-toggle-btn.status-present {
+    .att-status-badge mat-icon { font-size: 15px; width: 15px; height: 15px; }
+    .att-status-badge.status-present {
       background: #f0fdf4;
       color: #16a34a;
       border-color: #86efac;
     }
-    .att-toggle-btn.status-late {
+    .att-status-badge.status-late {
       background: #fffbeb;
       color: #d97706;
       border-color: #fcd34d;
     }
-    .att-toggle-btn.status-halfday {
+    .att-status-badge.status-halfday {
       background: #f0f9ff;
       color: #0284c7;
       border-color: #7dd3fc;
     }
-    .att-toggle-btn.status-absent, .att-toggle-btn.is-absent {
+    .att-status-badge.status-absent, .att-status-badge.is-absent {
       background: #fee2e2;
       color: #dc2626;
       border-color: #f87171;
     }
-    .att-toggle-btn.status-leave {
+    .att-status-badge.status-leave {
       background: #faf5ff;
       color: #9333ea;
       border-color: #d8b4fe;
     }
-    .att-toggle-btn.status-notmarked {
+    .att-status-badge.status-notmarked {
       background: #f1f5f9;
       color: #64748b;
       border-color: #cbd5e1;
@@ -2368,6 +2629,115 @@ export interface DailyDiaryReportHeader {
     .entry-del-btn:hover { color: #dc2626; background: #fee2e2; }
     .entry-del-btn mat-icon { font-size: 15px; width: 15px; height: 15px; }
 
+    /* C.W. Subject-wise Note Pill Button & Presets */
+    .cw-sub-note-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      height: 28px;
+      padding: 0 7px;
+      border-radius: 5px;
+      font-size: 11px;
+      font-weight: 700;
+      border: 1px dashed #cbd5e1;
+      background: #f8fafc;
+      color: #64748b;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+      transition: all 0.15s ease;
+
+      &:hover {
+        background: #eff6ff;
+        border-color: #93c5fd;
+        color: #1e40af;
+      }
+
+      .note-btn-label {
+        max-width: 92px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .note-btn-caret {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
+        line-height: 14px;
+        opacity: 0.7;
+        margin-left: -2px;
+      }
+
+      &.has-note {
+        border-style: solid;
+      }
+      &.cw-note-checked {
+        background: #dcfce7;
+        color: #15803d;
+        border-color: #86efac;
+      }
+      &.cw-note-unchecked {
+        background: #fef3c7;
+        color: #b45309;
+        border-color: #fde68a;
+      }
+      &.cw-note-remember {
+        background: #f3e8ff;
+        color: #7e22ce;
+        border-color: #d8b4fe;
+      }
+      &.cw-note-noremeber {
+        background: #fee2e2;
+        color: #dc2626;
+        border-color: #fca5a5;
+      }
+      &.cw-note-good {
+        background: #ecfdf5;
+        color: #047857;
+        border-color: #a7f3d0;
+      }
+      &.cw-note-writing {
+        background: #eff6ff;
+        color: #1d4ed8;
+        border-color: #bfdbfe;
+      }
+      &.cw-note-custom {
+        background: #e0f2fe;
+        color: #0369a1;
+        border-color: #bae6fd;
+      }
+    }
+
+    .cw-note-dropdown-panel {
+      .cw-item-opt {
+        font-size: 12px;
+        font-weight: 700;
+        &.ok { color: #15803d; }
+        &.warn { color: #b45309; }
+        &.purple { color: #7e22ce; }
+        &.red { color: #dc2626; }
+        &.gold { color: #b45309; }
+        &.blue { color: #1d4ed8; }
+      }
+      .cw-menu-divider {
+        height: 1px;
+        background: #e2e8f0;
+        margin: 4px 0;
+      }
+    }
+
+    .hw-status-group { display: inline-flex; gap: 3px; flex-shrink: 0; }
+    .hw-status-btn {
+      width: 24px; height: 24px; border-radius: 6px; border: 1px solid #cbd5e1;
+      background: #ffffff; color: #94a3b8; font-size: 13px; font-weight: 800;
+      line-height: 1; cursor: pointer; padding: 0; transition: all 0.12s ease;
+    }
+    .hw-status-btn:hover { background: #f1f5f9; }
+    .hw-status-btn.st-completed.active { background: #dcfce7; border-color: #16a34a; color: #15803d; }
+    .hw-status-btn.st-partial.active { background: #fef3c7; border-color: #d97706; color: #b45309; }
+    .hw-status-btn.st-notdone.active { background: #fee2e2; border-color: #dc2626; color: #b91c1c; }
+    .hw-entry-meta { font-size: 10.5px; color: #64748b; font-weight: 600; margin: 2px 0 0 2px; display: flex; gap: 6px; flex-wrap: wrap; }
+
     .add-sub-link-btn {
       background: transparent;
       border: none;
@@ -2384,43 +2754,105 @@ export interface DailyDiaryReportHeader {
     .add-sub-link-btn mat-icon { font-size: 15px; width: 15px; height: 15px; }
     .add-sub-link-btn:hover { text-decoration: underline; }
 
-    .remarks-cell { width: 160px; }
-    .remarks-input-wrap {
+    .remarks-cell {
+      width: 150px;
+      vertical-align: middle !important;
+    }
+    .remarks-cell-content {
       display: flex;
       align-items: center;
       gap: 6px;
     }
-    .row-clear-tasks-btn {
-      background: #f1f5f9;
-      border: 1px solid #cbd5e1;
-      cursor: pointer;
-      color: #64748b;
+    .remark-pill-badge {
       display: inline-flex;
       align-items: center;
-      justify-content: center;
-      padding: 4px;
-      border-radius: 6px;
-      height: 28px;
-      width: 28px;
-      flex-shrink: 0;
-      transition: all 0.15s ease;
-    }
-    .row-clear-tasks-btn mat-icon { font-size: 16px; width: 16px; height: 16px; }
-    .row-clear-tasks-btn:hover { color: #dc2626; background: #fee2e2; border-color: #fca5a5; }
-    .entry-remarks-input {
-      width: 100%;
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 6px;
-      padding: 6px 10px;
+      gap: 6px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1e40af;
+      padding: 5px 10px;
+      border-radius: 8px;
       font-size: 12px;
-      color: #334155;
-      outline: none;
-      box-sizing: border-box;
+      font-weight: 600;
+      cursor: pointer;
+      max-width: 110px;
+      transition: all 0.15s ease;
+      box-shadow: 0 1px 2px rgba(37,99,235,0.06);
     }
-    .entry-remarks-input:focus {
-      border-color: #2563eb;
-      background: #fff;
+    .remark-pill-badge:hover {
+      background: #dbeafe;
+      border-color: #93c5fd;
+      transform: translateY(-1px);
+    }
+    .remark-pill-badge .r-icon {
+      font-size: 14px;
+      width: 14px;
+      height: 14px;
+      color: #2563eb;
+      flex-shrink: 0;
+    }
+    .remark-pill-badge .r-text {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 65px;
+    }
+    .remark-pill-badge .r-edit {
+      font-size: 13px;
+      width: 13px;
+      height: 13px;
+      color: #64748b;
+      opacity: 0.6;
+      flex-shrink: 0;
+    }
+    .add-note-cell-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 5px 10px;
+      border-radius: 8px;
+      border: 1px dashed #cbd5e1;
+      background: #f8fafc;
+      color: #64748b;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-family: inherit;
+      white-space: nowrap;
+    }
+    .add-note-cell-btn:hover:not(:disabled) {
+      background: #eff6ff;
+      border-color: #3b82f6;
+      color: #1d4ed8;
+      border-style: solid;
+    }
+    .add-note-cell-btn mat-icon {
+      font-size: 15px;
+      width: 15px;
+      height: 15px;
+    }
+    .add-note-cell-btn:disabled {
+      cursor: not-allowed;
+      opacity: 0.45;
+    }
+    .row-menu-btn {
+      width: 28px !important;
+      height: 28px !important;
+      line-height: 28px !important;
+      padding: 0 !important;
+      color: #64748b;
+      flex-shrink: 0;
+    }
+    .row-menu-btn mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      line-height: 18px;
+    }
+    .row-menu-btn:hover {
+      color: #0f172a;
+      background: #f1f5f9;
     }
 
     /* Floating / Sticky Bottom Bar */
@@ -2458,8 +2890,218 @@ export interface DailyDiaryReportHeader {
       align-items: center;
       gap: 10px;
     }
-    .empty-diary-state h3 { margin: 0; font-size: 17px; font-weight: 700; color: #1e293b; }
+    .empty-diary-state h3 { margin: 0; font-size: 17px; font-weight: 700; color: #1e3a8a; }
     .empty-diary-state p { margin: 0; font-size: 13px; color: #64748b; max-width: 480px; }
+
+    /* ========================================================================= */
+    /* RESPONSIVE DESIGN: TABLET (640px - 1024px) & MOBILE (< 640px)             */
+    /* ========================================================================= */
+    @media (max-width: 1024px) {
+      .diary-subtabs-nav {
+        gap: 8px;
+        padding: 6px;
+      }
+      .subtab-pill {
+        flex: 1 1 calc(50% - 8px);
+        min-width: 200px;
+        padding: 10px 14px;
+      }
+      .dd-filter-row {
+        gap: 10px;
+      }
+      .dd-action-buttons {
+        margin-left: 0;
+        width: 100%;
+        justify-content: flex-start;
+      }
+      .qf-grids {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .hw-page-container {
+        gap: 14px;
+        padding-bottom: 24px;
+      }
+      .page-header {
+        padding: 14px;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+      }
+      .header-left {
+        gap: 12px;
+      }
+      .header-icon-box {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+      }
+      .page-title {
+        font-size: 17px;
+      }
+      .page-subtitle {
+        font-size: 12px;
+      }
+      .header-actions {
+        width: 100%;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+      }
+      .role-view-switch {
+        width: 100%;
+      }
+      .switch-pill {
+        flex: 1;
+        justify-content: center;
+        padding: 8px 10px;
+        font-size: 12px;
+      }
+      .refresh-btn {
+        width: 100%;
+        justify-content: center;
+      }
+
+      /* Subtabs Navigation on Mobile */
+      .diary-subtabs-nav {
+        flex-direction: column;
+        gap: 6px;
+        padding: 6px;
+      }
+      .subtab-pill {
+        flex: 1 1 100%;
+        min-width: 100%;
+        padding: 8px 12px;
+        gap: 10px;
+      }
+      .subtab-pill mat-icon {
+        font-size: 22px;
+        width: 22px;
+        height: 22px;
+      }
+      .pill-title {
+        font-size: 13px;
+      }
+      .pill-desc {
+        display: none;
+      }
+      .pill-badge {
+        font-size: 10px;
+        padding: 2px 6px;
+      }
+
+      /* Filter Card */
+      .daily-diary-filter-card {
+        padding: 12px;
+      }
+      .dd-filter-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+      }
+      .dd-date-field,
+      .dd-class-field,
+      .dd-section-field,
+      .dd-student-field {
+        width: 100%;
+        min-width: 0;
+      }
+      .dd-action-buttons {
+        width: 100%;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+        margin-left: 0;
+      }
+      .dd-action-buttons button {
+        width: 100%;
+        justify-content: center;
+      }
+
+      /* Quick Fill Panel */
+      .quickfill-container {
+        padding: 12px;
+      }
+      .qf-header-bar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+      }
+      .qf-header-actions {
+        width: 100%;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+      }
+      .qf-header-actions button {
+        width: 100%;
+        justify-content: center;
+      }
+      .qf-task-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 6px;
+        position: relative;
+        padding-right: 32px;
+      }
+      .qf-subject-select {
+        width: 100%;
+      }
+      .qf-task-input-wrap {
+        width: 100%;
+      }
+      .qf-remove-btn {
+        position: absolute;
+        right: 0;
+        top: 6px;
+      }
+
+      /* Roster Header */
+      .roster-header-bar {
+        padding: 12px;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+      }
+      .roster-summary {
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .count-pill {
+        font-size: 11px;
+        padding: 3px 8px;
+      }
+
+      /* Diary Table Responsive */
+      .diary-table-responsive {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+      .diary-entry-table {
+        min-width: 780px;
+      }
+
+      /* Bottom Action Bar */
+      .diary-bottom-action-bar {
+        padding: 12px;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+      }
+      .bottom-right-actions {
+        width: 100%;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+      }
+      .bottom-right-actions button {
+        width: 100%;
+        justify-content: center;
+      }
+    }
   `]
 })
 export class HomeworkDiaryComponent implements OnInit {
@@ -2476,7 +3118,7 @@ export class HomeworkDiaryComponent implements OnInit {
   activeTab: 'teacher' | 'student' = 'teacher';
 
   // Daily Classwork & Homework Diary State
-  diarySubTab: 'daily-diary' | 'worksheets' = 'daily-diary';
+  diarySubTab: 'daily-diary' | 'check-hw' | 'hw-analytics' | 'worksheets' = 'daily-diary';
   diaryDate: string = this.getTodayDateString();
   diaryClassId = '';
   diarySectionId = '';
@@ -2485,6 +3127,14 @@ export class HomeworkDiaryComponent implements OnInit {
   selectedDiaryStudentId = '';
   loadingDiary = false;
   savingDiary = false;
+
+  // Class Teacher Lock & Highlight State
+  isClassTeacherLocked = false;
+  teacherAssignedClassId = '';
+  teacherAssignedClassName = '';
+  teacherAssignedSectionId = '';
+  teacherAssignedSectionName = '';
+  linkedTeacher: any = null;
 
   get filteredDiaryStudents(): DailyStudentDiaryRow[] {
     if (!this.selectedDiaryStudentId) {
@@ -2745,7 +3395,7 @@ export class HomeworkDiaryComponent implements OnInit {
     }
   }
 
-  setDiarySubTab(tab: 'daily-diary' | 'worksheets'): void {
+  setDiarySubTab(tab: 'daily-diary' | 'check-hw' | 'hw-analytics' | 'worksheets'): void {
     this.diarySubTab = tab;
     if (tab === 'daily-diary') {
       if (this.diaryClassId) {
@@ -2754,8 +3404,19 @@ export class HomeworkDiaryComponent implements OnInit {
         this.diaryClassId = this.classes[0].id;
         this.onDiaryClassChange();
       }
+    } else if (tab === 'check-hw' || tab === 'hw-analytics') {
+      if (!this.diaryClassId && this.classes.length > 0) {
+        this.diaryClassId = this.classes[0].id;
+        this.onDiaryClassChange();
+      }
     } else {
       this.loadHomework();
+    }
+  }
+
+  onHwCheckSaved(): void {
+    if (this.diaryClassId) {
+      this.loadDailyDiary();
     }
   }
 
@@ -2943,10 +3604,21 @@ export class HomeworkDiaryComponent implements OnInit {
       return;
     }
 
+    // Merge with existing tasks so existing teacherName, status (Completed, Partial, NotDone) are preserved
+    const mergeTasks = (existingList: DailySubjectTaskItem[] | undefined, incomingList: { subject: string; task: string }[]) => {
+      return incomingList.map(inc => {
+        const prev = (existingList || []).find(p =>
+          (p.subject || '').trim().toLowerCase() === inc.subject.trim().toLowerCase() &&
+          (p.task || '').trim().toLowerCase() === inc.task.trim().toLowerCase()
+        );
+        return prev ? { ...prev, subject: inc.subject, task: inc.task } : { subject: inc.subject, task: inc.task };
+      });
+    };
+
     // Individual Student Assignment Mode
     if (this.selectedDiaryStudent) {
-      this.selectedDiaryStudent.classWork = cwToCopy.map(x => ({ ...x }));
-      this.selectedDiaryStudent.homeWork = hwToCopy.map(x => ({ ...x }));
+      this.selectedDiaryStudent.classWork = mergeTasks(this.selectedDiaryStudent.classWork, cwToCopy);
+      this.selectedDiaryStudent.homeWork = mergeTasks(this.selectedDiaryStudent.homeWork, hwToCopy);
       this.confirmDialog.alert(
         'Task Assigned to Student 🎉',
         `Classwork & Homework successfully assigned specifically to ${this.selectedDiaryStudent.studentName}.`,
@@ -2959,8 +3631,8 @@ export class HomeworkDiaryComponent implements OnInit {
     let appliedCount = 0;
     for (const s of this.diaryStudents) {
       if (this.isStudentAttending(s)) {
-        s.classWork = cwToCopy.map(x => ({ ...x }));
-        s.homeWork = hwToCopy.map(x => ({ ...x }));
+        s.classWork = mergeTasks(s.classWork, cwToCopy);
+        s.homeWork = mergeTasks(s.homeWork, hwToCopy);
         appliedCount++;
       } else if ((s.attendanceStatus || '').toLowerCase() === 'notmarked') {
         // Unmarked students must NOT have common tasks copied! Reset their tasks so common fill does not apply to them
@@ -2981,6 +3653,44 @@ export class HomeworkDiaryComponent implements OnInit {
     this.confirmDialog.alert(
       'Common Work Applied to Class 🎉',
       `Classwork & Homework successfully filled for ${appliedCount} present students. Unmarked and absent students were skipped.`,
+      'success'
+    );
+  }
+
+  // ===== H.W. CHECK: per-point status that prints as tick marks on the parent report =====
+  readonly hwStatusOptions: { value: HwStatus; icon: string; label: string }[] = [
+    { value: 'Completed', icon: '✔', label: 'Completed' },
+    { value: 'Partial', icon: '◐', label: 'Partial' },
+    { value: 'NotDone', icon: '✘', label: 'Not Done' }
+  ];
+
+  hwStatusOf(hw: DailySubjectTaskItem): HwStatus {
+    return (hw.status as HwStatus) || 'Pending';
+  }
+
+  setHwStatus(hw: DailySubjectTaskItem, status: HwStatus): void {
+    hw.status = this.hwStatusOf(hw) === status ? 'Pending' : status;
+  }
+
+  markAllHomeworkCompleted(): void {
+    const targets = this.selectedDiaryStudent ? [this.selectedDiaryStudent] : this.diaryStudents;
+    let points = 0;
+    for (const s of targets) {
+      if (!this.isStudentAttending(s)) continue;
+      for (const hw of s.homeWork || []) {
+        if (hw.task && hw.task.trim()) {
+          hw.status = 'Completed';
+          points++;
+        }
+      }
+    }
+    if (points === 0) {
+      this.confirmDialog.alert('No Homework Points', 'Please assign homework to present students first, then mark it as checked.', 'warning');
+      return;
+    }
+    this.confirmDialog.alert(
+      'Marked Completed',
+      `${points} homework point(s) marked Completed. Now tap ✘ (Not Done) or ◐ (Partial) on the points a student did not finish, then click "Save Diary Sheet".`,
       'success'
     );
   }
@@ -3062,6 +3772,33 @@ export class HomeworkDiaryComponent implements OnInit {
     } else {
       item.task = item.task.trim() + ', ' + preset;
     }
+  }
+
+  getCwNoteBadgeClass(note?: string | null): string {
+    if (!note) return 'cw-note-empty';
+    const n = note.toLowerCase();
+    if (n.includes('checked') && !n.includes('un')) return 'cw-note-checked';
+    if (n.includes('uncheck')) return 'cw-note-unchecked';
+    if (n.includes('no remember')) return 'cw-note-noremeber';
+    if (n.includes('remember')) return 'cw-note-remember';
+    if (n.includes('good')) return 'cw-note-good';
+    if (n.includes('writing') || n.includes('handwriting')) return 'cw-note-writing';
+    return 'cw-note-custom';
+  }
+
+  openCustomCwNoteDialog(cw: DailySubjectTaskItem, student: DailyStudentDiaryRow): void {
+    const dialogRef = this.dialog.open(StudentRemarkDialogComponent, {
+      width: '440px',
+      data: {
+        studentName: `${student.studentName} (${cw.subject || 'Classwork'})`,
+        remarks: cw.statusRemark || ''
+      }
+    });
+    dialogRef.afterClosed().subscribe(res => {
+      if (res?.saved !== undefined) {
+        cw.statusRemark = res.remarks || '';
+      }
+    });
   }
 
   getAttendanceLabel(student: DailyStudentDiaryRow): string {
@@ -3201,22 +3938,62 @@ export class HomeworkDiaryComponent implements OnInit {
     });
   }
 
-  openDailyDiaryReportDialog(): void {
+  openReportFromCheckHw(evt: { classId: string; sectionId: string; date: string }): void {
+    if (evt.classId) this.diaryClassId = evt.classId;
+    if (evt.sectionId !== undefined) this.diarySectionId = evt.sectionId;
+    if (evt.date) this.diaryDate = evt.date;
     const selectedClass = this.classes.find(c => c.id === this.diaryClassId);
-    const selectedSection = this.diarySections.find(s => s.id === this.diarySectionId);
+    this.diarySections = selectedClass?.sections || [];
+    this.openDailyDiaryReportDialog({
+      classId: this.diaryClassId,
+      sectionId: this.diarySectionId,
+      date: this.diaryDate
+    });
+  }
+
+  openDailyDiaryReportDialog(customData?: { classId?: string; sectionId?: string; date?: string }): void {
+    const classId = customData?.classId || this.diaryClassId;
+    const sectionId = customData?.sectionId !== undefined ? customData.sectionId : this.diarySectionId;
+    const date = customData?.date || this.diaryDate;
+    const selectedClass = this.classes.find(c => c.id === classId);
+    const selectedSection = (selectedClass?.sections || this.diarySections).find((s: any) => s.id === sectionId);
 
     this.dialog.open(DailyDiaryReportDialogComponent, {
-      width: '980px',
+      width: '1320px',
       maxWidth: '96vw',
-      maxHeight: '92vh',
+      maxHeight: '94vh',
       data: {
-        date: this.diaryDate,
-        classId: this.diaryClassId,
-        sectionId: this.diarySectionId,
+        date: date,
+        classId: classId,
+        sectionId: sectionId,
         className: selectedClass?.name || 'Class',
         sectionName: selectedSection?.name || '',
         subjectOptions: this.subjectOptions,
-        students: this.selectedDiaryStudent ? [this.selectedDiaryStudent] : this.diaryStudents
+        students: customData ? null : (this.selectedDiaryStudent ? [this.selectedDiaryStudent] : this.diaryStudents)
+      }
+    });
+  }
+
+  openRemarkDialog(student: DailyStudentDiaryRow): void {
+    if (student.isAbsent || student.attendanceStatus === 'NotMarked') return;
+    const selectedClass = this.classes.find(c => c.id === this.diaryClassId);
+    const selectedSection = (selectedClass?.sections || this.diarySections).find((s: any) => s.id === this.diarySectionId);
+    const classLabel = selectedSection?.name ? `${selectedClass?.name || ''} (${selectedSection.name})` : (selectedClass?.name || '');
+
+    const ref = this.dialog.open(StudentRemarkDialogComponent, {
+      width: '540px',
+      maxWidth: '94vw',
+      data: {
+        studentName: student.studentName,
+        rollNumber: student.rollNumber,
+        className: classLabel,
+        remarks: student.remarks || ''
+      }
+    });
+
+    ref.afterClosed().subscribe(res => {
+      if (res && res.saved !== undefined) {
+        student.remarks = res.remarks;
       }
     });
   }
@@ -3239,10 +4016,79 @@ export class HomeworkDiaryComponent implements OnInit {
     return `${environment.apiBaseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
   }
 
+  isClassTeacherOf(c: any): boolean {
+    if (this.isClassTeacherLocked && c.id === this.teacherAssignedClassId) return true;
+    if (this.linkedTeacher) {
+      return (c.sections || []).some((s: any) =>
+        (s.classTeacherId && s.classTeacherId === this.linkedTeacher.id) ||
+        (this.linkedTeacher.fullName && s.classTeacherName && s.classTeacherName.trim().toLowerCase() === this.linkedTeacher.fullName.trim().toLowerCase())
+      );
+    }
+    const userFullName = (this.authService.currentUser()?.fullName || '').trim().toLowerCase();
+    if (userFullName) {
+      return (c.sections || []).some((s: any) =>
+        s.classTeacherName && s.classTeacherName.trim().toLowerCase() === userFullName
+      );
+    }
+    return false;
+  }
+
+  checkAndLockClassTeacher(): void {
+    if (this.authService.isAdmin()) {
+      this.isClassTeacherLocked = false;
+      return;
+    }
+
+    const currentUser = this.authService.currentUser();
+    const userFullName = (currentUser?.fullName || (currentUser as any)?.name || '').trim().toLowerCase();
+    const userId = currentUser?.userId || (currentUser as any)?.id;
+
+    // 1. Find linked teacher in this.teachers
+    const currentTeacher = this.teachers.find(t =>
+      (userId && t.userId && t.userId === userId) ||
+      (userFullName && t.fullName && t.fullName.trim().toLowerCase() === userFullName)
+    );
+    this.linkedTeacher = currentTeacher;
+
+    // 2. Look for any section where this teacher is assigned as class teacher
+    let matchedClass: any = null;
+    let matchedSection: any = null;
+
+    if (this.classes && this.classes.length > 0) {
+      for (const c of this.classes) {
+        const sec = (c.sections || []).find((s: any) =>
+          (currentTeacher && s.classTeacherId && s.classTeacherId === currentTeacher.id) ||
+          (userFullName && s.classTeacherName && s.classTeacherName.trim().toLowerCase() === userFullName)
+        );
+        if (sec) {
+          matchedClass = c;
+          matchedSection = sec;
+          break;
+        }
+      }
+    }
+
+    if (matchedClass) {
+      this.isClassTeacherLocked = true;
+      this.teacherAssignedClassId = matchedClass.id;
+      this.teacherAssignedClassName = matchedClass.name;
+      this.teacherAssignedSectionId = matchedSection?.id || '';
+      this.teacherAssignedSectionName = matchedSection?.name || '';
+
+      this.diaryClassId = matchedClass.id;
+      this.onDiaryClassChange();
+      if (matchedSection?.id) {
+        this.diarySectionId = matchedSection.id;
+        this.onDiarySectionChange();
+      }
+    }
+  }
+
   loadClasses(): void {
     this.http.get<any[]>(`${API_BASE}/school/classes`).subscribe({
       next: r => {
         this.classes = r;
+        this.checkAndLockClassTeacher();
         if (!this.previewClassId && this.classes.length > 0) {
           this.initTeacherPreviewClass();
         }
@@ -3259,6 +4105,7 @@ export class HomeworkDiaryComponent implements OnInit {
     this.http.get<any[]>(`${API_BASE}/teachers`).subscribe({
       next: r => {
         this.teachers = r;
+        this.checkAndLockClassTeacher();
         if (!this.previewClassId && this.classes.length > 0) {
           this.initTeacherPreviewClass();
         }
@@ -4536,45 +5383,88 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
     <div class="report-dialog-container">
       <!-- Dialog Header matching strict UI guidelines -->
       <div class="modal-header">
-        <div class="header-left">
-          <div class="header-icon-box" [class.has-logo]="logoUrl && !logoFailed">
-            <img *ngIf="logoUrl && !logoFailed" [src]="logoUrl" (error)="logoFailed = true" alt="Company Logo" class="header-logo-img" />
-            <mat-icon *ngIf="!logoUrl || logoFailed">school</mat-icon>
+        <!-- Main Top Bar: Logo, Title, Primary Actions & Close -->
+        <div class="header-main-row">
+          <div class="header-left">
+            <div class="header-logo-card" [class.has-logo]="logoUrl && !logoFailed">
+              <img *ngIf="logoUrl && !logoFailed" [src]="logoUrl" (error)="logoFailed = true" alt="Institute Logo" class="header-logo-img" />
+              <div *ngIf="!logoUrl || logoFailed" class="fallback-icon-wrap">
+                <mat-icon>school</mat-icon>
+              </div>
+            </div>
+            <div class="header-title-box">
+              <div class="title-with-badge">
+                <h2 class="dialog-title">Daily CW &amp; HW Report</h2>
+                <span class="report-badge">Daily Diary</span>
+              </div>
+              <div class="dialog-quick-meta">
+                <span class="quick-meta-pill"><mat-icon>event</mat-icon> Date: <strong>{{formattedDate}}</strong></span>
+                <span class="quick-meta-pill"><mat-icon>domain</mat-icon> Class: <strong>{{reportHeader?.className || data.className}}</strong></span>
+                <span *ngIf="reportHeader?.sectionName || data.sectionName" class="quick-meta-pill sec-pill">Sec <strong>{{reportHeader?.sectionName || data.sectionName}}</strong></span>
+                <span class="quick-meta-pill count-pill"><mat-icon>groups</mat-icon> <strong>{{rows.length}} Students</strong></span>
+              </div>
+            </div>
           </div>
-          <div class="header-title-wrap">
-            <div class="title-row">
-              <h2 class="dialog-title">Daily CW &amp; HW Report</h2>
-              <span class="report-badge">Daily Diary</span>
-            </div>
-            <div class="dialog-meta">
-              <span class="meta-item"><mat-icon class="meta-icon">event</mat-icon> Date: <strong>{{formattedDate}}</strong></span>
-              <span class="meta-dot">&bull;</span>
-              <span class="meta-item"><mat-icon class="meta-icon">domain</mat-icon> Class: <strong>{{reportHeader?.className || data.className}}</strong></span>
-              <span *ngIf="reportHeader?.sectionName || data.sectionName" class="meta-sec-badge">Sec {{reportHeader?.sectionName || data.sectionName}}</span>
-            </div>
+
+          <!-- Top-Right Primary Action Buttons -->
+          <div class="header-primary-actions">
+            <!-- 1-Click Automated Send to All Parents -->
+            <button mat-flat-button class="auto-wa-parents-btn" (click)="sendAutomatedWhatsAppToAllParents()" [disabled]="sendingWhatsApp || rows.length === 0" matTooltip="Automatically dispatch personalized daily diary to all parents via WhatsApp">
+              <mat-icon *ngIf="!sendingWhatsApp">bolt</mat-icon>
+              <mat-icon *ngIf="sendingWhatsApp" class="spin">sync</mat-icon>
+              <span>{{ sendingWhatsApp ? 'Sending...' : '⚡ Auto Send Parents' }}</span>
+            </button>
+
+            <!-- 1-Click Direct WhatsApp Share to Class Group -->
+            <button mat-flat-button class="group-wa-btn" (click)="shareToClassGroupWhatsApp()" matTooltip="Directly open WhatsApp to share summary with class group">
+              <mat-icon>send</mat-icon>
+              <span>📲 Send to Group</span>
+            </button>
+
+            <!-- Print Report A4 -->
+            <button mat-flat-button class="print-action-btn" (click)="printReport()" matTooltip="A4 Printable Landscape Sheet">
+              <mat-icon>print</mat-icon>
+              <span>Print (A4)</span>
+            </button>
+
+            <!-- Close Dialog -->
+            <button mat-icon-button class="close-btn" (click)="dialogRef.close()" matTooltip="Close (Esc)">
+              <mat-icon>close</mat-icon>
+            </button>
           </div>
         </div>
 
-        <div class="header-right-actions">
-          <button mat-flat-button class="whatsapp-btn" (click)="copyClassSummaryWhatsApp()" matTooltip="Copy compact Class Summary (C.W. + H.W. + Absentees) - fits in photo caption without cutting">
-            <mat-icon>content_copy</mat-icon>
-            <span>Copy Class Summary</span>
-          </button>
+        <!-- Sub-Toolbar: Secondary Tools & Copy Actions -->
+        <div class="header-sub-toolbar">
+          <div class="sub-toolbar-left">
+            <!-- Previous H.W. Included Toggle Pill -->
+            <button mat-stroked-button class="toggle-prev-hw-btn"
+                    *ngIf="reportHeader?.previousHw && reportHeader!.previousHw!.length > 0"
+                    [class.active]="includePreviousHw"
+                    (click)="includePreviousHw = !includePreviousHw"
+                    matTooltip="Click to include or exclude previous day homework verification from print and WhatsApp">
+              <mat-icon>{{ includePreviousHw ? 'check_box' : 'check_box_outline_blank' }}</mat-icon>
+              <span>Previous H.W. ({{ includePreviousHw ? 'Included' : 'Excluded' }})</span>
+            </button>
 
-          <button mat-stroked-button class="whatsapp-sub-btn" (click)="copyWhatsAppText()" matTooltip="Copy full student-by-student diary (for direct chat box without photo)">
-            <mat-icon>format_list_numbered</mat-icon>
-            <span>Student-wise</span>
-          </button>
+            <span class="sub-toolbar-hint" *ngIf="!reportHeader?.previousHw || reportHeader!.previousHw!.length === 0">
+              <mat-icon class="hint-icon">verified</mat-icon> Complete C.W. &amp; H.W. Daily Report Overview
+            </span>
+          </div>
 
-          <button mat-flat-button class="print-action-btn" (click)="printReport()">
-            <mat-icon>print</mat-icon>
-            <span>Print Report (A4)</span>
-          </button>
+          <div class="sub-toolbar-right">
+            <span class="manual-copy-label">Manual Copy:</span>
+            <button mat-stroked-button class="copy-pill-btn" (click)="copyClassSummaryWhatsApp()" matTooltip="Copy compact Class Summary">
+              <mat-icon>forum</mat-icon>
+              <span>Copy Group</span>
+            </button>
+
+            <button mat-stroked-button class="copy-pill-btn" (click)="copyWhatsAppText()" matTooltip="Copy full student-by-student diary">
+              <mat-icon>format_list_numbered</mat-icon>
+              <span>Copy Student-wise</span>
+            </button>
+          </div>
         </div>
-
-        <button mat-icon-button class="close-btn" (click)="dialogRef.close()" matTooltip="Close (Esc)">
-          <mat-icon>close</mat-icon>
-        </button>
       </div>
 
       <!-- Printable Report Body -->
@@ -4582,8 +5472,8 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
         <div class="print-paper-sheet" id="printableDiaryReport">
           <!-- Institute Header -->
           <div class="report-top-header">
-            <h1 class="school-title">{{reportHeader?.tenantName || 'Jnandeep Campus'}}</h1>
-            <div class="school-address-text">{{reportHeader?.tenantAddress || 'Anjani, Parsa, Saran, Bihar'}}</div>
+            <h1 class="school-title">{{ reportHeader?.tenantName || authService.getInstituteName() || 'Daily Diary Report' }}</h1>
+            <div class="school-address-text" *ngIf="reportHeader?.tenantAddress">{{ reportHeader?.tenantAddress }}</div>
           </div>
 
           <!-- Main Navy Title Banner -->
@@ -4606,27 +5496,43 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
 
           <!-- Grid Table -->
           <table class="report-data-table">
+            <colgroup>
+              <col class="col-sno">
+              <col class="col-name">
+              <col class="col-class">
+              <col class="col-cw">
+              <col class="col-cw-rem">
+              <col class="col-hw">
+              <col class="col-hw-rem">
+            </colgroup>
             <thead>
               <tr>
                 <th class="col-sno">S. No.</th>
                 <th class="col-name">Student Name</th>
                 <th class="col-class">Class</th>
                 <th class="col-cw">CLASS WORK (C.W.)</th>
+                <th class="col-cw-rem">Remarks</th>
                 <th class="col-hw">HOME WORK (H.W.)</th>
+                <th class="col-hw-rem">Remarks</th>
               </tr>
             </thead>
             <tbody>
               <tr *ngFor="let row of rows; let i = index" [class.absent-row]="row.isAbsent">
                 <td class="col-sno-data text-center">{{i + 1}}</td>
                 <td class="col-name-data">
-                  <div class="name-bold">{{row.studentName}}</div>
+                  <div class="name-row-flex">
+                    <span class="name-bold">{{row.studentName}}</span>
+                    <button type="button" class="row-wa-btn hide-on-print" (click)="sendIndividualStudentWhatsApp(row)" matTooltip="WhatsApp Parent (सीधे माता-पिता को भेजें)">
+                      <mat-icon>chat</mat-icon>
+                    </button>
+                  </div>
                   <div class="sub-roll" *ngIf="row.rollNumber">Roll: {{row.rollNumber}}</div>
                 </td>
                 <td class="col-class-data text-center">{{row.className || reportHeader?.className || data.className}}</td>
 
                 <!-- Absent / Unmarked Student: Subjects } Absent matching reference photo rows 7 & 8 -->
                 <ng-container *ngIf="isAbsentStudent(row)">
-                  <td class="col-bracket-cell text-center">
+                  <td class="col-bracket-cell text-center" colspan="2">
                     <div class="absent-bracket-layout">
                       <div class="absent-subjects-col">
                         <span class="subject-pill" *ngFor="let s of getClassSubjects()" [ngClass]="getSubjectColorClass(s)">{{s}}</span>
@@ -4637,7 +5543,7 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
                       <span class="absent-text-red">Absent</span>
                     </div>
                   </td>
-                  <td class="col-bracket-cell text-center">
+                  <td class="col-bracket-cell text-center" colspan="2">
                     <div class="absent-bracket-layout">
                       <div class="absent-subjects-col">
                         <span class="subject-pill" *ngFor="let s of getClassSubjects()" [ngClass]="getSubjectColorClass(s)">{{s}}</span>
@@ -4657,19 +5563,96 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
                       <span class="subject-pill" [ngClass]="getSubjectColorClass(cw.subject)">{{cw.subject}}</span>
                       <span class="task-arrow">&rarr;</span>
                       <span class="task-text">{{cw.task}}</span>
+                      <span class="task-teacher" *ngIf="cw.teacherName || reportHeader?.classTeacherName">({{cw.teacherName || reportHeader?.classTeacherName}})</span>
                     </div>
+                  </td>
+                  <td class="col-rem-data text-center">
+                    <div class="rem-content" *ngIf="getCwRemarksList(row).length > 0">
+                      <div class="hw-rem-item" *ngFor="let cr of getCwRemarksList(row)" [ngClass]="cr.colorClass">
+                        <span class="rem-label">
+                          <strong *ngIf="cr.subject">[{{ cr.subject }}]: </strong>{{ cr.text }}
+                        </span>
+                      </div>
+                    </div>
+                    <span class="empty-dash" *ngIf="getCwRemarksList(row).length === 0">—</span>
                   </td>
                   <td class="col-work-data">
                     <div class="task-entry" *ngFor="let hw of getActiveTasks(row.homeWork)">
                       <span class="subject-pill" [ngClass]="getSubjectColorClass(hw.subject)">{{hw.subject}}</span>
                       <span class="task-arrow">&rarr;</span>
                       <span class="task-text">{{hw.task}}</span>
+                      <span class="task-teacher" *ngIf="hw.teacherName || reportHeader?.classTeacherName">({{hw.teacherName || reportHeader?.classTeacherName}})</span>
+                      <span class="hw-tick" [ngClass]="hwTickClass(hw)" [attr.title]="hwTickTitle(hw)">{{hwTickSymbol(hw)}}</span>
                     </div>
+                    <div class="hw-summary" *ngIf="hwSummary(row) as sm">H.W. Done: {{sm}}</div>
+                  </td>
+                  <td class="col-rem-data text-center">
+                    <div class="rem-content" *ngIf="getHwRemarks(row).length > 0">
+                      <div class="hw-rem-item" *ngFor="let rem of getHwRemarks(row)" [ngClass]="'rem-' + rem.status.toLowerCase()">
+                        <span class="rem-tick">{{ rem.symbol }}</span>
+                        <span class="rem-label">{{ rem.text }}</span>
+                      </div>
+                    </div>
+                    <span class="empty-dash" *ngIf="getHwRemarks(row).length === 0">—</span>
                   </td>
                 </ng-container>
               </tr>
             </tbody>
           </table>
+
+          <!-- PREVIOUS DAY'S HOMEWORK VERIFICATION (if available for this class) -->
+          <div class="prev-hw-section" *ngIf="includePreviousHw && reportHeader?.previousHw && reportHeader!.previousHw!.length > 0">
+            <div class="prev-hw-banner">
+              <mat-icon class="ph-icon">verified</mat-icon>
+              <span>PREVIOUS HOMEWORK VERIFICATION (गत दिवस गृहकार्य जाँच - तारीख: {{ formattedPreviousHwDate }})</span>
+            </div>
+            <table class="report-data-table prev-hw-table">
+              <colgroup>
+                <col style="width: 4%;">
+                <col style="width: 16%;">
+                <col style="width: 6%;">
+                <col style="width: 62%;">
+                <col style="width: 12%;">
+              </colgroup>
+              <thead>
+                <tr>
+                  <th class="col-sno">S. No.</th>
+                  <th class="col-name">Student Name</th>
+                  <th class="col-class">Roll</th>
+                  <th class="col-hw">PREVIOUS H.W. POINTS &amp; VERIFICATION STATUS</th>
+                  <th style="width: 12%; text-align: center;">Summary</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let prow of reportHeader!.previousHw; let pi = index">
+                  <td class="col-sno-data text-center">{{ pi + 1 }}</td>
+                  <td class="col-name-data">
+                    <div class="name-bold">{{ prow.studentName }}</div>
+                  </td>
+                  <td class="col-class-data text-center">{{ prow.rollNumber }}</td>
+                  <td class="col-work-data">
+                    <div class="task-entry" *ngFor="let phw of getActiveTasks(prow.homeWork)">
+                      <span class="subject-pill" [ngClass]="getSubjectColorClass(phw.subject)">{{ phw.subject }}</span>
+                      <span class="task-arrow">&rarr;</span>
+                      <span class="task-text">{{ phw.task }}</span>
+                      <span class="task-teacher" *ngIf="phw.teacherName || reportHeader?.classTeacherName">({{ phw.teacherName || reportHeader?.classTeacherName }})</span>
+                      <span class="hw-tick" [ngClass]="hwTickClass(phw)" [attr.title]="hwTickTitle(phw)">{{ hwTickSymbol(phw) }}</span>
+                    </div>
+                  </td>
+                  <td class="text-center">
+                    <span class="prev-score-chip" *ngIf="previousHwSummary(prow) as psm">{{ psm }}</span>
+                    <span class="absent-text-red" *ngIf="prow.isAbsent">Absent</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="report-legend">✔ Completed &nbsp;·&nbsp; ◐ Partial &nbsp;·&nbsp; ✘ Not Done &nbsp;·&nbsp; ⏳ Not checked yet</div>
+          <div class="sign-row">
+            <div>Class Teacher: <strong>{{ reportHeader?.classTeacherName || '__________________' }}</strong></div>
+            <div>Parent's Signature: __________________</div>
+          </div>
 
           <!-- Bottom Navy Banner -->
           <div class="navy-footer-banner">
@@ -4695,39 +5678,44 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
       flex-shrink: 0;
       background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
       border-bottom: 1px solid #bfdbfe;
-      padding: 13px 64px 13px 22px;
+      padding: 0;
       display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 16px;
+      flex-direction: column;
       position: relative;
       z-index: 10;
       box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
     }
+
+    .header-main-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 18px 10px 18px;
+      gap: 16px;
+    }
+
     .header-left {
       display: flex;
       align-items: center;
-      gap: 14px;
+      gap: 12px;
+      flex-shrink: 0;
+      min-width: 0;
     }
-    .header-icon-box {
-      width: 46px;
-      height: 46px;
+
+    .header-logo-card {
+      width: 48px;
+      height: 48px;
       border-radius: 12px;
-      background: #2563eb;
-      color: #ffffff;
+      background: #ffffff;
+      border: 1.5px solid #bfdbfe;
+      box-shadow: 0 2px 6px rgba(37, 99, 235, 0.15);
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 4px 6px -1px rgba(37,99,235,0.25);
       flex-shrink: 0;
+      padding: 3px;
+      box-sizing: border-box;
       overflow: hidden;
-
-      &.has-logo {
-        background: #ffffff;
-        border: 2px solid #bfdbfe;
-        box-shadow: 0 4px 10px -2px rgba(37,99,235,0.2);
-        padding: 2px;
-      }
 
       .header-logo-img {
         width: 100%;
@@ -4736,22 +5724,35 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
         border-radius: 9px;
       }
 
-      mat-icon {
-        font-size: 26px;
-        width: 26px;
-        height: 26px;
+      .fallback-icon-wrap {
+        width: 100%;
+        height: 100%;
+        border-radius: 9px;
+        background: #2563eb;
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        mat-icon {
+          font-size: 26px;
+          width: 26px;
+          height: 26px;
+        }
       }
     }
-    .header-title-wrap {
+
+    .header-title-box {
       display: flex;
       flex-direction: column;
-      gap: 3px;
+      gap: 4px;
     }
-    .title-row {
+
+    .title-with-badge {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
     }
+
     .dialog-title {
       margin: 0;
       font-size: 19px;
@@ -4759,73 +5760,141 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
       color: #1e3a8a;
       letter-spacing: -0.2px;
       line-height: 1.2;
+      white-space: nowrap;
     }
+
     .report-badge {
       display: inline-flex;
       align-items: center;
-      padding: 2px 7px;
-      border-radius: 6px;
+      padding: 2px 8px;
+      border-radius: 999px;
       font-size: 11px;
       font-weight: 700;
       background: #dbeafe;
       color: #1d4ed8;
       border: 1px solid #bfdbfe;
-      letter-spacing: 0.2px;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+      white-space: nowrap;
     }
-    .dialog-meta {
-      font-size: 12.5px;
-      color: #3b82f6;
+
+    .dialog-quick-meta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: nowrap;
+    }
+
+    .quick-meta-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11.5px;
+      font-weight: 600;
+      color: #2563eb;
+      background: rgba(255, 255, 255, 0.75);
+      border: 1px solid #bfdbfe;
+      padding: 1.5px 7px;
+      border-radius: 5px;
+      white-space: nowrap;
+
+      mat-icon {
+        font-size: 13.5px;
+        width: 13.5px;
+        height: 13.5px;
+        color: #1d4ed8;
+      }
+      strong {
+        color: #1e3a8a;
+        font-weight: 700;
+      }
+      &.sec-pill {
+        background: #eff6ff;
+        color: #1e40af;
+      }
+      &.count-pill {
+        background: #eff6ff;
+        color: #0369a1;
+      }
+    }
+
+    .header-primary-actions {
       display: flex;
       align-items: center;
       gap: 8px;
-      flex-wrap: wrap;
+      flex-shrink: 0;
+    }
 
-      .meta-item {
-        display: inline-flex;
-        align-items: center;
-        gap: 3px;
+    .auto-wa-parents-btn {
+      background: linear-gradient(135deg, #059669 0%, #10b981 100%) !important;
+      color: #ffffff !important;
+      font-weight: 700 !important;
+      border-radius: 8px !important;
+      font-size: 12px !important;
+      height: 38px !important;
+      padding: 0 14px !important;
+      white-space: nowrap !important;
+      box-shadow: 0 2px 6px rgba(16, 185, 129, 0.35) !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      gap: 5px !important;
+      transition: all 0.15s ease !important;
+      &:hover {
+        background: linear-gradient(135deg, #047857 0%, #059669 100%) !important;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(16, 185, 129, 0.4) !important;
       }
-      .meta-icon {
-        font-size: 14px;
-        width: 14px;
-        height: 14px;
-        color: #2563eb;
-      }
-      strong { color: #1e40af; font-weight: 700; }
+      &:disabled { opacity: 0.65; cursor: not-allowed; transform: none; }
     }
-    .meta-sec-badge {
-      background: #eff6ff;
-      color: #1e40af;
-      border: 1px solid #bfdbfe;
-      padding: 1px 6px;
-      border-radius: 4px;
-      font-size: 11px;
-      font-weight: 700;
-    }
-    .meta-dot { font-size: 14px; opacity: 0.6; }
+    .auto-wa-parents-btn mat-icon { font-size: 17px; width: 17px; height: 17px; }
+    .auto-wa-parents-btn mat-icon.spin { animation: spinWa 1s linear infinite; }
+    @keyframes spinWa { 100% { transform: rotate(360deg); } }
 
-    .header-right-actions { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; }
-    .whatsapp-btn { background: #16a34a !important; color: #ffffff !important; font-weight: 700; border-radius: 8px; font-size: 11.5px; height: 36px; padding: 0 12px !important; white-space: nowrap; box-shadow: 0 2px 4px -1px rgba(22, 163, 74, 0.3); }
-    .whatsapp-btn mat-icon { font-size: 16px; width: 16px; height: 16px; margin-right: 4px; }
-    .whatsapp-sub-btn {
-      color: #15803d !important;
-      border: 1.5px solid #86efac !important;
-      background: #f0fdf4 !important;
-      font-weight: 700;
-      border-radius: 8px;
-      font-size: 11.5px;
-      height: 36px;
-      padding: 0 12px !important;
-      white-space: nowrap;
-      &:hover { background: #dcfce7 !important; }
+    .group-wa-btn {
+      background: linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%) !important;
+      color: #ffffff !important;
+      font-weight: 700 !important;
+      border-radius: 8px !important;
+      font-size: 12px !important;
+      height: 38px !important;
+      padding: 0 14px !important;
+      white-space: nowrap !important;
+      box-shadow: 0 2px 6px rgba(14, 165, 233, 0.3) !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      gap: 5px !important;
+      transition: all 0.15s ease !important;
+      &:hover {
+        background: linear-gradient(135deg, #0369a1 0%, #0284c7 100%) !important;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(14, 165, 233, 0.35) !important;
+      }
     }
-    .whatsapp-sub-btn mat-icon { font-size: 16px; width: 16px; height: 16px; margin-right: 4px; }
-    .print-action-btn { background: #2563eb !important; color: #ffffff !important; font-weight: 700; border-radius: 8px; font-size: 11.5px; height: 36px; padding: 0 12px !important; white-space: nowrap; box-shadow: 0 2px 4px -1px rgba(37, 99, 235, 0.3); }
-    .print-action-btn mat-icon { font-size: 16px; width: 16px; height: 16px; margin-right: 4px; }
+    .group-wa-btn mat-icon { font-size: 16px; width: 16px; height: 16px; }
+
+    .print-action-btn {
+      background: #2563eb !important;
+      color: #ffffff !important;
+      font-weight: 700 !important;
+      border-radius: 8px !important;
+      font-size: 12px !important;
+      height: 38px !important;
+      padding: 0 14px !important;
+      white-space: nowrap !important;
+      box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3) !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      gap: 5px !important;
+      transition: all 0.15s ease !important;
+      &:hover {
+        background: #1d4ed8 !important;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(37, 99, 235, 0.35) !important;
+      }
+    }
+    .print-action-btn mat-icon { font-size: 17px; width: 17px; height: 17px; }
+
     .close-btn {
-      position: absolute;
-      right: 14px;
-      top: 14px;
       color: #64748b;
       width: 36px;
       height: 36px;
@@ -4834,15 +5903,83 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
       justify-content: center;
       border-radius: 8px;
       transition: all 0.15s ease;
-      &:hover { color: #0f172a; background: #e2e8f0; }
+      &:hover { color: #0f172a; background: rgba(0, 0, 0, 0.06); }
     }
+
+    /* Sub-Toolbar styling */
+    .header-sub-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 18px;
+      background: rgba(255, 255, 255, 0.55);
+      border-top: 1px solid rgba(191, 219, 254, 0.8);
+      gap: 12px;
+    }
+
+    .sub-toolbar-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .sub-toolbar-hint {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11.5px;
+      font-weight: 600;
+      color: #3b82f6;
+      .hint-icon {
+        font-size: 15px;
+        width: 15px;
+        height: 15px;
+        color: #2563eb;
+      }
+    }
+
+    .sub-toolbar-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .manual-copy-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .copy-pill-btn {
+      color: #1e40af !important;
+      border: 1px solid #bfdbfe !important;
+      background: #ffffff !important;
+      font-weight: 700 !important;
+      border-radius: 6px !important;
+      font-size: 11px !important;
+      height: 30px !important;
+      padding: 0 10px !important;
+      white-space: nowrap !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      gap: 4px !important;
+      transition: all 0.15s ease !important;
+      &:hover {
+        background: #eff6ff !important;
+        border-color: #93c5fd !important;
+        color: #1d4ed8 !important;
+      }
+    }
+    .copy-pill-btn mat-icon { font-size: 14px; width: 14px; height: 14px; color: #2563eb; }
 
     .modal-body-scroll {
       flex: 1;
       min-height: 0;
-      padding: 24px 20px 48px;
+      padding: 18px;
       overflow-y: auto;
-      overflow-x: hidden;
+      overflow-x: auto;
       display: flex;
       justify-content: center;
       background: #cbd5e1;
@@ -4852,15 +5989,16 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
     .print-paper-sheet {
       background: #ffffff;
       width: 100%;
-      max-width: 840px;
+      max-width: 1140px;
       border: 1.5px solid #0f172a;
       box-shadow: 0 10px 25px -5px rgba(0,0,0,0.18), 0 8px 10px -6px rgba(0,0,0,0.15);
-      padding: 24px 28px;
+      padding: 20px 22px;
       box-sizing: border-box;
       color: #0f172a;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       height: fit-content;
       margin: 0 auto 30px;
+      overflow-x: auto;
     }
 
     .report-top-header { text-align: center; margin-bottom: 12px; padding-top: 4px; }
@@ -4930,39 +6068,78 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
       gap: 4px;
     }
 
-    /* Report Data Table with Crisp Dark Borders */
+    /* Report Data Table with Crisp Dark Borders & 100% Proportional Budgeting */
     .report-data-table {
       width: 100%;
+      table-layout: fixed;
       border-collapse: collapse;
       border: 1.5px solid #0f172a;
-      font-size: 13px;
+      font-size: 12.5px;
     }
     .report-data-table th, .report-data-table td {
       border: 1.5px solid #0f172a;
-      padding: 8px 10px;
+      padding: 7px 8px;
       vertical-align: middle;
       box-sizing: border-box;
+      overflow: hidden;
     }
     .report-data-table th {
       background: #f1f5f9;
       color: #0f172a;
       font-weight: 800;
       text-align: center;
-      font-size: 13px;
+      font-size: 12px;
       letter-spacing: 0.3px;
+      text-transform: uppercase;
     }
-    .col-sno { width: 50px; }
-    .col-name { width: 170px; text-align: left !important; }
-    .col-class { width: 75px; }
-    .col-cw { width: 40%; }
-    .col-hw { width: 40%; }
+    .col-sno { width: 4%; }
+    .col-name { width: 14%; text-align: left !important; }
+    .col-class { width: 5%; }
+    .col-cw { width: 27%; }
+    .col-cw-rem { width: 11%; text-align: center; }
+    .col-hw { width: 26%; }
+    .col-hw-rem { width: 13%; text-align: center; }
 
     .text-center { text-align: center; }
-    .col-sno-data { font-weight: 800; color: #1e293b; }
+    .col-sno-data { font-weight: 800; color: #1e293b; text-align: center; }
     .col-name-data { text-align: left; }
-    .name-bold { font-weight: 800; color: #0f172a; font-size: 13.5px; }
+    .name-bold { font-weight: 800; color: #0f172a; font-size: 13px; word-break: break-word; }
     .sub-roll { font-size: 11px; color: #64748b; font-weight: 600; }
-    .col-class-data { font-weight: 700; color: #1e3a8a; }
+    .col-class-data { font-weight: 700; color: #1e3a8a; text-align: center; }
+    .name-row-flex {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+    .row-wa-btn {
+      width: 24px;
+      height: 24px;
+      line-height: 24px;
+      border-radius: 50%;
+      background: #dcfce7;
+      color: #15803d;
+      border: 1px solid #86efac;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      padding: 0;
+      flex-shrink: 0;
+      &:hover {
+        background: #16a34a;
+        color: #ffffff;
+        border-color: #16a34a;
+        transform: scale(1.1);
+      }
+    }
+    .row-wa-btn mat-icon {
+      font-size: 13.5px;
+      width: 13.5px;
+      height: 13.5px;
+      line-height: 13.5px;
+    }
 
     .col-absent-cell {
       background: #fff5f5;
@@ -5038,15 +6215,66 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
     .col-work-data { text-align: left; }
     .task-entry {
       display: flex;
+      flex-wrap: wrap;
       align-items: baseline;
-      gap: 6px;
-      margin-bottom: 5px;
-      line-height: 1.4;
+      gap: 3px 5px;
+      margin-bottom: 4px;
+      line-height: 1.35;
     }
     .task-entry:last-child { margin-bottom: 0; }
     .task-arrow { font-weight: 700; color: #64748b; }
-    .task-text { font-weight: 600; color: #1e293b; font-size: 13px; }
+    .task-text { font-weight: 600; color: #1e293b; font-size: 12.5px; word-break: break-word; }
+    .task-teacher { font-size: 10px; font-weight: 700; color: #64748b; font-style: italic; white-space: nowrap; }
+    .task-entry .hw-tick { margin-left: auto; font-weight: 900; font-size: 13px; flex-shrink: 0; }
+    .hw-tick.hw-completed { color: #15803d; }
+    .hw-tick.hw-partial { color: #b45309; }
+    .hw-tick.hw-notdone { color: #dc2626; }
+    .hw-tick.hw-pending { color: #94a3b8; font-size: 11px; }
+    .hw-summary { margin-top: 3px; font-size: 10.5px; font-weight: 800; color: #1e3a8a; }
+    .report-legend { margin-top: 6px; text-align: center; font-size: 11px; font-weight: 700; color: #475569; }
+    .sign-row { display: flex; justify-content: space-between; margin-top: 14px; font-size: 12px; font-weight: 700; color: #0f172a; }
     .no-tasks-text { color: #94a3b8; text-align: center; }
+    
+    .col-rem-data { text-align: center; vertical-align: middle !important; font-size: 11px; padding: 6px 6px !important; }
+    .rem-content { display: flex; flex-direction: column; gap: 4px; align-items: center; justify-content: center; width: 100%; }
+    .rem-text-badge {
+      display: inline-block;
+      padding: 3px 7px;
+      border-radius: 5px;
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1.25;
+      word-break: normal;
+      overflow-wrap: normal;
+      hyphens: none;
+      white-space: normal;
+      text-align: center;
+      box-sizing: border-box;
+      max-width: 100%;
+    }
+    .rem-text-badge.cw { background: #f0fdf4; color: #15803d; border: 1px solid #86efac; }
+    .hw-rem-item {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      padding: 2.5px 6px;
+      border-radius: 5px;
+      font-size: 11px;
+      font-weight: 800;
+      white-space: normal;
+      line-height: 1.2;
+      text-align: center;
+      box-sizing: border-box;
+      max-width: 100%;
+    }
+    .hw-rem-item.rem-completed { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }
+    .hw-rem-item.rem-notdone { background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; }
+    .hw-rem-item.rem-partial { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
+    .hw-rem-item.rem-pending { background: #f1f5f9; color: #64748b; border: 1px solid #cbd5e1; }
+    .rem-tick { font-weight: 900; font-size: 11.5px; flex-shrink: 0; }
+    .rem-label { font-weight: 800; font-size: 11px; letter-spacing: 0.1px; word-break: normal; hyphens: none; }
+    .empty-dash { color: #94a3b8; font-weight: 700; font-size: 14px; }
 
     /* Subject pill styling matching user's photo */
     .subject-pill {
@@ -5067,6 +6295,89 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
     .sub-theme-6 { background: #ccfbf1; color: #0f766e; border: 1px solid #99f6e4; } /* Teal Mint */
     .sub-theme-7 { background: #ffedd5; color: #c2410c; border: 1px solid #fed7aa; } /* Coral Orange */
 
+    .prev-hw-section {
+      margin-top: 14px;
+      page-break-inside: avoid;
+    }
+    .prev-hw-banner {
+      background: #1e3a8a;
+      color: #ffffff;
+      padding: 6px 12px;
+      font-size: 11.5px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border: 1.5px solid #0f172a;
+      border-bottom: none;
+    }
+    .prev-hw-banner .ph-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
+    .prev-score-chip {
+      background: #dcfce7;
+      color: #15803d;
+      font-weight: 800;
+      font-size: 11px;
+      border-radius: 999px;
+      padding: 2px 8px;
+    }
+    @media (max-width: 900px) {
+      .header-main-row {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 12px 14px;
+        gap: 10px;
+      }
+      .header-left {
+        width: 100%;
+      }
+      .header-primary-actions {
+        width: 100%;
+        flex-wrap: wrap;
+        justify-content: flex-start;
+      }
+      .header-sub-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 8px 14px;
+        gap: 8px;
+      }
+      .sub-toolbar-right {
+        width: 100%;
+        flex-wrap: wrap;
+      }
+      .modal-body-scroll {
+        padding: 10px 4px 24px;
+      }
+      .print-paper-sheet {
+        padding: 14px 8px;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+      .report-data-table {
+        min-width: 720px;
+      }
+    }
+
+    @media (max-width: 540px) {
+      .header-primary-actions button {
+        flex: 1 1 100%;
+      }
+      .sub-toolbar-right button {
+        flex: 1 1 100%;
+      }
+      .dialog-quick-meta {
+        flex-wrap: wrap;
+      }
+      .school-title {
+        font-size: 18px;
+      }
+    }
+
     @media print {
       body * { visibility: hidden !important; }
       .print-paper-sheet, .print-paper-sheet * { visibility: visible !important; }
@@ -5079,17 +6390,38 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
         box-shadow: none !important;
         border: 1.5px solid #000 !important;
         margin: 0 !important;
-        padding: 10mm 12mm !important;
+        padding: 4mm 6mm !important;
+        box-sizing: border-box !important;
       }
-      .report-data-table { border: 1.5px solid #000 !important; }
-      .report-data-table th, .report-data-table td { border: 1px solid #000 !important; }
-      .navy-title-banner, .navy-footer-banner {
+      .report-data-table {
+        border: 1.5px solid #000 !important;
+        width: 100% !important;
+        table-layout: fixed !important;
+        border-collapse: collapse !important;
+        font-size: 11px !important;
+      }
+      .report-data-table th, .report-data-table td {
+        border: 1px solid #000 !important;
+        padding: 3.5px 5px !important;
+        box-sizing: border-box !important;
+      }
+      .col-sno { width: 4% !important; }
+      .col-name { width: 14% !important; }
+      .col-class { width: 5% !important; }
+      .col-cw { width: 27% !important; }
+      .col-cw-rem { width: 11% !important; }
+      .col-hw { width: 26% !important; }
+      .col-hw-rem { width: 13% !important; }
+      .navy-title-banner, .navy-footer-banner, .subject-pill, .rem-text-badge, .hw-rem-item {
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
       }
+      .row-wa-btn, .hide-on-print {
+        display: none !important;
+      }
       @page {
-        size: A4 portrait;
-        margin: 8mm;
+        size: A4 landscape;
+        margin: 5mm 6mm;
       }
     }
   `]
@@ -5097,7 +6429,9 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
 export class DailyDiaryReportDialogComponent implements OnInit {
   reportHeader?: DailyDiaryReportHeader;
   rows: DailyStudentDiaryRow[] = [];
+  includePreviousHw = false;
   loading = false;
+  sendingWhatsApp = false;
   logoFailed = false;
 
   constructor(
@@ -5117,7 +6451,7 @@ export class DailyDiaryReportDialogComponent implements OnInit {
   }
 
   get formattedDate(): string {
-    const raw = this.reportHeader?.reportDate || this.data.date;
+    const raw = this.reportHeader?.reportDate || this.reportHeader?.diaryDate || this.data.date;
     if (!raw) return '';
     const parts = raw.split('T')[0].split('-');
     if (parts.length === 3) {
@@ -5129,6 +6463,51 @@ export class DailyDiaryReportDialogComponent implements OnInit {
   getActiveTasks(tasks?: DailySubjectTaskItem[]): DailySubjectTaskItem[] {
     if (!tasks) return [];
     return tasks.filter(t => t.task && t.task.trim().length > 0);
+  }
+
+  hwTickSymbol(hw: DailySubjectTaskItem): string {
+    switch (hw.status || 'Pending') {
+      case 'Completed': return '✔';
+      case 'Partial': return '◐';
+      case 'NotDone': return '✘';
+      default: return '⏳';
+    }
+  }
+
+  hwTickClass(hw: DailySubjectTaskItem): string {
+    return 'hw-' + (hw.status || 'Pending').toLowerCase();
+  }
+
+  hwTickTitle(hw: DailySubjectTaskItem): string {
+    const labels: Record<string, string> = { Completed: 'Completed', Partial: 'Partially done', NotDone: 'Not done', Pending: 'Not checked yet' };
+    const base = labels[hw.status || 'Pending'] || 'Not checked yet';
+    return hw.statusRemark ? `${base} - ${hw.statusRemark}` : base;
+  }
+
+  /** "done / total" for the H.W. points of a student, only once at least one point has been checked. */
+  hwSummary(row: DailyStudentDiaryRow): string | null {
+    const tasks = this.getActiveTasks(row.homeWork);
+    if (tasks.length === 0) return null;
+    if (!tasks.some(t => (t.status || 'Pending') !== 'Pending')) return null;
+    const done = tasks.reduce((n, t) => n + (t.status === 'Completed' ? 1 : (t.status === 'Partial' ? 0.5 : 0)), 0);
+    return `${done} / ${tasks.length}`;
+  }
+
+  get formattedPreviousHwDate(): string {
+    const raw = this.reportHeader?.previousHwDate;
+    if (!raw) return '';
+    const parts = raw.split('T')[0].split('-');
+    if (parts.length === 3) {
+      return `${parts[2]}-${parts[1]}-${parts[0]}`;
+    }
+    return raw;
+  }
+
+  previousHwSummary(prow: any): string | null {
+    const tasks = this.getActiveTasks(prow.homeWork);
+    if (tasks.length === 0) return null;
+    const done = tasks.reduce((n: number, t: DailySubjectTaskItem) => n + (t.status === 'Completed' ? 1 : (t.status === 'Partial' ? 0.5 : 0)), 0);
+    return `${done} / ${tasks.length}`;
   }
 
   getClassSubjects(): string[] {
@@ -5166,6 +6545,50 @@ export class DailyDiaryReportDialogComponent implements OnInit {
     return !hasCw && !hasHw;
   }
 
+  getCwRemarks(row: DailyStudentDiaryRow): string {
+    const taskRemarks = (row.classWork || [])
+      .filter(cw => cw.statusRemark && cw.statusRemark.trim().length > 0)
+      .map(cw => cw.statusRemark!.trim());
+    if (taskRemarks.length > 0) {
+      return taskRemarks.join(', ');
+    }
+    return (row.remarks || '').trim();
+  }
+
+  getCwRemarksList(row: DailyStudentDiaryRow): { subject: string; text: string; colorClass: string }[] {
+    const list: { subject: string; text: string; colorClass: string }[] = [];
+    for (const cw of this.getActiveTasks(row.classWork)) {
+      if (cw.statusRemark && cw.statusRemark.trim().length > 0) {
+        const txt = cw.statusRemark.trim();
+        let cls = 'rem-pending';
+        const l = txt.toLowerCase();
+        if (l.includes('checked') && !l.includes('un')) cls = 'rem-completed';
+        else if (l.includes('uncheck')) cls = 'rem-pending';
+        else if (l.includes('no remember')) cls = 'rem-notdone';
+        else if (l.includes('remember')) cls = 'rem-partial';
+        else if (l.includes('good')) cls = 'rem-completed';
+        list.push({ subject: cw.subject, text: txt, colorClass: cls });
+      }
+    }
+    if (list.length === 0 && row.remarks && row.remarks.trim().length > 0) {
+      list.push({ subject: '', text: row.remarks.trim(), colorClass: 'rem-partial' });
+    }
+    return list;
+  }
+
+  getHwRemarks(row: DailyStudentDiaryRow): { text: string; status: string; symbol: string }[] {
+    const list: { text: string; status: string; symbol: string }[] = [];
+    for (const hw of this.getActiveTasks(row.homeWork)) {
+      const status = hw.status || 'Pending';
+      const symbol = this.hwTickSymbol(hw);
+      const text = (hw.statusRemark && hw.statusRemark.trim().length > 0)
+        ? hw.statusRemark.trim()
+        : (status === 'Completed' ? 'Completed' : (status === 'Partial' ? 'Partial' : (status === 'NotDone' ? 'Not Done' : 'Unchecked')));
+      list.push({ text, status, symbol });
+    }
+    return list;
+  }
+
   ngOnInit(): void {
     this.fetchFreshReport();
   }
@@ -5175,16 +6598,60 @@ export class DailyDiaryReportDialogComponent implements OnInit {
     if (this.data.classId) url += `&classId=${this.data.classId}`;
     if (this.data.sectionId) url += `&sectionId=${this.data.sectionId}`;
 
-    this.http.get<DailyDiaryReportHeader>(url).subscribe({
+    this.http.get<any>(url).subscribe({
       next: r => {
-        this.reportHeader = r;
-        if (!this.data?.students || this.data.students.length === 0) {
-          if (r.items && r.items.length > 0) {
-            this.rows = r.items;
+        const rawRows: DailyStudentDiaryRow[] = r?.rows || r?.items || [];
+        this.reportHeader = {
+          tenantName: r?.institutionName || r?.tenantName,
+          institutionName: r?.institutionName || r?.tenantName,
+          tenantAddress: r?.subtitleOrAddress || r?.tenantAddress,
+          subtitleOrAddress: r?.subtitleOrAddress || r?.tenantAddress,
+          reportTitle: r?.reportTitle || 'STUDENT DAILY CLASS WORK & HOME WORK REPORT',
+          reportDate: r?.diaryDate || r?.reportDate,
+          diaryDate: r?.diaryDate || r?.reportDate,
+          className: r?.className || this.data.className,
+          sectionName: r?.sectionName || this.data.sectionName,
+          classTeacherName: r?.classTeacherName,
+          items: rawRows,
+          rows: rawRows,
+          previousHwDate: r?.previousHwDate,
+          previousHw: r?.previousHw
+        };
+
+        if (rawRows.length > 0) {
+          if (this.data?.students && Array.isArray(this.data.students) && this.data.students.length > 0) {
+            const memoryMap = new Map<string, DailyStudentDiaryRow>(
+              this.data.students.map((s: DailyStudentDiaryRow) => [s.studentId, s])
+            );
+            rawRows.forEach(r => {
+              const mem = memoryMap.get(r.studentId);
+              if (mem) {
+                (r.classWork || []).forEach((cw: DailySubjectTaskItem) => {
+                  const match = (mem.classWork || []).find((mc: DailySubjectTaskItem) =>
+                    (mc.subject || '').trim().toLowerCase() === (cw.subject || '').trim().toLowerCase()
+                  );
+                  if (match?.statusRemark) cw.statusRemark = match.statusRemark;
+                });
+                if (!r.remarks && mem.remarks) r.remarks = mem.remarks;
+              }
+            });
           }
+
+          if (this.data?.students && this.data.students.length === 1) {
+            const single = rawRows.filter((x: any) => x.studentId === this.data.students[0].studentId);
+            this.rows = single.length > 0 ? single : rawRows;
+          } else {
+            this.rows = rawRows;
+          }
+        } else if (this.data?.students && this.data.students.length > 0) {
+          this.rows = this.data.students;
         }
       },
-      error: () => {}
+      error: () => {
+        if (this.data?.students && this.data.students.length > 0) {
+          this.rows = this.data.students;
+        }
+      }
     });
   }
 
@@ -5215,25 +6682,35 @@ export class DailyDiaryReportDialogComponent implements OnInit {
       <!DOCTYPE html>
       <html>
       <head>
-        <title>${this.reportHeader?.tenantName || 'Jnandeep Campus'} - Daily Diary Report</title>
+        <title>${this.reportHeader?.tenantName || this.authService.getInstituteName() || 'Daily Diary Report'} - Daily Diary Report</title>
         <style>
           * { box-sizing: border-box; margin: 0; padding: 0; }
           body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             background: #ffffff;
             color: #0f172a;
-            padding: 8mm 10mm;
+            padding: 0;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
+            width: 100%;
           }
           @page {
-            size: A4 portrait;
-            margin: 6mm;
+            size: A4 landscape;
+            margin: 5mm 6mm;
           }
-          .report-top-header { text-align: center; margin-bottom: 8px; }
+          .print-paper-sheet {
+            width: 100% !important;
+            max-width: 100% !important;
+            border: 1.5px solid #0f172a !important;
+            box-shadow: none !important;
+            padding: 5mm 7mm !important;
+            margin: 0 !important;
+            box-sizing: border-box !important;
+          }
+          .report-top-header { text-align: center; margin-bottom: 6px; }
           .school-title {
             margin: 0;
-            font-size: 22px;
+            font-size: 20px;
             font-weight: 900;
             color: #1e3a8a;
             letter-spacing: 0.5px;
@@ -5241,7 +6718,7 @@ export class DailyDiaryReportDialogComponent implements OnInit {
             line-height: 1.2;
           }
           .school-address-text {
-            font-size: 12.5px;
+            font-size: 12px;
             font-weight: 700;
             color: #334155;
             margin-top: 2px;
@@ -5252,11 +6729,11 @@ export class DailyDiaryReportDialogComponent implements OnInit {
             text-align: center;
             padding: 5px 12px;
             border-radius: 4px;
-            font-size: 13px;
+            font-size: 12.5px;
             font-weight: 800;
             letter-spacing: 1px;
             text-transform: uppercase;
-            margin: 6px 0;
+            margin: 5px 0;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
@@ -5266,11 +6743,11 @@ export class DailyDiaryReportDialogComponent implements OnInit {
             text-align: center;
             padding: 5px 12px;
             border-radius: 4px;
-            font-size: 11.5px;
+            font-size: 11px;
             font-weight: 800;
             letter-spacing: 2px;
             text-transform: uppercase;
-            margin-top: 8px;
+            margin-top: 7px;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
@@ -5278,10 +6755,10 @@ export class DailyDiaryReportDialogComponent implements OnInit {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 6px;
+            margin-bottom: 5px;
             padding: 2px 0;
           }
-          .meta-class { font-size: 13px; font-weight: 700; color: #0f172a; }
+          .meta-class { font-size: 12.5px; font-weight: 700; color: #0f172a; }
           .meta-class .lbl { color: #475569; margin-right: 4px; }
           .meta-class .val { color: #1e3a8a; }
           .meta-date-pill {
@@ -5290,50 +6767,134 @@ export class DailyDiaryReportDialogComponent implements OnInit {
             color: #1e3a8a;
             padding: 2px 10px;
             border-radius: 20px;
-            font-size: 12px;
+            font-size: 11.5px;
             font-weight: 800;
           }
           .report-data-table {
-            width: 100%;
-            border-collapse: collapse;
-            border: 1.5px solid #0f172a;
-            font-size: 12px;
+            width: 100% !important;
+            table-layout: fixed !important;
+            border-collapse: collapse !important;
+            border: 1.5px solid #0f172a !important;
+            font-size: 11px !important;
           }
           .report-data-table th, .report-data-table td {
-            border: 1.2px solid #0f172a;
-            padding: 6px 8px;
-            vertical-align: middle;
+            border: 1.2px solid #0f172a !important;
+            padding: 3.5px 5px !important;
+            vertical-align: middle !important;
+            box-sizing: border-box !important;
+            overflow: hidden !important;
           }
           .report-data-table th {
             background: #f1f5f9 !important;
-            color: #0f172a;
-            font-weight: 800;
-            text-align: center;
-            font-size: 11.5px;
-            letter-spacing: 0.3px;
+            color: #0f172a !important;
+            font-weight: 800 !important;
+            text-align: center !important;
+            font-size: 11px !important;
+            letter-spacing: 0.3px !important;
+            text-transform: uppercase !important;
           }
-          .col-sno { width: 40px; }
-          .col-name { width: 140px; text-align: left !important; }
-          .col-class { width: 60px; }
-          .col-cw { width: 42%; }
-          .col-hw { width: 42%; }
-          .text-center { text-align: center; }
-          .col-sno-data { font-weight: 800; color: #1e293b; }
-          .col-name-data { text-align: left; }
-          .name-bold { font-weight: 800; color: #0f172a; font-size: 12.5px; }
-          .sub-roll { font-size: 10.5px; color: #64748b; font-weight: 600; }
-          .col-class-data { font-weight: 700; color: #1e3a8a; }
-          .col-work-data { text-align: left; }
+          .col-sno { width: 4% !important; }
+          .col-name { width: 14% !important; text-align: left !important; }
+          .col-class { width: 5% !important; }
+          .col-cw { width: 27% !important; }
+          .col-cw-rem { width: 11% !important; text-align: center !important; }
+          .col-hw { width: 26% !important; }
+          .col-hw-rem { width: 13% !important; text-align: center !important; }
+          .col-rem-data { text-align: center; vertical-align: middle !important; font-size: 10.5px !important; padding: 3px 4px !important; }
+          .rem-content { display: flex !important; flex-direction: column !important; gap: 3px !important; align-items: center !important; justify-content: center !important; width: 100% !important; }
+          .rem-text-badge {
+            display: inline-block !important;
+            padding: 2px 5px !important;
+            border-radius: 4px !important;
+            font-size: 10px !important;
+            font-weight: 700 !important;
+            word-break: normal !important;
+            overflow-wrap: normal !important;
+            hyphens: none !important;
+            white-space: normal !important;
+            line-height: 1.25 !important;
+            text-align: center !important;
+            box-sizing: border-box !important;
+            max-width: 100% !important;
+          }
+          .rem-text-badge.cw { background: #f0fdf4 !important; color: #15803d !important; border: 1px solid #86efac !important; }
+          .hw-rem-item {
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            gap: 3px !important;
+            padding: 2px 5px !important;
+            border-radius: 4px !important;
+            font-size: 10px !important;
+            font-weight: 800 !important;
+            white-space: normal !important;
+            line-height: 1.2 !important;
+            text-align: center !important;
+            box-sizing: border-box !important;
+            max-width: 100% !important;
+          }
+          .hw-rem-item.rem-completed { background: #dcfce7 !important; color: #15803d !important; border: 1px solid #86efac !important; }
+          .hw-rem-item.rem-notdone { background: #fee2e2 !important; color: #dc2626 !important; border: 1px solid #fca5a5 !important; }
+          .hw-rem-item.rem-partial { background: #fef3c7 !important; color: #b45309 !important; border: 1px solid #fde68a !important; }
+          .hw-rem-item.rem-pending { background: #f1f5f9 !important; color: #64748b !important; border: 1px solid #cbd5e1 !important; }
+          .rem-tick { font-weight: 900 !important; font-size: 11px !important; flex-shrink: 0 !important; }
+          .rem-label { font-weight: 800 !important; font-size: 10px !important; word-break: normal !important; hyphens: none !important; }
+          .empty-dash { color: #94a3b8 !important; font-weight: 700 !important; font-size: 13px !important; }
+          .text-center { text-align: center !important; }
+          .col-sno-data { font-weight: 800 !important; color: #1e293b !important; text-align: center !important; }
+          .col-name-data { text-align: left !important; }
+          .name-bold { font-weight: 800 !important; color: #0f172a !important; font-size: 11.5px !important; word-break: break-word !important; }
+          .sub-roll { font-size: 10px !important; color: #64748b !important; font-weight: 600 !important; }
+          .col-class-data { font-weight: 700 !important; color: #1e3a8a !important; text-align: center !important; }
+          .col-work-data { text-align: left !important; }
           .task-entry {
-            display: flex;
-            align-items: baseline;
-            gap: 5px;
-            margin-bottom: 3px;
-            line-height: 1.35;
+            display: flex !important;
+            align-items: baseline !important;
+            flex-wrap: wrap !important;
+            gap: 2px 4px !important;
+            margin-bottom: 2.5px !important;
+            line-height: 1.3 !important;
           }
-          .task-entry:last-child { margin-bottom: 0; }
-          .task-arrow { font-weight: 700; color: #64748b; }
-          .task-text { font-weight: 600; color: #1e293b; font-size: 11.5px; }
+          .task-entry:last-child { margin-bottom: 0 !important; }
+          .task-arrow { font-weight: 700 !important; color: #64748b !important; }
+          .task-text { font-weight: 600 !important; color: #1e293b !important; font-size: 11px !important; word-break: break-word !important; }
+          .task-teacher { font-size: 9px !important; font-weight: 700 !important; color: #64748b !important; font-style: italic !important; white-space: nowrap !important; }
+          .task-entry .hw-tick { margin-left: auto !important; font-weight: 900 !important; font-size: 12px !important; flex-shrink: 0 !important; }
+          .hw-tick.hw-completed { color: #15803d !important; }
+          .hw-tick.hw-partial { color: #b45309 !important; }
+          .hw-tick.hw-notdone { color: #dc2626 !important; }
+          .hw-tick.hw-pending { color: #94a3b8 !important; font-size: 10px !important; }
+          .hw-summary { margin-top: 2px !important; font-size: 9.5px !important; font-weight: 800 !important; color: #1e3a8a !important; }
+          .report-legend { margin-top: 5px !important; text-align: center !important; font-size: 10px !important; font-weight: 700 !important; color: #475569 !important; }
+          .sign-row { display: flex !important; justify-content: space-between !important; margin-top: 10px !important; font-size: 11px !important; font-weight: 700 !important; color: #0f172a !important; }
+          .prev-hw-section {
+            margin-top: 12px;
+            page-break-inside: avoid;
+          }
+          .prev-hw-banner {
+            background: #1e3a8a !important;
+            color: #ffffff !important;
+            padding: 4px 8px;
+            font-size: 11px;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            border: 1.2px solid #0f172a;
+            border-bottom: none;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          .prev-score-chip {
+            background: #dcfce7 !important;
+            color: #15803d !important;
+            font-weight: 800;
+            font-size: 10px;
+            border-radius: 999px;
+            padding: 2px 6px;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
           .subject-pill {
             display: inline-block;
             padding: 1px 6px;
@@ -5398,9 +6959,9 @@ export class DailyDiaryReportDialogComponent implements OnInit {
     }, 250);
   }
 
-  copyClassSummaryWhatsApp(): void {
-    const school = this.reportHeader?.tenantName || 'Jnandeep Campus';
-    const address = this.reportHeader?.tenantAddress || 'Anjani, Parsa, Saran, Bihar';
+  getClassSummaryText(): string {
+    const school = this.reportHeader?.tenantName || this.authService.getInstituteName() || 'Daily Diary';
+    const address = this.reportHeader?.tenantAddress || '';
     const cls = this.reportHeader?.className || this.data.className || 'All Classes';
     const sec = this.reportHeader?.sectionName || this.data.sectionName;
     const classLabel = sec ? `${cls} (${sec})` : cls;
@@ -5430,12 +6991,12 @@ export class DailyDiaryReportDialogComponent implements OnInit {
     }
 
     let text = `🏫 *${school}*\n`;
-    text += `📍 ${address}\n\n`;
-    text += `📋 *DAILY CLASS WORK & HOME WORK REPORT*\n`;
+    if (address) text += `📍 ${address}\n`;
+    text += `\n📋 *DAILY CLASS WORK & HOME WORK REPORT*\n`;
     text += `📅 *Date:* ${date}  |  *Class:* ${classLabel}\n`;
     text += `───────────────────────────\n`;
 
-    text += `📝 *CLASS WORK (C.W.):*\n`;
+    text += `📝 *TODAY'S CLASS WORK (C.W.):*\n`;
     if (cwMap.size > 0) {
       cwMap.forEach((task, subj) => {
         text += `• *[${subj}]:* ${task}\n`;
@@ -5445,7 +7006,7 @@ export class DailyDiaryReportDialogComponent implements OnInit {
     }
     text += `\n`;
 
-    text += `🏠 *HOME WORK (H.W.):*\n`;
+    text += `🏠 *TODAY'S HOME WORK (H.W.):*\n`;
     if (hwMap.size > 0) {
       hwMap.forEach((task, subj) => {
         text += `• *[${subj}]:* ${task}\n`;
@@ -5454,6 +7015,12 @@ export class DailyDiaryReportDialogComponent implements OnInit {
       text += `• No Home Work recorded today\n`;
     }
     text += `\n`;
+
+    if (this.includePreviousHw && this.reportHeader?.previousHw && this.reportHeader.previousHw.length > 0) {
+      const prevTotal = this.reportHeader.previousHw.reduce((n, p) => n + (p.homeWork || []).length, 0);
+      const prevDone = this.reportHeader.previousHw.reduce((n, p) => n + (p.homeWork || []).filter(h => h.status === 'Completed').length, 0);
+      text += `✅ *PREVIOUS H.W. VERIFIED (${this.formattedPreviousHwDate}):* ${prevDone}/${prevTotal} completed\n\n`;
+    }
 
     text += `❌ *ABSENT STUDENTS:* `;
     if (absentList.length > 0) {
@@ -5464,10 +7031,14 @@ export class DailyDiaryReportDialogComponent implements OnInit {
 
     text += `───────────────────────────\n`;
     text += `⭐ *DISCIPLINE  |  GOOD HABITS  |  BRIGHT FUTURE* ⭐`;
+    return text;
+  }
 
+  copyClassSummaryWhatsApp(): void {
+    const text = this.getClassSummaryText();
     if (navigator.clipboard) {
       navigator.clipboard.writeText(text).then(() => {
-        this.confirmDialog.alert('Class Summary Copied 📋', 'WhatsApp Class Summary copied! Yeh compact summary photo ke caption me bhi 100% bina kate paste ho jayegi.', 'success');
+        this.confirmDialog.alert('Class Summary Copied 📋', 'Class summary copied to clipboard! You can now paste it into your WhatsApp group chat.', 'success');
       }).catch(() => {
         this.confirmDialog.alert('WhatsApp Text', text, 'info');
       });
@@ -5476,28 +7047,122 @@ export class DailyDiaryReportDialogComponent implements OnInit {
     }
   }
 
+  shareToClassGroupWhatsApp(): void {
+    const text = this.getClassSummaryText();
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text).catch(() => {});
+    }
+    const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
+  }
+
+  generateStudentWhatsAppText(r: DailyStudentDiaryRow): string {
+    const school = this.reportHeader?.tenantName || this.authService.getInstituteName() || 'Daily Diary';
+    const address = this.reportHeader?.tenantAddress || '';
+    const cls = this.reportHeader?.className || this.data.className || 'All Classes';
+    const sec = this.reportHeader?.sectionName || this.data.sectionName;
+    const classLabel = sec ? `${cls} (${sec})` : cls;
+    const date = this.formattedDate;
+
+    let text = `🏫 *${school}*\n`;
+    if (address) text += `📍 ${address}\n`;
+    text += `📋 *STUDENT DAILY DIARY REPORT*\n`;
+    text += `📅 *Date:* ${date}  |  *Class:* ${classLabel}\n`;
+    text += `👤 *Student:* *${r.studentName}*${r.rollNumber ? ' (Roll: #' + r.rollNumber + ')' : ''}\n`;
+    text += `───────────────────────────\n`;
+
+    if (this.isAbsentStudent(r)) {
+      text += `❌ *STATUS: ABSENT TODAY*\n`;
+      text += `Student was marked absent today in class attendance.\n\n`;
+      text += `📝 *TODAY'S CLASS WORK (For Home Study):*\n`;
+      const cwList = this.getActiveTasks(r.classWork);
+      if (cwList.length > 0) {
+        for (const cw of cwList) text += `• *[${cw.subject}]:* ${cw.task}\n`;
+      } else {
+        text += `• Same as class routine\n`;
+      }
+      text += `\n🏠 *TODAY'S HOME WORK:*\n`;
+      const hwList = this.getActiveTasks(r.homeWork);
+      if (hwList.length > 0) {
+        for (const hw of hwList) text += `• *[${hw.subject}]:* ${hw.task}\n`;
+      } else {
+        text += `• Check with classmate\n`;
+      }
+    } else {
+      const cwParts = this.getActiveTasks(r.classWork).map(c => {
+        let line = `• *[${c.subject}]:* ${c.task}`;
+        if (c.teacherName) line += ` (${c.teacherName})`;
+        if (c.statusRemark && c.statusRemark.trim().length > 0) line += ` 📌 _${c.statusRemark.trim()}_`;
+        return line;
+      }).join('\n');
+      text += `📝 *CLASS WORK (C.W.):*\n${cwParts || '• No specific C.W. recorded'}\n`;
+      if (r.remarks && r.remarks.trim()) text += `💬 *Student Note:* ${r.remarks.trim()}\n`;
+      text += `\n`;
+
+      const hwParts = this.getActiveTasks(r.homeWork).map(h => `• *[${h.subject}]:* ${h.task} ${this.hwTickSymbol(h)}`).join('\n');
+      text += `🏠 *HOME WORK (H.W.):*\n${hwParts || '• No specific H.W. assigned'}\n`;
+      const hwRemList = this.getHwRemarks(r).filter(x => x.text && x.text !== 'Unchecked');
+      if (hwRemList.length > 0) {
+        text += `📌 *H.W. Status / Remarks:* ${hwRemList.map(x => `${x.symbol} ${x.text}`).join(', ')}\n`;
+      }
+
+      if (this.includePreviousHw && this.reportHeader?.previousHw) {
+        const prev = this.reportHeader.previousHw.find(p => p.studentId === r.studentId);
+        if (prev && prev.homeWork && prev.homeWork.length > 0) {
+          const prevParts = (prev.homeWork as DailySubjectTaskItem[]).map(h => `[${h.subject}] ${h.task} ${this.hwTickSymbol(h)}`).join(' | ');
+          text += `⏮️ *PREV H.W. CHECKED (${this.formattedPreviousHwDate}):* ${prevParts}\n`;
+        }
+      }
+    }
+
+    text += `───────────────────────────\n`;
+    text += `⭐ *DISCIPLINE  |  GOOD HABITS  |  BRIGHT FUTURE* ⭐`;
+    return text;
+  }
+
   copyWhatsAppText(): void {
-    const school = this.reportHeader?.tenantName || 'Jnandeep Campus';
-    const address = this.reportHeader?.tenantAddress || 'Anjani, Parsa, Saran, Bihar';
+    const school = this.reportHeader?.tenantName || this.authService.getInstituteName() || 'Daily Diary';
+    const address = this.reportHeader?.tenantAddress || '';
     const cls = this.reportHeader?.className || this.data.className || 'All Classes';
     const date = this.formattedDate;
 
     let text = `🏫 *${school}*\n`;
-    text += `📍 ${address}\n`;
+    if (address) text += `📍 ${address}\n`;
     text += `📋 *STUDENT DAILY CLASS WORK & HOME WORK REPORT*\n`;
     text += `📅 *Date:* ${date}  |  *Class:* ${cls}\n`;
     text += `───────────────────────────\n`;
 
+    const prevMap = new Map<string, any>();
+    if (this.includePreviousHw && this.reportHeader?.previousHw) {
+      for (const p of this.reportHeader.previousHw) prevMap.set(p.studentId, p);
+    }
+
     let i = 1;
     for (const r of this.rows) {
-      text += `*${i}. ${r.studentName}*\n`;
+      text += `*${i}. ${r.studentName}*${r.rollNumber ? ' (Roll: ' + r.rollNumber + ')' : ''}\n`;
       if (r.isAbsent) {
         text += `   ❌ *ABSENT*\n\n`;
       } else {
-        const cwParts = (r.classWork || []).filter(c => c.task).map(c => `[${c.subject}] ${c.task}`).join(' | ');
-        const hwParts = (r.homeWork || []).filter(h => h.task).map(h => `[${h.subject}] ${h.task}`).join(' | ');
+        const cwParts = (r.classWork || []).filter(c => c.task).map(c => {
+          let line = `[${c.subject}] ${c.task}`;
+          if (c.teacherName) line += ` (${c.teacherName})`;
+          if (c.statusRemark && c.statusRemark.trim().length > 0) line += ` [${c.statusRemark.trim()}]`;
+          return line;
+        }).join(' | ');
+        const hwParts = (r.homeWork || []).filter(h => h.task).map(h => `[${h.subject}] ${h.task}${h.teacherName ? ' (' + h.teacherName + ')' : ''} ${this.hwTickSymbol(h)}`).join(' | ');
         text += `   📝 *C.W:* ${cwParts || 'No work recorded'}\n`;
-        text += `   🏠 *H.W:* ${hwParts || 'No work recorded'}\n\n`;
+        if (r.remarks && r.remarks.trim()) text += `      💬 *Student Note:* ${r.remarks.trim()}\n`;
+        text += `   🏠 *H.W:* ${hwParts || 'No work recorded'}\n`;
+        const hwRemList = this.getHwRemarks(r).filter(x => x.text && x.text !== 'Unchecked');
+        if (hwRemList.length > 0) {
+          text += `      📌 *H.W. Remarks:* ${hwRemList.map(x => `${x.symbol} ${x.text}`).join(', ')}\n`;
+        }
+        const prev = this.includePreviousHw ? prevMap.get(r.studentId) : null;
+        if (prev && prev.homeWork && prev.homeWork.length > 0) {
+          const prevParts = (prev.homeWork as DailySubjectTaskItem[]).map(h => `[${h.subject}] ${h.task} ${this.hwTickSymbol(h)}`).join(' | ');
+          text += `   ⏮️ *PREV H.W (${this.formattedPreviousHwDate}):* ${prevParts}\n`;
+        }
+        text += `\n`;
       }
       i++;
     }
@@ -5507,12 +7172,84 @@ export class DailyDiaryReportDialogComponent implements OnInit {
 
     if (navigator.clipboard) {
       navigator.clipboard.writeText(text).then(() => {
-        this.confirmDialog.alert('Student-wise Diary Copied 📋', 'Student-wise detailed report copied! Is text ko WhatsApp ke "Type a message" direct chat box me paste karein (photo caption me na karein taaki text cut na ho).', 'success');
+        this.confirmDialog.alert('Student-wise Diary Copied 📋', 'Student-wise detailed report copied to clipboard! You can now paste it into your WhatsApp chat.', 'success');
       }).catch(() => {
         this.confirmDialog.alert('WhatsApp Text', text, 'info');
       });
     } else {
       this.confirmDialog.alert('WhatsApp Text', text, 'info');
+    }
+  }
+
+  sendAutomatedWhatsAppToAllParents(): void {
+    if (this.sendingWhatsApp || this.rows.length === 0) return;
+
+    this.sendingWhatsApp = true;
+    const items = this.rows.map(r => ({
+      studentId: r.studentId,
+      studentName: r.studentName,
+      rollNumber: r.rollNumber || '',
+      phone: r.parentWhatsAppPhone || '',
+      messageText: this.generateStudentWhatsAppText(r)
+    }));
+
+    this.http.post<any>(`${API_BASE}/homework/daily-diary/send-whatsapp-all`, {
+      diaryDate: this.reportHeader?.diaryDate || this.data.date || new Date().toISOString(),
+      classId: this.data.classId || null,
+      sectionId: this.data.sectionId || null,
+      items
+    }).subscribe({
+      next: (res) => {
+        this.sendingWhatsApp = false;
+        let details = `Daily CW & HW report has been successfully delivered to ${res.sentCount} parent(s) via WhatsApp.`;
+        if (res.skippedCount > 0 && res.skippedRecipients?.length > 0) {
+          details += `\n\nNotice: ${res.skippedCount} student(s) skipped due to missing phone number:\n• ${res.skippedRecipients.join('\n• ')}`;
+        }
+        this.confirmDialog.alert(
+          'WhatsApp Dispatch Complete 🚀',
+          details,
+          res.sentCount > 0 ? 'success' : 'warning'
+        );
+      },
+      error: (err) => {
+        this.sendingWhatsApp = false;
+        this.confirmDialog.alert(
+          'Dispatch Error',
+          err?.error?.message || 'Unable to dispatch WhatsApp messages. Please verify gateway connectivity.',
+          'danger'
+        );
+      }
+    });
+  }
+
+  sendIndividualStudentWhatsApp(row: DailyStudentDiaryRow): void {
+    const text = this.generateStudentWhatsAppText(row);
+    const phone = (row.parentWhatsAppPhone || '').trim();
+    const cleanPhone = phone.replace(/[^0-9]/g, '');
+
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text).catch(() => {});
+    }
+
+    if (cleanPhone && cleanPhone.length >= 10) {
+      const fullPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
+      const url = `https://api.whatsapp.com/send?phone=${fullPhone}&text=${encodeURIComponent(text)}`;
+      window.open(url, '_blank');
+      this.http.post<any>(`${API_BASE}/homework/daily-diary/send-whatsapp-single`, {
+        studentId: row.studentId,
+        studentName: row.studentName,
+        rollNumber: row.rollNumber || '',
+        phone: row.parentWhatsAppPhone,
+        messageText: text
+      }).subscribe({ error: () => {} });
+    } else {
+      const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+      window.open(url, '_blank');
+      this.confirmDialog.alert(
+        'WhatsApp Opened',
+        `No phone number found in ${row.studentName}'s profile. The personalized diary text has been copied to your clipboard and WhatsApp share window opened.`,
+        'info'
+      );
     }
   }
 
@@ -5525,6 +7262,254 @@ export class DailyDiaryReportDialogComponent implements OnInit {
     }
     const idx = Math.abs(hash) % 8;
     return `sub-theme-${idx}`;
+  }
+}
+
+// ===========================================================================
+// STUDENT REMARK / NOTE DIALOG COMPONENT
+// ===========================================================================
+@Component({
+  selector: 'app-student-remark-dialog',
+  standalone: true,
+  imports: [CommonModule, FormsModule, MatDialogModule, MatButtonModule, MatIconModule, MatTooltipModule],
+  template: `
+    <div class="remark-dialog-container">
+      <div class="dialog-header-custom">
+        <div class="header-left">
+          <div class="header-icon-box">
+            <mat-icon>edit_note</mat-icon>
+          </div>
+          <div>
+            <h2 class="dialog-title">Student Daily Remark</h2>
+            <div class="dialog-subtitle">
+              <span>👤 <strong>{{ data.studentName }}</strong></span>
+              <span *ngIf="data.rollNumber" class="meta-dot">&bull; Roll: <strong>{{ data.rollNumber }}</strong></span>
+              <span *ngIf="data.className" class="meta-dot">&bull; Class: <strong>{{ data.className }}</strong></span>
+            </div>
+          </div>
+        </div>
+        <button mat-icon-button class="close-btn" (click)="dialogRef.close()" matTooltip="Close (Esc)">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+
+      <div class="dialog-body">
+        <div class="preset-section">
+          <span class="preset-title">⚡ Quick Presets:</span>
+          <div class="preset-chips">
+            <button type="button" class="preset-chip" *ngFor="let p of quickPresets" (click)="applyPreset(p)">
+              {{ p }}
+            </button>
+          </div>
+        </div>
+
+        <div class="remark-input-group">
+          <label class="remark-lbl">Teacher's Note / Remark:</label>
+          <textarea
+            class="remark-textarea"
+            rows="4"
+            [(ngModel)]="remarkText"
+            placeholder="Type special note, copy checking feedback, or instructions for parents..."
+            maxlength="300"
+          ></textarea>
+          <div class="textarea-foot">
+            <span class="hint">Visible on student daily diary & print/WhatsApp reports</span>
+            <span class="char-count">{{ (remarkText || '').length }}/300</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="dialog-actions">
+        <button mat-button class="clear-btn" *ngIf="remarkText" (click)="remarkText = ''">
+          <mat-icon>backspace</mat-icon> Clear Note
+        </button>
+        <span class="spacer"></span>
+        <button mat-stroked-button (click)="dialogRef.close()">Cancel</button>
+        <button mat-raised-button class="save-btn" (click)="save()">
+          <mat-icon>check</mat-icon> Save Remark
+        </button>
+      </div>
+    </div>
+  `,
+  styles: [`
+    .remark-dialog-container {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      background: #ffffff;
+      border-radius: 12px;
+      overflow: hidden;
+      font-family: inherit;
+    }
+    .dialog-header-custom {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+      border-bottom: 1px solid #bfdbfe;
+      padding: 16px 20px;
+    }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .header-icon-box {
+      width: 42px;
+      height: 42px;
+      background: #2563eb;
+      color: #ffffff;
+      border-radius: 10px;
+      box-shadow: 0 4px 6px -1px rgba(37,99,235,0.25);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .dialog-title {
+      margin: 0;
+      font-size: 17px;
+      font-weight: 700;
+      color: #1e3a8a;
+    }
+    .dialog-subtitle {
+      margin-top: 3px;
+      font-size: 12.5px;
+      color: #3b82f6;
+    }
+    .dialog-subtitle strong { color: #1e40af; }
+    .meta-dot { margin-left: 6px; }
+    .close-btn { color: #64748b; }
+    .close-btn:hover { color: #1e293b; }
+
+    .dialog-body {
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .preset-section {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .preset-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: #475569;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .preset-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .preset-chip {
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      color: #334155;
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-family: inherit;
+    }
+    .preset-chip:hover {
+      background: #eff6ff;
+      border-color: #3b82f6;
+      color: #1d4ed8;
+      transform: translateY(-1px);
+    }
+    .remark-input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .remark-lbl {
+      font-size: 13px;
+      font-weight: 700;
+      color: #1e293b;
+    }
+    .remark-textarea {
+      width: 100%;
+      box-sizing: border-box;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 13.5px;
+      font-family: inherit;
+      color: #0f172a;
+      outline: none;
+      resize: vertical;
+      transition: border-color 0.15s ease;
+    }
+    .remark-textarea:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37,99,235,0.12);
+    }
+    .textarea-foot {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11.5px;
+      color: #64748b;
+    }
+    .char-count { font-weight: 600; }
+
+    .dialog-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 20px;
+      background: #f8fafc;
+      border-top: 1px solid #e2e8f0;
+    }
+    .dialog-actions .spacer { flex: 1; }
+    .clear-btn { color: #dc2626 !important; font-weight: 600; }
+    .save-btn {
+      background: #2563eb !important;
+      color: #ffffff !important;
+      font-weight: 700;
+      border-radius: 8px;
+      padding: 0 20px;
+    }
+  `]
+})
+export class StudentRemarkDialogComponent {
+  remarkText = '';
+  quickPresets = [
+    '✅ Complete Homework',
+    '📚 Incomplete Homework',
+    '✅ Checked',
+    '⏳ Unchecked',
+    '🧠 Remember',
+    '❌ No Remember',
+    '📓 Notebook not brought',
+    '✍️ Needs handwriting improvement',
+    '⭐ Good work / Very well done',
+    '⏳ Late submission',
+    '📞 Please contact teacher',
+    '📝 Practice needed at home'
+  ];
+
+  constructor(
+    public dialogRef: MatDialogRef<StudentRemarkDialogComponent>,
+    @Inject(MAT_DIALOG_DATA) public data: { studentName: string; rollNumber?: string; className?: string; remarks?: string }
+  ) {
+    this.remarkText = data?.remarks || '';
+  }
+
+  applyPreset(preset: string): void {
+    if (!this.remarkText || this.remarkText.trim() === '') {
+      this.remarkText = preset;
+    } else if (!this.remarkText.includes(preset)) {
+      this.remarkText = `${this.remarkText.trim()}, ${preset}`;
+    }
+  }
+
+  save(): void {
+    this.dialogRef.close({ saved: true, remarks: (this.remarkText || '').trim() });
   }
 }
 

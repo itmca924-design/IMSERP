@@ -126,6 +126,11 @@ public class WhatsAppService : IWhatsAppService
         return await LogAndSend(tenantId, recipientPhone, teacherName, MessageType.Announcement, content);
     }
 
+    public async Task<bool> SendDailyDiaryAlertAsync(Guid tenantId, string recipientPhone, string studentName, string rollNumber, string dateStr, string messageContent)
+    {
+        return await LogAndSend(tenantId, recipientPhone, studentName, MessageType.Announcement, messageContent);
+    }
+
     private async Task<bool> LogAndSend(Guid tenantId, string phone, string studentName, MessageType type, string content)
     {
         _logger.LogInformation("[WhatsApp Gateway Dispatch] To: {Phone} | Student: {Student} | Type: {Type} | Content: {Content}", phone, studentName, type, content);

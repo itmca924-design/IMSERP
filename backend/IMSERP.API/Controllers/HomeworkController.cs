@@ -807,7 +807,8 @@ public class HomeworkController : ControllerBase
                 hwList,
                 diary?.TeacherRemarks,
                 diary?.Id,
-                attendanceStatus
+                attendanceStatus,
+                st.ParentWhatsAppPhone
             );
         }).ToList();
 
@@ -834,14 +835,46 @@ public class HomeworkController : ControllerBase
 
         var now = DateTime.UtcNow;
 
+        // Resolve assigning teacher / checker context once (no hardcoding; all from DB + login)
+        var isStudentOrParent = string.Equals(_currentUser.UserRole, "Student", StringComparison.OrdinalIgnoreCase) ||
+                                string.Equals(_currentUser.UserRole, "Parent", StringComparison.OrdinalIgnoreCase);
+        if (isStudentOrParent) return Forbid();
+
+        var loginUser = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
+        var currentTeacher = await _db.Teachers.AsNoTracking()
+            .FirstOrDefaultAsync(t => t.TenantId == tenantId && (
+                t.UserId == _currentUser.UserId ||
+                (loginUser != null && !string.IsNullOrEmpty(loginUser.Email) && t.Email == loginUser.Email) ||
+                (loginUser != null && !string.IsNullOrEmpty(loginUser.FullName) && t.FullName == loginUser.FullName)
+            ));
+        var checkerName = currentTeacher?.FullName ?? loginUser?.FullName;
+
+        var diaryClassId = dto.ClassId;
+        var subjectTeacherMap = new Dictionary<string, (Guid TeacherId, string Name)>(StringComparer.OrdinalIgnoreCase);
+        if (diaryClassId.HasValue)
+        {
+            var classSubjects = await _db.ClassSubjects.AsNoTracking()
+                .Include(c => c.Subject)
+                .Include(c => c.Teacher)
+                .Where(c => c.TenantId == tenantId && c.ClassId == diaryClassId.Value && c.TeacherId != null)
+                .ToListAsync();
+            foreach (var cs in classSubjects)
+            {
+                if (cs.Subject != null && cs.Teacher != null && !subjectTeacherMap.ContainsKey(cs.Subject.Name))
+                    subjectTeacherMap[cs.Subject.Name] = (cs.Teacher.Id, cs.Teacher.FullName);
+            }
+        }
+
         foreach (var item in dto.Items)
         {
             if (!students.TryGetValue(item.StudentId, out var student)) continue;
 
-            string? cwJson = item.ClassWork != null && item.ClassWork.Count > 0 
-                ? JsonSerializer.Serialize(item.ClassWork) : null;
-            string? hwJson = item.HomeWork != null && item.HomeWork.Count > 0 
-                ? JsonSerializer.Serialize(item.HomeWork) : null;
+            existingDiaries.TryGetValue(item.StudentId, out var existingForItem);
+            var cwItems = NormalizeDiaryTasks(item.ClassWork, existingForItem?.ClassWorkJson, false, currentTeacher, subjectTeacherMap, checkerName, now);
+            var hwItems = NormalizeDiaryTasks(item.HomeWork, existingForItem?.HomeWorkJson, true, currentTeacher, subjectTeacherMap, checkerName, now);
+
+            string? cwJson = cwItems.Count > 0 ? JsonSerializer.Serialize(cwItems) : null;
+            string? hwJson = hwItems.Count > 0 ? JsonSerializer.Serialize(hwItems) : null;
 
             if (existingDiaries.TryGetValue(item.StudentId, out var existing))
             {
@@ -909,17 +942,510 @@ public class HomeworkController : ControllerBase
         var diaryActionResult = await GetDailyDiaryList(targetDate, classId, sectionId);
         var rows = (diaryActionResult.Result as OkObjectResult)?.Value as List<DailyStudentDiaryRowDto> ?? new();
 
+        string? classTeacherName = null;
+        if (sectionId.HasValue && sectionId.Value != Guid.Empty)
+        {
+            classTeacherName = await _db.SchoolSections.AsNoTracking()
+                .Where(s => s.Id == sectionId.Value && s.ClassTeacherId != null)
+                .Select(s => s.ClassTeacher!.FullName)
+                .FirstOrDefaultAsync();
+        }
+        else if (classId.HasValue && classId.Value != Guid.Empty)
+        {
+            var names = await _db.SchoolSections.AsNoTracking()
+                .Where(s => s.ClassId == classId.Value && s.ClassTeacherId != null)
+                .Select(s => s.ClassTeacher!.FullName)
+                .Distinct()
+                .ToListAsync();
+            if (names.Count == 1) classTeacherName = names[0];
+        }
+
+        // Previous diary day's H.W. + its check status (H.W. is usually checked the next day)
+        DateTime? previousHwDate = null;
+        List<HwPreviousRowDto>? previousHw = null;
+        if (classId.HasValue && classId.Value != Guid.Empty)
+        {
+            var prevDate = await DiaryScope(classId, sectionId)
+                .Where(d => d.DiaryDate < targetDate && d.HomeWorkJson != null && !d.IsAbsent)
+                .OrderByDescending(d => d.DiaryDate)
+                .Select(d => (DateTime?)d.DiaryDate)
+                .FirstOrDefaultAsync();
+            if (prevDate.HasValue)
+            {
+                var prevDiaries = await DiaryScope(classId, sectionId)
+                    .Where(d => d.DiaryDate == prevDate.Value && d.HomeWorkJson != null)
+                    .ToListAsync();
+                var prevStudentIds = prevDiaries.Select(d => d.StudentId).ToList();
+                var prevStudents = await _db.Students.AsNoTracking()
+                    .Where(s => s.TenantId == tenantId && prevStudentIds.Contains(s.Id))
+                    .ToDictionaryAsync(s => s.Id);
+                previousHw = prevDiaries
+                    .Where(d => prevStudents.ContainsKey(d.StudentId))
+                    .Select(d => new { d, st = prevStudents[d.StudentId], tasks = ParseTasks(d.HomeWorkJson).Where(t => !string.IsNullOrWhiteSpace(t.Task)).ToList() })
+                    .Where(x => x.tasks.Count > 0)
+                    .OrderBy(x => x.st.SchoolRollNumber ?? x.st.RollNumber).ThenBy(x => x.st.StudentName)
+                    .Select(x => new HwPreviousRowDto(x.st.Id, x.st.StudentName, x.st.SchoolRollNumber ?? x.st.RollNumber ?? "", x.d.IsAbsent, x.tasks))
+                    .ToList();
+                previousHwDate = prevDate.Value;
+            }
+        }
+
         var header = new DailyDiaryReportHeaderDto(
-            tenant?.Name ?? "Jnandeep Campus",
-            branch?.Address ?? tenant?.Address ?? "Anjani, Parsa, Saran, Bihar",
+            tenant?.Name ?? string.Empty,
+            branch?.Address ?? tenant?.Address ?? string.Empty,
             "STUDENT DAILY CLASS WORK & HOME WORK REPORT",
             targetDate,
             className,
             sectionName,
-            rows
+            rows,
+            classTeacherName,
+            previousHwDate,
+            previousHw
         );
 
         return Ok(header);
+    }
+
+    // =========================================================================
+    // H.W. CHECK (next-day / back-dated), PREVIOUS STATUS & ANALYTICS
+    // =========================================================================
+
+    private static List<DailySubjectTaskItem> ParseTasks(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return new();
+        try { return JsonSerializer.Deserialize<List<DailySubjectTaskItem>>(json) ?? new(); } catch { return new(); }
+    }
+
+    private IQueryable<DailyStudentDiary> DiaryScope(Guid? classId, Guid? sectionId)
+    {
+        var tenantId = _currentUser.TenantId;
+        var q = _db.DailyStudentDiaries.AsNoTracking().Where(d => d.TenantId == tenantId);
+        if (classId.HasValue && classId.Value != Guid.Empty) q = q.Where(d => d.ClassId == classId.Value);
+        if (sectionId.HasValue && sectionId.Value != Guid.Empty) q = q.Where(d => d.SectionId == sectionId.Value);
+        return q;
+    }
+
+    [HttpPost("daily-diary/send-whatsapp-all")]
+    public async Task<ActionResult<DailyDiaryWhatsAppDispatchResultDto>> SendDailyDiaryWhatsAppAll(
+        [FromBody] DailyDiaryWhatsAppDispatchRequestDto dto,
+        [FromServices] IWhatsAppService whatsAppService)
+    {
+        if (IsStudentOrParentRole()) return Forbid();
+        var tenantId = _currentUser.TenantId;
+        if (dto.Items == null || dto.Items.Count == 0)
+        {
+            return BadRequest(new { message = "No student items provided to send." });
+        }
+
+        var sentList = new List<string>();
+        var skippedList = new List<string>();
+
+        var studentIds = dto.Items.Select(x => x.StudentId).ToList();
+        var studentsDb = await _db.Students.AsNoTracking()
+            .Where(s => s.TenantId == tenantId && studentIds.Contains(s.Id))
+            .ToDictionaryAsync(s => s.Id);
+
+        foreach (var item in dto.Items)
+        {
+            var phone = item.Phone?.Trim();
+            if (string.IsNullOrWhiteSpace(phone) && studentsDb.TryGetValue(item.StudentId, out var st))
+            {
+                phone = st.ParentWhatsAppPhone?.Trim();
+            }
+
+            if (string.IsNullOrWhiteSpace(phone) || phone.Length < 10)
+            {
+                skippedList.Add($"{item.StudentName} (No Phone Number)");
+                continue;
+            }
+
+            var cleanPhone = phone.StartsWith("+") ? phone : (phone.Length == 10 ? "+91" + phone : "+" + phone);
+
+            try
+            {
+                var ok = await whatsAppService.SendDailyDiaryAlertAsync(
+                    tenantId,
+                    cleanPhone,
+                    item.StudentName,
+                    item.RollNumber ?? "",
+                    dto.DiaryDate.ToString("dd-MMM-yyyy"),
+                    item.MessageText
+                );
+
+                if (ok)
+                {
+                    sentList.Add($"{item.StudentName} ({cleanPhone})");
+                }
+                else
+                {
+                    skippedList.Add($"{item.StudentName} (Gateway Failed)");
+                }
+            }
+            catch (Exception ex)
+            {
+                skippedList.Add($"{item.StudentName} ({ex.Message})");
+            }
+        }
+
+        var message = sentList.Count > 0
+            ? $"Successfully sent daily diary to {sentList.Count} parents via WhatsApp."
+            : "No WhatsApp messages could be dispatched.";
+
+        return Ok(new DailyDiaryWhatsAppDispatchResultDto(
+            dto.Items.Count,
+            sentList.Count,
+            skippedList.Count,
+            sentList,
+            skippedList,
+            message
+        ));
+    }
+
+    [HttpPost("daily-diary/send-whatsapp-single")]
+    public async Task<ActionResult<object>> SendDailyDiaryWhatsAppSingle(
+        [FromBody] DailyDiaryWhatsAppStudentDispatchItem item,
+        [FromServices] IWhatsAppService whatsAppService)
+    {
+        if (IsStudentOrParentRole()) return Forbid();
+        var tenantId = _currentUser.TenantId;
+
+        var phone = item.Phone?.Trim();
+        if (string.IsNullOrWhiteSpace(phone))
+        {
+            var st = await _db.Students.AsNoTracking().FirstOrDefaultAsync(s => s.TenantId == tenantId && s.Id == item.StudentId);
+            phone = st?.ParentWhatsAppPhone?.Trim();
+        }
+
+        if (string.IsNullOrWhiteSpace(phone) || phone.Length < 10)
+        {
+            return BadRequest(new { message = $"Valid WhatsApp phone number not found for {item.StudentName}." });
+        }
+
+        var cleanPhone = phone.StartsWith("+") ? phone : (phone.Length == 10 ? "+91" + phone : "+" + phone);
+
+        var ok = await whatsAppService.SendDailyDiaryAlertAsync(
+            tenantId,
+            cleanPhone,
+            item.StudentName,
+            item.RollNumber ?? "",
+            DateTime.UtcNow.ToString("dd-MMM-yyyy"),
+            item.MessageText
+        );
+
+        return Ok(new { success = ok, recipient = cleanPhone, studentName = item.StudentName, message = ok ? "WhatsApp message dispatched successfully!" : "Failed to dispatch WhatsApp message." });
+    }
+
+    private bool IsStudentOrParentRole() =>
+        string.Equals(_currentUser.UserRole, "Student", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(_currentUser.UserRole, "Parent", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Dates (latest first) that have H.W. in the look-back window, with checked / pending counts.</summary>
+    [HttpGet("daily-diary/hw-dates")]
+    public async Task<ActionResult<IEnumerable<HwCheckDateDto>>> GetHwCheckDates(
+        [FromQuery] Guid? classId,
+        [FromQuery] Guid? sectionId,
+        [FromQuery] int days = 14)
+    {
+        if (IsStudentOrParentRole()) return Forbid();
+        days = Math.Clamp(days, 1, 60);
+        var today = GetIstToday().Date;
+        var from = today.AddDays(-days);
+
+        var diaries = await DiaryScope(classId, sectionId)
+            .Where(d => d.DiaryDate >= from && d.DiaryDate <= today && d.HomeWorkJson != null && !d.IsAbsent)
+            .Select(d => new { d.DiaryDate, d.HomeWorkJson })
+            .ToListAsync();
+
+        var result = diaries
+            .GroupBy(d => d.DiaryDate)
+            .Select(g =>
+            {
+                int students = 0, total = 0, checkedCount = 0;
+                foreach (var d in g)
+                {
+                    var tasks = ParseTasks(d.HomeWorkJson).Where(t => !string.IsNullOrWhiteSpace(t.Task)).ToList();
+                    if (tasks.Count == 0) continue;
+                    students++;
+                    total += tasks.Count;
+                    checkedCount += tasks.Count(t => NormalizeHwStatus(t.Status) != "Pending");
+                }
+                return new HwCheckDateDto(g.Key, students, total, checkedCount, total - checkedCount);
+            })
+            .Where(x => x.TotalPoints > 0)
+            .OrderByDescending(x => x.Date)
+            .ToList();
+
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Updates only the H.W. status of already-assigned points (usually the next day / back-dated).
+    /// Subject teachers may change points they assigned; class teachers any point of their section;
+    /// other staff roles (admin etc.) any point. Students / parents are rejected. Absent students are skipped.
+    /// </summary>
+    [HttpPost("daily-diary/hw-status")]
+    public async Task<IActionResult> UpdateHwStatus([FromBody] HwStatusUpdateDto dto)
+    {
+        if (IsStudentOrParentRole()) return Forbid();
+        if (dto.Items == null || dto.Items.Count == 0)
+            return BadRequest(new { message = "No H.W. status items provided." });
+
+        var tenantId = _currentUser.TenantId;
+        var date = dto.DiaryDate.Date;
+        var studentIds = dto.Items.Select(i => i.StudentId).Distinct().ToList();
+
+        var diaries = await _db.DailyStudentDiaries
+            .Where(d => d.TenantId == tenantId && d.DiaryDate == date && studentIds.Contains(d.StudentId))
+            .ToDictionaryAsync(d => d.StudentId);
+
+        var absentIds = (await _db.StudentAttendances.AsNoTracking()
+            .Where(a => a.TenantId == tenantId && a.AttendanceDate == date && studentIds.Contains(a.StudentId) &&
+                        (a.Status == TeacherAttendanceStatus.Absent || a.Status == TeacherAttendanceStatus.Leave))
+            .Select(a => a.StudentId).ToListAsync()).ToHashSet();
+
+        var loginUser = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
+        var currentTeacher = await _db.Teachers.AsNoTracking()
+            .FirstOrDefaultAsync(t => t.TenantId == tenantId && t.UserId == _currentUser.UserId);
+        var checkerName = currentTeacher?.FullName ?? loginUser?.FullName;
+
+        var ownSectionIds = new HashSet<Guid>();
+        if (currentTeacher != null)
+        {
+            ownSectionIds = (await _db.SchoolSections.AsNoTracking()
+                .Where(s => s.ClassTeacherId == currentTeacher.Id)
+                .Select(s => s.Id).ToListAsync()).ToHashSet();
+        }
+
+        var now = DateTime.UtcNow;
+        int updated = 0, skipped = 0;
+
+        foreach (var grp in dto.Items.GroupBy(i => i.StudentId))
+        {
+            if (!diaries.TryGetValue(grp.Key, out var diary) || diary.IsAbsent || absentIds.Contains(grp.Key))
+            {
+                skipped += grp.Count();
+                continue;
+            }
+
+            var tasks = ParseTasks(diary.HomeWorkJson);
+            var isClassTeacherOfStudent = diary.SectionId.HasValue && ownSectionIds.Contains(diary.SectionId.Value);
+            var changed = false;
+
+            foreach (var item in grp)
+            {
+                var idx = tasks.FindIndex(p =>
+                    string.Equals((p.Subject ?? string.Empty).Trim(), (item.Subject ?? string.Empty).Trim(), StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals((p.Task ?? string.Empty).Trim(), (item.Task ?? string.Empty).Trim(), StringComparison.OrdinalIgnoreCase));
+                if (idx < 0) { skipped++; continue; }
+
+                var existing = tasks[idx];
+                if (currentTeacher != null && existing.TeacherId.HasValue &&
+                    existing.TeacherId != currentTeacher.Id && !isClassTeacherOfStudent)
+                {
+                    skipped++;
+                    continue;
+                }
+
+                var newStatus = NormalizeHwStatus(item.Status);
+                var oldStatus = NormalizeHwStatus(existing.Status);
+                var remark = string.IsNullOrWhiteSpace(item.Remark) ? null : item.Remark.Trim();
+                if (newStatus == oldStatus && remark == existing.StatusRemark) continue;
+
+                tasks[idx] = newStatus == "Pending"
+                    ? existing with { Status = newStatus, StatusRemark = remark, CheckedAt = null, CheckedByName = null }
+                    : existing with
+                    {
+                        Status = newStatus,
+                        StatusRemark = remark,
+                        CheckedAt = newStatus == oldStatus && existing.CheckedAt.HasValue ? existing.CheckedAt : now,
+                        CheckedByName = newStatus == oldStatus && existing.CheckedAt.HasValue ? existing.CheckedByName : checkerName
+                    };
+                changed = true;
+                updated++;
+            }
+
+            if (changed)
+            {
+                diary.HomeWorkJson = JsonSerializer.Serialize(tasks);
+                diary.UpdatedAt = now;
+            }
+        }
+
+        await _db.SaveChangesAsync();
+        return Ok(new { updated, skipped, message = $"{updated} H.W. point(s) updated." + (skipped > 0 ? $" {skipped} skipped (not permitted / absent / not found)." : string.Empty) });
+    }
+
+    /// <summary>Student-wise and subject-wise H.W. completion analytics for a date range.</summary>
+    [HttpGet("daily-diary/hw-analytics")]
+    public async Task<ActionResult<HwAnalyticsDto>> GetHwAnalytics(
+        [FromQuery] DateTime? from,
+        [FromQuery] DateTime? to,
+        [FromQuery] Guid? classId,
+        [FromQuery] Guid? sectionId)
+    {
+        if (IsStudentOrParentRole()) return Forbid();
+        var tenantId = _currentUser.TenantId;
+        var toDate = (to ?? GetIstToday()).Date;
+        var fromDate = (from ?? toDate.AddDays(-29)).Date;
+        if (fromDate > toDate) (fromDate, toDate) = (toDate, fromDate);
+        if ((toDate - fromDate).TotalDays > 366) fromDate = toDate.AddDays(-366);
+
+        var diaries = await DiaryScope(classId, sectionId)
+            .Where(d => d.DiaryDate >= fromDate && d.DiaryDate <= toDate && d.HomeWorkJson != null)
+            .Select(d => new { d.StudentId, d.DiaryDate, d.IsAbsent, d.HomeWorkJson })
+            .ToListAsync();
+
+        var studentIds = diaries.Select(d => d.StudentId).Distinct().ToList();
+        var students = await _db.Students.AsNoTracking()
+            .Where(s => s.TenantId == tenantId && studentIds.Contains(s.Id))
+            .ToDictionaryAsync(s => s.Id);
+
+        var absentKeys = (await _db.StudentAttendances.AsNoTracking()
+            .Where(a => a.TenantId == tenantId && a.AttendanceDate >= fromDate && a.AttendanceDate <= toDate &&
+                        studentIds.Contains(a.StudentId) &&
+                        (a.Status == TeacherAttendanceStatus.Absent || a.Status == TeacherAttendanceStatus.Leave))
+            .Select(a => new { a.StudentId, a.AttendanceDate }).ToListAsync())
+            .Select(a => (a.StudentId, a.AttendanceDate.Date)).ToHashSet();
+
+        var perStudent = new Dictionary<Guid, int[]>(); // 0 assigned,1 completed,2 partial,3 notDone,4 pending,5 absent
+        var perSubject = new Dictionary<string, int[]>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var d in diaries)
+        {
+            if (!students.ContainsKey(d.StudentId)) continue;
+            var tasks = ParseTasks(d.HomeWorkJson).Where(t => !string.IsNullOrWhiteSpace(t.Task)).ToList();
+            if (tasks.Count == 0) continue;
+            var excused = d.IsAbsent || absentKeys.Contains((d.StudentId, d.DiaryDate.Date));
+
+            if (!perStudent.TryGetValue(d.StudentId, out var sc)) perStudent[d.StudentId] = sc = new int[6];
+            foreach (var t in tasks)
+            {
+                var subject = string.IsNullOrWhiteSpace(t.Subject) ? "General" : t.Subject.Trim();
+                if (!perSubject.TryGetValue(subject, out var sub)) perSubject[subject] = sub = new int[6];
+                if (excused) { sc[5]++; sub[5]++; continue; }
+                sc[0]++; sub[0]++;
+                switch (NormalizeHwStatus(t.Status))
+                {
+                    case "Completed": sc[1]++; sub[1]++; break;
+                    case "Partial": sc[2]++; sub[2]++; break;
+                    case "NotDone": sc[3]++; sub[3]++; break;
+                    default: sc[4]++; sub[4]++; break;
+                }
+            }
+        }
+
+        static double Pct(int completed, int partial, int notDone)
+        {
+            var checkedCount = completed + partial + notDone;
+            return checkedCount == 0 ? 0 : Math.Round((completed + 0.5 * partial) * 100.0 / checkedCount, 1);
+        }
+
+        var studentRows = perStudent
+            .Select(kv =>
+            {
+                var st = students[kv.Key];
+                var a = kv.Value;
+                return new HwAnalyticsStudentDto(st.Id, st.StudentName, st.SchoolRollNumber ?? st.RollNumber ?? "",
+                    a[0], a[1], a[2], a[3], a[4], a[5], Pct(a[1], a[2], a[3]));
+            })
+            .OrderBy(r => r.RollNumber).ThenBy(r => r.StudentName)
+            .ToList();
+
+        var subjectRows = perSubject
+            .Select(kv => new HwAnalyticsSubjectDto(kv.Key, kv.Value[0], kv.Value[1], kv.Value[2], kv.Value[3], kv.Value[4], Pct(kv.Value[1], kv.Value[2], kv.Value[3])))
+            .OrderBy(r => r.Subject)
+            .ToList();
+
+        int totAssigned = studentRows.Sum(r => r.Assigned), totDone = studentRows.Sum(r => r.Completed),
+            totPartial = studentRows.Sum(r => r.Partial), totNot = studentRows.Sum(r => r.NotDone),
+            totPending = studentRows.Sum(r => r.Pending), totAbs = studentRows.Sum(r => r.AbsentExcused);
+        var checkedPct = totAssigned == 0 ? 0 : Math.Round((totAssigned - totPending) * 100.0 / totAssigned, 1);
+
+        return Ok(new HwAnalyticsDto(fromDate, toDate,
+            new HwAnalyticsSummaryDto(totAssigned, totDone, totPartial, totNot, totPending, totAbs, Pct(totDone, totPartial, totNot), checkedPct),
+            studentRows, subjectRows));
+    }
+
+
+    private static readonly HashSet<string> AllowedHwStatuses = new(StringComparer.OrdinalIgnoreCase)
+        { "Pending", "Completed", "Partial", "NotDone" };
+
+    private static string NormalizeHwStatus(string? status)
+    {
+        if (string.IsNullOrWhiteSpace(status)) return "Pending";
+        var match = AllowedHwStatuses.FirstOrDefault(s => s.Equals(status.Trim(), StringComparison.OrdinalIgnoreCase));
+        return match ?? "Pending";
+    }
+
+    /// <summary>
+    /// Cleans one student's C.W./H.W. list: drops empty points, stamps the assigning teacher,
+    /// validates H.W. status and records who checked it and when (only when status really changed).
+    /// </summary>
+    private static List<DailySubjectTaskItem> NormalizeDiaryTasks(
+        List<DailySubjectTaskItem>? incoming,
+        string? existingJson,
+        bool isHomework,
+        Teacher? currentTeacher,
+        Dictionary<string, (Guid TeacherId, string Name)> subjectTeacherMap,
+        string? checkerName,
+        DateTime now)
+    {
+        var result = new List<DailySubjectTaskItem>();
+        if (incoming == null) return result;
+
+        var previous = new List<DailySubjectTaskItem>();
+        if (!string.IsNullOrWhiteSpace(existingJson))
+        {
+            try { previous = JsonSerializer.Deserialize<List<DailySubjectTaskItem>>(existingJson) ?? new(); } catch { }
+        }
+
+        foreach (var t in incoming)
+        {
+            if (string.IsNullOrWhiteSpace(t.Task)) continue;
+            var subject = (t.Subject ?? string.Empty).Trim();
+            var task = t.Task.Trim();
+
+            var prev = previous.FirstOrDefault(p =>
+                string.Equals((p.Subject ?? string.Empty).Trim(), subject, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals((p.Task ?? string.Empty).Trim(), task, StringComparison.OrdinalIgnoreCase));
+
+            Guid? teacherId = null;
+            string? teacherName = null;
+            if (!string.IsNullOrWhiteSpace(t.TeacherName)) { teacherId = t.TeacherId; teacherName = t.TeacherName; }
+            else if (subjectTeacherMap.TryGetValue(subject, out var st)) { teacherId = st.TeacherId; teacherName = st.Name; }
+            else if (currentTeacher != null) { teacherId = currentTeacher.Id; teacherName = currentTeacher.FullName; }
+            else if (!string.IsNullOrWhiteSpace(checkerName)) { teacherName = checkerName; }
+            else if (prev != null && !string.IsNullOrWhiteSpace(prev.TeacherName)) { teacherId = prev.TeacherId; teacherName = prev.TeacherName; }
+
+            string? status = null;
+            string? remark = string.IsNullOrWhiteSpace(t.StatusRemark) ? null : t.StatusRemark.Trim();
+            DateTime? checkedAt = null;
+            string? checkedBy = null;
+            if (isHomework)
+            {
+                status = NormalizeHwStatus(t.Status);
+                var prevStatus = NormalizeHwStatus(prev?.Status);
+                if (status == "Pending")
+                {
+                    checkedAt = null; checkedBy = null;
+                }
+                else if (prev != null && status == prevStatus && prev.CheckedAt.HasValue)
+                {
+                    checkedAt = prev.CheckedAt; checkedBy = prev.CheckedByName;
+                }
+                else
+                {
+                    checkedAt = now; checkedBy = checkerName;
+                }
+            }
+            else
+            {
+                status = string.IsNullOrWhiteSpace(t.Status) ? null : t.Status.Trim();
+            }
+
+            result.Add(new DailySubjectTaskItem(subject, task, teacherId, teacherName, status, remark, checkedAt, checkedBy));
+        }
+        return result;
     }
 
     private async Task<Student?> ResolveCurrentStudentAsync()

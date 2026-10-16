@@ -4057,9 +4057,19 @@ public record ClassStudentSubmissionRosterDto(
 // DAILY STUDENT CLASSWORK & HOMEWORK DIARY DTOs
 // =========================================================================
 
+/// <summary>
+/// One C.W./H.W. point. Status (H.W. only): Pending | Completed | Partial | NotDone.
+/// TeacherId/TeacherName = teacher who assigned the point (resolved server-side).
+/// </summary>
 public record DailySubjectTaskItem(
     string Subject,
-    string Task
+    string Task,
+    Guid? TeacherId = null,
+    string? TeacherName = null,
+    string? Status = null,
+    string? StatusRemark = null,
+    DateTime? CheckedAt = null,
+    string? CheckedByName = null
 );
 
 public record DailyStudentDiaryRowDto(
@@ -4076,7 +4086,32 @@ public record DailyStudentDiaryRowDto(
     List<DailySubjectTaskItem> HomeWork,
     string? Remarks,
     Guid? DiaryId,
-    string AttendanceStatus = "Present"
+    string AttendanceStatus = "Present",
+    string? ParentWhatsAppPhone = null
+);
+
+public record DailyDiaryWhatsAppStudentDispatchItem(
+    Guid StudentId,
+    string StudentName,
+    string? RollNumber,
+    string? Phone,
+    string MessageText
+);
+
+public record DailyDiaryWhatsAppDispatchRequestDto(
+    DateTime DiaryDate,
+    Guid? ClassId,
+    Guid? SectionId,
+    List<DailyDiaryWhatsAppStudentDispatchItem> Items
+);
+
+public record DailyDiaryWhatsAppDispatchResultDto(
+    int TotalRequested,
+    int SentCount,
+    int SkippedCount,
+    List<string> SentRecipients,
+    List<string> SkippedRecipients,
+    string Message
 );
 
 public record DailyStudentDiarySaveItemDto(
@@ -4102,7 +4137,85 @@ public record DailyDiaryReportHeaderDto(
     DateTime DiaryDate,
     string? ClassName,
     string? SectionName,
-    List<DailyStudentDiaryRowDto> Rows
+    List<DailyStudentDiaryRowDto> Rows,
+    string? ClassTeacherName = null,
+    DateTime? PreviousHwDate = null,
+    List<HwPreviousRowDto>? PreviousHw = null
+);
+
+/// <summary>Previous diary day's H.W. points of one student with their check status (shown on the next report).</summary>
+public record HwPreviousRowDto(
+    Guid StudentId,
+    string StudentName,
+    string RollNumber,
+    bool IsAbsent,
+    List<DailySubjectTaskItem> HomeWork
+);
+
+/// <summary>One date that has H.W. awaiting / already checked (drives the "Check H.W." date picker).</summary>
+public record HwCheckDateDto(
+    DateTime Date,
+    int Students,
+    int TotalPoints,
+    int CheckedPoints,
+    int PendingPoints
+);
+
+public record HwStatusUpdateItemDto(
+    Guid StudentId,
+    string Subject,
+    string Task,
+    string Status,
+    string? Remark = null
+);
+
+public record HwStatusUpdateDto(
+    DateTime DiaryDate,
+    Guid? ClassId,
+    Guid? SectionId,
+    List<HwStatusUpdateItemDto> Items
+);
+
+public record HwAnalyticsStudentDto(
+    Guid StudentId,
+    string StudentName,
+    string RollNumber,
+    int Assigned,
+    int Completed,
+    int Partial,
+    int NotDone,
+    int Pending,
+    int AbsentExcused,
+    double CompletionPercent
+);
+
+public record HwAnalyticsSubjectDto(
+    string Subject,
+    int Assigned,
+    int Completed,
+    int Partial,
+    int NotDone,
+    int Pending,
+    double CompletionPercent
+);
+
+public record HwAnalyticsSummaryDto(
+    int TotalPoints,
+    int Completed,
+    int Partial,
+    int NotDone,
+    int Pending,
+    int AbsentExcused,
+    double CompletionPercent,
+    double CheckedPercent
+);
+
+public record HwAnalyticsDto(
+    DateTime From,
+    DateTime To,
+    HwAnalyticsSummaryDto Summary,
+    List<HwAnalyticsStudentDto> Students,
+    List<HwAnalyticsSubjectDto> Subjects
 );
 
 
