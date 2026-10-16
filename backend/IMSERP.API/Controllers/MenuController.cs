@@ -135,7 +135,9 @@ public class MenuController : ControllerBase
                     "/tests", 
                     "/school/exams", 
                     "/teachers/lesson-plans", 
-                    "/school/homework" 
+                    "/school/homework",
+                    "/school/good-manners",
+                    "/school/monthly-performance"
                 };
                 var testMenuIds = allMenuItems
                     .Where(m => m.RouteUrl != null && essentialRoutes.Contains(m.RouteUrl))

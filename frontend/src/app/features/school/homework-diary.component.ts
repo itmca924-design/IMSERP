@@ -1,6 +1,7 @@
 import { Component, OnInit, Inject, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterModule } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { MatDialog, MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -145,7 +146,7 @@ export interface DailyDiaryReportHeader {
   selector: 'app-homework-diary',
   standalone: true,
   imports: [
-    CommonModule, FormsModule, MatDialogModule, MatButtonModule, MatIconModule,
+    CommonModule, FormsModule, RouterModule, MatDialogModule, MatButtonModule, MatIconModule,
     MatFormFieldModule, MatInputModule, MatSelectModule, MatTooltipModule, MatProgressBarModule,
     MatMenuModule, IstDatetimeDirective, HwCheckPanelComponent, HwAnalyticsPanelComponent
   ],
@@ -193,7 +194,7 @@ export interface DailyDiaryReportHeader {
       <!-- TEACHER / ADMIN VIEW -->
       <ng-container *ngIf="activeTab === 'teacher'">
         <!-- Sub-Navigation Bar: Daily Diary Sheet vs Check HW vs Analytics vs Worksheets -->
-        <div class="diary-subtabs-nav">
+        <div class="diary-subtabs-nav notranslate" translate="no">
           <button class="subtab-pill" [class.active]="diarySubTab === 'daily-diary'" (click)="setDiarySubTab('daily-diary')">
             <div class="subtab-icon-wrap"><mat-icon>menu_book</mat-icon></div>
             <div class="pill-labels">
@@ -224,6 +225,22 @@ export interface DailyDiaryReportHeader {
               <span class="pill-desc">Subject Assignments &amp; Digital Copy Submissions</span>
             </div>
           </button>
+          <a class="subtab-pill" routerLink="/school/good-manners" style="text-decoration: none;">
+            <div class="subtab-icon-wrap" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: #ffffff;"><mat-icon>hotel_class</mat-icon></div>
+            <div class="pill-labels">
+              <span class="pill-title">Good Manners &amp; Behaviour</span>
+              <span class="pill-desc">Daily Conduct, Stars &amp; Report</span>
+            </div>
+            <span class="pill-badge" style="background: #fef3c7; color: #b45309; border-color: #fde68a;">⭐ Daily Report</span>
+          </a>
+          <a class="subtab-pill" routerLink="/school/monthly-performance" style="text-decoration: none;">
+            <div class="subtab-icon-wrap" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: #ffffff;"><mat-icon>insights</mat-icon></div>
+            <div class="pill-labels">
+              <span class="pill-title">Monthly Performance</span>
+              <span class="pill-desc">360° Scorecard &amp; Ranks</span>
+            </div>
+            <span class="pill-badge" style="background: #e0f2fe; color: #0369a1; border-color: #bae6fd;">📊 Monthly Report</span>
+          </a>
         </div>
 
         <!-- =================================================================== -->

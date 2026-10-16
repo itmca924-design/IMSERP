@@ -4218,6 +4218,167 @@ public record HwAnalyticsDto(
     List<HwAnalyticsSubjectDto> Subjects
 );
 
+// =========================================================================
+// DAILY STUDENT GOOD MANNERS & BEHAVIOUR DTOs
+// =========================================================================
+
+public record DailyStudentBehaviourRowDto(
+    Guid StudentId,
+    string StudentName,
+    string RollNumber,
+    string? AdmissionNumber,
+    Guid? ClassId,
+    string? ClassName,
+    Guid? SectionId,
+    string? SectionName,
+    bool IsAbsent,
+    string UniformCleanliness,
+    string DisciplineConduct,
+    string PolitenessRespect,
+    string BooksAndDiary,
+    int StarRating,
+    List<string> Badges,
+    string? Remarks,
+    Guid? RecordId,
+    string AttendanceStatus = "Present",
+    string? ParentWhatsAppPhone = null
+);
+
+public record DailyStudentBehaviourSaveItemDto(
+    Guid StudentId,
+    bool IsAbsent,
+    string UniformCleanliness,
+    string DisciplineConduct,
+    string PolitenessRespect,
+    string BooksAndDiary,
+    int StarRating,
+    List<string>? Badges,
+    string? Remarks,
+    string? AttendanceStatus = null
+);
+
+public record BulkSaveDailyStudentBehaviourDto(
+    DateTime RecordDate,
+    Guid? ClassId,
+    Guid? SectionId,
+    List<DailyStudentBehaviourSaveItemDto> Items
+);
+
+public record DailyBehaviourReportHeaderDto(
+    string InstitutionName,
+    string SubtitleOrAddress,
+    string ReportTitle,
+    DateTime RecordDate,
+    string? ClassName,
+    string? SectionName,
+    List<DailyStudentBehaviourRowDto> Rows,
+    string? ClassTeacherName = null,
+    int TotalStudents = 0,
+    int PresentStudents = 0,
+    int FiveStarStudents = 0,
+    int AttentionNeededCount = 0
+);
+
+public record DailyBehaviourWhatsAppStudentDispatchItem(
+    Guid StudentId,
+    string StudentName,
+    string? RollNumber,
+    string? Phone,
+    string MessageText
+);
+
+public record DailyBehaviourWhatsAppDispatchRequestDto(
+    DateTime RecordDate,
+    Guid? ClassId,
+    Guid? SectionId,
+    List<DailyBehaviourWhatsAppStudentDispatchItem> Items
+);
+
+// =========================================================================
+// MONTHLY STUDENT PERFORMANCE DTOs (POINT 3)
+// =========================================================================
+
+public record MonthlySubjectTestMarkDto(
+    string SubjectName,
+    decimal MaxMarks,
+    decimal ObtainedMarks,
+    decimal Percentage,
+    string Grade
+);
+
+public record MonthlyStudentPerformanceRowDto(
+    Guid StudentId,
+    string StudentName,
+    string RollNumber,
+    string? AdmissionNumber,
+    Guid? ClassId,
+    string? ClassName,
+    Guid? SectionId,
+    string? SectionName,
+    string? ParentWhatsAppPhone,
+    // 1. Attendance Metrics
+    int TotalWorkingDays,
+    int DaysPresent,
+    int DaysAbsent,
+    int DaysLate,
+    int DaysHalfDay,
+    decimal AttendancePercentage,
+    // 2. Homework / Classwork Metrics (Point 1)
+    int TotalHwAssigned,
+    int TotalHwCompleted,
+    int TotalHwDefaulter,
+    decimal HwCompletionRate,
+    // 3. Good Manners & Conduct Metrics (Point 2)
+    decimal BehaviourAvgStars,
+    int TotalBehaviourDays,
+    int FiveStarDays,
+    string DominantUniformStatus,
+    string DominantDisciplineStatus,
+    // 4. Academic Tests & Assessments
+    List<MonthlySubjectTestMarkDto> SubjectTests,
+    decimal TotalTestMaxMarks,
+    decimal TotalTestObtainedMarks,
+    decimal TestAveragePercentage,
+    // 5. Consolidated Overall Index & Grade
+    decimal OverallPerformanceScore,
+    string OverallGrade,
+    int ClassRank,
+    string? TeacherMonthlyRemark,
+    string? ProfilePhoto = null
+);
+
+public record MonthlyPerformanceReportHeaderDto(
+    string InstitutionName,
+    string SubtitleOrAddress,
+    string ReportTitle,
+    int Month,
+    int Year,
+    string MonthName,
+    string? ClassName,
+    string? SectionName,
+    string? ClassTeacherName,
+    int TotalStudentsEvaluated,
+    decimal ClassAverageAttendance,
+    decimal ClassAverageHwRate,
+    decimal ClassAverageBehaviourStars,
+    decimal ClassAverageTestScore,
+    List<MonthlyStudentPerformanceRowDto> Rows
+);
+
+public record SaveMonthlyTeacherRemarksItemDto(
+    Guid StudentId,
+    string? TeacherRemarks,
+    string? OverallGrade
+);
+
+public record BulkSaveMonthlyEvaluationDto(
+    int Month,
+    int Year,
+    Guid? ClassId,
+    Guid? SectionId,
+    List<SaveMonthlyTeacherRemarksItemDto> Items
+);
+
 
 // =========================================================================
 // OPTION C: ADMISSION ENQUIRY CRM DTOs

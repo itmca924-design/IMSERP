@@ -88,6 +88,8 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
     public DbSet<StudentHomework> StudentHomeworks => Set<StudentHomework>();
     public DbSet<StudentHomeworkSubmission> StudentHomeworkSubmissions => Set<StudentHomeworkSubmission>();
     public DbSet<DailyStudentDiary> DailyStudentDiaries => Set<DailyStudentDiary>();
+    public DbSet<DailyStudentBehaviour> DailyStudentBehaviours => Set<DailyStudentBehaviour>();
+    public DbSet<StudentMonthlyEvaluation> StudentMonthlyEvaluations => Set<StudentMonthlyEvaluation>();
     public DbSet<AdmissionEnquiry> AdmissionEnquiries => Set<AdmissionEnquiry>();
     public DbSet<SchoolNotice> SchoolNotices => Set<SchoolNotice>();
     public DbSet<StudentLeave> StudentLeaves => Set<StudentLeave>();

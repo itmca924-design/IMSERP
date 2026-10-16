@@ -81,6 +81,8 @@ public interface IIMSERPDbContext
     DbSet<StudentHomework> StudentHomeworks { get; }
     DbSet<StudentHomeworkSubmission> StudentHomeworkSubmissions { get; }
     DbSet<DailyStudentDiary> DailyStudentDiaries { get; }
+    DbSet<DailyStudentBehaviour> DailyStudentBehaviours { get; }
+    DbSet<StudentMonthlyEvaluation> StudentMonthlyEvaluations { get; }
     DbSet<AdmissionEnquiry> AdmissionEnquiries { get; }
     DbSet<SchoolNotice> SchoolNotices { get; }
     DbSet<StudentLeave> StudentLeaves { get; }

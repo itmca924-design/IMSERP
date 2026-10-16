@@ -1547,5 +1547,683 @@ public class HomeworkController : ControllerBase
 
         return Ok(new { success = true, result = trimmed, candidates = new[] { trimmed } });
     }
+
+    // =========================================================================
+    // DAILY GOOD MANNERS & BEHAVIOUR APIS
+    // =========================================================================
+
+    [HttpGet("daily-behaviour")]
+    public async Task<ActionResult<IEnumerable<DailyStudentBehaviourRowDto>>> GetDailyBehaviourList(
+        [FromQuery] DateTime? date,
+        [FromQuery] Guid? classId,
+        [FromQuery] Guid? sectionId)
+    {
+        var tenantId = _currentUser.TenantId;
+        var targetDate = (date ?? GetIstToday()).Date;
+
+        var studentsQuery = _db.Students.AsNoTracking()
+            .Include(s => s.Class)
+            .Include(s => s.Section)
+            .Where(s => s.TenantId == tenantId && s.IsActive != false && (s.JoiningDate == default || s.JoiningDate.Date <= targetDate));
+
+        if (classId.HasValue && classId.Value != Guid.Empty)
+            studentsQuery = studentsQuery.Where(s => s.ClassId == classId.Value);
+
+        if (sectionId.HasValue && sectionId.Value != Guid.Empty)
+            studentsQuery = studentsQuery.Where(s => s.SectionId == sectionId.Value);
+
+        if (_currentUser.BranchId.HasValue)
+        {
+            var branchId = _currentUser.BranchId.Value;
+            studentsQuery = studentsQuery.Where(s => !s.BranchId.HasValue || s.BranchId == branchId);
+        }
+
+        var students = await studentsQuery
+            .OrderBy(s => s.SchoolRollNumber)
+            .ThenBy(s => s.RollNumber)
+            .ThenBy(s => s.StudentName)
+            .ToListAsync();
+
+        var studentIds = students.Select(s => s.Id).ToList();
+
+        // 1. Fetch attendance records for this date
+        var attendances = await _db.StudentAttendances.AsNoTracking()
+            .Where(a => a.TenantId == tenantId && a.AttendanceDate == targetDate && studentIds.Contains(a.StudentId))
+            .ToDictionaryAsync(a => a.StudentId);
+
+        // 2. Fetch existing daily behaviour records for this date
+        var behaviours = await _db.DailyStudentBehaviours.AsNoTracking()
+            .Where(b => b.TenantId == tenantId && b.RecordDate == targetDate && studentIds.Contains(b.StudentId))
+            .ToDictionaryAsync(b => b.StudentId);
+
+        var result = students.Select(st =>
+        {
+            behaviours.TryGetValue(st.Id, out var beh);
+            attendances.TryGetValue(st.Id, out var att);
+
+            string attendanceStatus;
+            bool isAbsent;
+
+            if (att != null)
+            {
+                attendanceStatus = att.Status switch
+                {
+                    TeacherAttendanceStatus.Present => "Present",
+                    TeacherAttendanceStatus.Absent => "Absent",
+                    TeacherAttendanceStatus.Late => "Late",
+                    TeacherAttendanceStatus.HalfDay => "HalfDay",
+                    TeacherAttendanceStatus.Leave => "Leave",
+                    _ => att.Status.ToString()
+                };
+                isAbsent = att.Status == TeacherAttendanceStatus.Absent || att.Status == TeacherAttendanceStatus.Leave;
+            }
+            else if (beh != null && beh.IsAbsent)
+            {
+                isAbsent = true;
+                attendanceStatus = "Absent";
+            }
+            else
+            {
+                isAbsent = false;
+                attendanceStatus = "NotMarked";
+            }
+
+            var badges = new List<string>();
+            if (beh != null && !string.IsNullOrWhiteSpace(beh.BadgesJson))
+            {
+                try { badges = JsonSerializer.Deserialize<List<string>>(beh.BadgesJson) ?? new(); } catch { }
+            }
+
+            return new DailyStudentBehaviourRowDto(
+                st.Id,
+                st.StudentName,
+                st.SchoolRollNumber ?? st.RollNumber ?? "",
+                st.AdmissionNumber,
+                st.ClassId,
+                st.Class != null ? st.Class.Name : null,
+                st.SectionId,
+                st.Section != null ? st.Section.Name : null,
+                isAbsent,
+                beh?.UniformCleanliness ?? "NeatAndClean",
+                beh?.DisciplineConduct ?? "Disciplined",
+                beh?.PolitenessRespect ?? "PoliteAndRespectful",
+                beh?.BooksAndDiary ?? "BroughtAll",
+                beh?.StarRating ?? 5,
+                badges,
+                beh?.TeacherRemarks,
+                beh?.Id,
+                attendanceStatus,
+                st.ParentWhatsAppPhone
+            );
+        }).ToList();
+
+        return Ok(result);
+    }
+
+    [HttpPost("daily-behaviour/bulk")]
+    public async Task<IActionResult> SaveBulkDailyBehaviour([FromBody] BulkSaveDailyStudentBehaviourDto dto)
+    {
+        if (dto.Items == null || dto.Items.Count == 0)
+            return BadRequest(new { message = "No behaviour items provided." });
+
+        var tenantId = _currentUser.TenantId;
+        var targetDate = dto.RecordDate.Date;
+        var studentIds = dto.Items.Select(i => i.StudentId).ToList();
+
+        var existingRecords = await _db.DailyStudentBehaviours
+            .Where(b => b.TenantId == tenantId && b.RecordDate == targetDate && studentIds.Contains(b.StudentId))
+            .ToDictionaryAsync(b => b.StudentId);
+
+        var students = await _db.Students.AsNoTracking()
+            .Where(s => s.TenantId == tenantId && studentIds.Contains(s.Id))
+            .ToDictionaryAsync(s => s.Id);
+
+        var now = DateTime.UtcNow;
+
+        foreach (var item in dto.Items)
+        {
+            if (!students.TryGetValue(item.StudentId, out var student)) continue;
+
+            var badgesJson = item.Badges != null && item.Badges.Count > 0 
+                ? JsonSerializer.Serialize(item.Badges) 
+                : null;
+
+            if (existingRecords.TryGetValue(item.StudentId, out var existing))
+            {
+                existing.UniformCleanliness = item.UniformCleanliness;
+                existing.DisciplineConduct = item.DisciplineConduct;
+                existing.PolitenessRespect = item.PolitenessRespect;
+                existing.BooksAndDiary = item.BooksAndDiary;
+                existing.StarRating = Math.Clamp(item.StarRating, 1, 5);
+                existing.BadgesJson = badgesJson;
+                existing.TeacherRemarks = item.Remarks;
+                existing.IsAbsent = item.IsAbsent;
+                existing.UpdatedAt = now;
+            }
+            else
+            {
+                var newRecord = new DailyStudentBehaviour
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    BranchId = student.BranchId ?? _currentUser.BranchId,
+                    StudentId = item.StudentId,
+                    ClassId = dto.ClassId ?? student.ClassId,
+                    SectionId = dto.SectionId ?? student.SectionId,
+                    RecordDate = targetDate,
+                    UniformCleanliness = item.UniformCleanliness,
+                    DisciplineConduct = item.DisciplineConduct,
+                    PolitenessRespect = item.PolitenessRespect,
+                    BooksAndDiary = item.BooksAndDiary,
+                    StarRating = Math.Clamp(item.StarRating, 1, 5),
+                    BadgesJson = badgesJson,
+                    TeacherRemarks = item.Remarks,
+                    IsAbsent = item.IsAbsent,
+                    TeacherId = null,
+                    CreatedAt = now,
+                    UpdatedAt = now
+                };
+                _db.DailyStudentBehaviours.Add(newRecord);
+            }
+        }
+
+        await _db.SaveChangesAsync();
+        return Ok(new { message = "Daily good manners & behaviour records saved successfully!" });
+    }
+
+    [HttpGet("daily-behaviour/report")]
+    public async Task<ActionResult<DailyBehaviourReportHeaderDto>> GetDailyBehaviourReport(
+        [FromQuery] DateTime? date,
+        [FromQuery] Guid? classId,
+        [FromQuery] Guid? sectionId)
+    {
+        var tenantId = _currentUser.TenantId;
+        var targetDate = (date ?? GetIstToday()).Date;
+
+        var tenant = await _db.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.Id == tenantId);
+        var branch = _currentUser.BranchId.HasValue 
+            ? await _db.Branches.AsNoTracking().FirstOrDefaultAsync(b => b.Id == _currentUser.BranchId.Value) 
+            : null;
+
+        string? className = null;
+        if (classId.HasValue && classId.Value != Guid.Empty)
+        {
+            var cls = await _db.SchoolClasses.AsNoTracking().FirstOrDefaultAsync(c => c.Id == classId.Value);
+            className = cls?.Name;
+        }
+
+        string? sectionName = null;
+        if (sectionId.HasValue && sectionId.Value != Guid.Empty)
+        {
+            var sec = await _db.SchoolSections.AsNoTracking().FirstOrDefaultAsync(s => s.Id == sectionId.Value);
+            sectionName = sec?.Name;
+        }
+
+        var behaviourResult = await GetDailyBehaviourList(targetDate, classId, sectionId);
+        var rows = (behaviourResult.Result as OkObjectResult)?.Value as List<DailyStudentBehaviourRowDto> ?? new();
+
+        string? classTeacherName = null;
+        if (sectionId.HasValue && sectionId.Value != Guid.Empty)
+        {
+            classTeacherName = await _db.SchoolSections.AsNoTracking()
+                .Where(s => s.Id == sectionId.Value && s.ClassTeacherId != null)
+                .Select(s => s.ClassTeacher!.FullName)
+                .FirstOrDefaultAsync();
+        }
+        else if (classId.HasValue && classId.Value != Guid.Empty)
+        {
+            var names = await _db.SchoolSections.AsNoTracking()
+                .Where(s => s.ClassId == classId.Value && s.ClassTeacherId != null)
+                .Select(s => s.ClassTeacher!.FullName)
+                .Distinct()
+                .ToListAsync();
+            if (names.Count == 1) classTeacherName = names[0];
+        }
+
+        var total = rows.Count;
+        var present = rows.Count(r => !r.IsAbsent);
+        var fiveStars = rows.Count(r => !r.IsAbsent && r.StarRating == 5);
+        var attentionNeeded = rows.Count(r => !r.IsAbsent && (r.StarRating <= 3 || r.UniformCleanliness != "NeatAndClean" || r.DisciplineConduct != "Disciplined" || r.PolitenessRespect != "PoliteAndRespectful" || r.BooksAndDiary != "BroughtAll"));
+
+        var header = new DailyBehaviourReportHeaderDto(
+            tenant?.Name ?? string.Empty,
+            branch?.Address ?? tenant?.Address ?? string.Empty,
+            "DAILY GOOD MANNERS & BEHAVIOUR REPORT",
+            targetDate,
+            className,
+            sectionName,
+            rows,
+            classTeacherName,
+            total,
+            present,
+            fiveStars,
+            attentionNeeded
+        );
+
+        return Ok(header);
+    }
+
+    [HttpPost("daily-behaviour/send-whatsapp-all")]
+    public async Task<ActionResult<DailyDiaryWhatsAppDispatchResultDto>> SendDailyBehaviourWhatsAppAll(
+        [FromBody] DailyBehaviourWhatsAppDispatchRequestDto dto,
+        [FromServices] IWhatsAppService whatsAppService)
+    {
+        if (IsStudentOrParentRole()) return Forbid();
+        var tenantId = _currentUser.TenantId;
+        if (dto.Items == null || dto.Items.Count == 0)
+        {
+            return BadRequest(new { message = "No student items provided to send." });
+        }
+
+        var sentList = new List<string>();
+        var skippedList = new List<string>();
+
+        var studentIds = dto.Items.Select(x => x.StudentId).ToList();
+        var studentsDb = await _db.Students.AsNoTracking()
+            .Where(s => s.TenantId == tenantId && studentIds.Contains(s.Id))
+            .ToDictionaryAsync(s => s.Id);
+
+        foreach (var item in dto.Items)
+        {
+            var phone = item.Phone?.Trim();
+            if (string.IsNullOrWhiteSpace(phone) && studentsDb.TryGetValue(item.StudentId, out var st))
+            {
+                phone = st.ParentWhatsAppPhone?.Trim();
+            }
+
+            if (string.IsNullOrWhiteSpace(phone) || phone.Length < 10)
+            {
+                skippedList.Add($"{item.StudentName} (No Phone Number)");
+                continue;
+            }
+
+            var cleanPhone = phone.StartsWith("+") ? phone : (phone.Length == 10 ? "+91" + phone : "+" + phone);
+
+            try
+            {
+                var ok = await whatsAppService.SendDailyDiaryAlertAsync(
+                    tenantId,
+                    cleanPhone,
+                    item.StudentName,
+                    item.RollNumber ?? "",
+                    dto.RecordDate.ToString("dd-MMM-yyyy"),
+                    item.MessageText
+                );
+
+                if (ok)
+                {
+                    sentList.Add($"{item.StudentName} ({cleanPhone})");
+                }
+                else
+                {
+                    skippedList.Add($"{item.StudentName} (Gateway Failed)");
+                }
+            }
+            catch (Exception ex)
+            {
+                skippedList.Add($"{item.StudentName} ({ex.Message})");
+            }
+        }
+
+        var message = sentList.Count > 0
+            ? $"Successfully sent daily good manners & behaviour report to {sentList.Count} parents via WhatsApp."
+            : "No WhatsApp messages could be dispatched.";
+
+        return Ok(new DailyDiaryWhatsAppDispatchResultDto(
+            dto.Items.Count,
+            sentList.Count,
+            skippedList.Count,
+            sentList,
+            skippedList,
+            message
+        ));
+    }
+
+    // =========================================================================
+    // MONTHLY STUDENT PERFORMANCE APIS (POINT 3)
+    // =========================================================================
+
+    [HttpGet("monthly-performance/report")]
+    public async Task<ActionResult<MonthlyPerformanceReportHeaderDto>> GetMonthlyPerformanceReport(
+        [FromQuery] int? month,
+        [FromQuery] int? year,
+        [FromQuery] Guid? classId,
+        [FromQuery] Guid? sectionId,
+        [FromQuery] Guid? studentId)
+    {
+        var tenantId = _currentUser.TenantId;
+        var now = GetIstToday();
+        var targetMonth = month ?? now.Month;
+        var targetYear = year ?? now.Year;
+
+        var fromDate = new DateTime(targetYear, targetMonth, 1);
+        var toDate = fromDate.AddMonths(1).AddDays(-1);
+
+        var tenant = await _db.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.Id == tenantId);
+        var branch = _currentUser.BranchId.HasValue 
+            ? await _db.Branches.AsNoTracking().FirstOrDefaultAsync(b => b.Id == _currentUser.BranchId.Value) 
+            : null;
+
+        string? className = null;
+        if (classId.HasValue && classId.Value != Guid.Empty)
+        {
+            var cls = await _db.SchoolClasses.AsNoTracking().FirstOrDefaultAsync(c => c.Id == classId.Value);
+            className = cls?.Name;
+        }
+
+        string? sectionName = null;
+        if (sectionId.HasValue && sectionId.Value != Guid.Empty)
+        {
+            var sec = await _db.SchoolSections.AsNoTracking().FirstOrDefaultAsync(s => s.Id == sectionId.Value);
+            sectionName = sec?.Name;
+        }
+
+        string? classTeacherName = null;
+        if (sectionId.HasValue && sectionId.Value != Guid.Empty)
+        {
+            classTeacherName = await _db.SchoolSections.AsNoTracking()
+                .Where(s => s.Id == sectionId.Value && s.ClassTeacherId != null)
+                .Select(s => s.ClassTeacher!.FullName)
+                .FirstOrDefaultAsync();
+        }
+
+        var studentsQuery = _db.Students.AsNoTracking()
+            .Include(s => s.Class)
+            .Include(s => s.Section)
+            .Where(s => s.TenantId == tenantId && s.IsActive != false && (s.JoiningDate == default || s.JoiningDate.Date <= toDate));
+
+        if (classId.HasValue && classId.Value != Guid.Empty)
+            studentsQuery = studentsQuery.Where(s => s.ClassId == classId.Value);
+
+        if (sectionId.HasValue && sectionId.Value != Guid.Empty)
+            studentsQuery = studentsQuery.Where(s => s.SectionId == sectionId.Value);
+
+        if (studentId.HasValue && studentId.Value != Guid.Empty)
+            studentsQuery = studentsQuery.Where(s => s.Id == studentId.Value);
+
+        if (_currentUser.BranchId.HasValue)
+        {
+            var branchId = _currentUser.BranchId.Value;
+            studentsQuery = studentsQuery.Where(s => !s.BranchId.HasValue || s.BranchId == branchId);
+        }
+
+        var students = await studentsQuery
+            .OrderBy(s => s.SchoolRollNumber)
+            .ThenBy(s => s.RollNumber)
+            .ThenBy(s => s.StudentName)
+            .ToListAsync();
+
+        var studentIds = students.Select(s => s.Id).ToList();
+
+        // 1. Fetch Month Attendance
+        var monthlyAttendances = await _db.StudentAttendances.AsNoTracking()
+            .Where(a => a.TenantId == tenantId && a.AttendanceDate >= fromDate && a.AttendanceDate <= toDate && studentIds.Contains(a.StudentId))
+            .ToListAsync();
+        var attByStudent = monthlyAttendances.GroupBy(a => a.StudentId).ToDictionary(g => g.Key, g => g.ToList());
+
+        // 2. Fetch Month Daily Diaries (Point 1)
+        var monthlyDiaries = await _db.DailyStudentDiaries.AsNoTracking()
+            .Where(d => d.TenantId == tenantId && d.DiaryDate >= fromDate && d.DiaryDate <= toDate && studentIds.Contains(d.StudentId))
+            .ToListAsync();
+        var diaryByStudent = monthlyDiaries.GroupBy(d => d.StudentId).ToDictionary(g => g.Key, g => g.ToList());
+
+        // 3. Fetch Month Daily Good Manners & Behaviour (Point 2)
+        var monthlyBehaviours = await _db.DailyStudentBehaviours.AsNoTracking()
+            .Where(b => b.TenantId == tenantId && b.RecordDate >= fromDate && b.RecordDate <= toDate && studentIds.Contains(b.StudentId))
+            .ToListAsync();
+        var behaviourByStudent = monthlyBehaviours.GroupBy(b => b.StudentId).ToDictionary(g => g.Key, g => g.ToList());
+
+        // 4. Fetch Month Tests & Marks
+        var monthlyTests = await _db.Tests.AsNoTracking()
+            .Where(t => t.TenantId == tenantId && t.TestDate >= fromDate && t.TestDate <= toDate && (!classId.HasValue || t.ClassId == classId.Value))
+            .ToListAsync();
+        var testIds = monthlyTests.Select(t => t.Id).ToList();
+
+        var monthlyMarks = testIds.Count > 0
+            ? await _db.TestMarks.AsNoTracking()
+                .Where(m => testIds.Contains(m.TestId) && studentIds.Contains(m.StudentId))
+                .ToListAsync()
+            : new List<TestMarks>();
+        var marksByStudent = monthlyMarks.GroupBy(m => m.StudentId).ToDictionary(g => g.Key, g => g.ToList());
+
+        // 5. Fetch Persisted Monthly Teacher Remarks
+        var savedEvaluations = await _db.StudentMonthlyEvaluations.AsNoTracking()
+            .Where(e => e.TenantId == tenantId && e.Month == targetMonth && e.Year == targetYear && studentIds.Contains(e.StudentId))
+            .ToDictionaryAsync(e => e.StudentId);
+
+        var rows = new List<MonthlyStudentPerformanceRowDto>();
+
+        foreach (var st in students)
+        {
+            attByStudent.TryGetValue(st.Id, out var studentAtts);
+            studentAtts ??= new();
+
+            int totalWorking = studentAtts.Count;
+            int present = studentAtts.Count(a => a.Status == TeacherAttendanceStatus.Present);
+            int absent = studentAtts.Count(a => a.Status == TeacherAttendanceStatus.Absent || a.Status == TeacherAttendanceStatus.Leave);
+            int late = studentAtts.Count(a => a.Status == TeacherAttendanceStatus.Late);
+            int halfDay = studentAtts.Count(a => a.Status == TeacherAttendanceStatus.HalfDay);
+
+            decimal attPercent = totalWorking > 0
+                ? Math.Round(((decimal)present + (decimal)late + 0.5m * (decimal)halfDay) / (decimal)totalWorking * 100m, 1)
+                : 100m;
+
+            // HW Metrics
+            diaryByStudent.TryGetValue(st.Id, out var studentDiaries);
+            studentDiaries ??= new();
+
+            int totalHw = 0;
+            int completedHw = 0;
+            int defaulterHw = 0;
+
+            foreach (var d in studentDiaries)
+            {
+                var tasks = ParseTasks(d.HomeWorkJson);
+                foreach (var t in tasks)
+                {
+                    if (string.IsNullOrWhiteSpace(t.Task)) continue;
+                    totalHw++;
+                    if (t.Status == "Completed") completedHw++;
+                    else if (t.Status == "NotDone") defaulterHw++;
+                    else if (t.Status == "Partial") completedHw++;
+                }
+            }
+
+            decimal hwRate = totalHw > 0
+                ? Math.Round((decimal)completedHw / (decimal)totalHw * 100m, 1)
+                : 100m;
+
+            // Behaviour Metrics
+            behaviourByStudent.TryGetValue(st.Id, out var studentBehs);
+            studentBehs ??= new();
+
+            int totalBehDays = studentBehs.Count;
+            int fiveStarDays = studentBehs.Count(b => !b.IsAbsent && b.StarRating == 5);
+            decimal avgStars = totalBehDays > 0
+                ? Math.Round((decimal)studentBehs.Where(b => !b.IsAbsent).Sum(b => b.StarRating) / Math.Max(1, studentBehs.Count(b => !b.IsAbsent)), 1)
+                : 5.0m;
+
+            string dominantUniform = studentBehs.Any(b => b.UniformCleanliness != "NeatAndClean")
+                ? "Needs Attention"
+                : "Neat & Clean";
+
+            string dominantDiscipline = studentBehs.Any(b => b.DisciplineConduct == "Talkative" || b.DisciplineConduct == "Restless" || b.DisciplineConduct == "Aggressive")
+                ? "Needs Guidance"
+                : "Disciplined";
+
+            // Academic Tests
+            marksByStudent.TryGetValue(st.Id, out var studentMarksList);
+            studentMarksList ??= new();
+
+            var subjectTests = new List<MonthlySubjectTestMarkDto>();
+            decimal totalTestMax = 0;
+            decimal totalTestObt = 0;
+
+            foreach (var sm in studentMarksList)
+            {
+                var test = monthlyTests.FirstOrDefault(t => t.Id == sm.TestId);
+                if (test == null) continue;
+
+                var subName = !string.IsNullOrWhiteSpace(test.Subject) ? test.Subject : (!string.IsNullOrWhiteSpace(test.Title) ? test.Title : "General");
+                decimal maxMarks = test.MaxMarks;
+                decimal obtMarks = sm.MarksObtained;
+                decimal pct = maxMarks > 0 ? Math.Round(obtMarks / maxMarks * 100m, 1) : 0;
+                string gr = pct >= 90 ? "A+" : pct >= 75 ? "A" : pct >= 60 ? "B" : pct >= 40 ? "C" : "D";
+
+                totalTestMax += maxMarks;
+                totalTestObt += obtMarks;
+
+                subjectTests.Add(new MonthlySubjectTestMarkDto(subName, maxMarks, obtMarks, pct, gr));
+            }
+
+            decimal testAvgPct = totalTestMax > 0
+                ? Math.Round(totalTestObt / totalTestMax * 100m, 1)
+                : 80m;
+
+            // Weighted Overall Score: 40% Tests + 25% Attendance + 20% HW + 15% Behaviour (scaled 5 stars = 100%)
+            decimal behaviourScaled = (avgStars / 5.0m) * 100m;
+            decimal overallScore = Math.Round((testAvgPct * 0.40m) + (attPercent * 0.25m) + (hwRate * 0.20m) + (behaviourScaled * 0.15m), 1);
+
+            string defaultGrade = overallScore >= 90 ? "A+" : overallScore >= 75 ? "A" : overallScore >= 60 ? "B+" : overallScore >= 50 ? "B" : "C";
+
+            savedEvaluations.TryGetValue(st.Id, out var savedEval);
+            string finalGrade = !string.IsNullOrWhiteSpace(savedEval?.OverallGrade) ? savedEval.OverallGrade : defaultGrade;
+            string? remarks = savedEval?.TeacherRemarks;
+
+            rows.Add(new MonthlyStudentPerformanceRowDto(
+                st.Id,
+                st.StudentName,
+                st.SchoolRollNumber ?? st.RollNumber ?? "",
+                st.AdmissionNumber,
+                st.ClassId,
+                st.Class?.Name,
+                st.SectionId,
+                st.Section?.Name,
+                st.ParentWhatsAppPhone,
+                totalWorking,
+                present,
+                absent,
+                late,
+                halfDay,
+                attPercent,
+                totalHw,
+                completedHw,
+                defaulterHw,
+                hwRate,
+                avgStars,
+                totalBehDays,
+                fiveStarDays,
+                dominantUniform,
+                dominantDiscipline,
+                subjectTests,
+                totalTestMax,
+                totalTestObt,
+                testAvgPct,
+                overallScore,
+                finalGrade,
+                0,
+                remarks,
+                st.ProfilePhoto
+            ));
+        }
+
+        // Compute Class Ranks based on OverallPerformanceScore descending
+        var ranked = rows.OrderByDescending(r => r.OverallPerformanceScore).ToList();
+        var rankedRows = new List<MonthlyStudentPerformanceRowDto>();
+        for (int i = 0; i < ranked.Count; i++)
+        {
+            var item = ranked[i];
+            rankedRows.Add(item with { ClassRank = i + 1 });
+        }
+
+        var finalRows = rankedRows.OrderBy(r => r.RollNumber).ThenBy(r => r.StudentName).ToList();
+
+        var monthName = new DateTime(targetYear, targetMonth, 1).ToString("MMMM yyyy");
+        var avgAtt = finalRows.Count > 0 ? Math.Round(finalRows.Average(r => r.AttendancePercentage), 1) : 0;
+        var avgHw = finalRows.Count > 0 ? Math.Round(finalRows.Average(r => r.HwCompletionRate), 1) : 0;
+        var avgBeh = finalRows.Count > 0 ? Math.Round(finalRows.Average(r => r.BehaviourAvgStars), 1) : 5.0m;
+        var avgTest = finalRows.Count > 0 ? Math.Round(finalRows.Average(r => r.TestAveragePercentage), 1) : 0;
+
+        var schoolName = !string.IsNullOrWhiteSpace(tenant?.Name)
+            ? tenant.Name
+            : (!string.IsNullOrWhiteSpace(branch?.Name) ? branch.Name : "Jnandeep Campus");
+        var schoolAddress = !string.IsNullOrWhiteSpace(branch?.Address)
+            ? branch.Address
+            : (!string.IsNullOrWhiteSpace(tenant?.Address) ? tenant.Address : "Main Road, Jnandeep Campus");
+
+        var header = new MonthlyPerformanceReportHeaderDto(
+            schoolName,
+            schoolAddress,
+            "MONTHLY STUDENT PERFORMANCE REPORT",
+            targetMonth,
+            targetYear,
+            monthName,
+            className,
+            sectionName,
+            classTeacherName,
+            finalRows.Count,
+            avgAtt,
+            avgHw,
+            avgBeh,
+            avgTest,
+            finalRows
+        );
+
+        return Ok(header);
+    }
+
+    [HttpPost("monthly-performance/save-remarks")]
+    public async Task<IActionResult> SaveMonthlyEvaluationRemarks([FromBody] BulkSaveMonthlyEvaluationDto dto)
+    {
+        if (dto.Items == null || dto.Items.Count == 0)
+            return BadRequest(new { message = "No remarks provided to save." });
+
+        var tenantId = _currentUser.TenantId;
+        var studentIds = dto.Items.Select(x => x.StudentId).ToList();
+
+        var existing = await _db.StudentMonthlyEvaluations
+            .Where(e => e.TenantId == tenantId && e.Month == dto.Month && e.Year == dto.Year && studentIds.Contains(e.StudentId))
+            .ToDictionaryAsync(e => e.StudentId);
+
+        var students = await _db.Students.AsNoTracking()
+            .Where(s => s.TenantId == tenantId && studentIds.Contains(s.Id))
+            .ToDictionaryAsync(s => s.Id);
+
+        var now = DateTime.UtcNow;
+
+        foreach (var item in dto.Items)
+        {
+            if (!students.TryGetValue(item.StudentId, out var student)) continue;
+
+            if (existing.TryGetValue(item.StudentId, out var eval))
+            {
+                eval.TeacherRemarks = item.TeacherRemarks;
+                if (!string.IsNullOrWhiteSpace(item.OverallGrade)) eval.OverallGrade = item.OverallGrade;
+                eval.UpdatedAt = now;
+            }
+            else
+            {
+                var newEval = new StudentMonthlyEvaluation
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    BranchId = student.BranchId ?? _currentUser.BranchId,
+                    StudentId = item.StudentId,
+                    ClassId = dto.ClassId ?? student.ClassId,
+                    SectionId = dto.SectionId ?? student.SectionId,
+                    Month = dto.Month,
+                    Year = dto.Year,
+                    OverallGrade = item.OverallGrade ?? "A",
+                    TeacherRemarks = item.TeacherRemarks,
+                    CreatedAt = now,
+                    UpdatedAt = now
+                };
+                _db.StudentMonthlyEvaluations.Add(newEval);
+            }
+        }
+
+        await _db.SaveChangesAsync();
+        return Ok(new { message = "Monthly student evaluation remarks saved successfully!" });
+    }
 }
 

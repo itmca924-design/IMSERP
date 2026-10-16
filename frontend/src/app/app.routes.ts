@@ -123,6 +123,14 @@ export const routes: Routes = [
         loadComponent: () => import('./features/school/homework-diary.component').then(m => m.HomeworkDiaryComponent)
       },
       {
+        path: 'school/good-manners',
+        loadComponent: () => import('./features/school/good-manners.component').then(m => m.GoodMannersComponent)
+      },
+      {
+        path: 'school/monthly-performance',
+        loadComponent: () => import('./features/school/monthly-performance.component').then(m => m.MonthlyPerformanceComponent)
+      },
+      {
         path: 'school/notices',
         loadComponent: () => import('./features/school/school-notices.component').then(m => m.SchoolNoticesComponent)
       },

@@ -799,6 +799,60 @@ using (var scope = app.Services.CreateScope())
                         CREATE INDEX IX_DailyStudentDiaries_Student_Date ON DailyStudentDiaries (TenantId, StudentId, DiaryDate);
                     END
 
+                    -- Daily Student Good Manners & Behaviour Table
+                    IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'DailyStudentBehaviours')
+                    BEGIN
+                        CREATE TABLE DailyStudentBehaviours (
+                            Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
+                            TenantId UNIQUEIDENTIFIER NOT NULL,
+                            BranchId UNIQUEIDENTIFIER NULL,
+                            StudentId UNIQUEIDENTIFIER NOT NULL,
+                            ClassId UNIQUEIDENTIFIER NULL,
+                            SectionId UNIQUEIDENTIFIER NULL,
+                            RecordDate DATETIME2 NOT NULL,
+                            UniformCleanliness NVARCHAR(50) NOT NULL DEFAULT 'NeatAndClean',
+                            DisciplineConduct NVARCHAR(50) NOT NULL DEFAULT 'Disciplined',
+                            PolitenessRespect NVARCHAR(50) NOT NULL DEFAULT 'PoliteAndRespectful',
+                            BooksAndDiary NVARCHAR(50) NOT NULL DEFAULT 'BroughtAll',
+                            StarRating INT NOT NULL DEFAULT 5,
+                            BadgesJson NVARCHAR(MAX) NULL,
+                            TeacherRemarks NVARCHAR(500) NULL,
+                            TeacherId UNIQUEIDENTIFIER NULL,
+                            IsAbsent BIT NOT NULL DEFAULT 0,
+                            CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+                            UpdatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
+                        );
+
+                        CREATE INDEX IX_DailyStudentBehaviours_Tenant_Branch_Date_Class ON DailyStudentBehaviours (TenantId, BranchId, RecordDate, ClassId);
+                        CREATE INDEX IX_DailyStudentBehaviours_Student_Date ON DailyStudentBehaviours (TenantId, StudentId, RecordDate);
+                    END
+
+                    -- Monthly Student Performance & Evaluation Table
+                    IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'StudentMonthlyEvaluations')
+                    BEGIN
+                        CREATE TABLE StudentMonthlyEvaluations (
+                            Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
+                            TenantId UNIQUEIDENTIFIER NOT NULL,
+                            BranchId UNIQUEIDENTIFIER NULL,
+                            StudentId UNIQUEIDENTIFIER NOT NULL,
+                            ClassId UNIQUEIDENTIFIER NULL,
+                            SectionId UNIQUEIDENTIFIER NULL,
+                            [Month] INT NOT NULL,
+                            [Year] INT NOT NULL,
+                            AttendancePercent DECIMAL(5, 2) NOT NULL DEFAULT 0,
+                            HwCompletionPercent DECIMAL(5, 2) NOT NULL DEFAULT 0,
+                            BehaviourAvgStars DECIMAL(3, 2) NOT NULL DEFAULT 5.0,
+                            AcademicTestPercent DECIMAL(5, 2) NOT NULL DEFAULT 0,
+                            OverallGrade NVARCHAR(10) NOT NULL DEFAULT 'A',
+                            TeacherRemarks NVARCHAR(500) NULL,
+                            CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+                            UpdatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
+                        );
+
+                        CREATE INDEX IX_StudentMonthlyEvaluations_Tenant_Branch_Month_Year ON StudentMonthlyEvaluations (TenantId, BranchId, [Month], [Year], ClassId);
+                        CREATE INDEX IX_StudentMonthlyEvaluations_Student_Month_Year ON StudentMonthlyEvaluations (TenantId, StudentId, [Month], [Year]);
+                    END
+
                     -- Option C: Admission Enquiry & CRM Table
                     IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'AdmissionEnquiries')
                     BEGIN
@@ -1762,6 +1816,78 @@ using (var scope = app.Services.CreateScope())
                 }
                 context.SaveChanges();
                 Console.WriteLine("[Database] Auto-seeded 'Notice Board & Circulars' menu item under Academic Operations.");
+            }
+
+            // Auto-seed 'Good Manners & Behaviour' MenuItem under Academic Operations
+            var mannersMenu = context.MenuItems.FirstOrDefault(m => m.RouteUrl == "/school/good-manners");
+            if (mannersMenu == null)
+            {
+                var newMannersMenu = new IMSERP.Domain.Entities.MenuItem
+                {
+                    Id = Guid.NewGuid(),
+                    Title = "Good Manners & Behaviour",
+                    RouteUrl = "/school/good-manners",
+                    Icon = "hotel_class",
+                    ParentId = academicMenu.Id,
+                    SortOrder = 5,
+                    Module = "Academic",
+                    IsActive = true
+                };
+                context.MenuItems.Add(newMannersMenu);
+                context.SaveChanges();
+
+                var roles = context.Roles.ToList();
+                foreach (var role in roles)
+                {
+                    context.RolePermissions.Add(new IMSERP.Domain.Entities.RolePermission
+                    {
+                        Id = Guid.NewGuid(),
+                        RoleId = role.Id,
+                        MenuItemId = newMannersMenu.Id,
+                        CanView = true,
+                        CanCreate = true,
+                        CanEdit = true,
+                        CanDelete = true
+                    });
+                }
+                context.SaveChanges();
+                Console.WriteLine("[Database] Auto-seeded 'Good Manners & Behaviour' menu item under Academic Operations.");
+            }
+
+            // Auto-seed 'Monthly Student Performance' MenuItem under Academic Operations
+            var monthlyPerfMenu = context.MenuItems.FirstOrDefault(m => m.RouteUrl == "/school/monthly-performance");
+            if (monthlyPerfMenu == null)
+            {
+                var newMonthlyPerfMenu = new IMSERP.Domain.Entities.MenuItem
+                {
+                    Id = Guid.NewGuid(),
+                    Title = "Monthly Student Performance",
+                    RouteUrl = "/school/monthly-performance",
+                    Icon = "insights",
+                    ParentId = academicMenu.Id,
+                    SortOrder = 6,
+                    Module = "Academic",
+                    IsActive = true
+                };
+                context.MenuItems.Add(newMonthlyPerfMenu);
+                context.SaveChanges();
+
+                var roles = context.Roles.ToList();
+                foreach (var role in roles)
+                {
+                    context.RolePermissions.Add(new IMSERP.Domain.Entities.RolePermission
+                    {
+                        Id = Guid.NewGuid(),
+                        RoleId = role.Id,
+                        MenuItemId = newMonthlyPerfMenu.Id,
+                        CanView = true,
+                        CanCreate = true,
+                        CanEdit = true,
+                        CanDelete = true
+                    });
+                }
+                context.SaveChanges();
+                Console.WriteLine("[Database] Auto-seeded 'Monthly Student Performance' menu item under Academic Operations.");
             }
         }
 

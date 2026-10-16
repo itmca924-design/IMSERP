@@ -1915,6 +1915,70 @@ public class DailyStudentDiary
     public Teacher? Teacher { get; set; }
 }
 
+public class DailyStudentBehaviour
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid StudentId { get; set; }
+    public Guid? ClassId { get; set; }
+    public Guid? SectionId { get; set; }
+    public DateTime RecordDate { get; set; }
+    public string UniformCleanliness { get; set; } = "NeatAndClean"; // NeatAndClean | NailsHaircutIssue | IncompleteUniform | ShoesUnpolished | DirtyClothes
+    public string DisciplineConduct { get; set; } = "Disciplined"; // Disciplined | Talkative | Restless | Aggressive | AttentiveActive
+    public string PolitenessRespect { get; set; } = "PoliteAndRespectful"; // PoliteAndRespectful | Disobedient | UsesRudeWords | FriendlyHelpful
+    public string BooksAndDiary { get; set; } = "BroughtAll"; // BroughtAll | ForgotDiary | ForgotBooks | IncompleteKit
+    public int StarRating { get; set; } = 5; // 1 to 5 Stars
+    public string? BadgesJson { get; set; } // JSON array of badges awarded e.g. ["Star Student ⭐"]
+    public string? TeacherRemarks { get; set; }
+    public Guid? TeacherId { get; set; }
+    public bool IsAbsent { get; set; } = false;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+    public Tenant? Tenant { get; set; }
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+    [ForeignKey("StudentId")]
+    public Student? Student { get; set; }
+    [ForeignKey("ClassId")]
+    public SchoolClass? Class { get; set; }
+    [ForeignKey("SectionId")]
+    public SchoolSection? Section { get; set; }
+    [ForeignKey("TeacherId")]
+    public Teacher? Teacher { get; set; }
+}
+
+public class StudentMonthlyEvaluation
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid StudentId { get; set; }
+    public Guid? ClassId { get; set; }
+    public Guid? SectionId { get; set; }
+    public int Month { get; set; }
+    public int Year { get; set; }
+    public decimal AttendancePercent { get; set; }
+    public decimal HwCompletionPercent { get; set; }
+    public decimal BehaviourAvgStars { get; set; }
+    public decimal AcademicTestPercent { get; set; }
+    public string OverallGrade { get; set; } = "A";
+    public string? TeacherRemarks { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+    public Tenant? Tenant { get; set; }
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+    [ForeignKey("StudentId")]
+    public Student? Student { get; set; }
+    [ForeignKey("ClassId")]
+    public SchoolClass? Class { get; set; }
+    [ForeignKey("SectionId")]
+    public SchoolSection? Section { get; set; }
+}
+
 public class AdmissionEnquiry
 {
     public Guid Id { get; set; } = Guid.NewGuid();

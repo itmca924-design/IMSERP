@@ -12,6 +12,17 @@
   <link rel="preload" href="assets/fonts/material-icons.woff2" as="font" type="font/woff2" crossorigin>
   <script src="assets/env.js"></script>
   <script>
+    // Safeguard against third-party translation script errors (e.g. Google Translate reading 'link')
+    window.addEventListener('error', function(e) {
+      if (e && e.message && (e.message.indexOf('link') !== -1 || e.message.indexOf('reading') !== -1)) {
+        if (!e.filename || e.filename.indexOf('translate') !== -1 || e.filename.indexOf('m=el_main') !== -1 || e.filename.indexOf('element.js') !== -1) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          return true;
+        }
+      }
+    }, true);
+
     // Ensure clean boot in English: wipe any existing googtrans cookie before Google Translate script initializes
     (function() {
       try {
