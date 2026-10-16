@@ -527,9 +527,14 @@ export interface DailyDiaryReportHeader {
                     <td class="student-info-cell">
                       <div class="student-info-header">
                         <div class="student-name-text">{{s.studentName}}</div>
-                        <button mat-icon-button class="student-action-dots-btn" [matMenuTriggerFor]="studentActionMenu" matTooltip="Student actions">
-                          <mat-icon>more_vert</mat-icon>
-                        </button>
+                        <div class="student-actions-cluster">
+                          <button type="button" class="st-main-wa-btn" (click)="sendStudentWhatsAppFromMain(s)" [matTooltip]="'Open WhatsApp for ' + s.studentName">
+                            <mat-icon>chat</mat-icon>
+                          </button>
+                          <button mat-icon-button class="student-action-dots-btn" [matMenuTriggerFor]="studentActionMenu" matTooltip="Student actions">
+                            <mat-icon>more_vert</mat-icon>
+                          </button>
+                        </div>
                       </div>
                       <div class="student-meta-sub">
                         <span *ngIf="s.rollNumber">Roll: {{s.rollNumber}}</span>
@@ -543,6 +548,10 @@ export interface DailyDiaryReportHeader {
                       </div>
 
                       <mat-menu #studentActionMenu="matMenu">
+                        <button mat-menu-item (click)="sendStudentWhatsAppFromMain(s)">
+                          <mat-icon class="text-success">chat</mat-icon>
+                          <span>Send WhatsApp to Parent</span>
+                        </button>
                         <button mat-menu-item (click)="openRemarkDialog(s)">
                           <mat-icon color="primary">edit_note</mat-icon>
                           <span>{{ s.remarks ? 'Edit General Note' : 'Add General Note' }}</span>
@@ -2311,6 +2320,38 @@ export interface DailyDiaryReportHeader {
       justify-content: space-between;
       gap: 4px;
     }
+    .student-actions-cluster {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      flex-shrink: 0;
+    }
+    .st-main-wa-btn {
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      background: #dcfce7;
+      color: #15803d;
+      border: 1px solid #86efac;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      padding: 0;
+      transition: all 0.15s ease;
+      mat-icon {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
+        line-height: 14px;
+      }
+      &:hover {
+        background: #16a34a;
+        color: #ffffff;
+        border-color: #16a34a;
+        transform: scale(1.1);
+      }
+    }
     .student-action-dots-btn {
       width: 24px !important;
       height: 24px !important;
@@ -3859,6 +3900,90 @@ export class HomeworkDiaryComponent implements OnInit {
     student.remarks = '';
   }
 
+  sendStudentWhatsAppFromMain(student: DailyStudentDiaryRow): void {
+    const text = this.generateSingleStudentWhatsAppText(student);
+    const phone = (student.parentWhatsAppPhone || '').trim();
+    const cleanPhone = phone.replace(/[^0-9]/g, '');
+
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text).catch(() => {});
+    }
+
+    if (cleanPhone && cleanPhone.length >= 10) {
+      const fullPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
+      const url = `https://api.whatsapp.com/send?phone=${fullPhone}&text=${encodeURIComponent(text)}`;
+      window.open(url, '_blank');
+      this.http.post<any>(`${API_BASE}/homework/daily-diary/send-whatsapp-single`, {
+        studentId: student.studentId,
+        studentName: student.studentName,
+        rollNumber: student.rollNumber || '',
+        phone: student.parentWhatsAppPhone,
+        messageText: text
+      }).subscribe({ error: () => {} });
+    } else {
+      const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+      window.open(url, '_blank');
+      this.confirmDialog.alert(
+        'WhatsApp Opened 📱',
+        `No phone number found in ${student.studentName}'s profile. The personalized daily diary text has been copied to your clipboard and WhatsApp Web opened so you can select the parent.`,
+        'info'
+      );
+    }
+  }
+
+  generateSingleStudentWhatsAppText(r: DailyStudentDiaryRow): string {
+    const school = this.authService.getInstituteName() || 'School & Coaching ERP';
+    const cls = r.className || (this.classes.find(c => c.id === this.diaryClassId)?.name) || 'Class';
+    const date = this.formatDisplayDate(this.diaryDate);
+
+    let text = `🏫 *${school}*\n`;
+    text += `📋 *DAILY DIARY & HOMEWORK UPDATE*\n`;
+    text += `👤 *Student:* ${r.studentName}${r.rollNumber ? ' (Roll: ' + r.rollNumber + ')' : ''}\n`;
+    text += `📅 *Date:* ${date}  |  *Class:* ${cls}\n`;
+    text += `───────────────────────────\n`;
+
+    if (r.isAbsent) {
+      text += `❌ *Status: ABSENT TODAY*\n`;
+      text += `_Student was marked absent in attendance._\n`;
+    } else {
+      const cwList = (r.classWork || []).filter(c => c.task && c.task.trim().length > 0);
+      if (cwList.length > 0) {
+        text += `📝 *CLASS WORK (C.W.):*\n`;
+        for (const cw of cwList) {
+          text += `• [${cw.subject || 'General'}]: ${cw.task}`;
+          if (cw.statusRemark && cw.statusRemark.trim().length > 0) {
+            text += ` 📌 _${cw.statusRemark.trim()}_`;
+          }
+          text += `\n`;
+        }
+      }
+
+      const hwList = (r.homeWork || []).filter(h => h.task && h.task.trim().length > 0);
+      if (hwList.length > 0) {
+        text += `\n🏠 *HOME WORK (H.W.):*\n`;
+        for (const hw of hwList) {
+          let tick = '⏳';
+          if (hw.status === 'Completed') tick = '✔';
+          else if (hw.status === 'Partial') tick = '◐';
+          else if (hw.status === 'NotDone') tick = '✘';
+          text += `• [${hw.subject || 'General'}]: ${hw.task} ${tick}`;
+          if (hw.statusRemark && hw.statusRemark.trim().length > 0 && hw.statusRemark !== 'Unchecked') {
+            text += ` (${hw.statusRemark.trim()})`;
+          }
+          text += `\n`;
+        }
+      }
+
+      if (r.remarks && r.remarks.trim().length > 0) {
+        text += `\n💬 *Teacher Note:* ${r.remarks.trim()}\n`;
+      }
+    }
+
+    text += `───────────────────────────\n`;
+    text += `⭐ *DISCIPLINE  |  GOOD HABITS  |  BRIGHT FUTURE* ⭐`;
+    return text;
+  }
+
   getAttendanceTooltip(student: DailyStudentDiaryRow): string {
     const status = (student.attendanceStatus || '').toLowerCase();
     if (student.isAbsent || status === 'absent') {
@@ -5378,7 +5503,7 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
 @Component({
   selector: 'app-daily-diary-report-dialog',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule, MatDialogModule, MatTooltipModule],
+  imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule, MatDialogModule, MatTooltipModule, MatMenuModule],
   template: `
     <div class="report-dialog-container">
       <!-- Dialog Header matching strict UI guidelines -->
@@ -5420,6 +5545,24 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
               <mat-icon>send</mat-icon>
               <span>📲 Send to Group</span>
             </button>
+
+            <!-- 1-Click Send to Individual Student via WhatsApp -->
+            <button mat-flat-button class="individual-wa-header-btn" [matMenuTriggerFor]="individualStudentSendMenu" matTooltip="Open WhatsApp for individual student parent">
+              <mat-icon>chat</mat-icon>
+              <span>💬 Send Individual</span>
+              <mat-icon class="drop-arrow-icon">arrow_drop_down</mat-icon>
+            </button>
+            <mat-menu #individualStudentSendMenu="matMenu" class="individual-wa-menu-panel">
+              <div class="wa-menu-header-title">Select Student to Open WhatsApp:</div>
+              <button mat-menu-item *ngFor="let r of rows" (click)="sendIndividualStudentWhatsApp(r)">
+                <mat-icon class="text-success">chat</mat-icon>
+                <div class="st-wa-menu-item-row">
+                  <span class="st-name-txt"><strong>{{ r.studentName }}</strong> <small *ngIf="r.rollNumber">(Roll {{r.rollNumber}})</small></span>
+                  <span class="st-phone-pill" *ngIf="r.parentWhatsAppPhone">📱 {{ r.parentWhatsAppPhone }}</span>
+                  <span class="st-phone-pill warn" *ngIf="!r.parentWhatsAppPhone">⚠️ No Phone</span>
+                </div>
+              </button>
+            </mat-menu>
 
             <!-- Print Report A4 -->
             <button mat-flat-button class="print-action-btn" (click)="printReport()" matTooltip="A4 Printable Landscape Sheet">
@@ -5522,8 +5665,9 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
                 <td class="col-name-data">
                   <div class="name-row-flex">
                     <span class="name-bold">{{row.studentName}}</span>
-                    <button type="button" class="row-wa-btn hide-on-print" (click)="sendIndividualStudentWhatsApp(row)" matTooltip="WhatsApp Parent (सीधे माता-पिता को भेजें)">
+                    <button type="button" class="row-wa-badge-btn hide-on-print" (click)="sendIndividualStudentWhatsApp(row)" [matTooltip]="'Open WhatsApp for ' + row.studentName">
                       <mat-icon>chat</mat-icon>
+                      <span>WhatsApp</span>
                     </button>
                   </div>
                   <div class="sub-roll" *ngIf="row.rollNumber">Roll: {{row.rollNumber}}</div>
@@ -5872,6 +6016,65 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
     }
     .group-wa-btn mat-icon { font-size: 16px; width: 16px; height: 16px; }
 
+    .individual-wa-header-btn {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+      color: #ffffff !important;
+      font-weight: 700 !important;
+      border-radius: 8px !important;
+      font-size: 12px !important;
+      height: 38px !important;
+      padding: 0 12px !important;
+      white-space: nowrap !important;
+      box-shadow: 0 2px 6px rgba(16, 185, 129, 0.25) !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      gap: 4px !important;
+      border: none !important;
+      cursor: pointer !important;
+      transition: all 0.15s ease !important;
+      &:hover {
+        background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(16, 185, 129, 0.35) !important;
+      }
+      mat-icon { font-size: 16px; width: 16px; height: 16px; }
+      .drop-arrow-icon { font-size: 18px; width: 18px; height: 18px; margin-left: -2px; }
+    }
+
+    .individual-wa-menu-panel {
+      max-height: 380px;
+      .wa-menu-header-title {
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+        color: #64748b;
+        padding: 8px 14px 4px;
+        letter-spacing: 0.5px;
+      }
+      .st-wa-menu-item-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        width: 100%;
+        .st-name-txt {
+          font-size: 13px;
+          color: #0f172a;
+          small { color: #64748b; margin-left: 3px; }
+        }
+        .st-phone-pill {
+          font-size: 11px;
+          background: #eff6ff;
+          color: #1e40af;
+          border: 1px solid #bfdbfe;
+          padding: 1px 7px;
+          border-radius: 4px;
+          font-weight: 600;
+          &.warn { background: #fef2f2; color: #dc2626; border-color: #fecaca; }
+        }
+      }
+    }
+
     .print-action-btn {
       background: #2563eb !important;
       color: #ffffff !important;
@@ -6134,11 +6337,34 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
         transform: scale(1.1);
       }
     }
-    .row-wa-btn mat-icon {
-      font-size: 13.5px;
-      width: 13.5px;
-      height: 13.5px;
-      line-height: 13.5px;
+    .row-wa-btn mat-icon { font-size: 13.5px; width: 13.5px; height: 13.5px; line-height: 13.5px; }
+
+    .row-wa-badge-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      background: #dcfce7;
+      color: #15803d;
+      border: 1px solid #86efac;
+      border-radius: 5px;
+      padding: 2px 7px;
+      font-size: 10.5px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      flex-shrink: 0;
+      mat-icon {
+        font-size: 13px !important;
+        width: 13px !important;
+        height: 13px !important;
+        line-height: 13px !important;
+      }
+      &:hover {
+        background: #16a34a;
+        color: #ffffff;
+        border-color: #15803d;
+        transform: scale(1.05);
+      }
     }
 
     .col-absent-cell {

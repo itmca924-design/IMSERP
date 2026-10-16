@@ -177,6 +177,20 @@ function sectionsOf(classes: any[], classId: string): any[] {
         </button>
       </div>
 
+      <!-- Pending Work Notice Banner if current date is 100% checked but earlier dates have pending checks -->
+      <div class="pending-notice-banner" *ngIf="otherPendingDate as op">
+        <div class="pnb-left">
+          <mat-icon>notification_important</mat-icon>
+          <div>
+            <strong>{{ formatDate(selectedDate) }} is already 100% checked!</strong>
+            <span>Looking for unchecked H.W.? Earlier date <strong>{{ weekdayOf(op.date) }} {{ formatDate(op.date) }}</strong> has <strong>{{ op.pendingPoints }} unchecked points</strong> (Hindi, Mathematics, etc.).</span>
+          </div>
+        </div>
+        <button mat-raised-button class="pnb-btn" type="button" (click)="selectDate(op.date)">
+          <mat-icon>arrow_forward</mat-icon> Open {{ formatDate(op.date) }} ({{ op.pendingPoints }} Unchecked)
+        </button>
+      </div>
+
       <mat-progress-bar mode="indeterminate" *ngIf="loading"></mat-progress-bar>
 
       <div class="hwc-kpis" *ngIf="students.length > 0">
@@ -289,6 +303,45 @@ function sectionsOf(classes: any[], classId: string): any[] {
     .hwc-date-chip.has-pending:not(.active) { border-color: #f59e0b; background: #fffbeb; }
     .dc-day { font-size: 13px; font-weight: 700; color: #0f172a; }
     .dc-count { font-size: 11px; color: #64748b; }
+    .pending-notice-banner {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+      border: 1px solid #fde68a;
+      border-radius: 12px;
+      padding: 12px 16px;
+      color: #92400e;
+    }
+    .pending-notice-banner .pnb-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .pending-notice-banner .pnb-left mat-icon {
+      color: #d97706;
+      font-size: 26px;
+      width: 26px;
+      height: 26px;
+    }
+    .pending-notice-banner .pnb-left strong {
+      display: block;
+      font-size: 14px;
+      color: #78350f;
+    }
+    .pending-notice-banner .pnb-left span {
+      font-size: 12.5px;
+      color: #92400e;
+    }
+    .pending-notice-banner .pnb-btn {
+      background: #d97706 !important;
+      color: #fff !important;
+      font-weight: 700;
+      border-radius: 8px;
+      white-space: nowrap;
+    }
     .hwc-kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
     .kpi { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px 14px; display: flex; flex-direction: column; }
     .kpi .k-val { font-size: 22px; font-weight: 800; color: #0f172a; }
@@ -547,6 +600,17 @@ export class HwCheckPanelComponent implements OnInit, OnChanges, OnDestroy {
     return (d || '').split('T')[0] === this.form.getRawValue().date;
   }
 
+  get selectedDate(): string {
+    return this.form?.getRawValue()?.date || '';
+  }
+
+  get otherPendingDate(): HwCheckDate | null {
+    if (this.loading) return null;
+    const cur = this.selectedDate;
+    if (this.countBy('Pending') > 0) return null;
+    return this.dates.find(d => d.pendingPoints > 0 && d.date.split('T')[0] !== cur) || null;
+  }
+
   selectDate(d: string): void {
     this.form.get('date')!.setValue((d || '').split('T')[0]);
   }
@@ -785,8 +849,8 @@ export class HwCheckPanelComponent implements OnInit, OnChanges, OnDestroy {
       <div class="hwa-info">
         <mat-icon>insights</mat-icon>
         <div>
-          <strong>Homework Completion &amp; Defaulter Analytics</strong>
-          <span>Student-wise and subject-wise homework completion for any period. Absent days are excluded from the score.</span>
+          <strong>Homework Completion &amp; Defaulter Analytics with 5-Star Rating System</strong>
+          <span>Ratings are calculated on verified homework completion: ⭐ 5.0 (90-100% Outstanding) • ⭐ 4.0 (75-89% Very Good) • ⭐ 3.0 (60-74% Good) • ⭐ 2.0 (40-59% Average) • ⭐ 1.0 (&lt;40% Defaulter). Absent days are excused.</span>
         </div>
       </div>
 
@@ -853,15 +917,35 @@ export class HwCheckPanelComponent implements OnInit, OnChanges, OnDestroy {
           <div class="table-responsive">
             <table class="hwa-table">
               <thead><tr>
-                <th>Subject</th><th>Assigned</th><th>✔</th><th>◐</th><th>✘</th><th>⏳</th><th style="min-width:180px">Completion</th>
+                <th>Subject</th>
+                <th class="text-center">Assigned</th>
+                <th class="th-stat ok" matTooltip="Completed: Checked and fully done">✔ Done</th>
+                <th class="th-stat mid" matTooltip="Partial: Checked but incomplete/half done">◐ Partial</th>
+                <th class="th-stat bad" matTooltip="Not Done: Checked but not attempted">✘ Not Done</th>
+                <th class="th-stat pend" matTooltip="Unchecked: Waiting for teacher verification">⏳ Unchecked</th>
+                <th style="min-width:180px">Completion</th>
+                <th style="min-width:160px">Rating &amp; Quality</th>
               </tr></thead>
               <tbody>
                 <tr *ngFor="let s of d.subjects">
                   <td class="strong">{{ s.subject }}</td>
-                  <td>{{ s.assigned }}</td><td>{{ s.completed }}</td><td>{{ s.partial }}</td><td>{{ s.notDone }}</td><td>{{ s.pending }}</td>
+                  <td class="text-center font-bold">{{ s.assigned }}</td>
+                  <td class="td-num ok">{{ s.completed }}</td>
+                  <td class="td-num mid">{{ s.partial }}</td>
+                  <td class="td-num bad">{{ s.notDone }}</td>
+                  <td class="td-num pend">{{ s.pending }}</td>
                   <td>
                     <div class="bar"><div class="fill" [style.width.%]="s.completionPercent" [ngClass]="band(s.completionPercent)"></div></div>
                     <span class="pct">{{ s.completionPercent }}%</span>
+                  </td>
+                  <td>
+                    <div class="rate-cluster" *ngIf="getRating(s) as r" [matTooltip]="r.isPending ? 'Teacher verification pending' : (r.score + ' / 5.0 Rating (' + r.label + ') • Based on ' + s.completionPercent + '% checked completion')">
+                      <div class="stars-gold" *ngIf="!r.isPending">
+                        <span class="star-icon" *ngFor="let _ of [1,2,3,4,5]; let idx = index" [class.active]="idx < r.starsCount">★</span>
+                      </div>
+                      <span class="rate-score" *ngIf="!r.isPending">{{ r.score.toFixed(1) }}</span>
+                      <span class="rate-pill-badge" [ngClass]="r.badgeClass">{{ r.label }}</span>
+                    </div>
                   </td>
                 </tr>
               </tbody>
@@ -876,21 +960,44 @@ export class HwCheckPanelComponent implements OnInit, OnChanges, OnDestroy {
           <div class="table-responsive">
             <table class="hwa-table">
               <thead><tr>
-                <th>#</th><th>Roll</th><th>Student</th><th>Assigned</th><th>✔</th><th>◐</th><th>✘</th><th>⏳</th><th>Absent</th>
-                <th style="min-width:200px">Completion</th>
+                <th style="width: 40px" class="text-center">#</th>
+                <th style="width: 60px" class="text-center">Roll</th>
+                <th>Student Details</th>
+                <th class="text-center">Assigned</th>
+                <th class="th-stat ok" matTooltip="Completed: Checked and fully done">✔ Done</th>
+                <th class="th-stat mid" matTooltip="Partial: Checked but incomplete/half done">◐ Partial</th>
+                <th class="th-stat bad" matTooltip="Not Done: Checked but not attempted">✘ Not Done</th>
+                <th class="th-stat pend" matTooltip="Unchecked: Waiting for teacher verification">⏳ Unchecked</th>
+                <th class="text-center" matTooltip="Excused: Marked absent in daily attendance">Absent</th>
+                <th style="min-width:190px">Completion</th>
+                <th style="min-width:160px">Rating &amp; Quality</th>
               </tr></thead>
               <tbody>
                 <tr *ngFor="let s of sortedStudents; let i = index" [class.alert-row]="isDefaulter(s)">
-                  <td>{{ i + 1 }}</td>
-                  <td>{{ s.rollNumber }}</td>
+                  <td class="text-center">{{ i + 1 }}</td>
+                  <td class="text-center font-bold">{{ s.rollNumber }}</td>
                   <td class="strong">{{ s.studentName }}</td>
-                  <td>{{ s.assigned }}</td><td>{{ s.completed }}</td><td>{{ s.partial }}</td><td>{{ s.notDone }}</td><td>{{ s.pending }}</td><td>{{ s.absentExcused }}</td>
+                  <td class="text-center font-bold">{{ s.assigned }}</td>
+                  <td class="td-num ok">{{ s.completed }}</td>
+                  <td class="td-num mid">{{ s.partial }}</td>
+                  <td class="td-num bad">{{ s.notDone }}</td>
+                  <td class="td-num pend">{{ s.pending }}</td>
+                  <td class="text-center">{{ s.absentExcused }}</td>
                   <td>
                     <div class="bar"><div class="fill" [style.width.%]="s.completionPercent" [ngClass]="band(s.completionPercent)"></div></div>
                     <span class="pct">{{ s.completionPercent }}%</span>
                   </td>
+                  <td>
+                    <div class="rate-cluster" *ngIf="getRating(s) as r" [matTooltip]="r.isPending ? 'All points pending check' : (r.score + ' / 5.0 Rating (' + r.label + ') • Based on ' + s.completionPercent + '% completion')">
+                      <div class="stars-gold" *ngIf="!r.isPending">
+                        <span class="star-icon" *ngFor="let _ of [1,2,3,4,5]; let idx = index" [class.active]="idx < r.starsCount">★</span>
+                      </div>
+                      <span class="rate-score" *ngIf="!r.isPending">{{ r.score.toFixed(1) }}</span>
+                      <span class="rate-pill-badge" [ngClass]="r.badgeClass">{{ r.label }}</span>
+                    </div>
+                  </td>
                 </tr>
-                <tr *ngIf="d.students.length === 0"><td colspan="10" class="empty-cell">No homework found for the selected period.</td></tr>
+                <tr *ngIf="d.students.length === 0"><td colspan="11" class="empty-cell">No homework found for the selected period.</td></tr>
               </tbody>
             </table>
           </div>
@@ -950,10 +1057,68 @@ export class HwCheckPanelComponent implements OnInit, OnChanges, OnDestroy {
     .hwa-table td.strong { font-weight: 700; color: #0f172a; }
     .hwa-table tr.alert-row td { background: #fef2f2; }
     .empty-cell { text-align: center; color: #94a3b8; padding: 24px !important; }
+    .text-center { text-align: center !important; }
+    .font-bold { font-weight: 800 !important; color: #0f172a; }
+    .th-stat {
+      white-space: nowrap !important;
+      font-weight: 800 !important;
+      text-align: center !important;
+      &.ok { color: #16a34a !important; background: #f0fdf4 !important; }
+      &.mid { color: #d97706 !important; background: #fffbeb !important; }
+      &.bad { color: #dc2626 !important; background: #fef2f2 !important; }
+      &.pend { color: #64748b !important; background: #f8fafc !important; }
+    }
+    .td-num {
+      text-align: center !important;
+      font-weight: 700 !important;
+      font-size: 13.5px !important;
+      &.ok { color: #16a34a; font-weight: 800 !important; }
+      &.mid { color: #d97706; }
+      &.bad { color: #dc2626; font-weight: 800 !important; }
+      &.pend { color: #94a3b8; }
+    }
     .bar { display: inline-block; vertical-align: middle; width: 110px; height: 8px; background: #e2e8f0; border-radius: 999px; overflow: hidden; margin-right: 8px; }
     .fill { height: 100%; border-radius: 999px; }
     .fill.good { background: #16a34a; } .fill.avg { background: #f59e0b; } .fill.low { background: #dc2626; }
     .pct { font-weight: 700; font-size: 12.5px; }
+
+    /* Rating & Quality Styling */
+    .rate-cluster {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+    .stars-gold {
+      display: inline-flex;
+      gap: 1px;
+      font-size: 14px;
+      line-height: 1;
+      color: #cbd5e1;
+      .star-icon.active {
+        color: #f59e0b;
+        text-shadow: 0 0 2px rgba(245, 158, 11, 0.4);
+      }
+    }
+    .rate-score {
+      font-size: 12px;
+      font-weight: 800;
+      color: #0f172a;
+    }
+    .rate-pill-badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 999px;
+      display: inline-block;
+      line-height: 1.2;
+      &.rate-5 { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }
+      &.rate-4 { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+      &.rate-3 { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
+      &.rate-2 { background: #ffedd5; color: #c2410c; border: 1px solid #fed7aa; }
+      &.rate-1 { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
+      &.rate-pending { background: #f1f5f9; color: #64748b; border: 1px dashed #cbd5e1; }
+    }
     @media (max-width: 1280px) { .hwa-kpis { grid-template-columns: repeat(4, 1fr); } }
     @media (max-width: 1024px) {
       .hwa-kpis { grid-template-columns: repeat(2, 1fr); }
@@ -1107,14 +1272,52 @@ export class HwAnalyticsPanelComponent implements OnInit, OnChanges, OnDestroy {
     }
   }
 
+  getRating(s: { assigned: number; pending: number; completionPercent: number }): {
+    score: number;
+    starsCount: number;
+    label: string;
+    badgeClass: string;
+    isPending: boolean;
+  } {
+    const checkedCount = s.assigned - s.pending;
+    if (s.assigned === 0 || checkedCount === 0) {
+      return {
+        score: 0,
+        starsCount: 0,
+        label: 'Awaiting Check',
+        badgeClass: 'rate-pending',
+        isPending: true
+      };
+    }
+
+    const pct = s.completionPercent;
+    const score = Math.round((pct / 20) * 10) / 10; // score out of 5.0 (e.g. 100% = 5.0, 80% = 4.0, 50% = 2.5)
+
+    if (pct >= 90) {
+      return { score, starsCount: 5, label: 'Outstanding', badgeClass: 'rate-5', isPending: false };
+    } else if (pct >= 75) {
+      return { score, starsCount: 4, label: 'Very Good', badgeClass: 'rate-4', isPending: false };
+    } else if (pct >= 60) {
+      return { score, starsCount: 3, label: 'Good', badgeClass: 'rate-3', isPending: false };
+    } else if (pct >= 40) {
+      return { score, starsCount: 2, label: 'Average', badgeClass: 'rate-2', isPending: false };
+    } else {
+      return { score, starsCount: 1, label: 'Defaulter', badgeClass: 'rate-1', isPending: false };
+    }
+  }
+
   exportCsv(): void {
     if (!this.data) return;
     const raw = this.form.getRawValue();
     const esc = (v: any) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-    const header = ['Roll', 'Student', 'Assigned', 'Completed', 'Partial', 'NotDone', 'Unchecked', 'Absent', 'Completion %'];
+    const header = ['Roll', 'Student', 'Assigned', 'Completed', 'Partial', 'NotDone', 'Unchecked', 'Absent', 'Completion %', 'Rating (Out of 5)', 'Rating Label'];
     const lines = [header.map(esc).join(',')];
     for (const s of this.sortedStudents) {
-      lines.push([s.rollNumber, s.studentName, s.assigned, s.completed, s.partial, s.notDone, s.pending, s.absentExcused, s.completionPercent].map(esc).join(','));
+      const r = this.getRating(s);
+      lines.push([
+        s.rollNumber, s.studentName, s.assigned, s.completed, s.partial, s.notDone, s.pending, s.absentExcused,
+        s.completionPercent, r.isPending ? 'N/A' : r.score.toFixed(1), r.label
+      ].map(esc).join(','));
     }
     const blob = new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
