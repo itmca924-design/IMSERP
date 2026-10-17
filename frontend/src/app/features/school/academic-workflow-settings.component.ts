@@ -247,7 +247,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                 <mat-icon class="card-icon cert-icon">verified</mat-icon>
                 <div>
                   <h3 class="card-title">Board Affiliation & Official Verification</h3>
-                  <p class="card-desc">Header credentials and signatory titles printed on Blank Award Sheets, BSEB Marksheets, and Report Cards.</p>
+                  <p class="card-desc">Header credentials and signatory titles printed on Blank Award Sheets, Board Pattern Marksheets, and Report Cards.</p>
                 </div>
               </div>
             </div>

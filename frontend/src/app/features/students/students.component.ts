@@ -3218,6 +3218,9 @@ export class StudentsComponent implements OnInit, OnDestroy {
     }
     const payload = {
       ...formVal,
+      isSchoolStudent: !!formVal.isSchoolStudent,
+      isCoachingStudent: !!formVal.isCoachingStudent,
+      branchId: (this.isEditMode && this.selectedStudent?.branchId) ? this.selectedStudent.branchId : (this.authService.selectedBranchId() || null),
       isHostelStudent: !!formVal.isHostelStudent,
       hostelBedId: formVal.isHostelStudent && formVal.hostelBedId ? formVal.hostelBedId : null,
       isLibraryMember: !!formVal.isLibraryMember,
@@ -3227,8 +3230,15 @@ export class StudentsComponent implements OnInit, OnDestroy {
       monthlyLibraryFee: formVal.isLibraryMember ? (formVal.monthlyLibraryFee || 0) : 0,
       batchId: formVal.isCoachingStudent && formVal.batchId ? formVal.batchId : null,
       rollNumber: formVal.isCoachingStudent ? formVal.rollNumber : (formVal.schoolRollNumber || formVal.admissionNumber || 'SCH'),
+      schoolRollNumber: formVal.schoolRollNumber ? formVal.schoolRollNumber.trim() : null,
+      coachingRollNumber: formVal.coachingRollNumber ? formVal.coachingRollNumber.trim() : null,
+      admissionNumber: formVal.admissionNumber ? formVal.admissionNumber.trim() : null,
       classId: formVal.isSchoolStudent && formVal.classId ? formVal.classId : null,
       sectionId: formVal.isSchoolStudent && formVal.sectionId ? formVal.sectionId : null,
+      dateOfBirth: formVal.dateOfBirth && typeof formVal.dateOfBirth === 'string' && formVal.dateOfBirth.trim() ? new Date(formVal.dateOfBirth).toISOString() : null,
+      motherName: formVal.motherName ? formVal.motherName.trim() : null,
+      bloodGroup: formVal.bloodGroup ? formVal.bloodGroup.trim() : null,
+      address: formVal.address ? formVal.address.trim() : null,
       joiningDate: formVal.joiningDate ? new Date(formVal.joiningDate).toISOString() : new Date().toISOString(),
       parentWhatsAppPhone: cleanPhone,
       aadhaarNumber: formVal.aadhaarNumber ? formVal.aadhaarNumber.trim() : null,
@@ -3242,6 +3252,22 @@ export class StudentsComponent implements OnInit, OnDestroy {
       previousBoard: formVal.previousBoard || null,
       profilePhoto: this.selectedPhotoData
         ?? (this.isEditMode && this.selectedStudent?.profilePhoto ? this.selectedStudent.profilePhoto : null)
+    };
+
+    const parseErrorMsg = (err: any, fallback: string): string => {
+      if (err?.error?.message) return err.error.message;
+      if (err?.error?.errors && typeof err.error.errors === 'object') {
+        const msgs: string[] = [];
+        for (const key of Object.keys(err.error.errors)) {
+          const val = err.error.errors[key];
+          if (Array.isArray(val)) msgs.push(...val);
+          else if (typeof val === 'string') msgs.push(val);
+        }
+        if (msgs.length > 0) return msgs.join('\n');
+      }
+      if (err?.error?.title) return err.error.title;
+      if (err?.message) return err.message;
+      return fallback;
     };
 
     if (this.isEditMode && this.selectedStudent) {
@@ -3259,7 +3285,7 @@ export class StudentsComponent implements OnInit, OnDestroy {
         },
         error: (err) => {
           this.saving = false;
-          this.confirmDialog.alert('Update Failed', err?.error?.message || 'Failed to update student.', 'danger');
+          this.confirmDialog.alert('Update Failed', parseErrorMsg(err, 'Failed to update student.'), 'danger');
         }
       });
     } else {
@@ -3275,7 +3301,7 @@ export class StudentsComponent implements OnInit, OnDestroy {
         },
         error: (err) => {
           this.saving = false;
-          this.confirmDialog.alert('Admission Failed', err?.error?.message || 'Failed to enroll student.', 'danger');
+          this.confirmDialog.alert('Admission Failed', parseErrorMsg(err, 'Failed to enroll student.'), 'danger');
         }
       });
     }

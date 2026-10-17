@@ -48,7 +48,7 @@
     <div class="toolbar-tabs">
       <button type="button" class="nav-tab-btn" [class.active]="currentView === 'bseb_marksheet'" (click)="currentView = 'bseb_marksheet'">
         <mat-icon>auto_stories</mat-icon>
-        <span>Bihar Board Marksheet</span>
+        <span>Board Style Marksheet</span>
       </button>
       <button type="button" class="nav-tab-btn" [class.active]="currentView === 'admit_card'" (click)="currentView = 'admit_card'">
         <mat-icon>badge</mat-icon>
@@ -96,23 +96,27 @@
         <!-- Center Watermark Emblem -->
         <div class="bseb-watermark-emblem">
           <div class="watermark-circle">
-            <mat-icon>account_balance</mat-icon>
-            <div class="wm-text">BSEB</div>
+            <mat-icon>school</mat-icon>
+            <div class="wm-text">{{ getWatermarkText() }}</div>
           </div>
         </div>
 
         <!-- Official Header -->
         <div class="bseb-header">
           <div class="bseb-seal-col">
-            <div class="bseb-seal-circle">
-              <mat-icon>account_balance</mat-icon>
-              <span class="seal-sub">PATNA</span>
+            <div class="bseb-seal-circle" [class.has-logo]="instituteLogo && !logoImgFailed">
+              <img *ngIf="instituteLogo && !logoImgFailed" [src]="instituteLogo" alt="Institute Logo" class="bseb-inst-logo" (error)="onLogoImgError()" />
+              <ng-container *ngIf="!instituteLogo || logoImgFailed">
+                <mat-icon>school</mat-icon>
+                <span class="seal-sub">{{ getBranchCity() }}</span>
+              </ng-container>
             </div>
           </div>
 
           <div class="bseb-titles-col">
-            <h1 class="bseb-board-en">BIHAR SCHOOL EXAMINATION BOARD, PATNA</h1>
-            <h2 class="bseb-board-hi">बिहार विद्यालय परीक्षा समिति, पटना</h2>
+            <h1 class="bseb-board-en">{{ (instituteName || 'School of Excellence') | uppercase }}</h1>
+            <h2 class="bseb-board-hi" *ngIf="data.settings?.schoolAffiliationNumber">AFFILIATED / RECOGNISED INSTITUTION • AFFILIATION NO: {{ data.settings?.schoolAffiliationNumber }}</h2>
+            <h2 class="bseb-board-hi" *ngIf="!data.settings?.schoolAffiliationNumber">{{ branchAddress || 'EXCELLENCE IN EDUCATION & ACADEMIC MANAGEMENT' }}</h2>
             
             <div class="bseb-statement-badge">
               <span class="en">MARKS STATEMENT</span>
@@ -121,9 +125,9 @@
             </div>
 
             <h3 class="bseb-exam-name">
-              ANNUAL SECONDARY SCHOOL EXAMINATION, {{ data.academicYear.slice(-4) }}
+              {{ data.examType ? (data.examType | uppercase) : 'ANNUAL EXAMINATION' }} • MARKS STATEMENT, {{ data.academicYear }}
             </h3>
-            <p class="bseb-exam-name-hi">वार्षिक माध्यमिक परीक्षा, {{ data.academicYear.slice(-4) }}</p>
+            <p class="bseb-exam-name-hi">{{ getExamNameHindi() }} • अंक विवरण, {{ data.academicYear }}</p>
           </div>
 
           <div class="bseb-serial-col">
@@ -268,9 +272,9 @@
         <!-- Date & Three Official BSEB Signatures -->
         <div class="bseb-signatures-bar">
           <div class="bseb-date-col">
-            <span class="date-label">PATNA, DATED / निर्गत तिथि:</span>
+            <span class="date-label">{{ getBranchCity() }}, DATED / निर्गत तिथि:</span>
             <strong class="date-val">{{ todayDate }}</strong>
-            <span class="bseb-system-tag">BSEB PATTERN CERTIFIED DIGITAL MARKSHEET</span>
+            <span class="bseb-system-tag">STATE BOARD PATTERN CERTIFIED DIGITAL MARKSHEET</span>
           </div>
 
           <div class="bseb-sign-col">
@@ -332,7 +336,8 @@
         <!-- Admit Card Header -->
         <div class="admit-header">
           <div class="admit-logo-box">
-            <mat-icon>school</mat-icon>
+            <img *ngIf="instituteLogo && !logoImgFailed" [src]="instituteLogo" alt="Institute Logo" class="admit-inst-logo" (error)="onLogoImgError()" />
+            <mat-icon *ngIf="!instituteLogo || logoImgFailed">school</mat-icon>
           </div>
           <div class="admit-header-info">
             <h1 class="admit-school-title">{{ instituteName }}</h1>
@@ -499,7 +504,8 @@
         <div class="rc-card-inner">
           <div class="res-card-top-bar">
             <div class="res-logo">
-              <mat-icon>military_tech</mat-icon>
+              <img *ngIf="instituteLogo && !logoImgFailed" [src]="instituteLogo" alt="Institute Logo" class="res-inst-logo" (error)="onLogoImgError()" />
+              <mat-icon *ngIf="!instituteLogo || logoImgFailed">military_tech</mat-icon>
             </div>
             <div>
               <h2 class="res-school-title">{{ instituteName }}</h2>
@@ -623,7 +629,8 @@
         <div class="rc-header-section">
           <div class="rc-header-logo">
             <div class="school-seal-circle">
-              <mat-icon>school</mat-icon>
+              <img *ngIf="instituteLogo && !logoImgFailed" [src]="instituteLogo" alt="Institute Logo" class="rc-inst-logo" (error)="onLogoImgError()" />
+              <mat-icon *ngIf="!instituteLogo || logoImgFailed">school</mat-icon>
             </div>
           </div>
           <div class="rc-header-info">
@@ -832,7 +839,8 @@
           <!-- Certificate Header -->
           <div class="cert-header">
             <div class="cert-emblem">
-              <mat-icon>military_tech</mat-icon>
+              <img *ngIf="instituteLogo && !logoImgFailed" [src]="instituteLogo" alt="Institute Logo" class="cert-inst-logo" (error)="onLogoImgError()" />
+              <mat-icon *ngIf="!instituteLogo || logoImgFailed">military_tech</mat-icon>
             </div>
             <h1 class="cert-school-name">{{ instituteName }}</h1>
             <p class="cert-school-aff">Affiliated Institution &bull; Reg: {{ data.settings?.schoolAffiliationNumber || 'CBSE/STATE-AFF-2025' }}</p>

@@ -2043,205 +2043,216 @@ public class StudentsController : ControllerBase
     [HttpPut("{id}")]
     public async Task<ActionResult<StudentDto>> UpdateStudent(Guid id, [FromBody] CreateStudentDto dto)
     {
-        var student = await _dbContext.Students.FindAsync(id);
-        if (student == null) return NotFound();
+        try
+        {
+            var student = await _dbContext.Students.FindAsync(id);
+            if (student == null) return NotFound(new { message = "Student not found" });
 
-        var batch = dto.BatchId.HasValue ? await _dbContext.Batches.FindAsync(dto.BatchId.Value) : null;
-        if (dto.BranchId.HasValue && dto.BranchId.Value != Guid.Empty)
-        {
-            student.BranchId = dto.BranchId.Value;
-        }
-        else if (batch?.BranchId.HasValue == true)
-        {
-            student.BranchId = batch.BranchId;
-        }
-        else if (!student.BranchId.HasValue && _currentUser.BranchId.HasValue)
-        {
-            student.BranchId = _currentUser.BranchId;
-        }
-
-        student.BatchId = dto.BatchId;
-        student.ClassId = dto.ClassId;
-        student.SectionId = dto.SectionId;
-        student.RollNumber = !string.IsNullOrWhiteSpace(dto.RollNumber) ? dto.RollNumber : (dto.SchoolRollNumber ?? dto.CoachingRollNumber ?? student.RollNumber);
-        student.SchoolRollNumber = dto.SchoolRollNumber;
-        student.CoachingRollNumber = dto.CoachingRollNumber;
-        student.AdmissionNumber = dto.AdmissionNumber;
-        if (dto.JoiningDate.HasValue)
-        {
-            student.JoiningDate = dto.JoiningDate.Value;
-        }
-        // Hostel Bed Allocation / Reallocation / Deallocation
-        if (student.IsHostelStudent != dto.IsHostelStudent || student.HostelBedId != dto.HostelBedId)
-        {
-            if (student.HostelBedId.HasValue && (!dto.IsHostelStudent || student.HostelBedId != dto.HostelBedId))
+            var batch = dto.BatchId.HasValue ? await _dbContext.Batches.FindAsync(dto.BatchId.Value) : null;
+            if (dto.BranchId.HasValue && dto.BranchId.Value != Guid.Empty)
             {
-                var oldBed = await _dbContext.HostelBeds.FindAsync(student.HostelBedId.Value);
-                if (oldBed != null && oldBed.CurrentStudentId == student.Id)
-                {
-                    oldBed.Status = "Available";
-                    oldBed.CurrentStudentId = null;
-                }
-                var activeAlloc = await _dbContext.HostelAllocations
-                    .FirstOrDefaultAsync(a => a.StudentId == student.Id && a.Status == "Active");
-                if (activeAlloc != null)
-                {
-                    activeAlloc.Status = "Vacated";
-                    activeAlloc.VacatedDate = DateTime.UtcNow;
-                }
+                student.BranchId = dto.BranchId.Value;
+            }
+            else if (batch?.BranchId.HasValue == true)
+            {
+                student.BranchId = batch.BranchId;
+            }
+            else if (!student.BranchId.HasValue && _currentUser.BranchId.HasValue)
+            {
+                student.BranchId = _currentUser.BranchId;
             }
 
-            if (dto.IsHostelStudent && dto.HostelBedId.HasValue && student.HostelBedId != dto.HostelBedId)
+            student.BatchId = dto.BatchId;
+            student.ClassId = dto.ClassId;
+            student.SectionId = dto.SectionId;
+            student.IsSchoolStudent = dto.IsSchoolStudent;
+            student.IsCoachingStudent = dto.IsCoachingStudent;
+            student.RollNumber = !string.IsNullOrWhiteSpace(dto.RollNumber) 
+                ? dto.RollNumber.Trim() 
+                : (dto.SchoolRollNumber?.Trim() ?? dto.CoachingRollNumber?.Trim() ?? student.RollNumber ?? "N/A");
+            student.SchoolRollNumber = dto.SchoolRollNumber?.Trim();
+            student.CoachingRollNumber = dto.CoachingRollNumber?.Trim();
+            student.AdmissionNumber = dto.AdmissionNumber?.Trim();
+            if (dto.JoiningDate.HasValue)
             {
-                var newBed = await _dbContext.HostelBeds.FindAsync(dto.HostelBedId.Value);
-                if (newBed != null)
+                student.JoiningDate = dto.JoiningDate.Value;
+            }
+            // Hostel Bed Allocation / Reallocation / Deallocation
+            if (student.IsHostelStudent != dto.IsHostelStudent || student.HostelBedId != dto.HostelBedId)
+            {
+                if (student.HostelBedId.HasValue && (!dto.IsHostelStudent || student.HostelBedId != dto.HostelBedId))
                 {
-                    newBed.Status = "Occupied";
-                    newBed.CurrentStudentId = student.Id;
-                    _dbContext.HostelAllocations.Add(new HostelAllocation
+                    var oldBed = await _dbContext.HostelBeds.FindAsync(student.HostelBedId.Value);
+                    if (oldBed != null && oldBed.CurrentStudentId == student.Id)
                     {
-                        TenantId = _currentUser.TenantId,
-                        BranchId = student.BranchId,
-                        StudentId = student.Id,
-                        BedId = newBed.Id,
-                        AllocatedDate = DateTime.UtcNow,
-                        MonthlyRent = newBed.MonthlyRent,
-                        IsMessIncluded = true,
-                        Status = "Active"
-                    });
+                        oldBed.Status = "Available";
+                        oldBed.CurrentStudentId = null;
+                    }
+                    var activeAlloc = await _dbContext.HostelAllocations
+                        .FirstOrDefaultAsync(a => a.StudentId == student.Id && a.Status == "Active");
+                    if (activeAlloc != null)
+                    {
+                        activeAlloc.Status = "Vacated";
+                        activeAlloc.VacatedDate = DateTime.UtcNow;
+                    }
+                }
+
+                if (dto.IsHostelStudent && dto.HostelBedId.HasValue && student.HostelBedId != dto.HostelBedId)
+                {
+                    var newBed = await _dbContext.HostelBeds.FindAsync(dto.HostelBedId.Value);
+                    if (newBed != null)
+                    {
+                        newBed.Status = "Occupied";
+                        newBed.CurrentStudentId = student.Id;
+                        _dbContext.HostelAllocations.Add(new HostelAllocation
+                        {
+                            TenantId = _currentUser.TenantId,
+                            BranchId = student.BranchId,
+                            StudentId = student.Id,
+                            BedId = newBed.Id,
+                            AllocatedDate = DateTime.UtcNow,
+                            MonthlyRent = newBed.MonthlyRent,
+                            IsMessIncluded = true,
+                            Status = "Active"
+                        });
+                    }
                 }
             }
-        }
 
-        student.IsHostelStudent = dto.IsHostelStudent;
-        student.HostelBedId = dto.IsHostelStudent ? dto.HostelBedId : null;
-        student.IsLibraryMember = dto.IsLibraryMember;
-        student.LibraryCardNumber = dto.IsLibraryMember ? dto.LibraryCardNumber : null;
-        student.LibraryMembershipType = dto.IsLibraryMember ? dto.LibraryMembershipType : null;
-        student.MaxLibraryBooks = dto.IsLibraryMember && dto.MaxLibraryBooks > 0 ? dto.MaxLibraryBooks : 2;
-        student.MonthlyLibraryFee = dto.IsLibraryMember ? dto.MonthlyLibraryFee : 0;
-        student.StudentName = dto.StudentName;
-        student.ParentName = dto.ParentName;
-        student.ParentWhatsAppPhone = NormalizePhoneWithPrefix(dto.ParentWhatsAppPhone);
-        student.MotherName = dto.MotherName;
-        student.Gender = dto.Gender;
-        student.DateOfBirth = dto.DateOfBirth;
-        student.BloodGroup = dto.BloodGroup;
-        student.Address = dto.Address;
-        student.AadhaarNumber = dto.AadhaarNumber;
-        student.PenNumber = dto.PenNumber;
-        student.ApaarId = dto.ApaarId;
-        student.Category = dto.Category;
-        student.Religion = dto.Religion;
-        student.EmergencyContactName = dto.EmergencyContactName;
-        student.EmergencyContactPhone = dto.EmergencyContactPhone;
-        student.PreviousSchoolName = dto.PreviousSchoolName;
-        student.PreviousBoard = dto.PreviousBoard;
-        student.ProfilePhoto = ImageStorageHelper.SaveBase64Image(dto.ProfilePhoto, "students", student.Id.ToString(), _env.ContentRootPath)
-            ?? student.ProfilePhoto;
+            student.IsHostelStudent = dto.IsHostelStudent;
+            student.HostelBedId = dto.IsHostelStudent ? dto.HostelBedId : null;
+            student.IsLibraryMember = dto.IsLibraryMember;
+            student.LibraryCardNumber = dto.IsLibraryMember ? dto.LibraryCardNumber : null;
+            student.LibraryMembershipType = dto.IsLibraryMember ? dto.LibraryMembershipType : null;
+            student.MaxLibraryBooks = dto.IsLibraryMember && dto.MaxLibraryBooks > 0 ? dto.MaxLibraryBooks : 2;
+            student.MonthlyLibraryFee = dto.IsLibraryMember ? dto.MonthlyLibraryFee : 0;
+            if (!string.IsNullOrWhiteSpace(dto.StudentName)) student.StudentName = dto.StudentName.Trim();
+            if (!string.IsNullOrWhiteSpace(dto.ParentName)) student.ParentName = dto.ParentName.Trim();
+            student.ParentWhatsAppPhone = NormalizePhoneWithPrefix(dto.ParentWhatsAppPhone) ?? string.Empty;
+            student.MotherName = dto.MotherName?.Trim();
+            student.Gender = dto.Gender ?? "Male";
+            student.DateOfBirth = dto.DateOfBirth;
+            student.BloodGroup = dto.BloodGroup?.Trim();
+            student.Address = dto.Address?.Trim();
+            student.AadhaarNumber = dto.AadhaarNumber?.Trim();
+            student.PenNumber = dto.PenNumber?.Trim();
+            student.ApaarId = dto.ApaarId?.Trim();
+            student.Category = dto.Category ?? "General";
+            student.Religion = dto.Religion;
+            student.EmergencyContactName = dto.EmergencyContactName?.Trim();
+            student.EmergencyContactPhone = dto.EmergencyContactPhone?.Trim();
+            student.PreviousSchoolName = dto.PreviousSchoolName?.Trim();
+            student.PreviousBoard = dto.PreviousBoard;
+            student.ProfilePhoto = ImageStorageHelper.SaveBase64Image(dto.ProfilePhoto, "students", student.Id.ToString(), _env.ContentRootPath)
+                ?? student.ProfilePhoto;
 
-        if (student.UserId.HasValue)
-        {
-            var linkedUser = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == student.UserId.Value);
-            if (linkedUser != null)
+            if (student.UserId.HasValue)
             {
-                linkedUser.ProfilePhoto = student.ProfilePhoto;
+                var linkedUser = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == student.UserId.Value);
+                if (linkedUser != null)
+                {
+                    linkedUser.ProfilePhoto = student.ProfilePhoto;
+                }
             }
-        }
 
-        await _dbContext.SaveChangesAsync();
+            await _dbContext.SaveChangesAsync();
 
-        var branchName = student.BranchId.HasValue
-            ? (await _dbContext.Branches.AsNoTracking().FirstOrDefaultAsync(b => b.Id == student.BranchId))?.Name
-            : null;
+            var branchName = student.BranchId.HasValue
+                ? (await _dbContext.Branches.AsNoTracking().FirstOrDefaultAsync(b => b.Id == student.BranchId))?.Name
+                : null;
 
-        var className = student.ClassId.HasValue
-            ? (await _dbContext.SchoolClasses.AsNoTracking().FirstOrDefaultAsync(c => c.Id == student.ClassId))?.Name
-            : null;
+            var className = student.ClassId.HasValue
+                ? (await _dbContext.SchoolClasses.AsNoTracking().FirstOrDefaultAsync(c => c.Id == student.ClassId))?.Name
+                : null;
 
-        var sectionName = student.SectionId.HasValue
-            ? (await _dbContext.SchoolSections.AsNoTracking().FirstOrDefaultAsync(sec => sec.Id == student.SectionId))?.Name
-            : null;
+            var sectionName = student.SectionId.HasValue
+                ? (await _dbContext.SchoolSections.AsNoTracking().FirstOrDefaultAsync(sec => sec.Id == student.SectionId))?.Name
+                : null;
 
-        string? hostelName = null;
-        string? roomNum = null;
-        string? bedCode = null;
-        Guid? hostelId = null;
-        if (student.HostelBedId.HasValue)
-        {
-            var bedInfo = await _dbContext.HostelBeds
-                .Include(b => b.Room).ThenInclude(r => r.Hostel)
-                .AsNoTracking()
-                .FirstOrDefaultAsync(b => b.Id == student.HostelBedId.Value);
-            if (bedInfo != null)
+            string? hostelName = null;
+            string? roomNum = null;
+            string? bedCode = null;
+            Guid? hostelId = null;
+            if (student.HostelBedId.HasValue)
             {
-                bedCode = bedInfo.BedCode;
-                roomNum = bedInfo.Room?.RoomNumber;
-                hostelName = bedInfo.Room?.Hostel?.Name;
-                hostelId = bedInfo.Room?.HostelId;
+                var bedInfo = await _dbContext.HostelBeds
+                    .Include(b => b.Room).ThenInclude(r => r.Hostel)
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(b => b.Id == student.HostelBedId.Value);
+                if (bedInfo != null)
+                {
+                    bedCode = bedInfo.BedCode;
+                    roomNum = bedInfo.Room?.RoomNumber;
+                    hostelName = bedInfo.Room?.Hostel?.Name;
+                    hostelId = bedInfo.Room?.HostelId;
+                }
             }
-        }
 
-        return Ok(new StudentDto(
-            student.Id,
-            student.BatchId,
-            batch?.Name ?? "",
-            student.RollNumber,
-            student.StudentName,
-            student.ParentName,
-            student.ParentWhatsAppPhone,
-            student.IsActive,
-            student.JoiningDate,
-            student.Address,
-            student.ProfilePhoto,
-            student.BranchId,
-            branchName,
-            student.ClassId,
-            className,
-            student.SectionId,
-            sectionName,
-            student.AdmissionNumber,
-            student.SchoolRollNumber,
-            student.CoachingRollNumber,
-            student.IsSchoolStudent,
-            student.IsCoachingStudent,
-            student.MotherName,
-            student.Gender,
-            student.DateOfBirth,
-            student.BloodGroup,
-            student.IsHostelStudent,
-            student.HostelBedId,
-            hostelName,
-            roomNum,
-            bedCode,
-            hostelId,
-            student.LeavingDate,
-            student.LeavingReason,
-            student.TCNumber,
-            student.IsLibraryMember,
-            student.LibraryCardNumber,
-            student.LibraryMembershipType,
-            student.MaxLibraryBooks,
-            student.MonthlyLibraryFee,
-            student.IsTransportStudent,
-            student.TransportAllocationId,
-            null,
-            null,
-            null,
-            0,
-            null,
-            null,
-            null,
-            student.AadhaarNumber,
-            student.PenNumber,
-            student.ApaarId,
-            student.Category,
-            student.Religion,
-            student.EmergencyContactName,
-            student.EmergencyContactPhone,
-            student.PreviousSchoolName,
-            student.PreviousBoard
-        ));
+            return Ok(new StudentDto(
+                student.Id,
+                student.BatchId,
+                batch?.Name ?? "",
+                student.RollNumber,
+                student.StudentName,
+                student.ParentName,
+                student.ParentWhatsAppPhone,
+                student.IsActive,
+                student.JoiningDate,
+                student.Address,
+                student.ProfilePhoto,
+                student.BranchId,
+                branchName,
+                student.ClassId,
+                className,
+                student.SectionId,
+                sectionName,
+                student.AdmissionNumber,
+                student.SchoolRollNumber,
+                student.CoachingRollNumber,
+                student.IsSchoolStudent,
+                student.IsCoachingStudent,
+                student.MotherName,
+                student.Gender,
+                student.DateOfBirth,
+                student.BloodGroup,
+                student.IsHostelStudent,
+                student.HostelBedId,
+                hostelName,
+                roomNum,
+                bedCode,
+                hostelId,
+                student.LeavingDate,
+                student.LeavingReason,
+                student.TCNumber,
+                student.IsLibraryMember,
+                student.LibraryCardNumber,
+                student.LibraryMembershipType,
+                student.MaxLibraryBooks,
+                student.MonthlyLibraryFee,
+                student.IsTransportStudent,
+                student.TransportAllocationId,
+                null,
+                null,
+                null,
+                0,
+                null,
+                null,
+                null,
+                student.AadhaarNumber,
+                student.PenNumber,
+                student.ApaarId,
+                student.Category,
+                student.Religion,
+                student.EmergencyContactName,
+                student.EmergencyContactPhone,
+                student.PreviousSchoolName,
+                student.PreviousBoard
+            ));
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = ex.InnerException?.Message ?? ex.Message });
+        }
     }
 
     [HttpGet("{id}/clearance-status")]

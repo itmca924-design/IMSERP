@@ -394,8 +394,21 @@
         flex-direction: column;
         align-items: center;
         justify-content: center;
+        overflow: hidden;
         mat-icon { font-size: 32px; width: 32px; height: 32px; }
         .seal-sub { font-size: 8px; font-weight: 800; letter-spacing: 1px; }
+        .bseb-inst-logo {
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+          border-radius: 50%;
+        }
+        &.has-logo {
+          border: 1.5px solid #1e3a8a;
+          background: #ffffff;
+          padding: 2px;
+          box-shadow: 0 2px 6px rgba(30, 58, 138, 0.15);
+        }
       }
     }
 
@@ -755,15 +768,21 @@
     margin-bottom: 10px;
 
     .admit-logo-box {
-      width: 56px;
-      height: 56px;
-      border-radius: 12px;
-      background: #2563eb;
-      color: #ffffff;
+      width: 58px;
+      height: 58px;
+      background: transparent;
+      border: none;
+      box-shadow: none;
       display: flex;
       align-items: center;
       justify-content: center;
-      mat-icon { font-size: 32px; width: 32px; height: 32px; }
+      flex-shrink: 0;
+      mat-icon { font-size: 36px; width: 36px; height: 36px; color: #2563eb; }
+      .admit-inst-logo {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+      }
     }
 
     .admit-header-info {
@@ -1010,15 +1029,21 @@
     margin-bottom: 12px;
 
     .res-logo {
-      width: 44px;
-      height: 44px;
-      border-radius: 10px;
-      background: #2563eb;
-      color: #ffffff;
+      width: 46px;
+      height: 46px;
+      background: transparent;
+      border: none;
+      box-shadow: none;
       display: flex;
       align-items: center;
       justify-content: center;
-      mat-icon { font-size: 26px; width: 26px; height: 26px; }
+      flex-shrink: 0;
+      mat-icon { font-size: 30px; width: 30px; height: 30px; color: #2563eb; }
+      .res-inst-logo {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+      }
     }
 
     .res-school-title { margin: 0; font-size: 1.15rem; color: #1e3a8a; }
@@ -1167,16 +1192,20 @@
       width: 60px;
       flex-shrink: 0;
       .school-seal-circle {
-        width: 56px;
-        height: 56px;
-        border-radius: 50%;
-        background: #eff6ff;
-        border: 2px solid #2563eb;
-        color: #2563eb;
+        width: 58px;
+        height: 58px;
+        background: transparent;
+        border: none;
+        box-shadow: none;
         display: flex;
         align-items: center;
         justify-content: center;
-        mat-icon { font-size: 32px; width: 32px; height: 32px; }
+        mat-icon { font-size: 36px; width: 36px; height: 36px; color: #2563eb; }
+        .rc-inst-logo {
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+        }
       }
     }
 
@@ -1409,7 +1438,25 @@
 
     .cert-header {
       margin-bottom: 16px;
-      .cert-emblem mat-icon { font-size: 44px; width: 44px; height: 44px; color: #d97706; }
+      .cert-emblem {
+        width: 56px;
+        height: 56px;
+        margin: 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        mat-icon { font-size: 44px; width: 44px; height: 44px; color: #d97706; }
+        .cert-inst-logo {
+          width: 52px;
+          height: 52px;
+          object-fit: contain;
+          border-radius: 50%;
+          border: 1.5px solid #d97706;
+          padding: 2px;
+          background: #ffffff;
+        }
+      }
       .cert-school-name { margin: 4px 0 2px 0; font-size: 1.4rem; color: #78350f; font-weight: 800; }
       .cert-school-aff { margin: 0; font-size: 0.78rem; color: #92400e; }
       .cert-title-ribbon {

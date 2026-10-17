@@ -67,6 +67,15 @@ export class SchoolReportCardDialogComponent implements OnInit, OnDestroy {
   branchAddress = '';
   todayDate = '';
   sendingWhatsApp = false;
+  logoImgFailed = false;
+
+  get instituteLogo(): string | null {
+    return this.authService.getInstituteLogoUrl();
+  }
+
+  onLogoImgError(): void {
+    this.logoImgFailed = true;
+  }
 
   constructor(
     public dialogRef: MatDialogRef<SchoolReportCardDialogComponent>,
@@ -121,7 +130,7 @@ export class SchoolReportCardDialogComponent implements OnInit, OnDestroy {
     const count = this.studentsToRender.length;
     switch (this.currentView) {
       case 'bseb_marksheet':
-        return this.isBulkMode ? `Bulk Bihar Board Marksheets (${count} Students)` : 'Bihar Board Format Marksheet (बिहार बोर्ड अंक विवरण)';
+        return this.isBulkMode ? `Bulk Board Style Marksheets (${count} Students)` : 'Board Style Marksheet (बोर्ड प्रारूप अंक विवरण)';
       case 'admit_card':
         return this.isBulkMode ? `Bulk Class Admit Cards (${count} Students)` : 'Examination Admit Card (प्रवेश पत्र / हॉल टिकट)';
       case 'result_card':
@@ -172,7 +181,42 @@ export class SchoolReportCardDialogComponent implements OnInit, OnDestroy {
     return `★ ${loc.slice(0, 18)} ★`;
   }
 
-  // ─── BSEB Specific Helpers ───
+  // ─── Multi-Tenant Board Style Helpers ───
+  getInstitutePrefix(): string {
+    if (!this.instituteName) return 'IMS';
+    const clean = this.instituteName.replace(/[^a-zA-Z0-9\s]/g, '').trim();
+    const words = clean.split(/\s+/).filter(w => w.length > 0);
+    if (words.length >= 2) {
+      return (words[0][0] + words[1][0] + (words[2] ? words[2][0] : '')).toUpperCase();
+    }
+    return clean.slice(0, 3).toUpperCase() || 'IMS';
+  }
+
+  getWatermarkText(): string {
+    if (!this.instituteName) return 'EXAM';
+    return this.instituteName.length > 14 ? this.getInstitutePrefix() : this.instituteName.toUpperCase();
+  }
+
+  getBranchCity(): string {
+    if (this.branchAddress) {
+      const parts = this.branchAddress.split(',');
+      if (parts.length > 1) {
+        return parts[parts.length - 2].trim().toUpperCase().slice(0, 10);
+      }
+      return parts[0].trim().toUpperCase().slice(0, 10);
+    }
+    return 'CAMPUS';
+  }
+
+  getExamNameHindi(): string {
+    const t = (this.data.examType || '').toLowerCase();
+    if (t.includes('annual') || t.includes('final')) return 'वार्षिक परीक्षा';
+    if (t.includes('half')) return 'अर्धवार्षिक परीक्षा';
+    if (t.includes('unit')) return 'इकाई परीक्षा';
+    if (t.includes('term')) return 'सत्र परीक्षा';
+    return 'वार्षिक माध्यमिक परीक्षा';
+  }
+
   getRollCode(): string {
     if (this.data.settings?.schoolAffiliationNumber) {
       const digits = this.data.settings.schoolAffiliationNumber.replace(/\D/g, '');
@@ -189,7 +233,7 @@ export class SchoolReportCardDialogComponent implements OnInit, OnDestroy {
 
   getSerialNumber(st: ConsolidatedStudentResultDto, index: number): string {
     const num = (index + 1).toString().padStart(6, '0');
-    return `BSEB/SEC/${num}`;
+    return `${this.getInstitutePrefix()}/MS/${num}`;
   }
 
   getSubjectCode(subject: string, idx: number): string {

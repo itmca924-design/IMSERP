@@ -397,7 +397,8 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
                         <span class="session-badge">ACADEMIC SESSION: {{ selectedSession }}</span>
                       </div>
                       <div class="hall-ticket-badge">
-                        <mat-icon>school</mat-icon>
+                        <img *ngIf="instituteLogo && !logoImgFailed" [src]="instituteLogo" alt="Institute Logo" class="hall-logo-img" (error)="onLogoImgError()" />
+                        <mat-icon *ngIf="!instituteLogo || logoImgFailed">school</mat-icon>
                       </div>
                     </div>
 
@@ -1372,18 +1373,18 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
         }
 
         .hall-ticket-badge {
-          width: 50px;
-          height: 50px;
-          border-radius: 10px;
-          background: #eff6ff;
-          color: #2563eb;
-          border: 1px solid #bfdbfe;
+          width: 52px;
+          height: 52px;
+          background: transparent;
+          border: none;
+          box-shadow: none;
           display: flex;
           align-items: center;
           justify-content: center;
           flex-shrink: 0;
 
-          mat-icon { font-size: 32px; width: 32px; height: 32px; }
+          mat-icon { font-size: 36px; width: 36px; height: 36px; color: #2563eb; }
+          .hall-logo-img { width: 100%; height: 100%; object-fit: contain; }
         }
       }
 
@@ -1564,6 +1565,15 @@ export class MyExamsComponent implements OnInit {
 
   selectedSession = '2025-2026';
   selectedExamType = 'All';
+  logoImgFailed = false;
+
+  get instituteLogo(): string | null {
+    return this.authService.getInstituteLogoUrl();
+  }
+
+  onLogoImgError(): void {
+    this.logoImgFailed = true;
+  }
 
   constructor(
     private schoolService: SchoolService,
