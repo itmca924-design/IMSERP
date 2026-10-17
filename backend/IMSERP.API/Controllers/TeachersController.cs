@@ -1154,7 +1154,8 @@ public class TeachersController : ControllerBase
                 weeklyClasses,
                 weeklyHours,
                 studentCount,
-                assignedBatchesDto
+                assignedBatchesDto,
+                t.PhotoUrl
             );
         }).ToList();
 
@@ -1251,16 +1252,23 @@ public class TeachersController : ControllerBase
     }
 
     [HttpGet("reports/master-timetable")]
-    public async Task<ActionResult<IEnumerable<TeacherBatchAssignmentDto>>> GetMasterTimetable()
+    public async Task<ActionResult> GetMasterTimetable(
+        [FromQuery] string? search = null,
+        [FromQuery] string? day = null,
+        [FromQuery] string? sortBy = "teacher",
+        [FromQuery] string? sortDir = "asc",
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] bool paged = false)
     {
-        var rawList = await _db.TeacherBatchAssignments.AsNoTracking()
+        var rawQuery = _db.TeacherBatchAssignments.AsNoTracking()
             .Include(a => a.Teacher)
-            .Include(a => a.Batch)
+            .Include(a => a.Batch).ThenInclude(b => b.Room)
             .Include(a => a.Class)
-            .Include(a => a.Section)
-            .Where(a => a.IsActive && a.Teacher != null && a.Teacher.IsActive && a.Teacher.StaffType == StaffType.Teaching)
-            .OrderBy(a => a.Teacher!.FullName)
-            .ToListAsync();
+            .Include(a => a.Section).ThenInclude(s => s.Room)
+            .Where(a => a.IsActive && a.Teacher != null && a.Teacher.IsActive && a.Teacher.StaffType == StaffType.Teaching);
+
+        var rawList = await rawQuery.ToListAsync();
 
         var list = rawList.Select(a =>
         {
@@ -1270,13 +1278,67 @@ public class TeachersController : ControllerBase
                     ? (a.Section != null ? $"{a.Class.Name} - {a.Section.Name}" : a.Class.Name)
                     : "Teaching Unit");
 
+            string? roomNo = a.Batch?.Room?.RoomNumber ?? a.Section?.Room?.RoomNumber;
+
             return new TeacherBatchAssignmentDto(
                 a.Id, a.TeacherId, a.Teacher!.FullName, a.BatchId,
                 targetName, a.Subject, a.DaysOfWeek, a.TimeSlot, a.IsActive, a.AssignedAt,
-                a.ClassId, a.Class?.Name, a.SectionId, a.Section?.Name);
+                a.ClassId, a.Class?.Name, a.SectionId, a.Section?.Name,
+                a.Teacher.EmployeeCode, a.Teacher.PhotoUrl, roomNo);
         }).ToList();
 
-        return Ok(list);
+        var totalTeachers = list.Select(x => x.TeacherId).Distinct().Count();
+        var totalBatches = list.Select(x => x.BatchName).Distinct().Count();
+        var totalSubjects = list.Select(x => x.Subject).Distinct().Count();
+
+        var query = list.AsEnumerable();
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var q = search.Trim().ToLowerInvariant();
+            query = query.Where(m =>
+                (m.TeacherName != null && m.TeacherName.ToLowerInvariant().Contains(q)) ||
+                (m.EmployeeCode != null && m.EmployeeCode.ToLowerInvariant().Contains(q)) ||
+                (m.BatchName != null && m.BatchName.ToLowerInvariant().Contains(q)) ||
+                (m.ClassName != null && m.ClassName.ToLowerInvariant().Contains(q)) ||
+                (m.Subject != null && m.Subject.ToLowerInvariant().Contains(q)) ||
+                (m.RoomNumber != null && m.RoomNumber.ToLowerInvariant().Contains(q)));
+        }
+
+        if (!string.IsNullOrWhiteSpace(day) && !day.Equals("all", StringComparison.OrdinalIgnoreCase))
+        {
+            query = query.Where(m => m.DaysOfWeek != null && m.DaysOfWeek.Contains(day, StringComparison.OrdinalIgnoreCase));
+        }
+
+        bool isDesc = string.Equals(sortDir, "desc", StringComparison.OrdinalIgnoreCase);
+        query = (sortBy?.ToLowerInvariant()) switch
+        {
+            "batch" => isDesc ? query.OrderByDescending(x => x.BatchName) : query.OrderBy(x => x.BatchName),
+            "subject" => isDesc ? query.OrderByDescending(x => x.Subject) : query.OrderBy(x => x.Subject),
+            "slot" => isDesc ? query.OrderByDescending(x => x.TimeSlot) : query.OrderBy(x => x.TimeSlot),
+            "day" => isDesc ? query.OrderByDescending(x => x.DaysOfWeek) : query.OrderBy(x => x.DaysOfWeek),
+            "room" => isDesc ? query.OrderByDescending(x => x.RoomNumber) : query.OrderBy(x => x.RoomNumber),
+            _ => isDesc ? query.OrderByDescending(x => x.TeacherName) : query.OrderBy(x => x.TeacherName)
+        };
+
+        var filtered = query.ToList();
+        var totalCount = filtered.Count;
+
+        if (paged)
+        {
+            var pagedItems = filtered.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+            return Ok(new MasterTimetableReportDto(
+                pagedItems,
+                totalCount,
+                page,
+                pageSize,
+                totalTeachers,
+                totalBatches,
+                totalSubjects
+            ));
+        }
+
+        return Ok(filtered);
     }
 
     [HttpGet("reports/batch-coverage")]
@@ -1412,7 +1474,14 @@ public class TeachersController : ControllerBase
 
     [HttpGet("reports/payroll")]
     public async Task<ActionResult<TeacherMonthlyPayrollReportDto>> GetMonthlyPayrollReport(
-        [FromQuery] int month = 0, [FromQuery] int year = 0)
+        [FromQuery] int month = 0,
+        [FromQuery] int year = 0,
+        [FromQuery] string? search = null,
+        [FromQuery] string? paymentMode = null,
+        [FromQuery] string? sortBy = "name",
+        [FromQuery] string? sortDir = "asc",
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10)
     {
         if (month == 0) month = DateTime.UtcNow.Month;
         if (year == 0) year = DateTime.UtcNow.Year;
@@ -1426,20 +1495,65 @@ public class TeachersController : ControllerBase
         var paymentEntities = await _db.TeacherSalaryPayments.AsNoTracking()
             .Include(p => p.Teacher)
             .Where(p => p.PaymentMonth == month && p.PaymentYear == year)
-            .OrderBy(p => p.Teacher != null ? p.Teacher.FullName : "")
             .ToListAsync();
-        var payments = paymentEntities
-            .Select(p => MapSalaryPaymentDto(p, p.Teacher?.FullName ?? "Teacher", p.Teacher?.EmployeeCode ?? ""))
-            .ToList();
 
-        var paidCount = payments.Count;
+        // 1. KPI Summary totals across ALL payments for this month/year
+        var totalGross = paymentEntities.Sum(p => p.GrossAmount);
+        var totalDeductions = paymentEntities.Sum(p => p.Deductions);
+        var totalAdvances = paymentEntities.Sum(p => p.AdvanceAdjusted);
+        var totalNetPaid = paymentEntities.Sum(p => p.NetPaid);
+        var paidCount = paymentEntities.Count;
         var totalTeachers = activeTeachers.Count;
         var pendingCount = Math.Max(0, totalTeachers - paidCount);
 
-        var totalGross = payments.Sum(p => p.GrossAmount);
-        var totalDeductions = payments.Sum(p => p.Deductions);
-        var totalAdvances = payments.Sum(p => p.AdvanceAdjusted);
-        var totalNetPaid = payments.Sum(p => p.NetPaid);
+        // Map to DTOs with Teacher PhotoUrl
+        var allPayments = paymentEntities
+            .Select(p => MapSalaryPaymentDto(p, p.Teacher?.FullName ?? "Teacher", p.Teacher?.EmployeeCode ?? "", p.Teacher?.PhotoUrl))
+            .AsEnumerable();
+
+        // 2. Server-side Search Filter (teacher name, employee code, receipt number, transaction ref)
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var q = search.Trim().ToLowerInvariant();
+            allPayments = allPayments.Where(p =>
+                (p.TeacherName != null && p.TeacherName.ToLowerInvariant().Contains(q)) ||
+                (p.EmployeeCode != null && p.EmployeeCode.ToLowerInvariant().Contains(q)) ||
+                (p.ReceiptNumber != null && p.ReceiptNumber.ToLowerInvariant().Contains(q)) ||
+                (p.TransactionRef != null && p.TransactionRef.ToLowerInvariant().Contains(q))
+            );
+        }
+
+        // 3. Server-side Payment Mode Filter
+        if (!string.IsNullOrWhiteSpace(paymentMode) && !paymentMode.Equals("all", StringComparison.OrdinalIgnoreCase))
+        {
+            allPayments = allPayments.Where(p => p.PaymentMode.Equals(paymentMode, StringComparison.OrdinalIgnoreCase));
+        }
+
+        // 4. Server-side Header Sorting
+        bool isDesc = string.Equals(sortDir, "desc", StringComparison.OrdinalIgnoreCase);
+        allPayments = (sortBy?.ToLowerInvariant()) switch
+        {
+            "receipt" => isDesc ? allPayments.OrderByDescending(p => p.ReceiptNumber) : allPayments.OrderBy(p => p.ReceiptNumber),
+            "date" => isDesc ? allPayments.OrderByDescending(p => p.PaymentDate) : allPayments.OrderBy(p => p.PaymentDate),
+            "gross" => isDesc ? allPayments.OrderByDescending(p => p.GrossAmount) : allPayments.OrderBy(p => p.GrossAmount),
+            "deductions" => isDesc ? allPayments.OrderByDescending(p => p.Deductions) : allPayments.OrderBy(p => p.Deductions),
+            "advance" => isDesc ? allPayments.OrderByDescending(p => p.AdvanceAdjusted) : allPayments.OrderBy(p => p.AdvanceAdjusted),
+            "net" => isDesc ? allPayments.OrderByDescending(p => p.NetPaid) : allPayments.OrderBy(p => p.NetPaid),
+            "mode" => isDesc ? allPayments.OrderByDescending(p => p.PaymentMode) : allPayments.OrderBy(p => p.PaymentMode),
+            _ => isDesc ? allPayments.OrderByDescending(p => p.TeacherName) : allPayments.OrderBy(p => p.TeacherName),
+        };
+
+        var filteredList = allPayments.ToList();
+        int totalFilteredCount = filteredList.Count;
+
+        // 5. Server-side Pagination
+        if (pageSize <= 0) pageSize = 10;
+        if (page < 1) page = 1;
+
+        var pagedPayments = filteredList
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToList();
 
         return Ok(new TeacherMonthlyPayrollReportDto(
             month,
@@ -1452,7 +1566,10 @@ public class TeachersController : ControllerBase
             totalDeductions,
             totalAdvances,
             totalNetPaid,
-            payments
+            pagedPayments,
+            totalFilteredCount,
+            page,
+            pageSize
         ));
     }
 
@@ -1487,7 +1604,14 @@ public class TeachersController : ControllerBase
 
     [HttpGet("attendance/report")]
     public async Task<ActionResult<AttendanceReportDto>> GetAttendanceReport(
-        [FromQuery] int month = 0, [FromQuery] int year = 0)
+        [FromQuery] int month = 0, 
+        [FromQuery] int year = 0,
+        [FromQuery] string? search = null,
+        [FromQuery] string? statusFilter = null,
+        [FromQuery] string? sortBy = "name",
+        [FromQuery] string? sortDir = "asc",
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10)
     {
         var isStudentOrParent = string.Equals(_currentUser.UserRole, "Student", StringComparison.OrdinalIgnoreCase) ||
                                 string.Equals(_currentUser.UserRole, "Parent", StringComparison.OrdinalIgnoreCase);
@@ -1625,7 +1749,8 @@ public class TeachersController : ControllerBase
                 false,
                 false,
                 elapsedWorkingDays,
-                teacher.JoiningDate != default ? teacher.JoiningDate.ToString("yyyy-MM-dd") : null
+                teacher.JoiningDate != default ? teacher.JoiningDate.ToString("yyyy-MM-dd") : null,
+                teacher.PhotoUrl
             );
         }).ToList();
 
@@ -1639,21 +1764,68 @@ public class TeachersController : ControllerBase
             }
         }
 
+        var totalPresentAll = rows.Sum(row => row.PresentDays);
+        var totalAbsentAll = rows.Sum(row => row.AbsentDays);
+        var totalLateAll = rows.Sum(row => row.LateDays);
+        var totalHalfAll = rows.Sum(row => row.HalfDays);
+        var totalHolidayAll = rows.Sum(row => row.HolidayDays);
+
+        var queryRows = rows.AsEnumerable();
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var q = search.Trim().ToLowerInvariant();
+            queryRows = queryRows.Where(r =>
+                (r.PersonName != null && r.PersonName.ToLowerInvariant().Contains(q)) ||
+                (r.Code != null && r.Code.ToLowerInvariant().Contains(q)));
+        }
+
+        if (!string.IsNullOrWhiteSpace(statusFilter) && !statusFilter.Equals("all", StringComparison.OrdinalIgnoreCase))
+        {
+            queryRows = statusFilter.ToLowerInvariant() switch
+            {
+                "flawless" => queryRows.Where(r => r.AttendancePercentage >= 90m && r.LateDays == 0),
+                "good" => queryRows.Where(r => r.AttendancePercentage >= 75m),
+                "low" => queryRows.Where(r => r.AttendancePercentage < 50m),
+                "late" => queryRows.Where(r => r.LateDays > 0),
+                _ => queryRows
+            };
+        }
+
+        bool isDesc = string.Equals(sortDir, "desc", StringComparison.OrdinalIgnoreCase);
+        queryRows = (sortBy?.ToLowerInvariant()) switch
+        {
+            "code" => isDesc ? queryRows.OrderByDescending(r => r.Code) : queryRows.OrderBy(r => r.Code),
+            "present" => isDesc ? queryRows.OrderByDescending(r => r.PresentDays) : queryRows.OrderBy(r => r.PresentDays),
+            "absent" => isDesc ? queryRows.OrderByDescending(r => r.AbsentDays) : queryRows.OrderBy(r => r.AbsentDays),
+            "late" => isDesc ? queryRows.OrderByDescending(r => r.LateDays) : queryRows.OrderBy(r => r.LateDays),
+            "half" => isDesc ? queryRows.OrderByDescending(r => r.HalfDays) : queryRows.OrderBy(r => r.HalfDays),
+            "percentage" => isDesc ? queryRows.OrderByDescending(r => r.AttendancePercentage) : queryRows.OrderBy(r => r.AttendancePercentage),
+            _ => isDesc ? queryRows.OrderByDescending(r => r.PersonName) : queryRows.OrderBy(r => r.PersonName)
+        };
+
+        var filteredList = queryRows.ToList();
+        var totalCount = filteredList.Count;
+        var pagedRows = filteredList.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+
         return Ok(new AttendanceReportDto(
             "Teacher", 
             month, 
             year, 
-            rows.Count, 
-            rows.Sum(row => row.PresentDays), 
-            rows.Sum(row => row.AbsentDays), 
-            rows.Sum(row => row.LateDays), 
-            rows.Sum(row => row.HalfDays), 
-            rows.Sum(row => row.HolidayDays), 
-            rows,
+            totalCount, 
+            totalPresentAll, 
+            totalAbsentAll, 
+            totalLateAll, 
+            totalHalfAll, 
+            totalHolidayAll, 
+            pagedRows,
             false,
             null,
             totalWorkingDays,
-            monthElapsedWorkingDays
+            monthElapsedWorkingDays,
+            totalCount,
+            page,
+            pageSize
         ));
     }
 
@@ -2780,7 +2952,7 @@ public class TeachersController : ControllerBase
         p.ArrearsRemarks = !string.IsNullOrWhiteSpace(pv.ArrearsRemarks) ? pv.ArrearsRemarks : p.ArrearsRemarks;
     }
 
-    private static TeacherSalaryPaymentDto MapSalaryPaymentDto(TeacherSalaryPayment p, string teacherName, string employeeCode) =>
+    private static TeacherSalaryPaymentDto MapSalaryPaymentDto(TeacherSalaryPayment p, string teacherName, string employeeCode, string? photoUrl = null) =>
         new TeacherSalaryPaymentDto(
             p.Id, p.TeacherId, teacherName, employeeCode,
             p.PaymentMonth, p.PaymentYear,
@@ -2792,7 +2964,8 @@ public class TeachersController : ControllerBase
             p.LopDays, p.PerDayRate, p.BasicSalary, p.HRA, p.OtherAllowances,
             p.AttendanceDeduction, p.PFDeduction, p.TDSDeduction, p.OtherStatutoryDeduction,
             p.HostelDeduction, p.TransportDeduction,
-            p.ArrearsAmount, p.ArrearsRemarks);
+            p.ArrearsAmount, p.ArrearsRemarks,
+            photoUrl ?? p.Teacher?.PhotoUrl);
 
     private static string BuildPayrollRemarks(TeacherPayrollPreviewDto pv)
     {

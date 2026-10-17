@@ -8,13 +8,13 @@ import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { WhatsAppFeeCardDialogComponent } from './whatsapp-fee-card-dialog.component';
 import { FeesService, StudentFeeCard } from '../../core/services/fees.service';
 import { SchoolService, SchoolClassDto, SchoolSectionDto } from '../../core/services/school.service';
 import { CoachingService } from '../../core/services/coaching.service';
 import { AuthService } from '../../core/services/auth.service';
+import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.directive';
 import { environment } from '../../../environments/environment';
 
@@ -31,7 +31,6 @@ import { environment } from '../../../environments/environment';
     MatFormFieldModule,
     MatProgressSpinnerModule,
     MatTooltipModule,
-    MatSnackBarModule,
     MatDialogModule,
     IstDatetimeDirective
   ],
@@ -44,9 +43,11 @@ import { environment } from '../../../environments/environment';
             <mat-icon>contact_page</mat-icon>
           </div>
           <div class="header-titles">
-            <h1 class="main-title">Student Fee Card & Passbook</h1>
+            <h1 class="main-title">
+              {{ (!hasSchoolModule() && hasCoachingModule()) || activeStream === 'coaching' ? 'Coaching Student Fee Card & Passbook' : 'Student Fee Card & Passbook' }}
+            </h1>
             <p class="subtitle">
-              वार्षिक छात्र शुल्क कार्ड • Standard 12-Month Academic Ledger & Printable Passbook
+              {{ (!hasSchoolModule() && hasCoachingModule()) || activeStream === 'coaching' ? 'कोचिंग छात्र वार्षिक शुल्क पुस्तिका • Standard 12-Month Coaching Ledger & Passbook' : 'वार्षिक छात्र शुल्क कार्ड • Standard 12-Month Academic Ledger & Printable Passbook' }}
             </p>
           </div>
         </div>
@@ -66,6 +67,29 @@ import { environment } from '../../../environments/environment';
 
       <!-- Controls & Filter Toolbar (Screen Only) -->
       <div class="filters-card no-print">
+        <!-- Dynamic Academic Stream Switcher (When tenant has both School & Coaching modules) -->
+        <div class="stream-switcher-row" *ngIf="hasSchoolModule() && hasCoachingModule()">
+          <span class="stream-label">Academic Scope:</span>
+          <div class="stream-pills">
+            <button
+              type="button"
+              class="stream-pill"
+              [class.active]="activeStream === 'school'"
+              (click)="switchStream('school')">
+              <mat-icon>school</mat-icon>
+              <span>School Classes</span>
+            </button>
+            <button
+              type="button"
+              class="stream-pill"
+              [class.active]="activeStream === 'coaching'"
+              (click)="switchStream('coaching')">
+              <mat-icon>menu_book</mat-icon>
+              <span>Coaching Batches</span>
+            </button>
+          </div>
+        </div>
+
         <div class="filters-grid">
           <!-- Session Selector -->
           <div class="filter-col">
@@ -79,12 +103,12 @@ import { environment } from '../../../environments/environment';
             </mat-form-field>
           </div>
 
-          <!-- Class Selector -->
-          <div class="filter-col">
+          <!-- Class Selector (School Stream Only) -->
+          <div class="filter-col" *ngIf="activeStream === 'school'">
             <label class="filter-label">School Class</label>
             <mat-form-field appearance="outline" class="w-full">
-              <mat-select [(ngModel)]="selectedClassId" (selectionChange)="onClassChanged()">
-                <mat-option [value]="null">-- Select Class --</mat-option>
+              <mat-select [(ngModel)]="selectedClassId" placeholder="-- Select Class --" (selectionChange)="onClassChanged()">
+                <mat-option value="">-- Select Class --</mat-option>
                 <mat-option *ngFor="let c of classes" [value]="c.id">
                   {{ c.name }}
                 </mat-option>
@@ -92,14 +116,27 @@ import { environment } from '../../../environments/environment';
             </mat-form-field>
           </div>
 
-          <!-- Section Selector -->
-          <div class="filter-col">
+          <!-- Section Selector (School Stream Only) -->
+          <div class="filter-col" *ngIf="activeStream === 'school'">
             <label class="filter-label">Section</label>
             <mat-form-field appearance="outline" class="w-full">
-              <mat-select [(ngModel)]="selectedSectionId" (selectionChange)="onSectionChanged()">
+              <mat-select [(ngModel)]="selectedSectionId" placeholder="-- All Sections --" (selectionChange)="onSectionChanged()">
                 <mat-option value="">-- All Sections --</mat-option>
                 <mat-option *ngFor="let sec of sections" [value]="sec.id">
                   {{ sec.name }}
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
+          </div>
+
+          <!-- Batch Selector (Coaching Stream Only) -->
+          <div class="filter-col" *ngIf="activeStream === 'coaching'">
+            <label class="filter-label">Coaching Batch</label>
+            <mat-form-field appearance="outline" class="w-full">
+              <mat-select [(ngModel)]="selectedBatchId" placeholder="-- Select Batch --" (selectionChange)="onBatchChanged()">
+                <mat-option value="">-- Select Batch --</mat-option>
+                <mat-option *ngFor="let b of batches" [value]="b.id">
+                  {{ b.name }} <span *ngIf="b.subject">({{ b.subject }})</span>
                 </mat-option>
               </mat-select>
             </mat-form-field>
@@ -109,10 +146,10 @@ import { environment } from '../../../environments/environment';
           <div class="filter-col student-col">
             <label class="filter-label">Select Student</label>
             <mat-form-field appearance="outline" class="w-full">
-              <mat-select [(ngModel)]="selectedStudentId" (selectionChange)="onStudentChanged()" [disabled]="students.length === 0">
-                <mat-option [value]="null">-- Choose Student ({{ students.length }}) --</mat-option>
+              <mat-select [(ngModel)]="selectedStudentId" placeholder="-- Choose Student --" (selectionChange)="onStudentChanged()" [disabled]="students.length === 0">
+                <mat-option value="">-- Choose Student ({{ students.length }}) --</mat-option>
                 <mat-option *ngFor="let st of students" [value]="st.id">
-                  <span class="st-opt-roll">#{{ st.rollNumber || '-' }}</span>
+                  <span class="st-opt-roll">#{{ (activeStream === 'coaching' ? (st.coachingRollNumber || st.rollNumber) : (st.schoolRollNumber || st.rollNumber)) || '-' }}</span>
                   <strong class="st-opt-name">{{ st.studentName }}</strong>
                   <span class="st-opt-adm">(Adm: {{ st.admissionNumber || '-' }})</span>
                 </mat-option>
@@ -135,9 +172,9 @@ import { environment } from '../../../environments/environment';
               class="toggle-chip"
               [class.active]="viewMode === 'class'"
               (click)="switchViewMode('class')"
-              [disabled]="!selectedClassId">
+              [disabled]="activeStream === 'school' ? !selectedClassId : !selectedBatchId">
               <mat-icon>groups</mat-icon>
-              <span>Class Batch View ({{ classCards.length }})</span>
+              <span>{{ activeStream === 'coaching' ? 'Coaching Batch View' : 'Class Batch View' }} ({{ classCards.length }})</span>
             </button>
           </div>
 
@@ -154,12 +191,12 @@ import { environment } from '../../../environments/environment';
         </div>
       </div>
 
-
       <!-- Empty / Prompt State -->
       <div class="empty-container no-print" *ngIf="!loading && !currentCard && viewMode === 'single'">
         <mat-icon class="empty-icon">badge</mat-icon>
         <h3>No Student Selected</h3>
-        <p>Please select a Class, Section and Student from the filters above to generate the Student Fee Card.</p>
+        <p *ngIf="activeStream === 'school'">Please select a Class, Section and Student from the filters above to generate the Student Fee Card.</p>
+        <p *ngIf="activeStream === 'coaching'">Please select a Coaching Batch and Student from the filters above to generate the Coaching Fee Card.</p>
       </div>
 
       <!-- SINGLE STUDENT FEE CARD (Screen & Print) -->
@@ -192,9 +229,9 @@ import { environment } from '../../../environments/environment';
 
           <!-- TITLE BANNER -->
           <div class="card-title-banner">
-            <span class="banner-en">STUDENT ANNUAL FEE CARD / PASSBOOK</span>
+            <span class="banner-en">{{ (activeStream === 'coaching' || (!currentCard.className && currentCard.batchName)) ? 'COACHING STUDENT ANNUAL FEE CARD / PASSBOOK' : 'STUDENT ANNUAL FEE CARD / PASSBOOK' }}</span>
             <span class="banner-session">SESSION: {{ currentCard.sessionName }}</span>
-            <span class="banner-hi">छात्र वार्षिक शुल्क पुस्तिका</span>
+            <span class="banner-hi">{{ (activeStream === 'coaching' || (!currentCard.className && currentCard.batchName)) ? 'छात्र कोचिंग वार्षिक शुल्क पुस्तिका' : 'छात्र वार्षिक शुल्क पुस्तिका' }}</span>
           </div>
 
           <!-- STUDENT INFO TABLE (Authentic ERP Passbook Format) -->
@@ -203,12 +240,23 @@ import { environment } from '../../../environments/environment';
               <tr>
                 <td class="info-label">Student Name (विद्यार्थी का नाम)</td>
                 <td class="info-value student-name-val">{{ currentCard.studentName }}</td>
-                <td class="info-label">Class & Sec (कक्षा / वर्ग)</td>
-                <td class="info-value bold-val">{{ currentCard.className || '-' }} ({{ currentCard.sectionName || '-' }})</td>
+                <td class="info-label">{{ (activeStream === 'coaching' || (!currentCard.className && currentCard.batchName)) ? 'Coaching Batch (बैच)' : 'Class & Sec (कक्षा / वर्ग)' }}</td>
+                <td class="info-value bold-val">
+                  <ng-container *ngIf="activeStream === 'coaching' || (!currentCard.className && currentCard.batchName)">
+                    {{ currentCard.batchName || '-' }}
+                    <span *ngIf="currentCard.className" class="hybrid-subtext"> • School: {{ currentCard.className }} ({{ currentCard.sectionName || '-' }})</span>
+                  </ng-container>
+                  <ng-container *ngIf="activeStream !== 'coaching' && (currentCard.className || !currentCard.batchName)">
+                    {{ currentCard.className || '-' }} ({{ currentCard.sectionName || '-' }})
+                    <span *ngIf="currentCard.batchName" class="hybrid-subtext"> • Batch: {{ currentCard.batchName }}</span>
+                  </ng-container>
+                </td>
               </tr>
               <tr>
                 <td class="info-label">Roll No. (क्रमांक)</td>
-                <td class="info-value bold-val">{{ currentCard.rollNumber || '-' }}</td>
+                <td class="info-value bold-val">
+                  {{ ((activeStream === 'coaching' ? (currentCard.coachingRollNumber || currentCard.rollNumber) : (currentCard.schoolRollNumber || currentCard.rollNumber)) || currentCard.rollNumber) || '-' }}
+                </td>
                 <td class="info-label">Admission No. (नामांकन सं.)</td>
                 <td class="info-value bold-val">{{ currentCard.admissionNumber || '-' }}</td>
               </tr>
@@ -378,19 +426,19 @@ import { environment } from '../../../environments/environment';
       <div class="class-batch-wrapper" *ngIf="!loading && viewMode === 'class'">
         <div class="batch-controls no-print">
           <div class="batch-header-info">
-            <h3>Class Fee Cards Roster ({{ classCards.length }} Students)</h3>
-            <p>Showing full 12-month passbooks for all active students in this class.</p>
+            <h3>{{ activeStream === 'coaching' ? 'Coaching Batch Fee Cards Roster' : 'Class Fee Cards Roster' }} ({{ classCards.length }} Students)</h3>
+            <p>Showing full 12-month passbooks for all active students in this {{ activeStream === 'coaching' ? 'coaching batch' : 'class' }}.</p>
           </div>
           <button mat-flat-button color="primary" (click)="printCard()" [disabled]="classCards.length === 0">
             <mat-icon>print</mat-icon>
-            <span>Print All Class Cards (A4 Pages)</span>
+            <span>Print All {{ activeStream === 'coaching' ? 'Batch Cards' : 'Class Cards' }} (A4 Pages)</span>
           </button>
         </div>
 
         <div *ngIf="classCards.length === 0" class="empty-container no-print">
           <mat-icon class="empty-icon">groups</mat-icon>
-          <h3>No students found in this class</h3>
-          <p>Please select another class or section.</p>
+          <h3>No students found in this {{ activeStream === 'coaching' ? 'coaching batch' : 'class' }}</h3>
+          <p>Please select another {{ activeStream === 'coaching' ? 'batch' : 'class or section' }}.</p>
         </div>
 
         <div class="batch-cards-list">
@@ -423,9 +471,9 @@ import { environment } from '../../../environments/environment';
 
               <!-- TITLE BANNER -->
               <div class="card-title-banner">
-                <span class="banner-en">STUDENT ANNUAL FEE CARD / PASSBOOK</span>
+                <span class="banner-en">{{ (activeStream === 'coaching' || (!card.className && card.batchName)) ? 'COACHING STUDENT ANNUAL FEE CARD / PASSBOOK' : 'STUDENT ANNUAL FEE CARD / PASSBOOK' }}</span>
                 <span class="banner-session">SESSION: {{ card.sessionName }}</span>
-                <span class="banner-hi">छात्र वार्षिक शुल्क पुस्तिका</span>
+                <span class="banner-hi">{{ (activeStream === 'coaching' || (!card.className && card.batchName)) ? 'छात्र कोचिंग वार्षिक शुल्क पुस्तिका' : 'छात्र वार्षिक शुल्क पुस्तिका' }}</span>
               </div>
 
               <!-- STUDENT INFO TABLE (Authentic ERP Passbook Format) -->
@@ -434,12 +482,23 @@ import { environment } from '../../../environments/environment';
                   <tr>
                     <td class="info-label">Student Name (विद्यार्थी का नाम)</td>
                     <td class="info-value student-name-val">{{ card.studentName }}</td>
-                    <td class="info-label">Class & Sec (कक्षा / वर्ग)</td>
-                    <td class="info-value bold-val">{{ card.className || '-' }} ({{ card.sectionName || '-' }})</td>
+                    <td class="info-label">{{ (activeStream === 'coaching' || (!card.className && card.batchName)) ? 'Coaching Batch (बैच)' : 'Class & Sec (कक्षा / वर्ग)' }}</td>
+                    <td class="info-value bold-val">
+                      <ng-container *ngIf="activeStream === 'coaching' || (!card.className && card.batchName)">
+                        {{ card.batchName || '-' }}
+                        <span *ngIf="card.className" class="hybrid-subtext"> • School: {{ card.className }} ({{ card.sectionName || '-' }})</span>
+                      </ng-container>
+                      <ng-container *ngIf="activeStream !== 'coaching' && (card.className || !card.batchName)">
+                        {{ card.className || '-' }} ({{ card.sectionName || '-' }})
+                        <span *ngIf="card.batchName" class="hybrid-subtext"> • Batch: {{ card.batchName }}</span>
+                      </ng-container>
+                    </td>
                   </tr>
                   <tr>
                     <td class="info-label">Roll No. (क्रमांक)</td>
-                    <td class="info-value bold-val">{{ card.rollNumber || '-' }}</td>
+                    <td class="info-value bold-val">
+                      {{ ((activeStream === 'coaching' ? (card.coachingRollNumber || card.rollNumber) : (card.schoolRollNumber || card.rollNumber)) || card.rollNumber) || '-' }}
+                    </td>
                     <td class="info-label">Admission No. (नामांकन सं.)</td>
                     <td class="info-value bold-val">{{ card.admissionNumber || '-' }}</td>
                   </tr>
@@ -591,7 +650,7 @@ import { environment } from '../../../environments/environment';
       box-sizing: border-box;
       display: flex;
       flex-direction: column;
-      gap: 20px;
+      gap: 16px;
       padding: 0 0 40px;
     }
 
@@ -606,7 +665,7 @@ import { environment } from '../../../environments/environment';
       align-items: center;
       flex-wrap: wrap;
       gap: 1rem;
-      margin-bottom: 1.5rem;
+      margin-bottom: 0;
       box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.05);
     }
 
@@ -674,8 +733,93 @@ import { environment } from '../../../environments/environment';
       border: 1px solid #e2e8f0;
       border-radius: 12px;
       padding: 1.25rem 1.5rem;
-      margin-bottom: 1.75rem;
+      margin-bottom: 0;
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+    }
+
+    /* Hybrid subtext in table */
+    .hybrid-subtext {
+      font-size: 0.78rem;
+      font-weight: 500;
+      color: #2563eb;
+    }
+
+    /* Stream Switcher */
+    .stream-switcher-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 1.25rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid #e2e8f0;
+      flex-wrap: wrap;
+    }
+
+    .stream-label {
+      font-size: 0.84rem;
+      font-weight: 700;
+      color: #334155;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .stream-pills {
+      display: flex;
+      gap: 8px;
+      background: #f1f5f9;
+      padding: 4px;
+      border-radius: 10px;
+    }
+
+    .stream-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 16px;
+      border-radius: 8px;
+      border: none;
+      background: transparent;
+      color: #64748b;
+      font-weight: 600;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .stream-pill mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+    }
+
+    .stream-pill.active {
+      background: #ffffff;
+      color: #1e40af;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+      font-weight: 700;
+    }
+
+    .stream-pill:hover:not(.active) {
+      color: #0f172a;
+      background: rgba(255, 255, 255, 0.5);
+    }
+
+    /* Single Loader Container */
+    .loader-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 20px;
+      gap: 16px;
+      color: #1e3a8a;
+    }
+
+    .loader-text {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #475569;
+      margin: 0;
     }
 
     .filters-grid {
@@ -802,7 +946,7 @@ import { environment } from '../../../environments/environment';
       padding: 3.5rem 1.5rem;
       text-align: center;
       color: #64748b;
-      margin-top: 1.5rem;
+      margin-top: 0;
     }
 
     .loading-container mat-spinner {
@@ -826,7 +970,7 @@ import { environment } from '../../../environments/environment';
 
     /* THE PHYSICAL PASSBOOK / FEE CARD */
     .fee-card-wrapper {
-      margin-top: 1rem;
+      margin-top: 0;
     }
 
     .student-fee-passbook {
@@ -1735,21 +1879,31 @@ export class FeeCardComponent implements OnInit {
   private schoolService = inject(SchoolService);
   private coachingService = inject(CoachingService);
   private authService = inject(AuthService);
-  private snackBar = inject(MatSnackBar);
+  private confirmDialog = inject(ConfirmDialogService);
   private dialog = inject(MatDialog);
+
+  // Tenant Module Context & Stream
+  readonly hasSchoolModule = this.authService.hasSchoolModule;
+  readonly hasCoachingModule = this.authService.hasCoachingModule;
+  activeStream: 'school' | 'coaching' = 'school';
 
   // Filter State
   sessions: { year: number; label: string }[] = [];
   selectedSessionYear: number = 2026;
 
+  // School Stream
   classes: SchoolClassDto[] = [];
-  selectedClassId: string | null = null;
-
+  selectedClassId: string = '';
   sections: SchoolSectionDto[] = [];
   selectedSectionId: string = '';
 
+  // Coaching Stream
+  batches: any[] = [];
+  selectedBatchId: string = '';
+
+  // Student State
   students: any[] = [];
-  selectedStudentId: string | null = null;
+  selectedStudentId: string = '';
 
   // View state
   viewMode: 'single' | 'class' = 'single';
@@ -1760,7 +1914,19 @@ export class FeeCardComponent implements OnInit {
 
   ngOnInit(): void {
     this.initSessions();
-    this.loadClasses();
+
+    if (!this.hasSchoolModule() && this.hasCoachingModule()) {
+      this.activeStream = 'coaching';
+      this.loadBatches();
+    } else {
+      this.activeStream = 'school';
+      if (this.hasSchoolModule()) {
+        this.loadClasses();
+      }
+      if (this.hasCoachingModule()) {
+        this.loadBatches();
+      }
+    }
   }
 
   private initSessions(): void {
@@ -1776,11 +1942,53 @@ export class FeeCardComponent implements OnInit {
     ];
   }
 
+  switchStream(stream: 'school' | 'coaching'): void {
+    if (this.activeStream === stream) return;
+    this.activeStream = stream;
+    this.students = [];
+    this.selectedStudentId = '';
+    this.currentCard = null;
+    this.classCards = [];
+
+    if (stream === 'school') {
+      if (this.classes.length === 0) {
+        this.loadClasses();
+      } else if (this.selectedClassId) {
+        this.loadStudents();
+      }
+    } else {
+      this.selectedBatchId = '';
+      if (this.batches.length === 0) {
+        this.loadBatches();
+      }
+    }
+  }
+
+  loadBatches(): void {
+    this.coachingService.getBatches().subscribe({
+      next: (data) => {
+        this.batches = data || [];
+        this.selectedBatchId = '';
+      },
+      error: (err) => console.error('Failed to load batches', err)
+    });
+  }
+
+  onBatchChanged(): void {
+    this.students = [];
+    this.selectedStudentId = '';
+    this.currentCard = null;
+    this.classCards = [];
+
+    if (!this.selectedBatchId) return;
+    this.loadStudents();
+  }
+
   loadClasses(): void {
     this.schoolService.getClasses(true).subscribe({
       next: (data) => {
         this.classes = data || [];
-        if (this.classes.length > 0 && !this.selectedClassId) {
+        if (this.activeStream === 'school' && this.classes.length > 0 && !this.selectedClassId) {
           this.selectedClassId = this.classes[0].id;
           this.selectedSectionId = '';
           this.onClassChanged();
@@ -1794,7 +2002,7 @@ export class FeeCardComponent implements OnInit {
     this.selectedSectionId = '';
     this.sections = [];
     this.students = [];
-    this.selectedStudentId = null;
+    this.selectedStudentId = '';
     this.currentCard = null;
     this.classCards = [];
 
@@ -1816,30 +2024,57 @@ export class FeeCardComponent implements OnInit {
   }
 
   loadStudents(): void {
-    if (!this.selectedClassId) return;
+    if (this.activeStream === 'school') {
+      if (!this.selectedClassId) return;
 
-    this.loading = true;
-    this.coachingService.getStudents(undefined, this.selectedClassId, this.selectedSectionId || undefined).subscribe({
-      next: (res) => {
-        this.students = res || [];
-        this.loading = false;
-        if (this.students.length > 0) {
-          this.selectedStudentId = this.students[0].id;
-          this.loadStudentCard();
-        } else {
-          this.selectedStudentId = null;
-          this.currentCard = null;
-        }
+      this.loading = true;
+      this.coachingService.getStudents(undefined, this.selectedClassId, this.selectedSectionId || undefined).subscribe({
+        next: (res) => {
+          this.students = res || [];
+          this.loading = false;
+          if (this.students.length > 0) {
+            this.selectedStudentId = this.students[0].id;
+            this.loadStudentCard();
+          } else {
+            this.selectedStudentId = '';
+            this.currentCard = null;
+          }
 
-        if (this.viewMode === 'class') {
-          this.loadClassBatchCards();
+          if (this.viewMode === 'class') {
+            this.loadBatchCards();
+          }
+        },
+        error: (err) => {
+          this.loading = false;
+          console.error('Failed to load students', err);
         }
-      },
-      error: (err) => {
-        this.loading = false;
-        console.error('Failed to load students', err);
-      }
-    });
+      });
+    } else {
+      if (!this.selectedBatchId) return;
+
+      this.loading = true;
+      this.coachingService.getStudents(this.selectedBatchId, undefined, undefined).subscribe({
+        next: (res) => {
+          this.students = res || [];
+          this.loading = false;
+          if (this.students.length > 0) {
+            this.selectedStudentId = this.students[0].id;
+            this.loadStudentCard();
+          } else {
+            this.selectedStudentId = '';
+            this.currentCard = null;
+          }
+
+          if (this.viewMode === 'class') {
+            this.loadBatchCards();
+          }
+        },
+        error: (err) => {
+          this.loading = false;
+          console.error('Failed to load batch students', err);
+        }
+      });
+    }
   }
 
   onStudentChanged(): void {
@@ -1853,8 +2088,11 @@ export class FeeCardComponent implements OnInit {
   onFilterChanged(): void {
     if (this.viewMode === 'single' && this.selectedStudentId) {
       this.loadStudentCard();
-    } else if (this.viewMode === 'class' && this.selectedClassId) {
-      this.loadClassBatchCards();
+    } else if (this.viewMode === 'class') {
+      const hasScope = this.activeStream === 'school' ? !!this.selectedClassId : !!this.selectedBatchId;
+      if (hasScope) {
+        this.loadBatchCards();
+      }
     }
   }
 
@@ -1869,37 +2107,59 @@ export class FeeCardComponent implements OnInit {
       },
       error: (err) => {
         this.loading = false;
-        this.snackBar.open('Failed to load student fee card: ' + (err?.error?.message || err.message), 'Close', { duration: 4000 });
+        this.confirmDialog.alert('Notice', 'Failed to load student fee card: ' + (err?.error?.message || err.message), 'danger');
       }
     });
   }
 
-  loadClassBatchCards(): void {
-    if (!this.selectedClassId) return;
-    this.loading = true;
+  loadBatchCards(): void {
+    if (this.activeStream === 'school') {
+      if (!this.selectedClassId) return;
+      this.loading = true;
 
-    this.feesService.getStudentFeeCardsByClass(
-      this.selectedClassId,
-      this.selectedSectionId || undefined,
-      undefined,
-      this.selectedSessionYear
-    ).subscribe({
-      next: (cards) => {
-        this.classCards = cards || [];
-        this.loading = false;
-      },
-      error: (err) => {
-        this.loading = false;
-        this.snackBar.open('Failed to load class fee cards: ' + (err?.error?.message || err.message), 'Close', { duration: 4000 });
-      }
-    });
+      this.feesService.getStudentFeeCardsByClass(
+        this.selectedClassId,
+        this.selectedSectionId || undefined,
+        undefined,
+        this.selectedSessionYear
+      ).subscribe({
+        next: (cards) => {
+          this.classCards = cards || [];
+          this.loading = false;
+        },
+        error: (err) => {
+          this.loading = false;
+          this.confirmDialog.alert('Notice', 'Failed to load class fee cards: ' + (err?.error?.message || err.message), 'danger');
+        }
+      });
+    } else {
+      if (!this.selectedBatchId) return;
+      this.loading = true;
+
+      this.feesService.getStudentFeeCardsByClass(
+        undefined,
+        undefined,
+        this.selectedBatchId,
+        this.selectedSessionYear
+      ).subscribe({
+        next: (cards) => {
+          this.classCards = cards || [];
+          this.loading = false;
+        },
+        error: (err) => {
+          this.loading = false;
+          this.confirmDialog.alert('Notice', 'Failed to load coaching batch fee cards: ' + (err?.error?.message || err.message), 'danger');
+        }
+      });
+    }
   }
 
   switchViewMode(mode: 'single' | 'class'): void {
     this.viewMode = mode;
     if (mode === 'class') {
-      if (this.classCards.length === 0 && this.selectedClassId) {
-        this.loadClassBatchCards();
+      const hasScope = this.activeStream === 'school' ? !!this.selectedClassId : !!this.selectedBatchId;
+      if (this.classCards.length === 0 && hasScope) {
+        this.loadBatchCards();
       }
     } else {
       if (!this.currentCard && this.selectedStudentId) {
@@ -1912,7 +2172,7 @@ export class FeeCardComponent implements OnInit {
     if (this.viewMode === 'single') {
       this.loadStudentCard();
     } else {
-      this.loadClassBatchCards();
+      this.loadBatchCards();
     }
   }
 

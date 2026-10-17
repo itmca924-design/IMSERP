@@ -400,7 +400,10 @@ public class FeesController : ControllerBase
             query = query.Where(s => s.BatchId == batchId.Value);
         }
 
-        var students = await query.OrderBy(s => s.RollNumber).ThenBy(s => s.StudentName).ToListAsync();
+        var students = await query
+            .OrderBy(s => !string.IsNullOrEmpty(s.CoachingRollNumber) && batchId.HasValue ? s.CoachingRollNumber : s.RollNumber)
+            .ThenBy(s => s.StudentName)
+            .ToListAsync();
         var cards = new List<StudentFeeCardDto>();
         foreach (var s in students)
         {
@@ -434,11 +437,35 @@ public class FeesController : ControllerBase
 
         var monthsList = new List<FeeCardMonthEntryDto>();
         decimal monthlyFeeRate = student.Batch?.StandardMonthlyFee ?? 0m;
+        if (monthlyFeeRate == 0m && student.ClassId.HasValue)
+        {
+            var classFee = await _dbContext.ClassFeeStructures
+                .AsNoTracking()
+                .Include(c => c.FeeHead)
+                .Where(c => c.ClassId == student.ClassId.Value && c.IsActive)
+                .Where(c => c.FeeHead != null && (c.FeeHead.Frequency == "Monthly" || c.FeeHead.Category == "Academic" || c.FeeHead.Name.Contains("Tuition")))
+                .SumAsync(c => c.Amount);
+            if (classFee > 0) monthlyFeeRate = classFee;
+        }
 
         DateTime joinRefDate = student.JoiningDate != default 
             ? student.JoiningDate 
             : new DateTime(startYear, 4, 1);
-        DateTime studentEnrollmentStart = new DateTime(joinRefDate.Year, joinRefDate.Month, 1);
+
+        // Standard 20th-Day Admission Cutoff Rule:
+        // If admission takes place on or after the 20th of the month, and no invoice was intentionally billed for that joining month,
+        // the remaining days are treated as orientation/grace period, and regular monthly billing starts from the 1st of the next month.
+        bool hasInvoiceInJoiningMonth = invoices.Any(iv => iv.DueDate.Year == joinRefDate.Year && iv.DueDate.Month == joinRefDate.Month);
+        DateTime studentEnrollmentStart;
+        if (joinRefDate.Day >= 20 && !hasInvoiceInJoiningMonth)
+        {
+            studentEnrollmentStart = new DateTime(joinRefDate.Year, joinRefDate.Month, 1).AddMonths(1);
+        }
+        else
+        {
+            studentEnrollmentStart = new DateTime(joinRefDate.Year, joinRefDate.Month, 1);
+        }
+
         var currentMonthStart = new DateTime(now.Year, now.Month, 1);
 
         for (int i = 1; i <= 12; i++)
@@ -570,7 +597,11 @@ public class FeesController : ControllerBase
             totalConcession,
             totalPaid,
             totalBalanceDue,
-            pendingLibFine
+            pendingLibFine,
+            student.SchoolRollNumber,
+            student.CoachingRollNumber,
+            student.IsSchoolStudent,
+            student.IsCoachingStudent
         );
     }
 

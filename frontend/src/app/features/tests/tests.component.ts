@@ -676,8 +676,6 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
           </div>
         </div>
 
-        <mat-progress-bar mode="indeterminate" *ngIf="loading" class="grid-loader no-print"></mat-progress-bar>
-
         <mat-card-content class="table-container">
           <div class="responsive-table-wrap">
             <table mat-table [dataSource]="tests" matSort (matSortChange)="onSortChange($event)" class="full-width">

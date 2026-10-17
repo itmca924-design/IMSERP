@@ -63,6 +63,9 @@
   - Decks and filters must flex-wrap or switch to column layout on smaller screens with full-width search and control units.
   - Tables must always be wrapped in `.table-responsive` (`overflow-x: auto; -webkit-overflow-scrolling: touch;`) with explicit column min-widths (`white-space: nowrap`) to avoid content squishing or clipping.
   - KPI grids must automatically adapt from 4 columns on large screens to 2 columns on tablets, and 1 column on mobile phones.
+- **Strict Single Loader Rule (Strict UI Rule)**:
+  - NEVER run multiple loading indicators simultaneously (e.g., do NOT combine `mat-progress-bar` with an overlay spinner, button loader, or search box spinner at the same time).
+  - Across the entire application, ONLY ONE single, clean, prominent loader must ever be displayed on the screen for any data fetch, filter change, pagination, or page action.
 
 
 

@@ -4,7 +4,6 @@ import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -32,7 +31,6 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
     MatCardModule,
     MatButtonModule,
     MatIconModule,
-    MatProgressBarModule,
     MatTabsModule,
     MatTableModule,
     MatTooltipModule,
@@ -66,7 +64,7 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
             (click)="printDatesheet()"
             matTooltip="Print or download exam datesheet timetable as PDF">
             <mat-icon>print</mat-icon>
-            <span>Print Datesheet (समय-सारणी)</span>
+            <span>Print Datesheet</span>
           </button>
 
           <button
@@ -88,9 +86,6 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
           </button>
         </div>
       </div>
-
-      <!-- Loading Bar -->
-      <mat-progress-bar mode="indeterminate" *ngIf="loading" class="page-loader"></mat-progress-bar>
 
       <div class="page-content-wrap" *ngIf="myData && !loading">
         <!-- Student Information Card & Academic Performance Metrics Row -->
@@ -174,7 +169,7 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
               <mat-form-field appearance="outline" class="dense-field">
                 <mat-label>Exam Type</mat-label>
                 <mat-select [(ngModel)]="selectedExamType" (selectionChange)="onFilterChanged()">
-                  <mat-option value="All">All Exam Types (समस्त परीक्षाएं)</mat-option>
+                  <mat-option value="All">All Exam Types</mat-option>
                   <mat-option *ngFor="let t of myData.availableExamTypes" [value]="t">{{ t }}</mat-option>
                 </mat-select>
               </mat-form-field>
@@ -432,30 +427,32 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
                     <!-- Scheduled Papers Table on Admit Card -->
                     <div class="admit-papers-section">
                       <h5 class="papers-title">Schedule of Examinations &amp; Subject Papers</h5>
-                      <table class="admit-table">
-                        <thead>
-                          <tr>
-                            <th>Sl No</th>
-                            <th>Subject Name</th>
-                            <th>Date (IST)</th>
-                            <th>Exam Day</th>
-                            <th>Max Marks</th>
-                            <th>Candidate Sign</th>
-                            <th>Invigilator Sign</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr *ngFor="let ex of filteredExams; let i = index">
-                            <td>{{ i + 1 }}</td>
-                            <td><strong>{{ ex.subject }}</strong> ({{ ex.examType }})</td>
-                            <td><span>{{ ex.testDate | date:'dd-MM-yyyy':'Asia/Kolkata' }}</span></td>
-                            <td><span>{{ ex.testDate | date:'EEEE':'Asia/Kolkata' }}</span></td>
-                            <td>{{ ex.maxMarks }}</td>
-                            <td class="sign-space"></td>
-                            <td class="sign-space"></td>
-                          </tr>
-                        </tbody>
-                      </table>
+                      <div class="table-responsive">
+                        <table class="admit-table">
+                          <thead>
+                            <tr>
+                              <th>Sl No</th>
+                              <th>Subject Name</th>
+                              <th>Date (IST)</th>
+                              <th>Exam Day</th>
+                              <th>Max Marks</th>
+                              <th>Candidate Sign</th>
+                              <th>Invigilator Sign</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr *ngFor="let ex of filteredExams; let i = index">
+                              <td>{{ i + 1 }}</td>
+                              <td><strong>{{ ex.subject }}</strong> ({{ ex.examType }})</td>
+                              <td><span>{{ ex.testDate | date:'dd-MM-yyyy':'Asia/Kolkata' }}</span></td>
+                              <td><span>{{ ex.testDate | date:'EEEE':'Asia/Kolkata' }}</span></td>
+                              <td>{{ ex.maxMarks }}</td>
+                              <td class="sign-space"></td>
+                              <td class="sign-space"></td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
 
                     <!-- Instructions & Signatures -->
@@ -488,7 +485,7 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
                 <div class="admit-bottom-actions">
                   <button mat-raised-button color="primary" class="print-admit-btn" (click)="openAdmitCardDialog()">
                     <mat-icon>print</mat-icon>
-                    <span>Print Official Admit Card (प्रवेश पत्र प्रिंट करें)</span>
+                    <span>Print Official Admit Card</span>
                   </button>
                 </div>
               </div>
@@ -506,11 +503,17 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
     </div>
   `,
   styles: [`
+    :host {
+      display: block;
+      width: 100%;
+    }
+
     .my-exams-page {
       display: flex;
       flex-direction: column;
       gap: 20px;
       width: 100%;
+      padding: 0 0 40px;
       box-sizing: border-box;
     }
 
@@ -527,10 +530,21 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
       box-shadow: 0 2px 8px -2px rgba(37, 99, 235, 0.1);
       flex-wrap: wrap;
 
+      @media (max-width: 992px) {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 14px;
+        padding: 14px 16px;
+      }
+
       .header-left {
         display: flex;
         align-items: center;
         gap: 14px;
+
+        @media (max-width: 640px) {
+          gap: 10px;
+        }
 
         .header-icon-box {
           background: #2563eb;
@@ -544,10 +558,21 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
           justify-content: center;
           flex-shrink: 0;
 
+          @media (max-width: 640px) {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+          }
+
           mat-icon {
             font-size: 24px;
             width: 24px;
             height: 24px;
+            @media (max-width: 640px) {
+              font-size: 20px;
+              width: 20px;
+              height: 20px;
+            }
           }
         }
 
@@ -557,12 +582,21 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
             font-weight: 700;
             font-size: 1.25rem;
             margin: 0 0 2px 0;
+
+            @media (max-width: 640px) {
+              font-size: 1.1rem;
+            }
           }
 
           .subtitle {
             color: #3b82f6;
             margin: 0;
             font-size: 0.85rem;
+
+            @media (max-width: 640px) {
+              font-size: 0.78rem;
+              line-height: 1.4;
+            }
 
             strong {
               color: #1e40af;
@@ -576,6 +610,20 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
         align-items: center;
         gap: 10px;
         flex-wrap: wrap;
+
+        @media (max-width: 992px) {
+          width: 100%;
+        }
+
+        @media (max-width: 640px) {
+          flex-direction: column;
+          gap: 8px;
+
+          button {
+            width: 100%;
+            justify-content: center;
+          }
+        }
 
         .datesheet-slip-btn {
           border-color: #93c5fd;
@@ -617,10 +665,6 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
       }
     }
 
-    .page-loader {
-      border-radius: 4px;
-    }
-
     .page-content-wrap {
       display: flex;
       flex-direction: column;
@@ -634,6 +678,10 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
       background: #ffffff;
       padding: 18px 20px;
 
+      @media (max-width: 640px) {
+        padding: 14px 12px;
+      }
+
       .card-inner-grid {
         display: grid;
         grid-template-columns: 1fr 1.6fr;
@@ -642,6 +690,7 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
 
         @media (max-width: 1024px) {
           grid-template-columns: 1fr;
+          gap: 18px;
         }
       }
 
@@ -649,6 +698,11 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
         display: flex;
         align-items: center;
         gap: 16px;
+
+        @media (max-width: 640px) {
+          gap: 12px;
+          align-items: flex-start;
+        }
 
         .student-avatar-box {
           width: 56px;
@@ -662,6 +716,17 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
           justify-content: center;
           flex-shrink: 0;
 
+          @media (max-width: 640px) {
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            mat-icon {
+              font-size: 24px;
+              width: 24px;
+              height: 24px;
+            }
+          }
+
           mat-icon {
             font-size: 32px;
             width: 32px;
@@ -670,17 +735,25 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
         }
 
         .student-details {
+          min-width: 0;
+          flex: 1;
+
           .st-name-row {
             display: flex;
             align-items: center;
             gap: 10px;
             margin-bottom: 4px;
+            flex-wrap: wrap;
 
             .st-name {
               margin: 0;
               font-size: 1.15rem;
               font-weight: 700;
               color: #0f172a;
+
+              @media (max-width: 640px) {
+                font-size: 1.05rem;
+              }
             }
 
             .st-status-chip {
@@ -704,6 +777,11 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
             color: #475569;
             margin-bottom: 6px;
 
+            @media (max-width: 640px) {
+              font-size: 0.78rem;
+              gap: 4px;
+            }
+
             strong {
               color: #0f172a;
             }
@@ -724,6 +802,11 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
             gap: 6px;
             font-size: 0.8rem;
             color: #64748b;
+            flex-wrap: wrap;
+
+            @media (max-width: 640px) {
+              font-size: 0.75rem;
+            }
 
             .contact-icon {
               font-size: 16px;
@@ -749,8 +832,13 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
         grid-template-columns: repeat(4, 1fr);
         gap: 12px;
 
-        @media (max-width: 768px) {
+        @media (max-width: 1024px) {
           grid-template-columns: repeat(2, 1fr);
+        }
+
+        @media (max-width: 640px) {
+          grid-template-columns: 1fr;
+          gap: 10px;
         }
 
         .kpi-box {
@@ -819,19 +907,100 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
         gap: 16px;
         flex-wrap: wrap;
 
+        @media (max-width: 640px) {
+          flex-direction: column;
+          align-items: stretch;
+          gap: 12px;
+        }
+
+        .filter-item {
+          @media (max-width: 640px) {
+            width: 100%;
+          }
+        }
+
         .dense-field {
           width: 220px;
+          @media (max-width: 640px) {
+            width: 100%;
+          }
+
           ::ng-deep .mat-mdc-form-field-subscript-wrapper {
             display: none;
           }
+
           ::ng-deep .mat-mdc-text-field-wrapper {
-            height: 44px;
+            height: 44px !important;
             background: #f8fafc;
+            box-sizing: border-box !important;
+            padding-top: 0 !important;
+            padding-bottom: 0 !important;
+          }
+
+          ::ng-deep .mat-mdc-form-field-flex {
+            height: 44px !important;
+            align-items: center !important;
+            box-sizing: border-box !important;
+          }
+
+          ::ng-deep .mat-mdc-form-field-infix {
+            min-height: unset !important;
+            height: 44px !important;
+            padding-top: 0 !important;
+            padding-bottom: 0 !important;
+            display: flex !important;
+            align-items: center !important;
+            box-sizing: border-box !important;
+          }
+
+          ::ng-deep .mat-mdc-floating-label {
+            top: 22px !important;
+            transform: translateY(-50%) !important;
+          }
+
+          ::ng-deep .mat-mdc-floating-label.mdc-floating-label--float-above {
+            top: 0 !important;
+            transform: translateY(-50%) scale(0.75) !important;
+          }
+
+          ::ng-deep .mat-mdc-select-trigger {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            height: 100% !important;
+            min-height: unset !important;
+            box-sizing: border-box !important;
+            width: 100% !important;
+          }
+
+          ::ng-deep .mat-mdc-select-value {
+            flex: 1 1 auto !important;
+            min-width: 0 !important;
+            display: flex !important;
+            align-items: center !important;
+            font-size: 0.88rem !important;
+            line-height: normal !important;
+            color: #0f172a !important;
+          }
+
+          ::ng-deep .mat-mdc-select-arrow-wrapper {
+            flex-shrink: 0 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            width: 20px !important;
+            height: 20px !important;
+            transform: none !important;
           }
         }
 
         .search-box {
           margin-left: auto;
+          @media (max-width: 640px) {
+            margin-left: 0;
+            width: 100%;
+          }
+
           .filter-count-chip {
             display: inline-flex;
             align-items: center;
@@ -842,6 +1011,12 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
             background: #f1f5f9;
             padding: 6px 12px;
             border-radius: 8px;
+
+            @media (max-width: 640px) {
+              width: 100%;
+              justify-content: center;
+              box-sizing: border-box;
+            }
 
             mat-icon {
               font-size: 18px;
@@ -878,7 +1053,7 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
         padding: 18px 20px;
 
         @media (max-width: 768px) {
-          padding: 12px 10px;
+          padding: 14px 10px;
         }
       }
     }
@@ -892,6 +1067,22 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
       display: flex;
       align-items: center;
       gap: 14px;
+
+      @media (max-width: 640px) {
+        flex-direction: column;
+        align-items: stretch;
+        text-align: center;
+        gap: 12px;
+
+        .banner-badge {
+          margin: 0 auto;
+        }
+
+        .datesheet-action-btn {
+          width: 100%;
+          justify-content: center;
+        }
+      }
 
       .banner-badge {
         width: 38px;
@@ -925,10 +1116,12 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
     .table-responsive {
       overflow-x: auto;
       -webkit-overflow-scrolling: touch;
+      width: 100%;
     }
 
     .passbook-table {
       width: 100%;
+      min-width: 680px;
       border-collapse: collapse;
       font-size: 0.85rem;
 
@@ -990,8 +1183,8 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
       .date-cell {
         display: flex;
         flex-direction: column;
-        .d-date { font-weight: 700; color: #0f172a; }
-        .d-day { color: #64748b; font-size: 0.75rem; }
+        .d-date { font-weight: 700; color: #0f172a; white-space: nowrap; }
+        .d-day { color: #64748b; font-size: 0.75rem; white-space: nowrap; }
       }
 
       .status-badge {
@@ -1000,6 +1193,7 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
         border-radius: 6px;
         font-size: 0.73rem;
         font-weight: 700;
+        white-space: nowrap;
 
         &.scheduled { background: #e0f2fe; color: #0369a1; }
         &.evaluated { background: #dcfce7; color: #15803d; }
@@ -1013,6 +1207,7 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
         border-radius: 4px;
         font-size: 0.72rem;
         font-weight: 600;
+        white-space: nowrap;
 
         &.urgent { background: #fee2e2; color: #b91c1c; font-weight: 700; }
         &.soon { background: #fef3c7; color: #b45309; }
@@ -1027,6 +1222,7 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
         font-size: 0.75rem;
         background: #f1f5f9;
         color: #334155;
+        white-space: nowrap;
 
         &.grade-a, &.grade-a-plus { background: #dcfce7; color: #166534; }
         &.grade-b, &.grade-b-plus { background: #e0f2fe; color: #0369a1; }
@@ -1041,6 +1237,7 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
         border-radius: 6px;
         font-weight: 700;
         font-size: 0.73rem;
+        white-space: nowrap;
 
         &.pass { background: #dcfce7; color: #15803d; }
         &.fail { background: #fee2e2; color: #b91c1c; }
@@ -1058,6 +1255,20 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
       margin-bottom: 16px;
       flex-wrap: wrap;
       gap: 12px;
+
+      @media (max-width: 640px) {
+        flex-direction: column;
+        align-items: stretch;
+
+        .res-summary-box {
+          justify-content: center;
+        }
+
+        .print-result-btn {
+          width: 100%;
+          justify-content: center;
+        }
+      }
 
       .res-summary-box {
         display: flex;
@@ -1103,6 +1314,10 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
       display: flex;
       justify-content: center;
 
+      @media (max-width: 640px) {
+        padding: 8px;
+      }
+
       .admit-card-paper {
         background: #ffffff;
         width: 100%;
@@ -1110,6 +1325,12 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
         border: 2px solid #0f172a;
         padding: 24px;
         box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+        box-sizing: border-box;
+
+        @media (max-width: 640px) {
+          padding: 12px;
+          border-width: 1px;
+        }
       }
 
       .hall-ticket-header {
@@ -1120,8 +1341,23 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
         padding-bottom: 12px;
         margin-bottom: 16px;
 
+        @media (max-width: 640px) {
+          flex-direction: column;
+          text-align: center;
+          gap: 10px;
+        }
+
         .inst-brand {
-          h2 { margin: 0; font-size: 1.4rem; color: #0f172a; font-weight: 800; text-transform: uppercase; }
+          h2 {
+            margin: 0;
+            font-size: 1.4rem;
+            color: #0f172a;
+            font-weight: 800;
+            text-transform: uppercase;
+            @media (max-width: 640px) {
+              font-size: 1.15rem;
+            }
+          }
           .inst-sub { margin: 2px 0 6px 0; color: #475569; font-size: 0.85rem; font-weight: 600; }
           .session-badge {
             display: inline-block;
@@ -1145,6 +1381,7 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
           display: flex;
           align-items: center;
           justify-content: center;
+          flex-shrink: 0;
 
           mat-icon { font-size: 32px; width: 32px; height: 32px; }
         }
@@ -1160,6 +1397,7 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
 
         @media (max-width: 768px) {
           grid-template-columns: 1fr;
+          gap: 12px;
         }
 
         .meta-col {
@@ -1169,7 +1407,7 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
 
           .meta-row {
             font-size: 0.82rem;
-            .m-lbl { color: #64748b; display: inline-block; min-width: 120px; }
+            .m-lbl { color: #64748b; display: inline-block; min-width: 110px; }
             .m-val { color: #0f172a; font-weight: 700; }
           }
         }
@@ -1182,6 +1420,12 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
           align-items: center;
           justify-content: center;
           background: #f8fafc;
+
+          @media (max-width: 768px) {
+            height: 120px;
+            max-width: 140px;
+            margin: 0 auto;
+          }
 
           .photo-inner {
             display: flex;
@@ -1208,6 +1452,7 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
 
         .admit-table {
           width: 100%;
+          min-width: 550px;
           border-collapse: collapse;
           font-size: 0.8rem;
 
@@ -1215,6 +1460,7 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
             border: 1px solid #cbd5e1;
             padding: 8px 10px;
             text-align: left;
+            white-space: nowrap;
           }
 
           th { background: #f1f5f9; font-weight: 700; }
@@ -1245,6 +1491,12 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
         align-items: flex-end;
         padding-top: 10px;
 
+        @media (max-width: 640px) {
+          flex-direction: column;
+          gap: 20px;
+          align-items: center;
+        }
+
         .sign-box {
           display: flex;
           flex-direction: column;
@@ -1269,6 +1521,14 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
       display: flex;
       justify-content: center;
       margin-top: 16px;
+
+      @media (max-width: 640px) {
+        width: 100%;
+        .print-admit-btn {
+          width: 100%;
+          justify-content: center;
+        }
+      }
 
       .print-admit-btn {
         background: #2563eb;

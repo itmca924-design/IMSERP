@@ -34,6 +34,16 @@ export interface BatchAssignmentDto {
   batchName?: string; subject: string; daysOfWeek?: string; timeSlot?: string;
   isActive: boolean; assignedAt: string;
   classId?: string; className?: string; sectionId?: string; sectionName?: string;
+  employeeCode?: string; photoUrl?: string; roomNumber?: string;
+}
+export interface MasterTimetableReportDto {
+  items: BatchAssignmentDto[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalTeachersCount?: number;
+  totalBatchesCount?: number;
+  totalSubjectsCount?: number;
 }
 export interface CreateTeacherUserAccountDto {
   username: string;
@@ -144,6 +154,7 @@ export interface SalaryPaymentDto {
   transportDeduction?: number;
   arrearsAmount?: number;
   arrearsRemarks?: string;
+  photoUrl?: string;
 }
 
 export interface MonthlyPayrollStaffItemDto {
@@ -356,6 +367,7 @@ export interface TeacherWorkloadSummaryItemDto {
   weeklyHours: number;
   totalStudentReach: number;
   assignedBatches: BatchAssignmentDto[];
+  photoUrl?: string;
 }
 
 export interface TeacherWorkloadReportDto {
@@ -391,6 +403,9 @@ export interface TeacherMonthlyPayrollReportDto {
   totalAdvancesAdjusted: number;
   totalNetPaid: number;
   payments: SalaryPaymentDto[];
+  totalRecords?: number;
+  page?: number;
+  pageSize?: number;
 }
 
 export interface AttendanceReportRowDto {
@@ -408,6 +423,7 @@ export interface AttendanceReportRowDto {
   totalWorkingDays: number;
   attendancePercentage: number;
   dailyStatuses?: string;
+  photoUrl?: string;
 }
 
 export interface AttendanceReportDto {
@@ -421,6 +437,9 @@ export interface AttendanceReportDto {
   totalHalfDays: number;
   totalHolidays: number;
   rows: AttendanceReportRowDto[];
+  totalCount?: number;
+  page?: number;
+  pageSize?: number;
 }
 
 export interface TeacherFnFPreviewDto {
@@ -704,7 +723,10 @@ export interface StaffPromotionIncrementDto {
   approvedBy?: string;
   approvalDate?: string;
   status: string;
+  isSpecialBypass?: boolean;
+  specialBypassReason?: string;
   createdAt: string;
+  photoUrl?: string;
 }
 
 export interface CreateStaffPromotionIncrementDto {
@@ -748,4 +770,14 @@ export interface StaffPromotionSummaryDto {
   totalIncrements: number;
   totalMonthlyGrossHike: number;
   averageHikePercentage: number;
+}
+
+export interface StaffPromotionsPagedResponse {
+  summary: StaffPromotionSummaryDto;
+  records: StaffPromotionIncrementDto[];
+  totalCount: number;
+  pageNumber: number;
+  pageSize: number;
+  totalPages: number;
+  distinctCycles: string[];
 }

@@ -13,6 +13,8 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatMenuModule } from '@angular/material/menu';
+import { environment } from '../../../environments/environment';
 import {
   API_BASE,
   TeacherWorkloadReportDto,
@@ -20,7 +22,9 @@ import {
   AttendanceReportDto,
   AttendanceReportRowDto,
   TeacherMonthlyPayrollReportDto,
-  BatchAssignmentDto
+  SalaryPaymentDto,
+  BatchAssignmentDto,
+  MasterTimetableReportDto
 } from './teacher.models';
 import { AuthService } from '../../core/services/auth.service';
 
@@ -40,7 +44,8 @@ import { AuthService } from '../../core/services/auth.service';
     MatTooltipModule,
     MatProgressBarModule,
     MatTabsModule,
-    MatChipsModule
+    MatChipsModule,
+    MatMenuModule
   ],
   template: `
 <div class="page-container">
@@ -61,8 +66,6 @@ import { AuthService } from '../../core/services/auth.service';
       </button>
     </div>
   </div>
-
-  <mat-progress-bar mode="indeterminate" *ngIf="loading"></mat-progress-bar>
 
   <!-- Report Tabs -->
   <div class="report-tabs-wrapper mat-elevation-z1">
@@ -146,113 +149,135 @@ import { AuthService } from '../../core/services/auth.service';
           </select>
         </div>
         <button mat-stroked-button class="refresh-workload-btn" (click)="loadWorkloadReport(workloadPage)" matTooltip="Refresh report">
-          <mat-icon [class.spin]="loadingWorkload">refresh</mat-icon> Refresh
+          <mat-icon>refresh</mat-icon> Refresh
         </button>
       </div>
 
       <!-- Workload Table -->
       <div class="table-responsive-container">
         <mat-progress-bar mode="indeterminate" *ngIf="loadingWorkload" class="table-progress-bar"></mat-progress-bar>
-        <table class="report-table" [class.table-loading]="loadingWorkload">
+        <table class="report-table workload-table" [class.table-loading]="loadingWorkload">
           <thead>
             <tr>
-              <th class="sortable-th" (click)="onWorkloadSort('name')">
+              <th class="sortable-th col-faculty" (click)="onWorkloadSort('name')">
                 <div class="th-content">
                   <span>Faculty Name &amp; Code</span>
                   <mat-icon class="sort-ico" *ngIf="workloadSortBy === 'name'">{{ workloadSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
                   <mat-icon class="sort-ico-idle" *ngIf="workloadSortBy !== 'name'">unfold_more</mat-icon>
                 </div>
               </th>
-              <th class="sortable-th" (click)="onWorkloadSort('qualification')">
+              <th class="sortable-th col-qual" (click)="onWorkloadSort('qualification')">
                 <div class="th-content">
                   <span>Qualification / Specialization</span>
                   <mat-icon class="sort-ico" *ngIf="workloadSortBy === 'qualification'">{{ workloadSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
                   <mat-icon class="sort-ico-idle" *ngIf="workloadSortBy !== 'qualification'">unfold_more</mat-icon>
                 </div>
               </th>
-              <th class="text-center sortable-th" (click)="onWorkloadSort('batches')">
+              <th class="text-center sortable-th col-batches" (click)="onWorkloadSort('batches')">
                 <div class="th-content text-center">
                   <span>{{ authService.hasSchoolModule() && !authService.hasCoachingModule() ? 'Assigned Classes' : (authService.hasSchoolModule() && authService.hasCoachingModule() ? 'Classes / Batches' : 'Assigned Batches') }}</span>
                   <mat-icon class="sort-ico" *ngIf="workloadSortBy === 'batches'">{{ workloadSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
                   <mat-icon class="sort-ico-idle" *ngIf="workloadSortBy !== 'batches'">unfold_more</mat-icon>
                 </div>
               </th>
-              <th class="text-center sortable-th" (click)="onWorkloadSort('classes')">
+              <th class="text-center sortable-th col-classes" (click)="onWorkloadSort('classes')">
                 <div class="th-content text-center">
                   <span>Classes / Week</span>
                   <mat-icon class="sort-ico" *ngIf="workloadSortBy === 'classes'">{{ workloadSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
                   <mat-icon class="sort-ico-idle" *ngIf="workloadSortBy !== 'classes'">unfold_more</mat-icon>
                 </div>
               </th>
-              <th class="text-center sortable-th" (click)="onWorkloadSort('hours')">
+              <th class="text-center sortable-th col-hours" (click)="onWorkloadSort('hours')">
                 <div class="th-content text-center">
                   <span>Weekly Hours</span>
                   <mat-icon class="sort-ico" *ngIf="workloadSortBy === 'hours'">{{ workloadSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
                   <mat-icon class="sort-ico-idle" *ngIf="workloadSortBy !== 'hours'">unfold_more</mat-icon>
                 </div>
               </th>
-              <th class="text-center sortable-th" (click)="onWorkloadSort('status')">
+              <th class="text-center sortable-th col-status" (click)="onWorkloadSort('status')">
                 <div class="th-content text-center">
                   <span>Load Status</span>
                   <mat-icon class="sort-ico" *ngIf="workloadSortBy === 'status'">{{ workloadSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
                   <mat-icon class="sort-ico-idle" *ngIf="workloadSortBy !== 'status'">unfold_more</mat-icon>
                 </div>
               </th>
-              <th class="text-center sortable-th" (click)="onWorkloadSort('reach')">
+              <th class="text-center sortable-th col-reach" (click)="onWorkloadSort('reach')">
                 <div class="th-content text-center">
                   <span>Student Reach</span>
                   <mat-icon class="sort-ico" *ngIf="workloadSortBy === 'reach'">{{ workloadSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
                   <mat-icon class="sort-ico-idle" *ngIf="workloadSortBy !== 'reach'">unfold_more</mat-icon>
                 </div>
               </th>
-              <th class="text-center">Routine Preview</th>
+              <th class="text-center actions-th">Actions</th>
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let item of (workloadReport?.teachers || [])">
-              <td>
+            <tr *ngFor="let item of displayedWorkloadTeachers" class="report-table-row" (click)="openBatchDetails(item)">
+              <td class="col-faculty">
                 <div class="faculty-name-cell">
-                  <div class="avatar-circle">{{item.teacherName.charAt(0).toUpperCase()}}</div>
+                  <div class="avatar-circle">
+                    <img
+                      *ngIf="getTeacherPhoto(item) && !imgErrors[item.teacherId]"
+                      [src]="getTeacherPhoto(item)"
+                      (error)="imgErrors[item.teacherId] = true"
+                      class="faculty-photo-img"
+                      [alt]="item.teacherName"
+                    />
+                    <span *ngIf="!getTeacherPhoto(item) || imgErrors[item.teacherId]" class="avatar-initials">
+                      {{ getInitials(item.teacherName) }}
+                    </span>
+                  </div>
                   <div>
                     <span class="name-bold">{{item.teacherName}}</span>
                     <span class="code-sub">{{item.employeeCode}}</span>
                   </div>
                 </div>
               </td>
-              <td>
-                <div class="qual-cell">
+              <td class="col-qual">
+                <div class="qual-cell" [matTooltip]="(item.qualification || 'N/A') + (item.specialization ? ' • ' + item.specialization : '')">
                   <span class="qual-text">{{item.qualification || 'N/A'}}</span>
                   <span class="spec-sub" *ngIf="item.specialization">{{item.specialization}}</span>
                 </div>
               </td>
-              <td class="text-center">
+              <td class="text-center col-batches">
                 <span class="badge-num" [class.badge-zero]="item.assignedBatchCount === 0">
                   {{item.assignedBatchCount}} {{ authService.hasSchoolModule() && !authService.hasCoachingModule() ? 'Classes' : (authService.hasSchoolModule() && authService.hasCoachingModule() ? 'Units' : 'Batches') }}
                 </span>
               </td>
-              <td class="text-center">
+              <td class="text-center col-classes">
                 <strong class="metric-num">{{item.weeklyClassesCount}}</strong>
               </td>
-              <td class="text-center">
+              <td class="text-center col-hours">
                 <span class="metric-hours">{{item.weeklyHours}} hrs</span>
               </td>
-              <td class="text-center">
+              <td class="text-center col-status">
                 <span class="status-chip" [ngClass]="getWorkloadStatusClass(item.weeklyHours)">
                   {{getWorkloadStatusText(item.weeklyHours)}}
                 </span>
               </td>
-              <td class="text-center">
+              <td class="text-center col-reach">
                 <span class="reach-pill">
                   <mat-icon>school</mat-icon> {{item.totalStudentReach}}
                 </span>
               </td>
-              <td class="text-center">
-                <button mat-icon-button color="primary" (click)="openBatchDetails(item)" matTooltip="View assigned batch slots">
-                  <mat-icon>visibility</mat-icon>
+              <td class="text-center actions-td" (click)="$event.stopPropagation()">
+                <button
+                  mat-icon-button
+                  [matMenuTriggerFor]="routineMenu"
+                  class="action-menu-btn"
+                  matTooltip="Actions"
+                >
+                  <mat-icon>more_vert</mat-icon>
                 </button>
+                <mat-menu #routineMenu="matMenu" xPosition="before" class="compact-action-menu">
+                  <button mat-menu-item (click)="openBatchDetails(item)">
+                    <mat-icon style="color: #2563eb;">visibility</mat-icon>
+                    <span>Routine Preview</span>
+                  </button>
+                </mat-menu>
               </td>
             </tr>
-            <tr *ngIf="!loadingWorkload && (!workloadReport || !workloadReport.teachers || workloadReport.teachers.length === 0)">
+            <tr *ngIf="!loadingWorkload && displayedWorkloadTeachers.length === 0">
               <td colspan="8" class="empty-table-cell">No faculty found matching the search criteria.</td>
             </tr>
           </tbody>
@@ -306,24 +331,44 @@ import { AuthService } from '../../core/services/auth.service';
         <div class="month-selector-group">
           <div class="select-field">
             <label>Month:</label>
-            <select [(ngModel)]="attendanceMonth" (change)="loadAttendanceReport()">
+            <select [(ngModel)]="attendanceMonth" (change)="loadAttendanceReport(1)">
               <option *ngFor="let m of months; let i = index" [value]="i + 1">{{m}}</option>
             </select>
           </div>
           <div class="select-field">
             <label>Year:</label>
-            <select [(ngModel)]="attendanceYear" (change)="loadAttendanceReport()">
+            <select [(ngModel)]="attendanceYear" (change)="loadAttendanceReport(1)">
               <option *ngFor="let y of years" [value]="y">{{y}}</option>
             </select>
           </div>
-          <button mat-raised-button color="primary" class="refresh-btn" (click)="loadAttendanceReport()">
-            <mat-icon>refresh</mat-icon> Load Sheet
+        </div>
+
+        <div class="search-input-wrap">
+          <mat-icon>search</mat-icon>
+          <input type="text" placeholder="Search faculty by name or code..." [(ngModel)]="attendanceSearch" (ngModelChange)="onAttendanceSearchChange()">
+          <button type="button" class="clear-search-btn" *ngIf="attendanceSearch" (click)="clearAttendanceSearch()" matTooltip="Clear search">
+            <mat-icon>close</mat-icon>
           </button>
         </div>
+
+        <div class="filter-select-wrap">
+          <label>Rating:</label>
+          <select [(ngModel)]="attendanceStatusFilter" (change)="onAttendanceFilterChange()">
+            <option value="all">All Punctuality Ratings</option>
+            <option value="flawless">100% On-Time (Flawless)</option>
+            <option value="good">Good Regular (&ge; 75%)</option>
+            <option value="late">Has Late Arrivals</option>
+            <option value="low">Critical Low (&lt; 50%)</option>
+          </select>
+        </div>
+
         <div class="matrix-toggle-group">
+          <button mat-stroked-button class="refresh-workload-btn" (click)="loadAttendanceReport(attendancePage)" matTooltip="Refresh attendance register">
+            <mat-icon>refresh</mat-icon> Refresh
+          </button>
           <button mat-stroked-button class="matrix-bulk-btn" (click)="toggleExpandAll()">
             <mat-icon>{{expandAllDays ? 'unfold_less' : 'calendar_view_month'}}</mat-icon>
-            <span>{{expandAllDays ? 'Collapse All Matrices' : 'Expand All 30-Day Matrices'}}</span>
+            <span>{{expandAllDays ? 'Collapse Matrices' : 'Expand 30-Day'}}</span>
           </button>
         </div>
       </div>
@@ -369,36 +414,80 @@ import { AuthService } from '../../core/services/auth.service';
 
       <!-- Attendance Table -->
       <div class="table-responsive-container" *ngIf="attendanceReport">
-        <table class="report-table">
+        <mat-progress-bar mode="indeterminate" *ngIf="loadingAttendance" class="table-progress-bar"></mat-progress-bar>
+        <table class="report-table" [class.table-loading]="loadingAttendance">
           <thead>
             <tr>
-              <th style="min-width: 220px;">Faculty Name</th>
-              <th style="min-width: 110px;">Code</th>
-              <th class="text-center" style="min-width: 70px;">Present</th>
-              <th class="text-center" style="min-width: 70px;">Absent</th>
-              <th class="text-center" style="min-width: 70px;">Late</th>
-              <th class="text-center" style="min-width: 75px;">Half Days</th>
+              <th class="sortable-th" (click)="onAttendanceSort('name')" style="min-width: 200px;">
+                <span class="th-content">
+                  Faculty Member
+                  <mat-icon class="sort-ico" *ngIf="attendanceSortBy === 'name'">{{attendanceSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward'}}</mat-icon>
+                  <mat-icon class="sort-ico-idle" *ngIf="attendanceSortBy !== 'name'">unfold_more</mat-icon>
+                </span>
+              </th>
+              <th class="text-center sortable-th" (click)="onAttendanceSort('present')" style="min-width: 80px;">
+                <span class="th-content text-center">
+                  Present
+                  <mat-icon class="sort-ico" *ngIf="attendanceSortBy === 'present'">{{attendanceSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward'}}</mat-icon>
+                  <mat-icon class="sort-ico-idle" *ngIf="attendanceSortBy !== 'present'">unfold_more</mat-icon>
+                </span>
+              </th>
+              <th class="text-center sortable-th" (click)="onAttendanceSort('absent')" style="min-width: 80px;">
+                <span class="th-content text-center">
+                  Absent
+                  <mat-icon class="sort-ico" *ngIf="attendanceSortBy === 'absent'">{{attendanceSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward'}}</mat-icon>
+                  <mat-icon class="sort-ico-idle" *ngIf="attendanceSortBy !== 'absent'">unfold_more</mat-icon>
+                </span>
+              </th>
+              <th class="text-center sortable-th" (click)="onAttendanceSort('late')" style="min-width: 80px;">
+                <span class="th-content text-center">
+                  Late
+                  <mat-icon class="sort-ico" *ngIf="attendanceSortBy === 'late'">{{attendanceSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward'}}</mat-icon>
+                  <mat-icon class="sort-ico-idle" *ngIf="attendanceSortBy !== 'late'">unfold_more</mat-icon>
+                </span>
+              </th>
+              <th class="text-center sortable-th" (click)="onAttendanceSort('half')" style="min-width: 85px;">
+                <span class="th-content text-center">
+                  Half Days
+                  <mat-icon class="sort-ico" *ngIf="attendanceSortBy === 'half'">{{attendanceSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward'}}</mat-icon>
+                  <mat-icon class="sort-ico-idle" *ngIf="attendanceSortBy !== 'half'">unfold_more</mat-icon>
+                </span>
+              </th>
               <th class="text-center" style="min-width: 80px;">Off/Sundays</th>
               <th class="text-center" style="min-width: 85px;">Working Days</th>
-              <th class="text-center" style="min-width: 170px;">Attendance %</th>
+              <th class="text-center sortable-th" (click)="onAttendanceSort('percentage')" style="min-width: 170px;">
+                <span class="th-content text-center">
+                  Attendance %
+                  <mat-icon class="sort-ico" *ngIf="attendanceSortBy === 'percentage'">{{attendanceSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward'}}</mat-icon>
+                  <mat-icon class="sort-ico-idle" *ngIf="attendanceSortBy !== 'percentage'">unfold_more</mat-icon>
+                </span>
+              </th>
               <th class="text-center" style="min-width: 210px;">Punctuality Rating</th>
               <th class="text-center" style="min-width: 130px;">Daily Matrix</th>
             </tr>
           </thead>
           <tbody>
-            <ng-container *ngFor="let row of attendanceReport.rows">
+            <ng-container *ngFor="let row of displayedAttendanceRows">
               <tr class="faculty-main-row" [class.expanded-row]="isExpanded(row.personId)">
                 <td>
                   <div class="faculty-name-cell">
-                    <div class="avatar-circle">{{(row.personName || row.name || '').slice(0, 2).toUpperCase()}}</div>
+                    <div class="avatar-circle">
+                      <img
+                        *ngIf="getTeacherPhoto(row) && !imgErrors[row.personId]"
+                        [src]="getTeacherPhoto(row)"
+                        (error)="imgErrors[row.personId] = true"
+                        class="faculty-photo-img"
+                        [alt]="row.personName || row.name"
+                      />
+                      <span *ngIf="!getTeacherPhoto(row) || imgErrors[row.personId]" class="avatar-initials">
+                        {{ getInitials(row.personName || row.name) }}
+                      </span>
+                    </div>
                     <div>
                       <span class="name-bold">{{row.personName || row.name}}</span>
-                      <span class="role-sub">Teacher • Faculty</span>
+                      <span class="code-sub">{{row.code}}</span>
                     </div>
                   </div>
-                </td>
-                <td style="white-space: nowrap;">
-                  <span class="code-badge">{{row.code}}</span>
                 </td>
                 <td class="text-center text-emerald">
                   <span class="stat-pill pill-present"><strong>{{row.presentDays}}</strong></span>
@@ -467,7 +556,7 @@ import { AuthService } from '../../core/services/auth.service';
 
               <!-- EXPANDED 30-DAY CALENDAR MATRIX DRAWER -->
               <tr *ngIf="isExpanded(row.personId)" class="matrix-drawer-row">
-                <td colspan="11" class="matrix-drawer-container">
+                <td colspan="10" class="matrix-drawer-container">
                   <div class="matrix-drawer-card">
                     <div class="md-header">
                       <div class="md-title-left">
@@ -513,11 +602,46 @@ import { AuthService } from '../../core/services/auth.service';
                 </td>
               </tr>
             </ng-container>
-            <tr *ngIf="attendanceReport.rows.length === 0">
-              <td colspan="11" class="empty-table-cell">No attendance records found for this month.</td>
+            <tr *ngIf="!loadingAttendance && displayedAttendanceRows.length === 0">
+              <td colspan="10" class="empty-table-cell">No attendance records found matching the search criteria for {{months[attendanceMonth - 1]}} {{attendanceYear}}.</td>
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <!-- Pagination Footer Bar for Attendance -->
+      <div class="pagination-footer-bar" *ngIf="attendanceReport && attendanceTotalCount > 0">
+        <div class="pagination-left">
+          <span class="page-summary">
+            Showing <strong>{{attendanceStartIndex + 1}} – {{attendanceEndIndex}}</strong> of <strong>{{attendanceTotalCount}}</strong> faculty
+          </span>
+          <div class="page-size-wrap">
+            <label>Rows per page:</label>
+            <div class="size-btn-group">
+              <button type="button" class="size-pill" [class.active]="attendancePageSize === 10" (click)="setAttendancePageSize(10)">10</button>
+              <button type="button" class="size-pill" [class.active]="attendancePageSize === 25" (click)="setAttendancePageSize(25)">25</button>
+              <button type="button" class="size-pill" [class.active]="attendancePageSize === 50" (click)="setAttendancePageSize(50)">50</button>
+              <button type="button" class="size-pill" [class.active]="attendancePageSize === 100" (click)="setAttendancePageSize(100)">100</button>
+            </div>
+          </div>
+        </div>
+        <div class="pagination-right">
+          <button type="button" class="nav-page-btn" [disabled]="attendancePage === 1 || loadingAttendance" (click)="setAttendancePage(1)" matTooltip="First Page">
+            <mat-icon>first_page</mat-icon>
+          </button>
+          <button type="button" class="nav-page-btn" [disabled]="attendancePage === 1 || loadingAttendance" (click)="setAttendancePage(attendancePage - 1)" matTooltip="Previous Page">
+            <mat-icon>chevron_left</mat-icon>
+          </button>
+          <div class="page-current-badge">
+            Page <strong>{{attendancePage}}</strong> of <strong>{{totalAttendancePages}}</strong>
+          </div>
+          <button type="button" class="nav-page-btn" [disabled]="attendancePage >= totalAttendancePages || loadingAttendance" (click)="setAttendancePage(attendancePage + 1)" matTooltip="Next Page">
+            <mat-icon>chevron_right</mat-icon>
+          </button>
+          <button type="button" class="nav-page-btn" [disabled]="attendancePage >= totalAttendancePages || loadingAttendance" (click)="setAttendancePage(totalAttendancePages)" matTooltip="Last Page">
+            <mat-icon>last_page</mat-icon>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -528,20 +652,40 @@ import { AuthService } from '../../core/services/auth.service';
         <div class="month-selector-group">
           <div class="select-field">
             <label>Month:</label>
-            <select [(ngModel)]="payrollMonth" (change)="loadPayrollReport()">
+            <select [(ngModel)]="payrollMonth" (change)="loadPayrollReport(1)">
               <option *ngFor="let m of months; let i = index" [value]="i + 1">{{m}}</option>
             </select>
           </div>
           <div class="select-field">
             <label>Year:</label>
-            <select [(ngModel)]="payrollYear" (change)="loadPayrollReport()">
+            <select [(ngModel)]="payrollYear" (change)="loadPayrollReport(1)">
               <option *ngFor="let y of years" [value]="y">{{y}}</option>
             </select>
           </div>
-          <button mat-raised-button color="primary" class="refresh-btn" (click)="loadPayrollReport()">
-            <mat-icon>refresh</mat-icon> Load Payroll
+        </div>
+
+        <div class="search-input-wrap">
+          <mat-icon>search</mat-icon>
+          <input type="text" placeholder="Search by faculty, code, receipt #..." [(ngModel)]="payrollSearch" (ngModelChange)="onPayrollSearchChange()">
+          <button type="button" class="clear-search-btn" *ngIf="payrollSearch" (click)="clearPayrollSearch()" matTooltip="Clear search">
+            <mat-icon>close</mat-icon>
           </button>
         </div>
+
+        <div class="filter-select-wrap">
+          <label>Mode:</label>
+          <select [(ngModel)]="payrollModeFilter" (change)="onPayrollFilterChange()">
+            <option value="all">All Modes</option>
+            <option value="Cash">Cash</option>
+            <option value="BankTransfer">Bank Transfer</option>
+            <option value="Cheque">Cheque</option>
+            <option value="UPI">UPI</option>
+          </select>
+        </div>
+
+        <button mat-stroked-button class="refresh-workload-btn" (click)="loadPayrollReport(payrollPage)" matTooltip="Refresh payroll register">
+          <mat-icon>refresh</mat-icon> Refresh
+        </button>
       </div>
 
       <!-- Payroll KPIs -->
@@ -585,107 +729,403 @@ import { AuthService } from '../../core/services/auth.service';
 
       <!-- Payroll Table -->
       <div class="table-responsive-container" *ngIf="payrollReport">
-        <table class="report-table">
+        <mat-progress-bar mode="indeterminate" *ngIf="loadingPayroll" class="table-progress-bar"></mat-progress-bar>
+        <table class="report-table payroll-table" [class.table-loading]="loadingPayroll">
           <thead>
             <tr>
-              <th>Receipt #</th>
-              <th>Faculty Name & Code</th>
-              <th>Payment Date</th>
-              <th class="text-right">Gross Amount</th>
-              <th class="text-right">Deductions</th>
-              <th class="text-right">Advance Adj</th>
-              <th class="text-right">Net Paid</th>
-              <th class="text-center">Mode</th>
-              <th>Transaction Ref</th>
+              <th class="sortable-th col-receipt" (click)="onPayrollSort('receipt')">
+                <div class="th-content">
+                  <span>Receipt #</span>
+                  <mat-icon class="sort-ico" *ngIf="payrollSortBy === 'receipt'">{{ payrollSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
+                  <mat-icon class="sort-ico-idle" *ngIf="payrollSortBy !== 'receipt'">unfold_more</mat-icon>
+                </div>
+              </th>
+              <th class="sortable-th col-faculty" (click)="onPayrollSort('name')">
+                <div class="th-content">
+                  <span>Faculty Name &amp; Code</span>
+                  <mat-icon class="sort-ico" *ngIf="payrollSortBy === 'name'">{{ payrollSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
+                  <mat-icon class="sort-ico-idle" *ngIf="payrollSortBy !== 'name'">unfold_more</mat-icon>
+                </div>
+              </th>
+              <th class="sortable-th col-paydate" (click)="onPayrollSort('date')">
+                <div class="th-content">
+                  <span>Payment Date</span>
+                  <mat-icon class="sort-ico" *ngIf="payrollSortBy === 'date'">{{ payrollSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
+                  <mat-icon class="sort-ico-idle" *ngIf="payrollSortBy !== 'date'">unfold_more</mat-icon>
+                </div>
+              </th>
+              <th class="text-right sortable-th col-amount" (click)="onPayrollSort('gross')">
+                <div class="th-content text-right">
+                  <span>Gross Amount</span>
+                  <mat-icon class="sort-ico" *ngIf="payrollSortBy === 'gross'">{{ payrollSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
+                  <mat-icon class="sort-ico-idle" *ngIf="payrollSortBy !== 'gross'">unfold_more</mat-icon>
+                </div>
+              </th>
+              <th class="text-right sortable-th col-deduct" (click)="onPayrollSort('deductions')">
+                <div class="th-content text-right">
+                  <span>Deductions</span>
+                  <mat-icon class="sort-ico" *ngIf="payrollSortBy === 'deductions'">{{ payrollSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
+                  <mat-icon class="sort-ico-idle" *ngIf="payrollSortBy !== 'deductions'">unfold_more</mat-icon>
+                </div>
+              </th>
+              <th class="text-right sortable-th col-advance" (click)="onPayrollSort('advance')">
+                <div class="th-content text-right">
+                  <span>Advance Adj</span>
+                  <mat-icon class="sort-ico" *ngIf="payrollSortBy === 'advance'">{{ payrollSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
+                  <mat-icon class="sort-ico-idle" *ngIf="payrollSortBy !== 'advance'">unfold_more</mat-icon>
+                </div>
+              </th>
+              <th class="text-right sortable-th col-net" (click)="onPayrollSort('net')">
+                <div class="th-content text-right">
+                  <span>Net Paid</span>
+                  <mat-icon class="sort-ico" *ngIf="payrollSortBy === 'net'">{{ payrollSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
+                  <mat-icon class="sort-ico-idle" *ngIf="payrollSortBy !== 'net'">unfold_more</mat-icon>
+                </div>
+              </th>
+              <th class="text-center sortable-th col-mode" (click)="onPayrollSort('mode')">
+                <div class="th-content text-center">
+                  <span>Mode</span>
+                  <mat-icon class="sort-ico" *ngIf="payrollSortBy === 'mode'">{{ payrollSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
+                  <mat-icon class="sort-ico-idle" *ngIf="payrollSortBy !== 'mode'">unfold_more</mat-icon>
+                </div>
+              </th>
+              <th class="col-ref">Transaction Ref</th>
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let p of payrollReport.payments">
-              <td>
+            <tr *ngFor="let p of displayedPayrollPayments">
+              <td class="col-receipt">
                 <span class="receipt-badge">{{p.receiptNumber}}</span>
               </td>
-              <td>
+              <td class="col-faculty">
                 <div class="faculty-name-cell">
-                  <span class="name-bold">{{p.teacherName}}</span>
-                  <span class="code-sub">{{p.employeeCode}}</span>
+                  <div class="avatar-circle">
+                    <img
+                      *ngIf="getTeacherPhoto(p) && !imgErrors[p.teacherId]"
+                      [src]="getTeacherPhoto(p)"
+                      (error)="imgErrors[p.teacherId] = true"
+                      class="faculty-photo-img"
+                      [alt]="p.teacherName"
+                    />
+                    <span *ngIf="!getTeacherPhoto(p) || imgErrors[p.teacherId]" class="avatar-initials">
+                      {{ getInitials(p.teacherName) }}
+                    </span>
+                  </div>
+                  <div>
+                    <span class="name-bold">{{p.teacherName}}</span>
+                    <span class="code-sub">{{p.employeeCode}}</span>
+                  </div>
                 </div>
               </td>
-              <td>{{p.paymentDate | date:'dd MMM yyyy'}}</td>
-              <td class="text-right">₹{{p.grossAmount | number:'1.2-2'}}</td>
-              <td class="text-right text-rose">₹{{p.deductions | number:'1.2-2'}}</td>
-              <td class="text-right text-amber">₹{{p.advanceAdjusted | number:'1.2-2'}}</td>
-              <td class="text-right text-emerald font-bold">₹{{p.netPaid | number:'1.2-2'}}</td>
-              <td class="text-center">
+              <td class="col-paydate">{{p.paymentDate | date:'dd MMM yyyy'}}</td>
+              <td class="text-right col-amount">₹{{p.grossAmount | number:'1.2-2'}}</td>
+              <td class="text-right text-rose col-deduct">₹{{p.deductions | number:'1.2-2'}}</td>
+              <td class="text-right text-amber col-advance">₹{{p.advanceAdjusted | number:'1.2-2'}}</td>
+              <td class="text-right text-emerald font-bold col-net">₹{{p.netPaid | number:'1.2-2'}}</td>
+              <td class="text-center col-mode">
                 <span class="mode-chip">{{p.paymentMode}}</span>
               </td>
-              <td>
+              <td class="col-ref">
                 <span class="ref-text">{{p.transactionRef || 'N/A'}}</span>
               </td>
             </tr>
-            <tr *ngIf="payrollReport.payments.length === 0">
+            <tr *ngIf="!loadingPayroll && displayedPayrollPayments.length === 0">
               <td colspan="9" class="empty-table-cell">
-                No salary payments recorded yet for {{payrollReport.monthName}}.
+                No salary payments found matching the search criteria for {{payrollReport.monthName || ''}}.
               </td>
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <!-- Pagination Footer Bar for Payroll -->
+      <div class="pagination-footer-bar" *ngIf="payrollReport && payrollTotalCount > 0">
+        <div class="pagination-left">
+          <span class="page-summary">
+            Showing <strong>{{payrollStartIndex + 1}} – {{payrollEndIndex}}</strong> of <strong>{{payrollTotalCount}}</strong> receipts
+          </span>
+          <div class="page-size-wrap">
+            <label>Rows per page:</label>
+            <div class="size-btn-group">
+              <button type="button" class="size-pill" [class.active]="payrollPageSize === 10" (click)="setPayrollPageSize(10)">10</button>
+              <button type="button" class="size-pill" [class.active]="payrollPageSize === 25" (click)="setPayrollPageSize(25)">25</button>
+              <button type="button" class="size-pill" [class.active]="payrollPageSize === 50" (click)="setPayrollPageSize(50)">50</button>
+              <button type="button" class="size-pill" [class.active]="payrollPageSize === 100" (click)="setPayrollPageSize(100)">100</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="pagination-right" *ngIf="totalPayrollPages > 1">
+          <button type="button" class="nav-page-btn" [disabled]="payrollPage === 1 || loadingPayroll" (click)="setPayrollPage(1)" matTooltip="First Page">
+            <mat-icon>first_page</mat-icon>
+          </button>
+          <button type="button" class="nav-page-btn" [disabled]="payrollPage === 1 || loadingPayroll" (click)="setPayrollPage(payrollPage - 1)" matTooltip="Previous Page">
+            <mat-icon>chevron_left</mat-icon>
+          </button>
+          <div class="page-current-badge">
+            <span>Page</span>
+            <strong>{{payrollPage}}</strong>
+            <span>of</span>
+            <strong>{{totalPayrollPages}}</strong>
+          </div>
+          <button type="button" class="nav-page-btn" [disabled]="payrollPage >= totalPayrollPages || loadingPayroll" (click)="setPayrollPage(payrollPage + 1)" matTooltip="Next Page">
+            <mat-icon>chevron_right</mat-icon>
+          </button>
+          <button type="button" class="nav-page-btn" [disabled]="payrollPage >= totalPayrollPages || loadingPayroll" (click)="setPayrollPage(totalPayrollPages)" matTooltip="Last Page">
+            <mat-icon>last_page</mat-icon>
+          </button>
+        </div>
       </div>
     </div>
 
     <!-- TAB 4: Master Timetable Routine Matrix -->
     <div class="tab-content" *ngIf="selectedTab === 'master_timetable'">
-      <div class="filter-card">
-        <div class="search-input-wrap">
-          <mat-icon>search</mat-icon>
-          <input type="text" placeholder="Filter master timetable by faculty or batch name..." [(ngModel)]="masterSearch">
+      <!-- Master Routine KPIs -->
+      <div class="kpi-grid">
+        <div class="kpi-card blue">
+          <div class="kpi-icon"><mat-icon>event_note</mat-icon></div>
+          <div class="kpi-data">
+            <span class="kpi-label">Routine Slots</span>
+            <span class="kpi-val">{{masterTotalCount || masterTotalSlots}}</span>
+          </div>
         </div>
-        <div class="filter-select-wrap">
-          <label>Filter Day:</label>
-          <select [(ngModel)]="masterDayFilter">
-            <option value="all">All Days</option>
-            <option *ngFor="let d of allDays" [value]="d">{{d}}</option>
-          </select>
+        <div class="kpi-card emerald">
+          <div class="kpi-icon"><mat-icon>groups</mat-icon></div>
+          <div class="kpi-data">
+            <span class="kpi-label">Active Teachers</span>
+            <span class="kpi-val">{{masterUniqueTeachersCount}}</span>
+          </div>
+        </div>
+        <div class="kpi-card purple">
+          <div class="kpi-icon"><mat-icon>school</mat-icon></div>
+          <div class="kpi-data">
+            <span class="kpi-label">Batches / Classes</span>
+            <span class="kpi-val">{{masterUniqueBatchesCount}}</span>
+          </div>
+        </div>
+        <div class="kpi-card orange">
+          <div class="kpi-icon"><mat-icon>menu_book</mat-icon></div>
+          <div class="kpi-data">
+            <span class="kpi-label">Subjects Covered</span>
+            <span class="kpi-val">{{masterUniqueSubjectsCount}}</span>
+          </div>
         </div>
       </div>
 
-      <div class="table-responsive-container">
-        <table class="report-table">
+      <!-- Controls & View Mode Bar -->
+      <div class="filter-card">
+        <div class="search-input-wrap">
+          <mat-icon>search</mat-icon>
+          <input type="text" placeholder="Search faculty, batch, subject, room..." [(ngModel)]="masterSearch" (ngModelChange)="onMasterSearchChange()">
+          <button type="button" class="clear-search-btn" *ngIf="masterSearch" (click)="clearMasterSearch()" matTooltip="Clear search">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+
+        <div class="filter-select-wrap">
+          <label>Filter Day:</label>
+          <select [(ngModel)]="masterDayFilter" (change)="onMasterDayFilterChange()">
+            <option value="all">All Days (Mon - Sun)</option>
+            <option *ngFor="let d of allDays" [value]="d">{{d}}</option>
+          </select>
+        </div>
+
+        <button mat-stroked-button class="quick-today-btn" (click)="filterByToday()" matTooltip="Quick filter today's scheduled classes">
+          <mat-icon>today</mat-icon> Today ({{todayDayName}})
+        </button>
+
+        <div class="view-mode-toggle-group">
+          <button type="button" class="view-mode-btn" [class.active]="masterViewMode === 'list'" (click)="masterViewMode = 'list'" matTooltip="Tabular List View">
+            <mat-icon>format_list_bulleted</mat-icon> List
+          </button>
+          <button type="button" class="view-mode-btn" [class.active]="masterViewMode === 'matrix'" (click)="masterViewMode = 'matrix'" matTooltip="Weekly Schedule Matrix">
+            <mat-icon>calendar_view_week</mat-icon> Matrix
+          </button>
+        </div>
+
+        <button mat-stroked-button class="refresh-workload-btn" (click)="loadMasterTimetable(masterPage)" matTooltip="Refresh master routine">
+          <mat-icon>refresh</mat-icon> Refresh
+        </button>
+      </div>
+
+      <!-- Single Loader -->
+      <mat-progress-bar mode="indeterminate" *ngIf="loadingMasterTimetable" class="table-progress-bar"></mat-progress-bar>
+
+      <!-- View 1: List View -->
+      <div class="table-responsive-container" *ngIf="masterViewMode === 'list'">
+        <table class="report-table" [class.table-loading]="loadingMasterTimetable">
           <thead>
             <tr>
-              <th>Faculty Name</th>
-              <th>Batch Name</th>
-              <th>Subject</th>
-              <th>Routine Days</th>
-              <th>Scheduled Time Slot</th>
-              <th class="text-center">Status</th>
+              <th class="sortable-th" (click)="onMasterSort('teacher')" style="min-width: 180px;">
+                <span class="th-content">
+                  Faculty Name
+                  <mat-icon class="sort-ico" *ngIf="masterSortBy === 'teacher'">{{masterSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward'}}</mat-icon>
+                  <mat-icon class="sort-ico-idle" *ngIf="masterSortBy !== 'teacher'">unfold_more</mat-icon>
+                </span>
+              </th>
+              <th class="sortable-th" (click)="onMasterSort('batch')" style="min-width: 160px;">
+                <span class="th-content">
+                  Batch / Class
+                  <mat-icon class="sort-ico" *ngIf="masterSortBy === 'batch'">{{masterSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward'}}</mat-icon>
+                  <mat-icon class="sort-ico-idle" *ngIf="masterSortBy !== 'batch'">unfold_more</mat-icon>
+                </span>
+              </th>
+              <th class="sortable-th" (click)="onMasterSort('subject')" style="min-width: 140px;">
+                <span class="th-content">
+                  Subject
+                  <mat-icon class="sort-ico" *ngIf="masterSortBy === 'subject'">{{masterSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward'}}</mat-icon>
+                  <mat-icon class="sort-ico-idle" *ngIf="masterSortBy !== 'subject'">unfold_more</mat-icon>
+                </span>
+              </th>
+              <th class="sortable-th" (click)="onMasterSort('day')" style="min-width: 130px;">
+                <span class="th-content">
+                  Routine Days
+                  <mat-icon class="sort-ico" *ngIf="masterSortBy === 'day'">{{masterSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward'}}</mat-icon>
+                  <mat-icon class="sort-ico-idle" *ngIf="masterSortBy !== 'day'">unfold_more</mat-icon>
+                </span>
+              </th>
+              <th class="sortable-th" (click)="onMasterSort('slot')" style="min-width: 150px;">
+                <span class="th-content">
+                  Time Slot
+                  <mat-icon class="sort-ico" *ngIf="masterSortBy === 'slot'">{{masterSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward'}}</mat-icon>
+                  <mat-icon class="sort-ico-idle" *ngIf="masterSortBy !== 'slot'">unfold_more</mat-icon>
+                </span>
+              </th>
+              <th class="sortable-th" (click)="onMasterSort('room')" style="min-width: 110px;">
+                <span class="th-content">
+                  Room
+                  <mat-icon class="sort-ico" *ngIf="masterSortBy === 'room'">{{masterSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward'}}</mat-icon>
+                  <mat-icon class="sort-ico-idle" *ngIf="masterSortBy !== 'room'">unfold_more</mat-icon>
+                </span>
+              </th>
+              <th class="text-center" style="min-width: 90px;">Status</th>
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let m of filteredMasterTimetable">
+            <tr *ngFor="let m of displayedMasterTimetable">
               <td>
-                <span class="name-bold">{{m.teacherName}}</span>
+                <div class="faculty-name-cell">
+                  <div class="avatar-circle">
+                    <img
+                      *ngIf="getTeacherPhoto(m) && !imgErrors[m.teacherId]"
+                      [src]="getTeacherPhoto(m)"
+                      (error)="imgErrors[m.teacherId] = true"
+                      class="faculty-photo-img"
+                      [alt]="m.teacherName"
+                    />
+                    <span *ngIf="!getTeacherPhoto(m) || imgErrors[m.teacherId]" class="avatar-initials">
+                      {{ getInitials(m.teacherName) }}
+                    </span>
+                  </div>
+                  <div>
+                    <span class="name-bold">{{m.teacherName}}</span>
+                    <span class="code-sub" *ngIf="m.employeeCode">{{m.employeeCode}}</span>
+                  </div>
+                </div>
               </td>
               <td>
-                <strong class="batch-col-name">{{m.batchName}}</strong>
+                <strong class="batch-col-name">{{m.batchName || m.className}}</strong>
               </td>
               <td>
                 <span class="subject-chip">{{m.subject}}</span>
               </td>
               <td>
-                <span class="days-badge">{{m.daysOfWeek || 'Not set'}}</span>
+                <span class="days-badge">{{m.daysOfWeek || 'All Days'}}</span>
               </td>
               <td>
-                <span class="slot-badge">{{m.timeSlot || 'Not set'}}</span>
+                <span class="slot-badge"><mat-icon class="inline-icon">schedule</mat-icon> {{m.timeSlot || 'Standard Slot'}}</span>
+              </td>
+              <td>
+                <span class="room-pill" *ngIf="m.roomNumber"><mat-icon class="inline-icon">meeting_room</mat-icon> {{m.roomNumber}}</span>
+                <span class="text-muted" *ngIf="!m.roomNumber">—</span>
               </td>
               <td class="text-center">
                 <span class="status-chip active-chip">Active</span>
               </td>
             </tr>
-            <tr *ngIf="filteredMasterTimetable.length === 0">
-              <td colspan="6" class="empty-table-cell">No routine assignments match the search query.</td>
+            <tr *ngIf="!loadingMasterTimetable && displayedMasterTimetable.length === 0">
+              <td colspan="7" class="empty-table-cell">No routine assignments match the search query.</td>
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <!-- Pagination Footer Bar for Master Routine -->
+      <div class="pagination-footer-bar" *ngIf="masterViewMode === 'list' && masterTotalCount > 0">
+        <div class="pagination-left">
+          <span class="page-summary">
+            Showing <strong>{{masterStartIndex + 1}} – {{masterEndIndex}}</strong> of <strong>{{masterTotalCount}}</strong> routine slots
+          </span>
+          <div class="page-size-wrap">
+            <label>Rows per page:</label>
+            <div class="size-btn-group">
+              <button type="button" class="size-pill" [class.active]="masterPageSize === 10" (click)="setMasterPageSize(10)">10</button>
+              <button type="button" class="size-pill" [class.active]="masterPageSize === 25" (click)="setMasterPageSize(25)">25</button>
+              <button type="button" class="size-pill" [class.active]="masterPageSize === 50" (click)="setMasterPageSize(50)">50</button>
+              <button type="button" class="size-pill" [class.active]="masterPageSize === 100" (click)="setMasterPageSize(100)">100</button>
+            </div>
+          </div>
+        </div>
+        <div class="pagination-right">
+          <button type="button" class="nav-page-btn" [disabled]="masterPage === 1 || loadingMasterTimetable" (click)="setMasterPage(1)" matTooltip="First Page">
+            <mat-icon>first_page</mat-icon>
+          </button>
+          <button type="button" class="nav-page-btn" [disabled]="masterPage === 1 || loadingMasterTimetable" (click)="setMasterPage(masterPage - 1)" matTooltip="Previous Page">
+            <mat-icon>chevron_left</mat-icon>
+          </button>
+          <div class="page-current-badge">
+            Page <strong>{{masterPage}}</strong> of <strong>{{totalMasterPages}}</strong>
+          </div>
+          <button type="button" class="nav-page-btn" [disabled]="masterPage >= totalMasterPages || loadingMasterTimetable" (click)="setMasterPage(masterPage + 1)" matTooltip="Next Page">
+            <mat-icon>chevron_right</mat-icon>
+          </button>
+          <button type="button" class="nav-page-btn" [disabled]="masterPage >= totalMasterPages || loadingMasterTimetable" (click)="setMasterPage(totalMasterPages)" matTooltip="Last Page">
+            <mat-icon>last_page</mat-icon>
+          </button>
+        </div>
+      </div>
+
+      <!-- View 2: Weekly Matrix Grid View -->
+      <div class="weekly-routine-matrix" *ngIf="masterViewMode === 'matrix'">
+        <div class="matrix-day-card" *ngFor="let dayGroup of routineGroupedByDay" [class.is-today-card]="dayGroup.isToday">
+          <div class="matrix-day-header">
+            <div class="day-title-box">
+              <span class="day-title">{{dayGroup.dayFullName}}</span>
+              <span class="today-tag" *ngIf="dayGroup.isToday">Today</span>
+            </div>
+            <span class="day-slot-count">{{dayGroup.items.length}} Class{{dayGroup.items.length === 1 ? '' : 'es'}}</span>
+          </div>
+
+          <div class="matrix-slots-list" *ngIf="dayGroup.items.length > 0">
+            <div class="routine-slot-item" *ngFor="let s of dayGroup.items">
+              <div class="slot-item-time">
+                <mat-icon>schedule</mat-icon>
+                <span>{{s.timeSlot || 'Scheduled Slot'}}</span>
+              </div>
+              <div class="slot-item-body">
+                <div class="slot-teacher">
+                  <div class="mini-avatar">
+                    <img *ngIf="getTeacherPhoto(s) && !imgErrors[s.teacherId]" [src]="getTeacherPhoto(s)" (error)="imgErrors[s.teacherId] = true" class="mini-img" />
+                    <span *ngIf="!getTeacherPhoto(s) || imgErrors[s.teacherId]" class="mini-initials">{{getInitials(s.teacherName)}}</span>
+                  </div>
+                  <div class="slot-teacher-info">
+                    <span class="slot-teacher-name">{{s.teacherName}}</span>
+                    <span class="slot-subject-badge">{{s.subject}}</span>
+                  </div>
+                </div>
+                <div class="slot-meta-row">
+                  <span class="slot-batch-badge"><mat-icon>class</mat-icon> {{s.batchName || s.className}}</span>
+                  <span class="slot-room-badge" *ngIf="s.roomNumber"><mat-icon>meeting_room</mat-icon> {{s.roomNumber}}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="matrix-empty-day" *ngIf="dayGroup.items.length === 0">
+            <mat-icon>event_busy</mat-icon>
+            <span>No routine classes scheduled for {{dayGroup.dayFullName}}</span>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -696,7 +1136,16 @@ import { AuthService } from '../../core/services/auth.service';
       <div class="modal-header">
         <div class="modal-title-box">
           <div class="modal-icon-box">
-            <mat-icon>person</mat-icon>
+            <img
+              *ngIf="getTeacherPhoto(selectedTeacherDetails) && !imgErrors[selectedTeacherDetails.teacherId]"
+              [src]="getTeacherPhoto(selectedTeacherDetails)"
+              (error)="imgErrors[selectedTeacherDetails.teacherId] = true"
+              class="modal-photo-img"
+              [alt]="selectedTeacherDetails.teacherName"
+            />
+            <span *ngIf="!getTeacherPhoto(selectedTeacherDetails) || imgErrors[selectedTeacherDetails.teacherId]" class="modal-initials">
+              {{ getInitials(selectedTeacherDetails.teacherName) }}
+            </span>
           </div>
           <div>
             <h3>{{selectedTeacherDetails.teacherName}}</h3>
@@ -894,7 +1343,18 @@ import { AuthService } from '../../core/services/auth.service';
 </div>
   `,
   styles: [`
-    .page-container { display:flex; flex-direction:column; gap:20px; }
+    :host {
+      display: block;
+      width: 100%;
+    }
+    .page-container {
+      padding: 0 0 40px;
+      width: 100%;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
     .page-header { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; }
     .page-title { font-size:1.5rem; font-weight:700; margin:0; color:#1976d2; display:flex; align-items:center; gap:8px;
       mat-icon{font-size:1.6rem;width:1.6rem;height:1.6rem;} }
@@ -939,17 +1399,72 @@ import { AuthService } from '../../core/services/auth.service';
     .kpi-val { font-size:1.35rem; font-weight:800; color:#0f172a; line-height:1.2; }
 
     /* Filter Card */
-    .filter-card { background:#f8fafc; border-radius:10px; border:1px solid #e2e8f0; padding:12px 16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; }
-    .search-input-wrap { display:flex; align-items:center; gap:8px; background:#fff; border:1.5px solid #cbd5e1; border-radius:8px; padding:6px 12px; flex:1; min-width:240px;
-      mat-icon{color:#94a3b8;font-size:20px;width:20px;height:20px;}
-      input{border:none;outline:none;font-size:.88rem;color:#1e293b;width:100%;} }
-    .filter-select-wrap { display:flex; align-items:center; gap:8px; font-size:.84rem; font-weight:600; color:#475569;
-      select{border:1.5px solid #cbd5e1;border-radius:8px;padding:6px 12px;font-size:.86rem;font-weight:600;color:#1e293b;background:#fff;outline:none;} }
+    .filter-card {
+      background: #f8fafc;
+      border-radius: 12px;
+      border: 1px solid #e2e8f0;
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .search-input-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #fff;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 0 12px;
+      height: 40px;
+      box-sizing: border-box;
+      flex: 1;
+      min-width: 240px;
+      transition: all .2s;
+      &:focus-within { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); }
+      mat-icon { color: #2563eb; font-size: 20px; width: 20px; height: 20px; flex-shrink: 0; }
+      input { border: none; outline: none; font-size: .88rem; color: #1e293b; width: 100%; height: 100%; background: transparent; }
+    }
+    .filter-select-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: .84rem;
+      font-weight: 600;
+      color: #475569;
+      select {
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        padding: 0 12px;
+        height: 40px;
+        box-sizing: border-box;
+        font-size: .86rem;
+        font-weight: 600;
+        color: #1e293b;
+        background: #fff;
+        outline: none;
+        transition: all .2s;
+        cursor: pointer;
+        &:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); }
+      }
+    }
     .month-selector-group { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
     .select-field { display:flex; align-items:center; gap:6px; font-size:.86rem; font-weight:600; color:#475569;
-      select{border:1.5px solid #cbd5e1;border-radius:8px;padding:6px 10px;font-size:.88rem;font-weight:600;background:#fff;} }
-    .refresh-btn { font-weight:600; border-radius:8px; }
-    .refresh-workload-btn { font-weight:600; border-radius:8px; border-color:#cbd5e1; }
+      select{border:1px solid #cbd5e1;border-radius:8px;padding:0 10px;height:40px;box-sizing:border-box;font-size:.86rem;font-weight:600;color:#1e293b;background:#fff;outline:none;cursor:pointer;transition:all .2s;&:focus{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,0.1);}} }
+    .refresh-btn { height:40px !important; font-weight:600; border-radius:8px; }
+    .refresh-workload-btn {
+      height: 40px !important;
+      font-weight: 600;
+      border-radius: 8px;
+      border-color: #cbd5e1;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all .2s;
+      &:hover { border-color: #2563eb; color: #2563eb; background: #eff6ff; }
+    }
     .clear-search-btn { border:none; background:transparent; cursor:pointer; padding:0; display:flex; align-items:center; justify-content:center;
       mat-icon { font-size:18px; width:18px; height:18px; color:#94a3b8; }
       &:hover mat-icon { color:#64748b; } }
@@ -960,10 +1475,53 @@ import { AuthService } from '../../core/services/auth.service';
     .sortable-th { cursor:pointer; user-select:none; transition:background .15s;
       &:hover { background:#f1f5f9 !important; } }
     .th-content { display:inline-flex; align-items:center; gap:6px; vertical-align:middle;
-      &.text-center { justify-content:center; width:100%; } }
+      &.text-center { justify-content:center; width:100%; }
+      &.text-right { justify-content:flex-end; width:100%; } }
     .sort-ico { font-size:16px !important; width:16px !important; height:16px !important; color:#2563eb; }
     .sort-ico-idle { font-size:16px !important; width:16px !important; height:16px !important; color:#cbd5e1; opacity:0.6; transition:opacity .15s; }
     .sortable-th:hover .sort-ico-idle { opacity:1; color:#94a3b8; }
+
+    /* Actions Column & 3 Dots Menu - Sticky & Immediately Visible */
+    .actions-th, .actions-td {
+      width: 52px;
+      min-width: 52px;
+      max-width: 56px;
+      padding: 4px 6px;
+      text-align: center;
+      position: sticky;
+      right: 0;
+      z-index: 2;
+      background: #ffffff;
+      box-shadow: -3px 0 6px -2px rgba(15, 23, 42, 0.08);
+      border-left: 1px solid #f1f5f9;
+    }
+    thead .actions-th {
+      background: #f8fafc;
+      z-index: 3;
+      border-left: 1px solid #e2e8f0;
+    }
+    .report-table tbody tr:hover .actions-td {
+      background: #f8faff !important;
+    }
+    .action-menu-btn {
+      width: 30px !important;
+      height: 30px !important;
+      padding: 0 !important;
+      color: #64748b;
+      transition: all 0.2s ease;
+      mat-icon { font-size: 19px; width: 19px; height: 19px; line-height: 19px; }
+      &:hover {
+        background: #eff6ff !important;
+        color: #2563eb !important;
+      }
+    }
+    .report-table-row {
+      cursor: pointer;
+      transition: background .15s ease;
+      &:hover {
+        background: #f8faff !important;
+      }
+    }
 
     /* Table Progress & Loading Overlay */
     .table-progress-bar { height:3px !important; }
@@ -987,11 +1545,62 @@ import { AuthService } from '../../core/services/auth.service';
       strong { color:#0f172a; font-weight:700; } }
 
     /* Tables */
-    .table-responsive-container { background:#fff; border-radius:10px; border:1px solid #e2e8f0; overflow-x:auto; -webkit-overflow-scrolling:touch; box-shadow:0 1px 3px rgba(0,0,0,0.03); }
-    .report-table { width:100%; border-collapse:collapse; min-width:1120px; }
-    .report-table th, .report-table td { padding:12px 14px; font-size:.86rem; border-bottom:1px solid #f1f5f9; text-align:left; vertical-align:middle; }
-    .report-table thead th { background:#f8fafc; font-weight:700; color:#334155; border-bottom:2px solid #e2e8f0; white-space:nowrap; }
-    .report-table tbody tr:hover { background:#f8faff; }
+    .table-responsive-container {
+      background: #fff;
+      border-radius: 10px;
+      border: 1px solid #e2e8f0;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+      position: relative;
+    }
+    .report-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+    .report-table th, .report-table td {
+      padding: 9px 10px;
+      font-size: .84rem;
+      border-bottom: 1px solid #f1f5f9;
+      text-align: left;
+      vertical-align: middle;
+      box-sizing: border-box;
+    }
+    .report-table thead th {
+      background: #f8fafc;
+      font-weight: 700;
+      color: #334155;
+      border-bottom: 2px solid #e2e8f0;
+      white-space: nowrap;
+    }
+    .report-table tbody tr:hover { background: #f8faff; }
+
+    /* Workload Table specific tight-fit & zero horizontal scroll */
+    .workload-table {
+      width: 100%;
+      min-width: 100%;
+      table-layout: auto;
+    }
+    .col-faculty { min-width: 165px; }
+    .col-qual { min-width: 145px; max-width: 220px; }
+    .col-batches { width: 95px; min-width: 90px; text-align: center; }
+    .col-classes { width: 85px; min-width: 80px; text-align: center; }
+    .col-hours { width: 85px; min-width: 80px; text-align: center; }
+    .col-status { width: 105px; min-width: 100px; text-align: center; }
+    .col-reach { width: 90px; min-width: 85px; text-align: center; }
+
+    /* Payroll Table specific tight-fit */
+    .payroll-table {
+      width: 100%;
+      min-width: 100%;
+      table-layout: auto;
+    }
+    .col-receipt { min-width: 110px; }
+    .col-paydate { min-width: 100px; white-space: nowrap; }
+    .col-amount { min-width: 100px; }
+    .col-deduct { min-width: 90px; }
+    .col-advance { min-width: 90px; }
+    .col-net { min-width: 100px; }
+    .col-mode { width: 90px; text-align: center; }
+    .col-ref { min-width: 110px; }
+    .ref-text { font-size: .8rem; color: #64748b; font-family: monospace; }
 
     .text-center { text-align:center !important; }
     .text-right { text-align:right !important; }
@@ -1001,19 +1610,49 @@ import { AuthService } from '../../core/services/auth.service';
     .text-amber { color:#d97706; }
     .text-purple { color:#7c3aed; }
 
-    .faculty-name-cell { display:flex; align-items:center; gap:10px; }
-    .avatar-circle { width:36px; height:36px; border-radius:50%; background:#e0f2fe; color:#0284c7; font-weight:700; font-size:.9rem; display:flex; align-items:center; justify-content:center; }
-    .name-bold { font-weight:700; color:#0f172a; display:block; }
-    .code-sub { font-size:.76rem; color:#64748b; font-family:monospace; }
-    .qual-cell { display:flex; flex-direction:column; gap:2px; }
-    .qual-text { font-weight:600; color:#334155; }
-    .spec-sub { font-size:.76rem; color:#64748b; }
+    .faculty-name-cell { display:flex; align-items:center; gap:8px; }
+    .avatar-circle {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+      color: #1e40af;
+      font-weight: 700;
+      font-size: .8rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      flex-shrink: 0;
+      border: 1.5px solid #bfdbfe;
+      box-shadow: 0 1px 3px rgba(37, 99, 235, 0.12);
 
-    .badge-num { background:#e0e7ff; color:#3730a3; padding:3px 8px; border-radius:6px; font-size:.78rem; font-weight:700; }
+      .faculty-photo-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+
+      .avatar-initials {
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: #1e40af;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+      }
+    }
+    .name-bold { font-weight:700; color:#0f172a; font-size:.85rem; display:block; white-space:nowrap; }
+    .code-sub { font-size:.74rem; color:#64748b; font-family:monospace; display:block; }
+    .qual-cell { display:flex; flex-direction:column; gap:1px; max-width:210px; }
+    .qual-text { font-weight:600; color:#334155; font-size:.82rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .spec-sub { font-size:.72rem; color:#64748b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+    .badge-num { background:#e0e7ff; color:#3730a3; padding:2px 7px; border-radius:6px; font-size:.76rem; font-weight:700; }
     .badge-num.badge-zero { background:#f1f5f9; color:#94a3b8; font-weight:500; }
-    .metric-num { font-size:.92rem; color:#1e293b; }
-    .metric-hours { font-weight:700; color:#0284c7; }
-    .reach-pill { display:inline-flex; align-items:center; gap:4px; background:#ecfdf5; color:#059669; padding:2px 8px; border-radius:6px; font-size:.78rem; font-weight:700;
+    .metric-num { font-size:.88rem; color:#1e293b; }
+    .metric-hours { font-weight:700; color:#0284c7; font-size:.84rem; }
+    .reach-pill { display:inline-flex; align-items:center; gap:4px; background:#ecfdf5; color:#059669; padding:2px 7px; border-radius:6px; font-size:.76rem; font-weight:700;
       mat-icon{font-size:16px;width:16px;height:16px;} }
 
     .status-chip { font-size:.74rem; font-weight:700; padding:3px 10px; border-radius:20px; display:inline-block; }
@@ -1074,7 +1713,7 @@ import { AuthService } from '../../core/services/auth.service';
     .matrix-action-btn.matrix-open { background:#0f172a; color:#ffffff; border-color:#0f172a; }
 
     /* Matrix Bulk Toggle in Filter Card */
-    .matrix-toggle-group { display:flex; align-items:center; margin-left:auto; }
+    .matrix-toggle-group { display:flex; align-items:center; gap:10px; margin-left:auto; }
     .matrix-bulk-btn { border-radius:8px; font-weight:700; font-size:.82rem; height:40px; border-color:#0284c7; color:#0284c7; background:#f0f9ff; display:flex; align-items:center; gap:6px;
       mat-icon { font-size:18px; width:18px; height:18px; } }
     .matrix-bulk-btn:hover { background:#e0f2fe; }
@@ -1131,6 +1770,258 @@ import { AuthService } from '../../core/services/auth.service';
 
     .empty-table-cell { text-align:center !important; padding:40px 20px; color:#94a3b8; font-weight:500; }
 
+    /* Master Routine Matrix Controls & Grid */
+    .quick-today-btn {
+      height: 40px !important;
+      font-weight: 600;
+      border-radius: 8px;
+      border-color: #bfdbfe;
+      background: #eff6ff;
+      color: #1d4ed8;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all .2s;
+      &:hover { background: #dbeafe; border-color: #93c5fd; }
+      mat-icon { font-size: 18px; width: 18px; height: 18px; color: #2563eb; }
+    }
+    .view-mode-toggle-group {
+      display: inline-flex;
+      background: #f1f5f9;
+      padding: 3px;
+      border-radius: 8px;
+      border: 1px solid #cbd5e1;
+      gap: 2px;
+    }
+    .view-mode-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #64748b;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      mat-icon { font-size: 17px; width: 17px; height: 17px; }
+      &:hover { color: #1e293b; background: rgba(255,255,255,0.5); }
+      &.active {
+        background: #ffffff;
+        color: #2563eb;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      }
+    }
+    .inline-icon {
+      font-size: 15px !important;
+      width: 15px !important;
+      height: 15px !important;
+      line-height: 15px !important;
+      vertical-align: middle;
+      display: inline-block;
+      margin-right: 2px;
+    }
+    .room-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      background: #f1f5f9;
+      color: #334155;
+      border: 1px solid #cbd5e1;
+      padding: 2px 7px;
+      border-radius: 5px;
+      font-size: .76rem;
+      font-weight: 600;
+      mat-icon { font-size: 14px; width: 14px; height: 14px; color: #64748b; }
+    }
+
+    /* Weekly Routine Matrix Grid View */
+    .weekly-routine-matrix {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 16px;
+      margin-top: 4px;
+    }
+    .matrix-day-card {
+      background: #ffffff;
+      border-radius: 12px;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transition: all 0.2s ease;
+      &:hover {
+        border-color: #bfdbfe;
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08);
+      }
+      &.is-today-card {
+        border-color: #93c5fd;
+        box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+        .matrix-day-header {
+          background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+          border-bottom: 1px solid #bfdbfe;
+        }
+      }
+    }
+    .matrix-day-header {
+      padding: 10px 14px;
+      background: #f8fafc;
+      border-bottom: 1px solid #e2e8f0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .day-title-box {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .day-title {
+      font-weight: 800;
+      font-size: 0.92rem;
+      color: #0f172a;
+    }
+    .today-tag {
+      background: #2563eb;
+      color: #ffffff;
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 1px 7px;
+      border-radius: 10px;
+    }
+    .day-slot-count {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #64748b;
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      padding: 2px 8px;
+      border-radius: 12px;
+    }
+    .matrix-slots-list {
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-height: 480px;
+      overflow-y: auto;
+    }
+    .routine-slot-item {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      transition: all 0.15s ease;
+      &:hover {
+        background: #f0f7ff;
+        border-color: #bfdbfe;
+      }
+    }
+    .slot-item-time {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #0369a1;
+      mat-icon { font-size: 16px; width: 16px; height: 16px; color: #0284c7; }
+    }
+    .slot-item-body {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .slot-teacher {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .mini-avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #dbeafe;
+      border: 1px solid #bfdbfe;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      flex-shrink: 0;
+      .mini-img { width: 100%; height: 100%; object-fit: cover; }
+      .mini-initials { font-size: 0.7rem; font-weight: 700; color: #1e40af; }
+    }
+    .slot-teacher-info {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .slot-teacher-name {
+      font-size: 0.84rem;
+      font-weight: 700;
+      color: #1e293b;
+    }
+    .slot-subject-badge {
+      font-size: 0.72rem;
+      font-weight: 600;
+      background: #e0e7ff;
+      color: #3730a3;
+      padding: 1px 7px;
+      border-radius: 4px;
+    }
+    .slot-meta-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .slot-batch-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.74rem;
+      font-weight: 600;
+      color: #475569;
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      padding: 1px 7px;
+      border-radius: 4px;
+      mat-icon { font-size: 14px; width: 14px; height: 14px; color: #64748b; }
+    }
+    .slot-room-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.74rem;
+      font-weight: 600;
+      color: #059669;
+      background: #ecfdf5;
+      border: 1px solid #a7f3d0;
+      padding: 1px 7px;
+      border-radius: 4px;
+      mat-icon { font-size: 14px; width: 14px; height: 14px; color: #059669; }
+    }
+    .matrix-empty-day {
+      padding: 32px 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      color: #94a3b8;
+      font-size: 0.82rem;
+      text-align: center;
+      mat-icon { font-size: 28px; width: 28px; height: 28px; opacity: 0.6; }
+    }
+
     /* Modal Backdrop */
     .modal-backdrop { position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(15,23,42,0.6); backdrop-filter:blur(4px); z-index:1000; display:flex; align-items:center; justify-content:center; padding:20px; }
     .modal-card { background:#ffffff; border-radius:14px; width:100%; max-width:600px; max-height:90vh; overflow-y:auto; box-shadow:0 20px 40px rgba(0,0,0,0.2); animation:modalSlideUp .2s ease-out; }
@@ -1149,16 +2040,33 @@ import { AuthService } from '../../core/services/auth.service';
       align-items: center;
       gap: 12px;
       .modal-icon-box {
-        width: 40px;
-        height: 40px;
-        background: #2563eb;
-        color: #ffffff;
-        border-radius: 10px;
-        box-shadow: 0 4px 6px -1px rgba(37,99,235,0.25);
+        width: 44px;
+        height: 44px;
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        border: 1.5px solid #bfdbfe;
+        color: #1e40af;
+        border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
-        mat-icon { font-size: 22px; width: 22px; height: 22px; color: #fff; }
+        overflow: hidden;
+        flex-shrink: 0;
+        box-shadow: 0 2px 6px rgba(37,99,235,0.15);
+
+        .modal-photo-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+        }
+
+        .modal-initials {
+          font-size: 1rem;
+          font-weight: 700;
+          color: #1e40af;
+        }
+
+        mat-icon { font-size: 22px; width: 22px; height: 22px; color: #2563eb; }
       }
       h3 { margin: 0; font-size: 1.15rem; font-weight: 700; color: #1e3a8a; }
       p { margin: 2px 0 0; font-size: 0.82rem; color: #3b82f6; strong { color: #1e40af; } }
@@ -1479,6 +2387,7 @@ export class TeacherReportsComponent implements OnInit {
   workloadPage: number = 1;
   workloadPageSize: number = 10;
   workloadTotalCount: number = 0;
+  isServerWorkloadFiltered = false;
   private workloadSearchDebounceTimer: any = null;
   selectedTeacherDetails: TeacherWorkloadSummaryItemDto | null = null;
 
@@ -1486,16 +2395,105 @@ export class TeacherReportsComponent implements OnInit {
   attendanceMonth = new Date().getMonth() + 1;
   attendanceYear = new Date().getFullYear();
   attendanceReport: AttendanceReportDto | null = null;
+  loadingAttendance = false;
+  attendanceSearch = '';
+  attendanceStatusFilter = 'all';
+  attendanceSortBy = 'name';
+  attendanceSortDirection: 'asc' | 'desc' = 'asc';
+  attendancePage = 1;
+  attendancePageSize = 10;
+  attendanceTotalCount = 0;
+  isServerAttendanceFiltered = false;
+  private attendanceSearchDebounceTimer: any = null;
+
+  get totalAttendancePages(): number {
+    return Math.ceil(this.attendanceTotalCount / this.attendancePageSize) || 1;
+  }
+  get attendanceStartIndex(): number {
+    return (this.attendancePage - 1) * this.attendancePageSize;
+  }
+  get attendanceEndIndex(): number {
+    return Math.min(this.attendanceStartIndex + this.attendancePageSize, this.attendanceTotalCount);
+  }
 
   // Tab 3: Payroll Data
   payrollMonth = new Date().getMonth() + 1;
   payrollYear = new Date().getFullYear();
   payrollReport: TeacherMonthlyPayrollReportDto | null = null;
+  loadingPayroll = false;
+  payrollSearch = '';
+  payrollModeFilter = 'all';
+  payrollSortBy = 'name';
+  payrollSortDirection: 'asc' | 'desc' = 'asc';
+  payrollPage = 1;
+  payrollPageSize = 10;
+  payrollTotalCount = 0;
+  isServerPayrollFiltered = false;
+  private payrollSearchDebounceTimer: any = null;
+
+  get totalPayrollPages(): number {
+    return Math.ceil(this.payrollTotalCount / this.payrollPageSize) || 1;
+  }
+  get payrollStartIndex(): number {
+    return (this.payrollPage - 1) * this.payrollPageSize;
+  }
+  get payrollEndIndex(): number {
+    return Math.min(this.payrollStartIndex + this.payrollPageSize, this.payrollTotalCount);
+  }
 
   // Tab 4: Master Timetable
   masterTimetable: BatchAssignmentDto[] = [];
+  loadingMasterTimetable = false;
   masterSearch = '';
   masterDayFilter = 'all';
+  masterViewMode: 'list' | 'matrix' = 'list';
+  masterSortBy = 'teacher';
+  masterSortDirection: 'asc' | 'desc' = 'asc';
+  masterPage = 1;
+  masterPageSize = 10;
+  masterTotalCount = 0;
+  isServerMasterFiltered = false;
+  private masterSearchDebounceTimer: any = null;
+
+  get totalMasterPages(): number {
+    return Math.ceil(this.masterTotalCount / this.masterPageSize) || 1;
+  }
+  get masterStartIndex(): number {
+    return (this.masterPage - 1) * this.masterPageSize;
+  }
+  get masterEndIndex(): number {
+    return Math.min(this.masterStartIndex + this.masterPageSize, this.masterTotalCount);
+  }
+
+  get masterTotalSlots(): number {
+    return this.masterTimetable ? this.masterTimetable.length : 0;
+  }
+  get masterUniqueTeachersCount(): number {
+    if (!this.masterTimetable) return 0;
+    const set = new Set(this.masterTimetable.map(m => m.teacherId || m.teacherName));
+    return set.size;
+  }
+  get masterUniqueBatchesCount(): number {
+    if (!this.masterTimetable) return 0;
+    const set = new Set(this.masterTimetable.map(m => m.batchName || m.className));
+    return set.size;
+  }
+  get masterUniqueSubjectsCount(): number {
+    if (!this.masterTimetable) return 0;
+    const set = new Set(this.masterTimetable.map(m => m.subject));
+    return set.size;
+  }
+
+  get todayDayName(): string {
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    return days[new Date().getDay()];
+  }
+
+  filterByToday() {
+    this.masterDayFilter = this.todayDayName;
+    this.masterPage = 1;
+    this.loadMasterTimetable(1);
+  }
 
   readonly months = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -1538,20 +2536,77 @@ export class TeacherReportsComponent implements OnInit {
   }
 
   ngOnInit() {
+    this.loadTeacherPhotosMap();
     this.route.queryParams.subscribe(params => {
       const tabParam = params['tab'];
       if (tabParam === 'workload' || tabParam === 'attendance' || tabParam === 'payroll' || tabParam === 'master_timetable') {
         this.selectedTab = tabParam;
       }
     });
-    this.loadWorkloadReport();
-    this.loadAttendanceReport();
-    this.loadPayrollReport();
-    this.loadMasterTimetable();
+    this.loadActiveTabData();
+  }
+
+  loadActiveTabData() {
+    if (this.selectedTab === 'workload') {
+      this.loadWorkloadReport();
+    } else if (this.selectedTab === 'attendance') {
+      this.loadAttendanceReport();
+    } else if (this.selectedTab === 'payroll') {
+      this.loadPayrollReport();
+    } else if (this.selectedTab === 'master_timetable') {
+      this.loadMasterTimetable();
+    }
   }
 
   setTab(tab: 'workload' | 'attendance' | 'payroll' | 'master_timetable') {
     this.selectedTab = tab;
+    this.loadActiveTabData();
+  }
+
+  // Faculty Profile Photo & Initials Fallback
+  imgErrors: Record<string, boolean> = {};
+  teacherPhotosMap: Record<string, string> = {};
+
+  getTeacherPhoto(item: any): string {
+    if (!item) return '';
+    const raw = item.photoUrl || (item.teacherId ? this.teacherPhotosMap[item.teacherId] : '') || (item.personId ? this.teacherPhotosMap[item.personId] : '') || (item.id ? this.teacherPhotosMap[item.id] : '');
+    if (!raw) return '';
+    return this.getPhotoUrl(raw);
+  }
+
+  getPhotoUrl(photo?: string | null): string {
+    if (!photo) return '';
+    if (photo.startsWith('http://') || photo.startsWith('https://') || photo.startsWith('data:')) {
+      return photo;
+    }
+    if (photo.startsWith('/')) {
+      return `${environment.apiBaseUrl}${photo}`;
+    }
+    return `${environment.apiBaseUrl}/${photo}`;
+  }
+
+  getInitials(name?: string): string {
+    if (!name) return 'FC';
+    const clean = name.replace(/^(Mr|Mrs|Ms|Dr|Er|Prof)\.?\s+/i, '').trim();
+    const parts = clean.split(/\s+/).filter(p => p.length > 0);
+    if (parts.length === 0) return 'FC';
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+
+  loadTeacherPhotosMap() {
+    this.http.get<any[]>(`${this.api}/teachers`, { headers: { 'X-Skip-Loader': 'true' } }).subscribe({
+      next: (list) => {
+        if (list) {
+          list.forEach(t => {
+            if (t.id && t.photoUrl) {
+              this.teacherPhotosMap[t.id] = t.photoUrl;
+            }
+          });
+        }
+      },
+      error: () => {}
+    });
   }
 
   // Workload Methods
@@ -1567,16 +2622,79 @@ export class TeacherReportsComponent implements OnInit {
       .set('page', this.workloadPage.toString())
       .set('pageSize', this.workloadPageSize.toString());
 
-    this.http.get<TeacherWorkloadReportDto>(`${this.api}/teachers/reports/workload`, { params }).subscribe({
+    this.http.get<TeacherWorkloadReportDto>(`${this.api}/teachers/reports/workload`, {
+      params,
+      headers: { 'X-Skip-Loader': 'true' }
+    }).subscribe({
       next: r => {
         this.workloadReport = r;
-        this.workloadTotalCount = r.totalCount ?? (r.teachers ? r.teachers.length : 0);
+        if (r.totalCount && r.totalCount > 0) {
+          this.workloadTotalCount = r.totalCount;
+          this.isServerWorkloadFiltered = true;
+        } else {
+          this.isServerWorkloadFiltered = false;
+          this.workloadTotalCount = r.teachers ? r.teachers.length : 0;
+        }
         this.loadingWorkload = false;
       },
       error: () => {
         this.loadingWorkload = false;
       }
     });
+  }
+
+  get displayedWorkloadTeachers(): TeacherWorkloadSummaryItemDto[] {
+    if (!this.workloadReport?.teachers) return [];
+    let list = [...this.workloadReport.teachers];
+
+    const needsClientPaging = list.length > this.workloadPageSize;
+    const needsClientFilter = !this.isServerWorkloadFiltered;
+
+    if (needsClientFilter) {
+      if (this.workloadSearch && this.workloadSearch.trim()) {
+        const q = this.workloadSearch.trim().toLowerCase();
+        list = list.filter(t =>
+          (t.teacherName && t.teacherName.toLowerCase().includes(q)) ||
+          (t.employeeCode && t.employeeCode.toLowerCase().includes(q)) ||
+          (t.qualification && t.qualification.toLowerCase().includes(q)) ||
+          (t.specialization && t.specialization.toLowerCase().includes(q))
+        );
+      }
+      if (this.workloadFilter && this.workloadFilter !== 'all') {
+        switch (this.workloadFilter) {
+          case 'no_load': list = list.filter(t => t.weeklyHours === 0); break;
+          case 'light': list = list.filter(t => t.weeklyHours < 10); break;
+          case 'optimal': list = list.filter(t => t.weeklyHours >= 10 && t.weeklyHours <= 25); break;
+          case 'heavy': list = list.filter(t => t.weeklyHours > 25); break;
+        }
+      }
+      const isDesc = this.workloadSortDirection === 'desc';
+      list.sort((a, b) => {
+        let valA: any = a.teacherName;
+        let valB: any = b.teacherName;
+        switch (this.workloadSortBy) {
+          case 'qualification': valA = a.qualification || ''; valB = b.qualification || ''; break;
+          case 'batches': valA = a.assignedBatchCount; valB = b.assignedBatchCount; break;
+          case 'classes': valA = a.weeklyClassesCount; valB = b.weeklyClassesCount; break;
+          case 'hours': valA = a.weeklyHours; valB = b.weeklyHours; break;
+          case 'status': valA = a.weeklyHours; valB = b.weeklyHours; break;
+          case 'reach': valA = a.totalStudentReach; valB = b.totalStudentReach; break;
+          default: valA = a.teacherName; valB = b.teacherName; break;
+        }
+        if (typeof valA === 'string') {
+          return isDesc ? valB.localeCompare(valA) : valA.localeCompare(valB);
+        }
+        return isDesc ? valB - valA : valA - valB;
+      });
+      this.workloadTotalCount = list.length;
+    }
+
+    if (needsClientPaging) {
+      const start = (this.workloadPage - 1) * this.workloadPageSize;
+      return list.slice(start, start + this.workloadPageSize);
+    }
+
+    return list;
   }
 
   onWorkloadSearchChange() {
@@ -1635,7 +2753,7 @@ export class TeacherReportsComponent implements OnInit {
   }
 
   get filteredWorkloadTeachers(): TeacherWorkloadSummaryItemDto[] {
-    return this.workloadReport?.teachers || [];
+    return this.displayedWorkloadTeachers;
   }
 
   getWorkloadStatusText(hours: number): string {
@@ -1656,16 +2774,139 @@ export class TeacherReportsComponent implements OnInit {
   }
 
   // Attendance Methods
-  loadAttendanceReport() {
-    this.loading = true;
-    this.http.get<AttendanceReportDto>(`${this.api}/teachers/attendance/report?month=${this.attendanceMonth}&year=${this.attendanceYear}`)
-      .subscribe({
-        next: r => {
-          this.attendanceReport = r;
-          this.loading = false;
-        },
-        error: () => this.loading = false
+  loadAttendanceReport(page: number = this.attendancePage) {
+    this.attendancePage = page;
+    this.loadingAttendance = true;
+
+    let params = new HttpParams()
+      .set('month', this.attendanceMonth.toString())
+      .set('year', this.attendanceYear.toString())
+      .set('search', this.attendanceSearch ? this.attendanceSearch.trim() : '')
+      .set('statusFilter', this.attendanceStatusFilter)
+      .set('sortBy', this.attendanceSortBy)
+      .set('sortDir', this.attendanceSortDirection)
+      .set('page', this.attendancePage.toString())
+      .set('pageSize', this.attendancePageSize.toString());
+
+    this.http.get<AttendanceReportDto>(`${this.api}/teachers/attendance/report`, {
+      params,
+      headers: { 'X-Skip-Loader': 'true' }
+    }).subscribe({
+      next: r => {
+        this.attendanceReport = r;
+        if (r.totalCount && r.totalCount > 0) {
+          this.attendanceTotalCount = r.totalCount;
+          this.isServerAttendanceFiltered = true;
+        } else {
+          this.isServerAttendanceFiltered = false;
+          this.attendanceTotalCount = r.rows ? r.rows.length : 0;
+        }
+        this.loadingAttendance = false;
+      },
+      error: () => {
+        this.loadingAttendance = false;
+      }
+    });
+  }
+
+  get displayedAttendanceRows(): AttendanceReportRowDto[] {
+    if (!this.attendanceReport?.rows) return [];
+    let list = [...this.attendanceReport.rows];
+
+    const needsClientPaging = list.length > this.attendancePageSize;
+    const needsClientFilter = !this.isServerAttendanceFiltered;
+
+    if (needsClientFilter) {
+      if (this.attendanceSearch && this.attendanceSearch.trim()) {
+        const q = this.attendanceSearch.trim().toLowerCase();
+        list = list.filter(r =>
+          (r.personName && r.personName.toLowerCase().includes(q)) ||
+          (r.name && r.name.toLowerCase().includes(q)) ||
+          (r.code && r.code.toLowerCase().includes(q))
+        );
+      }
+      if (this.attendanceStatusFilter && this.attendanceStatusFilter !== 'all') {
+        switch (this.attendanceStatusFilter) {
+          case 'flawless':
+            list = list.filter(r => this.getMonthlyPct(r) >= 90 && (r.lateDays || 0) === 0);
+            break;
+          case 'good':
+            list = list.filter(r => this.getMonthlyPct(r) >= 75);
+            break;
+          case 'low':
+            list = list.filter(r => this.getMonthlyPct(r) < 50);
+            break;
+          case 'late':
+            list = list.filter(r => (r.lateDays || 0) > 0);
+            break;
+        }
+      }
+      const isDesc = this.attendanceSortDirection === 'desc';
+      list.sort((a, b) => {
+        let valA: any = a.personName || a.name || '';
+        let valB: any = b.personName || b.name || '';
+        switch (this.attendanceSortBy) {
+          case 'code': valA = a.code || ''; valB = b.code || ''; break;
+          case 'present': valA = a.presentDays || 0; valB = b.presentDays || 0; break;
+          case 'absent': valA = a.absentDays || 0; valB = b.absentDays || 0; break;
+          case 'late': valA = a.lateDays || 0; valB = b.lateDays || 0; break;
+          case 'half': valA = a.halfDays || 0; valB = b.halfDays || 0; break;
+          case 'percentage': valA = this.getMonthlyPct(a); valB = this.getMonthlyPct(b); break;
+          default: valA = a.personName || a.name || ''; valB = b.personName || b.name || ''; break;
+        }
+        if (typeof valA === 'string') {
+          return isDesc ? valB.localeCompare(valA) : valA.localeCompare(valB);
+        }
+        return isDesc ? valB - valA : valA - valB;
       });
+      this.attendanceTotalCount = list.length;
+    }
+
+    if (needsClientPaging) {
+      const start = (this.attendancePage - 1) * this.attendancePageSize;
+      return list.slice(start, start + this.attendancePageSize);
+    }
+    return list;
+  }
+
+  onAttendanceSearchChange() {
+    if (this.attendanceSearchDebounceTimer) clearTimeout(this.attendanceSearchDebounceTimer);
+    this.attendanceSearchDebounceTimer = setTimeout(() => {
+      this.attendancePage = 1;
+      this.loadAttendanceReport(1);
+    }, 350);
+  }
+
+  clearAttendanceSearch() {
+    this.attendanceSearch = '';
+    this.attendancePage = 1;
+    this.loadAttendanceReport(1);
+  }
+
+  onAttendanceFilterChange() {
+    this.attendancePage = 1;
+    this.loadAttendanceReport(1);
+  }
+
+  onAttendanceSort(column: string) {
+    if (this.attendanceSortBy === column) {
+      this.attendanceSortDirection = this.attendanceSortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+      this.attendanceSortBy = column;
+      this.attendanceSortDirection = 'asc';
+    }
+    this.loadAttendanceReport(1);
+  }
+
+  setAttendancePage(page: number) {
+    if (page < 1 || page > this.totalAttendancePages || page === this.attendancePage) return;
+    this.loadAttendanceReport(page);
+  }
+
+  setAttendancePageSize(size: number) {
+    this.attendancePageSize = size;
+    this.attendancePage = 1;
+    this.loadAttendanceReport(1);
   }
 
   // Daily matrix and rating logic
@@ -1845,15 +3086,16 @@ export class TeacherReportsComponent implements OnInit {
 
   loadDailyAttendanceIfNeeded(teacherId: string): void {
     if (this.teacherDailyMap[teacherId]) return;
-    this.http.get<any[]>(`${this.api}/teachers/${teacherId}/attendance?month=${this.attendanceMonth}&year=${this.attendanceYear}`)
-      .subscribe({
-        next: (records) => {
-          this.buildDailyMapFromRecords(teacherId, records || []);
-        },
-        error: () => {
-          this.buildDailyMapFromRecords(teacherId, []);
-        }
-      });
+    this.http.get<any[]>(`${this.api}/teachers/${teacherId}/attendance?month=${this.attendanceMonth}&year=${this.attendanceYear}`, {
+      headers: { 'X-Skip-Loader': 'true' }
+    }).subscribe({
+      next: (records) => {
+        this.buildDailyMapFromRecords(teacherId, records || []);
+      },
+      error: () => {
+        this.buildDailyMapFromRecords(teacherId, []);
+      }
+    });
   }
 
   buildDailyMapFromRecords(teacherId: string, records: any[]): void {
@@ -1948,42 +3190,303 @@ export class TeacherReportsComponent implements OnInit {
   }
 
   // Payroll Methods
-  loadPayrollReport() {
-    this.loading = true;
-    this.http.get<TeacherMonthlyPayrollReportDto>(`${this.api}/teachers/reports/payroll?month=${this.payrollMonth}&year=${this.payrollYear}`)
-      .subscribe({
-        next: r => {
-          this.payrollReport = r;
-          this.loading = false;
-        },
-        error: () => this.loading = false
+  loadPayrollReport(page: number = this.payrollPage) {
+    this.payrollPage = page;
+    this.loadingPayroll = true;
+
+    let params = new HttpParams()
+      .set('month', this.payrollMonth.toString())
+      .set('year', this.payrollYear.toString())
+      .set('search', this.payrollSearch ? this.payrollSearch.trim() : '')
+      .set('paymentMode', this.payrollModeFilter)
+      .set('sortBy', this.payrollSortBy)
+      .set('sortDir', this.payrollSortDirection)
+      .set('page', this.payrollPage.toString())
+      .set('pageSize', this.payrollPageSize.toString());
+
+    this.http.get<TeacherMonthlyPayrollReportDto>(`${this.api}/teachers/reports/payroll`, {
+      params,
+      headers: { 'X-Skip-Loader': 'true' }
+    }).subscribe({
+      next: r => {
+        this.payrollReport = r;
+        if (r.totalRecords && r.totalRecords > 0) {
+          this.payrollTotalCount = r.totalRecords;
+          this.isServerPayrollFiltered = true;
+        } else {
+          this.isServerPayrollFiltered = false;
+          this.payrollTotalCount = r.payments ? r.payments.length : 0;
+        }
+        this.loadingPayroll = false;
+      },
+      error: () => {
+        this.loadingPayroll = false;
+      }
+    });
+  }
+
+  get displayedPayrollPayments(): SalaryPaymentDto[] {
+    if (!this.payrollReport?.payments) return [];
+    let list = [...this.payrollReport.payments];
+
+    const needsClientPaging = list.length > this.payrollPageSize;
+    const needsClientFilter = !this.isServerPayrollFiltered;
+
+    if (needsClientFilter) {
+      if (this.payrollSearch && this.payrollSearch.trim()) {
+        const q = this.payrollSearch.trim().toLowerCase();
+        list = list.filter(p =>
+          (p.teacherName && p.teacherName.toLowerCase().includes(q)) ||
+          (p.employeeCode && p.employeeCode.toLowerCase().includes(q)) ||
+          (p.receiptNumber && p.receiptNumber.toLowerCase().includes(q)) ||
+          (p.transactionRef && p.transactionRef.toLowerCase().includes(q))
+        );
+      }
+      if (this.payrollModeFilter && this.payrollModeFilter !== 'all') {
+        list = list.filter(p => p.paymentMode && p.paymentMode.toLowerCase() === this.payrollModeFilter.toLowerCase());
+      }
+      const isDesc = this.payrollSortDirection === 'desc';
+      list.sort((a, b) => {
+        let valA: any = a.teacherName;
+        let valB: any = b.teacherName;
+        switch (this.payrollSortBy) {
+          case 'receipt': valA = a.receiptNumber || ''; valB = b.receiptNumber || ''; break;
+          case 'date': valA = new Date(a.paymentDate).getTime(); valB = new Date(b.paymentDate).getTime(); break;
+          case 'gross': valA = a.grossAmount; valB = b.grossAmount; break;
+          case 'deductions': valA = a.deductions; valB = b.deductions; break;
+          case 'advance': valA = a.advanceAdjusted; valB = b.advanceAdjusted; break;
+          case 'net': valA = a.netPaid; valB = b.netPaid; break;
+          case 'mode': valA = a.paymentMode || ''; valB = b.paymentMode || ''; break;
+          default: valA = a.teacherName; valB = b.teacherName; break;
+        }
+        if (typeof valA === 'string') {
+          return isDesc ? valB.localeCompare(valA) : valA.localeCompare(valB);
+        }
+        return isDesc ? valB - valA : valA - valB;
       });
+      this.payrollTotalCount = list.length;
+    }
+
+    if (needsClientPaging) {
+      const start = (this.payrollPage - 1) * this.payrollPageSize;
+      return list.slice(start, start + this.payrollPageSize);
+    }
+
+    return list;
+  }
+
+  onPayrollSearchChange() {
+    if (this.payrollSearchDebounceTimer) {
+      clearTimeout(this.payrollSearchDebounceTimer);
+    }
+    this.payrollSearchDebounceTimer = setTimeout(() => {
+      this.payrollPage = 1;
+      this.loadPayrollReport(1);
+    }, 350);
+  }
+
+  clearPayrollSearch() {
+    this.payrollSearch = '';
+    this.payrollPage = 1;
+    this.loadPayrollReport(1);
+  }
+
+  onPayrollFilterChange() {
+    this.payrollPage = 1;
+    this.loadPayrollReport(1);
+  }
+
+  onPayrollSort(column: string) {
+    if (this.payrollSortBy === column) {
+      this.payrollSortDirection = this.payrollSortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+      this.payrollSortBy = column;
+      this.payrollSortDirection = 'asc';
+    }
+    this.loadPayrollReport(1);
+  }
+
+  setPayrollPage(page: number) {
+    if (page < 1 || page > this.totalPayrollPages || page === this.payrollPage) return;
+    this.loadPayrollReport(page);
+  }
+
+  setPayrollPageSize(size: number) {
+    this.payrollPageSize = size;
+    this.payrollPage = 1;
+    this.loadPayrollReport(1);
   }
 
   // Master Timetable Methods
-  loadMasterTimetable() {
-    this.http.get<BatchAssignmentDto[]>(`${this.api}/teachers/reports/master-timetable`).subscribe({
-      next: r => this.masterTimetable = r,
-      error: () => {}
+  loadMasterTimetable(page: number = this.masterPage) {
+    this.masterPage = page;
+    this.loadingMasterTimetable = true;
+
+    let params = new HttpParams()
+      .set('search', this.masterSearch ? this.masterSearch.trim() : '')
+      .set('day', this.masterDayFilter)
+      .set('sortBy', this.masterSortBy)
+      .set('sortDir', this.masterSortDirection)
+      .set('page', this.masterPage.toString())
+      .set('pageSize', this.masterPageSize.toString())
+      .set('paged', 'true');
+
+    this.http.get<any>(`${this.api}/teachers/reports/master-timetable`, {
+      params,
+      headers: { 'X-Skip-Loader': 'true' }
+    }).subscribe({
+      next: (res) => {
+        if (res && res.items && Array.isArray(res.items)) {
+          this.masterTimetable = res.items;
+          this.masterTotalCount = res.totalCount || res.items.length;
+          this.isServerMasterFiltered = true;
+        } else if (Array.isArray(res)) {
+          this.masterTimetable = res;
+          this.masterTotalCount = res.length;
+          this.isServerMasterFiltered = false;
+        } else {
+          this.masterTimetable = [];
+          this.masterTotalCount = 0;
+          this.isServerMasterFiltered = false;
+        }
+        this.loadingMasterTimetable = false;
+      },
+      error: () => {
+        this.loadingMasterTimetable = false;
+      }
     });
   }
 
-  get filteredMasterTimetable(): BatchAssignmentDto[] {
-    return this.masterTimetable.filter(m => {
-      const q = this.masterSearch.trim().toLowerCase();
-      const matchSearch = !q ||
-        m.teacherName.toLowerCase().includes(q) ||
-        (m.batchName || '').toLowerCase().includes(q) ||
-        (m.className || '').toLowerCase().includes(q) ||
-        m.subject.toLowerCase().includes(q);
+  get displayedMasterTimetable(): BatchAssignmentDto[] {
+    if (!this.masterTimetable) return [];
+    let list = [...this.masterTimetable];
 
-      let matchDay = true;
-      if (this.masterDayFilter !== 'all') {
-        matchDay = !!(m.daysOfWeek && m.daysOfWeek.toLowerCase().includes(this.masterDayFilter.toLowerCase()));
+    const needsClientPaging = list.length > this.masterPageSize;
+    const needsClientFilter = !this.isServerMasterFiltered;
+
+    if (needsClientFilter) {
+      if (this.masterSearch && this.masterSearch.trim()) {
+        const q = this.masterSearch.trim().toLowerCase();
+        list = list.filter(m =>
+          (m.teacherName && m.teacherName.toLowerCase().includes(q)) ||
+          (m.employeeCode && m.employeeCode.toLowerCase().includes(q)) ||
+          (m.batchName && m.batchName.toLowerCase().includes(q)) ||
+          (m.className && m.className.toLowerCase().includes(q)) ||
+          (m.subject && m.subject.toLowerCase().includes(q)) ||
+          (m.roomNumber && m.roomNumber.toLowerCase().includes(q))
+        );
       }
+      if (this.masterDayFilter && this.masterDayFilter !== 'all') {
+        list = list.filter(m => m.daysOfWeek && m.daysOfWeek.toLowerCase().includes(this.masterDayFilter.toLowerCase()));
+      }
+      const isDesc = this.masterSortDirection === 'desc';
+      list.sort((a, b) => {
+        let valA: any = a.teacherName || '';
+        let valB: any = b.teacherName || '';
+        switch (this.masterSortBy) {
+          case 'batch': valA = a.batchName || a.className || ''; valB = b.batchName || b.className || ''; break;
+          case 'subject': valA = a.subject || ''; valB = b.subject || ''; break;
+          case 'day': valA = a.daysOfWeek || ''; valB = b.daysOfWeek || ''; break;
+          case 'slot': valA = a.timeSlot || ''; valB = b.timeSlot || ''; break;
+          case 'room': valA = a.roomNumber || ''; valB = b.roomNumber || ''; break;
+          default: valA = a.teacherName || ''; valB = b.teacherName || ''; break;
+        }
+        if (typeof valA === 'string') {
+          return isDesc ? valB.localeCompare(valA) : valA.localeCompare(valB);
+        }
+        return isDesc ? valB - valA : valA - valB;
+      });
+      this.masterTotalCount = list.length;
+    }
 
-      return matchSearch && matchDay;
+    if (needsClientPaging) {
+      const start = (this.masterPage - 1) * this.masterPageSize;
+      return list.slice(start, start + this.masterPageSize);
+    }
+    return list;
+  }
+
+  get filteredMasterTimetable(): BatchAssignmentDto[] {
+    return this.displayedMasterTimetable;
+  }
+
+  get routineGroupedByDay(): { day: string; dayFullName: string; isToday: boolean; items: BatchAssignmentDto[] }[] {
+    const dayFullNames: Record<string, string> = {
+      'Mon': 'Monday',
+      'Tue': 'Tuesday',
+      'Wed': 'Wednesday',
+      'Thu': 'Thursday',
+      'Fri': 'Friday',
+      'Sat': 'Saturday',
+      'Sun': 'Sunday'
+    };
+    const daysToInclude = this.masterDayFilter === 'all'
+      ? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+      : [this.masterDayFilter];
+
+    const today = this.todayDayName;
+
+    return daysToInclude.map(d => {
+      const items = (this.masterTimetable || []).filter(m => {
+        const matchDay = m.daysOfWeek && m.daysOfWeek.toLowerCase().includes(d.toLowerCase());
+        if (!matchDay) return false;
+        if (this.masterSearch && this.masterSearch.trim()) {
+          const q = this.masterSearch.trim().toLowerCase();
+          return (m.teacherName && m.teacherName.toLowerCase().includes(q)) ||
+                 (m.batchName && m.batchName.toLowerCase().includes(q)) ||
+                 (m.className && m.className.toLowerCase().includes(q)) ||
+                 (m.subject && m.subject.toLowerCase().includes(q)) ||
+                 (m.roomNumber && m.roomNumber.toLowerCase().includes(q));
+        }
+        return true;
+      });
+      return {
+        day: d,
+        dayFullName: dayFullNames[d] || d,
+        isToday: d.toLowerCase() === today.toLowerCase(),
+        items
+      };
     });
+  }
+
+  onMasterSearchChange() {
+    if (this.masterSearchDebounceTimer) clearTimeout(this.masterSearchDebounceTimer);
+    this.masterSearchDebounceTimer = setTimeout(() => {
+      this.masterPage = 1;
+      this.loadMasterTimetable(1);
+    }, 350);
+  }
+
+  clearMasterSearch() {
+    this.masterSearch = '';
+    this.masterPage = 1;
+    this.loadMasterTimetable(1);
+  }
+
+  onMasterDayFilterChange() {
+    this.masterPage = 1;
+    this.loadMasterTimetable(1);
+  }
+
+  onMasterSort(column: string) {
+    if (this.masterSortBy === column) {
+      this.masterSortDirection = this.masterSortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+      this.masterSortBy = column;
+      this.masterSortDirection = 'asc';
+    }
+    this.loadMasterTimetable(1);
+  }
+
+  setMasterPage(page: number) {
+    if (page < 1 || page > this.totalMasterPages || page === this.masterPage) return;
+    this.loadMasterTimetable(page);
+  }
+
+  setMasterPageSize(size: number) {
+    this.masterPageSize = size;
+    this.masterPage = 1;
+    this.loadMasterTimetable(1);
   }
 
   // Print & CSV Export

@@ -515,5 +515,9 @@ export interface StudentFeeCard {
   totalPaid: number;
   totalBalanceDue: number;
   pendingLibraryFine: number;
+  schoolRollNumber?: string | null;
+  coachingRollNumber?: string | null;
+  isSchoolStudent?: boolean;
+  isCoachingStudent?: boolean;
 }
 

@@ -697,7 +697,8 @@ public record AttendanceReportRowDto(
     bool IsSchoolStudent = false,
     bool IsCoachingStudent = false,
     int ElapsedWorkingDays = 0,
-    string? JoiningDate = null
+    string? JoiningDate = null,
+    string? PhotoUrl = null
 );
 
 
@@ -715,7 +716,10 @@ public record AttendanceReportDto(
     bool IsDualEnrolled = false,
     string? DefaultStream = null,
     int TotalWorkingDaysInMonth = 0,
-    int ElapsedWorkingDaysInMonth = 0
+    int ElapsedWorkingDaysInMonth = 0,
+    int TotalCount = 0,
+    int Page = 1,
+    int PageSize = 10
 );
 
 public record BatchDto(
@@ -1342,7 +1346,11 @@ public record StudentFeeCardDto(
     decimal TotalConcession,
     decimal TotalPaid,
     decimal TotalBalanceDue,
-    decimal PendingLibraryFine = 0
+    decimal PendingLibraryFine = 0,
+    string? SchoolRollNumber = null,
+    string? CoachingRollNumber = null,
+    bool IsSchoolStudent = true,
+    bool IsCoachingStudent = false
 );
 
 public record FeeItemPaymentDto(
@@ -1524,7 +1532,20 @@ public record TeacherBatchAssignmentDto(
     Guid? ClassId = null,
     string? ClassName = null,
     Guid? SectionId = null,
-    string? SectionName = null
+    string? SectionName = null,
+    string? EmployeeCode = null,
+    string? PhotoUrl = null,
+    string? RoomNumber = null
+);
+
+public record MasterTimetableReportDto(
+    List<TeacherBatchAssignmentDto> Items,
+    int TotalCount,
+    int Page,
+    int PageSize,
+    int TotalTeachersCount = 0,
+    int TotalBatchesCount = 0,
+    int TotalSubjectsCount = 0
 );
 
 public record CreateTeacherBatchAssignmentDto(
@@ -1902,7 +1923,8 @@ public record TeacherSalaryPaymentDto(
     decimal? HostelDeduction = null,
     decimal? TransportDeduction = null,
     decimal? ArrearsAmount = null,
-    string? ArrearsRemarks = null
+    string? ArrearsRemarks = null,
+    string? PhotoUrl = null
 );
 
 public record CreateSalaryPaymentDto(
@@ -2168,7 +2190,8 @@ public record TeacherWorkloadSummaryItemDto(
     int WeeklyClassesCount,
     decimal WeeklyHours,
     int TotalStudentReach,
-    List<TeacherBatchAssignmentDto> AssignedBatches
+    List<TeacherBatchAssignmentDto> AssignedBatches,
+    string? PhotoUrl = null
 );
 
 public record TeacherWorkloadReportDto(
@@ -2203,7 +2226,10 @@ public record TeacherMonthlyPayrollReportDto(
     decimal TotalDeductions,
     decimal TotalAdvancesAdjusted,
     decimal TotalNetPaid,
-    List<TeacherSalaryPaymentDto> Payments
+    List<TeacherSalaryPaymentDto> Payments,
+    int TotalRecords = 0,
+    int Page = 1,
+    int PageSize = 10
 );
 
 // --- Library Management System DTOs ---

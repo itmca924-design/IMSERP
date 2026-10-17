@@ -2,7 +2,7 @@ import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, ActivatedRoute } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -15,9 +15,11 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatDialogModule } from '@angular/material/dialog';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatMenuModule } from '@angular/material/menu';
 import { AuthService } from '../../core/services/auth.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
-import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionIncrementDto, BulkIncrementDto, StaffPromotionSummaryDto, StaffAppraisalPolicy } from './teacher.models';
+import { environment } from '../../../environments/environment';
+import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionIncrementDto, BulkIncrementDto, StaffPromotionSummaryDto, StaffAppraisalPolicy, StaffPromotionsPagedResponse } from './teacher.models';
 
 @Component({
   selector: 'app-staff-promotions',
@@ -37,7 +39,8 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
     MatChipsModule,
     MatDialogModule,
     MatCheckboxModule,
-    MatSlideToggleModule
+    MatSlideToggleModule,
+    MatMenuModule
   ],
   template: `
     <div class="page-container">
@@ -68,61 +71,73 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
         </div>
       </div>
 
-      <!-- KPI Summary Cards (Clean Center Aligned Numbers) -->
+      <!-- KPI Summary Cards - Standard Compact Horizontal Layout -->
       <div class="stats-grid">
         <mat-card class="stat-card total mat-elevation-z1">
           <div class="stat-icon"><mat-icon>assessment</mat-icon></div>
           <div class="stat-info">
-            <span class="stat-val">{{ summary.totalRecords }}</span>
             <span class="stat-lbl">Total Appraisals</span>
+            <div class="stat-val-row">
+              <span class="stat-val">{{ summary.totalRecords }}</span>
+            </div>
           </div>
         </mat-card>
 
         <mat-card class="stat-card promo mat-elevation-z1">
           <div class="stat-icon"><mat-icon>trending_up</mat-icon></div>
           <div class="stat-info">
-            <span class="stat-val">{{ summary.totalPromotions }}</span>
             <span class="stat-lbl">Role Promotions</span>
+            <div class="stat-val-row">
+              <span class="stat-val">{{ summary.totalPromotions }}</span>
+            </div>
           </div>
         </mat-card>
 
         <mat-card class="stat-card inc mat-elevation-z1">
           <div class="stat-icon"><mat-icon>payments</mat-icon></div>
           <div class="stat-info">
-            <span class="stat-val">{{ summary.totalIncrements }}</span>
             <span class="stat-lbl">Salary Increments</span>
+            <div class="stat-val-row">
+              <span class="stat-val">{{ summary.totalIncrements }}</span>
+            </div>
           </div>
         </mat-card>
 
         <mat-card class="stat-card budget mat-elevation-z1">
           <div class="stat-icon"><mat-icon>currency_rupee</mat-icon></div>
           <div class="stat-info">
-            <span class="stat-val">₹{{ summary.totalMonthlyGrossHike | number:'1.0-0' }}</span>
-            <span class="stat-lbl">Monthly Budget Hike (Avg: {{ summary.averageHikePercentage }}%)</span>
+            <span class="stat-lbl">Monthly Budget Hike</span>
+            <div class="stat-val-row">
+              <span class="stat-val">₹{{ summary.totalMonthlyGrossHike | number:'1.0-0' }}</span>
+              <span class="stat-sub-pill" *ngIf="summary.averageHikePercentage > 0">
+                Avg +{{ summary.averageHikePercentage }}%
+              </span>
+            </div>
           </div>
         </mat-card>
       </div>
 
-      <!-- Filter & Search Toolbar -->
+      <!-- Filter & Search Toolbar with Smart View Switcher -->
       <mat-card class="filter-card mat-elevation-z1">
         <div class="filter-toolbar">
           <div class="search-box">
             <mat-icon>search</mat-icon>
             <input
               type="text"
-              placeholder="Search staff name, code, designation, or reason..."
+              placeholder="Search staff name, code, designation, or cycle..."
               [(ngModel)]="searchQuery"
-              (ngModelChange)="applyFilters()"
+              (ngModelChange)="onSearchInput($event)"
+              (keyup.enter)="loadData()"
             />
-            <button *ngIf="searchQuery" type="button" class="clear-btn" (click)="searchQuery = ''; applyFilters()">
+            <button *ngIf="searchQuery" type="button" class="clear-btn" (click)="clearSearch()">
               <mat-icon>close</mat-icon>
             </button>
           </div>
 
           <div class="filter-selects">
-            <mat-form-field appearance="outline" class="mini-field">
+            <mat-form-field appearance="outline" class="mini-field" subscriptSizing="dynamic">
               <mat-label>Staff Type</mat-label>
-              <mat-select [(ngModel)]="selectedStaffType" (selectionChange)="applyFilters()">
+              <mat-select [(ngModel)]="selectedStaffType" (selectionChange)="onFilterChange()">
                 <mat-option value="All">All Staff Types</mat-option>
                 <mat-option value="Teaching">Teaching Faculty</mat-option>
                 <mat-option value="NonTeaching">Non-Teaching / HR</mat-option>
@@ -131,43 +146,124 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
               </mat-select>
             </mat-form-field>
 
-            <mat-form-field appearance="outline" class="mini-field">
+            <mat-form-field appearance="outline" class="mini-field" subscriptSizing="dynamic">
               <mat-label>Appraisal Type</mat-label>
-              <mat-select [(ngModel)]="selectedType" (selectionChange)="applyFilters()">
+              <mat-select [(ngModel)]="selectedType" (selectionChange)="onFilterChange()">
                 <mat-option value="">All Types</mat-option>
                 <mat-option value="PromotionAndIncrement">Promotion + Increment</mat-option>
                 <mat-option value="Increment">Salary Increment Only</mat-option>
                 <mat-option value="Promotion">Promotion Only</mat-option>
               </mat-select>
             </mat-form-field>
+
+            <mat-form-field appearance="outline" class="mini-field cycle-field" subscriptSizing="dynamic">
+              <mat-label>Appraisal Cycle</mat-label>
+              <mat-select [(ngModel)]="selectedCycle" (selectionChange)="onFilterChange()">
+                <mat-option value="All">All Cycles</mat-option>
+                <mat-option *ngFor="let c of distinctCycles" [value]="c">{{ c }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+          </div>
+
+          <!-- Smart View Mode Toggle & Total Counter -->
+          <div class="filter-controls-right">
+            <div class="records-count-chip">
+              <strong>{{ totalCount }}</strong> Appraisals
+            </div>
+            <div class="view-mode-toggle">
+              <button
+                type="button"
+                class="view-toggle-btn"
+                [class.active]="viewMode === 'table'"
+                (click)="viewMode = 'table'"
+                matTooltip="Table View (Dense & Detailed)"
+              >
+                <mat-icon>table_chart</mat-icon>
+                <span>Table</span>
+              </button>
+              <button
+                type="button"
+                class="view-toggle-btn"
+                [class.active]="viewMode === 'grid'"
+                (click)="viewMode = 'grid'"
+                matTooltip="Smart Card Grid View"
+              >
+                <mat-icon>grid_view</mat-icon>
+                <span>Cards</span>
+              </button>
+            </div>
           </div>
         </div>
       </mat-card>
 
-      <mat-progress-bar mode="indeterminate" *ngIf="loading"></mat-progress-bar>
-
-      <!-- Main Data Table / Mobile Card View -->
-      <div class="records-container" *ngIf="!loading && filteredRecords.length > 0">
-        <!-- Desktop Table View -->
-        <div class="table-responsive desktop-only">
+      <!-- Main Data Records Container -->
+      <div class="records-container" *ngIf="records.length > 0 || loading">
+        <!-- 1. Smart Table View -->
+        <div class="table-responsive" [class.table-loading]="loading" *ngIf="viewMode === 'table'">
+          <!-- Prominent Server Loader Overlay -->
+          <div class="table-loading-overlay" *ngIf="loading">
+            <div class="loading-spinner-box">
+              <div class="spinner-ring"></div>
+              <span>Fetching server records...</span>
+            </div>
+          </div>
           <table class="erp-table">
             <thead>
               <tr>
-                <th>Staff Member</th>
-                <th>Appraisal Type</th>
-                <th>Designation Shift</th>
-                <th>Salary Revision (Gross CTC)</th>
-                <th>Effective Date</th>
-                <th>Reason / Cycle</th>
-                <th class="text-right">Actions</th>
+                <th class="sortable" (click)="onSort('teacherName')" matTooltip="Click to sort by Staff Member">
+                  <div class="th-content">
+                    <span>Staff Member</span>
+                    <mat-icon class="sort-icon" [class.active]="isSorted('teacherName')">{{ getSortIcon('teacherName') }}</mat-icon>
+                  </div>
+                </th>
+                <th class="sortable" (click)="onSort('type')" matTooltip="Click to sort by Appraisal Type">
+                  <div class="th-content">
+                    <span>Appraisal Type</span>
+                    <mat-icon class="sort-icon" [class.active]="isSorted('type')">{{ getSortIcon('type') }}</mat-icon>
+                  </div>
+                </th>
+                <th class="sortable" (click)="onSort('newDesignation')" matTooltip="Click to sort by Designation">
+                  <div class="th-content">
+                    <span>Designation Shift</span>
+                    <mat-icon class="sort-icon" [class.active]="isSorted('newDesignation')">{{ getSortIcon('newDesignation') }}</mat-icon>
+                  </div>
+                </th>
+                <th class="sortable" (click)="onSort('newGrossSalary')" matTooltip="Click to sort by Revised Gross CTC">
+                  <div class="th-content">
+                    <span>Salary Revision (Gross CTC)</span>
+                    <mat-icon class="sort-icon" [class.active]="isSorted('newGrossSalary')">{{ getSortIcon('newGrossSalary') }}</mat-icon>
+                  </div>
+                </th>
+                <th class="sortable" (click)="onSort('effectiveDate')" matTooltip="Click to sort by Effective Date">
+                  <div class="th-content">
+                    <span>Effective Date</span>
+                    <mat-icon class="sort-icon" [class.active]="isSorted('effectiveDate')">{{ getSortIcon('effectiveDate') }}</mat-icon>
+                  </div>
+                </th>
+                <th class="sortable" (click)="onSort('reason')" matTooltip="Click to sort by Reason/Cycle">
+                  <div class="th-content">
+                    <span>Reason / Cycle</span>
+                    <mat-icon class="sort-icon" [class.active]="isSorted('reason')">{{ getSortIcon('reason') }}</mat-icon>
+                  </div>
+                </th>
+                <th class="text-center actions-th">Actions</th>
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let r of filteredRecords">
+              <tr *ngFor="let r of records" class="table-data-row" (click)="openDetailDrawer(r)">
                 <td>
                   <div class="staff-id-cell">
                     <div class="staff-avatar">
-                      <mat-icon>{{ r.staffType === 'Teaching' ? 'school' : 'badge' }}</mat-icon>
+                      <img
+                        *ngIf="getStaffPhoto(r) && !imgErrors[r.teacherId]"
+                        [src]="getStaffPhoto(r)"
+                        (error)="imgErrors[r.teacherId] = true"
+                        class="staff-photo-img"
+                        [alt]="r.teacherName"
+                      />
+                      <div *ngIf="!getStaffPhoto(r) || imgErrors[r.teacherId]" class="staff-initials-avatar">
+                        {{ getInitials(r.teacherName) }}
+                      </div>
                     </div>
                     <div>
                       <strong class="staff-name">{{ r.teacherName }}</strong>
@@ -211,85 +307,176 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
                 </td>
                 <td>
                   <div class="date-cell">
-                    <strong>{{ r.effectiveDate | date:'dd MMM yyyy' }}</strong>
-                    <small>Indian Standard Time</small>
+                    <span class="date-text">{{ r.effectiveDate | date:'dd MMM yyyy' }}</span>
                   </div>
                 </td>
                 <td>
-                  <span class="reason-pill" [matTooltip]="r.remarks || ''">{{ r.reason || 'Appraisal' }}</span>
+                  <span class="reason-pill" [matTooltip]="r.reason + (r.remarks ? ' • ' + r.remarks : '')">
+                    {{ formatReason(r.reason) }}
+                  </span>
                 </td>
-                <td class="text-right">
-                  <div class="action-btn-group">
-                    <button mat-icon-button class="mini-btn view" (click)="viewLetter(r)" matTooltip="View / Print Appraisal Letter">
-                      <mat-icon>description</mat-icon>
+                <td class="text-center actions-td" (click)="$event.stopPropagation()">
+                  <button mat-icon-button [matMenuTriggerFor]="rowMenu" class="action-menu-btn" matTooltip="More Actions">
+                    <mat-icon>more_vert</mat-icon>
+                  </button>
+                  <mat-menu #rowMenu="matMenu" xPosition="before" class="appraisal-action-menu">
+                    <button mat-menu-item (click)="openDetailDrawer(r)">
+                      <mat-icon style="color: #2563eb;">visibility</mat-icon>
+                      <span>View Details</span>
                     </button>
-                    <button mat-icon-button class="mini-btn delete" (click)="deleteRecord(r)" matTooltip="Delete Audit Record">
-                      <mat-icon>delete_outline</mat-icon>
+                    <button mat-menu-item (click)="viewLetter(r)">
+                      <mat-icon style="color: #0284c7;">description</mat-icon>
+                      <span>Official Letter</span>
                     </button>
-                  </div>
+                    <button mat-menu-item (click)="deleteRecord(r)">
+                      <mat-icon style="color: #ef4444;">delete_outline</mat-icon>
+                      <span style="color: #ef4444;">Delete Record</span>
+                    </button>
+                  </mat-menu>
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        <!-- Mobile / Tablet Card View -->
-        <div class="mobile-only cards-list">
-          <mat-card class="mobile-record-card mat-elevation-z1" *ngFor="let r of filteredRecords">
-            <div class="m-card-header">
-              <div class="m-staff-info">
-                <strong>{{ r.teacherName }}</strong>
-                <span class="m-code">({{ r.employeeCode }})</span>
-                <span class="type-pill" [class.teaching]="r.staffType === 'Teaching'">{{ r.staffType }}</span>
+        <!-- 2. Smart Compact Card Grid View -->
+        <div class="smart-cards-grid" [class.table-loading]="loading" *ngIf="viewMode === 'grid'">
+          <!-- Prominent Server Loader Overlay -->
+          <div class="table-loading-overlay" *ngIf="loading">
+            <div class="loading-spinner-box">
+              <div class="spinner-ring"></div>
+              <span>Fetching server records...</span>
+            </div>
+          </div>
+          <div class="smart-record-card" *ngFor="let r of records">
+            <div class="card-accent-bar" [ngClass]="getTypeBadgeClass(r.type)"></div>
+
+            <div class="card-top-header">
+              <div class="staff-header-left">
+                <div class="staff-card-avatar">
+                  <img
+                    *ngIf="getStaffPhoto(r) && !imgErrors[r.teacherId]"
+                    [src]="getStaffPhoto(r)"
+                    (error)="imgErrors[r.teacherId] = true"
+                    class="staff-photo-img"
+                    [alt]="r.teacherName"
+                  />
+                  <div *ngIf="!getStaffPhoto(r) || imgErrors[r.teacherId]" class="staff-initials-avatar">
+                    {{ getInitials(r.teacherName) }}
+                  </div>
+                </div>
+                <div class="staff-card-title">
+                  <strong class="teacher-title">{{ r.teacherName }}</strong>
+                  <div class="meta-row">
+                    <span class="code-tag">{{ r.employeeCode }}</span>
+                    <span class="type-pill" [class.teaching]="r.staffType === 'Teaching'">{{ r.staffType }}</span>
+                  </div>
+                </div>
               </div>
               <span class="type-badge" [ngClass]="getTypeBadgeClass(r.type)">
                 {{ getTypeText(r.type) }}
               </span>
             </div>
 
-            <!-- Role Shift -->
-            <div class="m-data-row" *ngIf="r.oldDesignation !== r.newDesignation || r.type !== 'Increment'">
-              <span class="m-lbl">Designation:</span>
-              <div class="shift-cell">
-                <span class="old-role">{{ r.oldDesignation }}</span>
-                <mat-icon class="arrow-icon">arrow_forward</mat-icon>
-                <strong class="new-role">{{ r.newDesignation }}</strong>
+            <!-- Compact Metrics Grid -->
+            <div class="card-metrics-box">
+              <div class="metric-row">
+                <span class="metric-label">Role Shift:</span>
+                <div class="shift-cell">
+                  <span class="old-role" *ngIf="r.oldDesignation !== r.newDesignation">{{ r.oldDesignation }}</span>
+                  <mat-icon class="arrow-icon" *ngIf="r.oldDesignation !== r.newDesignation">arrow_forward</mat-icon>
+                  <strong class="new-role">{{ r.newDesignation }}</strong>
+                </div>
               </div>
-            </div>
 
-            <!-- Salary Shift -->
-            <div class="m-data-row" *ngIf="r.newGrossSalary > 0">
-              <span class="m-lbl">Gross CTC:</span>
-              <div class="salary-cell">
-                <span class="old-sal">₹{{ r.oldGrossSalary | number:'1.0-0' }}</span>
-                <mat-icon class="arrow-icon">arrow_forward</mat-icon>
-                <strong class="new-sal">₹{{ r.newGrossSalary | number:'1.0-0' }}</strong>
-                <span class="hike-badge-m" *ngIf="r.newGrossSalary > r.oldGrossSalary">
-                  +{{ r.incrementPercentage }}%
+              <div class="metric-row" *ngIf="r.newGrossSalary > 0">
+                <span class="metric-label">Gross CTC:</span>
+                <div class="salary-inline-cell">
+                  <span class="old-sal">₹{{ r.oldGrossSalary | number:'1.0-0' }}</span>
+                  <mat-icon class="arrow-icon">arrow_forward</mat-icon>
+                  <strong class="new-sal">₹{{ r.newGrossSalary | number:'1.0-0' }}</strong>
+                  <span class="hike-chip" *ngIf="r.newGrossSalary > r.oldGrossSalary">
+                    +{{ r.incrementPercentage }}%
+                  </span>
+                </div>
+              </div>
+
+              <div class="metric-row-footer">
+                <span class="date-tag">
+                  <mat-icon>calendar_today</mat-icon>
+                  {{ r.effectiveDate | date:'dd MMM yyyy' }}
+                </span>
+                <span class="cycle-tag" [matTooltip]="r.remarks || ''">
+                  {{ r.reason || 'Appraisal' }}
                 </span>
               </div>
             </div>
 
-            <div class="m-card-footer">
-              <div class="m-footer-left">
-                <span class="m-date">Effective: {{ r.effectiveDate | date:'dd MMM yyyy' }}</span>
-                <span class="reason-pill-m">{{ r.reason }}</span>
-              </div>
-              <div class="action-btn-group">
-                <button mat-stroked-button class="m-action-btn" (click)="viewLetter(r)">
-                  <mat-icon>description</mat-icon> Letter
+            <div class="card-action-bar">
+              <button mat-button class="card-btn inspect" (click)="openDetailDrawer(r)">
+                <mat-icon>visibility</mat-icon>
+                <span>Details</span>
+              </button>
+              <div class="right-actions">
+                <button mat-stroked-button class="card-btn letter" (click)="viewLetter(r)" matTooltip="View / Print Letter">
+                  <mat-icon>description</mat-icon>
+                  <span>Letter</span>
                 </button>
-                <button mat-icon-button class="mini-btn delete" (click)="deleteRecord(r)">
+                <button mat-icon-button class="card-icon-btn delete" (click)="deleteRecord(r)" matTooltip="Delete Record">
                   <mat-icon>delete_outline</mat-icon>
                 </button>
               </div>
             </div>
-          </mat-card>
+          </div>
+        </div>
+
+        <!-- 3. Smart Pagination Bar -->
+        <div class="pagination-container" *ngIf="totalCount > 0 || records.length > 0">
+          <div class="pagination-info">
+            Showing <strong>{{ totalCount > 0 ? (currentPage - 1) * pageSize + 1 : (records.length > 0 ? 1 : 0) }}</strong> to
+            <strong>{{ min(currentPage * pageSize, totalCount || records.length) }}</strong> of
+            <strong>{{ totalCount || records.length }}</strong> records
+          </div>
+
+          <div class="pagination-controls">
+            <div class="page-size-selector">
+              <span>Rows per page:</span>
+              <select [ngModel]="pageSize" (ngModelChange)="onPageSizeChange($event)">
+                <option *ngFor="let opt of pageSizeOptions" [value]="opt">{{ opt }}</option>
+              </select>
+            </div>
+
+            <div class="page-nav-btns">
+              <button
+                type="button"
+                class="page-nav-btn"
+                [disabled]="currentPage === 1 || loading"
+                (click)="prevPage()"
+                matTooltip="Previous Page"
+              >
+                <mat-icon>chevron_left</mat-icon>
+              </button>
+
+              <span class="page-counter">
+                Page <strong>{{ currentPage }}</strong> of <strong>{{ totalPages }}</strong>
+              </span>
+
+              <button
+                type="button"
+                class="page-nav-btn"
+                [disabled]="currentPage >= totalPages || loading"
+                (click)="nextPage()"
+                matTooltip="Next Page"
+              >
+                <mat-icon>chevron_right</mat-icon>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
       <!-- Empty State -->
-      <div class="empty-state" *ngIf="!loading && filteredRecords.length === 0">
+      <div class="empty-state" *ngIf="!loading && records.length === 0">
         <div class="empty-icon-wrap">
           <mat-icon>military_tech</mat-icon>
         </div>
@@ -635,7 +822,7 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
               </div>
             </div>
 
-            <!-- 5. Effective Date & Reason -->
+            <!-- 5. Effective Date & Dynamic Reason / Cycle -->
             <div class="form-row">
               <mat-form-field appearance="outline" class="flex-1">
                 <mat-label>Effective Date (लागू होने की तिथि)</mat-label>
@@ -643,16 +830,27 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
                 <mat-hint>Date from which new designation and salary takes effect</mat-hint>
               </mat-form-field>
 
-              <mat-form-field appearance="outline" class="flex-1">
-                <mat-label>Appraisal Cycle / Reason</mat-label>
-                <mat-select [(ngModel)]="formData.reason">
-                  <mat-option value="Annual Appraisal Cycle (वार्षिक वेतन वृद्धि)">Annual Appraisal Cycle</mat-option>
-                  <mat-option value="Outstanding Performance (उत्कृष्ट प्रदर्शन)">Outstanding Performance</mat-option>
-                  <mat-option value="Cadre Promotion (पदोनति)">Cadre Promotion</mat-option>
-                  <mat-option value="Probation Confirmation (पुष्टिकरण)">Probation Confirmation</mat-option>
-                  <mat-option value="Special Retention Revision">Special Retention Revision</mat-option>
-                </mat-select>
-              </mat-form-field>
+              <div class="flex-1 cycle-input-wrap">
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>Appraisal Cycle / Reason</mat-label>
+                  <input matInput [(ngModel)]="formData.reason" placeholder="Type cycle name or choose from suggestions..." />
+                  <button *ngIf="formData.reason" matSuffix mat-icon-button type="button" (click)="formData.reason = ''" matTooltip="Clear">
+                    <mat-icon>close</mat-icon>
+                  </button>
+                  <mat-hint>Dynamic cycle name set from UI</mat-hint>
+                </mat-form-field>
+                <div class="quick-roles-row" *ngIf="availableCycles.length > 0">
+                  <span class="quick-lbl">Suggestions:</span>
+                  <span
+                    class="quick-role-chip"
+                    *ngFor="let c of availableCycles"
+                    (click)="formData.reason = c"
+                    [class.selected]="formData.reason === c"
+                  >
+                    {{ c }}
+                  </span>
+                </div>
+              </div>
             </div>
 
             <mat-form-field appearance="outline" class="full-width">
@@ -727,10 +925,27 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
               </mat-form-field>
             </div>
 
-            <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Appraisal Cycle Description</mat-label>
-              <input matInput [(ngModel)]="bulkData.reason" placeholder="e.g. Annual Appraisal Cycle 2026-27" />
-            </mat-form-field>
+            <div class="form-group full-width cycle-input-wrap">
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Appraisal Cycle / Reason Description</mat-label>
+                <input matInput [(ngModel)]="bulkData.reason" placeholder="Type cycle name or choose from suggestions..." />
+                <button *ngIf="bulkData.reason" matSuffix mat-icon-button type="button" (click)="bulkData.reason = ''" matTooltip="Clear">
+                  <mat-icon>close</mat-icon>
+                </button>
+                <mat-hint>Dynamic cycle name recorded in audit log for all staff</mat-hint>
+              </mat-form-field>
+              <div class="quick-roles-row" *ngIf="availableCycles.length > 0">
+                <span class="quick-lbl">Suggestions:</span>
+                <span
+                  class="quick-role-chip"
+                  *ngFor="let c of availableCycles"
+                  (click)="bulkData.reason = c"
+                  [class.selected]="bulkData.reason === c"
+                >
+                  {{ c }}
+                </span>
+              </div>
+            </div>
           </div>
 
           <div class="modal-footer">
@@ -936,6 +1151,182 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
           </div>
         </div>
       </div>
+
+      <!-- Smart Slide-Over Detail Drawer -->
+      <div class="drawer-overlay" *ngIf="showDetailDrawer" (click)="closeDetailDrawer()">
+        <aside class="detail-drawer" (click)="$event.stopPropagation()">
+          <!-- Header with Strict Light Blue Gradient matching AGENTS.md rule -->
+          <div class="drawer-header">
+            <div class="header-left">
+              <div class="header-icon-box">
+                <mat-icon>military_tech</mat-icon>
+              </div>
+              <div class="header-title-box">
+                <h2 class="drawer-title">Staff Appraisal Record</h2>
+                <p class="drawer-subtitle">
+                  Ref: <strong>JC-APR-{{ selectedRecordForDetails?.id?.substring(0, 8)?.toUpperCase() }}</strong>
+                </p>
+              </div>
+            </div>
+            <button mat-icon-button class="close-btn" (click)="closeDetailDrawer()" matTooltip="Close">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+
+          <div class="drawer-body" *ngIf="selectedRecordForDetails">
+            <!-- Staff Summary Card -->
+            <div class="drawer-card staff-summary">
+              <div class="staff-avatar-large">
+                <img
+                  *ngIf="getStaffPhoto(selectedRecordForDetails) && !imgErrors[selectedRecordForDetails.teacherId]"
+                  [src]="getStaffPhoto(selectedRecordForDetails)"
+                  (error)="imgErrors[selectedRecordForDetails.teacherId] = true"
+                  class="staff-photo-img"
+                  [alt]="selectedRecordForDetails.teacherName"
+                />
+                <div *ngIf="!getStaffPhoto(selectedRecordForDetails) || imgErrors[selectedRecordForDetails.teacherId]" class="staff-initials-avatar">
+                  {{ getInitials(selectedRecordForDetails.teacherName) }}
+                </div>
+              </div>
+              <div class="staff-meta-details">
+                <div class="staff-title-row">
+                  <h3 class="staff-name">{{ selectedRecordForDetails.teacherName }}</h3>
+                  <span class="code-badge">{{ selectedRecordForDetails.employeeCode }}</span>
+                  <span class="type-pill" [class.teaching]="selectedRecordForDetails.staffType === 'Teaching'">
+                    {{ selectedRecordForDetails.staffType }}
+                  </span>
+                </div>
+                <div class="staff-dept-row">
+                  <span>Department: <strong>{{ selectedRecordForDetails.newDepartment || selectedRecordForDetails.oldDepartment || 'Academic' }}</strong></span>
+                </div>
+                <div class="appraisal-type-pill-wrap">
+                  <span class="type-badge" [ngClass]="getTypeBadgeClass(selectedRecordForDetails.type)">
+                    {{ getTypeText(selectedRecordForDetails.type) }}
+                  </span>
+                  <span class="cycle-pill">{{ selectedRecordForDetails.reason || 'Appraisal Cycle' }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Designation Progression Tile -->
+            <div class="drawer-card">
+              <div class="card-section-title">
+                <mat-icon>badge</mat-icon>
+                <span>Designation Progression</span>
+              </div>
+              <div class="progression-box">
+                <div class="prog-col">
+                  <span class="prog-lbl">Previous Cadre</span>
+                  <strong class="prog-val old">{{ selectedRecordForDetails.oldDesignation || 'N/A' }}</strong>
+                </div>
+                <div class="prog-arrow-wrap">
+                  <mat-icon>arrow_forward</mat-icon>
+                </div>
+                <div class="prog-col">
+                  <span class="prog-lbl">Revised Cadre</span>
+                  <strong class="prog-val new">{{ selectedRecordForDetails.newDesignation }}</strong>
+                </div>
+              </div>
+            </div>
+
+            <!-- Salary Structure CTC Revision Breakdown -->
+            <div class="drawer-card" *ngIf="selectedRecordForDetails.newGrossSalary > 0">
+              <div class="card-section-title">
+                <mat-icon>payments</mat-icon>
+                <span>Salary CTC Revision Breakdown</span>
+              </div>
+
+              <div class="salary-hike-banner" *ngIf="selectedRecordForDetails.newGrossSalary > selectedRecordForDetails.oldGrossSalary">
+                <div class="hike-stat">
+                  <span class="hike-lbl">Gross Monthly Hike</span>
+                  <strong class="hike-val">+₹{{ (selectedRecordForDetails.newGrossSalary - selectedRecordForDetails.oldGrossSalary) | number:'1.0-0' }}</strong>
+                </div>
+                <div class="hike-pct-badge">
+                  +{{ selectedRecordForDetails.incrementPercentage }}% Hike
+                </div>
+              </div>
+
+              <div class="drawer-breakdown-table">
+                <div class="b-row header">
+                  <span>Component</span>
+                  <span class="text-right">Previous</span>
+                  <span class="text-right">Revised</span>
+                </div>
+                <div class="b-row">
+                  <span>Basic Salary</span>
+                  <span class="text-right old">₹{{ selectedRecordForDetails.oldBasicSalary | number:'1.0-0' }}</span>
+                  <span class="text-right new">₹{{ selectedRecordForDetails.newBasicSalary | number:'1.0-0' }}</span>
+                </div>
+                <div class="b-row">
+                  <span>HRA</span>
+                  <span class="text-right old">₹{{ selectedRecordForDetails.oldHRA | number:'1.0-0' }}</span>
+                  <span class="text-right new">₹{{ selectedRecordForDetails.newHRA | number:'1.0-0' }}</span>
+                </div>
+                <div class="b-row">
+                  <span>Other / Special Allowances</span>
+                  <span class="text-right old">₹{{ selectedRecordForDetails.oldOtherAllowances | number:'1.0-0' }}</span>
+                  <span class="text-right new">₹{{ selectedRecordForDetails.newOtherAllowances | number:'1.0-0' }}</span>
+                </div>
+                <div class="b-row total">
+                  <strong>Total Monthly Gross CTC</strong>
+                  <strong class="text-right old">₹{{ selectedRecordForDetails.oldGrossSalary | number:'1.0-0' }}</strong>
+                  <strong class="text-right total-new">₹{{ selectedRecordForDetails.newGrossSalary | number:'1.0-0' }}</strong>
+                </div>
+              </div>
+            </div>
+
+            <!-- Audit & Timeline Details -->
+            <div class="drawer-card">
+              <div class="card-section-title">
+                <mat-icon>history</mat-icon>
+                <span>Audit &amp; Timeline Details</span>
+              </div>
+              <div class="audit-list">
+                <div class="audit-item">
+                  <span class="audit-lbl">Effective Date:</span>
+                  <div class="audit-val">
+                    <strong>{{ selectedRecordForDetails.effectiveDate | date:'dd MMMM yyyy' }}</strong>
+                    <small>(Indian Standard Time)</small>
+                  </div>
+                </div>
+                <div class="audit-item">
+                  <span class="audit-lbl">Recorded On:</span>
+                  <div class="audit-val">
+                    <span>{{ selectedRecordForDetails.createdAt | date:'dd MMM yyyy, hh:mm a' }}</span>
+                  </div>
+                </div>
+                <div class="audit-item" *ngIf="selectedRecordForDetails.remarks">
+                  <span class="audit-lbl">Notes / Remarks:</span>
+                  <div class="audit-val notes">
+                    <span>{{ selectedRecordForDetails.remarks }}</span>
+                  </div>
+                </div>
+                <div class="audit-item bypass-notice" *ngIf="selectedRecordForDetails.isSpecialBypass">
+                  <mat-icon class="shield-icon">verified_user</mat-icon>
+                  <div>
+                    <strong>Management Approval Bypass Authorized</strong>
+                    <p>{{ selectedRecordForDetails.specialBypassReason || 'Approved by HR Committee' }}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="drawer-footer" *ngIf="selectedRecordForDetails">
+            <button mat-stroked-button color="warn" (click)="deleteRecord(selectedRecordForDetails); closeDetailDrawer()">
+              <mat-icon>delete_outline</mat-icon>
+              <span>Delete</span>
+            </button>
+            <div class="footer-right">
+              <button mat-stroked-button (click)="closeDetailDrawer()">Close</button>
+              <button mat-flat-button color="primary" (click)="viewLetter(selectedRecordForDetails)">
+                <mat-icon>description</mat-icon>
+                <span>Official Letter</span>
+              </button>
+            </div>
+          </div>
+        </aside>
+      </div>
     </div>
   `,
   styles: [`
@@ -993,48 +1384,57 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
       }
     }
 
-    /* KPI Summary Cards - Consistent Center Aligned Layout */
+    /* KPI Summary Cards - Standard Compact Horizontal Layout */
     .stats-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-      gap: 16px;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+
+      @media (max-width: 1024px) {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      @media (max-width: 640px) {
+        grid-template-columns: 1fr;
+      }
     }
 
     .stat-card {
       background: #ffffff !important;
-      border-radius: 14px !important;
-      padding: 16px 14px !important;
+      border-radius: 12px !important;
+      padding: 12px 16px !important;
       display: flex !important;
-      flex-direction: column !important;
+      flex-direction: row !important;
       align-items: center !important;
-      justify-content: center !important;
-      text-align: center !important;
-      gap: 8px !important;
-      min-height: 125px !important;
+      justify-content: flex-start !important;
+      text-align: left !important;
+      gap: 14px !important;
+      min-height: unset !important;
       border: 1px solid #e2e8f0 !important;
       box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04), 0 1px 2px rgba(15, 23, 42, 0.02) !important;
-      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+      overflow: hidden;
 
       &:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 10px 20px -5px rgba(15, 23, 42, 0.08) !important;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 14px -3px rgba(15, 23, 42, 0.08) !important;
         border-color: #cbd5e1 !important;
       }
 
       .stat-icon {
-        width: 44px !important;
-        height: 44px !important;
-        border-radius: 12px !important;
+        width: 42px !important;
+        height: 42px !important;
+        border-radius: 10px !important;
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
         flex-shrink: 0 !important;
-        margin: 0 auto !important;
+        margin: 0 !important;
 
         mat-icon {
-          font-size: 24px;
-          width: 24px;
-          height: 24px;
+          font-size: 22px;
+          width: 22px;
+          height: 22px;
           color: #ffffff;
         }
       }
@@ -1042,39 +1442,74 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
       .stat-info {
         display: flex !important;
         flex-direction: column !important;
-        align-items: center !important;
+        align-items: flex-start !important;
         justify-content: center !important;
-        text-align: center !important;
-        width: 100% !important;
+        text-align: left !important;
+        flex: 1;
+        min-width: 0;
+
+        .stat-lbl {
+          font-size: 0.72rem !important;
+          font-weight: 600 !important;
+          color: #64748b !important;
+          text-transform: uppercase !important;
+          letter-spacing: 0.4px !important;
+          line-height: 1.2 !important;
+          margin: 0 0 2px 0 !important;
+          white-space: nowrap !important;
+          overflow: hidden !important;
+          text-overflow: ellipsis !important;
+        }
+
+        .stat-val-row {
+          display: flex;
+          align-items: baseline;
+          gap: 6px;
+          flex-wrap: wrap;
+        }
 
         .stat-val {
-          display: block !important;
-          font-size: 1.75rem !important;
-          font-weight: 800 !important;
+          display: inline-block !important;
+          font-size: 1.45rem !important;
+          font-weight: 700 !important;
           color: #0f172a !important;
           line-height: 1.15 !important;
           letter-spacing: -0.02em;
-          text-align: center !important;
-          width: 100% !important;
-          margin: 0 auto !important;
         }
 
-        .stat-lbl {
-          font-size: 0.76rem !important;
-          font-weight: 600 !important;
-          color: #64748b !important;
-          margin-top: 3px !important;
-          display: block !important;
-          text-align: center !important;
-          width: 100% !important;
-          line-height: 1.25 !important;
+        .stat-sub-pill {
+          display: inline-flex;
+          align-items: center;
+          font-size: 0.7rem;
+          font-weight: 600;
+          color: #047857;
+          background: #ecfdf5;
+          border: 1px solid #a7f3d0;
+          padding: 1px 6px;
+          border-radius: 10px;
+          line-height: normal;
         }
       }
 
-      &.total .stat-icon { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25); }
-      &.promo .stat-icon { background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%); box-shadow: 0 4px 10px rgba(139, 92, 246, 0.25); }
-      &.inc .stat-icon { background: linear-gradient(135deg, #10b981 0%, #047857 100%); box-shadow: 0 4px 10px rgba(16, 185, 129, 0.25); }
-      &.budget .stat-icon { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); box-shadow: 0 4px 10px rgba(245, 158, 11, 0.25); }
+      &.total {
+        border-left: 3.5px solid #2563eb !important;
+        .stat-icon { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); box-shadow: 0 3px 8px rgba(37, 99, 235, 0.25); }
+      }
+
+      &.promo {
+        border-left: 3.5px solid #8b5cf6 !important;
+        .stat-icon { background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%); box-shadow: 0 3px 8px rgba(139, 92, 246, 0.25); }
+      }
+
+      &.inc {
+        border-left: 3.5px solid #10b981 !important;
+        .stat-icon { background: linear-gradient(135deg, #10b981 0%, #047857 100%); box-shadow: 0 3px 8px rgba(16, 185, 129, 0.25); }
+      }
+
+      &.budget {
+        border-left: 3.5px solid #f59e0b !important;
+        .stat-icon { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); box-shadow: 0 3px 8px rgba(245, 158, 11, 0.25); }
+      }
     }
 
     /* Filter Toolbar */
@@ -1095,23 +1530,34 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
       .search-box {
         flex: 1;
         min-width: 240px;
+        height: 40px;
+        box-sizing: border-box;
         display: flex;
         align-items: center;
         gap: 8px;
         background: #f8fafc;
         border: 1px solid #cbd5e1;
         border-radius: 8px;
-        padding: 7px 12px;
+        padding: 0 12px;
+        transition: all 0.2s ease;
+
+        &:focus-within {
+          border-color: #2563eb;
+          background: #ffffff;
+          box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
 
         mat-icon {
           color: #2563eb;
           font-size: 20px;
           width: 20px;
           height: 20px;
+          flex-shrink: 0;
         }
 
         input {
           flex: 1;
+          height: 100%;
           border: none;
           background: transparent;
           outline: none;
@@ -1138,9 +1584,124 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
 
         .mini-field {
           width: 175px;
-          margin-bottom: -1.25em;
+          height: 40px;
+          margin: 0;
+
+          &.cycle-field {
+            width: 200px;
+          }
+
+          ::ng-deep {
+            .mat-mdc-form-field-subscript-wrapper {
+              display: none !important;
+            }
+            .mat-mdc-text-field-wrapper {
+              height: 40px !important;
+              padding: 0 12px !important;
+              background-color: #f8fafc !important;
+              border-radius: 8px !important;
+              box-sizing: border-box !important;
+              transition: all 0.2s ease;
+            }
+            .mat-mdc-form-field-flex {
+              height: 40px !important;
+              align-items: center !important;
+            }
+            .mat-mdc-form-field-infix {
+              min-height: unset !important;
+              padding: 0 !important;
+              display: flex !important;
+              align-items: center !important;
+              height: 100% !important;
+            }
+            .mat-mdc-select-value {
+              font-size: 0.88rem !important;
+              color: #0f172a !important;
+              line-height: normal !important;
+            }
+            .mat-mdc-select-arrow-wrapper {
+              transform: none !important;
+            }
+            .mat-mdc-floating-label {
+              top: 20px !important;
+              font-size: 0.84rem !important;
+            }
+            .mdc-floating-label--float-above {
+              top: 19px !important;
+              transform: translateY(-135%) scale(0.75) !important;
+              background: #ffffff;
+              padding: 0 4px;
+            }
+            .mdc-notched-outline__leading {
+              border-top-left-radius: 8px !important;
+              border-bottom-left-radius: 8px !important;
+            }
+            .mdc-notched-outline__trailing {
+              border-top-right-radius: 8px !important;
+              border-bottom-right-radius: 8px !important;
+            }
+            .mdc-notched-outline__leading,
+            .mdc-notched-outline__notch,
+            .mdc-notched-outline__trailing {
+              border-color: #cbd5e1 !important;
+            }
+            &.mat-focused .mdc-notched-outline__leading,
+            &.mat-focused .mdc-notched-outline__notch,
+            &.mat-focused .mdc-notched-outline__trailing {
+              border-color: #2563eb !important;
+              border-width: 1.5px !important;
+            }
+            &.mat-focused .mat-mdc-text-field-wrapper {
+              background-color: #ffffff !important;
+            }
+          }
         }
       }
+    }
+
+    /* Single Central Server Loading Overlay */
+    .table-loading-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(255, 255, 255, 0.75);
+      backdrop-filter: blur(2px);
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 14px;
+      pointer-events: none;
+      min-height: 200px;
+    }
+
+    .loading-spinner-box {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #ffffff;
+      border: 1.5px solid #93c5fd;
+      padding: 10px 20px;
+      border-radius: 30px;
+      box-shadow: 0 10px 25px -5px rgba(37, 99, 235, 0.25);
+      color: #1e40af;
+      font-weight: 600;
+      font-size: 0.88rem;
+    }
+
+    .spinner-ring {
+      width: 20px;
+      height: 20px;
+      border: 2.5px solid #dbeafe;
+      border-top-color: #2563eb;
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
     }
 
     /* Records Container & Table Styles */
@@ -1148,6 +1709,7 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
       display: flex;
       flex-direction: column;
       gap: 20px;
+      position: relative;
     }
 
     .table-responsive {
@@ -1157,13 +1719,29 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
       overflow-x: auto;
       box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
       margin-bottom: 8px;
+      position: relative;
+      transition: opacity 0.2s ease;
+
+      &.table-loading {
+        opacity: 0.65;
+        pointer-events: none;
+      }
+    }
+
+    .smart-cards-grid {
+      position: relative;
+      &.table-loading {
+        opacity: 0.65;
+        pointer-events: none;
+        transition: opacity 0.2s ease;
+      }
     }
 
     .erp-table {
       width: 100%;
       border-collapse: collapse;
       text-align: left;
-      font-size: 0.86rem;
+      font-size: 0.84rem;
 
       thead tr {
         background: #f8fafc;
@@ -1171,17 +1749,51 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
       }
 
       th {
-        padding: 12px 16px;
+        padding: 10px 12px;
         font-weight: 600;
         color: #475569;
-        font-size: 0.78rem;
+        font-size: 0.76rem;
         text-transform: uppercase;
         letter-spacing: 0.04em;
         white-space: nowrap;
+
+        &.sortable {
+          cursor: pointer;
+          user-select: none;
+          transition: all 0.2s ease;
+
+          .th-content {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+          }
+
+          .sort-icon {
+            font-size: 16px;
+            width: 16px;
+            height: 16px;
+            color: #94a3b8;
+            transition: all 0.2s ease;
+
+            &.active {
+              color: #2563eb;
+              font-weight: 700;
+            }
+          }
+
+          &:hover {
+            background: #f1f5f9;
+            color: #1d4ed8;
+
+            .sort-icon {
+              color: #2563eb;
+            }
+          }
+        }
       }
 
       td {
-        padding: 14px 16px;
+        padding: 10px 12px;
         border-bottom: 1px solid #f1f5f9;
         color: #1e293b;
         vertical-align: middle;
@@ -1190,7 +1802,30 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
       tbody tr:hover {
         background: #fafcff;
       }
+
+      .actions-th, .actions-td {
+        width: 48px;
+        min-width: 48px;
+        max-width: 56px;
+        padding: 4px;
+        text-align: center;
+      }
     }
+
+    .action-menu-btn {
+      width: 32px !important;
+      height: 32px !important;
+      padding: 0 !important;
+      color: #64748b;
+      transition: all 0.2s ease;
+      mat-icon { font-size: 20px; width: 20px; height: 20px; }
+      &:hover {
+        background: #eff6ff !important;
+        color: #2563eb !important;
+      }
+    }
+
+    .text-center { text-align: center; }
 
     .staff-id-cell {
       display: flex;
@@ -1198,14 +1833,34 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
       gap: 10px;
 
       .staff-avatar {
-        width: 36px;
-        height: 36px;
-        border-radius: 8px;
-        background: #eff6ff;
-        color: #2563eb;
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        color: #1e40af;
         display: flex;
         align-items: center;
         justify-content: center;
+        overflow: hidden;
+        flex-shrink: 0;
+        border: 1.5px solid #bfdbfe;
+        box-shadow: 0 1px 3px rgba(37, 99, 235, 0.12);
+
+        .staff-photo-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+        }
+
+        .staff-initials-avatar {
+          font-size: 0.82rem;
+          font-weight: 700;
+          color: #1e40af;
+          letter-spacing: 0.5px;
+          text-transform: uppercase;
+        }
+
         mat-icon { font-size: 20px; width: 20px; height: 20px; }
       }
 
@@ -1336,22 +1991,25 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
     }
 
     .date-cell {
-      strong { color: #0f172a; display: block; }
-      small { color: #94a3b8; font-size: 0.72rem; }
+      .date-text {
+        color: #0f172a;
+        font-weight: 600;
+        font-size: 0.84rem;
+        white-space: nowrap;
+      }
     }
 
     .reason-pill {
-      display: inline-block;
-      max-width: 160px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      background: #f8fafc;
+      display: inline-flex;
+      align-items: center;
+      background: #f1f5f9;
       border: 1px solid #e2e8f0;
-      padding: 2px 8px;
-      border-radius: 6px;
+      padding: 3px 10px;
+      border-radius: 12px;
       font-size: 0.76rem;
+      font-weight: 500;
       color: #334155;
+      white-space: nowrap;
     }
 
     .action-btn-group {
@@ -1373,14 +2031,71 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
 
     .text-right { text-align: right; }
 
-    /* Mobile Only Cards */
-    .desktop-only { display: block; }
-    .mobile-only { display: none; }
+    /* Filter Controls Right & View Switcher */
+    .filter-controls-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-left: auto;
+
+      .records-count-chip {
+        font-size: 0.8rem;
+        background: #eff6ff;
+        color: #1e40af;
+        border: 1px solid #bfdbfe;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-weight: 500;
+        strong { color: #1e3a8a; }
+      }
+
+      .view-mode-toggle {
+        display: inline-flex;
+        background: #f1f5f9;
+        padding: 3px;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+
+        .view-toggle-btn {
+          border: none;
+          background: transparent;
+          cursor: pointer;
+          padding: 4px 10px;
+          border-radius: 6px;
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          font-size: 0.78rem;
+          font-weight: 600;
+          color: #64748b;
+          transition: all 0.2s ease;
+
+          mat-icon { font-size: 16px; width: 16px; height: 16px; }
+
+          &.active {
+            background: #ffffff;
+            color: #2563eb;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+          }
+
+          &:hover:not(.active) {
+            color: #1e293b;
+          }
+        }
+      }
+    }
+
+    .table-data-row {
+      cursor: pointer;
+      transition: background 0.15s ease;
+      &:hover {
+        background: #f8fafc !important;
+      }
+    }
+
+    .mini-btn.inspect { color: #0284c7; }
 
     @media (max-width: 768px) {
-      .desktop-only { display: none; }
-      .mobile-only { display: block; }
-
       .page-header {
         flex-direction: column;
         align-items: stretch;
@@ -1399,6 +2114,12 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
       .stats-grid {
         grid-template-columns: repeat(2, 1fr) !important;
         gap: 10px;
+      }
+
+      .filter-controls-right {
+        width: 100%;
+        justify-content: space-between;
+        margin-left: 0;
       }
     }
 
@@ -1432,78 +2153,650 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
       }
     }
 
-    .cards-list {
-      display: flex;
-      flex-direction: column;
+    /* Smart Cards Grid (Compact & Responsive) */
+    .smart-cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
       gap: 16px;
-      margin-top: 10px;
     }
 
-    .mobile-record-card {
-      padding: 16px !important;
-      border-radius: 12px !important;
-      border: 1px solid #e2e8f0 !important;
-      background: #ffffff !important;
+    .smart-record-card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
       display: flex;
       flex-direction: column;
-      gap: 12px;
-      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05) !important;
+      position: relative;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 
-      .m-card-header {
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 16px -4px rgba(15, 23, 42, 0.08);
+        border-color: #cbd5e1;
+      }
+
+      .card-accent-bar {
+        height: 3px;
+        width: 100%;
+        background: #cbd5e1;
+
+        &.badge-both { background: linear-gradient(90deg, #8b5cf6, #3b82f6); }
+        &.badge-promo { background: #3b82f6; }
+        &.badge-inc { background: #10b981; }
+      }
+
+      .card-top-header {
+        padding: 12px 14px;
         display: flex;
         justify-content: space-between;
         align-items: flex-start;
         gap: 8px;
-      }
+        border-bottom: 1px solid #f8fafc;
 
-      .m-staff-info {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        flex-wrap: wrap;
-        strong { font-size: 0.95rem; color: #0f172a; }
-        .m-code { color: #64748b; font-size: 0.78rem; }
-      }
-
-      .m-data-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        font-size: 0.82rem;
-        .m-lbl { color: #64748b; }
-      }
-
-      .hike-badge-m {
-        background: #ecfdf5;
-        color: #047857;
-        padding: 1px 6px;
-        border-radius: 6px;
-        font-weight: 700;
-        font-size: 0.72rem;
-        margin-left: 6px;
-      }
-
-      .m-card-footer {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        border-top: 1px solid #f1f5f9;
-        padding-top: 8px;
-
-        .m-footer-left {
+        .staff-header-left {
           display: flex;
-          flex-direction: column;
-          gap: 2px;
-          .m-date { font-size: 0.75rem; color: #64748b; font-weight: 500; }
-          .reason-pill-m { font-size: 0.72rem; color: #1e40af; }
+          align-items: center;
+          gap: 10px;
+          min-width: 0;
+
+          .staff-card-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+            color: #1e40af;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            overflow: hidden;
+            border: 1.5px solid #bfdbfe;
+            box-shadow: 0 1px 3px rgba(37, 99, 235, 0.12);
+
+            .staff-photo-img {
+              width: 100%;
+              height: 100%;
+              object-fit: cover;
+              display: block;
+            }
+
+            .staff-initials-avatar {
+              font-size: 0.84rem;
+              font-weight: 700;
+              color: #1e40af;
+              letter-spacing: 0.5px;
+              text-transform: uppercase;
+            }
+
+            mat-icon { font-size: 20px; width: 20px; height: 20px; }
+          }
+
+          .staff-card-title {
+            min-width: 0;
+            .teacher-title {
+              display: block;
+              font-size: 0.92rem;
+              color: #0f172a;
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
+            }
+            .meta-row {
+              display: flex;
+              align-items: center;
+              gap: 6px;
+              margin-top: 2px;
+              .code-tag { font-size: 0.72rem; color: #64748b; font-family: monospace; }
+            }
+          }
+        }
+      }
+
+      .card-metrics-box {
+        padding: 12px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        flex: 1;
+        background: #fcfdfe;
+
+        .metric-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          font-size: 0.8rem;
+          gap: 8px;
+
+          .metric-label {
+            color: #64748b;
+            font-size: 0.74rem;
+            font-weight: 500;
+          }
+
+          .shift-cell {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.82rem;
+            .old-role { color: #94a3b8; text-decoration: line-through; font-size: 0.76rem; }
+            .arrow-icon { font-size: 13px; width: 13px; height: 13px; color: #3b82f6; }
+            .new-role { color: #1e3a8a; font-weight: 600; }
+          }
+
+          .salary-inline-cell {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+
+            .old-sal { color: #94a3b8; text-decoration: line-through; font-size: 0.76rem; }
+            .arrow-icon { font-size: 13px; width: 13px; height: 13px; color: #10b981; }
+            .new-sal { color: #0f172a; font-weight: 700; font-size: 0.84rem; }
+            .hike-chip {
+              background: #ecfdf5;
+              color: #047857;
+              padding: 1px 5px;
+              border-radius: 4px;
+              font-size: 0.7rem;
+              font-weight: 700;
+            }
+          }
         }
 
-        .m-action-btn {
-          height: 32px !important;
-          font-size: 0.78rem !important;
+        .metric-row-footer {
+          margin-top: 4px;
+          padding-top: 8px;
+          border-top: 1px dashed #e2e8f0;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 6px;
+
+          .date-tag {
+            font-size: 0.72rem;
+            color: #64748b;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            mat-icon { font-size: 13px; width: 13px; height: 13px; }
+          }
+
+          .cycle-tag {
+            font-size: 0.7rem;
+            color: #3b82f6;
+            background: #eff6ff;
+            padding: 1px 6px;
+            border-radius: 4px;
+            max-width: 140px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+        }
+      }
+
+      .card-action-bar {
+        padding: 8px 12px;
+        border-top: 1px solid #f1f5f9;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: #ffffff;
+
+        .card-btn.inspect {
+          font-size: 0.78rem;
+          font-weight: 600;
+          color: #2563eb;
+          height: 30px;
+          padding: 0 8px;
           mat-icon { font-size: 16px; width: 16px; height: 16px; margin-right: 4px; }
         }
+
+        .right-actions {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+
+          .card-btn.letter {
+            font-size: 0.75rem;
+            height: 28px;
+            padding: 0 8px;
+            color: #475569;
+            mat-icon { font-size: 15px; width: 15px; height: 15px; margin-right: 3px; }
+          }
+
+          .card-icon-btn.delete {
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            color: #f87171;
+            mat-icon { font-size: 16px; width: 16px; height: 16px; }
+            &:hover { color: #dc2626; }
+          }
+        }
       }
+    }
+
+    /* Pagination Container */
+    .pagination-container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 16px;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      font-size: 0.82rem;
+      color: #64748b;
+      flex-wrap: wrap;
+      gap: 12px;
+
+      .pagination-info {
+        strong { color: #0f172a; }
+      }
+
+      .pagination-controls {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+
+        .page-size-selector {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 0.8rem;
+
+          select {
+            padding: 4px 8px;
+            border-radius: 6px;
+            border: 1px solid #cbd5e1;
+            background: #f8fafc;
+            color: #0f172a;
+            font-size: 0.8rem;
+            outline: none;
+            cursor: pointer;
+            &:focus { border-color: #2563eb; }
+          }
+        }
+
+        .page-nav-btns {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+
+          .page-nav-btn {
+            border: 1px solid #cbd5e1;
+            background: #ffffff;
+            border-radius: 6px;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: #334155;
+            transition: all 0.15s ease;
+
+            mat-icon { font-size: 18px; width: 18px; height: 18px; }
+
+            &:hover:not(:disabled) {
+              background: #eff6ff;
+              border-color: #93c5fd;
+              color: #1d4ed8;
+            }
+
+            &:disabled {
+              opacity: 0.4;
+              cursor: not-allowed;
+            }
+          }
+
+          .page-counter {
+            font-size: 0.8rem;
+            padding: 0 4px;
+            strong { color: #0f172a; }
+          }
+        }
+      }
+    }
+
+    /* Slide-Over Detail Drawer */
+    .drawer-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(15, 23, 42, 0.45);
+      backdrop-filter: blur(2px);
+      z-index: 1060;
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .detail-drawer {
+      background: #ffffff;
+      width: 490px;
+      max-width: 96vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: -8px 0 25px rgba(0, 0, 0, 0.15);
+      animation: slideInRight 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+
+      .drawer-header {
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        border-bottom: 1px solid #bfdbfe;
+        padding: 16px 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+
+        .header-left {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .header-icon-box {
+          width: 40px;
+          height: 40px;
+          background: #2563eb;
+          color: #ffffff;
+          border-radius: 10px;
+          box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.25);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          mat-icon { font-size: 22px; width: 22px; height: 22px; }
+        }
+
+        .drawer-title {
+          margin: 0;
+          font-size: 1.15rem;
+          font-weight: 700;
+          color: #1e3a8a;
+        }
+
+        .drawer-subtitle {
+          margin: 2px 0 0;
+          font-size: 0.78rem;
+          color: #3b82f6;
+          strong { color: #1e40af; }
+        }
+
+        .close-btn {
+          color: #64748b;
+          &:hover { color: #1e293b; }
+        }
+      }
+
+      .drawer-body {
+        padding: 20px;
+        overflow-y: auto;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        background: #f8fafc;
+
+        .drawer-card {
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
+          border-radius: 12px;
+          padding: 14px 16px;
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+
+          .card-section-title {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.84rem;
+            font-weight: 700;
+            color: #1e3a8a;
+            margin-bottom: 12px;
+            mat-icon { font-size: 17px; width: 17px; height: 17px; color: #2563eb; }
+          }
+
+          &.staff-summary {
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+
+            .staff-avatar-large {
+              width: 52px;
+              height: 52px;
+              border-radius: 50%;
+              background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+              color: #1e40af;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              flex-shrink: 0;
+              overflow: hidden;
+              border: 2px solid #bfdbfe;
+              box-shadow: 0 2px 6px rgba(37, 99, 235, 0.15);
+
+              .staff-photo-img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                display: block;
+              }
+
+              .staff-initials-avatar {
+                font-size: 1.15rem;
+                font-weight: 700;
+                color: #1e40af;
+                letter-spacing: 0.5px;
+                text-transform: uppercase;
+              }
+
+              mat-icon { font-size: 26px; width: 26px; height: 26px; }
+            }
+
+            .staff-meta-details {
+              flex: 1;
+              min-width: 0;
+
+              .staff-title-row {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                flex-wrap: wrap;
+
+                .staff-name {
+                  margin: 0;
+                  font-size: 1.05rem;
+                  font-weight: 700;
+                  color: #0f172a;
+                }
+              }
+
+              .staff-dept-row {
+                font-size: 0.78rem;
+                color: #64748b;
+                margin-top: 3px;
+                strong { color: #334155; }
+              }
+
+              .appraisal-type-pill-wrap {
+                margin-top: 8px;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                flex-wrap: wrap;
+
+                .cycle-pill {
+                  font-size: 0.72rem;
+                  background: #f1f5f9;
+                  padding: 2px 8px;
+                  border-radius: 10px;
+                  color: #475569;
+                }
+              }
+            }
+          }
+
+          .progression-box {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #f8fafc;
+            border-radius: 8px;
+            padding: 10px 14px;
+            border: 1px solid #f1f5f9;
+
+            .prog-col {
+              display: flex;
+              flex-direction: column;
+              gap: 2px;
+              .prog-lbl { font-size: 0.72rem; color: #64748b; font-weight: 500; }
+              .prog-val {
+                font-size: 0.88rem;
+                &.old { color: #64748b; }
+                &.new { color: #1e40af; font-weight: 700; }
+              }
+            }
+
+            .prog-arrow-wrap {
+              color: #2563eb;
+              mat-icon { font-size: 18px; width: 18px; height: 18px; }
+            }
+          }
+
+          .salary-hike-banner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+            border: 1px solid #a7f3d0;
+            border-radius: 8px;
+            padding: 10px 14px;
+            margin-bottom: 12px;
+
+            .hike-stat {
+              display: flex;
+              flex-direction: column;
+              .hike-lbl { font-size: 0.72rem; color: #065f46; font-weight: 500; }
+              .hike-val { font-size: 1.1rem; color: #047857; font-weight: 800; }
+            }
+
+            .hike-pct-badge {
+              background: #059669;
+              color: #ffffff;
+              padding: 4px 10px;
+              border-radius: 12px;
+              font-weight: 700;
+              font-size: 0.8rem;
+            }
+          }
+
+          .drawer-breakdown-table {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            font-size: 0.82rem;
+
+            .b-row {
+              display: grid;
+              grid-template-columns: 2fr 1fr 1fr;
+              padding: 6px 4px;
+              border-bottom: 1px solid #f1f5f9;
+              color: #334155;
+
+              &.header {
+                font-size: 0.72rem;
+                text-transform: uppercase;
+                color: #94a3b8;
+                font-weight: 600;
+                letter-spacing: 0.03em;
+              }
+
+              &.total {
+                border-top: 2px solid #e2e8f0;
+                border-bottom: none;
+                padding-top: 10px;
+                color: #0f172a;
+                font-size: 0.88rem;
+
+                .total-new { color: #059669; font-weight: 800; }
+              }
+
+              .old { color: #64748b; }
+              .new { font-weight: 600; color: #0f172a; }
+            }
+          }
+
+          .audit-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            font-size: 0.8rem;
+
+            .audit-item {
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-start;
+              gap: 8px;
+
+              .audit-lbl { color: #64748b; font-weight: 500; }
+              .audit-val {
+                text-align: right;
+                color: #0f172a;
+                small { color: #94a3b8; margin-left: 4px; }
+                &.notes {
+                  text-align: left;
+                  background: #f8fafc;
+                  padding: 6px 10px;
+                  border-radius: 6px;
+                  border: 1px solid #f1f5f9;
+                  font-style: italic;
+                  color: #475569;
+                }
+              }
+
+              &.bypass-notice {
+                background: #fef2f2;
+                border: 1px solid #fecaca;
+                border-radius: 8px;
+                padding: 10px 12px;
+                display: flex;
+                align-items: flex-start;
+                gap: 10px;
+                color: #991b1b;
+
+                .shield-icon { color: #dc2626; font-size: 20px; width: 20px; height: 20px; }
+                strong { display: block; font-size: 0.82rem; }
+                p { margin: 2px 0 0; font-size: 0.75rem; color: #b91c1c; }
+              }
+            }
+          }
+        }
+      }
+
+      .drawer-footer {
+        padding: 14px 20px;
+        background: #ffffff;
+        border-top: 1px solid #e2e8f0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+
+        .footer-right {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+      }
+    }
+
+    @keyframes slideInRight {
+      from { transform: translateX(100%); }
+      to { transform: translateX(0); }
     }
 
     /* Modal / Drawer Overlay & Container (Fully Responsive) */
@@ -2055,8 +3348,21 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
         border-radius: 12px;
         cursor: pointer;
         color: #334155;
+        transition: all 0.15s ease;
         &:hover { background: #eff6ff; border-color: #93c5fd; color: #1d4ed8; }
+        &.selected {
+          background: #2563eb !important;
+          color: #ffffff !important;
+          border-color: #2563eb !important;
+          font-weight: 600;
+        }
       }
+    }
+
+    .cycle-input-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
     }
 
     .calc-toolbar {
@@ -2604,7 +3910,6 @@ export class StaffPromotionsComponent implements OnInit {
   submitting = false;
 
   records: StaffPromotionIncrementDto[] = [];
-  filteredRecords: StaffPromotionIncrementDto[] = [];
   teachers: TeacherDto[] = [];
 
   // In-Dropdown Search & Filter for Staff
@@ -2627,6 +3932,140 @@ export class StaffPromotionsComponent implements OnInit {
   searchQuery = '';
   selectedStaffType = 'All';
   selectedType = '';
+  selectedCycle = 'All';
+  distinctCycles: string[] = [];
+  private searchDebounceTimer: any = null;
+
+  // Server-Side Sorting
+  sortBy = 'effectiveDate';
+  sortDirection: 'asc' | 'desc' = 'desc';
+
+  // Smart View Mode & Detail Drawer Inspector
+  viewMode: 'table' | 'grid' = 'table';
+  showDetailDrawer = false;
+  selectedRecordForDetails: StaffPromotionIncrementDto | null = null;
+
+  // Staff Profile Photos & Initials Fallback
+  imgErrors: Record<string, boolean> = {};
+
+  getStaffPhoto(r: StaffPromotionIncrementDto | null | undefined): string {
+    if (!r) return '';
+    const photo = r.photoUrl || this.teachers.find(t => t.id === r.teacherId)?.photoUrl;
+    if (!photo) return '';
+    return this.getPhotoUrl(photo);
+  }
+
+  getPhotoUrl(photo?: string | null): string {
+    if (!photo) return '';
+    if (photo.startsWith('http://') || photo.startsWith('https://') || photo.startsWith('data:')) {
+      return photo;
+    }
+    if (photo.startsWith('/')) {
+      return `${environment.apiBaseUrl}${photo}`;
+    }
+    return `${environment.apiBaseUrl}/${photo}`;
+  }
+
+  getInitials(name?: string): string {
+    if (!name) return 'ST';
+    const clean = name.replace(/^(Mr|Mrs|Ms|Dr|Er|Prof)\.?\s+/i, '').trim();
+    const parts = clean.split(/\s+/).filter(p => p.length > 0);
+    if (parts.length === 0) return 'ST';
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+
+  // Server-Side Pagination
+  currentPage = 1;
+  pageSize = 10;
+  totalCount = 0;
+  totalPages = 1;
+  pageSizeOptions = [10, 25, 50];
+  min = Math.min;
+
+  get availableCycles(): string[] {
+    const list = [...this.distinctCycles];
+    const suggestions = ['Annual Appraisal Cycle', 'Merit Increment', 'Promotion & Role Upgrade', 'Probation Confirmation'];
+    return Array.from(new Set([...list, ...suggestions])).filter(c => c && c.trim().length > 0);
+  }
+
+  goToPage(page: number) {
+    if (page >= 1 && page <= this.totalPages && page !== this.currentPage) {
+      this.currentPage = page;
+      this.loadData();
+    }
+  }
+
+  nextPage() {
+    if (this.currentPage < this.totalPages) {
+      this.currentPage++;
+      this.loadData();
+    }
+  }
+
+  prevPage() {
+    if (this.currentPage > 1) {
+      this.currentPage--;
+      this.loadData();
+    }
+  }
+
+  onPageSizeChange(newSize: any) {
+    this.pageSize = Number(newSize);
+    this.currentPage = 1;
+    this.loadData();
+  }
+
+  onSort(column: string) {
+    if (this.sortBy === column) {
+      this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+      this.sortBy = column;
+      this.sortDirection = column === 'effectiveDate' ? 'desc' : 'asc';
+    }
+    this.currentPage = 1;
+    this.loadData();
+  }
+
+  getSortIcon(column: string): string {
+    if (this.sortBy !== column) return 'unfold_more';
+    return this.sortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward';
+  }
+
+  isSorted(column: string): boolean {
+    return this.sortBy === column;
+  }
+
+  onSearchInput(value: string) {
+    if (this.searchDebounceTimer) {
+      clearTimeout(this.searchDebounceTimer);
+    }
+    this.searchDebounceTimer = setTimeout(() => {
+      this.currentPage = 1;
+      this.loadData();
+    }, 350);
+  }
+
+  clearSearch() {
+    this.searchQuery = '';
+    this.currentPage = 1;
+    this.loadData();
+  }
+
+  onFilterChange() {
+    this.currentPage = 1;
+    this.loadData();
+  }
+
+  openDetailDrawer(r: StaffPromotionIncrementDto) {
+    this.selectedRecordForDetails = r;
+    this.showDetailDrawer = true;
+  }
+
+  closeDetailDrawer() {
+    this.showDetailDrawer = false;
+    this.selectedRecordForDetails = null;
+  }
 
   // Policy, Access Control & Tenure State
   private authService = inject(AuthService, { optional: true });
@@ -2661,7 +4100,7 @@ export class StaffPromotionsComponent implements OnInit {
     newHRA: 0,
     newOtherAllowances: 0,
     effectiveDate: '',
-    reason: 'Annual Appraisal Cycle (वार्षिक वेतन वृद्धि)',
+    reason: '',
     remarks: '',
     isSpecialBypass: false,
     specialBypassReason: ''
@@ -2684,7 +4123,7 @@ export class StaffPromotionsComponent implements OnInit {
     incrementType: 'Percentage',
     incrementValue: 10,
     effectiveDate: '',
-    reason: 'Annual Appraisal Cycle 2026-27'
+    reason: ''
   };
   bulkEffectiveDateStr = new Date().toISOString().substring(0, 10);
 
@@ -2707,19 +4146,45 @@ export class StaffPromotionsComponent implements OnInit {
 
   loadData() {
     this.loading = true;
-    this.http.get<{ summary: StaffPromotionSummaryDto, records: StaffPromotionIncrementDto[] }>(`${this.api}/staff-promotions`).subscribe({
+    let params = new HttpParams()
+      .set('pageNumber', this.currentPage.toString())
+      .set('pageSize', this.pageSize.toString())
+      .set('sortBy', this.sortBy)
+      .set('sortDirection', this.sortDirection);
+
+    if (this.searchQuery && this.searchQuery.trim()) {
+      params = params.set('search', this.searchQuery.trim());
+    }
+    if (this.selectedStaffType && this.selectedStaffType !== 'All') {
+      params = params.set('staffType', this.selectedStaffType);
+    }
+    if (this.selectedType) {
+      params = params.set('type', this.selectedType);
+    }
+    if (this.selectedCycle && this.selectedCycle !== 'All') {
+      params = params.set('cycle', this.selectedCycle);
+    }
+
+    this.http.get<StaffPromotionsPagedResponse>(`${this.api}/staff-promotions`, { params }).subscribe({
       next: (res) => {
-        this.loading = false;
         this.records = res?.records || [];
+        this.totalCount = res?.totalCount ?? (res?.summary?.totalRecords || this.records.length);
+        this.currentPage = res?.pageNumber ?? this.currentPage;
+        this.pageSize = res?.pageSize ?? this.pageSize;
+        this.totalPages = res?.totalPages ?? Math.max(1, Math.ceil(this.totalCount / this.pageSize));
+        this.distinctCycles = res?.distinctCycles || [];
         this.summary = res?.summary || {
-          totalRecords: 0, totalPromotions: 0, totalIncrements: 0, totalMonthlyGrossHike: 0, averageHikePercentage: 0
+          totalRecords: this.totalCount, totalPromotions: 0, totalIncrements: 0, totalMonthlyGrossHike: 0, averageHikePercentage: 0
         };
-        this.applyFilters();
+        setTimeout(() => {
+          this.loading = false;
+        }, 200);
       },
       error: () => {
         this.loading = false;
         this.records = [];
-        this.applyFilters();
+        this.totalCount = 0;
+        this.totalPages = 1;
       }
     });
   }
@@ -2882,21 +4347,8 @@ export class StaffPromotionsComponent implements OnInit {
   }
 
   applyFilters() {
-    const q = (this.searchQuery || '').trim().toLowerCase();
-    this.filteredRecords = this.records.filter(r => {
-      const matchSearch = !q ||
-        r.teacherName.toLowerCase().includes(q) ||
-        r.employeeCode.toLowerCase().includes(q) ||
-        r.newDesignation.toLowerCase().includes(q) ||
-        (r.reason && r.reason.toLowerCase().includes(q));
-
-      const matchStaffType = this.selectedStaffType === 'All' ||
-        (r.staffType && r.staffType.toLowerCase() === this.selectedStaffType.toLowerCase());
-
-      const matchType = !this.selectedType || r.type === this.selectedType;
-
-      return matchSearch && matchStaffType && matchType;
-    });
+    this.currentPage = 1;
+    this.loadData();
   }
 
   openDrawer(preselectedTeacherId?: string) {
@@ -2914,7 +4366,7 @@ export class StaffPromotionsComponent implements OnInit {
       newHRA: 0,
       newOtherAllowances: 0,
       effectiveDate: new Date().toISOString(),
-      reason: 'Annual Appraisal Cycle (वार्षिक वेतन वृद्धि)',
+      reason: (this.distinctCycles && this.distinctCycles.length > 0) ? this.distinctCycles[0] : '',
       remarks: '',
       isSpecialBypass: false,
       specialBypassReason: ''
@@ -3112,7 +4564,7 @@ export class StaffPromotionsComponent implements OnInit {
       incrementType: 'Percentage',
       incrementValue: 10,
       effectiveDate: new Date().toISOString(),
-      reason: 'Annual Appraisal Cycle 2026-27'
+      reason: (this.distinctCycles && this.distinctCycles.length > 0) ? this.distinctCycles[0] : ''
     };
     this.bulkEffectiveDateStr = new Date().toISOString().substring(0, 10);
     this.showBulkModal = true;
@@ -3184,5 +4636,12 @@ export class StaffPromotionsComponent implements OnInit {
       case 'Increment': return 'Salary Increment';
       default: return type;
     }
+  }
+
+  formatReason(reason?: string): string {
+    if (!reason) return 'Appraisal';
+    // Remove Hindi parenthetical text like (वार्षिक वेतन वृद्धि)
+    let clean = reason.replace(/\s*\([^)]*\)/g, '').trim();
+    return clean || reason;
   }
 }

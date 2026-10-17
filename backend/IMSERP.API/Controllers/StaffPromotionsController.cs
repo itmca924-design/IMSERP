@@ -26,10 +26,16 @@ public class StaffPromotionsController : ControllerBase
         [FromQuery] string? type,
         [FromQuery] string? staffType,
         [FromQuery] string? department,
+        [FromQuery] string? cycle,
         [FromQuery] DateTime? startDate,
         [FromQuery] DateTime? endDate,
-        [FromQuery] string? search)
+        [FromQuery] string? search,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] string? sortBy = "effectiveDate",
+        [FromQuery] string? sortDirection = "desc")
     {
+        var tenantId = _currentUserService.TenantId;
         var query = _context.StaffPromotionIncrements
             .Include(p => p.Teacher)
             .AsNoTracking()
@@ -59,6 +65,12 @@ public class StaffPromotionsController : ControllerBase
             query = query.Where(p => p.Teacher != null && p.Teacher.Department != null && p.Teacher.Department.ToLower() == department.ToLower());
         }
 
+        if (!string.IsNullOrWhiteSpace(cycle) && cycle.ToLower() != "all")
+        {
+            var cyc = cycle.Trim().ToLower();
+            query = query.Where(p => p.Reason != null && p.Reason.ToLower().Contains(cyc));
+        }
+
         if (startDate.HasValue)
         {
             query = query.Where(p => p.EffectiveDate >= startDate.Value);
@@ -79,16 +91,53 @@ public class StaffPromotionsController : ControllerBase
                 (p.Reason != null && p.Reason.ToLower().Contains(q)));
         }
 
-        var allRecords = await query.OrderByDescending(p => p.EffectiveDate).ThenByDescending(p => p.CreatedAt).ToListAsync();
+        // Summary KPI statistics computed over the filtered context
+        var totalRecords = await query.CountAsync();
+        var totalPromotions = await query.CountAsync(r => r.Type == "Promotion" || r.Type == "PromotionAndIncrement");
+        var totalIncrements = await query.CountAsync(r => r.Type == "Increment" || r.Type == "PromotionAndIncrement");
+        var totalMonthlyGrossHike = await query.Where(r => r.NewGrossSalary > r.OldGrossSalary)
+            .SumAsync(r => (decimal?)(r.NewGrossSalary - r.OldGrossSalary)) ?? 0;
+        var avgHike = await query.Where(r => r.IncrementPercentage.HasValue && r.IncrementPercentage > 0)
+            .AverageAsync(r => (double?)r.IncrementPercentage) ?? 0;
 
-        var totalRecords = allRecords.Count;
-        var totalPromotions = allRecords.Count(r => r.Type == "Promotion" || r.Type == "PromotionAndIncrement");
-        var totalIncrements = allRecords.Count(r => r.Type == "Increment" || r.Type == "PromotionAndIncrement");
-        var totalMonthlyGrossHike = allRecords.Sum(r => Math.Max(0, r.NewGrossSalary - r.OldGrossSalary));
-        var validHikes = allRecords.Where(r => r.IncrementPercentage.HasValue && r.IncrementPercentage > 0).ToList();
-        var avgHike = validHikes.Any() ? Math.Round(validHikes.Average(r => r.IncrementPercentage!.Value), 1) : 0;
+        // Dynamic Appraisal Cycles present in the database
+        var distinctCycles = await _context.StaffPromotionIncrements
+            .AsNoTracking()
+            .Where(r => !string.IsNullOrWhiteSpace(r.Reason))
+            .Select(r => r.Reason!.Trim())
+            .Distinct()
+            .OrderBy(c => c)
+            .Take(50)
+            .ToListAsync();
 
-        var dtos = allRecords.Select(r => new StaffPromotionIncrementDto(
+        // Server-Side Sorting
+        bool isAsc = string.Equals(sortDirection, "asc", StringComparison.OrdinalIgnoreCase);
+        query = (sortBy?.ToLower()) switch
+        {
+            "teachername" => isAsc ? query.OrderBy(p => p.Teacher != null ? p.Teacher.FullName : "").ThenBy(p => p.EffectiveDate)
+                                  : query.OrderByDescending(p => p.Teacher != null ? p.Teacher.FullName : "").ThenByDescending(p => p.EffectiveDate),
+            "type" => isAsc ? query.OrderBy(p => p.Type).ThenBy(p => p.EffectiveDate)
+                            : query.OrderByDescending(p => p.Type).ThenByDescending(p => p.EffectiveDate),
+            "newdesignation" => isAsc ? query.OrderBy(p => p.NewDesignation).ThenBy(p => p.EffectiveDate)
+                                      : query.OrderByDescending(p => p.NewDesignation).ThenByDescending(p => p.EffectiveDate),
+            "newgrosssalary" => isAsc ? query.OrderBy(p => p.NewGrossSalary).ThenBy(p => p.EffectiveDate)
+                                      : query.OrderByDescending(p => p.NewGrossSalary).ThenByDescending(p => p.EffectiveDate),
+            "reason" => isAsc ? query.OrderBy(p => p.Reason).ThenBy(p => p.EffectiveDate)
+                              : query.OrderByDescending(p => p.Reason).ThenByDescending(p => p.EffectiveDate),
+            _ => isAsc ? query.OrderBy(p => p.EffectiveDate).ThenBy(p => p.CreatedAt)
+                       : query.OrderByDescending(p => p.EffectiveDate).ThenByDescending(p => p.CreatedAt)
+        };
+
+        // Server-Side Pagination
+        if (pageSize < 1) pageSize = 10;
+        if (pageNumber < 1) pageNumber = 1;
+
+        var pagedRecords = await query
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        var dtos = pagedRecords.Select(r => new StaffPromotionIncrementDto(
             r.Id,
             r.TenantId,
             r.TeacherId,
@@ -116,8 +165,11 @@ public class StaffPromotionsController : ControllerBase
             r.ApprovedBy,
             r.ApprovalDate,
             r.Status,
-            r.CreatedAt
+            r.CreatedAt,
+            r.Teacher?.PhotoUrl
         )).ToList();
+
+        var totalPages = (int)Math.Ceiling((double)totalRecords / pageSize);
 
         return Ok(new
         {
@@ -126,10 +178,29 @@ public class StaffPromotionsController : ControllerBase
                 totalPromotions,
                 totalIncrements,
                 totalMonthlyGrossHike,
-                avgHike
+                Math.Round((decimal)avgHike, 1)
             ),
-            records = dtos
+            records = dtos,
+            totalCount = totalRecords,
+            pageNumber,
+            pageSize,
+            totalPages = totalPages > 0 ? totalPages : 1,
+            distinctCycles
         });
+    }
+
+    [HttpGet("cycles")]
+    public async Task<IActionResult> GetAppraisalCycles()
+    {
+        var cycles = await _context.StaffPromotionIncrements
+            .AsNoTracking()
+            .Where(r => !string.IsNullOrWhiteSpace(r.Reason))
+            .Select(r => r.Reason!.Trim())
+            .Distinct()
+            .OrderBy(c => c)
+            .ToListAsync();
+
+        return Ok(cycles);
     }
 
     [HttpGet("departments")]
@@ -411,7 +482,8 @@ public class StaffPromotionsController : ControllerBase
             record.ApprovedBy,
             record.ApprovalDate,
             record.Status,
-            record.CreatedAt
+            record.CreatedAt,
+            teacher.PhotoUrl
         );
 
         return Ok(new { success = true, message = "Staff promotion / appraisal recorded successfully.", data = resultDto });
@@ -590,7 +662,8 @@ public record StaffPromotionIncrementDto(
     string? ApprovedBy,
     DateTime? ApprovalDate,
     string Status,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    string? PhotoUrl = null
 );
 
 public record CreateStaffPromotionIncrementDto(
