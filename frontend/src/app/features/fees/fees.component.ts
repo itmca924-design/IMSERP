@@ -387,12 +387,15 @@ export interface UpcomingBillingCycleInfo {
             </ng-container>
 
             <ng-container matColumnDef="actions">
-              <th mat-header-cell *matHeaderCellDef class="text-center col-actions">Actions</th>
+              <th mat-header-cell *matHeaderCellDef class="text-center col-actions">
+                <mat-icon class="col-header-action-icon" matTooltip="Actions">settings</mat-icon>
+              </th>
               <td mat-cell *matCellDef="let inv" class="text-center col-actions">
                 <div class="smart-action-group">
                   <!-- 3-Dots Action Menu Trigger -->
                   <button
                     mat-icon-button
+                    disableRipple
                     [matMenuTriggerFor]="actionMenu"
                     class="btn-more-dots"
                     matTooltip="Options & Actions"
@@ -612,7 +615,7 @@ export interface UpcomingBillingCycleInfo {
               <td mat-cell *matCellDef="let txn">
                 <div class="utr-pill-wrap" *ngIf="txn.upiRrn">
                   <code class="utr-code">{{ txn.upiRrn }}</code>
-                  <button mat-icon-button class="utr-copy-btn" (click)="copyToClipboard(txn.upiRrn)" matTooltip="Copy UTR">
+                  <button mat-icon-button disableRipple class="utr-copy-btn" (click)="copyToClipboard(txn.upiRrn)" matTooltip="Copy UTR">
                     <mat-icon>content_copy</mat-icon>
                   </button>
                 </div>
@@ -644,16 +647,41 @@ export interface UpcomingBillingCycleInfo {
             </ng-container>
 
             <ng-container matColumnDef="actions">
-              <th mat-header-cell *matHeaderCellDef class="text-center">Actions</th>
-              <td mat-cell *matCellDef="let txn" class="text-center">
-                <button
-                  mat-stroked-button
-                  class="btn-view-receipt"
-                  (click)="openReceiptForUpiTxn(txn)"
-                  matTooltip="View &amp; Print Official E-Receipt">
-                  <mat-icon>receipt</mat-icon>
-                  <span>Receipt</span>
-                </button>
+              <th mat-header-cell *matHeaderCellDef class="text-center col-actions">
+                <mat-icon class="col-header-action-icon" matTooltip="Actions">settings</mat-icon>
+              </th>
+              <td mat-cell *matCellDef="let txn" class="text-center col-actions">
+                <div class="smart-action-group">
+                  <button
+                    mat-icon-button
+                    disableRipple
+                    [matMenuTriggerFor]="upiActionMenu"
+                    class="btn-more-dots"
+                    matTooltip="Options &amp; Actions"
+                    aria-label="UPI Actions Menu">
+                    <mat-icon>more_vert</mat-icon>
+                  </button>
+
+                  <mat-menu #upiActionMenu="matMenu" xPosition="before" class="smart-fees-menu">
+                    <!-- View / Print Receipt -->
+                    <button mat-menu-item (click)="openReceiptForUpiTxn(txn)">
+                      <mat-icon class="menu-icon-green">receipt</mat-icon>
+                      <span>View &amp; Print E-Receipt (रसीद)</span>
+                    </button>
+
+                    <!-- Copy UTR / RRN -->
+                    <button mat-menu-item (click)="copyToClipboard(txn.upiRrn)" *ngIf="txn.upiRrn">
+                      <mat-icon class="menu-icon-blue">content_copy</mat-icon>
+                      <span>Copy 12-Digit UTR Ref</span>
+                    </button>
+
+                    <!-- Copy Receipt Number -->
+                    <button mat-menu-item (click)="copyToClipboard(txn.receiptNumber)" *ngIf="txn.receiptNumber">
+                      <mat-icon class="menu-icon-purple">tag</mat-icon>
+                      <span>Copy Receipt No</span>
+                    </button>
+                  </mat-menu>
+                </div>
               </td>
             </ng-container>
 
@@ -1543,6 +1571,23 @@ export interface UpcomingBillingCycleInfo {
       z-index: 11 !important;
       box-shadow: -4px 0 8px -2px rgba(0, 0, 0, 0.08) !important;
       text-align: center !important;
+
+      .col-header-action-icon {
+        font-size: 18px !important;
+        width: 18px !important;
+        height: 18px !important;
+        line-height: 18px !important;
+        color: #64748b;
+        vertical-align: middle;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: color 0.15s ease;
+
+        &:hover {
+          color: #2563eb;
+        }
+      }
     }
 
     tr.mat-mdc-row:hover .mat-column-actions {
@@ -1560,20 +1605,35 @@ export interface UpcomingBillingCycleInfo {
         height: 32px !important;
         min-width: 32px !important;
         padding: 0 !important;
-        border-radius: 6px !important;
+        border-radius: 8px !important;
         color: #475569;
         background: #f1f5f9;
         border: 1px solid #e2e8f0;
         display: inline-flex !important;
         align-items: center !important;
         justify-content: center !important;
+        position: relative !important;
         transition: all 0.15s ease;
+
+        ::ng-deep .mat-mdc-button-touch-target {
+          display: none !important;
+        }
+
+        ::ng-deep .mat-mdc-button-persistent-ripple,
+        ::ng-deep .mat-ripple {
+          display: none !important;
+        }
 
         mat-icon {
           font-size: 19px !important;
           width: 19px !important;
           height: 19px !important;
           line-height: 19px !important;
+          display: inline-flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          margin: 0 !important;
+          padding: 0 !important;
         }
 
         &:hover {
@@ -1581,6 +1641,7 @@ export interface UpcomingBillingCycleInfo {
           color: #1e40af;
           border-color: #c7d2fe;
           transform: scale(1.05);
+          box-shadow: 0 2px 6px rgba(37, 99, 235, 0.15);
         }
       }
     }
@@ -1860,24 +1921,83 @@ export interface UpcomingBillingCycleInfo {
       .utr-pill-wrap {
         display: inline-flex;
         align-items: center;
-        gap: 4px;
+        gap: 6px;
         background: #f1f5f9;
         border: 1px solid #cbd5e1;
-        padding: 2px 6px;
+        padding: 3px 6px 3px 8px;
         border-radius: 6px;
+        white-space: nowrap;
+        vertical-align: middle;
+        max-width: 100%;
+        box-sizing: border-box;
 
         .utr-code {
           font-family: 'Consolas', 'Courier New', monospace;
           font-weight: 700;
           font-size: 0.8rem;
           color: #0f172a;
+          white-space: nowrap;
+          user-select: all;
+          line-height: 1.2;
         }
 
         .utr-copy-btn {
-          width: 22px;
-          height: 22px;
-          line-height: 22px;
-          mat-icon { font-size: 13px; width: 13px; height: 13px; color: #64748b; }
+          width: 22px !important;
+          height: 22px !important;
+          min-width: 22px !important;
+          min-height: 22px !important;
+          padding: 0 !important;
+          margin: 0 !important;
+          border: none !important;
+          border-radius: 50% !important;
+          display: inline-flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          position: relative !important;
+          flex-shrink: 0 !important;
+          line-height: 1 !important;
+          box-sizing: border-box !important;
+          background: transparent !important;
+          cursor: pointer;
+          transition: all 0.15s ease;
+
+          ::ng-deep .mat-mdc-button-touch-target {
+            display: none !important;
+          }
+
+          ::ng-deep .mat-mdc-button-persistent-ripple,
+          ::ng-deep .mat-ripple {
+            display: none !important;
+          }
+
+          mat-icon {
+            font-size: 13px !important;
+            width: 13px !important;
+            height: 13px !important;
+            line-height: 13px !important;
+            color: #64748b;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            transition: color 0.15s ease, transform 0.15s ease;
+          }
+
+          &:hover {
+            background-color: #cbd5e1 !important;
+            box-shadow: 0 0 0 4px rgba(148, 163, 184, 0.25) !important;
+
+            mat-icon {
+              color: #1e40af !important;
+              transform: scale(1.08);
+            }
+          }
+
+          &:active {
+            background-color: #94a3b8 !important;
+            transform: scale(0.95);
+          }
         }
       }
 
