@@ -86,7 +86,7 @@ export interface InventoryOutwardDialogData {
             <div class="student-picker-grid">
               <!-- 50%: Class-wise Student Dropdowns (Class + Student) -->
               <div class="class-student-pair">
-                <mat-form-field appearance="outline" class="class-field">
+                <mat-form-field appearance="outline" class="class-field" subscriptSizing="dynamic">
                   <mat-label>Select Class</mat-label>
                   <mat-select [formControl]="selectedClassCtrl" (selectionChange)="onClassChange($event.value)" placeholder="Choose Class">
                     <mat-option [value]="null">-- Select Class --</mat-option>
@@ -97,7 +97,7 @@ export interface InventoryOutwardDialogData {
                   <mat-icon matPrefix class="picker-prefix-icon">school</mat-icon>
                 </mat-form-field>
 
-                <mat-form-field appearance="outline" class="student-select-field">
+                <mat-form-field appearance="outline" class="student-select-field" subscriptSizing="dynamic">
                   <mat-label>Select Student</mat-label>
                   <mat-select
                     [formControl]="selectedClassStudentCtrl"
@@ -120,7 +120,7 @@ export interface InventoryOutwardDialogData {
 
               <!-- 50%: Quick Search Student (Name or Roll No) -->
               <div class="search-box-field-wrap">
-                <mat-form-field appearance="outline" class="w-full">
+                <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
                   <mat-label>Search Student (Name or Roll No)</mat-label>
                   <input
                     matInput
@@ -472,17 +472,23 @@ export interface InventoryOutwardDialogData {
       display: grid;
       grid-template-columns: 1fr 1.3fr;
       gap: 10px;
-      align-items: start;
+      align-items: center;
       mat-form-field {
         width: 100%;
-        margin-bottom: -1.25em;
       }
     }
     .search-box-field-wrap {
       width: 100%;
       mat-form-field {
         width: 100%;
-        margin-bottom: -1.25em;
+      }
+      ::ng-deep .mat-mdc-form-field-icon-suffix {
+        align-self: center !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        height: 100% !important;
+        padding-right: 6px !important;
       }
     }
     .picker-prefix-icon {
@@ -508,12 +514,13 @@ export interface InventoryOutwardDialogData {
       border: none;
       outline: none;
       cursor: pointer;
-      width: 24px !important;
-      height: 24px !important;
+      width: 26px !important;
+      height: 26px !important;
       padding: 0 !important;
-      margin: 0 4px 0 0 !important;
+      margin: 0 !important;
       border-radius: 50%;
       vertical-align: middle;
+      transition: background-color 0.15s ease, color 0.15s ease;
       mat-icon {
         font-size: 18px !important;
         width: 18px !important;
@@ -525,7 +532,7 @@ export interface InventoryOutwardDialogData {
         justify-content: center;
       }
       &:hover {
-        background: #f1f5f9;
+        background: #fee2e2;
         mat-icon {
           color: #dc2626;
         }
@@ -914,8 +921,8 @@ export class InventoryOutwardDialogComponent implements OnInit {
           return of([]);
         }
         this.searchingStudents = true;
-        const filterClassId = this.selectedClassCtrl.value || undefined;
-        return this.inventoryService.searchStudents(query, this.data.branchId, filterClassId);
+        // Search globally across branch so quick search is completely separate and independent
+        return this.inventoryService.searchStudents(query, this.data.branchId, undefined);
       })
     ).subscribe({
       next: (results) => {
