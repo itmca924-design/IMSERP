@@ -873,7 +873,7 @@ export class StudentLedgerDialogComponent implements OnInit {
     if (!this.ledger) return;
 
     const dialogRef = this.dialog.open(FeeCollectionDialogComponent, {
-      width: '640px',
+      width: '740px',
       maxWidth: '96vw',
       data: {
         studentId: this.ledger.studentId,

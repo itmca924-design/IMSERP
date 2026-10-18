@@ -4,7 +4,9 @@ import { ActivatedRoute } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { FeesService, FeePaymentReceipt } from '../../core/services/fees.service';
+import { UpiPaymentDialogComponent, UpiPaymentDialogData } from './upi-payment-dialog.component';
 
 @Component({
   selector: 'app-public-receipt',
@@ -13,7 +15,8 @@ import { FeesService, FeePaymentReceipt } from '../../core/services/fees.service
     CommonModule,
     MatIconModule,
     MatButtonModule,
-    MatProgressSpinnerModule
+    MatProgressSpinnerModule,
+    MatDialogModule
   ],
   template: `
     <div class="public-receipt-page">
@@ -43,6 +46,10 @@ import { FeesService, FeePaymentReceipt } from '../../core/services/fees.service
           </div>
 
           <div class="bar-actions">
+            <button mat-flat-button class="action-btn upi-pay-btn" (click)="openUpiPayment()" *ngIf="receipt.remainingDue > 0">
+              <mat-icon>qr_code_2</mat-icon>
+              <span>Pay Due via UPI</span>
+            </button>
             <button mat-flat-button color="primary" class="action-btn download-btn" (click)="printReceipt()">
               <mat-icon>download</mat-icon>
               <span>Download PDF / Print</span>
@@ -220,6 +227,12 @@ import { FeesService, FeePaymentReceipt } from '../../core/services/fees.service
               <span class="due-lbl">Remaining Balance Due:</span>
               <span class="due-num">₹{{ receipt.remainingDue | number:'1.2-2' }}</span>
             </div>
+            <div class="due-actions-box no-print" *ngIf="receipt.remainingDue > 0">
+              <button mat-flat-button class="pay-now-action-btn" (click)="openUpiPayment()">
+                <mat-icon>qr_code_scanner</mat-icon>
+                <span>Pay Now</span>
+              </button>
+            </div>
           </div>
 
           <!-- Terms & Signatures -->
@@ -367,6 +380,12 @@ import { FeesService, FeePaymentReceipt } from '../../core/services/fees.service
           background: #2563eb !important;
           color: #ffffff !important;
           &:hover { background: #1d4ed8 !important; }
+        }
+
+        .upi-pay-btn {
+          background: linear-gradient(135deg, #059669 0%, #10b981 100%) !important;
+          color: #ffffff !important;
+          &:hover { background: #047857 !important; }
         }
 
         .wa-share-btn {
@@ -661,6 +680,26 @@ import { FeesService, FeePaymentReceipt } from '../../core/services/fees.service
           text-align: right;
           .due-lbl { font-size: 0.72rem; color: #64748b; font-weight: 600; text-transform: uppercase; display: block; }
         }
+
+        .due-actions-box {
+          margin-left: 16px;
+          display: flex;
+          align-items: center;
+
+          .pay-now-action-btn {
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+            color: #ffffff !important;
+            font-weight: 700 !important;
+            border-radius: 8px !important;
+            padding: 0 16px !important;
+            height: 38px !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            gap: 6px !important;
+            box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.25) !important;
+            &:hover { background: #1e40af !important; }
+          }
+        }
       }
 
       .receipt-terms {
@@ -758,7 +797,8 @@ export class PublicReceiptComponent implements OnInit {
 
   constructor(
     private route: ActivatedRoute,
-    private feesService: FeesService
+    private feesService: FeesService,
+    private dialog: MatDialog
   ) {}
 
   ngOnInit(): void {
@@ -788,6 +828,36 @@ export class PublicReceiptComponent implements OnInit {
 
   printReceipt(): void {
     window.print();
+  }
+
+  openUpiPayment(): void {
+    if (!this.receipt || this.receipt.remainingDue <= 0) return;
+
+    const data: UpiPaymentDialogData = {
+      mode: this.receipt.invoiceId ? 'invoice' : 'fifo_student',
+      invoiceId: this.receipt.invoiceId,
+      studentId: this.receipt.studentId,
+      studentName: this.receipt.studentName,
+      rollNumber: this.receipt.rollNumber,
+      className: this.receipt.className,
+      batchName: this.receipt.batchName,
+      dueAmount: this.receipt.remainingDue,
+      invoiceNumber: this.receipt.invoiceNumber
+    };
+
+    const dialogRef = this.dialog.open(UpiPaymentDialogComponent, {
+      width: '680px',
+      maxWidth: '96vw',
+      data,
+      autoFocus: false
+    });
+
+    dialogRef.afterClosed().subscribe((res: FeePaymentReceipt | undefined) => {
+      if (res && res.receiptNumber) {
+        this.receiptNumber = res.receiptNumber;
+      }
+      this.fetchReceipt();
+    });
   }
 
   getPaymentModeName(mode: number | string | undefined): string {

@@ -14,6 +14,7 @@ import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { TenantService, TenantDto, CreateTenantDto, UpdateTenantDto } from '../../core/services/tenant.service';
 import { AuthService } from '../../core/services/auth.service';
+import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { environment } from '../../../environments/environment';
 
 @Component({
@@ -214,6 +215,15 @@ import { environment } from '../../../environments/environment';
               </span>
               <span class="metric-lbl">WhatsApp</span>
             </div>
+            <div class="metric-divider"></div>
+            <div class="metric-cell" [matTooltip]="t.upiId ? 'UPI Active: ' + t.upiId : 'UPI Gateway Not Configured'">
+              <span class="metric-count">
+                <mat-icon class="upi-status-icon" [style.color]="t.upiId && t.upiQrEnabled !== false ? '#16a34a' : '#94a3b8'">
+                  {{ t.upiId && t.upiQrEnabled !== false ? 'qr_code_2' : 'qr_code_scanner' }}
+                </mat-icon>
+              </span>
+              <span class="metric-lbl">UPI Pay</span>
+            </div>
           </div>
 
           <!-- Subscription Plan & Quota Details Strip -->
@@ -232,23 +242,48 @@ import { environment } from '../../../environments/environment';
             </span>
           </div>
 
-          <div style="display:flex; justify-content:space-between; font-size:11px; color:#475569; padding:0 4px; margin-bottom:4px;">
-            <span>👥 Max Students: <strong>{{ t.maxStudentsLimit || 50 }}</strong></span>
-            <span>🏢 Max Branches: <strong>{{ t.maxBranchesLimit || 2 }}</strong></span>
+          <div class="tenant-limits-row">
+            <span class="limit-badge">
+              <mat-icon>groups</mat-icon>
+              <span>Max Students: <strong>{{ t.maxStudentsLimit || 50 }}</strong></span>
+            </span>
+            <span class="limit-badge">
+              <mat-icon>apartment</mat-icon>
+              <span>Max Branches: <strong>{{ t.maxBranchesLimit || 2 }}</strong></span>
+            </span>
           </div>
 
-          <div class="tenant-modules-strip" style="display:flex; flex-wrap:wrap; gap:4px; margin: 6px 0 12px; padding: 6px 10px; background: #f8fafc; border-radius: 6px; border: 1px dashed #cbd5e1;">
-            <span *ngIf="isTenantModuleActive(t, 'school')" style="font-size:11px; font-weight:600; background:#dbeafe; color:#1e40af; padding:2px 6px; border-radius:4px;">🏫 School</span>
-            <span *ngIf="isTenantModuleActive(t, 'coaching')" style="font-size:11px; font-weight:600; background:#fef3c7; color:#92400e; padding:2px 6px; border-radius:4px;">🎯 Coaching</span>
-            <span *ngIf="isTenantModuleActive(t, 'hostel')" style="font-size:11px; font-weight:600; background:#ede9fe; color:#5b21b6; padding:2px 6px; border-radius:4px;">🏨 Hostel</span>
-            <span *ngIf="isTenantModuleActive(t, 'library')" style="font-size:11px; font-weight:600; background:#dcfce7; color:#166534; padding:2px 6px; border-radius:4px;">📚 Library</span>
-            <span *ngIf="isTenantModuleActive(t, 'transport')" style="font-size:11px; font-weight:600; background:#fce7f3; color:#9d174d; padding:2px 6px; border-radius:4px;">🚌 Transport</span>
+          <div class="tenant-modules-strip">
+            <span *ngIf="isTenantModuleActive(t, 'school')" class="mod-pill school" matTooltip="School Module Active">
+              <mat-icon>school</mat-icon>
+              <span>School</span>
+            </span>
+            <span *ngIf="isTenantModuleActive(t, 'coaching')" class="mod-pill coaching" matTooltip="Coaching Module Active">
+              <mat-icon>menu_book</mat-icon>
+              <span>Coaching</span>
+            </span>
+            <span *ngIf="isTenantModuleActive(t, 'hostel')" class="mod-pill hostel" matTooltip="Hostel Module Active">
+              <mat-icon>hotel</mat-icon>
+              <span>Hostel</span>
+            </span>
+            <span *ngIf="isTenantModuleActive(t, 'library')" class="mod-pill library" matTooltip="Library Module Active">
+              <mat-icon>local_library</mat-icon>
+              <span>Library</span>
+            </span>
+            <span *ngIf="isTenantModuleActive(t, 'transport')" class="mod-pill transport" matTooltip="Transport Module Active">
+              <mat-icon>directions_bus</mat-icon>
+              <span>Transport</span>
+            </span>
           </div>
 
           <div class="card-actions">
             <button mat-stroked-button color="primary" class="edit-btn" (click)="openEditModal(t)">
               <mat-icon>edit</mat-icon>
               <span>{{ isSuperAdmin ? 'Configure Institute' : 'Edit Profile' }}</span>
+            </button>
+            <button mat-stroked-button class="upi-action-btn" (click)="openUpiModal(t)" matTooltip="Configure Zero-Fee Dynamic UPI QR &amp; VPA">
+              <mat-icon class="upi-btn-icon">qr_code_2</mat-icon>
+              <span>UPI Gateway</span>
             </button>
             <button *ngIf="isSuperAdmin" mat-button [color]="t.isActive ? 'warn' : 'accent'" (click)="toggleStatus(t)">
               <mat-icon>{{ t.isActive ? 'pause_circle' : 'play_circle' }}</mat-icon>
@@ -265,171 +300,396 @@ import { environment } from '../../../environments/environment';
         </div>
       </div>
 
-      <!-- Create / Edit Modal Backdrop -->
-      <div class="modal-backdrop" *ngIf="showModal" (click)="closeModal()">
+      <!-- Create / Edit Modal Backdrop (Clicks outside do NOT close modal to prevent accidental data loss) -->
+      <div class="modal-backdrop" *ngIf="showModal">
         <div class="modal-dialog" (click)="$event.stopPropagation()">
           <div class="modal-header">
             <div class="modal-title-group">
-              <div class="header-icon-box">
-                <mat-icon>{{ isEditing ? 'edit_note' : 'add_business' }}</mat-icon>
+              <div class="header-icon-box" [style.background]="activeModalTab === 'upi' ? '#059669' : '#2563eb'">
+                <mat-icon *ngIf="!isEditing">add_business</mat-icon>
+                <mat-icon *ngIf="isEditing && activeModalTab === 'profile'">business</mat-icon>
+                <mat-icon *ngIf="isEditing && activeModalTab === 'upi'">qr_code_2</mat-icon>
+                <mat-icon *ngIf="isEditing && activeModalTab === 'whatsapp'">chat</mat-icon>
+                <mat-icon *ngIf="isEditing && activeModalTab === 'modules'">hub</mat-icon>
               </div>
-              <div>
-                <h3>{{ isEditing ? (isSuperAdmin ? 'Configure Institute &amp; Subscription' : 'Edit Institute Profile') : 'Provision New Coaching Institute' }}</h3>
-                <p>{{ isEditing ? 'Configure institute branding, contact details, modules &amp; subscription plan' : 'Deploy a new multi-tenant instance for a school or coaching institute' }}</p>
+              <div class="modal-title-texts">
+                <h3 *ngIf="!isEditing">Provision New Institute</h3>
+                <h3 *ngIf="isEditing && activeModalTab === 'profile'">{{ isSuperAdmin ? 'Configure Institute' : 'Edit Institute Profile' }}</h3>
+                <h3 *ngIf="isEditing && activeModalTab === 'upi'">Dynamic UPI Gateway</h3>
+                <h3 *ngIf="isEditing && activeModalTab === 'whatsapp'">WhatsApp API Integration</h3>
+                <h3 *ngIf="isEditing && activeModalTab === 'modules'">Modules &amp; Licensing</h3>
+
+                <p *ngIf="!isEditing">Deploy a new multi-tenant instance</p>
+                <p *ngIf="isEditing && activeModalTab === 'profile'">Institute branding, contact phone &amp; campus address</p>
+                <p *ngIf="isEditing && activeModalTab === 'upi'">0% fee direct bank settlements via UPI QR</p>
+                <p *ngIf="isEditing && activeModalTab === 'whatsapp'">Automated digital fee receipts &amp; parent alerts</p>
+                <p *ngIf="isEditing && activeModalTab === 'modules'">Manage active modules &amp; student/branch limits</p>
               </div>
             </div>
-            <button mat-icon-button (click)="closeModal()" class="close-btn">
-              <mat-icon>close</mat-icon>
+            <div class="modal-header-actions">
+              <button
+                *ngIf="isEditing && activeModalTab !== 'profile'"
+                type="button"
+                mat-stroked-button
+                class="header-back-btn"
+                (click)="activeModalTab = 'profile'"
+                matTooltip="Return to Institute Profile">
+                <mat-icon>arrow_back</mat-icon>
+                <span class="back-text">Back</span>
+              </button>
+              <button mat-icon-button (click)="closeModal()" class="close-btn" matTooltip="Close dialog">
+                <mat-icon>close</mat-icon>
+              </button>
+            </div>
+          </div>
+
+          <!-- Smart Modal Navigation Tabs (When Editing) -->
+          <div class="modal-nav-tabs" *ngIf="isEditing">
+            <button
+              type="button"
+              class="modal-tab-btn"
+              [class.active]="activeModalTab === 'profile'"
+              (click)="activeModalTab = 'profile'">
+              <mat-icon>business</mat-icon>
+              <span>Profile &amp; Contact</span>
+            </button>
+
+            <button
+              type="button"
+              class="modal-tab-btn upi-tab"
+              [class.active]="activeModalTab === 'upi'"
+              (click)="activeModalTab = 'upi'">
+              <mat-icon class="tab-upi-icon">qr_code_2</mat-icon>
+              <span>Dynamic UPI Gateway</span>
+              <span *ngIf="tenantForm.get('upiId')?.value" class="tab-status-dot online" matTooltip="UPI Gateway Configured &amp; Active"></span>
+              <span *ngIf="!tenantForm.get('upiId')?.value" class="tab-status-badge warn">Setup</span>
+            </button>
+
+            <button
+              type="button"
+              class="modal-tab-btn"
+              [class.active]="activeModalTab === 'whatsapp'"
+              (click)="activeModalTab = 'whatsapp'">
+              <mat-icon>chat</mat-icon>
+              <span>WhatsApp Alerts</span>
+              <span *ngIf="tenantForm.get('whatsAppPhoneId')?.value" class="tab-status-dot online" matTooltip="WhatsApp Configured"></span>
+            </button>
+
+            <button
+              type="button"
+              class="modal-tab-btn"
+              [class.active]="activeModalTab === 'modules'"
+              (click)="activeModalTab = 'modules'">
+              <mat-icon>hub</mat-icon>
+              <span>Modules &amp; Licensing</span>
             </button>
           </div>
 
           <form [formGroup]="tenantForm" (ngSubmit)="saveTenant()" class="modal-body">
-            <!-- Profile Photo Upload -->
-            <div class="photo-upload-section">
-              <div class="avatar-preview">
-                <img *ngIf="profilePhotoPreview" [src]="getPhotoUrl(profilePhotoPreview)" alt="Preview" class="preview-img">
-                <mat-icon *ngIf="!profilePhotoPreview" class="avatar-placeholder">add_photo_alternate</mat-icon>
+            <!-- TAB 1: Profile & Contact -->
+            <div *ngIf="!isEditing || activeModalTab === 'profile'" class="tab-pane">
+              <!-- Profile Photo Upload -->
+              <div class="photo-upload-section">
+                <div class="avatar-preview">
+                  <img *ngIf="profilePhotoPreview" [src]="getPhotoUrl(profilePhotoPreview)" alt="Preview" class="preview-img">
+                  <mat-icon *ngIf="!profilePhotoPreview" class="avatar-placeholder">add_photo_alternate</mat-icon>
+                </div>
+                <div class="upload-controls">
+                  <label class="upload-btn">
+                    <mat-icon>cloud_upload</mat-icon>
+                    <span>{{ profilePhotoPreview ? 'Change Logo / Photo' : 'Upload Logo / Photo' }}</span>
+                    <input type="file" accept="image/*" (change)="onFileSelected($event)" style="display:none;">
+                  </label>
+                  <button type="button" *ngIf="profilePhotoPreview" mat-button color="warn" class="remove-photo-btn" (click)="removePhoto()">
+                    Remove
+                  </button>
+                  <span class="upload-hint">Recommended: Square PNG/JPG up to 2MB</span>
+                </div>
               </div>
-              <div class="upload-controls">
-                <label class="upload-btn">
-                  <mat-icon>cloud_upload</mat-icon>
-                  <span>{{ profilePhotoPreview ? 'Change Logo / Photo' : 'Upload Logo / Photo' }}</span>
-                  <input type="file" accept="image/*" (change)="onFileSelected($event)" style="display:none;">
-                </label>
-                <button type="button" *ngIf="profilePhotoPreview" mat-button color="warn" class="remove-photo-btn" (click)="removePhoto()">
-                  Remove
-                </button>
-                <span class="upload-hint">Recommended: Square PNG/JPG up to 2MB</span>
-              </div>
-            </div>
 
-            <div class="form-grid">
-              <!-- Code (Only for new) -->
-              <mat-form-field appearance="outline" *ngIf="!isEditing" class="span-1">
-                <mat-label>Company / Institute Code (Unique)</mat-label>
-                <input matInput formControlName="code" placeholder="e.g. APEX, EXCEL" (input)="onCodeInput($event)">
-                <mat-icon matSuffix>vpn_key</mat-icon>
-                <mat-hint>Used by users to sign in</mat-hint>
-                <mat-error *ngIf="tenantForm.get('code')?.hasError('required')">Code is required</mat-error>
-              </mat-form-field>
-
-              <!-- Name -->
-              <mat-form-field appearance="outline" [class.span-2]="isEditing" [class.span-1]="!isEditing">
-                <mat-label>Institute Name</mat-label>
-                <input matInput formControlName="name" placeholder="e.g. Apex Coaching Academy">
-                <mat-icon matSuffix>school</mat-icon>
-                <mat-error *ngIf="tenantForm.get('name')?.hasError('required')">Name is required</mat-error>
-              </mat-form-field>
-
-              <!-- Phone -->
-              <mat-form-field appearance="outline" class="span-1">
-                <mat-label>Contact Phone</mat-label>
-                <input matInput formControlName="contactPhone" placeholder="e.g. +91 9876543210">
-                <mat-icon matSuffix>phone</mat-icon>
-              </mat-form-field>
-
-              <!-- Address -->
-              <mat-form-field appearance="outline" class="span-1">
-                <mat-label>Address / City</mat-label>
-                <input matInput formControlName="address" placeholder="e.g. 101 Knowledge Park, New Delhi">
-                <mat-icon matSuffix>location_on</mat-icon>
-              </mat-form-field>
-
-              <!-- WhatsApp Phone ID -->
-              <mat-form-field appearance="outline" class="span-1">
-                <mat-label>WhatsApp Phone ID (Optional)</mat-label>
-                <input matInput formControlName="whatsAppPhoneId" placeholder="e.g. 104829103982">
-                <mat-icon matSuffix>chat</mat-icon>
-              </mat-form-field>
-
-              <!-- WhatsApp Access Token -->
-              <mat-form-field appearance="outline" class="span-1">
-                <mat-label>WhatsApp Access Token (Optional)</mat-label>
-                <input matInput formControlName="whatsAppAccessToken" placeholder="Meta Graph API Token">
-                <mat-icon matSuffix>security</mat-icon>
-              </mat-form-field>
-            </div>
-
-            <!-- ERP Module Packaging / Subscription Selection -->
-            <div class="modules-setup-block" style="margin: 16px 0; padding: 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;">
-              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
-                <h4 class="block-title" style="display:flex; align-items:center; gap:6px; margin:0; font-size:14px; font-weight:700; color:#1e3a8a;">
-                  <mat-icon style="color:#2563eb; font-size:20px; width:20px; height:20px;">hub</mat-icon>
-                  <span>Subscribed Modules &amp; Licensing</span>
-                </h4>
-                <span *ngIf="!isSuperAdmin" style="font-size:11px; font-weight:700; background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe; padding:2px 8px; border-radius:12px; display:inline-flex; align-items:center; gap:4px;">
-                  <mat-icon style="font-size:13px; width:13px; height:13px;">lock</mat-icon> Managed by Super Admin
-                </span>
-              </div>
-              <p style="margin:0 0 12px; font-size:12px; color:#64748b;">
-                {{ isSuperAdmin ? 'Configure which modules are licensed for this institute. Unchecked modules will be completely hidden from their sidebar and student forms.' : 'The functional modules enabled for your institute. Contact SaaS support to subscribe to additional modules.' }}
-              </p>
-              
-              <div style="display:flex; flex-wrap:wrap; gap:16px;">
-                <label style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:600;" [style.cursor]="isSuperAdmin ? 'pointer' : 'not-allowed'">
-                  <input type="checkbox" formControlName="hasSchoolModule" [style.cursor]="isSuperAdmin ? 'pointer' : 'not-allowed'" style="width:16px; height:16px;">
-                  <span>🏫 School Module</span>
-                </label>
-                <label style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:600;" [style.cursor]="isSuperAdmin ? 'pointer' : 'not-allowed'">
-                  <input type="checkbox" formControlName="hasCoachingModule" [style.cursor]="isSuperAdmin ? 'pointer' : 'not-allowed'" style="width:16px; height:16px;">
-                  <span>🎯 Coaching Module</span>
-                </label>
-                <label style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:600;" [style.cursor]="isSuperAdmin ? 'pointer' : 'not-allowed'">
-                  <input type="checkbox" formControlName="hasHostelModule" [style.cursor]="isSuperAdmin ? 'pointer' : 'not-allowed'" style="width:16px; height:16px;">
-                  <span>🏨 Hostel &amp; Residential</span>
-                </label>
-                <label style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:600;" [style.cursor]="isSuperAdmin ? 'pointer' : 'not-allowed'">
-                  <input type="checkbox" formControlName="hasLibraryModule" [style.cursor]="isSuperAdmin ? 'pointer' : 'not-allowed'" style="width:16px; height:16px;">
-                  <span>📚 Library Management</span>
-                </label>
-                <label style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:600;" [style.cursor]="isSuperAdmin ? 'pointer' : 'not-allowed'">
-                  <input type="checkbox" formControlName="hasTransportModule" [style.cursor]="isSuperAdmin ? 'pointer' : 'not-allowed'" style="width:16px; height:16px;">
-                  <span>🚌 Transport &amp; Fleet</span>
-                </label>
-              </div>
-            </div>
-
-            <!-- Subscription Plan & Quota Tier -->
-            <div class="subscription-setup-block" style="margin: 16px 0; padding: 14px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px;">
-              <h4 class="block-title" style="display:flex; align-items:center; gap:6px; margin:0 0 8px; font-size:14px; font-weight:700; color:#1e3a8a;">
-                <mat-icon style="color:#2563eb; font-size:20px; width:20px; height:20px;">workspace_premium</mat-icon>
-                <span>Subscription Plan &amp; Quotas</span>
-              </h4>
-              <p *ngIf="!isSuperAdmin" style="margin:0 0 10px; font-size:12px; color:#1e40af;">
-                Subscription tier and limits are controlled by your SaaS administrator.
-              </p>
-
-              <div class="form-grid" *ngIf="isSuperAdmin">
-                <mat-form-field appearance="outline" class="span-1">
-                  <mat-label>Subscription Plan</mat-label>
-                  <input matInput formControlName="subscriptionPlan" placeholder="FreeTrial, Starter, Growth, Enterprise">
-                  <mat-icon matSuffix>card_membership</mat-icon>
+              <div class="form-grid">
+                <!-- Code (Only for new) -->
+                <mat-form-field appearance="outline" *ngIf="!isEditing" class="span-1">
+                  <mat-label>Company / Institute Code (Unique)</mat-label>
+                  <input matInput formControlName="code" placeholder="e.g. APEX, EXCEL" (input)="onCodeInput($event)">
+                  <mat-icon matSuffix>vpn_key</mat-icon>
+                  <mat-hint>Used by users to sign in</mat-hint>
+                  <mat-error *ngIf="tenantForm.get('code')?.hasError('required')">Code is required</mat-error>
                 </mat-form-field>
 
-                <mat-form-field appearance="outline" class="span-1">
-                  <mat-label>Subscription Status</mat-label>
-                  <input matInput formControlName="subscriptionStatus" placeholder="TrialActive, Active, Expired">
-                  <mat-icon matSuffix>verified</mat-icon>
-                </mat-form-field>
-
-                <mat-form-field appearance="outline" class="span-1">
-                  <mat-label>Max Students Quota</mat-label>
-                  <input matInput type="number" formControlName="maxStudentsLimit" placeholder="e.g. 50">
+                <!-- Name -->
+                <mat-form-field appearance="outline" [class.span-2]="isEditing" [class.span-1]="!isEditing">
+                  <mat-label>Institute Name</mat-label>
+                  <input matInput formControlName="name" placeholder="e.g. Apex Coaching Academy">
                   <mat-icon matSuffix>school</mat-icon>
+                  <mat-error *ngIf="tenantForm.get('name')?.hasError('required')">Name is required</mat-error>
                 </mat-form-field>
 
+                <!-- Phone -->
                 <mat-form-field appearance="outline" class="span-1">
-                  <mat-label>Max Branches Limit</mat-label>
-                  <input matInput type="number" formControlName="maxBranchesLimit" placeholder="e.g. 2">
-                  <mat-icon matSuffix>apartment</mat-icon>
+                  <mat-label>Contact Phone</mat-label>
+                  <input matInput formControlName="contactPhone" placeholder="e.g. +91 9876543210">
+                  <mat-icon matSuffix>phone</mat-icon>
+                </mat-form-field>
+
+                <!-- Address -->
+                <mat-form-field appearance="outline" class="span-1">
+                  <mat-label>Address / City</mat-label>
+                  <input matInput formControlName="address" placeholder="e.g. Main Road, Jnandeep Campus">
+                  <mat-icon matSuffix>location_on</mat-icon>
                 </mat-form-field>
               </div>
+            </div>
 
-              <div *ngIf="!isSuperAdmin" style="display:flex; gap:16px; flex-wrap:wrap; font-size:12px; color:#1e3a8a; background:#ffffff; padding:10px 14px; border-radius:6px; border:1px solid #dbeafe;">
-                <div>Plan: <strong>{{ tenantForm.get('subscriptionPlan')?.value || 'FreeTrial' }}</strong></div>
-                <div>Status: <strong>{{ tenantForm.get('subscriptionStatus')?.value || 'TrialActive' }}</strong></div>
-                <div>Max Students: <strong>{{ tenantForm.get('maxStudentsLimit')?.value || 50 }}</strong></div>
-                <div>Max Branches: <strong>{{ tenantForm.get('maxBranchesLimit')?.value || 2 }}</strong></div>
+            <!-- TAB 2: Dynamic UPI Payment Gateway -->
+            <div *ngIf="isEditing && activeModalTab === 'upi'" class="tab-pane">
+              <!-- Live Status & Gateway Intro Banner -->
+              <div class="upi-config-banner">
+                <div class="upi-banner-icon">
+                  <mat-icon>{{ tenantForm.get('upiId')?.value ? 'verified' : 'account_balance_wallet' }}</mat-icon>
+                </div>
+                <div class="upi-banner-text">
+                  <div class="upi-banner-header">
+                    <strong>Zero-Cost Bharat Dynamic UPI Gateway (Direct Bank-to-Bank)</strong>
+                    <span class="upi-live-badge" [class.active]="!!tenantForm.get('upiId')?.value">
+                      <mat-icon style="font-size:12px; width:12px; height:12px; vertical-align:middle; margin-right:3px;">{{ tenantForm.get('upiId')?.value ? 'check_circle' : 'pending' }}</mat-icon><span>{{ tenantForm.get('upiId')?.value ? 'Active: ' + tenantForm.get('upiId')?.value : 'Setup Required' }}</span>
+                    </span>
+                  </div>
+                  <p>All student fee payments made via GPay, PhonePe, Paytm, or BHIM settle <strong>instantly into your institute bank account</strong> with zero middleman gateway commission.</p>
+                </div>
+              </div>
+
+              <!-- Two-Column Layout for Spacious Wide Popup -->
+              <div class="upi-two-col-layout">
+                <!-- Left Column: Inputs & Controls -->
+                <div class="upi-col-fields">
+                  <!-- Institute VPA -->
+                  <mat-form-field appearance="outline" class="w-100">
+                    <mat-label>Institute / Campus UPI ID (VPA)</mat-label>
+                    <input
+                      matInput
+                      formControlName="upiId"
+                      placeholder="e.g. jnandeep@sbi or 8088377282@ybl"
+                      autocomplete="off"
+                    />
+                    <mat-icon matPrefix class="field-icon">alternate_email</mat-icon>
+                    <mat-hint>The official UPI ID linked directly to your school/coaching bank account</mat-hint>
+                  </mat-form-field>
+
+                  <div class="form-grid-inner">
+                    <!-- Payee Display Name -->
+                    <mat-form-field appearance="outline">
+                      <mat-label>Payee / Merchant Business Name</mat-label>
+                      <input
+                        matInput
+                        formControlName="upiMerchantName"
+                        placeholder="e.g. Jnandeep Campus"
+                        autocomplete="off"
+                      />
+                      <mat-icon matPrefix class="field-icon">business</mat-icon>
+                      <mat-hint>Verified name on payer app</mat-hint>
+                    </mat-form-field>
+
+                    <!-- MCC Code (Locked to 8211) -->
+                    <mat-form-field appearance="outline">
+                      <mat-label>Merchant Category Code (MCC)</mat-label>
+                      <input
+                        matInput
+                        formControlName="upiMerchantCode"
+                        placeholder="8211"
+                        [readonly]="true"
+                      />
+                      <mat-icon matSuffix matTooltip="Locked to 8211 (Official NPCI Standard Code for Educational Services)" style="font-size:18px; color:#64748b;">lock</mat-icon>
+                      <mat-hint class="single-line-hint" matTooltip="Official NPCI Standard Code (Fixed: 8211)">Official NPCI Standard Code (Fixed: 8211)</mat-hint>
+                    </mat-form-field>
+                  </div>
+
+                  <!-- Toggles Card -->
+                  <div class="toggles-card">
+                    <div class="toggle-item">
+                      <div class="toggle-text">
+                        <strong class="toggle-title">Enable Dynamic UPI QR on Invoices &amp; Receipts</strong>
+                        <p class="toggle-sub">Shows instant scan &amp; pay QR codes on student portals, fee counters, and public receipt links.</p>
+                      </div>
+                      <mat-slide-toggle formControlName="upiQrEnabled" color="primary"></mat-slide-toggle>
+                    </div>
+
+                    <div class="toggle-item">
+                      <div class="toggle-text">
+                        <strong class="toggle-title">Automated UTR Verification &amp; Instant Settlement</strong>
+                        <p class="toggle-sub">When parents submit a valid 12-digit UTR, automatically clear invoice dues, settle in Day Book, and generate receipt.</p>
+                      </div>
+                      <mat-slide-toggle formControlName="upiAutoVerify" color="primary"></mat-slide-toggle>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Right Column: Interactive Live Preview Card -->
+                <div class="upi-col-preview">
+                  <div class="upi-preview-card">
+                    <div class="preview-header">
+                      <span class="preview-title">
+                        <mat-icon>smartphone</mat-icon>
+                        <span>Payer Screen Live Preview</span>
+                      </span>
+                      <span class="commission-pill">0% Fee (NPCI)</span>
+                    </div>
+                    <div class="preview-body">
+                      <div class="preview-details">
+                        <div class="preview-row">
+                          <span class="lbl">Payee:</span>
+                          <strong class="val">{{ tenantForm.get('upiMerchantName')?.value || tenantForm.get('name')?.value || 'Your Institute Name' }}</strong>
+                        </div>
+                        <div class="preview-row">
+                          <span class="lbl">UPI VPA:</span>
+                          <span class="vpa-tag">{{ tenantForm.get('upiId')?.value || 'upi-id@bank (enter on left)' }}</span>
+                        </div>
+                        <div class="preview-row">
+                          <span class="lbl">Category:</span>
+                          <span class="val">8211 (Educational Services)</span>
+                        </div>
+                        <div class="preview-row">
+                          <span class="lbl">Direct Bank:</span>
+                          <span class="val" style="color:#16a34a; font-weight:700;">Instant Direct Credit</span>
+                        </div>
+                      </div>
+
+                      <div class="supported-apps">
+                        <span class="apps-label">Supported Apps:</span>
+                        <div class="apps-badges">
+                          <span class="app-chip gpay">Google Pay</span>
+                          <span class="app-chip phonepe">PhonePe</span>
+                          <span class="app-chip paytm">Paytm</span>
+                          <span class="app-chip bhim">BHIM UPI</span>
+                          <span class="app-chip cred">CRED</span>
+                          <span class="app-chip any">Any UPI App</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- TAB 3: WhatsApp Cloud API -->
+            <div *ngIf="isEditing && activeModalTab === 'whatsapp'" class="tab-pane">
+              <div class="wa-config-banner">
+                <div class="wa-banner-icon">
+                  <mat-icon>chat</mat-icon>
+                </div>
+                <div class="wa-banner-text">
+                  <strong>Meta Cloud WhatsApp API Integration</strong>
+                  <p>Send automated digital fee receipts, balance due notices, homework alerts, and exam report cards directly to parents' WhatsApp.</p>
+                </div>
+              </div>
+
+              <div class="form-grid">
+                <!-- WhatsApp Phone ID -->
+                <mat-form-field appearance="outline" class="span-2">
+                  <mat-label>WhatsApp Phone Number ID</mat-label>
+                  <input matInput formControlName="whatsAppPhoneId" placeholder="e.g. 104829103982">
+                  <mat-icon matPrefix>chat</mat-icon>
+                  <mat-hint>Meta Cloud API Phone Number ID</mat-hint>
+                </mat-form-field>
+
+                <!-- WhatsApp Access Token -->
+                <mat-form-field appearance="outline" class="span-2">
+                  <mat-label>WhatsApp Permanent Access Token</mat-label>
+                  <input matInput formControlName="whatsAppAccessToken" placeholder="Meta Graph API System User Token">
+                  <mat-icon matPrefix>security</mat-icon>
+                  <mat-hint>System User Permanent Token from Meta Business Suite</mat-hint>
+                </mat-form-field>
+              </div>
+            </div>
+
+            <!-- TAB 4: Modules & Licensing -->
+            <div *ngIf="!isEditing || activeModalTab === 'modules'" class="tab-pane">
+              <!-- ERP Module Packaging / Subscription Selection -->
+              <div class="modules-setup-block" style="margin: 0 0 16px; padding: 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
+                  <h4 class="block-title" style="display:flex; align-items:center; gap:6px; margin:0; font-size:14px; font-weight:700; color:#1e3a8a;">
+                    <mat-icon style="color:#2563eb; font-size:20px; width:20px; height:20px;">hub</mat-icon>
+                    <span>Subscribed Modules &amp; Licensing</span>
+                  </h4>
+                  <span *ngIf="!isSuperAdmin" style="font-size:11px; font-weight:700; background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe; padding:2px 8px; border-radius:12px; display:inline-flex; align-items:center; gap:4px;">
+                    <mat-icon style="font-size:13px; width:13px; height:13px;">lock</mat-icon> Managed by Super Admin
+                  </span>
+                </div>
+                <p style="margin:0 0 12px; font-size:12px; color:#64748b;">
+                  {{ isSuperAdmin ? 'Configure which modules are licensed for this institute. Unchecked modules will be completely hidden from their sidebar and student forms.' : 'The functional modules enabled for your institute. Contact SaaS support to subscribe to additional modules.' }}
+                </p>
+                
+                <div class="modules-checkbox-grid">
+                  <label class="module-check-card" [style.cursor]="isSuperAdmin ? 'pointer' : 'not-allowed'">
+                    <input type="checkbox" formControlName="hasSchoolModule" [style.cursor]="isSuperAdmin ? 'pointer' : 'not-allowed'">
+                    <mat-icon class="mod-check-icon school">school</mat-icon>
+                    <span class="mod-check-label">School Module</span>
+                  </label>
+                  <label class="module-check-card" [style.cursor]="isSuperAdmin ? 'pointer' : 'not-allowed'">
+                    <input type="checkbox" formControlName="hasCoachingModule" [style.cursor]="isSuperAdmin ? 'pointer' : 'not-allowed'">
+                    <mat-icon class="mod-check-icon coaching">menu_book</mat-icon>
+                    <span class="mod-check-label">Coaching Module</span>
+                  </label>
+                  <label class="module-check-card" [style.cursor]="isSuperAdmin ? 'pointer' : 'not-allowed'">
+                    <input type="checkbox" formControlName="hasHostelModule" [style.cursor]="isSuperAdmin ? 'pointer' : 'not-allowed'">
+                    <mat-icon class="mod-check-icon hostel">hotel</mat-icon>
+                    <span class="mod-check-label">Hostel &amp; Residential</span>
+                  </label>
+                  <label class="module-check-card" [style.cursor]="isSuperAdmin ? 'pointer' : 'not-allowed'">
+                    <input type="checkbox" formControlName="hasLibraryModule" [style.cursor]="isSuperAdmin ? 'pointer' : 'not-allowed'">
+                    <mat-icon class="mod-check-icon library">local_library</mat-icon>
+                    <span class="mod-check-label">Library Management</span>
+                  </label>
+                  <label class="module-check-card" [style.cursor]="isSuperAdmin ? 'pointer' : 'not-allowed'">
+                    <input type="checkbox" formControlName="hasTransportModule" [style.cursor]="isSuperAdmin ? 'pointer' : 'not-allowed'">
+                    <mat-icon class="mod-check-icon transport">directions_bus</mat-icon>
+                    <span class="mod-check-label">Transport &amp; Fleet</span>
+                  </label>
+                </div>
+              </div>
+
+              <!-- Subscription Plan & Quota Tier -->
+              <div class="subscription-setup-block" style="margin: 0 0 16px; padding: 14px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px;">
+                <h4 class="block-title" style="display:flex; align-items:center; gap:6px; margin:0 0 8px; font-size:14px; font-weight:700; color:#1e3a8a;">
+                  <mat-icon style="color:#2563eb; font-size:20px; width:20px; height:20px;">workspace_premium</mat-icon>
+                  <span>Subscription Plan &amp; Quotas</span>
+                </h4>
+                <p *ngIf="!isSuperAdmin" style="margin:0 0 10px; font-size:12px; color:#1e40af;">
+                  Subscription tier and limits are controlled by your SaaS administrator.
+                </p>
+
+                <div class="form-grid" *ngIf="isSuperAdmin">
+                  <mat-form-field appearance="outline" class="span-1">
+                    <mat-label>Subscription Plan</mat-label>
+                    <input matInput formControlName="subscriptionPlan" placeholder="FreeTrial, Starter, Growth, Enterprise">
+                    <mat-icon matSuffix>card_membership</mat-icon>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline" class="span-1">
+                    <mat-label>Subscription Status</mat-label>
+                    <input matInput formControlName="subscriptionStatus" placeholder="TrialActive, Active, Expired">
+                    <mat-icon matSuffix>verified</mat-icon>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline" class="span-1">
+                    <mat-label>Max Students Quota</mat-label>
+                    <input matInput type="number" formControlName="maxStudentsLimit" placeholder="e.g. 50">
+                    <mat-icon matSuffix>school</mat-icon>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline" class="span-1">
+                    <mat-label>Max Branches Limit</mat-label>
+                    <input matInput type="number" formControlName="maxBranchesLimit" placeholder="e.g. 2">
+                    <mat-icon matSuffix>apartment</mat-icon>
+                  </mat-form-field>
+                </div>
+
+                <div *ngIf="!isSuperAdmin" style="display:flex; gap:16px; flex-wrap:wrap; font-size:12px; color:#1e3a8a; background:#ffffff; padding:10px 14px; border-radius:6px; border:1px solid #dbeafe;">
+                  <div>Plan: <strong>{{ tenantForm.get('subscriptionPlan')?.value || 'FreeTrial' }}</strong></div>
+                  <div>Status: <strong>{{ tenantForm.get('subscriptionStatus')?.value || 'TrialActive' }}</strong></div>
+                  <div>Max Students: <strong>{{ tenantForm.get('maxStudentsLimit')?.value || 50 }}</strong></div>
+                  <div>Max Branches: <strong>{{ tenantForm.get('maxBranchesLimit')?.value || 2 }}</strong></div>
+                </div>
               </div>
             </div>
 
@@ -520,11 +780,23 @@ import { environment } from '../../../environments/environment';
             </div>
 
             <div class="modal-footer">
-              <button type="button" mat-button (click)="closeModal()">Cancel</button>
-              <button type="submit" mat-raised-button color="primary" [disabled]="tenantForm.invalid || formSaving">
-                <mat-spinner diameter="18" *ngIf="formSaving" style="display:inline-block; margin-right:6px;"></mat-spinner>
-                <span>{{ isEditing ? 'Save Changes' : 'Provision Institute' }}</span>
+              <button
+                type="button"
+                mat-stroked-button
+                color="primary"
+                class="back-to-profile-btn"
+                *ngIf="isEditing && activeModalTab !== 'profile'"
+                (click)="activeModalTab = 'profile'">
+                <mat-icon>arrow_back</mat-icon>
+                <span>Back to Profile</span>
               </button>
+              <div class="footer-right-actions">
+                <button type="button" mat-button (click)="onCancel()">{{ (isEditing && activeModalTab !== 'profile') ? 'Back' : 'Cancel' }}</button>
+                <button type="submit" mat-raised-button color="primary" [disabled]="tenantForm.invalid || formSaving" (click)="saveTenant()">
+                  <mat-spinner diameter="18" *ngIf="formSaving" style="display:inline-block; margin-right:6px;"></mat-spinner>
+                  <span>{{ isEditing ? 'Save Changes' : 'Provision Institute' }}</span>
+                </button>
+              </div>
             </div>
           </form>
         </div>
@@ -582,9 +854,11 @@ import { environment } from '../../../environments/environment';
 
       @media (max-width: 1024px) {
         grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
       }
-      @media (max-width: 600px) {
-        grid-template-columns: 1fr;
+      @media (max-width: 640px) {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
       }
     }
 
@@ -617,6 +891,19 @@ import { environment } from '../../../environments/environment';
       &.emerald { .kpi-icon-box { background: #ecfdf5; color: #059669; } }
       &.violet { .kpi-icon-box { background: #f5f3ff; color: #7c3aed; } }
       &.amber { .kpi-icon-box { background: #fffbeb; color: #d97706; } }
+
+      @media (max-width: 640px) {
+        padding: 12px 12px;
+
+        .kpi-label { font-size: 0.65rem; letter-spacing: 0.02em; }
+        .kpi-val { font-size: 1.22rem !important; margin-top: 2px; }
+        .kpi-icon-box {
+          width: 34px;
+          height: 34px;
+          border-radius: 8px;
+          mat-icon { font-size: 18px; width: 18px; height: 18px; }
+        }
+      }
     }
 
     .controls-bar {
@@ -798,12 +1085,64 @@ import { environment } from '../../../environments/environment';
       }
     }
 
-    .card-actions {
+    .tenant-limits-row {
       display: flex;
       justify-content: space-between;
       align-items: center;
       gap: 8px;
+      font-size: 0.78rem;
+      color: #475569;
+      padding: 0 2px;
+      flex-wrap: wrap;
+
+      .limit-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        background: #f8fafc;
+        border: 1px solid #f1f5f9;
+        padding: 3px 8px;
+        border-radius: 6px;
+        mat-icon { font-size: 15px; width: 15px; height: 15px; color: #64748b; }
+        strong { color: #1e293b; font-weight: 700; }
+      }
+    }
+
+    .tenant-modules-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 4px 0 10px;
+      padding: 8px 10px;
+      background: #f8fafc;
+      border-radius: 8px;
+      border: 1px solid #f1f5f9;
+
+      .mod-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 0.72rem;
+        font-weight: 700;
+        padding: 3px 8px;
+        border-radius: 6px;
+        transition: all 0.15s ease;
+
+        mat-icon { font-size: 14px; width: 14px; height: 14px; }
+
+        &.school { background: #dbeafe; color: #1e40af; mat-icon { color: #1e40af; } }
+        &.coaching { background: #fef3c7; color: #92400e; mat-icon { color: #92400e; } }
+        &.hostel { background: #ede9fe; color: #5b21b6; mat-icon { color: #5b21b6; } }
+        &.library { background: #dcfce7; color: #166534; mat-icon { color: #166534; } }
+        &.transport { background: #fce7f3; color: #9d174d; mat-icon { color: #9d174d; } }
+      }
+    }
+
+    .card-actions {
+      display: flex;
+      gap: 8px;
       margin-top: 4px;
+      flex-wrap: wrap;
 
       button {
         border-radius: 8px;
@@ -812,14 +1151,71 @@ import { environment } from '../../../environments/environment';
         height: 36px;
         display: inline-flex;
         align-items: center;
-        gap: 4px;
+        justify-content: center;
+        gap: 6px;
         mat-icon { font-size: 16px; width: 16px; height: 16px; }
       }
 
-      .edit-btn { flex: 1; }
+      .edit-btn {
+        flex: 1 1 130px;
+        min-width: 120px;
+      }
+
+      .upi-action-btn {
+        flex: 1 1 130px;
+        min-width: 120px;
+        color: #059669;
+        border-color: #059669;
+        .upi-btn-icon { color: #059669; }
+        &:hover { background: #f0fdf4; border-color: #047857; }
+      }
     }
 
-    /* Modal Backdrop & Dialog */
+    .modules-checkbox-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 10px;
+
+      .module-check-card {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        transition: all 0.15s ease;
+
+        input[type="checkbox"] {
+          width: 16px;
+          height: 16px;
+          accent-color: #2563eb;
+        }
+
+        .mod-check-icon {
+          font-size: 18px;
+          width: 18px;
+          height: 18px;
+          &.school { color: #2563eb; }
+          &.coaching { color: #d97706; }
+          &.hostel { color: #7c3aed; }
+          &.library { color: #059669; }
+          &.transport { color: #db2777; }
+        }
+
+        .mod-check-label {
+          font-size: 0.82rem;
+          font-weight: 600;
+          color: #1e293b;
+        }
+
+        &:hover {
+          border-color: #93c5fd;
+          background: #f8fafc;
+        }
+      }
+    }
+
     .modal-backdrop {
       position: fixed;
       top: 0;
@@ -834,32 +1230,332 @@ import { environment } from '../../../environments/environment';
       justify-content: center;
       padding: 20px;
       box-sizing: border-box;
+
+      @media (max-width: 640px) {
+        padding: 6px;
+      }
     }
 
     .modal-dialog {
       background: #ffffff;
       border-radius: 16px;
-      width: 100%;
-      max-width: 620px;
+      width: 95vw;
+      max-width: 980px;
       max-height: 90vh;
       overflow-y: auto;
-      box-shadow: 0 20px 48px rgba(0, 0, 0, 0.3);
+      box-shadow: 0 25px 60px rgba(15, 23, 42, 0.25);
       display: flex;
       flex-direction: column;
+
+      @media (max-width: 640px) {
+        width: 100%;
+        max-width: 100%;
+        max-height: 96vh;
+        border-radius: 12px;
+      }
+    }
+
+    /* Modal Navigation Tabs */
+    .modal-nav-tabs {
+      display: flex;
+      gap: 8px;
+      padding: 10px 24px 0 24px;
+      background: #f8fafc;
+      border-bottom: 1px solid #e2e8f0;
+      overflow-x: auto;
+      scrollbar-width: none;
+      &::-webkit-scrollbar { display: none; }
+      -webkit-overflow-scrolling: touch;
+
+      .modal-tab-btn {
+        border: none;
+        background: transparent;
+        padding: 9px 14px;
+        border-radius: 8px 8px 0 0;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #64748b;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        white-space: nowrap;
+        transition: all 0.2s ease;
+        border-bottom: 2px solid transparent;
+
+        mat-icon {
+          font-size: 18px;
+          width: 18px;
+          height: 18px;
+        }
+
+        .tab-status-dot {
+          width: 7px;
+          height: 7px;
+          border-radius: 50%;
+          margin-left: 2px;
+          display: inline-block;
+          &.online { background: #10b981; box-shadow: 0 0 6px rgba(16, 185, 129, 0.5); }
+        }
+
+        .tab-status-badge {
+          font-size: 10px;
+          font-weight: 700;
+          padding: 1px 6px;
+          border-radius: 10px;
+          margin-left: 4px;
+          &.warn { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
+        }
+
+        &:hover {
+          color: #1e293b;
+          background: #f1f5f9;
+        }
+
+        &.active {
+          color: #2563eb;
+          font-weight: 700;
+          background: #ffffff;
+          border-bottom: 2px solid #2563eb;
+        }
+
+        &.upi-tab.active {
+          color: #059669;
+          border-bottom-color: #059669;
+          .tab-upi-icon { color: #059669; }
+        }
+      }
+
+      @media (max-width: 640px) {
+        padding: 8px 12px 0 12px;
+        gap: 4px;
+
+        .modal-tab-btn {
+          padding: 8px 10px;
+          font-size: 0.76rem;
+          gap: 4px;
+          mat-icon { font-size: 15px; width: 15px; height: 15px; }
+        }
+      }
+    }
+
+    .tab-pane {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      animation: fadeIn 0.2s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .upi-config-banner, .wa-config-banner {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border-radius: 10px;
+
+      mat-icon { font-size: 22px; width: 22px; height: 22px; }
+      strong { font-size: 0.88rem; display: block; margin-bottom: 2px; }
+      p { font-size: 0.78rem; margin: 0; line-height: 1.35; }
+    }
+
+    .upi-config-banner {
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      .upi-banner-icon { color: #16a34a; }
+      .upi-banner-text { width: 100%; }
+      .upi-banner-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-bottom: 2px;
+      }
+      .upi-live-badge {
+        font-size: 0.72rem;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 12px;
+        background: #e2e8f0;
+        color: #475569;
+        &.active {
+          background: #dcfce7;
+          color: #15803d;
+          border: 1px solid #bbf7d0;
+        }
+      }
+      strong { color: #14532d; }
+      p { color: #15803d; }
+    }
+
+    /* Smart Live Preview Card */
+    .upi-preview-card {
+      background: #ffffff;
+      border: 1px solid #d1fae5;
+      border-radius: 12px;
+      padding: 14px 16px;
+      box-shadow: 0 2px 8px rgba(16, 185, 129, 0.06);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+
+      .preview-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 6px;
+
+        .preview-title {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 0.8rem;
+          font-weight: 700;
+          color: #065f46;
+          mat-icon { font-size: 16px; width: 16px; height: 16px; color: #059669; }
+        }
+
+        .commission-pill {
+          font-size: 0.68rem;
+          font-weight: 800;
+          background: #ecfdf5;
+          color: #059669;
+          border: 1px solid #a7f3d0;
+          padding: 2px 8px;
+          border-radius: 20px;
+          text-transform: uppercase;
+          letter-spacing: 0.03em;
+        }
+      }
+
+      .preview-body {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+
+        .preview-details {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+
+          .preview-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.8rem;
+
+            .lbl {
+              color: #64748b;
+              font-weight: 500;
+              min-width: 95px;
+            }
+
+            .val {
+              color: #1e293b;
+            }
+
+            .vpa-tag {
+              background: #f0fdf4;
+              color: #166534;
+              font-weight: 700;
+              font-family: monospace;
+              font-size: 0.82rem;
+              padding: 2px 8px;
+              border-radius: 6px;
+              border: 1px solid #bbf7d0;
+            }
+          }
+        }
+
+        .supported-apps {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+          margin-top: 4px;
+          padding-top: 8px;
+          border-top: 1px dashed #e2e8f0;
+
+          .apps-label {
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #64748b;
+          }
+
+          .apps-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+
+            .app-chip {
+              font-size: 0.68rem;
+              font-weight: 700;
+              padding: 2px 7px;
+              border-radius: 6px;
+
+              &.gpay { background: #e8f0fe; color: #1967d2; }
+              &.phonepe { background: #f3e8ff; color: #6b21a8; }
+              &.paytm { background: #e0f2fe; color: #0284c7; }
+              &.bhim { background: #fff7ed; color: #c2410c; }
+              &.cred { background: #f1f5f9; color: #0f172a; }
+              &.any { background: #f0fdf4; color: #15803d; border: 1px dashed #86efac; }
+            }
+          }
+        }
+      }
+    }
+
+    .wa-config-banner {
+      background: #f0fdf4;
+      border: 1px solid #86efac;
+      .wa-banner-icon { color: #16a34a; }
+      strong { color: #14532d; }
+      p { color: #15803d; }
+    }
+
+    .toggles-card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+
+      .toggle-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+
+        .toggle-text {
+          .toggle-title { font-size: 0.85rem; color: #1e293b; display: block; }
+          .toggle-sub { font-size: 0.75rem; color: #64748b; margin: 2px 0 0; }
+        }
+      }
     }
 
     .modal-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 16px 24px;
+      padding: 16px 20px;
       background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
       border-bottom: 1px solid #bfdbfe;
+      gap: 12px;
 
       .modal-title-group {
         display: flex;
         align-items: center;
         gap: 12px;
+        min-width: 0;
+        flex: 1;
 
         .header-icon-box {
           background: #2563eb;
@@ -876,13 +1572,99 @@ import { environment } from '../../../environments/environment';
           mat-icon { font-size: 22px; width: 22px; height: 22px; color: #ffffff; }
         }
 
-        h3 { font-size: 1.12rem; font-weight: 700; color: #1e3a8a; margin: 0; }
-        p { font-size: 0.78rem; color: #3b82f6; margin: 2px 0 0; }
+        .modal-title-texts {
+          min-width: 0;
+          flex: 1;
+        }
+
+        h3 {
+          font-size: 1.05rem;
+          font-weight: 700;
+          color: #1e3a8a;
+          margin: 0;
+          line-height: 1.25;
+        }
+        p {
+          font-size: 0.76rem;
+          color: #3b82f6;
+          margin: 2px 0 0;
+          line-height: 1.25;
+        }
       }
 
-      .close-btn {
-        color: #64748b;
-        &:hover { color: #1e293b; background: rgba(0,0,0,0.04); }
+      .modal-header-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+
+        .header-back-btn {
+          border-radius: 8px;
+          font-size: 0.8rem;
+          font-weight: 600;
+          height: 34px;
+          padding: 0 10px;
+          color: #2563eb;
+          border-color: #bfdbfe;
+          background: #ffffff;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          white-space: nowrap;
+          mat-icon { font-size: 16px; width: 16px; height: 16px; }
+          &:hover { background: #eff6ff; border-color: #93c5fd; }
+        }
+
+        .close-btn {
+          color: #64748b;
+          width: 36px;
+          height: 36px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          &:hover { color: #1e293b; background: rgba(0,0,0,0.04); }
+        }
+      }
+
+      @media (max-width: 640px) {
+        padding: 10px 12px;
+        gap: 6px;
+
+        .modal-title-group {
+          gap: 8px;
+
+          .header-icon-box {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            mat-icon { font-size: 18px; width: 18px; height: 18px; }
+          }
+
+          h3 {
+            font-size: 0.88rem;
+          }
+          p {
+            font-size: 0.7rem;
+          }
+        }
+
+        .modal-header-actions {
+          gap: 4px;
+
+          .header-back-btn {
+            height: 30px;
+            padding: 0 8px;
+            font-size: 0.72rem;
+            gap: 2px;
+            mat-icon { font-size: 14px; width: 14px; height: 14px; }
+          }
+
+          .close-btn {
+            width: 30px;
+            height: 30px;
+            mat-icon { font-size: 18px; width: 18px; height: 18px; }
+          }
+        }
       }
     }
 
@@ -891,6 +1673,11 @@ import { environment } from '../../../environments/environment';
       display: flex;
       flex-direction: column;
       gap: 16px;
+
+      @media (max-width: 640px) {
+        padding: 12px 10px;
+        gap: 12px;
+      }
     }
 
     .photo-upload-section {
@@ -1067,7 +1854,8 @@ import { environment } from '../../../environments/environment';
 
     .modal-footer {
       display: flex;
-      justify-content: flex-end;
+      justify-content: space-between;
+      align-items: center;
       gap: 10px;
       padding-top: 12px;
       border-top: 1px solid #f1f5f9;
@@ -1078,7 +1866,111 @@ import { environment } from '../../../environments/environment';
         font-weight: 600;
         font-size: 0.88rem;
       }
+
+      .back-to-profile-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: #2563eb;
+        border-color: #bfdbfe;
+        &:hover { background: #eff6ff; }
+        mat-icon { font-size: 18px; width: 18px; height: 18px; }
+      }
+
+      .footer-right-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-left: auto;
+      }
+
+      @media (max-width: 640px) {
+        padding-top: 10px;
+        gap: 6px;
+
+        button {
+          height: 36px;
+          font-size: 0.8rem;
+          padding: 0 10px;
+        }
+
+        .back-to-profile-btn {
+          font-size: 0.78rem;
+          padding: 0 8px;
+          mat-icon { font-size: 16px; width: 16px; height: 16px; }
+        }
+      }
     }
+
+    /* Two-column UPI Gateway Tab Layout */
+    .upi-two-col-layout {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 20px;
+      align-items: start;
+
+      @media (max-width: 820px) {
+        grid-template-columns: 1fr;
+        gap: 16px;
+      }
+    }
+
+    .upi-col-fields {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+
+      mat-form-field {
+        width: 100%;
+        margin-bottom: 6px;
+      }
+    }
+
+    .upi-col-preview {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      position: sticky;
+      top: 0;
+
+      @media (max-width: 820px) {
+        position: static;
+      }
+    }
+
+    .single-line-hint {
+      white-space: nowrap !important;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-size: 11px;
+      line-height: 1.2;
+      display: block;
+    }
+
+    .form-grid-inner {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      mat-form-field { 
+        width: 100%; 
+        margin-bottom: 6px; 
+        mat-hint {
+          white-space: nowrap !important;
+          font-size: 11px;
+          line-height: 1.2;
+        }
+      }
+
+      @media (max-width: 640px) {
+        grid-template-columns: 1fr;
+        gap: 8px;
+        mat-form-field mat-hint {
+          white-space: normal;
+        }
+      }
+    }
+
+    .w-100 { width: 100%; }
 
     .empty-state {
       grid-column: 1 / -1;
@@ -1098,6 +1990,90 @@ import { environment } from '../../../environments/environment';
       justify-content: center;
       padding: 40px;
     }
+
+    /* Complete Responsive System Across Mobile, Tablet & Desktop */
+    @media (max-width: 768px) {
+      .modal-backdrop {
+        padding: 12px;
+      }
+
+      .modal-dialog {
+        max-width: 100%;
+        width: 100%;
+        max-height: 94vh;
+        border-radius: 12px;
+      }
+
+      .modal-header {
+        padding: 14px 16px;
+        .modal-title-group h3 { font-size: 1rem; }
+        .modal-title-group p { font-size: 0.72rem; }
+      }
+
+      .modal-nav-tabs {
+        padding: 8px 12px 0 12px;
+        gap: 4px;
+        .modal-tab-btn {
+          padding: 8px 10px;
+          font-size: 0.78rem;
+          mat-icon { font-size: 16px; width: 16px; height: 16px; }
+        }
+      }
+
+      .modal-body {
+        padding: 14px 16px;
+      }
+
+      .form-grid {
+        grid-template-columns: 1fr;
+        .span-1, .span-2 { grid-column: span 1; }
+      }
+
+      .controls-bar {
+        flex-direction: column;
+        align-items: stretch;
+        .search-box { width: 100%; box-sizing: border-box; }
+        .refresh-btn { width: 100%; }
+      }
+
+      .tenants-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .photo-upload-section {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .modal-backdrop {
+        padding: 6px;
+      }
+
+      .modal-dialog {
+        max-height: 96vh;
+        border-radius: 10px;
+      }
+
+      .preview-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
+      }
+
+      .toggle-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+      }
+
+      .metrics-strip {
+        padding: 8px 4px;
+        .metric-cell .metric-count { font-size: 0.95rem; }
+        .metric-cell .metric-lbl { font-size: 0.65rem; }
+      }
+    }
   `]
 })
 export class TenantsComponent implements OnInit {
@@ -1113,11 +2089,14 @@ export class TenantsComponent implements OnInit {
   formError = '';
   profilePhotoPreview: string | null = null;
 
+  activeModalTab: 'profile' | 'upi' | 'whatsapp' | 'modules' = 'profile';
+
   tenantForm: FormGroup;
 
   constructor(
     private tenantService: TenantService,
     private authService: AuthService,
+    private confirmDialog: ConfirmDialogService,
     private fb: FormBuilder
   ) {
     this.tenantForm = this.fb.group({
@@ -1127,6 +2106,11 @@ export class TenantsComponent implements OnInit {
       address: [''],
       whatsAppPhoneId: [''],
       whatsAppAccessToken: [''],
+      upiId: [''],
+      upiMerchantName: [''],
+      upiMerchantCode: ['8211'],
+      upiQrEnabled: [true],
+      upiAutoVerify: [true],
       adminUsername: ['admin', Validators.required],
       adminPassword: ['admin123', Validators.required],
       adminFullName: [''],
@@ -1273,6 +2257,10 @@ export class TenantsComponent implements OnInit {
     });
     this.branchesFormArray.clear();
     this.addBranchRow(true);
+    this.tenantForm.get('adminUsername')?.setValidators([Validators.required]);
+    this.tenantForm.get('adminUsername')?.updateValueAndValidity();
+    this.tenantForm.get('adminPassword')?.setValidators([Validators.required]);
+    this.tenantForm.get('adminPassword')?.updateValueAndValidity();
     this.tenantForm.get('code')?.enable();
     this.tenantForm.get('hasSchoolModule')?.enable();
     this.tenantForm.get('hasCoachingModule')?.enable();
@@ -1308,6 +2296,7 @@ export class TenantsComponent implements OnInit {
   openEditModal(tenant: TenantDto): void {
     this.isEditing = true;
     this.editingId = tenant.id;
+    this.activeModalTab = 'profile';
     this.formError = '';
     this.profilePhotoPreview = tenant.profilePhoto || null;
     this.branchesFormArray.clear();
@@ -1318,6 +2307,11 @@ export class TenantsComponent implements OnInit {
       address: tenant.address || '',
       whatsAppPhoneId: tenant.whatsAppPhoneId || '',
       whatsAppAccessToken: '',
+      upiId: tenant.upiId || '',
+      upiMerchantName: tenant.upiMerchantName || tenant.name || '',
+      upiMerchantCode: tenant.upiMerchantCode || '8211',
+      upiQrEnabled: tenant.upiQrEnabled !== false,
+      upiAutoVerify: tenant.upiAutoVerify !== false,
       hasSchoolModule: this.isTenantModuleActive(tenant, 'school'),
       hasCoachingModule: this.isTenantModuleActive(tenant, 'coaching'),
       hasHostelModule: this.isTenantModuleActive(tenant, 'hostel'),
@@ -1328,6 +2322,10 @@ export class TenantsComponent implements OnInit {
       maxStudentsLimit: tenant.maxStudentsLimit || 50,
       maxBranchesLimit: tenant.maxBranchesLimit || 2
     });
+    this.tenantForm.get('adminUsername')?.clearValidators();
+    this.tenantForm.get('adminUsername')?.updateValueAndValidity();
+    this.tenantForm.get('adminPassword')?.clearValidators();
+    this.tenantForm.get('adminPassword')?.updateValueAndValidity();
     this.tenantForm.get('code')?.disable();
 
     if (!this.isSuperAdmin) {
@@ -1353,6 +2351,19 @@ export class TenantsComponent implements OnInit {
     }
 
     this.showModal = true;
+  }
+
+  openUpiModal(tenant: TenantDto): void {
+    this.openEditModal(tenant);
+    this.activeModalTab = 'upi';
+  }
+
+  onCancel(): void {
+    if (this.isEditing && this.activeModalTab !== 'profile') {
+      this.activeModalTab = 'profile';
+    } else {
+      this.closeModal();
+    }
   }
 
   closeModal(): void {
@@ -1450,15 +2461,21 @@ export class TenantsComponent implements OnInit {
     this.formSaving = true;
     this.formError = '';
     const val = this.tenantForm.getRawValue();
+    const targetId = this.editingId || this.authService.currentUser()?.tenantId;
 
-    if (this.isEditing && this.editingId) {
+    if (this.isEditing && targetId) {
       const updateDto: UpdateTenantDto = {
-        name: val.name.trim(),
+        name: val.name?.trim() || '',
         contactPhone: val.contactPhone?.trim() || null,
         address: val.address?.trim() || null,
         profilePhoto: this.profilePhotoPreview,
         whatsAppPhoneId: val.whatsAppPhoneId?.trim() || null,
         whatsAppAccessToken: val.whatsAppAccessToken?.trim() || null,
+        upiId: val.upiId?.trim() || null,
+        upiMerchantName: val.upiMerchantName?.trim() || null,
+        upiMerchantCode: val.upiMerchantCode?.trim() || '8211',
+        upiQrEnabled: val.upiQrEnabled !== false,
+        upiAutoVerify: val.upiAutoVerify !== false,
         hasSchoolModule: val.hasSchoolModule,
         hasCoachingModule: val.hasCoachingModule,
         hasHostelModule: val.hasHostelModule,
@@ -1472,7 +2489,7 @@ export class TenantsComponent implements OnInit {
 
       // Realtime instantaneous reflection on the sidebar header right when clicking Save Changes!
       this.authService.updateTenantProfile(this.profilePhotoPreview, updateDto.name);
-      if (this.authService.currentUser()?.tenantId === this.editingId) {
+      if (this.authService.currentUser()?.tenantId === targetId) {
         this.authService.updateTenantModules({
           hasSchoolModule: val.hasSchoolModule,
           hasCoachingModule: val.hasCoachingModule,
@@ -1488,11 +2505,27 @@ export class TenantsComponent implements OnInit {
         });
       }
 
-      this.tenantService.updateTenant(this.editingId, updateDto).subscribe({
+      this.tenantService.updateTenant(targetId, updateDto).subscribe({
         next: (res: any) => {
+          this.formSaving = false;
+          // Optimistically update tenant card in list
+          const idx = this.tenants.findIndex(t => t.id === targetId);
+          if (idx !== -1) {
+            this.tenants[idx] = {
+              ...this.tenants[idx],
+              ...updateDto,
+              id: targetId,
+              profilePhoto: res?.profilePhoto || updateDto.profilePhoto
+            };
+          }
           this.authService.updateTenantProfile(res?.profilePhoto || updateDto.profilePhoto, updateDto.name, res?.code);
           this.closeModal();
           this.loadTenants();
+          this.confirmDialog.alert(
+            'Institute Settings Saved',
+            'Institute profile and Dynamic UPI Gateway settings have been saved successfully.',
+            'success'
+          );
         },
         error: (err) => {
           this.formSaving = false;

@@ -91,7 +91,12 @@ public class TenantsController : ControllerBase
                 t.TrialEndDate,
                 t.PaidUntil,
                 t.MaxStudentsLimit,
-                t.MaxBranchesLimit
+                t.MaxBranchesLimit,
+                t.UpiId,
+                t.UpiMerchantName,
+                t.UpiMerchantCode,
+                t.UpiQrEnabled,
+                t.UpiAutoVerify
             ));
         }
 
@@ -143,7 +148,12 @@ public class TenantsController : ControllerBase
             t.TrialEndDate,
             t.PaidUntil,
             t.MaxStudentsLimit,
-            t.MaxBranchesLimit
+            t.MaxBranchesLimit,
+            t.UpiId,
+            t.UpiMerchantName,
+            t.UpiMerchantCode,
+            t.UpiQrEnabled,
+            t.UpiAutoVerify
         ));
     }
 
@@ -180,7 +190,12 @@ public class TenantsController : ControllerBase
             t.TrialEndDate,
             t.PaidUntil,
             t.MaxStudentsLimit,
-            t.MaxBranchesLimit
+            t.MaxBranchesLimit,
+            t.UpiId,
+            t.UpiMerchantName,
+            t.UpiMerchantCode,
+            t.UpiQrEnabled,
+            t.UpiAutoVerify
         ));
     }
 
@@ -489,7 +504,12 @@ public class TenantsController : ControllerBase
             tenant.TrialEndDate,
             tenant.PaidUntil,
             tenant.MaxStudentsLimit,
-            tenant.MaxBranchesLimit
+            tenant.MaxBranchesLimit,
+            tenant.UpiId,
+            tenant.UpiMerchantName,
+            tenant.UpiMerchantCode,
+            tenant.UpiQrEnabled,
+            tenant.UpiAutoVerify
         ));
     }
 
@@ -513,6 +533,27 @@ public class TenantsController : ControllerBase
         tenant.ProfilePhoto = ImageStorageHelper.SaveBase64Image(dto.ProfilePhoto, "tenants", tenant.Id.ToString(), _env.ContentRootPath);
         if (!string.IsNullOrWhiteSpace(dto.WhatsAppPhoneId)) tenant.WhatsAppPhoneId = dto.WhatsAppPhoneId;
         if (!string.IsNullOrWhiteSpace(dto.WhatsAppAccessToken)) tenant.WhatsAppAccessToken = dto.WhatsAppAccessToken;
+
+        // Dynamic UPI Configuration
+        if (dto.UpiId != null) tenant.UpiId = string.IsNullOrWhiteSpace(dto.UpiId) ? null : dto.UpiId.Trim();
+        if (dto.UpiMerchantName != null) tenant.UpiMerchantName = string.IsNullOrWhiteSpace(dto.UpiMerchantName) ? null : dto.UpiMerchantName.Trim();
+        if (dto.UpiMerchantCode != null) tenant.UpiMerchantCode = string.IsNullOrWhiteSpace(dto.UpiMerchantCode) ? "8211" : dto.UpiMerchantCode.Trim();
+        if (dto.UpiQrEnabled.HasValue) tenant.UpiQrEnabled = dto.UpiQrEnabled.Value;
+        if (dto.UpiAutoVerify.HasValue) tenant.UpiAutoVerify = dto.UpiAutoVerify.Value;
+
+        // Auto-sync UPI details to branches if they don't have custom UPI credentials
+        if (dto.UpiId != null || dto.UpiMerchantName != null)
+        {
+            var branches = await _dbContext.Branches.Where(b => b.TenantId == tenant.Id).ToListAsync();
+            foreach (var b in branches)
+            {
+                if (string.IsNullOrWhiteSpace(b.UpiId) || b.IsMainBranch)
+                {
+                    b.UpiId = tenant.UpiId;
+                    b.UpiMerchantName = tenant.UpiMerchantName;
+                }
+            }
+        }
 
         // ONLY SuperAdmin can modify functional modules and subscription entitlements
         if (isSuperAdmin)
@@ -544,7 +585,12 @@ public class TenantsController : ControllerBase
             tenant.HasLibraryModule,
             tenant.HasTransportModule,
             tenant.SubscriptionPlan,
-            tenant.SubscriptionStatus
+            tenant.SubscriptionStatus,
+            tenant.UpiId,
+            tenant.UpiMerchantName,
+            tenant.UpiMerchantCode,
+            tenant.UpiQrEnabled,
+            tenant.UpiAutoVerify
         });
     }
 

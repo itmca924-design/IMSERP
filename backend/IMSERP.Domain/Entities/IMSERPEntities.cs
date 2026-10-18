@@ -19,6 +19,11 @@ public class Tenant
     public bool HasLibraryModule { get; set; } = true;
     public bool HasTransportModule { get; set; } = true;
     public string? LicensedModules { get; set; }
+    public string? UpiId { get; set; }
+    public string? UpiMerchantName { get; set; }
+    public string? UpiMerchantCode { get; set; } = "8211";
+    public bool UpiQrEnabled { get; set; } = true;
+    public bool UpiAutoVerify { get; set; } = true;
     public string SubscriptionPlan { get; set; } = "FreeTrial";
     public string SubscriptionStatus { get; set; } = "TrialActive";
     public DateTime? TrialStartDate { get; set; }
@@ -40,6 +45,8 @@ public class Branch
     public string Code { get; set; } = string.Empty;
     public string? Address { get; set; }
     public string? ContactPhone { get; set; }
+    public string? UpiId { get; set; }
+    public string? UpiMerchantName { get; set; }
     public bool IsMainBranch { get; set; } = false;
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
@@ -482,6 +489,13 @@ public class FeePayment
     public decimal AmountPaid { get; set; }
     public PaymentMode Mode { get; set; } = PaymentMode.Cash;
     public string? TransactionRef { get; set; }
+    public string? UpiRrn { get; set; }
+    public string? PayerVpa { get; set; }
+    public string? PayerName { get; set; }
+    public string? PayerPhone { get; set; }
+    public string? OnlinePaymentStatus { get; set; } = "Completed";
+    public string? VerifiedBy { get; set; }
+    public DateTime? VerifiedAt { get; set; }
     public DateTime PaymentDate { get; set; } = DateTime.UtcNow;
     public string? Remarks { get; set; }
 

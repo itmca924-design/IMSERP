@@ -18,11 +18,14 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatDividerModule } from '@angular/material/divider';
-import { FeesService, FeeInvoicePagedItem, FeePaymentReceipt, PendingInvoicingStudent } from '../../core/services/fees.service';
+import { FeesService, FeeInvoicePagedItem, FeePaymentReceipt, PendingInvoicingStudent, OnlineUpiTransactionItem } from '../../core/services/fees.service';
 import { BatchesService, BatchDto } from '../../core/services/batches.service';
 import { SchoolService, SchoolClassDto } from '../../core/services/school.service';
 import { AuthService } from '../../core/services/auth.service';
 import { HostelService } from '../../core/services/hostel.service';
+import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.directive';
+import { UpiPaymentDialogComponent, UpiPaymentDialogData } from './upi-payment-dialog.component';
+import { UpiSettingsDialogComponent } from './upi-settings-dialog.component';
 import { FeeCollectionDialogComponent } from './fee-collection-dialog.component';
 import { FeeReceiptDialogComponent } from './fee-receipt-dialog.component';
 import { FeeDueReceiptDialogComponent } from './fee-due-receipt-dialog.component';
@@ -65,7 +68,8 @@ export interface UpcomingBillingCycleInfo {
     MatCheckboxModule,
     MatProgressSpinnerModule,
     MatMenuModule,
-    MatDividerModule
+    MatDividerModule,
+    IstDatetimeDirective
   ],
   template: `
     <div class="fees-wrapper">
@@ -88,8 +92,31 @@ export interface UpcomingBillingCycleInfo {
         </div>
       </div>
 
+      <!-- Module Navigation / Mode Switcher -->
+      <div class="fees-nav-bar">
+        <button
+          type="button"
+          class="fees-nav-tab"
+          [class.active]="currentActiveTab === 'invoices'"
+          (click)="switchTab('invoices')">
+          <mat-icon>receipt_long</mat-icon>
+          <span>Fee Invoices &amp; Counter Dues</span>
+          <span class="nav-count" *ngIf="totalCount > 0">{{ totalCount }}</span>
+        </button>
+
+        <button
+          type="button"
+          class="fees-nav-tab upi-nav-tab"
+          [class.active]="currentActiveTab === 'upi'"
+          (click)="switchTab('upi')">
+          <mat-icon class="upi-nav-icon">qr_code_2</mat-icon>
+          <span>Online UPI Collections &amp; Audit</span>
+          <span class="nav-count upi-count" *ngIf="upiTotalCount > 0">{{ upiTotalCount }}</span>
+        </button>
+      </div>
+
       <!-- Smart Alert Banner: New Admissions Awaiting Invoicing -->
-      <div class="pending-invoicing-banner" *ngIf="pendingStudents.length > 0 && !bannerDismissed">
+      <div class="pending-invoicing-banner" *ngIf="currentActiveTab === 'invoices' && pendingStudents.length > 0 && !bannerDismissed">
         <div class="banner-left">
           <div class="banner-badge-icon">
             <mat-icon>notification_important</mat-icon>
@@ -121,7 +148,7 @@ export interface UpcomingBillingCycleInfo {
       </div>
 
       <!-- Upcoming Billing Cycle Alert Banner: Preparation & 7-Day Advance Alert -->
-      <div class="upcoming-cycle-banner" *ngIf="upcomingCycle && upcomingCycle.uninvoicedStudentsCount > 0 && !upcomingBannerDismissed">
+      <div class="upcoming-cycle-banner" *ngIf="currentActiveTab === 'invoices' && upcomingCycle && upcomingCycle.uninvoicedStudentsCount > 0 && !upcomingBannerDismissed">
         <div class="banner-left">
           <div class="banner-badge-icon">
             <mat-icon>calendar_month</mat-icon>
@@ -158,7 +185,7 @@ export interface UpcomingBillingCycleInfo {
       </div>
 
       <!-- Main Invoices Directory Card -->
-      <mat-card class="table-card mat-elevation-z2">
+      <mat-card class="table-card mat-elevation-z2" *ngIf="currentActiveTab === 'invoices'">
         <!-- Filter Toolbar -->
         <div class="filter-toolbar">
           <mat-form-field appearance="outline" class="search-field">
@@ -369,6 +396,15 @@ export interface UpcomingBillingCycleInfo {
                       <span>Collect Fee (फीस जमा करें)</span>
                     </button>
 
+                    <!-- Pay via Dynamic UPI QR -->
+                    <button
+                      *ngIf="inv.dueAmount > 0 && inv.status !== 'Cancelled'"
+                      mat-menu-item
+                      (click)="openUpiPaymentModal(inv)">
+                      <mat-icon class="menu-icon-emerald">qr_code_2</mat-icon>
+                      <span>Pay via Dynamic UPI QR</span>
+                    </button>
+
                     <!-- Due Receipt / Demand Notice -->
                     <button
                       *ngIf="inv.dueAmount > 0 && inv.status !== 'Cancelled'"
@@ -453,6 +489,185 @@ export interface UpcomingBillingCycleInfo {
         </mat-paginator>
       </mat-card>
 
+      <!-- Online UPI Collections & Audit Card -->
+      <mat-card class="table-card mat-elevation-z2 upi-table-card" *ngIf="currentActiveTab === 'upi'">
+        <!-- UPI Insights Bar -->
+        <div class="upi-summary-strip">
+          <div class="upi-summary-item">
+            <div class="upi-item-icon">
+              <mat-icon>account_balance_wallet</mat-icon>
+            </div>
+            <div class="upi-item-data">
+              <span class="upi-data-label">Online UPI Records</span>
+              <strong class="upi-data-val">{{ upiTotalCount }} Settlements</strong>
+            </div>
+          </div>
+          <div class="upi-summary-item">
+            <div class="upi-item-icon green-icon">
+              <mat-icon>verified</mat-icon>
+            </div>
+            <div class="upi-item-data">
+              <span class="upi-data-label">Gateway Cost</span>
+              <strong class="upi-data-val green-text">₹0.00 (Zero Cost / NPCI Direct)</strong>
+            </div>
+          </div>
+          <div class="upi-summary-item">
+            <div class="upi-item-icon purple-icon">
+              <mat-icon>sync</mat-icon>
+            </div>
+            <div class="upi-item-data">
+              <span class="upi-data-label">Auto-Ledger Settlement</span>
+              <strong class="upi-data-val">Instant FIFO &amp; Day Book Active</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- Filter Toolbar -->
+        <div class="filter-toolbar">
+          <mat-form-field appearance="outline" class="search-field">
+            <mat-icon matPrefix class="search-prefix-icon">search</mat-icon>
+            <mat-label>Search by 12-digit UTR, Student Name, Roll No, Receipt No...</mat-label>
+            <input
+              matInput
+              [(ngModel)]="upiSearchTerm"
+              (keyup.enter)="onUpiSearch()"
+              placeholder="e.g. 529384920194, Mantosh, RCPT-2026..."
+            />
+            <button mat-icon-button matSuffix *ngIf="upiSearchTerm" (click)="upiSearchTerm = ''; onUpiSearch()" aria-label="Clear">
+              <mat-icon>close</mat-icon>
+            </button>
+          </mat-form-field>
+
+          <button mat-stroked-button class="btn-refresh-upi" (click)="loadOnlineUpiTransactions()" [disabled]="upiLoading">
+            <mat-icon [class.spin-icon]="upiLoading">refresh</mat-icon>
+            <span>Refresh</span>
+          </button>
+        </div>
+
+        <mat-progress-bar mode="indeterminate" *ngIf="upiLoading" class="grid-loader"></mat-progress-bar>
+
+        <!-- UPI Transactions Table -->
+        <mat-card-content class="table-container table-responsive">
+          <table mat-table [dataSource]="upiTransactions" class="full-width upi-data-table">
+
+            <ng-container matColumnDef="paymentDate">
+              <th mat-header-cell *matHeaderCellDef>Date &amp; Time (IST)</th>
+              <td mat-cell *matCellDef="let txn">
+                <span class="ist-date-cell" [appIstDatetime]="txn.paymentDate" format="datetime"></span>
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="receiptNumber">
+              <th mat-header-cell *matHeaderCellDef>Receipt No</th>
+              <td mat-cell *matCellDef="let txn">
+                <a class="rcpt-badge-link" (click)="openReceiptForUpiTxn(txn)" matTooltip="Click to view &amp; print official receipt">
+                  <mat-icon class="link-icon">receipt</mat-icon>
+                  <span>#{{ txn.receiptNumber }}</span>
+                </a>
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="studentName">
+              <th mat-header-cell *matHeaderCellDef>Student Profile</th>
+              <td mat-cell *matCellDef="let txn">
+                <div class="st-cell">
+                  <span class="st-name-text">{{ txn.studentName }}</span>
+                  <div class="st-sub-chips">
+                    <span class="meta-tag roll-tag" *ngIf="txn.rollNumber">Roll: {{ txn.rollNumber }}</span>
+                    <span class="meta-tag class-tag" *ngIf="txn.className || txn.batchName">{{ txn.className || txn.batchName }}</span>
+                  </div>
+                </div>
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="invoiceNumber">
+              <th mat-header-cell *matHeaderCellDef>Invoice / Ref</th>
+              <td mat-cell *matCellDef="let txn">
+                <span class="inv-ref-text">{{ txn.invoiceNumber || 'FIFO Settlement' }}</span>
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="amountPaid">
+              <th mat-header-cell *matHeaderCellDef class="text-right">Amount Received</th>
+              <td mat-cell *matCellDef="let txn" class="text-right">
+                <strong class="upi-paid-amt">₹{{ txn.amountPaid | number:'1.2-2' }}</strong>
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="upiRrn">
+              <th mat-header-cell *matHeaderCellDef>12-Digit UTR / RRN</th>
+              <td mat-cell *matCellDef="let txn">
+                <div class="utr-pill-wrap" *ngIf="txn.upiRrn">
+                  <code class="utr-code">{{ txn.upiRrn }}</code>
+                  <button mat-icon-button class="utr-copy-btn" (click)="copyToClipboard(txn.upiRrn)" matTooltip="Copy UTR">
+                    <mat-icon>content_copy</mat-icon>
+                  </button>
+                </div>
+                <span *ngIf="!txn.upiRrn" class="text-muted">-</span>
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="payerVpa">
+              <th mat-header-cell *matHeaderCellDef>Payer / VPA</th>
+              <td mat-cell *matCellDef="let txn">
+                <div class="payer-info-cell">
+                  <span class="vpa-text" *ngIf="txn.payerVpa">{{ txn.payerVpa }}</span>
+                  <small class="payer-sub" *ngIf="txn.payerPhone || txn.payerName">
+                    {{ txn.payerName || '' }} {{ txn.payerPhone ? '(' + txn.payerPhone + ')' : '' }}
+                  </small>
+                  <span *ngIf="!txn.payerVpa && !txn.payerPhone && !txn.payerName" class="text-muted">Bharat UPI Direct</span>
+                </div>
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="status">
+              <th mat-header-cell *matHeaderCellDef class="text-center">Settlement Status</th>
+              <td mat-cell *matCellDef="let txn" class="text-center">
+                <span class="upi-status-badge verified" matTooltip="Settled to Branch Day Book &amp; P&L">
+                  <mat-icon>check_circle</mat-icon>
+                  <span>{{ txn.onlinePaymentStatus || 'Completed' }}</span>
+                </span>
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="actions">
+              <th mat-header-cell *matHeaderCellDef class="text-center">Actions</th>
+              <td mat-cell *matCellDef="let txn" class="text-center">
+                <button
+                  mat-stroked-button
+                  class="btn-view-receipt"
+                  (click)="openReceiptForUpiTxn(txn)"
+                  matTooltip="View &amp; Print Official E-Receipt">
+                  <mat-icon>receipt</mat-icon>
+                  <span>Receipt</span>
+                </button>
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="upiDisplayedColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: upiDisplayedColumns;"></tr>
+
+            <tr class="mat-row" *matNoDataRow>
+              <td class="mat-cell empty-cell" [attr.colspan]="upiDisplayedColumns.length">
+                <div class="empty-state" *ngIf="!upiLoading">
+                  <mat-icon class="empty-icon">qr_code_2</mat-icon>
+                  <p>No online UPI transactions found matching the filter criteria.</p>
+                </div>
+              </td>
+            </tr>
+          </table>
+        </mat-card-content>
+
+        <mat-paginator
+          [length]="upiTotalCount"
+          [pageSize]="upiPageSize"
+          [pageSizeOptions]="[5, 10, 20, 50]"
+          [pageIndex]="upiPageIndex"
+          (page)="onUpiPageChange($event)"
+          showFirstLastButtons>
+        </mat-paginator>
+      </mat-card>
+
       <!-- Floating Multi-Collect Action Bar -->
       <div class="multi-collect-bar" *ngIf="selectedInvoices.length > 0">
         <div class="bar-left">
@@ -471,6 +686,10 @@ export interface UpcomingBillingCycleInfo {
         <div class="bar-right">
           <button mat-button class="btn-clear" (click)="clearSelection()">
             Clear
+          </button>
+          <button mat-raised-button class="btn-upi-multi" (click)="openMultiCollectUpiModal()">
+            <mat-icon>qr_code_2</mat-icon>
+            <span>Pay via UPI QR</span>
           </button>
           <button mat-raised-button class="btn-collect-multi" (click)="openMultiCollectModal()">
             <mat-icon>payments</mat-icon>
@@ -501,6 +720,31 @@ export interface UpcomingBillingCycleInfo {
       gap: 10px;
       flex-wrap: wrap;
 
+      .upi-settings-btn {
+        height: 44px;
+        font-weight: 700;
+        border-radius: 8px;
+        border-color: #93c5fd;
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        color: #1e40af;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        box-shadow: 0 2px 4px rgba(37, 99, 235, 0.08);
+
+        .upi-header-icon {
+          color: #2563eb;
+          font-size: 20px;
+          width: 20px;
+          height: 20px;
+        }
+
+        &:hover {
+          background: #dbeafe;
+          border-color: #60a5fa;
+        }
+      }
+
       .fee-master-btn {
         height: 44px;
         font-weight: 600;
@@ -514,6 +758,71 @@ export interface UpcomingBillingCycleInfo {
         &:hover {
           background: #f8fafc;
           border-color: #94a3b8;
+        }
+      }
+    }
+
+    /* Fees Nav Switcher */
+    .fees-nav-bar {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      background: #f8fafc;
+      padding: 6px;
+      border-radius: 12px;
+      border: 1px solid #e2e8f0;
+      width: fit-content;
+
+      .fees-nav-tab {
+        border: none;
+        background: transparent;
+        padding: 8px 18px;
+        border-radius: 8px;
+        font-size: 0.88rem;
+        font-weight: 600;
+        color: #64748b;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s ease;
+
+        mat-icon {
+          font-size: 19px;
+          width: 19px;
+          height: 19px;
+        }
+
+        .nav-count {
+          background: #e2e8f0;
+          color: #475569;
+          padding: 2px 8px;
+          border-radius: 12px;
+          font-size: 0.75rem;
+          font-weight: 700;
+        }
+
+        &:hover {
+          color: #1e293b;
+          background: #f1f5f9;
+        }
+
+        &.active {
+          background: #ffffff;
+          color: #2563eb;
+          font-weight: 700;
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+
+          .nav-count {
+            background: #dbeafe;
+            color: #1d4ed8;
+          }
+        }
+
+        &.upi-nav-tab.active {
+          color: #059669;
+          .upi-nav-icon { color: #059669; }
+          .upi-count { background: #dcfce7; color: #15803d; }
         }
       }
     }
@@ -1224,6 +1533,7 @@ export interface UpcomingBillingCycleInfo {
     }
 
     .menu-icon-blue { color: #2563eb !important; }
+    .menu-icon-emerald { color: #059669 !important; }
     .menu-icon-amber { color: #d97706 !important; }
     .menu-icon-green { color: #16a34a !important; }
     .menu-icon-rose { color: #e11d48 !important; }
@@ -1335,6 +1645,23 @@ export interface UpcomingBillingCycleInfo {
           }
         }
 
+        .btn-upi-multi {
+          background: linear-gradient(135deg, #059669 0%, #10b981 100%) !important;
+          color: #ffffff !important;
+          font-weight: 700;
+          border-radius: 30px;
+          padding: 0 18px;
+          height: 40px;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
+
+          &:hover {
+            background: #047857 !important;
+          }
+        }
+
         .btn-collect-multi {
           background-color: #22c55e !important;
           color: #ffffff !important;
@@ -1351,6 +1678,198 @@ export interface UpcomingBillingCycleInfo {
             background-color: #16a34a !important;
           }
         }
+      }
+    }
+
+    /* UPI Collections Strip & Table Styles */
+    .upi-summary-strip {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      padding: 16px 20px;
+      background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+      border-bottom: 1px solid #bbf7d0;
+
+      .upi-summary-item {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        background: #ffffff;
+        padding: 12px 16px;
+        border-radius: 10px;
+        border: 1px solid #dcfce7;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+
+        .upi-item-icon {
+          width: 42px;
+          height: 42px;
+          border-radius: 10px;
+          background: #eff6ff;
+          color: #2563eb;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          mat-icon { font-size: 22px; width: 22px; height: 22px; }
+
+          &.green-icon {
+            background: #f0fdf4;
+            color: #16a34a;
+          }
+
+          &.purple-icon {
+            background: #faf5ff;
+            color: #9333ea;
+          }
+        }
+
+        .upi-item-data {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+
+          .upi-data-label {
+            font-size: 0.74rem;
+            color: #64748b;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+          }
+
+          .upi-data-val {
+            font-size: 1.05rem;
+            color: #0f172a;
+            font-weight: 800;
+
+            &.green-text {
+              color: #15803d;
+            }
+          }
+        }
+      }
+    }
+
+    .btn-refresh-upi {
+      height: 48px;
+      border-radius: 8px;
+      color: #15803d;
+      border-color: #86efac;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      mat-icon { font-size: 18px; width: 18px; height: 18px; }
+      &:hover { background: #dcfce7; }
+    }
+
+    .upi-data-table {
+      .ist-date-cell {
+        font-size: 0.82rem;
+        color: #334155;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+
+      .rcpt-badge-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        color: #2563eb;
+        font-weight: 700;
+        font-size: 0.85rem;
+        cursor: pointer;
+        padding: 3px 8px;
+        background: #eff6ff;
+        border: 1px solid #bfdbfe;
+        border-radius: 6px;
+        transition: all 0.15s ease;
+        text-decoration: none;
+
+        .link-icon { font-size: 15px; width: 15px; height: 15px; color: #2563eb; }
+
+        &:hover {
+          background: #dbeafe;
+          border-color: #60a5fa;
+        }
+      }
+
+      .inv-ref-text {
+        font-size: 0.82rem;
+        color: #475569;
+        font-weight: 600;
+      }
+
+      .upi-paid-amt {
+        font-size: 0.95rem;
+        color: #15803d;
+        font-weight: 800;
+      }
+
+      .utr-pill-wrap {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        background: #f1f5f9;
+        border: 1px solid #cbd5e1;
+        padding: 2px 6px;
+        border-radius: 6px;
+
+        .utr-code {
+          font-family: 'Consolas', 'Courier New', monospace;
+          font-weight: 700;
+          font-size: 0.8rem;
+          color: #0f172a;
+        }
+
+        .utr-copy-btn {
+          width: 22px;
+          height: 22px;
+          line-height: 22px;
+          mat-icon { font-size: 13px; width: 13px; height: 13px; color: #64748b; }
+        }
+      }
+
+      .payer-info-cell {
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+
+        .vpa-text {
+          font-weight: 700;
+          color: #1e40af;
+          font-size: 0.82rem;
+        }
+
+        .payer-sub {
+          color: #64748b;
+          font-size: 0.74rem;
+        }
+      }
+
+      .upi-status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 10px;
+        border-radius: 14px;
+        font-size: 0.76rem;
+        font-weight: 700;
+
+        &.verified {
+          background: #dcfce7;
+          color: #15803d;
+          border: 1px solid #86efac;
+          mat-icon { font-size: 14px; width: 14px; height: 14px; }
+        }
+      }
+
+      .btn-view-receipt {
+        height: 32px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: #2563eb;
+        border-color: #bfdbfe;
+        mat-icon { font-size: 15px; width: 15px; height: 15px; margin-right: 4px; }
+        &:hover { background: #eff6ff; }
       }
     }
 
@@ -1437,6 +1956,28 @@ export class FeesComponent implements OnInit, OnDestroy {
   schoolClasses: SchoolClassDto[] = [];
   loading = false;
   private refreshSub?: Subscription;
+
+  // Mode Navigation
+  currentActiveTab: 'invoices' | 'upi' = 'invoices';
+
+  // Online UPI Collections Data State
+  upiTransactions: OnlineUpiTransactionItem[] = [];
+  upiTotalCount = 0;
+  upiPageIndex = 0;
+  upiPageSize = 10;
+  upiSearchTerm = '';
+  upiLoading = false;
+  upiDisplayedColumns: string[] = [
+    'paymentDate',
+    'receiptNumber',
+    'studentName',
+    'invoiceNumber',
+    'amountPaid',
+    'upiRrn',
+    'payerVpa',
+    'status',
+    'actions'
+  ];
 
   pendingStudents: PendingInvoicingStudent[] = [];
   loadingPending = false;
@@ -1566,7 +2107,7 @@ export class FeesComponent implements OnInit, OnDestroy {
     const invTitles = this.selectedInvoices.map(i => i.title).join(', ');
 
     const dialogRef = this.dialog.open(FeeCollectionDialogComponent, {
-      width: '640px',
+      width: '740px',
       maxWidth: '96vw',
       data: {
         studentId: first.studentId,
@@ -2187,5 +2728,167 @@ export class FeesComponent implements OnInit, OnDestroy {
   getCurrentMonthYearName(): string {
     const today = new Date();
     return today.toLocaleString('en-IN', { month: 'long', year: 'numeric' });
+  }
+
+  // =========================================================================
+  // DYNAMIC UPI & ONLINE COLLECTIONS HANDLERS
+  // =========================================================================
+
+  switchTab(tab: 'invoices' | 'upi'): void {
+    this.currentActiveTab = tab;
+    if (tab === 'upi' && this.upiTransactions.length === 0) {
+      this.loadOnlineUpiTransactions();
+    }
+  }
+
+  loadOnlineUpiTransactions(): void {
+    this.upiLoading = true;
+    const branchId = this.authService.selectedBranchId() || undefined;
+    this.feesService.getOnlineUpiTransactions(
+      this.upiPageIndex + 1,
+      this.upiPageSize,
+      this.upiSearchTerm,
+      branchId
+    ).subscribe({
+      next: (res) => {
+        this.upiTransactions = res.items || [];
+        this.upiTotalCount = res.totalCount || 0;
+        this.upiLoading = false;
+      },
+      error: (err) => {
+        this.upiLoading = false;
+        console.error('Error fetching online UPI transactions:', err);
+      }
+    });
+  }
+
+  onUpiPageChange(event: PageEvent): void {
+    this.upiPageIndex = event.pageIndex;
+    this.upiPageSize = event.pageSize;
+    this.loadOnlineUpiTransactions();
+  }
+
+  onUpiSearch(): void {
+    this.upiPageIndex = 0;
+    this.loadOnlineUpiTransactions();
+  }
+
+  openUpiPaymentModal(inv: FeeInvoicePagedItem): void {
+    const dialogRef = this.dialog.open(UpiPaymentDialogComponent, {
+      width: '680px',
+      maxWidth: '96vw',
+      panelClass: 'upi-dialog-panel',
+      data: {
+        mode: 'invoice',
+        invoiceId: inv.id,
+        studentId: inv.studentId,
+        studentName: inv.studentName,
+        rollNumber: inv.rollNumber,
+        className: inv.className,
+        batchName: inv.batchName,
+        dueAmount: inv.dueAmount,
+        invoiceNumber: inv.invoiceNumber
+      }
+    });
+
+    dialogRef.afterClosed().subscribe((res: FeePaymentReceipt | undefined) => {
+      if (res) {
+        this.loadInvoices();
+        if (this.currentActiveTab === 'upi') {
+          this.loadOnlineUpiTransactions();
+        }
+        this.dialog.open(FeeReceiptDialogComponent, {
+          width: '840px',
+          maxWidth: '96vw',
+          panelClass: 'receipt-dialog-panel',
+          data: {
+            receipt: res,
+            instituteName: this.authService.currentUser()?.instituteName || 'Apex Coaching Academy',
+            branchName: res.branchName || inv.branchName || this.authService.getCurrentBranchName()
+          }
+        });
+      }
+    });
+  }
+
+  openMultiCollectUpiModal(): void {
+    if (this.selectedInvoices.length === 0) return;
+    const first = this.selectedInvoices[0];
+    const dialogRef = this.dialog.open(UpiPaymentDialogComponent, {
+      width: '680px',
+      maxWidth: '96vw',
+      panelClass: 'upi-dialog-panel',
+      data: {
+        mode: 'fifo_student',
+        studentId: first.studentId,
+        studentName: this.selectedStudentName,
+        rollNumber: this.selectedRollNumber,
+        className: first.className,
+        batchName: first.batchName,
+        dueAmount: this.totalSelectedDue,
+        invoiceNumber: `${this.selectedInvoices.length} Invoices FIFO Settlement`
+      }
+    });
+
+    dialogRef.afterClosed().subscribe((res: FeePaymentReceipt | undefined) => {
+      if (res) {
+        this.clearSelection();
+        this.loadInvoices();
+        if (this.currentActiveTab === 'upi') {
+          this.loadOnlineUpiTransactions();
+        }
+        this.dialog.open(FeeReceiptDialogComponent, {
+          width: '840px',
+          maxWidth: '96vw',
+          panelClass: 'receipt-dialog-panel',
+          data: {
+            receipt: res,
+            instituteName: this.authService.currentUser()?.instituteName || 'Apex Coaching Academy',
+            branchName: res.branchName || first.branchName || this.authService.getCurrentBranchName()
+          }
+        });
+      }
+    });
+  }
+
+  openUpiSettingsModal(): void {
+    const dialogRef = this.dialog.open(UpiSettingsDialogComponent, {
+      width: '640px',
+      maxWidth: '96vw',
+      panelClass: 'upi-settings-dialog-panel'
+    });
+    dialogRef.afterClosed().subscribe(res => {
+      if (res) {
+        this.confirmDialog.alert(
+          'Settings Updated',
+          'Dynamic UPI payment parameters and VPA have been configured successfully.'
+        );
+      }
+    });
+  }
+
+  openReceiptForUpiTxn(txn: OnlineUpiTransactionItem): void {
+    this.feesService.getReceiptByNumber(txn.receiptNumber).subscribe({
+      next: (receipt) => {
+        this.dialog.open(FeeReceiptDialogComponent, {
+          width: '840px',
+          maxWidth: '96vw',
+          panelClass: 'receipt-dialog-panel',
+          data: {
+            receipt,
+            instituteName: this.authService.currentUser()?.instituteName || 'Apex Coaching Academy',
+            branchName: txn.branchName || this.authService.getCurrentBranchName()
+          }
+        });
+      },
+      error: () => {
+        this.confirmDialog.alert('Receipt Error', 'Unable to load official receipt.');
+      }
+    });
+  }
+
+  copyToClipboard(val?: string): void {
+    if (!val) return;
+    navigator.clipboard?.writeText(val);
   }
 }

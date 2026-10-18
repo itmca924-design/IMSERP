@@ -1,6 +1,7 @@
-import { Component, Inject, OnInit } from '@angular/core';
+import { Component, Inject, OnInit, ElementRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import * as QRCode from 'qrcode';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -320,8 +321,84 @@ export interface AdvanceMonthOption {
 
           <mat-form-field appearance="outline" class="half-width">
             <mat-label>Transaction / UTR Ref No</mat-label>
-            <input matInput formControlName="transactionRef" placeholder="e.g. UPI/2093849204" />
+            <input matInput formControlName="transactionRef" placeholder="e.g. 12-digit UPI UTR" />
           </mat-form-field>
+
+          <!-- Dynamic UPI Counter QR Code Panel (Visible when Payment Mode is UPI = 1) -->
+          <div class="dynamic-upi-counter-card full-width" *ngIf="feeForm.get('mode')?.value === 1">
+            <div class="upi-card-inner">
+              <!-- Left: Clean QR Frame -->
+              <div class="qr-col">
+                <div class="qr-frame">
+                  <canvas #counterQrCanvas class="counter-qr-canvas"></canvas>
+                  <div class="scan-corner top-left"></div>
+                  <div class="scan-corner top-right"></div>
+                  <div class="scan-corner bottom-left"></div>
+                  <div class="scan-corner bottom-right"></div>
+                </div>
+                <button mat-button type="button" class="btn-refresh-mini" (click)="generateCounterQr()" matTooltip="Regenerate QR">
+                  <mat-icon>refresh</mat-icon>
+                  <span>Refresh QR</span>
+                </button>
+              </div>
+
+              <!-- Right: Info, VPA & Steps -->
+              <div class="upi-info-col">
+                <!-- Top Brand & Amount Row -->
+                <div class="upi-info-top">
+                  <div class="upi-brand-badge">
+                    <mat-icon class="brand-icon">qr_code_scanner</mat-icon>
+                    <strong>Bharat Dynamic UPI QR</strong>
+                    <span class="zero-fee-badge">0% Fee Direct Bank Credit</span>
+                  </div>
+                  <div class="upi-amount-pill">
+                    <span class="amt-lbl">Amount:</span>
+                    <strong class="amt-val">₹{{ (feeForm.get('amountPaid')?.value || 0) | number:'1.2-2' }}</strong>
+                  </div>
+                </div>
+
+                <!-- VPA Compact Bar -->
+                <div class="vpa-compact-bar" *ngIf="activeVpa">
+                  <div class="vpa-text-box">
+                    <span class="vpa-label">Institute VPA:</span>
+                    <strong class="vpa-id">{{ activeVpa }}</strong>
+                    <span class="vpa-payee" *ngIf="merchantName">({{ merchantName }})</span>
+                  </div>
+                  <button mat-icon-button type="button" class="copy-vpa-btn" (click)="copyVpa()" matTooltip="Copy UPI ID">
+                    <mat-icon>content_copy</mat-icon>
+                  </button>
+                </div>
+
+                <!-- 3 Micro-Steps in Horizontal Flow -->
+                <div class="upi-steps-row">
+                  <div class="micro-step">
+                    <span class="step-badge">1</span>
+                    <span class="step-desc">Scan with UPI App</span>
+                  </div>
+                  <mat-icon class="step-arrow">chevron_right</mat-icon>
+                  <div class="micro-step">
+                    <span class="step-badge">2</span>
+                    <span class="step-desc">Verify confirmation</span>
+                  </div>
+                  <mat-icon class="step-arrow">chevron_right</mat-icon>
+                  <div class="micro-step highlight">
+                    <span class="step-badge">3</span>
+                    <span class="step-desc">Enter 12-digit UTR above</span>
+                  </div>
+                </div>
+
+                <!-- Supported Apps Pills -->
+                <div class="upi-apps-chips">
+                  <span class="apps-label">Supported:</span>
+                  <span class="app-chip">GPay</span>
+                  <span class="app-chip">PhonePe</span>
+                  <span class="app-chip">Paytm</span>
+                  <span class="app-chip">BHIM</span>
+                  <span class="app-chip">CRED / Any UPI</span>
+                </div>
+              </div>
+            </div>
+          </div>
 
           <mat-form-field appearance="outline" class="full-width">
             <mat-label>Remarks / Notes</mat-label>
@@ -1107,6 +1184,308 @@ export interface AdvanceMonthOption {
       }
     }
 
+    /* Dynamic UPI Counter Card - Compact, High-Tech, Zero-Overflow */
+    .dynamic-upi-counter-card {
+      background: linear-gradient(135deg, #f0fdf4 0%, #f8fafc 100%);
+      border: 1px solid #86efac;
+      border-radius: 12px;
+      padding: 10px 14px;
+      margin-bottom: 8px;
+      box-shadow: 0 2px 8px rgba(22, 163, 74, 0.08);
+
+      .upi-card-inner {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 14px;
+        align-items: center;
+
+        @media (max-width: 600px) {
+          grid-template-columns: 1fr;
+          gap: 10px;
+        }
+      }
+
+      .qr-col {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+
+        .qr-frame {
+          position: relative;
+          background: #ffffff;
+          padding: 5px;
+          border-radius: 8px;
+          border: 1.5px solid #16a34a;
+          box-shadow: 0 3px 6px rgba(0, 0, 0, 0.06);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+
+          .counter-qr-canvas {
+            display: block;
+            width: 115px !important;
+            height: 115px !important;
+          }
+
+          .scan-corner {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            border-color: #16a34a;
+            border-style: solid;
+            pointer-events: none;
+
+            &.top-left {
+              top: 2px;
+              left: 2px;
+              border-width: 2px 0 0 2px;
+              border-top-left-radius: 3px;
+            }
+            &.top-right {
+              top: 2px;
+              right: 2px;
+              border-width: 2px 2px 0 0;
+              border-top-right-radius: 3px;
+            }
+            &.bottom-left {
+              bottom: 2px;
+              left: 2px;
+              border-width: 0 0 2px 2px;
+              border-bottom-left-radius: 3px;
+            }
+            &.bottom-right {
+              bottom: 2px;
+              right: 2px;
+              border-width: 0 2px 2px 0;
+              border-bottom-right-radius: 3px;
+            }
+          }
+        }
+
+        .btn-refresh-mini {
+          height: 22px;
+          line-height: 22px;
+          padding: 0 6px;
+          font-size: 0.7rem;
+          color: #15803d;
+          font-weight: 600;
+          border-radius: 4px;
+
+          mat-icon {
+            font-size: 13px;
+            width: 13px;
+            height: 13px;
+            margin-right: 3px;
+          }
+          &:hover {
+            background: #dcfce7;
+          }
+        }
+      }
+
+      .upi-info-col {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        min-width: 0;
+
+        .upi-info-top {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          flex-wrap: wrap;
+          gap: 6px;
+
+          .upi-brand-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+
+            .brand-icon {
+              font-size: 18px;
+              width: 18px;
+              height: 18px;
+              color: #16a34a;
+            }
+            strong {
+              font-size: 0.86rem;
+              color: #14532d;
+              font-weight: 700;
+            }
+            .zero-fee-badge {
+              background: #dcfce7;
+              color: #15803d;
+              font-size: 0.68rem;
+              font-weight: 700;
+              padding: 1px 6px;
+              border-radius: 10px;
+              border: 1px solid #86efac;
+            }
+          }
+
+          .upi-amount-pill {
+            background: #dcfce7;
+            border: 1px solid #86efac;
+            border-radius: 16px;
+            padding: 2px 8px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+
+            .amt-lbl {
+              font-size: 0.7rem;
+              color: #15803d;
+              font-weight: 600;
+            }
+            .amt-val {
+              font-size: 0.92rem;
+              color: #14532d;
+              font-weight: 800;
+            }
+          }
+        }
+
+        .vpa-compact-bar {
+          background: #ffffff;
+          border: 1px solid #bbf7d0;
+          border-radius: 6px;
+          padding: 3px 8px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 6px;
+
+          .vpa-text-box {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.78rem;
+            min-width: 0;
+            overflow: hidden;
+
+            .vpa-label {
+              color: #64748b;
+              font-weight: 600;
+              font-size: 0.7rem;
+              text-transform: uppercase;
+              letter-spacing: 0.3px;
+              flex-shrink: 0;
+            }
+            .vpa-id {
+              color: #0f172a;
+              font-family: 'SF Mono', Consolas, Monaco, monospace;
+              font-weight: 700;
+              font-size: 0.82rem;
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
+            }
+            .vpa-payee {
+              color: #64748b;
+              font-size: 0.72rem;
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
+            }
+          }
+
+          .copy-vpa-btn {
+            width: 24px;
+            height: 24px;
+            line-height: 24px;
+            flex-shrink: 0;
+            color: #16a34a;
+            mat-icon {
+              font-size: 14px;
+              width: 14px;
+              height: 14px;
+            }
+            &:hover {
+              background: #f0fdf4;
+            }
+          }
+        }
+
+        .upi-steps-row {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          background: rgba(255, 255, 255, 0.75);
+          border: 1px solid #e2e8f0;
+          border-radius: 6px;
+          padding: 4px 6px;
+
+          .micro-step {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.72rem;
+            color: #475569;
+            min-width: 0;
+
+            .step-badge {
+              width: 15px;
+              height: 15px;
+              border-radius: 50%;
+              background: #16a34a;
+              color: #ffffff;
+              font-size: 0.62rem;
+              font-weight: 800;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              flex-shrink: 0;
+            }
+
+            .step-desc {
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
+            }
+
+            &.highlight {
+              color: #1e293b;
+              font-weight: 600;
+              .step-badge {
+                background: #2563eb;
+              }
+            }
+          }
+
+          .step-arrow {
+            font-size: 13px;
+            width: 13px;
+            height: 13px;
+            color: #94a3b8;
+            flex-shrink: 0;
+          }
+        }
+
+        .upi-apps-chips {
+          display: flex;
+          align-items: center;
+          gap: 5px;
+
+          .apps-label {
+            font-size: 0.68rem;
+            color: #64748b;
+            font-weight: 600;
+          }
+
+          .app-chip {
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-radius: 3px;
+            padding: 1px 5px;
+            font-size: 0.65rem;
+            font-weight: 600;
+            color: #475569;
+          }
+        }
+      }
+    }
+
     .dialog-actions {
       padding: 14px 24px 16px;
       border-top: 1px solid #bfdbfe;
@@ -1158,6 +1537,10 @@ export class FeeCollectionDialogComponent implements OnInit {
   advanceMonthOptions: AdvanceMonthOption[] = [];
   selectedAdvanceOption: AdvanceMonthOption | null = null;
   advanceAmountTotal: number = 0;
+
+  @ViewChild('counterQrCanvas') counterQrCanvas?: ElementRef<HTMLCanvasElement>;
+  activeVpa: string = '';
+  merchantName: string = '';
 
   get recurringTuitionItems(): FeeCollectionItemRow[] {
     return this.itemRows.filter(r => {
@@ -1293,6 +1676,22 @@ export class FeeCollectionDialogComponent implements OnInit {
 
     // Initialize Advance Months options (if recurring tuition detected)
     this.initAdvanceMonthOptions();
+
+    // Fetch Dynamic UPI parameters
+    this.loadUpiSettings();
+
+    // Re-render QR code on mode change or amount change
+    this.feeForm.get('mode')?.valueChanges.subscribe(mode => {
+      if (mode === 1) {
+        setTimeout(() => this.generateCounterQr(), 100);
+      }
+    });
+
+    this.feeForm.get('amountPaid')?.valueChanges.subscribe(() => {
+      if (this.feeForm.get('mode')?.value === 1) {
+        setTimeout(() => this.generateCounterQr(), 100);
+      }
+    });
   }
 
   get selectedCount(): number {
@@ -1584,6 +1983,59 @@ export class FeeCollectionDialogComponent implements OnInit {
         this.confirmDialog.alert('Collection Failed', err?.error?.message || 'Error processing fee collection', 'danger');
       }
     });
+  }
+
+  loadUpiSettings(): void {
+    const branchId = this.authService.selectedBranchId() || undefined;
+    this.feesService.getUpiSettings(branchId).subscribe({
+      next: (settings) => {
+        if (settings) {
+          this.activeVpa = settings.upiId || 'imserp.fees@sbi';
+          this.merchantName = settings.upiMerchantName || this.authService.getInstituteName() || 'Jnandeep Campus';
+          if (this.feeForm?.get('mode')?.value === 1) {
+            setTimeout(() => this.generateCounterQr(), 100);
+          }
+        }
+      },
+      error: () => {
+        this.activeVpa = 'imserp.fees@sbi';
+        this.merchantName = this.authService.getInstituteName() || 'Jnandeep Campus';
+        if (this.feeForm?.get('mode')?.value === 1) {
+          setTimeout(() => this.generateCounterQr(), 100);
+        }
+      }
+    });
+  }
+
+  generateCounterQr(): void {
+    if (!this.counterQrCanvas?.nativeElement) return;
+    const amount = Number(this.feeForm?.get('amountPaid')?.value || 0);
+    if (amount <= 0) return;
+
+    const vpa = this.activeVpa || 'imserp.fees@sbi';
+    const payee = encodeURIComponent(this.merchantName || 'Jnandeep Campus');
+    const formattedAmt = amount.toFixed(2);
+    const note = encodeURIComponent(`Fee ${this.data?.studentName || ''}`);
+    const txnRef = `FEE${Date.now().toString().slice(-6)}`;
+
+    const upiUri = `upi://pay?pa=${vpa}&pn=${payee}&am=${formattedAmt}&cu=INR&tn=${note}&tr=${txnRef}&mc=8211`;
+
+    QRCode.toCanvas(this.counterQrCanvas.nativeElement, upiUri, {
+      width: 115,
+      margin: 1,
+      color: {
+        dark: '#0f172a',
+        light: '#ffffff'
+      },
+      errorCorrectionLevel: 'M'
+    }).catch(err => console.error('Error generating counter QR canvas:', err));
+  }
+
+  copyVpa(): void {
+    if (this.activeVpa) {
+      navigator.clipboard?.writeText(this.activeVpa);
+      this.confirmDialog.alert('Copied', `Institute VPA ${this.activeVpa} copied to clipboard.`);
+    }
   }
 
   onCancel(): void {

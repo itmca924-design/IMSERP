@@ -152,6 +152,38 @@ using (var scope = app.Services.CreateScope())
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tenants') AND name = 'HasTransportModule')
                         ALTER TABLE Tenants ADD HasTransportModule BIT NOT NULL DEFAULT 1;
 
+                    -- UPI Dynamic QR & Online Fee Collection Columns
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tenants') AND name = 'UpiId')
+                        ALTER TABLE Tenants ADD UpiId NVARCHAR(150) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tenants') AND name = 'UpiMerchantName')
+                        ALTER TABLE Tenants ADD UpiMerchantName NVARCHAR(200) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tenants') AND name = 'UpiMerchantCode')
+                        ALTER TABLE Tenants ADD UpiMerchantCode NVARCHAR(20) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tenants') AND name = 'UpiQrEnabled')
+                        ALTER TABLE Tenants ADD UpiQrEnabled BIT NOT NULL DEFAULT 1;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tenants') AND name = 'UpiAutoVerify')
+                        ALTER TABLE Tenants ADD UpiAutoVerify BIT NOT NULL DEFAULT 1;
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Branches') AND name = 'UpiId')
+                        ALTER TABLE Branches ADD UpiId NVARCHAR(150) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Branches') AND name = 'UpiMerchantName')
+                        ALTER TABLE Branches ADD UpiMerchantName NVARCHAR(200) NULL;
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('FeePayments') AND name = 'UpiRrn')
+                        ALTER TABLE FeePayments ADD UpiRrn NVARCHAR(100) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('FeePayments') AND name = 'PayerVpa')
+                        ALTER TABLE FeePayments ADD PayerVpa NVARCHAR(100) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('FeePayments') AND name = 'PayerName')
+                        ALTER TABLE FeePayments ADD PayerName NVARCHAR(200) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('FeePayments') AND name = 'PayerPhone')
+                        ALTER TABLE FeePayments ADD PayerPhone NVARCHAR(50) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('FeePayments') AND name = 'OnlinePaymentStatus')
+                        ALTER TABLE FeePayments ADD OnlinePaymentStatus NVARCHAR(50) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('FeePayments') AND name = 'VerifiedBy')
+                        ALTER TABLE FeePayments ADD VerifiedBy NVARCHAR(100) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('FeePayments') AND name = 'VerifiedAt')
+                        ALTER TABLE FeePayments ADD VerifiedAt DATETIME2 NULL;
+
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Users') AND name = 'ActiveSessionId')
                         ALTER TABLE Users ADD ActiveSessionId NVARCHAR(100) NULL;
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Users') AND name = 'LastActiveAt')

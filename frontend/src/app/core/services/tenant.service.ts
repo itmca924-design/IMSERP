@@ -36,6 +36,11 @@ export interface TenantDto {
   paidUntil?: string | null;
   maxStudentsLimit?: number;
   maxBranchesLimit?: number;
+  upiId?: string | null;
+  upiMerchantName?: string | null;
+  upiMerchantCode?: string | null;
+  upiQrEnabled?: boolean;
+  upiAutoVerify?: boolean;
 }
 
 export interface CreateBranchItemDto {
@@ -88,6 +93,11 @@ export interface UpdateTenantDto {
   paidUntil?: string | null;
   maxStudentsLimit?: number;
   maxBranchesLimit?: number;
+  upiId?: string | null;
+  upiMerchantName?: string | null;
+  upiMerchantCode?: string | null;
+  upiQrEnabled?: boolean;
+  upiAutoVerify?: boolean;
 }
 
 export interface MySubscriptionDto {

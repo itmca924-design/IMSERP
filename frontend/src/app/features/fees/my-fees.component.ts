@@ -13,6 +13,7 @@ import { FeesService, StudentLedger, StudentLedgerPaymentItem, FeePaymentReceipt
 import { AuthService } from '../../core/services/auth.service';
 import { FeeReceiptDialogComponent } from './fee-receipt-dialog.component';
 import { FeeDueReceiptDialogComponent } from './fee-due-receipt-dialog.component';
+import { UpiPaymentDialogComponent } from './upi-payment-dialog.component';
 
 @Component({
   selector: 'app-my-fees',
@@ -46,6 +47,10 @@ import { FeeDueReceiptDialogComponent } from './fee-due-receipt-dialog.component
         </div>
 
         <div class="header-action-buttons" *ngIf="ledger">
+          <button mat-flat-button class="pay-upi-btn" *ngIf="ledger.totalOutstandingDue > 0" (click)="openUpiPaymentForTotal()" matTooltip="Scan Dynamic UPI QR to Pay Outstanding Fees Instantly">
+            <mat-icon>qr_code_scanner</mat-icon>
+            <span>Pay via UPI (₹{{ ledger.totalOutstandingDue | number:'1.0-0' }})</span>
+          </button>
           <button mat-stroked-button class="due-slip-btn" *ngIf="ledger.totalOutstandingDue > 0" (click)="openDueSlip()" matTooltip="Download / Print Official Due Slip">
             <mat-icon>receipt</mat-icon>
             <span>Print Due Slip (बकाया पर्ची)</span>
@@ -110,6 +115,10 @@ import { FeeDueReceiptDialogComponent } from './fee-due-receipt-dialog.component
                 </strong>
                 <span class="kpi-sub" *ngIf="ledger.totalOutstandingDue > 0">Pending fee arrears</span>
                 <span class="kpi-sub text-success" *ngIf="ledger.totalOutstandingDue <= 0">All dues cleared 🎉</span>
+                <button mat-flat-button class="kpi-pay-btn" *ngIf="ledger.totalOutstandingDue > 0" (click)="openUpiPaymentForTotal()">
+                  <mat-icon>qr_code_scanner</mat-icon>
+                  <span>Pay Now</span>
+                </button>
               </div>
 
               <div class="kpi-box lib-fines" *ngIf="ledger.pendingLibraryFine && ledger.pendingLibraryFine > 0">
@@ -143,6 +152,7 @@ import { FeeDueReceiptDialogComponent } from './fee-due-receipt-dialog.component
                         <th class="text-right">Amount Paid</th>
                         <th class="text-right">Balance Due</th>
                         <th class="text-center">Status</th>
+                        <th class="text-center">Action</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -172,6 +182,21 @@ import { FeeDueReceiptDialogComponent } from './fee-due-receipt-dialog.component
                         <td class="text-center nowrap">
                           <span class="status-pill" [ngClass]="inv.status.toLowerCase()">
                             {{ inv.status }}
+                          </span>
+                        </td>
+                        <td class="text-center nowrap">
+                          <button
+                            mat-flat-button
+                            class="row-pay-upi-btn"
+                            *ngIf="inv.dueAmount > 0 && inv.status !== 'Cancelled'"
+                            (click)="openUpiPaymentForInvoice(inv)"
+                            matTooltip="Pay ₹{{ inv.dueAmount | number:'1.0-0' }} via Dynamic UPI QR"
+                          >
+                            <mat-icon>qr_code_scanner</mat-icon>
+                            <span>Pay ₹{{ inv.dueAmount | number:'1.0-0' }}</span>
+                          </button>
+                          <span *ngIf="inv.dueAmount <= 0 && inv.status === 'Paid'" class="paid-tag">
+                            <mat-icon>check_circle</mat-icon> Settled
                           </span>
                         </td>
                       </tr>
@@ -322,6 +347,18 @@ import { FeeDueReceiptDialogComponent } from './fee-due-receipt-dialog.component
         display: flex;
         align-items: center;
         gap: 10px;
+
+        .pay-upi-btn {
+          background: #16a34a;
+          color: #ffffff;
+          font-weight: 700;
+          height: 38px;
+          box-shadow: 0 2px 6px rgba(22, 163, 74, 0.3);
+
+          mat-icon {
+            margin-right: 4px;
+          }
+        }
 
         .due-slip-btn {
           border-color: #fca5a5;
@@ -513,6 +550,25 @@ import { FeeDueReceiptDialogComponent } from './fee-due-receipt-dialog.component
               color: #e11d48;
               font-weight: 600;
             }
+
+            .kpi-pay-btn {
+              margin-top: 8px;
+              background: #16a34a;
+              color: #ffffff;
+              font-size: 0.75rem;
+              font-weight: 700;
+              height: 28px;
+              line-height: 28px;
+              padding: 0 10px;
+              border-radius: 6px;
+
+              mat-icon {
+                font-size: 16px;
+                width: 16px;
+                height: 16px;
+                margin-right: 2px;
+              }
+            }
           }
         }
       }
@@ -699,6 +755,40 @@ import { FeeDueReceiptDialogComponent } from './fee-due-receipt-dialog.component
 
         &:hover {
           background: #eff6ff;
+        }
+      }
+
+      .row-pay-upi-btn {
+        background: #16a34a;
+        color: #ffffff;
+        font-size: 0.76rem;
+        font-weight: 700;
+        height: 28px;
+        line-height: 28px;
+        padding: 0 10px;
+        border-radius: 6px;
+        box-shadow: 0 2px 4px rgba(22, 163, 74, 0.25);
+
+        mat-icon {
+          font-size: 15px;
+          width: 15px;
+          height: 15px;
+          margin-right: 2px;
+        }
+      }
+
+      .paid-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: #16a34a;
+
+        mat-icon {
+          font-size: 16px;
+          width: 16px;
+          height: 16px;
         }
       }
 
@@ -936,5 +1026,53 @@ export class MyFeesComponent implements OnInit {
 
   printPassbook(): void {
     window.print();
+  }
+
+  openUpiPaymentForTotal(): void {
+    if (!this.ledger) return;
+    const ref = this.dialog.open(UpiPaymentDialogComponent, {
+      width: '900px',
+      maxWidth: '95vw',
+      data: {
+        mode: 'fifo_student',
+        studentId: this.ledger.studentId,
+        studentName: this.ledger.studentName,
+        rollNumber: this.ledger.rollNumber,
+        className: this.ledger.batchName,
+        dueAmount: this.ledger.totalOutstandingDue,
+        pendingLibraryFine: this.ledger.pendingLibraryFine
+      },
+      autoFocus: false
+    });
+
+    ref.afterClosed().subscribe(res => {
+      if (res?.success) {
+        this.loadMyLedger();
+      }
+    });
+  }
+
+  openUpiPaymentForInvoice(inv: any): void {
+    if (!this.ledger) return;
+    const ref = this.dialog.open(UpiPaymentDialogComponent, {
+      width: '900px',
+      maxWidth: '95vw',
+      data: {
+        mode: 'invoice',
+        invoiceId: inv.id,
+        invoiceNumber: inv.invoiceNumber,
+        dueAmount: inv.dueAmount,
+        studentName: this.ledger.studentName,
+        rollNumber: this.ledger.rollNumber,
+        className: this.ledger.batchName
+      },
+      autoFocus: false
+    });
+
+    ref.afterClosed().subscribe(res => {
+      if (res?.success) {
+        this.loadMyLedger();
+      }
+    });
   }
 }

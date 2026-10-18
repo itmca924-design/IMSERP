@@ -246,6 +246,8 @@ export interface FeePaymentReceipt {
   instituteLogoUrl?: string;
   instituteContactPhone?: string;
   instituteAddress?: string;
+  studentId?: string;
+  invoiceId?: string;
 }
 
 export interface StudentPendingFineItem {
@@ -464,7 +466,147 @@ export class FeesService {
     if (sessionStartYear) params = params.set('sessionStartYear', sessionStartYear.toString());
     return this.http.get<StudentFeeCard[]>(`${this.apiUrl}/student-fee-cards-by-class`, { params });
   }
+
+  // ─── Dynamic Bharat UPI QR & Online Fee Collection Methods ───────────
+
+  getInvoiceUpiIntent(invoiceId: string): Observable<UpiIntentResponse> {
+    return this.http.get<UpiIntentResponse>(`${this.apiUrl}/invoices/${invoiceId}/upi-intent`);
+  }
+
+  collectInvoiceUpiPayment(invoiceId: string, payload: CollectUpiPaymentPayload): Observable<FeePaymentReceipt> {
+    return this.http.post<FeePaymentReceipt>(`${this.apiUrl}/invoices/${invoiceId}/upi-collect`, payload);
+  }
+
+  collectStudentFifoUpiPayment(studentId: string, payload: CollectStudentFifoUpiPayload): Observable<FeePaymentReceipt> {
+    return this.http.post<FeePaymentReceipt>(`${this.apiUrl}/student/${studentId}/upi-collect-fifo`, payload);
+  }
+
+  getUpiSettings(branchId?: string): Observable<UpiPaymentSettings> {
+    let params = new HttpParams();
+    if (branchId) params = params.set('branchId', branchId);
+    return this.http.get<UpiPaymentSettings>(`${this.apiUrl}/upi-settings`, { params });
+  }
+
+  updateUpiSettings(payload: UpdateUpiPaymentSettingsPayload): Observable<any> {
+    return this.http.put<any>(`${this.apiUrl}/upi-settings`, payload);
+  }
+
+  getOnlineUpiTransactions(
+    pageNumber: number = 1,
+    pageSize: number = 15,
+    searchTerm?: string,
+    branchId?: string,
+    fromDate?: string,
+    toDate?: string
+  ): Observable<{ items: OnlineUpiTransactionItem[]; totalCount: number; pageNumber: number; pageSize: number }> {
+    let params = new HttpParams()
+      .set('pageNumber', pageNumber.toString())
+      .set('pageSize', pageSize.toString());
+
+    if (searchTerm && searchTerm.trim()) params = params.set('searchTerm', searchTerm.trim());
+    if (branchId) params = params.set('branchId', branchId);
+    if (fromDate) params = params.set('fromDate', fromDate);
+    if (toDate) params = params.set('toDate', toDate);
+
+    return this.http.get<{ items: OnlineUpiTransactionItem[]; totalCount: number; pageNumber: number; pageSize: number }>(
+      `${this.apiUrl}/online-upi-transactions`,
+      { params }
+    );
+  }
 }
+
+export interface UpiIntentResponse {
+  invoiceId: string;
+  invoiceNumber: string;
+  studentId: string;
+  studentName: string;
+  rollNumber?: string;
+  className?: string;
+  sectionName?: string;
+  batchName?: string;
+  totalAmount: number;
+  paidAmount: number;
+  dueAmount: number;
+  payeeUpiId: string;
+  payeeName: string;
+  payeeMerchantCode?: string;
+  upiIntentUri: string;
+  gpayUri: string;
+  phonepeUri: string;
+  paytmUri: string;
+  bhimUri: string;
+  branchName?: string;
+  instituteName: string;
+  instituteLogo?: string;
+}
+
+export interface CollectUpiPaymentPayload {
+  amount: number;
+  upiRrn: string;
+  payerVpa?: string;
+  payerName?: string;
+  payerPhone?: string;
+  remarks?: string;
+  sendWhatsAppReceipt?: boolean;
+}
+
+export interface CollectStudentFifoUpiPayload {
+  studentId: string;
+  amount: number;
+  upiRrn: string;
+  payerVpa?: string;
+  payerName?: string;
+  payerPhone?: string;
+  remarks?: string;
+  sendWhatsAppReceipt?: boolean;
+  includeLibraryFine?: boolean;
+}
+
+export interface UpiPaymentSettings {
+  upiId?: string;
+  upiMerchantName?: string;
+  upiMerchantCode?: string;
+  upiQrEnabled: boolean;
+  upiAutoVerify: boolean;
+  branchUpiId?: string;
+  branchUpiMerchantName?: string;
+  effectiveUpiId: string;
+  effectiveMerchantName: string;
+}
+
+export interface UpdateUpiPaymentSettingsPayload {
+  upiId: string;
+  upiMerchantName: string;
+  upiMerchantCode?: string;
+  upiQrEnabled: boolean;
+  upiAutoVerify: boolean;
+  applyToBranchOnly?: boolean;
+  branchId?: string;
+}
+
+export interface OnlineUpiTransactionItem {
+  paymentId: string;
+  invoiceId: string;
+  invoiceNumber: string;
+  receiptNumber: string;
+  studentId: string;
+  studentName: string;
+  rollNumber?: string;
+  className?: string;
+  sectionName?: string;
+  batchName?: string;
+  branchName?: string;
+  amountPaid: number;
+  upiRrn?: string;
+  payerVpa?: string;
+  payerName?: string;
+  payerPhone?: string;
+  onlinePaymentStatus?: string;
+  paymentDate: string;
+  verifiedBy?: string;
+  verifiedAt?: string;
+}
+
 
 export interface FeeCardMonthEntry {
   monthIndex: number;

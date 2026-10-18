@@ -1022,7 +1022,9 @@ public class FeesController : ControllerBase
                 tenant?.Name,
                 tenant?.ProfilePhoto,
                 tenant?.ContactPhone,
-                tenant?.Address
+                tenant?.Address,
+                student.Id,
+                unpaidInvoices.FirstOrDefault()?.Id
             ));
         });
     }
@@ -1202,7 +1204,9 @@ public class FeesController : ControllerBase
             tenant?.Name,
             tenant?.ProfilePhoto,
             tenant?.ContactPhone,
-            tenant?.Address
+            tenant?.Address,
+            student?.Id,
+            firstPayment?.InvoiceId
         ));
     }
 
@@ -2449,6 +2453,654 @@ public class FeesController : ControllerBase
 
         await _dbContext.SaveChangesAsync();
         return Ok(new { message = "Class fee structures saved successfully." });
+    }
+
+    // =========================================================================
+    // DYNAMIC BHARAT UPI QR & ONLINE FEE COLLECTION ENDPOINTS
+    // =========================================================================
+
+    [HttpGet("invoices/{invoiceId}/upi-intent")]
+    [AllowAnonymous]
+    public async Task<ActionResult<UpiIntentResponseDto>> GetInvoiceUpiIntent(Guid invoiceId)
+    {
+        var invoice = await _dbContext.FeeInvoices
+            .AsNoTracking()
+            .Include(i => i.Branch)
+            .Include(i => i.Student)
+                .ThenInclude(s => s!.Branch)
+            .Include(i => i.Student)
+                .ThenInclude(s => s!.Class)
+            .Include(i => i.Student)
+                .ThenInclude(s => s!.Section)
+            .Include(i => i.Student)
+                .ThenInclude(s => s!.Batch)
+            .FirstOrDefaultAsync(i => i.Id == invoiceId);
+
+        if (invoice == null) return NotFound("Invoice not found.");
+        if (invoice.Status == InvoiceStatus.Cancelled)
+            return BadRequest(new { message = "This invoice has been cancelled." });
+
+        var tenant = await _dbContext.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.Id == invoice.TenantId);
+        var branch = invoice.Branch ?? invoice.Student?.Branch;
+
+        string payeeUpiId = !string.IsNullOrWhiteSpace(branch?.UpiId)
+            ? branch.UpiId.Trim()
+            : (!string.IsNullOrWhiteSpace(tenant?.UpiId) ? tenant.UpiId.Trim() : "imserp.fees@sbi");
+
+        string payeeName = !string.IsNullOrWhiteSpace(branch?.UpiMerchantName)
+            ? branch.UpiMerchantName.Trim()
+            : (!string.IsNullOrWhiteSpace(tenant?.UpiMerchantName) ? tenant.UpiMerchantName.Trim() : (tenant?.Name ?? "Jnandeep Campus"));
+
+        string? merchantCode = tenant?.UpiMerchantCode ?? "8211";
+
+        decimal dueAmount = invoice.TotalAmount - invoice.PaidAmount;
+        if (dueAmount < 0) dueAmount = 0;
+
+        string studentName = invoice.Student?.StudentName ?? "Student";
+        string formattedAmount = dueAmount.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
+        string encodedPayee = Uri.EscapeDataString(payeeName);
+        string transactionNote = Uri.EscapeDataString($"Fee {invoice.InvoiceNumber} {studentName}");
+
+        // NPCI Standard Bharat UPI Intent URI
+        string upiIntentUri = $"upi://pay?pa={payeeUpiId}&pn={encodedPayee}&am={formattedAmount}&cu=INR&tn={transactionNote}&tr={invoice.InvoiceNumber}&mc={merchantCode}";
+
+        // Specific App Deep Links for instant 1-tap mobile opening
+        string gpayUri = $"gpay://upi/pay?pa={payeeUpiId}&pn={encodedPayee}&am={formattedAmount}&cu=INR&tn={transactionNote}&tr={invoice.InvoiceNumber}";
+        string phonepeUri = $"phonepe://pay?pa={payeeUpiId}&pn={encodedPayee}&am={formattedAmount}&cu=INR&tn={transactionNote}&tr={invoice.InvoiceNumber}";
+        string paytmUri = $"paytmmp://pay?pa={payeeUpiId}&pn={encodedPayee}&am={formattedAmount}&cu=INR&tn={transactionNote}&tr={invoice.InvoiceNumber}";
+        string bhimUri = $"bhim://pay?pa={payeeUpiId}&pn={encodedPayee}&am={formattedAmount}&cu=INR&tn={transactionNote}&tr={invoice.InvoiceNumber}";
+
+        var dto = new UpiIntentResponseDto(
+            invoice.Id,
+            invoice.InvoiceNumber,
+            invoice.StudentId,
+            studentName,
+            invoice.Student?.SchoolRollNumber ?? invoice.Student?.RollNumber,
+            invoice.Student?.Class?.Name ?? invoice.ClassName,
+            invoice.Student?.Section?.Name ?? invoice.SectionName,
+            invoice.Student?.Batch?.Name,
+            invoice.TotalAmount,
+            invoice.PaidAmount,
+            dueAmount,
+            payeeUpiId,
+            payeeName,
+            merchantCode,
+            upiIntentUri,
+            gpayUri,
+            phonepeUri,
+            paytmUri,
+            bhimUri,
+            branch?.Name,
+            tenant?.Name ?? "Jnandeep Campus",
+            tenant?.ProfilePhoto
+        );
+
+        return Ok(dto);
+    }
+
+    [HttpPost("invoices/{invoiceId}/upi-collect")]
+    [AllowAnonymous]
+    public async Task<ActionResult<FeePaymentReceiptDto>> CollectInvoiceUpiPayment(
+        Guid invoiceId,
+        [FromBody] CollectUpiPaymentRequestDto dto)
+    {
+        if (dto == null || dto.Amount <= 0)
+            return BadRequest(new { message = "Payment amount must be greater than zero." });
+
+        if (string.IsNullOrWhiteSpace(dto.UpiRrn) || dto.UpiRrn.Trim().Length < 6)
+            return BadRequest(new { message = "A valid 12-digit UPI Reference Number / UTR is required." });
+
+        string cleanUtr = dto.UpiRrn.Trim();
+
+        var isDuplicateUtr = await _dbContext.FeePayments
+            .AnyAsync(p => (p.UpiRrn == cleanUtr || p.TransactionRef == cleanUtr) && p.OnlinePaymentStatus == "Completed");
+
+        if (isDuplicateUtr)
+        {
+            return Conflict(new { message = $"Payment with UPI Reference ID / UTR '{cleanUtr}' has already been processed and verified. Please check payment history." });
+        }
+
+        var strategy = _dbContext.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync<ActionResult<FeePaymentReceiptDto>>(async () =>
+        {
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
+            var invoice = await _dbContext.FeeInvoices
+                .Include(i => i.Items)
+                .Include(i => i.Branch)
+                .Include(i => i.Student)
+                    .ThenInclude(s => s!.Branch)
+                .Include(i => i.Student)
+                    .ThenInclude(s => s!.Class)
+                .Include(i => i.Student)
+                    .ThenInclude(s => s!.Section)
+                .Include(i => i.Student)
+                    .ThenInclude(s => s!.Batch)
+                .FirstOrDefaultAsync(i => i.Id == invoiceId);
+
+            if (invoice == null) return NotFound(new { message = "Invoice not found." });
+            if (invoice.Status == InvoiceStatus.Cancelled)
+                return BadRequest(new { message = "This invoice has been cancelled and cannot accept payments." });
+
+            decimal currentDue = invoice.TotalAmount - invoice.PaidAmount;
+            if (currentDue <= 0)
+                return BadRequest(new { message = "This invoice is already fully paid." });
+
+            decimal payAmount = Math.Min(dto.Amount, currentDue);
+            var receiptNo = "REC-" + DateTime.UtcNow.ToString("yyyyMMddHHmmss");
+
+            invoice.PaidAmount += payAmount;
+            invoice.Status = invoice.PaidAmount >= invoice.TotalAmount ? InvoiceStatus.Paid : InvoiceStatus.Partial;
+
+            decimal itemRemaining = payAmount;
+            if (invoice.Items != null && invoice.Items.Count > 0)
+            {
+                foreach (var it in invoice.Items)
+                {
+                    if (itemRemaining <= 0) break;
+                    decimal itDue = it.Amount - it.PaidAmount;
+                    if (itDue <= 0) continue;
+                    decimal itAlloc = Math.Min(itemRemaining, itDue);
+                    it.PaidAmount += itAlloc;
+                    itemRemaining -= itAlloc;
+                }
+            }
+
+            var student = invoice.Student;
+            var payment = new FeePayment
+            {
+                TenantId = invoice.TenantId,
+                BranchId = invoice.BranchId ?? student?.BranchId,
+                InvoiceId = invoice.Id,
+                ReceiptNumber = receiptNo,
+                AmountPaid = payAmount,
+                Mode = PaymentMode.UPI,
+                TransactionRef = cleanUtr,
+                UpiRrn = cleanUtr,
+                PayerVpa = dto.PayerVpa?.Trim(),
+                PayerName = dto.PayerName?.Trim() ?? student?.ParentName ?? student?.StudentName,
+                PayerPhone = dto.PayerPhone?.Trim() ?? student?.ParentWhatsAppPhone,
+                OnlinePaymentStatus = "Completed",
+                VerifiedBy = User.Identity?.Name ?? "UPI-SelfService",
+                VerifiedAt = DateTime.UtcNow,
+                PaymentDate = DateTime.UtcNow,
+                Remarks = !string.IsNullOrWhiteSpace(dto.Remarks)
+                    ? dto.Remarks.Trim()
+                    : $"Online Dynamic UPI Settlement (UTR: {cleanUtr})"
+            };
+
+            _dbContext.FeePayments.Add(payment);
+
+            await _dbContext.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            var tenant = await _dbContext.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.Id == invoice.TenantId);
+            var branch = invoice.Branch ?? student?.Branch;
+
+            decimal totalRemainingDue = student != null
+                ? await _dbContext.FeeInvoices
+                    .Where(i => i.StudentId == student.Id && i.Status != InvoiceStatus.Cancelled)
+                    .SumAsync(i => i.TotalAmount - i.PaidAmount)
+                : 0m;
+
+            var lineItems = new List<FeeReceiptLineItemDto>();
+            if (invoice.Items != null && invoice.Items.Count > 0)
+            {
+                foreach (var it in invoice.Items)
+                {
+                    lineItems.Add(new FeeReceiptLineItemDto(
+                        lineItems.Count + 1,
+                        it.HeadName,
+                        "Online UPI Fee Settlement",
+                        invoice.InvoiceNumber,
+                        it.Amount
+                    ));
+                }
+            }
+            else
+            {
+                lineItems.Add(new FeeReceiptLineItemDto(
+                    1,
+                    invoice.Title,
+                    "Online UPI Fee Settlement",
+                    invoice.InvoiceNumber,
+                    payAmount
+                ));
+            }
+
+            var receiptDto = new FeePaymentReceiptDto(
+                payment.Id,
+                receiptNo,
+                student?.StudentName ?? "Student",
+                student?.SchoolRollNumber ?? student?.RollNumber ?? "N/A",
+                student?.Batch?.Name ?? "General",
+                student?.ParentName ?? "Parent/Guardian",
+                student?.ParentWhatsAppPhone ?? "",
+                invoice.InvoiceNumber,
+                payAmount,
+                totalRemainingDue,
+                payment.PaymentDate,
+                PaymentMode.UPI,
+                cleanUtr,
+                payment.Remarks,
+                payAmount,
+                0m,
+                null,
+                0m,
+                lineItems,
+                null,
+                branch?.Name,
+                student?.Class?.Name ?? invoice.ClassName,
+                student?.Section?.Name ?? invoice.SectionName,
+                tenant?.Name ?? "Jnandeep Campus",
+                tenant?.ProfilePhoto,
+                tenant?.ContactPhone,
+                tenant?.Address,
+                student?.Id ?? invoice.StudentId,
+                invoice.Id
+            );
+
+            if (dto.SendWhatsAppReceipt && student != null && !string.IsNullOrWhiteSpace(student.ParentWhatsAppPhone))
+            {
+                try
+                {
+                    await _whatsAppService.SendFeeReceiptAsync(
+                        invoice.TenantId,
+                        student.ParentWhatsAppPhone,
+                        student.StudentName,
+                        receiptNo,
+                        payAmount,
+                        totalRemainingDue
+                    );
+                }
+                catch { }
+            }
+
+            return Ok(receiptDto);
+        });
+    }
+
+    [HttpPost("student/{studentId}/upi-collect-fifo")]
+    [AllowAnonymous]
+    public async Task<ActionResult<FeePaymentReceiptDto>> CollectStudentFifoUpiPayment(
+        Guid studentId,
+        [FromBody] CollectStudentFifoUpiPaymentRequestDto dto)
+    {
+        if (dto == null || dto.Amount <= 0)
+            return BadRequest(new { message = "Payment amount must be greater than zero." });
+
+        if (string.IsNullOrWhiteSpace(dto.UpiRrn) || dto.UpiRrn.Trim().Length < 6)
+            return BadRequest(new { message = "A valid 12-digit UPI Reference Number / UTR is required." });
+
+        string cleanUtr = dto.UpiRrn.Trim();
+
+        var isDuplicateUtr = await _dbContext.FeePayments
+            .AnyAsync(p => (p.UpiRrn == cleanUtr || p.TransactionRef == cleanUtr) && p.OnlinePaymentStatus == "Completed");
+
+        if (isDuplicateUtr)
+        {
+            return Conflict(new { message = $"Payment with UPI Reference ID / UTR '{cleanUtr}' has already been processed and verified." });
+        }
+
+        var strategy = _dbContext.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync<ActionResult<FeePaymentReceiptDto>>(async () =>
+        {
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
+            var student = await _dbContext.Students
+                .Include(s => s.Branch)
+                .Include(s => s.Class)
+                .Include(s => s.Section)
+                .Include(s => s.Batch)
+                .FirstOrDefaultAsync(s => s.Id == studentId);
+
+            if (student == null) return NotFound(new { message = "Student not found." });
+
+            var unpaidInvoices = await _dbContext.FeeInvoices
+                .Include(i => i.Items)
+                .Where(i => i.StudentId == studentId && i.Status != InvoiceStatus.Paid && i.Status != InvoiceStatus.Cancelled)
+                .OrderBy(i => i.DueDate)
+                .ToListAsync();
+
+            decimal totalAmountPaid = dto.Amount;
+            decimal finePaidNow = 0;
+            string? libraryFineParticulars = null;
+            var selectedCirculations = new List<LibraryCirculation>();
+
+            if (dto.IncludeLibraryFine)
+            {
+                var pendingLibCirculations = await _dbContext.LibraryCirculations
+                    .Include(c => c.BookCopy).ThenInclude(bc => bc!.Book)
+                    .Where(c => c.StudentId == studentId && (c.FineStatus == "Pending" && c.FineAmount > 0))
+                    .OrderBy(c => c.DueDate)
+                    .ToListAsync();
+
+                decimal totalFines = pendingLibCirculations.Sum(c => c.FineAmount);
+                if (totalFines > 0)
+                {
+                    finePaidNow = Math.Min(totalAmountPaid, totalFines);
+                    selectedCirculations = pendingLibCirculations;
+                    libraryFineParticulars = $"Library Fines Paid (₹{finePaidNow:N2})";
+                }
+            }
+
+            decimal tuitionToAllocate = totalAmountPaid - finePaidNow;
+            if (unpaidInvoices.Count == 0 && finePaidNow == 0)
+            {
+                return BadRequest(new { message = "This student has zero outstanding due fees or fines." });
+            }
+
+            var receiptNo = "REC-" + DateTime.UtcNow.ToString("yyyyMMddHHmmss");
+            decimal tuitionAllocatedTotal = 0;
+            var allocatedInvoicesList = new List<(FeeInvoice Invoice, decimal AllocatedAmount)>();
+            FeePayment? lastPayment = null;
+
+            if (tuitionToAllocate > 0 && unpaidInvoices.Count > 0)
+            {
+                decimal remainingTuition = tuitionToAllocate;
+                foreach (var inv in unpaidInvoices)
+                {
+                    if (remainingTuition <= 0) break;
+                    decimal invoiceDue = inv.TotalAmount - inv.PaidAmount;
+                    decimal allocateForThisInv = Math.Min(remainingTuition, invoiceDue);
+                    if (allocateForThisInv <= 0) continue;
+
+                    inv.PaidAmount += allocateForThisInv;
+                    tuitionAllocatedTotal += allocateForThisInv;
+                    inv.Status = inv.PaidAmount >= inv.TotalAmount ? InvoiceStatus.Paid : InvoiceStatus.Partial;
+
+                    decimal itemRemaining = allocateForThisInv;
+                    if (inv.Items != null && inv.Items.Count > 0)
+                    {
+                        foreach (var it in inv.Items)
+                        {
+                            if (itemRemaining <= 0) break;
+                            decimal itDue = it.Amount - it.PaidAmount;
+                            if (itDue <= 0) continue;
+                            decimal itAlloc = Math.Min(itemRemaining, itDue);
+                            it.PaidAmount += itAlloc;
+                            itemRemaining -= itAlloc;
+                        }
+                    }
+
+                    remainingTuition -= allocateForThisInv;
+                    allocatedInvoicesList.Add((inv, allocateForThisInv));
+
+                    var payment = new FeePayment
+                    {
+                        TenantId = student.TenantId,
+                        BranchId = inv.BranchId ?? student.BranchId,
+                        InvoiceId = inv.Id,
+                        ReceiptNumber = receiptNo,
+                        AmountPaid = allocateForThisInv,
+                        Mode = PaymentMode.UPI,
+                        TransactionRef = cleanUtr,
+                        UpiRrn = cleanUtr,
+                        PayerVpa = dto.PayerVpa?.Trim(),
+                        PayerName = dto.PayerName?.Trim() ?? student.ParentName ?? student.StudentName,
+                        PayerPhone = dto.PayerPhone?.Trim() ?? student.ParentWhatsAppPhone,
+                        OnlinePaymentStatus = "Completed",
+                        VerifiedBy = User.Identity?.Name ?? "UPI-FIFO-Self",
+                        VerifiedAt = DateTime.UtcNow,
+                        PaymentDate = DateTime.UtcNow,
+                        Remarks = !string.IsNullOrWhiteSpace(dto.Remarks) ? dto.Remarks.Trim() : $"Online UPI FIFO Settlement (UTR: {cleanUtr})"
+                    };
+
+                    _dbContext.FeePayments.Add(payment);
+                    lastPayment = payment;
+                }
+            }
+
+            if (finePaidNow > 0)
+            {
+                foreach (var circ in selectedCirculations)
+                {
+                    circ.FineStatus = "Paid";
+                    circ.FinePaymentReceiptNumber = receiptNo;
+                    circ.FinePaidAt = DateTime.UtcNow;
+                }
+            }
+
+            await _dbContext.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            var tenant = await _dbContext.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.Id == student.TenantId);
+            var branch = student.Branch;
+
+            decimal remainingTotalDue = await _dbContext.FeeInvoices
+                .Where(i => i.StudentId == student.Id && i.Status != InvoiceStatus.Cancelled)
+                .SumAsync(i => i.TotalAmount - i.PaidAmount);
+
+            var lineItems = new List<FeeReceiptLineItemDto>();
+            foreach (var item in allocatedInvoicesList)
+            {
+                lineItems.Add(new FeeReceiptLineItemDto(
+                    lineItems.Count + 1,
+                    item.Invoice.Title,
+                    "Online UPI Fee Settlement",
+                    item.Invoice.InvoiceNumber,
+                    item.AllocatedAmount
+                ));
+            }
+
+            var receiptDto = new FeePaymentReceiptDto(
+                lastPayment?.Id ?? Guid.NewGuid(),
+                receiptNo,
+                student.StudentName,
+                student.SchoolRollNumber ?? student.RollNumber ?? "N/A",
+                student.Batch?.Name ?? "General",
+                student.ParentName ?? "Parent/Guardian",
+                student.ParentWhatsAppPhone ?? "",
+                allocatedInvoicesList.Count > 0 ? allocatedInvoicesList[0].Invoice.InvoiceNumber : "N/A",
+                totalAmountPaid,
+                remainingTotalDue,
+                DateTime.UtcNow,
+                PaymentMode.UPI,
+                cleanUtr,
+                dto.Remarks ?? $"UPI Online Payment (UTR: {cleanUtr})",
+                tuitionAllocatedTotal,
+                finePaidNow,
+                libraryFineParticulars,
+                0m,
+                lineItems,
+                null,
+                branch?.Name,
+                student.Class?.Name,
+                student.Section?.Name,
+                tenant?.Name ?? "Jnandeep Campus",
+                tenant?.ProfilePhoto,
+                tenant?.ContactPhone,
+                tenant?.Address,
+                student.Id,
+                allocatedInvoicesList.Count > 0 ? allocatedInvoicesList[0].Invoice.Id : (Guid?)null
+            );
+
+            if (dto.SendWhatsAppReceipt && !string.IsNullOrWhiteSpace(student.ParentWhatsAppPhone))
+            {
+                try
+                {
+                    await _whatsAppService.SendFeeReceiptAsync(
+                        student.TenantId,
+                        student.ParentWhatsAppPhone,
+                        student.StudentName,
+                        receiptNo,
+                        totalAmountPaid,
+                        remainingTotalDue
+                    );
+                }
+                catch { }
+            }
+
+            return Ok(receiptDto);
+        });
+    }
+
+    [HttpGet("upi-settings")]
+    public async Task<ActionResult<UpiPaymentSettingsDto>> GetUpiSettings([FromQuery] Guid? branchId = null)
+    {
+        var tenantId = _currentUser.TenantId;
+        var tenant = await _dbContext.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.Id == tenantId);
+        if (tenant == null) return NotFound("Tenant not found.");
+
+        var targetBranchId = branchId ?? _currentUser.BranchId;
+        Branch? branch = null;
+        if (targetBranchId.HasValue && targetBranchId != Guid.Empty)
+        {
+            branch = await _dbContext.Branches.AsNoTracking().FirstOrDefaultAsync(b => b.Id == targetBranchId.Value && b.TenantId == tenantId);
+        }
+
+        string effectiveUpiId = !string.IsNullOrWhiteSpace(branch?.UpiId)
+            ? branch.UpiId.Trim()
+            : (!string.IsNullOrWhiteSpace(tenant.UpiId) ? tenant.UpiId.Trim() : "imserp.fees@sbi");
+
+        string effectiveMerchantName = !string.IsNullOrWhiteSpace(branch?.UpiMerchantName)
+            ? branch.UpiMerchantName.Trim()
+            : (!string.IsNullOrWhiteSpace(tenant.UpiMerchantName) ? tenant.UpiMerchantName.Trim() : (tenant.Name ?? "Jnandeep Campus"));
+
+        return Ok(new UpiPaymentSettingsDto(
+            tenant.UpiId,
+            tenant.UpiMerchantName,
+            tenant.UpiMerchantCode ?? "8211",
+            tenant.UpiQrEnabled,
+            tenant.UpiAutoVerify,
+            branch?.UpiId,
+            branch?.UpiMerchantName,
+            effectiveUpiId,
+            effectiveMerchantName
+        ));
+    }
+
+    [HttpPut("upi-settings")]
+    public async Task<ActionResult> UpdateUpiSettings([FromBody] UpdateUpiPaymentSettingsDto dto)
+    {
+        var roleClaim = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value?.ToLower() ?? "";
+        if (roleClaim.Contains("parent") || roleClaim.Contains("student"))
+        {
+            return Forbid();
+        }
+
+        var tenantId = _currentUser.TenantId;
+        var tenant = await _dbContext.Tenants.FirstOrDefaultAsync(t => t.Id == tenantId);
+        if (tenant == null) return NotFound("Tenant not found.");
+
+        if (dto.ApplyToBranchOnly && dto.BranchId.HasValue && dto.BranchId.Value != Guid.Empty)
+        {
+            var branch = await _dbContext.Branches.FirstOrDefaultAsync(b => b.Id == dto.BranchId.Value && b.TenantId == tenantId);
+            if (branch == null) return NotFound("Branch not found.");
+            branch.UpiId = dto.UpiId?.Trim();
+            branch.UpiMerchantName = dto.UpiMerchantName?.Trim();
+        }
+        else
+        {
+            tenant.UpiId = dto.UpiId?.Trim();
+            tenant.UpiMerchantName = dto.UpiMerchantName?.Trim();
+            tenant.UpiMerchantCode = !string.IsNullOrWhiteSpace(dto.UpiMerchantCode) ? dto.UpiMerchantCode.Trim() : "8211";
+            tenant.UpiQrEnabled = dto.UpiQrEnabled;
+            tenant.UpiAutoVerify = dto.UpiAutoVerify;
+        }
+
+        await _dbContext.SaveChangesAsync();
+        return Ok(new { message = "UPI Payment Gateway settings saved successfully." });
+    }
+
+    [HttpGet("online-upi-transactions")]
+    public async Task<ActionResult<PagedResultDto<OnlineUpiTransactionItemDto>>> GetOnlineUpiTransactions(
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 15,
+        [FromQuery] string? searchTerm = null,
+        [FromQuery] Guid? branchId = null,
+        [FromQuery] DateTime? fromDate = null,
+        [FromQuery] DateTime? toDate = null)
+    {
+        var roleClaim = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value?.ToLower() ?? "";
+        if (roleClaim.Contains("parent") || roleClaim.Contains("student"))
+        {
+            return Forbid();
+        }
+
+        var tenantId = _currentUser.TenantId;
+        var query = _dbContext.FeePayments
+            .AsNoTracking()
+            .Where(p => p.TenantId == tenantId && p.Mode == PaymentMode.UPI)
+            .Include(p => p.Branch)
+            .Include(p => p.Invoice)
+                .ThenInclude(i => i!.Student)
+                    .ThenInclude(s => s!.Class)
+            .Include(p => p.Invoice)
+                .ThenInclude(i => i!.Student)
+                    .ThenInclude(s => s!.Section)
+            .Include(p => p.Invoice)
+                .ThenInclude(i => i!.Student)
+                    .ThenInclude(s => s!.Batch)
+            .AsQueryable();
+
+        var effectiveBranchId = branchId ?? _currentUser.BranchId;
+        if (effectiveBranchId.HasValue && effectiveBranchId.Value != Guid.Empty)
+        {
+            query = query.Where(p => p.BranchId == effectiveBranchId.Value ||
+                                     (p.Invoice != null && p.Invoice.BranchId == effectiveBranchId.Value) ||
+                                     (p.Invoice != null && p.Invoice.Student != null && p.Invoice.Student.BranchId == effectiveBranchId.Value));
+        }
+
+        if (fromDate.HasValue)
+        {
+            query = query.Where(p => p.PaymentDate >= fromDate.Value);
+        }
+
+        if (toDate.HasValue)
+        {
+            var endOfDay = toDate.Value.Date.AddDays(1).AddTicks(-1);
+            query = query.Where(p => p.PaymentDate <= endOfDay);
+        }
+
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            var term = searchTerm.Trim().ToLower();
+            query = query.Where(p =>
+                (p.UpiRrn != null && p.UpiRrn.ToLower().Contains(term)) ||
+                (p.TransactionRef != null && p.TransactionRef.ToLower().Contains(term)) ||
+                p.ReceiptNumber.ToLower().Contains(term) ||
+                (p.Invoice != null && p.Invoice.InvoiceNumber.ToLower().Contains(term)) ||
+                (p.PayerName != null && p.PayerName.ToLower().Contains(term)) ||
+                (p.PayerPhone != null && p.PayerPhone.Contains(term)) ||
+                (p.Invoice != null && p.Invoice.Student != null && (
+                    p.Invoice.Student.StudentName.ToLower().Contains(term) ||
+                    p.Invoice.Student.RollNumber.ToLower().Contains(term) ||
+                    (p.Invoice.Student.SchoolRollNumber != null && p.Invoice.Student.SchoolRollNumber.ToLower().Contains(term))
+                ))
+            );
+        }
+
+        var totalCount = await query.CountAsync();
+        var items = await query
+            .OrderByDescending(p => p.PaymentDate)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .Select(p => new OnlineUpiTransactionItemDto(
+                p.Id,
+                p.InvoiceId,
+                p.Invoice != null ? p.Invoice.InvoiceNumber : "N/A",
+                p.ReceiptNumber,
+                p.Invoice != null ? p.Invoice.StudentId : Guid.Empty,
+                p.Invoice != null && p.Invoice.Student != null ? p.Invoice.Student.StudentName : "Student",
+                p.Invoice != null && p.Invoice.Student != null ? (p.Invoice.Student.SchoolRollNumber ?? p.Invoice.Student.RollNumber) : null,
+                p.Invoice != null && p.Invoice.Student != null && p.Invoice.Student.Class != null ? p.Invoice.Student.Class.Name : null,
+                p.Invoice != null && p.Invoice.Student != null && p.Invoice.Student.Section != null ? p.Invoice.Student.Section.Name : null,
+                p.Invoice != null && p.Invoice.Student != null && p.Invoice.Student.Batch != null ? p.Invoice.Student.Batch.Name : null,
+                p.Branch != null ? p.Branch.Name : (p.Invoice != null && p.Invoice.Branch != null ? p.Invoice.Branch.Name : null),
+                p.AmountPaid,
+                p.UpiRrn ?? p.TransactionRef,
+                p.PayerVpa,
+                p.PayerName,
+                p.PayerPhone,
+                p.OnlinePaymentStatus ?? "Completed",
+                p.PaymentDate,
+                p.VerifiedBy,
+                p.VerifiedAt
+            ))
+            .ToListAsync();
+
+        return Ok(new PagedResultDto<OnlineUpiTransactionItemDto>(items, totalCount, pageNumber, pageSize));
     }
 }
 

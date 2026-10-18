@@ -128,7 +128,12 @@ public record TenantDto(
     DateTime? TrialEndDate = null,
     DateTime? PaidUntil = null,
     int MaxStudentsLimit = 50,
-    int MaxBranchesLimit = 2
+    int MaxBranchesLimit = 2,
+    string? UpiId = null,
+    string? UpiMerchantName = null,
+    string? UpiMerchantCode = null,
+    bool UpiQrEnabled = true,
+    bool UpiAutoVerify = true
 );
 
 public record CreateTenantDto(
@@ -186,7 +191,12 @@ public record UpdateTenantDto(
     DateTime? TrialEndDate = null,
     DateTime? PaidUntil = null,
     int? MaxStudentsLimit = null,
-    int? MaxBranchesLimit = null
+    int? MaxBranchesLimit = null,
+    string? UpiId = null,
+    string? UpiMerchantName = null,
+    string? UpiMerchantCode = null,
+    bool? UpiQrEnabled = null,
+    bool? UpiAutoVerify = null
 );
 
 public record ExtendSubscriptionDto(
@@ -814,7 +824,9 @@ public record FeePaymentReceiptDto(
     string? InstituteName = null,
     string? InstituteLogoUrl = null,
     string? InstituteContactPhone = null,
-    string? InstituteAddress = null
+    string? InstituteAddress = null,
+    Guid? StudentId = null,
+    Guid? InvoiceId = null
 );
 
 public record StudentPendingFineItemDto(
@@ -1369,6 +1381,99 @@ public record CollectFifoFeeDto(
     List<Guid>? LibraryCirculationIds = null,
     List<FeeItemPaymentDto>? ItemPayments = null
 );
+
+public record UpiIntentResponseDto(
+    Guid InvoiceId,
+    string InvoiceNumber,
+    Guid StudentId,
+    string StudentName,
+    string? RollNumber,
+    string? ClassName,
+    string? SectionName,
+    string? BatchName,
+    decimal TotalAmount,
+    decimal PaidAmount,
+    decimal DueAmount,
+    string PayeeUpiId,
+    string PayeeName,
+    string? PayeeMerchantCode,
+    string UpiIntentUri,
+    string GPayUri,
+    string PhonePeUri,
+    string PaytmUri,
+    string BhimUri,
+    string? BranchName,
+    string InstituteName,
+    string? InstituteLogo
+);
+
+public record CollectUpiPaymentRequestDto(
+    decimal Amount,
+    string UpiRrn,
+    string? PayerVpa = null,
+    string? PayerName = null,
+    string? PayerPhone = null,
+    string? Remarks = null,
+    bool SendWhatsAppReceipt = true
+);
+
+public record CollectStudentFifoUpiPaymentRequestDto(
+    Guid StudentId,
+    decimal Amount,
+    string UpiRrn,
+    string? PayerVpa = null,
+    string? PayerName = null,
+    string? PayerPhone = null,
+    string? Remarks = null,
+    bool SendWhatsAppReceipt = true,
+    bool IncludeLibraryFine = false
+);
+
+public record UpiPaymentSettingsDto(
+    string? UpiId,
+    string? UpiMerchantName,
+    string? UpiMerchantCode,
+    bool UpiQrEnabled,
+    bool UpiAutoVerify,
+    string? BranchUpiId,
+    string? BranchUpiMerchantName,
+    string EffectiveUpiId,
+    string EffectiveMerchantName
+);
+
+public record UpdateUpiPaymentSettingsDto(
+    string UpiId,
+    string UpiMerchantName,
+    string? UpiMerchantCode,
+    bool UpiQrEnabled,
+    bool UpiAutoVerify,
+    bool ApplyToBranchOnly = false,
+    Guid? BranchId = null
+);
+
+public record OnlineUpiTransactionItemDto(
+    Guid PaymentId,
+    Guid InvoiceId,
+    string InvoiceNumber,
+    string ReceiptNumber,
+    Guid StudentId,
+    string StudentName,
+    string? RollNumber,
+    string? ClassName,
+    string? SectionName,
+    string? BatchName,
+    string? BranchName,
+    decimal AmountPaid,
+    string? UpiRrn,
+    string? PayerVpa,
+    string? PayerName,
+    string? PayerPhone,
+    string? OnlinePaymentStatus,
+    DateTime PaymentDate,
+    string? VerifiedBy,
+    DateTime? VerifiedAt
+);
+
 
 public record WhatsAppLogPagedItemDto(
     Guid Id,
