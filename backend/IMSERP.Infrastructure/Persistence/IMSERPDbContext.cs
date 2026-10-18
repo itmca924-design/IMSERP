@@ -108,6 +108,15 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
     public DbSet<ChatConversation> ChatConversations => Set<ChatConversation>();
     public DbSet<ChatParticipant> ChatParticipants => Set<ChatParticipant>();
     public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
+    // Inventory & Store module
+    public DbSet<InventoryCategory> InventoryCategories => Set<InventoryCategory>();
+    public DbSet<InventoryItem> InventoryItems => Set<InventoryItem>();
+    public DbSet<InventoryVendor> InventoryVendors => Set<InventoryVendor>();
+    public DbSet<InventoryInward> InventoryInwards => Set<InventoryInward>();
+    public DbSet<InventoryInwardItem> InventoryInwardItems => Set<InventoryInwardItem>();
+    public DbSet<InventoryOutward> InventoryOutwards => Set<InventoryOutward>();
+    public DbSet<InventoryOutwardItem> InventoryOutwardItems => Set<InventoryOutwardItem>();
+    public DbSet<InventoryStockAdjustment> InventoryStockAdjustments => Set<InventoryStockAdjustment>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -392,6 +401,70 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
         modelBuilder.Entity<StudentGatePass>().HasQueryFilter(x =>
             (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+
+        // Inventory & Store query filters
+        modelBuilder.Entity<InventoryCategory>().HasQueryFilter(x =>
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<InventoryItem>().HasQueryFilter(x =>
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<InventoryVendor>().HasQueryFilter(x =>
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<InventoryInward>().HasQueryFilter(x =>
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<InventoryInwardItem>().HasQueryFilter(x =>
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<InventoryOutward>().HasQueryFilter(x =>
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<InventoryOutwardItem>().HasQueryFilter(x =>
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<InventoryStockAdjustment>().HasQueryFilter(x =>
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+
+        // Inventory Entity relationships and indexes
+        modelBuilder.Entity<InventoryItem>(entity =>
+        {
+            entity.HasOne(i => i.Category)
+                .WithMany(c => c.Items)
+                .HasForeignKey(i => i.CategoryId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(i => new { i.TenantId, i.BranchId, i.ItemCode });
+            entity.HasIndex(i => new { i.TenantId, i.CategoryId });
+        });
+
+        modelBuilder.Entity<InventoryInwardItem>(entity =>
+        {
+            entity.HasOne(ii => ii.Inward)
+                .WithMany(i => i.Items)
+                .HasForeignKey(ii => ii.InwardId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(ii => ii.Item)
+                .WithMany()
+                .HasForeignKey(ii => ii.ItemId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<InventoryOutwardItem>(entity =>
+        {
+            entity.HasOne(oi => oi.Outward)
+                .WithMany(o => o.Items)
+                .HasForeignKey(oi => oi.OutwardId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(oi => oi.Item)
+                .WithMany()
+                .HasForeignKey(oi => oi.ItemId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
 
         // HostelAllocation — configure nullable StudentId / TeacherId FKs
         modelBuilder.Entity<HostelAllocation>()

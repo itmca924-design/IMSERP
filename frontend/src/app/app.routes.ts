@@ -324,6 +324,14 @@ export const routes: Routes = [
         loadComponent: () => import('./features/front-desk/visitors.component').then(m => m.VisitorsComponent)
       },
       { path: 'front-desk', redirectTo: 'front-desk/visitors', pathMatch: 'full' },
+
+      // Inventory & Stock Management Module
+      {
+        path: 'inventory',
+        loadComponent: () => import('./features/inventory/inventory.component').then(m => m.InventoryComponent)
+      },
+      { path: 'stock', redirectTo: 'inventory', pathMatch: 'full' },
+      { path: 'store', redirectTo: 'inventory', pathMatch: 'full' },
       // Route Aliases
       { path: 'period-settings', redirectTo: 'school/period-settings', pathMatch: 'full' },
       { path: 'school/periods', redirectTo: 'school/period-settings', pathMatch: 'full' },

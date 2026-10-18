@@ -2528,3 +2528,194 @@ public class ChatMessage
     [ForeignKey("BranchId")]
     public Branch? Branch { get; set; }
 }
+
+// =========================================================================================
+// INVENTORY & STORE MANAGEMENT MODULE ENTITIES
+// =========================================================================================
+
+public class InventoryCategory
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string Code { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+    public ICollection<InventoryItem> Items { get; set; } = new List<InventoryItem>();
+}
+
+public class InventoryItem
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid CategoryId { get; set; }
+    public string ItemCode { get; set; } = string.Empty;
+    public string ItemName { get; set; } = string.Empty;
+    public string ItemType { get; set; } = "Consumable"; // Consumable, Kit/Sellable, Asset
+    public string UnitOfMeasurement { get; set; } = "Pcs"; // Pcs, Box, Set, Packet, Dozen, Roll, Kg
+    public decimal PurchasePrice { get; set; } = 0;
+    public decimal SellingPrice { get; set; } = 0;
+    public decimal CurrentStock { get; set; } = 0;
+    public decimal MinStockAlertLevel { get; set; } = 5;
+    public string? RackOrLocation { get; set; }
+    public string? Description { get; set; }
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? UpdatedAt { get; set; }
+
+    [ForeignKey("CategoryId")]
+    public InventoryCategory? Category { get; set; }
+
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+}
+
+public class InventoryVendor
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public string VendorName { get; set; } = string.Empty;
+    public string? ContactPerson { get; set; }
+    public string? Phone { get; set; }
+    public string? Email { get; set; }
+    public string? Address { get; set; }
+    public string? Gstin { get; set; }
+    public string? Pan { get; set; }
+    public string? PaymentTerms { get; set; }
+    public string? BankDetails { get; set; }
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+    public ICollection<InventoryInward> Inwards { get; set; } = new List<InventoryInward>();
+}
+
+public class InventoryInward
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid? VendorId { get; set; }
+    public string InwardNumber { get; set; } = string.Empty;
+    public string? InvoiceBillNumber { get; set; }
+    public DateTime InwardDate { get; set; } = DateTime.UtcNow;
+    public decimal TotalAmount { get; set; } = 0;
+    public decimal DiscountAmount { get; set; } = 0;
+    public decimal TaxAmount { get; set; } = 0;
+    public decimal NetAmount { get; set; } = 0;
+    public string PaymentStatus { get; set; } = "Paid"; // Paid, Pending, Partial
+    public string PaymentMode { get; set; } = "Cash"; // Cash, Bank Transfer, UPI, Cheque
+    public string? Remarks { get; set; }
+    public Guid? CreatedBy { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("VendorId")]
+    public InventoryVendor? Vendor { get; set; }
+
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+
+    public ICollection<InventoryInwardItem> Items { get; set; } = new List<InventoryInwardItem>();
+}
+
+public class InventoryInwardItem
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid InwardId { get; set; }
+    public Guid ItemId { get; set; }
+    public decimal Quantity { get; set; } = 1;
+    public decimal UnitPrice { get; set; } = 0;
+    public decimal TotalAmount { get; set; } = 0;
+    public string? BatchOrSerialNo { get; set; }
+    public string? Remarks { get; set; }
+
+    [ForeignKey("InwardId")]
+    public InventoryInward? Inward { get; set; }
+
+    [ForeignKey("ItemId")]
+    public InventoryItem? Item { get; set; }
+
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+}
+
+public class InventoryOutward
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public string IssueNumber { get; set; } = string.Empty;
+    public DateTime IssueDate { get; set; } = DateTime.UtcNow;
+    public string IssueType { get; set; } = "StaffDepartmentIssue"; // StaffDepartmentIssue, StudentKitSale, DisposalDamage
+    public Guid? StudentId { get; set; }
+    public string IssuedToName { get; set; } = string.Empty;
+    public string? DepartmentOrClass { get; set; }
+    public decimal TotalAmount { get; set; } = 0;
+    public string PaymentStatus { get; set; } = "Free/Complimentary"; // Paid, Free/Complimentary, Unpaid, AddedToFeeBill
+    public string? PaymentMode { get; set; }
+    public string? Remarks { get; set; }
+    public Guid? CreatedBy { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("StudentId")]
+    public Student? Student { get; set; }
+
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+
+    public ICollection<InventoryOutwardItem> Items { get; set; } = new List<InventoryOutwardItem>();
+}
+
+public class InventoryOutwardItem
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid OutwardId { get; set; }
+    public Guid ItemId { get; set; }
+    public decimal Quantity { get; set; } = 1;
+    public decimal UnitPrice { get; set; } = 0;
+    public decimal TotalAmount { get; set; } = 0;
+    public string? Remarks { get; set; }
+
+    [ForeignKey("OutwardId")]
+    public InventoryOutward? Outward { get; set; }
+
+    [ForeignKey("ItemId")]
+    public InventoryItem? Item { get; set; }
+
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+}
+
+public class InventoryStockAdjustment
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid ItemId { get; set; }
+    public string AdjustmentType { get; set; } = "PhysicalAuditCorrection"; // PhysicalAuditCorrection, DamagedLoss, ReturnToVendor, FoundExcess
+    public decimal PreviousStock { get; set; } = 0;
+    public decimal AdjustedQuantity { get; set; } = 0; // Positive or negative
+    public decimal NewStock { get; set; } = 0;
+    public string? Reason { get; set; }
+    public DateTime AdjustedAt { get; set; } = DateTime.UtcNow;
+    public Guid? AdjustedBy { get; set; }
+
+    [ForeignKey("ItemId")]
+    public InventoryItem? Item { get; set; }
+
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+}
+

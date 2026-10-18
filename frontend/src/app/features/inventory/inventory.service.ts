@@ -1,0 +1,176 @@
+import { Injectable, inject } from '@angular/core';
+import { HttpClient, HttpParams } from '@angular/common/http';
+import { Observable } from 'rxjs';
+import { environment } from '../../../environments/environment';
+import {
+  InventoryDashboardStats,
+  InventoryCategory,
+  CreateUpdateCategoryDto,
+  InventoryVendor,
+  CreateUpdateVendorDto,
+  InventoryItem,
+  CreateUpdateItemDto,
+  InventoryInward,
+  CreateInwardDto,
+  InventoryOutward,
+  CreateOutwardDto,
+  InventoryStockAdjustment,
+  CreateStockAdjustmentDto,
+  StudentLookupItem,
+  StaffLookupItem
+} from './inventory.models';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class InventoryService {
+  private readonly http = inject(HttpClient);
+  private readonly baseUrl = `${environment.apiUrl}/inventory`;
+
+  // Dashboard Metrics
+  getDashboardStats(branchId?: string): Observable<InventoryDashboardStats> {
+    let params = new HttpParams();
+    if (branchId) params = params.set('branchId', branchId);
+    return this.http.get<InventoryDashboardStats>(`${this.baseUrl}/dashboard`, { params });
+  }
+
+  // Categories
+  getCategories(branchId?: string): Observable<InventoryCategory[]> {
+    let params = new HttpParams();
+    if (branchId) params = params.set('branchId', branchId);
+    return this.http.get<InventoryCategory[]>(`${this.baseUrl}/categories`, { params });
+  }
+
+  createCategory(dto: CreateUpdateCategoryDto): Observable<InventoryCategory> {
+    return this.http.post<InventoryCategory>(`${this.baseUrl}/categories`, dto);
+  }
+
+  updateCategory(id: string, dto: CreateUpdateCategoryDto): Observable<{ message: string }> {
+    return this.http.put<{ message: string }>(`${this.baseUrl}/categories/${id}`, dto);
+  }
+
+  deleteCategory(id: string): Observable<{ message: string }> {
+    return this.http.delete<{ message: string }>(`${this.baseUrl}/categories/${id}`);
+  }
+
+  // Vendors
+  getVendors(branchId?: string): Observable<InventoryVendor[]> {
+    let params = new HttpParams();
+    if (branchId) params = params.set('branchId', branchId);
+    return this.http.get<InventoryVendor[]>(`${this.baseUrl}/vendors`, { params });
+  }
+
+  createVendor(dto: CreateUpdateVendorDto): Observable<InventoryVendor> {
+    return this.http.post<InventoryVendor>(`${this.baseUrl}/vendors`, dto);
+  }
+
+  updateVendor(id: string, dto: CreateUpdateVendorDto): Observable<{ message: string }> {
+    return this.http.put<{ message: string }>(`${this.baseUrl}/vendors/${id}`, dto);
+  }
+
+  deleteVendor(id: string): Observable<{ message: string }> {
+    return this.http.delete<{ message: string }>(`${this.baseUrl}/vendors/${id}`);
+  }
+
+  // Items Catalog
+  getItems(filters: {
+    search?: string;
+    categoryId?: string;
+    itemType?: string;
+    lowStockOnly?: boolean;
+    branchId?: string;
+    activeOnly?: boolean;
+  }): Observable<InventoryItem[]> {
+    let params = new HttpParams();
+    if (filters.search) params = params.set('search', filters.search);
+    if (filters.categoryId) params = params.set('categoryId', filters.categoryId);
+    if (filters.itemType && filters.itemType !== 'All') params = params.set('itemType', filters.itemType);
+    if (filters.lowStockOnly !== undefined && filters.lowStockOnly !== null) params = params.set('lowStockOnly', filters.lowStockOnly.toString());
+    if (filters.branchId) params = params.set('branchId', filters.branchId);
+    if (filters.activeOnly !== undefined) params = params.set('activeOnly', filters.activeOnly.toString());
+
+    return this.http.get<InventoryItem[]>(`${this.baseUrl}/items`, { params });
+  }
+
+  createItem(dto: CreateUpdateItemDto): Observable<InventoryItem> {
+    return this.http.post<InventoryItem>(`${this.baseUrl}/items`, dto);
+  }
+
+  updateItem(id: string, dto: CreateUpdateItemDto): Observable<{ message: string }> {
+    return this.http.put<{ message: string }>(`${this.baseUrl}/items/${id}`, dto);
+  }
+
+  deleteItem(id: string): Observable<{ message: string }> {
+    return this.http.delete<{ message: string }>(`${this.baseUrl}/items/${id}`);
+  }
+
+  // Stock Inward
+  getInwards(filters: {
+    startDate?: string;
+    endDate?: string;
+    vendorId?: string;
+    branchId?: string;
+  }): Observable<InventoryInward[]> {
+    let params = new HttpParams();
+    if (filters.startDate) params = params.set('startDate', filters.startDate);
+    if (filters.endDate) params = params.set('endDate', filters.endDate);
+    if (filters.vendorId) params = params.set('vendorId', filters.vendorId);
+    if (filters.branchId) params = params.set('branchId', filters.branchId);
+
+    return this.http.get<InventoryInward[]>(`${this.baseUrl}/inwards`, { params });
+  }
+
+  createInward(dto: CreateInwardDto): Observable<{ message: string; inwardNumber: string }> {
+    return this.http.post<{ message: string; inwardNumber: string }>(`${this.baseUrl}/inwards`, dto);
+  }
+
+  // Stock Outward / Issue & Sale
+  getOutwards(filters: {
+    startDate?: string;
+    endDate?: string;
+    issueType?: string;
+    studentId?: string;
+    branchId?: string;
+  }): Observable<InventoryOutward[]> {
+    let params = new HttpParams();
+    if (filters.startDate) params = params.set('startDate', filters.startDate);
+    if (filters.endDate) params = params.set('endDate', filters.endDate);
+    if (filters.issueType && filters.issueType !== 'All') params = params.set('issueType', filters.issueType);
+    if (filters.studentId) params = params.set('studentId', filters.studentId);
+    if (filters.branchId) params = params.set('branchId', filters.branchId);
+
+    return this.http.get<InventoryOutward[]>(`${this.baseUrl}/outwards`, { params });
+  }
+
+  createOutward(dto: CreateOutwardDto): Observable<{ message: string; issueNumber: string }> {
+    return this.http.post<{ message: string; issueNumber: string }>(`${this.baseUrl}/outwards`, dto);
+  }
+
+  // Stock Adjustments
+  getAdjustments(itemId?: string, branchId?: string): Observable<InventoryStockAdjustment[]> {
+    let params = new HttpParams();
+    if (itemId) params = params.set('itemId', itemId);
+    if (branchId) params = params.set('branchId', branchId);
+    return this.http.get<InventoryStockAdjustment[]>(`${this.baseUrl}/adjustments`, { params });
+  }
+
+  createAdjustment(dto: CreateStockAdjustmentDto): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.baseUrl}/adjustments`, dto);
+  }
+
+  // Student Quick Lookup
+  searchStudents(query?: string, branchId?: string, classId?: string): Observable<StudentLookupItem[]> {
+    let params = new HttpParams();
+    if (query) params = params.set('query', query);
+    if (branchId) params = params.set('branchId', branchId);
+    if (classId) params = params.set('classId', classId);
+    return this.http.get<StudentLookupItem[]>(`${this.baseUrl}/students-lookup`, { params });
+  }
+
+  // Staff / Teacher / Employee Quick Lookup
+  getStaffLookup(branchId?: string): Observable<StaffLookupItem[]> {
+    let params = new HttpParams();
+    if (branchId) params = params.set('branchId', branchId);
+    return this.http.get<StaffLookupItem[]>(`${this.baseUrl}/staff-lookup`, { params });
+  }
+}

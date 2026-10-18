@@ -101,6 +101,15 @@ public interface IIMSERPDbContext
     DbSet<ChatConversation> ChatConversations { get; }
     DbSet<ChatParticipant> ChatParticipants { get; }
     DbSet<ChatMessage> ChatMessages { get; }
+    // Inventory & Store module
+    DbSet<InventoryCategory> InventoryCategories { get; }
+    DbSet<InventoryItem> InventoryItems { get; }
+    DbSet<InventoryVendor> InventoryVendors { get; }
+    DbSet<InventoryInward> InventoryInwards { get; }
+    DbSet<InventoryInwardItem> InventoryInwardItems { get; }
+    DbSet<InventoryOutward> InventoryOutwards { get; }
+    DbSet<InventoryOutwardItem> InventoryOutwardItems { get; }
+    DbSet<InventoryStockAdjustment> InventoryStockAdjustments { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
