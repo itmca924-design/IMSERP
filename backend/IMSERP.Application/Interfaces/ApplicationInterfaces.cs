@@ -126,4 +126,5 @@ public interface ICurrentUserService
     string? BranchName { get; }
     Guid UserId { get; }
     string UserRole { get; }
+    string? Username { get; }
 }

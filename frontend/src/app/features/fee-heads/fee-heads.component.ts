@@ -241,8 +241,6 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           </div>
         </div>
 
-        <mat-progress-bar mode="indeterminate" *ngIf="loading"></mat-progress-bar>
-
         <!-- Responsive Grid Table -->
         <div class="table-container">
           <table mat-table [dataSource]="feeHeads" matSort (matSortChange)="onSortChange($event)" class="fee-heads-table">

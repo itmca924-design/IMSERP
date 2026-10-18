@@ -976,8 +976,6 @@ export class ApproveGatePassDialogComponent {
         </div>
       </div>
 
-      <mat-progress-bar *ngIf="loading" mode="indeterminate" class="fd-loader"></mat-progress-bar>
-
       <!-- ── Stats Cards ── -->
       <div class="stats-grid" [class.stats-student]="isStudentOrParent">
         <ng-container *ngIf="!isStudentOrParent">

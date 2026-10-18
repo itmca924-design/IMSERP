@@ -20,6 +20,7 @@ import {
 } from '../../core/services/fees.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { FeeReceiptDialogComponent } from './fee-receipt-dialog.component';
+import { AuthService } from '../../core/services/auth.service';
 
 export interface UpiPaymentDialogData {
   mode: 'invoice' | 'fifo_student';
@@ -59,9 +60,9 @@ export interface UpiPaymentDialogData {
             <mat-icon>qr_code_scanner</mat-icon>
           </div>
           <div class="header-titles">
-            <h2 class="main-title">Dynamic UPI Instant Fee Payment</h2>
+            <h2 class="main-title">Dynamic Bharat UPI Instant Fee Payment</h2>
             <p class="subtitle">
-              Scan &amp; pay with <strong>Google Pay, PhonePe, Paytm, or BHIM</strong> • Zero Gateway Charges
+              Scan &amp; pay with <strong>Google Pay, PhonePe, Paytm, or BHIM</strong> • Zero Gateway Surcharge
             </p>
           </div>
         </div>
@@ -69,9 +70,6 @@ export interface UpiPaymentDialogData {
           <mat-icon>close</mat-icon>
         </button>
       </header>
-
-      <!-- Single Loader Rule -->
-      <mat-progress-bar mode="indeterminate" *ngIf="loading" class="top-loader"></mat-progress-bar>
 
       <!-- Dialog Body -->
       <div class="dialog-content">
@@ -131,10 +129,11 @@ export interface UpiPaymentDialogData {
             <div class="qr-card">
               <!-- Verified Merchant Badge -->
               <div class="merchant-badge">
-                <mat-icon class="verified-icon">verified_user</mat-icon>
+                <img *ngIf="merchantLogoUrl && !merchantLogoFailed" [src]="merchantLogoUrl" (error)="merchantLogoFailed = true" alt="Logo" class="merchant-logo-img" />
+                <mat-icon *ngIf="!merchantLogoUrl || merchantLogoFailed" class="verified-icon">verified_user</mat-icon>
                 <div class="merchant-info">
-                  <span class="merchant-name">{{ upiIntent?.payeeName || data.studentName || 'School Fee Collection' }}</span>
-                  <span class="merchant-tag">Verified Educational Institution</span>
+                  <span class="merchant-name">{{ upiIntent?.payeeName || data.studentName || authService.currentUser()?.instituteName || 'School Fee Collection' }}</span>
+                  <span class="merchant-tag">Verified Institute UPI</span>
                 </div>
               </div>
 
@@ -155,7 +154,7 @@ export interface UpiPaymentDialogData {
               <!-- VPA Copy Strip -->
               <div class="upi-id-box">
                 <div class="vpa-text">
-                  <span class="vpa-label">UPI ID:</span>
+                  <span class="vpa-label">UPI ID (VPA):</span>
                   <strong class="vpa-val font-mono">{{ upiIntent?.payeeUpiId || 'fees@upi' }}</strong>
                 </div>
                 <button
@@ -196,14 +195,17 @@ export interface UpiPaymentDialogData {
 
           <!-- Right Column: Billing Particulars & 12-digit UTR Verification Form -->
           <div class="form-column">
-            <!-- Student & Fee Meta Card -->
+            <!-- Student & Fee Meta Card (Spacious Flex Row) -->
             <div class="billing-summary-card">
-              <div class="st-meta-row">
+              <div class="st-left">
                 <div class="st-avatar">
                   <mat-icon>school</mat-icon>
                 </div>
                 <div class="st-info">
-                  <h4 class="st-name">{{ upiIntent?.studentName || data.studentName }}</h4>
+                  <div class="st-name-row">
+                    <h4 class="st-name">{{ upiIntent?.studentName || data.studentName }}</h4>
+                    <span class="st-status-tag">Active Student</span>
+                  </div>
                   <div class="st-chips">
                     <span class="mini-chip">Roll: <strong>{{ upiIntent?.rollNumber || data.rollNumber || 'N/A' }}</strong></span>
                     <span class="mini-chip" *ngIf="upiIntent?.className || data.className">Class: <strong>{{ upiIntent?.className || data.className }}</strong></span>
@@ -216,7 +218,7 @@ export interface UpiPaymentDialogData {
 
               <div class="amount-deck">
                 <div class="amount-pill">
-                  <span class="amt-lbl">Total Payable Now:</span>
+                  <span class="amt-lbl">PAYABLE NOW</span>
                   <span class="amt-val">₹{{ paymentForm.get('amount')?.value | number:'1.2-2' }}</span>
                 </div>
               </div>
@@ -229,19 +231,18 @@ export interface UpiPaymentDialogData {
                 <span>Step 2: Enter Transaction Details &amp; Verify</span>
               </div>
 
-              <p class="step-guide">
-                After paying on your UPI app (Google Pay / PhonePe / Paytm / BHIM), enter the <strong>12-digit Bank Reference No. / UTR</strong> shown in the transaction receipt below to instantly generate your official receipt.
-              </p>
+              <div class="step-guide-box">
+                <mat-icon class="guide-icon">info</mat-icon>
+                <span>After paying via UPI, enter the <strong>12-digit UTR / Bank Reference No.</strong> from your payment receipt to instantly verify and issue the official fee receipt.</span>
+              </div>
 
-              <!-- Amount Input (Editable for partial or full settlement) -->
-              <mat-form-field appearance="outline" class="w-100 field-unit">
+              <!-- Amount Input (Readonly) -->
+              <mat-form-field appearance="outline" class="w-100 field-unit amount-field-readonly">
                 <mat-label>Settlement Amount (₹)</mat-label>
-                <input matInput type="number" formControlName="amount" min="1" [max]="maxPayableAmount" />
+                <input matInput type="number" formControlName="amount" [readonly]="true" />
                 <span matPrefix class="prefix-sym">₹&nbsp;</span>
-                <mat-hint>Outstanding due: ₹{{ maxPayableAmount | number:'1.2-2' }}</mat-hint>
-                <mat-error *ngIf="paymentForm.get('amount')?.hasError('required')">Amount is required.</mat-error>
-                <mat-error *ngIf="paymentForm.get('amount')?.hasError('min')">Amount must be at least ₹1.</mat-error>
-                <mat-error *ngIf="paymentForm.get('amount')?.hasError('max')">Amount cannot exceed outstanding due.</mat-error>
+                <mat-icon matSuffix class="readonly-lock-icon" matTooltip="Settlement amount is fixed to current payable due">lock</mat-icon>
+                <mat-hint>Total outstanding due: ₹{{ maxPayableAmount | number:'1.2-2' }}</mat-hint>
               </mat-form-field>
 
               <!-- 12-Digit UTR / Bank Reference Number -->
@@ -251,12 +252,12 @@ export interface UpiPaymentDialogData {
                   matInput
                   type="text"
                   formControlName="upiRrn"
-                  placeholder="e.g. 428912345678"
+                  placeholder="e.g. 428912345678 (12-digit UTR)"
                   maxlength="22"
                   autocomplete="off"
                 />
                 <mat-icon matSuffix class="field-icon">dialpad</mat-icon>
-                <mat-hint>Found under "UPI Transaction ID" or "Bank Ref No / UTR" in your payment app</mat-hint>
+                <mat-hint class="utr-hint">Found under "UPI Ref No", "UTR", or "Bank Ref No" in your payment app</mat-hint>
                 <mat-error *ngIf="paymentForm.get('upiRrn')?.hasError('required')">
                   UPI Reference ID / UTR is strictly required to verify payment.
                 </mat-error>
@@ -265,7 +266,7 @@ export interface UpiPaymentDialogData {
                 </mat-error>
               </mat-form-field>
 
-              <!-- Optional Payer Details -->
+              <!-- Optional Payer Details in 2 Wide Columns -->
               <div class="form-row-2">
                 <mat-form-field appearance="outline" class="field-unit">
                   <mat-label>Payer Name (Optional)</mat-label>
@@ -281,7 +282,7 @@ export interface UpiPaymentDialogData {
               <!-- Options -->
               <div class="checkbox-row">
                 <mat-checkbox formControlName="sendWhatsAppReceipt" color="primary">
-                  <span>Send instant WhatsApp receipt to parent phone</span>
+                  <span>Send instant digital fee receipt on WhatsApp to parent phone</span>
                 </mat-checkbox>
                 <mat-checkbox *ngIf="data.pendingLibraryFine && data.pendingLibraryFine > 0" formControlName="includeLibraryFine" color="primary">
                   <span>Include pending Library Fine (₹{{ data.pendingLibraryFine | number:'1.2-2' }})</span>
@@ -312,12 +313,11 @@ export interface UpiPaymentDialogData {
       display: flex;
       flex-direction: column;
       width: 100%;
-      max-width: 900px;
-      max-height: 90vh;
-      overflow-y: auto;
       background: #ffffff;
-      border-radius: 12px;
+      border-radius: 16px;
       box-sizing: border-box;
+      max-height: 92vh;
+      overflow-y: auto;
     }
 
     /* Strict IMSERP UI Header Standard */
@@ -325,7 +325,7 @@ export interface UpiPaymentDialogData {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 16px 20px;
+      padding: 14px 22px;
       background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
       border-bottom: 1px solid #bfdbfe;
       position: sticky;
@@ -336,15 +336,15 @@ export interface UpiPaymentDialogData {
     .header-left {
       display: flex;
       align-items: center;
-      gap: 14px;
+      gap: 12px;
     }
 
     .header-icon-box {
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 44px;
-      height: 44px;
+      width: 42px;
+      height: 42px;
       background: #2563eb;
       color: #ffffff;
       border-radius: 10px;
@@ -366,7 +366,7 @@ export interface UpiPaymentDialogData {
     }
 
     .header-titles .subtitle {
-      margin: 3px 0 0;
+      margin: 2px 0 0;
       font-size: 0.82rem;
       color: #3b82f6;
     }
@@ -389,7 +389,7 @@ export interface UpiPaymentDialogData {
     }
 
     .dialog-content {
-      padding: 20px;
+      padding: 18px 22px 22px;
       box-sizing: border-box;
     }
 
@@ -402,14 +402,14 @@ export interface UpiPaymentDialogData {
       color: #b91c1c;
       padding: 10px 14px;
       border-radius: 8px;
-      margin-bottom: 16px;
-      font-size: 0.9rem;
+      margin-bottom: 14px;
+      font-size: 0.88rem;
     }
 
     /* 2-Column Responsive Layout */
     .payment-grid {
       display: grid;
-      grid-template-columns: 340px 1fr;
+      grid-template-columns: 310px 1fr;
       gap: 22px;
       align-items: start;
     }
@@ -425,11 +425,11 @@ export interface UpiPaymentDialogData {
       background: #f8fafc;
       border: 1px solid #e2e8f0;
       border-radius: 12px;
-      padding: 16px;
+      padding: 14px;
       display: flex;
       flex-direction: column;
       align-items: center;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.03);
     }
 
     .merchant-badge {
@@ -440,9 +440,18 @@ export interface UpiPaymentDialogData {
       background: #eff6ff;
       border: 1px solid #dbeafe;
       border-radius: 8px;
-      padding: 8px 10px;
+      padding: 6px 10px;
       box-sizing: border-box;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
+    }
+
+    .merchant-logo-img {
+      width: 32px;
+      height: 32px;
+      object-fit: contain;
+      background: transparent;
+      filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.15));
+      flex-shrink: 0;
     }
 
     .verified-icon {
@@ -455,6 +464,7 @@ export interface UpiPaymentDialogData {
     .merchant-info {
       display: flex;
       flex-direction: column;
+      min-width: 0;
     }
 
     .merchant-name {
@@ -464,11 +474,11 @@ export interface UpiPaymentDialogData {
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      max-width: 240px;
+      max-width: 230px;
     }
 
     .merchant-tag {
-      font-size: 0.72rem;
+      font-size: 0.7rem;
       color: #64748b;
     }
 
@@ -476,13 +486,13 @@ export interface UpiPaymentDialogData {
       display: flex;
       flex-direction: column;
       align-items: center;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
     }
 
     .qr-border-box {
       position: relative;
       background: #ffffff;
-      padding: 12px;
+      padding: 10px;
       border-radius: 12px;
       border: 2px dashed #93c5fd;
       box-shadow: 0 4px 10px rgba(37,99,235,0.06);
@@ -492,26 +502,26 @@ export interface UpiPaymentDialogData {
     }
 
     .upi-qr-canvas {
-      width: 200px !important;
-      height: 200px !important;
+      width: 175px !important;
+      height: 175px !important;
       display: block;
     }
 
     .qr-center-logo {
       position: absolute;
-      width: 38px;
-      height: 38px;
+      width: 34px;
+      height: 34px;
       background: #ffffff;
       border: 2px solid #2563eb;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+      box-shadow: 0 2px 5px rgba(0,0,0,0.15);
     }
 
     .upi-logo-text {
-      font-size: 10px;
+      font-size: 9px;
       font-weight: 900;
       color: #2563eb;
       letter-spacing: -0.5px;
@@ -521,9 +531,9 @@ export interface UpiPaymentDialogData {
       display: flex;
       align-items: center;
       gap: 6px;
-      font-size: 0.78rem;
+      font-size: 0.76rem;
       color: #64748b;
-      margin-top: 8px;
+      margin-top: 6px;
       font-weight: 500;
     }
 
@@ -542,9 +552,9 @@ export interface UpiPaymentDialogData {
       background: #ffffff;
       border: 1px solid #cbd5e1;
       border-radius: 8px;
-      padding: 6px 10px;
+      padding: 4px 8px 4px 10px;
       box-sizing: border-box;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
     }
 
     .vpa-text {
@@ -554,19 +564,19 @@ export interface UpiPaymentDialogData {
     }
 
     .vpa-label {
-      font-size: 0.7rem;
-      color: #94a3b8;
+      font-size: 0.68rem;
+      color: #64748b;
       text-transform: uppercase;
-      font-weight: 600;
+      font-weight: 700;
     }
 
     .vpa-val {
-      font-size: 0.85rem;
+      font-size: 0.82rem;
       color: #0f172a;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      max-width: 220px;
+      max-width: 210px;
     }
 
     .copy-btn {
@@ -577,11 +587,11 @@ export interface UpiPaymentDialogData {
       width: 100%;
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 6px;
     }
 
     .mobile-launch-label {
-      font-size: 0.74rem;
+      font-size: 0.72rem;
       color: #64748b;
       font-weight: 600;
       text-align: center;
@@ -599,14 +609,14 @@ export interface UpiPaymentDialogData {
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 4px;
-      padding: 8px 4px;
+      gap: 3px;
+      padding: 6px 2px;
       border-radius: 8px;
       background: #ffffff;
       border: 1px solid #e2e8f0;
       text-decoration: none;
       color: #1e293b;
-      font-size: 0.72rem;
+      font-size: 0.7rem;
       font-weight: 600;
       transition: all 0.15s ease;
       cursor: pointer;
@@ -639,21 +649,25 @@ export interface UpiPaymentDialogData {
     .form-column {
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 12px;
     }
 
     .billing-summary-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
       background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
       border: 1px solid #e2e8f0;
       border-radius: 12px;
-      padding: 14px 16px;
+      padding: 10px 14px;
     }
 
-    .st-meta-row {
+    .st-left {
       display: flex;
       align-items: center;
-      gap: 12px;
-      margin-bottom: 12px;
+      gap: 10px;
+      min-width: 0;
     }
 
     .st-avatar {
@@ -662,23 +676,46 @@ export interface UpiPaymentDialogData {
       justify-content: center;
       width: 40px;
       height: 40px;
-      border-radius: 50%;
-      background: #dbeafe;
+      border-radius: 10px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
       color: #2563eb;
+      flex-shrink: 0;
+    }
+
+    .st-name-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
 
     .st-name {
       margin: 0;
-      font-size: 1rem;
+      font-size: 1.05rem;
       font-weight: 700;
       color: #0f172a;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .st-status-tag {
+      font-size: 0.65rem;
+      font-weight: 700;
+      color: #166534;
+      background: #dcfce7;
+      border: 1px solid #bbf7d0;
+      padding: 1px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
 
     .st-chips {
       display: flex;
       flex-wrap: wrap;
       gap: 6px;
-      margin-top: 4px;
+      margin-top: 3px;
     }
 
     .mini-chip {
@@ -695,38 +732,38 @@ export interface UpiPaymentDialogData {
     }
 
     .amount-deck {
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
+      flex-shrink: 0;
     }
 
     .amount-pill {
       display: flex;
-      align-items: baseline;
-      gap: 8px;
-      background: #dcfce7;
-      border: 1px solid #86efac;
+      flex-direction: column;
+      align-items: flex-end;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
       padding: 6px 14px;
       border-radius: 8px;
     }
 
     .amt-lbl {
-      font-size: 0.8rem;
-      font-weight: 600;
-      color: #166534;
+      font-size: 0.65rem;
+      font-weight: 800;
+      color: #15803d;
+      letter-spacing: 0.6px;
     }
 
     .amt-val {
       font-size: 1.25rem;
       font-weight: 800;
-      color: #15803d;
+      color: #166534;
       font-feature-settings: 'tnum';
+      line-height: 1.2;
     }
 
     .settle-form {
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 10px;
     }
 
     .form-section-title {
@@ -736,8 +773,7 @@ export interface UpiPaymentDialogData {
       font-size: 0.92rem;
       font-weight: 700;
       color: #1e3a8a;
-      border-bottom: 1px solid #e2e8f0;
-      padding-bottom: 6px;
+      padding-top: 2px;
     }
 
     .form-section-title mat-icon {
@@ -747,11 +783,26 @@ export interface UpiPaymentDialogData {
       color: #2563eb;
     }
 
-    .step-guide {
-      font-size: 0.82rem;
-      color: #64748b;
-      margin: 0;
-      line-height: 1.45;
+    .step-guide-box {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      background: #eff6ff;
+      border: 1px solid #dbeafe;
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 0.78rem;
+      color: #1e40af;
+      line-height: 1.4;
+    }
+
+    .guide-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      color: #2563eb;
+      flex-shrink: 0;
+      margin-top: 1px;
     }
 
     .w-100 {
@@ -759,7 +810,29 @@ export interface UpiPaymentDialogData {
     }
 
     .field-unit {
-      margin-bottom: 2px;
+      margin-bottom: 0px;
+    }
+
+    .amount-field-readonly {
+      input {
+        font-weight: 700;
+        color: #0f172a;
+        cursor: not-allowed;
+      }
+      .readonly-lock-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        color: #64748b;
+      }
+      input[type=number]::-webkit-inner-spin-button,
+      input[type=number]::-webkit-outer-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+      }
+      input[type=number] {
+        -moz-appearance: textfield;
+      }
     }
 
     .utr-field input {
@@ -770,6 +843,19 @@ export interface UpiPaymentDialogData {
       color: #1e3a8a;
     }
 
+    .utr-field {
+      mat-hint,
+      ::ng-deep .mat-mdc-form-field-hint {
+        white-space: nowrap !important;
+        font-size: 0.72rem !important;
+        letter-spacing: -0.12px !important;
+        display: block !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        color: #64748b;
+      }
+    }
+
     .prefix-sym {
       font-weight: 700;
       color: #64748b;
@@ -778,7 +864,7 @@ export interface UpiPaymentDialogData {
     .form-row-2 {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 12px;
+      gap: 14px;
     }
 
     @media (max-width: 600px) {
@@ -790,18 +876,18 @@ export interface UpiPaymentDialogData {
     .checkbox-row {
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 4px;
       font-size: 0.85rem;
-      margin: 4px 0 8px;
+      margin: 2px 0 4px;
     }
 
     .submit-action-wrap {
-      margin-top: 6px;
+      margin-top: 4px;
     }
 
     .verify-submit-btn {
       width: 100%;
-      height: 48px;
+      height: 46px;
       font-size: 0.95rem;
       font-weight: 700;
       border-radius: 8px;
@@ -809,8 +895,15 @@ export interface UpiPaymentDialogData {
       align-items: center;
       justify-content: center;
       gap: 8px;
-      background: #2563eb;
-      box-shadow: 0 4px 6px -1px rgba(37,99,235,0.3);
+      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+      color: #ffffff;
+      box-shadow: 0 4px 10px rgba(37,99,235,0.25);
+      transition: all 0.2s ease;
+    }
+
+    .verify-submit-btn:hover:not([disabled]) {
+      box-shadow: 0 6px 16px rgba(37,99,235,0.35);
+      transform: translateY(-1px);
     }
 
     /* Success Screen */
@@ -927,6 +1020,11 @@ export class UpiPaymentDialogComponent implements OnInit, AfterViewInit {
   errorMessage = '';
   copiedVpa = false;
   maxPayableAmount = 0;
+  merchantLogoFailed = false;
+
+  get merchantLogoUrl(): string | null {
+    return this.authService.getInstituteLogoUrl();
+  }
 
   constructor(
     public dialogRef: MatDialogRef<UpiPaymentDialogComponent>,
@@ -934,7 +1032,8 @@ export class UpiPaymentDialogComponent implements OnInit, AfterViewInit {
     private fb: FormBuilder,
     private feesService: FeesService,
     private confirmDialog: ConfirmDialogService,
-    private dialog: MatDialog
+    private dialog: MatDialog,
+    public authService: AuthService
   ) {
     this.maxPayableAmount = (data.dueAmount || 0) + (data.pendingLibraryFine || 0);
 
@@ -1068,7 +1167,7 @@ export class UpiPaymentDialogComponent implements OnInit, AfterViewInit {
   renderQrCode(uri: string): void {
     if (!this.qrCanvasRef || !this.qrCanvasRef.nativeElement) return;
     QRCode.toCanvas(this.qrCanvasRef.nativeElement, uri, {
-      width: 200,
+      width: 175,
       margin: 1,
       color: {
         dark: '#0f172a',
@@ -1155,18 +1254,23 @@ export class UpiPaymentDialogComponent implements OnInit, AfterViewInit {
   openOfficialReceipt(): void {
     if (!this.receipt) return;
     this.dialog.open(FeeReceiptDialogComponent, {
-      width: '900px',
-      maxWidth: '95vw',
-      data: this.receipt,
+      width: '840px',
+      maxWidth: '96vw',
+      panelClass: 'receipt-dialog-panel',
+      data: {
+        receipt: this.receipt,
+        instituteName: this.receipt.instituteName || this.upiIntent?.instituteName,
+        branchName: this.receipt.branchName
+      },
       autoFocus: false
     });
   }
 
   closeWithSuccess(): void {
-    this.dialogRef.close({ success: true, receipt: this.receipt });
+    this.dialogRef.close(this.receipt);
   }
 
   closeDialog(): void {
-    this.dialogRef.close(this.paymentSuccess ? { success: true, receipt: this.receipt } : null);
+    this.dialogRef.close(this.paymentSuccess ? this.receipt : null);
   }
 }

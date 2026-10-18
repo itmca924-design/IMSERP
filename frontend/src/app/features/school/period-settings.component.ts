@@ -108,8 +108,6 @@ interface PeriodEditorRow {
         </div>
       </div>
 
-      <mat-progress-bar mode="indeterminate" *ngIf="loading"></mat-progress-bar>
-
       <div class="page-content" *ngIf="!loading">
         <!-- ⚡ 1-Click Smart Timetable Generator Card -->
         <mat-card class="generator-card mat-elevation-z1">

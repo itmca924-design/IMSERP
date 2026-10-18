@@ -55,16 +55,16 @@ import { environment } from '../../environments/environment';
         [opened]="!isMobile()">
 
         <div class="brand-section">
-          <div class="brand-logo-badge" *ngIf="!currentUser()?.profilePhoto || logoImgFailed()">
-            <mat-icon class="brand-icon">school</mat-icon>
-          </div>
-          <img *ngIf="currentUser()?.profilePhoto && !logoImgFailed()" 
-               [src]="getPhotoUrl(currentUser()?.profilePhoto)" 
-               (error)="onLogoImgError()"
+          <img *ngIf="getInstituteLogoUrl() && !logoImgFailed()"
+               [src]="getInstituteLogoUrl()" 
+               (error)="logoImgFailed.set(true)"
                class="brand-logo-img" 
                alt="Institute Logo">
+          <div *ngIf="!getInstituteLogoUrl() || logoImgFailed()" class="brand-fallback-icon">
+            <mat-icon>account_balance</mat-icon>
+          </div>
           <div class="brand-titles">
-            <span class="brand-name" [matTooltip]="currentUser()?.instituteName || 'Apex Coaching Academy'">{{ currentUser()?.instituteName || 'Apex Coaching Academy' }}</span>
+            <span class="brand-name" [matTooltip]="currentUser()?.instituteName || 'Institute Management ERP'">{{ currentUser()?.instituteName || 'Institute Management ERP' }}</span>
             <span class="brand-sub">{{ getTenantModuleBadge() }}</span>
           </div>
           <button *ngIf="isMobile()" mat-icon-button class="close-drawer-btn" (click)="drawer.close()">
@@ -1829,6 +1829,10 @@ export class LayoutComponent implements OnInit {
     }, { allowSignalWrites: true });
   }
 
+  getInstituteLogoUrl(): string | null {
+    return this.authService.getInstituteLogoUrl();
+  }
+
   onLogoImgError(): void {
     this.logoImgFailed.set(true);
   }
@@ -1985,15 +1989,7 @@ export class LayoutComponent implements OnInit {
   }
 
   getPhotoUrl(photo?: string | null): string {
-    if (!photo) return '';
-    let p = photo;
-    if (p.endsWith('.jpg') && p.includes('a8c89ff2-ed12-4e4b-80c4-316453c3a1c6')) {
-      p = p.replace('.jpg', '.png');
-    }
-    if (p.startsWith('/uploads/')) {
-      return `${environment.apiBaseUrl}${p}`;
-    }
-    return p;
+    return this.authService.resolveLogoUrl(photo) || '';
   }
 
   getUserPhoto(): string | null {

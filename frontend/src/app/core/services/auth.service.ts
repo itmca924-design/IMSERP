@@ -215,7 +215,7 @@ export class AuthService {
     try {
       const sessionToken = sessionStorage.getItem('auth_token');
       const localToken = localStorage.getItem('auth_token');
-      const keys = ['auth_token', 'refresh_token', 'user_info', 'selected_branch_id', 'userId', 'userName', 'fullName', 'role', 'tenantId', 'instituteName', 'branchId', 'branchName'];
+      const keys = ['auth_token', 'refresh_token', 'user_info', 'selected_branch_id', 'userId', 'userName', 'fullName', 'role', 'tenantId', 'instituteName', 'branchId', 'branchName', 'profilePhoto'];
 
       if (sessionToken && !localToken) {
         for (const k of keys) {
@@ -248,16 +248,30 @@ export class AuthService {
     return sessionStorage.getItem('selected_branch_id') || localStorage.getItem('selected_branch_id');
   }
 
+  /**
+   * Dynamically resolves any tenant logo or profile photo to an absolute URL.
+   * Handles relative backend paths (/uploads/tenants/...), data URLs, and full URLs.
+   */
+  resolveLogoUrl(photo?: string | null): string | null {
+    if (!photo || typeof photo !== 'string') return null;
+    const trimmed = photo.trim();
+    if (!trimmed) return null;
+    if (trimmed.startsWith('data:image/') || trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed;
+    }
+    const cleanPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+    return `${environment.apiBaseUrl}${cleanPath}`;
+  }
+
+  /**
+   * Retrieves the current logged-in tenant's dynamic logo URL.
+   * Resolves from current session state or persisted storage.
+   */
   getInstituteLogoUrl(): string | null {
-    let photo = this.currentUser()?.profilePhoto;
-    if (!photo) return null;
-    if (photo.endsWith('.jpg') && photo.includes('a8c89ff2-ed12-4e4b-80c4-316453c3a1c6')) {
-      photo = photo.replace('.jpg', '.png');
-    }
-    if (photo.startsWith('/uploads/')) {
-      return `${environment.apiBaseUrl}${photo}`;
-    }
-    return photo;
+    const photo = this.currentUser()?.profilePhoto 
+      || sessionStorage.getItem('profilePhoto') 
+      || localStorage.getItem('profilePhoto');
+    return this.resolveLogoUrl(photo);
   }
 
   login(credentials: { tenantCode: string; username: string; password: string }, rememberMe: boolean = false): Observable<LoginResponse> {
@@ -336,6 +350,11 @@ export class AuthService {
       }
       if (res.branchName) {
         storage.setItem('branchName', res.branchName);
+      }
+      if (res.profilePhoto) {
+        storage.setItem('profilePhoto', res.profilePhoto);
+      } else {
+        storage.removeItem('profilePhoto');
       }
       storage.setItem('user_info', JSON.stringify(res));
     }
@@ -577,7 +596,7 @@ export class AuthService {
   }
 
   getLastTenantCode(): string {
-    return localStorage.getItem('last_tenant_code') || 'APEX';
+    return localStorage.getItem('last_tenant_code') || '';
   }
 
   isLoggedIn(): boolean {
@@ -600,6 +619,9 @@ export class AuthService {
             localStorage.setItem('user_info', JSON.stringify(user));
           }
         }
+      }
+      if (user && !user.profilePhoto) {
+        user.profilePhoto = sessionStorage.getItem('profilePhoto') || localStorage.getItem('profilePhoto') || null;
       }
       return user;
     } catch {

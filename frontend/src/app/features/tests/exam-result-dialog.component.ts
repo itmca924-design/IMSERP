@@ -119,9 +119,6 @@ interface StudentRankRow {
         </div>
       </div>
 
-      <!-- Loading -->
-      <mat-progress-bar mode="indeterminate" *ngIf="loading" class="top-loader no-print"></mat-progress-bar>
-
       <!-- ═══════════════════════════════════════════════ -->
       <!-- STATS SUMMARY BAR                               -->
       <!-- ═══════════════════════════════════════════════ -->
@@ -1127,8 +1124,7 @@ interface StudentRankRow {
     .rc-logo-circle {
       width: 38px;
       height: 38px;
-      border-radius: 8px;
-      background: #eff6ff;
+      background: transparent;
       color: #2563eb;
       display: flex;
       align-items: center;
@@ -1557,7 +1553,7 @@ export class ExamResultDialogComponent implements OnInit {
   }
 
   get instituteName(): string {
-    return this.authService.currentUser()?.instituteName || 'Apex Coaching Academy';
+    return this.authService.currentUser()?.instituteName || 'Institute Examination Card';
   }
 
   private loadResults(): void {

@@ -315,7 +315,10 @@ public class FeesController : ControllerBase
             i.Items.Select(it => new FeeInvoiceItemDto(it.Id, it.InvoiceId, it.FeeHeadId, it.HeadName, it.Amount, it.PaidAmount)).ToList()
         )).ToList();
 
-        var paymentDtos = payments.Select(p => new StudentLedgerPaymentItemDto(
+        var activePayments = payments.Where(p => !p.IsReversed).ToList();
+        var reversedPayments = payments.Where(p => p.IsReversed).ToList();
+
+        var paymentDtos = activePayments.Select(p => new StudentLedgerPaymentItemDto(
             p.Id,
             p.ReceiptNumber,
             paymentsMap.TryGetValue(p.Id, out var invNo) ? invNo : "",
@@ -323,7 +326,34 @@ public class FeesController : ControllerBase
             p.Mode,
             p.TransactionRef,
             p.Remarks,
-            DateTime.SpecifyKind(p.PaymentDate, DateTimeKind.Utc)
+            DateTime.SpecifyKind(p.PaymentDate, DateTimeKind.Utc),
+            p.IsReversed,
+            p.ReversedAt.HasValue ? DateTime.SpecifyKind(p.ReversedAt.Value, DateTimeKind.Utc) : null,
+            p.ReversedBy,
+            p.ReversalReason,
+            p.ReversalType,
+            p.RefundMode,
+            p.RefundRecipient,
+            p.RefundReference
+        )).ToList();
+
+        var reversedPaymentDtos = reversedPayments.Select(p => new StudentLedgerPaymentItemDto(
+            p.Id,
+            p.ReceiptNumber,
+            paymentsMap.TryGetValue(p.Id, out var invNo) ? invNo : "",
+            p.AmountPaid,
+            p.Mode,
+            p.TransactionRef,
+            p.Remarks,
+            DateTime.SpecifyKind(p.PaymentDate, DateTimeKind.Utc),
+            p.IsReversed,
+            p.ReversedAt.HasValue ? DateTime.SpecifyKind(p.ReversedAt.Value, DateTimeKind.Utc) : null,
+            p.ReversedBy,
+            p.ReversalReason,
+            p.ReversalType,
+            p.RefundMode,
+            p.RefundRecipient,
+            p.RefundReference
         )).ToList();
 
         // Calculations exclude Cancelled invoices — cancelled invoices show in ledger but don't affect totals
@@ -349,7 +379,8 @@ public class FeesController : ControllerBase
             invoiceDtos,
             paymentDtos,
             pendingLibFine,
-            ledgerBranchName
+            ledgerBranchName,
+            reversedPaymentDtos
         ));
     }
 
@@ -605,8 +636,8 @@ public class FeesController : ControllerBase
             student.ProfilePhoto,
             monthlyFeeRate,
             sessionName,
-            tenant?.Name ?? "Jnandeep Campus",
-            tenant?.Address ?? "Anjani, Parsa, Saran, Bihar",
+            tenant?.Name ?? "Institute Management ERP",
+            tenant?.Address ?? "",
             tenant?.ContactPhone,
             null,
             tenant?.ProfilePhoto,
@@ -1932,8 +1963,18 @@ public class FeesController : ControllerBase
                 }
             }
 
-            // Remove fee payment records (reversing Day Book and Cash/Bank entries)
-            _dbContext.FeePayments.RemoveRange(payments);
+            // Soft-reverse fee payment records so audit trail is preserved in Reversed & Refunded History
+            string cleanReason = string.IsNullOrWhiteSpace(dto.Reason) ? "Administrative Cancellation" : dto.Reason.Trim();
+            foreach (var p in payments)
+            {
+                p.IsReversed = true;
+                p.ReversedAt = DateTime.UtcNow;
+                p.ReversedBy = User?.Identity?.Name ?? _currentUser.Username ?? "Admin";
+                p.ReversalType = "RefundToParent";
+                p.ReversalReason = $"Invoice {invoice.InvoiceNumber} cancelled & refunded: {cleanReason}";
+                p.RefundMode = p.Mode == PaymentMode.Cash ? "Cash" : (p.Mode == PaymentMode.UPI ? "UPI" : "Bank Transfer");
+                p.RefundRecipient = invoice.Student != null ? $"{invoice.Student.ParentName ?? invoice.Student.StudentName} (Parent)" : "Parent";
+            }
 
             // Reset invoice items paid amounts
             if (invoice.Items != null)
@@ -1947,7 +1988,6 @@ public class FeesController : ControllerBase
             invoice.PaidAmount = 0m;
             invoice.Status = InvoiceStatus.Cancelled;
             invoice.CancelledAt = DateTime.UtcNow;
-            string cleanReason = string.IsNullOrWhiteSpace(dto.Reason) ? "Administrative Cancellation" : dto.Reason.Trim();
             invoice.CancellationReason = $"[REFUNDED & VOIDED] {cleanReason} (Reversed ₹{refundedTotal:N2} across {receiptCount} receipt(s))";
 
             await _dbContext.SaveChangesAsync();
@@ -2166,6 +2206,9 @@ public class FeesController : ControllerBase
         if (payment == null)
             return NotFound(new { message = "Payment record not found." });
 
+        if (payment.IsReversed)
+            return BadRequest(new { message = "This payment receipt has already been reversed." });
+
         var invoice = payment.Invoice;
         if (invoice == null)
             return NotFound(new { message = "Associated invoice not found." });
@@ -2200,8 +2243,15 @@ public class FeesController : ControllerBase
         else
             invoice.Status = InvoiceStatus.Partial;
 
-        // Hard delete the payment record
-        _dbContext.FeePayments.Remove(payment);
+        // Soft reversal with complete audit trail
+        payment.IsReversed = true;
+        payment.ReversedAt = DateTime.UtcNow;
+        payment.ReversedBy = User?.Identity?.Name ?? _currentUser.Username ?? "Admin";
+        payment.ReversalReason = dto?.Reason ?? "Payment reversed by admin";
+        payment.ReversalType = dto?.ReversalType ?? "ClericalCorrection";
+        payment.RefundMode = dto?.RefundMode ?? (payment.Mode == PaymentMode.Cash ? "Cash" : "Bank Transfer");
+        payment.RefundRecipient = dto?.RefundRecipient;
+        payment.RefundReference = dto?.RefundReference;
 
         // Also revert any associated library circulations paid in this receipt
         var associatedCircs = await _dbContext.LibraryCirculations
@@ -2217,8 +2267,12 @@ public class FeesController : ControllerBase
 
         await _dbContext.SaveChangesAsync();
 
+        string actionDesc = payment.ReversalType == "RefundToParent"
+            ? $"₹{payment.AmountPaid:N2} marked as refunded to {payment.RefundRecipient ?? "parent"} via {payment.RefundMode}."
+            : "Clerical entry corrected/voided without refund.";
+
         return Ok(new ReversePaymentResponseDto(
-            $"Payment {payment.ReceiptNumber} has been reversed successfully. Invoice {invoice.InvoiceNumber} updated.",
+            $"Payment {payment.ReceiptNumber} reversed successfully. {actionDesc} Invoice {invoice.InvoiceNumber} balance restored to due.",
             invoice.InvoiceNumber,
             invoice.PaidAmount,
             invoice.TotalAmount - invoice.PaidAmount,
@@ -2608,7 +2662,7 @@ public class FeesController : ControllerBase
 
         string payeeName = !string.IsNullOrWhiteSpace(branch?.UpiMerchantName)
             ? branch.UpiMerchantName.Trim()
-            : (!string.IsNullOrWhiteSpace(tenant?.UpiMerchantName) ? tenant.UpiMerchantName.Trim() : (tenant?.Name ?? "Jnandeep Campus"));
+            : (!string.IsNullOrWhiteSpace(tenant?.UpiMerchantName) ? tenant.UpiMerchantName.Trim() : (tenant?.Name ?? "Institute Management ERP"));
 
         string? merchantCode = tenant?.UpiMerchantCode ?? "8211";
 
@@ -2650,7 +2704,7 @@ public class FeesController : ControllerBase
             paytmUri,
             bhimUri,
             branch?.Name,
-            tenant?.Name ?? "Jnandeep Campus",
+            tenant?.Name ?? "Institute Management ERP",
             tenant?.ProfilePhoto
         );
 
@@ -2811,7 +2865,7 @@ public class FeesController : ControllerBase
                 branch?.Name,
                 student?.Class?.Name ?? invoice.ClassName,
                 student?.Section?.Name ?? invoice.SectionName,
-                tenant?.Name ?? "Jnandeep Campus",
+                tenant?.Name ?? "Institute Management ERP",
                 tenant?.ProfilePhoto,
                 tenant?.ContactPhone,
                 tenant?.Address,
@@ -2819,14 +2873,18 @@ public class FeesController : ControllerBase
                 invoice.Id
             );
 
-            if (dto.SendWhatsAppReceipt && student != null && !string.IsNullOrWhiteSpace(student.ParentWhatsAppPhone))
+            var targetWhatsApp = !string.IsNullOrWhiteSpace(dto.PayerPhone)
+                ? dto.PayerPhone.Trim()
+                : student?.ParentWhatsAppPhone;
+
+            if (dto.SendWhatsAppReceipt && !string.IsNullOrWhiteSpace(targetWhatsApp))
             {
                 try
                 {
                     await _whatsAppService.SendFeeReceiptAsync(
                         invoice.TenantId,
-                        student.ParentWhatsAppPhone,
-                        student.StudentName,
+                        targetWhatsApp,
+                        student?.StudentName ?? "Student",
                         receiptNo,
                         payAmount,
                         totalRemainingDue
@@ -3026,7 +3084,7 @@ public class FeesController : ControllerBase
                 branch?.Name,
                 student.Class?.Name,
                 student.Section?.Name,
-                tenant?.Name ?? "Jnandeep Campus",
+                tenant?.Name ?? "Institute Management ERP",
                 tenant?.ProfilePhoto,
                 tenant?.ContactPhone,
                 tenant?.Address,
@@ -3034,13 +3092,17 @@ public class FeesController : ControllerBase
                 allocatedInvoicesList.Count > 0 ? allocatedInvoicesList[0].Invoice.Id : (Guid?)null
             );
 
-            if (dto.SendWhatsAppReceipt && !string.IsNullOrWhiteSpace(student.ParentWhatsAppPhone))
+            var targetWhatsAppFifo = !string.IsNullOrWhiteSpace(dto.PayerPhone)
+                ? dto.PayerPhone.Trim()
+                : student.ParentWhatsAppPhone;
+
+            if (dto.SendWhatsAppReceipt && !string.IsNullOrWhiteSpace(targetWhatsAppFifo))
             {
                 try
                 {
                     await _whatsAppService.SendFeeReceiptAsync(
                         student.TenantId,
-                        student.ParentWhatsAppPhone,
+                        targetWhatsAppFifo,
                         student.StudentName,
                         receiptNo,
                         totalAmountPaid,
@@ -3074,7 +3136,7 @@ public class FeesController : ControllerBase
 
         string effectiveMerchantName = !string.IsNullOrWhiteSpace(branch?.UpiMerchantName)
             ? branch.UpiMerchantName.Trim()
-            : (!string.IsNullOrWhiteSpace(tenant.UpiMerchantName) ? tenant.UpiMerchantName.Trim() : (tenant.Name ?? "Jnandeep Campus"));
+            : (!string.IsNullOrWhiteSpace(tenant.UpiMerchantName) ? tenant.UpiMerchantName.Trim() : (tenant.Name ?? "Institute Management ERP"));
 
         string? effectiveBankName = !string.IsNullOrWhiteSpace(branch?.BankName)
             ? branch.BankName.Trim()

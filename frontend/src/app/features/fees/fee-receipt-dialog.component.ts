@@ -12,7 +12,7 @@ export interface FeeReceiptDialogData {
   receipt: FeePaymentReceipt;
   instituteName?: string;
   branchName?: string;
-  logoUrl?: string;
+  logoUrl?: string | null;
 }
 
 @Component({
@@ -54,12 +54,12 @@ export interface FeeReceiptDialogData {
         <!-- Header -->
         <div class="paper-header">
           <div class="inst-info">
-            <div class="logo-mark" [class.has-img]="logoUrl && !logoFailed">
+            <div class="logo-mark transparent-logo-mark" [class.has-img]="logoUrl && !logoFailed">
               <img *ngIf="logoUrl && !logoFailed" [src]="logoUrl" (error)="logoFailed = true" alt="Logo" class="inst-logo-img">
-              <mat-icon *ngIf="!logoUrl || logoFailed">account_balance</mat-icon>
+              <mat-icon *ngIf="!logoUrl || logoFailed" class="fallback-inst-icon">account_balance</mat-icon>
             </div>
             <div>
-              <h2 class="inst-name">{{ data.instituteName || authService.currentUser()?.instituteName || 'Apex Coaching Academy' }}</h2>
+              <h2 class="inst-name">{{ data.instituteName || authService.currentUser()?.instituteName || 'Official Fee Receipt' }}</h2>
               <p class="inst-subtitle">Premier Center for Academic Excellence & Competitive Coaching</p>
               <p class="inst-branch" *ngIf="effectiveBranchName">
                 <span class="branch-pill">🏛️ Branch: {{ effectiveBranchName }}</span>
@@ -490,30 +490,37 @@ export interface FeeReceiptDialogData {
         gap: 16px;
 
         .logo-mark {
-          width: 54px;
-          height: 54px;
-          border-radius: 12px;
-          background: linear-gradient(135deg, #1e40af, #3b82f6);
-          color: #ffffff;
+          width: 58px;
+          height: 58px;
+          border-radius: 0;
+          background: transparent !important;
+          border: none !important;
+          box-shadow: none !important;
           display: flex;
           align-items: center;
           justify-content: center;
-          overflow: hidden;
+          overflow: visible;
           flex-shrink: 0;
 
-          &.has-img {
-            background: #ffffff;
-            border: 1px solid #e2e8f0;
-            padding: 3px;
+          &.has-img,
+          &.transparent-logo-mark {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
           }
 
           .inst-logo-img {
             width: 100%;
             height: 100%;
             object-fit: contain;
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15));
           }
 
-          mat-icon { font-size: 32px; width: 32px; height: 32px; }
+          mat-icon { font-size: 32px; width: 32px; height: 32px; color: #2563eb; }
         }
 
         .inst-name {
@@ -1152,21 +1159,34 @@ export class FeeReceiptDialogComponent implements OnInit {
     private feesService: FeesService,
     public authService: AuthService
   ) {
-    this.logoUrl = data.logoUrl || this.authService.getInstituteLogoUrl();
+    if (this.data) {
+      let r: any = (this.data as any).receipt || this.data;
+      if (r && r.receipt) {
+        r = r.receipt;
+      }
+      const rawLogo = this.data.logoUrl || r?.tenantProfilePhoto || this.authService.currentUser()?.profilePhoto;
+      this.data = {
+        receipt: r,
+        instituteName: this.data.instituteName || r?.tenantName || this.authService.currentUser()?.instituteName || 'Official Fee Receipt',
+        branchName: this.data.branchName || r?.branchName,
+        logoUrl: this.authService.resolveLogoUrl(rawLogo) || null
+      };
+    }
+    this.logoUrl = this.data?.logoUrl || this.authService.getInstituteLogoUrl();
   }
 
   ngOnInit(): void {
     this.feesService.getUpiPaymentSettings().subscribe({
       next: (settings: UpiPaymentSettings) => {
         this.payeeUpiId = settings.effectiveUpiId || settings.upiId || 'imserp.fees@sbi';
-        this.payeeMerchantName = settings.effectiveMerchantName || settings.upiMerchantName || this.data.instituteName || this.authService.currentUser()?.instituteName || 'Apex Coaching Academy';
+        this.payeeMerchantName = settings.effectiveMerchantName || settings.upiMerchantName || this.data.instituteName || this.authService.currentUser()?.instituteName || 'Fee Collection';
         if (settings.effectiveBankName && settings.effectiveAccountNumber) {
           this.bankAccountDisplay = `${settings.effectiveBankName} - A/C: ${settings.effectiveAccountNumber} (IFSC: ${settings.effectiveIfsc || 'N/A'})`;
         }
         this.generateQrCode();
       },
       error: () => {
-        this.payeeMerchantName = this.data.instituteName || this.authService.currentUser()?.instituteName || 'Apex Coaching Academy';
+        this.payeeMerchantName = this.data.instituteName || this.authService.currentUser()?.instituteName || 'Fee Collection';
         this.generateQrCode();
       }
     });
@@ -1233,27 +1253,47 @@ export class FeeReceiptDialogComponent implements OnInit {
 
   printReceipt(): void {
     const el = document.getElementById('receipt-paper');
-    if (!el) return;
-
-    const printWindow = window.open('', '_blank', 'width=840,height=900');
-    if (!printWindow) {
+    if (!el) {
       window.print();
       return;
     }
 
-    printWindow.document.write(`
+    // Modern rock-solid printing via hidden iframe (never blocked by popup blockers or closed prematurely)
+    let printIframe = document.getElementById('receipt-print-frame') as HTMLIFrameElement;
+    if (printIframe) {
+      printIframe.remove();
+    }
+
+    printIframe = document.createElement('iframe');
+    printIframe.id = 'receipt-print-frame';
+    printIframe.style.position = 'fixed';
+    printIframe.style.right = '0';
+    printIframe.style.bottom = '0';
+    printIframe.style.width = '0';
+    printIframe.style.height = '0';
+    printIframe.style.border = '0';
+    document.body.appendChild(printIframe);
+
+    const doc = printIframe.contentWindow?.document || printIframe.contentDocument;
+    if (!doc) {
+      window.print();
+      return;
+    }
+
+    doc.open();
+    doc.write(`
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Fee Receipt - ${this.data.receipt.receiptNumber}</title>
+          <title>Fee Receipt - ${this.data?.receipt?.receiptNumber || 'Receipt'}</title>
           <style>
             * { box-sizing: border-box; margin: 0; padding: 0; }
             body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; padding: 15mm; color: #0f172a; font-size: 13px; line-height: 1.45; }
             .paper-header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 12px; border-bottom: 2px solid #0f172a; }
             .inst-info { display: flex; align-items: center; gap: 14px; }
-            .logo-mark { width: 48px; height: 48px; border-radius: 8px; background: #1e40af; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 24px; overflow: hidden; flex-shrink: 0; }
-            .logo-mark.has-img { background: #fff; border: 1px solid #e2e8f0; padding: 2px; }
-            .inst-logo-img { width: 100%; height: 100%; object-fit: contain; }
+            .logo-mark { width: 52px; height: 52px; background: transparent !important; border: none !important; display: flex; align-items: center; justify-content: center; overflow: visible; flex-shrink: 0; }
+            .logo-mark.has-img { background: transparent !important; border: none !important; padding: 0 !important; }
+            .inst-logo-img { width: 100%; height: 100%; object-fit: contain; background: transparent !important; border: none !important; }
             .inst-name { font-size: 1.35rem; font-weight: 800; color: #0f172a; }
             .inst-subtitle { font-size: 0.8rem; color: #475569; margin-top: 2px; }
             .inst-branch { font-size: 0.74rem; color: #64748b; font-weight: 600; margin-top: 2px; }
@@ -1331,12 +1371,16 @@ export class FeeReceiptDialogComponent implements OnInit {
         </body>
       </html>
     `);
-    printWindow.document.close();
-    printWindow.focus();
+    doc.close();
+
     setTimeout(() => {
-      printWindow.print();
-      printWindow.close();
-    }, 500);
+      try {
+        printIframe.contentWindow?.focus();
+        printIframe.contentWindow?.print();
+      } catch {
+        window.print();
+      }
+    }, 250);
   }
 
   formatToIST(dateVal: string | Date | undefined): string {

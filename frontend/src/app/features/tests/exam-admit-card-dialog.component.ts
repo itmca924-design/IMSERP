@@ -139,8 +139,6 @@ export interface ExamAdmitCardDialogData {
         </div>
       </div>
 
-      <mat-progress-bar mode="indeterminate" *ngIf="loading"></mat-progress-bar>
-
       <!-- Empty State -->
       <div class="empty-box no-print" *ngIf="!loading && filteredStudents.length === 0">
         <mat-icon class="empty-icon">person_off</mat-icon>
@@ -177,9 +175,9 @@ export interface ExamAdmitCardDialogData {
           <!-- Header -->
           <div class="ticket-header">
             <div class="inst-info">
-              <div class="logo-mark" [class.has-img]="logoUrl && !logoFailed">
+              <div class="logo-mark transparent-logo-mark" [class.has-img]="logoUrl && !logoFailed">
                 <img *ngIf="logoUrl && !logoFailed" [src]="logoUrl" (error)="logoFailed = true" alt="Logo" class="inst-logo-img">
-                <mat-icon *ngIf="!logoUrl || logoFailed">school</mat-icon>
+                <img *ngIf="!logoUrl || logoFailed" src="/assets/logo.png" alt="Logo" class="inst-logo-img">
               </div>
               <div class="inst-details">
                 <h2 class="inst-name">{{ instituteName }}</h2>
@@ -738,27 +736,32 @@ export interface ExamAdmitCardDialogData {
         gap: 14px;
 
         .logo-mark {
-          width: 50px;
-          height: 50px;
-          border-radius: 10px;
-          background: linear-gradient(135deg, #0284c7, #0369a1);
-          color: #ffffff;
+          width: 58px;
+          height: 58px;
+          border-radius: 0;
+          background: transparent !important;
+          border: none !important;
+          box-shadow: none !important;
           display: flex;
           align-items: center;
           justify-content: center;
-          overflow: hidden;
+          overflow: visible;
           flex-shrink: 0;
 
-          &.has-img {
-            background: #ffffff;
-            border: 1px solid #bae6fd;
-            padding: 2px;
+          &.has-img,
+          &.transparent-logo-mark {
+            background: transparent !important;
+            border: none !important;
+            padding: 0 !important;
           }
 
           .inst-logo-img {
             width: 100%;
             height: 100%;
             object-fit: contain;
+            background: transparent !important;
+            border: none !important;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15));
           }
 
           mat-icon { font-size: 28px; width: 28px; height: 28px; }
@@ -1314,9 +1317,9 @@ export class ExamAdmitCardDialogComponent implements OnInit {
             .ticket-header, .exam-strip, .candidate-box, .instructions-box, .signatures-strip, .ticket-footer { position: relative; z-index: 1; }
             .ticket-header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 12px; border-bottom: 2px solid #0284c7; }
             .inst-info { display: flex; align-items: center; gap: 14px; }
-            .logo-mark { width: 46px; height: 46px; border-radius: 8px; background: #0284c7; color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; overflow: hidden; flex-shrink: 0; }
-            .logo-mark.has-img { background: #fff; border: 1px solid #bae6fd; padding: 2px; }
-            .inst-logo-img { width: 100%; height: 100%; object-fit: contain; }
+            .logo-mark { width: 50px; height: 50px; background: transparent !important; border: none !important; display: flex; align-items: center; justify-content: center; overflow: visible; flex-shrink: 0; }
+            .logo-mark.has-img { background: transparent !important; border: none !important; padding: 0 !important; }
+            .inst-logo-img { width: 100%; height: 100%; object-fit: contain; background: transparent !important; border: none !important; }
             .inst-name { margin: 0; font-size: 1.35rem; font-weight: 800; color: #0f172a; }
             .inst-sub { margin: 2px 0 0 0; font-size: 0.8rem; color: #475569; }
             .inst-branch { margin: 2px 0 0 0; font-size: 0.74rem; color: #0284c7; font-weight: 600; }

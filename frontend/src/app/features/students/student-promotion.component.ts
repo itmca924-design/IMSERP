@@ -275,8 +275,6 @@ interface CandidateRow extends PromotionCandidateDto {
 
               <!-- Table -->
               <mat-card class="table-card mat-elevation-z2">
-                <mat-progress-bar mode="indeterminate" *ngIf="loadingCandidates"></mat-progress-bar>
-                
                 <div class="table-responsive">
                   <table class="styled-table">
                     <thead>
@@ -475,8 +473,6 @@ interface CandidateRow extends PromotionCandidateDto {
                   </button>
                 </div>
               </div>
-
-              <mat-progress-bar mode="indeterminate" *ngIf="loadingHistory"></mat-progress-bar>
 
               <div class="table-responsive">
                 <table class="styled-table">

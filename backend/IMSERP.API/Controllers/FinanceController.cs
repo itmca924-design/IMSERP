@@ -92,7 +92,7 @@ public class FinanceController : ControllerBase
                 .ThenInclude(i => i!.Items)
             .Include(p => p.Invoice)
                 .ThenInclude(i => i!.Student)
-            .Where(p => p.TenantId == tenantId && p.PaymentDate >= start && p.PaymentDate <= end);
+            .Where(p => p.TenantId == tenantId && !p.IsReversed && p.PaymentDate >= start && p.PaymentDate <= end);
 
         if (branchId.HasValue && branchId.Value != Guid.Empty)
         {
@@ -438,7 +438,7 @@ public class FinanceController : ControllerBase
             .AsNoTracking()
             .Include(p => p.Invoice)
                 .ThenInclude(i => i!.Student)
-            .Where(p => p.TenantId == tenantId && p.PaymentDate <= cutoff);
+            .Where(p => p.TenantId == tenantId && !p.IsReversed && p.PaymentDate <= cutoff);
 
         if (branchId.HasValue && branchId.Value != Guid.Empty)
         {
@@ -1378,7 +1378,7 @@ public class FinanceController : ControllerBase
         var startOfFy = new DateTime(currentFyYear, 4, 1, 0, 0, 0, DateTimeKind.Utc);
 
         // This Month Incomes
-        var feeQueryMonth = _dbContext.FeePayments.Where(p => p.TenantId == tenantId && p.PaymentDate >= startOfMonth);
+        var feeQueryMonth = _dbContext.FeePayments.Where(p => p.TenantId == tenantId && !p.IsReversed && p.PaymentDate >= startOfMonth);
         if (branchId.HasValue && branchId.Value != Guid.Empty) feeQueryMonth = feeQueryMonth.Where(p => p.BranchId == branchId.Value);
         decimal incomeThisMonth = await feeQueryMonth.SumAsync(p => (decimal?)p.AmountPaid) ?? 0m;
 
@@ -1400,22 +1400,24 @@ public class FinanceController : ControllerBase
         decimal totalDues = await duesQuery.SumAsync(i => (decimal?)(i.TotalAmount - i.PaidAmount)) ?? 0m;
 
         // Cash & Bank Balances
-        var cashCollected = await _dbContext.FeePayments.Where(p => p.TenantId == tenantId && p.Mode == PaymentMode.Cash && (!branchId.HasValue || p.BranchId == branchId.Value)).SumAsync(p => (decimal?)p.AmountPaid) ?? 0m;
+        var cashCollected = await _dbContext.FeePayments.Where(p => p.TenantId == tenantId && !p.IsReversed && p.Mode == PaymentMode.Cash && (!branchId.HasValue || p.BranchId == branchId.Value)).SumAsync(p => (decimal?)p.AmountPaid) ?? 0m;
+        var cashRefunds = await _dbContext.FeePayments.Where(p => p.TenantId == tenantId && p.IsReversed && p.ReversalType == "RefundToParent" && (p.RefundMode == "Cash" || p.Mode == PaymentMode.Cash) && (!branchId.HasValue || p.BranchId == branchId.Value)).SumAsync(p => (decimal?)p.AmountPaid) ?? 0m;
         var cashLibFines = await _dbContext.LibraryCirculations.Where(c => c.TenantId == tenantId && c.FineStatus == "Paid" && (!branchId.HasValue || c.BranchId == branchId.Value)).SumAsync(c => (decimal?)c.FineAmount) ?? 0m;
         var cashSalaries = await _dbContext.TeacherSalaryPayments.Include(s => s.Teacher).Where(s => s.TenantId == tenantId && s.PaymentMode == SalaryPaymentMode.Cash && (!branchId.HasValue || (s.Teacher != null && s.Teacher.BranchId == branchId.Value))).SumAsync(s => (decimal?)s.NetPaid) ?? 0m;
         var cashAdvances = await _dbContext.TeacherSalaryAdvances.Include(a => a.Teacher).Where(a => a.TenantId == tenantId && (a.Status == AdvanceStatus.Approved || a.Status == AdvanceStatus.Adjusted) && (!branchId.HasValue || (a.Teacher != null && a.Teacher.BranchId == branchId.Value))).SumAsync(a => (decimal?)a.Amount) ?? 0m;
         var cashExpenses = await _dbContext.ExpenseVouchers.Where(v => v.TenantId == tenantId && v.PaymentMode == ExpensePaymentMode.Cash && (!branchId.HasValue || v.BranchId == branchId.Value)).SumAsync(v => (decimal?)v.Amount) ?? 0m;
         var cashLedger = await _dbContext.AccountLedgers.FirstOrDefaultAsync(l => l.TenantId == tenantId && l.AccountCode == "CASH-MAIN");
-        decimal cashBalance = Math.Max(0m, (cashLedger?.OpeningBalance ?? 0m) + cashCollected + cashLibFines - cashSalaries - cashAdvances - cashExpenses);
+        decimal cashBalance = Math.Max(0m, (cashLedger?.OpeningBalance ?? 0m) + cashCollected + cashLibFines - cashSalaries - cashAdvances - cashExpenses - cashRefunds);
 
-        var bankCollected = await _dbContext.FeePayments.Where(p => p.TenantId == tenantId && p.Mode != PaymentMode.Cash && (!branchId.HasValue || p.BranchId == branchId.Value)).SumAsync(p => (decimal?)p.AmountPaid) ?? 0m;
+        var bankCollected = await _dbContext.FeePayments.Where(p => p.TenantId == tenantId && !p.IsReversed && p.Mode != PaymentMode.Cash && (!branchId.HasValue || p.BranchId == branchId.Value)).SumAsync(p => (decimal?)p.AmountPaid) ?? 0m;
+        var bankRefunds = await _dbContext.FeePayments.Where(p => p.TenantId == tenantId && p.IsReversed && p.ReversalType == "RefundToParent" && (p.RefundMode != "Cash" && p.Mode != PaymentMode.Cash) && (!branchId.HasValue || p.BranchId == branchId.Value)).SumAsync(p => (decimal?)p.AmountPaid) ?? 0m;
         var bankSalaries = await _dbContext.TeacherSalaryPayments.Include(s => s.Teacher).Where(s => s.TenantId == tenantId && s.PaymentMode != SalaryPaymentMode.Cash && (!branchId.HasValue || (s.Teacher != null && s.Teacher.BranchId == branchId.Value))).SumAsync(s => (decimal?)s.NetPaid) ?? 0m;
         var bankExpenses = await _dbContext.ExpenseVouchers.Where(v => v.TenantId == tenantId && v.PaymentMode != ExpensePaymentMode.Cash && (!branchId.HasValue || v.BranchId == branchId.Value)).SumAsync(v => (decimal?)v.Amount) ?? 0m;
         var bankLedger = await _dbContext.AccountLedgers.FirstOrDefaultAsync(l => l.TenantId == tenantId && l.AccountCode == "BANK-MAIN");
-        decimal bankBalance = Math.Max(0m, (bankLedger?.OpeningBalance ?? 0m) + bankCollected - bankSalaries - bankExpenses);
+        decimal bankBalance = Math.Max(0m, (bankLedger?.OpeningBalance ?? 0m) + bankCollected - bankSalaries - bankExpenses - bankRefunds);
 
         // Current FY Revenue & Expenses
-        var fyIncome = await _dbContext.FeePayments.Where(p => p.TenantId == tenantId && p.PaymentDate >= startOfFy && (!branchId.HasValue || p.BranchId == branchId.Value)).SumAsync(p => (decimal?)p.AmountPaid) ?? 0m;
+        var fyIncome = await _dbContext.FeePayments.Where(p => p.TenantId == tenantId && !p.IsReversed && p.PaymentDate >= startOfFy && (!branchId.HasValue || p.BranchId == branchId.Value)).SumAsync(p => (decimal?)p.AmountPaid) ?? 0m;
         var fySalaries = await _dbContext.TeacherSalaryPayments.Include(s => s.Teacher).Where(s => s.TenantId == tenantId && s.PaymentDate >= startOfFy && (!branchId.HasValue || (s.Teacher != null && s.Teacher.BranchId == branchId.Value))).SumAsync(s => (decimal?)s.NetPaid) ?? 0m;
         var fyExpenses = await _dbContext.ExpenseVouchers.Where(v => v.TenantId == tenantId && v.ExpenseDate >= startOfFy && (!branchId.HasValue || v.BranchId == branchId.Value)).SumAsync(v => (decimal?)v.Amount) ?? 0m;
         decimal fyTotalExpense = fySalaries + fyExpenses;
@@ -1499,7 +1501,7 @@ public class FinanceController : ControllerBase
         decimal bankOpening = bankLedger?.OpeningBalance ?? 0m;
 
         // Inflows prior to startUtc
-        var priorFees = _dbContext.FeePayments.Where(p => p.TenantId == tenantId && p.PaymentDate < startUtc);
+        var priorFees = _dbContext.FeePayments.Where(p => p.TenantId == tenantId && !p.IsReversed && p.PaymentDate < startUtc);
         if (branchId.HasValue && branchId.Value != Guid.Empty) priorFees = priorFees.Where(p => p.BranchId == branchId.Value);
         decimal priorFeeCollected = await priorFees.SumAsync(p => (decimal?)p.AmountPaid) ?? 0m;
 
@@ -1520,7 +1522,11 @@ public class FinanceController : ControllerBase
         if (branchId.HasValue && branchId.Value != Guid.Empty) priorVouchers = priorVouchers.Where(v => v.BranchId == branchId.Value);
         decimal priorExpensesPaid = await priorVouchers.SumAsync(v => (decimal?)v.Amount) ?? 0m;
 
-        decimal openingBalance = Math.Max(0m, cashOpening + bankOpening + priorFeeCollected + priorLibFines - priorSalariesPaid - priorAdvancesDisbursed - priorExpensesPaid);
+        var priorRefunds = _dbContext.FeePayments.Where(p => p.TenantId == tenantId && p.IsReversed && p.ReversalType == "RefundToParent" && (p.ReversedAt ?? p.PaymentDate) < startUtc);
+        if (branchId.HasValue && branchId.Value != Guid.Empty) priorRefunds = priorRefunds.Where(p => p.BranchId == branchId.Value);
+        decimal priorRefundsPaid = await priorRefunds.SumAsync(p => (decimal?)p.AmountPaid) ?? 0m;
+
+        decimal openingBalance = Math.Max(0m, cashOpening + bankOpening + priorFeeCollected + priorLibFines - priorSalariesPaid - priorAdvancesDisbursed - priorExpensesPaid - priorRefundsPaid);
 
         // 3. Transactions Query within [startUtc, endUtc]
         var transactions = new List<DayBookTransactionDto>();
@@ -1532,7 +1538,7 @@ public class FinanceController : ControllerBase
                 .ThenInclude(i => i!.Student)
             .Include(p => p.Invoice)
                 .ThenInclude(i => i!.Class)
-            .Where(p => p.TenantId == tenantId && p.PaymentDate >= startUtc && p.PaymentDate <= endUtc);
+            .Where(p => p.TenantId == tenantId && !p.IsReversed && p.PaymentDate >= startUtc && p.PaymentDate <= endUtc);
 
         if (branchId.HasValue && branchId.Value != Guid.Empty)
         {
@@ -1591,6 +1597,45 @@ public class FinanceController : ControllerBase
                 CreditAmount = p.AmountPaid,
                 PayeeOrPayerName = stu?.StudentName ?? stu?.ParentName,
                 Remarks = p.Remarks
+            });
+        }
+
+        // (A.1) Fee Refunds to Parents (Outflows / Debit)
+        var refundQuery = _dbContext.FeePayments
+            .AsNoTracking()
+            .Include(p => p.Invoice).ThenInclude(i => i!.Student)
+            .Include(p => p.Invoice).ThenInclude(i => i!.Class)
+            .Where(p => p.TenantId == tenantId && p.IsReversed && p.ReversalType == "RefundToParent" && (p.ReversedAt ?? p.PaymentDate) >= startUtc && (p.ReversedAt ?? p.PaymentDate) <= endUtc);
+
+        if (branchId.HasValue && branchId.Value != Guid.Empty)
+        {
+            refundQuery = refundQuery.Where(p => p.BranchId == branchId.Value);
+        }
+
+        var refundList = await refundQuery.ToListAsync();
+        foreach (var p in refundList)
+        {
+            var inv = p.Invoice;
+            var stu = inv?.Student;
+            string studentInfo = stu != null ? $"{stu.StudentName} (Roll: {stu.RollNumber ?? stu.AdmissionNumber ?? "N/A"})" : "Student";
+            string refundTo = !string.IsNullOrWhiteSpace(p.RefundRecipient) ? p.RefundRecipient : (stu?.ParentName ?? studentInfo);
+            string modeStr = !string.IsNullOrWhiteSpace(p.RefundMode) ? p.RefundMode : (p.Mode == PaymentMode.Cash ? "Cash" : "Bank Transfer");
+
+            transactions.Add(new DayBookTransactionDto
+            {
+                Id = p.Id.ToString(),
+                Timestamp = p.ReversedAt ?? p.PaymentDate,
+                VoucherNumber = $"REF-{p.ReceiptNumber}",
+                VoucherType = "Payment",
+                AccountHead = "Student Fee Refund (शुल्क वापसी)",
+                Particulars = $"Fee Refund of {p.ReceiptNumber} to {refundTo} • {p.ReversalReason ?? "Payment reversed by admin"}",
+                Division = "General",
+                PaymentMode = modeStr,
+                ReferenceNumber = p.RefundReference ?? p.TransactionRef,
+                DebitAmount = p.AmountPaid,
+                CreditAmount = 0m,
+                PayeeOrPayerName = refundTo,
+                Remarks = $"Reversed by {p.ReversedBy ?? "Admin"}"
             });
         }
 

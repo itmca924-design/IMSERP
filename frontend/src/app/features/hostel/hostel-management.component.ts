@@ -184,8 +184,6 @@ const API_BASE = environment.apiBaseUrl;
           </button>
         </div>
 
-        <mat-progress-bar mode="indeterminate" *ngIf="loading"></mat-progress-bar>
-
         <!-- TAB 1: VISUAL BED MATRIX -->
         <div class="tab-pane" *ngIf="activeTab === 'matrix'">
           <div class="matrix-filter-card mat-elevation-z1">
@@ -542,9 +540,6 @@ const API_BASE = environment.apiBaseUrl;
                 </mat-form-field>
               </div>
             </div>
-
-            <!-- Server-Side Progress Bar Loader -->
-            <mat-progress-bar *ngIf="isGatePassLoading" mode="indeterminate" class="gp-table-loader"></mat-progress-bar>
           </div>
 
           <!-- Angular Material Smart Grid -->
@@ -722,9 +717,6 @@ const API_BASE = environment.apiBaseUrl;
 
         <!-- TAB 5: NIGHT ROLL CALL & BIOMETRIC ATTENDANCE -->
         <div class="tab-pane" *ngIf="activeTab === 'rollcall'">
-          <!-- Progress loader on roll call fetch -->
-          <mat-progress-bar *ngIf="isRollCallLoading" mode="indeterminate" class="rc-progress-bar"></mat-progress-bar>
-
           <!-- Top Control Header Bar -->
           <div class="rollcall-header-bar">
             <div class="rollcall-inputs">
@@ -1152,8 +1144,6 @@ const API_BASE = environment.apiBaseUrl;
                         <mat-icon>close</mat-icon>
                       </button>
                     </mat-form-field>
-                    <!-- Smooth server-side searching progress bar loader -->
-                    <mat-progress-bar *ngIf="isSearchingStudents" mode="indeterminate" class="search-loader-bar"></mat-progress-bar>
                   </div>
                 </div>
 

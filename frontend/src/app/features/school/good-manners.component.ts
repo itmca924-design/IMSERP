@@ -165,9 +165,6 @@ export interface DailyBehaviourReportHeader {
         </form>
       </mat-card>
 
-      <!-- Loading Bar -->
-      <mat-progress-bar mode="indeterminate" *ngIf="loading"></mat-progress-bar>
-
       <!-- Summary KPI Bar -->
       <div class="summary-kpis" *ngIf="students.length > 0">
         <div class="kpi-pill kpi-total">

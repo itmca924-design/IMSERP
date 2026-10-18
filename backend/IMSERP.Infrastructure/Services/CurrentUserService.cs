@@ -75,4 +75,8 @@ public class CurrentUserService : ICurrentUserService
     public string? BranchName => _httpContextAccessor.HttpContext?.User?.FindFirst("BranchName")?.Value;
 
     public string UserRole => _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.Role)?.Value ?? "Guest";
+
+    public string? Username => _httpContextAccessor.HttpContext?.User?.Identity?.Name 
+                            ?? _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.Name)?.Value 
+                            ?? _httpContextAccessor.HttpContext?.User?.FindFirst("Username")?.Value;
 }

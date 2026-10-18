@@ -15,11 +15,17 @@ import { FeeCollectionDialogComponent } from './fee-collection-dialog.component'
 import { FeeReceiptDialogComponent } from './fee-receipt-dialog.component';
 import { FeeDueReceiptDialogComponent } from './fee-due-receipt-dialog.component';
 
+import { ReactiveFormsModule, FormControl } from '@angular/forms';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
+
 @Component({
   selector: 'app-student-ledger-dialog',
   standalone: true,
   imports: [
     CommonModule,
+    ReactiveFormsModule,
     MatDialogModule,
     MatTabsModule,
     MatTableModule,
@@ -27,24 +33,25 @@ import { FeeDueReceiptDialogComponent } from './fee-due-receipt-dialog.component
     MatIconModule,
     MatProgressBarModule,
     MatChipsModule,
-    MatTooltipModule
+    MatTooltipModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule
   ],
   template: `
     <div class="ledger-dialog-container">
       <div class="dialog-header">
-        <div class="header-left">
-          <mat-icon color="primary" class="header-icon">menu_book</mat-icon>
-          <div>
-            <h2 class="title">Student Financial Passbook & Ledger</h2>
-            <p class="subtitle">Complete month-wise fee statement, arrears, and payment receipts audit trail.</p>
-          </div>
+        <div class="header-icon-wrap">
+          <mat-icon>menu_book</mat-icon>
+        </div>
+        <div class="header-titles">
+          <h2 mat-dialog-title class="main-title">Student Financial Passbook & Ledger</h2>
+          <p class="subtitle">Complete month-wise fee statement, arrears, and payment receipts audit trail.</p>
         </div>
         <button mat-icon-button (click)="onClose()" class="close-btn" aria-label="Close dialog">
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
-      <mat-progress-bar mode="indeterminate" *ngIf="loading"></mat-progress-bar>
 
       <div class="ledger-body" *ngIf="ledger">
         <!-- Student Info & Outstanding KPI Card -->
@@ -100,7 +107,7 @@ import { FeeDueReceiptDialogComponent } from './fee-due-receipt-dialog.component
           </div>
         </div>
 
-        <!-- Ledger Tabs (Invoices & Receipts) -->
+        <!-- Ledger Tabs (Invoices, Receipts, Reversals) -->
         <mat-tab-group class="ledger-tabs" animationDuration="0ms">
           <!-- Tab 1: Month-Wise Invoices & Arrears -->
           <mat-tab>
@@ -114,48 +121,50 @@ import { FeeDueReceiptDialogComponent } from './fee-due-receipt-dialog.component
                 <mat-icon>swipe_left</mat-icon>
                 <span>Swipe horizontally to view full table details</span>
               </div>
-              <table class="ledger-table">
-                <thead>
-                  <tr>
-                    <th class="nowrap-col text-left">Invoice No</th>
-                    <th class="text-left">Month / Billing Period</th>
-                    <th class="nowrap-col text-left">Due Date</th>
-                    <th class="text-right nowrap-col">Total Fee (₹)</th>
-                    <th class="text-right nowrap-col">Paid (₹)</th>
-                    <th class="text-right nowrap-col">Balance Due (₹)</th>
-                    <th class="text-center nowrap-col">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr *ngFor="let inv of ledger.invoices" [class.cancelled-row]="inv.status === 'Cancelled'">
-                    <td class="nowrap-col"><strong>{{ inv.invoiceNumber }}</strong></td>
-                    <td>
-                      <div>{{ inv.title }}</div>
-                      <div *ngIf="inv.items && inv.items.length > 0" class="mini-heads-row">
-                        <span *ngFor="let it of inv.items" class="mini-head-chip">
-                          {{ it.headName }}: ₹{{ it.amount | number:'1.0-0' }}
+              <div class="table-responsive">
+                <table class="ledger-table">
+                  <thead>
+                    <tr>
+                      <th class="nowrap-col text-left">Invoice No</th>
+                      <th class="text-left">Month / Billing Period</th>
+                      <th class="nowrap-col text-left">Due Date</th>
+                      <th class="text-right nowrap-col">Total Fee (₹)</th>
+                      <th class="text-right nowrap-col">Paid (₹)</th>
+                      <th class="text-right nowrap-col">Balance Due (₹)</th>
+                      <th class="text-center nowrap-col">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let inv of ledger.invoices" [class.cancelled-row]="inv.status === 'Cancelled'">
+                      <td class="nowrap-col"><strong>{{ inv.invoiceNumber }}</strong></td>
+                      <td>
+                        <div>{{ inv.title }}</div>
+                        <div *ngIf="inv.items && inv.items.length > 0" class="mini-heads-row">
+                          <span *ngFor="let it of inv.items" class="mini-head-chip">
+                            {{ it.headName }}: ₹{{ it.amount | number:'1.0-0' }}
+                          </span>
+                        </div>
+                        <span *ngIf="inv.status === 'Cancelled'" class="cancelled-label" [matTooltip]="'Cancelled' + (inv.cancelledAt ? ' on ' + (inv.cancelledAt | date:'mediumDate') : '') + (inv.cancellationReason ? ' | Reason: ' + inv.cancellationReason : '')">VOID</span>
+                        <span *ngIf="inv.cancellationReason && inv.cancellationReason.includes('[BALANCE WAIVED & SETTLED]')" class="settled-waiver-label" [matTooltip]="inv.cancellationReason">WAIVED &amp; SETTLED</span>
+                      </td>
+                      <td class="nowrap-col">{{ inv.dueDate | date:'mediumDate' }}</td>
+                      <td class="text-right amount-col nowrap-col">{{ inv.status === 'Cancelled' ? '—' : ('₹' + (inv.totalAmount | number:'1.2-2')) }}</td>
+                      <td class="text-right text-success amount-col nowrap-col">{{ inv.status === 'Cancelled' ? '—' : ('₹' + (inv.paidAmount | number:'1.2-2')) }}</td>
+                      <td class="text-right text-danger amount-col nowrap-col">
+                        <strong>{{ inv.status === 'Cancelled' ? '—' : ('₹' + (inv.dueAmount | number:'1.2-2')) }}</strong>
+                      </td>
+                      <td class="text-center nowrap-col">
+                        <span *ngIf="inv.cancellationReason && inv.cancellationReason.includes('[BALANCE WAIVED & SETTLED]')" class="status-badge settled" [matTooltip]="inv.cancellationReason">
+                          Settled (Waived)
                         </span>
-                      </div>
-                      <span *ngIf="inv.status === 'Cancelled'" class="cancelled-label" [matTooltip]="'Cancelled' + (inv.cancelledAt ? ' on ' + (inv.cancelledAt | date:'mediumDate') : '') + (inv.cancellationReason ? ' | Reason: ' + inv.cancellationReason : '')">VOID</span>
-                      <span *ngIf="inv.cancellationReason && inv.cancellationReason.includes('[BALANCE WAIVED & SETTLED]')" class="settled-waiver-label" [matTooltip]="inv.cancellationReason">WAIVED &amp; SETTLED</span>
-                    </td>
-                    <td class="nowrap-col">{{ inv.dueDate | date:'mediumDate' }}</td>
-                    <td class="text-right amount-col nowrap-col">{{ inv.status === 'Cancelled' ? '—' : ('₹' + (inv.totalAmount | number:'1.2-2')) }}</td>
-                    <td class="text-right text-success amount-col nowrap-col">{{ inv.status === 'Cancelled' ? '—' : ('₹' + (inv.paidAmount | number:'1.2-2')) }}</td>
-                    <td class="text-right text-danger amount-col nowrap-col">
-                      <strong>{{ inv.status === 'Cancelled' ? '—' : ('₹' + (inv.dueAmount | number:'1.2-2')) }}</strong>
-                    </td>
-                    <td class="text-center nowrap-col">
-                      <span *ngIf="inv.cancellationReason && inv.cancellationReason.includes('[BALANCE WAIVED & SETTLED]')" class="status-badge settled" [matTooltip]="inv.cancellationReason">
-                        Settled (Waived)
-                      </span>
-                      <span *ngIf="!inv.cancellationReason || !inv.cancellationReason.includes('[BALANCE WAIVED & SETTLED]')" class="status-badge" [ngClass]="inv.status.toLowerCase()" [matTooltip]="inv.status === 'Cancelled' ? ('Cancelled' + (inv.cancelledAt ? ' on ' + (inv.cancelledAt | date:'mediumDate') : '') + (inv.cancellationReason ? ' | Reason: ' + inv.cancellationReason : '')) : ''">
-                        {{ inv.status }}
-                      </span>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+                        <span *ngIf="!inv.cancellationReason || !inv.cancellationReason.includes('[BALANCE WAIVED & SETTLED]')" class="status-badge" [ngClass]="inv.status.toLowerCase()" [matTooltip]="inv.status === 'Cancelled' ? ('Cancelled' + (inv.cancelledAt ? ' on ' + (inv.cancelledAt | date:'mediumDate') : '') + (inv.cancellationReason ? ' | Reason: ' + inv.cancellationReason : '')) : ''">
+                          {{ inv.status }}
+                        </span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </mat-tab>
 
@@ -167,101 +176,243 @@ import { FeeDueReceiptDialogComponent } from './fee-due-receipt-dialog.component
               <span class="tab-label-mobile">Receipts ({{ ledger.payments.length }})</span>
             </ng-template>
             <div class="tab-content">
+              <!-- DEDICATED REVERSAL WORKFLOW CARD OUTSIDE HORIZONTAL SCROLL -->
+              <div *ngIf="reversingPayment" class="reverse-confirm-box" #reversalBoxRef>
+                <div class="rev-header-bar">
+                  <div class="rev-title-group">
+                    <mat-icon class="rev-warn-icon">warning_amber</mat-icon>
+                    <div class="rev-confirm-title">
+                      <strong>Reverse Payment Receipt: {{ reversingPayment.receiptNumber }} (₹{{ reversingPayment.amountPaid | number:'1.2-2' }})</strong>
+                      <span>{{ reversalLang === 'HI' ? 'रिवर्स करने का प्रकार और विवरण चुनें' : 'Choose reversal action and audit details' }}</span>
+                    </div>
+                  </div>
+                  <div class="lang-toggle-pill" (click)="toggleLanguage()" [matTooltip]="reversalLang === 'EN' ? 'हिंदी में देखने के लिए क्लिक करें' : 'Switch to English'">
+                    <mat-icon class="lang-icon">translate</mat-icon>
+                    <span [class.active]="reversalLang === 'EN'">EN</span>
+                    <span class="sep">/</span>
+                    <span [class.active]="reversalLang === 'HI'">HI</span>
+                  </div>
+                </div>
+
+                <!-- Options Selector Cards -->
+                <div class="rev-options-grid">
+                  <div
+                    class="rev-option-card"
+                    [class.selected]="reversalTypeControl.value === 'ClericalCorrection'"
+                    (click)="setReversalType('ClericalCorrection')"
+                  >
+                    <div class="card-radio">
+                      <mat-icon>{{ reversalTypeControl.value === 'ClericalCorrection' ? 'radio_button_checked' : 'radio_button_unchecked' }}</mat-icon>
+                    </div>
+                    <div class="card-body">
+                      <div class="card-title">{{ reversalLang === 'HI' ? '1. गलत प्रविष्टि सुधार (Clerical Typo / Void)' : '1. Clerical Error / Void Entry' }}</div>
+                      <div class="card-desc">{{ reversalLang === 'HI' ? 'पैसे किसी को वापस नहीं दिए गए। केवल गलत एंट्री हटाई जा रही है और छात्र का इनवॉइस बकाया बहाल किया जाएगा।' : 'No money returned to anyone. Just removing wrongful clerk entry and restoring student invoice due balance.' }}</div>
+                    </div>
+                  </div>
+
+                  <div
+                    class="rev-option-card"
+                    [class.selected]="reversalTypeControl.value === 'RefundToParent'"
+                    (click)="setReversalType('RefundToParent')"
+                  >
+                    <div class="card-radio">
+                      <mat-icon>{{ reversalTypeControl.value === 'RefundToParent' ? 'radio_button_checked' : 'radio_button_unchecked' }}</mat-icon>
+                    </div>
+                    <div class="card-body">
+                      <div class="card-title">{{ reversalLang === 'HI' ? '2. अभिभावक को नकद/बैंक रिफंड (Refund to Parent)' : '2. Actual Fee Refund to Parent' }}</div>
+                      <div class="card-desc">{{ reversalLang === 'HI' ? ('₹' + (reversingPayment.amountPaid | number:'1.2-2') + ' अभिभावक को वापस लौटाए गए। Day Book में भुगतान वापसी (Outflow) दर्ज होगी।') : ('₹' + (reversingPayment.amountPaid | number:'1.2-2') + ' returned to parent. An Outflow refund voucher will be recorded in Day Book.') }}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Refund Fields (shown only when RefundToParent selected) -->
+                <div class="rev-fields-row" *ngIf="reversalTypeControl.value === 'RefundToParent'">
+                  <mat-form-field appearance="outline" class="density-compact rev-field">
+                    <mat-label>{{ reversalLang === 'HI' ? 'रिफंड पेमेंट मोड' : 'Refund Payment Mode' }}</mat-label>
+                    <mat-select [formControl]="reversalRefundModeControl">
+                      <mat-option value="Cash">{{ reversalLang === 'HI' ? 'Cash (नकद गल्ले से)' : 'Cash (Counter Drawer)' }}</mat-option>
+                      <mat-option value="BankTransfer">{{ reversalLang === 'HI' ? 'Bank Transfer / NEFT' : 'Bank Transfer / NEFT' }}</mat-option>
+                      <mat-option value="UPI">{{ reversalLang === 'HI' ? 'UPI / Online' : 'UPI (Google Pay / PhonePe)' }}</mat-option>
+                    </mat-select>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline" class="density-compact rev-field">
+                    <mat-label>{{ reversalLang === 'HI' ? 'रिफंड प्राप्तकर्ता (अभिभावक/छात्र)' : 'Refunded To (Parent / Student Name)' }}</mat-label>
+                    <input matInput [formControl]="reversalRecipientControl" [placeholder]="reversalLang === 'HI' ? 'अभिभावक या छात्र का नाम' : 'Parent or Student Name'" />
+                  </mat-form-field>
+                </div>
+
+                <!-- Reason Field -->
+                <div class="rev-reason-row">
+                  <mat-form-field appearance="outline" class="density-compact reason-field">
+                    <mat-label>{{ reversalLang === 'HI' ? 'रिवर्स करने का कारण / रिमार्क्स' : 'Reversal Reason / Remarks' }}</mat-label>
+                    <input matInput [formControl]="reversalReasonControl" [placeholder]="reversalLang === 'HI' ? 'जैसे: गलत छात्र पर एंट्री हो गई थी / छात्र ने नाम वापस लिया' : 'e.g. Wrong student selected / Admission withdrawn by parent'" />
+                  </mat-form-field>
+                </div>
+
+                <div class="rev-confirm-actions">
+                  <button mat-stroked-button (click)="cancelReverse()" [disabled]="reversingInProgress" class="btn-cancel-rev">
+                    {{ reversalLang === 'HI' ? 'रद्द करें (Cancel)' : 'Cancel' }}
+                  </button>
+                  <button mat-raised-button color="warn" (click)="confirmReversePayment(reversingPayment)" [disabled]="reversingInProgress" class="btn-confirm-rev">
+                    <mat-icon *ngIf="!reversingInProgress">undo</mat-icon>
+                    <mat-icon class="spinning-icon" *ngIf="reversingInProgress">sync</mat-icon>
+                    <span>
+                      {{ reversingInProgress 
+                          ? (reversalLang === 'HI' ? 'प्रोसेसिंग...' : 'Processing...') 
+                          : (reversalTypeControl.value === 'RefundToParent' 
+                              ? (reversalLang === 'HI' ? 'रिफंड और रिवर्स कन्फर्म करें' : 'Confirm Refund & Reverse') 
+                              : (reversalLang === 'HI' ? 'रिवर्स कन्फर्म करें' : 'Confirm Void & Reverse')) }}
+                    </span>
+                  </button>
+                </div>
+              </div>
+
               <div class="mobile-swipe-hint">
                 <mat-icon>swipe_left</mat-icon>
                 <span>Swipe horizontally to view full table details</span>
               </div>
-              <table class="ledger-table">
-                <thead>
-                  <tr>
-                    <th class="nowrap-col text-left">Receipt No</th>
-                    <th class="nowrap-col text-left">Payment Date (IST)</th>
-                    <th class="nowrap-col text-left">Invoice Ref</th>
-                    <th class="nowrap-col text-left">Payment Mode</th>
-                    <th class="text-right nowrap-col">Amount Paid (₹)</th>
-                    <th class="text-left">Remarks</th>
-                    <th class="text-center nowrap-col" style="width: 70px;">Print</th>
-                    <th class="text-center nowrap-col" style="width: 90px;">Reverse</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <ng-container *ngFor="let p of ledger.payments">
-                    <tr [class.reversing-row]="reversingPaymentId === p.paymentId">
-                      <td class="nowrap-col"><strong class="receipt-no-text">{{ p.receiptNumber }}</strong></td>
-                      <td class="nowrap-col date-col">{{ formatToIST(p.paymentDate) }}</td>
-                      <td class="nowrap-col inv-ref-text">{{ p.invoiceNumber || '—' }}</td>
-                      <td class="nowrap-col">
-                        <span class="mode-badge">{{ getPaymentModeName(p.mode) }}</span>
-                      </td>
-                      <td class="text-right text-success nowrap-col amount-text"><strong>₹{{ p.amountPaid | number:'1.2-2' }}</strong></td>
-                      <td class="remarks-cell"><small>{{ p.transactionRef || 'N/A' }} ({{ p.remarks || '-' }})</small></td>
-                      <td class="text-center nowrap-col">
-                        <button mat-icon-button color="primary" (click)="openPaymentReceipt(p)" matTooltip="Print / View Payment Receipt">
-                          <mat-icon>print</mat-icon>
-                        </button>
-                      </td>
-                      <td class="text-center nowrap-col">
-                        <button
-                          mat-icon-button
-                          color="warn"
-                          (click)="startReversePayment(p)"
-                          matTooltip="Reverse / Undo this payment"
-                          *ngIf="reversingPaymentId !== p.paymentId"
-                        >
-                          <mat-icon>undo</mat-icon>
-                        </button>
-                        <button
-                          mat-icon-button
-                          color="warn"
-                          (click)="cancelReverse()"
-                          matTooltip="Cancel reversal"
-                          *ngIf="reversingPaymentId === p.paymentId"
-                        >
-                          <mat-icon>close</mat-icon>
-                        </button>
-                      </td>
+
+              <div class="table-responsive">
+                <table class="ledger-table">
+                  <thead>
+                    <tr>
+                      <th class="nowrap-col text-left">Receipt No</th>
+                      <th class="nowrap-col text-left">Payment Date (IST)</th>
+                      <th class="nowrap-col text-left">Invoice Ref</th>
+                      <th class="nowrap-col text-left">Payment Mode</th>
+                      <th class="text-right nowrap-col">Amount Paid (₹)</th>
+                      <th class="text-left">Remarks</th>
+                      <th class="text-center nowrap-col" style="width: 70px;">Print</th>
+                      <th class="text-center nowrap-col" style="width: 90px;">Reverse</th>
                     </tr>
-                    <!-- Inline confirmation row -->
-                    <tr *ngIf="reversingPaymentId === p.paymentId" class="confirm-reverse-row">
-                      <td colspan="8">
-                        <div class="reverse-confirm-box">
-                          <mat-icon class="rev-warn-icon">warning_amber</mat-icon>
-                          <div class="rev-confirm-text">
-                            <strong>Reverse ₹{{ p.amountPaid | number:'1.2-2' }} ({{ p.receiptNumber }})?</strong>
-                            <span>This payment will be permanently deleted and the invoice balance will be restored to due.</span>
-                          </div>
-                          <div class="rev-confirm-actions">
-                            <button mat-stroked-button (click)="cancelReverse()" [disabled]="reversingInProgress">Cancel</button>
-                            <button mat-raised-button color="warn" (click)="confirmReversePayment(p)" [disabled]="reversingInProgress">
-                              <mat-icon *ngIf="!reversingInProgress">delete_forever</mat-icon>
-                              <mat-icon class="spinning-icon" *ngIf="reversingInProgress">sync</mat-icon>
-                              <span>{{ reversingInProgress ? 'Reversing...' : 'Confirm Reverse' }}</span>
-                            </button>
-                          </div>
+                  </thead>
+                  <tbody>
+                    <ng-container *ngFor="let p of ledger.payments">
+                      <tr [class.reversing-row]="reversingPaymentId === p.paymentId">
+                        <td class="nowrap-col"><strong class="receipt-no-text">{{ p.receiptNumber }}</strong></td>
+                        <td class="nowrap-col date-col">{{ formatToIST(p.paymentDate) }}</td>
+                        <td class="nowrap-col inv-ref-text">{{ p.invoiceNumber || '—' }}</td>
+                        <td class="nowrap-col">
+                          <span class="mode-badge">{{ getPaymentModeName(p.mode) }}</span>
+                        </td>
+                        <td class="text-right text-success nowrap-col amount-text"><strong>₹{{ p.amountPaid | number:'1.2-2' }}</strong></td>
+                        <td class="remarks-cell"><small>{{ p.transactionRef || 'N/A' }} ({{ p.remarks || '-' }})</small></td>
+                        <td class="text-center nowrap-col">
+                          <button mat-icon-button color="primary" (click)="openPaymentReceipt(p)" matTooltip="Print / View Payment Receipt">
+                            <mat-icon>print</mat-icon>
+                          </button>
+                        </td>
+                        <td class="text-center nowrap-col">
+                          <button
+                            mat-icon-button
+                            color="warn"
+                            (click)="startReversePayment(p)"
+                            matTooltip="Reverse / Undo this payment"
+                            *ngIf="reversingPaymentId !== p.paymentId"
+                          >
+                            <mat-icon>undo</mat-icon>
+                          </button>
+                          <button
+                            mat-icon-button
+                            color="warn"
+                            (click)="cancelReverse()"
+                            matTooltip="Cancel reversal"
+                            *ngIf="reversingPaymentId === p.paymentId"
+                          >
+                            <mat-icon>close</mat-icon>
+                          </button>
+                        </td>
+                      </tr>
+                    </ng-container>
+                    <tr *ngIf="ledger.payments.length === 0">
+                      <td colspan="8" class="text-center empty-cell">No active payment receipts found.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </mat-tab>
+
+          <!-- Tab 3: Reversed / Refunded Receipts History -->
+          <mat-tab>
+            <ng-template mat-tab-label>
+              <mat-icon class="tab-label-icon text-warn">assignment_return</mat-icon>
+              <span class="tab-label-desktop">Reversed & Refunded History ({{ ledger.reversedPayments?.length || 0 }})</span>
+              <span class="tab-label-mobile">Reversals ({{ ledger.reversedPayments?.length || 0 }})</span>
+            </ng-template>
+            <div class="tab-content">
+              <div class="mobile-swipe-hint">
+                <mat-icon>swipe_left</mat-icon>
+                <span>Swipe horizontally to view full table details</span>
+              </div>
+              <div class="table-responsive">
+                <table class="ledger-table reversed-table">
+                  <thead>
+                    <tr>
+                      <th class="nowrap-col text-left">Receipt No</th>
+                      <th class="nowrap-col text-left">Original Paid Date</th>
+                      <th class="nowrap-col text-left">Invoice Ref</th>
+                      <th class="text-right nowrap-col">Amount (₹)</th>
+                      <th class="nowrap-col text-left">Action / Type</th>
+                      <th class="nowrap-col text-left">Recipient & Mode</th>
+                      <th class="nowrap-col text-left">Reversed At (IST)</th>
+                      <th class="nowrap-col text-left">Reversed By</th>
+                      <th class="text-left">Reason / Remarks</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let rp of ledger.reversedPayments">
+                      <td class="nowrap-col">
+                        <span class="strikethrough-receipt">{{ rp.receiptNumber }}</span>
+                      </td>
+                      <td class="nowrap-col date-col">{{ formatToIST(rp.paymentDate) }}</td>
+                      <td class="nowrap-col inv-ref-text">{{ rp.invoiceNumber || '—' }}</td>
+                      <td class="text-right nowrap-col">
+                        <strong class="strikethrough-amount">₹{{ rp.amountPaid | number:'1.2-2' }}</strong>
+                      </td>
+                      <td class="nowrap-col">
+                        <span class="reversal-type-badge" [class.is-refund]="rp.reversalType === 'RefundToParent'">
+                          <mat-icon class="rev-type-icon">{{ rp.reversalType === 'RefundToParent' ? 'payments' : 'cancel' }}</mat-icon>
+                          <span>{{ rp.reversalType === 'RefundToParent' ? 'Refunded to Parent' : 'Clerical Void' }}</span>
+                        </span>
+                      </td>
+                      <td class="nowrap-col">
+                        <div class="recipient-cell">
+                          <span class="recip-name">{{ rp.refundRecipient || '—' }}</span>
+                          <small class="recip-mode" *ngIf="rp.refundMode">({{ rp.refundMode }})</small>
                         </div>
                       </td>
+                      <td class="nowrap-col date-col">{{ rp.reversedAt ? formatToIST(rp.reversedAt) : '—' }}</td>
+                      <td class="nowrap-col user-col">
+                        <span class="user-pill">{{ rp.reversedBy || 'Admin' }}</span>
+                      </td>
+                      <td class="remarks-cell">
+                        <small class="reversal-reason-text">{{ rp.reversalReason || 'Reversed by admin' }}</small>
+                      </td>
                     </tr>
-                  </ng-container>
-                  <tr *ngIf="ledger.payments.length === 0">
-                    <td colspan="8" class="text-center empty-cell">No payment receipts issued yet.</td>
-                  </tr>
-                </tbody>
-              </table>
+                    <tr *ngIf="!ledger.reversedPayments || ledger.reversedPayments.length === 0">
+                      <td colspan="9" class="text-center empty-cell">No reversed or refunded payment records found.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </mat-tab>
         </mat-tab-group>
       </div>
 
       <div class="dialog-actions">
-        <button mat-stroked-button color="warn" (click)="openDueSlip()" *ngIf="ledger && ledger.totalOutstandingDue > 0">
+        <button mat-stroked-button color="warn" (click)="openDueSlip()" *ngIf="ledger && ledger.totalOutstandingDue > 0" class="btn-due-slip">
           <mat-icon>receipt_long</mat-icon>
-          <span>Print Due Slip (बकाया पर्ची)</span>
+          <span class="btn-text-full">Print Due Slip (बकाया पर्ची)</span>
+          <span class="btn-text-short">Due Slip</span>
         </button>
-        <button mat-stroked-button color="primary" (click)="collectFeeModal()" *ngIf="ledger && ledger.totalOutstandingDue > 0">
+        <button mat-stroked-button color="primary" (click)="collectFeeModal()" *ngIf="ledger && ledger.totalOutstandingDue > 0" class="btn-collect">
           <mat-icon>payments</mat-icon>
           <span>Collect Fee</span>
         </button>
-        <button mat-raised-button color="primary" (click)="onClose()">
+        <button mat-raised-button color="primary" (click)="onClose()" class="btn-done">
           Done
         </button>
       </div>
@@ -269,8 +420,8 @@ import { FeeDueReceiptDialogComponent } from './fee-due-receipt-dialog.component
   `,
   styles: [`
     .ledger-dialog-container {
-      padding: 18px 22px;
-      max-width: 1020px;
+      padding: 16px 20px;
+      max-width: 1240px;
       width: 100%;
       max-height: 90vh;
       display: flex;
@@ -278,70 +429,84 @@ import { FeeDueReceiptDialogComponent } from './fee-due-receipt-dialog.component
       box-sizing: border-box;
       overflow: hidden;
 
-      @media (min-width: 960px) {
-        min-width: 920px;
+      @media (min-width: 1200px) {
+        min-width: 1160px;
       }
-      @media (max-width: 959px) and (min-width: 600px) {
-        min-width: auto;
+      @media (max-width: 1199px) and (min-width: 768px) {
+        min-width: 740px;
         padding: 16px;
       }
-      @media (max-width: 599px) {
+      @media (max-width: 767px) {
         min-width: auto;
         padding: 10px 12px;
-        max-height: 95vh;
+        max-height: 96vh;
+        height: 96vh;
       }
     }
 
     .dialog-header {
       display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: 12px;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 18px;
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+      border-bottom: 1px solid #bfdbfe;
+      border-top-left-radius: 12px;
+      border-top-right-radius: 12px;
+      margin: -16px -20px 14px -20px;
       flex-shrink: 0;
 
-      .header-left {
+      .header-icon-wrap {
+        width: 42px;
+        height: 42px;
+        border-radius: 10px;
+        background: #2563eb;
+        color: #ffffff;
         display: flex;
         align-items: center;
-        gap: 10px;
-        .header-icon {
-          font-size: 30px;
-          width: 30px;
-          height: 30px;
-          flex-shrink: 0;
-        }
-        .title {
+        justify-content: center;
+        box-shadow: 0 4px 6px -1px rgba(37,99,235,0.25);
+        flex-shrink: 0;
+        mat-icon { font-size: 22px; width: 22px; height: 22px; }
+      }
+
+      .header-titles {
+        flex: 1;
+        min-width: 0;
+        .main-title {
           margin: 0;
-          font-size: 1.25rem;
+          font-size: 1.2rem;
           font-weight: 700;
-          color: #0f172a;
+          color: #1e3a8a;
           line-height: 1.25;
         }
         .subtitle {
           margin: 2px 0 0 0;
-          font-size: 0.8rem;
-          color: #64748b;
+          font-size: 0.78rem;
+          color: #3b82f6;
         }
       }
 
       .close-btn {
+        color: #64748b;
+        &:hover { color: #1e293b; background: rgba(0,0,0,0.04); }
         flex-shrink: 0;
       }
 
-      @media (max-width: 600px) {
-        margin-bottom: 8px;
-        .header-left {
-          gap: 8px;
-          .header-icon {
-            font-size: 22px;
-            width: 22px;
-            height: 22px;
-          }
-          .title {
-            font-size: 1.02rem;
-          }
-          .subtitle {
-            display: none;
-          }
+      @media (max-width: 768px) {
+        padding: 10px 12px;
+        gap: 10px;
+        margin: -10px -12px 10px -12px;
+
+        .header-icon-wrap {
+          width: 34px;
+          height: 34px;
+          border-radius: 8px;
+          mat-icon { font-size: 18px; width: 18px; height: 18px; }
+        }
+        .header-titles {
+          .main-title { font-size: 0.98rem; }
+          .subtitle { display: none; }
         }
       }
     }
@@ -370,6 +535,7 @@ import { FeeDueReceiptDialogComponent } from './fee-due-receipt-dialog.component
         display: flex;
         align-items: center;
         gap: 12px;
+        min-width: 0;
 
         .profile-avatar {
           width: 44px;
@@ -387,17 +553,18 @@ import { FeeDueReceiptDialogComponent } from './fee-due-receipt-dialog.component
           display: flex;
           flex-direction: column;
           min-width: 0;
-          .st-name { margin: 0; font-size: 1.05rem; font-weight: 700; color: #0f172a; }
+          .st-name { margin: 0; font-size: 1.05rem; font-weight: 700; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
           .st-meta-row {
             display: flex;
             align-items: center;
             gap: 6px;
             font-size: 0.8rem;
             color: #475569;
+            flex-wrap: wrap;
             .st-sep { color: #cbd5e1; }
             .st-branch { color: #1e40af; font-weight: 500; }
           }
-          .st-parent { font-size: 0.76rem; color: #64748b; }
+          .st-parent { font-size: 0.76rem; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         }
       }
 
@@ -505,7 +672,7 @@ import { FeeDueReceiptDialogComponent } from './fee-due-receipt-dialog.component
 
       @media (max-width: 680px) {
         .tab-label-desktop { display: none; }
-        .tab-label-mobile { display: inline; font-size: 0.82rem; font-weight: 600; }
+        .tab-label-mobile { display: inline; font-size: 0.8rem; font-weight: 600; }
       }
     }
 
@@ -533,10 +700,11 @@ import { FeeDueReceiptDialogComponent } from './fee-due-receipt-dialog.component
 
     .tab-content {
       padding-top: 6px;
-      max-height: 46vh;
-      min-height: 150px;
+      flex: 1;
+      min-height: 200px;
+      max-height: 52vh;
       overflow-y: auto;
-      overflow-x: auto;
+      overflow-x: hidden;
       -webkit-overflow-scrolling: touch;
       scroll-behavior: smooth;
 
@@ -558,6 +726,37 @@ import { FeeDueReceiptDialogComponent } from './fee-due-receipt-dialog.component
       }
       &::-webkit-scrollbar-thumb:hover {
         background: #94a3b8;
+      }
+
+      @media (max-width: 768px) {
+        max-height: none;
+        padding-top: 4px;
+      }
+    }
+
+    .table-responsive {
+      width: 100%;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      border-radius: 6px;
+      border: 1px solid #e2e8f0;
+      box-sizing: border-box;
+
+      scrollbar-width: thin;
+      scrollbar-color: #cbd5e1 #f8fafc;
+
+      &::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+        display: block;
+      }
+      &::-webkit-scrollbar-track {
+        background: #f8fafc;
+        border-radius: 4px;
+      }
+      &::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 4px;
       }
     }
 
@@ -690,66 +889,282 @@ import { FeeDueReceiptDialogComponent } from './fee-due-receipt-dialog.component
       display: flex;
       justify-content: flex-end;
       gap: 10px;
-      margin-top: 12px;
+      margin-top: 10px;
       padding-top: 10px;
       border-top: 1px solid #e2e8f0;
       flex-shrink: 0;
 
+      .btn-text-short { display: none; }
+      .btn-text-full { display: inline; }
+
       @media (max-width: 600px) {
-        flex-direction: column-reverse;
-        gap: 6px;
-        margin-top: 8px;
-        padding-top: 8px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin-top: 6px;
+        padding-top: 6px;
+
+        .btn-text-full { display: none; }
+        .btn-text-short { display: inline; }
 
         button {
           width: 100%;
           justify-content: center;
+          font-size: 0.8rem;
+          padding: 0 8px;
+          height: 38px;
+        }
+
+        .btn-done {
+          grid-column: span 2;
         }
       }
     }
 
     .reversing-row td {
-      background: #fff7ed;
+      background: #fff7ed !important;
+      border-top: 1px solid #fdba74;
+      border-bottom: 1px solid #fdba74;
     }
 
-    .confirm-reverse-row td {
-      padding: 0 !important;
-      background: #fff7ed;
-      border-bottom: 2px solid #f97316;
-    }
-
+    /* Dedicated Reversal Confirmation Workflow Card */
     .reverse-confirm-box {
       display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 10px 16px;
-      flex-wrap: wrap;
+      flex-direction: column;
+      gap: 10px;
+      padding: 14px 16px;
+      background: #fff7ed;
+      border: 1.5px solid #fed7aa;
+      border-radius: 10px;
+      margin-bottom: 12px;
+      width: 100%;
+      box-sizing: border-box;
+      box-shadow: 0 4px 12px rgba(234, 88, 12, 0.08);
 
-      .rev-warn-icon {
-        color: #f97316;
-        font-size: 22px;
-        width: 22px;
-        height: 22px;
-        flex-shrink: 0;
+      @media (max-width: 768px) {
+        padding: 10px 12px;
+        gap: 8px;
+        margin-bottom: 8px;
       }
 
-      .rev-confirm-text {
-        flex: 1;
+      .rev-header-bar {
         display: flex;
-        flex-direction: column;
-        gap: 2px;
-        font-size: 0.82rem;
-        color: #7c2d12;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 10px;
+        width: 100%;
 
-        strong {
-          font-size: 0.9rem;
+        .rev-title-group {
+          display: flex;
+          align-items: flex-start;
+          gap: 8px;
+          flex: 1;
+          min-width: 0;
+
+          .rev-warn-icon {
+            color: #ea580c;
+            font-size: 22px;
+            width: 22px;
+            height: 22px;
+            flex-shrink: 0;
+            margin-top: 2px;
+          }
+
+          .rev-confirm-title {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            flex: 1;
+            min-width: 0;
+
+            strong {
+              font-size: 0.92rem;
+              color: #9a3412;
+              word-break: break-word;
+            }
+
+            span {
+              font-size: 0.76rem;
+              color: #c2410c;
+              word-break: break-word;
+            }
+          }
+        }
+
+        .lang-toggle-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          padding: 3px 8px;
+          background: #ffffff;
+          border: 1.5px solid #fed7aa;
+          border-radius: 20px;
+          font-size: 0.72rem;
+          cursor: pointer;
+          user-select: none;
+          transition: all 0.2s ease;
+          flex-shrink: 0;
+          box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+
+          &:hover {
+            border-color: #ea580c;
+            background: #fffaf5;
+          }
+
+          .lang-icon {
+            font-size: 13px;
+            width: 13px;
+            height: 13px;
+            color: #ea580c;
+          }
+
+          span {
+            color: #64748b;
+            font-weight: 500;
+
+            &.active {
+              color: #ea580c;
+              font-weight: 700;
+            }
+          }
+
+          .sep {
+            color: #cbd5e1;
+            font-size: 0.68rem;
+          }
+        }
+      }
+
+      .rev-options-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        width: 100%;
+        box-sizing: border-box;
+
+        @media (max-width: 768px) {
+          grid-template-columns: 1fr;
+          gap: 6px;
+        }
+      }
+
+      .rev-option-card {
+        display: flex;
+        gap: 10px;
+        padding: 9px 12px;
+        background: #ffffff;
+        border: 1.5px solid #fed7aa;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        box-sizing: border-box;
+        width: 100%;
+        min-width: 0;
+
+        &:hover {
+          border-color: #f97316;
+          background: #fffaf5;
+        }
+
+        &.selected {
+          border-color: #ea580c;
+          background: #ffffff;
+          box-shadow: 0 0 0 1px #ea580c;
+
+          .card-radio mat-icon {
+            color: #ea580c;
+          }
+          .card-title {
+            color: #9a3412;
+            font-weight: 700;
+          }
+        }
+
+        .card-radio mat-icon {
+          font-size: 20px;
+          width: 20px;
+          height: 20px;
+          color: #94a3b8;
+          margin-top: 1px;
+          flex-shrink: 0;
+        }
+
+        .card-body {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          flex: 1;
+          min-width: 0;
+
+          .card-title {
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: #334155;
+            word-break: break-word;
+          }
+
+          .card-desc {
+            font-size: 0.73rem;
+            color: #64748b;
+            line-height: 1.32;
+            word-break: break-word;
+          }
+        }
+      }
+
+      .rev-fields-row {
+        display: grid;
+        grid-template-columns: 1fr 1.5fr;
+        gap: 10px;
+        margin-top: 2px;
+        width: 100%;
+        box-sizing: border-box;
+
+        @media (max-width: 768px) {
+          grid-template-columns: 1fr;
+          gap: 6px;
+        }
+      }
+
+      .rev-reason-row {
+        width: 100%;
+        margin-top: 2px;
+        box-sizing: border-box;
+      }
+
+      .density-compact {
+        width: 100%;
+        margin-bottom: 0;
+
+        ::ng-deep .mat-mdc-form-field-subscript-wrapper {
+          display: none;
         }
       }
 
       .rev-confirm-actions {
         display: flex;
-        gap: 8px;
-        flex-shrink: 0;
+        justify-content: flex-end;
+        align-items: center;
+        gap: 10px;
+        margin-top: 6px;
+        padding-top: 8px;
+        border-top: 1px dashed #fed7aa;
+        width: 100%;
+        box-sizing: border-box;
+
+        @media (max-width: 600px) {
+          display: grid;
+          grid-template-columns: 1fr 1.5fr;
+          gap: 8px;
+
+          button {
+            width: 100%;
+            justify-content: center;
+            height: 38px;
+            font-size: 0.82rem;
+            padding: 0 10px;
+          }
+        }
       }
 
       .spinning-icon {
@@ -760,6 +1175,77 @@ import { FeeDueReceiptDialogComponent } from './fee-due-receipt-dialog.component
         100% { transform: rotate(360deg); }
       }
     }
+
+    /* Reversed Table Styles */
+    .reversed-table {
+      .strikethrough-receipt {
+        text-decoration: line-through;
+        color: #94a3b8;
+        font-weight: 600;
+      }
+
+      .strikethrough-amount {
+        text-decoration: line-through;
+        color: #ef4444;
+        font-size: 0.95rem;
+      }
+
+      .reversal-type-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 3px 8px;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        background: #f1f5f9;
+        color: #475569;
+        border: 1px solid #cbd5e1;
+
+        .rev-type-icon {
+          font-size: 15px;
+          width: 15px;
+          height: 15px;
+        }
+
+        &.is-refund {
+          background: #ecfdf5;
+          color: #065f46;
+          border-color: #a7f3d0;
+        }
+      }
+
+      .recipient-cell {
+        display: flex;
+        flex-direction: column;
+
+        .recip-name {
+          font-weight: 600;
+          color: #1e293b;
+        }
+
+        .recip-mode {
+          color: #64748b;
+          font-size: 0.72rem;
+        }
+      }
+
+      .user-pill {
+        display: inline-block;
+        padding: 2px 7px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        color: #334155;
+        font-weight: 600;
+      }
+
+      .reversal-reason-text {
+        color: #475569;
+        font-style: italic;
+      }
+    }
   `]
 })
 export class StudentLedgerDialogComponent implements OnInit {
@@ -768,6 +1254,24 @@ export class StudentLedgerDialogComponent implements OnInit {
   reversingPaymentId: string | null = null;
   reversingInProgress = false;
   hasReversedPayment = false;
+
+  get reversingPayment(): StudentLedgerPaymentItem | undefined {
+    return this.ledger?.payments?.find(p => p.paymentId === this.reversingPaymentId);
+  }
+
+  reversalLang: 'EN' | 'HI' = 'EN';
+  reversalTypeControl = new FormControl<'ClericalCorrection' | 'RefundToParent'>('ClericalCorrection', { nonNullable: true });
+  reversalRefundModeControl = new FormControl<'Cash' | 'BankTransfer' | 'UPI'>('Cash', { nonNullable: true });
+  reversalRecipientControl = new FormControl<string>('', { nonNullable: true });
+  reversalReasonControl = new FormControl<string>('', { nonNullable: true });
+
+  toggleLanguage(): void {
+    this.reversalLang = this.reversalLang === 'EN' ? 'HI' : 'EN';
+  }
+
+  setReversalType(type: 'ClericalCorrection' | 'RefundToParent'): void {
+    this.reversalTypeControl.setValue(type);
+  }
 
   get effectiveBranchName(): string {
     if (this.ledger?.branchName) return this.ledger.branchName;
@@ -807,6 +1311,20 @@ export class StudentLedgerDialogComponent implements OnInit {
 
   startReversePayment(payment: StudentLedgerPaymentItem): void {
     this.reversingPaymentId = payment.paymentId;
+    this.reversalLang = 'EN';
+    this.reversalTypeControl.setValue('ClericalCorrection');
+    const modeNum = Number(payment.mode);
+    this.reversalRefundModeControl.setValue(modeNum === 0 ? 'Cash' : (modeNum === 1 ? 'UPI' : 'BankTransfer'));
+    const defaultRecipient = this.ledger?.parentName ? `${this.ledger.parentName} (Parent)` : (this.ledger?.studentName || 'Parent / Student');
+    this.reversalRecipientControl.setValue(defaultRecipient);
+    this.reversalReasonControl.setValue('');
+
+    setTimeout(() => {
+      const el = document.querySelector('.reverse-confirm-box');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }, 60);
   }
 
   cancelReverse(): void {
@@ -819,7 +1337,20 @@ export class StudentLedgerDialogComponent implements OnInit {
     this.reversingInProgress = true;
     this.loading = true;
 
-    this.feesService.reversePayment(payment.paymentId, 'Payment reversed by admin').subscribe({
+    const revType = this.reversalTypeControl.value;
+    const refMode = this.reversalRefundModeControl.value;
+    const recipient = this.reversalRecipientControl.value.trim();
+    const reasonText = this.reversalReasonControl.value.trim() || 
+      (revType === 'RefundToParent' ? `Fee refund of ₹${payment.amountPaid.toFixed(2)} paid to parent` : 'Clerical correction / wrongful receipt voided');
+
+    this.feesService.reversePayment(
+      payment.paymentId,
+      reasonText,
+      revType,
+      refMode,
+      revType === 'RefundToParent' ? recipient : undefined,
+      undefined
+    ).subscribe({
       next: (res) => {
         this.reversingPaymentId = null;
         this.reversingInProgress = false;

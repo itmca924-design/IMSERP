@@ -50,9 +50,6 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
         </button>
       </div>
 
-      <!-- Loading Bar -->
-      <mat-progress-bar *ngIf="loading" mode="indeterminate"></mat-progress-bar>
-
       <!-- Dialog Body Content -->
       <div class="dialog-body">
         <!-- Add / Edit Inline Box -->

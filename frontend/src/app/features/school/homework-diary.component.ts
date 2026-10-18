@@ -304,9 +304,6 @@ export interface DailyDiaryReportHeader {
             </div>
           </div>
 
-          <!-- Loading Progress Bar -->
-          <mat-progress-bar mode="indeterminate" *ngIf="loadingDiary"></mat-progress-bar>
-
           <!-- Quick Fill Accordion Panel -->
           <div class="quickfill-container" *ngIf="commonQuickFill.isOpen && diaryClassId">
             <div class="qf-header">
@@ -914,8 +911,6 @@ export interface DailyDiaryReportHeader {
             </div>
           </div>
         </div>
-
-        <mat-progress-bar mode="indeterminate" *ngIf="loading"></mat-progress-bar>
 
         <!-- Empty State -->
         <div class="empty-state" *ngIf="!loading && filteredItems.length === 0">
@@ -5029,8 +5024,6 @@ export class HomeworkFormDialogComponent implements OnInit {
           <button class="toggle-btn" [class.active]="filterRoster==='pending'" (click)="filterRoster='pending'">Pending ({{roster.length - submittedCount}})</button>
         </div>
       </div>
-
-      <mat-progress-bar mode="indeterminate" *ngIf="loading"></mat-progress-bar>
 
       <!-- Submissions List / Table -->
       <div class="modal-body">

@@ -239,12 +239,7 @@ export class StudentIdCardDialogComponent implements OnInit {
   logoFailed = false;
 
   get logoUrl(): string | null {
-    let p = this.authService.getInstituteLogoUrl();
-    if (!p) return null;
-    if (p.endsWith('.jpg') && p.includes('a8c89ff2-ed12-4e4b-80c4-316453c3a1c6')) {
-      p = p.replace('.jpg', '.png');
-    }
-    return this.getPhotoUrl(p);
+    return this.authService.getInstituteLogoUrl();
   }
 
   constructor(

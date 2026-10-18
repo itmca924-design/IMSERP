@@ -278,9 +278,6 @@ import { environment } from '../../../environments/environment';
     </div>
   </mat-card>
 
-  <!-- Loading State -->
-  <mat-progress-bar *ngIf="loading" mode="indeterminate" class="load-bar"></mat-progress-bar>
-
   <!-- Empty State -->
   <div class="empty-state" *ngIf="!loading && materials.length === 0">
     <div class="empty-icon-wrap">

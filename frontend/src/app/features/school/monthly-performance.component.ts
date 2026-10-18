@@ -196,9 +196,6 @@ export interface MonthlyPerformanceReportHeader {
         </form>
       </mat-card>
 
-      <!-- Loading Bar -->
-      <mat-progress-bar mode="indeterminate" *ngIf="loading"></mat-progress-bar>
-
       <!-- Class Performance Benchmark KPI Grid -->
       <div class="kpi-grid" *ngIf="reportHeader && students.length > 0">
         <div class="kpi-card kpi-blue">

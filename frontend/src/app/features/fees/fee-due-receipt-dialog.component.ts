@@ -61,19 +61,17 @@ export interface FeeDueReceiptDialogData {
         </div>
       </div>
 
-      <mat-progress-bar mode="indeterminate" *ngIf="loading"></mat-progress-bar>
-
       <!-- Printable Due Slip Paper -->
       <div class="due-paper" id="due-paper" *ngIf="!loading && dueSlip">
         <!-- Header -->
         <div class="paper-header">
           <div class="inst-info">
-            <div class="logo-mark" [class.has-img]="logoUrl && !logoFailed">
+            <div class="logo-mark transparent-logo-mark" [class.has-img]="logoUrl && !logoFailed">
               <img *ngIf="logoUrl && !logoFailed" [src]="logoUrl" (error)="logoFailed = true" alt="Logo" class="inst-logo-img">
-              <mat-icon *ngIf="!logoUrl || logoFailed">account_balance</mat-icon>
+              <mat-icon *ngIf="!logoUrl || logoFailed" class="fallback-inst-icon">account_balance</mat-icon>
             </div>
             <div>
-              <h2 class="inst-name">{{ data.instituteName || authService.currentUser()?.instituteName || 'Apex Coaching Academy' }}</h2>
+              <h2 class="inst-name">{{ data.instituteName || authService.currentUser()?.instituteName || 'Fee Due Demand Note' }}</h2>
               <p class="inst-subtitle">Accounts & Financial Clearance Department | Student Fee Demand Note</p>
               <p class="inst-branch" *ngIf="effectiveBranchName">
                 <span class="branch-pill">🏛️ Branch: {{ effectiveBranchName }}</span>
@@ -477,30 +475,36 @@ export interface FeeDueReceiptDialogData {
         gap: 16px;
 
         .logo-mark {
-          width: 54px;
-          height: 54px;
-          border-radius: 12px;
-          background: linear-gradient(135deg, #b91c1c, #dc2626);
-          color: #ffffff;
+          width: 58px;
+          height: 58px;
+          border-radius: 0;
+          background: transparent !important;
+          border: none !important;
+          box-shadow: none !important;
           display: flex;
           align-items: center;
           justify-content: center;
-          overflow: hidden;
+          overflow: visible;
           flex-shrink: 0;
 
-          &.has-img {
-            background: #ffffff;
-            border: 1px solid #fecaca;
-            padding: 3px;
+          &.has-img,
+          &.transparent-logo-mark {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
           }
 
           .inst-logo-img {
             width: 100%;
             height: 100%;
             object-fit: contain;
+            background: transparent !important;
+            border: none !important;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15));
           }
 
-          mat-icon { font-size: 32px; width: 32px; height: 32px; }
+          mat-icon { font-size: 32px; width: 32px; height: 32px; color: #dc2626; }
         }
 
         .inst-name {
@@ -1086,7 +1090,8 @@ export class FeeDueReceiptDialogComponent implements OnInit {
     private dialog: MatDialog,
     public authService: AuthService
   ) {
-    this.logoUrl = data.logoUrl || this.authService.getInstituteLogoUrl();
+    const rawLogo = data.logoUrl || this.authService.currentUser()?.profilePhoto;
+    this.logoUrl = this.authService.resolveLogoUrl(rawLogo);
   }
 
   ngOnInit(): void {
@@ -1098,7 +1103,7 @@ export class FeeDueReceiptDialogComponent implements OnInit {
     this.feesService.getUpiPaymentSettings().subscribe({
       next: (settings: UpiPaymentSettings) => {
         this.payeeUpiId = settings.effectiveUpiId || settings.upiId || 'imserp.fees@sbi';
-        this.payeeMerchantName = settings.effectiveMerchantName || settings.upiMerchantName || this.data.instituteName || this.authService.currentUser()?.instituteName || 'Apex Coaching Academy';
+        this.payeeMerchantName = settings.effectiveMerchantName || settings.upiMerchantName || this.data.instituteName || this.authService.currentUser()?.instituteName || 'Fee Collection';
         if (settings.effectiveBankName && settings.effectiveAccountNumber) {
           this.bankAccountDisplay = `${settings.effectiveBankName} - A/C: ${settings.effectiveAccountNumber} (IFSC: ${settings.effectiveIfsc || 'N/A'})`;
         }
@@ -1188,15 +1193,34 @@ export class FeeDueReceiptDialogComponent implements OnInit {
 
   printDueSlip(): void {
     const el = document.getElementById('due-paper');
-    if (!el) return;
-
-    const printWindow = window.open('', '_blank', 'width=840,height=900');
-    if (!printWindow) {
+    if (!el) {
       window.print();
       return;
     }
 
-    printWindow.document.write(`
+    let printIframe = document.getElementById('due-print-frame') as HTMLIFrameElement;
+    if (printIframe) {
+      printIframe.remove();
+    }
+
+    printIframe = document.createElement('iframe');
+    printIframe.id = 'due-print-frame';
+    printIframe.style.position = 'fixed';
+    printIframe.style.right = '0';
+    printIframe.style.bottom = '0';
+    printIframe.style.width = '0';
+    printIframe.style.height = '0';
+    printIframe.style.border = '0';
+    document.body.appendChild(printIframe);
+
+    const doc = printIframe.contentWindow?.document || printIframe.contentDocument;
+    if (!doc) {
+      window.print();
+      return;
+    }
+
+    doc.open();
+    doc.write(`
       <!DOCTYPE html>
       <html>
         <head>
@@ -1206,9 +1230,9 @@ export class FeeDueReceiptDialogComponent implements OnInit {
             body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; padding: 15mm; color: #0f172a; font-size: 13px; line-height: 1.45; }
             .paper-header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 12px; border-bottom: 2px solid #b91c1c; }
             .inst-info { display: flex; align-items: center; gap: 14px; }
-            .logo-mark { width: 48px; height: 48px; border-radius: 8px; background: #b91c1c; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 24px; overflow: hidden; flex-shrink: 0; }
-            .logo-mark.has-img { background: #fff; border: 1px solid #fecaca; padding: 2px; }
-            .inst-logo-img { width: 100%; height: 100%; object-fit: contain; }
+            .logo-mark { width: 52px; height: 52px; background: transparent !important; border: none !important; display: flex; align-items: center; justify-content: center; overflow: visible; flex-shrink: 0; }
+            .logo-mark.has-img { background: transparent !important; border: none !important; padding: 0 !important; }
+            .inst-logo-img { width: 100%; height: 100%; object-fit: contain; background: transparent !important; border: none !important; }
             .inst-name { font-size: 1.35rem; font-weight: 800; color: #0f172a; }
             .inst-subtitle { font-size: 0.8rem; color: #475569; margin-top: 2px; }
             .inst-branch { font-size: 0.74rem; color: #b91c1c; font-weight: 600; margin-top: 3px; display: flex; align-items: center; gap: 6px; }
@@ -1284,12 +1308,15 @@ export class FeeDueReceiptDialogComponent implements OnInit {
         </body>
       </html>
     `);
-    printWindow.document.close();
-    printWindow.focus();
+    doc.close();
     setTimeout(() => {
-      printWindow.print();
-      printWindow.close();
-    }, 500);
+      try {
+        printIframe.contentWindow?.focus();
+        printIframe.contentWindow?.print();
+      } catch {
+        window.print();
+      }
+    }, 250);
   }
 
   shareWhatsApp(): void {

@@ -312,8 +312,6 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           </mat-form-field>
         </div>
 
-        <mat-progress-bar mode="indeterminate" *ngIf="loading"></mat-progress-bar>
-
         <div class="books-grid" *ngIf="!loading && books.length > 0">
           <div class="book-card" *ngFor="let b of books">
             <div class="book-card-top">

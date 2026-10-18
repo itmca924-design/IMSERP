@@ -859,7 +859,13 @@ public record StudentLibraryDuesDto(
     int ActiveOverdueBooksCount
 );
 
-public record ReversePaymentDto(string Reason);
+public record ReversePaymentDto(
+    string? Reason = null,
+    string? ReversalType = "ClericalCorrection",
+    string? RefundMode = "Cash",
+    string? RefundRecipient = null,
+    string? RefundReference = null
+);
 
 public record ReversePaymentResponseDto(
     string Message,
@@ -1302,7 +1308,15 @@ public record StudentLedgerPaymentItemDto(
     PaymentMode Mode,
     string? TransactionRef,
     string? Remarks,
-    DateTime PaymentDate
+    DateTime PaymentDate,
+    bool IsReversed = false,
+    DateTime? ReversedAt = null,
+    string? ReversedBy = null,
+    string? ReversalReason = null,
+    string? ReversalType = null,
+    string? RefundMode = null,
+    string? RefundRecipient = null,
+    string? RefundReference = null
 );
 
 public record StudentLedgerDto(
@@ -1319,7 +1333,8 @@ public record StudentLedgerDto(
     List<StudentLedgerInvoiceItemDto> Invoices,
     List<StudentLedgerPaymentItemDto> Payments,
     decimal PendingLibraryFine = 0,
-    string? BranchName = null
+    string? BranchName = null,
+    List<StudentLedgerPaymentItemDto>? ReversedPayments = null
 );
 
 public record FeeCardMonthEntryDto(

@@ -138,6 +138,14 @@ export interface StudentLedgerPaymentItem {
   transactionRef?: string;
   remarks?: string;
   paymentDate: string;
+  isReversed?: boolean;
+  reversedAt?: string;
+  reversedBy?: string;
+  reversalReason?: string;
+  reversalType?: string; // 'ClericalCorrection' | 'RefundToParent'
+  refundMode?: string;
+  refundRecipient?: string;
+  refundReference?: string;
 }
 
 export interface StudentLedger {
@@ -155,6 +163,7 @@ export interface StudentLedger {
   payments: StudentLedgerPaymentItem[];
   pendingLibraryFine?: number;
   branchName?: string;
+  reversedPayments?: StudentLedgerPaymentItem[];
 }
 
 export interface PagedResult<T> {
@@ -379,9 +388,22 @@ export class FeesService {
     this._refreshRequired$.next();
   }
 
-  reversePayment(paymentId: string, reason: string): Observable<any> {
+  reversePayment(
+    paymentId: string,
+    reason: string = 'Payment reversed by admin',
+    reversalType: string = 'ClericalCorrection',
+    refundMode: string = 'Cash',
+    refundRecipient?: string,
+    refundReference?: string
+  ): Observable<any> {
     return this.http.delete<any>(`${this.apiUrl}/payment/${paymentId}`, {
-      body: { reason }
+      body: {
+        reason,
+        reversalType,
+        refundMode,
+        refundRecipient,
+        refundReference
+      }
     });
   }
 

@@ -361,8 +361,6 @@ import { environment } from '../../../environments/environment';
           </mat-form-field>
         </div>
 
-        <mat-progress-bar mode="indeterminate" *ngIf="loadingCircs"></mat-progress-bar>
-
         <div class="ledger-table-wrap">
           <table class="ledger-table">
             <thead>

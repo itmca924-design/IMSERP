@@ -93,9 +93,6 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
         </div>
       </div>
 
-      <!-- Progress bar -->
-      <mat-progress-bar *ngIf="loading" mode="indeterminate" class="load-bar"></mat-progress-bar>
-
       <!-- Main Plans Table Card -->
       <mat-card class="table-card">
         <div class="table-card-header">

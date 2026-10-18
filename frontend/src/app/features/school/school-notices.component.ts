@@ -199,8 +199,6 @@ export interface NoticeStatsDto {
         </div>
       </div>
 
-      <mat-progress-bar mode="indeterminate" *ngIf="loading"></mat-progress-bar>
-
       <!-- Connection Error Alert -->
       <div class="conn-error-banner" *ngIf="!loading && hasConnectionError">
         <div class="err-info">

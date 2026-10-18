@@ -233,9 +233,6 @@ import { environment } from '../../../environments/environment';
         </div>
       </mat-card>
 
-      <!-- Main Class Cards Grid -->
-      <mat-progress-bar mode="indeterminate" *ngIf="loading"></mat-progress-bar>
-
       <div class="classes-container" *ngIf="!loading && classes.length > 0">
         <mat-card class="class-card mat-elevation-z1" *ngFor="let c of classes">
           <div class="class-card-header">

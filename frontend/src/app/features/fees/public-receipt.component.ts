@@ -846,8 +846,9 @@ export class PublicReceiptComponent implements OnInit {
     };
 
     const dialogRef = this.dialog.open(UpiPaymentDialogComponent, {
-      width: '680px',
+      width: '880px',
       maxWidth: '96vw',
+      panelClass: ['upi-dialog-panel', 'no-overflow-dialog'],
       data,
       autoFocus: false
     });

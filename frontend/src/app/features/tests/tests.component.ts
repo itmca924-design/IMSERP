@@ -412,8 +412,6 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
 
         <mat-divider></mat-divider>
 
-        <mat-progress-bar mode="indeterminate" *ngIf="marksLoading" class="marks-loader"></mat-progress-bar>
-
         <mat-card-content class="marks-card-content">
 
           <!-- Desktop / Laptop / Tablet: Pure Angular Material Table -->
@@ -1178,7 +1176,6 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
               </div>
 
               <div *ngIf="loadingAwardSheet" class="text-center p-4">
-                <mat-progress-bar mode="indeterminate"></mat-progress-bar>
                 <p class="mt-2 text-slate-500">Generating Marking Foil...</p>
               </div>
 

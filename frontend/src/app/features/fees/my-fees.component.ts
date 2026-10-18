@@ -62,9 +62,6 @@ import { UpiPaymentDialogComponent } from './upi-payment-dialog.component';
         </div>
       </div>
 
-      <!-- Loading Bar -->
-      <mat-progress-bar mode="indeterminate" *ngIf="loading" class="page-loader"></mat-progress-bar>
-
       <div class="page-content-wrap" *ngIf="ledger && !loading">
         <!-- Student Information Card & KPI Metrics Row -->
         <mat-card class="student-kpi-card mat-elevation-z1">
@@ -1031,8 +1028,9 @@ export class MyFeesComponent implements OnInit {
   openUpiPaymentForTotal(): void {
     if (!this.ledger) return;
     const ref = this.dialog.open(UpiPaymentDialogComponent, {
-      width: '900px',
-      maxWidth: '95vw',
+      width: '880px',
+      maxWidth: '96vw',
+      panelClass: ['upi-dialog-panel', 'no-overflow-dialog'],
       data: {
         mode: 'fifo_student',
         studentId: this.ledger.studentId,
@@ -1055,8 +1053,9 @@ export class MyFeesComponent implements OnInit {
   openUpiPaymentForInvoice(inv: any): void {
     if (!this.ledger) return;
     const ref = this.dialog.open(UpiPaymentDialogComponent, {
-      width: '900px',
-      maxWidth: '95vw',
+      width: '880px',
+      maxWidth: '96vw',
+      panelClass: ['upi-dialog-panel', 'no-overflow-dialog'],
       data: {
         mode: 'invoice',
         invoiceId: inv.id,

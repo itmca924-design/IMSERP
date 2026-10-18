@@ -62,8 +62,6 @@ export interface SectionAssignmentRecord {
         </button>
       </div>
 
-      <mat-progress-bar mode="indeterminate" *ngIf="saving"></mat-progress-bar>
-
       <div class="dialog-body">
         <!-- Current Status Banner -->
         <div class="current-status-banner" [class.assigned]="data.currentClassTeacherId" [class.unassigned]="!data.currentClassTeacherId">

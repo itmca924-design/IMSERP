@@ -47,9 +47,6 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
         </button>
       </header>
 
-      <!-- Single Loader Rule -->
-      <mat-progress-bar mode="indeterminate" *ngIf="loading || saving" class="top-loader"></mat-progress-bar>
-
       <form [formGroup]="settingsForm" (ngSubmit)="onSaveSettings()" class="settings-form">
         <div class="form-body">
           <div class="info-alert">

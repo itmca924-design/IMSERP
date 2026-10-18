@@ -636,26 +636,12 @@ export class TeacherIdCardDialogComponent implements OnInit {
   ) {}
 
   getCardLogo(card?: TeacherIdCardDto): string | null {
-    let raw = card?.institutionLogo || this.authService.getInstituteLogoUrl();
-    if (!raw) return null;
-    if (raw.endsWith('.jpg') && raw.includes('a8c89ff2-ed12-4e4b-80c4-316453c3a1c6')) {
-      raw = raw.replace('.jpg', '.png');
-    }
-    return this.getPhotoUrl(raw);
+    const raw = card?.institutionLogo || this.authService.getInstituteLogoUrl();
+    return this.authService.resolveLogoUrl(raw);
   }
 
   getPhotoUrl(photo?: string | null): string {
-    if (!photo) return '';
-    if (photo.startsWith('http://') || photo.startsWith('https://') || photo.startsWith('data:')) {
-      return photo;
-    }
-    if (photo.startsWith('/uploads/')) {
-      return `${environment.apiBaseUrl}${photo}`;
-    }
-    if (photo.startsWith('/')) {
-      return photo;
-    }
-    return `${environment.apiBaseUrl}/${photo}`;
+    return this.authService.resolveLogoUrl(photo) || '';
   }
 
   ngOnInit() {

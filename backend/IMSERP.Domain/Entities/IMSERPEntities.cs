@@ -510,6 +510,14 @@ public class FeePayment
     public DateTime? VerifiedAt { get; set; }
     public DateTime PaymentDate { get; set; } = DateTime.UtcNow;
     public string? Remarks { get; set; }
+    public bool IsReversed { get; set; } = false;
+    public DateTime? ReversedAt { get; set; }
+    public string? ReversedBy { get; set; }
+    public string? ReversalReason { get; set; }
+    public string? ReversalType { get; set; } // "ClericalCorrection", "RefundToParent"
+    public string? RefundMode { get; set; } // "Cash", "BankTransfer", "UPI"
+    public string? RefundRecipient { get; set; }
+    public string? RefundReference { get; set; }
 
     [ForeignKey("BranchId")]
     public Branch? Branch { get; set; }

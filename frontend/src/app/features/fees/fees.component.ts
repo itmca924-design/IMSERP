@@ -235,8 +235,6 @@ export interface UpcomingBillingCycleInfo {
           </mat-form-field>
         </div>
 
-        <mat-progress-bar mode="indeterminate" *ngIf="loading" class="grid-loader"></mat-progress-bar>
-
         <!-- Data Table -->
         <mat-card-content class="table-container">
           <table mat-table [dataSource]="invoices" matSort (matSortChange)="onSortChange($event)" class="full-width">
@@ -560,8 +558,6 @@ export interface UpcomingBillingCycleInfo {
             <span>Refresh</span>
           </button>
         </div>
-
-        <mat-progress-bar mode="indeterminate" *ngIf="upiLoading" class="grid-loader"></mat-progress-bar>
 
         <!-- UPI Transactions Table -->
         <mat-card-content class="table-container table-responsive">
@@ -2522,7 +2518,7 @@ export class FeesComponent implements OnInit, OnDestroy {
 
   openStudentLedger(studentId: string): void {
     const dialogRef = this.dialog.open(StudentLedgerDialogComponent, {
-      width: '980px',
+      width: '1240px',
       maxWidth: '96vw',
       maxHeight: '92vh',
       panelClass: 'ledger-dialog-panel',
@@ -2847,9 +2843,9 @@ export class FeesComponent implements OnInit, OnDestroy {
 
   openUpiPaymentModal(inv: FeeInvoicePagedItem): void {
     const dialogRef = this.dialog.open(UpiPaymentDialogComponent, {
-      width: '680px',
+      width: '880px',
       maxWidth: '96vw',
-      panelClass: 'upi-dialog-panel',
+      panelClass: ['upi-dialog-panel', 'no-overflow-dialog'],
       data: {
         mode: 'invoice',
         invoiceId: inv.id,
@@ -2887,9 +2883,9 @@ export class FeesComponent implements OnInit, OnDestroy {
     if (this.selectedInvoices.length === 0) return;
     const first = this.selectedInvoices[0];
     const dialogRef = this.dialog.open(UpiPaymentDialogComponent, {
-      width: '680px',
+      width: '880px',
       maxWidth: '96vw',
-      panelClass: 'upi-dialog-panel',
+      panelClass: ['upi-dialog-panel', 'no-overflow-dialog'],
       data: {
         mode: 'fifo_student',
         studentId: first.studentId,

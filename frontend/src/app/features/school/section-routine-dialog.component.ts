@@ -68,8 +68,6 @@ export interface SectionRoutineDialogData {
         </div>
       </div>
 
-      <mat-progress-bar mode="indeterminate" *ngIf="loading || saving"></mat-progress-bar>
-
       <div class="dialog-body">
         <!-- Section Info & Class Teacher Banner -->
         <div class="section-meta-banner">

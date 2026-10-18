@@ -69,8 +69,6 @@ import { CoachingService } from '../../core/services/coaching.service';
           </mat-form-field>
         </div>
 
-        <mat-progress-bar mode="indeterminate" *ngIf="loading" class="grid-loader"></mat-progress-bar>
-
         <mat-card-content class="table-container">
           <table mat-table [dataSource]="logs" matSort (matSortChange)="onSortChange($event)" class="full-width">
             

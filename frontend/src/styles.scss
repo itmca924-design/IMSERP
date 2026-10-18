@@ -2777,15 +2777,30 @@ mat-sidenav-container {
     overflow: hidden !important;
     box-sizing: border-box !important;
     padding: 0 !important;  // remove MDC default padding that causes white gap
-    width: 100% !important;
-  }
-
-  // Ensure the component host fills full dialog width
-  .mat-mdc-dialog-container .mdc-dialog__surface > * {
-    width: 100%;
-    box-sizing: border-box;
   }
 }
+
+.upi-dialog-panel {
+  .mat-mdc-dialog-container,
+  .mdc-dialog__container,
+  .mdc-dialog__surface {
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+    padding: 0 !important;
+    border-radius: 16px !important;
+    max-height: 94vh !important;
+  }
+
+  .utr-field {
+    mat-hint,
+    .mat-mdc-form-field-hint {
+      white-space: nowrap !important;
+      font-size: 0.72rem !important;
+      letter-spacing: -0.12px !important;
+    }
+  }
+}
+
 
 // Global safe-guard for all dialogs
 .cdk-overlay-pane.mat-mdc-dialog-panel {
@@ -2891,5 +2906,50 @@ mat-sidenav-container {
     }
   }
 }
+
+// =====================================================================
+// Global Transparent Institute Logo Standard (Multi-Tenant)
+// =====================================================================
+.logo-mark,
+.print-logo-mark,
+.inst-logo-img,
+.brand-logo-img,
+.merchant-logo-img,
+.merchant-badge,
+.inst-icon,
+.brand-fallback-icon,
+.fallback-inst-icon {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.logo-mark.has-img,
+.print-logo-mark.has-img,
+.inst-icon.has-img {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+}
+
+.logo-mark img,
+.print-logo-mark img,
+.inst-logo-img,
+.brand-logo-img,
+.merchant-logo-img {
+  object-fit: contain !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+// =====================================================================
+// Strict Single Loader Standard (AGENTS.md)
+// Suppress redundant horizontal indeterminate progress bars so only the
+// central prominent loading overlay card is ever active.
+// =====================================================================
+mat-progress-bar[mode="indeterminate"] {
+  display: none !important;
+}
+
 
 

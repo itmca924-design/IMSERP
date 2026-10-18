@@ -191,8 +191,6 @@ function sectionsOf(classes: any[], classId: string): any[] {
         </button>
       </div>
 
-      <mat-progress-bar mode="indeterminate" *ngIf="loading"></mat-progress-bar>
-
       <div class="hwc-kpis" *ngIf="students.length > 0">
         <div class="kpi"><span class="k-val">{{ totalPoints }}</span><span class="k-lbl">H.W. Points</span></div>
         <div class="kpi ok"><span class="k-val">{{ countBy('Completed') }}</span><span class="k-lbl">✔ Completed</span></div>
@@ -898,8 +896,6 @@ export class HwCheckPanelComponent implements OnInit, OnChanges, OnDestroy {
           <mat-icon>download</mat-icon> Export CSV
         </button>
       </div>
-
-      <mat-progress-bar mode="indeterminate" *ngIf="loading"></mat-progress-bar>
 
       <ng-container *ngIf="data as d">
         <div class="hwa-kpis">
