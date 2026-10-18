@@ -326,6 +326,10 @@ export interface UpcomingBillingCycleInfo {
                       +{{ inv.items.length - 2 }} more
                     </span>
                   </div>
+                  <div *ngIf="inv.cancellationReason" class="inv-audit-pill" [matTooltip]="inv.cancellationReason">
+                    <mat-icon class="audit-icon">info</mat-icon>
+                    <span class="audit-text">{{ inv.cancellationReason }}</span>
+                  </div>
                 </div>
               </td>
             </ng-container>
@@ -343,11 +347,16 @@ export interface UpcomingBillingCycleInfo {
             <ng-container matColumnDef="dueAmount">
               <th mat-header-cell *matHeaderCellDef mat-sort-header="dueAmount" class="text-right">Balance Due (₹)</th>
               <td mat-cell *matCellDef="let inv" class="text-right">
-                <ng-container *ngIf="inv.status !== 'Cancelled'">
-                  <strong class="amount-due">₹{{ inv.dueAmount | number:'1.2-2' }}</strong>
+                <ng-container *ngIf="inv.cancellationReason && inv.cancellationReason.includes('[BALANCE WAIVED & SETTLED]')">
+                  <span class="waived-due-pill" [matTooltip]="inv.cancellationReason">₹0.00 (Waived)</span>
                 </ng-container>
-                <ng-container *ngIf="inv.status === 'Cancelled'">
-                  <span class="cancelled-due" matTooltip="Invoice cancelled (no dues payable)">₹0.00</span>
+                <ng-container *ngIf="!inv.cancellationReason || !inv.cancellationReason.includes('[BALANCE WAIVED & SETTLED]')">
+                  <ng-container *ngIf="inv.status !== 'Cancelled'">
+                    <strong class="amount-due">₹{{ inv.dueAmount | number:'1.2-2' }}</strong>
+                  </ng-container>
+                  <ng-container *ngIf="inv.status === 'Cancelled'">
+                    <span class="cancelled-due" matTooltip="Invoice cancelled (no dues payable)">₹0.00</span>
+                  </ng-container>
                 </ng-container>
               </td>
             </ng-container>
@@ -363,6 +372,14 @@ export interface UpcomingBillingCycleInfo {
               <th mat-header-cell *matHeaderCellDef mat-sort-header="status" class="text-center">Status</th>
               <td mat-cell *matCellDef="let inv" class="text-center">
                 <span
+                  *ngIf="inv.cancellationReason && inv.cancellationReason.includes('[BALANCE WAIVED & SETTLED]')"
+                  class="status-badge settled"
+                  [matTooltip]="inv.cancellationReason"
+                  [matTooltipPosition]="'above'">
+                  Settled (Waived)
+                </span>
+                <span
+                  *ngIf="!inv.cancellationReason || !inv.cancellationReason.includes('[BALANCE WAIVED & SETTLED]')"
                   [class]="'status-badge ' + inv.status.toLowerCase()"
                   [matTooltip]="inv.status === 'Cancelled' ? ('Cancelled' + (inv.cancelledAt ? ' on ' + (inv.cancelledAt | date:'mediumDate') : '') + (inv.cancellationReason ? ' | Reason: ' + inv.cancellationReason : '')) : ''"
                   [matTooltipPosition]="'above'">
@@ -1464,6 +1481,46 @@ export interface UpcomingBillingCycleInfo {
       font-weight: 500;
       text-decoration: line-through;
       cursor: help;
+    }
+
+    .waived-due-pill {
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-size: 0.74rem;
+      font-weight: 600;
+      white-space: nowrap;
+      cursor: help;
+    }
+
+    .inv-audit-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1e40af;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 0.72rem;
+      margin-top: 3px;
+      max-width: 100%;
+      cursor: help;
+
+      .audit-icon {
+        font-size: 13px;
+        width: 13px;
+        height: 13px;
+        color: #2563eb;
+      }
+      .audit-text {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 220px;
+      }
     }
 
     /* PERMANENT STICKY RIGHT ACTIONS COLUMN (Zero horizontal scroll needed!) */
@@ -2589,7 +2646,8 @@ export class FeesComponent implements OnInit, OnDestroy {
 
   confirmCancelInvoice(inv: FeeInvoicePagedItem): void {
     const dialogRef = this.dialog.open(CancelInvoiceDialogComponent, {
-      width: '520px',
+      width: '680px',
+      maxWidth: '95vw',
       data: {
         invoiceId: inv.id,
         invoiceNumber: inv.invoiceNumber,
@@ -2605,11 +2663,25 @@ export class FeesComponent implements OnInit, OnDestroy {
 
     dialogRef.afterClosed().subscribe((res) => {
       if (res?.cancelled) {
-        this.confirmDialog.alert(
-          'Invoice Cancelled',
-          `Invoice ${inv.invoiceNumber} has been successfully cancelled and marked as VOID.\nReason: ${res.reason}\n\nOutstanding dues for ${inv.studentName} have been recalculated.`,
-          'success'
-        );
+        if (res.action === 'WaiveAndClose') {
+          this.confirmDialog.alert(
+            'Invoice Settled & Balance Waived',
+            `Invoice ${inv.invoiceNumber} has been successfully settled.\n\n• Retained ₹${(inv.paidAmount || 0).toFixed(2)} collected in school accounts.\n• Waived remaining balance ₹${(inv.dueAmount || 0).toFixed(2)}.\n• Reason: ${res.reason}\n\nOutstanding dues for ${inv.studentName} have been cleared.`,
+            'success'
+          );
+        } else if (res.action === 'RefundAndCancel') {
+          this.confirmDialog.alert(
+            'Invoice Voided & Payments Reversed',
+            `Invoice ${inv.invoiceNumber} has been marked VOID.\n\n• Collected payments of ₹${(inv.paidAmount || 0).toFixed(2)} have been reversed from Day Book.\n• Reason: ${res.reason}\n\nOutstanding dues for ${inv.studentName} have been updated.`,
+            'warning'
+          );
+        } else {
+          this.confirmDialog.alert(
+            'Invoice Cancelled',
+            `Invoice ${inv.invoiceNumber} has been successfully cancelled and marked as VOID.\nReason: ${res.reason}\n\nOutstanding dues for ${inv.studentName} have been recalculated.`,
+            'success'
+          );
+        }
         this.loadInvoices();
         this.loadPendingStudents();
       }

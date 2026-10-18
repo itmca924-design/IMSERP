@@ -342,6 +342,10 @@ import { environment } from '../../../environments/environment';
                     <span class="status-pill" [ngClass]="getStatusClass(m.status)">
                       {{ formatStatus(m.status) }}
                     </span>
+                    <div *ngIf="m.remarks && m.remarks.includes('[BALANCE WAIVED & SETTLED]')" class="month-waiver-tag" [matTooltip]="m.remarks">
+                      <mat-icon class="waiver-mini-icon">verified</mat-icon>
+                      <span>Balance Waived</span>
+                    </div>
                   </td>
                   <td class="td-receipt">
                     <ng-container *ngIf="m.receiptNumber">
@@ -356,11 +360,11 @@ import { environment } from '../../../environments/environment';
                     {{ m.paymentMode || '-' }}
                   </td>
                   <td class="td-sign">
-                    <span *ngIf="m.status === 'Paid'" class="verified-seal">
+                    <span *ngIf="m.status === 'Paid' || m.status === 'Settled'" class="verified-seal">
                       <mat-icon class="verified-icon">verified</mat-icon>
-                      PAID
+                      {{ m.status === 'Settled' ? 'SETTLED' : 'PAID' }}
                     </span>
-                    <span *ngIf="m.status !== 'Paid'" class="sign-dash">__________</span>
+                    <span *ngIf="m.status !== 'Paid' && m.status !== 'Settled'" class="sign-dash">__________</span>
                   </td>
                 </tr>
               </tbody>
@@ -574,6 +578,10 @@ import { environment } from '../../../environments/environment';
                         <span class="status-pill" [ngClass]="getStatusClass(m.status)">
                           {{ formatStatus(m.status) }}
                         </span>
+                        <div *ngIf="m.remarks && m.remarks.includes('[BALANCE WAIVED & SETTLED]')" class="month-waiver-tag" [matTooltip]="m.remarks">
+                          <mat-icon class="waiver-mini-icon">verified</mat-icon>
+                          <span>Balance Waived</span>
+                        </div>
                       </td>
                       <td class="td-receipt">
                         <ng-container *ngIf="m.receiptNumber">
@@ -586,10 +594,10 @@ import { environment } from '../../../environments/environment';
                       </td>
                       <td class="td-mode">{{ m.paymentMode || '-' }}</td>
                       <td class="td-sign">
-                        <span *ngIf="m.status === 'Paid'" class="verified-seal">
-                          <mat-icon class="verified-icon">verified</mat-icon> PAID
+                        <span *ngIf="m.status === 'Paid' || m.status === 'Settled'" class="verified-seal">
+                          <mat-icon class="verified-icon">verified</mat-icon> {{ m.status === 'Settled' ? 'SETTLED' : 'PAID' }}
                         </span>
-                        <span *ngIf="m.status !== 'Paid'" class="sign-dash">__________</span>
+                        <span *ngIf="m.status !== 'Paid' && m.status !== 'Settled'" class="sign-dash">__________</span>
                       </td>
                     </tr>
                   </tbody>
@@ -1297,6 +1305,40 @@ import { environment } from '../../../environments/environment';
       background: #dcfce7;
       color: #166534;
       border: 1px solid #bbf7d0;
+    }
+
+    .pill-settled {
+      background: #dbeafe;
+      color: #1e40af;
+      border: 1px solid #bfdbfe;
+    }
+
+    .pill-cancelled {
+      background: #f1f5f9;
+      color: #64748b;
+      border: 1px solid #cbd5e1;
+    }
+
+    .month-waiver-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      margin-top: 3px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1e40af;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 0.68rem;
+      font-weight: 600;
+      cursor: help;
+
+      .waiver-mini-icon {
+        font-size: 11px;
+        width: 11px;
+        height: 11px;
+        color: #2563eb;
+      }
     }
 
     .pill-partially {
@@ -2216,6 +2258,8 @@ export class FeeCardComponent implements OnInit {
   formatStatus(status: string): string {
     switch (status) {
       case 'Paid': return 'Paid (पूर्ण)';
+      case 'Settled': return 'Settled (समाधान / माफ)';
+      case 'Cancelled': return 'Cancelled (रद्द)';
       case 'PartiallyPaid': return 'Partial (आंशिक)';
       case 'Overdue': return 'Overdue (अतिदेय)';
       case 'Due': return 'Due (देय)';
@@ -2228,6 +2272,8 @@ export class FeeCardComponent implements OnInit {
   getStatusClass(status: string): string {
     switch (status) {
       case 'Paid': return 'pill-paid';
+      case 'Settled': return 'pill-settled';
+      case 'Cancelled': return 'pill-cancelled';
       case 'PartiallyPaid': return 'pill-partially';
       case 'Overdue': return 'pill-overdue';
       case 'Due': return 'pill-due';

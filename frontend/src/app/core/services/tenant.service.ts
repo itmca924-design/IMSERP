@@ -41,6 +41,12 @@ export interface TenantDto {
   upiMerchantCode?: string | null;
   upiQrEnabled?: boolean;
   upiAutoVerify?: boolean;
+  bankName?: string | null;
+  bankAccountNumber?: string | null;
+  bankIfscCode?: string | null;
+  bankAccountHolderName?: string | null;
+  bankAccountType?: string | null;
+  bankBranch?: string | null;
 }
 
 export interface CreateBranchItemDto {
@@ -98,6 +104,12 @@ export interface UpdateTenantDto {
   upiMerchantCode?: string | null;
   upiQrEnabled?: boolean;
   upiAutoVerify?: boolean;
+  bankName?: string | null;
+  bankAccountNumber?: string | null;
+  bankIfscCode?: string | null;
+  bankAccountHolderName?: string | null;
+  bankAccountType?: string | null;
+  bankBranch?: string | null;
 }
 
 export interface MySubscriptionDto {

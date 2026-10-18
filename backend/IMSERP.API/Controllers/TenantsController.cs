@@ -96,7 +96,13 @@ public class TenantsController : ControllerBase
                 t.UpiMerchantName,
                 t.UpiMerchantCode,
                 t.UpiQrEnabled,
-                t.UpiAutoVerify
+                t.UpiAutoVerify,
+                t.BankName,
+                t.BankAccountNumber,
+                t.BankIfscCode,
+                t.BankAccountHolderName,
+                t.BankAccountType,
+                t.BankBranch
             ));
         }
 
@@ -153,7 +159,13 @@ public class TenantsController : ControllerBase
             t.UpiMerchantName,
             t.UpiMerchantCode,
             t.UpiQrEnabled,
-            t.UpiAutoVerify
+            t.UpiAutoVerify,
+            t.BankName,
+            t.BankAccountNumber,
+            t.BankIfscCode,
+            t.BankAccountHolderName,
+            t.BankAccountType,
+            t.BankBranch
         ));
     }
 
@@ -195,7 +207,13 @@ public class TenantsController : ControllerBase
             t.UpiMerchantName,
             t.UpiMerchantCode,
             t.UpiQrEnabled,
-            t.UpiAutoVerify
+            t.UpiAutoVerify,
+            t.BankName,
+            t.BankAccountNumber,
+            t.BankIfscCode,
+            t.BankAccountHolderName,
+            t.BankAccountType,
+            t.BankBranch
         ));
     }
 
@@ -541,8 +559,42 @@ public class TenantsController : ControllerBase
         if (dto.UpiQrEnabled.HasValue) tenant.UpiQrEnabled = dto.UpiQrEnabled.Value;
         if (dto.UpiAutoVerify.HasValue) tenant.UpiAutoVerify = dto.UpiAutoVerify.Value;
 
-        // Auto-sync UPI details to branches if they don't have custom UPI credentials
-        if (dto.UpiId != null || dto.UpiMerchantName != null)
+        // Company Settlement Bank Account Details & Indian Banking Validation
+        if (!string.IsNullOrWhiteSpace(dto.BankAccountNumber))
+        {
+            var cleanedAcc = dto.BankAccountNumber.Trim();
+            if (!System.Text.RegularExpressions.Regex.IsMatch(cleanedAcc, @"^[0-9]{9,18}$"))
+            {
+                return BadRequest(new { message = "Invalid Bank Account Number. Standard Indian Bank Accounts must be between 9 to 18 digits (numeric only)." });
+            }
+            tenant.BankAccountNumber = cleanedAcc;
+        }
+        else if (dto.BankAccountNumber != null)
+        {
+            tenant.BankAccountNumber = null;
+        }
+
+        if (!string.IsNullOrWhiteSpace(dto.BankIfscCode))
+        {
+            var cleanedIfsc = dto.BankIfscCode.Trim().ToUpper();
+            if (!System.Text.RegularExpressions.Regex.IsMatch(cleanedIfsc, @"^[A-Z]{4}0[A-Z0-9]{6}$"))
+            {
+                return BadRequest(new { message = "Invalid Bank IFSC Code format. Must be an 11-character RBI standard code (e.g. SBIN0001234)." });
+            }
+            tenant.BankIfscCode = cleanedIfsc;
+        }
+        else if (dto.BankIfscCode != null)
+        {
+            tenant.BankIfscCode = null;
+        }
+
+        if (dto.BankName != null) tenant.BankName = string.IsNullOrWhiteSpace(dto.BankName) ? null : dto.BankName.Trim();
+        if (dto.BankAccountHolderName != null) tenant.BankAccountHolderName = string.IsNullOrWhiteSpace(dto.BankAccountHolderName) ? null : dto.BankAccountHolderName.Trim();
+        if (dto.BankAccountType != null) tenant.BankAccountType = string.IsNullOrWhiteSpace(dto.BankAccountType) ? "Current" : dto.BankAccountType.Trim();
+        if (dto.BankBranch != null) tenant.BankBranch = string.IsNullOrWhiteSpace(dto.BankBranch) ? null : dto.BankBranch.Trim();
+
+        // Auto-sync UPI and Bank settlement details to branches if they don't have custom credentials
+        if (dto.UpiId != null || dto.UpiMerchantName != null || dto.BankAccountNumber != null)
         {
             var branches = await _dbContext.Branches.Where(b => b.TenantId == tenant.Id).ToListAsync();
             foreach (var b in branches)
@@ -551,6 +603,15 @@ public class TenantsController : ControllerBase
                 {
                     b.UpiId = tenant.UpiId;
                     b.UpiMerchantName = tenant.UpiMerchantName;
+                }
+                if (string.IsNullOrWhiteSpace(b.BankAccountNumber) || b.IsMainBranch)
+                {
+                    b.BankName = tenant.BankName;
+                    b.BankAccountNumber = tenant.BankAccountNumber;
+                    b.BankIfscCode = tenant.BankIfscCode;
+                    b.BankAccountHolderName = tenant.BankAccountHolderName;
+                    b.BankAccountType = tenant.BankAccountType;
+                    b.BankBranch = tenant.BankBranch;
                 }
             }
         }
@@ -590,7 +651,13 @@ public class TenantsController : ControllerBase
             tenant.UpiMerchantName,
             tenant.UpiMerchantCode,
             tenant.UpiQrEnabled,
-            tenant.UpiAutoVerify
+            tenant.UpiAutoVerify,
+            tenant.BankName,
+            tenant.BankAccountNumber,
+            tenant.BankIfscCode,
+            tenant.BankAccountHolderName,
+            tenant.BankAccountType,
+            tenant.BankBranch
         });
     }
 

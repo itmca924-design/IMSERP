@@ -164,10 +164,37 @@ using (var scope = app.Services.CreateScope())
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tenants') AND name = 'UpiAutoVerify')
                         ALTER TABLE Tenants ADD UpiAutoVerify BIT NOT NULL DEFAULT 1;
 
+                    -- Company Settlement Bank Account Columns
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tenants') AND name = 'BankName')
+                        ALTER TABLE Tenants ADD BankName NVARCHAR(150) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tenants') AND name = 'BankAccountNumber')
+                        ALTER TABLE Tenants ADD BankAccountNumber NVARCHAR(50) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tenants') AND name = 'BankIfscCode')
+                        ALTER TABLE Tenants ADD BankIfscCode NVARCHAR(20) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tenants') AND name = 'BankAccountHolderName')
+                        ALTER TABLE Tenants ADD BankAccountHolderName NVARCHAR(200) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tenants') AND name = 'BankAccountType')
+                        ALTER TABLE Tenants ADD BankAccountType NVARCHAR(50) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tenants') AND name = 'BankBranch')
+                        ALTER TABLE Tenants ADD BankBranch NVARCHAR(150) NULL;
+
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Branches') AND name = 'UpiId')
                         ALTER TABLE Branches ADD UpiId NVARCHAR(150) NULL;
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Branches') AND name = 'UpiMerchantName')
                         ALTER TABLE Branches ADD UpiMerchantName NVARCHAR(200) NULL;
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Branches') AND name = 'BankName')
+                        ALTER TABLE Branches ADD BankName NVARCHAR(150) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Branches') AND name = 'BankAccountNumber')
+                        ALTER TABLE Branches ADD BankAccountNumber NVARCHAR(50) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Branches') AND name = 'BankIfscCode')
+                        ALTER TABLE Branches ADD BankIfscCode NVARCHAR(20) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Branches') AND name = 'BankAccountHolderName')
+                        ALTER TABLE Branches ADD BankAccountHolderName NVARCHAR(200) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Branches') AND name = 'BankAccountType')
+                        ALTER TABLE Branches ADD BankAccountType NVARCHAR(50) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Branches') AND name = 'BankBranch')
+                        ALTER TABLE Branches ADD BankBranch NVARCHAR(150) NULL;
 
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('FeePayments') AND name = 'UpiRrn')
                         ALTER TABLE FeePayments ADD UpiRrn NVARCHAR(100) NULL;

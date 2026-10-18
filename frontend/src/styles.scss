@@ -314,9 +314,11 @@ body {
   font-size: 0.78rem;
 
   &.paid { background-color: #dcfce7; color: #166534; }
+  &.settled { background-color: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
   &.partial { background-color: #ffedd5; color: #9a3412; }
   &.pending { background-color: #f3e8ff; color: #6b21a8; }
   &.overdue { background-color: #fee2e2; color: #991b1b; }
+  &.cancelled { background-color: #f1f5f9; color: #64748b; border: 1px solid #cbd5e1; }
 }
 
 .whatsapp-btn {

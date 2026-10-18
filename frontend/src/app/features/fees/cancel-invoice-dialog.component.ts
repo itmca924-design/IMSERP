@@ -8,6 +8,8 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatIconModule } from '@angular/material/icon';
+import { MatRadioModule } from '@angular/material/radio';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { FeesService } from '../../core/services/fees.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 
@@ -35,200 +37,261 @@ export interface CancelInvoiceDialogData {
     MatSelectModule,
     MatButtonModule,
     MatProgressSpinnerModule,
-    MatIconModule
+    MatIconModule,
+    MatRadioModule,
+    MatTooltipModule
   ],
   template: `
     <div class="cancel-dialog-container">
+      <!-- Standard Light-Blue Gradient Header -->
       <div class="dialog-header">
         <div class="icon-circle">
-          <mat-icon>delete_forever</mat-icon>
+          <mat-icon>{{ data.paidAmount > 0 ? 'rule_folder' : 'delete_forever' }}</mat-icon>
         </div>
         <div class="header-text">
-          <h2 mat-dialog-title>Cancel / Void Fee Invoice</h2>
-          <p class="subtitle">Select reason for marking this invoice as cancelled &amp; voiding dues</p>
+          <h2 mat-dialog-title>
+            {{ data.paidAmount > 0 ? 'Invoice Cancellation & Settlement' : 'Cancel / Void Fee Invoice' }}
+          </h2>
+          <p class="subtitle">
+            {{ data.paidAmount > 0 
+              ? 'Handle partial collected fees, Day Book entries & student due clearance' 
+              : 'Select reason for marking this unpaid invoice as cancelled & voiding dues' }}
+          </p>
         </div>
         <button mat-icon-button type="button" class="close-btn" (click)="onClose()" [disabled]="submitting">
           <mat-icon>close</mat-icon>
         </button>
       </div>
 
-      <!-- ═══ BLOCKED STATE: Partial payment exists ═══ -->
-      <ng-container *ngIf="data.paidAmount > 0; else cancelFormTpl">
+      <form [formGroup]="cancelForm" (ngSubmit)="onSubmit()">
         <mat-dialog-content class="dialog-content">
-
-          <!-- Invoice Summary -->
+          <!-- Invoice & Student Summary Strip -->
           <div class="summary-card">
-            <div class="card-row">
-              <span class="label">Invoice No:</span>
-              <span class="val inv-badge">{{ data.invoiceNumber }}</span>
-            </div>
-            <div class="card-row">
-              <span class="label">Fee Particular:</span>
-              <span class="val font-semibold">{{ data.title }}</span>
-            </div>
-            <div class="card-row">
-              <span class="label">Student:</span>
-              <span class="val">{{ data.studentName }} (Roll #{{ data.rollNumber }})</span>
-            </div>
-            <div class="card-row">
-              <span class="label">Batch:</span>
-              <span class="val text-muted">{{ data.batchName }}</span>
-            </div>
-            <div class="card-divider"></div>
-            <div class="card-row">
-              <span class="label">Total Invoice:</span>
-              <span class="val">₹{{ data.totalAmount | number:'1.2-2' }}</span>
-            </div>
-            <div class="card-row">
-              <span class="label">Already Paid:</span>
-              <span class="val amount-paid">₹{{ data.paidAmount | number:'1.2-2' }}</span>
-            </div>
-            <div class="card-row amount-row">
-              <span class="label">Balance Due:</span>
-              <span class="val amount-due">₹{{ data.dueAmount | number:'1.2-2' }}</span>
-            </div>
-          </div>
-
-          <!-- BLOCKING Error Alert -->
-          <div class="blocked-alert">
-            <div class="blocked-header">
-              <mat-icon class="blocked-icon">lock</mat-icon>
-              <strong>Cancellation Not Allowed</strong>
-            </div>
-            <p class="blocked-body">
-              This invoice cannot be cancelled because <strong>₹{{ data.paidAmount | number:'1.2-2' }}</strong>
-              has already been collected from <strong>{{ data.studentName }}</strong>.
-              Cancelling would cause accounting discrepancies.
-            </p>
-            <p class="blocked-steps">
-              <mat-icon class="step-icon">arrow_right</mat-icon>
-              To cancel: first <strong>reverse the payment</strong> via Admin → then retry cancellation.
-            </p>
-          </div>
-
-        </mat-dialog-content>
-        <mat-dialog-actions align="end" class="dialog-actions">
-          <button mat-raised-button color="primary" type="button" (click)="onClose()">
-            <mat-icon>arrow_back</mat-icon>
-            Go Back
-          </button>
-        </mat-dialog-actions>
-      </ng-container>
-
-      <!-- ═══ NORMAL STATE: No payment, allow cancel ═══ -->
-      <ng-template #cancelFormTpl>
-        <form [formGroup]="cancelForm" (ngSubmit)="onSubmit()">
-          <mat-dialog-content class="dialog-content">
-            <!-- Invoice & Student Summary Card -->
-            <div class="summary-card">
-              <div class="card-row">
+            <div class="summary-top">
+              <div class="summary-item">
                 <span class="label">Invoice No:</span>
                 <span class="val inv-badge">{{ data.invoiceNumber }}</span>
               </div>
-              <div class="card-row">
-                <span class="label">Fee Particular:</span>
-                <span class="val font-semibold">{{ data.title }}</span>
-              </div>
-              <div class="card-row">
+              <div class="summary-item">
                 <span class="label">Student:</span>
-                <span class="val">{{ data.studentName }} (Roll #{{ data.rollNumber }})</span>
+                <span class="val font-semibold">{{ data.studentName }} (Roll #{{ data.rollNumber || 'N/A' }})</span>
               </div>
-              <div class="card-row">
-                <span class="label">Batch:</span>
+              <div class="summary-item" *ngIf="data.batchName">
+                <span class="label">Course / Batch:</span>
                 <span class="val text-muted">{{ data.batchName }}</span>
               </div>
-              <div class="card-divider"></div>
-              <div class="card-row amount-row">
-                <span class="label">Pending Due Amount:</span>
-                <span class="val amount-due">₹{{ data.dueAmount | number:'1.2-2' }}</span>
+              <div class="summary-item" *ngIf="data.title">
+                <span class="label">Particular:</span>
+                <span class="val">{{ data.title }}</span>
               </div>
             </div>
 
-            <!-- Reason Selection -->
-            <div class="form-section">
-              <mat-form-field appearance="outline" class="full-width">
-                <mat-label>Cancellation Reason</mat-label>
-                <mat-select formControlName="selectedReason">
-                  <mat-option *ngFor="let r of predefinedReasons" [value]="r.value">
-                    {{ r.label }}
-                  </mat-option>
-                </mat-select>
-                <mat-error *ngIf="cancelForm.get('selectedReason')?.hasError('required')">
-                  Please select a reason
-                </mat-error>
-              </mat-form-field>
+            <div class="amount-strip">
+              <div class="amt-box">
+                <span class="amt-lbl">Total Billed</span>
+                <span class="amt-val">₹{{ data.totalAmount | number:'1.2-2' }}</span>
+              </div>
+              <div class="amt-box paid-box">
+                <span class="amt-lbl">Collected Fees</span>
+                <span class="amt-val text-green">₹{{ data.paidAmount | number:'1.2-2' }}</span>
+              </div>
+              <div class="amt-box due-box">
+                <span class="amt-lbl">Pending Due</span>
+                <span class="amt-val text-red">₹{{ data.dueAmount | number:'1.2-2' }}</span>
+              </div>
+            </div>
+          </div>
 
-              <mat-form-field
-                *ngIf="cancelForm.get('selectedReason')?.value === 'Other'"
-                appearance="outline"
-                class="full-width"
+          <!-- PARTIAL PAYMENT OPTIONS (When Paid > 0) -->
+          <div class="partial-options-section" *ngIf="data.paidAmount > 0">
+            <h4 class="section-title">
+              <mat-icon>tune</mat-icon>
+              Choose Settlement Action for Collected Fees (₹{{ data.paidAmount | number:'1.2-2' }})
+            </h4>
+
+            <div class="action-cards-grid">
+              <!-- Option A: Retain & Waive Remaining Due -->
+              <div 
+                class="action-card" 
+                [class.selected]="selectedAction === 'WaiveAndClose'"
+                (click)="setAction('WaiveAndClose')"
               >
-                <mat-label>Specify Custom Reason Details</mat-label>
-                <textarea
-                  matInput
-                  rows="2"
-                  formControlName="customReason"
-                  placeholder="e.g. Student relocated to another city..."
-                ></textarea>
-                <mat-error *ngIf="cancelForm.get('customReason')?.hasError('required')">
-                  Please provide details for the reason
-                </mat-error>
-              </mat-form-field>
-            </div>
+                <div class="card-radio-header">
+                  <div class="radio-indicator">
+                    <mat-icon *ngIf="selectedAction === 'WaiveAndClose'">check_circle</mat-icon>
+                    <mat-icon *ngIf="selectedAction !== 'WaiveAndClose'">radio_button_unchecked</mat-icon>
+                  </div>
+                  <div class="card-title-group">
+                    <div class="card-title">Retain Collected &amp; Waive Remaining Due</div>
+                    <div class="card-subtitle-hi">जमा ₹{{ data.paidAmount | number:'1.2-2' }} रखें और बाकी ₹{{ data.dueAmount | number:'1.2-2' }} माफ करें</div>
+                  </div>
+                  <span class="badge-recommended">Recommended</span>
+                </div>
 
-            <!-- Warning Notice -->
-            <div class="warning-alert">
-              <mat-icon class="warn-icon">warning</mat-icon>
-              <div class="warn-text">
-                <strong>Permanent Action:</strong> This invoice will be permanently marked as <em>VOID</em>.
-                The pending due of <strong>₹{{ data.dueAmount | number:'1.2-2' }}</strong> will be completely excluded from {{ data.studentName }}'s total outstanding balance.
+                <div class="card-body">
+                  <ul class="impact-list">
+                    <li>
+                      <mat-icon class="bullet-icon check-green">check</mat-icon>
+                      <span><strong>School retains ₹{{ data.paidAmount | number:'1.2-2' }}</strong> in accounts. Existing receipts &amp; Day Book entries remain intact.</span>
+                    </li>
+                    <li>
+                      <mat-icon class="bullet-icon check-green">check</mat-icon>
+                      <span>Remaining balance due of <strong>₹{{ data.dueAmount | number:'1.2-2' }} is waived off</strong> (no future dues or collection reminders).</span>
+                    </li>
+                    <li>
+                      <mat-icon class="bullet-icon check-green">check</mat-icon>
+                      <span>Invoice is marked <strong>"Paid / Settled"</strong>, clearing the student's ledger.</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+
+              <!-- Option B: Refund to Parent & Void Invoice -->
+              <div 
+                class="action-card" 
+                [class.selected]="selectedAction === 'RefundAndCancel'"
+                [class.card-danger]="true"
+                (click)="setAction('RefundAndCancel')"
+              >
+                <div class="card-radio-header">
+                  <div class="radio-indicator danger-radio">
+                    <mat-icon *ngIf="selectedAction === 'RefundAndCancel'">check_circle</mat-icon>
+                    <mat-icon *ngIf="selectedAction !== 'RefundAndCancel'">radio_button_unchecked</mat-icon>
+                  </div>
+                  <div class="card-title-group">
+                    <div class="card-title">Refund to Parent &amp; Void Invoice</div>
+                    <div class="card-subtitle-hi">पैरेंट को ₹{{ data.paidAmount | number:'1.2-2' }} रिफंड करें और इनवॉइस रद्द करें</div>
+                  </div>
+                  <span class="badge-reversal">Full Reversal</span>
+                </div>
+
+                <div class="card-body">
+                  <ul class="impact-list">
+                    <li>
+                      <mat-icon class="bullet-icon check-red">replay</mat-icon>
+                      <span>All <strong>₹{{ data.paidAmount | number:'1.2-2' }} collected payments will be reversed</strong> and removed from Day Book &amp; cash accounts.</span>
+                    </li>
+                    <li>
+                      <mat-icon class="bullet-icon check-red">cancel</mat-icon>
+                      <span>All payment receipts for this invoice are revoked and marked void.</span>
+                    </li>
+                    <li>
+                      <mat-icon class="bullet-icon check-red">block</mat-icon>
+                      <span>Invoice is marked <strong>"Cancelled"</strong> with ₹0 dues.</span>
+                    </li>
+                  </ul>
+                </div>
               </div>
             </div>
-          </mat-dialog-content>
+          </div>
 
-          <mat-dialog-actions align="end" class="dialog-actions">
-            <button mat-button type="button" (click)="onClose()" [disabled]="submitting">Go Back</button>
-            <button
-              mat-raised-button
-              class="btn-danger-confirm"
-              type="submit"
-              [disabled]="cancelForm.invalid || submitting"
-            >
-              <mat-spinner diameter="18" *ngIf="submitting" class="spinner"></mat-spinner>
-              <mat-icon *ngIf="!submitting">block</mat-icon>
-              <span>Confirm &amp; Cancel Invoice</span>
-            </button>
-          </mat-dialog-actions>
-        </form>
-      </ng-template>
+          <!-- ZERO PAYMENT NOTICE (When Paid == 0) -->
+          <div class="zero-payment-notice" *ngIf="data.paidAmount === 0">
+            <mat-icon class="info-icon">info</mat-icon>
+            <div class="notice-text">
+              <strong>Voiding Unpaid Invoice:</strong> No payments have been collected on this invoice. 
+              Confirming will mark this invoice as <em>CANCELLED / VOID</em> and eliminate the pending due of 
+              <strong>₹{{ data.dueAmount | number:'1.2-2' }}</strong> from {{ data.studentName }}'s account.
+            </div>
+          </div>
+
+          <!-- REASON SELECTION & REMARKS -->
+          <div class="form-section">
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Select Reason / Purpose (कारण चुनें)</mat-label>
+              <mat-select formControlName="selectedReason">
+                <mat-option *ngFor="let r of predefinedReasons" [value]="r.value">
+                  {{ r.label }}
+                </mat-option>
+              </mat-select>
+              <mat-error *ngIf="cancelForm.get('selectedReason')?.hasError('required')">
+                Please select a valid reason
+              </mat-error>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>
+                {{ cancelForm.get('selectedReason')?.value === 'Other' ? 'Specify Custom Reason (अनिवार्य कारण)' : 'Additional Audit Remarks / Notes (टिप्पणी - वैकल्पिक)' }}
+              </mat-label>
+              <textarea
+                matInput
+                rows="2"
+                formControlName="customReason"
+                [placeholder]="cancelForm.get('selectedReason')?.value === 'Other' 
+                  ? 'e.g. Student relocated to another city; special approval by Director...' 
+                  : 'Add any specific notes for audit trail...'"
+              ></textarea>
+              <mat-error *ngIf="cancelForm.get('customReason')?.hasError('required')">
+                Please provide details for the custom reason
+              </mat-error>
+            </mat-form-field>
+          </div>
+
+          <!-- Summary Confirmation Alert -->
+          <div class="confirmation-summary-alert" [class.alert-danger]="selectedAction === 'RefundAndCancel'">
+            <mat-icon>{{ selectedAction === 'RefundAndCancel' ? 'warning' : 'verified_user' }}</mat-icon>
+            <div class="alert-content">
+              <ng-container *ngIf="data.paidAmount > 0 && selectedAction === 'WaiveAndClose'">
+                <strong>Summary:</strong> Retaining ₹{{ data.paidAmount | number:'1.2-2' }} collected • Waiving remaining balance ₹{{ data.dueAmount | number:'1.2-2' }} • Invoice status will be <strong>Paid / Settled</strong>.
+              </ng-container>
+              <ng-container *ngIf="data.paidAmount > 0 && selectedAction === 'RefundAndCancel'">
+                <strong>Summary:</strong> Reversing ₹{{ data.paidAmount | number:'1.2-2' }} payments • Revoking receipts from Day Book • Invoice status will be <strong>Cancelled</strong>.
+              </ng-container>
+              <ng-container *ngIf="data.paidAmount === 0">
+                <strong>Summary:</strong> Marking invoice as VOID • Cancelling pending balance ₹{{ data.dueAmount | number:'1.2-2' }}.
+              </ng-container>
+            </div>
+          </div>
+        </mat-dialog-content>
+
+        <!-- ACTION BUTTONS -->
+        <mat-dialog-actions align="end" class="dialog-actions">
+          <button mat-button type="button" class="btn-cancel" (click)="onClose()" [disabled]="submitting">
+            Go Back
+          </button>
+          
+          <button
+            mat-raised-button
+            [class]="getSubmitButtonClass()"
+            type="submit"
+            [disabled]="cancelForm.invalid || submitting"
+          >
+            <mat-spinner diameter="18" *ngIf="submitting" class="spinner"></mat-spinner>
+            <mat-icon *ngIf="!submitting">{{ getSubmitButtonIcon() }}</mat-icon>
+            <span>{{ getSubmitButtonText() }}</span>
+          </button>
+        </mat-dialog-actions>
+      </form>
     </div>
   `,
   styles: [`
     .cancel-dialog-container {
       padding: 0;
       box-sizing: border-box;
-      min-width: 480px;
-      max-width: 560px;
+      width: 100%;
+      max-width: 680px;
     }
+
+    /* Standard Light-Blue Gradient Header (Strict ERP UI Rule) */
     .dialog-header {
       display: flex;
       align-items: center;
       gap: 14px;
-      padding: 20px 24px 16px;
-      background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
-      border-bottom: 1px solid #fecaca;
+      padding: 18px 24px 16px;
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+      border-bottom: 1px solid #bfdbfe;
 
       .icon-circle {
         width: 44px;
         height: 44px;
         border-radius: 10px;
-        background: #dc2626;
+        background: #2563eb;
         color: #ffffff;
         display: flex;
         align-items: center;
         justify-content: center;
         flex-shrink: 0;
-        box-shadow: 0 4px 6px -1px rgba(220,38,38,0.25);
+        box-shadow: 0 4px 6px -1px rgba(37,99,235,0.25);
 
         mat-icon {
           font-size: 24px;
@@ -243,158 +306,283 @@ export interface CancelInvoiceDialogData {
           margin: 0;
           font-size: 1.18rem;
           font-weight: 700;
-          color: #991b1b;
+          color: #1e3a8a;
           line-height: 1.3;
         }
         .subtitle {
           margin: 3px 0 0;
-          font-size: 0.79rem;
-          color: #dc2626;
+          font-size: 0.8rem;
+          color: #3b82f6;
         }
       }
 
-      .close-btn { color: #64748b; }
+      .close-btn { 
+        color: #64748b; 
+        &:hover { color: #1e293b; }
+      }
     }
 
     .dialog-content {
-      padding: 16px 24px;
-      min-width: 460px;
+      padding: 18px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      max-height: 75vh;
+      overflow-y: auto;
     }
 
+    /* Invoice Summary Card */
     .summary-card {
       background: #f8fafc;
       border: 1px solid #e2e8f0;
       border-radius: 10px;
       padding: 14px 16px;
-      margin-bottom: 16px;
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 12px;
 
-      .card-row {
+      .summary-top {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 8px 16px;
+        font-size: 0.86rem;
+
+        .summary-item {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+
+          .label {
+            color: #64748b;
+            font-size: 0.82rem;
+          }
+          .val {
+            color: #1e293b;
+          }
+          .font-semibold {
+            font-weight: 600;
+          }
+          .text-muted {
+            color: #64748b;
+          }
+          .inv-badge {
+            font-family: monospace;
+            background: #e2e8f0;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: #0f172a;
+          }
+        }
+      }
+
+      .amount-strip {
         display: flex;
-        justify-content: space-between;
+        gap: 12px;
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 10px 14px;
+
+        .amt-box {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          text-align: center;
+
+          .amt-lbl {
+            font-size: 0.72rem;
+            color: #64748b;
+            text-transform: uppercase;
+            font-weight: 600;
+            letter-spacing: 0.4px;
+          }
+          .amt-val {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: #0f172a;
+            margin-top: 2px;
+          }
+
+          .text-green { color: #16a34a; }
+          .text-red { color: #dc2626; }
+        }
+
+        .paid-box {
+          border-left: 1px solid #e2e8f0;
+          border-right: 1px solid #e2e8f0;
+        }
+      }
+    }
+
+    /* Partial Options Selection */
+    .partial-options-section {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+
+      .section-title {
+        margin: 0;
+        font-size: 0.92rem;
+        font-weight: 700;
+        color: #1e3a8a;
+        display: flex;
         align-items: center;
-        font-size: 0.88rem;
+        gap: 6px;
 
-        .label {
-          color: #64748b;
+        mat-icon {
+          font-size: 18px;
+          width: 18px;
+          height: 18px;
+          color: #2563eb;
         }
-        .val {
-          color: #1e293b;
-        }
-        .font-semibold {
-          font-weight: 600;
-        }
-        .text-muted {
-          color: #64748b;
-          font-size: 0.82rem;
-        }
-        .inv-badge {
-          font-family: monospace;
-          background: #e2e8f0;
-          padding: 2px 8px;
-          border-radius: 4px;
-          font-size: 0.82rem;
-          font-weight: 600;
+      }
+    }
+
+    .action-cards-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .action-card {
+      border: 2px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 14px 16px;
+      cursor: pointer;
+      background: #ffffff;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+
+      &:hover {
+        border-color: #93c5fd;
+        background: #f8fafc;
+      }
+
+      &.selected {
+        border-color: #2563eb;
+        background: #eff6ff;
+        box-shadow: 0 4px 12px -2px rgba(37,99,235,0.15);
+
+        .card-radio-header .radio-indicator mat-icon {
+          color: #2563eb;
         }
       }
 
-      .card-divider {
-        height: 1px;
-        background: #e2e8f0;
-        margin: 4px 0;
-      }
+      &.card-danger.selected {
+        border-color: #dc2626;
+        background: #fef2f2;
+        box-shadow: 0 4px 12px -2px rgba(220,38,38,0.15);
 
-      .amount-row {
-        .amount-due {
-          font-size: 1.1rem;
-          font-weight: 700;
+        .card-radio-header .danger-radio mat-icon {
           color: #dc2626;
         }
-        .amount-paid {
-          font-size: 1.1rem;
-          font-weight: 700;
-          color: #16a34a;
-        }
-      }
-    }
-
-    .form-section {
-      margin-bottom: 8px;
-    }
-
-    .full-width {
-      width: 100%;
-    }
-
-    /* ── Blocking alert when payment already recorded ── */
-    .blocked-alert {
-      background: #fef2f2;
-      border: 1.5px solid #fca5a5;
-      border-radius: 10px;
-      padding: 14px 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-
-      .blocked-header {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-size: 0.95rem;
-        font-weight: 700;
-        color: #b91c1c;
-
-        .blocked-icon {
-          font-size: 20px;
-          width: 20px;
-          height: 20px;
-        }
       }
 
-      .blocked-body {
-        margin: 0;
-        font-size: 0.83rem;
-        color: #7f1d1d;
-        line-height: 1.5;
-      }
-
-      .blocked-steps {
-        margin: 0;
+      .card-radio-header {
         display: flex;
         align-items: flex-start;
-        gap: 4px;
-        font-size: 0.8rem;
-        color: #991b1b;
-        background: #fee2e2;
-        border-radius: 6px;
-        padding: 6px 10px;
+        gap: 10px;
 
-        .step-icon {
-          font-size: 16px;
-          width: 16px;
-          height: 16px;
-          flex-shrink: 0;
-          margin-top: 1px;
+        .radio-indicator {
+          mat-icon {
+            font-size: 22px;
+            width: 22px;
+            height: 22px;
+            color: #94a3b8;
+          }
+        }
+
+        .card-title-group {
+          flex: 1;
+
+          .card-title {
+            font-size: 0.94rem;
+            font-weight: 700;
+            color: #0f172a;
+          }
+          .card-subtitle-hi {
+            font-size: 0.8rem;
+            color: #64748b;
+            margin-top: 1px;
+          }
+        }
+
+        .badge-recommended {
+          font-size: 0.72rem;
+          font-weight: 700;
+          background: #dbeafe;
+          color: #1e40af;
+          padding: 2px 8px;
+          border-radius: 12px;
+          border: 1px solid #bfdbfe;
+          white-space: nowrap;
+        }
+
+        .badge-reversal {
+          font-size: 0.72rem;
+          font-weight: 700;
+          background: #fee2e2;
+          color: #991b1b;
+          padding: 2px 8px;
+          border-radius: 12px;
+          border: 1px solid #fecaca;
+          white-space: nowrap;
+        }
+      }
+
+      .card-body {
+        margin-top: 10px;
+        padding-left: 32px;
+
+        .impact-list {
+          margin: 0;
+          padding: 0;
+          list-style: none;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+
+          li {
+            display: flex;
+            align-items: flex-start;
+            gap: 6px;
+            font-size: 0.82rem;
+            color: #334155;
+            line-height: 1.4;
+
+            .bullet-icon {
+              font-size: 16px;
+              width: 16px;
+              height: 16px;
+              flex-shrink: 0;
+              margin-top: 1px;
+            }
+
+            .check-green { color: #16a34a; }
+            .check-red { color: #dc2626; }
+          }
         }
       }
     }
 
-    .warning-alert {
+    /* Zero Payment Notice */
+    .zero-payment-notice {
       display: flex;
       align-items: flex-start;
       gap: 10px;
-      background: #fffbeb;
-      border: 1px solid #fef3c7;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
       border-radius: 8px;
       padding: 12px 14px;
-      font-size: 0.82rem;
-      color: #92400e;
+      font-size: 0.84rem;
+      color: #1e40af;
       line-height: 1.45;
 
-      .warn-icon {
-        color: #d97706;
+      .info-icon {
+        color: #2563eb;
         font-size: 20px;
         width: 20px;
         height: 20px;
@@ -403,9 +591,76 @@ export interface CancelInvoiceDialogData {
       }
     }
 
-    .dialog-actions {
-      padding: 16px 24px 12px;
+    /* Form Section */
+    .form-section {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .full-width {
+      width: 100%;
+    }
+
+    /* Confirmation Summary Alert */
+    .confirmation-summary-alert {
+      display: flex;
+      align-items: center;
       gap: 10px;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.83rem;
+      color: #166534;
+
+      mat-icon {
+        color: #16a34a;
+        font-size: 20px;
+        width: 20px;
+        height: 20px;
+        flex-shrink: 0;
+      }
+
+      &.alert-danger {
+        background: #fef2f2;
+        border-color: #fecaca;
+        color: #991b1b;
+
+        mat-icon {
+          color: #dc2626;
+        }
+      }
+    }
+
+    /* Actions */
+    .dialog-actions {
+      padding: 14px 24px 16px;
+      gap: 12px;
+      border-top: 1px solid #f1f5f9;
+    }
+
+    .btn-cancel {
+      color: #64748b;
+    }
+
+    .btn-settle-confirm {
+      background-color: #2563eb !important;
+      color: #ffffff !important;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+
+      &:hover {
+        background-color: #1d4ed8 !important;
+      }
+
+      &[disabled] {
+        background-color: #93c5fd !important;
+        color: #ffffff !important;
+        opacity: 0.7;
+      }
     }
 
     .btn-danger-confirm {
@@ -414,6 +669,7 @@ export interface CancelInvoiceDialogData {
       display: inline-flex;
       align-items: center;
       gap: 6px;
+      font-weight: 600;
 
       &:hover {
         background-color: #b91c1c !important;
@@ -430,6 +686,18 @@ export interface CancelInvoiceDialogData {
       display: inline-block;
       margin-right: 6px;
     }
+
+    @media (max-width: 640px) {
+      .cancel-dialog-container {
+        min-width: 100%;
+      }
+      .summary-card .summary-top {
+        grid-template-columns: 1fr;
+      }
+      .action-card .card-body {
+        padding-left: 0;
+      }
+    }
   `]
 })
 export class CancelInvoiceDialogComponent implements OnInit {
@@ -437,11 +705,12 @@ export class CancelInvoiceDialogComponent implements OnInit {
   submitting = false;
 
   readonly predefinedReasons = [
-    { value: 'Student Left Coaching', label: '🎓 Student Left Coaching / Discontinued' },
-    { value: 'Invoice Generated in Error', label: '❌ Invoice Generated in Error / Duplicate' },
-    { value: 'Fee Waiver / Scholarship', label: '🎁 Fee Waiver / Scholarship Concession' },
-    { value: 'Batch Transfer / Re-enrollment', label: '🔄 Batch Transfer / Re-enrollment' },
-    { value: 'Other', label: '📝 Other (Specify below)' }
+    { value: 'Student Left / Discontinued', label: '🎓 Student Left / Course Discontinuation (छात्र ने छोड़ा)' },
+    { value: 'Fee Waiver / Management Concession', label: '🎁 Fee Waiver / Management Concession (विशेष छूट / माफी)' },
+    { value: 'Parent Financial Hardship', label: '🤝 Parent Financial Hardship (अभिभावक की आर्थिक कठिनाई)' },
+    { value: 'Invoice Generated in Error / Duplicate', label: '❌ Invoice Generated in Error / Duplicate (गलती से बना)' },
+    { value: 'Batch Transfer / Re-enrollment', label: '🔄 Batch / Stream Transfer (बैच या स्ट्रीम ट्रांसफर)' },
+    { value: 'Other', label: '📝 Other (अन्य - नीचे विवरण लिखें)' }
   ];
 
   constructor(
@@ -453,8 +722,12 @@ export class CancelInvoiceDialogComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    // If paid > 0, default to 'WaiveAndClose' (most common and safe standard practice for dropouts)
+    const defaultAction = this.data.paidAmount > 0 ? 'WaiveAndClose' : 'VoidOnly';
+
     this.cancelForm = this.fb.group({
-      selectedReason: ['Student Left Coaching', Validators.required],
+      partialAction: [defaultAction, Validators.required],
+      selectedReason: ['Student Left / Discontinued', Validators.required],
       customReason: ['']
     });
 
@@ -470,32 +743,70 @@ export class CancelInvoiceDialogComponent implements OnInit {
     });
   }
 
+  get selectedAction(): string {
+    return this.cancelForm?.get('partialAction')?.value || 'WaiveAndClose';
+  }
+
+  setAction(action: 'WaiveAndClose' | 'RefundAndCancel'): void {
+    this.cancelForm.get('partialAction')?.setValue(action);
+  }
+
+  getSubmitButtonText(): string {
+    if (this.data.paidAmount > 0) {
+      return this.selectedAction === 'WaiveAndClose'
+        ? 'Confirm Waiver & Settle Invoice'
+        : 'Process Refund & Void Invoice';
+    }
+    return 'Confirm & Void Invoice';
+  }
+
+  getSubmitButtonIcon(): string {
+    if (this.data.paidAmount > 0) {
+      return this.selectedAction === 'WaiveAndClose' ? 'task_alt' : 'replay';
+    }
+    return 'block';
+  }
+
+  getSubmitButtonClass(): string {
+    if (this.data.paidAmount > 0 && this.selectedAction === 'WaiveAndClose') {
+      return 'btn-settle-confirm';
+    }
+    return 'btn-danger-confirm';
+  }
+
   onSubmit(): void {
     if (this.cancelForm.invalid || this.submitting) return;
 
     const val = this.cancelForm.value;
     const finalReason = val.selectedReason === 'Other' && val.customReason?.trim()
       ? `Other: ${val.customReason.trim()}`
-      : val.selectedReason;
+      : (val.customReason?.trim() ? `${val.selectedReason} (${val.customReason.trim()})` : val.selectedReason);
+
+    const action = this.data.paidAmount > 0 ? val.partialAction : undefined;
 
     this.submitting = true;
-    this.feesService.cancelInvoice(this.data.invoiceId, finalReason).subscribe({
+    this.feesService.cancelInvoice(this.data.invoiceId, finalReason, action).subscribe({
       next: (res) => {
         this.submitting = false;
-        this.dialogRef.close({ cancelled: true, reason: finalReason, res });
+        this.dialogRef.close({ 
+          cancelled: true, 
+          action: action || 'VoidOnly', 
+          reason: finalReason, 
+          res 
+        });
       },
       error: (err) => {
         this.submitting = false;
-        this.confirmDialog.alert('Cancellation Failed', err?.error?.message || 'Failed to cancel invoice. Please try again.', 'danger');
+        this.confirmDialog.alert(
+          'Action Failed', 
+          err?.error?.message || 'Failed to process invoice request. Please try again.', 
+          'danger'
+        );
       }
     });
   }
 
   onClose(): void {
     this.dialogRef.close(null);
-  }
-
-  onCancel(): void {
-    this.onClose();
   }
 }

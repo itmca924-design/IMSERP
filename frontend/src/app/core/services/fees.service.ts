@@ -368,8 +368,8 @@ export class FeesService {
     return this.http.get<PendingInvoicingStudent[]>(`${this.apiUrl}/pending-invoicing-students`, { params });
   }
 
-  cancelInvoice(invoiceId: string, reason: string): Observable<any> {
-    return this.http.post<any>(`${this.apiUrl}/cancel-invoice/${invoiceId}`, { reason });
+  cancelInvoice(invoiceId: string, reason: string, partialAction?: string): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/cancel-invoice/${invoiceId}`, { reason, partialAction });
   }
 
   private _refreshRequired$ = new Subject<void>();
@@ -487,6 +487,10 @@ export class FeesService {
     return this.http.get<UpiPaymentSettings>(`${this.apiUrl}/upi-settings`, { params });
   }
 
+  getUpiPaymentSettings(branchId?: string): Observable<UpiPaymentSettings> {
+    return this.getUpiSettings(branchId);
+  }
+
   updateUpiSettings(payload: UpdateUpiPaymentSettingsPayload): Observable<any> {
     return this.http.put<any>(`${this.apiUrl}/upi-settings`, payload);
   }
@@ -572,6 +576,12 @@ export interface UpiPaymentSettings {
   branchUpiMerchantName?: string;
   effectiveUpiId: string;
   effectiveMerchantName: string;
+  effectiveBankName?: string;
+  effectiveAccountNumber?: string;
+  effectiveIfsc?: string;
+  effectiveHolder?: string;
+  effectiveAccountType?: string;
+  effectiveBranchLocation?: string;
 }
 
 export interface UpdateUpiPaymentSettingsPayload {

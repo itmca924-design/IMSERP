@@ -12,6 +12,8 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatSelectModule } from '@angular/material/select';
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { TenantService, TenantDto, CreateTenantDto, UpdateTenantDto } from '../../core/services/tenant.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
@@ -34,7 +36,9 @@ import { environment } from '../../../environments/environment';
     MatTooltipModule,
     MatProgressSpinnerModule,
     MatDialogModule,
-    MatSlideToggleModule
+    MatSlideToggleModule,
+    MatSelectModule,
+    MatAutocompleteModule
   ],
   template: `
     <div class="tenants-wrapper">
@@ -504,6 +508,139 @@ import { environment } from '../../../environments/environment';
                     </mat-form-field>
                   </div>
 
+                  <!-- Company Settlement Bank Account Details (Mapped to Tenant & Branches) -->
+                  <div class="bank-account-setup-card">
+                    <div class="bank-card-header">
+                      <div class="header-left">
+                        <mat-icon class="bank-card-icon">account_balance</mat-icon>
+                        <div class="header-titles">
+                          <strong class="title">Company Settlement Bank Account</strong>
+                          <span class="sub">Official Institute Bank details for NPCI direct settlements &amp; audit records</span>
+                        </div>
+                      </div>
+                      <span class="verified-pill" *ngIf="tenantForm.get('bankAccountNumber')?.value && !tenantForm.get('bankAccountNumber')?.invalid">
+                        <mat-icon style="font-size:13px; width:13px; height:13px; vertical-align:middle; margin-right:3px;">check_circle</mat-icon>
+                        <span>Standard Verified</span>
+                      </span>
+                    </div>
+
+                    <div class="form-grid-inner">
+                      <!-- Bank Name with Autocomplete of Popular Indian Banks -->
+                      <mat-form-field appearance="outline">
+                        <mat-label>Bank Name</mat-label>
+                        <input
+                          matInput
+                          formControlName="bankName"
+                          placeholder="e.g. State Bank of India"
+                          [matAutocomplete]="autoBank"
+                          autocomplete="off"
+                        />
+                        <mat-icon matPrefix class="field-icon">account_balance</mat-icon>
+                        <mat-autocomplete #autoBank="matAutocomplete">
+                          <mat-option *ngFor="let b of filteredBanks" [value]="b">{{ b }}</mat-option>
+                        </mat-autocomplete>
+                        <mat-hint class="single-line-hint" matTooltip="Bank where school/coaching account is maintained">Bank where account is maintained</mat-hint>
+                      </mat-form-field>
+
+                      <!-- Account Type -->
+                      <mat-form-field appearance="outline">
+                        <mat-label>Account Type</mat-label>
+                        <mat-select formControlName="bankAccountType">
+                          <mat-option value="Current">Current Account (Institutional)</mat-option>
+                          <mat-option value="Savings">Savings Account</mat-option>
+                          <mat-option value="OD/CC">Cash Credit / Overdraft (CC/OD)</mat-option>
+                        </mat-select>
+                        <mat-icon matPrefix class="field-icon">account_box</mat-icon>
+                        <mat-hint class="single-line-hint" matTooltip="Institutional standard is Current A/C">Institutional standard: Current A/C</mat-hint>
+                      </mat-form-field>
+                    </div>
+
+                    <div class="form-grid-inner">
+                      <!-- Bank Account Number -->
+                      <mat-form-field appearance="outline">
+                        <mat-label>Bank Account Number</mat-label>
+                        <input
+                          matInput
+                          formControlName="bankAccountNumber"
+                          placeholder="9 to 18 digits Account No"
+                          (input)="onAccountNumberInput($event)"
+                          maxlength="18"
+                          autocomplete="off"
+                        />
+                        <mat-icon matPrefix class="field-icon">credit_card</mat-icon>
+                        <mat-hint class="single-line-hint" matTooltip="9 to 18 digits numeric account number">9 to 18 numeric digits</mat-hint>
+                        <mat-error *ngIf="tenantForm.get('bankAccountNumber')?.hasError('pattern')">
+                          Must be 9 to 18 numeric digits
+                        </mat-error>
+                      </mat-form-field>
+
+                      <!-- Confirm Account Number -->
+                      <mat-form-field appearance="outline">
+                        <mat-label>Confirm Account Number</mat-label>
+                        <input
+                          matInput
+                          formControlName="confirmAccountNumber"
+                          placeholder="Re-enter to verify"
+                          (input)="onConfirmAccountNumberInput($event)"
+                          maxlength="18"
+                          autocomplete="off"
+                        />
+                        <mat-icon matPrefix class="field-icon">verified</mat-icon>
+                        <mat-hint class="single-line-hint" matTooltip="Re-type account number to prevent typo errors">Re-type to prevent typo errors</mat-hint>
+                        <mat-error *ngIf="tenantForm.get('confirmAccountNumber')?.hasError('mismatch')">
+                          Account numbers do not match
+                        </mat-error>
+                      </mat-form-field>
+                    </div>
+
+                    <div class="form-grid-inner">
+                      <!-- Bank IFSC Code -->
+                      <mat-form-field appearance="outline">
+                        <mat-label>Bank IFSC Code</mat-label>
+                        <input
+                          matInput
+                          formControlName="bankIfscCode"
+                          placeholder="e.g. SBIN0001234"
+                          (input)="onIfscInput($event)"
+                          maxlength="11"
+                          style="text-transform: uppercase; font-family: monospace; font-weight: 600;"
+                          autocomplete="off"
+                        />
+                        <mat-icon matPrefix class="field-icon">pin</mat-icon>
+                        <mat-hint class="single-line-hint" matTooltip="11-character RBI standard code (e.g. SBIN0001234)">11-character RBI standard code</mat-hint>
+                        <mat-error *ngIf="tenantForm.get('bankIfscCode')?.hasError('pattern')">
+                          Invalid IFSC (e.g. SBIN0001234)
+                        </mat-error>
+                      </mat-form-field>
+
+                      <!-- Bank Branch Location -->
+                      <mat-form-field appearance="outline">
+                        <mat-label>Bank Branch / City</mat-label>
+                        <input
+                          matInput
+                          formControlName="bankBranch"
+                          placeholder="e.g. Main Branch, Patna"
+                          autocomplete="off"
+                        />
+                        <mat-icon matPrefix class="field-icon">location_city</mat-icon>
+                        <mat-hint class="single-line-hint" matTooltip="Bank branch location or city">Branch location or city</mat-hint>
+                      </mat-form-field>
+                    </div>
+
+                    <!-- Account Holder Legal Beneficiary Name -->
+                    <mat-form-field appearance="outline" class="w-100">
+                      <mat-label>Account Holder / Beneficiary Name</mat-label>
+                      <input
+                        matInput
+                        formControlName="bankAccountHolderName"
+                        placeholder="e.g. Jnandeep Campus Educational Trust"
+                        autocomplete="off"
+                      />
+                      <mat-icon matPrefix class="field-icon">badge</mat-icon>
+                      <mat-hint class="single-line-hint" matTooltip="Official beneficiary legal title registered with bank">Official beneficiary title registered with bank</mat-hint>
+                    </mat-form-field>
+                  </div>
+
                   <!-- Toggles Card -->
                   <div class="toggles-card">
                     <div class="toggle-item">
@@ -552,6 +689,18 @@ import { environment } from '../../../environments/environment';
                           <span class="lbl">Direct Bank:</span>
                           <span class="val" style="color:#16a34a; font-weight:700;">Instant Direct Credit</span>
                         </div>
+                        <div class="preview-row" *ngIf="tenantForm.get('bankName')?.value">
+                          <span class="lbl">Settlement Bank:</span>
+                          <span class="val" style="font-weight:600; color:#0f172a;">{{ tenantForm.get('bankName')?.value }} ({{ getMaskedAccount() }})</span>
+                        </div>
+                        <div class="preview-row" *ngIf="tenantForm.get('bankIfscCode')?.value">
+                          <span class="lbl">Bank IFSC:</span>
+                          <span class="val" style="font-family:monospace; font-weight:700; color:#1e40af;">{{ tenantForm.get('bankIfscCode')?.value }}</span>
+                        </div>
+                        <div class="preview-row" *ngIf="tenantForm.get('bankAccountHolderName')?.value">
+                          <span class="lbl">Beneficiary:</span>
+                          <span class="val" style="font-weight:600;">{{ tenantForm.get('bankAccountHolderName')?.value }}</span>
+                        </div>
                       </div>
 
                       <div class="supported-apps">
@@ -564,6 +713,11 @@ import { environment } from '../../../environments/environment';
                           <span class="app-chip cred">CRED</span>
                           <span class="app-chip any">Any UPI App</span>
                         </div>
+                      </div>
+
+                      <div class="settlement-verified-badge" *ngIf="tenantForm.get('bankAccountNumber')?.value">
+                        <mat-icon>verified_user</mat-icon>
+                        <span>Direct NPCI Settlement Bank Mapped</span>
                       </div>
                     </div>
                   </div>
@@ -1240,7 +1394,7 @@ import { environment } from '../../../environments/environment';
       background: #ffffff;
       border-radius: 16px;
       width: 95vw;
-      max-width: 980px;
+      max-width: 1240px;
       max-height: 90vh;
       overflow-y: auto;
       box-shadow: 0 25px 60px rgba(15, 23, 42, 0.25);
@@ -1517,6 +1671,84 @@ import { environment } from '../../../environments/environment';
       .wa-banner-icon { color: #16a34a; }
       strong { color: #14532d; }
       p { color: #15803d; }
+    }
+
+    .settlement-verified-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 6px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1d4ed8;
+      border-radius: 6px;
+      padding: 4px 8px;
+      font-size: 0.72rem;
+      font-weight: 600;
+
+      mat-icon {
+        font-size: 15px;
+        width: 15px;
+        height: 15px;
+        color: #2563eb;
+      }
+    }
+
+    .bank-account-setup-card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+
+      .bank-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-bottom: 8px;
+        border-bottom: 1px dashed #cbd5e1;
+        margin-bottom: 4px;
+
+        .header-left {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+
+          .bank-card-icon {
+            font-size: 20px;
+            width: 20px;
+            height: 20px;
+            color: #0369a1;
+          }
+
+          .header-titles {
+            .title {
+              font-size: 0.86rem;
+              font-weight: 700;
+              color: #0f172a;
+              display: block;
+            }
+            .sub {
+              font-size: 0.72rem;
+              color: #64748b;
+            }
+          }
+        }
+
+        .verified-pill {
+          background: #dcfce7;
+          color: #15803d;
+          border: 1px solid #86efac;
+          border-radius: 12px;
+          padding: 2px 8px;
+          font-size: 0.68rem;
+          font-weight: 700;
+          display: inline-flex;
+          align-items: center;
+        }
+      }
     }
 
     .toggles-card {
@@ -1905,11 +2137,11 @@ import { environment } from '../../../environments/environment';
     /* Two-column UPI Gateway Tab Layout */
     .upi-two-col-layout {
       display: grid;
-      grid-template-columns: 1.1fr 0.9fr;
-      gap: 20px;
+      grid-template-columns: 1.25fr 0.75fr;
+      gap: 24px;
       align-items: start;
 
-      @media (max-width: 820px) {
+      @media (max-width: 900px) {
         grid-template-columns: 1fr;
         gap: 16px;
       }
@@ -2093,6 +2325,40 @@ export class TenantsComponent implements OnInit {
 
   tenantForm: FormGroup;
 
+  popularBanks: string[] = [
+    'State Bank of India',
+    'HDFC Bank',
+    'ICICI Bank',
+    'Punjab National Bank',
+    'Bank of Baroda',
+    'Axis Bank',
+    'Canara Bank',
+    'Union Bank of India',
+    'Bank of India',
+    'Indian Bank',
+    'Central Bank of India',
+    'Kotak Mahindra Bank',
+    'IndusInd Bank',
+    'Bandhan Bank',
+    'IDBI Bank',
+    'Yes Bank',
+    'Federal Bank',
+    'UCO Bank',
+    'Bank of Maharashtra',
+    'Indian Overseas Bank',
+    'Punjab & Sind Bank',
+    'RBL Bank',
+    'AU Small Finance Bank',
+    'South Indian Bank',
+    'Karur Vysya Bank'
+  ];
+
+  get filteredBanks(): string[] {
+    const val = (this.tenantForm?.get('bankName')?.value || '').toLowerCase().trim();
+    if (!val) return this.popularBanks;
+    return this.popularBanks.filter(b => b.toLowerCase().includes(val));
+  }
+
   constructor(
     private tenantService: TenantService,
     private authService: AuthService,
@@ -2111,6 +2377,13 @@ export class TenantsComponent implements OnInit {
       upiMerchantCode: ['8211'],
       upiQrEnabled: [true],
       upiAutoVerify: [true],
+      bankName: [''],
+      bankAccountNumber: ['', [Validators.pattern('^[0-9]{9,18}$')]],
+      confirmAccountNumber: [''],
+      bankIfscCode: ['', [Validators.pattern('^[A-Z]{4}0[A-Z0-9]{6}$')]],
+      bankAccountHolderName: [''],
+      bankAccountType: ['Current'],
+      bankBranch: [''],
       adminUsername: ['admin', Validators.required],
       adminPassword: ['admin123', Validators.required],
       adminFullName: [''],
@@ -2155,6 +2428,49 @@ export class TenantsComponent implements OnInit {
       input.value = input.value.toUpperCase().replace(/[^A-Z0-9_-]/g, '');
       this.branchesFormArray.at(index).get('code')?.setValue(input.value, { emitEvent: false });
     }
+  }
+
+  onAccountNumberInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (input) {
+      input.value = input.value.replace(/[^0-9]/g, '');
+      this.tenantForm.get('bankAccountNumber')?.setValue(input.value, { emitEvent: false });
+      this.validateAccountMatch();
+    }
+  }
+
+  onConfirmAccountNumberInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (input) {
+      input.value = input.value.replace(/[^0-9]/g, '');
+      this.tenantForm.get('confirmAccountNumber')?.setValue(input.value, { emitEvent: false });
+      this.validateAccountMatch();
+    }
+  }
+
+  onIfscInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (input) {
+      input.value = input.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      this.tenantForm.get('bankIfscCode')?.setValue(input.value, { emitEvent: false });
+    }
+  }
+
+  validateAccountMatch(): void {
+    const acc = this.tenantForm.get('bankAccountNumber')?.value?.trim();
+    const confirm = this.tenantForm.get('confirmAccountNumber')?.value?.trim();
+    const confirmCtrl = this.tenantForm.get('confirmAccountNumber');
+    if (acc && confirm && acc !== confirm) {
+      confirmCtrl?.setErrors({ mismatch: true });
+    } else if (confirmCtrl?.hasError('mismatch')) {
+      confirmCtrl.setErrors(null);
+    }
+  }
+
+  getMaskedAccount(): string {
+    const acc = this.tenantForm.get('bankAccountNumber')?.value;
+    if (!acc || acc.length < 4) return '••••';
+    return '••••' + acc.slice(-4);
   }
 
   get isSuperAdmin(): boolean {
@@ -2242,6 +2558,18 @@ export class TenantsComponent implements OnInit {
       address: '',
       whatsAppPhoneId: '',
       whatsAppAccessToken: '',
+      upiId: '',
+      upiMerchantName: '',
+      upiMerchantCode: '8211',
+      upiQrEnabled: true,
+      upiAutoVerify: true,
+      bankName: '',
+      bankAccountNumber: '',
+      confirmAccountNumber: '',
+      bankIfscCode: '',
+      bankAccountHolderName: '',
+      bankAccountType: 'Current',
+      bankBranch: '',
       adminUsername: 'admin',
       adminPassword: 'password123',
       adminFullName: '',
@@ -2312,6 +2640,13 @@ export class TenantsComponent implements OnInit {
       upiMerchantCode: tenant.upiMerchantCode || '8211',
       upiQrEnabled: tenant.upiQrEnabled !== false,
       upiAutoVerify: tenant.upiAutoVerify !== false,
+      bankName: tenant.bankName || '',
+      bankAccountNumber: tenant.bankAccountNumber || '',
+      confirmAccountNumber: tenant.bankAccountNumber || '',
+      bankIfscCode: tenant.bankIfscCode || '',
+      bankAccountHolderName: tenant.bankAccountHolderName || tenant.name || '',
+      bankAccountType: tenant.bankAccountType || 'Current',
+      bankBranch: tenant.bankBranch || '',
       hasSchoolModule: this.isTenantModuleActive(tenant, 'school'),
       hasCoachingModule: this.isTenantModuleActive(tenant, 'coaching'),
       hasHostelModule: this.isTenantModuleActive(tenant, 'hostel'),
@@ -2476,6 +2811,12 @@ export class TenantsComponent implements OnInit {
         upiMerchantCode: val.upiMerchantCode?.trim() || '8211',
         upiQrEnabled: val.upiQrEnabled !== false,
         upiAutoVerify: val.upiAutoVerify !== false,
+        bankName: val.bankName?.trim() || null,
+        bankAccountNumber: val.bankAccountNumber?.trim() || null,
+        bankIfscCode: val.bankIfscCode?.trim()?.toUpperCase() || null,
+        bankAccountHolderName: val.bankAccountHolderName?.trim() || null,
+        bankAccountType: val.bankAccountType?.trim() || 'Current',
+        bankBranch: val.bankBranch?.trim() || null,
         hasSchoolModule: val.hasSchoolModule,
         hasCoachingModule: val.hasCoachingModule,
         hasHostelModule: val.hasHostelModule,

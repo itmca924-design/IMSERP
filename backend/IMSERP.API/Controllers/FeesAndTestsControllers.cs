@@ -491,6 +491,25 @@ public class FeesController : ControllerBase
                 else if (inv.DueDate < now && paid == 0) status = "Overdue";
                 else if (paid == 0) status = "Due";
 
+                if (!string.IsNullOrWhiteSpace(inv.CancellationReason) && inv.CancellationReason.Contains("[BALANCE WAIVED & SETTLED]"))
+                {
+                    status = "Settled";
+                }
+
+                string? remarks = null;
+                if (!string.IsNullOrWhiteSpace(inv.CancellationReason))
+                {
+                    remarks = inv.CancellationReason;
+                }
+                else if (!string.IsNullOrWhiteSpace(pmt?.Remarks))
+                {
+                    remarks = pmt.Remarks;
+                }
+                else
+                {
+                    remarks = inv.Title;
+                }
+
                 monthsList.Add(new FeeCardMonthEntryDto(
                     i,
                     monthName,
@@ -507,7 +526,7 @@ public class FeesController : ControllerBase
                     pmt?.ReceiptNumber,
                     pmt != null ? DateTime.SpecifyKind(pmt.PaymentDate, DateTimeKind.Utc) : null,
                     pmt?.Mode.ToString(),
-                    pmt?.Remarks ?? inv.Title
+                    remarks
                 ));
             }
             else if (monthDate < studentEnrollmentStart)
@@ -1855,32 +1874,132 @@ public class FeesController : ControllerBase
     {
         var invoice = await _dbContext.FeeInvoices
             .Include(i => i.Student)
+            .Include(i => i.Items)
+            .Include(i => i.Payments)
             .FirstOrDefaultAsync(i => i.Id == invoiceId);
 
         if (invoice == null) return NotFound("Invoice not found.");
 
-        if (invoice.Status == InvoiceStatus.Paid)
-            return BadRequest(new { message = "A fully paid invoice cannot be cancelled. Reverse the payment first if needed." });
-
         if (invoice.Status == InvoiceStatus.Cancelled)
             return BadRequest(new { message = "This invoice is already cancelled." });
 
-        if (invoice.PaidAmount > 0)
-            return BadRequest(new { message = "This invoice has partial payment recorded and cannot be cancelled directly. Please contact admin for reversal." });
-
-        invoice.Status = InvoiceStatus.Cancelled;
-        invoice.CancellationReason = string.IsNullOrWhiteSpace(dto.Reason) ? "No reason provided" : dto.Reason.Trim();
-        invoice.CancelledAt = DateTime.UtcNow;
-
-        await _dbContext.SaveChangesAsync();
-
-        return Ok(new
+        // CASE 1: No payment received yet -> Standard void/cancellation
+        if (invoice.PaidAmount <= 0)
         {
-            message = $"Invoice {invoice.InvoiceNumber} has been cancelled successfully.",
-            invoiceId = invoice.Id,
-            reason = invoice.CancellationReason,
-            cancelledAt = invoice.CancelledAt
-        });
+            invoice.Status = InvoiceStatus.Cancelled;
+            invoice.CancellationReason = string.IsNullOrWhiteSpace(dto.Reason) ? "No reason provided" : dto.Reason.Trim();
+            invoice.CancelledAt = DateTime.UtcNow;
+
+            await _dbContext.SaveChangesAsync();
+
+            return Ok(new
+            {
+                message = $"Invoice {invoice.InvoiceNumber} has been cancelled successfully.",
+                action = "VoidOnly",
+                invoiceId = invoice.Id,
+                reason = invoice.CancellationReason,
+                cancelledAt = invoice.CancelledAt
+            });
+        }
+
+        // CASE 2: Partial or Full payment recorded -> Must choose between RefundAndCancel vs WaiveAndClose
+        if (string.IsNullOrWhiteSpace(dto.PartialAction))
+        {
+            return BadRequest(new { message = "This invoice has payments recorded. Please specify an action: 'RefundAndCancel' (reverses payments and voids invoice) or 'WaiveAndClose' (retains collected fee and waives remaining balance)." });
+        }
+
+        if (dto.PartialAction.Equals("RefundAndCancel", StringComparison.OrdinalIgnoreCase))
+        {
+            var payments = await _dbContext.FeePayments
+                .Where(p => p.InvoiceId == invoice.Id)
+                .ToListAsync();
+
+            decimal refundedTotal = invoice.PaidAmount;
+            int receiptCount = payments.Count;
+
+            var receiptNumbers = payments.Select(p => p.ReceiptNumber).Where(r => !string.IsNullOrEmpty(r)).ToList();
+            if (receiptNumbers.Any())
+            {
+                var associatedCircs = await _dbContext.LibraryCirculations
+                    .Where(c => c.FinePaymentReceiptNumber != null && receiptNumbers.Contains(c.FinePaymentReceiptNumber))
+                    .ToListAsync();
+
+                foreach (var circ in associatedCircs)
+                {
+                    circ.FineStatus = "Pending";
+                    circ.FinePaymentReceiptNumber = null;
+                    circ.FinePaidAt = null;
+                }
+            }
+
+            // Remove fee payment records (reversing Day Book and Cash/Bank entries)
+            _dbContext.FeePayments.RemoveRange(payments);
+
+            // Reset invoice items paid amounts
+            if (invoice.Items != null)
+            {
+                foreach (var it in invoice.Items)
+                {
+                    it.PaidAmount = 0m;
+                }
+            }
+
+            invoice.PaidAmount = 0m;
+            invoice.Status = InvoiceStatus.Cancelled;
+            invoice.CancelledAt = DateTime.UtcNow;
+            string cleanReason = string.IsNullOrWhiteSpace(dto.Reason) ? "Administrative Cancellation" : dto.Reason.Trim();
+            invoice.CancellationReason = $"[REFUNDED & VOIDED] {cleanReason} (Reversed ₹{refundedTotal:N2} across {receiptCount} receipt(s))";
+
+            await _dbContext.SaveChangesAsync();
+
+            return Ok(new
+            {
+                message = $"Invoice {invoice.InvoiceNumber} cancelled. ₹{refundedTotal:N2} payment(s) reversed and removed from Day Book.",
+                action = "RefundAndCancel",
+                invoiceId = invoice.Id,
+                refundedAmount = refundedTotal,
+                reason = invoice.CancellationReason,
+                cancelledAt = invoice.CancelledAt
+            });
+        }
+        else if (dto.PartialAction.Equals("WaiveAndClose", StringComparison.OrdinalIgnoreCase))
+        {
+            decimal originalTotal = invoice.TotalAmount;
+            decimal retainedPaid = invoice.PaidAmount;
+            decimal waivedBalance = Math.Max(0m, originalTotal - retainedPaid);
+
+            // Adjust invoice items: each item amount becomes equal to what was paid for it
+            if (invoice.Items != null && invoice.Items.Any())
+            {
+                foreach (var it in invoice.Items)
+                {
+                    it.Amount = it.PaidAmount;
+                }
+            }
+
+            invoice.TotalAmount = retainedPaid;
+            invoice.Status = InvoiceStatus.Paid; // Fully settled
+            invoice.CancelledAt = DateTime.UtcNow;
+            string cleanReason = string.IsNullOrWhiteSpace(dto.Reason) ? "Management Concession / Discontinuation" : dto.Reason.Trim();
+            invoice.CancellationReason = $"[BALANCE WAIVED & SETTLED] Retained ₹{retainedPaid:N2} collected. Waived pending balance ₹{waivedBalance:N2}. Reason: {cleanReason}";
+
+            await _dbContext.SaveChangesAsync();
+
+            return Ok(new
+            {
+                message = $"Invoice {invoice.InvoiceNumber} settled successfully. Retained ₹{retainedPaid:N2} collected; waived remaining balance of ₹{waivedBalance:N2}.",
+                action = "WaiveAndClose",
+                invoiceId = invoice.Id,
+                retainedAmount = retainedPaid,
+                waivedAmount = waivedBalance,
+                reason = invoice.CancellationReason,
+                cancelledAt = invoice.CancelledAt
+            });
+        }
+        else
+        {
+            return BadRequest(new { message = $"Unrecognized partial action '{dto.PartialAction}'. Supported actions are 'RefundAndCancel' and 'WaiveAndClose'." });
+        }
     }
 
     [HttpPost("invoices/{invoiceId}/items")]
@@ -2957,6 +3076,30 @@ public class FeesController : ControllerBase
             ? branch.UpiMerchantName.Trim()
             : (!string.IsNullOrWhiteSpace(tenant.UpiMerchantName) ? tenant.UpiMerchantName.Trim() : (tenant.Name ?? "Jnandeep Campus"));
 
+        string? effectiveBankName = !string.IsNullOrWhiteSpace(branch?.BankName)
+            ? branch.BankName.Trim()
+            : (!string.IsNullOrWhiteSpace(tenant.BankName) ? tenant.BankName.Trim() : null);
+
+        string? effectiveAccountNumber = !string.IsNullOrWhiteSpace(branch?.BankAccountNumber)
+            ? branch.BankAccountNumber.Trim()
+            : (!string.IsNullOrWhiteSpace(tenant.BankAccountNumber) ? tenant.BankAccountNumber.Trim() : null);
+
+        string? effectiveIfsc = !string.IsNullOrWhiteSpace(branch?.BankIfscCode)
+            ? branch.BankIfscCode.Trim()
+            : (!string.IsNullOrWhiteSpace(tenant.BankIfscCode) ? tenant.BankIfscCode.Trim() : null);
+
+        string? effectiveHolder = !string.IsNullOrWhiteSpace(branch?.BankAccountHolderName)
+            ? branch.BankAccountHolderName.Trim()
+            : (!string.IsNullOrWhiteSpace(tenant.BankAccountHolderName) ? tenant.BankAccountHolderName.Trim() : null);
+
+        string? effectiveAccountType = !string.IsNullOrWhiteSpace(branch?.BankAccountType)
+            ? branch.BankAccountType.Trim()
+            : (!string.IsNullOrWhiteSpace(tenant.BankAccountType) ? tenant.BankAccountType.Trim() : "Current");
+
+        string? effectiveBranchLocation = !string.IsNullOrWhiteSpace(branch?.BankBranch)
+            ? branch.BankBranch.Trim()
+            : (!string.IsNullOrWhiteSpace(tenant.BankBranch) ? tenant.BankBranch.Trim() : null);
+
         return Ok(new UpiPaymentSettingsDto(
             tenant.UpiId,
             tenant.UpiMerchantName,
@@ -2966,7 +3109,13 @@ public class FeesController : ControllerBase
             branch?.UpiId,
             branch?.UpiMerchantName,
             effectiveUpiId,
-            effectiveMerchantName
+            effectiveMerchantName,
+            effectiveBankName,
+            effectiveAccountNumber,
+            effectiveIfsc,
+            effectiveHolder,
+            effectiveAccountType,
+            effectiveBranchLocation
         ));
     }
 
@@ -2989,6 +3138,12 @@ public class FeesController : ControllerBase
             if (branch == null) return NotFound("Branch not found.");
             branch.UpiId = dto.UpiId?.Trim();
             branch.UpiMerchantName = dto.UpiMerchantName?.Trim();
+            if (dto.BankName != null) branch.BankName = string.IsNullOrWhiteSpace(dto.BankName) ? null : dto.BankName.Trim();
+            if (dto.BankAccountNumber != null) branch.BankAccountNumber = string.IsNullOrWhiteSpace(dto.BankAccountNumber) ? null : dto.BankAccountNumber.Trim();
+            if (dto.BankIfscCode != null) branch.BankIfscCode = string.IsNullOrWhiteSpace(dto.BankIfscCode) ? null : dto.BankIfscCode.Trim().ToUpper();
+            if (dto.BankAccountHolderName != null) branch.BankAccountHolderName = string.IsNullOrWhiteSpace(dto.BankAccountHolderName) ? null : dto.BankAccountHolderName.Trim();
+            if (dto.BankAccountType != null) branch.BankAccountType = string.IsNullOrWhiteSpace(dto.BankAccountType) ? "Current" : dto.BankAccountType.Trim();
+            if (dto.BankBranch != null) branch.BankBranch = string.IsNullOrWhiteSpace(dto.BankBranch) ? null : dto.BankBranch.Trim();
         }
         else
         {
@@ -2997,10 +3152,16 @@ public class FeesController : ControllerBase
             tenant.UpiMerchantCode = !string.IsNullOrWhiteSpace(dto.UpiMerchantCode) ? dto.UpiMerchantCode.Trim() : "8211";
             tenant.UpiQrEnabled = dto.UpiQrEnabled;
             tenant.UpiAutoVerify = dto.UpiAutoVerify;
+            if (dto.BankName != null) tenant.BankName = string.IsNullOrWhiteSpace(dto.BankName) ? null : dto.BankName.Trim();
+            if (dto.BankAccountNumber != null) tenant.BankAccountNumber = string.IsNullOrWhiteSpace(dto.BankAccountNumber) ? null : dto.BankAccountNumber.Trim();
+            if (dto.BankIfscCode != null) tenant.BankIfscCode = string.IsNullOrWhiteSpace(dto.BankIfscCode) ? null : dto.BankIfscCode.Trim().ToUpper();
+            if (dto.BankAccountHolderName != null) tenant.BankAccountHolderName = string.IsNullOrWhiteSpace(dto.BankAccountHolderName) ? null : dto.BankAccountHolderName.Trim();
+            if (dto.BankAccountType != null) tenant.BankAccountType = string.IsNullOrWhiteSpace(dto.BankAccountType) ? "Current" : dto.BankAccountType.Trim();
+            if (dto.BankBranch != null) tenant.BankBranch = string.IsNullOrWhiteSpace(dto.BankBranch) ? null : dto.BankBranch.Trim();
         }
 
         await _dbContext.SaveChangesAsync();
-        return Ok(new { message = "UPI Payment Gateway settings saved successfully." });
+        return Ok(new { message = "UPI Payment Gateway & Settlement Bank settings saved successfully." });
     }
 
     [HttpGet("online-upi-transactions")]

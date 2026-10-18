@@ -133,7 +133,13 @@ public record TenantDto(
     string? UpiMerchantName = null,
     string? UpiMerchantCode = null,
     bool UpiQrEnabled = true,
-    bool UpiAutoVerify = true
+    bool UpiAutoVerify = true,
+    string? BankName = null,
+    string? BankAccountNumber = null,
+    string? BankIfscCode = null,
+    string? BankAccountHolderName = null,
+    string? BankAccountType = null,
+    string? BankBranch = null
 );
 
 public record CreateTenantDto(
@@ -196,7 +202,13 @@ public record UpdateTenantDto(
     string? UpiMerchantName = null,
     string? UpiMerchantCode = null,
     bool? UpiQrEnabled = null,
-    bool? UpiAutoVerify = null
+    bool? UpiAutoVerify = null,
+    string? BankName = null,
+    string? BankAccountNumber = null,
+    string? BankIfscCode = null,
+    string? BankAccountHolderName = null,
+    string? BankAccountType = null,
+    string? BankBranch = null
 );
 
 public record ExtendSubscriptionDto(
@@ -1438,7 +1450,13 @@ public record UpiPaymentSettingsDto(
     string? BranchUpiId,
     string? BranchUpiMerchantName,
     string EffectiveUpiId,
-    string EffectiveMerchantName
+    string EffectiveMerchantName,
+    string? BankName = null,
+    string? BankAccountNumber = null,
+    string? BankIfscCode = null,
+    string? BankAccountHolderName = null,
+    string? BankAccountType = null,
+    string? BankBranch = null
 );
 
 public record UpdateUpiPaymentSettingsDto(
@@ -1448,7 +1466,13 @@ public record UpdateUpiPaymentSettingsDto(
     bool UpiQrEnabled,
     bool UpiAutoVerify,
     bool ApplyToBranchOnly = false,
-    Guid? BranchId = null
+    Guid? BranchId = null,
+    string? BankName = null,
+    string? BankAccountNumber = null,
+    string? BankIfscCode = null,
+    string? BankAccountHolderName = null,
+    string? BankAccountType = null,
+    string? BankBranch = null
 );
 
 public record OnlineUpiTransactionItemDto(
@@ -1515,7 +1539,8 @@ public record PendingInvoicingStudentDto(
 );
 
 public record CancelInvoiceDto(
-    string Reason
+    string Reason,
+    string? PartialAction = null
 );
 
 public record AddFeeInvoiceItemDto(

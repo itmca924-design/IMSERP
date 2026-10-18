@@ -5,9 +5,10 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { FeesService, FeeDueSlip, FeeDueSlipItem, FeeInvoicePagedItem } from '../../core/services/fees.service';
+import { FeesService, FeeDueSlip, FeeDueSlipItem, FeeInvoicePagedItem, UpiPaymentSettings } from '../../core/services/fees.service';
 import { AuthService } from '../../core/services/auth.service';
 import { FeeCollectionDialogComponent } from './fee-collection-dialog.component';
+import * as QRCode from 'qrcode';
 
 export interface FeeDueReceiptDialogData {
   studentId: string;
@@ -211,6 +212,61 @@ export interface FeeDueReceiptDialogData {
             </div>
           </div>
           <div class="lib-amt">₹{{ dueSlip.pendingLibraryFine | number:'1.2-2' }}</div>
+        </div>
+
+        <!-- UPI Dynamic Scan & Pay Block -->
+        <div class="upi-payment-banner" *ngIf="dueSlip.totalOutstandingDue > 0">
+          <div class="upi-qr-col">
+            <div class="qr-frame">
+              <img *ngIf="qrDataUrl" [src]="qrDataUrl" alt="Scan to Pay via UPI" class="qr-img" />
+              <div *ngIf="!qrDataUrl" class="qr-placeholder">
+                <mat-icon>qr_code_2</mat-icon>
+              </div>
+            </div>
+            <div class="scan-tag">
+              <span>SCAN WITH ANY UPI APP</span>
+            </div>
+          </div>
+
+          <div class="upi-info-col">
+            <div class="upi-info-header">
+              <div class="upi-badge">
+                <mat-icon>qr_code_scanner</mat-icon>
+                <span>Instant UPI Payment (तत्काल क्यूआर भुगतान)</span>
+              </div>
+              <div class="upi-supported-apps">
+                <span class="app-chip gpay">GPay</span>
+                <span class="app-chip phonepe">PhonePe</span>
+                <span class="app-chip paytm">Paytm</span>
+                <span class="app-chip bhim">BHIM</span>
+                <span class="app-chip">Any UPI</span>
+              </div>
+            </div>
+
+            <div class="upi-details-grid">
+              <div class="detail-box amt-box">
+                <span class="d-label">Exact Payable Amount:</span>
+                <span class="d-val amt-val">₹{{ dueSlip.totalOutstandingDue | number:'1.2-2' }}</span>
+              </div>
+              <div class="detail-box">
+                <span class="d-label">Payee Name:</span>
+                <span class="d-val">{{ payeeMerchantName }}</span>
+              </div>
+              <div class="detail-box">
+                <span class="d-label">Payee UPI ID (VPA):</span>
+                <span class="d-val font-mono upi-id-val">{{ payeeUpiId }}</span>
+              </div>
+              <div class="detail-box" *ngIf="bankAccountDisplay">
+                <span class="d-label">Institute Bank A/C:</span>
+                <span class="d-val font-mono">{{ bankAccountDisplay }}</span>
+              </div>
+            </div>
+
+            <div class="upi-help-note">
+              <mat-icon>verified</mat-icon>
+              <span>Amount and student reference (Roll #{{ dueSlip.rollNumber || 'N/A' }}) will be auto-filled in your UPI app upon scanning. After paying, please share screenshot/UTR with Accounts Desk.</span>
+            </div>
+          </div>
         </div>
 
         <!-- Payment Instructions Box -->
@@ -709,6 +765,149 @@ export interface FeeDueReceiptDialogData {
       }
     }
 
+    /* Dynamic UPI Payment Banner */
+    .upi-payment-banner {
+      display: flex;
+      gap: 16px;
+      background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+      border: 1.5px solid #a7f3d0;
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-bottom: 14px;
+      align-items: center;
+
+      .upi-qr-col {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        flex-shrink: 0;
+
+        .qr-frame {
+          width: 120px;
+          height: 120px;
+          background: #ffffff;
+          padding: 6px;
+          border-radius: 6px;
+          border: 1px solid #cbd5e1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+
+          .qr-img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+          }
+
+          .qr-placeholder {
+            color: #94a3b8;
+            mat-icon { font-size: 48px; width: 48px; height: 48px; }
+          }
+        }
+
+        .scan-tag {
+          margin-top: 4px;
+          font-size: 0.62rem;
+          font-weight: 800;
+          color: #065f46;
+          background: #d1fae5;
+          padding: 1px 6px;
+          border-radius: 4px;
+          letter-spacing: 0.04em;
+          white-space: nowrap;
+        }
+      }
+
+      .upi-info-col {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+
+        .upi-info-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 6px;
+
+          .upi-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: #065f46;
+
+            mat-icon { font-size: 18px; width: 18px; height: 18px; color: #059669; }
+          }
+
+          .upi-supported-apps {
+            display: flex;
+            gap: 4px;
+
+            .app-chip {
+              font-size: 0.65rem;
+              font-weight: 700;
+              background: #ffffff;
+              color: #334155;
+              border: 1px solid #cbd5e1;
+              padding: 1px 5px;
+              border-radius: 4px;
+
+              &.gpay { color: #1a73e8; border-color: #93c5fd; }
+              &.phonepe { color: #5f259f; border-color: #d8b4fe; }
+              &.paytm { color: #00b9f1; border-color: #7dd3fc; }
+              &.bhim { color: #00796b; border-color: #80cbc4; }
+            }
+          }
+        }
+
+        .upi-details-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+          gap: 4px 10px;
+          background: #ffffff;
+          padding: 8px 10px;
+          border-radius: 6px;
+          border: 1px solid #d1fae5;
+
+          .detail-box {
+            display: flex;
+            flex-direction: column;
+
+            .d-label {
+              font-size: 0.68rem;
+              color: #64748b;
+              font-weight: 600;
+            }
+
+            .d-val {
+              font-size: 0.82rem;
+              color: #0f172a;
+              font-weight: 700;
+
+              &.amt-val { color: #b91c1c; font-size: 0.95rem; }
+              &.upi-id-val { color: #065f46; }
+            }
+          }
+        }
+
+        .upi-help-note {
+          display: flex;
+          align-items: flex-start;
+          gap: 4px;
+          font-size: 0.72rem;
+          color: #047857;
+          line-height: 1.35;
+
+          mat-icon { font-size: 14px; width: 14px; height: 14px; flex-shrink: 0; margin-top: 1px; color: #059669; }
+        }
+      }
+    }
+
     .payment-options-box {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -863,6 +1062,11 @@ export class FeeDueReceiptDialogComponent implements OnInit {
   logoUrl: string | null = null;
   logoFailed = false;
 
+  payeeUpiId = 'imserp.fees@sbi';
+  payeeMerchantName = '';
+  bankAccountDisplay = '';
+  qrDataUrl: string | null = null;
+
   get effectiveBranchName(): string {
     if (this.dueSlip?.branchName) return this.dueSlip.branchName;
     if (this.data?.branchName && this.data.branchName !== 'All Branches / Head Office') return this.data.branchName;
@@ -891,10 +1095,26 @@ export class FeeDueReceiptDialogComponent implements OnInit {
     const rand = Math.floor(1000 + Math.random() * 9000);
     this.noticeNumber = `DUE-${yearMonth}-${rand}`;
 
+    this.feesService.getUpiPaymentSettings().subscribe({
+      next: (settings: UpiPaymentSettings) => {
+        this.payeeUpiId = settings.effectiveUpiId || settings.upiId || 'imserp.fees@sbi';
+        this.payeeMerchantName = settings.effectiveMerchantName || settings.upiMerchantName || this.data.instituteName || this.authService.currentUser()?.instituteName || 'Apex Coaching Academy';
+        if (settings.effectiveBankName && settings.effectiveAccountNumber) {
+          this.bankAccountDisplay = `${settings.effectiveBankName} - A/C: ${settings.effectiveAccountNumber} (IFSC: ${settings.effectiveIfsc || 'N/A'})`;
+        }
+        this.generateQrCode();
+      },
+      error: () => {
+        this.payeeMerchantName = this.data.instituteName || this.authService.currentUser()?.instituteName || 'Apex Coaching Academy';
+        this.generateQrCode();
+      }
+    });
+
     this.feesService.getStudentDueSlip(this.data.studentId, this.data.invoiceId).subscribe({
       next: (slip) => {
         this.dueSlip = slip;
         this.loading = false;
+        this.generateQrCode();
       },
       error: (err) => {
         console.error('Error fetching due slip:', err);
@@ -922,7 +1142,38 @@ export class FeeDueReceiptDialogComponent implements OnInit {
           };
         }
         this.loading = false;
+        this.generateQrCode();
       }
+    });
+  }
+
+  generateQrCode(): void {
+    if (!this.dueSlip || this.dueSlip.totalOutstandingDue <= 0) {
+      this.qrDataUrl = null;
+      return;
+    }
+
+    const amount = this.dueSlip.totalOutstandingDue;
+    const payee = this.payeeUpiId;
+    const name = this.payeeMerchantName || this.data.instituteName || this.authService.currentUser()?.instituteName || 'Apex Coaching Academy';
+    const student = this.dueSlip.studentName;
+    const roll = this.dueSlip.rollNumber || '';
+    const note = `Fee Due ${student}${roll ? ' Roll ' + roll : ''} ${this.noticeNumber}`;
+
+    // NPCI standard UPI URI
+    const upiUri = `upi://pay?pa=${encodeURIComponent(payee)}&pn=${encodeURIComponent(name)}&am=${amount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(note.substring(0, 50))}`;
+
+    QRCode.toDataURL(upiUri, {
+      width: 140,
+      margin: 1,
+      color: {
+        dark: '#0f172a',
+        light: '#ffffff'
+      }
+    }).then(url => {
+      this.qrDataUrl = url;
+    }).catch(err => {
+      console.error('Failed to generate QR Code for Due Slip:', err);
     });
   }
 
@@ -998,6 +1249,22 @@ export class FeeDueReceiptDialogComponent implements OnInit {
             .payment-options-box { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 14px; margin-bottom: 12px; }
             .opt-title { font-weight: 700; font-size: 0.8rem; color: #0f172a; margin-bottom: 3px; display: block; }
             .opt-col p { margin: 0; font-size: 0.74rem; color: #475569; }
+            .upi-payment-banner { display: flex; gap: 14px; background: #f0fdf4; border: 1.5px solid #a7f3d0; border-radius: 6px; padding: 10px 12px; margin-bottom: 12px; align-items: center; }
+            .upi-qr-col { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
+            .qr-frame { width: 110px; height: 110px; background: #fff; padding: 4px; border-radius: 4px; border: 1px solid #cbd5e1; }
+            .qr-img { width: 100%; height: 100%; object-fit: contain; }
+            .scan-tag { margin-top: 3px; font-size: 0.58rem; font-weight: 800; color: #065f46; background: #d1fae5; padding: 1px 5px; border-radius: 3px; }
+            .upi-info-col { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+            .upi-info-header { display: flex; justify-content: space-between; align-items: center; }
+            .upi-badge { font-size: 0.78rem; font-weight: 700; color: #065f46; }
+            .upi-supported-apps { display: flex; gap: 3px; }
+            .app-chip { font-size: 0.6rem; font-weight: 700; background: #fff; border: 1px solid #cbd5e1; padding: 1px 4px; border-radius: 3px; }
+            .upi-details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; background: #fff; padding: 6px 8px; border-radius: 4px; border: 1px solid #d1fae5; }
+            .detail-box .d-label { font-size: 0.64rem; color: #64748b; font-weight: 600; display: block; }
+            .detail-box .d-val { font-size: 0.78rem; font-weight: 700; color: #0f172a; display: block; }
+            .detail-box .amt-val { color: #b91c1c; font-size: 0.88rem; }
+            .detail-box .upi-id-val { color: #065f46; font-family: monospace; }
+            .upi-help-note { font-size: 0.68rem; color: #047857; margin-top: 2px; }
             .notice-advisory { font-size: 0.74rem; color: #78350f; background: #fffbeb; border: 1px solid #fef3c7; padding: 6px 12px; border-radius: 6px; margin-bottom: 20px; }
             .advisory-title { font-weight: 700; color: #92400e; margin-bottom: 2px; display: block; }
             .signatures-row { display: flex; justify-content: space-between; align-items: flex-end; padding-top: 24px; margin-bottom: 12px; }

@@ -24,6 +24,12 @@ public class Tenant
     public string? UpiMerchantCode { get; set; } = "8211";
     public bool UpiQrEnabled { get; set; } = true;
     public bool UpiAutoVerify { get; set; } = true;
+    public string? BankName { get; set; }
+    public string? BankAccountNumber { get; set; }
+    public string? BankIfscCode { get; set; }
+    public string? BankAccountHolderName { get; set; }
+    public string? BankAccountType { get; set; } = "Current";
+    public string? BankBranch { get; set; }
     public string SubscriptionPlan { get; set; } = "FreeTrial";
     public string SubscriptionStatus { get; set; } = "TrialActive";
     public DateTime? TrialStartDate { get; set; }
@@ -47,6 +53,12 @@ public class Branch
     public string? ContactPhone { get; set; }
     public string? UpiId { get; set; }
     public string? UpiMerchantName { get; set; }
+    public string? BankName { get; set; }
+    public string? BankAccountNumber { get; set; }
+    public string? BankIfscCode { get; set; }
+    public string? BankAccountHolderName { get; set; }
+    public string? BankAccountType { get; set; } = "Current";
+    public string? BankBranch { get; set; }
     public bool IsMainBranch { get; set; } = false;
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

@@ -137,6 +137,7 @@ import { FeeDueReceiptDialogComponent } from './fee-due-receipt-dialog.component
                         </span>
                       </div>
                       <span *ngIf="inv.status === 'Cancelled'" class="cancelled-label" [matTooltip]="'Cancelled' + (inv.cancelledAt ? ' on ' + (inv.cancelledAt | date:'mediumDate') : '') + (inv.cancellationReason ? ' | Reason: ' + inv.cancellationReason : '')">VOID</span>
+                      <span *ngIf="inv.cancellationReason && inv.cancellationReason.includes('[BALANCE WAIVED & SETTLED]')" class="settled-waiver-label" [matTooltip]="inv.cancellationReason">WAIVED &amp; SETTLED</span>
                     </td>
                     <td class="nowrap-col">{{ inv.dueDate | date:'mediumDate' }}</td>
                     <td class="text-right amount-col nowrap-col">{{ inv.status === 'Cancelled' ? '—' : ('₹' + (inv.totalAmount | number:'1.2-2')) }}</td>
@@ -145,7 +146,10 @@ import { FeeDueReceiptDialogComponent } from './fee-due-receipt-dialog.component
                       <strong>{{ inv.status === 'Cancelled' ? '—' : ('₹' + (inv.dueAmount | number:'1.2-2')) }}</strong>
                     </td>
                     <td class="text-center nowrap-col">
-                      <span class="status-badge" [ngClass]="inv.status.toLowerCase()" [matTooltip]="inv.status === 'Cancelled' ? ('Cancelled' + (inv.cancelledAt ? ' on ' + (inv.cancelledAt | date:'mediumDate') : '') + (inv.cancellationReason ? ' | Reason: ' + inv.cancellationReason : '')) : ''">
+                      <span *ngIf="inv.cancellationReason && inv.cancellationReason.includes('[BALANCE WAIVED & SETTLED]')" class="status-badge settled" [matTooltip]="inv.cancellationReason">
+                        Settled (Waived)
+                      </span>
+                      <span *ngIf="!inv.cancellationReason || !inv.cancellationReason.includes('[BALANCE WAIVED & SETTLED]')" class="status-badge" [ngClass]="inv.status.toLowerCase()" [matTooltip]="inv.status === 'Cancelled' ? ('Cancelled' + (inv.cancelledAt ? ' on ' + (inv.cancelledAt | date:'mediumDate') : '') + (inv.cancellationReason ? ' | Reason: ' + inv.cancellationReason : '')) : ''">
                         {{ inv.status }}
                       </span>
                     </td>
@@ -645,6 +649,7 @@ import { FeeDueReceiptDialogComponent } from './fee-due-receipt-dialog.component
       &.pending   { background: #fef3c7; color: #92400e; }
       &.partial   { background: #dbeafe; color: #1e40af; }
       &.paid      { background: #dcfce7; color: #166534; }
+      &.settled   { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
       &.overdue   { background: #fee2e2; color: #991b1b; }
       &.cancelled { background: #f1f5f9; color: #94a3b8; text-decoration: line-through; }
     }
@@ -661,6 +666,18 @@ import { FeeDueReceiptDialogComponent } from './fee-due-receipt-dialog.component
     .cancelled-label {
       background: #e2e8f0;
       color: #64748b;
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 3px;
+      margin-left: 6px;
+      vertical-align: middle;
+      letter-spacing: 0.05em;
+    }
+    .settled-waiver-label {
+      background: #eff6ff;
+      color: #1e40af;
+      border: 1px solid #bfdbfe;
       font-size: 0.65rem;
       font-weight: 700;
       padding: 1px 5px;
