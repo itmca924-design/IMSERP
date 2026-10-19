@@ -275,6 +275,10 @@ export interface VendorLedgerSummary {
   balanceDue: number;
   totalRefunds?: number;
   entries: VendorLedgerEntry[];
+  totalCount?: number;
+  pageNumber?: number;
+  pageSize?: number;
+  totalPages?: number;
 }
 
 export interface VendorLedgerEntry {

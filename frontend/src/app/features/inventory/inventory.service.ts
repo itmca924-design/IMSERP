@@ -182,10 +182,30 @@ export class InventoryService {
   }
 
   // Vendor Ledger & Payments
-  getVendorLedger(vendorId: string, startDate?: string, endDate?: string): Observable<VendorLedgerSummary> {
+  getVendorLedger(vendorId: string, options?: {
+    startDate?: string;
+    endDate?: string;
+    search?: string;
+    entryType?: string;
+    paymentMode?: string;
+    sortBy?: string;
+    sortDirection?: string;
+    pageNumber?: number;
+    pageSize?: number;
+    branchId?: string;
+  }): Observable<VendorLedgerSummary> {
     let params = new HttpParams();
-    if (startDate) params = params.set('startDate', startDate);
-    if (endDate) params = params.set('endDate', endDate);
+    if (options?.startDate) params = params.set('startDate', options.startDate);
+    if (options?.endDate) params = params.set('endDate', options.endDate);
+    if (options?.search) params = params.set('search', options.search);
+    if (options?.entryType && options.entryType !== 'ALL') params = params.set('entryType', options.entryType);
+    if (options?.paymentMode && options.paymentMode !== 'ALL') params = params.set('paymentMode', options.paymentMode);
+    if (options?.sortBy) params = params.set('sortBy', options.sortBy);
+    if (options?.sortDirection) params = params.set('sortDirection', options.sortDirection);
+    if (options?.pageNumber) params = params.set('pageNumber', options.pageNumber.toString());
+    if (options?.pageSize) params = params.set('pageSize', options.pageSize.toString());
+    if (options?.branchId) params = params.set('branchId', options.branchId);
+
     return this.http.get<VendorLedgerSummary>(`${this.baseUrl}/vendors/${vendorId}/ledger`, { params });
   }
 

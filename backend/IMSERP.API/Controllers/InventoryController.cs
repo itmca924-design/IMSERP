@@ -1010,119 +1010,186 @@ public class InventoryController : ControllerBase
     public async Task<ActionResult<VendorLedgerSummaryDto>> GetVendorLedger(
         Guid id,
         [FromQuery] DateTime? startDate = null,
-        [FromQuery] DateTime? endDate = null)
+        [FromQuery] DateTime? endDate = null,
+        [FromQuery] string? search = null,
+        [FromQuery] string? entryType = null,
+        [FromQuery] string? paymentMode = null,
+        [FromQuery] string? sortBy = "date",
+        [FromQuery] string? sortDirection = "asc",
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] Guid? branchId = null)
     {
+        var effBranchId = GetEffectiveBranchId(branchId);
         var vendor = await _db.InventoryVendors.AsNoTracking().FirstOrDefaultAsync(v => v.Id == id);
         if (vendor == null)
             return NotFound("Vendor not found.");
 
-        var allInwards = await _db.InventoryInwards.AsNoTracking()
-            .Where(i => i.VendorId == id)
-            .Include(i => i.Items).ThenInclude(it => it.Item)
-            .ToListAsync();
+        // Optimized direct SQL Aggregates for Lifetime Totals (sub-millisecond indexed queries)
+        var totalPurchased = await _db.InventoryInwards
+            .AsNoTracking()
+            .Where(i => i.VendorId == id && (!effBranchId.HasValue || i.BranchId == null || i.BranchId == effBranchId.Value))
+            .SumAsync(i => (decimal?)i.NetAmount) ?? 0m;
 
-        var allPayments = await _db.InventoryVendorPayments.AsNoTracking()
-            .Where(p => p.VendorId == id)
-            .ToListAsync();
+        var totalPaid = await _db.InventoryVendorPayments
+            .AsNoTracking()
+            .Where(p => p.VendorId == id && (!effBranchId.HasValue || p.BranchId == null || p.BranchId == effBranchId.Value) && p.PaymentType != "Refund")
+            .SumAsync(p => (decimal?)p.Amount) ?? 0m;
 
-        var allReturns = await _db.InventoryPurchaseReturns.AsNoTracking()
-            .Where(r => r.VendorId == id)
-            .Include(r => r.Items).ThenInclude(it => it.Item)
-            .ToListAsync();
+        var totalRefunds = await _db.InventoryVendorPayments
+            .AsNoTracking()
+            .Where(p => p.VendorId == id && (!effBranchId.HasValue || p.BranchId == null || p.BranchId == effBranchId.Value) && p.PaymentType == "Refund")
+            .SumAsync(p => (decimal?)p.Amount) ?? 0m;
 
-        var disbursements = allPayments.Where(p => !string.Equals(p.PaymentType, "Refund", StringComparison.OrdinalIgnoreCase)).ToList();
-        var refunds = allPayments.Where(p => string.Equals(p.PaymentType, "Refund", StringComparison.OrdinalIgnoreCase)).ToList();
+        var totalReturns = await _db.InventoryPurchaseReturns
+            .AsNoTracking()
+            .Where(r => r.VendorId == id && (!effBranchId.HasValue || r.BranchId == null || r.BranchId == effBranchId.Value))
+            .SumAsync(r => (decimal?)r.TotalAmount) ?? 0m;
 
-        var totalPurchased = allInwards.Sum(i => i.NetAmount);
-        var totalPaid = disbursements.Sum(p => p.Amount);
-        var totalRefunds = refunds.Sum(p => p.Amount);
-        var totalReturns = allReturns.Sum(r => r.TotalAmount);
         var balanceDue = totalPurchased - totalPaid + totalRefunds - totalReturns;
 
-        var rawEntries = new List<VendorLedgerRawEntry>();
+        // Optimized lean projections for transactions (no heavy entity graphs)
+        var allInwards = await _db.InventoryInwards
+            .AsNoTracking()
+            .Where(i => i.VendorId == id && (!effBranchId.HasValue || i.BranchId == null || i.BranchId == effBranchId.Value))
+            .Select(i => new {
+                i.Id,
+                Date = i.InwardDate,
+                i.InwardNumber,
+                i.InvoiceBillNumber,
+                ItemsSummary = i.Items.Select(it => (it.Item != null ? it.Item.ItemName : "Item") + " x" + it.Quantity).ToList(),
+                Debit = 0m,
+                Credit = i.NetAmount,
+                i.PaymentMode,
+                i.Remarks,
+                i.CreatedAt
+            })
+            .ToListAsync();
+
+        var allPayments = await _db.InventoryVendorPayments
+            .AsNoTracking()
+            .Where(p => p.VendorId == id && (!effBranchId.HasValue || p.BranchId == null || p.BranchId == effBranchId.Value))
+            .Select(p => new {
+                p.Id,
+                Date = p.PaymentDate,
+                p.PaymentType,
+                p.VoucherNumber,
+                p.ReferenceNumber,
+                p.Amount,
+                p.PaymentMode,
+                p.Remarks,
+                p.CreatedAt
+            })
+            .ToListAsync();
+
+        var allReturns = await _db.InventoryPurchaseReturns
+            .AsNoTracking()
+            .Where(r => r.VendorId == id && (!effBranchId.HasValue || r.BranchId == null || r.BranchId == effBranchId.Value))
+            .Select(r => new {
+                r.Id,
+                Date = r.ReturnDate,
+                ReferenceNumber = r.DebitNoteNumber ?? r.ReturnNumber,
+                r.TotalAmount,
+                ItemsSummary = r.Items.Select(it => (it.Item != null ? it.Item.ItemName : "Item") + " x" + it.Quantity).ToList(),
+                r.Remarks,
+                r.CreatedAt
+            })
+            .ToListAsync();
+
+        var rawEntries = new List<VendorLedgerRawEntry>(allInwards.Count + allPayments.Count + allReturns.Count);
 
         foreach (var inw in allInwards)
         {
-            var itemsSummary = inw.Items != null && inw.Items.Count > 0
-                ? string.Join(", ", inw.Items.Select(it => $"{it.Item?.ItemName ?? "Item"} x{it.Quantity}"))
+            var itemsSummary = inw.ItemsSummary.Count > 0
+                ? string.Join(", ", inw.ItemsSummary)
                 : "Inventory Goods Received";
 
             rawEntries.Add(new VendorLedgerRawEntry(
                 inw.Id,
-                inw.InwardDate,
+                inw.Date,
                 "InwardPurchase",
                 inw.InwardNumber,
                 inw.InvoiceBillNumber,
                 $"Bill/GRN: {inw.InvoiceBillNumber ?? inw.InwardNumber} — {itemsSummary}",
-                0,
-                inw.NetAmount,
+                0m,
+                inw.Credit,
                 inw.PaymentMode,
-                inw.Remarks
+                inw.Remarks,
+                inw.CreatedAt
             ));
         }
 
         foreach (var pay in allPayments)
         {
-            if (string.Equals(pay.PaymentType, "Refund", StringComparison.OrdinalIgnoreCase))
+            var isRefund = string.Equals(pay.PaymentType, "Refund", StringComparison.OrdinalIgnoreCase);
+            if (isRefund)
             {
                 rawEntries.Add(new VendorLedgerRawEntry(
                     pay.Id,
-                    pay.PaymentDate,
+                    pay.Date,
                     "VendorRefund",
                     pay.VoucherNumber,
                     null,
                     $"Vendor Refund Received via {pay.PaymentMode} {(string.IsNullOrWhiteSpace(pay.ReferenceNumber) ? "" : $"[Ref/UTR: {pay.ReferenceNumber}]")}".Trim(),
-                    0,
+                    0m,
                     pay.Amount,
                     pay.PaymentMode,
-                    pay.Remarks
+                    pay.Remarks,
+                    pay.CreatedAt
                 ));
             }
             else
             {
                 rawEntries.Add(new VendorLedgerRawEntry(
                     pay.Id,
-                    pay.PaymentDate,
+                    pay.Date,
                     "VendorPayment",
                     pay.VoucherNumber,
                     null,
                     $"Payment Made via {pay.PaymentMode} {(string.IsNullOrWhiteSpace(pay.ReferenceNumber) ? "" : $"[Ref/UTR: {pay.ReferenceNumber}]")}".Trim(),
                     pay.Amount,
-                    0,
+                    0m,
                     pay.PaymentMode,
-                    pay.Remarks
+                    pay.Remarks,
+                    pay.CreatedAt
                 ));
             }
         }
 
         foreach (var ret in allReturns)
         {
-            var returnItems = ret.Items != null && ret.Items.Count > 0
-                ? string.Join(", ", ret.Items.Select(it => $"{it.Item?.ItemName ?? "Item"} x{it.Quantity}"))
+            var returnItems = ret.ItemsSummary.Count > 0
+                ? string.Join(", ", ret.ItemsSummary)
                 : "Items Returned";
 
             rawEntries.Add(new VendorLedgerRawEntry(
                 ret.Id,
-                ret.ReturnDate,
+                ret.Date,
                 "PurchaseReturn",
-                ret.DebitNoteNumber ?? ret.ReturnNumber,
+                ret.ReferenceNumber,
                 null,
-                $"Debit Note: {ret.DebitNoteNumber ?? ret.ReturnNumber} — {returnItems}",
+                $"Debit Note: {ret.ReferenceNumber} — {returnItems}",
                 ret.TotalAmount,
-                0,
+                0m,
                 null,
-                ret.Remarks
+                ret.Remarks,
+                ret.CreatedAt
             ));
         }
 
-        var sorted = rawEntries.OrderBy(e => e.Date).ToList();
+        // 1. Sort chronologically to compute true running balances
+        var chronological = rawEntries
+            .OrderBy(e => e.Date)
+            .ThenBy(e => e.CreatedAt ?? DateTime.MinValue)
+            .ThenBy(e => e.Id)
+            .ToList();
 
-        decimal running = 0;
-        var computedEntries = new List<VendorLedgerEntryDto>();
-        foreach (var e in sorted)
+        decimal running = 0m;
+        var allComputed = new List<VendorLedgerEntryDto>(chronological.Count);
+        foreach (var e in chronological)
         {
             running += (e.Credit - e.Debit);
-            computedEntries.Add(new VendorLedgerEntryDto(
+            allComputed.Add(new VendorLedgerEntryDto(
                 e.Id,
                 e.Date,
                 e.EntryType,
@@ -1137,10 +1204,65 @@ public class InventoryController : ControllerBase
             ));
         }
 
+        // 2. Server-side Filtering
+        IEnumerable<VendorLedgerEntryDto> query = allComputed;
+
         if (startDate.HasValue)
-            computedEntries = computedEntries.Where(e => e.Date >= startDate.Value.Date).ToList();
+            query = query.Where(e => e.Date >= startDate.Value.Date);
+
         if (endDate.HasValue)
-            computedEntries = computedEntries.Where(e => e.Date <= endDate.Value.Date.AddDays(1).AddTicks(-1)).ToList();
+            query = query.Where(e => e.Date <= endDate.Value.Date.AddDays(1).AddTicks(-1));
+
+        if (!string.IsNullOrWhiteSpace(entryType) && !string.Equals(entryType, "ALL", StringComparison.OrdinalIgnoreCase))
+        {
+            query = query.Where(e => string.Equals(e.EntryType, entryType, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (!string.IsNullOrWhiteSpace(paymentMode) && !string.Equals(paymentMode, "ALL", StringComparison.OrdinalIgnoreCase))
+        {
+            query = query.Where(e => string.Equals(e.PaymentMode, paymentMode, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim();
+            query = query.Where(e =>
+                (e.ReferenceNumber != null && e.ReferenceNumber.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
+                (e.BillNumber != null && e.BillNumber.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
+                (e.Description != null && e.Description.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
+                (e.Remarks != null && e.Remarks.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
+                (e.PaymentMode != null && e.PaymentMode.Contains(term, StringComparison.OrdinalIgnoreCase))
+            );
+        }
+
+        var totalCount = query.Count();
+
+        // 3. Server-side Header Sorting
+        var isDesc = string.Equals(sortDirection, "desc", StringComparison.OrdinalIgnoreCase);
+        query = (sortBy?.ToLower()) switch
+        {
+            "date" => isDesc ? query.OrderByDescending(e => e.Date) : query.OrderBy(e => e.Date),
+            "entrytype" or "type" => isDesc ? query.OrderByDescending(e => e.EntryType) : query.OrderBy(e => e.EntryType),
+            "referencenumber" or "ref" or "vouchernumber" => isDesc ? query.OrderByDescending(e => e.ReferenceNumber) : query.OrderBy(e => e.ReferenceNumber),
+            "description" or "particulars" => isDesc ? query.OrderByDescending(e => e.Description) : query.OrderBy(e => e.Description),
+            "debit" => isDesc ? query.OrderByDescending(e => e.Debit) : query.OrderBy(e => e.Debit),
+            "credit" => isDesc ? query.OrderByDescending(e => e.Credit) : query.OrderBy(e => e.Credit),
+            "runningbalance" or "balance" => isDesc ? query.OrderByDescending(e => e.RunningBalance) : query.OrderBy(e => e.RunningBalance),
+            _ => isDesc ? query.OrderByDescending(e => e.Date) : query.OrderBy(e => e.Date)
+        };
+
+        // 4. Server-side Pagination
+        if (pageNumber < 1) pageNumber = 1;
+        if (pageSize < 1) pageSize = 10;
+        if (pageSize > 500) pageSize = 500;
+
+        var pagedEntries = query
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToList();
+
+        var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+        if (totalPages < 1) totalPages = 1;
 
         return Ok(new VendorLedgerSummaryDto(
             vendor.Id,
@@ -1157,8 +1279,12 @@ public class InventoryController : ControllerBase
             totalPaid,
             totalReturns,
             balanceDue,
-            computedEntries,
-            totalRefunds
+            pagedEntries,
+            totalRefunds,
+            totalCount,
+            pageNumber,
+            pageSize,
+            totalPages
         ));
     }
 
@@ -1783,7 +1909,11 @@ public record VendorLedgerSummaryDto(
     decimal TotalReturns,
     decimal BalanceDue,
     List<VendorLedgerEntryDto> Entries,
-    decimal TotalRefunds = 0
+    decimal TotalRefunds = 0,
+    int TotalCount = 0,
+    int PageNumber = 1,
+    int PageSize = 10,
+    int TotalPages = 1
 );
 
 public record VendorLedgerEntryDto(
@@ -1810,7 +1940,8 @@ public record VendorLedgerRawEntry(
     decimal Debit,
     decimal Credit,
     string? PaymentMode,
-    string? Remarks
+    string? Remarks,
+    DateTime? CreatedAt = null
 );
 
 public record RecordVendorPaymentDto(

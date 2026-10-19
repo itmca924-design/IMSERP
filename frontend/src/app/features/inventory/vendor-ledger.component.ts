@@ -13,6 +13,8 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
+import { debounceTime, distinctUntilChanged } from 'rxjs';
 import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.directive';
 import { InventoryService } from './inventory.service';
 import { AuthService } from '../../core/services/auth.service';
@@ -45,6 +47,7 @@ import {
     MatTooltipModule,
     MatChipsModule,
     MatDialogModule,
+    MatPaginatorModule,
     IstDatetimeDirective
   ],
   template: `
@@ -376,35 +379,71 @@ import {
               </div>
             </div>
 
-            <!-- Date Filter for Statement with Real-time Validation & Preset Chips -->
+            <!-- Server-Side Search, Filter & Date Bar -->
             <div class="statement-filters-bar">
-              <form [formGroup]="dateFilterForm" (ngSubmit)="applyDateFilter()" class="date-form-validated">
-                <div class="preset-chips-deck">
-                  <button type="button" mat-button class="preset-btn" [class.active-preset]="activeDatePreset === 'ALL'" (click)="setDatePreset('ALL')">All Dates</button>
-                  <button type="button" mat-button class="preset-btn" [class.active-preset]="activeDatePreset === 'THIS_MONTH'" (click)="setDatePreset('THIS_MONTH')">This Month</button>
-                  <button type="button" mat-button class="preset-btn" [class.active-preset]="activeDatePreset === 'LAST_MONTH'" (click)="setDatePreset('LAST_MONTH')">Last Month</button>
-                  <button type="button" mat-button class="preset-btn" [class.active-preset]="activeDatePreset === 'THIS_FY'" (click)="setDatePreset('THIS_FY')">Current FY</button>
+              <form [formGroup]="dateFilterForm" (ngSubmit)="applyDateFilter()" class="statement-filter-deck">
+                <!-- Row 1: Search, Transaction Type, Payment Mode -->
+                <div class="filter-primary-row">
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic" class="filter-search-box">
+                    <mat-icon matPrefix>search</mat-icon>
+                    <input matInput formControlName="search" placeholder="Search by voucher #, bill #, particulars, items...">
+                    <button mat-icon-button matSuffix *ngIf="dateFilterForm.get('search')?.value" (click)="clearSearch()" type="button" matTooltip="Clear Search">
+                      <mat-icon class="icon-xs">close</mat-icon>
+                    </button>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic" class="filter-select-box">
+                    <mat-label>Transaction Type</mat-label>
+                    <mat-select formControlName="entryType">
+                      <mat-option value="ALL">All Types</mat-option>
+                      <mat-option value="InwardPurchase">Purchases / Inwards</mat-option>
+                      <mat-option value="VendorPayment">Payment Vouchers</mat-option>
+                      <mat-option value="VendorRefund">Refund Receipts</mat-option>
+                      <mat-option value="PurchaseReturn">Debit Notes (PR)</mat-option>
+                    </mat-select>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic" class="filter-select-box">
+                    <mat-label>Payment Mode</mat-label>
+                    <mat-select formControlName="paymentMode">
+                      <mat-option value="ALL">All Modes</mat-option>
+                      <mat-option value="Cash">Cash</mat-option>
+                      <mat-option value="BankTransfer">Bank Transfer</mat-option>
+                      <mat-option value="UPI">UPI</mat-option>
+                      <mat-option value="Cheque">Cheque</mat-option>
+                    </mat-select>
+                  </mat-form-field>
                 </div>
 
-                <div class="date-controls-line">
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic" class="date-input-field">
-                    <mat-label>Start Date</mat-label>
-                    <input matInput type="date" formControlName="startDate" [max]="dateFilterForm.get('endDate')?.value || ''" (change)="activeDatePreset = 'CUSTOM'">
-                  </mat-form-field>
+                <!-- Row 2: Preset Chips, Date Range, Filter & Reset -->
+                <div class="filter-secondary-row">
+                  <div class="preset-chips-deck">
+                    <button type="button" mat-button class="preset-btn" [class.active-preset]="activeDatePreset === 'ALL'" (click)="setDatePreset('ALL')">All Dates</button>
+                    <button type="button" mat-button class="preset-btn" [class.active-preset]="activeDatePreset === 'THIS_MONTH'" (click)="setDatePreset('THIS_MONTH')">This Month</button>
+                    <button type="button" mat-button class="preset-btn" [class.active-preset]="activeDatePreset === 'LAST_MONTH'" (click)="setDatePreset('LAST_MONTH')">Last Month</button>
+                    <button type="button" mat-button class="preset-btn" [class.active-preset]="activeDatePreset === 'THIS_FY'" (click)="setDatePreset('THIS_FY')">Current FY</button>
+                  </div>
 
-                  <span class="date-sep">to</span>
+                  <div class="date-controls-line">
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="date-input-field">
+                      <mat-label>Start Date</mat-label>
+                      <input matInput type="date" formControlName="startDate" [max]="dateFilterForm.get('endDate')?.value || ''" (change)="activeDatePreset = 'CUSTOM'">
+                    </mat-form-field>
 
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic" class="date-input-field" [class.field-has-error]="dateFilterForm.errors?.['dateRangeInvalid']">
-                    <mat-label>End Date</mat-label>
-                    <input matInput type="date" formControlName="endDate" [min]="dateFilterForm.get('startDate')?.value || ''" (change)="activeDatePreset = 'CUSTOM'">
-                  </mat-form-field>
+                    <span class="date-sep">to</span>
 
-                  <button mat-flat-button color="primary" type="submit" class="filter-submit-btn" [disabled]="dateFilterForm.errors?.['dateRangeInvalid']">
-                    <mat-icon class="icon-sm">filter_list</mat-icon> Filter
-                  </button>
-                  <button mat-button type="button" (click)="resetDateFilter()" class="reset-filter-btn">
-                    Reset
-                  </button>
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="date-input-field" [class.field-has-error]="dateFilterForm.errors?.['dateRangeInvalid']">
+                      <mat-label>End Date</mat-label>
+                      <input matInput type="date" formControlName="endDate" [min]="dateFilterForm.get('startDate')?.value || ''" (change)="activeDatePreset = 'CUSTOM'">
+                    </mat-form-field>
+
+                    <button mat-flat-button color="primary" type="submit" class="filter-submit-btn" [disabled]="dateFilterForm.errors?.['dateRangeInvalid']">
+                      <mat-icon class="icon-sm">filter_list</mat-icon> Filter
+                    </button>
+                    <button mat-button type="button" (click)="resetDateFilter()" class="reset-filter-btn">
+                      Reset
+                    </button>
+                  </div>
                 </div>
 
                 <!-- Real-time Date Range Validation Alert -->
@@ -415,18 +454,56 @@ import {
               </form>
             </div>
 
-            <!-- Chronological Ledger Entries Table -->
+            <!-- Single Prominent Table Loader -->
+            <mat-progress-bar *ngIf="loadingLedger" mode="indeterminate" class="table-loader-bar"></mat-progress-bar>
+
+            <!-- Chronological Ledger Entries Table with Server-Side Sorting & Pagination -->
             <div class="table-responsive statement-table-wrap">
               <table class="erp-table statement-table">
                 <thead>
                   <tr>
-                    <th>Date &amp; Time (IST)</th>
-                    <th>Type</th>
-                    <th>Ref / Voucher #</th>
-                    <th>Particulars &amp; Item Details</th>
-                    <th class="text-right">Debit (Paid/Return)</th>
-                    <th class="text-right">Credit (Purchased)</th>
-                    <th class="text-right">Running Balance</th>
+                    <th class="sortable-th" [class.active-sort]="sortBy === 'date'" (click)="onSort('date')">
+                      <div class="th-content">
+                        <span>Date &amp; Time (IST)</span>
+                        <mat-icon class="sort-icon">{{ sortBy === 'date' ? (sortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward') : 'unfold_more' }}</mat-icon>
+                      </div>
+                    </th>
+                    <th class="sortable-th" [class.active-sort]="sortBy === 'type'" (click)="onSort('type')">
+                      <div class="th-content">
+                        <span>Type</span>
+                        <mat-icon class="sort-icon">{{ sortBy === 'type' ? (sortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward') : 'unfold_more' }}</mat-icon>
+                      </div>
+                    </th>
+                    <th class="sortable-th" [class.active-sort]="sortBy === 'ref'" (click)="onSort('ref')">
+                      <div class="th-content">
+                        <span>Ref / Voucher #</span>
+                        <mat-icon class="sort-icon">{{ sortBy === 'ref' ? (sortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward') : 'unfold_more' }}</mat-icon>
+                      </div>
+                    </th>
+                    <th class="sortable-th" [class.active-sort]="sortBy === 'description'" (click)="onSort('description')">
+                      <div class="th-content">
+                        <span>Particulars &amp; Item Details</span>
+                        <mat-icon class="sort-icon">{{ sortBy === 'description' ? (sortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward') : 'unfold_more' }}</mat-icon>
+                      </div>
+                    </th>
+                    <th class="sortable-th text-right" [class.active-sort]="sortBy === 'debit'" (click)="onSort('debit')">
+                      <div class="th-content th-right">
+                        <span>Debit (Paid/Return)</span>
+                        <mat-icon class="sort-icon">{{ sortBy === 'debit' ? (sortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward') : 'unfold_more' }}</mat-icon>
+                      </div>
+                    </th>
+                    <th class="sortable-th text-right" [class.active-sort]="sortBy === 'credit'" (click)="onSort('credit')">
+                      <div class="th-content th-right">
+                        <span>Credit (Purchased)</span>
+                        <mat-icon class="sort-icon">{{ sortBy === 'credit' ? (sortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward') : 'unfold_more' }}</mat-icon>
+                      </div>
+                    </th>
+                    <th class="sortable-th text-right" [class.active-sort]="sortBy === 'runningBalance'" (click)="onSort('runningBalance')">
+                      <div class="th-content th-right">
+                        <span>Running Balance</span>
+                        <mat-icon class="sort-icon">{{ sortBy === 'runningBalance' ? (sortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward') : 'unfold_more' }}</mat-icon>
+                      </div>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -454,16 +531,28 @@ import {
                     </td>
                   </tr>
 
-                  <tr *ngIf="ledgerEntries.length === 0">
+                  <tr *ngIf="ledgerEntries.length === 0 && !loadingLedger">
                     <td colspan="7" class="empty-cell">
                       <div class="empty-state">
                         <mat-icon class="empty-icon">receipt</mat-icon>
-                        <p>No transactions found for this supplier within the selected period</p>
+                        <p>No transactions found for this supplier matching filter criteria</p>
+                        <button mat-stroked-button (click)="resetDateFilter()" class="mt-2" type="button">Reset Filters</button>
                       </div>
                     </td>
                   </tr>
                 </tbody>
               </table>
+
+              <!-- Server-side Material Paginator -->
+              <mat-paginator
+                [length]="totalEntries"
+                [pageSize]="pageSize"
+                [pageSizeOptions]="[10, 25, 50, 100]"
+                [pageIndex]="pageIndex"
+                (page)="onPageChange($event)"
+                showFirstLastButtons
+                class="statement-paginator">
+              </mat-paginator>
             </div>
           </div>
         </mat-card>
@@ -1729,14 +1818,38 @@ import {
       background: #f8fafc;
       border: 1px solid #e2e8f0;
       border-radius: 8px;
-      padding: 10px 14px;
+      padding: 12px 14px;
     }
 
-    .date-form-validated {
+    .statement-filter-deck {
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 12px;
       width: 100%;
+    }
+
+    .filter-primary-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .filter-search-box {
+      flex: 1;
+      min-width: 250px;
+    }
+
+    .filter-select-box {
+      min-width: 180px;
+    }
+
+    .filter-secondary-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
     }
 
     .preset-chips-deck {
@@ -1812,11 +1925,19 @@ import {
       }
     }
 
+    .table-loader-bar {
+      height: 3px;
+      margin-bottom: -3px;
+      position: relative;
+      z-index: 2;
+    }
+
     /* Statement Table */
     .statement-table-wrap {
       border: 1px solid #e2e8f0;
       border-radius: 8px;
       overflow-x: auto;
+      background: #ffffff;
     }
 
     .table-responsive {
@@ -1848,6 +1969,59 @@ import {
         border-bottom: 1px solid #f1f5f9;
         color: #1e293b;
       }
+    }
+
+    .sortable-th {
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.15s ease, color 0.15s ease;
+
+      &:hover {
+        background: #f1f5f9 !important;
+        color: #0f172a !important;
+
+        .sort-icon {
+          color: #2563eb !important;
+          opacity: 0.8 !important;
+        }
+      }
+
+      &.active-sort {
+        background: #eff6ff !important;
+        color: #1e40af !important;
+
+        .sort-icon {
+          color: #2563eb !important;
+          opacity: 1 !important;
+        }
+      }
+    }
+
+    .th-content {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+
+      &.th-right {
+        justify-content: flex-end;
+        width: 100%;
+      }
+    }
+
+    .sort-icon {
+      font-size: 15px !important;
+      width: 15px !important;
+      height: 15px !important;
+      line-height: 15px !important;
+      color: #94a3b8;
+      opacity: 0.6;
+      transition: all 0.15s ease;
+    }
+
+    .statement-paginator {
+      border-top: 1px solid #e2e8f0;
+      background: #f8fafc;
+      border-radius: 0 0 8px 8px;
     }
 
     .text-right { text-align: right !important; }
@@ -2419,9 +2593,17 @@ export class VendorLedgerComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
 
   loading = false;
+  loadingLedger = false;
 
   viewMode: 'split' | 'table' = 'split';
   activeDatePreset: 'ALL' | 'THIS_MONTH' | 'LAST_MONTH' | 'THIS_FY' | 'CUSTOM' = 'ALL';
+
+  // Server-side Ledger Grid State
+  pageIndex = 0;
+  pageSize = 10;
+  totalEntries = 0;
+  sortBy = 'date';
+  sortDirection: 'asc' | 'desc' = 'asc';
 
   vendorsList: InventoryVendor[] = [];
   selectedVendor: InventoryVendor | null = null;
@@ -2446,6 +2628,9 @@ export class VendorLedgerComponent implements OnInit {
 
     this.dateFilterForm = this.fb.group(
       {
+        search: [''],
+        entryType: ['ALL'],
+        paymentMode: ['ALL'],
         startDate: [''],
         endDate: ['']
       },
@@ -2460,6 +2645,23 @@ export class VendorLedgerComponent implements OnInit {
         }
       }
     );
+
+    // Instant server-side search with debounce
+    this.dateFilterForm.get('search')?.valueChanges.pipe(
+      debounceTime(350),
+      distinctUntilChanged()
+    ).subscribe(() => {
+      this.loadLedger(0);
+    });
+
+    // Dropdown filters: Transaction Type & Payment Mode
+    this.dateFilterForm.get('entryType')?.valueChanges.subscribe(() => {
+      this.loadLedger(0);
+    });
+
+    this.dateFilterForm.get('paymentMode')?.valueChanges.subscribe(() => {
+      this.loadLedger(0);
+    });
   }
 
   loadVendors(selectedId?: string): void {
@@ -2484,7 +2686,7 @@ export class VendorLedgerComponent implements OnInit {
           const updated = vendors.find(v => v.id === this.selectedVendor!.id);
           if (updated) {
             this.selectedVendor = updated;
-            this.loadLedger(this.selectedVendor.id);
+            this.loadLedger(this.pageIndex);
           } else if (vendors.length > 0) {
             this.selectVendor(vendors[0]);
           } else {
@@ -2568,23 +2770,63 @@ export class VendorLedgerComponent implements OnInit {
 
   selectVendor(vendor: InventoryVendor): void {
     this.selectedVendor = vendor;
-    this.dateFilterForm.reset();
-    this.loadLedger(vendor.id);
+    this.loadLedger(0);
   }
 
-  loadLedger(vendorId: string, startDate?: string, endDate?: string): void {
-    this.loading = true;
-    this.inventoryService.getVendorLedger(vendorId, startDate, endDate).subscribe({
+  loadLedger(page: number = this.pageIndex): void {
+    if (!this.selectedVendor) return;
+
+    this.pageIndex = page;
+    this.loadingLedger = true;
+
+    const val = this.dateFilterForm.value;
+    const branchId = this.authService.selectedBranchId() || undefined;
+
+    this.inventoryService.getVendorLedger(this.selectedVendor.id, {
+      startDate: val.startDate || undefined,
+      endDate: val.endDate || undefined,
+      search: val.search?.trim() || undefined,
+      entryType: val.entryType && val.entryType !== 'ALL' ? val.entryType : undefined,
+      paymentMode: val.paymentMode && val.paymentMode !== 'ALL' ? val.paymentMode : undefined,
+      sortBy: this.sortBy,
+      sortDirection: this.sortDirection,
+      pageNumber: this.pageIndex + 1,
+      pageSize: this.pageSize,
+      branchId
+    }).subscribe({
       next: (summary) => {
         this.ledgerSummary = summary;
         this.ledgerEntries = summary.entries || [];
+        this.totalEntries = summary.totalCount ?? this.ledgerEntries.length;
         this.loading = false;
+        this.loadingLedger = false;
       },
       error: () => {
         this.loading = false;
+        this.loadingLedger = false;
         this.confirmDialog.alert('Error', 'Unable to retrieve vendor account ledger.');
       }
     });
+  }
+
+  onSort(column: string): void {
+    if (this.sortBy === column) {
+      this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+      this.sortBy = column;
+      this.sortDirection = 'asc';
+    }
+    this.loadLedger(0);
+  }
+
+  onPageChange(event: PageEvent): void {
+    this.pageIndex = event.pageIndex;
+    this.pageSize = event.pageSize;
+    this.loadLedger(this.pageIndex);
+  }
+
+  clearSearch(): void {
+    this.dateFilterForm.get('search')?.setValue('');
   }
 
   applyDateFilter(): void {
@@ -2593,16 +2835,19 @@ export class VendorLedgerComponent implements OnInit {
       this.confirmDialog.alert('Invalid Date Range', 'Start Date cannot be later than End Date. Please select a valid period.');
       return;
     }
-    const { startDate, endDate } = this.dateFilterForm.value;
-    this.loadLedger(this.selectedVendor.id, startDate || undefined, endDate || undefined);
+    this.loadLedger(0);
   }
 
   resetDateFilter(): void {
     this.activeDatePreset = 'ALL';
-    this.dateFilterForm.reset({ startDate: '', endDate: '' });
-    if (this.selectedVendor) {
-      this.loadLedger(this.selectedVendor.id);
-    }
+    this.dateFilterForm.patchValue({
+      startDate: '',
+      endDate: '',
+      search: '',
+      entryType: 'ALL',
+      paymentMode: 'ALL'
+    }, { emitEvent: false });
+    this.loadLedger(0);
   }
 
   setDatePreset(preset: 'ALL' | 'THIS_MONTH' | 'LAST_MONTH' | 'THIS_FY'): void {
@@ -2634,7 +2879,7 @@ export class VendorLedgerComponent implements OnInit {
     this.dateFilterForm.patchValue({
       startDate: start,
       endDate: end
-    });
+    }, { emitEvent: false });
 
     this.applyDateFilter();
   }
