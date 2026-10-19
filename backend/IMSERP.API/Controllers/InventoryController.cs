@@ -227,12 +227,20 @@ public class InventoryController : ControllerBase
             .Select(g => new { VendorId = g.Key, Total = g.Sum(x => x.NetAmount) })
             .ToDictionaryAsync(x => x.VendorId, x => x.Total);
 
-        var paymentTotals = await _db.InventoryVendorPayments
+        var payments = await _db.InventoryVendorPayments
             .AsNoTracking()
             .Where(p => vendorIds.Contains(p.VendorId))
+            .ToListAsync();
+
+        var paymentTotals = payments
+            .Where(p => !string.Equals(p.PaymentType, "Refund", StringComparison.OrdinalIgnoreCase))
             .GroupBy(p => p.VendorId)
-            .Select(g => new { VendorId = g.Key, Total = g.Sum(x => x.Amount) })
-            .ToDictionaryAsync(x => x.VendorId, x => x.Total);
+            .ToDictionary(g => g.Key, g => g.Sum(x => x.Amount));
+
+        var refundTotals = payments
+            .Where(p => string.Equals(p.PaymentType, "Refund", StringComparison.OrdinalIgnoreCase))
+            .GroupBy(p => p.VendorId)
+            .ToDictionary(g => g.Key, g => g.Sum(x => x.Amount));
 
         var returnTotals = await _db.InventoryPurchaseReturns
             .AsNoTracking()
@@ -245,8 +253,10 @@ public class InventoryController : ControllerBase
         {
             var purchased = inwardTotals.GetValueOrDefault(v.Id, 0);
             var paid = paymentTotals.GetValueOrDefault(v.Id, 0);
+            var refunded = refundTotals.GetValueOrDefault(v.Id, 0);
             var returned = returnTotals.GetValueOrDefault(v.Id, 0);
-            var balanceDue = purchased - paid - returned;
+            var netPaid = paid - refunded;
+            var balanceDue = purchased - netPaid - returned;
 
             return new InventoryVendorDto(
                 v.Id,
@@ -264,7 +274,8 @@ public class InventoryController : ControllerBase
                 purchased,
                 paid,
                 returned,
-                balanceDue
+                balanceDue,
+                refunded
             );
         }).ToList();
 
@@ -1019,10 +1030,14 @@ public class InventoryController : ControllerBase
             .Include(r => r.Items).ThenInclude(it => it.Item)
             .ToListAsync();
 
+        var disbursements = allPayments.Where(p => !string.Equals(p.PaymentType, "Refund", StringComparison.OrdinalIgnoreCase)).ToList();
+        var refunds = allPayments.Where(p => string.Equals(p.PaymentType, "Refund", StringComparison.OrdinalIgnoreCase)).ToList();
+
         var totalPurchased = allInwards.Sum(i => i.NetAmount);
-        var totalPaid = allPayments.Sum(p => p.Amount);
+        var totalPaid = disbursements.Sum(p => p.Amount);
+        var totalRefunds = refunds.Sum(p => p.Amount);
         var totalReturns = allReturns.Sum(r => r.TotalAmount);
-        var balanceDue = totalPurchased - totalPaid - totalReturns;
+        var balanceDue = totalPurchased - totalPaid + totalRefunds - totalReturns;
 
         var rawEntries = new List<VendorLedgerRawEntry>();
 
@@ -1048,18 +1063,36 @@ public class InventoryController : ControllerBase
 
         foreach (var pay in allPayments)
         {
-            rawEntries.Add(new VendorLedgerRawEntry(
-                pay.Id,
-                pay.PaymentDate,
-                "VendorPayment",
-                pay.VoucherNumber,
-                null,
-                $"Payment Made via {pay.PaymentMode} {(string.IsNullOrWhiteSpace(pay.ReferenceNumber) ? "" : $"[Ref/UTR: {pay.ReferenceNumber}]")}".Trim(),
-                pay.Amount,
-                0,
-                pay.PaymentMode,
-                pay.Remarks
-            ));
+            if (string.Equals(pay.PaymentType, "Refund", StringComparison.OrdinalIgnoreCase))
+            {
+                rawEntries.Add(new VendorLedgerRawEntry(
+                    pay.Id,
+                    pay.PaymentDate,
+                    "VendorRefund",
+                    pay.VoucherNumber,
+                    null,
+                    $"Vendor Refund Received via {pay.PaymentMode} {(string.IsNullOrWhiteSpace(pay.ReferenceNumber) ? "" : $"[Ref/UTR: {pay.ReferenceNumber}]")}".Trim(),
+                    0,
+                    pay.Amount,
+                    pay.PaymentMode,
+                    pay.Remarks
+                ));
+            }
+            else
+            {
+                rawEntries.Add(new VendorLedgerRawEntry(
+                    pay.Id,
+                    pay.PaymentDate,
+                    "VendorPayment",
+                    pay.VoucherNumber,
+                    null,
+                    $"Payment Made via {pay.PaymentMode} {(string.IsNullOrWhiteSpace(pay.ReferenceNumber) ? "" : $"[Ref/UTR: {pay.ReferenceNumber}]")}".Trim(),
+                    pay.Amount,
+                    0,
+                    pay.PaymentMode,
+                    pay.Remarks
+                ));
+            }
         }
 
         foreach (var ret in allReturns)
@@ -1124,7 +1157,8 @@ public class InventoryController : ControllerBase
             totalPaid,
             totalReturns,
             balanceDue,
-            computedEntries
+            computedEntries,
+            totalRefunds
         ));
     }
 
@@ -1138,7 +1172,9 @@ public class InventoryController : ControllerBase
         if (vendor == null)
             return NotFound("Vendor not found.");
 
-        var voucherNo = $"VP-{DateTime.UtcNow:yyyyMMdd}-{new Random().Next(100, 999)}";
+        var isRefund = string.Equals(dto.PaymentType, "Refund", StringComparison.OrdinalIgnoreCase);
+        var prefix = isRefund ? "VR" : "VP";
+        var voucherNo = $"{prefix}-{DateTime.UtcNow:yyyyMMdd}-{new Random().Next(100, 999)}";
 
         var payment = new InventoryVendorPayment
         {
@@ -1149,6 +1185,7 @@ public class InventoryController : ControllerBase
             PaymentDate = dto.PaymentDate,
             Amount = dto.Amount,
             PaymentMode = dto.PaymentMode ?? "Cash",
+            PaymentType = isRefund ? "Refund" : "Disbursement",
             ReferenceNumber = dto.ReferenceNumber?.Trim(),
             BankName = dto.BankName?.Trim(),
             Remarks = dto.Remarks?.Trim(),
@@ -1158,7 +1195,11 @@ public class InventoryController : ControllerBase
         _db.InventoryVendorPayments.Add(payment);
         await _db.SaveChangesAsync();
 
-        return Ok(new { message = "Vendor payment recorded successfully.", voucherNumber = voucherNo });
+        var msg = isRefund
+            ? $"Vendor refund voucher {voucherNo} for ₹{dto.Amount} successfully recorded and credited to account."
+            : "Vendor payment recorded successfully.";
+
+        return Ok(new { message = msg, voucherNumber = voucherNo });
     }
 
     [HttpGet("vendors/payments")]
@@ -1192,7 +1233,8 @@ public class InventoryController : ControllerBase
                 p.BankName,
                 p.Remarks,
                 p.BranchId,
-                p.CreatedAt
+                p.CreatedAt,
+                p.PaymentType
             ))
             .ToListAsync();
 
@@ -1528,7 +1570,8 @@ public record InventoryVendorDto(
     decimal TotalPurchased = 0,
     decimal TotalPaid = 0,
     decimal TotalReturns = 0,
-    decimal BalanceDue = 0
+    decimal BalanceDue = 0,
+    decimal TotalRefunds = 0
 );
 
 public record CreateUpdateVendorDto(
@@ -1739,7 +1782,8 @@ public record VendorLedgerSummaryDto(
     decimal TotalPaid,
     decimal TotalReturns,
     decimal BalanceDue,
-    List<VendorLedgerEntryDto> Entries
+    List<VendorLedgerEntryDto> Entries,
+    decimal TotalRefunds = 0
 );
 
 public record VendorLedgerEntryDto(
@@ -1777,7 +1821,8 @@ public record RecordVendorPaymentDto(
     string? ReferenceNumber,
     string? BankName,
     string? Remarks,
-    Guid? BranchId
+    Guid? BranchId,
+    string? PaymentType = "Disbursement"
 );
 
 public record VendorPaymentDto(
@@ -1792,7 +1837,8 @@ public record VendorPaymentDto(
     string? BankName,
     string? Remarks,
     Guid? BranchId,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    string PaymentType = "Disbursement"
 );
 
 public record InventoryPurchaseReturnDto(

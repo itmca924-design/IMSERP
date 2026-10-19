@@ -1808,6 +1808,43 @@ public class FinanceController : ControllerBase
             });
         }
 
+        // (E.1) Inventory Supplier Payments & Vendor Refunds
+        var vPayQuery = _dbContext.InventoryVendorPayments
+            .AsNoTracking()
+            .Include(p => p.Vendor)
+            .Where(p => p.TenantId == tenantId && p.PaymentDate >= startUtc && p.PaymentDate <= endUtc);
+
+        if (branchId.HasValue && branchId.Value != Guid.Empty)
+        {
+            vPayQuery = vPayQuery.Where(p => p.BranchId == branchId.Value);
+        }
+
+        var vPayList = await vPayQuery.ToListAsync();
+        foreach (var p in vPayList)
+        {
+            var isRefund = string.Equals(p.PaymentType, "Refund", StringComparison.OrdinalIgnoreCase);
+            var vendorName = p.Vendor?.VendorName ?? "Inventory Supplier";
+
+            transactions.Add(new DayBookTransactionDto
+            {
+                Id = p.Id.ToString(),
+                Timestamp = p.PaymentDate,
+                VoucherNumber = p.VoucherNumber,
+                VoucherType = isRefund ? "Receipt" : "Payment",
+                AccountHead = isRefund ? "Vendor Refund (सप्लायर रिफंड)" : "Inventory Supplier Payment",
+                Particulars = isRefund
+                    ? $"{vendorName} • Refund Received ({p.PaymentMode}) {(string.IsNullOrWhiteSpace(p.ReferenceNumber) ? "" : $"[Ref: {p.ReferenceNumber}]")}".Trim()
+                    : $"{vendorName} • Supplier Payment ({p.PaymentMode}) {(string.IsNullOrWhiteSpace(p.ReferenceNumber) ? "" : $"[Ref: {p.ReferenceNumber}]")}".Trim(),
+                Division = "General",
+                PaymentMode = p.PaymentMode,
+                ReferenceNumber = p.ReferenceNumber,
+                DebitAmount = isRefund ? 0m : p.Amount,
+                CreditAmount = isRefund ? p.Amount : 0m,
+                PayeeOrPayerName = vendorName,
+                Remarks = p.Remarks
+            });
+        }
+
         // 4. Calculate Running Balance & Aggregates chronologically across all transactions for this day/scope
         transactions = transactions.OrderBy(t => t.Timestamp).ToList();
 

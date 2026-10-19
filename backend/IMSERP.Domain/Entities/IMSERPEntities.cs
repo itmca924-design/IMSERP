@@ -2882,6 +2882,7 @@ public class InventoryVendorPayment
     public DateTime PaymentDate { get; set; } = DateTime.UtcNow;
     public decimal Amount { get; set; } = 0;
     public string PaymentMode { get; set; } = "Cash"; // Cash, Bank Transfer, Cheque, UPI
+    public string PaymentType { get; set; } = "Disbursement"; // Disbursement, Refund
     public string? ReferenceNumber { get; set; }
     public string? BankName { get; set; }
     public string? Remarks { get; set; }

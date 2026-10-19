@@ -4,6 +4,7 @@ import { RouterModule } from '@angular/router';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators, AbstractControl, ValidationErrors } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
@@ -17,6 +18,7 @@ import { InventoryService } from './inventory.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { InventoryVendorDialogComponent } from './dialogs/inventory-vendor-dialog.component';
+import { VendorPaymentDialogComponent, VendorPaymentDialogResult } from './dialogs/vendor-payment-dialog.component';
 import {
   InventoryVendor,
   CreateUpdateVendorDto,
@@ -34,6 +36,7 @@ import {
     ReactiveFormsModule,
     MatCardModule,
     MatButtonModule,
+    MatButtonToggleModule,
     MatIconModule,
     MatInputModule,
     MatSelectModule,
@@ -65,15 +68,6 @@ import {
         <div class="action-btn-group">
           <button
             mat-flat-button
-            color="primary"
-            (click)="togglePaymentForm()"
-            class="erp-btn">
-            <mat-icon>{{ showPaymentForm ? 'close' : 'payment' }}</mat-icon>
-            <span>{{ showPaymentForm ? 'Close Voucher' : 'Record Payment' }}</span>
-          </button>
-
-          <button
-            mat-stroked-button
             color="primary"
             (click)="openVendorDialog()"
             class="erp-btn">
@@ -161,101 +155,7 @@ import {
         </mat-card>
       </div>
 
-
-      <!-- 4. Inline Record Payment Voucher Form -->
-      <mat-card *ngIf="showPaymentForm" class="embedded-form-card mat-elevation-z2 payment-form-card no-print">
-        <div class="embedded-form-header">
-          <div class="header-badge bg-emerald-badge">
-            <mat-icon>account_balance</mat-icon>
-          </div>
-          <div>
-            <h2 class="form-title">Disburse Supplier Payment Voucher</h2>
-            <p class="form-sub">Record cash, bank transfer, UPI, or cheque payment to settle vendor payables and credit account ledger</p>
-          </div>
-        </div>
-
-        <form [formGroup]="paymentForm" (ngSubmit)="submitPaymentForm()" class="embedded-form-body">
-          <div class="form-grid-3">
-            <mat-form-field appearance="outline">
-              <mat-label>Select Vendor / Supplier *</mat-label>
-              <mat-select formControlName="vendorId">
-                <mat-option *ngFor="let v of vendorsList" [value]="v.id">
-                  {{ v.name }} (Due: ₹{{ (v.balanceDue ?? 0) | number:'1.2-2' }})
-                </mat-option>
-              </mat-select>
-              <mat-error *ngIf="paymentForm.get('vendorId')?.hasError('required')">Select a vendor</mat-error>
-            </mat-form-field>
-
-            <mat-form-field appearance="outline">
-              <mat-label>Payment Date *</mat-label>
-              <input matInput type="date" formControlName="paymentDate">
-              <mat-error *ngIf="paymentForm.get('paymentDate')?.hasError('required')">Payment date is required</mat-error>
-            </mat-form-field>
-
-            <mat-form-field appearance="outline">
-              <mat-label>Payment Amount (₹) *</mat-label>
-              <input matInput type="number" formControlName="amount" placeholder="0.00" min="1">
-              <mat-error *ngIf="paymentForm.get('amount')?.hasError('required')">Enter payment amount</mat-error>
-              <mat-error *ngIf="paymentForm.get('amount')?.hasError('min')">Amount must be greater than 0</mat-error>
-            </mat-form-field>
-
-            <mat-form-field appearance="outline">
-              <mat-label>Payment Mode *</mat-label>
-              <mat-select formControlName="paymentMode">
-                <mat-option value="BankTransfer">Bank Transfer / NEFT / RTGS</mat-option>
-                <mat-option value="UPI">UPI / QR Code</mat-option>
-                <mat-option value="Cash">Cash Voucher</mat-option>
-                <mat-option value="Cheque">Cheque</mat-option>
-                <mat-option value="DemandDraft">Demand Draft (DD)</mat-option>
-              </mat-select>
-            </mat-form-field>
-
-            <mat-form-field appearance="outline">
-              <mat-label>Reference / UTR / Cheque No.</mat-label>
-              <input matInput formControlName="referenceNumber" placeholder="e.g. UTR1289381923">
-            </mat-form-field>
-
-            <mat-form-field appearance="outline">
-              <mat-label>Remarks / Notes</mat-label>
-              <input matInput formControlName="notes" placeholder="e.g. Part payment against Inward bill">
-            </mat-form-field>
-          </div>
-
-          <!-- Dynamic Live Settlement Preview -->
-          <div *ngIf="selectedPaymentVendor" class="payment-preview-banner">
-            <div class="preview-item">
-              <span class="preview-lbl">Current Outstanding:</span>
-              <span class="preview-val text-danger">₹{{ (selectedPaymentVendor.balanceDue ?? 0) | number:'1.2-2' }}</span>
-            </div>
-            <div class="preview-arrow">
-              <mat-icon>trending_flat</mat-icon>
-            </div>
-            <div class="preview-item">
-              <span class="preview-lbl">Disbursing Now:</span>
-              <span class="preview-val text-emerald">₹{{ (paymentForm.get('amount')?.value || 0) | number:'1.2-2' }}</span>
-            </div>
-            <div class="preview-arrow">
-              <mat-icon>trending_flat</mat-icon>
-            </div>
-            <div class="preview-item">
-              <span class="preview-lbl">Remaining Balance:</span>
-              <span class="preview-val text-blue">
-                ₹{{ ((selectedPaymentVendor.balanceDue ?? 0) - (paymentForm.get('amount')?.value || 0)) | number:'1.2-2' }}
-              </span>
-            </div>
-          </div>
-
-          <div class="form-actions-bar">
-            <button mat-button type="button" (click)="togglePaymentForm()">Cancel</button>
-            <button mat-flat-button color="primary" type="submit" [disabled]="submittingPayment || paymentForm.invalid">
-              <mat-icon>receipt_long</mat-icon>
-              <span>{{ submittingPayment ? 'Processing...' : 'Disburse Voucher &amp; Credit Ledger' }}</span>
-            </button>
-          </div>
-        </form>
-      </mat-card>
-
-      <!-- 5. Workspace Controls & Layout View Mode Switcher -->
+      <!-- 4. Workspace Controls & Layout View Mode Switcher -->
       <div class="workspace-nav-bar no-print">
         <div class="workspace-title-box">
           <div class="ws-icon-circle">
@@ -421,13 +321,22 @@ import {
                 </div>
               </div>
 
-              <div class="statement-balance-box">
-                <span class="statement-lbl">Current Outstanding Due</span>
-                <span class="statement-amt" [class.text-danger]="(selectedVendor.balanceDue ?? 0) > 0" [class.text-emerald]="(selectedVendor.balanceDue ?? 0) <= 0">
-                  ₹{{ (selectedVendor.balanceDue ?? 0) | number:'1.2-2' }}
+              <div class="statement-balance-box" [class.balance-credit-box]="(selectedVendor.balanceDue ?? 0) < 0">
+                <span class="statement-lbl">
+                  {{ (selectedVendor.balanceDue ?? 0) < 0 ? 'Advance Credit Balance (Debit Note)' : ((selectedVendor.balanceDue ?? 0) === 0 ? 'Current Balance (Settled)' : 'Current Outstanding Due') }}
+                </span>
+                <span class="statement-amt" [class.text-danger]="(selectedVendor.balanceDue ?? 0) > 0" [class.text-emerald]="(selectedVendor.balanceDue ?? 0) < 0" [class.text-muted]="(selectedVendor.balanceDue ?? 0) === 0">
+                  ₹{{ Math.abs(selectedVendor.balanceDue ?? 0) | number:'1.2-2' }}
+                  <small *ngIf="(selectedVendor.balanceDue ?? 0) < 0" class="credit-pill">Credit (Supplier owes)</small>
+                  <small *ngIf="(selectedVendor.balanceDue ?? 0) > 0" class="due-pill">Payable</small>
+                  <small *ngIf="(selectedVendor.balanceDue ?? 0) === 0" class="settled-pill">Nil / Settled</small>
                 </span>
                 <div class="statement-actions-row">
-                  <button mat-flat-button color="primary" class="btn-action" (click)="quickPayVendor(selectedVendor)">
+                  <!-- If vendor owes refund (balanceDue < 0), show prominent 'Receive Refund' button! -->
+                  <button *ngIf="(selectedVendor.balanceDue ?? 0) < 0" mat-flat-button class="btn-action btn-refund" (click)="quickRefundVendor(selectedVendor)">
+                    <mat-icon class="icon-sm">call_received</mat-icon> Receive Refund
+                  </button>
+                  <button *ngIf="(selectedVendor.balanceDue ?? 0) >= 0" mat-flat-button color="primary" class="btn-action" (click)="quickPayVendor(selectedVendor)">
                     <mat-icon class="icon-sm">payment</mat-icon> Pay Now
                   </button>
                   <button mat-stroked-button class="btn-action" (click)="printStatement()">
@@ -451,9 +360,19 @@ import {
                 <span class="mini-label">Total Debit Notes (PR)</span>
                 <span class="mini-val text-amber">₹{{ (ledgerSummary?.totalReturns ?? selectedVendor.totalReturns ?? 0) | number:'1.2-2' }}</span>
               </div>
-              <div class="mini-stat-card highlight-mini-card">
-                <span class="mini-label">Net Balance Payable</span>
-                <span class="mini-val text-danger">₹{{ (ledgerSummary?.balanceDue ?? selectedVendor.balanceDue ?? 0) | number:'1.2-2' }}</span>
+              <div class="mini-stat-card" *ngIf="(ledgerSummary?.totalRefunds ?? selectedVendor.totalRefunds ?? 0) > 0">
+                <span class="mini-label">Refunds Received</span>
+                <span class="mini-val text-emerald">₹{{ (ledgerSummary?.totalRefunds ?? selectedVendor.totalRefunds ?? 0) | number:'1.2-2' }}</span>
+              </div>
+              <div class="mini-stat-card highlight-mini-card" [class.highlight-credit]="(selectedVendor.balanceDue ?? 0) < 0">
+                <span class="mini-label">
+                  {{ (selectedVendor.balanceDue ?? 0) < 0 ? 'Net Advance Credit' : 'Net Balance Payable' }}
+                </span>
+                <span class="mini-val" [class.text-danger]="(selectedVendor.balanceDue ?? 0) > 0" [class.text-emerald]="(selectedVendor.balanceDue ?? 0) < 0" [class.text-muted]="(selectedVendor.balanceDue ?? 0) === 0">
+                  ₹{{ Math.abs(ledgerSummary?.balanceDue ?? selectedVendor.balanceDue ?? 0) | number:'1.2-2' }}
+                  <small *ngIf="(selectedVendor.balanceDue ?? 0) < 0"> (Cr)</small>
+                  <small *ngIf="(selectedVendor.balanceDue ?? 0) > 0"> (Dr)</small>
+                </span>
               </div>
             </div>
 
@@ -620,8 +539,13 @@ import {
                 <td class="text-right font-mono text-emerald font-semibold">₹{{ (v.totalPaid ?? 0) | number:'1.2-2' }}</td>
                 <td class="text-right font-mono text-muted">₹{{ (v.totalReturns ?? 0) | number:'1.2-2' }}</td>
                 <td class="text-right">
-                  <span class="balance-badge" [class.balance-due]="(v.balanceDue ?? 0) > 0" [class.balance-settled]="(v.balanceDue ?? 0) <= 0">
-                    ₹{{ (v.balanceDue ?? 0) | number:'1.2-2' }}
+                  <span class="balance-badge" 
+                    [class.balance-due]="(v.balanceDue ?? 0) > 0" 
+                    [class.balance-credit]="(v.balanceDue ?? 0) < 0" 
+                    [class.balance-settled]="(v.balanceDue ?? 0) === 0">
+                    ₹{{ Math.abs(v.balanceDue ?? 0) | number:'1.2-2' }}
+                    <small *ngIf="(v.balanceDue ?? 0) < 0"> Cr</small>
+                    <small *ngIf="(v.balanceDue ?? 0) > 0"> Dr</small>
                   </span>
                 </td>
                 <td class="text-center">
@@ -629,7 +553,10 @@ import {
                     <button mat-flat-button color="primary" class="btn-xs" (click)="viewVendorLedger(v)" matTooltip="Open Live Statement">
                       <mat-icon class="icon-xs">receipt_long</mat-icon> Ledger
                     </button>
-                    <button mat-stroked-button color="accent" class="btn-xs" (click)="quickPayVendor(v)" matTooltip="Disburse Payment">
+                    <button *ngIf="(v.balanceDue ?? 0) < 0" mat-stroked-button class="btn-xs btn-refund-xs" (click)="quickRefundVendor(v)" matTooltip="Receive Refund from Supplier">
+                      <mat-icon class="icon-xs">call_received</mat-icon> Refund
+                    </button>
+                    <button *ngIf="(v.balanceDue ?? 0) >= 0" mat-stroked-button color="accent" class="btn-xs" (click)="quickPayVendor(v)" matTooltip="Disburse Payment">
                       <mat-icon class="icon-xs">payment</mat-icon> Pay
                     </button>
                     <button mat-icon-button (click)="openVendorDialog(v)" matTooltip="Edit Profile" class="btn-icon-xs">
@@ -1937,6 +1864,7 @@ import {
 
     .chip-purchase { background: #e0f2fe; color: #0369a1; }
     .chip-payment { background: #dcfce7; color: #15803d; }
+    .chip-refund { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
     .chip-return { background: #fef3c7; color: #b45309; }
 
     .particulars-cell {
@@ -2031,11 +1959,111 @@ import {
       border: 1px solid #fecaca;
     }
 
-    .balance-settled {
+    .balance-credit {
       background: #ecfdf5;
       color: #059669;
       border: 1px solid #a7f3d0;
     }
+
+    .balance-settled {
+      background: #f8fafc;
+      color: #64748b;
+      border: 1px solid #e2e8f0;
+    }
+
+    .btn-refund-xs {
+      color: #059669 !important;
+      border-color: #a7f3d0 !important;
+      background: #ecfdf5 !important;
+      font-weight: 600;
+
+      &:hover {
+        background: #d1fae5 !important;
+      }
+    }
+
+    .btn-refund {
+      background: #059669 !important;
+      color: #ffffff !important;
+      font-weight: 600;
+
+      &:hover {
+        background: #047857 !important;
+      }
+    }
+
+    .balance-credit-box {
+      border-color: #a7f3d0 !important;
+      background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%) !important;
+    }
+
+    .credit-pill {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 12px;
+      background: #d1fae5;
+      color: #065f46;
+      margin-left: 6px;
+      vertical-align: middle;
+    }
+
+    .due-pill {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 12px;
+      background: #fee2e2;
+      color: #b91c1c;
+      margin-left: 6px;
+      vertical-align: middle;
+    }
+
+    .settled-pill {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 12px;
+      background: #f1f5f9;
+      color: #64748b;
+      margin-left: 6px;
+      vertical-align: middle;
+    }
+
+    .voucher-type-switch-row {
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: flex-start;
+    }
+
+    .voucher-type-toggle {
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+    }
+
+    .voucher-type-toggle mat-button-toggle {
+      padding: 2px 10px;
+      font-weight: 600;
+      font-size: 13px;
+    }
+
+    .toggle-ic {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+
+    .opt-credit { color: #059669; font-weight: 600; font-size: 12px; }
+    .opt-due { color: #dc2626; font-weight: 600; font-size: 12px; }
+    .opt-nil { color: #94a3b8; font-size: 12px; }
+    .refund-mode-card { border-top: 4px solid #059669 !important; }
+    .refund-preview-banner { border-left-color: #059669 !important; background: #f0fdf4 !important; }
+    .sub-badge { font-size: 11px; font-weight: 600; margin-left: 4px; }
+    .highlight-credit { border-top-color: #059669 !important; }
 
     .table-actions-group {
       display: flex;
@@ -2383,6 +2411,7 @@ import {
   `]
 })
 export class VendorLedgerComponent implements OnInit {
+  readonly Math = Math;
   private readonly inventoryService = inject(InventoryService);
   public readonly authService = inject(AuthService);
   private readonly confirmDialog = inject(ConfirmDialogService);
@@ -2390,22 +2419,18 @@ export class VendorLedgerComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
 
   loading = false;
-  submittingPayment = false;
-  showPaymentForm = false;
 
   viewMode: 'split' | 'table' = 'split';
   activeDatePreset: 'ALL' | 'THIS_MONTH' | 'LAST_MONTH' | 'THIS_FY' | 'CUSTOM' = 'ALL';
 
   vendorsList: InventoryVendor[] = [];
   selectedVendor: InventoryVendor | null = null;
-  selectedPaymentVendor: InventoryVendor | null = null;
 
   ledgerSummary: VendorLedgerSummary | null = null;
   ledgerEntries: VendorLedgerEntry[] = [];
 
   // Reactive Forms
   filterForm!: FormGroup;
-  paymentForm!: FormGroup;
   dateFilterForm!: FormGroup;
 
   ngOnInit(): void {
@@ -2417,21 +2442,6 @@ export class VendorLedgerComponent implements OnInit {
     this.filterForm = this.fb.group({
       search: [''],
       status: ['ALL']
-    });
-
-    const todayStr = new Date().toISOString().substring(0, 10);
-    this.paymentForm = this.fb.group({
-      vendorId: ['', Validators.required],
-      paymentDate: [todayStr, Validators.required],
-      amount: [null, [Validators.required, Validators.min(1)]],
-      paymentMode: ['BankTransfer', Validators.required],
-      referenceNumber: [''],
-      notes: ['']
-    });
-
-    // Listen to vendorId change in paymentForm to update live preview
-    this.paymentForm.get('vendorId')?.valueChanges.subscribe(vId => {
-      this.selectedPaymentVendor = this.vendorsList.find(v => v.id === vId) || null;
     });
 
     this.dateFilterForm = this.fb.group(
@@ -2680,68 +2690,36 @@ export class VendorLedgerComponent implements OnInit {
     this.viewMode = 'split';
   }
 
-  togglePaymentForm(): void {
-    this.showPaymentForm = !this.showPaymentForm;
-    if (this.showPaymentForm && this.selectedVendor) {
-      this.paymentForm.patchValue({ vendorId: this.selectedVendor.id });
-    }
+  openPaymentDialog(vendor: InventoryVendor, mode: 'Disbursement' | 'Refund' = 'Disbursement'): void {
+    const dialogRef = this.dialog.open(VendorPaymentDialogComponent, {
+      width: '620px',
+      data: {
+        vendor,
+        vendorsList: this.vendorsList,
+        mode,
+        branchId: this.authService.selectedBranchId() || undefined
+      }
+    });
+
+    dialogRef.afterClosed().subscribe((result: VendorPaymentDialogResult | undefined) => {
+      if (result && result.success) {
+        const title = result.isRefund ? 'Refund Receipt Recorded' : 'Payment Recorded';
+        const msg = result.isRefund
+          ? `Vendor Refund Receipt ${result.voucherNumber} for ₹${result.amount} successfully recorded and credited to account!`
+          : `Payment Voucher ${result.voucherNumber} for ₹${result.amount} successfully recorded and debited to vendor account!`;
+
+        this.confirmDialog.alert(title, msg);
+        this.loadVendors(result.vendorId);
+      }
+    });
+  }
+
+  quickRefundVendor(vendor: InventoryVendor): void {
+    this.openPaymentDialog(vendor, 'Refund');
   }
 
   quickPayVendor(vendor: InventoryVendor): void {
-    this.showPaymentForm = true;
-    this.selectedPaymentVendor = vendor;
-    const balance = (vendor.balanceDue ?? 0) > 0 ? vendor.balanceDue : null;
-    this.paymentForm.patchValue({
-      vendorId: vendor.id,
-      amount: balance
-    });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }
-
-  submitPaymentForm(): void {
-    if (this.paymentForm.invalid) {
-      this.paymentForm.markAllAsTouched();
-      return;
-    }
-
-    const val = this.paymentForm.value;
-    const branchId = this.authService.selectedBranchId() || undefined;
-
-    const dto: RecordVendorPaymentDto = {
-      vendorId: val.vendorId,
-      branchId: branchId,
-      paymentDate: val.paymentDate,
-      amount: Number(val.amount),
-      paymentMode: val.paymentMode,
-      referenceNumber: val.referenceNumber || undefined,
-      remarks: val.notes || undefined,
-      notes: val.notes || undefined
-    };
-
-    this.submittingPayment = true;
-    this.inventoryService.recordVendorPayment(dto).subscribe({
-      next: (res) => {
-        this.submittingPayment = false;
-        this.showPaymentForm = false;
-        const todayStr = new Date().toISOString().substring(0, 10);
-        this.paymentForm.reset({
-          paymentDate: todayStr,
-          paymentMode: 'BankTransfer'
-        });
-
-        this.confirmDialog.alert(
-          'Payment Recorded',
-          `Payment Voucher ${res.voucherNumber} for ₹${dto.amount} successfully recorded and debited to vendor account!`
-        );
-
-        this.loadVendors();
-      },
-      error: (err) => {
-        this.submittingPayment = false;
-        const msg = err?.error?.message || 'Failed to disburse payment voucher.';
-        this.confirmDialog.alert('Payment Error', msg);
-      }
-    });
+    this.openPaymentDialog(vendor, 'Disbursement');
   }
 
   getEntryTypeClass(type: string): string {
@@ -2752,6 +2730,9 @@ export class VendorLedgerComponent implements OnInit {
       case 'VendorPayment':
       case 'PAYMENT':
         return 'chip-payment';
+      case 'VendorRefund':
+      case 'REFUND':
+        return 'chip-refund';
       case 'PurchaseReturn':
       case 'PURCHASE_RETURN':
         return 'chip-return';
@@ -2768,6 +2749,9 @@ export class VendorLedgerComponent implements OnInit {
       case 'VendorPayment':
       case 'PAYMENT':
         return 'PAYMENT VOUCHER';
+      case 'VendorRefund':
+      case 'REFUND':
+        return 'REFUND RECEIPT';
       case 'PurchaseReturn':
       case 'PURCHASE_RETURN':
         return 'DEBIT NOTE (PR)';

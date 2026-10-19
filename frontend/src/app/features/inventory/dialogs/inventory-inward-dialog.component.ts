@@ -99,6 +99,15 @@ export interface InventoryInwardDialogData {
             </mat-form-field>
           </div>
 
+          <!-- Existing Credit Note Auto-Adjustment Notice -->
+          <div *ngIf="selectedVendorAdvanceCredit > 0" class="credit-banner">
+            <mat-icon class="credit-banner-icon">info</mat-icon>
+            <div class="credit-banner-content">
+              <strong>Existing Supplier Credit Balance: ₹{{ selectedVendorAdvanceCredit | number:'1.2-2' }}</strong>
+              <p>This supplier has an advance credit from previous purchase returns (Debit Notes). It will be automatically adjusted against this invoice in the vendor ledger.</p>
+            </div>
+          </div>
+
           <!-- Dynamic Item Rows Section -->
           <div class="items-header-row">
             <div class="section-title">
@@ -179,8 +188,16 @@ export interface InventoryInwardDialogData {
                 <input type="number" formControlName="taxAmount" min="0" (input)="computeTotals()" class="mini-input" />
               </div>
               <div class="total-row net-row">
-                <span>Net Payable:</span>
+                <span>Inward Bill Total:</span>
                 <strong class="net-val">₹{{ netTotal | number:'1.2-2' }}</strong>
+              </div>
+              <div class="total-row credit-adj-row" *ngIf="selectedVendorAdvanceCredit > 0">
+                <span>Less Credit Note Adj:</span>
+                <strong class="text-emerald">-₹{{ Math.min(selectedVendorAdvanceCredit, netTotal) | number:'1.2-2' }}</strong>
+              </div>
+              <div class="total-row final-payable-row" *ngIf="selectedVendorAdvanceCredit > 0">
+                <span>Net Cash/Bank Payable:</span>
+                <strong class="final-payable-val">₹{{ Math.max(0, netTotal - selectedVendorAdvanceCredit) | number:'1.2-2' }}</strong>
               </div>
             </div>
           </div>
@@ -369,6 +386,47 @@ export interface InventoryInwardDialogData {
       font-size: 1.15rem;
       color: #16a34a;
     }
+    .credit-banner {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 14px;
+      margin-top: 12px;
+      margin-bottom: 8px;
+      background: #ecfdf5;
+      border: 1px solid #a7f3d0;
+      border-radius: 8px;
+      color: #065f46;
+    }
+    .credit-banner-icon {
+      color: #059669;
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+      margin-top: 2px;
+    }
+    .credit-banner-content {
+      font-size: 12px;
+      line-height: 1.4;
+      p { margin: 2px 0 0; color: #047857; }
+    }
+    .credit-adj-row {
+      color: #059669 !important;
+      font-weight: 600;
+    }
+    .final-payable-row {
+      border-top: 2px dashed #bfdbfe !important;
+      padding-top: 6px !important;
+      margin-top: 4px !important;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #1e3a8a;
+    }
+    .final-payable-val {
+      color: #1e40af !important;
+      font-size: 1.15rem !important;
+      font-weight: 800;
+    }
     .dialog-actions {
       padding: 12px 20px 16px;
       border-top: 1px solid #f1f5f9;
@@ -388,11 +446,23 @@ export class InventoryInwardDialogComponent implements OnInit {
   subTotal = 0;
   netTotal = 0;
 
+  readonly Math = Math;
+
   constructor(
     private readonly fb: FormBuilder,
     private readonly dialogRef: MatDialogRef<InventoryInwardDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public readonly data: InventoryInwardDialogData
   ) {}
+
+  get selectedVendor(): InventoryVendor | undefined {
+    const vId = this.form?.get('vendorId')?.value;
+    return this.data.vendors.find(v => v.id === vId);
+  }
+
+  get selectedVendorAdvanceCredit(): number {
+    const bal = this.selectedVendor?.balanceDue ?? 0;
+    return bal < 0 ? Math.abs(bal) : 0;
+  }
 
   get itemRows(): FormArray {
     return this.form.get('items') as FormArray;

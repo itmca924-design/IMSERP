@@ -60,6 +60,7 @@ export interface InventoryVendor {
   totalPaid?: number;
   totalReturns?: number;
   balanceDue?: number;
+  totalRefunds?: number;
 }
 
 export interface CreateUpdateVendorDto {
@@ -272,13 +273,14 @@ export interface VendorLedgerSummary {
   totalPaid: number;
   totalReturns: number;
   balanceDue: number;
+  totalRefunds?: number;
   entries: VendorLedgerEntry[];
 }
 
 export interface VendorLedgerEntry {
   id: string;
   date: string;
-  entryType: 'InwardPurchase' | 'VendorPayment' | 'PurchaseReturn';
+  entryType: 'InwardPurchase' | 'VendorPayment' | 'VendorRefund' | 'PurchaseReturn';
   referenceNumber: string;
   billNumber?: string;
   description: string;
@@ -300,6 +302,7 @@ export interface RecordVendorPaymentDto {
   remarks?: string;
   notes?: string;
   branchId?: string;
+  paymentType?: 'Disbursement' | 'Refund';
 }
 
 export interface VendorPayment {
@@ -315,6 +318,7 @@ export interface VendorPayment {
   remarks?: string;
   branchId?: string;
   createdAt: string;
+  paymentType?: string;
 }
 
 export interface InventoryPurchaseReturn {
