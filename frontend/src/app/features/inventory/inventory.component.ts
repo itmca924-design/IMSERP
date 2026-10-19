@@ -466,10 +466,11 @@ import { InventoryAdjustDialogComponent } from './dialogs/inventory-adjust-dialo
                       <th>Items Distributed</th>
                       <th>Total Value</th>
                       <th>Payment Status</th>
+                      <th style="width: 70px; text-align: center;">Action</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr *ngFor="let out of outwards">
+                    <tr *ngFor="let out of outwards" [class.row-cancelled]="out.paymentStatus === 'Cancelled'">
                       <td><strong class="code-pill">{{ out.issueNumber }}</strong></td>
                       <td><span [appIstDatetime]="out.issueDate" format="date"></span></td>
                       <td>
@@ -494,14 +495,21 @@ import { InventoryAdjustDialogComponent } from './dialogs/inventory-adjust-dialo
                         <span *ngIf="out.totalAmount === 0" class="text-muted">Free Issue</span>
                       </td>
                       <td>
-                        <span class="status-chip" [ngClass]="'status-' + (out.paymentStatus || '').toLowerCase().replace('/', '-')">
-                          {{ out.paymentStatus }}
+                        <span class="status-chip" [ngClass]="out.paymentStatus === 'Cancelled' ? 'status-cancelled' : ('status-' + (out.paymentStatus || '').toLowerCase().replace('/', '-'))">
+                          <mat-icon *ngIf="out.paymentStatus === 'Cancelled'" class="cancel-icon-inline">undo</mat-icon>
+                          {{ out.paymentStatus === 'Cancelled' ? 'Cancelled (Restored)' : out.paymentStatus }}
                         </span>
+                      </td>
+                      <td style="text-align: center;">
+                        <button *ngIf="out.paymentStatus !== 'Cancelled'" mat-icon-button color="warn" (click)="cancelOutward(out)" matTooltip="Cancel Issue & Return Stock to Inventory" type="button">
+                          <mat-icon>undo</mat-icon>
+                        </button>
+                        <span *ngIf="out.paymentStatus === 'Cancelled'" class="text-muted" style="font-size: 11px; font-weight: 600;">Restored</span>
                       </td>
                     </tr>
 
                     <tr *ngIf="!loading && outwards.length === 0">
-                      <td colspan="8" class="empty-cell">
+                      <td colspan="9" class="empty-cell">
                         <mat-icon class="empty-icon">outbox</mat-icon>
                         <p class="empty-text">No outward issues recorded yet.</p>
                         <button mat-stroked-button color="primary" (click)="openOutwardDialog()">Issue First Stock</button>
@@ -1154,6 +1162,25 @@ import { InventoryAdjustDialogComponent } from './dialogs/inventory-adjust-dialo
     .status-pending { background: #fef3c7; color: #b45309; }
     .status-free-complimentary { background: #f1f5f9; color: #475569; }
     .status-addedtofeebill { background: #e0e7ff; color: #4338ca; }
+    .status-cancelled {
+      background: #fef2f2;
+      color: #b91c1c;
+      border: 1px solid #fecaca;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+    }
+    .cancel-icon-inline {
+      font-size: 13px !important;
+      width: 13px !important;
+      height: 13px !important;
+      line-height: 13px;
+    }
+    .row-cancelled {
+      background: #fafafa !important;
+      opacity: 0.85;
+      td { color: #64748b; }
+    }
 
     .lines-preview {
       display: flex;
@@ -1767,6 +1794,34 @@ export class InventoryComponent implements OnInit, OnDestroy {
           this.confirmDialog.alert('Issue Failed', err?.error?.message || err?.error || 'Failed to issue stock.', 'danger');
         }
       });
+    });
+  }
+
+  cancelOutward(out: InventoryOutward): void {
+    if (out.paymentStatus === 'Cancelled') {
+      this.confirmDialog.alert('Already Cancelled', `Issue ${out.issueNumber} is already cancelled and items are restored.`, 'info');
+      return;
+    }
+
+    const itemsSummary = (out.items || []).map(i => `${i.quantity}x ${i.itemName}`).join(', ');
+    this.confirmDialog.confirm(
+      'Cancel Stock Issue & Restore Items',
+      `Are you sure you want to cancel Outward Issue "${out.issueNumber}" for ${out.issuedToName}?\n\nItems to be returned to store inventory stock:\n• ${itemsSummary}\n\nAny pending kit fee invoices will also be cancelled.`,
+      'Yes, Cancel & Restore Stock'
+    ).subscribe((confirmed) => {
+      if (confirmed) {
+        this.loading = true;
+        this.inventoryService.cancelOutward(out.id, 'Cancelled via Outward Table').subscribe({
+          next: (res) => {
+            this.confirmDialog.alert('Stock Restored', res?.message || `Outward ${out.issueNumber} cancelled and stock restored to inventory.`, 'success');
+            this.refreshAll();
+          },
+          error: (err) => {
+            this.loading = false;
+            this.confirmDialog.alert('Action Failed', err?.error?.message || 'Failed to cancel outward issue.', 'danger');
+          }
+        });
+      }
     });
   }
 

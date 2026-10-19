@@ -8,6 +8,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { FeesService, GenerateInvoicesResult } from '../../core/services/fees.service';
 import { BatchDto } from '../../core/services/batches.service';
 import { SchoolClassDto } from '../../core/services/school.service';
@@ -49,7 +50,8 @@ interface BillingCycleOption {
     MatSelectModule,
     MatButtonModule,
     MatIconModule,
-    MatProgressSpinnerModule
+    MatProgressSpinnerModule,
+    MatTooltipModule
   ],
   template: `
     <div class="dialog-wrapper">
@@ -178,7 +180,12 @@ interface BillingCycleOption {
               <mat-select formControlName="month" (selectionChange)="onMonthYearChange()">
                 <mat-option *ngFor="let m of months" [value]="m.value">{{ m.name }}</mat-option>
               </mat-select>
-              <mat-icon matSuffix color="primary">calendar_month</mat-icon>
+              <mat-icon matSuffix [matTooltip]="isTargetStudent ? 'Locked to Admission Month' : ''" [style.color]="isTargetStudent ? '#64748b' : '#2563eb'">
+                {{ isTargetStudent ? 'lock' : 'calendar_month' }}
+              </mat-icon>
+              <mat-hint *ngIf="isTargetStudent" style="color: #2563eb; font-weight: 500;">
+                🔒 Locked to student's admission month
+              </mat-hint>
               <mat-error *ngIf="form.get('month')?.hasError('required')">Month is required</mat-error>
             </mat-form-field>
 
@@ -187,6 +194,7 @@ interface BillingCycleOption {
               <mat-select formControlName="year" (selectionChange)="onMonthYearChange()">
                 <mat-option *ngFor="let y of years" [value]="y">{{ y }}</mat-option>
               </mat-select>
+              <mat-icon matSuffix *ngIf="isTargetStudent" matTooltip="Locked to Admission Year" style="color: #64748b;">lock</mat-icon>
               <mat-error *ngIf="form.get('year')?.hasError('required')">Year is required</mat-error>
             </mat-form-field>
 
@@ -234,7 +242,7 @@ interface BillingCycleOption {
             <!-- Target School Class (Shown ONLY if 'By School Class' is active) -->
             <mat-form-field appearance="outline" class="full-width" *ngIf="!data.targetStudentName && scopeMode === 'school' && hasSchoolModule">
               <mat-label>Target School Class</mat-label>
-              <mat-select formControlName="classId" panelClass="smart-batch-panel">
+              <mat-select formControlName="classId" panelClass="smart-batch-panel" (selectionChange)="onClassSelectionChange($event.value)">
                 <mat-option value="">✨ All School Classes</mat-option>
                 <mat-option *ngFor="let c of data.classes" [value]="c.id">
                   🏫 {{ c.name }}
@@ -242,6 +250,15 @@ interface BillingCycleOption {
               </mat-select>
               <mat-icon matSuffix color="primary">school</mat-icon>
             </mat-form-field>
+
+            <div *ngIf="scopeMode === 'school' && selectedClassWarning" class="class-structure-warning-pill full-width">
+              <mat-icon class="warn-icon">warning</mat-icon>
+              <span>{{ selectedClassWarning }}</span>
+            </div>
+            <div *ngIf="scopeMode === 'school' && selectedClassFeeInfo !== null" class="class-structure-success-pill full-width">
+              <mat-icon class="ok-icon">check_circle</mat-icon>
+              <span>Configured Matrix Fee: <strong>₹{{ selectedClassFeeInfo | number:'1.2-2' }}/mo</strong></span>
+            </div>
 
             <!-- Target Coaching Batch (Shown ONLY if 'By Coaching Batch' is active) -->
             <mat-form-field appearance="outline" class="full-width" *ngIf="!data.targetStudentName && scopeMode === 'coaching' && hasCoachingModule">
@@ -690,6 +707,36 @@ interface BillingCycleOption {
       .field-month { flex: 1 1 210px; }
       .field-year  { flex: 0 0 105px; }
       .full-width  { width: 100%; flex: 1 1 100%; }
+
+      .class-structure-warning-pill {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        margin-top: -4px;
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        border-radius: 8px;
+        color: #b91c1c;
+        font-size: 0.8rem;
+        font-weight: 500;
+        .warn-icon { font-size: 16px; width: 16px; height: 16px; color: #dc2626; flex-shrink: 0; }
+      }
+
+      .class-structure-success-pill {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        margin-top: -4px;
+        background: #f0fdf4;
+        border: 1px solid #bbf7d0;
+        border-radius: 8px;
+        color: #15803d;
+        font-size: 0.8rem;
+        font-weight: 500;
+        .ok-icon { font-size: 16px; width: 16px; height: 16px; color: #16a34a; flex-shrink: 0; }
+      }
     }
 
     /* Scope Mode Selector */
@@ -911,15 +958,21 @@ export class GenerateInvoicesDialogComponent implements OnInit {
       this.scopeMode = 'all';
     }
 
+    const isTarget = !!data?.targetStudentName;
     this.form = this.fb.group({
-      month:   [defaultMonth,              [Validators.required]],
-      year:    [defaultYear,               [Validators.required]],
+      month:   [{ value: defaultMonth, disabled: isTarget }, [Validators.required]],
+      year:    [{ value: defaultYear, disabled: isTarget },  [Validators.required]],
       classId: [data?.defaultClassId || ''],
       batchId: [data?.defaultBatchId || ''],
       dueDate: [defaultDueDate,            [Validators.required]]
     });
   }
 
+  selectedClassWarning: string = '';
+  selectedClassFeeInfo: number | null = null;
+  checkingClassStructure: boolean = false;
+
+  get isTargetStudent(): boolean { return !!this.data?.targetStudentName; }
   get hasSchoolModule(): boolean { return this.authService.hasSchoolModule(); }
   get hasCoachingModule(): boolean { return this.authService.hasCoachingModule(); }
 
@@ -933,7 +986,34 @@ export class GenerateInvoicesDialogComponent implements OnInit {
     return this.data?.batches?.find(b => b.id === batchId)?.name || '';
   }
 
-  ngOnInit(): void {}
+  ngOnInit(): void {
+    if (this.form.get('classId')?.value) {
+      this.onClassSelectionChange(this.form.get('classId')?.value);
+    }
+  }
+
+  onClassSelectionChange(classId: string): void {
+    this.selectedClassWarning = '';
+    this.selectedClassFeeInfo = null;
+    if (!classId) return;
+
+    this.checkingClassStructure = true;
+    this.feesService.getClassFeeStructures(classId).subscribe({
+      next: (structs) => {
+        this.checkingClassStructure = false;
+        const active = structs.filter(s => s.isActive && s.amount > 0);
+        if (active.length === 0) {
+          const className = this.data.classes?.find(c => c.id === classId)?.name || 'This Class';
+          this.selectedClassWarning = `⚠️ No fee structure saved in Fee Matrix for '${className}'! Please configure and save Fee Matrix first.`;
+        } else {
+          this.selectedClassFeeInfo = active.reduce((sum, s) => sum + s.amount, 0);
+        }
+      },
+      error: () => {
+        this.checkingClassStructure = false;
+      }
+    });
+  }
 
   selectCycle(value: number): void { this.selectedCycle = value; }
 
@@ -985,10 +1065,14 @@ export class GenerateInvoicesDialogComponent implements OnInit {
     if (mode === 'all') {
       this.form.get('classId')?.setValue('');
       this.form.get('batchId')?.setValue('');
+      this.selectedClassWarning = '';
+      this.selectedClassFeeInfo = null;
     } else if (mode === 'school') {
       this.form.get('batchId')?.setValue('');
     } else if (mode === 'coaching') {
       this.form.get('classId')?.setValue('');
+      this.selectedClassWarning = '';
+      this.selectedClassFeeInfo = null;
     }
   }
 
@@ -1008,8 +1092,14 @@ export class GenerateInvoicesDialogComponent implements OnInit {
 
   onSubmit(): void {
     if (this.form.invalid || this.saving) return;
+
+    if (this.scopeMode === 'school' && this.selectedClassWarning) {
+      this.confirmDialog.alert('Fee Matrix Required', this.selectedClassWarning, 'danger');
+      return;
+    }
+
     this.saving = true;
-    const val = this.form.value;
+    const val = this.form.getRawValue();
     const targetClassId = (this.scopeMode === 'school' && val.classId) ? val.classId : null;
     const targetBatchId = (this.scopeMode === 'coaching' && val.batchId) ? val.batchId : null;
 

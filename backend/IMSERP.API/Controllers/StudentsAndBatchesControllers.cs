@@ -1867,7 +1867,54 @@ public class StudentsController : ControllerBase
             .ToListAsync();
         _dbContext.LibraryCirculations.RemoveRange(circulations);
 
-        // 8. Finally delete the student
+        // 8. Reverse Inventory Stock for any Outward Kit / Items issued to this student
+        var studentOutwards = await _dbContext.InventoryOutwards
+            .Include(o => o.Items)
+            .Where(o => o.StudentId == id && o.TenantId == _currentUser.TenantId)
+            .ToListAsync();
+
+        foreach (var outward in studentOutwards)
+        {
+            if (outward.PaymentStatus != "Cancelled")
+            {
+                foreach (var lineItem in outward.Items)
+                {
+                    var invItem = await _dbContext.InventoryItems.FindAsync(lineItem.ItemId);
+                    if (invItem != null)
+                    {
+                        var stockBefore = invItem.CurrentStock;
+                        invItem.CurrentStock += lineItem.Quantity;
+                        invItem.UpdatedAt = DateTime.UtcNow;
+
+                        _dbContext.InventoryStockAdjustments.Add(new InventoryStockAdjustment
+                        {
+                            Id = Guid.NewGuid(),
+                            TenantId = _currentUser.TenantId,
+                            BranchId = outward.BranchId,
+                            ItemId = invItem.Id,
+                            AdjustmentType = "AdmissionCancelled",
+                            PreviousStock = stockBefore,
+                            AdjustedQuantity = lineItem.Quantity,
+                            NewStock = invItem.CurrentStock,
+                            Reason = $"Admission Cancelled - Restored from Kit Issue ({outward.IssueNumber}) for student {student.StudentName} ({student.AdmissionNumber ?? student.RollNumber})",
+                            AdjustedAt = DateTime.UtcNow,
+                            AdjustedBy = _currentUser.UserId
+                        });
+                    }
+                }
+
+                outward.PaymentStatus = "Cancelled";
+                outward.Remarks = string.IsNullOrWhiteSpace(outward.Remarks)
+                    ? $"[CANCELLED & STOCK RESTORED - Student Admission Revoked/Deleted ({student.StudentName})]"
+                    : $"{outward.Remarks} [CANCELLED & STOCK RESTORED - Student Admission Revoked/Deleted on {DateTime.UtcNow:yyyy-MM-dd}]";
+            }
+
+            // Unlink StudentId so foreign key constraint does not block student deletion, 
+            // while preserving outward record with IssuedToName for transparent audit trail!
+            outward.StudentId = null;
+        }
+
+        // 9. Finally delete the student
         _dbContext.Students.Remove(student);
 
         await _dbContext.SaveChangesAsync();
@@ -2248,6 +2295,100 @@ public class StudentsController : ControllerBase
                 if (linkedUser != null)
                 {
                     linkedUser.ProfilePhoto = student.ProfilePhoto;
+                }
+            }
+
+            // ── Inventory Kit Issuance if items issued on Edit ──
+            if (dto.IsIssueAdmissionKit && dto.AdmissionKitItems != null && dto.AdmissionKitItems.Any(i => i.Quantity > 0))
+            {
+                var issueNumber = $"OUT-{DateTime.UtcNow:yyyyMMddHHmmss}-{new Random().Next(100, 999)}";
+                var outward = new InventoryOutward
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = _currentUser.TenantId,
+                    BranchId = student.BranchId,
+                    IssueNumber = issueNumber,
+                    IssueDate = DateTime.UtcNow,
+                    IssueType = "StudentKitSale",
+                    StudentId = student.Id,
+                    IssuedToName = student.StudentName,
+                    DepartmentOrClass = student.ClassId.HasValue ? (await _dbContext.SchoolClasses.AsNoTracking().FirstOrDefaultAsync(c => c.Id == student.ClassId.Value))?.Name : "Admission",
+                    PaymentStatus = !string.IsNullOrWhiteSpace(dto.KitPaymentStatus) ? dto.KitPaymentStatus : "Paid",
+                    PaymentMode = dto.KitPaymentMode ?? "Cash",
+                    Remarks = $"Issued during student edit ({student.AdmissionNumber ?? student.RollNumber})",
+                    CreatedBy = _currentUser.UserId,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                decimal totalKitAmount = 0;
+                foreach (var kitRow in dto.AdmissionKitItems)
+                {
+                    if (kitRow.Quantity <= 0) continue;
+                    var invItem = await _dbContext.InventoryItems.FindAsync(kitRow.ItemId);
+                    if (invItem == null) continue;
+
+                    var unitPrice = kitRow.UnitPrice > 0 ? kitRow.UnitPrice : invItem.SellingPrice;
+                    var lineTotal = kitRow.Quantity * unitPrice;
+                    totalKitAmount += lineTotal;
+
+                    invItem.CurrentStock = Math.Max(0, invItem.CurrentStock - kitRow.Quantity);
+                    invItem.UpdatedAt = DateTime.UtcNow;
+
+                    outward.Items.Add(new InventoryOutwardItem
+                    {
+                        Id = Guid.NewGuid(),
+                        TenantId = _currentUser.TenantId,
+                        BranchId = outward.BranchId,
+                        OutwardId = outward.Id,
+                        ItemId = invItem.Id,
+                        Quantity = kitRow.Quantity,
+                        UnitPrice = unitPrice,
+                        TotalAmount = lineTotal,
+                        Remarks = "Kit Item issued on profile edit"
+                    });
+                }
+
+                outward.TotalAmount = totalKitAmount;
+                _dbContext.InventoryOutwards.Add(outward);
+
+                if (dto.KitPaymentStatus == "AddedToFeeBill" && totalKitAmount > 0)
+                {
+                    var kitInvoice = new FeeInvoice
+                    {
+                        Id = Guid.NewGuid(),
+                        TenantId = _currentUser.TenantId,
+                        BranchId = student.BranchId,
+                        StudentId = student.Id,
+                        InvoiceNumber = $"INV-KIT-{DateTime.UtcNow:yyyyMMddHHmmss}",
+                        Title = "Admission Books & Uniform Kit",
+                        InvoiceCategory = "Inventory",
+                        TotalAmount = totalKitAmount,
+                        PaidAmount = 0,
+                        DueDate = DateTime.UtcNow.AddDays(7),
+                        Status = InvoiceStatus.Pending,
+                        ClassId = student.ClassId,
+                        SectionId = student.SectionId,
+                        ClassName = (await _dbContext.SchoolClasses.AsNoTracking().FirstOrDefaultAsync(c => c.Id == student.ClassId))?.Name,
+                        SectionName = (await _dbContext.SchoolSections.AsNoTracking().FirstOrDefaultAsync(s => s.Id == student.SectionId))?.Name,
+                        CreatedAt = DateTime.UtcNow
+                    };
+
+                    foreach (var oi in outward.Items)
+                    {
+                        var invItem = await _dbContext.InventoryItems.FindAsync(oi.ItemId);
+                        kitInvoice.Items.Add(new FeeInvoiceItem
+                        {
+                            Id = Guid.NewGuid(),
+                            TenantId = _currentUser.TenantId,
+                            InvoiceId = kitInvoice.Id,
+                            HeadName = invItem?.ItemName ?? "Kit Item",
+                            Amount = oi.TotalAmount,
+                            PaidAmount = 0,
+                            CreatedAt = DateTime.UtcNow
+                        });
+                    }
+
+                    _dbContext.FeeInvoices.Add(kitInvoice);
                 }
             }
 

@@ -1402,7 +1402,8 @@ public class FeesController : ControllerBase
         var invoicedStudentIds = await _dbContext.FeeInvoices
             .Where(i => i.TenantId == tenantId &&
                         i.DueDate >= periodStart && i.DueDate <= periodEnd &&
-                        i.Status != InvoiceStatus.Cancelled)
+                        i.Status != InvoiceStatus.Cancelled &&
+                        i.InvoiceCategory != "Inventory")
             .Select(i => i.StudentId)
             .Distinct()
             .ToListAsync();
@@ -1498,6 +1499,7 @@ public class FeesController : ControllerBase
         string invPrefix = $"INV-{dto.Year}{dto.Month:D2}";
         var existingStudentInvoices = await _dbContext.FeeInvoices
             .Where(i => i.Status != InvoiceStatus.Cancelled &&
+                        i.InvoiceCategory != "Inventory" &&
                        ((i.DueDate >= periodStart && i.DueDate <= periodEnd) ||
                         (i.InvoiceNumber != null && i.InvoiceNumber.StartsWith(invPrefix)) ||
                         (i.Title != null && i.Title.Contains(periodLabel))))
@@ -1515,6 +1517,17 @@ public class FeesController : ControllerBase
                 ((cfs.ClassId.HasValue && classIds.Contains(cfs.ClassId.Value)) ||
                  (cfs.BatchId.HasValue && batchIds.Contains(cfs.BatchId.Value))))
             .ToListAsync();
+
+        // ── Validation Guard: If specific class requested, ensure fee matrix is configured ──
+        if (dto.ClassId.HasValue && dto.ClassId.Value != Guid.Empty)
+        {
+            bool hasClassStructure = feeStructures.Any(cfs => cfs.ClassId == dto.ClassId.Value && cfs.IsActive && cfs.Amount > 0);
+            if (!hasClassStructure)
+            {
+                var targetClass = await _dbContext.SchoolClasses.AsNoTracking().FirstOrDefaultAsync(c => c.Id == dto.ClassId.Value);
+                return BadRequest(new { message = $"Cannot generate invoices: Fee structure has not been configured in Fee Matrix for '{targetClass?.Name ?? "Selected Class"}'. Please configure and save the Fee Structure Matrix first." });
+            }
+        }
 
         // ── Hostel Fee Engine ────────────────────────────────────────────────
         // Load all active hostel allocations for these students (bulk, pre-loop)
@@ -1741,18 +1754,28 @@ public class FeesController : ControllerBase
                 else
                 {
                     var isCoaching = s.BatchId.HasValue && !s.ClassId.HasValue;
-                    var fallbackHeadName = isCoaching ? (coachFeeHead?.Name ?? "Coaching Fee") : (tuiFeeHead?.Name ?? "School Tuition Fee");
-                    var fallbackHeadId = isCoaching ? coachFeeHead?.Id : tuiFeeHead?.Id;
-                    var monthlyRate = s.Batch?.StandardMonthlyFee ?? 3500m;
-                    totalAmount = monthlyRate * cycleMonths;
-                    invoiceItems.Add(new FeeInvoiceItem
+                    if (isCoaching && s.Batch?.StandardMonthlyFee > 0)
                     {
-                        TenantId = _currentUser.TenantId,
-                        FeeHeadId = fallbackHeadId,
-                        HeadName = fallbackHeadName,
-                        Amount = totalAmount,
-                        PaidAmount = 0
-                    });
+                        var fallbackHeadName = coachFeeHead?.Name ?? "Coaching Fee";
+                        var fallbackHeadId = coachFeeHead?.Id;
+                        var monthlyRate = s.Batch.StandardMonthlyFee;
+                        totalAmount = monthlyRate * cycleMonths;
+                        invoiceItems.Add(new FeeInvoiceItem
+                        {
+                            TenantId = _currentUser.TenantId,
+                            FeeHeadId = fallbackHeadId,
+                            HeadName = fallbackHeadName,
+                            Amount = totalAmount,
+                            PaidAmount = 0
+                        });
+                    }
+                    else
+                    {
+                        // Guard: Unconfigured school class fee structure — NEVER invent an arbitrary fallback amount!
+                        // Skip this student so admin/accountant is never confused by unexpected fee amounts.
+                        skippedCount++;
+                        continue;
+                    }
                 }
             }
 

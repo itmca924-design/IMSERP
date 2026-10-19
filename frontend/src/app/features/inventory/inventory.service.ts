@@ -153,6 +153,10 @@ export class InventoryService {
     return this.http.post<{ message: string; issueNumber: string }>(`${this.baseUrl}/outwards`, dto);
   }
 
+  cancelOutward(id: string, reason?: string): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.baseUrl}/outwards/${id}/cancel`, { reason });
+  }
+
   // Stock Adjustments
   getAdjustments(itemId?: string, branchId?: string): Observable<InventoryStockAdjustment[]> {
     let params = new HttpParams();

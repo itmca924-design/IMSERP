@@ -44,6 +44,8 @@ export interface FeeCollectionItemRow {
   dueAmount: number;
   selected: boolean;
   payingAmount: number;
+  invoiceId?: string;
+  invoiceTitle?: string;
 }
 
 export interface AdvanceMonthOption {
@@ -114,10 +116,14 @@ export interface AdvanceMonthOption {
               <mat-icon class="mini-icon">layers</mat-icon>
               <span>Settling <strong>{{ data.selectedInvoicesCount }} Invoices</strong> in this payment</span>
             </div>
+            <div *ngIf="(!data.selectedInvoicesCount || data.selectedInvoicesCount <= 1) && totalInvoicesCount > 1" class="multi-select-pill unified-dues-pill">
+              <mat-icon class="mini-icon">auto_awesome</mat-icon>
+              <span>Unified Dues: <strong>{{ totalInvoicesCount }} Pending Invoices</strong> (Tuition, Kit &amp; Dues)</span>
+            </div>
           </div>
           <div class="due-badge">
             <span class="due-label">{{ data.selectedInvoicesCount && data.selectedInvoicesCount > 1 ? 'Selected Invoices Total:' : 'Total Net Outstanding:' }}</span>
-            <strong class="due-amount">₹{{ (data.initialAmount !== undefined ? data.initialAmount : data.totalOutstandingDue) | number:'1.2-2' }}</strong>
+            <strong class="due-amount">₹{{ studentTotalOutstanding | number:'1.2-2' }}</strong>
           </div>
         </div>
 
@@ -163,9 +169,15 @@ export interface AdvanceMonthOption {
                   </td>
                   <td>
                     <div class="head-info">
-                      <span class="head-name">{{ row.headName }}</span>
-                      <span class="head-stream-badge" [ngClass]="getStreamBadgeClass(row.headName)">
-                        {{ getStreamBadgeText(row.headName) }}
+                      <div class="head-name-row">
+                        <span class="head-name">{{ row.headName }}</span>
+                        <span class="head-stream-badge" [ngClass]="getStreamBadgeClass(row.headName)">
+                          {{ getStreamBadgeText(row.headName) }}
+                        </span>
+                      </div>
+                      <span class="head-invoice-sub" *ngIf="row.invoiceTitle">
+                        <mat-icon class="mini-inv-icon">receipt_long</mat-icon>
+                        {{ row.invoiceTitle }}
                       </span>
                     </div>
                   </td>
@@ -601,6 +613,15 @@ export interface AdvanceMonthOption {
           padding: 2px 8px;
           border-radius: 4px;
           font-size: 0.78rem;
+
+          &.unified-dues-pill {
+            background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+            color: #047857;
+            border: 1px solid #a7f3d0;
+            font-weight: 600;
+            .mini-icon { color: #059669; }
+          }
+
           .mini-icon {
             font-size: 14px;
             width: 14px;
@@ -721,13 +742,33 @@ export interface AdvanceMonthOption {
 
         .head-info {
           display: flex;
-          align-items: center;
-          gap: 6px;
-          flex-wrap: wrap;
+          flex-direction: column;
+          gap: 2px;
+
+          .head-name-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+          }
 
           .head-name {
             font-weight: 600;
             color: #1e293b;
+          }
+
+          .head-invoice-sub {
+            font-size: 0.72rem;
+            color: #64748b;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            .mini-inv-icon {
+              font-size: 13px;
+              width: 13px;
+              height: 13px;
+              color: #94a3b8;
+            }
           }
 
           .head-stream-badge {
@@ -747,6 +788,10 @@ export interface AdvanceMonthOption {
             &.badge-hostel {
               background: #fef2f2;
               color: #dc2626;
+            }
+            &.badge-kit {
+              background: #fef3c7;
+              color: #b45309;
             }
             &.badge-general {
               background: #f1f5f9;
@@ -1534,6 +1579,9 @@ export class FeeCollectionDialogComponent implements OnInit {
   libraryDues?: StudentLibraryDues;
   baseTuitionAmount: number = 0;
   itemRows: FeeCollectionItemRow[] = [];
+  studentTotalOutstanding: number = 0;
+  totalInvoicesCount: number = 1;
+  loadingDues: boolean = false;
   advanceMonthOptions: AdvanceMonthOption[] = [];
   selectedAdvanceOption: AdvanceMonthOption | null = null;
   advanceAmountTotal: number = 0;
@@ -1587,6 +1635,9 @@ export class FeeCollectionDialogComponent implements OnInit {
   ngOnInit(): void {
     // The actual invoice-level outstanding due (ground truth from server)
     const invoiceDue = this.data.totalOutstandingDue > 0 ? this.data.totalOutstandingDue : 0;
+    this.studentTotalOutstanding = this.data.initialAmount !== undefined
+      ? this.data.initialAmount
+      : (invoiceDue > 0 ? invoiceDue : 0);
 
     if (this.data.items && this.data.items.length > 0) {
       this.itemRows = this.data.items.map(it => {
@@ -1673,6 +1724,9 @@ export class FeeCollectionDialogComponent implements OnInit {
 
     // Fetch student's pending library fines in background
     this.loadStudentLibraryDues();
+
+    // Fetch unified pending invoices and item breakdown across all dues (Tuition, Kit, etc.)
+    this.loadUnifiedStudentDues();
 
     // Initialize Advance Months options (if recurring tuition detected)
     this.initAdvanceMonthOptions();
@@ -1888,6 +1942,7 @@ export class FeeCollectionDialogComponent implements OnInit {
     if (lower.includes('hostel') || lower.includes('bed') || lower.includes('mess')) return 'badge-hostel';
     if (lower.includes('coaching') || lower.includes('guidance') || lower.includes('study material')) return 'badge-coaching';
     if (lower.includes('computer') || lower.includes('exam') || lower.includes('tuition')) return 'badge-school';
+    if (lower.includes('shirt') || lower.includes('uniform') || lower.includes('dress') || lower.includes('pen') || lower.includes('kit') || lower.includes('book') || lower.includes('stationery') || lower.includes('bag') || lower.includes('belt') || lower.includes('tie')) return 'badge-kit';
     return 'badge-general';
   }
 
@@ -1900,6 +1955,7 @@ export class FeeCollectionDialogComponent implements OnInit {
     if (lower.includes('computer')) return '💻 Lab';
     if (lower.includes('exam')) return '📝 Exam';
     if (lower.includes('tuition')) return '🏫 School';
+    if (lower.includes('shirt') || lower.includes('uniform') || lower.includes('dress') || lower.includes('pen') || lower.includes('kit') || lower.includes('book') || lower.includes('stationery') || lower.includes('bag') || lower.includes('belt') || lower.includes('tie')) return '🎒 Kit';
     return '📋 Fee';
   }
 
@@ -1915,6 +1971,65 @@ export class FeeCollectionDialogComponent implements OnInit {
       },
       error: (err) => {
         console.warn('Library dues endpoint error:', err);
+      }
+    });
+  }
+
+  loadUnifiedStudentDues(): void {
+    if (!this.data?.studentId) return;
+
+    this.loadingDues = true;
+    this.feesService.getStudentDueSlip(this.data.studentId).subscribe({
+      next: (dueSlip) => {
+        this.loadingDues = false;
+        if (!dueSlip || !dueSlip.dueItems || dueSlip.dueItems.length === 0) return;
+
+        this.studentTotalOutstanding = dueSlip.totalOutstandingDue;
+        this.totalInvoicesCount = dueSlip.dueItems.length;
+
+        const unifiedRows: FeeCollectionItemRow[] = [];
+        for (const inv of dueSlip.dueItems) {
+          if (inv.breakdown && inv.breakdown.length > 0) {
+            for (const it of inv.breakdown) {
+              const due = Math.max(0, it.amount - it.paidAmount);
+              if (due > 0) {
+                unifiedRows.push({
+                  id: it.id,
+                  invoiceId: inv.invoiceId,
+                  invoiceTitle: inv.title,
+                  headName: it.headName,
+                  amount: it.amount,
+                  paidAmount: it.paidAmount,
+                  dueAmount: due,
+                  selected: true,
+                  payingAmount: due
+                });
+              }
+            }
+          } else if (inv.dueAmount > 0) {
+            unifiedRows.push({
+              id: inv.invoiceId,
+              invoiceId: inv.invoiceId,
+              invoiceTitle: inv.title,
+              headName: inv.title || 'Fee Bill',
+              amount: inv.totalAmount,
+              paidAmount: inv.paidAmount,
+              dueAmount: inv.dueAmount,
+              selected: true,
+              payingAmount: inv.dueAmount
+            });
+          }
+        }
+
+        if (unifiedRows.length > 0) {
+          this.itemRows = unifiedRows;
+          this.recalculateTotal();
+          this.initAdvanceMonthOptions();
+        }
+      },
+      error: (err) => {
+        this.loadingDues = false;
+        console.warn('Could not load unified student due slip, falling back to invoice items', err);
       }
     });
   }

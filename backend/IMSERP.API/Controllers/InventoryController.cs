@@ -1,5 +1,6 @@
 using IMSERP.Application.Interfaces;
 using IMSERP.Domain.Entities;
+using IMSERP.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -844,6 +845,75 @@ public class InventoryController : ControllerBase
         await _db.SaveChangesAsync();
 
         return Ok(new { message = "Stock issued / distributed successfully.", issueNumber });
+    }
+
+    [HttpPost("outwards/{id}/cancel")]
+    public async Task<IActionResult> CancelOutward(Guid id, [FromBody] CancelOutwardDto? dto = null)
+    {
+        var tenantId = GetEffectiveTenantId();
+        var outward = await _db.InventoryOutwards
+            .Include(o => o.Items)
+            .FirstOrDefaultAsync(o => o.Id == id && o.TenantId == tenantId);
+
+        if (outward == null)
+            return NotFound(new { message = "Stock outward issue record not found." });
+
+        if (outward.PaymentStatus == "Cancelled")
+            return BadRequest(new { message = "This outward distribution is already marked as Cancelled." });
+
+        // 1. Restore stock in inventory
+        foreach (var lineItem in outward.Items)
+        {
+            var invItem = await _db.InventoryItems.FindAsync(lineItem.ItemId);
+            if (invItem != null)
+            {
+                var stockBefore = invItem.CurrentStock;
+                invItem.CurrentStock += lineItem.Quantity;
+                invItem.UpdatedAt = DateTime.UtcNow;
+
+                _db.InventoryStockAdjustments.Add(new InventoryStockAdjustment
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    BranchId = outward.BranchId,
+                    ItemId = invItem.Id,
+                    AdjustmentType = "PhysicalAuditCorrection",
+                    PreviousStock = stockBefore,
+                    AdjustedQuantity = lineItem.Quantity,
+                    NewStock = invItem.CurrentStock,
+                    Reason = $"Restored via Outward Issue Cancellation ({outward.IssueNumber})",
+                    AdjustedAt = DateTime.UtcNow,
+                    AdjustedBy = _currentUser.UserId
+                });
+            }
+        }
+
+        // 2. Mark outward as cancelled
+        outward.PaymentStatus = "Cancelled";
+        outward.Remarks = string.IsNullOrWhiteSpace(outward.Remarks)
+            ? $"[CANCELLED & STOCK RESTORED on {DateTime.UtcNow:yyyy-MM-dd}] Reason: {dto?.Reason ?? "Cancelled by user"}"
+            : $"{outward.Remarks} [CANCELLED & STOCK RESTORED on {DateTime.UtcNow:yyyy-MM-dd}: {dto?.Reason ?? "Cancelled"}]";
+
+        // 3. If student had a pending kit FeeInvoice, cancel it
+        if (outward.StudentId.HasValue)
+        {
+            var kitInvoices = await _db.FeeInvoices
+                .Where(i => i.StudentId == outward.StudentId.Value &&
+                            i.TenantId == tenantId &&
+                            i.InvoiceCategory == "Inventory" &&
+                            i.Status == InvoiceStatus.Pending)
+                .ToListAsync();
+
+            foreach (var inv in kitInvoices)
+            {
+                inv.Status = InvoiceStatus.Cancelled;
+                inv.CancellationReason = $"Outward issue cancelled: {outward.IssueNumber}";
+                inv.CancelledAt = DateTime.UtcNow;
+            }
+        }
+
+        await _db.SaveChangesAsync();
+        return Ok(new { message = $"Stock outward {outward.IssueNumber} cancelled and items restored to inventory successfully." });
     }
 
     // =========================================================================
@@ -2062,6 +2132,10 @@ public record SaleReturnItemLineDto(
     decimal Quantity,
     decimal UnitPrice,
     string Condition,
+    string? Reason
+);
+
+public record CancelOutwardDto(
     string? Reason
 );
 

@@ -2654,8 +2654,16 @@ export class FeesComponent implements OnInit, OnDestroy {
 
   openGenerateInvoicesModal(targetStudent?: PendingInvoicingStudent): void {
     const today = new Date();
-    const currentMonth = today.getMonth() + 1;
-    const currentYear = today.getFullYear();
+    let defaultMonth = today.getMonth() + 1;
+    let defaultYear = today.getFullYear();
+
+    if (targetStudent?.joiningDate) {
+      const joinD = new Date(targetStudent.joiningDate);
+      if (!isNaN(joinD.getTime())) {
+        defaultMonth = joinD.getMonth() + 1;
+        defaultYear = joinD.getFullYear();
+      }
+    }
 
     const dialogRef = this.dialog.open(GenerateInvoicesDialogComponent, {
       width: '560px',
@@ -2668,8 +2676,8 @@ export class FeesComponent implements OnInit, OnDestroy {
         targetStudentId: targetStudent?.studentId,
         targetStudentName: targetStudent?.studentName,
         targetRollNumber: targetStudent?.rollNumber,
-        defaultMonth: currentMonth,
-        defaultYear: currentYear
+        defaultMonth: defaultMonth,
+        defaultYear: defaultYear
       }
     });
 
