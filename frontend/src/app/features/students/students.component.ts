@@ -34,6 +34,8 @@ import { StudentProfile360DialogComponent } from './student-profile-360-dialog.c
 import { StudentRollSequencerDialogComponent } from './student-roll-sequencer-dialog.component';
 import { StudentPortalLoginDialogComponent } from './student-portal-login-dialog.component';
 import { AuthService } from '../../core/services/auth.service';
+import { InventoryService } from '../inventory/inventory.service';
+import { InventoryItem } from '../inventory/inventory.models';
 import { environment } from '../../../environments/environment';
 
 const API_BASE = environment.apiBaseUrl;
@@ -148,6 +150,9 @@ const API_BASE = environment.apiBaseUrl;
                 </mat-checkbox>
                 <mat-checkbox *ngIf="authService.hasLibraryModule()" formControlName="isLibraryMember" (change)="onLibraryCheckChanged()" color="primary">
                   <span class="chk-label">📚 <strong>Library Membership (Optional)</strong> (Books &amp; Reading Shifts)</span>
+                </mat-checkbox>
+                <mat-checkbox *ngIf="authService.hasInventoryModule() && !isEditMode" formControlName="isIssueAdmissionKit" (change)="onKitCheckChanged()" color="primary">
+                  <span class="chk-label">🎒 <strong>Admission Kit Issuance (Optional)</strong> (Uniform, Books, Stationery)</span>
                 </mat-checkbox>
               </div>
               <div class="stream-hint-warn" *ngIf="!studentForm.value.isSchoolStudent && !studentForm.value.isCoachingStudent && (authService.hasSchoolModule() || authService.hasCoachingModule())">
@@ -317,6 +322,100 @@ const API_BASE = environment.apiBaseUrl;
                 <input matInput type="number" formControlName="monthlyLibraryFee" min="0" />
                 <mat-hint>Keep ₹0 for free lending, or set monthly reading fee</mat-hint>
               </mat-form-field>
+            </ng-container>
+
+            <!-- Admission Kit Section (if Admission Kit is checked) -->
+            <ng-container *ngIf="studentForm.value.isIssueAdmissionKit && !isEditMode">
+              <div class="section-divider-box full-span kit-sect">
+                <mat-icon>inventory_2</mat-icon>
+                <span>Admission Kit Issuance (Books, Uniform, Stationery Distribution)</span>
+              </div>
+
+              <!-- Payment Handling -->
+              <mat-form-field appearance="outline">
+                <mat-label>Kit Payment Status</mat-label>
+                <mat-select formControlName="kitPaymentStatus">
+                  <mat-option value="AddedToFeeBill">Added to Student Fee Bill (Pending Invoice)</mat-option>
+                  <mat-option value="Paid">Paid at Counter (Instant Cash/UPI)</mat-option>
+                  <mat-option value="Free/Complimentary">Free / Complimentary Kit (₹0)</mat-option>
+                </mat-select>
+                <mat-hint>Choose how kit cost is collected</mat-hint>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" *ngIf="studentForm.value.kitPaymentStatus === 'Paid'">
+                <mat-label>Counter Payment Mode</mat-label>
+                <mat-select formControlName="kitPaymentMode">
+                  <mat-option value="Cash">Cash</mat-option>
+                  <mat-option value="UPI">UPI / QR Code</mat-option>
+                  <mat-option value="Card">Debit / Credit Card</mat-option>
+                  <mat-option value="BankTransfer">Direct Bank Transfer</mat-option>
+                </mat-select>
+                <mat-hint>Payment received at reception counter</mat-hint>
+              </mat-form-field>
+
+              <!-- Selected Kit Items Table / Line Builder -->
+              <div class="full-span admission-kit-panel">
+                <div class="kit-panel-header">
+                  <span class="panel-title">Kit Items to Issue from Inventory</span>
+                  <div class="add-item-controls">
+                    <mat-form-field appearance="outline" class="item-picker-field">
+                      <mat-label>Select Item to Add</mat-label>
+                      <mat-select [(value)]="selectedKitItemId" placeholder="Choose uniform, book, bag..." panelClass="batch-filter-panel">
+                        <mat-option *ngFor="let it of availableInventoryItems" [value]="it.id" [disabled]="it.currentStock <= 0">
+                          {{ it.itemName }} (₹{{ it.sellingPrice | number:'1.2-2' }}) — Stock: {{ it.currentStock }} {{ it.unitOfMeasurement }}
+                        </mat-option>
+                      </mat-select>
+                    </mat-form-field>
+                    <button mat-raised-button color="primary" type="button" (click)="addSelectedKitItem()" [disabled]="!selectedKitItemId">
+                      <mat-icon>add</mat-icon> Add to Kit
+                    </button>
+                  </div>
+                </div>
+
+                <div class="table-responsive kit-items-table" *ngIf="admissionKitRows.length > 0; else noKitItemsSelected">
+                  <table class="custom-table">
+                    <thead>
+                      <tr>
+                        <th>Item Name</th>
+                        <th style="width: 110px;">Qty</th>
+                        <th style="width: 130px;">Unit Price (₹)</th>
+                        <th style="width: 130px;">Total (₹)</th>
+                        <th style="width: 60px;">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr *ngFor="let row of admissionKitRows; let idx = index">
+                        <td class="font-bold">{{ row.itemName }} <small class="text-muted">({{ row.itemCode }})</small></td>
+                        <td>
+                          <input type="number" class="kit-qty-input" [(ngModel)]="row.quantity" [ngModelOptions]="{standalone: true}" (input)="recalculateKitTotal()" min="1" [max]="row.maxStock" />
+                        </td>
+                        <td>
+                          <input type="number" class="kit-price-input" [(ngModel)]="row.unitPrice" [ngModelOptions]="{standalone: true}" (input)="recalculateKitTotal()" min="0" />
+                        </td>
+                        <td class="font-bold text-primary">₹{{ (row.quantity * row.unitPrice) | number:'1.2-2' }}</td>
+                        <td>
+                          <button mat-icon-button color="warn" type="button" (click)="removeKitItem(idx)">
+                            <mat-icon>delete</mat-icon>
+                          </button>
+                        </td>
+                      </tr>
+                    </tbody>
+                    <tfoot>
+                      <tr>
+                        <td colspan="3" class="text-right font-bold">Total Kit Payable:</td>
+                        <td colspan="2" class="font-bold text-primary text-lg">₹{{ totalKitPayable | number:'1.2-2' }}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+
+                <ng-template #noKitItemsSelected>
+                  <div class="empty-kit-banner">
+                    <mat-icon>info</mat-icon>
+                    <span>Select items from inventory above to build the student's admission kit. Stock will be auto-deducted upon saving admission.</span>
+                  </div>
+                </ng-template>
+              </div>
             </ng-container>
 
             <!-- Personal Information Section -->
@@ -1253,6 +1352,73 @@ const API_BASE = environment.apiBaseUrl;
         color: #9d174d;
         border-left: 4px solid #db2777;
       }
+      &.kit-sect {
+        background: #eef2ff;
+        color: #3730a3;
+        border-left: 4px solid #6366f1;
+      }
+    }
+
+    .admission-kit-panel {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 16px;
+      margin-top: 4px;
+      margin-bottom: 12px;
+    }
+    .kit-panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 14px;
+
+      .panel-title {
+        font-weight: 700;
+        color: #1e293b;
+        font-size: 0.95rem;
+      }
+
+      .add-item-controls {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+
+        .item-picker-field {
+          width: 320px;
+          margin-bottom: -1.25em;
+        }
+      }
+    }
+    .kit-items-table {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .kit-qty-input, .kit-price-input {
+      width: 80px;
+      padding: 6px 10px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      outline: none;
+      &:focus {
+        border-color: #3b82f6;
+      }
+    }
+    .empty-kit-banner {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 16px;
+      background: #f1f5f9;
+      border-radius: 8px;
+      color: #475569;
+      font-size: 0.85rem;
     }
 
     /* Live Auto-Age & NEP Advisory Inline Badge */
@@ -2087,6 +2253,19 @@ export class StudentsComponent implements OnInit, OnDestroy {
   /** Library Membership Support */
   libraryPlans: LibraryMembershipPlanDto[] = [];
 
+  /** Inventory Admission Kit Support */
+  availableInventoryItems: InventoryItem[] = [];
+  selectedKitItemId: string = '';
+  admissionKitRows: {
+    itemId: string;
+    itemName: string;
+    itemCode: string;
+    quantity: number;
+    unitPrice: number;
+    maxStock: number;
+  }[] = [];
+  totalKitPayable = 0;
+
   /** 1-Click Coaching Enrollment Dialog */
   enrollCoachingModalOpen = false;
   enrollingStudent: any = null;
@@ -2124,7 +2303,8 @@ export class StudentsComponent implements OnInit, OnDestroy {
     private dialog: MatDialog,
     private fb: FormBuilder,
     private router: Router,
-    public authService: AuthService
+    public authService: AuthService,
+    private inventoryService: InventoryService
   ) {
     const hasSchool = this.authService.hasSchoolModule();
     const hasCoaching = this.authService.hasCoachingModule();
@@ -2149,6 +2329,9 @@ export class StudentsComponent implements OnInit, OnDestroy {
       libraryMembershipType: ['Standard Book Lending'],
       maxLibraryBooks: [2],
       monthlyLibraryFee: [0],
+      isIssueAdmissionKit: [false],
+      kitPaymentStatus: ['AddedToFeeBill'],
+      kitPaymentMode: ['Cash'],
       classId: [initSchool ? '' : ''],
       sectionId: [''],
       admissionNumber: [''],
@@ -2427,6 +2610,57 @@ export class StudentsComponent implements OnInit, OnDestroy {
     const year = new Date().getFullYear();
     const rand = Math.floor(1000 + Math.random() * 9000);
     this.studentForm.patchValue({ libraryCardNumber: `LIB-${year}-${rand}` });
+  }
+
+  // ── Inventory Admission Kit Helpers ──────────────────────
+  onKitCheckChanged(): void {
+    const isKit = this.studentForm.get('isIssueAdmissionKit')?.value;
+    if (isKit && this.availableInventoryItems.length === 0) {
+      this.loadInventoryItems();
+    }
+  }
+
+  loadInventoryItems(): void {
+    const branchId = this.authService.selectedBranchId() || undefined;
+    this.inventoryService.getItems({ activeOnly: true, branchId }).subscribe({
+      next: (items) => {
+        this.availableInventoryItems = items || [];
+      },
+      error: () => {}
+    });
+  }
+
+  addSelectedKitItem(): void {
+    if (!this.selectedKitItemId) return;
+    const item = this.availableInventoryItems.find(i => i.id === this.selectedKitItemId);
+    if (!item) return;
+
+    const existing = this.admissionKitRows.find(r => r.itemId === item.id);
+    if (existing) {
+      if (existing.quantity < item.currentStock) {
+        existing.quantity += 1;
+      }
+    } else {
+      this.admissionKitRows.push({
+        itemId: item.id,
+        itemName: item.itemName,
+        itemCode: item.itemCode,
+        quantity: 1,
+        unitPrice: item.sellingPrice || 0,
+        maxStock: item.currentStock
+      });
+    }
+    this.selectedKitItemId = '';
+    this.recalculateKitTotal();
+  }
+
+  removeKitItem(idx: number): void {
+    this.admissionKitRows.splice(idx, 1);
+    this.recalculateKitTotal();
+  }
+
+  recalculateKitTotal(): void {
+    this.totalKitPayable = this.admissionKitRows.reduce((sum, r) => sum + (r.quantity * r.unitPrice), 0);
   }
 
   // ── Sibling & Parent Smart Match Helpers ─────────────────
@@ -2904,6 +3138,9 @@ export class StudentsComponent implements OnInit, OnDestroy {
       this.photoPreview = null;
       this.selectedPhotoData = null;
       this.formSections = [];
+      this.admissionKitRows = [];
+      this.selectedKitItemId = '';
+      this.totalKitPayable = 0;
       this.studentForm.reset({
         isSchoolStudent: initSchool,
         isCoachingStudent: initCoaching,
@@ -2914,6 +3151,9 @@ export class StudentsComponent implements OnInit, OnDestroy {
         libraryMembershipType: 'Standard Book Lending',
         maxLibraryBooks: 2,
         monthlyLibraryFee: 0,
+        isIssueAdmissionKit: false,
+        kitPaymentStatus: 'AddedToFeeBill',
+        kitPaymentMode: 'Cash',
         gender: 'Male'
       });
       this.onStreamCheckChanged();
@@ -2935,6 +3175,9 @@ export class StudentsComponent implements OnInit, OnDestroy {
     this.phoneDuplicateError = '';
     this.photoPreview = student.profilePhoto ? this.getPhotoUrl(student.profilePhoto) : null;
     this.selectedPhotoData = null;
+    this.admissionKitRows = [];
+    this.selectedKitItemId = '';
+    this.totalKitPayable = 0;
 
     let formattedPhone = student.parentWhatsAppPhone || '';
     const raw = formattedPhone.replace(/\D/g, '');
@@ -3228,6 +3471,16 @@ export class StudentsComponent implements OnInit, OnDestroy {
       libraryMembershipType: formVal.isLibraryMember ? (formVal.libraryMembershipType || 'Standard Book Lending') : null,
       maxLibraryBooks: formVal.isLibraryMember ? (formVal.maxLibraryBooks || 2) : 2,
       monthlyLibraryFee: formVal.isLibraryMember ? (formVal.monthlyLibraryFee || 0) : 0,
+      isIssueAdmissionKit: !this.isEditMode && !!formVal.isIssueAdmissionKit,
+      kitPaymentStatus: (!this.isEditMode && formVal.isIssueAdmissionKit) ? formVal.kitPaymentStatus : null,
+      kitPaymentMode: (!this.isEditMode && formVal.isIssueAdmissionKit) ? formVal.kitPaymentMode : null,
+      admissionKitItems: (!this.isEditMode && formVal.isIssueAdmissionKit && this.admissionKitRows.length > 0)
+        ? this.admissionKitRows.map(r => ({
+            itemId: r.itemId,
+            quantity: r.quantity,
+            unitPrice: r.unitPrice
+          }))
+        : null,
       batchId: formVal.isCoachingStudent && formVal.batchId ? formVal.batchId : null,
       rollNumber: formVal.isCoachingStudent ? formVal.rollNumber : (formVal.schoolRollNumber || formVal.admissionNumber || 'SCH'),
       schoolRollNumber: formVal.schoolRollNumber ? formVal.schoolRollNumber.trim() : null,

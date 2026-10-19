@@ -205,7 +205,7 @@ export class InventoryVendorDialogComponent implements OnInit {
   ngOnInit(): void {
     const v = this.data.vendor;
     this.form = this.fb.group({
-      vendorName: [v?.vendorName || '', [Validators.required, Validators.maxLength(150)]],
+      vendorName: [v?.vendorName || v?.name || '', [Validators.required, Validators.maxLength(150)]],
       contactPerson: [v?.contactPerson || ''],
       phone: [v?.phone || ''],
       email: [v?.email || '', [Validators.email]],

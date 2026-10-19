@@ -85,6 +85,7 @@ export class AuthService {
   readonly hasHostelModule = computed(() => this.currentUser()?.hasHostelModule ?? true);
   readonly hasLibraryModule = computed(() => this.currentUser()?.hasLibraryModule ?? true);
   readonly hasTransportModule = computed(() => this.currentUser()?.hasTransportModule ?? true);
+  readonly hasInventoryModule = computed(() => this.isModuleLicensed('inventory'));
   readonly licensedModules = computed(() => this.currentUser()?.licensedModules ?? null);
 
   /** Returns the institute / coaching center name for the current tenant */
@@ -112,6 +113,7 @@ export class AuthService {
       case 'hostel': return !!user.hasHostelModule;
       case 'library': return !!user.hasLibraryModule;
       case 'transport': return !!user.hasTransportModule;
+      case 'inventory': return true;
       default: return false;
     }
   }

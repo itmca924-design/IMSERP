@@ -476,6 +476,8 @@ public class FeeInvoice
     public Guid? SectionId { get; set; }
     public string? ClassName { get; set; }
     public string? SectionName { get; set; }
+    public decimal ConcessionAmount { get; set; } = 0;
+    public string? ConcessionReason { get; set; }
 
     [ForeignKey("BranchId")]
     public Branch? Branch { get; set; }
@@ -2026,6 +2028,7 @@ public class AdmissionEnquiry
     public string? Email { get; set; }
     public Guid? InterestedClassId { get; set; }
     public string? InterestedClassName { get; set; }
+    public string AdmissionStream { get; set; } = "School"; // School, Coaching
     public Guid? InterestedBatchId { get; set; }
     public string? InterestedBatchName { get; set; }
     public DateTime EnquiryDate { get; set; } = DateTime.UtcNow;
@@ -2039,6 +2042,25 @@ public class AdmissionEnquiry
     public string? CreatedBy { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+    // Public Online Admission Application Fields
+    public DateTime? DateOfBirth { get; set; }
+    public string? Gender { get; set; }
+    public string? MotherName { get; set; }
+    public string? FatherOccupation { get; set; }
+    public string? Address { get; set; }
+    public string? City { get; set; }
+    public string? State { get; set; }
+    public string? Pincode { get; set; }
+    public string? BloodGroup { get; set; }
+    public string? Category { get; set; }
+    public string? AadhaarNumber { get; set; }
+    public string? PreviousSchoolName { get; set; }
+    public string? PreviousMarks { get; set; }
+    public bool RequiresTransport { get; set; } = false;
+    public bool RequiresHostel { get; set; } = false;
+    public string? AcademicYear { get; set; }
+    public string? ApplicationNumber { get; set; }
 
     public Tenant? Tenant { get; set; }
     [ForeignKey("BranchId")]
@@ -2337,6 +2359,34 @@ public class StudentSibling
 
     [ForeignKey("SiblingStudentId")]
     public Student? SiblingStudent { get; set; }
+}
+
+public class StudentFeeConcession
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid StudentId { get; set; }
+    public string ConcessionType { get; set; } = "SiblingDiscount"; // SiblingDiscount, MeritScholarship, StaffWard, EWS_RTE, SportsQuota, SpecialManagement
+    public string Title { get; set; } = string.Empty;
+    public string DiscountMode { get; set; } = "Percentage"; // Percentage, FixedAmount
+    public decimal DiscountValue { get; set; } = 0;
+    public Guid? FeeHeadId { get; set; }
+    public DateTime ApplicableFrom { get; set; } = DateTime.UtcNow;
+    public DateTime? ApplicableTo { get; set; }
+    public string Status { get; set; } = "Active"; // Active, Suspended, Expired
+    public string? ApprovedBy { get; set; }
+    public string? Remarks { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("StudentId")]
+    public Student? Student { get; set; }
+
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+
+    [ForeignKey("FeeHeadId")]
+    public FeeHead? FeeHead { get; set; }
 }
 
 public class StudyMaterial
@@ -2718,4 +2768,302 @@ public class InventoryStockAdjustment
     [ForeignKey("BranchId")]
     public Branch? Branch { get; set; }
 }
+
+public class InventoryPurchaseReturn
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid VendorId { get; set; }
+    public Guid? InwardId { get; set; }
+    public string ReturnNumber { get; set; } = string.Empty;
+    public string? DebitNoteNumber { get; set; }
+    public DateTime ReturnDate { get; set; } = DateTime.UtcNow;
+    public decimal TotalAmount { get; set; } = 0;
+    public string RefundStatus { get; set; } = "AdjustedInLedger"; // AdjustedInLedger, RefundReceived, Pending
+    public string? Remarks { get; set; }
+    public Guid? CreatedBy { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("VendorId")]
+    public InventoryVendor? Vendor { get; set; }
+
+    [ForeignKey("InwardId")]
+    public InventoryInward? Inward { get; set; }
+
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+
+    public ICollection<InventoryPurchaseReturnItem> Items { get; set; } = new List<InventoryPurchaseReturnItem>();
+}
+
+public class InventoryPurchaseReturnItem
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid PurchaseReturnId { get; set; }
+    public Guid ItemId { get; set; }
+    public decimal Quantity { get; set; } = 1;
+    public decimal UnitPrice { get; set; } = 0;
+    public decimal TotalAmount { get; set; } = 0;
+    public string? Reason { get; set; }
+
+    [ForeignKey("PurchaseReturnId")]
+    public InventoryPurchaseReturn? PurchaseReturn { get; set; }
+
+    [ForeignKey("ItemId")]
+    public InventoryItem? Item { get; set; }
+
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+}
+
+public class InventorySaleReturn
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid? OutwardId { get; set; }
+    public Guid? StudentId { get; set; }
+    public string ReturnedByName { get; set; } = string.Empty;
+    public string? DepartmentOrClass { get; set; }
+    public string ReturnNumber { get; set; } = string.Empty;
+    public DateTime ReturnDate { get; set; } = DateTime.UtcNow;
+    public decimal TotalAmount { get; set; } = 0;
+    public string RefundStatus { get; set; } = "NoRefund"; // RefundedCash, AdjustedInFees, NoRefund
+    public string? RefundPaymentMode { get; set; }
+    public string? Remarks { get; set; }
+    public Guid? CreatedBy { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("OutwardId")]
+    public InventoryOutward? Outward { get; set; }
+
+    [ForeignKey("StudentId")]
+    public Student? Student { get; set; }
+
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+
+    public ICollection<InventorySaleReturnItem> Items { get; set; } = new List<InventorySaleReturnItem>();
+}
+
+public class InventorySaleReturnItem
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid SaleReturnId { get; set; }
+    public Guid ItemId { get; set; }
+    public decimal Quantity { get; set; } = 1;
+    public decimal UnitPrice { get; set; } = 0;
+    public decimal TotalAmount { get; set; } = 0;
+    public string Condition { get; set; } = "Good/Resellable"; // Good/Resellable, Damaged
+    public string? Reason { get; set; }
+
+    [ForeignKey("SaleReturnId")]
+    public InventorySaleReturn? SaleReturn { get; set; }
+
+    [ForeignKey("ItemId")]
+    public InventoryItem? Item { get; set; }
+
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+}
+
+public class InventoryVendorPayment
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid VendorId { get; set; }
+    public string VoucherNumber { get; set; } = string.Empty;
+    public DateTime PaymentDate { get; set; } = DateTime.UtcNow;
+    public decimal Amount { get; set; } = 0;
+    public string PaymentMode { get; set; } = "Cash"; // Cash, Bank Transfer, Cheque, UPI
+    public string? ReferenceNumber { get; set; }
+    public string? BankName { get; set; }
+    public string? Remarks { get; set; }
+    public Guid? CreatedBy { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("VendorId")]
+    public InventoryVendor? Vendor { get; set; }
+
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+}
+
+public class InfirmaryVisit
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public string VisitNumber { get; set; } = string.Empty;
+    public string PatientType { get; set; } = "Student"; // "Student" | "Staff"
+    public Guid? StudentId { get; set; }
+    public Guid? StaffId { get; set; }
+    public string PatientName { get; set; } = string.Empty;
+    public string? ClassOrDesignation { get; set; }
+    public string? ContactPhone { get; set; }
+    public DateTime VisitDate { get; set; } = DateTime.UtcNow;
+    public string ChiefComplaints { get; set; } = string.Empty;
+    public string? SymptomsList { get; set; }
+    public decimal? TemperatureF { get; set; }
+    public int? PulseBpm { get; set; }
+    public string? BloodPressure { get; set; }
+    public int? SpO2 { get; set; }
+    public string Severity { get; set; } = "Mild"; // "Mild" | "Moderate" | "Severe"
+    public bool BedRestRequired { get; set; } = false;
+    public string? BedNumber { get; set; }
+    public DateTime? AdmittedAt { get; set; }
+    public DateTime? DischargedAt { get; set; }
+    public string BedStatus { get; set; } = "NotAssigned"; // "NotAssigned" | "Occupied" | "Discharged"
+    public string? Diagnosis { get; set; }
+    public string? TreatmentGiven { get; set; }
+    public string? MedicinesDispensedJson { get; set; }
+    public bool ParentContacted { get; set; } = false;
+    public DateTime? ParentContactedAt { get; set; }
+    public string? ParentNotificationNotes { get; set; }
+    public bool ReferredToHospital { get; set; } = false;
+    public string? HospitalName { get; set; }
+    public bool SentHome { get; set; } = false;
+    public string? AccompaniedBy { get; set; }
+    public string? AttendingStaffName { get; set; }
+    public string Status { get; set; } = "Recovered"; // "UnderObservation" | "Recovered" | "Referred" | "SentHome" | "Discharged"
+    public string? Remarks { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+    public Tenant? Tenant { get; set; }
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+    [ForeignKey("StudentId")]
+    public Student? Student { get; set; }
+}
+
+// ─── PTM Scheduler & Grievance Helpdesk Entities ─────────────────────────
+
+public class PtmSession
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string? AcademicYear { get; set; }
+    public DateTime MeetingDate { get; set; }
+    public string StartTime { get; set; } = "09:00 AM";
+    public string EndTime { get; set; } = "01:30 PM";
+    public string MeetingMode { get; set; } = "In-Person"; // In-Person, Virtual / Online, Hybrid
+    public string? VenueOrLink { get; set; }
+    public string DivisionScope { get; set; } = "All"; // "All" | "School" | "Coaching"
+    public Guid? TargetClassId { get; set; }
+    public string? TargetClassName { get; set; }
+    public string? TargetSection { get; set; }
+    public Guid? TargetBatchId { get; set; }
+    public string? TargetBatchName { get; set; }
+    public string OrganizerName { get; set; } = string.Empty;
+    public string? Agenda { get; set; }
+    public string Status { get; set; } = "Scheduled"; // Scheduled, In-Progress, Completed, Cancelled
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+    public Tenant? Tenant { get; set; }
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+    [ForeignKey("TargetBatchId")]
+    public Batch? TargetBatch { get; set; }
+    public ICollection<PtmBooking> Bookings { get; set; } = new List<PtmBooking>();
+}
+
+public class PtmBooking
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid PtmSessionId { get; set; }
+    public Guid StudentId { get; set; }
+    public string StudentName { get; set; } = string.Empty;
+    public string? AdmissionNumber { get; set; }
+    public string? ClassName { get; set; }
+    public string? ParentName { get; set; }
+    public string? ParentPhone { get; set; }
+    public string? SlotTime { get; set; }
+    public string ParentAttended { get; set; } = "Pending"; // Pending, Attended, Father, Mother, Both, Absent, Cancelled
+    public string? TeacherName { get; set; }
+    public string? TeacherFeedback { get; set; }
+    public string? ParentFeedback { get; set; }
+    public string? ActionPoints { get; set; }
+    public bool FollowUpRequired { get; set; } = false;
+    public DateTime? FollowUpDate { get; set; }
+    public DateTime? AttendedAt { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+    public Tenant? Tenant { get; set; }
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+    [ForeignKey("PtmSessionId")]
+    public PtmSession? PtmSession { get; set; }
+    [ForeignKey("StudentId")]
+    public Student? Student { get; set; }
+}
+
+public class GrievanceTicket
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public string TicketNumber { get; set; } = string.Empty;
+    public string DivisionScope { get; set; } = "All"; // "All" | "School" | "Coaching" | "Dual"
+    public Guid? StudentId { get; set; }
+    public string? StudentName { get; set; }
+    public string? AdmissionNumber { get; set; }
+    public string? ClassName { get; set; }
+    public string RaisedByName { get; set; } = string.Empty;
+    public string RaisedByRole { get; set; } = "Parent"; // Parent, Student, Staff, Visitor
+    public string ContactPhone { get; set; } = string.Empty;
+    public string? ContactEmail { get; set; }
+    public string Category { get; set; } = "Academic"; // Academic, Fee & Billing, Transport, Hostel, Discipline & Safety, Infrastructure, Staff Behavior, Other
+    public string Priority { get; set; } = "Medium"; // Low, Medium, High, Urgent
+    public string Subject { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public string Status { get; set; } = "Open"; // Open, Under Review, In Progress, Resolved, Closed, Rejected
+    public Guid? AssignedToUserId { get; set; }
+    public string? AssignedToName { get; set; }
+    public string? ResolutionSummary { get; set; }
+    public DateTime? ResolvedAt { get; set; }
+    public string? ResolvedByName { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+    public Tenant? Tenant { get; set; }
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+    [ForeignKey("StudentId")]
+    public Student? Student { get; set; }
+    public ICollection<GrievanceComment> Comments { get; set; } = new List<GrievanceComment>();
+}
+
+public class GrievanceComment
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid TicketId { get; set; }
+    public string AuthorName { get; set; } = string.Empty;
+    public string AuthorRole { get; set; } = "Staff";
+    public string Comment { get; set; } = string.Empty;
+    public bool IsInternal { get; set; } = false;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    public Tenant? Tenant { get; set; }
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+    [ForeignKey("TicketId")]
+    public GrievanceTicket? Ticket { get; set; }
+}
+
+
 

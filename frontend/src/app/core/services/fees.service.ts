@@ -539,6 +539,88 @@ export class FeesService {
       { params }
     );
   }
+
+  // ── Fee Concessions & Sibling Discount Engine ──
+  getConcessions(filters?: {
+    search?: string;
+    concessionType?: string;
+    status?: string;
+    branchId?: string;
+  }): Observable<StudentFeeConcession[]> {
+    let params = new HttpParams();
+    if (filters?.search) params = params.set('search', filters.search.trim());
+    if (filters?.concessionType) params = params.set('concessionType', filters.concessionType);
+    if (filters?.status) params = params.set('status', filters.status);
+    if (filters?.branchId) params = params.set('branchId', filters.branchId);
+    return this.http.get<StudentFeeConcession[]>(`${environment.apiUrl}/fees/concessions`, { params });
+  }
+
+  getConcessionStats(branchId?: string): Observable<FeeConcessionStats> {
+    let params = new HttpParams();
+    if (branchId) params = params.set('branchId', branchId);
+    return this.http.get<FeeConcessionStats>(`${environment.apiUrl}/fees/concessions/stats`, { params });
+  }
+
+  createConcession(dto: CreateFeeConcessionDto): Observable<StudentFeeConcession> {
+    return this.http.post<StudentFeeConcession>(`${environment.apiUrl}/fees/concessions`, dto);
+  }
+
+  updateConcessionStatus(id: string, dto: UpdateFeeConcessionStatusDto): Observable<{ message: string }> {
+    return this.http.put<{ message: string }>(`${environment.apiUrl}/fees/concessions/${id}/status`, dto);
+  }
+
+  deleteConcession(id: string): Observable<{ message: string }> {
+    return this.http.delete<{ message: string }>(`${environment.apiUrl}/fees/concessions/${id}`);
+  }
+}
+
+export interface StudentFeeConcession {
+  id: string;
+  studentId: string;
+  studentName: string;
+  rollNumber: string;
+  admissionNumber?: string | null;
+  classOrBatchName?: string | null;
+  branchId?: string | null;
+  branchName?: string | null;
+  concessionType: string;
+  title: string;
+  discountMode: string;
+  discountValue: number;
+  feeHeadId?: string | null;
+  feeHeadName?: string | null;
+  applicableFrom: string;
+  applicableTo?: string | null;
+  status: string;
+  approvedBy?: string | null;
+  remarks?: string | null;
+  createdAt: string;
+}
+
+export interface CreateFeeConcessionDto {
+  studentId: string;
+  concessionType: string;
+  title: string;
+  discountMode: string;
+  discountValue: number;
+  feeHeadId?: string | null;
+  applicableFrom?: string | null;
+  applicableTo?: string | null;
+  approvedBy?: string | null;
+  remarks?: string | null;
+}
+
+export interface UpdateFeeConcessionStatusDto {
+  status: string;
+  remarks?: string | null;
+}
+
+export interface FeeConcessionStats {
+  totalActiveConcessions: number;
+  siblingDiscountsActive: number;
+  meritScholarshipsActive: number;
+  ewsRteActive: number;
+  totalConcessionAmountBilled: number;
 }
 
 export interface UpiIntentResponse {

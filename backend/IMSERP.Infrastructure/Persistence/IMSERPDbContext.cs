@@ -102,6 +102,7 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
     public DbSet<StudentPtmRecord> StudentPtmRecords => Set<StudentPtmRecord>();
     public DbSet<StudentHealthRecord> StudentHealthRecords => Set<StudentHealthRecord>();
     public DbSet<StudentSibling> StudentSiblings => Set<StudentSibling>();
+    public DbSet<StudentFeeConcession> StudentFeeConcessions => Set<StudentFeeConcession>();
     public DbSet<StudyMaterial> StudyMaterials => Set<StudyMaterial>();
     public DbSet<SchoolPeriodSlot> SchoolPeriodSlots => Set<SchoolPeriodSlot>();
     public DbSet<SchoolActivityType> SchoolActivityTypes => Set<SchoolActivityType>();
@@ -117,6 +118,16 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
     public DbSet<InventoryOutward> InventoryOutwards => Set<InventoryOutward>();
     public DbSet<InventoryOutwardItem> InventoryOutwardItems => Set<InventoryOutwardItem>();
     public DbSet<InventoryStockAdjustment> InventoryStockAdjustments => Set<InventoryStockAdjustment>();
+    public DbSet<InventoryPurchaseReturn> InventoryPurchaseReturns => Set<InventoryPurchaseReturn>();
+    public DbSet<InventoryPurchaseReturnItem> InventoryPurchaseReturnItems => Set<InventoryPurchaseReturnItem>();
+    public DbSet<InventorySaleReturn> InventorySaleReturns => Set<InventorySaleReturn>();
+    public DbSet<InventorySaleReturnItem> InventorySaleReturnItems => Set<InventorySaleReturnItem>();
+    public DbSet<InventoryVendorPayment> InventoryVendorPayments => Set<InventoryVendorPayment>();
+    public DbSet<InfirmaryVisit> InfirmaryVisits => Set<InfirmaryVisit>();
+    public DbSet<PtmSession> PtmSessions => Set<PtmSession>();
+    public DbSet<PtmBooking> PtmBookings => Set<PtmBooking>();
+    public DbSet<GrievanceTicket> GrievanceTickets => Set<GrievanceTicket>();
+    public DbSet<GrievanceComment> GrievanceComments => Set<GrievanceComment>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -180,6 +191,10 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
         });
 
         modelBuilder.Entity<StudentSibling>().HasQueryFilter(x => 
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+
+        modelBuilder.Entity<StudentFeeConcession>().HasQueryFilter(x => 
             (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
 
@@ -425,6 +440,36 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
             (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<InventoryStockAdjustment>().HasQueryFilter(x =>
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<InventoryPurchaseReturn>().HasQueryFilter(x =>
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<InventoryPurchaseReturnItem>().HasQueryFilter(x =>
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<InventorySaleReturn>().HasQueryFilter(x =>
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<InventorySaleReturnItem>().HasQueryFilter(x =>
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<InventoryVendorPayment>().HasQueryFilter(x =>
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<InfirmaryVisit>().HasQueryFilter(x =>
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<PtmSession>().HasQueryFilter(x =>
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<PtmBooking>().HasQueryFilter(x =>
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<GrievanceTicket>().HasQueryFilter(x =>
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<GrievanceComment>().HasQueryFilter(x =>
             (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
 

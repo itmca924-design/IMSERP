@@ -216,7 +216,39 @@ public class InventoryController : ControllerBase
 
         var vendors = await query
             .OrderBy(v => v.VendorName)
-            .Select(v => new InventoryVendorDto(
+            .ToListAsync();
+
+        var vendorIds = vendors.Select(v => v.Id).ToList();
+
+        var inwardTotals = await _db.InventoryInwards
+            .AsNoTracking()
+            .Where(i => i.VendorId.HasValue && vendorIds.Contains(i.VendorId.Value))
+            .GroupBy(i => i.VendorId!.Value)
+            .Select(g => new { VendorId = g.Key, Total = g.Sum(x => x.NetAmount) })
+            .ToDictionaryAsync(x => x.VendorId, x => x.Total);
+
+        var paymentTotals = await _db.InventoryVendorPayments
+            .AsNoTracking()
+            .Where(p => vendorIds.Contains(p.VendorId))
+            .GroupBy(p => p.VendorId)
+            .Select(g => new { VendorId = g.Key, Total = g.Sum(x => x.Amount) })
+            .ToDictionaryAsync(x => x.VendorId, x => x.Total);
+
+        var returnTotals = await _db.InventoryPurchaseReturns
+            .AsNoTracking()
+            .Where(r => vendorIds.Contains(r.VendorId))
+            .GroupBy(r => r.VendorId)
+            .Select(g => new { VendorId = g.Key, Total = g.Sum(x => x.TotalAmount) })
+            .ToDictionaryAsync(x => x.VendorId, x => x.Total);
+
+        var result = vendors.Select(v =>
+        {
+            var purchased = inwardTotals.GetValueOrDefault(v.Id, 0);
+            var paid = paymentTotals.GetValueOrDefault(v.Id, 0);
+            var returned = returnTotals.GetValueOrDefault(v.Id, 0);
+            var balanceDue = purchased - paid - returned;
+
+            return new InventoryVendorDto(
                 v.Id,
                 v.VendorName,
                 v.ContactPerson,
@@ -228,11 +260,15 @@ public class InventoryController : ControllerBase
                 v.PaymentTerms,
                 v.BankDetails,
                 v.IsActive,
-                v.BranchId
-            ))
-            .ToListAsync();
+                v.BranchId,
+                purchased,
+                paid,
+                returned,
+                balanceDue
+            );
+        }).ToList();
 
-        return Ok(vendors);
+        return Ok(result);
     }
 
     [HttpPost("vendors")]
@@ -954,6 +990,478 @@ public class InventoryController : ControllerBase
 
         return Ok(list);
     }
+
+    // =========================================================================
+    // 8. Vendor Ledger & Vendor Payments
+    // =========================================================================
+
+    [HttpGet("vendors/{id}/ledger")]
+    public async Task<ActionResult<VendorLedgerSummaryDto>> GetVendorLedger(
+        Guid id,
+        [FromQuery] DateTime? startDate = null,
+        [FromQuery] DateTime? endDate = null)
+    {
+        var vendor = await _db.InventoryVendors.AsNoTracking().FirstOrDefaultAsync(v => v.Id == id);
+        if (vendor == null)
+            return NotFound("Vendor not found.");
+
+        var allInwards = await _db.InventoryInwards.AsNoTracking()
+            .Where(i => i.VendorId == id)
+            .Include(i => i.Items).ThenInclude(it => it.Item)
+            .ToListAsync();
+
+        var allPayments = await _db.InventoryVendorPayments.AsNoTracking()
+            .Where(p => p.VendorId == id)
+            .ToListAsync();
+
+        var allReturns = await _db.InventoryPurchaseReturns.AsNoTracking()
+            .Where(r => r.VendorId == id)
+            .Include(r => r.Items).ThenInclude(it => it.Item)
+            .ToListAsync();
+
+        var totalPurchased = allInwards.Sum(i => i.NetAmount);
+        var totalPaid = allPayments.Sum(p => p.Amount);
+        var totalReturns = allReturns.Sum(r => r.TotalAmount);
+        var balanceDue = totalPurchased - totalPaid - totalReturns;
+
+        var rawEntries = new List<VendorLedgerRawEntry>();
+
+        foreach (var inw in allInwards)
+        {
+            var itemsSummary = inw.Items != null && inw.Items.Count > 0
+                ? string.Join(", ", inw.Items.Select(it => $"{it.Item?.ItemName ?? "Item"} x{it.Quantity}"))
+                : "Inventory Goods Received";
+
+            rawEntries.Add(new VendorLedgerRawEntry(
+                inw.Id,
+                inw.InwardDate,
+                "InwardPurchase",
+                inw.InwardNumber,
+                inw.InvoiceBillNumber,
+                $"Bill/GRN: {inw.InvoiceBillNumber ?? inw.InwardNumber} — {itemsSummary}",
+                0,
+                inw.NetAmount,
+                inw.PaymentMode,
+                inw.Remarks
+            ));
+        }
+
+        foreach (var pay in allPayments)
+        {
+            rawEntries.Add(new VendorLedgerRawEntry(
+                pay.Id,
+                pay.PaymentDate,
+                "VendorPayment",
+                pay.VoucherNumber,
+                null,
+                $"Payment Made via {pay.PaymentMode} {(string.IsNullOrWhiteSpace(pay.ReferenceNumber) ? "" : $"[Ref/UTR: {pay.ReferenceNumber}]")}".Trim(),
+                pay.Amount,
+                0,
+                pay.PaymentMode,
+                pay.Remarks
+            ));
+        }
+
+        foreach (var ret in allReturns)
+        {
+            var returnItems = ret.Items != null && ret.Items.Count > 0
+                ? string.Join(", ", ret.Items.Select(it => $"{it.Item?.ItemName ?? "Item"} x{it.Quantity}"))
+                : "Items Returned";
+
+            rawEntries.Add(new VendorLedgerRawEntry(
+                ret.Id,
+                ret.ReturnDate,
+                "PurchaseReturn",
+                ret.DebitNoteNumber ?? ret.ReturnNumber,
+                null,
+                $"Debit Note: {ret.DebitNoteNumber ?? ret.ReturnNumber} — {returnItems}",
+                ret.TotalAmount,
+                0,
+                null,
+                ret.Remarks
+            ));
+        }
+
+        var sorted = rawEntries.OrderBy(e => e.Date).ToList();
+
+        decimal running = 0;
+        var computedEntries = new List<VendorLedgerEntryDto>();
+        foreach (var e in sorted)
+        {
+            running += (e.Credit - e.Debit);
+            computedEntries.Add(new VendorLedgerEntryDto(
+                e.Id,
+                e.Date,
+                e.EntryType,
+                e.ReferenceNumber,
+                e.BillNumber,
+                e.Description,
+                e.Debit,
+                e.Credit,
+                running,
+                e.PaymentMode,
+                e.Remarks
+            ));
+        }
+
+        if (startDate.HasValue)
+            computedEntries = computedEntries.Where(e => e.Date >= startDate.Value.Date).ToList();
+        if (endDate.HasValue)
+            computedEntries = computedEntries.Where(e => e.Date <= endDate.Value.Date.AddDays(1).AddTicks(-1)).ToList();
+
+        return Ok(new VendorLedgerSummaryDto(
+            vendor.Id,
+            vendor.VendorName,
+            vendor.ContactPerson,
+            vendor.Phone,
+            vendor.Email,
+            vendor.Address,
+            vendor.Gstin,
+            vendor.Pan,
+            vendor.PaymentTerms,
+            vendor.BankDetails,
+            totalPurchased,
+            totalPaid,
+            totalReturns,
+            balanceDue,
+            computedEntries
+        ));
+    }
+
+    [HttpPost("vendors/payments")]
+    public async Task<IActionResult> RecordVendorPayment([FromBody] RecordVendorPaymentDto dto)
+    {
+        if (dto.Amount <= 0)
+            return BadRequest("Payment amount must be greater than 0.");
+
+        var vendor = await _db.InventoryVendors.FindAsync(dto.VendorId);
+        if (vendor == null)
+            return NotFound("Vendor not found.");
+
+        var voucherNo = $"VP-{DateTime.UtcNow:yyyyMMdd}-{new Random().Next(100, 999)}";
+
+        var payment = new InventoryVendorPayment
+        {
+            TenantId = GetEffectiveTenantId(),
+            BranchId = dto.BranchId ?? _currentUser.BranchId,
+            VendorId = dto.VendorId,
+            VoucherNumber = voucherNo,
+            PaymentDate = dto.PaymentDate,
+            Amount = dto.Amount,
+            PaymentMode = dto.PaymentMode ?? "Cash",
+            ReferenceNumber = dto.ReferenceNumber?.Trim(),
+            BankName = dto.BankName?.Trim(),
+            Remarks = dto.Remarks?.Trim(),
+            CreatedBy = _currentUser.UserId
+        };
+
+        _db.InventoryVendorPayments.Add(payment);
+        await _db.SaveChangesAsync();
+
+        return Ok(new { message = "Vendor payment recorded successfully.", voucherNumber = voucherNo });
+    }
+
+    [HttpGet("vendors/payments")]
+    public async Task<ActionResult<IEnumerable<VendorPaymentDto>>> GetVendorPayments(
+        [FromQuery] Guid? vendorId = null,
+        [FromQuery] Guid? branchId = null)
+    {
+        var effBranchId = GetEffectiveBranchId(branchId);
+        var q = _db.InventoryVendorPayments
+            .AsNoTracking()
+            .Include(p => p.Vendor)
+            .AsQueryable();
+
+        if (effBranchId.HasValue)
+            q = q.Where(p => p.BranchId == null || p.BranchId == effBranchId);
+
+        if (vendorId.HasValue && vendorId.Value != Guid.Empty)
+            q = q.Where(p => p.VendorId == vendorId.Value);
+
+        var list = await q
+            .OrderByDescending(p => p.PaymentDate)
+            .Select(p => new VendorPaymentDto(
+                p.Id,
+                p.VendorId,
+                p.Vendor != null ? p.Vendor.VendorName : "Unknown Vendor",
+                p.VoucherNumber,
+                p.PaymentDate,
+                p.Amount,
+                p.PaymentMode,
+                p.ReferenceNumber,
+                p.BankName,
+                p.Remarks,
+                p.BranchId,
+                p.CreatedAt
+            ))
+            .ToListAsync();
+
+        return Ok(list);
+    }
+
+    // =========================================================================
+    // 9. Purchase Returns (Debit Notes)
+    // =========================================================================
+
+    [HttpGet("purchase-returns")]
+    public async Task<ActionResult<IEnumerable<InventoryPurchaseReturnDto>>> GetPurchaseReturns(
+        [FromQuery] Guid? vendorId = null,
+        [FromQuery] Guid? branchId = null)
+    {
+        var effBranchId = GetEffectiveBranchId(branchId);
+        var q = _db.InventoryPurchaseReturns
+            .AsNoTracking()
+            .Include(r => r.Vendor)
+            .Include(r => r.Items).ThenInclude(i => i.Item)
+            .AsQueryable();
+
+        if (effBranchId.HasValue)
+            q = q.Where(r => r.BranchId == null || r.BranchId == effBranchId);
+
+        if (vendorId.HasValue && vendorId.Value != Guid.Empty)
+            q = q.Where(r => r.VendorId == vendorId.Value);
+
+        var list = await q
+            .OrderByDescending(r => r.ReturnDate)
+            .Select(r => new InventoryPurchaseReturnDto(
+                r.Id,
+                r.VendorId,
+                r.Vendor != null ? r.Vendor.VendorName : "Unknown Vendor",
+                r.InwardId,
+                r.ReturnNumber,
+                r.DebitNoteNumber,
+                r.ReturnDate,
+                r.TotalAmount,
+                r.RefundStatus,
+                r.Remarks,
+                r.BranchId,
+                r.CreatedAt,
+                r.Items.Select(it => new PurchaseReturnItemLineDetailDto(
+                    it.Id,
+                    it.ItemId,
+                    it.Item != null ? it.Item.ItemName : "",
+                    it.Item != null ? it.Item.ItemCode : "",
+                    it.Quantity,
+                    it.UnitPrice,
+                    it.TotalAmount,
+                    it.Reason
+                )).ToList()
+            ))
+            .ToListAsync();
+
+        return Ok(list);
+    }
+
+    [HttpPost("purchase-returns")]
+    public async Task<IActionResult> CreatePurchaseReturn([FromBody] CreatePurchaseReturnDto dto)
+    {
+        if (dto.Items == null || dto.Items.Count == 0)
+            return BadRequest("At least one item is required for purchase return.");
+
+        var vendor = await _db.InventoryVendors.FindAsync(dto.VendorId);
+        if (vendor == null)
+            return NotFound("Vendor not found.");
+
+        var rand = new Random().Next(100, 999);
+        var returnNo = $"PR-{DateTime.UtcNow:yyyyMMdd}-{rand}";
+        var debitNoteNo = $"DN-{DateTime.UtcNow:yyyyMMdd}-{rand}";
+
+        decimal totalAmount = 0;
+        var pReturn = new InventoryPurchaseReturn
+        {
+            TenantId = GetEffectiveTenantId(),
+            BranchId = dto.BranchId ?? _currentUser.BranchId,
+            VendorId = dto.VendorId,
+            InwardId = dto.InwardId,
+            ReturnNumber = returnNo,
+            DebitNoteNumber = debitNoteNo,
+            ReturnDate = dto.ReturnDate,
+            RefundStatus = "AdjustedInLedger",
+            Remarks = dto.Remarks?.Trim(),
+            CreatedBy = _currentUser.UserId
+        };
+
+        foreach (var line in dto.Items)
+        {
+            var item = await _db.InventoryItems.FindAsync(line.ItemId);
+            if (item == null)
+                return BadRequest($"Item ID '{line.ItemId}' not found.");
+
+            if (line.Quantity <= 0)
+                return BadRequest($"Return quantity for item '{item.ItemName}' must be greater than 0.");
+
+            var lineTotal = line.Quantity * line.UnitPrice;
+            totalAmount += lineTotal;
+
+            pReturn.Items.Add(new InventoryPurchaseReturnItem
+            {
+                TenantId = GetEffectiveTenantId(),
+                BranchId = dto.BranchId ?? _currentUser.BranchId,
+                ItemId = line.ItemId,
+                Quantity = line.Quantity,
+                UnitPrice = line.UnitPrice,
+                TotalAmount = lineTotal,
+                Reason = line.Reason?.Trim()
+            });
+
+            var prevStock = item.CurrentStock;
+            item.CurrentStock -= line.Quantity;
+            item.UpdatedAt = DateTime.UtcNow;
+
+            _db.InventoryStockAdjustments.Add(new InventoryStockAdjustment
+            {
+                TenantId = GetEffectiveTenantId(),
+                BranchId = dto.BranchId ?? _currentUser.BranchId,
+                ItemId = item.Id,
+                AdjustmentType = "ReturnToVendor",
+                PreviousStock = prevStock,
+                AdjustedQuantity = -line.Quantity,
+                NewStock = item.CurrentStock,
+                Reason = $"Debit Note {debitNoteNo} to {vendor.VendorName}: {line.Reason ?? "Returned to vendor"}",
+                AdjustedAt = DateTime.UtcNow,
+                AdjustedBy = _currentUser.UserId
+            });
+        }
+
+        pReturn.TotalAmount = totalAmount;
+        _db.InventoryPurchaseReturns.Add(pReturn);
+        await _db.SaveChangesAsync();
+
+        return Ok(new { message = "Purchase return recorded & Debit Note generated successfully.", returnNumber = returnNo, debitNoteNumber = debitNoteNo });
+    }
+
+    // =========================================================================
+    // 10. Sale Returns (Kit Return from Student or Staff)
+    // =========================================================================
+
+    [HttpGet("sale-returns")]
+    public async Task<ActionResult<IEnumerable<InventorySaleReturnDto>>> GetSaleReturns(
+        [FromQuery] Guid? studentId = null,
+        [FromQuery] Guid? branchId = null)
+    {
+        var effBranchId = GetEffectiveBranchId(branchId);
+        var q = _db.InventorySaleReturns
+            .AsNoTracking()
+            .Include(r => r.Student)
+            .Include(r => r.Items).ThenInclude(i => i.Item)
+            .AsQueryable();
+
+        if (effBranchId.HasValue)
+            q = q.Where(r => r.BranchId == null || r.BranchId == effBranchId);
+
+        if (studentId.HasValue && studentId.Value != Guid.Empty)
+            q = q.Where(r => r.StudentId == studentId.Value);
+
+        var list = await q
+            .OrderByDescending(r => r.ReturnDate)
+            .Select(r => new InventorySaleReturnDto(
+                r.Id,
+                r.OutwardId,
+                r.StudentId,
+                r.ReturnedByName,
+                r.DepartmentOrClass,
+                r.ReturnNumber,
+                r.ReturnDate,
+                r.TotalAmount,
+                r.RefundStatus,
+                r.RefundPaymentMode,
+                r.Remarks,
+                r.BranchId,
+                r.CreatedAt,
+                r.Items.Select(it => new SaleReturnItemLineDetailDto(
+                    it.Id,
+                    it.ItemId,
+                    it.Item != null ? it.Item.ItemName : "",
+                    it.Item != null ? it.Item.ItemCode : "",
+                    it.Quantity,
+                    it.UnitPrice,
+                    it.TotalAmount,
+                    it.Condition,
+                    it.Reason
+                )).ToList()
+            ))
+            .ToListAsync();
+
+        return Ok(list);
+    }
+
+    [HttpPost("sale-returns")]
+    public async Task<IActionResult> CreateSaleReturn([FromBody] CreateSaleReturnDto dto)
+    {
+        if (dto.Items == null || dto.Items.Count == 0)
+            return BadRequest("At least one item is required for sale return.");
+
+        var returnNo = $"SR-{DateTime.UtcNow:yyyyMMdd}-{new Random().Next(100, 999)}";
+
+        decimal totalAmount = 0;
+        var sReturn = new InventorySaleReturn
+        {
+            TenantId = GetEffectiveTenantId(),
+            BranchId = dto.BranchId ?? _currentUser.BranchId,
+            OutwardId = dto.OutwardId,
+            StudentId = dto.StudentId,
+            ReturnedByName = dto.ReturnedByName.Trim(),
+            DepartmentOrClass = dto.DepartmentOrClass?.Trim(),
+            ReturnNumber = returnNo,
+            ReturnDate = dto.ReturnDate,
+            RefundStatus = dto.RefundStatus ?? "NoRefund",
+            RefundPaymentMode = dto.RefundPaymentMode,
+            Remarks = dto.Remarks?.Trim(),
+            CreatedBy = _currentUser.UserId
+        };
+
+        foreach (var line in dto.Items)
+        {
+            var item = await _db.InventoryItems.FindAsync(line.ItemId);
+            if (item == null)
+                return BadRequest($"Item ID '{line.ItemId}' not found.");
+
+            if (line.Quantity <= 0)
+                return BadRequest($"Return quantity for item '{item.ItemName}' must be greater than 0.");
+
+            var lineTotal = line.Quantity * line.UnitPrice;
+            totalAmount += lineTotal;
+
+            sReturn.Items.Add(new InventorySaleReturnItem
+            {
+                TenantId = GetEffectiveTenantId(),
+                BranchId = dto.BranchId ?? _currentUser.BranchId,
+                ItemId = line.ItemId,
+                Quantity = line.Quantity,
+                UnitPrice = line.UnitPrice,
+                TotalAmount = lineTotal,
+                Condition = line.Condition ?? "Good/Resellable",
+                Reason = line.Reason?.Trim()
+            });
+
+            if (line.Condition == "Good/Resellable")
+            {
+                var prevStock = item.CurrentStock;
+                item.CurrentStock += line.Quantity;
+                item.UpdatedAt = DateTime.UtcNow;
+
+                _db.InventoryStockAdjustments.Add(new InventoryStockAdjustment
+                {
+                    TenantId = GetEffectiveTenantId(),
+                    BranchId = dto.BranchId ?? _currentUser.BranchId,
+                    ItemId = item.Id,
+                    AdjustmentType = "StudentKitReturn",
+                    PreviousStock = prevStock,
+                    AdjustedQuantity = line.Quantity,
+                    NewStock = item.CurrentStock,
+                    Reason = $"Kit Return {returnNo} from {dto.ReturnedByName}: {line.Reason ?? "Returned in good condition"}",
+                    AdjustedAt = DateTime.UtcNow,
+                    AdjustedBy = _currentUser.UserId
+                });
+            }
+        }
+
+        sReturn.TotalAmount = totalAmount;
+        _db.InventorySaleReturns.Add(sReturn);
+        await _db.SaveChangesAsync();
+
+        return Ok(new { message = "Kit / Sale return recorded successfully.", returnNumber = returnNo });
+    }
 }
 
 // =========================================================================
@@ -1016,7 +1524,11 @@ public record InventoryVendorDto(
     string? PaymentTerms,
     string? BankDetails,
     bool IsActive,
-    Guid? BranchId
+    Guid? BranchId,
+    decimal TotalPurchased = 0,
+    decimal TotalPaid = 0,
+    decimal TotalReturns = 0,
+    decimal BalanceDue = 0
 );
 
 public record CreateUpdateVendorDto(
@@ -1211,3 +1723,168 @@ public record StaffLookupDto(
     string? Department,
     Guid? BranchId
 );
+
+public record VendorLedgerSummaryDto(
+    Guid VendorId,
+    string VendorName,
+    string? ContactPerson,
+    string? Phone,
+    string? Email,
+    string? Address,
+    string? Gstin,
+    string? Pan,
+    string? PaymentTerms,
+    string? BankDetails,
+    decimal TotalPurchased,
+    decimal TotalPaid,
+    decimal TotalReturns,
+    decimal BalanceDue,
+    List<VendorLedgerEntryDto> Entries
+);
+
+public record VendorLedgerEntryDto(
+    Guid Id,
+    DateTime Date,
+    string EntryType,
+    string ReferenceNumber,
+    string? BillNumber,
+    string Description,
+    decimal Debit,
+    decimal Credit,
+    decimal RunningBalance,
+    string? PaymentMode,
+    string? Remarks
+);
+
+public record VendorLedgerRawEntry(
+    Guid Id,
+    DateTime Date,
+    string EntryType,
+    string ReferenceNumber,
+    string? BillNumber,
+    string Description,
+    decimal Debit,
+    decimal Credit,
+    string? PaymentMode,
+    string? Remarks
+);
+
+public record RecordVendorPaymentDto(
+    Guid VendorId,
+    DateTime PaymentDate,
+    decimal Amount,
+    string PaymentMode,
+    string? ReferenceNumber,
+    string? BankName,
+    string? Remarks,
+    Guid? BranchId
+);
+
+public record VendorPaymentDto(
+    Guid Id,
+    Guid VendorId,
+    string VendorName,
+    string VoucherNumber,
+    DateTime PaymentDate,
+    decimal Amount,
+    string PaymentMode,
+    string? ReferenceNumber,
+    string? BankName,
+    string? Remarks,
+    Guid? BranchId,
+    DateTime CreatedAt
+);
+
+public record InventoryPurchaseReturnDto(
+    Guid Id,
+    Guid VendorId,
+    string VendorName,
+    Guid? InwardId,
+    string ReturnNumber,
+    string? DebitNoteNumber,
+    DateTime ReturnDate,
+    decimal TotalAmount,
+    string RefundStatus,
+    string? Remarks,
+    Guid? BranchId,
+    DateTime CreatedAt,
+    List<PurchaseReturnItemLineDetailDto> Items
+);
+
+public record PurchaseReturnItemLineDetailDto(
+    Guid Id,
+    Guid ItemId,
+    string ItemName,
+    string ItemCode,
+    decimal Quantity,
+    decimal UnitPrice,
+    decimal TotalAmount,
+    string? Reason
+);
+
+public record CreatePurchaseReturnDto(
+    Guid VendorId,
+    Guid? InwardId,
+    DateTime ReturnDate,
+    string? Remarks,
+    Guid? BranchId,
+    List<PurchaseReturnItemLineDto> Items
+);
+
+public record PurchaseReturnItemLineDto(
+    Guid ItemId,
+    decimal Quantity,
+    decimal UnitPrice,
+    string? Reason
+);
+
+public record InventorySaleReturnDto(
+    Guid Id,
+    Guid? OutwardId,
+    Guid? StudentId,
+    string ReturnedByName,
+    string? DepartmentOrClass,
+    string ReturnNumber,
+    DateTime ReturnDate,
+    decimal TotalAmount,
+    string RefundStatus,
+    string? RefundPaymentMode,
+    string? Remarks,
+    Guid? BranchId,
+    DateTime CreatedAt,
+    List<SaleReturnItemLineDetailDto> Items
+);
+
+public record SaleReturnItemLineDetailDto(
+    Guid Id,
+    Guid ItemId,
+    string ItemName,
+    string ItemCode,
+    decimal Quantity,
+    decimal UnitPrice,
+    decimal TotalAmount,
+    string Condition,
+    string? Reason
+);
+
+public record CreateSaleReturnDto(
+    Guid? OutwardId,
+    Guid? StudentId,
+    string ReturnedByName,
+    string? DepartmentOrClass,
+    DateTime ReturnDate,
+    string RefundStatus,
+    string? RefundPaymentMode,
+    string? Remarks,
+    Guid? BranchId,
+    List<SaleReturnItemLineDto> Items
+);
+
+public record SaleReturnItemLineDto(
+    Guid ItemId,
+    decimal Quantity,
+    decimal UnitPrice,
+    string Condition,
+    string? Reason
+);
+

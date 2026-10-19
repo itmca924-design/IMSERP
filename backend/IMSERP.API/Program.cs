@@ -2365,8 +2365,11 @@ using (var scope = app.Services.CreateScope())
 
         var frontDeskSubmenus = new[]
         {
-            new { Title = "Visitor Book",        Route = "/front-desk/visitors",   Icon = "badge",        Order = 1 },
-            new { Title = "Student Gate Pass",   Route = "/front-desk/gate-passes", Icon = "exit_to_app", Order = 2 }
+            new { Title = "Visitor Book",           Route = "/front-desk/visitors",   Icon = "badge",           Order = 1 },
+            new { Title = "Student Gate Pass",      Route = "/front-desk/gate-passes", Icon = "exit_to_app",     Order = 2 },
+            new { Title = "Infirmary & Sick Bay",   Route = "/front-desk/infirmary",   Icon = "local_hospital",  Order = 3 },
+            new { Title = "PTM Scheduler",          Route = "/front-desk/ptm",         Icon = "calendar_month",  Order = 4 },
+            new { Title = "Grievance Helpdesk",     Route = "/front-desk/grievances",  Icon = "support_agent",   Order = 5 }
         };
 
         foreach (var sub in frontDeskSubmenus)

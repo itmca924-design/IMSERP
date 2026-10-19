@@ -871,6 +871,18 @@ export interface Student360Data {
   healthRecord?: StudentHealthDto | null;
   healthProfile?: StudentHealthDto | null;
   performanceAlert?: StudentAcademicAlert360Dto | null;
+  inventoryKits?: StudentInventoryKit360[];
+}
+
+export interface StudentInventoryKit360 {
+  outwardId: string;
+  issueNumber: string;
+  issueDate: string;
+  itemsSummary: string;
+  totalQuantity: number;
+  totalAmount: number;
+  paymentStatus: string;
+  remarks?: string;
 }
 
 export interface StudentUpcomingTest {

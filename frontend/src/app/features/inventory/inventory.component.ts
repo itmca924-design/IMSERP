@@ -1,5 +1,6 @@
 import { Component, OnInit, OnDestroy, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterModule } from '@angular/router';
 import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -48,6 +49,7 @@ import { InventoryAdjustDialogComponent } from './dialogs/inventory-adjust-dialo
   standalone: true,
   imports: [
     CommonModule,
+    RouterModule,
     ReactiveFormsModule,
     MatCardModule,
     MatFormFieldModule,
@@ -103,6 +105,22 @@ import { InventoryAdjustDialogComponent } from './dialogs/inventory-adjust-dialo
             <mat-icon>refresh</mat-icon>
           </button>
         </div>
+      </div>
+
+      <!-- Module Sub-Nav Bar -->
+      <div class="module-nav-bar">
+        <a mat-button [routerLink]="['/inventory']" class="nav-tab active-tab">
+          <mat-icon>inventory_2</mat-icon> Store &amp; Catalog
+        </a>
+        <a mat-button [routerLink]="['/inventory/purchase-returns']" class="nav-tab">
+          <mat-icon>assignment_return</mat-icon> Purchase Returns (PR)
+        </a>
+        <a mat-button [routerLink]="['/inventory/sale-returns']" class="nav-tab">
+          <mat-icon>keyboard_return</mat-icon> Kit &amp; Sale Returns (SR)
+        </a>
+        <a mat-button [routerLink]="['/inventory/vendors']" class="nav-tab">
+          <mat-icon>account_balance_wallet</mat-icon> Vendors &amp; Ledger
+        </a>
       </div>
 
       <!-- Single Prominent Loader Rule -->
@@ -809,6 +827,35 @@ import { InventoryAdjustDialogComponent } from './dialogs/inventory-adjust-dialo
       justify-content: space-between;
       flex-wrap: wrap;
       gap: 16px;
+    }
+    .module-nav-bar {
+      display: flex;
+      gap: 8px;
+      background: #f1f5f9;
+      padding: 6px;
+      border-radius: 10px;
+      border: 1px solid #e2e8f0;
+      flex-wrap: wrap;
+    }
+    .nav-tab {
+      font-weight: 600;
+      font-size: 13px;
+      color: #64748b;
+      border-radius: 8px;
+      height: 38px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease-in-out;
+    }
+    .nav-tab:hover {
+      background: #e2e8f0;
+      color: #1e293b;
+    }
+    .nav-tab.active-tab {
+      background: #2563eb;
+      color: #ffffff;
+      box-shadow: 0 2px 4px rgba(37, 99, 235, 0.25);
     }
     .title-badge-row {
       display: flex;

@@ -1587,6 +1587,27 @@ public class FeesController : ControllerBase
         var studentsWithPriorInvoiceSet = studentIdsWithSessionInvoice.ToHashSet();
         // ────────────────────────────────────────────────────────────────────
 
+        // ── Load Active Fee Concessions & Sibling Discounts for Target Students ──
+        var activeConcessions = await _dbContext.StudentFeeConcessions
+            .AsNoTracking()
+            .Include(c => c.FeeHead)
+            .Where(c => c.Status == "Active" &&
+                        c.ApplicableFrom <= periodEnd &&
+                        (c.ApplicableTo == null || c.ApplicableTo >= periodStart) &&
+                        studentIds.Contains(c.StudentId))
+            .ToListAsync();
+        var concessionsByStudent = activeConcessions
+            .GroupBy(c => c.StudentId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var siblingLinks = await _dbContext.StudentSiblings
+            .AsNoTracking()
+            .Where(s => s.DiscountPercent > 0 && studentIds.Contains(s.StudentId))
+            .ToListAsync();
+        var siblingLinksByStudent = siblingLinks
+            .GroupBy(s => s.StudentId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
         var newInvoices = new List<FeeInvoice>();
         int skippedCount = 0;
         var random = new Random();
@@ -1837,6 +1858,90 @@ public class FeesController : ControllerBase
                 });
             }
 
+            // ── Automated Concession & Sibling Discount Engine ──
+            decimal totalConcessionAmount = 0;
+            var concessionReasons = new List<string>();
+
+            // 1. Explicit Student Concessions (Merit, Staff Ward, RTE, etc.)
+            if (concessionsByStudent.TryGetValue(s.Id, out var studentConcessions))
+            {
+                foreach (var conc in studentConcessions)
+                {
+                    decimal discount = 0;
+                    if (conc.DiscountMode == "Percentage")
+                    {
+                        if (conc.FeeHeadId.HasValue)
+                        {
+                            var targetItems = invoiceItems.Where(it => it.FeeHeadId == conc.FeeHeadId.Value);
+                            var baseAmt = targetItems.Sum(it => it.Amount);
+                            discount = Math.Round(baseAmt * (conc.DiscountValue / 100m), 2);
+                        }
+                        else
+                        {
+                            var tuitionItems = invoiceItems.Where(it =>
+                                it.HeadName.Contains("Tuition", StringComparison.OrdinalIgnoreCase) ||
+                                it.HeadName.Contains("School", StringComparison.OrdinalIgnoreCase) ||
+                                it.HeadName.Contains("Coaching", StringComparison.OrdinalIgnoreCase));
+                            var baseAmt = tuitionItems.Any() ? tuitionItems.Sum(it => it.Amount) : totalAmount;
+                            discount = Math.Round(baseAmt * (conc.DiscountValue / 100m), 2);
+                        }
+                    }
+                    else
+                    {
+                        discount = Math.Min(conc.DiscountValue, totalAmount);
+                    }
+
+                    if (discount > 0)
+                    {
+                        totalConcessionAmount += discount;
+                        var label = $"{conc.Title} ({(conc.DiscountMode == "Percentage" ? $"{conc.DiscountValue}%" : $"₹{conc.DiscountValue}")})";
+                        concessionReasons.Add(label);
+
+                        invoiceItems.Add(new FeeInvoiceItem
+                        {
+                            TenantId = _currentUser.TenantId,
+                            FeeHeadId = conc.FeeHeadId,
+                            HeadName = $"🎁 Concession: {label}",
+                            Amount = -discount,
+                            PaidAmount = 0
+                        });
+                    }
+                }
+            }
+
+            // 2. Automatic Sibling Discount (if not already granted via explicit concession)
+            if (siblingLinksByStudent.TryGetValue(s.Id, out var sibLinks) && !concessionReasons.Any(r => r.Contains("Sibling", StringComparison.OrdinalIgnoreCase)))
+            {
+                var bestSibLink = sibLinks.OrderByDescending(x => x.DiscountPercent).First();
+                if (bestSibLink.DiscountPercent > 0)
+                {
+                    var tuitionItems = invoiceItems.Where(it =>
+                        it.HeadName.Contains("Tuition", StringComparison.OrdinalIgnoreCase) ||
+                        it.HeadName.Contains("School", StringComparison.OrdinalIgnoreCase) ||
+                        it.HeadName.Contains("Coaching", StringComparison.OrdinalIgnoreCase));
+                    var baseAmt = tuitionItems.Any() ? tuitionItems.Sum(it => it.Amount) : totalAmount;
+                    var sibDiscount = Math.Round(baseAmt * (bestSibLink.DiscountPercent / 100m), 2);
+
+                    if (sibDiscount > 0)
+                    {
+                        totalConcessionAmount += sibDiscount;
+                        var label = $"Sibling Discount ({bestSibLink.DiscountPercent}% - {bestSibLink.Relationship})";
+                        concessionReasons.Add(label);
+
+                        invoiceItems.Add(new FeeInvoiceItem
+                        {
+                            TenantId = _currentUser.TenantId,
+                            FeeHeadId = null,
+                            HeadName = $"🎁 Sibling Concession: {bestSibLink.DiscountPercent}% Off",
+                            Amount = -sibDiscount,
+                            PaidAmount = 0
+                        });
+                    }
+                }
+            }
+
+            var netTotalAmount = Math.Max(0, totalAmount - totalConcessionAmount);
+
             // Unique invoice number encodes the cycle type
             var cycleSuffix = dto.BillingCycle switch
             {
@@ -1860,7 +1965,9 @@ public class FeesController : ControllerBase
                 InvoiceCategory = (s.ClassId.HasValue && s.BatchId.HasValue) ? "Integrated" :
                                   (s.ClassId.HasValue || s.IsSchoolStudent) ? "School" :
                                   (s.BatchId.HasValue || s.IsCoachingStudent) ? "Coaching" : "General",
-                TotalAmount   = totalAmount,
+                TotalAmount   = netTotalAmount,
+                ConcessionAmount = totalConcessionAmount,
+                ConcessionReason = concessionReasons.Any() ? string.Join("; ", concessionReasons) : null,
                 PaidAmount    = 0,
                 DueDate       = dto.DueDate,
                 Status        = InvoiceStatus.Pending,
@@ -1880,13 +1987,18 @@ public class FeesController : ControllerBase
         string msg;
         string invoiceWord = newInvoices.Count == 1 ? "invoice" : "invoices";
 
+        var totalConcessionsApplied = newInvoices.Sum(i => i.ConcessionAmount);
+        var concessionSuffix = totalConcessionsApplied > 0
+            ? $" (₹{totalConcessionsApplied:N2} in automatic sibling discounts & fee concessions applied!)"
+            : "";
+
         if (newInvoices.Count > 0 && skippedCount == 0)
         {
-            msg = $"Successfully generated {newInvoices.Count} {cycleLabel} {invoiceWord} for {periodLabel}.";
+            msg = $"Successfully generated {newInvoices.Count} {cycleLabel} {invoiceWord} for {periodLabel}.{concessionSuffix}";
         }
         else if (newInvoices.Count > 0 && skippedCount > 0)
         {
-            msg = $"Successfully generated {newInvoices.Count} {cycleLabel} {invoiceWord} for {periodLabel}. ({skippedCount} already existed and were skipped).";
+            msg = $"Successfully generated {newInvoices.Count} {cycleLabel} {invoiceWord} for {periodLabel}. ({skippedCount} already existed and were skipped).{concessionSuffix}";
         }
         else
         {

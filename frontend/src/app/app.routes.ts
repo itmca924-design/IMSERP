@@ -37,6 +37,15 @@ export const routes: Routes = [
     loadComponent: () => import('./features/fees/public-receipt.component').then(m => m.PublicReceiptComponent)
   },
   {
+    path: 'apply-online',
+    loadComponent: () => import('./features/admissions/public-admission-portal.component').then(m => m.PublicAdmissionPortalComponent)
+  },
+  {
+    path: 'admissions/apply',
+    redirectTo: 'apply-online',
+    pathMatch: 'full'
+  },
+  {
     path: '',
     component: LayoutComponent,
     canActivate: [authGuard],
@@ -212,6 +221,11 @@ export const routes: Routes = [
         loadComponent: () => import('./features/fees/fee-card.component').then(m => m.FeeCardComponent)
       },
       {
+        path: 'fees/concessions',
+        canActivate: [adminFeeDeskGuard],
+        loadComponent: () => import('./features/fees/fee-concessions.component').then(m => m.FeeConcessionsComponent)
+      },
+      {
         path: 'my-fees',
         loadComponent: () => import('./features/fees/my-fees.component').then(m => m.MyFeesComponent)
       },
@@ -314,7 +328,7 @@ export const routes: Routes = [
         loadComponent: () => import('./features/chat/chat.component').then(m => m.ChatComponent)
       },
 
-      // Front Desk — Visitor Book & Student Gate Pass
+      // Front Desk — Visitor Book, Student Gate Pass, Infirmary, PTM & Grievances
       {
         path: 'front-desk/visitors',
         loadComponent: () => import('./features/front-desk/visitors.component').then(m => m.VisitorsComponent)
@@ -323,12 +337,41 @@ export const routes: Routes = [
         path: 'front-desk/gate-passes',
         loadComponent: () => import('./features/front-desk/visitors.component').then(m => m.VisitorsComponent)
       },
+      {
+        path: 'front-desk/infirmary',
+        loadComponent: () => import('./features/infirmary/infirmary.component').then(m => m.InfirmaryComponent)
+      },
+      {
+        path: 'front-desk/ptm',
+        loadComponent: () => import('./features/ptm/ptm-scheduler.component').then(m => m.PtmSchedulerComponent)
+      },
+      {
+        path: 'front-desk/grievances',
+        loadComponent: () => import('./features/grievances/grievance-helpdesk.component').then(m => m.GrievanceHelpdeskComponent)
+      },
+      { path: 'ptm', redirectTo: 'front-desk/ptm', pathMatch: 'full' },
+      { path: 'grievances', redirectTo: 'front-desk/grievances', pathMatch: 'full' },
+      { path: 'helpdesk', redirectTo: 'front-desk/grievances', pathMatch: 'full' },
+      { path: 'infirmary', redirectTo: 'front-desk/infirmary', pathMatch: 'full' },
+      { path: 'sick-bay', redirectTo: 'front-desk/infirmary', pathMatch: 'full' },
       { path: 'front-desk', redirectTo: 'front-desk/visitors', pathMatch: 'full' },
 
       // Inventory & Stock Management Module
       {
         path: 'inventory',
         loadComponent: () => import('./features/inventory/inventory.component').then(m => m.InventoryComponent)
+      },
+      {
+        path: 'inventory/purchase-returns',
+        loadComponent: () => import('./features/inventory/purchase-returns.component').then(m => m.PurchaseReturnsComponent)
+      },
+      {
+        path: 'inventory/sale-returns',
+        loadComponent: () => import('./features/inventory/sale-returns.component').then(m => m.SaleReturnsComponent)
+      },
+      {
+        path: 'inventory/vendors',
+        loadComponent: () => import('./features/inventory/vendor-ledger.component').then(m => m.VendorLedgerComponent)
       },
       { path: 'stock', redirectTo: 'inventory', pathMatch: 'full' },
       { path: 'store', redirectTo: 'inventory', pathMatch: 'full' },

@@ -17,7 +17,14 @@ import {
   InventoryStockAdjustment,
   CreateStockAdjustmentDto,
   StudentLookupItem,
-  StaffLookupItem
+  StaffLookupItem,
+  VendorLedgerSummary,
+  RecordVendorPaymentDto,
+  VendorPayment,
+  InventoryPurchaseReturn,
+  CreatePurchaseReturnDto,
+  InventorySaleReturn,
+  CreateSaleReturnDto
 } from './inventory.models';
 
 @Injectable({
@@ -172,5 +179,48 @@ export class InventoryService {
     let params = new HttpParams();
     if (branchId) params = params.set('branchId', branchId);
     return this.http.get<StaffLookupItem[]>(`${this.baseUrl}/staff-lookup`, { params });
+  }
+
+  // Vendor Ledger & Payments
+  getVendorLedger(vendorId: string, startDate?: string, endDate?: string): Observable<VendorLedgerSummary> {
+    let params = new HttpParams();
+    if (startDate) params = params.set('startDate', startDate);
+    if (endDate) params = params.set('endDate', endDate);
+    return this.http.get<VendorLedgerSummary>(`${this.baseUrl}/vendors/${vendorId}/ledger`, { params });
+  }
+
+  recordVendorPayment(dto: RecordVendorPaymentDto): Observable<{ message: string; voucherNumber: string }> {
+    return this.http.post<{ message: string; voucherNumber: string }>(`${this.baseUrl}/vendors/payments`, dto);
+  }
+
+  getVendorPayments(vendorId?: string, branchId?: string): Observable<VendorPayment[]> {
+    let params = new HttpParams();
+    if (vendorId) params = params.set('vendorId', vendorId);
+    if (branchId) params = params.set('branchId', branchId);
+    return this.http.get<VendorPayment[]>(`${this.baseUrl}/vendors/payments`, { params });
+  }
+
+  // Purchase Returns (Debit Notes)
+  getPurchaseReturns(vendorId?: string, branchId?: string): Observable<InventoryPurchaseReturn[]> {
+    let params = new HttpParams();
+    if (vendorId) params = params.set('vendorId', vendorId);
+    if (branchId) params = params.set('branchId', branchId);
+    return this.http.get<InventoryPurchaseReturn[]>(`${this.baseUrl}/purchase-returns`, { params });
+  }
+
+  createPurchaseReturn(dto: CreatePurchaseReturnDto): Observable<{ message: string; returnNumber: string; debitNoteNumber: string }> {
+    return this.http.post<{ message: string; returnNumber: string; debitNoteNumber: string }>(`${this.baseUrl}/purchase-returns`, dto);
+  }
+
+  // Sale Returns (Kit Return from Student/Staff)
+  getSaleReturns(studentId?: string, branchId?: string): Observable<InventorySaleReturn[]> {
+    let params = new HttpParams();
+    if (studentId) params = params.set('studentId', studentId);
+    if (branchId) params = params.set('branchId', branchId);
+    return this.http.get<InventorySaleReturn[]>(`${this.baseUrl}/sale-returns`, { params });
+  }
+
+  createSaleReturn(dto: CreateSaleReturnDto): Observable<{ message: string; returnNumber: string }> {
+    return this.http.post<{ message: string; returnNumber: string }>(`${this.baseUrl}/sale-returns`, dto);
   }
 }

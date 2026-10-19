@@ -94,7 +94,24 @@ public class AdmissionEnquiriesController : ControllerBase
                 e.ConvertedStudentId,
                 e.ConvertedAt,
                 e.CreatedBy,
-                e.CreatedAt
+                e.CreatedAt,
+                e.DateOfBirth,
+                e.Gender,
+                e.MotherName,
+                e.FatherOccupation,
+                e.Address,
+                e.City,
+                e.State,
+                e.Pincode,
+                e.BloodGroup,
+                e.Category,
+                e.AadhaarNumber,
+                e.PreviousSchoolName,
+                e.PreviousMarks,
+                e.RequiresTransport,
+                e.RequiresHostel,
+                e.AcademicYear,
+                e.ApplicationNumber
             ))
             .ToListAsync();
 
@@ -134,7 +151,24 @@ public class AdmissionEnquiriesController : ControllerBase
             e.ConvertedStudentId,
             e.ConvertedAt,
             e.CreatedBy,
-            e.CreatedAt
+            e.CreatedAt,
+            e.DateOfBirth,
+            e.Gender,
+            e.MotherName,
+            e.FatherOccupation,
+            e.Address,
+            e.City,
+            e.State,
+            e.Pincode,
+            e.BloodGroup,
+            e.Category,
+            e.AadhaarNumber,
+            e.PreviousSchoolName,
+            e.PreviousMarks,
+            e.RequiresTransport,
+            e.RequiresHostel,
+            e.AcademicYear,
+            e.ApplicationNumber
         ));
     }
 
@@ -187,11 +221,28 @@ public class AdmissionEnquiriesController : ControllerBase
             TenantId = tenantId,
             BranchId = branchId,
             EnquiryNumber = enqNum,
+            ApplicationNumber = enqNum,
             StudentName = dto.StudentName.Trim(),
             ParentName = dto.ParentName?.Trim() ?? string.Empty,
+            MotherName = dto.MotherName?.Trim(),
+            FatherOccupation = dto.FatherOccupation?.Trim(),
             Phone = dto.Phone.Trim(),
             AlternatePhone = dto.AlternatePhone?.Trim(),
             Email = dto.Email?.Trim(),
+            Address = dto.Address?.Trim(),
+            City = dto.City?.Trim(),
+            State = dto.State?.Trim(),
+            Pincode = dto.Pincode?.Trim(),
+            DateOfBirth = dto.DateOfBirth,
+            Gender = dto.Gender ?? "Male",
+            BloodGroup = dto.BloodGroup?.Trim(),
+            Category = dto.Category?.Trim() ?? "General",
+            AadhaarNumber = dto.AadhaarNumber?.Trim(),
+            PreviousSchoolName = dto.PreviousSchoolName?.Trim(),
+            PreviousMarks = dto.PreviousMarks?.Trim(),
+            RequiresTransport = dto.RequiresTransport,
+            RequiresHostel = dto.RequiresHostel,
+            AcademicYear = dto.AcademicYear,
             InterestedClassId = dto.InterestedClassId,
             InterestedClassName = dto.InterestedClassName,
             InterestedBatchId = dto.InterestedBatchId,
@@ -233,7 +284,24 @@ public class AdmissionEnquiriesController : ControllerBase
             enquiry.ConvertedStudentId,
             enquiry.ConvertedAt,
             enquiry.CreatedBy,
-            enquiry.CreatedAt
+            enquiry.CreatedAt,
+            enquiry.DateOfBirth,
+            enquiry.Gender,
+            enquiry.MotherName,
+            enquiry.FatherOccupation,
+            enquiry.Address,
+            enquiry.City,
+            enquiry.State,
+            enquiry.Pincode,
+            enquiry.BloodGroup,
+            enquiry.Category,
+            enquiry.AadhaarNumber,
+            enquiry.PreviousSchoolName,
+            enquiry.PreviousMarks,
+            enquiry.RequiresTransport,
+            enquiry.RequiresHostel,
+            enquiry.AcademicYear,
+            enquiry.ApplicationNumber
         ));
     }
 
@@ -246,9 +314,25 @@ public class AdmissionEnquiriesController : ControllerBase
 
         enquiry.StudentName = dto.StudentName?.Trim() ?? enquiry.StudentName;
         enquiry.ParentName = dto.ParentName?.Trim() ?? enquiry.ParentName;
+        enquiry.MotherName = dto.MotherName?.Trim() ?? enquiry.MotherName;
+        enquiry.FatherOccupation = dto.FatherOccupation?.Trim() ?? enquiry.FatherOccupation;
         enquiry.Phone = dto.Phone?.Trim() ?? enquiry.Phone;
         enquiry.AlternatePhone = dto.AlternatePhone?.Trim();
         enquiry.Email = dto.Email?.Trim();
+        enquiry.Address = dto.Address?.Trim() ?? enquiry.Address;
+        enquiry.City = dto.City?.Trim() ?? enquiry.City;
+        enquiry.State = dto.State?.Trim() ?? enquiry.State;
+        enquiry.Pincode = dto.Pincode?.Trim() ?? enquiry.Pincode;
+        enquiry.DateOfBirth = dto.DateOfBirth ?? enquiry.DateOfBirth;
+        enquiry.Gender = dto.Gender ?? enquiry.Gender;
+        enquiry.BloodGroup = dto.BloodGroup?.Trim() ?? enquiry.BloodGroup;
+        enquiry.Category = dto.Category?.Trim() ?? enquiry.Category;
+        enquiry.AadhaarNumber = dto.AadhaarNumber?.Trim() ?? enquiry.AadhaarNumber;
+        enquiry.PreviousSchoolName = dto.PreviousSchoolName?.Trim() ?? enquiry.PreviousSchoolName;
+        enquiry.PreviousMarks = dto.PreviousMarks?.Trim() ?? enquiry.PreviousMarks;
+        enquiry.RequiresTransport = dto.RequiresTransport;
+        enquiry.RequiresHostel = dto.RequiresHostel;
+        enquiry.AcademicYear = dto.AcademicYear ?? enquiry.AcademicYear;
         enquiry.InterestedClassId = dto.InterestedClassId ?? enquiry.InterestedClassId;
         enquiry.InterestedClassName = dto.InterestedClassName ?? enquiry.InterestedClassName;
         enquiry.InterestedBatchId = dto.InterestedBatchId ?? enquiry.InterestedBatchId;
@@ -288,16 +372,24 @@ public class AdmissionEnquiriesController : ControllerBase
         var student = new Student
         {
             TenantId = tenantId,
-            BranchId = branchId,
+            BranchId = branchId ?? enquiry.BranchId,
             StudentName = enquiry.StudentName,
             ParentName = enquiry.ParentName,
+            MotherName = enquiry.MotherName,
             ParentWhatsAppPhone = enquiry.Phone,
             AdmissionNumber = admissionNumber,
             ClassId = dto.ClassId ?? enquiry.InterestedClassId,
             SectionId = dto.SectionId,
             BatchId = dto.BatchId ?? enquiry.InterestedBatchId,
-            DateOfBirth = dto.DateOfBirth,
-            Gender = dto.Gender ?? "Male",
+            DateOfBirth = dto.DateOfBirth ?? enquiry.DateOfBirth,
+            Gender = dto.Gender ?? enquiry.Gender ?? "Male",
+            BloodGroup = enquiry.BloodGroup,
+            Address = enquiry.Address,
+            Category = enquiry.Category,
+            AadhaarNumber = enquiry.AadhaarNumber,
+            PreviousSchoolName = enquiry.PreviousSchoolName,
+            IsTransportStudent = enquiry.RequiresTransport,
+            IsHostelStudent = enquiry.RequiresHostel,
             IsSchoolStudent = dto.ClassId.HasValue || enquiry.InterestedClassId.HasValue,
             IsCoachingStudent = dto.BatchId.HasValue || enquiry.InterestedBatchId.HasValue,
             JoiningDate = now,

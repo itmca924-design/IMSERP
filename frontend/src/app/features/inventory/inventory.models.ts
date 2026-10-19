@@ -45,6 +45,7 @@ export interface CreateUpdateCategoryDto {
 export interface InventoryVendor {
   id: string;
   vendorName: string;
+  name?: string;
   contactPerson?: string;
   phone?: string;
   email?: string;
@@ -55,10 +56,15 @@ export interface InventoryVendor {
   bankDetails?: string;
   isActive: boolean;
   branchId?: string;
+  totalPurchased?: number;
+  totalPaid?: number;
+  totalReturns?: number;
+  balanceDue?: number;
 }
 
 export interface CreateUpdateVendorDto {
   vendorName: string;
+  name?: string;
   contactPerson?: string;
   phone?: string;
   email?: string;
@@ -69,6 +75,7 @@ export interface CreateUpdateVendorDto {
   bankDetails?: string;
   isActive: boolean;
   branchId?: string;
+  openingBalance?: number;
 }
 
 export interface InventoryItem {
@@ -249,3 +256,155 @@ export interface StaffLookupItem {
   department?: string;
   branchId?: string;
 }
+
+export interface VendorLedgerSummary {
+  vendorId: string;
+  vendorName: string;
+  contactPerson?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  gstin?: string;
+  pan?: string;
+  paymentTerms?: string;
+  bankDetails?: string;
+  totalPurchased: number;
+  totalPaid: number;
+  totalReturns: number;
+  balanceDue: number;
+  entries: VendorLedgerEntry[];
+}
+
+export interface VendorLedgerEntry {
+  id: string;
+  date: string;
+  entryType: 'InwardPurchase' | 'VendorPayment' | 'PurchaseReturn';
+  referenceNumber: string;
+  billNumber?: string;
+  description: string;
+  particulars?: string;
+  debit: number;
+  credit: number;
+  runningBalance: number;
+  paymentMode?: string;
+  remarks?: string;
+}
+
+export interface RecordVendorPaymentDto {
+  vendorId: string;
+  paymentDate: string;
+  amount: number;
+  paymentMode: string;
+  referenceNumber?: string;
+  bankName?: string;
+  remarks?: string;
+  notes?: string;
+  branchId?: string;
+}
+
+export interface VendorPayment {
+  id: string;
+  vendorId: string;
+  vendorName: string;
+  voucherNumber: string;
+  paymentDate: string;
+  amount: number;
+  paymentMode: string;
+  referenceNumber?: string;
+  bankName?: string;
+  remarks?: string;
+  branchId?: string;
+  createdAt: string;
+}
+
+export interface InventoryPurchaseReturn {
+  id: string;
+  vendorId: string;
+  vendorName: string;
+  inwardId?: string;
+  returnNumber: string;
+  debitNoteNumber?: string;
+  returnDate: string;
+  totalAmount: number;
+  TotalAmount?: number;
+  refundStatus: string;
+  remarks?: string;
+  branchId?: string;
+  createdAt: string;
+  items: PurchaseReturnItemLineDetail[];
+}
+
+export interface PurchaseReturnItemLineDetail {
+  id: string;
+  itemId: string;
+  itemName: string;
+  itemCode: string;
+  quantity: number;
+  unitPrice: number;
+  totalAmount: number;
+  reason?: string;
+}
+
+export interface CreatePurchaseReturnDto {
+  vendorId: string;
+  inwardId?: string;
+  returnDate: string;
+  remarks?: string;
+  branchId?: string;
+  items: {
+    itemId: string;
+    quantity: number;
+    unitPrice: number;
+    reason?: string;
+  }[];
+}
+
+export interface InventorySaleReturn {
+  id: string;
+  outwardId?: string;
+  studentId?: string;
+  returnedByName: string;
+  departmentOrClass?: string;
+  returnNumber: string;
+  returnDate: string;
+  totalAmount: number;
+  TotalAmount?: number;
+  refundStatus: string;
+  refundPaymentMode?: string;
+  remarks?: string;
+  branchId?: string;
+  createdAt: string;
+  items: SaleReturnItemLineDetail[];
+}
+
+export interface SaleReturnItemLineDetail {
+  id: string;
+  itemId: string;
+  itemName: string;
+  itemCode: string;
+  quantity: number;
+  unitPrice: number;
+  totalAmount: number;
+  condition: string;
+  reason?: string;
+}
+
+export interface CreateSaleReturnDto {
+  outwardId?: string;
+  studentId?: string;
+  returnedByName: string;
+  departmentOrClass?: string;
+  returnDate: string;
+  refundStatus: string;
+  refundPaymentMode?: string;
+  remarks?: string;
+  branchId?: string;
+  items: {
+    itemId: string;
+    quantity: number;
+    unitPrice: number;
+    condition: string;
+    reason?: string;
+  }[];
+}
+

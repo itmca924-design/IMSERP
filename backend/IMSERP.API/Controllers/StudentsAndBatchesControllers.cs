@@ -1961,7 +1961,103 @@ public class StudentsController : ControllerBase
             student.ProfilePhoto = ImageStorageHelper.SaveBase64Image(dto.ProfilePhoto, "students", student.Id.ToString(), _env.ContentRootPath);
             await _dbContext.SaveChangesAsync();
 
+            // ── Inventory Kit Issuance on Admission ──
+            if (dto.IsIssueAdmissionKit && dto.AdmissionKitItems != null && dto.AdmissionKitItems.Any(i => i.Quantity > 0))
+            {
+                var issueNumber = $"OUT-{DateTime.UtcNow:yyyyMMddHHmmss}-{new Random().Next(100, 999)}";
+                var outward = new InventoryOutward
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = _currentUser.TenantId,
+                    BranchId = targetBranchId,
+                    IssueNumber = issueNumber,
+                    IssueDate = DateTime.UtcNow,
+                    IssueType = "StudentKitSale",
+                    StudentId = student.Id,
+                    IssuedToName = student.StudentName,
+                    DepartmentOrClass = dto.ClassId.HasValue ? (await _dbContext.SchoolClasses.AsNoTracking().FirstOrDefaultAsync(c => c.Id == dto.ClassId.Value))?.Name : (batch?.Name ?? "Admission"),
+                    PaymentStatus = !string.IsNullOrWhiteSpace(dto.KitPaymentStatus) ? dto.KitPaymentStatus : "Paid",
+                    PaymentMode = dto.KitPaymentMode ?? "Cash",
+                    Remarks = $"Issued automatically during student admission ({student.AdmissionNumber ?? student.RollNumber})",
+                    CreatedBy = _currentUser.UserId,
+                    CreatedAt = DateTime.UtcNow
+                };
 
+                decimal totalKitAmount = 0;
+                foreach (var kitRow in dto.AdmissionKitItems)
+                {
+                    if (kitRow.Quantity <= 0) continue;
+                    var invItem = await _dbContext.InventoryItems.FindAsync(kitRow.ItemId);
+                    if (invItem == null) continue;
+
+                    var unitPrice = kitRow.UnitPrice > 0 ? kitRow.UnitPrice : invItem.SellingPrice;
+                    var lineTotal = kitRow.Quantity * unitPrice;
+                    totalKitAmount += lineTotal;
+
+                    // Deduct stock in store
+                    invItem.CurrentStock = Math.Max(0, invItem.CurrentStock - kitRow.Quantity);
+                    invItem.UpdatedAt = DateTime.UtcNow;
+
+                    outward.Items.Add(new InventoryOutwardItem
+                    {
+                        Id = Guid.NewGuid(),
+                        TenantId = _currentUser.TenantId,
+                        BranchId = outward.BranchId,
+                        OutwardId = outward.Id,
+                        ItemId = invItem.Id,
+                        Quantity = kitRow.Quantity,
+                        UnitPrice = unitPrice,
+                        TotalAmount = lineTotal,
+                        Remarks = "Admission Kit Item"
+                    });
+                }
+
+                outward.TotalAmount = totalKitAmount;
+                _dbContext.InventoryOutwards.Add(outward);
+
+                // If marked as 'AddedToFeeBill', generate a pending FeeInvoice attached to the student
+                if (dto.KitPaymentStatus == "AddedToFeeBill" && totalKitAmount > 0)
+                {
+                    var kitInvoice = new FeeInvoice
+                    {
+                        Id = Guid.NewGuid(),
+                        TenantId = _currentUser.TenantId,
+                        BranchId = targetBranchId,
+                        StudentId = student.Id,
+                        InvoiceNumber = $"INV-KIT-{DateTime.UtcNow:yyyyMMddHHmmss}",
+                        Title = "Admission Books & Uniform Kit",
+                        InvoiceCategory = "Inventory",
+                        TotalAmount = totalKitAmount,
+                        PaidAmount = 0,
+                        DueDate = DateTime.UtcNow.AddDays(7),
+                        Status = InvoiceStatus.Pending,
+                        ClassId = student.ClassId,
+                        SectionId = student.SectionId,
+                        ClassName = dto.ClassId.HasValue ? (await _dbContext.SchoolClasses.AsNoTracking().FirstOrDefaultAsync(c => c.Id == dto.ClassId.Value))?.Name : null,
+                        SectionName = dto.SectionId.HasValue ? (await _dbContext.SchoolSections.AsNoTracking().FirstOrDefaultAsync(s => s.Id == dto.SectionId.Value))?.Name : null,
+                        CreatedAt = DateTime.UtcNow
+                    };
+
+                    foreach (var oi in outward.Items)
+                    {
+                        var invItem = await _dbContext.InventoryItems.FindAsync(oi.ItemId);
+                        kitInvoice.Items.Add(new FeeInvoiceItem
+                        {
+                            Id = Guid.NewGuid(),
+                            TenantId = _currentUser.TenantId,
+                            InvoiceId = kitInvoice.Id,
+                            HeadName = invItem?.ItemName ?? "Kit Item",
+                            Amount = oi.TotalAmount,
+                            PaidAmount = 0,
+                            CreatedAt = DateTime.UtcNow
+                        });
+                    }
+
+                    _dbContext.FeeInvoices.Add(kitInvoice);
+                }
+
+                await _dbContext.SaveChangesAsync();
+            }
 
             await transaction.CommitAsync();
 
@@ -3116,6 +3212,24 @@ public class StudentsController : ControllerBase
             student.Branch?.Name
         );
 
+        var inventoryKits = await _dbContext.InventoryOutwards
+            .AsNoTracking()
+            .Include(o => o.Items)
+                .ThenInclude(i => i.Item)
+            .Where(o => o.StudentId == id)
+            .OrderByDescending(o => o.IssueDate)
+            .Select(o => new StudentInventoryKit360Dto(
+                o.Id,
+                o.IssueNumber,
+                o.IssueDate,
+                string.Join(", ", o.Items.Select(oi => $"{(oi.Item != null ? oi.Item.ItemName : "Item")} (x{oi.Quantity})")),
+                o.Items.Sum(oi => oi.Quantity),
+                o.TotalAmount,
+                o.PaymentStatus,
+                o.Remarks
+            ))
+            .ToListAsync();
+
         return Ok(new Student360Dto(
             studentDetail,
             siblings,
@@ -3131,7 +3245,8 @@ public class StudentsController : ControllerBase
             achievements,
             disciplinary,
             ptmRecords,
-            healthProfile
+            healthProfile,
+            inventoryKits
         ));
     }
 

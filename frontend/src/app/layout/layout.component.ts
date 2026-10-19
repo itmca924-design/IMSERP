@@ -2569,7 +2569,10 @@ export class LayoutComponent implements OnInit {
           { id: '551', title: 'Library Shifts & Plans', routeUrl: '/library/plans', icon: 'schedule', sortOrder: 11, module: 'Academic', isActive: true, children: [] },
           { id: '56', title: 'Hostel Management', routeUrl: '/hostel', icon: 'apartment', sortOrder: 12, module: 'Academic', isActive: true, children: [] },
           { id: '561', title: 'Transport & Fleet', routeUrl: '/transport', icon: 'directions_bus', sortOrder: 13, module: 'Academic', isActive: true, children: [] },
-          { id: '57', title: 'Front Desk & Visitors', routeUrl: '/front-desk/visitors', icon: 'transfer_within_a_station', sortOrder: 14, module: 'Academic', isActive: true, children: [] }
+          { id: '57', title: 'Front Desk & Visitors', routeUrl: '/front-desk/visitors', icon: 'transfer_within_a_station', sortOrder: 14, module: 'Academic', isActive: true, children: [] },
+          { id: '571', title: 'Infirmary & Sick Bay', routeUrl: '/front-desk/infirmary', icon: 'local_hospital', sortOrder: 14.2, module: 'Academic', isActive: true, children: [] },
+          { id: '572', title: 'PTM Scheduler', routeUrl: '/front-desk/ptm', icon: 'calendar_month', sortOrder: 14.4, module: 'Academic', isActive: true, children: [] },
+          { id: '573', title: 'Grievance Helpdesk', routeUrl: '/front-desk/grievances', icon: 'support_agent', sortOrder: 14.6, module: 'Academic', isActive: true, children: [] }
         ]
       },
       ...(canAccessFinance ? [{

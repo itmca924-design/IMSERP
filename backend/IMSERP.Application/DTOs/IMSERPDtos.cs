@@ -580,7 +580,18 @@ public record CreateStudentDto(
     string? EmergencyContactPhone = null,
     string? PreviousSchoolName = null,
     string? PreviousBoard = null,
-    DateTime? JoiningDate = null
+    DateTime? JoiningDate = null,
+    // Inventory Admission Kit Issuance
+    bool IsIssueAdmissionKit = false,
+    List<CreateStudentKitItemDto>? AdmissionKitItems = null,
+    string? KitPaymentStatus = null,
+    string? KitPaymentMode = null
+);
+
+public record CreateStudentKitItemDto(
+    Guid ItemId,
+    decimal Quantity,
+    decimal UnitPrice
 );
 
 public record StudentAttendanceDto(
@@ -4578,7 +4589,24 @@ public record AdmissionEnquiryDto(
     Guid? ConvertedStudentId,
     DateTime? ConvertedAt,
     string? CreatedBy,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    DateTime? DateOfBirth = null,
+    string? Gender = null,
+    string? MotherName = null,
+    string? FatherOccupation = null,
+    string? Address = null,
+    string? City = null,
+    string? State = null,
+    string? Pincode = null,
+    string? BloodGroup = null,
+    string? Category = null,
+    string? AadhaarNumber = null,
+    string? PreviousSchoolName = null,
+    string? PreviousMarks = null,
+    bool RequiresTransport = false,
+    bool RequiresHostel = false,
+    string? AcademicYear = null,
+    string? ApplicationNumber = null
 );
 
 public record CreateAdmissionEnquiryDto(
@@ -4596,7 +4624,23 @@ public record CreateAdmissionEnquiryDto(
     string Source,
     string Priority,
     string? Remarks,
-    string? Status = "New"
+    string? Status = "New",
+    DateTime? DateOfBirth = null,
+    string? Gender = null,
+    string? MotherName = null,
+    string? FatherOccupation = null,
+    string? Address = null,
+    string? City = null,
+    string? State = null,
+    string? Pincode = null,
+    string? BloodGroup = null,
+    string? Category = null,
+    string? AadhaarNumber = null,
+    string? PreviousSchoolName = null,
+    string? PreviousMarks = null,
+    bool RequiresTransport = false,
+    bool RequiresHostel = false,
+    string? AcademicYear = null
 );
 
 public record UpdateAdmissionEnquiryDto(
@@ -4613,7 +4657,23 @@ public record UpdateAdmissionEnquiryDto(
     string Source,
     string Status,
     string Priority,
-    string? Remarks
+    string? Remarks,
+    DateTime? DateOfBirth = null,
+    string? Gender = null,
+    string? MotherName = null,
+    string? FatherOccupation = null,
+    string? Address = null,
+    string? City = null,
+    string? State = null,
+    string? Pincode = null,
+    string? BloodGroup = null,
+    string? Category = null,
+    string? AadhaarNumber = null,
+    string? PreviousSchoolName = null,
+    string? PreviousMarks = null,
+    bool RequiresTransport = false,
+    bool RequiresHostel = false,
+    string? AcademicYear = null
 );
 
 public record ConvertEnquiryDto(
@@ -4623,6 +4683,97 @@ public record ConvertEnquiryDto(
     Guid? BatchId,
     DateTime? DateOfBirth,
     string? Gender
+);
+
+public record PublicAdmissionApplicationDto(
+    string? TenantCode,
+    Guid? TenantId,
+    Guid? BranchId,
+    string StudentName,
+    DateTime? DateOfBirth,
+    string? Gender,
+    string? BloodGroup,
+    string? Category,
+    string? AadhaarNumber,
+    string ParentName,
+    string? MotherName,
+    string? FatherOccupation,
+    string Phone,
+    string? AlternatePhone,
+    string? Email,
+    string? Address,
+    string? City,
+    string? State,
+    string? Pincode,
+    string? AdmissionStream = "School",
+    Guid? InterestedClassId = null,
+    string? InterestedClassName = null,
+    Guid? InterestedBatchId = null,
+    string? InterestedBatchName = null,
+    string? AcademicYear = null,
+    string? PreviousSchoolName = null,
+    string? PreviousMarks = null,
+    bool RequiresTransport = false,
+    bool RequiresHostel = false,
+    string? Remarks = null
+);
+
+public record PublicAdmissionResponseDto(
+    bool Success,
+    string ApplicationNumber,
+    string StudentName,
+    string SubmissionDate,
+    string InstituteName,
+    string? BranchName,
+    string Message
+);
+
+public record PublicInstituteDetailsDto(
+    Guid TenantId,
+    string TenantName,
+    string TenantCode,
+    string? Address,
+    string? ContactPhone,
+    string? ProfilePhoto,
+    List<PublicBranchDto> Branches,
+    List<PublicClassDto> Classes,
+    List<PublicBatchDto> Batches,
+    List<string> AcademicYears
+);
+
+public record PublicBranchDto(
+    Guid Id,
+    string Name,
+    string Code,
+    string? Address,
+    string? ContactPhone
+);
+
+public record PublicClassDto(
+    Guid Id,
+    string Name,
+    Guid? BranchId
+);
+
+public record PublicBatchDto(
+    Guid Id,
+    string Name,
+    string Subject,
+    decimal StandardMonthlyFee,
+    Guid? BranchId
+);
+
+public record ApplicationTrackingResultDto(
+    bool Found,
+    string? ApplicationNumber,
+    string? StudentName,
+    string? ParentName,
+    string? Phone,
+    string? ClassName,
+    string? BranchName,
+    string? Status,
+    DateTime? ApplicationDate,
+    string? Remarks
 );
 
 public record EnquiryStatsDto(
@@ -5078,6 +5229,17 @@ public record StudentAcademicAlert360Dto(
     List<string> WeakSubjects
 );
 
+public record StudentInventoryKit360Dto(
+    Guid OutwardId,
+    string IssueNumber,
+    DateTime IssueDate,
+    string ItemsSummary,
+    decimal TotalQuantity,
+    decimal TotalAmount,
+    string PaymentStatus,
+    string? Remarks
+);
+
 public record Student360Dto(
     StudentDetail360Dto Student,
     List<StudentSibling360Dto> Siblings,
@@ -5093,7 +5255,8 @@ public record Student360Dto(
     List<StudentAchievementDto> Achievements,
     List<StudentDisciplinaryDto> DisciplinaryRecords,
     List<StudentPtmDto> PtmRecords,
-    StudentHealthDto? HealthProfile
+    StudentHealthDto? HealthProfile,
+    List<StudentInventoryKit360Dto>? InventoryKits = null
 );
 
 public record StudentUpcomingTestDto(Guid Id, string Title, string Subject, DateTime TestDate, decimal MaxMarks, string BatchOrClass);
@@ -5536,4 +5699,382 @@ public record StudentMyExamsDto(
     ConsolidatedStudentResultDto? ConsolidatedResult
 );
 
+// ─── Fee Concessions & Sibling Discount Engine DTOs ──────────────────────────────
+public record StudentFeeConcessionDto(
+    Guid Id,
+    Guid StudentId,
+    string StudentName,
+    string RollNumber,
+    string? AdmissionNumber,
+    string? ClassOrBatchName,
+    Guid? BranchId,
+    string? BranchName,
+    string ConcessionType,
+    string Title,
+    string DiscountMode,
+    decimal DiscountValue,
+    Guid? FeeHeadId,
+    string? FeeHeadName,
+    DateTime ApplicableFrom,
+    DateTime? ApplicableTo,
+    string Status,
+    string? ApprovedBy,
+    string? Remarks,
+    DateTime CreatedAt
+);
+
+public record CreateFeeConcessionDto(
+    Guid StudentId,
+    string ConcessionType,
+    string Title,
+    string DiscountMode,
+    decimal DiscountValue,
+    Guid? FeeHeadId = null,
+    DateTime? ApplicableFrom = null,
+    DateTime? ApplicableTo = null,
+    string? ApprovedBy = null,
+    string? Remarks = null
+);
+
+public record UpdateFeeConcessionStatusDto(
+    string Status,
+    string? Remarks = null
+);
+
+public record FeeConcessionStatsDto(
+    int TotalActiveConcessions,
+    int SiblingDiscountsActive,
+    int MeritScholarshipsActive,
+    int EwsRteActive,
+    decimal TotalConcessionAmountBilled
+);
+
+// ─── Infirmary & First-Aid Sick Bay Management DTOs ──────────────────────────────
+public record DispensedMedicineDto(
+    Guid ItemId,
+    string ItemName,
+    string ItemCode,
+    decimal Quantity,
+    string? Dosage = null,
+    string? Unit = null
+);
+
+public record InfirmaryVisitDto(
+    Guid Id,
+    Guid TenantId,
+    Guid? BranchId,
+    string? BranchName,
+    string VisitNumber,
+    string PatientType,
+    Guid? StudentId,
+    Guid? StaffId,
+    string PatientName,
+    string? ClassOrDesignation,
+    string? ContactPhone,
+    DateTime VisitDate,
+    string ChiefComplaints,
+    string? SymptomsList,
+    decimal? TemperatureF,
+    int? PulseBpm,
+    string? BloodPressure,
+    int? SpO2,
+    string Severity,
+    bool BedRestRequired,
+    string? BedNumber,
+    DateTime? AdmittedAt,
+    DateTime? DischargedAt,
+    string BedStatus,
+    string? Diagnosis,
+    string? TreatmentGiven,
+    List<DispensedMedicineDto>? MedicinesDispensed,
+    bool ParentContacted,
+    DateTime? ParentContactedAt,
+    string? ParentNotificationNotes,
+    bool ReferredToHospital,
+    string? HospitalName,
+    bool SentHome,
+    string? AccompaniedBy,
+    string? AttendingStaffName,
+    string Status,
+    string? Remarks,
+    DateTime CreatedAt
+);
+
+public record CreateInfirmaryVisitDto(
+    Guid? BranchId,
+    string PatientType,
+    Guid? StudentId,
+    Guid? StaffId,
+    string PatientName,
+    string? ClassOrDesignation,
+    string? ContactPhone,
+    DateTime? VisitDate,
+    string ChiefComplaints,
+    string? SymptomsList,
+    decimal? TemperatureF,
+    int? PulseBpm,
+    string? BloodPressure,
+    int? SpO2,
+    string Severity,
+    bool BedRestRequired,
+    string? BedNumber,
+    DateTime? AdmittedAt,
+    string? Diagnosis,
+    string? TreatmentGiven,
+    List<DispensedMedicineDto>? MedicinesDispensed,
+    bool ParentContacted,
+    DateTime? ParentContactedAt,
+    string? ParentNotificationNotes,
+    bool ReferredToHospital,
+    string? HospitalName,
+    bool SentHome,
+    string? AccompaniedBy,
+    string? AttendingStaffName,
+    string? Status,
+    string? Remarks
+);
+
+public record UpdateInfirmaryVisitDto(
+    string? ChiefComplaints,
+    string? SymptomsList,
+    decimal? TemperatureF,
+    int? PulseBpm,
+    string? BloodPressure,
+    int? SpO2,
+    string? Severity,
+    bool? BedRestRequired,
+    string? BedNumber,
+    DateTime? AdmittedAt,
+    DateTime? DischargedAt,
+    string? BedStatus,
+    string? Diagnosis,
+    string? TreatmentGiven,
+    List<DispensedMedicineDto>? MedicinesDispensed,
+    bool? ParentContacted,
+    DateTime? ParentContactedAt,
+    string? ParentNotificationNotes,
+    bool? ReferredToHospital,
+    string? HospitalName,
+    bool? SentHome,
+    string? AccompaniedBy,
+    string? AttendingStaffName,
+    string? Status,
+    string? Remarks
+);
+
+public record DischargeInfirmaryVisitDto(
+    DateTime? DischargedAt,
+    string? Status = "Discharged",
+    string? Remarks = null
+);
+
+public record InfirmaryStatsDto(
+    int TodayVisitsCount,
+    int CurrentlyOccupiedBeds,
+    int SevereReferredMonthCount,
+    decimal TotalMedicinesDispensedUnits,
+    int TotalStudentVisitsMonth,
+    int TotalStaffVisitsMonth
+);
+
+// ─── PTM Scheduler & Grievance Helpdesk DTOs ──────────────────────────────
+
+public record PtmSessionDto(
+    Guid Id,
+    Guid TenantId,
+    Guid? BranchId,
+    string Title,
+    string? AcademicYear,
+    DateTime MeetingDate,
+    string StartTime,
+    string EndTime,
+    string MeetingMode,
+    string? VenueOrLink,
+    string DivisionScope,
+    Guid? TargetClassId,
+    string? TargetClassName,
+    string? TargetSection,
+    Guid? TargetBatchId,
+    string? TargetBatchName,
+    string OrganizerName,
+    string? Agenda,
+    string Status,
+    DateTime CreatedAt,
+    int BookingsCount,
+    int AttendedCount
+);
+
+public record CreatePtmSessionDto(
+    string Title,
+    string? AcademicYear,
+    DateTime MeetingDate,
+    string StartTime,
+    string EndTime,
+    string MeetingMode,
+    string? VenueOrLink,
+    string? DivisionScope,
+    Guid? TargetClassId,
+    string? TargetClassName,
+    string? TargetSection,
+    Guid? TargetBatchId,
+    string? TargetBatchName,
+    string OrganizerName,
+    string? Agenda,
+    string? Status = "Scheduled"
+);
+
+public record UpdatePtmSessionDto(
+    string Title,
+    string? AcademicYear,
+    DateTime MeetingDate,
+    string StartTime,
+    string EndTime,
+    string MeetingMode,
+    string? VenueOrLink,
+    string? DivisionScope,
+    Guid? TargetClassId,
+    string? TargetClassName,
+    string? TargetSection,
+    Guid? TargetBatchId,
+    string? TargetBatchName,
+    string OrganizerName,
+    string? Agenda,
+    string Status
+);
+
+public record PtmBookingDto(
+    Guid Id,
+    Guid TenantId,
+    Guid? BranchId,
+    Guid PtmSessionId,
+    string SessionTitle,
+    DateTime MeetingDate,
+    Guid StudentId,
+    string StudentName,
+    string? AdmissionNumber,
+    string? ClassName,
+    string? ParentName,
+    string? ParentPhone,
+    string? SlotTime,
+    string ParentAttended,
+    string? TeacherName,
+    string? TeacherFeedback,
+    string? ParentFeedback,
+    string? ActionPoints,
+    bool FollowUpRequired,
+    DateTime? FollowUpDate,
+    DateTime? AttendedAt,
+    DateTime CreatedAt
+);
+
+public record CreatePtmBookingDto(
+    Guid PtmSessionId,
+    Guid StudentId,
+    string? SlotTime,
+    string? TeacherName,
+    string? ParentAttended = "Pending",
+    string? TeacherFeedback = null,
+    string? ParentFeedback = null,
+    string? ActionPoints = null,
+    bool FollowUpRequired = false,
+    DateTime? FollowUpDate = null
+);
+
+public record UpdatePtmBookingDto(
+    string? SlotTime,
+    string? TeacherName,
+    string ParentAttended,
+    string? TeacherFeedback,
+    string? ParentFeedback,
+    string? ActionPoints,
+    bool FollowUpRequired,
+    DateTime? FollowUpDate
+);
+
+public record PtmStatsDto(
+    int TotalSessions,
+    int UpcomingSessions,
+    int TotalBookings,
+    int TotalAttended,
+    decimal AttendanceRatePercentage,
+    int PendingFollowUps
+);
+
+public record GrievanceTicketDto(
+    Guid Id,
+    Guid TenantId,
+    Guid? BranchId,
+    string TicketNumber,
+    string DivisionScope,
+    Guid? StudentId,
+    string? StudentName,
+    string? AdmissionNumber,
+    string? ClassName,
+    string RaisedByName,
+    string RaisedByRole,
+    string ContactPhone,
+    string? ContactEmail,
+    string Category,
+    string Priority,
+    string Subject,
+    string Description,
+    string Status,
+    Guid? AssignedToUserId,
+    string? AssignedToName,
+    string? ResolutionSummary,
+    DateTime? ResolvedAt,
+    string? ResolvedByName,
+    DateTime CreatedAt,
+    int CommentsCount
+);
+
+public record GrievanceCommentDto(
+    Guid Id,
+    Guid TicketId,
+    Guid? BranchId,
+    string AuthorName,
+    string AuthorRole,
+    string Comment,
+    bool IsInternal,
+    DateTime CreatedAt
+);
+
+public record CreateGrievanceTicketDto(
+    Guid? StudentId,
+    string? DivisionScope,
+    string RaisedByName,
+    string RaisedByRole,
+    string ContactPhone,
+    string? ContactEmail,
+    string Category,
+    string Priority,
+    string Subject,
+    string Description,
+    Guid? AssignedToUserId,
+    string? AssignedToName
+);
+
+public record UpdateGrievanceStatusDto(
+    string Status,
+    string? ResolutionSummary,
+    string? ResolvedByName,
+    Guid? AssignedToUserId,
+    string? AssignedToName
+);
+
+public record AddGrievanceCommentDto(
+    string AuthorName,
+    string AuthorRole,
+    string Comment,
+    bool IsInternal
+);
+
+public record GrievanceStatsDto(
+    int TotalTickets,
+    int OpenTickets,
+    int InProgressTickets,
+    int ResolvedTickets,
+    int UrgentTickets,
+    decimal ResolutionRatePercentage
+);
 

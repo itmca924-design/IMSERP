@@ -41,6 +41,23 @@ export interface AdmissionEnquiryDto {
   convertedAt?: string;
   createdBy?: string;
   createdAt: string;
+  dateOfBirth?: string;
+  gender?: string;
+  motherName?: string;
+  fatherOccupation?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  bloodGroup?: string;
+  category?: string;
+  aadhaarNumber?: string;
+  previousSchoolName?: string;
+  previousMarks?: string;
+  requiresTransport?: boolean;
+  requiresHostel?: boolean;
+  academicYear?: string;
+  applicationNumber?: string;
 }
 
 export interface EnquiryStatsDto {
@@ -405,7 +422,7 @@ export interface EnquiryStatsDto {
                 </div>
               </td>
               <td>{{e.interestedClassName || e.interestedBatchName || '—'}}</td>
-              <td><span class="source-tag">{{e.source}}</span></td>
+              <td><span class="source-tag" [class.source-online]="e.source === 'Online Portal'">{{e.source === 'Online Portal' ? '🌐 Online Lead' : e.source}}</span></td>
               <td><span class="prio-tag" [ngClass]="e.priority.toLowerCase()">{{e.priority}}</span></td>
               <td>
                 <button mat-button class="tbl-status-btn" [matMenuTriggerFor]="stageMenu" [matMenuTriggerData]="{ item: e }" matTooltip="Click to change pipeline stage">
@@ -514,6 +531,7 @@ export interface EnquiryStatsDto {
     .remarks-box { font-size: 11px; color: #64748b; font-style: italic; background: #f8fafc; padding: 4px 8px; border-radius: 4px; }
     .card-bottom { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #f1f5f9; padding-top: 8px; margin-top: 4px; }
     .source-tag { font-size: 10px; font-weight: 700; color: #475569; background: #f1f5f9; padding: 2px 7px; border-radius: 4px; border: 1px solid #e2e8f0; }
+    .source-tag.source-online { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; font-weight: 800; }
     .card-actions { display: flex; align-items: center; gap: 4px; }
     .card-action-ic { font-size: 16px; width: 16px; height: 16px; }
     .card-action-ic.edit { color: #2563eb; }
@@ -1135,8 +1153,17 @@ export class EnquiryFormDialogComponent implements OnInit {
       <div class="modal-body">
         <div class="summary-box">
           <div><strong>Student:</strong> {{data.enquiry.studentName}}</div>
-          <div><strong>Parent:</strong> {{data.enquiry.parentName || '—'}}</div>
+          <div><strong>Parent:</strong> {{data.enquiry.parentName || '—'}} <span *ngIf="data.enquiry.motherName">&bull; Mother: {{data.enquiry.motherName}}</span></div>
           <div><strong>Phone:</strong> {{data.enquiry.phone}}</div>
+          <div *ngIf="data.enquiry.address"><strong>Address:</strong> {{data.enquiry.address}}</div>
+          <div *ngIf="data.enquiry.requiresTransport || data.enquiry.requiresHostel">
+            <strong>Facilities:</strong>
+            <span *ngIf="data.enquiry.requiresTransport">🚌 Bus Transport </span>
+            <span *ngIf="data.enquiry.requiresHostel">🏢 Hostel Boarding</span>
+          </div>
+          <div *ngIf="data.enquiry.source === 'Online Portal'">
+            <span class="online-pill">🌐 Online Web Application ({{data.enquiry.enquiryNumber}})</span>
+          </div>
         </div>
 
         <mat-form-field appearance="outline" class="full-field">
@@ -1214,6 +1241,7 @@ export class EnquiryFormDialogComponent implements OnInit {
     .modal-footer { padding: 14px 24px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 10px; }
     .cancel-btn { color: #64748b; }
     .admit-btn { background: #16a34a !important; color: #fff !important; font-weight: 700; }
+    .online-pill { display: inline-block; margin-top: 6px; padding: 2px 8px; background: #dbeafe; color: #1d4ed8; border-radius: 4px; font-size: 11px; font-weight: 700; }
   `]
 })
 export class ConvertEnquiryDialogComponent implements OnInit {
@@ -1241,6 +1269,10 @@ export class ConvertEnquiryDialogComponent implements OnInit {
     const e = this.data.enquiry;
     this.model.classId = e.interestedClassId || '';
     this.model.batchId = e.interestedBatchId || '';
+    if (e.gender) this.model.gender = e.gender;
+    if (e.dateOfBirth) {
+      this.dobStr = e.dateOfBirth.substring(0, 10);
+    }
     this.onClassSelect();
   }
 

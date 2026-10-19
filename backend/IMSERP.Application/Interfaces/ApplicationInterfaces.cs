@@ -95,6 +95,7 @@ public interface IIMSERPDbContext
     DbSet<StudentPtmRecord> StudentPtmRecords { get; }
     DbSet<StudentHealthRecord> StudentHealthRecords { get; }
     DbSet<StudentSibling> StudentSiblings { get; }
+    DbSet<StudentFeeConcession> StudentFeeConcessions { get; }
     DbSet<StudyMaterial> StudyMaterials { get; }
     DbSet<SchoolPeriodSlot> SchoolPeriodSlots { get; }
     DbSet<SchoolActivityType> SchoolActivityTypes { get; }
@@ -110,6 +111,16 @@ public interface IIMSERPDbContext
     DbSet<InventoryOutward> InventoryOutwards { get; }
     DbSet<InventoryOutwardItem> InventoryOutwardItems { get; }
     DbSet<InventoryStockAdjustment> InventoryStockAdjustments { get; }
+    DbSet<InventoryPurchaseReturn> InventoryPurchaseReturns { get; }
+    DbSet<InventoryPurchaseReturnItem> InventoryPurchaseReturnItems { get; }
+    DbSet<InventorySaleReturn> InventorySaleReturns { get; }
+    DbSet<InventorySaleReturnItem> InventorySaleReturnItems { get; }
+    DbSet<InventoryVendorPayment> InventoryVendorPayments { get; }
+    DbSet<InfirmaryVisit> InfirmaryVisits { get; }
+    DbSet<PtmSession> PtmSessions { get; }
+    DbSet<PtmBooking> PtmBookings { get; }
+    DbSet<GrievanceTicket> GrievanceTickets { get; }
+    DbSet<GrievanceComment> GrievanceComments { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

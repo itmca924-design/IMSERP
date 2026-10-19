@@ -26,8 +26,10 @@ import {
   SaveStudentHealthDto,
   StudentSiblingDto,
   AddStudentSiblingDto,
-  SiblingCandidateSearchDto
+  SiblingCandidateSearchDto,
+  StudentInventoryKit360
 } from '../../core/services/coaching.service';
+import { Router } from '@angular/router';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { AuthService } from '../../core/services/auth.service';
 
@@ -148,6 +150,11 @@ const API_BASE = environment.apiBaseUrl;
           <mat-icon class="icon-sibling">family_restroom</mat-icon>
           <span class="metric-val">{{ data360.siblings.length }} Sibling{{ data360.siblings.length > 1 ? 's' : '' }}</span>
           <span class="metric-lbl">In School</span>
+        </div>
+        <div class="metric-pill" *ngIf="data360.inventoryKits && data360.inventoryKits.length > 0" (click)="activeTabIndex = 12" style="cursor: pointer;" title="View Issued Kits">
+          <mat-icon style="color: #4f46e5;">inventory_2</mat-icon>
+          <span class="metric-val">{{ data360.inventoryKits.length }} Kit{{ data360.inventoryKits.length > 1 ? 's' : '' }}</span>
+          <span class="metric-lbl">Issued Items</span>
         </div>
       </div>
 
@@ -1715,6 +1722,88 @@ const API_BASE = environment.apiBaseUrl;
                   <mat-icon>person_add</mat-icon> Link First Sibling
                 </button>
               </div>
+
+            </div>
+          </mat-tab>
+
+          <!-- TAB 13: KITS & INVENTORY ASSETS -->
+          <mat-tab>
+            <ng-template mat-tab-label>
+              <mat-icon class="tab-icon">inventory_2</mat-icon> Kits &amp; Store Assets ({{ data360.inventoryKits?.length || 0 }})
+            </ng-template>
+            <div class="tab-content-wrap">
+              <div class="tab-action-header">
+                <div>
+                  <h4 class="tab-action-title">Student Inventory &amp; Kit Distribution Dossier</h4>
+                  <p class="tab-action-sub">Track all uniform, book kits, and store materials issued to the student with payment status and returns</p>
+                </div>
+                <button mat-stroked-button color="primary" (click)="openSaleReturnsForStudent()">
+                  <mat-icon>assignment_return</mat-icon> Kit Return / Exchange (SR)
+                </button>
+              </div>
+
+              <!-- Summary KPIs -->
+              <div class="kit-kpi-grid">
+                <div class="kit-kpi-card">
+                  <span class="kpi-label">Total Outward Kits</span>
+                  <span class="kpi-val">{{ data360.inventoryKits?.length || 0 }}</span>
+                </div>
+                <div class="kit-kpi-card">
+                  <span class="kpi-label">Total Items Issued</span>
+                  <span class="kpi-val">{{ getTotalKitItemsCount() }} Pcs</span>
+                </div>
+                <div class="kit-kpi-card">
+                  <span class="kpi-label">Total Kit Value</span>
+                  <span class="kpi-val text-primary">₹{{ getTotalKitValue() | number:'1.2-2' }}</span>
+                </div>
+              </div>
+
+              <!-- Kits Table -->
+              <div class="table-responsive kit-table-wrap" *ngIf="data360.inventoryKits && data360.inventoryKits.length > 0; else noKits">
+                <table class="custom-table">
+                  <thead>
+                    <tr>
+                      <th>Issue #</th>
+                      <th>Date</th>
+                      <th>Items Issued</th>
+                      <th>Total Qty</th>
+                      <th>Kit Amount</th>
+                      <th>Payment Status</th>
+                      <th>Remarks</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let kit of data360.inventoryKits">
+                      <td class="font-mono font-bold">{{ kit.issueNumber }}</td>
+                      <td>{{ kit.issueDate | date:'dd MMM yyyy, hh:mm a':'Asia/Kolkata' }}</td>
+                      <td>
+                        <span class="item-summary-pill">{{ kit.itemsSummary }}</span>
+                      </td>
+                      <td class="font-bold">{{ kit.totalQuantity }}</td>
+                      <td class="font-bold text-slate-800">₹{{ kit.totalAmount | number:'1.2-2' }}</td>
+                      <td>
+                        <span class="badge-status" [ngClass]="{
+                          'status-paid': kit.paymentStatus === 'Paid',
+                          'status-fee': kit.paymentStatus === 'AddedToFeeBill',
+                          'status-free': kit.paymentStatus === 'Free/Complimentary',
+                          'status-unpaid': kit.paymentStatus === 'Unpaid'
+                        }">
+                          {{ kit.paymentStatus === 'AddedToFeeBill' ? 'Added to Fee Bill' : kit.paymentStatus }}
+                        </span>
+                      </td>
+                      <td class="text-muted">{{ kit.remarks || '-' }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <ng-template #noKits>
+                <div class="empty-state-box">
+                  <mat-icon class="empty-icon">inventory_2</mat-icon>
+                  <h5>No Kits Issued to Student</h5>
+                  <p>No inventory kits, uniforms, or study materials have been issued to this student yet.</p>
+                </div>
+              </ng-template>
 
             </div>
           </mat-tab>
@@ -4233,6 +4322,92 @@ const API_BASE = environment.apiBaseUrl;
           font-style: italic;
         }
       }
+
+      /* ── TAB 13: KITS & INVENTORY ASSETS STYLES ── */
+      .kit-kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        margin-bottom: 20px;
+      }
+      .kit-kpi-card {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+
+        .kpi-label {
+          font-size: 0.75rem;
+          font-weight: 600;
+          color: #64748b;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+
+        .kpi-val {
+          font-size: 1.35rem;
+          font-weight: 700;
+          color: #1e293b;
+        }
+
+        .text-primary {
+          color: #2563eb;
+        }
+      }
+
+      .kit-table-wrap {
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        overflow: hidden;
+      }
+
+      .item-summary-pill {
+        display: inline-block;
+        padding: 3px 8px;
+        background: #f1f5f9;
+        color: #334155;
+        border-radius: 6px;
+        font-size: 0.82rem;
+        max-width: 320px;
+        white-space: normal;
+        line-height: 1.3;
+      }
+
+      .badge-status {
+        display: inline-flex;
+        align-items: center;
+        padding: 3px 10px;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 600;
+      }
+
+      .status-paid {
+        background: #ecfdf5;
+        color: #065f46;
+        border: 1px solid #a7f3d0;
+      }
+
+      .status-fee {
+        background: #eff6ff;
+        color: #1e40af;
+        border: 1px solid #bfdbfe;
+      }
+
+      .status-free {
+        background: #f5f3ff;
+        color: #6d28d9;
+        border: 1px solid #ddd6fe;
+      }
+
+      .status-unpaid {
+        background: #fef2f2;
+        color: #991b1b;
+        border: 1px solid #fecaca;
+      }
     }
   `]
 })
@@ -4385,7 +4560,8 @@ export class StudentProfile360DialogComponent implements OnInit {
     private coachingService: CoachingService,
     private confirmDialog: ConfirmDialogService,
     public authService: AuthService,
-    private dialog: MatDialog
+    private dialog: MatDialog,
+    private router: Router
   ) {}
 
   get isReadOnly(): boolean {
@@ -4875,5 +5051,18 @@ export class StudentProfile360DialogComponent implements OnInit {
         }
       });
     });
+  }
+
+  getTotalKitItemsCount(): number {
+    return (this.data360?.inventoryKits || []).reduce((acc, k) => acc + (k.totalQuantity || 0), 0);
+  }
+
+  getTotalKitValue(): number {
+    return (this.data360?.inventoryKits || []).reduce((acc, k) => acc + (k.totalAmount || 0), 0);
+  }
+
+  openSaleReturnsForStudent(): void {
+    this.dialogRef.close();
+    this.router.navigate(['/inventory/sale-returns']);
   }
 }
