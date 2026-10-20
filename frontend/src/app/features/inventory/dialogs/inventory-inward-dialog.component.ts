@@ -22,6 +22,7 @@ export interface InventoryInwardDialogData {
     itemId: string;
     quantity: number;
     unitPrice: number;
+    vendorId?: string;
     remarks?: string;
   };
 }
@@ -149,8 +150,26 @@ export interface InventoryInwardDialogData {
               <mat-form-field appearance="outline" class="item-select-field">
                 <mat-label>Select Item</mat-label>
                 <mat-select formControlName="itemId" (selectionChange)="onItemSelect(i, $event.value)">
+                  <mat-select-trigger>
+                    <span *ngIf="getSelectedItem(i) as sel" class="trigger-item-wrap">
+                      <span class="trigger-name">{{ sel.itemName }}</span>
+                      <span class="trigger-code">({{ sel.itemCode }})</span>
+                      <span class="stock-pill" [ngClass]="getStockBadgeClass(sel)">
+                        Current: {{ sel.currentStock }} {{ sel.unitOfMeasurement }}
+                      </span>
+                    </span>
+                  </mat-select-trigger>
+
                   <mat-option *ngFor="let itm of data.items" [value]="itm.id">
-                    <strong>{{ itm.itemName }}</strong> ({{ itm.itemCode }}) - Current: {{ itm.currentStock }} {{ itm.unitOfMeasurement }}
+                    <div class="option-item-row">
+                      <div class="option-name-code">
+                        <strong>{{ itm.itemName }}</strong>
+                        <span class="option-code">({{ itm.itemCode }})</span>
+                      </div>
+                      <span class="stock-pill" [ngClass]="getStockBadgeClass(itm)">
+                        Current: {{ itm.currentStock }} {{ itm.unitOfMeasurement }}
+                      </span>
+                    </div>
                   </mat-option>
                 </mat-select>
               </mat-form-field>
@@ -189,9 +208,9 @@ export interface InventoryInwardDialogData {
           <!-- Bottom Summary & Amounts -->
           <div class="summary-section">
             <div class="remarks-wrap">
-              <mat-form-field appearance="outline" class="w-full">
+              <mat-form-field appearance="outline" class="remarks-form-field">
                 <mat-label>Purchase Notes / Remarks</mat-label>
-                <textarea matInput formControlName="remarks" rows="2" placeholder="e.g. Received 2 cartons in good condition"></textarea>
+                <textarea matInput formControlName="remarks" rows="3" placeholder="e.g. Auto-reorder for low stock threshold, batch notes, or delivery remarks"></textarea>
               </mat-form-field>
             </div>
 
@@ -340,6 +359,63 @@ export interface InventoryInwardDialogData {
       min-width: 280px;
       margin-bottom: -1.25em;
     }
+    .trigger-item-wrap {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      max-width: 100%;
+      vertical-align: middle;
+    }
+    .trigger-name {
+      font-weight: 600;
+      color: #0f172a;
+    }
+    .trigger-code {
+      color: #64748b;
+      font-size: 0.82rem;
+    }
+    .option-item-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      gap: 12px;
+    }
+    .option-name-code {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .option-code {
+      color: #64748b;
+      font-size: 0.82rem;
+    }
+    .stock-pill {
+      display: inline-flex;
+      align-items: center;
+      font-size: 0.74rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 9999px;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+      line-height: 1.3;
+    }
+    .stock-pill-low {
+      background-color: #fee2e2;
+      color: #dc2626;
+      border: 1px solid #fca5a5;
+    }
+    .stock-pill-out {
+      background-color: #fef2f2;
+      color: #991b1b;
+      border: 1px solid #f87171;
+    }
+    .stock-pill-good {
+      background-color: #ecfdf5;
+      color: #059669;
+      border: 1px solid #a7f3d0;
+    }
     .qty-field {
       flex: 0.9;
       min-width: 85px;
@@ -366,16 +442,40 @@ export interface InventoryInwardDialogData {
     }
     .summary-section {
       display: grid;
-      grid-template-columns: 1.5fr 1fr;
-      gap: 16px;
+      grid-template-columns: 1fr 360px;
+      gap: 24px;
       border-top: 1px solid #e2e8f0;
-      padding-top: 14px;
+      padding-top: 16px;
       align-items: flex-start;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .remarks-wrap {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      box-sizing: border-box;
+    }
+    .remarks-form-field {
+      width: 100% !important;
+      display: block !important;
+      ::ng-deep .mat-mdc-form-field-flex {
+        width: 100% !important;
+      }
+      ::ng-deep textarea.mat-mdc-input-element {
+        width: 100% !important;
+        min-height: 84px !important;
+        line-height: 1.5;
+        resize: vertical;
+        box-sizing: border-box;
+      }
     }
     .totals-card {
+      width: 360px;
+      box-sizing: border-box;
       background: #f1f5f9;
       border-radius: 8px;
-      padding: 12px 16px;
+      padding: 14px 18px;
       display: flex;
       flex-direction: column;
       gap: 6px;
@@ -512,8 +612,11 @@ export class InventoryInwardDialogComponent implements OnInit {
 
   ngOnInit(): void {
     const today = new Date().toISOString().substring(0, 10);
+    const preferredVendor = (this.data.vendors || []).find(v => !v.vendorName.toLowerCase().includes('direct')) || (this.data.vendors || [])[0];
+    const initialVendorId = this.data.prefill?.vendorId || preferredVendor?.id || null;
+
     this.form = this.fb.group({
-      vendorId: [this.data.vendors.length > 0 ? this.data.vendors[0].id : null],
+      vendorId: [initialVendorId],
       invoiceBillNumber: [''],
       inwardDate: [today, [Validators.required]],
       discountAmount: [0, [Validators.min(0)]],
@@ -523,6 +626,20 @@ export class InventoryInwardDialogComponent implements OnInit {
       remarks: [this.data.prefill?.remarks || ''],
       items: this.fb.array([])
     });
+
+    // If vendors list was empty or not yet loaded, fetch directly and auto-select
+    if (!this.data.vendors || this.data.vendors.length === 0) {
+      this.inventoryService.getVendors(this.data.branchId).subscribe({
+        next: (vList) => {
+          this.data.vendors = vList;
+          if (vList.length > 0 && !this.form.get('vendorId')?.value) {
+            const pref = vList.find(x => !x.vendorName.toLowerCase().includes('direct')) || vList[0];
+            const chosenId = this.data.prefill?.vendorId || pref.id;
+            this.form.patchValue({ vendorId: chosenId });
+          }
+        }
+      });
+    }
 
     // Load Sequencer for Next Bill Number
     this.inventoryService.getBillSequence(this.data.branchId).subscribe({
@@ -614,6 +731,19 @@ export class InventoryInwardDialogComponent implements OnInit {
       });
       this.computeTotals();
     }
+  }
+
+  getSelectedItem(index: number): InventoryItem | undefined {
+    const itemId = this.itemRows?.at(index)?.get('itemId')?.value;
+    if (!itemId) return undefined;
+    return this.data.items?.find(it => it.id === itemId);
+  }
+
+  getStockBadgeClass(item: InventoryItem): string {
+    if (!item) return 'stock-pill-good';
+    if (item.currentStock <= 0) return 'stock-pill-out';
+    if (item.currentStock <= item.minStockAlertLevel) return 'stock-pill-low';
+    return 'stock-pill-good';
   }
 
   getLineTotal(index: number): number {

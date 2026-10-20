@@ -47,6 +47,7 @@ import { InventoryInwardDialogComponent } from './dialogs/inventory-inward-dialo
 import { InventoryOutwardDialogComponent } from './dialogs/inventory-outward-dialog.component';
 import { InventoryAdjustDialogComponent } from './dialogs/inventory-adjust-dialog.component';
 import { InventoryOutwardReceiptDialogComponent } from './dialogs/inventory-outward-receipt-dialog.component';
+import { InventoryInwardReceiptDialogComponent } from './dialogs/inventory-inward-receipt-dialog.component';
 
 @Component({
   selector: 'app-inventory',
@@ -421,6 +422,7 @@ import { InventoryOutwardReceiptDialogComponent } from './dialogs/inventory-outw
                       <th mat-sort-header="netAmount">Net Bill Amount</th>
                       <th mat-sort-header="paymentStatus">Payment Status</th>
                       <th mat-sort-header="paymentMode">Payment Mode</th>
+                      <th style="width: 80px; text-align: center;">Receipt</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -447,10 +449,15 @@ import { InventoryOutwardReceiptDialogComponent } from './dialogs/inventory-outw
                         </span>
                       </td>
                       <td>{{ inw.paymentMode }}</td>
+                      <td class="text-center action-cell">
+                        <button mat-icon-button class="print-row-btn" (click)="printInwardSlip(inw)" matTooltip="Print / View GRN Receipt Slip" type="button">
+                          <mat-icon>print</mat-icon>
+                        </button>
+                      </td>
                     </tr>
 
                     <tr *ngIf="!loading && inwards.length === 0">
-                      <td colspan="9" class="empty-cell">
+                      <td colspan="10" class="empty-cell">
                         <mat-icon class="empty-icon">shopping_bag</mat-icon>
                         <p class="empty-text">No stock inward records found.</p>
                         <button mat-stroked-button color="primary" (click)="openInwardDialog()">Record First Stock Inward</button>
@@ -1637,6 +1644,18 @@ export class InventoryComponent implements OnInit, OnDestroy {
       error: () => {}
     });
 
+    // Always fetch vendors so they are readily available for Inward Dialog & Reorder
+    this.inventoryService.getVendors(branchId).subscribe({
+      next: v => { this.vendors = v; },
+      error: () => {}
+    });
+
+    // Also load recent inwards for historical vendor lookup
+    this.inventoryService.getInwards({ branchId }).subscribe({
+      next: inws => { this.inwards = inws; },
+      error: () => {}
+    });
+
     // Load active tab data
     if (this.activeTabIndex === 0) this.loadItems();
     else if (this.activeTabIndex === 1) this.loadInwards();
@@ -2017,46 +2036,97 @@ export class InventoryComponent implements OnInit, OnDestroy {
 
   reorderItem(item: InventoryItem): void {
     const deficit = Math.max(1, (item.minStockAlertLevel || 0) - (item.currentStock || 0));
+
+    // Auto-detect vendor: check previous inwards for this item, or pick first registered supplier
+    const lastInward = this.inwards?.find(inw => inw.items?.some(it => it.itemId === item.id && inw.vendorId));
+    const preferredVendor = (this.vendors || []).find(v => !v.vendorName.toLowerCase().includes('direct')) || (this.vendors || [])[0];
+    const vendorId = lastInward?.vendorId || preferredVendor?.id;
+
     this.openInwardDialog({
       itemId: item.id,
       quantity: deficit,
       unitPrice: item.purchasePrice || 0,
+      vendorId,
       remarks: `Auto-reorder for low stock safety threshold (Deficit: ${deficit} ${item.unitOfMeasurement})`
     });
   }
 
-  openInwardDialog(prefill?: { itemId: string; quantity: number; unitPrice: number; remarks?: string }): void {
+  openInwardDialog(prefill?: { itemId: string; quantity: number; unitPrice: number; vendorId?: string; remarks?: string }): void {
     if (this.items.length === 0) {
       this.confirmDialog.alert('Catalog Empty', 'Please add inventory items to the catalog first before recording stock inward.', 'warning');
       return;
     }
 
-    const dialogRef = this.dialog.open(InventoryInwardDialogComponent, {
-      width: '1180px',
-      maxWidth: '96vw',
-      disableClose: true,
-      data: {
-        vendors: this.vendors,
-        items: this.items,
-        branchId: this.filterForm.get('branchId')?.value || undefined,
-        prefill
-      }
-    });
+    const launchModal = (vendorList: InventoryVendor[]) => {
+      const preferred = vendorList.find(v => !v.vendorName.toLowerCase().includes('direct')) || vendorList[0];
+      const resolvedPrefill = prefill ? {
+        ...prefill,
+        vendorId: prefill.vendorId || preferred?.id
+      } : undefined;
 
-    dialogRef.afterClosed().subscribe((res: CreateInwardDto | undefined) => {
-      if (!res) return;
-
-      this.loading = true;
-      this.inventoryService.createInward(res).subscribe({
-        next: r => {
-          this.confirmDialog.alert('Stock Inward Recorded', `GRN ${r.inwardNumber} saved successfully and item physical stock has been updated.`, 'success');
-          this.refreshAll();
-        },
-        error: err => {
-          this.loading = false;
-          this.confirmDialog.alert('Error', err?.error?.message || err?.error || 'Failed to save stock inward.', 'danger');
+      const dialogRef = this.dialog.open(InventoryInwardDialogComponent, {
+        width: '1180px',
+        maxWidth: '96vw',
+        disableClose: true,
+        data: {
+          vendors: vendorList,
+          items: this.items,
+          branchId: this.filterForm.get('branchId')?.value || undefined,
+          prefill: resolvedPrefill
         }
       });
+
+      dialogRef.afterClosed().subscribe((res: CreateInwardDto | undefined) => {
+        if (!res) return;
+
+        this.loading = true;
+        this.inventoryService.createInward(res).subscribe({
+          next: r => {
+            this.confirmDialog.alert('Stock Inward Recorded', `GRN ${r.inwardNumber} saved successfully and item physical stock has been updated.`, 'success');
+            this.refreshAll();
+
+            // Auto-fetch and show the print GRN receipt slip
+            this.inventoryService.getInwards({ branchId: this.filterForm.get('branchId')?.value || undefined }).subscribe(inws => {
+              const created = (inws || []).find(i => i.inwardNumber === r.inwardNumber);
+              if (created) {
+                this.printInwardSlip(created);
+              }
+            });
+          },
+          error: err => {
+            this.loading = false;
+            this.confirmDialog.alert('Error', err?.error?.message || err?.error || 'Failed to save stock inward.', 'danger');
+          }
+        });
+      });
+    };
+
+    if (this.vendors && this.vendors.length > 0) {
+      launchModal(this.vendors);
+    } else {
+      const branchId = this.filterForm.get('branchId')?.value || undefined;
+      this.inventoryService.getVendors(branchId).subscribe({
+        next: vList => {
+          this.vendors = vList;
+          launchModal(vList);
+        },
+        error: () => {
+          launchModal([]);
+        }
+      });
+    }
+  }
+
+  printInwardSlip(inw: InventoryInward): void {
+    this.dialog.open(InventoryInwardReceiptDialogComponent, {
+      width: '880px',
+      maxWidth: '96vw',
+      data: {
+        inward: inw,
+        instituteName: this.authService.currentUser()?.instituteName,
+        branchName: this.authService.currentUser()?.branchName,
+        logoUrl: this.authService.getInstituteLogoUrl()
+      }
     });
   }
 

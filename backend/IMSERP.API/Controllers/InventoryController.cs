@@ -884,7 +884,9 @@ public class InventoryController : ControllerBase
             VendorId = dto.VendorId,
             InwardNumber = inwardNumber,
             InvoiceBillNumber = billNumber,
-            InwardDate = dto.InwardDate ?? DateTime.UtcNow,
+            InwardDate = dto.InwardDate.HasValue
+                ? (dto.InwardDate.Value.TimeOfDay.TotalSeconds > 0 ? dto.InwardDate.Value : dto.InwardDate.Value.Date.Add(DateTime.UtcNow.TimeOfDay))
+                : DateTime.UtcNow,
             DiscountAmount = Math.Max(0, dto.DiscountAmount),
             TaxAmount = Math.Max(0, dto.TaxAmount),
             PaymentStatus = string.IsNullOrWhiteSpace(dto.PaymentStatus) ? "Paid" : dto.PaymentStatus.Trim(),
@@ -1413,7 +1415,7 @@ public class InventoryController : ControllerBase
         [FromQuery] string? entryType = null,
         [FromQuery] string? paymentMode = null,
         [FromQuery] string? sortBy = "date",
-        [FromQuery] string? sortDirection = "asc",
+        [FromQuery] string? sortDirection = "desc",
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10,
         [FromQuery] Guid? branchId = null)
@@ -1494,6 +1496,25 @@ public class InventoryController : ControllerBase
             })
             .ToListAsync();
 
+        static DateTime ResolveTransactionDateTime(DateTime date, DateTime? createdAt)
+        {
+            DateTime resolved;
+            if (date.TimeOfDay.TotalSeconds > 0)
+            {
+                resolved = date;
+            }
+            else if (createdAt.HasValue)
+            {
+                resolved = date.Date.Add(createdAt.Value.TimeOfDay);
+            }
+            else
+            {
+                resolved = date;
+            }
+
+            return DateTime.SpecifyKind(resolved, DateTimeKind.Utc);
+        }
+
         var rawEntries = new List<VendorLedgerRawEntry>(allInwards.Count + allPayments.Count + allReturns.Count);
 
         foreach (var inw in allInwards)
@@ -1504,7 +1525,7 @@ public class InventoryController : ControllerBase
 
             rawEntries.Add(new VendorLedgerRawEntry(
                 inw.Id,
-                inw.Date,
+                ResolveTransactionDateTime(inw.Date, inw.CreatedAt),
                 "InwardPurchase",
                 inw.InwardNumber,
                 inw.InvoiceBillNumber,
@@ -1524,7 +1545,7 @@ public class InventoryController : ControllerBase
             {
                 rawEntries.Add(new VendorLedgerRawEntry(
                     pay.Id,
-                    pay.Date,
+                    ResolveTransactionDateTime(pay.Date, pay.CreatedAt),
                     "VendorRefund",
                     pay.VoucherNumber,
                     null,
@@ -1540,7 +1561,7 @@ public class InventoryController : ControllerBase
             {
                 rawEntries.Add(new VendorLedgerRawEntry(
                     pay.Id,
-                    pay.Date,
+                    ResolveTransactionDateTime(pay.Date, pay.CreatedAt),
                     "VendorPayment",
                     pay.VoucherNumber,
                     null,
@@ -1562,7 +1583,7 @@ public class InventoryController : ControllerBase
 
             rawEntries.Add(new VendorLedgerRawEntry(
                 ret.Id,
-                ret.Date,
+                ResolveTransactionDateTime(ret.Date, ret.CreatedAt),
                 "PurchaseReturn",
                 ret.ReferenceNumber,
                 null,
@@ -1706,7 +1727,9 @@ public class InventoryController : ControllerBase
             BranchId = dto.BranchId ?? _currentUser.BranchId,
             VendorId = dto.VendorId,
             VoucherNumber = voucherNo,
-            PaymentDate = dto.PaymentDate,
+            PaymentDate = dto.PaymentDate.TimeOfDay.TotalSeconds > 0
+                ? dto.PaymentDate
+                : dto.PaymentDate.Date.Add(DateTime.UtcNow.TimeOfDay),
             Amount = dto.Amount,
             PaymentMode = dto.PaymentMode ?? "Cash",
             PaymentType = isRefund ? "Refund" : "Disbursement",

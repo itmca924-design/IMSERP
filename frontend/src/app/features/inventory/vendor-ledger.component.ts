@@ -341,7 +341,7 @@ import {
                   <button *ngIf="(selectedVendor.balanceDue ?? 0) < 0" mat-flat-button class="btn-action btn-refund" (click)="quickRefundVendor(selectedVendor)">
                     <mat-icon class="icon-sm">call_received</mat-icon> Receive Refund
                   </button>
-                  <button *ngIf="(selectedVendor.balanceDue ?? 0) >= 0" mat-flat-button color="primary" class="btn-action" (click)="quickPayVendor(selectedVendor)">
+                  <button *ngIf="(selectedVendor.balanceDue ?? 0) > 0" mat-flat-button color="primary" class="btn-action" (click)="quickPayVendor(selectedVendor)">
                     <mat-icon class="icon-sm">payment</mat-icon> Pay Now
                   </button>
                   <button mat-stroked-button class="btn-action" (click)="printStatement()">
@@ -528,8 +528,10 @@ import {
                       <span *ngIf="e.credit > 0">₹{{ e.credit | number:'1.2-2' }}</span>
                       <span *ngIf="e.credit === 0" class="text-muted">—</span>
                     </td>
-                    <td class="text-right font-mono font-bold" [class.text-danger]="e.runningBalance > 0" [class.text-emerald]="e.runningBalance <= 0">
-                      ₹{{ e.runningBalance | number:'1.2-2' }}
+                    <td class="text-right font-mono font-bold" [class.text-danger]="e.runningBalance > 0" [class.text-emerald]="e.runningBalance < 0" [class.text-muted]="e.runningBalance === 0">
+                      <span>₹{{ Math.abs(e.runningBalance) | number:'1.2-2' }}</span>
+                      <small class="ledger-tag due-tag" *ngIf="e.runningBalance > 0">Dr</small>
+                      <small class="ledger-tag credit-tag" *ngIf="e.runningBalance < 0">Cr</small>
                     </td>
                   </tr>
 
@@ -647,11 +649,11 @@ import {
                     <button *ngIf="(v.balanceDue ?? 0) < 0" mat-stroked-button class="btn-xs btn-refund-xs" (click)="quickRefundVendor(v)" matTooltip="Receive Refund from Supplier">
                       <mat-icon class="icon-xs">call_received</mat-icon> Refund
                     </button>
-                    <button *ngIf="(v.balanceDue ?? 0) >= 0" mat-stroked-button color="accent" class="btn-xs" (click)="quickPayVendor(v)" matTooltip="Disburse Payment">
+                    <button *ngIf="(v.balanceDue ?? 0) > 0" mat-stroked-button color="accent" class="btn-xs" (click)="quickPayVendor(v)" matTooltip="Disburse Payment">
                       <mat-icon class="icon-xs">payment</mat-icon> Pay
                     </button>
                     <button mat-icon-button (click)="openVendorDialog(v)" matTooltip="Edit Profile" class="btn-icon-xs">
-                      <mat-icon class="icon-xs">edit</mat-icon>
+                      <mat-icon>edit</mat-icon>
                     </button>
                   </div>
                 </td>
@@ -791,8 +793,10 @@ import {
                 <span *ngIf="e.credit > 0">₹{{ e.credit | number:'1.2-2' }}</span>
                 <span *ngIf="!e.credit || e.credit === 0" class="text-muted">—</span>
               </td>
-              <td class="text-right font-mono font-bold">
-                ₹{{ e.runningBalance | number:'1.2-2' }}
+              <td class="text-right font-mono font-bold" [class.text-danger]="e.runningBalance > 0" [class.text-emerald]="e.runningBalance < 0">
+                ₹{{ Math.abs(e.runningBalance) | number:'1.2-2' }}
+                <small *ngIf="e.runningBalance > 0"> Dr</small>
+                <small *ngIf="e.runningBalance < 0"> Cr</small>
               </td>
             </tr>
             <tr *ngIf="ledgerEntries.length === 0">
@@ -1406,15 +1410,25 @@ import {
     .mini-add-btn {
       color: #2563eb;
       background: #eff6ff;
-      width: 32px;
-      height: 32px;
-      line-height: 32px;
+      width: 32px !important;
+      height: 32px !important;
+      min-width: 32px !important;
+      min-height: 32px !important;
+      padding: 0 !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      border-radius: 50% !important;
 
       mat-icon {
-        font-size: 18px;
-        width: 18px;
-        height: 18px;
-        line-height: 18px;
+        font-size: 18px !important;
+        width: 18px !important;
+        height: 18px !important;
+        line-height: 18px !important;
+        margin: 0 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
       }
 
       &:hover {
@@ -2063,6 +2077,27 @@ import {
     .chip-refund { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
     .chip-return { background: #fef3c7; color: #b45309; }
 
+    .ledger-tag {
+      display: inline-block;
+      margin-left: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 4px;
+      border-radius: 3px;
+      vertical-align: middle;
+      line-height: 1.2;
+
+      &.due-tag {
+        background: #fee2e2;
+        color: #b91c1c;
+      }
+
+      &.credit-tag {
+        background: #dcfce7;
+        color: #15803d;
+      }
+    }
+
     .particulars-cell {
       max-width: 240px;
       white-space: normal;
@@ -2277,19 +2312,32 @@ import {
     }
 
     .btn-icon-xs {
-      width: 28px;
-      height: 28px;
-      line-height: 28px;
+      width: 32px !important;
+      height: 32px !important;
+      min-width: 32px !important;
+      min-height: 32px !important;
+      padding: 0 !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      border-radius: 50% !important;
       color: #64748b;
+      transition: all 0.2s ease;
 
       mat-icon {
-        font-size: 16px;
-        width: 16px;
-        height: 16px;
+        font-size: 16px !important;
+        width: 16px !important;
+        height: 16px !important;
+        line-height: 16px !important;
+        margin: 0 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
       }
 
       &:hover {
-        color: #2563eb;
+        background: #f1f5f9 !important;
+        color: #2563eb !important;
       }
     }
 
@@ -2661,7 +2709,7 @@ export class VendorLedgerComponent implements OnInit {
   pageSize = 10;
   totalEntries = 0;
   sortBy = 'date';
-  sortDirection: 'asc' | 'desc' = 'asc';
+  sortDirection: 'asc' | 'desc' = 'desc';
 
   vendorsList: InventoryVendor[] = [];
   selectedVendor: InventoryVendor | null = null;
