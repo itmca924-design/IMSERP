@@ -1789,6 +1789,7 @@ export class LayoutComponent implements OnInit {
   @ViewChild('drawer') drawer!: MatSidenav;
 
   logoImgFailed = signal(false);
+  headerLogoFailed = signal(false);
   userAvatarFailed = signal(false);
   private rawMenu: MenuItem[] = [];
 
@@ -1805,6 +1806,7 @@ export class LayoutComponent implements OnInit {
       const user = this.currentUser();
       if (user?.profilePhoto) {
         this.logoImgFailed.set(false);
+        this.headerLogoFailed.set(false);
       }
       if (user?.userProfilePhoto) {
         this.userAvatarFailed.set(false);
@@ -1842,6 +1844,7 @@ export class LayoutComponent implements OnInit {
       next: (t) => {
         if (t) {
           this.logoImgFailed.set(false);
+          this.headerLogoFailed.set(false);
           this.authService.updateTenantProfile(t.profilePhoto, t.name, t.code);
           this.authService.updateTenantModules({
             hasSchoolModule: t.hasSchoolModule,
@@ -1999,13 +2002,17 @@ export class LayoutComponent implements OnInit {
   }
 
   getUserInitials(): string {
-    const name = this.currentUser()?.fullName || this.currentUser()?.username || '';
-    if (!name) return 'U';
-    const parts = name.trim().split(/\s+/);
+    const raw = this.currentUser()?.fullName || this.currentUser()?.username || '';
+    if (!raw) return 'U';
+    const cleaned = raw.replace(/[^a-zA-Z0-9\s]/g, ' ').trim();
+    const parts = cleaned.split(/\s+/).filter(p => p.length > 0);
     if (parts.length >= 2) {
       return (parts[0][0] + parts[1][0]).toUpperCase();
     }
-    return name.slice(0, 2).toUpperCase();
+    if (parts.length === 1) {
+      return parts[0].slice(0, 2).toUpperCase();
+    }
+    return raw.slice(0, 2).toUpperCase();
   }
 
   onUserAvatarError(): void {

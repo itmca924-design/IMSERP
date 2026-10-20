@@ -45,8 +45,15 @@ console.log(`  - API_URL:      ${API_URL}`);
 // 3. Generate src/assets/env.js
 const envJsContent = `(function (window) {
   window.__env = window.__env || {};
-  window.__env.API_BASE_URL = '${API_BASE_URL}';
-  window.__env.API_URL = '${API_URL}';
+  var isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && window.location.port !== '80' && window.location.port !== '443' && window.location.port !== '';
+  if (isLocal) {
+    window.__env.API_BASE_URL = '${API_BASE_URL}';
+    window.__env.API_URL = '${API_URL}';
+  } else {
+    var origin = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : '${API_BASE_URL}';
+    window.__env.API_BASE_URL = origin;
+    window.__env.API_URL = origin + '/api';
+  }
 }(this));
 `;
 
