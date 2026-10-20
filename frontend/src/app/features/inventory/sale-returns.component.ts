@@ -12,6 +12,8 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
+import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
+import { MatSortModule, Sort } from '@angular/material/sort';
 import { debounceTime, distinctUntilChanged, switchMap, of } from 'rxjs';
 import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.directive';
 import { InventoryService } from './inventory.service';
@@ -42,6 +44,8 @@ import {
     MatTooltipModule,
     MatChipsModule,
     MatAutocompleteModule,
+    MatPaginatorModule,
+    MatSortModule,
     IstDatetimeDirective
   ],
   template: `
@@ -378,7 +382,7 @@ import {
           <div class="chip-total">
             <mat-chip-set>
               <mat-chip highlighted color="primary">
-                {{ filteredReturns.length }} Return(s) Logged
+                {{ totalCount }} Return(s) Logged
               </mat-chip>
             </mat-chip-set>
           </div>
@@ -388,21 +392,21 @@ import {
       <!-- 5. Sale Returns List Table -->
       <mat-card class="table-card mat-elevation-z1">
         <div class="table-responsive">
-          <table class="erp-table">
+          <table class="erp-table" matSort (matSortChange)="onSortChange($event)">
             <thead>
               <tr>
-                <th style="min-width: 140px;">DATE &amp; TIME (IST)</th>
-                <th style="min-width: 120px;">RETURN #</th>
-                <th style="min-width: 160px;">RETURNED BY</th>
-                <th style="min-width: 120px;">CLASS / DEPT</th>
+                <th mat-sort-header="returndate" style="min-width: 140px;">DATE &amp; TIME (IST)</th>
+                <th mat-sort-header="returnnumber" style="min-width: 120px;">RETURN #</th>
+                <th mat-sort-header="name" style="min-width: 160px;">RETURNED BY</th>
+                <th mat-sort-header="class" style="min-width: 120px;">CLASS / DEPT</th>
                 <th style="min-width: 220px;">ITEMS RETURNED</th>
-                <th style="min-width: 110px;" class="text-right">TOTAL VALUE</th>
-                <th style="min-width: 130px;">TREATMENT</th>
+                <th mat-sort-header="amount" style="min-width: 110px;" class="text-right">TOTAL VALUE</th>
+                <th mat-sort-header="status" style="min-width: 130px;">TREATMENT</th>
                 <th style="min-width: 140px;">REMARKS</th>
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let ret of filteredReturns" class="data-row">
+              <tr *ngFor="let ret of returnsList" class="data-row">
                 <td class="cell-date">
                   <span [appIstDatetime]="ret.returnDate"></span>
                 </td>
@@ -436,7 +440,7 @@ import {
                 </td>
               </tr>
 
-              <tr *ngIf="filteredReturns.length === 0 && !loading">
+              <tr *ngIf="returnsList.length === 0 && !loading">
                 <td colspan="8" class="empty-state">
                   <mat-icon class="empty-icon">keyboard_return</mat-icon>
                   <p class="empty-title">No Kit Returns Recorded</p>
@@ -446,6 +450,16 @@ import {
             </tbody>
           </table>
         </div>
+
+        <mat-paginator
+          [length]="totalCount"
+          [pageSize]="pageSize"
+          [pageIndex]="pageIndex"
+          [pageSizeOptions]="[10, 25, 50, 100]"
+          (page)="onPageChange($event)"
+          showFirstLastButtons
+          class="erp-paginator">
+        </mat-paginator>
       </mat-card>
     </div>
   `,
@@ -920,27 +934,27 @@ export class SaleReturnsComponent implements OnInit {
     return this.returnsList.reduce((sum, r) => sum + (r.items ? r.items.reduce((s, it) => s + (it.quantity || 0), 0) : 0), 0);
   }
 
+  pageIndex = 0;
+  pageSize = 10;
+  totalCount = 0;
+  sortBy = 'returndate';
+  sortDescending = true;
+
   get totalItemsRestocked(): number {
     return this.returnsList.reduce((sum, r) => sum + (r.items ? r.items.filter(it => it.condition === 'Good/Resellable').reduce((s, it) => s + (it.quantity || 0), 0) : 0), 0);
-  }
-
-  get filteredReturns(): InventorySaleReturn[] {
-    const search = (this.filterSearchCtrl.value || '').toLowerCase().trim();
-
-    return this.returnsList.filter(r => {
-      const matchSearch = !search ||
-        (r.returnNumber && r.returnNumber.toLowerCase().includes(search)) ||
-        (r.returnedByName && r.returnedByName.toLowerCase().includes(search)) ||
-        (r.departmentOrClass && r.departmentOrClass.toLowerCase().includes(search)) ||
-        (r.remarks && r.remarks.toLowerCase().includes(search));
-
-      return matchSearch;
-    });
   }
 
   ngOnInit(): void {
     this.initForm();
     this.loadAllData();
+
+    this.filterSearchCtrl.valueChanges.pipe(
+      debounceTime(350),
+      distinctUntilChanged()
+    ).subscribe(() => {
+      this.pageIndex = 0;
+      this.loadReturns();
+    });
   }
 
   initForm(): void {
@@ -981,20 +995,47 @@ export class SaleReturnsComponent implements OnInit {
   }
 
   loadAllData(): void {
-    this.loading = true;
     const branchId = this.authService.selectedBranchId() || undefined;
 
-    this.inventoryService.getSaleReturns(undefined, branchId).subscribe({
-      next: (returns) => {
-        this.returnsList = returns || [];
-        this.loading = false;
-      },
-      error: () => this.loading = false
-    });
+    this.loadReturns();
 
     this.inventoryService.getItems({ branchId }).subscribe({
       next: (items) => this.items = items || []
     });
+  }
+
+  loadReturns(): void {
+    this.loading = true;
+    const branchId = this.authService.selectedBranchId() || undefined;
+
+    this.inventoryService.getSaleReturnsPaged({
+      branchId,
+      search: this.filterSearchCtrl.value?.trim() || undefined,
+      pageNumber: this.pageIndex + 1,
+      pageSize: this.pageSize,
+      sortBy: this.sortBy,
+      sortDescending: this.sortDescending
+    }).subscribe({
+      next: (res) => {
+        this.returnsList = res.items || [];
+        this.totalCount = res.totalCount || 0;
+        this.loading = false;
+      },
+      error: () => this.loading = false
+    });
+  }
+
+  onSortChange(sort: Sort): void {
+    this.sortBy = sort.active;
+    this.sortDescending = sort.direction === 'desc';
+    this.pageIndex = 0;
+    this.loadReturns();
+  }
+
+  onPageChange(e: PageEvent): void {
+    this.pageIndex = e.pageIndex;
+    this.pageSize = e.pageSize;
+    this.loadReturns();
   }
 
   onClassChange(classId: string | null): void {

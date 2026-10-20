@@ -24,7 +24,10 @@ import {
   InventoryPurchaseReturn,
   CreatePurchaseReturnDto,
   InventorySaleReturn,
-  CreateSaleReturnDto
+  CreateSaleReturnDto,
+  PagedResult,
+  InventoryBillSequenceDto,
+  UpdateInventoryBillSequenceDto
 } from './inventory.models';
 
 @Injectable({
@@ -258,4 +261,157 @@ export class InventoryService {
   createSaleReturn(dto: CreateSaleReturnDto): Observable<{ message: string; returnNumber: string }> {
     return this.http.post<{ message: string; returnNumber: string }>(`${this.baseUrl}/sale-returns`, dto);
   }
+
+  // ── Server-Side Paged, Sorted & Filtered Endpoints ──────────────────────
+  getItemsPaged(filters: {
+    search?: string;
+    categoryId?: string;
+    itemType?: string;
+    lowStockOnly?: boolean;
+    branchId?: string;
+    activeOnly?: boolean;
+    pageNumber?: number;
+    pageSize?: number;
+    sortBy?: string;
+    sortDescending?: boolean;
+  }): Observable<PagedResult<InventoryItem>> {
+    let params = new HttpParams();
+    if (filters.search) params = params.set('search', filters.search);
+    if (filters.categoryId) params = params.set('categoryId', filters.categoryId);
+    if (filters.itemType && filters.itemType !== 'All') params = params.set('itemType', filters.itemType);
+    if (filters.lowStockOnly !== undefined && filters.lowStockOnly !== null) params = params.set('lowStockOnly', filters.lowStockOnly.toString());
+    if (filters.branchId) params = params.set('branchId', filters.branchId);
+    if (filters.activeOnly !== undefined) params = params.set('activeOnly', filters.activeOnly.toString());
+    if (filters.pageNumber) params = params.set('pageNumber', filters.pageNumber.toString());
+    if (filters.pageSize) params = params.set('pageSize', filters.pageSize.toString());
+    if (filters.sortBy) params = params.set('sortBy', filters.sortBy);
+    if (filters.sortDescending !== undefined) params = params.set('sortDescending', filters.sortDescending.toString());
+
+    return this.http.get<PagedResult<InventoryItem>>(`${this.baseUrl}/items`, { params });
+  }
+
+  getInwardsPaged(filters: {
+    startDate?: string;
+    endDate?: string;
+    vendorId?: string;
+    branchId?: string;
+    search?: string;
+    pageNumber?: number;
+    pageSize?: number;
+    sortBy?: string;
+    sortDescending?: boolean;
+  }): Observable<PagedResult<InventoryInward>> {
+    let params = new HttpParams();
+    if (filters.startDate) params = params.set('startDate', filters.startDate);
+    if (filters.endDate) params = params.set('endDate', filters.endDate);
+    if (filters.vendorId) params = params.set('vendorId', filters.vendorId);
+    if (filters.branchId) params = params.set('branchId', filters.branchId);
+    if (filters.search) params = params.set('search', filters.search);
+    if (filters.pageNumber) params = params.set('pageNumber', filters.pageNumber.toString());
+    if (filters.pageSize) params = params.set('pageSize', filters.pageSize.toString());
+    if (filters.sortBy) params = params.set('sortBy', filters.sortBy);
+    if (filters.sortDescending !== undefined) params = params.set('sortDescending', filters.sortDescending.toString());
+
+    return this.http.get<PagedResult<InventoryInward>>(`${this.baseUrl}/inwards`, { params });
+  }
+
+  getOutwardsPaged(filters: {
+    startDate?: string;
+    endDate?: string;
+    issueType?: string;
+    studentId?: string;
+    branchId?: string;
+    search?: string;
+    pageNumber?: number;
+    pageSize?: number;
+    sortBy?: string;
+    sortDescending?: boolean;
+  }): Observable<PagedResult<InventoryOutward>> {
+    let params = new HttpParams();
+    if (filters.startDate) params = params.set('startDate', filters.startDate);
+    if (filters.endDate) params = params.set('endDate', filters.endDate);
+    if (filters.issueType && filters.issueType !== 'All') params = params.set('issueType', filters.issueType);
+    if (filters.studentId) params = params.set('studentId', filters.studentId);
+    if (filters.branchId) params = params.set('branchId', filters.branchId);
+    if (filters.search) params = params.set('search', filters.search);
+    if (filters.pageNumber) params = params.set('pageNumber', filters.pageNumber.toString());
+    if (filters.pageSize) params = params.set('pageSize', filters.pageSize.toString());
+    if (filters.sortBy) params = params.set('sortBy', filters.sortBy);
+    if (filters.sortDescending !== undefined) params = params.set('sortDescending', filters.sortDescending.toString());
+
+    return this.http.get<PagedResult<InventoryOutward>>(`${this.baseUrl}/outwards`, { params });
+  }
+
+  getVendorsPaged(filters: {
+    branchId?: string;
+    search?: string;
+    pageNumber?: number;
+    pageSize?: number;
+    sortBy?: string;
+    sortDescending?: boolean;
+  }): Observable<PagedResult<InventoryVendor>> {
+    let params = new HttpParams();
+    if (filters.branchId) params = params.set('branchId', filters.branchId);
+    if (filters.search) params = params.set('search', filters.search);
+    if (filters.pageNumber) params = params.set('pageNumber', filters.pageNumber.toString());
+    if (filters.pageSize) params = params.set('pageSize', filters.pageSize.toString());
+    if (filters.sortBy) params = params.set('sortBy', filters.sortBy);
+    if (filters.sortDescending !== undefined) params = params.set('sortDescending', filters.sortDescending.toString());
+
+    return this.http.get<PagedResult<InventoryVendor>>(`${this.baseUrl}/vendors`, { params });
+  }
+
+  getPurchaseReturnsPaged(filters: {
+    vendorId?: string;
+    branchId?: string;
+    search?: string;
+    pageNumber?: number;
+    pageSize?: number;
+    sortBy?: string;
+    sortDescending?: boolean;
+  }): Observable<PagedResult<InventoryPurchaseReturn>> {
+    let params = new HttpParams();
+    if (filters.vendorId) params = params.set('vendorId', filters.vendorId);
+    if (filters.branchId) params = params.set('branchId', filters.branchId);
+    if (filters.search) params = params.set('search', filters.search);
+    if (filters.pageNumber) params = params.set('pageNumber', filters.pageNumber.toString());
+    if (filters.pageSize) params = params.set('pageSize', filters.pageSize.toString());
+    if (filters.sortBy) params = params.set('sortBy', filters.sortBy);
+    if (filters.sortDescending !== undefined) params = params.set('sortDescending', filters.sortDescending.toString());
+
+    return this.http.get<PagedResult<InventoryPurchaseReturn>>(`${this.baseUrl}/purchase-returns`, { params });
+  }
+
+  getSaleReturnsPaged(filters: {
+    studentId?: string;
+    branchId?: string;
+    search?: string;
+    pageNumber?: number;
+    pageSize?: number;
+    sortBy?: string;
+    sortDescending?: boolean;
+  }): Observable<PagedResult<InventorySaleReturn>> {
+    let params = new HttpParams();
+    if (filters.studentId) params = params.set('studentId', filters.studentId);
+    if (filters.branchId) params = params.set('branchId', filters.branchId);
+    if (filters.search) params = params.set('search', filters.search);
+    if (filters.pageNumber) params = params.set('pageNumber', filters.pageNumber.toString());
+    if (filters.pageSize) params = params.set('pageSize', filters.pageSize.toString());
+    if (filters.sortBy) params = params.set('sortBy', filters.sortBy);
+    if (filters.sortDescending !== undefined) params = params.set('sortDescending', filters.sortDescending.toString());
+
+    return this.http.get<PagedResult<InventorySaleReturn>>(`${this.baseUrl}/sale-returns`, { params });
+  }
+
+  // Bill Number Sequencer API
+  getBillSequence(branchId?: string): Observable<InventoryBillSequenceDto> {
+    let params = new HttpParams();
+    if (branchId) params = params.set('branchId', branchId);
+    return this.http.get<InventoryBillSequenceDto>(`${this.baseUrl}/bill-sequence`, { params });
+  }
+
+  updateBillSequence(dto: UpdateInventoryBillSequenceDto): Observable<InventoryBillSequenceDto> {
+    return this.http.post<InventoryBillSequenceDto>(`${this.baseUrl}/bill-sequence`, dto);
+  }
 }
+

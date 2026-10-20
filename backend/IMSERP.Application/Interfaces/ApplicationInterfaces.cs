@@ -116,6 +116,7 @@ public interface IIMSERPDbContext
     DbSet<InventorySaleReturn> InventorySaleReturns { get; }
     DbSet<InventorySaleReturnItem> InventorySaleReturnItems { get; }
     DbSet<InventoryVendorPayment> InventoryVendorPayments { get; }
+    DbSet<InventoryBillSequence> InventoryBillSequences { get; }
     DbSet<InfirmaryVisit> InfirmaryVisits { get; }
     DbSet<PtmSession> PtmSessions { get; }
     DbSet<PtmBooking> PtmBookings { get; }

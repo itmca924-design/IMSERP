@@ -348,7 +348,7 @@ export interface InventoryOutwardDialogData {
           <div class="summary-section">
             <mat-form-field appearance="outline" class="remarks-field">
               <mat-label>Remarks / Purpose of Issue</mat-label>
-              <textarea matInput formControlName="remarks" rows="2" placeholder="e.g. Annual Kit issue for Session 2026-27"></textarea>
+              <textarea matInput formControlName="remarks" rows="2" [placeholder]="remarksPlaceholder"></textarea>
             </mat-form-field>
 
             <div class="totals-card">
@@ -971,6 +971,13 @@ export class InventoryOutwardDialogComponent implements OnInit {
       });
       // Do NOT set studentSearchCtrl - user will search separately if needed
     }
+  }
+
+  get remarksPlaceholder(): string {
+    const now = new Date();
+    const curYear = now.getFullYear();
+    const startYear = now.getMonth() >= 3 ? curYear : curYear - 1;
+    return `e.g. Annual Kit issue for Session ${startYear}-${String(startYear + 1).slice(-2)}`;
   }
 
   clearStudentSearchInput(event?: Event): void {

@@ -2992,3 +2992,48 @@ button.utr-copy-btn {
     padding: 0 !important;
   }
 }
+
+// Global Print Handler for Store Issue Slips & Material Distribution
+@media print {
+  body:has(#store-issue-paper) {
+    app-root,
+    .layout-container,
+    .sidebar,
+    .header-toolbar,
+    .page-container,
+    .modal-actions,
+    .cdk-overlay-backdrop,
+    .no-print {
+      display: none !important;
+      visibility: hidden !important;
+    }
+
+    html, body {
+      background: #ffffff !important;
+      background-color: #ffffff !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      overflow: visible !important;
+    }
+
+    .cdk-overlay-container,
+    .cdk-global-overlay-wrapper,
+    .cdk-overlay-pane,
+    .mat-mdc-dialog-container,
+    .mat-mdc-dialog-surface,
+    .receipt-modal-container,
+    #store-issue-paper {
+      display: block !important;
+      visibility: visible !important;
+      position: static !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      border: none !important;
+      box-shadow: none !important;
+      overflow: visible !important;
+    }
+  }
+}
+

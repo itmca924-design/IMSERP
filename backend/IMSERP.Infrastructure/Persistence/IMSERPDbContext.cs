@@ -123,6 +123,7 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
     public DbSet<InventorySaleReturn> InventorySaleReturns => Set<InventorySaleReturn>();
     public DbSet<InventorySaleReturnItem> InventorySaleReturnItems => Set<InventorySaleReturnItem>();
     public DbSet<InventoryVendorPayment> InventoryVendorPayments => Set<InventoryVendorPayment>();
+    public DbSet<InventoryBillSequence> InventoryBillSequences => Set<InventoryBillSequence>();
     public DbSet<InfirmaryVisit> InfirmaryVisits => Set<InfirmaryVisit>();
     public DbSet<PtmSession> PtmSessions => Set<PtmSession>();
     public DbSet<PtmBooking> PtmBookings => Set<PtmBooking>();
@@ -455,6 +456,9 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
             (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<InventoryVendorPayment>().HasQueryFilter(x =>
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<InventoryBillSequence>().HasQueryFilter(x =>
             (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<InfirmaryVisit>().HasQueryFilter(x =>

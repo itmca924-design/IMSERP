@@ -415,4 +415,29 @@ export interface CreateSaleReturnDto {
     reason?: string;
   }[];
 }
+export interface PagedResult<T> {
+  items: T[];
+  totalCount: number;
+  pageNumber: number;
+  pageSize: number;
+  totalPages: number;
+  hasPreviousPage: boolean;
+  hasNextPage: boolean;
+}
 
+export interface InventoryBillSequenceDto {
+  id: string;
+  prefix: string;
+  nextNumber: number;
+  paddingDigits: number;
+  includeFinancialYear: boolean;
+  nextBillNumberPreview: string;
+}
+
+export interface UpdateInventoryBillSequenceDto {
+  prefix: string;
+  nextNumber: number;
+  paddingDigits: number;
+  includeFinancialYear: boolean;
+  branchId?: string;
+}

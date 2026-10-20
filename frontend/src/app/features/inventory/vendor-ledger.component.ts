@@ -14,6 +14,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
+import { MatSortModule, Sort } from '@angular/material/sort';
 import { debounceTime, distinctUntilChanged } from 'rxjs';
 import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.directive';
 import { InventoryService } from './inventory.service';
@@ -48,6 +49,7 @@ import {
     MatChipsModule,
     MatDialogModule,
     MatPaginatorModule,
+    MatSortModule,
     IstDatetimeDirective
   ],
   template: `
@@ -593,23 +595,23 @@ import {
         </div>
 
         <div class="table-responsive">
-          <table class="erp-table master-directory-table">
+          <table class="erp-table master-directory-table" matSort (matSortChange)="onMasterSortChange($event)">
             <thead>
               <tr>
-                <th>Vendor / Business Name</th>
-                <th>Contact Person &amp; Phone</th>
-                <th>GSTIN / PAN</th>
+                <th mat-sort-header="vendorName">Vendor / Business Name</th>
+                <th mat-sort-header="contactPerson">Contact Person &amp; Phone</th>
+                <th mat-sort-header="gstin">GSTIN / PAN</th>
                 <th>Address / Location</th>
-                <th>Payment Terms</th>
-                <th class="text-right">Total Purchased</th>
-                <th class="text-right">Total Paid</th>
-                <th class="text-right">Returns</th>
-                <th class="text-right">Balance Due</th>
+                <th mat-sort-header="paymentTerms">Payment Terms</th>
+                <th mat-sort-header="totalPurchased" class="text-right">Total Purchased</th>
+                <th mat-sort-header="totalPaid" class="text-right">Total Paid</th>
+                <th mat-sort-header="totalReturns" class="text-right">Returns</th>
+                <th mat-sort-header="balanceDue" class="text-right">Balance Due</th>
                 <th class="text-center" style="min-width: 140px;">Actions</th>
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let v of filteredVendors" class="master-table-row">
+              <tr *ngFor="let v of pagedVendors" class="master-table-row">
                 <td>
                   <div class="vendor-primary-name font-bold">{{ v.vendorName || v.name }}</div>
                   <span *ngIf="v.email" class="text-muted text-xs">{{ v.email }}</span>
@@ -666,16 +668,31 @@ import {
             </tbody>
           </table>
         </div>
+
+        <mat-paginator
+          [length]="filteredVendors.length"
+          [pageSize]="masterPageSize"
+          [pageIndex]="masterPageIndex"
+          [pageSizeOptions]="[10, 25, 50, 100]"
+          (page)="onMasterPageChange($event)"
+          showFirstLastButtons
+          class="statement-paginator">
+        </mat-paginator>
       </mat-card>
 
       <!-- 6. Executive Printable Vendor Statement of Account (Only visible on print) -->
       <div class="only-print printable-ledger-sheet" *ngIf="selectedVendor">
         <!-- 1. Institution Header -->
         <div class="print-doc-header">
-          <div class="inst-info">
-            <h1 class="inst-title">{{ instituteName }}</h1>
-            <p class="inst-subtitle">Accounts &amp; Financial Operations &bull; Central Procurement &amp; Inventory</p>
-            <p class="inst-branch">Campus / Branch: <strong>{{ activeBranchName }}</strong></p>
+          <div class="inst-info-group">
+            <div class="print-logo-box" *ngIf="getInstituteLogoUrl()">
+              <img [src]="getInstituteLogoUrl()" alt="Logo" class="print-inst-logo">
+            </div>
+            <div class="inst-info">
+              <h1 class="inst-title">{{ instituteName }}</h1>
+              <p class="inst-subtitle">Accounts &amp; Financial Operations &bull; Central Procurement &amp; Inventory</p>
+              <p class="inst-branch">Campus / Branch: <strong>{{ activeBranchName }}</strong></p>
+            </div>
           </div>
           <div class="doc-badge-block">
             <div class="badge-title">SUPPLIER STATEMENT OF ACCOUNT</div>
@@ -826,10 +843,15 @@ import {
       <!-- 7. Printable Master Supplier Directory (Only visible on print when no vendor is selected) -->
       <div class="only-print printable-ledger-sheet" *ngIf="!selectedVendor">
         <div class="print-doc-header">
-          <div class="inst-info">
-            <h1 class="inst-title">{{ instituteName }}</h1>
-            <p class="inst-subtitle">Accounts &amp; Financial Operations &bull; Central Procurement &amp; Inventory</p>
-            <p class="inst-branch">Campus / Branch: <strong>{{ activeBranchName }}</strong></p>
+          <div class="inst-info-group">
+            <div class="print-logo-box" *ngIf="getInstituteLogoUrl()">
+              <img [src]="getInstituteLogoUrl()" alt="Logo" class="print-inst-logo">
+            </div>
+            <div class="inst-info">
+              <h1 class="inst-title">{{ instituteName }}</h1>
+              <p class="inst-subtitle">Accounts &amp; Financial Operations &bull; Central Procurement &amp; Inventory</p>
+              <p class="inst-branch">Campus / Branch: <strong>{{ activeBranchName }}</strong></p>
+            </div>
           </div>
           <div class="doc-badge-block">
             <div class="badge-title">MASTER SUPPLIER DIRECTORY</div>
@@ -2337,6 +2359,36 @@ import {
         border-bottom: 2px solid #0f172a !important;
         margin-bottom: 12px !important;
 
+        .inst-info-group {
+          display: flex !important;
+          align-items: center !important;
+          gap: 14px !important;
+        }
+
+        .print-logo-box {
+          width: 52px !important;
+          height: 52px !important;
+          background: transparent !important;
+          border: none !important;
+          box-shadow: none !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          overflow: visible !important;
+          flex-shrink: 0 !important;
+
+          .print-inst-logo {
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: contain !important;
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+        }
+
         .inst-title {
           font-size: 20px !important;
           font-weight: 800 !important;
@@ -2598,6 +2650,12 @@ export class VendorLedgerComponent implements OnInit {
   viewMode: 'split' | 'table' = 'split';
   activeDatePreset: 'ALL' | 'THIS_MONTH' | 'LAST_MONTH' | 'THIS_FY' | 'CUSTOM' = 'ALL';
 
+  // Master Directory Table Grid State
+  masterPageIndex = 0;
+  masterPageSize = 10;
+  masterSortBy = 'vendorName';
+  masterSortAsc = true;
+
   // Server-side Ledger Grid State
   pageIndex = 0;
   pageSize = 10;
@@ -2624,6 +2682,10 @@ export class VendorLedgerComponent implements OnInit {
     this.filterForm = this.fb.group({
       search: [''],
       status: ['ALL']
+    });
+
+    this.filterForm.valueChanges.subscribe(() => {
+      this.masterPageIndex = 0;
     });
 
     this.dateFilterForm = this.fb.group(
@@ -2724,6 +2786,34 @@ export class VendorLedgerComponent implements OnInit {
 
       return name.includes(search) || phone.includes(search) || contact.includes(search) || gstin.includes(search);
     });
+  }
+
+  onMasterSortChange(sort: Sort): void {
+    this.masterSortBy = sort.active;
+    this.masterSortAsc = sort.direction !== 'desc';
+    this.masterPageIndex = 0;
+  }
+
+  onMasterPageChange(event: PageEvent): void {
+    this.masterPageIndex = event.pageIndex;
+    this.masterPageSize = event.pageSize;
+  }
+
+  get pagedVendors(): InventoryVendor[] {
+    let list = [...this.filteredVendors];
+    if (this.masterSortBy) {
+      list.sort((a: any, b: any) => {
+        let valA = a[this.masterSortBy] ?? a.vendorName ?? a.name ?? '';
+        let valB = b[this.masterSortBy] ?? b.vendorName ?? b.name ?? '';
+        if (typeof valA === 'string') valA = valA.toLowerCase();
+        if (typeof valB === 'string') valB = valB.toLowerCase();
+        if (valA < valB) return this.masterSortAsc ? -1 : 1;
+        if (valA > valB) return this.masterSortAsc ? 1 : -1;
+        return 0;
+      });
+    }
+    const start = this.masterPageIndex * this.masterPageSize;
+    return list.slice(start, start + this.masterPageSize);
   }
 
   get totalPurchasedValue(): number {
@@ -3003,6 +3093,10 @@ export class VendorLedgerComponent implements OnInit {
       default:
         return type;
     }
+  }
+
+  getInstituteLogoUrl(): string | null {
+    return this.authService.getInstituteLogoUrl();
   }
 
   printStatement(): void {

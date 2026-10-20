@@ -11,6 +11,9 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
+import { MatSortModule, Sort } from '@angular/material/sort';
+import { debounceTime, distinctUntilChanged } from 'rxjs';
 import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.directive';
 import { InventoryService } from './inventory.service';
 import { AuthService } from '../../core/services/auth.service';
@@ -38,6 +41,8 @@ import {
     MatProgressBarModule,
     MatTooltipModule,
     MatChipsModule,
+    MatPaginatorModule,
+    MatSortModule,
     IstDatetimeDirective
   ],
   template: `
@@ -328,7 +333,7 @@ import {
           <div class="chip-total">
             <mat-chip-set>
               <mat-chip highlighted color="warn">
-                {{ filteredReturns.length }} Debit Note(s)
+                {{ totalCount }} Debit Note(s)
               </mat-chip>
             </mat-chip-set>
           </div>
@@ -338,20 +343,20 @@ import {
       <!-- 5. Purchase Returns List Table -->
       <mat-card class="table-card mat-elevation-z1">
         <div class="table-responsive">
-          <table class="erp-table">
+          <table class="erp-table" matSort (matSortChange)="onSortChange($event)">
             <thead>
               <tr>
-                <th style="min-width: 140px;">DATE &amp; TIME (IST)</th>
-                <th style="min-width: 130px;">DEBIT NOTE #</th>
-                <th style="min-width: 160px;">VENDOR / SUPPLIER</th>
+                <th mat-sort-header="returndate" style="min-width: 140px;">DATE &amp; TIME (IST)</th>
+                <th mat-sort-header="debitnote" style="min-width: 130px;">DEBIT NOTE #</th>
+                <th mat-sort-header="vendor" style="min-width: 160px;">VENDOR / SUPPLIER</th>
                 <th style="min-width: 220px;">ITEMS RETURNED</th>
-                <th style="min-width: 110px;" class="text-right">TOTAL AMOUNT</th>
-                <th style="min-width: 130px;">STATUS</th>
+                <th mat-sort-header="amount" style="min-width: 110px;" class="text-right">TOTAL AMOUNT</th>
+                <th mat-sort-header="status" style="min-width: 130px;">STATUS</th>
                 <th style="min-width: 140px;">REMARKS</th>
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let ret of filteredReturns" class="data-row">
+              <tr *ngFor="let ret of returnsList" class="data-row">
                 <td class="cell-date">
                   <span [appIstDatetime]="ret.returnDate"></span>
                 </td>
@@ -380,7 +385,7 @@ import {
                 </td>
               </tr>
 
-              <tr *ngIf="filteredReturns.length === 0 && !loading">
+              <tr *ngIf="returnsList.length === 0 && !loading">
                 <td colspan="7" class="empty-state">
                   <mat-icon class="empty-icon">assignment_return</mat-icon>
                   <p class="empty-title">No Purchase Returns Recorded</p>
@@ -390,6 +395,16 @@ import {
             </tbody>
           </table>
         </div>
+
+        <mat-paginator
+          [length]="totalCount"
+          [pageSize]="pageSize"
+          [pageIndex]="pageIndex"
+          [pageSizeOptions]="[10, 25, 50, 100]"
+          (page)="onPageChange($event)"
+          showFirstLastButtons
+          class="erp-paginator">
+        </mat-paginator>
       </mat-card>
     </div>
   `,
@@ -885,6 +900,12 @@ export class PurchaseReturnsComponent implements OnInit {
   filterSearchCtrl = this.fb.control('');
   filterVendorCtrl = this.fb.control<string | null>(null);
 
+  pageIndex = 0;
+  pageSize = 10;
+  totalCount = 0;
+  sortBy = 'returndate';
+  sortDescending = true;
+
   get itemRows(): FormArray {
     return this.form.get('items') as FormArray;
   }
@@ -897,25 +918,25 @@ export class PurchaseReturnsComponent implements OnInit {
     return this.returnsList.reduce((sum, r) => sum + (r.items ? r.items.reduce((s, it) => s + (it.quantity || 0), 0) : 0), 0);
   }
 
-  get filteredReturns(): InventoryPurchaseReturn[] {
-    const search = (this.filterSearchCtrl.value || '').toLowerCase().trim();
-    const vendorId = this.filterVendorCtrl.value;
-
-    return this.returnsList.filter(r => {
-      const matchVendor = !vendorId || r.vendorId === vendorId;
-      const matchSearch = !search ||
-        (r.debitNoteNumber && r.debitNoteNumber.toLowerCase().includes(search)) ||
-        (r.returnNumber && r.returnNumber.toLowerCase().includes(search)) ||
-        (r.vendorName && r.vendorName.toLowerCase().includes(search)) ||
-        (r.remarks && r.remarks.toLowerCase().includes(search));
-
-      return matchVendor && matchSearch;
-    });
-  }
-
   ngOnInit(): void {
     this.initForm();
     this.loadAllData();
+
+    this.filterSearchCtrl.valueChanges.pipe(
+      debounceTime(350),
+      distinctUntilChanged()
+    ).subscribe(() => {
+      this.pageIndex = 0;
+      this.loadReturns();
+    });
+
+    this.filterVendorCtrl.valueChanges.pipe(
+      debounceTime(350),
+      distinctUntilChanged()
+    ).subscribe(() => {
+      this.pageIndex = 0;
+      this.loadReturns();
+    });
   }
 
   initForm(): void {
@@ -938,16 +959,9 @@ export class PurchaseReturnsComponent implements OnInit {
   }
 
   loadAllData(): void {
-    this.loading = true;
     const branchId = this.authService.selectedBranchId() || undefined;
 
-    this.inventoryService.getPurchaseReturns(undefined, branchId).subscribe({
-      next: (returns) => {
-        this.returnsList = returns || [];
-        this.loading = false;
-      },
-      error: () => this.loading = false
-    });
+    this.loadReturns();
 
     this.inventoryService.getVendors(branchId).subscribe({
       next: (vendors) => this.vendors = vendors || []
@@ -956,6 +970,41 @@ export class PurchaseReturnsComponent implements OnInit {
     this.inventoryService.getItems({ branchId }).subscribe({
       next: (items) => this.items = items || []
     });
+  }
+
+  loadReturns(): void {
+    this.loading = true;
+    const branchId = this.authService.selectedBranchId() || undefined;
+
+    this.inventoryService.getPurchaseReturnsPaged({
+      vendorId: this.filterVendorCtrl.value || undefined,
+      branchId,
+      search: this.filterSearchCtrl.value?.trim() || undefined,
+      pageNumber: this.pageIndex + 1,
+      pageSize: this.pageSize,
+      sortBy: this.sortBy,
+      sortDescending: this.sortDescending
+    }).subscribe({
+      next: (res) => {
+        this.returnsList = res.items || [];
+        this.totalCount = res.totalCount || 0;
+        this.loading = false;
+      },
+      error: () => this.loading = false
+    });
+  }
+
+  onSortChange(sort: Sort): void {
+    this.sortBy = sort.active;
+    this.sortDescending = sort.direction === 'desc';
+    this.pageIndex = 0;
+    this.loadReturns();
+  }
+
+  onPageChange(e: PageEvent): void {
+    this.pageIndex = e.pageIndex;
+    this.pageSize = e.pageSize;
+    this.loadReturns();
   }
 
   addItemRow(): void {

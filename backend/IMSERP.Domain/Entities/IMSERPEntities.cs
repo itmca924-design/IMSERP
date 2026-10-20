@@ -2896,6 +2896,21 @@ public class InventoryVendorPayment
     public Branch? Branch { get; set; }
 }
 
+public class InventoryBillSequence
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public string Prefix { get; set; } = "BILL-";
+    public int NextNumber { get; set; } = 1;
+    public int PaddingDigits { get; set; } = 4;
+    public bool IncludeFinancialYear { get; set; } = true;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+}
+
 public class InfirmaryVisit
 {
     public Guid Id { get; set; } = Guid.NewGuid();

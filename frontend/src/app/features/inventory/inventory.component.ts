@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
-import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
+import { FormBuilder, FormGroup, FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -15,6 +15,8 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatMenuModule } from '@angular/material/menu';
+import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
+import { MatSortModule, Sort } from '@angular/material/sort';
 import { Subject, Subscription } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { AuthService, BranchInfo } from '../../core/services/auth.service';
@@ -35,7 +37,8 @@ import {
   CreateUpdateVendorDto,
   CreateInwardDto,
   CreateOutwardDto,
-  CreateStockAdjustmentDto
+  CreateStockAdjustmentDto,
+  PagedResult
 } from './inventory.models';
 import { InventoryCategoryDialogComponent } from './dialogs/inventory-category-dialog.component';
 import { InventoryItemDialogComponent } from './dialogs/inventory-item-dialog.component';
@@ -43,6 +46,7 @@ import { InventoryVendorDialogComponent } from './dialogs/inventory-vendor-dialo
 import { InventoryInwardDialogComponent } from './dialogs/inventory-inward-dialog.component';
 import { InventoryOutwardDialogComponent } from './dialogs/inventory-outward-dialog.component';
 import { InventoryAdjustDialogComponent } from './dialogs/inventory-adjust-dialog.component';
+import { InventoryOutwardReceiptDialogComponent } from './dialogs/inventory-outward-receipt-dialog.component';
 
 @Component({
   selector: 'app-inventory',
@@ -64,6 +68,8 @@ import { InventoryAdjustDialogComponent } from './dialogs/inventory-adjust-dialo
     MatDialogModule,
     MatSlideToggleModule,
     MatMenuModule,
+    MatPaginatorModule,
+    MatSortModule,
     IstDatetimeDirective
   ],
   template: `
@@ -238,29 +244,29 @@ import { InventoryAdjustDialogComponent } from './dialogs/inventory-adjust-dialo
 
       <!-- 4. Pure Angular Material Tabs Structure -->
       <mat-card class="content-tabs-card mat-elevation-z1">
-        <mat-tab-group [(selectedIndex)]="activeTabIndex" animationDuration="200ms" class="erp-tab-group">
+        <mat-tab-group [(selectedIndex)]="activeTabIndex" (selectedIndexChange)="onTabChange($event)" animationDuration="200ms" class="erp-tab-group">
           <!-- TAB 1: Items Catalog & Stock -->
           <mat-tab>
             <ng-template mat-tab-label>
               <mat-icon class="tab-icon">view_list</mat-icon>
-              <span>Items Catalog ({{ items.length }})</span>
+              <span>Items Catalog ({{ itemsTotalCount }})</span>
             </ng-template>
 
             <div class="tab-body">
               <div class="table-responsive">
-                <table class="erp-table">
+                <table class="erp-table" matSort (matSortChange)="onItemsSortChange($event)">
                   <thead>
                     <tr>
-                      <th>Item Code / SKU</th>
-                      <th>Item Name & Specifications</th>
-                      <th>Category</th>
-                      <th>Classification</th>
-                      <th>UOM</th>
-                      <th>Current Stock</th>
-                      <th>Purchase Rate</th>
-                      <th>Selling / Kit MRP</th>
-                      <th>Alert Level</th>
-                      <th>Rack Location</th>
+                      <th mat-sort-header="itemCode">Item Code / SKU</th>
+                      <th mat-sort-header="itemName">Item Name &amp; Specifications</th>
+                      <th mat-sort-header="categoryName">Category</th>
+                      <th mat-sort-header="itemType">Classification</th>
+                      <th mat-sort-header="unitOfMeasurement">UOM</th>
+                      <th mat-sort-header="currentStock">Current Stock</th>
+                      <th mat-sort-header="purchasePrice">Purchase Rate</th>
+                      <th mat-sort-header="sellingPrice">Selling / Kit MRP</th>
+                      <th mat-sort-header="minStockAlertLevel">Alert Level</th>
+                      <th mat-sort-header="rackOrLocation">Rack Location</th>
                       <th class="text-right action-th">
                         <span class="action-header-wrap" matTooltip="Row Actions">
                           <mat-icon class="th-action-icon">settings</mat-icon>
@@ -365,6 +371,16 @@ import { InventoryAdjustDialogComponent } from './dialogs/inventory-adjust-dialo
                   </tbody>
                 </table>
               </div>
+
+              <mat-paginator
+                [length]="itemsTotalCount"
+                [pageSize]="itemsPageSize"
+                [pageIndex]="itemsPageIndex"
+                [pageSizeOptions]="[10, 25, 50, 100]"
+                (page)="onItemsPageChange($event)"
+                showFirstLastButtons
+                class="erp-paginator">
+              </mat-paginator>
             </div>
           </mat-tab>
 
@@ -372,12 +388,20 @@ import { InventoryAdjustDialogComponent } from './dialogs/inventory-adjust-dialo
           <mat-tab>
             <ng-template mat-tab-label>
               <mat-icon class="tab-icon">add_shopping_cart</mat-icon>
-              <span>Stock Inward / GRN ({{ inwards.length }})</span>
+              <span>Stock Inward / GRN ({{ inwardsTotalCount }})</span>
             </ng-template>
 
             <div class="tab-body">
               <div class="tab-toolbar">
-                <span class="tab-info-text">Goods Received Notes (GRN) from Suppliers & Market Purchases</span>
+                <div class="tab-search-box">
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic" class="tab-search-field">
+                    <mat-icon matPrefix>search</mat-icon>
+                    <input matInput [formControl]="inwardsSearchCtrl" placeholder="Search Inward #, invoice, supplier, items..." />
+                    <button mat-icon-button matSuffix *ngIf="inwardsSearchCtrl.value" (click)="inwardsSearchCtrl.setValue('')" type="button">
+                      <mat-icon>close</mat-icon>
+                    </button>
+                  </mat-form-field>
+                </div>
                 <button mat-flat-button color="primary" (click)="openInwardDialog()">
                   <mat-icon>add</mat-icon>
                   <span>New Inward Entry</span>
@@ -385,18 +409,18 @@ import { InventoryAdjustDialogComponent } from './dialogs/inventory-adjust-dialo
               </div>
 
               <div class="table-responsive">
-                <table class="erp-table">
+                <table class="erp-table" matSort (matSortChange)="onInwardsSortChange($event)">
                   <thead>
                     <tr>
-                      <th>Inward (GRN) #</th>
-                      <th>Inward Date (IST)</th>
-                      <th>Invoice / Bill #</th>
-                      <th>Supplier / Vendor</th>
+                      <th mat-sort-header="inwardNumber">Inward (GRN) #</th>
+                      <th mat-sort-header="inwardDate">Inward Date (IST)</th>
+                      <th mat-sort-header="invoiceBillNumber">Invoice / Bill #</th>
+                      <th mat-sort-header="vendorName">Supplier / Vendor</th>
                       <th>Items Count</th>
                       <th>Items Received Preview</th>
-                      <th>Net Bill Amount</th>
-                      <th>Payment Status</th>
-                      <th>Payment Mode</th>
+                      <th mat-sort-header="netAmount">Net Bill Amount</th>
+                      <th mat-sort-header="paymentStatus">Payment Status</th>
+                      <th mat-sort-header="paymentMode">Payment Mode</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -428,13 +452,23 @@ import { InventoryAdjustDialogComponent } from './dialogs/inventory-adjust-dialo
                     <tr *ngIf="!loading && inwards.length === 0">
                       <td colspan="9" class="empty-cell">
                         <mat-icon class="empty-icon">shopping_bag</mat-icon>
-                        <p class="empty-text">No stock inward records yet.</p>
+                        <p class="empty-text">No stock inward records found.</p>
                         <button mat-stroked-button color="primary" (click)="openInwardDialog()">Record First Stock Inward</button>
                       </td>
                     </tr>
                   </tbody>
                 </table>
               </div>
+
+              <mat-paginator
+                [length]="inwardsTotalCount"
+                [pageSize]="inwardsPageSize"
+                [pageIndex]="inwardsPageIndex"
+                [pageSizeOptions]="[10, 25, 50, 100]"
+                (page)="onInwardsPageChange($event)"
+                showFirstLastButtons
+                class="erp-paginator">
+              </mat-paginator>
             </div>
           </mat-tab>
 
@@ -442,12 +476,20 @@ import { InventoryAdjustDialogComponent } from './dialogs/inventory-adjust-dialo
           <mat-tab>
             <ng-template mat-tab-label>
               <mat-icon class="tab-icon">outbox</mat-icon>
-              <span>Outward & Kit Distribution ({{ outwards.length }})</span>
+              <span>Outward & Kit Distribution ({{ outwardsTotalCount }})</span>
             </ng-template>
 
             <div class="tab-body">
               <div class="tab-toolbar">
-                <span class="tab-info-text">Distribution History: Student Uniform/Books Kits & Staff Consumable Issues</span>
+                <div class="tab-search-box">
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic" class="tab-search-field">
+                    <mat-icon matPrefix>search</mat-icon>
+                    <input matInput [formControl]="outwardsSearchCtrl" placeholder="Search Issue #, recipient, class, remarks..." />
+                    <button mat-icon-button matSuffix *ngIf="outwardsSearchCtrl.value" (click)="outwardsSearchCtrl.setValue('')" type="button">
+                      <mat-icon>close</mat-icon>
+                    </button>
+                  </mat-form-field>
+                </div>
                 <button mat-flat-button color="accent" (click)="openOutwardDialog()">
                   <mat-icon>add</mat-icon>
                   <span>Issue Stock / Kit</span>
@@ -455,18 +497,18 @@ import { InventoryAdjustDialogComponent } from './dialogs/inventory-adjust-dialo
               </div>
 
               <div class="table-responsive">
-                <table class="erp-table">
+                <table class="erp-table" matSort (matSortChange)="onOutwardsSortChange($event)">
                   <thead>
                     <tr>
-                      <th>Issue #</th>
-                      <th>Date (IST)</th>
-                      <th>Distribution Mode</th>
-                      <th>Recipient Name</th>
-                      <th>Class / Dept</th>
+                      <th mat-sort-header="issueNumber">Issue #</th>
+                      <th mat-sort-header="issueDate">Date (IST)</th>
+                      <th mat-sort-header="issueType">Distribution Mode</th>
+                      <th mat-sort-header="issuedToName">Recipient Name</th>
+                      <th mat-sort-header="departmentOrClass">Class / Dept</th>
                       <th>Items Distributed</th>
-                      <th>Total Value</th>
-                      <th>Payment Status</th>
-                      <th style="width: 70px; text-align: center;">Action</th>
+                      <th mat-sort-header="totalAmount">Total Value</th>
+                      <th mat-sort-header="paymentStatus">Payment Status</th>
+                      <th style="width: 100px; text-align: center;">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -497,14 +539,19 @@ import { InventoryAdjustDialogComponent } from './dialogs/inventory-adjust-dialo
                       <td>
                         <span class="status-chip" [ngClass]="out.paymentStatus === 'Cancelled' ? 'status-cancelled' : ('status-' + (out.paymentStatus || '').toLowerCase().replace('/', '-'))">
                           <mat-icon *ngIf="out.paymentStatus === 'Cancelled'" class="cancel-icon-inline">undo</mat-icon>
-                          {{ out.paymentStatus === 'Cancelled' ? 'Cancelled (Restored)' : out.paymentStatus }}
+                          {{ out.paymentStatus === 'Cancelled' ? 'Cancelled (Restored)' : (out.paymentStatus === 'AddedToFeeBill' ? 'Charged to Fee Card' : out.paymentStatus) }}
                         </span>
                       </td>
                       <td style="text-align: center;">
-                        <button *ngIf="out.paymentStatus !== 'Cancelled'" mat-icon-button color="warn" (click)="cancelOutward(out)" matTooltip="Cancel Issue & Return Stock to Inventory" type="button">
-                          <mat-icon>undo</mat-icon>
-                        </button>
-                        <span *ngIf="out.paymentStatus === 'Cancelled'" class="text-muted" style="font-size: 11px; font-weight: 600;">Restored</span>
+                        <div class="row-actions-group">
+                          <button *ngIf="out.paymentStatus !== 'Cancelled'" mat-icon-button class="print-row-btn" (click)="printOutwardSlip(out)" matTooltip="Print Store Issue Slip / Bill" type="button">
+                            <mat-icon>print</mat-icon>
+                          </button>
+                          <button *ngIf="out.paymentStatus !== 'Cancelled'" mat-icon-button color="warn" (click)="cancelOutward(out)" matTooltip="Cancel Issue & Return Stock to Inventory" type="button">
+                            <mat-icon>undo</mat-icon>
+                          </button>
+                          <span *ngIf="out.paymentStatus === 'Cancelled'" class="text-muted" style="font-size: 11px; font-weight: 600;">Restored</span>
+                        </div>
                       </td>
                     </tr>
 
@@ -518,6 +565,16 @@ import { InventoryAdjustDialogComponent } from './dialogs/inventory-adjust-dialo
                   </tbody>
                 </table>
               </div>
+
+              <mat-paginator
+                [length]="outwardsTotalCount"
+                [pageSize]="outwardsPageSize"
+                [pageIndex]="outwardsPageIndex"
+                [pageSizeOptions]="[10, 25, 50, 100]"
+                (page)="onOutwardsPageChange($event)"
+                showFirstLastButtons
+                class="erp-paginator">
+              </mat-paginator>
             </div>
           </mat-tab>
 
@@ -525,12 +582,20 @@ import { InventoryAdjustDialogComponent } from './dialogs/inventory-adjust-dialo
           <mat-tab>
             <ng-template mat-tab-label>
               <mat-icon class="tab-icon">storefront</mat-icon>
-              <span>Vendors Directory ({{ vendors.length }})</span>
+              <span>Vendors Directory ({{ vendorsTotalCount }})</span>
             </ng-template>
 
             <div class="tab-body">
               <div class="tab-toolbar">
-                <span class="tab-info-text">Vendors supplying uniforms, books, stationery, science lab items, and furniture</span>
+                <div class="tab-search-box">
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic" class="tab-search-field">
+                    <mat-icon matPrefix>search</mat-icon>
+                    <input matInput [formControl]="vendorsSearchCtrl" placeholder="Search supplier, contact, GST, phone..." />
+                    <button mat-icon-button matSuffix *ngIf="vendorsSearchCtrl.value" (click)="vendorsSearchCtrl.setValue('')" type="button">
+                      <mat-icon>close</mat-icon>
+                    </button>
+                  </mat-form-field>
+                </div>
                 <button mat-flat-button color="primary" (click)="openVendorDialog()">
                   <mat-icon>add_business</mat-icon>
                   <span>Add Vendor</span>
@@ -538,15 +603,15 @@ import { InventoryAdjustDialogComponent } from './dialogs/inventory-adjust-dialo
               </div>
 
               <div class="table-responsive">
-                <table class="erp-table">
+                <table class="erp-table" matSort (matSortChange)="onVendorsSortChange($event)">
                   <thead>
                     <tr>
-                      <th>Vendor / Business Name</th>
-                      <th>Contact Person</th>
-                      <th>Phone / Mobile</th>
-                      <th>Email</th>
-                      <th>GSTIN / PAN</th>
-                      <th>Payment Terms</th>
+                      <th mat-sort-header="vendorName">Vendor / Business Name</th>
+                      <th mat-sort-header="contactPerson">Contact Person</th>
+                      <th mat-sort-header="phone">Phone / Mobile</th>
+                      <th mat-sort-header="email">Email</th>
+                      <th mat-sort-header="gstin">GSTIN / PAN</th>
+                      <th mat-sort-header="paymentTerms">Payment Terms</th>
                       <th>Address</th>
                       <th class="text-right action-th">
                         <span class="action-header-wrap" matTooltip="Row Actions">
@@ -605,6 +670,16 @@ import { InventoryAdjustDialogComponent } from './dialogs/inventory-adjust-dialo
                   </tbody>
                 </table>
               </div>
+
+              <mat-paginator
+                [length]="vendorsTotalCount"
+                [pageSize]="vendorsPageSize"
+                [pageIndex]="vendorsPageIndex"
+                [pageSizeOptions]="[10, 25, 50, 100]"
+                (page)="onVendorsPageChange($event)"
+                showFirstLastButtons
+                class="erp-paginator">
+              </mat-paginator>
             </div>
           </mat-tab>
 
@@ -738,7 +813,7 @@ import { InventoryAdjustDialogComponent } from './dialogs/inventory-adjust-dialo
                       <td>₹{{ itm.purchasePrice | number:'1.2-2' }}</td>
                       <td>{{ itm.rackOrLocation || '—' }}</td>
                       <td class="text-right">
-                        <button mat-stroked-button color="primary" (click)="openInwardDialog()">
+                        <button mat-stroked-button color="primary" (click)="reorderItem(itm)">
                           <mat-icon>add_shopping_cart</mat-icon>
                           <span>Reorder Now</span>
                         </button>
@@ -913,19 +988,19 @@ import { InventoryAdjustDialogComponent } from './dialogs/inventory-adjust-dialo
       margin: -10px 0;
     }
 
-    /* KPI Deck */
+    /* KPI Deck - Compact & Sleek Height */
     .kpi-grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
-      gap: 16px;
+      gap: 12px;
     }
     .kpi-card {
-      border-radius: 12px;
+      border-radius: 10px;
       border: 1px solid #e2e8f0;
       background: #ffffff;
-      padding: 16px 20px;
+      padding: 10px 14px;
       transition: transform 0.2s, box-shadow 0.2s;
-      &:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.06); }
+      &:hover { transform: translateY(-2px); box-shadow: 0 8px 12px -3px rgba(0,0,0,0.06); }
     }
     .alert-border {
       border-color: #fcd34d !important;
@@ -939,32 +1014,34 @@ import { InventoryAdjustDialogComponent } from './dialogs/inventory-adjust-dialo
     .kpi-info {
       display: flex;
       flex-direction: column;
-      gap: 2px;
+      gap: 1px;
     }
     .kpi-label {
-      font-size: 0.78rem;
-      font-weight: 600;
+      font-size: 0.72rem;
+      font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.04em;
+      letter-spacing: 0.03em;
       color: #64748b;
-    }
-    .kpi-value {
-      font-size: 1.55rem;
-      font-weight: 800;
-      color: #0f172a;
       line-height: 1.2;
     }
+    .kpi-value {
+      font-size: 1.35rem;
+      font-weight: 800;
+      color: #0f172a;
+      line-height: 1.15;
+    }
     .kpi-meta {
-      font-size: 0.76rem;
+      font-size: 0.72rem;
+      line-height: 1.2;
     }
     .kpi-icon-wrap {
-      width: 44px;
-      height: 44px;
-      border-radius: 10px;
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
-      mat-icon { font-size: 24px; width: 24px; height: 24px; }
+      mat-icon { font-size: 20px; width: 20px; height: 20px; }
     }
     .bg-blue { background: #eff6ff; color: #2563eb; }
     .bg-emerald { background: #ecfdf5; color: #059669; }
@@ -1027,6 +1104,20 @@ import { InventoryAdjustDialogComponent } from './dialogs/inventory-adjust-dialo
       color: #64748b;
       font-size: 0.88rem;
       font-weight: 500;
+    }
+    .tab-search-box {
+      flex: 1;
+      min-width: 260px;
+    }
+    .tab-search-field {
+      width: 100%;
+      ::ng-deep .mat-mdc-form-field-subscript-wrapper {
+        display: none;
+      }
+    }
+    .erp-paginator {
+      border-top: 1px solid #e2e8f0;
+      background: #fafafa;
     }
     .tab-icon {
       font-size: 18px;
@@ -1180,6 +1271,17 @@ import { InventoryAdjustDialogComponent } from './dialogs/inventory-adjust-dialo
       background: #fafafa !important;
       opacity: 0.85;
       td { color: #64748b; }
+    }
+
+    .row-actions-group {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+    }
+    .print-row-btn {
+      color: #2563eb;
+      &:hover { background: #eff6ff; }
     }
 
     .lines-preview {
@@ -1394,12 +1496,48 @@ export class InventoryComponent implements OnInit, OnDestroy {
   filterForm!: FormGroup;
   private filterSub?: Subscription;
 
+  // Tab 0: Items Catalog Paged State
+  itemsPageIndex = 0;
+  itemsPageSize = 10;
+  itemsTotalCount = 0;
+  itemsSortBy = 'itemName';
+  itemsSortDescending = false;
+
+  // Tab 1: Stock Inward Paged State
+  inwardsSearchCtrl = new FormControl('');
+  inwardsPageIndex = 0;
+  inwardsPageSize = 10;
+  inwardsTotalCount = 0;
+  inwardsSortBy = 'inwardDate';
+  inwardsSortDescending = true;
+  private inwardsSearchSub?: Subscription;
+
+  // Tab 2: Stock Outward Paged State
+  outwardsSearchCtrl = new FormControl('');
+  outwardsPageIndex = 0;
+  outwardsPageSize = 10;
+  outwardsTotalCount = 0;
+  outwardsSortBy = 'issueDate';
+  outwardsSortDescending = true;
+  private outwardsSearchSub?: Subscription;
+
+  // Tab 3: Vendors Directory Paged State
+  vendorsSearchCtrl = new FormControl('');
+  vendorsPageIndex = 0;
+  vendorsPageSize = 10;
+  vendorsTotalCount = 0;
+  vendorsSortBy = 'vendorName';
+  vendorsSortDescending = false;
+  private vendorsSearchSub?: Subscription;
+
   get totalComputedValuation(): number {
-    return this.items.reduce((acc, itm) => acc + (itm.purchasePrice * itm.currentStock), 0);
+    return this.dashboardStats?.totalStockValuation ??
+      this.items.reduce((acc, itm) => acc + (itm.purchasePrice * itm.currentStock), 0);
   }
 
   get lowStockCount(): number {
-    return this.items.filter(i => i.currentStock <= i.minStockAlertLevel).length;
+    return this.dashboardStats?.lowStockCount ??
+      this.items.filter(i => i.currentStock <= i.minStockAlertLevel).length;
   }
 
   ngOnInit(): void {
@@ -1424,12 +1562,40 @@ export class InventoryComponent implements OnInit, OnDestroy {
       debounceTime(350),
       distinctUntilChanged((a, b) => JSON.stringify(a) === JSON.stringify(b))
     ).subscribe(() => {
+      this.itemsPageIndex = 0;
       this.loadItems();
+    });
+
+    this.inwardsSearchSub = this.inwardsSearchCtrl.valueChanges.pipe(
+      debounceTime(350),
+      distinctUntilChanged()
+    ).subscribe(() => {
+      this.inwardsPageIndex = 0;
+      this.loadInwards();
+    });
+
+    this.outwardsSearchSub = this.outwardsSearchCtrl.valueChanges.pipe(
+      debounceTime(350),
+      distinctUntilChanged()
+    ).subscribe(() => {
+      this.outwardsPageIndex = 0;
+      this.loadOutwards();
+    });
+
+    this.vendorsSearchSub = this.vendorsSearchCtrl.valueChanges.pipe(
+      debounceTime(350),
+      distinctUntilChanged()
+    ).subscribe(() => {
+      this.vendorsPageIndex = 0;
+      this.loadVendors();
     });
   }
 
   ngOnDestroy(): void {
     this.filterSub?.unsubscribe();
+    this.inwardsSearchSub?.unsubscribe();
+    this.outwardsSearchSub?.unsubscribe();
+    this.vendorsSearchSub?.unsubscribe();
   }
 
   loadBranches(): void {
@@ -1439,6 +1605,14 @@ export class InventoryComponent implements OnInit, OnDestroy {
       },
       error: () => {}
     });
+  }
+
+  onTabChange(index: number): void {
+    this.activeTabIndex = index;
+    if (index === 0) this.loadItems();
+    else if (index === 1) this.loadInwards();
+    else if (index === 2) this.loadOutwards();
+    else if (index === 3) this.loadVendors();
   }
 
   refreshAll(): void {
@@ -1457,47 +1631,38 @@ export class InventoryComponent implements OnInit, OnDestroy {
       error: () => {}
     });
 
-    // Load Vendors
-    this.inventoryService.getVendors(branchId).subscribe({
-      next: v => { this.vendors = v; },
-      error: () => {}
-    });
-
-    // Load Inwards
-    this.inventoryService.getInwards({ branchId }).subscribe({
-      next: inw => { this.inwards = inw; },
-      error: () => {}
-    });
-
-    // Load Outwards
-    this.inventoryService.getOutwards({ branchId }).subscribe({
-      next: out => { this.outwards = out; },
-      error: () => {}
-    });
-
     // Load Adjustments
     this.inventoryService.getAdjustments(undefined, branchId).subscribe({
       next: adj => { this.adjustments = adj; },
       error: () => {}
     });
 
-    // Load Items
-    this.loadItems();
+    // Load active tab data
+    if (this.activeTabIndex === 0) this.loadItems();
+    else if (this.activeTabIndex === 1) this.loadInwards();
+    else if (this.activeTabIndex === 2) this.loadOutwards();
+    else if (this.activeTabIndex === 3) this.loadVendors();
+    else this.loadItems();
   }
 
   loadItems(): void {
     this.loading = true;
     const f = this.filterForm.value;
-    this.inventoryService.getItems({
+    this.inventoryService.getItemsPaged({
       search: f.searchTerm?.trim() || undefined,
       categoryId: f.categoryId || undefined,
       itemType: f.itemType,
       lowStockOnly: f.lowStockOnly ? true : undefined,
       branchId: f.branchId || undefined,
-      activeOnly: true
+      activeOnly: true,
+      pageNumber: this.itemsPageIndex + 1,
+      pageSize: this.itemsPageSize,
+      sortBy: this.itemsSortBy,
+      sortDescending: this.itemsSortDescending
     }).subscribe({
-      next: itms => {
-        this.items = itms;
+      next: res => {
+        this.items = res.items;
+        this.itemsTotalCount = res.totalCount;
         this.loading = false;
       },
       error: err => {
@@ -1505,6 +1670,127 @@ export class InventoryComponent implements OnInit, OnDestroy {
         console.error('Failed to load items:', err);
       }
     });
+  }
+
+  onItemsSortChange(sort: Sort): void {
+    this.itemsSortBy = sort.active;
+    this.itemsSortDescending = sort.direction === 'desc';
+    this.itemsPageIndex = 0;
+    this.loadItems();
+  }
+
+  onItemsPageChange(e: PageEvent): void {
+    this.itemsPageIndex = e.pageIndex;
+    this.itemsPageSize = e.pageSize;
+    this.loadItems();
+  }
+
+  loadInwards(): void {
+    this.loading = true;
+    const branchId = this.filterForm.get('branchId')?.value || undefined;
+    this.inventoryService.getInwardsPaged({
+      branchId,
+      search: this.inwardsSearchCtrl.value?.trim() || undefined,
+      pageNumber: this.inwardsPageIndex + 1,
+      pageSize: this.inwardsPageSize,
+      sortBy: this.inwardsSortBy,
+      sortDescending: this.inwardsSortDescending
+    }).subscribe({
+      next: res => {
+        this.inwards = res.items;
+        this.inwardsTotalCount = res.totalCount;
+        this.loading = false;
+      },
+      error: err => {
+        this.loading = false;
+        console.error('Failed to load inwards:', err);
+      }
+    });
+  }
+
+  onInwardsSortChange(sort: Sort): void {
+    this.inwardsSortBy = sort.active;
+    this.inwardsSortDescending = sort.direction === 'desc';
+    this.inwardsPageIndex = 0;
+    this.loadInwards();
+  }
+
+  onInwardsPageChange(e: PageEvent): void {
+    this.inwardsPageIndex = e.pageIndex;
+    this.inwardsPageSize = e.pageSize;
+    this.loadInwards();
+  }
+
+  loadOutwards(): void {
+    this.loading = true;
+    const branchId = this.filterForm.get('branchId')?.value || undefined;
+    this.inventoryService.getOutwardsPaged({
+      branchId,
+      search: this.outwardsSearchCtrl.value?.trim() || undefined,
+      pageNumber: this.outwardsPageIndex + 1,
+      pageSize: this.outwardsPageSize,
+      sortBy: this.outwardsSortBy,
+      sortDescending: this.outwardsSortDescending
+    }).subscribe({
+      next: res => {
+        this.outwards = res.items;
+        this.outwardsTotalCount = res.totalCount;
+        this.loading = false;
+      },
+      error: err => {
+        this.loading = false;
+        console.error('Failed to load outwards:', err);
+      }
+    });
+  }
+
+  onOutwardsSortChange(sort: Sort): void {
+    this.outwardsSortBy = sort.active;
+    this.outwardsSortDescending = sort.direction === 'desc';
+    this.outwardsPageIndex = 0;
+    this.loadOutwards();
+  }
+
+  onOutwardsPageChange(e: PageEvent): void {
+    this.outwardsPageIndex = e.pageIndex;
+    this.outwardsPageSize = e.pageSize;
+    this.loadOutwards();
+  }
+
+  loadVendors(): void {
+    this.loading = true;
+    const branchId = this.filterForm.get('branchId')?.value || undefined;
+    this.inventoryService.getVendorsPaged({
+      branchId,
+      search: this.vendorsSearchCtrl.value?.trim() || undefined,
+      pageNumber: this.vendorsPageIndex + 1,
+      pageSize: this.vendorsPageSize,
+      sortBy: this.vendorsSortBy,
+      sortDescending: this.vendorsSortDescending
+    }).subscribe({
+      next: res => {
+        this.vendors = res.items;
+        this.vendorsTotalCount = res.totalCount;
+        this.loading = false;
+      },
+      error: err => {
+        this.loading = false;
+        console.error('Failed to load vendors:', err);
+      }
+    });
+  }
+
+  onVendorsSortChange(sort: Sort): void {
+    this.vendorsSortBy = sort.active;
+    this.vendorsSortDescending = sort.direction === 'desc';
+    this.vendorsPageIndex = 0;
+    this.loadVendors();
+  }
+
+  onVendorsPageChange(e: PageEvent): void {
+    this.vendorsPageIndex = e.pageIndex;
+    this.vendorsPageSize = e.pageSize;
+    this.loadVendors();
   }
 
   clearSearch(): void {
@@ -1729,7 +2015,17 @@ export class InventoryComponent implements OnInit, OnDestroy {
     });
   }
 
-  openInwardDialog(): void {
+  reorderItem(item: InventoryItem): void {
+    const deficit = Math.max(1, (item.minStockAlertLevel || 0) - (item.currentStock || 0));
+    this.openInwardDialog({
+      itemId: item.id,
+      quantity: deficit,
+      unitPrice: item.purchasePrice || 0,
+      remarks: `Auto-reorder for low stock safety threshold (Deficit: ${deficit} ${item.unitOfMeasurement})`
+    });
+  }
+
+  openInwardDialog(prefill?: { itemId: string; quantity: number; unitPrice: number; remarks?: string }): void {
     if (this.items.length === 0) {
       this.confirmDialog.alert('Catalog Empty', 'Please add inventory items to the catalog first before recording stock inward.', 'warning');
       return;
@@ -1742,7 +2038,8 @@ export class InventoryComponent implements OnInit, OnDestroy {
       data: {
         vendors: this.vendors,
         items: this.items,
-        branchId: this.filterForm.get('branchId')?.value || undefined
+        branchId: this.filterForm.get('branchId')?.value || undefined,
+        prefill
       }
     });
 
@@ -1788,12 +2085,33 @@ export class InventoryComponent implements OnInit, OnDestroy {
         next: r => {
           this.confirmDialog.alert('Stock Issued', `Issue ${r.issueNumber} completed successfully. Stock deducted in real time.`, 'success');
           this.refreshAll();
+
+          // Auto-fetch and show the print receipt slip so storekeeper can print immediately
+          this.inventoryService.getOutwards({ branchId: this.filterForm.get('branchId')?.value || undefined }).subscribe(outs => {
+            const created = (outs || []).find(o => o.issueNumber === r.issueNumber);
+            if (created) {
+              this.printOutwardSlip(created);
+            }
+          });
         },
         error: err => {
           this.loading = false;
           this.confirmDialog.alert('Issue Failed', err?.error?.message || err?.error || 'Failed to issue stock.', 'danger');
         }
       });
+    });
+  }
+
+  printOutwardSlip(out: InventoryOutward): void {
+    this.dialog.open(InventoryOutwardReceiptDialogComponent, {
+      width: '880px',
+      maxWidth: '96vw',
+      data: {
+        outward: out,
+        instituteName: this.authService.currentUser()?.instituteName,
+        branchName: this.authService.currentUser()?.branchName,
+        logoUrl: this.authService.getInstituteLogoUrl()
+      }
     });
   }
 

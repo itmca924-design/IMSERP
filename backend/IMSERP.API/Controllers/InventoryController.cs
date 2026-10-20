@@ -1,3 +1,4 @@
+using IMSERP.Application.DTOs;
 using IMSERP.Application.Interfaces;
 using IMSERP.Domain.Entities;
 using IMSERP.Domain.Enums;
@@ -207,7 +208,13 @@ public class InventoryController : ControllerBase
     // =========================================================================
 
     [HttpGet("vendors")]
-    public async Task<ActionResult<IEnumerable<InventoryVendorDto>>> GetVendors([FromQuery] Guid? branchId = null)
+    public async Task<IActionResult> GetVendors(
+        [FromQuery] Guid? branchId = null,
+        [FromQuery] string? search = null,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 0,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] bool sortDescending = false)
     {
         var effBranchId = GetEffectiveBranchId(branchId);
         var query = _db.InventoryVendors.AsNoTracking().AsQueryable();
@@ -215,10 +222,39 @@ public class InventoryController : ControllerBase
         if (effBranchId.HasValue)
             query = query.Where(v => v.BranchId == null || v.BranchId == effBranchId);
 
-        var vendors = await query
-            .OrderBy(v => v.VendorName)
-            .ToListAsync();
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim().ToLower();
+            query = query.Where(v =>
+                v.VendorName.ToLower().Contains(term) ||
+                (v.ContactPerson != null && v.ContactPerson.ToLower().Contains(term)) ||
+                (v.Phone != null && v.Phone.ToLower().Contains(term)) ||
+                (v.Email != null && v.Email.ToLower().Contains(term)) ||
+                (v.Gstin != null && v.Gstin.ToLower().Contains(term)) ||
+                (v.Pan != null && v.Pan.ToLower().Contains(term)) ||
+                (v.Address != null && v.Address.ToLower().Contains(term)));
+        }
 
+        var totalCount = await query.CountAsync();
+
+        // Apply Sorting on entity fields
+        query = (sortBy?.Trim().ToLowerInvariant()) switch
+        {
+            "name" or "vendorname" => sortDescending ? query.OrderByDescending(v => v.VendorName) : query.OrderBy(v => v.VendorName),
+            "contact" or "contactperson" => sortDescending ? query.OrderByDescending(v => v.ContactPerson) : query.OrderBy(v => v.ContactPerson),
+            "phone" => sortDescending ? query.OrderByDescending(v => v.Phone) : query.OrderBy(v => v.Phone),
+            "email" => sortDescending ? query.OrderByDescending(v => v.Email) : query.OrderBy(v => v.Email),
+            "gstin" => sortDescending ? query.OrderByDescending(v => v.Gstin) : query.OrderBy(v => v.Gstin),
+            _ => query.OrderBy(v => v.VendorName)
+        };
+
+        if (pageSize > 0)
+        {
+            if (pageNumber < 1) pageNumber = 1;
+            query = query.Skip((pageNumber - 1) * pageSize).Take(pageSize);
+        }
+
+        var vendors = await query.ToListAsync();
         var vendorIds = vendors.Select(v => v.Id).ToList();
 
         var inwardTotals = await _db.InventoryInwards
@@ -279,6 +315,11 @@ public class InventoryController : ControllerBase
                 refunded
             );
         }).ToList();
+
+        if (pageSize > 0)
+        {
+            return Ok(new PagedResult<InventoryVendorDto>(result, totalCount, pageNumber, pageSize));
+        }
 
         return Ok(result);
     }
@@ -369,13 +410,17 @@ public class InventoryController : ControllerBase
     // =========================================================================
 
     [HttpGet("items")]
-    public async Task<ActionResult<IEnumerable<InventoryItemDto>>> GetItems(
+    public async Task<IActionResult> GetItems(
         [FromQuery] string? search = null,
         [FromQuery] Guid? categoryId = null,
         [FromQuery] string? itemType = null,
         [FromQuery] bool? lowStockOnly = null,
         [FromQuery] Guid? branchId = null,
-        [FromQuery] bool activeOnly = true)
+        [FromQuery] bool activeOnly = true,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 0,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] bool sortDescending = false)
     {
         var effBranchId = GetEffectiveBranchId(branchId);
         var query = _db.InventoryItems
@@ -408,9 +453,31 @@ public class InventoryController : ControllerBase
                 (i.Description != null && i.Description.ToLower().Contains(term)));
         }
 
+        var totalCount = await query.CountAsync();
+
+        // Apply Sorting
+        query = (sortBy?.Trim().ToLowerInvariant()) switch
+        {
+            "code" or "itemcode" => sortDescending ? query.OrderByDescending(i => i.ItemCode) : query.OrderBy(i => i.ItemCode),
+            "name" or "itemname" => sortDescending ? query.OrderByDescending(i => i.ItemName) : query.OrderBy(i => i.ItemName),
+            "category" or "categoryname" => sortDescending ? query.OrderByDescending(i => i.Category != null ? i.Category.Name : "") : query.OrderBy(i => i.Category != null ? i.Category.Name : ""),
+            "type" or "itemtype" => sortDescending ? query.OrderByDescending(i => i.ItemType) : query.OrderBy(i => i.ItemType),
+            "uom" or "unitofmeasurement" => sortDescending ? query.OrderByDescending(i => i.UnitOfMeasurement) : query.OrderBy(i => i.UnitOfMeasurement),
+            "stock" or "currentstock" => sortDescending ? query.OrderByDescending(i => i.CurrentStock) : query.OrderBy(i => i.CurrentStock),
+            "purchaseprice" or "purchaserate" => sortDescending ? query.OrderByDescending(i => i.PurchasePrice) : query.OrderBy(i => i.PurchasePrice),
+            "sellingprice" or "rate" => sortDescending ? query.OrderByDescending(i => i.SellingPrice) : query.OrderBy(i => i.SellingPrice),
+            "minstockalertlevel" or "alertlevel" => sortDescending ? query.OrderByDescending(i => i.MinStockAlertLevel) : query.OrderBy(i => i.MinStockAlertLevel),
+            "rack" or "rackorlocation" => sortDescending ? query.OrderByDescending(i => i.RackOrLocation) : query.OrderBy(i => i.RackOrLocation),
+            _ => query.OrderBy(i => i.Category != null ? i.Category.Name : "").ThenBy(i => i.ItemName)
+        };
+
+        if (pageSize > 0)
+        {
+            if (pageNumber < 1) pageNumber = 1;
+            query = query.Skip((pageNumber - 1) * pageSize).Take(pageSize);
+        }
+
         var items = await query
-            .OrderBy(i => i.Category != null ? i.Category.Name : "")
-            .ThenBy(i => i.ItemName)
             .Select(i => new InventoryItemDto(
                 i.Id,
                 i.CategoryId,
@@ -431,6 +498,11 @@ public class InventoryController : ControllerBase
                 i.UpdatedAt
             ))
             .ToListAsync();
+
+        if (pageSize > 0)
+        {
+            return Ok(new PagedResult<InventoryItemDto>(items, totalCount, pageNumber, pageSize));
+        }
 
         return Ok(items);
     }
@@ -568,11 +640,16 @@ public class InventoryController : ControllerBase
     // =========================================================================
 
     [HttpGet("inwards")]
-    public async Task<ActionResult<IEnumerable<InventoryInwardDto>>> GetInwards(
+    public async Task<IActionResult> GetInwards(
         [FromQuery] DateTime? startDate = null,
         [FromQuery] DateTime? endDate = null,
         [FromQuery] Guid? vendorId = null,
-        [FromQuery] Guid? branchId = null)
+        [FromQuery] Guid? branchId = null,
+        [FromQuery] string? search = null,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 0,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] bool sortDescending = false)
     {
         var effBranchId = GetEffectiveBranchId(branchId);
         var query = _db.InventoryInwards
@@ -594,8 +671,39 @@ public class InventoryController : ControllerBase
         if (endDate.HasValue)
             query = query.Where(i => i.InwardDate <= endDate.Value.Date.AddDays(1).AddTicks(-1));
 
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim().ToLower();
+            query = query.Where(i =>
+                i.InwardNumber.ToLower().Contains(term) ||
+                (i.InvoiceBillNumber != null && i.InvoiceBillNumber.ToLower().Contains(term)) ||
+                (i.Vendor != null && i.Vendor.VendorName.ToLower().Contains(term)) ||
+                (i.Remarks != null && i.Remarks.ToLower().Contains(term)) ||
+                i.Items.Any(line => line.Item != null && line.Item.ItemName.ToLower().Contains(term)));
+        }
+
+        var totalCount = await query.CountAsync();
+
+        // Apply Sorting
+        query = (sortBy?.Trim().ToLowerInvariant()) switch
+        {
+            "inwardnumber" or "number" => sortDescending ? query.OrderByDescending(i => i.InwardNumber) : query.OrderBy(i => i.InwardNumber),
+            "date" or "inwarddate" => sortDescending ? query.OrderByDescending(i => i.InwardDate) : query.OrderBy(i => i.InwardDate),
+            "invoice" or "invoicebillnumber" => sortDescending ? query.OrderByDescending(i => i.InvoiceBillNumber) : query.OrderBy(i => i.InvoiceBillNumber),
+            "vendor" or "vendorname" => sortDescending ? query.OrderByDescending(i => i.Vendor != null ? i.Vendor.VendorName : "") : query.OrderBy(i => i.Vendor != null ? i.Vendor.VendorName : ""),
+            "amount" or "netamount" => sortDescending ? query.OrderByDescending(i => i.NetAmount) : query.OrderBy(i => i.NetAmount),
+            "status" or "paymentstatus" => sortDescending ? query.OrderByDescending(i => i.PaymentStatus) : query.OrderBy(i => i.PaymentStatus),
+            "mode" or "paymentmode" => sortDescending ? query.OrderByDescending(i => i.PaymentMode) : query.OrderBy(i => i.PaymentMode),
+            _ => query.OrderByDescending(i => i.InwardDate)
+        };
+
+        if (pageSize > 0)
+        {
+            if (pageNumber < 1) pageNumber = 1;
+            query = query.Skip((pageNumber - 1) * pageSize).Take(pageSize);
+        }
+
         var inwards = await query
-            .OrderByDescending(i => i.InwardDate)
             .Select(i => new InventoryInwardDto(
                 i.Id,
                 i.InwardNumber,
@@ -626,7 +734,106 @@ public class InventoryController : ControllerBase
             ))
             .ToListAsync();
 
+        if (pageSize > 0)
+        {
+            return Ok(new PagedResult<InventoryInwardDto>(inwards, totalCount, pageNumber, pageSize));
+        }
+
         return Ok(inwards);
+    }
+
+    private static string GetCurrentFinancialYearCode()
+    {
+        var now = DateTime.UtcNow;
+        int startYear = now.Month >= 4 ? now.Year : now.Year - 1;
+        int endYear = startYear + 1;
+        return $"{startYear % 100:D2}{endYear % 100:D2}";
+    }
+
+    private static string FormatBillNumber(string? prefix, int number, int padding, bool includeFy)
+    {
+        var cleanPrefix = string.IsNullOrWhiteSpace(prefix) ? "BILL-" : prefix.Trim();
+        var numStr = number.ToString().PadLeft(Math.Max(1, padding), '0');
+        if (includeFy)
+        {
+            var fy = GetCurrentFinancialYearCode();
+            return $"{cleanPrefix}{fy}-{numStr}";
+        }
+        return $"{cleanPrefix}{numStr}";
+    }
+
+    [HttpGet("bill-sequence")]
+    public async Task<ActionResult<InventoryBillSequenceDto>> GetBillSequence([FromQuery] Guid? branchId = null)
+    {
+        var tenantId = GetEffectiveTenantId();
+        var effBranchId = GetEffectiveBranchId(branchId);
+
+        var seq = await _db.InventoryBillSequences
+            .FirstOrDefaultAsync(s => s.TenantId == tenantId && (s.BranchId == null || s.BranchId == effBranchId));
+
+        if (seq == null)
+        {
+            seq = new InventoryBillSequence
+            {
+                TenantId = tenantId,
+                BranchId = effBranchId,
+                Prefix = "BILL-",
+                NextNumber = 1,
+                PaddingDigits = 4,
+                IncludeFinancialYear = true,
+                UpdatedAt = DateTime.UtcNow
+            };
+            _db.InventoryBillSequences.Add(seq);
+            await _db.SaveChangesAsync();
+        }
+
+        var preview = FormatBillNumber(seq.Prefix, seq.NextNumber, seq.PaddingDigits, seq.IncludeFinancialYear);
+        return Ok(new InventoryBillSequenceDto(
+            seq.Id,
+            seq.Prefix,
+            seq.NextNumber,
+            seq.PaddingDigits,
+            seq.IncludeFinancialYear,
+            preview
+        ));
+    }
+
+    [HttpPost("bill-sequence")]
+    public async Task<ActionResult<InventoryBillSequenceDto>> UpdateBillSequence([FromBody] UpdateInventoryBillSequenceDto dto)
+    {
+        var tenantId = GetEffectiveTenantId();
+        var effBranchId = GetEffectiveBranchId(dto.BranchId);
+
+        var seq = await _db.InventoryBillSequences
+            .FirstOrDefaultAsync(s => s.TenantId == tenantId && (s.BranchId == null || s.BranchId == effBranchId));
+
+        if (seq == null)
+        {
+            seq = new InventoryBillSequence
+            {
+                TenantId = tenantId,
+                BranchId = effBranchId
+            };
+            _db.InventoryBillSequences.Add(seq);
+        }
+
+        seq.Prefix = string.IsNullOrWhiteSpace(dto.Prefix) ? "BILL-" : dto.Prefix.Trim();
+        seq.NextNumber = Math.Max(1, dto.NextNumber);
+        seq.PaddingDigits = Math.Clamp(dto.PaddingDigits, 1, 8);
+        seq.IncludeFinancialYear = dto.IncludeFinancialYear;
+        seq.UpdatedAt = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync();
+
+        var preview = FormatBillNumber(seq.Prefix, seq.NextNumber, seq.PaddingDigits, seq.IncludeFinancialYear);
+        return Ok(new InventoryBillSequenceDto(
+            seq.Id,
+            seq.Prefix,
+            seq.NextNumber,
+            seq.PaddingDigits,
+            seq.IncludeFinancialYear,
+            preview
+        ));
     }
 
     [HttpPost("inwards")]
@@ -636,17 +843,47 @@ public class InventoryController : ControllerBase
             return BadRequest("At least one item line is required for stock inward.");
 
         var tenantId = GetEffectiveTenantId();
+        var branchId = dto.BranchId ?? _currentUser.BranchId;
         var inwardNumber = $"GRN-{DateTime.UtcNow:yyyyMMdd}-{new Random().Next(100, 999)}";
+
+        // Auto-assign or sync with Bill Sequencer
+        var seq = await _db.InventoryBillSequences
+            .FirstOrDefaultAsync(s => s.TenantId == tenantId && (s.BranchId == null || s.BranchId == branchId));
+
+        if (seq == null)
+        {
+            seq = new InventoryBillSequence
+            {
+                TenantId = tenantId,
+                BranchId = branchId,
+                Prefix = "BILL-",
+                NextNumber = 1,
+                PaddingDigits = 4,
+                IncludeFinancialYear = true,
+                UpdatedAt = DateTime.UtcNow
+            };
+            _db.InventoryBillSequences.Add(seq);
+        }
+
+        string billNumber = dto.InvoiceBillNumber?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(billNumber))
+        {
+            billNumber = FormatBillNumber(seq.Prefix, seq.NextNumber, seq.PaddingDigits, seq.IncludeFinancialYear);
+        }
+
+        // Always advance sequencer counter in DB so the next inward gets the subsequent number
+        seq.NextNumber++;
+        seq.UpdatedAt = DateTime.UtcNow;
 
         decimal totalAmount = 0;
 
         var inward = new InventoryInward
         {
             TenantId = tenantId,
-            BranchId = dto.BranchId ?? _currentUser.BranchId,
+            BranchId = branchId,
             VendorId = dto.VendorId,
             InwardNumber = inwardNumber,
-            InvoiceBillNumber = dto.InvoiceBillNumber?.Trim(),
+            InvoiceBillNumber = billNumber,
             InwardDate = dto.InwardDate ?? DateTime.UtcNow,
             DiscountAmount = Math.Max(0, dto.DiscountAmount),
             TaxAmount = Math.Max(0, dto.TaxAmount),
@@ -694,7 +931,7 @@ public class InventoryController : ControllerBase
         _db.InventoryInwards.Add(inward);
         await _db.SaveChangesAsync();
 
-        return Ok(new { message = "Stock inward saved and item quantities updated successfully.", inwardNumber });
+        return Ok(new { message = "Stock inward saved and item quantities updated successfully.", inwardNumber, invoiceBillNumber = billNumber });
     }
 
     // =========================================================================
@@ -702,12 +939,17 @@ public class InventoryController : ControllerBase
     // =========================================================================
 
     [HttpGet("outwards")]
-    public async Task<ActionResult<IEnumerable<InventoryOutwardDto>>> GetOutwards(
+    public async Task<IActionResult> GetOutwards(
         [FromQuery] DateTime? startDate = null,
         [FromQuery] DateTime? endDate = null,
         [FromQuery] string? issueType = null,
         [FromQuery] Guid? studentId = null,
-        [FromQuery] Guid? branchId = null)
+        [FromQuery] Guid? branchId = null,
+        [FromQuery] string? search = null,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 0,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] bool sortDescending = false)
     {
         var effBranchId = GetEffectiveBranchId(branchId);
         var query = _db.InventoryOutwards
@@ -732,8 +974,40 @@ public class InventoryController : ControllerBase
         if (endDate.HasValue)
             query = query.Where(o => o.IssueDate <= endDate.Value.Date.AddDays(1).AddTicks(-1));
 
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim().ToLower();
+            query = query.Where(o =>
+                o.IssueNumber.ToLower().Contains(term) ||
+                o.IssuedToName.ToLower().Contains(term) ||
+                (o.DepartmentOrClass != null && o.DepartmentOrClass.ToLower().Contains(term)) ||
+                (o.Remarks != null && o.Remarks.ToLower().Contains(term)) ||
+                (o.Student != null && (o.Student.StudentName.ToLower().Contains(term) || o.Student.RollNumber.ToLower().Contains(term))) ||
+                o.Items.Any(line => line.Item != null && line.Item.ItemName.ToLower().Contains(term)));
+        }
+
+        var totalCount = await query.CountAsync();
+
+        // Apply Sorting
+        query = (sortBy?.Trim().ToLowerInvariant()) switch
+        {
+            "issuenumber" or "number" => sortDescending ? query.OrderByDescending(o => o.IssueNumber) : query.OrderBy(o => o.IssueNumber),
+            "date" or "issuedate" => sortDescending ? query.OrderByDescending(o => o.IssueDate) : query.OrderBy(o => o.IssueDate),
+            "type" or "issuetype" => sortDescending ? query.OrderByDescending(o => o.IssueType) : query.OrderBy(o => o.IssueType),
+            "name" or "recipient" or "issuedtoname" => sortDescending ? query.OrderByDescending(o => o.IssuedToName) : query.OrderBy(o => o.IssuedToName),
+            "class" or "dept" or "departmentorclass" => sortDescending ? query.OrderByDescending(o => o.DepartmentOrClass) : query.OrderBy(o => o.DepartmentOrClass),
+            "amount" or "totalamount" => sortDescending ? query.OrderByDescending(o => o.TotalAmount) : query.OrderBy(o => o.TotalAmount),
+            "status" or "paymentstatus" => sortDescending ? query.OrderByDescending(o => o.PaymentStatus) : query.OrderBy(o => o.PaymentStatus),
+            _ => query.OrderByDescending(o => o.IssueDate)
+        };
+
+        if (pageSize > 0)
+        {
+            if (pageNumber < 1) pageNumber = 1;
+            query = query.Skip((pageNumber - 1) * pageSize).Take(pageSize);
+        }
+
         var outwards = await query
-            .OrderByDescending(o => o.IssueDate)
             .Select(o => new InventoryOutwardDto(
                 o.Id,
                 o.IssueNumber,
@@ -762,6 +1036,11 @@ public class InventoryController : ControllerBase
                 )).ToList()
             ))
             .ToListAsync();
+
+        if (pageSize > 0)
+        {
+            return Ok(new PagedResult<InventoryOutwardDto>(outwards, totalCount, pageNumber, pageSize));
+        }
 
         return Ok(outwards);
     }
@@ -842,6 +1121,54 @@ public class InventoryController : ControllerBase
         outward.TotalAmount = totalAmount;
 
         _db.InventoryOutwards.Add(outward);
+
+        // If marked as 'AddedToFeeBill' or 'Unpaid' for a student, auto-generate a pending FeeInvoice attached to the student
+        if ((dto.PaymentStatus == "AddedToFeeBill" || dto.PaymentStatus == "Unpaid") && dto.StudentId.HasValue && totalAmount > 0)
+        {
+            var student = await _db.Students
+                .Include(s => s.Class)
+                .Include(s => s.Section)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(s => s.Id == dto.StudentId.Value && s.TenantId == tenantId);
+
+            var storeInvoice = new FeeInvoice
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                BranchId = outward.BranchId ?? student?.BranchId,
+                StudentId = dto.StudentId.Value,
+                InvoiceNumber = $"INV-STK-{DateTime.UtcNow:yyyyMMddHHmmss}",
+                Title = $"Store Issue - Uniform & Stationery ({issueNumber})",
+                InvoiceCategory = "Inventory",
+                TotalAmount = totalAmount,
+                PaidAmount = 0,
+                DueDate = (dto.IssueDate ?? DateTime.UtcNow).AddDays(15),
+                Status = InvoiceStatus.Pending,
+                ClassId = student?.ClassId,
+                SectionId = student?.SectionId,
+                ClassName = student?.Class?.Name,
+                SectionName = student?.Section?.Name,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            foreach (var oi in outward.Items)
+            {
+                var invItem = await _db.InventoryItems.FindAsync(oi.ItemId);
+                storeInvoice.Items.Add(new FeeInvoiceItem
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    InvoiceId = storeInvoice.Id,
+                    HeadName = invItem?.ItemName ?? "Store Item",
+                    Amount = oi.TotalAmount,
+                    PaidAmount = 0,
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
+
+            _db.FeeInvoices.Add(storeInvoice);
+        }
+
         await _db.SaveChangesAsync();
 
         return Ok(new { message = "Stock issued / distributed successfully.", issueNumber });
@@ -901,7 +1228,8 @@ public class InventoryController : ControllerBase
                 .Where(i => i.StudentId == outward.StudentId.Value &&
                             i.TenantId == tenantId &&
                             i.InvoiceCategory == "Inventory" &&
-                            i.Status == InvoiceStatus.Pending)
+                            i.Status == InvoiceStatus.Pending &&
+                            (i.Title.Contains(outward.IssueNumber) || i.InvoiceNumber.Contains(outward.IssueNumber) || i.Title.Contains("Admission Books")))
                 .ToListAsync();
 
             foreach (var inv in kitInvoices)
@@ -1442,9 +1770,14 @@ public class InventoryController : ControllerBase
     // =========================================================================
 
     [HttpGet("purchase-returns")]
-    public async Task<ActionResult<IEnumerable<InventoryPurchaseReturnDto>>> GetPurchaseReturns(
+    public async Task<IActionResult> GetPurchaseReturns(
         [FromQuery] Guid? vendorId = null,
-        [FromQuery] Guid? branchId = null)
+        [FromQuery] Guid? branchId = null,
+        [FromQuery] string? search = null,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 0,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] bool sortDescending = false)
     {
         var effBranchId = GetEffectiveBranchId(branchId);
         var q = _db.InventoryPurchaseReturns
@@ -1459,8 +1792,36 @@ public class InventoryController : ControllerBase
         if (vendorId.HasValue && vendorId.Value != Guid.Empty)
             q = q.Where(r => r.VendorId == vendorId.Value);
 
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim().ToLower();
+            q = q.Where(r =>
+                r.ReturnNumber.ToLower().Contains(term) ||
+                r.DebitNoteNumber.ToLower().Contains(term) ||
+                (r.Vendor != null && r.Vendor.VendorName.ToLower().Contains(term)) ||
+                (r.Remarks != null && r.Remarks.ToLower().Contains(term)) ||
+                r.Items.Any(line => line.Item != null && line.Item.ItemName.ToLower().Contains(term)));
+        }
+
+        var totalCount = await q.CountAsync();
+
+        q = (sortBy?.Trim().ToLowerInvariant()) switch
+        {
+            "returndate" or "date" => sortDescending ? q.OrderByDescending(r => r.ReturnDate) : q.OrderBy(r => r.ReturnDate),
+            "debitnote" or "debitnotenumber" or "code" => sortDescending ? q.OrderByDescending(r => r.DebitNoteNumber) : q.OrderBy(r => r.DebitNoteNumber),
+            "vendor" or "vendorname" => sortDescending ? q.OrderByDescending(r => r.Vendor != null ? r.Vendor.VendorName : "") : q.OrderBy(r => r.Vendor != null ? r.Vendor.VendorName : ""),
+            "amount" or "totalamount" => sortDescending ? q.OrderByDescending(r => r.TotalAmount) : q.OrderBy(r => r.TotalAmount),
+            "status" or "refundstatus" => sortDescending ? q.OrderByDescending(r => r.RefundStatus) : q.OrderBy(r => r.RefundStatus),
+            _ => q.OrderByDescending(r => r.ReturnDate)
+        };
+
+        if (pageSize > 0)
+        {
+            if (pageNumber < 1) pageNumber = 1;
+            q = q.Skip((pageNumber - 1) * pageSize).Take(pageSize);
+        }
+
         var list = await q
-            .OrderByDescending(r => r.ReturnDate)
             .Select(r => new InventoryPurchaseReturnDto(
                 r.Id,
                 r.VendorId,
@@ -1486,6 +1847,11 @@ public class InventoryController : ControllerBase
                 )).ToList()
             ))
             .ToListAsync();
+
+        if (pageSize > 0)
+        {
+            return Ok(new PagedResult<InventoryPurchaseReturnDto>(list, totalCount, pageNumber, pageSize));
+        }
 
         return Ok(list);
     }
@@ -1573,9 +1939,14 @@ public class InventoryController : ControllerBase
     // =========================================================================
 
     [HttpGet("sale-returns")]
-    public async Task<ActionResult<IEnumerable<InventorySaleReturnDto>>> GetSaleReturns(
+    public async Task<IActionResult> GetSaleReturns(
         [FromQuery] Guid? studentId = null,
-        [FromQuery] Guid? branchId = null)
+        [FromQuery] Guid? branchId = null,
+        [FromQuery] string? search = null,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 0,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] bool sortDescending = false)
     {
         var effBranchId = GetEffectiveBranchId(branchId);
         var q = _db.InventorySaleReturns
@@ -1590,8 +1961,37 @@ public class InventoryController : ControllerBase
         if (studentId.HasValue && studentId.Value != Guid.Empty)
             q = q.Where(r => r.StudentId == studentId.Value);
 
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim().ToLower();
+            q = q.Where(r =>
+                r.ReturnNumber.ToLower().Contains(term) ||
+                r.ReturnedByName.ToLower().Contains(term) ||
+                (r.DepartmentOrClass != null && r.DepartmentOrClass.ToLower().Contains(term)) ||
+                (r.Remarks != null && r.Remarks.ToLower().Contains(term)) ||
+                r.Items.Any(line => line.Item != null && line.Item.ItemName.ToLower().Contains(term)));
+        }
+
+        var totalCount = await q.CountAsync();
+
+        q = (sortBy?.Trim().ToLowerInvariant()) switch
+        {
+            "returndate" or "date" => sortDescending ? q.OrderByDescending(r => r.ReturnDate) : q.OrderBy(r => r.ReturnDate),
+            "returnnumber" or "number" or "code" => sortDescending ? q.OrderByDescending(r => r.ReturnNumber) : q.OrderBy(r => r.ReturnNumber),
+            "name" or "returnedby" or "returnedbyname" => sortDescending ? q.OrderByDescending(r => r.ReturnedByName) : q.OrderBy(r => r.ReturnedByName),
+            "class" or "dept" or "departmentorclass" => sortDescending ? q.OrderByDescending(r => r.DepartmentOrClass) : q.OrderBy(r => r.DepartmentOrClass),
+            "amount" or "totalamount" => sortDescending ? q.OrderByDescending(r => r.TotalAmount) : q.OrderBy(r => r.TotalAmount),
+            "status" or "refundstatus" => sortDescending ? q.OrderByDescending(r => r.RefundStatus) : q.OrderBy(r => r.RefundStatus),
+            _ => q.OrderByDescending(r => r.ReturnDate)
+        };
+
+        if (pageSize > 0)
+        {
+            if (pageNumber < 1) pageNumber = 1;
+            q = q.Skip((pageNumber - 1) * pageSize).Take(pageSize);
+        }
+
         var list = await q
-            .OrderByDescending(r => r.ReturnDate)
             .Select(r => new InventorySaleReturnDto(
                 r.Id,
                 r.OutwardId,
@@ -1619,6 +2019,11 @@ public class InventoryController : ControllerBase
                 )).ToList()
             ))
             .ToListAsync();
+
+        if (pageSize > 0)
+        {
+            return Ok(new PagedResult<InventorySaleReturnDto>(list, totalCount, pageNumber, pageSize));
+        }
 
         return Ok(list);
     }
@@ -2138,4 +2543,22 @@ public record SaleReturnItemLineDto(
 public record CancelOutwardDto(
     string? Reason
 );
+
+public record InventoryBillSequenceDto(
+    Guid Id,
+    string Prefix,
+    int NextNumber,
+    int PaddingDigits,
+    bool IncludeFinancialYear,
+    string NextBillNumberPreview
+);
+
+public record UpdateInventoryBillSequenceDto(
+    string Prefix,
+    int NextNumber,
+    int PaddingDigits,
+    bool IncludeFinancialYear,
+    Guid? BranchId
+);
+
 

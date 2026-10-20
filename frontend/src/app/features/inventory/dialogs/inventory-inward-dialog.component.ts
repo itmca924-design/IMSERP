@@ -1,7 +1,7 @@
 import { Component, Inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
+import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -9,12 +9,21 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { InventoryVendor, InventoryItem, CreateInwardDto } from '../inventory.models';
+import { InventoryVendor, InventoryItem, CreateInwardDto, InventoryBillSequenceDto } from '../inventory.models';
+import { InventoryService } from '../inventory.service';
+import { InventoryBillSequenceDialogComponent } from './inventory-bill-sequence-dialog.component';
+import { InventoryInwardConfirmDialogComponent } from './inventory-inward-confirm-dialog.component';
 
 export interface InventoryInwardDialogData {
   vendors: InventoryVendor[];
   items: InventoryItem[];
   branchId?: string;
+  prefill?: {
+    itemId: string;
+    quantity: number;
+    unitPrice: number;
+    remarks?: string;
+  };
 }
 
 @Component({
@@ -69,9 +78,21 @@ export interface InventoryInwardDialogData {
               </mat-select>
             </mat-form-field>
 
-            <mat-form-field appearance="outline">
+            <mat-form-field appearance="outline" class="bill-input-field">
               <mat-label>Vendor Invoice / Bill No.</mat-label>
-              <input matInput formControlName="invoiceBillNumber" placeholder="e.g. INV-9842" />
+              <input
+                matInput
+                formControlName="invoiceBillNumber"
+                placeholder="e.g. BILL-2627-0001"
+                readonly
+                [readonly]="true"
+                tabindex="-1"
+                (keydown)="$event.preventDefault()"
+                class="readonly-bill-input"
+                matTooltip="Auto-generated sequential bill number. Click ⚙️ to configure." />
+              <button mat-icon-button matSuffix (click)="openSequenceSettings()" type="button" matTooltip="Configure Bill Sequencer">
+                <mat-icon class="icon-sm">settings</mat-icon>
+              </button>
             </mat-form-field>
 
             <mat-form-field appearance="outline">
@@ -432,11 +453,29 @@ export interface InventoryInwardDialogData {
       border-top: 1px solid #f1f5f9;
       gap: 8px;
     }
-    .w-full { width: 100%; margin-bottom: -1.25em; }
-    @media (max-width: 900px) {
-      .top-grid { grid-template-columns: 1fr 1fr; }
-      .item-line-card { flex-wrap: wrap; }
-      .summary-section { grid-template-columns: 1fr; }
+    .bill-input-field {
+      ::ng-deep .mat-mdc-text-field-wrapper {
+        background-color: #f8fafc !important;
+      }
+      ::ng-deep .mat-mdc-icon-button.mat-mdc-button-base {
+        width: 32px;
+        height: 32px;
+        padding: 4px;
+        color: #2563eb;
+      }
+    }
+    .readonly-bill-input {
+      font-weight: 700 !important;
+      font-family: 'Consolas', 'Courier New', monospace !important;
+      color: #1e3a8a !important;
+      letter-spacing: 0.05em !important;
+      cursor: not-allowed !important;
+      caret-color: transparent !important;
+    }
+    .icon-sm {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
     }
   `]
 })
@@ -445,13 +484,16 @@ export class InventoryInwardDialogComponent implements OnInit {
   submitting = false;
   subTotal = 0;
   netTotal = 0;
+  currentSequence: InventoryBillSequenceDto | null = null;
 
   readonly Math = Math;
 
   constructor(
     private readonly fb: FormBuilder,
     private readonly dialogRef: MatDialogRef<InventoryInwardDialogComponent>,
-    @Inject(MAT_DIALOG_DATA) public readonly data: InventoryInwardDialogData
+    @Inject(MAT_DIALOG_DATA) public readonly data: InventoryInwardDialogData,
+    private readonly inventoryService: InventoryService,
+    private readonly dialog: MatDialog
   ) {}
 
   get selectedVendor(): InventoryVendor | undefined {
@@ -478,12 +520,69 @@ export class InventoryInwardDialogComponent implements OnInit {
       taxAmount: [0, [Validators.min(0)]],
       paymentStatus: ['Paid', [Validators.required]],
       paymentMode: ['Cash', [Validators.required]],
-      remarks: [''],
+      remarks: [this.data.prefill?.remarks || ''],
       items: this.fb.array([])
     });
 
-    // Add first row by default
-    this.addItemRow();
+    // Load Sequencer for Next Bill Number
+    this.inventoryService.getBillSequence(this.data.branchId).subscribe({
+      next: (seq) => {
+        this.currentSequence = seq;
+        if (!this.form.get('invoiceBillNumber')?.value) {
+          this.form.patchValue({ invoiceBillNumber: seq.nextBillNumberPreview });
+        }
+      },
+      error: () => {
+        // Fallback dynamic sequence if endpoint not available
+        const now = new Date();
+        const m = now.getMonth() + 1;
+        const y = now.getFullYear();
+        const fy = m >= 4 ? `${String(y).slice(-2)}${String(y + 1).slice(-2)}` : `${String(y - 1).slice(-2)}${String(y).slice(-2)}`;
+        if (!this.form.get('invoiceBillNumber')?.value) {
+          this.form.patchValue({ invoiceBillNumber: `BILL-${fy}-0001` });
+        }
+      }
+    });
+
+    // Check if auto-fill reorder data is passed
+    if (this.data.prefill) {
+      const row = this.fb.group({
+        itemId: [this.data.prefill.itemId, [Validators.required]],
+        quantity: [this.data.prefill.quantity, [Validators.required, Validators.min(0.01)]],
+        unitPrice: [this.data.prefill.unitPrice, [Validators.required, Validators.min(0)]],
+        batchOrSerialNo: [''],
+        remarks: [this.data.prefill.remarks || '']
+      });
+      this.itemRows.push(row);
+      this.computeTotals();
+    } else {
+      // Add first empty/default row
+      this.addItemRow();
+    }
+  }
+
+  openSequenceSettings(): void {
+    const dialogRef = this.dialog.open(InventoryBillSequenceDialogComponent, {
+      width: '520px',
+      data: {
+        sequence: this.currentSequence || {
+          id: '',
+          prefix: 'BILL-',
+          nextNumber: 1,
+          paddingDigits: 4,
+          includeFinancialYear: true,
+          nextBillNumberPreview: this.form.get('invoiceBillNumber')?.value || 'BILL-0001'
+        },
+        branchId: this.data.branchId
+      }
+    });
+
+    dialogRef.afterClosed().subscribe((result: InventoryBillSequenceDto | undefined) => {
+      if (result) {
+        this.currentSequence = result;
+        this.form.patchValue({ invoiceBillNumber: result.nextBillNumberPreview });
+      }
+    });
   }
 
   addItemRow(): void {
@@ -560,7 +659,38 @@ export class InventoryInwardDialogComponent implements OnInit {
       items: lines
     };
 
-    this.dialogRef.close(result);
+    // Open Confirmation Dialog to Review Payment Settlement & Inward Quantities
+    const confirmRef = this.dialog.open(InventoryInwardConfirmDialogComponent, {
+      width: '640px',
+      data: {
+        vendorName: this.selectedVendor?.vendorName || 'Direct Market Purchase',
+        invoiceBillNumber: val.invoiceBillNumber || this.currentSequence?.nextBillNumberPreview,
+        inwardDate: val.inwardDate,
+        paymentStatus: val.paymentStatus,
+        paymentMode: val.paymentMode,
+        subTotal: this.subTotal,
+        discountAmount: Number(val.discountAmount) || 0,
+        taxAmount: Number(val.taxAmount) || 0,
+        netTotal: this.netTotal,
+        selectedVendorAdvanceCredit: this.selectedVendorAdvanceCredit,
+        items: lines.map((l: any) => {
+          const itm = this.data.items.find(i => i.id === l.itemId);
+          return {
+            itemName: itm?.itemName || 'Item',
+            itemCode: itm?.itemCode,
+            quantity: l.quantity,
+            unitPrice: l.unitPrice,
+            totalAmount: l.quantity * l.unitPrice
+          };
+        })
+      }
+    });
+
+    confirmRef.afterClosed().subscribe((confirmed: boolean | undefined) => {
+      if (confirmed) {
+        this.dialogRef.close(result);
+      }
+    });
   }
 
   onCancel(): void {
