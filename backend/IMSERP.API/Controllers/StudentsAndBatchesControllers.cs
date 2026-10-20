@@ -248,13 +248,21 @@ public class StudentsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<StudentDto>>> GetStudents([FromQuery] Guid? batchId, [FromQuery] Guid? classId = null)
+    public async Task<ActionResult<IEnumerable<StudentDto>>> GetStudents(
+        [FromQuery] Guid? batchId,
+        [FromQuery] Guid? classId = null,
+        [FromQuery] Guid? branchId = null)
     {
         var query = _dbContext.Students.AsNoTracking()
             .Include(s => s.Batch)
             .Include(s => s.Class)
             .Include(s => s.Section)
             .AsQueryable();
+
+        if (branchId.HasValue && branchId.Value != Guid.Empty)
+        {
+            query = query.Where(s => s.BranchId == branchId.Value || (s.Batch != null && s.Batch.BranchId == branchId.Value));
+        }
 
         if (batchId.HasValue && batchId != Guid.Empty)
         {
@@ -327,6 +335,30 @@ public class StudentsController : ControllerBase
             s.PreviousSchoolName,
             s.PreviousBoard
         )).ToListAsync();
+
+        if (list.Count > 0)
+        {
+            var studentIds = list.Select(x => x.Id).ToList();
+            var kitOutwards = await _dbContext.InventoryOutwards
+                .AsNoTracking()
+                .Where(o => o.TenantId == _currentUser.TenantId &&
+                            o.StudentId.HasValue &&
+                            studentIds.Contains(o.StudentId.Value))
+                .Select(o => new { o.StudentId, o.PaymentStatus })
+                .ToListAsync();
+
+            var kitByStudent = kitOutwards
+                .GroupBy(x => x.StudentId!.Value)
+                .ToDictionary(g => g.Key, g => g.First().PaymentStatus);
+
+            if (kitByStudent.Count > 0)
+            {
+                list = list.Select(it => kitByStudent.TryGetValue(it.Id, out var status)
+                    ? it with { HasAdmissionKit = true, KitStatus = status }
+                    : it
+                ).ToList();
+            }
+        }
 
         return Ok(list);
     }
@@ -1797,6 +1829,30 @@ public class StudentsController : ControllerBase
                 s.PreviousBoard
             )).ToListAsync();
 
+        if (items.Count > 0)
+        {
+            var pagedStudentIds = items.Select(x => x.Id).ToList();
+            var kitOutwards = await _dbContext.InventoryOutwards
+                .AsNoTracking()
+                .Where(o => o.TenantId == _currentUser.TenantId &&
+                            o.StudentId.HasValue &&
+                            pagedStudentIds.Contains(o.StudentId.Value))
+                .Select(o => new { o.StudentId, o.PaymentStatus })
+                .ToListAsync();
+
+            var kitByStudent = kitOutwards
+                .GroupBy(x => x.StudentId!.Value)
+                .ToDictionary(g => g.Key, g => g.First().PaymentStatus);
+
+            if (kitByStudent.Count > 0)
+            {
+                items = items.Select(it => kitByStudent.TryGetValue(it.Id, out var status)
+                    ? it with { HasAdmissionKit = true, KitStatus = status }
+                    : it
+                ).ToList();
+            }
+        }
+
         return Ok(new PagedResult<StudentDto>(items, totalCount, pageNumber, pageSize));
     }
 
@@ -2062,45 +2118,14 @@ public class StudentsController : ControllerBase
                 outward.TotalAmount = totalKitAmount;
                 _dbContext.InventoryOutwards.Add(outward);
 
-                // If marked as 'AddedToFeeBill', generate a pending FeeInvoice attached to the student
-                if (dto.KitPaymentStatus == "AddedToFeeBill" && totalKitAmount > 0)
+                // If marked as 'AddedToFeeBill', physical kit is issued from store inventory
+                // and charges will be automatically bundled into the student's tuition fee invoice (no separate inventory invoice).
+                if (dto.KitPaymentStatus == "AddedToFeeBill")
                 {
-                    var kitInvoice = new FeeInvoice
-                    {
-                        Id = Guid.NewGuid(),
-                        TenantId = _currentUser.TenantId,
-                        BranchId = targetBranchId,
-                        StudentId = student.Id,
-                        InvoiceNumber = $"INV-KIT-{DateTime.UtcNow:yyyyMMddHHmmss}",
-                        Title = "Admission Books & Uniform Kit",
-                        InvoiceCategory = "Inventory",
-                        TotalAmount = totalKitAmount,
-                        PaidAmount = 0,
-                        DueDate = DateTime.UtcNow.AddDays(7),
-                        Status = InvoiceStatus.Pending,
-                        ClassId = student.ClassId,
-                        SectionId = student.SectionId,
-                        ClassName = dto.ClassId.HasValue ? (await _dbContext.SchoolClasses.AsNoTracking().FirstOrDefaultAsync(c => c.Id == dto.ClassId.Value))?.Name : null,
-                        SectionName = dto.SectionId.HasValue ? (await _dbContext.SchoolSections.AsNoTracking().FirstOrDefaultAsync(s => s.Id == dto.SectionId.Value))?.Name : null,
-                        CreatedAt = DateTime.UtcNow
-                    };
-
-                    foreach (var oi in outward.Items)
-                    {
-                        var invItem = await _dbContext.InventoryItems.FindAsync(oi.ItemId);
-                        kitInvoice.Items.Add(new FeeInvoiceItem
-                        {
-                            Id = Guid.NewGuid(),
-                            TenantId = _currentUser.TenantId,
-                            InvoiceId = kitInvoice.Id,
-                            HeadName = invItem?.ItemName ?? "Kit Item",
-                            Amount = oi.TotalAmount,
-                            PaidAmount = 0,
-                            CreatedAt = DateTime.UtcNow
-                        });
-                    }
-
-                    _dbContext.FeeInvoices.Add(kitInvoice);
+                    outward.PaymentStatus = "AddedToFeeBill";
+                    outward.Remarks = string.IsNullOrEmpty(outward.Remarks)
+                        ? "Admission Kit - Pending bundling in student fee invoice"
+                        : $"{outward.Remarks} (Pending bundling in student fee invoice)";
                 }
 
                 await _dbContext.SaveChangesAsync();
@@ -2351,44 +2376,12 @@ public class StudentsController : ControllerBase
                 outward.TotalAmount = totalKitAmount;
                 _dbContext.InventoryOutwards.Add(outward);
 
-                if (dto.KitPaymentStatus == "AddedToFeeBill" && totalKitAmount > 0)
+                if (dto.KitPaymentStatus == "AddedToFeeBill")
                 {
-                    var kitInvoice = new FeeInvoice
-                    {
-                        Id = Guid.NewGuid(),
-                        TenantId = _currentUser.TenantId,
-                        BranchId = student.BranchId,
-                        StudentId = student.Id,
-                        InvoiceNumber = $"INV-KIT-{DateTime.UtcNow:yyyyMMddHHmmss}",
-                        Title = "Admission Books & Uniform Kit",
-                        InvoiceCategory = "Inventory",
-                        TotalAmount = totalKitAmount,
-                        PaidAmount = 0,
-                        DueDate = DateTime.UtcNow.AddDays(7),
-                        Status = InvoiceStatus.Pending,
-                        ClassId = student.ClassId,
-                        SectionId = student.SectionId,
-                        ClassName = (await _dbContext.SchoolClasses.AsNoTracking().FirstOrDefaultAsync(c => c.Id == student.ClassId))?.Name,
-                        SectionName = (await _dbContext.SchoolSections.AsNoTracking().FirstOrDefaultAsync(s => s.Id == student.SectionId))?.Name,
-                        CreatedAt = DateTime.UtcNow
-                    };
-
-                    foreach (var oi in outward.Items)
-                    {
-                        var invItem = await _dbContext.InventoryItems.FindAsync(oi.ItemId);
-                        kitInvoice.Items.Add(new FeeInvoiceItem
-                        {
-                            Id = Guid.NewGuid(),
-                            TenantId = _currentUser.TenantId,
-                            InvoiceId = kitInvoice.Id,
-                            HeadName = invItem?.ItemName ?? "Kit Item",
-                            Amount = oi.TotalAmount,
-                            PaidAmount = 0,
-                            CreatedAt = DateTime.UtcNow
-                        });
-                    }
-
-                    _dbContext.FeeInvoices.Add(kitInvoice);
+                    outward.PaymentStatus = "AddedToFeeBill";
+                    outward.Remarks = string.IsNullOrEmpty(outward.Remarks)
+                        ? "Admission Kit - Pending bundling in student fee invoice"
+                        : $"{outward.Remarks} (Pending bundling in student fee invoice)";
                 }
             }
 

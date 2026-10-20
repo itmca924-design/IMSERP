@@ -138,10 +138,16 @@ import { MatSelectModule } from '@angular/material/select';
                     <tr *ngFor="let inv of ledger.invoices" [class.cancelled-row]="inv.status === 'Cancelled'">
                       <td class="nowrap-col"><strong>{{ inv.invoiceNumber }}</strong></td>
                       <td>
-                        <div>{{ inv.title }}</div>
-                        <div *ngIf="inv.items && inv.items.length > 0" class="mini-heads-row">
-                          <span *ngFor="let it of inv.items" class="mini-head-chip">
-                            {{ it.headName }}: ₹{{ it.amount | number:'1.0-0' }}
+                        <div class="billing-period-pill" [matTooltip]="getInvoiceBillingTooltip(inv)" matTooltipClass="multiline-tooltip">
+                          <mat-icon class="cal-mini-icon">calendar_month</mat-icon>
+                          <span class="period-title-text">{{ inv.title }}</span>
+                          <span class="period-months-detail" *ngIf="getShortMonthsSummary(inv) as shortSummary">({{ shortSummary }})</span>
+                        </div>
+                        <div *ngIf="inv.items && inv.items.length > 0" class="mini-heads-row" [matTooltip]="getInvoiceBillingTooltip(inv)" matTooltipClass="multiline-tooltip">
+                          <span *ngFor="let it of getSortedInvoiceItems(inv.items)" class="mini-head-chip" [class.tuition-head-chip]="isTuitionHead(it.headName)">
+                            <span class="chip-head-name">{{ it.headName }}:</span>
+                            <strong class="chip-head-amt">₹{{ it.amount | number:'1.0-0' }}</strong>
+                            <span class="chip-month-tag" *ngIf="getHeadMonthNote(it, inv) as note">({{ note }})</span>
                           </span>
                         </div>
                         <span *ngIf="inv.status === 'Cancelled'" class="cancelled-label" [matTooltip]="'Cancelled' + (inv.cancelledAt ? ' on ' + (inv.cancelledAt | date:'mediumDate') : '') + (inv.cancellationReason ? ' | Reason: ' + inv.cancellationReason : '')">VOID</span>
@@ -781,22 +787,96 @@ import { MatSelectModule } from '@angular/material/select';
         box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
       }
 
+      .billing-period-pill {
+        display: inline-flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 6px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        padding: 3px 8px;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #1e293b;
+        cursor: help;
+        margin-bottom: 3px;
+
+        .cal-mini-icon {
+          font-size: 15px;
+          width: 15px;
+          height: 15px;
+          color: #2563eb;
+        }
+
+        .period-months-detail {
+          font-size: 0.72rem;
+          color: #1d4ed8;
+          font-weight: 700;
+          background: #eff6ff;
+          padding: 1px 6px;
+          border-radius: 4px;
+          border: 1px solid #bfdbfe;
+        }
+      }
+
       .mini-heads-row {
         display: flex;
         flex-wrap: wrap;
-        gap: 4px;
+        gap: 5px;
         margin-top: 4px;
 
         .mini-head-chip {
-          font-size: 0.7rem;
-          background: #f0f9ff;
-          color: #0369a1;
-          border: 1px solid #bae6fd;
-          padding: 1px 6px;
-          border-radius: 10px;
-          font-weight: 600;
-          display: inline-block;
+          font-size: 0.72rem;
+          background: #f0fdf4;
+          color: #166534;
+          border: 1px solid #bbf7d0;
+          padding: 2px 7px;
+          border-radius: 6px;
+          font-weight: 500;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
           white-space: nowrap;
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+
+          .chip-head-name {
+            color: #334155;
+            font-weight: 600;
+          }
+          .chip-head-amt {
+            color: #0f172a;
+            font-weight: 700;
+          }
+          .chip-month-tag {
+            font-size: 0.68rem;
+            color: #0284c7;
+            font-weight: 600;
+            background: #f0f9ff;
+            padding: 1px 5px;
+            border-radius: 4px;
+            border: 1px solid #bae6fd;
+          }
+
+          &.tuition-head-chip {
+            background: #eff6ff;
+            border-color: #bfdbfe;
+            color: #1e40af;
+
+            .chip-head-name {
+              color: #1e3a8a;
+              font-weight: 700;
+            }
+            .chip-head-amt {
+              color: #1e40af;
+              font-weight: 800;
+            }
+            .chip-month-tag {
+              background: #dbeafe;
+              color: #1d4ed8;
+              border-color: #bfdbfe;
+            }
+          }
         }
       }
     }
@@ -1383,7 +1463,150 @@ export class StudentLedgerDialogComponent implements OnInit {
       default: return 'Online';
     }
   }
+  isTuitionHead(headName?: string): boolean {
+    return !!headName && /tuition/i.test(headName);
+  }
 
+  getSortedInvoiceItems(items?: any[]): any[] {
+    if (!items || items.length === 0) return [];
+    return items.slice().sort((a, b) => {
+      const getPriority = (name: string): number => {
+        const n = (name || '').toLowerCase();
+        if (n.includes('tuition')) return 1;
+        if (n.includes('computer') || n.includes('exam') || n.includes('annual') || n.includes('library') || n.includes('activity') || n.includes('development')) return 2;
+        if (n.includes('hostel') || n.includes('transport') || n.includes('bus') || n.includes('mess')) return 3;
+        if (n.includes('kit') || n.includes('pen') || n.includes('uniform') || n.includes('dress') || n.includes('tie') || n.includes('belt') || n.includes('bag') || n.includes('book') || n.includes('station')) return 5;
+        return 4;
+      };
+      return getPriority(a.headName) - getPriority(b.headName);
+    });
+  }
+
+  getBilledMonthsList(inv: any): string[] {
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    let startYear = 0;
+    let startMonth = 0; // 1-12
+    let monthsCount = 1;
+
+    // A. Parse from InvoiceNumber: e.g. INV-202605Q-853 or INV-HOSTEL-202610-123
+    if (inv?.invoiceNumber) {
+      const match = inv.invoiceNumber.match(/^INV-(?:HOSTEL-)?(\d{4})(\d{2})([QHY])?-/i);
+      if (match) {
+        startYear = parseInt(match[1], 10);
+        startMonth = parseInt(match[2], 10);
+        const cycle = (match[3] || '').toUpperCase();
+        if (cycle === 'Q') monthsCount = 3;
+        else if (cycle === 'H') monthsCount = 6;
+        else if (cycle === 'Y') monthsCount = 12;
+      }
+    }
+
+    // B. Check Title: e.g. "May 2026 – July 2026 Fee (Quarterly)"
+    if (inv?.title) {
+      if (/quarterly/i.test(inv.title)) monthsCount = 3;
+      else if (/half\s*-?\s*yearly/i.test(inv.title)) monthsCount = 6;
+      else if (/annual|yearly/i.test(inv.title)) monthsCount = 12;
+
+      if (!startMonth) {
+        for (let i = 0; i < monthNames.length; i++) {
+          if (new RegExp(`\\b${monthNames[i]}\\b`, 'i').test(inv.title)) {
+            startMonth = i + 1;
+            break;
+          }
+        }
+      }
+
+      if (!startYear) {
+        const yearMatch = inv.title.match(/\b(20\d{2})\b/);
+        if (yearMatch) {
+          startYear = parseInt(yearMatch[1], 10);
+        }
+      }
+    }
+
+    // C. Fallback to DueDate or CreatedAt
+    if (!startMonth) {
+      const refDate = inv?.dueDate ? new Date(inv.dueDate) : (inv?.createdAt ? new Date(inv.createdAt) : new Date());
+      startYear = refDate.getFullYear();
+      startMonth = refDate.getMonth() + 1;
+    }
+    if (!startYear) startYear = new Date().getFullYear();
+
+    const result: string[] = [];
+    for (let i = 0; i < monthsCount; i++) {
+      const d = new Date(startYear, startMonth - 1 + i, 1);
+      result.push(d.toLocaleString('en-IN', { month: 'long', year: 'numeric' }));
+    }
+    return result;
+  }
+
+  getShortMonthsSummary(inv: any): string {
+    const months = this.getBilledMonthsList(inv);
+    if (!months || months.length === 0) return '';
+    if (months.length === 1) return months[0];
+    const shortNames = months.map(m => m.split(' ')[0].substring(0, 3));
+    return `${months.length} Months: ${shortNames.join(', ')}`;
+  }
+
+  getHeadMonthNote(it: any, inv: any): string {
+    if (!it) return '';
+    const name = (it.headName || '').toLowerCase();
+    const isKit = /(kit|pen|tie|belt|bag|uniform|dress|book|station)/i.test(name);
+    if (isKit) {
+      return 'One-time Kit Item';
+    }
+
+    const months = this.getBilledMonthsList(inv);
+    if (!months || months.length === 0) return '';
+
+    if (months.length === 1) {
+      return months[0];
+    }
+
+    const shortNames = months.map(m => m.split(' ')[0].substring(0, 3)).join(', ');
+    if (it.amount > 0 && Math.round(it.amount % months.length) === 0) {
+      const perMo = Math.round(it.amount / months.length);
+      return `${months.length} Mos: ${shortNames} @ ₹${perMo.toLocaleString('en-IN')}/mo`;
+    }
+
+    return `${months.length} Mos: ${shortNames}`;
+  }
+
+  getInvoiceBillingTooltip(inv: any): string {
+    if (!inv) return '';
+    const lines: string[] = [];
+
+    const months = this.getBilledMonthsList(inv);
+    if (months.length > 0) {
+      lines.push(months.length > 1 ? `🗓️ Billed Months (${months.length} Months):` : '🗓️ Billed Month:');
+      months.forEach((m, idx) => {
+        lines.push(`  ${idx + 1}. ${m}`);
+      });
+      lines.push('');
+    }
+
+    const sortedItems = this.getSortedInvoiceItems(inv.items);
+    if (sortedItems.length > 0) {
+      lines.push('📋 Fee Heads Breakdown:');
+      sortedItems.forEach((it, idx) => {
+        const note = this.getHeadMonthNote(it, inv);
+        const noteStr = note ? ` (${note})` : '';
+        lines.push(`  ${idx + 1}. ${it.headName}: ₹${Math.round(it.amount).toLocaleString('en-IN')}${noteStr}`);
+      });
+      lines.push('────────────────────────');
+      if (inv.totalAmount !== undefined) {
+        lines.push(`Total Fee: ₹${Math.round(inv.totalAmount).toLocaleString('en-IN')}`);
+      }
+      if (inv.paidAmount > 0) {
+        lines.push(`Paid: ₹${Math.round(inv.paidAmount).toLocaleString('en-IN')}`);
+      }
+      if (inv.dueAmount !== undefined) {
+        lines.push(`Balance Due: ₹${Math.round(inv.dueAmount).toLocaleString('en-IN')}`);
+      }
+    }
+
+    return lines.join('\n');
+  }
   formatToIST(dateVal: string | Date | undefined): string {
     if (!dateVal) return '-';
     let str = String(dateVal).trim();

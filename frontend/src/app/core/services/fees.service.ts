@@ -113,6 +113,7 @@ export interface FeeInvoicePagedItem {
   isSchoolStudent?: boolean;
   isCoachingStudent?: boolean;
   branchName?: string;
+  invoiceCategory?: string | null;
 }
 
 export interface StudentLedgerInvoiceItem {
@@ -190,6 +191,13 @@ export interface CollectFifoFeePayload {
   itemPayments?: FeeItemPayment[];
 }
 
+export interface StudentCycleOverridePayload {
+  studentId: string;
+  billingCycle: number; // 1, 3, 6, 12
+  startMonth?: number;
+  startYear?: number;
+}
+
 export interface GenerateInvoicesPayload {
   year: number;
   month: number;
@@ -198,6 +206,9 @@ export interface GenerateInvoicesPayload {
   studentId?: string | null;
   dueDate: string;
   billingCycle?: number; // 1=Monthly, 3=Quarterly, 6=HalfYearly, 12=Yearly
+  studentCycleOverrides?: StudentCycleOverridePayload[];
+  branchId?: string | null;
+  autoBillNewAdmissionsFromDoj?: boolean;
 }
 
 export interface GenerateInvoicesResult {
@@ -370,10 +381,12 @@ export class FeesService {
     return this.http.post<GenerateInvoicesResult>(`${this.apiUrl}/generate-monthly-invoices`, payload);
   }
 
-  getPendingInvoicingStudents(month?: number, year?: number): Observable<PendingInvoicingStudent[]> {
+  getPendingInvoicingStudents(month?: number, year?: number, branchId?: string, newAdmissionsOnly?: boolean): Observable<PendingInvoicingStudent[]> {
     let params: any = {};
     if (month) params.month = month.toString();
     if (year) params.year = year.toString();
+    if (branchId) params.branchId = branchId;
+    if (newAdmissionsOnly !== undefined) params.newAdmissionsOnly = newAdmissionsOnly.toString();
     return this.http.get<PendingInvoicingStudent[]>(`${this.apiUrl}/pending-invoicing-students`, { params });
   }
 

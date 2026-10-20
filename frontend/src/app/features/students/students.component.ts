@@ -157,6 +157,10 @@ const API_BASE = environment.apiBaseUrl;
                   <span class="chk-label">🎒 <strong>Admission Kit Issuance</strong> (Uniform, Books, Stationery)</span>
                 </mat-checkbox>
               </div>
+              <div class="stream-hint-kit-info" *ngIf="studentForm.value.isIssueAdmissionKit">
+                <mat-icon>verified</mat-icon>
+                <span><strong>Smart ERP Rule Active:</strong> Physical kit items are issued directly from Store Stock. The system will <u>automatically protect</u> this student from duplicate Books/Uniform charges in Fee Matrix.</span>
+              </div>
               <div class="stream-hint-warn" *ngIf="!studentForm.value.isSchoolStudent && !studentForm.value.isCoachingStudent && (authService.hasSchoolModule() || authService.hasCoachingModule())">
                 <mat-icon>warning_amber</mat-icon>
                 <span>Please select at least one stream ({{ authService.hasSchoolModule() && authService.hasCoachingModule() ? 'School, Coaching, or both' : (authService.hasSchoolModule() ? 'School' : 'Coaching') }}).</span>
@@ -334,6 +338,20 @@ const API_BASE = environment.apiBaseUrl;
                 <span>Admission Kit Issuance (Books, Uniform, Stationery Distribution)</span>
               </div>
 
+              <!-- ERP Auto-Safeguard Notice Card -->
+              <div class="full-span kit-guidance-card" *ngIf="!isEditMode || !studentExistingKitOutward">
+                <div class="guidance-icon-box">
+                  <mat-icon>shield</mat-icon>
+                </div>
+                <div class="guidance-content">
+                  <div class="guidance-title">ERP Auto-Protection Rule: Zero Double-Billing Guarantee</div>
+                  <p class="guidance-desc">
+                    Physical uniform, books &amp; stationery items selected below will be distributed from store inventory and billed directly via Store Outward / Kit Invoice.
+                    <strong>You do not need to check Books/Uniform in Fee Matrix</strong> — the invoicing engine automatically skips those heads for students who receive a kit.
+                  </p>
+                </div>
+              </div>
+
               <!-- Existing Kit Banner in Edit Mode -->
               <div class="full-span existing-kit-alert-box" *ngIf="isEditMode && studentExistingKitOutward">
                 <div class="kit-alert-left">
@@ -458,7 +476,8 @@ const API_BASE = environment.apiBaseUrl;
                 <ng-template #noKitItemsSelected>
                   <div class="empty-kit-banner">
                     <mat-icon>info</mat-icon>
-                    <span>{{ isEditMode ? 'No kit items found for this student.' : 'Select items from inventory above to build the student\'s admission kit. Stock will be auto-deducted upon saving admission.' }}</span>
+                    <span *ngIf="isEditMode">No kit items found for this student.</span>
+                    <span *ngIf="!isEditMode">Select items from inventory above to build the student's admission kit. Stock will be auto-deducted upon saving admission.</span>
                   </div>
                 </ng-template>
               </div>
@@ -925,6 +944,10 @@ const API_BASE = environment.apiBaseUrl;
                       <mat-icon class="icon-library">local_library</mat-icon>
                       <span>{{ s.libraryMembershipType || 'Standard Lending' }} (Limit: {{ s.maxLibraryBooks || 2 }}{{ s.monthlyLibraryFee > 0 ? ' • ₹' + s.monthlyLibraryFee + '/mo' : '' }})</span>
                     </div>
+                    <div class="kit-alloc" *ngIf="s.hasAdmissionKit" [matTooltip]="'Admission Kit Issued' + (s.kitStatus ? ' (' + s.kitStatus + ')' : '')">
+                      <mat-icon class="icon-kit">inventory_2</mat-icon>
+                      <span>Kit Issued{{ s.kitStatus ? ' • ' + s.kitStatus : '' }}</span>
+                    </div>
                   </div>
                 </td>
               </ng-container>
@@ -1348,6 +1371,65 @@ const API_BASE = environment.apiBaseUrl;
         font-size: 0.82rem;
         font-weight: 600;
         mat-icon { font-size: 16px; width: 16px; height: 16px; }
+      }
+      .stream-hint-kit-info {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        background: #eff6ff;
+        border: 1px solid #bfdbfe;
+        border-radius: 8px;
+        color: #1e40af;
+        font-size: 0.8rem;
+        font-weight: 500;
+        margin-top: 4px;
+        mat-icon { font-size: 18px; width: 18px; height: 18px; color: #2563eb; flex-shrink: 0; }
+        strong { font-weight: 700; color: #1e3a8a; }
+        u { text-decoration-color: #3b82f6; }
+      }
+    }
+
+    .kit-guidance-card {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 16px;
+      background: linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%);
+      border: 1px solid #bbf7d0;
+      border-left: 4px solid #16a34a;
+      border-radius: 8px;
+      margin-top: 6px;
+      margin-bottom: 6px;
+
+      .guidance-icon-box {
+        background: #16a34a;
+        color: #ffffff;
+        border-radius: 8px;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        mat-icon { font-size: 18px; width: 18px; height: 18px; }
+      }
+
+      .guidance-content {
+        flex: 1;
+        .guidance-title {
+          font-size: 0.88rem;
+          font-weight: 700;
+          color: #14532d;
+          margin-bottom: 3px;
+        }
+        .guidance-desc {
+          margin: 0;
+          font-size: 0.8rem;
+          color: #166534;
+          line-height: 1.45;
+          strong { color: #0f172a; font-weight: 700; }
+        }
       }
     }
 
@@ -2071,6 +2153,20 @@ const API_BASE = environment.apiBaseUrl;
         gap: 4px;
         color: #0f766e;
         .icon-library { font-size: 14px; width: 14px; height: 14px; color: #14b8a6; }
+      }
+      .kit-alloc {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        color: #0369a1;
+        font-size: 0.74rem;
+        font-weight: 600;
+        background: #e0f2fe;
+        border: 1px solid #bae6fd;
+        border-radius: 4px;
+        padding: 1px 6px;
+        width: fit-content;
+        .icon-kit { font-size: 13px; width: 13px; height: 13px; color: #0284c7; }
       }
     }
 
@@ -3768,6 +3864,21 @@ export class StudentsComponent implements OnInit, OnDestroy {
     if (!formVal.isSchoolStudent && !formVal.isCoachingStudent) {
       this.confirmDialog.alert('Stream Required', 'Please select at least one enrollment stream (School or Coaching).', 'warning');
       return;
+    }
+
+    if (formVal.isIssueAdmissionKit) {
+      // Auto-add selected item if user selected one from dropdown but didn't click '+ Add to Kit'
+      if (this.selectedKitItemId && this.admissionKitRows.length === 0) {
+        this.addSelectedKitItem();
+      }
+      if (this.admissionKitRows.length === 0) {
+        this.confirmDialog.alert(
+          'Admission Kit Required',
+          'You selected Admission Kit Issuance, but no items have been added to the kit.\n\nPlease select an item from inventory and click "+ Add to Kit", or uncheck Admission Kit Issuance.',
+          'warning'
+        );
+        return;
+      }
     }
 
     this.saving = true;

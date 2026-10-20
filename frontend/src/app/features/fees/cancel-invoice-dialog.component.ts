@@ -225,6 +225,13 @@ export interface CancelInvoiceDialogData {
                 Please provide details for the custom reason
               </mat-error>
             </mat-form-field>
+
+            <div class="student-left-notice" *ngIf="cancelForm.get('selectedReason')?.value === 'Student Left / Discontinued'">
+              <mat-icon>school</mat-icon>
+              <span>
+                <strong>Student Registry Sync:</strong> Selecting <em>Student Left / Discontinued</em> will also update the student directory to mark <strong>{{ data.studentName }}</strong> as Left/Inactive so no further monthly tuition invoices or fee reminders are generated.
+              </span>
+            </div>
           </div>
 
           <!-- Summary Confirmation Alert -->
@@ -600,6 +607,29 @@ export interface CancelInvoiceDialogData {
 
     .full-width {
       width: 100%;
+    }
+
+    .student-left-notice {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      background: #fef3c7;
+      border: 1px solid #fde68a;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.82rem;
+      color: #92400e;
+      line-height: 1.45;
+      margin-bottom: 6px;
+
+      mat-icon {
+        color: #d97706;
+        font-size: 20px;
+        width: 20px;
+        height: 20px;
+        flex-shrink: 0;
+        margin-top: 1px;
+      }
     }
 
     /* Confirmation Summary Alert */

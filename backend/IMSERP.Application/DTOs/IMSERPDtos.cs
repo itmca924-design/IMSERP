@@ -481,7 +481,9 @@ public record StudentDto(
     bool HasStudentAccount = false,
     Guid? ParentUserId = null,
     string? ParentUsername = null,
-    bool HasParentAccount = false
+    bool HasParentAccount = false,
+    bool HasAdmissionKit = false,
+    string? KitStatus = null
 );
 
 public record StudentLeavingClearanceDto(
@@ -1535,6 +1537,13 @@ public record WhatsAppLogPagedItemDto(
     DateTime SentAt
 );
 
+public record StudentBillingCycleOverrideDto(
+    Guid StudentId,
+    BillingCycle BillingCycle,
+    int? StartMonth = null,
+    int? StartYear = null
+);
+
 public record GenerateMonthlyInvoicesRequestDto(
     int Year,
     int Month,
@@ -1542,7 +1551,10 @@ public record GenerateMonthlyInvoicesRequestDto(
     DateTime DueDate,
     BillingCycle BillingCycle = BillingCycle.Monthly,
     Guid? ClassId = null,
-    Guid? StudentId = null
+    Guid? StudentId = null,
+    List<StudentBillingCycleOverrideDto>? StudentCycleOverrides = null,
+    Guid? BranchId = null,
+    bool AutoBillNewAdmissionsFromDoj = false
 );
 
 public record GenerateMonthlyInvoicesResultDto(
@@ -1561,7 +1573,9 @@ public record PendingInvoicingStudentDto(
     Guid? BatchId,
     string? BatchName,
     DateTime JoiningDate,
-    decimal EstimatedMonthlyFee
+    decimal EstimatedMonthlyFee,
+    bool HasAdmissionKit = false,
+    string? KitStatus = null
 );
 
 public record CancelInvoiceDto(

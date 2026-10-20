@@ -434,16 +434,22 @@ public class AutomationService : IAutomationService
                 ExecutedAt: DateTime.UtcNow
             );
         }
-
-        // Existing active invoices in this period (triple-check DueDate, INV prefix, and Title)
-        string invPrefix = $"INV-{targetYear}{targetMonth:D2}";
-        var existingStudentInvoices = await _db.FeeInvoices
+        // Existing active invoices in this period (multi-month plan aware via CheckCoversPeriod)
+        var windowStart = periodStart.AddMonths(-12);
+        var windowEnd = periodEnd.AddMonths(1);
+        var candidateInvoices = await _db.FeeInvoices
+            .AsNoTracking()
             .Where(i => i.TenantId == tenantId && i.Status != InvoiceStatus.Cancelled &&
-                       ((i.DueDate >= periodStart && i.DueDate <= periodEnd) ||
-                        (i.InvoiceNumber != null && i.InvoiceNumber.StartsWith(invPrefix)) ||
-                        (i.Title != null && i.Title.Contains(periodLabel))))
-            .Select(i => new { i.StudentId, i.ClassId })
+                        i.InvoiceCategory != "Inventory" &&
+                       ((i.DueDate >= windowStart && i.DueDate <= windowEnd) ||
+                        (i.CreatedAt >= windowStart && i.CreatedAt <= windowEnd)))
+            .Select(i => new { i.StudentId, i.ClassId, i.InvoiceNumber, i.Title, i.DueDate })
             .ToListAsync();
+
+        var existingStudentInvoices = candidateInvoices
+            .Where(i => FeeInvoice.CheckCoversPeriod(i.InvoiceNumber, i.Title, i.DueDate, targetYear, targetMonth))
+            .Select(i => new { i.StudentId, i.ClassId })
+            .ToList();
 
         // Load active class / batch fee structures
         var classIds = students.Where(s => s.ClassId.HasValue).Select(s => s.ClassId!.Value).Distinct().ToList();

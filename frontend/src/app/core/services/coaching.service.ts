@@ -50,11 +50,12 @@ export class CoachingService {
     return this.http.get<TeacherDashboardSummary>(`${this.BASE_URL}/dashboard/teacher-summary`);
   }
 
-  getStudents(batchId?: string, classId?: string, sectionId?: string): Observable<any[]> {
+  getStudents(batchId?: string, classId?: string, sectionId?: string, branchId?: string): Observable<any[]> {
     let params: any = {};
     if (batchId) params.batchId = batchId;
     if (classId) params.classId = classId;
     if (sectionId) params.sectionId = sectionId;
+    if (branchId) params.branchId = branchId;
     return this.http.get<any[]>(`${this.BASE_URL}/students`, { params });
   }
 

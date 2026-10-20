@@ -124,22 +124,21 @@ export interface UpcomingBillingCycleInfo {
           <div class="banner-text">
             <div class="banner-title-row">
               <span class="banner-pill">{{ pendingStudents.length }} NEW {{ pendingStudents.length === 1 ? 'ADMISSION' : 'ADMISSIONS' }}</span>
-              <strong class="banner-heading">Awaiting Fee Invoicing for {{ getCurrentMonthYearName() }}</strong>
+              <strong class="banner-heading">Awaiting Fee Invoicing (New Admissions)</strong>
             </div>
             <div class="banner-students-list">
-              <span class="student-item-tag clickable" *ngFor="let s of pendingStudents" (click)="generateForPendingStudent(s)" matTooltip="Click to open invoice generator for {{ s.studentName }}">
+              <span class="student-item-tag clickable" *ngFor="let s of pendingStudents" (click)="generateForPendingStudent(s)" matTooltip="Click to generate invoice from admission month (DOJ: {{ s.joiningDate | date:'MMM yyyy' }}) for {{ s.studentName }}">
                 <strong>{{ s.studentName }}</strong>
-                <span class="sub-info">({{ s.className || s.batchName || 'General' }} • Roll: {{ s.rollNumber }})</span>
+                <span class="sub-info">({{ s.className || s.batchName || 'General' }} • Roll: {{ s.rollNumber }} • Joined: {{ s.joiningDate | date:'MMM yyyy' }})</span>
                 <mat-icon class="tag-click-icon">open_in_new</mat-icon>
               </span>
             </div>
           </div>
         </div>
         <div class="banner-actions">
-          <button mat-raised-button color="accent" class="quick-gen-btn" (click)="pendingStudents.length === 1 ? generateForPendingStudent(pendingStudents[0]) : generateForAllPending()">
+          <button mat-raised-button color="accent" class="quick-gen-btn" *ngFor="let s of pendingStudents" (click)="generateForPendingStudent(s)" [matTooltip]="'Generate invoice from admission month (' + (s.joiningDate | date:'MMM yyyy') + ') for ' + s.studentName">
             <mat-icon>post_add</mat-icon>
-            <span *ngIf="pendingStudents.length === 1">Generate Invoice for {{ pendingStudents[0].studentName }}</span>
-            <span *ngIf="pendingStudents.length > 1">Generate Invoices ({{ pendingStudents.length }} Admissions)</span>
+            <span>Generate Invoice for {{ s.studentName }}</span>
           </button>
           <button mat-icon-button class="dismiss-btn" (click)="dismissBanner()" matTooltip="Hide alert for now">
             <mat-icon>close</mat-icon>
@@ -306,7 +305,7 @@ export interface UpcomingBillingCycleInfo {
               <td mat-cell *matCellDef="let inv" class="col-billing-head">
                 <div class="billing-head-container">
                   <ng-container *ngIf="formatBillingTitle(inv.title) as ft">
-                    <span class="period-badge" [class.is-multiline]="!!ft.line2">
+                    <span class="period-badge" [class.is-multiline]="!!ft.line2" [matTooltip]="getInvoiceBillingTooltip(inv)" matTooltipClass="multiline-tooltip">
                       <mat-icon class="period-icon">calendar_month</mat-icon>
                       <span class="period-lines">
                         <span class="period-line-1">{{ ft.line1 }}</span>
@@ -314,14 +313,16 @@ export interface UpcomingBillingCycleInfo {
                       </span>
                     </span>
                   </ng-container>
-                  <div *ngIf="inv.items && inv.items.length > 0" class="mini-heads-row">
-                    <ng-container *ngFor="let it of inv.items; let i = index">
-                      <span *ngIf="i < 2" class="mini-head-chip">
-                        {{ it.headName }}: ₹{{ it.amount | number:'1.0-0' }}
+                  <div *ngIf="inv.items && inv.items.length > 0" class="mini-heads-row" [matTooltip]="getInvoiceBillingTooltip(inv)" matTooltipClass="multiline-tooltip">
+                    <ng-container *ngFor="let it of getSortedInvoiceItems(inv.items); let i = index">
+                      <span *ngIf="i < 3" class="mini-head-chip" [class.tuition-head-chip]="isTuitionHead(it.headName)">
+                        <span class="chip-title-part">{{ it.headName }}:</span>
+                        <strong class="chip-amt-part">₹{{ it.amount | number:'1.0-0' }}</strong>
+                        <span class="chip-month-tag" *ngIf="getHeadMonthNote(it, inv) as note">({{ note }})</span>
                       </span>
                     </ng-container>
-                    <span *ngIf="inv.items.length > 2" class="mini-head-more" [matTooltip]="getRemainingHeadsTooltip(inv.items)">
-                      +{{ inv.items.length - 2 }} more
+                    <span *ngIf="inv.items.length > 3" class="mini-head-more" [matTooltip]="getInvoiceBillingTooltip(inv)" matTooltipClass="multiline-tooltip">
+                      +{{ inv.items.length - 3 }} more
                     </span>
                   </div>
                   <div *ngIf="inv.cancellationReason" class="inv-audit-pill" [matTooltip]="inv.cancellationReason">
@@ -407,7 +408,7 @@ export interface UpcomingBillingCycleInfo {
                   <mat-menu #actionMenu="matMenu" xPosition="before" class="smart-fees-menu">
                     <!-- Collect Fee -->
                     <button
-                      *ngIf="inv.dueAmount > 0 && inv.status !== 'Cancelled'"
+                      *ngIf="inv.dueAmount > 0 && inv.status !== 'Cancelled' && !isKitOrInventoryInvoice(inv)"
                       mat-menu-item
                       (click)="openCollectFeeModal(inv)">
                       <mat-icon class="menu-icon-blue">payments</mat-icon>
@@ -416,7 +417,7 @@ export interface UpcomingBillingCycleInfo {
 
                     <!-- Pay via Dynamic UPI QR -->
                     <button
-                      *ngIf="inv.dueAmount > 0 && inv.status !== 'Cancelled'"
+                      *ngIf="inv.dueAmount > 0 && inv.status !== 'Cancelled' && !isKitOrInventoryInvoice(inv)"
                       mat-menu-item
                       (click)="openUpiPaymentModal(inv)">
                       <mat-icon class="menu-icon-emerald">qr_code_2</mat-icon>
@@ -425,7 +426,7 @@ export interface UpcomingBillingCycleInfo {
 
                     <!-- Due Receipt / Demand Notice -->
                     <button
-                      *ngIf="inv.dueAmount > 0 && inv.status !== 'Cancelled'"
+                      *ngIf="inv.dueAmount > 0 && inv.status !== 'Cancelled' && !isKitOrInventoryInvoice(inv)"
                       mat-menu-item
                       (click)="openDueReceiptModal(inv)">
                       <mat-icon class="menu-icon-amber">receipt_long</mat-icon>
@@ -443,7 +444,7 @@ export interface UpcomingBillingCycleInfo {
 
                     <!-- Send WhatsApp Receipt / Reminder -->
                     <button
-                      *ngIf="inv.status !== 'Cancelled'"
+                      *ngIf="inv.status !== 'Cancelled' && !isKitOrInventoryInvoice(inv)"
                       mat-menu-item
                       (click)="sendReminder(inv)">
                       <mat-icon class="menu-icon-green">chat</mat-icon>
@@ -940,8 +941,50 @@ export interface UpcomingBillingCycleInfo {
         font-weight: 600;
         display: inline-flex;
         align-items: center;
+        gap: 3px;
         white-space: nowrap;
         box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+
+        .chip-title-part {
+          color: #334155;
+          font-weight: 600;
+        }
+
+        .chip-amt-part {
+          color: #0f172a;
+          font-weight: 700;
+        }
+
+        .chip-month-tag {
+          font-size: 0.65rem;
+          color: #2563eb;
+          font-weight: 600;
+          background: #eff6ff;
+          padding: 0 4px;
+          border-radius: 4px;
+        }
+
+        &.tuition-head-chip {
+          background: #eff6ff;
+          color: #1e40af;
+          border-color: #bfdbfe;
+          font-weight: 700;
+
+          .chip-title-part {
+            color: #1e3a8a;
+            font-weight: 700;
+          }
+
+          .chip-amt-part {
+            color: #1e40af;
+            font-weight: 800;
+          }
+
+          .chip-month-tag {
+            background: #dbeafe;
+            color: #1d4ed8;
+          }
+        }
       }
 
       .mini-head-more {
@@ -2302,6 +2345,7 @@ export class FeesComponent implements OnInit, OnDestroy {
       if (res) {
         this.clearSelection();
         this.loadInvoices();
+        this.loadPendingStudents();
 
         // Immediately open official Fee Payment Receipt Dialog
         this.dialog.open(FeeReceiptDialogComponent, {
@@ -2369,9 +2413,142 @@ export class FeesComponent implements OnInit, OnDestroy {
     return { line1: title };
   }
 
+  isTuitionHead(headName?: string): boolean {
+    return !!headName && /tuition/i.test(headName);
+  }
+
+  getSortedInvoiceItems(items?: any[]): any[] {
+    if (!items || items.length === 0) return [];
+    return items.slice().sort((a, b) => {
+      const getPriority = (name: string): number => {
+        const n = (name || '').toLowerCase();
+        if (n.includes('tuition')) return 1;
+        if (n.includes('computer') || n.includes('exam') || n.includes('annual') || n.includes('library') || n.includes('activity') || n.includes('development')) return 2;
+        if (n.includes('hostel') || n.includes('transport') || n.includes('bus') || n.includes('mess')) return 3;
+        if (n.includes('kit') || n.includes('pen') || n.includes('uniform') || n.includes('dress') || n.includes('tie') || n.includes('belt') || n.includes('bag') || n.includes('book') || n.includes('station')) return 5;
+        return 4;
+      };
+      return getPriority(a.headName) - getPriority(b.headName);
+    });
+  }
+
   getRemainingHeadsTooltip(items?: any[]): string {
-    if (!items || items.length <= 2) return '';
-    return items.slice(2).map(it => `${it.headName}: ₹${it.amount}`).join('\n');
+    return this.getInvoiceBillingTooltip({ items });
+  }
+
+  getHeadMonthNote(it: any, inv: any): string {
+    if (!it) return '';
+    const name = (it.headName || '').toLowerCase();
+    const isKit = /(kit|pen|tie|belt|bag|uniform|dress|book|station)/i.test(name);
+    if (isKit) return 'One-time Kit';
+
+    const months = this.getBilledMonthsList(inv);
+    if (!months || months.length === 0) return '';
+    if (months.length === 1) return months[0];
+
+    const shortNames = months.map(m => m.split(' ')[0].substring(0, 3)).join(', ');
+    if (it.amount > 0 && Math.round(it.amount % months.length) === 0) {
+      const perMo = Math.round(it.amount / months.length);
+      return `${months.length} Mos: ${shortNames} @ ₹${perMo.toLocaleString('en-IN')}/mo`;
+    }
+    return `${months.length} Mos: ${shortNames}`;
+  }
+
+  getInvoiceBillingTooltip(inv: any): string {
+    if (!inv) return '';
+    const lines: string[] = [];
+
+    // 1. Determine months list with 1-based numbering
+    const months = this.getBilledMonthsList(inv);
+    if (months.length > 0) {
+      lines.push(months.length > 1 ? `🗓️ Billed Months (${months.length} Months):` : '🗓️ Billed Month:');
+      months.forEach((m, idx) => {
+        lines.push(`  ${idx + 1}. ${m}`);
+      });
+      lines.push('');
+    }
+
+    // 2. Fee Heads Breakdown (Sorted with Tuition Fee first)
+    const sortedItems = this.getSortedInvoiceItems(inv.items);
+    if (sortedItems.length > 0) {
+      lines.push('📋 Fee Heads Breakdown:');
+      sortedItems.forEach((it, idx) => {
+        const note = this.getHeadMonthNote(it, inv);
+        const noteStr = note ? ` (${note})` : '';
+        lines.push(`  ${idx + 1}. ${it.headName}: ₹${Math.round(it.amount).toLocaleString('en-IN')}${noteStr}`);
+      });
+      lines.push('────────────────────────');
+      if (inv.totalAmount !== undefined) {
+        lines.push(`Total Fee: ₹${Math.round(inv.totalAmount).toLocaleString('en-IN')}`);
+      }
+      if (inv.paidAmount > 0) {
+        lines.push(`Paid: ₹${Math.round(inv.paidAmount).toLocaleString('en-IN')}`);
+      }
+      if (inv.dueAmount !== undefined) {
+        lines.push(`Balance Due: ₹${Math.round(inv.dueAmount).toLocaleString('en-IN')}`);
+      }
+    }
+
+    return lines.join('\n');
+  }
+
+  getBilledMonthsList(inv: any): string[] {
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    let startYear = 0;
+    let startMonth = 0; // 1-12
+    let monthsCount = 1;
+
+    // A. Parse from InvoiceNumber: e.g. INV-202605Q-853 or INV-HOSTEL-202610-123
+    if (inv.invoiceNumber) {
+      const match = inv.invoiceNumber.match(/^INV-(?:HOSTEL-)?(\d{4})(\d{2})([QHY])?-/i);
+      if (match) {
+        startYear = parseInt(match[1], 10);
+        startMonth = parseInt(match[2], 10);
+        const cycle = (match[3] || '').toUpperCase();
+        if (cycle === 'Q') monthsCount = 3;
+        else if (cycle === 'H') monthsCount = 6;
+        else if (cycle === 'Y') monthsCount = 12;
+      }
+    }
+
+    // B. Check Title: e.g. "May – July 2026 (Quarterly)"
+    if (inv.title) {
+      if (/quarterly/i.test(inv.title)) monthsCount = 3;
+      else if (/half\s*-?\s*yearly/i.test(inv.title)) monthsCount = 6;
+      else if (/annual|yearly/i.test(inv.title)) monthsCount = 12;
+
+      if (!startMonth) {
+        for (let i = 0; i < monthNames.length; i++) {
+          if (new RegExp(`\\b${monthNames[i]}\\b`, 'i').test(inv.title)) {
+            startMonth = i + 1;
+            break;
+          }
+        }
+      }
+
+      if (!startYear) {
+        const yearMatch = inv.title.match(/\b(20\d{2})\b/);
+        if (yearMatch) {
+          startYear = parseInt(yearMatch[1], 10);
+        }
+      }
+    }
+
+    // C. Fallback to DueDate or CreatedAt
+    if (!startMonth) {
+      const refDate = inv.dueDate ? new Date(inv.dueDate) : (inv.createdAt ? new Date(inv.createdAt) : new Date());
+      startYear = refDate.getFullYear();
+      startMonth = refDate.getMonth() + 1;
+    }
+    if (!startYear) startYear = new Date().getFullYear();
+
+    // Generate month names array
+    const result: string[] = [];
+    for (let i = 0; i < monthsCount; i++) {
+      const d = new Date(startYear, startMonth - 1 + i, 1);
+      result.push(d.toLocaleString('en-IN', { month: 'long', year: 'numeric' }));
+    }
+    return result;
   }
 
   ngOnDestroy(): void {
@@ -2414,6 +2591,10 @@ export class FeesComponent implements OnInit, OnDestroy {
           this.selectedInvoices = this.selectedInvoices.filter(sel =>
             this.invoices.some(inv => inv.id === sel.id && this.canSelectInvoice(inv))
           );
+          if (this.pendingStudents && this.pendingStudents.length > 0 && this.invoices.length > 0) {
+            const invoicedStudentIds = new Set(this.invoices.map(i => i.studentId));
+            this.pendingStudents = this.pendingStudents.filter(s => !invoicedStudentIds.has(s.studentId));
+          }
         },
         error: (err) => {
           this.loading = false;
@@ -2482,6 +2663,7 @@ export class FeesComponent implements OnInit, OnDestroy {
         dialogRef.afterClosed().subscribe((res: FeePaymentReceipt | undefined) => {
           if (res) {
             this.loadInvoices();
+            this.loadPendingStudents();
 
             // Immediately open official Fee Payment Receipt Dialog
             this.dialog.open(FeeReceiptDialogComponent, {
@@ -2521,6 +2703,7 @@ export class FeesComponent implements OnInit, OnDestroy {
         dialogRef.afterClosed().subscribe((res: FeePaymentReceipt | undefined) => {
           if (res) {
             this.loadInvoices();
+            this.loadPendingStudents();
             this.dialog.open(FeeReceiptDialogComponent, {
               width: '840px',
               maxWidth: '96vw',
@@ -2666,7 +2849,7 @@ export class FeesComponent implements OnInit, OnDestroy {
     }
 
     const dialogRef = this.dialog.open(GenerateInvoicesDialogComponent, {
-      width: '560px',
+      width: '660px',
       maxWidth: '96vw',
       data: {
         batches: this.batches,
@@ -2676,6 +2859,7 @@ export class FeesComponent implements OnInit, OnDestroy {
         targetStudentId: targetStudent?.studentId,
         targetStudentName: targetStudent?.studentName,
         targetRollNumber: targetStudent?.rollNumber,
+        targetJoiningDate: targetStudent?.joiningDate,
         defaultMonth: defaultMonth,
         defaultYear: defaultYear
       }
@@ -2707,6 +2891,13 @@ export class FeesComponent implements OnInit, OnDestroy {
     dialogRef.afterClosed().subscribe(() => {
       this.loadInvoices();
     });
+  }
+
+  isKitOrInventoryInvoice(inv: FeeInvoicePagedItem): boolean {
+    if (!inv) return false;
+    return inv.invoiceCategory === 'Inventory' ||
+           (!!inv.invoiceNumber && inv.invoiceNumber.startsWith('INV-KIT')) ||
+           (!!inv.title && inv.title.includes('Admission Books & Uniform Kit'));
   }
 
   sendReminder(inv: FeeInvoicePagedItem): void {
@@ -2816,10 +3007,12 @@ export class FeesComponent implements OnInit, OnDestroy {
     const today = new Date();
     const currentMonth = today.getMonth() + 1;
     const currentYear = today.getFullYear();
+    const branchId = this.authService.selectedBranchId() || undefined;
     this.loadingPending = true;
-    this.feesService.getPendingInvoicingStudents(currentMonth, currentYear).subscribe({
+    this.feesService.getPendingInvoicingStudents(currentMonth, currentYear, branchId, true).subscribe({
       next: (list) => {
-        this.pendingStudents = list || [];
+        const invoicedStudentIds = new Set((this.invoices || []).map(i => i.studentId));
+        this.pendingStudents = (list || []).filter(s => !invoicedStudentIds.has(s.studentId));
         this.loadingPending = false;
       },
       error: (err) => {
@@ -2831,10 +3024,6 @@ export class FeesComponent implements OnInit, OnDestroy {
 
   generateForPendingStudent(student: PendingInvoicingStudent): void {
     this.openGenerateInvoicesModal(student);
-  }
-
-  generateForAllPending(): void {
-    this.openGenerateInvoicesModal();
   }
 
   dismissBanner(): void {
@@ -2864,7 +3053,8 @@ export class FeesComponent implements OnInit, OnDestroy {
     }
 
     this.loadingUpcoming = true;
-    this.feesService.getPendingInvoicingStudents(nextMonth, nextYear).subscribe({
+    const branchId = this.authService.selectedBranchId() || undefined;
+    this.feesService.getPendingInvoicingStudents(nextMonth, nextYear, branchId, false).subscribe({
       next: (list) => {
         this.loadingUpcoming = false;
         if (list && list.length > 0) {
@@ -2892,7 +3082,7 @@ export class FeesComponent implements OnInit, OnDestroy {
     if (!this.upcomingCycle) return;
 
     const dialogRef = this.dialog.open(GenerateInvoicesDialogComponent, {
-      width: '560px',
+      width: '660px',
       maxWidth: '96vw',
       data: {
         batches: this.batches,

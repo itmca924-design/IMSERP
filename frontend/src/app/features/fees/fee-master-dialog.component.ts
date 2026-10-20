@@ -655,7 +655,11 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
         font-weight: 700;
         text-align: left;
         padding: 10px 12px;
-        border-bottom: 1px solid #cbd5e1;
+        border-bottom: 2px solid #cbd5e1;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
       }
       td {
         padding: 8px 12px;

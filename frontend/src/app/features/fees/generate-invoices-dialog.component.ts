@@ -10,6 +10,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { FeesService, GenerateInvoicesResult } from '../../core/services/fees.service';
+import { CoachingService } from '../../core/services/coaching.service';
 import { BatchDto } from '../../core/services/batches.service';
 import { SchoolClassDto } from '../../core/services/school.service';
 import { AuthService } from '../../core/services/auth.service';
@@ -24,6 +25,7 @@ export interface GenerateInvoicesDialogData {
   targetStudentId?: string;
   targetStudentName?: string;
   targetRollNumber?: string;
+  targetJoiningDate?: string;
   defaultMonth?: number;
   defaultYear?: number;
 }
@@ -91,10 +93,15 @@ interface BillingCycleOption {
                 <span *ngIf="getSelectedTargetBatchName()" class="sub-pill batch">
                   🎯 {{ getSelectedTargetBatchName() }}
                 </span>
+                <span *ngIf="data.targetJoiningDate" class="sub-pill doj">
+                  📅 Admission: {{ data.targetJoiningDate | date:'dd MMM yyyy' }}
+                </span>
               </div>
               <div class="st-hint">
-                <mat-icon class="hint-icon">shield</mat-icon>
-                <span>Generating invoice exclusively for this newly admitted student. Other students remain untouched.</span>
+                <mat-icon class="hint-icon">auto_awesome</mat-icon>
+                <span>
+                  Starting month auto-filled to <strong>{{ getMonthName(form.get('month')?.value) }} {{ form.get('year')?.value }}</strong> from admission date. Select your billing cycle (Monthly, Quarterly, etc.).
+                </span>
               </div>
             </div>
           </div>
@@ -180,11 +187,9 @@ interface BillingCycleOption {
               <mat-select formControlName="month" (selectionChange)="onMonthYearChange()">
                 <mat-option *ngFor="let m of months" [value]="m.value">{{ m.name }}</mat-option>
               </mat-select>
-              <mat-icon matSuffix [matTooltip]="isTargetStudent ? 'Locked to Admission Month' : ''" [style.color]="isTargetStudent ? '#64748b' : '#2563eb'">
-                {{ isTargetStudent ? 'lock' : 'calendar_month' }}
-              </mat-icon>
+              <mat-icon matSuffix color="primary">calendar_month</mat-icon>
               <mat-hint *ngIf="isTargetStudent" style="color: #2563eb; font-weight: 500;">
-                🔒 Locked to student's admission month
+                ✨ Auto-filled from admission date (DOJ: {{ data.targetJoiningDate | date:'MMM yyyy' }})
               </mat-hint>
               <mat-error *ngIf="form.get('month')?.hasError('required')">Month is required</mat-error>
             </mat-form-field>
@@ -194,7 +199,7 @@ interface BillingCycleOption {
               <mat-select formControlName="year" (selectionChange)="onMonthYearChange()">
                 <mat-option *ngFor="let y of years" [value]="y">{{ y }}</mat-option>
               </mat-select>
-              <mat-icon matSuffix *ngIf="isTargetStudent" matTooltip="Locked to Admission Year" style="color: #64748b;">lock</mat-icon>
+              <mat-icon matSuffix color="primary">calendar_today</mat-icon>
               <mat-error *ngIf="form.get('year')?.hasError('required')">Year is required</mat-error>
             </mat-form-field>
 
@@ -334,7 +339,8 @@ interface BillingCycleOption {
       padding: 0;
       box-sizing: border-box;
       min-width: 500px;
-      max-width: 580px;
+      max-width: 660px;
+      width: 100%;
     }
 
     .dialog-header {
@@ -461,26 +467,27 @@ interface BillingCycleOption {
               border: 1px solid #bae6fd;
             }
 
-            &.batch {
-              background: #ede9fe;
-              color: #6d28d9;
-              border: 1px solid #ddd6fe;
+            &.doj {
+              background: #fef3c7;
+              color: #b45309;
+              border: 1px solid #fde68a;
+              font-weight: 600;
             }
           }
+        }
 
-          .st-hint {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            font-size: 0.72rem;
-            color: #1e40af;
-            background: #eff6ff;
-            padding: 3px 8px;
-            border-radius: 4px;
-            border: 1px solid #bfdbfe;
-            margin-top: 4px;
-            .hint-icon { font-size: 13px; width: 13px; height: 13px; color: #2563eb; }
-          }
+        .st-hint {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 0.74rem;
+          color: #1e40af;
+          background: #eff6ff;
+          padding: 4px 10px;
+          border-radius: 6px;
+          border: 1px solid #bfdbfe;
+          margin-top: 4px;
+          .hint-icon { font-size: 15px; width: 15px; height: 15px; color: #2563eb; flex-shrink: 0; }
         }
       }
     }
@@ -937,6 +944,7 @@ export class GenerateInvoicesDialogComponent implements OnInit {
   constructor(
     private fb: FormBuilder,
     private feesService: FeesService,
+    private coachingService: CoachingService,
     private confirmDialog: ConfirmDialogService,
     private authService: AuthService,
     public settingsService: QuickSettingsService,
@@ -958,10 +966,9 @@ export class GenerateInvoicesDialogComponent implements OnInit {
       this.scopeMode = 'all';
     }
 
-    const isTarget = !!data?.targetStudentName;
     this.form = this.fb.group({
-      month:   [{ value: defaultMonth, disabled: isTarget }, [Validators.required]],
-      year:    [{ value: defaultYear, disabled: isTarget },  [Validators.required]],
+      month:   [defaultMonth, [Validators.required]],
+      year:    [defaultYear,  [Validators.required]],
       classId: [data?.defaultClassId || ''],
       batchId: [data?.defaultBatchId || ''],
       dueDate: [defaultDueDate,            [Validators.required]]
@@ -1015,7 +1022,9 @@ export class GenerateInvoicesDialogComponent implements OnInit {
     });
   }
 
-  selectCycle(value: number): void { this.selectedCycle = value; }
+  selectCycle(value: number): void {
+    this.selectedCycle = value;
+  }
 
   onMonthYearChange(): void {
     const month = this.form.get('month')?.value;
@@ -1023,6 +1032,10 @@ export class GenerateInvoicesDialogComponent implements OnInit {
     if (month && year) {
       this.form.get('dueDate')?.setValue(`${year}-${String(month).padStart(2, '0')}-10`);
     }
+  }
+
+  getMonthName(monthNum: number): string {
+    return this.months.find(m => m.value === Number(monthNum))?.name || '';
   }
 
   getSelectedCycleOption(): BillingCycleOption | undefined {
@@ -1110,7 +1123,8 @@ export class GenerateInvoicesDialogComponent implements OnInit {
       batchId:      targetBatchId,
       studentId:    this.data?.targetStudentId || null,
       dueDate:      val.dueDate,
-      billingCycle: this.selectedCycle
+      billingCycle: this.selectedCycle,
+      branchId:     this.authService.selectedBranchId() || null
     }).subscribe({
       next: res => { this.saving = false; this.dialogRef.close(res); },
       error: err => {

@@ -491,6 +491,61 @@ public class FeeInvoice
     public Student? Student { get; set; }
     public ICollection<FeePayment> Payments { get; set; } = new List<FeePayment>();
     public ICollection<FeeInvoiceItem> Items { get; set; } = new List<FeeInvoiceItem>();
+
+    public bool CoversPeriod(int targetYear, int targetMonth) =>
+        CheckCoversPeriod(InvoiceNumber, Title, DueDate, targetYear, targetMonth);
+
+    public static bool CheckCoversPeriod(string? invoiceNumber, string? title, DateTime dueDate, int targetYear, int targetMonth)
+    {
+        var targetStart = new DateTime(targetYear, targetMonth, 1);
+        var targetEnd = targetStart.AddMonths(1).AddDays(-1);
+
+        // 1. DueDate directly inside the target month
+        if (dueDate >= targetStart && dueDate <= targetEnd)
+            return true;
+
+        // 2. Title mentions "{MonthName} {Year}", e.g. "October 2026"
+        var monthName = targetStart.ToString("MMMM", System.Globalization.CultureInfo.InvariantCulture);
+        var periodString = $"{monthName} {targetYear}";
+        if (!string.IsNullOrEmpty(title) && title.Contains(periodString, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        // 3. Parse InvoiceNumber format: INV-yyyyMM[QHY]?-... or INV-HOSTEL-yyyyMM-...
+        // e.g. INV-202608Q-481 -> year 2026, month 8, cycle Q (3 months: Aug, Sep, Oct)
+        if (!string.IsNullOrEmpty(invoiceNumber))
+        {
+            var match = System.Text.RegularExpressions.Regex.Match(
+                invoiceNumber,
+                @"^INV-(?:HOSTEL-)?(\d{4})(\d{2})([QHY])?-",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+            if (match.Success)
+            {
+                int invYear = int.Parse(match.Groups[1].Value);
+                int invMonth = int.Parse(match.Groups[2].Value);
+                string cycleType = match.Groups[3].Value.ToUpperInvariant();
+
+                int cycleMonths = cycleType switch
+                {
+                    "Q" => 3,
+                    "H" => 6,
+                    "Y" => 12,
+                    _ => 1
+                };
+
+                if (invMonth >= 1 && invMonth <= 12 && invYear >= 2000 && invYear <= 2100)
+                {
+                    var invStart = new DateTime(invYear, invMonth, 1);
+                    var invEnd = invStart.AddMonths(cycleMonths).AddDays(-1);
+
+                    if (targetStart >= invStart && targetStart <= invEnd)
+                        return true;
+                }
+            }
+        }
+
+        return false;
+    }
 }
 
 public class FeePayment
