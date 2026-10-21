@@ -70,6 +70,10 @@ export interface AttendanceSettingsDto {
   studentHalfDayThresholdMinutes?: number;
   studentAllowedLateDaysPerMonth?: number;
   studentWeeklyOffPattern?: 'SundayOnly' | 'SaturdaySunday' | 'SecondFourthSaturday';
+  enableStudentAbsenceFine?: boolean;
+  absenceFineDaysThreshold?: number;
+  absenceFineAmount?: number;
+  absenceFineMode?: 'PerBlock' | 'Flat';
 }
 export interface AttendancePermissionsDto {
   canChangeMode: boolean; canManualMark: boolean; canBiometricCapture: boolean;

@@ -49,7 +49,11 @@ public class BranchesController : ControllerBase
                 b.CreatedAt,
                 studentCount,
                 batchCount,
-                roomCount
+                roomCount,
+                b.Email,
+                b.City,
+                b.State,
+                b.Pincode
             ));
         }
 
@@ -81,7 +85,11 @@ public class BranchesController : ControllerBase
             b.CreatedAt,
             studentCount,
             batchCount,
-            roomCount
+            roomCount,
+            b.Email,
+            b.City,
+            b.State,
+            b.Pincode
         ));
     }
 
@@ -110,6 +118,10 @@ public class BranchesController : ControllerBase
             Code = normalizedCode,
             Address = dto.Address?.Trim(),
             ContactPhone = dto.ContactPhone?.Trim(),
+            Email = dto.Email?.Trim(),
+            City = dto.City?.Trim(),
+            State = dto.State?.Trim(),
+            Pincode = dto.Pincode?.Trim(),
             IsMainBranch = dto.IsMainBranch,
             IsActive = true,
             CreatedAt = DateTime.UtcNow
@@ -145,7 +157,11 @@ public class BranchesController : ControllerBase
             branch.CreatedAt,
             0,
             0,
-            1
+            1,
+            branch.Email,
+            branch.City,
+            branch.State,
+            branch.Pincode
         ));
     }
 
@@ -158,6 +174,10 @@ public class BranchesController : ControllerBase
         branch.Name = dto.Name.Trim();
         branch.Address = dto.Address?.Trim();
         branch.ContactPhone = dto.ContactPhone?.Trim();
+        if (dto.Email != null) branch.Email = string.IsNullOrWhiteSpace(dto.Email) ? null : dto.Email.Trim();
+        if (dto.City != null) branch.City = string.IsNullOrWhiteSpace(dto.City) ? null : dto.City.Trim();
+        if (dto.State != null) branch.State = string.IsNullOrWhiteSpace(dto.State) ? null : dto.State.Trim();
+        if (dto.Pincode != null) branch.Pincode = string.IsNullOrWhiteSpace(dto.Pincode) ? null : dto.Pincode.Trim();
         branch.IsActive = dto.IsActive;
 
         await _dbContext.SaveChangesAsync();

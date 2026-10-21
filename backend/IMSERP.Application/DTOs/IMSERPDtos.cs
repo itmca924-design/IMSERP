@@ -46,7 +46,11 @@ public record BranchDto(
     DateTime CreatedAt,
     int StudentCount = 0,
     int BatchCount = 0,
-    int RoomCount = 0
+    int RoomCount = 0,
+    string? Email = null,
+    string? City = null,
+    string? State = null,
+    string? Pincode = null
 );
 
 public record CreateBranchDto(
@@ -54,14 +58,22 @@ public record CreateBranchDto(
     string Code,
     string? Address,
     string? ContactPhone,
-    bool IsMainBranch = false
+    bool IsMainBranch = false,
+    string? Email = null,
+    string? City = null,
+    string? State = null,
+    string? Pincode = null
 );
 
 public record UpdateBranchDto(
     string Name,
     string? Address,
     string? ContactPhone,
-    bool IsActive
+    bool IsActive,
+    string? Email = null,
+    string? City = null,
+    string? State = null,
+    string? Pincode = null
 );
 
 public record RoomDto(
@@ -139,7 +151,14 @@ public record TenantDto(
     string? BankIfscCode = null,
     string? BankAccountHolderName = null,
     string? BankAccountType = null,
-    string? BankBranch = null
+    string? BankBranch = null,
+    string? Email = null,
+    string? City = null,
+    string? State = null,
+    string? Pincode = null,
+    string? Website = null,
+    string? AffiliationNumber = null,
+    string? EstablishedYear = null
 );
 
 public record CreateTenantDto(
@@ -161,7 +180,14 @@ public record CreateTenantDto(
     bool HasTransportModule = true,
     string SubscriptionPlan = "FreeTrial",
     int MaxStudentsLimit = 50,
-    int MaxBranchesLimit = 2
+    int MaxBranchesLimit = 2,
+    string? Email = null,
+    string? City = null,
+    string? State = null,
+    string? Pincode = null,
+    string? Website = null,
+    string? AffiliationNumber = null,
+    string? EstablishedYear = null
 );
 
 public record RegisterTrialTenantDto(
@@ -177,7 +203,11 @@ public record RegisterTrialTenantDto(
     bool HasHostelModule = false,
     bool HasLibraryModule = false,
     bool HasTransportModule = false,
-    bool SeedSampleDemoData = true
+    bool SeedSampleDemoData = true,
+    string? Email = null,
+    string? City = null,
+    string? State = null,
+    string? Pincode = null
 );
 
 public record UpdateTenantDto(
@@ -208,7 +238,14 @@ public record UpdateTenantDto(
     string? BankIfscCode = null,
     string? BankAccountHolderName = null,
     string? BankAccountType = null,
-    string? BankBranch = null
+    string? BankBranch = null,
+    string? Email = null,
+    string? City = null,
+    string? State = null,
+    string? Pincode = null,
+    string? Website = null,
+    string? AffiliationNumber = null,
+    string? EstablishedYear = null
 );
 
 public record ExtendSubscriptionDto(
@@ -1790,7 +1827,11 @@ public record AttendanceSettingsDto(
     int StudentHalfDayThresholdMinutes = 240,
     int StudentAllowedLateDaysPerMonth = 3,
     string TeacherWeeklyOffPattern = "SundayOnly",
-    string StudentWeeklyOffPattern = "SundayOnly"
+    string StudentWeeklyOffPattern = "SundayOnly",
+    bool EnableStudentAbsenceFine = true,
+    int AbsenceFineDaysThreshold = 3,
+    decimal AbsenceFineAmount = 10.00m,
+    string AbsenceFineMode = "PerBlock"
 );
 
 public record BiometricAttendanceEventDto(
@@ -2609,7 +2650,8 @@ public record FeeInvoiceItemDto(
     Guid? FeeHeadId,
     string HeadName,
     decimal Amount,
-    decimal PaidAmount
+    decimal PaidAmount,
+    string? Description = null
 );
 
 public record FeeHeadDto(

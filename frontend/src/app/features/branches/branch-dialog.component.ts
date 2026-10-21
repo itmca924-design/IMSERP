@@ -89,10 +89,34 @@ export interface BranchDialogData {
               <mat-icon matSuffix color="primary">call</mat-icon>
             </mat-form-field>
 
+            <mat-form-field appearance="outline" class="half-width" subscriptSizing="dynamic">
+              <mat-label>Branch Email</mat-label>
+              <input matInput formControlName="email" type="email" placeholder="campus@institute.com" />
+              <mat-icon matSuffix color="primary">email</mat-icon>
+            </mat-form-field>
+
             <mat-form-field appearance="outline" class="full-width" subscriptSizing="dynamic">
               <mat-label>Address &amp; Landmark</mat-label>
               <textarea matInput formControlName="address" rows="2" placeholder="Full physical street address, institutional area, or landmark..."></textarea>
               <mat-icon matSuffix color="primary">place</mat-icon>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="third-width" subscriptSizing="dynamic">
+              <mat-label>City</mat-label>
+              <input matInput formControlName="city" placeholder="e.g. Patna" />
+              <mat-icon matSuffix color="primary">location_city</mat-icon>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="third-width" subscriptSizing="dynamic">
+              <mat-label>State</mat-label>
+              <input matInput formControlName="state" placeholder="e.g. Bihar" />
+              <mat-icon matSuffix color="primary">map</mat-icon>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="third-width" subscriptSizing="dynamic">
+              <mat-label>Pincode</mat-label>
+              <input matInput formControlName="pincode" placeholder="e.g. 800001" maxlength="10" />
+              <mat-icon matSuffix color="primary">pin_drop</mat-icon>
             </mat-form-field>
 
             <!-- Main Branch Toggle (Creating only) -->
@@ -124,15 +148,18 @@ export interface BranchDialogData {
                 <span class="preview-label">Branch:</span>
                 <strong class="preview-val highlight">{{ branchForm.get('name')?.value || '—' }}</strong>
               </div>
-              <div class="preview-meta-row" *ngIf="branchForm.get('contactPhone')?.value || branchForm.get('address')?.value">
+              <div class="preview-meta-row" *ngIf="branchForm.get('contactPhone')?.value || branchForm.get('email')?.value || branchForm.get('address')?.value || branchForm.get('city')?.value">
                 <span *ngIf="branchForm.get('contactPhone')?.value" class="meta-item">
                   <mat-icon class="meta-icon">call</mat-icon>
                   <span>{{ branchForm.get('contactPhone')?.value }}</span>
                 </span>
-                <span *ngIf="branchForm.get('contactPhone')?.value && branchForm.get('address')?.value" class="meta-dot">•</span>
-                <span *ngIf="branchForm.get('address')?.value" class="meta-item meta-addr" [title]="branchForm.get('address')?.value">
+                <span *ngIf="branchForm.get('email')?.value" class="meta-item">
+                  <mat-icon class="meta-icon">email</mat-icon>
+                  <span>{{ branchForm.get('email')?.value }}</span>
+                </span>
+                <span *ngIf="getPreviewAddress()" class="meta-item meta-addr" [title]="getPreviewAddress()">
                   <mat-icon class="meta-icon">place</mat-icon>
-                  <span>{{ branchForm.get('address')?.value }}</span>
+                  <span>{{ getPreviewAddress() }}</span>
                 </span>
               </div>
             </div>
@@ -292,6 +319,10 @@ export interface BranchDialogData {
     }
     .half-width {
       flex: 1 1 calc(50% - 5px);
+      min-width: 0;
+    }
+    .third-width {
+      flex: 1 1 calc(33.333% - 7px);
       min-width: 0;
     }
 
@@ -467,7 +498,7 @@ export interface BranchDialogData {
       .form-grid {
         flex-direction: column;
         gap: 8px;
-        .half-width, .full-width {
+        .half-width, .third-width, .full-width {
           width: 100% !important;
           flex: 1 1 100% !important;
           min-width: 0 !important;
@@ -517,7 +548,11 @@ export class BranchDialogComponent implements OnInit {
       name: ['', Validators.required],
       code: ['', Validators.required],
       contactPhone: [''],
+      email: ['', [Validators.email]],
       address: [''],
+      city: [''],
+      state: [''],
+      pincode: [''],
       isMainBranch: [false],
       isActive: [true]
     });
@@ -530,7 +565,11 @@ export class BranchDialogComponent implements OnInit {
         name: b.name,
         code: b.code,
         contactPhone: b.contactPhone || '',
+        email: b.email || '',
         address: b.address || '',
+        city: b.city || '',
+        state: b.state || '',
+        pincode: b.pincode || '',
         isMainBranch: b.isMainBranch,
         isActive: b.isActive
       });
@@ -552,6 +591,11 @@ export class BranchDialogComponent implements OnInit {
     }
   }
 
+  getPreviewAddress(): string {
+    const val = this.branchForm.getRawValue();
+    return [val.address, val.city, val.state, val.pincode].map(s => s?.trim()).filter(s => !!s).join(', ');
+  }
+
   onSubmit(): void {
     if (this.branchForm.invalid || this.saving) return;
 
@@ -563,7 +607,11 @@ export class BranchDialogComponent implements OnInit {
       const updateDto: UpdateBranchDto = {
         name: val.name.trim(),
         contactPhone: val.contactPhone?.trim() || null,
+        email: val.email?.trim() || null,
         address: val.address?.trim() || null,
+        city: val.city?.trim() || null,
+        state: val.state?.trim() || null,
+        pincode: val.pincode?.trim() || null,
         isActive: val.isActive
       };
 
@@ -581,7 +629,11 @@ export class BranchDialogComponent implements OnInit {
         name: val.name.trim(),
         code: val.code.trim().toUpperCase(),
         contactPhone: val.contactPhone?.trim() || null,
+        email: val.email?.trim() || null,
         address: val.address?.trim() || null,
+        city: val.city?.trim() || null,
+        state: val.state?.trim() || null,
+        pincode: val.pincode?.trim() || null,
         isMainBranch: !!val.isMainBranch
       };
 

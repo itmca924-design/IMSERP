@@ -186,7 +186,7 @@ public class FeesController : ControllerBase
                 i.Status.ToString(),
                 i.CancellationReason,
                 i.CancelledAt,
-                i.Items.Select(it => new FeeInvoiceItemDto(it.Id, it.InvoiceId, it.FeeHeadId, it.HeadName, it.Amount, it.PaidAmount)).ToList(),
+                i.Items.Select(it => new FeeInvoiceItemDto(it.Id, it.InvoiceId, it.FeeHeadId, it.HeadName, it.Amount, it.PaidAmount, it.Description)).ToList(),
                 i.ClassName ?? (i.Student != null && i.Student.Class != null ? i.Student.Class.Name : null),
                 i.SectionName ?? (i.Student != null && i.Student.Section != null ? i.Student.Section.Name : null),
                 i.Student != null && i.Student.IsSchoolStudent,
@@ -312,7 +312,7 @@ public class FeesController : ControllerBase
             i.Status.ToString(),
             i.CancellationReason,
             i.CancelledAt,
-            i.Items.Select(it => new FeeInvoiceItemDto(it.Id, it.InvoiceId, it.FeeHeadId, it.HeadName, it.Amount, it.PaidAmount)).ToList()
+            i.Items.Select(it => new FeeInvoiceItemDto(it.Id, it.InvoiceId, it.FeeHeadId, it.HeadName, it.Amount, it.PaidAmount, it.Description)).ToList()
         )).ToList();
 
         var activePayments = payments.Where(p => !p.IsReversed).ToList();
@@ -933,7 +933,7 @@ public class FeesController : ControllerBase
                                     lineItems.Add(new FeeReceiptLineItemDto(
                                         lineItems.Count + 1,
                                         it.HeadName,
-                                        FormatReceiptItemSubtitle(it.HeadName, inv.Title),
+                                        FormatReceiptItemSubtitle(it.HeadName, inv.Title, it.Description),
                                         inv.InvoiceNumber,
                                         itPaidAmt
                                     ));
@@ -966,7 +966,7 @@ public class FeesController : ControllerBase
                                     lineItems.Add(new FeeReceiptLineItemDto(
                                         lineItems.Count + 1,
                                         it.HeadName,
-                                        FormatReceiptItemSubtitle(it.HeadName, inv.Title),
+                                        FormatReceiptItemSubtitle(it.HeadName, inv.Title, it.Description),
                                         inv.InvoiceNumber,
                                         itShare
                                     ));
@@ -1172,7 +1172,7 @@ public class FeesController : ControllerBase
                             lineItems.Add(new FeeReceiptLineItemDto(
                                 lineItems.Count + 1,
                                 it.HeadName,
-                                FormatReceiptItemSubtitle(it.HeadName, p.Invoice.Title),
+                                FormatReceiptItemSubtitle(it.HeadName, p.Invoice.Title, it.Description),
                                 p.Invoice.InvoiceNumber,
                                 itShare
                             ));
@@ -1260,9 +1260,13 @@ public class FeesController : ControllerBase
         ));
     }
 
-    private static string FormatReceiptItemSubtitle(string headName, string? invoiceTitle)
+    private static string FormatReceiptItemSubtitle(string headName, string? invoiceTitle, string? itemDescription = null)
     {
+        if (!string.IsNullOrWhiteSpace(itemDescription))
+            return itemDescription;
         var lower = (headName ?? "").ToLowerInvariant();
+        if (lower.Contains("absence") || lower.Contains("attn_fine") || lower.Contains("attendance"))
+            return "Attendance Absence Penalty";
         if (lower.Contains("admission") || lower.Contains("registration"))
             return "One-Time Admission & Registration Charge";
         if (lower.Contains("book") || lower.Contains("syllabus"))
@@ -1312,7 +1316,7 @@ public class FeesController : ControllerBase
             i.TotalAmount,
             i.PaidAmount,
             i.TotalAmount - i.PaidAmount,
-            i.Items.Select(it => new FeeInvoiceItemDto(it.Id, it.InvoiceId, it.FeeHeadId, it.HeadName, it.Amount, it.PaidAmount)).ToList()
+            i.Items.Select(it => new FeeInvoiceItemDto(it.Id, it.InvoiceId, it.FeeHeadId, it.HeadName, it.Amount, it.PaidAmount, it.Description)).ToList()
         )).ToList();
 
         var totalDue = items.Sum(i => i.DueAmount);
@@ -1622,10 +1626,10 @@ public class FeesController : ControllerBase
             .GroupBy(a => a.StudentId!.Value)
             .ToDictionary(g => g.Key, g => g.First());
 
-        // Resolve Standard & Residential FeeHead IDs by Code (HOSTEL / MESS / COACH / TUI / LIB / TRANS)
+        // Resolve Standard & Residential FeeHead IDs by Code (HOSTEL / MESS / COACH / TUI / LIB / TRANS / ATTN_FINE)
         var standardHeads = await _dbContext.FeeHeads
             .AsNoTracking()
-            .Where(h => h.IsActive && (h.Code == "HOSTEL" || h.Code == "MESS" || h.Code == "COACH" || h.Code == "TUI" || h.Code == "LIB" || h.Code == "TRANS"))
+            .Where(h => h.IsActive && (h.Code == "HOSTEL" || h.Code == "MESS" || h.Code == "COACH" || h.Code == "TUI" || h.Code == "LIB" || h.Code == "TRANS" || h.Code == "ATTN_FINE"))
             .ToListAsync();
 
         var hostelFeeHeadId = standardHeads.FirstOrDefault(h => h.Code == "HOSTEL")?.Id;
@@ -1634,6 +1638,55 @@ public class FeesController : ControllerBase
         var tuiFeeHead      = standardHeads.FirstOrDefault(h => h.Code == "TUI");
         var libFeeHeadId    = standardHeads.FirstOrDefault(h => h.Code == "LIB")?.Id;
         var transFeeHeadId  = standardHeads.FirstOrDefault(h => h.Code == "TRANS")?.Id;
+        var attnFineFeeHead = standardHeads.FirstOrDefault(h => h.Code == "ATTN_FINE");
+        if (attnFineFeeHead == null)
+        {
+            var existingHead = await _dbContext.FeeHeads.FirstOrDefaultAsync(h => h.TenantId == _currentUser.TenantId && h.Code == "ATTN_FINE");
+            if (existingHead == null)
+            {
+                existingHead = new FeeHead
+                {
+                    TenantId = _currentUser.TenantId,
+                    BranchId = _currentUser.BranchId,
+                    Name = "Attendance Absence Fine",
+                    Code = "ATTN_FINE",
+                    Description = "Attendance Absence Penalty",
+                    Category = "Fine",
+                    Frequency = "Monthly",
+                    IsActive = true
+                };
+                _dbContext.FeeHeads.Add(existingHead);
+                await _dbContext.SaveChangesAsync();
+            }
+            attnFineFeeHead = existingHead;
+        }
+
+        // Dynamic Attendance Absence Fine Policy Settings (100% UI Configurable, Zero Hardcoding)
+        var attSettings = await _dbContext.AttendanceSettings
+            .AsNoTracking()
+            .FirstOrDefaultAsync(st => st.TenantId == _currentUser.TenantId);
+        bool fineEnabled = attSettings?.EnableStudentAbsenceFine ?? true;
+        int fineThreshold = (attSettings != null && attSettings.AbsenceFineDaysThreshold > 0) ? attSettings.AbsenceFineDaysThreshold : 3;
+        decimal fineUnitAmount = (attSettings != null && attSettings.AbsenceFineAmount >= 0) ? attSettings.AbsenceFineAmount : 10.00m;
+        string fineMode = attSettings?.AbsenceFineMode ?? "PerBlock"; // "PerBlock" (e.g. ₹10 per 3 days) or "Flat" (e.g. ₹10 once threshold met)
+
+        // Bulk Pre-fetch student absent counts for the billing month window
+        var studentAbsences = new Dictionary<Guid, int>();
+        if (fineEnabled && fineUnitAmount > 0 && fineThreshold > 0)
+        {
+            var absencesList = await _dbContext.StudentAttendances
+                .AsNoTracking()
+                .Where(a => a.TenantId == _currentUser.TenantId &&
+                            studentIds.Contains(a.StudentId) &&
+                            a.AttendanceDate >= basePeriodStart &&
+                            a.AttendanceDate <= maxPeriodEnd &&
+                            a.Status == TeacherAttendanceStatus.Absent)
+                .GroupBy(a => a.StudentId)
+                .Select(g => new { StudentId = g.Key, AbsentCount = g.Count() })
+                .ToListAsync();
+
+            studentAbsences = absencesList.ToDictionary(a => a.StudentId, a => a.AbsentCount);
+        }
 
         // Load active transport allocations for these students (bulk, pre-loop)
         var activeTransportAllocations = await _dbContext.TransportAllocations
@@ -2071,6 +2124,41 @@ public class FeesController : ControllerBase
                     Amount     = transAmount,
                     PaidAmount = 0
                 });
+            }
+
+            // ── Inject Dynamic Attendance Absence Fine (UI Configurable: PerBlock or Flat) ──
+            if (fineEnabled && fineUnitAmount > 0 && fineThreshold > 0 && studentAbsences.TryGetValue(s.Id, out int absentDays) && absentDays >= fineThreshold)
+            {
+                decimal calculatedFine = 0;
+
+                if (string.Equals(fineMode, "Flat", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Option 1: Flat Fine once threshold met (e.g. 3+ days = flat ₹10)
+                    calculatedFine = fineUnitAmount;
+                }
+                else
+                {
+                    // Option 2: Dynamic Multiplied Slab (e.g. every 3 days absent = ₹10, 6 days = ₹20, 9 days = ₹30)
+                    int blocks = absentDays / fineThreshold;
+                    calculatedFine = blocks * fineUnitAmount;
+                }
+
+                string headName = attnFineFeeHead?.Name ?? "Attendance Absence Fine";
+                string fineDescription = $"Attendance Absence Penalty (Absent: {absentDays} days)";
+
+                if (calculatedFine > 0)
+                {
+                    totalAmount += calculatedFine;
+                    invoiceItems.Add(new FeeInvoiceItem
+                    {
+                        TenantId = _currentUser.TenantId,
+                        FeeHeadId = attnFineFeeHead?.Id,
+                        HeadName = headName,
+                        Description = fineDescription,
+                        Amount = calculatedFine,
+                        PaidAmount = 0
+                    });
+                }
             }
 
             // ── Inject Admission Kit Items (Physical Kit items issued from store with 'Added to Fee Bill') ──

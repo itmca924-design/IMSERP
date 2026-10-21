@@ -102,7 +102,14 @@ public class TenantsController : ControllerBase
                 t.BankIfscCode,
                 t.BankAccountHolderName,
                 t.BankAccountType,
-                t.BankBranch
+                t.BankBranch,
+                t.Email,
+                t.City,
+                t.State,
+                t.Pincode,
+                t.Website,
+                t.AffiliationNumber,
+                t.EstablishedYear
             ));
         }
 
@@ -165,7 +172,14 @@ public class TenantsController : ControllerBase
             t.BankIfscCode,
             t.BankAccountHolderName,
             t.BankAccountType,
-            t.BankBranch
+            t.BankBranch,
+            t.Email,
+            t.City,
+            t.State,
+            t.Pincode,
+            t.Website,
+            t.AffiliationNumber,
+            t.EstablishedYear
         ));
     }
 
@@ -213,7 +227,14 @@ public class TenantsController : ControllerBase
             t.BankIfscCode,
             t.BankAccountHolderName,
             t.BankAccountType,
-            t.BankBranch
+            t.BankBranch,
+            t.Email,
+            t.City,
+            t.State,
+            t.Pincode,
+            t.Website,
+            t.AffiliationNumber,
+            t.EstablishedYear
         ));
     }
 
@@ -376,8 +397,15 @@ public class TenantsController : ControllerBase
             Id = tenantId,
             Name = dto.Name.Trim(),
             Code = normalizedCode,
+            Email = dto.Email?.Trim(),
             ContactPhone = dto.ContactPhone,
             Address = dto.Address,
+            City = dto.City?.Trim(),
+            State = dto.State?.Trim(),
+            Pincode = dto.Pincode?.Trim(),
+            Website = dto.Website?.Trim(),
+            AffiliationNumber = dto.AffiliationNumber?.Trim(),
+            EstablishedYear = dto.EstablishedYear?.Trim(),
             ProfilePhoto = savedPhotoPath,
             WhatsAppPhoneId = dto.WhatsAppPhoneId,
             WhatsAppAccessToken = dto.WhatsAppAccessToken,
@@ -429,6 +457,10 @@ public class TenantsController : ControllerBase
                     Code = branchCode,
                     Address = !string.IsNullOrWhiteSpace(bDto.Address) ? bDto.Address.Trim() : tenant.Address,
                     ContactPhone = !string.IsNullOrWhiteSpace(bDto.ContactPhone) ? bDto.ContactPhone.Trim() : tenant.ContactPhone,
+                    Email = !string.IsNullOrWhiteSpace(bDto.Email) ? bDto.Email.Trim() : tenant.Email,
+                    City = !string.IsNullOrWhiteSpace(bDto.City) ? bDto.City.Trim() : tenant.City,
+                    State = !string.IsNullOrWhiteSpace(bDto.State) ? bDto.State.Trim() : tenant.State,
+                    Pincode = !string.IsNullOrWhiteSpace(bDto.Pincode) ? bDto.Pincode.Trim() : tenant.Pincode,
                     IsMainBranch = isMain,
                     IsActive = true,
                     CreatedAt = DateTime.UtcNow
@@ -448,6 +480,10 @@ public class TenantsController : ControllerBase
                 Code = "MAIN",
                 Address = tenant.Address,
                 ContactPhone = tenant.ContactPhone,
+                Email = tenant.Email,
+                City = tenant.City,
+                State = tenant.State,
+                Pincode = tenant.Pincode,
                 IsMainBranch = true,
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow
@@ -527,7 +563,20 @@ public class TenantsController : ControllerBase
             tenant.UpiMerchantName,
             tenant.UpiMerchantCode,
             tenant.UpiQrEnabled,
-            tenant.UpiAutoVerify
+            tenant.UpiAutoVerify,
+            tenant.BankName,
+            tenant.BankAccountNumber,
+            tenant.BankIfscCode,
+            tenant.BankAccountHolderName,
+            tenant.BankAccountType,
+            tenant.BankBranch,
+            tenant.Email,
+            tenant.City,
+            tenant.State,
+            tenant.Pincode,
+            tenant.Website,
+            tenant.AffiliationNumber,
+            tenant.EstablishedYear
         ));
     }
 
@@ -548,6 +597,13 @@ public class TenantsController : ControllerBase
         tenant.Name = dto.Name.Trim();
         tenant.ContactPhone = dto.ContactPhone;
         tenant.Address = dto.Address;
+        if (dto.Email != null) tenant.Email = string.IsNullOrWhiteSpace(dto.Email) ? null : dto.Email.Trim();
+        if (dto.City != null) tenant.City = string.IsNullOrWhiteSpace(dto.City) ? null : dto.City.Trim();
+        if (dto.State != null) tenant.State = string.IsNullOrWhiteSpace(dto.State) ? null : dto.State.Trim();
+        if (dto.Pincode != null) tenant.Pincode = string.IsNullOrWhiteSpace(dto.Pincode) ? null : dto.Pincode.Trim();
+        if (dto.Website != null) tenant.Website = string.IsNullOrWhiteSpace(dto.Website) ? null : dto.Website.Trim();
+        if (dto.AffiliationNumber != null) tenant.AffiliationNumber = string.IsNullOrWhiteSpace(dto.AffiliationNumber) ? null : dto.AffiliationNumber.Trim();
+        if (dto.EstablishedYear != null) tenant.EstablishedYear = string.IsNullOrWhiteSpace(dto.EstablishedYear) ? null : dto.EstablishedYear.Trim();
         tenant.ProfilePhoto = ImageStorageHelper.SaveBase64Image(dto.ProfilePhoto, "tenants", tenant.Id.ToString(), _env.ContentRootPath);
         if (!string.IsNullOrWhiteSpace(dto.WhatsAppPhoneId)) tenant.WhatsAppPhoneId = dto.WhatsAppPhoneId;
         if (!string.IsNullOrWhiteSpace(dto.WhatsAppAccessToken)) tenant.WhatsAppAccessToken = dto.WhatsAppAccessToken;
@@ -640,6 +696,15 @@ public class TenantsController : ControllerBase
             profilePhoto = tenant.ProfilePhoto,
             name = tenant.Name,
             code = tenant.Code,
+            email = tenant.Email,
+            contactPhone = tenant.ContactPhone,
+            address = tenant.Address,
+            city = tenant.City,
+            state = tenant.State,
+            pincode = tenant.Pincode,
+            website = tenant.Website,
+            affiliationNumber = tenant.AffiliationNumber,
+            establishedYear = tenant.EstablishedYear,
             tenant.HasSchoolModule,
             tenant.HasCoachingModule,
             tenant.HasHostelModule,

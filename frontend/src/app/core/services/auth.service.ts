@@ -10,7 +10,11 @@ export interface BranchInfo {
   tenantId: string;
   name: string;
   code: string;
+  email?: string | null;
   address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  pincode?: string | null;
   contactPhone?: string | null;
   isMainBranch: boolean;
   isActive: boolean;

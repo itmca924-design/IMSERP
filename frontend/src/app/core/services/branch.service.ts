@@ -9,7 +9,11 @@ export interface BranchDto {
   tenantId: string;
   name: string;
   code: string;
+  email?: string | null;
   address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  pincode?: string | null;
   contactPhone?: string | null;
   isMainBranch: boolean;
   isActive: boolean;
@@ -23,14 +27,22 @@ export type Branch = BranchDto;
 export interface CreateBranchDto {
   name: string;
   code: string;
+  email?: string | null;
   address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  pincode?: string | null;
   contactPhone?: string | null;
   isMainBranch?: boolean;
 }
 
 export interface UpdateBranchDto {
   name: string;
+  email?: string | null;
   address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  pincode?: string | null;
   contactPhone?: string | null;
   isActive: boolean;
 }

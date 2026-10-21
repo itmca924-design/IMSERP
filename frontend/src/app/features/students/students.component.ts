@@ -3,7 +3,8 @@ import { Subscription } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
-import { FormBuilder, FormGroup, ReactiveFormsModule, Validators, FormsModule, AbstractControl, ValidationErrors } from '@angular/forms';
+import { FormBuilder, FormGroup, ReactiveFormsModule, Validators, FormsModule, AbstractControl, ValidationErrors, FormControl } from '@angular/forms';
+import { ErrorStateMatcher } from '@angular/material/core';
 import { MatCardModule } from '@angular/material/card';
 import { MatTableModule } from '@angular/material/table';
 import { MatPaginatorModule, MatPaginator, PageEvent } from '@angular/material/paginator';
@@ -41,6 +42,14 @@ import { environment } from '../../../environments/environment';
 
 const API_BASE = environment.apiBaseUrl;
 
+export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
+  isErrorState(control: FormControl | null, form: any | null): boolean {
+    const isControlInvalid = !!(control && control.invalid && (control.dirty || control.touched || control.value));
+    const isCrossConflict = !!(control?.hasError('dojBeforeDob') || (form && form.hasError && form.hasError('dojBeforeDob')));
+    return isControlInvalid || isCrossConflict;
+  }
+}
+
 @Component({
   selector: 'app-students',
   standalone: true,
@@ -65,9 +74,6 @@ const API_BASE = environment.apiBaseUrl;
     MatDialogModule,
     MatMenuModule,
     MatDividerModule,
-    StudentProfile360DialogComponent,
-    StudentRollSequencerDialogComponent,
-    StudentPortalLoginDialogComponent,
     IstDatetimeDirective
   ],
   template: `
@@ -199,13 +205,13 @@ const API_BASE = environment.apiBaseUrl;
 
               <mat-form-field appearance="outline">
                 <mat-label>Admission / Joining Date *</mat-label>
-                <input matInput type="date" formControlName="joiningDate" [min]="minDoj" [max]="maxDoj" />
+                <input matInput type="date" formControlName="joiningDate" [min]="minDoj" [max]="maxDoj" [errorStateMatcher]="dateErrorMatcher" />
                 <mat-icon matSuffix>event</mat-icon>
-                <mat-hint>Official admission date (determines fee billing start)</mat-hint>
+                <mat-hint>Allowed range: 01/01/2010 to {{ maxDoj }}</mat-hint>
                 <mat-error *ngIf="studentForm.get('joiningDate')?.hasError('required')">Admission date is required</mat-error>
-                <mat-error *ngIf="studentForm.get('joiningDate')?.hasError('futureDate')">Admission date cannot be more than 1 year in advance</mat-error>
-                <mat-error *ngIf="studentForm.get('joiningDate')?.hasError('invalidRange')">Date must be on or after 2010</mat-error>
-                <mat-error *ngIf="studentForm.hasError('dojBeforeDob')">Admission date must be after Date of Birth</mat-error>
+                <mat-error *ngIf="studentForm.get('joiningDate')?.hasError('futureDate')">Admission date cannot be more than 1 year in advance (Max: {{ maxDoj }})</mat-error>
+                <mat-error *ngIf="studentForm.get('joiningDate')?.hasError('invalidRange')">Date must be between 01/01/2010 and {{ maxDoj }}</mat-error>
+                <mat-error *ngIf="studentForm.hasError('dojBeforeDob') || studentForm.get('joiningDate')?.hasError('dojBeforeDob')">Admission date must be strictly after Date of Birth</mat-error>
               </mat-form-field>
 
               <mat-form-field appearance="outline">
@@ -245,13 +251,13 @@ const API_BASE = environment.apiBaseUrl;
 
               <mat-form-field appearance="outline" *ngIf="!studentForm.value.isSchoolStudent">
                 <mat-label>Admission / Joining Date *</mat-label>
-                <input matInput type="date" formControlName="joiningDate" [min]="minDoj" [max]="maxDoj" />
+                <input matInput type="date" formControlName="joiningDate" [min]="minDoj" [max]="maxDoj" [errorStateMatcher]="dateErrorMatcher" />
                 <mat-icon matSuffix>event</mat-icon>
-                <mat-hint>Official enrollment date in coaching</mat-hint>
+                <mat-hint>Allowed range: 01/01/2010 to {{ maxDoj }}</mat-hint>
                 <mat-error *ngIf="studentForm.get('joiningDate')?.hasError('required')">Admission date is required</mat-error>
-                <mat-error *ngIf="studentForm.get('joiningDate')?.hasError('futureDate')">Admission date cannot be more than 1 year in advance</mat-error>
-                <mat-error *ngIf="studentForm.get('joiningDate')?.hasError('invalidRange')">Date must be on or after 2010</mat-error>
-                <mat-error *ngIf="studentForm.hasError('dojBeforeDob')">Admission date must be after Date of Birth</mat-error>
+                <mat-error *ngIf="studentForm.get('joiningDate')?.hasError('futureDate')">Admission date cannot be more than 1 year in advance (Max: {{ maxDoj }})</mat-error>
+                <mat-error *ngIf="studentForm.get('joiningDate')?.hasError('invalidRange')">Date must be between 01/01/2010 and {{ maxDoj }}</mat-error>
+                <mat-error *ngIf="studentForm.hasError('dojBeforeDob') || studentForm.get('joiningDate')?.hasError('dojBeforeDob')">Admission date must be strictly after Date of Birth</mat-error>
               </mat-form-field>
 
               <mat-form-field appearance="outline">
@@ -524,7 +530,8 @@ const API_BASE = environment.apiBaseUrl;
               <mat-label>Date of Birth</mat-label>
               <input matInput type="date" formControlName="dateOfBirth"
                 [min]="minDob"
-                [max]="maxDob" />
+                [max]="maxDob"
+                [errorStateMatcher]="dateErrorMatcher" />
               <mat-hint *ngIf="getNepAgeAdvisory() as advisory">
                 <span class="age-pill-inline" [ngClass]="'age-pill-' + advisory.type" [matTooltip]="advisory.message">
                   <mat-icon *ngIf="advisory.type === 'success'">check_circle</mat-icon>
@@ -533,10 +540,10 @@ const API_BASE = environment.apiBaseUrl;
                   <span>{{ advisory.badge }}</span>
                 </span>
               </mat-hint>
-              <mat-hint *ngIf="!getNepAgeAdvisory()">DD/MM/YYYY (Max: Today)</mat-hint>
-              <mat-error *ngIf="studentForm.get('dateOfBirth')?.hasError('futureDate')">Date of birth cannot be in the future</mat-error>
-              <mat-error *ngIf="studentForm.get('dateOfBirth')?.hasError('tooOld')">Please enter a valid date of birth</mat-error>
-              <mat-error *ngIf="studentForm.hasError('dojBeforeDob')">Date of birth must be before Admission date</mat-error>
+              <mat-hint *ngIf="!getNepAgeAdvisory()">DD/MM/YYYY • Allowed: 01/01/1950 to Today</mat-hint>
+              <mat-error *ngIf="studentForm.get('dateOfBirth')?.hasError('futureDate')">Date of birth cannot be in the future (Max: Today)</mat-error>
+              <mat-error *ngIf="studentForm.get('dateOfBirth')?.hasError('tooOld')">Please enter a valid date of birth (1950 to Today)</mat-error>
+              <mat-error *ngIf="studentForm.hasError('dojBeforeDob') || studentForm.get('dateOfBirth')?.hasError('dojBeforeDob')">Date of birth must be before Admission date</mat-error>
             </mat-form-field>
 
             <mat-form-field appearance="outline">
@@ -743,9 +750,20 @@ const API_BASE = environment.apiBaseUrl;
               <mat-icon matSuffix style="color:#64748b">phone</mat-icon>
             </mat-form-field>
 
+            <!-- Live Form Validation Summary Banner -->
+            <div class="form-validation-notice full-span" *ngIf="getFormValidationErrorsList().length > 0 && (studentForm.dirty || studentForm.touched)">
+              <div class="notice-header">
+                <mat-icon>warning</mat-icon>
+                <span>Please address the following required details to save:</span>
+              </div>
+              <ul class="notice-list">
+                <li *ngFor="let err of getFormValidationErrorsList()">{{ err }}</li>
+              </ul>
+            </div>
+
             <div class="form-actions full-span">
               <button mat-button type="button" (click)="toggleForm()" [disabled]="saving">Cancel</button>
-              <button mat-raised-button color="primary" type="submit" [disabled]="studentForm.invalid || saving || (!studentForm.value.isSchoolStudent && !studentForm.value.isCoachingStudent) || !!phoneDuplicateError || phoneCheckLoading">
+              <button mat-raised-button color="primary" type="submit" [disabled]="saving || phoneCheckLoading">
                 <span>{{ isEditMode ? 'Update Student Record' : 'Confirm Admission' }}</span>
               </button>
             </div>
@@ -1896,6 +1914,47 @@ const API_BASE = environment.apiBaseUrl;
       line-height: 1.25;
     }
 
+    .form-validation-notice {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-left: 4px solid #ef4444;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-top: 10px;
+      margin-bottom: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+
+      .notice-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 700;
+        color: #991b1b;
+        font-size: 0.9rem;
+
+        mat-icon {
+          color: #ef4444;
+          font-size: 20px;
+          width: 20px;
+          height: 20px;
+        }
+      }
+
+      .notice-list {
+        margin: 0;
+        padding-left: 24px;
+        font-size: 0.85rem;
+        color: #b91c1c;
+
+        li {
+          margin-bottom: 4px;
+          line-height: 1.4;
+        }
+      }
+    }
+
     .form-actions {
       display: flex;
       justify-content: flex-end;
@@ -2760,6 +2819,7 @@ export class StudentsComponent implements OnInit, OnDestroy {
   maxDob: string = '';
   minDoj = '2010-01-01';
   maxDoj: string = '';
+  dateErrorMatcher = new DateRangeInstantErrorMatcher();
 
   studentForm: FormGroup;
   private batchIdSub?: Subscription;
@@ -2863,18 +2923,43 @@ export class StudentsComponent implements OnInit, OnDestroy {
     }, {
       validators: [
         (group: AbstractControl): ValidationErrors | null => {
-          const dobVal = group.get('dateOfBirth')?.value;
-          const dojVal = group.get('joiningDate')?.value;
+          const dobCtrl = group.get('dateOfBirth');
+          const dojCtrl = group.get('joiningDate');
+          const dobVal = dobCtrl?.value;
+          const dojVal = dojCtrl?.value;
           if (dobVal && dojVal) {
             const dob = new Date(dobVal);
             const doj = new Date(dojVal);
             if (!isNaN(dob.getTime()) && !isNaN(doj.getTime()) && doj <= dob) {
+              if (dobCtrl && !dobCtrl.hasError('dojBeforeDob')) {
+                dobCtrl.setErrors({ ...(dobCtrl.errors || {}), dojBeforeDob: true });
+              }
+              if (dojCtrl && !dojCtrl.hasError('dojBeforeDob')) {
+                dojCtrl.setErrors({ ...(dojCtrl.errors || {}), dojBeforeDob: true });
+              }
               return { dojBeforeDob: true };
             }
+          }
+          if (dobCtrl?.hasError('dojBeforeDob')) {
+            const errors = { ...dobCtrl.errors };
+            delete errors['dojBeforeDob'];
+            dobCtrl.setErrors(Object.keys(errors).length ? errors : null);
+          }
+          if (dojCtrl?.hasError('dojBeforeDob')) {
+            const errors = { ...dojCtrl.errors };
+            delete errors['dojBeforeDob'];
+            dojCtrl.setErrors(Object.keys(errors).length ? errors : null);
           }
           return null;
         }
       ]
+    });
+
+    this.studentForm.get('joiningDate')?.valueChanges.subscribe(() => {
+      this.studentForm.updateValueAndValidity({ emitEvent: false });
+    });
+    this.studentForm.get('dateOfBirth')?.valueChanges.subscribe(() => {
+      this.studentForm.updateValueAndValidity({ emitEvent: false });
     });
   }
 
@@ -3952,14 +4037,76 @@ export class StudentsComponent implements OnInit, OnDestroy {
     };
   }
 
+  getFormValidationErrorsList(): string[] {
+    const errors: string[] = [];
+    const f = this.studentForm;
+    if (!f) return errors;
+
+    if (f.hasError('dojBeforeDob') || f.get('joiningDate')?.hasError('dojBeforeDob') || f.get('dateOfBirth')?.hasError('dojBeforeDob')) {
+      const doj = f.get('joiningDate')?.value || '';
+      const dob = f.get('dateOfBirth')?.value || '';
+      errors.push(`Date Range Conflict: Admission Date (${doj}) must be strictly after Date of Birth (${dob}).`);
+    }
+
+    const doj = f.get('joiningDate');
+    if (doj?.hasError('required')) errors.push('Admission / Joining Date is required.');
+    if (doj?.hasError('futureDate')) errors.push(`Admission Date cannot be more than 1 year in advance (Max: ${this.maxDoj}).`);
+    if (doj?.hasError('invalidRange')) errors.push(`Admission Date must be on or after 01/01/2010 (up to ${this.maxDoj}).`);
+
+    const dob = f.get('dateOfBirth');
+    if (dob?.hasError('futureDate')) errors.push('Date of Birth cannot be in the future (Max: Today).');
+    if (dob?.hasError('tooOld')) errors.push('Date of Birth must be on or after 01/01/1950.');
+
+    if (f.get('studentName')?.hasError('required')) errors.push('Student Full Name is required.');
+    if (f.value.isSchoolStudent && f.get('classId')?.hasError('required')) errors.push('School Class selection is required.');
+    if (f.value.isCoachingStudent && f.get('batchId')?.hasError('required')) errors.push('Coaching Batch selection is required.');
+    if (f.get('parentName')?.hasError('required')) errors.push('Father / Guardian Name is required.');
+
+    if (!f.value.isSchoolStudent && !f.value.isCoachingStudent) {
+      errors.push('Please select at least one stream (School or Coaching).');
+    }
+
+    if (this.phoneDuplicateError) {
+      errors.push(this.phoneDuplicateError);
+    }
+
+    return errors;
+  }
+
+  highlightInvalidFields(): void {
+    if (typeof document === 'undefined') return;
+    setTimeout(() => {
+      const firstInvalid = document.querySelector('.mat-form-field.mat-form-field-invalid, .mat-form-field.ng-invalid, input.ng-invalid');
+      if (firstInvalid) {
+        firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const input = firstInvalid.querySelector('input, select, mat-select') as HTMLElement;
+        input?.focus();
+      }
+    }, 100);
+  }
+
   onSubmitStudent(): void {
-    if (this.studentForm.hasError('dojBeforeDob')) {
-      this.confirmDialog.alert('Date Range Conflict', 'Admission / Joining Date must be strictly after Date of Birth.', 'warning');
+    if (this.studentForm.hasError('dojBeforeDob') || this.studentForm.get('joiningDate')?.hasError('dojBeforeDob') || this.studentForm.get('dateOfBirth')?.hasError('dojBeforeDob')) {
+      const doj = this.studentForm.get('joiningDate')?.value;
+      const dob = this.studentForm.get('dateOfBirth')?.value;
+      this.confirmDialog.alert(
+        'Date Range Conflict',
+        `<div><strong>Admission / Joining Date (${doj || 'not set'}) must be strictly after Date of Birth (${dob || 'not set'}).</strong></div><ul><li>Please adjust the Date of Birth to be before the Admission Date.</li></ul>`,
+        'warning'
+      );
+      this.highlightInvalidFields();
       return;
     }
+
     if (this.studentForm.invalid) {
       this.studentForm.markAllAsTouched();
-      this.confirmDialog.alert('Form Validation', 'Please check highlighted fields and date validations.', 'warning');
+      const errorList = this.getFormValidationErrorsList();
+      const bulletListHtml = errorList.map(err => `<li>${err}</li>`).join('');
+      const message = errorList.length > 0
+        ? `<div><strong>Please resolve the following required fields / validation errors:</strong></div><ul>${bulletListHtml}</ul>`
+        : 'Please check the highlighted fields and date validations.';
+      this.confirmDialog.alert('Form Validation Required', message, 'warning');
+      this.highlightInvalidFields();
       return;
     }
     const formVal = this.studentForm.value;

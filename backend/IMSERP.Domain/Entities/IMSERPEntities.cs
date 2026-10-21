@@ -8,8 +8,15 @@ public class Tenant
     public Guid Id { get; set; } = Guid.NewGuid();
     public string Name { get; set; } = string.Empty;
     public string Code { get; set; } = string.Empty;
+    public string? Email { get; set; }
     public string? ContactPhone { get; set; }
     public string? Address { get; set; }
+    public string? City { get; set; }
+    public string? State { get; set; }
+    public string? Pincode { get; set; }
+    public string? Website { get; set; }
+    public string? AffiliationNumber { get; set; }
+    public string? EstablishedYear { get; set; }
     public string? ProfilePhoto { get; set; }
     public string? WhatsAppPhoneId { get; set; }
     public string? WhatsAppAccessToken { get; set; }
@@ -49,8 +56,12 @@ public class Branch
     public Guid TenantId { get; set; }
     public string Name { get; set; } = string.Empty;
     public string Code { get; set; } = string.Empty;
-    public string? Address { get; set; }
+    public string? Email { get; set; }
     public string? ContactPhone { get; set; }
+    public string? Address { get; set; }
+    public string? City { get; set; }
+    public string? State { get; set; }
+    public string? Pincode { get; set; }
     public string? UpiId { get; set; }
     public string? UpiMerchantName { get; set; }
     public string? BankName { get; set; }
@@ -803,6 +814,12 @@ public class AttendanceSettings
     public int StudentAllowedLateDaysPerMonth { get; set; } = 3;
     public string StudentWeeklyOffPattern { get; set; } = "SundayOnly";
 
+    // Dynamic Student Absence Fine Policy (100% UI Configurable)
+    public bool EnableStudentAbsenceFine { get; set; } = true;
+    public int AbsenceFineDaysThreshold { get; set; } = 3;
+    public decimal AbsenceFineAmount { get; set; } = 10.00m;
+    public string AbsenceFineMode { get; set; } = "PerBlock"; // "PerBlock" (e.g. ₹10 per 3 days) or "Flat" (e.g. ₹10 flat for 3+ days)
+
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     [ForeignKey("BranchId")]
@@ -1487,6 +1504,7 @@ public class FeeInvoiceItem
     public Guid InvoiceId { get; set; }
     public Guid? FeeHeadId { get; set; }
     public string HeadName { get; set; } = string.Empty;
+    public string? Description { get; set; }
     public decimal Amount { get; set; } = 0.00m;
     public decimal PaidAmount { get; set; } = 0.00m;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

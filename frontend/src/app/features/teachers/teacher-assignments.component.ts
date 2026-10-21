@@ -50,8 +50,7 @@ export interface AssignmentSlot {
     CommonModule, FormsModule, RouterModule, MatCardModule, MatButtonModule, MatIconModule,
     MatInputModule, MatFormFieldModule, MatSelectModule, MatTooltipModule,
     MatDialogModule, MatProgressBarModule, MatProgressSpinnerModule, MatCheckboxModule,
-    TeacherSelectorComponent, TeacherQuickAssignDialogComponent, QuickClassTeacherDialogComponent,
-    SectionRoutineDialogComponent
+    TeacherSelectorComponent
   ],
   template: `
 <div class="page-container">

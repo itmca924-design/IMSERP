@@ -136,6 +136,27 @@ using (var scope = app.Services.CreateScope())
             Console.WriteLine($"[Startup] TeacherSalaryPayments snapshot columns patch failed: {ex.Message}");
         }
 
+        // Student Absence Fine columns on AttendanceSettings
+        try
+        {
+            context.Database.ExecuteSqlRaw(@"
+                IF OBJECT_ID('AttendanceSettings') IS NOT NULL
+                BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('AttendanceSettings') AND name = 'EnableStudentAbsenceFine')
+                        ALTER TABLE AttendanceSettings ADD EnableStudentAbsenceFine BIT NOT NULL DEFAULT 1;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('AttendanceSettings') AND name = 'AbsenceFineDaysThreshold')
+                        ALTER TABLE AttendanceSettings ADD AbsenceFineDaysThreshold INT NOT NULL DEFAULT 3;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('AttendanceSettings') AND name = 'AbsenceFineAmount')
+                        ALTER TABLE AttendanceSettings ADD AbsenceFineAmount DECIMAL(18,2) NOT NULL DEFAULT 10.00;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('AttendanceSettings') AND name = 'AbsenceFineMode')
+                        ALTER TABLE AttendanceSettings ADD AbsenceFineMode NVARCHAR(50) NOT NULL DEFAULT 'PerBlock';
+                END");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Startup] AttendanceSettings absence fine columns patch failed: {ex.Message}");
+        }
+
         if (!string.IsNullOrEmpty(connectionString))
         {
             try
@@ -178,6 +199,22 @@ using (var scope = app.Services.CreateScope())
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tenants') AND name = 'BankBranch')
                         ALTER TABLE Tenants ADD BankBranch NVARCHAR(150) NULL;
 
+                    -- Institute / Tenant profile & contact columns
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tenants') AND name = 'Email')
+                        ALTER TABLE Tenants ADD Email NVARCHAR(150) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tenants') AND name = 'City')
+                        ALTER TABLE Tenants ADD City NVARCHAR(100) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tenants') AND name = 'State')
+                        ALTER TABLE Tenants ADD State NVARCHAR(100) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tenants') AND name = 'Pincode')
+                        ALTER TABLE Tenants ADD Pincode NVARCHAR(20) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tenants') AND name = 'Website')
+                        ALTER TABLE Tenants ADD Website NVARCHAR(200) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tenants') AND name = 'AffiliationNumber')
+                        ALTER TABLE Tenants ADD AffiliationNumber NVARCHAR(100) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tenants') AND name = 'EstablishedYear')
+                        ALTER TABLE Tenants ADD EstablishedYear NVARCHAR(20) NULL;
+
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Branches') AND name = 'UpiId')
                         ALTER TABLE Branches ADD UpiId NVARCHAR(150) NULL;
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Branches') AND name = 'UpiMerchantName')
@@ -196,6 +233,16 @@ using (var scope = app.Services.CreateScope())
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Branches') AND name = 'BankBranch')
                         ALTER TABLE Branches ADD BankBranch NVARCHAR(150) NULL;
 
+                    -- Branch contact & location columns
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Branches') AND name = 'Email')
+                        ALTER TABLE Branches ADD Email NVARCHAR(150) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Branches') AND name = 'City')
+                        ALTER TABLE Branches ADD City NVARCHAR(100) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Branches') AND name = 'State')
+                        ALTER TABLE Branches ADD State NVARCHAR(100) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Branches') AND name = 'Pincode')
+                        ALTER TABLE Branches ADD Pincode NVARCHAR(20) NULL;
+
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('FeePayments') AND name = 'UpiRrn')
                         ALTER TABLE FeePayments ADD UpiRrn NVARCHAR(100) NULL;
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('FeePayments') AND name = 'PayerVpa')
@@ -210,6 +257,9 @@ using (var scope = app.Services.CreateScope())
                         ALTER TABLE FeePayments ADD VerifiedBy NVARCHAR(100) NULL;
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('FeePayments') AND name = 'VerifiedAt')
                         ALTER TABLE FeePayments ADD VerifiedAt DATETIME2 NULL;
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('FeeInvoiceItems') AND name = 'Description')
+                        ALTER TABLE FeeInvoiceItems ADD Description NVARCHAR(300) NULL;
 
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Users') AND name = 'ActiveSessionId')
                         ALTER TABLE Users ADD ActiveSessionId NVARCHAR(100) NULL;

@@ -11,6 +11,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { AttendanceSettingsDto, API_BASE } from '../../features/teachers/teacher.models';
 
 export interface AttendanceShiftSettingsDialogData {
@@ -31,7 +32,8 @@ export interface AttendanceShiftSettingsDialogData {
     MatSelectModule,
     MatTabsModule,
     MatProgressSpinnerModule,
-    MatTooltipModule
+    MatTooltipModule,
+    MatSlideToggleModule
   ],
   template: `
     <div class="dialog-wrapper">
@@ -253,6 +255,78 @@ export interface AttendanceShiftSettingsDialogData {
                   <mat-icon matPrefix>warning_amber</mat-icon>
                   <mat-hint>Late occurrences allowed per month before triggering parent alerts or disciplinary note.</mat-hint>
                 </mat-form-field>
+
+                <!-- ================= STUDENT ABSENCE FINE POLICY (100% Dynamic UI) ================= -->
+                <div class="col-full fine-policy-card" [class.active-fine]="settings.enableStudentAbsenceFine">
+                  <div class="fine-card-header">
+                    <div class="fine-header-left">
+                      <div class="fine-icon-badge">
+                        <mat-icon>gavel</mat-icon>
+                      </div>
+                      <div>
+                        <h4 class="fine-title">Monthly Student Absence Fine Policy</h4>
+                        <p class="fine-subtitle">Auto-calculate &amp; bill absence penalty in Monthly Fee Invoices &amp; Receipts.</p>
+                        <div class="applicable-tags">
+                          <span class="app-tag school"><mat-icon>school</mat-icon> School Classes</span>
+                          <span class="app-tag coaching"><mat-icon>menu_book</mat-icon> Coaching Batches</span>
+                          <span class="app-tag hybrid"><mat-icon>auto_awesome</mat-icon> Hybrid Students</span>
+                        </div>
+                      </div>
+                    </div>
+                    <mat-slide-toggle [(ngModel)]="settings.enableStudentAbsenceFine" color="primary">
+                      <span class="toggle-label font-semibold">{{ settings.enableStudentAbsenceFine ? 'Fine Active' : 'Fine Disabled' }}</span>
+                    </mat-slide-toggle>
+                  </div>
+
+                  <div *ngIf="settings.enableStudentAbsenceFine" class="fine-card-body">
+                    <div class="form-grid">
+                      <!-- Mode Selector: PerBlock (e.g. ₹10 per 3 days) vs Flat (e.g. flat ₹10 for 3+ days) -->
+                      <mat-form-field appearance="outline" class="col-full">
+                        <mat-label>Absence Fine Calculation Mode</mat-label>
+                        <mat-select [(ngModel)]="settings.absenceFineMode">
+                          <mat-option value="PerBlock">
+                            <strong>Dynamic Slab:</strong> Har {{ settings.absenceFineDaysThreshold || 3 }} din par ₹{{ settings.absenceFineAmount || 10 }} multiply hoga (e.g. 3d = ₹10, 6d = ₹20, 9d = ₹30)
+                          </mat-option>
+                          <mat-option value="Flat">
+                            <strong>Flat Fine:</strong> Flat ₹{{ settings.absenceFineAmount || 10 }} fine once {{ settings.absenceFineDaysThreshold || 3 }}+ din absent ho
+                          </mat-option>
+                        </mat-select>
+                        <mat-icon matPrefix>calculate</mat-icon>
+                        <mat-hint>Choose whether fine multiplies with every block of missed days or remains flat.</mat-hint>
+                      </mat-form-field>
+
+                      <!-- Absence Trigger Block Days -->
+                      <mat-form-field appearance="outline" class="col-half">
+                        <mat-label>Absent Days Trigger Block</mat-label>
+                        <input matInput type="number" min="1" max="31" [(ngModel)]="settings.absenceFineDaysThreshold" required>
+                        <mat-icon matPrefix>event_busy</mat-icon>
+                        <mat-hint>Threshold days (e.g. 3 days absent)</mat-hint>
+                      </mat-form-field>
+
+                      <!-- Fine Amount (₹) -->
+                      <mat-form-field appearance="outline" class="col-half">
+                        <mat-label>Fine Amount (₹)</mat-label>
+                        <input matInput type="number" min="1" max="5000" [(ngModel)]="settings.absenceFineAmount" required>
+                        <mat-icon matPrefix>currency_rupee</mat-icon>
+                        <mat-hint>Penalty amount in Rupees (e.g. ₹10)</mat-hint>
+                      </mat-form-field>
+
+                      <!-- Live Rule Summary Box -->
+                      <div class="col-full fine-live-preview">
+                        <mat-icon class="preview-icon">verified</mat-icon>
+                        <div class="preview-content">
+                          <strong style="color: #1e3a8a;">Live Rule Preview (School, Coaching &amp; Hybrid): </strong>
+                          <span *ngIf="settings.absenceFineMode === 'PerBlock'">
+                            Agar student (Class, Coaching ya Hybrid) month me <strong>{{ settings.absenceFineDaysThreshold || 3 }} din</strong> absent hoga toh <strong>₹{{ (settings.absenceFineAmount || 10) }}</strong>, agar <strong>{{ (settings.absenceFineDaysThreshold || 3) * 2 }} din</strong> absent hoga toh <strong>₹{{ (settings.absenceFineAmount || 10) * 2 }}</strong>, aur <strong>{{ (settings.absenceFineDaysThreshold || 3) * 3 }} din</strong> par <strong>₹{{ (settings.absenceFineAmount || 10) * 3 }}</strong> fine monthly fee receipt me auto-add hoga.
+                          </span>
+                          <span *ngIf="settings.absenceFineMode === 'Flat'">
+                            Agar student (Class, Coaching ya Hybrid) month me <strong>{{ settings.absenceFineDaysThreshold || 3 }}+ din</strong> absent hoga, toh uske monthly bill me flat <strong>₹{{ settings.absenceFineAmount || 10 }}</strong> attendance fine auto-add hoga.
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </mat-tab>
@@ -449,6 +523,108 @@ export interface AttendanceShiftSettingsDialogData {
       }
     }
 
+    .fine-policy-card {
+      margin-top: 8px;
+      padding: 16px;
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      transition: all 0.2s ease;
+
+      &.active-fine {
+        background: #f8fafc;
+        border-color: #3b82f6;
+        box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.08);
+      }
+
+      .fine-card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+
+      .fine-header-left {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .fine-icon-badge {
+        width: 38px;
+        height: 38px;
+        border-radius: 8px;
+        background: #fee2e2;
+        color: #dc2626;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        mat-icon { font-size: 20px; width: 20px; height: 20px; }
+      }
+
+      .fine-title {
+        margin: 0;
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: #0f172a;
+      }
+
+      .fine-subtitle {
+        margin: 2px 0 0 0;
+        font-size: 0.8rem;
+        color: #64748b;
+      }
+
+      .applicable-tags {
+        display: flex;
+        gap: 8px;
+        margin-top: 6px;
+        flex-wrap: wrap;
+
+        .app-tag {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          font-size: 0.72rem;
+          font-weight: 600;
+          padding: 2px 8px;
+          border-radius: 12px;
+          mat-icon { font-size: 13px; width: 13px; height: 13px; }
+
+          &.school { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+          &.coaching { background: #fdf4ff; color: #86198f; border: 1px solid #f5d0fe; }
+          &.hybrid { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+        }
+      }
+
+      .fine-live-preview {
+        background: #eff6ff;
+        border: 1px solid #bfdbfe;
+        border-radius: 8px;
+        padding: 10px 14px;
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        font-size: 0.85rem;
+        color: #1e3a8a;
+        line-height: 1.45;
+
+        .preview-icon {
+          color: #2563eb;
+          font-size: 20px;
+          width: 20px;
+          height: 20px;
+          flex-shrink: 0;
+          margin-top: 1px;
+        }
+      }
+    }
+
     .dialog-actions {
       display: flex;
       align-items: center;
@@ -490,7 +666,11 @@ export class AttendanceShiftSettingsDialogComponent implements OnInit {
     studentGracePeriodMinutes: 15,
     studentHalfDayThresholdMinutes: 240,
     studentAllowedLateDaysPerMonth: 3,
-    studentWeeklyOffPattern: 'SundayOnly'
+    studentWeeklyOffPattern: 'SundayOnly',
+    enableStudentAbsenceFine: true,
+    absenceFineDaysThreshold: 3,
+    absenceFineAmount: 10,
+    absenceFineMode: 'PerBlock'
   };
 
   constructor(
@@ -526,7 +706,11 @@ export class AttendanceShiftSettingsDialogComponent implements OnInit {
           studentGracePeriodMinutes: res.studentGracePeriodMinutes ?? 15,
           studentHalfDayThresholdMinutes: res.studentHalfDayThresholdMinutes ?? 240,
           studentAllowedLateDaysPerMonth: res.studentAllowedLateDaysPerMonth ?? 3,
-          studentWeeklyOffPattern: res.studentWeeklyOffPattern || 'SundayOnly'
+          studentWeeklyOffPattern: res.studentWeeklyOffPattern || 'SundayOnly',
+          enableStudentAbsenceFine: res.enableStudentAbsenceFine ?? true,
+          absenceFineDaysThreshold: res.absenceFineDaysThreshold ?? 3,
+          absenceFineAmount: res.absenceFineAmount ?? 10,
+          absenceFineMode: res.absenceFineMode || 'PerBlock'
         };
         this.loading = false;
       },

@@ -15,8 +15,15 @@ export interface TenantDto {
   id: string;
   name: string;
   code: string;
+  email?: string | null;
   contactPhone?: string | null;
   address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  pincode?: string | null;
+  website?: string | null;
+  affiliationNumber?: string | null;
+  establishedYear?: string | null;
   profilePhoto?: string | null;
   whatsAppPhoneId?: string | null;
   isActive: boolean;
@@ -52,16 +59,27 @@ export interface TenantDto {
 export interface CreateBranchItemDto {
   name: string;
   code: string;
-  address?: string | null;
+  email?: string | null;
   contactPhone?: string | null;
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  pincode?: string | null;
   isMainBranch?: boolean;
 }
 
 export interface CreateTenantDto {
   name: string;
   code: string;
+  email?: string | null;
   contactPhone?: string | null;
   address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  pincode?: string | null;
+  website?: string | null;
+  affiliationNumber?: string | null;
+  establishedYear?: string | null;
   profilePhoto?: string | null;
   whatsAppPhoneId?: string | null;
   whatsAppAccessToken?: string | null;
@@ -82,8 +100,15 @@ export interface CreateTenantDto {
 
 export interface UpdateTenantDto {
   name: string;
+  email?: string | null;
   contactPhone?: string | null;
   address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  pincode?: string | null;
+  website?: string | null;
+  affiliationNumber?: string | null;
+  establishedYear?: string | null;
   profilePhoto?: string | null;
   whatsAppPhoneId?: string | null;
   whatsAppAccessToken?: string | null;

@@ -25,6 +25,7 @@ import { FooterComponent } from './footer/footer.component';
 import { QuickSettingsDrawerComponent } from './quick-settings-drawer/quick-settings-drawer.component';
 import { PresenceService } from '../core/services/presence.service';
 import { ChatService } from '../core/services/chat.service';
+import { ConfirmDialogService } from '../core/services/confirm-dialog.service';
 import { environment } from '../../environments/environment';
 
 @Component({
@@ -159,6 +160,17 @@ import { environment } from '../../environments/environment';
             <span><i class="saturday-dot"></i> Sat</span>
           </div>
         </div>
+
+        <!-- Sidebar PWA Install App Action -->
+        <div class="sidebar-pwa-strip">
+          <button mat-button class="sidebar-pwa-btn" (click)="installPwa()">
+            <mat-icon>install_mobile</mat-icon>
+            <div class="pwa-text-wrap">
+              <strong>{{ isAppInstalled() ? 'App Installed' : 'Install ERP App' }}</strong>
+              <small>{{ isAppInstalled() ? 'Running as standalone app' : 'Add to Home Screen / Desktop' }}</small>
+            </div>
+          </button>
+        </div>
       </mat-sidenav>
 
       <mat-sidenav-content>
@@ -169,6 +181,18 @@ import { environment } from '../../environments/environment';
 
           <span class="app-header-title">{{ getHeaderTitle() }}</span>
           <div class="header-tools">
+            <!-- PWA Network State Indicator (When Offline) -->
+            <div *ngIf="!isOnline()" class="offline-pill" matTooltip="Working offline. Local pages cached.">
+              <mat-icon>cloud_off</mat-icon>
+              <span>Offline</span>
+            </div>
+
+            <!-- PWA Install App Header Button -->
+            <button mat-button *ngIf="!isAppInstalled()" class="install-pwa-btn" (click)="installPwa()" matTooltip="Install Jnandeep Campus ERP App on your Device" aria-label="Install App">
+              <mat-icon class="install-icon">install_mobile</mat-icon>
+              <span class="install-text">Install App</span>
+            </button>
+
             <div class="header-search" [class.open]="headerSearchFocused">
               <mat-icon>search</mat-icon>
               <input type="search" placeholder="Search pages" [value]="headerSearch" (input)="onHeaderSearch($event)" (focus)="onSearchFocus()" (blur)="closeHeaderSearch()" aria-label="Search pages">
@@ -791,6 +815,57 @@ import { environment } from '../../environments/environment';
         .saturday-dot { background: #818cf8; }
       }
     }
+
+    .sidebar-pwa-strip {
+      padding: 10px 14px;
+      border-top: 1px solid #1e293b;
+      background: #080d1a;
+      flex-shrink: 0;
+
+      .sidebar-pwa-btn {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 10px;
+        border-radius: 8px;
+        background: rgba(37, 99, 235, 0.12);
+        border: 1px solid rgba(37, 99, 235, 0.35);
+        color: #93c5fd;
+        text-align: left;
+        transition: all 180ms ease;
+
+        mat-icon {
+          color: #38bdf8;
+          font-size: 22px;
+          width: 22px;
+          height: 22px;
+          flex-shrink: 0;
+        }
+
+        .pwa-text-wrap {
+          display: flex;
+          flex-direction: column;
+          line-height: 1.25;
+
+          strong {
+            color: #ffffff;
+            font-size: 0.8rem;
+            font-weight: 600;
+          }
+          small {
+            color: #94a3b8;
+            font-size: 0.68rem;
+          }
+        }
+
+        &:hover {
+          background: rgba(37, 99, 235, 0.25);
+          border-color: #38bdf8;
+        }
+      }
+    }
+
     .header-toolbar {
       background: linear-gradient(90deg, #0b1329 0%, #1e3a8a 100%) !important;
       border-bottom: 1px solid #1e293b;
@@ -838,6 +913,61 @@ import { environment } from '../../environments/environment';
       gap: 6px;
       margin-left: 10px;
       flex-shrink: 0;
+
+      .install-pwa-btn {
+        height: 32px;
+        line-height: 32px;
+        padding: 0 10px;
+        border-radius: 16px;
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: #ffffff;
+        font-weight: 600;
+        font-size: 0.78rem;
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
+        transition: all 180ms ease;
+
+        &:hover {
+          background: linear-gradient(135deg, #059669 0%, #047857 100%);
+          transform: translateY(-1px);
+        }
+
+        .install-icon {
+          font-size: 16px;
+          width: 16px;
+          height: 16px;
+        }
+
+        @media (max-width: 768px) {
+          padding: 0 6px;
+          min-width: 32px;
+          .install-text {
+            display: none;
+          }
+        }
+      }
+
+      .offline-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        background: #ef4444;
+        color: #ffffff;
+        font-size: 0.7rem;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 10px;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+        mat-icon {
+          font-size: 13px;
+          width: 13px;
+          height: 13px;
+        }
+      }
 
       @media (max-width: 900px) {
         margin-left: 0;
@@ -1786,6 +1916,13 @@ export class LayoutComponent implements OnInit {
   calendarDays: Array<{ day: number; date: string; isToday: boolean; isSaturday: boolean; isSunday: boolean; holiday?: HolidayDto }> = [];
   calendarHolidays: HolidayDto[] = [];
 
+  // ── Progressive Web App (PWA) State & Controls ──
+  deferredPrompt: any = null;
+  canInstallPwa = signal<boolean>(false);
+  isOnline = signal<boolean>(typeof navigator !== 'undefined' ? navigator.onLine : true);
+  isAppInstalled = signal<boolean>(false);
+  private confirmDialog = inject(ConfirmDialogService);
+
   @ViewChild('drawer') drawer!: MatSidenav;
 
   logoImgFailed = signal(false);
@@ -1895,7 +2032,11 @@ export class LayoutComponent implements OnInit {
             tenantId: b.tenantId,
             name: b.name,
             code: b.code,
+            email: b.email,
             address: b.address,
+            city: b.city,
+            state: b.state,
+            pincode: b.pincode,
             contactPhone: b.contactPhone,
             isMainBranch: b.isMainBranch,
             isActive: b.isActive,
@@ -1914,6 +2055,33 @@ export class LayoutComponent implements OnInit {
       this.isMobile.set(result.matches);
     });
 
+    // ── Progressive Web App (PWA) Event Handlers ──
+    if (typeof window !== 'undefined') {
+      window.addEventListener('beforeinstallprompt', (e: any) => {
+        e.preventDefault();
+        this.deferredPrompt = e;
+        this.canInstallPwa.set(true);
+      });
+
+      window.addEventListener('appinstalled', () => {
+        this.canInstallPwa.set(false);
+        this.deferredPrompt = null;
+        this.isAppInstalled.set(true);
+        this.confirmDialog.alert(
+          'App Installed Successfully',
+          'Jnandeep Campus ERP has been installed on your device. You can now launch it anytime directly from your desktop or home screen like a native app!',
+          'success'
+        );
+      });
+
+      window.addEventListener('online', () => this.isOnline.set(true));
+      window.addEventListener('offline', () => this.isOnline.set(false));
+
+      if (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true) {
+        this.isAppInstalled.set(true);
+      }
+    }
+
     this.loadCurrentTenant();
     this.loadUserProfile();
     this.loadHeaderBranches();
@@ -1926,6 +2094,24 @@ export class LayoutComponent implements OnInit {
     this.presenceService.init();
     this.chatService.initHub();
     this.chatService.loadConversations().subscribe({ error: () => {} });
+  }
+
+  installPwa(): void {
+    if (this.deferredPrompt) {
+      this.deferredPrompt.prompt();
+      this.deferredPrompt.userChoice.then((choiceResult: any) => {
+        if (choiceResult && choiceResult.outcome === 'accepted') {
+          this.canInstallPwa.set(false);
+        }
+        this.deferredPrompt = null;
+      });
+    } else {
+      this.confirmDialog.alert(
+        'Install Jnandeep ERP',
+        'To install Jnandeep Campus ERP on your device:\n\n• Windows / Mac (Chrome / Edge): Click the Install icon in the browser address bar, or click Menu (⋮) > Save and share > Install page as app.\n• Android (Chrome): Tap Menu (⋮) > Add to Home screen / Install app.\n• iPhone / iPad (Safari): Tap the Share button and select "Add to Home Screen".',
+        'info'
+      );
+    }
   }
 
   ngOnDestroy(): void {

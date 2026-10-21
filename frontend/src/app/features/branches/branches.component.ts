@@ -33,8 +33,7 @@ import { BranchDialogComponent } from './branch-dialog.component';
     MatTooltipModule,
     MatProgressSpinnerModule,
     MatSlideToggleModule,
-    MatDialogModule,
-    BranchDialogComponent
+    MatDialogModule
   ],
   template: `
     <div class="branches-wrapper">
@@ -163,10 +162,13 @@ import { BranchDialogComponent } from './branch-dialog.component';
                   <span class="phone-item" *ngIf="b.contactPhone">
                     <mat-icon>call</mat-icon> {{ b.contactPhone }}
                   </span>
-                  <span class="address-item" *ngIf="b.address" [matTooltip]="b.address">
-                    <mat-icon>place</mat-icon> {{ b.address }}
+                  <span class="email-item" *ngIf="b.email">
+                    <mat-icon>email</mat-icon> {{ b.email }}
                   </span>
-                  <span class="empty-field" *ngIf="!b.contactPhone && !b.address">—</span>
+                  <span class="address-item" *ngIf="formatBranchAddress(b)" [matTooltip]="formatBranchAddress(b)">
+                    <mat-icon>place</mat-icon> {{ formatBranchAddress(b) }}
+                  </span>
+                  <span class="empty-field" *ngIf="!b.contactPhone && !b.email && !formatBranchAddress(b)">—</span>
                 </div>
               </td>
             </ng-container>
@@ -642,7 +644,11 @@ export class BranchesComponent implements OnInit {
           tenantId: b.tenantId,
           name: b.name,
           code: b.code,
+          email: b.email,
           address: b.address,
+          city: b.city,
+          state: b.state,
+          pincode: b.pincode,
           contactPhone: b.contactPhone,
           isMainBranch: b.isMainBranch,
           isActive: b.isActive,
@@ -656,6 +662,10 @@ export class BranchesComponent implements OnInit {
     });
   }
 
+  formatBranchAddress(b: BranchDto): string {
+    return [b.address, b.city, b.state, b.pincode].map(s => s?.trim()).filter(s => !!s).join(', ');
+  }
+
   filterBranches(): void {
     const q = (this.searchQuery || '').trim().toLowerCase();
     if (!q) {
@@ -664,6 +674,10 @@ export class BranchesComponent implements OnInit {
       this.filteredBranches = this.branches.filter(b =>
         b.name.toLowerCase().includes(q) ||
         b.code.toLowerCase().includes(q) ||
+        (b.email && b.email.toLowerCase().includes(q)) ||
+        (b.city && b.city.toLowerCase().includes(q)) ||
+        (b.state && b.state.toLowerCase().includes(q)) ||
+        (b.pincode && b.pincode.toLowerCase().includes(q)) ||
         (b.address && b.address.toLowerCase().includes(q))
       );
     }

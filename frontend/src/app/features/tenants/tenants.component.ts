@@ -190,13 +190,21 @@ import { environment } from '../../../environments/environment';
           </div>
 
           <div class="info-list">
+            <div class="info-item" *ngIf="t.email">
+              <mat-icon class="item-icon">email</mat-icon>
+              <span>{{ t.email }}</span>
+            </div>
             <div class="info-item">
               <mat-icon class="item-icon">phone</mat-icon>
               <span>{{ t.contactPhone || 'No contact phone' }}</span>
             </div>
             <div class="info-item">
               <mat-icon class="item-icon">location_on</mat-icon>
-              <span class="address-text" [matTooltip]="t.address || ''">{{ t.address || 'Address not configured' }}</span>
+              <span class="address-text" [matTooltip]="formatFullAddress(t)">{{ formatFullAddress(t) || 'Address not configured' }}</span>
+            </div>
+            <div class="info-item" *ngIf="t.website">
+              <mat-icon class="item-icon">language</mat-icon>
+              <span style="color:#2563eb;">{{ t.website }}</span>
             </div>
           </div>
 
@@ -423,24 +431,74 @@ import { environment } from '../../../environments/environment';
 
                 <!-- Name -->
                 <mat-form-field appearance="outline" [class.span-2]="isEditing" [class.span-1]="!isEditing">
-                  <mat-label>Institute Name</mat-label>
+                  <mat-label>Institute Name *</mat-label>
                   <input matInput formControlName="name" placeholder="e.g. Apex Coaching Academy">
                   <mat-icon matSuffix>school</mat-icon>
                   <mat-error *ngIf="tenantForm.get('name')?.hasError('required')">Name is required</mat-error>
                 </mat-form-field>
 
+                <!-- Email -->
+                <mat-form-field appearance="outline" class="span-1">
+                  <mat-label>Official Email</mat-label>
+                  <input matInput type="email" formControlName="email" placeholder="e.g. info@jnandeep.in">
+                  <mat-icon matSuffix>email</mat-icon>
+                  <mat-error *ngIf="tenantForm.get('email')?.hasError('email')">Invalid email address</mat-error>
+                </mat-form-field>
+
                 <!-- Phone -->
                 <mat-form-field appearance="outline" class="span-1">
-                  <mat-label>Contact Phone</mat-label>
+                  <mat-label>Contact Phone / Mobile</mat-label>
                   <input matInput formControlName="contactPhone" placeholder="e.g. +91 9876543210">
                   <mat-icon matSuffix>phone</mat-icon>
                 </mat-form-field>
 
-                <!-- Address -->
+                <!-- Website -->
                 <mat-form-field appearance="outline" class="span-1">
-                  <mat-label>Address / City</mat-label>
+                  <mat-label>Website / Portal URL</mat-label>
+                  <input matInput formControlName="website" placeholder="e.g. https://jnandeep.in">
+                  <mat-icon matSuffix>language</mat-icon>
+                </mat-form-field>
+
+                <!-- Affiliation / Registration No. -->
+                <mat-form-field appearance="outline" class="span-1">
+                  <mat-label>Affiliation / Registration No.</mat-label>
+                  <input matInput formControlName="affiliationNumber" placeholder="e.g. CBSE/2026/0491 or Reg. No.">
+                  <mat-icon matSuffix>verified</mat-icon>
+                </mat-form-field>
+
+                <!-- Established Year -->
+                <mat-form-field appearance="outline" class="span-1">
+                  <mat-label>Established Year</mat-label>
+                  <input matInput formControlName="establishedYear" placeholder="e.g. 2015">
+                  <mat-icon matSuffix>calendar_today</mat-icon>
+                </mat-form-field>
+
+                <!-- Address -->
+                <mat-form-field appearance="outline" class="span-2">
+                  <mat-label>Campus Street Address</mat-label>
                   <input matInput formControlName="address" placeholder="e.g. Main Road, Jnandeep Campus">
                   <mat-icon matSuffix>location_on</mat-icon>
+                </mat-form-field>
+
+                <!-- City -->
+                <mat-form-field appearance="outline" class="span-1">
+                  <mat-label>City / District</mat-label>
+                  <input matInput formControlName="city" placeholder="e.g. Patna / Siwan">
+                  <mat-icon matSuffix>apartment</mat-icon>
+                </mat-form-field>
+
+                <!-- State -->
+                <mat-form-field appearance="outline" class="span-1">
+                  <mat-label>State</mat-label>
+                  <input matInput formControlName="state" placeholder="e.g. Bihar / UP">
+                  <mat-icon matSuffix>map</mat-icon>
+                </mat-form-field>
+
+                <!-- Pincode -->
+                <mat-form-field appearance="outline" class="span-1">
+                  <mat-label>PIN Code (Pincode)</mat-label>
+                  <input matInput formControlName="pincode" placeholder="e.g. 841301" maxlength="10">
+                  <mat-icon matSuffix>pin_drop</mat-icon>
                 </mat-form-field>
               </div>
             </div>
@@ -922,6 +980,16 @@ import { environment } from '../../../environments/environment';
                     <mat-form-field appearance="outline" class="span-1">
                       <mat-label>Branch Address</mat-label>
                       <input matInput formControlName="address" placeholder="e.g. Connaught Place, New Delhi">
+                    </mat-form-field>
+
+                    <mat-form-field appearance="outline" class="span-1">
+                      <mat-label>Branch City</mat-label>
+                      <input matInput formControlName="city" placeholder="e.g. New Delhi">
+                    </mat-form-field>
+
+                    <mat-form-field appearance="outline" class="span-1">
+                      <mat-label>PIN Code</mat-label>
+                      <input matInput formControlName="pincode" placeholder="e.g. 110001">
                     </mat-form-field>
                   </div>
                 </div>
@@ -2368,8 +2436,15 @@ export class TenantsComponent implements OnInit {
     this.tenantForm = this.fb.group({
       name: ['', Validators.required],
       code: ['', Validators.required],
+      email: ['', [Validators.email]],
       contactPhone: [''],
       address: [''],
+      city: [''],
+      state: [''],
+      pincode: [''],
+      website: [''],
+      affiliationNumber: [''],
+      establishedYear: [''],
       whatsAppPhoneId: [''],
       whatsAppAccessToken: [''],
       upiId: [''],
@@ -2410,8 +2485,12 @@ export class TenantsComponent implements OnInit {
     this.branchesFormArray.push(this.fb.group({
       name: [defaultName, Validators.required],
       code: [defaultCode, Validators.required],
+      email: [''],
       contactPhone: [''],
       address: [''],
+      city: [''],
+      state: [''],
+      pincode: [''],
       isMainBranch: [isMain]
     }));
   }
@@ -2554,8 +2633,15 @@ export class TenantsComponent implements OnInit {
     this.tenantForm.reset({
       name: '',
       code: '',
+      email: '',
       contactPhone: '',
       address: '',
+      city: '',
+      state: '',
+      pincode: '',
+      website: '',
+      affiliationNumber: '',
+      establishedYear: '',
       whatsAppPhoneId: '',
       whatsAppAccessToken: '',
       upiId: '',
@@ -2631,8 +2717,15 @@ export class TenantsComponent implements OnInit {
     this.tenantForm.patchValue({
       name: tenant.name,
       code: tenant.code,
+      email: tenant.email || '',
       contactPhone: tenant.contactPhone || '',
       address: tenant.address || '',
+      city: tenant.city || '',
+      state: tenant.state || '',
+      pincode: tenant.pincode || '',
+      website: tenant.website || '',
+      affiliationNumber: tenant.affiliationNumber || '',
+      establishedYear: tenant.establishedYear || '',
       whatsAppPhoneId: tenant.whatsAppPhoneId || '',
       whatsAppAccessToken: '',
       upiId: tenant.upiId || '',
@@ -2801,8 +2894,15 @@ export class TenantsComponent implements OnInit {
     if (this.isEditing && targetId) {
       const updateDto: UpdateTenantDto = {
         name: val.name?.trim() || '',
+        email: val.email?.trim() || null,
         contactPhone: val.contactPhone?.trim() || null,
         address: val.address?.trim() || null,
+        city: val.city?.trim() || null,
+        state: val.state?.trim() || null,
+        pincode: val.pincode?.trim() || null,
+        website: val.website?.trim() || null,
+        affiliationNumber: val.affiliationNumber?.trim() || null,
+        establishedYear: val.establishedYear?.trim() || null,
         profilePhoto: this.profilePhotoPreview,
         whatsAppPhoneId: val.whatsAppPhoneId?.trim() || null,
         whatsAppAccessToken: val.whatsAppAccessToken?.trim() || null,
@@ -2879,16 +2979,27 @@ export class TenantsComponent implements OnInit {
         .map((b: any) => ({
           name: b.name.trim(),
           code: (b.code || 'MAIN').trim().toUpperCase(),
+          email: b.email?.trim() || null,
           contactPhone: b.contactPhone?.trim() || null,
           address: b.address?.trim() || null,
+          city: b.city?.trim() || null,
+          state: b.state?.trim() || null,
+          pincode: b.pincode?.trim() || null,
           isMainBranch: !!b.isMainBranch
         }));
 
       const createDto: CreateTenantDto = {
         name: val.name.trim(),
         code: val.code.trim().toUpperCase(),
+        email: val.email?.trim() || null,
         contactPhone: val.contactPhone?.trim() || null,
         address: val.address?.trim() || null,
+        city: val.city?.trim() || null,
+        state: val.state?.trim() || null,
+        pincode: val.pincode?.trim() || null,
+        website: val.website?.trim() || null,
+        affiliationNumber: val.affiliationNumber?.trim() || null,
+        establishedYear: val.establishedYear?.trim() || null,
         profilePhoto: this.profilePhotoPreview,
         whatsAppPhoneId: val.whatsAppPhoneId?.trim() || null,
         whatsAppAccessToken: val.whatsAppAccessToken?.trim() || null,
@@ -2926,5 +3037,9 @@ export class TenantsComponent implements OnInit {
       },
       error: () => {}
     });
+  }
+
+  formatFullAddress(t: TenantDto): string {
+    return [t.address, t.city, t.state, t.pincode].filter(p => !!p).join(', ');
   }
 }

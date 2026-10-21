@@ -406,7 +406,19 @@ export interface ConfirmDialogData {
       margin: 0;
       text-align: left;
       word-break: break-word;
+      white-space: pre-line;
       animation: fadeIn 0.15s ease-in-out;
+
+      ul {
+        margin: 8px 0 0;
+        padding-left: 20px;
+        white-space: normal;
+
+        li {
+          margin-bottom: 6px;
+          line-height: 1.5;
+        }
+      }
     }
 
     @keyframes fadeIn {

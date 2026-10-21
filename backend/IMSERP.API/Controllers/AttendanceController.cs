@@ -58,7 +58,11 @@ public class AttendanceController : ControllerBase
             settings?.StudentHalfDayThresholdMinutes ?? 240,
             settings?.StudentAllowedLateDaysPerMonth ?? 3,
             settings?.TeacherWeeklyOffPattern ?? "SundayOnly",
-            settings?.StudentWeeklyOffPattern ?? "SundayOnly"
+            settings?.StudentWeeklyOffPattern ?? "SundayOnly",
+            settings?.EnableStudentAbsenceFine ?? true,
+            settings?.AbsenceFineDaysThreshold ?? 3,
+            settings?.AbsenceFineAmount ?? 10.00m,
+            settings?.AbsenceFineMode ?? "PerBlock"
         ));
     }
 
@@ -127,6 +131,12 @@ public class AttendanceController : ControllerBase
         if (dto.StudentAllowedLateDaysPerMonth >= 0) settings.StudentAllowedLateDaysPerMonth = dto.StudentAllowedLateDaysPerMonth;
         if (!string.IsNullOrWhiteSpace(dto.StudentWeeklyOffPattern)) settings.StudentWeeklyOffPattern = dto.StudentWeeklyOffPattern.Trim();
 
+        // Save dynamic student absence fine policy
+        settings.EnableStudentAbsenceFine = dto.EnableStudentAbsenceFine;
+        settings.AbsenceFineDaysThreshold = dto.AbsenceFineDaysThreshold > 0 ? dto.AbsenceFineDaysThreshold : 3;
+        settings.AbsenceFineAmount = dto.AbsenceFineAmount >= 0 ? dto.AbsenceFineAmount : 10.00m;
+        settings.AbsenceFineMode = !string.IsNullOrWhiteSpace(dto.AbsenceFineMode) ? dto.AbsenceFineMode.Trim() : "PerBlock";
+
         settings.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
 
@@ -145,7 +155,11 @@ public class AttendanceController : ControllerBase
             settings.StudentHalfDayThresholdMinutes,
             settings.StudentAllowedLateDaysPerMonth,
             settings.TeacherWeeklyOffPattern,
-            settings.StudentWeeklyOffPattern
+            settings.StudentWeeklyOffPattern,
+            settings.EnableStudentAbsenceFine,
+            settings.AbsenceFineDaysThreshold,
+            settings.AbsenceFineAmount,
+            settings.AbsenceFineMode
         ));
     }
 
