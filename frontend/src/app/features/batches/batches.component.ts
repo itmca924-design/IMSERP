@@ -42,8 +42,8 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
     <div class="page-container">
       <div class="page-header">
         <div>
-          <h1 class="page-title">Batches Master Directory</h1>
-          <p class="page-subtitle">Manage academic batches, fee structures, and assigned students with server-side sorting & filtering.</p>
+          <h1 class="page-title">Coaching Batches Directory</h1>
+          <p class="page-subtitle">Manage coaching batches, schedules, fee structures, and assigned students.</p>
         </div>
         <button mat-raised-button color="primary" class="add-btn" (click)="openBatchModal()">
           <mat-icon>add</mat-icon>

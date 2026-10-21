@@ -2779,7 +2779,7 @@ export class LayoutComponent implements OnInit {
           ] : [
             { id: '20', title: 'Classes & Sections', routeUrl: '/school/classes', icon: 'domain', sortOrder: 1, module: 'Master', isActive: true, children: [] },
             { id: '20pt', title: 'Period & Bell Timings', routeUrl: '/school/period-settings', icon: 'alarm_on', sortOrder: 1.5, module: 'Master', isActive: true, children: [] },
-            { id: '21', title: 'Batches Master', routeUrl: '/batches', icon: 'class', sortOrder: 2, module: 'Master', isActive: true, children: [] },
+            { id: '21', title: 'Coaching Batches', routeUrl: '/batches', icon: 'class', sortOrder: 2, module: 'Master', isActive: true, children: [] },
             { id: '22', title: 'Classrooms Master', routeUrl: '/rooms', icon: 'meeting_room', sortOrder: 3, module: 'Master', isActive: true, children: [] },
             { id: '23', title: 'Subject Master', routeUrl: '/subjects', icon: 'menu_book', sortOrder: 4, module: 'Master', isActive: true, children: [] },
             { id: '24', title: 'Students Master', routeUrl: '/students', icon: 'people', sortOrder: 5, module: 'Master', isActive: true, children: [] },
