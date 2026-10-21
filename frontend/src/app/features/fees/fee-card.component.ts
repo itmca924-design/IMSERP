@@ -326,7 +326,13 @@ import { environment } from '../../../environments/environment';
                     <strong>{{ m.monthShort }}</strong>
                   </td>
                   <td class="td-amount">
-                    <ng-container *ngIf="m.status !== 'N/A'">₹{{ m.amountPayable | number:'1.2-2' }}</ng-container>
+                    <ng-container *ngIf="m.status !== 'N/A'">
+                      <div *ngIf="m.concessionAmount > 0" class="concession-cell" [matTooltip]="'Gross: ₹' + (m.amountPayable | number:'1.2-2') + ' | Concession: -₹' + (m.concessionAmount | number:'1.2-2')">
+                        <span class="net-amt">₹{{ m.netPayable | number:'1.2-2' }}</span>
+                        <small class="concession-tag">-₹{{ m.concessionAmount | number:'1.0-0' }} Disc</small>
+                      </div>
+                      <span *ngIf="!m.concessionAmount || m.concessionAmount <= 0">₹{{ m.amountPayable | number:'1.2-2' }}</span>
+                    </ng-container>
                     <span *ngIf="m.status === 'N/A'" class="text-muted">-</span>
                   </td>
                   <td class="td-amount font-bold-amt" [class.text-green]="m.amountPaid > 0">
@@ -531,6 +537,10 @@ import { environment } from '../../../environments/environment';
                   <span class="kpi-label">Total Annual Fee</span>
                   <span class="kpi-value">₹{{ card.totalAnnualFee | number:'1.2-2' }}</span>
                 </div>
+                <div class="kpi-box" *ngIf="card.totalConcession > 0">
+                  <span class="kpi-label">Concession Granted</span>
+                  <span class="kpi-value concession-val">-₹{{ card.totalConcession | number:'1.2-2' }}</span>
+                </div>
                 <div class="kpi-box">
                   <span class="kpi-label">Total Paid Amount</span>
                   <span class="kpi-value paid-val">₹{{ card.totalPaid | number:'1.2-2' }}</span>
@@ -562,7 +572,13 @@ import { environment } from '../../../environments/environment';
                       <td class="td-sn">{{ m.monthIndex }}</td>
                       <td class="td-month"><strong>{{ m.monthShort }}</strong></td>
                       <td class="td-amount">
-                        <ng-container *ngIf="m.status !== 'N/A'">₹{{ m.amountPayable | number:'1.2-2' }}</ng-container>
+                        <ng-container *ngIf="m.status !== 'N/A'">
+                          <div *ngIf="m.concessionAmount > 0" class="concession-cell">
+                            <span class="net-amt">₹{{ m.netPayable | number:'1.2-2' }}</span>
+                            <small class="concession-tag">-₹{{ m.concessionAmount | number:'1.0-0' }} Disc</small>
+                          </div>
+                          <span *ngIf="!m.concessionAmount || m.concessionAmount <= 0">₹{{ m.amountPayable | number:'1.2-2' }}</span>
+                        </ng-container>
                         <span *ngIf="m.status === 'N/A'" class="text-muted">-</span>
                       </td>
                       <td class="td-amount font-bold-amt" [class.text-green]="m.amountPaid > 0">
@@ -1282,6 +1298,27 @@ import { environment } from '../../../environments/environment';
     .td-status { text-align: center; }
     .td-mode { text-align: center; font-size: 0.8rem; }
     .td-sign { text-align: center; }
+
+    .concession-cell {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: flex-end;
+      line-height: 1.15;
+
+      .net-amt {
+        font-weight: 700;
+        color: #0f172a;
+      }
+      .concession-tag {
+        font-size: 0.68rem;
+        color: #059669;
+        font-weight: 600;
+        background: #ecfdf5;
+        padding: 0 4px;
+        border-radius: 3px;
+        border: 1px solid #a7f3d0;
+      }
+    }
 
     .font-bold-amt {
       font-weight: 700;

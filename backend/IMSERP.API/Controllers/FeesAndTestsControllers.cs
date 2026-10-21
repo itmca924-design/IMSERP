@@ -474,10 +474,54 @@ public class FeesController : ControllerBase
                 .AsNoTracking()
                 .Include(c => c.FeeHead)
                 .Where(c => c.ClassId == student.ClassId.Value && c.IsActive)
-                .Where(c => c.FeeHead != null && (c.FeeHead.Frequency == "Monthly" || c.FeeHead.Category == "Academic" || c.FeeHead.Name.Contains("Tuition")))
+                .Where(c => c.FeeHead != null && 
+                            c.FeeHead.Frequency != "OneTime" && 
+                            c.FeeHead.Frequency != "Annual" && 
+                            (c.FeeHead.Frequency == "Monthly" || c.ApplicableMonth == null || c.FeeHead.Category == "Academic" || c.FeeHead.Name.Contains("Tuition")))
                 .SumAsync(c => c.Amount);
             if (classFee > 0) monthlyFeeRate = classFee;
         }
+
+        // Automated Sibling Discount & Concession Detection for Recurring Monthly Fees
+        var sessionStart = new DateTime(startYear, 4, 1);
+        var sessionEnd = new DateTime(startYear + 1, 3, 31);
+
+        var studentSib = await _dbContext.StudentSiblings
+            .AsNoTracking()
+            .Where(s => s.DiscountPercent > 0 && s.StudentId == student.Id)
+            .OrderByDescending(s => s.DiscountPercent)
+            .FirstOrDefaultAsync();
+
+        var activeConcession = await _dbContext.StudentFeeConcessions
+            .AsNoTracking()
+            .Where(c => c.TenantId == student.TenantId &&
+                        c.StudentId == student.Id &&
+                        c.Status == "Active" &&
+                        c.ApplicableFrom <= sessionEnd &&
+                        (c.ApplicableTo == null || c.ApplicableTo >= sessionStart))
+            .OrderByDescending(c => c.DiscountValue)
+            .FirstOrDefaultAsync();
+
+        decimal grossMonthlyFeeRate = monthlyFeeRate;
+        decimal recurringMonthlyConcession = 0m;
+
+        if (studentSib != null && studentSib.DiscountPercent > 0)
+        {
+            recurringMonthlyConcession = Math.Round(grossMonthlyFeeRate * (studentSib.DiscountPercent / 100m), 2);
+        }
+        else if (activeConcession != null)
+        {
+            if (activeConcession.DiscountMode == "Percentage")
+            {
+                recurringMonthlyConcession = Math.Round(grossMonthlyFeeRate * (activeConcession.DiscountValue / 100m), 2);
+            }
+            else
+            {
+                recurringMonthlyConcession = Math.Min(grossMonthlyFeeRate, activeConcession.DiscountValue);
+            }
+        }
+
+        decimal netMonthlyFeeRate = Math.Max(0m, grossMonthlyFeeRate - recurringMonthlyConcession);
 
         DateTime joinRefDate = student.JoiningDate != default 
             ? student.JoiningDate 
@@ -513,7 +557,17 @@ public class FeesController : ControllerBase
             if (inv != null)
             {
                 var pmt = payments.FirstOrDefault(p => p.InvoiceId == inv.Id);
+                decimal monthConcession = 0m;
+                if (inv.Items != null && inv.Items.Count > 0)
+                {
+                    monthConcession = inv.Items.Where(it => it.Amount < 0).Sum(it => -it.Amount);
+                }
+
                 decimal payable = inv.TotalAmount;
+                decimal grossPayable = inv.Items != null && inv.Items.Any(it => it.Amount > 0)
+                    ? inv.Items.Where(it => it.Amount > 0).Sum(it => it.Amount)
+                    : (payable + monthConcession);
+
                 decimal paid = inv.PaidAmount;
                 decimal balance = Math.Max(0m, payable - paid);
                 string status = inv.Status.ToString();
@@ -548,8 +602,8 @@ public class FeesController : ControllerBase
                     calMonth,
                     calYear,
                     status,
-                    payable,
-                    0m,
+                    grossPayable,
+                    monthConcession,
                     payable,
                     paid,
                     balance,
@@ -586,7 +640,7 @@ public class FeesController : ControllerBase
             {
                 bool isFuture = monthDate > currentMonthStart;
                 string status = isFuture ? "Upcoming" : "Due";
-                decimal balanceDue = isFuture ? 0m : monthlyFeeRate;
+                decimal balanceDue = isFuture ? 0m : netMonthlyFeeRate;
 
                 monthsList.Add(new FeeCardMonthEntryDto(
                     i,
@@ -595,9 +649,9 @@ public class FeesController : ControllerBase
                     calMonth,
                     calYear,
                     status,
-                    monthlyFeeRate,
-                    0m,
-                    monthlyFeeRate,
+                    grossMonthlyFeeRate,
+                    recurringMonthlyConcession,
+                    netMonthlyFeeRate,
                     0m,
                     balanceDue,
                     null,
@@ -634,7 +688,7 @@ public class FeesController : ControllerBase
             student.EmergencyContactPhone,
             student.Address,
             student.ProfilePhoto,
-            monthlyFeeRate,
+            netMonthlyFeeRate > 0 ? netMonthlyFeeRate : grossMonthlyFeeRate,
             sessionName,
             tenant?.Name ?? "Institute Management ERP",
             tenant?.Address ?? "",
@@ -943,7 +997,8 @@ public class FeesController : ControllerBase
                         else
                         {
                             decimal remainingInvAlloc = allocAmt;
-                            var itemsList = inv.Items.ToList();
+                            var itemsList = inv.Items.Where(it => it.Amount > 0).ToList();
+                            decimal totalPositiveAmt = itemsList.Sum(it => it.Amount);
                             for (int idx = 0; idx < itemsList.Count; idx++)
                             {
                                 var it = itemsList[idx];
@@ -954,8 +1009,8 @@ public class FeesController : ControllerBase
                                 }
                                 else
                                 {
-                                    itShare = inv.TotalAmount > 0
-                                        ? Math.Round(allocAmt * (it.Amount / inv.TotalAmount), 2)
+                                    itShare = totalPositiveAmt > 0
+                                        ? Math.Round(allocAmt * (it.Amount / totalPositiveAmt), 2)
                                         : it.Amount;
                                     if (itShare > remainingInvAlloc) itShare = remainingInvAlloc;
                                 }
@@ -1149,7 +1204,8 @@ public class FeesController : ControllerBase
                 if (p.Invoice?.Items != null && p.Invoice.Items.Count > 0)
                 {
                     decimal remainingAlloc = p.AmountPaid;
-                    var itemsList = p.Invoice.Items.ToList();
+                    var itemsList = p.Invoice.Items.Where(it => it.Amount > 0).ToList();
+                    decimal totalPositiveAmt = itemsList.Sum(it => it.Amount);
                     for (int idx = 0; idx < itemsList.Count; idx++)
                     {
                         var it = itemsList[idx];
@@ -1160,8 +1216,8 @@ public class FeesController : ControllerBase
                         }
                         else
                         {
-                            itShare = p.Invoice.TotalAmount > 0
-                                ? Math.Round(p.AmountPaid * (it.Amount / p.Invoice.TotalAmount), 2)
+                            itShare = totalPositiveAmt > 0
+                                ? Math.Round(p.AmountPaid * (it.Amount / totalPositiveAmt), 2)
                                 : it.Amount;
                             if (itShare > remainingAlloc) itShare = remainingAlloc;
                         }
@@ -2194,6 +2250,30 @@ public class FeesController : ControllerBase
             // ── Automated Concession & Sibling Discount Engine ──
             decimal totalConcessionAmount = 0;
             var concessionReasons = new List<string>();
+            bool siblingConcessionApplied = false;
+
+            // Dynamic academic base: recurring academic heads configured in this student's own
+            // School Class / Coaching Batch fee matrix + system-resolved TUI / COACH heads.
+            // Residential, transport, library, fines and kit lines are never discounted here.
+            var excludedHeadIds = new HashSet<Guid>(new[] { hostelFeeHeadId, messFeeHeadId, transFeeHeadId, libFeeHeadId, attnFineFeeHead?.Id }
+                .Where(x => x.HasValue).Select(x => x!.Value));
+            var academicHeadIds = studentStructures
+                .Where(cfs => cfs.FeeHead == null || cfs.FeeHead.Frequency == "Monthly" || cfs.FeeHead.Frequency == "Quarterly")
+                .Select(cfs => cfs.FeeHeadId)
+                .Where(id => !excludedHeadIds.Contains(id))
+                .ToHashSet();
+            if (coachFeeHead != null) academicHeadIds.Add(coachFeeHead.Id);
+            if (tuiFeeHead != null) academicHeadIds.Add(tuiFeeHead.Id);
+
+            decimal GetAcademicBaseAmount()
+            {
+                var academicItems = invoiceItems.Where(it => it.Amount > 0 && it.FeeHeadId.HasValue && academicHeadIds.Contains(it.FeeHeadId.Value)).ToList();
+                if (academicItems.Any()) return academicItems.Sum(it => it.Amount);
+                // Legacy fallback for items generated without a linked fee head
+                var legacyItems = invoiceItems.Where(it => it.Amount > 0 && !it.FeeHeadId.HasValue &&
+                    !it.HeadName.StartsWith("Admission Kit", StringComparison.OrdinalIgnoreCase)).ToList();
+                return legacyItems.Any() ? legacyItems.Sum(it => it.Amount) : 0m;
+            }
 
             // 1. Explicit Student Concessions (Merit, Staff Ward, RTE, etc.)
             if (concessionsByStudent.TryGetValue(s.Id, out var studentConcessions))
@@ -2211,11 +2291,7 @@ public class FeesController : ControllerBase
                         }
                         else
                         {
-                            var tuitionItems = invoiceItems.Where(it =>
-                                it.HeadName.Contains("Tuition", StringComparison.OrdinalIgnoreCase) ||
-                                it.HeadName.Contains("School", StringComparison.OrdinalIgnoreCase) ||
-                                it.HeadName.Contains("Coaching", StringComparison.OrdinalIgnoreCase));
-                            var baseAmt = tuitionItems.Any() ? tuitionItems.Sum(it => it.Amount) : totalAmount;
+                            var baseAmt = GetAcademicBaseAmount();
                             discount = Math.Round(baseAmt * (conc.DiscountValue / 100m), 2);
                         }
                     }
@@ -2226,6 +2302,8 @@ public class FeesController : ControllerBase
 
                     if (discount > 0)
                     {
+                        if (string.Equals(conc.ConcessionType, "SiblingDiscount", StringComparison.OrdinalIgnoreCase))
+                            siblingConcessionApplied = true;
                         totalConcessionAmount += discount;
                         var label = $"{conc.Title} ({(conc.DiscountMode == "Percentage" ? $"{conc.DiscountValue}%" : $"₹{conc.DiscountValue}")})";
                         concessionReasons.Add(label);
@@ -2243,16 +2321,12 @@ public class FeesController : ControllerBase
             }
 
             // 2. Automatic Sibling Discount (if not already granted via explicit concession)
-            if (siblingLinksByStudent.TryGetValue(s.Id, out var sibLinks) && !concessionReasons.Any(r => r.Contains("Sibling", StringComparison.OrdinalIgnoreCase)))
+            if (siblingLinksByStudent.TryGetValue(s.Id, out var sibLinks) && !siblingConcessionApplied)
             {
                 var bestSibLink = sibLinks.OrderByDescending(x => x.DiscountPercent).First();
                 if (bestSibLink.DiscountPercent > 0)
                 {
-                    var tuitionItems = invoiceItems.Where(it =>
-                        it.HeadName.Contains("Tuition", StringComparison.OrdinalIgnoreCase) ||
-                        it.HeadName.Contains("School", StringComparison.OrdinalIgnoreCase) ||
-                        it.HeadName.Contains("Coaching", StringComparison.OrdinalIgnoreCase));
-                    var baseAmt = tuitionItems.Any() ? tuitionItems.Sum(it => it.Amount) : totalAmount;
+                    var baseAmt = GetAcademicBaseAmount();
                     var sibDiscount = Math.Round(baseAmt * (bestSibLink.DiscountPercent / 100m), 2);
 
                     if (sibDiscount > 0)

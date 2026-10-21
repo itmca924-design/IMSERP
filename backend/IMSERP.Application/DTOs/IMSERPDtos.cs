@@ -624,7 +624,12 @@ public record CreateStudentDto(
     bool IsIssueAdmissionKit = false,
     List<CreateStudentKitItemDto>? AdmissionKitItems = null,
     string? KitPaymentStatus = null,
-    string? KitPaymentMode = null
+    string? KitPaymentMode = null,
+    // Sibling & Family Linkage on Admission
+    Guid? LinkedSiblingStudentId = null,
+    string? SiblingRelationship = null,
+    decimal? SiblingDiscountPercent = null,
+    string? SiblingDiscountNotes = null
 );
 
 public record CreateStudentKitItemDto(
@@ -5443,7 +5448,10 @@ public record SiblingCandidateSearchDto(
     string? ParentName,
     string? ParentPhone,
     string? Gender,
-    string? ProfilePhoto
+    string? ProfilePhoto,
+    string? BatchName = null,
+    bool IsSchoolStudent = false,
+    bool IsCoachingStudent = false
 );
 
 // =========================================================================

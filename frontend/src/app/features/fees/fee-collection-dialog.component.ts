@@ -46,6 +46,8 @@ export interface FeeCollectionItemRow {
   payingAmount: number;
   invoiceId?: string;
   invoiceTitle?: string;
+  concessionAmount?: number;
+  concessionLabel?: string;
 }
 
 export interface AdvanceMonthOption {
@@ -178,6 +180,9 @@ export interface AdvanceMonthOption {
                       <span class="head-invoice-sub" *ngIf="row.invoiceTitle">
                         <mat-icon class="mini-inv-icon">receipt_long</mat-icon>
                         {{ row.invoiceTitle }}
+                      </span>
+                      <span class="head-concession-pill" *ngIf="row.concessionAmount && row.concessionAmount > 0">
+                        🎁 {{ row.concessionLabel || 'Sibling Concession' }}: -₹{{ row.concessionAmount | number:'1.2-2' }} Applied
                       </span>
                     </div>
                   </td>
@@ -769,6 +774,20 @@ export interface AdvanceMonthOption {
               height: 13px;
               color: #94a3b8;
             }
+          }
+
+          .head-concession-pill {
+            font-size: 0.72rem;
+            color: #047857;
+            background: #ecfdf5;
+            border: 1px solid #a7f3d0;
+            border-radius: 4px;
+            padding: 1px 6px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            width: fit-content;
           }
 
           .head-stream-badge {
@@ -1593,20 +1612,36 @@ export class FeeCollectionDialogComponent implements OnInit {
   get recurringTuitionItems(): FeeCollectionItemRow[] {
     return this.itemRows.filter(r => {
       const name = r.headName.toLowerCase();
-      return name.includes('tuition') || name.includes('monthly') || name.includes('coaching fee') ||
-             name.includes('transport') || name.includes('bus') || name.includes('van');
+      // Exclude one-time, kit, fines, and annual heads
+      const isNonRecurring = name.includes('admission') || name.includes('registration') || 
+                             name.includes('annual') || name.includes('uniform') || 
+                             name.includes('kit') || name.includes('dress') || 
+                             name.includes('book') || name.includes('stationery') ||
+                             name.includes('fine') || name.includes('penalty') || 
+                             name.includes('one-time');
+      if (isNonRecurring) return false;
+
+      // Include all recurring monthly heads (Tuition, Coaching, Computer, Lab, Smart Class, Transport, Bus, Van, or general monthly fees)
+      return name.includes('tuition') || name.includes('monthly') || name.includes('coaching') ||
+             name.includes('computer') || name.includes('lab') || name.includes('smart class') ||
+             name.includes('transport') || name.includes('bus') || name.includes('van') ||
+             name.includes('fee');
     });
   }
 
   get detectedMonthlyRate(): number {
     const tuitionItems = this.recurringTuitionItems;
     if (tuitionItems.length > 0) {
-      return tuitionItems.reduce((sum, it) => sum + it.amount, 0);
+      return tuitionItems.reduce((sum, it) => {
+        const netAmt = it.concessionAmount ? Math.max(0, it.amount - it.concessionAmount) : it.amount;
+        return sum + netAmt;
+      }, 0);
     }
     if (this.itemRows.length === 1) {
       const name = this.itemRows[0].headName.toLowerCase();
       if (!name.includes('admission') && !name.includes('registration') && !name.includes('uniform') && !name.includes('book')) {
-        return this.itemRows[0].amount;
+        const row = this.itemRows[0];
+        return row.concessionAmount ? Math.max(0, row.amount - row.concessionAmount) : row.amount;
       }
     }
     return 0;
@@ -1632,6 +1667,68 @@ export class FeeCollectionDialogComponent implements OnInit {
     @Inject(MAT_DIALOG_DATA) public data: FeeDialogData
   ) {}
 
+  buildReconciledRows(
+    rawItems: { id: string; headName: string; amount: number; paidAmount: number }[],
+    invoiceId?: string,
+    invoiceTitle?: string
+  ): FeeCollectionItemRow[] {
+    if (!rawItems || rawItems.length === 0) return [];
+
+    // Separate positive fee heads from negative concession / discount heads
+    const positiveItems = rawItems.filter(it => it.amount > 0);
+    const concessionItems = rawItems.filter(it => it.amount < 0 || it.headName.toLowerCase().includes('concession') || it.headName.toLowerCase().includes('sibling discount'));
+
+    const totalConcession = concessionItems.reduce((sum, it) => sum + Math.abs(it.amount < 0 ? it.amount : 0), 0);
+    const concessionLabel = concessionItems.map(it => it.headName.replace(/^🎁\s*/, '')).join(', ');
+
+    const academicItems = positiveItems.filter(it => {
+      const lowerName = it.headName.toLowerCase();
+      return lowerName.includes('tuition') || lowerName.includes('coaching') || lowerName.includes('monthly') ||
+             (!lowerName.includes('kit') && !lowerName.includes('hostel') && !lowerName.includes('mess') && !lowerName.includes('transport') && !lowerName.includes('fine'));
+    });
+    const totalAcademicPositive = academicItems.reduce((sum, it) => sum + it.amount, 0);
+
+    let remainingConcession = totalConcession;
+
+    return positiveItems.map((it, idx) => {
+      let allocatedConcession = 0;
+      const lowerName = it.headName.toLowerCase();
+      const isAcademic = lowerName.includes('tuition') || lowerName.includes('coaching') || lowerName.includes('monthly') ||
+                         (!lowerName.includes('kit') && !lowerName.includes('hostel') && !lowerName.includes('mess') && !lowerName.includes('transport') && !lowerName.includes('fine'));
+
+      if (remainingConcession > 0 && isAcademic && totalAcademicPositive > 0) {
+        // Distribute proportionally across all positive academic heads so discounts match percentages identically
+        const isLastAcademic = academicItems.indexOf(it) === academicItems.length - 1;
+        if (isLastAcademic) {
+          allocatedConcession = Math.min(remainingConcession, it.amount);
+        } else {
+          allocatedConcession = Math.round(Math.min(remainingConcession, totalConcession * (it.amount / totalAcademicPositive)) * 100) / 100;
+        }
+        remainingConcession = Math.max(0, Math.round((remainingConcession - allocatedConcession) * 100) / 100);
+      } else if (remainingConcession > 0 && idx === positiveItems.length - 1) {
+        allocatedConcession = Math.min(remainingConcession, it.amount);
+        remainingConcession = Math.max(0, Math.round((remainingConcession - allocatedConcession) * 100) / 100);
+      }
+
+      const netHeadTotal = Math.max(0, it.amount - allocatedConcession);
+      const due = Math.max(0, netHeadTotal - it.paidAmount);
+
+      return {
+        id: it.id,
+        invoiceId: invoiceId,
+        invoiceTitle: invoiceTitle,
+        headName: it.headName,
+        amount: it.amount,
+        paidAmount: it.paidAmount,
+        dueAmount: due,
+        selected: due > 0,
+        payingAmount: due,
+        concessionAmount: allocatedConcession,
+        concessionLabel: allocatedConcession > 0 ? (concessionLabel || 'Sibling Concession') : undefined
+      };
+    });
+  }
+
   ngOnInit(): void {
     // The actual invoice-level outstanding due (ground truth from server)
     const invoiceDue = this.data.totalOutstandingDue > 0 ? this.data.totalOutstandingDue : 0;
@@ -1640,18 +1737,7 @@ export class FeeCollectionDialogComponent implements OnInit {
       : (invoiceDue > 0 ? invoiceDue : 0);
 
     if (this.data.items && this.data.items.length > 0) {
-      this.itemRows = this.data.items.map(it => {
-        const due = Math.max(0, it.amount - it.paidAmount);
-        return {
-          id: it.id,
-          headName: it.headName,
-          amount: it.amount,
-          paidAmount: it.paidAmount,
-          dueAmount: due,
-          selected: due > 0,
-          payingAmount: due
-        };
-      });
+      this.itemRows = this.buildReconciledRows(this.data.items, undefined, this.data.invoiceTitle);
 
       // Sum of all item-level dues as reported by server
       const itemsDueSum = this.itemRows.reduce((sum, r) => sum + r.dueAmount, 0);
@@ -1667,10 +1753,10 @@ export class FeeCollectionDialogComponent implements OnInit {
         for (const row of this.itemRows) {
           if (remaining <= 0) break;
           // Items that are not yet fully paid at invoice level
-          const headCapacity = Math.max(0, row.amount - row.paidAmount);
+          const headCapacity = Math.max(0, (row.amount - (row.concessionAmount || 0)) - row.paidAmount);
           // Re-derive: treat items proportionally if item paidAmount=0 (old invoices)
           // Use item total as capacity if no paidAmount tracked
-          const capacity = headCapacity > 0 ? headCapacity : row.amount;
+          const capacity = headCapacity > 0 ? headCapacity : Math.max(0, row.amount - (row.concessionAmount || 0));
           if (capacity <= 0) continue;
           const allocate = Math.round(Math.min(remaining, capacity) * 100) / 100;
           row.dueAmount = allocate;
@@ -1990,20 +2076,10 @@ export class FeeCollectionDialogComponent implements OnInit {
         const unifiedRows: FeeCollectionItemRow[] = [];
         for (const inv of dueSlip.dueItems) {
           if (inv.breakdown && inv.breakdown.length > 0) {
-            for (const it of inv.breakdown) {
-              const due = Math.max(0, it.amount - it.paidAmount);
-              if (due > 0) {
-                unifiedRows.push({
-                  id: it.id,
-                  invoiceId: inv.invoiceId,
-                  invoiceTitle: inv.title,
-                  headName: it.headName,
-                  amount: it.amount,
-                  paidAmount: it.paidAmount,
-                  dueAmount: due,
-                  selected: true,
-                  payingAmount: due
-                });
+            const rowsForInv = this.buildReconciledRows(inv.breakdown, inv.invoiceId, inv.title);
+            for (const r of rowsForInv) {
+              if (r.dueAmount > 0 || r.selected) {
+                unifiedRows.push(r);
               }
             }
           } else if (inv.dueAmount > 0) {

@@ -1612,7 +1612,8 @@ const API_BASE = environment.apiBaseUrl;
                           <div class="cand-details">
                             <div class="cand-name">{{ c.studentName }}</div>
                             <div class="cand-meta">
-                              <span *ngIf="c.className">Class {{ c.className }}</span>
+                               <span *ngIf="c.className">Class {{ c.className }}</span>
+                               <span *ngIf="c.batchName"><span *ngIf="c.className"> &bull; </span>Batch {{ c.batchName }}</span>
                               <span *ngIf="c.admissionNumber"> &bull; Adm: {{ c.admissionNumber }}</span>
                               <span *ngIf="c.parentPhone"> &bull; 📞 {{ c.parentPhone }}</span>
                             </div>
@@ -1631,7 +1632,7 @@ const API_BASE = environment.apiBaseUrl;
                         <div>
                           <strong style="color: #15803d; font-size: 0.88rem;">{{ selectedSiblingCandidate.studentName }}</strong>
                           <span style="color:#475569; font-size:12px; margin-left:8px;">
-                            ({{ selectedSiblingCandidate.className || 'General' }} &bull; Adm: {{ selectedSiblingCandidate.admissionNumber || 'N/A' }})
+                            ({{ selectedSiblingCandidate.className ? 'Class ' + selectedSiblingCandidate.className : '' }}{{ selectedSiblingCandidate.className && selectedSiblingCandidate.batchName ? ' • ' : '' }}{{ selectedSiblingCandidate.batchName ? 'Batch ' + selectedSiblingCandidate.batchName : '' }}{{ !selectedSiblingCandidate.className && !selectedSiblingCandidate.batchName ? 'No class/batch' : '' }} &bull; Adm: {{ selectedSiblingCandidate.admissionNumber || 'N/A' }})
                           </span>
                         </div>
                       </div>

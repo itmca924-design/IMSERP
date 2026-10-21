@@ -138,12 +138,23 @@ export class CoachingService {
     isFound: boolean;
     isDuplicate: boolean;
     isSibling: boolean;
+    studentId?: string | null;
     studentName: string | null;
     parentName: string | null;
     motherName?: string | null;
     address?: string | null;
+    gender?: string | null;
+    isSchoolStudent?: boolean;
+    isCoachingStudent?: boolean;
+    className?: string | null;
+    sectionName?: string | null;
     batchName: string | null;
     branchName: string | null;
+    existingFamilyDiscountPercent?: number;
+    isAlreadyLinked?: boolean;
+    linkedDiscountPercent?: number | null;
+    linkedRelationship?: string | null;
+    linkedNotes?: string | null;
   }> {
     const params: any = { phone };
     if (excludeStudentId) params.excludeStudentId = excludeStudentId;
@@ -498,6 +509,9 @@ export interface SiblingCandidateSearchDto {
   parentPhone?: string | null;
   gender?: string | null;
   profilePhoto?: string | null;
+  batchName?: string | null;
+  isSchoolStudent?: boolean;
+  isCoachingStudent?: boolean;
 }
 
 export interface ResequenceRollNumbersRequestDto {

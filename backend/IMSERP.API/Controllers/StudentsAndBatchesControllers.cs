@@ -1597,6 +1597,58 @@ public class StudentsController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>
+    /// Creates or updates the sibling linkage chosen in the admission / edit form.
+    /// Discount is stored on the link where StudentId = this student, so the invoice engine
+    /// applies it to this student's School + Coaching academic fees.
+    /// </summary>
+    private async Task UpsertSiblingLinkFromFormAsync(Student student, CreateStudentDto dto)
+    {
+        if (!dto.LinkedSiblingStudentId.HasValue || dto.LinkedSiblingStudentId.Value == Guid.Empty) return;
+        if (dto.LinkedSiblingStudentId.Value == student.Id) return;
+
+        var siblingExists = await _dbContext.Students.AsNoTracking()
+            .AnyAsync(s => s.Id == dto.LinkedSiblingStudentId.Value && s.TenantId == _currentUser.TenantId);
+        if (!siblingExists) return;
+
+        var discount = Math.Clamp(dto.SiblingDiscountPercent ?? 0m, 0m, 100m);
+        var relationship = string.IsNullOrWhiteSpace(dto.SiblingRelationship) ? null : dto.SiblingRelationship.Trim();
+        var notes = string.IsNullOrWhiteSpace(dto.SiblingDiscountNotes) ? null : dto.SiblingDiscountNotes.Trim();
+
+        var existingLink = await _dbContext.StudentSiblings.FirstOrDefaultAsync(l =>
+            (l.StudentId == student.Id && l.SiblingStudentId == dto.LinkedSiblingStudentId.Value) ||
+            (l.StudentId == dto.LinkedSiblingStudentId.Value && l.SiblingStudentId == student.Id));
+
+        if (existingLink != null)
+        {
+            // Keep the discount on this student's side of the link
+            if (existingLink.StudentId != student.Id)
+            {
+                existingLink.SiblingStudentId = existingLink.StudentId;
+                existingLink.StudentId = student.Id;
+            }
+            existingLink.DiscountPercent = discount;
+            if (relationship != null) existingLink.Relationship = relationship;
+            if (notes != null) existingLink.Notes = notes;
+            existingLink.BranchId ??= student.BranchId;
+            return;
+        }
+
+        var link = new StudentSibling
+        {
+            Id = Guid.NewGuid(),
+            TenantId = _currentUser.TenantId,
+            BranchId = student.BranchId ?? _currentUser.BranchId,
+            StudentId = student.Id,
+            SiblingStudentId = dto.LinkedSiblingStudentId.Value,
+            DiscountPercent = discount,
+            Notes = notes,
+            CreatedAt = DateTime.UtcNow
+        };
+        if (relationship != null) link.Relationship = relationship;
+        _dbContext.StudentSiblings.Add(link);
+    }
+
     [HttpGet("check-phone")]
     public async Task<IActionResult> CheckPhoneDuplicate(
         [FromQuery] string phone, 
@@ -1625,10 +1677,16 @@ public class StudentsController : ControllerBase
         var existing = await query
             .Select(s => new
             {
+                s.Id,
                 s.StudentName,
                 s.ParentName,
                 s.MotherName,
                 s.Address,
+                s.Gender,
+                s.IsSchoolStudent,
+                s.IsCoachingStudent,
+                ClassName = s.Class != null ? s.Class.Name : null,
+                SectionName = s.Section != null ? s.Section.Name : null,
                 BatchName = s.Batch != null ? s.Batch.Name : "",
                 BranchName = s.Branch != null ? s.Branch.Name : (s.Batch != null && s.Batch.Branch != null ? s.Batch.Branch.Name : "")
             })
@@ -1639,17 +1697,44 @@ public class StudentsController : ControllerBase
             var isSameStudent = !string.IsNullOrWhiteSpace(currentStudentName)
                 && string.Equals(existing.StudentName.Trim(), currentStudentName.Trim(), StringComparison.OrdinalIgnoreCase);
 
+            // Family discount already configured for this sibling group (tenant data, not hardcoded)
+            var familyDiscount = await _dbContext.StudentSiblings.AsNoTracking()
+                .Where(l => l.TenantId == tenantId && (l.StudentId == existing.Id || l.SiblingStudentId == existing.Id))
+                .Select(l => (decimal?)l.DiscountPercent)
+                .MaxAsync() ?? 0m;
+
+            // Already linked with the student being edited? Return that link's own saved values.
+            var existingLink = (excludeStudentId.HasValue && excludeStudentId != Guid.Empty)
+                ? await _dbContext.StudentSiblings.AsNoTracking()
+                    .Where(l => (l.StudentId == excludeStudentId.Value && l.SiblingStudentId == existing.Id) ||
+                                (l.StudentId == existing.Id && l.SiblingStudentId == excludeStudentId.Value))
+                    .Select(l => new { l.DiscountPercent, l.Relationship, l.Notes })
+                    .FirstOrDefaultAsync()
+                : null;
+            var alreadyLinked = existingLink != null;
+
             return Ok(new
             {
                 isFound = true,
                 isDuplicate = isSameStudent,
                 isSibling = !isSameStudent,
+                studentId = existing.Id,
                 studentName = existing.StudentName,
                 parentName = existing.ParentName,
                 motherName = existing.MotherName,
                 address = existing.Address,
+                gender = existing.Gender,
+                isSchoolStudent = existing.IsSchoolStudent,
+                isCoachingStudent = existing.IsCoachingStudent,
+                className = existing.ClassName,
+                sectionName = existing.SectionName,
                 batchName = existing.BatchName,
-                branchName = existing.BranchName
+                branchName = existing.BranchName,
+                existingFamilyDiscountPercent = familyDiscount,
+                isAlreadyLinked = alreadyLinked,
+                linkedDiscountPercent = existingLink?.DiscountPercent,
+                linkedRelationship = existingLink?.Relationship,
+                linkedNotes = existingLink?.Notes
             });
         }
 
@@ -1658,12 +1743,20 @@ public class StudentsController : ControllerBase
             isFound = false,
             isDuplicate = false,
             isSibling = false,
+            studentId = (Guid?)null,
             studentName = (string?)null,
             parentName = (string?)null,
             motherName = (string?)null,
             address = (string?)null,
+            gender = (string?)null,
+            isSchoolStudent = false,
+            isCoachingStudent = false,
+            className = (string?)null,
+            sectionName = (string?)null,
             batchName = (string?)null,
-            branchName = (string?)null
+            branchName = (string?)null,
+            existingFamilyDiscountPercent = 0m,
+            isAlreadyLinked = false
         });
     }
 
@@ -2099,6 +2192,10 @@ public class StudentsController : ControllerBase
                 await _dbContext.SaveChangesAsync();
             }
 
+            // ── Sibling & Family Linkage chosen on Admission (School + Coaching) ──
+            await UpsertSiblingLinkFromFormAsync(student, dto);
+            await _dbContext.SaveChangesAsync();
+
             await transaction.CommitAsync();
 
             var branchName = student.BranchId.HasValue
@@ -2352,6 +2449,9 @@ public class StudentsController : ControllerBase
                         : $"{outward.Remarks} (Pending bundling in student fee invoice)";
                 }
             }
+
+            // ── Sibling & Family Linkage chosen on Edit ──
+            await UpsertSiblingLinkFromFormAsync(student, dto);
 
             await _dbContext.SaveChangesAsync();
 
@@ -4121,10 +4221,12 @@ public class StudentsController : ControllerBase
             .AsNoTracking()
             .Include(s => s.Class)
             .Include(s => s.Section)
+            .Include(s => s.Batch)
             .Where(s => s.IsActive &&
                 (!excludeStudentId.HasValue || s.Id != excludeStudentId.Value) &&
                 (s.StudentName.ToLower().Contains(q) ||
                  (s.AdmissionNumber != null && s.AdmissionNumber.ToLower().Contains(q)) ||
+                 (s.CoachingRollNumber != null && s.CoachingRollNumber.ToLower().Contains(q)) ||
                  (s.ParentWhatsAppPhone != null && s.ParentWhatsAppPhone.Contains(q)) ||
                  (s.ParentName != null && s.ParentName.ToLower().Contains(q))))
             .Take(15)
@@ -4134,12 +4236,15 @@ public class StudentsController : ControllerBase
                 s.AdmissionNumber,
                 s.Class != null ? s.Class.Name : null,
                 s.Section != null ? s.Section.Name : null,
-                s.RollNumber,
+                s.CoachingRollNumber ?? s.RollNumber,
                 s.SchoolRollNumber,
                 s.ParentName,
                 s.ParentWhatsAppPhone,
                 s.Gender,
-                s.ProfilePhoto
+                s.ProfilePhoto,
+                s.Batch != null ? s.Batch.Name : null,
+                s.IsSchoolStudent,
+                s.IsCoachingStudent
             ))
             .ToListAsync();
 

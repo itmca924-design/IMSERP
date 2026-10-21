@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, signal, effect, ViewChild, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, effect, ViewChild, ElementRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
@@ -192,9 +192,12 @@ import { environment } from '../../environments/environment';
               <span class="install-text">Install App</span>
             </button>
 
-            <div class="header-search" [class.open]="headerSearchFocused">
-              <mat-icon>search</mat-icon>
-              <input type="search" placeholder="Search pages" [value]="headerSearch" (input)="onHeaderSearch($event)" (focus)="onSearchFocus()" (blur)="closeHeaderSearch()" aria-label="Search pages">
+            <div class="header-search" [class.open]="headerSearchFocused" (click)="openAndFocusSearch()">
+              <mat-icon class="search-icon" (click)="toggleSearch($event)">search</mat-icon>
+              <input #headerSearchInput type="search" placeholder="Search pages..." [value]="headerSearch" (input)="onHeaderSearch($event)" (focus)="onSearchFocus()" (blur)="closeHeaderSearch()" aria-label="Search pages">
+              <button *ngIf="headerSearchFocused" type="button" class="search-clear-btn" (mousedown)="$event.preventDefault()" (click)="closeHeaderSearchImmediate($event)" aria-label="Close search">
+                <mat-icon>close</mat-icon>
+              </button>
               <div class="search-results" *ngIf="headerSearchFocused && headerSearchResults.length > 0">
                 <a *ngFor="let result of headerSearchResults" [routerLink]="result.route" (mousedown)="$event.preventDefault()" (click)="headerSearch = ''; headerSearchFocused = false">
                   <mat-icon>{{ result.icon }}</mat-icon><span>{{ result.title }}</span>
@@ -875,12 +878,36 @@ import { environment } from '../../environments/environment';
       padding: 0 14px;
       flex-shrink: 0;
       z-index: 10;
-      overflow: visible;
+      overflow: visible !important;
       flex-wrap: nowrap;
+      width: 100%;
+      box-sizing: border-box;
+      position: relative;
+
+      @media (max-width: 900px) {
+        padding: 0 10px;
+        gap: 4px;
+      }
 
       @media (max-width: 600px) {
-        padding: 0 6px;
-        gap: 3px;
+        padding: 0 4px !important;
+        gap: 2px !important;
+
+        .menu-toggle-btn {
+          width: 36px !important;
+          height: 36px !important;
+          line-height: 36px !important;
+          padding: 0 !important;
+          min-width: 36px !important;
+        }
+
+        .header-tool-button {
+          width: 34px !important;
+          height: 34px !important;
+          line-height: 34px !important;
+          padding: 0 !important;
+          min-width: 34px !important;
+        }
       }
 
       .menu-toggle-btn {
@@ -929,6 +956,16 @@ import { environment } from '../../environments/environment';
             display: none;
           }
         }
+
+        @media (max-width: 600px) {
+          display: none !important;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .active-users-pill-btn {
+          display: none !important;
+        }
       }
 
       .offline-pill {
@@ -968,39 +1005,107 @@ import { environment } from '../../environments/environment';
       background: rgba(255,255,255,.12);
       transition: width 180ms ease, background 180ms ease;
       flex-shrink: 0;
+      cursor: pointer;
+
+      .search-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        color: inherit;
+        flex-shrink: 0;
+      }
 
       @media (max-width: 800px) {
         width: 34px;
-        padding: 0 8px;
+        height: 34px;
+        padding: 0;
+        justify-content: center;
+        border-radius: 50%;
         input {
           display: none;
         }
       }
     }
     .header-search.open {
-      width: 230px;
-      background: #fff;
+      width: 260px;
+      background: #ffffff;
       color: #334155;
+      cursor: default;
 
       @media (max-width: 600px) {
         position: absolute;
-        left: 50px;
-        right: 50px;
-        width: auto;
-        z-index: 50;
+        left: 8px;
+        right: 8px;
+        width: auto !important;
+        z-index: 100;
+        border-radius: 10px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+        padding: 0 12px;
       }
       input {
         display: block !important;
+        color: #0f172a;
       }
     }
-    .header-search > mat-icon { font-size:18px; width:18px; height:18px; color:inherit; flex-shrink: 0; }
     .header-search input { width:100%; border:0; outline:0; background:transparent; color:inherit; font:inherit; font-size:.78rem; }
     .header-search input::placeholder { color:rgba(255,255,255,.82); }
     .header-search.open input::placeholder { color:#94a3b8; }
-    .search-results { position:absolute; top:40px; left:0; right:0; z-index:20; padding:5px; background:#fff; border:1px solid #e2e8f0; border-radius:8px; box-shadow:0 8px 22px rgba(15,23,42,.16); }
-    .search-results a { display:flex; align-items:center; gap:8px; padding:8px; border-radius:5px; color:#334155; text-decoration:none; font-size:.78rem; }
+
+    .search-clear-btn {
+      width: 22px;
+      height: 22px;
+      border: none;
+      background: #e2e8f0;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      cursor: pointer;
+      color: #475569;
+      flex-shrink: 0;
+      transition: background 0.15s ease;
+
+      mat-icon {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
+        line-height: 14px;
+      }
+
+      &:hover {
+        background: #cbd5e1;
+        color: #0f172a;
+      }
+    }
+
+    .search-results {
+      position: absolute;
+      top: 42px;
+      left: 0;
+      right: 0;
+      z-index: 200;
+      padding: 6px;
+      background: #ffffff;
+      border: 1px solid #bfdbfe;
+      border-radius: 8px;
+      box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.25), 0 8px 10px -6px rgba(15, 23, 42, 0.1);
+      max-height: 340px;
+      overflow-y: auto;
+    }
+    .search-results a {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 6px;
+      color: #334155;
+      text-decoration: none;
+      font-size: 0.8rem;
+      transition: background 0.12s ease;
+    }
     .search-results a:hover { background:#eff6ff; color:#2563eb; }
-    .search-results mat-icon { font-size:18px; width:18px; height:18px; color:#2563eb; }
+    .search-results mat-icon { font-size:18px; width:18px; height:18px; color:#2563eb; flex-shrink: 0; }
     .header-tool-button { position:relative; color:#fff; flex-shrink: 0; }
     .notification-dot { position:absolute; top:9px; right:9px; width:6px; height:6px; border-radius:50%; background:#fbbf24; border:1px solid #3f51b5; }
     .chat-unread-badge {
@@ -1474,6 +1579,17 @@ import { environment } from '../../environments/environment';
           gap: 4px;
         }
       }
+
+      @media (max-width: 480px) {
+        height: 32px;
+        padding: 0 4px !important;
+        margin-right: 2px;
+        min-width: 30px;
+
+        .branch-name-short {
+          display: none !important;
+        }
+      }
     }
 
     .branch-locked-badge {
@@ -1519,6 +1635,16 @@ import { environment } from '../../environments/environment';
         height: 14px;
         color: #e2e8f0;
         opacity: 0.85;
+      }
+
+      @media (max-width: 480px) {
+        height: 32px;
+        padding: 0 6px !important;
+        margin-right: 2px;
+
+        .branch-name-short {
+          display: none !important;
+        }
       }
     }
 
@@ -1575,6 +1701,28 @@ import { environment } from '../../environments/environment';
       align-items: center !important;
       justify-content: center !important;
       transition: transform 0.15s ease, background-color 0.15s ease;
+      flex-shrink: 0 !important;
+      width: 40px;
+      height: 40px;
+      min-width: 40px;
+
+      @media (max-width: 600px) {
+        margin-left: 2px !important;
+        width: 34px !important;
+        height: 34px !important;
+        min-width: 34px !important;
+
+        .header-avatar-circle {
+          width: 30px !important;
+          height: 30px !important;
+        }
+
+        .account-icon {
+          font-size: 24px !important;
+          width: 24px !important;
+          height: 24px !important;
+        }
+      }
 
       &:hover {
         transform: scale(1.08);
@@ -1999,8 +2147,33 @@ export class LayoutComponent implements OnInit {
       : this.permittedSearchablePages.slice(0, 6);
   }
 
+  @ViewChild('headerSearchInput') headerSearchInput?: ElementRef<HTMLInputElement>;
+
+  openAndFocusSearch(): void {
+    if (this.headerSearchFocused) return;
+    this.headerSearchFocused = true;
+    this.onSearchFocus();
+    setTimeout(() => {
+      this.headerSearchInput?.nativeElement?.focus();
+    }, 50);
+  }
+
+  toggleSearch(event: MouseEvent): void {
+    if (!this.headerSearchFocused) {
+      event.stopPropagation();
+      this.openAndFocusSearch();
+    }
+  }
+
+  closeHeaderSearchImmediate(event: MouseEvent): void {
+    event.stopPropagation();
+    this.headerSearch = '';
+    this.headerSearchFocused = false;
+    this.headerSearchInput?.nativeElement?.blur();
+  }
+
   closeHeaderSearch(): void {
-    setTimeout(() => this.headerSearchFocused = false, 200);
+    setTimeout(() => this.headerSearchFocused = false, 250);
   }
 
   loadHeaderBranches(): void {

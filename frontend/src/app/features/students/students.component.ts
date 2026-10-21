@@ -576,7 +576,7 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
             <div class="phone-address-row full-span">
               <div class="phone-field-wrap">
                 <mat-form-field appearance="outline" class="full-width-field" [class.sibling-field-active]="!!siblingInfo">
-                  <mat-label>Parent WhatsApp Phone Number (Optional)</mat-label>
+                  <mat-label>Parent WhatsApp Number</mat-label>
                   <span matPrefix class="phone-prefix">+91&nbsp;</span>
                   <input
                     matInput
@@ -589,6 +589,7 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                   <mat-icon matSuffix color="primary" *ngIf="!phoneCheckLoading && !siblingInfo">chat</mat-icon>
                   <mat-icon matSuffix class="sibling-suffix-icon" [class.warning]="!isParentNameMatching" *ngIf="!phoneCheckLoading && siblingInfo" [matTooltip]="isParentNameMatching ? 'Family / Sibling Linked' : 'Different Parent Name'">{{ isParentNameMatching ? 'family_restroom' : 'warning_amber' }}</mat-icon>
                   <mat-spinner matSuffix diameter="18" *ngIf="phoneCheckLoading" style="margin-right:6px"></mat-spinner>
+                  <mat-hint>Optional WhatsApp contact number</mat-hint>
                   <mat-error *ngIf="studentForm.get('parentWhatsAppPhone')?.hasError('duplicate')">
                     {{ phoneDuplicateError }}
                   </mat-error>
@@ -640,6 +641,10 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                           <mat-icon>domain</mat-icon>
                           <span>Branch: {{ siblingInfo.branchName }}</span>
                         </span>
+                        <span class="sibling-tag class" *ngIf="siblingInfo.className">
+                          <mat-icon>class</mat-icon>
+                          <span>Class: {{ siblingInfo.className }}{{ siblingInfo.sectionName ? ' - ' + siblingInfo.sectionName : '' }}</span>
+                        </span>
                         <span class="sibling-tag batch" *ngIf="siblingInfo.batchName">
                           <mat-icon>school</mat-icon>
                           <span>Batch: {{ siblingInfo.batchName }}</span>
@@ -648,6 +653,50 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                           <mat-icon>home</mat-icon>
                           <span>Address: {{ siblingInfo.address }}</span>
                         </span>
+                      </div>
+
+                      <!-- Sibling Link & Family Concession (saved with admission) -->
+                      <div class="sibling-link-panel" *ngIf="siblingInfo.studentId">
+                        <mat-checkbox formControlName="linkSibling" color="primary">
+                          <span class="link-chk-label">
+                            {{ siblingInfo.isAlreadyLinked ? 'Linked as sibling with' : 'Link as sibling with' }}
+                            <strong>{{ siblingInfo.studentName }}</strong> &amp; apply family concession
+                          </span>
+                        </mat-checkbox>
+
+                        <div class="sibling-link-grid" *ngIf="studentForm.value.linkSibling">
+                          <mat-form-field appearance="outline">
+                            <mat-label>{{ siblingInfo.studentName }} is</mat-label>
+                            <mat-select formControlName="siblingRelationship">
+                              <mat-option *ngFor="let r of siblingRelationshipOptions" [value]="r">{{ r }}</mat-option>
+                            </mat-select>
+                          </mat-form-field>
+
+                          <mat-form-field appearance="outline">
+                            <mat-label>Sibling Concession (%)</mat-label>
+                            <input matInput type="number" formControlName="siblingDiscountPercent" min="0" max="100" />
+                            <span matSuffix class="pct-suffix">%</span>
+                            <mat-hint *ngIf="siblingInfo.existingFamilyDiscountPercent && !siblingInfo.isAlreadyLinked">
+                              Family's existing concession: {{ siblingInfo.existingFamilyDiscountPercent }}%
+                            </mat-hint>
+                            <mat-error *ngIf="studentForm.get('siblingDiscountPercent')?.invalid">Enter 0 – 100</mat-error>
+                          </mat-form-field>
+
+                          <mat-form-field appearance="outline" class="sibling-notes-field">
+                            <mat-label>Approval Notes (Optional)</mat-label>
+                            <input matInput formControlName="siblingDiscountNotes" />
+                          </mat-form-field>
+                        </div>
+
+                        <div class="sibling-discount-preview" *ngIf="studentForm.value.linkSibling && (studentForm.value.siblingDiscountPercent || 0) > 0">
+                          <mat-icon>local_offer</mat-icon>
+                          <span>
+                            <strong>{{ studentForm.value.siblingDiscountPercent }}%</strong> will be auto-deducted from this student's recurring
+                            {{ studentForm.value.isSchoolStudent && studentForm.value.isCoachingStudent ? 'School + Coaching' : (studentForm.value.isCoachingStudent ? 'Coaching batch' : 'School') }}
+                            academic fees in every generated invoice<ng-container *ngIf="siblingCoachingDiscountPreview as p">
+                              (Coaching batch: ₹{{ p.base | number }}/mo → <strong>−₹{{ p.discount | number:'1.0-2' }}</strong>)</ng-container>.
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -680,14 +729,14 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
             </mat-form-field>
 
             <mat-form-field appearance="outline">
-              <mat-label>UDISE+ PEN (Permanent Education No)</mat-label>
+              <mat-label>UDISE+ PEN Number</mat-label>
               <input matInput formControlName="penNumber" placeholder="e.g. 11-digit Central PEN" maxlength="20" />
               <mat-icon matSuffix color="primary">badge</mat-icon>
               <mat-hint>Central Govt UDISE+ Student ID</mat-hint>
             </mat-form-field>
 
             <mat-form-field appearance="outline">
-              <mat-label>APAAR ID (One Nation One Student ID)</mat-label>
+              <mat-label>APAAR ID</mat-label>
               <input matInput formControlName="apaarId" placeholder="e.g. 12-digit APAAR ID" maxlength="20" />
               <mat-icon matSuffix color="primary">fingerprint</mat-icon>
               <mat-hint>Ministry of Education APAAR ID</mat-hint>
@@ -721,9 +770,10 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
             </div>
 
             <mat-form-field appearance="outline">
-              <mat-label>Previous School Name (If Transfer)</mat-label>
+              <mat-label>Previous School Name</mat-label>
               <input matInput formControlName="previousSchoolName" placeholder="e.g. St. Xavier High School" />
               <mat-icon matSuffix style="color:#64748b">school</mat-icon>
+              <mat-hint>If transfer or migrated student</mat-hint>
             </mat-form-field>
 
             <mat-form-field appearance="outline">
@@ -2450,6 +2500,8 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
           display: flex;
           justify-content: space-between;
           align-items: center;
+          flex-wrap: wrap;
+          gap: 6px;
           font-weight: 700;
           font-size: 0.85rem;
           color: #15803d;
@@ -2467,6 +2519,7 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
         .sibling-action-row {
           display: flex;
           align-items: center;
+          flex-wrap: wrap;
           gap: 8px;
           margin-top: 4px;
           .btn-copy-parent { font-size: 0.75rem; height: 28px; line-height: 26px; }
@@ -2474,9 +2527,14 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
         }
         .sibling-tags {
           display: flex;
+          flex-wrap: wrap;
           gap: 6px;
           margin-top: 6px;
           .sibling-tag {
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
             font-size: 0.72rem;
             padding: 2px 6px;
             border-radius: 4px;
@@ -2486,7 +2544,36 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
             mat-icon { font-size: 13px; width: 13px; height: 13px; }
             &.branch { background: #e0f2fe; color: #0284c7; }
             &.batch { background: #f3e8ff; color: #7e22ce; }
+            &.class { background: #eff6ff; color: #1d4ed8; }
             &.address { background: #ecfdf5; color: #059669; }
+          }
+        }
+
+        .sibling-link-panel {
+          margin-top: 10px;
+          padding-top: 10px;
+          border-top: 1px dashed #bbf7d0;
+          .link-chk-label { font-size: 0.8rem; color: #14532d; white-space: normal; }
+          .sibling-link-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 10px;
+            margin-top: 8px;
+            mat-form-field { width: 100%; }
+          }
+          .pct-suffix { font-weight: 700; color: #64748b; margin-right: 8px; }
+          .sibling-discount-preview {
+            display: flex;
+            align-items: flex-start;
+            gap: 6px;
+            margin-top: 4px;
+            padding: 8px 10px;
+            border-radius: 6px;
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            font-size: 0.76rem;
+            color: #1e3a8a;
+            mat-icon { font-size: 16px; width: 16px; height: 16px; color: #2563eb; flex-shrink: 0; }
           }
         }
       }
@@ -2691,6 +2778,15 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
       .full-span {
         grid-column: span 1 !important;
       }
+      .phone-address-row {
+        grid-template-columns: 1fr !important;
+        gap: 4px;
+      }
+      .phone-field-wrap,
+      .address-field {
+        min-width: 0;
+        width: 100%;
+      }
 
       .filter-toolbar {
         padding: 12px 12px 2px 12px;
@@ -2735,6 +2831,79 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
         }
       }
     }
+
+    /* ── Form Field & Suffix Icon Resiliency Across All Breakpoints ── */
+    ::ng-deep .mat-mdc-form-field {
+      width: 100%;
+
+      .mat-mdc-floating-label {
+        font-size: 0.88rem !important;
+        white-space: nowrap !important;
+      }
+
+      .mat-mdc-form-field-icon-suffix {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        padding-right: 6px !important;
+        padding-left: 2px !important;
+        box-sizing: border-box !important;
+        flex-shrink: 0 !important;
+
+        mat-icon {
+          font-size: 20px !important;
+          width: 20px !important;
+          height: 20px !important;
+          line-height: 20px !important;
+          display: inline-flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          flex-shrink: 0 !important;
+          vertical-align: middle !important;
+        }
+
+        .sibling-suffix-icon {
+          font-size: 20px !important;
+          width: 20px !important;
+          height: 20px !important;
+          line-height: 20px !important;
+        }
+
+        .mat-mdc-progress-spinner {
+          display: inline-block !important;
+          vertical-align: middle !important;
+        }
+      }
+
+      .mat-mdc-form-field-icon-prefix {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        padding-right: 4px !important;
+        flex-shrink: 0 !important;
+      }
+    }
+
+    .phone-prefix {
+      color: #475569;
+      font-weight: 600;
+      font-size: 0.88rem;
+      user-select: none;
+      display: inline-flex;
+      align-items: center;
+      padding-right: 2px;
+    }
+
+    @media (max-width: 600px) {
+      ::ng-deep .mat-mdc-form-field {
+        .mat-mdc-floating-label {
+          font-size: 0.82rem !important;
+        }
+        input.mat-mdc-input-element {
+          font-size: 0.88rem !important;
+        }
+      }
+    }
   `]
 })
 export class StudentsComponent implements OnInit, OnDestroy {
@@ -2754,13 +2923,33 @@ export class StudentsComponent implements OnInit, OnDestroy {
   phoneCheckLoading = false;
   phoneDuplicateError = '';
   siblingInfo: {
+    studentId?: string | null;
     studentName: string | null;
     parentName: string | null;
     motherName?: string | null;
     address?: string | null;
+    gender?: string | null;
+    className?: string | null;
+    sectionName?: string | null;
     batchName: string | null;
     branchName: string | null;
+    existingFamilyDiscountPercent?: number;
+    isAlreadyLinked?: boolean;
   } | null = null;
+
+  /** Mirrors StudentSibling.Relationship domain values (backend) */
+  readonly siblingRelationshipOptions = ['Brother', 'Sister', 'Twin', 'Cousin'];
+
+  /** Live coaching-fee preview of the sibling concession using the selected batch's configured fee */
+  get siblingCoachingDiscountPreview(): { base: number; discount: number } | null {
+    const v = this.studentForm?.value;
+    if (!v?.linkSibling || !v.isCoachingStudent || !v.batchId) return null;
+    const pct = Number(v.siblingDiscountPercent) || 0;
+    const batch = this.batches.find(b => b.id === v.batchId);
+    const base = Number(batch?.standardMonthlyFee) || 0;
+    if (pct <= 0 || base <= 0) return null;
+    return { base, discount: Math.round(base * pct) / 100 };
+  }
 
   totalCount = 0;
   pageSize = 10;
@@ -2911,6 +3100,10 @@ export class StudentsComponent implements OnInit, OnDestroy {
       parentName: ['', Validators.required],
       parentWhatsAppPhone: [''],
       address: [''],
+      linkSibling: [false],
+      siblingRelationship: [''],
+      siblingDiscountPercent: [0, [Validators.min(0), Validators.max(100)]],
+      siblingDiscountNotes: [''],
       aadhaarNumber: [''],
       penNumber: [''],
       apaarId: [''],
@@ -3258,6 +3451,43 @@ export class StudentsComponent implements OnInit, OnDestroy {
     }
   }
 
+  /** Pre-fills sibling link controls from the phone-check response (all values come from the DB). */
+  private applySiblingLinkDefaults(res: {
+    studentId?: string | null;
+    gender?: string | null;
+    isAlreadyLinked?: boolean;
+    existingFamilyDiscountPercent?: number;
+    linkedDiscountPercent?: number | null;
+    linkedRelationship?: string | null;
+    linkedNotes?: string | null;
+  }): void {
+    if (!res.studentId) {
+      this.resetSiblingLinkControls();
+      return;
+    }
+    const g = (res.gender || '').toLowerCase();
+    const derivedRel = g.startsWith('f') ? 'Sister' : g.startsWith('m') ? 'Brother' : this.siblingRelationshipOptions[0];
+    const discount = res.isAlreadyLinked
+      ? (res.linkedDiscountPercent ?? 0)
+      : (res.existingFamilyDiscountPercent ?? 0);
+
+    this.studentForm.patchValue({
+      linkSibling: true,
+      siblingRelationship: res.linkedRelationship || derivedRel,
+      siblingDiscountPercent: discount,
+      siblingDiscountNotes: res.linkedNotes || ''
+    }, { emitEvent: false });
+  }
+
+  private resetSiblingLinkControls(): void {
+    this.studentForm?.patchValue({
+      linkSibling: false,
+      siblingRelationship: '',
+      siblingDiscountPercent: 0,
+      siblingDiscountNotes: ''
+    }, { emitEvent: false });
+  }
+
   // ── Photo helpers ────────────────────────────────────────
 
   triggerFileInput(): void {
@@ -3328,6 +3558,7 @@ export class StudentsComponent implements OnInit, OnDestroy {
       if (!rawDigits) {
         this.phoneDuplicateError = '';
         this.siblingInfo = null;
+        this.resetSiblingLinkControls();
         if (control.hasError('duplicate')) {
           const errors = { ...control.errors };
           delete errors['duplicate'];
@@ -3348,18 +3579,26 @@ export class StudentsComponent implements OnInit, OnDestroy {
               if (res.isDuplicate) {
                 this.phoneDuplicateError = `Duplicate Entry: "${res.studentName}" is already registered in ${res.batchName || 'another batch'}.`;
                 this.siblingInfo = null;
+                this.resetSiblingLinkControls();
                 control.setErrors({ ...control.errors, duplicate: true });
                 control.markAsTouched();
               } else {
                 this.phoneDuplicateError = '';
                 this.siblingInfo = {
+                  studentId: res.studentId,
                   studentName: res.studentName,
                   parentName: res.parentName,
                   motherName: res.motherName,
                   address: res.address,
+                  gender: res.gender,
+                  className: res.className,
+                  sectionName: res.sectionName,
                   batchName: res.batchName,
-                  branchName: res.branchName
+                  branchName: res.branchName,
+                  existingFamilyDiscountPercent: res.existingFamilyDiscountPercent,
+                  isAlreadyLinked: res.isAlreadyLinked
                 };
+                this.applySiblingLinkDefaults(res);
                 const parentCtrl = this.studentForm.get('parentName');
                 if (parentCtrl && !parentCtrl.value && res.parentName) {
                   parentCtrl.setValue(res.parentName);
@@ -3384,6 +3623,7 @@ export class StudentsComponent implements OnInit, OnDestroy {
             } else {
               this.phoneDuplicateError = '';
               this.siblingInfo = null;
+              this.resetSiblingLinkControls();
               if (control.hasError('duplicate')) {
                 const errors = { ...control.errors };
                 delete errors['duplicate'];
@@ -4185,6 +4425,10 @@ export class StudentsComponent implements OnInit, OnDestroy {
       emergencyContactPhone: formVal.emergencyContactPhone ? formVal.emergencyContactPhone.trim() : null,
       previousSchoolName: formVal.previousSchoolName ? formVal.previousSchoolName.trim() : null,
       previousBoard: formVal.previousBoard || null,
+      linkedSiblingStudentId: (formVal.linkSibling && this.siblingInfo?.studentId) ? this.siblingInfo.studentId : null,
+      siblingRelationship: (formVal.linkSibling && this.siblingInfo?.studentId) ? (formVal.siblingRelationship || null) : null,
+      siblingDiscountPercent: (formVal.linkSibling && this.siblingInfo?.studentId) ? (Number(formVal.siblingDiscountPercent) || 0) : null,
+      siblingDiscountNotes: (formVal.linkSibling && this.siblingInfo?.studentId) ? (formVal.siblingDiscountNotes?.trim() || null) : null,
       profilePhoto: this.selectedPhotoData
         ?? (this.isEditMode && this.selectedStudent?.profilePhoto ? this.selectedStudent.profilePhoto : null)
     };
