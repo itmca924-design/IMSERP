@@ -1680,24 +1680,31 @@ public class StudentsController : ControllerBase
         [FromQuery] string? stream = null, // "school", "coaching", or null for all
         [FromQuery] string? status = null) // "active", "left" / "inactive", or null / "all"
     {
-        var query = _dbContext.Students.AsNoTracking()
+        IQueryable<Student> query;
+        if (!string.IsNullOrWhiteSpace(status) && (status.Equals("left", StringComparison.OrdinalIgnoreCase) || status.Equals("inactive", StringComparison.OrdinalIgnoreCase) || status.Equals("all", StringComparison.OrdinalIgnoreCase)))
+        {
+            query = _dbContext.Students.IgnoreQueryFilters().AsNoTracking()
+                .Where(s => s.TenantId == _currentUser.TenantId && (_currentUser.BranchId == null || s.BranchId == null || s.BranchId == _currentUser.BranchId));
+            if (!status.Equals("all", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(s => !s.IsActive || s.IsDeleted);
+            }
+        }
+        else
+        {
+            query = _dbContext.Students.AsNoTracking();
+            if (!string.IsNullOrWhiteSpace(status) && status.Equals("active", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(s => s.IsActive && !s.IsDeleted);
+            }
+        }
+
+        query = query
             .Include(s => s.Batch)
             .Include(s => s.Class)
             .Include(s => s.Section)
             .Include(s => s.Branch)
             .AsQueryable();
-
-        if (!string.IsNullOrWhiteSpace(status))
-        {
-            if (status.Equals("active", StringComparison.OrdinalIgnoreCase))
-            {
-                query = query.Where(s => s.IsActive);
-            }
-            else if (status.Equals("left", StringComparison.OrdinalIgnoreCase) || status.Equals("inactive", StringComparison.OrdinalIgnoreCase))
-            {
-                query = query.Where(s => !s.IsActive);
-            }
-        }
 
         if (batchId.HasValue && batchId != Guid.Empty)
         {
@@ -1860,20 +1867,14 @@ public class StudentsController : ControllerBase
     public async Task<IActionResult> DeleteStudent(Guid id)
     {
         var student = await _dbContext.Students
-            .Include(s => s.FeeInvoices)
-                .ThenInclude(i => i.Payments)
-            .Include(s => s.FeeInvoices)
-                .ThenInclude(i => i.Items)
-            .Include(s => s.TestMarks)
-            .Include(s => s.Attendances)
-            .Include(s => s.HostelAllocations)
-            .Include(s => s.HostelGatePasses)
-            .Include(s => s.HostelAttendances)
-            .FirstOrDefaultAsync(s => s.Id == id);
+            .IgnoreQueryFilters()
+            .Include(s => s.TransportAllocation)
+            .Include(s => s.HostelBed)
+            .FirstOrDefaultAsync(s => s.Id == id && s.TenantId == _currentUser.TenantId);
 
         if (student == null) return NotFound();
 
-        // 1. Free the hostel bed: clear CurrentStudentId and reset Status
+        // 1. Free the hostel bed: clear CurrentStudentId and reset Status to Available
         if (student.HostelBedId.HasValue)
         {
             var bed = await _dbContext.HostelBeds.FindAsync(student.HostelBedId.Value);
@@ -1886,7 +1887,6 @@ public class StudentsController : ControllerBase
             student.IsHostelStudent = false;
         }
 
-        // 2. Also clear any HostelBed rows that still have CurrentStudentId = this student
         var linkedBeds = await _dbContext.HostelBeds
             .IgnoreQueryFilters()
             .Where(b => b.CurrentStudentId == id)
@@ -1897,81 +1897,49 @@ public class StudentsController : ControllerBase
             b.Status = "Available";
         }
 
-        // 3. Remove fee invoice payments and items, then invoices
-        foreach (var invoice in student.FeeInvoices)
+        // 2. Free Transport Allocation: set Status = "Discontinued" and unassign student
+        if (student.TransportAllocationId.HasValue)
         {
-            _dbContext.FeePayments.RemoveRange(invoice.Payments);
-            _dbContext.FeeInvoiceItems.RemoveRange(invoice.Items);
-        }
-        _dbContext.FeeInvoices.RemoveRange(student.FeeInvoices);
-
-        // 4. Remove test marks
-        _dbContext.TestMarks.RemoveRange(student.TestMarks);
-
-        // 5. Remove attendance records
-        _dbContext.StudentAttendances.RemoveRange(student.Attendances);
-
-        // 6. Remove hostel-related records (allocations, gate passes, hostel attendance)
-        _dbContext.HostelAllocations.RemoveRange(student.HostelAllocations);
-        _dbContext.HostelGatePasses.RemoveRange(student.HostelGatePasses);
-        _dbContext.HostelAttendances.RemoveRange(student.HostelAttendances);
-
-        // 7. Remove library circulations referencing this student
-        var circulations = await _dbContext.LibraryCirculations
-            .IgnoreQueryFilters()
-            .Where(c => c.StudentId == id)
-            .ToListAsync();
-        _dbContext.LibraryCirculations.RemoveRange(circulations);
-
-        // 8. Reverse Inventory Stock for any Outward Kit / Items issued to this student
-        var studentOutwards = await _dbContext.InventoryOutwards
-            .Include(o => o.Items)
-            .Where(o => o.StudentId == id && o.TenantId == _currentUser.TenantId)
-            .ToListAsync();
-
-        foreach (var outward in studentOutwards)
-        {
-            if (outward.PaymentStatus != "Cancelled")
+            var alloc = await _dbContext.TransportAllocations.FindAsync(student.TransportAllocationId.Value);
+            if (alloc != null)
             {
-                foreach (var lineItem in outward.Items)
-                {
-                    var invItem = await _dbContext.InventoryItems.FindAsync(lineItem.ItemId);
-                    if (invItem != null)
-                    {
-                        var stockBefore = invItem.CurrentStock;
-                        invItem.CurrentStock += lineItem.Quantity;
-                        invItem.UpdatedAt = DateTime.UtcNow;
-
-                        _dbContext.InventoryStockAdjustments.Add(new InventoryStockAdjustment
-                        {
-                            Id = Guid.NewGuid(),
-                            TenantId = _currentUser.TenantId,
-                            BranchId = outward.BranchId,
-                            ItemId = invItem.Id,
-                            AdjustmentType = "AdmissionCancelled",
-                            PreviousStock = stockBefore,
-                            AdjustedQuantity = lineItem.Quantity,
-                            NewStock = invItem.CurrentStock,
-                            Reason = $"Admission Cancelled - Restored from Kit Issue ({outward.IssueNumber}) for student {student.StudentName} ({student.AdmissionNumber ?? student.RollNumber})",
-                            AdjustedAt = DateTime.UtcNow,
-                            AdjustedBy = _currentUser.UserId
-                        });
-                    }
-                }
-
-                outward.PaymentStatus = "Cancelled";
-                outward.Remarks = string.IsNullOrWhiteSpace(outward.Remarks)
-                    ? $"[CANCELLED & STOCK RESTORED - Student Admission Revoked/Deleted ({student.StudentName})]"
-                    : $"{outward.Remarks} [CANCELLED & STOCK RESTORED - Student Admission Revoked/Deleted on {DateTime.UtcNow:yyyy-MM-dd}]";
+                alloc.Status = "Discontinued";
+                alloc.EffectiveTo = DateTime.UtcNow;
             }
-
-            // Unlink StudentId so foreign key constraint does not block student deletion, 
-            // while preserving outward record with IssuedToName for transparent audit trail!
-            outward.StudentId = null;
+            student.TransportAllocationId = null;
+            student.IsTransportStudent = false;
         }
 
-        // 9. Finally delete the student
-        _dbContext.Students.Remove(student);
+        var linkedAllocations = await _dbContext.TransportAllocations
+            .IgnoreQueryFilters()
+            .Where(a => a.StudentId == id && a.Status == "Active")
+            .ToListAsync();
+        foreach (var a in linkedAllocations)
+        {
+            a.Status = "Discontinued";
+            a.EffectiveTo = DateTime.UtcNow;
+        }
+
+        // 3. Deactivate User Login if student had a portal/app login account
+        if (student.UserId.HasValue)
+        {
+            var user = await _dbContext.Users.IgnoreQueryFilters().FirstOrDefaultAsync(u => u.Id == student.UserId.Value);
+            if (user != null)
+            {
+                user.IsActive = false;
+            }
+        }
+
+        // 4. Mark student as Soft-Deleted (Preserves FeeInvoices, FeePayments, Attendances, TestMarks, Outward Kit History for Audit)
+        student.IsDeleted = true;
+        student.IsActive = false;
+        student.DeletedAt = DateTime.UtcNow;
+        student.DeletedBy = _currentUser.UserId;
+        student.LeavingDate = DateTime.UtcNow;
+        if (string.IsNullOrWhiteSpace(student.LeavingReason))
+        {
+            student.LeavingReason = "Admission Cancelled / Deleted";
+        }
 
         await _dbContext.SaveChangesAsync();
 

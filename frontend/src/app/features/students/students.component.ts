@@ -80,21 +80,37 @@ const API_BASE = environment.apiBaseUrl;
           <p *ngIf="!authService.hasSchoolModule() && authService.hasCoachingModule()">Manage student admissions, batch enrollments, and coaching tuition records.</p>
         </div>
         <div class="header-btns">
-          <a mat-stroked-button routerLink="/students/leaves" class="leaves-link-btn" style="border-color:#cbd5e1; color:#1e40af; font-weight:600;">
-            <mat-icon style="color:#d97706;">event_busy</mat-icon> Student Leaves
-          </a>
-          <a mat-stroked-button routerLink="/students/gate-pass" class="gatepass-link-btn" style="border-color:#cbd5e1; color:#0284c7; font-weight:600;">
-            <mat-icon style="color:#0284c7;">meeting_room</mat-icon> Gate Passes
-          </a>
           <a *ngIf="authService.hasSchoolModule() && !authService.isTeacher()" mat-stroked-button routerLink="/students/promotion" class="promotion-link-btn">
-            <mat-icon>trending_up</mat-icon> Promote Students
+            <mat-icon>trending_up</mat-icon>
+            <span>Promote Students</span>
           </a>
-          <a *ngIf="authService.hasSchoolModule() && !authService.isTeacher()" mat-stroked-button routerLink="/school/classes" class="classes-link-btn">
-            <mat-icon>domain</mat-icon> Classes &amp; Sections
-          </a>
-          <button *ngIf="authService.hasSchoolModule() && !authService.isTeacher()" mat-stroked-button class="sequencer-link-btn" (click)="openRollSequencer()" style="border-color:#bfdbfe; color:#1e40af; font-weight:600; background:#eff6ff;" matTooltip="Auto-generate or re-sequence roll numbers for any class">
-            <mat-icon style="color:#2563eb;">format_list_numbered</mat-icon> Roll No. Sequencer
+
+          <!-- Quick Operations Dropdown -->
+          <button mat-stroked-button [matMenuTriggerFor]="quickActionsMenu" class="more-actions-btn" matTooltip="Student Leaves, Gate Passes, Classes &amp; Roll Sequencer">
+            <mat-icon style="color:#0284c7;">tune</mat-icon>
+            <span>More Actions</span>
+            <mat-icon style="font-size:18px; width:18px; height:18px; margin-left:2px;">arrow_drop_down</mat-icon>
           </button>
+          <mat-menu #quickActionsMenu="matMenu" class="student-quick-menu">
+            <a mat-menu-item routerLink="/students/leaves">
+              <mat-icon style="color:#d97706;">event_busy</mat-icon>
+              <span>Student Leaves</span>
+            </a>
+            <a mat-menu-item routerLink="/students/gate-pass">
+              <mat-icon style="color:#0284c7;">meeting_room</mat-icon>
+              <span>Gate Passes</span>
+            </a>
+            <mat-divider *ngIf="authService.hasSchoolModule() && !authService.isTeacher()"></mat-divider>
+            <a *ngIf="authService.hasSchoolModule() && !authService.isTeacher()" mat-menu-item routerLink="/school/classes">
+              <mat-icon style="color:#2563eb;">domain</mat-icon>
+              <span>Classes &amp; Sections</span>
+            </a>
+            <button *ngIf="authService.hasSchoolModule() && !authService.isTeacher()" mat-menu-item (click)="openRollSequencer()">
+              <mat-icon style="color:#7c3aed;">format_list_numbered</mat-icon>
+              <span>Roll No. Sequencer</span>
+            </button>
+          </mat-menu>
+
           <button *ngIf="!authService.isTeacher()" mat-raised-button color="primary" class="add-btn" (click)="toggleForm()">
             <mat-icon>{{ showForm ? 'close' : 'person_add' }}</mat-icon>
             <span>{{ showForm ? 'Cancel' : (isEditMode ? 'Edit Student' : 'New Admission') }}</span>
@@ -1210,14 +1226,53 @@ const API_BASE = environment.apiBaseUrl;
       align-items: center;
       gap: 10px;
       flex-wrap: wrap;
+
+      a, button {
+        white-space: nowrap !important;
+        flex-shrink: 0;
+
+        span {
+          white-space: nowrap !important;
+        }
+
+        ::ng-deep .mdc-button__label {
+          white-space: nowrap !important;
+          display: inline-flex;
+          align-items: center;
+        }
+      }
+    }
+    .more-actions-btn {
+      color: #334155 !important;
+      border-color: #cbd5e1 !important;
+      background: #f8fafc;
+      font-weight: 600;
+      height: 38px;
+      line-height: 38px;
+      border-radius: 8px;
+      white-space: nowrap !important;
+      mat-icon { font-size: 18px; width: 18px; height: 18px; margin-right: 4px; }
+      &:hover { background: #f1f5f9; border-color: #94a3b8 !important; }
     }
     .promotion-link-btn {
       color: #059669 !important;
       border-color: #a7f3d0 !important;
       background: #ecfdf5;
       font-weight: 600;
+      height: 38px;
+      line-height: 38px;
+      border-radius: 8px;
+      white-space: nowrap !important;
       mat-icon { font-size: 18px; width: 18px; height: 18px; margin-right: 4px; }
       &:hover { background: #d1fae5; }
+    }
+    .add-btn {
+      height: 38px;
+      line-height: 38px;
+      border-radius: 8px;
+      font-weight: 600;
+      white-space: nowrap !important;
+      mat-icon { font-size: 18px; width: 18px; height: 18px; margin-right: 4px; }
     }
     .classes-link-btn {
       color: #2563eb !important;
@@ -2501,13 +2556,27 @@ const API_BASE = environment.apiBaseUrl;
     }
 
     /* Responsive Media Queries */
-    @media (max-width: 992px) {
+    @media (max-width: 1150px) {
       .header-actions {
         flex-direction: column;
-        align-items: flex-start;
+        align-items: stretch;
+        gap: 12px;
       }
       .header-btns {
         width: 100%;
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+
+        a, button {
+          white-space: nowrap !important;
+          flex-shrink: 0;
+
+          span {
+            white-space: nowrap !important;
+          }
+        }
       }
     }
 
@@ -2518,20 +2587,34 @@ const API_BASE = environment.apiBaseUrl;
       }
 
       .header-btns {
-        gap: 6px;
+        gap: 8px;
+        width: 100%;
 
         a, button {
-          font-size: 0.78rem !important;
+          font-size: 0.8rem !important;
           padding: 0 10px !important;
-          height: 32px !important;
-          line-height: 32px !important;
+          height: 34px !important;
+          line-height: 34px !important;
+          white-space: nowrap !important;
+
+          span {
+            white-space: nowrap !important;
+          }
 
           mat-icon {
             font-size: 16px !important;
             width: 16px !important;
             height: 16px !important;
-            margin-right: 2px !important;
+            margin-right: 3px !important;
           }
+        }
+
+        .promotion-link-btn,
+        .more-actions-btn {
+          flex: 1 1 auto;
+          min-width: 0;
+          justify-content: center;
+          white-space: nowrap !important;
         }
 
         .add-btn {
@@ -2539,6 +2622,7 @@ const API_BASE = environment.apiBaseUrl;
           justify-content: center;
           height: 36px !important;
           line-height: 36px !important;
+          white-space: nowrap !important;
         }
       }
 
@@ -2564,13 +2648,32 @@ const API_BASE = environment.apiBaseUrl;
       }
     }
 
-    @media (max-width: 480px) {
-      .header-btns a, .header-btns button {
-        flex: 1 1 calc(50% - 6px);
-        justify-content: center;
-      }
-      .header-btns .add-btn {
-        flex: 1 1 100%;
+    @media (max-width: 520px) {
+      .header-btns {
+        gap: 6px;
+
+        a, button {
+          font-size: 0.74rem !important;
+          padding: 0 6px !important;
+          white-space: nowrap !important;
+
+          span {
+            white-space: nowrap !important;
+          }
+        }
+
+        .promotion-link-btn,
+        .more-actions-btn {
+          flex: 1 1 calc(50% - 4px);
+          justify-content: center;
+          white-space: nowrap !important;
+        }
+
+        .add-btn {
+          flex: 1 1 100%;
+          justify-content: center;
+          white-space: nowrap !important;
+        }
       }
     }
   `]
@@ -3995,7 +4098,7 @@ export class StudentsComponent implements OnInit, OnDestroy {
   deleteStudent(student: any): void {
     this.confirmDialog.danger(
       'Delete / Revoke Student Admission',
-      `Are you sure you want to delete student "${student.studentName}"? This action cannot be undone.\n\n• Any issued admission kit items will be automatically returned to store inventory stock.\n• Pending fee bills and hostel allocations will be cleared.`,
+      `Are you sure you want to delete / archive student "${student.studentName}"?\n\n• Hostel beds and transport bus seats will be immediately freed up for other students.\n• Historical fee receipts, vouchers, and audit trails will remain safely preserved for financial compliance.`,
       'Delete & Revoke Admission'
     ).subscribe((confirmed) => {
       if (confirmed) {
@@ -4003,7 +4106,7 @@ export class StudentsComponent implements OnInit, OnDestroy {
         this.coachingService.deleteStudent(student.id).subscribe({
           next: () => {
             this.loadStudents();
-            this.confirmDialog.alert('Admission Revoked', `Student "${student.studentName}" has been deleted and any kit items have been restored to store stock.`, 'success');
+            this.confirmDialog.alert('Admission Revoked', `Student "${student.studentName}" has been removed from active roster. Allocated hostel beds and transport seats have been released.`, 'success');
           },
           error: (err) => {
             this.loading = false;

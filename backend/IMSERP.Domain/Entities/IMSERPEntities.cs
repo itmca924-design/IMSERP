@@ -289,6 +289,9 @@ public class Student
     public string? Address { get; set; }
     public string? ProfilePhoto { get; set; }
     public bool IsActive { get; set; } = true;
+    public bool IsDeleted { get; set; } = false;
+    public DateTime? DeletedAt { get; set; }
+    public Guid? DeletedBy { get; set; }
     public DateTime JoiningDate { get; set; } = DateTime.UtcNow;
     public DateTime? LeavingDate { get; set; }
     public string? LeavingReason { get; set; }  // TC | Transfer | Rustication | Expelled | Other

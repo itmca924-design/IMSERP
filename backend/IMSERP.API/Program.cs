@@ -240,6 +240,12 @@ using (var scope = app.Services.CreateScope())
                         ALTER TABLE Students ADD PreviousSchoolName NVARCHAR(200) NULL;
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Students') AND name = 'PreviousBoard')
                         ALTER TABLE Students ADD PreviousBoard NVARCHAR(50) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Students') AND name = 'IsDeleted')
+                        ALTER TABLE Students ADD IsDeleted BIT NOT NULL DEFAULT 0;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Students') AND name = 'DeletedAt')
+                        ALTER TABLE Students ADD DeletedAt DATETIME2 NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Students') AND name = 'DeletedBy')
+                        ALTER TABLE Students ADD DeletedBy UNIQUEIDENTIFIER NULL;
 
                     -- Tests table schema updates for School Examination support
                     IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tests') AND name = 'BatchId' AND is_nullable = 0)

@@ -170,13 +170,34 @@ public class FinanceController : ControllerBase
             libraryFinesIncome = await libFinesQuery.SumAsync(c => (decimal?)c.FineAmount) ?? 0m;
         }
 
-        decimal totalRealizedCollections = realizedFeeCollections + libraryFinesIncome;
-        // Total Direct Earned Income (Accrual basis: Total Billed Fees + Library fines collected)
+        // 4.1 Query Inventory Outward Kit & Store Sales (Paid)
+        var kitSalesPeriodQuery = _dbContext.InventoryOutwards
+            .AsNoTracking()
+            .Where(o => o.TenantId == tenantId && o.PaymentStatus == "Paid" && o.IssueDate >= start && o.IssueDate <= end);
+        if (branchId.HasValue && branchId.Value != Guid.Empty)
+        {
+            kitSalesPeriodQuery = kitSalesPeriodQuery.Where(o => o.BranchId == branchId.Value);
+        }
+        var kitSalesPeriodList = await kitSalesPeriodQuery.ToListAsync();
+        decimal kitSalesIncome = kitSalesPeriodList.Sum(o => o.TotalAmount);
+
+        decimal totalRealizedCollections = realizedFeeCollections + libraryFinesIncome + kitSalesIncome;
+        // Total Direct Earned Income (Accrual basis: Total Billed Fees + Library fines collected + Kit sales)
         // If no invoices were generated yet but payments exist, ensure totalDirectIncome >= realizedCollections
-        decimal totalDirectIncome = Math.Max(totalRealizedCollections, totalBilledPeriodInvoices + libraryFinesIncome);
+        decimal totalDirectIncome = Math.Max(totalRealizedCollections, totalBilledPeriodInvoices + libraryFinesIncome + kitSalesIncome);
 
         // 5. Intelligent Multi-Division Income Head Categorization
         var incomeMap = new Dictionary<string, (decimal Amount, string Category, string Division)>(StringComparer.OrdinalIgnoreCase);
+
+        // Add Kit Sales Income to breakdown if collected
+        if (kitSalesIncome > 0)
+        {
+            incomeMap["Uniform, Books & Student Kit Sales"] = (
+                kitSalesIncome,
+                "Store & Auxiliary Revenue",
+                "Store & Catalog"
+            );
+        }
 
         // Process from period invoices items (or fee payments if no invoice items)
         if (periodInvoices.Count > 0)
@@ -303,7 +324,19 @@ public class FinanceController : ControllerBase
         }
 
         var vouchers = await vouchersQuery.ToListAsync();
-        decimal totalOperatingExpense = vouchers.Sum(v => v.Amount);
+
+        // 7.1 Query Inventory Supplies Procurement Expenses (Vendor Payments)
+        var vPayPeriodQuery = _dbContext.InventoryVendorPayments
+            .AsNoTracking()
+            .Where(p => p.TenantId == tenantId && p.PaymentDate >= start && p.PaymentDate <= end && p.PaymentType != "Refund");
+        if (branchId.HasValue && branchId.Value != Guid.Empty)
+        {
+            vPayPeriodQuery = vPayPeriodQuery.Where(p => p.BranchId == branchId.Value);
+        }
+        var vPayPeriodList = await vPayPeriodQuery.ToListAsync();
+        decimal totalInventoryProcurement = vPayPeriodList.Sum(p => p.Amount);
+
+        decimal totalOperatingExpense = vouchers.Sum(v => v.Amount) + totalInventoryProcurement;
         decimal totalExpense = totalPayrollExpense + totalOperatingExpense;
 
         // Group Expenses
@@ -317,6 +350,17 @@ public class FinanceController : ControllerBase
                 Amount: totalPayrollExpense,
                 PercentageOfTotal: totalExpense > 0 ? Math.Round((totalPayrollExpense / totalExpense) * 100m, 1) : 0m,
                 IsPayroll: true
+            ));
+        }
+
+        if (totalInventoryProcurement > 0)
+        {
+            expenseSummaryList.Add(new ExpenseHeadSummaryDto(
+                Category: "Store & Inventory Procurement",
+                HeadName: "Store Stock Supplies & Vendor Payments",
+                Amount: totalInventoryProcurement,
+                PercentageOfTotal: totalExpense > 0 ? Math.Round((totalInventoryProcurement / totalExpense) * 100m, 1) : 0m,
+                IsPayroll: false
             ));
         }
 
@@ -353,7 +397,11 @@ public class FinanceController : ControllerBase
                 .Where(p => p.PaymentDate.Year == yr && p.PaymentDate.Month == mo)
                 .Sum(p => p.AmountPaid);
 
-            decimal monthIncome = Math.Max(monthRealized, monthBilled);
+            decimal monthKitSales = kitSalesPeriodList
+                .Where(o => o.IssueDate.Year == yr && o.IssueDate.Month == mo)
+                .Sum(o => o.TotalAmount);
+
+            decimal monthIncome = Math.Max(monthRealized, monthBilled) + monthKitSales;
 
             decimal monthPayroll = salaryPayments
                 .Where(s => s.PaymentDate.Year == yr && s.PaymentDate.Month == mo)
@@ -363,7 +411,11 @@ public class FinanceController : ControllerBase
                 .Where(v => v.ExpenseDate.Year == yr && v.ExpenseDate.Month == mo)
                 .Sum(v => v.Amount);
 
-            decimal monthExpense = monthPayroll + monthOpex;
+            decimal monthInventory = vPayPeriodList
+                .Where(p => p.PaymentDate.Year == yr && p.PaymentDate.Month == mo)
+                .Sum(p => p.Amount);
+
+            decimal monthExpense = monthPayroll + monthOpex + monthInventory;
             decimal monthSurplus = monthIncome - monthExpense;
 
             monthlyTrends.Add(new MonthlySurplusTrendDto(
@@ -525,15 +577,39 @@ public class FinanceController : ControllerBase
         decimal cashExpensesPaid = vouchersCutoff.Where(v => v.PaymentMode == ExpensePaymentMode.Cash).Sum(v => v.Amount);
         decimal bankExpensesPaid = vouchersCutoff.Where(v => v.PaymentMode != ExpensePaymentMode.Cash).Sum(v => v.Amount);
 
-        // 6. Cash In Hand & Bank Accounts Balances
+        // 6. Cash In Hand & Bank Accounts Balances (incorporating Inventory flows)
+        var kitSalesBase = _dbContext.InventoryOutwards
+            .AsNoTracking()
+            .Where(o => o.TenantId == tenantId && o.PaymentStatus == "Paid" && o.IssueDate <= cutoff);
+        if (branchId.HasValue && branchId.Value != Guid.Empty) kitSalesBase = kitSalesBase.Where(o => o.BranchId == branchId.Value);
+        var kitSalesCutoff = await kitSalesBase.ToListAsync();
+        decimal cashKitSales = kitSalesCutoff.Where(o => string.Equals(o.PaymentMode, "Cash", StringComparison.OrdinalIgnoreCase) || string.IsNullOrWhiteSpace(o.PaymentMode)).Sum(o => o.TotalAmount);
+        decimal bankKitSales = kitSalesCutoff.Where(o => !string.Equals(o.PaymentMode, "Cash", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(o.PaymentMode)).Sum(o => o.TotalAmount);
+
+        var vPayBase = _dbContext.InventoryVendorPayments
+            .AsNoTracking()
+            .Where(p => p.TenantId == tenantId && p.PaymentDate <= cutoff);
+        if (branchId.HasValue && branchId.Value != Guid.Empty) vPayBase = vPayBase.Where(p => p.BranchId == branchId.Value);
+        var vPayCutoff = await vPayBase.ToListAsync();
+        decimal cashVendorPaid = vPayCutoff.Where(p => !string.Equals(p.PaymentType, "Refund", StringComparison.OrdinalIgnoreCase) && string.Equals(p.PaymentMode, "Cash", StringComparison.OrdinalIgnoreCase)).Sum(p => p.Amount);
+        decimal bankVendorPaid = vPayCutoff.Where(p => !string.Equals(p.PaymentType, "Refund", StringComparison.OrdinalIgnoreCase) && !string.Equals(p.PaymentMode, "Cash", StringComparison.OrdinalIgnoreCase)).Sum(p => p.Amount);
+        decimal cashVendorRefunds = vPayCutoff.Where(p => string.Equals(p.PaymentType, "Refund", StringComparison.OrdinalIgnoreCase) && string.Equals(p.PaymentMode, "Cash", StringComparison.OrdinalIgnoreCase)).Sum(p => p.Amount);
+        decimal bankVendorRefunds = vPayCutoff.Where(p => string.Equals(p.PaymentType, "Refund", StringComparison.OrdinalIgnoreCase) && !string.Equals(p.PaymentMode, "Cash", StringComparison.OrdinalIgnoreCase)).Sum(p => p.Amount);
+
+        var saleReturnsBase = _dbContext.InventorySaleReturns
+            .AsNoTracking()
+            .Where(r => r.TenantId == tenantId && r.RefundStatus == "RefundedCash" && r.ReturnDate <= cutoff);
+        if (branchId.HasValue && branchId.Value != Guid.Empty) saleReturnsBase = saleReturnsBase.Where(r => r.BranchId == branchId.Value);
+        decimal cashKitReturnsRefunded = await saleReturnsBase.SumAsync(r => (decimal?)r.TotalAmount) ?? 0m;
+
         var cashLedger = await _dbContext.AccountLedgers.FirstOrDefaultAsync(l => l.TenantId == tenantId && l.AccountCode == "CASH-MAIN");
         decimal cashOpening = cashLedger?.OpeningBalance ?? 0m;
-        // Advances disbursed in cash reduce counter cash
-        decimal cashInHandBalance = Math.Max(0m, cashOpening + cashFeeCollected + cashLibFines - cashSalariesPaid - totalAdvancesDisbursed - cashExpensesPaid);
+        // Advances disbursed in cash reduce counter cash, kit sales add cash, vendor payments deduct cash
+        decimal cashInHandBalance = Math.Max(0m, cashOpening + cashFeeCollected + cashLibFines + cashKitSales + cashVendorRefunds - cashSalariesPaid - totalAdvancesDisbursed - cashExpensesPaid - cashVendorPaid - cashKitReturnsRefunded);
 
         var bankLedger = await _dbContext.AccountLedgers.FirstOrDefaultAsync(l => l.TenantId == tenantId && l.AccountCode == "BANK-MAIN");
         decimal bankOpening = bankLedger?.OpeningBalance ?? 0m;
-        decimal bankAccountsBalance = Math.Max(0m, bankOpening + bankFeeCollected - bankSalariesPaid - bankExpensesPaid);
+        decimal bankAccountsBalance = Math.Max(0m, bankOpening + bankFeeCollected + bankKitSales + bankVendorRefunds - bankSalariesPaid - bankExpensesPaid - bankVendorPaid);
 
         // 7. Accounts Receivable (Historically Accurate Student Fee Dues as of Cutoff)
         var feeInvoicesBase = _dbContext.FeeInvoices
@@ -573,13 +649,36 @@ public class FinanceController : ControllerBase
             accountsReceivable += dueAtCutoff;
         }
 
+        // 8. Closing Stock Valuation (Store Inventory Current Asset)
+        var invItemsBase = _dbContext.InventoryItems
+            .AsNoTracking()
+            .Where(i => i.TenantId == tenantId && i.CurrentStock > 0);
+        if (branchId.HasValue && branchId.Value != Guid.Empty)
+        {
+            invItemsBase = invItemsBase.Where(i => i.BranchId == branchId.Value);
+        }
+        var invItemsList = await invItemsBase.ToListAsync();
+        decimal totalStockValuation = invItemsList.Sum(i => i.CurrentStock * i.PurchasePrice);
+
         var currentAssetItems = new List<BalanceSheetItemDto>
         {
-            new BalanceSheetItemDto("CA-CASH", "Cash in Hand (Counter Float & Drawer)", cashInHandBalance, "Liquid Cash", true, "Cash drawer balance after fee receipts, advances & cash expenses"),
-            new BalanceSheetItemDto("CA-BANK", "Bank Accounts Balance (Current & Savings)", bankAccountsBalance, "Bank Balances", true, "Primary bank balance after online fees, payroll & vouchers"),
+            new BalanceSheetItemDto("CA-CASH", "Cash in Hand (Counter Float & Drawer)", cashInHandBalance, "Liquid Cash", true, "Cash drawer balance after fee receipts, advances, kit sales & cash expenses"),
+            new BalanceSheetItemDto("CA-BANK", "Bank Accounts Balance (Current & Savings)", bankAccountsBalance, "Bank Balances", true, "Primary bank balance after online fees, kit payments, payroll & vouchers"),
             new BalanceSheetItemDto("CA-FEES", "Accounts Receivable (Student Fee Dues)", accountsReceivable, "Receivables", true, "Historically verified student fee dues outstanding as of cutoff"),
             new BalanceSheetItemDto("CA-ADV", "Staff Advances Receivable", remainingStaffAdvances, "Advances", true, "Unadjusted salary advances disbursed to faculty & staff")
         };
+
+        if (totalStockValuation > 0)
+        {
+            currentAssetItems.Add(new BalanceSheetItemDto(
+                "CA-INV-STOCK",
+                "Stock-in-Hand (Store Inventory Valuation)",
+                totalStockValuation,
+                "Inventories",
+                true,
+                $"Store closing inventory across {invItemsList.Count} items (valued at unit purchase price)"
+            ));
+        }
 
         // Custom Current Assets from AccountLedgers
         var customCurrentAssets = await _dbContext.AccountLedgers
@@ -637,6 +736,38 @@ public class FinanceController : ControllerBase
             ));
         }
 
+        // Add Outstanding Vendor Dues (Sundry Creditors) for Inward Purchases
+        var vPaymentsBase = _dbContext.InventoryVendorPayments
+            .AsNoTracking()
+            .Where(p => p.TenantId == tenantId && p.PaymentDate <= cutoff && p.PaymentType != "Refund");
+        if (branchId.HasValue && branchId.Value != Guid.Empty)
+        {
+            vPaymentsBase = vPaymentsBase.Where(p => p.BranchId == branchId.Value);
+        }
+        decimal vPaymentsCutoff = await vPaymentsBase.SumAsync(p => (decimal?)p.Amount) ?? 0m;
+
+        var inwardsBase = _dbContext.InventoryInwards
+            .AsNoTracking()
+            .Where(w => w.TenantId == tenantId && w.InwardDate <= cutoff);
+        if (branchId.HasValue && branchId.Value != Guid.Empty)
+        {
+            inwardsBase = inwardsBase.Where(w => w.BranchId == branchId.Value);
+        }
+        decimal inwardsCutoff = await inwardsBase.SumAsync(w => (decimal?)w.NetAmount) ?? 0m;
+        decimal vendorPayables = Math.Max(0m, inwardsCutoff - vPaymentsCutoff);
+
+        if (vendorPayables > 0)
+        {
+            currentLiabilityItems.Add(new BalanceSheetItemDto(
+                Code: "CL-INV-PAYABLES",
+                Title: "Accounts Payable (Inventory Supplier Dues)",
+                Amount: vendorPayables,
+                Category: "Current Liabilities",
+                IsDynamic: true,
+                Note: "Outstanding amounts payable to store suppliers for inventory inward orders"
+            ));
+        }
+
         var currentLiabilitiesGroup = new BalanceSheetGroupDto("Current Liabilities", currentLiabilityItems.Sum(x => x.Amount), currentLiabilityItems);
 
         // ─── D. LONG-TERM LIABILITIES ───────────────────────────────────
@@ -657,10 +788,10 @@ public class FinanceController : ControllerBase
 
         // ─── E. CAPITAL & EQUITY ────────────────────────────────────────
         // Operational Accrual Surplus up to cutoff date:
-        // Revenue (Cash + Bank fees + Library fines + Accounts Receivable) - Gross Salaries - Operating Expenses
-        decimal totalAccrualRevenueAllTime = (cashFeeCollected + bankFeeCollected + cashLibFines) + accountsReceivable;
+        // Revenue (Cash + Bank fees + Library fines + Kit sales + Accounts Receivable) - Gross Salaries - Operating Expenses (including vendor supplies)
+        decimal totalAccrualRevenueAllTime = (cashFeeCollected + bankFeeCollected + cashLibFines + cashKitSales + bankKitSales) + accountsReceivable;
         decimal totalGrossSalariesAllTime = (cashSalariesPaid + bankSalariesPaid) + totalAdvancesAdjustedInSalaries + totalStatutoryDeductions;
-        decimal totalExpensesAllTime = cashExpensesPaid + bankExpensesPaid;
+        decimal totalExpensesAllTime = cashExpensesPaid + bankExpensesPaid + cashVendorPaid + bankVendorPaid;
         decimal netProfitSurplus = totalAccrualRevenueAllTime - (totalGrossSalariesAllTime + totalExpensesAllTime);
 
         var capitalLedgers = await _dbContext.AccountLedgers
@@ -1377,12 +1508,16 @@ public class FinanceController : ControllerBase
         int currentFyYear = now.Month >= 4 ? now.Year : now.Year - 1;
         var startOfFy = new DateTime(currentFyYear, 4, 1, 0, 0, 0, DateTimeKind.Utc);
 
-        // This Month Incomes
+        // This Month Incomes (Fee Payments + Kit Sales)
         var feeQueryMonth = _dbContext.FeePayments.Where(p => p.TenantId == tenantId && !p.IsReversed && p.PaymentDate >= startOfMonth);
         if (branchId.HasValue && branchId.Value != Guid.Empty) feeQueryMonth = feeQueryMonth.Where(p => p.BranchId == branchId.Value);
-        decimal incomeThisMonth = await feeQueryMonth.SumAsync(p => (decimal?)p.AmountPaid) ?? 0m;
+        decimal feeIncomeThisMonth = await feeQueryMonth.SumAsync(p => (decimal?)p.AmountPaid) ?? 0m;
 
-        // This Month Expenses
+        var kitMonthQuery = _dbContext.InventoryOutwards.Where(o => o.TenantId == tenantId && o.PaymentStatus == "Paid" && o.IssueDate >= startOfMonth && (!branchId.HasValue || o.BranchId == branchId.Value));
+        decimal kitIncomeThisMonth = await kitMonthQuery.SumAsync(o => (decimal?)o.TotalAmount) ?? 0m;
+        decimal incomeThisMonth = feeIncomeThisMonth + kitIncomeThisMonth;
+
+        // This Month Expenses (Salaries + Operating Vouchers + Store Vendor Purchases)
         var salaryQueryMonth = _dbContext.TeacherSalaryPayments.Include(s => s.Teacher).Where(s => s.TenantId == tenantId && s.PaymentDate >= startOfMonth);
         if (branchId.HasValue && branchId.Value != Guid.Empty) salaryQueryMonth = salaryQueryMonth.Where(s => s.Teacher != null && s.Teacher.BranchId == branchId.Value);
         decimal salaryThisMonth = await salaryQueryMonth.SumAsync(s => (decimal?)s.NetPaid) ?? 0m;
@@ -1391,7 +1526,10 @@ public class FinanceController : ControllerBase
         if (branchId.HasValue && branchId.Value != Guid.Empty) opexQueryMonth = opexQueryMonth.Where(v => v.BranchId == branchId.Value);
         decimal opexThisMonth = await opexQueryMonth.SumAsync(v => (decimal?)v.Amount) ?? 0m;
 
-        decimal expenseThisMonth = salaryThisMonth + opexThisMonth;
+        var vPayMonthQuery = _dbContext.InventoryVendorPayments.Where(p => p.TenantId == tenantId && p.PaymentDate >= startOfMonth && p.PaymentType != "Refund" && (!branchId.HasValue || p.BranchId == branchId.Value));
+        decimal vPayThisMonth = await vPayMonthQuery.SumAsync(p => (decimal?)p.Amount) ?? 0m;
+
+        decimal expenseThisMonth = salaryThisMonth + opexThisMonth + vPayThisMonth;
         decimal netSurplusThisMonth = incomeThisMonth - expenseThisMonth;
 
         // Total Outstanding Dues
@@ -1399,28 +1537,47 @@ public class FinanceController : ControllerBase
         if (branchId.HasValue && branchId.Value != Guid.Empty) duesQuery = duesQuery.Where(i => i.BranchId == branchId.Value);
         decimal totalDues = await duesQuery.SumAsync(i => (decimal?)(i.TotalAmount - i.PaidAmount)) ?? 0m;
 
-        // Cash & Bank Balances
+        // Cash & Bank Balances (incorporating inventory kit sales and supplier payments)
         var cashCollected = await _dbContext.FeePayments.Where(p => p.TenantId == tenantId && !p.IsReversed && p.Mode == PaymentMode.Cash && (!branchId.HasValue || p.BranchId == branchId.Value)).SumAsync(p => (decimal?)p.AmountPaid) ?? 0m;
         var cashRefunds = await _dbContext.FeePayments.Where(p => p.TenantId == tenantId && p.IsReversed && p.ReversalType == "RefundToParent" && (p.RefundMode == "Cash" || p.Mode == PaymentMode.Cash) && (!branchId.HasValue || p.BranchId == branchId.Value)).SumAsync(p => (decimal?)p.AmountPaid) ?? 0m;
         var cashLibFines = await _dbContext.LibraryCirculations.Where(c => c.TenantId == tenantId && c.FineStatus == "Paid" && (!branchId.HasValue || c.BranchId == branchId.Value)).SumAsync(c => (decimal?)c.FineAmount) ?? 0m;
         var cashSalaries = await _dbContext.TeacherSalaryPayments.Include(s => s.Teacher).Where(s => s.TenantId == tenantId && s.PaymentMode == SalaryPaymentMode.Cash && (!branchId.HasValue || (s.Teacher != null && s.Teacher.BranchId == branchId.Value))).SumAsync(s => (decimal?)s.NetPaid) ?? 0m;
         var cashAdvances = await _dbContext.TeacherSalaryAdvances.Include(a => a.Teacher).Where(a => a.TenantId == tenantId && (a.Status == AdvanceStatus.Approved || a.Status == AdvanceStatus.Adjusted) && (!branchId.HasValue || (a.Teacher != null && a.Teacher.BranchId == branchId.Value))).SumAsync(a => (decimal?)a.Amount) ?? 0m;
         var cashExpenses = await _dbContext.ExpenseVouchers.Where(v => v.TenantId == tenantId && v.PaymentMode == ExpensePaymentMode.Cash && (!branchId.HasValue || v.BranchId == branchId.Value)).SumAsync(v => (decimal?)v.Amount) ?? 0m;
+
+        var allKitSales = await _dbContext.InventoryOutwards.Where(o => o.TenantId == tenantId && o.PaymentStatus == "Paid" && (!branchId.HasValue || o.BranchId == branchId.Value)).ToListAsync();
+        decimal cashKitSales = allKitSales.Where(o => string.Equals(o.PaymentMode, "Cash", StringComparison.OrdinalIgnoreCase) || string.IsNullOrWhiteSpace(o.PaymentMode)).Sum(o => o.TotalAmount);
+        decimal bankKitSales = allKitSales.Where(o => !string.Equals(o.PaymentMode, "Cash", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(o.PaymentMode)).Sum(o => o.TotalAmount);
+
+        var allVPay = await _dbContext.InventoryVendorPayments.Where(p => p.TenantId == tenantId && (!branchId.HasValue || p.BranchId == branchId.Value)).ToListAsync();
+        decimal cashVendorPaid = allVPay.Where(p => !string.Equals(p.PaymentType, "Refund", StringComparison.OrdinalIgnoreCase) && string.Equals(p.PaymentMode, "Cash", StringComparison.OrdinalIgnoreCase)).Sum(p => p.Amount);
+        decimal bankVendorPaid = allVPay.Where(p => !string.Equals(p.PaymentType, "Refund", StringComparison.OrdinalIgnoreCase) && !string.Equals(p.PaymentMode, "Cash", StringComparison.OrdinalIgnoreCase)).Sum(p => p.Amount);
+        decimal cashVendorRefunds = allVPay.Where(p => string.Equals(p.PaymentType, "Refund", StringComparison.OrdinalIgnoreCase) && string.Equals(p.PaymentMode, "Cash", StringComparison.OrdinalIgnoreCase)).Sum(p => p.Amount);
+        decimal bankVendorRefunds = allVPay.Where(p => string.Equals(p.PaymentType, "Refund", StringComparison.OrdinalIgnoreCase) && !string.Equals(p.PaymentMode, "Cash", StringComparison.OrdinalIgnoreCase)).Sum(p => p.Amount);
+
+        var allKitRefunds = await _dbContext.InventorySaleReturns.Where(r => r.TenantId == tenantId && r.RefundStatus == "RefundedCash" && (!branchId.HasValue || r.BranchId == branchId.Value)).SumAsync(r => (decimal?)r.TotalAmount) ?? 0m;
+
         var cashLedger = await _dbContext.AccountLedgers.FirstOrDefaultAsync(l => l.TenantId == tenantId && l.AccountCode == "CASH-MAIN");
-        decimal cashBalance = Math.Max(0m, (cashLedger?.OpeningBalance ?? 0m) + cashCollected + cashLibFines - cashSalaries - cashAdvances - cashExpenses - cashRefunds);
+        decimal cashBalance = Math.Max(0m, (cashLedger?.OpeningBalance ?? 0m) + cashCollected + cashLibFines + cashKitSales + cashVendorRefunds - cashSalaries - cashAdvances - cashExpenses - cashRefunds - cashVendorPaid - allKitRefunds);
 
         var bankCollected = await _dbContext.FeePayments.Where(p => p.TenantId == tenantId && !p.IsReversed && p.Mode != PaymentMode.Cash && (!branchId.HasValue || p.BranchId == branchId.Value)).SumAsync(p => (decimal?)p.AmountPaid) ?? 0m;
         var bankRefunds = await _dbContext.FeePayments.Where(p => p.TenantId == tenantId && p.IsReversed && p.ReversalType == "RefundToParent" && (p.RefundMode != "Cash" && p.Mode != PaymentMode.Cash) && (!branchId.HasValue || p.BranchId == branchId.Value)).SumAsync(p => (decimal?)p.AmountPaid) ?? 0m;
         var bankSalaries = await _dbContext.TeacherSalaryPayments.Include(s => s.Teacher).Where(s => s.TenantId == tenantId && s.PaymentMode != SalaryPaymentMode.Cash && (!branchId.HasValue || (s.Teacher != null && s.Teacher.BranchId == branchId.Value))).SumAsync(s => (decimal?)s.NetPaid) ?? 0m;
         var bankExpenses = await _dbContext.ExpenseVouchers.Where(v => v.TenantId == tenantId && v.PaymentMode != ExpensePaymentMode.Cash && (!branchId.HasValue || v.BranchId == branchId.Value)).SumAsync(v => (decimal?)v.Amount) ?? 0m;
         var bankLedger = await _dbContext.AccountLedgers.FirstOrDefaultAsync(l => l.TenantId == tenantId && l.AccountCode == "BANK-MAIN");
-        decimal bankBalance = Math.Max(0m, (bankLedger?.OpeningBalance ?? 0m) + bankCollected - bankSalaries - bankExpenses - bankRefunds);
+        decimal bankBalance = Math.Max(0m, (bankLedger?.OpeningBalance ?? 0m) + bankCollected + bankKitSales + bankVendorRefunds - bankSalaries - bankExpenses - bankRefunds - bankVendorPaid);
 
-        // Current FY Revenue & Expenses
-        var fyIncome = await _dbContext.FeePayments.Where(p => p.TenantId == tenantId && !p.IsReversed && p.PaymentDate >= startOfFy && (!branchId.HasValue || p.BranchId == branchId.Value)).SumAsync(p => (decimal?)p.AmountPaid) ?? 0m;
+        // Current FY Revenue & Expenses (including Inventory)
+        var fyFeeQuery = _dbContext.FeePayments.Where(p => p.TenantId == tenantId && !p.IsReversed && p.PaymentDate >= startOfFy && (!branchId.HasValue || p.BranchId == branchId.Value));
+        decimal fyFeeIncome = await fyFeeQuery.SumAsync(p => (decimal?)p.AmountPaid) ?? 0m;
+        var fyKitQuery = _dbContext.InventoryOutwards.Where(o => o.TenantId == tenantId && o.PaymentStatus == "Paid" && o.IssueDate >= startOfFy && (!branchId.HasValue || o.BranchId == branchId.Value));
+        decimal fyKitIncome = await fyKitQuery.SumAsync(o => (decimal?)o.TotalAmount) ?? 0m;
+        decimal fyIncome = fyFeeIncome + fyKitIncome;
+
         var fySalaries = await _dbContext.TeacherSalaryPayments.Include(s => s.Teacher).Where(s => s.TenantId == tenantId && s.PaymentDate >= startOfFy && (!branchId.HasValue || (s.Teacher != null && s.Teacher.BranchId == branchId.Value))).SumAsync(s => (decimal?)s.NetPaid) ?? 0m;
         var fyExpenses = await _dbContext.ExpenseVouchers.Where(v => v.TenantId == tenantId && v.ExpenseDate >= startOfFy && (!branchId.HasValue || v.BranchId == branchId.Value)).SumAsync(v => (decimal?)v.Amount) ?? 0m;
-        decimal fyTotalExpense = fySalaries + fyExpenses;
+        var fyVPay = await _dbContext.InventoryVendorPayments.Where(p => p.TenantId == tenantId && p.PaymentDate >= startOfFy && p.PaymentType != "Refund" && (!branchId.HasValue || p.BranchId == branchId.Value)).SumAsync(p => (decimal?)p.Amount) ?? 0m;
+        decimal fyTotalExpense = fySalaries + fyExpenses + fyVPay;
         decimal fySurplus = fyIncome - fyTotalExpense;
 
         return Ok(new FinanceDashboardKpiDto(
@@ -1526,13 +1683,28 @@ public class FinanceController : ControllerBase
         if (branchId.HasValue && branchId.Value != Guid.Empty) priorRefunds = priorRefunds.Where(p => p.BranchId == branchId.Value);
         decimal priorRefundsPaid = await priorRefunds.SumAsync(p => (decimal?)p.AmountPaid) ?? 0m;
 
-        decimal openingBalance = Math.Max(0m, cashOpening + bankOpening + priorFeeCollected + priorLibFines - priorSalariesPaid - priorAdvancesDisbursed - priorExpensesPaid - priorRefundsPaid);
+        var priorKitSalesQuery = _dbContext.InventoryOutwards.Where(o => o.TenantId == tenantId && o.PaymentStatus == "Paid" && o.IssueDate < startUtc);
+        if (branchId.HasValue && branchId.Value != Guid.Empty) priorKitSalesQuery = priorKitSalesQuery.Where(o => o.BranchId == branchId.Value);
+        decimal priorKitSales = await priorKitSalesQuery.SumAsync(o => (decimal?)o.TotalAmount) ?? 0m;
+
+        var priorVPayQuery = _dbContext.InventoryVendorPayments.Where(p => p.TenantId == tenantId && p.PaymentDate < startUtc);
+        if (branchId.HasValue && branchId.Value != Guid.Empty) priorVPayQuery = priorVPayQuery.Where(p => p.BranchId == branchId.Value);
+        var priorVPayList = await priorVPayQuery.ToListAsync();
+        decimal priorVendorPaid = priorVPayList.Where(p => !string.Equals(p.PaymentType, "Refund", StringComparison.OrdinalIgnoreCase)).Sum(p => p.Amount);
+        decimal priorVendorRefunds = priorVPayList.Where(p => string.Equals(p.PaymentType, "Refund", StringComparison.OrdinalIgnoreCase)).Sum(p => p.Amount);
+
+        var priorSaleReturnsQuery = _dbContext.InventorySaleReturns.Where(r => r.TenantId == tenantId && r.RefundStatus == "RefundedCash" && r.ReturnDate < startUtc);
+        if (branchId.HasValue && branchId.Value != Guid.Empty) priorSaleReturnsQuery = priorSaleReturnsQuery.Where(r => r.BranchId == branchId.Value);
+        decimal priorSaleReturnsPaid = await priorSaleReturnsQuery.SumAsync(r => (decimal?)r.TotalAmount) ?? 0m;
+
+        decimal openingBalance = Math.Max(0m, cashOpening + bankOpening + priorFeeCollected + priorLibFines + priorKitSales + priorVendorRefunds - priorSalariesPaid - priorAdvancesDisbursed - priorExpensesPaid - priorRefundsPaid - priorVendorPaid - priorSaleReturnsPaid);
 
         // 3. Transactions Query within [startUtc, endUtc]
         var transactions = new List<DayBookTransactionDto>();
 
-        // (A) Fee Payments (Receipts)
+        // (A) Fee Payments (Receipts) - IgnoreQueryFilters to display student names even for soft-deleted students
         var feeQuery = _dbContext.FeePayments
+            .IgnoreQueryFilters()
             .AsNoTracking()
             .Include(p => p.Invoice)
                 .ThenInclude(i => i!.Student)
@@ -1842,6 +2014,75 @@ public class FinanceController : ControllerBase
                 CreditAmount = isRefund ? p.Amount : 0m,
                 PayeeOrPayerName = vendorName,
                 Remarks = p.Remarks
+            });
+        }
+
+        // (E.2) Inventory Kit & Retail Sales Receipts (Paid)
+        var kitDayQuery = _dbContext.InventoryOutwards
+            .AsNoTracking()
+            .Include(o => o.Items)
+                .ThenInclude(it => it.Item)
+            .Where(o => o.TenantId == tenantId && o.PaymentStatus == "Paid" && o.IssueDate >= startUtc && o.IssueDate <= endUtc);
+
+        if (branchId.HasValue && branchId.Value != Guid.Empty)
+        {
+            kitDayQuery = kitDayQuery.Where(o => o.BranchId == branchId.Value);
+        }
+
+        var kitDayList = await kitDayQuery.ToListAsync();
+        foreach (var o in kitDayList)
+        {
+            var customerName = !string.IsNullOrWhiteSpace(o.IssuedToName) ? o.IssuedToName : "Student/Customer";
+            var modeStr = !string.IsNullOrWhiteSpace(o.PaymentMode) ? o.PaymentMode : "Cash";
+            var itemsDesc = o.Items.Count > 0 ? string.Join(", ", o.Items.Select(i => i.Item?.ItemName ?? "Kit Item")) : "Admission Kit / Uniform / Books";
+
+            transactions.Add(new DayBookTransactionDto
+            {
+                Id = o.Id.ToString(),
+                Timestamp = o.IssueDate,
+                VoucherNumber = !string.IsNullOrWhiteSpace(o.IssueNumber) ? o.IssueNumber : $"KIT-{o.IssueDate:yyyyMMdd}-{o.Id.ToString()[..6].ToUpper()}",
+                VoucherType = "Receipt",
+                AccountHead = "Student Kit & Book Sales (स्टोर बिक्री)",
+                Particulars = $"{customerName} • {itemsDesc} ({o.IssueType})",
+                Division = "General",
+                PaymentMode = modeStr,
+                DebitAmount = 0m,
+                CreditAmount = o.TotalAmount,
+                PayeeOrPayerName = customerName,
+                Remarks = o.Remarks
+            });
+        }
+
+        // (E.3) Inventory Sale Returns & Kit Refunds (Cash Outflow / Debits)
+        var saleReturnQuery = _dbContext.InventorySaleReturns
+            .AsNoTracking()
+            .Where(r => r.TenantId == tenantId && r.RefundStatus == "RefundedCash" && r.ReturnDate >= startUtc && r.ReturnDate <= endUtc);
+
+        if (branchId.HasValue && branchId.Value != Guid.Empty)
+        {
+            saleReturnQuery = saleReturnQuery.Where(r => r.BranchId == branchId.Value);
+        }
+
+        var saleReturnList = await saleReturnQuery.ToListAsync();
+        foreach (var r in saleReturnList)
+        {
+            var retName = !string.IsNullOrWhiteSpace(r.ReturnedByName) ? r.ReturnedByName : "Student/Customer";
+            var modeStr = !string.IsNullOrWhiteSpace(r.RefundPaymentMode) ? r.RefundPaymentMode : "Cash";
+
+            transactions.Add(new DayBookTransactionDto
+            {
+                Id = r.Id.ToString(),
+                Timestamp = r.ReturnDate,
+                VoucherNumber = !string.IsNullOrWhiteSpace(r.ReturnNumber) ? r.ReturnNumber : $"SR-{r.ReturnDate:yyyyMMdd}-{r.Id.ToString()[..6].ToUpper()}",
+                VoucherType = "Payment",
+                AccountHead = "Kit / Sale Return Refund (किट रिफंड)",
+                Particulars = $"{retName} • Kit Return Refund Disbursed ({modeStr})",
+                Division = "General",
+                PaymentMode = modeStr,
+                DebitAmount = r.TotalAmount,
+                CreditAmount = 0m,
+                PayeeOrPayerName = retName,
+                Remarks = r.Remarks
             });
         }
 
