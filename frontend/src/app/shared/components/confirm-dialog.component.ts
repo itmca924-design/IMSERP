@@ -409,6 +409,10 @@ export interface ConfirmDialogData {
       white-space: pre-line;
       animation: fadeIn 0.15s ease-in-out;
 
+      &:has(.pwa-install-guide) {
+        white-space: normal;
+      }
+
       ul {
         margin: 8px 0 0;
         padding-left: 20px;

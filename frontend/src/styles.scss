@@ -2048,6 +2048,141 @@ mat-sidenav-container {
       transform: translateY(-1px) !important;
     }
   }
+
+  /* PWA Installation Structured Guide Cards */
+  .dialog-message:has(.pwa-install-guide),
+  .pwa-install-guide {
+    white-space: normal !important;
+  }
+
+  .pwa-install-guide {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin: 2px 0 0;
+
+    .guide-intro {
+      font-size: 0.88rem;
+      color: #334155;
+      margin: 0 0 2px;
+      line-height: 1.5;
+
+      strong {
+        color: #1e3a8a;
+        font-weight: 700;
+      }
+    }
+
+    .platform-cards {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .platform-card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 12px 14px;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      transition: all 0.2s ease;
+
+      &:hover {
+        box-shadow: 0 3px 8px rgba(15, 23, 42, 0.08);
+      }
+
+      &.desktop {
+        border-left: 4px solid #2563eb;
+        background: linear-gradient(to right, #eff6ff 0%, #ffffff 100%);
+      }
+      &.android {
+        border-left: 4px solid #16a34a;
+        background: linear-gradient(to right, #f0fdf4 0%, #ffffff 100%);
+      }
+      &.ios {
+        border-left: 4px solid #7c3aed;
+        background: linear-gradient(to right, #faf5ff 0%, #ffffff 100%);
+      }
+
+      .platform-header {
+        display: flex;
+        align-items: center;
+
+        .platform-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 0.82rem;
+          font-weight: 700;
+          padding: 3px 10px;
+          border-radius: 6px;
+        }
+
+        &.desktop .platform-badge {
+          background: #dbeafe;
+          color: #1e40af;
+          border: 1px solid #bfdbfe;
+        }
+        &.android .platform-badge {
+          background: #dcfce7;
+          color: #166534;
+          border: 1px solid #bbf7d0;
+        }
+        &.ios .platform-badge {
+          background: #f3e8ff;
+          color: #6b21a8;
+          border: 1px solid #e9d5ff;
+        }
+      }
+
+      .platform-steps {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin: 0;
+        padding: 0;
+
+        .step-row {
+          display: flex;
+          align-items: flex-start;
+          gap: 8px;
+          font-size: 0.82rem;
+          color: #334155;
+          line-height: 1.45;
+
+          .step-num {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #e2e8f0;
+            color: #1e293b;
+            font-weight: 700;
+            font-size: 0.72rem;
+            flex-shrink: 0;
+            margin-top: 1px;
+          }
+
+          .action-key {
+            display: inline-block;
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            padding: 0 5px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #0f172a;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+          }
+        }
+      }
+    }
+  }
 }
 
 .cdk-overlay-container:has(.erp-confirm-dialog-panel) {

@@ -179,7 +179,6 @@ import { environment } from '../../environments/environment';
             <mat-icon>menu</mat-icon>
           </button>
 
-          <span class="app-header-title">{{ getHeaderTitle() }}</span>
           <div class="header-tools">
             <!-- PWA Network State Indicator (When Offline) -->
             <div *ngIf="!isOnline()" class="offline-pill" matTooltip="Working offline. Local pages cached.">
@@ -188,7 +187,7 @@ import { environment } from '../../environments/environment';
             </div>
 
             <!-- PWA Install App Header Button -->
-            <button mat-button *ngIf="!isAppInstalled()" class="install-pwa-btn" (click)="installPwa()" matTooltip="Install Jnandeep Campus ERP App on your Device" aria-label="Install App">
+            <button mat-button *ngIf="!isAppInstalled()" class="install-pwa-btn" (click)="installPwa()" [matTooltip]="'Install ' + (currentUser()?.instituteName || 'Campus ERP') + ' App on your Device'" aria-label="Install App">
               <mat-icon class="install-icon">install_mobile</mat-icon>
               <span class="install-text">Install App</span>
             </button>
@@ -888,30 +887,12 @@ import { environment } from '../../environments/environment';
         flex-shrink: 0;
         color: #ffffff;
       }
-
-      .app-header-title {
-        font-weight: 600;
-        font-size: 1.05rem;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        flex-shrink: 1;
-
-        @media (max-width: 1200px) {
-          max-width: 180px;
-          font-size: 0.92rem;
-        }
-
-        @media (max-width: 900px) {
-          display: none !important;
-        }
-      }
     }
     .header-tools {
       display: flex;
       align-items: center;
       gap: 6px;
-      margin-left: 10px;
+      margin-left: 6px;
       flex-shrink: 0;
 
       .install-pwa-btn {
@@ -2067,11 +2048,16 @@ export class LayoutComponent implements OnInit {
         this.canInstallPwa.set(false);
         this.deferredPrompt = null;
         this.isAppInstalled.set(true);
-        this.confirmDialog.alert(
-          'App Installed Successfully',
-          'Jnandeep Campus ERP has been installed on your device. You can now launch it anytime directly from your desktop or home screen like a native app!',
-          'success'
-        );
+        const instName = this.authService.getInstituteName() || 'Campus ERP';
+        this.confirmDialog.bilingualAlert({
+          titleEn: 'App Installed Successfully',
+          titleHi: 'ऐप सफलतापूर्वक इंस्टॉल हो गया',
+          messageEn: `${instName} has been installed on your device. You can now launch it anytime directly from your desktop or home screen like a native app!`,
+          messageHi: `${instName} आपके डिवाइस पर सफलतापूर्वक इंस्टॉल हो गया है। अब आप इसे सीधे अपने डेस्कटॉप या होम स्क्रीन से आसानी से खोल सकते हैं!`,
+          confirmTextEn: 'Launch App',
+          confirmTextHi: 'ठीक है (OK)',
+          type: 'success'
+        });
       });
 
       window.addEventListener('online', () => this.isOnline.set(true));
@@ -2106,11 +2092,119 @@ export class LayoutComponent implements OnInit {
         this.deferredPrompt = null;
       });
     } else {
-      this.confirmDialog.alert(
-        'Install Jnandeep ERP',
-        'To install Jnandeep Campus ERP on your device:\n\n• Windows / Mac (Chrome / Edge): Click the Install icon in the browser address bar, or click Menu (⋮) > Save and share > Install page as app.\n• Android (Chrome): Tap Menu (⋮) > Add to Home screen / Install app.\n• iPhone / iPad (Safari): Tap the Share button and select "Add to Home Screen".',
-        'info'
-      );
+      const instName = this.authService.getInstituteName() || 'Campus ERP';
+      
+      const messageEn = `<div class="pwa-install-guide">
+  <p class="guide-intro">Install <strong>${instName}</strong> on your device for fast 1-click access, full-screen view, and native app experience:</p>
+  <div class="platform-cards">
+    <div class="platform-card desktop">
+      <div class="platform-header desktop">
+        <span class="platform-badge">💻 Windows / Mac (Chrome &amp; Edge)</span>
+      </div>
+      <div class="platform-steps">
+        <div class="step-row">
+          <span class="step-num">1</span>
+          <span>Click the <strong class="action-key">Install</strong> icon in the address bar (top-right).</span>
+        </div>
+        <div class="step-row">
+          <span class="step-num">2</span>
+          <span>Or click <strong class="action-key">Menu (⋮)</strong> &gt; <strong class="action-key">Save and share</strong> &gt; <strong class="action-key">Install page as app</strong>.</span>
+        </div>
+      </div>
+    </div>
+    <div class="platform-card android">
+      <div class="platform-header android">
+        <span class="platform-badge">🤖 Android (Chrome)</span>
+      </div>
+      <div class="platform-steps">
+        <div class="step-row">
+          <span class="step-num">1</span>
+          <span>Tap <strong class="action-key">Menu (⋮)</strong> at the top-right corner.</span>
+        </div>
+        <div class="step-row">
+          <span class="step-num">2</span>
+          <span>Select <strong class="action-key">Install app</strong> or <strong class="action-key">Add to Home screen</strong>.</span>
+        </div>
+      </div>
+    </div>
+    <div class="platform-card ios">
+      <div class="platform-header ios">
+        <span class="platform-badge">🍏 iPhone / iPad (Safari)</span>
+      </div>
+      <div class="platform-steps">
+        <div class="step-row">
+          <span class="step-num">1</span>
+          <span>Tap the <strong class="action-key">Share ⎋</strong> button at the bottom navigation bar.</span>
+        </div>
+        <div class="step-row">
+          <span class="step-num">2</span>
+          <span>Scroll down and tap <strong class="action-key">Add to Home Screen</strong>, then tap <strong class="action-key">Add</strong>.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>`;
+
+      const messageHi = `<div class="pwa-install-guide">
+  <p class="guide-intro">अपने मोबाइल या कंप्यूटर पर <strong>${instName}</strong> को 1-क्लिक एक्सेस और फुल-स्क्रीन अनुभव के लिए इंस्टॉल करें:</p>
+  <div class="platform-cards">
+    <div class="platform-card desktop">
+      <div class="platform-header desktop">
+        <span class="platform-badge">💻 Windows / Mac (Chrome व Edge)</span>
+      </div>
+      <div class="platform-steps">
+        <div class="step-row">
+          <span class="step-num">1</span>
+          <span>ब्राउज़र एड्रेस बार (ऊपर दाईं ओर) में <strong class="action-key">Install</strong> आइकन पर क्लिक करें।</span>
+        </div>
+        <div class="step-row">
+          <span class="step-num">2</span>
+          <span>या <strong class="action-key">Menu (⋮)</strong> &gt; <strong class="action-key">Save and share</strong> &gt; <strong class="action-key">Install page as app</strong> चुनें।</span>
+        </div>
+      </div>
+    </div>
+    <div class="platform-card android">
+      <div class="platform-header android">
+        <span class="platform-badge">🤖 Android (Chrome)</span>
+      </div>
+      <div class="platform-steps">
+        <div class="step-row">
+          <span class="step-num">1</span>
+          <span>ऊपर दाईं ओर <strong class="action-key">Menu (⋮)</strong> पर टैप करें।</span>
+        </div>
+        <div class="step-row">
+          <span class="step-num">2</span>
+          <span><strong class="action-key">Install app</strong> या <strong class="action-key">Add to Home screen</strong> चुनें।</span>
+        </div>
+      </div>
+    </div>
+    <div class="platform-card ios">
+      <div class="platform-header ios">
+        <span class="platform-badge">🍏 iPhone / iPad (Safari)</span>
+      </div>
+      <div class="platform-steps">
+        <div class="step-row">
+          <span class="step-num">1</span>
+          <span>नीचे दिए गए <strong class="action-key">Share ⎋</strong> बटन पर टैप करें।</span>
+        </div>
+        <div class="step-row">
+          <span class="step-num">2</span>
+          <span>नीचे स्क्रॉल करके <strong class="action-key">Add to Home Screen</strong> पर टैप करें, फिर <strong class="action-key">Add</strong> दबाएं।</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>`;
+
+      this.confirmDialog.bilingualAlert({
+        titleEn: `Install ${instName}`,
+        titleHi: `${instName} इंस्टॉल करें`,
+        messageEn,
+        messageHi,
+        confirmTextEn: 'Got it (OK)',
+        confirmTextHi: 'समझ गया (OK)',
+        type: 'info'
+      });
     }
   }
 

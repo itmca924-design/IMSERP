@@ -13,6 +13,7 @@ export interface BilingualDialogOptions {
   cancelTextEn?: string;
   cancelTextHi?: string;
   type?: 'danger' | 'warning' | 'info' | 'success';
+  width?: string;
 }
 
 @Injectable({
@@ -89,7 +90,7 @@ export class ConfirmDialogService {
   ): Observable<boolean> {
     const isHi = defaultLang ? defaultLang === 'hi' : (localStorage.getItem('imserp_lang') === 'hi');
     const dialogRef = this.dialog.open(ConfirmDialogComponent, {
-      width: '500px',
+      width: options.width || '520px',
       maxWidth: '92vw',
       panelClass: 'erp-confirm-dialog-panel',
       disableClose: false,

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'imserp-cache-v2';
+const CACHE_NAME = 'imserp-cache-v3';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -54,7 +54,7 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       (async () => {
         let branding = activeTenantBranding;
-        if (!branding || !branding.instituteName) {
+        if (!branding || (!branding.instituteName && !branding.dynamicManifest)) {
           try {
             const brandingCache = await caches.open('imserp-dynamic-branding');
             const cachedRes = await brandingCache.match('/__tenant_manifest_data__');
@@ -66,90 +66,105 @@ self.addEventListener('fetch', (event) => {
           }
         }
 
-        if (branding && branding.instituteName && branding.instituteName.trim()) {
-          const compName = branding.instituteName.trim();
-          const logo = branding.logoUrl || '/assets/icons/icon-192x192.png';
-          const iconType = logo.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg';
-          
-          const dynamicManifest = {
-            name: `${compName} - School & Coaching ERP`,
-            short_name: compName,
-            description: `${compName} Enterprise ERP solution for School Classes, Coaching Batches, Hybrid Admissions, Fee Collections, and Student Portals.`,
-            start_url: '/',
-            scope: '/',
-            display: 'standalone',
-            display_override: ['window-controls-overlay', 'standalone', 'minimal-ui'],
-            background_color: '#f8fafc',
-            theme_color: '#2563eb',
-            orientation: 'any',
-            lang: 'en-IN',
-            dir: 'ltr',
-            categories: ['education', 'business', 'productivity'],
-            icons: [
-              {
-                src: logo,
-                sizes: '192x192',
-                type: iconType,
-                purpose: 'any'
-              },
-              {
-                src: logo,
-                sizes: '192x192',
-                type: iconType,
-                purpose: 'maskable'
-              },
-              {
-                src: logo,
-                sizes: '512x512',
-                type: iconType,
-                purpose: 'any'
-              },
-              {
-                src: logo,
-                sizes: '512x512',
-                type: iconType,
-                purpose: 'maskable'
+        if (branding) {
+          if (branding.dynamicManifest) {
+            return new Response(JSON.stringify(branding.dynamicManifest, null, 2), {
+              status: 200,
+              headers: {
+                'Content-Type': 'application/manifest+json; charset=utf-8',
+                'Cache-Control': 'no-cache, no-store, must-revalidate'
               }
-            ],
-            shortcuts: [
-              {
-                name: 'Dashboard',
-                short_name: 'Dashboard',
-                description: 'Executive Overview & Insights',
-                url: '/dashboard',
-                icons: [{ src: logo, sizes: '192x192' }]
-              },
-              {
-                name: 'Attendance',
-                short_name: 'Attendance',
-                description: 'Daily Student & Teacher Attendance',
-                url: '/student-attendance',
-                icons: [{ src: logo, sizes: '192x192' }]
-              },
-              {
-                name: 'Fees Collection',
-                short_name: 'Fees',
-                description: 'Collect Fees & Instant Receipt',
-                url: '/fees',
-                icons: [{ src: logo, sizes: '192x192' }]
-              },
-              {
-                name: 'Student Directory',
-                short_name: 'Students',
-                description: 'Search & View Enrolled Students',
-                url: '/students',
-                icons: [{ src: logo, sizes: '192x192' }]
-              }
-            ]
-          };
+            });
+          }
 
-          return new Response(JSON.stringify(dynamicManifest, null, 2), {
-            status: 200,
-            headers: {
-              'Content-Type': 'application/manifest+json; charset=utf-8',
-              'Cache-Control': 'no-cache, no-store, must-revalidate'
-            }
-          });
+          if (branding.instituteName && branding.instituteName.trim()) {
+            const compName = branding.instituteName.trim();
+            const logo = branding.logoUrl || '/assets/icons/icon-192x192.png';
+            const icon192 = branding.icon192 || logo;
+            const icon512 = branding.icon512 || logo;
+            const maskable192 = branding.maskable192 || icon192;
+            const maskable512 = branding.maskable512 || icon512;
+
+            const dynamicManifest = {
+              name: `${compName} - School ERP`,
+              short_name: compName,
+              description: `${compName} Enterprise ERP solution for School Classes, Coaching Batches, Hybrid Admissions, Fee Collections, and Student Portals.`,
+              start_url: '/',
+              scope: '/',
+              display: 'standalone',
+              display_override: ['window-controls-overlay', 'standalone', 'minimal-ui'],
+              background_color: '#ffffff',
+              theme_color: '#2563eb',
+              orientation: 'any',
+              lang: 'en-IN',
+              dir: 'ltr',
+              categories: ['education', 'business', 'productivity'],
+              icons: [
+                {
+                  src: icon192,
+                  sizes: '192x192',
+                  type: 'image/png',
+                  purpose: 'any'
+                },
+                {
+                  src: maskable192,
+                  sizes: '192x192',
+                  type: 'image/png',
+                  purpose: 'maskable'
+                },
+                {
+                  src: icon512,
+                  sizes: '512x512',
+                  type: 'image/png',
+                  purpose: 'any'
+                },
+                {
+                  src: maskable512,
+                  sizes: '512x512',
+                  type: 'image/png',
+                  purpose: 'maskable'
+                }
+              ],
+              shortcuts: [
+                {
+                  name: 'Dashboard',
+                  short_name: 'Dashboard',
+                  description: 'Executive Overview & Insights',
+                  url: '/dashboard',
+                  icons: [{ src: icon192, sizes: '192x192', type: 'image/png' }]
+                },
+                {
+                  name: 'Attendance',
+                  short_name: 'Attendance',
+                  description: 'Daily Student & Teacher Attendance',
+                  url: '/student-attendance',
+                  icons: [{ src: icon192, sizes: '192x192', type: 'image/png' }]
+                },
+                {
+                  name: 'Fees Collection',
+                  short_name: 'Fees',
+                  description: 'Collect Fees & Instant Receipt',
+                  url: '/fees',
+                  icons: [{ src: icon192, sizes: '192x192', type: 'image/png' }]
+                },
+                {
+                  name: 'Student Directory',
+                  short_name: 'Students',
+                  description: 'Search & View Enrolled Students',
+                  url: '/students',
+                  icons: [{ src: icon192, sizes: '192x192', type: 'image/png' }]
+                }
+              ]
+            };
+
+            return new Response(JSON.stringify(dynamicManifest, null, 2), {
+              status: 200,
+              headers: {
+                'Content-Type': 'application/manifest+json; charset=utf-8',
+                'Cache-Control': 'no-cache, no-store, must-revalidate'
+              }
+            });
+          }
         }
 
         // Fallback to static manifest if no tenant logged in
@@ -159,17 +174,30 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 3. Proxy uploaded logos/documents to backend if requested on frontend origin
-  if (url.pathname.startsWith('/uploads/')) {
-    const backendBase = 'http://localhost:5000';
-    const targetUrl = backendBase + url.pathname + url.search;
+  // 3. Dynamic tenant cached icons
+  if (url.pathname === '/__tenant_icon_192.png' || url.pathname === '/__tenant_icon_512.png') {
     event.respondWith(
-      fetch(targetUrl).catch(() => caches.match(req))
+      (async () => {
+        try {
+          const brandingCache = await caches.open('imserp-dynamic-branding');
+          const cached = await brandingCache.match(req.url);
+          if (cached) return cached;
+        } catch (e) {}
+        return caches.match('/assets/icons/icon-192x192.png');
+      })()
     );
     return;
   }
 
-  // 4. API calls: Strictly Network-first, never return stale financial/student transactions
+  // 4. Proxy uploaded logos/documents to backend if requested on frontend origin
+  if (url.pathname.startsWith('/uploads/')) {
+    event.respondWith(
+      fetch(req).catch(() => caches.match(req))
+    );
+    return;
+  }
+
+  // 5. API calls: Strictly Network-first, never return stale financial/student transactions
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(
       fetch(req).catch(() => {
@@ -188,7 +216,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 5. SPA Navigation requests (HTML pages): Network-first with cache fallback to /index.html
+  // 6. SPA Navigation requests (HTML pages): Network-first with cache fallback to /index.html
   if (req.mode === 'navigate') {
     event.respondWith(
       fetch(req)
@@ -206,7 +234,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 6. Static assets (JS, CSS, images, fonts): Cache-first with network fallback
+  // 7. Static assets (JS, CSS, images, fonts): Cache-first with network fallback
   const isStatic =
     url.pathname.endsWith('.js') ||
     url.pathname.endsWith('.css') ||
@@ -252,12 +280,27 @@ self.addEventListener('message', (event) => {
     activeTenantBranding = event.data.payload;
     if (event.data.payload) {
       caches.open('imserp-dynamic-branding').then((cache) => {
+        const payloadData = event.data.payload;
         cache.put(
           new Request('/__tenant_manifest_data__'),
-          new Response(JSON.stringify(event.data.payload), {
+          new Response(JSON.stringify(payloadData), {
             headers: { 'Content-Type': 'application/json' }
           })
         );
+        if (payloadData.dynamicManifest) {
+          cache.put(
+            new Request('/manifest.webmanifest'),
+            new Response(JSON.stringify(payloadData.dynamicManifest, null, 2), {
+              headers: { 'Content-Type': 'application/manifest+json; charset=utf-8' }
+            })
+          );
+          cache.put(
+            new Request('/manifest.json'),
+            new Response(JSON.stringify(payloadData.dynamicManifest, null, 2), {
+              headers: { 'Content-Type': 'application/manifest+json; charset=utf-8' }
+            })
+          );
+        }
       });
     }
   } else if (event.data && event.data.type === 'SKIP_WAITING') {

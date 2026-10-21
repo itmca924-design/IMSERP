@@ -49,8 +49,8 @@ import ApexCharts from 'apexcharts';
             <p>Welcome, <strong>{{ teacherSummary()?.teacherName || 'Faculty' }}</strong>! Here is your lecture routine, assigned classrooms, and grading schedule.</p>
           }
           @if (!authService.isStudentOrParent() && !authService.isTeacher()) {
-            <h2>Institution Overview &amp; Real-Time Performance Analytics</h2>
-            <p>Monitor your academic institutions, branches, students, faculty, and collections from a single command center.</p>
+            <h2>School Operations &amp; Executive Command Center</h2>
+            <p>Manage admissions, classrooms, exams, daily attendance, fee collections, and campus branches from a single unified hub.</p>
           }
         </div>
         <button mat-raised-button color="primary" class="refresh-btn" (click)="loadSummary()" matTooltip="Refresh Analytics">
@@ -1519,19 +1519,21 @@ import ApexCharts from 'apexcharts';
 
       .header-titles h2 {
         margin: 0;
-        font-size: 1.55rem;
+        font-size: 1.32rem;
         font-weight: 700;
         color: #0f172a;
-        letter-spacing: -0.02em;
+        letter-spacing: -0.015em;
+        line-height: 1.3;
       }
       .header-titles p {
         margin: 4px 0 0;
         color: #64748b;
-        font-size: 0.9rem;
+        font-size: 0.86rem;
+        line-height: 1.45;
       }
 
       .refresh-btn {
-        height: 42px;
+        height: 40px;
         font-weight: 600;
         border-radius: 8px;
         display: inline-flex;
@@ -1549,10 +1551,10 @@ import ApexCharts from 'apexcharts';
         gap: 10px;
 
         .header-titles h2 {
-          font-size: 1.25rem;
+          font-size: 1.15rem;
         }
         .header-titles p {
-          font-size: 0.82rem;
+          font-size: 0.8rem;
         }
         .refresh-btn {
           width: 100%;
