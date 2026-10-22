@@ -443,6 +443,24 @@ public class FeesController : ControllerBase
         return Ok(cards);
     }
 
+    private class MonthInvoiceAllocation
+    {
+        public FeeInvoice Invoice { get; set; } = null!;
+        public FeePayment? Payment { get; set; }
+        public decimal GrossPayable { get; set; }
+        public decimal MonthConcession { get; set; }
+        public decimal Payable { get; set; }
+        public decimal Paid { get; set; }
+        public decimal Balance { get; set; }
+        public string Status { get; set; } = "Due";
+        public decimal OneTimeCharges { get; set; }
+        public string? OneTimeChargesNote { get; set; }
+        public string Remarks { get; set; } = "";
+        public int MonthIndexInCycle { get; set; }
+        public int TotalCycleMonths { get; set; }
+        public string? BillingCycleTag { get; set; }
+    }
+
     private async Task<StudentFeeCardDto> BuildFeeCardForStudentAsync(Student student, int? sessionStartYear)
     {
         var now = DateTime.UtcNow;
@@ -455,6 +473,7 @@ public class FeesController : ControllerBase
         var invoices = await _dbContext.FeeInvoices
             .AsNoTracking()
             .Include(i => i.Items)
+                .ThenInclude(it => it.FeeHead)
             .Where(i => i.StudentId == student.Id && i.Status != InvoiceStatus.Cancelled)
             .ToListAsync();
 
@@ -467,8 +486,28 @@ public class FeesController : ControllerBase
             .ToListAsync();
 
         var monthsList = new List<FeeCardMonthEntryDto>();
-        decimal monthlyFeeRate = student.Batch?.StandardMonthlyFee ?? 0m;
-        if (monthlyFeeRate == 0m && student.ClassId.HasValue)
+        decimal monthlyFeeRate = 0m;
+        if (student.IsCoachingStudent && student.BatchId.HasValue)
+        {
+            monthlyFeeRate = student.Batch?.StandardMonthlyFee ?? 0m;
+            if (monthlyFeeRate == 0m)
+            {
+                var batchFee = await _dbContext.ClassFeeStructures
+                    .AsNoTracking()
+                    .Include(c => c.FeeHead)
+                    .Where(c => c.BatchId == student.BatchId.Value && c.IsActive)
+                    .Where(c => c.FeeHead != null && 
+                                c.FeeHead.Frequency != "OneTime" && 
+                                c.FeeHead.Frequency != "Annual" && 
+                                c.FeeHead.Category != "OneTime" &&
+                                !c.FeeHead.Name.Contains("Registration") &&
+                                !c.FeeHead.Name.Contains("Admission") &&
+                                (c.FeeHead.Frequency == "Monthly" || c.ApplicableMonth == null || c.FeeHead.Category == "Academic" || c.FeeHead.Name.Contains("Tuition")))
+                    .SumAsync(c => c.Amount);
+                if (batchFee > 0) monthlyFeeRate = batchFee;
+            }
+        }
+        else if (student.ClassId.HasValue)
         {
             var classFee = await _dbContext.ClassFeeStructures
                 .AsNoTracking()
@@ -477,6 +516,9 @@ public class FeesController : ControllerBase
                 .Where(c => c.FeeHead != null && 
                             c.FeeHead.Frequency != "OneTime" && 
                             c.FeeHead.Frequency != "Annual" && 
+                            c.FeeHead.Category != "OneTime" &&
+                            !c.FeeHead.Name.Contains("Registration") &&
+                            !c.FeeHead.Name.Contains("Admission") &&
                             (c.FeeHead.Frequency == "Monthly" || c.ApplicableMonth == null || c.FeeHead.Category == "Academic" || c.FeeHead.Name.Contains("Tuition")))
                 .SumAsync(c => c.Amount);
             if (classFee > 0) monthlyFeeRate = classFee;
@@ -527,12 +569,18 @@ public class FeesController : ControllerBase
             ? student.JoiningDate 
             : new DateTime(startYear, 4, 1);
 
-        // Standard 20th-Day Admission Cutoff Rule:
-        // If admission takes place on or after the 20th of the month, and no invoice was intentionally billed for that joining month,
+        // Dynamic Admission Cutoff Rule from AutomationSettings
+        var autoSettings = await _dbContext.AutomationSettings
+            .AsNoTracking()
+            .FirstOrDefaultAsync(s => s.TenantId == student.TenantId);
+        int cutoffDay = autoSettings?.AdmissionCutoffDay ?? 20;
+        string rolloverPolicy = autoSettings?.AdmissionRolloverPolicy ?? "NextMonthFull";
+
+        // If admission takes place after cutoff day (e.g. Day 21-31), and no invoice was intentionally billed for that joining month,
         // the remaining days are treated as orientation/grace period, and regular monthly billing starts from the 1st of the next month.
         bool hasInvoiceInJoiningMonth = invoices.Any(iv => iv.DueDate.Year == joinRefDate.Year && iv.DueDate.Month == joinRefDate.Month);
         DateTime studentEnrollmentStart;
-        if (joinRefDate.Day >= 20 && !hasInvoiceInJoiningMonth)
+        if (joinRefDate.Day > cutoffDay && rolloverPolicy == "NextMonthFull" && !hasInvoiceInJoiningMonth)
         {
             studentEnrollmentStart = new DateTime(joinRefDate.Year, joinRefDate.Month, 1).AddMonths(1);
         }
@@ -543,6 +591,177 @@ public class FeesController : ControllerBase
 
         var currentMonthStart = new DateTime(now.Year, now.Month, 1);
 
+        // Multi-Month Invoicing Distribution Engine:
+        // Seamlessly maps Monthly, Quarterly (3m), Half-Yearly (6m), and Yearly (12m) invoices across their
+        // covered passbook months. Places one-time charges (Registration/Admission/Kit) in the first month,
+        // distributes recurring tuition evenly, and prevents skipping middle months or double-counting totals.
+        var invoiceAllocationsByMonth = new Dictionary<(int Year, int Month), List<MonthInvoiceAllocation>>();
+
+        foreach (var inv in invoices.OrderBy(iv => iv.DueDate).ThenBy(iv => iv.CreatedAt))
+        {
+            int invStartYear = inv.DueDate.Year;
+            int invStartMonth = inv.DueDate.Month;
+            int cycleMonths = 1;
+
+            if (!string.IsNullOrEmpty(inv.InvoiceNumber))
+            {
+                var match = System.Text.RegularExpressions.Regex.Match(
+                    inv.InvoiceNumber,
+                    @"^INV-(?:HOSTEL-)?(\d{4})(\d{2})([QHY])?-",
+                    System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+                if (match.Success)
+                {
+                    invStartYear = int.Parse(match.Groups[1].Value);
+                    invStartMonth = int.Parse(match.Groups[2].Value);
+                    string code = match.Groups[3].Value.ToUpperInvariant();
+                    cycleMonths = code switch
+                    {
+                        "Q" => 3,
+                        "H" => 6,
+                        "Y" => 12,
+                        _ => 1
+                    };
+                }
+            }
+
+            if (cycleMonths == 1 && !string.IsNullOrEmpty(inv.Title))
+            {
+                if (inv.Title.Contains("Quarterly", StringComparison.OrdinalIgnoreCase) || inv.Title.Contains("3 Mos", StringComparison.OrdinalIgnoreCase))
+                    cycleMonths = 3;
+                else if (inv.Title.Contains("Half-Yearly", StringComparison.OrdinalIgnoreCase) || inv.Title.Contains("6 Mos", StringComparison.OrdinalIgnoreCase))
+                    cycleMonths = 6;
+                else if (inv.Title.Contains("Yearly", StringComparison.OrdinalIgnoreCase) || inv.Title.Contains("Annual", StringComparison.OrdinalIgnoreCase))
+                    cycleMonths = 12;
+            }
+
+            var otItems = inv.Items?.Where(it =>
+                it.Amount > 0 && (
+                    it.HeadName.Contains("Admission", StringComparison.OrdinalIgnoreCase) ||
+                    it.HeadName.Contains("Registration", StringComparison.OrdinalIgnoreCase) ||
+                    it.HeadName.Contains("Kit", StringComparison.OrdinalIgnoreCase) ||
+                    it.HeadName.Contains("Uniform", StringComparison.OrdinalIgnoreCase) ||
+                    it.HeadName.Contains("Development", StringComparison.OrdinalIgnoreCase) ||
+                    it.HeadName.Contains("OneTime", StringComparison.OrdinalIgnoreCase) ||
+                    (it.FeeHead != null && (it.FeeHead.Frequency == "OneTime" || it.FeeHead.Category == "OneTime" || it.FeeHead.Category == "Admission"))
+                )
+            ).ToList() ?? new List<FeeInvoiceItem>();
+
+            decimal totalOneTime = otItems.Sum(it => it.Amount);
+            string? oneTimeNote = otItems.Any()
+                ? string.Join(", ", otItems.Select(it => $"{it.HeadName}: ₹{it.Amount:N0}"))
+                : null;
+
+            decimal invConcession = inv.Items?.Where(it => it.Amount < 0).Sum(it => -it.Amount) ?? 0m;
+            decimal totalInvoicePayable = inv.TotalAmount;
+            decimal totalInvoicePaid = inv.PaidAmount;
+
+            // Recurring amount is total invoice minus one-time heads
+            decimal totalRecurring = Math.Max(0m, totalInvoicePayable - totalOneTime);
+            decimal baseMonthlyRecurring = cycleMonths > 0 ? Math.Round(totalRecurring / cycleMonths, 2) : totalRecurring;
+            decimal lastMonthlyRecurring = cycleMonths > 1 ? (totalRecurring - (baseMonthlyRecurring * (cycleMonths - 1))) : baseMonthlyRecurring;
+
+            decimal baseMonthlyConcession = cycleMonths > 0 ? Math.Round(invConcession / cycleMonths, 2) : invConcession;
+            decimal lastMonthlyConcession = cycleMonths > 1 ? (invConcession - (baseMonthlyConcession * (cycleMonths - 1))) : baseMonthlyConcession;
+
+            var pmt = payments.FirstOrDefault(p => p.InvoiceId == inv.Id);
+            decimal remainingPaidToDistribute = totalInvoicePaid;
+
+            DateTime cycleStart = new DateTime(invStartYear, invStartMonth, 1);
+            string cycleLabel = cycleMonths switch
+            {
+                3 => "Quarterly",
+                6 => "Half-Yearly",
+                12 => "Yearly",
+                _ => "Monthly"
+            };
+
+            for (int m = 1; m <= cycleMonths; m++)
+            {
+                DateTime coveredMonthDate = cycleStart.AddMonths(m - 1);
+                var key = (coveredMonthDate.Year, coveredMonthDate.Month);
+
+                decimal monthlyRecurring = (m == cycleMonths) ? lastMonthlyRecurring : baseMonthlyRecurring;
+                decimal monthlyConcession = (m == cycleMonths) ? lastMonthlyConcession : baseMonthlyConcession;
+
+                // Month 1 carries the one-time charges; subsequent months carry only recurring monthly fee
+                decimal monthOneTime = (m == 1) ? totalOneTime : 0m;
+                string? monthOneTimeNote = (m == 1) ? oneTimeNote : null;
+
+                decimal monthGrossPayable = monthlyRecurring + monthOneTime + monthlyConcession;
+                decimal monthPayable = monthlyRecurring + monthOneTime;
+
+                // Distribute payments FIFO across the cycle months
+                decimal monthPaid = Math.Min(monthPayable, remainingPaidToDistribute);
+                remainingPaidToDistribute = Math.Max(0m, remainingPaidToDistribute - monthPaid);
+                decimal monthBalance = Math.Max(0m, monthPayable - monthPaid);
+
+                string monthStatus;
+                if (monthPaid >= monthPayable && monthPayable > 0)
+                    monthStatus = "Paid";
+                else if (monthPaid > 0 && monthPaid < monthPayable)
+                    monthStatus = "PartiallyPaid";
+                else if (inv.DueDate < now && monthPaid == 0)
+                    monthStatus = "Overdue";
+                else if (monthPaid == 0)
+                    monthStatus = "Due";
+                else
+                    monthStatus = inv.Status.ToString();
+
+                if (!string.IsNullOrWhiteSpace(inv.CancellationReason) && inv.CancellationReason.Contains("[BALANCE WAIVED & SETTLED]"))
+                {
+                    monthStatus = "Settled";
+                }
+
+                string monthRemarks;
+                if (!string.IsNullOrWhiteSpace(inv.CancellationReason))
+                {
+                    monthRemarks = inv.CancellationReason;
+                }
+                else if (m == 1 && monthOneTime > 0)
+                {
+                    monthRemarks = cycleMonths > 1
+                        ? $"Mo ₹{monthlyRecurring:N0} + One-Time: ₹{monthOneTime:N0} ({monthOneTimeNote}) [{cycleLabel}]"
+                        : $"Monthly: ₹{monthlyRecurring:N0} + One-Time: ₹{monthOneTime:N0} ({monthOneTimeNote})";
+                }
+                else if (cycleMonths > 1)
+                {
+                    monthRemarks = $"Covered under {cycleLabel} Invoice ({inv.InvoiceNumber})";
+                }
+                else if (!string.IsNullOrWhiteSpace(pmt?.Remarks))
+                {
+                    monthRemarks = pmt.Remarks;
+                }
+                else
+                {
+                    monthRemarks = inv.Title;
+                }
+
+                if (!invoiceAllocationsByMonth.ContainsKey(key))
+                {
+                    invoiceAllocationsByMonth[key] = new List<MonthInvoiceAllocation>();
+                }
+
+                invoiceAllocationsByMonth[key].Add(new MonthInvoiceAllocation
+                {
+                    Invoice = inv,
+                    Payment = pmt,
+                    GrossPayable = monthGrossPayable,
+                    MonthConcession = monthlyConcession,
+                    Payable = monthPayable,
+                    Paid = monthPaid,
+                    Balance = monthBalance,
+                    Status = monthStatus,
+                    OneTimeCharges = monthOneTime,
+                    OneTimeChargesNote = monthOneTimeNote,
+                    Remarks = monthRemarks,
+                    MonthIndexInCycle = m,
+                    TotalCycleMonths = cycleMonths,
+                    BillingCycleTag = cycleMonths > 1 ? cycleLabel : null
+                });
+            }
+        }
+
         for (int i = 1; i <= 12; i++)
         {
             int calMonth = i <= 9 ? i + 3 : i - 9;
@@ -551,49 +770,33 @@ public class FeesController : ControllerBase
             string monthName = monthDate.ToString("MMMM yyyy");
             string monthShort = monthDate.ToString("MMM yyyy");
 
-            var inv = invoices.FirstOrDefault(iv => iv.DueDate.Year == calYear && iv.DueDate.Month == calMonth)
-                   ?? invoices.FirstOrDefault(iv => (iv.Title != null && iv.Title.ToLower().Contains(monthDate.ToString("MMM").ToLower())) && iv.DueDate.Year == calYear);
-
-            if (inv != null)
+            var key = (calYear, calMonth);
+            if (invoiceAllocationsByMonth.TryGetValue(key, out var allocations) && allocations.Count > 0)
             {
-                var pmt = payments.FirstOrDefault(p => p.InvoiceId == inv.Id);
-                decimal monthConcession = 0m;
-                if (inv.Items != null && inv.Items.Count > 0)
-                {
-                    monthConcession = inv.Items.Where(it => it.Amount < 0).Sum(it => -it.Amount);
-                }
+                decimal grossPayable = allocations.Sum(a => a.GrossPayable);
+                decimal monthConcession = allocations.Sum(a => a.MonthConcession);
+                decimal payable = allocations.Sum(a => a.Payable);
+                decimal paid = allocations.Sum(a => a.Paid);
+                decimal balance = allocations.Sum(a => a.Balance);
+                decimal oneTimeCharges = allocations.Sum(a => a.OneTimeCharges);
+                string? oneTimeChargesNote = string.Join("; ", allocations.Where(a => !string.IsNullOrEmpty(a.OneTimeChargesNote)).Select(a => a.OneTimeChargesNote));
+                if (string.IsNullOrWhiteSpace(oneTimeChargesNote)) oneTimeChargesNote = null;
 
-                decimal payable = inv.TotalAmount;
-                decimal grossPayable = inv.Items != null && inv.Items.Any(it => it.Amount > 0)
-                    ? inv.Items.Where(it => it.Amount > 0).Sum(it => it.Amount)
-                    : (payable + monthConcession);
+                string status;
+                if (balance <= 0 && payable > 0) status = "Paid";
+                else if (paid > 0 && balance > 0) status = "PartiallyPaid";
+                else if (allocations.Any(a => a.Status == "Settled")) status = "Settled";
+                else if (allocations.Any(a => a.Status == "Overdue")) status = "Overdue";
+                else status = "Due";
 
-                decimal paid = inv.PaidAmount;
-                decimal balance = Math.Max(0m, payable - paid);
-                string status = inv.Status.ToString();
-                if (paid >= payable && payable > 0) status = "Paid";
-                else if (paid > 0 && paid < payable) status = "PartiallyPaid";
-                else if (inv.DueDate < now && paid == 0) status = "Overdue";
-                else if (paid == 0) status = "Due";
+                string invoiceNumber = string.Join(", ", allocations.Select(a => a.Invoice.InvoiceNumber).Distinct());
+                string? receiptNumber = string.Join(", ", allocations.Where(a => a.Payment != null && !string.IsNullOrEmpty(a.Payment.ReceiptNumber)).Select(a => a.Payment!.ReceiptNumber).Distinct());
+                if (string.IsNullOrWhiteSpace(receiptNumber)) receiptNumber = null;
 
-                if (!string.IsNullOrWhiteSpace(inv.CancellationReason) && inv.CancellationReason.Contains("[BALANCE WAIVED & SETTLED]"))
-                {
-                    status = "Settled";
-                }
-
-                string? remarks = null;
-                if (!string.IsNullOrWhiteSpace(inv.CancellationReason))
-                {
-                    remarks = inv.CancellationReason;
-                }
-                else if (!string.IsNullOrWhiteSpace(pmt?.Remarks))
-                {
-                    remarks = pmt.Remarks;
-                }
-                else
-                {
-                    remarks = inv.Title;
-                }
+                DateTime? paymentDate = allocations.Where(a => a.Payment != null).OrderByDescending(a => a.Payment!.PaymentDate).FirstOrDefault()?.Payment?.PaymentDate;
+                string? paymentMode = allocations.FirstOrDefault(a => a.Payment != null)?.Payment?.Mode.ToString();
+                string remarks = string.Join(" | ", allocations.Select(a => a.Remarks).Distinct());
+                string? billingCycleTag = allocations.FirstOrDefault(a => !string.IsNullOrEmpty(a.BillingCycleTag))?.BillingCycleTag;
 
                 monthsList.Add(new FeeCardMonthEntryDto(
                     i,
@@ -607,11 +810,14 @@ public class FeesController : ControllerBase
                     payable,
                     paid,
                     balance,
-                    inv.InvoiceNumber,
-                    pmt?.ReceiptNumber,
-                    pmt != null ? DateTime.SpecifyKind(pmt.PaymentDate, DateTimeKind.Utc) : null,
-                    pmt?.Mode.ToString(),
-                    remarks
+                    invoiceNumber,
+                    receiptNumber,
+                    paymentDate.HasValue ? DateTime.SpecifyKind(paymentDate.Value, DateTimeKind.Utc) : null,
+                    paymentMode,
+                    remarks,
+                    oneTimeCharges,
+                    oneTimeChargesNote,
+                    billingCycleTag
                 ));
             }
             else if (monthDate < studentEnrollmentStart)
@@ -672,6 +878,8 @@ public class FeesController : ControllerBase
             .Where(c => c.StudentId == student.Id && c.FineStatus == "Pending")
             .SumAsync(c => c.FineAmount);
 
+        decimal totalOneTimeFee = monthsList.Sum(m => m.OneTimeCharges);
+
         return new StudentFeeCardDto(
             student.Id,
             student.StudentName,
@@ -705,7 +913,8 @@ public class FeesController : ControllerBase
             student.SchoolRollNumber,
             student.CoachingRollNumber,
             student.IsSchoolStudent,
-            student.IsCoachingStudent
+            student.IsCoachingStudent,
+            totalOneTimeFee
         );
     }
 
@@ -806,6 +1015,15 @@ public class FeesController : ControllerBase
                          && i.Status != InvoiceStatus.Cancelled)
                 .OrderBy(i => i.DueDate)
                 .ToListAsync();
+
+            if (dto.ItemPayments != null && dto.ItemPayments.Count > 0)
+            {
+                var selectedItemIds = dto.ItemPayments.Select(p => p.ItemId).ToHashSet();
+                unpaidInvoices = unpaidInvoices
+                    .OrderByDescending(i => i.Items != null && i.Items.Any(it => selectedItemIds.Contains(it.Id)))
+                    .ThenBy(i => i.DueDate)
+                    .ToList();
+            }
 
             // Check student's pending library fines (Both returned pending & active unreturned overdue)
             var pendingLibCirculations = await _dbContext.LibraryCirculations
@@ -966,6 +1184,26 @@ public class FeesController : ControllerBase
                 .Where(c => c.StudentId == dto.StudentId && c.FineStatus == "Pending")
                 .SumAsync(c => c.FineAmount);
 
+            var pendingArrearsInvoices = await _dbContext.FeeInvoices
+                .AsNoTracking()
+                .Where(i => i.StudentId == dto.StudentId 
+                         && i.Status != InvoiceStatus.Paid 
+                         && i.Status != InvoiceStatus.Cancelled
+                         && (i.TotalAmount - i.PaidAmount) > 0)
+                .OrderBy(i => i.DueDate)
+                .ToListAsync();
+
+            var pendingArrears = pendingArrearsInvoices
+                .Select(i => new FeeReceiptArrearDto(
+                    i.DueDate.ToString("MMMM yyyy"),
+                    i.InvoiceNumber,
+                    i.Title ?? "Fee Bill",
+                    i.TotalAmount - i.PaidAmount
+                ))
+                .ToList();
+
+            decimal totalDemandBeforePayment = dto.AmountPaid + totalOutstandingDue;
+
             // Construct Line Items for Receipt with actual Fee Heads
             var lineItems = new List<FeeReceiptLineItemDto>();
             if (tuitionAllocatedTotal > 0)
@@ -1100,6 +1338,9 @@ public class FeesController : ControllerBase
             var tenant = await _dbContext.Tenants.AsNoTracking()
                 .FirstOrDefaultAsync(t => t.Id == student.TenantId);
 
+            int recStartYear = DateTime.UtcNow.Month >= 4 ? DateTime.UtcNow.Year : DateTime.UtcNow.Year - 1;
+            string academicSession = $"{recStartYear}-{recStartYear + 1}";
+
             return Ok(new FeePaymentReceiptDto(
                 lastPayment?.Id ?? (selectedCirculations.FirstOrDefault()?.Id ?? Guid.NewGuid()),
                 receiptNo,
@@ -1129,7 +1370,10 @@ public class FeesController : ControllerBase
                 tenant?.ContactPhone,
                 tenant?.Address,
                 student.Id,
-                unpaidInvoices.FirstOrDefault()?.Id
+                unpaidInvoices.FirstOrDefault()?.Id,
+                academicSession,
+                pendingArrears,
+                totalDemandBeforePayment
             ));
         });
     }
@@ -1195,6 +1439,28 @@ public class FeesController : ControllerBase
                 .Where(c => c.StudentId == student.Id && c.FineStatus == "Pending")
                 .SumAsync(c => c.FineAmount)
             : 0m;
+
+        var pendingArrearsInvoices = student != null
+            ? await _dbContext.FeeInvoices
+                .AsNoTracking()
+                .Where(i => i.StudentId == student.Id 
+                         && i.Status != InvoiceStatus.Paid 
+                         && i.Status != InvoiceStatus.Cancelled
+                         && (i.TotalAmount - i.PaidAmount) > 0)
+                .OrderBy(i => i.DueDate)
+                .ToListAsync()
+            : new List<FeeInvoice>();
+
+        var pendingArrears = pendingArrearsInvoices
+            .Select(i => new FeeReceiptArrearDto(
+                i.DueDate.ToString("MMMM yyyy"),
+                i.InvoiceNumber,
+                i.Title ?? "Fee Bill",
+                i.TotalAmount - i.PaidAmount
+            ))
+            .ToList();
+
+        decimal totalDemandBeforePayment = grandTotalPaid + remainingDue;
 
         var lineItems = new List<FeeReceiptLineItemDto>();
         if (totalTuitionPaid > 0)
@@ -1283,6 +1549,10 @@ public class FeesController : ControllerBase
             ? await _dbContext.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.Id == tenantId)
             : null;
 
+        DateTime refDt = firstPayment?.PaymentDate ?? DateTime.UtcNow;
+        int rcptStartYear = refDt.Month >= 4 ? refDt.Year : refDt.Year - 1;
+        string academicSession = $"{rcptStartYear}-{rcptStartYear + 1}";
+
         return Ok(new FeePaymentReceiptDto(
             firstPayment?.Id ?? (circulations.FirstOrDefault()?.Id ?? Guid.NewGuid()),
             receiptNumber,
@@ -1312,7 +1582,10 @@ public class FeesController : ControllerBase
             tenant?.ContactPhone,
             tenant?.Address,
             student?.Id,
-            firstPayment?.InvoiceId
+            firstPayment?.InvoiceId,
+            academicSession,
+            pendingArrears,
+            totalDemandBeforePayment
         ));
     }
 
@@ -1755,10 +2028,18 @@ public class FeesController : ControllerBase
             .GroupBy(a => a.StudentId!.Value)
             .ToDictionary(g => g.Key, g => g.First());
 
+        // ── Load Tenant Automation & Admission Billing Settings ──
+        var autoSettings = await _dbContext.AutomationSettings
+            .AsNoTracking()
+            .FirstOrDefaultAsync(s => s.TenantId == _currentUser.TenantId);
+        int cutoffDay = autoSettings?.AdmissionCutoffDay ?? 20;
+        string rolloverPolicy = autoSettings?.AdmissionRolloverPolicy ?? "NextMonthFull";
+        int fyStartMonth = autoSettings?.FinancialYearStartMonth ?? 4;
+
         // ── Academic Session Window (April 1 to March 31 in Indian Curriculum) ──
-        int sessionStartYear = (dto.Month >= 4) ? dto.Year : (dto.Year - 1);
-        var sessionStartDate = new DateTime(sessionStartYear, 4, 1);
-        var sessionEndDate = new DateTime(sessionStartYear + 1, 3, 31, 23, 59, 59);
+        int sessionStartYear = (dto.Month >= fyStartMonth) ? dto.Year : (dto.Year - 1);
+        var sessionStartDate = new DateTime(sessionStartYear, fyStartMonth, 1);
+        var sessionEndDate = sessionStartDate.AddYears(1).AddDays(-1).Add(new TimeSpan(23, 59, 59));
 
         // Pre-load all FeeHeadIds previously billed to these students in the current academic session (exclude Inventory kits!)
         var billedHeadsInSession = await _dbContext.FeeInvoiceItems
@@ -1772,6 +2053,24 @@ public class FeesController : ControllerBase
             .ToListAsync();
 
         var billedHeadsLookup = billedHeadsInSession
+            .GroupBy(x => x.StudentId)
+            .ToDictionary(g => g.Key, g => g.Select(x => x.Value).ToHashSet());
+
+        // Pre-load all OneTime / Registration FeeHeadIds previously billed across the student's entire lifetime (never repeat!)
+        var lifetimeOneTimeBilled = await _dbContext.FeeInvoiceItems
+            .AsNoTracking()
+            .Where(it => studentIds.Contains(it.Invoice!.StudentId) &&
+                         it.Invoice!.Status != InvoiceStatus.Cancelled &&
+                         it.Invoice.InvoiceCategory != "Inventory" &&
+                         it.FeeHeadId.HasValue &&
+                         (it.FeeHead!.Frequency == "OneTime" || 
+                          it.HeadName.ToLower().Contains("registration") || 
+                          it.HeadName.ToLower().Contains("admission") ||
+                          it.HeadName.ToLower().Contains("reg fee")))
+            .Select(it => new { it.Invoice!.StudentId, it.FeeHeadId!.Value })
+            .ToListAsync();
+
+        var lifetimeOneTimeLookup = lifetimeOneTimeBilled
             .GroupBy(x => x.StudentId)
             .ToDictionary(g => g.Key, g => g.Select(x => x.Value).ToHashSet());
 
@@ -1871,9 +2170,38 @@ public class FeesController : ControllerBase
             }
             else if (dto.AutoBillNewAdmissionsFromDoj && isNewAdmission && s.JoiningDate > DateTime.MinValue && s.JoiningDate.Year <= dto.Year)
             {
-                // Auto-bill new admission from their exact admission/joining month
-                studentStartMonth = s.JoiningDate.Month;
-                studentStartYear = s.JoiningDate.Year;
+                // Dynamic Admission Cutoff Rule (Day 1 to CutoffDay = Same Month; Day > CutoffDay = Next Month)
+                if (s.JoiningDate.Day > cutoffDay && rolloverPolicy == "NextMonthFull")
+                {
+                    var rollDate = new DateTime(s.JoiningDate.Year, s.JoiningDate.Month, 1).AddMonths(1);
+                    studentStartMonth = rollDate.Month;
+                    studentStartYear = rollDate.Year;
+                }
+                else
+                {
+                    studentStartMonth = s.JoiningDate.Month;
+                    studentStartYear = s.JoiningDate.Year;
+                }
+            }
+            else if (isNewAdmission && s.JoiningDate > DateTime.MinValue && s.JoiningDate.Year == dto.Year && s.JoiningDate.Month == dto.Month)
+            {
+                // Even if AutoBillNewAdmissionsFromDoj is unchecked, if target month is student's joining month and they joined after cutoffDay:
+                // Their billing must NOT begin in this month; it rolls over to next month!
+                if (s.JoiningDate.Day > cutoffDay && rolloverPolicy == "NextMonthFull")
+                {
+                    if (dto.StudentId.HasValue && dto.StudentId.Value == s.Id)
+                    {
+                        // Targeted single student invoice: automatically roll over to next month!
+                        var rollDate = new DateTime(s.JoiningDate.Year, s.JoiningDate.Month, 1).AddMonths(1);
+                        studentStartMonth = rollDate.Month;
+                        studentStartYear = rollDate.Year;
+                    }
+                    else
+                    {
+                        skippedCount++;
+                        continue;
+                    }
+                }
             }
 
             var studentPeriodStart = new DateTime(studentStartYear, studentStartMonth, 1);
@@ -1919,43 +2247,107 @@ public class FeesController : ControllerBase
                 continue;
             }
 
-            var studentStructures = feeStructures
-                .Where(cfs => (s.ClassId.HasValue && cfs.ClassId == s.ClassId.Value) ||
-                              (s.BatchId.HasValue && cfs.BatchId == s.BatchId.Value))
-                .ToList();
+            List<ClassFeeStructure> studentStructures;
+
+            if (s.IsSchoolStudent && !s.IsCoachingStudent)
+            {
+                // Pure School Student:
+                studentStructures = feeStructures
+                    .Where(cfs => s.ClassId.HasValue && cfs.ClassId == s.ClassId.Value &&
+                                  (cfs.FeeHead == null || cfs.FeeHead.ApplicableTo == "School" || cfs.FeeHead.ApplicableTo == "Both"))
+                    .ToList();
+            }
+            else if (s.IsSchoolStudent && s.IsCoachingStudent)
+            {
+                // Case 1: School + Coaching Hybrid (Ek hi school ke bache jo school me admission bhi hai aur school coaching bhi karte hai)
+                // "iske liye school ka fees head pick karega"
+                studentStructures = feeStructures
+                    .Where(cfs => s.ClassId.HasValue && cfs.ClassId == s.ClassId.Value &&
+                                  (cfs.FeeHead == null || cfs.FeeHead.ApplicableTo == "School" || cfs.FeeHead.ApplicableTo == "Both"))
+                    .ToList();
+            }
+            else
+            {
+                // Case 2: External Student / Coaching Only (Waisa bacha jo bahar se aa raha hai lekin sirf coaching join kiya hai)
+                // "lekin coaching me kaun si class ka coaching le raha hai waise me coaching fees head se pick karega"
+                studentStructures = feeStructures
+                    .Where(cfs =>
+                        (s.BatchId.HasValue && cfs.BatchId == s.BatchId.Value) ||
+                        (s.ClassId.HasValue && cfs.ClassId == s.ClassId.Value && cfs.FeeHead != null && (cfs.FeeHead.ApplicableTo == "Coaching" || cfs.FeeHead.ApplicableTo == "Both"))
+                    )
+                    // Strict separation: NEVER pick fee heads meant strictly for School (Tuition, Development, Uniform, Books, etc.)
+                    .Where(cfs => cfs.FeeHead == null || 
+                                  (cfs.FeeHead.ApplicableTo != "School" && 
+                                   !cfs.FeeHead.Name.Contains("School", StringComparison.OrdinalIgnoreCase)))
+                    .GroupBy(cfs => cfs.FeeHeadId)
+                    .Select(g => g.OrderByDescending(cfs => cfs.BatchId.HasValue ? 1 : 0).First())
+                    .ToList();
+            }
 
             var alreadyBilledHeadIds = billedHeadsLookup.GetValueOrDefault(s.Id) ?? new HashSet<Guid>();
+            var lifetimeBilledIds = lifetimeOneTimeLookup.GetValueOrDefault(s.Id) ?? new HashSet<Guid>();
             bool hasPriorInvoiceThisSession = studentsWithPriorInvoiceSet.Contains(s.Id);
             bool isStudentAdmissionMonth = (s.JoiningDate >= studentPeriodStart && s.JoiningDate <= studentPeriodEnd);
-            bool isFirstInvoiceForStudent = !hasPriorInvoiceThisSession || isStudentAdmissionMonth;
+            bool isRolledOverAdmissionMonth = (s.JoiningDate.Day > cutoffDay && rolloverPolicy == "NextMonthFull" &&
+                s.JoiningDate.AddMonths(1) >= studentPeriodStart && s.JoiningDate.AddMonths(1) <= studentPeriodEnd && !hasPriorInvoiceThisSession);
+            bool isFirstInvoiceForStudent = !hasPriorInvoiceThisSession || isStudentAdmissionMonth || isRolledOverAdmissionMonth;
 
             var applicableHeads = new List<ClassFeeStructure>();
             foreach (var cfs in studentStructures)
             {
-                // A. Regular Match: recurring monthly fee (ApplicableMonth == null) OR explicitly configured for this month
-                if (cfs.ApplicableMonth == null || cfs.ApplicableMonth == dto.Month)
+                bool isOneTime = cfs.FeeHead != null && (
+                    cfs.FeeHead.Frequency == "OneTime" ||
+                    cfs.FeeHead.Category == "OneTime" ||
+                    cfs.FeeHead.Name.Contains("Registration", StringComparison.OrdinalIgnoreCase) ||
+                    cfs.FeeHead.Name.Contains("Admission", StringComparison.OrdinalIgnoreCase) ||
+                    (cfs.FeeHead.Code != null && (cfs.FeeHead.Code.Equals("REG", StringComparison.OrdinalIgnoreCase) || cfs.FeeHead.Code.Equals("ADM", StringComparison.OrdinalIgnoreCase)))
+                );
+
+                bool isAnnual = cfs.FeeHead != null && cfs.FeeHead.Frequency == "Annual";
+
+                // STRICT ONE-TIME / REGISTRATION FEE SAFEGUARDS:
+                // 1. If already billed anywhere in student's lifetime, NEVER re-charge!
+                if (isOneTime && lifetimeBilledIds.Contains(cfs.FeeHeadId))
                 {
-                    bool isOneTimeOrAnnual = cfs.FeeHead != null && (cfs.FeeHead.Frequency == "OneTime" || cfs.FeeHead.Frequency == "Annual");
-                    // Guard: If OneTime/Annual head was already billed to this student in this session, do not re-charge!
-                    if (isOneTimeOrAnnual && alreadyBilledHeadIds.Contains(cfs.FeeHeadId))
-                    {
-                        continue;
-                    }
+                    continue;
+                }
+
+                // 2. If it's a OneTime or Registration fee and this is NOT the student's initial invoice, NEVER charge!
+                if (isOneTime && !isFirstInvoiceForStudent)
+                {
+                    continue;
+                }
+
+                // 3. If it's an Annual fee and already billed in this session, do not re-charge!
+                if (isAnnual && alreadyBilledHeadIds.Contains(cfs.FeeHeadId))
+                {
+                    continue;
+                }
+
+                // A. Regular Match: recurring monthly fee (ApplicableMonth == null) OR explicitly configured for this month
+                if (cfs.ApplicableMonth == null || cfs.ApplicableMonth == studentStartMonth)
+                {
                     applicableHeads.Add(cfs);
                 }
                 // B. Dynamic Mid-Session New Admission Auto-Bundle:
                 // If a student joined mid-session (or this is their first invoice in this session)
-                // and a OneTime (e.g. Admission / Registration Fee) or Annual (e.g. Books, Uniform) fee head
+                // and a OneTime (e.g. Admission / Registration Fee) or Annual fee head
                 // was configured in the matrix (even if its ApplicableMonth was April / 4):
-                // Dynamically include it in this student's very first admission invoice!
-                else if (cfs.FeeHead != null && (cfs.FeeHead.Frequency == "OneTime" || cfs.FeeHead.Frequency == "Annual"))
+                // Dynamically bundle it into their very first admission invoice!
+                else if (isOneTime || isAnnual)
                 {
-                    if (isFirstInvoiceForStudent && !alreadyBilledHeadIds.Contains(cfs.FeeHeadId))
+                    if (isFirstInvoiceForStudent && !alreadyBilledHeadIds.Contains(cfs.FeeHeadId) && !lifetimeBilledIds.Contains(cfs.FeeHeadId))
                     {
                         applicableHeads.Add(cfs);
                     }
                 }
             }
+
+            // Prevent duplicate items for the same fee head in the same invoice
+            applicableHeads = applicableHeads
+                .GroupBy(h => h.FeeHeadId)
+                .Select(g => g.First())
+                .ToList();
 
             var invoiceItems = new List<FeeInvoiceItem>();
             decimal totalAmount = 0;
@@ -2022,7 +2414,7 @@ public class FeesController : ControllerBase
             else
             {
                 // Fallback: If no fee structure is configured in ClassFeeStructures
-                if (s.ClassId.HasValue && s.BatchId.HasValue)
+                if (s.IsSchoolStudent && s.IsCoachingStudent)
                 {
                     // Dual-enrolled: School + Coaching
                     var schoolRate = 2500m * studentCycleMonths;
@@ -2047,10 +2439,9 @@ public class FeesController : ControllerBase
                         PaidAmount = 0
                     });
                 }
-                else
+                else if (s.IsCoachingStudent && !s.IsSchoolStudent)
                 {
-                    var isCoaching = s.BatchId.HasValue && !s.ClassId.HasValue;
-                    if (isCoaching && s.Batch?.StandardMonthlyFee > 0)
+                    if (s.Batch?.StandardMonthlyFee > 0)
                     {
                         var fallbackHeadName = coachFeeHead?.Name ?? $"{s.Batch?.Name ?? "Coaching"} Tuition Fee";
                         var fallbackHeadId = coachFeeHead?.Id;
@@ -2068,10 +2459,15 @@ public class FeesController : ControllerBase
                     }
                     else
                     {
-                        // Guard: Unconfigured school class or coaching batch fee structure — skip
                         skippedCount++;
                         continue;
                     }
+                }
+                else
+                {
+                    // Guard: Unconfigured school class fee structure — skip
+                    skippedCount++;
+                    continue;
                 }
             }
 
@@ -2096,23 +2492,27 @@ public class FeesController : ControllerBase
                 }
             }
 
-            // Dual-enrollment safeguard: ensure School Tuition Fee is present if student is enrolled in a School Class
+            // Dual-enrollment safeguard: ensure School Tuition Fee is present ONLY if student is explicitly enrolled in School
             bool hasSchoolHead = invoiceItems.Any(i =>
                 i.HeadName.Contains("Tuition", StringComparison.OrdinalIgnoreCase) ||
                 i.HeadName.Contains("School", StringComparison.OrdinalIgnoreCase) ||
                 (i.FeeHeadId.HasValue && i.FeeHeadId == tuiFeeHead?.Id));
-            if (s.ClassId.HasValue && !hasSchoolHead)
+            if (s.IsSchoolStudent && s.ClassId.HasValue && !hasSchoolHead)
             {
-                var schoolRate = 2500m * studentCycleMonths;
-                totalAmount += schoolRate;
-                invoiceItems.Add(new FeeInvoiceItem
+                var schoolFee = feeStructures.FirstOrDefault(cfs => cfs.ClassId == s.ClassId.Value && cfs.FeeHead != null && (cfs.FeeHead.Frequency == "Monthly" || cfs.ApplicableMonth == null) && cfs.FeeHead.Name.Contains("Tuition"))?.Amount ?? 0m;
+                if (schoolFee > 0)
                 {
-                    TenantId = _currentUser.TenantId,
-                    FeeHeadId = tuiFeeHead?.Id,
-                    HeadName = tuiFeeHead?.Name ?? "School Tuition Fee",
-                    Amount = schoolRate,
-                    PaidAmount = 0
-                });
+                    var schoolRate = schoolFee * studentCycleMonths;
+                    totalAmount += schoolRate;
+                    invoiceItems.Add(new FeeInvoiceItem
+                    {
+                        TenantId = _currentUser.TenantId,
+                        FeeHeadId = tuiFeeHead?.Id,
+                        HeadName = tuiFeeHead?.Name ?? "School Tuition Fee",
+                        Amount = schoolRate,
+                        PaidAmount = 0
+                    });
+                }
             }
 
             // ── Inject Hostel Charges (if this student has an active bed allocation) ──
@@ -2360,9 +2760,9 @@ public class FeesController : ControllerBase
                 SectionName   = s.Section?.Name,
                 InvoiceNumber = $"INV-{studentStartYear}{studentStartMonth:D2}{studentCycleSuffix}-{random.Next(100, 999)}",
                 Title         = $"{studentPeriodLabel} Fee ({studentCycleLabel})",
-                InvoiceCategory = (s.ClassId.HasValue && s.BatchId.HasValue) ? "Integrated" :
-                                  (s.ClassId.HasValue || s.IsSchoolStudent) ? "School" :
-                                  (s.BatchId.HasValue || s.IsCoachingStudent) ? "Coaching" : "General",
+                InvoiceCategory = (s.IsSchoolStudent && s.IsCoachingStudent) ? "Integrated" :
+                                  (s.IsSchoolStudent) ? "School" :
+                                  (s.IsCoachingStudent || s.BatchId.HasValue) ? "Coaching" : "General",
                 TotalAmount   = netTotalAmount,
                 ConcessionAmount = totalConcessionAmount,
                 ConcessionReason = concessionReasons.Any() ? string.Join("; ", concessionReasons) : null,
@@ -2405,7 +2805,25 @@ public class FeesController : ControllerBase
             ? $" (₹{totalConcessionsApplied:N2} in automatic sibling discounts & fee concessions applied!)"
             : "";
 
-        if (newInvoices.Count > 0 && skippedCount == 0)
+        if (newInvoices.Count == 1 && dto.StudentId.HasValue)
+        {
+            var inv = newInvoices[0];
+            var st = students.FirstOrDefault(x => x.Id == inv.StudentId);
+            string studentName = st?.StudentName ?? "Student";
+
+            // Extract period from invoice Title e.g. "November 2026 Fee (Monthly)" -> "November 2026"
+            string invPeriod = inv.Title.Contains(" Fee")
+                ? inv.Title.Substring(0, inv.Title.IndexOf(" Fee"))
+                : defaultPeriodLabel;
+
+            bool wasRolledOver = !invPeriod.Contains(defaultPeriodLabel, StringComparison.OrdinalIgnoreCase);
+            string rolloverNote = wasRolledOver
+                ? $" (billed from {invPeriod} as per admission cutoff policy)"
+                : "";
+
+            msg = $"Successfully generated {defaultCycleLabel} invoice for {studentName} for {invPeriod}{rolloverNote}.{concessionSuffix}";
+        }
+        else if (newInvoices.Count > 0 && skippedCount == 0)
         {
             msg = $"Successfully generated {newInvoices.Count} {defaultCycleLabel} {invoiceWord} for {defaultPeriodLabel}.{concessionSuffix}";
         }
@@ -2413,9 +2831,13 @@ public class FeesController : ControllerBase
         {
             msg = $"Successfully generated {newInvoices.Count} {defaultCycleLabel} {invoiceWord} for {defaultPeriodLabel}. ({skippedCount} already existed or outside enrollment window and were skipped).{concessionSuffix}";
         }
+        else if (newInvoices.Count == 0 && skippedCount > 0)
+        {
+            msg = $"0 invoices generated ({skippedCount} skipped: outside enrollment window / prior to admission, or invoice already exists for {defaultPeriodLabel}).";
+        }
         else
         {
-            msg = $"All enrolled students already have {defaultCycleLabel} invoices for {defaultPeriodLabel}. No new invoices were needed.";
+            msg = $"No eligible students found matching the selected scope for {defaultPeriodLabel}.";
         }
 
         return Ok(new GenerateMonthlyInvoicesResultDto(

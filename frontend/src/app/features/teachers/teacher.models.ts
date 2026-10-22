@@ -74,6 +74,14 @@ export interface AttendanceSettingsDto {
   absenceFineDaysThreshold?: number;
   absenceFineAmount?: number;
   absenceFineMode?: 'PerBlock' | 'Flat';
+  coachingMode?: 'Manual' | 'Biometric' | 'Both';
+  coachingWeeklyOffPattern?: 'SundayOnly' | 'SaturdaySunday' | 'SecondFourthSaturday';
+  coachingMorningStartTime?: string;
+  coachingMorningEndTime?: string;
+  coachingMorningGraceMinutes?: number;
+  coachingEveningStartTime?: string;
+  coachingEveningEndTime?: string;
+  coachingEveningGraceMinutes?: number;
 }
 export interface AttendancePermissionsDto {
   canChangeMode: boolean; canManualMark: boolean; canBiometricCapture: boolean;

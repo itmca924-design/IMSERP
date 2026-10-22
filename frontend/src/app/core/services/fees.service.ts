@@ -238,6 +238,13 @@ export interface FeeReceiptLineItem {
   amount: number;
 }
 
+export interface FeeReceiptArrear {
+  period: string;
+  invoiceNumber: string;
+  title: string;
+  dueAmount: number;
+}
+
 export interface FeePaymentReceipt {
   paymentId: string;
   receiptNumber: string;
@@ -268,6 +275,9 @@ export interface FeePaymentReceipt {
   instituteAddress?: string;
   studentId?: string;
   invoiceId?: string;
+  academicSession?: string;
+  pendingArrears?: FeeReceiptArrear[];
+  totalDemandBeforePayment?: number;
 }
 
 export interface StudentPendingFineItem {
@@ -752,6 +762,9 @@ export interface FeeCardMonthEntry {
   paymentDate?: string | null;
   paymentMode?: string | null;
   remarks?: string | null;
+  oneTimeCharges?: number;
+  oneTimeChargesNote?: string | null;
+  billingCycleTag?: string | null;
 }
 
 export interface StudentFeeCard {
@@ -788,5 +801,6 @@ export interface StudentFeeCard {
   coachingRollNumber?: string | null;
   isSchoolStudent?: boolean;
   isCoachingStudent?: boolean;
+  totalOneTimeFee?: number;
 }
 

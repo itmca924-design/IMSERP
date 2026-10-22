@@ -17,6 +17,7 @@ import { BatchDto, BatchesService } from '../../core/services/batches.service';
 import { SubjectDto, SubjectsService } from '../../core/services/subjects.service';
 import { BranchDto, BranchService } from '../../core/services/branch.service';
 import { RoomDto, RoomService } from '../../core/services/room.service';
+import { SchoolClassDto, SchoolService } from '../../core/services/school.service';
 import { AuthService } from '../../core/services/auth.service';
 
 @Component({
@@ -72,11 +73,34 @@ import { AuthService } from '../../core/services/auth.service';
           </div>
 
           <div class="form-grid">
-            <mat-form-field appearance="outline" class="full-width">
+            <mat-form-field appearance="outline" class="half-width">
               <mat-label>Batch Name *</mat-label>
               <input matInput formControlName="name" placeholder="e.g. Class 10th (Batch - 1) - Chemistry" />
               <mat-icon matSuffix color="primary">school</mat-icon>
               <mat-error *ngIf="batchForm.get('name')?.hasError('required')">Batch name is required</mat-error>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="half-width">
+              <mat-label>Target Academic Class</mat-label>
+              <mat-select formControlName="classId" placeholder="Select Class (Optional)" panelClass="smooth-dropdown-panel batch-select-panel">
+                <mat-select-trigger>
+                  {{ getSelectedClassName() || 'General / All Classes' }}
+                </mat-select-trigger>
+                <mat-option [value]="null">
+                  <div class="batch-opt-row">
+                    <mat-icon class="option-icon text-muted">clear_all</mat-icon>
+                    <span class="text-muted">None / General Batch</span>
+                  </div>
+                </mat-option>
+                <mat-option *ngFor="let c of filteredClasses" [value]="c.id">
+                  <div class="batch-opt-row">
+                    <mat-icon color="primary" class="option-icon">class</mat-icon>
+                    <span class="opt-name">{{ c.name }}</span>
+                    <span class="opt-code-badge" *ngIf="c.code">{{ c.code }}</span>
+                  </div>
+                </mat-option>
+              </mat-select>
+              <mat-icon matSuffix color="primary">class</mat-icon>
             </mat-form-field>
 
             <mat-form-field appearance="outline" class="full-width">
@@ -215,6 +239,10 @@ import { AuthService } from '../../core/services/auth.service';
               <div class="preview-item">
                 <span class="preview-label">Batch Name:</span>
                 <strong class="preview-val highlight">{{ batchForm.get('name')?.value || '—' }}</strong>
+              </div>
+              <div class="preview-item">
+                <span class="preview-label">Academic Class:</span>
+                <span class="preview-val highlight">{{ getSelectedClassName() || 'General / All Classes' }}</span>
               </div>
               <div class="preview-item">
                 <span class="preview-label">Covered Subjects:</span>
@@ -516,6 +544,8 @@ export class BatchDialogComponent implements OnInit {
   availableBranches: BranchDto[] = [];
   availableRooms: RoomDto[] = [];
   filteredRooms: RoomDto[] = [];
+  availableClasses: SchoolClassDto[] = [];
+  filteredClasses: SchoolClassDto[] = [];
   subjectSearchTerm = '';
 
   constructor(
@@ -524,6 +554,7 @@ export class BatchDialogComponent implements OnInit {
     private subjectsService: SubjectsService,
     private branchService: BranchService,
     private roomService: RoomService,
+    private schoolService: SchoolService,
     private authService: AuthService,
     private dialogRef: MatDialogRef<BatchDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data?: BatchDto
@@ -542,6 +573,7 @@ export class BatchDialogComponent implements OnInit {
 
     this.batchForm = this.fb.group({
       name: [this.data?.name || '', [Validators.required, Validators.maxLength(200)]],
+      classId: [this.data?.classId || null],
       selectedSubjects: [initialSubjectList, [Validators.required]],
       branchId: [initialBranchId || null],
       roomId: [this.data?.roomId || null],
@@ -553,12 +585,14 @@ export class BatchDialogComponent implements OnInit {
     forkJoin({
       subjects: this.subjectsService.getSubjects(true).pipe(catchError(() => of([]))),
       branches: this.branchService.getBranches().pipe(catchError(() => of([]))),
-      rooms: this.roomService.getRooms().pipe(catchError(() => of([])))
+      rooms: this.roomService.getRooms().pipe(catchError(() => of([]))),
+      classes: this.schoolService.getClasses(true).pipe(catchError(() => of([])))
     }).subscribe({
-      next: ({ subjects, branches, rooms }) => {
+      next: ({ subjects, branches, rooms, classes }) => {
         this.availableSubjects = subjects;
         this.availableBranches = branches;
         this.availableRooms = rooms;
+        this.availableClasses = classes;
 
         // Ensure any existing subjects from this batch are in availableSubjects
         if (initialSubjectList.length > 0) {
@@ -585,14 +619,16 @@ export class BatchDialogComponent implements OnInit {
             this.batchForm.patchValue({ branchId: targetBranch.id });
           }
         } else {
-          // Re-assert selectedSubjects and roomId after options are populated
+          // Re-assert selectedSubjects, classId, and roomId after options are populated
           this.batchForm.patchValue({
+            classId: this.data?.classId || null,
             selectedSubjects: initialSubjectList,
             roomId: this.data?.roomId || null
           });
         }
 
         this.filterRooms();
+        this.filterClasses();
         this.loading = false;
       },
       error: () => {
@@ -610,6 +646,17 @@ export class BatchDialogComponent implements OnInit {
       }
     }
     this.filterRooms();
+    this.filterClasses();
+  }
+
+  filterClasses(): void {
+    const selectedBranch = this.batchForm.get('branchId')?.value;
+    if (!selectedBranch) {
+      this.filteredClasses = this.availableClasses;
+    } else {
+      const branchClasses = this.availableClasses.filter(c => !c.branchId || c.branchId === selectedBranch);
+      this.filteredClasses = branchClasses.length > 0 ? branchClasses : this.availableClasses;
+    }
   }
 
   filterRooms(): void {
@@ -619,6 +666,13 @@ export class BatchDialogComponent implements OnInit {
     } else {
       this.filteredRooms = this.availableRooms.filter(r => r.branchId === selectedBranch);
     }
+  }
+
+  getSelectedClassName(): string {
+    const classId = this.batchForm?.get('classId')?.value;
+    if (!classId) return '';
+    const c = this.availableClasses.find(x => x.id === classId);
+    return c ? c.name : (this.data?.className || '');
   }
 
   getSelectedBranchName(): string {
@@ -705,7 +759,8 @@ export class BatchDialogComponent implements OnInit {
       academicYear: formVal.academicYear,
       standardMonthlyFee: formVal.standardMonthlyFee,
       branchId: formVal.branchId || null,
-      roomId: formVal.roomId || null
+      roomId: formVal.roomId || null,
+      classId: formVal.classId || null
     };
 
     if (this.isEditMode && this.data?.id) {

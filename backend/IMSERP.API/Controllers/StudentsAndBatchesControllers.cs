@@ -48,7 +48,7 @@ public class StudentsController : ControllerBase
     }
 
     public static TeacherAttendanceStatus EvaluateStudentSmartAttendanceStatus(
-        TeacherAttendanceStatus declaredStatus, string? inTime, string? outTime, AttendanceSettings? settings = null)
+        TeacherAttendanceStatus declaredStatus, string? inTime, string? outTime, AttendanceSettings? settings = null, string? scopeOrShift = null)
     {
         if (declaredStatus == TeacherAttendanceStatus.Absent || declaredStatus == TeacherAttendanceStatus.Holiday || declaredStatus == TeacherAttendanceStatus.WeekOff || declaredStatus == TeacherAttendanceStatus.Leave)
             return declaredStatus;
@@ -61,8 +61,35 @@ public class StudentsController : ControllerBase
             return declaredStatus;
 
         int halfDayThreshold = settings?.StudentHalfDayThresholdMinutes ?? 240;
-        int shiftStartMin = ParseTimeToMinutes(settings?.StudentShiftStartTime ?? "08:00") ?? 480;
-        int graceMinutes = settings?.StudentGracePeriodMinutes ?? 15;
+        int shiftStartMin;
+        int graceMinutes;
+
+        var isCoaching = string.Equals(scopeOrShift, "coaching", StringComparison.OrdinalIgnoreCase) ||
+                         string.Equals(scopeOrShift, "coaching_morning", StringComparison.OrdinalIgnoreCase) ||
+                         string.Equals(scopeOrShift, "coaching_evening", StringComparison.OrdinalIgnoreCase);
+
+        if (isCoaching)
+        {
+            if (string.Equals(scopeOrShift, "coaching_evening", StringComparison.OrdinalIgnoreCase) || inMin.Value >= 720)
+            {
+                // Coaching Evening Shift
+                shiftStartMin = ParseTimeToMinutes(settings?.CoachingEveningStartTime ?? "16:00") ?? 960;
+                graceMinutes = settings?.CoachingEveningGraceMinutes ?? 15;
+            }
+            else
+            {
+                // Coaching Morning Shift
+                shiftStartMin = ParseTimeToMinutes(settings?.CoachingMorningStartTime ?? "07:00") ?? 420;
+                graceMinutes = settings?.CoachingMorningGraceMinutes ?? 15;
+            }
+        }
+        else
+        {
+            // School Shift (Daytime)
+            shiftStartMin = ParseTimeToMinutes(settings?.StudentShiftStartTime ?? "08:00") ?? 480;
+            graceMinutes = settings?.StudentGracePeriodMinutes ?? 15;
+        }
+
         int lateCutoffMin = shiftStartMin + graceMinutes;
 
         // If outTime is provided, evaluate work duration for half day
@@ -371,16 +398,25 @@ public class StudentsController : ControllerBase
 
         var batch = await _dbContext.Batches
             .AsNoTracking()
+            .Include(b => b.Class)
             .FirstOrDefaultAsync(b => b.Id == batchId);
 
         if (batch == null)
             return NotFound(new { message = "Batch not found." });
 
-        // Build a short batch code from AcademicYear, e.g. "2026-2027" => "2027"
-        var ayParts = batch.AcademicYear?.Split('-');
-        var ayShort = ayParts != null && ayParts.Length >= 2
-            ? ayParts[^1].Trim()
-            : (batch.AcademicYear ?? DateTime.UtcNow.Year.ToString());
+        // Financial Year calculation: e.g. "2026-2027" => "2026" (financial year start, not future 2027!)
+        string fyShort;
+        if (!string.IsNullOrWhiteSpace(batch.AcademicYear) && batch.AcademicYear.Contains('-'))
+        {
+            var parts = batch.AcademicYear.Split('-');
+            fyShort = parts[0].Trim();
+        }
+        else
+        {
+            var now = DateTime.UtcNow;
+            int fyStart = now.Month >= 4 ? now.Year : now.Year - 1;
+            fyShort = fyStart.ToString();
+        }
 
         // Anti-duplicate: find existing roll numbers in this batch to determine max sequence
         var existingRolls = await _dbContext.Students
@@ -407,16 +443,20 @@ public class StudentsController : ControllerBase
         }
 
         int nextSeq = Math.Max(maxSeq + 1, existingRolls.Count + 1);
-        var rollNumber = $"CH{ayShort}-{nextSeq:D3}";
+        var rollNumber = $"CH{fyShort}-{nextSeq:D3}";
 
         // Guarantee uniqueness across the whole tenant
         while (await _dbContext.Students.AsNoTracking().AnyAsync(s => s.RollNumber == rollNumber || s.CoachingRollNumber == rollNumber))
         {
             nextSeq++;
-            rollNumber = $"CH{ayShort}-{nextSeq:D3}";
+            rollNumber = $"CH{fyShort}-{nextSeq:D3}";
         }
 
-        return Ok(new { rollNumber });
+        return Ok(new { 
+            rollNumber,
+            classId = batch.ClassId,
+            className = batch.Class?.Name
+        });
     }
 
     [HttpGet("next-admission-number")]
@@ -1356,7 +1396,7 @@ public class StudentsController : ControllerBase
             if (student.JoiningDate != default && date < student.JoiningDate.Date) continue; // skip prior to admission
             if (!TryParseAttendanceStatus(item.Status, out var status)) continue;
 
-            status = EvaluateStudentSmartAttendanceStatus(status, item.CheckInTime, item.CheckOutTime, attSettings);
+            status = EvaluateStudentSmartAttendanceStatus(status, item.CheckInTime, item.CheckOutTime, attSettings, "coaching");
 
             if (status == TeacherAttendanceStatus.Present) presentCount++;
             else if (status == TeacherAttendanceStatus.Absent) absentCount++;
@@ -1525,7 +1565,7 @@ public class StudentsController : ControllerBase
             if (student.JoiningDate != default && date < student.JoiningDate.Date) continue; // skip prior to admission
             if (!TryParseAttendanceStatus(item.Status, out var status)) continue;
 
-            status = EvaluateStudentSmartAttendanceStatus(status, item.CheckInTime, item.CheckOutTime, attSettings);
+            status = EvaluateStudentSmartAttendanceStatus(status, item.CheckInTime, item.CheckOutTime, attSettings, "school");
 
             if (status == TeacherAttendanceStatus.Present) presentCount++;
             else if (status == TeacherAttendanceStatus.Absent) absentCount++;
@@ -1794,6 +1834,7 @@ public class StudentsController : ControllerBase
 
         query = query
             .Include(s => s.Batch)
+                .ThenInclude(b => b.Class)
             .Include(s => s.Class)
             .Include(s => s.Section)
             .Include(s => s.Branch)
@@ -1882,8 +1923,8 @@ public class StudentsController : ControllerBase
                 s.ProfilePhoto,
                 s.BranchId,
                 s.Branch != null ? s.Branch.Name : null,
-                s.ClassId,
-                s.Class != null ? s.Class.Name : null,
+                s.ClassId ?? (s.Batch != null ? s.Batch.ClassId : null),
+                s.Class != null ? s.Class.Name : (s.Batch != null && s.Batch.Class != null ? s.Batch.Class.Name : null),
                 s.SectionId,
                 s.Section != null ? s.Section.Name : null,
                 s.AdmissionNumber,
@@ -2055,12 +2096,14 @@ public class StudentsController : ControllerBase
                 targetBranchId = mainBranch?.Id;
             }
 
+            var targetClassId = dto.ClassId ?? batch?.ClassId;
+
             var student = new Student
             {
                 TenantId = _currentUser.TenantId,
                 BranchId = targetBranchId,
                 BatchId = dto.BatchId,
-                ClassId = dto.ClassId,
+                ClassId = targetClassId,
                 SectionId = dto.SectionId,
                 RollNumber = !string.IsNullOrWhiteSpace(dto.RollNumber) ? dto.RollNumber : (dto.SchoolRollNumber ?? dto.CoachingRollNumber ?? "N/A"),
                 SchoolRollNumber = dto.SchoolRollNumber,
@@ -2296,7 +2339,7 @@ public class StudentsController : ControllerBase
             }
 
             student.BatchId = dto.BatchId;
-            student.ClassId = dto.ClassId;
+            student.ClassId = dto.ClassId ?? batch?.ClassId;
             student.SectionId = dto.SectionId;
             student.IsSchoolStudent = dto.IsSchoolStudent;
             student.IsCoachingStudent = dto.IsCoachingStudent;
@@ -4792,6 +4835,7 @@ public class BatchesController : ControllerBase
             .AsNoTracking()
             .Include(b => b.Branch)
             .Include(b => b.Room)
+            .Include(b => b.Class)
             .Select(b => new BatchDto(
                 b.Id,
                 b.Name,
@@ -4802,7 +4846,12 @@ public class BatchesController : ControllerBase
                 b.BranchId,
                 b.Branch != null ? b.Branch.Name : null,
                 b.RoomId,
-                b.Room != null ? b.Room.RoomNumber : null
+                b.Room != null ? b.Room.RoomNumber : null,
+                "Coaching",
+                b.ClassId,
+                null,
+                null,
+                b.Class != null ? b.Class.Name : null
             )).ToListAsync();
 
         return Ok(list);
@@ -4815,13 +4864,20 @@ public class BatchesController : ControllerBase
         [FromQuery] string? searchTerm = null,
         [FromQuery] string? sortBy = "name",
         [FromQuery] bool sortDescending = false,
-        [FromQuery] string? academicYear = null)
+        [FromQuery] string? academicYear = null,
+        [FromQuery] Guid? classId = null)
     {
         var query = _dbContext.Batches
             .AsNoTracking()
             .Include(b => b.Branch)
             .Include(b => b.Room)
+            .Include(b => b.Class)
             .AsQueryable();
+
+        if (classId.HasValue && classId.Value != Guid.Empty)
+        {
+            query = query.Where(b => b.ClassId == classId.Value);
+        }
 
         if (!string.IsNullOrWhiteSpace(academicYear))
         {
@@ -4833,11 +4889,13 @@ public class BatchesController : ControllerBase
             var term = searchTerm.Trim().ToLower();
             query = query.Where(b => b.Name.ToLower().Contains(term) ||
                                      b.Subject.ToLower().Contains(term) ||
-                                     b.AcademicYear.ToLower().Contains(term));
+                                     b.AcademicYear.ToLower().Contains(term) ||
+                                     (b.Class != null && b.Class.Name.ToLower().Contains(term)));
         }
 
         query = (sortBy?.ToLower()) switch
         {
+            "class" or "classname" => sortDescending ? query.OrderByDescending(b => b.Class != null ? b.Class.Name : "") : query.OrderBy(b => b.Class != null ? b.Class.Name : ""),
             "subject" => sortDescending ? query.OrderByDescending(b => b.Subject) : query.OrderBy(b => b.Subject),
             "academicyear" => sortDescending ? query.OrderByDescending(b => b.AcademicYear) : query.OrderBy(b => b.AcademicYear),
             "fee" => sortDescending ? query.OrderByDescending(b => b.StandardMonthlyFee) : query.OrderBy(b => b.StandardMonthlyFee),
@@ -4859,7 +4917,12 @@ public class BatchesController : ControllerBase
                 b.BranchId,
                 b.Branch != null ? b.Branch.Name : null,
                 b.RoomId,
-                b.Room != null ? b.Room.RoomNumber : null
+                b.Room != null ? b.Room.RoomNumber : null,
+                "Coaching",
+                b.ClassId,
+                null,
+                null,
+                b.Class != null ? b.Class.Name : null
             )).ToListAsync();
 
         return Ok(new PagedResult<BatchDto>(items, totalCount, pageNumber, pageSize));
@@ -4873,6 +4936,7 @@ public class BatchesController : ControllerBase
             .Include(b => b.Students)
             .Include(b => b.Branch)
             .Include(b => b.Room)
+            .Include(b => b.Class)
             .FirstOrDefaultAsync(b => b.Id == id);
 
         if (batch == null) return NotFound();
@@ -4887,7 +4951,12 @@ public class BatchesController : ControllerBase
             batch.BranchId,
             batch.Branch?.Name,
             batch.RoomId,
-            batch.Room?.RoomNumber
+            batch.Room?.RoomNumber,
+            "Coaching",
+            batch.ClassId,
+            null,
+            null,
+            batch.Class?.Name
         ));
     }
 
@@ -4906,6 +4975,7 @@ public class BatchesController : ControllerBase
             TenantId = _currentUser.TenantId,
             BranchId = targetBranchId,
             RoomId = dto.RoomId,
+            ClassId = dto.ClassId,
             Name = dto.Name,
             Subject = dto.Subject,
             AcademicYear = dto.AcademicYear,
@@ -4917,6 +4987,7 @@ public class BatchesController : ControllerBase
 
         var branchName = (await _dbContext.Branches.AsNoTracking().FirstOrDefaultAsync(b => b.Id == batch.BranchId))?.Name;
         var roomNumber = batch.RoomId.HasValue ? (await _dbContext.Rooms.AsNoTracking().FirstOrDefaultAsync(r => r.Id == batch.RoomId))?.RoomNumber : null;
+        var className = batch.ClassId.HasValue ? (await _dbContext.SchoolClasses.AsNoTracking().FirstOrDefaultAsync(c => c.Id == batch.ClassId))?.Name : null;
 
         return Ok(new BatchDto(
             batch.Id,
@@ -4928,7 +4999,12 @@ public class BatchesController : ControllerBase
             batch.BranchId,
             branchName,
             batch.RoomId,
-            roomNumber
+            roomNumber,
+            "Coaching",
+            batch.ClassId,
+            null,
+            null,
+            className
         ));
     }
 
@@ -4944,12 +5020,14 @@ public class BatchesController : ControllerBase
         batch.StandardMonthlyFee = dto.StandardMonthlyFee;
         if (dto.BranchId.HasValue && dto.BranchId.Value != Guid.Empty) batch.BranchId = dto.BranchId.Value;
         batch.RoomId = dto.RoomId;
+        batch.ClassId = dto.ClassId;
 
         await _dbContext.SaveChangesAsync();
 
         var studentCount = await _dbContext.Students.CountAsync(s => s.BatchId == id);
         var branchName = (await _dbContext.Branches.AsNoTracking().FirstOrDefaultAsync(b => b.Id == batch.BranchId))?.Name;
         var roomNumber = batch.RoomId.HasValue ? (await _dbContext.Rooms.AsNoTracking().FirstOrDefaultAsync(r => r.Id == batch.RoomId))?.RoomNumber : null;
+        var className = batch.ClassId.HasValue ? (await _dbContext.SchoolClasses.AsNoTracking().FirstOrDefaultAsync(c => c.Id == batch.ClassId))?.Name : null;
 
         return Ok(new BatchDto(
             batch.Id,
@@ -4961,7 +5039,12 @@ public class BatchesController : ControllerBase
             batch.BranchId,
             branchName,
             batch.RoomId,
-            roomNumber
+            roomNumber,
+            "Coaching",
+            batch.ClassId,
+            null,
+            null,
+            className
         ));
     }
 

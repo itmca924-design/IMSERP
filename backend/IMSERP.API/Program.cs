@@ -374,6 +374,22 @@ using (var scope = app.Services.CreateScope())
                             ALTER TABLE [dbo].[AttendanceSettings] ADD [TeacherWeeklyOffPattern] NVARCHAR(50) NOT NULL CONSTRAINT [DF_AttendanceSettings_TeacherWeeklyOffPattern] DEFAULT ('SundayOnly');
                         IF COL_LENGTH('dbo.AttendanceSettings', 'StudentWeeklyOffPattern') IS NULL
                             ALTER TABLE [dbo].[AttendanceSettings] ADD [StudentWeeklyOffPattern] NVARCHAR(50) NOT NULL CONSTRAINT [DF_AttendanceSettings_StudentWeeklyOffPattern] DEFAULT ('SundayOnly');
+                        IF COL_LENGTH('dbo.AttendanceSettings', 'CoachingMode') IS NULL
+                            ALTER TABLE [dbo].[AttendanceSettings] ADD [CoachingMode] NVARCHAR(50) NOT NULL CONSTRAINT [DF_AttendanceSettings_CoachingMode] DEFAULT ('Both');
+                        IF COL_LENGTH('dbo.AttendanceSettings', 'CoachingWeeklyOffPattern') IS NULL
+                            ALTER TABLE [dbo].[AttendanceSettings] ADD [CoachingWeeklyOffPattern] NVARCHAR(50) NOT NULL CONSTRAINT [DF_AttendanceSettings_CoachingWeeklyOffPattern] DEFAULT ('SundayOnly');
+                        IF COL_LENGTH('dbo.AttendanceSettings', 'CoachingMorningStartTime') IS NULL
+                            ALTER TABLE [dbo].[AttendanceSettings] ADD [CoachingMorningStartTime] NVARCHAR(20) NOT NULL CONSTRAINT [DF_AttendanceSettings_CoachingMorningStartTime] DEFAULT ('07:00');
+                        IF COL_LENGTH('dbo.AttendanceSettings', 'CoachingMorningEndTime') IS NULL
+                            ALTER TABLE [dbo].[AttendanceSettings] ADD [CoachingMorningEndTime] NVARCHAR(20) NOT NULL CONSTRAINT [DF_AttendanceSettings_CoachingMorningEndTime] DEFAULT ('10:00');
+                        IF COL_LENGTH('dbo.AttendanceSettings', 'CoachingMorningGraceMinutes') IS NULL
+                            ALTER TABLE [dbo].[AttendanceSettings] ADD [CoachingMorningGraceMinutes] INT NOT NULL CONSTRAINT [DF_AttendanceSettings_CoachingMorningGraceMinutes] DEFAULT (15);
+                        IF COL_LENGTH('dbo.AttendanceSettings', 'CoachingEveningStartTime') IS NULL
+                            ALTER TABLE [dbo].[AttendanceSettings] ADD [CoachingEveningStartTime] NVARCHAR(20) NOT NULL CONSTRAINT [DF_AttendanceSettings_CoachingEveningStartTime] DEFAULT ('16:00');
+                        IF COL_LENGTH('dbo.AttendanceSettings', 'CoachingEveningEndTime') IS NULL
+                            ALTER TABLE [dbo].[AttendanceSettings] ADD [CoachingEveningEndTime] NVARCHAR(20) NOT NULL CONSTRAINT [DF_AttendanceSettings_CoachingEveningEndTime] DEFAULT ('19:00');
+                        IF COL_LENGTH('dbo.AttendanceSettings', 'CoachingEveningGraceMinutes') IS NULL
+                            ALTER TABLE [dbo].[AttendanceSettings] ADD [CoachingEveningGraceMinutes] INT NOT NULL CONSTRAINT [DF_AttendanceSettings_CoachingEveningGraceMinutes] DEFAULT (15);
                     END
 
                     IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'StudentPromotionHistories')
@@ -463,6 +479,21 @@ using (var scope = app.Services.CreateScope())
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'LastAutoPilotInvoicingRun' AND object_id = OBJECT_ID('AutomationSettings'))
                     BEGIN
                         ALTER TABLE AutomationSettings ADD LastAutoPilotInvoicingRun DATETIME2 NULL;
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'AdmissionCutoffDay' AND object_id = OBJECT_ID('AutomationSettings'))
+                    BEGIN
+                        ALTER TABLE AutomationSettings ADD AdmissionCutoffDay INT NOT NULL DEFAULT 20;
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'AdmissionRolloverPolicy' AND object_id = OBJECT_ID('AutomationSettings'))
+                    BEGIN
+                        ALTER TABLE AutomationSettings ADD AdmissionRolloverPolicy NVARCHAR(50) NOT NULL DEFAULT 'NextMonthFull';
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'FinancialYearStartMonth' AND object_id = OBJECT_ID('AutomationSettings'))
+                    BEGIN
+                        ALTER TABLE AutomationSettings ADD FinancialYearStartMonth INT NOT NULL DEFAULT 4;
                     END
 
                     -- Teacher Module Hybrid School & Login Migrations

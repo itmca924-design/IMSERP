@@ -208,6 +208,7 @@ public class Batch
     public Guid TenantId { get; set; }
     public Guid? BranchId { get; set; }
     public Guid? RoomId { get; set; }
+    public Guid? ClassId { get; set; }
     public string Name { get; set; } = string.Empty;
     public string Subject { get; set; } = string.Empty;
     public string AcademicYear { get; set; } = string.Empty;
@@ -219,6 +220,9 @@ public class Batch
 
     [ForeignKey("RoomId")]
     public Room? Room { get; set; }
+
+    [ForeignKey("ClassId")]
+    public SchoolClass? Class { get; set; }
 
     public ICollection<Student> Students { get; set; } = new List<Student>();
 }
@@ -239,6 +243,7 @@ public class SchoolClass
 
     public ICollection<SchoolSection> Sections { get; set; } = new List<SchoolSection>();
     public ICollection<Student> Students { get; set; } = new List<Student>();
+    public ICollection<Batch> Batches { get; set; } = new List<Batch>();
 }
 
 public class SchoolSection
@@ -814,6 +819,16 @@ public class AttendanceSettings
     public int StudentAllowedLateDaysPerMonth { get; set; } = 3;
     public string StudentWeeklyOffPattern { get; set; } = "SundayOnly";
 
+    // Dynamic Coaching Shift Policy (Morning & Evening Shifts)
+    public string CoachingMode { get; set; } = "Both";
+    public string CoachingWeeklyOffPattern { get; set; } = "SundayOnly";
+    public string CoachingMorningStartTime { get; set; } = "07:00";
+    public string CoachingMorningEndTime { get; set; } = "10:00";
+    public int CoachingMorningGraceMinutes { get; set; } = 15;
+    public string CoachingEveningStartTime { get; set; } = "16:00";
+    public string CoachingEveningEndTime { get; set; } = "19:00";
+    public int CoachingEveningGraceMinutes { get; set; } = 15;
+
     // Dynamic Student Absence Fine Policy (100% UI Configurable)
     public bool EnableStudentAbsenceFine { get; set; } = true;
     public int AbsenceFineDaysThreshold { get; set; } = 3;
@@ -852,6 +867,10 @@ public class AutomationSettings
     public bool AutoPilotFeeInvoicingEnabled { get; set; } = false;
     public int AutoPilotInvoicingDayOfMonth { get; set; } = 25;
     public DateTime? LastAutoPilotInvoicingRun { get; set; }
+
+    public int AdmissionCutoffDay { get; set; } = 20;
+    public string AdmissionRolloverPolicy { get; set; } = "NextMonthFull";
+    public int FinancialYearStartMonth { get; set; } = 4;
 
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 

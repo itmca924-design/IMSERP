@@ -813,7 +813,8 @@ public record BatchDto(
     string Category = "Coaching",
     Guid? ClassId = null,
     Guid? SectionId = null,
-    string? SectionName = null
+    string? SectionName = null,
+    string? ClassName = null
 );
 
 public record CreateBatchDto(
@@ -822,7 +823,8 @@ public record CreateBatchDto(
     string AcademicYear,
     decimal StandardMonthlyFee,
     Guid? BranchId = null,
-    Guid? RoomId = null
+    Guid? RoomId = null,
+    Guid? ClassId = null
 );
 
 public record FeeInvoiceDto(
@@ -864,6 +866,13 @@ public record FeeReceiptLineItemDto(
     decimal Amount
 );
 
+public record FeeReceiptArrearDto(
+    string Period,
+    string InvoiceNumber,
+    string Title,
+    decimal DueAmount
+);
+
 public record FeePaymentReceiptDto(
     Guid PaymentId,
     string ReceiptNumber,
@@ -893,7 +902,10 @@ public record FeePaymentReceiptDto(
     string? InstituteContactPhone = null,
     string? InstituteAddress = null,
     Guid? StudentId = null,
-    Guid? InvoiceId = null
+    Guid? InvoiceId = null,
+    string? AcademicSession = null,
+    List<FeeReceiptArrearDto>? PendingArrears = null,
+    decimal TotalDemandBeforePayment = 0
 );
 
 public record StudentPendingFineItemDto(
@@ -1408,7 +1420,10 @@ public record FeeCardMonthEntryDto(
     string? ReceiptNumber,
     DateTime? PaymentDate,
     string? PaymentMode,
-    string? Remarks
+    string? Remarks,
+    decimal OneTimeCharges = 0,
+    string? OneTimeChargesNote = null,
+    string? BillingCycleTag = null
 );
 
 public record StudentFeeCardDto(
@@ -1444,7 +1459,8 @@ public record StudentFeeCardDto(
     string? SchoolRollNumber = null,
     string? CoachingRollNumber = null,
     bool IsSchoolStudent = true,
-    bool IsCoachingStudent = false
+    bool IsCoachingStudent = false,
+    decimal TotalOneTimeFee = 0
 );
 
 public record FeeItemPaymentDto(
@@ -1836,7 +1852,15 @@ public record AttendanceSettingsDto(
     bool EnableStudentAbsenceFine = true,
     int AbsenceFineDaysThreshold = 3,
     decimal AbsenceFineAmount = 10.00m,
-    string AbsenceFineMode = "PerBlock"
+    string AbsenceFineMode = "PerBlock",
+    string CoachingMode = "Both",
+    string CoachingWeeklyOffPattern = "SundayOnly",
+    string CoachingMorningStartTime = "07:00",
+    string CoachingMorningEndTime = "10:00",
+    int CoachingMorningGraceMinutes = 15,
+    string CoachingEveningStartTime = "16:00",
+    string CoachingEveningEndTime = "19:00",
+    int CoachingEveningGraceMinutes = 15
 );
 
 public record BiometricAttendanceEventDto(
@@ -3691,6 +3715,9 @@ public record AutomationSettingsDto(
     bool AutoPilotFeeInvoicingEnabled,
     int AutoPilotInvoicingDayOfMonth,
     DateTime? LastAutoPilotInvoicingRun,
+    int AdmissionCutoffDay,
+    string AdmissionRolloverPolicy,
+    int FinancialYearStartMonth,
     DateTime? UpdatedAt
 );
 
@@ -3705,7 +3732,10 @@ public record SaveAutomationSettingsDto(
     decimal LateFeeDailyRate,
     int LateFeeGraceDays,
     bool AutoPilotFeeInvoicingEnabled = false,
-    int AutoPilotInvoicingDayOfMonth = 25
+    int AutoPilotInvoicingDayOfMonth = 25,
+    int AdmissionCutoffDay = 20,
+    string AdmissionRolloverPolicy = "NextMonthFull",
+    int FinancialYearStartMonth = 4
 );
 
 public record RunAutomationJobResultDto(

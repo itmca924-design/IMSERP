@@ -62,7 +62,15 @@ public class AttendanceController : ControllerBase
             settings?.EnableStudentAbsenceFine ?? true,
             settings?.AbsenceFineDaysThreshold ?? 3,
             settings?.AbsenceFineAmount ?? 10.00m,
-            settings?.AbsenceFineMode ?? "PerBlock"
+            settings?.AbsenceFineMode ?? "PerBlock",
+            settings?.CoachingMode ?? "Both",
+            settings?.CoachingWeeklyOffPattern ?? "SundayOnly",
+            settings?.CoachingMorningStartTime ?? "07:00",
+            settings?.CoachingMorningEndTime ?? "10:00",
+            settings?.CoachingMorningGraceMinutes ?? 15,
+            settings?.CoachingEveningStartTime ?? "16:00",
+            settings?.CoachingEveningEndTime ?? "19:00",
+            settings?.CoachingEveningGraceMinutes ?? 15
         ));
     }
 
@@ -195,6 +203,16 @@ public class AttendanceController : ControllerBase
         settings.AbsenceFineAmount = dto.AbsenceFineAmount >= 0 ? dto.AbsenceFineAmount : 10.00m;
         settings.AbsenceFineMode = !string.IsNullOrWhiteSpace(dto.AbsenceFineMode) ? dto.AbsenceFineMode.Trim() : "PerBlock";
 
+        // Save dynamic coaching shift policy (Morning & Evening)
+        if (!string.IsNullOrWhiteSpace(dto.CoachingMode)) settings.CoachingMode = dto.CoachingMode.Trim();
+        if (!string.IsNullOrWhiteSpace(dto.CoachingWeeklyOffPattern)) settings.CoachingWeeklyOffPattern = dto.CoachingWeeklyOffPattern.Trim();
+        if (!string.IsNullOrWhiteSpace(dto.CoachingMorningStartTime)) settings.CoachingMorningStartTime = dto.CoachingMorningStartTime.Trim();
+        if (!string.IsNullOrWhiteSpace(dto.CoachingMorningEndTime)) settings.CoachingMorningEndTime = dto.CoachingMorningEndTime.Trim();
+        if (dto.CoachingMorningGraceMinutes >= 0) settings.CoachingMorningGraceMinutes = dto.CoachingMorningGraceMinutes;
+        if (!string.IsNullOrWhiteSpace(dto.CoachingEveningStartTime)) settings.CoachingEveningStartTime = dto.CoachingEveningStartTime.Trim();
+        if (!string.IsNullOrWhiteSpace(dto.CoachingEveningEndTime)) settings.CoachingEveningEndTime = dto.CoachingEveningEndTime.Trim();
+        if (dto.CoachingEveningGraceMinutes >= 0) settings.CoachingEveningGraceMinutes = dto.CoachingEveningGraceMinutes;
+
         settings.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
 
@@ -217,7 +235,15 @@ public class AttendanceController : ControllerBase
             settings.EnableStudentAbsenceFine,
             settings.AbsenceFineDaysThreshold,
             settings.AbsenceFineAmount,
-            settings.AbsenceFineMode
+            settings.AbsenceFineMode,
+            settings.CoachingMode,
+            settings.CoachingWeeklyOffPattern,
+            settings.CoachingMorningStartTime,
+            settings.CoachingMorningEndTime,
+            settings.CoachingMorningGraceMinutes,
+            settings.CoachingEveningStartTime,
+            settings.CoachingEveningEndTime,
+            settings.CoachingEveningGraceMinutes
         ));
     }
 

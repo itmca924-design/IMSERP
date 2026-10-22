@@ -227,8 +227,8 @@ export interface UpcomingBillingCycleInfo {
             <mat-label>Filter by Coaching Batch</mat-label>
             <mat-select [(ngModel)]="selectedBatchFilter" (selectionChange)="onFilterChange()" panelClass="batch-filter-panel">
               <mat-option value="">All Coaching Batches</mat-option>
-              <mat-option *ngFor="let b of batches" [value]="b.id">
-                🎯 {{ b.name }}
+              <mat-option *ngFor="let b of (selectedClassFilter ? getBatchesForClass(selectedClassFilter) : batches)" [value]="b.id">
+                🎯 {{ b.name }}{{ b.className ? ' [' + b.className + ']' : '' }}
               </mat-option>
             </mat-select>
           </mat-form-field>
@@ -2396,6 +2396,11 @@ export class FeesComponent implements OnInit, OnDestroy {
     });
   }
 
+  getBatchesForClass(classId: string): any[] {
+    if (!classId) return this.batches || [];
+    return (this.batches || []).filter(b => b.classId === classId);
+  }
+
   formatBillingTitle(title: string): { line1: string; line2?: string } {
     if (!title) return { line1: '' };
     // Check if title has a range (dash/hyphen/en-dash) and mentions Quarterly or Half-Yearly
@@ -2843,8 +2848,16 @@ export class FeesComponent implements OnInit, OnDestroy {
     if (targetStudent?.joiningDate) {
       const joinD = new Date(targetStudent.joiningDate);
       if (!isNaN(joinD.getTime())) {
-        defaultMonth = joinD.getMonth() + 1;
-        defaultYear = joinD.getFullYear();
+        const cutoffDay = this.settingsService.admissionCutoffDay() || 20;
+        if (joinD.getDate() > cutoffDay) {
+          // Dynamic Admission Cutoff Rollover (Admitted after cutoff day -> Billing rolls over to next month)
+          const rollDate = new Date(joinD.getFullYear(), joinD.getMonth() + 1, 1);
+          defaultMonth = rollDate.getMonth() + 1;
+          defaultYear = rollDate.getFullYear();
+        } else {
+          defaultMonth = joinD.getMonth() + 1;
+          defaultYear = joinD.getFullYear();
+        }
       }
     }
 

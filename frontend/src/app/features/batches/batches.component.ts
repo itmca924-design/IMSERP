@@ -93,6 +93,17 @@ import { StudentRollSequencerDialogComponent } from '../students/student-roll-se
               </td>
             </ng-container>
 
+            <ng-container matColumnDef="className">
+              <th mat-header-cell *matHeaderCellDef mat-sort-header="class"> Class / Grade </th>
+              <td mat-cell *matCellDef="let element">
+                <span class="class-tag" *ngIf="element.className">
+                  <mat-icon class="inline-icon">school</mat-icon>
+                  {{ element.className }}
+                </span>
+                <span class="unassigned-tag" *ngIf="!element.className">General</span>
+              </td>
+            </ng-container>
+
             <ng-container matColumnDef="branchName">
               <th mat-header-cell *matHeaderCellDef mat-sort-header="branch"> Branch Campus </th>
               <td mat-cell *matCellDef="let element">
@@ -268,6 +279,18 @@ import { StudentRollSequencerDialogComponent } from '../students/student-roll-se
         margin-right: 4px;
       }
     }
+    .class-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #6d28d9;
+      background: #f5f3ff;
+      border: 1px solid #ddd6fe;
+      padding: 3px 8px;
+      border-radius: 6px;
+    }
     .branch-tag {
       display: inline-flex;
       align-items: center;
@@ -322,7 +345,7 @@ import { StudentRollSequencerDialogComponent } from '../students/student-roll-se
   `]
 })
 export class BatchesComponent implements OnInit {
-  displayedColumns: string[] = ['name', 'branchName', 'roomName', 'subject', 'academicYear', 'standardMonthlyFee', 'studentCount', 'actions'];
+  displayedColumns: string[] = ['name', 'className', 'branchName', 'roomName', 'subject', 'academicYear', 'standardMonthlyFee', 'studentCount', 'actions'];
   batches: BatchDto[] = [];
   
   loading = false;

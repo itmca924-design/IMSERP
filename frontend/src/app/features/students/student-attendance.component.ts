@@ -229,13 +229,23 @@ interface CalendarDay {
           </ng-template>
         </ng-container>
 
-        <!-- Coaching Batch Selector -->
+        <!-- Coaching Batch Selector with Class Filter -->
         <ng-container *ngIf="rollCallScope === 'coaching'">
+          <mat-form-field appearance="outline" class="class-select" subscriptSizing="dynamic" *ngIf="hasSchool">
+            <mat-label>Filter Academic Class</mat-label>
+            <mat-select [(ngModel)]="selectedCoachingClassId" (selectionChange)="onCoachingClassFilterChanged()">
+              <mat-option value="">✨ All Academic Classes</mat-option>
+              <mat-option *ngFor="let c of schoolClasses" [value]="c.id">
+                🏫 {{ c.name }}
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+
           <mat-form-field appearance="outline" class="batch-select" subscriptSizing="dynamic">
-            <mat-label>Select Batch</mat-label>
+            <mat-label>Select Coaching Batch</mat-label>
             <mat-select [(ngModel)]="selectedBatchId" (selectionChange)="onBatchChanged()">
-              <mat-option *ngFor="let b of batches" [value]="b.id">
-                {{ b.name }} ({{ b.subject || b.academicYear || 'General' }})
+              <mat-option *ngFor="let b of filteredCoachingBatches" [value]="b.id">
+                🎯 {{ b.name }} ({{ b.subject || b.academicYear || 'General' }}) <span *ngIf="b.className">• {{ b.className }}</span>
               </mat-option>
             </mat-select>
           </mat-form-field>
@@ -286,10 +296,23 @@ interface CalendarDay {
 
       <!-- Quick Default Timings Strip -->
       <div class="roll-call-timings-bar" *ngIf="isScopeSelected">
-        <div class="rct-label">
-          <mat-icon>schedule</mat-icon>
-          <span>Default {{ rollCallScope === 'school' ? 'Class' : 'Batch' }} Timings:</span>
+        <div class="rct-left-group">
+          <div class="rct-label">
+            <mat-icon>schedule</mat-icon>
+            <span>Default {{ rollCallScope === 'school' ? 'Class' : 'Batch' }} Timings:</span>
+          </div>
+
+          <!-- Coaching Shift Switcher Pills (Morning vs Evening) -->
+          <div class="rct-shift-switcher" *ngIf="rollCallScope === 'coaching'">
+            <button type="button" class="shift-pill morning" [class.active]="coachingActiveShift === 'morning'" (click)="setCoachingShift('morning')" matTooltip="Select Morning Coaching Shift">
+              <mat-icon>wb_sunny</mat-icon> <span>🌅 Morning Shift</span>
+            </button>
+            <button type="button" class="shift-pill evening" [class.active]="coachingActiveShift === 'evening'" (click)="setCoachingShift('evening')" matTooltip="Select Evening Coaching Shift">
+              <mat-icon>nights_stay</mat-icon> <span>🌆 Evening Shift</span>
+            </button>
+          </div>
         </div>
+
         <div class="rct-fields">
           <div class="rct-input-wrap">
             <label>In</label>
@@ -1197,6 +1220,154 @@ interface CalendarDay {
     }
     .btn-bulk-absent:hover { background: #fee2e2 !important; }
 
+    /* Roll Call Default Timings Strip & Shift Switcher */
+    .roll-call-timings-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 14px;
+      padding: 10px 14px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+
+      .rct-left-group {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        flex-wrap: wrap;
+      }
+
+      .rct-label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.84rem;
+        font-weight: 600;
+        color: #334155;
+        mat-icon { font-size: 18px; width: 18px; height: 18px; color: #2563eb; }
+      }
+
+      .rct-shift-switcher {
+        display: flex;
+        gap: 6px;
+        background: #e2e8f0;
+        padding: 3px;
+        border-radius: 20px;
+
+        .shift-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          padding: 4px 12px;
+          border-radius: 16px;
+          border: none;
+          background: transparent;
+          font-size: 0.76rem;
+          font-weight: 600;
+          color: #475569;
+          cursor: pointer;
+          transition: all 0.2s ease;
+
+          mat-icon {
+            font-size: 14px;
+            width: 14px;
+            height: 14px;
+          }
+
+          &.active {
+            background: #ffffff;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+
+            &.morning {
+              color: #c2410c;
+              mat-icon { color: #ea580c; }
+            }
+
+            &.evening {
+              color: #4338ca;
+              mat-icon { color: #6366f1; }
+            }
+          }
+        }
+      }
+
+      .rct-fields {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .rct-input-wrap {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        padding: 3px 8px;
+
+        label {
+          font-size: 0.74rem;
+          font-weight: 700;
+          color: #64748b;
+          text-transform: uppercase;
+        }
+
+        input {
+          border: none;
+          outline: none;
+          font-size: 0.85rem;
+          font-family: inherit;
+          color: #0f172a;
+          font-weight: 600;
+          background: transparent;
+        }
+      }
+
+      .rct-apply-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        background: #eff6ff;
+        border: 1px solid #bfdbfe;
+        color: #1d4ed8;
+        border-radius: 6px;
+        padding: 4px 10px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.15s ease;
+
+        mat-icon { font-size: 15px; width: 15px; height: 15px; }
+
+        &:hover:not([disabled]) {
+          background: #dbeafe;
+          border-color: #93c5fd;
+        }
+
+        &:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+      }
+
+      .rct-dur-badge {
+        display: inline-flex;
+        align-items: center;
+        background: #f1f5f9;
+        color: #475569;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        padding: 3px 8px;
+        font-size: 0.74rem;
+        font-weight: 700;
+      }
+    }
+
     /* Success Banner */
     .success-banner {
       display: flex; align-items: center; justify-content: space-between;
@@ -2032,6 +2203,7 @@ export class StudentAttendanceComponent implements OnInit {
   batchSavingDates = false;
   bulkCheckInTime = '08:00';
   bulkCheckOutTime = '14:00';
+  coachingActiveShift: 'morning' | 'evening' = 'morning';
   summary: AttendanceSummary | null = null;
   loading = false;
   saving = false;
@@ -2096,6 +2268,7 @@ export class StudentAttendanceComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.coachingActiveShift = new Date().getHours() < 13 ? 'morning' : 'evening';
     this.pageLoading = true;
     if (!this.hasSchool && this.hasCoaching) {
       this.rollCallScope = 'coaching';
@@ -2154,6 +2327,7 @@ export class StudentAttendanceComponent implements OnInit {
   setRollCallScope(scope: 'school' | 'coaching'): void {
     this.rollCallScope = scope;
     this.batchSearchQuery = '';
+    this.syncScopeDefaultTimings();
     if (scope === 'school') {
       if (this.schoolClasses.length > 0 && !this.selectedClassId) {
         this.selectedClassId = this.schoolClasses[0].id;
@@ -2660,6 +2834,24 @@ export class StudentAttendanceComponent implements OnInit {
     });
   }
 
+  selectedCoachingClassId: string = '';
+
+  get filteredCoachingBatches(): any[] {
+    if (!this.selectedCoachingClassId) return this.batches || [];
+    return (this.batches || []).filter(b => b.classId === this.selectedCoachingClassId);
+  }
+
+  onCoachingClassFilterChanged(): void {
+    if (this.selectedBatchId) {
+      const b = this.batches.find(x => x.id === this.selectedBatchId);
+      if (b && this.selectedCoachingClassId && b.classId !== this.selectedCoachingClassId) {
+        const matching = this.filteredCoachingBatches;
+        this.selectedBatchId = matching.length > 0 ? matching[0].id : '';
+        this.onBatchChanged();
+      }
+    }
+  }
+
   onBatchChanged(): void {
     this.batchSuccessMsg = '';
     this.loadBatchAttendance();
@@ -2970,6 +3162,30 @@ export class StudentAttendanceComponent implements OnInit {
     return '';
   }
 
+  syncScopeDefaultTimings(): void {
+    if (this.rollCallScope === 'school') {
+      this.bulkCheckInTime = this.attendanceSettings?.studentShiftStartTime || '08:00';
+      this.bulkCheckOutTime = this.attendanceSettings?.studentShiftEndTime || '14:00';
+    } else {
+      if (this.coachingActiveShift === 'morning') {
+        this.bulkCheckInTime = this.attendanceSettings?.coachingMorningStartTime || '07:00';
+        this.bulkCheckOutTime = this.attendanceSettings?.coachingMorningEndTime || '10:00';
+      } else {
+        this.bulkCheckInTime = this.attendanceSettings?.coachingEveningStartTime || '16:00';
+        this.bulkCheckOutTime = this.attendanceSettings?.coachingEveningEndTime || '19:00';
+      }
+    }
+    this.batchTargetCheckIn = this.bulkCheckInTime;
+    this.batchTargetCheckOut = this.bulkCheckOutTime;
+    this.formData.checkInTime = this.bulkCheckInTime;
+    this.formData.checkOutTime = this.bulkCheckOutTime;
+  }
+
+  setCoachingShift(shift: 'morning' | 'evening'): void {
+    this.coachingActiveShift = shift;
+    this.syncScopeDefaultTimings();
+  }
+
   loadAttendanceSettings(): void {
     this.http.get<AttendanceSettingsDto>(`${this.api}/attendance/settings`, {
       headers: { 'X-Skip-Loader': 'true' }
@@ -2977,41 +3193,24 @@ export class StudentAttendanceComponent implements OnInit {
       next: settings => {
         this.attendanceSettings = settings;
         this.attendanceMode = settings.studentMode;
-        if (settings.studentShiftStartTime) {
-          this.bulkCheckInTime = settings.studentShiftStartTime;
-          this.batchTargetCheckIn = settings.studentShiftStartTime;
-          this.formData.checkInTime = settings.studentShiftStartTime;
-        }
-        if (settings.studentShiftEndTime) {
-          this.bulkCheckOutTime = settings.studentShiftEndTime;
-          this.batchTargetCheckOut = settings.studentShiftEndTime;
-          this.formData.checkOutTime = settings.studentShiftEndTime;
-        }
+        this.syncScopeDefaultTimings();
       },
       error: () => { this.attendanceMode = 'Both'; }
     });
   }
 
   openShiftSettingsDialog(): void {
+    const isCoaching = this.rollCallScope === 'coaching';
     const ref = this.dialog.open(AttendanceShiftSettingsDialogComponent, {
-      width: '680px',
+      width: '760px',
       maxWidth: '95vw',
-      data: { initialTab: 'student' }
+      data: { initialTab: isCoaching ? 'coaching' : 'student' }
     });
     ref.afterClosed().subscribe(res => {
       if (res?.saved && res?.settings) {
         this.attendanceSettings = res.settings;
         this.attendanceMode = res.settings.studentMode;
-        if (res.settings.studentShiftStartTime) {
-          this.bulkCheckInTime = res.settings.studentShiftStartTime;
-          this.batchTargetCheckIn = res.settings.studentShiftStartTime;
-          this.formData.checkInTime = res.settings.studentShiftStartTime;
-        }
-        if (res.settings.studentShiftEndTime) {
-          this.bulkCheckOutTime = res.settings.studentShiftEndTime;
-          this.batchTargetCheckOut = res.settings.studentShiftEndTime;
-          this.formData.checkOutTime = res.settings.studentShiftEndTime;
-        }
+        this.syncScopeDefaultTimings();
         if (this.selectedStudent) {
           this.loadAttendance();
         }

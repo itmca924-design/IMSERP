@@ -2114,11 +2114,64 @@ export class FeeCollectionDialogComponent implements OnInit {
     this.recalculateTotal();
   }
 
+  getPaymentModeText(mode: number): string {
+    switch (mode) {
+      case 0: return 'Cash';
+      case 1: return 'UPI / Online';
+      case 2: return 'Bank Transfer / NetBanking';
+      case 3: return 'Cheque';
+      default: return 'Payment';
+    }
+  }
+
   async onSubmit(): Promise<void> {
     if (this.feeForm.invalid || this.saving) return;
 
-    this.saving = true;
     const formVal = this.feeForm.value;
+    const amount = Math.round(Number(formVal.amountPaid) * 100) / 100;
+    if (amount <= 0) return;
+
+    const studentName = this.data.studentName || 'Student';
+    const modeName = this.getPaymentModeText(Number(formVal.mode));
+    const formattedAmount = '₹' + amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    const selectedRows = this.itemRows.filter(r => r.selected && r.payingAmount > 0);
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    const detectedPeriods: string[] = [];
+
+    for (const r of selectedRows) {
+      const text = `${r.invoiceTitle || ''} ${r.headName || ''}`;
+      let foundMonth = '';
+      for (const m of monthNames) {
+        if (new RegExp(`\\b${m}\\b`, 'i').test(text)) {
+          const matchYear = text.match(/\b(20\d\d)\b/);
+          foundMonth = matchYear ? `${m} ${matchYear[1]}` : m;
+          break;
+        }
+      }
+      if (foundMonth && !detectedPeriods.includes(foundMonth)) {
+        detectedPeriods.push(foundMonth);
+      } else if (!foundMonth) {
+        const fallback = r.invoiceTitle || r.headName;
+        if (!detectedPeriods.includes(fallback)) {
+          detectedPeriods.push(fallback);
+        }
+      }
+    }
+
+    const periodSuffix = detectedPeriods.length > 0 ? ` (${detectedPeriods.join(', ')})` : '';
+
+    const confirmed = await firstValueFrom(this.confirmDialog.confirm(
+      'Confirm Fee Collection?',
+      `Are you sure you want to collect ${formattedAmount} via ${modeName} for ${studentName}${periodSuffix} and issue the official receipt?`,
+      'Yes, Collect & Issue Receipt',
+      'Cancel',
+      'info'
+    ));
+
+    if (!confirmed) return;
+
+    this.saving = true;
     const includeLibFine = this.libraryDues && this.libraryDues.pendingFineAmount > 0 && formVal.includeLibraryFine;
 
     // ── STEP 1: Pre-generate advance invoices if advance months selected ──
@@ -2157,7 +2210,9 @@ export class FeeCollectionDialogComponent implements OnInit {
       amountPaid: Math.round(Number(formVal.amountPaid) * 100) / 100,
       mode: Number(formVal.mode),
       transactionRef: formVal.transactionRef || undefined,
-      remarks: formVal.remarks || undefined,
+      remarks: (formVal.remarks && formVal.remarks !== 'Fee Payment')
+        ? formVal.remarks
+        : (detectedPeriods.length > 0 ? `Fee Payment (${detectedPeriods.join(', ')})` : formVal.remarks || undefined),
       sendWhatsAppReceipt: !!formVal.sendWhatsAppReceipt,
       includeLibraryFine: !!includeLibFine,
       libraryCirculationIds: includeLibFine && this.libraryDues ? this.libraryDues.pendingFines.map(f => f.circulationId) : [],

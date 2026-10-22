@@ -278,6 +278,28 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                 <mat-hint *ngIf="!isEditMode">Auto-generated when batch is selected</mat-hint>
                 <mat-error *ngIf="studentForm.get('rollNumber')?.hasError('required')">Roll number is required</mat-error>
               </mat-form-field>
+
+              <div class="batch-class-badge-container">
+                <div class="batch-class-badge-box" [class.has-class]="getSelectedBatchClassName()">
+                  <div class="batch-class-hdr">
+                    <mat-icon class="class-icon">school</mat-icon>
+                    <span class="hdr-text">Batch Target Class</span>
+                  </div>
+                  <div class="batch-class-val">
+                    <span *ngIf="getSelectedBatchClassName()" class="batch-class-badge">
+                      <mat-icon class="badge-dot-icon">verified</mat-icon>
+                      {{ getSelectedBatchClassName() }}
+                    </span>
+                    <span *ngIf="!getSelectedBatchClassName() && studentForm.value.batchId" class="batch-class-general">
+                      <mat-icon class="badge-dot-icon">all_inclusive</mat-icon>
+                      General / All Classes
+                    </span>
+                    <span *ngIf="!studentForm.value.batchId" class="batch-class-hint">
+                      Select batch to view target class
+                    </span>
+                  </div>
+                </div>
+              </div>
             </ng-container>
 
             <!-- Hostel Residential Details (if Hostel is checked) -->
@@ -1018,7 +1040,10 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                     </div>
                     <div class="coaching-alloc" *ngIf="s.isCoachingStudent">
                       <mat-icon class="icon-coaching">school</mat-icon>
-                      <span>{{ s.batchName || 'Coaching Batch' }}</span>
+                      <span class="batch-title-text">{{ s.batchName || 'Coaching Batch' }}</span>
+                      <span class="batch-class-tag" *ngIf="s.className || getBatchClassName(s.batchId)" [matTooltip]="'Target Academic Class: ' + (s.className || getBatchClassName(s.batchId))">
+                        {{ s.className || getBatchClassName(s.batchId) }}
+                      </span>
                     </div>
                     <div class="hostel-alloc" *ngIf="s.isHostelStudent">
                       <mat-icon class="icon-hostel">hotel</mat-icon>
@@ -1608,6 +1633,108 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
         color: #3730a3;
         border-left: 4px solid #6366f1;
       }
+    }
+
+    .batch-class-badge-container {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      height: 56px;
+      margin-bottom: 22px;
+    }
+    .batch-class-badge-box {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 8px 14px;
+      background: #f8fafc;
+      border: 1.5px dashed #cbd5e1;
+      border-radius: 8px;
+      min-height: 48px;
+      box-sizing: border-box;
+      transition: all 0.2s ease;
+
+      &.has-class {
+        background: #f0fdf4;
+        border: 1.5px solid #86efac;
+      }
+    }
+    .batch-class-hdr {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: #64748b;
+      font-size: 0.82rem;
+      font-weight: 600;
+      white-space: nowrap;
+
+      .class-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        color: #7c3aed;
+      }
+    }
+    .batch-class-val {
+      display: inline-flex;
+      align-items: center;
+    }
+    .batch-class-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      background: #dcfce7;
+      color: #15803d;
+      font-weight: 700;
+      font-size: 0.82rem;
+      border-radius: 20px;
+      border: 1px solid #bbf7d0;
+
+      .badge-dot-icon {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
+        color: #16a34a;
+      }
+    }
+    .batch-class-general {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      background: #eff6ff;
+      color: #1e40af;
+      font-weight: 600;
+      font-size: 0.8rem;
+      border-radius: 20px;
+      border: 1px solid #bfdbfe;
+
+      .badge-dot-icon {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
+        color: #2563eb;
+      }
+    }
+    .batch-class-hint {
+      color: #94a3b8;
+      font-size: 0.8rem;
+      font-style: italic;
+    }
+    .batch-class-tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      background: #ede9fe;
+      color: #6d28d9;
+      font-weight: 700;
+      font-size: 0.72rem;
+      border-radius: 12px;
+      border: 1px solid #ddd6fe;
+      margin-left: 6px;
+      vertical-align: middle;
     }
 
     .admission-kit-panel {
@@ -3525,16 +3652,47 @@ export class StudentsComponent implements OnInit, OnDestroy {
     return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
   }
 
+  getSelectedBatch(): any {
+    const batchId = this.studentForm?.get('batchId')?.value;
+    if (!batchId) return null;
+    return this.batches.find(b => b.id === batchId) || null;
+  }
+
+  getSelectedBatchClassName(): string {
+    const b = this.getSelectedBatch();
+    return b?.className || '';
+  }
+
+  getBatchClassName(batchId: string): string {
+    if (!batchId) return '';
+    const b = this.batches.find(x => x.id === batchId);
+    return b?.className || '';
+  }
+
+  getBatchClassId(batchId: string): string {
+    if (!batchId) return '';
+    const b = this.batches.find(x => x.id === batchId);
+    return b?.classId || '';
+  }
+
   // ── Watchers ─────────────────────────────────────────────
 
   private setupBatchIdWatcher(): void {
     this.batchIdSub = this.studentForm.get('batchId')!.valueChanges.subscribe((batchId: string) => {
+      const selectedBatch = this.batches.find(b => b.id === batchId);
+      if (batchId && selectedBatch?.classId && !this.studentForm.value.isSchoolStudent) {
+        this.studentForm.patchValue({ classId: selectedBatch.classId }, { emitEvent: false });
+      }
+
       if (!this.isEditMode && batchId && this.studentForm.value.isCoachingStudent) {
         this.rollNumberLoading = true;
         this.studentForm.get('rollNumber')!.setValue('', { emitEvent: false });
         this.coachingService.getNextRollNumber(batchId).subscribe({
-          next: (res) => {
+          next: (res: any) => {
             this.studentForm.get('rollNumber')!.setValue(res.rollNumber, { emitEvent: false });
+            if (res.classId && !this.studentForm.value.isSchoolStudent) {
+              this.studentForm.patchValue({ classId: res.classId }, { emitEvent: false });
+            }
             this.rollNumberLoading = false;
           },
           error: () => {
@@ -3543,6 +3701,9 @@ export class StudentsComponent implements OnInit, OnDestroy {
         });
       } else if (!batchId) {
         this.studentForm.get('rollNumber')!.setValue('', { emitEvent: false });
+        if (!this.studentForm.value.isSchoolStudent) {
+          this.studentForm.patchValue({ classId: '' }, { emitEvent: false });
+        }
       }
     });
 
@@ -4052,7 +4213,7 @@ export class StudentsComponent implements OnInit, OnDestroy {
       libraryMembershipType: student.libraryMembershipType || 'Standard Book Lending',
       maxLibraryBooks: student.maxLibraryBooks ?? 2,
       monthlyLibraryFee: student.monthlyLibraryFee ?? 0,
-      classId: student.classId || '',
+      classId: student.classId || (student.batchId ? this.getBatchClassId(student.batchId) : '') || '',
       sectionId: student.sectionId || '',
       admissionNumber: student.admissionNumber || '',
       joiningDate: this.formatDateForInput(student.joiningDate || new Date()),
@@ -4411,7 +4572,7 @@ export class StudentsComponent implements OnInit, OnDestroy {
       schoolRollNumber: formVal.schoolRollNumber ? formVal.schoolRollNumber.trim() : null,
       coachingRollNumber: formVal.coachingRollNumber ? formVal.coachingRollNumber.trim() : null,
       admissionNumber: formVal.admissionNumber ? formVal.admissionNumber.trim() : null,
-      classId: formVal.isSchoolStudent && formVal.classId ? formVal.classId : null,
+      classId: (formVal.isSchoolStudent && formVal.classId) ? formVal.classId : (formVal.classId || this.getSelectedBatch()?.classId || null),
       sectionId: formVal.isSchoolStudent && formVal.sectionId ? formVal.sectionId : null,
       dateOfBirth: formVal.dateOfBirth && typeof formVal.dateOfBirth === 'string' && formVal.dateOfBirth.trim() ? new Date(formVal.dateOfBirth).toISOString() : null,
       motherName: formVal.motherName ? formVal.motherName.trim() : null,

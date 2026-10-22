@@ -13,9 +13,10 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { AttendanceSettingsDto, API_BASE } from '../../features/teachers/teacher.models';
+import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 
 export interface AttendanceShiftSettingsDialogData {
-  initialTab?: 'teacher' | 'student';
+  initialTab?: 'teacher' | 'student' | 'coaching';
 }
 
 @Component({
@@ -159,11 +160,11 @@ export interface AttendanceShiftSettingsDialogData {
             </div>
           </mat-tab>
 
-          <!-- ================= TAB 2: STUDENT SETTINGS ================= -->
+          <!-- ================= TAB 2: SCHOOL STUDENT SETTINGS ================= -->
           <mat-tab>
             <ng-template mat-tab-label>
-              <mat-icon class="tab-icon">groups</mat-icon>
-              <span>Student Rules</span>
+              <mat-icon class="tab-icon">school</mat-icon>
+              <span>School Student Shift</span>
             </ng-template>
 
             <div class="tab-panel-body">
@@ -325,6 +326,150 @@ export interface AttendanceShiftSettingsDialogData {
                         </div>
                       </div>
                     </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </mat-tab>
+
+          <!-- ================= TAB 3: COACHING BATCHES SHIFT ================= -->
+          <mat-tab>
+            <ng-template mat-tab-label>
+              <mat-icon class="tab-icon">menu_book</mat-icon>
+              <span>Coaching Batches Shift</span>
+            </ng-template>
+
+            <div class="tab-panel-body">
+              <!-- Summary Banner Preview -->
+              <div class="preview-banner coaching-banner">
+                <div class="banner-pill">
+                  <mat-icon>info</mat-icon>
+                  <strong>Live Coaching Shifts Summary:</strong>
+                </div>
+                <div class="banner-text">
+                  {{ getCoachingSummaryText() }}
+                </div>
+              </div>
+
+              <!-- General Coaching Mode & Off Pattern -->
+              <div class="form-grid">
+                <mat-form-field appearance="outline" class="col-half">
+                  <mat-label>Coaching Attendance Mode</mat-label>
+                  <mat-select [(ngModel)]="settings.coachingMode">
+                    <mat-option value="Both">Manual Roll Call + Turnstile/Biometric</mat-option>
+                    <mat-option value="Manual">Manual Roll Call Only</mat-option>
+                    <mat-option value="Biometric">Biometric Turnstile Only</mat-option>
+                  </mat-select>
+                  <mat-hint>Choose attendance capture method for coaching batches.</mat-hint>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="col-half">
+                  <mat-label>Coaching Weekly Off Pattern</mat-label>
+                  <mat-select [(ngModel)]="settings.coachingWeeklyOffPattern">
+                    <mat-option value="SundayOnly">6-Day Week: Sunday Only Off (Mon – Sat Batches)</mat-option>
+                    <mat-option value="SaturdaySunday">5-Day Week: Saturday & Sunday Off (Mon – Fri Batches)</mat-option>
+                    <mat-option value="SecondFourthSaturday">CBSE/ICSE: 2nd & 4th Saturday + All Sundays Off</mat-option>
+                  </mat-select>
+                  <mat-icon matPrefix>event_available</mat-icon>
+                  <mat-hint>Configures active batch days vs weekly off days.</mat-hint>
+                </mat-form-field>
+              </div>
+
+              <!-- DUAL SHIFT CARDS -->
+              <div class="shifts-split-grid">
+                <!-- MORNING SHIFT CARD -->
+                <div class="shift-card morning-shift-card">
+                  <div class="shift-card-header">
+                    <div class="shift-icon-wrap morning">
+                      <mat-icon>wb_sunny</mat-icon>
+                    </div>
+                    <div class="shift-title-group">
+                      <h4>🌅 Morning Shift Timings</h4>
+                      <p>Early batch classes & morning doubt sessions</p>
+                    </div>
+                  </div>
+
+                  <!-- Quick Presets -->
+                  <div class="preset-strip">
+                    <span class="preset-label">Presets:</span>
+                    <button type="button" class="preset-chip" (click)="applyCoachingMorningPreset('06:30', '09:30')">
+                      06:30 – 09:30 AM
+                    </button>
+                    <button type="button" class="preset-chip" (click)="applyCoachingMorningPreset('07:00', '10:00')">
+                      07:00 – 10:00 AM
+                    </button>
+                    <button type="button" class="preset-chip" (click)="applyCoachingMorningPreset('08:00', '11:00')">
+                      08:00 – 11:00 AM
+                    </button>
+                  </div>
+
+                  <div class="shift-inputs-grid">
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                      <mat-label>Morning Start Time</mat-label>
+                      <input matInput type="time" [(ngModel)]="settings.coachingMorningStartTime" (ngModelChange)="onShiftTimesChanged()" required>
+                      <mat-icon matPrefix>login</mat-icon>
+                    </mat-form-field>
+
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                      <mat-label>Morning End Time</mat-label>
+                      <input matInput type="time" [(ngModel)]="settings.coachingMorningEndTime" (ngModelChange)="onShiftTimesChanged()" required>
+                      <mat-icon matPrefix>logout</mat-icon>
+                    </mat-form-field>
+
+                    <mat-form-field appearance="outline" class="col-span-2">
+                      <mat-label>Morning Late Grace Cutoff (Minutes)</mat-label>
+                      <input matInput type="number" min="0" max="60" [(ngModel)]="settings.coachingMorningGraceMinutes" (ngModelChange)="onShiftTimesChanged()" required>
+                      <mat-icon matPrefix>timer</mat-icon>
+                      <mat-hint>Arrival after {{ getCoachingMorningLateCutoffFormatted() }} counts as Late</mat-hint>
+                    </mat-form-field>
+                  </div>
+                </div>
+
+                <!-- EVENING SHIFT CARD -->
+                <div class="shift-card evening-shift-card">
+                  <div class="shift-card-header">
+                    <div class="shift-icon-wrap evening">
+                      <mat-icon>nights_stay</mat-icon>
+                    </div>
+                    <div class="shift-title-group">
+                      <h4>🌆 Evening Shift Timings</h4>
+                      <p>Post-school batches & regular evening lectures</p>
+                    </div>
+                  </div>
+
+                  <!-- Quick Presets -->
+                  <div class="preset-strip">
+                    <span class="preset-label">Presets:</span>
+                    <button type="button" class="preset-chip" (click)="applyCoachingEveningPreset('15:30', '18:30')">
+                      03:30 – 06:30 PM
+                    </button>
+                    <button type="button" class="preset-chip" (click)="applyCoachingEveningPreset('16:00', '19:00')">
+                      04:00 – 07:00 PM
+                    </button>
+                    <button type="button" class="preset-chip" (click)="applyCoachingEveningPreset('17:00', '20:00')">
+                      05:00 – 08:00 PM
+                    </button>
+                  </div>
+
+                  <div class="shift-inputs-grid">
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                      <mat-label>Evening Start Time</mat-label>
+                      <input matInput type="time" [(ngModel)]="settings.coachingEveningStartTime" (ngModelChange)="onShiftTimesChanged()" required>
+                      <mat-icon matPrefix>login</mat-icon>
+                    </mat-form-field>
+
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                      <mat-label>Evening End Time</mat-label>
+                      <input matInput type="time" [(ngModel)]="settings.coachingEveningEndTime" (ngModelChange)="onShiftTimesChanged()" required>
+                      <mat-icon matPrefix>logout</mat-icon>
+                    </mat-form-field>
+
+                    <mat-form-field appearance="outline" class="col-span-2">
+                      <mat-label>Evening Late Grace Cutoff (Minutes)</mat-label>
+                      <input matInput type="number" min="0" max="60" [(ngModel)]="settings.coachingEveningGraceMinutes" (ngModelChange)="onShiftTimesChanged()" required>
+                      <mat-icon matPrefix>timer</mat-icon>
+                      <mat-hint>Arrival after {{ getCoachingEveningLateCutoffFormatted() }} counts as Late</mat-hint>
+                    </mat-form-field>
                   </div>
                 </div>
               </div>
@@ -625,6 +770,106 @@ export interface AttendanceShiftSettingsDialogData {
       }
     }
 
+    .coaching-banner {
+      background: #faf5ff !important;
+      border-color: #e9d5ff !important;
+      color: #6b21a8 !important;
+
+      .banner-pill {
+        color: #7e22ce !important;
+        mat-icon { color: #9333ea !important; }
+      }
+      .banner-text {
+        color: #581c87 !important;
+      }
+    }
+
+    .shifts-split-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-top: 12px;
+
+      @media (max-width: 768px) {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .shift-card {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+
+      &.morning-shift-card {
+        border-top: 4px solid #ea580c;
+      }
+
+      &.evening-shift-card {
+        border-top: 4px solid #4f46e5;
+      }
+
+      .shift-card-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+
+        .shift-icon-wrap {
+          width: 38px;
+          height: 38px;
+          border-radius: 10px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+
+          &.morning {
+            background: #ffedd5;
+            color: #c2410c;
+          }
+
+          &.evening {
+            background: #e0e7ff;
+            color: #4338ca;
+          }
+        }
+
+        .shift-title-group {
+          h4 {
+            margin: 0;
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #0f172a;
+          }
+          p {
+            margin: 2px 0 0;
+            font-size: 0.78rem;
+            color: #64748b;
+          }
+        }
+      }
+
+      .shift-inputs-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px 12px;
+
+        .col-span-2 {
+          grid-column: span 2;
+        }
+
+        @media (max-width: 480px) {
+          grid-template-columns: 1fr;
+          .col-span-2 {
+            grid-column: span 1;
+          }
+        }
+      }
+    }
+
     .dialog-actions {
       display: flex;
       align-items: center;
@@ -670,16 +915,27 @@ export class AttendanceShiftSettingsDialogComponent implements OnInit {
     enableStudentAbsenceFine: true,
     absenceFineDaysThreshold: 3,
     absenceFineAmount: 10,
-    absenceFineMode: 'PerBlock'
+    absenceFineMode: 'PerBlock',
+    coachingMode: 'Both',
+    coachingWeeklyOffPattern: 'SundayOnly',
+    coachingMorningStartTime: '07:00',
+    coachingMorningEndTime: '10:00',
+    coachingMorningGraceMinutes: 15,
+    coachingEveningStartTime: '16:00',
+    coachingEveningEndTime: '19:00',
+    coachingEveningGraceMinutes: 15
   };
 
   constructor(
     private http: HttpClient,
     public dialogRef: MatDialogRef<AttendanceShiftSettingsDialogComponent>,
-    @Inject(MAT_DIALOG_DATA) public data: AttendanceShiftSettingsDialogData
+    @Inject(MAT_DIALOG_DATA) public data: AttendanceShiftSettingsDialogData,
+    private confirmDialog: ConfirmDialogService
   ) {
     if (data?.initialTab === 'student') {
       this.activeTabIndex = 1;
+    } else if (data?.initialTab === 'coaching') {
+      this.activeTabIndex = 2;
     }
   }
 
@@ -710,7 +966,15 @@ export class AttendanceShiftSettingsDialogComponent implements OnInit {
           enableStudentAbsenceFine: res.enableStudentAbsenceFine ?? true,
           absenceFineDaysThreshold: res.absenceFineDaysThreshold ?? 3,
           absenceFineAmount: res.absenceFineAmount ?? 10,
-          absenceFineMode: res.absenceFineMode || 'PerBlock'
+          absenceFineMode: res.absenceFineMode || 'PerBlock',
+          coachingMode: res.coachingMode || 'Both',
+          coachingWeeklyOffPattern: res.coachingWeeklyOffPattern || 'SundayOnly',
+          coachingMorningStartTime: res.coachingMorningStartTime || '07:00',
+          coachingMorningEndTime: res.coachingMorningEndTime || '10:00',
+          coachingMorningGraceMinutes: res.coachingMorningGraceMinutes ?? 15,
+          coachingEveningStartTime: res.coachingEveningStartTime || '16:00',
+          coachingEveningEndTime: res.coachingEveningEndTime || '19:00',
+          coachingEveningGraceMinutes: res.coachingEveningGraceMinutes ?? 15
         };
         this.loading = false;
       },
@@ -728,6 +992,16 @@ export class AttendanceShiftSettingsDialogComponent implements OnInit {
   applyStudentPreset(start: string, end: string): void {
     this.settings.studentShiftStartTime = start;
     this.settings.studentShiftEndTime = end;
+  }
+
+  applyCoachingMorningPreset(start: string, end: string): void {
+    this.settings.coachingMorningStartTime = start;
+    this.settings.coachingMorningEndTime = end;
+  }
+
+  applyCoachingEveningPreset(start: string, end: string): void {
+    this.settings.coachingEveningStartTime = start;
+    this.settings.coachingEveningEndTime = end;
   }
 
   onShiftTimesChanged(): void {
@@ -764,6 +1038,18 @@ export class AttendanceShiftSettingsDialogComponent implements OnInit {
   getStudentLateCutoffFormatted(): string {
     const startMins = this.parseTimeToMinutes(this.settings.studentShiftStartTime || '08:00') ?? 480;
     const cutoff = startMins + (this.settings.studentGracePeriodMinutes || 0);
+    return this.minutesToTimeStr(cutoff);
+  }
+
+  getCoachingMorningLateCutoffFormatted(): string {
+    const startMins = this.parseTimeToMinutes(this.settings.coachingMorningStartTime || '07:00') ?? 420;
+    const cutoff = startMins + (this.settings.coachingMorningGraceMinutes || 0);
+    return this.minutesToTimeStr(cutoff);
+  }
+
+  getCoachingEveningLateCutoffFormatted(): string {
+    const startMins = this.parseTimeToMinutes(this.settings.coachingEveningStartTime || '16:00') ?? 960;
+    const cutoff = startMins + (this.settings.coachingEveningGraceMinutes || 0);
     return this.minutesToTimeStr(cutoff);
   }
 
@@ -806,6 +1092,27 @@ export class AttendanceShiftSettingsDialogComponent implements OnInit {
       `${freeLates} allowed late mark(s) per month.`;
   }
 
+  getCoachingSummaryText(): string {
+    const mStart = this.settings.coachingMorningStartTime || '07:00';
+    const mEnd = this.settings.coachingMorningEndTime || '10:00';
+    const mSMin = this.parseTimeToMinutes(mStart) ?? 420;
+    let mEMin = this.parseTimeToMinutes(mEnd) ?? 600;
+    if (mEMin <= mSMin) mEMin += 720;
+    const mDurHours = ((mEMin - mSMin) / 60).toFixed(1).replace('.0', '');
+    const mCutoff = this.getCoachingMorningLateCutoffFormatted();
+
+    const eStart = this.settings.coachingEveningStartTime || '16:00';
+    const eEnd = this.settings.coachingEveningEndTime || '19:00';
+    const eSMin = this.parseTimeToMinutes(eStart) ?? 960;
+    let eEMin = this.parseTimeToMinutes(eEnd) ?? 1140;
+    if (eEMin <= eSMin) eEMin += 720;
+    const eDurHours = ((eEMin - eSMin) / 60).toFixed(1).replace('.0', '');
+    const eCutoff = this.getCoachingEveningLateCutoffFormatted();
+
+    return `🌅 Morning: ${this.minutesToTimeStr(mSMin)} – ${this.minutesToTimeStr(mEMin)} (${mDurHours} hrs, Late after ${mCutoff}) | ` +
+           `🌆 Evening: ${this.minutesToTimeStr(eSMin)} – ${this.minutesToTimeStr(eEMin)} (${eDurHours} hrs, Late after ${eCutoff}).`;
+  }
+
   saveSettings(): void {
     this.saving = true;
     this.http.put<AttendanceSettingsDto>(`${this.api}/attendance/settings`, this.settings).subscribe({
@@ -815,7 +1122,7 @@ export class AttendanceShiftSettingsDialogComponent implements OnInit {
       },
       error: (err) => {
         this.saving = false;
-        alert(err?.error?.message || 'Failed to save shift and policy settings.');
+        this.confirmDialog.alert('Error', err?.error?.message || 'Failed to save shift and policy settings.', 'danger');
       }
     });
   }

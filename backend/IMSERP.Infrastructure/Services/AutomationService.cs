@@ -47,6 +47,12 @@ public class AutomationService : IAutomationService
         settings.LateFeeGraceDays = Math.Max(0, dto.LateFeeGraceDays);
         settings.AutoPilotFeeInvoicingEnabled = dto.AutoPilotFeeInvoicingEnabled;
         settings.AutoPilotInvoicingDayOfMonth = Math.Clamp(dto.AutoPilotInvoicingDayOfMonth, 1, 28);
+        settings.AdmissionCutoffDay = Math.Clamp(dto.AdmissionCutoffDay, 1, 28);
+        if (!string.IsNullOrWhiteSpace(dto.AdmissionRolloverPolicy))
+        {
+            settings.AdmissionRolloverPolicy = dto.AdmissionRolloverPolicy.Trim();
+        }
+        settings.FinancialYearStartMonth = Math.Clamp(dto.FinancialYearStartMonth, 1, 12);
         settings.UpdatedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync();
@@ -299,12 +305,12 @@ public class AutomationService : IAutomationService
 
     public async Task<RunAutomationJobResultDto> ExecuteLateFeeComputationAsync(Guid tenantId, decimal? dailyRate = null, int? graceDays = null)
     {
-        var settings = await GetOrCreateSettingsEntityAsync(tenantId);
+        var settings = await _db.AutomationSettings.AsNoTracking().FirstOrDefaultAsync(s => s.TenantId == tenantId);
         var istZone = GetIstTimeZone();
         var today = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, istZone).Date;
 
-        var rate = dailyRate ?? settings.LateFeeDailyRate;
-        var grace = graceDays ?? settings.LateFeeGraceDays;
+        var rate = dailyRate ?? (settings?.LateFeeDailyRate ?? 10m);
+        var grace = graceDays ?? (settings?.LateFeeGraceDays ?? 5);
         var overdueCutoff = today.AddDays(-grace);
 
         // Find overdue invoices past grace period
@@ -313,7 +319,8 @@ public class AutomationService : IAutomationService
             .Include(i => i.Student)
             .Where(i => i.TenantId == tenantId &&
                         i.Status != InvoiceStatus.Paid &&
-                        i.DueDate.Date < overdueCutoff)
+                        i.Status != InvoiceStatus.Cancelled &&
+                        i.DueDate < overdueCutoff)
             .ToListAsync();
 
         int appliedCount = 0;
@@ -337,9 +344,11 @@ public class AutomationService : IAutomationService
                     InvoiceId = inv.Id,
                     HeadName = $"Late Fee Fine ({overdueDays} days past grace)",
                     Amount = computedFine,
-                    PaidAmount = 0
+                    PaidAmount = 0,
+                    CreatedAt = DateTime.UtcNow
                 };
                 inv.Items.Add(lateItem);
+                _db.FeeInvoiceItems.Add(lateItem);
                 inv.TotalAmount += computedFine;
                 appliedCount++;
                 details.Add($"Invoice #{inv.InvoiceNumber} ({inv.Student?.StudentName}): Added ₹{computedFine:N0} late fine ({overdueDays} days overdue)");
@@ -517,13 +526,44 @@ public class AutomationService : IAutomationService
                 continue;
             }
 
-            var studentStructures = feeStructures
-                .Where(cfs => (s.ClassId.HasValue && cfs.ClassId == s.ClassId.Value) ||
-                              (s.BatchId.HasValue && cfs.BatchId == s.BatchId.Value))
-                .ToList();
+            List<ClassFeeStructure> studentStructures;
+
+            if (s.IsSchoolStudent && !s.IsCoachingStudent)
+            {
+                // Pure School Student:
+                studentStructures = feeStructures
+                    .Where(cfs => s.ClassId.HasValue && cfs.ClassId == s.ClassId.Value &&
+                                  (cfs.FeeHead == null || cfs.FeeHead.ApplicableTo == "School" || cfs.FeeHead.ApplicableTo == "Both"))
+                    .ToList();
+            }
+            else if (s.IsSchoolStudent && s.IsCoachingStudent)
+            {
+                // Case 1: School + Coaching Hybrid:
+                studentStructures = feeStructures
+                    .Where(cfs => s.ClassId.HasValue && cfs.ClassId == s.ClassId.Value &&
+                                  (cfs.FeeHead == null || cfs.FeeHead.ApplicableTo == "School" || cfs.FeeHead.ApplicableTo == "Both"))
+                    .ToList();
+            }
+            else
+            {
+                // Case 2: External Student / Coaching Only:
+                studentStructures = feeStructures
+                    .Where(cfs =>
+                        (s.BatchId.HasValue && cfs.BatchId == s.BatchId.Value) ||
+                        (s.ClassId.HasValue && cfs.ClassId == s.ClassId.Value && cfs.FeeHead != null && (cfs.FeeHead.ApplicableTo == "Coaching" || cfs.FeeHead.ApplicableTo == "Both"))
+                    )
+                    .Where(cfs => cfs.FeeHead == null || 
+                                  (cfs.FeeHead.ApplicableTo != "School" && 
+                                   !cfs.FeeHead.Name.Contains("School", StringComparison.OrdinalIgnoreCase)))
+                    .GroupBy(cfs => cfs.FeeHeadId)
+                    .Select(g => g.OrderByDescending(cfs => cfs.BatchId.HasValue ? 1 : 0).First())
+                    .ToList();
+            }
 
             var applicableHeads = studentStructures
                 .Where(cfs => cfs.ApplicableMonth == null || cfs.ApplicableMonth == targetMonth)
+                .GroupBy(cfs => cfs.FeeHeadId)
+                .Select(g => g.First())
                 .ToList();
 
             var invoiceItems = new List<FeeInvoiceItem>();
@@ -555,7 +595,7 @@ public class AutomationService : IAutomationService
             }
             else
             {
-                if (s.ClassId.HasValue && s.BatchId.HasValue)
+                if (s.IsSchoolStudent && s.IsCoachingStudent)
                 {
                     var schoolRate = 2500m;
                     totalAmount += schoolRate;
@@ -581,7 +621,7 @@ public class AutomationService : IAutomationService
                 }
                 else
                 {
-                    var isCoaching = s.BatchId.HasValue && !s.ClassId.HasValue;
+                    var isCoaching = !s.IsSchoolStudent && (s.IsCoachingStudent || s.BatchId.HasValue);
                     var fallbackHeadName = isCoaching ? (coachFeeHead?.Name ?? "Coaching Fee") : (tuiFeeHead?.Name ?? "School Tuition Fee");
                     var fallbackHeadId = isCoaching ? coachFeeHead?.Id : tuiFeeHead?.Id;
                     var monthlyRate = s.Batch?.StandardMonthlyFee ?? 3500m;
@@ -618,7 +658,7 @@ public class AutomationService : IAutomationService
 
             // Dual enrollment check: school tuition
             bool hasSchoolHead = invoiceItems.Any(i => i.HeadName.Contains("Tuition", StringComparison.OrdinalIgnoreCase) || i.HeadName.Contains("School", StringComparison.OrdinalIgnoreCase));
-            if (s.ClassId.HasValue && !hasSchoolHead)
+            if (s.IsSchoolStudent && s.ClassId.HasValue && !hasSchoolHead)
             {
                 var schoolRate = 2500m;
                 totalAmount += schoolRate;
@@ -708,9 +748,9 @@ public class AutomationService : IAutomationService
                 SectionName = s.Section?.Name,
                 InvoiceNumber = $"INV-{targetYear}{targetMonth:D2}-{random.Next(100, 999)}",
                 Title = $"{periodLabel} Fee (Auto-Pilot)",
-                InvoiceCategory = (s.ClassId.HasValue && s.BatchId.HasValue) ? "Integrated" :
-                                  (s.ClassId.HasValue || s.IsSchoolStudent) ? "School" :
-                                  (s.BatchId.HasValue || s.IsCoachingStudent) ? "Coaching" : "General",
+                InvoiceCategory = (s.IsSchoolStudent && s.IsCoachingStudent) ? "Integrated" :
+                                  (s.IsSchoolStudent) ? "School" :
+                                  (s.IsCoachingStudent || s.BatchId.HasValue) ? "Coaching" : "General",
                 TotalAmount = totalAmount,
                 PaidAmount = 0,
                 DueDate = dueDate,
@@ -762,6 +802,9 @@ public class AutomationService : IAutomationService
                 LateFeeGraceDays = 5,
                 AutoPilotFeeInvoicingEnabled = false,
                 AutoPilotInvoicingDayOfMonth = 25,
+                AdmissionCutoffDay = 20,
+                AdmissionRolloverPolicy = "NextMonthFull",
+                FinancialYearStartMonth = 4,
                 UpdatedAt = DateTime.UtcNow
             };
             _db.AutomationSettings.Add(settings);
@@ -789,6 +832,9 @@ public class AutomationService : IAutomationService
         AutoPilotFeeInvoicingEnabled: s.AutoPilotFeeInvoicingEnabled,
         AutoPilotInvoicingDayOfMonth: s.AutoPilotInvoicingDayOfMonth,
         LastAutoPilotInvoicingRun: s.LastAutoPilotInvoicingRun,
+        AdmissionCutoffDay: s.AdmissionCutoffDay,
+        AdmissionRolloverPolicy: s.AdmissionRolloverPolicy,
+        FinancialYearStartMonth: s.FinancialYearStartMonth,
         UpdatedAt: s.UpdatedAt
     );
 

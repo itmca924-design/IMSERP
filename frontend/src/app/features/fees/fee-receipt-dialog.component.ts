@@ -51,6 +51,9 @@ export interface FeeReceiptDialogData {
 
       <!-- Printable Receipt Document -->
       <div class="receipt-paper" id="receipt-paper">
+        <!-- Transparent Dynamic Watermark in background -->
+        <div class="receipt-watermark" *ngIf="logoUrl && !logoFailed" [style.backgroundImage]="'url(' + logoUrl + ')'"></div>
+
         <!-- Header -->
         <div class="paper-header">
           <div class="inst-info">
@@ -81,6 +84,10 @@ export interface FeeReceiptDialogData {
             <span class="meta-label">Receipt Number:</span>
             <span class="meta-val highlight">{{ data.receipt.receiptNumber }}</span>
           </div>
+          <div class="meta-item">
+            <span class="meta-label">Academic Session:</span>
+            <span class="meta-val session-pill">{{ effectiveSession }}</span>
+          </div>
           <div class="meta-item time-item">
             <span class="meta-label">Date & Time (IST):</span>
             <span class="meta-val date-time-val">{{ formatToIST(data.receipt.paymentDate) }}</span>
@@ -106,13 +113,25 @@ export interface FeeReceiptDialogData {
               <span class="k">Roll / Admission No:</span>
               <span class="v"><strong>{{ data.receipt.rollNumber || 'N/A' }}</strong></span>
             </div>
-            <div class="prof-row" *ngIf="data.receipt.className">
+            <div class="prof-row" *ngIf="data.receipt.className && !data.receipt.batchName">
               <span class="k">Class & Section:</span>
               <span class="v"><strong>{{ data.receipt.className }}<span *ngIf="data.receipt.sectionName"> (Section {{ data.receipt.sectionName }})</span></strong></span>
             </div>
-            <div class="prof-row" *ngIf="!data.receipt.className">
-              <span class="k">Assigned Batch / Course:</span>
-              <span class="v">{{ data.receipt.batchName || 'General Academic' }}</span>
+            <div class="prof-row" *ngIf="data.receipt.className && data.receipt.batchName">
+              <span class="k">Coaching:</span>
+              <span class="v"><strong>{{ data.receipt.className }}</strong></span>
+            </div>
+            <div class="prof-row" *ngIf="!data.receipt.className && data.receipt.batchName">
+              <span class="k">Coaching:</span>
+              <span class="v"><strong>Coaching</strong></span>
+            </div>
+            <div class="prof-row" *ngIf="!data.receipt.className && !data.receipt.batchName">
+              <span class="k">Academic Stream:</span>
+              <span class="v">General Academic</span>
+            </div>
+            <div class="prof-row">
+              <span class="k">Academic Session:</span>
+              <span class="v"><strong>{{ effectiveSession }}</strong></span>
             </div>
           </div>
           <div class="prof-col">
@@ -123,6 +142,10 @@ export interface FeeReceiptDialogData {
             <div class="prof-row">
               <span class="k">Contact / WhatsApp:</span>
               <span class="v">{{ data.receipt.parentPhone || 'N/A' }}</span>
+            </div>
+            <div class="prof-row" *ngIf="data.receipt.batchName">
+              <span class="k">Batch:</span>
+              <span class="v"><strong>{{ data.receipt.batchName }}</strong></span>
             </div>
             <div class="prof-row">
               <span class="k">Settlement Type:</span>
@@ -205,18 +228,72 @@ export interface FeeReceiptDialogData {
           </div>
         </div>
 
-        <!-- Remaining Due Balance Strip -->
+        <!-- Statement of Previous Unpaid Arrears / पिछला बकाया विवरण -->
+        <div class="arrears-card" *ngIf="data.receipt.pendingArrears && data.receipt.pendingArrears.length > 0">
+          <div class="arrears-card-header">
+            <div class="arr-header-title">
+              <mat-icon class="arr-icon">history_toggle_off</mat-icon>
+              <span>Statement of Previous Dues &amp; Arrears (पिछला बकाया विवरण)</span>
+            </div>
+            <span class="arr-total-pill">
+              Total Previous Arrears: <strong>₹{{ totalArrearsAmount | number:'1.2-2' }}</strong>
+            </span>
+          </div>
+          <table class="arrears-table">
+            <thead>
+              <tr>
+                <th style="width: 35px;" class="text-center">#</th>
+                <th>Billing Cycle / Month</th>
+                <th>Bill / Invoice Reference</th>
+                <th>Particulars</th>
+                <th class="text-right" style="width: 150px;">Unsettled Due (₹)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let arr of data.receipt.pendingArrears; let idx = index">
+                <td class="text-center">{{ idx + 1 }}</td>
+                <td><strong class="arr-period">{{ arr.period }}</strong></td>
+                <td><code class="arr-inv-code">{{ arr.invoiceNumber }}</code></td>
+                <td>{{ arr.title }}</td>
+                <td class="text-right arr-due-val">
+                  <strong>₹{{ arr.dueAmount | number:'1.2-2' }}</strong>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Remaining Due Balance Strip with Full Demand Reconciliation -->
         <div class="due-status-strip" [class.cleared]="data.receipt.remainingDue === 0" [class.due-alert]="data.receipt.remainingDue > 0">
           <div class="due-info">
             <span class="due-title">
               <mat-icon class="status-icon">{{ data.receipt.remainingDue === 0 ? 'verified' : 'info' }}</mat-icon>
               {{ data.receipt.remainingDue === 0 ? 'Account Status: All Dues Cleared' : 'Current Account Status: Partial Payment Recorded' }}
             </span>
-            <span class="due-desc" *ngIf="data.receipt.remainingDue > 0">
+            <span class="due-desc" *ngIf="data.receipt.remainingDue > 0 && data.receipt.pendingArrears && data.receipt.pendingArrears.length > 0">
+              Notice: Previous billing cycles (listed above) remain unsettled. Total outstanding balance is ₹{{ data.receipt.remainingDue | number:'1.2-2' }}.
+            </span>
+            <span class="due-desc" *ngIf="data.receipt.remainingDue > 0 && (!data.receipt.pendingArrears || data.receipt.pendingArrears.length === 0)">
               Please clear the remaining balance before the next installment cycle.
             </span>
           </div>
-          <div class="due-amount-box">
+          <div class="demand-reconcile-box" *ngIf="data.receipt.pendingArrears && data.receipt.pendingArrears.length > 0">
+            <div class="rec-item">
+              <span class="rec-lbl">Total Demand:</span>
+              <span class="rec-val">₹{{ totalDemandAmount | number:'1.2-2' }}</span>
+            </div>
+            <div class="rec-sep">-</div>
+            <div class="rec-item">
+              <span class="rec-lbl">Paid Today:</span>
+              <span class="rec-val paid-now">₹{{ data.receipt.amountPaid | number:'1.2-2' }}</span>
+            </div>
+            <div class="rec-sep">=</div>
+            <div class="due-amount-box">
+              <span class="due-lbl">Balance Due:</span>
+              <span class="due-num">₹{{ data.receipt.remainingDue | number:'1.2-2' }}</span>
+            </div>
+          </div>
+          <div class="due-amount-box" *ngIf="!data.receipt.pendingArrears || data.receipt.pendingArrears.length === 0">
             <span class="due-lbl">Remaining Balance Due:</span>
             <span class="due-num">₹{{ data.receipt.remainingDue | number:'1.2-2' }}</span>
           </div>
@@ -453,6 +530,7 @@ export interface FeeReceiptDialogData {
     }
 
     .receipt-paper {
+      position: relative;
       padding: 24px 32px;
       background: #ffffff;
       color: #0f172a;
@@ -461,6 +539,21 @@ export interface FeeReceiptDialogData {
       line-height: 1.45;
       overflow-y: auto;
       max-height: calc(85vh - 56px);
+
+      .receipt-watermark {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 320px;
+        height: 320px;
+        opacity: 0.04;
+        pointer-events: none;
+        background-size: contain;
+        background-position: center;
+        background-repeat: no-repeat;
+        z-index: 0;
+      }
 
       &::-webkit-scrollbar {
         width: 6px;
@@ -628,6 +721,18 @@ export interface FeeReceiptDialogData {
           white-space: nowrap;
         }
         .meta-val.highlight { color: #1e40af; }
+        .session-pill {
+          display: inline-block;
+          background: #eff6ff;
+          color: #1e40af;
+          border: 1px solid #bfdbfe;
+          padding: 1px 8px;
+          border-radius: 4px;
+          width: fit-content;
+          font-weight: 700;
+          font-size: 0.8rem;
+          white-space: nowrap;
+        }
         .mode-pill {
           display: inline-block;
           background: #dcfce7;
@@ -759,6 +864,99 @@ export interface FeeReceiptDialogData {
       }
     }
 
+    /* Statement of Previous Dues & Arrears Card */
+    .arrears-card {
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      border-radius: 8px;
+      margin-bottom: 14px;
+      overflow: hidden;
+      position: relative;
+      z-index: 1;
+
+      .arrears-card-header {
+        background: #fef3c7;
+        padding: 8px 14px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid #fde68a;
+
+        .arr-header-title {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          color: #92400e;
+          font-weight: 700;
+          font-size: 0.85rem;
+
+          .arr-icon {
+            font-size: 18px;
+            width: 18px;
+            height: 18px;
+            color: #b45309;
+          }
+        }
+
+        .arr-total-pill {
+          background: #fef08a;
+          color: #854d0e;
+          padding: 2px 8px;
+          border-radius: 12px;
+          font-size: 0.76rem;
+          font-weight: 600;
+          border: 1px solid #facc15;
+          strong {
+            color: #713f12;
+            font-weight: 800;
+          }
+        }
+      }
+
+      .arrears-table {
+        width: 100%;
+        border-collapse: collapse;
+
+        th {
+          background: #fffdf5;
+          color: #78350f;
+          padding: 7px 12px;
+          font-size: 0.76rem;
+          font-weight: 700;
+          text-align: left;
+          border-bottom: 1px solid #fde68a;
+        }
+
+        td {
+          padding: 8px 12px;
+          border-bottom: 1px solid #fef3c7;
+          font-size: 0.84rem;
+          color: #451a03;
+        }
+
+        .arr-period {
+          color: #78350f;
+          font-weight: 700;
+        }
+
+        .arr-inv-code {
+          background: #fef9c3;
+          padding: 1px 5px;
+          border-radius: 3px;
+          font-family: monospace;
+          font-size: 0.78rem;
+          color: #854d0e;
+          border: 1px solid #fef08a;
+        }
+
+        .arr-due-val {
+          color: #b45309;
+          font-size: 0.9rem;
+          font-weight: 700;
+        }
+      }
+    }
+
     .due-status-strip {
       display: flex;
       justify-content: space-between;
@@ -766,6 +964,8 @@ export interface FeeReceiptDialogData {
       padding: 10px 16px;
       border-radius: 6px;
       margin-bottom: 14px;
+      position: relative;
+      z-index: 1;
 
       &.cleared {
         background: #f0fdf4;
@@ -782,6 +982,43 @@ export interface FeeReceiptDialogData {
         .due-desc { font-size: 0.78rem; color: #be123c; margin-top: 2px; display: block; }
         .due-num { color: #e11d48; font-size: 1.1rem; font-weight: 800; }
         .status-icon { color: #e11d48; font-size: 18px; width: 18px; height: 18px; }
+      }
+
+      .demand-reconcile-box {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        background: #ffffff;
+        padding: 4px 12px;
+        border-radius: 6px;
+        border: 1px solid #fecdd3;
+
+        .rec-item {
+          display: flex;
+          flex-direction: column;
+          text-align: right;
+
+          .rec-lbl {
+            font-size: 0.65rem;
+            color: #64748b;
+            font-weight: 600;
+            text-transform: uppercase;
+          }
+          .rec-val {
+            font-size: 0.92rem;
+            font-weight: 700;
+            color: #0f172a;
+
+            &.paid-now {
+              color: #16a34a;
+            }
+          }
+        }
+        .rec-sep {
+          color: #94a3b8;
+          font-weight: 800;
+          font-size: 1rem;
+        }
       }
 
       .due-amount-box {
@@ -1142,6 +1379,22 @@ export class FeeReceiptDialogComponent implements OnInit {
   bankAccountDisplay = '';
   qrDataUrl: string | null = null;
 
+  get effectiveSession(): string {
+    if (this.data?.receipt?.academicSession) return this.data.receipt.academicSession;
+    const dateStr = this.data?.receipt?.paymentDate;
+    if (dateStr) {
+      const d = new Date(dateStr);
+      if (!isNaN(d.getTime())) {
+        const year = d.getFullYear();
+        const startYear = d.getMonth() >= 3 ? year : year - 1;
+        return `${startYear}-${startYear + 1}`;
+      }
+    }
+    const current = new Date();
+    const startYear = current.getMonth() >= 3 ? current.getFullYear() : current.getFullYear() - 1;
+    return `${startYear}-${startYear + 1}`;
+  }
+
   get effectiveBranchName(): string {
     if (this.data?.receipt?.branchName) return this.data.receipt.branchName;
     if (this.data?.branchName && this.data.branchName !== 'All Branches / Head Office') return this.data.branchName;
@@ -1164,15 +1417,28 @@ export class FeeReceiptDialogComponent implements OnInit {
       if (r && r.receipt) {
         r = r.receipt;
       }
-      const rawLogo = this.data.logoUrl || r?.tenantProfilePhoto || this.authService.currentUser()?.profilePhoto;
+      const rawLogo = this.data.logoUrl || r?.instituteLogoUrl || r?.tenantProfilePhoto || this.authService.currentUser()?.profilePhoto;
       this.data = {
         receipt: r,
-        instituteName: this.data.instituteName || r?.tenantName || this.authService.currentUser()?.instituteName || 'Official Fee Receipt',
+        instituteName: this.data.instituteName || r?.tenantName || r?.instituteName || this.authService.currentUser()?.instituteName || 'Official Fee Receipt',
         branchName: this.data.branchName || r?.branchName,
         logoUrl: this.authService.resolveLogoUrl(rawLogo) || null
       };
     }
     this.logoUrl = this.data?.logoUrl || this.authService.getInstituteLogoUrl();
+  }
+
+  get totalArrearsAmount(): number {
+    return this.data?.receipt?.pendingArrears
+      ? this.data.receipt.pendingArrears.reduce((sum, a) => sum + a.dueAmount, 0)
+      : 0;
+  }
+
+  get totalDemandAmount(): number {
+    if (this.data?.receipt?.totalDemandBeforePayment && this.data.receipt.totalDemandBeforePayment > 0) {
+      return this.data.receipt.totalDemandBeforePayment;
+    }
+    return (this.data?.receipt?.amountPaid || 0) + (this.data?.receipt?.remainingDue || 0);
   }
 
   ngOnInit(): void {
@@ -1307,6 +1573,7 @@ export class FeeReceiptDialogComponent implements OnInit {
             .meta-val { font-size: 0.85rem; font-weight: 700; color: #1e293b; margin-top: 2px; display: block; white-space: nowrap; }
             .meta-val.highlight { color: #1e40af; }
             .mode-pill { display: inline-block; background: #dcfce7; color: #15803d; padding: 1px 8px; border-radius: 4px; font-size: 0.78rem; white-space: nowrap; }
+            .session-pill { display: inline-block; background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; padding: 1px 8px; border-radius: 4px; font-size: 0.78rem; font-weight: 700; white-space: nowrap; }
             .student-profile-card { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 12px 16px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; margin-bottom: 14px; }
             .prof-row { display: flex; font-size: 0.82rem; margin-bottom: 4px; }
             .prof-row .k { width: 165px; white-space: nowrap; color: #475569; font-weight: 600; flex-shrink: 0; }
@@ -1325,9 +1592,24 @@ export class FeeReceiptDialogComponent implements OnInit {
             .w-label { font-size: 0.7rem; color: #3b82f6; font-weight: 700; text-transform: uppercase; display: block; }
             .w-text { font-size: 0.88rem; font-weight: 700; color: #1e3a8a; }
             .paid-stamp { background: #16a34a; color: #fff; padding: 3px 12px; border-radius: 16px; font-weight: 800; font-size: 0.8rem; }
+            .receipt-paper { position: relative; }
+            .receipt-watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 300px; height: 300px; opacity: 0.04; pointer-events: none; background-size: contain; background-position: center; background-repeat: no-repeat; z-index: 0; }
+            .arrears-card { background: #fffbeb !important; border: 1px solid #fde68a !important; border-radius: 6px; margin-bottom: 12px; overflow: hidden; position: relative; z-index: 1; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .arrears-card-header { background: #fef3c7 !important; padding: 6px 10px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #fde68a; font-size: 0.78rem; font-weight: 700; color: #92400e; }
+            .arr-total-pill { background: #fef08a; color: #854d0e; padding: 1px 6px; border-radius: 10px; font-size: 0.72rem; font-weight: 600; border: 1px solid #facc15; }
+            .arrears-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+            .arrears-table th { background: #fffdf5 !important; color: #78350f; padding: 5px 8px; text-align: left; border-bottom: 1px solid #fde68a; font-weight: 700; }
+            .arrears-table td { padding: 6px 8px; border-bottom: 1px solid #fef3c7; }
+            .arr-due-val { color: #b45309; font-weight: 700; }
+            .demand-reconcile-box { display: flex; align-items: center; gap: 8px; background: #fff; padding: 3px 8px; border-radius: 4px; border: 1px solid #fecdd3; }
+            .rec-item { display: flex; flex-direction: column; text-align: right; }
+            .rec-lbl { font-size: 0.6rem; color: #64748b; font-weight: 600; text-transform: uppercase; }
+            .rec-val { font-size: 0.85rem; font-weight: 700; color: #0f172a; }
+            .rec-val.paid-now { color: #16a34a; }
+            .rec-sep { color: #94a3b8; font-weight: 800; font-size: 0.9rem; }
             .due-status-strip { display: flex; justify-content: space-between; align-items: center; padding: 8px 14px; border-radius: 6px; margin-bottom: 12px; }
-            .due-status-strip.cleared { background: #f0fdf4; border: 1px solid #86efac; color: #166534; }
-            .due-status-strip.due-alert { background: #fff1f2; border: 1px solid #fecdd3; color: #9f1239; }
+            .due-status-strip.cleared { background: #f0fdf4 !important; border: 1px solid #86efac; color: #166534; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .due-status-strip.due-alert { background: #fff1f2 !important; border: 1px solid #fecdd3; color: #9f1239; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             .due-title { font-weight: 700; font-size: 0.84rem; }
             .due-num { font-size: 1.05rem; font-weight: 800; }
             .due-lbl { font-size: 0.68rem; color: #64748b; font-weight: 600; text-transform: uppercase; display: block; }

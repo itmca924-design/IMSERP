@@ -14,8 +14,18 @@ frontend/.angular/
 .vs/
 .idea/
 
+# Temporary deploy and scratch directories
+scratch/
+DBBackup/
+*.bak
+*.tar.gz
+publish/
+**/publish/
+
 # Logs and local secrets
 *.log
 appsettings.Development.json
 .env
 !.env.example
+
+

@@ -17,6 +17,7 @@ import { BatchesService, BatchDto } from '../../core/services/batches.service';
 import { SchoolService, SchoolClassDto } from '../../core/services/school.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
+import { QuickSettingsService } from '../../core/services/quick-settings.service';
 
 @Component({
   selector: 'app-fee-master-dialog',
@@ -371,16 +372,29 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                   <mat-icon matPrefix class="dropdown-prefix-icon" color="primary">school</mat-icon>
                 </mat-form-field>
 
-                <!-- Dropdown when targetType === 'batch' -->
-                <mat-form-field appearance="outline" class="select-target-full" *ngIf="hasCoachingModule && targetType === 'batch'">
-                  <mat-label>Assign Fee For: Coaching Batch</mat-label>
-                  <mat-select [(ngModel)]="selectedBatchId" (selectionChange)="loadStructureForSelection()" panelClass="target-select-panel">
-                    <mat-option *ngFor="let b of batches" [value]="b.id">
-                      🎯 {{ b.name }}{{ b.subject ? ' (' + b.subject + ')' : '' }}
-                    </mat-option>
-                  </mat-select>
-                  <mat-icon matPrefix class="dropdown-prefix-icon" color="primary">groups</mat-icon>
-                </mat-form-field>
+                <!-- Dropdown when targetType === 'batch': Dual Class Filter + Coaching Batch Selector -->
+                <div class="batch-selector-dual-row" *ngIf="hasCoachingModule && targetType === 'batch'">
+                  <mat-form-field appearance="outline" class="select-class-filter" *ngIf="hasSchoolModule">
+                    <mat-label>Academic Class Filter</mat-label>
+                    <mat-select [(ngModel)]="batchClassFilter" (selectionChange)="onBatchClassFilterChange()" panelClass="target-select-panel">
+                      <mat-option value="">✨ All Academic Classes</mat-option>
+                      <mat-option *ngFor="let c of schoolClasses" [value]="c.id">
+                        🏫 {{ c.name }}
+                      </mat-option>
+                    </mat-select>
+                    <mat-icon matPrefix class="dropdown-prefix-icon" color="primary">school</mat-icon>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline" [class.select-batch-target]="hasSchoolModule" [class.select-target-full]="!hasSchoolModule">
+                    <mat-label>Assign Fee For: Coaching Batch</mat-label>
+                    <mat-select [(ngModel)]="selectedBatchId" (selectionChange)="loadStructureForSelection()" panelClass="target-select-panel">
+                      <mat-option *ngFor="let b of filteredBatches" [value]="b.id">
+                        🎯 {{ b.name }}{{ b.subject ? ' (' + b.subject + ')' : '' }} {{ b.className ? ' [' + b.className + ']' : '' }}
+                      </mat-option>
+                    </mat-select>
+                    <mat-icon matPrefix class="dropdown-prefix-icon" color="primary">groups</mat-icon>
+                  </mat-form-field>
+                </div>
               </div>
             </div>
 
@@ -453,6 +467,128 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
               <mat-icon>touch_app</mat-icon>
               <p>Please select a {{ targetType === 'class' ? 'School Class' : 'Coaching Batch' }} above to configure its Fee Structure Matrix.</p>
             </div>
+          </div>
+        </mat-tab>
+
+        <!-- TAB 3: Admission & Billing Policy (दाखिला व बिलिंग नीति) -->
+        <mat-tab>
+          <ng-template mat-tab-label>
+            <mat-icon class="tab-icon">policy</mat-icon>
+            <span>Billing &amp; Cutoff Policy</span>
+          </ng-template>
+
+          <div class="tab-content policy-tab-content">
+            <form [formGroup]="policyForm" (ngSubmit)="onSavePolicy()" class="policy-form">
+
+              <!-- Dynamic Admission Cutoff Card -->
+              <div class="policy-card">
+                <div class="policy-card-header">
+                  <div class="policy-header-icon-box">
+                    <mat-icon>calendar_month</mat-icon>
+                  </div>
+                  <div class="policy-header-text">
+                    <h3 class="policy-card-title">Admission Invoicing Cutoff Day (दाखिला कटऑफ दिन)</h3>
+                    <p class="policy-card-desc">Configure the monthly cutoff date that divides same-month billing from next-month rollover for new admissions.</p>
+                  </div>
+                  <span class="policy-active-badge">Active Rule: Day 1–{{ policyForm.get('admissionCutoffDay')?.value }}</span>
+                </div>
+
+                <div class="policy-card-body">
+                  <div class="policy-input-row">
+                    <mat-form-field appearance="outline" class="cutoff-field">
+                      <mat-label>Admission Cutoff Day (1 – 28)</mat-label>
+                      <input matInput type="number" formControlName="admissionCutoffDay" min="1" max="28" placeholder="20" />
+                      <span matSuffix style="font-size: 0.82rem; color: #64748b; font-weight: 600; margin-right: 8px;">th of each month</span>
+                      <mat-error *ngIf="policyForm.get('admissionCutoffDay')?.hasError('required')">Cutoff day is required</mat-error>
+                      <mat-error *ngIf="policyForm.get('admissionCutoffDay')?.hasError('min') || policyForm.get('admissionCutoffDay')?.hasError('max')">Must be between 1 and 28</mat-error>
+                    </mat-form-field>
+
+                    <mat-form-field appearance="outline" class="policy-select-field">
+                      <mat-label>Rollover Behavior (कटऑफ बाद का नियम)</mat-label>
+                      <mat-select formControlName="admissionRolloverPolicy">
+                        <mat-option value="NextMonthFull">Start Full Billing from 1st of Next Month (अगले माह से पूरा बिल)</mat-option>
+                      </mat-select>
+                    </mat-form-field>
+                  </div>
+
+                  <!-- Visual Rule Simulation & Preview Box -->
+                  <div class="rule-preview-grid">
+                    <div class="preview-tile same-month">
+                      <div class="tile-badge on-time">
+                        <mat-icon>check_circle</mat-icon>
+                        <span>CURRENT MONTH BILLING</span>
+                      </div>
+                      <div class="tile-headline">Day 1 to Day {{ policyForm.get('admissionCutoffDay')?.value || 20 }}</div>
+                      <p class="tile-detail">
+                        Students admitted on or before the <strong>{{ policyForm.get('admissionCutoffDay')?.value || 20 }}th</strong> are billed for the full current month, bundling initial Tuition and One-Time Registration fees.
+                      </p>
+                    </div>
+
+                    <div class="preview-tile next-month">
+                      <div class="tile-badge rollover">
+                        <mat-icon>trending_flat</mat-icon>
+                        <span>NEXT MONTH ROLLOVER</span>
+                      </div>
+                      <div class="tile-headline">Day {{ (policyForm.get('admissionCutoffDay')?.value || 20) + 1 }} to Month-End</div>
+                      <p class="tile-detail">
+                        Students admitted after the <strong>{{ policyForm.get('admissionCutoffDay')?.value || 20 }}th</strong> are exempt for the remaining joining month. First billing begins automatically on the 1st of next month.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Session / Financial Year Alignment Card -->
+              <div class="policy-card">
+                <div class="policy-card-header">
+                  <div class="policy-header-icon-box fy-icon">
+                    <mat-icon>account_balance</mat-icon>
+                  </div>
+                  <div class="policy-header-text">
+                    <h3 class="policy-card-title">Academic &amp; Financial Session Alignment (सत्र चक्र)</h3>
+                    <p class="policy-card-desc">Session starts in April and ends in March as per Indian Education System standard.</p>
+                  </div>
+                  <span class="policy-active-badge fy-badge">Cycle: April – March</span>
+                </div>
+
+                <div class="policy-card-body">
+                  <mat-form-field appearance="outline" class="cutoff-field">
+                    <mat-label>Session Start Month</mat-label>
+                    <mat-select formControlName="financialYearStartMonth">
+                      <mat-option [value]="4">April (अप्रैल - Standard School Session Start)</mat-option>
+                      <mat-option [value]="1">January (जनवरी - Calendar Year Cycle)</mat-option>
+                      <mat-option [value]="7">July (जुलाई - University / Mid-Year Cycle)</mat-option>
+                    </mat-select>
+                  </mat-form-field>
+                </div>
+              </div>
+
+              <!-- Strict Registration & One-Time Fee Safeguard Banner -->
+              <div class="policy-safeguard-banner">
+                <div class="sg-icon-box">
+                  <mat-icon>security</mat-icon>
+                </div>
+                <div class="sg-content">
+                  <div class="sg-title">
+                    <strong>Universal One-Time &amp; Registration Fee Protection</strong>
+                    <span class="sg-badge">ZERO REPEAT GUARANTEED</span>
+                  </div>
+                  <p class="sg-text">
+                    One-Time fees (Registration Fee, Admission Fee, Kit Fee) are strictly bundled <strong>EXCLUSIVELY</strong> in the student's initial invoice. In all subsequent months, quarters, half-yearly runs, and in the <strong>Fee Card (Passbook)</strong>, Registration fees <strong>NEVER repeat</strong>.
+                  </p>
+                </div>
+              </div>
+
+              <!-- Save Policy Actions Bar -->
+              <div class="policy-save-bar">
+                <button mat-raised-button color="primary" type="submit" class="save-policy-btn" [disabled]="savingPolicy || policyForm.invalid">
+                  <mat-spinner diameter="18" *ngIf="savingPolicy" class="btn-spinner"></mat-spinner>
+                  <mat-icon *ngIf="!savingPolicy">save</mat-icon>
+                  <span>Save Billing &amp; Cutoff Policies</span>
+                </button>
+              </div>
+
+            </form>
           </div>
         </mat-tab>
       </mat-tab-group>
@@ -839,6 +975,28 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             margin-right: 8px;
           }
         }
+
+        .batch-selector-dual-row {
+          width: 100%;
+          display: grid;
+          grid-template-columns: 280px 1fr;
+          gap: 12px;
+          align-items: center;
+
+          @media (max-width: 768px) {
+            grid-template-columns: 1fr;
+            gap: 6px;
+          }
+
+          .select-class-filter, .select-batch-target {
+            width: 100%;
+            margin-bottom: -0.75em;
+
+            .dropdown-prefix-icon {
+              margin-right: 8px;
+            }
+          }
+        }
       }
     }
 
@@ -967,6 +1125,246 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
         margin-bottom: 8px;
       }
     }
+    .policy-tab-content {
+      padding: 20px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .policy-form {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .policy-card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+
+      .policy-card-header {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 14px 18px;
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        border-bottom: 1px solid #bfdbfe;
+
+        .policy-header-icon-box {
+          width: 36px;
+          height: 36px;
+          border-radius: 8px;
+          background: #2563eb;
+          color: #ffffff;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 2px 6px rgba(37,99,235,0.3);
+          mat-icon { font-size: 20px; width: 20px; height: 20px; }
+
+          &.fy-icon {
+            background: #7c3aed;
+            box-shadow: 0 2px 6px rgba(124,58,237,0.3);
+          }
+        }
+
+        .policy-header-text {
+          flex: 1;
+          .policy-card-title {
+            margin: 0;
+            font-size: 0.96rem;
+            font-weight: 700;
+            color: #1e3a8a;
+          }
+          .policy-card-desc {
+            margin: 2px 0 0;
+            font-size: 0.77rem;
+            color: #3b82f6;
+          }
+        }
+
+        .policy-active-badge {
+          padding: 4px 12px;
+          background: #dbeafe;
+          color: #1d4ed8;
+          font-size: 0.76rem;
+          font-weight: 700;
+          border-radius: 20px;
+          border: 1px solid #93c5fd;
+
+          &.fy-badge {
+            background: #ede9fe;
+            color: #6d28d9;
+            border-color: #c4b5fd;
+          }
+        }
+      }
+
+      .policy-card-body {
+        padding: 18px 20px;
+
+        .policy-input-row {
+          display: grid;
+          grid-template-columns: 240px 1fr;
+          gap: 16px;
+          margin-bottom: 12px;
+
+          @media (max-width: 640px) {
+            grid-template-columns: 1fr;
+          }
+        }
+
+        .cutoff-field, .policy-select-field {
+          width: 100%;
+        }
+
+        .rule-preview-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 16px;
+          margin-top: 10px;
+
+          @media (max-width: 640px) {
+            grid-template-columns: 1fr;
+          }
+
+          .preview-tile {
+            padding: 14px 16px;
+            border-radius: 10px;
+            border: 1px solid;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+
+            &.same-month {
+              background: #f0fdf4;
+              border-color: #86efac;
+              .tile-badge {
+                color: #15803d;
+                background: #dcfce7;
+              }
+              .tile-headline {
+                color: #166534;
+              }
+            }
+
+            &.next-month {
+              background: #eff6ff;
+              border-color: #93c5fd;
+              .tile-badge {
+                color: #1d4ed8;
+                background: #dbeafe;
+              }
+              .tile-headline {
+                color: #1e40af;
+              }
+            }
+
+            .tile-badge {
+              display: inline-flex;
+              align-items: center;
+              gap: 4px;
+              align-self: flex-start;
+              padding: 2px 8px;
+              border-radius: 6px;
+              font-size: 0.72rem;
+              font-weight: 700;
+              letter-spacing: 0.04em;
+              mat-icon { font-size: 14px; width: 14px; height: 14px; }
+            }
+
+            .tile-headline {
+              font-size: 1.05rem;
+              font-weight: 700;
+            }
+
+            .tile-detail {
+              margin: 0;
+              font-size: 0.78rem;
+              color: #475569;
+              line-height: 1.45;
+              strong { color: #0f172a; }
+            }
+          }
+        }
+      }
+    }
+
+    .policy-safeguard-banner {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 14px 18px;
+      background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+      border: 1px solid #a7f3d0;
+      border-left: 4px solid #10b981;
+      border-radius: 10px;
+
+      .sg-icon-box {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        background: #059669;
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        box-shadow: 0 2px 6px rgba(5,150,105,0.3);
+        mat-icon { font-size: 20px; width: 20px; height: 20px; }
+      }
+
+      .sg-content {
+        flex: 1;
+
+        .sg-title {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          strong {
+            font-size: 0.88rem;
+            color: #064e3b;
+          }
+          .sg-badge {
+            background: #d1fae5;
+            color: #047857;
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            font-weight: 800;
+            border: 1px solid #6ee7b7;
+          }
+        }
+
+        .sg-text {
+          margin: 4px 0 0;
+          font-size: 0.78rem;
+          color: #065f46;
+          line-height: 1.45;
+          strong { color: #022c22; }
+        }
+      }
+    }
+
+    .policy-save-bar {
+      display: flex;
+      justify-content: flex-end;
+      padding-top: 10px;
+
+      .save-policy-btn {
+        min-height: 42px;
+        padding: 0 22px;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border-radius: 8px;
+        box-shadow: 0 2px 6px rgba(37,99,235,0.25);
+      }
+    }
   `]
 })
 export class FeeMasterDialogComponent implements OnInit {
@@ -1007,6 +1405,34 @@ export class FeeMasterDialogComponent implements OnInit {
   targetType: 'class' | 'batch' = 'batch';
   selectedClassId?: string;
   selectedBatchId?: string;
+  batchClassFilter: string = '';
+
+  get filteredBatches(): BatchDto[] {
+    if (!this.batchClassFilter) return this.batches;
+    return this.batches.filter(b => b.classId === this.batchClassFilter);
+  }
+
+  onBatchClassFilterChange(): void {
+    const list = this.filteredBatches;
+    if (list.length > 0) {
+      if (!list.some(b => b.id === this.selectedBatchId)) {
+        this.selectedBatchId = list[0].id;
+        this.loadStructureForSelection();
+      }
+    } else {
+      this.selectedBatchId = '';
+      this.matrixRows = [];
+    }
+  }
+
+  getSelectedBatch(): BatchDto | undefined {
+    return this.batches.find(b => b.id === this.selectedBatchId);
+  }
+
+  getSelectedBatchClassName(): string {
+    const b = this.getSelectedBatch();
+    return b?.className || '';
+  }
 
   headForm!: FormGroup;
   savingHead = false;
@@ -1029,19 +1455,52 @@ export class FeeMasterDialogComponent implements OnInit {
   totalAnnualExtras: number = 0;
   savingMatrix = false;
 
+  policyForm!: FormGroup;
+  savingPolicy = false;
+
   constructor(
     private fb: FormBuilder,
     private feesService: FeesService,
     private batchesService: BatchesService,
     private schoolService: SchoolService,
     private confirmDialog: ConfirmDialogService,
+    public settingsService: QuickSettingsService,
     private dialogRef: MatDialogRef<FeeMasterDialogComponent>
   ) {}
 
   ngOnInit(): void {
     this.initHeadForm();
+    this.initPolicyForm();
     this.loadFeeHeads();
     this.loadClassesAndBatches();
+  }
+
+  initPolicyForm(): void {
+    this.policyForm = this.fb.group({
+      admissionCutoffDay: [this.settingsService.admissionCutoffDay() || 20, [Validators.required, Validators.min(1), Validators.max(28)]],
+      admissionRolloverPolicy: [this.settingsService.admissionRolloverPolicy() || 'NextMonthFull', Validators.required],
+      financialYearStartMonth: [this.settingsService.financialYearStartMonth() || 4, Validators.required]
+    });
+  }
+
+  onSavePolicy(): void {
+    if (this.policyForm.invalid) return;
+    this.savingPolicy = true;
+    const { admissionCutoffDay, admissionRolloverPolicy, financialYearStartMonth } = this.policyForm.value;
+    this.settingsService.updateBillingCutoffSettings(Number(admissionCutoffDay), admissionRolloverPolicy, Number(financialYearStartMonth)).subscribe({
+      next: () => {
+        this.savingPolicy = false;
+        this.confirmDialog.alert(
+          'Billing Policy Saved',
+          `Admission cutoff day successfully set to Day ${admissionCutoffDay} of each month. Invoicing engine and student fee card passbook are now active with this policy.`,
+          'success'
+        );
+      },
+      error: (err) => {
+        this.savingPolicy = false;
+        this.confirmDialog.alert('Save Failed', err?.error?.message || 'Failed to update billing policies.', 'danger');
+      }
+    });
   }
 
   getDefaultApplicableTo(): string {

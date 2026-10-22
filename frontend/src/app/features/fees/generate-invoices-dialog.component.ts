@@ -99,7 +99,10 @@ interface BillingCycleOption {
               </div>
               <div class="st-hint">
                 <mat-icon class="hint-icon">auto_awesome</mat-icon>
-                <span>
+                <span *ngIf="isCutoffRolledOver()">
+                  Admitted on <strong>{{ data.targetJoiningDate | date:'dd MMM yyyy' }}</strong> (after Day {{ cutoffDay }} Cutoff). First billing begins in <strong>{{ getNextRolledOverMonthName() }}</strong>.
+                </span>
+                <span *ngIf="!isCutoffRolledOver()">
                   Starting month auto-filled to <strong>{{ getMonthName(form.get('month')?.value) }} {{ form.get('year')?.value }}</strong> from admission date. Select your billing cycle (Monthly, Quarterly, etc.).
                 </span>
               </div>
@@ -188,8 +191,19 @@ interface BillingCycleOption {
                 <mat-option *ngFor="let m of months" [value]="m.value">{{ m.name }}</mat-option>
               </mat-select>
               <mat-icon matSuffix color="primary">calendar_month</mat-icon>
-              <mat-hint *ngIf="isTargetStudent" style="color: #2563eb; font-weight: 500;">
-                ✨ Auto-filled from admission date (DOJ: {{ data.targetJoiningDate | date:'MMM yyyy' }})
+              <mat-hint *ngIf="isPreAdmissionMonthSelected()" style="color: #dc2626; font-weight: 600;">
+                ⚠️ Prior to admission (DOJ: {{ getSelectedStudentJoiningDate() | date:'dd MMM yyyy' }})
+              </mat-hint>
+              <mat-hint *ngIf="!isPreAdmissionMonthSelected() && isTargetStudent" style="font-weight: 500;">
+                <span *ngIf="isJoiningMonthAfterCutoffSelected()" style="color: #d97706;">
+                  ⚠️ Joined after Day {{ cutoffDay }} ({{ getSelectedStudentJoiningDate() | date:'dd MMM' }}). Policy: will generate for {{ getNextRolledOverMonthName() }}.
+                </span>
+                <span *ngIf="isRolledOverMonthSelected()" style="color: #2563eb;">
+                  ✨ Billing begins from {{ getMonthName(form.get('month')?.value) }} (DOJ: {{ getSelectedStudentJoiningDate() | date:'dd MMM' }}, after Day {{ cutoffDay }} cutoff)
+                </span>
+                <span *ngIf="!isJoiningMonthAfterCutoffSelected() && !isRolledOverMonthSelected()" style="color: #2563eb;">
+                  👤 Target student admission date: {{ getSelectedStudentJoiningDate() | date:'dd MMM yyyy' }}
+                </span>
               </mat-hint>
               <mat-error *ngIf="form.get('month')?.hasError('required')">Month is required</mat-error>
             </mat-form-field>
@@ -265,17 +279,75 @@ interface BillingCycleOption {
               <span>Configured Matrix Fee: <strong>₹{{ selectedClassFeeInfo | number:'1.2-2' }}/mo</strong></span>
             </div>
 
+            <!-- Target Student for School Class (Optional - Defaults to All) -->
+            <mat-form-field appearance="outline" class="full-width" *ngIf="!data.targetStudentName && scopeMode === 'school' && form.get('classId')?.value && classStudents.length > 0">
+              <mat-label>Target Student (Optional - Defaults to All)</mat-label>
+              <mat-select formControlName="studentId" panelClass="smart-batch-panel">
+                <mat-option value="">✨ All Students in Class ({{ classStudents.length }} {{ classStudents.length === 1 ? 'Student' : 'Students' }})</mat-option>
+                <mat-option *ngFor="let s of classStudents" [value]="s.id">
+                  👤 {{ s.studentName }} {{ (s.schoolRollNumber || s.rollNumber) ? ' • Roll: ' + (s.schoolRollNumber || s.rollNumber) : '' }}
+                </mat-option>
+              </mat-select>
+              <mat-icon matSuffix color="primary">person</mat-icon>
+              <mat-hint *ngIf="!form.get('studentId')?.value">Will generate invoice for all {{ classStudents.length }} students</mat-hint>
+              <mat-hint *ngIf="form.get('studentId')?.value">Generating invoice for single selected student only</mat-hint>
+            </mat-form-field>
+
+            <!-- Target Academic Class Filter (When 'By Coaching Batch' is active) -->
+            <mat-form-field appearance="outline" class="full-width" *ngIf="!data.targetStudentName && scopeMode === 'coaching' && hasSchoolModule">
+              <mat-label>Filter by Academic Class (Optional)</mat-label>
+              <mat-select [value]="coachingClassFilter" (selectionChange)="onCoachingClassFilterChange($event.value)" panelClass="smart-batch-panel">
+                <mat-option value="">✨ All Academic Classes</mat-option>
+                <mat-option *ngFor="let c of data.classes" [value]="c.id">
+                  🏫 {{ c.name }}
+                </mat-option>
+              </mat-select>
+              <mat-icon matSuffix color="primary">school</mat-icon>
+            </mat-form-field>
+
             <!-- Target Coaching Batch (Shown ONLY if 'By Coaching Batch' is active) -->
             <mat-form-field appearance="outline" class="full-width" *ngIf="!data.targetStudentName && scopeMode === 'coaching' && hasCoachingModule">
               <mat-label>Target Coaching Batch</mat-label>
-              <mat-select formControlName="batchId" panelClass="smart-batch-panel">
-                <mat-option value="">✨ All Coaching Batches</mat-option>
-                <mat-option *ngFor="let b of data.batches" [value]="b.id">
-                  🎯 {{ b.name }} (₹{{ b.standardMonthlyFee | number:'1.0-0' }}/mo)
+              <mat-select formControlName="batchId" panelClass="smart-batch-panel" (selectionChange)="onBatchSelectionChange($event.value)">
+                <mat-option value="">✨ All Coaching Batches {{ coachingClassFilter ? '(for selected class)' : '' }}</mat-option>
+                <mat-option *ngFor="let b of filteredCoachingBatches" [value]="b.id">
+                  🎯 {{ b.name }} (₹{{ b.standardMonthlyFee | number:'1.0-0' }}/mo){{ b.className ? ' [' + b.className + ']' : '' }} • {{ b.studentCount || 0 }} {{ (b.studentCount === 1) ? 'student' : 'students' }}
                 </mat-option>
               </mat-select>
               <mat-icon matSuffix color="primary">groups</mat-icon>
             </mat-form-field>
+
+            <div *ngIf="scopeMode === 'coaching' && selectedBatchFeeInfo !== null" class="class-structure-success-pill full-width">
+              <mat-icon class="ok-icon">check_circle</mat-icon>
+              <span>Configured Matrix Fee: <strong>₹{{ selectedBatchFeeInfo | number:'1.2-2' }}/mo</strong></span>
+            </div>
+            <div *ngIf="scopeMode === 'coaching' && selectedBatchFeeInfo === null && selectedBatchStandardFee !== null" class="class-structure-success-pill full-width">
+              <mat-icon class="ok-icon">check_circle</mat-icon>
+              <span>Standard Batch Fee: <strong>₹{{ selectedBatchStandardFee | number:'1.2-2' }}/mo</strong></span>
+            </div>
+            <div *ngIf="scopeMode === 'coaching' && selectedBatchWarning" class="class-structure-warning-pill full-width">
+              <mat-icon class="warn-icon">warning</mat-icon>
+              <span>{{ selectedBatchWarning }}</span>
+            </div>
+
+            <!-- Target Student for Coaching Batch (Optional - Defaults to All) -->
+            <mat-form-field appearance="outline" class="full-width" *ngIf="!data.targetStudentName && scopeMode === 'coaching' && form.get('batchId')?.value && batchStudents.length > 0">
+              <mat-label>Target Student (Optional - Defaults to All)</mat-label>
+              <mat-select formControlName="studentId" panelClass="smart-batch-panel">
+                <mat-option value="">✨ All Students in Batch ({{ batchStudents.length }} {{ batchStudents.length === 1 ? 'Student' : 'Students' }})</mat-option>
+                <mat-option *ngFor="let s of batchStudents" [value]="s.id">
+                  👤 {{ s.studentName }} {{ (s.coachingRollNumber || s.rollNumber) ? ' • Roll: ' + (s.coachingRollNumber || s.rollNumber) : '' }}
+                </mat-option>
+              </mat-select>
+              <mat-icon matSuffix color="primary">person</mat-icon>
+              <mat-hint *ngIf="!form.get('studentId')?.value">Will generate invoice for all {{ batchStudents.length }} students in this batch</mat-hint>
+              <mat-hint *ngIf="form.get('studentId')?.value">Generating invoice for single selected student only</mat-hint>
+            </mat-form-field>
+
+            <div *ngIf="!data.targetStudentName && scopeMode === 'coaching' && form.get('batchId')?.value && !loadingBatchStudents && batchStudents.length === 0" class="class-structure-warning-pill full-width">
+              <mat-icon class="warn-icon">info</mat-icon>
+              <span>No active students currently enrolled in this batch.</span>
+            </div>
 
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Payment Due Date *</mat-label>
@@ -284,6 +356,46 @@ interface BillingCycleOption {
               <mat-hint>Parents will see this date on invoices and WhatsApp notifications</mat-hint>
               <mat-error *ngIf="form.get('dueDate')?.hasError('required')">Due Date is required</mat-error>
             </mat-form-field>
+          </div>
+
+          <!-- Pre-Admission Warning Callout (Single student selected & pre-admission month chosen) -->
+          <div class="pre-admission-warning-callout" *ngIf="isPreAdmissionMonthSelected()">
+            <div class="warn-icon-wrap">
+              <mat-icon>gpp_maybe</mat-icon>
+            </div>
+            <div class="warn-body">
+              <div class="warn-header">
+                <strong>Pre-Admission Shield Active</strong>
+                <span class="warn-badge">BLOCKED</span>
+              </div>
+              <p class="warn-desc">
+                <strong>{{ getSelectedStudentName() }}</strong> was admitted on 
+                <strong>{{ getSelectedStudentJoiningDate() | date:'dd MMM yyyy' }}</strong>. 
+                Invoices cannot be generated for <strong>{{ getPeriodLabel() }}</strong> because this period falls before their date of admission.
+              </p>
+              <div class="warn-hint">
+                💡 <strong>Suggested Action:</strong> Choose <strong>{{ getSelectedStudentJoiningDate() | date:'MMMM yyyy' }}</strong> or a subsequent billing cycle.
+              </div>
+            </div>
+          </div>
+
+          <!-- Cutoff Admission Policy Callout (Single student selected & joining month chosen when DOJ > cutoffDay) -->
+          <div class="cutoff-policy-callout" *ngIf="isJoiningMonthAfterCutoffSelected()">
+            <div class="policy-icon-wrap">
+              <mat-icon>verified</mat-icon>
+            </div>
+            <div class="policy-body">
+              <div class="policy-header">
+                <strong>{{ getInstitutePolicyName() }} Admission Policy</strong>
+                <span class="policy-badge">ORIENTATION GRACE PERIOD</span>
+              </div>
+              <p class="policy-desc">
+                <strong>{{ getSelectedStudentName() }}</strong> was admitted on 
+                <strong>{{ getSelectedStudentJoiningDate() | date:'dd MMM yyyy' }}</strong> (after Day {{ cutoffDay }} cutoff). 
+                As per institute policy, <strong>{{ getSelectedStudentJoiningDate() | date:'MMMM yyyy' }}</strong> tuition fee is waived as an orientation period.
+                The generated invoice will automatically start from <strong>{{ getNextRolledOverMonthName() }}</strong>.
+              </p>
+            </div>
           </div>
 
           <!-- Live Preview -->
@@ -304,7 +416,7 @@ interface BillingCycleOption {
               </div>
               <div class="preview-item">
                 <span class="preview-label">Period Covered:</span>
-                <strong class="preview-val">{{ getPeriodLabel() }}</strong>
+                <strong class="preview-val">{{ getEffectivePeriodLabel() }}</strong>
               </div>
               <div class="preview-item">
                 <span class="preview-label">Target Audience:</span>
@@ -316,7 +428,8 @@ interface BillingCycleOption {
               </div>
               <div class="preview-item">
                 <span class="preview-label">Initial Status:</span>
-                <span class="status-pill pending">Pending (FIFO Payable)</span>
+                <span *ngIf="!isPreAdmissionMonthSelected()" class="status-pill pending">Pending (FIFO Payable)</span>
+                <span *ngIf="isPreAdmissionMonthSelected()" class="status-pill preadmission">🚫 Blocked (Pre-Admission)</span>
               </div>
             </div>
           </div>
@@ -325,10 +438,18 @@ interface BillingCycleOption {
 
         <mat-dialog-actions align="end" class="dialog-actions">
           <button mat-button type="button" (click)="onCancel()" [disabled]="saving">Cancel</button>
-          <button mat-raised-button color="primary" type="submit" [disabled]="form.invalid || saving" class="submit-btn">
+          <button mat-raised-button color="primary" type="submit" 
+            [disabled]="form.invalid || saving || isPreAdmissionMonthSelected()" 
+            [class.btn-blocked]="isPreAdmissionMonthSelected()"
+            class="submit-btn">
             <mat-spinner diameter="18" *ngIf="saving" class="btn-spinner"></mat-spinner>
-            <mat-icon *ngIf="!saving">rocket_launch</mat-icon>
-            <span>{{ saving ? 'Generating...' : (data.targetStudentName ? 'Generate Invoice for ' + data.targetStudentName : 'Generate Invoices') }}</span>
+            <mat-icon *ngIf="!saving && !isPreAdmissionMonthSelected()">rocket_launch</mat-icon>
+            <mat-icon *ngIf="!saving && isPreAdmissionMonthSelected()">block</mat-icon>
+            <span>
+              {{ saving ? 'Generating...' : 
+                 (isPreAdmissionMonthSelected() ? 'Cannot Bill Pre-Admission Period' : 
+                 (data.targetStudentName ? 'Generate ' + (getSelectedCycleOption()?.label || 'Monthly') + ' Invoice for ' + data.targetStudentName : 'Generate ' + (getSelectedCycleOption()?.label || 'Monthly') + ' Invoices')) }}
+            </span>
           </button>
         </mat-dialog-actions>
       </form>
@@ -888,7 +1009,151 @@ interface BillingCycleOption {
         font-weight: 700;
         letter-spacing: 0.02em;
         &.pending { background: #fef3c7; color: #b45309; }
+        &.preadmission { background: #fee2e2; color: #b91c1c; border: 1px solid #fecdd3; }
       }
+    }
+
+    .cutoff-policy-callout {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 14px;
+      background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+      border: 1px solid #bbf7d0;
+      border-left: 4px solid #16a34a;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      animation: fadeInWarning 0.22s ease-in-out;
+
+      .policy-icon-wrap {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: #16a34a;
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        box-shadow: 0 2px 6px -1px rgba(22, 163, 74, 0.35);
+        mat-icon { font-size: 18px; width: 18px; height: 18px; }
+      }
+
+      .policy-body {
+        flex: 1;
+        .policy-header {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 4px;
+          strong {
+            color: #14532d;
+            font-size: 0.84rem;
+            font-weight: 700;
+          }
+          .policy-badge {
+            background: #bbf7d0;
+            color: #15803d;
+            font-size: 0.65rem;
+            font-weight: 700;
+            padding: 1px 6px;
+            border-radius: 4px;
+            letter-spacing: 0.04em;
+          }
+        }
+        .policy-desc {
+          font-size: 0.78rem;
+          color: #166534;
+          line-height: 1.45;
+          margin: 0;
+          strong {
+            font-weight: 700;
+            color: #14532d;
+          }
+        }
+      }
+    }
+
+    .pre-admission-warning-callout {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 14px;
+      background: linear-gradient(135deg, #fff1f2 0%, #fee2e2 100%);
+      border: 1px solid #fecdd3;
+      border-left: 4px solid #e11d48;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      animation: fadeInWarning 0.22s ease-in-out;
+
+      .warn-icon-wrap {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: #e11d48;
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        box-shadow: 0 2px 6px -1px rgba(225, 29, 72, 0.35);
+        mat-icon { font-size: 18px; width: 18px; height: 18px; }
+      }
+
+      .warn-body {
+        flex: 1;
+
+        .warn-header {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 4px;
+          strong {
+            color: #9f1239;
+            font-size: 0.84rem;
+            font-weight: 700;
+          }
+          .warn-badge {
+            background: #ffe4e6;
+            color: #be123c;
+            font-size: 0.65rem;
+            font-weight: 700;
+            padding: 1px 6px;
+            border-radius: 4px;
+            letter-spacing: 0.04em;
+          }
+        }
+
+        .warn-desc {
+          font-size: 0.78rem;
+          color: #881337;
+          line-height: 1.45;
+          margin: 0 0 6px 0;
+          strong {
+            font-weight: 700;
+            color: #4c0519;
+          }
+        }
+
+        .warn-hint {
+          font-size: 0.73rem;
+          color: #9f1239;
+          line-height: 1.4;
+          background: rgba(255, 255, 255, 0.7);
+          padding: 4px 8px;
+          border-radius: 4px;
+          border: 1px dashed #f43f5e;
+          strong {
+            font-weight: 700;
+            color: #881337;
+          }
+        }
+      }
+    }
+
+    @keyframes fadeInWarning {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
     }
 
     .dialog-actions {
@@ -905,6 +1170,10 @@ interface BillingCycleOption {
         display: inline-flex;
         align-items: center;
         gap: 6px;
+        &.btn-blocked {
+          opacity: 0.6;
+          cursor: not-allowed !important;
+        }
       }
       .btn-spinner { margin-right: 4px; }
     }
@@ -958,10 +1227,10 @@ export class GenerateInvoicesDialogComponent implements OnInit {
     this.years = [defaultYear - 1, defaultYear, defaultYear + 1];
     const defaultDueDate = `${defaultYear}-${String(defaultMonth).padStart(2, '0')}-10`;
 
-    if (data?.defaultClassId) {
-      this.scopeMode = 'school';
-    } else if (data?.defaultBatchId) {
+    if (data?.defaultBatchId) {
       this.scopeMode = 'coaching';
+    } else if (data?.defaultClassId) {
+      this.scopeMode = 'school';
     } else {
       this.scopeMode = 'all';
     }
@@ -971,17 +1240,95 @@ export class GenerateInvoicesDialogComponent implements OnInit {
       year:    [defaultYear,  [Validators.required]],
       classId: [data?.defaultClassId || ''],
       batchId: [data?.defaultBatchId || ''],
+      studentId: [data?.targetStudentId || ''],
       dueDate: [defaultDueDate,            [Validators.required]]
     });
   }
+
+  batchStudents: any[] = [];
+  loadingBatchStudents: boolean = false;
+  classStudents: any[] = [];
+  loadingClassStudents: boolean = false;
 
   selectedClassWarning: string = '';
   selectedClassFeeInfo: number | null = null;
   checkingClassStructure: boolean = false;
 
+  coachingClassFilter: string = '';
+  selectedBatchWarning: string = '';
+  selectedBatchFeeInfo: number | null = null;
+  selectedBatchStandardFee: number | null = null;
+
+  get filteredCoachingBatches(): any[] {
+    if (!this.coachingClassFilter) return this.data.batches || [];
+    return (this.data.batches || []).filter(b => b.classId === this.coachingClassFilter);
+  }
+
   get isTargetStudent(): boolean { return !!this.data?.targetStudentName; }
   get hasSchoolModule(): boolean { return this.authService.hasSchoolModule(); }
   get hasCoachingModule(): boolean { return this.authService.hasCoachingModule(); }
+
+  get cutoffDay(): number {
+    return this.settingsService.admissionCutoffDay() || 20;
+  }
+
+  isCutoffRolledOver(): boolean {
+    if (!this.data?.targetJoiningDate) return false;
+    const d = new Date(this.data.targetJoiningDate);
+    return !isNaN(d.getTime()) && d.getDate() > this.cutoffDay;
+  }
+
+  getInstitutePolicyName(): string {
+    return this.authService.getInstituteName() || 'Institute';
+  }
+
+  isJoiningMonthAfterCutoffSelected(): boolean {
+    const jd = this.getSelectedStudentJoiningDate();
+    if (!jd || jd.getDate() <= this.cutoffDay) return false;
+    const m = Number(this.form?.get('month')?.value);
+    const y = Number(this.form?.get('year')?.value);
+    return m === (jd.getMonth() + 1) && y === jd.getFullYear();
+  }
+
+  isRolledOverMonthSelected(): boolean {
+    const jd = this.getSelectedStudentJoiningDate();
+    if (!jd || jd.getDate() <= this.cutoffDay) return false;
+    const m = Number(this.form?.get('month')?.value);
+    const y = Number(this.form?.get('year')?.value);
+    const rollDate = new Date(jd.getFullYear(), jd.getMonth() + 1, 1);
+    return m === (rollDate.getMonth() + 1) && y === rollDate.getFullYear();
+  }
+
+  getNextRolledOverMonthName(): string {
+    const jd = this.getSelectedStudentJoiningDate();
+    if (!jd) return '';
+    const nextDate = new Date(jd.getFullYear(), jd.getMonth() + 1, 1);
+    return nextDate.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+  }
+
+  getEffectivePeriodLabel(): string {
+    const month = Number(this.form.get('month')?.value);
+    const year  = Number(this.form.get('year')?.value);
+    if (!month || !year) return '';
+
+    let start = new Date(year, month - 1, 1);
+    const isRolledOver = this.isJoiningMonthAfterCutoffSelected();
+
+    if (isRolledOver) {
+      start = new Date(year, month, 1);
+    }
+
+    if (this.selectedCycle === 1) {
+      const label = start.toLocaleString('en-IN', { month: 'long', year: 'numeric' });
+      return isRolledOver ? `${label} (Auto-Rollover)` : label;
+    }
+
+    const endDate = new Date(start.getFullYear(), start.getMonth() + this.selectedCycle, 0);
+    const s = start.toLocaleString('en-IN', { month: 'short', year: 'numeric' });
+    const e = endDate.toLocaleString('en-IN', { month: 'short', year: 'numeric' });
+    const range = `${s} – ${e}`;
+    return isRolledOver ? `${range} (Auto-Rollover)` : range;
+  }
 
   getSelectedTargetClassName(): string {
     const classId = this.form?.get('classId')?.value || this.data?.defaultClassId;
@@ -994,15 +1341,79 @@ export class GenerateInvoicesDialogComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    if (this.form.get('classId')?.value) {
+    if (this.scopeMode === 'coaching' && this.form.get('batchId')?.value) {
+      this.onBatchSelectionChange(this.form.get('batchId')?.value);
+    } else if (this.form.get('classId')?.value) {
       this.onClassSelectionChange(this.form.get('classId')?.value);
     }
+  }
+
+  onCoachingClassFilterChange(classId: string): void {
+    this.coachingClassFilter = classId || '';
+    const currentBatchId = this.form.get('batchId')?.value;
+    if (currentBatchId && this.coachingClassFilter) {
+      const currentBatch = this.data.batches?.find(b => b.id === currentBatchId);
+      if (currentBatch && currentBatch.classId !== this.coachingClassFilter) {
+        this.form.get('batchId')?.setValue('');
+        this.onBatchSelectionChange('');
+      }
+    }
+  }
+
+  onBatchSelectionChange(batchId: string): void {
+    this.selectedBatchWarning = '';
+    this.selectedBatchFeeInfo = null;
+    this.selectedBatchStandardFee = null;
+    this.batchStudents = [];
+    this.form.patchValue({ studentId: '' });
+    if (!batchId) return;
+
+    const batch = this.data.batches?.find(b => b.id === batchId);
+    if (batch?.standardMonthlyFee) {
+      this.selectedBatchStandardFee = batch.standardMonthlyFee;
+    }
+
+    this.loadingBatchStudents = true;
+    this.coachingService.getStudents(batchId).subscribe({
+      next: (students) => {
+        this.loadingBatchStudents = false;
+        this.batchStudents = students || [];
+      },
+      error: () => {
+        this.loadingBatchStudents = false;
+        this.batchStudents = [];
+      }
+    });
+
+    this.feesService.getClassFeeStructures(undefined, batchId).subscribe({
+      next: (structs) => {
+        const active = (structs || []).filter(s => s.isActive && s.amount > 0);
+        if (active.length > 0) {
+          this.selectedBatchFeeInfo = active.reduce((sum, s) => sum + s.amount, 0);
+        }
+      },
+      error: () => {}
+    });
   }
 
   onClassSelectionChange(classId: string): void {
     this.selectedClassWarning = '';
     this.selectedClassFeeInfo = null;
+    this.classStudents = [];
+    this.form.patchValue({ studentId: '' });
     if (!classId) return;
+
+    this.loadingClassStudents = true;
+    this.coachingService.getStudents(undefined, classId).subscribe({
+      next: (students) => {
+        this.loadingClassStudents = false;
+        this.classStudents = students || [];
+      },
+      error: () => {
+        this.loadingClassStudents = false;
+        this.classStudents = [];
+      }
+    });
 
     this.checkingClassStructure = true;
     this.feesService.getClassFeeStructures(classId).subscribe({
@@ -1060,32 +1471,44 @@ export class GenerateInvoicesDialogComponent implements OnInit {
     if (this.data?.targetStudentName) {
       return `👤 ${this.data.targetStudentName}`;
     }
+    const selectedStudentId = this.form.get('studentId')?.value;
     if (this.scopeMode === 'school') {
       const classId = this.form.get('classId')?.value;
       const c = classId ? this.data.classes?.find(x => x.id === classId) : null;
-      return c ? `🏫 ${c.name} (School Class)` : '🏫 All School Classes';
+      if (selectedStudentId) {
+        const st = this.classStudents.find(s => s.id === selectedStudentId);
+        return `👤 ${st?.studentName || 'Selected Student'} • ${c?.name || 'School Class'}`;
+      }
+      return c ? `🏫 ${c.name} (${this.classStudents.length} Students)` : '🏫 All School Classes';
     }
     if (this.scopeMode === 'coaching') {
       const batchId = this.form.get('batchId')?.value;
       const b = batchId ? this.data.batches?.find(x => x.id === batchId) : null;
-      return b ? `🎯 ${b.name} (Coaching Batch)` : '🎯 All Coaching Batches';
+      if (selectedStudentId) {
+        const st = this.batchStudents.find(s => s.id === selectedStudentId);
+        return `👤 ${st?.studentName || 'Selected Student'} • ${b?.name || 'Coaching Batch'}`;
+      }
+      return b ? `🎯 ${b.name} (${this.batchStudents.length} Students)` : '🎯 All Coaching Batches';
     }
     return '✨ All Students (Universal Bulk)';
   }
 
   setScopeMode(mode: 'all' | 'school' | 'coaching'): void {
     this.scopeMode = mode;
+    this.form.get('studentId')?.setValue('');
     if (mode === 'all') {
       this.form.get('classId')?.setValue('');
       this.form.get('batchId')?.setValue('');
       this.selectedClassWarning = '';
       this.selectedClassFeeInfo = null;
+      this.batchStudents = [];
+      this.classStudents = [];
     } else if (mode === 'school') {
       this.form.get('batchId')?.setValue('');
+      this.batchStudents = [];
     } else if (mode === 'coaching') {
       this.form.get('classId')?.setValue('');
-      this.selectedClassWarning = '';
-      this.selectedClassFeeInfo = null;
+      this.classStudents = [];
     }
   }
 
@@ -1103,25 +1526,147 @@ export class GenerateInvoicesDialogComponent implements OnInit {
 
   onCancel(): void { this.dialogRef.close(null); }
 
+  getSelectedStudent(): any | null {
+    const selectedStudentId = this.form?.get('studentId')?.value;
+    if (selectedStudentId) {
+      if (this.scopeMode === 'coaching') {
+        return this.batchStudents.find(s => s.id === selectedStudentId) || null;
+      }
+      if (this.scopeMode === 'school') {
+        return this.classStudents.find(s => s.id === selectedStudentId) || null;
+      }
+    }
+    return null;
+  }
+
+  getSelectedStudentJoiningDate(): Date | null {
+    if (this.data?.targetJoiningDate) {
+      const d = new Date(this.data.targetJoiningDate);
+      return isNaN(d.getTime()) ? null : d;
+    }
+    const student = this.getSelectedStudent();
+    if (student?.joiningDate) {
+      const d = new Date(student.joiningDate);
+      return isNaN(d.getTime()) ? null : d;
+    }
+    return null;
+  }
+
+  getSelectedStudentName(): string {
+    if (this.data?.targetStudentName) {
+      return this.data.targetStudentName;
+    }
+    const student = this.getSelectedStudent();
+    return student?.studentName || '';
+  }
+
+  isPreAdmissionMonthSelected(): boolean {
+    const joiningDate = this.getSelectedStudentJoiningDate();
+    if (!joiningDate) return false;
+
+    const month = Number(this.form?.get('month')?.value);
+    const year = Number(this.form?.get('year')?.value);
+    if (!month || !year) return false;
+
+    // Period End: last millisecond of the selected billing period
+    const periodEnd = new Date(year, month - 1 + this.selectedCycle, 0, 23, 59, 59, 999);
+    const dojStart = new Date(joiningDate.getFullYear(), joiningDate.getMonth(), joiningDate.getDate(), 0, 0, 0, 0);
+
+    return dojStart.getTime() > periodEnd.getTime();
+  }
+
+  getPreAdmissionWarningMessage(): string {
+    const joiningDate = this.getSelectedStudentJoiningDate();
+    const studentName = this.getSelectedStudentName() || 'This student';
+    if (!joiningDate) return '';
+    const formattedDoj = joiningDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    const period = this.getPeriodLabel();
+    return `${studentName} was admitted on ${formattedDoj}. Invoices cannot be generated for ${period} because it falls before the student's admission date.`;
+  }
+
   onSubmit(): void {
     if (this.form.invalid || this.saving) return;
+
+    if (this.isPreAdmissionMonthSelected()) {
+      this.confirmDialog.alert('Pre-Admission Period', this.getPreAdmissionWarningMessage(), 'danger');
+      return;
+    }
 
     if (this.scopeMode === 'school' && this.selectedClassWarning) {
       this.confirmDialog.alert('Fee Matrix Required', this.selectedClassWarning, 'danger');
       return;
     }
 
-    this.saving = true;
     const val = this.form.getRawValue();
+    const period = this.getPeriodLabel();
+    const cycleLabel = this.getSelectedCycleOption()?.label || 'Monthly';
+    const targetName = this.data.targetStudentName || this.getSelectedStudentName();
+
+    const title = targetName
+      ? `Generate ${cycleLabel} Invoice for ${targetName}?`
+      : `Confirm ${cycleLabel} Invoice Generation`;
+
+    let message = targetName
+      ? `Are you sure you want to generate a ${cycleLabel} fee invoice for ${targetName} for ${period}?`
+      : `Are you sure you want to generate ${cycleLabel} fee invoices for ${this.getSelectedScopeLabel()} (${period})? (Duplicate invoices will be safely skipped automatically).`;
+
+    // Strict Policy Check: ONLY when student joined AFTER cutoff day (DOJ > cutoffDay, e.g. Day 20)
+    const joiningDate = this.getSelectedStudentJoiningDate();
+    if (targetName && joiningDate && joiningDate.getDate() > this.cutoffDay) {
+      const dojDay = joiningDate.getDate();
+      const dojMonth = joiningDate.getMonth() + 1;
+      const dojYear = joiningDate.getFullYear();
+      const selMonth = Number(val.month);
+      const selYear = Number(val.year);
+
+      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+      const dojMonthName = monthNames[joiningDate.getMonth()];
+      const nextMonthDate = new Date(dojYear, dojMonth, 1);
+      const nextMonthName = monthNames[nextMonthDate.getMonth()];
+      const nextYear = nextMonthDate.getFullYear();
+      const instName = this.getInstitutePolicyName();
+
+      let rolledOverPeriod = `${nextMonthName} ${nextYear}`;
+      if (this.selectedCycle > 1) {
+        const endDate = new Date(nextYear, nextMonthDate.getMonth() + this.selectedCycle, 0);
+        rolledOverPeriod = `${nextMonthDate.toLocaleString('en-IN', { month: 'short', year: 'numeric' })} – ${endDate.toLocaleString('en-IN', { month: 'short', year: 'numeric' })}`;
+      }
+
+      if (selMonth === dojMonth && selYear === dojYear) {
+        // User selected admission month: bill automatically rolls over to next month
+        message = `Are you sure you want to generate a ${cycleLabel} fee invoice for ${targetName} for ${rolledOverPeriod}?\n\n📌 Note (${instName} Admission Policy):\n${targetName} was admitted on ${dojDay} ${dojMonthName} ${dojYear} (after Day ${this.cutoffDay} cutoff). ${dojMonthName} tuition fee is waived as an orientation grace period, so billing automatically starts from ${rolledOverPeriod}.`;
+      } else if (selMonth === nextMonthDate.getMonth() + 1 && selYear === nextYear) {
+        // User selected the rolled-over month directly
+        message = `Are you sure you want to generate a ${cycleLabel} fee invoice for ${targetName} for ${rolledOverPeriod}?\n\n📌 Note (${instName} Admission Policy):\nSince ${targetName} was admitted on ${dojDay} ${dojMonthName} ${dojYear} (after Day ${this.cutoffDay} cutoff), fee billing begins from ${rolledOverPeriod}.`;
+      }
+    }
+
+    const confirmBtn = targetName ? `Yes, Generate ${cycleLabel}` : `Yes, Generate ${cycleLabel} Invoices`;
+
+    this.confirmDialog.confirm(
+      title,
+      message,
+      confirmBtn,
+      'Cancel',
+      'info'
+    ).subscribe(confirmed => {
+      if (!confirmed) return;
+      this.executeInvoiceGeneration(val);
+    });
+  }
+
+  private executeInvoiceGeneration(val: any): void {
+    this.saving = true;
     const targetClassId = (this.scopeMode === 'school' && val.classId) ? val.classId : null;
     const targetBatchId = (this.scopeMode === 'coaching' && val.batchId) ? val.batchId : null;
+    const targetStudentId = val.studentId || this.data?.targetStudentId || null;
 
     this.feesService.generateMonthlyInvoices({
       year:         Number(val.year),
       month:        Number(val.month),
       classId:      targetClassId,
       batchId:      targetBatchId,
-      studentId:    this.data?.targetStudentId || null,
+      studentId:    targetStudentId,
       dueDate:      val.dueDate,
       billingCycle: this.selectedCycle,
       branchId:     this.authService.selectedBranchId() || null

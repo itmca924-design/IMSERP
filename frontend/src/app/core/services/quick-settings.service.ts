@@ -40,6 +40,9 @@ export interface AutomationSettingsDto {
   autoPilotFeeInvoicingEnabled?: boolean;
   autoPilotInvoicingDayOfMonth?: number;
   lastAutoPilotInvoicingRun?: string | null;
+  admissionCutoffDay?: number;
+  admissionRolloverPolicy?: string;
+  financialYearStartMonth?: number;
   updatedAt?: string | null;
 }
 
@@ -90,6 +93,9 @@ export class QuickSettingsService {
   readonly biometricSync = signal<boolean>(DEFAULT_SETTINGS.biometricSync);
   readonly lateFeeCalc = signal<boolean>(DEFAULT_SETTINGS.lateFeeCalc);
   readonly autoPilotInvoicing = signal<boolean>(DEFAULT_SETTINGS.autoPilotInvoicing ?? false);
+  readonly admissionCutoffDay = signal<number>(20);
+  readonly admissionRolloverPolicy = signal<string>('NextMonthFull');
+  readonly financialYearStartMonth = signal<number>(4);
   readonly soundEffects = signal<boolean>(DEFAULT_SETTINGS.soundEffects);
   readonly autoRefreshInterval = signal<number>(DEFAULT_SETTINGS.autoRefreshInterval);
 
@@ -131,6 +137,15 @@ export class QuickSettingsService {
         this.biometricSync.set(res.biometricSyncEnabled);
         this.lateFeeCalc.set(res.lateFeeAutoComputeEnabled);
         this.autoPilotInvoicing.set(res.autoPilotFeeInvoicingEnabled ?? false);
+        if (res.admissionCutoffDay !== undefined && res.admissionCutoffDay !== null) {
+          this.admissionCutoffDay.set(res.admissionCutoffDay);
+        }
+        if (res.admissionRolloverPolicy) {
+          this.admissionRolloverPolicy.set(res.admissionRolloverPolicy);
+        }
+        if (res.financialYearStartMonth !== undefined && res.financialYearStartMonth !== null) {
+          this.financialYearStartMonth.set(res.financialYearStartMonth);
+        }
       },
       error: () => {
         // Fall back gracefully to localStorage if backend is still initializing
@@ -151,7 +166,10 @@ export class QuickSettingsService {
       lateFeeDailyRate: this.backendSettings()?.lateFeeDailyRate || 10,
       lateFeeGraceDays: this.backendSettings()?.lateFeeGraceDays || 5,
       autoPilotFeeInvoicingEnabled: this.autoPilotInvoicing(),
-      autoPilotInvoicingDayOfMonth: 25
+      autoPilotInvoicingDayOfMonth: 25,
+      admissionCutoffDay: this.admissionCutoffDay(),
+      admissionRolloverPolicy: this.admissionRolloverPolicy(),
+      financialYearStartMonth: this.financialYearStartMonth()
     };
 
     this.http.put<AutomationSettingsDto>(this.API_URL, payload).subscribe({
@@ -163,6 +181,37 @@ export class QuickSettingsService {
         this.isSyncing.set(false);
       }
     });
+  }
+
+  updateBillingCutoffSettings(cutoffDay: number, policy: string = 'NextMonthFull', fyStartMonth: number = 4): Observable<AutomationSettingsDto> {
+    this.isSyncing.set(true);
+    const current = this.backendSettings();
+    const payload = {
+      whatsAppFeeReceiptsEnabled: current?.whatsAppFeeReceiptsEnabled ?? this.whatsappFeeAlerts(),
+      dailyAbsenteeAlertEnabled: current?.dailyAbsenteeAlertEnabled ?? this.absentSmsAlerts(),
+      dailyAbsenteeAlertTime: current?.dailyAbsenteeAlertTime || '10:30',
+      feeDueRemindersEnabled: current?.feeDueRemindersEnabled ?? this.dueFeeReminders(),
+      feeDueDaysPrior: current?.feeDueDaysPrior || 3,
+      biometricSyncEnabled: current?.biometricSyncEnabled ?? this.biometricSync(),
+      lateFeeAutoComputeEnabled: current?.lateFeeAutoComputeEnabled ?? this.lateFeeCalc(),
+      lateFeeDailyRate: current?.lateFeeDailyRate || 10,
+      lateFeeGraceDays: current?.lateFeeGraceDays || 5,
+      autoPilotFeeInvoicingEnabled: current?.autoPilotFeeInvoicingEnabled ?? this.autoPilotInvoicing(),
+      autoPilotInvoicingDayOfMonth: current?.autoPilotInvoicingDayOfMonth || 25,
+      admissionCutoffDay: cutoffDay,
+      admissionRolloverPolicy: policy,
+      financialYearStartMonth: fyStartMonth
+    };
+
+    return this.http.put<AutomationSettingsDto>(this.API_URL, payload).pipe(
+      tap((res) => {
+        this.backendSettings.set(res);
+        this.admissionCutoffDay.set(res.admissionCutoffDay ?? cutoffDay);
+        this.admissionRolloverPolicy.set(res.admissionRolloverPolicy ?? policy);
+        this.financialYearStartMonth.set(res.financialYearStartMonth ?? fyStartMonth);
+        this.isSyncing.set(false);
+      })
+    );
   }
 
   runJob(jobName: string): Observable<RunJobResult> {

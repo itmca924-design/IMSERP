@@ -126,13 +126,21 @@ import { UpiPaymentDialogComponent, UpiPaymentDialogData } from './upi-payment-d
                 <span class="k">Roll / Admission No:</span>
                 <span class="v"><strong>{{ receipt.rollNumber || 'N/A' }}</strong></span>
               </div>
-              <div class="prof-row" *ngIf="receipt.className">
+              <div class="prof-row" *ngIf="receipt.className && !receipt.batchName">
                 <span class="k">Class & Section:</span>
                 <span class="v"><strong>{{ receipt.className }}<span *ngIf="receipt.sectionName"> (Section {{ receipt.sectionName }})</span></strong></span>
               </div>
-              <div class="prof-row" *ngIf="!receipt.className">
-                <span class="k">Assigned Batch / Course:</span>
-                <span class="v">{{ receipt.batchName || 'General Academic' }}</span>
+              <div class="prof-row" *ngIf="receipt.className && receipt.batchName">
+                <span class="k">Coaching:</span>
+                <span class="v"><strong>{{ receipt.className }}</strong></span>
+              </div>
+              <div class="prof-row" *ngIf="!receipt.className && receipt.batchName">
+                <span class="k">Coaching:</span>
+                <span class="v"><strong>Coaching</strong></span>
+              </div>
+              <div class="prof-row" *ngIf="!receipt.className && !receipt.batchName">
+                <span class="k">Academic Stream:</span>
+                <span class="v">General Academic</span>
               </div>
             </div>
             <div class="prof-col">
@@ -143,6 +151,10 @@ import { UpiPaymentDialogComponent, UpiPaymentDialogData } from './upi-payment-d
               <div class="prof-row">
                 <span class="k">Contact / WhatsApp:</span>
                 <span class="v">{{ receipt.parentPhone || 'N/A' }}</span>
+              </div>
+              <div class="prof-row" *ngIf="receipt.batchName">
+                <span class="k">Batch:</span>
+                <span class="v"><strong>{{ receipt.batchName }}</strong></span>
               </div>
               <div class="prof-row">
                 <span class="k">Settlement Type:</span>

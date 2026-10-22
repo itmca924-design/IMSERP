@@ -15,6 +15,8 @@ export interface BatchDto {
   roomId?: string | null;
   roomNumber?: string | null;
   roomName?: string | null;
+  classId?: string | null;
+  className?: string | null;
 }
 
 export interface CreateBatchDto {
@@ -24,6 +26,7 @@ export interface CreateBatchDto {
   standardMonthlyFee: number;
   branchId?: string | null;
   roomId?: string | null;
+  classId?: string | null;
 }
 
 export interface PagedResult<T> {
@@ -50,7 +53,8 @@ export class BatchesService {
     searchTerm: string = '',
     sortBy: string = 'name',
     sortDescending: boolean = false,
-    academicYear: string = ''
+    academicYear: string = '',
+    classId: string = ''
   ): Observable<PagedResult<BatchDto>> {
     let params = new HttpParams()
       .set('pageNumber', pageNumber.toString())
@@ -64,6 +68,10 @@ export class BatchesService {
 
     if (academicYear) {
       params = params.set('academicYear', academicYear);
+    }
+
+    if (classId) {
+      params = params.set('classId', classId);
     }
 
     return this.http.get<PagedResult<BatchDto>>(`${this.BASE_URL}/paged`, { params });

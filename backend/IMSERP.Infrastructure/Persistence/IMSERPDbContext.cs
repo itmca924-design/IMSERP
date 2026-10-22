@@ -708,6 +708,11 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<Batch>().Property(b => b.StandardMonthlyFee).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<Batch>()
+            .HasOne(b => b.Class)
+            .WithMany(c => c.Batches)
+            .HasForeignKey(b => b.ClassId)
+            .OnDelete(DeleteBehavior.SetNull);
         modelBuilder.Entity<FeeInvoice>().Property(f => f.TotalAmount).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<FeeInvoice>().Property(f => f.PaidAmount).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<FeePayment>().Property(f => f.AmountPaid).HasColumnType("decimal(18,2)");

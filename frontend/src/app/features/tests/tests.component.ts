@@ -139,7 +139,7 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
               <mat-label>Default Batch for All Rows</mat-label>
               <mat-select [(ngModel)]="sharedBatchId" (selectionChange)="applyBatchToAll()" panelClass="smart-batch-panel">
                 <mat-option value="">-- Choose Batch --</mat-option>
-                <mat-option *ngFor="let b of batches" [value]="b.id">{{ b.name }}</mat-option>
+                <mat-option *ngFor="let b of batches" [value]="b.id">{{ b.name }}{{ b.className ? ' [' + b.className + ']' : '' }}</mat-option>
               </mat-select>
               <mat-icon matSuffix>groups</mat-icon>
             </mat-form-field>
@@ -213,7 +213,7 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                 <div class="cell-batch" *ngIf="plannerCategory === 'coaching'">
                   <mat-form-field appearance="outline" class="field-compact" subscriptSizing="dynamic">
                     <mat-select formControlName="batchId" placeholder="Select batch..." panelClass="smart-batch-panel">
-                      <mat-option *ngFor="let b of batches" [value]="b.id">{{ b.name }}</mat-option>
+                      <mat-option *ngFor="let b of batches" [value]="b.id">{{ b.name }}{{ b.className ? ' [' + b.className + ']' : '' }}</mat-option>
                     </mat-select>
                     <mat-error *ngIf="row.get('batchId')?.invalid">Required</mat-error>
                   </mat-form-field>
@@ -667,7 +667,7 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
               <mat-label>Filter by Coaching Batch</mat-label>
               <mat-select [(ngModel)]="selectedBatchFilter" (selectionChange)="onFilterChange()">
                 <mat-option value="">All Batches</mat-option>
-                <mat-option *ngFor="let b of batches" [value]="b.id">{{ b.name }}</mat-option>
+                <mat-option *ngFor="let b of (selectedClassFilter ? getBatchesForClass(selectedClassFilter) : batches)" [value]="b.id">{{ b.name }}{{ b.className ? ' [' + b.className + ']' : '' }}</mat-option>
               </mat-select>
               <mat-icon matSuffix>filter_list</mat-icon>
             </mat-form-field>
@@ -3943,6 +3943,11 @@ export class TestsComponent implements OnInit {
     }
     this.pageIndex = 0;
     this.loadTests();
+  }
+
+  getBatchesForClass(classId: string): any[] {
+    if (!classId) return this.batches || [];
+    return (this.batches || []).filter(b => b.classId === classId);
   }
 
   onFilterChange(): void {

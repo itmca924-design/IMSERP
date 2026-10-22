@@ -10,7 +10,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { WhatsAppFeeCardDialogComponent } from './whatsapp-fee-card-dialog.component';
-import { FeesService, StudentFeeCard } from '../../core/services/fees.service';
+import { FeesService, StudentFeeCard, FeeCardMonthEntry } from '../../core/services/fees.service';
 import { SchoolService, SchoolClassDto, SchoolSectionDto } from '../../core/services/school.service';
 import { CoachingService } from '../../core/services/coaching.service';
 import { AuthService } from '../../core/services/auth.service';
@@ -129,14 +129,27 @@ import { environment } from '../../../environments/environment';
             </mat-form-field>
           </div>
 
+          <!-- Class Filter (Coaching Stream) -->
+          <div class="filter-col" *ngIf="activeStream === 'coaching'">
+            <label class="filter-label">Filter by Class</label>
+            <mat-form-field appearance="outline" class="w-full">
+              <mat-select [(ngModel)]="coachingClassFilter" placeholder="-- All Classes --" (selectionChange)="onCoachingClassChanged()">
+                <mat-option value="">-- All Classes --</mat-option>
+                <mat-option *ngFor="let c of classes" [value]="c.id">
+                  {{ c.name }}
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
+          </div>
+
           <!-- Batch Selector (Coaching Stream Only) -->
           <div class="filter-col" *ngIf="activeStream === 'coaching'">
             <label class="filter-label">Coaching Batch</label>
             <mat-form-field appearance="outline" class="w-full">
               <mat-select [(ngModel)]="selectedBatchId" placeholder="-- Select Batch --" (selectionChange)="onBatchChanged()">
                 <mat-option value="">-- Select Batch --</mat-option>
-                <mat-option *ngFor="let b of batches" [value]="b.id">
-                  {{ b.name }} <span *ngIf="b.subject">({{ b.subject }})</span>
+                <mat-option *ngFor="let b of filteredBatches" [value]="b.id">
+                  {{ b.name }} <span *ngIf="b.subject">({{ b.subject }})</span> <span *ngIf="b.className">• {{ b.className }}</span>
                 </mat-option>
               </mat-select>
             </mat-form-field>
@@ -285,6 +298,10 @@ import { environment } from '../../../environments/environment';
               <span class="kpi-label">Total Annual Fee</span>
               <span class="kpi-value">₹{{ currentCard.totalAnnualFee | number:'1.2-2' }}</span>
             </div>
+            <div class="kpi-box" *ngIf="currentCard.totalOneTimeFee && currentCard.totalOneTimeFee > 0">
+              <span class="kpi-label">One-Time / Reg. Fee</span>
+              <span class="kpi-value onetime-kpi-val">₹{{ currentCard.totalOneTimeFee | number:'1.2-2' }}</span>
+            </div>
             <div class="kpi-box" *ngIf="currentCard.totalConcession > 0">
               <span class="kpi-label">Concession Granted</span>
               <span class="kpi-value concession-val">-₹{{ currentCard.totalConcession | number:'1.2-2' }}</span>
@@ -305,6 +322,10 @@ import { environment } from '../../../environments/environment';
 
           <!-- 12-MONTH FEE PASSBOOK TABLE -->
           <div class="passbook-table-container">
+            <!-- Dynamic Institute Watermark Overlay -->
+            <div class="passbook-watermark-overlay" aria-hidden="true">
+              <img [src]="getInstituteLogo(currentCard)" alt="" class="watermark-logo-img" (error)="onLogoError($event)" />
+            </div>
             <table class="passbook-table">
               <thead>
                 <tr>
@@ -324,6 +345,14 @@ import { environment } from '../../../environments/environment';
                   <td class="td-sn">{{ m.monthIndex }}</td>
                   <td class="td-month">
                     <strong>{{ m.monthShort }}</strong>
+                    <div *ngIf="m.billingCycleTag" class="cycle-pill-tag" [matTooltip]="'Billed under ' + m.billingCycleTag + ' plan'">
+                      <mat-icon class="mini-tag-icon">autorenew</mat-icon>
+                      <span>{{ m.billingCycleTag }}</span>
+                    </div>
+                    <div *ngIf="m.oneTimeCharges && m.oneTimeCharges > 0" class="onetime-tag" [matTooltip]="m.oneTimeChargesNote || 'Includes One-Time Charges'">
+                      <mat-icon class="mini-tag-icon">bookmark</mat-icon>
+                      <span>{{ getOneTimeTagLabel(m) }}</span>
+                    </div>
                   </td>
                   <td class="td-amount">
                     <ng-container *ngIf="m.status !== 'N/A'">
@@ -332,6 +361,9 @@ import { environment } from '../../../environments/environment';
                         <small class="concession-tag">-₹{{ m.concessionAmount | number:'1.0-0' }} Disc</small>
                       </div>
                       <span *ngIf="!m.concessionAmount || m.concessionAmount <= 0">₹{{ m.amountPayable | number:'1.2-2' }}</span>
+                      <div *ngIf="m.oneTimeCharges && m.oneTimeCharges > 0" class="breakdown-subtext" [matTooltip]="m.oneTimeChargesNote || 'Monthly + One-Time breakdown'">
+                        <small class="sub-split">{{ getOneTimeSubtextLabel(m) }}</small>
+                      </div>
                     </ng-container>
                     <span *ngIf="m.status === 'N/A'" class="text-muted">-</span>
                   </td>
@@ -537,6 +569,10 @@ import { environment } from '../../../environments/environment';
                   <span class="kpi-label">Total Annual Fee</span>
                   <span class="kpi-value">₹{{ card.totalAnnualFee | number:'1.2-2' }}</span>
                 </div>
+                <div class="kpi-box" *ngIf="card.totalOneTimeFee && card.totalOneTimeFee > 0">
+                  <span class="kpi-label">One-Time / Reg. Fee</span>
+                  <span class="kpi-value onetime-kpi-val">₹{{ card.totalOneTimeFee | number:'1.2-2' }}</span>
+                </div>
                 <div class="kpi-box" *ngIf="card.totalConcession > 0">
                   <span class="kpi-label">Concession Granted</span>
                   <span class="kpi-value concession-val">-₹{{ card.totalConcession | number:'1.2-2' }}</span>
@@ -553,6 +589,10 @@ import { environment } from '../../../environments/environment';
 
               <!-- 12-MONTH FEE PASSBOOK TABLE -->
               <div class="passbook-table-container">
+                <!-- Dynamic Institute Watermark Overlay -->
+                <div class="passbook-watermark-overlay" aria-hidden="true">
+                  <img [src]="getInstituteLogo(card)" alt="" class="watermark-logo-img" (error)="onLogoError($event)" />
+                </div>
                 <table class="passbook-table">
                   <thead>
                     <tr>
@@ -570,7 +610,17 @@ import { environment } from '../../../environments/environment';
                   <tbody>
                     <tr *ngFor="let m of card.months" [class.row-paid]="m.status === 'Paid'" [class.row-due]="m.status === 'Due' || m.status === 'Overdue'" [class.row-na]="m.status === 'N/A'">
                       <td class="td-sn">{{ m.monthIndex }}</td>
-                      <td class="td-month"><strong>{{ m.monthShort }}</strong></td>
+                      <td class="td-month">
+                        <strong>{{ m.monthShort }}</strong>
+                        <div *ngIf="m.billingCycleTag" class="cycle-pill-tag" [matTooltip]="'Billed under ' + m.billingCycleTag + ' plan'">
+                          <mat-icon class="mini-tag-icon">autorenew</mat-icon>
+                          <span>{{ m.billingCycleTag }}</span>
+                        </div>
+                        <div *ngIf="m.oneTimeCharges && m.oneTimeCharges > 0" class="onetime-tag" [matTooltip]="m.oneTimeChargesNote || 'Includes One-Time Charges'">
+                          <mat-icon class="mini-tag-icon">bookmark</mat-icon>
+                          <span>{{ getOneTimeTagLabel(m) }}</span>
+                        </div>
+                      </td>
                       <td class="td-amount">
                         <ng-container *ngIf="m.status !== 'N/A'">
                           <div *ngIf="m.concessionAmount > 0" class="concession-cell">
@@ -578,6 +628,9 @@ import { environment } from '../../../environments/environment';
                             <small class="concession-tag">-₹{{ m.concessionAmount | number:'1.0-0' }} Disc</small>
                           </div>
                           <span *ngIf="!m.concessionAmount || m.concessionAmount <= 0">₹{{ m.amountPayable | number:'1.2-2' }}</span>
+                          <div *ngIf="m.oneTimeCharges && m.oneTimeCharges > 0" class="breakdown-subtext" [matTooltip]="m.oneTimeChargesNote || 'Monthly + One-Time breakdown'">
+                            <small class="sub-split">{{ getOneTimeSubtextLabel(m) }}</small>
+                          </div>
                         </ng-container>
                         <span *ngIf="m.status === 'N/A'" class="text-muted">-</span>
                       </td>
@@ -1231,6 +1284,64 @@ import { environment } from '../../../environments/environment';
       color: #16a34a;
     }
 
+    .onetime-kpi-val {
+      color: #0284c7;
+    }
+
+    .onetime-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      margin-top: 3px;
+      background: #f0f9ff;
+      border: 1px solid #bae6fd;
+      color: #0284c7;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      white-space: nowrap;
+
+      .mini-tag-icon {
+        font-size: 11px;
+        width: 11px;
+        height: 11px;
+        color: #0284c7;
+      }
+    }
+
+    .cycle-pill-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      margin-top: 3px;
+      background: #f5f3ff;
+      border: 1px solid #ddd6fe;
+      color: #6d28d9;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      white-space: nowrap;
+
+      .mini-tag-icon {
+        font-size: 11px;
+        width: 11px;
+        height: 11px;
+        color: #7c3aed;
+      }
+    }
+
+    .breakdown-subtext {
+      margin-top: 2px;
+      .sub-split {
+        font-size: 0.68rem;
+        color: #64748b;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+    }
+
     .concession-val {
       color: #d97706;
     }
@@ -1259,6 +1370,7 @@ import { environment } from '../../../environments/environment';
 
     /* Passbook 12-Month Table */
     .passbook-table-container {
+      position: relative;
       border: 1.5px solid #0f172a;
       border-radius: 6px;
       overflow-x: auto;
@@ -1266,11 +1378,42 @@ import { environment } from '../../../environments/environment';
       background: #ffffff;
     }
 
+    .passbook-watermark-overlay {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      user-select: none;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+
+      .watermark-logo-img {
+        width: 320px;
+        height: 320px;
+        max-width: 50%;
+        max-height: 75%;
+        object-fit: contain;
+        opacity: 0.075;
+        filter: contrast(110%);
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+    }
+
     .passbook-table {
+      position: relative;
+      z-index: 2;
       width: 100%;
       border-collapse: collapse;
       text-align: left;
       font-size: 0.84rem;
+      background: transparent;
     }
 
     .passbook-table th, .passbook-table td {
@@ -1409,7 +1552,7 @@ import { environment } from '../../../environments/environment';
     }
 
     .row-na {
-      background-color: #fafbfc;
+      background-color: rgba(250, 251, 252, 0.65);
       color: #94a3b8;
     }
 
@@ -1832,16 +1975,40 @@ import { environment } from '../../../environments/environment';
       }
 
       .passbook-table-container {
+        position: relative !important;
         border: 1.5px solid #000000 !important;
         margin-bottom: 4px !important;
         overflow: visible !important;
       }
 
+      .passbook-watermark-overlay {
+        position: absolute !important;
+        top: 50% !important;
+        left: 50% !important;
+        transform: translate(-50%, -50%) !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        z-index: 1 !important;
+        pointer-events: none !important;
+
+        .watermark-logo-img {
+          width: 250px !important;
+          height: 250px !important;
+          opacity: 0.08 !important;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+      }
+
       .passbook-table {
+        position: relative !important;
+        z-index: 2 !important;
         width: 100% !important;
         table-layout: fixed !important;
         border-collapse: collapse !important;
         font-size: 8.5px !important;
+        background: transparent !important;
       }
 
       .th-sn { width: 4% !important; text-align: center !important; }
@@ -2051,6 +2218,23 @@ export class FeeCardComponent implements OnInit {
       },
       error: (err) => console.error('Failed to load batches', err)
     });
+  }
+
+  coachingClassFilter: string = '';
+
+  get filteredBatches(): any[] {
+    if (!this.coachingClassFilter) return this.batches || [];
+    return (this.batches || []).filter(b => b.classId === this.coachingClassFilter);
+  }
+
+  onCoachingClassChanged(): void {
+    if (this.selectedBatchId) {
+      const b = this.batches.find(x => x.id === this.selectedBatchId);
+      if (b && this.coachingClassFilter && b.classId !== this.coachingClassFilter) {
+        this.selectedBatchId = '';
+        this.onBatchChanged();
+      }
+    }
   }
 
   onBatchChanged(): void {
@@ -2290,6 +2474,44 @@ export class FeeCardComponent implements OnInit {
       const fallback = event.target.parentElement.querySelector('.student-photo-fallback');
       if (fallback) fallback.style.display = 'flex';
     }
+  }
+
+  getOneTimeTagLabel(m: FeeCardMonthEntry): string {
+    const amount = Math.round(m.oneTimeCharges || 0);
+    const note = (m.oneTimeChargesNote || '').toLowerCase();
+
+    const hasReg = note.includes('reg') || note.includes('admission');
+    const hasKit = note.includes('kit') || note.includes('pen') || note.includes('book') || note.includes('stationery') || note.includes('uniform') || note.includes('dress');
+
+    if (hasReg && hasKit) {
+      return `+₹${amount} Reg. + Kit`;
+    } else if (hasKit && !hasReg) {
+      return `+₹${amount} Kit / Supplies`;
+    } else if (hasReg) {
+      return `+₹${amount} Reg. Fee`;
+    } else {
+      return `+₹${amount} One-Time`;
+    }
+  }
+
+  getOneTimeSubtextLabel(m: FeeCardMonthEntry): string {
+    const recurring = Math.max(0, Math.round((m.amountPayable || 0) - (m.oneTimeCharges || 0)));
+    const ot = Math.round(m.oneTimeCharges || 0);
+    const note = (m.oneTimeChargesNote || '').toLowerCase();
+
+    const hasReg = note.includes('reg') || note.includes('admission');
+    const hasKit = note.includes('kit') || note.includes('pen') || note.includes('book') || note.includes('stationery') || note.includes('uniform') || note.includes('dress');
+
+    let otLabel = 'One-Time';
+    if (hasReg && hasKit) {
+      otLabel = 'One-Time';
+    } else if (hasKit && !hasReg) {
+      otLabel = 'Kit';
+    } else if (hasReg) {
+      otLabel = 'Reg';
+    }
+
+    return `Mo ₹${recurring} + ${otLabel} ₹${ot}`;
   }
 
   formatStatus(status: string): string {

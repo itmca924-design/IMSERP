@@ -123,7 +123,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             <mat-label>Target Coaching Batch</mat-label>
             <mat-select formControlName="targetBatchId" (selectionChange)="onBatchChange($event.value)">
               <mat-option [value]="null">All Coaching Batches</mat-option>
-              <mat-option *ngFor="let b of batches" [value]="b.id">{{ b.name }} ({{ b.subject }})</mat-option>
+              <mat-option *ngFor="let b of batches" [value]="b.id">{{ b.name }} ({{ b.subject }}){{ b.className ? ' [' + b.className + ']' : '' }}</mat-option>
             </mat-select>
           </mat-form-field>
 

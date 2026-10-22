@@ -11,6 +11,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatChipsModule } from '@angular/material/chips';
 import * as QRCode from 'qrcode';
+import { firstValueFrom } from 'rxjs';
 import {
   FeesService,
   UpiIntentResponse,
@@ -1190,7 +1191,7 @@ export class UpiPaymentDialogComponent implements OnInit, AfterViewInit {
     });
   }
 
-  onSubmitPayment(): void {
+  async onSubmitPayment(): Promise<void> {
     if (this.paymentForm.invalid || this.submitting) return;
 
     const formVal = this.paymentForm.value;
@@ -1200,6 +1201,17 @@ export class UpiPaymentDialogComponent implements OnInit, AfterViewInit {
       this.confirmDialog.alert('Invalid UTR', 'Please enter a valid 12-digit UPI Reference ID / UTR from your payment app.', 'warning');
       return;
     }
+
+    const amount = parseFloat(formVal.amount);
+    const confirmed = await firstValueFrom(this.confirmDialog.confirm(
+      'Verify & Settle UPI Payment?',
+      `Are you sure you want to verify UTR ${cleanUtr} and settle ₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} for ${this.data.studentName || 'Student'}?`,
+      'Yes, Settle & Issue Receipt',
+      'Cancel',
+      'info'
+    ));
+
+    if (!confirmed) return;
 
     this.submitting = true;
     this.errorMessage = '';
