@@ -374,7 +374,15 @@ export const routes: Routes = [
         loadComponent: () => import('./features/inventory/vendor-ledger.component').then(m => m.VendorLedgerComponent)
       },
       { path: 'stock', redirectTo: 'inventory', pathMatch: 'full' },
-      { path: 'store', redirectTo: 'inventory', pathMatch: 'full' },
+      // Developer & Technical Architecture Team
+      {
+        path: 'developer',
+        loadComponent: () => import('./features/developer/developer-team.component').then(m => m.DeveloperTeamComponent)
+      },
+      { path: 'developer-team', redirectTo: 'developer', pathMatch: 'full' },
+      { path: 'support', redirectTo: 'developer', pathMatch: 'full' },
+      { path: 'about-developer', redirectTo: 'developer', pathMatch: 'full' },
+
       // Route Aliases
       { path: 'period-settings', redirectTo: 'school/period-settings', pathMatch: 'full' },
       { path: 'school/periods', redirectTo: 'school/period-settings', pathMatch: 'full' },

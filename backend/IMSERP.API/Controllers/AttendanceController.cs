@@ -70,22 +70,80 @@ public class AttendanceController : ControllerBase
     public async Task<ActionResult<IEnumerable<BiometricMappingPersonDto>>> GetMappings()
     {
         if (!await HasPermissionAsync(MappingRoute, PermissionAction.Edit)) return Forbid();
-        var students = await _db.Students.AsNoTracking().Where(s => s.IsActive)
-            .Select(s => new BiometricMappingPersonDto(
+
+        var rawStudents = await _db.Students.AsNoTracking().Where(s => s.IsActive)
+            .Include(s => s.Class)
+            .Include(s => s.Section)
+            .Include(s => s.Batch)
+            .OrderBy(s => s.StudentName)
+            .ToListAsync();
+
+        var batches = rawStudents.Where(s => s.BatchId != null)
+            .Select(s => s.Batch!)
+            .DistinctBy(b => b.Id)
+            .OrderBy(b => b.Name)
+            .ToList();
+        var batchIndexMap = batches.Select((b, idx) => new { b.Id, Index = idx + 1 }).ToDictionary(x => x.Id, x => x.Index);
+
+        var students = rawStudents.Select((s, idx) =>
+        {
+            var roll = s.IsSchoolStudent && !string.IsNullOrEmpty(s.SchoolRollNumber)
+                ? s.SchoolRollNumber
+                : (!string.IsNullOrEmpty(s.CoachingRollNumber) ? s.CoachingRollNumber : s.RollNumber);
+            var stream = s.IsSchoolStudent && s.IsCoachingStudent ? "Both" : (s.IsSchoolStudent ? "School" : "Coaching");
+
+            string suggested = "";
+            if (s.IsSchoolStudent)
+            {
+                int cCode = GetClassNumericCode(s.Class?.Name);
+                int rNum = ExtractNumericRoll(roll, idx + 1);
+                suggested = $"{cCode}{rNum:D2}";
+            }
+            else if (s.IsCoachingStudent || s.BatchId != null)
+            {
+                int bIdx = s.BatchId != null && batchIndexMap.TryGetValue(s.BatchId.Value, out int bi) ? bi : 1;
+                int bPrefix = 80 + (bIdx % 10);
+                int rNum = ExtractNumericRoll(roll, idx + 1);
+                suggested = $"{bPrefix}{rNum:D2}";
+            }
+
+            return new BiometricMappingPersonDto(
                 s.Id,
                 "Student",
                 s.StudentName,
-                s.IsSchoolStudent && !string.IsNullOrEmpty(s.SchoolRollNumber)
-                    ? s.SchoolRollNumber
-                    : (!string.IsNullOrEmpty(s.CoachingRollNumber) ? s.CoachingRollNumber : s.RollNumber),
+                roll ?? "",
                 s.BiometricUserId,
-                s.Batch != null ? s.Batch.Name : null,
-                s.Class != null ? s.Class.Name : null,
-                s.Section != null ? s.Section.Name : null,
-                s.IsSchoolStudent && s.IsCoachingStudent ? "Both" : (s.IsSchoolStudent ? "School" : "Coaching")
-            )).ToListAsync();
-        var teachers = await _db.Teachers.AsNoTracking().Where(t => t.IsActive)
-            .Select(t => new BiometricMappingPersonDto(t.Id, "Teacher", t.FullName, t.EmployeeCode, t.BiometricUserId, null, null, null, null)).ToListAsync();
+                s.Batch?.Name,
+                s.Class?.Name,
+                s.Section?.Name,
+                stream,
+                suggested
+            );
+        }).ToList();
+
+        var rawTeachers = await _db.Teachers.AsNoTracking().Where(t => t.IsActive)
+            .OrderBy(t => t.EmployeeCode)
+            .ThenBy(t => t.FullName)
+            .ToListAsync();
+
+        var teachers = rawTeachers.Select((t, idx) =>
+        {
+            int empDigits = ExtractNumericRoll(t.EmployeeCode, idx + 1);
+            string suggested = (empDigits > 0 && empDigits < 1000) ? $"9{empDigits:D3}" : $"9{(idx + 1):D3}";
+            return new BiometricMappingPersonDto(
+                t.Id,
+                "Teacher",
+                t.FullName,
+                t.EmployeeCode ?? "",
+                t.BiometricUserId,
+                null,
+                null,
+                null,
+                null,
+                suggested
+            );
+        }).ToList();
+
         return Ok(students.Concat(teachers).OrderBy(x => x.Name));
     }
 
@@ -384,13 +442,27 @@ public class AttendanceController : ControllerBase
         {
             var student = await _db.Students.FirstOrDefaultAsync(s => s.Id == personId);
             if (student == null) return NotFound(new { message = "Student not found." });
-            student.BiometricUserId = dto.BiometricUserId.Trim();
+
+            var trimmedId = dto.BiometricUserId.Trim();
+            var duplicate = await _db.Students.AnyAsync(s => s.Id != personId && s.BiometricUserId == trimmedId);
+            if (duplicate)
+            {
+                return BadRequest(new { message = $"Biometric ID '{trimmedId}' is already assigned to another student." });
+            }
+            student.BiometricUserId = trimmedId;
         }
         else if (personType.Equals("teacher", StringComparison.OrdinalIgnoreCase))
         {
             var teacher = await _db.Teachers.FirstOrDefaultAsync(t => t.Id == personId);
             if (teacher == null) return NotFound(new { message = "Teacher not found." });
-            teacher.BiometricUserId = dto.BiometricUserId.Trim();
+
+            var trimmedId = dto.BiometricUserId.Trim();
+            var duplicate = await _db.Teachers.AnyAsync(t => t.Id != personId && t.BiometricUserId == trimmedId);
+            if (duplicate)
+            {
+                return BadRequest(new { message = $"Biometric ID '{trimmedId}' is already assigned to another teacher." });
+            }
+            teacher.BiometricUserId = trimmedId;
         }
         else
         {
@@ -399,6 +471,163 @@ public class AttendanceController : ControllerBase
 
         await _db.SaveChangesAsync();
         return NoContent();
+    }
+
+    public record AutoGenerateMappingRequest(string? Category = "all", bool OverwriteExisting = false);
+
+    [HttpPost("mappings/auto-generate")]
+    public async Task<IActionResult> AutoGenerateBiometricMappings([FromBody] AutoGenerateMappingRequest? request)
+    {
+        if (!await HasPermissionAsync(MappingRoute, PermissionAction.Edit))
+            return Forbid();
+
+        var category = (request?.Category ?? "all").Trim().ToLowerInvariant();
+        var overwrite = request?.OverwriteExisting ?? false;
+        int updatedCount = 0;
+
+        // Track all used IDs in memory to guarantee 100% uniqueness across tenant
+        var usedIds = await _db.Students
+            .Where(s => !string.IsNullOrEmpty(s.BiometricUserId))
+            .Select(s => s.BiometricUserId!)
+            .ToHashSetAsync();
+
+        if (overwrite)
+        {
+            usedIds.Clear();
+        }
+
+        // 1. School Students
+        if (category == "all" || category == "school")
+        {
+            var schoolStudents = await _db.Students
+                .Include(s => s.Class)
+                .Where(s => s.IsActive && s.IsSchoolStudent && (overwrite || string.IsNullOrEmpty(s.BiometricUserId)))
+                .ToListAsync();
+
+            foreach (var group in schoolStudents.GroupBy(s => s.ClassId))
+            {
+                var sample = group.FirstOrDefault();
+                int classCode = GetClassNumericCode(sample?.Class?.Name);
+                int seq = 1;
+                foreach (var student in group.OrderBy(s => ExtractNumericRoll(s.SchoolRollNumber ?? s.RollNumber, seq)))
+                {
+                    int rollNum = ExtractNumericRoll(student.SchoolRollNumber ?? student.RollNumber, seq++);
+                    string candidate = $"{classCode}{rollNum:D2}";
+                    int offset = 1;
+                    while (usedIds.Contains(candidate))
+                    {
+                        candidate = $"{classCode}{(rollNum + offset):D2}";
+                        offset++;
+                    }
+                    usedIds.Add(candidate);
+                    student.BiometricUserId = candidate;
+                    updatedCount++;
+                }
+            }
+        }
+
+        // 2. Coaching Students
+        if (category == "all" || category == "coaching")
+        {
+            var coachingStudents = await _db.Students
+                .Include(s => s.Batch)
+                .Where(s => s.IsActive && (s.IsCoachingStudent || s.BatchId != null) && (overwrite || string.IsNullOrEmpty(s.BiometricUserId)))
+                .ToListAsync();
+
+            var batches = coachingStudents.Where(s => s.BatchId != null)
+                .Select(s => s.Batch!)
+                .DistinctBy(b => b.Id)
+                .OrderBy(b => b.Name)
+                .ToList();
+            var batchIndexMap = batches.Select((b, idx) => new { b.Id, Index = idx + 1 }).ToDictionary(x => x.Id, x => x.Index);
+
+            foreach (var group in coachingStudents.GroupBy(s => s.BatchId))
+            {
+                int bIdx = group.Key != null && batchIndexMap.TryGetValue(group.Key.Value, out int bi) ? bi : 1;
+                int batchPrefix = 80 + (bIdx % 10);
+                int seq = 1;
+                foreach (var student in group.OrderBy(s => ExtractNumericRoll(s.CoachingRollNumber ?? s.RollNumber, seq)))
+                {
+                    int rollNum = ExtractNumericRoll(student.CoachingRollNumber ?? student.RollNumber, seq++);
+                    string candidate = $"{batchPrefix}{rollNum:D2}";
+                    int offset = 1;
+                    while (usedIds.Contains(candidate))
+                    {
+                        candidate = $"{batchPrefix}{(rollNum + offset):D2}";
+                        offset++;
+                    }
+                    usedIds.Add(candidate);
+                    student.BiometricUserId = candidate;
+                    updatedCount++;
+                }
+            }
+        }
+
+        // 3. Teachers & Faculty
+        if (category == "all" || category == "teacher")
+        {
+            var teacherUsedIds = await _db.Teachers
+                .Where(t => !string.IsNullOrEmpty(t.BiometricUserId))
+                .Select(t => t.BiometricUserId!)
+                .ToHashSetAsync();
+
+            if (overwrite) teacherUsedIds.Clear();
+
+            var teachers = await _db.Teachers
+                .Where(t => t.IsActive && (overwrite || string.IsNullOrEmpty(t.BiometricUserId)))
+                .OrderBy(t => t.EmployeeCode)
+                .ThenBy(t => t.FullName)
+                .ToListAsync();
+
+            int tSeq = 1;
+            foreach (var teacher in teachers)
+            {
+                int empDigits = ExtractNumericRoll(teacher.EmployeeCode, tSeq);
+                string candidate = (empDigits > 0 && empDigits < 1000) ? $"9{empDigits:D3}" : $"9{tSeq:D3}";
+                int offset = 1;
+                while (teacherUsedIds.Contains(candidate))
+                {
+                    candidate = $"9{(tSeq + offset):D3}";
+                    offset++;
+                }
+                teacherUsedIds.Add(candidate);
+                teacher.BiometricUserId = candidate;
+                tSeq++;
+                updatedCount++;
+            }
+        }
+
+        await _db.SaveChangesAsync();
+        return Ok(new { message = $"Successfully generated and saved biometric device IDs for {updatedCount} person(s).", updatedCount });
+    }
+
+    private static int GetClassNumericCode(string? className)
+    {
+        if (string.IsNullOrWhiteSpace(className)) return 20;
+        var name = className.Trim().ToLowerInvariant();
+        if (name.Contains("play")) return 10;
+        if (name.Contains("nursery") || name.Contains("nur")) return 11;
+        if (name.Contains("lkg") || name.Contains("l.k.g") || name.Contains("lower")) return 12;
+        if (name.Contains("ukg") || name.Contains("u.k.g") || name.Contains("upper") || name.Contains("kg")) return 13;
+
+        // Matches 1st, 2nd, 3rd, 4th, 5th, 10th, or pure digits 1, 2, 3...
+        var match = System.Text.RegularExpressions.Regex.Match(name, @"(\d{1,2})");
+        if (match.Success && int.TryParse(match.Groups[1].Value, out int grade))
+        {
+            return 20 + grade; // 1st -> 21, 2nd -> 22, 5th -> 25, 10th -> 30
+        }
+        return 20;
+    }
+
+    private static int ExtractNumericRoll(string? rollStr, int fallback)
+    {
+        if (string.IsNullOrWhiteSpace(rollStr)) return fallback;
+        var match = System.Text.RegularExpressions.Regex.Match(rollStr, @"(\d+)");
+        if (match.Success && int.TryParse(match.Groups[1].Value, out int num))
+        {
+            return num;
+        }
+        return fallback;
     }
 
     [HttpPost("biometric-events/{eventId:guid}/retry")]
@@ -412,6 +641,314 @@ public class AttendanceController : ControllerBase
         var request = new BiometricAttendanceEventDto(failed.PersonType, failed.BiometricUserId, failed.EventTime,
             failed.DeviceId?.ToString(), $"{failed.DeviceEventId}-RETRY-{DateTime.UtcNow.Ticks}");
         return await ReceiveBiometricEvent(request);
+    }
+
+    /// <summary>
+    /// Direct ISAPI / HTTP Push webhook for Hikvision DS-K1A802AEF (and any biometric + RFID device).
+    /// Receives real-time fingerprint and RFID card events over LAN/WAN without requiring a user JWT token.
+    /// </summary>
+    [HttpPost("biometric/hikvision")]
+    [HttpPost("biometric/push")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ReceiveHikvisionPushEvent(
+        [FromQuery] Guid? tenantId,
+        [FromQuery] string? serialNumber)
+    {
+        string? employeeNo = null;
+        string? cardNo = null;
+        string? serialNo = serialNumber;
+        DateTime eventTime = DateTime.UtcNow;
+        string rawBody = string.Empty;
+
+        if (Request.HasFormContentType)
+        {
+            try
+            {
+                var form = await Request.ReadFormAsync();
+                rawBody = form["event_log"].FirstOrDefault()
+                    ?? form["AccessControllerEvent"].FirstOrDefault()
+                    ?? form.FirstOrDefault().Value.FirstOrDefault()
+                    ?? string.Empty;
+
+                if (string.IsNullOrWhiteSpace(employeeNo))
+                    employeeNo = form["employeeNo"].FirstOrDefault() ?? form["employeeNoString"].FirstOrDefault() ?? form["userId"].FirstOrDefault();
+                if (string.IsNullOrWhiteSpace(cardNo))
+                    cardNo = form["cardNo"].FirstOrDefault();
+                if (string.IsNullOrWhiteSpace(serialNo))
+                    serialNo = form["serialNo"].FirstOrDefault() ?? form["serialNumber"].FirstOrDefault();
+            }
+            catch { }
+        }
+
+        if (string.IsNullOrWhiteSpace(rawBody))
+        {
+            try
+            {
+                Request.EnableBuffering();
+                if (Request.Body.CanSeek) Request.Body.Position = 0;
+                using var reader = new System.IO.StreamReader(Request.Body, System.Text.Encoding.UTF8, leaveOpen: true);
+                rawBody = await reader.ReadToEndAsync();
+            }
+            catch { }
+        }
+
+        rawBody = rawBody?.Trim('\uFEFF', ' ', '\r', '\n', '\t') ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(rawBody) && Request.Query.Count == 0 && string.IsNullOrWhiteSpace(employeeNo) && string.IsNullOrWhiteSpace(cardNo))
+        {
+            return Ok(new { message = "Heartbeat received. Endpoint ready for Hikvision ISAPI events." });
+        }
+
+        if (!string.IsNullOrWhiteSpace(rawBody))
+        {
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(rawBody);
+                var root = doc.RootElement;
+
+                string? GetVal(System.Text.Json.JsonElement elem, string prop)
+                {
+                    if (elem.TryGetProperty(prop, out var v))
+                    {
+                        return v.ValueKind switch
+                        {
+                            System.Text.Json.JsonValueKind.String => v.GetString(),
+                            System.Text.Json.JsonValueKind.Number => v.GetRawText(),
+                            _ => null
+                        };
+                    }
+                    return null;
+                }
+
+                if (root.TryGetProperty("AccessControllerEvent", out var acs))
+                {
+                    employeeNo = GetVal(acs, "employeeNoString") ?? GetVal(acs, "employeeNo");
+                    cardNo = GetVal(acs, "cardNo");
+                    serialNo ??= GetVal(acs, "serialNo") ?? GetVal(acs, "serialNumber");
+                }
+
+                employeeNo ??= GetVal(root, "employeeNoString") ?? GetVal(root, "employeeNo") ?? GetVal(root, "userId");
+                cardNo ??= GetVal(root, "cardNo");
+                serialNo ??= GetVal(root, "serialNumber") ?? GetVal(root, "serialNo");
+
+                if (root.TryGetProperty("dateTime", out var dt) && dt.TryGetDateTime(out var parsedDt)) eventTime = parsedDt;
+                else if (root.TryGetProperty("eventTime", out var et) && et.TryGetDateTime(out var parsedEt)) eventTime = parsedEt;
+            }
+            catch
+            {
+                // Fallback: Regex for JSON
+                var jsonEmp = System.Text.RegularExpressions.Regex.Match(rawBody, @"""employeeNo(?:String)?""\s*:\s*""?([^"",}\s]+)""?", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                if (jsonEmp.Success) employeeNo = jsonEmp.Groups[1].Value.Trim();
+
+                var jsonCard = System.Text.RegularExpressions.Regex.Match(rawBody, @"""cardNo""\s*:\s*""?([^"",}\s]+)""?", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                if (jsonCard.Success) cardNo = jsonCard.Groups[1].Value.Trim();
+
+                var jsonSerial = System.Text.RegularExpressions.Regex.Match(rawBody, @"""serialNo(?:String|Number)?""\s*:\s*""?([^"",}\s]+)""?", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                if (jsonSerial.Success) serialNo ??= jsonSerial.Groups[1].Value.Trim();
+
+                // Fallback: Regex for XML
+                var empMatch = System.Text.RegularExpressions.Regex.Match(rawBody, @"<employeeNo(?:String)?>([^<]+)</employeeNo(?:String)?>", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                if (empMatch.Success) employeeNo ??= empMatch.Groups[1].Value.Trim();
+
+                var cardMatch = System.Text.RegularExpressions.Regex.Match(rawBody, @"<cardNo>([^<]+)</cardNo>", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                if (cardMatch.Success) cardNo ??= cardMatch.Groups[1].Value.Trim();
+
+                var serialMatch = System.Text.RegularExpressions.Regex.Match(rawBody, @"<serialNo(?:String)?>([^<]+)</serialNo(?:String)?>", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                if (serialMatch.Success) serialNo ??= serialMatch.Groups[1].Value.Trim();
+
+                var timeMatch = System.Text.RegularExpressions.Regex.Match(rawBody, @"<dateTime>([^<]+)</dateTime>", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                if (timeMatch.Success && DateTime.TryParse(timeMatch.Groups[1].Value.Trim(), out var parsedXmlTime)) eventTime = parsedXmlTime;
+            }
+        }
+
+        if (Request.HasFormContentType)
+        {
+            employeeNo ??= Request.Form["employeeNo"].FirstOrDefault() ?? Request.Form["employeeNoString"].FirstOrDefault() ?? Request.Form["userId"].FirstOrDefault();
+            cardNo ??= Request.Form["cardNo"].FirstOrDefault();
+            serialNo ??= Request.Form["serialNo"].FirstOrDefault() ?? Request.Form["serialNumber"].FirstOrDefault();
+        }
+
+        employeeNo ??= Request.Query["employeeNo"].FirstOrDefault() ?? Request.Query["employeeNoString"].FirstOrDefault() ?? Request.Query["userId"].FirstOrDefault();
+        cardNo ??= Request.Query["cardNo"].FirstOrDefault();
+        serialNo ??= Request.Query["serialNo"].FirstOrDefault() ?? Request.Query["serialNumber"].FirstOrDefault();
+
+        var punchId = !string.IsNullOrWhiteSpace(employeeNo) ? employeeNo.Trim() : cardNo?.Trim();
+        if (string.IsNullOrWhiteSpace(punchId))
+        {
+            return Ok(new { message = "Heartbeat or non-punch event received. No employeeNo or cardNo detected." });
+        }
+
+        Guid resolvedTenantId = tenantId ?? Guid.Empty;
+        Guid? resolvedBranchId = null;
+
+        if (resolvedTenantId == Guid.Empty)
+        {
+            if (!string.IsNullOrWhiteSpace(serialNo))
+            {
+                var matchedDevice = await _db.BiometricDevices.IgnoreQueryFilters().FirstOrDefaultAsync(d => d.SerialNumber == serialNo.Trim());
+                if (matchedDevice != null)
+                {
+                    resolvedTenantId = matchedDevice.TenantId;
+                    resolvedBranchId = matchedDevice.BranchId;
+                    matchedDevice.LastSeenAt = DateTime.UtcNow;
+                    matchedDevice.LastSyncAt = DateTime.UtcNow;
+                    matchedDevice.Status = "Online";
+                }
+            }
+
+            if (resolvedTenantId == Guid.Empty)
+            {
+                var defaultTenant = await _db.Tenants.IgnoreQueryFilters().FirstOrDefaultAsync(t => t.IsActive);
+                if (defaultTenant != null) resolvedTenantId = defaultTenant.Id;
+            }
+        }
+
+        if (resolvedTenantId == Guid.Empty)
+        {
+            return BadRequest(new { message = "Cannot resolve TenantId for this biometric event." });
+        }
+
+        var indiaTime = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(
+            DateTime.SpecifyKind(eventTime, DateTimeKind.Utc), "India Standard Time");
+
+        var eventLog = new BiometricEventLog
+        {
+            TenantId = resolvedTenantId,
+            PersonType = "Auto",
+            BiometricUserId = punchId,
+            EventTime = eventTime,
+            DeviceEventId = $"HIK-{DateTime.UtcNow.Ticks}",
+            Status = "Received"
+        };
+        _db.BiometricEventLogs.Add(eventLog);
+
+        // Check Student first (by Biometric ID, Admission No, Roll No, Coaching Roll No, or RFID Card No)
+        var student = await _db.Students.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(s => s.TenantId == resolvedTenantId &&
+                (s.BiometricUserId == punchId ||
+                 s.AdmissionNumber == punchId ||
+                 s.RollNumber == punchId ||
+                 s.CoachingRollNumber == punchId ||
+                 s.SchoolRollNumber == punchId ||
+                 (cardNo != null && (s.BiometricUserId == cardNo || s.LibraryCardNumber == cardNo))));
+
+        if (student != null)
+        {
+            eventLog.PersonType = "student";
+            var record = await _db.StudentAttendances.IgnoreQueryFilters().FirstOrDefaultAsync(a =>
+                a.TenantId == resolvedTenantId && a.StudentId == student.Id && a.AttendanceDate == eventTime.Date);
+
+            if (record == null)
+            {
+                record = new StudentAttendance
+                {
+                    TenantId = resolvedTenantId,
+                    BranchId = student.BranchId ?? resolvedBranchId,
+                    StudentId = student.Id,
+                    AttendanceDate = eventTime.Date,
+                    CheckInTime = indiaTime.ToString("HH:mm"),
+                    Status = TeacherAttendanceStatus.Present,
+                    CaptureSource = "Hikvision DS-K1A802AEF",
+                    MarkedBy = "biometric-hikvision",
+                    CapturedAt = eventTime
+                };
+                _db.StudentAttendances.Add(record);
+            }
+            else
+            {
+                record.Status = TeacherAttendanceStatus.Present;
+                if (string.IsNullOrEmpty(record.CheckInTime))
+                {
+                    record.CheckInTime = indiaTime.ToString("HH:mm");
+                }
+                else
+                {
+                    record.CheckOutTime = indiaTime.ToString("HH:mm");
+                }
+                record.CaptureSource = "Hikvision DS-K1A802AEF";
+                record.CapturedAt = eventTime;
+            }
+
+            eventLog.Status = "Processed";
+            eventLog.AttendanceId = record.Id;
+            await _db.SaveChangesAsync();
+
+            return Ok(new
+            {
+                message = "Student attendance recorded successfully via Hikvision punch.",
+                student = student.StudentName,
+                checkIn = record.CheckInTime,
+                checkOut = record.CheckOutTime
+            });
+        }
+
+        // Check Teacher next (by Biometric ID, Employee Code, or RFID Card No)
+        var teacher = await _db.Teachers.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(t => t.TenantId == resolvedTenantId &&
+                (t.BiometricUserId == punchId ||
+                 t.EmployeeCode == punchId ||
+                 (cardNo != null && t.BiometricUserId == cardNo)));
+
+        if (teacher != null)
+        {
+            eventLog.PersonType = "teacher";
+            var record = await _db.TeacherAttendances.IgnoreQueryFilters().FirstOrDefaultAsync(a =>
+                a.TenantId == resolvedTenantId && a.TeacherId == teacher.Id && a.AttendanceDate == eventTime.Date);
+
+            if (record == null)
+            {
+                record = new TeacherAttendance
+                {
+                    TenantId = resolvedTenantId,
+                    BranchId = teacher.BranchId ?? resolvedBranchId,
+                    TeacherId = teacher.Id,
+                    AttendanceDate = eventTime.Date,
+                    CheckInTime = indiaTime.ToString("HH:mm"),
+                    Status = TeacherAttendanceStatus.Present,
+                    CaptureSource = "Hikvision DS-K1A802AEF",
+                    MarkedBy = "biometric-hikvision",
+                    CapturedAt = eventTime
+                };
+                _db.TeacherAttendances.Add(record);
+            }
+            else
+            {
+                record.Status = TeacherAttendanceStatus.Present;
+                if (string.IsNullOrEmpty(record.CheckInTime))
+                {
+                    record.CheckInTime = indiaTime.ToString("HH:mm");
+                }
+                else
+                {
+                    record.CheckOutTime = indiaTime.ToString("HH:mm");
+                }
+                record.CaptureSource = "Hikvision DS-K1A802AEF";
+                record.CapturedAt = eventTime;
+            }
+
+            eventLog.Status = "Processed";
+            eventLog.AttendanceId = record.Id;
+            await _db.SaveChangesAsync();
+
+            return Ok(new
+            {
+                message = "Teacher attendance recorded successfully via Hikvision punch.",
+                teacher = teacher.FullName,
+                checkIn = record.CheckInTime,
+                checkOut = record.CheckOutTime
+            });
+        }
+
+        eventLog.Status = "Unmapped";
+        eventLog.ErrorMessage = $"Unrecognized Biometric ID '{punchId}' (Card: '{cardNo}'). Assign this ID to a Student or Teacher in Biometric Mapping UI.";
+        await _db.SaveChangesAsync();
+
+        return Ok(new
+        {
+            message = "Punch received but ID is unmapped.",
+            unmappedId = punchId,
+            cardNo = cardNo
+        });
     }
 
     private static bool IsValidMode(string mode) =>

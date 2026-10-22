@@ -4258,58 +4258,222 @@ public class StudentsController : ControllerBase
     [HttpPost("resequence-roll-numbers")]
     public async Task<ActionResult<ResequenceRollNumbersResultDto>> ResequenceRollNumbers([FromBody] ResequenceRollNumbersRequestDto dto)
     {
-        var query = _dbContext.Students
-            .Where(s => s.IsActive && s.ClassId == dto.ClassId);
+        bool isCoaching = string.Equals(dto.TargetScope, "coaching", StringComparison.OrdinalIgnoreCase) ||
+                          (dto.BatchId.HasValue && dto.BatchId.Value != Guid.Empty);
 
-        if (dto.SectionId.HasValue && dto.SectionId.Value != Guid.Empty)
+        List<Student> students;
+        string resolvedPrefix = dto.Prefix?.Trim() ?? "";
+        int padding = Math.Clamp(dto.NumberPadding, 1, 6);
+
+        if (isCoaching)
         {
-            query = query.Where(s => s.SectionId == dto.SectionId.Value);
+            if (!dto.BatchId.HasValue || dto.BatchId.Value == Guid.Empty)
+            {
+                return BadRequest(new { message = "Coaching BatchId is required for coaching roll number resequencing." });
+            }
+
+            var batch = await _dbContext.Batches
+                .Include(b => b.Branch)
+                .FirstOrDefaultAsync(b => b.Id == dto.BatchId.Value);
+
+            if (batch == null)
+            {
+                return NotFound(new { message = "Selected Coaching Batch not found." });
+            }
+
+            // Resolve dynamic tokens in prefix if provided (e.g. {BATCH}, {BRANCH}, {YEAR})
+            if (!string.IsNullOrEmpty(resolvedPrefix))
+            {
+                resolvedPrefix = resolvedPrefix
+                    .Replace("{BATCH}", batch.Name ?? "", StringComparison.OrdinalIgnoreCase)
+                    .Replace("{BRANCH}", batch.Branch?.Code ?? batch.Branch?.Name ?? "MAIN", StringComparison.OrdinalIgnoreCase)
+                    .Replace("{YEAR}", !string.IsNullOrWhiteSpace(batch.AcademicYear) ? batch.AcademicYear : DateTime.UtcNow.Year.ToString(), StringComparison.OrdinalIgnoreCase)
+                    .Replace("{SESSION}", !string.IsNullOrWhiteSpace(batch.AcademicYear) ? batch.AcademicYear : DateTime.UtcNow.Year.ToString(), StringComparison.OrdinalIgnoreCase);
+            }
+
+            students = await _dbContext.Students
+                .Where(s => s.IsActive && s.BatchId == dto.BatchId.Value)
+                .ToListAsync();
+        }
+        else
+        {
+            if (!dto.ClassId.HasValue || dto.ClassId.Value == Guid.Empty)
+            {
+                return BadRequest(new { message = "School ClassId is required for class roll number resequencing." });
+            }
+
+            var schoolClass = await _dbContext.SchoolClasses
+                .Include(c => c.Branch)
+                .FirstOrDefaultAsync(c => c.Id == dto.ClassId.Value);
+
+            if (!string.IsNullOrEmpty(resolvedPrefix) && schoolClass != null)
+            {
+                resolvedPrefix = resolvedPrefix
+                    .Replace("{CLASS}", schoolClass.Name ?? "", StringComparison.OrdinalIgnoreCase)
+                    .Replace("{BRANCH}", schoolClass.Branch?.Code ?? schoolClass.Branch?.Name ?? "MAIN", StringComparison.OrdinalIgnoreCase)
+                    .Replace("{YEAR}", DateTime.UtcNow.Year.ToString(), StringComparison.OrdinalIgnoreCase);
+            }
+
+            var query = _dbContext.Students
+                .Where(s => s.IsActive && s.ClassId == dto.ClassId.Value);
+
+            if (dto.SectionId.HasValue && dto.SectionId.Value != Guid.Empty)
+            {
+                query = query.Where(s => s.SectionId == dto.SectionId.Value);
+            }
+
+            students = await query.ToListAsync();
         }
 
-        var students = await query.ToListAsync();
         if (!students.Any())
         {
             return Ok(new ResequenceRollNumbersResultDto(0, 0, dto.IsDryRun, dto.SortRule, new List<StudentRollNumberPreviewItemDto>()));
         }
 
-        IEnumerable<Student> sorted = dto.SortRule?.ToLower() switch
+        Func<Student, string?> getCurrentRoll = (s) => isCoaching
+            ? (s.CoachingRollNumber ?? (s.IsCoachingStudent ? s.RollNumber : null))
+            : (s.SchoolRollNumber ?? s.RollNumber);
+
+        Func<IEnumerable<Student>, IEnumerable<Student>> applySort = (list) => dto.SortRule?.ToLower() switch
         {
-            "gender_alphabetical" => students
+            "gender_alphabetical" => list
                 .OrderBy(s => (s.Gender?.ToLower() == "female" || s.Gender?.ToLower() == "girl") ? 0 : 1)
                 .ThenBy(s => s.StudentName, StringComparer.OrdinalIgnoreCase),
-            "admission_date" => students
+            "admission_date" => list
                 .OrderBy(s => s.JoiningDate)
                 .ThenBy(s => s.StudentName, StringComparer.OrdinalIgnoreCase),
-            "admission_no" => students
+            "admission_no" => list
                 .OrderBy(s => s.AdmissionNumber ?? "")
                 .ThenBy(s => s.StudentName, StringComparer.OrdinalIgnoreCase),
-            _ => students
+            "current_roll" => list
+                .OrderBy(s => {
+                    var r = getCurrentRoll(s) ?? "";
+                    var match = System.Text.RegularExpressions.Regex.Match(r, @"\d+");
+                    return match.Success && int.TryParse(match.Value, out int n) ? n : int.MaxValue;
+                })
+                .ThenBy(s => s.StudentName, StringComparer.OrdinalIgnoreCase),
+            _ => list
                 .OrderBy(s => s.StudentName, StringComparer.OrdinalIgnoreCase)
         };
 
         var previewItems = new List<StudentRollNumberPreviewItemDto>();
-        var prefix = dto.Prefix?.Trim() ?? "";
-        int currentNumber = Math.Max(1, dto.StartFrom);
+        string FormatNumber(int num) => num.ToString($"D{padding}");
 
-        foreach (var student in sorted)
+        if (dto.FillBlanksOnly)
         {
-            var newRoll = string.IsNullOrEmpty(prefix) ? currentNumber.ToString() : $"{prefix}{currentNumber}";
-            previewItems.Add(new StudentRollNumberPreviewItemDto(
-                student.Id,
-                student.StudentName,
-                student.AdmissionNumber,
-                student.Gender,
-                student.SchoolRollNumber ?? student.RollNumber,
-                newRoll
-            ));
+            var assigned = students.Where(s => !string.IsNullOrWhiteSpace(getCurrentRoll(s))).ToList();
+            var unassigned = students.Where(s => string.IsNullOrWhiteSpace(getCurrentRoll(s))).ToList();
 
-            if (!dto.IsDryRun)
+            // Retain existing roll numbers for already assigned students
+            foreach (var s in assigned)
             {
-                student.SchoolRollNumber = newRoll;
-                student.RollNumber = newRoll;
+                var cur = getCurrentRoll(s)!;
+                previewItems.Add(new StudentRollNumberPreviewItemDto(
+                    s.Id,
+                    s.StudentName,
+                    s.AdmissionNumber,
+                    s.Gender,
+                    cur,
+                    cur,
+                    "Unchanged"
+                ));
             }
 
-            currentNumber++;
+            // Find next available number
+            int nextNum = Math.Max(1, dto.StartFrom);
+            if (dto.StartFrom <= 1 && assigned.Any())
+            {
+                int maxExisting = 0;
+                foreach (var s in assigned)
+                {
+                    var r = getCurrentRoll(s) ?? "";
+                    var match = System.Text.RegularExpressions.Regex.Match(r, @"\d+");
+                    if (match.Success && int.TryParse(match.Value, out int val) && val > maxExisting)
+                    {
+                        maxExisting = val;
+                    }
+                }
+                nextNum = Math.Max(nextNum, maxExisting + 1);
+            }
+
+            var sortedUnassigned = applySort(unassigned);
+            foreach (var student in sortedUnassigned)
+            {
+                var formattedNum = FormatNumber(nextNum);
+                var newRoll = string.IsNullOrEmpty(resolvedPrefix) ? formattedNum : $"{resolvedPrefix}{formattedNum}";
+                previewItems.Add(new StudentRollNumberPreviewItemDto(
+                    student.Id,
+                    student.StudentName,
+                    student.AdmissionNumber,
+                    student.Gender,
+                    getCurrentRoll(student),
+                    newRoll,
+                    "New Assigned"
+                ));
+
+                if (!dto.IsDryRun)
+                {
+                    if (isCoaching)
+                    {
+                        student.CoachingRollNumber = newRoll;
+                        if (!student.IsSchoolStudent || string.IsNullOrWhiteSpace(student.RollNumber))
+                        {
+                            student.RollNumber = newRoll;
+                        }
+                    }
+                    else
+                    {
+                        student.SchoolRollNumber = newRoll;
+                        student.RollNumber = newRoll;
+                    }
+                }
+
+                nextNum++;
+            }
+        }
+        else
+        {
+            var sorted = applySort(students);
+            int currentNumber = Math.Max(1, dto.StartFrom);
+
+            foreach (var student in sorted)
+            {
+                var formattedNum = FormatNumber(currentNumber);
+                var newRoll = string.IsNullOrEmpty(resolvedPrefix) ? formattedNum : $"{resolvedPrefix}{formattedNum}";
+                var cur = getCurrentRoll(student);
+                var status = string.Equals(cur, newRoll, StringComparison.OrdinalIgnoreCase)
+                    ? "Unchanged"
+                    : (string.IsNullOrWhiteSpace(cur) ? "New Assigned" : "Updated");
+
+                previewItems.Add(new StudentRollNumberPreviewItemDto(
+                    student.Id,
+                    student.StudentName,
+                    student.AdmissionNumber,
+                    student.Gender,
+                    cur,
+                    newRoll,
+                    status
+                ));
+
+                if (!dto.IsDryRun)
+                {
+                    if (isCoaching)
+                    {
+                        student.CoachingRollNumber = newRoll;
+                        if (!student.IsSchoolStudent || string.IsNullOrWhiteSpace(student.RollNumber))
+                        {
+                            student.RollNumber = newRoll;
+                        }
+                    }
+                    else
+                    {
+                        student.SchoolRollNumber = newRoll;
+                        student.RollNumber = newRoll;
+                    }
+                }
+
+                currentNumber++;
+            }
         }
 
         if (!dto.IsDryRun)
@@ -4317,9 +4481,11 @@ public class StudentsController : ControllerBase
             await _dbContext.SaveChangesAsync();
         }
 
+        int updatedCount = dto.IsDryRun ? 0 : previewItems.Count(p => p.Status != "Unchanged");
+
         return Ok(new ResequenceRollNumbersResultDto(
             previewItems.Count,
-            dto.IsDryRun ? 0 : previewItems.Count,
+            updatedCount,
             dto.IsDryRun,
             dto.SortRule ?? "alphabetical",
             previewItems

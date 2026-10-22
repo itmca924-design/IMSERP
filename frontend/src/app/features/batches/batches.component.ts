@@ -17,6 +17,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { BatchDto, BatchesService } from '../../core/services/batches.service';
 import { BatchDialogComponent } from './batch-dialog.component';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
+import { StudentRollSequencerDialogComponent } from '../students/student-roll-sequencer-dialog.component';
 
 @Component({
   selector: 'app-batches',
@@ -45,10 +46,16 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           <h1 class="page-title">Coaching Batches Directory</h1>
           <p class="page-subtitle">Manage coaching batches, schedules, fee structures, and assigned students.</p>
         </div>
-        <button mat-raised-button color="primary" class="add-btn" (click)="openBatchModal()">
-          <mat-icon>add</mat-icon>
-          <span>Create New Batch</span>
-        </button>
+        <div class="header-btns">
+          <button mat-stroked-button color="primary" class="sequence-btn" (click)="openRollSequencer()">
+            <mat-icon>format_list_numbered</mat-icon>
+            <span>Sequence Roll Nos</span>
+          </button>
+          <button mat-raised-button color="primary" class="add-btn" (click)="openBatchModal()">
+            <mat-icon>add</mat-icon>
+            <span>Create New Batch</span>
+          </button>
+        </div>
       </div>
 
       <mat-card class="table-card mat-elevation-z2">
@@ -147,6 +154,9 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             <ng-container matColumnDef="actions">
               <th mat-header-cell *matHeaderCellDef class="text-right"> Actions </th>
               <td mat-cell *matCellDef="let element" class="text-right">
+                <button mat-icon-button color="primary" (click)="openRollSequencer(element)" matTooltip="Auto-Sequence Batch Roll Numbers (रोल नंबर री-सीक्वेंसिंग)">
+                  <mat-icon>format_list_numbered</mat-icon>
+                </button>
                 <button mat-icon-button color="primary" (click)="openBatchModal(element)" matTooltip="Edit Batch">
                   <mat-icon>edit</mat-icon>
                 </button>
@@ -201,6 +211,12 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
         color: #666;
         margin: 4px 0 0 0;
         font-size: 0.9rem;
+      }
+      .header-btns {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
       }
     }
     .table-card {
@@ -393,6 +409,27 @@ export class BatchesComponent implements OnInit {
       if (result) {
         this.loadBatches();
         this.confirmDialog.alert('Batch Saved', 'Academic batch saved successfully!', 'success');
+      }
+    });
+  }
+
+  openRollSequencer(batch?: BatchDto): void {
+    const dialogRef = this.dialog.open(StudentRollSequencerDialogComponent, {
+      width: '940px',
+      maxWidth: '96vw',
+      maxHeight: '92vh',
+      panelClass: 'cert-modal-container',
+      disableClose: false,
+      data: {
+        batches: this.batches,
+        selectedBatchId: batch ? batch.id : undefined,
+        initialScope: 'coaching'
+      }
+    });
+
+    dialogRef.afterClosed().subscribe((changed) => {
+      if (changed) {
+        this.loadBatches();
       }
     });
   }

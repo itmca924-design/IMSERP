@@ -5,5 +5,6 @@
 export const environment = {
   production: true,
   apiBaseUrl: (typeof window !== 'undefined' && (window as any).__env?.API_BASE_URL) || 'http://localhost:5000',
-  apiUrl: (typeof window !== 'undefined' && (window as any).__env?.API_URL) || 'http://localhost:5000/api'
+  apiUrl: (typeof window !== 'undefined' && (window as any).__env?.API_URL) || 'http://localhost:5000/api',
+  biometricWebhookUrl: (typeof window !== 'undefined' && (window as any).__env?.BIOMETRIC_WEBHOOK_URL) || 'http://localhost:5000/api/attendance/biometric/hikvision'
 };

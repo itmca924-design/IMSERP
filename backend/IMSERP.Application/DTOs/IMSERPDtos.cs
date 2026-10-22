@@ -1884,7 +1884,8 @@ public record BiometricMappingPersonDto(
     string? BatchName,
     string? ClassName = null,
     string? SectionName = null,
-    string? Stream = null
+    string? Stream = null,
+    string? SuggestedBiometricId = null
 );
 
 public record BulkAttendanceEntryItem(
@@ -5455,15 +5456,20 @@ public record SiblingCandidateSearchDto(
 );
 
 // =========================================================================
-// CLASS ROLL NUMBER RE-SEQUENCER DTOS
+// =========================================================================
+// UNIVERSAL ROLL NUMBER RE-SEQUENCER DTOS (SCHOOL & COACHING BATCHES)
 // =========================================================================
 public record ResequenceRollNumbersRequestDto(
-    Guid ClassId,
-    Guid? SectionId,
-    string SortRule, // "alphabetical" | "gender_alphabetical" | "admission_date" | "admission_no"
+    Guid? ClassId = null,
+    Guid? SectionId = null,
+    string SortRule = "alphabetical", // "alphabetical" | "gender_alphabetical" | "admission_date" | "admission_no" | "current_roll"
     int StartFrom = 1,
     string? Prefix = "",
-    bool IsDryRun = false
+    bool IsDryRun = false,
+    string TargetScope = "school", // "school" | "coaching"
+    Guid? BatchId = null,
+    int NumberPadding = 1, // 1 (1,2..), 2 (01,02..), 3 (001,002..), 4 (0001,0002..)
+    bool FillBlanksOnly = false // true = keep existing roll numbers, assign sequentially only to unassigned students
 );
 
 public record StudentRollNumberPreviewItemDto(
@@ -5472,7 +5478,8 @@ public record StudentRollNumberPreviewItemDto(
     string? AdmissionNumber,
     string? Gender,
     string? CurrentRollNumber,
-    string NewRollNumber
+    string NewRollNumber,
+    string? Status = "Updated" // "Updated" | "Unchanged" | "New Assigned"
 );
 
 public record ResequenceRollNumbersResultDto(

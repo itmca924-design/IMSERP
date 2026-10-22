@@ -14,6 +14,8 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatCardModule } from '@angular/material/card';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatMenuModule } from '@angular/material/menu';
+import { MatDividerModule } from '@angular/material/divider';
 import { Subject, Subscription } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { UserDto, UsersService } from '../../core/services/users.service';
@@ -41,7 +43,9 @@ import { environment } from '../../../environments/environment';
     MatProgressBarModule,
     MatCardModule,
     MatChipsModule,
-    MatTooltipModule
+    MatTooltipModule,
+    MatMenuModule,
+    MatDividerModule
   ],
   template: `
     <div class="page-container">
@@ -219,24 +223,30 @@ import { environment } from '../../../environments/environment';
 
             <!-- Actions Column -->
             <ng-container matColumnDef="actions">
-              <th mat-header-cell *matHeaderCellDef class="text-right"> Actions </th>
-              <td mat-cell *matCellDef="let element" class="text-right">
+              <th mat-header-cell *matHeaderCellDef class="text-center actions-col-header" matTooltip="User Actions">
+                <mat-icon class="action-header-icon">settings</mat-icon>
+              </th>
+              <td mat-cell *matCellDef="let element" class="text-center actions-col-cell">
                 <button
                   mat-icon-button
-                  color="primary"
-                  (click)="openUserModal(element)"
+                  [matMenuTriggerFor]="userRowMenu"
                   [disabled]="loading"
-                  matTooltip="Edit User &amp; Role">
-                  <mat-icon>edit</mat-icon>
+                  class="action-menu-btn"
+                  matTooltip="User Actions">
+                  <mat-icon>more_vert</mat-icon>
                 </button>
-                <button
-                  mat-icon-button
-                  color="warn"
-                  (click)="deleteUser(element)"
-                  [disabled]="loading"
-                  matTooltip="Delete User Account">
-                  <mat-icon>delete</mat-icon>
-                </button>
+
+                <mat-menu #userRowMenu="matMenu" xPosition="before" class="user-row-menu">
+                  <button mat-menu-item (click)="openUserModal(element)">
+                    <mat-icon color="primary">edit</mat-icon>
+                    <span>Edit User &amp; Role</span>
+                  </button>
+                  <mat-divider></mat-divider>
+                  <button mat-menu-item (click)="deleteUser(element)">
+                    <mat-icon color="warn">delete</mat-icon>
+                    <span class="delete-menu-text">Delete User</span>
+                  </button>
+                </mat-menu>
               </td>
             </ng-container>
 
@@ -380,10 +390,50 @@ import { environment } from '../../../environments/environment';
     }
     .full-width-table {
       width: 100%;
-      min-width: 880px;
+      table-layout: auto;
+
+      tr.mat-mdc-header-row {
+        height: 48px;
+        background: #fafbfc;
+      }
+
+      tr.mat-mdc-row {
+        height: auto !important;
+        min-height: 52px;
+      }
+
+      th.mat-mdc-header-cell {
+        padding: 8px 10px !important;
+        font-weight: 700;
+        color: #475569;
+        font-size: 0.8rem;
+        white-space: nowrap;
+      }
+
+      td.mat-mdc-cell {
+        padding: 6px 10px !important;
+        vertical-align: middle;
+      }
+    }
+    .mat-column-username {
+      width: 14%;
+      max-width: 140px;
+    }
+    .mat-column-fullName {
+      width: 18%;
+    }
+    .mat-column-roleName {
+      width: 13%;
     }
     .mat-column-branchName {
-      min-width: 170px;
+      width: 20%;
+    }
+    .mat-column-contact {
+      width: 18%;
+    }
+    .mat-column-status {
+      width: 11%;
+      white-space: nowrap;
     }
     .user-name-cell {
       font-weight: 700;
@@ -439,7 +489,13 @@ import { environment } from '../../../environments/environment';
     .contact-info {
       display: flex;
       flex-direction: column;
-      font-size: 0.85rem;
+      font-size: 0.82rem;
+      max-width: 190px;
+      span, small {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
       .muted {
         color: #64748b;
       }
@@ -472,7 +528,7 @@ import { environment } from '../../../environments/environment';
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      font-size: 0.8rem;
+      font-size: 0.78rem;
       font-weight: 500;
       color: #0369a1;
       background: #e0f2fe;
@@ -482,12 +538,13 @@ import { environment } from '../../../environments/environment';
       line-height: 1.35;
       max-width: 100%;
       box-sizing: border-box;
+      margin: 3px 0;
     }
     .head-office-tag {
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      font-size: 0.8rem;
+      font-size: 0.78rem;
       font-weight: 500;
       color: #475569;
       background: #f1f5f9;
@@ -497,6 +554,7 @@ import { environment } from '../../../environments/environment';
       line-height: 1.35;
       max-width: 100%;
       box-sizing: border-box;
+      margin: 3px 0;
     }
     .inline-icon {
       font-size: 16px !important;
@@ -519,6 +577,91 @@ import { environment } from '../../../environments/environment';
     }
     .text-right {
       text-align: right;
+    }
+    .text-center {
+      text-align: center;
+    }
+    .mat-column-actions {
+      width: 54px;
+      min-width: 54px;
+      max-width: 54px;
+      text-align: center !important;
+      padding: 0 4px !important;
+      position: sticky;
+      right: 0;
+      background: #ffffff;
+      z-index: 2;
+      box-shadow: -2px 0 5px rgba(0, 0, 0, 0.05);
+    }
+    th.mat-column-actions {
+      background: #fafbfc !important;
+      z-index: 3;
+    }
+    .actions-col-header {
+      width: 54px;
+      text-align: center !important;
+      padding: 0 !important;
+    }
+    .action-header-icon {
+      font-size: 19px !important;
+      width: 19px !important;
+      height: 19px !important;
+      color: #64748b;
+      vertical-align: middle;
+      display: inline-flex !important;
+      align-items: center;
+      justify-content: center;
+    }
+    .actions-col-cell {
+      width: 54px;
+      min-width: 54px;
+      max-width: 54px;
+      text-align: center !important;
+      padding: 0 !important;
+      vertical-align: middle !important;
+    }
+    .action-menu-btn {
+      color: #64748b;
+      width: 36px !important;
+      height: 36px !important;
+      padding: 0 !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      border-radius: 50% !important;
+      margin: 0 auto !important;
+      vertical-align: middle !important;
+      transition: color 0.15s ease, background-color 0.15s ease;
+
+      mat-icon {
+        font-size: 20px !important;
+        width: 20px !important;
+        height: 20px !important;
+        line-height: 20px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+
+      &:hover {
+        color: #1e293b;
+        background-color: #f1f5f9;
+      }
+
+      ::ng-deep .mat-mdc-button-touch-target {
+        width: 36px !important;
+        height: 36px !important;
+      }
+
+      ::ng-deep .mat-mdc-button-persistent-ripple {
+        border-radius: 50% !important;
+      }
+    }
+    .delete-menu-text {
+      color: #ef4444;
+      font-weight: 500;
     }
     .empty-cell {
       padding: 50px 20px !important;
@@ -702,7 +845,7 @@ export class UsersComponent implements OnInit, OnDestroy {
 
   openUserModal(user?: UserDto): void {
     const dialogRef = this.dialog.open(UserDialogComponent, {
-      width: '620px',
+      width: '580px',
       maxWidth: '96vw',
       panelClass: 'no-overflow-dialog',
       autoFocus: false,

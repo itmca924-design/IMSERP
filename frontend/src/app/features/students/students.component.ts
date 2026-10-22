@@ -3858,18 +3858,21 @@ export class StudentsComponent implements OnInit, OnDestroy {
     });
   }
 
-  // ── Class Roll Number Re-Sequencer Dialog ───────────────────
+  // ── Universal Roll Number Re-Sequencer Dialog (School & Coaching) ───────────────────
   openRollSequencer(): void {
     const dialogRef = this.dialog.open(StudentRollSequencerDialogComponent, {
-      width: '900px',
+      width: '940px',
       maxWidth: '96vw',
       maxHeight: '92vh',
       panelClass: 'cert-modal-container',
       disableClose: false,
       data: {
         schoolClasses: this.schoolClasses,
+        batches: this.batches,
         selectedClassId: this.selectedClassFilter,
-        selectedSectionId: this.selectedSectionFilter
+        selectedSectionId: this.selectedSectionFilter,
+        selectedBatchId: this.selectedBatchFilter,
+        initialScope: this.selectedBatchFilter ? 'coaching' : 'school'
       }
     });
 

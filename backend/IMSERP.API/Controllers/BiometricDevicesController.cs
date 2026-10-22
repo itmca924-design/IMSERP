@@ -63,9 +63,40 @@ public class BiometricDevicesController : ControllerBase
         if (!await HasDevicePermissionAsync()) return Forbid();
         var device = await _db.BiometricDevices.FirstOrDefaultAsync(d => d.Id == id);
         if (device == null) return NotFound();
-        device.Status = device.ConnectionMode.Equals("PendingAdapter", StringComparison.OrdinalIgnoreCase) ? "AdapterRequired" : "NotConnected";
-        device.LastSeenAt = null;
-        device.LastError = "Vendor adapter is not configured yet. Add the device-specific SDK/API adapter when the model is available.";
+
+        if (string.IsNullOrWhiteSpace(device.IpAddress))
+        {
+            device.Status = "ConfigRequired";
+            device.LastError = "Please enter the Device IP Address to test LAN/Wi-Fi connection.";
+            await _db.SaveChangesAsync();
+            return Ok(ToDto(device));
+        }
+
+        try
+        {
+            using var tcp = new System.Net.Sockets.TcpClient();
+            var port = device.Port > 0 ? device.Port : 80;
+            var connectTask = tcp.ConnectAsync(device.IpAddress.Trim(), port);
+            var timeoutTask = Task.Delay(2500);
+
+            if (await Task.WhenAny(connectTask, timeoutTask) == connectTask && tcp.Connected)
+            {
+                device.Status = "Online";
+                device.LastSeenAt = DateTime.UtcNow;
+                device.LastError = null;
+            }
+            else
+            {
+                device.Status = "Offline";
+                device.LastError = $"Cannot connect to {device.IpAddress}:{port}. Check device power, LAN/Wi-Fi cable, or assigned IP.";
+            }
+        }
+        catch (Exception ex)
+        {
+            device.Status = "Offline";
+            device.LastError = $"Connection failed: {ex.Message}";
+        }
+
         await _db.SaveChangesAsync();
         return Ok(ToDto(device));
     }

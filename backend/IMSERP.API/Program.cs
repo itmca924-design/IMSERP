@@ -2566,6 +2566,28 @@ if (app.Environment.IsDevelopment())
     app.MapScalarApiReference();
 }
 
+// Global Aborted / Cancelled Socket Resilience Middleware:
+// Catches BadHttpRequestException and OperationCanceledException when clients (browsers, devices, mobile apps)
+// disconnect, cancel, or reload pages mid-flight. Prevents Visual Studio debugger from halting on aborted connections.
+app.Use(async (context, next) =>
+{
+    try
+    {
+        await next();
+    }
+    catch (Microsoft.AspNetCore.Server.Kestrel.Core.BadHttpRequestException)
+    {
+        if (!context.Response.HasStarted)
+        {
+            try { context.Response.StatusCode = StatusCodes.Status400BadRequest; } catch { }
+        }
+    }
+    catch (OperationCanceledException)
+    {
+        // Gracefully ignore client-aborted requests
+    }
+});
+
 app.UseCors("AllowAngular");
 app.UseStaticFiles(new StaticFileOptions
 {
@@ -2617,7 +2639,22 @@ app.Use(async (context, next) =>
         }
     }
 
-    await next();
+    try
+    {
+        await next();
+    }
+    catch (Microsoft.AspNetCore.Server.Kestrel.Core.BadHttpRequestException)
+    {
+        // Gracefully absorb aborted/cancelled requests when client disconnects, cancels, or reloads page mid-flight
+        if (!context.Response.HasStarted)
+        {
+            try { context.Response.StatusCode = StatusCodes.Status400BadRequest; } catch { }
+        }
+    }
+    catch (OperationCanceledException)
+    {
+        // Gracefully absorb cancellations when browser closes socket or navigation cancels request
+    }
 });
 
 app.MapControllers();

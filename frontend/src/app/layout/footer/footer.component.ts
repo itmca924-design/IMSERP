@@ -29,7 +29,7 @@ import { AuthService } from '../../core/services/auth.service';
           <span class="divider-dot">&bull;</span>
           <a routerLink="/whatsapp" class="footer-link">WhatsApp Logs</a>
           <span class="divider-dot">&bull;</span>
-          <a href="javascript:void(0)" class="footer-link" matTooltip="Need assistance? Contact support team">Support &amp; Help</a>
+          <a routerLink="/developer" class="footer-link" matTooltip="Developer & Technical Team Details">Support &amp; Help</a>
           <span class="divider-dot">&bull;</span>
           <a href="javascript:void(0)" class="footer-link" matTooltip="Privacy Policy &amp; Terms">Privacy &amp; Security</a>
         </div>

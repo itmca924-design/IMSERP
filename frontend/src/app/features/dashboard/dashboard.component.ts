@@ -49,8 +49,8 @@ import ApexCharts from 'apexcharts';
             <p>Welcome, <strong>{{ teacherSummary()?.teacherName || 'Faculty' }}</strong>! Here is your lecture routine, assigned classrooms, and grading schedule.</p>
           }
           @if (!authService.isStudentOrParent() && !authService.isTeacher()) {
-            <h2>School Operations &amp; Executive Command Center</h2>
-            <p>Manage admissions, classrooms, exams, daily attendance, fee collections, and campus branches from a single unified hub.</p>
+            <h2>{{ authService.hasSchoolModule() && !authService.hasCoachingModule() ? 'School Operations' : (!authService.hasSchoolModule() && authService.hasCoachingModule() ? 'Coaching Operations' : 'School & Coaching Operations') }} &amp; Executive Command Center</h2>
+            <p>Manage admissions, coaching batches, classrooms, exams, biometric &amp; RFID attendance, fee collections, and campus branches from a single unified hub.</p>
           }
         </div>
         <button mat-raised-button color="primary" class="refresh-btn" (click)="loadSummary()" matTooltip="Refresh Analytics">
@@ -1514,25 +1514,30 @@ import ApexCharts from 'apexcharts';
       display: flex;
       justify-content: space-between;
       align-items: center;
-      flex-wrap: wrap;
       gap: 16px;
 
-      .header-titles h2 {
-        margin: 0;
-        font-size: 1.32rem;
-        font-weight: 700;
-        color: #0f172a;
-        letter-spacing: -0.015em;
-        line-height: 1.3;
-      }
-      .header-titles p {
-        margin: 4px 0 0;
-        color: #64748b;
-        font-size: 0.86rem;
-        line-height: 1.45;
+      .header-titles {
+        flex: 1;
+        min-width: 0;
+
+        h2 {
+          margin: 0;
+          font-size: 1.32rem;
+          font-weight: 700;
+          color: #0f172a;
+          letter-spacing: -0.015em;
+          line-height: 1.3;
+        }
+        p {
+          margin: 4px 0 0;
+          color: #64748b;
+          font-size: 0.86rem;
+          line-height: 1.45;
+        }
       }
 
       .refresh-btn {
+        flex-shrink: 0;
         height: 40px;
         font-weight: 600;
         border-radius: 8px;

@@ -227,11 +227,16 @@ export class ImmediateErrorStateMatcher implements ErrorStateMatcher {
     </div>
   `,
   styles: [`
+    :host {
+      display: block;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
     .dialog-wrapper {
       padding: 0;
       box-sizing: border-box;
       width: 100%;
-      max-width: 600px;
       display: flex;
       flex-direction: column;
     }
@@ -241,16 +246,20 @@ export class ImmediateErrorStateMatcher implements ErrorStateMatcher {
       flex-direction: column;
       flex: 1 1 auto;
       overflow: hidden;
+      width: 100%;
+      box-sizing: border-box;
     }
 
     .dialog-header {
       display: flex;
       align-items: center;
       gap: 12px;
-      padding: 12px 18px 10px;
+      padding: 14px 20px 12px;
       background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
       border-bottom: 1px solid #bfdbfe;
       flex-shrink: 0;
+      width: 100%;
+      box-sizing: border-box;
 
       .header-icon-wrap {
         width: 38px;

@@ -204,7 +204,7 @@ export interface NoticeStatsDto {
         <div class="err-info">
           <mat-icon class="err-ic">cloud_off</mat-icon>
           <div class="err-text">
-            <strong>Backend Connection Offline (Port 5000)</strong>
+            <strong>Backend Connection Offline</strong>
             <span>Unable to reach backend API. If the server is restarting, please retry in a moment.</span>
           </div>
         </div>

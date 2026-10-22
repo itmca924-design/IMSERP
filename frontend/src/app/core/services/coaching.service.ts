@@ -515,12 +515,16 @@ export interface SiblingCandidateSearchDto {
 }
 
 export interface ResequenceRollNumbersRequestDto {
-  classId: string;
+  classId?: string | null;
   sectionId?: string | null;
-  sortRule: string; // 'alphabetical' | 'gender_alphabetical' | 'admission_date' | 'admission_no'
+  sortRule: string; // 'alphabetical' | 'gender_alphabetical' | 'admission_date' | 'admission_no' | 'current_roll'
   startFrom: number;
   prefix?: string;
   isDryRun: boolean;
+  targetScope?: 'school' | 'coaching';
+  batchId?: string | null;
+  numberPadding?: number;
+  fillBlanksOnly?: boolean;
 }
 
 export interface StudentRollNumberPreviewItemDto {
@@ -530,6 +534,7 @@ export interface StudentRollNumberPreviewItemDto {
   gender?: string | null;
   currentRollNumber?: string | null;
   newRollNumber: string;
+  status?: string | null; // 'Updated' | 'Unchanged' | 'New Assigned'
 }
 
 export interface ResequenceRollNumbersResultDto {

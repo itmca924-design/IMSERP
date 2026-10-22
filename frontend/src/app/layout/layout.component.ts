@@ -171,6 +171,17 @@ import { environment } from '../../environments/environment';
             </div>
           </button>
         </div>
+
+        <!-- Sidebar Developer Team Action -->
+        <div class="sidebar-pwa-strip" style="margin-top: 6px; padding-top: 0;">
+          <a mat-button class="sidebar-pwa-btn" routerLink="/developer" (click)="onNavClick(drawer)" style="background: rgba(37, 99, 235, 0.15); border: 1px solid rgba(96, 165, 250, 0.3);">
+            <mat-icon style="color: #60a5fa;">engineering</mat-icon>
+            <div class="pwa-text-wrap">
+              <strong style="color: #93c5fd;">Developer Team</strong>
+              <small style="color: #bfdbfe;">Architecture &amp; Support</small>
+            </div>
+          </a>
+        </div>
       </mat-sidenav>
 
       <mat-sidenav-content>
@@ -361,6 +372,11 @@ import { environment } from '../../environments/environment';
             <button mat-menu-item routerLink="/users">
               <mat-icon color="primary">manage_accounts</mat-icon>
               <span>User Profile &amp; Staff</span>
+            </button>
+
+            <button mat-menu-item routerLink="/developer">
+              <mat-icon style="color: #2563eb;">engineering</mat-icon>
+              <span>Developer Team &amp; Support</span>
             </button>
 
             <mat-divider></mat-divider>
@@ -1843,7 +1859,8 @@ export class LayoutComponent implements OnInit {
     { title: 'Institutes & Tenants', route: '/admin/tenants', icon: 'corporate_fare' },
     { title: 'Subscription & Plan', route: '/subscription', icon: 'workspace_premium' },
     { title: 'Study Material & Question Bank Repository (Notes & PYQ)', route: '/study-materials', icon: 'auto_stories' },
-    { title: 'Campus & Class Chat', route: '/chat', icon: 'forum' }
+    { title: 'Campus & Class Chat', route: '/chat', icon: 'forum' },
+    { title: 'Developer Team & Technical Support', route: '/developer', icon: 'engineering' }
   ];
 
   readonly allQuickActionCatalog: Array<{ title: string; route: string; icon: string; color: string; roles?: string[] }> = [
@@ -1896,6 +1913,9 @@ export class LayoutComponent implements OnInit {
     if (this.authService.isSuperAdmin()) return true;
 
     const target = route.trim().toLowerCase().split('?')[0];
+    if (target === '/developer' || target === '/support' || target === '/about-developer' || target === '/developer-team') {
+      return true;
+    }
 
     const checkList = (items: MenuItem[]): boolean => {
       for (const item of items) {

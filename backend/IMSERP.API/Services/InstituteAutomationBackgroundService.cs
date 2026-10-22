@@ -62,12 +62,12 @@ public class InstituteAutomationBackgroundService : BackgroundService
                         continue;
                     }
 
-                    // 1. Biometric / RFID Realtime Polling Sync
+                    // 1. Biometric / RFID Realtime Polling Sync (Runs every 5-10 seconds)
                     if (settings.BiometricSyncEnabled)
                     {
-                        // Run biometric sync if not synced in the last 45 seconds
+                        // Run biometric sync if not synced in the last 5 seconds
                         if (!settings.LastBiometricSyncAt.HasValue ||
-                            (DateTime.UtcNow - settings.LastBiometricSyncAt.Value).TotalSeconds >= 45)
+                            (DateTime.UtcNow - settings.LastBiometricSyncAt.Value).TotalSeconds >= 5)
                         {
                             try
                             {
@@ -176,8 +176,8 @@ public class InstituteAutomationBackgroundService : BackgroundService
                 _logger.LogError(ex, "❌ [InstituteAutomationBackgroundService] Unhandled error during automation cycle");
             }
 
-            // Loop interval: 60 seconds
-            await Task.Delay(TimeSpan.FromSeconds(60), stoppingToken);
+            // Real-time loop interval: 5 seconds (for instant 5-10s biometric & RFID synchronization)
+            await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
         }
 
         _logger.LogInformation("🛑 [InstituteAutomationBackgroundService] Automation engine stopped gracefully.");

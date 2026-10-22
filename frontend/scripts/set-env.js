@@ -37,10 +37,12 @@ if (envContent) {
 
 const API_BASE_URL = envVars.API_BASE_URL || 'http://localhost:5000';
 const API_URL = envVars.API_URL || `${API_BASE_URL}/api`;
+const BIOMETRIC_WEBHOOK_URL = envVars.BIOMETRIC_WEBHOOK_URL || `${API_URL}/attendance/biometric/hikvision`;
 
 console.log(`[IMSERP ENV] Syncing configuration:`);
-console.log(`  - API_BASE_URL: ${API_BASE_URL}`);
-console.log(`  - API_URL:      ${API_URL}`);
+console.log(`  - API_BASE_URL:          ${API_BASE_URL}`);
+console.log(`  - API_URL:               ${API_URL}`);
+console.log(`  - BIOMETRIC_WEBHOOK_URL: ${BIOMETRIC_WEBHOOK_URL}`);
 
 // 3. Generate src/assets/env.js
 const envJsContent = `(function (window) {
@@ -49,10 +51,12 @@ const envJsContent = `(function (window) {
   if (isLocal) {
     window.__env.API_BASE_URL = '${API_BASE_URL}';
     window.__env.API_URL = '${API_URL}';
+    window.__env.BIOMETRIC_WEBHOOK_URL = '${BIOMETRIC_WEBHOOK_URL}';
   } else {
     var origin = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : '${API_BASE_URL}';
     window.__env.API_BASE_URL = origin;
     window.__env.API_URL = origin + '/api';
+    window.__env.BIOMETRIC_WEBHOOK_URL = origin + '/api/attendance/biometric/hikvision';
   }
 }(this));
 `;
@@ -68,7 +72,8 @@ const envTsContent = `/**
 export const environment = {
   production: false,
   apiBaseUrl: (typeof window !== 'undefined' && (window as any).__env?.API_BASE_URL) || '${API_BASE_URL}',
-  apiUrl: (typeof window !== 'undefined' && (window as any).__env?.API_URL) || '${API_URL}'
+  apiUrl: (typeof window !== 'undefined' && (window as any).__env?.API_URL) || '${API_URL}',
+  biometricWebhookUrl: (typeof window !== 'undefined' && (window as any).__env?.BIOMETRIC_WEBHOOK_URL) || '${BIOMETRIC_WEBHOOK_URL}'
 };
 `;
 
@@ -83,7 +88,8 @@ const envProdTsContent = `/**
 export const environment = {
   production: true,
   apiBaseUrl: (typeof window !== 'undefined' && (window as any).__env?.API_BASE_URL) || '${API_BASE_URL}',
-  apiUrl: (typeof window !== 'undefined' && (window as any).__env?.API_URL) || '${API_URL}'
+  apiUrl: (typeof window !== 'undefined' && (window as any).__env?.API_URL) || '${API_URL}',
+  biometricWebhookUrl: (typeof window !== 'undefined' && (window as any).__env?.BIOMETRIC_WEBHOOK_URL) || '${BIOMETRIC_WEBHOOK_URL}'
 };
 `;
 
