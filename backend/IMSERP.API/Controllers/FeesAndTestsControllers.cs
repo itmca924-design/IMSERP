@@ -1714,12 +1714,15 @@ public class FeesController : ControllerBase
             .Distinct()
             .ToHashSetAsync();
 
-        // Active students who had already joined by this billing period
+        // Active students who had already joined by this billing period (using stream-specific effective DOJ)
         var studentsQuery = _dbContext.Students
             .AsNoTracking()
             .Include(s => s.Class)
             .Include(s => s.Batch)
-            .Where(s => s.TenantId == tenantId && s.IsActive && s.JoiningDate.Date <= periodEnd.Date);
+            .Where(s => s.TenantId == tenantId && s.IsActive &&
+                ((s.IsCoachingStudent && !s.IsSchoolStudent && s.CoachingJoiningDate != null)
+                    ? s.CoachingJoiningDate.Value.Date <= periodEnd.Date
+                    : s.JoiningDate.Date <= periodEnd.Date));
 
         if (targetBranchId.HasValue && targetBranchId.Value != Guid.Empty)
         {
@@ -1739,7 +1742,7 @@ public class FeesController : ControllerBase
         }
 
         var pendingStudents = await studentsQuery
-            .OrderByDescending(s => s.JoiningDate)
+            .OrderByDescending(s => (s.IsCoachingStudent && !s.IsSchoolStudent && s.CoachingJoiningDate != null) ? s.CoachingJoiningDate.Value : s.JoiningDate)
             .Select(s => new PendingInvoicingStudentDto(
                 s.Id,
                 s.StudentName,
@@ -1749,7 +1752,7 @@ public class FeesController : ControllerBase
                 s.Class != null ? s.Class.Name : null,
                 s.BatchId,
                 s.Batch != null ? s.Batch.Name : null,
-                s.JoiningDate,
+                (s.IsCoachingStudent && !s.IsSchoolStudent && s.CoachingJoiningDate != null) ? s.CoachingJoiningDate.Value : s.JoiningDate,
                 s.Batch != null ? s.Batch.StandardMonthlyFee : 3500m,
                 false,
                 null
@@ -2145,46 +2148,53 @@ public class FeesController : ControllerBase
 
             bool isNewAdmission = !studentsWithPriorInvoiceSet.Contains(s.Id);
 
+            var effectiveSchoolDate = s.JoiningDate;
+            var effectiveCoachingDate = s.CoachingJoiningDate ?? s.JoiningDate;
+
+            var effectiveEarliestDate = (s.IsSchoolStudent && s.IsCoachingStudent)
+                ? (effectiveSchoolDate < effectiveCoachingDate ? effectiveSchoolDate : effectiveCoachingDate)
+                : (s.IsCoachingStudent ? effectiveCoachingDate : effectiveSchoolDate);
+
             if (hasOverride && customOverride!.StartMonth.HasValue && customOverride.StartYear.HasValue)
             {
                 studentStartMonth = customOverride.StartMonth.Value;
                 studentStartYear = customOverride.StartYear.Value;
             }
-            else if (dto.AutoBillNewAdmissionsFromDoj && isNewAdmission && s.JoiningDate > DateTime.MinValue && s.JoiningDate.Year <= dto.Year)
+            else if (dto.AutoBillNewAdmissionsFromDoj && isNewAdmission && effectiveEarliestDate > DateTime.MinValue && effectiveEarliestDate.Year <= dto.Year)
             {
                 // Dynamic Admission Cutoff Rule (Day 1 to CutoffDay = Same Month; Day > CutoffDay = Next Month)
-                if (s.JoiningDate.Day > cutoffDay && rolloverPolicy == "NextMonthFull")
+                if (effectiveEarliestDate.Day > cutoffDay && rolloverPolicy == "NextMonthFull")
                 {
-                    var rollDate = new DateTime(s.JoiningDate.Year, s.JoiningDate.Month, 1).AddMonths(1);
+                    var rollDate = new DateTime(effectiveEarliestDate.Year, effectiveEarliestDate.Month, 1).AddMonths(1);
                     studentStartMonth = rollDate.Month;
                     studentStartYear = rollDate.Year;
                 }
                 else
                 {
-                    studentStartMonth = s.JoiningDate.Month;
-                    studentStartYear = s.JoiningDate.Year;
+                    studentStartMonth = effectiveEarliestDate.Month;
+                    studentStartYear = effectiveEarliestDate.Year;
                 }
             }
-            else if (isNewAdmission && s.JoiningDate > DateTime.MinValue && s.JoiningDate.Year == dto.Year && s.JoiningDate.Month == dto.Month)
+            else if (isNewAdmission && effectiveEarliestDate > DateTime.MinValue && effectiveEarliestDate.Year == dto.Year && effectiveEarliestDate.Month == dto.Month)
             {
                 // Even if AutoBillNewAdmissionsFromDoj is unchecked, if target month is student's joining month and they joined after cutoffDay:
                 // Their billing must NOT begin in this month; it rolls over to next month!
-                if (s.JoiningDate.Day > cutoffDay && rolloverPolicy == "NextMonthFull")
+                if (effectiveEarliestDate.Day > cutoffDay && rolloverPolicy == "NextMonthFull")
                 {
                     if (dto.StudentId.HasValue && dto.StudentId.Value == s.Id)
                     {
                         // Targeted single student invoice: automatically roll over to next month!
-                        var rollDate = new DateTime(s.JoiningDate.Year, s.JoiningDate.Month, 1).AddMonths(1);
+                        var rollDate = new DateTime(effectiveEarliestDate.Year, effectiveEarliestDate.Month, 1).AddMonths(1);
                         studentStartMonth = rollDate.Month;
                         studentStartYear = rollDate.Year;
                     }
                     else
                     {
-                        var rollDate = new DateTime(s.JoiningDate.Year, s.JoiningDate.Month, 1).AddMonths(1);
+                        var rollDate = new DateTime(effectiveEarliestDate.Year, effectiveEarliestDate.Month, 1).AddMonths(1);
                         string rollMonthName = rollDate.ToString("MMMM yyyy", System.Globalization.CultureInfo.InvariantCulture);
                         string targetMonthName = new DateTime(dto.Year, dto.Month, 1).ToString("MMMM yyyy", System.Globalization.CultureInfo.InvariantCulture);
-                        skipReasonsEn.Add($"{s.StudentName} (Roll: {s.RollNumber ?? "N/A"}): Admitted on {s.JoiningDate:dd MMM yyyy} (after the {cutoffDay}th monthly cutoff). {targetMonthName} tuition is waived as orientation period; billing begins in {rollMonthName}. (Please select Month: {rollDate:MMMM} to generate).");
-                        skipReasonsHi.Add($"{s.StudentName} (Roll: {s.RollNumber ?? "N/A"}): एडमिशन {s.JoiningDate:dd MMM yyyy} को हुआ ({cutoffDay} तारीख कट-ऑफ के बाद)। {targetMonthName} की फीस वेव (माफ़) है; बिलिंग {rollMonthName} से शुरू होगी। (कृपया इनवॉइस बनाने हेतु महीना: {rollDate:MMMM} चुनें)।");
+                        skipReasonsEn.Add($"{s.StudentName} (Roll: {s.RollNumber ?? "N/A"}): Admitted on {effectiveEarliestDate:dd MMM yyyy} (after the {cutoffDay}th monthly cutoff). {targetMonthName} tuition is waived as orientation period; billing begins in {rollMonthName}. (Please select Month: {rollDate:MMMM} to generate).");
+                        skipReasonsHi.Add($"{s.StudentName} (Roll: {s.RollNumber ?? "N/A"}): एडमिशन {effectiveEarliestDate:dd MMM yyyy} को हुआ ({cutoffDay} तारीख कट-ऑफ के बाद)। {targetMonthName} की फीस वेव (माफ़) है; बिलिंग {rollMonthName} से शुरू होगी। (कृपया इनवॉइस बनाने हेतु महीना: {rollDate:MMMM} चुनें)।");
                         skippedCount++;
                         continue;
                     }
@@ -2217,17 +2227,10 @@ public class FeesController : ControllerBase
             // Safeguard 1: Past-Month Invoicing Shield
             // If student took admission AFTER this billing window ends, they were not enrolled yet!
             // e.g. A student admitted on 10 October 2026 cannot be billed for April/May/June/July/August/September 2026.
-            var effectiveSchoolDate = s.JoiningDate;
-            var effectiveCoachingDate = s.CoachingJoiningDate ?? s.JoiningDate;
-
-            var effectiveEarliestDate = (s.IsSchoolStudent && s.IsCoachingStudent)
-                ? (effectiveSchoolDate < effectiveCoachingDate ? effectiveSchoolDate : effectiveCoachingDate)
-                : (s.IsCoachingStudent ? effectiveCoachingDate : effectiveSchoolDate);
-
             if (effectiveEarliestDate.Date > studentPeriodEnd.Date)
             {
-                skipReasonsEn.Add($"{s.StudentName} (Roll: {s.RollNumber ?? "N/A"}): Admitted on {s.JoiningDate:dd MMM yyyy}, which is after {defaultPeriodLabel}. Cannot bill prior to admission date.");
-                skipReasonsHi.Add($"{s.StudentName} (Roll: {s.RollNumber ?? "N/A"}): एडमिशन {s.JoiningDate:dd MMM yyyy} को हुआ, जो {defaultPeriodLabel} के बाद है। एडमिशन से पहले के महीने का बिल नहीं बन सकता।");
+                skipReasonsEn.Add($"{s.StudentName} (Roll: {s.RollNumber ?? "N/A"}): Admitted on {effectiveEarliestDate:dd MMM yyyy}, which is after {studentPeriodLabel}. Cannot bill prior to admission date.");
+                skipReasonsHi.Add($"{s.StudentName} (Roll: {s.RollNumber ?? "N/A"}): एडमिशन {effectiveEarliestDate:dd MMM yyyy} को हुआ, जो {studentPeriodLabel} के बाद है। एडमिशन से पहले के महीने का बिल नहीं बन सकता।");
                 skippedCount++;
                 continue;
             }

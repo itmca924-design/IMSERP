@@ -2137,7 +2137,9 @@ public class StudentsController : ControllerBase
                 EmergencyContactPhone = dto.EmergencyContactPhone,
                 PreviousSchoolName = dto.PreviousSchoolName,
                 PreviousBoard = dto.PreviousBoard,
-                JoiningDate = dto.JoiningDate ?? DateTime.UtcNow,
+                JoiningDate = (dto.IsCoachingStudent && !dto.IsSchoolStudent)
+                    ? (dto.CoachingJoiningDate ?? dto.JoiningDate ?? DateTime.UtcNow)
+                    : (dto.JoiningDate ?? DateTime.UtcNow),
                 CoachingJoiningDate = dto.IsCoachingStudent ? (dto.CoachingJoiningDate ?? dto.JoiningDate ?? DateTime.UtcNow) : null,
                 IsActive = true
             };
@@ -2366,6 +2368,11 @@ public class StudentsController : ControllerBase
                 else if (!student.CoachingJoiningDate.HasValue)
                 {
                     student.CoachingJoiningDate = dto.JoiningDate ?? student.JoiningDate;
+                }
+
+                if (!dto.IsSchoolStudent && student.CoachingJoiningDate.HasValue)
+                {
+                    student.JoiningDate = student.CoachingJoiningDate.Value;
                 }
             }
             else

@@ -152,13 +152,41 @@ export interface UpcomingBillingCycleInfo {
             <mat-icon>expand_more</mat-icon>
           </button>
 
-          <mat-menu #pendingStudentsMenu="matMenu" xPosition="before" class="pending-students-menu-panel">
-            <div class="menu-section-title">New Admissions Awaiting Invoices</div>
-            <button mat-menu-item *ngFor="let s of pendingStudents" (click)="generateForPendingStudent(s)">
-              <mat-icon style="color: #d97706;">person_add</mat-icon>
-              <span>{{ s.studentName }}</span>
-              <small style="color: #64748b; margin-left: 6px;">({{ s.className || s.batchName || 'General' }} • Roll #{{ s.rollNumber }})</small>
-            </button>
+          <mat-menu #pendingStudentsMenu="matMenu" xPosition="before" class="pending-students-menu-panel" (closed)="pendingStudentSearchQuery = ''">
+            <div class="menu-section-title">New Admissions Awaiting Invoices ({{ pendingStudents.length }})</div>
+            <div class="pending-search-box" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
+              <mat-icon class="search-mini-icon">search</mat-icon>
+              <input
+                type="text"
+                class="pending-search-input"
+                placeholder="Search student, roll, class..."
+                [(ngModel)]="pendingStudentSearchQuery"
+                (click)="$event.stopPropagation()"
+                (mousedown)="$event.stopPropagation()"
+                (keydown)="$event.stopPropagation()"
+              />
+              <button
+                type="button"
+                class="clear-mini-btn"
+                *ngIf="pendingStudentSearchQuery"
+                (click)="pendingStudentSearchQuery = ''; $event.stopPropagation()"
+                (mousedown)="$event.stopPropagation()"
+                matTooltip="Clear search"
+              >
+                <mat-icon>close</mat-icon>
+              </button>
+            </div>
+            <div class="pending-menu-scrollable">
+              <button mat-menu-item *ngFor="let s of filteredPendingStudents" (click)="generateForPendingStudent(s)">
+                <mat-icon style="color: #d97706;">person_add</mat-icon>
+                <span>{{ s.studentName }}</span>
+                <small style="color: #64748b; margin-left: 6px;">({{ s.className || s.batchName || 'General' }} • Roll #{{ s.rollNumber }})</small>
+              </button>
+              <div *ngIf="filteredPendingStudents.length === 0" class="no-pending-match">
+                <mat-icon>search_off</mat-icon>
+                <span>No admissions match "{{ pendingStudentSearchQuery }}"</span>
+              </div>
+            </div>
           </mat-menu>
 
           <button mat-icon-button class="dismiss-btn" (click)="dismissBanner()" matTooltip="Hide alert for now">
@@ -1274,19 +1302,81 @@ export interface UpcomingBillingCycleInfo {
     }
 
     ::ng-deep .pending-students-menu-panel {
-      max-height: 380px !important;
-      min-width: 290px !important;
+      max-height: 440px !important;
+      min-width: 320px !important;
       border-radius: 10px !important;
       border: 1px solid #fde68a !important;
       box-shadow: 0 10px 25px rgba(217, 119, 6, 0.15) !important;
+      overflow: hidden !important;
 
       .menu-section-title {
-        padding: 8px 14px 4px !important;
+        padding: 10px 14px 6px !important;
         font-size: 0.75rem !important;
         font-weight: 700 !important;
         color: #92400e !important;
         text-transform: uppercase !important;
         letter-spacing: 0.5px !important;
+        border-bottom: 1px solid #fef3c7 !important;
+        background: #fffbeb !important;
+      }
+
+      .pending-search-box {
+        display: flex !important;
+        align-items: center !important;
+        padding: 6px 12px !important;
+        gap: 6px !important;
+        background: #ffffff !important;
+        border-bottom: 1px solid #e2e8f0 !important;
+        position: sticky !important;
+        top: 0 !important;
+        z-index: 10 !important;
+
+        .search-mini-icon {
+          color: #94a3b8 !important;
+          font-size: 18px !important;
+          width: 18px !important;
+          height: 18px !important;
+        }
+
+        .pending-search-input {
+          flex: 1 !important;
+          border: none !important;
+          outline: none !important;
+          font-size: 0.84rem !important;
+          color: #0f172a !important;
+          background: transparent !important;
+          padding: 4px 0 !important;
+        }
+
+        .clear-mini-btn {
+          background: transparent !important;
+          border: none !important;
+          cursor: pointer !important;
+          color: #94a3b8 !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          padding: 2px !important;
+          mat-icon { font-size: 16px !important; width: 16px !important; height: 16px !important; }
+          &:hover { color: #475569 !important; }
+        }
+      }
+
+      .pending-menu-scrollable {
+        max-height: 320px !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+      }
+
+      .no-pending-match {
+        display: flex !important;
+        align-items: center !important;
+        gap: 8px !important;
+        padding: 16px 14px !important;
+        color: #94a3b8 !important;
+        font-size: 0.84rem !important;
+        font-style: italic !important;
+        mat-icon { font-size: 20px !important; width: 20px !important; height: 20px !important; }
       }
 
       .mat-mdc-menu-item {
@@ -2520,6 +2610,21 @@ export class FeesComponent implements OnInit, OnDestroy {
   loadingPending = false;
   generatingPending = false;
   bannerDismissed = false;
+  pendingStudentSearchQuery: string = '';
+
+  get filteredPendingStudents(): PendingInvoicingStudent[] {
+    if (!this.pendingStudentSearchQuery || !this.pendingStudentSearchQuery.trim()) {
+      return this.pendingStudents;
+    }
+    const q = this.pendingStudentSearchQuery.trim().toLowerCase();
+    return (this.pendingStudents || []).filter(s =>
+      (s.studentName && s.studentName.toLowerCase().includes(q)) ||
+      (s.rollNumber && s.rollNumber.toLowerCase().includes(q)) ||
+      (s.admissionNumber && s.admissionNumber.toLowerCase().includes(q)) ||
+      (s.className && s.className.toLowerCase().includes(q)) ||
+      (s.batchName && s.batchName.toLowerCase().includes(q))
+    );
+  }
 
   upcomingCycle: UpcomingBillingCycleInfo | null = null;
   upcomingBannerDismissed = false;

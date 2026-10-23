@@ -1966,14 +1966,14 @@ import { environment } from '../../../environments/environment';
       to { transform: rotate(360deg); }
     }
 
-    /* Responsive Styles */
-    @media (max-width: 900px) {
+    /* Responsive Styles (Screen Only - Never leak into Print) */
+    @media screen and (max-width: 900px) {
       .card-institute-header {
         grid-template-columns: 65px 1fr 75px;
       }
     }
 
-    @media (max-width: 768px) {
+    @media screen and (max-width: 768px) {
       .fee-card-page-container {
         padding: 0 0 24px;
         gap: 12px;
@@ -2068,7 +2068,7 @@ import { environment } from '../../../environments/environment';
         }
       }
 
-      /* FEE CARD CONTAINER & HEADER ON MOBILE */
+      /* FEE CARD CONTAINER & HEADER ON MOBILE SCREEN */
       .student-fee-passbook {
         padding: 0.75rem !important;
         border-radius: 8px !important;
@@ -2114,7 +2114,7 @@ import { environment } from '../../../environments/environment';
         .banner-hi { font-size: 0.76rem !important; }
       }
 
-      /* STUDENT INFO TABLE ON MOBILE - FULL RESPONSIVE STACK */
+      /* STUDENT INFO TABLE ON MOBILE SCREEN - FULL RESPONSIVE STACK */
       .student-info-table {
         display: block !important;
         width: 100% !important;
@@ -2160,7 +2160,7 @@ import { environment } from '../../../environments/environment';
         }
       }
 
-      /* SUMMARY KPI STRIP ON MOBILE */
+      /* SUMMARY KPI STRIP ON MOBILE SCREEN */
       .summary-kpi-strip {
         grid-template-columns: repeat(2, 1fr) !important;
         gap: 6px !important;
@@ -2173,7 +2173,7 @@ import { environment } from '../../../environments/environment';
         }
       }
 
-      /* 12-MONTH PASSBOOK TABLE CONTAINER & SCROLL */
+      /* 12-MONTH PASSBOOK TABLE CONTAINER & SCROLL ON MOBILE SCREEN */
       .passbook-table-container {
         width: 100% !important;
         max-width: 100% !important;
@@ -2190,7 +2190,7 @@ import { environment } from '../../../environments/environment';
         width: max-content !important;
       }
 
-      /* TERMS & SIGNATURES ON MOBILE */
+      /* TERMS & SIGNATURES ON MOBILE SCREEN */
       .card-terms-box {
         padding: 0.65rem 0.75rem !important;
         margin-bottom: 1rem !important;
@@ -2221,7 +2221,7 @@ import { environment } from '../../../environments/environment';
     /* STRICT SINGLE-PAGE A4 PRINT STYLESHEET */
     @page {
       size: A4 portrait;
-      margin: 6mm 8mm;
+      margin: 4mm 6mm;
     }
 
     @media print {
@@ -2258,97 +2258,174 @@ import { environment } from '../../../environments/environment';
       }
 
       .student-fee-passbook {
-        border: 1.5px solid #000000 !important;
+        border: 2px solid #1e3a8a !important;
         box-shadow: none !important;
-        padding: 6mm 8mm !important;
-        border-radius: 0 !important;
+        padding: 4mm 6mm !important;
+        border-radius: 4px !important;
         page-break-inside: avoid !important;
         break-inside: avoid !important;
         width: 100% !important;
         box-sizing: border-box !important;
+        background: #ffffff !important;
       }
 
       .card-institute-header {
-        grid-template-columns: 55px 1fr 65px !important;
-        gap: 8px !important;
+        display: grid !important;
+        grid-template-columns: 60px 1fr 70px !important;
+        gap: 10px !important;
+        align-items: center !important;
+        text-align: center !important;
         padding-bottom: 4px !important;
-        border-bottom: 1.5px solid #000000 !important;
+        border-bottom: 2px solid #0f172a !important;
+      }
+
+      .inst-logo-col {
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
       }
 
       .inst-logo-img {
-        max-width: 50px !important;
-        max-height: 50px !important;
+        max-width: 55px !important;
+        max-height: 55px !important;
+        object-fit: contain !important;
+      }
+
+      .inst-details-col {
+        text-align: center !important;
       }
 
       .inst-name {
-        font-size: 15px !important;
+        font-size: 16px !important;
+        font-weight: 800 !important;
         line-height: 1.15 !important;
-        color: #000000 !important;
+        color: #1e3a8a !important;
+        text-transform: uppercase !important;
+        margin: 0 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
       }
 
       .inst-tagline {
         font-size: 8px !important;
         margin: 1px 0 !important;
-        color: #333333 !important;
+        color: #475569 !important;
+        font-weight: 600 !important;
       }
 
       .inst-address, .inst-contact {
         font-size: 8.5px !important;
         margin: 1px 0 !important;
-        color: #000000 !important;
+        color: #1e293b !important;
+      }
+
+      .student-photo-col {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
       }
 
       .student-photo-box {
-        width: 55px !important;
-        height: 65px !important;
-        border: 1px solid #000000 !important;
+        width: 60px !important;
+        height: 70px !important;
+        border: 1.5px solid #1e3a8a !important;
+        border-radius: 3px !important;
+        overflow: hidden !important;
+        background: #f8fafc !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      .student-photo {
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: cover !important;
+      }
+
+      .student-photo-fallback {
+        width: 100% !important;
+        height: 100% !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        background: #f1f5f9 !important;
+        color: #94a3b8 !important;
+        mat-icon { font-size: 32px !important; width: 32px !important; height: 32px !important; }
       }
 
       .photo-caption {
-        font-size: 6.5px !important;
+        font-size: 7px !important;
+        color: #64748b !important;
+        margin-top: 2px !important;
+        font-weight: 600 !important;
       }
 
       .card-title-banner {
+        display: flex !important;
+        flex-direction: row !important;
+        justify-content: space-between !important;
+        align-items: center !important;
         background: #1e3a8a !important;
         color: #ffffff !important;
-        padding: 3px 8px !important;
+        padding: 3.5px 8px !important;
         margin: 4px 0 !important;
-        font-size: 10px !important;
+        border-radius: 3px !important;
+        font-size: 9.5px !important;
+        font-weight: 700 !important;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
+      }
+
+      .banner-en {
+        font-size: 9.5px !important;
+        color: #ffffff !important;
       }
 
       .banner-session {
         background: #fef08a !important;
         color: #854d0e !important;
-        padding: 1px 6px !important;
-        font-size: 9px !important;
+        padding: 1px 8px !important;
+        border-radius: 10px !important;
+        font-size: 8.5px !important;
+        font-weight: 800 !important;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
       }
 
       .banner-hi {
-        font-size: 9px !important;
+        font-size: 8.5px !important;
+        color: #e0e7ff !important;
       }
 
       .student-info-table {
+        display: table !important;
         width: 100% !important;
         border-collapse: collapse !important;
-        border: 1.5px solid #000000 !important;
+        border: 1.5px solid #1e3a8a !important;
         margin-bottom: 4px !important;
         background: #ffffff !important;
         table-layout: fixed !important;
       }
 
+      .student-info-table tbody {
+        display: table-row-group !important;
+        width: 100% !important;
+      }
+
       .student-info-table tbody tr {
-        border-bottom: 1px solid #000000 !important;
+        display: table-row !important;
+        width: 100% !important;
+        border-bottom: 1px solid #cbd5e1 !important;
       }
 
       .student-info-table td {
-        padding: 2.5px 5px !important;
-        border-right: 1px solid #000000 !important;
-        line-height: 1.15 !important;
+        display: table-cell !important;
+        padding: 3px 6px !important;
+        border-right: 1px solid #cbd5e1 !important;
+        line-height: 1.2 !important;
         vertical-align: middle !important;
+        box-sizing: border-box !important;
       }
 
       .student-info-table td:last-child {
@@ -2356,65 +2433,82 @@ import { environment } from '../../../environments/environment';
       }
 
       .info-label {
-        width: 19% !important;
-        background: #f1f5f9 !important;
-        color: #000000 !important;
-        font-size: 7.2px !important;
+        width: 20% !important;
+        background: #eff6ff !important;
+        color: #1e3a8a !important;
+        font-size: 7.8px !important;
         font-weight: 700 !important;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
       }
 
       .info-value {
-        width: 31% !important;
+        width: 30% !important;
         background: #ffffff !important;
-        color: #000000 !important;
-        font-size: 8px !important;
+        color: #0f172a !important;
+        font-size: 8.2px !important;
       }
 
       .student-name-val {
-        font-size: 8.5px !important;
+        font-size: 9px !important;
         font-weight: 800 !important;
-        color: #000000 !important;
+        color: #1e3a8a !important;
       }
 
       .bold-val {
         font-weight: 700 !important;
-        color: #000000 !important;
+        color: #0f172a !important;
       }
 
       .rate-val {
         font-weight: 800 !important;
-        color: #000000 !important;
+        color: #1e3a8a !important;
       }
 
       .summary-kpi-strip {
-        gap: 5px !important;
+        display: grid !important;
+        grid-template-columns: repeat(4, 1fr) !important;
+        gap: 6px !important;
         margin-bottom: 4px !important;
       }
 
       .kpi-box {
-        border: 1px solid #000000 !important;
-        padding: 2px 4px !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        border: 1px solid #cbd5e1 !important;
+        background: #f8fafc !important;
+        padding: 2.5px 4px !important;
         border-radius: 4px !important;
+        text-align: center !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
       }
 
       .kpi-label {
         font-size: 7px !important;
         margin-bottom: 1px !important;
-        color: #333333 !important;
+        color: #475569 !important;
+        font-weight: 600 !important;
+        display: block !important;
       }
 
       .kpi-value {
-        font-size: 10.5px !important;
-        color: #000000 !important;
+        font-size: 10px !important;
+        font-weight: 800 !important;
+        color: #0f172a !important;
+        display: block !important;
       }
 
       .passbook-table-container {
         position: relative !important;
-        border: 1.5px solid #000000 !important;
+        border: 1.5px solid #1e3a8a !important;
         margin-bottom: 4px !important;
         overflow: visible !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
       }
 
       .passbook-watermark-overlay {
@@ -2429,9 +2523,9 @@ import { environment } from '../../../environments/environment';
         pointer-events: none !important;
 
         .watermark-logo-img {
-          width: 250px !important;
-          height: 250px !important;
-          opacity: 0.08 !important;
+          width: 200px !important;
+          height: 200px !important;
+          opacity: 0.07 !important;
           -webkit-print-color-adjust: exact !important;
           print-color-adjust: exact !important;
         }
@@ -2440,11 +2534,34 @@ import { environment } from '../../../environments/environment';
       .passbook-table {
         position: relative !important;
         z-index: 2 !important;
+        display: table !important;
         width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
         table-layout: fixed !important;
         border-collapse: collapse !important;
-        font-size: 8.5px !important;
+        font-size: 8px !important;
         background: transparent !important;
+      }
+
+      .passbook-table thead {
+        display: table-header-group !important;
+      }
+
+      .passbook-table tbody {
+        display: table-row-group !important;
+      }
+
+      .passbook-table tfoot {
+        display: table-footer-group !important;
+      }
+
+      .passbook-table tr {
+        display: table-row !important;
+      }
+
+      .passbook-table th, .passbook-table td {
+        display: table-cell !important;
       }
 
       .th-sn { width: 4% !important; text-align: center !important; }
@@ -2456,39 +2573,44 @@ import { environment } from '../../../environments/environment';
       .th-sign { width: 15% !important; text-align: center !important; }
 
       .passbook-table th {
-        border: 1px solid #000000 !important;
+        border: 1px solid #cbd5e1 !important;
         background: #f1f5f9 !important;
-        color: #000000 !important;
+        color: #1e293b !important;
         padding: 2px 4px !important;
         font-size: 8px !important;
+        font-weight: 700 !important;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
       }
 
       .passbook-table td {
-        border: 1px solid #000000 !important;
-        color: #000000 !important;
+        border: 1px solid #e2e8f0 !important;
+        color: #0f172a !important;
         padding: 1.5px 4px !important;
         font-size: 8px !important;
         line-height: 1.15 !important;
+        vertical-align: middle !important;
       }
 
       .status-pill {
-        border: 1px solid #000000 !important;
-        padding: 1px 3px !important;
+        border: 1px solid #cbd5e1 !important;
+        padding: 1px 4px !important;
         font-size: 7px !important;
+        font-weight: 700 !important;
+        border-radius: 8px !important;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
       }
 
       .rcpt-num {
         font-size: 7.5px !important;
-        color: #000000 !important;
+        font-weight: 700 !important;
+        color: #1e3a8a !important;
       }
 
       .rcpt-date {
         font-size: 6.5px !important;
-        color: #333333 !important;
+        color: #475569 !important;
       }
 
       .total-label, .total-val, .total-remarks {
@@ -2497,60 +2619,66 @@ import { environment } from '../../../environments/environment';
       }
 
       .tfoot-total-row {
-        border-top: 1.5px solid #000000 !important;
+        border-top: 1.5px solid #1e3a8a !important;
+        background: #f8fafc !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
       }
 
       .card-terms-box {
-        border: 1px dashed #000000 !important;
+        border: 1px dashed #94a3b8 !important;
         padding: 3px 6px !important;
-        margin-bottom: 5px !important;
+        margin-bottom: 4px !important;
         background: #ffffff !important;
+        border-radius: 3px !important;
       }
 
       .terms-title {
         font-size: 8px !important;
         margin: 0 0 1px 0 !important;
-        color: #000000 !important;
+        color: #1e3a8a !important;
+        font-weight: 700 !important;
       }
 
       .terms-list {
         font-size: 7px !important;
-        line-height: 1.2 !important;
+        line-height: 1.25 !important;
         margin: 0 !important;
         padding-left: 12px !important;
-        color: #000000 !important;
+        color: #334155 !important;
       }
 
       .signatures-container {
         display: grid !important;
         grid-template-columns: repeat(3, 1fr) !important;
         width: 100% !important;
-        padding-top: 8px !important;
+        padding-top: 6px !important;
         gap: 12px !important;
         align-items: flex-end !important;
       }
 
       .sig-line {
-        background: #000000 !important;
+        background: #0f172a !important;
         height: 1px !important;
         margin-bottom: 2px !important;
       }
 
       .sig-title {
         font-size: 8px !important;
-        color: #000000 !important;
+        font-weight: 700 !important;
+        color: #0f172a !important;
       }
 
       .sig-sub {
         font-size: 6.5px !important;
-        color: #444444 !important;
+        color: #64748b !important;
       }
 
       .seal-placeholder {
         width: 50px !important;
         height: 24px !important;
         font-size: 6px !important;
-        border: 1px dashed #000000 !important;
+        border: 1px dashed #64748b !important;
         margin-bottom: 2px !important;
       }
     }
