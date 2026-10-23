@@ -1179,7 +1179,7 @@ public class SchoolController : ControllerBase
             student.CoachingRollNumber = rollNumber;
         }
 
-
+        student.CoachingJoiningDate = dto.CoachingJoiningDate ?? DateTime.UtcNow;
 
         await _db.SaveChangesAsync();
 
@@ -1221,16 +1221,26 @@ public class SchoolController : ControllerBase
 
     [HttpGet("promotions/class-exams")]
     public async Task<ActionResult<List<ClassExamDto>>> GetClassExams(
-        [FromQuery] Guid classId,
+        [FromQuery] Guid? classId,
+        [FromQuery] Guid? batchId,
         [FromQuery] string? academicYear)
     {
-        if (classId == Guid.Empty)
-            return BadRequest(new { message = "ClassId is required." });
+        if ((!classId.HasValue || classId.Value == Guid.Empty) && (!batchId.HasValue || batchId.Value == Guid.Empty))
+            return BadRequest(new { message = "ClassId or BatchId is required." });
 
         var query = _db.Tests
             .AsNoTracking()
             .Include(t => t.MarksList)
-            .Where(t => t.ClassId == classId);
+            .AsQueryable();
+
+        if (batchId.HasValue && batchId.Value != Guid.Empty)
+        {
+            query = query.Where(t => t.BatchId == batchId.Value);
+        }
+        else if (classId.HasValue && classId.Value != Guid.Empty)
+        {
+            query = query.Where(t => t.ClassId == classId.Value);
+        }
 
         if (!string.IsNullOrWhiteSpace(academicYear))
         {
@@ -1257,14 +1267,26 @@ public class SchoolController : ControllerBase
 
     [HttpGet("promotions/candidates")]
     public async Task<ActionResult<List<PromotionCandidateDto>>> GetPromotionCandidates(
-        [FromQuery] Guid fromClassId,
+        [FromQuery] Guid? fromClassId,
         [FromQuery] Guid? fromSectionId,
+        [FromQuery] Guid? fromBatchId,
         [FromQuery] string? academicYear,
         [FromQuery] Guid? examId,
-        [FromQuery] decimal? passingPercentage = null)
+        [FromQuery] decimal? passingPercentage = null,
+        [FromQuery] string scope = "School")
     {
-        if (fromClassId == Guid.Empty)
-            return BadRequest(new { message = "FromClassId is required." });
+        bool isCoaching = string.Equals(scope, "Coaching", StringComparison.OrdinalIgnoreCase) || (fromBatchId.HasValue && fromBatchId.Value != Guid.Empty);
+
+        if (isCoaching)
+        {
+            if (!fromBatchId.HasValue || fromBatchId.Value == Guid.Empty)
+                return BadRequest(new { message = "FromBatchId is required for coaching batch migration." });
+        }
+        else
+        {
+            if (!fromClassId.HasValue || fromClassId.Value == Guid.Empty)
+                return BadRequest(new { message = "FromClassId is required." });
+        }
 
         var setting = await _db.ExamSettings.FirstOrDefaultAsync();
         decimal effectivePassingPct = passingPercentage.HasValue && passingPercentage.Value > 0
@@ -1281,15 +1303,25 @@ public class SchoolController : ControllerBase
             .Include(s => s.Batch)
             .Include(s => s.FeeInvoices)
             .Include(s => s.Attendances)
-            .Where(s => s.IsActive && s.IsSchoolStudent && s.ClassId == fromClassId);
+            .Where(s => s.IsActive);
 
-        if (fromSectionId.HasValue && fromSectionId.Value != Guid.Empty)
+        if (isCoaching)
         {
-            query = query.Where(s => s.SectionId == fromSectionId.Value);
+            query = query.Where(s => s.BatchId == fromBatchId!.Value);
+        }
+        else
+        {
+            query = query.Where(s => s.IsSchoolStudent && s.ClassId == fromClassId!.Value);
+            if (fromSectionId.HasValue && fromSectionId.Value != Guid.Empty)
+            {
+                query = query.Where(s => s.SectionId == fromSectionId.Value);
+            }
         }
 
         var students = await query
-            .OrderBy(s => s.SchoolRollNumber != null && s.SchoolRollNumber != "" ? s.SchoolRollNumber : s.RollNumber)
+            .OrderBy(s => isCoaching
+                ? (s.CoachingRollNumber != null && s.CoachingRollNumber != "" ? s.CoachingRollNumber : s.RollNumber)
+                : (s.SchoolRollNumber != null && s.SchoolRollNumber != "" ? s.SchoolRollNumber : s.RollNumber))
             .ThenBy(s => s.StudentName)
             .ToListAsync();
 
@@ -1305,18 +1337,23 @@ public class SchoolController : ControllerBase
         }
         else if (!string.IsNullOrWhiteSpace(academicYear))
         {
-            evaluatedTests = await _db.Tests
-                .AsNoTracking()
-                .Include(t => t.MarksList)
-                .Where(t => t.ClassId == fromClassId && t.AcademicYear == academicYear)
-                .ToListAsync();
+            var tQuery = _db.Tests.AsNoTracking().Include(t => t.MarksList).Where(t => t.AcademicYear == academicYear);
+            if (isCoaching)
+                tQuery = tQuery.Where(t => t.BatchId == fromBatchId!.Value);
+            else
+                tQuery = tQuery.Where(t => t.ClassId == fromClassId!.Value);
+
+            evaluatedTests = await tQuery.ToListAsync();
         }
         else
         {
-            evaluatedTests = await _db.Tests
-                .AsNoTracking()
-                .Include(t => t.MarksList)
-                .Where(t => t.ClassId == fromClassId)
+            var tQuery = _db.Tests.AsNoTracking().Include(t => t.MarksList).AsQueryable();
+            if (isCoaching)
+                tQuery = tQuery.Where(t => t.BatchId == fromBatchId!.Value);
+            else
+                tQuery = tQuery.Where(t => t.ClassId == fromClassId!.Value);
+
+            evaluatedTests = await tQuery
                 .OrderByDescending(t => t.TestDate)
                 .Take(5)
                 .ToListAsync();
@@ -1417,7 +1454,6 @@ public class SchoolController : ControllerBase
                 suggestedStatus = "Promoted";
             }
 
-
             return new PromotionCandidateDto(
                 s.Id,
                 s.StudentName,
@@ -1453,14 +1489,112 @@ public class SchoolController : ControllerBase
     [HttpPost("promotions/execute")]
     public async Task<ActionResult<PromotionExecutionResultDto>> ExecutePromotion([FromBody] ExecutePromotionRequestDto dto)
     {
-        if (dto.FromClassId == Guid.Empty || dto.ToClassId == Guid.Empty)
-            return BadRequest(new { message = "FromClassId and ToClassId are required." });
+        bool isCoaching = string.Equals(dto.Scope, "Coaching", StringComparison.OrdinalIgnoreCase) || dto.FromBatchId.HasValue;
 
         if (dto.Promotions == null || dto.Promotions.Count == 0)
-            return BadRequest(new { message = "No students selected for promotion." });
+            return BadRequest(new { message = "No students selected for promotion / migration." });
 
-        var fromClass = await _db.SchoolClasses.FindAsync(dto.FromClassId);
-        var toClass = await _db.SchoolClasses.FindAsync(dto.ToClassId);
+        if (isCoaching)
+        {
+            if (!dto.FromBatchId.HasValue || dto.FromBatchId.Value == Guid.Empty ||
+                !dto.ToBatchId.HasValue || dto.ToBatchId.Value == Guid.Empty)
+            {
+                return BadRequest(new { message = "Source Batch and Destination Batch are required for coaching migration." });
+            }
+
+            if (dto.FromBatchId == dto.ToBatchId)
+            {
+                return BadRequest(new { message = "Destination batch cannot be the same as source batch." });
+            }
+
+            var fromBatch = await _db.Batches.FindAsync(dto.FromBatchId.Value);
+            var toBatch = await _db.Batches.FindAsync(dto.ToBatchId.Value);
+
+            if (fromBatch == null || toBatch == null)
+                return BadRequest(new { message = "Invalid source or destination coaching batch." });
+
+            int migratedCount = 0;
+            int retainedCount = 0;
+            var migratedIds = new List<Guid>();
+
+            foreach (var item in dto.Promotions)
+            {
+                var student = await _db.Students
+                    .Include(s => s.Batch)
+                    .FirstOrDefaultAsync(s => s.Id == item.StudentId);
+
+                if (student == null) continue;
+
+                var oldBatchId = student.BatchId ?? dto.FromBatchId;
+                var oldRollNumber = !string.IsNullOrWhiteSpace(student.CoachingRollNumber) ? student.CoachingRollNumber : student.RollNumber;
+
+                var history = new StudentPromotionHistory
+                {
+                    TenantId = _currentUser.TenantId,
+                    BranchId = student.BranchId,
+                    StudentId = student.Id,
+                    Scope = "Coaching",
+                    FromBatchId = oldBatchId,
+                    FromRollNumber = oldRollNumber,
+                    FromAcademicYear = !string.IsNullOrWhiteSpace(dto.FromAcademicYear) ? dto.FromAcademicYear : (fromBatch.AcademicYear ?? "2025-2026"),
+                    ToBatchId = dto.ToBatchId,
+                    ToRollNumber = item.NewRollNumber,
+                    ToAcademicYear = !string.IsNullOrWhiteSpace(dto.ToAcademicYear) ? dto.ToAcademicYear : (toBatch.AcademicYear ?? "2026-2027"),
+                    ResultStatus = item.ResultStatus ?? "Promoted",
+                    PromotionDate = DateTime.UtcNow,
+                    PromotedBy = User.Identity?.Name ?? _currentUser.UserRole ?? "Administrator",
+                    Remarks = !string.IsNullOrWhiteSpace(item.Remarks) ? item.Remarks : $"Migrated from {fromBatch.Name} to {toBatch.Name}",
+                    ExamPercentage = item.ExamPercentage,
+                    ExamTotalMarks = item.ExamTotalMarks,
+                    ExamGrade = item.ExamGrade,
+                    ExamResultStatus = item.ExamResultStatus
+                };
+
+                _db.StudentPromotionHistories.Add(history);
+
+                if (item.ResultStatus == "Promoted" || item.ResultStatus == "Migrated" || item.ResultStatus == "Passed with Grace" || item.ResultStatus == "Double Promoted")
+                {
+                    student.BatchId = dto.ToBatchId;
+                    student.IsCoachingStudent = true;
+
+                    if (!string.IsNullOrWhiteSpace(item.NewRollNumber))
+                    {
+                        student.CoachingRollNumber = item.NewRollNumber.Trim();
+                        if (!student.IsSchoolStudent || string.IsNullOrWhiteSpace(student.SchoolRollNumber))
+                        {
+                            student.RollNumber = item.NewRollNumber.Trim();
+                        }
+                    }
+
+                    migratedCount++;
+                    migratedIds.Add(student.Id);
+                }
+                else if (item.ResultStatus == "Detained" || item.ResultStatus == "Retained")
+                {
+                    retainedCount++;
+                }
+            }
+
+            await _db.SaveChangesAsync();
+
+            return Ok(new PromotionExecutionResultDto(
+                dto.Promotions.Count,
+                migratedCount,
+                retainedCount,
+                $"Batch migration successfully executed! {migratedCount} student(s) migrated to {toBatch.Name}, {retainedCount} retained in current batch.",
+                migratedIds
+            ));
+        }
+
+        // Standard School Class Promotion
+        if (!dto.FromClassId.HasValue || dto.FromClassId.Value == Guid.Empty ||
+            !dto.ToClassId.HasValue || dto.ToClassId.Value == Guid.Empty)
+        {
+            return BadRequest(new { message = "FromClassId and ToClassId are required." });
+        }
+
+        var fromClass = await _db.SchoolClasses.FindAsync(dto.FromClassId.Value);
+        var toClass = await _db.SchoolClasses.FindAsync(dto.ToClassId.Value);
 
         if (fromClass == null || toClass == null)
             return BadRequest(new { message = "Invalid source or destination class." });
@@ -1494,6 +1628,7 @@ public class SchoolController : ControllerBase
                 TenantId = _currentUser.TenantId,
                 BranchId = student.BranchId,
                 StudentId = student.Id,
+                Scope = "School",
                 FromClassId = oldClassId,
                 FromSectionId = oldSectionId,
                 FromRollNumber = oldRollNumber,
@@ -1551,6 +1686,8 @@ public class SchoolController : ControllerBase
     [HttpGet("promotions/history")]
     public async Task<ActionResult<object>> GetPromotionHistory(
         [FromQuery] Guid? classId,
+        [FromQuery] Guid? batchId,
+        [FromQuery] string? scope,
         [FromQuery] string? academicYear,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20)
@@ -1562,9 +1699,20 @@ public class SchoolController : ControllerBase
             .Include(p => p.FromSection)
             .Include(p => p.ToClass)
             .Include(p => p.ToSection)
+            .Include(p => p.FromBatch)
+            .Include(p => p.ToBatch)
             .AsQueryable();
 
-        if (classId.HasValue && classId.Value != Guid.Empty)
+        if (!string.IsNullOrWhiteSpace(scope))
+        {
+            query = query.Where(p => p.Scope == scope);
+        }
+
+        if (batchId.HasValue && batchId.Value != Guid.Empty)
+        {
+            query = query.Where(p => p.FromBatchId == batchId.Value || p.ToBatchId == batchId.Value);
+        }
+        else if (classId.HasValue && classId.Value != Guid.Empty)
         {
             query = query.Where(p => p.FromClassId == classId.Value || p.ToClassId == classId.Value);
         }
@@ -1586,13 +1734,13 @@ public class SchoolController : ControllerBase
                 p.Student != null ? p.Student.StudentName : "Unknown",
                 p.Student != null ? (p.Student.AdmissionNumber ?? "N/A") : "N/A",
                 p.FromClassId,
-                p.FromClass != null ? p.FromClass.Name : "Class",
+                p.FromClass != null ? p.FromClass.Name : null,
                 p.FromSectionId,
                 p.FromSection != null ? p.FromSection.Name : null,
                 p.FromRollNumber,
                 p.FromAcademicYear,
                 p.ToClassId,
-                p.ToClass != null ? p.ToClass.Name : "Class",
+                p.ToClass != null ? p.ToClass.Name : null,
                 p.ToSectionId,
                 p.ToSection != null ? p.ToSection.Name : null,
                 p.ToRollNumber,
@@ -1603,7 +1751,12 @@ public class SchoolController : ControllerBase
                 p.Remarks,
                 p.ExamPercentage,
                 p.ExamTotalMarks,
-                p.ExamGrade
+                p.ExamGrade,
+                p.Scope,
+                p.FromBatchId,
+                p.FromBatch != null ? p.FromBatch.Name : null,
+                p.ToBatchId,
+                p.ToBatch != null ? p.ToBatch.Name : null
             ))
             .ToListAsync();
 
@@ -1631,14 +1784,29 @@ public class SchoolController : ControllerBase
 
             if (history == null || history.Student == null) continue;
 
-            history.Student.ClassId = history.FromClassId;
-            history.Student.SectionId = history.FromSectionId;
-            if (!string.IsNullOrWhiteSpace(history.FromRollNumber))
+            if (history.Scope == "Coaching" || history.FromBatchId.HasValue)
             {
-                history.Student.SchoolRollNumber = history.FromRollNumber;
-                if (!history.Student.IsCoachingStudent || string.IsNullOrWhiteSpace(history.Student.CoachingRollNumber))
+                history.Student.BatchId = history.FromBatchId;
+                if (!string.IsNullOrWhiteSpace(history.FromRollNumber))
                 {
-                    history.Student.RollNumber = history.FromRollNumber;
+                    history.Student.CoachingRollNumber = history.FromRollNumber;
+                    if (!history.Student.IsSchoolStudent || string.IsNullOrWhiteSpace(history.Student.SchoolRollNumber))
+                    {
+                        history.Student.RollNumber = history.FromRollNumber;
+                    }
+                }
+            }
+            else
+            {
+                history.Student.ClassId = history.FromClassId;
+                history.Student.SectionId = history.FromSectionId;
+                if (!string.IsNullOrWhiteSpace(history.FromRollNumber))
+                {
+                    history.Student.SchoolRollNumber = history.FromRollNumber;
+                    if (!history.Student.IsCoachingStudent || string.IsNullOrWhiteSpace(history.Student.CoachingRollNumber))
+                    {
+                        history.Student.RollNumber = history.FromRollNumber;
+                    }
                 }
             }
 
@@ -1648,7 +1816,7 @@ public class SchoolController : ControllerBase
 
         await _db.SaveChangesAsync();
 
-        return Ok(new { message = $"Successfully reverted {revertedCount} promotion record(s)." });
+        return Ok(new { message = $"Successfully reverted {revertedCount} promotion / migration record(s)." });
     }
 
     #endregion
@@ -1705,7 +1873,8 @@ public class SchoolController : ControllerBase
     [HttpGet("my-exams")]
     public async Task<ActionResult<StudentMyExamsDto>> GetMyExams(
         [FromQuery] string? academicYear,
-        [FromQuery] string? examType)
+        [FromQuery] string? examType,
+        [FromQuery] string? category)
     {
         var userId = _currentUser.UserId;
         var tenantId = _currentUser.TenantId;
@@ -1715,6 +1884,7 @@ public class SchoolController : ControllerBase
             .Include(s => s.Class)
             .Include(s => s.Section)
             .Include(s => s.Batch)
+                .ThenInclude(b => b!.Class)
             .Include(s => s.Branch)
             .FirstOrDefaultAsync(s => s.UserId == userId && s.TenantId == tenantId);
 
@@ -1724,6 +1894,7 @@ public class SchoolController : ControllerBase
                 .Include(s => s.Class)
                 .Include(s => s.Section)
                 .Include(s => s.Batch)
+                    .ThenInclude(b => b!.Class)
                 .Include(s => s.Branch)
                 .FirstOrDefaultAsync(s => s.ParentUserId == userId && s.TenantId == tenantId);
         }
@@ -1737,6 +1908,7 @@ public class SchoolController : ControllerBase
                     .Include(s => s.Class)
                     .Include(s => s.Section)
                     .Include(s => s.Batch)
+                        .ThenInclude(b => b!.Class)
                     .Include(s => s.Branch)
                     .FirstOrDefaultAsync(s =>
                         s.TenantId == tenantId && (
@@ -1753,6 +1925,7 @@ public class SchoolController : ControllerBase
                 .Include(s => s.Class)
                 .Include(s => s.Section)
                 .Include(s => s.Batch)
+                    .ThenInclude(b => b!.Class)
                 .Include(s => s.Branch)
                 .FirstOrDefaultAsync(s => s.TenantId == tenantId && s.IsActive);
         }
@@ -1762,27 +1935,107 @@ public class SchoolController : ControllerBase
             return NotFound(new { message = "No active student record linked to this account." });
         }
 
-        var activeSession = await GetActiveAcademicYearAsync();
-        var selectedSession = !string.IsNullOrWhiteSpace(academicYear) ? academicYear : activeSession;
+        // 2. Resolve Dynamic Academic Sessions from ExamSettings, Tests, and Batches
+        var examSetting = await _db.ExamSettings.AsNoTracking().FirstOrDefaultAsync(s => s.TenantId == tenantId)
+            ?? await _db.ExamSettings.AsNoTracking().FirstOrDefaultAsync();
 
-        // Query tests relevant to this student's class, section, or batch
+        var activeSession = !string.IsNullOrWhiteSpace(examSetting?.ActiveAcademicYear)
+            ? examSetting.ActiveAcademicYear.Trim()
+            : await GetActiveAcademicYearAsync();
+
+        var dynamicSessionsSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        if (!string.IsNullOrWhiteSpace(examSetting?.AvailableAcademicYears))
+        {
+            foreach (var s in examSetting.AvailableAcademicYears.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                dynamicSessionsSet.Add(s);
+            }
+        }
+
+        var testSessions = await _db.Tests.AsNoTracking()
+            .Where(t => t.TenantId == tenantId && !string.IsNullOrWhiteSpace(t.AcademicYear))
+            .Select(t => t.AcademicYear!)
+            .Distinct()
+            .ToListAsync();
+        foreach (var s in testSessions) dynamicSessionsSet.Add(s.Trim());
+
+        var batchSessions = await _db.Batches.AsNoTracking()
+            .Where(b => b.TenantId == tenantId && !string.IsNullOrWhiteSpace(b.AcademicYear))
+            .Select(b => b.AcademicYear!)
+            .Distinct()
+            .ToListAsync();
+        foreach (var s in batchSessions) dynamicSessionsSet.Add(s.Trim());
+
+        if (!string.IsNullOrWhiteSpace(activeSession)) dynamicSessionsSet.Add(activeSession);
+        if (!string.IsNullOrWhiteSpace(student.Batch?.AcademicYear)) dynamicSessionsSet.Add(student.Batch.AcademicYear.Trim());
+
+        if (dynamicSessionsSet.Count == 0)
+        {
+            foreach (var s in GetDynamicRollingSessions().Split(',')) dynamicSessionsSet.Add(s.Trim());
+        }
+
+        var availableSessionsList = dynamicSessionsSet.OrderByDescending(s => s).ToList();
+
+        // If no academic year requested or "All", pick activeSession if it exists in available, or the first available
+        var selectedSession = !string.IsNullOrWhiteSpace(academicYear)
+            ? academicYear.Trim()
+            : (availableSessionsList.Contains(activeSession) ? activeSession : availableSessionsList.FirstOrDefault() ?? activeSession);
+
+        // 3. Resolve Dynamic Exam Types
+        var examTypesSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var t in DefaultStandardExamTypes.Split(',')) examTypesSet.Add(t.Trim());
+
+        if (!string.IsNullOrWhiteSpace(examSetting?.AvailableExamTypes))
+        {
+            foreach (var t in examSetting.AvailableExamTypes.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                examTypesSet.Add(t);
+            }
+        }
+
+        var dbExamTypes = await _db.Tests.AsNoTracking()
+            .Where(t => t.TenantId == tenantId && !string.IsNullOrWhiteSpace(t.ExamType))
+            .Select(t => t.ExamType!)
+            .Distinct()
+            .ToListAsync();
+        foreach (var t in dbExamTypes) examTypesSet.Add(t.Trim());
+
+        var availableExamTypesList = examTypesSet.OrderBy(t => t).ToList();
+
+        // 4. Query tests relevant to student's school class, section, or coaching batch
         var testsQuery = _db.Tests
             .AsNoTracking()
             .Include(t => t.EvaluatorTeacher)
             .Include(t => t.MarksList)
-            .Where(t => 
+            .Include(t => t.Class)
+            .Include(t => t.Batch)
+            .Where(t => t.TenantId == tenantId && (
                 (student.ClassId != null && t.ClassId == student.ClassId && (t.SectionId == null || t.SectionId == student.SectionId)) ||
-                (student.BatchId != null && t.BatchId == student.BatchId)
-            );
+                (student.BatchId != null && t.BatchId == student.BatchId) ||
+                t.MarksList.Any(m => m.StudentId == student.Id)
+            ));
 
-        if (!string.IsNullOrWhiteSpace(selectedSession))
+        if (!string.IsNullOrWhiteSpace(selectedSession) && selectedSession != "All")
         {
-            testsQuery = testsQuery.Where(t => t.AcademicYear == selectedSession);
+            testsQuery = testsQuery.Where(t => t.AcademicYear == selectedSession || string.IsNullOrEmpty(t.AcademicYear));
         }
 
         if (!string.IsNullOrWhiteSpace(examType) && examType != "All")
         {
             testsQuery = testsQuery.Where(t => t.ExamType == examType);
+        }
+
+        if (!string.IsNullOrWhiteSpace(category) && category != "all")
+        {
+            if (category.Equals("school", StringComparison.OrdinalIgnoreCase))
+            {
+                testsQuery = testsQuery.Where(t => t.ClassId != null);
+            }
+            else if (category.Equals("coaching", StringComparison.OrdinalIgnoreCase))
+            {
+                testsQuery = testsQuery.Where(t => t.BatchId != null);
+            }
         }
 
         var tests = await testsQuery
@@ -1843,12 +2096,16 @@ public class SchoolController : ControllerBase
 
             int daysRemaining = (int)(t.TestDate.Date - today).TotalDays;
 
+            string itemCategory = t.BatchId.HasValue ? "Coaching" : "School";
+            string? itemBatchName = t.Batch?.Name ?? (t.BatchId.HasValue ? student.Batch?.Name : null);
+            string? itemClassName = t.Class?.Name ?? (t.ClassId.HasValue ? student.Class?.Name : null);
+
             examItems.Add(new StudentMyExamItemDto(
                 t.Id,
                 t.Title,
                 t.Subject,
                 t.ExamType ?? "Annual Exam",
-                t.AcademicYear ?? selectedSession,
+                !string.IsNullOrEmpty(t.AcademicYear) ? t.AcademicYear : selectedSession,
                 t.TestDate,
                 t.MaxMarks,
                 passMark,
@@ -1862,7 +2119,10 @@ public class SchoolController : ControllerBase
                 remarks,
                 rank,
                 daysRemaining,
-                t.EvaluatorTeacher?.FullName
+                t.EvaluatorTeacher?.FullName,
+                itemCategory,
+                itemBatchName,
+                itemClassName
             ));
         }
 
@@ -1897,6 +2157,8 @@ public class SchoolController : ControllerBase
             resultStatus
         );
 
+        string displayClassName = student.Class?.Name ?? (student.IsCoachingStudent && !student.IsSchoolStudent ? (student.Batch?.Name ?? "Coaching Batch") : "General");
+
         var studentInfo = new StudentMyInfoSummaryDto(
             student.Id,
             student.StudentName,
@@ -1904,7 +2166,7 @@ public class SchoolController : ControllerBase
             student.SchoolRollNumber,
             student.AdmissionNumber,
             student.ClassId,
-            student.Class?.Name ?? "General",
+            displayClassName,
             student.SectionId,
             student.Section?.Name,
             student.Batch?.Name,
@@ -1915,12 +2177,17 @@ public class SchoolController : ControllerBase
             student.ParentName,
             student.MotherName,
             student.Gender,
-            student.DateOfBirth
+            student.DateOfBirth,
+            student.IsSchoolStudent,
+            student.IsCoachingStudent,
+            student.CoachingRollNumber,
+            student.BatchId,
+            student.Batch?.Subject
         );
 
-        // Also build consolidated student result if class is present
+        // Also build consolidated student result if school class is present and student is school student
         ConsolidatedStudentResultDto? consolidated = null;
-        if (student.ClassId.HasValue)
+        if (student.IsSchoolStudent && student.ClassId.HasValue)
         {
             try
             {
@@ -1945,9 +2212,6 @@ public class SchoolController : ControllerBase
                 // Non-blocking fallback
             }
         }
-
-        var availableSessionsList = GetDynamicRollingSessions().Split(',').Select(s => s.Trim()).ToList();
-        var availableExamTypesList = DefaultStandardExamTypes.Split(',').Select(s => s.Trim()).ToList();
 
         return Ok(new StudentMyExamsDto(
             studentInfo,

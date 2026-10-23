@@ -16,6 +16,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 
 import { AuthService } from '../../core/services/auth.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
+import { BatchesService, BatchDto } from '../../core/services/batches.service';
 import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.directive';
 import { environment } from '../../../environments/environment';
 
@@ -80,6 +81,7 @@ export interface MonthlyPerformanceReportHeader {
   monthName: string;
   className?: string;
   sectionName?: string;
+  batchName?: string;
   classTeacherName?: string;
   totalStudentsEvaluated: number;
   classAverageAttendance: number;
@@ -149,6 +151,20 @@ export interface MonthlyPerformanceReportHeader {
         </div>
       </div>
 
+      <!-- Dual Scope Selector (School Classes vs Coaching Batches) -->
+      <div class="scope-nav-container">
+        <div class="scope-pills">
+          <button class="scope-pill-btn" [class.active]="targetScope === 'school'" (click)="setScope('school')" type="button">
+            <mat-icon>school</mat-icon>
+            <span>School Classes (स्कूल कक्षाएं)</span>
+          </button>
+          <button class="scope-pill-btn" [class.active]="targetScope === 'coaching'" (click)="setScope('coaching')" type="button">
+            <mat-icon>groups</mat-icon>
+            <span>Coaching Batches (कोचिंग बैचेस)</span>
+          </button>
+        </div>
+      </div>
+
       <!-- Reactive Filters Card -->
       <mat-card class="filter-card">
         <form [formGroup]="filterForm" class="filter-form-row">
@@ -166,20 +182,43 @@ export interface MonthlyPerformanceReportHeader {
             </mat-select>
           </mat-form-field>
 
-          <mat-form-field appearance="outline" class="filter-control class-control" subscriptSizing="dynamic">
-            <mat-label>Select Class (कक्षा) *</mat-label>
-            <mat-select formControlName="classId" (selectionChange)="onClassChange()">
-              <mat-option *ngFor="let c of classes" [value]="c.id">{{ c.name }}</mat-option>
-            </mat-select>
-          </mat-form-field>
+          <!-- School Scope Dropdowns -->
+          <ng-container *ngIf="targetScope === 'school'">
+            <mat-form-field appearance="outline" class="filter-control class-control" subscriptSizing="dynamic">
+              <mat-label>Select Class (कक्षा) *</mat-label>
+              <mat-select formControlName="classId" (selectionChange)="onClassChange()">
+                <mat-option *ngFor="let c of classes" [value]="c.id">{{ c.name }}</mat-option>
+              </mat-select>
+            </mat-form-field>
 
-          <mat-form-field appearance="outline" class="filter-control section-control" *ngIf="sections.length > 0" subscriptSizing="dynamic">
-            <mat-label>Section (वर्ग)</mat-label>
-            <mat-select formControlName="sectionId" (selectionChange)="loadPerformanceReport()">
-              <mat-option value="">All Sections</mat-option>
-              <mat-option *ngFor="let s of sections" [value]="s.id">{{ s.name }}</mat-option>
-            </mat-select>
-          </mat-form-field>
+            <mat-form-field appearance="outline" class="filter-control section-control" *ngIf="sections.length > 0" subscriptSizing="dynamic">
+              <mat-label>Section (वर्ग)</mat-label>
+              <mat-select formControlName="sectionId" (selectionChange)="loadPerformanceReport()">
+                <mat-option value="">All Sections</mat-option>
+                <mat-option *ngFor="let s of sections" [value]="s.id">{{ s.name }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+          </ng-container>
+
+          <!-- Coaching Scope Dropdowns (Strict Cascade: Class ➔ Batch) -->
+          <ng-container *ngIf="targetScope === 'coaching'">
+            <mat-form-field appearance="outline" class="filter-control class-control" subscriptSizing="dynamic">
+              <mat-label>Academic Class (कक्षा)</mat-label>
+              <mat-select formControlName="coachingClassId" (selectionChange)="onCoachingClassChange()">
+                <mat-option value="">All Classes (सभी कक्षाएं)</mat-option>
+                <mat-option *ngFor="let c of classes" [value]="c.id">{{ c.name }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="filter-control batch-control" subscriptSizing="dynamic">
+              <mat-label>Select Batch (कोचिंग बैच) *</mat-label>
+              <mat-select formControlName="batchId" (selectionChange)="onBatchChange()">
+                <mat-option *ngFor="let b of filteredBatches" [value]="b.id">
+                  {{ b.name }} ({{ b.subject || b.academicYear || 'Batch' }})
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
+          </ng-container>
 
           <div class="deck-actions-group">
             <button mat-stroked-button class="print-master-btn" type="button" (click)="printMasterRegister()" [disabled]="students.length === 0">
@@ -243,11 +282,12 @@ export interface MonthlyPerformanceReportHeader {
       <div class="table-container" *ngIf="students.length > 0" id="monthlyMasterPrintSection">
         <!-- Print-Only School Header for Master Sheet -->
         <div class="print-master-header">
-          <div class="pmh-school-name">{{ authService.getInstituteName() || 'Jnandeep Campus' }}</div>
+          <div class="pmh-school-name">{{ authService.getInstituteName() || 'Institution' }}</div>
           <div class="pmh-title">STUDENT MONTHLY PERFORMANCE MASTER REGISTER</div>
           <div class="pmh-meta-row">
             <span>Month: <strong>{{ reportHeader?.monthName }} {{ reportHeader?.year }}</strong></span>
-            <span>Class: <strong>{{ reportHeader?.className }}</strong> <strong *ngIf="reportHeader?.sectionName">({{ reportHeader?.sectionName }})</strong></span>
+            <span *ngIf="targetScope === 'school'">Class: <strong>{{ reportHeader?.className }}</strong> <strong *ngIf="reportHeader?.sectionName">({{ reportHeader?.sectionName }})</strong></span>
+            <span *ngIf="targetScope === 'coaching'">Batch: <strong>{{ reportHeader?.batchName || getSelectedBatchName() }}</strong></span>
             <span>Total Evaluated: <strong>{{ reportHeader?.totalStudentsEvaluated }}</strong></span>
             <span>Avg Attendance: <strong>{{ reportHeader?.classAverageAttendance }}%</strong></span>
             <span>HW Rate: <strong>{{ reportHeader?.classAverageHwRate }}%</strong></span>
@@ -473,6 +513,48 @@ export interface MonthlyPerformanceReportHeader {
       height: 40px;
       border-color: #cbd5e1;
       color: #334155;
+    }
+
+    /* Scope Switcher */
+    .scope-nav-container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      background: #ffffff;
+      padding: 10px 16px;
+      border-radius: 10px;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+    }
+    .scope-pills {
+      display: flex;
+      gap: 8px;
+    }
+    .scope-pill-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 18px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      border: 1px solid #e2e8f0;
+      background: #f8fafc;
+      color: #64748b;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .scope-pill-btn:hover {
+      background: #f1f5f9;
+      color: #1e293b;
+    }
+    .scope-pill-btn.active {
+      background: #eff6ff;
+      border-color: #3b82f6;
+      color: #1d4ed8;
+      box-shadow: 0 2px 4px rgba(37, 99, 235, 0.12);
     }
 
     .filter-card {
@@ -1011,10 +1093,14 @@ export class MonthlyPerformanceComponent implements OnInit {
   private dialog = inject(MatDialog);
   private confirmDialog = inject(ConfirmDialogService);
   public authService = inject(AuthService);
+  private batchesService = inject(BatchesService);
 
+  targetScope: 'school' | 'coaching' = 'school';
   filterForm!: FormGroup;
   classes: any[] = [];
   sections: any[] = [];
+  batches: BatchDto[] = [];
+  filteredBatches: BatchDto[] = [];
   students: MonthlyStudentPerformanceRow[] = [];
   reportHeader?: MonthlyPerformanceReportHeader;
   loading = false;
@@ -1050,10 +1136,78 @@ export class MonthlyPerformanceComponent implements OnInit {
       month: [now.getMonth() + 1],
       year: [currentYear],
       classId: [''],
-      sectionId: ['']
+      sectionId: [''],
+      coachingClassId: [''],
+      batchId: ['']
     });
 
     this.loadClasses();
+    this.loadBatches();
+  }
+
+  setScope(scope: 'school' | 'coaching'): void {
+    if (this.targetScope === scope) return;
+    this.targetScope = scope;
+    this.students = [];
+    this.reportHeader = undefined;
+
+    if (scope === 'school') {
+      if (this.classes.length > 0 && !this.filterForm.get('classId')?.value) {
+        this.filterForm.patchValue({ classId: this.classes[0].id });
+        this.sections = this.classes[0].sections || [];
+      }
+      this.loadPerformanceReport();
+    } else {
+      this.filterBatchesByClass();
+      if (this.filteredBatches.length > 0 && !this.filterForm.get('batchId')?.value) {
+        this.filterForm.patchValue({ batchId: this.filteredBatches[0].id });
+      }
+      this.loadPerformanceReport();
+    }
+  }
+
+  loadBatches(): void {
+    this.batchesService.getBatches().subscribe({
+      next: (data) => {
+        this.batches = data || [];
+        this.filterBatchesByClass();
+        if (this.targetScope === 'coaching' && this.filteredBatches.length > 0) {
+          this.filterForm.patchValue({ batchId: this.filteredBatches[0].id });
+          this.loadPerformanceReport();
+        }
+      },
+      error: () => {
+        this.confirmDialog.alert('Error', 'Failed to load coaching batches.', 'danger');
+      }
+    });
+  }
+
+  filterBatchesByClass(): void {
+    const selectedClassId = this.filterForm?.get('coachingClassId')?.value;
+    if (!selectedClassId) {
+      this.filteredBatches = [...this.batches];
+    } else {
+      this.filteredBatches = this.batches.filter(b => b.classId === selectedClassId);
+    }
+    const currentBatchId = this.filterForm?.get('batchId')?.value;
+    if (currentBatchId && !this.filteredBatches.some(b => b.id === currentBatchId)) {
+      this.filterForm?.patchValue({ batchId: this.filteredBatches[0]?.id || '' });
+    }
+  }
+
+  onCoachingClassChange(): void {
+    this.filterBatchesByClass();
+    this.loadPerformanceReport();
+  }
+
+  onBatchChange(): void {
+    this.loadPerformanceReport();
+  }
+
+  getSelectedBatchName(): string {
+    const bId = this.filterForm.get('batchId')?.value;
+    const b = this.batches.find(x => x.id === bId);
+    return b?.name || '';
   }
 
   loadClasses(): void {
@@ -1063,7 +1217,9 @@ export class MonthlyPerformanceComponent implements OnInit {
         if (this.classes.length > 0) {
           this.filterForm.patchValue({ classId: this.classes[0].id });
           this.sections = this.classes[0].sections || [];
-          this.loadPerformanceReport();
+          if (this.targetScope === 'school') {
+            this.loadPerformanceReport();
+          }
         }
       },
       error: () => {
@@ -1082,25 +1238,48 @@ export class MonthlyPerformanceComponent implements OnInit {
 
   loadPerformanceReport(): void {
     const fv = this.filterForm.value;
-    if (!fv.classId) return;
 
-    this.loading = true;
-    let url = `${API_BASE}/homework/monthly-performance/report?month=${fv.month}&year=${fv.year}&classId=${fv.classId}`;
-    if (fv.sectionId) {
-      url += `&sectionId=${fv.sectionId}`;
-    }
+    if (this.targetScope === 'school') {
+      if (!fv.classId) return;
 
-    this.http.get<MonthlyPerformanceReportHeader>(url).subscribe({
-      next: (header) => {
-        this.reportHeader = header;
-        this.students = header.rows || [];
-        this.loading = false;
-      },
-      error: () => {
-        this.loading = false;
-        this.confirmDialog.alert('Fetch Error', 'Failed to calculate monthly performance report.', 'danger');
+      this.loading = true;
+      let url = `${API_BASE}/homework/monthly-performance/report?month=${fv.month}&year=${fv.year}&classId=${fv.classId}`;
+      if (fv.sectionId) {
+        url += `&sectionId=${fv.sectionId}`;
       }
-    });
+
+      this.http.get<MonthlyPerformanceReportHeader>(url).subscribe({
+        next: (header) => {
+          this.reportHeader = header;
+          this.students = header.rows || [];
+          this.loading = false;
+        },
+        error: () => {
+          this.loading = false;
+          this.confirmDialog.alert('Fetch Error', 'Failed to calculate monthly performance report.', 'danger');
+        }
+      });
+    } else {
+      if (!fv.batchId) return;
+
+      this.loading = true;
+      let url = `${API_BASE}/homework/monthly-performance/report?month=${fv.month}&year=${fv.year}&batchId=${fv.batchId}`;
+      if (fv.coachingClassId) {
+        url += `&classId=${fv.coachingClassId}`;
+      }
+
+      this.http.get<MonthlyPerformanceReportHeader>(url).subscribe({
+        next: (header) => {
+          this.reportHeader = header;
+          this.students = header.rows || [];
+          this.loading = false;
+        },
+        error: () => {
+          this.loading = false;
+          this.confirmDialog.alert('Fetch Error', 'Failed to calculate monthly performance report.', 'danger');
+        }
+      });
+    }
   }
 
   saveTeacherRemarks(): void {
@@ -1149,7 +1328,7 @@ export class MonthlyPerformanceComponent implements OnInit {
       return;
     }
 
-    const schoolName = this.authService.getInstituteName() || 'Jnandeep Campus';
+    const schoolName = this.authService.getInstituteName() || 'Institution';
     const month = this.reportHeader?.monthName || '';
     const year = this.reportHeader?.year || '';
 
@@ -1227,7 +1406,11 @@ export class MonthlyPerformanceComponent implements OnInit {
     let msg = `📊 *${inst} - Monthly Performance Report*\n`;
     msg += `📅 Month: *${month}*\n`;
     msg += `👤 Student: *${row.studentName}* ${row.rollNumber ? '(Roll: ' + row.rollNumber + ')' : ''}\n`;
-    msg += `🏫 Class: *${row.className || ''} ${row.sectionName ? '(' + row.sectionName + ')' : ''}*\n\n`;
+    if (this.reportHeader?.batchName) {
+      msg += `👥 Batch: *${this.reportHeader.batchName}*\n\n`;
+    } else {
+      msg += `🏫 Class: *${row.className || ''} ${row.sectionName ? '(' + row.sectionName + ')' : ''}*\n\n`;
+    }
 
     msg += `📈 *Monthly Scorecard Breakdown:*\n`;
     msg += `• 📅 Attendance: *${row.attendancePercentage}%* (${row.daysPresent}/${row.totalWorkingDays} days present)\n`;
@@ -1365,8 +1548,8 @@ export class MonthlyPerformanceComponent implements OnInit {
                   </div>
                   <div class="meta-specs-grid">
                     <div class="spec-item">
-                      <span class="spec-label">Class &amp; Section</span>
-                      <span class="spec-value">{{ data.student.className }} {{ data.student.sectionName ? '(' + data.student.sectionName + ')' : '' }}</span>
+                      <span class="spec-label">{{ data.header?.batchName ? 'Coaching Batch' : 'Class &amp; Section' }}</span>
+                      <span class="spec-value">{{ data.header?.batchName || (data.student.className + (data.student.sectionName ? ' (' + data.student.sectionName + ')' : '')) }}</span>
                     </div>
                     <div class="spec-item">
                       <span class="spec-label">Evaluation Month</span>

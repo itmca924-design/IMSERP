@@ -1,7 +1,8 @@
 import { Component, OnInit, Inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { FormBuilder, FormGroup, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
+import { RouterModule } from '@angular/router';
 import { MatDialog, MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -27,6 +28,9 @@ export interface StudentLeaveDto {
   rollNumber: string;
   className?: string;
   sectionName?: string;
+  batchId?: string;
+  batchName?: string;
+  coachingRollNumber?: string;
   parentContactNumber?: string;
   leaveCategory: string;
   fromDate: string;
@@ -67,7 +71,7 @@ export interface StudentLeaveStatsDto {
   selector: 'app-student-leaves',
   standalone: true,
   imports: [
-    CommonModule, FormsModule, MatDialogModule, MatButtonModule, MatIconModule,
+    CommonModule, ReactiveFormsModule, FormsModule, RouterModule, MatDialogModule, MatButtonModule, MatIconModule,
     MatFormFieldModule, MatInputModule, MatSelectModule, MatTooltipModule,
     MatProgressBarModule, MatDividerModule
   ],
@@ -158,69 +162,103 @@ export interface StudentLeaveStatsDto {
         </div>
       </div>
 
-      <!-- Controls & Filter Strip -->
+      <!-- Controls & Filter Strip (Pure Reactive Forms) -->
       <div class="controls-card">
-        <div class="filter-row">
-          <mat-form-field appearance="outline" class="filter-field">
-            <mat-label>Status</mat-label>
-            <mat-select [(ngModel)]="filterStatus" (selectionChange)="loadLeaves()">
-              <mat-option value="">All Statuses</mat-option>
-              <mat-option value="Pending">⏳ Pending Review</mat-option>
-              <mat-option value="Approved">✅ Approved</mat-option>
-              <mat-option value="CancellationRequested">⏳ Cancellation Pending</mat-option>
-              <mat-option value="PartiallyCancelled">⚡ Partially Cancelled</mat-option>
-              <mat-option value="Cancelled">🚫 Cancelled</mat-option>
-              <mat-option value="Rejected">❌ Rejected</mat-option>
-            </mat-select>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="filter-field">
-            <mat-label>Leave Category</mat-label>
-            <mat-select [(ngModel)]="filterCategory" (selectionChange)="loadLeaves()">
-              <mat-option value="">All Categories</mat-option>
-              <mat-option value="Medical">🏥 Medical / Sick</mat-option>
-              <mat-option value="Family Function">🎉 Family Function / Wedding</mat-option>
-              <mat-option value="Emergency">🚨 Urgent / Family Emergency</mat-option>
-              <mat-option value="Planned">✈️ Planned Vacation</mat-option>
-              <mat-option value="Other">📝 Other Reasons</mat-option>
-            </mat-select>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="filter-field">
-            <mat-label>Class</mat-label>
-            <mat-select [(ngModel)]="filterClassId" (selectionChange)="loadLeaves()">
-              <mat-option value="">All Classes</mat-option>
-              <mat-option *ngFor="let c of classes" [value]="c.id">{{c.name}}</mat-option>
-            </mat-select>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="filter-field search-field">
-            <mat-label>Search Student, Roll #, Reason</mat-label>
-            <input matInput [(ngModel)]="searchTerm" placeholder="Search..." (keyup.enter)="loadLeaves()">
-          </mat-form-field>
-
-          <!-- Sharp SVG View Toggle -->
-          <div class="view-toggle">
-            <button type="button" class="toggle-btn" [class.active-view]="viewMode==='grid'" (click)="viewMode='grid'" matTooltip="Card Grid View">
-              <svg class="toggle-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                <rect x="3" y="3" width="8" height="8" rx="1.5" />
-                <rect x="13" y="3" width="8" height="8" rx="1.5" />
-                <rect x="3" y="13" width="8" height="8" rx="1.5" />
-                <rect x="13" y="13" width="8" height="8" rx="1.5" />
-              </svg>
-            </button>
-            <button type="button" class="toggle-btn" [class.active-view]="viewMode==='table'" (click)="viewMode='table'" matTooltip="Table List View">
-              <svg class="toggle-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="9" y1="6" x2="21" y2="6"></line>
-                <line x1="9" y1="12" x2="21" y2="12"></line>
-                <line x1="9" y1="18" x2="21" y2="18"></line>
-                <circle cx="4.5" cy="6" r="1.5" fill="currentColor" stroke="none"></circle>
-                <circle cx="4.5" cy="12" r="1.5" fill="currentColor" stroke="none"></circle>
-                <circle cx="4.5" cy="18" r="1.5" fill="currentColor" stroke="none"></circle>
-              </svg>
-            </button>
+        <form [formGroup]="filterForm" class="filter-form">
+          <!-- Dual-Mode Scope Switcher Pills -->
+          <div class="scope-pill-row">
+            <div class="scope-pills">
+              <button type="button" class="scope-pill" [class.active]="filterForm.get('academicScope')?.value === 'All'" (click)="setScope('All')">
+                <mat-icon>domain</mat-icon> All Enrolments
+              </button>
+              <button type="button" class="scope-pill" [class.active]="filterForm.get('academicScope')?.value === 'School'" (click)="setScope('School')">
+                <mat-icon>school</mat-icon> School Academic Classes
+              </button>
+              <button type="button" class="scope-pill" [class.active]="filterForm.get('academicScope')?.value === 'Coaching'" (click)="setScope('Coaching')">
+                <mat-icon>groups</mat-icon> Coaching Batches
+              </button>
+            </div>
           </div>
-        </div>
+
+          <div class="filter-row">
+            <mat-form-field appearance="outline" class="filter-field">
+              <mat-label>Status</mat-label>
+              <mat-select formControlName="status" (selectionChange)="loadLeaves()">
+                <mat-option value="">All Statuses</mat-option>
+                <mat-option value="Pending">⏳ Pending Review</mat-option>
+                <mat-option value="Approved">✅ Approved</mat-option>
+                <mat-option value="CancellationRequested">⏳ Cancellation Pending</mat-option>
+                <mat-option value="PartiallyCancelled">⚡ Partially Cancelled</mat-option>
+                <mat-option value="Cancelled">🚫 Cancelled</mat-option>
+                <mat-option value="Rejected">❌ Rejected</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="filter-field">
+              <mat-label>Leave Category</mat-label>
+              <mat-select formControlName="category" (selectionChange)="loadLeaves()">
+                <mat-option value="">All Categories</mat-option>
+                <mat-option value="Medical">🏥 Medical / Sick</mat-option>
+                <mat-option value="Family Function">🎉 Family Function / Wedding</mat-option>
+                <mat-option value="Emergency">🚨 Urgent / Family Emergency</mat-option>
+                <mat-option value="Planned">✈️ Planned Vacation</mat-option>
+                <mat-option value="Other">📝 Other Reasons</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <!-- Academic Class Filter (when Scope is All, School, or Coaching) -->
+            <mat-form-field appearance="outline" class="filter-field">
+              <mat-label>{{ filterForm.get('academicScope')?.value === 'Coaching' ? 'Academic Class (कक्षा)' : 'School Class' }}</mat-label>
+              <mat-select formControlName="classId" (selectionChange)="onClassFilterChanged()">
+                <mat-option value="">All Classes</mat-option>
+                <mat-option *ngFor="let c of classes" [value]="c.id">{{c.name}}</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <!-- Coaching Batch Filter (when Scope is All or Coaching) -->
+            <mat-form-field appearance="outline" class="filter-field" *ngIf="filterForm.get('academicScope')?.value !== 'School'">
+              <mat-label>Coaching Batch</mat-label>
+              <mat-select formControlName="batchId" (selectionChange)="loadLeaves()">
+                <mat-option value="">All Batches</mat-option>
+                <mat-option *ngFor="let b of filteredBatches" [value]="b.id">{{b.name}} ({{b.subject}}){{ b.className ? ' [' + b.className + ']' : '' }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="filter-field search-field">
+              <mat-label>Search Student, Roll #, Batch, Reason</mat-label>
+              <input matInput formControlName="searchTerm" placeholder="Search..." (keyup.enter)="loadLeaves()">
+              <button mat-icon-button matSuffix type="button" (click)="loadLeaves()">
+                <mat-icon>search</mat-icon>
+              </button>
+            </mat-form-field>
+
+            <button mat-stroked-button type="button" class="reset-btn" (click)="resetFilters()">
+              <mat-icon>refresh</mat-icon> Reset
+            </button>
+
+            <!-- Sharp SVG View Toggle -->
+            <div class="view-toggle">
+              <button type="button" class="toggle-btn" [class.active-view]="viewMode==='grid'" (click)="viewMode='grid'" matTooltip="Card Grid View">
+                <svg class="toggle-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                  <rect x="3" y="3" width="8" height="8" rx="1.5" />
+                  <rect x="13" y="3" width="8" height="8" rx="1.5" />
+                  <rect x="3" y="13" width="8" height="8" rx="1.5" />
+                  <rect x="13" y="13" width="8" height="8" rx="1.5" />
+                </svg>
+              </button>
+              <button type="button" class="toggle-btn" [class.active-view]="viewMode==='table'" (click)="viewMode='table'" matTooltip="Table List View">
+                <svg class="toggle-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="9" y1="6" x2="21" y2="6"></line>
+                  <line x1="9" y1="12" x2="21" y2="12"></line>
+                  <line x1="9" y1="18" x2="21" y2="18"></line>
+                  <circle cx="4.5" cy="6" r="1.5" fill="currentColor" stroke="none"></circle>
+                  <circle cx="4.5" cy="12" r="1.5" fill="currentColor" stroke="none"></circle>
+                  <circle cx="4.5" cy="18" r="1.5" fill="currentColor" stroke="none"></circle>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </form>
       </div>
 
       <mat-progress-bar mode="indeterminate" *ngIf="loading"></mat-progress-bar>
@@ -247,7 +285,9 @@ export interface StudentLeaveStatsDto {
               <h3 class="student-name" (click)="viewLeaveDetails(item)">{{item.studentName}}</h3>
               <div class="student-sub">
                 <span>Roll: <strong>{{item.rollNumber}}</strong></span>
+                <span *ngIf="item.coachingRollNumber">&bull; C-Roll: <strong>{{item.coachingRollNumber}}</strong></span>
                 <span *ngIf="item.className">&bull; Class: <strong>{{item.className}}</strong></span>
+                <span *ngIf="item.batchName" class="badge-batch">&bull; <mat-icon>groups</mat-icon> <strong>{{item.batchName}}</strong></span>
               </div>
             </div>
             <span class="status-pill" [ngClass]="item.status.toLowerCase()">
@@ -370,7 +410,12 @@ export interface StudentLeaveStatsDto {
             <tr *ngFor="let item of filteredLeaves" [ngClass]="item.status.toLowerCase() + '-tr'">
               <td>
                 <div class="tbl-student-name" (click)="viewLeaveDetails(item)">{{item.studentName}}</div>
-                <div class="tbl-student-sub">Roll: {{item.rollNumber}} &bull; {{item.className || 'General'}}</div>
+                <div class="tbl-student-sub">
+                  <span>Roll: {{item.rollNumber}}</span>
+                  <span *ngIf="item.coachingRollNumber"> &bull; C-Roll: {{item.coachingRollNumber}}</span>
+                  <span *ngIf="item.className"> &bull; {{item.className}}</span>
+                  <span *ngIf="item.batchName" class="tbl-batch-badge"> &bull; <mat-icon>groups</mat-icon> {{item.batchName}}</span>
+                </div>
               </td>
               <td>
                 <span class="cat-chip" [ngClass]="getCategoryClass(item.leaveCategory)">
@@ -439,6 +484,20 @@ export interface StudentLeaveStatsDto {
     .create-btn { background: #2563eb !important; color: #fff !important; font-weight: 700; border-radius: 8px; }
     .spin { animation: spin 1s infinite linear; }
     @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+    /* Scope Switcher */
+    .scope-pill-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #f1f5f9; }
+    .scope-pills { display: inline-flex; background: #f1f5f9; padding: 4px; border-radius: 10px; gap: 4px; }
+    .scope-pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 8px; border: none; background: transparent; color: #64748b; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s ease-in-out; }
+    .scope-pill mat-icon { font-size: 16px; width: 16px; height: 16px; }
+    .scope-pill:hover:not(.active) { color: #1e293b; background: rgba(255,255,255,0.6); }
+    .scope-pill.active { background: #ffffff; color: #1e40af; box-shadow: 0 1px 3px rgba(0,0,0,0.1); font-weight: 700; }
+
+    /* Batch & Coaching Badges */
+    .badge-batch, .tbl-batch-badge { display: inline-flex; align-items: center; gap: 3px; color: #7c3aed; font-weight: 700; }
+    .badge-batch mat-icon, .tbl-batch-badge mat-icon { font-size: 14px; width: 14px; height: 14px; }
+    .coaching-roll-badge { color: #2563eb; font-weight: 700; }
+    .reset-btn { color: #64748b; height: 48px; border-radius: 8px; }
 
     /* Stats */
     .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
@@ -590,13 +649,11 @@ export interface StudentLeaveStatsDto {
 export class StudentLeavesComponent implements OnInit {
   leaves: StudentLeaveDto[] = [];
   classes: any[] = [];
+  batches: any[] = [];
   loading = false;
   viewMode: 'grid' | 'table' = 'grid';
 
-  filterStatus = '';
-  filterCategory = '';
-  filterClassId = '';
-  searchTerm = '';
+  filterForm: FormGroup;
 
   stats: StudentLeaveStatsDto = {
     totalLeaves: 0,
@@ -608,10 +665,20 @@ export class StudentLeavesComponent implements OnInit {
 
   constructor(
     private http: HttpClient,
+    private fb: FormBuilder,
     private dialog: MatDialog,
     private confirmDialog: ConfirmDialogService,
     public authService: AuthService
-  ) {}
+  ) {
+    this.filterForm = this.fb.group({
+      academicScope: ['All'],
+      status: [''],
+      category: [''],
+      classId: [''],
+      batchId: [''],
+      searchTerm: ['']
+    });
+  }
 
   get isStudentOrParent(): boolean {
     const role = this.authService.currentUser()?.role || '';
@@ -647,19 +714,70 @@ export class StudentLeavesComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadClasses();
+    this.loadBatches();
     this.loadStats();
     this.loadLeaves();
   }
 
   loadClasses(): void {
     this.http.get<any[]>(`${API_BASE}/school/classes`).subscribe({
-      next: r => this.classes = r,
+      next: r => this.classes = r || [],
       error: () => this.classes = []
     });
   }
 
+  loadBatches(): void {
+    this.http.get<any[]>(`${API_BASE}/batches`).subscribe({
+      next: r => this.batches = r || [],
+      error: () => this.batches = []
+    });
+  }
+
+  get filteredBatches(): any[] {
+    const classId = this.filterForm.get('classId')?.value;
+    if (!classId) return this.batches;
+    return this.batches.filter(b => (b.classId || '').toLowerCase() === classId.toLowerCase());
+  }
+
+  onClassFilterChanged(): void {
+    const currentBatchId = this.filterForm.get('batchId')?.value;
+    if (currentBatchId) {
+      const stillValid = this.filteredBatches.some(b => (b.id || '').toLowerCase() === currentBatchId.toLowerCase());
+      if (!stillValid) {
+        this.filterForm.patchValue({ batchId: '' }, { emitEvent: false });
+      }
+    }
+    this.loadLeaves();
+  }
+
+  setScope(scope: 'All' | 'School' | 'Coaching'): void {
+    this.filterForm.patchValue({
+      academicScope: scope,
+      batchId: scope === 'School' ? '' : this.filterForm.value.batchId
+    });
+    this.loadLeaves();
+  }
+
+  resetFilters(): void {
+    this.filterForm.reset({
+      academicScope: 'All',
+      status: '',
+      category: '',
+      classId: '',
+      batchId: '',
+      searchTerm: ''
+    });
+    this.loadLeaves();
+  }
+
   loadStats(): void {
-    this.http.get<StudentLeaveStatsDto>(`${API_BASE}/studentleaves/stats`).subscribe({
+    const val = this.filterForm.value;
+    const params: string[] = [];
+    if (val.classId) params.push(`classId=${val.classId}`);
+    if (val.batchId) params.push(`batchId=${val.batchId}`);
+    if (val.academicScope && val.academicScope !== 'All') params.push(`academicScope=${encodeURIComponent(val.academicScope)}`);
+    const query = params.length > 0 ? `?${params.join('&')}` : '';
+    this.http.get<StudentLeaveStatsDto>(`${API_BASE}/studentleaves/stats${query}`).subscribe({
       next: s => this.stats = s,
       error: () => {}
     });
@@ -667,12 +785,15 @@ export class StudentLeavesComponent implements OnInit {
 
   loadLeaves(): void {
     this.loading = true;
+    const val = this.filterForm.value;
     let url = `${API_BASE}/studentleaves`;
     const params: string[] = [];
-    if (this.filterStatus) params.push(`status=${encodeURIComponent(this.filterStatus)}`);
-    if (this.filterCategory) params.push(`category=${encodeURIComponent(this.filterCategory)}`);
-    if (this.filterClassId) params.push(`classId=${this.filterClassId}`);
-    if (this.searchTerm.trim()) params.push(`search=${encodeURIComponent(this.searchTerm.trim())}`);
+    if (val.status) params.push(`status=${encodeURIComponent(val.status)}`);
+    if (val.category) params.push(`category=${encodeURIComponent(val.category)}`);
+    if (val.classId) params.push(`classId=${val.classId}`);
+    if (val.batchId) params.push(`batchId=${val.batchId}`);
+    if (val.academicScope && val.academicScope !== 'All') params.push(`academicScope=${encodeURIComponent(val.academicScope)}`);
+    if (val.searchTerm?.trim()) params.push(`search=${encodeURIComponent(val.searchTerm.trim())}`);
     if (params.length > 0) url += '?' + params.join('&');
 
     this.http.get<StudentLeaveDto[]>(url).subscribe({
@@ -867,12 +988,40 @@ export class StudentLeavesComponent implements OnInit {
 
       <!-- Form Body -->
       <div class="modal-body">
+        <!-- Stream Scope Switcher -->
+        <div class="dialog-scope-bar">
+          <div class="dialog-pills">
+            <button type="button" class="d-pill" [class.active]="dialogScope === 'All'" (click)="setDialogScope('All')">All Students</button>
+            <button type="button" class="d-pill" [class.active]="dialogScope === 'School'" (click)="setDialogScope('School')">School Classes</button>
+            <button type="button" class="d-pill" [class.active]="dialogScope === 'Coaching'" (click)="setDialogScope('Coaching')">Coaching Batches</button>
+          </div>
+        </div>
+
+        <!-- Coaching Filter: Academic Class & Coaching Batch -->
+        <div class="form-row" *ngIf="dialogScope === 'Coaching'" style="display: flex; gap: 12px; margin-bottom: 12px;">
+          <mat-form-field appearance="outline" style="flex: 1;">
+            <mat-label>Academic Class (कक्षा)</mat-label>
+            <mat-select [(ngModel)]="dialogCoachingClassId" (selectionChange)="onDialogCoachingClassChange()">
+              <mat-option value="">All Academic Classes</mat-option>
+              <mat-option *ngFor="let c of classes" [value]="c.id">{{c.name}}</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" style="flex: 1;">
+            <mat-label>Coaching Batch</mat-label>
+            <mat-select [(ngModel)]="dialogBatchId" (selectionChange)="onDialogBatchChange()">
+              <mat-option value="">All Batches</mat-option>
+              <mat-option *ngFor="let b of dialogFilteredBatches" [value]="b.id">{{b.name}} ({{b.subject}}){{ b.className ? ' [' + b.className + ']' : '' }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+
         <!-- Student Selection -->
         <mat-form-field appearance="outline" class="full-field">
           <mat-label>Select Student (विद्यार्थी चयन करें) *</mat-label>
           <mat-select [(ngModel)]="model.studentId" required (selectionChange)="onStudentSelect()">
-            <mat-option *ngFor="let s of students" [value]="s.id">
-              {{s.studentName}} (Roll: {{s.rollNumber || '—'}}) &bull; {{s.className || 'General'}}
+            <mat-option *ngFor="let s of filteredStudents" [value]="s.id">
+              {{s.studentName}} (Roll: {{s.coachingRollNumber || s.rollNumber || '—'}}) &bull; {{s.batchName ? ('Batch: ' + s.batchName) : (s.className || 'General')}}
             </mat-option>
           </mat-select>
         </mat-form-field>
@@ -968,6 +1117,11 @@ export class StudentLeavesComponent implements OnInit {
     .form-field { flex: 1; }
     .full-field { width: 100%; }
 
+    .dialog-scope-bar { margin-bottom: 4px; }
+    .dialog-pills { display: inline-flex; background: #f1f5f9; padding: 3px; border-radius: 8px; gap: 4px; }
+    .d-pill { border: none; background: transparent; padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; color: #64748b; cursor: pointer; transition: all 0.15s ease-in-out; }
+    .d-pill.active { background: #fff; color: #1e40af; font-weight: 700; box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
+
     .date-error-banner { display: flex; align-items: center; gap: 10px; background: #fef2f2; border: 1.5px solid #fecaca; border-radius: 8px; padding: 10px 14px; color: #991b1b; font-size: 13px; font-weight: 600; }
     .date-error-banner mat-icon { font-size: 20px; width: 20px; height: 20px; color: #dc2626; flex-shrink: 0; }
 
@@ -981,11 +1135,16 @@ export class StudentLeavesComponent implements OnInit {
 })
 export class ApplyStudentLeaveDialogComponent implements OnInit {
   students: any[] = [];
+  classes: any[] = [];
+  batches: any[] = [];
+  dialogCoachingClassId = '';
+  dialogBatchId = '';
   saving = false;
   fromDateStr = '';
   toDateStr = '';
   dateError = '';
   calculatedDays = 0;
+  dialogScope: 'All' | 'School' | 'Coaching' = 'All';
 
   model: any = {
     studentId: '',
@@ -1004,6 +1163,58 @@ export class ApplyStudentLeaveDialogComponent implements OnInit {
     public authService: AuthService
   ) {}
 
+  get dialogFilteredBatches(): any[] {
+    if (!this.dialogCoachingClassId) return this.batches;
+    return this.batches.filter(b => (b.classId || '').toLowerCase() === this.dialogCoachingClassId.toLowerCase());
+  }
+
+  onDialogCoachingClassChange(): void {
+    if (this.dialogBatchId) {
+      const stillValid = this.dialogFilteredBatches.some(b => (b.id || '').toLowerCase() === this.dialogBatchId.toLowerCase());
+      if (!stillValid) {
+        this.dialogBatchId = '';
+      }
+    }
+    this.onDialogBatchChange();
+  }
+
+  onDialogBatchChange(): void {
+    if (this.model.studentId) {
+      const exists = this.filteredStudents.some(s => s.id === this.model.studentId);
+      if (!exists) {
+        this.model.studentId = this.filteredStudents.length > 0 ? this.filteredStudents[0].id : '';
+        this.onStudentSelect();
+      }
+    }
+  }
+
+  get filteredStudents(): any[] {
+    let list = this.students;
+    if (this.dialogScope === 'School') {
+      list = list.filter(s => s.isSchoolStudent || s.classId || s.className);
+    } else if (this.dialogScope === 'Coaching') {
+      list = list.filter(s => s.isCoachingStudent || s.batchId || s.batchName);
+      if (this.dialogCoachingClassId) {
+        list = list.filter(s => (s.classId || '').toLowerCase() === this.dialogCoachingClassId.toLowerCase());
+      }
+      if (this.dialogBatchId) {
+        list = list.filter(s => (s.batchId || '').toLowerCase() === this.dialogBatchId.toLowerCase());
+      }
+    }
+    return list;
+  }
+
+  setDialogScope(scope: 'All' | 'School' | 'Coaching'): void {
+    this.dialogScope = scope;
+    if (this.model.studentId) {
+      const exists = this.filteredStudents.some(s => s.id === this.model.studentId);
+      if (!exists && this.filteredStudents.length > 0) {
+        this.model.studentId = this.filteredStudents[0].id;
+        this.onStudentSelect();
+      }
+    }
+  }
+
   ngOnInit(): void {
     const role = this.authService.currentUser()?.role;
     if (role === 'Parent') this.model.appliedBy = 'Parent';
@@ -1015,13 +1226,25 @@ export class ApplyStudentLeaveDialogComponent implements OnInit {
     this.fromDateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
     this.toDateStr = this.fromDateStr;
     this.validateDates();
+    this.loadMetadata();
     this.loadStudents();
+  }
+
+  loadMetadata(): void {
+    this.http.get<any[]>(`${API_BASE}/school/classes?activeOnly=true`).subscribe({
+      next: res => { this.classes = res || []; },
+      error: () => { this.classes = []; }
+    });
+    this.http.get<any[]>(`${API_BASE}/batches`).subscribe({
+      next: res => { this.batches = res || []; },
+      error: () => { this.batches = []; }
+    });
   }
 
   loadStudents(): void {
     this.http.get<any[]>(`${API_BASE}/students`).subscribe({
       next: res => {
-        this.students = res;
+        this.students = res || [];
         if (this.students.length > 0) {
           this.model.studentId = this.students[0].id;
           this.onStudentSelect();
@@ -1034,7 +1257,7 @@ export class ApplyStudentLeaveDialogComponent implements OnInit {
   onStudentSelect(): void {
     const s = this.students.find(x => x.id === this.model.studentId);
     if (s) {
-      this.model.parentContactNumber = s.fatherPhone || s.emergencyContact || '';
+      this.model.parentContactNumber = s.fatherPhone || s.parentWhatsAppPhone || s.emergencyContact || s.parentContactNumber || '';
     }
   }
 
@@ -1125,7 +1348,7 @@ export class ApplyStudentLeaveDialogComponent implements OnInit {
       <div class="slip-paper" id="printable-leave-slip">
         <!-- Institution Header -->
         <div class="slip-hdr">
-          <h1 class="inst-name">APEX SCHOOL & ACADEMY</h1>
+          <h1 class="inst-name">{{instituteName}}</h1>
           <p class="inst-sub">Student Absence Sanction Record & Attendance Linkage Certificate</p>
           <div class="slip-badge" [ngClass]="data.leave.status.toLowerCase()">
             LEAVE STATUS: {{data.leave.status.toUpperCase()}}
@@ -1144,9 +1367,17 @@ export class ApplyStudentLeaveDialogComponent implements OnInit {
             <span class="m-lbl">ROLL NUMBER</span>
             <span class="m-val">{{data.leave.rollNumber || '—'}}</span>
           </div>
-          <div class="meta-item">
+          <div class="meta-item" *ngIf="data.leave.coachingRollNumber">
+            <span class="m-lbl">COACHING ROLL #</span>
+            <span class="m-val">{{data.leave.coachingRollNumber}}</span>
+          </div>
+          <div class="meta-item" *ngIf="data.leave.className">
             <span class="m-lbl">CLASS / SECTION</span>
-            <span class="m-val">{{data.leave.className || 'General'}}</span>
+            <span class="m-val">{{data.leave.className}}{{data.leave.sectionName ? ' - ' + data.leave.sectionName : ''}}</span>
+          </div>
+          <div class="meta-item" *ngIf="data.leave.batchName">
+            <span class="m-lbl">COACHING BATCH</span>
+            <span class="m-val highlight">{{data.leave.batchName}}</span>
           </div>
           <div class="meta-item">
             <span class="m-lbl">LEAVE CATEGORY</span>
@@ -1302,8 +1533,13 @@ export class ApplyStudentLeaveDialogComponent implements OnInit {
 export class ViewStudentLeaveDialogComponent {
   constructor(
     public dialogRef: MatDialogRef<ViewStudentLeaveDialogComponent>,
-    @Inject(MAT_DIALOG_DATA) public data: { leave: StudentLeaveDto }
+    @Inject(MAT_DIALOG_DATA) public data: { leave: StudentLeaveDto },
+    public authService: AuthService
   ) {}
+
+  get instituteName(): string {
+    return this.authService.currentUser()?.instituteName || 'ACADEMIC INSTITUTION';
+  }
 
   formatDate(d?: string): string {
     if (!d) return '—';

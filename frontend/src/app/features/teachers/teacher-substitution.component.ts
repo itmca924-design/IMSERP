@@ -282,13 +282,28 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           </mat-form-field>
         </ng-container>
 
-        <!-- If Coaching Batch Stream -->
+        <!-- If Coaching Batch Stream (Class ➔ Batches Hierarchy) -->
         <ng-container *ngIf="streamType === 'Coaching'">
-          <mat-form-field appearance="outline" class="col-full">
-            <mat-label>Coaching Batch</mat-label>
-            <mat-select [(ngModel)]="newForm.batchId">
+          <mat-form-field appearance="outline" class="col-half">
+            <mat-label>Academic Class (कक्षा)</mat-label>
+            <mat-select [(ngModel)]="selectedCoachingClassId" (selectionChange)="onCoachingClassChange()">
+              <mat-option value="">All Classes (सभी कक्षाएं)</mat-option>
+              <mat-option *ngFor="let c of schoolClasses" [value]="c.id">
+                {{c.name}}
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="col-half">
+            <mat-label>Coaching Batch (कोचिंग बैच) *</mat-label>
+            <mat-select [(ngModel)]="newForm.batchId" (selectionChange)="onCoachingBatchChange()">
               <mat-option [value]="undefined">-- Select Coaching Batch --</mat-option>
-              <mat-option *ngFor="let b of batches" [value]="b.id">{{b.name}}</mat-option>
+              <mat-option *ngIf="filteredBatches.length === 0" disabled [value]="undefined">
+                No Batches found in this class
+              </mat-option>
+              <mat-option *ngFor="let b of filteredBatches" [value]="b.id">
+                {{b.name}} <span *ngIf="b.subject">({{b.subject}})</span> <span *ngIf="b.className">&bull; {{b.className}}</span>
+              </mat-option>
             </mat-select>
           </mat-form-field>
         </ng-container>
@@ -296,7 +311,9 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
         <!-- Time Slot / Period -->
         <mat-form-field appearance="outline" class="col-half">
           <mat-label>Period / Time Slot *</mat-label>
-          <input matInput [(ngModel)]="newForm.timeSlot" placeholder="e.g. Period 1 (08:30 AM - 09:15 AM)">
+          <mat-select [(ngModel)]="newForm.timeSlot">
+            <mat-option *ngFor="let slot of standardTimeSlots" [value]="slot">{{slot}}</mat-option>
+          </mat-select>
         </mat-form-field>
 
         <!-- Room Number bound to DB -->
@@ -840,13 +857,32 @@ export class TeacherSubstitutionComponent implements OnInit {
   substitutions: TeacherSubstitutionDto[] = [];
   teachers: TeacherDto[] = [];
   batches: BatchDto[] = [];
+  filteredBatches: BatchDto[] = [];
   schoolClasses: any[] = [];
   subjects: any[] = [];
   rooms: any[] = [];
 
   streamType: 'School' | 'Coaching' = 'School';
   selectedClassId: string = '';
+  selectedCoachingClassId: string = '';
   availableSections: any[] = [];
+
+  standardTimeSlots: string[] = [
+    'Period 1 (08:30 AM - 09:15 AM)',
+    'Period 2 (09:15 AM - 10:00 AM)',
+    'Period 3 (10:00 AM - 10:45 AM)',
+    'Period 4 (11:00 AM - 11:45 AM)',
+    'Period 5 (11:45 AM - 12:30 PM)',
+    'Period 6 (01:15 PM - 02:00 PM)',
+    'Period 7 (02:00 PM - 02:45 PM)',
+    'Period 8 (02:45 PM - 03:30 PM)',
+    'Morning Batch (07:00 AM - 08:30 AM)',
+    'Morning Shift 2 (08:30 AM - 10:00 AM)',
+    'Afternoon Shift (02:00 PM - 03:30 PM)',
+    'Evening Batch 1 (03:30 PM - 05:00 PM)',
+    'Evening Batch 2 (05:00 PM - 06:30 PM)',
+    'Night Doubt Session (06:30 PM - 08:00 PM)'
+  ];
 
   loading = false;
   saving = false;
@@ -889,9 +925,48 @@ export class TeacherSubstitutionComponent implements OnInit {
 
   loadBatches() {
     this.http.get<BatchDto[]>(`${API_BASE}/batches`).subscribe({
-      next: res => this.batches = res,
-      error: () => {}
+      next: res => {
+        this.batches = res || [];
+        this.filterBatches();
+      },
+      error: () => {
+        this.batches = [];
+        this.filteredBatches = [];
+      }
     });
+  }
+
+  filterBatches() {
+    if (!this.selectedCoachingClassId) {
+      this.filteredBatches = [...this.batches];
+    } else {
+      this.filteredBatches = this.batches.filter(b => b.classId === this.selectedCoachingClassId);
+    }
+  }
+
+  onCoachingClassChange() {
+    this.newForm.batchId = undefined;
+    this.filterBatches();
+    if (this.filteredBatches.length === 1) {
+      this.newForm.batchId = this.filteredBatches[0].id;
+      this.onCoachingBatchChange();
+    }
+  }
+
+  onCoachingBatchChange() {
+    const b = this.batches.find(x => x.id === this.newForm.batchId);
+    if (b) {
+      if (b.roomNumber && !this.newForm.roomNumber) {
+        this.newForm.roomNumber = b.roomNumber;
+      }
+      if (b.subject && !this.newForm.subjectId) {
+        const matchingSub = this.subjects.find(s => s.name?.toLowerCase() === b.subject?.toLowerCase());
+        if (matchingSub) {
+          this.newForm.subjectId = matchingSub.id;
+          this.newForm.subjectName = matchingSub.name;
+        }
+      }
+    }
   }
 
   loadSchoolClasses() {
@@ -919,10 +994,12 @@ export class TeacherSubstitutionComponent implements OnInit {
     this.streamType = type;
     if (type === 'School') {
       this.newForm.batchId = undefined;
+      this.selectedCoachingClassId = '';
     } else {
       this.newForm.classSectionId = undefined;
       this.selectedClassId = '';
       this.availableSections = [];
+      this.filterBatches();
     }
   }
 
@@ -994,12 +1071,22 @@ export class TeacherSubstitutionComponent implements OnInit {
     if (this.newForm.substituteTeacherId === this.newForm.originalTeacherId) {
       this.newForm.substituteTeacherId = '';
     }
+    const orig = this.teachers.find(t => t.id === this.newForm.originalTeacherId);
+    if (orig?.specialization && !this.newForm.subjectId) {
+      const match = this.subjects.find(s => s.name?.toLowerCase() === orig.specialization?.toLowerCase());
+      if (match) {
+        this.newForm.subjectId = match.id;
+        this.newForm.subjectName = match.name;
+      }
+    }
   }
 
   openCreateModal() {
     this.streamType = 'School';
     this.selectedClassId = '';
+    this.selectedCoachingClassId = '';
     this.availableSections = [];
+    this.filterBatches();
     this.newForm = {
       substitutionDate: this.selectedDate || new Date().toISOString().substring(0, 10),
       originalTeacherId: '',
@@ -1020,6 +1107,16 @@ export class TeacherSubstitutionComponent implements OnInit {
   saveSubstitution() {
     if (!this.newForm.originalTeacherId || !this.newForm.substituteTeacherId || !this.newForm.timeSlot) {
       this.confirmDialog.alert('Required Fields', 'Please fill in all mandatory fields (Absent Teacher, Substitute Teacher, Period).', 'warning');
+      return;
+    }
+
+    if (this.streamType === 'School' && !this.newForm.classSectionId) {
+      this.confirmDialog.alert('Required Fields', 'Please select School Class and Section.', 'warning');
+      return;
+    }
+
+    if (this.streamType === 'Coaching' && !this.newForm.batchId) {
+      this.confirmDialog.alert('Required Fields', 'Please select Coaching Batch.', 'warning');
       return;
     }
 

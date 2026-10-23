@@ -13,6 +13,8 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatDividerModule } from '@angular/material/divider';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
+import { AuthService } from '../../core/services/auth.service';
+import { BatchesService, BatchDto } from '../../core/services/batches.service';
 import { environment } from '../../../environments/environment';
 
 const API_BASE = environment.apiUrl;
@@ -28,6 +30,8 @@ export interface SchoolNoticeDto {
   targetAudience: string;
   classId?: string;
   className?: string;
+  batchId?: string;
+  batchName?: string;
   priority: string;
   publishDate: string;
   expiryDate?: string;
@@ -138,13 +142,14 @@ export interface NoticeStatsDto {
 
           <mat-form-field appearance="outline" class="filter-field">
             <mat-label>Target Audience</mat-label>
-            <mat-select [(ngModel)]="filterAudience" (selectionChange)="loadNotices()">
+            <mat-select [(ngModel)]="filterAudience" (selectionChange)="onAudienceFilterChange()">
               <mat-option value="">All Audiences</mat-option>
               <mat-option value="All">👥 Everyone (All)</mat-option>
               <mat-option value="Students">🎓 Students & Parents</mat-option>
               <mat-option value="Teachers">👨‍🏫 Teachers & Staff</mat-option>
               <mat-option value="Parents">👨‍👩‍👦 Parents Only</mat-option>
               <mat-option value="SpecificClass">🏫 Specific Class</mat-option>
+              <mat-option value="SpecificBatch">🎯 Coaching Batch (विशिष्ट बैच)</mat-option>
             </mat-select>
           </mat-form-field>
 
@@ -153,6 +158,16 @@ export interface NoticeStatsDto {
             <mat-select [(ngModel)]="filterClassId" (selectionChange)="loadNotices()">
               <mat-option value="">All Classes</mat-option>
               <mat-option *ngFor="let c of classes" [value]="c.id">{{c.name}}</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="filter-field" *ngIf="filterAudience === 'SpecificBatch'">
+            <mat-label>Coaching Batch</mat-label>
+            <mat-select [(ngModel)]="filterBatchId" (selectionChange)="loadNotices()">
+              <mat-option value="">All Batches</mat-option>
+              <mat-option *ngFor="let b of batches" [value]="b.id">
+                {{b.name}} <span *ngIf="b.subject || b.courseName">({{b.subject || b.courseName}})</span>
+              </mat-option>
             </mat-select>
           </mat-form-field>
 
@@ -457,6 +472,7 @@ export interface NoticeStatsDto {
     .aud-teachers { background: #faf5ff; color: #6b21a8; border: 1px solid #e9d5ff; }
     .aud-parents { background: #fff7ed; color: #9a3412; border: 1px solid #fed7aa; }
     .aud-class { background: #fefce8; color: #854d0e; border: 1px solid #fef08a; }
+    .aud-batch { background: #fdf2f8; color: #9d174d; border: 1px solid #fbcfe8; }
 
     .notice-snippet { margin: 0; font-size: 13px; color: #475569; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 
@@ -519,6 +535,7 @@ export interface NoticeStatsDto {
 export class SchoolNoticesComponent implements OnInit {
   notices: SchoolNoticeDto[] = [];
   classes: any[] = [];
+  batches: BatchDto[] = [];
   loading = false;
   hasConnectionError = false;
   viewMode: 'grid' | 'table' = 'grid';
@@ -526,6 +543,7 @@ export class SchoolNoticesComponent implements OnInit {
   filterCategory = '';
   filterAudience = '';
   filterClassId = '';
+  filterBatchId = '';
   filterPriority = '';
   searchTerm = '';
   filterPinnedOnly = false;
@@ -542,7 +560,8 @@ export class SchoolNoticesComponent implements OnInit {
   constructor(
     private http: HttpClient,
     private dialog: MatDialog,
-    private confirmDialog: ConfirmDialogService
+    private confirmDialog: ConfirmDialogService,
+    private batchesService: BatchesService
   ) {}
 
   formatToIST(dateVal: string | Date | undefined): string {
@@ -582,6 +601,7 @@ export class SchoolNoticesComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadClasses();
+    this.loadBatches();
     this.loadStats();
     this.loadNotices();
   }
@@ -591,6 +611,19 @@ export class SchoolNoticesComponent implements OnInit {
       next: r => this.classes = r,
       error: () => this.classes = []
     });
+  }
+
+  loadBatches(): void {
+    this.batchesService.getBatches().subscribe({
+      next: b => this.batches = b || [],
+      error: () => this.batches = []
+    });
+  }
+
+  onAudienceFilterChange(): void {
+    this.filterClassId = '';
+    this.filterBatchId = '';
+    this.loadNotices();
   }
 
   loadStats(): void {
@@ -607,6 +640,7 @@ export class SchoolNoticesComponent implements OnInit {
     if (this.filterCategory) params.push(`category=${encodeURIComponent(this.filterCategory)}`);
     if (this.filterAudience) params.push(`targetAudience=${encodeURIComponent(this.filterAudience)}`);
     if (this.filterClassId) params.push(`classId=${this.filterClassId}`);
+    if (this.filterBatchId) params.push(`batchId=${this.filterBatchId}`);
     if (this.filterPriority) params.push(`priority=${encodeURIComponent(this.filterPriority)}`);
     if (this.filterPinnedOnly) params.push(`isPinned=true`);
     if (this.searchTerm.trim()) params.push(`search=${encodeURIComponent(this.searchTerm.trim())}`);
@@ -653,6 +687,7 @@ export class SchoolNoticesComponent implements OnInit {
       case 'Teachers': return 'aud-teachers';
       case 'Parents': return 'aud-parents';
       case 'SpecificClass': return 'aud-class';
+      case 'SpecificBatch': return 'aud-batch';
       default: return 'aud-all';
     }
   }
@@ -664,6 +699,7 @@ export class SchoolNoticesComponent implements OnInit {
       case 'Teachers': return 'person_outline';
       case 'Parents': return 'family_restroom';
       case 'SpecificClass': return 'meeting_room';
+      case 'SpecificBatch': return 'class';
       default: return 'groups';
     }
   }
@@ -671,6 +707,9 @@ export class SchoolNoticesComponent implements OnInit {
   getAudienceText(n: SchoolNoticeDto): string {
     if (n.targetAudience === 'SpecificClass') {
       return n.className ? `Class: ${n.className}` : 'Specific Class';
+    }
+    if (n.targetAudience === 'SpecificBatch') {
+      return n.batchName ? `Batch: ${n.batchName}` : 'Coaching Batch';
     }
     switch (n.targetAudience) {
       case 'All': return 'Everyone (All)';
@@ -696,7 +735,8 @@ export class SchoolNoticesComponent implements OnInit {
       disableClose: false,
       data: {
         notice: item,
-        classes: this.classes
+        classes: this.classes,
+        batches: this.batches
       }
     });
 
@@ -811,6 +851,7 @@ export class SchoolNoticesComponent implements OnInit {
               <mat-option value="Teachers">👨‍🏫 Teaching Faculty & Staff</mat-option>
               <mat-option value="Parents">👨‍👩‍👦 Parents Only</mat-option>
               <mat-option value="SpecificClass">🏫 Specific Class</mat-option>
+              <mat-option value="SpecificBatch">🎯 Coaching Batch (विशिष्ट बैच)</mat-option>
             </mat-select>
           </mat-form-field>
 
@@ -820,6 +861,25 @@ export class SchoolNoticesComponent implements OnInit {
               <mat-option *ngFor="let c of data.classes" [value]="c.id">{{c.name}}</mat-option>
             </mat-select>
           </mat-form-field>
+
+          <ng-container *ngIf="model.targetAudience === 'SpecificBatch'">
+            <mat-form-field appearance="outline" class="form-field">
+              <mat-label>Academic Class Filter</mat-label>
+              <mat-select [(ngModel)]="filterCoachingClassId" (selectionChange)="onCoachingClassChange()">
+                <mat-option value="">All Classes (सभी)</mat-option>
+                <mat-option *ngFor="let c of data.classes" [value]="c.id">{{c.name}}</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="form-field">
+              <mat-label>Select Coaching Batch *</mat-label>
+              <mat-select [(ngModel)]="model.batchId" (selectionChange)="onBatchSelect()" required>
+                <mat-option *ngFor="let b of availableBatches" [value]="b.id">
+                  {{b.name}} <span *ngIf="b.subject || b.courseName">({{b.subject || b.courseName}})</span>
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
+          </ng-container>
         </div>
 
         <div class="form-row">
@@ -928,6 +988,7 @@ export class NoticeFormDialogComponent implements OnInit {
   publishTimeStr = '';
   expiryDateStr = '';
   dateError = '';
+  filterCoachingClassId = '';
 
   model: any = {
     title: '',
@@ -936,6 +997,8 @@ export class NoticeFormDialogComponent implements OnInit {
     targetAudience: 'All',
     classId: null,
     className: '',
+    batchId: null,
+    batchName: '',
     priority: 'Normal',
     publishDate: '',
     expiryDate: null,
@@ -948,6 +1011,12 @@ export class NoticeFormDialogComponent implements OnInit {
     @Inject(MAT_DIALOG_DATA) public data: any,
     private http: HttpClient
   ) {}
+
+  get availableBatches(): any[] {
+    const all = this.data.batches || [];
+    if (!this.filterCoachingClassId) return all;
+    return all.filter((b: any) => (b.classId || '').toLowerCase() === this.filterCoachingClassId.toLowerCase());
+  }
 
   ngOnInit(): void {
     const pad = (n: number) => n.toString().padStart(2, '0');
@@ -966,6 +1035,13 @@ export class NoticeFormDialogComponent implements OnInit {
         }
       }
       if (n.expiryDate) this.expiryDateStr = n.expiryDate.slice(0, 10);
+
+      if (n.batchId) {
+        const found = (this.data.batches || []).find((b: any) => b.id === n.batchId);
+        if (found?.classId) {
+          this.filterCoachingClassId = found.classId;
+        }
+      }
     }
     this.validateDates();
   }
@@ -985,11 +1061,31 @@ export class NoticeFormDialogComponent implements OnInit {
       this.model.classId = null;
       this.model.className = '';
     }
+    if (this.model.targetAudience !== 'SpecificBatch') {
+      this.model.batchId = null;
+      this.model.batchName = '';
+      this.filterCoachingClassId = '';
+    }
   }
 
   onClassSelect(): void {
     const c = this.data.classes?.find((x: any) => x.id === this.model.classId);
     this.model.className = c ? c.name : '';
+  }
+
+  onBatchSelect(): void {
+    const b = (this.data.batches || []).find((x: any) => x.id === this.model.batchId);
+    this.model.batchName = b ? b.name : '';
+  }
+
+  onCoachingClassChange(): void {
+    if (this.model.batchId) {
+      const stillValid = this.availableBatches.some((b: any) => b.id === this.model.batchId);
+      if (!stillValid) {
+        this.model.batchId = null;
+        this.model.batchName = '';
+      }
+    }
   }
 
   saveNotice(): void {
@@ -1070,9 +1166,9 @@ export class NoticeFormDialogComponent implements OnInit {
         <div class="paper-header">
           <div class="school-seal"><mat-icon>school</mat-icon></div>
           <div class="school-meta">
-            <h1 class="school-name">APEX SCHOOL & ACADEMY</h1>
-            <p class="school-tagline">CBSE Affiliation No. 330892 &bull; Excellence in Unified Education</p>
-            <p class="school-addr">Main Campus &bull; Patna, Bihar &bull; Contact: +91 9540553975 &bull; info&#64;apexschool.edu</p>
+            <h1 class="school-name">{{instituteName}}</h1>
+            <p class="school-tagline">Academic Excellence &bull; Unified ERP System</p>
+            <p class="school-addr">Official Institutional Circular Desk &bull; Digital Records</p>
           </div>
         </div>
 
@@ -1175,13 +1271,19 @@ export class NoticeFormDialogComponent implements OnInit {
   `]
 })
 export class ViewNoticeDialogComponent {
+  instituteName = 'ACADEMIC INSTITUTION';
+
   constructor(
     public dialogRef: MatDialogRef<ViewNoticeDialogComponent>,
-    @Inject(MAT_DIALOG_DATA) public data: { notice: SchoolNoticeDto }
-  ) {}
+    @Inject(MAT_DIALOG_DATA) public data: { notice: SchoolNoticeDto },
+    private authService: AuthService
+  ) {
+    this.instituteName = this.authService.getInstituteName() || 'ACADEMIC INSTITUTION';
+  }
 
   getAudienceDesc(n: SchoolNoticeDto): string {
     if (n.targetAudience === 'SpecificClass') return `Class: ${n.className || 'Selected Class'}`;
+    if (n.targetAudience === 'SpecificBatch') return `Coaching Batch: ${n.batchName || 'Selected Batch'}`;
     if (n.targetAudience === 'All') return 'All Students, Parents & Staff';
     if (n.targetAudience === 'Students') return 'Students & Parents';
     if (n.targetAudience === 'Teachers') return 'Teachers & Academic Staff';

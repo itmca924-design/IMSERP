@@ -360,7 +360,8 @@ public class StudentsController : ControllerBase
             s.EmergencyContactName,
             s.EmergencyContactPhone,
             s.PreviousSchoolName,
-            s.PreviousBoard
+            s.PreviousBoard,
+            s.CoachingJoiningDate
         )).ToListAsync();
 
         if (list.Count > 0)
@@ -1967,7 +1968,8 @@ public class StudentsController : ControllerBase
                 s.EmergencyContactName,
                 s.EmergencyContactPhone,
                 s.PreviousSchoolName,
-                s.PreviousBoard
+                s.PreviousBoard,
+                s.CoachingJoiningDate
             )).ToListAsync();
 
         if (items.Count > 0)
@@ -2136,6 +2138,7 @@ public class StudentsController : ControllerBase
                 PreviousSchoolName = dto.PreviousSchoolName,
                 PreviousBoard = dto.PreviousBoard,
                 JoiningDate = dto.JoiningDate ?? DateTime.UtcNow,
+                CoachingJoiningDate = dto.IsCoachingStudent ? (dto.CoachingJoiningDate ?? dto.JoiningDate ?? DateTime.UtcNow) : null,
                 IsActive = true
             };
 
@@ -2311,7 +2314,8 @@ public class StudentsController : ControllerBase
                 student.EmergencyContactName,
                 student.EmergencyContactPhone,
                 student.PreviousSchoolName,
-                student.PreviousBoard
+                student.PreviousBoard,
+                student.CoachingJoiningDate
             ));
         });
     }
@@ -2352,6 +2356,21 @@ public class StudentsController : ControllerBase
             if (dto.JoiningDate.HasValue)
             {
                 student.JoiningDate = dto.JoiningDate.Value;
+            }
+            if (dto.IsCoachingStudent)
+            {
+                if (dto.CoachingJoiningDate.HasValue)
+                {
+                    student.CoachingJoiningDate = dto.CoachingJoiningDate.Value;
+                }
+                else if (!student.CoachingJoiningDate.HasValue)
+                {
+                    student.CoachingJoiningDate = dto.JoiningDate ?? student.JoiningDate;
+                }
+            }
+            else
+            {
+                student.CoachingJoiningDate = null;
             }
             // Hostel Bed Allocation / Reallocation / Deallocation
             if (student.IsHostelStudent != dto.IsHostelStudent || student.HostelBedId != dto.HostelBedId)
@@ -2587,7 +2606,8 @@ public class StudentsController : ControllerBase
                 student.EmergencyContactName,
                 student.EmergencyContactPhone,
                 student.PreviousSchoolName,
-                student.PreviousBoard
+                student.PreviousBoard,
+                student.CoachingJoiningDate
             ));
         }
         catch (Exception ex)
@@ -3454,7 +3474,8 @@ public class StudentsController : ControllerBase
             student.EmergencyContactPhone,
             student.PreviousSchoolName,
             student.PreviousBoard,
-            student.Branch?.Name
+            student.Branch?.Name,
+            student.CoachingJoiningDate
         );
 
         var inventoryKits = await _dbContext.InventoryOutwards
@@ -4836,6 +4857,7 @@ public class BatchesController : ControllerBase
             .Include(b => b.Branch)
             .Include(b => b.Room)
             .Include(b => b.Class)
+            .Include(b => b.MentorTeacher)
             .Select(b => new BatchDto(
                 b.Id,
                 b.Name,
@@ -4851,7 +4873,10 @@ public class BatchesController : ControllerBase
                 b.ClassId,
                 null,
                 null,
-                b.Class != null ? b.Class.Name : null
+                b.Class != null ? b.Class.Name : null,
+                b.MentorTeacherId,
+                b.MentorTeacher != null ? b.MentorTeacher.FullName : null,
+                b.MentorTeacher != null ? b.MentorTeacher.PhoneNumber : null
             )).ToListAsync();
 
         return Ok(list);
@@ -4872,6 +4897,7 @@ public class BatchesController : ControllerBase
             .Include(b => b.Branch)
             .Include(b => b.Room)
             .Include(b => b.Class)
+            .Include(b => b.MentorTeacher)
             .AsQueryable();
 
         if (classId.HasValue && classId.Value != Guid.Empty)
@@ -4890,6 +4916,7 @@ public class BatchesController : ControllerBase
             query = query.Where(b => b.Name.ToLower().Contains(term) ||
                                      b.Subject.ToLower().Contains(term) ||
                                      b.AcademicYear.ToLower().Contains(term) ||
+                                     (b.MentorTeacher != null && b.MentorTeacher.FullName.ToLower().Contains(term)) ||
                                      (b.Class != null && b.Class.Name.ToLower().Contains(term)));
         }
 
@@ -4897,6 +4924,7 @@ public class BatchesController : ControllerBase
         {
             "class" or "classname" => sortDescending ? query.OrderByDescending(b => b.Class != null ? b.Class.Name : "") : query.OrderBy(b => b.Class != null ? b.Class.Name : ""),
             "subject" => sortDescending ? query.OrderByDescending(b => b.Subject) : query.OrderBy(b => b.Subject),
+            "mentor" or "mentorteacher" => sortDescending ? query.OrderByDescending(b => b.MentorTeacher != null ? b.MentorTeacher.FullName : "") : query.OrderBy(b => b.MentorTeacher != null ? b.MentorTeacher.FullName : ""),
             "academicyear" => sortDescending ? query.OrderByDescending(b => b.AcademicYear) : query.OrderBy(b => b.AcademicYear),
             "fee" => sortDescending ? query.OrderByDescending(b => b.StandardMonthlyFee) : query.OrderBy(b => b.StandardMonthlyFee),
             "students" => sortDescending ? query.OrderByDescending(b => b.Students.Count) : query.OrderBy(b => b.Students.Count),
@@ -4922,7 +4950,10 @@ public class BatchesController : ControllerBase
                 b.ClassId,
                 null,
                 null,
-                b.Class != null ? b.Class.Name : null
+                b.Class != null ? b.Class.Name : null,
+                b.MentorTeacherId,
+                b.MentorTeacher != null ? b.MentorTeacher.FullName : null,
+                b.MentorTeacher != null ? b.MentorTeacher.PhoneNumber : null
             )).ToListAsync();
 
         return Ok(new PagedResult<BatchDto>(items, totalCount, pageNumber, pageSize));
@@ -4937,6 +4968,7 @@ public class BatchesController : ControllerBase
             .Include(b => b.Branch)
             .Include(b => b.Room)
             .Include(b => b.Class)
+            .Include(b => b.MentorTeacher)
             .FirstOrDefaultAsync(b => b.Id == id);
 
         if (batch == null) return NotFound();
@@ -4956,7 +4988,10 @@ public class BatchesController : ControllerBase
             batch.ClassId,
             null,
             null,
-            batch.Class?.Name
+            batch.Class?.Name,
+            batch.MentorTeacherId,
+            batch.MentorTeacher?.FullName,
+            batch.MentorTeacher?.PhoneNumber
         ));
     }
 
@@ -4976,6 +5011,7 @@ public class BatchesController : ControllerBase
             BranchId = targetBranchId,
             RoomId = dto.RoomId,
             ClassId = dto.ClassId,
+            MentorTeacherId = dto.MentorTeacherId,
             Name = dto.Name,
             Subject = dto.Subject,
             AcademicYear = dto.AcademicYear,
@@ -4988,6 +5024,7 @@ public class BatchesController : ControllerBase
         var branchName = (await _dbContext.Branches.AsNoTracking().FirstOrDefaultAsync(b => b.Id == batch.BranchId))?.Name;
         var roomNumber = batch.RoomId.HasValue ? (await _dbContext.Rooms.AsNoTracking().FirstOrDefaultAsync(r => r.Id == batch.RoomId))?.RoomNumber : null;
         var className = batch.ClassId.HasValue ? (await _dbContext.SchoolClasses.AsNoTracking().FirstOrDefaultAsync(c => c.Id == batch.ClassId))?.Name : null;
+        var mentorTeacher = batch.MentorTeacherId.HasValue ? await _dbContext.Teachers.AsNoTracking().FirstOrDefaultAsync(t => t.Id == batch.MentorTeacherId.Value) : null;
 
         return Ok(new BatchDto(
             batch.Id,
@@ -5004,7 +5041,10 @@ public class BatchesController : ControllerBase
             batch.ClassId,
             null,
             null,
-            className
+            className,
+            batch.MentorTeacherId,
+            mentorTeacher?.FullName,
+            mentorTeacher?.PhoneNumber
         ));
     }
 
@@ -5021,6 +5061,7 @@ public class BatchesController : ControllerBase
         if (dto.BranchId.HasValue && dto.BranchId.Value != Guid.Empty) batch.BranchId = dto.BranchId.Value;
         batch.RoomId = dto.RoomId;
         batch.ClassId = dto.ClassId;
+        batch.MentorTeacherId = dto.MentorTeacherId;
 
         await _dbContext.SaveChangesAsync();
 
@@ -5028,6 +5069,7 @@ public class BatchesController : ControllerBase
         var branchName = (await _dbContext.Branches.AsNoTracking().FirstOrDefaultAsync(b => b.Id == batch.BranchId))?.Name;
         var roomNumber = batch.RoomId.HasValue ? (await _dbContext.Rooms.AsNoTracking().FirstOrDefaultAsync(r => r.Id == batch.RoomId))?.RoomNumber : null;
         var className = batch.ClassId.HasValue ? (await _dbContext.SchoolClasses.AsNoTracking().FirstOrDefaultAsync(c => c.Id == batch.ClassId))?.Name : null;
+        var mentorTeacher = batch.MentorTeacherId.HasValue ? await _dbContext.Teachers.AsNoTracking().FirstOrDefaultAsync(t => t.Id == batch.MentorTeacherId.Value) : null;
 
         return Ok(new BatchDto(
             batch.Id,
@@ -5044,7 +5086,63 @@ public class BatchesController : ControllerBase
             batch.ClassId,
             null,
             null,
-            className
+            className,
+            batch.MentorTeacherId,
+            mentorTeacher?.FullName,
+            mentorTeacher?.PhoneNumber
+        ));
+    }
+
+    [HttpPut("{id}/mentor")]
+    public async Task<ActionResult<BatchDto>> AssignBatchMentor(Guid id, [FromBody] AssignBatchMentorDto dto)
+    {
+        var batch = await _dbContext.Batches
+            .Include(b => b.Branch)
+            .Include(b => b.Room)
+            .Include(b => b.Class)
+            .FirstOrDefaultAsync(b => b.Id == id);
+
+        if (batch == null) return NotFound(new { message = "Batch not found." });
+
+        if (dto.MentorTeacherId.HasValue && dto.MentorTeacherId.Value != Guid.Empty)
+        {
+            var teacherExists = await _dbContext.Teachers.AnyAsync(t => t.Id == dto.MentorTeacherId.Value);
+            if (!teacherExists) return BadRequest(new { message = "Selected faculty not found." });
+            batch.MentorTeacherId = dto.MentorTeacherId.Value;
+        }
+        else
+        {
+            batch.MentorTeacherId = null;
+        }
+
+        await _dbContext.SaveChangesAsync();
+
+        Teacher? mentorTeacher = null;
+        if (batch.MentorTeacherId.HasValue)
+        {
+            mentorTeacher = await _dbContext.Teachers.AsNoTracking().FirstOrDefaultAsync(t => t.Id == batch.MentorTeacherId.Value);
+        }
+
+        var studentCount = await _dbContext.Students.CountAsync(s => s.BatchId == id);
+        return Ok(new BatchDto(
+            batch.Id,
+            batch.Name,
+            batch.Subject,
+            batch.AcademicYear,
+            batch.StandardMonthlyFee,
+            studentCount,
+            batch.BranchId,
+            batch.Branch?.Name,
+            batch.RoomId,
+            batch.Room?.RoomNumber,
+            "Coaching",
+            batch.ClassId,
+            null,
+            null,
+            batch.Class?.Name,
+            batch.MentorTeacherId,
+            mentorTeacher?.FullName,
+            mentorTeacher?.PhoneNumber
         ));
     }
 
@@ -5059,4 +5157,316 @@ public class BatchesController : ControllerBase
 
         return NoContent();
     }
+
+    #region Coaching Batch Routine & Timetable
+
+    [HttpGet("{batchId}/routine")]
+    public async Task<ActionResult<IEnumerable<SectionPeriodRoutineDto>>> GetBatchRoutine(Guid batchId)
+    {
+        var tenantId = _currentUser.TenantId;
+        var batch = await _dbContext.Batches
+            .AsNoTracking()
+            .Include(b => b.Class)
+            .FirstOrDefaultAsync(b => b.Id == batchId && b.TenantId == tenantId);
+
+        if (batch == null) return NotFound(new { message = "Coaching Batch not found." });
+
+        var assignments = await _dbContext.TeacherBatchAssignments
+            .AsNoTracking()
+            .Include(a => a.Teacher)
+            .Where(a => a.BatchId == batchId && a.TenantId == tenantId && a.IsActive)
+            .OrderBy(a => a.TimeSlot)
+            .ThenBy(a => a.Subject)
+            .ToListAsync();
+
+        var list = assignments.Select(a => new SectionPeriodRoutineDto(
+            a.Id,
+            batch.Id,
+            batch.Name,
+            batch.ClassId ?? Guid.Empty,
+            batch.Class?.Name ?? "Coaching",
+            a.TeacherId,
+            a.Teacher?.FullName ?? "Unknown",
+            a.Teacher?.EmployeeCode ?? "N/A",
+            a.Teacher?.PhoneNumber,
+            a.Subject,
+            a.DaysOfWeek,
+            a.TimeSlot,
+            false,
+            a.AssignedAt
+        )).ToList();
+
+        return Ok(list);
+    }
+
+    [HttpPost("{batchId}/routine")]
+    public async Task<ActionResult<SectionPeriodRoutineDto>> AddBatchPeriod(Guid batchId, [FromBody] CreateSectionPeriodRequestDto dto)
+    {
+        var tenantId = _currentUser.TenantId;
+        var batch = await _dbContext.Batches
+            .Include(b => b.Class)
+            .FirstOrDefaultAsync(b => b.Id == batchId && b.TenantId == tenantId);
+
+        if (batch == null) return NotFound(new { message = "Coaching Batch not found." });
+
+        var teacher = await _dbContext.Teachers.FirstOrDefaultAsync(t => t.Id == dto.TeacherId && t.TenantId == tenantId);
+        if (teacher == null) return NotFound(new { message = "Teacher not found." });
+
+        var assignment = new TeacherBatchAssignment
+        {
+            TenantId = tenantId,
+            TeacherId = dto.TeacherId,
+            BatchId = batch.Id,
+            ClassId = batch.ClassId,
+            Subject = dto.Subject.Trim(),
+            DaysOfWeek = dto.DaysOfWeek?.Trim(),
+            TimeSlot = dto.TimeSlot?.Trim(),
+            IsActive = true,
+            AssignedAt = DateTime.UtcNow
+        };
+
+        _dbContext.TeacherBatchAssignments.Add(assignment);
+        await _dbContext.SaveChangesAsync();
+
+        var resultDto = new SectionPeriodRoutineDto(
+            assignment.Id,
+            batch.Id,
+            batch.Name,
+            batch.ClassId ?? Guid.Empty,
+            batch.Class?.Name ?? "Coaching",
+            teacher.Id,
+            teacher.FullName,
+            teacher.EmployeeCode,
+            teacher.PhoneNumber,
+            assignment.Subject,
+            assignment.DaysOfWeek,
+            assignment.TimeSlot,
+            false,
+            assignment.AssignedAt
+        );
+
+        return Ok(resultDto);
+    }
+
+    [HttpPut("routine/{assignmentId}")]
+    public async Task<ActionResult<SectionPeriodRoutineDto>> UpdateBatchPeriod(Guid assignmentId, [FromBody] CreateSectionPeriodRequestDto dto)
+    {
+        var tenantId = _currentUser.TenantId;
+        var assignment = await _dbContext.TeacherBatchAssignments
+            .Include(a => a.Batch)
+                .ThenInclude(b => b!.Class)
+            .Include(a => a.Teacher)
+            .FirstOrDefaultAsync(a => a.Id == assignmentId && a.TenantId == tenantId);
+
+        if (assignment == null) return NotFound(new { message = "Period routine assignment not found." });
+
+        var teacher = await _dbContext.Teachers.FirstOrDefaultAsync(t => t.Id == dto.TeacherId && t.TenantId == tenantId);
+        if (teacher == null) return NotFound(new { message = "Teacher not found." });
+
+        assignment.TeacherId = dto.TeacherId;
+        assignment.Subject = dto.Subject.Trim();
+        assignment.DaysOfWeek = dto.DaysOfWeek?.Trim();
+        assignment.TimeSlot = dto.TimeSlot?.Trim();
+        assignment.AssignedAt = DateTime.UtcNow;
+
+        await _dbContext.SaveChangesAsync();
+
+        var resultDto = new SectionPeriodRoutineDto(
+            assignment.Id,
+            assignment.BatchId ?? Guid.Empty,
+            assignment.Batch?.Name ?? "Batch",
+            assignment.ClassId ?? Guid.Empty,
+            assignment.Class?.Name ?? "Coaching",
+            teacher.Id,
+            teacher.FullName,
+            teacher.EmployeeCode,
+            teacher.PhoneNumber,
+            assignment.Subject,
+            assignment.DaysOfWeek,
+            assignment.TimeSlot,
+            false,
+            assignment.AssignedAt
+        );
+
+        return Ok(resultDto);
+    }
+
+    [HttpDelete("routine/{assignmentId}")]
+    public async Task<IActionResult> RemoveBatchPeriod(Guid assignmentId)
+    {
+        var tenantId = _currentUser.TenantId;
+        var assignment = await _dbContext.TeacherBatchAssignments
+            .FirstOrDefaultAsync(a => a.Id == assignmentId && a.TenantId == tenantId);
+
+        if (assignment == null) return NotFound(new { message = "Period routine assignment not found." });
+
+        _dbContext.TeacherBatchAssignments.Remove(assignment);
+        await _dbContext.SaveChangesAsync();
+
+        return NoContent();
+    }
+
+    [HttpGet("{batchId}/timetable")]
+    public async Task<ActionResult<StudentWeeklyTimetableDto>> GetBatchTimetable(Guid batchId, [FromQuery] string? dayOfWeek)
+    {
+        var tenantId = _currentUser.TenantId;
+        var batch = await _dbContext.Batches.AsNoTracking()
+            .Include(b => b.Class)
+            .Include(b => b.Room)
+            .Include(b => b.Branch)
+            .FirstOrDefaultAsync(b => b.Id == batchId && b.TenantId == tenantId);
+
+        if (batch == null) return NotFound(new { message = "Coaching Batch not found." });
+
+        TimeZoneInfo istTz;
+        try { istTz = TimeZoneInfo.FindSystemTimeZoneById("India Standard Time"); }
+        catch { istTz = TimeZoneInfo.FindSystemTimeZoneById("Asia/Kolkata"); }
+        var istNow = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, istTz);
+        var currentLiveTimeIst = istNow.ToString("hh:mm tt");
+        var todayDow = istNow.DayOfWeek.ToString();
+        var todayDate = istNow.Date;
+
+        var assignments = await _dbContext.TeacherBatchAssignments.AsNoTracking()
+            .Include(a => a.Teacher)
+            .Include(a => a.Batch)
+                .ThenInclude(b => b!.Room)
+            .Where(a => a.TenantId == tenantId && a.IsActive && a.BatchId == batchId)
+            .ToListAsync();
+
+        var substitutions = await _dbContext.TeacherSubstitutions.AsNoTracking()
+            .Include(s => s.SubstituteTeacher)
+            .Where(s => s.TenantId == tenantId && s.SubstitutionDate.Date == todayDate && s.Status == "Assigned" && s.BatchId == batchId)
+            .ToListAsync();
+
+        var daysOfWeekList = new List<string> { "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" };
+        var weeklySchedule = new Dictionary<string, List<StudentTimetableSlotDto>>();
+
+        TimeSpan? ParseTime(string? slot, bool isStart)
+        {
+            if (string.IsNullOrWhiteSpace(slot)) return null;
+            var parts = slot.Split(new[] { "-", "–", "to" }, StringSplitOptions.RemoveEmptyEntries);
+            string target = isStart ? parts.FirstOrDefault()?.Trim() ?? "" : parts.LastOrDefault()?.Trim() ?? "";
+            if (DateTime.TryParse(target, out var dt)) return dt.TimeOfDay;
+            if (TimeSpan.TryParse(target, out var ts)) return ts;
+            return null;
+        }
+
+        List<StudentTimetableSlotDto> BuildSlotsForDay(string dow)
+        {
+            var isCurrentDay = string.Equals(dow, todayDow, StringComparison.OrdinalIgnoreCase);
+            var daySlots = new List<StudentTimetableSlotDto>();
+
+            var matching = assignments.Where(a =>
+                string.IsNullOrEmpty(a.DaysOfWeek) ||
+                a.DaysOfWeek.Contains(dow, StringComparison.OrdinalIgnoreCase) ||
+                (dow.Length >= 3 && a.DaysOfWeek.Contains(dow.Substring(0, 3), StringComparison.OrdinalIgnoreCase))
+            ).ToList();
+
+            matching = matching.OrderBy(m => ParseTime(m.TimeSlot, true) ?? TimeSpan.MaxValue)
+                               .ThenBy(m => m.TimeSlot)
+                               .ToList();
+
+            int periodNum = 1;
+            foreach (var a in matching)
+            {
+                var startTimeSpan = ParseTime(a.TimeSlot, true);
+                var endTimeSpan = ParseTime(a.TimeSlot, false);
+
+                bool isLiveNow = false;
+                bool isUpcoming = false;
+                bool isCompleted = false;
+
+                if (isCurrentDay && startTimeSpan.HasValue && endTimeSpan.HasValue)
+                {
+                    var nowTs = istNow.TimeOfDay;
+                    if (nowTs >= startTimeSpan.Value && nowTs <= endTimeSpan.Value) isLiveNow = true;
+                    else if (nowTs < startTimeSpan.Value) isUpcoming = true;
+                    else if (nowTs > endTimeSpan.Value) isCompleted = true;
+                }
+
+                TeacherSubstitution? sub = null;
+                if (isCurrentDay)
+                {
+                    sub = substitutions.FirstOrDefault(s =>
+                        (s.TimeSlot != null && a.TimeSlot != null && s.TimeSlot.Trim().Equals(a.TimeSlot.Trim(), StringComparison.OrdinalIgnoreCase)) ||
+                        (!string.IsNullOrEmpty(s.SubjectName) && s.SubjectName.Trim().Equals(a.Subject?.Trim(), StringComparison.OrdinalIgnoreCase))
+                    );
+                }
+
+                var defaultRoom = a.Batch?.Room?.RoomNumber ?? batch.Room?.RoomNumber;
+
+                daySlots.Add(new StudentTimetableSlotDto(
+                    a.Id,
+                    periodNum++,
+                    a.Subject,
+                    a.TimeSlot ?? $"Slot {periodNum - 1}",
+                    startTimeSpan?.ToString(@"hh\:mm"),
+                    endTimeSpan?.ToString(@"hh\:mm"),
+                    a.TeacherId,
+                    a.Teacher?.FullName ?? "Faculty",
+                    a.Teacher?.PhoneNumber,
+                    a.Teacher?.PhotoUrl,
+                    false,
+                    sub?.RoomNumber ?? defaultRoom ?? "Batch Room",
+                    a.DaysOfWeek ?? "Mon-Sat",
+                    "Coaching",
+                    isLiveNow,
+                    isUpcoming,
+                    isCompleted,
+                    sub != null,
+                    sub?.SubstituteTeacher?.FullName,
+                    sub?.Reason,
+                    sub?.TopicToCover
+                ));
+            }
+            return daySlots;
+        }
+
+        foreach (var day in daysOfWeekList)
+        {
+            weeklySchedule[day] = BuildSlotsForDay(day);
+        }
+
+        var todayPeriods = weeklySchedule.ContainsKey(todayDow) ? weeklySchedule[todayDow] : new List<StudentTimetableSlotDto>();
+
+        var facultyContacts = assignments
+            .Where(a => a.Teacher != null)
+            .GroupBy(a => a.TeacherId)
+            .Select(g =>
+            {
+                var t = g.First().Teacher!;
+                var subjects = string.Join(", ", g.Select(x => x.Subject).Distinct());
+                return new StudentFacultyContactDto(
+                    t.Id,
+                    t.FullName,
+                    subjects,
+                    t.PhoneNumber,
+                    t.Email,
+                    t.PhotoUrl,
+                    false,
+                    batch.Room?.RoomNumber
+                );
+            }).ToList();
+
+        var result = new StudentWeeklyTimetableDto(
+            batch.Id,
+            batch.Name,
+            batch.Subject ?? "Coaching",
+            batch.Class?.Name,
+            null,
+            batch.Name,
+            batch.Branch?.Name,
+            null,
+            null,
+            todayDow,
+            currentLiveTimeIst,
+            todayPeriods,
+            weeklySchedule,
+            facultyContacts
+        );
+
+        return Ok(result);
+    }
+
+    #endregion
 }

@@ -69,9 +69,11 @@ export class PtmService {
   private http = inject(HttpClient);
   private apiUrl = `${environment.apiUrl}/ptm`;
 
-  getStats(branchId?: string | null): Observable<PtmStats> {
+  getStats(branchId?: string | null, divisionScope?: string | null, targetBatchId?: string | null): Observable<PtmStats> {
     let params = new HttpParams();
     if (branchId) params = params.set('branchId', branchId);
+    if (divisionScope && divisionScope !== 'All') params = params.set('divisionScope', divisionScope);
+    if (targetBatchId) params = params.set('targetBatchId', targetBatchId);
     return this.http.get<PtmStats>(`${this.apiUrl}/stats`, { params });
   }
 
@@ -80,6 +82,7 @@ export class PtmService {
     status?: string | null;
     academicYear?: string | null;
     divisionScope?: string | null;
+    targetBatchId?: string | null;
     searchTerm?: string | null;
   }): Observable<PtmSession[]> {
     let params = new HttpParams();
@@ -87,6 +90,7 @@ export class PtmService {
     if (filters?.status && filters.status !== 'All') params = params.set('status', filters.status);
     if (filters?.academicYear && filters.academicYear !== 'All') params = params.set('academicYear', filters.academicYear);
     if (filters?.divisionScope && filters.divisionScope !== 'All') params = params.set('divisionScope', filters.divisionScope);
+    if (filters?.targetBatchId) params = params.set('targetBatchId', filters.targetBatchId);
     if (filters?.searchTerm) params = params.set('searchTerm', filters.searchTerm);
     return this.http.get<PtmSession[]>(`${this.apiUrl}/sessions`, { params });
   }

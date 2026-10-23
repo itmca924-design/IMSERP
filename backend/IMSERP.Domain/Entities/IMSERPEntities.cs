@@ -209,6 +209,7 @@ public class Batch
     public Guid? BranchId { get; set; }
     public Guid? RoomId { get; set; }
     public Guid? ClassId { get; set; }
+    public Guid? MentorTeacherId { get; set; }
     public string Name { get; set; } = string.Empty;
     public string Subject { get; set; } = string.Empty;
     public string AcademicYear { get; set; } = string.Empty;
@@ -223,6 +224,9 @@ public class Batch
 
     [ForeignKey("ClassId")]
     public SchoolClass? Class { get; set; }
+
+    [ForeignKey("MentorTeacherId")]
+    public Teacher? MentorTeacher { get; set; }
 
     public ICollection<Student> Students { get; set; } = new List<Student>();
 }
@@ -309,6 +313,7 @@ public class Student
     public DateTime? DeletedAt { get; set; }
     public Guid? DeletedBy { get; set; }
     public DateTime JoiningDate { get; set; } = DateTime.UtcNow;
+    public DateTime? CoachingJoiningDate { get; set; }
     public DateTime? LeavingDate { get; set; }
     public string? LeavingReason { get; set; }  // TC | Transfer | Rustication | Expelled | Other
     public string? TCNumber { get; set; }
@@ -365,15 +370,18 @@ public class StudentPromotionHistory
     public Guid TenantId { get; set; }
     public Guid? BranchId { get; set; }
     public Guid StudentId { get; set; }
-    public Guid FromClassId { get; set; }
+    public Guid? FromClassId { get; set; }
     public Guid? FromSectionId { get; set; }
+    public Guid? FromBatchId { get; set; }
     public string? FromRollNumber { get; set; }
     public string FromAcademicYear { get; set; } = string.Empty;
-    public Guid ToClassId { get; set; }
+    public Guid? ToClassId { get; set; }
     public Guid? ToSectionId { get; set; }
+    public Guid? ToBatchId { get; set; }
     public string? ToRollNumber { get; set; }
     public string ToAcademicYear { get; set; } = string.Empty;
-    public string ResultStatus { get; set; } = "Promoted"; // "Promoted", "Detained", "Passed with Grace", "Double Promoted"
+    public string Scope { get; set; } = "School"; // "School", "Coaching"
+    public string ResultStatus { get; set; } = "Promoted"; // "Promoted", "Detained", "Passed with Grace", "Double Promoted", "Migrated"
     public DateTime PromotionDate { get; set; } = DateTime.UtcNow;
     public string? PromotedBy { get; set; }
     public string? Remarks { get; set; }
@@ -397,6 +405,12 @@ public class StudentPromotionHistory
 
     [ForeignKey("ToSectionId")]
     public SchoolSection? ToSection { get; set; }
+
+    [ForeignKey("FromBatchId")]
+    public Batch? FromBatch { get; set; }
+
+    [ForeignKey("ToBatchId")]
+    public Batch? ToBatch { get; set; }
 }
 
 public class ExamSetting
@@ -2024,6 +2038,7 @@ public class DailyStudentDiary
     public Guid StudentId { get; set; }
     public Guid? ClassId { get; set; }
     public Guid? SectionId { get; set; }
+    public Guid? BatchId { get; set; }
     public DateTime DiaryDate { get; set; }
     public string? ClassWorkJson { get; set; }
     public string? HomeWorkJson { get; set; }
@@ -2042,6 +2057,8 @@ public class DailyStudentDiary
     public SchoolClass? Class { get; set; }
     [ForeignKey("SectionId")]
     public SchoolSection? Section { get; set; }
+    [ForeignKey("BatchId")]
+    public Batch? Batch { get; set; }
     [ForeignKey("TeacherId")]
     public Teacher? Teacher { get; set; }
 }
@@ -2180,6 +2197,8 @@ public class SchoolNotice
     public string TargetAudience { get; set; } = "All"; // All, Students, Teachers, Parents, SpecificClass
     public Guid? ClassId { get; set; }
     public string? ClassName { get; set; }
+    public Guid? BatchId { get; set; }
+    public string? BatchName { get; set; }
     public string Priority { get; set; } = "Normal"; // Urgent, High, Normal
     public DateTime PublishDate { get; set; } = DateTime.Now;
     public DateTime? ExpiryDate { get; set; }
@@ -2195,6 +2214,8 @@ public class SchoolNotice
     public Branch? Branch { get; set; }
     [ForeignKey("ClassId")]
     public SchoolClass? Class { get; set; }
+    [ForeignKey("BatchId")]
+    public Batch? Batch { get; set; }
 }
 
 public class StudentLeave

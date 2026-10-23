@@ -208,9 +208,9 @@ import { environment } from '../../../environments/environment';
 
     <!-- Row 3: Optional Granular Filters (Class / Batch / Subject / Exam) -->
     <div class="dropdowns-row">
-      <!-- School Class filter -->
+      <!-- School / Academic Class filter -->
       <mat-form-field appearance="outline" class="filter-field" *ngIf="shouldShowClassFilter()">
-        <mat-label>{{ isTeacher() ? 'Assigned Class' : isStudent() ? 'Enrolled Class' : 'School Class' }}</mat-label>
+        <mat-label>{{ isTeacher() ? 'Assigned Class' : isStudent() ? 'Enrolled Class' : (currentScope === 'Coaching' ? 'Academic Class' : 'School Class') }}</mat-label>
         <mat-select [(ngModel)]="selectedClassId" (selectionChange)="onClassFilterChanged()">
           <mat-option [value]="null" *ngIf="isAdmin() || (isTeacher() && classes.length > 1)">
             {{ isTeacher() ? 'All My Classes (' + classes.length + ')' : 'All Classes' }}
@@ -223,10 +223,10 @@ import { environment } from '../../../environments/environment';
       <mat-form-field appearance="outline" class="filter-field" *ngIf="shouldShowBatchFilter()">
         <mat-label>{{ isTeacher() ? 'Assigned Batch' : isStudent() ? 'Enrolled Batch' : 'Coaching Batch' }}</mat-label>
         <mat-select [(ngModel)]="selectedBatchId" (selectionChange)="onBatchFilterChanged()">
-          <mat-option [value]="null" *ngIf="isAdmin() || (isTeacher() && batches.length > 1)">
-            {{ isTeacher() ? 'All My Batches (' + batches.length + ')' : 'All Batches' }}
+          <mat-option [value]="null" *ngIf="isAdmin() || (isTeacher() && filteredBatches.length > 1)">
+            {{ isTeacher() ? 'All My Batches (' + filteredBatches.length + ')' : 'All Batches' }}
           </mat-option>
-          <mat-option *ngFor="let b of batches" [value]="b.id">{{ b.name }}</mat-option>
+          <mat-option *ngFor="let b of filteredBatches" [value]="b.id">{{ b.name }}{{ b.className ? ' [' + b.className + ']' : '' }}</mat-option>
         </mat-select>
       </mat-form-field>
 
@@ -1035,7 +1035,18 @@ export class StudyMaterialsComponent implements OnInit {
     );
   }
 
+  get filteredBatches(): any[] {
+    if (!this.selectedClassId) return this.batches;
+    return this.batches.filter(b => (b.classId || '').toLowerCase() === this.selectedClassId?.toLowerCase());
+  }
+
   onClassFilterChanged(): void {
+    if (this.selectedBatchId) {
+      const stillValid = this.filteredBatches.some(b => (b.id || '').toLowerCase() === this.selectedBatchId?.toLowerCase());
+      if (!stillValid) {
+        this.selectedBatchId = null;
+      }
+    }
     if (this.selectedClassId) {
       this.http.get<any[]>(`${environment.apiUrl}/Subjects/classes/${this.selectedClassId}`).subscribe({
         next: (classSubjects) => {
@@ -1259,7 +1270,7 @@ export class StudyMaterialsComponent implements OnInit {
     if (this.isTeacher()) {
       return this.classes.length > 0;
     }
-    return this.currentScope !== 'Coaching' && this.classes.length > 0;
+    return this.classes.length > 0;
   }
 
   shouldShowBatchFilter(): boolean {

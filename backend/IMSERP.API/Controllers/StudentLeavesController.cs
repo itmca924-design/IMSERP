@@ -35,6 +35,8 @@ public class StudentLeavesController : ControllerBase
         [FromQuery] string? status,
         [FromQuery] Guid? studentId,
         [FromQuery] Guid? classId,
+        [FromQuery] Guid? batchId,
+        [FromQuery] string? academicScope,
         [FromQuery] string? category,
         [FromQuery] string? search)
     {
@@ -47,6 +49,8 @@ public class StudentLeavesController : ControllerBase
                 .ThenInclude(s => s!.Class)
             .Include(l => l.Student)
                 .ThenInclude(s => s!.Section)
+            .Include(l => l.Student)
+                .ThenInclude(s => s!.Batch)
             .Where(l => l.TenantId == tenantId);
 
         if (_currentUser.BranchId.HasValue)
@@ -72,13 +76,19 @@ public class StudentLeavesController : ControllerBase
         }
         else if (scope.Scope == "Teacher")
         {
-            if (scope.AssignedSectionIds != null && scope.AssignedSectionIds.Count > 0)
+            var hasSections = scope.AssignedSectionIds != null && scope.AssignedSectionIds.Count > 0;
+            var hasBatches = scope.AssignedBatchIds != null && scope.AssignedBatchIds.Count > 0;
+
+            if (hasSections || hasBatches)
             {
-                query = query.Where(l => l.Student != null && l.Student.SectionId.HasValue && scope.AssignedSectionIds.Contains(l.Student.SectionId.Value));
+                query = query.Where(l => l.Student != null && (
+                    (hasSections && l.Student.SectionId.HasValue && scope.AssignedSectionIds!.Contains(l.Student.SectionId.Value)) ||
+                    (hasBatches && l.Student.BatchId.HasValue && scope.AssignedBatchIds!.Contains(l.Student.BatchId.Value))
+                ));
             }
             else
             {
-                // Teacher with no assigned sections as Class Teacher
+                // Teacher with no assigned sections as Class Teacher or mentored Batches
                 query = query.Where(l => false);
             }
         }
@@ -93,6 +103,21 @@ public class StudentLeavesController : ControllerBase
         if (classId.HasValue && classId.Value != Guid.Empty)
             query = query.Where(l => l.Student != null && l.Student.ClassId == classId.Value);
 
+        if (batchId.HasValue && batchId.Value != Guid.Empty)
+            query = query.Where(l => l.Student != null && l.Student.BatchId == batchId.Value);
+
+        if (!string.IsNullOrWhiteSpace(academicScope) && academicScope != "All")
+        {
+            if (academicScope.Equals("School", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(l => l.Student != null && (l.Student.IsSchoolStudent || l.Student.ClassId != null));
+            }
+            else if (academicScope.Equals("Coaching", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(l => l.Student != null && (l.Student.IsCoachingStudent || l.Student.BatchId != null));
+            }
+        }
+
         if (!string.IsNullOrWhiteSpace(category))
             query = query.Where(l => l.LeaveCategory == category);
 
@@ -100,7 +125,13 @@ public class StudentLeavesController : ControllerBase
         {
             var s = search.Trim().ToLower();
             query = query.Where(l =>
-                (l.Student != null && (l.Student.StudentName.ToLower().Contains(s) || l.Student.RollNumber.ToLower().Contains(s))) ||
+                (l.Student != null && (
+                    l.Student.StudentName.ToLower().Contains(s) ||
+                    l.Student.RollNumber.ToLower().Contains(s) ||
+                    (l.Student.SchoolRollNumber != null && l.Student.SchoolRollNumber.ToLower().Contains(s)) ||
+                    (l.Student.CoachingRollNumber != null && l.Student.CoachingRollNumber.ToLower().Contains(s)) ||
+                    (l.Student.Batch != null && l.Student.Batch.Name.ToLower().Contains(s))
+                )) ||
                 l.Reason.ToLower().Contains(s) ||
                 l.LeaveCategory.ToLower().Contains(s));
         }
@@ -140,7 +171,10 @@ public class StudentLeavesController : ControllerBase
                 l.CancellationReviewedBy,
                 l.CancellationReviewedAt,
                 l.CancellationReviewRemarks,
-                l.IsCancellationApproved
+                l.IsCancellationApproved,
+                l.Student != null ? l.Student.BatchId : null,
+                l.Student != null && l.Student.Batch != null ? l.Student.Batch.Name : null,
+                l.Student != null ? l.Student.CoachingRollNumber : null
             ))
             .ToListAsync();
 
@@ -148,7 +182,10 @@ public class StudentLeavesController : ControllerBase
     }
 
     [HttpGet("stats")]
-    public async Task<ActionResult<StudentLeaveStatsDto>> GetStats()
+    public async Task<ActionResult<StudentLeaveStatsDto>> GetStats(
+        [FromQuery] Guid? classId = null,
+        [FromQuery] Guid? batchId = null,
+        [FromQuery] string? academicScope = null)
     {
         var tenantId = _currentUser.TenantId;
         var scope = await GetUserAccessScopeAsync(tenantId);
@@ -177,13 +214,37 @@ public class StudentLeavesController : ControllerBase
         }
         else if (scope.Scope == "Teacher")
         {
-            if (scope.AssignedSectionIds != null && scope.AssignedSectionIds.Count > 0)
+            var hasSections = scope.AssignedSectionIds != null && scope.AssignedSectionIds.Count > 0;
+            var hasBatches = scope.AssignedBatchIds != null && scope.AssignedBatchIds.Count > 0;
+
+            if (hasSections || hasBatches)
             {
-                query = query.Where(l => l.Student != null && l.Student.SectionId.HasValue && scope.AssignedSectionIds.Contains(l.Student.SectionId.Value));
+                query = query.Where(l => l.Student != null && (
+                    (hasSections && l.Student.SectionId.HasValue && scope.AssignedSectionIds!.Contains(l.Student.SectionId.Value)) ||
+                    (hasBatches && l.Student.BatchId.HasValue && scope.AssignedBatchIds!.Contains(l.Student.BatchId.Value))
+                ));
             }
             else
             {
                 return Ok(new StudentLeaveStatsDto(0, 0, 0, 0, 0));
+            }
+        }
+
+        if (classId.HasValue && classId.Value != Guid.Empty)
+            query = query.Where(l => l.Student != null && l.Student.ClassId == classId.Value);
+
+        if (batchId.HasValue && batchId.Value != Guid.Empty)
+            query = query.Where(l => l.Student != null && l.Student.BatchId == batchId.Value);
+
+        if (!string.IsNullOrWhiteSpace(academicScope) && academicScope != "All")
+        {
+            if (academicScope.Equals("School", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(l => l.Student != null && (l.Student.IsSchoolStudent || l.Student.ClassId != null));
+            }
+            else if (academicScope.Equals("Coaching", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(l => l.Student != null && (l.Student.IsCoachingStudent || l.Student.BatchId != null));
             }
         }
 
@@ -211,6 +272,8 @@ public class StudentLeavesController : ControllerBase
                 .ThenInclude(s => s!.Class)
             .Include(x => x.Student)
                 .ThenInclude(s => s!.Section)
+            .Include(x => x.Student)
+                .ThenInclude(s => s!.Batch)
             .FirstOrDefaultAsync(x => x.Id == id && x.TenantId == tenantId);
 
         if (l == null) return NotFound(new { message = "Student leave application not found." });
@@ -248,7 +311,10 @@ public class StudentLeavesController : ControllerBase
             l.CancellationReviewedBy,
             l.CancellationReviewedAt,
             l.CancellationReviewRemarks,
-            l.IsCancellationApproved
+            l.IsCancellationApproved,
+            l.Student != null ? l.Student.BatchId : null,
+            l.Student != null && l.Student.Batch != null ? l.Student.Batch.Name : null,
+            l.Student != null ? l.Student.CoachingRollNumber : null
         ));
     }
 
@@ -283,6 +349,7 @@ public class StudentLeavesController : ControllerBase
         var student = await _db.Students
             .Include(s => s.Class)
             .Include(s => s.Section)
+            .Include(s => s.Batch)
             .FirstOrDefaultAsync(s => s.Id == targetStudentId && s.TenantId == tenantId);
 
         if (student == null)
@@ -364,7 +431,10 @@ public class StudentLeavesController : ControllerBase
             leave.CancellationReviewedBy,
             leave.CancellationReviewedAt,
             leave.CancellationReviewRemarks,
-            leave.IsCancellationApproved
+            leave.IsCancellationApproved,
+            student.BatchId,
+            student.Batch != null ? student.Batch.Name : null,
+            student.CoachingRollNumber
         ));
     }
 
@@ -390,12 +460,14 @@ public class StudentLeavesController : ControllerBase
         if (leave == null)
             return NotFound(new { message = "Student leave application not found." });
 
-        // If Teacher, ensure student belongs to their assigned section
-        if (scope.Scope == "Teacher" && scope.AssignedSectionIds != null && scope.AssignedSectionIds.Count > 0)
+        // If Teacher, ensure student belongs to their assigned section or mentored batch
+        if (scope.Scope == "Teacher")
         {
-            if (leave.Student == null || !leave.Student.SectionId.HasValue || !scope.AssignedSectionIds.Contains(leave.Student.SectionId.Value))
+            var inSection = leave.Student != null && leave.Student.SectionId.HasValue && scope.AssignedSectionIds != null && scope.AssignedSectionIds.Contains(leave.Student.SectionId.Value);
+            var inBatch = leave.Student != null && leave.Student.BatchId.HasValue && scope.AssignedBatchIds != null && scope.AssignedBatchIds.Contains(leave.Student.BatchId.Value);
+            if (!inSection && !inBatch)
             {
-                return StatusCode(StatusCodes.Status403Forbidden, new { message = "You can only review leave applications for students in your assigned Class/Section." });
+                return StatusCode(StatusCodes.Status403Forbidden, new { message = "You can only review leave applications for students in your assigned Class/Section or mentored Coaching Batch." });
             }
         }
 
@@ -576,12 +648,14 @@ public class StudentLeavesController : ControllerBase
 
         if (leave == null) return NotFound(new { message = "Student leave application not found." });
 
-        // If Teacher, ensure student belongs to their assigned section
-        if (scope.Scope == "Teacher" && scope.AssignedSectionIds != null && scope.AssignedSectionIds.Count > 0)
+        // If Teacher, ensure student belongs to their assigned section or mentored batch
+        if (scope.Scope == "Teacher")
         {
-            if (leave.Student == null || !leave.Student.SectionId.HasValue || !scope.AssignedSectionIds.Contains(leave.Student.SectionId.Value))
+            var inSection = leave.Student != null && leave.Student.SectionId.HasValue && scope.AssignedSectionIds != null && scope.AssignedSectionIds.Contains(leave.Student.SectionId.Value);
+            var inBatch = leave.Student != null && leave.Student.BatchId.HasValue && scope.AssignedBatchIds != null && scope.AssignedBatchIds.Contains(leave.Student.BatchId.Value);
+            if (!inSection && !inBatch)
             {
-                return StatusCode(StatusCodes.Status403Forbidden, new { message = "You can only review leave cancellations for students in your assigned Class/Section." });
+                return StatusCode(StatusCodes.Status403Forbidden, new { message = "You can only review leave cancellations for students in your assigned Class/Section or mentored Coaching Batch." });
             }
         }
 
@@ -725,7 +799,7 @@ public class StudentLeavesController : ControllerBase
     // =========================================================================
     // PRIVATE ACCESS SCOPE HELPER
     // =========================================================================
-    private async Task<(string Scope, List<Guid>? AssignedSectionIds, Guid? StudentId, string ReviewerName)> GetUserAccessScopeAsync(Guid tenantId)
+    private async Task<(string Scope, List<Guid>? AssignedSectionIds, List<Guid>? AssignedBatchIds, Guid? StudentId, string ReviewerName)> GetUserAccessScopeAsync(Guid tenantId)
     {
         var userId = _currentUser.UserId;
         var user = await _db.Users
@@ -738,14 +812,14 @@ public class StudentLeavesController : ControllerBase
         if (roleName.Contains("Student", StringComparison.OrdinalIgnoreCase) || _currentUser.UserRole.Equals("Student", StringComparison.OrdinalIgnoreCase))
         {
             var student = await _db.Students.FirstOrDefaultAsync(s => s.UserId == userId && s.TenantId == tenantId);
-            return ("Student", null, student?.Id, user?.FullName ?? "Student");
+            return ("Student", null, null, student?.Id, user?.FullName ?? "Student");
         }
 
         // 2. Check if Parent
         if (roleName.Contains("Parent", StringComparison.OrdinalIgnoreCase) || _currentUser.UserRole.Equals("Parent", StringComparison.OrdinalIgnoreCase))
         {
             var student = await _db.Students.FirstOrDefaultAsync(s => s.ParentUserId == userId && s.TenantId == tenantId);
-            return ("Parent", null, student?.Id, user?.FullName ?? "Parent");
+            return ("Parent", null, null, student?.Id, user?.FullName ?? "Parent");
         }
 
         // 3. Check if Teacher (or linked in Teachers table)
@@ -766,11 +840,16 @@ public class StudentLeavesController : ControllerBase
                 .Select(sec => sec.Id)
                 .ToListAsync();
 
-            return ("Teacher", sectionIds, null, $"{teacher.FullName} (Class Teacher)");
+            var batchIds = await _db.Batches
+                .Where(b => b.MentorTeacherId == teacher.Id && b.TenantId == tenantId)
+                .Select(b => b.Id)
+                .ToListAsync();
+
+            return ("Teacher", sectionIds, batchIds, null, $"{teacher.FullName} (Faculty)");
         }
 
         // 4. Default: Admin / Principal / SuperAdmin
         var adminName = user?.FullName ?? "Administrator";
-        return ("Admin", null, null, $"{adminName} (Admin)");
+        return ("Admin", null, null, null, $"{adminName} (Admin)");
     }
 }

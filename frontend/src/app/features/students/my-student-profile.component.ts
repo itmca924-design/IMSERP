@@ -62,7 +62,7 @@ const API_BASE = environment.apiBaseUrl;
           <button mat-stroked-button class="print-medical-btn" (click)="showPrintMedicalCard = true">
             <mat-icon>badge</mat-icon> Pocket Medical Card
           </button>
-          <button mat-raised-button color="primary" class="primary-gradient-btn" (click)="activeTabIndex = 0">
+          <button mat-raised-button color="primary" class="primary-gradient-btn" (click)="activeTabIndex = 2">
             <mat-icon>emoji_events</mat-icon> View Wall of Fame
           </button>
         </div>
@@ -87,6 +87,12 @@ const API_BASE = environment.apiBaseUrl;
                 <span class="active-badge" [class.inactive]="!data360.student.isActive">
                   {{ data360.student.isActive ? 'Active Student' : 'Inactive' }}
                 </span>
+                <span class="stream-badge school" *ngIf="data360.student.isSchoolStudent">
+                  <mat-icon>school</mat-icon> School
+                </span>
+                <span class="stream-badge coaching" *ngIf="data360.student.isCoachingStudent">
+                  <mat-icon>groups</mat-icon> Coaching
+                </span>
                 <span class="star-badge" *ngIf="data360.performanceAlert?.isStarPerformer">
                   <mat-icon>hotel_class</mat-icon> Star Scholar
                 </span>
@@ -94,7 +100,18 @@ const API_BASE = environment.apiBaseUrl;
 
               <div class="hero-meta-grid">
                 <div class="meta-pill"><mat-icon>school</mat-icon> Class: <strong>{{ data360.student.className || 'General' }}{{ data360.student.sectionName ? ' - ' + data360.student.sectionName : '' }}</strong></div>
-                <div class="meta-pill"><mat-icon>pin</mat-icon> Roll No: <strong>{{ data360.student.rollNumber }}</strong></div>
+                <div class="meta-pill" *ngIf="data360.student.isCoachingStudent || data360.student.batchName">
+                  <mat-icon style="color: #ea580c;">groups</mat-icon> Coaching Batch: <strong>{{ data360.student.batchName || 'General' }}</strong>
+                </div>
+                <div class="meta-pill" *ngIf="data360.student.batchSubject">
+                  <mat-icon style="color: #2563eb;">menu_book</mat-icon> Subject: <strong>{{ data360.student.batchSubject }}</strong>
+                </div>
+                <div class="meta-pill" *ngIf="data360.student.isSchoolStudent || data360.student.schoolRollNumber">
+                  <mat-icon>pin</mat-icon> School Roll: <strong>{{ data360.student.schoolRollNumber || (data360.student.isSchoolStudent ? data360.student.rollNumber : 'N/A') }}</strong>
+                </div>
+                <div class="meta-pill coaching-roll-pill" *ngIf="data360.student.isCoachingStudent || data360.student.coachingRollNumber">
+                  <mat-icon style="color: #ea580c;">pin</mat-icon> Coaching Roll: <strong style="color: #c2410c;">{{ data360.student.coachingRollNumber || (!data360.student.isSchoolStudent ? data360.student.rollNumber : 'N/A') }}</strong>
+                </div>
                 <div class="meta-pill" *ngIf="data360.student.admissionNumber"><mat-icon>badge</mat-icon> Adm No: <strong>{{ data360.student.admissionNumber }}</strong></div>
                 <div class="meta-pill" *ngIf="data360.student.joiningDate"><mat-icon>event</mat-icon> Joining Date: <strong>{{ data360.student.joiningDate | date:'dd MMM yyyy':'Asia/Kolkata' }}</strong></div>
                 <div class="meta-pill" *ngIf="data360.student.branchName"><mat-icon>store</mat-icon> Campus: <strong>{{ data360.student.branchName }}</strong></div>
@@ -195,6 +212,60 @@ const API_BASE = environment.apiBaseUrl;
                       <mat-icon>grid_view</mat-icon> Open Full Routine Matrix
                     </a>
                   </div>
+                </div>
+              </div>
+            </mat-tab>
+
+            <!-- TAB: 📝 TESTS & ACADEMIC PERFORMANCE -->
+            <mat-tab>
+              <ng-template mat-tab-label>
+                <mat-icon class="tab-icon">grade</mat-icon> Tests &amp; Exams ({{ data360.examMarks.length || 0 }})
+              </ng-template>
+              <div class="tab-body-container">
+                <div class="section-title-bar">
+                  <div>
+                    <h3 class="sec-title">Academic Assessments, Coaching Tests &amp; Examination Results</h3>
+                    <p class="sec-sub">Continuous evaluation, test marks, score percentages and performance evaluation</p>
+                  </div>
+                </div>
+
+                <div class="invoice-table-wrap" *ngIf="data360.examMarks?.length">
+                  <table class="custom-table">
+                    <thead>
+                      <tr>
+                        <th>Exam / Test Title</th>
+                        <th>Subject</th>
+                        <th>Date</th>
+                        <th style="text-align: right;">Marks Scored</th>
+                        <th style="text-align: right;">Max Marks</th>
+                        <th style="text-align: right;">Percentage</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr *ngFor="let ex of data360.examMarks">
+                        <td><strong>{{ ex.testName }}</strong></td>
+                        <td>{{ ex.subjectName }}</td>
+                        <td>{{ ex.testDate | date:'dd MMM yyyy' }}</td>
+                        <td style="text-align: right; font-weight: 600;">{{ ex.marksObtained }}</td>
+                        <td style="text-align: right;">{{ ex.maxMarks }}</td>
+                        <td style="text-align: right; font-weight: 700;" [class.text-success]="ex.percentage >= 60" [class.text-danger]="ex.percentage < 33">
+                          {{ ex.percentage }}%
+                        </td>
+                        <td>
+                          <span class="inv-status-pill" [class.paid]="ex.status === 'Passed'" [class.due]="ex.status !== 'Passed'">
+                            {{ ex.status }}
+                          </span>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div class="empty-state-card" *ngIf="!data360.examMarks?.length">
+                  <mat-icon class="empty-icon">assignment_turned_in</mat-icon>
+                  <h4>No Test Marks Recorded</h4>
+                  <p>Assessment and coaching test results will appear here once published by faculty.</p>
                 </div>
               </div>
             </mat-tab>
@@ -1036,6 +1107,32 @@ const API_BASE = environment.apiBaseUrl;
       font-size: 14px;
       width: 14px;
       height: 14px;
+    }
+    .stream-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 0.2rem 0.6rem;
+      border-radius: 20px;
+
+      mat-icon {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
+      }
+
+      &.coaching {
+        background: #ffedd5;
+        color: #c2410c;
+        border: 1px solid #fed7aa;
+      }
+      &.school {
+        background: #e0f2fe;
+        color: #0369a1;
+        border: 1px solid #bae6fd;
+      }
     }
     .hero-meta-grid {
       display: flex;

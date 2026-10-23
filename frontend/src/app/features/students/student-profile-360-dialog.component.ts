@@ -84,22 +84,31 @@ const API_BASE = environment.apiBaseUrl;
               <span class="status-tag" [class.active]="data360?.student?.isActive !== false">
                 {{ data360?.student?.isActive !== false ? 'Active Enrolled' : 'Inactive / Left' }}
               </span>
+              <span *ngIf="data360?.student?.isCoachingStudent" class="stream-tag coaching">
+                <mat-icon class="stream-icon">groups</mat-icon> Coaching
+              </span>
+              <span *ngIf="data360?.student?.isSchoolStudent" class="stream-tag school">
+                <mat-icon class="stream-icon">school</mat-icon> School
+              </span>
             </div>
             <p class="modal-subtitle">
               <span *ngIf="data360?.student?.className">
                 Class: <strong>{{ data360!.student.className }}{{ data360!.student.sectionName ? ' - ' + data360!.student.sectionName : '' }}</strong>
               </span>
               <span *ngIf="data360?.student?.batchName" class="meta-sep">
-                &bull; Batch: <strong>{{ data360!.student.batchName }}</strong>
+                &bull; Coaching Batch: <strong>{{ data360!.student.batchName }}</strong>
               </span>
               <span *ngIf="data360?.student?.batchSubject" class="meta-sep">
                 &bull; Subject: <strong>{{ data360!.student.batchSubject }}</strong>
               </span>
-              <span class="meta-sep">
+              <span *ngIf="data360?.student?.isSchoolStudent" class="meta-sep">
                 &bull; Class Teacher: <strong [style.color]="data360?.student?.classTeacherName ? '#1e40af' : '#b45309'">{{ data360?.student?.classTeacherName || 'Not Assigned' }}</strong>
               </span>
-              <span class="meta-sep">
-                &bull; Roll: <strong>{{ data360?.student?.rollNumber || data.rollNumber || 'N/A' }}</strong>
+              <span class="meta-sep" *ngIf="data360?.student?.schoolRollNumber || (data360?.student?.isSchoolStudent && data360?.student?.rollNumber)">
+                &bull; School Roll: <strong>{{ data360?.student?.schoolRollNumber || data360?.student?.rollNumber }}</strong>
+              </span>
+              <span class="meta-sep" *ngIf="data360?.student?.coachingRollNumber || (!data360?.student?.isSchoolStudent && data360?.student?.rollNumber)">
+                &bull; Coaching Roll: <strong style="color: #c2410c;">{{ data360?.student?.coachingRollNumber || data360?.student?.rollNumber }}</strong>
               </span>
               <span *ngIf="data360?.student?.admissionNumber" class="meta-sep">
                 &bull; SR/Adm: <strong>{{ data360!.student.admissionNumber }}</strong>
@@ -267,22 +276,31 @@ const API_BASE = environment.apiBaseUrl;
                   </div>
                   <div class="info-rows">
                     <div class="info-row">
-                      <span class="row-label">Class &amp; Section:</span>
+                      <span class="row-label">Class:</span>
                       <span class="row-val font-semibold">
                         {{ data360.student.className ? data360.student.className + (data360.student.sectionName ? ' - ' + data360.student.sectionName : '') : 'N/A' }}
                       </span>
                     </div>
-                    <div class="info-row">
-                      <span class="row-label">Enrolled Batch:</span>
-                      <span class="row-val font-semibold">{{ data360.student.batchName || 'N/A' }}</span>
+                    <div class="info-row" *ngIf="data360.student.isCoachingStudent || data360.student.batchName">
+                      <span class="row-label">Coaching Batch:</span>
+                      <span class="row-val font-semibold" style="color: #c2410c;">
+                        <mat-icon style="font-size: 14px; width: 14px; height: 14px; vertical-align: middle; margin-right: 2px;">groups</mat-icon>
+                        {{ data360.student.batchName || 'General / Unassigned' }}
+                      </span>
                     </div>
-                    <div class="info-row">
-                      <span class="row-label">Subject:</span>
+                    <div class="info-row" *ngIf="data360.student.isCoachingStudent || data360.student.batchSubject">
+                      <span class="row-label">Batch Subject:</span>
                       <span class="row-val font-semibold" [style.color]="data360.student.batchSubject ? '#1e40af' : '#64748b'">
                         {{ data360.student.batchSubject || 'General / All Subjects' }}
                       </span>
                     </div>
-                    <div class="info-row">
+                    <div class="info-row" *ngIf="data360.student.isCoachingStudent && data360.student.coachingJoiningDate">
+                      <span class="row-label">Coaching Entry Date:</span>
+                      <span class="row-val font-semibold" style="color: #c2410c;">
+                        {{ data360.student.coachingJoiningDate | date:'dd MMM yyyy':'Asia/Kolkata' }}
+                      </span>
+                    </div>
+                    <div class="info-row" *ngIf="data360.student.isSchoolStudent">
                       <span class="row-label">Class Teacher:</span>
                       <span class="row-val ct-highlight" *ngIf="data360.student.classTeacherName">
                         {{ data360.student.classTeacherName }}
@@ -296,12 +314,16 @@ const API_BASE = environment.apiBaseUrl;
                       <span class="row-label">Admission / SR No:</span>
                       <span class="row-val font-mono">{{ data360.student.admissionNumber || 'N/A' }}</span>
                     </div>
-                    <div class="info-row">
-                      <span class="row-label">Roll Number:</span>
-                      <span class="row-val">{{ data360.student.schoolRollNumber || data360.student.rollNumber || 'N/A' }}</span>
+                    <div class="info-row" *ngIf="data360.student.isSchoolStudent || data360.student.schoolRollNumber">
+                      <span class="row-label">School Roll No:</span>
+                      <span class="row-val font-mono">{{ data360.student.schoolRollNumber || (data360.student.isSchoolStudent ? data360.student.rollNumber : 'N/A') }}</span>
+                    </div>
+                    <div class="info-row" *ngIf="data360.student.isCoachingStudent || data360.student.coachingRollNumber">
+                      <span class="row-label">Coaching Roll No:</span>
+                      <span class="row-val font-mono font-semibold" style="color: #c2410c;">{{ data360.student.coachingRollNumber || (!data360.student.isSchoolStudent ? data360.student.rollNumber : 'N/A') }}</span>
                     </div>
                     <div class="info-row" *ngIf="data360.student.branchName">
-                      <span class="row-label">Branch:</span>
+                      <span class="row-label">Branch / Campus:</span>
                       <span class="row-val">{{ data360.student.branchName }}</span>
                     </div>
                   </div>
@@ -348,10 +370,14 @@ const API_BASE = environment.apiBaseUrl;
                   </div>
                   <div class="info-rows">
                     <div class="info-row">
-                      <span class="row-label">Enrollment Type:</span>
+                      <span class="row-label">Enrollment Stream:</span>
                       <span class="row-val">
-                        <span *ngIf="data360.student.isSchoolStudent" style="background:#e0f2fe; color:#0369a1; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:600; margin-right:4px;">School</span>
-                        <span *ngIf="data360.student.isCoachingStudent" style="background:#fef3c7; color:#b45309; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:600;">Coaching</span>
+                        <span *ngIf="data360.student.isSchoolStudent" style="background:#e0f2fe; color:#0369a1; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:600; margin-right:6px; display:inline-flex; align-items:center; gap:4px;">
+                          <mat-icon style="font-size:13px; width:13px; height:13px;">school</mat-icon> School
+                        </span>
+                        <span *ngIf="data360.student.isCoachingStudent" style="background:#ffedd5; color:#c2410c; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:600; display:inline-flex; align-items:center; gap:4px;">
+                          <mat-icon style="font-size:13px; width:13px; height:13px;">groups</mat-icon> Coaching
+                        </span>
                       </span>
                     </div>
                     <div class="info-row">
@@ -1923,7 +1949,11 @@ const API_BASE = environment.apiBaseUrl;
                 </div>
                 <div class="med-details-box">
                   <div class="med-name">{{ data360?.student?.studentName }}</div>
-                  <div class="med-line">Class: <strong>{{ data360?.student?.className }}{{ data360?.student?.sectionName ? ' - ' + data360?.student?.sectionName : '' }}</strong> &bull; Roll: <strong>{{ data360?.student?.rollNumber }}</strong></div>
+                  <div class="med-line">
+                    Class: <strong>{{ data360?.student?.className }}{{ data360?.student?.sectionName ? ' - ' + data360?.student?.sectionName : '' }}</strong>
+                    <span *ngIf="data360?.student?.batchName"> &bull; Batch: <strong>{{ data360?.student?.batchName }}</strong></span>
+                    &bull; Roll: <strong>{{ (data360?.student?.isCoachingStudent && !data360?.student?.isSchoolStudent ? data360?.student?.coachingRollNumber : data360?.student?.schoolRollNumber) || data360?.student?.rollNumber }}</strong>
+                  </div>
                   <div class="med-line">DOB: <strong>{{ data360?.student?.dateOfBirth ? (data360!.student.dateOfBirth | date:'dd-MM-yyyy') : 'N/A' }}</strong> &bull; Blood: <strong class="blood-highlight">{{ data360?.healthRecord?.bloodGroup || data360?.student?.bloodGroup || 'N/A' }}</strong></div>
                 </div>
               </div>
@@ -2060,6 +2090,33 @@ const API_BASE = environment.apiBaseUrl;
       &.active {
         background: #dcfce7;
         color: #166534;
+      }
+    }
+
+    .stream-tag {
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 9999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+
+      .stream-icon {
+        font-size: 13px;
+        width: 13px;
+        height: 13px;
+      }
+
+      &.coaching {
+        background: #ffedd5;
+        color: #c2410c;
+        border: 1px solid #fed7aa;
+      }
+      &.school {
+        background: #e0f2fe;
+        color: #0369a1;
+        border: 1px solid #bae6fd;
       }
     }
 

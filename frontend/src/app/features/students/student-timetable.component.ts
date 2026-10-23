@@ -20,6 +20,7 @@ import {
   SchoolSectionDto, 
   SectionPeriodRoutineDto 
 } from '../../core/services/school.service';
+import { BatchesService, BatchDto } from '../../core/services/batches.service';
 import { SectionRoutineDialogComponent } from '../school/section-routine-dialog.component';
 import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.directive';
 
@@ -84,12 +85,41 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
         </div>
       </div>
 
-      <!-- Academic Class & Section Selector for Staff/Admin -->
-      <div class="admin-selector-bar" *ngIf="isAdminOrStaff && classes.length > 0">
+      <!-- Scope Navigation Pills (School Classes vs Coaching Batches) -->
+      <div class="scope-nav-container" *ngIf="isAdminOrStaff && (hasSchoolModule && hasCoachingModule)">
+        <div class="scope-pills">
+          <button
+            type="button"
+            class="scope-pill-btn"
+            [class.active]="targetScope === 'school'"
+            (click)="setScope('school')">
+            <mat-icon class="pill-icon">account_balance</mat-icon>
+            <span>School Classes (स्कूल कक्षाएं)</span>
+          </button>
+
+          <button
+            type="button"
+            class="scope-pill-btn"
+            [class.active]="targetScope === 'coaching'"
+            (click)="setScope('coaching')">
+            <mat-icon class="pill-icon">groups</mat-icon>
+            <span>Coaching Batches (कोचिंग बैचेस)</span>
+          </button>
+        </div>
+
+        <div class="scope-meta-badge">
+          <mat-icon>verified_user</mat-icon>
+          <span *ngIf="targetScope === 'coaching'">Scope: <strong>Coaching Batch Routine</strong> (बैच रूटीन)</span>
+          <span *ngIf="targetScope === 'school'">Scope: <strong>School Section Routine</strong> (कक्षा वर्ग रूटीन)</span>
+        </div>
+      </div>
+
+      <!-- Academic Class & Section Selector for Staff/Admin (School Mode) -->
+      <div class="admin-selector-bar" *ngIf="isAdminOrStaff && targetScope === 'school' && classes.length > 0">
         <div class="selector-left">
           <div class="selector-badge">
             <mat-icon>tune</mat-icon>
-            <span>Class Timetable</span>
+            <span>School Routine</span>
           </div>
           
           <div class="select-group">
@@ -115,6 +145,41 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
         </div>
       </div>
 
+      <!-- Coaching Batch Selector for Staff/Admin (Coaching Mode) -->
+      <div class="admin-selector-bar coaching-bar" *ngIf="isAdminOrStaff && targetScope === 'coaching'">
+        <div class="selector-left">
+          <div class="selector-badge coaching-badge">
+            <mat-icon>groups</mat-icon>
+            <span>Batch Routine</span>
+          </div>
+          
+          <div class="select-group" *ngIf="classes.length > 0">
+            <label class="select-label">Class (कक्षा):</label>
+            <select [(ngModel)]="coachingClassId" (change)="onCoachingClassChange()" class="header-select">
+              <option value="">All Classes (सभी कक्षाएं)</option>
+              <option *ngFor="let c of classes" [value]="c.id">{{ c.name }}</option>
+            </select>
+          </div>
+
+          <div class="select-group">
+            <label class="select-label">Batch (कोचिंग बैच):</label>
+            <select [(ngModel)]="selectedBatchId" (change)="onBatchSelect()" class="header-select batch-select">
+              <option *ngIf="filteredBatches.length === 0" value="">No batches for this class</option>
+              <option *ngFor="let b of filteredBatches" [value]="b.id">
+                {{ b.name }}{{ b.className ? ' [' + b.className + ']' : '' }}{{ b.subject ? ' - ' + b.subject : '' }}
+              </option>
+            </select>
+          </div>
+        </div>
+
+        <div class="selector-right">
+          <button type="button" class="setup-routine-btn coaching-routine-btn" (click)="openConfigureBatchRoutineDialog()" [disabled]="!selectedBatchId" matTooltip="Add / edit lectures and assign faculty for this batch">
+            <mat-icon>edit_calendar</mat-icon>
+            <span>Configure Batch Routine</span>
+          </button>
+        </div>
+      </div>
+
 
       <!-- Error State -->
       <div class="error-state-card" *ngIf="!loading && errorMessage">
@@ -134,11 +199,11 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
           <div class="banner-left">
             <mat-icon>event_busy</mat-icon>
             <div>
-              <strong>No Periods Scheduled Yet for {{ timetableData.className }}{{ timetableData.sectionName ? ' - ' + timetableData.sectionName : '' }}</strong>
-              <p>Configure weekly class routine, subjects, and period timings for this section.</p>
+              <strong>No Periods Scheduled Yet for {{ targetScope === 'coaching' ? (timetableData.batchName || 'this Batch') : (timetableData.className + (timetableData.sectionName ? ' - ' + timetableData.sectionName : '')) }}</strong>
+              <p>Configure weekly routine, subjects, and period timings for {{ targetScope === 'coaching' ? 'this coaching batch' : 'this section' }}.</p>
             </div>
           </div>
-          <button type="button" class="btn-create-routine" (click)="openConfigureRoutineDialog()">
+          <button type="button" class="btn-create-routine" (click)="targetScope === 'coaching' ? openConfigureBatchRoutineDialog() : openConfigureRoutineDialog()">
             <mat-icon>add_circle_outline</mat-icon> Setup Weekly Routine
           </button>
         </div>
@@ -704,6 +769,72 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
       gap: 16px;
     }
 
+    /* Scope Switcher Pill Tabs */
+    .scope-nav-container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 2px;
+      flex-wrap: wrap;
+    }
+
+    .scope-pills {
+      display: inline-flex;
+      background: #e2e8f0;
+      padding: 4px;
+      border-radius: 10px;
+      gap: 4px;
+    }
+
+    .scope-pill-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border: none;
+      background: transparent;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: #475569;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+      &:hover {
+        color: #1e293b;
+      }
+
+      &.active {
+        background: #ffffff;
+        color: #2563eb;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+      }
+    }
+
+    .pill-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+    }
+
+    .scope-meta-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.78rem;
+      color: #1e40af;
+      background: #dbeafe;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-weight: 500;
+      mat-icon {
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+      }
+    }
+
     .admin-selector-bar {
       display: flex;
       justify-content: space-between;
@@ -715,6 +846,11 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
       box-shadow: 0 4px 12px -2px rgba(37, 99, 235, 0.08);
       flex-wrap: wrap;
       gap: 14px;
+
+      &.coaching-bar {
+        border-color: #cbd5e1;
+        background: #ffffff;
+      }
     }
 
     .selector-left {
@@ -736,6 +872,13 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
       padding: 6px 12px;
       border-radius: 8px;
       mat-icon { font-size: 16px; width: 16px; height: 16px; color: #2563eb; }
+
+      &.coaching-badge {
+        background: #f0fdf4;
+        border-color: #bbf7d0;
+        color: #166534;
+        mat-icon { color: #16a34a; }
+      }
     }
 
     .select-group {
@@ -768,6 +911,11 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
         background: #ffffff;
         box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
       }
+
+      &.batch-select {
+        min-width: 220px;
+        max-width: 380px;
+      }
     }
 
     .selector-right {
@@ -791,7 +939,14 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
       box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
       transition: all 0.15s;
       mat-icon { font-size: 16px; width: 16px; height: 16px; }
-      &:hover { background: #1d4ed8; transform: translateY(-1px); }
+      &:hover:not(:disabled) { background: #1d4ed8; transform: translateY(-1px); }
+      &:disabled { opacity: 0.5; cursor: not-allowed; }
+
+      &.coaching-routine-btn {
+        background: #059669;
+        box-shadow: 0 2px 4px rgba(5, 150, 105, 0.2);
+        &:hover:not(:disabled) { background: #047857; }
+      }
     }
 
     .no-routine-configured-banner {
@@ -2808,8 +2963,53 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
 
     /* Responsive */
     @media (max-width: 768px) {
-      .timetable-page-container {
-        padding: 16px;
+      .scope-nav-container {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+      }
+      .scope-pills {
+        width: 100%;
+        display: flex;
+      }
+      .scope-pill-btn {
+        flex: 1;
+        justify-content: center;
+        padding: 8px 10px;
+        font-size: 0.8rem;
+      }
+      .scope-meta-badge {
+        align-self: flex-start;
+      }
+      .admin-selector-bar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+        padding: 12px;
+      }
+      .selector-left {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+        width: 100%;
+      }
+      .select-group {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 4px;
+        width: 100%;
+      }
+      .header-select {
+        width: 100%;
+        min-width: unset !important;
+        max-width: 100% !important;
+      }
+      .selector-right {
+        width: 100%;
+      }
+      .setup-routine-btn {
+        width: 100%;
+        justify-content: center;
       }
       .period-card {
         grid-template-columns: 1fr;
@@ -2861,6 +3061,14 @@ export class StudentTimetableComponent implements OnInit, OnDestroy {
   selectedClassId = '';
   selectedSectionId = '';
 
+  targetScope: 'school' | 'coaching' = 'school';
+  hasSchoolModule = true;
+  hasCoachingModule = true;
+  batches: BatchDto[] = [];
+  filteredBatches: BatchDto[] = [];
+  coachingClassId = '';
+  selectedBatchId = '';
+
   get currentSections(): SchoolSectionDto[] {
     const cls = this.classes.find(c => c.id === this.selectedClassId);
     return cls?.sections || [];
@@ -2883,6 +3091,7 @@ export class StudentTimetableComponent implements OnInit, OnDestroy {
   constructor(
     private coachingService: CoachingService,
     private schoolService: SchoolService,
+    private batchesService: BatchesService,
     private authService: AuthService,
     private dialog: MatDialog,
     private route: ActivatedRoute,
@@ -2892,7 +3101,16 @@ export class StudentTimetableComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.startLiveClock();
     if (this.isAdminOrStaff) {
+      const scopeParam = this.route.snapshot.queryParamMap.get('scope');
+      const batchIdParam = this.route.snapshot.queryParamMap.get('batchId');
+      if (scopeParam === 'coaching' || batchIdParam) {
+        this.targetScope = 'coaching';
+        if (batchIdParam) {
+          this.selectedBatchId = batchIdParam;
+        }
+      }
       this.loadClassesAndInitialTimetable();
+      this.loadBatches(this.targetScope === 'coaching');
     } else {
       this.loadTimetable();
     }
@@ -3119,6 +3337,125 @@ export class StudentTimetableComponent implements OnInit, OnDestroy {
 
         dialogRef.afterClosed().subscribe(() => {
           this.loadSectionTimetable(sec.id);
+        });
+      }
+    });
+  }
+
+  setScope(scope: 'school' | 'coaching'): void {
+    this.targetScope = scope;
+    if (scope === 'coaching') {
+      if (this.batches.length === 0) {
+        this.loadBatches(true);
+      } else if (this.selectedBatchId) {
+        this.loadBatchTimetable(this.selectedBatchId);
+      } else if (this.filteredBatches.length > 0) {
+        this.selectedBatchId = this.filteredBatches[0].id;
+        this.loadBatchTimetable(this.selectedBatchId);
+      }
+    } else {
+      if (this.selectedSectionId) {
+        this.loadSectionTimetable(this.selectedSectionId);
+      }
+    }
+  }
+
+  loadBatches(autoLoadTimetable: boolean = false): void {
+    this.batchesService.getBatches().subscribe({
+      next: (bList) => {
+        this.batches = bList || [];
+        this.filterBatches();
+        if (autoLoadTimetable && this.selectedBatchId) {
+          this.loadBatchTimetable(this.selectedBatchId);
+        } else if (autoLoadTimetable && this.filteredBatches.length > 0) {
+          this.selectedBatchId = this.filteredBatches[0].id;
+          this.loadBatchTimetable(this.selectedBatchId);
+        }
+      },
+      error: () => {
+        this.batches = [];
+        this.filteredBatches = [];
+      }
+    });
+  }
+
+  filterBatches(): void {
+    if (!this.coachingClassId) {
+      this.filteredBatches = [...this.batches];
+    } else {
+      const cls = this.classes.find(c => c.id === this.coachingClassId);
+      const clsName = cls?.name?.trim().toLowerCase();
+      this.filteredBatches = this.batches.filter(b => 
+        (b.classId && b.classId === this.coachingClassId) ||
+        (clsName && b.className && b.className.trim().toLowerCase() === clsName)
+      );
+    }
+    if (this.filteredBatches.length > 0) {
+      if (!this.filteredBatches.some(b => b.id === this.selectedBatchId)) {
+        this.selectedBatchId = this.filteredBatches[0].id;
+      }
+    } else {
+      this.selectedBatchId = '';
+    }
+  }
+
+  onCoachingClassChange(): void {
+    this.filterBatches();
+    if (this.selectedBatchId) {
+      this.loadBatchTimetable(this.selectedBatchId);
+    } else {
+      this.timetableData = null;
+      this.errorMessage = 'No batches found for this class.';
+    }
+  }
+
+  onBatchSelect(): void {
+    if (this.selectedBatchId) {
+      this.loadBatchTimetable(this.selectedBatchId);
+    }
+  }
+
+  loadBatchTimetable(batchId: string): void {
+    if (!batchId) return;
+    this.loading = true;
+    this.errorMessage = '';
+    this.batchesService.getBatchTimetable(batchId).subscribe({
+      next: (res) => {
+        this.timetableData = res;
+        this.selectedDay = res.todayDayOfWeek || 'Monday';
+        this.computeMaxPeriods();
+        this.loading = false;
+      },
+      error: (err) => {
+        this.loading = false;
+        this.errorMessage = err?.error?.message || 'Failed to load timetable for selected batch.';
+      }
+    });
+  }
+
+  openConfigureBatchRoutineDialog(): void {
+    const batch = this.batches.find(b => b.id === this.selectedBatchId);
+    if (!batch) return;
+
+    this.coachingService.getTeachers().subscribe({
+      next: (teachersList) => {
+        const dialogRef = this.dialog.open(SectionRoutineDialogComponent, {
+          width: '880px',
+          maxWidth: '96vw',
+          maxHeight: '92vh',
+          panelClass: 'erp-custom-dialog',
+          autoFocus: false,
+          data: {
+            batchId: batch.id,
+            batchName: batch.name,
+            classId: batch.classId,
+            className: batch.className,
+            teachers: teachersList || []
+          }
+        });
+
+        dialogRef.afterClosed().subscribe(() => {
+          this.loadBatchTimetable(batch.id);
         });
       }
     });

@@ -449,20 +449,38 @@
         <p>Active transport passes with automated monthly billing on fee invoices &bull; <strong>{{ studentPassTotalCount }} Total Allocated</strong></p>
       </div>
 
+      <!-- Scope Switcher Pill Tabs -->
+      <div class="scope-nav-container">
+        <div class="scope-pills">
+          <button type="button" class="scope-pill-btn" [class.active]="studentPassScope === 'ALL'" (click)="setStudentPassScope('ALL')">
+            <mat-icon>directions_bus</mat-icon>
+            <span>All Commuters (सभी छात्र)</span>
+          </button>
+          <button type="button" class="scope-pill-btn" [class.active]="studentPassScope === 'school'" (click)="setStudentPassScope('school')">
+            <mat-icon>school</mat-icon>
+            <span>School Classes (स्कूल)</span>
+          </button>
+          <button type="button" class="scope-pill-btn" [class.active]="studentPassScope === 'coaching'" (click)="setStudentPassScope('coaching')">
+            <mat-icon>groups</mat-icon>
+            <span>Coaching Batches (कोचिंग)</span>
+          </button>
+        </div>
+      </div>
+
       <div class="filters-bar-row">
         <!-- Class / Batch Filter -->
         <mat-form-field appearance="outline" class="filter-field class-filter-field">
-          <mat-label>Filter Class / Batch</mat-label>
+          <mat-label>{{ studentPassScope === 'coaching' ? 'Filter Coaching Batch' : (studentPassScope === 'school' ? 'Filter School Class' : 'Filter Class / Batch') }}</mat-label>
           <mat-select [(ngModel)]="studentPassFilterClass" (selectionChange)="onStudentPassClassFilterChange()">
-            <mat-option value="ALL">All Classes &amp; Batches</mat-option>
+            <mat-option value="ALL">All {{ studentPassScope === 'coaching' ? 'Batches' : (studentPassScope === 'school' ? 'Classes' : 'Classes & Batches') }}</mat-option>
             
-            <mat-optgroup label="School Classes (Nursery to 12th)" *ngIf="schoolClassFilterOptions.length > 0">
+            <mat-optgroup label="School Classes (Nursery to 12th)" *ngIf="(studentPassScope === 'ALL' || studentPassScope === 'school') && schoolClassFilterOptions.length > 0">
               <mat-option *ngFor="let c of schoolClassFilterOptions" [value]="c.key">
                 {{ c.name }} ({{ c.count }} students)
               </mat-option>
             </mat-optgroup>
 
-            <mat-optgroup label="Coaching Batches" *ngIf="batchFilterOptions.length > 0">
+            <mat-optgroup label="Coaching Batches" *ngIf="(studentPassScope === 'ALL' || studentPassScope === 'coaching') && batchFilterOptions.length > 0">
               <mat-option *ngFor="let b of batchFilterOptions" [value]="b.key">
                 {{ b.name }} ({{ b.count }} students)
               </mat-option>

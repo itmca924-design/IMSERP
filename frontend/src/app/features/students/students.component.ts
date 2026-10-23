@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ViewChild } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, HostListener } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { CommonModule } from '@angular/common';
@@ -22,6 +22,7 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatDividerModule } from '@angular/material/divider';
 import { CoachingService } from '../../core/services/coaching.service';
+import { BatchDto } from '../../core/services/batches.service';
 import { SchoolService, SchoolClassDto, SchoolSectionDto } from '../../core/services/school.service';
 import { HostelService, HostelDto, HostelBedDto } from '../../core/services/hostel.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
@@ -207,10 +208,10 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                 <mat-label>Admission / Joining Date *</mat-label>
                 <input matInput type="date" formControlName="joiningDate" [min]="minDoj" [max]="maxDoj" [errorStateMatcher]="dateErrorMatcher" />
                 <mat-icon matSuffix>event</mat-icon>
-                <mat-hint>Allowed range: 01/01/2010 to {{ maxDoj }}</mat-hint>
+                <mat-hint>Format: DD-MM-YYYY • Allowed range: 01-01-2010 to {{ maxDojFormatted }}</mat-hint>
                 <mat-error *ngIf="studentForm.get('joiningDate')?.hasError('required')">Admission date is required</mat-error>
-                <mat-error *ngIf="studentForm.get('joiningDate')?.hasError('futureDate')">Admission date cannot be more than 1 year in advance (Max: {{ maxDoj }})</mat-error>
-                <mat-error *ngIf="studentForm.get('joiningDate')?.hasError('invalidRange')">Date must be between 01/01/2010 and {{ maxDoj }}</mat-error>
+                <mat-error *ngIf="studentForm.get('joiningDate')?.hasError('futureDate')">Admission date cannot be more than 1 year in advance (Max: {{ maxDojFormatted }})</mat-error>
+                <mat-error *ngIf="studentForm.get('joiningDate')?.hasError('invalidRange')">Date must be between 01-01-2010 and {{ maxDojFormatted }}</mat-error>
                 <mat-error *ngIf="studentForm.hasError('dojBeforeDob') || studentForm.get('joiningDate')?.hasError('dojBeforeDob')">Admission date must be strictly after Date of Birth</mat-error>
               </mat-form-field>
 
@@ -253,18 +254,37 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                 <mat-label>Admission / Joining Date *</mat-label>
                 <input matInput type="date" formControlName="joiningDate" [min]="minDoj" [max]="maxDoj" [errorStateMatcher]="dateErrorMatcher" />
                 <mat-icon matSuffix>event</mat-icon>
-                <mat-hint>Allowed range: 01/01/2010 to {{ maxDoj }}</mat-hint>
+                <mat-hint>Format: DD-MM-YYYY • Allowed range: 01-01-2010 to {{ maxDojFormatted }}</mat-hint>
                 <mat-error *ngIf="studentForm.get('joiningDate')?.hasError('required')">Admission date is required</mat-error>
-                <mat-error *ngIf="studentForm.get('joiningDate')?.hasError('futureDate')">Admission date cannot be more than 1 year in advance (Max: {{ maxDoj }})</mat-error>
-                <mat-error *ngIf="studentForm.get('joiningDate')?.hasError('invalidRange')">Date must be between 01/01/2010 and {{ maxDoj }}</mat-error>
+                <mat-error *ngIf="studentForm.get('joiningDate')?.hasError('futureDate')">Admission date cannot be more than 1 year in advance (Max: {{ maxDojFormatted }})</mat-error>
+                <mat-error *ngIf="studentForm.get('joiningDate')?.hasError('invalidRange')">Date must be between 01-01-2010 and {{ maxDojFormatted }}</mat-error>
                 <mat-error *ngIf="studentForm.hasError('dojBeforeDob') || studentForm.get('joiningDate')?.hasError('dojBeforeDob')">Admission date must be strictly after Date of Birth</mat-error>
               </mat-form-field>
 
+              <!-- Dedicated Coaching Entry / Joining Date for School Students who also enroll in Coaching -->
+              <mat-form-field appearance="outline" *ngIf="studentForm.value.isSchoolStudent">
+                <mat-label>Coaching Entry Date (Optional)</mat-label>
+                <input matInput type="date" formControlName="coachingJoiningDate" [min]="minDoj" [max]="maxDoj" />
+                <mat-icon matSuffix>event</mat-icon>
+                <mat-hint>Format: DD-MM-YYYY • Coaching start date (defaults to School admission date if blank)</mat-hint>
+              </mat-form-field>
+
+              <!-- Academic Class Selection for Coaching Student (if not a School Student) -->
+              <mat-form-field appearance="outline" *ngIf="!studentForm.value.isSchoolStudent">
+                <mat-label>Academic Class (कक्षा) *</mat-label>
+                <mat-select formControlName="classId" (selectionChange)="onClassSelectionChange($event.value)" panelClass="batch-filter-panel">
+                  <mat-option *ngFor="let c of schoolClasses" [value]="c.id">
+                    {{ c.name }}
+                  </mat-option>
+                </mat-select>
+                <mat-error *ngIf="studentForm.get('classId')?.hasError('required')">Academic Class is required</mat-error>
+              </mat-form-field>
+
               <mat-form-field appearance="outline">
-                <mat-label>Coaching Batch</mat-label>
+                <mat-label>Coaching Batch *</mat-label>
                 <mat-select formControlName="batchId" panelClass="batch-filter-panel">
-                  <mat-option *ngFor="let b of batches" [value]="b.id">
-                    {{ b.name }} (₹{{ b.standardMonthlyFee }}/mo)
+                  <mat-option *ngFor="let b of formBatches" [value]="b.id">
+                    {{ b.name }} (₹{{ b.standardMonthlyFee }}/mo){{ b.className ? ' [' + b.className + ']' : '' }}
                   </mat-option>
                 </mat-select>
                 <mat-error *ngIf="studentForm.get('batchId')?.hasError('required')">Batch selection is required for coaching</mat-error>
@@ -561,8 +581,9 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                   <mat-icon *ngIf="advisory.type === 'info'">info</mat-icon>
                   <span>{{ advisory.badge }}</span>
                 </span>
+                <span style="margin-left: 6px; font-weight: 500; color: #64748b;">(Format: DD-MM-YYYY)</span>
               </mat-hint>
-              <mat-hint *ngIf="!getNepAgeAdvisory()">DD/MM/YYYY • Allowed: 01/01/1950 to Today</mat-hint>
+              <mat-hint *ngIf="!getNepAgeAdvisory()">Format: DD-MM-YYYY • Allowed: 01-01-1950 to Today</mat-hint>
               <mat-error *ngIf="studentForm.get('dateOfBirth')?.hasError('futureDate')">Date of birth cannot be in the future (Max: Today)</mat-error>
               <mat-error *ngIf="studentForm.get('dateOfBirth')?.hasError('tooOld')">Please enter a valid date of birth (1950 to Today)</mat-error>
               <mat-error *ngIf="studentForm.hasError('dojBeforeDob') || studentForm.get('dateOfBirth')?.hasError('dojBeforeDob')">Date of birth must be before Admission date</mat-error>
@@ -891,11 +912,11 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
               </button>
             </mat-form-field>
 
-            <!-- School Class Filter -->
-            <mat-form-field appearance="outline" class="filter-select" *ngIf="authService.hasSchoolModule() && selectedStreamFilter !== 'coaching'">
-              <mat-label>Filter by School Class</mat-label>
+            <!-- Academic Class Filter (Available for School, Coaching, All) -->
+            <mat-form-field appearance="outline" class="filter-select">
+              <mat-label>{{ selectedStreamFilter === 'coaching' ? 'Filter by Academic Class' : 'Filter by School Class' }}</mat-label>
               <mat-select [(ngModel)]="selectedClassFilter" (selectionChange)="onClassFilterChange()" panelClass="batch-filter-panel">
-                <mat-option value="">All School Classes</mat-option>
+                <mat-option value="">All Academic Classes</mat-option>
                 <mat-option *ngFor="let c of schoolClasses" [value]="c.id">
                   {{ c.name }}
                 </mat-option>
@@ -907,8 +928,8 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
               <mat-label>Filter by Coaching Batch</mat-label>
               <mat-select [(ngModel)]="selectedBatchFilter" (selectionChange)="onFilterChange()" panelClass="batch-filter-panel">
                 <mat-option value="">All Academic Batches</mat-option>
-                <mat-option *ngFor="let b of batches" [value]="b.id">
-                  {{ b.name }}
+                <mat-option *ngFor="let b of filteredBatchesForFilter" [value]="b.id">
+                  {{ b.name }}{{ b.className ? ' [' + b.className + ']' : '' }}
                 </mat-option>
               </mat-select>
             </mat-form-field>
@@ -964,6 +985,9 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                     </div>
                     <div class="school-adm-date-pill" *ngIf="s.joiningDate">
                       <span class="lbl">DOJ:</span> <strong>{{ s.joiningDate | date:'dd MMM yyyy':'Asia/Kolkata' }}</strong>
+                    </div>
+                    <div class="school-adm-date-pill coaching-date-pill" *ngIf="s.isCoachingStudent && s.coachingJoiningDate && s.isSchoolStudent" matTooltip="Coaching Entry Date">
+                      <span class="lbl">Coach DOJ:</span> <strong>{{ s.coachingJoiningDate | date:'dd MMM yyyy':'Asia/Kolkata' }}</strong>
                     </div>
                     <div class="lib-card-pill" *ngIf="s.isLibraryMember && s.libraryCardNumber">
                       <span class="lbl">Lib:</span> <strong>{{ s.libraryCardNumber }}</strong>
@@ -1260,10 +1284,18 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
 
             <div class="ecc-form">
               <mat-form-field appearance="outline" class="full-width">
-                <mat-label>Select Coaching Batch</mat-label>
+                <mat-label>Academic Class (Filter Batches)</mat-label>
+                <mat-select [(ngModel)]="enrollingFilterClassId" (selectionChange)="onEnrollingFilterClassChange()" panelClass="batch-filter-panel">
+                  <mat-option value="">-- All Classes --</mat-option>
+                  <mat-option *ngFor="let c of schoolClasses" [value]="c.id">{{ c.name }}</mat-option>
+                </mat-select>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Select Coaching Batch *</mat-label>
                 <mat-select [(ngModel)]="enrollingBatchId" (selectionChange)="onEnrollingBatchChange($event.value)">
-                  <mat-option *ngFor="let b of batches" [value]="b.id">
-                    {{ b.name }} (Standard Fee: ₹{{ b.standardMonthlyFee }}/mo)
+                  <mat-option *ngFor="let b of enrolledFilteredBatches" [value]="b.id">
+                    {{ b.name }} (Standard Fee: ₹{{ b.standardMonthlyFee }}/mo){{ b.className ? ' [' + b.className + ']' : '' }}
                   </mat-option>
                 </mat-select>
               </mat-form-field>
@@ -1280,6 +1312,13 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                 <mat-label>Custom Monthly Fee (₹) [Optional]</mat-label>
                 <input matInput type="number" [(ngModel)]="enrollingCustomFee" placeholder="Leave blank to use standard fee" />
                 <mat-hint>Overrides default monthly fee for this school student.</mat-hint>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Coaching Entry Date (Optional)</mat-label>
+                <input matInput type="date" [(ngModel)]="enrollingCoachingJoiningDate" [min]="minDoj" [max]="maxDoj" />
+                <mat-icon matSuffix>event</mat-icon>
+                <mat-hint>Format: DD-MM-YYYY (defaults to today if left blank)</mat-hint>
               </mat-form-field>
             </div>
           </div>
@@ -2311,6 +2350,12 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
         gap: 3px;
         .lbl { font-size: 0.7rem; color: #64748b; font-weight: 500; }
         strong { font-weight: 600; color: #1e293b; }
+
+        &.coaching-date-pill {
+          color: #c2410c;
+          .lbl { color: #ea580c; font-weight: 600; }
+          strong { color: #9a3412; }
+        }
       }
       .lib-card-pill {
         font-size: 0.78rem;
@@ -3120,10 +3165,12 @@ export class StudentsComponent implements OnInit, OnDestroy {
   /** 1-Click Coaching Enrollment Dialog */
   enrollCoachingModalOpen = false;
   enrollingStudent: any = null;
+  enrollingFilterClassId = '';
   enrollingBatchId = '';
   enrollingCoachingRollNumber = '';
   enrollingRollNumberLoading = false;
   enrollingCustomFee: number | null = null;
+  enrollingCoachingJoiningDate = '';
   enrollingLoading = false;
 
   /** Photo handling */
@@ -3137,6 +3184,15 @@ export class StudentsComponent implements OnInit, OnDestroy {
   maxDoj: string = '';
   dateErrorMatcher = new DateRangeInstantErrorMatcher();
 
+  get maxDojFormatted(): string {
+    if (!this.maxDoj) return '';
+    const parts = this.maxDoj.split('-');
+    if (parts.length === 3) {
+      return `${parts[2]}-${parts[1]}-${parts[0]}`;
+    }
+    return this.maxDoj;
+  }
+
   studentForm: FormGroup;
   private batchIdSub?: Subscription;
   private phoneSub?: Subscription;
@@ -3145,6 +3201,61 @@ export class StudentsComponent implements OnInit, OnDestroy {
   @ViewChild(MatPaginator) paginator!: MatPaginator;
   @ViewChild(MatSort) sort!: MatSort;
   @ViewChild('fileInput') fileInput: any;
+
+  /**
+   * Auto cursor focus on mouse enter for all editable textboxes and textareas
+   */
+  @HostListener('mouseover', ['$event'])
+  onMouseOver(event: MouseEvent): void {
+    const target = event.target as HTMLElement;
+    if (!target) return;
+
+    const isEligibleInput = (el: HTMLElement | null): el is HTMLInputElement | HTMLTextAreaElement => {
+      if (!el) return false;
+      if (el.tagName === 'TEXTAREA') {
+        const ta = el as HTMLTextAreaElement;
+        return !ta.readOnly && !ta.disabled;
+      }
+      if (el.tagName === 'INPUT') {
+        const inp = el as HTMLInputElement;
+        const validTypes = ['text', 'number', 'tel', 'email', 'date', 'search', 'password', ''];
+        return validTypes.includes(inp.type) && !inp.readOnly && !inp.disabled;
+      }
+      return false;
+    };
+
+    if (isEligibleInput(target)) {
+      if (document.activeElement !== target) {
+        target.focus();
+      }
+      return;
+    }
+
+    const formField = target.closest('.mat-mdc-form-field, .mat-form-field');
+    if (formField) {
+      const input = formField.querySelector('input, textarea') as HTMLElement;
+      if (isEligibleInput(input) && document.activeElement !== input) {
+        input.focus();
+      }
+    }
+  }
+
+  /**
+   * Smoothly scrolls page up to top after save or major actions
+   */
+  scrollToTop(): void {
+    setTimeout(() => {
+      const mainContent = document.querySelector('.main-content') || document.querySelector('mat-sidenav-content');
+      if (mainContent) {
+        mainContent.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+      const pageTop = document.querySelector('.students-wrapper') || document.querySelector('.page-container');
+      if (pageTop) {
+        pageTop.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, 60);
+  }
 
   constructor(
     private coachingService: CoachingService,
@@ -3160,9 +3271,9 @@ export class StudentsComponent implements OnInit, OnDestroy {
   ) {
     const hasSchool = this.authService.hasSchoolModule();
     const hasCoaching = this.authService.hasCoachingModule();
-    // Default: School enrollment is CHECKED, Coaching is UNCHECKED
+    // Default: Both School and Coaching enrollment are CHECKED by default
     const initSchool = hasSchool;
-    const initCoaching = hasSchool ? false : hasCoaching;
+    const initCoaching = hasCoaching;
 
     const today = new Date();
     this.maxDob = this.formatDateForInput(today);
@@ -3204,6 +3315,7 @@ export class StudentsComponent implements OnInit, OnDestroy {
         ]
       ],
       schoolRollNumber: [''],
+      coachingJoiningDate: [''],
       batchId: ['', initCoaching ? [Validators.required] : []],
       rollNumber: ['', initCoaching ? [Validators.required] : []],
       studentName: ['', Validators.required],
@@ -3348,20 +3460,26 @@ export class StudentsComponent implements OnInit, OnDestroy {
     if (isCoaching) {
       batchCtrl?.setValidators([Validators.required]);
       rollCtrl?.setValidators([Validators.required]);
+      if (isSchool && !this.studentForm.get('coachingJoiningDate')?.value) {
+        this.studentForm.patchValue({ coachingJoiningDate: this.formatDateForInput(new Date()) });
+      }
     } else {
       batchCtrl?.clearValidators();
       rollCtrl?.clearValidators();
       batchCtrl?.setValue('');
       rollCtrl?.setValue('');
+      this.studentForm.patchValue({ coachingJoiningDate: '' });
     }
     batchCtrl?.updateValueAndValidity();
     rollCtrl?.updateValueAndValidity();
 
-    if (isSchool) {
+    if (isSchool || isCoaching) {
       classCtrl?.setValidators([Validators.required]);
     } else {
       classCtrl?.clearValidators();
       classCtrl?.setValue('');
+    }
+    if (!isSchool) {
       this.studentForm.get('sectionId')?.setValue('');
       this.studentForm.get('admissionNumber')?.setValue('', { emitEvent: false });
       this.studentForm.get('schoolRollNumber')?.setValue('', { emitEvent: false });
@@ -3371,12 +3489,25 @@ export class StudentsComponent implements OnInit, OnDestroy {
   }
 
   onClassSelectionChange(classId: string): void {
-    const selected = this.schoolClasses.find(c => c.id === classId);
+    const selected = this.schoolClasses.find(c => (c.id || '').toLowerCase() === (classId || '').toLowerCase());
     this.formSections = selected?.sections || [];
     const firstSection = this.formSections.length > 0 ? this.formSections[0] : null;
-    this.studentForm.get('sectionId')?.setValue(firstSection ? firstSection.id : '');
+    if (this.studentForm.value.isSchoolStudent) {
+      this.studentForm.get('sectionId')?.setValue(firstSection ? firstSection.id : '');
+    }
 
-    if (!this.isEditMode && classId) {
+    if (this.studentForm.value.isCoachingStudent) {
+      const currentBatchId = this.studentForm.get('batchId')?.value;
+      if (currentBatchId) {
+        const stillValid = this.formBatches.some(b => (b.id || '').toLowerCase() === currentBatchId.toLowerCase());
+        if (!stillValid) {
+          this.studentForm.get('batchId')?.setValue('');
+          this.studentForm.get('rollNumber')?.setValue('');
+        }
+      }
+    }
+
+    if (!this.isEditMode && classId && this.studentForm.value.isSchoolStudent) {
       // Auto-generate Admission/SR Number
       if (!this.studentForm.get('admissionNumber')?.value) {
         this.coachingService.getNextAdmissionNumber().subscribe({
@@ -3675,6 +3806,18 @@ export class StudentsComponent implements OnInit, OnDestroy {
     return b?.classId || '';
   }
 
+  get formBatches(): BatchDto[] {
+    const selectedClassId = this.studentForm?.get('classId')?.value;
+    if (!selectedClassId) return this.batches;
+    const filtered = this.batches.filter(b => (b.classId || '').toLowerCase() === selectedClassId.toLowerCase());
+    return filtered.length > 0 ? filtered : this.batches;
+  }
+
+  get filteredBatchesForFilter(): BatchDto[] {
+    if (!this.selectedClassFilter) return this.batches;
+    return this.batches.filter(b => (b.classId || '').toLowerCase() === this.selectedClassFilter.toLowerCase());
+  }
+
   // ── Watchers ─────────────────────────────────────────────
 
   private setupBatchIdWatcher(): void {
@@ -3885,9 +4028,15 @@ export class StudentsComponent implements OnInit, OnDestroy {
   }
 
   onClassFilterChange(): void {
-    const cls = this.schoolClasses.find(c => c.id === this.selectedClassFilter);
+    const cls = this.schoolClasses.find(c => (c.id || '').toLowerCase() === this.selectedClassFilter.toLowerCase());
     this.filterSections = cls?.sections || [];
     this.selectedSectionFilter = '';
+    if (this.selectedBatchFilter) {
+      const stillValid = this.filteredBatchesForFilter.some(b => (b.id || '').toLowerCase() === this.selectedBatchFilter.toLowerCase());
+      if (!stillValid) {
+        this.selectedBatchFilter = '';
+      }
+    }
     this.pageIndex = 0;
     this.loadStudents();
   }
@@ -4091,7 +4240,7 @@ export class StudentsComponent implements OnInit, OnDestroy {
     const hasSchool = this.authService.hasSchoolModule();
     const hasCoaching = this.authService.hasCoachingModule();
     const initSchool = hasSchool;
-    const initCoaching = hasSchool ? false : hasCoaching;
+    const initCoaching = hasCoaching;
 
     if (!this.showForm) {
       this.isEditMode = false;
@@ -4110,6 +4259,7 @@ export class StudentsComponent implements OnInit, OnDestroy {
         isSchoolStudent: initSchool,
         isCoachingStudent: initCoaching,
         joiningDate: this.formatDateForInput(new Date()),
+        coachingJoiningDate: '',
         isHostelStudent: false,
         isLibraryMember: false,
         libraryCardNumber: '',
@@ -4217,6 +4367,7 @@ export class StudentsComponent implements OnInit, OnDestroy {
       sectionId: student.sectionId || '',
       admissionNumber: student.admissionNumber || '',
       joiningDate: this.formatDateForInput(student.joiningDate || new Date()),
+      coachingJoiningDate: this.formatDateForInput(student.coachingJoiningDate),
       schoolRollNumber: student.schoolRollNumber || '',
       batchId: student.batchId || '',
       rollNumber: student.coachingRollNumber || student.rollNumber || '',
@@ -4579,6 +4730,7 @@ export class StudentsComponent implements OnInit, OnDestroy {
       bloodGroup: formVal.bloodGroup ? formVal.bloodGroup.trim() : null,
       address: formVal.address ? formVal.address.trim() : null,
       joiningDate: formVal.joiningDate ? new Date(formVal.joiningDate).toISOString() : new Date().toISOString(),
+      coachingJoiningDate: (formVal.isCoachingStudent && formVal.coachingJoiningDate) ? new Date(formVal.coachingJoiningDate).toISOString() : null,
       parentWhatsAppPhone: cleanPhone,
       aadhaarNumber: formVal.aadhaarNumber ? formVal.aadhaarNumber.trim() : null,
       penNumber: formVal.penNumber ? formVal.penNumber.trim() : null,
@@ -4624,6 +4776,7 @@ export class StudentsComponent implements OnInit, OnDestroy {
           this.selectedPhotoData = null;
           this.studentForm.reset();
           this.loadStudents();
+          this.scrollToTop();
           this.confirmDialog.alert('Student Updated', 'Student record updated successfully!', 'success');
         },
         error: (err) => {
@@ -4640,6 +4793,7 @@ export class StudentsComponent implements OnInit, OnDestroy {
           this.selectedPhotoData = null;
           this.studentForm.reset();
           this.loadStudents();
+          this.scrollToTop();
           this.confirmDialog.alert('Admission Confirmed', 'New student registered and enrolled successfully!', 'success');
         },
         error: (err) => {
@@ -4674,10 +4828,29 @@ export class StudentsComponent implements OnInit, OnDestroy {
 
   // ── 1-Click Coaching Enrollment for School Students ──────
 
+  get enrolledFilteredBatches(): BatchDto[] {
+    if (!this.enrollingFilterClassId) return this.batches;
+    return this.batches.filter(b => (b.classId || '').toLowerCase() === this.enrollingFilterClassId.toLowerCase());
+  }
+
+  onEnrollingFilterClassChange(): void {
+    const list = this.enrolledFilteredBatches;
+    if (list.length > 0) {
+      this.enrollingBatchId = list[0].id;
+      this.fetchEnrollingCoachingRoll(this.enrollingBatchId);
+    } else {
+      this.enrollingBatchId = '';
+      this.enrollingCoachingRollNumber = '';
+    }
+  }
+
   openEnrollCoachingModal(student: any): void {
     this.enrollingStudent = student;
-    this.enrollingBatchId = this.batches.length > 0 ? this.batches[0].id : '';
+    this.enrollingFilterClassId = student.classId || '';
+    const initialBatches = this.enrolledFilteredBatches;
+    this.enrollingBatchId = initialBatches.length > 0 ? initialBatches[0].id : (this.batches.length > 0 ? this.batches[0].id : '');
     this.enrollingCustomFee = null;
+    this.enrollingCoachingJoiningDate = this.formatDateForInput(new Date());
     this.enrollingCoachingRollNumber = '';
     this.enrollCoachingModalOpen = true;
     if (this.enrollingBatchId) {
@@ -4712,6 +4885,7 @@ export class StudentsComponent implements OnInit, OnDestroy {
     this.enrollingStudent = null;
     this.enrollingBatchId = '';
     this.enrollingCoachingRollNumber = '';
+    this.enrollingCoachingJoiningDate = '';
     this.enrollingCustomFee = null;
   }
 
@@ -4742,11 +4916,13 @@ export class StudentsComponent implements OnInit, OnDestroy {
         studentId: this.enrollingStudent.id,
         batchId: this.enrollingBatchId,
         coachingRollNumber: this.enrollingCoachingRollNumber || undefined,
-        customMonthlyFee: this.enrollingCustomFee || undefined
+        customMonthlyFee: this.enrollingCustomFee || undefined,
+        coachingJoiningDate: this.enrollingCoachingJoiningDate || undefined
       }).subscribe({
         next: (res: any) => {
           this.enrollingLoading = false;
           this.closeEnrollCoachingModal();
+          this.scrollToTop();
           this.confirmDialog.alert(
             'Enrolled into Coaching!',
             `Student "${studentName}" has been successfully enrolled into ${res.batchName} with Coaching Roll Number: ${res.coachingRollNumber}. Initial monthly fee invoice created.`,

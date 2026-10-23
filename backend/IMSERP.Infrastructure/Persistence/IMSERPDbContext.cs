@@ -687,24 +687,42 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
             .HasOne(p => p.FromClass)
             .WithMany()
             .HasForeignKey(p => p.FromClassId)
+            .IsRequired(false)
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<StudentPromotionHistory>()
             .HasOne(p => p.ToClass)
             .WithMany()
             .HasForeignKey(p => p.ToClassId)
+            .IsRequired(false)
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<StudentPromotionHistory>()
             .HasOne(p => p.FromSection)
             .WithMany()
             .HasForeignKey(p => p.FromSectionId)
+            .IsRequired(false)
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<StudentPromotionHistory>()
             .HasOne(p => p.ToSection)
             .WithMany()
             .HasForeignKey(p => p.ToSectionId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<StudentPromotionHistory>()
+            .HasOne(p => p.FromBatch)
+            .WithMany()
+            .HasForeignKey(p => p.FromBatchId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<StudentPromotionHistory>()
+            .HasOne(p => p.ToBatch)
+            .WithMany()
+            .HasForeignKey(p => p.ToBatchId)
+            .IsRequired(false)
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<Batch>().Property(b => b.StandardMonthlyFee).HasColumnType("decimal(18,2)");

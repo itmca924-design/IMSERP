@@ -18,7 +18,7 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatDividerModule } from '@angular/material/divider';
-import { FeesService, FeeInvoicePagedItem, FeePaymentReceipt, PendingInvoicingStudent, OnlineUpiTransactionItem } from '../../core/services/fees.service';
+import { FeesService, FeeInvoicePagedItem, FeePaymentReceipt, PendingInvoicingStudent, OnlineUpiTransactionItem, GenerateInvoicesResult } from '../../core/services/fees.service';
 import { BatchesService, BatchDto } from '../../core/services/batches.service';
 import { SchoolService, SchoolClassDto } from '../../core/services/school.service';
 import { AuthService } from '../../core/services/auth.service';
@@ -127,19 +127,40 @@ export interface UpcomingBillingCycleInfo {
               <strong class="banner-heading">Awaiting Fee Invoicing (New Admissions)</strong>
             </div>
             <div class="banner-students-list">
-              <span class="student-item-tag clickable" *ngFor="let s of pendingStudents" (click)="generateForPendingStudent(s)" matTooltip="Click to generate invoice from admission month (DOJ: {{ s.joiningDate | date:'MMM yyyy' }}) for {{ s.studentName }}">
+              <span class="student-item-tag clickable" *ngFor="let s of pendingStudents | slice:0:5" (click)="generateForPendingStudent(s)" matTooltip="Click to generate invoice for {{ s.studentName }} (Roll: {{ s.rollNumber }})">
                 <strong>{{ s.studentName }}</strong>
-                <span class="sub-info">({{ s.className || s.batchName || 'General' }} • Roll: {{ s.rollNumber }} • Joined: {{ s.joiningDate | date:'MMM yyyy' }})</span>
+                <span class="sub-info">({{ s.className || s.batchName || 'General' }} • Roll: {{ s.rollNumber }})</span>
                 <mat-icon class="tag-click-icon">open_in_new</mat-icon>
+              </span>
+              <span class="more-tag clickable" *ngIf="pendingStudents.length > 5" [matMenuTriggerFor]="pendingStudentsMenu" matTooltip="Click to view all {{ pendingStudents.length }} new admissions">
+                +{{ pendingStudents.length - 5 }} more admissions
+                <mat-icon class="tag-click-icon">expand_more</mat-icon>
               </span>
             </div>
           </div>
         </div>
         <div class="banner-actions">
-          <button mat-raised-button color="accent" class="quick-gen-btn" *ngFor="let s of pendingStudents" (click)="generateForPendingStudent(s)" [matTooltip]="'Generate invoice from admission month (' + (s.joiningDate | date:'MMM yyyy') + ') for ' + s.studentName">
+          <button mat-raised-button color="accent" class="quick-gen-btn" 
+            (click)="pendingStudents.length === 1 ? generateForPendingStudent(pendingStudents[0]) : openGenerateInvoicesModal()" 
+            matTooltip="Open invoice generator for pending new admissions">
             <mat-icon>post_add</mat-icon>
-            <span>Generate Invoice for {{ s.studentName }}</span>
+            <span>Generate Invoices ({{ pendingStudents.length }})</span>
           </button>
+
+          <button mat-stroked-button class="btn-pick-single" [matMenuTriggerFor]="pendingStudentsMenu" *ngIf="pendingStudents.length > 1" matTooltip="Select a specific student to invoice">
+            <span>Select Student</span>
+            <mat-icon>expand_more</mat-icon>
+          </button>
+
+          <mat-menu #pendingStudentsMenu="matMenu" xPosition="before" class="pending-students-menu-panel">
+            <div class="menu-section-title">New Admissions Awaiting Invoices</div>
+            <button mat-menu-item *ngFor="let s of pendingStudents" (click)="generateForPendingStudent(s)">
+              <mat-icon style="color: #d97706;">person_add</mat-icon>
+              <span>{{ s.studentName }}</span>
+              <small style="color: #64748b; margin-left: 6px;">({{ s.className || s.batchName || 'General' }} • Roll #{{ s.rollNumber }})</small>
+            </button>
+          </mat-menu>
+
           <button mat-icon-button class="dismiss-btn" (click)="dismissBanner()" matTooltip="Hide alert for now">
             <mat-icon>close</mat-icon>
           </button>
@@ -712,30 +733,41 @@ export interface UpcomingBillingCycleInfo {
 
       <!-- Floating Multi-Collect Action Bar -->
       <div class="multi-collect-bar" *ngIf="selectedInvoices.length > 0">
-        <div class="bar-left">
-          <div class="badge-count">{{ selectedInvoices.length }}</div>
-          <div class="selection-info">
-            <span class="sel-title">{{ selectedStudentName }} (Roll #{{ selectedRollNumber }})</span>
-            <small class="sel-sub">{{ selectedInvoices.length }} Invoice(s) Selected for Multi-Collection</small>
+        <div class="bar-info-section">
+          <div class="bar-left">
+            <div class="badge-count" [matTooltip]="selectedInvoices.length + ' invoice(s) selected'">
+              {{ selectedInvoices.length }}
+            </div>
+            <div class="selection-info">
+              <span class="sel-title" [matTooltip]="selectedStudentName">
+                {{ selectedStudentName }}
+                <span class="sel-roll">(Roll #{{ selectedRollNumber }})</span>
+              </span>
+              <small class="sel-sub">{{ selectedInvoices.length }} {{ selectedInvoices.length === 1 ? 'Invoice' : 'Invoices' }} Selected</small>
+            </div>
+          </div>
+
+          <div class="bar-center">
+            <span class="total-label">Total to Collect</span>
+            <strong class="total-amount">₹{{ totalSelectedDue | number:'1.2-2' }}</strong>
           </div>
         </div>
 
-        <div class="bar-center">
-          <span class="total-label">Total to Collect:</span>
-          <strong class="total-amount">₹{{ totalSelectedDue | number:'1.2-2' }}</strong>
-        </div>
-
-        <div class="bar-right">
-          <button mat-button class="btn-clear" (click)="clearSelection()">
-            Clear
+        <div class="bar-actions-section">
+          <button mat-button class="btn-clear" (click)="clearSelection()" matTooltip="Clear selected invoices">
+            <mat-icon class="clear-icon">close</mat-icon>
+            <span class="clear-text">Clear</span>
           </button>
-          <button mat-raised-button class="btn-upi-multi" (click)="openMultiCollectUpiModal()">
-            <mat-icon>qr_code_2</mat-icon>
-            <span>Pay via UPI QR</span>
+          
+          <button mat-raised-button class="btn-upi-multi" (click)="openMultiCollectUpiModal()" matTooltip="Collect payment via Dynamic UPI QR Code">
+            <mat-icon class="action-btn-icon">qr_code_2</mat-icon>
+            <span class="action-btn-text">Pay via UPI QR</span>
           </button>
-          <button mat-raised-button class="btn-collect-multi" (click)="openMultiCollectModal()">
-            <mat-icon>payments</mat-icon>
-            <span>Collect Fees (₹{{ totalSelectedDue | number:'1.2-2' }})</span>
+          
+          <button mat-raised-button class="btn-collect-multi" (click)="openMultiCollectModal()" matTooltip="Collect settlement payment for selected invoices">
+            <mat-icon class="action-btn-icon">payments</mat-icon>
+            <span class="action-btn-text">Collect Fees</span>
+            <span class="action-btn-amount">₹{{ totalSelectedDue | number:'1.2-2' }}</span>
           </button>
         </div>
       </div>
@@ -1136,6 +1168,26 @@ export interface UpcomingBillingCycleInfo {
                 font-size: 0.76rem;
               }
             }
+            .more-tag {
+              font-size: 0.78rem;
+              font-weight: 700;
+              color: #b45309;
+              background: rgba(254, 243, 199, 0.9);
+              border: 1px dashed #f59e0b;
+              padding: 2px 8px;
+              border-radius: 6px;
+              display: inline-flex;
+              align-items: center;
+              gap: 3px;
+              cursor: pointer;
+              transition: all 0.15s ease;
+
+              &:hover {
+                background: #fde68a;
+                color: #78350f;
+                border-style: solid;
+              }
+            }
           }
         }
       }
@@ -1168,6 +1220,25 @@ export interface UpcomingBillingCycleInfo {
           }
         }
 
+        .btn-pick-single {
+          height: 38px;
+          border-radius: 8px;
+          border-color: #f59e0b;
+          color: #92400e;
+          background: rgba(255, 255, 255, 0.85);
+          font-weight: 600;
+          font-size: 0.82rem;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          padding: 0 10px;
+
+          &:hover {
+            background: #ffffff;
+            border-color: #d97706;
+          }
+        }
+
         .dismiss-btn {
           color: #92400e;
           width: 32px;
@@ -1177,6 +1248,50 @@ export interface UpcomingBillingCycleInfo {
           align-items: center;
           justify-content: center;
         }
+      }
+
+      @media (max-width: 768px) {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+
+        .banner-left {
+          min-width: 0;
+          width: 100%;
+        }
+
+        .banner-actions {
+          width: 100%;
+          justify-content: flex-end;
+          flex-wrap: wrap;
+
+          .quick-gen-btn {
+            flex: 1;
+            min-width: 180px;
+          }
+        }
+      }
+    }
+
+    ::ng-deep .pending-students-menu-panel {
+      max-height: 380px !important;
+      min-width: 290px !important;
+      border-radius: 10px !important;
+      border: 1px solid #fde68a !important;
+      box-shadow: 0 10px 25px rgba(217, 119, 6, 0.15) !important;
+
+      .menu-section-title {
+        padding: 8px 14px 4px !important;
+        font-size: 0.75rem !important;
+        font-weight: 700 !important;
+        color: #92400e !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.5px !important;
+      }
+
+      .mat-mdc-menu-item {
+        font-size: 0.84rem !important;
+        height: 42px !important;
       }
     }
 
@@ -1724,115 +1839,321 @@ export interface UpcomingBillingCycleInfo {
       bottom: 24px;
       left: 50%;
       transform: translateX(-50%);
-      z-index: 999;
-      background: #0f172a;
+      z-index: 1050;
+      background: rgba(15, 23, 42, 0.95);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
       color: #f8fafc;
-      border-radius: 50px;
-      padding: 8px 16px 8px 20px;
+      border-radius: 100px;
+      padding: 8px 14px 8px 18px;
       display: flex;
       align-items: center;
-      gap: 20px;
-      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35), 0 2px 6px rgba(0, 0, 0, 0.2);
-      animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-      border: 1px solid rgba(255, 255, 255, 0.12);
+      gap: 16px;
+      box-shadow: 0 16px 36px -4px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.12);
+      animation: dockSlideUp 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+      box-sizing: border-box;
+      max-width: min(94vw, 980px);
+      transition: all 0.25s ease;
+
+      .bar-info-section {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        min-width: 0;
+        flex: 1 1 auto;
+      }
 
       .bar-left {
         display: flex;
         align-items: center;
-        gap: 12px;
+        gap: 10px;
+        min-width: 0;
 
         .badge-count {
           width: 32px;
           height: 32px;
+          min-width: 32px;
           border-radius: 50%;
-          background: #3b82f6;
+          background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
           color: #ffffff;
-          font-weight: 700;
-          font-size: 0.9rem;
+          font-weight: 800;
+          font-size: 0.88rem;
           display: flex;
           align-items: center;
           justify-content: center;
+          box-shadow: 0 2px 8px rgba(37, 99, 235, 0.4);
+          flex-shrink: 0;
         }
 
         .selection-info {
           display: flex;
           flex-direction: column;
+          min-width: 0;
 
           .sel-title {
             font-weight: 700;
             font-size: 0.92rem;
             color: #ffffff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 220px;
+            display: inline-flex;
+            align-items: baseline;
+            gap: 5px;
+
+            .sel-roll {
+              font-weight: 500;
+              color: #93c5fd;
+              font-size: 0.8rem;
+              white-space: nowrap;
+            }
           }
+
           .sel-sub {
-            font-size: 0.74rem;
+            font-size: 0.72rem;
             color: #94a3b8;
+            white-space: nowrap;
           }
         }
       }
 
       .bar-center {
         display: flex;
-        align-items: baseline;
-        gap: 8px;
+        flex-direction: column;
+        justify-content: center;
         padding: 0 16px;
         border-left: 1px solid rgba(255, 255, 255, 0.15);
         border-right: 1px solid rgba(255, 255, 255, 0.15);
+        flex-shrink: 0;
 
         .total-label {
-          font-size: 0.8rem;
+          font-size: 0.7rem;
           color: #94a3b8;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          line-height: 1.1;
         }
+
         .total-amount {
           font-size: 1.25rem;
           color: #4ade80;
-          font-weight: 700;
+          font-weight: 800;
+          font-variant-numeric: tabular-nums;
+          line-height: 1.2;
+          text-shadow: 0 0 12px rgba(74, 222, 128, 0.25);
+          white-space: nowrap;
         }
       }
 
-      .bar-right {
+      .bar-actions-section {
         display: flex;
         align-items: center;
         gap: 10px;
+        flex-shrink: 0;
+      }
 
-        .btn-clear {
-          color: #cbd5e1;
-          font-size: 0.85rem;
-          &:hover {
-            color: #ffffff;
-          }
+      .btn-clear {
+        color: #94a3b8 !important;
+        font-size: 0.82rem !important;
+        font-weight: 600;
+        height: 38px;
+        border-radius: 8px;
+        padding: 0 10px !important;
+        min-width: auto !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 4px;
+        white-space: nowrap !important;
+        transition: all 0.15s ease;
+
+        .clear-icon {
+          font-size: 16px;
+          width: 16px;
+          height: 16px;
+          line-height: 16px;
+        }
+
+        &:hover {
+          color: #f1f5f9 !important;
+          background: rgba(255, 255, 255, 0.08) !important;
+        }
+      }
+
+      .btn-upi-multi,
+      .btn-collect-multi {
+        height: 42px !important;
+        border-radius: 50px !important;
+        white-space: nowrap !important;
+        flex-shrink: 0 !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.2px;
+        transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+
+        ::ng-deep .mdc-button__label {
+          display: inline-flex !important;
+          align-items: center !important;
+          gap: 6px !important;
+          white-space: nowrap !important;
+          line-height: 1 !important;
+        }
+
+        .action-btn-icon {
+          font-size: 19px !important;
+          width: 19px !important;
+          height: 19px !important;
+          line-height: 19px !important;
+        }
+      }
+
+      .btn-upi-multi {
+        background: linear-gradient(135deg, #059669 0%, #10b981 100%) !important;
+        color: #ffffff !important;
+        padding: 0 18px !important;
+        box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+
+        &:hover {
+          background: linear-gradient(135deg, #047857 0%, #059669 100%) !important;
+          box-shadow: 0 6px 18px rgba(16, 185, 129, 0.45);
+          transform: translateY(-1px);
+        }
+      }
+
+      .btn-collect-multi {
+        background: linear-gradient(135deg, #16a34a 0%, #22c55e 100%) !important;
+        color: #ffffff !important;
+        padding: 0 20px !important;
+        box-shadow: 0 4px 14px rgba(34, 197, 94, 0.4);
+
+        .action-btn-amount {
+          background: rgba(0, 0, 0, 0.22);
+          padding: 2px 7px;
+          border-radius: 12px;
+          font-size: 0.8rem;
+          font-weight: 700;
+          letter-spacing: 0.3px;
+        }
+
+        &:hover {
+          background: linear-gradient(135deg, #15803d 0%, #16a34a 100%) !important;
+          box-shadow: 0 6px 20px rgba(34, 197, 94, 0.5);
+          transform: translateY(-1px);
+        }
+      }
+
+      @keyframes dockSlideUp {
+        from {
+          opacity: 0;
+          transform: translate(-50%, 20px) scale(0.96);
+        }
+        to {
+          opacity: 1;
+          transform: translate(-50%, 0) scale(1);
+        }
+      }
+
+      /* Responsive Breakpoint 1: Medium Screens & Tablets (max-width: 900px) */
+      @media (max-width: 900px) {
+        border-radius: 20px;
+        padding: 10px 14px;
+        gap: 12px;
+        bottom: 18px;
+
+        .bar-left .selection-info .sel-title {
+          max-width: 140px;
+        }
+
+        .bar-center {
+          padding: 0 12px;
         }
 
         .btn-upi-multi {
-          background: linear-gradient(135deg, #059669 0%, #10b981 100%) !important;
-          color: #ffffff !important;
-          font-weight: 700;
-          border-radius: 30px;
-          padding: 0 18px;
-          height: 40px;
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
-
-          &:hover {
-            background: #047857 !important;
-          }
+          padding: 0 14px !important;
         }
 
         .btn-collect-multi {
-          background-color: #22c55e !important;
-          color: #ffffff !important;
-          font-weight: 700;
-          border-radius: 30px;
-          padding: 0 20px;
-          height: 40px;
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          box-shadow: 0 4px 12px rgba(34, 197, 94, 0.35);
+          padding: 0 16px !important;
+        }
+      }
 
-          &:hover {
-            background-color: #16a34a !important;
+      /* Responsive Breakpoint 2: Small Tablets & Mobiles (max-width: 720px) */
+      @media (max-width: 720px) {
+        flex-direction: column;
+        border-radius: 18px;
+        padding: 12px 14px;
+        gap: 10px;
+        width: calc(100% - 24px);
+        max-width: 480px;
+        bottom: max(14px, env(safe-area-inset-bottom, 14px));
+
+        .bar-info-section {
+          width: 100%;
+          justify-content: space-between;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+          padding-bottom: 8px;
+        }
+
+        .bar-center {
+          border-left: none;
+          border-right: none;
+          padding: 0;
+          align-items: flex-end;
+        }
+
+        .bar-actions-section {
+          width: 100%;
+          justify-content: stretch;
+          gap: 8px;
+
+          .btn-clear {
+            padding: 0 6px !important;
+          }
+
+          .btn-upi-multi,
+          .btn-collect-multi {
+            flex: 1 1 0;
+            justify-content: center;
+            height: 38px !important;
+            padding: 0 8px !important;
+            font-size: 0.8rem !important;
+
+            ::ng-deep .mdc-button__label {
+              gap: 4px !important;
+            }
+          }
+        }
+      }
+
+      /* Responsive Breakpoint 3: Compact Phones (max-width: 420px) */
+      @media (max-width: 420px) {
+        padding: 10px 12px;
+        border-radius: 16px;
+
+        .bar-left .selection-info .sel-title {
+          max-width: 120px;
+          font-size: 0.86rem;
+        }
+
+        .bar-center .total-amount {
+          font-size: 1.1rem;
+        }
+
+        .bar-actions-section {
+          .btn-clear .clear-text {
+            display: none;
+          }
+
+          .btn-upi-multi .action-btn-text {
+            font-size: 0.78rem;
+          }
+
+          .btn-collect-multi {
+            .action-btn-text {
+              font-size: 0.78rem;
+            }
+            .action-btn-amount {
+              display: none;
+            }
           }
         }
       }
@@ -2878,13 +3199,33 @@ export class FeesComponent implements OnInit, OnDestroy {
       }
     });
 
-    dialogRef.afterClosed().subscribe((result) => {
+    dialogRef.afterClosed().subscribe((result: GenerateInvoicesResult | undefined) => {
       if (result) {
-        this.confirmDialog.alert(
-          'Invoices Generated',
-          result.message || `Successfully generated invoice(s).`,
-          'success'
-        );
+        if (result.generatedCount > 0) {
+          this.confirmDialog.alert(
+            'Invoices Generated',
+            result.message || `Successfully generated ${result.generatedCount} invoice(s).`,
+            'success',
+            {
+              titleEn: 'Invoices Generated',
+              titleHi: 'इनवॉइस सफलतापूर्वक जनरेट हो गए',
+              messageEn: result.message,
+              messageHi: result.messageHi || result.message
+            }
+          );
+        } else {
+          this.confirmDialog.alert(
+            'Invoices Not Generated',
+            result.message || 'No invoices were generated for the selected month.',
+            'warning',
+            {
+              titleEn: 'Invoices Not Generated',
+              titleHi: 'इनवॉइस जनरेट नहीं हुए',
+              messageEn: result.message,
+              messageHi: result.messageHi || result.message
+            }
+          );
+        }
         this.pageIndex = 0;
         this.loadInvoices();
         this.loadPendingStudents();

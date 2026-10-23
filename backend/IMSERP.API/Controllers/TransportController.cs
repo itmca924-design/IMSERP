@@ -228,6 +228,7 @@ public class TransportController : ControllerBase
         [FromQuery] Guid? classId = null,
         [FromQuery] Guid? sectionId = null,
         [FromQuery] Guid? batchId = null,
+        [FromQuery] string? cohortScope = null,
         [FromQuery] Guid? routeId = null,
         [FromQuery] string? status = "Active",
         [FromQuery] string? search = null,
@@ -256,6 +257,13 @@ public class TransportController : ControllerBase
         if (classId.HasValue) query = query.Where(a => a.Student != null && a.Student.ClassId == classId.Value);
         if (sectionId.HasValue) query = query.Where(a => a.Student != null && a.Student.SectionId == sectionId.Value);
         if (batchId.HasValue) query = query.Where(a => a.Student != null && a.Student.BatchId == batchId.Value);
+        if (!string.IsNullOrEmpty(cohortScope))
+        {
+            if (cohortScope.Equals("school", StringComparison.OrdinalIgnoreCase))
+                query = query.Where(a => a.Student != null && a.Student.ClassId != null);
+            else if (cohortScope.Equals("coaching", StringComparison.OrdinalIgnoreCase))
+                query = query.Where(a => a.Student != null && a.Student.BatchId != null);
+        }
         if (routeId.HasValue) query = query.Where(a => a.RouteId == routeId.Value);
         if (!string.IsNullOrEmpty(status) && status != "All") query = query.Where(a => a.Status == status);
 

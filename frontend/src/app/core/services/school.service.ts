@@ -116,6 +116,7 @@ export interface EnrollSchoolStudentInCoachingDto {
   batchId: string;
   coachingRollNumber?: string;
   customMonthlyFee?: number;
+  coachingJoiningDate?: string;
 }
 
 export interface UnifiedStatsDto {
@@ -168,7 +169,7 @@ export interface ClassExamDto {
 
 export interface StudentPromotionItemDto {
   studentId: string;
-  resultStatus: 'Promoted' | 'Detained' | 'Passed with Grace' | 'Double Promoted';
+  resultStatus: 'Promoted' | 'Detained' | 'Passed with Grace' | 'Double Promoted' | 'Migrated' | string;
   newRollNumber?: string;
   remarks?: string;
   examPercentage?: number;
@@ -178,13 +179,16 @@ export interface StudentPromotionItemDto {
 }
 
 export interface ExecutePromotionRequestDto {
-  fromClassId: string;
+  fromClassId?: string;
   fromSectionId?: string;
-  fromAcademicYear: string;
-  toClassId: string;
+  fromAcademicYear?: string;
+  toClassId?: string;
   toSectionId?: string;
-  toAcademicYear: string;
+  toAcademicYear?: string;
   promotions: StudentPromotionItemDto[];
+  scope?: 'School' | 'Coaching';
+  fromBatchId?: string;
+  toBatchId?: string;
 }
 
 export interface PromotionExecutionResultDto {
@@ -200,14 +204,14 @@ export interface StudentPromotionHistoryDto {
   studentId: string;
   studentName: string;
   admissionNumber: string;
-  fromClassId: string;
-  fromClassName: string;
+  fromClassId?: string;
+  fromClassName?: string;
   fromSectionId?: string;
   fromSectionName?: string;
   fromRollNumber?: string;
   fromAcademicYear: string;
-  toClassId: string;
-  toClassName: string;
+  toClassId?: string;
+  toClassName?: string;
   toSectionId?: string;
   toSectionName?: string;
   toRollNumber?: string;
@@ -219,6 +223,11 @@ export interface StudentPromotionHistoryDto {
   examPercentage?: number;
   examTotalMarks?: string;
   examGrade?: string;
+  scope?: string;
+  fromBatchId?: string;
+  fromBatchName?: string;
+  toBatchId?: string;
+  toBatchName?: string;
 }
 
 // ─── School Examination & Marks Entry Interfaces ───────────
@@ -605,21 +614,27 @@ export class SchoolService {
 
   // ─── Student Promotion & Class Upgrade ───────────────────
 
-  getClassExams(classId: string, academicYear?: string): Observable<ClassExamDto[]> {
-    const params: any = { classId };
+  getClassExams(classId?: string, academicYear?: string, batchId?: string): Observable<ClassExamDto[]> {
+    const params: any = {};
+    if (classId) params.classId = classId;
+    if (batchId) params.batchId = batchId;
     if (academicYear) params.academicYear = academicYear;
     return this.http.get<ClassExamDto[]>(`${this.apiUrl}/promotions/class-exams`, { params });
   }
 
   getPromotionCandidates(
-    fromClassId: string,
+    fromClassId?: string,
     fromSectionId?: string,
     academicYear?: string,
     examId?: string,
-    passingPercentage?: number
+    passingPercentage?: number,
+    fromBatchId?: string,
+    scope: 'School' | 'Coaching' = 'School'
   ): Observable<PromotionCandidateDto[]> {
-    const params: any = { fromClassId };
+    const params: any = { scope };
+    if (fromClassId) params.fromClassId = fromClassId;
     if (fromSectionId) params.fromSectionId = fromSectionId;
+    if (fromBatchId) params.fromBatchId = fromBatchId;
     if (academicYear) params.academicYear = academicYear;
     if (examId) params.examId = examId;
     if (passingPercentage !== undefined && passingPercentage !== null) params.passingPercentage = passingPercentage;
@@ -630,9 +645,18 @@ export class SchoolService {
     return this.http.post<PromotionExecutionResultDto>(`${this.apiUrl}/promotions/execute`, dto);
   }
 
-  getPromotionHistory(classId?: string, academicYear?: string, page = 1, pageSize = 20): Observable<{ totalCount: number; page: number; pageSize: number; items: StudentPromotionHistoryDto[] }> {
+  getPromotionHistory(
+    classId?: string,
+    academicYear?: string,
+    page = 1,
+    pageSize = 20,
+    batchId?: string,
+    scope?: string
+  ): Observable<{ totalCount: number; page: number; pageSize: number; items: StudentPromotionHistoryDto[] }> {
     const params: any = { page, pageSize };
     if (classId) params.classId = classId;
+    if (batchId) params.batchId = batchId;
+    if (scope) params.scope = scope;
     if (academicYear) params.academicYear = academicYear;
     return this.http.get<{ totalCount: number; page: number; pageSize: number; items: StudentPromotionHistoryDto[] }>(`${this.apiUrl}/promotions/history`, { params });
   }
@@ -747,10 +771,11 @@ export class SchoolService {
     return this.http.get<BlankAwardSheetDto>(`${this.apiUrl}/exams/${examId}/award-sheet`);
   }
 
-  getMyExams(academicYear?: string, examType?: string): Observable<StudentMyExamsDto> {
+  getMyExams(academicYear?: string, examType?: string, category?: string): Observable<StudentMyExamsDto> {
     let params = new HttpParams();
     if (academicYear) params = params.set('academicYear', academicYear);
     if (examType && examType !== 'All') params = params.set('examType', examType);
+    if (category && category !== 'all') params = params.set('category', category);
     return this.http.get<StudentMyExamsDto>(`${this.apiUrl}/my-exams`, { params });
   }
 
@@ -910,6 +935,9 @@ export interface StudentMyExamItemDto {
   rank: number | null;
   daysRemaining: number;
   evaluatorTeacherName?: string | null;
+  category?: string;
+  batchName?: string | null;
+  className?: string | null;
 }
 
 export interface StudentExamPerformanceSummaryDto {
@@ -930,12 +958,15 @@ export interface StudentMyInfoSummaryDto {
   studentName: string;
   rollNumber: string;
   schoolRollNumber?: string | null;
+  coachingRollNumber?: string | null;
   admissionNumber?: string | null;
   classId?: string | null;
   className: string;
   sectionId?: string | null;
   sectionName?: string | null;
+  batchId?: string | null;
   batchName?: string | null;
+  batchSubject?: string | null;
   branchName?: string | null;
   academicYear?: string | null;
   parentName?: string | null;
@@ -944,6 +975,8 @@ export interface StudentMyInfoSummaryDto {
   motherName?: string | null;
   gender?: string | null;
   dateOfBirth?: string | null;
+  isSchoolStudent?: boolean;
+  isCoachingStudent?: boolean;
 }
 
 export interface StudentMyExamsDto {

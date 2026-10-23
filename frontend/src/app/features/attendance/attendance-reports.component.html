@@ -106,10 +106,17 @@
           </select>
         </div>
         <div class="filter-select-wrap" *ngIf="studentFilterMode === 'coaching'">
+          <label>Class:</label>
+          <select [(ngModel)]="selectedCoachingClassId" (change)="onCoachingClassFilterChanged()">
+            <option value="">All Classes</option>
+            <option *ngFor="let c of schoolClasses" [value]="c.id">{{ c.name }}</option>
+          </select>
+        </div>
+        <div class="filter-select-wrap" *ngIf="studentFilterMode === 'coaching'">
           <label>Batch:</label>
           <select [(ngModel)]="selectedBatchId" (change)="loadReport()">
             <option value="">All Batches</option>
-            <option *ngFor="let batch of batches" [value]="batch.id">{{ batch.name }}</option>
+            <option *ngFor="let batch of filteredCoachingBatches" [value]="batch.id">{{ batch.name }}</option>
           </select>
         </div>
       }

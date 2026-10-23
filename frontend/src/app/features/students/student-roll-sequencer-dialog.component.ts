@@ -13,6 +13,7 @@ import { MatRadioModule } from '@angular/material/radio';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { CoachingService, ResequenceRollNumbersResultDto, StudentRollNumberPreviewItemDto } from '../../core/services/coaching.service';
+import { SchoolService, SchoolClassDto } from '../../core/services/school.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 
 export interface RollSequencerDialogData {
@@ -117,7 +118,7 @@ export interface RollSequencerDialogData {
 
           <mat-form-field appearance="outline" class="form-item section-select-field">
             <mat-label>Section (Optional)</mat-label>
-            <mat-select [(ngModel)]="sectionId" (selectionChange)="clearPreview()">
+            <mat-select [(ngModel)]="sectionId" (selectionChange)="onSectionChange()">
               <mat-option value="">All Sections</mat-option>
               <mat-option *ngFor="let s of availableSections" [value]="s.id">
                 Section {{ s.name }}
@@ -128,12 +129,25 @@ export interface RollSequencerDialogData {
 
         <!-- Coaching Scope Controls -->
         <ng-container *ngIf="targetScope === 'coaching'">
+          <mat-form-field appearance="outline" class="form-item class-select-field">
+            <mat-label>Target Class (कक्षा)</mat-label>
+            <mat-select [(ngModel)]="coachingClassId" (selectionChange)="onCoachingClassChange($event.value)">
+              <mat-option value="">All Classes (सभी कक्षाएं)</mat-option>
+              <mat-option *ngFor="let c of schoolClasses" [value]="c.id">
+                {{ c.name }}
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+
           <mat-form-field appearance="outline" class="form-item batch-select-field">
-            <mat-label>Coaching Batch *</mat-label>
-            <mat-select [(ngModel)]="batchId" (selectionChange)="onBatchChange($event.value)">
-              <mat-option *ngFor="let b of batches" [value]="b.id">
+            <mat-label>Coaching Batch * (कोचिंग बैच)</mat-label>
+            <mat-select [(ngModel)]="batchId" (selectionChange)="onBatchChange($event.value)" [disabled]="filteredBatches.length === 0">
+              <mat-option *ngIf="filteredBatches.length === 0" [value]="''" disabled>
+                No batches found for this class
+              </mat-option>
+              <mat-option *ngFor="let b of filteredBatches" [value]="b.id">
                 <strong>{{ b.name }}</strong>
-                <span class="batch-opt-meta">({{ b.subject || 'All Subjects' }} &bull; {{ b.studentCount || 0 }} Students)</span>
+                <span class="batch-opt-meta">({{ b.className ? b.className + ' &bull; ' : '' }}{{ b.subject || 'All Subjects' }} &bull; {{ b.studentCount || 0 }} Students)</span>
               </mat-option>
             </mat-select>
           </mat-form-field>
@@ -190,7 +204,7 @@ export interface RollSequencerDialogData {
               class="token-chip-btn"
               (click)="insertToken('{CLASS}')"
               matTooltip="Inserts dynamic Class Name into Prefix"
-              *ngIf="targetScope === 'school'">
+              *ngIf="targetScope === 'school' || (targetScope === 'coaching' && coachingClassId)">
               +&#123;CLASS&#125;
             </button>
             <button
@@ -556,7 +570,7 @@ export interface RollSequencerDialogData {
     }
 
     .config-row-primary.coaching-grid {
-      grid-template-columns: 2.5fr 1fr;
+      grid-template-columns: 1.2fr 1.8fr 1fr;
     }
 
     .batch-select-field {
@@ -1084,8 +1098,10 @@ export class StudentRollSequencerDialogComponent implements OnInit {
   schoolClasses: any[] = [];
 
   // Coaching filters
+  coachingClassId: string = '';
   batchId: string = '';
   batches: any[] = [];
+  filteredBatches: any[] = [];
 
   // Common sequencing parameters
   startFrom: number = 1;
@@ -1103,45 +1119,125 @@ export class StudentRollSequencerDialogComponent implements OnInit {
     public dialogRef: MatDialogRef<StudentRollSequencerDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: RollSequencerDialogData,
     private coachingService: CoachingService,
+    private schoolService: SchoolService,
     private confirmDialog: ConfirmDialogService
   ) {}
 
   ngOnInit(): void {
-    this.schoolClasses = this.data.schoolClasses || [];
-    this.batches = this.data.batches || [];
+    this.schoolClasses = this.data?.schoolClasses ? [...this.data.schoolClasses] : [];
+    this.batches = this.data?.batches ? [...this.data.batches] : [];
 
     // Set initial scope if requested
-    if (this.data.initialScope) {
+    if (this.data?.initialScope) {
       this.targetScope = this.data.initialScope;
-    } else if (this.data.selectedBatchId && !this.data.selectedClassId) {
+    } else if (this.data?.selectedBatchId && !this.data?.selectedClassId) {
       this.targetScope = 'coaching';
     }
 
-    if (this.data.selectedClassId) {
+    if (this.data?.selectedClassId) {
       this.classId = this.data.selectedClassId;
+      this.coachingClassId = this.data.selectedClassId;
       this.onClassChange(this.classId);
     }
-    if (this.data.selectedSectionId) {
+    if (this.data?.selectedSectionId) {
       this.sectionId = this.data.selectedSectionId;
     }
-    if (this.data.selectedBatchId) {
+    if (this.data?.selectedBatchId) {
       this.batchId = this.data.selectedBatchId;
     }
 
-    // If batches not passed in data, load them dynamically from API
-    if (this.batches.length === 0) {
+    // 1. Load School Classes if not provided or empty
+    if (this.schoolClasses.length === 0) {
+      this.schoolService.getClasses(true).subscribe({
+        next: (classes) => {
+          this.schoolClasses = classes || [];
+          if (this.targetScope === 'school' && !this.classId && this.schoolClasses.length > 0) {
+            this.classId = this.schoolClasses[0].id;
+            this.onClassChange(this.classId);
+            this.loadPreview();
+          }
+          if (this.targetScope === 'coaching') {
+            this.syncCoachingContext();
+          }
+        },
+        error: (err) => {
+          console.error('Failed to load school classes for roll sequencer:', err);
+        }
+      });
+    } else {
+      if (this.targetScope === 'school' && !this.classId && this.schoolClasses.length > 0) {
+        this.classId = this.schoolClasses[0].id;
+        this.onClassChange(this.classId);
+      }
+    }
+
+    // 2. Load Coaching Batches (fetch all batches from API if empty or paginated slice)
+    if (this.batches.length === 0 || this.batches.length <= 10) {
       this.coachingService.getBatches().subscribe({
         next: (res) => {
           this.batches = res || [];
+          this.syncCoachingContext();
         },
-        error: () => {}
+        error: () => {
+          this.syncCoachingContext();
+        }
       });
+    } else {
+      this.syncCoachingContext();
     }
 
     // Auto-load preview if target is already specified
     if ((this.targetScope === 'school' && this.classId) || (this.targetScope === 'coaching' && this.batchId)) {
       this.loadPreview();
     }
+  }
+
+  syncCoachingContext(): void {
+    if (this.batchId && !this.coachingClassId) {
+      const matched = this.batches.find(b => this.isSameId(b.id, this.batchId));
+      if (matched?.classId) {
+        this.coachingClassId = matched.classId;
+      }
+    }
+    this.applyBatchFilter();
+  }
+
+  applyBatchFilter(): void {
+    if (!this.coachingClassId) {
+      this.filteredBatches = [...this.batches];
+    } else {
+      this.filteredBatches = this.batches.filter(b => this.isSameId(b.classId, this.coachingClassId));
+    }
+
+    // If currently selected batchId is not in filteredBatches
+    if (this.batchId && !this.filteredBatches.some(b => this.isSameId(b.id, this.batchId))) {
+      if (this.filteredBatches.length > 0) {
+        this.batchId = this.filteredBatches[0].id;
+        this.clearPreview();
+        if (this.targetScope === 'coaching') {
+          this.loadPreview();
+        }
+      } else {
+        this.batchId = '';
+        this.clearPreview();
+      }
+    } else if (!this.batchId && this.filteredBatches.length > 0) {
+      this.batchId = this.filteredBatches[0].id;
+      this.clearPreview();
+      if (this.targetScope === 'coaching') {
+        this.loadPreview();
+      }
+    }
+  }
+
+  onCoachingClassChange(classId: string): void {
+    this.coachingClassId = classId;
+    this.applyBatchFilter();
+  }
+
+  private isSameId(a: any, b: any): boolean {
+    if (!a || !b) return false;
+    return a.toString().toLowerCase() === b.toString().toLowerCase();
   }
 
   setScope(scope: 'school' | 'coaching'): void {
@@ -1151,29 +1247,49 @@ export class StudentRollSequencerDialogComponent implements OnInit {
 
     // Adjust defaults appropriately for scope
     if (scope === 'coaching') {
-      if (!this.batchId && this.batches.length > 0) {
-        this.batchId = this.batches[0].id;
+      this.applyBatchFilter();
+      if (!this.batchId && this.filteredBatches.length > 0) {
+        this.batchId = this.filteredBatches[0].id;
       }
       if (this.numberPadding === 1) {
         this.numberPadding = 2; // 2 digits is standard in coaching (01, 02..)
+      }
+      if (this.batchId) {
+        this.loadPreview();
       }
     } else {
       if (!this.classId && this.schoolClasses.length > 0) {
         this.classId = this.schoolClasses[0].id;
         this.onClassChange(this.classId);
+      } else if (this.classId) {
+        this.loadPreview();
       }
     }
   }
 
   onClassChange(selectedId: string): void {
     this.clearPreview();
-    const selClass = (this.schoolClasses || []).find(c => c.id === selectedId);
+    const selClass = (this.schoolClasses || []).find(c => this.isSameId(c.id, selectedId));
     this.availableSections = selClass?.sections || [];
     this.sectionId = '';
+    if (this.classId) {
+      this.loadPreview();
+    }
+  }
+
+  onSectionChange(): void {
+    this.clearPreview();
+    if (this.classId) {
+      this.loadPreview();
+    }
   }
 
   onBatchChange(selectedBatchId: string): void {
+    this.batchId = selectedBatchId;
     this.clearPreview();
+    if (this.batchId) {
+      this.loadPreview();
+    }
   }
 
   insertToken(token: string): void {

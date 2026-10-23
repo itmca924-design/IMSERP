@@ -14,6 +14,7 @@ import { debounceTime, distinctUntilChanged, takeUntil } from 'rxjs/operators';
 import { API_BASE } from '../teachers/teacher.models';
 import { AuthService } from '../../core/services/auth.service';
 import { SchoolService, SchoolClassDto, SchoolSectionDto } from '../../core/services/school.service';
+import { BatchDto } from '../../core/services/batches.service';
 
 interface ReportRow {
   personId: string;
@@ -102,11 +103,12 @@ export class AttendanceReportsComponent implements OnInit, OnDestroy {
   searchQuery = '';
   months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   years = [2024, 2025, 2026, 2027];
-  batches: Array<{ id: string; name: string }> = [];
+  batches: BatchDto[] = [];
   schoolClasses: SchoolClassDto[] = [];
   studentFilterMode: 'all' | 'school' | 'coaching' = 'all';
   selectedClassId = '';
   selectedSectionId = '';
+  selectedCoachingClassId = '';
   classSections: SchoolSectionDto[] = [];
   report: AttendanceReport | null = null;
   loading = false;
@@ -358,7 +360,7 @@ export class AttendanceReportsComponent implements OnInit, OnDestroy {
   }
 
   loadBatches(): void {
-    this.http.get<Array<{ id: string; name: string }>>(`${this.api}/batches`).subscribe({
+    this.http.get<BatchDto[]>(`${this.api}/batches`).subscribe({
       next: b => {
         let list = b || [];
         if (this.isTeacherSelfMode && this.teacherClassSection) {
@@ -421,6 +423,7 @@ export class AttendanceReportsComponent implements OnInit, OnDestroy {
 
   onFilterModeChanged(): void {
     this.selectedClassId = ''; this.selectedSectionId = ''; this.classSections = [];
+    this.selectedCoachingClassId = '';
     this.selectedBatchId = ''; this.pageIndex = 0; this.loadReport();
   }
 
@@ -429,10 +432,26 @@ export class AttendanceReportsComponent implements OnInit, OnDestroy {
     this.classSections = found?.sections || []; this.selectedSectionId = ''; this.pageIndex = 0; this.loadReport();
   }
 
+  get filteredCoachingBatches(): BatchDto[] {
+    if (!this.selectedCoachingClassId) return this.batches;
+    return this.batches.filter(b => (b.classId || '').toLowerCase() === this.selectedCoachingClassId.toLowerCase());
+  }
+
+  onCoachingClassFilterChanged(): void {
+    if (this.selectedBatchId) {
+      const stillValid = this.filteredCoachingBatches.some(b => b.id.toLowerCase() === this.selectedBatchId.toLowerCase());
+      if (!stillValid) {
+        this.selectedBatchId = '';
+      }
+    }
+    this.pageIndex = 0;
+    this.loadReport();
+  }
+
   changeReportType(type: 'student' | 'teacher'): void {
     if (this.isStudentOrParent) return;
     this.reportType = type;
-    if (type === 'teacher') { this.selectedBatchId = ''; this.selectedClassId = ''; this.selectedSectionId = ''; }
+    if (type === 'teacher') { this.selectedBatchId = ''; this.selectedCoachingClassId = ''; this.selectedClassId = ''; this.selectedSectionId = ''; }
     this.searchQuery = ''; this.pageIndex = 0; this.sortColumn = '';
     this.expandedPersonIds.clear(); this.collapsingPersonIds.clear(); this.expandAll = false;
     this.resetDailyCaches();
@@ -468,6 +487,7 @@ export class AttendanceReportsComponent implements OnInit, OnDestroy {
           if (this.selectedSectionId) params['sectionId'] = this.selectedSectionId;
         } else if (this.studentFilterMode === 'coaching') {
           params['stream'] = 'coaching';
+          if (this.selectedCoachingClassId) params['classId'] = this.selectedCoachingClassId;
           if (this.selectedBatchId) params['batchId'] = this.selectedBatchId;
         }
       }
@@ -1025,7 +1045,13 @@ export class AttendanceReportsComponent implements OnInit, OnDestroy {
       if (cls) return `School Class: ${cls.name}`;
       return 'All School Classes';
     }
-    if (this.studentFilterMode === 'coaching') return `Coaching Batch: ${this.getSelectedBatchName()}`;
+    if (this.studentFilterMode === 'coaching') {
+      const ccls = this.schoolClasses.find(c => c.id === this.selectedCoachingClassId);
+      const bname = this.getSelectedBatchName();
+      if (ccls && this.selectedBatchId) return `Coaching Class: ${ccls.name} • Batch: ${bname}`;
+      if (ccls) return `Coaching Class: ${ccls.name} (All Batches)`;
+      return `Coaching Batch: ${bname}`;
+    }
     return 'All Students (School & Coaching)';
   }
 

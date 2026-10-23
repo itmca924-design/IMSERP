@@ -14,13 +14,16 @@ import { catchError, map } from 'rxjs/operators';
 import { SchoolService, SectionPeriodRoutineDto, CreateSectionPeriodRequestDto } from '../../core/services/school.service';
 import { SubjectsService, ClassSubjectDto } from '../../core/services/subjects.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
+import { BatchesService } from '../../core/services/batches.service';
 import { TeacherDto } from '../teachers/teacher.models';
 
 export interface SectionRoutineDialogData {
-  sectionId: string;
-  sectionName: string;
-  classId: string;
-  className: string;
+  sectionId?: string;
+  sectionName?: string;
+  batchId?: string;
+  batchName?: string;
+  classId?: string;
+  className?: string;
   classTeacherId?: string | null;
   classTeacherName?: string | null;
   classTeacherPhone?: string | null;
@@ -52,9 +55,11 @@ export interface SectionRoutineDialogData {
             <mat-icon>calendar_view_week</mat-icon>
           </div>
           <div>
-            <h2 class="dialog-title">Class Routine & Subject Allocation</h2>
+            <h2 class="dialog-title">
+              {{ data.batchId ? 'Coaching Batch Routine & Lecture Schedule' : 'Class Routine & Subject Allocation' }}
+            </h2>
             <p class="dialog-subtitle">
-              Weekly schedule & period faculty for <strong>{{ data.className }} - {{ data.sectionName }}</strong>
+              Weekly schedule & period faculty for <strong>{{ data.batchId ? data.batchName : (data.className + ' - ' + data.sectionName) }}</strong>
             </p>
           </div>
         </div>
@@ -1357,6 +1362,7 @@ export class SectionRoutineDialogComponent implements OnInit {
     @Inject(MAT_DIALOG_DATA) public data: SectionRoutineDialogData,
     private schoolService: SchoolService,
     private subjectsService: SubjectsService,
+    private batchesService: BatchesService,
     private confirmDialog: ConfirmDialogService
   ) {}
 
@@ -1731,15 +1737,32 @@ export class SectionRoutineDialogComponent implements OnInit {
 
   loadRoutine() {
     this.loading = true;
-    this.schoolService.getSectionRoutine(this.data.sectionId).subscribe({
-      next: (res) => {
-        this.routine = res || [];
-        this.loading = false;
-      },
-      error: () => {
-        this.loading = false;
-      }
-    });
+    if (this.data.batchId) {
+      this.batchesService.getBatchRoutine(this.data.batchId).subscribe({
+        next: (res) => {
+          this.routine = res || [];
+          this.loading = false;
+        },
+        error: () => {
+          this.loading = false;
+        }
+      });
+      return;
+    }
+
+    if (this.data.sectionId) {
+      this.schoolService.getSectionRoutine(this.data.sectionId).subscribe({
+        next: (res) => {
+          this.routine = res || [];
+          this.loading = false;
+        },
+        error: () => {
+          this.loading = false;
+        }
+      });
+    } else {
+      this.loading = false;
+    }
   }
 
   get classTeacherFirstName(): string {
@@ -1898,6 +1921,39 @@ export class SectionRoutineDialogComponent implements OnInit {
       replaceExistingAssignmentId: replaceId
     };
 
+    if (this.data.batchId) {
+      if (this.editingPeriodId) {
+        this.batchesService.updateBatchPeriod(this.editingPeriodId, payload).subscribe({
+          next: (updated) => {
+            this.saving = false;
+            const idx = this.routine.findIndex(r => r.id === updated.id);
+            if (idx !== -1) {
+              this.routine[idx] = updated;
+            } else {
+              this.routine.push(updated);
+            }
+            this.resetForm();
+          },
+          error: (err) => this.handleSaveError(err)
+        });
+      } else {
+        this.batchesService.addBatchPeriod(this.data.batchId, payload).subscribe({
+          next: (res) => {
+            this.saving = false;
+            const idx = this.routine.findIndex(r => r.id === res.id);
+            if (idx !== -1) {
+              this.routine[idx] = res;
+            } else {
+              this.routine.push(res);
+            }
+            this.resetForm();
+          },
+          error: (err) => this.handleSaveError(err)
+        });
+      }
+      return;
+    }
+
     if (this.editingPeriodId) {
       this.schoolService.updateSectionPeriod(this.editingPeriodId, payload).subscribe({
         next: (updated) => {
@@ -1919,7 +1975,7 @@ export class SectionRoutineDialogComponent implements OnInit {
         error: (err) => this.handleSaveError(err)
       });
     } else {
-      this.schoolService.addSectionPeriod(this.data.sectionId, payload).subscribe({
+      this.schoolService.addSectionPeriod(this.data.sectionId || '', payload).subscribe({
         next: (res) => {
           this.saving = false;
           const idx = this.routine.findIndex(r => r.id === res.id);
@@ -1969,11 +2025,24 @@ export class SectionRoutineDialogComponent implements OnInit {
   }
 
   deletePeriod(item: SectionPeriodRoutineDto) {
+    const label = this.data.batchId ? `this batch's` : `this section's`;
     this.confirmDialog.danger(
       'Remove Period',
-      `Are you sure you want to remove "${item.subject}" (${item.teacherName}) from this section's weekly routine?`
+      `Are you sure you want to remove "${item.subject}" (${item.teacherName}) from ${label} weekly routine?`
     ).subscribe(ok => {
       if (!ok) return;
+
+      if (this.data.batchId) {
+        this.batchesService.removeBatchPeriod(item.id).subscribe({
+          next: () => {
+            this.routine = this.routine.filter(r => r.id !== item.id);
+          },
+          error: (err) => {
+            this.confirmDialog.alert('Error', err.error?.message || 'Failed to remove period.', 'danger');
+          }
+        });
+        return;
+      }
 
       this.schoolService.removeSectionPeriod(item.id).subscribe({
         next: () => {

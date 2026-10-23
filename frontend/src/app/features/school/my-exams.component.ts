@@ -19,6 +19,7 @@ import {
   SchoolExamDto
 } from '../../core/services/school.service';
 import { AuthService } from '../../core/services/auth.service';
+import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { SchoolReportCardDialogComponent } from './school-report-card-dialog.component';
 import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.directive';
 
@@ -46,12 +47,14 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
       <div class="page-top-header">
         <div class="header-left">
           <div class="header-icon-box">
-            <mat-icon>event_available</mat-icon>
+            <mat-icon>{{ isCoachingOnly ? 'groups' : 'event_available' }}</mat-icon>
           </div>
           <div class="header-text-group">
-            <h2 class="main-title">My Exams, Datesheet &amp; Results</h2>
+            <h2 class="main-title">
+              {{ isCoachingOnly ? 'My Coaching Tests, Schedule & Results' : (isDualStudent ? 'My Exams, Tests & Results' : 'My Exams, Datesheet & Results') }}
+            </h2>
             <p class="subtitle">
-              Comprehensive exam datesheet, subject timetables, marksheet, and admit card for
+              Comprehensive {{ isCoachingOnly ? 'test schedules, batch timetables, and performance scorecards' : 'exam datesheet, subject timetables, marksheet, and admit card' }} for
               <strong>{{ myData?.student?.studentName || 'Student' }}</strong>.
             </p>
           </div>
@@ -82,7 +85,7 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
             (click)="openReportCardDialog()"
             matTooltip="View full formal marksheet / report card">
             <mat-icon>assessment</mat-icon>
-            <span>View Marksheet (अंक-तालिका)</span>
+            <span>{{ isCoachingOnly ? 'View Scorecard (अंक-तालिका)' : 'View Marksheet (अंक-तालिका)' }}</span>
           </button>
         </div>
       </div>
@@ -93,22 +96,56 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
           <div class="card-inner-grid">
             <!-- Student Meta Details -->
             <div class="student-profile-summary">
-              <div class="student-avatar-box">
-                <mat-icon>school</mat-icon>
+              <div class="student-avatar-box" [ngClass]="{'coaching-avatar': isCoachingOnly, 'dual-avatar': isDualStudent}">
+                <mat-icon>{{ isCoachingOnly ? 'groups' : 'school' }}</mat-icon>
               </div>
               <div class="student-details">
                 <div class="st-name-row">
                   <h3 class="st-name">{{ myData.student.studentName }}</h3>
                   <span class="st-status-chip">Enrolled</span>
+                  <!-- Dynamic Stream Pills -->
+                  <span class="st-stream-chip dual" *ngIf="isDualStudent">
+                    <mat-icon>verified</mat-icon> School + Coaching
+                  </span>
+                  <span class="st-stream-chip coaching" *ngIf="isCoachingOnly">
+                    <mat-icon>groups</mat-icon> Coaching Student
+                  </span>
+                  <span class="st-stream-chip school" *ngIf="isSchoolOnly">
+                    <mat-icon>domain</mat-icon> School Student
+                  </span>
                 </div>
                 <div class="st-tags-row">
-                  <span class="st-tag">Roll: <strong>{{ myData.student.schoolRollNumber || myData.student.rollNumber || 'N/A' }}</strong></span>
-                  <span class="dot">•</span>
-                  <span class="st-tag">Class: <strong>{{ myData.student.className }}</strong>
+                  <!-- Roll numbers according to stream -->
+                  <ng-container *ngIf="isDualStudent">
+                    <span class="st-tag">School Roll: <strong>{{ myData.student.schoolRollNumber || myData.student.rollNumber || 'N/A' }}</strong></span>
+                    <span class="dot">•</span>
+                    <span class="st-tag" *ngIf="myData.student.coachingRollNumber">Coaching Roll: <strong>{{ myData.student.coachingRollNumber }}</strong></span>
+                    <span class="dot" *ngIf="myData.student.coachingRollNumber">•</span>
+                  </ng-container>
+
+                  <ng-container *ngIf="isCoachingOnly">
+                    <span class="st-tag">Coaching Roll: <strong>{{ myData.student.coachingRollNumber || myData.student.rollNumber || 'N/A' }}</strong></span>
+                    <span class="dot">•</span>
+                  </ng-container>
+
+                  <ng-container *ngIf="isSchoolOnly">
+                    <span class="st-tag">Roll: <strong>{{ myData.student.schoolRollNumber || myData.student.rollNumber || 'N/A' }}</strong></span>
+                    <span class="dot">•</span>
+                  </ng-container>
+
+                  <!-- Class and Section -->
+                  <span class="st-tag" *ngIf="!isCoachingOnly || myData.student.className">
+                    Class: <strong>{{ myData.student.className }}</strong>
                     <span *ngIf="myData.student.sectionName"> - {{ myData.student.sectionName }}</span>
                   </span>
+
+                  <!-- Batch details -->
                   <span class="dot" *ngIf="myData.student.batchName">•</span>
-                  <span class="st-tag" *ngIf="myData.student.batchName">Batch: <strong>{{ myData.student.batchName }}</strong></span>
+                  <span class="st-tag batch-tag" *ngIf="myData.student.batchName">
+                    Batch: <strong>{{ myData.student.batchName }}</strong>
+                    <span *ngIf="myData.student.batchSubject"> ({{ myData.student.batchSubject }})</span>
+                  </span>
+
                   <span class="dot" *ngIf="myData.student.branchName">•</span>
                   <span class="st-tag branch" *ngIf="myData.student.branchName">🏛️ {{ myData.student.branchName }}</span>
                 </div>
@@ -123,13 +160,13 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
             <!-- 4 Academic Performance Metrics -->
             <div class="financial-kpis-grid">
               <div class="kpi-box total">
-                <span class="kpi-label">Total Exams</span>
+                <span class="kpi-label">{{ isCoachingOnly ? 'Total Tests' : 'Total Exams' }}</span>
                 <strong class="kpi-value">{{ myData.summary.totalExams }}</strong>
                 <span class="kpi-sub">In selected session</span>
               </div>
 
               <div class="kpi-box upcoming">
-                <span class="kpi-label">Upcoming Exams</span>
+                <span class="kpi-label">Upcoming {{ isCoachingOnly ? 'Tests' : 'Exams' }}</span>
                 <strong class="kpi-value text-primary">{{ myData.summary.upcomingExams }}</strong>
                 <span class="kpi-sub text-primary">Pending to be conducted</span>
               </div>
@@ -153,9 +190,37 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
           </div>
         </mat-card>
 
-        <!-- Filters Bar: Session & Exam Type Selection -->
+        <!-- Filters Bar: Stream, Session & Exam Type Selection -->
         <mat-card class="filters-card mat-elevation-z1">
           <div class="filters-wrap">
+            <!-- Category Toggle: All, School Exams, Coaching Tests (When hybrid or mixed) -->
+            <div class="category-toggle-group" *ngIf="showCategoryFilter">
+              <button
+                type="button"
+                class="cat-pill-btn"
+                [class.active]="selectedCategory === 'all'"
+                (click)="setCategory('all')">
+                <mat-icon>dashboard</mat-icon>
+                <span>All Papers</span>
+              </button>
+              <button
+                type="button"
+                class="cat-pill-btn"
+                [class.active]="selectedCategory === 'school'"
+                (click)="setCategory('school')">
+                <mat-icon>domain</mat-icon>
+                <span>School Exams</span>
+              </button>
+              <button
+                type="button"
+                class="cat-pill-btn"
+                [class.active]="selectedCategory === 'coaching'"
+                (click)="setCategory('coaching')">
+                <mat-icon>groups</mat-icon>
+                <span>Coaching Tests</span>
+              </button>
+            </div>
+
             <div class="filter-item">
               <mat-form-field appearance="outline" class="dense-field">
                 <mat-label>Academic Session</mat-label>
@@ -229,8 +294,16 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
                         <td class="bold-num">{{ i + 1 }}</td>
                         <td>
                           <div class="subject-box">
-                            <span class="sub-name">{{ ex.subject }}</span>
-                            <small class="exam-type-tag">{{ ex.examType }}</small>
+                            <div class="sub-name-row">
+                              <span class="sub-name">{{ ex.subject }}</span>
+                              <span class="cat-badge-pill" [ngClass]="ex.category?.toLowerCase() === 'coaching' ? 'coaching' : 'school'">
+                                {{ ex.category === 'Coaching' ? '🎯 Coaching' : '🏛️ School' }}
+                              </span>
+                            </div>
+                            <div class="sub-meta-tags">
+                              <small class="exam-type-tag">{{ ex.examType }}</small>
+                              <small class="batch-name-tag" *ngIf="ex.batchName">• Batch: {{ ex.batchName }}</small>
+                            </div>
                           </div>
                         </td>
                         <td>
@@ -324,7 +397,13 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
                       <tr *ngFor="let ex of filteredExams; let i = index">
                         <td class="bold-num">{{ i + 1 }}</td>
                         <td>
-                          <strong class="sub-name">{{ ex.subject }}</strong>
+                          <div class="sub-name-row">
+                            <strong class="sub-name">{{ ex.subject }}</strong>
+                            <span class="cat-badge-pill" [ngClass]="ex.category?.toLowerCase() === 'coaching' ? 'coaching' : 'school'">
+                              {{ ex.category === 'Coaching' ? 'Coaching' : 'School' }}
+                            </span>
+                          </div>
+                          <small class="batch-name-tag" *ngIf="ex.batchName">Batch: {{ ex.batchName }}</small>
                         </td>
                         <td>{{ ex.examType }}</td>
                         <td>
@@ -405,9 +484,11 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
                     <div class="admit-meta-grid">
                       <div class="meta-col">
                         <div class="meta-row"><span class="m-lbl">Candidate Name:</span> <strong class="m-val">{{ myData.student.studentName }}</strong></div>
-                        <div class="meta-row"><span class="m-lbl">Class &amp; Section:</span> <strong class="m-val">{{ myData.student.className }} <span *ngIf="myData.student.sectionName">({{ myData.student.sectionName }})</span></strong></div>
-                        <div class="meta-row"><span class="m-lbl">Roll Number:</span> <strong class="m-val">{{ myData.student.schoolRollNumber || myData.student.rollNumber || 'N/A' }}</strong></div>
-                        <div class="meta-row"><span class="m-lbl">Admission No:</span> <strong class="m-val">{{ myData.student.admissionNumber || 'N/A' }}</strong></div>
+                        <div class="meta-row" *ngIf="!isCoachingOnly && myData.student.className"><span class="m-lbl">Class &amp; Section:</span> <strong class="m-val">{{ myData.student.className }} <span *ngIf="myData.student.sectionName">({{ myData.student.sectionName }})</span></strong></div>
+                        <div class="meta-row" *ngIf="myData.student.batchName"><span class="m-lbl">Coaching Batch:</span> <strong class="m-val">{{ myData.student.batchName }} <span *ngIf="myData.student.batchSubject">({{ myData.student.batchSubject }})</span></strong></div>
+                        <div class="meta-row" *ngIf="isCoachingOnly && myData.student.className"><span class="m-lbl">Academic Class:</span> <strong class="m-val">{{ myData.student.className }}</strong></div>
+                        <div class="meta-row"><span class="m-lbl">Roll Number:</span> <strong class="m-val">{{ (isCoachingOnly ? myData.student.coachingRollNumber : myData.student.schoolRollNumber) || myData.student.rollNumber || 'N/A' }}</strong></div>
+                        <div class="meta-row" *ngIf="myData.student.admissionNumber"><span class="m-lbl">Admission No:</span> <strong class="m-val">{{ myData.student.admissionNumber }}</strong></div>
                       </div>
 
                       <div class="meta-col">
@@ -733,6 +814,18 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
             width: 32px;
             height: 32px;
           }
+
+          &.coaching-avatar {
+            background: #fff7ed;
+            color: #ea580c;
+            border-color: #fed7aa;
+          }
+
+          &.dual-avatar {
+            background: #fdf4ff;
+            color: #9333ea;
+            border-color: #f0abfc;
+          }
         }
 
         .student-details {
@@ -766,6 +859,42 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
               border-radius: 999px;
               text-transform: uppercase;
               letter-spacing: 0.5px;
+            }
+
+            .st-stream-chip {
+              font-size: 0.72rem;
+              font-weight: 700;
+              padding: 2px 8px;
+              border-radius: 999px;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              display: inline-flex;
+              align-items: center;
+              gap: 4px;
+
+              mat-icon {
+                font-size: 13px;
+                width: 13px;
+                height: 13px;
+              }
+
+              &.dual {
+                background: #fdf4ff;
+                color: #9333ea;
+                border: 1px solid #f0abfc;
+              }
+
+              &.coaching {
+                background: #fff7ed;
+                color: #c2410c;
+                border: 1px solid #fed7aa;
+              }
+
+              &.school {
+                background: #eff6ff;
+                color: #2563eb;
+                border: 1px solid #bfdbfe;
+              }
             }
           }
 
@@ -912,6 +1041,61 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
           flex-direction: column;
           align-items: stretch;
           gap: 12px;
+        }
+
+        .category-toggle-group {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          background: #f1f5f9;
+          padding: 3px;
+          border-radius: 10px;
+          border: 1px solid #e2e8f0;
+
+          @media (max-width: 640px) {
+            width: 100%;
+            justify-content: space-between;
+          }
+
+          .cat-pill-btn {
+            border: none;
+            background: transparent;
+            padding: 6px 12px;
+            border-radius: 7px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #475569;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            transition: all 0.2s ease;
+
+            @media (max-width: 640px) {
+              flex: 1;
+              justify-content: center;
+              padding: 6px 8px;
+              font-size: 0.75rem;
+            }
+
+            mat-icon {
+              font-size: 16px;
+              width: 16px;
+              height: 16px;
+            }
+
+            &:hover {
+              color: #1e293b;
+              background: rgba(255, 255, 255, 0.6);
+            }
+
+            &.active {
+              background: #ffffff;
+              color: #2563eb;
+              font-weight: 700;
+              box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+            }
+          }
         }
 
         .filter-item {
@@ -1169,15 +1353,59 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
       }
 
       .subject-box {
+        .sub-name-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+
         .sub-name {
           font-weight: 700;
           color: #0f172a;
           font-size: 0.9rem;
-          display: block;
+          display: inline-block;
         }
+
+        .sub-meta-tags {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          flex-wrap: wrap;
+        }
+
         .exam-type-tag {
           color: #64748b;
           font-size: 0.75rem;
+        }
+
+        .batch-name-tag {
+          color: #7c3aed;
+          font-size: 0.75rem;
+          font-weight: 600;
+        }
+      }
+
+      .cat-badge-pill {
+        font-size: 10px;
+        font-weight: 700;
+        padding: 1px 6px;
+        border-radius: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        display: inline-flex;
+        align-items: center;
+
+        &.coaching {
+          background: #fff7ed;
+          color: #c2410c;
+          border: 1px solid #ffedd5;
+        }
+
+        &.school {
+          background: #eff6ff;
+          color: #2563eb;
+          border: 1px solid #dbeafe;
         }
       }
 
@@ -1563,12 +1791,37 @@ export class MyExamsComponent implements OnInit {
   filteredExams: StudentMyExamItemDto[] = [];
   loading = false;
 
-  selectedSession = '2025-2026';
+  selectedSession = '';
   selectedExamType = 'All';
+  selectedCategory: 'all' | 'school' | 'coaching' = 'all';
   logoImgFailed = false;
 
   get instituteLogo(): string | null {
     return this.authService.getInstituteLogoUrl();
+  }
+
+  get isDualStudent(): boolean {
+    return !!(this.myData?.student?.isSchoolStudent && this.myData?.student?.isCoachingStudent);
+  }
+
+  get isCoachingOnly(): boolean {
+    return !!(!this.myData?.student?.isSchoolStudent && this.myData?.student?.isCoachingStudent);
+  }
+
+  get isSchoolOnly(): boolean {
+    return !!(this.myData?.student?.isSchoolStudent && !this.myData?.student?.isCoachingStudent);
+  }
+
+  get hasCoachingPapers(): boolean {
+    return !!this.myData?.exams.some(e => e.category === 'Coaching');
+  }
+
+  get hasSchoolPapers(): boolean {
+    return !!this.myData?.exams.some(e => e.category === 'School');
+  }
+
+  get showCategoryFilter(): boolean {
+    return this.isDualStudent || (this.hasCoachingPapers && this.hasSchoolPapers);
   }
 
   onLogoImgError(): void {
@@ -1578,6 +1831,7 @@ export class MyExamsComponent implements OnInit {
   constructor(
     private schoolService: SchoolService,
     private authService: AuthService,
+    private confirmDialog: ConfirmDialogService,
     private dialog: MatDialog
   ) {}
 
@@ -1587,12 +1841,14 @@ export class MyExamsComponent implements OnInit {
 
   loadMyExams(): void {
     this.loading = true;
-    this.schoolService.getMyExams(this.selectedSession, this.selectedExamType).subscribe({
+    this.schoolService.getMyExams(this.selectedSession || undefined, this.selectedExamType, this.selectedCategory).subscribe({
       next: (data) => {
         this.loading = false;
         this.myData = data;
-        if (data.student?.academicYear) {
+        if (!this.selectedSession && data.student?.academicYear) {
           this.selectedSession = data.student.academicYear;
+        } else if (!this.selectedSession && data.availableSessions?.length) {
+          this.selectedSession = data.availableSessions[0];
         }
         this.filterExams();
       },
@@ -1604,6 +1860,12 @@ export class MyExamsComponent implements OnInit {
   }
 
   onFilterChanged(): void {
+    this.loadMyExams();
+  }
+
+  setCategory(cat: 'all' | 'school' | 'coaching'): void {
+    if (this.selectedCategory === cat) return;
+    this.selectedCategory = cat;
     this.loadMyExams();
   }
 
@@ -1648,7 +1910,16 @@ export class MyExamsComponent implements OnInit {
   }
 
   openAdmitCardDialog(): void {
-    if (this.myData?.consolidatedResult) {
+    if (!this.myData || this.filteredExams.length === 0) {
+      this.confirmDialog.alert(
+        'Admit Card Not Available',
+        'There are currently no scheduled examination papers found for this session.',
+        'info'
+      );
+      return;
+    }
+
+    if (this.myData?.consolidatedResult && this.myData.student.isSchoolStudent) {
       this.dialog.open(SchoolReportCardDialogComponent, {
         width: '96vw',
         maxWidth: '1280px',
@@ -1667,13 +1938,21 @@ export class MyExamsComponent implements OnInit {
         }
       });
     } else {
-      // Print directly via native print window of the embedded hall ticket
       this.printAdmitCardElement();
     }
   }
 
   openReportCardDialog(): void {
-    if (this.myData?.consolidatedResult) {
+    if (!this.myData || this.filteredExams.length === 0) {
+      this.confirmDialog.alert(
+        'Scorecard Not Available',
+        'There are currently no evaluated test papers or published results available for the selected session.',
+        'info'
+      );
+      return;
+    }
+
+    if (this.myData?.consolidatedResult && this.myData.student.isSchoolStudent) {
       this.dialog.open(SchoolReportCardDialogComponent, {
         width: '96vw',
         maxWidth: '1280px',
@@ -1692,12 +1971,19 @@ export class MyExamsComponent implements OnInit {
         }
       });
     } else {
-      window.print();
+      this.printCoachingScorecard();
     }
   }
 
   printDatesheet(): void {
-    if (!this.myData) return;
+    if (!this.myData || this.filteredExams.length === 0) {
+      this.confirmDialog.alert(
+        'Datesheet Not Available',
+        'No scheduled exams or papers were found for this session to print.',
+        'info'
+      );
+      return;
+    }
 
     const printWin = window.open('', '_blank', 'width=900,height=700');
     if (!printWin) return;
@@ -1807,6 +2093,134 @@ export class MyExamsComponent implements OnInit {
       </head>
       <body>
         ${el.innerHTML}
+        <script>
+          window.onload = function() { window.print(); };
+        </script>
+      </body>
+      </html>
+    `);
+    printWin.document.close();
+  }
+
+  printCoachingScorecard(): void {
+    if (!this.myData || this.filteredExams.length === 0) return;
+
+    const printWin = window.open('', '_blank', 'width=950,height=750');
+    if (!printWin) return;
+
+    const student = this.myData.student;
+    const summary = this.myData.summary;
+    const rowsHtml = this.filteredExams.map((ex, i) => `
+      <tr>
+        <td style="border:1px solid #cbd5e1; padding:8px 10px; text-align:center;">${i + 1}</td>
+        <td style="border:1px solid #cbd5e1; padding:8px 10px;">
+          <strong>${ex.subject}</strong>
+          <span style="font-size:11px; color:#64748b; display:block;">${ex.title}</span>
+        </td>
+        <td style="border:1px solid #cbd5e1; padding:8px 10px;">${ex.examType}</td>
+        <td style="border:1px solid #cbd5e1; padding:8px 10px;">${new Date(ex.testDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+        <td style="border:1px solid #cbd5e1; padding:8px 10px; text-align:right;">${ex.maxMarks}</td>
+        <td style="border:1px solid #cbd5e1; padding:8px 10px; text-align:right;">${ex.passingMarks}</td>
+        <td style="border:1px solid #cbd5e1; padding:8px 10px; text-align:right; font-weight:700;">
+          ${ex.marksObtained !== null && !ex.isAbsent ? ex.marksObtained : (ex.isAbsent ? '<span style="color:#dc2626;">ABS</span>' : '<span style="color:#64748b;">Pending</span>')}
+        </td>
+        <td style="border:1px solid #cbd5e1; padding:8px 10px; text-align:center;">
+          ${ex.grade ? `<span style="background:#f1f5f9; padding:2px 8px; border-radius:4px; font-weight:700;">${ex.grade}</span>` : '-'}
+        </td>
+        <td style="border:1px solid #cbd5e1; padding:8px 10px; text-align:center;">
+          ${ex.isPassed !== null ? (ex.isPassed ? '<span style="color:#16a34a; font-weight:700;">PASS</span>' : '<span style="color:#dc2626; font-weight:700;">FAIL</span>') : '-'}
+        </td>
+        <td style="border:1px solid #cbd5e1; padding:8px 10px;">${ex.remarks || ex.evaluatorTeacherName || '-'}</td>
+      </tr>
+    `).join('');
+
+    printWin.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Scorecard - ${student.studentName}</title>
+        <style>
+          body { font-family: 'Segoe UI', Arial, sans-serif; padding: 24px; color: #0f172a; margin: 0; background: #fff; }
+          .scorecard-paper { border: 2px solid #1e3a8a; padding: 24px; border-radius: 8px; }
+          .inst-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #2563eb; padding-bottom: 14px; margin-bottom: 16px; }
+          .inst-title h2 { margin: 0; font-size: 22px; font-weight: 800; color: #1e3a8a; text-transform: uppercase; }
+          .inst-sub { margin: 4px 0 0 0; color: #475569; font-size: 13px; font-weight: 600; }
+          .session-tag { background: #2563eb; color: #fff; padding: 4px 10px; font-size: 11px; border-radius: 4px; font-weight: 700; }
+          .meta-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px 14px; border-radius: 6px; margin-bottom: 16px; font-size: 12px; }
+          .meta-item { display: flex; flex-direction: column; gap: 2px; }
+          .meta-lbl { color: #64748b; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+          .meta-val { color: #0f172a; font-size: 13px; font-weight: 700; }
+          .summary-deck { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 18px; text-align: center; }
+          .deck-box { border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; background: #fff; }
+          .deck-lbl { font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 4px; }
+          .deck-val { font-size: 18px; font-weight: 800; color: #1e3a8a; }
+          .res-pass { color: #16a34a !important; }
+          .marks-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 24px; }
+          .marks-table th { background: #eff6ff; color: #1e3a8a; font-weight: 700; border: 1px solid #cbd5e1; padding: 8px 10px; text-align: left; }
+          .signatures-row { display: flex; justify-content: space-between; margin-top: 40px; font-size: 12px; }
+          .sign-box { text-align: center; width: 180px; }
+          .sign-line { border-bottom: 1px solid #0f172a; margin-bottom: 6px; }
+        </style>
+      </head>
+      <body>
+        <div class="scorecard-paper">
+          <div class="inst-header">
+            <div class="inst-title">
+              <h2>${student.branchName || 'Jnandeep Campus'}</h2>
+              <p class="inst-sub">Official Student Test Performance Scorecard &amp; Results</p>
+            </div>
+            <div>
+              <span class="session-tag">SESSION: ${this.selectedSession}</span>
+            </div>
+          </div>
+
+          <div class="meta-grid">
+            <div class="meta-item"><span class="meta-lbl">Candidate Name</span><span class="meta-val">${student.studentName}</span></div>
+            <div class="meta-item"><span class="meta-lbl">Coaching Roll No</span><span class="meta-val">${student.coachingRollNumber || student.rollNumber || 'N/A'}</span></div>
+            <div class="meta-item"><span class="meta-lbl">Batch / Stream</span><span class="meta-val">${student.batchName || 'General Batch'} ${student.batchSubject ? '(' + student.batchSubject + ')' : ''}</span></div>
+            <div class="meta-item"><span class="meta-lbl">Academic Class</span><span class="meta-val">${student.className || 'General'}</span></div>
+            <div class="meta-item"><span class="meta-lbl">Parent / Guardian</span><span class="meta-val">${student.parentName || student.fatherName || 'N/A'}</span></div>
+            <div class="meta-item"><span class="meta-lbl">Campus / Center</span><span class="meta-val">${student.branchName || 'Main Branch'}</span></div>
+          </div>
+
+          <div class="summary-deck">
+            <div class="deck-box"><span class="deck-lbl">Total Papers</span><span class="deck-val">${summary.totalExams}</span></div>
+            <div class="deck-box"><span class="deck-lbl">Total Score</span><span class="deck-val">${summary.totalMarksObtained} / ${summary.totalMaxMarks}</span></div>
+            <div class="deck-box"><span class="deck-lbl">Overall Percentage</span><span class="deck-val">${summary.overallPercentage}%</span></div>
+            <div class="deck-box"><span class="deck-lbl">Result Status</span><span class="deck-val res-pass">${summary.resultStatus} (${summary.overallGrade})</span></div>
+          </div>
+
+          <table class="marks-table">
+            <thead>
+              <tr>
+                <th style="text-align:center; width:40px;">#</th>
+                <th>Subject Name</th>
+                <th>Exam / Paper</th>
+                <th>Date</th>
+                <th style="text-align:right;">Max</th>
+                <th style="text-align:right;">Pass</th>
+                <th style="text-align:right;">Obtained</th>
+                <th style="text-align:center;">Grade</th>
+                <th style="text-align:center;">Result</th>
+                <th>Remarks</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+
+          <div class="signatures-row">
+            <div class="sign-box">
+              <div class="sign-line"></div>
+              <span>Evaluator / Teacher Signature</span>
+            </div>
+            <div class="sign-box">
+              <div class="sign-line"></div>
+              <span>Center Head / Principal Signature</span>
+            </div>
+          </div>
+        </div>
         <script>
           window.onload = function() { window.print(); };
         </script>

@@ -27,6 +27,7 @@ public class NoticesController : ControllerBase
         [FromQuery] string? targetAudience,
         [FromQuery] string? priority,
         [FromQuery] Guid? classId,
+        [FromQuery] Guid? batchId,
         [FromQuery] bool? isPinned,
         [FromQuery] string? search)
     {
@@ -34,6 +35,7 @@ public class NoticesController : ControllerBase
         var query = _db.SchoolNotices
             .AsNoTracking()
             .Include(n => n.Class)
+            .Include(n => n.Batch)
             .Where(n => n.TenantId == tenantId);
 
         if (_currentUser.BranchId.HasValue)
@@ -53,6 +55,9 @@ public class NoticesController : ControllerBase
 
         if (classId.HasValue && classId.Value != Guid.Empty)
             query = query.Where(n => n.ClassId == classId);
+
+        if (batchId.HasValue && batchId.Value != Guid.Empty)
+            query = query.Where(n => n.BatchId == batchId);
 
         if (isPinned.HasValue)
             query = query.Where(n => n.IsPinned == isPinned.Value);
@@ -80,6 +85,8 @@ public class NoticesController : ControllerBase
                 n.TargetAudience,
                 n.ClassId,
                 n.ClassName ?? (n.Class != null ? n.Class.Name : null),
+                n.BatchId,
+                n.BatchName ?? (n.Batch != null ? n.Batch.Name : null),
                 n.Priority,
                 n.PublishDate,
                 n.ExpiryDate,
@@ -125,6 +132,7 @@ public class NoticesController : ControllerBase
         var n = await _db.SchoolNotices
             .AsNoTracking()
             .Include(x => x.Class)
+            .Include(x => x.Batch)
             .FirstOrDefaultAsync(x => x.Id == id && x.TenantId == tenantId);
 
         if (n == null) return NotFound(new { message = "Notice record not found." });
@@ -140,6 +148,8 @@ public class NoticesController : ControllerBase
             n.TargetAudience,
             n.ClassId,
             n.ClassName ?? (n.Class != null ? n.Class.Name : null),
+            n.BatchId,
+            n.BatchName ?? (n.Batch != null ? n.Batch.Name : null),
             n.Priority,
             n.PublishDate,
             n.ExpiryDate,
@@ -181,6 +191,13 @@ public class NoticesController : ControllerBase
             className = cls?.Name;
         }
 
+        string? batchName = dto.BatchName;
+        if (dto.BatchId.HasValue && string.IsNullOrWhiteSpace(batchName))
+        {
+            var b = await _db.Batches.FirstOrDefaultAsync(x => x.Id == dto.BatchId.Value);
+            batchName = b?.Name;
+        }
+
         var notice = new SchoolNotice
         {
             TenantId = tenantId,
@@ -192,6 +209,8 @@ public class NoticesController : ControllerBase
             TargetAudience = !string.IsNullOrWhiteSpace(dto.TargetAudience) ? dto.TargetAudience : "All",
             ClassId = dto.ClassId,
             ClassName = className,
+            BatchId = dto.BatchId,
+            BatchName = batchName,
             Priority = !string.IsNullOrWhiteSpace(dto.Priority) ? dto.Priority : "Normal",
             PublishDate = dto.PublishDate != default ? dto.PublishDate : now,
             ExpiryDate = dto.ExpiryDate,
@@ -217,6 +236,8 @@ public class NoticesController : ControllerBase
             notice.TargetAudience,
             notice.ClassId,
             notice.ClassName,
+            notice.BatchId,
+            notice.BatchName,
             notice.Priority,
             notice.PublishDate,
             notice.ExpiryDate,
@@ -243,12 +264,21 @@ public class NoticesController : ControllerBase
             className = cls?.Name;
         }
 
+        string? batchName = dto.BatchName;
+        if (dto.BatchId.HasValue && string.IsNullOrWhiteSpace(batchName))
+        {
+            var b = await _db.Batches.FirstOrDefaultAsync(x => x.Id == dto.BatchId.Value);
+            batchName = b?.Name;
+        }
+
         notice.Title = dto.Title.Trim();
         notice.Content = dto.Content.Trim();
         notice.Category = !string.IsNullOrWhiteSpace(dto.Category) ? dto.Category : notice.Category;
         notice.TargetAudience = !string.IsNullOrWhiteSpace(dto.TargetAudience) ? dto.TargetAudience : notice.TargetAudience;
         notice.ClassId = dto.ClassId;
         notice.ClassName = className;
+        notice.BatchId = dto.BatchId;
+        notice.BatchName = batchName;
         notice.Priority = !string.IsNullOrWhiteSpace(dto.Priority) ? dto.Priority : notice.Priority;
         var effectivePubDate = dto.PublishDate != default ? dto.PublishDate : notice.PublishDate;
         if (dto.ExpiryDate.HasValue && dto.ExpiryDate.Value.Date < effectivePubDate.Date)

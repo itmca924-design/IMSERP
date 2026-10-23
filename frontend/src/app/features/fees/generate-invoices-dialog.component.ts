@@ -101,6 +101,8 @@ interface BillingCycleOption {
                 <mat-icon class="hint-icon">auto_awesome</mat-icon>
                 <span *ngIf="isCutoffRolledOver()">
                   Admitted on <strong>{{ data.targetJoiningDate | date:'dd MMM yyyy' }}</strong> (after Day {{ cutoffDay }} Cutoff). First billing begins in <strong>{{ getNextRolledOverMonthName() }}</strong>.
+                  <br>
+                  <small style="color: #1e40af; font-weight: 600;">(एडमिशन {{ cutoffDay }} तारीख कट-ऑफ के बाद हुआ, इसलिए पहली बिलिंग {{ getNextRolledOverMonthName() }} से शुरू होगी।)</small>
                 </span>
                 <span *ngIf="!isCutoffRolledOver()">
                   Starting month auto-filled to <strong>{{ getMonthName(form.get('month')?.value) }} {{ form.get('year')?.value }}</strong> from admission date. Select your billing cycle (Monthly, Quarterly, etc.).
@@ -1261,7 +1263,7 @@ export class GenerateInvoicesDialogComponent implements OnInit {
 
   get filteredCoachingBatches(): any[] {
     if (!this.coachingClassFilter) return this.data.batches || [];
-    return (this.data.batches || []).filter(b => b.classId === this.coachingClassFilter);
+    return (this.data.batches || []).filter(b => b.classId === this.coachingClassFilter || !b.classId);
   }
 
   get isTargetStudent(): boolean { return !!this.data?.targetStudentName; }
@@ -1669,7 +1671,8 @@ export class GenerateInvoicesDialogComponent implements OnInit {
       studentId:    targetStudentId,
       dueDate:      val.dueDate,
       billingCycle: this.selectedCycle,
-      branchId:     this.authService.selectedBranchId() || null
+      branchId:     this.authService.selectedBranchId() || null,
+      autoBillNewAdmissionsFromDoj: true
     }).subscribe({
       next: res => { this.saving = false; this.dialogRef.close(res); },
       error: err => {

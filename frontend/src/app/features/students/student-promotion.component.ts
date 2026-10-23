@@ -28,12 +28,13 @@ import {
   StudentPromotionHistoryDto,
   ConsolidatedStudentResultDto
 } from '../../core/services/school.service';
+import { BatchesService, BatchDto } from '../../core/services/batches.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { SchoolReportCardDialogComponent } from '../school/school-report-card-dialog.component';
 
 interface CandidateRow extends PromotionCandidateDto {
   selected: boolean;
-  resultStatus: 'Promoted' | 'Detained' | 'Passed with Grace' | 'Double Promoted';
+  resultStatus: 'Promoted' | 'Detained' | 'Passed with Grace' | 'Double Promoted' | 'Migrated';
   newRollNumber: string;
   remarks: string;
 }
@@ -87,25 +88,49 @@ interface CandidateRow extends PromotionCandidateDto {
       <!-- Main Tabs -->
       <mat-tab-group animationDuration="200ms" class="styled-tab-group" (selectedTabChange)="onTabChange($event.index)">
         
-        <!-- TAB 1: BULK PROMOTION WORKFLOW -->
+        <!-- TAB 1: BULK PROMOTION / MIGRATION WORKFLOW -->
         <mat-tab>
           <ng-template mat-tab-label>
             <mat-icon class="tab-icon">upgrade</mat-icon>
-            <span>Class Promotion Matrix</span>
+            <span>Transition Matrix</span>
           </ng-template>
 
           <div class="tab-body">
+            <!-- Dual-Mode Scope Switcher (School Class Promotion vs. Coaching Batch Migration) -->
+            <div class="scope-nav-container">
+              <div class="scope-pills">
+                <button type="button" class="scope-pill-btn" [class.active]="currentScope === 'school'" (click)="setScope('school')">
+                  <mat-icon>school</mat-icon>
+                  <span>School Class Promotion</span>
+                </button>
+                <button type="button" class="scope-pill-btn" [class.active]="currentScope === 'coaching'" (click)="setScope('coaching')">
+                  <mat-icon>menu_book</mat-icon>
+                  <span>Coaching Batch Migration / Roll-over</span>
+                </button>
+              </div>
+              <div class="scope-meta-badge" *ngIf="currentScope === 'school'">
+                <mat-icon>auto_awesome</mat-icon>
+                <span>Academic Grade Advancement (Class &rarr; Next Higher Class)</span>
+              </div>
+              <div class="scope-meta-badge" *ngIf="currentScope === 'coaching'">
+                <mat-icon>swap_horiz</mat-icon>
+                <span>Coaching Cohort Roll-over (Batch &rarr; Target Batch)</span>
+              </div>
+            </div>
+
             <!-- Source & Target Selector Card -->
             <mat-card class="matrix-card mat-elevation-z2">
               <div class="matrix-grid">
                 
-                <!-- Left: Source Class (Promote FROM) -->
+                <!-- Left: Source (Promote/Migrate FROM) -->
                 <div class="matrix-panel source-panel">
                   <div class="panel-badge source-badge">
-                    <mat-icon>school</mat-icon>
-                    <span>SOURCE (Current Grade)</span>
+                    <mat-icon>{{ currentScope === 'school' ? 'school' : 'menu_book' }}</mat-icon>
+                    <span>SOURCE ({{ currentScope === 'school' ? 'Current Grade' : 'Current Coaching Batch' }})</span>
                   </div>
-                  <div class="form-row">
+
+                  <!-- School Class Selectors -->
+                  <div class="form-row" *ngIf="currentScope === 'school'">
                     <mat-form-field appearance="outline" class="panel-field">
                       <mat-label>Promote From Class</mat-label>
                       <mat-select [(ngModel)]="fromClassId" (selectionChange)="onFromClassChange($event.value)">
@@ -131,10 +156,38 @@ interface CandidateRow extends PromotionCandidateDto {
                     </mat-form-field>
                   </div>
 
+                  <!-- Coaching Batch Selectors -->
+                  <div class="form-row" *ngIf="currentScope === 'coaching'">
+                    <mat-form-field appearance="outline" class="panel-field">
+                      <mat-label>Source Class (कक्षा)</mat-label>
+                      <mat-select [(ngModel)]="fromCoachingClassId" (selectionChange)="onFromCoachingClassChange()">
+                        <mat-option value="">All Classes (सभी कक्षाएं)</mat-option>
+                        <mat-option *ngFor="let c of classes" [value]="c.id">{{ c.name }}</mat-option>
+                      </mat-select>
+                    </mat-form-field>
+
+                    <mat-form-field appearance="outline" class="panel-field">
+                      <mat-label>Source Coaching Batch</mat-label>
+                      <mat-select [(ngModel)]="fromBatchId" (selectionChange)="onFromBatchChange($event.value)">
+                        <mat-option *ngIf="filteredFromBatches.length === 0" disabled value="">
+                          No Batches in this Class
+                        </mat-option>
+                        <mat-option *ngFor="let b of filteredFromBatches" [value]="b.id">
+                          {{ b.name }} ({{ b.subject || 'All Subjects' }} &bull; {{ b.studentCount || 0 }} Students)
+                        </mat-option>
+                      </mat-select>
+                    </mat-form-field>
+
+                    <mat-form-field appearance="outline" class="panel-field">
+                      <mat-label>Current Academic Session</mat-label>
+                      <input matInput [(ngModel)]="fromAcademicYear" (change)="loadClassExams()" placeholder="e.g. 2025-2026" />
+                    </mat-form-field>
+                  </div>
+
                   <!-- Row 2: Exam Selection & Passing Benchmark -->
                   <div class="form-row exam-config-row">
                     <mat-form-field appearance="outline" class="panel-field exam-select-field">
-                      <mat-label>Evaluation Exam / Assessment</mat-label>
+                      <mat-label>{{ currentScope === 'school' ? 'Evaluation Exam / Assessment' : 'Batch Test / Assessment' }}</mat-label>
                       <mat-select [(ngModel)]="selectedExamId">
                         <mat-option [value]="''">All Session Exams (Aggregate Average)</mat-option>
                         <mat-option *ngFor="let ex of availableExams" [value]="ex.id">
@@ -151,7 +204,7 @@ interface CandidateRow extends PromotionCandidateDto {
 
                   <div class="source-hint">
                     <mat-icon>auto_awesome</mat-icon>
-                    <span>Scores &lt; {{ passingPercentage }}% or absent automatically suggest <strong>Detained (Repeat)</strong>.</span>
+                    <span>Scores &lt; {{ passingPercentage }}% or absent automatically suggest <strong>{{ currentScope === 'school' ? 'Detained (Repeat)' : 'Retained in Batch' }}</strong>.</span>
                   </div>
                 </div>
 
@@ -162,13 +215,15 @@ interface CandidateRow extends PromotionCandidateDto {
                   </div>
                 </div>
 
-                <!-- Right: Target Class (Promote TO) -->
+                <!-- Right: Target (Promote/Migrate TO) -->
                 <div class="matrix-panel target-panel">
                   <div class="panel-badge target-badge">
                     <mat-icon>arrow_forward</mat-icon>
-                    <span>DESTINATION (New Grade)</span>
+                    <span>DESTINATION ({{ currentScope === 'school' ? 'New Grade' : 'Target Coaching Batch' }})</span>
                   </div>
-                  <div class="form-row">
+
+                  <!-- School Destination Fields -->
+                  <div class="form-row" *ngIf="currentScope === 'school'">
                     <mat-form-field appearance="outline" class="panel-field">
                       <mat-label>Promote Into Class</mat-label>
                       <mat-select [(ngModel)]="toClassId" (selectionChange)="onToClassChange($event.value)">
@@ -196,15 +251,47 @@ interface CandidateRow extends PromotionCandidateDto {
                     </mat-form-field>
                   </div>
 
-                  <div class="dest-hint-box">
+                  <!-- Coaching Destination Fields -->
+                  <div class="form-row" *ngIf="currentScope === 'coaching'">
+                    <mat-form-field appearance="outline" class="panel-field">
+                      <mat-label>Target Class (कक्षा)</mat-label>
+                      <mat-select [(ngModel)]="toCoachingClassId" (selectionChange)="onToCoachingClassChange()">
+                        <mat-option value="">All Classes (सभी कक्षाएं)</mat-option>
+                        <mat-option *ngFor="let c of classes" [value]="c.id">{{ c.name }}</mat-option>
+                      </mat-select>
+                    </mat-form-field>
+
+                    <mat-form-field appearance="outline" class="panel-field">
+                      <mat-label>Migrate Into Target Batch</mat-label>
+                      <mat-select [(ngModel)]="toBatchId">
+                        <mat-option *ngIf="destinationBatches.length === 0" disabled value="">
+                          No other coaching batches available
+                        </mat-option>
+                        <mat-option *ngFor="let b of destinationBatches" [value]="b.id">
+                          {{ b.name }} ({{ b.subject || 'Coaching' }})
+                        </mat-option>
+                      </mat-select>
+                    </mat-form-field>
+
+                    <mat-form-field appearance="outline" class="panel-field">
+                      <mat-label>New Academic Session</mat-label>
+                      <input matInput [(ngModel)]="toAcademicYear" placeholder="e.g. 2026-2027" />
+                    </mat-form-field>
+                  </div>
+
+                  <div class="dest-hint-box" *ngIf="currentScope === 'school'">
                     <mat-icon>verified</mat-icon>
                     <span>Promoted students will roll over to <strong>{{ getToClassName() }}</strong> for session <strong>{{ toAcademicYear }}</strong>.</span>
+                  </div>
+                  <div class="dest-hint-box" *ngIf="currentScope === 'coaching'">
+                    <mat-icon>verified</mat-icon>
+                    <span>Migrated students will roll over to <strong>{{ getToBatchName() }}</strong> for session <strong>{{ toAcademicYear }}</strong>.</span>
                   </div>
                 </div>
               </div>
 
               <div class="matrix-footer">
-                <button mat-raised-button color="primary" class="load-candidates-btn" (click)="loadCandidates()" [disabled]="!fromClassId || loadingCandidates">
+                <button mat-raised-button color="primary" class="load-candidates-btn" (click)="loadCandidates()" [disabled]="(currentScope === 'school' && !fromClassId) || (currentScope === 'coaching' && !fromBatchId) || loadingCandidates">
                   <mat-spinner diameter="18" *ngIf="loadingCandidates" class="inline-spinner"></mat-spinner>
                   <mat-icon *ngIf="!loadingCandidates">people_alt</mat-icon>
                   <span>Evaluate &amp; Load Students</span>
@@ -257,13 +344,13 @@ interface CandidateRow extends PromotionCandidateDto {
                     <mat-icon>arrow_drop_down</mat-icon>
                   </button>
                   <mat-menu #statusMenu="matMenu">
-                    <button mat-menu-item (click)="setBulkStatus('Promoted')">
+                    <button mat-menu-item (click)="setBulkStatus(currentScope === 'coaching' ? 'Migrated' : 'Promoted')">
                       <mat-icon style="color:#16a34a">check_circle</mat-icon>
-                      <span>Set All Selected as "Promoted"</span>
+                      <span>Set All Selected as "{{ currentScope === 'coaching' ? 'Migrated' : 'Promoted' }}"</span>
                     </button>
                     <button mat-menu-item (click)="setBulkStatus('Detained')">
                       <mat-icon style="color:#dc2626">highlight_off</mat-icon>
-                      <span>Set All Selected as "Detained (Repeat)"</span>
+                      <span>Set All Selected as "{{ currentScope === 'school' ? 'Detained (Repeat)' : 'Retained in Batch' }}"</span>
                     </button>
                     <button mat-menu-item (click)="setBulkStatus('Passed with Grace')">
                       <mat-icon style="color:#2563eb">verified</mat-icon>
@@ -281,12 +368,12 @@ interface CandidateRow extends PromotionCandidateDto {
                       <tr>
                         <th class="col-chk"></th>
                         <th class="col-student">Student Information</th>
-                        <th class="col-current">Current Grade</th>
-                        <th class="col-exam">Annual Exam Performance</th>
+                        <th class="col-current">{{ currentScope === 'school' ? 'Current Grade' : 'Current Batch' }}</th>
+                        <th class="col-exam">{{ currentScope === 'school' ? 'Annual Exam Performance' : 'Assessment Performance' }}</th>
                         <th class="col-metrics">Attendance &amp; Fees</th>
-                        <th class="col-status">Promotion Decision</th>
-                        <th class="col-dest">Target Grade</th>
-                        <th class="col-newroll">New Sec Roll No</th>
+                        <th class="col-status">{{ currentScope === 'school' ? 'Promotion Decision' : 'Migration Decision' }}</th>
+                        <th class="col-dest">{{ currentScope === 'school' ? 'Target Grade' : 'Target Batch' }}</th>
+                        <th class="col-newroll">{{ currentScope === 'school' ? 'New Sec Roll No' : 'New Batch Roll No' }}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -317,16 +404,21 @@ interface CandidateRow extends PromotionCandidateDto {
                           </div>
                         </td>
 
-                        <!-- Current Grade -->
+                        <!-- Current Grade / Batch -->
                         <td class="col-current">
-                          <div class="grade-badge current-grade">
+                          <div class="grade-badge current-grade" *ngIf="currentScope === 'school'">
                             <span class="grade-name">{{ s.currentClassName }}</span>
                             <span class="grade-sec">{{ s.currentSectionName ? 'Sec ' + s.currentSectionName : '' }}</span>
                             <span class="grade-roll">Roll: <strong>{{ s.schoolRollNumber || s.currentRollNumber }}</strong></span>
                           </div>
+                          <div class="grade-badge current-grade coaching-badge" *ngIf="currentScope === 'coaching'">
+                            <span class="grade-name">{{ s.coachingBatchName || 'Batch' }}</span>
+                            <span class="grade-sec">Coaching Cohort</span>
+                            <span class="grade-roll">Roll: <strong>{{ s.coachingRollNumber || s.currentRollNumber }}</strong></span>
+                          </div>
                         </td>
 
-                        <!-- Annual Exam Performance -->
+                        <!-- Exam / Assessment Performance -->
                         <td class="col-exam">
                           <div class="exam-perf-box" *ngIf="s.examResultStatus && s.examResultStatus !== 'No Exam Record'">
                             <div class="exam-top-row">
@@ -344,7 +436,7 @@ interface CandidateRow extends PromotionCandidateDto {
                             </div>
                           </div>
                           <div class="no-exam-box" *ngIf="!s.examResultStatus || s.examResultStatus === 'No Exam Record'">
-                            <span class="no-exam-chip">No Exam Record</span>
+                            <span class="no-exam-chip">No Record</span>
                           </div>
                         </td>
 
@@ -368,22 +460,27 @@ interface CandidateRow extends PromotionCandidateDto {
 
                         <!-- Status Decision -->
                         <td class="col-status">
-                          <select class="custom-select status-select" [(ngModel)]="s.resultStatus" [class.status-promoted]="s.resultStatus === 'Promoted'" [class.status-detained]="s.resultStatus === 'Detained'" [class.status-grace]="s.resultStatus === 'Passed with Grace'">
-                            <option value="Promoted">Promoted (Pass)</option>
+                          <select class="custom-select status-select" [(ngModel)]="s.resultStatus" [class.status-promoted]="s.resultStatus === 'Promoted' || s.resultStatus === 'Migrated'" [class.status-detained]="s.resultStatus === 'Detained'" [class.status-grace]="s.resultStatus === 'Passed with Grace'">
+                            <option value="Promoted" *ngIf="currentScope === 'school'">Promoted (Pass)</option>
+                            <option value="Migrated" *ngIf="currentScope === 'coaching'">Migrated (Roll-over)</option>
                             <option value="Passed with Grace">Passed with Grace</option>
-                            <option value="Double Promoted">Double Promoted</option>
-                            <option value="Detained">Detained (Repeat)</option>
+                            <option value="Double Promoted" *ngIf="currentScope === 'school'">Double Promoted</option>
+                            <option value="Detained">{{ currentScope === 'school' ? 'Detained (Repeat)' : 'Retained in Batch' }}</option>
                           </select>
                         </td>
 
-                        <!-- Target Grade -->
+                        <!-- Target Grade / Batch -->
                         <td class="col-dest">
-                          <div class="grade-badge target-grade" *ngIf="s.resultStatus !== 'Detained'">
+                          <div class="grade-badge target-grade" *ngIf="s.resultStatus !== 'Detained' && currentScope === 'school'">
                             <span class="grade-name">{{ getToClassName() }}</span>
                             <span class="grade-sec">{{ getToSectionName() }}</span>
                           </div>
+                          <div class="grade-badge target-grade coaching-target" *ngIf="s.resultStatus !== 'Detained' && currentScope === 'coaching'">
+                            <span class="grade-name">{{ getToBatchName() }}</span>
+                            <span class="grade-sec">Target Cohort</span>
+                          </div>
                           <div class="grade-badge detained-grade" *ngIf="s.resultStatus === 'Detained'">
-                            <span>Retain in {{ s.currentClassName }}</span>
+                            <span>Retain in {{ currentScope === 'school' ? s.currentClassName : (s.coachingBatchName || 'Batch') }}</span>
                           </div>
                         </td>
 
@@ -393,7 +490,7 @@ interface CandidateRow extends PromotionCandidateDto {
                             type="text"
                             class="roll-input"
                             [(ngModel)]="s.newRollNumber"
-                            placeholder="Roll No"
+                            [placeholder]="currentScope === 'school' ? 'Roll No' : 'Batch Roll'"
                             [disabled]="s.resultStatus === 'Detained'"
                             [class.input-disabled]="s.resultStatus === 'Detained'"
                           />
@@ -415,16 +512,16 @@ interface CandidateRow extends PromotionCandidateDto {
                   <div class="dock-summary">
                     <span class="dock-stat total">Total: <strong>{{ candidates.length }}</strong></span>
                     <span class="dock-stat selected">Selected: <strong>{{ getSelectedCount() }}</strong></span>
-                    <span class="dock-stat promoted">Promoted: <strong>{{ getPromotedCount() }}</strong></span>
-                    <span class="dock-stat detained">Detained: <strong>{{ getDetainedCount() }}</strong></span>
+                    <span class="dock-stat promoted">{{ currentScope === 'school' ? 'Promoted' : 'Migrated' }}: <strong>{{ getPromotedCount() }}</strong></span>
+                    <span class="dock-stat detained">{{ currentScope === 'school' ? 'Detained' : 'Retained' }}: <strong>{{ getDetainedCount() }}</strong></span>
                   </div>
 
                   <div class="dock-btns">
                     <button mat-button type="button" (click)="candidatesLoaded = false" [disabled]="executing">Reset Selection</button>
-                    <button mat-raised-button color="primary" class="execute-btn" (click)="confirmAndExecutePromotion()" [disabled]="getSelectedCount() === 0 || !toClassId || executing">
+                    <button mat-raised-button color="primary" class="execute-btn" (click)="confirmAndExecutePromotion()" [disabled]="getSelectedCount() === 0 || (currentScope === 'school' ? !toClassId : !toBatchId) || executing">
                       <mat-spinner diameter="18" *ngIf="executing" class="inline-spinner"></mat-spinner>
                       <mat-icon *ngIf="!executing">rocket_launch</mat-icon>
-                      <span>Execute Class Promotion ({{ getSelectedCount() }})</span>
+                      <span>Execute {{ currentScope === 'school' ? 'Class Promotion' : 'Batch Migration' }} ({{ getSelectedCount() }})</span>
                     </button>
                   </div>
                 </div>
@@ -455,12 +552,39 @@ interface CandidateRow extends PromotionCandidateDto {
               <div class="history-filter-bar">
                 <div class="hf-left">
                   <mat-form-field appearance="outline" class="filter-field">
+                    <mat-label>Scope</mat-label>
+                    <mat-select [(ngModel)]="historyFilterScope" (selectionChange)="loadHistory()">
+                      <mat-option [value]="''">All Transitions</mat-option>
+                      <mat-option value="School">School Class Promotions</mat-option>
+                      <mat-option value="Coaching">Coaching Batch Migrations</mat-option>
+                    </mat-select>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline" class="filter-field" *ngIf="historyFilterScope !== 'Coaching'">
                     <mat-label>Filter by Class</mat-label>
                     <mat-select [(ngModel)]="historyFilterClassId" (selectionChange)="loadHistory()">
                       <mat-option [value]="''">All Classes</mat-option>
                       <mat-option *ngFor="let c of classes" [value]="c.id">{{ c.name }}</mat-option>
                     </mat-select>
                   </mat-form-field>
+
+                  <ng-container *ngIf="historyFilterScope === 'Coaching'">
+                    <mat-form-field appearance="outline" class="filter-field">
+                      <mat-label>Filter by Class</mat-label>
+                      <mat-select [(ngModel)]="historyFilterCoachingClassId" (selectionChange)="onHistoryCoachingClassChange()">
+                        <mat-option [value]="''">All Classes</mat-option>
+                        <mat-option *ngFor="let c of classes" [value]="c.id">{{ c.name }}</mat-option>
+                      </mat-select>
+                    </mat-form-field>
+
+                    <mat-form-field appearance="outline" class="filter-field">
+                      <mat-label>Filter by Batch</mat-label>
+                      <mat-select [(ngModel)]="historyFilterBatchId" (selectionChange)="loadHistory()">
+                        <mat-option [value]="''">All Batches</mat-option>
+                        <mat-option *ngFor="let b of filteredHistoryBatches" [value]="b.id">{{ b.name }}</mat-option>
+                      </mat-select>
+                    </mat-form-field>
+                  </ng-container>
 
                   <mat-form-field appearance="outline" class="filter-field">
                     <mat-label>Academic Session</mat-label>
@@ -500,7 +624,12 @@ interface CandidateRow extends PromotionCandidateDto {
                         </div>
                       </td>
                       <td>
-                        <div class="route-badge">
+                        <div class="route-badge" *ngIf="h.scope === 'Coaching' || h.fromBatchName">
+                          <span class="from batch-route">{{ h.fromBatchName || 'Batch' }} [Roll: {{ h.fromRollNumber || '-' }}]</span>
+                          <mat-icon class="arrow">arrow_forward</mat-icon>
+                          <span class="to batch-route">{{ h.toBatchName || 'Batch' }} [Roll: {{ h.toRollNumber || '-' }}]</span>
+                        </div>
+                        <div class="route-badge" *ngIf="h.scope !== 'Coaching' && !h.fromBatchName">
                           <span class="from">{{ h.fromClassName }} {{ h.fromSectionName ? '(' + h.fromSectionName + ')' : '' }} [Roll: {{ h.fromRollNumber || '-' }}]</span>
                           <mat-icon class="arrow">arrow_forward</mat-icon>
                           <span class="to">{{ h.toClassName }} {{ h.toSectionName ? '(' + h.toSectionName + ')' : '' }} [Roll: {{ h.toRollNumber || '-' }}]</span>
@@ -518,7 +647,7 @@ interface CandidateRow extends PromotionCandidateDto {
                         <span *ngIf="h.examPercentage == null" class="text-muted">-</span>
                       </td>
                       <td>
-                        <span class="status-chip" [class.chip-promoted]="h.resultStatus === 'Promoted'" [class.chip-detained]="h.resultStatus === 'Detained'">
+                        <span class="status-chip" [class.chip-promoted]="h.resultStatus === 'Promoted' || h.resultStatus === 'Migrated'" [class.chip-detained]="h.resultStatus === 'Detained'">
                           {{ h.resultStatus }}
                         </span>
                       </td>
@@ -526,10 +655,10 @@ interface CandidateRow extends PromotionCandidateDto {
                         <span class="user-txt">{{ h.promotedBy || 'Admin' }}</span>
                       </td>
                       <td class="text-right">
-                        <button mat-icon-button color="primary" (click)="printPromotionCertificate(h)" matTooltip="Print Official Promotion Certificate">
+                        <button mat-icon-button color="primary" *ngIf="h.scope !== 'Coaching'" (click)="printPromotionCertificate(h)" matTooltip="Print Official Promotion Certificate">
                           <mat-icon>workspace_premium</mat-icon>
                         </button>
-                        <button mat-icon-button color="warn" (click)="revertSingleHistory(h)" matTooltip="Rollback this promotion">
+                        <button mat-icon-button color="warn" (click)="revertSingleHistory(h)" [matTooltip]="h.scope === 'Coaching' ? 'Rollback this batch migration' : 'Rollback this promotion'">
                           <mat-icon>undo</mat-icon>
                         </button>
                       </td>
@@ -1132,6 +1261,89 @@ interface CandidateRow extends PromotionCandidateDto {
       }
     }
 
+    /* Dual-Mode Scope Switcher */
+    .scope-nav-container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 16px;
+      background: #ffffff;
+      padding: 10px 16px;
+      border-radius: 12px;
+      border: 1px solid #e2e8f0;
+
+      .scope-pills {
+        display: inline-flex;
+        background: #f1f5f9;
+        padding: 4px;
+        border-radius: 10px;
+        gap: 6px;
+
+        .scope-pill-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          border: none;
+          background: transparent;
+          color: #64748b;
+          padding: 8px 18px;
+          border-radius: 8px;
+          font-weight: 600;
+          font-size: 0.88rem;
+          cursor: pointer;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+          mat-icon { font-size: 20px; width: 20px; height: 20px; }
+
+          &:hover {
+            color: #1e3a8a;
+            background: rgba(255, 255, 255, 0.6);
+          }
+
+          &.active {
+            background: #ffffff;
+            color: #2563eb;
+            box-shadow: 0 2px 8px rgba(37, 99, 235, 0.16);
+            font-weight: 700;
+          }
+        }
+      }
+
+      .scope-meta-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.82rem;
+        color: #1e40af;
+        background: #eff6ff;
+        padding: 6px 14px;
+        border-radius: 20px;
+        border: 1px solid #bfdbfe;
+        mat-icon { font-size: 16px; width: 16px; height: 16px; color: #2563eb; }
+      }
+    }
+
+    .grade-badge.coaching-badge {
+      background: #eff6ff !important;
+      border-color: #bfdbfe !important;
+      .grade-name { color: #1e40af !important; }
+      .grade-sec { color: #3b82f6 !important; font-size: 0.72rem !important; }
+    }
+
+    .grade-badge.coaching-target {
+      background: #f0fdf4 !important;
+      border-color: #bbf7d0 !important;
+      .grade-name { color: #15803d !important; }
+      .grade-sec { color: #22c55e !important; }
+    }
+
+    .batch-route {
+      color: #2563eb !important;
+      font-weight: 700 !important;
+    }
+
     .route-badge {
       display: inline-flex;
       align-items: center;
@@ -1171,17 +1383,28 @@ interface CandidateRow extends PromotionCandidateDto {
   `]
 })
 export class StudentPromotionComponent implements OnInit {
+  // Scope switcher
+  currentScope: 'school' | 'coaching' = 'school';
+
+  // School entities
   classes: SchoolClassDto[] = [];
   fromSections: SchoolSectionDto[] = [];
   toSections: SchoolSectionDto[] = [];
 
+  // Coaching entities
+  batches: BatchDto[] = [];
+
   // Matrix selections
   fromClassId: string = '';
   fromSectionId: string = '';
+  fromCoachingClassId: string = '';
+  fromBatchId: string = '';
   fromAcademicYear: string = '2025-2026';
 
   toClassId: string = '';
   toSectionId: string = '';
+  toCoachingClassId: string = '';
+  toBatchId: string = '';
   toAcademicYear: string = '2026-2027';
 
   // Exam configuration
@@ -1199,11 +1422,15 @@ export class StudentPromotionComponent implements OnInit {
   // History Tab
   historyItems: StudentPromotionHistoryDto[] = [];
   loadingHistory = false;
+  historyFilterScope = '';
   historyFilterClassId = '';
+  historyFilterCoachingClassId = '';
+  historyFilterBatchId = '';
   historyFilterYear = '';
 
   constructor(
     private schoolService: SchoolService,
+    private batchesService: BatchesService,
     private confirmDialog: ConfirmDialogService,
     private route: ActivatedRoute,
     private dialog: MatDialog
@@ -1214,6 +1441,13 @@ export class StudentPromotionComponent implements OnInit {
     this.route.queryParams.subscribe(params => {
       if (params['fromClassId']) {
         this.fromClassId = params['fromClassId'];
+      }
+      if (params['fromBatchId']) {
+        this.fromBatchId = params['fromBatchId'];
+        this.currentScope = 'coaching';
+      }
+      if (params['scope']) {
+        this.currentScope = params['scope'] === 'coaching' ? 'coaching' : 'school';
       }
       if (params['academicYear']) {
         this.fromAcademicYear = params['academicYear'];
@@ -1233,6 +1467,22 @@ export class StudentPromotionComponent implements OnInit {
     });
 
     this.loadClasses();
+    this.loadBatches();
+  }
+
+  setScope(scope: 'school' | 'coaching'): void {
+    if (this.currentScope === scope) return;
+    this.currentScope = scope;
+    this.candidatesLoaded = false;
+    this.candidates = [];
+    this.selectedExamId = '';
+    if (scope === 'coaching') {
+      if (this.fromClassId && this.batches.some(b => (b.classId || '').toLowerCase() === this.fromClassId.toLowerCase())) {
+        this.fromCoachingClassId = this.fromClassId;
+      }
+      this.onFromCoachingClassChange();
+    }
+    this.loadClassExams();
   }
 
   initDefaultAcademicYears(): void {
@@ -1267,6 +1517,31 @@ export class StudentPromotionComponent implements OnInit {
       .sort((a, b) => this.getClassRank(a) - this.getClassRank(b));
   }
 
+  get filteredFromBatches(): BatchDto[] {
+    if (!this.fromCoachingClassId) {
+      return this.batches;
+    }
+    const target = this.fromCoachingClassId.toLowerCase();
+    return this.batches.filter(b => (b.classId || '').toLowerCase() === target);
+  }
+
+  get destinationBatches(): BatchDto[] {
+    let list = this.batches.filter(b => b.id !== this.fromBatchId);
+    if (this.toCoachingClassId) {
+      const target = this.toCoachingClassId.toLowerCase();
+      list = list.filter(b => (b.classId || '').toLowerCase() === target);
+    }
+    return list;
+  }
+
+  get filteredHistoryBatches(): BatchDto[] {
+    if (!this.historyFilterCoachingClassId) {
+      return this.batches;
+    }
+    const target = this.historyFilterCoachingClassId.toLowerCase();
+    return this.batches.filter(b => (b.classId || '').toLowerCase() === target);
+  }
+
   loadClasses(): void {
     this.schoolService.getClasses(true).subscribe({
       next: (res) => {
@@ -1277,6 +1552,23 @@ export class StudentPromotionComponent implements OnInit {
             this.fromClassId = this.classes[0].id;
           }
           this.onFromClassChange(this.fromClassId);
+        }
+      }
+    });
+  }
+
+  loadBatches(): void {
+    this.batchesService.getBatches().subscribe({
+      next: (res) => {
+        this.batches = res || [];
+        if (this.currentScope === 'coaching') {
+          if (!this.fromCoachingClassId && this.fromClassId && this.batches.some(b => (b.classId || '').toLowerCase() === this.fromClassId.toLowerCase())) {
+            this.fromCoachingClassId = this.fromClassId;
+          }
+          this.onFromCoachingClassChange();
+        } else if (this.batches.length > 0 && !this.fromBatchId) {
+          this.fromBatchId = this.batches[0].id;
+          this.onFromBatchChange(this.fromBatchId);
         }
       }
     });
@@ -1305,13 +1597,86 @@ export class StudentPromotionComponent implements OnInit {
     }
   }
 
+  onFromCoachingClassChange(): void {
+    const available = this.filteredFromBatches;
+    if (available.length > 0) {
+      if (!available.some(b => b.id === this.fromBatchId)) {
+        this.fromBatchId = available[0].id;
+      }
+      this.onFromBatchChange(this.fromBatchId);
+    } else {
+      this.fromBatchId = '';
+      this.candidates = [];
+      this.candidatesLoaded = false;
+    }
+
+    // Auto-suggest next higher class for destination batch
+    if (this.fromCoachingClassId) {
+      const fromCls = this.classes.find(c => c.id === this.fromCoachingClassId);
+      if (fromCls) {
+        const fromRank = this.getClassRank(fromCls);
+        const higher = this.classes.find(c => this.getClassRank(c) > fromRank);
+        if (higher) {
+          this.toCoachingClassId = higher.id;
+          this.onToCoachingClassChange();
+        }
+      }
+    }
+  }
+
+  onToCoachingClassChange(): void {
+    const dests = this.destinationBatches;
+    if (dests.length > 0) {
+      if (!dests.some(b => b.id === this.toBatchId)) {
+        this.toBatchId = dests[0].id;
+      }
+    } else {
+      this.toBatchId = '';
+    }
+  }
+
+  onHistoryCoachingClassChange(): void {
+    const available = this.filteredHistoryBatches;
+    if (available.length > 0) {
+      if (!available.some(b => b.id === this.historyFilterBatchId)) {
+        this.historyFilterBatchId = '';
+      }
+    } else {
+      this.historyFilterBatchId = '';
+    }
+    this.loadHistory();
+  }
+
+  onFromBatchChange(batchId: string): void {
+    this.candidatesLoaded = false;
+    this.selectedExamId = '';
+    const dests = this.destinationBatches;
+    if (dests.length > 0) {
+      if (!dests.some(b => b.id === this.toBatchId)) {
+        this.toBatchId = dests[0].id;
+      }
+    } else {
+      this.toBatchId = '';
+    }
+    this.loadClassExams();
+  }
+
   loadClassExams(): void {
-    if (!this.fromClassId) {
+    if (this.currentScope === 'school' && !this.fromClassId) {
       this.availableExams = [];
       this.selectedExamId = '';
       return;
     }
-    this.schoolService.getClassExams(this.fromClassId, this.fromAcademicYear).subscribe({
+    if (this.currentScope === 'coaching' && !this.fromBatchId) {
+      this.availableExams = [];
+      this.selectedExamId = '';
+      return;
+    }
+
+    const classId = this.currentScope === 'school' ? this.fromClassId : undefined;
+    const batchId = this.currentScope === 'coaching' ? this.fromBatchId : undefined;
+
+    this.schoolService.getClassExams(classId, this.fromAcademicYear, batchId).subscribe({
       next: (exams) => {
         this.availableExams = exams;
         const annual = exams.find(e => e.examType?.toLowerCase().includes('annual') || e.title?.toLowerCase().includes('annual') || e.title?.toLowerCase().includes('final'));
@@ -1347,23 +1712,36 @@ export class StudentPromotionComponent implements OnInit {
   }
 
   loadCandidates(): void {
-    if (!this.fromClassId) return;
+    if (this.currentScope === 'school' && !this.fromClassId) return;
+    if (this.currentScope === 'coaching' && !this.fromBatchId) return;
 
     this.loadingCandidates = true;
+    const fromClassId = this.currentScope === 'school' ? this.fromClassId : undefined;
+    const fromBatchId = this.currentScope === 'coaching' ? this.fromBatchId : undefined;
+    const scope = this.currentScope === 'school' ? 'School' : 'Coaching';
+
     this.schoolService.getPromotionCandidates(
-      this.fromClassId,
+      fromClassId,
       this.fromSectionId || undefined,
       this.fromAcademicYear,
       this.selectedExamId || undefined,
-      this.passingPercentage
+      this.passingPercentage,
+      fromBatchId,
+      scope
     ).subscribe({
       next: (res) => {
         this.loadingCandidates = false;
         let rollCounter = 1;
         this.candidates = res.map((c) => {
-          const autoStatus: 'Promoted' | 'Detained' = (c.suggestedStatus as any) || (c.examResultStatus === 'Failed' || c.examResultStatus === 'Absent' ? 'Detained' : 'Promoted');
+          const autoStatus: 'Promoted' | 'Detained' | 'Migrated' = (c.suggestedStatus as any) ||
+            (c.examResultStatus === 'Failed' || c.examResultStatus === 'Absent'
+              ? 'Detained'
+              : (this.currentScope === 'coaching' ? 'Migrated' : 'Promoted'));
           const isDetained = autoStatus === 'Detained';
-          const roll = isDetained ? (c.schoolRollNumber || c.currentRollNumber || '') : (rollCounter++).toString();
+          const defaultRoll = this.currentScope === 'coaching'
+            ? (c.coachingRollNumber || c.currentRollNumber || '')
+            : (c.schoolRollNumber || c.currentRollNumber || '');
+          const roll = isDetained ? defaultRoll : (rollCounter++).toString();
 
           return {
             ...c,
@@ -1371,7 +1749,7 @@ export class StudentPromotionComponent implements OnInit {
             resultStatus: autoStatus,
             newRollNumber: roll,
             remarks: c.examResultStatus && c.examResultStatus !== 'No Exam Record'
-              ? `Annual Exam: ${c.examResultStatus} (${c.examPercentage || 0}%, Grade: ${c.examGrade || '-'})`
+              ? `Assessment: ${c.examResultStatus} (${c.examPercentage || 0}%, Grade: ${c.examGrade || '-'})`
               : ''
           };
         });
@@ -1379,7 +1757,7 @@ export class StudentPromotionComponent implements OnInit {
       },
       error: (err) => {
         this.loadingCandidates = false;
-        this.confirmDialog.alert('Load Failed', err?.error?.message || 'Failed to load candidates for promotion.', 'danger');
+        this.confirmDialog.alert('Load Failed', err?.error?.message || 'Failed to load candidates.', 'danger');
       }
     });
   }
@@ -1390,7 +1768,8 @@ export class StudentPromotionComponent implements OnInit {
     return this.candidates.filter(c =>
       c.studentName.toLowerCase().includes(term) ||
       c.admissionNumber.toLowerCase().includes(term) ||
-      (c.schoolRollNumber && c.schoolRollNumber.toLowerCase().includes(term))
+      (c.schoolRollNumber && c.schoolRollNumber.toLowerCase().includes(term)) ||
+      (c.coachingRollNumber && c.coachingRollNumber.toLowerCase().includes(term))
     );
   }
 
@@ -1432,7 +1811,9 @@ export class StudentPromotionComponent implements OnInit {
     } else if (mode === 'retain') {
       this.candidates.forEach(c => {
         if (c.resultStatus !== 'Detained') {
-          c.newRollNumber = c.schoolRollNumber || c.currentRollNumber || '';
+          c.newRollNumber = this.currentScope === 'coaching'
+            ? (c.coachingRollNumber || c.currentRollNumber || '')
+            : (c.schoolRollNumber || c.currentRollNumber || '');
         }
       });
     } else if (mode === 'sequential') {
@@ -1445,12 +1826,14 @@ export class StudentPromotionComponent implements OnInit {
     }
   }
 
-  setBulkStatus(status: 'Promoted' | 'Detained' | 'Passed with Grace'): void {
+  setBulkStatus(status: 'Promoted' | 'Detained' | 'Passed with Grace' | 'Migrated'): void {
     this.candidates.forEach(c => {
       if (c.selected) {
         c.resultStatus = status;
         if (status === 'Detained') {
-          c.newRollNumber = c.schoolRollNumber || c.currentRollNumber;
+          c.newRollNumber = this.currentScope === 'coaching'
+            ? (c.coachingRollNumber || c.currentRollNumber || '')
+            : (c.schoolRollNumber || c.currentRollNumber || '');
         }
       }
     });
@@ -1466,6 +1849,11 @@ export class StudentPromotionComponent implements OnInit {
     return sec ? `(Sec ${sec.name})` : '';
   }
 
+  getToBatchName(): string {
+    const b = this.batches.find(x => x.id === this.toBatchId);
+    return b ? b.name : 'Target Batch';
+  }
+
   getInitials(name: string): string {
     if (!name) return 'S';
     return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
@@ -1475,10 +1863,77 @@ export class StudentPromotionComponent implements OnInit {
   confirmAndExecutePromotion(): void {
     const selected = this.candidates.filter(c => c.selected);
     if (selected.length === 0) {
-      this.confirmDialog.alert('No Selection', 'Please select at least one student for promotion.', 'warning');
+      this.confirmDialog.alert('No Selection', 'Please select at least one student for promotion / migration.', 'warning');
       return;
     }
 
+    if (this.currentScope === 'coaching') {
+      const fromBatch = this.batches.find(b => b.id === this.fromBatchId);
+      const toBatch = this.batches.find(b => b.id === this.toBatchId);
+
+      if (!fromBatch || !toBatch) {
+        this.confirmDialog.alert('Selection Error', 'Please select both Source Batch and a Destination Batch.', 'warning');
+        return;
+      }
+
+      if (fromBatch.id === toBatch.id) {
+        this.confirmDialog.alert('Invalid Target', 'Destination batch cannot be the same as the source batch.', 'danger');
+        return;
+      }
+
+      const promotedCnt = this.getPromotedCount();
+      const detainedCnt = this.getDetainedCount();
+
+      this.confirmDialog.confirm(
+        'Confirm Coaching Batch Migration',
+        `Are you sure you want to execute batch migration from "${fromBatch.name}" to "${toBatch.name}"?\n\n` +
+        `• Total Selected: ${selected.length} students\n` +
+        `• Migrated to ${toBatch.name}: ${promotedCnt} students\n` +
+        `• Retained in ${fromBatch.name}: ${detainedCnt} students\n` +
+        `• Target Academic Session: ${this.toAcademicYear}\n\n` +
+        `This will update the students' coaching batch allocations while archiving full transition history.`,
+        'Confirm & Migrate Now',
+        'Cancel',
+        'info'
+      ).subscribe((confirmed) => {
+        if (!confirmed) return;
+
+        this.executing = true;
+        const payload: ExecutePromotionRequestDto = {
+          scope: 'Coaching',
+          fromBatchId: this.fromBatchId,
+          toBatchId: this.toBatchId,
+          fromAcademicYear: this.fromAcademicYear,
+          toAcademicYear: this.toAcademicYear,
+          promotions: selected.map(c => ({
+            studentId: c.studentId,
+            resultStatus: c.resultStatus,
+            newRollNumber: c.newRollNumber,
+            remarks: c.remarks || undefined,
+            examPercentage: c.examPercentage,
+            examTotalMarks: c.examMarksObtained !== undefined && c.examMaxMarks ? `${c.examMarksObtained}/${c.examMaxMarks}` : undefined,
+            examGrade: c.examGrade,
+            examResultStatus: c.examResultStatus
+          }))
+        };
+
+        this.schoolService.executePromotion(payload).subscribe({
+          next: (res) => {
+            this.executing = false;
+            this.confirmDialog.alert('Batch Migration Completed! 🎉', res.message, 'success');
+            this.candidatesLoaded = false;
+            this.loadCandidates();
+          },
+          error: (err) => {
+            this.executing = false;
+            this.confirmDialog.alert('Migration Failed', err?.error?.message || 'Failed to execute batch migration.', 'danger');
+          }
+        });
+      });
+      return;
+    }
+
+    // Standard School Class Promotion
     const fromCls = this.classes.find(c => c.id === this.fromClassId);
     const toCls = this.classes.find(c => c.id === this.toClassId);
 
@@ -1517,6 +1972,7 @@ export class StudentPromotionComponent implements OnInit {
 
       this.executing = true;
       const payload: ExecutePromotionRequestDto = {
+        scope: 'School',
         fromClassId: this.fromClassId,
         fromSectionId: this.fromSectionId || undefined,
         fromAcademicYear: this.fromAcademicYear,
@@ -1561,7 +2017,11 @@ export class StudentPromotionComponent implements OnInit {
     this.loadingHistory = true;
     this.schoolService.getPromotionHistory(
       this.historyFilterClassId || undefined,
-      this.historyFilterYear || undefined
+      this.historyFilterYear || undefined,
+      1,
+      20,
+      this.historyFilterBatchId || undefined,
+      this.historyFilterScope || undefined
     ).subscribe({
       next: (res) => {
         this.loadingHistory = false;
@@ -1574,9 +2034,12 @@ export class StudentPromotionComponent implements OnInit {
   }
 
   revertSingleHistory(h: StudentPromotionHistoryDto): void {
+    const fromName = h.scope === 'Coaching' ? (h.fromBatchName || 'Batch') : h.fromClassName;
+    const actionName = h.scope === 'Coaching' ? 'Batch Migration' : 'Promotion';
+
     this.confirmDialog.danger(
-      'Rollback Promotion',
-      `Are you sure you want to rollback promotion for "${h.studentName}" back to "${h.fromClassName}"?`
+      `Rollback ${actionName}`,
+      `Are you sure you want to rollback ${actionName.toLowerCase()} for "${h.studentName}" back to "${fromName}"?`
     ).subscribe((confirmed) => {
       if (!confirmed) return;
 
@@ -1586,7 +2049,7 @@ export class StudentPromotionComponent implements OnInit {
           this.loadHistory();
         },
         error: (err) => {
-          this.confirmDialog.alert('Rollback Failed', err?.error?.message || 'Failed to revert promotion.', 'danger');
+          this.confirmDialog.alert('Rollback Failed', err?.error?.message || 'Failed to revert record.', 'danger');
         }
       });
     });

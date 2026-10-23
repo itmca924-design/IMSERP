@@ -447,7 +447,8 @@ public record EnrollSchoolStudentInCoachingDto(
     Guid StudentId,
     Guid BatchId,
     string? CoachingRollNumber,
-    decimal? CustomMonthlyFee = null
+    decimal? CustomMonthlyFee = null,
+    DateTime? CoachingJoiningDate = null
 );
 
 public record StudentDto(
@@ -512,6 +513,7 @@ public record StudentDto(
     string? EmergencyContactPhone = null,
     string? PreviousSchoolName = null,
     string? PreviousBoard = null,
+    DateTime? CoachingJoiningDate = null,
     // Portal Login Status
     Guid? UserId = null,
     string? StudentUsername = null,
@@ -629,7 +631,8 @@ public record CreateStudentDto(
     Guid? LinkedSiblingStudentId = null,
     string? SiblingRelationship = null,
     decimal? SiblingDiscountPercent = null,
-    string? SiblingDiscountNotes = null
+    string? SiblingDiscountNotes = null,
+    DateTime? CoachingJoiningDate = null
 );
 
 public record CreateStudentKitItemDto(
@@ -814,7 +817,10 @@ public record BatchDto(
     Guid? ClassId = null,
     Guid? SectionId = null,
     string? SectionName = null,
-    string? ClassName = null
+    string? ClassName = null,
+    Guid? MentorTeacherId = null,
+    string? MentorTeacherName = null,
+    string? MentorTeacherPhone = null
 );
 
 public record CreateBatchDto(
@@ -824,7 +830,12 @@ public record CreateBatchDto(
     decimal StandardMonthlyFee,
     Guid? BranchId = null,
     Guid? RoomId = null,
-    Guid? ClassId = null
+    Guid? ClassId = null,
+    Guid? MentorTeacherId = null
+);
+
+public record AssignBatchMentorDto(
+    Guid? MentorTeacherId
 );
 
 public record FeeInvoiceDto(
@@ -1618,7 +1629,8 @@ public record GenerateMonthlyInvoicesRequestDto(
 public record GenerateMonthlyInvoicesResultDto(
     int GeneratedCount,
     int SkippedCount,
-    string Message
+    string Message,
+    string? MessageHi = null
 );
 
 public record PendingInvoicingStudentDto(
@@ -2808,13 +2820,16 @@ public record StudentPromotionItemDto(
 );
 
 public record ExecutePromotionRequestDto(
-    Guid FromClassId,
+    Guid? FromClassId,
     Guid? FromSectionId,
-    string FromAcademicYear,
-    Guid ToClassId,
+    string? FromAcademicYear,
+    Guid? ToClassId,
     Guid? ToSectionId,
-    string ToAcademicYear,
-    List<StudentPromotionItemDto> Promotions
+    string? ToAcademicYear,
+    List<StudentPromotionItemDto> Promotions,
+    string Scope = "School", // "School" or "Coaching"
+    Guid? FromBatchId = null,
+    Guid? ToBatchId = null
 );
 
 public record PromotionExecutionResultDto(
@@ -2830,14 +2845,14 @@ public record StudentPromotionHistoryDto(
     Guid StudentId,
     string StudentName,
     string AdmissionNumber,
-    Guid FromClassId,
-    string FromClassName,
+    Guid? FromClassId,
+    string? FromClassName,
     Guid? FromSectionId,
     string? FromSectionName,
     string? FromRollNumber,
     string FromAcademicYear,
-    Guid ToClassId,
-    string ToClassName,
+    Guid? ToClassId,
+    string? ToClassName,
     Guid? ToSectionId,
     string? ToSectionName,
     string? ToRollNumber,
@@ -2848,7 +2863,12 @@ public record StudentPromotionHistoryDto(
     string? Remarks,
     decimal? ExamPercentage = null,
     string? ExamTotalMarks = null,
-    string? ExamGrade = null
+    string? ExamGrade = null,
+    string Scope = "School",
+    Guid? FromBatchId = null,
+    string? FromBatchName = null,
+    Guid? ToBatchId = null,
+    string? ToBatchName = null
 );
 
 // ─── School Examination & Marks Entry DTOs ──────────────────────
@@ -4361,7 +4381,9 @@ public record DailyStudentDiaryRowDto(
     string? Remarks,
     Guid? DiaryId,
     string AttendanceStatus = "Present",
-    string? ParentWhatsAppPhone = null
+    string? ParentWhatsAppPhone = null,
+    Guid? BatchId = null,
+    string? BatchName = null
 );
 
 public record DailyDiaryWhatsAppStudentDispatchItem(
@@ -4376,7 +4398,8 @@ public record DailyDiaryWhatsAppDispatchRequestDto(
     DateTime DiaryDate,
     Guid? ClassId,
     Guid? SectionId,
-    List<DailyDiaryWhatsAppStudentDispatchItem> Items
+    List<DailyDiaryWhatsAppStudentDispatchItem> Items,
+    Guid? BatchId = null
 );
 
 public record DailyDiaryWhatsAppDispatchResultDto(
@@ -4401,7 +4424,8 @@ public record BulkSaveDailyStudentDiaryDto(
     DateTime DiaryDate,
     Guid? ClassId,
     Guid? SectionId,
-    List<DailyStudentDiarySaveItemDto> Items
+    List<DailyStudentDiarySaveItemDto> Items,
+    Guid? BatchId = null
 );
 
 public record DailyDiaryReportHeaderDto(
@@ -4414,7 +4438,8 @@ public record DailyDiaryReportHeaderDto(
     List<DailyStudentDiaryRowDto> Rows,
     string? ClassTeacherName = null,
     DateTime? PreviousHwDate = null,
-    List<HwPreviousRowDto>? PreviousHw = null
+    List<HwPreviousRowDto>? PreviousHw = null,
+    string? BatchName = null
 );
 
 /// <summary>Previous diary day's H.W. points of one student with their check status (shown on the next report).</summary>
@@ -4550,7 +4575,8 @@ public record DailyBehaviourReportHeaderDto(
     int TotalStudents = 0,
     int PresentStudents = 0,
     int FiveStarStudents = 0,
-    int AttentionNeededCount = 0
+    int AttentionNeededCount = 0,
+    string? BatchName = null
 );
 
 public record DailyBehaviourWhatsAppStudentDispatchItem(
@@ -4636,7 +4662,8 @@ public record MonthlyPerformanceReportHeaderDto(
     decimal ClassAverageHwRate,
     decimal ClassAverageBehaviourStars,
     decimal ClassAverageTestScore,
-    List<MonthlyStudentPerformanceRowDto> Rows
+    List<MonthlyStudentPerformanceRowDto> Rows,
+    string? BatchName = null
 );
 
 public record SaveMonthlyTeacherRemarksItemDto(
@@ -4889,6 +4916,8 @@ public record SchoolNoticeDto(
     string TargetAudience,
     Guid? ClassId,
     string? ClassName,
+    Guid? BatchId,
+    string? BatchName,
     string Priority,
     DateTime PublishDate,
     DateTime? ExpiryDate,
@@ -4907,6 +4936,8 @@ public record CreateSchoolNoticeDto(
     string TargetAudience,
     Guid? ClassId,
     string? ClassName,
+    Guid? BatchId,
+    string? BatchName,
     string Priority,
     DateTime PublishDate,
     DateTime? ExpiryDate,
@@ -4921,6 +4952,8 @@ public record UpdateSchoolNoticeDto(
     string TargetAudience,
     Guid? ClassId,
     string? ClassName,
+    Guid? BatchId,
+    string? BatchName,
     string Priority,
     DateTime PublishDate,
     DateTime? ExpiryDate,
@@ -4971,7 +5004,10 @@ public record StudentLeaveDto(
     string? CancellationReviewedBy = null,
     DateTime? CancellationReviewedAt = null,
     string? CancellationReviewRemarks = null,
-    bool? IsCancellationApproved = null
+    bool? IsCancellationApproved = null,
+    Guid? BatchId = null,
+    string? BatchName = null,
+    string? CoachingRollNumber = null
 );
 
 public record CreateStudentLeaveDto(
@@ -5080,7 +5116,8 @@ public record StudentDetail360Dto(
     string? EmergencyContactPhone,
     string? PreviousSchoolName,
     string? PreviousBoard,
-    string? BranchName
+    string? BranchName,
+    DateTime? CoachingJoiningDate = null
 );
 
 public record StudentSibling360Dto(
@@ -5754,7 +5791,10 @@ public record StudentMyExamItemDto(
     string? Remarks,
     int? Rank,
     int DaysRemaining,
-    string? EvaluatorTeacherName
+    string? EvaluatorTeacherName,
+    string Category = "School",
+    string? BatchName = null,
+    string? ClassName = null
 );
 
 public record StudentExamPerformanceSummaryDto(
@@ -5788,7 +5828,12 @@ public record StudentMyInfoSummaryDto(
     string? FatherName,
     string? MotherName,
     string? Gender,
-    DateTime? DateOfBirth
+    DateTime? DateOfBirth,
+    bool IsSchoolStudent = true,
+    bool IsCoachingStudent = false,
+    string? CoachingRollNumber = null,
+    Guid? BatchId = null,
+    string? BatchSubject = null
 );
 
 public record StudentMyExamsDto(

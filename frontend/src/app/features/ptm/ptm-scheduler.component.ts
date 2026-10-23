@@ -1,6 +1,6 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, FormGroup, ReactiveFormsModule, FormsModule, Validators } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -29,6 +29,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
   imports: [
     CommonModule,
     ReactiveFormsModule,
+    FormsModule,
     MatDialogModule,
     MatButtonModule,
     MatIconModule,
@@ -119,11 +120,20 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             </mat-select>
           </mat-form-field>
 
+          <!-- Academic Class for Coaching Mode -->
+          <mat-form-field appearance="outline" *ngIf="form.get('divisionScope')?.value === 'Coaching'">
+            <mat-label>Academic Class (कक्षा)</mat-label>
+            <mat-select [(ngModel)]="coachingClassId" [ngModelOptions]="{standalone: true}" (selectionChange)="onCoachingClassChange($event.value)">
+              <mat-option value="">All Academic Classes</mat-option>
+              <mat-option *ngFor="let c of classes" [value]="c.id">{{ c.name }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+
           <mat-form-field appearance="outline" *ngIf="form.get('divisionScope')?.value === 'Coaching'">
             <mat-label>Target Coaching Batch</mat-label>
             <mat-select formControlName="targetBatchId" (selectionChange)="onBatchChange($event.value)">
               <mat-option [value]="null">All Coaching Batches</mat-option>
-              <mat-option *ngFor="let b of batches" [value]="b.id">{{ b.name }} ({{ b.subject }}){{ b.className ? ' [' + b.className + ']' : '' }}</mat-option>
+              <mat-option *ngFor="let b of filteredBatches" [value]="b.id">{{ b.name }} ({{ b.subject }}){{ b.className ? ' [' + b.className + ']' : '' }}</mat-option>
             </mat-select>
           </mat-form-field>
 
@@ -207,7 +217,24 @@ export class CreatePtmSessionDialogComponent implements OnInit {
   form!: FormGroup;
   classes: any[] = [];
   batches: any[] = [];
+  coachingClassId = '';
   isSaving = false;
+
+  get filteredBatches(): any[] {
+    if (!this.coachingClassId) return this.batches;
+    return this.batches.filter(b => (b.classId || '').toLowerCase() === this.coachingClassId.toLowerCase());
+  }
+
+  onCoachingClassChange(classId: string) {
+    this.coachingClassId = classId;
+    const currentBatchId = this.form.get('targetBatchId')?.value;
+    if (currentBatchId) {
+      const stillValid = this.filteredBatches.some(b => (b.id || '').toLowerCase() === currentBatchId.toLowerCase());
+      if (!stillValid) {
+        this.form.patchValue({ targetBatchId: null, targetBatchName: 'All Coaching Batches' });
+      }
+    }
+  }
 
   ngOnInit() {
     const s = this.data.session;
@@ -243,7 +270,15 @@ export class CreatePtmSessionDialogComponent implements OnInit {
 
   loadBatches() {
     this.coachingService.getBatches().subscribe({
-      next: (res: any[]) => { this.batches = res || []; },
+      next: (res: any[]) => {
+        this.batches = res || [];
+        if (this.data?.session?.targetBatchId) {
+          const match = this.batches.find(x => x.id === this.data.session.targetBatchId);
+          if (match?.classId) {
+            this.coachingClassId = match.classId;
+          }
+        }
+      },
       error: () => {}
     });
   }
@@ -505,7 +540,7 @@ export class RecordPtmFeedbackDialogComponent implements OnInit {
             <input matInput [matAutocomplete]="autoStudent" [formControl]="searchControl" placeholder="Type student name..." />
             <mat-autocomplete #autoStudent="matAutocomplete" (optionSelected)="onStudentSelected($event.option.value)">
               <mat-option *ngFor="let s of studentResults" [value]="s">
-                {{ s.studentName }} &bull; Roll: {{ s.admissionNumber || s.rollNumber }} ({{ s.gradeClass || 'Class' }})
+                {{ s.studentName }} &bull; Roll: {{ s.coachingRollNumber || s.admissionNumber || s.rollNumber }} ({{ s.batchName ? s.batchName : (s.gradeClass || 'Class') }})
               </mat-option>
             </mat-autocomplete>
           </mat-form-field>
@@ -514,7 +549,8 @@ export class RecordPtmFeedbackDialogComponent implements OnInit {
         <div *ngIf="selectedStudent" class="selected-student-box">
           <div class="student-name">{{ selectedStudent.studentName }}</div>
           <div class="student-details">
-            Admission #: {{ selectedStudent.admissionNumber || selectedStudent.rollNumber }} &bull;
+            Roll / Adm #: {{ selectedStudent.coachingRollNumber || selectedStudent.admissionNumber || selectedStudent.rollNumber }} &bull;
+            Batch / Class: <strong>{{ selectedStudent.batchName || selectedStudent.gradeClass || 'General' }}</strong> &bull;
             Parent: {{ selectedStudent.parentName || 'Parent' }} ({{ selectedStudent.parentWhatsAppPhone || 'N/A' }})
           </div>
         </div>
@@ -647,6 +683,7 @@ export class AddPtmBookingDialogComponent implements OnInit {
   imports: [
     CommonModule,
     ReactiveFormsModule,
+    FormsModule,
     RouterModule,
     MatCardModule,
     MatIconModule,
@@ -773,10 +810,27 @@ export class AddPtmBookingDialogComponent implements OnInit {
 
             <mat-form-field appearance="outline" class="filter-field">
               <mat-label>Division / Stream</mat-label>
-              <mat-select formControlName="divisionScope" (selectionChange)="onFilterChanged()">
+              <mat-select formControlName="divisionScope" (selectionChange)="onDivisionScopeChanged()">
                 <mat-option value="All">All Streams (School & Coaching)</mat-option>
                 <mat-option value="School">School Academic Classes</mat-option>
                 <mat-option value="Coaching">Coaching Batches</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <!-- Academic Class Filter (when Coaching) -->
+            <mat-form-field appearance="outline" class="filter-field" *ngIf="filterForm.get('divisionScope')?.value === 'Coaching'">
+              <mat-label>Academic Class (कक्षा)</mat-label>
+              <mat-select [(ngModel)]="filterCoachingClassId" [ngModelOptions]="{standalone: true}" (selectionChange)="onFilterCoachingClassChanged()">
+                <mat-option value="">All Academic Classes</mat-option>
+                <mat-option *ngFor="let c of classes" [value]="c.id">{{ c.name }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="filter-field" *ngIf="filterForm.get('divisionScope')?.value === 'Coaching'">
+              <mat-label>Target Coaching Batch</mat-label>
+              <mat-select formControlName="targetBatchId" (selectionChange)="onFilterChanged()">
+                <mat-option [value]="null">All Coaching Batches</mat-option>
+                <mat-option *ngFor="let b of filteredBatches" [value]="b.id">{{ b.name }} ({{ b.subject }}){{ b.className ? ' [' + b.className + ']' : '' }}</mat-option>
               </mat-select>
             </mat-form-field>
 
@@ -1336,6 +1390,8 @@ export class AddPtmBookingDialogComponent implements OnInit {
 export class PtmSchedulerComponent implements OnInit {
   private ptmService = inject(PtmService);
   private branchService = inject(BranchService);
+  private coachingService = inject(CoachingService);
+  private schoolService = inject(SchoolService);
   private authService = inject(AuthService);
   private fb = inject(FormBuilder);
   private dialog = inject(MatDialog);
@@ -1343,6 +1399,9 @@ export class PtmSchedulerComponent implements OnInit {
 
   filterForm!: FormGroup;
   branches: Branch[] = [];
+  batches: any[] = [];
+  classes: any[] = [];
+  filterCoachingClassId = '';
   stats: PtmStats | null = null;
   sessions: PtmSession[] = [];
   bookings: PtmBooking[] = [];
@@ -1350,6 +1409,22 @@ export class PtmSchedulerComponent implements OnInit {
   selectedSessionId: string | null = null;
   activeTabIndex = 0;
   isLoading = false;
+
+  get filteredBatches(): any[] {
+    if (!this.filterCoachingClassId) return this.batches;
+    return this.batches.filter(b => (b.classId || '').toLowerCase() === this.filterCoachingClassId.toLowerCase());
+  }
+
+  onFilterCoachingClassChanged() {
+    const currentBatchId = this.filterForm.get('targetBatchId')?.value;
+    if (currentBatchId) {
+      const stillValid = this.filteredBatches.some(b => (b.id || '').toLowerCase() === currentBatchId.toLowerCase());
+      if (!stillValid) {
+        this.filterForm.patchValue({ targetBatchId: null }, { emitEvent: false });
+      }
+    }
+    this.onFilterChanged();
+  }
 
   displayedSessionColumns: string[] = ['title', 'dateTime', 'mode', 'organizer', 'turnout', 'status', 'actions'];
   displayedBookingColumns: string[] = ['student', 'parent', 'slot', 'attendance', 'feedback', 'followUp', 'actions'];
@@ -1362,10 +1437,13 @@ export class PtmSchedulerComponent implements OnInit {
       status: ['All'],
       academicYear: ['All'],
       divisionScope: ['All'],
+      targetBatchId: [null],
       searchTerm: ['']
     });
 
     this.loadBranches();
+    this.loadClasses();
+    this.loadBatches();
     this.loadStats();
     this.loadSessions();
   }
@@ -1377,9 +1455,25 @@ export class PtmSchedulerComponent implements OnInit {
     });
   }
 
+  loadClasses() {
+    this.schoolService.getClasses(true).subscribe({
+      next: (res: any[]) => { this.classes = res || []; },
+      error: () => {}
+    });
+  }
+
+  loadBatches() {
+    this.coachingService.getBatches().subscribe({
+      next: (res: any[]) => { this.batches = res || []; },
+      error: () => {}
+    });
+  }
+
   loadStats() {
     const branchId = this.filterForm.value.branchId === 'ALL' ? null : this.filterForm.value.branchId;
-    this.ptmService.getStats(branchId).subscribe({
+    const divisionScope = this.filterForm.value.divisionScope;
+    const targetBatchId = this.filterForm.value.targetBatchId;
+    this.ptmService.getStats(branchId, divisionScope, targetBatchId).subscribe({
       next: (res) => { this.stats = res; },
       error: () => {}
     });
@@ -1393,6 +1487,7 @@ export class PtmSchedulerComponent implements OnInit {
       status: this.filterForm.value.status,
       academicYear: this.filterForm.value.academicYear,
       divisionScope: this.filterForm.value.divisionScope,
+      targetBatchId: this.filterForm.value.targetBatchId,
       searchTerm: this.filterForm.value.searchTerm
     };
 
@@ -1414,16 +1509,26 @@ export class PtmSchedulerComponent implements OnInit {
     });
   }
 
+  onDivisionScopeChanged() {
+    if (this.filterForm.value.divisionScope !== 'Coaching') {
+      this.filterCoachingClassId = '';
+      this.filterForm.patchValue({ targetBatchId: null }, { emitEvent: false });
+    }
+    this.onFilterChanged();
+  }
+
   onFilterChanged() {
     this.loadStats();
     this.loadSessions();
   }
 
   resetFilters() {
+    this.filterCoachingClassId = '';
     this.filterForm.patchValue({
       status: 'All',
       academicYear: 'All',
       divisionScope: 'All',
+      targetBatchId: null,
       searchTerm: ''
     });
     this.onFilterChanged();

@@ -332,8 +332,8 @@ public class AutomationService : IAutomationService
             if (overdueDays <= 0) continue;
 
             var computedFine = overdueDays * rate;
-            var lateItem = inv.Items.FirstOrDefault(it => it.HeadName.Contains("Late Fee Fine", StringComparison.OrdinalIgnoreCase) ||
-                                                          it.HeadName.Contains("Late Fee Surcharge", StringComparison.OrdinalIgnoreCase));
+            var lateItem = inv.Items.FirstOrDefault(it => it.Description == "LateFeeFine" ||
+                                                          it.HeadName.Contains("Late Fee", StringComparison.OrdinalIgnoreCase));
 
             if (lateItem == null)
             {
@@ -343,6 +343,7 @@ public class AutomationService : IAutomationService
                     TenantId = tenantId,
                     InvoiceId = inv.Id,
                     HeadName = $"Late Fee Fine ({overdueDays} days past grace)",
+                    Description = "LateFeeFine",
                     Amount = computedFine,
                     PaidAmount = 0,
                     CreatedAt = DateTime.UtcNow
@@ -553,8 +554,8 @@ public class AutomationService : IAutomationService
                         (s.ClassId.HasValue && cfs.ClassId == s.ClassId.Value && cfs.FeeHead != null && (cfs.FeeHead.ApplicableTo == "Coaching" || cfs.FeeHead.ApplicableTo == "Both"))
                     )
                     .Where(cfs => cfs.FeeHead == null || 
-                                  (cfs.FeeHead.ApplicableTo != "School" && 
-                                   !cfs.FeeHead.Name.Contains("School", StringComparison.OrdinalIgnoreCase)))
+                                  cfs.FeeHead.ApplicableTo == "Coaching" || 
+                                  cfs.FeeHead.ApplicableTo == "Both")
                     .GroupBy(cfs => cfs.FeeHeadId)
                     .Select(g => g.OrderByDescending(cfs => cfs.BatchId.HasValue ? 1 : 0).First())
                     .ToList();
@@ -589,7 +590,8 @@ public class AutomationService : IAutomationService
                         FeeHeadId = head.FeeHeadId,
                         HeadName = head.FeeHead?.Name ?? "Fee Head",
                         Amount = headAmount,
-                        PaidAmount = 0
+                        PaidAmount = 0,
+                        Description = head.BatchId.HasValue ? $"Coaching:{head.FeeHeadId}" : $"School:{head.FeeHeadId}"
                     });
                 }
             }
@@ -638,7 +640,9 @@ public class AutomationService : IAutomationService
             }
 
             // Dual enrollment check: coaching fee
-            bool hasCoachingHead = invoiceItems.Any(i => i.HeadName.Contains("Coaching", StringComparison.OrdinalIgnoreCase));
+            bool hasCoachingHead = invoiceItems.Any(i => 
+                (i.Description != null && i.Description.StartsWith("Coaching:")) ||
+                (coachFeeHead != null && i.FeeHeadId == coachFeeHead.Id));
             if (s.BatchId.HasValue && !hasCoachingHead && (s.Batch?.StandardMonthlyFee ?? 0) > 0)
             {
                 var coachingRate = s.Batch?.StandardMonthlyFee ?? 0;
@@ -651,13 +655,16 @@ public class AutomationService : IAutomationService
                         FeeHeadId = coachFeeHead?.Id,
                         HeadName = coachFeeHead?.Name ?? "Coaching Fee",
                         Amount = coachingRate,
-                        PaidAmount = 0
+                        PaidAmount = 0,
+                        Description = $"Coaching:{coachFeeHead?.Id}"
                     });
                 }
             }
 
             // Dual enrollment check: school tuition
-            bool hasSchoolHead = invoiceItems.Any(i => i.HeadName.Contains("Tuition", StringComparison.OrdinalIgnoreCase) || i.HeadName.Contains("School", StringComparison.OrdinalIgnoreCase));
+            bool hasSchoolHead = invoiceItems.Any(i => 
+                (i.Description != null && i.Description.StartsWith("School:")) ||
+                (tuiFeeHead != null && i.FeeHeadId == tuiFeeHead.Id));
             if (s.IsSchoolStudent && s.ClassId.HasValue && !hasSchoolHead)
             {
                 var schoolRate = 2500m;
@@ -668,7 +675,8 @@ public class AutomationService : IAutomationService
                     FeeHeadId = tuiFeeHead?.Id,
                     HeadName = tuiFeeHead?.Name ?? "School Tuition Fee",
                     Amount = schoolRate,
-                    PaidAmount = 0
+                    PaidAmount = 0,
+                    Description = $"School:{tuiFeeHead?.Id}"
                 });
             }
 

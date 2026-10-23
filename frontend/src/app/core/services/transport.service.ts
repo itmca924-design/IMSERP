@@ -412,6 +412,7 @@ export class TransportService {
     classId?: string;
     sectionId?: string;
     batchId?: string;
+    cohortScope?: string;
     routeId?: string;
     status?: string;
     search?: string;
@@ -425,6 +426,7 @@ export class TransportService {
     if (params.classId) httpParams = httpParams.set('classId', params.classId);
     if (params.sectionId) httpParams = httpParams.set('sectionId', params.sectionId);
     if (params.batchId) httpParams = httpParams.set('batchId', params.batchId);
+    if (params.cohortScope) httpParams = httpParams.set('cohortScope', params.cohortScope);
     if (params.routeId) httpParams = httpParams.set('routeId', params.routeId);
     if (params.status) httpParams = httpParams.set('status', params.status);
     if (params.search) httpParams = httpParams.set('search', params.search);

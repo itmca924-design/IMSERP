@@ -344,8 +344,11 @@ export interface BatchDto {
   standardMonthlyFee: number; studentCount: number;
   category?: 'Coaching' | 'School';
   classId?: string;
+  className?: string;
   sectionId?: string;
   sectionName?: string;
+  roomId?: string;
+  roomNumber?: string;
 }
 
 export interface SubjectDto {

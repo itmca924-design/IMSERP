@@ -215,6 +215,7 @@ export interface GenerateInvoicesResult {
   generatedCount: number;
   skippedCount: number;
   message: string;
+  messageHi?: string;
 }
 
 export interface PendingInvoicingStudent {

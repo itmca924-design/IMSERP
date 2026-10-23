@@ -17,6 +17,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 
 import { AuthService } from '../../core/services/auth.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
+import { BatchesService, BatchDto } from '../../core/services/batches.service';
 import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.directive';
 import { environment } from '../../../environments/environment';
 
@@ -51,6 +52,7 @@ export interface DailyBehaviourReportHeader {
   recordDate: string;
   className?: string;
   sectionName?: string;
+  batchName?: string;
   rows: DailyStudentBehaviourRow[];
   classTeacherName?: string;
   totalStudents: number;
@@ -120,6 +122,35 @@ export interface DailyBehaviourReportHeader {
         </div>
       </div>
 
+      <!-- Scope Switcher Pill Tabs -->
+      <div class="scope-nav-container">
+        <div class="scope-pills">
+          <button
+            type="button"
+            class="scope-pill-btn"
+            [class.active]="targetScope === 'school'"
+            (click)="setScope('school')">
+            <mat-icon>school</mat-icon>
+            <span>School Classes (स्कूल कक्षाएं)</span>
+          </button>
+
+          <button
+            type="button"
+            class="scope-pill-btn"
+            [class.active]="targetScope === 'coaching'"
+            (click)="setScope('coaching')">
+            <mat-icon>groups</mat-icon>
+            <span>Coaching Batches (कोचिंग बैचेस)</span>
+          </button>
+        </div>
+
+        <div class="scope-meta-badge">
+          <mat-icon>verified</mat-icon>
+          <span *ngIf="targetScope === 'school'">Scope: <strong>School Class Good Manners Diary</strong></span>
+          <span *ngIf="targetScope === 'coaching'">Scope: <strong>Coaching Batch Conduct &amp; Ethics</strong></span>
+        </div>
+      </div>
+
       <!-- Reactive Filter & Actions Deck -->
       <mat-card class="filter-card">
         <form [formGroup]="filterForm" class="filter-form-row">
@@ -128,22 +159,48 @@ export interface DailyBehaviourReportHeader {
             <input matInput type="date" formControlName="date" (change)="loadBehaviourList()">
           </mat-form-field>
 
-          <mat-form-field appearance="outline" class="filter-control class-control" subscriptSizing="dynamic">
-            <mat-label>Select Class (कक्षा) *</mat-label>
-            <mat-select formControlName="classId" (selectionChange)="onClassChange()">
-              <mat-option *ngFor="let c of classes" [value]="c.id">
-                {{c.name}}
-              </mat-option>
-            </mat-select>
-          </mat-form-field>
+          <!-- School Scope Dropdowns -->
+          <ng-container *ngIf="targetScope === 'school'">
+            <mat-form-field appearance="outline" class="filter-control class-control" subscriptSizing="dynamic">
+              <mat-label>Select Class (कक्षा) *</mat-label>
+              <mat-select formControlName="classId" (selectionChange)="onClassChange()">
+                <mat-option *ngFor="let c of classes" [value]="c.id">
+                  {{c.name}}
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
 
-          <mat-form-field appearance="outline" class="filter-control section-control" *ngIf="sections.length > 0" subscriptSizing="dynamic">
-            <mat-label>Section (वर्ग)</mat-label>
-            <mat-select formControlName="sectionId" (selectionChange)="loadBehaviourList()">
-              <mat-option value="">All Sections</mat-option>
-              <mat-option *ngFor="let s of sections" [value]="s.id">{{s.name}}</mat-option>
-            </mat-select>
-          </mat-form-field>
+            <mat-form-field appearance="outline" class="filter-control section-control" *ngIf="sections.length > 0" subscriptSizing="dynamic">
+              <mat-label>Section (वर्ग)</mat-label>
+              <mat-select formControlName="sectionId" (selectionChange)="loadBehaviourList()">
+                <mat-option value="">All Sections</mat-option>
+                <mat-option *ngFor="let s of sections" [value]="s.id">{{s.name}}</mat-option>
+              </mat-select>
+            </mat-form-field>
+          </ng-container>
+
+          <!-- Coaching Scope Dropdowns -->
+          <ng-container *ngIf="targetScope === 'coaching'">
+            <mat-form-field appearance="outline" class="filter-control class-control" subscriptSizing="dynamic">
+              <mat-label>Academic Class Filter</mat-label>
+              <mat-select formControlName="coachingClassId" (selectionChange)="onCoachingClassChange()">
+                <mat-option value="">All Classes (सभी कक्षाएं)</mat-option>
+                <mat-option *ngFor="let c of classes" [value]="c.id">{{c.name}}</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="filter-control batch-control" subscriptSizing="dynamic">
+              <mat-label>Select Coaching Batch *</mat-label>
+              <mat-select formControlName="batchId" (selectionChange)="onBatchChange()">
+                <mat-option *ngIf="filteredBatches.length === 0" disabled value="">
+                  No Batches Found
+                </mat-option>
+                <mat-option *ngFor="let b of filteredBatches" [value]="b.id">
+                  {{b.name}} <span *ngIf="b.subject || b.courseName">({{b.subject || b.courseName}})</span>
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
+          </ng-container>
 
           <div class="deck-actions-group">
             <button mat-stroked-button class="quick-all-good-btn" type="button" (click)="setAllGoodManners()" [disabled]="students.length === 0">
@@ -449,6 +506,64 @@ export interface DailyBehaviourReportHeader {
       height: 40px;
       border-color: #cbd5e1;
       color: #334155;
+    }
+
+    /* Scope Switcher */
+    .scope-nav-container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      background: #ffffff;
+      padding: 10px 16px;
+      border-radius: 10px;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+    }
+    .scope-pills {
+      display: flex;
+      gap: 8px;
+    }
+    .scope-pill-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 18px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      border: 1px solid #e2e8f0;
+      background: #f8fafc;
+      color: #64748b;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .scope-pill-btn:hover {
+      background: #f1f5f9;
+      color: #1e293b;
+    }
+    .scope-pill-btn.active {
+      background: #eff6ff;
+      border-color: #3b82f6;
+      color: #1d4ed8;
+      box-shadow: 0 2px 4px rgba(37, 99, 235, 0.12);
+    }
+    .scope-meta-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: #059669;
+      background: #ecfdf5;
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid #a7f3d0;
+    }
+    .scope-meta-badge mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
     }
 
     /* Filter Card */
@@ -922,11 +1037,15 @@ export class GoodMannersComponent implements OnInit {
   private http = inject(HttpClient);
   private dialog = inject(MatDialog);
   private confirmDialog = inject(ConfirmDialogService);
+  private batchesService = inject(BatchesService);
   public authService = inject(AuthService);
 
   filterForm!: FormGroup;
+  targetScope: 'school' | 'coaching' = 'school';
   classes: any[] = [];
   sections: any[] = [];
+  batches: BatchDto[] = [];
+  filteredBatches: BatchDto[] = [];
   students: DailyStudentBehaviourRow[] = [];
   loading = false;
   saving = false;
@@ -954,10 +1073,13 @@ export class GoodMannersComponent implements OnInit {
     this.filterForm = this.fb.group({
       date: [today],
       classId: [''],
-      sectionId: ['']
+      sectionId: [''],
+      coachingClassId: [''],
+      batchId: ['']
     });
 
     this.loadClasses();
+    this.loadBatches();
   }
 
   loadClasses(): void {
@@ -967,13 +1089,72 @@ export class GoodMannersComponent implements OnInit {
         if (this.classes.length > 0) {
           this.filterForm.patchValue({ classId: this.classes[0].id });
           this.sections = this.classes[0].sections || [];
-          this.loadBehaviourList();
+          if (this.targetScope === 'school') {
+            this.loadBehaviourList();
+          }
         }
       },
       error: () => {
         this.confirmDialog.alert('Error', 'Failed to load school classes.', 'danger');
       }
     });
+  }
+
+  loadBatches(): void {
+    this.batchesService.getBatches().subscribe({
+      next: (res) => {
+        this.batches = res || [];
+        this.filterBatches();
+        if (this.targetScope === 'coaching' && this.filterForm.get('batchId')?.value) {
+          this.loadBehaviourList();
+        }
+      },
+      error: () => this.batches = []
+    });
+  }
+
+  setScope(scope: 'school' | 'coaching'): void {
+    this.targetScope = scope;
+    if (scope === 'coaching') {
+      if (this.batches.length === 0) {
+        this.loadBatches();
+      } else {
+        this.filterBatches();
+        if (this.filterForm.get('batchId')?.value) {
+          this.loadBehaviourList();
+        }
+      }
+    } else {
+      if (this.filterForm.get('classId')?.value) {
+        this.loadBehaviourList();
+      }
+    }
+  }
+
+  filterBatches(): void {
+    const clsId = this.filterForm.get('coachingClassId')?.value;
+    if (!clsId) {
+      this.filteredBatches = [...this.batches];
+    } else {
+      this.filteredBatches = this.batches.filter(b => (b.classId || '').toLowerCase() === clsId.toLowerCase());
+    }
+    if (this.filteredBatches.length > 0) {
+      const cur = this.filterForm.get('batchId')?.value;
+      if (!this.filteredBatches.some(b => b.id === cur)) {
+        this.filterForm.patchValue({ batchId: this.filteredBatches[0].id });
+      }
+    } else {
+      this.filterForm.patchValue({ batchId: '' });
+    }
+  }
+
+  onCoachingClassChange(): void {
+    this.filterBatches();
+    this.loadBehaviourList();
+  }
+
+  onBatchChange(): void {
+    this.loadBehaviourList();
   }
 
   onClassChange(): void {
@@ -986,12 +1167,28 @@ export class GoodMannersComponent implements OnInit {
 
   loadBehaviourList(): void {
     const formVal = this.filterForm.value;
-    if (!formVal.classId) return;
-
     this.loading = true;
-    let url = `${API_BASE}/homework/daily-behaviour?date=${formVal.date}&classId=${formVal.classId}`;
-    if (formVal.sectionId) {
-      url += `&sectionId=${formVal.sectionId}`;
+    let url = `${API_BASE}/homework/daily-behaviour?date=${formVal.date}`;
+
+    if (this.targetScope === 'school') {
+      if (!formVal.classId) {
+        this.loading = false;
+        return;
+      }
+      url += `&classId=${formVal.classId}`;
+      if (formVal.sectionId) {
+        url += `&sectionId=${formVal.sectionId}`;
+      }
+    } else {
+      if (!formVal.batchId) {
+        this.loading = false;
+        this.students = [];
+        return;
+      }
+      url += `&batchId=${formVal.batchId}`;
+      if (formVal.coachingClassId) {
+        url += `&classId=${formVal.coachingClassId}`;
+      }
     }
 
     this.http.get<DailyStudentBehaviourRow[]>(url).subscribe({
@@ -1032,8 +1229,8 @@ export class GoodMannersComponent implements OnInit {
     this.saving = true;
     const payload = {
       recordDate: formVal.date,
-      classId: formVal.classId,
-      sectionId: formVal.sectionId || null,
+      classId: this.targetScope === 'school' ? formVal.classId : null,
+      sectionId: this.targetScope === 'school' ? (formVal.sectionId || null) : null,
       items: this.students.map(s => ({
         studentId: s.studentId,
         isAbsent: s.isAbsent,
@@ -1068,6 +1265,7 @@ export class GoodMannersComponent implements OnInit {
     const formVal = this.filterForm.value;
     const selectedClass = this.classes.find(c => c.id === formVal.classId);
     const selectedSection = this.sections.find(s => s.id === formVal.sectionId);
+    const selectedBatch = this.batches.find(b => b.id === formVal.batchId);
 
     this.dialog.open(GoodMannersReportDialogComponent, {
       width: '1320px',
@@ -1075,10 +1273,12 @@ export class GoodMannersComponent implements OnInit {
       maxHeight: '94vh',
       data: {
         date: formVal.date,
-        classId: formVal.classId,
-        sectionId: formVal.sectionId,
+        classId: this.targetScope === 'school' ? formVal.classId : formVal.coachingClassId,
+        sectionId: this.targetScope === 'school' ? formVal.sectionId : undefined,
+        batchId: this.targetScope === 'coaching' ? formVal.batchId : undefined,
         className: selectedClass?.name || 'Class',
         sectionName: selectedSection?.name || '',
+        batchName: selectedBatch?.name || '',
         students: this.students
       }
     });
@@ -1245,9 +1445,9 @@ export class GoodMannersComponent implements OnInit {
           <!-- Meta Bar -->
           <div class="report-meta-bar">
             <div class="meta-class">
-              <span class="lbl">Class:</span>
-              <span class="val">{{ reportHeader?.className || data.className }}</span>
-              <span class="sec-val" *ngIf="reportHeader?.sectionName || data.sectionName">({{ reportHeader?.sectionName || data.sectionName }})</span>
+              <span class="lbl">{{ (reportHeader?.batchName || data.batchName) ? 'Batch:' : 'Class:' }}</span>
+              <span class="val">{{ reportHeader?.batchName || data.batchName || reportHeader?.className || data.className }}</span>
+              <span class="sec-val" *ngIf="!(reportHeader?.batchName || data.batchName) && (reportHeader?.sectionName || data.sectionName)">({{ reportHeader?.sectionName || data.sectionName }})</span>
             </div>
             <div class="meta-summary-pills">
               <span class="sm-pill">Present: <strong>{{ reportHeader?.presentStudents || rows.length }}</strong></span>
@@ -1743,7 +1943,13 @@ export class GoodMannersReportDialogComponent implements OnInit {
   }
 
   loadReportHeader(): void {
-    let url = `${API_BASE}/homework/daily-behaviour/report?date=${this.data.date}&classId=${this.data.classId}`;
+    let url = `${API_BASE}/homework/daily-behaviour/report?date=${this.data.date}`;
+    if (this.data.batchId) {
+      url += `&batchId=${this.data.batchId}`;
+    }
+    if (this.data.classId) {
+      url += `&classId=${this.data.classId}`;
+    }
     if (this.data.sectionId) {
       url += `&sectionId=${this.data.sectionId}`;
     }

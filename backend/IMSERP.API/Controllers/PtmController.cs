@@ -22,7 +22,10 @@ public class PtmController : ControllerBase
     }
 
     [HttpGet("stats")]
-    public async Task<ActionResult<PtmStatsDto>> GetStats([FromQuery] Guid? branchId)
+    public async Task<ActionResult<PtmStatsDto>> GetStats(
+        [FromQuery] Guid? branchId,
+        [FromQuery] string? divisionScope = null,
+        [FromQuery] Guid? targetBatchId = null)
     {
         var tenantId = _currentUser.TenantId;
         var activeBranch = branchId ?? _currentUser.BranchId;
@@ -34,6 +37,16 @@ public class PtmController : ControllerBase
         {
             sessionQuery = sessionQuery.Where(s => s.BranchId == activeBranch.Value);
             bookingQuery = bookingQuery.Where(b => b.BranchId == activeBranch.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(divisionScope) && divisionScope != "All")
+        {
+            sessionQuery = sessionQuery.Where(s => s.DivisionScope == divisionScope);
+        }
+
+        if (targetBatchId.HasValue && targetBatchId.Value != Guid.Empty)
+        {
+            sessionQuery = sessionQuery.Where(s => s.TargetBatchId == targetBatchId.Value);
         }
 
         var totalSessions = await sessionQuery.CountAsync();
@@ -63,6 +76,7 @@ public class PtmController : ControllerBase
         [FromQuery] string? status,
         [FromQuery] string? academicYear,
         [FromQuery] string? divisionScope,
+        [FromQuery] Guid? targetBatchId,
         [FromQuery] string? searchTerm)
     {
         var tenantId = _currentUser.TenantId;
@@ -91,6 +105,11 @@ public class PtmController : ControllerBase
         if (!string.IsNullOrWhiteSpace(divisionScope) && divisionScope != "All")
         {
             query = query.Where(s => s.DivisionScope == divisionScope);
+        }
+
+        if (targetBatchId.HasValue && targetBatchId.Value != Guid.Empty)
+        {
+            query = query.Where(s => s.TargetBatchId == targetBatchId.Value);
         }
 
         if (!string.IsNullOrWhiteSpace(searchTerm))
@@ -315,6 +334,7 @@ public class PtmController : ControllerBase
         [FromQuery] Guid? studentId,
         [FromQuery] string? status,
         [FromQuery] Guid? branchId,
+        [FromQuery] Guid? targetBatchId,
         [FromQuery] string? searchTerm)
     {
         var tenantId = _currentUser.TenantId;
@@ -328,6 +348,11 @@ public class PtmController : ControllerBase
         if (activeBranch.HasValue)
         {
             query = query.Where(b => b.BranchId == activeBranch.Value);
+        }
+
+        if (targetBatchId.HasValue && targetBatchId.Value != Guid.Empty)
+        {
+            query = query.Where(b => b.PtmSession != null && b.PtmSession.TargetBatchId == targetBatchId.Value);
         }
 
         if (sessionId.HasValue)

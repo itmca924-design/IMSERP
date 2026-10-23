@@ -91,9 +91,9 @@ export interface StudyMaterialDialogData {
 
           <!-- Scope Dynamic Filters (Class / Batch / Subject / Type) -->
           <div class="grid-2-cols" style="margin-top: 14px;">
-            <!-- School Class (if School or Both) -->
-            <mat-form-field appearance="outline" *ngIf="form.targetScope !== 'Coaching' && (!data.isTeacher || hasClasses)">
-              <mat-label>{{ data.isTeacher ? 'Assigned School Class' : 'School Class (Optional)' }}</mat-label>
+            <!-- School / Academic Class (if School, Coaching, or Both) -->
+            <mat-form-field appearance="outline" *ngIf="!data.isTeacher || hasClasses">
+              <mat-label>{{ data.isTeacher ? 'Assigned Class' : (form.targetScope === 'Coaching' ? 'Academic Class (Optional)' : 'School Class (Optional)') }}</mat-label>
               <mat-select [(ngModel)]="form.classId" (selectionChange)="onClassSelected()">
                 <mat-option [value]="null" *ngIf="!data.isTeacher">-- All Classes (General / Open) --</mat-option>
                 <mat-option *ngFor="let c of data.classes" [value]="c.id">
@@ -107,8 +107,8 @@ export interface StudyMaterialDialogData {
               <mat-label>{{ data.isTeacher ? 'Assigned Coaching Batch' : 'Coaching Batch (Optional)' }}</mat-label>
               <mat-select [(ngModel)]="form.batchId">
                 <mat-option [value]="null" *ngIf="!data.isTeacher">-- All Batches (Open Competitive) --</mat-option>
-                <mat-option *ngFor="let b of data.batches" [value]="b.id">
-                  {{ b.name }} <span class="opt-sub" *ngIf="b.subject">({{ b.subject }})</span>
+                <mat-option *ngFor="let b of filteredBatches" [value]="b.id">
+                  {{ b.name }} <span class="opt-sub" *ngIf="b.subject">({{ b.subject }})</span>{{ b.className ? ' [' + b.className + ']' : '' }}
                 </mat-option>
               </mat-select>
             </mat-form-field>
@@ -757,14 +757,17 @@ export class StudyMaterialUploadDialogComponent implements OnInit {
     }
   }
 
+  get filteredBatches(): any[] {
+    if (!this.form.classId) return this.data.batches || [];
+    return (this.data.batches || []).filter((b: any) => (b.classId || '').toLowerCase() === this.form.classId?.toLowerCase());
+  }
+
   setScope(scope: 'Both' | 'School' | 'Coaching') {
     this.form.targetScope = scope;
     if (scope === 'School') {
       this.form.batchId = null;
     } else if (scope === 'Coaching') {
-      this.form.classId = null;
       this.form.sectionId = null;
-      this.classSubjects = [];
     }
   }
 
@@ -776,6 +779,12 @@ export class StudyMaterialUploadDialogComponent implements OnInit {
 
   onClassSelected() {
     this.form.sectionId = null;
+    if (this.form.batchId) {
+      const stillValid = this.filteredBatches.some((b: any) => (b.id || '').toLowerCase() === this.form.batchId?.toLowerCase());
+      if (!stillValid) {
+        this.form.batchId = null;
+      }
+    }
     if (this.form.classId) {
       this.http.get<any[]>(`${environment.apiUrl}/Subjects/classes/${this.form.classId}`).subscribe({
         next: (res) => {

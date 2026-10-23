@@ -16,6 +16,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
 import { AuthService } from '../../core/services/auth.service';
 import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.directive';
 import { HindiTransliterationService, HINDI_QUICK_PRESETS } from '../../core/services/hindi-transliteration.service';
+import { BatchesService, BatchDto } from '../../core/services/batches.service';
 import { HwCheckPanelComponent, HwAnalyticsPanelComponent } from './homework-hw-check.component';
 import { environment } from '../../../environments/environment';
 
@@ -109,6 +110,8 @@ export interface DailyStudentDiaryRow {
   className?: string;
   sectionId?: string;
   sectionName?: string;
+  batchId?: string;
+  batchName?: string;
   isAbsent: boolean;
   attendanceStatus?: string;
   classWork: DailySubjectTaskItem[];
@@ -128,6 +131,7 @@ export interface DailyDiaryReportHeader {
   diaryDate?: string;
   className?: string;
   sectionName?: string;
+  batchName?: string;
   classTeacherName?: string | null;
   items?: DailyStudentDiaryRow[];
   rows?: DailyStudentDiaryRow[];
@@ -247,6 +251,35 @@ export interface DailyDiaryReportHeader {
         <!-- TAB 1: DAILY CLASSWORK & HOMEWORK DIARY SHEET (REPORT READY)       -->
         <!-- =================================================================== -->
         <ng-container *ngIf="diarySubTab === 'daily-diary'">
+          <!-- Scope Switcher Pill Tabs -->
+          <div class="scope-nav-container">
+            <div class="scope-pills">
+              <button
+                type="button"
+                class="scope-pill-btn"
+                [class.active]="diaryScope === 'school'"
+                (click)="setDiaryScope('school')">
+                <mat-icon>school</mat-icon>
+                <span>School Classes (स्कूल कक्षाएं)</span>
+              </button>
+
+              <button
+                type="button"
+                class="scope-pill-btn"
+                [class.active]="diaryScope === 'coaching'"
+                (click)="setDiaryScope('coaching')">
+                <mat-icon>groups</mat-icon>
+                <span>Coaching Batches (कोचिंग बैचेस)</span>
+              </button>
+            </div>
+
+            <div class="scope-meta-badge">
+              <mat-icon>verified</mat-icon>
+              <span *ngIf="diaryScope === 'school'">Scope: <strong>School Classwork &amp; Homework Diary</strong></span>
+              <span *ngIf="diaryScope === 'coaching'">Scope: <strong>Coaching Batch DPP &amp; Daily Diary</strong></span>
+            </div>
+          </div>
+
           <!-- Filter & Action Controls Card -->
           <div class="daily-diary-filter-card">
             <div class="dd-filter-row">
@@ -255,29 +288,53 @@ export interface DailyDiaryReportHeader {
                 <input matInput type="date" [(ngModel)]="diaryDate" (change)="loadDailyDiary()">
               </mat-form-field>
 
-              <mat-form-field appearance="outline" class="dd-class-field" [class.field-locked]="isClassTeacherLocked">
-                <mat-label>Select Class (कक्षा) *</mat-label>
-                <mat-select [(ngModel)]="diaryClassId" (selectionChange)="onDiaryClassChange()" [disabled]="isClassTeacherLocked">
-                  <mat-option *ngFor="let c of classes" [value]="c.id" [class.ct-highlight-opt]="isClassTeacherOf(c)">
-                    {{c.name}}
-                    <span class="ct-pill-badge" *ngIf="isClassTeacherOf(c)">⭐ Class Teacher</span>
-                  </mat-option>
-                </mat-select>
-              </mat-form-field>
+              <ng-container *ngIf="diaryScope === 'school'">
+                <mat-form-field appearance="outline" class="dd-class-field" [class.field-locked]="isClassTeacherLocked">
+                  <mat-label>Select Class (कक्षा) *</mat-label>
+                  <mat-select [(ngModel)]="diaryClassId" (selectionChange)="onDiaryClassChange()" [disabled]="isClassTeacherLocked">
+                    <mat-option *ngFor="let c of classes" [value]="c.id" [class.ct-highlight-opt]="isClassTeacherOf(c)">
+                      {{c.name}}
+                      <span class="ct-pill-badge" *ngIf="isClassTeacherOf(c)">⭐ Class Teacher</span>
+                    </mat-option>
+                  </mat-select>
+                </mat-form-field>
 
-              <mat-form-field appearance="outline" class="dd-section-field" *ngIf="diarySections.length > 0" [class.field-locked]="isClassTeacherLocked && !!teacherAssignedSectionId">
-                <mat-label>Section (वर्ग)</mat-label>
-                <mat-select [(ngModel)]="diarySectionId" (selectionChange)="onDiarySectionChange()" [disabled]="isClassTeacherLocked && !!teacherAssignedSectionId">
-                  <mat-option value="">All Sections</mat-option>
-                  <mat-option *ngFor="let s of diarySections" [value]="s.id">{{s.name}}</mat-option>
-                </mat-select>
-              </mat-form-field>
+                <mat-form-field appearance="outline" class="dd-section-field" *ngIf="diarySections.length > 0" [class.field-locked]="isClassTeacherLocked && !!teacherAssignedSectionId">
+                  <mat-label>Section (वर्ग)</mat-label>
+                  <mat-select [(ngModel)]="diarySectionId" (selectionChange)="onDiarySectionChange()" [disabled]="isClassTeacherLocked && !!teacherAssignedSectionId">
+                    <mat-option value="">All Sections</mat-option>
+                    <mat-option *ngFor="let s of diarySections" [value]="s.id">{{s.name}}</mat-option>
+                  </mat-select>
+                </mat-form-field>
+              </ng-container>
+
+              <ng-container *ngIf="diaryScope === 'coaching'">
+                <mat-form-field appearance="outline" class="dd-class-field">
+                  <mat-label>Academic Class (कक्षा)</mat-label>
+                  <mat-select [(ngModel)]="diaryCoachingClassId" (selectionChange)="onDiaryCoachingClassChange()">
+                    <mat-option value="">All Classes (सभी कक्षाएं)</mat-option>
+                    <mat-option *ngFor="let c of classes" [value]="c.id">{{c.name}}</mat-option>
+                  </mat-select>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="dd-batch-field">
+                  <mat-label>Select Coaching Batch (बैच) *</mat-label>
+                  <mat-select [(ngModel)]="diaryBatchId" (selectionChange)="onDiaryBatchChange()">
+                    <mat-option *ngIf="filteredCoachingBatches.length === 0" disabled value="">
+                      No Batches Found for this Class
+                    </mat-option>
+                    <mat-option *ngFor="let b of filteredCoachingBatches" [value]="b.id">
+                      {{b.name}} <span *ngIf="b.subject || b.courseName">({{b.subject || b.courseName}})</span>
+                    </mat-option>
+                  </mat-select>
+                </mat-form-field>
+              </ng-container>
 
               <!-- Student Filter Dropdown (All Students vs Individual Student) - Expanded Full Width -->
               <mat-form-field appearance="outline" class="dd-student-field" *ngIf="diaryStudents.length > 0">
                 <mat-label>Student (विद्यार्थी)</mat-label>
                 <mat-select [(ngModel)]="selectedDiaryStudentId" (selectionChange)="onDiaryStudentSelectChange()" panelClass="dd-student-select-panel">
-                  <mat-option value="">👥 All Students (सम्पूर्ण कक्षा - {{diaryStudents.length}} बच्चे)</mat-option>
+                  <mat-option value="">👥 All Students (सम्पूर्ण {{ diaryScope === 'coaching' ? 'बैच' : 'कक्षा' }} - {{diaryStudents.length}} बच्चे)</mat-option>
                   <mat-option *ngFor="let st of diaryStudents" [value]="st.studentId">
                     👤 {{st.studentName}} <span *ngIf="st.rollNumber">(Roll: {{st.rollNumber}})</span>
                   </mat-option>
@@ -285,7 +342,7 @@ export interface DailyDiaryReportHeader {
               </mat-form-field>
 
               <div class="dd-action-buttons">
-                <button mat-stroked-button class="quickfill-toggle-btn" (click)="commonQuickFill.isOpen = !commonQuickFill.isOpen" [disabled]="!diaryClassId">
+                <button mat-stroked-button class="quickfill-toggle-btn" (click)="commonQuickFill.isOpen = !commonQuickFill.isOpen" [disabled]="diaryScope === 'school' ? !diaryClassId : !diaryBatchId">
                   <mat-icon>{{commonQuickFill.isOpen ? 'expand_less' : 'bolt'}}</mat-icon>
                   <span>{{commonQuickFill.isOpen ? 'Hide Quick Fill' : 'Quick Fill Common Work'}}</span>
                 </button>
@@ -305,7 +362,7 @@ export interface DailyDiaryReportHeader {
           </div>
 
           <!-- Quick Fill Accordion Panel -->
-          <div class="quickfill-container" *ngIf="commonQuickFill.isOpen && diaryClassId">
+          <div class="quickfill-container" *ngIf="commonQuickFill.isOpen && (diaryScope === 'school' ? !!diaryClassId : !!diaryBatchId)">
             <div class="qf-header">
               <div class="qf-title-box">
                 <div class="qf-icon-wrap" [class.student-mode-icon]="!!selectedDiaryStudent">
@@ -867,24 +924,73 @@ export interface DailyDiaryReportHeader {
           </div>
         </div>
 
+        <!-- Scope Switcher Pill Tabs -->
+        <div class="scope-nav-container">
+          <div class="scope-pills">
+            <button
+              type="button"
+              class="scope-pill-btn"
+              [class.active]="worksheetScope === 'school'"
+              (click)="setWorksheetScope('school')">
+              <mat-icon>school</mat-icon>
+              <span>School Classes (स्कूल कक्षाएं)</span>
+            </button>
+
+            <button
+              type="button"
+              class="scope-pill-btn"
+              [class.active]="worksheetScope === 'coaching'"
+              (click)="setWorksheetScope('coaching')">
+              <mat-icon>groups</mat-icon>
+              <span>Coaching Batches (कोचिंग बैचेस)</span>
+            </button>
+          </div>
+
+          <div class="scope-meta-badge">
+            <mat-icon>assignment</mat-icon>
+            <span *ngIf="worksheetScope === 'school'">Scope: <strong>School Class Assignments</strong></span>
+            <span *ngIf="worksheetScope === 'coaching'">Scope: <strong>Coaching Batch DPPs &amp; Practice Sheets</strong></span>
+          </div>
+        </div>
+
         <!-- Filter Bar -->
         <div class="filter-card">
           <div class="filter-row">
-            <mat-form-field appearance="outline" class="filter-field">
-              <mat-label>Filter by Class</mat-label>
-              <mat-select [(ngModel)]="filterClassId" (selectionChange)="onClassChange()">
-                <mat-option value="">All Classes</mat-option>
-                <mat-option *ngFor="let c of classes" [value]="c.id">{{c.name}}</mat-option>
-              </mat-select>
-            </mat-form-field>
+            <ng-container *ngIf="worksheetScope === 'school'">
+              <mat-form-field appearance="outline" class="filter-field">
+                <mat-label>Filter by Class</mat-label>
+                <mat-select [(ngModel)]="filterClassId" (selectionChange)="onClassChange()">
+                  <mat-option value="">All Classes</mat-option>
+                  <mat-option *ngFor="let c of classes" [value]="c.id">{{c.name}}</mat-option>
+                </mat-select>
+              </mat-form-field>
 
-            <mat-form-field appearance="outline" class="filter-field" *ngIf="availableSections.length > 0">
-              <mat-label>Section</mat-label>
-              <mat-select [(ngModel)]="filterSectionId" (selectionChange)="loadHomework()">
-                <mat-option value="">All Sections</mat-option>
-                <mat-option *ngFor="let s of availableSections" [value]="s.id">{{s.name}}</mat-option>
-              </mat-select>
-            </mat-form-field>
+              <mat-form-field appearance="outline" class="filter-field" *ngIf="availableSections.length > 0">
+                <mat-label>Section</mat-label>
+                <mat-select [(ngModel)]="filterSectionId" (selectionChange)="loadHomework()">
+                  <mat-option value="">All Sections</mat-option>
+                  <mat-option *ngFor="let s of availableSections" [value]="s.id">{{s.name}}</mat-option>
+                </mat-select>
+              </mat-form-field>
+            </ng-container>
+
+            <ng-container *ngIf="worksheetScope === 'coaching'">
+              <mat-form-field appearance="outline" class="filter-field">
+                <mat-label>Academic Class (कक्षा)</mat-label>
+                <mat-select [(ngModel)]="filterCoachingClassId" (selectionChange)="onWorksheetCoachingClassChange()">
+                  <mat-option value="">All Classes (सभी कक्षाएं)</mat-option>
+                  <mat-option *ngFor="let c of classes" [value]="c.id">{{c.name}}</mat-option>
+                </mat-select>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="filter-field">
+                <mat-label>Filter by Batch</mat-label>
+                <mat-select [(ngModel)]="filterBatchId" (selectionChange)="loadHomework()">
+                  <mat-option value="">All Batches</mat-option>
+                  <mat-option *ngFor="let b of filteredWorksheetBatches" [value]="b.id">{{b.name}}</mat-option>
+                </mat-select>
+              </mat-form-field>
+            </ng-container>
 
             <mat-form-field appearance="outline" class="filter-field">
               <mat-label>Status</mat-label>
@@ -1844,6 +1950,69 @@ export interface DailyDiaryReportHeader {
       border: 1px solid #bfdbfe;
     }
 
+    /* Scope Switcher Pill Tabs */
+    .scope-nav-container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+    .scope-pills {
+      display: inline-flex;
+      background: #e2e8f0;
+      padding: 4px;
+      border-radius: 10px;
+      gap: 4px;
+    }
+    .scope-pill-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border: none;
+      background: transparent;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: #475569;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .scope-pill-btn:hover {
+      color: #1e293b;
+    }
+    .scope-pill-btn.active {
+      background: #ffffff;
+      color: #1d4ed8;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      font-weight: 700;
+    }
+    .scope-pill-btn mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+    }
+    .scope-meta-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1e40af;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      font-weight: 500;
+    }
+    .scope-meta-badge mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+      color: #2563eb;
+    }
+
     /* Filter Card for Daily Diary */
     .daily-diary-filter-card {
       background: #ffffff;
@@ -1861,6 +2030,7 @@ export interface DailyDiaryReportHeader {
     .dd-date-field { min-width: 165px; flex: 0 0 auto; }
     .dd-class-field { min-width: 175px; flex: 0 0 auto; }
     .dd-section-field { min-width: 130px; flex: 0 0 auto; }
+    .dd-batch-field { min-width: 230px; flex: 0 0 auto; }
     .dd-student-field {
       flex: 1 1 340px;
       min-width: 280px;
@@ -3261,6 +3431,31 @@ export class HomeworkDiaryComponent implements OnInit {
   filterStatus = '';
   searchTerm = '';
 
+  // Coaching Batches & Dual-Mode Scope State
+  batches: BatchDto[] = [];
+  diaryScope: 'school' | 'coaching' = 'school';
+  diaryCoachingClassId = '';
+  diaryBatchId = '';
+  worksheetScope: 'school' | 'coaching' = 'school';
+  filterCoachingClassId = '';
+  filterBatchId = '';
+
+  get filteredCoachingBatches(): BatchDto[] {
+    if (!this.diaryCoachingClassId) {
+      return this.batches;
+    }
+    const target = this.diaryCoachingClassId.toLowerCase();
+    return this.batches.filter(b => (b.classId || '').toLowerCase() === target);
+  }
+
+  get filteredWorksheetBatches(): BatchDto[] {
+    if (!this.filterCoachingClassId) {
+      return this.batches;
+    }
+    const target = this.filterCoachingClassId.toLowerCase();
+    return this.batches.filter(b => (b.classId || '').toLowerCase() === target);
+  }
+
   stats: HomeworkStatsDto = {
     totalActive: 0,
     dueToday: 0,
@@ -3314,7 +3509,8 @@ export class HomeworkDiaryComponent implements OnInit {
     private dialog: MatDialog,
     private confirmDialog: ConfirmDialogService,
     public authService: AuthService,
-    public hindiTrans: HindiTransliterationService
+    public hindiTrans: HindiTransliterationService,
+    private batchesService: BatchesService
   ) {}
 
   get isStudentOrParent(): boolean {
@@ -3329,6 +3525,7 @@ export class HomeworkDiaryComponent implements OnInit {
     } else {
       this.activeTab = 'teacher';
       this.loadClasses();
+      this.loadBatches();
       this.loadTeachers();
       this.loadSubjects();
       this.loadStats();
@@ -3448,14 +3645,110 @@ export class HomeworkDiaryComponent implements OnInit {
     }
   }
 
+  loadBatches(): void {
+    this.batchesService.getBatches().subscribe({
+      next: b => {
+        this.batches = b || [];
+        if (this.diaryScope === 'coaching') {
+          if (!this.diaryCoachingClassId && this.diaryClassId && this.batches.some(x => (x.classId || '').toLowerCase() === this.diaryClassId.toLowerCase())) {
+            this.diaryCoachingClassId = this.diaryClassId;
+          }
+          this.onDiaryCoachingClassChange();
+        }
+        if (this.worksheetScope === 'coaching' && !this.filterBatchId && this.batches.length > 0) {
+          this.filterBatchId = this.batches[0].id;
+        }
+      },
+      error: () => this.batches = []
+    });
+  }
+
+  setDiaryScope(scope: 'school' | 'coaching'): void {
+    if (this.diaryScope === scope) return;
+    this.diaryScope = scope;
+    this.selectedDiaryStudentId = '';
+    this.diaryStudents = [];
+    if (scope === 'school') {
+      if (!this.diaryClassId && this.classes.length > 0) {
+        this.diaryClassId = this.classes[0].id;
+      }
+      this.onDiaryClassChange();
+    } else {
+      if (this.diaryClassId && this.batches.some(b => (b.classId || '').toLowerCase() === this.diaryClassId.toLowerCase())) {
+        this.diaryCoachingClassId = this.diaryClassId;
+      } else if (!this.diaryCoachingClassId && this.classes.length > 0) {
+        const classWithBatch = this.classes.find(c => this.batches.some(b => (b.classId || '').toLowerCase() === c.id.toLowerCase()));
+        this.diaryCoachingClassId = classWithBatch ? classWithBatch.id : '';
+      }
+      this.onDiaryCoachingClassChange();
+    }
+  }
+
+  onDiaryCoachingClassChange(): void {
+    const available = this.filteredCoachingBatches;
+    if (available.length > 0) {
+      if (!available.some(b => b.id === this.diaryBatchId)) {
+        this.diaryBatchId = available[0].id;
+      }
+      this.onDiaryBatchChange();
+    } else {
+      this.diaryBatchId = '';
+      this.diaryStudents = [];
+      this.selectedDiaryStudentId = '';
+    }
+  }
+
+  onDiaryBatchChange(): void {
+    this.selectedDiaryStudentId = '';
+    this.updateDynamicSubjectOptions();
+    this.loadDailyDiary();
+  }
+
+  onWorksheetCoachingClassChange(): void {
+    const available = this.filteredWorksheetBatches;
+    if (available.length > 0) {
+      if (!available.some(b => b.id === this.filterBatchId)) {
+        this.filterBatchId = available[0].id;
+      }
+    } else {
+      this.filterBatchId = '';
+    }
+    this.loadHomework();
+  }
+
+  setWorksheetScope(scope: 'school' | 'coaching'): void {
+    if (this.worksheetScope === scope) return;
+    this.worksheetScope = scope;
+    if (scope === 'school') {
+      this.filterBatchId = '';
+    } else {
+      this.filterClassId = '';
+      this.filterSectionId = '';
+      const available = this.filteredWorksheetBatches;
+      if (!this.filterBatchId && available.length > 0) {
+        this.filterBatchId = available[0].id;
+      }
+    }
+    this.loadHomework();
+  }
+
   setDiarySubTab(tab: 'daily-diary' | 'check-hw' | 'hw-analytics' | 'worksheets'): void {
     this.diarySubTab = tab;
     if (tab === 'daily-diary') {
-      if (this.diaryClassId) {
-        this.loadDailyDiary();
-      } else if (this.classes.length > 0) {
-        this.diaryClassId = this.classes[0].id;
-        this.onDiaryClassChange();
+      if (this.diaryScope === 'school') {
+        if (this.diaryClassId) {
+          this.loadDailyDiary();
+        } else if (this.classes.length > 0) {
+          this.diaryClassId = this.classes[0].id;
+          this.onDiaryClassChange();
+        }
+      } else {
+        if (this.diaryBatchId) {
+          this.loadDailyDiary();
+        } else if (this.batches.length > 0) {
+          this.diaryBatchId = this.batches[0].id;
+          this.onDiaryBatchChange();
+        }
       }
     } else if (tab === 'check-hw' || tab === 'hw-analytics') {
       if (!this.diaryClassId && this.classes.length > 0) {
@@ -3468,7 +3761,9 @@ export class HomeworkDiaryComponent implements OnInit {
   }
 
   onHwCheckSaved(): void {
-    if (this.diaryClassId) {
+    if (this.diaryScope === 'school' && this.diaryClassId) {
+      this.loadDailyDiary();
+    } else if (this.diaryScope === 'coaching' && this.diaryBatchId) {
       this.loadDailyDiary();
     }
   }
@@ -3596,11 +3891,15 @@ export class HomeworkDiaryComponent implements OnInit {
   }
 
   loadDailyDiary(): void {
-    if (!this.diaryClassId) return;
+    if (this.diaryScope === 'school' && !this.diaryClassId) return;
+    if (this.diaryScope === 'coaching' && !this.diaryBatchId) return;
     this.loadingDiary = true;
-    let url = `${API_BASE}/homework/daily-diary?date=${this.diaryDate}&classId=${this.diaryClassId}`;
-    if (this.diarySectionId) {
-      url += `&sectionId=${this.diarySectionId}`;
+    let url = `${API_BASE}/homework/daily-diary?date=${this.diaryDate}`;
+    if (this.diaryScope === 'school') {
+      if (this.diaryClassId) url += `&classId=${this.diaryClassId}`;
+      if (this.diarySectionId) url += `&sectionId=${this.diarySectionId}`;
+    } else {
+      if (this.diaryBatchId) url += `&batchId=${this.diaryBatchId}`;
     }
 
     this.http.get<DailyStudentDiaryRow[]>(url).subscribe({
@@ -4035,8 +4334,12 @@ export class HomeworkDiaryComponent implements OnInit {
   }
 
   saveDailyDiary(): void {
-    if (!this.diaryClassId) {
+    if (this.diaryScope === 'school' && !this.diaryClassId) {
       this.confirmDialog.alert('Select Class', 'Please select a class to save the diary for.', 'warning');
+      return;
+    }
+    if (this.diaryScope === 'coaching' && !this.diaryBatchId) {
+      this.confirmDialog.alert('Select Batch', 'Please select a coaching batch to save the diary for.', 'warning');
       return;
     }
     if (!this.diaryStudents || this.diaryStudents.length === 0) {
@@ -4047,8 +4350,9 @@ export class HomeworkDiaryComponent implements OnInit {
     this.savingDiary = true;
     const payload = {
       diaryDate: this.diaryDate,
-      classId: this.diaryClassId,
-      sectionId: this.diarySectionId || undefined,
+      classId: this.diaryScope === 'school' ? (this.diaryClassId || undefined) : undefined,
+      sectionId: this.diaryScope === 'school' ? (this.diarySectionId || undefined) : undefined,
+      batchId: this.diaryScope === 'coaching' ? (this.diaryBatchId || undefined) : undefined,
       items: this.diaryStudents.map(s => ({
         studentId: s.studentId,
         isAbsent: s.isAbsent,
@@ -4088,12 +4392,14 @@ export class HomeworkDiaryComponent implements OnInit {
     });
   }
 
-  openDailyDiaryReportDialog(customData?: { classId?: string; sectionId?: string; date?: string }): void {
-    const classId = customData?.classId || this.diaryClassId;
-    const sectionId = customData?.sectionId !== undefined ? customData.sectionId : this.diarySectionId;
+  openDailyDiaryReportDialog(customData?: { classId?: string; sectionId?: string; date?: string; batchId?: string }): void {
+    const classId = customData?.classId || (this.diaryScope === 'school' ? this.diaryClassId : undefined);
+    const sectionId = customData?.sectionId !== undefined ? customData.sectionId : (this.diaryScope === 'school' ? this.diarySectionId : undefined);
+    const batchId = customData?.batchId || (this.diaryScope === 'coaching' ? this.diaryBatchId : undefined);
     const date = customData?.date || this.diaryDate;
-    const selectedClass = this.classes.find(c => c.id === classId);
+    const selectedClass = classId ? this.classes.find(c => c.id === classId) : undefined;
     const selectedSection = (selectedClass?.sections || this.diarySections).find((s: any) => s.id === sectionId);
+    const selectedBatch = batchId ? this.batches.find(b => b.id === batchId) : undefined;
 
     this.dialog.open(DailyDiaryReportDialogComponent, {
       width: '1320px',
@@ -4103,7 +4409,8 @@ export class HomeworkDiaryComponent implements OnInit {
         date: date,
         classId: classId,
         sectionId: sectionId,
-        className: selectedClass?.name || 'Class',
+        batchId: batchId,
+        className: selectedBatch ? selectedBatch.name : (selectedClass?.name || 'Class'),
         sectionName: selectedSection?.name || '',
         subjectOptions: this.subjectOptions,
         students: customData ? null : (this.selectedDiaryStudent ? [this.selectedDiaryStudent] : this.diaryStudents)
@@ -4282,8 +4589,12 @@ export class HomeworkDiaryComponent implements OnInit {
     this.loading = true;
     let url = `${API_BASE}/homework`;
     const params: string[] = [];
-    if (this.filterClassId) params.push(`classId=${this.filterClassId}`);
-    if (this.filterSectionId) params.push(`sectionId=${this.filterSectionId}`);
+    if (this.worksheetScope === 'school') {
+      if (this.filterClassId) params.push(`classId=${this.filterClassId}`);
+      if (this.filterSectionId) params.push(`sectionId=${this.filterSectionId}`);
+    } else {
+      if (this.filterBatchId) params.push(`batchId=${this.filterBatchId}`);
+    }
     if (this.filterStatus) params.push(`status=${this.filterStatus}`);
     if (params.length > 0) url += '?' + params.join('&');
 
@@ -4354,6 +4665,7 @@ export class HomeworkDiaryComponent implements OnInit {
       data: {
         homework: item,
         classes: this.classes,
+        batches: this.batches,
         teachers: this.teachers,
         subjects: this.subjects,
         currentUser: this.authService.currentUser()
@@ -4482,7 +4794,29 @@ export class HomeworkDiaryComponent implements OnInit {
 
       <!-- Form Body -->
       <div class="modal-body">
-        <div class="form-row">
+        <!-- Scope Switcher Pill Tabs -->
+        <div class="scope-nav-container" *ngIf="!isEdit">
+          <div class="scope-pills">
+            <button
+              type="button"
+              class="scope-pill-btn"
+              [class.active]="targetScope === 'school'"
+              (click)="targetScope = 'school'">
+              <mat-icon>school</mat-icon>
+              <span>School Class</span>
+            </button>
+            <button
+              type="button"
+              class="scope-pill-btn"
+              [class.active]="targetScope === 'coaching'"
+              (click)="targetScope = 'coaching'">
+              <mat-icon>groups</mat-icon>
+              <span>Coaching Batch</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="form-row" *ngIf="targetScope === 'school'">
           <mat-form-field appearance="outline" class="form-field">
             <mat-label>Class (कक्षा)</mat-label>
             <mat-select [(ngModel)]="model.classId" (selectionChange)="onClassSelect()" [disabled]="isTeacher && !isAdmin">
@@ -4502,6 +4836,28 @@ export class HomeworkDiaryComponent implements OnInit {
             <mat-hint *ngIf="isTeacher && !isAdmin && hasAssignedSection" class="assigned-hint">
               🔒 Assigned section locked
             </mat-hint>
+          </mat-form-field>
+        </div>
+
+        <div class="form-row" *ngIf="targetScope === 'coaching'">
+          <mat-form-field appearance="outline" class="form-field">
+            <mat-label>Academic Class (कक्षा)</mat-label>
+            <mat-select [(ngModel)]="dialogCoachingClassId" (selectionChange)="onDialogCoachingClassChange()">
+              <mat-option value="">All Classes (सभी कक्षाएं)</mat-option>
+              <mat-option *ngFor="let c of data.classes" [value]="c.id">{{c.name}}</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="form-field">
+            <mat-label>Coaching Batch (बैच) *</mat-label>
+            <mat-select [(ngModel)]="model.batchId" required>
+              <mat-option *ngIf="filteredDialogBatches.length === 0" disabled value="">
+                No Batches Found for this Class
+              </mat-option>
+              <mat-option *ngFor="let b of filteredDialogBatches" [value]="b.id">
+                {{b.name}} <span *ngIf="b.subject || b.courseName">({{b.subject || b.courseName}})</span>
+              </mat-option>
+            </mat-select>
           </mat-form-field>
         </div>
 
@@ -4618,6 +4974,14 @@ export class HomeworkDiaryComponent implements OnInit {
     .form-field { flex: 1; }
     .full-field { width: 100%; }
 
+    /* Scope Switcher Pill Tabs */
+    .scope-nav-container { display: flex; align-items: center; margin-bottom: 4px; }
+    .scope-pills { display: inline-flex; background: #e2e8f0; padding: 4px; border-radius: 10px; gap: 4px; }
+    .scope-pill-btn { display: inline-flex; align-items: center; gap: 8px; border: none; background: transparent; padding: 6px 14px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; color: #475569; cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+    .scope-pill-btn:hover { color: #1e293b; }
+    .scope-pill-btn.active { background: #ffffff; color: #1d4ed8; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); font-weight: 700; }
+    .scope-pill-btn mat-icon { font-size: 18px; width: 18px; height: 18px; }
+
     /* Assigned hints & IST Badge */
     .assigned-hint { color: #0284c7; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
     .ist-time-hint { margin-top: 2px; }
@@ -4652,10 +5016,31 @@ export class HomeworkFormDialogComponent implements OnInit {
   isTeacher = false;
   isAdmin = false;
   hasAssignedSection = false;
+  targetScope: 'school' | 'coaching' = 'school';
   dialogSections: any[] = [];
   allSubjects: any[] = [];
   dueDateStr = '';
   dueDatePreviewIso = '';
+  dialogCoachingClassId = '';
+
+  get filteredDialogBatches(): any[] {
+    if (!this.dialogCoachingClassId) {
+      return this.data.batches || [];
+    }
+    const target = this.dialogCoachingClassId.toLowerCase();
+    return (this.data.batches || []).filter((b: any) => (b.classId || '').toLowerCase() === target);
+  }
+
+  onDialogCoachingClassChange(): void {
+    const available = this.filteredDialogBatches;
+    if (available.length > 0) {
+      if (!available.some((b: any) => b.id === this.model.batchId)) {
+        this.model.batchId = available[0].id;
+      }
+    } else {
+      this.model.batchId = '';
+    }
+  }
 
   model: any = {
     classId: '',
@@ -4726,6 +5111,15 @@ export class HomeworkFormDialogComponent implements OnInit {
       this.isEdit = true;
       const h = this.data.homework;
       this.model = { ...h };
+      if (h.batchId) {
+        this.targetScope = 'coaching';
+        const foundBatch = (this.data.batches || []).find((b: any) => b.id === h.batchId);
+        if (foundBatch?.classId) {
+          this.dialogCoachingClassId = foundBatch.classId;
+        }
+      } else {
+        this.targetScope = 'school';
+      }
       if (h.dueDate) {
         this.dueDateStr = h.dueDate.replace(' ', 'T').slice(0, 16);
       }
@@ -4938,9 +5332,9 @@ export class HomeworkFormDialogComponent implements OnInit {
       });
     } else {
       this.http.post(`${API_BASE}/homework`, {
-        classId: this.model.classId || null,
-        sectionId: this.model.sectionId || null,
-        batchId: this.model.batchId || null,
+        classId: this.targetScope === 'school' ? (this.model.classId || null) : null,
+        sectionId: this.targetScope === 'school' ? (this.model.sectionId || null) : null,
+        batchId: this.targetScope === 'coaching' ? (this.model.batchId || null) : null,
         subjectName: this.model.subjectName,
         teacherId: this.model.teacherId || null,
         teacherName: this.model.teacherName || null,
@@ -6831,6 +7225,7 @@ export class DailyDiaryReportDialogComponent implements OnInit {
 
   fetchFreshReport(): void {
     let url = `${API_BASE}/homework/daily-diary/report?date=${this.data.date}`;
+    if (this.data.batchId) url += `&batchId=${this.data.batchId}`;
     if (this.data.classId) url += `&classId=${this.data.classId}`;
     if (this.data.sectionId) url += `&sectionId=${this.data.sectionId}`;
 
@@ -6842,11 +7237,12 @@ export class DailyDiaryReportDialogComponent implements OnInit {
           institutionName: r?.institutionName || r?.tenantName,
           tenantAddress: r?.subtitleOrAddress || r?.tenantAddress,
           subtitleOrAddress: r?.subtitleOrAddress || r?.tenantAddress,
-          reportTitle: r?.reportTitle || 'STUDENT DAILY CLASS WORK & HOME WORK REPORT',
+          reportTitle: r?.reportTitle || (this.data.batchId ? 'BATCH DAILY DPP & HOME WORK REPORT' : 'STUDENT DAILY CLASS WORK & HOME WORK REPORT'),
           reportDate: r?.diaryDate || r?.reportDate,
           diaryDate: r?.diaryDate || r?.reportDate,
-          className: r?.className || this.data.className,
+          className: r?.batchName ? ('Batch: ' + r.batchName) : (r?.className || this.data.className),
           sectionName: r?.sectionName || this.data.sectionName,
+          batchName: r?.batchName,
           classTeacherName: r?.classTeacherName,
           items: rawRows,
           rows: rawRows,

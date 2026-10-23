@@ -512,13 +512,21 @@ interface CalendarDay {
         </mat-form-field>
       </ng-container>
 
-      <!-- Coaching Batch Filter -->
+      <!-- Coaching Batch Filter with Academic Class Cascade -->
       <ng-container *ngIf="singleStreamFilter === 'coaching'">
+        <mat-form-field appearance="outline" class="single-class-select" *ngIf="hasSchool">
+          <mat-label>Academic Class</mat-label>
+          <mat-select [(ngModel)]="singleSelectedCoachingClassId" (selectionChange)="onSingleCoachingClassChanged()">
+            <mat-option value="">All Academic Classes</mat-option>
+            <mat-option *ngFor="let c of schoolClasses" [value]="c.id">{{ c.name }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+
         <mat-form-field appearance="outline" class="single-batch-select">
           <mat-label>Select Batch</mat-label>
           <mat-select [(ngModel)]="singleSelectedBatchId" (selectionChange)="onSingleBatchChanged()">
             <mat-option value="">All Batches</mat-option>
-            <mat-option *ngFor="let b of batches" [value]="b.id">{{ b.name }}</mat-option>
+            <mat-option *ngFor="let b of filteredSingleCoachingBatches" [value]="b.id">{{ b.name }}</mat-option>
           </mat-select>
         </mat-form-field>
       </ng-container>
@@ -2835,21 +2843,39 @@ export class StudentAttendanceComponent implements OnInit {
   }
 
   selectedCoachingClassId: string = '';
+  singleSelectedCoachingClassId: string = '';
 
   get filteredCoachingBatches(): any[] {
     if (!this.selectedCoachingClassId) return this.batches || [];
-    return (this.batches || []).filter(b => b.classId === this.selectedCoachingClassId);
+    return (this.batches || []).filter(b => (b.classId || '').toLowerCase() === this.selectedCoachingClassId.toLowerCase());
+  }
+
+  get filteredSingleCoachingBatches(): any[] {
+    if (!this.singleSelectedCoachingClassId) return this.batches || [];
+    return (this.batches || []).filter(b => (b.classId || '').toLowerCase() === this.singleSelectedCoachingClassId.toLowerCase());
   }
 
   onCoachingClassFilterChanged(): void {
     if (this.selectedBatchId) {
       const b = this.batches.find(x => x.id === this.selectedBatchId);
-      if (b && this.selectedCoachingClassId && b.classId !== this.selectedCoachingClassId) {
+      if (b && this.selectedCoachingClassId && (b.classId || '').toLowerCase() !== this.selectedCoachingClassId.toLowerCase()) {
         const matching = this.filteredCoachingBatches;
         this.selectedBatchId = matching.length > 0 ? matching[0].id : '';
         this.onBatchChanged();
       }
     }
+  }
+
+  onSingleCoachingClassChanged(): void {
+    const matching = this.filteredSingleCoachingBatches;
+    if (matching.length > 0) {
+      if (!matching.some(b => b.id === this.singleSelectedBatchId)) {
+        this.singleSelectedBatchId = matching[0].id;
+      }
+    } else {
+      this.singleSelectedBatchId = '';
+    }
+    this.onSingleBatchChanged();
   }
 
   onBatchChanged(): void {

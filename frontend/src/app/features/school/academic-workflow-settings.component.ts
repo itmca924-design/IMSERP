@@ -90,6 +90,20 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           </div>
         </div>
 
+        <!-- Scope Switcher: School vs Coaching Workflows -->
+        <div class="scope-nav-container">
+          <div class="scope-pills">
+            <button type="button" class="scope-pill-btn" [class.active]="activeWorkflowScope === 'school'" (click)="setWorkflowScope('school')">
+              <mat-icon>school</mat-icon>
+              <span>School Examination Workflows (CBSE / State Board)</span>
+            </button>
+            <button type="button" class="scope-pill-btn" [class.active]="activeWorkflowScope === 'coaching'" (click)="setWorkflowScope('coaching')">
+              <mat-icon>groups</mat-icon>
+              <span>Coaching Test Workflows (JEE / NEET / Foundation)</span>
+            </button>
+          </div>
+        </div>
+
         <div class="settings-grid">
           <!-- CARD 1: Academic Sessions Master -->
           <mat-card class="setting-card">
@@ -152,17 +166,19 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             </div>
           </mat-card>
 
-          <!-- CARD 2: Exam Types & Terms Master -->
-          <mat-card class="setting-card">
-            <div class="card-header-strip">
-              <div class="card-title-group">
-                <mat-icon class="card-icon exam-icon">assignment</mat-icon>
-                <div>
-                  <h3 class="card-title">Exam Types & Term Workflow Master (परीक्षा प्रकार)</h3>
-                  <p class="card-desc">Define standard examination workflows available across bulk schedulers, admit cards, and evaluation matrices.</p>
+          <!-- SCHOOL SPECIFIC WORKFLOWS -->
+          <ng-container *ngIf="activeWorkflowScope === 'school'">
+            <!-- CARD 2: School Exam Types & Terms Master -->
+            <mat-card class="setting-card">
+              <div class="card-header-strip">
+                <div class="card-title-group">
+                  <mat-icon class="card-icon exam-icon">assignment</mat-icon>
+                  <div>
+                    <h3 class="card-title">School Exam Types & Term Master (परीक्षा प्रकार)</h3>
+                    <p class="card-desc">Define standard examination workflows available across bulk schedulers, admit cards, and evaluation matrices.</p>
+                  </div>
                 </div>
               </div>
-            </div>
 
             <div class="card-content">
               <div class="catalog-section">
@@ -273,13 +289,149 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                 </mat-form-field>
               </div>
 
-              <mat-form-field appearance="outline" class="form-full">
-                <mat-label>Result Declaration Statement / Continuous Policy Note</mat-label>
-                <textarea matInput [(ngModel)]="resultDeclarationNote" rows="2" placeholder="Official statement printed at bottom of result cards..."></textarea>
-                <mat-hint>Legal disclaimer and examination certification declaration</mat-hint>
-              </mat-form-field>
-            </div>
-          </mat-card>
+                <mat-form-field appearance="outline" class="form-full">
+                  <mat-label>Result Declaration Statement / Continuous Policy Note</mat-label>
+                  <textarea matInput [(ngModel)]="resultDeclarationNote" rows="2" placeholder="Official statement printed at bottom of result cards..."></textarea>
+                  <mat-hint>Legal disclaimer and examination certification declaration</mat-hint>
+                </mat-form-field>
+              </div>
+            </mat-card>
+          </ng-container>
+
+          <!-- COACHING SPECIFIC WORKFLOWS -->
+          <ng-container *ngIf="activeWorkflowScope === 'coaching'">
+            <!-- CARD 2 (COACHING): Coaching Test Types & Assessment Catalog -->
+            <mat-card class="setting-card">
+              <div class="card-header-strip">
+                <div class="card-title-group">
+                  <mat-icon class="card-icon exam-icon">quiz</mat-icon>
+                  <div>
+                    <h3 class="card-title">Coaching Test Types & Assessment Catalog (कोचिंग टेस्ट प्रकार)</h3>
+                    <p class="card-desc">Standard competitive exam workflows (DPP, Unit Test, Cumulative, All-India Mock Test) for batches.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card-content">
+                <div class="catalog-section">
+                  <div class="catalog-title">Active Coaching Test Types Catalog</div>
+                  <div class="chips-container">
+                    <div class="type-chip" *ngFor="let t of coachingExamTypesList">
+                      <mat-icon class="type-icon">task_alt</mat-icon>
+                      <span class="chip-text">{{ t }}</span>
+                      <button type="button" class="chip-del-btn" (click)="removeCoachingExamType(t)" matTooltip="Remove Test Type" *ngIf="coachingExamTypesList.length > 1">
+                        <mat-icon>close</mat-icon>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="add-inline-row">
+                    <mat-form-field appearance="outline" class="inline-input-field" subscriptSizing="dynamic">
+                      <mat-label>Add Custom Coaching Test Type (e.g. JEE Advanced Full Mock, NEET Booster)</mat-label>
+                      <input matInput [(ngModel)]="newCoachingExamTypeInput" placeholder="Test Type Name" (keyup.enter)="addCoachingExamType()">
+                    </mat-form-field>
+                    <button mat-stroked-button color="primary" class="inline-add-btn" (click)="addCoachingExamType()" [disabled]="!newCoachingExamTypeInput">
+                      <mat-icon>add</mat-icon> Add Test Type
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </mat-card>
+
+            <!-- CARD 3 (COACHING): Negative Marking Scheme & Evaluation SLA -->
+            <mat-card class="setting-card">
+              <div class="card-header-strip">
+                <div class="card-title-group">
+                  <mat-icon class="card-icon rules-icon">calculate</mat-icon>
+                  <div>
+                    <h3 class="card-title">Negative Marking Scheme & OMR SLA (नेगेटिव मार्किंग व नियम)</h3>
+                    <p class="card-desc">Configure competitive exam deduction formulas, OMR checking turnaround, and percentile ranking.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card-content">
+                <div class="form-row-three">
+                  <mat-form-field appearance="outline">
+                    <mat-label>OMR Evaluation Turnaround (Days)</mat-label>
+                    <input matInput type="number" [(ngModel)]="coachingEvaluationDueDays" min="1" max="15">
+                    <mat-hint>Deadline for uploading test marks / OMR scores</mat-hint>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline">
+                    <mat-label>Negative Mark Deduction Penalty</mat-label>
+                    <input matInput type="number" step="0.25" [(ngModel)]="negativeMarkPenalty" min="0" max="5">
+                    <mat-hint>Marks deducted per wrong answer (Default: -1.0 or -0.25)</mat-hint>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline">
+                    <mat-label>Passing Benchmark (%)</mat-label>
+                    <input matInput type="number" [(ngModel)]="passingPercentage" min="1" max="100">
+                    <mat-hint>Qualifying cut-off benchmark for batches</mat-hint>
+                  </mat-form-field>
+                </div>
+
+                <div class="grace-marks-box">
+                  <div class="grace-left">
+                    <mat-slide-toggle color="primary" [(ngModel)]="enableNegativeMarking">
+                      <strong>Enable Negative Marking Scheme by Default</strong>
+                    </mat-slide-toggle>
+                    <p class="grace-desc">When enabled, coaching tests will apply negative penalty on wrong responses automatically in scorecards.</p>
+                  </div>
+                </div>
+
+                <div class="grace-marks-box" style="margin-top: 12px;">
+                  <div class="grace-left">
+                    <mat-slide-toggle color="primary" [(ngModel)]="enablePercentileRanking">
+                      <strong>Auto-Calculate Batch Rank &amp; Percentile Matrix</strong>
+                    </mat-slide-toggle>
+                    <p class="grace-desc">Computes batch topper percentile and student standing against peer competitors on result sheets.</p>
+                  </div>
+                </div>
+              </div>
+            </mat-card>
+
+            <!-- CARD 4 (COACHING): Coaching Center Signatures & Test Notes -->
+            <mat-card class="setting-card">
+              <div class="card-header-strip">
+                <div class="card-title-group">
+                  <mat-icon class="card-icon cert-icon">badge</mat-icon>
+                  <div>
+                    <h3 class="card-title">Coaching Center Credentials & Mentor Verification</h3>
+                    <p class="card-desc">Center registration, mentor designations, and test declaration notes on coaching rank cards.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card-content">
+                <div class="form-row-three">
+                  <mat-form-field appearance="outline">
+                    <mat-label>Center Registration Code</mat-label>
+                    <input matInput [(ngModel)]="coachingRegistrationCode" placeholder="e.g. COACH-PAT-2026">
+                    <mat-hint>Institute coaching division code</mat-hint>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline">
+                    <mat-label>Center Director Signature Title</mat-label>
+                    <input matInput [(ngModel)]="centerHeadSignTitle" placeholder="Center Director / Academic Head">
+                    <mat-hint>Authority signature title</mat-hint>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline">
+                    <mat-label>Batch Mentor Signature Title</mat-label>
+                    <input matInput [(ngModel)]="batchMentorSignTitle" placeholder="Batch Mentor / Faculty">
+                    <mat-hint>Faculty evaluator designation</mat-hint>
+                  </mat-form-field>
+                </div>
+
+                <mat-form-field appearance="outline" class="form-full">
+                  <mat-label>Coaching Test Declaration & Evaluation Policy Note</mat-label>
+                  <textarea matInput [(ngModel)]="coachingResultNote" rows="2" placeholder="Policy note printed at bottom of test scorecards..."></textarea>
+                  <mat-hint>Competitive evaluation guideline statement</mat-hint>
+                </mat-form-field>
+              </div>
+            </mat-card>
+          </ng-container>
         </div>
 
         <!-- Bottom Advisory Note -->
@@ -291,12 +443,56 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
     </div>
   `,
   styles: [`
+    :host {
+      display: block;
+      width: 100%;
+    }
+
     .academic-workflow-container {
+      padding: 0 0 40px;
       width: 100%;
       box-sizing: border-box;
       display: flex;
       flex-direction: column;
-      padding: 0 0 32px 0;
+      gap: 20px;
+    }
+
+    /* Scope Switcher */
+    .scope-nav-container {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      margin-bottom: 4px;
+    }
+    .scope-pills {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .scope-pill-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      border-radius: 10px;
+      font-size: 13.5px;
+      font-weight: 600;
+      border: 1px solid #bfdbfe;
+      background: #ffffff;
+      color: #3b82f6;
+      cursor: pointer;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+      transition: all 0.2s ease;
+    }
+    .scope-pill-btn:hover {
+      background: #eff6ff;
+      color: #1d4ed8;
+    }
+    .scope-pill-btn.active {
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+      border-color: #2563eb;
+      color: #1e3a8a;
+      box-shadow: 0 2px 6px rgba(37, 99, 235, 0.18);
     }
 
     /* Page Header */
@@ -517,14 +713,14 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
 
     .form-row-two {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
       gap: 16px;
       margin-bottom: 16px;
     }
 
     .form-row-three {
       display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
       gap: 16px;
       margin-bottom: 16px;
     }
@@ -704,13 +900,15 @@ export class AcademicWorkflowSettingsComponent implements OnInit {
   loading = false;
   saving = false;
 
+  activeWorkflowScope: 'school' | 'coaching' = 'school';
+
   // Active & Available Sessions
   activeAcademicYear = '2025-2026';
   nextAcademicYear = '2026-2027';
   sessionsList: string[] = ['2024-2025', '2025-2026', '2026-2027', '2027-2028'];
   newSessionInput = '';
 
-  // Exam Types
+  // School Exam Types
   examTypesList: string[] = [
     'Unit Test 1',
     'Unit Test 2',
@@ -720,6 +918,26 @@ export class AcademicWorkflowSettingsComponent implements OnInit {
     'Annual Exam'
   ];
   newExamTypeInput = '';
+
+  // Coaching Exam Types
+  coachingExamTypesList: string[] = [
+    'Daily Practice Problem (DPP)',
+    'Weekly Unit Test',
+    'Chapter Minor Test',
+    'Monthly Cumulative Test',
+    'All-India Major Mock Test'
+  ];
+  newCoachingExamTypeInput = '';
+
+  // Coaching SLA & Negative Marking Rules
+  coachingEvaluationDueDays = 3;
+  enableNegativeMarking = true;
+  negativeMarkPenalty = 1.0;
+  enablePercentileRanking = true;
+  coachingRegistrationCode = 'COACH/REG-2026';
+  centerHeadSignTitle = 'Center Director / Academic Head';
+  batchMentorSignTitle = 'Batch Mentor / Senior Faculty';
+  coachingResultNote = 'Performance evaluated as per All-India competitive examination pattern.';
 
   // Workflow SLA & Benchmarks
   evaluationDueDays = 7;
@@ -738,6 +956,10 @@ export class AcademicWorkflowSettingsComponent implements OnInit {
     private schoolService: SchoolService,
     private confirmDialog: ConfirmDialogService
   ) {}
+
+  setWorkflowScope(scope: 'school' | 'coaching'): void {
+    this.activeWorkflowScope = scope;
+  }
 
   ngOnInit(): void {
     this.loadSettings();
@@ -762,11 +984,36 @@ export class AcademicWorkflowSettingsComponent implements OnInit {
             this.sessionsList.unshift(this.activeAcademicYear);
           }
 
+          // Load coaching settings from local persistence if available
+          try {
+            const raw = localStorage.getItem('imserp_coaching_workflow_settings');
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (parsed.coachingEvaluationDueDays) this.coachingEvaluationDueDays = parsed.coachingEvaluationDueDays;
+              if (parsed.enableNegativeMarking !== undefined) this.enableNegativeMarking = parsed.enableNegativeMarking;
+              if (parsed.negativeMarkPenalty !== undefined) this.negativeMarkPenalty = parsed.negativeMarkPenalty;
+              if (parsed.enablePercentileRanking !== undefined) this.enablePercentileRanking = parsed.enablePercentileRanking;
+              if (parsed.coachingRegistrationCode) this.coachingRegistrationCode = parsed.coachingRegistrationCode;
+              if (parsed.centerHeadSignTitle) this.centerHeadSignTitle = parsed.centerHeadSignTitle;
+              if (parsed.batchMentorSignTitle) this.batchMentorSignTitle = parsed.batchMentorSignTitle;
+              if (parsed.coachingResultNote) this.coachingResultNote = parsed.coachingResultNote;
+            }
+          } catch (_) {}
+
           if (setting.availableExamTypes) {
-            this.examTypesList = setting.availableExamTypes
+            const allTypes = setting.availableExamTypes
               .split(',')
               .map(t => t.trim())
               .filter(t => t.length > 0);
+
+            const coachingKeywords = ['dpp', 'mock', 'jee', 'neet', 'minor', 'cumulative', 'coaching'];
+            const coaching = allTypes.filter(t => coachingKeywords.some(k => t.toLowerCase().includes(k)));
+            const school = allTypes.filter(t => !coachingKeywords.some(k => t.toLowerCase().includes(k)));
+
+            if (school.length > 0) this.examTypesList = school;
+            if (coaching.length > 0) {
+              this.coachingExamTypesList = Array.from(new Set([...this.coachingExamTypesList, ...coaching]));
+            }
           }
 
           this.evaluationDueDays = setting.evaluationDueDays || 7;
@@ -824,6 +1071,23 @@ export class AcademicWorkflowSettingsComponent implements OnInit {
     this.examTypesList = this.examTypesList.filter(t => t !== type);
   }
 
+  addCoachingExamType(): void {
+    const t = this.newCoachingExamTypeInput.trim();
+    if (!t) return;
+    if (!this.coachingExamTypesList.includes(t)) {
+      this.coachingExamTypesList.push(t);
+    }
+    this.newCoachingExamTypeInput = '';
+  }
+
+  removeCoachingExamType(type: string): void {
+    if (this.coachingExamTypesList.length <= 1) {
+      this.confirmDialog.alert('Minimum Limit', 'At least one coaching test type must be configured.', 'warning');
+      return;
+    }
+    this.coachingExamTypesList = this.coachingExamTypesList.filter(t => t !== type);
+  }
+
   saveSettings(): void {
     if (!this.activeAcademicYear) {
       this.confirmDialog.alert('Validation Error', 'Active Academic Session is required.', 'warning');
@@ -831,11 +1095,13 @@ export class AcademicWorkflowSettingsComponent implements OnInit {
     }
 
     this.saving = true;
+    const combinedExamTypes = Array.from(new Set([...this.examTypesList, ...this.coachingExamTypesList])).join(',');
+
     const payload: UpdateExamSettingDto = {
       activeAcademicYear: this.activeAcademicYear,
       nextAcademicYear: this.nextAcademicYear,
       availableAcademicYears: this.sessionsList.join(','),
-      availableExamTypes: this.examTypesList.join(','),
+      availableExamTypes: combinedExamTypes,
       evaluationDueDays: this.evaluationDueDays > 0 ? this.evaluationDueDays : 7,
       passingPercentage: this.passingPercentage > 0 ? this.passingPercentage : 33,
       maxCompartmentSubjects: this.maxCompartmentSubjects >= 0 ? this.maxCompartmentSubjects : 2,
@@ -847,12 +1113,26 @@ export class AcademicWorkflowSettingsComponent implements OnInit {
       resultDeclarationNote: this.resultDeclarationNote
     };
 
+    // Store coaching-specific parameters locally for instantaneous recall
+    try {
+      localStorage.setItem('imserp_coaching_workflow_settings', JSON.stringify({
+        coachingEvaluationDueDays: this.coachingEvaluationDueDays,
+        enableNegativeMarking: this.enableNegativeMarking,
+        negativeMarkPenalty: this.negativeMarkPenalty,
+        enablePercentileRanking: this.enablePercentileRanking,
+        coachingRegistrationCode: this.coachingRegistrationCode,
+        centerHeadSignTitle: this.centerHeadSignTitle,
+        batchMentorSignTitle: this.batchMentorSignTitle,
+        coachingResultNote: this.coachingResultNote
+      }));
+    } catch (_) {}
+
     this.schoolService.updateExamSettings(payload).subscribe({
       next: () => {
         this.saving = false;
         this.confirmDialog.alert(
           'Configurations Saved! ✅',
-          `Academic session [${this.activeAcademicYear}], exam types, and evaluation rules have been successfully applied across the entire ERP.`,
+          `Academic session [${this.activeAcademicYear}], school exam types, coaching test workflows, and evaluation rules have been successfully applied across the entire ERP.`,
           'success'
         );
       },

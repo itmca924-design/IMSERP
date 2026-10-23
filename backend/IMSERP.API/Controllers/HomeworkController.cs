@@ -705,7 +705,8 @@ public class HomeworkController : ControllerBase
     public async Task<ActionResult<IEnumerable<DailyStudentDiaryRowDto>>> GetDailyDiaryList(
         [FromQuery] DateTime? date,
         [FromQuery] Guid? classId,
-        [FromQuery] Guid? sectionId)
+        [FromQuery] Guid? sectionId,
+        [FromQuery] Guid? batchId = null)
     {
         var tenantId = _currentUser.TenantId;
         var targetDate = (date ?? GetIstToday()).Date;
@@ -713,7 +714,11 @@ public class HomeworkController : ControllerBase
         var studentsQuery = _db.Students.AsNoTracking()
             .Include(s => s.Class)
             .Include(s => s.Section)
+            .Include(s => s.Batch)
             .Where(s => s.TenantId == tenantId && s.IsActive != false && (s.JoiningDate == default || s.JoiningDate.Date <= targetDate));
+
+        if (batchId.HasValue && batchId.Value != Guid.Empty)
+            studentsQuery = studentsQuery.Where(s => s.BatchId == batchId.Value);
 
         if (classId.HasValue && classId.Value != Guid.Empty)
             studentsQuery = studentsQuery.Where(s => s.ClassId == classId.Value);
@@ -728,7 +733,7 @@ public class HomeworkController : ControllerBase
         }
 
         var students = await studentsQuery
-            .OrderBy(s => s.SchoolRollNumber)
+            .OrderBy(s => s.CoachingRollNumber ?? s.SchoolRollNumber ?? s.RollNumber ?? "")
             .ThenBy(s => s.RollNumber)
             .ThenBy(s => s.StudentName)
             .ToListAsync();
@@ -796,7 +801,7 @@ public class HomeworkController : ControllerBase
             return new DailyStudentDiaryRowDto(
                 st.Id,
                 st.StudentName,
-                st.SchoolRollNumber ?? st.RollNumber ?? "",
+                st.CoachingRollNumber ?? st.SchoolRollNumber ?? st.RollNumber ?? "",
                 st.AdmissionNumber,
                 st.ClassId,
                 st.Class != null ? st.Class.Name : null,
@@ -808,7 +813,9 @@ public class HomeworkController : ControllerBase
                 diary?.TeacherRemarks,
                 diary?.Id,
                 attendanceStatus,
-                st.ParentWhatsAppPhone
+                st.ParentWhatsAppPhone,
+                st.BatchId,
+                st.Batch != null ? st.Batch.Name : null
             );
         }).ToList();
 
@@ -882,6 +889,7 @@ public class HomeworkController : ControllerBase
                 existing.HomeWorkJson = hwJson;
                 existing.IsAbsent = item.IsAbsent;
                 existing.TeacherRemarks = item.Remarks;
+                if (dto.BatchId.HasValue) existing.BatchId = dto.BatchId;
                 existing.UpdatedAt = now;
             }
             else
@@ -894,6 +902,7 @@ public class HomeworkController : ControllerBase
                     StudentId = item.StudentId,
                     ClassId = dto.ClassId ?? student.ClassId,
                     SectionId = dto.SectionId ?? student.SectionId,
+                    BatchId = dto.BatchId ?? student.BatchId,
                     DiaryDate = targetDate,
                     ClassWorkJson = cwJson,
                     HomeWorkJson = hwJson,
@@ -915,7 +924,8 @@ public class HomeworkController : ControllerBase
     public async Task<ActionResult<DailyDiaryReportHeaderDto>> GetDailyDiaryReport(
         [FromQuery] DateTime? date,
         [FromQuery] Guid? classId,
-        [FromQuery] Guid? sectionId)
+        [FromQuery] Guid? sectionId,
+        [FromQuery] Guid? batchId = null)
     {
         var tenantId = _currentUser.TenantId;
         var targetDate = (date ?? GetIstToday()).Date;
@@ -939,40 +949,54 @@ public class HomeworkController : ControllerBase
             sectionName = sec?.Name;
         }
 
-        var diaryActionResult = await GetDailyDiaryList(targetDate, classId, sectionId);
+        string? batchName = null;
+        string? classTeacherName = null;
+        if (batchId.HasValue && batchId.Value != Guid.Empty)
+        {
+            var b = await _db.Batches.AsNoTracking().Include(x => x.MentorTeacher).FirstOrDefaultAsync(x => x.Id == batchId.Value);
+            batchName = b?.Name;
+            if (b?.MentorTeacher != null)
+            {
+                classTeacherName = b.MentorTeacher.FullName;
+            }
+        }
+
+        var diaryActionResult = await GetDailyDiaryList(targetDate, classId, sectionId, batchId);
         var rows = (diaryActionResult.Result as OkObjectResult)?.Value as List<DailyStudentDiaryRowDto> ?? new();
 
-        string? classTeacherName = null;
-        if (sectionId.HasValue && sectionId.Value != Guid.Empty)
+        if (string.IsNullOrEmpty(classTeacherName))
         {
-            classTeacherName = await _db.SchoolSections.AsNoTracking()
-                .Where(s => s.Id == sectionId.Value && s.ClassTeacherId != null)
-                .Select(s => s.ClassTeacher!.FullName)
-                .FirstOrDefaultAsync();
-        }
-        else if (classId.HasValue && classId.Value != Guid.Empty)
-        {
-            var names = await _db.SchoolSections.AsNoTracking()
-                .Where(s => s.ClassId == classId.Value && s.ClassTeacherId != null)
-                .Select(s => s.ClassTeacher!.FullName)
-                .Distinct()
-                .ToListAsync();
-            if (names.Count == 1) classTeacherName = names[0];
+            if (sectionId.HasValue && sectionId.Value != Guid.Empty)
+            {
+                classTeacherName = await _db.SchoolSections.AsNoTracking()
+                    .Where(s => s.Id == sectionId.Value && s.ClassTeacherId != null)
+                    .Select(s => s.ClassTeacher!.FullName)
+                    .FirstOrDefaultAsync();
+            }
+            else if (classId.HasValue && classId.Value != Guid.Empty)
+            {
+                var names = await _db.SchoolSections.AsNoTracking()
+                    .Where(s => s.ClassId == classId.Value && s.ClassTeacherId != null)
+                    .Select(s => s.ClassTeacher!.FullName)
+                    .Distinct()
+                    .ToListAsync();
+                if (names.Count == 1) classTeacherName = names[0];
+            }
         }
 
         // Previous diary day's H.W. + its check status (H.W. is usually checked the next day)
         DateTime? previousHwDate = null;
         List<HwPreviousRowDto>? previousHw = null;
-        if (classId.HasValue && classId.Value != Guid.Empty)
+        if ((classId.HasValue && classId.Value != Guid.Empty) || (batchId.HasValue && batchId.Value != Guid.Empty))
         {
-            var prevDate = await DiaryScope(classId, sectionId)
+            var prevDate = await DiaryScope(classId, sectionId, batchId)
                 .Where(d => d.DiaryDate < targetDate && d.HomeWorkJson != null && !d.IsAbsent)
                 .OrderByDescending(d => d.DiaryDate)
                 .Select(d => (DateTime?)d.DiaryDate)
                 .FirstOrDefaultAsync();
             if (prevDate.HasValue)
             {
-                var prevDiaries = await DiaryScope(classId, sectionId)
+                var prevDiaries = await DiaryScope(classId, sectionId, batchId)
                     .Where(d => d.DiaryDate == prevDate.Value && d.HomeWorkJson != null)
                     .ToListAsync();
                 var prevStudentIds = prevDiaries.Select(d => d.StudentId).ToList();
@@ -983,8 +1007,8 @@ public class HomeworkController : ControllerBase
                     .Where(d => prevStudents.ContainsKey(d.StudentId))
                     .Select(d => new { d, st = prevStudents[d.StudentId], tasks = ParseTasks(d.HomeWorkJson).Where(t => !string.IsNullOrWhiteSpace(t.Task)).ToList() })
                     .Where(x => x.tasks.Count > 0)
-                    .OrderBy(x => x.st.SchoolRollNumber ?? x.st.RollNumber).ThenBy(x => x.st.StudentName)
-                    .Select(x => new HwPreviousRowDto(x.st.Id, x.st.StudentName, x.st.SchoolRollNumber ?? x.st.RollNumber ?? "", x.d.IsAbsent, x.tasks))
+                    .OrderBy(x => x.st.CoachingRollNumber ?? x.st.SchoolRollNumber ?? x.st.RollNumber ?? "").ThenBy(x => x.st.StudentName)
+                    .Select(x => new HwPreviousRowDto(x.st.Id, x.st.StudentName, x.st.CoachingRollNumber ?? x.st.SchoolRollNumber ?? x.st.RollNumber ?? "", x.d.IsAbsent, x.tasks))
                     .ToList();
                 previousHwDate = prevDate.Value;
             }
@@ -993,14 +1017,15 @@ public class HomeworkController : ControllerBase
         var header = new DailyDiaryReportHeaderDto(
             tenant?.Name ?? string.Empty,
             branch?.Address ?? tenant?.Address ?? string.Empty,
-            "STUDENT DAILY CLASS WORK & HOME WORK REPORT",
+            batchId.HasValue ? "BATCH DAILY DPP & HOME WORK REPORT" : "STUDENT DAILY CLASS WORK & HOME WORK REPORT",
             targetDate,
             className,
             sectionName,
             rows,
             classTeacherName,
             previousHwDate,
-            previousHw
+            previousHw,
+            batchName
         );
 
         return Ok(header);
@@ -1016,10 +1041,11 @@ public class HomeworkController : ControllerBase
         try { return JsonSerializer.Deserialize<List<DailySubjectTaskItem>>(json) ?? new(); } catch { return new(); }
     }
 
-    private IQueryable<DailyStudentDiary> DiaryScope(Guid? classId, Guid? sectionId)
+    private IQueryable<DailyStudentDiary> DiaryScope(Guid? classId, Guid? sectionId, Guid? batchId = null)
     {
         var tenantId = _currentUser.TenantId;
         var q = _db.DailyStudentDiaries.AsNoTracking().Where(d => d.TenantId == tenantId);
+        if (batchId.HasValue && batchId.Value != Guid.Empty) q = q.Where(d => d.BatchId == batchId.Value);
         if (classId.HasValue && classId.Value != Guid.Empty) q = q.Where(d => d.ClassId == classId.Value);
         if (sectionId.HasValue && sectionId.Value != Guid.Empty) q = q.Where(d => d.SectionId == sectionId.Value);
         return q;
@@ -1144,6 +1170,7 @@ public class HomeworkController : ControllerBase
     public async Task<ActionResult<IEnumerable<HwCheckDateDto>>> GetHwCheckDates(
         [FromQuery] Guid? classId,
         [FromQuery] Guid? sectionId,
+        [FromQuery] Guid? batchId = null,
         [FromQuery] int days = 14)
     {
         if (IsStudentOrParentRole()) return Forbid();
@@ -1151,7 +1178,7 @@ public class HomeworkController : ControllerBase
         var today = GetIstToday().Date;
         var from = today.AddDays(-days);
 
-        var diaries = await DiaryScope(classId, sectionId)
+        var diaries = await DiaryScope(classId, sectionId, batchId)
             .Where(d => d.DiaryDate >= from && d.DiaryDate <= today && d.HomeWorkJson != null && !d.IsAbsent)
             .Select(d => new { d.DiaryDate, d.HomeWorkJson })
             .ToListAsync();
@@ -1281,7 +1308,8 @@ public class HomeworkController : ControllerBase
         [FromQuery] DateTime? from,
         [FromQuery] DateTime? to,
         [FromQuery] Guid? classId,
-        [FromQuery] Guid? sectionId)
+        [FromQuery] Guid? sectionId,
+        [FromQuery] Guid? batchId = null)
     {
         if (IsStudentOrParentRole()) return Forbid();
         var tenantId = _currentUser.TenantId;
@@ -1290,7 +1318,7 @@ public class HomeworkController : ControllerBase
         if (fromDate > toDate) (fromDate, toDate) = (toDate, fromDate);
         if ((toDate - fromDate).TotalDays > 366) fromDate = toDate.AddDays(-366);
 
-        var diaries = await DiaryScope(classId, sectionId)
+        var diaries = await DiaryScope(classId, sectionId, batchId)
             .Where(d => d.DiaryDate >= fromDate && d.DiaryDate <= toDate && d.HomeWorkJson != null)
             .Select(d => new { d.StudentId, d.DiaryDate, d.IsAbsent, d.HomeWorkJson })
             .ToListAsync();
@@ -1556,7 +1584,8 @@ public class HomeworkController : ControllerBase
     public async Task<ActionResult<IEnumerable<DailyStudentBehaviourRowDto>>> GetDailyBehaviourList(
         [FromQuery] DateTime? date,
         [FromQuery] Guid? classId,
-        [FromQuery] Guid? sectionId)
+        [FromQuery] Guid? sectionId,
+        [FromQuery] Guid? batchId = null)
     {
         var tenantId = _currentUser.TenantId;
         var targetDate = (date ?? GetIstToday()).Date;
@@ -1565,6 +1594,9 @@ public class HomeworkController : ControllerBase
             .Include(s => s.Class)
             .Include(s => s.Section)
             .Where(s => s.TenantId == tenantId && s.IsActive != false && (s.JoiningDate == default || s.JoiningDate.Date <= targetDate));
+
+        if (batchId.HasValue && batchId.Value != Guid.Empty)
+            studentsQuery = studentsQuery.Where(s => s.BatchId == batchId.Value);
 
         if (classId.HasValue && classId.Value != Guid.Empty)
             studentsQuery = studentsQuery.Where(s => s.ClassId == classId.Value);
@@ -1735,7 +1767,8 @@ public class HomeworkController : ControllerBase
     public async Task<ActionResult<DailyBehaviourReportHeaderDto>> GetDailyBehaviourReport(
         [FromQuery] DateTime? date,
         [FromQuery] Guid? classId,
-        [FromQuery] Guid? sectionId)
+        [FromQuery] Guid? sectionId,
+        [FromQuery] Guid? batchId = null)
     {
         var tenantId = _currentUser.TenantId;
         var targetDate = (date ?? GetIstToday()).Date;
@@ -1759,25 +1792,37 @@ public class HomeworkController : ControllerBase
             sectionName = sec?.Name;
         }
 
-        var behaviourResult = await GetDailyBehaviourList(targetDate, classId, sectionId);
+        string? batchName = null;
+        string? classTeacherName = null;
+
+        if (batchId.HasValue && batchId.Value != Guid.Empty)
+        {
+            var b = await _db.Batches.AsNoTracking().Include(x => x.MentorTeacher).FirstOrDefaultAsync(x => x.Id == batchId.Value);
+            batchName = b?.Name;
+            classTeacherName = b?.MentorTeacher?.FullName;
+        }
+
+        var behaviourResult = await GetDailyBehaviourList(targetDate, classId, sectionId, batchId);
         var rows = (behaviourResult.Result as OkObjectResult)?.Value as List<DailyStudentBehaviourRowDto> ?? new();
 
-        string? classTeacherName = null;
-        if (sectionId.HasValue && sectionId.Value != Guid.Empty)
+        if (string.IsNullOrWhiteSpace(classTeacherName))
         {
-            classTeacherName = await _db.SchoolSections.AsNoTracking()
-                .Where(s => s.Id == sectionId.Value && s.ClassTeacherId != null)
-                .Select(s => s.ClassTeacher!.FullName)
-                .FirstOrDefaultAsync();
-        }
-        else if (classId.HasValue && classId.Value != Guid.Empty)
-        {
-            var names = await _db.SchoolSections.AsNoTracking()
-                .Where(s => s.ClassId == classId.Value && s.ClassTeacherId != null)
-                .Select(s => s.ClassTeacher!.FullName)
-                .Distinct()
-                .ToListAsync();
-            if (names.Count == 1) classTeacherName = names[0];
+            if (sectionId.HasValue && sectionId.Value != Guid.Empty)
+            {
+                classTeacherName = await _db.SchoolSections.AsNoTracking()
+                    .Where(s => s.Id == sectionId.Value && s.ClassTeacherId != null)
+                    .Select(s => s.ClassTeacher!.FullName)
+                    .FirstOrDefaultAsync();
+            }
+            else if (classId.HasValue && classId.Value != Guid.Empty)
+            {
+                var names = await _db.SchoolSections.AsNoTracking()
+                    .Where(s => s.ClassId == classId.Value && s.ClassTeacherId != null)
+                    .Select(s => s.ClassTeacher!.FullName)
+                    .Distinct()
+                    .ToListAsync();
+                if (names.Count == 1) classTeacherName = names[0];
+            }
         }
 
         var total = rows.Count;
@@ -1785,10 +1830,12 @@ public class HomeworkController : ControllerBase
         var fiveStars = rows.Count(r => !r.IsAbsent && r.StarRating == 5);
         var attentionNeeded = rows.Count(r => !r.IsAbsent && (r.StarRating <= 3 || r.UniformCleanliness != "NeatAndClean" || r.DisciplineConduct != "Disciplined" || r.PolitenessRespect != "PoliteAndRespectful" || r.BooksAndDiary != "BroughtAll"));
 
+        var reportTitle = batchId.HasValue ? "BATCH DAILY GOOD MANNERS & CONDUCT REPORT" : "DAILY GOOD MANNERS & BEHAVIOUR REPORT";
+
         var header = new DailyBehaviourReportHeaderDto(
             tenant?.Name ?? string.Empty,
             branch?.Address ?? tenant?.Address ?? string.Empty,
-            "DAILY GOOD MANNERS & BEHAVIOUR REPORT",
+            reportTitle,
             targetDate,
             className,
             sectionName,
@@ -1797,7 +1844,8 @@ public class HomeworkController : ControllerBase
             total,
             present,
             fiveStars,
-            attentionNeeded
+            attentionNeeded,
+            batchName
         );
 
         return Ok(header);
@@ -1889,7 +1937,8 @@ public class HomeworkController : ControllerBase
         [FromQuery] int? year,
         [FromQuery] Guid? classId,
         [FromQuery] Guid? sectionId,
-        [FromQuery] Guid? studentId)
+        [FromQuery] Guid? studentId,
+        [FromQuery] Guid? batchId = null)
     {
         var tenantId = _currentUser.TenantId;
         var now = GetIstToday();
@@ -1918,8 +1967,17 @@ public class HomeworkController : ControllerBase
             sectionName = sec?.Name;
         }
 
+        string? batchName = null;
         string? classTeacherName = null;
-        if (sectionId.HasValue && sectionId.Value != Guid.Empty)
+
+        if (batchId.HasValue && batchId.Value != Guid.Empty)
+        {
+            var b = await _db.Batches.AsNoTracking().Include(x => x.MentorTeacher).FirstOrDefaultAsync(x => x.Id == batchId.Value);
+            batchName = b?.Name;
+            classTeacherName = b?.MentorTeacher?.FullName;
+        }
+
+        if (string.IsNullOrWhiteSpace(classTeacherName) && sectionId.HasValue && sectionId.Value != Guid.Empty)
         {
             classTeacherName = await _db.SchoolSections.AsNoTracking()
                 .Where(s => s.Id == sectionId.Value && s.ClassTeacherId != null)
@@ -1931,6 +1989,9 @@ public class HomeworkController : ControllerBase
             .Include(s => s.Class)
             .Include(s => s.Section)
             .Where(s => s.TenantId == tenantId && s.IsActive != false && (s.JoiningDate == default || s.JoiningDate.Date <= toDate));
+
+        if (batchId.HasValue && batchId.Value != Guid.Empty)
+            studentsQuery = studentsQuery.Where(s => s.BatchId == batchId.Value);
 
         if (classId.HasValue && classId.Value != Guid.Empty)
             studentsQuery = studentsQuery.Where(s => s.ClassId == classId.Value);
@@ -2151,10 +2212,12 @@ public class HomeworkController : ControllerBase
             ? branch.Address
             : (!string.IsNullOrWhiteSpace(tenant?.Address) ? tenant.Address : "Main Road, Jnandeep Campus");
 
+        var reportTitle = batchId.HasValue ? "BATCH MONTHLY PERFORMANCE REPORT" : "MONTHLY STUDENT PERFORMANCE REPORT";
+
         var header = new MonthlyPerformanceReportHeaderDto(
             schoolName,
             schoolAddress,
-            "MONTHLY STUDENT PERFORMANCE REPORT",
+            reportTitle,
             targetMonth,
             targetYear,
             monthName,
@@ -2166,7 +2229,8 @@ public class HomeworkController : ControllerBase
             avgHw,
             avgBeh,
             avgTest,
-            finalRows
+            finalRows,
+            batchName
         );
 
         return Ok(header);

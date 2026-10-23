@@ -403,6 +403,7 @@ import { environment } from '../../environments/environment';
   styles: [`
     .sidenav-container {
       height: 100vh;
+      height: 100dvh;
     }
     .sidenav {
       width: 300px !important;
@@ -413,9 +414,13 @@ import { environment } from '../../environments/environment';
       box-shadow: 4px 0 24px rgba(0, 0, 0, 0.25);
 
       ::ng-deep .mat-drawer-inner-container {
+        display: flex !important;
+        flex-direction: column !important;
         scrollbar-width: thin !important;
         scrollbar-color: transparent transparent !important;
         transition: scrollbar-color 0.25s ease !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
 
         &::-webkit-scrollbar {
           width: 6px !important;
@@ -446,6 +451,30 @@ import { environment } from '../../environments/environment';
               background: rgba(148, 163, 184, 0.7) !important;
             }
           }
+        }
+      }
+
+      @media (max-width: 768px) {
+        width: min(85vw, 320px) !important;
+
+        ::ng-deep .mat-drawer-inner-container {
+          padding-bottom: max(40px, env(safe-area-inset-bottom, 40px)) !important;
+          overflow-y: auto !important;
+          -webkit-overflow-scrolling: touch !important;
+        }
+
+        .nav-container {
+          flex: none !important;
+          overflow-y: visible !important;
+          height: auto !important;
+        }
+
+        .sidebar-calendar {
+          flex-shrink: 0 !important;
+        }
+
+        .sidebar-pwa-strip {
+          flex-shrink: 0 !important;
         }
       }
     }
@@ -906,7 +935,8 @@ import { environment } from '../../environments/environment';
       }
 
       @media (max-width: 600px) {
-        padding: 0 4px !important;
+        padding-left: max(4px, env(safe-area-inset-left, 4px)) !important;
+        padding-right: max(10px, env(safe-area-inset-right, 10px)) !important;
         gap: 2px !important;
 
         .menu-toggle-btn {
@@ -938,6 +968,11 @@ import { environment } from '../../environments/environment';
       margin-left: 6px;
       flex-shrink: 0;
 
+      @media (max-width: 600px) {
+        margin-left: 2px !important;
+        gap: 2px !important;
+      }
+
       .install-pwa-btn {
         height: 32px;
         line-height: 32px;
@@ -965,7 +1000,7 @@ import { environment } from '../../environments/environment';
           height: 16px;
         }
 
-        @media (max-width: 768px) {
+        @media (max-width: 1350px) {
           padding: 0 6px;
           min-width: 32px;
           .install-text {
@@ -978,7 +1013,7 @@ import { environment } from '../../environments/environment';
         }
       }
 
-      @media (max-width: 480px) {
+      @media (max-width: 650px) {
         .active-users-pill-btn {
           display: none !important;
         }
@@ -1029,6 +1064,10 @@ import { environment } from '../../environments/environment';
         height: 18px;
         color: inherit;
         flex-shrink: 0;
+      }
+
+      @media (max-width: 1350px) {
+        width: 140px;
       }
 
       @media (max-width: 800px) {
@@ -1150,7 +1189,7 @@ import { environment } from '../../environments/environment';
       font-size: .76rem;
       flex-shrink: 0;
 
-      @media (max-width: 992px) {
+      @media (max-width: 1350px) {
         span { display: none; }
         min-width: 36px;
         padding: 0 8px;
@@ -1212,9 +1251,15 @@ import { environment } from '../../environments/environment';
         color: #a7f3d0 !important;
       }
 
+      @media (max-width: 1350px) {
+        padding: 0 8px !important;
+        .active-text {
+          display: none !important;
+        }
+      }
+
       @media (max-width: 650px) {
-        padding: 0 6px !important;
-        .active-text { display: none; }
+        display: none !important;
       }
     }
 
@@ -1545,7 +1590,7 @@ import { environment } from '../../environments/environment';
       }
 
       .branch-name-full {
-        max-width: 320px;
+        max-width: 220px;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -1553,10 +1598,13 @@ import { environment } from '../../environments/environment';
         margin: 0;
         line-height: normal;
 
-        @media (max-width: 1200px) {
-          max-width: 200px;
+        @media (max-width: 1440px) {
+          max-width: 160px;
         }
-        @media (max-width: 768px) {
+        @media (max-width: 1250px) {
+          max-width: 120px;
+        }
+        @media (max-width: 1024px) {
           display: none !important;
         }
       }
@@ -1569,10 +1617,10 @@ import { environment } from '../../environments/environment';
         margin: 0;
         line-height: normal;
 
-        @media (max-width: 768px) {
+        @media (max-width: 1024px) {
           display: inline-block !important;
         }
-        @media (max-width: 400px) {
+        @media (max-width: 480px) {
           display: none !important;
         }
       }
@@ -1631,18 +1679,20 @@ import { environment } from '../../environments/environment';
       }
 
       .branch-name-full {
-        max-width: 240px;
+        max-width: 200px;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        @media (max-width: 900px) { display: none; }
+        @media (max-width: 1440px) { max-width: 140px; }
+        @media (max-width: 1024px) { display: none !important; }
       }
 
       .branch-name-short {
         display: none;
         font-weight: 700;
         letter-spacing: 0.05em;
-        @media (max-width: 900px) { display: inline-block; }
+        @media (max-width: 1024px) { display: inline-block !important; }
+        @media (max-width: 480px) { display: none !important; }
       }
 
       .lock-icon {
@@ -1712,6 +1762,7 @@ import { environment } from '../../environments/environment';
     .account-btn {
       color: #ffffff;
       margin-left: 8px;
+      margin-right: 6px;
       padding: 0 !important;
       display: inline-flex !important;
       align-items: center !important;
@@ -1724,9 +1775,11 @@ import { environment } from '../../environments/environment';
 
       @media (max-width: 600px) {
         margin-left: 2px !important;
+        margin-right: 4px !important;
         width: 34px !important;
         height: 34px !important;
         min-width: 34px !important;
+        box-sizing: border-box !important;
 
         .header-avatar-circle {
           width: 30px !important;

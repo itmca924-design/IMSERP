@@ -296,6 +296,8 @@ using (var scope = app.Services.CreateScope())
                         ALTER TABLE Students ADD DeletedAt DATETIME2 NULL;
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Students') AND name = 'DeletedBy')
                         ALTER TABLE Students ADD DeletedBy UNIQUEIDENTIFIER NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Students') AND name = 'CoachingJoiningDate')
+                        ALTER TABLE Students ADD CoachingJoiningDate DATETIME2 NULL;
 
                     -- Tests table schema updates for School Examination support
                     IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tests') AND name = 'BatchId' AND is_nullable = 0)

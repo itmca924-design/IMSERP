@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit } from '@angular/core';
+import { Component, Inject, OnInit, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
@@ -19,6 +19,8 @@ import { BranchDto, BranchService } from '../../core/services/branch.service';
 import { RoomDto, RoomService } from '../../core/services/room.service';
 import { SchoolClassDto, SchoolService } from '../../core/services/school.service';
 import { AuthService } from '../../core/services/auth.service';
+import { CoachingService } from '../../core/services/coaching.service';
+import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 
 @Component({
   selector: 'app-batch-dialog',
@@ -82,23 +84,46 @@ import { AuthService } from '../../core/services/auth.service';
 
             <mat-form-field appearance="outline" class="half-width">
               <mat-label>Target Academic Class</mat-label>
-              <mat-select formControlName="classId" placeholder="Select Class (Optional)" panelClass="smooth-dropdown-panel batch-select-panel">
+              <mat-select formControlName="classId" placeholder="Select Class (Optional)" panelClass="smooth-dropdown-panel batch-select-panel" (openedChange)="onClassDropdownOpened($event)">
                 <mat-select-trigger>
                   {{ getSelectedClassName() || 'General / All Classes' }}
                 </mat-select-trigger>
-                <mat-option [value]="null">
+
+                <!-- Sticky Search Box for Target Academic Class -->
+                <div class="dropdown-header-container" (keydown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
+                  <div class="dropdown-search-box">
+                    <mat-icon class="search-icon">search</mat-icon>
+                    <input
+                      #classSearchInput
+                      type="text"
+                      class="search-input"
+                      placeholder="Search class (e.g. Play, 10th)..."
+                      [(ngModel)]="classSearchTerm"
+                      [ngModelOptions]="{standalone: true}"
+                      (input)="$event.stopPropagation()"
+                      (keydown)="$event.stopPropagation()"
+                    />
+                    <mat-icon *ngIf="classSearchTerm" class="clear-icon" (click)="classSearchTerm = ''; $event.stopPropagation()">close</mat-icon>
+                  </div>
+                </div>
+
+                <mat-option [value]="null" *ngIf="!classSearchTerm || 'none general batch'.includes(classSearchTerm.toLowerCase())">
                   <div class="batch-opt-row">
                     <mat-icon class="option-icon text-muted">clear_all</mat-icon>
                     <span class="text-muted">None / General Batch</span>
                   </div>
                 </mat-option>
-                <mat-option *ngFor="let c of filteredClasses" [value]="c.id">
+                <mat-option *ngFor="let c of getFilteredClasses()" [value]="c.id">
                   <div class="batch-opt-row">
                     <mat-icon color="primary" class="option-icon">class</mat-icon>
                     <span class="opt-name">{{ c.name }}</span>
                     <span class="opt-code-badge" *ngIf="c.code">{{ c.code }}</span>
                   </div>
                 </mat-option>
+                <div class="dropdown-empty-state" *ngIf="getFilteredClasses().length === 0 && classSearchTerm">
+                  <mat-icon class="empty-icon">search_off</mat-icon>
+                  <span>No class found matching "{{ classSearchTerm }}"</span>
+                </div>
               </mat-select>
               <mat-icon matSuffix color="primary">class</mat-icon>
             </mat-form-field>
@@ -203,6 +228,30 @@ import { AuthService } from '../../core/services/auth.service';
                 </mat-option>
               </mat-select>
               <mat-icon matSuffix color="primary">meeting_room</mat-icon>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Batch Mentor / In-charge Faculty (बैच मेंटर / प्रभारी शिक्षक)</mat-label>
+              <mat-select formControlName="mentorTeacherId" placeholder="Select Faculty In-charge (Optional)" panelClass="smooth-dropdown-panel batch-select-panel">
+                <mat-select-trigger>
+                  {{ getSelectedMentorName() }}
+                </mat-select-trigger>
+                <mat-option [value]="null">
+                  <div class="batch-opt-row">
+                    <mat-icon class="option-icon text-muted">person_off</mat-icon>
+                    <span class="text-muted">None / Unassigned (कोई मेंटर नहीं)</span>
+                  </div>
+                </mat-option>
+                <mat-option *ngFor="let t of availableTeachers" [value]="t.id">
+                  <div class="batch-opt-row">
+                    <mat-icon color="primary" class="option-icon">supervisor_account</mat-icon>
+                    <span class="opt-name">{{ t.fullName || t.name }}</span>
+                    <span class="opt-code-badge" *ngIf="t.specialization || t.department || t.designation || t.subject">{{ t.specialization || t.department || t.designation || t.subject }}</span>
+                    <span class="opt-sub-info" *ngIf="t.phoneNumber || t.phone">📞 {{ t.phoneNumber || t.phone }}</span>
+                  </div>
+                </mat-option>
+              </mat-select>
+              <mat-icon matSuffix color="primary">supervisor_account</mat-icon>
             </mat-form-field>
           </div>
 
@@ -460,6 +509,17 @@ import { AuthService } from '../../core/services/auth.service';
       }
     }
 
+    .dropdown-empty-state {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 16px;
+      color: #64748b;
+      font-size: 0.85rem;
+      font-style: italic;
+      .empty-icon { font-size: 18px; width: 18px; height: 18px; color: #94a3b8; }
+    }
+
     .preview-box {
       background: #f8fafc;
       border: 1px solid #e2e8f0;
@@ -546,7 +606,29 @@ export class BatchDialogComponent implements OnInit {
   filteredRooms: RoomDto[] = [];
   availableClasses: SchoolClassDto[] = [];
   filteredClasses: SchoolClassDto[] = [];
+  availableTeachers: any[] = [];
   subjectSearchTerm = '';
+  classSearchTerm = '';
+  @ViewChild('classSearchInput') classSearchInput?: ElementRef<HTMLInputElement>;
+
+  getFilteredClasses(): SchoolClassDto[] {
+    const term = (this.classSearchTerm || '').trim().toLowerCase();
+    if (!term) return this.filteredClasses;
+    return this.filteredClasses.filter(c =>
+      (c.name || '').toLowerCase().includes(term) ||
+      (c.code || '').toLowerCase().includes(term)
+    );
+  }
+
+  onClassDropdownOpened(opened: boolean): void {
+    if (opened) {
+      setTimeout(() => {
+        this.classSearchInput?.nativeElement?.focus();
+      }, 100);
+    } else {
+      this.classSearchTerm = '';
+    }
+  }
 
   constructor(
     private fb: FormBuilder,
@@ -555,7 +637,9 @@ export class BatchDialogComponent implements OnInit {
     private branchService: BranchService,
     private roomService: RoomService,
     private schoolService: SchoolService,
+    private coachingService: CoachingService,
     private authService: AuthService,
+    private confirmDialog: ConfirmDialogService,
     private dialogRef: MatDialogRef<BatchDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data?: BatchDto
   ) {}
@@ -577,6 +661,7 @@ export class BatchDialogComponent implements OnInit {
       selectedSubjects: [initialSubjectList, [Validators.required]],
       branchId: [initialBranchId || null],
       roomId: [this.data?.roomId || null],
+      mentorTeacherId: [this.data?.mentorTeacherId || null],
       academicYear: [this.data?.academicYear || '2026-2027', [Validators.required]],
       standardMonthlyFee: [this.data?.standardMonthlyFee || 3500, [Validators.required, Validators.min(0)]]
     });
@@ -586,13 +671,15 @@ export class BatchDialogComponent implements OnInit {
       subjects: this.subjectsService.getSubjects(true).pipe(catchError(() => of([]))),
       branches: this.branchService.getBranches().pipe(catchError(() => of([]))),
       rooms: this.roomService.getRooms().pipe(catchError(() => of([]))),
-      classes: this.schoolService.getClasses(true).pipe(catchError(() => of([])))
+      classes: this.schoolService.getClasses(true).pipe(catchError(() => of([]))),
+      teachers: this.coachingService.getTeachers().pipe(catchError(() => of([])))
     }).subscribe({
-      next: ({ subjects, branches, rooms, classes }) => {
+      next: ({ subjects, branches, rooms, classes, teachers }) => {
         this.availableSubjects = subjects;
         this.availableBranches = branches;
         this.availableRooms = rooms;
         this.availableClasses = classes;
+        this.availableTeachers = teachers;
 
         // Ensure any existing subjects from this batch are in availableSubjects
         if (initialSubjectList.length > 0) {
@@ -682,6 +769,16 @@ export class BatchDialogComponent implements OnInit {
     return b ? `${b.name} (${b.code})` : '';
   }
 
+  getSelectedMentorName(): string {
+    const mentorId = this.batchForm?.get('mentorTeacherId')?.value;
+    if (!mentorId) return 'None / Unassigned';
+    const t = this.availableTeachers.find(x => x.id === mentorId);
+    if (!t) return this.data?.mentorTeacherName || 'None / Unassigned';
+    const name = t.fullName || t.name;
+    const spec = t.specialization || t.department || t.designation || t.subject;
+    return spec ? `${name} (${spec})` : name;
+  }
+
   getSelectedRoomName(): string {
     const roomId = this.batchForm?.get('roomId')?.value;
     if (!roomId) return 'None / Unassigned';
@@ -760,7 +857,8 @@ export class BatchDialogComponent implements OnInit {
       standardMonthlyFee: formVal.standardMonthlyFee,
       branchId: formVal.branchId || null,
       roomId: formVal.roomId || null,
-      classId: formVal.classId || null
+      classId: formVal.classId || null,
+      mentorTeacherId: formVal.mentorTeacherId || null
     };
 
     if (this.isEditMode && this.data?.id) {
@@ -771,7 +869,7 @@ export class BatchDialogComponent implements OnInit {
         },
         error: (err) => {
           this.saving = false;
-          alert(err?.error?.message || 'Error updating batch');
+          this.confirmDialog.alert('Update Failed', err?.error?.message || 'Error updating batch');
         }
       });
     } else {
@@ -782,7 +880,7 @@ export class BatchDialogComponent implements OnInit {
         },
         error: (err) => {
           this.saving = false;
-          alert(err?.error?.message || 'Error creating batch');
+          this.confirmDialog.alert('Creation Failed', err?.error?.message || 'Error creating batch');
         }
       });
     }

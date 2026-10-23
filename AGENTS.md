@@ -66,6 +66,12 @@
 - **Strict Single Loader Rule (Strict UI Rule)**:
   - NEVER run multiple loading indicators simultaneously (e.g., do NOT combine `mat-progress-bar` with an overlay spinner, button loader, or search box spinner at the same time).
   - Across the entire application, ONLY ONE single, clean, prominent loader must ever be displayed on the screen for any data fetch, filter change, pagination, or page action.
+- **Strict Coaching Batch Hierarchy Rule (Class ➔ Batches ➔ Students Cascade - Permanent ERP Rule)**:
+  - In Coaching mode everywhere across the entire ERP (Promotion, Homework/Daily Diary, Attendance, Examinations/Tests, Fees, Timetable, Material, Reports, P1-P5 modules), **NEVER** expose an unbounded or flat list of coaching batches without Academic Class context.
+  - ALWAYS bind **Academic Class (कक्षा)** first!
+  - The coaching batches dropdown MUST cascade dynamically from the selected Academic Class (`b.classId === selectedClassId` or `All Classes`), and subsequent student dropdowns/rosters MUST bind to the selected batch.
+  - In Promotion & Transition: Both **Source (Source Class ➔ Source Batch)** and **Destination (Target Class ➔ Target Batch)** must strictly follow this cascading hierarchy.
+
 
 
 

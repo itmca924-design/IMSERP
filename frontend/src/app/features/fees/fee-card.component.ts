@@ -159,12 +159,67 @@ import { environment } from '../../../environments/environment';
           <div class="filter-col student-col">
             <label class="filter-label">Select Student</label>
             <mat-form-field appearance="outline" class="w-full">
-              <mat-select [(ngModel)]="selectedStudentId" placeholder="-- Choose Student --" (selectionChange)="onStudentChanged()" [disabled]="students.length === 0">
+              <mat-select
+                [(ngModel)]="selectedStudentId"
+                placeholder="-- Choose Student --"
+                (selectionChange)="onStudentChanged()"
+                [disabled]="students.length === 0"
+                panelClass="student-select-panel"
+                (opened)="focusSearchInput()"
+                (closed)="onStudentSelectClosed()">
+
+                <mat-select-trigger *ngIf="getSelectedStudent() as sel">
+                  <div class="st-trigger-wrap">
+                    <span class="st-roll-badge">#{{ (activeStream === 'coaching' ? (sel.coachingRollNumber || sel.rollNumber) : (sel.schoolRollNumber || sel.rollNumber)) || '-' }}</span>
+                    <span class="st-name-text">{{ sel.studentName }}</span>
+                    <span class="st-adm-tag">(Adm: {{ sel.admissionNumber || '-' }})</span>
+                  </div>
+                </mat-select-trigger>
+
+                <!-- Sticky Search Option inside Dropdown Panel -->
+                <mat-option disabled class="dropdown-search-option">
+                  <div class="dropdown-search-box" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()">
+                    <mat-icon class="search-box-icon">search</mat-icon>
+                    <input
+                      id="student-fee-card-search-input"
+                      type="text"
+                      class="search-inner-input"
+                      placeholder="Search student..."
+                      [(ngModel)]="studentSearchQuery"
+                      (click)="$event.stopPropagation()"
+                      (mousedown)="$event.stopPropagation()"
+                      (keydown)="$event.stopPropagation()"
+                    />
+                    <button
+                      type="button"
+                      class="clear-mini-btn"
+                      *ngIf="studentSearchQuery"
+                      (click)="clearStudentSearch($event)"
+                      (mousedown)="$event.stopPropagation()"
+                      matTooltip="Clear search"
+                    >
+                      <mat-icon>close</mat-icon>
+                    </button>
+                  </div>
+                  <div class="search-meta-bar" *ngIf="students.length > 0">
+                    <span>Showing <strong>{{ filteredStudents.length }}</strong> of {{ students.length }} students</span>
+                  </div>
+                </mat-option>
+
                 <mat-option value="">-- Choose Student ({{ students.length }}) --</mat-option>
-                <mat-option *ngFor="let st of students" [value]="st.id">
-                  <span class="st-opt-roll">#{{ (activeStream === 'coaching' ? (st.coachingRollNumber || st.rollNumber) : (st.schoolRollNumber || st.rollNumber)) || '-' }}</span>
-                  <strong class="st-opt-name">{{ st.studentName }}</strong>
-                  <span class="st-opt-adm">(Adm: {{ st.admissionNumber || '-' }})</span>
+                <mat-option *ngFor="let st of filteredStudents" [value]="st.id" class="student-item-option">
+                  <div class="st-opt-item">
+                    <span class="st-roll-badge">#{{ (activeStream === 'coaching' ? (st.coachingRollNumber || st.rollNumber) : (st.schoolRollNumber || st.rollNumber)) || '-' }}</span>
+                    <span class="st-name-text">{{ st.studentName }}</span>
+                    <span class="st-adm-tag">(Adm: {{ st.admissionNumber || '-' }})</span>
+                  </div>
+                </mat-option>
+
+                <mat-option disabled *ngIf="filteredStudents.length === 0 && studentSearchQuery" class="no-results-option">
+                  <div class="no-results-wrap">
+                    <mat-icon>search_off</mat-icon>
+                    <span>No students match "{{ studentSearchQuery }}"</span>
+                  </div>
                 </mat-option>
               </mat-select>
             </mat-form-field>
@@ -720,10 +775,13 @@ import { environment } from '../../../environments/environment';
     :host {
       display: block;
       width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
     }
 
     .fee-card-page-container {
       width: 100%;
+      max-width: 100%;
       box-sizing: border-box;
       display: flex;
       flex-direction: column;
@@ -928,21 +986,170 @@ import { environment } from '../../../environments/environment';
       display: none !important;
     }
 
-    .st-opt-roll {
-      display: inline-block;
-      width: 40px;
-      color: #2563eb;
+    ::ng-deep .mat-mdc-select-value-text {
+      width: 100% !important;
+      overflow: hidden !important;
+    }
+
+    .st-trigger-wrap,
+    .st-opt-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      width: 100%;
+      min-width: 0;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+
+    .st-roll-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1px 6px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 4px;
+      color: #1e40af;
       font-weight: 700;
+      font-size: 0.75rem;
+      flex-shrink: 0;
+      line-height: 1.4;
     }
 
-    .st-opt-name {
+    .st-name-text {
+      font-weight: 600;
       color: #0f172a;
-      margin-right: 6px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+      min-width: 0;
+      font-size: 0.86rem;
     }
 
-    .st-opt-adm {
+    .st-adm-tag {
       color: #64748b;
-      font-size: 0.8rem;
+      font-size: 0.75rem;
+      flex-shrink: 0;
+      white-space: nowrap;
+      margin-left: auto;
+    }
+
+    ::ng-deep .student-select-panel {
+      max-height: 420px !important;
+      min-width: 100% !important;
+      max-width: min(92vw, 420px) !important;
+      border-radius: 10px !important;
+      overflow-x: hidden !important;
+
+      .mat-mdc-option {
+        min-height: 42px !important;
+        padding: 0 10px !important;
+
+        .mdc-list-item__primary-text {
+          width: 100% !important;
+          display: block !important;
+          overflow: hidden !important;
+        }
+      }
+
+      .dropdown-search-option {
+        position: sticky !important;
+        top: 0 !important;
+        z-index: 100 !important;
+        background: #ffffff !important;
+        padding: 8px 10px 6px 10px !important;
+        height: auto !important;
+        border-bottom: 1px solid #e2e8f0 !important;
+        cursor: default !important;
+        opacity: 1 !important;
+        line-height: normal !important;
+        box-sizing: border-box !important;
+
+        .dropdown-search-box {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          background: #f8fafc;
+          border: 1px solid #cbd5e1;
+          border-radius: 8px;
+          padding: 6px 10px;
+          width: 100%;
+          box-sizing: border-box;
+          transition: border-color 0.2s, box-shadow 0.2s;
+
+          &:focus-within {
+            border-color: #2563eb;
+            background: #ffffff;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+          }
+
+          .search-box-icon {
+            font-size: 18px;
+            width: 18px;
+            height: 18px;
+            color: #64748b;
+            flex-shrink: 0;
+          }
+
+          .search-inner-input {
+            border: none;
+            outline: none;
+            background: transparent;
+            font-size: 0.85rem;
+            color: #0f172a;
+            width: 100%;
+            min-width: 0;
+            flex: 1;
+            font-family: inherit;
+
+            &::placeholder {
+              color: #94a3b8;
+              font-size: 0.82rem;
+            }
+          }
+
+          .clear-mini-btn {
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #94a3b8;
+            flex-shrink: 0;
+            &:hover { color: #0f172a; }
+            mat-icon { font-size: 16px; width: 16px; height: 16px; }
+          }
+        }
+
+        .search-meta-bar {
+          margin-top: 5px;
+          font-size: 0.72rem;
+          color: #64748b;
+          display: flex;
+          justify-content: space-between;
+          strong { color: #2563eb; }
+        }
+      }
+
+      .no-results-option {
+        height: auto !important;
+        padding: 16px !important;
+        text-align: center;
+        opacity: 1 !important;
+        .no-results-wrap {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 6px;
+          color: #94a3b8;
+          font-size: 0.82rem;
+          mat-icon { font-size: 24px; width: 24px; height: 24px; color: #cbd5e1; }
+        }
+      }
     }
 
     .filter-bottom-bar {
@@ -1048,6 +1255,9 @@ import { environment } from '../../../environments/environment';
     /* THE PHYSICAL PASSBOOK / FEE CARD */
     .fee-card-wrapper {
       margin-top: 0;
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
     }
 
     .student-fee-passbook {
@@ -1057,6 +1267,9 @@ import { environment } from '../../../environments/environment';
       padding: 1.5rem;
       box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05);
       position: relative;
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
     }
 
     /* Institute Header */
@@ -1760,25 +1973,248 @@ import { environment } from '../../../environments/environment';
       }
     }
 
-    @media (max-width: 600px) {
+    @media (max-width: 768px) {
       .fee-card-page-container {
-        padding: 0 0 30px;
+        padding: 0 0 24px;
+        gap: 12px;
       }
+
       .page-header {
-        flex-direction: column;
-        align-items: flex-start;
+        padding: 1rem !important;
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 0.75rem !important;
+
+        .header-left {
+          gap: 0.75rem !important;
+          .header-icon-box {
+            width: 40px !important;
+            height: 40px !important;
+            mat-icon { font-size: 22px !important; width: 22px !important; height: 22px !important; }
+          }
+          .header-titles .main-title {
+            font-size: 1.15rem !important;
+          }
+          .header-titles .subtitle {
+            font-size: 0.78rem !important;
+          }
+        }
+
+        .header-actions {
+          width: 100% !important;
+          justify-content: flex-end !important;
+          flex-wrap: wrap !important;
+          gap: 0.5rem !important;
+          button {
+            flex: 1 !important;
+            min-width: 120px !important;
+          }
+        }
       }
-      .header-actions {
-        width: 100%;
-        justify-content: flex-end;
+
+      .filters-card {
+        padding: 0.85rem !important;
       }
-      .inst-name {
-        font-size: 1.25rem;
+
+      .stream-switcher-row {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 8px !important;
+        .stream-pills {
+          width: 100% !important;
+          .stream-pill {
+            flex: 1 !important;
+            justify-content: center !important;
+            padding: 6px 8px !important;
+            font-size: 0.8rem !important;
+          }
+        }
       }
+
+      .filters-grid {
+        grid-template-columns: 1fr !important;
+        gap: 0.75rem !important;
+      }
+
+      .filter-bottom-bar {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 0.75rem !important;
+
+        .view-mode-toggle {
+          width: 100% !important;
+          .toggle-chip {
+            flex: 1 !important;
+            justify-content: center !important;
+            padding: 6px 8px !important;
+            font-size: 0.78rem !important;
+          }
+        }
+
+        .quick-helpers {
+          flex-direction: column !important;
+          align-items: stretch !important;
+          gap: 0.5rem !important;
+
+          .btn-whatsapp {
+            width: 100% !important;
+            justify-content: center !important;
+          }
+
+          .status-summary {
+            font-size: 0.78rem !important;
+            text-align: center !important;
+          }
+        }
+      }
+
+      /* FEE CARD CONTAINER & HEADER ON MOBILE */
+      .student-fee-passbook {
+        padding: 0.75rem !important;
+        border-radius: 8px !important;
+      }
+
+      .card-institute-header {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        text-align: center !important;
+        gap: 0.65rem !important;
+        padding-bottom: 0.75rem !important;
+
+        .inst-logo-col .inst-logo-img {
+          max-width: 65px !important;
+          max-height: 65px !important;
+        }
+
+        .inst-details-col {
+          .inst-name { font-size: 1.2rem !important; }
+          .inst-tagline { font-size: 0.75rem !important; }
+          .inst-address { font-size: 0.76rem !important; }
+          .inst-contact { font-size: 0.74rem !important; }
+        }
+
+        .student-photo-col {
+          .student-photo-box {
+            width: 70px !important;
+            height: 80px !important;
+          }
+        }
+      }
+
       .card-title-banner {
-        flex-direction: column;
-        gap: 4px;
-        text-align: center;
+        flex-direction: column !important;
+        gap: 4px !important;
+        text-align: center !important;
+        padding: 0.5rem !important;
+        font-size: 0.82rem !important;
+
+        .banner-en { font-size: 0.82rem !important; }
+        .banner-session { font-size: 0.78rem !important; }
+        .banner-hi { font-size: 0.76rem !important; }
+      }
+
+      /* STUDENT INFO TABLE ON MOBILE - FULL RESPONSIVE STACK */
+      .student-info-table {
+        display: block !important;
+        width: 100% !important;
+        table-layout: auto !important;
+        border: 1.5px solid #1e3a8a !important;
+        border-radius: 6px !important;
+        box-sizing: border-box !important;
+
+        tbody {
+          display: block !important;
+          width: 100% !important;
+        }
+
+        tr {
+          display: grid !important;
+          grid-template-columns: 1fr !important;
+          width: 100% !important;
+          box-sizing: border-box !important;
+          border-bottom: 1px solid #cbd5e1 !important;
+        }
+
+        td {
+          display: block !important;
+          width: 100% !important;
+          box-sizing: border-box !important;
+          border-right: none !important;
+          padding: 6px 10px !important;
+          font-size: 0.82rem !important;
+        }
+
+        .info-label {
+          background: #eff6ff !important;
+          font-weight: 700 !important;
+          border-bottom: 1px dashed #dbeafe !important;
+          padding-top: 6px !important;
+          color: #1e3a8a !important;
+          font-size: 0.74rem !important;
+        }
+
+        .info-value {
+          background: #ffffff !important;
+          padding-bottom: 6px !important;
+        }
+      }
+
+      /* SUMMARY KPI STRIP ON MOBILE */
+      .summary-kpi-strip {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 6px !important;
+        margin-bottom: 1rem !important;
+
+        .kpi-box {
+          padding: 0.5rem 0.6rem !important;
+          .kpi-label { font-size: 0.68rem !important; }
+          .kpi-value { font-size: 0.95rem !important; }
+        }
+      }
+
+      /* 12-MONTH PASSBOOK TABLE CONTAINER & SCROLL */
+      .passbook-table-container {
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        border: 1.5px solid #0f172a !important;
+        border-radius: 6px !important;
+        margin-bottom: 1rem !important;
+      }
+
+      .passbook-table {
+        min-width: 820px !important;
+        width: max-content !important;
+      }
+
+      /* TERMS & SIGNATURES ON MOBILE */
+      .card-terms-box {
+        padding: 0.65rem 0.75rem !important;
+        margin-bottom: 1rem !important;
+        .terms-title { font-size: 0.76rem !important; }
+        .terms-list { font-size: 0.72rem !important; padding-left: 1rem !important; }
+      }
+
+      .signatures-container {
+        grid-template-columns: 1fr !important;
+        gap: 1.5rem !important;
+        padding-top: 1rem !important;
+
+        .sig-block {
+          width: 100% !important;
+          .sig-line { width: 60% !important; }
+        }
+      }
+
+      .batch-controls {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 0.75rem !important;
+        padding: 0.85rem !important;
+        button { width: 100% !important; }
       }
     }
 
@@ -2150,6 +2586,46 @@ export class FeeCardComponent implements OnInit {
   // Student State
   students: any[] = [];
   selectedStudentId: string = '';
+  studentSearchQuery: string = '';
+
+  get filteredStudents(): any[] {
+    if (!this.studentSearchQuery || !this.studentSearchQuery.trim()) {
+      return this.students || [];
+    }
+    const q = this.studentSearchQuery.trim().toLowerCase();
+    return (this.students || []).filter(s => {
+      const name = (s.studentName || '').toLowerCase();
+      const adm = (s.admissionNumber || '').toLowerCase();
+      const roll = (s.rollNumber || '').toLowerCase();
+      const schoolRoll = (s.schoolRollNumber || '').toLowerCase();
+      const coachingRoll = (s.coachingRollNumber || '').toLowerCase();
+      const phone = (s.parentWhatsAppPhone || s.emergencyContactPhone || '').toLowerCase();
+      return name.includes(q) || adm.includes(q) || roll.includes(q) || schoolRoll.includes(q) || coachingRoll.includes(q) || phone.includes(q);
+    });
+  }
+
+  getSelectedStudent(): any | null {
+    if (!this.selectedStudentId) return null;
+    return this.students.find(s => s.id === this.selectedStudentId) || null;
+  }
+
+  focusSearchInput(): void {
+    setTimeout(() => {
+      const el = document.getElementById('student-fee-card-search-input');
+      if (el) el.focus();
+    }, 150);
+  }
+
+  clearStudentSearch(event?: Event): void {
+    if (event) {
+      event.stopPropagation();
+    }
+    this.studentSearchQuery = '';
+  }
+
+  onStudentSelectClosed(): void {
+    this.studentSearchQuery = '';
+  }
 
   // View state
   viewMode: 'single' | 'class' = 'single';
@@ -2193,6 +2669,7 @@ export class FeeCardComponent implements OnInit {
     this.activeStream = stream;
     this.students = [];
     this.selectedStudentId = '';
+    this.studentSearchQuery = '';
     this.currentCard = null;
     this.classCards = [];
 
@@ -2240,6 +2717,7 @@ export class FeeCardComponent implements OnInit {
   onBatchChanged(): void {
     this.students = [];
     this.selectedStudentId = '';
+    this.studentSearchQuery = '';
     this.currentCard = null;
     this.classCards = [];
 
@@ -2266,6 +2744,7 @@ export class FeeCardComponent implements OnInit {
     this.sections = [];
     this.students = [];
     this.selectedStudentId = '';
+    this.studentSearchQuery = '';
     this.currentCard = null;
     this.classCards = [];
 

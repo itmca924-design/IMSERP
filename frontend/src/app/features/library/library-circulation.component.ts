@@ -151,18 +151,87 @@ import { environment } from '../../../environments/environment';
 
             <!-- Student Picker -->
             <div *ngIf="issueMemberType === 'Student'">
-              <mat-form-field appearance="outline" class="full-width">
-                <mat-label>Select Enrolled Student</mat-label>
+              <!-- Borrower Stream Selector -->
+              <div class="borrower-stream-pills">
+                <button type="button" class="b-stream-btn" [class.active]="borrowerStream === 'All'" (click)="setBorrowerStream('All')">
+                  <mat-icon>people</mat-icon>
+                  <span>All Students</span>
+                </button>
+                <button type="button" class="b-stream-btn" [class.active]="borrowerStream === 'School'" (click)="setBorrowerStream('School')">
+                  <mat-icon>school</mat-icon>
+                  <span>School Class &amp; Sec</span>
+                </button>
+                <button type="button" class="b-stream-btn" [class.active]="borrowerStream === 'Coaching'" (click)="setBorrowerStream('Coaching')">
+                  <mat-icon>groups</mat-icon>
+                  <span>Coaching Batch</span>
+                </button>
+              </div>
+
+              <!-- If School Stream -->
+              <div class="cascade-row" *ngIf="borrowerStream === 'School'">
+                <mat-form-field appearance="outline" class="cascade-field">
+                  <mat-label>School Class (कक्षा)</mat-label>
+                  <mat-select [(ngModel)]="selectedClassId" (selectionChange)="onSchoolClassChange()">
+                    <mat-option value="">-- All School Classes --</mat-option>
+                    <mat-option *ngFor="let c of schoolClasses" [value]="c.id">{{ c.name }}</mat-option>
+                  </mat-select>
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="cascade-field" *ngIf="availableSections.length > 0">
+                  <mat-label>Section (सेक्शन)</mat-label>
+                  <mat-select [(ngModel)]="selectedSectionId">
+                    <mat-option value="">-- All Sections --</mat-option>
+                    <mat-option *ngFor="let sec of availableSections" [value]="sec.id">Sec {{ sec.name }}</mat-option>
+                  </mat-select>
+                </mat-form-field>
+              </div>
+
+              <!-- If Coaching Stream: Academic Class ➔ Coaching Batch Cascade -->
+              <div class="cascade-row" *ngIf="borrowerStream === 'Coaching'">
+                <mat-form-field appearance="outline" class="cascade-field">
+                  <mat-label>Academic Class (कक्षा)</mat-label>
+                  <mat-select [(ngModel)]="selectedCoachingClassId" (selectionChange)="onCoachingClassChange()">
+                    <mat-option value="">-- All Classes (सभी कक्षाएं) --</mat-option>
+                    <mat-option *ngFor="let c of schoolClasses" [value]="c.id">{{ c.name }}</mat-option>
+                  </mat-select>
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="cascade-field">
+                  <mat-label>Coaching Batch (बैच)</mat-label>
+                  <mat-select [(ngModel)]="selectedBatchId">
+                    <mat-option value="">-- All Batches (सभी बैच) --</mat-option>
+                    <mat-option *ngFor="let b of filteredBatches" [value]="b.id">
+                      {{ b.name }} {{ b.subject ? '(' + b.subject + ')' : '' }}
+                    </mat-option>
+                  </mat-select>
+                </mat-form-field>
+              </div>
+
+              <!-- Quick Student Search Input -->
+              <div class="student-search-bar" *ngIf="borrowerStream === 'All'">
+                <mat-form-field appearance="outline" class="full-width" subscriptSizing="dynamic">
+                  <mat-label>🔍 Quick Filter (Name / Roll No / Barcode)</mat-label>
+                  <input matInput [(ngModel)]="studentSearchTerm" placeholder="Type to instantly filter..." />
+                  <button mat-icon-button matSuffix *ngIf="studentSearchTerm" (click)="studentSearchTerm = ''" type="button">
+                    <mat-icon>close</mat-icon>
+                  </button>
+                </mat-form-field>
+              </div>
+
+              <mat-form-field appearance="outline" class="full-width" style="margin-top: 8px;">
+                <mat-label>Select Enrolled Student ({{ displayedStudents.length }} Available)</mat-label>
                 <mat-select [(ngModel)]="issueStudentId" panelClass="batch-filter-panel">
-                  <mat-option *ngFor="let s of students" [value]="s.id">
+                  <mat-option *ngFor="let s of displayedStudents" [value]="s.id">
                     <div class="borrower-opt">
                       <span class="borrower-opt-name">{{ s.studentName }}</span>
                       <span class="borrower-opt-id">({{ s.coachingRollNumber || s.rollNumber }}{{ s.admissionNumber ? ' • Adm: ' + s.admissionNumber : '' }})</span>
+                      <span class="borrower-opt-batch" *ngIf="s.batchName || s.className">
+                        • {{ s.batchName ? s.batchName : s.className }}
+                      </span>
                       <span *ngIf="s.isLibraryMember" class="b-pill-member">📚 Member (Limit: {{ s.maxLibraryBooks || 2 }})</span>
                       <span *ngIf="!s.isLibraryMember" class="b-pill-non">Non-Member</span>
                     </div>
                   </mat-option>
                 </mat-select>
+                <mat-hint *ngIf="displayedStudents.length === 0">No students match current filter criteria.</mat-hint>
               </mat-form-field>
 
               <!-- Borrower Library Membership Summary Card -->
@@ -721,6 +790,49 @@ import { environment } from '../../../environments/environment';
       }
     }
 
+    /* Borrower Stream Pills & Cascade Row */
+    .borrower-stream-pills {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .b-stream-btn {
+      flex: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 7px 12px;
+      border-radius: 8px;
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      color: #475569;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      mat-icon { font-size: 16px; width: 16px; height: 16px; color: #64748b; }
+      &:hover { background: #f8fafc; border-color: #94a3b8; }
+      &.active {
+        background: #eff6ff;
+        border-color: #2563eb;
+        color: #1e40af;
+        mat-icon { color: #2563eb; }
+      }
+    }
+    .cascade-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 8px;
+      .cascade-field {
+        flex: 1;
+        margin-bottom: -16px;
+      }
+    }
+    .student-search-bar {
+      margin-bottom: 8px;
+    }
+
     /* Borrower Select Option & Summary Card */
     .borrower-opt {
       display: flex;
@@ -730,6 +842,7 @@ import { environment } from '../../../environments/environment';
       width: 100%;
       .borrower-opt-name { font-weight: 600; color: #1e293b; }
       .borrower-opt-id { color: #64748b; font-size: 0.8rem; }
+      .borrower-opt-batch { color: #2563eb; font-size: 0.78rem; font-weight: 600; }
       .b-pill-member {
         margin-left: auto;
         font-size: 0.72rem;
@@ -1096,6 +1209,18 @@ export class LibraryCirculationComponent implements OnInit {
   assignSubmitting = false;
   libraryPlans: LibraryMembershipPlanDto[] = [];
 
+  // Stream & Cascade Filters for Student Borrowers
+  borrowerStream: 'All' | 'School' | 'Coaching' = 'All';
+  schoolClasses: any[] = [];
+  batches: any[] = [];
+  filteredBatches: any[] = [];
+  availableSections: any[] = [];
+  selectedClassId: string = '';
+  selectedSectionId: string = '';
+  selectedCoachingClassId: string = '';
+  selectedBatchId: string = '';
+  studentSearchTerm: string = '';
+
   constructor(
     private libraryService: LibraryService,
     private coachingService: CoachingService,
@@ -1111,6 +1236,8 @@ export class LibraryCirculationComponent implements OnInit {
     this.loadTeachers();
     this.loadCirculations();
     this.loadAvailableCopies();
+    this.loadSchoolClasses();
+    this.loadBatches();
 
     this.route.queryParams.subscribe(params => {
       if (params['teacherId']) {
@@ -1245,6 +1372,95 @@ export class LibraryCirculationComponent implements OnInit {
       next: (res) => this.teachers = res || [],
       error: (err) => console.error('Failed to load teachers for library circulation', err)
     });
+  }
+
+  loadSchoolClasses(): void {
+    this.http.get<any[]>(`${environment.apiUrl}/school/classes?activeOnly=true`).subscribe({
+      next: (res) => this.schoolClasses = res || [],
+      error: () => this.schoolClasses = []
+    });
+  }
+
+  loadBatches(): void {
+    this.http.get<any[]>(`${environment.apiUrl}/batches`).subscribe({
+      next: (res) => {
+        this.batches = res || [];
+        this.filterBatches();
+      },
+      error: () => {
+        this.batches = [];
+        this.filteredBatches = [];
+      }
+    });
+  }
+
+  setBorrowerStream(stream: 'All' | 'School' | 'Coaching'): void {
+    this.borrowerStream = stream;
+    this.selectedClassId = '';
+    this.selectedSectionId = '';
+    this.selectedCoachingClassId = '';
+    this.selectedBatchId = '';
+    this.availableSections = [];
+    this.studentSearchTerm = '';
+    this.filterBatches();
+  }
+
+  onSchoolClassChange(): void {
+    this.selectedSectionId = '';
+    const cls = this.schoolClasses.find(c => c.id === this.selectedClassId);
+    this.availableSections = cls?.sections || [];
+    if (this.availableSections.length === 1) {
+      this.selectedSectionId = this.availableSections[0].id;
+    }
+  }
+
+  onCoachingClassChange(): void {
+    this.selectedBatchId = '';
+    this.filterBatches();
+    if (this.filteredBatches.length === 1) {
+      this.selectedBatchId = this.filteredBatches[0].id;
+    }
+  }
+
+  filterBatches(): void {
+    if (!this.selectedCoachingClassId) {
+      this.filteredBatches = [...this.batches];
+    } else {
+      this.filteredBatches = this.batches.filter(b => b.classId === this.selectedCoachingClassId);
+    }
+  }
+
+  get displayedStudents(): any[] {
+    let list = this.students;
+
+    if (this.borrowerStream === 'School') {
+      if (this.selectedClassId) {
+        list = list.filter(s => s.classId === this.selectedClassId);
+      }
+      if (this.selectedSectionId) {
+        list = list.filter(s => s.sectionId === this.selectedSectionId || s.classSectionId === this.selectedSectionId);
+      }
+    } else if (this.borrowerStream === 'Coaching') {
+      if (this.selectedCoachingClassId) {
+        list = list.filter(s => s.classId === this.selectedCoachingClassId);
+      }
+      if (this.selectedBatchId) {
+        list = list.filter(s => s.batchId === this.selectedBatchId);
+      }
+    }
+
+    if (this.studentSearchTerm && this.studentSearchTerm.trim()) {
+      const q = this.studentSearchTerm.trim().toLowerCase();
+      list = list.filter(s =>
+        (s.studentName && s.studentName.toLowerCase().includes(q)) ||
+        (s.rollNumber && s.rollNumber.toLowerCase().includes(q)) ||
+        (s.coachingRollNumber && s.coachingRollNumber.toLowerCase().includes(q)) ||
+        (s.admissionNumber && s.admissionNumber.toLowerCase().includes(q)) ||
+        (s.libraryCardNumber && s.libraryCardNumber.toLowerCase().includes(q))
+      );
+    }
+
+    return list;
   }
 
   get selectedStudentForIssue(): any {

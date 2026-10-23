@@ -2,6 +2,8 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { SectionPeriodRoutineDto, CreateSectionPeriodRequestDto } from './school.service';
+import { StudentWeeklyTimetableDto } from './coaching.service';
 
 export interface BatchDto {
   id: string;
@@ -17,6 +19,10 @@ export interface BatchDto {
   roomName?: string | null;
   classId?: string | null;
   className?: string | null;
+  courseName?: string | null;
+  mentorTeacherId?: string | null;
+  mentorTeacherName?: string | null;
+  mentorTeacherPhone?: string | null;
 }
 
 export interface CreateBatchDto {
@@ -27,6 +33,8 @@ export interface CreateBatchDto {
   branchId?: string | null;
   roomId?: string | null;
   classId?: string | null;
+  courseName?: string | null;
+  mentorTeacherId?: string | null;
 }
 
 export interface PagedResult<T> {
@@ -95,5 +103,31 @@ export class BatchesService {
 
   deleteBatch(id: string): Observable<any> {
     return this.http.delete(`${this.BASE_URL}/${id}`);
+  }
+
+  getBatchRoutine(batchId: string): Observable<SectionPeriodRoutineDto[]> {
+    return this.http.get<SectionPeriodRoutineDto[]>(`${this.BASE_URL}/${batchId}/routine`);
+  }
+
+  addBatchPeriod(batchId: string, dto: CreateSectionPeriodRequestDto): Observable<SectionPeriodRoutineDto> {
+    return this.http.post<SectionPeriodRoutineDto>(`${this.BASE_URL}/${batchId}/routine`, dto);
+  }
+
+  updateBatchPeriod(assignmentId: string, dto: CreateSectionPeriodRequestDto): Observable<SectionPeriodRoutineDto> {
+    return this.http.put<SectionPeriodRoutineDto>(`${this.BASE_URL}/routine/${assignmentId}`, dto);
+  }
+
+  removeBatchPeriod(assignmentId: string): Observable<void> {
+    return this.http.delete<void>(`${this.BASE_URL}/routine/${assignmentId}`);
+  }
+
+  getBatchTimetable(batchId: string, dayOfWeek?: string): Observable<StudentWeeklyTimetableDto> {
+    const params: any = {};
+    if (dayOfWeek) params.dayOfWeek = dayOfWeek;
+    return this.http.get<StudentWeeklyTimetableDto>(`${this.BASE_URL}/${batchId}/timetable`, { params });
+  }
+
+  assignBatchMentor(batchId: string, mentorTeacherId: string | null): Observable<BatchDto> {
+    return this.http.put<BatchDto>(`${this.BASE_URL}/${batchId}/mentor`, { mentorTeacherId });
   }
 }

@@ -135,11 +135,20 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
 
           <!-- Quick apply Default Batch (Coaching Mode) -->
           <div class="shared-batch-row" *ngIf="plannerCategory === 'coaching'">
+            <mat-form-field appearance="outline" class="class-selector" subscriptSizing="dynamic">
+              <mat-label>Academic Class</mat-label>
+              <mat-select [(ngModel)]="plannerCoachingClassId" (selectionChange)="onPlannerCoachingClassChange()" panelClass="smart-batch-panel">
+                <mat-option value="">-- All Classes --</mat-option>
+                <mat-option *ngFor="let c of schoolClasses" [value]="c.id">{{ c.name }}</mat-option>
+              </mat-select>
+              <mat-icon matSuffix>school</mat-icon>
+            </mat-form-field>
+
             <mat-form-field appearance="outline" class="batch-selector" subscriptSizing="dynamic">
               <mat-label>Default Batch for All Rows</mat-label>
               <mat-select [(ngModel)]="sharedBatchId" (selectionChange)="applyBatchToAll()" panelClass="smart-batch-panel">
                 <mat-option value="">-- Choose Batch --</mat-option>
-                <mat-option *ngFor="let b of batches" [value]="b.id">{{ b.name }}{{ b.className ? ' [' + b.className + ']' : '' }}</mat-option>
+                <mat-option *ngFor="let b of (plannerCoachingClassId ? getBatchesForClass(plannerCoachingClassId) : batches)" [value]="b.id">{{ b.name }}{{ b.className ? ' [' + b.className + ']' : '' }}</mat-option>
               </mat-select>
               <mat-icon matSuffix>groups</mat-icon>
             </mat-form-field>
@@ -213,7 +222,7 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                 <div class="cell-batch" *ngIf="plannerCategory === 'coaching'">
                   <mat-form-field appearance="outline" class="field-compact" subscriptSizing="dynamic">
                     <mat-select formControlName="batchId" placeholder="Select batch..." panelClass="smart-batch-panel">
-                      <mat-option *ngFor="let b of batches" [value]="b.id">{{ b.name }}{{ b.className ? ' [' + b.className + ']' : '' }}</mat-option>
+                      <mat-option *ngFor="let b of (plannerCoachingClassId ? getBatchesForClass(plannerCoachingClassId) : batches)" [value]="b.id">{{ b.name }}{{ b.className ? ' [' + b.className + ']' : '' }}</mat-option>
                     </mat-select>
                     <mat-error *ngIf="row.get('batchId')?.invalid">Required</mat-error>
                   </mat-form-field>
@@ -641,26 +650,25 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
               </button>
             </mat-form-field>
 
-            <!-- School Class & Section Filters (Visible when category is 'all' or 'school', AND hasSchool) -->
-            <ng-container *ngIf="hasSchool && (selectedCategory === 'school' || selectedCategory === 'all')">
-              <mat-form-field appearance="outline" class="filter-dropdown" subscriptSizing="dynamic">
-                <mat-label>Filter by School Class</mat-label>
-                <mat-select [(ngModel)]="selectedClassFilter" (selectionChange)="onClassFilterChange()">
-                  <mat-option value="">All Classes</mat-option>
-                  <mat-option *ngFor="let c of schoolClasses" [value]="c.id">{{ c.name }}</mat-option>
-                </mat-select>
-                <mat-icon matSuffix>school</mat-icon>
-              </mat-form-field>
+            <!-- Class Filter (Visible across School, Coaching, and All) -->
+            <mat-form-field appearance="outline" class="filter-dropdown" subscriptSizing="dynamic">
+              <mat-label>{{ selectedCategory === 'coaching' ? 'Filter by Class' : 'Filter by School Class' }}</mat-label>
+              <mat-select [(ngModel)]="selectedClassFilter" (selectionChange)="onClassFilterChange()">
+                <mat-option value="">All Classes</mat-option>
+                <mat-option *ngFor="let c of schoolClasses" [value]="c.id">{{ c.name }}</mat-option>
+              </mat-select>
+              <mat-icon matSuffix>school</mat-icon>
+            </mat-form-field>
 
-              <mat-form-field appearance="outline" class="filter-dropdown section-filter" subscriptSizing="dynamic" *ngIf="selectedClassFilter && sectionsForFilterClass.length > 0">
-                <mat-label>Section</mat-label>
-                <mat-select [(ngModel)]="selectedSectionFilter" (selectionChange)="onFilterChange()">
-                  <mat-option value="">All Sections</mat-option>
-                  <mat-option *ngFor="let s of sectionsForFilterClass" [value]="s.id">{{ s.name }}</mat-option>
-                </mat-select>
-                <mat-icon matSuffix>meeting_room</mat-icon>
-              </mat-form-field>
-            </ng-container>
+            <!-- School Section Filter -->
+            <mat-form-field appearance="outline" class="filter-dropdown section-filter" subscriptSizing="dynamic" *ngIf="(selectedCategory === 'school' || selectedCategory === 'all') && selectedClassFilter && sectionsForFilterClass.length > 0">
+              <mat-label>Section</mat-label>
+              <mat-select [(ngModel)]="selectedSectionFilter" (selectionChange)="onFilterChange()">
+                <mat-option value="">All Sections</mat-option>
+                <mat-option *ngFor="let s of sectionsForFilterClass" [value]="s.id">{{ s.name }}</mat-option>
+              </mat-select>
+              <mat-icon matSuffix>meeting_room</mat-icon>
+            </mat-form-field>
 
             <!-- Coaching Batch Filter (Visible when category is 'all' or 'coaching', AND hasCoaching) -->
             <mat-form-field appearance="outline" class="filter-dropdown batch-filter" subscriptSizing="dynamic" *ngIf="hasCoaching && (selectedCategory === 'coaching' || selectedCategory === 'all')">
@@ -3651,6 +3659,7 @@ export class TestsComponent implements OnInit {
   plannerCategory: 'school' | 'coaching' = 'school';
   showBulkPlanner = false;
   sharedBatchId = '';
+  plannerCoachingClassId = '';
   sharedClassId = '';
   sharedSectionId = '';
   sectionsForSharedClass: SchoolSectionDto[] = [];
@@ -3876,11 +3885,11 @@ export class TestsComponent implements OnInit {
     }
 
     this.loadCurrentTeacher();
+    this.loadSchoolClasses();
     if (this.hasCoaching) {
       this.loadBatches();
     }
     if (this.hasSchool) {
-      this.loadSchoolClasses();
       this.loadSchoolRoutines();
     }
     this.loadTests();
@@ -3925,7 +3934,6 @@ export class TestsComponent implements OnInit {
     if (cat === 'school') {
       this.selectedBatchFilter = '';
     } else if (cat === 'coaching') {
-      this.selectedClassFilter = '';
       this.selectedSectionFilter = '';
       this.sectionsForFilterClass = [];
     }
@@ -3936,8 +3944,14 @@ export class TestsComponent implements OnInit {
   onClassFilterChange(): void {
     this.selectedSectionFilter = '';
     if (this.selectedClassFilter) {
-      const cls = this.schoolClasses.find(c => c.id === this.selectedClassFilter);
+      const cls = this.schoolClasses.find(c => (c.id || '').toLowerCase() === this.selectedClassFilter.toLowerCase());
       this.sectionsForFilterClass = cls?.sections || [];
+      if (this.selectedBatchFilter) {
+        const stillValid = this.getBatchesForClass(this.selectedClassFilter).some(b => (b.id || '').toLowerCase() === this.selectedBatchFilter.toLowerCase());
+        if (!stillValid) {
+          this.selectedBatchFilter = '';
+        }
+      }
     } else {
       this.sectionsForFilterClass = [];
     }
@@ -3947,7 +3961,7 @@ export class TestsComponent implements OnInit {
 
   getBatchesForClass(classId: string): any[] {
     if (!classId) return this.batches || [];
-    return (this.batches || []).filter(b => b.classId === classId);
+    return (this.batches || []).filter(b => (b.classId || '').toLowerCase() === classId.toLowerCase());
   }
 
   onFilterChange(): void {
@@ -3984,10 +3998,21 @@ export class TestsComponent implements OnInit {
       this.subjectSearchTexts = [];
       this.filteredSubjectsPerRow = [];
       this.sharedBatchId = '';
+      this.plannerCoachingClassId = '';
       this.sharedClassId = '';
       this.sharedSectionId = '';
       this.sectionsForSharedClass = [];
       this.addRow();
+    }
+  }
+
+  onPlannerCoachingClassChange(): void {
+    if (this.sharedBatchId) {
+      const valid = this.getBatchesForClass(this.plannerCoachingClassId).some(b => (b.id || '').toLowerCase() === this.sharedBatchId.toLowerCase());
+      if (!valid) {
+        this.sharedBatchId = '';
+        this.applyBatchToAll();
+      }
     }
   }
 

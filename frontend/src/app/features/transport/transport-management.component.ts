@@ -102,6 +102,7 @@ export class TransportManagementComponent implements OnInit {
   manifestDeparture = 'Morning';
 
   // Server-side Student Passes Table State
+  studentPassScope: 'ALL' | 'school' | 'coaching' = 'ALL';
   studentPassFilterClass: string = 'ALL';
   studentPassFilterRoute: string = 'ALL';
   studentPassSearch: string = '';
@@ -364,6 +365,7 @@ export class TransportManagementComponent implements OnInit {
       classId,
       sectionId,
       batchId,
+      cohortScope: this.studentPassScope !== 'ALL' ? this.studentPassScope : undefined,
       routeId,
       status: 'Active',
       search: this.studentPassSearch?.trim() || undefined,
@@ -383,6 +385,14 @@ export class TransportManagementComponent implements OnInit {
         this.isStudentPassesLoading = false;
       }
     });
+  }
+
+  setStudentPassScope(scope: 'ALL' | 'school' | 'coaching'): void {
+    if (this.studentPassScope === scope) return;
+    this.studentPassScope = scope;
+    this.studentPassFilterClass = 'ALL';
+    this.studentPassPageNumber = 1;
+    this.loadStudentAllocationsPaged();
   }
 
   onStudentPassSort(column: string): void {

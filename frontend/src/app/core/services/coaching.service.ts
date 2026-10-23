@@ -579,6 +579,7 @@ export interface StudentDetail360 {
   profilePhoto?: string | null;
   isActive: boolean;
   joiningDate: string;
+  coachingJoiningDate?: string | null;
   aadhaarNumber?: string | null;
   penNumber?: string | null;
   apaarId?: string | null;
