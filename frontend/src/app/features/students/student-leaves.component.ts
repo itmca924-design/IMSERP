@@ -635,14 +635,84 @@ export interface StudentLeaveStatsDto {
 
     /* Responsive */
     @media (max-width: 768px) {
-      .leaves-page-container { padding: 12px; gap: 14px; }
-      .page-header { padding: 14px; flex-direction: column; align-items: flex-start; gap: 14px; }
-      .header-actions { width: 100%; display: flex; justify-content: space-between; }
+      .leaves-page-container { padding: 8px 0; gap: 14px; }
+      .page-header { padding: 14px; flex-direction: column; align-items: stretch; gap: 14px; }
+      .header-actions {
+        width: 100%;
+        display: grid !important;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+      .header-actions a, .header-actions button {
+        width: 100% !important;
+        justify-content: center;
+        margin: 0 !important;
+      }
+      .create-btn {
+        grid-column: span 2;
+        height: 42px !important;
+      }
+      .refresh-btn {
+        height: 38px !important;
+      }
+      .scope-pill-row {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        width: 100%;
+        padding-bottom: 4px;
+        margin-bottom: 8px;
+      }
+      .scope-pills {
+        display: flex;
+        width: 100%;
+        min-width: 320px;
+      }
+      .scope-pill {
+        flex: 1;
+        justify-content: center;
+        text-align: center;
+        padding: 8px 10px;
+        font-size: 12px;
+        white-space: nowrap;
+      }
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 10px !important;
+      }
+      .stat-card {
+        padding: 12px 14px;
+        gap: 10px;
+        border-radius: 10px;
+      }
+      .stat-icon-wrap {
+        width: 38px;
+        height: 38px;
+        border-radius: 8px;
+      }
+      .stat-icon-wrap mat-icon {
+        font-size: 20px;
+        width: 20px;
+        height: 20px;
+      }
+      .stat-val {
+        font-size: 19px;
+      }
+      .stat-lbl {
+        font-size: 11px;
+        line-height: 1.2;
+      }
+      .pulse-badge {
+        font-size: 8.5px;
+        padding: 1px 5px;
+        top: 8px;
+        right: 8px;
+      }
       .filter-row { flex-direction: column; align-items: stretch; gap: 10px; }
-      .filter-field { width: 100% !important; min-width: 100% !important; }
+      .filter-field { width: 100% !important; min-width: 100% !important; margin-bottom: 0; }
       .search-field { width: 100% !important; }
-      .controls-card { padding: 14px; }
-      .stats-grid { grid-template-columns: 1fr; }
+      .view-toggle { align-self: flex-end; }
+      .controls-card { padding: 12px 14px; }
+      .leaves-grid { grid-template-columns: 1fr; gap: 12px; }
     }
   `]
 })

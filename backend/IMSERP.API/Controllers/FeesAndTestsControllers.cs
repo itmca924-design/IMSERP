@@ -61,58 +61,7 @@ public class FeesController : ControllerBase
             .AsSplitQuery()
             .AsQueryable();
 
-        // If no invoices exist yet, auto-seed default invoices for active students starting from their Joining Date
-        if (!await query.AnyAsync())
-        {
-            var students = await _dbContext.Students.Include(s => s.Batch).ToListAsync();
-            var random = new Random();
-            var sampleInvoices = new List<FeeInvoice>();
 
-            foreach (var s in students)
-            {
-                var feeRate = s.Batch?.StandardMonthlyFee ?? 3500m;
-                var joinMonth = s.JoiningDate.Month;
-                var joinYear = s.JoiningDate.Year;
-
-                var inv = new FeeInvoice
-                {
-                    TenantId = _currentUser.TenantId,
-                    StudentId = s.Id,
-                    InvoiceNumber = $"INV-{joinYear}{joinMonth:D2}-{random.Next(100, 999)}",
-                    Title = $"{s.JoiningDate:MMMM yyyy} Tuition Fee",
-                    TotalAmount = feeRate,
-                    PaidAmount = 0,
-                    DueDate = new DateTime(joinYear, joinMonth, Math.Min(10, DateTime.DaysInMonth(joinYear, joinMonth))),
-                    Status = InvoiceStatus.Pending,
-                    CreatedAt = s.JoiningDate
-                };
-                inv.Items.Add(new FeeInvoiceItem
-                {
-                    TenantId = _currentUser.TenantId,
-                    HeadName = "Tuition Fee",
-                    Amount = feeRate,
-                    PaidAmount = 0
-                });
-                sampleInvoices.Add(inv);
-            }
-
-            if (sampleInvoices.Count > 0)
-            {
-                _dbContext.FeeInvoices.AddRange(sampleInvoices);
-                await _dbContext.SaveChangesAsync();
-                query = _dbContext.FeeInvoices
-                    .AsNoTracking()
-                    .Where(i => i.TenantId == tenantId)
-                    .Include(i => i.Student)
-                        .ThenInclude(s => s.Batch)
-                    .Include(i => i.Student)
-                        .ThenInclude(s => s.Class)
-                    .Include(i => i.Student)
-                        .ThenInclude(s => s.Section)
-                    .AsSplitQuery()
-                    .AsQueryable();
-            }
-        }
 
         // Filtering
         if (batchId.HasValue && batchId != Guid.Empty)

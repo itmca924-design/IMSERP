@@ -1614,8 +1614,45 @@ export interface StudentGatePassItem {
       .no-print { display: none !important; }
     }
 
+    @media (max-width: 768px) {
+      .sgp-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 14px;
+      }
+      .sgp-header-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        width: 100%;
+      }
+      .sgp-header-actions button {
+        width: 100%;
+        justify-content: center;
+        margin: 0 !important;
+      }
+      .sgp-primary-btn {
+        grid-column: span 2;
+      }
+      .sgp-stats-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 10px !important;
+      }
+      .stat-card {
+        padding: 12px 14px;
+        gap: 10px;
+        .stat-icon-box {
+          width: 38px;
+          height: 38px;
+          mat-icon { font-size: 20px; width: 20px; height: 20px; }
+        }
+        .stat-val { font-size: 19px; }
+        .stat-lbl { font-size: 11px; }
+      }
+    }
+
     @media (max-width: 640px) {
-      .sgp-page { padding: 12px; }
+      .sgp-page { padding: 8px 0; }
       .sgp-modal, .slip-modal-wrap { min-width: 100%; }
       .form-row-2, .slip-details-grid { grid-template-columns: 1fr; }
     }

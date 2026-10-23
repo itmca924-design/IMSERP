@@ -1688,3 +1688,135 @@
   padding: 1px 6px;
   border-radius: 4px;
 }
+
+/* Responsive Styles for Mobile & Tablet */
+@media (max-width: 768px) {
+  .report-page {
+    padding-bottom: 20px;
+    gap: 12px;
+  }
+  .page-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  .header-titles h1 {
+    font-size: 1.22rem;
+    white-space: normal;
+  }
+  .header-titles p {
+    font-size: 0.8rem;
+  }
+  .header-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    width: 100%;
+  }
+  .header-actions .action-btn {
+    width: 100% !important;
+    justify-content: center;
+    height: 38px;
+    margin: 0 !important;
+    font-size: 0.8rem;
+  }
+  .report-type-bar {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .type-btn {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px 14px;
+    gap: 10px;
+  }
+  .type-btn mat-icon {
+    font-size: 24px;
+    width: 24px;
+    height: 24px;
+  }
+  .type-text strong {
+    font-size: 0.88rem;
+  }
+  .type-text small {
+    font-size: 0.72rem;
+    line-height: 1.2;
+  }
+  .filter-card {
+    padding: 12px;
+  }
+  .filters-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    width: 100%;
+  }
+  .search-input-wrap {
+    grid-column: span 2;
+    width: 100%;
+    min-width: 100%;
+    box-sizing: border-box;
+    height: 40px;
+  }
+  .filter-select-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .filter-select-wrap label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  .filter-select-wrap select {
+    width: 100%;
+    height: 38px;
+    box-sizing: border-box;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: #1e293b;
+    background: #fff;
+  }
+  .matrix-bulk-btn {
+    grid-column: span 2;
+    width: 100% !important;
+    margin-left: 0 !important;
+    justify-content: center;
+    height: 38px;
+  }
+  .kpi-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+  }
+  .kpi-card {
+    padding: 10px 12px;
+    gap: 10px;
+    border-radius: 8px;
+  }
+  .kpi-icon-box {
+    width: 36px;
+    height: 36px;
+  }
+  .kpi-icon-box mat-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+  }
+  .kpi-val {
+    font-size: 1.2rem;
+  }
+  .kpi-label {
+    font-size: 0.68rem;
+  }
+  .kpi-avg {
+    grid-column: span 2;
+  }
+}

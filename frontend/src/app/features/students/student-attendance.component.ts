@@ -1012,7 +1012,7 @@ interface CalendarDay {
       align-items: center;
       gap: 16px;
       width: 100%;
-      flex-wrap: nowrap;
+      flex-wrap: wrap;
       box-sizing: border-box;
     }
     .page-title {
@@ -1022,7 +1022,6 @@ interface CalendarDay {
       display: flex;
       align-items: center;
       gap: 8px;
-      white-space: nowrap;
       text-align: left;
     }
     .page-subtitle {
@@ -1037,8 +1036,7 @@ interface CalendarDay {
       display: flex;
       align-items: center;
       gap: 10px;
-      flex-wrap: nowrap;
-      flex-shrink: 0;
+      flex-wrap: wrap;
 
       .header-action-btn {
         height: 38px;
@@ -2117,17 +2115,217 @@ interface CalendarDay {
       .tab-btn { max-width: 100%; }
       .roll-call-scope-bar { flex-direction: column; }
       .scope-pill-btn { max-width: 100%; }
+      .reg-kpi-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    }
+    @media (max-width: 768px) {
+      .header-top-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+      }
+      .page-title {
+        font-size: 1.25rem;
+        white-space: normal;
+      }
+      .header-actions {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+
+        .header-action-btn {
+          width: 100% !important;
+          justify-content: center;
+          height: 38px;
+          padding: 0 8px !important;
+          font-size: 0.8rem;
+          margin: 0 !important;
+        }
+        .settings-btn {
+          grid-column: span 2;
+        }
+      }
+      .view-mode-tabs {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        width: 100%;
+      }
+      .tab-btn {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 10px 14px;
+        gap: 10px;
+        mat-icon { font-size: 24px; width: 24px; height: 24px; }
+        .tab-text strong { font-size: 0.88rem; }
+        .tab-text small { font-size: 0.72rem; line-height: 1.2; }
+      }
+      .roll-call-scope-bar {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        width: 100%;
+      }
+      .scope-pill-btn {
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+        padding: 10px 14px;
+        gap: 12px;
+        mat-icon { font-size: 24px; width: 24px; height: 24px; flex-shrink: 0; }
+        .scope-btn-text {
+          flex: 1;
+          min-width: 0;
+          strong { font-size: 0.88rem; }
+          small { font-size: 0.72rem; line-height: 1.2; display: block; }
+        }
+      }
+      .controls-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+      }
+      .class-select, .section-select, .batch-select, .search-input {
+        width: 100% !important;
+        min-width: 100% !important;
+      }
+      .date-controls {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        .date-input { flex: 1; }
+      }
+      .stats-and-actions {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+      }
+      .stats-counters {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 6px;
+        width: 100%;
+      }
+      .stat-pill {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 6px 4px;
+        font-size: 0.75rem;
+      }
+      .fast-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        width: 100%;
+
+        .btn-bulk-present, .btn-bulk-absent {
+          width: 100%;
+          justify-content: center;
+          height: 36px;
+          font-size: 0.78rem;
+        }
+      }
+      .roll-call-timings-bar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+        .rct-left-group { flex-direction: column; align-items: flex-start; gap: 6px; }
+        .rct-fields { flex-wrap: wrap; gap: 8px; }
+      }
+      .summary-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 10px !important;
+      }
+      .reg-kpi-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 10px !important;
+      }
+      .reg-kpi-card {
+        padding: 12px;
+        gap: 10px;
+        .kpi-icon { width: 36px; height: 36px; mat-icon { font-size: 20px; width: 20px; height: 20px; } }
+        .kpi-num { font-size: 1.25rem; }
+        .kpi-lbl { font-size: 0.72rem; }
+      }
+      .reg-controls-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+      }
+      .status-filter-pills {
+        display: flex;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        width: 100%;
+        padding-bottom: 4px;
+      }
+      .reg-search-field { width: 100% !important; }
+      .reg-action-btns {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        width: 100%;
+        .reg-refresh-btn, .reg-apply-btn { width: 100%; justify-content: center; }
+      }
+      .multi-select-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 10px;
+        gap: 8px;
+        width: 100%;
+        box-sizing: border-box;
+      }
+      .mst-left {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        width: 100%;
+      }
+      .mst-title {
+        grid-column: span 2;
+        font-size: 0.84rem;
+        font-weight: 700;
+        margin-bottom: 2px;
+      }
+      .mst-btn {
+        width: 100%;
+        justify-content: center;
+        height: 36px;
+        padding: 6px 8px;
+        font-size: 0.72rem;
+        box-sizing: border-box;
+        text-align: center;
+      }
+      .mst-btn.save-month {
+        grid-column: span 2;
+        height: 40px;
+        font-size: 0.8rem;
+      }
+      .mst-btn.clear {
+        grid-column: span 2;
+        height: 34px;
+      }
+      .mst-right {
+        justify-content: center;
+        width: 100%;
+      }
+      .mst-counter-badge {
+        width: 100%;
+        text-align: center;
+        box-sizing: border-box;
+      }
     }
     @media (max-width: 600px) {
       .page-header, .selector-card, .period-card { align-items: stretch; flex-direction: column !important; flex-wrap: nowrap !important; }
-      .student-select { min-width: 0; }
+      .student-select { min-width: 0; width: 100%; }
       .period-student { flex-basis: auto; }
-      .summary-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
       .calendar-grid { gap: 5px; }
       .day-cell { min-height: 54px; }
       .record-row { grid-template-columns: 1fr 90px 40px 40px; }
       .remarks { display: none; }
-      .stats-and-actions { flex-direction: column; align-items: flex-start; }
       .save-bar { flex-direction: column; align-items: stretch; }
       .btn-save-batch { width: 100%; justify-content: center; }
     }

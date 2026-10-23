@@ -1159,6 +1159,53 @@ export interface CalendarDayItem {
         font-size: 0.7rem;
         gap: 6px;
       }
+      .multi-select-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 10px;
+        gap: 8px;
+        width: 100%;
+        box-sizing: border-box;
+      }
+      .mst-left {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        width: 100%;
+      }
+      .mst-title {
+        grid-column: span 2;
+        font-size: 0.84rem;
+        font-weight: 700;
+        margin-bottom: 2px;
+      }
+      .mst-btn {
+        width: 100%;
+        justify-content: center;
+        height: 36px;
+        padding: 6px 8px;
+        font-size: 0.72rem;
+        box-sizing: border-box;
+        text-align: center;
+      }
+      .mst-btn.save-month {
+        grid-column: span 2;
+        height: 40px;
+        font-size: 0.8rem;
+      }
+      .mst-btn.clear {
+        grid-column: span 2;
+        height: 34px;
+      }
+      .mst-right {
+        justify-content: center;
+        width: 100%;
+      }
+      .mst-counter-badge {
+        width: 100%;
+        text-align: center;
+        box-sizing: border-box;
+      }
     }
   `]
 })

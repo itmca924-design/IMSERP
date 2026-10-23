@@ -2743,9 +2743,18 @@ export class FeesComponent implements OnInit, OnDestroy {
     return !!headName && /tuition/i.test(headName);
   }
 
+  isLateFeeHead(headName?: string): boolean {
+    return !!headName && /late\s*fee/i.test(headName);
+  }
+
   getSortedInvoiceItems(items?: any[]): any[] {
     if (!items || items.length === 0) return [];
-    return items.slice().sort((a, b) => {
+    let list = items;
+    // When Late Fee Rule Auto-Compute toggle is OFF, suppress late fee fines from Billing Period / Heads grid chips
+    if (!this.settingsService.lateFeeCalc()) {
+      list = list.filter(it => !this.isLateFeeHead(it.headName) && it.description !== 'LateFeeFine');
+    }
+    return list.slice().sort((a, b) => {
       const getPriority = (name: string): number => {
         const n = (name || '').toLowerCase();
         if (n.includes('tuition')) return 1;

@@ -306,6 +306,17 @@ public class AutomationService : IAutomationService
     public async Task<RunAutomationJobResultDto> ExecuteLateFeeComputationAsync(Guid tenantId, decimal? dailyRate = null, int? graceDays = null)
     {
         var settings = await _db.AutomationSettings.AsNoTracking().FirstOrDefaultAsync(s => s.TenantId == tenantId);
+        if (settings != null && !settings.LateFeeAutoComputeEnabled)
+        {
+            return new RunAutomationJobResultDto(
+                JobName: "Late Fee Auto-Compute",
+                Success: false,
+                Message: "Late fee auto-computation is disabled in Workspace Settings. No penalties applied.",
+                ProcessedCount: 0,
+                ExecutedAt: DateTime.UtcNow
+            );
+        }
+
         var istZone = GetIstTimeZone();
         var today = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, istZone).Date;
 
@@ -411,6 +422,17 @@ public class AutomationService : IAutomationService
     public async Task<RunAutomationJobResultDto> ExecuteAutoPilotFeeInvoicingAsync(Guid tenantId)
     {
         var settings = await GetOrCreateSettingsEntityAsync(tenantId);
+        if (!settings.AutoPilotFeeInvoicingEnabled)
+        {
+            return new RunAutomationJobResultDto(
+                JobName: "Auto-Pilot Monthly Fee Invoicing",
+                Success: false,
+                Message: "Auto-Pilot Monthly Fee Invoicing is disabled in Workspace Settings. Please enable the toggle in Settings to allow auto-generation.",
+                ProcessedCount: 0,
+                ExecutedAt: DateTime.UtcNow
+            );
+        }
+
         var istZone = GetIstTimeZone();
         var nowIst = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, istZone);
 
