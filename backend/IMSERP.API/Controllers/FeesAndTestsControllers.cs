@@ -1583,10 +1583,35 @@ public class FeesController : ControllerBase
     private static string FormatReceiptItemSubtitle(string headName, string? invoiceTitle, string? itemDescription = null)
     {
         if (!string.IsNullOrWhiteSpace(itemDescription))
-            return itemDescription;
-        if (!string.IsNullOrWhiteSpace(invoiceTitle))
+        {
+            var desc = itemDescription.Trim();
+            // Suppress internal system tags like Coaching:<guid>, School:<guid>, or raw GUIDs
+            if (desc.StartsWith("Coaching:", StringComparison.OrdinalIgnoreCase) ||
+                desc.StartsWith("School:", StringComparison.OrdinalIgnoreCase))
+            {
+                var afterColon = desc.Substring(desc.IndexOf(':') + 1).Trim();
+                if (Guid.TryParse(afterColon, out _) || afterColon.Length >= 32)
+                {
+                    desc = null;
+                }
+            }
+            else if (Guid.TryParse(desc, out _))
+            {
+                desc = null;
+            }
+            else if (desc.Equals("LateFeeFine", StringComparison.OrdinalIgnoreCase))
+            {
+                desc = "Late Payment Penalty";
+            }
+
+            if (!string.IsNullOrWhiteSpace(desc))
+                return desc;
+        }
+
+        if (!string.IsNullOrWhiteSpace(invoiceTitle) && !invoiceTitle.Equals(headName, StringComparison.OrdinalIgnoreCase))
             return invoiceTitle;
-        return !string.IsNullOrWhiteSpace(headName) ? headName : "Fee Installment Settlement";
+
+        return "";
     }
 
     [HttpGet("due-slip/{studentId}")]

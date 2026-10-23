@@ -183,7 +183,7 @@ import { UpiPaymentDialogComponent, UpiPaymentDialogData } from './upi-payment-d
                     <td class="text-center">{{ item.itemIndex }}</td>
                     <td>
                       <strong class="fee-head-title">{{ item.particulars }}</strong>
-                      <div class="fee-head-sub" *ngIf="item.subTitle">{{ item.subTitle }}</div>
+                      <div class="fee-head-sub" *ngIf="formatSubTitle(item.subTitle)">{{ formatSubTitle(item.subTitle) }}</div>
                     </td>
                     <td class="text-right amount-col">
                       <strong>₹{{ item.amount | number:'1.2-2' }}</strong>
@@ -871,6 +871,24 @@ export class PublicReceiptComponent implements OnInit {
       }
       this.fetchReceipt();
     });
+  }
+
+  formatSubTitle(sub?: string | null): string {
+    if (!sub || !sub.trim()) return '';
+    const trimmed = sub.trim();
+    if (trimmed.startsWith('Coaching:') || trimmed.startsWith('School:')) {
+      const tagPart = trimmed.substring(trimmed.indexOf(':') + 1).trim();
+      if (/^[0-9a-fA-F-]{32,36}$/.test(tagPart) || tagPart.length >= 30) {
+        return '';
+      }
+    }
+    if (/^[0-9a-fA-F-]{32,36}$/.test(trimmed)) {
+      return '';
+    }
+    if (trimmed.toLowerCase() === 'latefeefine') {
+      return 'Late Payment Penalty';
+    }
+    return trimmed;
   }
 
   getPaymentModeName(mode: number | string | undefined): string {
