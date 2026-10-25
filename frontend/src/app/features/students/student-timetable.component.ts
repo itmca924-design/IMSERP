@@ -3440,7 +3440,7 @@ export class StudentTimetableComponent implements OnInit, OnDestroy {
     this.coachingService.getTeachers().subscribe({
       next: (teachersList) => {
         const dialogRef = this.dialog.open(SectionRoutineDialogComponent, {
-          width: '880px',
+          width: '1180px',
           maxWidth: '96vw',
           maxHeight: '92vh',
           panelClass: 'erp-custom-dialog',
@@ -3450,6 +3450,9 @@ export class StudentTimetableComponent implements OnInit, OnDestroy {
             batchName: batch.name,
             classId: batch.classId,
             className: batch.className,
+            mentorTeacherId: batch.mentorTeacherId,
+            mentorTeacherName: batch.mentorTeacherName,
+            batchSubjects: batch.subject,
             teachers: teachersList || []
           }
         });

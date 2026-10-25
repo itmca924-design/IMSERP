@@ -1,9 +1,10 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, AfterViewInit, ViewChildren, QueryList, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
-import { MatSelectModule } from '@angular/material/select';
+import { MatSelect, MatSelectModule } from '@angular/material/select';
+import { ConnectedPosition } from '@angular/cdk/overlay';
 import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -311,12 +312,10 @@ import { environment } from '../../../environments/environment';
                 <td class="info-label">{{ (activeStream === 'coaching' || (!currentCard.className && currentCard.batchName)) ? 'Coaching Batch (बैच)' : 'Class & Sec (कक्षा / वर्ग)' }}</td>
                 <td class="info-value bold-val">
                   <ng-container *ngIf="activeStream === 'coaching' || (!currentCard.className && currentCard.batchName)">
-                    {{ currentCard.batchName || '-' }}
-                    <span *ngIf="currentCard.className" class="hybrid-subtext"> • School: {{ currentCard.className }} ({{ currentCard.sectionName || '-' }})</span>
+                    {{ getCoachingAcademicDisplay(currentCard) }}
                   </ng-container>
                   <ng-container *ngIf="activeStream !== 'coaching' && (currentCard.className || !currentCard.batchName)">
-                    {{ currentCard.className || '-' }} ({{ currentCard.sectionName || '-' }})
-                    <span *ngIf="currentCard.batchName" class="hybrid-subtext"> • Batch: {{ currentCard.batchName }}</span>
+                    {{ getSchoolAcademicDisplay(currentCard) }}
                   </ng-container>
                 </td>
               </tr>
@@ -325,8 +324,8 @@ import { environment } from '../../../environments/environment';
                 <td class="info-value bold-val">
                   {{ ((activeStream === 'coaching' ? (currentCard.coachingRollNumber || currentCard.rollNumber) : (currentCard.schoolRollNumber || currentCard.rollNumber)) || currentCard.rollNumber) || '-' }}
                 </td>
-                <td class="info-label">Admission No. (नामांकन सं.)</td>
-                <td class="info-value bold-val">{{ currentCard.admissionNumber || '-' }}</td>
+                <td class="info-label">{{ getAdmissionDateLabel(currentCard) }}</td>
+                <td class="info-value bold-val">{{ getAdmissionDateDisplay(currentCard) }}</td>
               </tr>
               <tr>
                 <td class="info-label">Father's Name (पिता का नाम)</td>
@@ -582,12 +581,10 @@ import { environment } from '../../../environments/environment';
                     <td class="info-label">{{ (activeStream === 'coaching' || (!card.className && card.batchName)) ? 'Coaching Batch (बैच)' : 'Class & Sec (कक्षा / वर्ग)' }}</td>
                     <td class="info-value bold-val">
                       <ng-container *ngIf="activeStream === 'coaching' || (!card.className && card.batchName)">
-                        {{ card.batchName || '-' }}
-                        <span *ngIf="card.className" class="hybrid-subtext"> • School: {{ card.className }} ({{ card.sectionName || '-' }})</span>
+                        {{ getCoachingAcademicDisplay(card) }}
                       </ng-container>
                       <ng-container *ngIf="activeStream !== 'coaching' && (card.className || !card.batchName)">
-                        {{ card.className || '-' }} ({{ card.sectionName || '-' }})
-                        <span *ngIf="card.batchName" class="hybrid-subtext"> • Batch: {{ card.batchName }}</span>
+                        {{ getSchoolAcademicDisplay(card) }}
                       </ng-container>
                     </td>
                   </tr>
@@ -596,8 +593,8 @@ import { environment } from '../../../environments/environment';
                     <td class="info-value bold-val">
                       {{ ((activeStream === 'coaching' ? (card.coachingRollNumber || card.rollNumber) : (card.schoolRollNumber || card.rollNumber)) || card.rollNumber) || '-' }}
                     </td>
-                    <td class="info-label">Admission No. (नामांकन सं.)</td>
-                    <td class="info-value bold-val">{{ card.admissionNumber || '-' }}</td>
+                    <td class="info-label">{{ getAdmissionDateLabel(card) }}</td>
+                    <td class="info-value bold-val">{{ getAdmissionDateDisplay(card) }}</td>
                   </tr>
                   <tr>
                     <td class="info-label">Father's Name (पिता का नाम)</td>
@@ -1037,11 +1034,12 @@ import { environment } from '../../../environments/environment';
     }
 
     ::ng-deep .student-select-panel {
-      max-height: 420px !important;
+      max-height: min(300px, calc(100vh - 360px), 40vh) !important;
       min-width: 100% !important;
       max-width: min(92vw, 420px) !important;
       border-radius: 10px !important;
       overflow-x: hidden !important;
+      box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.22), 0 8px 10px -6px rgba(15, 23, 42, 0.12) !important;
 
       .mat-mdc-option {
         min-height: 42px !important;
@@ -2684,7 +2682,9 @@ import { environment } from '../../../environments/environment';
     }
   `]
 })
-export class FeeCardComponent implements OnInit {
+export class FeeCardComponent implements OnInit, AfterViewInit {
+  @ViewChildren(MatSelect) selectComponents!: QueryList<MatSelect>;
+
   private feesService = inject(FeesService);
   private schoolService = inject(SchoolService);
   private coachingService = inject(CoachingService);
@@ -2737,11 +2737,125 @@ export class FeeCardComponent implements OnInit {
     return this.students.find(s => s.id === this.selectedStudentId) || null;
   }
 
+  getCoachingAcademicDisplay(card: StudentFeeCard | null): string {
+    if (!card) return '-';
+    const batchPart = card.batchName || 'Coaching Batch';
+
+    // If student is enrolled in school as well
+    if (card.isSchoolStudent && card.className) {
+      const sec = card.sectionName ? ` (Sec: ${card.sectionName})` : '';
+      return `${batchPart} • School: ${card.className}${sec}`;
+    }
+
+    // Pure coaching student
+    if (card.className) {
+      const sec = card.sectionName ? ` (${card.sectionName})` : '';
+      return `${batchPart} • Academic Class: ${card.className}${sec}`;
+    }
+
+    return batchPart;
+  }
+
+  getSchoolAcademicDisplay(card: StudentFeeCard | null): string {
+    if (!card) return '-';
+    const sec = card.sectionName ? ` (Sec: ${card.sectionName})` : '';
+    const classPart = card.className ? `${card.className}${sec}` : 'School Class';
+
+    if (card.isCoachingStudent && card.batchName) {
+      return `${classPart} • Batch: ${card.batchName}`;
+    }
+
+    return classPart;
+  }
+
+  getAdmissionDateLabel(card: StudentFeeCard | null): string {
+    if (!card) return 'Admission Date (प्रवेश तिथि)';
+    if (this.activeStream === 'coaching' && card.isCoachingStudent && !card.isSchoolStudent) {
+      return 'Coaching DOJ (प्रवेश तिथि)';
+    }
+    return 'Admission Date (प्रवेश तिथि)';
+  }
+
+  getAdmissionDateDisplay(card: StudentFeeCard | null): string {
+    if (!card) return '-';
+    const schoolDoj = card.joiningDate ? this.formatDate(card.joiningDate) : null;
+    const coachingDoj = card.coachingJoiningDate ? this.formatDate(card.coachingJoiningDate) : schoolDoj;
+
+    // Dual-enrolled: School + Coaching
+    if (card.isSchoolStudent && card.isCoachingStudent) {
+      if (this.activeStream === 'coaching') {
+        if (coachingDoj && schoolDoj && coachingDoj !== schoolDoj) {
+          return `${coachingDoj} (Coaching) • School: ${schoolDoj}`;
+        }
+        return coachingDoj || schoolDoj || '-';
+      } else {
+        if (schoolDoj && coachingDoj && schoolDoj !== coachingDoj) {
+          return `${schoolDoj} (School) • Coaching: ${coachingDoj}`;
+        }
+        return schoolDoj || coachingDoj || '-';
+      }
+    }
+
+    // Pure coaching student
+    if (card.isCoachingStudent && !card.isSchoolStudent) {
+      return coachingDoj || schoolDoj || '-';
+    }
+
+    // Pure school student
+    return schoolDoj || '-';
+  }
+
+  private formatDate(dateStr: string | Date): string {
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return '-';
+      return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    } catch {
+      return '-';
+    }
+  }
+
   focusSearchInput(): void {
+    this.enforceDownwardsSelectPositions();
     setTimeout(() => {
       const el = document.getElementById('student-fee-card-search-input');
       if (el) el.focus();
     }, 150);
+  }
+
+  ngAfterViewInit(): void {
+    this.enforceDownwardsSelectPositions();
+    if (this.selectComponents) {
+      this.selectComponents.changes.subscribe(() => {
+        this.enforceDownwardsSelectPositions();
+      });
+    }
+  }
+
+  private enforceDownwardsSelectPositions(): void {
+    if (!this.selectComponents) return;
+    const downwardPositions: ConnectedPosition[] = [
+      {
+        originX: 'start',
+        originY: 'bottom',
+        overlayX: 'start',
+        overlayY: 'top',
+        offsetY: 6
+      },
+      {
+        originX: 'end',
+        originY: 'bottom',
+        overlayX: 'end',
+        overlayY: 'top',
+        offsetY: 6
+      }
+    ];
+
+    this.selectComponents.forEach(sel => {
+      if (sel) {
+        sel._positions = downwardPositions;
+      }
+    });
   }
 
   clearStudentSearch(event?: Event): void {

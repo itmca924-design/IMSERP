@@ -162,6 +162,9 @@ using (var scope = app.Services.CreateScope())
             try
             {
                 context.Database.ExecuteSqlRaw(@"
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('SchoolClasses') AND name = 'AcademicScope')
+                        ALTER TABLE SchoolClasses ADD AcademicScope NVARCHAR(50) NOT NULL DEFAULT 'Both';
+
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tenants') AND name = 'HasSchoolModule')
                         ALTER TABLE Tenants ADD HasSchoolModule BIT NOT NULL DEFAULT 1;
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tenants') AND name = 'HasCoachingModule')

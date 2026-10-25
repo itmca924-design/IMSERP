@@ -290,18 +290,22 @@ import { API_BASE, HolidayDto } from '../teachers/teacher.models';
     .add-btn { font-weight: 600; border-radius: 8px; display: flex; align-items: center; gap: 6px; }
 
     /* KPI Summary Cards */
-    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
+    .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
     .kpi-card {
       background: #ffffff; border-radius: 12px; padding: 16px; display: flex; align-items: center; gap: 14px;
       border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      &:hover { transform: translateY(-2px); box-shadow: 0 6px 14px rgba(0,0,0,0.06); }
     }
     .kpi-icon {
       width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
       mat-icon { font-size: 24px; width: 24px; height: 24px; }
     }
     .kpi-data {
+      min-width: 0;
       .val { display: block; font-size: 1.5rem; font-weight: 800; line-height: 1.1; color: #0f172a; }
-      small { font-size: 0.76rem; font-weight: 600; color: #64748b; }
+      small { font-size: 0.76rem; font-weight: 600; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
     }
     .kpi-card.total .kpi-icon { background: #eff6ff; color: #2563eb; }
     .kpi-card.national .kpi-icon { background: #fef2f2; color: #dc2626; }
@@ -416,6 +420,96 @@ import { API_BASE, HolidayDto } from '../teachers/teacher.models';
       mat-icon { font-size: 52px; width: 52px; height: 52px; color: #cbd5e1; margin-bottom: 12px; }
       h3 { margin: 0 0 6px; font-size: 1.1rem; color: #1e293b; }
       p { margin: 0; font-size: 0.88rem; max-width: 450px; }
+    }
+
+    @media (max-width: 1024px) {
+      .kpi-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+      }
+      .filter-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+      }
+      .filter-group {
+        display: flex;
+        gap: 10px;
+        width: 100%;
+        .filter-select {
+          flex: 1;
+          min-width: 130px;
+        }
+      }
+      .search-wrap {
+        width: 100%;
+        .search-input {
+          width: 100%;
+        }
+      }
+    }
+
+    @media (max-width: 640px) {
+      .page-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+        .add-btn {
+          width: 100%;
+          justify-content: center;
+        }
+      }
+      .page-title {
+        font-size: 1.25rem !important;
+      }
+      .kpi-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 8px !important;
+      }
+      .kpi-card {
+        padding: 10px 12px !important;
+        gap: 10px !important;
+        border-radius: 10px !important;
+      }
+      .kpi-icon {
+        width: 36px !important;
+        height: 36px !important;
+        min-width: 36px !important;
+        border-radius: 8px !important;
+        mat-icon { font-size: 20px !important; width: 20px !important; height: 20px !important; }
+      }
+      .kpi-data {
+        .val { font-size: 1.22rem !important; }
+        small { font-size: 0.68rem !important; }
+      }
+      .filter-toolbar {
+        padding: 12px !important;
+        gap: 10px !important;
+      }
+      .filter-group {
+        display: grid !important;
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 8px !important;
+        width: 100% !important;
+
+        .filter-select {
+          width: 100% !important;
+          min-width: 0 !important;
+          margin-bottom: 0 !important;
+
+          &.category-filter {
+            grid-column: span 2 !important;
+          }
+        }
+      }
+      .search-wrap {
+        width: 100% !important;
+        margin-bottom: 0 !important;
+        .search-input {
+          width: 100% !important;
+          min-width: 0 !important;
+        }
+      }
     }
   `]
 })

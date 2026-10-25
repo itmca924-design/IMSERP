@@ -625,12 +625,35 @@ import { RoomDialogComponent } from './room-dialog.component';
       }
 
       .stats-row {
-        grid-template-columns: 1fr;
-        gap: 10px;
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 8px !important;
       }
 
       .stat-card {
-        padding: 12px 14px;
+        padding: 10px 12px !important;
+        gap: 10px !important;
+        border-radius: 12px !important;
+      }
+
+      .stat-icon-wrapper {
+        width: 36px !important;
+        height: 36px !important;
+        min-width: 36px !important;
+        border-radius: 8px !important;
+
+        mat-icon {
+          font-size: 20px !important;
+          width: 20px !important;
+          height: 20px !important;
+        }
+      }
+
+      .stat-label {
+        font-size: 9.5px !important;
+      }
+
+      .stat-value {
+        font-size: 16px !important;
       }
 
       .filter-card {

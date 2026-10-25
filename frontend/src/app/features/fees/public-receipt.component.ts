@@ -101,6 +101,10 @@ import { UpiPaymentDialogComponent, UpiPaymentDialogData } from './upi-payment-d
               <span class="meta-label">Receipt Number:</span>
               <span class="meta-val highlight">{{ receipt.receiptNumber }}</span>
             </div>
+            <div class="meta-item month-meta-item" *ngIf="feeMonthDisplay">
+              <span class="meta-label">Fee Month / Period:</span>
+              <span class="meta-val month-pill">{{ feeMonthDisplay }}</span>
+            </div>
             <div class="meta-item time-item">
               <span class="meta-label">Date & Time (IST):</span>
               <span class="meta-val">{{ formatToIST(receipt.paymentDate) }}</span>
@@ -141,6 +145,12 @@ import { UpiPaymentDialogComponent, UpiPaymentDialogData } from './upi-payment-d
               <div class="prof-row" *ngIf="!receipt.className && !receipt.batchName">
                 <span class="k">Academic Stream:</span>
                 <span class="v">General Academic</span>
+              </div>
+              <div class="prof-row fee-month-row" *ngIf="feeMonthDisplay">
+                <span class="k">Fee Month (शुल्क माह):</span>
+                <span class="v fee-month-badge">
+                  <strong>{{ feeMonthDisplay }}</strong>
+                </span>
               </div>
             </div>
             <div class="prof-col">
@@ -540,6 +550,29 @@ import { UpiPaymentDialogComponent, UpiPaymentDialogData } from './upi-payment-d
 
             &.highlight { color: #1e40af; }
           }
+          .month-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: #eff6ff;
+            color: #1d4ed8;
+            border: 1px solid #bfdbfe;
+            padding: 2px 9px;
+            border-radius: 4px;
+            width: fit-content;
+            font-weight: 800;
+            font-size: 0.82rem;
+            white-space: nowrap;
+            margin-top: 2px;
+            box-shadow: 0 1px 2px rgba(37, 99, 235, 0.08);
+
+            mat-icon.pill-icon {
+              font-size: 15px;
+              width: 15px;
+              height: 15px;
+              color: #2563eb;
+            }
+          }
           .mode-pill {
             display: inline-block;
             background: #dcfce7;
@@ -571,6 +604,27 @@ import { UpiPaymentDialogComponent, UpiPaymentDialogData } from './upi-payment-d
           .k { width: 165px; white-space: nowrap; color: #475569; font-weight: 600; flex-shrink: 0; }
           .v { color: #0f172a; flex: 1; }
           .student-highlight { font-weight: 800; color: #15803d; font-size: 0.96rem; }
+          .fee-month-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            background: #eff6ff;
+            color: #1e40af;
+            border: 1px solid #bfdbfe;
+            padding: 2px 9px;
+            border-radius: 4px;
+            font-weight: 800;
+            font-size: 0.85rem;
+            width: fit-content;
+            box-shadow: 0 1px 2px rgba(37, 99, 235, 0.08);
+
+            mat-icon.pill-icon {
+              font-size: 15px;
+              width: 15px;
+              height: 15px;
+              color: #2563eb;
+            }
+          }
           .status-pill {
             display: inline-block;
             background: #e0f2fe;
@@ -614,6 +668,34 @@ import { UpiPaymentDialogComponent, UpiPaymentDialogData } from './upi-payment-d
             padding: 10px 12px;
             border-bottom: 1px solid #e2e8f0;
             font-size: 0.88rem;
+          }
+
+          .fee-head-main-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+          }
+
+          .head-period-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: #eff6ff;
+            color: #1d4ed8;
+            border: 1px solid #bfdbfe;
+            padding: 1px 7px;
+            border-radius: 4px;
+            font-weight: 700;
+            font-size: 0.74rem;
+            white-space: nowrap;
+
+            mat-icon {
+              font-size: 13px;
+              width: 13px;
+              height: 13px;
+              color: #2563eb;
+            }
           }
 
           .fee-head-title { font-size: 0.92rem; color: #0f172a; font-weight: 700; }
@@ -840,6 +922,103 @@ export class PublicReceiptComponent implements OnInit {
 
   printReceipt(): void {
     window.print();
+  }
+
+  get feeMonthDisplay(): string {
+    const r = this.receipt;
+    if (!r) return '';
+    if ((r as any).feePeriod && (r as any).feePeriod.trim()) return (r as any).feePeriod.trim();
+    if ((r as any).feeMonth && (r as any).feeMonth.trim()) return (r as any).feeMonth.trim();
+
+    const periodsFound: string[] = [];
+    const monthRegex = /\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})\b/gi;
+
+    // 1. Extract from line items (subTitle and particulars)
+    if (r.items && r.items.length > 0) {
+      for (const item of r.items) {
+        const textToSearch = `${item.subTitle || ''} ${item.particulars || ''}`;
+        let match: RegExpExecArray | null;
+        while ((match = monthRegex.exec(textToSearch)) !== null) {
+          const cap = match[1].charAt(0).toUpperCase() + match[1].slice(1).toLowerCase() + ' ' + match[2];
+          if (!periodsFound.includes(cap)) {
+            periodsFound.push(cap);
+          }
+        }
+      }
+    }
+
+    // 2. Extract from remarks
+    if (periodsFound.length === 0 && r.remarks) {
+      let match: RegExpExecArray | null;
+      while ((match = monthRegex.exec(r.remarks)) !== null) {
+        const cap = match[1].charAt(0).toUpperCase() + match[1].slice(1).toLowerCase() + ' ' + match[2];
+        if (!periodsFound.includes(cap)) {
+          periodsFound.push(cap);
+        }
+      }
+    }
+
+    // 3. Extract from invoice number (e.g. INV-202611-825 -> November 2026)
+    if (periodsFound.length === 0 && r.invoiceNumber) {
+      const invMatch = r.invoiceNumber.match(/INV-(\d{4})(\d{2})-/i);
+      if (invMatch) {
+        const year = parseInt(invMatch[1], 10);
+        const monthIdx = parseInt(invMatch[2], 10) - 1;
+        const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+        if (monthIdx >= 0 && monthIdx < 12) {
+          periodsFound.push(`${months[monthIdx]} ${year}`);
+        }
+      }
+    }
+
+    // 4. Check pendingArrears if available
+    if (periodsFound.length === 0 && r.pendingArrears && r.pendingArrears.length > 0) {
+      for (const arr of r.pendingArrears) {
+        if (arr.period) {
+          let match: RegExpExecArray | null;
+          while ((match = monthRegex.exec(arr.period)) !== null) {
+            const cap = match[1].charAt(0).toUpperCase() + match[1].slice(1).toLowerCase() + ' ' + match[2];
+            if (!periodsFound.includes(cap)) {
+              periodsFound.push(cap);
+            }
+          }
+        }
+      }
+    }
+
+    if (periodsFound.length > 0) {
+      return periodsFound.join(', ');
+    }
+
+    // Fallback: Payment Date Month
+    if (r.paymentDate) {
+      const d = new Date(r.paymentDate);
+      if (!isNaN(d.getTime())) {
+        const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+        return `${months[d.getMonth()]} ${d.getFullYear()}`;
+      }
+    }
+
+    return '';
+  }
+
+  getItemMonthTag(item: any): string {
+    if (!item) return '';
+    const textToSearch = `${item.subTitle || ''} ${item.particulars || ''}`;
+    const monthRegex = /\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})\b/i;
+    const match = textToSearch.match(monthRegex);
+    if (match) {
+      return `${match[1].charAt(0).toUpperCase() + match[1].slice(1).toLowerCase()} ${match[2]}`;
+    }
+    const qMatch = textToSearch.match(/\b(Q[1-4]|Quarter\s+[1-4])\s*\(?([^\)]*)\)?/i);
+    if (qMatch) {
+      return qMatch[0].trim();
+    }
+    const part = (item.particulars || '').toLowerCase();
+    if (!part.includes('library') && !part.includes('fine') && this.feeMonthDisplay && !this.feeMonthDisplay.includes(',')) {
+      return this.feeMonthDisplay;
+    }
+    return '';
   }
 
   openUpiPayment(): void {

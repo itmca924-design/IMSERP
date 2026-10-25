@@ -21,6 +21,8 @@ import { BatchDialogComponent } from './batch-dialog.component';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { StudentRollSequencerDialogComponent } from '../students/student-roll-sequencer-dialog.component';
 import { QuickBatchMentorDialogComponent } from './quick-batch-mentor-dialog.component';
+import { SectionRoutineDialogComponent } from '../school/section-routine-dialog.component';
+import { CoachingService } from '../../core/services/coaching.service';
 
 @Component({
   selector: 'app-batches',
@@ -84,12 +86,40 @@ import { QuickBatchMentorDialogComponent } from './quick-batch-mentor-dialog.com
               <mat-option value="2025-2026">2025-2026</mat-option>
             </mat-select>
           </mat-form-field>
+
+          <!-- Single / Combined scope toggle -->
+          <div class="scope-filter-toggle">
+            <button type="button"
+                    class="scope-filter-btn"
+                    [class.active]="batchScopeFilter === 'all'"
+                    (click)="batchScopeFilter = 'all'">
+              <mat-icon>apps</mat-icon>
+              <span>All</span>
+              <span class="scope-pill">{{ batches.length }}</span>
+            </button>
+            <button type="button"
+                    class="scope-filter-btn"
+                    [class.active]="batchScopeFilter === 'single'"
+                    (click)="batchScopeFilter = 'single'">
+              <mat-icon>school</mat-icon>
+              <span>Single Class</span>
+              <span class="scope-pill">{{ singleClassBatchCount }}</span>
+            </button>
+            <button type="button"
+                    class="scope-filter-btn"
+                    [class.active]="batchScopeFilter === 'combined'"
+                    (click)="batchScopeFilter = 'combined'">
+              <mat-icon>layers</mat-icon>
+              <span>Multi-Class</span>
+              <span class="scope-pill">{{ combinedBatchCount }}</span>
+            </button>
+          </div>
         </div>
 
         <mat-progress-bar mode="indeterminate" *ngIf="loading" class="grid-loader"></mat-progress-bar>
 
         <div class="table-responsive">
-          <table mat-table [dataSource]="batches" matSort (matSortChange)="onSortChange($event)" class="mat-elevation-z0 full-width-table">
+          <table mat-table [dataSource]="filteredBatchView" matSort (matSortChange)="onSortChange($event)" class="mat-elevation-z0 full-width-table">
             
             <ng-container matColumnDef="name">
               <th mat-header-cell *matHeaderCellDef mat-sort-header="name"> Batch Name </th>
@@ -101,11 +131,15 @@ import { QuickBatchMentorDialogComponent } from './quick-batch-mentor-dialog.com
             <ng-container matColumnDef="className">
               <th mat-header-cell *matHeaderCellDef mat-sort-header="class"> Class / Grade </th>
               <td mat-cell *matCellDef="let element">
-                <span class="class-tag" *ngIf="element.className">
+                <span class="class-tag" *ngIf="element.className && !isCombinedBatch(element)">
                   <mat-icon class="inline-icon">school</mat-icon>
                   {{ element.className }}
                 </span>
-                <span class="unassigned-tag" *ngIf="!element.className">General</span>
+                <span class="multi-class-tag" *ngIf="isCombinedBatch(element)">
+                  <mat-icon class="inline-icon">layers</mat-icon>
+                  {{ getBatchClassDisplay(element) }}
+                </span>
+                <span class="unassigned-tag" *ngIf="!element.className && !isCombinedBatch(element)">General</span>
               </td>
             </ng-container>
 
@@ -172,12 +206,6 @@ import { QuickBatchMentorDialogComponent } from './quick-batch-mentor-dialog.com
               </td>
             </ng-container>
 
-            <ng-container matColumnDef="standardMonthlyFee">
-              <th mat-header-cell *matHeaderCellDef mat-sort-header="fee"> Monthly Fee (₹) </th>
-              <td mat-cell *matCellDef="let element">
-                <strong class="fee-text">₹{{ element.standardMonthlyFee | number:'1.2-2' }}</strong>
-              </td>
-            </ng-container>
 
             <ng-container matColumnDef="studentCount">
               <th mat-header-cell *matHeaderCellDef mat-sort-header="students"> Active Students </th>
@@ -193,12 +221,25 @@ import { QuickBatchMentorDialogComponent } from './quick-batch-mentor-dialog.com
               <th mat-header-cell *matHeaderCellDef class="text-right action-th-col">
                 <mat-icon class="header-action-icon" matTooltip="Batch Actions">settings</mat-icon>
               </th>
-              <td mat-cell *matCellDef="let element" class="text-right">
-                <button mat-icon-button [matMenuTriggerFor]="batchMenu" class="action-menu-btn" matTooltip="Batch Actions">
-                  <mat-icon>more_vert</mat-icon>
-                </button>
+              <td mat-cell *matCellDef="let element" class="text-right action-td-col">
+                <div class="row-actions-group">
+                  <button mat-icon-button class="routine-quick-btn" (click)="openBatchRoutine(element)" matTooltip="Configure Timetable & Lecture Routine (रूटीन व टाइमिंग सेट करें)">
+                    <mat-icon>calendar_view_week</mat-icon>
+                  </button>
+                  <button mat-icon-button [matMenuTriggerFor]="batchMenu" class="action-menu-btn" matTooltip="More Actions">
+                    <mat-icon>more_vert</mat-icon>
+                  </button>
+                </div>
 
                 <mat-menu #batchMenu="matMenu" xPosition="before" class="batch-action-menu">
+                  <button mat-menu-item (click)="openBatchRoutine(element)">
+                    <mat-icon color="primary">calendar_view_week</mat-icon>
+                    <span>Batch Timetable & Routine</span>
+                  </button>
+                  <button mat-menu-item (click)="openQuickMentorModal(element)">
+                    <mat-icon color="primary">person</mat-icon>
+                    <span>Assign / Change Mentor</span>
+                  </button>
                   <button mat-menu-item (click)="openRollSequencer(element)">
                     <mat-icon color="primary">format_list_numbered</mat-icon>
                     <span>Sequence Roll Numbers</span>
@@ -277,14 +318,75 @@ import { QuickBatchMentorDialogComponent } from './quick-batch-mentor-dialog.com
     .filter-toolbar {
       padding: 16px 20px 0 20px;
       display: flex;
-      gap: 16px;
+      gap: 12px;
       align-items: center;
+      flex-wrap: wrap;
 
       .search-field {
-        width: 320px;
+        width: 300px;
+        flex-shrink: 0;
       }
       .session-filter {
-        width: 180px;
+        width: 160px;
+        flex-shrink: 0;
+      }
+    }
+    .scope-filter-toggle {
+      display: flex;
+      gap: 4px;
+      background: #f1f5f9;
+      border-radius: 10px;
+      padding: 3px;
+      align-items: center;
+
+      .scope-filter-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 5px 12px;
+        border: 1.5px solid transparent;
+        border-radius: 7px;
+        background: transparent;
+        cursor: pointer;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #64748b;
+        transition: all 0.15s ease;
+        white-space: nowrap;
+
+        mat-icon {
+          font-size: 16px;
+          width: 16px;
+          height: 16px;
+        }
+
+        .scope-pill {
+          background: #cbd5e1;
+          color: #475569;
+          padding: 1px 6px;
+          border-radius: 10px;
+          font-size: 0.7rem;
+          font-weight: 700;
+        }
+
+        &:hover {
+          background: #e2e8f0;
+          color: #334155;
+        }
+
+        &.active {
+          background: #ffffff;
+          border-color: #2563eb;
+          color: #1e40af;
+          box-shadow: 0 1px 3px rgba(37,99,235,0.15);
+
+          mat-icon { color: #2563eb; }
+
+          .scope-pill {
+            background: #dbeafe;
+            color: #1d4ed8;
+          }
+        }
       }
     }
     .grid-loader {
@@ -327,6 +429,18 @@ import { QuickBatchMentorDialogComponent } from './quick-batch-mentor-dialog.com
       color: #6d28d9;
       background: #f5f3ff;
       border: 1px solid #ddd6fe;
+      padding: 3px 8px;
+      border-radius: 6px;
+    }
+    .multi-class-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #047857;
+      background: #ecfdf5;
+      border: 1px solid #a7f3d0;
       padding: 3px 8px;
       border-radius: 6px;
     }
@@ -375,6 +489,31 @@ import { QuickBatchMentorDialogComponent } from './quick-batch-mentor-dialog.com
         height: 19px;
         color: #64748b;
         vertical-align: middle;
+      }
+    }
+    .row-actions-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .routine-quick-btn {
+      color: #2563eb;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 6px;
+      width: 32px;
+      height: 32px;
+      line-height: 32px;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      mat-icon { font-size: 18px; width: 18px; height: 18px; line-height: 18px; }
+      &:hover {
+        background: #2563eb;
+        color: #ffffff;
+        box-shadow: 0 2px 6px rgba(37,99,235,0.3);
       }
     }
     .action-menu-btn {
@@ -466,8 +605,23 @@ import { QuickBatchMentorDialogComponent } from './quick-batch-mentor-dialog.com
   `]
 })
 export class BatchesComponent implements OnInit {
-  displayedColumns: string[] = ['name', 'className', 'mentor', 'branchName', 'roomName', 'subject', 'academicYear', 'standardMonthlyFee', 'studentCount', 'actions'];
+  displayedColumns: string[] = ['name', 'className', 'mentor', 'branchName', 'roomName', 'subject', 'academicYear', 'studentCount', 'actions'];
   batches: BatchDto[] = [];
+  batchScopeFilter: 'all' | 'single' | 'combined' = 'all';
+
+  get filteredBatchView(): BatchDto[] {
+    if (this.batchScopeFilter === 'all') return this.batches;
+    if (this.batchScopeFilter === 'single') return this.batches.filter(b => !this.isCombinedBatch(b));
+    return this.batches.filter(b => this.isCombinedBatch(b));
+  }
+
+  get singleClassBatchCount(): number {
+    return this.batches.filter(b => !this.isCombinedBatch(b)).length;
+  }
+
+  get combinedBatchCount(): number {
+    return this.batches.filter(b => this.isCombinedBatch(b)).length;
+  }
   
   loading = false;
   totalCount = 0;
@@ -483,6 +637,7 @@ export class BatchesComponent implements OnInit {
 
   constructor(
     private batchesService: BatchesService,
+    private coachingService: CoachingService,
     private confirmDialog: ConfirmDialogService,
     private dialog: MatDialog
   ) {}
@@ -544,8 +699,9 @@ export class BatchesComponent implements OnInit {
 
   openBatchModal(batch?: BatchDto): void {
     const dialogRef = this.dialog.open(BatchDialogComponent, {
-      width: '640px',
+      width: '880px',
       maxWidth: '96vw',
+      maxHeight: '92vh',
       data: batch ? { ...batch } : undefined
     });
 
@@ -601,6 +757,51 @@ export class BatchesComponent implements OnInit {
     });
   }
 
+  openBatchRoutine(batch: BatchDto): void {
+    this.coachingService.getTeachers().subscribe({
+      next: (teachersList) => {
+        this.dialog.open(SectionRoutineDialogComponent, {
+          width: '1180px',
+          maxWidth: '96vw',
+          maxHeight: '92vh',
+          panelClass: 'erp-custom-dialog',
+          autoFocus: false,
+          data: {
+            batchId: batch.id,
+            batchName: batch.name,
+            classId: batch.classId,
+            className: batch.className,
+            branchId: batch.branchId,
+            mentorTeacherId: batch.mentorTeacherId,
+            mentorTeacherName: batch.mentorTeacherName,
+            batchSubjects: batch.subject,
+            teachers: teachersList || []
+          }
+        });
+      },
+      error: () => {
+        this.dialog.open(SectionRoutineDialogComponent, {
+          width: '1180px',
+          maxWidth: '96vw',
+          maxHeight: '92vh',
+          panelClass: 'erp-custom-dialog',
+          autoFocus: false,
+          data: {
+            batchId: batch.id,
+            batchName: batch.name,
+            classId: batch.classId,
+            className: batch.className,
+            branchId: batch.branchId,
+            mentorTeacherId: batch.mentorTeacherId,
+            mentorTeacherName: batch.mentorTeacherName,
+            batchSubjects: batch.subject,
+            teachers: []
+          }
+        });
+      }
+    });
+  }
+
   getSubjectChips(subjectStr?: string): string[] {
     if (!subjectStr) return [];
     return subjectStr.split(',').map(s => s.trim()).filter(s => s.length > 0);
@@ -613,6 +814,19 @@ export class BatchesComponent implements OnInit {
       return trimmed;
     }
     return `Room ${trimmed}`;
+  }
+
+  isCombinedBatch(b: any): boolean {
+    if (!b?.classId) return true;
+    return !!(b?.name && b.name.match(/class\s*\d+.*(?:to|-).*\d+/i));
+  }
+
+  getBatchClassDisplay(b: any): string {
+    const rangeMatch = (b?.name || '').match(/class\s*(\d+)(?:st|nd|rd|th)?\s*(?:to|-)\s*(?:class\s*)?(\d+)(?:st|nd|rd|th)?/i);
+    if (rangeMatch) {
+      return `Combined (${rangeMatch[1]}th - ${rangeMatch[2]}th)`;
+    }
+    return b?.className || 'Combined (All Classes)';
   }
 
   deleteBatch(batch: BatchDto): void {

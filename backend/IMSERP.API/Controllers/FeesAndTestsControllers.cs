@@ -854,7 +854,8 @@ public class FeesController : ControllerBase
             student.CoachingRollNumber,
             student.IsSchoolStudent,
             student.IsCoachingStudent,
-            totalOneTimeFee
+            totalOneTimeFee,
+            student.CoachingJoiningDate
         );
     }
 
@@ -1281,6 +1282,19 @@ public class FeesController : ControllerBase
             int recStartYear = DateTime.UtcNow.Month >= 4 ? DateTime.UtcNow.Year : DateTime.UtcNow.Year - 1;
             string academicSession = $"{recStartYear}-{recStartYear + 1}";
 
+            var paidPeriods = allocatedInvoicesList
+                .Select(x => !string.IsNullOrWhiteSpace(x.Invoice.Title) ? x.Invoice.Title : x.Invoice.DueDate.ToString("MMMM yyyy"))
+                .Distinct()
+                .ToList();
+            if (paidPeriods.Count == 0 && unpaidInvoices.Count > 0)
+            {
+                paidPeriods = unpaidInvoices
+                    .Select(x => !string.IsNullOrWhiteSpace(x.Title) ? x.Title : x.DueDate.ToString("MMMM yyyy"))
+                    .Distinct()
+                    .ToList();
+            }
+            string feePeriod = paidPeriods.Count > 0 ? string.Join(", ", paidPeriods) : DateTime.UtcNow.ToString("MMMM yyyy");
+
             return Ok(new FeePaymentReceiptDto(
                 lastPayment?.Id ?? (selectedCirculations.FirstOrDefault()?.Id ?? Guid.NewGuid()),
                 receiptNo,
@@ -1313,7 +1327,8 @@ public class FeesController : ControllerBase
                 unpaidInvoices.FirstOrDefault()?.Id,
                 academicSession,
                 pendingArrears,
-                totalDemandBeforePayment
+                totalDemandBeforePayment,
+                feePeriod
             ));
         });
     }
@@ -1493,6 +1508,13 @@ public class FeesController : ControllerBase
         int rcptStartYear = refDt.Month >= 4 ? refDt.Year : refDt.Year - 1;
         string academicSession = $"{rcptStartYear}-{rcptStartYear + 1}";
 
+        var receiptPeriods = payments
+            .Select(p => p.Invoice != null ? (!string.IsNullOrWhiteSpace(p.Invoice.Title) ? p.Invoice.Title : p.Invoice.DueDate.ToString("MMMM yyyy")) : null)
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .Distinct()
+            .ToList();
+        string feePeriodRec = receiptPeriods.Count > 0 ? string.Join(", ", receiptPeriods) : (firstPayment?.PaymentDate ?? DateTime.UtcNow).ToString("MMMM yyyy");
+
         return Ok(new FeePaymentReceiptDto(
             firstPayment?.Id ?? (circulations.FirstOrDefault()?.Id ?? Guid.NewGuid()),
             receiptNumber,
@@ -1525,7 +1547,8 @@ public class FeesController : ControllerBase
             firstPayment?.InvoiceId,
             academicSession,
             pendingArrears,
-            totalDemandBeforePayment
+            totalDemandBeforePayment,
+            feePeriodRec
         ));
     }
 
@@ -3646,6 +3669,35 @@ public class FeesController : ControllerBase
                     IsActive = item.IsActive
                 };
                 _dbContext.ClassFeeStructures.Add(newStructure);
+            }
+        }
+
+        // Bidirectional sync: If saving structure for a coaching batch, update Batch.StandardMonthlyFee
+        if (dto.BatchId.HasValue && dto.BatchId.Value != Guid.Empty)
+        {
+            var targetBatch = await _dbContext.Batches.FirstOrDefaultAsync(b => b.Id == dto.BatchId.Value && b.TenantId == _currentUser.TenantId);
+            if (targetBatch != null)
+            {
+                var coachingHeads = await _dbContext.FeeHeads
+                    .AsNoTracking()
+                    .Where(h => h.TenantId == _currentUser.TenantId && h.IsActive &&
+                                (h.Code == "COACH" || h.Code == "COACHING" || h.Code == "TUI-FEE" || h.Code == "TUI" || h.ApplicableTo == "Coaching"))
+                    .Select(h => h.Id)
+                    .ToListAsync();
+
+                var coachItem = dto.Items.FirstOrDefault(i => coachingHeads.Contains(i.FeeHeadId) && i.IsActive);
+                if (coachItem != null)
+                {
+                    targetBatch.StandardMonthlyFee = coachItem.Amount;
+                }
+                else
+                {
+                    var anyMonthly = dto.Items.FirstOrDefault(i => i.IsActive && i.Amount > 0 && i.ApplicableMonth == null);
+                    if (anyMonthly != null)
+                    {
+                        targetBatch.StandardMonthlyFee = anyMonthly.Amount;
+                    }
+                }
             }
         }
 

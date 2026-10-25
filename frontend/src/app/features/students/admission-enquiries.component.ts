@@ -631,6 +631,84 @@ export interface EnquiryStatsDto {
     .empty-icon-wrap mat-icon { font-size: 32px; width: 32px; height: 32px; }
     .empty-state h3 { margin: 0; font-size: 18px; color: #1e293b; font-weight: 700; }
     .empty-state p { margin: 0; font-size: 13px; color: #64748b; max-width: 400px; }
+
+    @media (max-width: 1024px) {
+      .stats-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .page-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 14px;
+        padding: 16px;
+      }
+      .header-left {
+        align-items: flex-start;
+        gap: 12px;
+        .header-icon-box {
+          width: 42px;
+          height: 42px;
+          min-width: 42px;
+          border-radius: 10px;
+          mat-icon { font-size: 22px; width: 22px; height: 22px; }
+        }
+        .page-title {
+          font-size: 1.15rem;
+          line-height: 1.25;
+        }
+        .page-subtitle {
+          font-size: 0.78rem;
+        }
+      }
+      .header-actions {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+        width: 100% !important;
+        gap: 10px !important;
+
+        .refresh-btn,
+        .create-btn {
+          width: 100% !important;
+          height: 40px !important;
+          display: inline-flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          font-size: 0.84rem !important;
+          padding: 0 10px !important;
+          white-space: nowrap !important;
+        }
+      }
+
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 8px !important;
+      }
+      .stat-card {
+        padding: 10px 12px !important;
+        gap: 10px !important;
+        border-radius: 12px !important;
+        &:last-child:nth-child(odd) {
+          grid-column: span 2;
+        }
+      }
+      .stat-icon-wrap {
+        width: 36px !important;
+        height: 36px !important;
+        min-width: 36px !important;
+        border-radius: 8px !important;
+        mat-icon { font-size: 20px !important; width: 20px !important; height: 20px !important; }
+      }
+      .stat-value {
+        font-size: 1.25rem !important;
+      }
+      .stat-label {
+        font-size: 0.68rem !important;
+      }
+    }
   `]
 })
 export class AdmissionEnquiriesComponent implements OnInit {

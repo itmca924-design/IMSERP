@@ -17,6 +17,7 @@ export interface SchoolClassDto {
   sectionCount: number;
   studentCount: number;
   sections?: SchoolSectionDto[];
+  academicScope?: string; // 'Both' | 'School' | 'Coaching'
 }
 
 export interface CreateSchoolClassDto {
@@ -24,6 +25,7 @@ export interface CreateSchoolClassDto {
   code?: string;
   displayOrder?: number;
   branchId?: string;
+  academicScope?: string;
 }
 
 export interface UpdateSchoolClassDto {
@@ -31,6 +33,7 @@ export interface UpdateSchoolClassDto {
   code?: string;
   displayOrder: number;
   isActive: boolean;
+  academicScope?: string;
 }
 
 export interface SchoolSectionDto {
@@ -543,10 +546,10 @@ export class SchoolService {
 
   constructor(private http: HttpClient) {}
 
-  getClasses(activeOnly: boolean = false): Observable<SchoolClassDto[]> {
-    return this.http.get<SchoolClassDto[]>(`${this.apiUrl}/classes`, {
-      params: { activeOnly }
-    });
+  getClasses(activeOnly: boolean = false, scope?: string): Observable<SchoolClassDto[]> {
+    const params: any = { activeOnly };
+    if (scope) params.scope = scope;
+    return this.http.get<SchoolClassDto[]>(`${this.apiUrl}/classes`, { params });
   }
 
   getClassById(id: string): Observable<SchoolClassDto> {

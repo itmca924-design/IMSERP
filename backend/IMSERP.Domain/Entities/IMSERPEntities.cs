@@ -215,6 +215,9 @@ public class Batch
     public string AcademicYear { get; set; } = string.Empty;
     public decimal StandardMonthlyFee { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public bool IsDeleted { get; set; } = false;
+    public DateTime? DeletedAt { get; set; }
+    public Guid? DeletedBy { get; set; }
 
     [ForeignKey("BranchId")]
     public Branch? Branch { get; set; }
@@ -240,6 +243,7 @@ public class SchoolClass
     public string? Code { get; set; }
     public int DisplayOrder { get; set; } = 0;
     public bool IsActive { get; set; } = true;
+    public string AcademicScope { get; set; } = "Both";
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     [ForeignKey("BranchId")]

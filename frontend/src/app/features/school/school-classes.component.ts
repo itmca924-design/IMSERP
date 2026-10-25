@@ -141,6 +141,15 @@ import { environment } from '../../../environments/environment';
             <mat-label>Display Order</mat-label>
             <input matInput type="number" [(ngModel)]="classFormData.displayOrder" />
           </mat-form-field>
+
+          <mat-form-field appearance="outline" class="f-flex-2">
+            <mat-label>Academic Scope (उपयोग का दायरा) *</mat-label>
+            <mat-select [(ngModel)]="classFormData.academicScope" required>
+              <mat-option value="Both">🌟 School + Coaching (दोनों के लिए)</mat-option>
+              <mat-option value="Coaching">🎓 Coaching Only (केवल कोचिंग - 6th to 12th)</mat-option>
+              <mat-option value="School">🏫 School Only (केवल स्कूल कक्षा)</mat-option>
+            </mat-select>
+          </mat-form-field>
         </div>
 
         <div class="drawer-footer">
@@ -233,15 +242,46 @@ import { environment } from '../../../environments/environment';
         </div>
       </mat-card>
 
-      <div class="classes-container" *ngIf="!loading && classes.length > 0">
-        <mat-card class="class-card mat-elevation-z1" *ngFor="let c of classes">
+      <!-- Scope Filter Toolbar -->
+      <div class="scope-filter-toolbar" *ngIf="!loading && classes.length > 0">
+        <div class="scope-filter-toggle">
+          <button type="button" class="s-toggle-btn"
+                  [class.active]="selectedScopeFilter === 'All'"
+                  (click)="setScopeFilter('All')">
+            <span>✨ All Classes</span>
+            <span class="count-pill">{{ classes.length }}</span>
+          </button>
+          <button type="button" class="s-toggle-btn"
+                  [class.active]="selectedScopeFilter === 'School'"
+                  (click)="setScopeFilter('School')">
+            <mat-icon>school</mat-icon>
+            <span>School Classes</span>
+            <span class="count-pill">{{ getSchoolClassesCount() }}</span>
+          </button>
+          <button type="button" class="s-toggle-btn"
+                  [class.active]="selectedScopeFilter === 'Coaching'"
+                  (click)="setScopeFilter('Coaching')">
+            <mat-icon>groups</mat-icon>
+            <span>Coaching Classes</span>
+            <span class="count-pill">{{ getCoachingClassesCount() }}</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="classes-container" *ngIf="!loading && filteredClasses.length > 0">
+        <mat-card class="class-card mat-elevation-z1" *ngFor="let c of filteredClasses">
           <div class="class-card-header">
             <div class="class-title-wrap">
-              <div class="class-badge">
-                <mat-icon>school</mat-icon>
+              <div class="class-badge" [class.coaching-badge]="c.academicScope === 'Coaching'">
+                <mat-icon>{{ c.academicScope === 'Coaching' ? 'groups' : 'school' }}</mat-icon>
               </div>
               <div class="class-title-info">
-                <h3 class="class-name">{{ c.name }}</h3>
+                <div class="class-title-row">
+                  <h3 class="class-name">{{ c.name }}</h3>
+                  <span class="scope-tag both" *ngIf="c.academicScope === 'Both' || !c.academicScope">🌟 School + Coaching</span>
+                  <span class="scope-tag coaching" *ngIf="c.academicScope === 'Coaching'">🎓 Coaching Only</span>
+                  <span class="scope-tag school" *ngIf="c.academicScope === 'School'">🏫 School Only</span>
+                </div>
                 <span class="class-code" *ngIf="c.code">Code: {{ c.code }}</span>
               </div>
             </div>
@@ -279,42 +319,55 @@ import { environment } from '../../../environments/environment';
 
           <!-- Sections List in Class -->
           <div class="sections-list">
-            <div class="section-pill" *ngFor="let s of c.sections">
-              <div class="sec-details">
-                <div class="sec-title-row">
-                  <span class="sec-name">{{ s.name.startsWith('Section') ? s.name : 'Section ' + s.name }}</span>
-                  <span class="sec-capacity-chip">
-                    <mat-icon class="capacity-icon">person_outline</mat-icon>
-                    <span>{{ s.studentCount }} / {{ s.maxCapacity }} Seats</span>
-                  </span>
+            <div class="section-card" *ngFor="let s of c.sections">
+              <!-- Header Row: Section Badge + Name + Seats + Action Buttons -->
+              <div class="sec-header-row">
+                <div class="sec-identity">
+                  <div class="sec-badge">{{ getSectionBadge(s.name) }}</div>
+                  <div class="sec-identity-text">
+                    <span class="sec-name">{{ formatSectionName(s.name) }}</span>
+                    <span class="sec-capacity-chip" [class.is-full]="s.studentCount >= s.maxCapacity && s.maxCapacity > 0">
+                      <mat-icon class="capacity-icon">groups</mat-icon>
+                      <span>{{ s.studentCount }} / {{ s.maxCapacity }} Seats</span>
+                    </span>
+                  </div>
                 </div>
 
-                <div class="sec-tags-row">
-                  <span class="sec-room-tag" *ngIf="s.roomNumber">
-                    <mat-icon>meeting_room</mat-icon>
-                    <span>Room {{ s.roomNumber }}</span>
-                  </span>
-                  <div class="sec-teacher-tag clickable-tag" (click)="openQuickAssignTeacher(s, c)" [class.unassigned]="!s.classTeacherName" [matTooltip]="s.classTeacherName ? 'Class Teacher: ' + s.classTeacherName + ' (Click to change)' : 'Click to Assign Class Teacher'">
-                    <mat-icon>{{ s.classTeacherName ? 'supervisor_account' : 'person_add' }}</mat-icon>
-                    <span>{{ s.classTeacherName || 'Assign Class Teacher' }}</span>
-                    <mat-icon class="quick-caret">arrow_drop_down</mat-icon>
-                    <button *ngIf="s.classTeacherName" type="button" class="remove-teacher-chip-btn" (click)="$event.stopPropagation(); removeClassTeacher(s, c)" matTooltip="Remove Class Teacher">
-                      <mat-icon>close</mat-icon>
-                    </button>
-                  </div>
+                <div class="sec-actions">
+                  <button mat-icon-button class="mini-action-btn routine-sec" (click)="openSectionRoutine(s, c)" matTooltip="Class Timetable / Period Routine (समय सारणी)">
+                    <mat-icon>schedule</mat-icon>
+                  </button>
+                  <button mat-icon-button class="mini-action-btn edit-sec" (click)="editSection(s)" matTooltip="Edit Section">
+                    <mat-icon>edit</mat-icon>
+                  </button>
+                  <button mat-icon-button class="mini-action-btn delete-sec" (click)="deleteSection(s)" matTooltip="Delete Section">
+                    <mat-icon>delete_outline</mat-icon>
+                  </button>
                 </div>
               </div>
 
-              <div class="sec-actions">
-                <button mat-icon-button class="mini-action-btn routine-sec" (click)="openSectionRoutine(s, c)" matTooltip="Class Timetable / Period Routine (समय सारणी)">
-                  <mat-icon style="color: #2563eb;">schedule</mat-icon>
-                </button>
-                <button mat-icon-button class="mini-action-btn edit-sec" (click)="editSection(s)" matTooltip="Edit Section">
-                  <mat-icon>edit</mat-icon>
-                </button>
-                <button mat-icon-button class="mini-action-btn delete-sec" (click)="deleteSection(s)" matTooltip="Delete Section">
-                  <mat-icon>delete_outline</mat-icon>
-                </button>
+              <!-- Meta Row: Room & Class Teacher -->
+              <div class="sec-meta-row">
+                <span class="sec-room-tag" *ngIf="s.roomNumber">
+                  <mat-icon>meeting_room</mat-icon>
+                  <span>{{ formatRoomName(s.roomNumber) }}</span>
+                </span>
+                <div class="sec-teacher-tag clickable-tag" 
+                     (click)="openQuickAssignTeacher(s, c)" 
+                     [class.unassigned]="!s.classTeacherName" 
+                     [matTooltip]="s.classTeacherName ? 'Class Teacher: ' + s.classTeacherName + ' (Click to change)' : 'Click to Assign Class Teacher'">
+                  <mat-icon class="teacher-icon">{{ s.classTeacherName ? 'school' : 'person_add' }}</mat-icon>
+                  <span class="teacher-name-label">{{ s.classTeacherName || 'Assign Class Teacher' }}</span>
+                  <mat-icon class="quick-caret">arrow_drop_down</mat-icon>
+                  <button *ngIf="s.classTeacherName" type="button" class="remove-teacher-chip-btn" (click)="$event.stopPropagation(); removeClassTeacher(s, c)" matTooltip="Remove Class Teacher">
+                    <mat-icon>close</mat-icon>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Mini Capacity / Occupancy Bar -->
+              <div class="sec-occupancy-track" *ngIf="s.maxCapacity && s.maxCapacity > 0">
+                <div class="sec-occupancy-fill" [style.width.%]="getOccupancyPercent(s)" [class.is-full]="s.studentCount >= s.maxCapacity"></div>
               </div>
             </div>
 
@@ -480,6 +533,110 @@ import { environment } from '../../../environments/environment';
       }
     }
 
+    /* Scope Filter Toolbar */
+    .scope-filter-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .scope-filter-toggle {
+      display: inline-flex;
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 4px;
+      gap: 4px;
+
+      .s-toggle-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 14px;
+        border-radius: 8px;
+        border: none;
+        background: transparent;
+        color: #475569;
+        font-size: 0.82rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+
+        mat-icon {
+          font-size: 16px;
+          width: 16px;
+          height: 16px;
+        }
+
+        .count-pill {
+          background: #e2e8f0;
+          color: #334155;
+          font-size: 0.72rem;
+          font-weight: 700;
+          padding: 1px 7px;
+          border-radius: 10px;
+        }
+
+        &:hover {
+          color: #0f172a;
+          background: rgba(255, 255, 255, 0.6);
+        }
+
+        &.active {
+          background: #ffffff;
+          color: #1e40af;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+
+          .count-pill {
+            background: #dbeafe;
+            color: #1e40af;
+          }
+        }
+      }
+    }
+
+    .class-title-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .scope-tag {
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 6px;
+      display: inline-flex;
+      align-items: center;
+      white-space: nowrap;
+
+      &.both {
+        background: #f0fdf4;
+        color: #15803d;
+        border: 1px solid #bbf7d0;
+      }
+
+      &.coaching {
+        background: #ede9fe;
+        color: #6b21a8;
+        border: 1px solid #ddd6fe;
+      }
+
+      &.school {
+        background: #eff6ff;
+        color: #1d4ed8;
+        border: 1px solid #bfdbfe;
+      }
+    }
+
+    .class-badge.coaching-badge {
+      background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%) !important;
+      color: #7c3aed !important;
+      border: 1px solid #ddd6fe !important;
+    }
+
     /* Responsive Material 3 Classes Cards Grid */
     .classes-container {
       display: grid;
@@ -621,131 +778,303 @@ import { environment } from '../../../environments/environment';
       }
 
       .sections-list {
-        display: flex; flex-direction: column; gap: 9px; flex: 1;
-        .section-pill {
-          display: flex; justify-content: space-between; align-items: center; padding: 9px 12px;
-          background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px;
-          box-shadow: 0 1px 2px rgba(15, 23, 42, 0.02);
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        flex: 1;
+
+        .section-card {
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
+          border-radius: 12px;
+          padding: 10px 12px;
+          box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
           transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          position: relative;
+          overflow: hidden;
 
           &:hover {
             border-color: #93c5fd;
-            background: #fbfdff;
-            box-shadow: 0 4px 10px rgba(37, 99, 235, 0.06);
+            background: #fcfdff;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08);
             transform: translateY(-1px);
           }
 
-          .sec-details {
-            display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 0;
+          .sec-header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
 
-            .sec-title-row {
-              display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-              .sec-name { font-weight: 700; font-size: 0.9rem; color: #0f172a; line-height: 1.2; }
-              .sec-capacity-chip {
-                font-size: 0.71rem; font-weight: 600; color: #475569; background: #f1f5f9; padding: 2px 7px;
-                border-radius: 6px; display: inline-flex; align-items: center; gap: 3px;
-                .capacity-icon { font-size: 13px; width: 13px; height: 13px; line-height: 13px; color: #64748b; }
+            .sec-identity {
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              min-width: 0;
+
+              .sec-badge {
+                width: 28px;
+                height: 28px;
+                min-width: 28px;
+                border-radius: 8px;
+                background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+                color: #1d4ed8;
+                border: 1px solid #bfdbfe;
+                font-weight: 800;
+                font-size: 0.78rem;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                box-shadow: 0 1px 3px rgba(37, 99, 235, 0.12);
+                flex-shrink: 0;
+              }
+
+              .sec-identity-text {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                flex-wrap: wrap;
+                min-width: 0;
+
+                .sec-name {
+                  font-weight: 700;
+                  font-size: 0.92rem;
+                  color: #0f172a;
+                  line-height: 1.2;
+                  white-space: nowrap;
+                }
+
+                .sec-capacity-chip {
+                  font-size: 0.7rem;
+                  font-weight: 600;
+                  color: #475569;
+                  background: #f1f5f9;
+                  padding: 2px 7px;
+                  border-radius: 6px;
+                  border: 1px solid #e2e8f0;
+                  display: inline-flex;
+                  align-items: center;
+                  gap: 3px;
+                  white-space: nowrap;
+
+                  .capacity-icon {
+                    font-size: 13px;
+                    width: 13px;
+                    height: 13px;
+                    line-height: 13px;
+                    color: #64748b;
+                  }
+
+                  &.is-full {
+                    background: #fef2f2;
+                    color: #b91c1c;
+                    border-color: #fecaca;
+                    .capacity-icon { color: #dc2626; }
+                  }
+                }
               }
             }
 
-            .sec-tags-row {
-              display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
-              .sec-room-tag {
-                display: inline-flex; align-items: center; gap: 3px; font-size: 0.71rem; font-weight: 500;
-                color: #64748b; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 5px; padding: 1px 6px;
-                mat-icon { font-size: 13px; width: 13px; height: 13px; line-height: 13px; }
+            .sec-actions {
+              display: flex;
+              align-items: center;
+              gap: 4px;
+              flex-shrink: 0;
+
+              .mini-action-btn {
+                width: 28px !important;
+                height: 28px !important;
+                min-width: 28px !important;
+                padding: 0 !important;
+                border-radius: 50% !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                transition: all 0.15s ease !important;
+
+                ::ng-deep .mat-mdc-button-touch-target { display: none !important; }
+                ::ng-deep .mat-mdc-button-persistent-ripple,
+                ::ng-deep .mat-ripple { border-radius: 50% !important; }
+
+                mat-icon {
+                  font-size: 16px !important;
+                  width: 16px !important;
+                  height: 16px !important;
+                  line-height: 16px !important;
+                }
+
+                &.routine-sec {
+                  color: #2563eb;
+                  background: #eff6ff;
+                  &:hover { background-color: #dbeafe !important; color: #1d4ed8; }
+                }
+                &.edit-sec {
+                  color: #475569;
+                  background: #f8fafc;
+                  border: 1px solid #e2e8f0;
+                  &:hover { background-color: #f1f5f9 !important; color: #0f172a; }
+                }
+                &.delete-sec {
+                  color: #ef4444;
+                  background: #fef2f2;
+                  &:hover { background-color: #fee2e2 !important; color: #dc2626; }
+                }
               }
-              .sec-teacher-tag {
-                display: inline-flex; align-items: center; gap: 4px; font-size: 0.71rem; font-weight: 600;
-                color: #1d4ed8; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 1px 7px;
-                mat-icon { font-size: 13px; width: 13px; height: 13px; line-height: 13px; }
-                &.unassigned { color: #854d0e; background: #fefce8; border-color: #fef08a; }
-                &.clickable-tag {
+            }
+          }
+
+          .sec-meta-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+
+            .sec-room-tag {
+              display: inline-flex;
+              align-items: center;
+              gap: 4px;
+              font-size: 0.72rem;
+              font-weight: 600;
+              color: #475569;
+              background: #f8fafc;
+              border: 1px solid #e2e8f0;
+              border-radius: 6px;
+              padding: 2px 7px;
+              white-space: nowrap;
+
+              mat-icon {
+                font-size: 13px;
+                width: 13px;
+                height: 13px;
+                line-height: 13px;
+                color: #64748b;
+              }
+            }
+
+            .sec-teacher-tag {
+              display: inline-flex;
+              align-items: center;
+              gap: 4px;
+              font-size: 0.72rem;
+              font-weight: 600;
+              color: #15803d;
+              background: #f0fdf4;
+              border: 1px solid #bbf7d0;
+              border-radius: 6px;
+              padding: 2px 8px;
+              white-space: nowrap;
+
+              .teacher-icon {
+                font-size: 14px;
+                width: 14px;
+                height: 14px;
+                line-height: 14px;
+                color: #16a34a;
+              }
+
+              .teacher-name-label {
+                white-space: nowrap;
+                max-width: 160px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+              }
+
+              &.unassigned {
+                color: #92400e;
+                background: #fefce8;
+                border: 1px dashed #fde047;
+
+                .teacher-icon {
+                  color: #d97706;
+                }
+              }
+
+              &.clickable-tag {
+                cursor: pointer;
+                transition: all 0.15s ease;
+                user-select: none;
+
+                &:hover {
+                  background: #dcfce7;
+                  border-color: #86efac;
+                  transform: translateY(-1px);
+                  box-shadow: 0 2px 6px rgba(22, 163, 74, 0.15);
+                }
+
+                &.unassigned:hover {
+                  background: #fef9c3;
+                  border-color: #facc15;
+                  color: #78350f;
+                  box-shadow: 0 2px 6px rgba(217, 119, 6, 0.15);
+                }
+
+                .quick-caret {
+                  font-size: 15px;
+                  width: 15px;
+                  height: 15px;
+                  line-height: 15px;
+                  margin-left: -2px;
+                  opacity: 0.7;
+                }
+
+                .remove-teacher-chip-btn {
+                  display: inline-flex;
+                  align-items: center;
+                  justify-content: center;
+                  background: #fee2e2;
+                  border: 1px solid #fca5a5;
+                  color: #dc2626;
+                  border-radius: 50%;
+                  width: 16px;
+                  height: 16px;
+                  min-width: 16px;
+                  padding: 0;
+                  margin-left: 4px;
                   cursor: pointer;
                   transition: all 0.15s ease;
-                  user-select: none;
+
+                  mat-icon {
+                    font-size: 11px !important;
+                    width: 11px !important;
+                    height: 11px !important;
+                    line-height: 11px !important;
+                  }
+
                   &:hover {
-                    background: #dbeafe;
-                    border-color: #93c5fd;
-                    transform: translateY(-1px);
-                    box-shadow: 0 2px 4px rgba(37, 99, 235, 0.15);
-                  }
-                  &.unassigned:hover {
-                    background: #fef08a;
-                    border-color: #fde047;
-                    color: #713f12;
-                  }
-                  .quick-caret {
-                    font-size: 14px;
-                    width: 14px;
-                    height: 14px;
-                    line-height: 14px;
-                    margin-left: -2px;
-                    opacity: 0.7;
-                  }
-                  .remove-teacher-chip-btn {
-                    display: inline-flex;
-                    align-items: center;
-                    justify-content: center;
-                    background: #fee2e2;
-                    border: 1px solid #fca5a5;
-                    color: #dc2626;
-                    border-radius: 50%;
-                    width: 16px;
-                    height: 16px;
-                    min-width: 16px;
-                    padding: 0;
-                    margin-left: 3px;
-                    cursor: pointer;
-                    transition: all 0.15s ease;
-                    mat-icon {
-                      font-size: 11px !important;
-                      width: 11px !important;
-                      height: 11px !important;
-                      line-height: 11px !important;
-                    }
-                    &:hover {
-                      background: #ef4444;
-                      border-color: #dc2626;
-                      color: #ffffff;
-                      transform: scale(1.15);
-                    }
+                    background: #ef4444;
+                    border-color: #dc2626;
+                    color: #ffffff;
+                    transform: scale(1.15);
                   }
                 }
               }
             }
           }
 
-          .sec-actions {
-            display: flex; align-items: center; gap: 3px; margin-left: 8px; flex-shrink: 0;
+          .sec-occupancy-track {
+            height: 3px;
+            background: #f1f5f9;
+            border-radius: 2px;
+            overflow: hidden;
+            width: 100%;
+            margin-top: 2px;
 
-            .mini-action-btn {
-              width: 28px !important; height: 28px !important; min-width: 28px !important;
-              padding: 0 !important; border-radius: 50% !important;
-              display: inline-flex !important; align-items: center !important; justify-content: center !important;
-              transition: all 0.15s ease !important;
+            .sec-occupancy-fill {
+              height: 100%;
+              background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
+              border-radius: 2px;
+              transition: width 0.3s ease;
 
-              ::ng-deep .mat-mdc-button-touch-target { display: none !important; }
-              ::ng-deep .mat-mdc-button-persistent-ripple,
-              ::ng-deep .mat-ripple { border-radius: 50% !important; }
-
-              mat-icon { font-size: 16px !important; width: 16px !important; height: 16px !important; line-height: 16px !important; }
-
-              &.routine-sec {
-                color: #2563eb;
-                &:hover { background-color: #eff6ff !important; color: #1d4ed8; }
-              }
-              &.edit-sec {
-                color: #64748b;
-                &:hover { background-color: #f1f5f9 !important; color: #0f172a; }
-              }
-              &.delete-sec {
-                color: #f87171;
-                &:hover { background-color: #fee2e2 !important; color: #dc2626; }
+              &.is-full {
+                background: linear-gradient(90deg, #ef4444 0%, #dc2626 100%);
               }
             }
           }
         }
+
         .no-sections {
           display: flex; align-items: center; justify-content: center; gap: 8px;
           color: #94a3b8; font-size: 0.8rem; font-style: italic; padding: 14px 10px;
@@ -856,17 +1185,48 @@ import { environment } from '../../../environments/environment';
         gap: 10px;
       }
       .class-card {
-        padding: 14px !important;
+        padding: 12px !important;
+        border-radius: 14px !important;
       }
-      .section-pill {
-        padding: 8px 10px;
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 8px;
+      .class-meta-bar {
+        padding: 6px 8px !important;
+        gap: 4px !important;
+        flex-wrap: wrap;
+        .meta-tag {
+          font-size: 0.68rem !important;
+        }
       }
-      .sec-actions {
-        align-self: flex-end;
-        margin-left: 0 !important;
+      .section-card {
+        padding: 9px 10px !important;
+        border-radius: 10px !important;
+
+        .sec-header-row {
+          .sec-identity {
+            .sec-badge {
+              width: 24px;
+              height: 24px;
+              min-width: 24px;
+              font-size: 0.72rem;
+            }
+            .sec-identity-text {
+              .sec-name {
+                font-size: 0.86rem !important;
+              }
+              .sec-capacity-chip {
+                font-size: 0.66rem !important;
+                padding: 1px 5px !important;
+              }
+            }
+          }
+        }
+
+        .sec-meta-row {
+          .sec-teacher-tag {
+            .teacher-name-label {
+              max-width: 140px;
+            }
+          }
+        }
       }
     }
 
@@ -897,6 +1257,7 @@ export class SchoolClassesComponent implements OnInit {
     name: '',
     code: '',
     displayOrder: 0,
+    academicScope: 'Both',
     isActive: true
   };
 
@@ -976,6 +1337,29 @@ export class SchoolClassesComponent implements OnInit {
       return false;
     }
     return true;
+  }
+
+  formatSectionName(name: string | undefined | null): string {
+    if (!name) return 'Section';
+    const clean = name.trim();
+    return clean.toLowerCase().startsWith('section') ? clean : `Section ${clean}`;
+  }
+
+  formatRoomName(room: string | undefined | null): string {
+    if (!room) return '';
+    const clean = room.trim();
+    return clean.toLowerCase().startsWith('room') ? clean : `Room ${clean}`;
+  }
+
+  getSectionBadge(name: string | undefined | null): string {
+    if (!name) return 'S';
+    const clean = name.replace(/^section\s*/i, '').trim();
+    return clean ? clean.substring(0, 3).toUpperCase() : 'S';
+  }
+
+  getOccupancyPercent(s: SchoolSectionDto): number {
+    if (!s.maxCapacity || s.maxCapacity <= 0) return 0;
+    return Math.min(100, Math.round(((s.studentCount || 0) / s.maxCapacity) * 100));
   }
 
   loadTeachers(): void {
@@ -1099,6 +1483,30 @@ export class SchoolClassesComponent implements OnInit {
     return this.classes.reduce((acc, c) => acc + (c.sections?.length || 0), 0);
   }
 
+  selectedScopeFilter: 'All' | 'School' | 'Coaching' = 'All';
+
+  setScopeFilter(scope: 'All' | 'School' | 'Coaching'): void {
+    this.selectedScopeFilter = scope;
+  }
+
+  get filteredClasses(): SchoolClassDto[] {
+    if (this.selectedScopeFilter === 'School') {
+      return this.classes.filter(c => c.academicScope === 'School' || c.academicScope === 'Both' || !c.academicScope);
+    }
+    if (this.selectedScopeFilter === 'Coaching') {
+      return this.classes.filter(c => c.academicScope === 'Coaching' || c.academicScope === 'Both');
+    }
+    return this.classes;
+  }
+
+  getSchoolClassesCount(): number {
+    return this.classes.filter(c => c.academicScope === 'School' || c.academicScope === 'Both' || !c.academicScope).length;
+  }
+
+  getCoachingClassesCount(): number {
+    return this.classes.filter(c => c.academicScope === 'Coaching' || c.academicScope === 'Both').length;
+  }
+
   openAddClassDrawer(): void {
     this.isEditingClass = false;
     this.editingClassId = null;
@@ -1106,6 +1514,7 @@ export class SchoolClassesComponent implements OnInit {
       name: '',
       code: '',
       displayOrder: this.classes.length + 1,
+      academicScope: 'Both',
       isActive: true
     };
     this.showClassDrawer = true;
@@ -1119,6 +1528,7 @@ export class SchoolClassesComponent implements OnInit {
       name: c.name,
       code: c.code || '',
       displayOrder: c.displayOrder,
+      academicScope: c.academicScope || 'Both',
       isActive: c.isActive
     };
     this.showClassDrawer = true;

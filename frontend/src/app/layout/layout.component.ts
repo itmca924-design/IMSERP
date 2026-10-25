@@ -122,42 +122,49 @@ import { environment } from '../../environments/environment';
           </mat-accordion>
         </div>
 
-        <div class="sidebar-calendar">
-          <div class="calendar-title-row">
+        <div class="sidebar-calendar" [class.collapsed]="isCalendarCollapsed()">
+          <div class="calendar-title-row" (click)="toggleCalendarCollapse($event)">
             <strong><mat-icon>event</mat-icon> Holiday Calendar</strong>
-            <span>{{ calendarYear }}</span>
+            <div class="calendar-header-actions">
+              <span>{{ calendarYear }}</span>
+              <button mat-icon-button type="button" class="calendar-collapse-btn" [matTooltip]="isCalendarCollapsed() ? 'Expand Holiday Calendar' : 'Collapse Holiday Calendar'" (click)="toggleCalendarCollapse($event)">
+                <mat-icon>{{ isCalendarCollapsed() ? 'keyboard_arrow_down' : 'keyboard_arrow_up' }}</mat-icon>
+              </button>
+            </div>
           </div>
-          <div class="calendar-controls">
-            <button mat-icon-button type="button" (click)="changeCalendarMonth(-1)" matTooltip="Previous month">
-              <mat-icon>chevron_left</mat-icon>
-            </button>
-            <strong>{{ calendarMonths[calendarMonth] }}</strong>
-            <button mat-icon-button type="button" (click)="changeCalendarMonth(1)" matTooltip="Next month">
-              <mat-icon>chevron_right</mat-icon>
-            </button>
-          </div>
-          <div class="calendar-weekdays">
-            <span *ngFor="let day of calendarWeekdays">{{ day }}</span>
-          </div>
-          <div class="calendar-grid">
-            <span *ngFor="let blank of calendarLeadingBlanks"></span>
-            <button
-              *ngFor="let day of calendarDays"
-              type="button"
-              class="calendar-day"
-              [class.today]="day.isToday"
-              [class.saturday]="day.isSaturday"
-              [class.sunday]="day.isSunday"
-              [class.holiday]="day.holiday"
-              [matTooltip]="getCalendarDayTooltip(day)"
-              matTooltipPosition="right">
-              {{ day.day }}
-            </button>
-          </div>
-          <div class="calendar-legend">
-            <span><i class="holiday-dot"></i> Holiday</span>
-            <span><i class="sunday-dot"></i> Sun</span>
-            <span><i class="saturday-dot"></i> Sat</span>
+          <div class="calendar-collapsible-body" *ngIf="!isCalendarCollapsed()">
+            <div class="calendar-controls">
+              <button mat-icon-button type="button" (click)="changeCalendarMonth(-1)" matTooltip="Previous month">
+                <mat-icon>chevron_left</mat-icon>
+              </button>
+              <strong>{{ calendarMonths[calendarMonth] }}</strong>
+              <button mat-icon-button type="button" (click)="changeCalendarMonth(1)" matTooltip="Next month">
+                <mat-icon>chevron_right</mat-icon>
+              </button>
+            </div>
+            <div class="calendar-weekdays">
+              <span *ngFor="let day of calendarWeekdays">{{ day }}</span>
+            </div>
+            <div class="calendar-grid">
+              <span *ngFor="let blank of calendarLeadingBlanks"></span>
+              <button
+                *ngFor="let day of calendarDays"
+                type="button"
+                class="calendar-day"
+                [class.today]="day.isToday"
+                [class.saturday]="day.isSaturday"
+                [class.sunday]="day.isSunday"
+                [class.holiday]="day.holiday"
+                [matTooltip]="getCalendarDayTooltip(day)"
+                matTooltipPosition="right">
+                {{ day.day }}
+              </button>
+            </div>
+            <div class="calendar-legend">
+              <span><i class="holiday-dot"></i> Holiday</span>
+              <span><i class="sunday-dot"></i> Sun</span>
+              <span><i class="saturday-dot"></i> Sat</span>
+            </div>
           </div>
         </div>
 
@@ -794,9 +801,15 @@ import { environment } from '../../environments/environment';
 
     .sidebar-calendar {
       border-top: 1px solid #1e293b;
-      padding: 12px 14px;
+      padding: 10px 14px;
       background: #080d1a;
       flex-shrink: 0;
+      transition: padding 0.25s ease;
+
+      &.collapsed {
+        padding: 8px 14px;
+        background: #060913;
+      }
 
       .calendar-title-row, .calendar-controls, .calendar-weekdays, .calendar-legend {
         display: flex;
@@ -806,11 +819,64 @@ import { environment } from '../../environments/environment';
         justify-content: space-between;
         color: #f1f5f9;
         font-size: 0.78rem;
-        margin-bottom: 6px;
+        margin-bottom: 0;
+        cursor: pointer;
+        user-select: none;
+        padding: 2px 0;
+        border-radius: 4px;
+
         strong { display: flex; align-items: center; gap: 6px; font-weight: 600; }
         mat-icon { color: #38bdf8; font-size: 17px; width: 17px; height: 17px; }
-        span { color: #94a3b8; font-weight: 600; }
+        
+        .calendar-header-actions {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+
+          span { color: #94a3b8; font-weight: 600; font-size: 0.76rem; }
+
+          .calendar-collapse-btn {
+            width: 24px;
+            height: 24px;
+            line-height: 24px;
+            padding: 0;
+            color: #38bdf8;
+            background: rgba(56, 189, 248, 0.12);
+            border-radius: 4px;
+            transition: all 0.2s ease;
+
+            &:hover {
+              background: rgba(56, 189, 248, 0.25);
+              color: #ffffff;
+            }
+
+            mat-icon {
+              font-size: 18px;
+              width: 18px;
+              height: 18px;
+              line-height: 18px;
+              color: inherit;
+            }
+          }
+        }
       }
+
+      .calendar-collapsible-body {
+        margin-top: 6px;
+        animation: fadeInCalendar 0.22s ease;
+      }
+
+      @keyframes fadeInCalendar {
+        from {
+          opacity: 0;
+          transform: translateY(-4px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
       .calendar-controls {
         justify-content: space-between;
         color: #cbd5e1;
@@ -920,7 +986,7 @@ import { environment } from '../../environments/environment';
       display: flex;
       align-items: center;
       gap: 6px;
-      padding: 0 14px;
+      padding: 0 16px 0 14px;
       flex-shrink: 0;
       z-index: 10;
       overflow: visible !important;
@@ -928,6 +994,16 @@ import { environment } from '../../environments/environment';
       width: 100%;
       box-sizing: border-box;
       position: relative;
+
+      @media (max-width: 1440px) {
+        gap: 5px;
+        padding: 0 16px 0 12px;
+      }
+
+      @media (max-width: 1280px) {
+        gap: 4px;
+        padding: 0 14px 0 10px;
+      }
 
       @media (max-width: 900px) {
         padding: 0 10px;
@@ -1599,12 +1675,12 @@ import { environment } from '../../environments/environment';
         line-height: normal;
 
         @media (max-width: 1440px) {
-          max-width: 160px;
+          max-width: 130px;
         }
-        @media (max-width: 1250px) {
-          max-width: 120px;
+        @media (max-width: 1280px) {
+          max-width: 100px;
         }
-        @media (max-width: 1024px) {
+        @media (max-width: 1100px) {
           display: none !important;
         }
       }
@@ -1617,7 +1693,7 @@ import { environment } from '../../environments/environment';
         margin: 0;
         line-height: normal;
 
-        @media (max-width: 1024px) {
+        @media (max-width: 1100px) {
           display: inline-block !important;
         }
         @media (max-width: 480px) {
@@ -1683,15 +1759,16 @@ import { environment } from '../../environments/environment';
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        @media (max-width: 1440px) { max-width: 140px; }
-        @media (max-width: 1024px) { display: none !important; }
+        @media (max-width: 1440px) { max-width: 120px; }
+        @media (max-width: 1280px) { max-width: 90px; }
+        @media (max-width: 1100px) { display: none !important; }
       }
 
       .branch-name-short {
         display: none;
         font-weight: 700;
         letter-spacing: 0.05em;
-        @media (max-width: 1024px) { display: inline-block !important; }
+        @media (max-width: 1100px) { display: inline-block !important; }
         @media (max-width: 480px) { display: none !important; }
       }
 
@@ -1761,8 +1838,8 @@ import { environment } from '../../environments/environment';
     }
     .account-btn {
       color: #ffffff;
-      margin-left: 8px;
-      margin-right: 6px;
+      margin-left: 6px;
+      margin-right: 2px;
       padding: 0 !important;
       display: inline-flex !important;
       align-items: center !important;
@@ -1773,9 +1850,14 @@ import { environment } from '../../environments/environment';
       height: 40px;
       min-width: 40px;
 
+      @media (max-width: 1440px) {
+        margin-left: 4px;
+        margin-right: 0;
+      }
+
       @media (max-width: 600px) {
         margin-left: 2px !important;
-        margin-right: 4px !important;
+        margin-right: 2px !important;
         width: 34px !important;
         height: 34px !important;
         min-width: 34px !important;
@@ -2117,6 +2199,18 @@ export class LayoutComponent implements OnInit {
   calendarLeadingBlanks: number[] = [];
   calendarDays: Array<{ day: number; date: string; isToday: boolean; isSaturday: boolean; isSunday: boolean; holiday?: HolidayDto }> = [];
   calendarHolidays: HolidayDto[] = [];
+  isCalendarCollapsed = signal<boolean>(typeof window !== 'undefined' ? localStorage.getItem('imserp_calendar_collapsed') === 'true' : false);
+
+  toggleCalendarCollapse(event?: MouseEvent): void {
+    if (event) {
+      event.stopPropagation();
+    }
+    const nextState = !this.isCalendarCollapsed();
+    this.isCalendarCollapsed.set(nextState);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('imserp_calendar_collapsed', String(nextState));
+    }
+  }
 
   // ── Progressive Web App (PWA) State & Controls ──
   deferredPrompt: any = null;

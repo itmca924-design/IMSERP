@@ -53,7 +53,7 @@ export interface WhatsAppFeeCardDialogData {
           <div class="student-info-main">
             <div class="name-row">
               <strong class="st-name">{{ card.studentName }}</strong>
-              <span class="st-class-badge">{{ card.className || '-' }} ({{ card.sectionName || '-' }})</span>
+              <span class="st-class-badge">{{ getAcademicBadgeText() }}</span>
             </div>
             <div class="meta-row">
               <span>Roll: <strong>{{ card.rollNumber || '-' }}</strong></span>
@@ -429,6 +429,22 @@ export class WhatsAppFeeCardDialogComponent implements OnInit {
     this.buildMessage();
   }
 
+  getAcademicBadgeText(): string {
+    const card = this.card;
+    if (!card) return '-';
+    if (card.batchName) {
+      if (card.isSchoolStudent && card.className) {
+        return `${card.batchName} • School: ${card.className}${card.sectionName ? ' (' + card.sectionName + ')' : ''}`;
+      }
+      if (card.className) {
+        return `${card.batchName} • Academic Class: ${card.className}`;
+      }
+      return card.batchName;
+    }
+    const sec = card.sectionName ? ` (${card.sectionName})` : '';
+    return `${card.className || '-'}${sec}`;
+  }
+
   buildMessage(): void {
     const card = this.card;
     const paidMonths = (card.months || []).filter(m => m.status === 'Paid').map(m => m.monthShort);
@@ -440,7 +456,7 @@ export class WhatsAppFeeCardDialogComponent implements OnInit {
       `━━━━━━━━━━━━━━━━━━━━━━━━━`,
       `👤 *Student Name:* ${card.studentName}`,
       `🆔 *Admission No:* ${card.admissionNumber || '-'} | *Roll No:* ${card.rollNumber || '-'}`,
-      `📚 *Class & Section:* ${card.className || '-'} (${card.sectionName || '-'})`,
+      card.batchName ? `🎯 *Coaching Batch:* ${this.getAcademicBadgeText()}` : `📚 *Class & Section:* ${this.getAcademicBadgeText()}`,
       `📅 *Academic Session:* ${card.sessionName}`,
       `👨‍👦 *Parent / Guardian:* ${card.parentName || card.motherName || '-'}`,
       `━━━━━━━━━━━━━━━━━━━━━━━━━`,

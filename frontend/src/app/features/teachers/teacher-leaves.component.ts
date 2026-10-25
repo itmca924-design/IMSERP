@@ -1666,13 +1666,40 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
     }
     @media (max-width: 600px) {
       .stats-grid, .stats-grid.stats-teacher {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 10px;
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 8px !important;
       }
-    }
-    @media (max-width: 420px) {
-      .stats-grid, .stats-grid.stats-teacher {
-        grid-template-columns: 1fr;
+      .stat-card {
+        padding: 10px 10px !important;
+        gap: 8px !important;
+        border-radius: 12px !important;
+        min-width: 0 !important;
+        overflow: hidden !important;
+      }
+      .stat-icon {
+        font-size: 22px !important;
+        width: 24px !important;
+        height: 24px !important;
+        line-height: 24px !important;
+      }
+      .stat-body {
+        min-width: 0 !important;
+        flex: 1 !important;
+      }
+      .stat-num {
+        font-size: 1.3rem !important;
+      }
+      .stat-label {
+        font-size: 0.64rem !important;
+        white-space: normal !important;
+        line-height: 1.2 !important;
+        text-transform: none !important;
+        letter-spacing: 0 !important;
+        word-break: normal !important;
+        margin-top: 2px !important;
+      }
+      .stats-grid.stats-teacher .stat-card:last-child {
+        grid-column: span 2;
       }
     }
 
@@ -1681,8 +1708,10 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
       display: flex; align-items: center; gap: 14px;
       box-shadow: 0 1px 4px rgba(0,0,0,.05); border: 1px solid #e2e8f0;
       position: relative; transition: transform .2s, box-shadow .2s;
+      min-width: 0;
     }
     .stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 14px rgba(0,0,0,.08); }
+    .stat-body { min-width: 0; flex: 1; }
     .stat-icon {
       font-size: 30px; width: 36px; height: 36px; line-height: 36px;
       display: inline-flex; align-items: center; justify-content: center;

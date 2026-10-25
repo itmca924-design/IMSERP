@@ -279,6 +279,8 @@ export interface FeePaymentReceipt {
   academicSession?: string;
   pendingArrears?: FeeReceiptArrear[];
   totalDemandBeforePayment?: number;
+  feePeriod?: string;
+  feeMonth?: string;
 }
 
 export interface StudentPendingFineItem {
@@ -803,5 +805,6 @@ export interface StudentFeeCard {
   isSchoolStudent?: boolean;
   isCoachingStudent?: boolean;
   totalOneTimeFee?: number;
+  coachingJoiningDate?: string | null;
 }
 

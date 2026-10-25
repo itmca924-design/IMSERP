@@ -252,6 +252,7 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
         modelBuilder.Entity<SubjectEntity>().HasQueryFilter(x => _currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId);
         modelBuilder.Entity<ClassSubject>().HasQueryFilter(x => _currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId);
         modelBuilder.Entity<Batch>().HasQueryFilter(x => 
+            !x.IsDeleted &&
             (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<Student>().HasQueryFilter(x => 
@@ -536,7 +537,7 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
             .WithMany()
             .HasForeignKey(a => a.StudentId)
             .IsRequired(false)
-            .OnDelete(DeleteBehavior.Restrict);
+            .OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<TransportAllocation>()
             .HasOne(a => a.Teacher)
             .WithMany()
@@ -726,6 +727,7 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<Batch>().Property(b => b.StandardMonthlyFee).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<Batch>().Property(b => b.Subject).HasColumnType("nvarchar(max)");
         modelBuilder.Entity<Batch>()
             .HasOne(b => b.Class)
             .WithMany(c => c.Batches)

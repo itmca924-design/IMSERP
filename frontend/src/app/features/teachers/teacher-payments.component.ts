@@ -797,8 +797,10 @@ import { TeacherPayslipDialogComponent } from './teacher-payslip-dialog.componen
 
       .header-left {
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         gap: 14px;
+        min-width: 0;
+        flex: 1;
 
         .header-icon-box {
           width: 48px;
@@ -810,6 +812,7 @@ import { TeacherPayslipDialogComponent } from './teacher-payslip-dialog.componen
           align-items: center;
           justify-content: center;
           box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.25);
+          flex-shrink: 0;
           mat-icon { font-size: 26px; width: 26px; height: 26px; }
         }
 
@@ -1731,6 +1734,73 @@ import { TeacherPayslipDialogComponent } from './teacher-payslip-dialog.componen
 
     @keyframes spin {
       100% { transform: rotate(360deg); }
+    }
+
+    @media (max-width: 768px) {
+      .page-header {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 12px !important;
+        padding: 14px 16px !important;
+        background: #ffffff !important;
+        border-radius: 12px !important;
+        border: 1px solid #e2e8f0 !important;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+
+        .header-left {
+          align-items: flex-start !important;
+          gap: 12px !important;
+
+          .header-icon-box {
+            width: 38px !important;
+            height: 38px !important;
+            min-width: 38px !important;
+            border-radius: 10px !important;
+            mat-icon { font-size: 20px !important; width: 20px !important; height: 20px !important; }
+          }
+
+          .page-title {
+            font-size: 1.15rem !important;
+            line-height: 1.25 !important;
+          }
+
+          .page-subtitle {
+            font-size: 0.78rem !important;
+            line-height: 1.35 !important;
+          }
+        }
+
+        .mode-pills {
+          width: 100% !important;
+          display: flex !important;
+          box-sizing: border-box !important;
+
+          .mode-pill {
+            flex: 1 !important;
+            justify-content: center !important;
+            font-size: 0.76rem !important;
+            padding: 8px 4px !important;
+            min-width: 0 !important;
+
+            mat-icon {
+              font-size: 16px !important;
+              width: 16px !important;
+              height: 16px !important;
+            }
+
+            span {
+              white-space: nowrap !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+            }
+
+            .badge-pill {
+              font-size: 0.65rem !important;
+              padding: 1px 5px !important;
+            }
+          }
+        }
+      }
     }
   `]
 })

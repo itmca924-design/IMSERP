@@ -276,21 +276,24 @@ public record SchoolClassDto(
     Guid? BranchId = null,
     int SectionCount = 0,
     int StudentCount = 0,
-    List<SchoolSectionDto>? Sections = null
+    List<SchoolSectionDto>? Sections = null,
+    string AcademicScope = "Both"
 );
 
 public record CreateSchoolClassDto(
     string Name,
     string? Code,
     int DisplayOrder = 0,
-    Guid? BranchId = null
+    Guid? BranchId = null,
+    string AcademicScope = "Both"
 );
 
 public record UpdateSchoolClassDto(
     string Name,
     string? Code,
     int DisplayOrder,
-    bool IsActive
+    bool IsActive,
+    string AcademicScope = "Both"
 );
 
 public record SchoolSectionDto(
@@ -916,7 +919,8 @@ public record FeePaymentReceiptDto(
     Guid? InvoiceId = null,
     string? AcademicSession = null,
     List<FeeReceiptArrearDto>? PendingArrears = null,
-    decimal TotalDemandBeforePayment = 0
+    decimal TotalDemandBeforePayment = 0,
+    string? FeePeriod = null
 );
 
 public record StudentPendingFineItemDto(
@@ -1471,7 +1475,8 @@ public record StudentFeeCardDto(
     string? CoachingRollNumber = null,
     bool IsSchoolStudent = true,
     bool IsCoachingStudent = false,
-    decimal TotalOneTimeFee = 0
+    decimal TotalOneTimeFee = 0,
+    DateTime? CoachingJoiningDate = null
 );
 
 public record FeeItemPaymentDto(

@@ -953,7 +953,32 @@ import { environment } from '../../../environments/environment';
     }
 
     @media (max-width: 480px) {
-      .stats-grid { grid-template-columns: 1fr; }
+      .stats-grid { 
+        grid-template-columns: repeat(2, 1fr) !important; 
+        gap: 8px !important;
+      }
+      .stat-card {
+        padding: 10px 12px !important;
+        gap: 10px !important;
+        border-radius: 12px !important;
+        &:last-child:nth-child(odd) {
+          grid-column: span 2;
+        }
+      }
+      .stat-icon-wrap {
+        width: 36px !important;
+        height: 36px !important;
+        min-width: 36px !important;
+        border-radius: 8px !important;
+        mat-icon { font-size: 20px !important; width: 20px !important; height: 20px !important; }
+      }
+      .stat-val {
+        font-size: 1.18rem !important;
+      }
+      .stat-label {
+        font-size: 0.68rem !important;
+        line-height: 1.2 !important;
+      }
       .page-title { font-size: 1.22rem; }
       .card-footer { flex-direction: column; align-items: stretch; gap: 8px; }
       .action-buttons { justify-content: flex-end; width: 100%; }

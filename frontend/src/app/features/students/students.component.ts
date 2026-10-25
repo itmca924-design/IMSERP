@@ -205,7 +205,7 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
               </mat-form-field>
 
               <mat-form-field appearance="outline">
-                <mat-label>Admission / Joining Date *</mat-label>
+                <mat-label>Admission / Joining Date</mat-label>
                 <input matInput type="date" formControlName="joiningDate" [min]="minDoj" [max]="maxDoj" [errorStateMatcher]="dateErrorMatcher" />
                 <mat-icon matSuffix>event</mat-icon>
                 <mat-hint>Format: DD-MM-YYYY • Allowed range: 01-01-2010 to {{ maxDojFormatted }}</mat-hint>
@@ -217,7 +217,8 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
 
               <mat-form-field appearance="outline">
                 <mat-label>School Class</mat-label>
-                <mat-select formControlName="classId" (selectionChange)="onClassSelectionChange($event.value)" panelClass="batch-filter-panel">
+                <mat-select formControlName="classId" placeholder="Select School Class" (selectionChange)="onClassSelectionChange($event.value)" panelClass="batch-filter-panel">
+                  <mat-option [value]="''">-- Select School Class --</mat-option>
                   <mat-option *ngFor="let c of schoolClasses" [value]="c.id">
                     {{ c.name }}
                   </mat-option>
@@ -227,7 +228,8 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
 
               <mat-form-field appearance="outline">
                 <mat-label>Class Section</mat-label>
-                <mat-select formControlName="sectionId" panelClass="batch-filter-panel">
+                <mat-select formControlName="sectionId" placeholder="Select Section" panelClass="batch-filter-panel">
+                  <mat-option [value]="''">-- Select Section --</mat-option>
                   <mat-option *ngFor="let s of formSections" [value]="s.id">
                     Section {{ s.name }} (Cap: {{ s.maxCapacity }}{{ s.roomNumber ? ' • Room ' + s.roomNumber : '' }})
                   </mat-option>
@@ -251,14 +253,14 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
               </div>
 
               <mat-form-field appearance="outline" *ngIf="!studentForm.value.isSchoolStudent">
-                <mat-label>Admission / Joining Date *</mat-label>
+                <mat-label>Coaching / Joining Date</mat-label>
                 <input matInput type="date" formControlName="joiningDate" [min]="minDoj" [max]="maxDoj" [errorStateMatcher]="dateErrorMatcher" />
                 <mat-icon matSuffix>event</mat-icon>
                 <mat-hint>Format: DD-MM-YYYY • Allowed range: 01-01-2010 to {{ maxDojFormatted }}</mat-hint>
-                <mat-error *ngIf="studentForm.get('joiningDate')?.hasError('required')">Admission date is required</mat-error>
-                <mat-error *ngIf="studentForm.get('joiningDate')?.hasError('futureDate')">Admission date cannot be more than 1 year in advance (Max: {{ maxDojFormatted }})</mat-error>
+                <mat-error *ngIf="studentForm.get('joiningDate')?.hasError('required')">Coaching / Joining date is required</mat-error>
+                <mat-error *ngIf="studentForm.get('joiningDate')?.hasError('futureDate')">Coaching / Joining date cannot be more than 1 year in advance (Max: {{ maxDojFormatted }})</mat-error>
                 <mat-error *ngIf="studentForm.get('joiningDate')?.hasError('invalidRange')">Date must be between 01-01-2010 and {{ maxDojFormatted }}</mat-error>
-                <mat-error *ngIf="studentForm.hasError('dojBeforeDob') || studentForm.get('joiningDate')?.hasError('dojBeforeDob')">Admission date must be strictly after Date of Birth</mat-error>
+                <mat-error *ngIf="studentForm.hasError('dojBeforeDob') || studentForm.get('joiningDate')?.hasError('dojBeforeDob')">Coaching / Joining date must be strictly after Date of Birth</mat-error>
               </mat-form-field>
 
               <!-- Dedicated Coaching Entry / Joining Date for School Students who also enroll in Coaching -->
@@ -271,8 +273,9 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
 
               <!-- Academic Class Selection for Coaching Student (if not a School Student) -->
               <mat-form-field appearance="outline" *ngIf="!studentForm.value.isSchoolStudent">
-                <mat-label>Academic Class (कक्षा) *</mat-label>
-                <mat-select formControlName="classId" (selectionChange)="onClassSelectionChange($event.value)" panelClass="batch-filter-panel">
+                <mat-label>Academic Class (कक्षा)</mat-label>
+                <mat-select formControlName="classId" placeholder="Select Academic Class" (selectionChange)="onClassSelectionChange($event.value)" panelClass="batch-filter-panel">
+                  <mat-option [value]="''">-- Select Academic Class --</mat-option>
                   <mat-option *ngFor="let c of schoolClasses" [value]="c.id">
                     {{ c.name }}
                   </mat-option>
@@ -281,10 +284,11 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
               </mat-form-field>
 
               <mat-form-field appearance="outline">
-                <mat-label>Coaching Batch *</mat-label>
-                <mat-select formControlName="batchId" panelClass="batch-filter-panel">
+                <mat-label>Coaching Batch</mat-label>
+                <mat-select formControlName="batchId" placeholder="Select Coaching Batch" panelClass="batch-filter-panel">
+                  <mat-option [value]="''">-- Select Coaching Batch --</mat-option>
                   <mat-option *ngFor="let b of formBatches" [value]="b.id">
-                    {{ b.name }} (₹{{ b.standardMonthlyFee }}/mo){{ b.className ? ' [' + b.className + ']' : '' }}
+                    {{ b.name }}
                   </mat-option>
                 </mat-select>
                 <mat-error *ngIf="studentForm.get('batchId')?.hasError('required')">Batch selection is required for coaching</mat-error>
@@ -1295,7 +1299,7 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                 <mat-label>Select Coaching Batch *</mat-label>
                 <mat-select [(ngModel)]="enrollingBatchId" (selectionChange)="onEnrollingBatchChange($event.value)">
                   <mat-option *ngFor="let b of enrolledFilteredBatches" [value]="b.id">
-                    {{ b.name }} (Standard Fee: ₹{{ b.standardMonthlyFee }}/mo){{ b.className ? ' [' + b.className + ']' : '' }}
+                    {{ b.name }}
                   </mat-option>
                 </mat-select>
               </mat-form-field>
@@ -3499,10 +3503,17 @@ export class StudentsComponent implements OnInit, OnDestroy {
     if (this.studentForm.value.isCoachingStudent) {
       const currentBatchId = this.studentForm.get('batchId')?.value;
       if (currentBatchId) {
-        const stillValid = this.formBatches.some(b => (b.id || '').toLowerCase() === currentBatchId.toLowerCase());
-        if (!stillValid) {
-          this.studentForm.get('batchId')?.setValue('');
-          this.studentForm.get('rollNumber')?.setValue('');
+        const currentBatch = this.batches.find(b => b.id === currentBatchId);
+        const className = (selected?.name || '').toLowerCase();
+        const matchesCurrent = currentBatch && this.batchMatchesClass(currentBatch, classId, className);
+        if (!matchesCurrent) {
+          const firstMatching = this.batches.find(b => this.batchMatchesClass(b, classId, className));
+          if (firstMatching) {
+            this.studentForm.get('batchId')?.setValue(firstMatching.id);
+          } else {
+            this.studentForm.get('batchId')?.setValue('');
+            this.studentForm.get('rollNumber')?.setValue('');
+          }
         }
       }
     }
@@ -3791,6 +3802,11 @@ export class StudentsComponent implements OnInit, OnDestroy {
 
   getSelectedBatchClassName(): string {
     const b = this.getSelectedBatch();
+    if (!b) return '';
+    const rangeMatch = b.name.match(/class\s*(\d+)(?:st|nd|rd|th)?\s*(?:to|-)\s*(?:class\s*)?(\d+)(?:st|nd|rd|th)?/i);
+    if (rangeMatch) {
+      return `Class ${rangeMatch[1]} to ${rangeMatch[2]} (Composite)`;
+    }
     return b?.className || '';
   }
 
@@ -3806,11 +3822,51 @@ export class StudentsComponent implements OnInit, OnDestroy {
     return b?.classId || '';
   }
 
+  batchMatchesClass(b: any, selectedClassId: string, className: string): boolean {
+    if (!selectedClassId) return true;
+
+    // 1. If batch is a composite/range batch (e.g. "Class 6th To Class 10th"), check range
+    const rangeMatch = b.name.match(/class\s*(\d+)(?:st|nd|rd|th)?\s*(?:to|-)\s*(?:class\s*)?(\d+)(?:st|nd|rd|th)?/i);
+    if (rangeMatch) {
+      const start = parseInt(rangeMatch[1], 10);
+      const end = parseInt(rangeMatch[2], 10);
+      const classNumMatch = className.match(/(\d+)/);
+      if (classNumMatch) {
+        const num = parseInt(classNumMatch[1], 10);
+        return num >= Math.min(start, end) && num <= Math.max(start, end);
+      }
+      return false;
+    }
+
+    // 2. Single Class Batch: exact match by classId or class name
+    if (b.classId && (b.classId || '').toLowerCase() === selectedClassId.toLowerCase()) return true;
+    if (b.classId && className && b.name.toLowerCase().includes(className)) return true;
+
+    // 3. General Multi-Class batch without class restriction
+    if (!b.classId) return true;
+
+    return false;
+  }
+
   get formBatches(): BatchDto[] {
     const selectedClassId = this.studentForm?.get('classId')?.value;
     if (!selectedClassId) return this.batches;
-    const filtered = this.batches.filter(b => (b.classId || '').toLowerCase() === selectedClassId.toLowerCase());
-    return filtered.length > 0 ? filtered : this.batches;
+    const selectedClass = this.schoolClasses.find(c => (c.id || '').toLowerCase() === selectedClassId.toLowerCase());
+    const className = (selectedClass?.name || '').toLowerCase();
+
+    // Sort batches so matching batches appear first at the top, followed by all other campus batches!
+    const matches: BatchDto[] = [];
+    const others: BatchDto[] = [];
+
+    for (const b of this.batches) {
+      if (this.batchMatchesClass(b, selectedClassId, className)) {
+        matches.push(b);
+      } else {
+        others.push(b);
+      }
+    }
+
+    return [...matches, ...others];
   }
 
   get filteredBatchesForFilter(): BatchDto[] {
@@ -3822,10 +3878,9 @@ export class StudentsComponent implements OnInit, OnDestroy {
 
   private setupBatchIdWatcher(): void {
     this.batchIdSub = this.studentForm.get('batchId')!.valueChanges.subscribe((batchId: string) => {
-      const selectedBatch = this.batches.find(b => b.id === batchId);
-      if (batchId && selectedBatch?.classId && !this.studentForm.value.isSchoolStudent) {
-        this.studentForm.patchValue({ classId: selectedBatch.classId }, { emitEvent: false });
-      }
+      // Do NOT auto-override student's Academic Class when a batch is selected.
+      // A coaching batch (e.g. Class 1st to 5th) can have students from any class in that range.
+      // The user chooses the student's actual Academic Class independently.
 
       if (!this.isEditMode && batchId && this.studentForm.value.isCoachingStudent) {
         this.rollNumberLoading = true;
@@ -3833,9 +3888,6 @@ export class StudentsComponent implements OnInit, OnDestroy {
         this.coachingService.getNextRollNumber(batchId).subscribe({
           next: (res: any) => {
             this.studentForm.get('rollNumber')!.setValue(res.rollNumber, { emitEvent: false });
-            if (res.classId && !this.studentForm.value.isSchoolStudent) {
-              this.studentForm.patchValue({ classId: res.classId }, { emitEvent: false });
-            }
             this.rollNumberLoading = false;
           },
           error: () => {
@@ -3844,8 +3896,32 @@ export class StudentsComponent implements OnInit, OnDestroy {
         });
       } else if (!batchId) {
         this.studentForm.get('rollNumber')!.setValue('', { emitEvent: false });
-        if (!this.studentForm.value.isSchoolStudent) {
-          this.studentForm.patchValue({ classId: '' }, { emitEvent: false });
+      }
+
+      // If user switches batch in coaching mode, auto-align Academic Class if not school student
+      if (batchId && !this.studentForm.value.isSchoolStudent) {
+        const batch = this.batches.find(b => b.id === batchId);
+        if (batch?.classId) {
+          if ((this.studentForm.get('classId')?.value || '').toLowerCase() !== batch.classId.toLowerCase()) {
+            this.studentForm.patchValue({ classId: batch.classId });
+          }
+        } else if (batch) {
+          const rangeMatch = batch.name.match(/class\s*(\d+)(?:st|nd|rd|th)?\s*(?:to|-)\s*(?:class\s*)?(\d+)(?:st|nd|rd|th)?/i);
+          if (rangeMatch) {
+            const start = parseInt(rangeMatch[1], 10);
+            const end = parseInt(rangeMatch[2], 10);
+            const currentClassId = this.studentForm.get('classId')?.value;
+            const currentClass = this.schoolClasses.find(c => c.id === currentClassId);
+            const currentClassNumMatch = (currentClass?.name || '').match(/(\d+)/);
+            const currentNum = currentClassNumMatch ? parseInt(currentClassNumMatch[1], 10) : null;
+            const isInside = currentNum != null && currentNum >= Math.min(start, end) && currentNum <= Math.max(start, end);
+            if (!isInside) {
+              const targetClass = this.schoolClasses.find(c => c.name.toLowerCase().includes(`${start}`));
+              if (targetClass) {
+                this.studentForm.patchValue({ classId: targetClass.id });
+              }
+            }
+          }
         }
       }
     });
@@ -4274,6 +4350,12 @@ export class StudentsComponent implements OnInit, OnDestroy {
       this.onStreamCheckChanged();
       this.loadStudents();
     } else if (!this.isEditMode) {
+      if (this.authService.hasSchoolModule()) {
+        this.schoolService.getClasses(false).subscribe(c => this.schoolClasses = c || []);
+      }
+      if (this.authService.hasCoachingModule()) {
+        this.coachingService.getBatches().subscribe(b => this.batches = b || []);
+      }
       this.studentForm.patchValue({
         isSchoolStudent: initSchool,
         isCoachingStudent: initCoaching
@@ -4366,8 +4448,8 @@ export class StudentsComponent implements OnInit, OnDestroy {
       classId: student.classId || (student.batchId ? this.getBatchClassId(student.batchId) : '') || '',
       sectionId: student.sectionId || '',
       admissionNumber: student.admissionNumber || '',
-      joiningDate: this.formatDateForInput(student.joiningDate || new Date()),
-      coachingJoiningDate: this.formatDateForInput(student.coachingJoiningDate),
+      joiningDate: this.formatDateForInput((student.isCoachingStudent && !student.isSchoolStudent) ? (student.coachingJoiningDate || student.joiningDate || new Date()) : (student.joiningDate || new Date())),
+      coachingJoiningDate: this.formatDateForInput(student.coachingJoiningDate || student.joiningDate),
       schoolRollNumber: student.schoolRollNumber || '',
       batchId: student.batchId || '',
       rollNumber: student.coachingRollNumber || student.rollNumber || '',
@@ -4469,6 +4551,29 @@ export class StudentsComponent implements OnInit, OnDestroy {
       return `${year}-${month}-${day}`;
     } catch {
       return '';
+    }
+  }
+
+  private toIsoDate(dateVal: any): string | null {
+    if (!dateVal) return null;
+    const s = String(dateVal).trim();
+    const ymdMatch = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (ymdMatch) {
+      return `${ymdMatch[1]}-${ymdMatch[2]}-${ymdMatch[3]}T00:00:00.000Z`;
+    }
+    const dmyMatch = s.match(/^(\d{2})-(\d{2})-(\d{4})/);
+    if (dmyMatch) {
+      return `${dmyMatch[3]}-${dmyMatch[2]}-${dmyMatch[1]}T00:00:00.000Z`;
+    }
+    try {
+      const d = new Date(dateVal);
+      if (isNaN(d.getTime())) return null;
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}T00:00:00.000Z`;
+    } catch {
+      return null;
     }
   }
 
@@ -4597,16 +4702,18 @@ export class StudentsComponent implements OnInit, OnDestroy {
     const f = this.studentForm;
     if (!f) return errors;
 
+    const dateLabel = f.value.isSchoolStudent ? 'Admission Date' : 'Coaching / Joining Date';
     if (f.hasError('dojBeforeDob') || f.get('joiningDate')?.hasError('dojBeforeDob') || f.get('dateOfBirth')?.hasError('dojBeforeDob')) {
       const doj = f.get('joiningDate')?.value || '';
       const dob = f.get('dateOfBirth')?.value || '';
-      errors.push(`Date Range Conflict: Admission Date (${doj}) must be strictly after Date of Birth (${dob}).`);
+      errors.push(`Date Range Conflict: ${dateLabel} (${doj}) must be strictly after Date of Birth (${dob}).`);
     }
 
     const doj = f.get('joiningDate');
-    if (doj?.hasError('required')) errors.push('Admission / Joining Date is required.');
-    if (doj?.hasError('futureDate')) errors.push(`Admission Date cannot be more than 1 year in advance (Max: ${this.maxDoj}).`);
-    if (doj?.hasError('invalidRange')) errors.push(`Admission Date must be on or after 01/01/2010 (up to ${this.maxDoj}).`);
+    const fullDateLabel = f.value.isSchoolStudent ? 'Admission / Joining Date' : 'Coaching / Joining Date';
+    if (doj?.hasError('required')) errors.push(`${fullDateLabel} is required.`);
+    if (doj?.hasError('futureDate')) errors.push(`${fullDateLabel} cannot be more than 1 year in advance (Max: ${this.maxDoj}).`);
+    if (doj?.hasError('invalidRange')) errors.push(`${fullDateLabel} must be on or after 01/01/2010 (up to ${this.maxDoj}).`);
 
     const dob = f.get('dateOfBirth');
     if (dob?.hasError('futureDate')) errors.push('Date of Birth cannot be in the future (Max: Today).');
@@ -4644,9 +4751,10 @@ export class StudentsComponent implements OnInit, OnDestroy {
     if (this.studentForm.hasError('dojBeforeDob') || this.studentForm.get('joiningDate')?.hasError('dojBeforeDob') || this.studentForm.get('dateOfBirth')?.hasError('dojBeforeDob')) {
       const doj = this.studentForm.get('joiningDate')?.value;
       const dob = this.studentForm.get('dateOfBirth')?.value;
+      const dateLabel = this.studentForm.value.isSchoolStudent ? 'Admission / Joining Date' : 'Coaching / Joining Date';
       this.confirmDialog.alert(
         'Date Range Conflict',
-        `<div><strong>Admission / Joining Date (${doj || 'not set'}) must be strictly after Date of Birth (${dob || 'not set'}).</strong></div><ul><li>Please adjust the Date of Birth to be before the Admission Date.</li></ul>`,
+        `<div><strong>${dateLabel} (${doj || 'not set'}) must be strictly after Date of Birth (${dob || 'not set'}).</strong></div><ul><li>Please adjust the Date of Birth to be before the ${dateLabel}.</li></ul>`,
         'warning'
       );
       this.highlightInvalidFields();
@@ -4725,12 +4833,14 @@ export class StudentsComponent implements OnInit, OnDestroy {
       admissionNumber: formVal.admissionNumber ? formVal.admissionNumber.trim() : null,
       classId: (formVal.isSchoolStudent && formVal.classId) ? formVal.classId : (formVal.classId || this.getSelectedBatch()?.classId || null),
       sectionId: formVal.isSchoolStudent && formVal.sectionId ? formVal.sectionId : null,
-      dateOfBirth: formVal.dateOfBirth && typeof formVal.dateOfBirth === 'string' && formVal.dateOfBirth.trim() ? new Date(formVal.dateOfBirth).toISOString() : null,
+      dateOfBirth: this.toIsoDate(formVal.dateOfBirth),
       motherName: formVal.motherName ? formVal.motherName.trim() : null,
       bloodGroup: formVal.bloodGroup ? formVal.bloodGroup.trim() : null,
       address: formVal.address ? formVal.address.trim() : null,
-      joiningDate: formVal.joiningDate ? new Date(formVal.joiningDate).toISOString() : new Date().toISOString(),
-      coachingJoiningDate: (formVal.isCoachingStudent && formVal.coachingJoiningDate) ? new Date(formVal.coachingJoiningDate).toISOString() : null,
+      joiningDate: this.toIsoDate(formVal.joiningDate) || new Date().toISOString(),
+      coachingJoiningDate: formVal.isCoachingStudent
+        ? (this.toIsoDate(formVal.isSchoolStudent ? (formVal.coachingJoiningDate || formVal.joiningDate) : formVal.joiningDate) || new Date().toISOString())
+        : null,
       parentWhatsAppPhone: cleanPhone,
       aadhaarNumber: formVal.aadhaarNumber ? formVal.aadhaarNumber.trim() : null,
       penNumber: formVal.penNumber ? formVal.penNumber.trim() : null,
@@ -4830,7 +4940,32 @@ export class StudentsComponent implements OnInit, OnDestroy {
 
   get enrolledFilteredBatches(): BatchDto[] {
     if (!this.enrollingFilterClassId) return this.batches;
-    return this.batches.filter(b => (b.classId || '').toLowerCase() === this.enrollingFilterClassId.toLowerCase());
+    const selectedClass = this.schoolClasses.find(c => (c.id || '').toLowerCase() === this.enrollingFilterClassId.toLowerCase());
+    const className = (selectedClass?.name || '').toLowerCase();
+    const filtered = this.batches.filter(b => {
+      // 1. If batch is a composite/range batch (e.g. "Class 1st To Class 5th"), strictly check range
+      const rangeMatch = b.name.match(/class\s*(\d+)(?:st|nd|rd|th)?\s*(?:to|-)\s*(?:class\s*)?(\d+)(?:st|nd|rd|th)?/i);
+      if (rangeMatch) {
+        const start = parseInt(rangeMatch[1], 10);
+        const end = parseInt(rangeMatch[2], 10);
+        const classNumMatch = className.match(/(\d+)/);
+        if (classNumMatch) {
+          const num = parseInt(classNumMatch[1], 10);
+          return num >= Math.min(start, end) && num <= Math.max(start, end);
+        }
+        return false;
+      }
+
+      // 2. Single Class Batch: exact match by classId or class name
+      if (b.classId && (b.classId || '').toLowerCase() === this.enrollingFilterClassId.toLowerCase()) return true;
+      if (b.classId && className && b.name.toLowerCase().includes(className)) return true;
+
+      // 3. General Multi-Class batch without class restriction
+      if (!b.classId) return true;
+
+      return false;
+    });
+    return filtered.length > 0 ? filtered : this.batches;
   }
 
   onEnrollingFilterClassChange(): void {

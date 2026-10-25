@@ -27,13 +27,25 @@ public class SchoolController : ControllerBase
     #region Classes Management
 
     [HttpGet("classes")]
-    public async Task<ActionResult<IEnumerable<SchoolClassDto>>> GetClasses([FromQuery] bool activeOnly = false)
+    public async Task<ActionResult<IEnumerable<SchoolClassDto>>> GetClasses([FromQuery] bool activeOnly = false, [FromQuery] string? scope = null)
     {
         var tenantId = _currentUser.TenantId;
         var query = _db.SchoolClasses.AsNoTracking().Where(c => c.TenantId == tenantId);
         if (activeOnly)
         {
             query = query.Where(c => c.IsActive);
+        }
+
+        if (!string.IsNullOrWhiteSpace(scope) && !scope.Equals("All", StringComparison.OrdinalIgnoreCase))
+        {
+            if (scope.Equals("School", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(c => c.AcademicScope == "School" || c.AcademicScope == "Both" || string.IsNullOrEmpty(c.AcademicScope));
+            }
+            else if (scope.Equals("Coaching", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(c => c.AcademicScope == "Coaching" || c.AcademicScope == "Both" || string.IsNullOrEmpty(c.AcademicScope));
+            }
         }
 
         var classesRaw = await query
@@ -85,7 +97,8 @@ public class SchoolController : ControllerBase
                 s.ClassTeacher != null ? s.ClassTeacher.FullName : null,
                 s.ClassTeacher != null ? s.ClassTeacher.EmployeeCode : null,
                 s.ClassTeacher != null ? s.ClassTeacher.PhoneNumber : null
-            )).ToList()
+            )).ToList(),
+            c.AcademicScope ?? "Both"
         )).ToList();
 
         return Ok(classes);
@@ -131,7 +144,8 @@ public class SchoolController : ControllerBase
                 s.ClassTeacher != null ? s.ClassTeacher.FullName : null,
                 s.ClassTeacher != null ? s.ClassTeacher.EmployeeCode : null,
                 s.ClassTeacher != null ? s.ClassTeacher.PhoneNumber : null
-            )).ToList()
+            )).ToList(),
+            c.AcademicScope ?? "Both"
         );
 
         return Ok(dto);
@@ -153,6 +167,7 @@ public class SchoolController : ControllerBase
             Code = dto.Code?.Trim(),
             DisplayOrder = dto.DisplayOrder,
             IsActive = true,
+            AcademicScope = string.IsNullOrWhiteSpace(dto.AcademicScope) ? "Both" : dto.AcademicScope.Trim(),
             CreatedAt = DateTime.UtcNow
         };
 
@@ -170,7 +185,8 @@ public class SchoolController : ControllerBase
             newClass.BranchId,
             0,
             0,
-            new List<SchoolSectionDto>()
+            new List<SchoolSectionDto>(),
+            newClass.AcademicScope
         ));
     }
 
@@ -189,6 +205,10 @@ public class SchoolController : ControllerBase
         c.Code = dto.Code?.Trim();
         c.DisplayOrder = dto.DisplayOrder;
         c.IsActive = dto.IsActive;
+        if (!string.IsNullOrWhiteSpace(dto.AcademicScope))
+        {
+            c.AcademicScope = dto.AcademicScope.Trim();
+        }
 
         await _db.SaveChangesAsync();
         return NoContent();

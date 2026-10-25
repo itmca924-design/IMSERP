@@ -1532,10 +1532,28 @@ import { environment } from '../../../environments/environment';
       }
       .header-actions-row {
         width: 100%;
-        display: flex;
-        flex-wrap: wrap;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
         gap: 8px;
-        button { flex: 1 1 auto; justify-content: center; }
+
+        button, a {
+          width: 100%;
+          height: 38px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 0.82rem;
+          padding: 0 10px;
+          white-space: nowrap;
+          box-sizing: border-box;
+          border-radius: 8px;
+        }
+
+        button:last-child {
+          grid-column: span 2;
+          height: 40px;
+          font-weight: 700;
+        }
       }
       .filter-controls {
         grid-template-columns: 1fr 1fr !important;

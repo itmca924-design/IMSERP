@@ -334,7 +334,7 @@ import { QuickSettingsService } from '../../core/services/quick-settings.service
                           (click)="setTargetType('class')">
                     <mat-icon>school</mat-icon>
                     <span>School Class</span>
-                    <span class="count-pill">{{ schoolClasses.length }}</span>
+                    <span class="count-pill">{{ schoolOnlyClasses.length }}</span>
                   </button>
                   <button type="button"
                           class="toggle-btn"
@@ -365,35 +365,83 @@ import { QuickSettingsService } from '../../core/services/quick-settings.service
                 <mat-form-field appearance="outline" class="select-target-full" *ngIf="hasSchoolModule && targetType === 'class'">
                   <mat-label>Assign Fee For: School Class</mat-label>
                   <mat-select [(ngModel)]="selectedClassId" (selectionChange)="loadStructureForSelection()" panelClass="target-select-panel">
-                    <mat-option *ngFor="let c of schoolClasses" [value]="c.id">
+                    <mat-option *ngFor="let c of schoolOnlyClasses" [value]="c.id">
                       🏫 {{ c.name }} {{ c.code ? '(' + c.code + ')' : '' }}
                     </mat-option>
                   </mat-select>
                   <mat-icon matPrefix class="dropdown-prefix-icon" color="primary">school</mat-icon>
                 </mat-form-field>
 
-                <!-- Dropdown when targetType === 'batch': Dual Class Filter + Coaching Batch Selector -->
-                <div class="batch-selector-dual-row" *ngIf="hasCoachingModule && targetType === 'batch'">
-                  <mat-form-field appearance="outline" class="select-class-filter" *ngIf="hasSchoolModule">
-                    <mat-label>Academic Class Filter</mat-label>
-                    <mat-select [(ngModel)]="batchClassFilter" (selectionChange)="onBatchClassFilterChange()" panelClass="target-select-panel">
-                      <mat-option value="">✨ All Academic Classes</mat-option>
-                      <mat-option *ngFor="let c of schoolClasses" [value]="c.id">
-                        🏫 {{ c.name }}
+                <!-- Coaching Batch: Single / Combined Sub-Toggle + Dropdowns -->
+                <div class="coaching-section-wrap" *ngIf="hasCoachingModule && targetType === 'batch'">
+
+                  <!-- Single vs Combined toggle -->
+                  <div class="coaching-scope-toggle">
+                    <button type="button"
+                            class="scope-btn"
+                            [class.active]="coachingScope === 'single'"
+                            (click)="setCoachingScope('single')">
+                      <mat-icon>school</mat-icon>
+                      <div class="scope-btn-text">
+                        <span class="scope-btn-title">Single Class Batch</span>
+                        <span class="scope-btn-sub">एक class → batch select करें</span>
+                      </div>
+                      <span class="count-pill">{{ singleClassBatches.length }}</span>
+                    </button>
+                    <button type="button"
+                            class="scope-btn"
+                            [class.active]="coachingScope === 'combined'"
+                            (click)="setCoachingScope('combined')">
+                      <mat-icon>layers</mat-icon>
+                      <div class="scope-btn-text">
+                        <span class="scope-btn-title">Combined / Multi-Class</span>
+                        <span class="scope-btn-sub">Class 1st–5th जैसी combined batches</span>
+                      </div>
+                      <span class="count-pill">{{ combinedBatches.length }}</span>
+                    </button>
+                  </div>
+
+                  <!-- Single Class mode: class filter + batch dropdown -->
+                  <div class="batch-selector-dual-row" *ngIf="coachingScope === 'single'">
+                    <mat-form-field appearance="outline" class="select-class-filter">
+                      <mat-label>Academic Class (कक्षा)</mat-label>
+                      <mat-select [(ngModel)]="batchClassFilter" (selectionChange)="onBatchClassFilterChange()" panelClass="target-select-panel">
+                        <mat-option value="">✨ All Classes</mat-option>
+                        <mat-option *ngFor="let c of coachingEligibleClasses" [value]="c.id">
+                          🏫 {{ c.name }}
+                        </mat-option>
+                      </mat-select>
+                      <mat-icon matPrefix class="dropdown-prefix-icon" color="primary">school</mat-icon>
+                    </mat-form-field>
+
+                    <mat-form-field appearance="outline" class="select-batch-target">
+                      <mat-label>Batch Select करें</mat-label>
+                      <mat-select [(ngModel)]="selectedBatchId" (selectionChange)="loadStructureForSelection()" panelClass="target-select-panel">
+                        <mat-option *ngFor="let b of filteredSingleBatches" [value]="b.id">
+                          🎯 {{ b.name }}{{ b.subject ? ' — ' + b.subject : '' }}
+                        </mat-option>
+                        <mat-option *ngIf="filteredSingleBatches.length === 0" disabled>
+                          No single-class batches found
+                        </mat-option>
+                      </mat-select>
+                      <mat-icon matPrefix class="dropdown-prefix-icon" color="primary">groups</mat-icon>
+                    </mat-form-field>
+                  </div>
+
+                  <!-- Combined mode: only combined/multi-class batches -->
+                  <mat-form-field appearance="outline" class="select-target-full" *ngIf="coachingScope === 'combined'">
+                    <mat-label>Combined Batch Select करें</mat-label>
+                    <mat-select [(ngModel)]="selectedBatchId" (selectionChange)="loadStructureForSelection()" panelClass="target-select-panel">
+                      <mat-option *ngFor="let b of combinedBatches" [value]="b.id">
+                        🔗 {{ b.name }}{{ b.subject ? ' — ' + b.subject : '' }}
+                      </mat-option>
+                      <mat-option *ngIf="combinedBatches.length === 0" disabled>
+                        No combined batches found. Create one in Batch Master.
                       </mat-option>
                     </mat-select>
-                    <mat-icon matPrefix class="dropdown-prefix-icon" color="primary">school</mat-icon>
+                    <mat-icon matPrefix class="dropdown-prefix-icon" color="primary">layers</mat-icon>
                   </mat-form-field>
 
-                  <mat-form-field appearance="outline" [class.select-batch-target]="hasSchoolModule" [class.select-target-full]="!hasSchoolModule">
-                    <mat-label>Assign Fee For: Coaching Batch</mat-label>
-                    <mat-select [(ngModel)]="selectedBatchId" (selectionChange)="loadStructureForSelection()" panelClass="target-select-panel">
-                      <mat-option *ngFor="let b of filteredBatches" [value]="b.id">
-                        🎯 {{ b.name }}{{ b.subject ? ' (' + b.subject + ')' : '' }} {{ b.className ? ' [' + b.className + ']' : '' }}
-                      </mat-option>
-                    </mat-select>
-                    <mat-icon matPrefix class="dropdown-prefix-icon" color="primary">groups</mat-icon>
-                  </mat-form-field>
                 </div>
               </div>
             </div>
@@ -998,7 +1046,121 @@ import { QuickSettingsService } from '../../core/services/quick-settings.service
           }
         }
       }
+
+      /* Coaching single/combined scope section */
+      .coaching-section-wrap {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+
+        .coaching-scope-toggle {
+          display: flex;
+          gap: 8px;
+          background: #f1f5f9;
+          border-radius: 10px;
+          padding: 4px;
+
+          @media (max-width: 640px) {
+            flex-direction: column;
+          }
+
+          .scope-btn {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            border: 1.5px solid transparent;
+            border-radius: 8px;
+            background: transparent;
+            cursor: pointer;
+            transition: all 0.18s ease;
+            text-align: left;
+
+            mat-icon {
+              font-size: 20px;
+              width: 20px;
+              height: 20px;
+              color: #64748b;
+              flex-shrink: 0;
+            }
+
+            .scope-btn-text {
+              flex: 1;
+              display: flex;
+              flex-direction: column;
+              gap: 1px;
+
+              .scope-btn-title {
+                font-size: 0.84rem;
+                font-weight: 600;
+                color: #334155;
+              }
+              .scope-btn-sub {
+                font-size: 0.72rem;
+                color: #64748b;
+              }
+            }
+
+            .count-pill {
+              background: #cbd5e1;
+              color: #334155;
+              padding: 2px 7px;
+              border-radius: 10px;
+              font-size: 0.71rem;
+              font-weight: 700;
+              flex-shrink: 0;
+            }
+
+            &:hover {
+              background: #e2e8f0;
+            }
+
+            &.active {
+              background: #ffffff;
+              border-color: #2563eb;
+              box-shadow: 0 1px 4px rgba(37,99,235,0.15);
+
+              mat-icon { color: #2563eb; }
+
+              .scope-btn-text .scope-btn-title { color: #1e40af; }
+
+              .count-pill {
+                background: #dbeafe;
+                color: #1d4ed8;
+              }
+            }
+          }
+        }
+
+        .batch-selector-dual-row {
+          width: 100%;
+          display: grid;
+          grid-template-columns: 260px 1fr;
+          gap: 12px;
+          align-items: center;
+
+          @media (max-width: 768px) {
+            grid-template-columns: 1fr;
+            gap: 6px;
+          }
+
+          .select-class-filter, .select-batch-target {
+            width: 100%;
+            margin-bottom: -0.75em;
+            .dropdown-prefix-icon { margin-right: 8px; }
+          }
+        }
+
+        .select-target-full {
+          width: 100%;
+          margin-bottom: -0.75em;
+          .dropdown-prefix-icon { margin-right: 8px; }
+        }
+      }
     }
+
 
     @media (max-width: 900px) {
       .matrix-selector-card {
@@ -1407,9 +1569,58 @@ export class FeeMasterDialogComponent implements OnInit {
   selectedBatchId?: string;
   batchClassFilter: string = '';
 
+  coachingScope: 'single' | 'combined' = 'single';
+
+  get schoolOnlyClasses(): SchoolClassDto[] {
+    return (this.schoolClasses || []).filter(c => c.academicScope !== 'Coaching');
+  }
+
+  get coachingEligibleClasses(): SchoolClassDto[] {
+    return (this.schoolClasses || []).filter(c => c.academicScope !== 'School');
+  }
+
+  isCombinedBatch(b: any): boolean {
+    if (!b?.classId) return true;
+    return !!(b?.name && (
+      b.name.match(/class\s*\d+.*(?:to|-).*\d+/i) ||
+      b.name.toLowerCase().includes('combined') ||
+      b.name.toLowerCase().includes('multi-class') ||
+      b.name.toLowerCase().includes('foundation')
+    ));
+  }
+
+  get singleClassBatches(): BatchDto[] {
+    return (this.batches || []).filter(b => !this.isCombinedBatch(b));
+  }
+
+  get combinedBatches(): BatchDto[] {
+    return (this.batches || []).filter(b => this.isCombinedBatch(b));
+  }
+
   get filteredBatches(): BatchDto[] {
     if (!this.batchClassFilter) return this.batches;
-    return this.batches.filter(b => b.classId === this.batchClassFilter);
+    // Combined/multi-class batches have no classId or cover range — always show them regardless of filter
+    return (this.batches || []).filter(b => this.isCombinedBatch(b) || b.classId === this.batchClassFilter);
+  }
+
+  get filteredSingleBatches(): BatchDto[] {
+    const singles = this.singleClassBatches;
+    if (!this.batchClassFilter) return singles;
+    return singles.filter(b => b.classId === this.batchClassFilter);
+  }
+
+  setCoachingScope(scope: 'single' | 'combined'): void {
+    this.coachingScope = scope;
+    this.selectedBatchId = '';
+    this.matrixRows = [];
+    this.batchClassFilter = '';
+    if (scope === 'single' && this.filteredSingleBatches.length > 0) {
+      this.selectedBatchId = this.filteredSingleBatches[0].id;
+      this.loadStructureForSelection();
+    } else if (scope === 'combined' && this.combinedBatches.length > 0) {
+      this.selectedBatchId = this.combinedBatches[0].id;
+      this.loadStructureForSelection();
+    }
   }
 
   onBatchClassFilterChange(): void {
@@ -1618,8 +1829,8 @@ export class FeeMasterDialogComponent implements OnInit {
       }
     } else if (this.hasSchoolModule && !this.hasCoachingModule) {
       this.targetType = 'class';
-      if (!this.selectedClassId && this.schoolClasses.length > 0) {
-        this.selectedClassId = this.schoolClasses[0].id;
+      if (!this.selectedClassId && this.schoolOnlyClasses.length > 0) {
+        this.selectedClassId = this.schoolOnlyClasses[0].id;
       }
     } else {
       // Both modules active
@@ -1631,13 +1842,13 @@ export class FeeMasterDialogComponent implements OnInit {
         this.selectedBatchId = this.batches[0].id;
       } else if (this.schoolClasses.length > 0 && this.batches.length === 0) {
         this.targetType = 'class';
-        this.selectedClassId = this.schoolClasses[0].id;
+        this.selectedClassId = this.schoolOnlyClasses.length > 0 ? this.schoolOnlyClasses[0].id : this.schoolClasses[0].id;
       } else if (this.batches.length > 0) {
         this.targetType = 'batch';
         this.selectedBatchId = this.batches[0].id;
       } else if (this.schoolClasses.length > 0) {
         this.targetType = 'class';
-        this.selectedClassId = this.schoolClasses[0].id;
+        this.selectedClassId = this.schoolOnlyClasses.length > 0 ? this.schoolOnlyClasses[0].id : this.schoolClasses[0].id;
       }
     }
 
@@ -1651,12 +1862,18 @@ export class FeeMasterDialogComponent implements OnInit {
     this.targetType = type;
 
     if (type === 'class') {
-      if (!this.selectedClassId && this.schoolClasses.length > 0) {
-        this.selectedClassId = this.schoolClasses[0].id;
+      if (!this.selectedClassId && this.schoolOnlyClasses.length > 0) {
+        this.selectedClassId = this.schoolOnlyClasses[0].id;
       }
     } else {
-      if (!this.selectedBatchId && this.batches.length > 0) {
-        this.selectedBatchId = this.batches[0].id;
+      if (!this.selectedBatchId) {
+        if (this.coachingScope === 'combined' && this.combinedBatches.length > 0) {
+          this.selectedBatchId = this.combinedBatches[0].id;
+        } else if (this.filteredSingleBatches.length > 0) {
+          this.selectedBatchId = this.filteredSingleBatches[0].id;
+        } else if (this.batches.length > 0) {
+          this.selectedBatchId = this.batches[0].id;
+        }
       }
     }
 

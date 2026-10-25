@@ -2120,8 +2120,9 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
       .cat-tab-btn {
         display: inline-flex;
         align-items: center;
+        justify-content: center;
         gap: 6px;
-        padding: 6px 16px;
+        padding: 8px 16px;
         border-radius: 8px;
         border: 1px solid #cbd5e1;
         background: #ffffff;
@@ -2130,6 +2131,7 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
         font-weight: 600;
         cursor: pointer;
         transition: all 0.2s ease;
+        white-space: nowrap;
 
         mat-icon {
           font-size: 18px;
@@ -2159,14 +2161,14 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
     .filters-input-row {
       display: flex;
       align-items: center;
-      gap: 14px;
+      gap: 12px;
       width: 100%;
       flex-wrap: wrap;
 
-      .search-field { flex: 1 1 280px; }
-      .filter-dropdown { flex: 0 1 240px; }
-      .section-filter { flex: 0 1 160px; }
-      .batch-filter { flex: 0 1 240px; }
+      .search-field { flex: 1 1 240px; min-width: 200px; }
+      .filter-dropdown { flex: 1 1 200px; min-width: 160px; }
+      .section-filter { flex: 0 1 140px; }
+      .batch-filter { flex: 1 1 200px; min-width: 160px; }
     }
     .grid-loader { margin: 0; }
     .table-container { padding: 0; }
@@ -3363,10 +3365,42 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
       }
       .filter-toolbar {
         flex-direction: column;
-        padding: 14px;
-        .search-field, .batch-filter {
+        padding: 12px;
+        gap: 10px;
+
+        .category-tabs-bar {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 6px;
+          padding-bottom: 10px;
+
+          .cat-tab-btn {
+            width: 100%;
+            padding: 7px 10px;
+            font-size: 0.8rem;
+            min-height: 38px;
+            box-sizing: border-box;
+
+            &:nth-child(3) {
+              grid-column: span 2;
+            }
+          }
+        }
+
+        .filters-input-row {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
           width: 100%;
-          min-width: 100%;
+
+          .search-field,
+          .filter-dropdown,
+          .section-filter,
+          .batch-filter {
+            width: 100% !important;
+            min-width: 100% !important;
+            flex: 1 1 100% !important;
+          }
         }
       }
     }
@@ -3377,6 +3411,21 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
       .marks-main-title { font-size: 1.05rem; }
       .marks-chips-bar { flex-direction: column; align-items: flex-start; }
       .whatsapp-label { align-items: flex-start; }
+
+      .filter-toolbar {
+        padding: 10px;
+
+        .category-tabs-bar {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+
+          .cat-tab-btn {
+            width: 100% !important;
+            padding: 8px 12px;
+          }
+        }
+      }
     }
 
     /* Print Header & Schedule Styles */

@@ -29,6 +29,9 @@ export interface SectionRoutineDialogData {
   classTeacherPhone?: string | null;
   branchId?: string | null;
   teachers: TeacherDto[];
+  mentorTeacherId?: string | null;
+  mentorTeacherName?: string | null;
+  batchSubjects?: string | null;
 }
 
 @Component({
@@ -74,31 +77,40 @@ export interface SectionRoutineDialogData {
       </div>
 
       <div class="dialog-body">
-        <!-- Section Info & Class Teacher Banner -->
+        <!-- Section Info & Incharge Banner -->
         <div class="section-meta-banner">
           <div class="meta-item">
             <div class="meta-icon-badge">
-              <mat-icon>account_balance</mat-icon>
+              <mat-icon>{{ isCoachingMode ? 'groups' : 'account_balance' }}</mat-icon>
             </div>
             <div>
-              <span class="meta-label">Class & Section</span>
-              <strong class="meta-val">{{ data.className }} &bull; {{ data.sectionName }}</strong>
+              <span class="meta-label">{{ isCoachingMode ? (isCoachingSingleClass ? 'Single Class Coaching Batch' : 'Combined Coaching Batch') : 'Class & Section' }}</span>
+              <div class="meta-title-row">
+                <strong class="meta-val">{{ isCoachingMode ? data.batchName : (data.className + ' • ' + data.sectionName) }}</strong>
+                <span class="meta-type-tag single" *ngIf="isCoachingSingleClass">🏫 Single Class ({{ data.className }})</span>
+                <span class="meta-type-tag combined" *ngIf="isCoachingCombined">🔗 Multi-Class Combined</span>
+              </div>
             </div>
           </div>
 
-          <div class="meta-item ct-box" [class.has-ct]="data.classTeacherId">
+          <div class="meta-item ct-box" [class.has-ct]="isCoachingMode ? data.mentorTeacherId : data.classTeacherId">
             <div class="meta-icon-badge ct-badge">
-              <mat-icon>{{ data.classTeacherId ? 'verified_user' : 'person_off' }}</mat-icon>
+              <mat-icon>{{ (isCoachingMode ? data.mentorTeacherId : data.classTeacherId) ? 'verified_user' : 'person_off' }}</mat-icon>
             </div>
             <div>
-              <span class="meta-label">Class Teacher (कक्षा अध्यापक)</span>
-              <strong class="meta-val">{{ data.classTeacherName || 'No Class Teacher Assigned' }}</strong>
+              <span class="meta-label">{{ isCoachingMode ? 'Batch Mentor (प्रभारी)' : 'Class Teacher (कक्षा अध्यापक)' }}</span>
+              <strong class="meta-val">{{ (isCoachingMode ? data.mentorTeacherName : data.classTeacherName) || 'No Incharge Assigned' }}</strong>
             </div>
           </div>
 
-          <div class="meta-action" *ngIf="data.classTeacherId && !isClassTeacherAssignedToPeriod">
+          <div class="meta-action" *ngIf="!isCoachingMode && data.classTeacherId && !isClassTeacherAssignedToPeriod">
             <button type="button" class="quick-ct-btn" (click)="quickPickClassTeacher()" matTooltip="Quickly pre-fill form to assign Class Teacher to a subject">
               <mat-icon>star</mat-icon> Assign {{ classTeacherFirstName }}
+            </button>
+          </div>
+          <div class="meta-action" *ngIf="isCoachingMode && data.mentorTeacherId && selectedTeacherId !== data.mentorTeacherId">
+            <button type="button" class="quick-ct-btn" (click)="quickPickMentorTeacher()" matTooltip="Quickly pre-fill form to assign Batch Mentor to this subject">
+              <mat-icon>star</mat-icon> Assign {{ mentorTeacherFirstName }}
             </button>
           </div>
         </div>
@@ -168,25 +180,71 @@ export interface SectionRoutineDialogData {
                     <mat-icon>auto_awesome</mat-icon> Auto-Mapped Activity
                   </span>
                 </label>
-                <span class="curr-pill" *ngIf="classSubjects.length > 0 && !isCurrentSelectedSlotActivity">
+                <span class="curr-pill" *ngIf="!isCoachingMode && classSubjects.length > 0 && !isCurrentSelectedSlotActivity">
                   <mat-icon>verified</mat-icon> {{ classSubjects.length }} Curriculum Subjects
                 </span>
+                <span class="curr-pill coaching-subj-badge" *ngIf="isCoachingMode && displaySubjects.length > 0">
+                  <mat-icon>groups</mat-icon> {{ displaySubjects.length }} Batch Subjects
+                </span>
               </div>
+
+              <!-- 🎯 Coaching Schedule Scope Toggle: Single Subject vs All Subjects Combined -->
+              <div class="coaching-scope-toggle-bar" *ngIf="isCoachingMode">
+                <span class="scope-toggle-label">Schedule Mode (शेड्यूल प्रकार):</span>
+                <div class="scope-toggle-pills">
+                  <button type="button" class="scope-pill-btn"
+                    [class.active]="coachingRoutineMode === 'single'"
+                    (click)="setCoachingRoutineMode('single')">
+                    <mat-icon>school</mat-icon>
+                    <span>Single Subject Period (एकल विषय - अलग स्लॉट)</span>
+                    <span class="mini-count-badge" *ngIf="displaySubjects.length > 0">{{ displaySubjects.length }} Subjects</span>
+                  </button>
+                  <button type="button" class="scope-pill-btn"
+                    [class.active]="coachingRoutineMode === 'combined'"
+                    (click)="setCoachingRoutineMode('combined')">
+                    <mat-icon>layers</mat-icon>
+                    <span>All Subjects Combined (सभी विषय - 2hr ट्यूशन)</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- 🌟 1-Click ALL SUBJECTS for Combined / 2hr Tuition Batches -->
+              <div class="coaching-all-subjects-bar" *ngIf="isCoachingMode && coachingRoutineMode === 'combined' && displaySubjects.length > 0">
+                <button type="button" class="btn-all-subjects"
+                  [class.active]="isAllSubjectsSelected"
+                  (click)="toggleAllSubjects()">
+                  <mat-icon>auto_awesome</mat-icon>
+                  <div class="btn-all-text">
+                    <span class="all-title">🌟 All Batch Subjects (सभी विषय - Complete 2hr Tuition)</span>
+                    <span class="all-sub">1-Click: Covers all assigned subjects together in this single 2hr daily session</span>
+                  </div>
+                  <span class="all-badge">{{ displaySubjects.length }} Subjects (सभी विषय)</span>
+                </button>
+              </div>
+
+              <!-- Single Subject Mode Helper Note -->
+              <div class="single-mode-helper" *ngIf="isCoachingMode && coachingRoutineMode === 'single'">
+                <mat-icon>info</mat-icon>
+                <span>विषय चुनें और उसका शिक्षक, दिन (MWF / TTS / Daily) और समय स्लॉट अलग से सेट करें:</span>
+              </div>
+
               <div class="subject-chips" *ngIf="!isCurrentSelectedSlotActivity">
                 <button type="button" *ngFor="let s of displaySubjects; trackBy: trackBySubject"
                   class="subj-chip"
                   [class.curriculum-chip]="s.isCurriculum"
                   [class.already-configured]="isSubjectAssigned(s.name)"
-                  [class.active]="newSubject && (newSubject.trim().toLowerCase() === (s.name || '').trim().toLowerCase())"
+                  [class.active]="isSubjectPillActive(s.name)"
                   (click)="pickSubject(s)"
-                  [matTooltip]="isSubjectAssigned(s.name) ? 'Already scheduled in this section' : (s.teacherId ? 'Auto-selects assigned subject teacher if available' : '')">
-                  <span *ngIf="isSubjectAssigned(s.name)" class="check-icon">✓ </span>
-                  <span *ngIf="!isSubjectAssigned(s.name) && s.isCurriculum" class="star-icon">⭐ </span>{{ s.name }}
-                  <span *ngIf="isSubjectAssigned(s.name)" class="badge-done">Already Configured</span>
-                  <span *ngIf="!isSubjectAssigned(s.name)" class="badge-pending">Unassigned</span>
+                  [matTooltip]="isSubjectAssigned(s.name) ? 'Already scheduled in this batch' : (s.teacherId ? 'Auto-selects assigned subject teacher if available' : '')">
+                  <span *ngIf="isSubjectAssigned(s.name) && (coachingRoutineMode === 'single' || !isAllSubjectsSelected)" class="check-icon">✓ </span>
+                  <span *ngIf="isAllSubjectsSelected && coachingRoutineMode === 'combined'" class="check-icon">✓ </span>
+                  <span *ngIf="!isSubjectAssigned(s.name) && s.isCurriculum && (coachingRoutineMode === 'single' || !isAllSubjectsSelected)" class="star-icon">⭐ </span>{{ s.name }}
+                  <span *ngIf="isSubjectAssigned(s.name) && (coachingRoutineMode === 'single' || !isAllSubjectsSelected)" class="badge-done">Configured</span>
+                  <span *ngIf="isAllSubjectsSelected && coachingRoutineMode === 'combined'" class="badge-done">All Included</span>
+                  <span *ngIf="!isSubjectAssigned(s.name) && (coachingRoutineMode === 'single' || !isAllSubjectsSelected)" class="badge-pending">Unassigned</span>
                 </button>
               </div>
-              <input type="text" [(ngModel)]="newSubject" [readonly]="isCurrentSelectedSlotActivity" placeholder="Or enter subject name (e.g. Sanskrit, Moral Science)..." class="custom-input" [class.activity-locked-input]="isCurrentSelectedSlotActivity" />
+              <input type="text" [(ngModel)]="newSubject" [readonly]="isCurrentSelectedSlotActivity" placeholder="Or enter subject name (e.g. All Subjects, Science & Maths)..." class="custom-input" [class.activity-locked-input]="isCurrentSelectedSlotActivity" />
             </div>
 
             <!-- Faculty Selection -->
@@ -203,7 +261,10 @@ export interface SectionRoutineDialogData {
               <select [(ngModel)]="selectedTeacherId" class="custom-select" [class.input-clash]="selectedTeacherClash">
                 <option value="">-- Choose Teacher --</option>
                 <optgroup [label]="'🟢 Available Faculty (उपलब्ध शिक्षक - कोई Clash नहीं) (' + availableTeachers.length + ' Free)'" *ngIf="availableTeachers.length > 0">
-                  <option *ngIf="classTeacherObj && !isTeacherClashed(classTeacherObj.id)" [value]="classTeacherObj.id" style="font-weight: 700; color: #1e3a8a;">
+                  <option *ngIf="isCoachingMode && mentorTeacherObj && !isTeacherClashed(mentorTeacherObj.id)" [value]="mentorTeacherObj.id" style="font-weight: 700; color: #1e3a8a;">
+                    ⭐ {{ mentorTeacherObj.fullName }} ({{ mentorTeacherObj.employeeCode }}) — Batch Mentor [Available]
+                  </option>
+                  <option *ngIf="!isCoachingMode && classTeacherObj && !isTeacherClashed(classTeacherObj.id)" [value]="classTeacherObj.id" style="font-weight: 700; color: #1e3a8a;">
                     ⭐ {{ classTeacherObj.fullName }} ({{ classTeacherObj.employeeCode }}) — Class Teacher [Available]
                   </option>
                   <option *ngFor="let t of availableNonCtTeachers; trackBy: trackByTeacherId" [value]="t.id">
@@ -211,7 +272,10 @@ export interface SectionRoutineDialogData {
                   </option>
                 </optgroup>
                 <optgroup [label]="'🔴 Busy Faculty (व्यस्त शिक्षक - दूसरी क्लास में शेड्यूल) (' + busyTeachers.length + ' Busy)'" *ngIf="busyTeachers.length > 0">
-                  <option *ngIf="classTeacherObj && isTeacherClashed(classTeacherObj.id)" [value]="classTeacherObj.id" style="color: #991b1b;">
+                  <option *ngIf="isCoachingMode && mentorTeacherObj && isTeacherClashed(mentorTeacherObj.id)" [value]="mentorTeacherObj.id" style="color: #991b1b;">
+                    ⚠️ {{ mentorTeacherObj.fullName }} ({{ mentorTeacherObj.employeeCode }}) — Busy in {{ getTeacherClash(mentorTeacherObj.id) }}
+                  </option>
+                  <option *ngIf="!isCoachingMode && classTeacherObj && isTeacherClashed(classTeacherObj.id)" [value]="classTeacherObj.id" style="color: #991b1b;">
                     ⚠️ {{ classTeacherObj.fullName }} ({{ classTeacherObj.employeeCode }}) — Busy in {{ getTeacherClash(classTeacherObj.id) }}
                   </option>
                   <option *ngFor="let t of busyNonCtTeachers; trackBy: trackByTeacherId" [value]="t.id" style="color: #991b1b;">
@@ -239,6 +303,7 @@ export interface SectionRoutineDialogData {
                   <button type="button" class="q-day-btn" (click)="setAllDays()">Mon-Sat (All)</button>
                   <button type="button" class="q-day-btn" (click)="setWeekdays()">Mon-Fri</button>
                   <button type="button" class="q-day-btn" (click)="setAltDays()">Mon, Wed, Fri</button>
+                  <button type="button" class="q-day-btn" (click)="setTtsDays()">Tue, Thu, Sat</button>
                 </div>
               </div>
               <div class="days-pills">
@@ -254,26 +319,77 @@ export interface SectionRoutineDialogData {
             <!-- Period / Timing -->
             <div class="form-group">
               <label class="field-label">Period / Timing Slot *</label>
-              <div class="period-chips">
-                <button type="button" *ngFor="let p of presetPeriods"
-                  class="p-chip"
-                  [class.is-activity-chip]="isActivitySlot(p)"
-                  [class.active]="selectedTimeSlot === p.slot"
-                  [class.period-taken]="isPeriodAssigned(p.slot)"
-                  (click)="onSelectPeriodSlot(p.slot)">
-                  <div class="p-top-row">
-                    <span class="p-name">
-                      <mat-icon *ngIf="isActivitySlot(p)" class="chip-act-icon">celebration</mat-icon>
-                      {{ p.name }}
-                    </span>
-                    <span class="p-tag-pill act-tag" *ngIf="isActivitySlot(p)">Activity</span>
-                    <span class="p-tag-pill" *ngIf="!isActivitySlot(p) && getPeriodSubjectName(p.slot)">✓ {{ getPeriodSubjectName(p.slot) }}</span>
-                    <span class="p-tag-pill free-tag" *ngIf="!isActivitySlot(p) && !getPeriodSubjectName(p.slot)">🟢 Free</span>
+
+              <!-- COACHING MODE: Flexible Duration, Quick Shifts & Custom Times -->
+              <div class="coaching-timing-card" *ngIf="isCoachingMode">
+                <!-- 1. Quick Duration Selector -->
+                <div class="coaching-duration-row">
+                  <span class="c-label"><mat-icon>timelapse</mat-icon> Class Duration:</span>
+                  <div class="c-dur-pills">
+                    <button type="button" *ngFor="let opt of coachingDurationOptions"
+                      class="c-dur-btn"
+                      [class.active]="coachingSelectedDuration === opt.minutes"
+                      (click)="applyCoachingDuration(opt.minutes)">
+                      {{ opt.label }}
+                    </button>
                   </div>
-                  <span class="p-time">{{ p.slot }}</span>
-                </button>
+                  <span class="live-dur-badge" *ngIf="coachingCalculatedDurationText">
+                    Duration: <strong>{{ coachingCalculatedDurationText }}</strong>
+                  </span>
+                </div>
+
+                <!-- 2. Coaching Shift Preset Pills -->
+                <div class="coaching-presets-row">
+                  <span class="c-label"><mat-icon>access_time</mat-icon> Quick Shifts:</span>
+                  <div class="c-presets-wrap">
+                    <button type="button" *ngFor="let sp of coachingShiftPresets"
+                      class="c-preset-pill"
+                      [class.active]="selectedTimeSlot === sp.slotString"
+                      (click)="applyCoachingPreset(sp)">
+                      <span>{{ sp.label }}</span>
+                      <small>({{ sp.duration }})</small>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- 3. Dynamic Interactive Start & End Time Native Inputs -->
+                <div class="coaching-native-time-row">
+                  <div class="c-time-field">
+                    <label>Lecture Start Time (कक्षा शुरू)</label>
+                    <input type="time" [(ngModel)]="coachingStartTime" (change)="onCoachingTimeChange()" class="c-native-input" />
+                  </div>
+                  <span class="c-to-sep">to</span>
+                  <div class="c-time-field">
+                    <label>Lecture End Time (कक्षा समाप्ति)</label>
+                    <input type="time" [(ngModel)]="coachingEndTime" (change)="onCoachingTimeChange()" class="c-native-input" />
+                  </div>
+                </div>
               </div>
-              <input type="text" [(ngModel)]="selectedTimeSlot" placeholder="Or type custom slot (e.g. 08:30 AM - 09:15 AM)..." class="custom-input" />
+
+              <!-- SCHOOL MODE: 100% UNTOUCHED (Period 1, Period 2, Bell Schedule) -->
+              <div class="school-timing-card" *ngIf="!isCoachingMode">
+                <div class="period-chips">
+                  <button type="button" *ngFor="let p of presetPeriods"
+                    class="p-chip"
+                    [class.is-activity-chip]="isActivitySlot(p)"
+                    [class.active]="selectedTimeSlot === p.slot"
+                    [class.period-taken]="isPeriodAssigned(p.slot)"
+                    (click)="onSelectPeriodSlot(p.slot)">
+                    <div class="p-top-row">
+                      <span class="p-name">
+                        <mat-icon *ngIf="isActivitySlot(p)" class="chip-act-icon">celebration</mat-icon>
+                        {{ p.name }}
+                      </span>
+                      <span class="p-tag-pill act-tag" *ngIf="isActivitySlot(p)">Activity</span>
+                      <span class="p-tag-pill" *ngIf="!isActivitySlot(p) && getPeriodSubjectName(p.slot)">✓ {{ getPeriodSubjectName(p.slot) }}</span>
+                      <span class="p-tag-pill free-tag" *ngIf="!isActivitySlot(p) && !getPeriodSubjectName(p.slot)">🟢 Free</span>
+                    </div>
+                    <span class="p-time">{{ p.slot }}</span>
+                  </button>
+                </div>
+              </div>
+
+              <input type="text" [(ngModel)]="selectedTimeSlot" placeholder="Or type custom slot (e.g. 05:00 PM - 07:00 PM)..." class="custom-input slot-display-input" />
             </div>
 
             <!-- Action Buttons -->
@@ -307,8 +423,9 @@ export interface SectionRoutineDialogData {
                     </div>
                   </td>
                   <td class="col-subject">
-                    <span class="subject-tag" [class.activity-tag]="isSubjectActivity(p.subject)">
+                    <span class="subject-tag" [class.activity-tag]="isSubjectActivity(p.subject)" [class.all-subjects-tag]="isSubjectAllSubjects(p.subject)">
                       <mat-icon *ngIf="isSubjectActivity(p.subject)" class="table-act-icon">celebration</mat-icon>
+                      <mat-icon *ngIf="isSubjectAllSubjects(p.subject)" class="table-act-icon">auto_awesome</mat-icon>
                       {{ p.subject }}
                     </span>
                   </td>
@@ -990,6 +1107,406 @@ export interface SectionRoutineDialogData {
       margin-left: 4px;
     }
 
+    /* Dynamic Coaching Timing Card */
+    .coaching-timing-card {
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 4px;
+    }
+
+    .coaching-duration-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+
+      .c-label {
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: #1e3a8a;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        mat-icon { font-size: 16px; width: 16px; height: 16px; color: #2563eb; }
+      }
+
+      .c-dur-pills {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+
+      .c-dur-btn {
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 20px;
+        padding: 4px 12px;
+        font-size: 0.76rem;
+        font-weight: 600;
+        color: #334155;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        &:hover {
+          background: #eff6ff;
+          border-color: #93c5fd;
+        }
+        &.active {
+          background: #2563eb;
+          color: #ffffff;
+          border-color: #2563eb;
+          box-shadow: 0 2px 6px rgba(37,99,235,0.25);
+        }
+      }
+
+      .live-dur-badge {
+        font-size: 0.74rem;
+        color: #166534;
+        background: #dcfce7;
+        border: 1px solid #bbf7d0;
+        border-radius: 6px;
+        padding: 2px 8px;
+        font-weight: 600;
+        margin-left: auto;
+      }
+    }
+
+    .coaching-presets-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+
+      .c-label {
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: #1e3a8a;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        mat-icon { font-size: 16px; width: 16px; height: 16px; color: #2563eb; }
+      }
+
+      .c-presets-wrap {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+
+      .c-preset-pill {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        padding: 5px 10px;
+        font-size: 0.74rem;
+        font-weight: 600;
+        color: #1e293b;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        transition: all 0.15s ease;
+
+        small { color: #64748b; font-weight: 500; }
+
+        &:hover {
+          background: #f1f5f9;
+          border-color: #94a3b8;
+        }
+
+        &.active {
+          background: #eff6ff;
+          border-color: #2563eb;
+          color: #1d4ed8;
+          small { color: #2563eb; }
+        }
+      }
+    }
+
+    .coaching-native-time-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: #ffffff;
+      border: 1px dashed #93c5fd;
+      border-radius: 8px;
+      padding: 10px 14px;
+      flex-wrap: wrap;
+
+      .c-time-field {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        flex: 1;
+        min-width: 140px;
+
+        label {
+          font-size: 0.72rem;
+          font-weight: 700;
+          color: #475569;
+        }
+
+        .c-native-input {
+          border: 1px solid #cbd5e1;
+          border-radius: 6px;
+          padding: 6px 10px;
+          font-size: 0.88rem;
+          font-weight: 600;
+          color: #0f172a;
+          background: #f8fafc;
+          outline: none;
+          &:focus {
+            border-color: #2563eb;
+            background: #ffffff;
+          }
+        }
+      }
+
+      .c-to-sep {
+        font-size: 0.82rem;
+        font-weight: 700;
+        color: #64748b;
+        margin-top: 18px;
+      }
+    }
+
+    .slot-display-input {
+      font-weight: 600;
+      color: #1e3a8a;
+      background: #eff6ff;
+      border-color: #bfdbfe;
+    }
+
+    /* Coaching Scope Toggle Bar */
+    .coaching-scope-toggle-bar {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 12px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 8px 12px;
+    }
+
+    .scope-toggle-label {
+      font-size: 0.76rem;
+      font-weight: 700;
+      color: #475569;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .scope-toggle-pills {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .scope-pill-btn {
+      flex: 1;
+      min-width: 220px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: 1.5px solid #cbd5e1;
+      background: #ffffff;
+      color: #334155;
+      font-size: 0.84rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+
+      mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        color: #64748b;
+      }
+
+      .mini-count-badge {
+        font-size: 0.7rem;
+        font-weight: 700;
+        background: #e2e8f0;
+        color: #1e293b;
+        border-radius: 12px;
+        padding: 2px 7px;
+      }
+
+      &:hover {
+        background: #f1f5f9;
+        border-color: #94a3b8;
+      }
+
+      &.active {
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        border-color: #2563eb;
+        color: #1e40af;
+        box-shadow: 0 2px 6px rgba(37,99,235,0.15);
+
+        mat-icon {
+          color: #2563eb;
+        }
+
+        .mini-count-badge {
+          background: #2563eb;
+          color: #ffffff;
+        }
+      }
+    }
+
+    .single-mode-helper {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 0.78rem;
+      color: #166534;
+      margin-bottom: 8px;
+
+      mat-icon {
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+        color: #16a34a;
+      }
+    }
+
+    .meta-title-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .meta-type-tag {
+      font-size: 0.72rem;
+      font-weight: 700;
+      border-radius: 6px;
+      padding: 2px 8px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+
+      &.single {
+        background: #dbeafe;
+        color: #1e40af;
+        border: 1px solid #bfdbfe;
+      }
+
+      &.combined {
+        background: #ede9fe;
+        color: #6b21a8;
+        border: 1px solid #ddd6fe;
+      }
+    }
+
+    /* 1-Click All Subjects Bar */
+    .coaching-all-subjects-bar {
+      margin-bottom: 8px;
+    }
+
+    .btn-all-subjects {
+      width: 100%;
+      background: linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%);
+      border: 1.5px dashed #3b82f6;
+      border-radius: 10px;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.2s ease;
+
+      mat-icon {
+        font-size: 24px;
+        width: 24px;
+        height: 24px;
+        color: #2563eb;
+        flex-shrink: 0;
+      }
+
+      .btn-all-text {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+
+        .all-title {
+          font-size: 0.88rem;
+          font-weight: 700;
+          color: #1e3a8a;
+        }
+
+        .all-sub {
+          font-size: 0.74rem;
+          color: #475569;
+          margin-top: 1px;
+        }
+      }
+
+      .all-badge {
+        font-size: 0.74rem;
+        font-weight: 700;
+        background: #dbeafe;
+        color: #1e40af;
+        border: 1px solid #bfdbfe;
+        border-radius: 20px;
+        padding: 3px 10px;
+        white-space: nowrap;
+      }
+
+      &:hover {
+        background: linear-gradient(135deg, #dbeafe 0%, #dcfce7 100%);
+        border-color: #2563eb;
+        transform: translateY(-1px);
+        box-shadow: 0 3px 8px rgba(37,99,235,0.15);
+      }
+
+      &.active {
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        border: 1.5px solid #1e3a8a;
+        box-shadow: 0 4px 12px rgba(37,99,235,0.3);
+
+        mat-icon { color: #fef08a; }
+
+        .btn-all-text {
+          .all-title { color: #ffffff; }
+          .all-sub { color: #bfdbfe; }
+        }
+
+        .all-badge {
+          background: rgba(255, 255, 255, 0.25);
+          color: #ffffff;
+          border-color: rgba(255, 255, 255, 0.4);
+        }
+      }
+    }
+
+    .coaching-subj-badge {
+      background: #fdf4ff !important;
+      color: #7e22ce !important;
+      border-color: #f0abfc !important;
+      mat-icon { color: #9333ea !important; }
+    }
+
+    .all-subjects-tag {
+      background: #eff6ff !important;
+      color: #1d4ed8 !important;
+      border-color: #93c5fd !important;
+      font-weight: 700 !important;
+    }
+
     .form-actions {
       display: flex;
       justify-content: flex-end;
@@ -1348,6 +1865,182 @@ export class SectionRoutineDialogComponent implements OnInit {
     return s.includes('dance') || s.includes('quiz') || s.includes('play') || s.includes('activity') || s.includes('assembly') || s.includes('singing') || s.includes('art') || s.includes('drawing') || s.includes('antakshri');
   }
 
+  get isCoachingMode(): boolean {
+    return !!this.data.batchId;
+  }
+
+  get isCoachingSingleClass(): boolean {
+    return this.isCoachingMode && !!this.data.classId;
+  }
+
+  get isCoachingCombined(): boolean {
+    return this.isCoachingMode && !this.data.classId;
+  }
+
+  coachingRoutineMode: 'single' | 'combined' = 'single';
+
+  setCoachingRoutineMode(mode: 'single' | 'combined'): void {
+    this.coachingRoutineMode = mode;
+    this.clashWarning = null;
+
+    if (mode === 'combined') {
+      this.isAllSubjectsSelected = true;
+      this.selectedMultiSubjects = this.displaySubjects.map(s => s.name);
+      this.newSubject = 'All Subjects (सभी विषय - Complete Tuition)';
+      if (this.mentorTeacherObj && !this.isTeacherClashed(this.mentorTeacherObj.id)) {
+        this.selectedTeacherId = this.mentorTeacherObj.id;
+      }
+      this.selectedDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      this.applyCoachingDuration(120);
+    } else {
+      // Single Subject Mode (Case 1: Individual slot per subject)
+      this.isAllSubjectsSelected = false;
+      this.selectedMultiSubjects = [];
+
+      const targetSubj = this.displaySubjects.find(s => !this.isSubjectAssigned(s.name)) || this.displaySubjects[0];
+      if (targetSubj) {
+        this.pickSubject(targetSubj);
+      } else {
+        this.newSubject = '';
+      }
+      this.applyCoachingDuration(60);
+    }
+  }
+
+  setTtsDays(): void {
+    this.selectedDays = ['Tue', 'Thu', 'Sat'];
+  }
+
+  get mentorTeacherFirstName(): string {
+    return this.data.mentorTeacherName ? this.data.mentorTeacherName.split(' ')[0] : 'Mentor';
+  }
+
+  get mentorTeacherObj(): TeacherDto | undefined {
+    if (!this.data.mentorTeacherId) return undefined;
+    const mt = this.data.teachers.find(t => t.id === this.data.mentorTeacherId);
+    return (mt && this.isTeachingStaff(mt)) ? mt : undefined;
+  }
+
+  quickPickMentorTeacher(): void {
+    if (this.mentorTeacherObj && !this.isTeacherClashed(this.mentorTeacherObj.id)) {
+      this.selectedTeacherId = this.mentorTeacherObj.id;
+    }
+  }
+
+  // Coaching Flexible Timings State
+  coachingStartTime = '17:00'; // 05:00 PM default for evening batches
+  coachingEndTime = '19:00';   // 07:00 PM default (2 hrs)
+  coachingSelectedDuration = 120; // in minutes (default 2 hrs)
+
+  coachingDurationOptions = [
+    { label: '45 Mins', minutes: 45 },
+    { label: '1 Hour', minutes: 60 },
+    { label: '1.5 Hours', minutes: 90 },
+    { label: '2 Hours', minutes: 120 },
+    { label: '2.5 Hours', minutes: 150 },
+    { label: '3 Hours', minutes: 180 }
+  ];
+
+  coachingShiftPresets = [
+    { label: '🌇 04:00 PM – 05:00 PM', duration: '1 hr', start: '16:00', end: '17:00', slotString: '04:00 PM - 05:00 PM' },
+    { label: '🌇 04:00 PM – 06:00 PM', duration: '2 hrs', start: '16:00', end: '18:00', slotString: '04:00 PM - 06:00 PM' },
+    { label: '🌆 05:00 PM – 06:30 PM', duration: '1.5 hrs', start: '17:00', end: '18:30', slotString: '05:00 PM - 06:30 PM' },
+    { label: '🌆 05:00 PM – 07:00 PM', duration: '2 hrs', start: '17:00', end: '19:00', slotString: '05:00 PM - 07:00 PM' },
+    { label: '🌙 06:00 PM – 08:00 PM', duration: '2 hrs', start: '18:00', end: '20:00', slotString: '06:00 PM - 08:00 PM' },
+    { label: '🌅 06:30 AM – 08:30 AM', duration: '2 hrs', start: '06:30', end: '08:30', slotString: '06:30 AM - 08:30 AM' },
+    { label: '☀️ 07:00 AM – 09:00 AM', duration: '2 hrs', start: '07:00', end: '09:00', slotString: '07:00 AM - 09:00 AM' }
+  ];
+
+  applyCoachingPreset(preset: { start: string; end: string; slotString: string }): void {
+    this.coachingStartTime = preset.start;
+    this.coachingEndTime = preset.end;
+    this.selectedTimeSlot = preset.slotString;
+    this.updateCoachingDurationFromTimes();
+  }
+
+  applyCoachingDuration(minutes: number): void {
+    this.coachingSelectedDuration = minutes;
+    if (this.coachingStartTime) {
+      const [h, m] = this.coachingStartTime.split(':').map(Number);
+      const startMin = h * 60 + m;
+      const endMin = startMin + minutes;
+      const endH = Math.floor(endMin / 60) % 24;
+      const endM = endMin % 60;
+      this.coachingEndTime = `${endH.toString().padStart(2, '0')}:${endM.toString().padStart(2, '0')}`;
+      this.syncCoachingTimeSlot();
+    }
+  }
+
+  onCoachingTimeChange(): void {
+    this.syncCoachingTimeSlot();
+    this.updateCoachingDurationFromTimes();
+  }
+
+  syncCoachingTimeSlot(): void {
+    if (!this.coachingStartTime || !this.coachingEndTime) return;
+    const s12 = this.formatTo12Hour(this.coachingStartTime);
+    const e12 = this.formatTo12Hour(this.coachingEndTime);
+    this.selectedTimeSlot = `${s12} - ${e12}`;
+  }
+
+  updateCoachingDurationFromTimes(): void {
+    if (!this.coachingStartTime || !this.coachingEndTime) return;
+    const [h1, m1] = this.coachingStartTime.split(':').map(Number);
+    const [h2, m2] = this.coachingEndTime.split(':').map(Number);
+    let diff = (h2 * 60 + m2) - (h1 * 60 + m1);
+    if (diff < 0) diff += 24 * 60;
+    this.coachingSelectedDuration = diff;
+  }
+
+  formatTo12Hour(t24: string): string {
+    if (!t24) return '';
+    const [hStr, mStr] = t24.split(':');
+    let h = parseInt(hStr, 10);
+    const m = mStr || '00';
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12;
+    if (h === 0) h = 12;
+    return `${h.toString().padStart(2, '0')}:${m} ${ampm}`;
+  }
+
+  get coachingCalculatedDurationText(): string {
+    if (!this.coachingStartTime || !this.coachingEndTime) return '';
+    const [h1, m1] = this.coachingStartTime.split(':').map(Number);
+    const [h2, m2] = this.coachingEndTime.split(':').map(Number);
+    let diff = (h2 * 60 + m2) - (h1 * 60 + m1);
+    if (diff < 0) diff += 24 * 60;
+    const hrs = Math.floor(diff / 60);
+    const mins = diff % 60;
+    if (mins === 0) return `${hrs} hr${hrs > 1 ? 's' : ''}`;
+    if (hrs === 0) return `${mins} mins`;
+    return `${hrs} hr${hrs > 1 ? 's' : ''} ${mins} mins`;
+  }
+
+  parseSlotToCoachingTimes(slot: string): void {
+    if (!slot) return;
+    const parts = slot.split('-').map(s => s.trim());
+    if (parts.length === 2) {
+      const t1 = this.parse12To24(parts[0]);
+      const t2 = this.parse12To24(parts[1]);
+      if (t1 && t2) {
+        this.coachingStartTime = t1;
+        this.coachingEndTime = t2;
+        this.updateCoachingDurationFromTimes();
+      }
+    }
+  }
+
+  parse12To24(t12: string): string | null {
+    const match = t12.match(/(\d+):(\d+)\s*(AM|PM)/i);
+    if (!match) return null;
+    let h = parseInt(match[1], 10);
+    const m = match[2];
+    const ampm = match[3].toUpperCase();
+    if (ampm === 'PM' && h < 12) h += 12;
+    if (ampm === 'AM' && h === 12) h = 0;
+    return `${h.toString().padStart(2, '0')}:${m}`;
+  }
+
   newSubject = '';
   selectedTeacherId = '';
   selectedDays: string[] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -1369,6 +2062,23 @@ export class SectionRoutineDialogComponent implements OnInit {
   displaySubjects: { name: string; teacherId?: string; isCurriculum: boolean }[] = [];
 
   updateDisplaySubjects(): void {
+    if (this.isCoachingMode && this.data.batchSubjects) {
+      const batchSubjs = this.data.batchSubjects.split(',')
+        .map(s => s.trim())
+        .filter(s => s.length > 0);
+      if (batchSubjs.length > 0) {
+        this.displaySubjects = batchSubjs.map(name => {
+          const matched = this.classSubjects.find(cs => cs.subjectName.toLowerCase() === name.toLowerCase());
+          return {
+            name,
+            teacherId: matched?.teacherId || (this.data.mentorTeacherId || undefined),
+            isCurriculum: true
+          };
+        });
+        return;
+      }
+    }
+
     if (this.classSubjects && this.classSubjects.length > 0) {
       this.displaySubjects = this.classSubjects.map(cs => ({
         name: cs.subjectName,
@@ -1399,13 +2109,64 @@ export class SectionRoutineDialogComponent implements OnInit {
     return d.trim().substring(0, 3).toLowerCase();
   }
 
+  isAllSubjectsSelected = false;
+  selectedMultiSubjects: string[] = [];
+
+  toggleAllSubjects(): void {
+    if (this.isAllSubjectsSelected) {
+      this.isAllSubjectsSelected = false;
+      this.selectedMultiSubjects = [];
+      this.newSubject = '';
+    } else {
+      this.isAllSubjectsSelected = true;
+      this.selectedMultiSubjects = this.displaySubjects.map(s => s.name);
+      this.newSubject = 'All Subjects (सभी विषय - Complete Tuition)';
+
+      // Auto-prefill Mentor Teacher (e.g. Pawan Yadav)
+      if (this.mentorTeacherObj && !this.isTeacherClashed(this.mentorTeacherObj.id)) {
+        this.selectedTeacherId = this.mentorTeacherObj.id;
+      }
+
+      // Auto-prefill Daily Mon-Sat
+      this.selectedDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+      // Auto-prefill 2hr evening timing if empty
+      if (!this.selectedTimeSlot) {
+        this.coachingStartTime = '17:00';
+        this.coachingEndTime = '19:00';
+        this.coachingSelectedDuration = 120;
+        this.syncCoachingTimeSlot();
+      }
+    }
+  }
+
+  isSubjectPillActive(name: string): boolean {
+    if (this.coachingRoutineMode === 'combined' && this.isAllSubjectsSelected) return true;
+    if (this.coachingRoutineMode === 'single') {
+      return !!(this.newSubject && this.newSubject.trim().toLowerCase() === name.trim().toLowerCase());
+    }
+    if (this.isAllSubjectsSelected) return true;
+    if (this.selectedMultiSubjects.length > 0) {
+      return this.selectedMultiSubjects.some(s => s.toLowerCase() === name.toLowerCase());
+    }
+    return !!(this.newSubject && this.newSubject.trim().toLowerCase() === name.trim().toLowerCase());
+  }
+
+  isSubjectAllSubjects(subj?: string): boolean {
+    if (!subj) return false;
+    return subj.toLowerCase().includes('all subjects');
+  }
+
   isSubjectAssigned(subjectName: string): boolean {
     if (!subjectName) return false;
     const nameNorm = subjectName.trim().toLowerCase();
-    return this.routine.some(r => 
-      (r.subject || '').trim().toLowerCase() === nameNorm && 
-      (!this.editingPeriodId || r.id !== this.editingPeriodId)
-    );
+    return this.routine.some(r => {
+      if (this.editingPeriodId && r.id === this.editingPeriodId) return false;
+      const rSubj = (r.subject || '').trim().toLowerCase();
+      if (rSubj === nameNorm) return true;
+      if (this.coachingRoutineMode === 'combined' && rSubj.includes('all subjects')) return true;
+      return false;
+    });
   }
 
   isPeriodAssigned(slot: string): boolean {
@@ -1482,7 +2243,11 @@ export class SectionRoutineDialogComponent implements OnInit {
 
   pickFirstAvailableTeacher(): void {
     this.clashWarning = null;
-    if (this.classTeacherObj && !this.isTeacherClashed(this.classTeacherObj.id)) {
+    if (this.isCoachingMode && this.mentorTeacherObj && !this.isTeacherClashed(this.mentorTeacherObj.id)) {
+      this.selectedTeacherId = this.mentorTeacherObj.id;
+      return;
+    }
+    if (!this.isCoachingMode && this.classTeacherObj && !this.isTeacherClashed(this.classTeacherObj.id)) {
       this.selectedTeacherId = this.classTeacherObj.id;
       return;
     }
@@ -1521,12 +2286,59 @@ export class SectionRoutineDialogComponent implements OnInit {
   }
 
   pickSubject(item: { name: string; teacherId?: string; isCurriculum: boolean }): void {
-    if (this.newSubject && this.newSubject.trim().toLowerCase() === (item.name || '').trim().toLowerCase()) {
-      this.newSubject = '';
-    } else {
+    if (this.isCoachingMode && this.coachingRoutineMode === 'single') {
+      // 🎯 CASE 1: Single Class Coaching Batch - Single subject selection!
+      this.isAllSubjectsSelected = false;
+      this.selectedMultiSubjects = [item.name];
       this.newSubject = item.name;
-      this.clashWarning = null;
 
+      if (item.teacherId && !this.isTeacherClashed(item.teacherId)) {
+        this.selectedTeacherId = item.teacherId;
+      } else if (this.mentorTeacherObj && !this.isTeacherClashed(this.mentorTeacherObj.id)) {
+        this.selectedTeacherId = this.mentorTeacherObj.id;
+      } else {
+        this.pickFirstAvailableTeacher();
+      }
+      return;
+    }
+
+    if (this.isAllSubjectsSelected) {
+      // Switching from "All Subjects" to individual subject
+      this.isAllSubjectsSelected = false;
+      this.selectedMultiSubjects = [item.name];
+      this.newSubject = item.name;
+    } else {
+      if (this.isCoachingMode) {
+        // Multi/combined mode: multi-select chips
+        const idx = this.selectedMultiSubjects.findIndex(s => s.toLowerCase() === item.name.toLowerCase());
+        if (idx !== -1) {
+          this.selectedMultiSubjects.splice(idx, 1);
+        } else {
+          this.selectedMultiSubjects.push(item.name);
+        }
+        if (this.selectedMultiSubjects.length === 0) {
+          this.newSubject = '';
+        } else if (this.selectedMultiSubjects.length === 1) {
+          this.newSubject = this.selectedMultiSubjects[0];
+        } else if (this.selectedMultiSubjects.length === this.displaySubjects.length && this.displaySubjects.length > 1) {
+          this.isAllSubjectsSelected = true;
+          this.newSubject = 'All Subjects (सभी विषय - Complete Tuition)';
+        } else {
+          this.newSubject = this.selectedMultiSubjects.join(' + ');
+        }
+      } else {
+        // School mode: 100% UNTOUCHED single selection
+        if (this.newSubject && this.newSubject.trim().toLowerCase() === (item.name || '').trim().toLowerCase()) {
+          this.newSubject = '';
+        } else {
+          this.newSubject = item.name;
+        }
+      }
+    }
+
+    this.clashWarning = null;
+
+    if (!this.isCoachingMode) {
       // Auto-assign next free TEACHING period if current period is already taken OR is an activity slot
       const curSlotObj = this.presetPeriods.find(p => p.slot === this.selectedTimeSlot);
       if (this.isPeriodAssigned(this.selectedTimeSlot) || this.isActivitySlot(curSlotObj)) {
@@ -1535,12 +2347,12 @@ export class SectionRoutineDialogComponent implements OnInit {
           this.selectedTimeSlot = nextFreeTeachingPeriod.slot;
         }
       }
+    }
 
-      if (item.teacherId && !this.isTeacherClashed(item.teacherId)) {
-        this.selectedTeacherId = item.teacherId;
-      } else {
-        this.pickFirstAvailableTeacher();
-      }
+    if (item.teacherId && !this.isTeacherClashed(item.teacherId)) {
+      this.selectedTeacherId = item.teacherId;
+    } else {
+      this.pickFirstAvailableTeacher();
     }
   }
 
@@ -1590,7 +2402,14 @@ export class SectionRoutineDialogComponent implements OnInit {
   toggleAddForm(): void {
     this.showAddForm = !this.showAddForm;
     if (this.showAddForm && !this.editingPeriodId) {
-      this.autoFillNextSlot();
+      if (this.isCoachingMode && this.coachingRoutineMode === 'single') {
+        const nextSubj = this.displaySubjects.find(s => !this.isSubjectAssigned(s.name)) || this.displaySubjects[0];
+        if (nextSubj) {
+          this.pickSubject(nextSubj);
+        }
+      } else {
+        this.autoFillNextSlot();
+      }
     }
   }
 
@@ -1614,7 +2433,12 @@ export class SectionRoutineDialogComponent implements OnInit {
     this.loadPeriodSlots();
     this.loadAllSchoolRoutines();
     this.loadClassSubjects();
-    if (this.data.classTeacherId && this.classTeacherObj) {
+
+    if (this.isCoachingMode) {
+      this.syncCoachingTimeSlot();
+      const initialMode = this.isCoachingSingleClass ? 'single' : 'combined';
+      this.setCoachingRoutineMode(initialMode);
+    } else if (this.data.classTeacherId && this.classTeacherObj) {
       this.selectedTeacherId = this.data.classTeacherId;
     } else {
       this.selectedTeacherId = '';
@@ -1726,6 +2550,12 @@ export class SectionRoutineDialogComponent implements OnInit {
         this.loadingClassSubjects = false;
         this.classSubjects = subs || [];
         this.updateDisplaySubjects();
+        if (this.isCoachingMode && this.coachingRoutineMode === 'single' && !this.editingPeriodId && !this.newSubject) {
+          const targetSubj = this.displaySubjects.find(s => !this.isSubjectAssigned(s.name)) || this.displaySubjects[0];
+          if (targetSubj) {
+            this.pickSubject(targetSubj);
+          }
+        }
       },
       error: () => {
         this.loadingClassSubjects = false;
@@ -1831,8 +2661,30 @@ export class SectionRoutineDialogComponent implements OnInit {
   editPeriod(item: SectionPeriodRoutineDto) {
     this.editingPeriodId = item.id;
     this.newSubject = item.subject;
+    if (item.subject && item.subject.toLowerCase().includes('all subjects')) {
+      if (this.isCoachingMode) {
+        this.coachingRoutineMode = 'combined';
+      }
+      this.isAllSubjectsSelected = true;
+      this.selectedMultiSubjects = this.displaySubjects.map(s => s.name);
+    } else if (item.subject && item.subject.includes('+')) {
+      if (this.isCoachingMode) {
+        this.coachingRoutineMode = 'combined';
+      }
+      this.isAllSubjectsSelected = false;
+      this.selectedMultiSubjects = item.subject.split('+').map(s => s.trim());
+    } else {
+      if (this.isCoachingMode) {
+        this.coachingRoutineMode = 'single';
+      }
+      this.isAllSubjectsSelected = false;
+      this.selectedMultiSubjects = item.subject ? [item.subject] : [];
+    }
     this.selectedTeacherId = item.teacherId;
     this.selectedTimeSlot = item.timeSlot || '08:00 AM - 08:45 AM';
+    if (this.isCoachingMode && item.timeSlot) {
+      this.parseSlotToCoachingTimes(item.timeSlot);
+    }
     this.selectedDays = this.getDaysArray(item.daysOfWeek);
     this.clashWarning = null;
     this.showAddForm = true;
@@ -1840,6 +2692,8 @@ export class SectionRoutineDialogComponent implements OnInit {
 
   resetForm() {
     this.newSubject = '';
+    this.isAllSubjectsSelected = false;
+    this.selectedMultiSubjects = [];
     this.editingPeriodId = null;
     this.clashWarning = null;
     this.showAddForm = false;

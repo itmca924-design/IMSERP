@@ -2365,9 +2365,9 @@ public class StudentsController : ControllerBase
                 {
                     student.CoachingJoiningDate = dto.CoachingJoiningDate.Value;
                 }
-                else if (!student.CoachingJoiningDate.HasValue)
+                else if (dto.JoiningDate.HasValue)
                 {
-                    student.CoachingJoiningDate = dto.JoiningDate ?? student.JoiningDate;
+                    student.CoachingJoiningDate = dto.JoiningDate.Value;
                 }
 
                 if (!dto.IsSchoolStudent && student.CoachingJoiningDate.HasValue)
@@ -5028,6 +5028,9 @@ public class BatchesController : ControllerBase
         _dbContext.Batches.Add(batch);
         await _dbContext.SaveChangesAsync();
 
+        // Bidirectional sync: Auto-create/sync Fee Structure Matrix entry
+        await SyncBatchFeeStructureAsync(batch.Id, batch.BranchId, batch.ClassId, batch.StandardMonthlyFee);
+
         var branchName = (await _dbContext.Branches.AsNoTracking().FirstOrDefaultAsync(b => b.Id == batch.BranchId))?.Name;
         var roomNumber = batch.RoomId.HasValue ? (await _dbContext.Rooms.AsNoTracking().FirstOrDefaultAsync(r => r.Id == batch.RoomId))?.RoomNumber : null;
         var className = batch.ClassId.HasValue ? (await _dbContext.SchoolClasses.AsNoTracking().FirstOrDefaultAsync(c => c.Id == batch.ClassId))?.Name : null;
@@ -5071,6 +5074,9 @@ public class BatchesController : ControllerBase
         batch.MentorTeacherId = dto.MentorTeacherId;
 
         await _dbContext.SaveChangesAsync();
+
+        // Bidirectional sync: Auto-create/sync Fee Structure Matrix entry
+        await SyncBatchFeeStructureAsync(batch.Id, batch.BranchId, batch.ClassId, batch.StandardMonthlyFee);
 
         var studentCount = await _dbContext.Students.CountAsync(s => s.BatchId == id);
         var branchName = (await _dbContext.Branches.AsNoTracking().FirstOrDefaultAsync(b => b.Id == batch.BranchId))?.Name;
@@ -5156,13 +5162,82 @@ public class BatchesController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteBatch(Guid id)
     {
-        var batch = await _dbContext.Batches.FindAsync(id);
+        var batch = await _dbContext.Batches
+            .Include(b => b.Students)
+            .FirstOrDefaultAsync(b => b.Id == id && b.TenantId == _currentUser.TenantId);
+
         if (batch == null) return NotFound();
 
-        _dbContext.Batches.Remove(batch);
+        batch.IsDeleted = true;
+        batch.DeletedAt = DateTime.UtcNow;
+        batch.DeletedBy = _currentUser.UserId;
+
+        // Unassign active students from deleted batch so they are vacant/free to allocate to another batch
+        foreach (var student in batch.Students)
+        {
+            student.BatchId = null;
+        }
+
         await _dbContext.SaveChangesAsync();
 
         return NoContent();
+    }
+
+    // ─── Bidirectional Fee Sync Helper ─────────────────────────────────────
+    /// <summary>
+    /// When a Batch is created or its StandardMonthlyFee is updated,
+    /// this method ensures the Fee Structure Matrix (ClassFeeStructures)
+    /// has a matching entry under the 'COACH' fee head so both sources
+    /// stay perfectly in sync — no manual double-entry needed.
+    /// </summary>
+    private async Task SyncBatchFeeStructureAsync(Guid batchId, Guid? branchId, Guid? classId, decimal standardMonthlyFee)
+    {
+        try
+        {
+            // Find the active COACH fee head for this tenant
+            var coachHead = await _dbContext.FeeHeads
+                .AsNoTracking()
+                .FirstOrDefaultAsync(h => h.TenantId == _currentUser.TenantId && h.IsActive &&
+                                          (h.Code == "COACH" || h.Code == "COACHING"));
+
+            if (coachHead == null) return; // No COACH fee head seeded yet — skip silently
+
+            if (standardMonthlyFee <= 0) return; // No fee set — skip
+
+            // Check if a ClassFeeStructure entry already exists for this batch + COACH head
+            var existing = await _dbContext.ClassFeeStructures
+                .FirstOrDefaultAsync(s => s.BatchId == batchId && s.FeeHeadId == coachHead.Id && s.TenantId == _currentUser.TenantId);
+
+            if (existing != null)
+            {
+                // Update existing record
+                existing.Amount = standardMonthlyFee;
+                existing.IsActive = true;
+                existing.ApplicableMonth = null; // Monthly recurring
+            }
+            else
+            {
+                // Create new ClassFeeStructure entry
+                var newStructure = new ClassFeeStructure
+                {
+                    TenantId = _currentUser.TenantId,
+                    BranchId = branchId ?? _currentUser.BranchId,
+                    ClassId = classId,
+                    BatchId = batchId,
+                    FeeHeadId = coachHead.Id,
+                    Amount = standardMonthlyFee,
+                    ApplicableMonth = null, // Monthly recurring
+                    IsActive = true
+                };
+                _dbContext.ClassFeeStructures.Add(newStructure);
+            }
+
+            await _dbContext.SaveChangesAsync();
+        }
+        catch
+        {
+            // Sync is best-effort; swallow errors to not break Batch CRUD
+        }
     }
 
     #region Coaching Batch Routine & Timetable
