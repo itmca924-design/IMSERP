@@ -21,6 +21,9 @@ DBBackup/
 *.tar.gz
 publish/
 **/publish/
+publish-*/
+**/publish-*/
+askpass.bat
 
 # Logs and local secrets
 *.log

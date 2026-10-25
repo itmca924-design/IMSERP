@@ -64,7 +64,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           <div class="info-callout">
             <mat-icon class="info-icon">auto_awesome</mat-icon>
             <div class="info-text">
-              <strong>Academic Batch Setup:</strong> Link subjects, allocate classroom capacity, and define standard monthly tuition fees for automated student billing.
+              <strong>Academic Batch Setup:</strong> Link subjects, allocate classroom capacity, and assign mentor teachers.
             </div>
           </div>
 
@@ -449,19 +449,11 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           </div>
 
           <div class="form-grid">
-            <mat-form-field appearance="outline" class="half-width">
+            <mat-form-field appearance="outline" class="full-width">
               <mat-label>Academic Session / Year *</mat-label>
               <input matInput formControlName="academicYear" placeholder="e.g. 2026-2027" />
               <mat-icon matSuffix color="primary">date_range</mat-icon>
               <mat-error *ngIf="batchForm.get('academicYear')?.hasError('required')">Academic Year is required</mat-error>
-            </mat-form-field>
-
-            <mat-form-field appearance="outline" class="half-width">
-              <mat-label>Monthly Tuition Fee (मासिक फीस ₹)</mat-label>
-              <input matInput type="number" formControlName="standardMonthlyFee" min="0" placeholder="e.g. 1500" />
-              <span matPrefix style="font-weight: 700; color: #1e3a8a; margin-right: 4px;">₹</span>
-              <mat-icon matSuffix color="primary">payments</mat-icon>
-              <mat-hint>Auto-billing rate for batch students</mat-hint>
             </mat-form-field>
           </div>
 
@@ -493,10 +485,6 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
               <div class="preview-item">
                 <span class="preview-label">Academic Session:</span>
                 <strong class="preview-val">{{ batchForm.get('academicYear')?.value || '2026-2027' }}</strong>
-              </div>
-              <div class="preview-item">
-                <span class="preview-label">Monthly Tuition Fee:</span>
-                <strong class="preview-val highlight">₹{{ batchForm.get('standardMonthlyFee')?.value || 0 }}/mo</strong>
               </div>
             </div>
           </div>
@@ -1425,8 +1413,7 @@ export class BatchDialogComponent implements OnInit {
       branchId: [initialBranchId || null],
       roomId: [this.data?.roomId || null],
       mentorTeacherId: [this.data?.mentorTeacherId || null],
-      academicYear: [this.data?.academicYear || '2026-2027', [Validators.required]],
-      standardMonthlyFee: [this.data?.standardMonthlyFee ?? 0, [Validators.min(0)]]
+      academicYear: [this.data?.academicYear || '2026-2027', [Validators.required]]
     });
 
     this.loading = true;
@@ -1730,7 +1717,7 @@ export class BatchDialogComponent implements OnInit {
       name: formVal.name,
       subject: subjectsArray.join(', '),
       academicYear: formVal.academicYear,
-      standardMonthlyFee: Number(formVal.standardMonthlyFee) || 0,
+      standardMonthlyFee: this.data?.standardMonthlyFee ?? 0,
       branchId: formVal.branchId || null,
       roomId: formVal.roomId || null,
       classId: this.batchScope === 'single' ? (formVal.classId || null) : null,
