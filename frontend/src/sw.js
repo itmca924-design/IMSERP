@@ -1,4 +1,4 @@
-const CACHE_NAME = 'imserp-cache-v3';
+const CACHE_NAME = 'imserp-cache-v4';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -227,8 +227,18 @@ self.addEventListener('fetch', (event) => {
           }
           return res;
         })
-        .catch(() => {
-          return caches.match('/index.html') || caches.match('/');
+        .catch(async () => {
+          const cachedIndex = (await caches.match('/index.html')) || (await caches.match('/'));
+          if (cachedIndex) {
+            return cachedIndex;
+          }
+          return new Response(
+            '<!DOCTYPE html><html><head><meta charset="utf-8"><title>IMSERP</title><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="font-family:sans-serif;text-align:center;padding:50px 20px;"><h3>Connection Error</h3><p>Please check your internet connection and reload.</p><button onclick="window.location.reload()" style="padding:10px 20px;border-radius:6px;border:none;background:#2563eb;color:#fff;cursor:pointer;">Retry</button></body></html>',
+            {
+              status: 200,
+              headers: { 'Content-Type': 'text/html; charset=utf-8' }
+            }
+          );
         })
     );
     return;
@@ -256,21 +266,31 @@ self.addEventListener('fetch', (event) => {
           return cached;
         }
 
-        return fetch(req).then((networkRes) => {
-          if (networkRes && networkRes.status === 200) {
-            const clone = networkRes.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
-          }
-          return networkRes;
-        });
+        return fetch(req)
+          .then((networkRes) => {
+            if (networkRes && networkRes.status === 200) {
+              const clone = networkRes.clone();
+              caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
+            }
+            return networkRes;
+          })
+          .catch(async () => {
+            const fallback = await caches.match(req);
+            if (fallback) return fallback;
+            return new Response('', { status: 404, statusText: 'Not Found' });
+          });
       })
     );
     return;
   }
 
-  // Default: Network with cache fallback
+  // Default: Network with safe cache fallback
   event.respondWith(
-    fetch(req).catch(() => caches.match(req))
+    fetch(req).catch(async () => {
+      const cached = await caches.match(req);
+      if (cached) return cached;
+      return new Response('', { status: 408, statusText: 'Offline / Request Aborted' });
+    })
   );
 });
 

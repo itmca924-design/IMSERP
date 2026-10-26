@@ -27,6 +27,7 @@ import { SchoolService, SchoolClassDto, SchoolSectionDto } from '../../core/serv
 import { HostelService, HostelDto, HostelBedDto } from '../../core/services/hostel.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { LibraryService, LibraryMembershipPlanDto } from '../../core/services/library.service';
+import { TransportService, TransportRouteDto, TransportRouteStopDto } from '../../core/services/transport.service';
 import { StudentLeavingDialogComponent } from './student-leaving-dialog.component';
 import { StudentReadmissionDialogComponent } from './student-readmission-dialog.component';
 import { ManageLibraryPlansDialogComponent } from '../library/manage-library-plans-dialog.component';
@@ -176,13 +177,9 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                 <mat-checkbox *ngIf="authService.hasLibraryModule()" formControlName="isLibraryMember" (change)="onLibraryCheckChanged()" color="primary">
                   <span class="chk-label">📚 <strong>Library Membership (Optional)</strong> (Books &amp; Reading Shifts)</span>
                 </mat-checkbox>
-                <mat-checkbox *ngIf="authService.hasInventoryModule()" formControlName="isIssueAdmissionKit" (change)="onKitCheckChanged()" color="primary">
-                  <span class="chk-label">🎒 <strong>Admission Kit Issuance</strong> (Uniform, Books, Stationery)</span>
+                <mat-checkbox *ngIf="authService.hasTransportModule()" formControlName="isTransportStudent" (change)="onTransportCheckChanged()" color="primary">
+                  <span class="chk-label">🚌 <strong>Transport Facility (Optional)</strong> (Route &amp; Stop Assignment)</span>
                 </mat-checkbox>
-              </div>
-              <div class="stream-hint-kit-info" *ngIf="studentForm.value.isIssueAdmissionKit">
-                <mat-icon>verified</mat-icon>
-                <span><strong>Smart ERP Rule Active:</strong> Physical kit items are issued directly from Store Stock. The system will <u>automatically protect</u> this student from duplicate Books/Uniform charges in Fee Matrix.</span>
               </div>
               <div class="stream-hint-warn" *ngIf="!studentForm.value.isSchoolStudent && !studentForm.value.isCoachingStudent && (authService.hasSchoolModule() || authService.hasCoachingModule())">
                 <mat-icon>warning_amber</mat-icon>
@@ -353,6 +350,52 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
               </mat-form-field>
             </ng-container>
 
+            <!-- Transport Facility Details (if Transport is checked) -->
+            <ng-container *ngIf="studentForm.value.isTransportStudent">
+              <div class="section-divider-box full-span transport-sect">
+                <mat-icon>directions_bus</mat-icon>
+                <span>Transport Route &amp; Stop Assignment (Optional Facility)</span>
+              </div>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Transport Route</mat-label>
+                <mat-select formControlName="transportRouteId" (selectionChange)="onTransportRouteChange($event.value)" panelClass="batch-filter-panel">
+                  <mat-option [value]="''">-- Select Route --</mat-option>
+                  <mat-option *ngFor="let r of transportRoutes" [value]="r.id">
+                    {{ r.routeCode }} — {{ r.routeName }}{{ r.startPoint ? ' (' + r.startPoint : '' }}{{ r.endPoint ? ' → ' + r.endPoint + ')' : (r.startPoint ? ')' : '') }}
+                  </mat-option>
+                </mat-select>
+                <mat-hint>Select the bus route for this student</mat-hint>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Pickup / Drop Stop</mat-label>
+                <mat-select formControlName="transportRouteStopId" (selectionChange)="onTransportStopChange($event.value)" panelClass="batch-filter-panel">
+                  <mat-option [value]="''">-- Select Stop --</mat-option>
+                  <mat-option *ngFor="let s of transportStops" [value]="s.id">
+                    {{ s.stopName }} (₹{{ s.monthlyFare | number }}/mo{{ s.pickupTime ? ' • Pickup: ' + s.pickupTime : '' }}{{ s.dropTime ? ' • Drop: ' + s.dropTime : '' }})
+                  </mat-option>
+                </mat-select>
+                <mat-hint *ngIf="selectedTransportFare">Monthly Transport Fare: ₹{{ selectedTransportFare | number }}</mat-hint>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Pickup / Drop Type</mat-label>
+                <mat-select formControlName="transportPickupDropType">
+                  <mat-option value="Both">Both Pickup &amp; Drop</mat-option>
+                  <mat-option value="PickupOnly">Pickup Only</mat-option>
+                  <mat-option value="DropOnly">Drop Only</mat-option>
+                </mat-select>
+                <mat-hint>Select whether student needs pickup, drop, or both</mat-hint>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Monthly Transport Fare (₹)</mat-label>
+                <input matInput type="number" formControlName="monthlyTransportFare" min="0" />
+                <mat-hint>Auto-filled from stop; adjust if custom fare applies</mat-hint>
+              </mat-form-field>
+            </ng-container>
+
             <!-- Library Membership Details (if Library is checked) -->
             <ng-container *ngIf="studentForm.value.isLibraryMember">
               <div class="section-divider-box full-span library-sect">
@@ -396,159 +439,6 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                 <input matInput type="number" formControlName="monthlyLibraryFee" min="0" />
                 <mat-hint>Keep ₹0 for free lending, or set monthly reading fee</mat-hint>
               </mat-form-field>
-            </ng-container>
-
-            <!-- Admission Kit Section (if Admission Kit is checked) -->
-            <!-- Admission Kit Section (if Admission Kit is checked) -->
-            <ng-container *ngIf="studentForm.value.isIssueAdmissionKit">
-              <div class="section-divider-box full-span kit-sect">
-                <mat-icon>inventory_2</mat-icon>
-                <span>Admission Kit Issuance (Books, Uniform, Stationery Distribution)</span>
-              </div>
-
-              <!-- ERP Auto-Safeguard Notice Card -->
-              <div class="full-span kit-guidance-card" *ngIf="!isEditMode || !studentExistingKitOutward">
-                <div class="guidance-icon-box">
-                  <mat-icon>shield</mat-icon>
-                </div>
-                <div class="guidance-content">
-                  <div class="guidance-title">ERP Auto-Protection Rule: Zero Double-Billing Guarantee</div>
-                  <p class="guidance-desc">
-                    Physical uniform, books &amp; stationery items selected below will be distributed from store inventory and billed directly via Store Outward / Kit Invoice.
-                    <strong>You do not need to check Books/Uniform in Fee Matrix</strong> — the invoicing engine automatically skips those heads for students who receive a kit.
-                  </p>
-                </div>
-              </div>
-
-              <!-- Existing Kit Banner in Edit Mode -->
-              <div class="full-span existing-kit-alert-box" *ngIf="isEditMode && studentExistingKitOutward">
-                <div class="kit-alert-left">
-                  <mat-icon class="kit-alert-icon">check_circle</mat-icon>
-                  <div>
-                    <strong class="kit-alert-title">Kit Distributed to Student (Slip: {{ studentExistingKitOutward.issueNumber }})</strong>
-                    <div class="kit-alert-meta">
-                      <span>Issued on: <strong [appIstDatetime]="studentExistingKitOutward.issueDate" format="date"></strong></span>
-                      <span class="meta-sep">•</span>
-                      <span>Payment Status: <strong class="badge-status-kit">{{ studentExistingKitOutward.paymentStatus }}</strong></span>
-                      <span class="meta-sep" *ngIf="studentExistingKitOutward.paymentMode">•</span>
-                      <span *ngIf="studentExistingKitOutward.paymentMode">Mode: <strong>{{ studentExistingKitOutward.paymentMode }}</strong></span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Payment Handling (only if not already issued) -->
-              <mat-form-field appearance="outline" *ngIf="!isEditMode || !studentExistingKitOutward">
-                <mat-label>Kit Payment Status</mat-label>
-                <mat-select formControlName="kitPaymentStatus">
-                  <mat-option value="AddedToFeeBill">Added to Student Fee Bill (Pending Invoice)</mat-option>
-                  <mat-option value="Paid">Paid at Counter (Instant Cash/UPI)</mat-option>
-                  <mat-option value="Free/Complimentary">Free / Complimentary Kit (₹0)</mat-option>
-                </mat-select>
-                <mat-hint>Choose how kit cost is collected</mat-hint>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline" *ngIf="(!isEditMode || !studentExistingKitOutward) && studentForm.value.kitPaymentStatus === 'Paid'">
-                <mat-label>Counter Payment Mode</mat-label>
-                <mat-select formControlName="kitPaymentMode">
-                  <mat-option value="Cash">Cash</mat-option>
-                  <mat-option value="UPI">UPI / QR Code</mat-option>
-                  <mat-option value="Card">Debit / Credit Card</mat-option>
-                  <mat-option value="BankTransfer">Direct Bank Transfer</mat-option>
-                </mat-select>
-                <mat-hint>Payment received at reception counter</mat-hint>
-              </mat-form-field>
-
-              <!-- Selected Kit Items Table / Line Builder -->
-              <div class="full-span admission-kit-panel">
-                <div class="kit-panel-header">
-                  <div class="kit-header-left">
-                    <mat-icon class="kit-header-icon" color="primary">inventory_2</mat-icon>
-                    <div>
-                      <span class="panel-title">{{ isEditMode && studentExistingKitOutward ? 'Kit Items Distributed to Student' : 'Kit Items to Issue from Store' }}</span>
-                      <p class="panel-subtitle">{{ isEditMode && studentExistingKitOutward ? 'Items previously issued to this student from inventory stock' : 'Select items below to distribute to student upon admission' }}</p>
-                    </div>
-                  </div>
-                  <div class="add-item-controls">
-                    <mat-form-field appearance="outline" class="item-picker-field" subscriptSizing="dynamic">
-                      <mat-label>Select Item to Add</mat-label>
-                      <mat-select [(value)]="selectedKitItemId" placeholder="Choose uniform, book, bag..." panelClass="batch-filter-panel">
-                        <mat-option *ngFor="let it of availableInventoryItems" [value]="it.id" [disabled]="it.currentStock <= 0">
-                          {{ it.itemName }} (₹{{ it.sellingPrice | number:'1.2-2' }}) — Stock: {{ it.currentStock }} {{ it.unitOfMeasurement }}
-                        </mat-option>
-                      </mat-select>
-                    </mat-form-field>
-                    <button mat-raised-button color="primary" type="button" (click)="addSelectedKitItem()" [disabled]="!selectedKitItemId">
-                      <mat-icon>add</mat-icon> Add to Kit
-                    </button>
-                  </div>
-                </div>
-
-                <div class="table-responsive kit-items-table" *ngIf="admissionKitRows.length > 0; else noKitItemsSelected">
-                  <table class="kit-table">
-                    <thead>
-                      <tr>
-                        <th>Item Name</th>
-                        <th class="text-center" style="width: 100px;">Qty</th>
-                        <th class="text-right" style="width: 140px;">Unit Price (₹)</th>
-                        <th class="text-right" style="width: 140px;">Total (₹)</th>
-                        <th class="text-center" style="width: 130px;">Status</th>
-                        <th class="text-center" style="width: 80px;">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr *ngFor="let row of admissionKitRows; let idx = index" [class.existing-row]="row.isExistingIssue">
-                        <td>
-                          <div class="item-name-cell">
-                            <span class="item-main-title">{{ row.itemName }}</span>
-                            <span class="code-pill">{{ row.itemCode }}</span>
-                          </div>
-                        </td>
-                        <td class="text-center">
-                          <span *ngIf="row.isExistingIssue" class="qty-badge font-bold">{{ row.quantity }}</span>
-                          <input *ngIf="!row.isExistingIssue" type="number" class="kit-qty-input" [(ngModel)]="row.quantity" [ngModelOptions]="{standalone: true}" (input)="recalculateKitTotal()" min="1" [max]="row.maxStock" />
-                        </td>
-                        <td class="text-right">
-                          <span *ngIf="row.isExistingIssue" class="price-val">₹{{ row.unitPrice | number:'1.2-2' }}</span>
-                          <input *ngIf="!row.isExistingIssue" type="number" class="kit-price-input" [(ngModel)]="row.unitPrice" [ngModelOptions]="{standalone: true}" (input)="recalculateKitTotal()" min="0" />
-                        </td>
-                        <td class="text-right row-total-val font-bold text-primary">₹{{ (row.quantity * row.unitPrice) | number:'1.2-2' }}</td>
-                        <td class="text-center">
-                          <span *ngIf="row.isExistingIssue" class="badge-issued-item">
-                            <mat-icon class="badge-mini-icon">check_circle</mat-icon> Distributed
-                          </span>
-                          <span *ngIf="!row.isExistingIssue" class="badge-new-item">
-                            <mat-icon class="badge-mini-icon">add_circle</mat-icon> New Line
-                          </span>
-                        </td>
-                        <td class="text-center">
-                          <button *ngIf="!row.isExistingIssue" mat-icon-button color="warn" type="button" (click)="removeKitItem(idx)" matTooltip="Remove Line">
-                            <mat-icon>delete</mat-icon>
-                          </button>
-                          <span *ngIf="row.isExistingIssue" class="check-icon-wrap" matTooltip="Already distributed to student">
-                            <mat-icon class="check-icon-dimmed">check_circle</mat-icon>
-                          </span>
-                        </td>
-                      </tr>
-                    </tbody>
-                    <tfoot>
-                      <tr>
-                        <td colspan="3" class="total-label">Total Kit Value:</td>
-                        <td class="total-val">₹{{ totalKitPayable | number:'1.2-2' }}</td>
-                        <td colspan="2"></td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-
-                <ng-template #noKitItemsSelected>
-                  <div class="empty-kit-banner">
-                    <mat-icon>info</mat-icon>
-                    <span *ngIf="isEditMode">No kit items found for this student.</span>
-                    <span *ngIf="!isEditMode">Select items from inventory above to build the student's admission kit. Stock will be auto-deducted upon saving admission.</span>
-                  </div>
-                </ng-template>
-              </div>
             </ng-container>
 
             <!-- Personal Information Section -->
@@ -1049,6 +939,9 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                     <span class="badge-pill library" *ngIf="s.isLibraryMember">
                       <mat-icon>local_library</mat-icon> Library Member
                     </span>
+                    <span class="badge-pill transport" *ngIf="s.isTransportStudent">
+                      <mat-icon>directions_bus</mat-icon> Transport
+                    </span>
                   </div>
                 </td>
               </ng-container>
@@ -1080,6 +973,10 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                     <div class="library-alloc" *ngIf="s.isLibraryMember">
                       <mat-icon class="icon-library">local_library</mat-icon>
                       <span>{{ s.libraryMembershipType || 'Standard Lending' }} (Limit: {{ s.maxLibraryBooks || 2 }}{{ s.monthlyLibraryFee > 0 ? ' • ₹' + s.monthlyLibraryFee + '/mo' : '' }})</span>
+                    </div>
+                    <div class="transport-alloc" *ngIf="s.isTransportStudent">
+                      <mat-icon class="icon-transport">directions_bus</mat-icon>
+                      <span>{{ s.transportRouteName || 'Transport' }}{{ s.transportStopName ? ' • ' + s.transportStopName : '' }}{{ s.monthlyTransportFare > 0 ? ' (₹' + s.monthlyTransportFare + '/mo)' : '' }}</span>
                     </div>
                     <div class="kit-alloc" *ngIf="s.hasAdmissionKit" [matTooltip]="'Admission Kit Issued' + (s.kitStatus ? ' (' + s.kitStatus + ')' : '')">
                       <mat-icon class="icon-kit">inventory_2</mat-icon>
@@ -1660,6 +1557,11 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
         background: #f0fdfa;
         color: #0f766e;
         border-left: 4px solid #14b8a6;
+      }
+      &.transport-sect {
+        background: #fff7ed;
+        color: #c2410c;
+        border-left: 4px solid #f97316;
       }
       &.compliance-sect {
         background: #eff6ff;
@@ -2444,6 +2346,11 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
         color: #0f766e;
         border: 1px solid #99f6e4;
       }
+      &.transport {
+        background: #fff7ed;
+        color: #c2410c;
+        border: 1px solid #fed7aa;
+      }
     }
 
     /* Academic Allocations */
@@ -2493,6 +2400,13 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
         gap: 4px;
         color: #0f766e;
         .icon-library { font-size: 14px; width: 14px; height: 14px; color: #14b8a6; }
+      }
+      .transport-alloc {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        color: #c2410c;
+        .icon-transport { font-size: 14px; width: 14px; height: 14px; color: #f97316; }
       }
       .kit-alloc {
         display: inline-flex;
@@ -3148,6 +3062,11 @@ export class StudentsComponent implements OnInit, OnDestroy {
   /** Library Membership Support */
   libraryPlans: LibraryMembershipPlanDto[] = [];
 
+  /** Transport Module Support */
+  transportRoutes: TransportRouteDto[] = [];
+  transportStops: TransportRouteStopDto[] = [];
+  selectedTransportFare: number | null = null;
+
   /** Inventory Admission Kit Support */
   availableInventoryItems: InventoryItem[] = [];
   selectedKitItemId: string = '';
@@ -3266,6 +3185,7 @@ export class StudentsComponent implements OnInit, OnDestroy {
     private schoolService: SchoolService,
     private hostelService: HostelService,
     private libraryService: LibraryService,
+    private transportService: TransportService,
     private confirmDialog: ConfirmDialogService,
     private dialog: MatDialog,
     private fb: FormBuilder,
@@ -3296,6 +3216,11 @@ export class StudentsComponent implements OnInit, OnDestroy {
       libraryMembershipType: ['Standard Book Lending'],
       maxLibraryBooks: [2],
       monthlyLibraryFee: [0],
+      isTransportStudent: [false],
+      transportRouteId: [''],
+      transportRouteStopId: [''],
+      transportPickupDropType: ['Both'],
+      monthlyTransportFare: [0],
       isIssueAdmissionKit: [false],
       kitPaymentStatus: ['AddedToFeeBill'],
       kitPaymentMode: ['Cash'],
@@ -3355,7 +3280,8 @@ export class StudentsComponent implements OnInit, OnDestroy {
       emergencyContactName: [''],
       emergencyContactPhone: [''],
       previousSchoolName: [''],
-      previousBoard: ['']
+      previousBoard: [''],
+      coachingRollNumber: ['']
     }, {
       validators: [
         (group: AbstractControl): ValidationErrors | null => {
@@ -3416,6 +3342,9 @@ export class StudentsComponent implements OnInit, OnDestroy {
     }
     if (this.authService.hasLibraryModule()) {
       this.loadLibraryPlans();
+    }
+    if (this.authService.hasTransportModule()) {
+      this.transportService.getRoutes(true).subscribe(r => this.transportRoutes = r || []);
     }
 
     if (!this.authService.hasCoachingModule() && this.authService.hasSchoolModule()) {
@@ -3633,6 +3562,66 @@ export class StudentsComponent implements OnInit, OnDestroy {
     const year = new Date().getFullYear();
     const rand = Math.floor(1000 + Math.random() * 9000);
     this.studentForm.patchValue({ libraryCardNumber: `LIB-${year}-${rand}` });
+  }
+
+  // ── Transport Module Helpers ─────────────────────────────
+  onTransportCheckChanged(): void {
+    const isTransport = this.studentForm.get('isTransportStudent')?.value;
+    if (isTransport) {
+      if (this.transportRoutes.length === 0) {
+        this.transportService.getRoutes(true).subscribe(r => {
+          this.transportRoutes = r || [];
+          // Auto-select first route if only one
+          if (this.transportRoutes.length === 1) {
+            const firstRoute = this.transportRoutes[0];
+            this.studentForm.patchValue({ transportRouteId: firstRoute.id });
+            this.onTransportRouteChange(firstRoute.id);
+          }
+        });
+      }
+    } else {
+      this.transportStops = [];
+      this.selectedTransportFare = null;
+      this.studentForm.patchValue({
+        transportRouteId: '',
+        transportRouteStopId: '',
+        transportPickupDropType: 'Both',
+        monthlyTransportFare: 0
+      });
+    }
+  }
+
+  onTransportRouteChange(routeId: string): void {
+    if (!routeId) {
+      this.transportStops = [];
+      this.selectedTransportFare = null;
+      this.studentForm.patchValue({ transportRouteStopId: '', monthlyTransportFare: 0 });
+      return;
+    }
+    // Use stops from the already-loaded route (if includeStops=true was used)
+    const route = this.transportRoutes.find(r => r.id === routeId);
+    if (route?.stops && route.stops.length > 0) {
+      this.transportStops = route.stops.filter(s => s.isActive);
+      this.studentForm.patchValue({ transportRouteStopId: '' });
+      this.selectedTransportFare = null;
+    } else {
+      // Fallback: load stops from API
+      this.transportService.getStops(routeId).subscribe(stops => {
+        this.transportStops = (stops || []).filter(s => s.isActive);
+        this.studentForm.patchValue({ transportRouteStopId: '' });
+        this.selectedTransportFare = null;
+      });
+    }
+  }
+
+  onTransportStopChange(stopId: string): void {
+    const stop = this.transportStops.find(s => s.id === stopId);
+    if (stop) {
+      this.selectedTransportFare = stop.monthlyFare;
+      this.studentForm.patchValue({ monthlyTransportFare: stop.monthlyFare });
+    } else {
+      this.selectedTransportFare = null;
+    }
   }
 
   // ── Inventory Admission Kit Helpers ──────────────────────
@@ -4331,6 +4320,12 @@ export class StudentsComponent implements OnInit, OnDestroy {
       this.admissionKitRows = [];
       this.selectedKitItemId = '';
       this.totalKitPayable = 0;
+      this.transportRoutes = [];
+      this.transportStops = [];
+      this.selectedTransportFare = null;
+      if (this.authService.hasTransportModule()) {
+        this.transportService.getRoutes(true).subscribe(r => this.transportRoutes = r || []);
+      }
       this.studentForm.reset({
         isSchoolStudent: initSchool,
         isCoachingStudent: initCoaching,
@@ -4342,6 +4337,11 @@ export class StudentsComponent implements OnInit, OnDestroy {
         libraryMembershipType: 'Standard Book Lending',
         maxLibraryBooks: 2,
         monthlyLibraryFee: 0,
+        isTransportStudent: false,
+        transportRouteId: '',
+        transportRouteStopId: '',
+        transportPickupDropType: 'Both',
+        monthlyTransportFare: 0,
         isIssueAdmissionKit: false,
         kitPaymentStatus: 'AddedToFeeBill',
         kitPaymentMode: 'Cash',
@@ -4445,6 +4445,11 @@ export class StudentsComponent implements OnInit, OnDestroy {
       libraryMembershipType: student.libraryMembershipType || 'Standard Book Lending',
       maxLibraryBooks: student.maxLibraryBooks ?? 2,
       monthlyLibraryFee: student.monthlyLibraryFee ?? 0,
+      isTransportStudent: !!student.isTransportStudent,
+      transportRouteId: student.transportRouteId || '',
+      transportRouteStopId: student.transportRouteStopId || '',
+      transportPickupDropType: student.transportPickupDropType || 'Both',
+      monthlyTransportFare: student.monthlyTransportFare ?? 0,
       classId: student.classId || (student.batchId ? this.getBatchClassId(student.batchId) : '') || '',
       sectionId: student.sectionId || '',
       admissionNumber: student.admissionNumber || '',
@@ -4527,6 +4532,34 @@ export class StudentsComponent implements OnInit, OnDestroy {
       this.studentForm.patchValue({ hostelId: '', hostelBedId: '' });
       this.availableBedsList = [];
       this.selectedBedRent = null;
+    }
+
+    // Transport: bind route stops when editing
+    if (student.isTransportStudent && student.transportRouteId) {
+      const bindTransportStops = () => {
+        const route = this.transportRoutes.find(r => r.id === student.transportRouteId);
+        if (route?.stops && route.stops.length > 0) {
+          this.transportStops = route.stops.filter(s => s.isActive);
+        } else {
+          this.transportService.getStops(student.transportRouteId).subscribe(stops => {
+            this.transportStops = (stops || []).filter(s => s.isActive);
+          });
+        }
+        const stop = this.transportStops.find(s => s.id === student.transportRouteStopId);
+        this.selectedTransportFare = stop ? stop.monthlyFare : (student.monthlyTransportFare ?? null);
+      };
+
+      if (this.transportRoutes.length === 0) {
+        this.transportService.getRoutes(true).subscribe(r => {
+          this.transportRoutes = r || [];
+          bindTransportStops();
+        });
+      } else {
+        bindTransportStops();
+      }
+    } else {
+      this.transportStops = [];
+      this.selectedTransportFare = null;
     }
   }
 
@@ -4816,6 +4849,11 @@ export class StudentsComponent implements OnInit, OnDestroy {
       libraryMembershipType: formVal.isLibraryMember ? (formVal.libraryMembershipType || 'Standard Book Lending') : null,
       maxLibraryBooks: formVal.isLibraryMember ? (formVal.maxLibraryBooks || 2) : 2,
       monthlyLibraryFee: formVal.isLibraryMember ? (formVal.monthlyLibraryFee || 0) : 0,
+      isTransportStudent: !!formVal.isTransportStudent,
+      transportRouteId: formVal.isTransportStudent && formVal.transportRouteId ? formVal.transportRouteId : null,
+      transportRouteStopId: formVal.isTransportStudent && formVal.transportRouteStopId ? formVal.transportRouteStopId : null,
+      transportPickupDropType: formVal.isTransportStudent ? (formVal.transportPickupDropType || 'Both') : null,
+      monthlyTransportFare: formVal.isTransportStudent ? (formVal.monthlyTransportFare || 0) : 0,
       isIssueAdmissionKit: !!formVal.isIssueAdmissionKit,
       kitPaymentStatus: formVal.isIssueAdmissionKit ? formVal.kitPaymentStatus : null,
       kitPaymentMode: formVal.isIssueAdmissionKit ? formVal.kitPaymentMode : null,

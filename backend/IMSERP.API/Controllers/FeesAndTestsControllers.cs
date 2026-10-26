@@ -435,39 +435,78 @@ public class FeesController : ControllerBase
             .ToListAsync();
 
         var monthsList = new List<FeeCardMonthEntryDto>();
-        decimal monthlyFeeRate = 0m;
-        if (student.IsCoachingStudent && student.BatchId.HasValue)
+        decimal schoolMonthlyRate = 0m;
+        decimal coachingMonthlyRate = 0m;
+        decimal transportMonthlyRate = 0m;
+        decimal hostelMonthlyRate = 0m;
+        decimal libraryMonthlyRate = 0m;
+
+        if (student.IsSchoolStudent && student.ClassId.HasValue)
         {
-            monthlyFeeRate = student.Batch?.StandardMonthlyFee ?? 0m;
-            if (monthlyFeeRate == 0m)
-            {
-                var batchFee = await _dbContext.ClassFeeStructures
-                    .AsNoTracking()
-                    .Include(c => c.FeeHead)
-                    .Where(c => c.BatchId == student.BatchId.Value && c.IsActive)
-                    .Where(c => c.FeeHead != null && 
-                                c.FeeHead.Frequency != "OneTime" && 
-                                c.FeeHead.Frequency != "Annual" && 
-                                c.FeeHead.Category != "OneTime" &&
-                                (c.FeeHead.Frequency == "Monthly" || c.ApplicableMonth == null))
-                    .SumAsync(c => c.Amount);
-                if (batchFee > 0) monthlyFeeRate = batchFee;
-            }
-        }
-        else if (student.ClassId.HasValue)
-        {
-            var classFee = await _dbContext.ClassFeeStructures
+            schoolMonthlyRate = await _dbContext.ClassFeeStructures
                 .AsNoTracking()
                 .Include(c => c.FeeHead)
                 .Where(c => c.ClassId == student.ClassId.Value && c.IsActive)
                 .Where(c => c.FeeHead != null && 
-                            c.FeeHead.Frequency != "OneTime" && 
-                            c.FeeHead.Frequency != "Annual" && 
-                            c.FeeHead.Category != "OneTime" &&
-                            (c.FeeHead.Frequency == "Monthly" || c.ApplicableMonth == null))
+                            c.FeeHead.Frequency == "Monthly" && 
+                            c.FeeHead.Category != "OneTime")
                 .SumAsync(c => c.Amount);
-            if (classFee > 0) monthlyFeeRate = classFee;
         }
+
+        if (student.IsCoachingStudent && student.BatchId.HasValue)
+        {
+            coachingMonthlyRate = student.Batch?.StandardMonthlyFee ?? 0m;
+            if (coachingMonthlyRate == 0m)
+            {
+                coachingMonthlyRate = await _dbContext.ClassFeeStructures
+                    .AsNoTracking()
+                    .Include(c => c.FeeHead)
+                    .Where(c => c.BatchId == student.BatchId.Value && c.IsActive)
+                    .Where(c => c.FeeHead != null && 
+                                c.FeeHead.Frequency == "Monthly" && 
+                                c.FeeHead.Category != "OneTime")
+                    .SumAsync(c => c.Amount);
+            }
+        }
+
+        if (student.IsTransportStudent)
+        {
+            var transAlloc = await _dbContext.TransportAllocations
+                .AsNoTracking()
+                .FirstOrDefaultAsync(t => t.StudentId == student.Id && t.Status == "Active");
+            if (transAlloc != null && !transAlloc.IsFreeAllocation && transAlloc.MonthlyFare > 0)
+            {
+                transportMonthlyRate = transAlloc.MonthlyFare;
+            }
+        }
+
+        if (student.IsHostelStudent)
+        {
+            var hostelAlloc = await _dbContext.HostelAllocations
+                .AsNoTracking()
+                .FirstOrDefaultAsync(a => a.StudentId == student.Id && a.Status == "Active");
+            if (hostelAlloc != null)
+            {
+                hostelMonthlyRate = hostelAlloc.MonthlyRent + (hostelAlloc.IsMessIncluded ? hostelAlloc.MonthlyMessFee : 0m);
+            }
+        }
+
+        if (student.IsLibraryMember && student.MonthlyLibraryFee > 0)
+        {
+            libraryMonthlyRate = student.MonthlyLibraryFee;
+        }
+
+        decimal monthlyFeeRate = schoolMonthlyRate + coachingMonthlyRate + transportMonthlyRate + hostelMonthlyRate + libraryMonthlyRate;
+
+        var monthlyItemsList = new List<string>();
+        if (schoolMonthlyRate > 0) monthlyItemsList.Add($"School Tuition Fee: ₹{schoolMonthlyRate:N0}");
+        if (coachingMonthlyRate > 0) monthlyItemsList.Add($"Coaching Fee: ₹{coachingMonthlyRate:N0}");
+        if (transportMonthlyRate > 0) monthlyItemsList.Add($"Transport Fee: ₹{transportMonthlyRate:N0}");
+        if (hostelMonthlyRate > 0) monthlyItemsList.Add($"Hostel / Accommodation Fee: ₹{hostelMonthlyRate:N0}");
+        if (libraryMonthlyRate > 0) monthlyItemsList.Add($"Library Fee: ₹{libraryMonthlyRate:N0}");
+        string? monthlyBreakdownNote = monthlyItemsList.Any()
+            ? string.Join("\n", monthlyItemsList.Select((item, idx) => $"{idx + 1}. {item}"))
+            : null;
 
         // Automated Sibling Discount & Concession Detection for Recurring Monthly Fees
         var sessionStart = new DateTime(startYear, 4, 1);
@@ -580,17 +619,42 @@ public class FeesController : ControllerBase
                     cycleMonths = 12;
             }
 
-            var otItems = inv.Items?.Where(it =>
-                it.Amount > 0 && (
-                    (it.FeeHead != null && (it.FeeHead.Frequency == "OneTime" || it.FeeHead.Category == "OneTime" || it.FeeHead.Category == "Admission" || it.FeeHead.Category == "Supplies")) ||
-                    (it.Description != null && (it.Description.Contains("OneTime", StringComparison.OrdinalIgnoreCase) || it.Description == "InventoryKit"))
-                )
-            ).ToList() ?? new List<FeeInvoiceItem>();
+            bool IsRecurringMonthlyHead(FeeInvoiceItem it)
+            {
+                if (it.FeeHead != null)
+                {
+                    if (it.FeeHead.Frequency == "Monthly" || it.FeeHead.Frequency == "Quarterly")
+                    {
+                        return it.FeeHead.Category != "OneTime" && it.FeeHead.Category != "Admission" && it.FeeHead.Category != "Supplies";
+                    }
+                    return false;
+                }
+                if (!string.IsNullOrEmpty(it.HeadName))
+                {
+                    var name = it.HeadName;
+                    if (name.Contains("Tuition", StringComparison.OrdinalIgnoreCase) ||
+                        name.Contains("Transport", StringComparison.OrdinalIgnoreCase) ||
+                        name.Contains("Hostel", StringComparison.OrdinalIgnoreCase) ||
+                        name.Contains("Mess", StringComparison.OrdinalIgnoreCase) ||
+                        name.Contains("Library", StringComparison.OrdinalIgnoreCase) ||
+                        name.Contains("Coaching Fee", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            var otItems = inv.Items?.Where(it => it.Amount > 0 && !IsRecurringMonthlyHead(it)).ToList() ?? new List<FeeInvoiceItem>();
 
             decimal totalOneTime = otItems.Sum(it => it.Amount);
-            string? oneTimeNote = otItems.Any()
-                ? string.Join(", ", otItems.Select(it => $"{it.HeadName}: ₹{it.Amount:N0}"))
-                : null;
+            string? oneTimeNote = inv.Items != null && inv.Items.Any()
+                ? string.Join("\n", inv.Items
+                    .Where(it => it.Amount > 0)
+                    .OrderByDescending(it => IsRecurringMonthlyHead(it))
+                    .ThenBy(it => it.HeadName)
+                    .Select((it, idx) => $"{idx + 1}. {it.HeadName}: ₹{it.Amount:N0}"))
+                : (otItems.Any() ? string.Join("\n", otItems.Select((it, idx) => $"{idx + 1}. {it.HeadName}: ₹{it.Amount:N0}")) : null);
 
             decimal invConcession = inv.Items?.Where(it => it.Amount < 0).Sum(it => -it.Amount) ?? 0m;
             decimal totalInvoicePayable = inv.TotalAmount;
@@ -719,8 +783,11 @@ public class FeesController : ControllerBase
                 decimal paid = allocations.Sum(a => a.Paid);
                 decimal balance = allocations.Sum(a => a.Balance);
                 decimal oneTimeCharges = allocations.Sum(a => a.OneTimeCharges);
-                string? oneTimeChargesNote = string.Join("; ", allocations.Where(a => !string.IsNullOrEmpty(a.OneTimeChargesNote)).Select(a => a.OneTimeChargesNote));
-                if (string.IsNullOrWhiteSpace(oneTimeChargesNote)) oneTimeChargesNote = null;
+                string? oneTimeChargesNote = string.Join("\n", allocations.Where(a => !string.IsNullOrEmpty(a.OneTimeChargesNote)).Select(a => a.OneTimeChargesNote));
+                if (string.IsNullOrWhiteSpace(oneTimeChargesNote))
+                {
+                    oneTimeChargesNote = monthlyBreakdownNote;
+                }
 
                 string status;
                 if (balance <= 0 && payable > 0) status = "Paid";
@@ -804,7 +871,9 @@ public class FeesController : ControllerBase
                     null,
                     null,
                     null,
-                    null
+                    null,
+                    0m,
+                    monthlyBreakdownNote
                 ));
             }
         }
@@ -2320,13 +2389,23 @@ public class FeesController : ControllerBase
 
                 if (isAnnual && alreadyBilledHeadIds.Contains(cfs.FeeHeadId)) continue;
 
-                if (cfs.ApplicableMonth == null || cfs.ApplicableMonth == studentStartMonth)
+                bool isMonthly = cfs.FeeHead != null && cfs.FeeHead.Frequency == "Monthly";
+                bool isTermWiseOrAdHoc = cfs.FeeHead != null && (cfs.FeeHead.Frequency == "TermWise" || cfs.FeeHead.Frequency == "AdHoc");
+
+                if (isMonthly || cfs.ApplicableMonth == studentStartMonth)
                 {
                     applicableSchoolHeads.Add(cfs);
                 }
                 else if (isOneTime || isAnnual)
                 {
                     if (isFirstSchoolInvoice && !alreadyBilledHeadIds.Contains(cfs.FeeHeadId) && !schoolBilledOneTime.Contains(cfs.FeeHeadId))
+                    {
+                        applicableSchoolHeads.Add(cfs);
+                    }
+                }
+                else if (isTermWiseOrAdHoc)
+                {
+                    if (cfs.ApplicableMonth == null && (isFirstSchoolInvoice || !alreadyBilledHeadIds.Contains(cfs.FeeHeadId)))
                     {
                         applicableSchoolHeads.Add(cfs);
                     }
@@ -2355,13 +2434,23 @@ public class FeesController : ControllerBase
 
                 if (isAnnual && alreadyBilledHeadIds.Contains(cfs.FeeHeadId)) continue;
 
-                if (cfs.ApplicableMonth == null || cfs.ApplicableMonth == studentStartMonth)
+                bool isCoachingMonthly = cfs.FeeHead != null && cfs.FeeHead.Frequency == "Monthly";
+                bool isCoachingTermOrAdHoc = cfs.FeeHead != null && (cfs.FeeHead.Frequency == "TermWise" || cfs.FeeHead.Frequency == "AdHoc");
+
+                if (isCoachingMonthly || cfs.ApplicableMonth == studentStartMonth)
                 {
                     applicableCoachingHeads.Add(cfs);
                 }
                 else if (isOneTime || isAnnual)
                 {
                     if (isFirstCoachingInvoice && !alreadyBilledHeadIds.Contains(cfs.FeeHeadId) && !coachingBilledOneTime.Contains(cfs.FeeHeadId))
+                    {
+                        applicableCoachingHeads.Add(cfs);
+                    }
+                }
+                else if (isCoachingTermOrAdHoc)
+                {
+                    if (cfs.ApplicableMonth == null && (isFirstCoachingInvoice || !alreadyBilledHeadIds.Contains(cfs.FeeHeadId)))
                     {
                         applicableCoachingHeads.Add(cfs);
                     }
@@ -2396,14 +2485,7 @@ public class FeesController : ControllerBase
                         continue;
                     }
 
-                    // Fail-Safe 2: Admission Kit / Supplies Safeguard (Pure DB Category check)
-                    bool isKitOrSuppliesHead = head.FeeHead != null && string.Equals(head.FeeHead.Category, "Supplies", StringComparison.OrdinalIgnoreCase);
-                    if (studentsWithKitSet.Contains(s.Id) && isKitOrSuppliesHead)
-                    {
-                        continue;
-                    }
-
-                    // Fail-Safe 3: Skip non-positive amounts (e.g. ₹0 fee heads) so no empty invoice items are generated
+                    // Fail-Safe 2: Skip non-positive amounts (e.g. ₹0 fee heads) so no empty invoice items are generated
                     if (head.Amount <= 0)
                     {
                         continue;

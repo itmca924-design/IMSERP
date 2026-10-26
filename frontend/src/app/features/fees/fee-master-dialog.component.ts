@@ -1989,7 +1989,7 @@ export class FeeMasterDialogComponent implements OnInit {
     for (const r of this.matrixRows) {
       if (!r.isActive) continue;
       const amt = Number(r.amount) || 0;
-      if (r.frequency === 'Monthly' || r.applicableMonth === null) {
+      if (r.frequency === 'Monthly') {
         monthly += amt;
       } else {
         annual += amt;

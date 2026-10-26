@@ -409,8 +409,7 @@ interface CalendarDay {
               </td>
               <td class="whatsapp-cell">
                 <a *ngIf="s.parentWhatsAppPhone" [href]="'https://wa.me/' + cleanPhone(s.parentWhatsAppPhone)" target="_blank" class="wa-link" matTooltip="Chat on WhatsApp">
-                  <img src="assets/images/whatsapp-icon.png" onerror="this.style.display='none'" class="wa-icon-img" alt="WA">
-                  <mat-icon *ngIf="!hasWaImg">chat</mat-icon>
+                  <mat-icon>chat</mat-icon>
                   <span>{{ s.parentWhatsAppPhone }}</span>
                 </a>
                 <span *ngIf="!s.parentWhatsAppPhone" class="text-muted">—</span>
@@ -2116,8 +2115,64 @@ interface CalendarDay {
       .roll-call-scope-bar { flex-direction: column; }
       .scope-pill-btn { max-width: 100%; }
       .reg-kpi-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+      .table-scroll-hint { display: inline-flex !important; }
     }
     @media (max-width: 768px) {
+      /* Period card — wrap on tablet */
+      .period-card {
+        flex-wrap: wrap !important;
+        min-height: auto !important;
+        gap: 12px;
+        padding: 12px 14px;
+      }
+      .period-student { min-width: 0; flex: 1 1 100%; }
+      .period-selectors { flex: 1 1 100%; }
+      .period-selectors mat-form-field { flex: 1; width: auto; min-width: 120px; }
+      /* Summary grid 4-col on tablet */
+      .summary-grid { grid-template-columns: repeat(4, 1fr) !important; gap: 10px !important; }
+      /* Calendar heading legend wraps */
+      .calendar-heading { flex-wrap: wrap; gap: 8px; }
+      .legend { flex-wrap: wrap; gap: 6px 12px; }
+      /* Save bar on tablet */
+      .save-bar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+        padding: 12px 14px;
+      }
+      .whatsapp-alert-toggle { width: 100%; }
+      .save-actions {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+        width: 100%;
+      }
+      .btn-save-batch { width: 100%; justify-content: center; }
+      .batch-locked-badge { justify-content: center; }
+      /* Matrix floating bar — stack on tablet */
+      .matrix-floating-bar {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 12px;
+        gap: 10px;
+      }
+      .mfb-left { justify-content: flex-start; }
+      .mfb-center {
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: flex-start;
+        gap: 6px;
+      }
+      .mfb-remarks-input { width: 100%; min-width: 0; box-sizing: border-box; }
+      .mfb-right {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 8px;
+      }
+      .mfb-save-btn { width: 100%; justify-content: center; }
+      /* Reg table scroll hint visible */
+      .table-scroll-hint { display: inline-flex !important; }
+
       .header-top-row {
         flex-direction: column;
         align-items: stretch;
@@ -2319,15 +2374,74 @@ interface CalendarDay {
       }
     }
     @media (max-width: 600px) {
-      .page-header, .selector-card, .period-card { align-items: stretch; flex-direction: column !important; flex-wrap: nowrap !important; }
+      .page-header, .selector-card { align-items: stretch; flex-direction: column !important; flex-wrap: nowrap !important; }
       .student-select { min-width: 0; width: 100%; }
       .period-student { flex-basis: auto; }
-      .calendar-grid { gap: 5px; }
-      .day-cell { min-height: 54px; }
+      .calendar-grid { gap: 4px; }
+      .day-cell { min-height: 54px; padding: 3px 1px; }
+      .day-cell .day-num { font-size: 0.8rem; }
+      .day-cell .day-name { font-size: 0.58rem; }
+      .day-cell .day-tag { font-size: 0.62rem; }
+      .day-times-wrap { display: none; } /* hide punch times on tiny screens */
       .record-row { grid-template-columns: 1fr 90px 40px 40px; }
       .remarks { display: none; }
       .save-bar { flex-direction: column; align-items: stretch; }
       .btn-save-batch { width: 100%; justify-content: center; }
+      /* Summary grid 2-col on mobile */
+      .summary-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
+      .reg-kpi-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
+      /* Period card fully stacked */
+      .period-card {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        flex-wrap: wrap !important;
+        min-height: auto !important;
+        gap: 10px;
+        padding: 12px;
+      }
+      .period-student { flex: 1 1 100%; min-width: 0; }
+      .period-selectors { flex: 1 1 100%; gap: 8px; }
+      .period-selectors mat-form-field { flex: 1; width: auto; }
+      /* Calendar heading */
+      .calendar-heading { flex-direction: column; align-items: flex-start; gap: 8px; }
+      .legend { gap: 6px 10px; flex-wrap: wrap; }
+      /* Roll call table compacted */
+      .roll-call-table td, .roll-call-table th { padding: 8px 8px; }
+      .roll-call-table th:first-child, .roll-call-table td:first-child { padding-left: 10px !important; }
+      .roll-call-table th:last-child, .roll-call-table td:last-child { padding-right: 10px !important; }
+      /* Matrix floating bar fully stacked */
+      .matrix-floating-bar { padding: 10px; }
+      .mfb-pill { padding: 4px 8px; font-size: 0.7rem; }
+      /* Attendance table scroll hint */
+      .table-scroll-hint { display: inline-flex !important; }
+      /* Reg controls */
+      .reg-controls-row { flex-direction: column; align-items: stretch; gap: 10px; }
+      .reg-search-field { width: 100% !important; }
+      /* Teacher banner */
+      .teacher-approval-banner { flex-wrap: wrap; gap: 10px; }
+    }
+    @media (max-width: 480px) {
+      .page-title { font-size: 1.1rem; }
+      .summary-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 7px !important; }
+      .summary-card { min-height: 68px; padding: 8px 6px; }
+      .summary-card strong { font-size: 1.05rem; }
+      .summary-card small { font-size: 0.62rem; }
+      /* Day-cell on very small phones */
+      .calendar-grid { grid-template-columns: repeat(7, 1fr); gap: 3px; }
+      .day-cell { min-height: 46px; border-radius: 5px; }
+      .day-cell .day-num { font-size: 0.74rem; }
+      .day-cell .day-name { font-size: 0.52rem; }
+      .day-cell .day-tag { display: none; }
+      /* Status pills in roll-call table go icon-only on tiny screens */
+      .status-pill .label { display: none; }
+      .status-pill { padding: 6px 10px; }
+      /* Reg KPI 2-col */
+      .reg-kpi-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 6px !important; }
+      /* Floating bar pills */
+      .mfb-time-wrap { flex: 1; }
+      /* View tabs text size */
+      .tab-btn .tab-text strong { font-size: 0.82rem; }
+      .tab-btn .tab-text small { font-size: 0.68rem; }
     }
   `]
 })

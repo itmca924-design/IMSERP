@@ -525,7 +525,11 @@ public record StudentDto(
     string? ParentUsername = null,
     bool HasParentAccount = false,
     bool HasAdmissionKit = false,
-    string? KitStatus = null
+    string? KitStatus = null,
+    // Additional Transport Details
+    Guid? TransportRouteId = null,
+    Guid? TransportRouteStopId = null,
+    string? TransportPickupDropType = null
 );
 
 public record StudentLeavingClearanceDto(
@@ -614,6 +618,10 @@ public record CreateStudentDto(
     decimal MonthlyLibraryFee = 0,
     bool IsTransportStudent = false,
     Guid? TransportAllocationId = null,
+    Guid? TransportRouteId = null,
+    Guid? TransportRouteStopId = null,
+    string? TransportPickupDropType = null,
+    decimal MonthlyTransportFare = 0,
     // Compliance & Standard Identifiers
     string? AadhaarNumber = null,
     string? PenNumber = null,

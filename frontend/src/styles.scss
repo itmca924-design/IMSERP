@@ -350,6 +350,10 @@ body {
   overflow: visible !important;
 }
 
+/* Angular Material MDC tooltip multiline support */
+/* matTooltipClass applies on .mat-mdc-tooltip wrapper, surface is child */
+.mat-mdc-tooltip.multiline-tooltip .mdc-tooltip__surface,
+.mat-mdc-tooltip.multiline-tooltip .mdc-tooltip__surface-animation,
 .multiline-tooltip .mdc-tooltip__surface,
 .mdc-tooltip__surface.multiline-tooltip,
 .mat-mdc-tooltip-surface.multiline-tooltip,
@@ -359,8 +363,9 @@ body {
   border-radius: 8px !important;
   padding: 14px 18px 16px 18px !important;
   font-size: 0.82rem !important;
-  line-height: 1.55 !important;
+  line-height: 1.65 !important;
   white-space: pre-line !important;
+  text-align: left !important;
   min-width: 320px !important;
   max-width: 480px !important;
   min-height: auto !important;
@@ -370,6 +375,30 @@ body {
   box-sizing: border-box !important;
   box-shadow: 0 12px 28px -4px rgba(0, 0, 0, 0.45), 0 4px 12px -2px rgba(0, 0, 0, 0.3) !important;
   border: 1px solid rgba(255, 255, 255, 0.15) !important;
+}
+
+/* Also override the tooltip text wrapper */
+.mat-mdc-tooltip.multiline-tooltip {
+  white-space: pre-line !important;
+  max-width: 480px !important;
+}
+.mat-mdc-tooltip.multiline-tooltip .mdc-tooltip__title,
+.mat-mdc-tooltip.multiline-tooltip .mdc-tooltip__content {
+  white-space: pre-line !important;
+}
+
+/* Override CDK overlay panel for multiline tooltips */
+.cdk-overlay-pane.mat-mdc-tooltip-panel.multiline-tooltip {
+  max-width: 480px !important;
+}
+.mat-mdc-tooltip-panel.multiline-tooltip .mat-mdc-tooltip {
+  white-space: pre-line !important;
+  max-width: 480px !important;
+}
+.mat-mdc-tooltip-panel.multiline-tooltip .mdc-tooltip__surface {
+  white-space: pre-line !important;
+  max-width: 480px !important;
+  text-align: left !important;
 }
 
 // Account Header Dropdown Menu Styling

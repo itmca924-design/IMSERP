@@ -135,7 +135,7 @@ export interface FeeReceiptDialogData {
             </div>
             <div class="prof-row fee-month-row" *ngIf="feeMonthDisplay">
               <span class="k">Fee Month (शुल्क माह):</span>
-              <span class="v fee-month-badge">
+              <span class="v fee-month-badge" [title]="feeMonthTooltip">
                 <strong>{{ feeMonthDisplay }}</strong>
               </span>
             </div>
@@ -795,28 +795,42 @@ export interface FeeReceiptDialogData {
 
         .prof-row {
           display: flex;
+          align-items: center;
           font-size: 0.86rem;
-          .k { width: 165px; white-space: nowrap; color: #475569; font-weight: 600; flex-shrink: 0; }
-          .v { color: #0f172a; flex: 1; }
+          .k { width: 155px; white-space: nowrap; color: #475569; font-weight: 600; flex-shrink: 0; }
+          .v { color: #0f172a; flex: 1; min-width: 0; }
           .student-highlight { font-weight: 800; color: #15803d; font-size: 0.95rem; }
+          &.fee-month-row {
+            white-space: nowrap;
+            align-items: center;
+          }
           .fee-month-badge {
             display: inline-flex;
             align-items: center;
-            gap: 5px;
+            gap: 4px;
             background: #eff6ff;
             color: #1e40af;
             border: 1px solid #bfdbfe;
-            padding: 2px 9px;
+            padding: 1px 8px;
             border-radius: 4px;
-            font-weight: 800;
-            font-size: 0.85rem;
+            font-weight: 600;
+            font-size: 0.74rem;
+            line-height: 1.35;
             width: fit-content;
-            box-shadow: 0 1px 2px rgba(37, 99, 235, 0.08);
+            max-width: 100%;
+            white-space: nowrap;
+            box-shadow: 0 1px 2px rgba(37, 99, 235, 0.06);
+
+            strong {
+              font-weight: 600;
+              font-size: 0.74rem;
+              white-space: nowrap;
+            }
 
             mat-icon.pill-icon {
-              font-size: 15px;
-              width: 15px;
-              height: 15px;
+              font-size: 13px;
+              width: 13px;
+              height: 13px;
               color: #2563eb;
             }
           }
@@ -1487,59 +1501,30 @@ export class FeeReceiptDialogComponent implements OnInit {
     return 'Main Branch';
   }
 
+  get feeMonthTooltip(): string {
+    const r = this.data?.receipt;
+    if (!r) return '';
+    return (r as any).feePeriod || (r as any).feeMonth || this.feeMonthDisplay;
+  }
+
   get feeMonthDisplay(): string {
     const r = this.data?.receipt;
     if (!r) return '';
-    if ((r as any).feePeriod && (r as any).feePeriod.trim()) return (r as any).feePeriod.trim();
-    if ((r as any).feeMonth && (r as any).feeMonth.trim()) return (r as any).feeMonth.trim();
+    let raw = '';
+    if ((r as any).feePeriod && (r as any).feePeriod.trim()) {
+      raw = (r as any).feePeriod.trim();
+    } else if ((r as any).feeMonth && (r as any).feeMonth.trim()) {
+      raw = (r as any).feeMonth.trim();
+    } else {
+      const periodsFound: string[] = [];
+      const monthRegex = /\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})\b/gi;
 
-    const periodsFound: string[] = [];
-    const monthRegex = /\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})\b/gi;
-
-    // 1. Extract from line items (subTitle and particulars)
-    if (r.items && r.items.length > 0) {
-      for (const item of r.items) {
-        const textToSearch = `${item.subTitle || ''} ${item.particulars || ''}`;
-        let match: RegExpExecArray | null;
-        while ((match = monthRegex.exec(textToSearch)) !== null) {
-          const cap = match[1].charAt(0).toUpperCase() + match[1].slice(1).toLowerCase() + ' ' + match[2];
-          if (!periodsFound.includes(cap)) {
-            periodsFound.push(cap);
-          }
-        }
-      }
-    }
-
-    // 2. Extract from remarks
-    if (periodsFound.length === 0 && r.remarks) {
-      let match: RegExpExecArray | null;
-      while ((match = monthRegex.exec(r.remarks)) !== null) {
-        const cap = match[1].charAt(0).toUpperCase() + match[1].slice(1).toLowerCase() + ' ' + match[2];
-        if (!periodsFound.includes(cap)) {
-          periodsFound.push(cap);
-        }
-      }
-    }
-
-    // 3. Extract from invoice number (e.g. INV-202611-825 -> November 2026)
-    if (periodsFound.length === 0 && r.invoiceNumber) {
-      const invMatch = r.invoiceNumber.match(/INV-(\d{4})(\d{2})-/i);
-      if (invMatch) {
-        const year = parseInt(invMatch[1], 10);
-        const monthIdx = parseInt(invMatch[2], 10) - 1;
-        const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-        if (monthIdx >= 0 && monthIdx < 12) {
-          periodsFound.push(`${months[monthIdx]} ${year}`);
-        }
-      }
-    }
-
-    // 4. Check pendingArrears if available
-    if (periodsFound.length === 0 && r.pendingArrears && r.pendingArrears.length > 0) {
-      for (const arr of r.pendingArrears) {
-        if (arr.period) {
+      // 1. Extract from line items (subTitle and particulars)
+      if (r.items && r.items.length > 0) {
+        for (const item of r.items) {
+          const textToSearch = `${item.subTitle || ''} ${item.particulars || ''}`;
           let match: RegExpExecArray | null;
-          while ((match = monthRegex.exec(arr.period)) !== null) {
+          while ((match = monthRegex.exec(textToSearch)) !== null) {
             const cap = match[1].charAt(0).toUpperCase() + match[1].slice(1).toLowerCase() + ' ' + match[2];
             if (!periodsFound.includes(cap)) {
               periodsFound.push(cap);
@@ -1547,22 +1532,116 @@ export class FeeReceiptDialogComponent implements OnInit {
           }
         }
       }
-    }
 
-    if (periodsFound.length > 0) {
-      return periodsFound.join(', ');
-    }
+      // 2. Extract from remarks
+      if (periodsFound.length === 0 && r.remarks) {
+        let match: RegExpExecArray | null;
+        while ((match = monthRegex.exec(r.remarks)) !== null) {
+          const cap = match[1].charAt(0).toUpperCase() + match[1].slice(1).toLowerCase() + ' ' + match[2];
+          if (!periodsFound.includes(cap)) {
+            periodsFound.push(cap);
+          }
+        }
+      }
 
-    // Fallback: Payment Date Month
-    if (r.paymentDate) {
-      const d = new Date(r.paymentDate);
-      if (!isNaN(d.getTime())) {
-        const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-        return `${months[d.getMonth()]} ${d.getFullYear()}`;
+      // 3. Extract from invoice number (e.g. INV-202611-825 -> November 2026)
+      if (periodsFound.length === 0 && r.invoiceNumber) {
+        const invMatch = r.invoiceNumber.match(/INV-(\d{4})(\d{2})-/i);
+        if (invMatch) {
+          const year = parseInt(invMatch[1], 10);
+          const monthIdx = parseInt(invMatch[2], 10) - 1;
+          const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+          if (monthIdx >= 0 && monthIdx < 12) {
+            periodsFound.push(`${months[monthIdx]} ${year}`);
+          }
+        }
+      }
+
+      // 4. Check pendingArrears if available
+      if (periodsFound.length === 0 && r.pendingArrears && r.pendingArrears.length > 0) {
+        for (const arr of r.pendingArrears) {
+          if (arr.period) {
+            let match: RegExpExecArray | null;
+            while ((match = monthRegex.exec(arr.period)) !== null) {
+              const cap = match[1].charAt(0).toUpperCase() + match[1].slice(1).toLowerCase() + ' ' + match[2];
+              if (!periodsFound.includes(cap)) {
+                periodsFound.push(cap);
+              }
+            }
+          }
+        }
+      }
+
+      if (periodsFound.length > 0) {
+        raw = periodsFound.join(', ');
+      } else if (r.paymentDate) {
+        const d = new Date(r.paymentDate);
+        if (!isNaN(d.getTime())) {
+          const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+          raw = `${months[d.getMonth()]} ${d.getFullYear()}`;
+        }
       }
     }
 
-    return '';
+    return this.formatCleanFeePeriod(raw);
+  }
+
+  formatCleanFeePeriod(raw: string): string {
+    if (!raw) return '';
+    // Strip redundant suffixes like " Fee (Monthly)", " Fee", " (Monthly)"
+    let text = raw.replace(/\s+Fee\s*\((Monthly|Quarterly|Annual|One-time)\)/gi, '')
+                  .replace(/\s+Fee\b/gi, '')
+                  .replace(/\s+\(Monthly\)/gi, '')
+                  .trim();
+
+    const monthRegex = /\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})\b/gi;
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    const shortMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    const matches: { month: string, year: number, monthIdx: number }[] = [];
+    let match: RegExpExecArray | null;
+    while ((match = monthRegex.exec(text)) !== null) {
+      const mName = match[1].charAt(0).toUpperCase() + match[1].slice(1).toLowerCase();
+      const yr = parseInt(match[2], 10);
+      const idx = monthNames.indexOf(mName);
+      if (idx !== -1 && !matches.some(x => x.monthIdx === idx && x.year === yr)) {
+        matches.push({ month: mName, year: yr, monthIdx: idx });
+      }
+    }
+
+    if (matches.length === 0) {
+      return text;
+    }
+    if (matches.length === 1) {
+      return `${matches[0].month} ${matches[0].year}`;
+    }
+    if (matches.length === 2) {
+      return `${shortMonths[matches[0].monthIdx]} ${matches[0].year} & ${shortMonths[matches[1].monthIdx]} ${matches[1].year}`;
+    }
+
+    // Sort chronologically
+    matches.sort((a, b) => (a.year * 12 + a.monthIdx) - (b.year * 12 + b.monthIdx));
+
+    // Check if consecutive
+    let isConsecutive = true;
+    for (let i = 1; i < matches.length; i++) {
+      if ((matches[i].year * 12 + matches[i].monthIdx) !== (matches[i - 1].year * 12 + matches[i - 1].monthIdx + 1)) {
+        isConsecutive = false;
+        break;
+      }
+    }
+
+    if (isConsecutive) {
+      const first = matches[0];
+      const last = matches[matches.length - 1];
+      if (first.year === last.year) {
+        return `${shortMonths[first.monthIdx]} – ${shortMonths[last.monthIdx]} ${first.year} (${matches.length} M)`;
+      } else {
+        return `${shortMonths[first.monthIdx]} ${first.year} – ${shortMonths[last.monthIdx]} ${last.year} (${matches.length} M)`;
+      }
+    } else {
+      return matches.map(m => `${shortMonths[m.monthIdx]} '${String(m.year).slice(-2)}`).join(', ');
+    }
   }
 
   getItemMonthTag(item: any): string {

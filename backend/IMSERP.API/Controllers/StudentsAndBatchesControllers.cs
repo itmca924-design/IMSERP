@@ -361,7 +361,18 @@ public class StudentsController : ControllerBase
             s.EmergencyContactPhone,
             s.PreviousSchoolName,
             s.PreviousBoard,
-            s.CoachingJoiningDate
+            s.CoachingJoiningDate,
+            null,
+            null,
+            false,
+            null,
+            null,
+            false,
+            false,
+            null,
+            s.TransportAllocation != null ? (Guid?)s.TransportAllocation.RouteId : null,
+            s.TransportAllocation != null ? (Guid?)s.TransportAllocation.RouteStopId : null,
+            s.TransportAllocation != null ? s.TransportAllocation.PickupDropType : null
         )).ToListAsync();
 
         if (list.Count > 0)
@@ -1878,6 +1889,10 @@ public class StudentsController : ControllerBase
             {
                 query = query.Where(s => s.IsLibraryMember);
             }
+            else if (stream.Equals("transport", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(s => s.IsTransportStudent);
+            }
         }
 
         if (!string.IsNullOrWhiteSpace(searchTerm))
@@ -1969,7 +1984,18 @@ public class StudentsController : ControllerBase
                 s.EmergencyContactPhone,
                 s.PreviousSchoolName,
                 s.PreviousBoard,
-                s.CoachingJoiningDate
+                s.CoachingJoiningDate,
+                null,
+                null,
+                false,
+                null,
+                null,
+                false,
+                false,
+                null,
+                s.TransportAllocation != null ? (Guid?)s.TransportAllocation.RouteId : null,
+                s.TransportAllocation != null ? (Guid?)s.TransportAllocation.RouteStopId : null,
+                s.TransportAllocation != null ? s.TransportAllocation.PickupDropType : null
             )).ToListAsync();
 
         if (items.Count > 0)
@@ -2120,6 +2146,7 @@ public class StudentsController : ControllerBase
                 LibraryMembershipType = dto.IsLibraryMember ? dto.LibraryMembershipType : null,
                 MaxLibraryBooks = dto.IsLibraryMember && dto.MaxLibraryBooks > 0 ? dto.MaxLibraryBooks : 2,
                 MonthlyLibraryFee = dto.IsLibraryMember ? dto.MonthlyLibraryFee : 0,
+                IsTransportStudent = dto.IsTransportStudent,
                 StudentName = dto.StudentName,
                 ParentName = dto.ParentName,
                 ParentWhatsAppPhone = NormalizePhoneWithPrefix(dto.ParentWhatsAppPhone),
@@ -2166,6 +2193,37 @@ public class StudentsController : ControllerBase
                         IsMessIncluded = true,
                         Status = "Active"
                     });
+                }
+            }
+
+            // Allocate transport if transport student
+            if (dto.IsTransportStudent && dto.TransportRouteId.HasValue && dto.TransportRouteStopId.HasValue)
+            {
+                var route = await _dbContext.TransportRoutes.FindAsync(dto.TransportRouteId.Value);
+                var stop = await _dbContext.TransportRouteStops.FindAsync(dto.TransportRouteStopId.Value);
+                if (route != null && stop != null)
+                {
+                    var allocation = new TransportAllocation
+                    {
+                        TenantId = _currentUser.TenantId,
+                        BranchId = targetBranchId,
+                        MemberType = "Student",
+                        StudentId = student.Id,
+                        RouteId = route.Id,
+                        RouteStopId = stop.Id,
+                        VehicleId = route.VehicleId,
+                        PickupDropType = !string.IsNullOrWhiteSpace(dto.TransportPickupDropType) ? dto.TransportPickupDropType : "Both",
+                        MonthlyFare = dto.MonthlyTransportFare > 0 ? dto.MonthlyTransportFare : stop.MonthlyFare,
+                        IsFreeAllocation = dto.MonthlyTransportFare == 0,
+                        EffectiveFrom = student.JoiningDate,
+                        Status = "Active",
+                        Remarks = "Allocated during student admission"
+                    };
+                    _dbContext.TransportAllocations.Add(allocation);
+                    await _dbContext.SaveChangesAsync();
+
+                    student.TransportAllocationId = allocation.Id;
+                    await _dbContext.SaveChangesAsync();
                 }
             }
 
@@ -2258,6 +2316,16 @@ public class StudentsController : ControllerBase
                 ? (await _dbContext.SchoolSections.AsNoTracking().FirstOrDefaultAsync(sec => sec.Id == student.SectionId))?.Name
                 : null;
 
+            TransportAllocation? transAlloc = null;
+            if (student.TransportAllocationId.HasValue)
+            {
+                transAlloc = await _dbContext.TransportAllocations.AsNoTracking()
+                    .Include(a => a.Route)
+                    .Include(a => a.Stop)
+                    .Include(a => a.Vehicle)
+                    .FirstOrDefaultAsync(a => a.Id == student.TransportAllocationId.Value);
+            }
+
             return Ok(new StudentDto(
                 student.Id,
                 student.BatchId,
@@ -2301,10 +2369,10 @@ public class StudentsController : ControllerBase
                 student.MonthlyLibraryFee,
                 student.IsTransportStudent,
                 student.TransportAllocationId,
-                null,
-                null,
-                null,
-                0,
+                transAlloc?.Route?.RouteName,
+                transAlloc?.Stop?.StopName,
+                transAlloc?.Vehicle?.VehicleNumber,
+                transAlloc?.MonthlyFare ?? 0,
                 null,
                 null,
                 null,
@@ -2317,7 +2385,18 @@ public class StudentsController : ControllerBase
                 student.EmergencyContactPhone,
                 student.PreviousSchoolName,
                 student.PreviousBoard,
-                student.CoachingJoiningDate
+                student.CoachingJoiningDate,
+                null,
+                null,
+                false,
+                null,
+                null,
+                false,
+                false,
+                null,
+                transAlloc?.RouteId,
+                transAlloc?.RouteStopId,
+                transAlloc?.PickupDropType
             ));
         });
     }
@@ -2423,6 +2502,71 @@ public class StudentsController : ControllerBase
 
             student.IsHostelStudent = dto.IsHostelStudent;
             student.HostelBedId = dto.IsHostelStudent ? dto.HostelBedId : null;
+
+            // Transport Allocation / Reallocation / Deallocation
+            if (student.IsTransportStudent != dto.IsTransportStudent ||
+                (dto.IsTransportStudent && (dto.TransportRouteId.HasValue || dto.TransportRouteStopId.HasValue)))
+            {
+                var activeAlloc = await _dbContext.TransportAllocations
+                    .FirstOrDefaultAsync(a => a.StudentId == student.Id && a.Status == "Active");
+
+                if (!dto.IsTransportStudent)
+                {
+                    if (activeAlloc != null)
+                    {
+                        activeAlloc.Status = "Discontinued";
+                        activeAlloc.EffectiveTo = DateTime.UtcNow;
+                    }
+                    student.IsTransportStudent = false;
+                    student.TransportAllocationId = null;
+                }
+                else if (dto.TransportRouteId.HasValue && dto.TransportRouteStopId.HasValue)
+                {
+                    var route = await _dbContext.TransportRoutes.FindAsync(dto.TransportRouteId.Value);
+                    var stop = await _dbContext.TransportRouteStops.FindAsync(dto.TransportRouteStopId.Value);
+                    if (route != null && stop != null)
+                    {
+                        if (activeAlloc != null)
+                        {
+                            activeAlloc.RouteId = route.Id;
+                            activeAlloc.RouteStopId = stop.Id;
+                            activeAlloc.VehicleId = route.VehicleId;
+                            activeAlloc.PickupDropType = !string.IsNullOrWhiteSpace(dto.TransportPickupDropType) ? dto.TransportPickupDropType : "Both";
+                            activeAlloc.MonthlyFare = dto.MonthlyTransportFare > 0 ? dto.MonthlyTransportFare : stop.MonthlyFare;
+                            activeAlloc.IsFreeAllocation = dto.MonthlyTransportFare == 0;
+                            student.TransportAllocationId = activeAlloc.Id;
+                        }
+                        else
+                        {
+                            var allocation = new TransportAllocation
+                            {
+                                TenantId = _currentUser.TenantId,
+                                BranchId = student.BranchId,
+                                MemberType = "Student",
+                                StudentId = student.Id,
+                                RouteId = route.Id,
+                                RouteStopId = stop.Id,
+                                VehicleId = route.VehicleId,
+                                PickupDropType = !string.IsNullOrWhiteSpace(dto.TransportPickupDropType) ? dto.TransportPickupDropType : "Both",
+                                MonthlyFare = dto.MonthlyTransportFare > 0 ? dto.MonthlyTransportFare : stop.MonthlyFare,
+                                IsFreeAllocation = dto.MonthlyTransportFare == 0,
+                                EffectiveFrom = student.JoiningDate,
+                                Status = "Active",
+                                Remarks = "Allocated during student update"
+                            };
+                            _dbContext.TransportAllocations.Add(allocation);
+                            await _dbContext.SaveChangesAsync();
+                            student.TransportAllocationId = allocation.Id;
+                        }
+                        student.IsTransportStudent = true;
+                    }
+                }
+                else
+                {
+                    student.IsTransportStudent = dto.IsTransportStudent;
+                }
+            }
+
             student.IsLibraryMember = dto.IsLibraryMember;
             student.LibraryCardNumber = dto.IsLibraryMember ? dto.LibraryCardNumber : null;
             student.LibraryMembershipType = dto.IsLibraryMember ? dto.LibraryMembershipType : null;
@@ -2555,6 +2699,16 @@ public class StudentsController : ControllerBase
                 }
             }
 
+            TransportAllocation? transAlloc = null;
+            if (student.TransportAllocationId.HasValue)
+            {
+                transAlloc = await _dbContext.TransportAllocations.AsNoTracking()
+                    .Include(a => a.Route)
+                    .Include(a => a.Stop)
+                    .Include(a => a.Vehicle)
+                    .FirstOrDefaultAsync(a => a.Id == student.TransportAllocationId.Value);
+            }
+
             return Ok(new StudentDto(
                 student.Id,
                 student.BatchId,
@@ -2598,10 +2752,10 @@ public class StudentsController : ControllerBase
                 student.MonthlyLibraryFee,
                 student.IsTransportStudent,
                 student.TransportAllocationId,
-                null,
-                null,
-                null,
-                0,
+                transAlloc?.Route?.RouteName,
+                transAlloc?.Stop?.StopName,
+                transAlloc?.Vehicle?.VehicleNumber,
+                transAlloc?.MonthlyFare ?? 0,
                 null,
                 null,
                 null,
@@ -2614,7 +2768,18 @@ public class StudentsController : ControllerBase
                 student.EmergencyContactPhone,
                 student.PreviousSchoolName,
                 student.PreviousBoard,
-                student.CoachingJoiningDate
+                student.CoachingJoiningDate,
+                null,
+                null,
+                false,
+                null,
+                null,
+                false,
+                false,
+                null,
+                transAlloc?.RouteId,
+                transAlloc?.RouteStopId,
+                transAlloc?.PickupDropType
             ));
         }
         catch (Exception ex)

@@ -349,7 +349,7 @@ import { environment } from '../../../environments/environment';
           <!-- SUMMARY KPI STRIP -->
           <div class="summary-kpi-strip">
             <div class="kpi-box">
-              <span class="kpi-label">Total Annual Fee</span>
+              <span class="kpi-label">{{ getSessionTotalLabel(currentCard) }}</span>
               <span class="kpi-value">₹{{ currentCard.totalAnnualFee | number:'1.2-2' }}</span>
             </div>
             <div class="kpi-box" *ngIf="currentCard.totalOneTimeFee && currentCard.totalOneTimeFee > 0">
@@ -403,19 +403,19 @@ import { environment } from '../../../environments/environment';
                       <mat-icon class="mini-tag-icon">autorenew</mat-icon>
                       <span>{{ m.billingCycleTag }}</span>
                     </div>
-                    <div *ngIf="m.oneTimeCharges && m.oneTimeCharges > 0" class="onetime-tag" [matTooltip]="m.oneTimeChargesNote || 'Includes One-Time Charges'">
+                    <div *ngIf="m.oneTimeCharges && m.oneTimeCharges > 0" class="onetime-tag">
                       <mat-icon class="mini-tag-icon">bookmark</mat-icon>
                       <span>{{ getOneTimeTagLabel(m) }}</span>
                     </div>
                   </td>
-                  <td class="td-amount">
+                  <td class="td-amount" [matTooltip]="getMonthTooltip(m)" [matTooltipDisabled]="!getMonthTooltip(m)" matTooltipClass="multiline-tooltip">
                     <ng-container *ngIf="m.status !== 'N/A'">
-                      <div *ngIf="m.concessionAmount > 0" class="concession-cell" [matTooltip]="'Gross: ₹' + (m.amountPayable | number:'1.2-2') + ' | Concession: -₹' + (m.concessionAmount | number:'1.2-2')">
+                      <div *ngIf="m.concessionAmount > 0" class="concession-cell">
                         <span class="net-amt">₹{{ m.netPayable | number:'1.2-2' }}</span>
                         <small class="concession-tag">-₹{{ m.concessionAmount | number:'1.0-0' }} Disc</small>
                       </div>
                       <span *ngIf="!m.concessionAmount || m.concessionAmount <= 0">₹{{ m.amountPayable | number:'1.2-2' }}</span>
-                      <div *ngIf="m.oneTimeCharges && m.oneTimeCharges > 0" class="breakdown-subtext" [matTooltip]="m.oneTimeChargesNote || 'Monthly + One-Time breakdown'">
+                      <div *ngIf="m.oneTimeCharges && m.oneTimeCharges > 0" class="breakdown-subtext">
                         <small class="sub-split">{{ getOneTimeSubtextLabel(m) }}</small>
                       </div>
                     </ng-container>
@@ -462,7 +462,7 @@ import { environment } from '../../../environments/environment';
               </tbody>
               <tfoot>
                 <tr class="tfoot-total-row">
-                  <td colspan="2" class="total-label">ANNUAL TOTAL:</td>
+                  <td colspan="2" class="total-label">{{ getSessionTotalLabel(currentCard) }}</td>
                   <td class="total-val">₹{{ currentCard.totalAnnualFee | number:'1.2-2' }}</td>
                   <td class="total-val text-green">₹{{ currentCard.totalPaid | number:'1.2-2' }}</td>
                   <td class="total-val" [class.text-red]="currentCard.totalBalanceDue > 0">
@@ -618,7 +618,7 @@ import { environment } from '../../../environments/environment';
               <!-- SUMMARY KPI STRIP -->
               <div class="summary-kpi-strip">
                 <div class="kpi-box">
-                  <span class="kpi-label">Total Annual Fee</span>
+                  <span class="kpi-label">{{ getSessionTotalLabel(card) }}</span>
                   <span class="kpi-value">₹{{ card.totalAnnualFee | number:'1.2-2' }}</span>
                 </div>
                 <div class="kpi-box" *ngIf="card.totalOneTimeFee && card.totalOneTimeFee > 0">
@@ -724,7 +724,7 @@ import { environment } from '../../../environments/environment';
                   </tbody>
                   <tfoot>
                     <tr class="tfoot-total-row">
-                      <td colspan="2" class="total-label">ANNUAL TOTAL:</td>
+                      <td colspan="2" class="total-label">{{ getSessionTotalLabel(card) }}</td>
                       <td class="total-val">₹{{ card.totalAnnualFee | number:'1.2-2' }}</td>
                       <td class="total-val text-green">₹{{ card.totalPaid | number:'1.2-2' }}</td>
                       <td class="total-val" [class.text-red]="card.totalBalanceDue > 0">
@@ -2815,6 +2815,46 @@ export class FeeCardComponent implements OnInit, AfterViewInit {
     }
   }
 
+  getSessionTotalLabel(card: StudentFeeCard | null): string {
+    if (!card || !card.months || card.months.length === 0) {
+      return 'SESSION TOTAL:';
+    }
+
+    const shortMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    // Parse monthName field (e.g. "August 2026") from each entry
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                        'July', 'August', 'September', 'October', 'November', 'December'];
+
+    const parsed: { monthIdx: number; year: number }[] = [];
+    for (const m of card.months) {
+      if (!m.monthName) continue;
+      const parts = m.monthName.trim().split(' ');
+      if (parts.length < 2) continue;
+      const mIdx = monthNames.indexOf(parts[0]);
+      const yr = parseInt(parts[parts.length - 1], 10);
+      if (mIdx !== -1 && !isNaN(yr)) {
+        parsed.push({ monthIdx: mIdx, year: yr });
+      }
+    }
+
+    if (parsed.length === 0) return 'SESSION TOTAL:';
+
+    // Sort chronologically
+    parsed.sort((a, b) => (a.year * 12 + a.monthIdx) - (b.year * 12 + b.monthIdx));
+
+    const first = parsed[0];
+    const last = parsed[parsed.length - 1];
+
+    const firstLabel = `${shortMonths[first.monthIdx]} '${String(first.year).slice(-2)}`;
+    const lastLabel = `${shortMonths[last.monthIdx]} '${String(last.year).slice(-2)}`;
+
+    if (first.monthIdx === last.monthIdx && first.year === last.year) {
+      return `SESSION TOTAL (${firstLabel}):`;
+    }
+    return `SESSION TOTAL (${firstLabel} – ${lastLabel}):`;
+  }
+
   focusSearchInput(): void {
     this.enforceDownwardsSelectPositions();
     setTimeout(() => {
@@ -3202,37 +3242,55 @@ export class FeeCardComponent implements OnInit, AfterViewInit {
     const note = (m.oneTimeChargesNote || '').toLowerCase();
 
     const hasReg = note.includes('reg') || note.includes('admission');
-    const hasKit = note.includes('kit') || note.includes('pen') || note.includes('book') || note.includes('stationery') || note.includes('uniform') || note.includes('dress');
+    const hasAnnualOrSupplies = note.includes('book') || note.includes('uniform') || note.includes('dress') || note.includes('annual') || note.includes('exam') || note.includes('material') || note.includes('supplies');
 
-    if (hasReg && hasKit) {
-      return `+₹${amount} Reg. + Kit`;
-    } else if (hasKit && !hasReg) {
-      return `+₹${amount} Kit / Supplies`;
+    if (hasReg && hasAnnualOrSupplies) {
+      return `+ ₹${amount.toLocaleString('en-IN')} Reg. + Annual/Extras`;
+    } else if (hasAnnualOrSupplies) {
+      return `+ ₹${amount.toLocaleString('en-IN')} Annual / Extras`;
     } else if (hasReg) {
-      return `+₹${amount} Reg. Fee`;
+      return `+ ₹${amount.toLocaleString('en-IN')} Reg. Fee`;
     } else {
-      return `+₹${amount} One-Time`;
+      return `+ ₹${amount.toLocaleString('en-IN')} Extras`;
     }
   }
 
   getOneTimeSubtextLabel(m: FeeCardMonthEntry): string {
     const recurring = Math.max(0, Math.round((m.amountPayable || 0) - (m.oneTimeCharges || 0)));
     const ot = Math.round(m.oneTimeCharges || 0);
-    const note = (m.oneTimeChargesNote || '').toLowerCase();
 
-    const hasReg = note.includes('reg') || note.includes('admission');
-    const hasKit = note.includes('kit') || note.includes('pen') || note.includes('book') || note.includes('stationery') || note.includes('uniform') || note.includes('dress');
+    return `Mo ₹${recurring.toLocaleString('en-IN')} + Extras ₹${ot.toLocaleString('en-IN')}`;
+  }
 
-    let otLabel = 'One-Time';
-    if (hasReg && hasKit) {
-      otLabel = 'One-Time';
-    } else if (hasKit && !hasReg) {
-      otLabel = 'Kit';
-    } else if (hasReg) {
-      otLabel = 'Reg';
+  getMonthTooltip(m: FeeCardMonthEntry): string {
+    if (!m || m.status === 'N/A') return '';
+    return this.formatTooltipNumbered(m.oneTimeChargesNote || m.remarks);
+  }
+
+  private parseRawNoteItems(rawNote: string): string[] {
+    let normalized = rawNote
+      .replace(/\\n/g, '\n')
+      .replace(/\r\n/g, '\n')
+      .replace(/\r/g, '\n');
+
+    let rawLines = normalized.split(/[\n;|]/).map(s => s.trim()).filter(s => s.length > 0);
+
+    if (rawLines.length === 1 && rawLines[0].includes(', ') && !rawLines[0].match(/^\d+\./)) {
+      rawLines = rawLines[0].split(/,\s*(?=[A-Za-zА-Яа-яऀ-ॿ₹])/).map(s => s.trim());
     }
 
-    return `Mo ₹${recurring} + ${otLabel} ₹${ot}`;
+    return rawLines
+      .map(s => s.replace(/^[•\-\*]\s*/, '').replace(/^\d+[\.\)]\s*/, '').trim())
+      .filter(s => s.length > 0);
+  }
+
+  formatTooltipNumbered(rawNote: string | null | undefined): string {
+    if (!rawNote) return '';
+
+    const items = this.parseRawNoteItems(rawNote);
+    return items
+      .map((item, idx) => `${idx + 1}. ${item}`)
+      .join('\n');
   }
 
   formatStatus(status: string): string {

@@ -193,14 +193,18 @@ export interface AdvanceMonthOption {
                     </strong>
                   </td>
                   <td class="text-right pay-col">
-                    <div class="paying-input-wrap">
+                    <div class="paying-input-wrap" [class.wrap-disabled]="!row.selected || row.dueAmount <= 0">
                       <span class="curr-symbol">₹</span>
                       <input
+                        #payInput
                         type="number"
                         class="paying-input"
                         [disabled]="!row.selected || row.dueAmount <= 0"
-                        [value]="formatTwoDecimals(row.payingAmount)"
-                        (input)="onItemPayingAmountChange(row, +$any($event.target).value)"
+                        [(ngModel)]="row.payingAmount"
+                        [ngModelOptions]="{standalone: true}"
+                        (focus)="onItemPayingInputFocus($event)"
+                        (input)="onItemPayingAmountInput(row, payInput)"
+                        (blur)="onItemPayingAmountBlur(row, payInput)"
                         [max]="row.dueAmount"
                         step="0.01"
                         min="0" />
@@ -306,20 +310,21 @@ export interface AdvanceMonthOption {
 
         <!-- Payment Details Form Grid -->
         <div class="form-grid">
-          <mat-form-field appearance="outline" class="full-width" [class.amount-readonly-field]="itemRows.length > 0">
+          <mat-form-field appearance="outline" class="full-width amount-collect-field">
             <mat-label>Total Amount to Collect (₹)</mat-label>
             <input
               matInput
               type="number"
               formControlName="amountPaid"
-              placeholder="e.g. 4500"
-              [readonly]="itemRows.length > 0"
-              [style.cursor]="itemRows.length > 0 ? 'not-allowed' : 'text'" />
-            <mat-icon matSuffix [color]="itemRows.length > 0 ? '' : 'primary'">
-              {{ itemRows.length > 0 ? 'lock' : 'currency_rupee' }}
-            </mat-icon>
+              placeholder="e.g. 1000"
+              (focus)="onTotalAmountFocus($event)"
+              (input)="onTotalAmountInputChange($event)"
+              (blur)="onTotalAmountBlur()"
+              step="any"
+              min="1" />
+            <mat-icon matSuffix color="primary">currency_rupee</mat-icon>
             <mat-hint *ngIf="itemRows.length > 0">
-              🔒 Auto-computed from selected fee heads — select/deselect rows above to adjust
+              ⚡ <strong>Quick Lump-Sum:</strong> Type any amount (e.g. ₹1,000) to auto-distribute across fee heads by priority
             </mat-hint>
             <mat-hint *ngIf="itemRows.length === 0">Enter the total amount to collect</mat-hint>
             <mat-error *ngIf="feeForm.get('amountPaid')?.hasError('required')">Amount is required</mat-error>
@@ -841,8 +846,15 @@ export interface AdvanceMonthOption {
             border-radius: 6px;
             padding: 2px 6px;
             width: 120px;
+            transition: all 0.15s ease;
 
-            &:focus-within {
+            &.wrap-disabled {
+              background: #f8fafc;
+              border-color: #e2e8f0;
+              cursor: not-allowed;
+            }
+
+            &:focus-within:not(.wrap-disabled) {
               border-color: #2563eb;
               box-shadow: 0 0 0 2px rgba(37,99,235,0.15);
             }
@@ -862,9 +874,17 @@ export interface AdvanceMonthOption {
               font-size: 0.88rem;
               color: #0f172a;
               background: transparent;
+              -moz-appearance: textfield;
+
+              &::-webkit-inner-spin-button,
+              &::-webkit-outer-spin-button {
+                -webkit-appearance: none;
+                margin: 0;
+              }
 
               &:disabled {
                 color: #94a3b8;
+                cursor: not-allowed;
               }
             }
           }
@@ -1209,18 +1229,21 @@ export interface AdvanceMonthOption {
         min-width: 200px;
       }
 
-      .amount-readonly-field {
+      .amount-collect-field {
         .mat-mdc-text-field-wrapper {
-          background: #f8fafc !important;
+          background: #ffffff !important;
+          border-radius: 8px;
+          transition: all 0.2s ease;
         }
         input {
-          color: #334155 !important;
-          font-weight: 700 !important;
-          font-size: 1.05rem !important;
-          cursor: not-allowed !important;
+          color: #1e3a8a !important;
+          font-weight: 800 !important;
+          font-size: 1.25rem !important;
+          letter-spacing: 0.5px;
         }
         .mat-mdc-floating-label {
-          color: #64748b !important;
+          color: #2563eb !important;
+          font-weight: 600 !important;
         }
       }
     }
@@ -1870,10 +1893,53 @@ export class FeeCollectionDialogComponent implements OnInit {
     return (Math.round(val * 100) / 100).toFixed(2);
   }
 
+  onItemPayingInputFocus(event: FocusEvent): void {
+    const input = event.target as HTMLInputElement;
+    if (input) {
+      input.select();
+    }
+  }
+
+  onItemPayingAmountInput(row: FeeCollectionItemRow, inputEl: HTMLInputElement): void {
+    const raw = inputEl.value;
+    if (raw === '' || raw === null || raw === undefined) {
+      row.payingAmount = 0;
+      this.recalculateTotal();
+      return;
+    }
+
+    let val = parseFloat(raw);
+    if (isNaN(val) || val < 0) {
+      val = 0;
+    }
+
+    // STRICT USER REQUIREMENT:
+    // User can reduce amount, but cannot enter more than the fee head due balance
+    if (val > row.dueAmount) {
+      val = row.dueAmount;
+      inputEl.value = String(val);
+    }
+
+    row.payingAmount = Math.round(val * 100) / 100;
+    // CRITICAL: row remains selected! Never auto-uncheck or auto-disable while editing!
+    row.selected = true;
+    this.recalculateTotal();
+  }
+
+  onItemPayingAmountBlur(row: FeeCollectionItemRow, inputEl: HTMLInputElement): void {
+    if (row.payingAmount === null || row.payingAmount === undefined || isNaN(row.payingAmount) || row.payingAmount < 0) {
+      row.payingAmount = 0;
+    }
+    row.payingAmount = Math.round(row.payingAmount * 100) / 100;
+    if (inputEl) {
+      inputEl.value = (Math.round(row.payingAmount * 100) / 100).toFixed(2);
+    }
+    this.recalculateTotal();
+  }
+
   onItemPayingAmountChange(row: FeeCollectionItemRow, amount: number): void {
     const val = Number(amount);
     row.payingAmount = isNaN(val) ? 0 : Math.round(Math.min(row.dueAmount, Math.max(0, val)) * 100) / 100;
-    row.selected = row.payingAmount > 0;
     this.recalculateTotal();
   }
 
@@ -1888,6 +1954,104 @@ export class FeeCollectionDialogComponent implements OnInit {
       : 0;
     const newAmount = Math.round((tuitionTotal + libFine + advanceTotal) * 100) / 100;
     this.feeForm.patchValue({ amountPaid: newAmount }, { emitEvent: false });
+  }
+
+  onTotalAmountFocus(event: FocusEvent): void {
+    const input = event.target as HTMLInputElement;
+    if (input) {
+      input.select();
+    }
+  }
+
+  onTotalAmountInputChange(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const raw = input.value;
+    if (raw === '' || raw === null || raw === undefined) {
+      return;
+    }
+
+    const entered = parseFloat(raw);
+    if (isNaN(entered) || entered < 0) {
+      return;
+    }
+
+    this.autoDistributeTotalAmount(entered);
+  }
+
+  onTotalAmountBlur(): void {
+    const val = Number(this.feeForm.get('amountPaid')?.value);
+    if (isNaN(val) || val <= 0) {
+      this.recalculateTotal();
+    } else {
+      this.autoDistributeTotalAmount(val);
+      this.recalculateTotal();
+    }
+  }
+
+  autoDistributeTotalAmount(enteredTotal: number): void {
+    if (!this.itemRows || this.itemRows.length === 0) return;
+
+    const libFine = (this.libraryDues && this.libraryDues.pendingFineAmount > 0 && this.feeForm.get('includeLibraryFine')?.value)
+      ? Math.round(this.libraryDues.pendingFineAmount * 100) / 100
+      : 0;
+
+    let remaining = Math.max(0, Math.round((enteredTotal - libFine) * 100) / 100);
+
+    const maxAvailableDues = Math.round(this.itemRows.reduce((sum, r) => sum + r.dueAmount, 0) * 100) / 100;
+    if (remaining > maxAvailableDues) {
+      remaining = maxAvailableDues;
+    }
+
+    // Sort items by priority for distribution:
+    // 1. Oldest invoice heads first (chronological FIFO)
+    // 2. Within the same invoice: Tuition > Transport > Coaching > Hostel/Mess > Exam > Supplies/Kit > Admission/Annual
+    const indexed = this.itemRows.map((r, idx) => ({ row: r, originalIndex: idx }));
+    indexed.sort((a, b) => {
+      const invA = a.row.invoiceTitle || '';
+      const invB = b.row.invoiceTitle || '';
+      if (invA !== invB) {
+        return a.originalIndex - b.originalIndex;
+      }
+      const pA = this.getFeeHeadPriority(a.row.headName);
+      const pB = this.getFeeHeadPriority(b.row.headName);
+      if (pA !== pB) return pA - pB;
+      return a.originalIndex - b.originalIndex;
+    });
+
+    for (const item of indexed) {
+      const r = item.row;
+      if (r.dueAmount <= 0) {
+        r.payingAmount = 0;
+        r.selected = false;
+        continue;
+      }
+
+      if (remaining <= 0) {
+        r.payingAmount = 0;
+        r.selected = false;
+      } else {
+        const alloc = Math.round(Math.min(remaining, r.dueAmount) * 100) / 100;
+        r.payingAmount = alloc;
+        r.selected = alloc > 0;
+        remaining = Math.round((remaining - alloc) * 100) / 100;
+      }
+    }
+
+    this.baseTuitionAmount = Math.round(this.itemRows.reduce((sum, r) => sum + (r.selected ? r.payingAmount : 0), 0) * 100) / 100;
+  }
+
+  getFeeHeadPriority(name: string): number {
+    const l = (name || '').toLowerCase();
+    if (l.includes('tuition')) return 1;
+    if (l.includes('transport') || l.includes('bus') || l.includes('van')) return 2;
+    if (l.includes('coaching')) return 3;
+    if (l.includes('hostel') || l.includes('mess') || l.includes('bed')) return 4;
+    if (l.includes('exam')) return 5;
+    if (l.includes('book') || l.includes('syllabus') || l.includes('material')) return 6;
+    if (l.includes('dress') || l.includes('uniform') || l.includes('kit') || l.includes('bag')) return 7;
+    if (l.includes('admission') || l.includes('registration')) return 8;
+    if (l.includes('annual') || l.includes('development')) return 9;
+    return 10;
   }
 
   initAdvanceMonthOptions(): void {

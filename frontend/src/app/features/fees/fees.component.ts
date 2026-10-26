@@ -354,7 +354,7 @@ export interface UpcomingBillingCycleInfo {
               <td mat-cell *matCellDef="let inv" class="col-billing-head">
                 <div class="billing-head-container">
                   <ng-container *ngIf="formatBillingTitle(inv.title) as ft">
-                    <span class="period-badge" [class.is-multiline]="!!ft.line2" [matTooltip]="getInvoiceBillingTooltip(inv)" matTooltipClass="multiline-tooltip">
+                    <span class="period-badge" [class.is-multiline]="!!ft.line2">
                       <mat-icon class="period-icon">calendar_month</mat-icon>
                       <span class="period-lines">
                         <span class="period-line-1">{{ ft.line1 }}</span>
@@ -362,7 +362,7 @@ export interface UpcomingBillingCycleInfo {
                       </span>
                     </span>
                   </ng-container>
-                  <div *ngIf="inv.items && inv.items.length > 0" class="mini-heads-row" [matTooltip]="getInvoiceBillingTooltip(inv)" matTooltipClass="multiline-tooltip">
+                  <div *ngIf="inv.items && inv.items.length > 0" class="mini-heads-row">
                     <ng-container *ngFor="let it of getSortedInvoiceItems(inv.items); let i = index">
                       <span *ngIf="i < 3" class="mini-head-chip" [class.tuition-head-chip]="isTuitionHead(it.headName)">
                         <span class="chip-title-part">{{ it.headName }}:</span>

@@ -445,14 +445,38 @@ export class WhatsAppFeeCardDialogComponent implements OnInit {
     return `${card.className || '-'}${sec}`;
   }
 
+  getSessionRangeLabel(card: any): string {
+    if (!card || !card.months || card.months.length === 0) return 'Session Total';
+    const shortMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                        'July', 'August', 'September', 'October', 'November', 'December'];
+    const parsed: { monthIdx: number; year: number }[] = [];
+    for (const m of card.months) {
+      if (!m.monthName) continue;
+      const parts = m.monthName.trim().split(' ');
+      if (parts.length < 2) continue;
+      const mIdx = monthNames.indexOf(parts[0]);
+      const yr = parseInt(parts[parts.length - 1], 10);
+      if (mIdx !== -1 && !isNaN(yr)) parsed.push({ monthIdx: mIdx, year: yr });
+    }
+    if (parsed.length === 0) return 'Session Total';
+    parsed.sort((a, b) => (a.year * 12 + a.monthIdx) - (b.year * 12 + b.monthIdx));
+    const first = parsed[0];
+    const last = parsed[parsed.length - 1];
+    const f = `${shortMonths[first.monthIdx]} '${String(first.year).slice(-2)}`;
+    const l = `${shortMonths[last.monthIdx]} '${String(last.year).slice(-2)}`;
+    return first.monthIdx === last.monthIdx && first.year === last.year ? f : `${f} – ${l}`;
+  }
+
   buildMessage(): void {
     const card = this.card;
     const paidMonths = (card.months || []).filter(m => m.status === 'Paid').map(m => m.monthShort);
     const dueMonths = (card.months || []).filter(m => m.status === 'Due' || m.status === 'Overdue').map(m => `${m.monthShort} (₹${m.balanceDue})`);
+    const sessionRange = this.getSessionRangeLabel(card);
 
     const lines: string[] = [
       `🏛️ *${(card.instituteName || 'JnanDeep Campus').toUpperCase()}*`,
-      `📄 *STUDENT ANNUAL FEE PASSBOOK / शुल्क विवरण पत्र*`,
+      `📄 *STUDENT FEE PASSBOOK (${sessionRange}) / शुल्क विवरण पत्र*`,
       `━━━━━━━━━━━━━━━━━━━━━━━━━`,
       `👤 *Student Name:* ${card.studentName}`,
       `🆔 *Admission No:* ${card.admissionNumber || '-'} | *Roll No:* ${card.rollNumber || '-'}`,
@@ -462,7 +486,7 @@ export class WhatsAppFeeCardDialogComponent implements OnInit {
       `━━━━━━━━━━━━━━━━━━━━━━━━━`,
       `💰 *FEE FINANCIAL SUMMARY:*`,
       `• *Monthly Fee Rate:* ₹${card.monthlyFeeRate.toLocaleString('en-IN')}/mo`,
-      `• *Total Annual Fee:* ₹${card.totalAnnualFee.toLocaleString('en-IN')}`,
+      `• *Session Total (${sessionRange}):* ₹${card.totalAnnualFee.toLocaleString('en-IN')}`,
       card.totalConcession > 0 ? `• *Concession Granted:* -₹${card.totalConcession.toLocaleString('en-IN')}` : '',
       `• *Total Paid Amount:* ₹${card.totalPaid.toLocaleString('en-IN')}`,
       `• *Net Balance Due:* ₹${card.totalBalanceDue.toLocaleString('en-IN')}`,
