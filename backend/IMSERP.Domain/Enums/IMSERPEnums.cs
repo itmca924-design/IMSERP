@@ -13,10 +13,12 @@ public enum UserRole
 
 public enum PaymentMode
 {
-    Cash = 1,
-    UPI = 2,
-    Card = 3,
-    NetBanking = 4
+    Cash = 0,
+    UPI = 1,
+    BankTransfer = 2,
+    Cheque = 3,
+    Card = 4,
+    NetBanking = 5
 }
 
 public enum InvoiceStatus

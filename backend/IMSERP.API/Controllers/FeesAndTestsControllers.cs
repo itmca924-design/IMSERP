@@ -801,7 +801,8 @@ public class FeesController : ControllerBase
                 if (string.IsNullOrWhiteSpace(receiptNumber)) receiptNumber = null;
 
                 DateTime? paymentDate = allocations.Where(a => a.Payment != null).OrderByDescending(a => a.Payment!.PaymentDate).FirstOrDefault()?.Payment?.PaymentDate;
-                string? paymentMode = allocations.FirstOrDefault(a => a.Payment != null)?.Payment?.Mode.ToString();
+                var paymentObj = allocations.FirstOrDefault(a => a.Payment != null)?.Payment;
+                string? paymentMode = paymentObj == null ? null : FormatPaymentMode(paymentObj.Mode);
                 string remarks = string.Join(" | ", allocations.Select(a => a.Remarks).Distinct());
                 string? billingCycleTag = allocations.FirstOrDefault(a => !string.IsNullOrEmpty(a.BillingCycleTag))?.BillingCycleTag;
 
@@ -926,6 +927,20 @@ public class FeesController : ControllerBase
             totalOneTimeFee,
             student.CoachingJoiningDate
         );
+    }
+
+    private static string FormatPaymentMode(PaymentMode mode)
+    {
+        return (int)mode switch
+        {
+            0 => "Cash",
+            1 => "UPI",
+            2 => "Bank Transfer",
+            3 => "Cheque",
+            4 => "Card",
+            5 => "Net Banking",
+            _ => mode.ToString() == "0" ? "Cash" : mode.ToString()
+        };
     }
 
     [HttpGet("student/{studentId:guid}/library-dues")]

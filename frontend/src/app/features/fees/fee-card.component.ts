@@ -441,7 +441,7 @@ import { environment } from '../../../environments/environment';
                     <span *ngIf="!m.receiptNumber" class="text-muted">-</span>
                   </td>
                   <td class="td-mode">
-                    {{ m.paymentMode || '-' }}
+                    {{ formatPaymentMode(m.paymentMode) }}
                   </td>
                   <td class="td-sign">
                     <span *ngIf="m.status === 'Paid' || m.status === 'Settled'" class="verified-seal">
@@ -711,7 +711,7 @@ import { environment } from '../../../environments/environment';
                         </ng-container>
                         <span *ngIf="!m.receiptNumber" class="text-muted">-</span>
                       </td>
-                      <td class="td-mode">{{ m.paymentMode || '-' }}</td>
+                      <td class="td-mode">{{ formatPaymentMode(m.paymentMode) }}</td>
                       <td class="td-sign">
                         <span *ngIf="m.status === 'Paid' || m.status === 'Settled'" class="verified-seal">
                           <mat-icon class="verified-icon">verified</mat-icon> {{ m.status === 'Settled' ? 'SETTLED' : 'PAID' }}
@@ -3374,6 +3374,18 @@ export class FeeCardComponent implements OnInit, AfterViewInit {
     return items
       .map((item, idx) => `${idx + 1}. ${item}`)
       .join('\n');
+  }
+
+  formatPaymentMode(mode?: string | number | null): string {
+    if (!mode && mode !== 0) return '-';
+    const str = String(mode).trim();
+    if (str === '0' || str.toLowerCase() === 'cash') return 'Cash';
+    if (str === '1' || str.toLowerCase() === 'upi') return 'UPI';
+    if (str === '2' || str.toLowerCase() === 'banktransfer' || str.toLowerCase() === 'bank transfer') return 'Bank Transfer';
+    if (str === '3' || str.toLowerCase() === 'cheque') return 'Cheque';
+    if (str === '4' || str.toLowerCase() === 'card') return 'Card';
+    if (str === '5' || str.toLowerCase() === 'netbanking' || str.toLowerCase() === 'net banking') return 'Net Banking';
+    return str;
   }
 
   formatStatus(status: string): string {
