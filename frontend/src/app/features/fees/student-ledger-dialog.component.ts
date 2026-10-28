@@ -171,6 +171,7 @@ import { MatSelectModule } from '@angular/material/select';
                   </tbody>
                 </table>
               </div>
+              <div class="tab-bottom-spacer"></div>
             </div>
           </mat-tab>
 
@@ -337,6 +338,7 @@ import { MatSelectModule } from '@angular/material/select';
                   </tbody>
                 </table>
               </div>
+              <div class="tab-bottom-spacer"></div>
             </div>
           </mat-tab>
 
@@ -403,6 +405,7 @@ import { MatSelectModule } from '@angular/material/select';
                   </tbody>
                 </table>
               </div>
+              <div class="tab-bottom-spacer"></div>
             </div>
           </mat-tab>
         </mat-tab-group>
@@ -725,13 +728,14 @@ import { MatSelectModule } from '@angular/material/select';
 
     .tab-content {
       padding-top: 6px;
-      padding-bottom: 12px;
+      padding-bottom: 28px !important;
       flex: 1 1 auto;
-      max-height: 54vh;
+      max-height: 52vh;
       overflow-y: auto !important;
       overflow-x: hidden !important;
       -webkit-overflow-scrolling: touch;
       scroll-behavior: smooth;
+      box-sizing: border-box;
 
       scrollbar-width: thin;
       scrollbar-color: #cbd5e1 #f8fafc;
@@ -754,19 +758,29 @@ import { MatSelectModule } from '@angular/material/select';
       }
 
       @media (max-width: 768px) {
-        max-height: 50vh;
+        max-height: 48vh;
         padding-top: 4px;
+        padding-bottom: 24px !important;
       }
+    }
+
+    .tab-bottom-spacer {
+      height: 48px;
+      min-height: 48px;
+      width: 100%;
+      display: block;
+      flex-shrink: 0;
     }
 
     .table-responsive {
       width: 100%;
       overflow-x: auto !important;
-      overflow-y: hidden !important;
+      overflow-y: visible !important;
       -webkit-overflow-scrolling: touch;
       border-radius: 6px;
       border: 1px solid #e2e8f0;
       box-sizing: border-box;
+      margin-bottom: 12px;
 
       scrollbar-width: thin;
       scrollbar-color: #cbd5e1 #f8fafc;
@@ -987,11 +1001,16 @@ import { MatSelectModule } from '@angular/material/select';
     .dialog-actions {
       display: flex;
       justify-content: flex-end;
+      align-items: center;
       gap: 10px;
       margin-top: 10px;
-      padding-top: 10px;
+      padding-top: 12px;
+      padding-bottom: 4px;
       border-top: 1px solid #e2e8f0;
       flex-shrink: 0;
+      background: #ffffff;
+      position: relative;
+      z-index: 10;
 
       .btn-text-short { display: none; }
       .btn-text-full { display: inline; }

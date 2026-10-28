@@ -281,6 +281,8 @@ export interface FeePaymentReceipt {
   totalDemandBeforePayment?: number;
   feePeriod?: string;
   feeMonth?: string;
+  officialSealUrl?: string;
+  digitalSignatureUrl?: string;
 }
 
 export interface StudentPendingFineItem {

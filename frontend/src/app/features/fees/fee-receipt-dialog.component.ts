@@ -1494,6 +1494,10 @@ export interface FeeReceiptDialogData {
         max-height: none !important;
         overflow: visible !important;
       }
+      .uploaded-official-seal-img, .digital-sign-img {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
     }
   `]
 })

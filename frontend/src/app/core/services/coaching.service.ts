@@ -230,7 +230,8 @@ export class CoachingService {
     sortDescending: boolean = true,
     classId: string = '',
     sectionId: string = '',
-    category: string = ''
+    category: string = '',
+    batchScope: string = ''
   ): Observable<any> {
     let params: any = {
       pageNumber: pageNumber.toString(),
@@ -243,6 +244,7 @@ export class CoachingService {
     if (classId) params.classId = classId;
     if (sectionId) params.sectionId = sectionId;
     if (category && category !== 'all') params.category = category;
+    if (batchScope && batchScope !== 'all') params.batchScope = batchScope;
     return this.http.get<any>(`${this.BASE_URL}/tests/paged`, { params });
   }
 

@@ -170,11 +170,7 @@ import { environment } from '../../../environments/environment';
                 (closed)="onStudentSelectClosed()">
 
                 <mat-select-trigger *ngIf="getSelectedStudent() as sel">
-                  <div class="st-trigger-wrap">
-                    <span class="st-roll-badge">#{{ (activeStream === 'coaching' ? (sel.coachingRollNumber || sel.rollNumber) : (sel.schoolRollNumber || sel.rollNumber)) || '-' }}</span>
-                    <span class="st-name-text">{{ sel.studentName }}</span>
-                    <span class="st-adm-tag">(Adm: {{ sel.admissionNumber || '-' }})</span>
-                  </div>
+                  <span class="st-name-text">{{ sel.studentName || sel.name || 'Student' }}</span>
                 </mat-select-trigger>
 
                 <!-- Sticky Search Option inside Dropdown Panel -->
@@ -209,11 +205,7 @@ import { environment } from '../../../environments/environment';
 
                 <mat-option value="">-- Choose Student ({{ students.length }}) --</mat-option>
                 <mat-option *ngFor="let st of filteredStudents" [value]="st.id" class="student-item-option">
-                  <div class="st-opt-item">
-                    <span class="st-roll-badge">#{{ (activeStream === 'coaching' ? (st.coachingRollNumber || st.rollNumber) : (st.schoolRollNumber || st.rollNumber)) || '-' }}</span>
-                    <span class="st-name-text">{{ st.studentName }}</span>
-                    <span class="st-adm-tag">(Adm: {{ st.admissionNumber || '-' }})</span>
-                  </div>
+                  <span class="st-name-text">{{ st.studentName || st.name }}</span>
                 </mat-option>
 
                 <mat-option disabled *ngIf="filteredStudents.length === 0 && studentSearchQuery" class="no-results-option">
@@ -507,8 +499,14 @@ import { environment } from '../../../environments/environment';
             </div>
 
             <div class="sig-block principal-block">
-              <div class="seal-placeholder">
+              <div class="seal-container" *ngIf="officialSealUrl">
+                <img [src]="officialSealUrl" alt="Official Seal" class="card-official-seal-img" />
+              </div>
+              <div class="seal-placeholder" *ngIf="!officialSealUrl">
                 <span>INSTITUTE SEAL</span>
+              </div>
+              <div class="digital-sign-wrapper" *ngIf="digitalSignatureUrl">
+                <img [src]="digitalSignatureUrl" alt="Authorized Signature" class="digital-sign-img" />
               </div>
               <div class="sig-line"></div>
               <span class="sig-title">Principal / Director Stamp</span>
@@ -546,9 +544,9 @@ import { environment } from '../../../environments/environment';
                   <img [src]="getInstituteLogo(card)" alt="Institute Logo" class="inst-logo-img" (error)="onLogoError($event)" />
                 </div>
                 <div class="inst-details-col">
-                  <h2 class="inst-name">{{ card.instituteName || 'JnanDeep Campus' }}</h2>
+                  <h2 class="inst-name">{{ card.instituteName || authService.currentUser()?.instituteName || 'Institution' }}</h2>
                   <p class="inst-tagline">Excellence in Education • Complete Student ERP Management</p>
-                  <p class="inst-address">{{ card.instituteAddress || 'Parsa, Saran, Bihar - 841219' }}</p>
+                  <p class="inst-address" *ngIf="card.instituteAddress">{{ card.instituteAddress }}</p>
                   <p class="inst-contact">
                     <span *ngIf="card.institutePhone">Phone / WhatsApp: {{ card.institutePhone }}</span>
                     <span *ngIf="card.branchName"> • Branch: <strong>{{ card.branchName }}</strong></span>
@@ -754,8 +752,14 @@ import { environment } from '../../../environments/environment';
                   <span class="sig-title">Cashier / Accountant</span>
                 </div>
                 <div class="sig-block principal-block">
-                  <div class="seal-placeholder">
+                  <div class="seal-container" *ngIf="officialSealUrl">
+                    <img [src]="officialSealUrl" alt="Official Seal" class="card-official-seal-img" />
+                  </div>
+                  <div class="seal-placeholder" *ngIf="!officialSealUrl">
                     <span>SEAL</span>
+                  </div>
+                  <div class="digital-sign-wrapper" *ngIf="digitalSignatureUrl">
+                    <img [src]="digitalSignatureUrl" alt="Authorized Signature" class="digital-sign-img" />
                   </div>
                   <div class="sig-line"></div>
                   <span class="sig-title">Principal / Director Stamp</span>
@@ -1905,6 +1909,46 @@ import { environment } from '../../../environments/environment';
       position: relative;
     }
 
+    .seal-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-bottom: 2px;
+
+      .card-official-seal-img {
+        max-width: 65px;
+        max-height: 65px;
+        object-fit: contain;
+        display: block;
+        margin: 0 auto;
+        opacity: 0.95;
+        filter: drop-shadow(0 1px 2px rgba(2, 132, 199, 0.2));
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+    }
+
+    .digital-sign-wrapper {
+      display: flex;
+      justify-content: center;
+      align-items: flex-end;
+      height: 38px;
+      margin-bottom: 2px;
+      overflow: visible;
+
+      .digital-sign-img {
+        max-height: 38px;
+        max-width: 125px;
+        object-fit: contain;
+        display: block;
+        margin: 0 auto;
+        mix-blend-mode: multiply;
+        filter: contrast(1.15);
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+    }
+
     .seal-placeholder {
       width: 75px;
       height: 45px;
@@ -2672,6 +2716,37 @@ import { environment } from '../../../environments/environment';
         color: #64748b !important;
       }
 
+      .seal-container {
+        margin-bottom: 1px !important;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+
+        .card-official-seal-img {
+          max-width: 45px !important;
+          max-height: 45px !important;
+          object-fit: contain !important;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+      }
+
+      .digital-sign-wrapper {
+        height: 24px !important;
+        margin-bottom: 1px !important;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: flex-end !important;
+
+        .digital-sign-img {
+          max-height: 24px !important;
+          max-width: 90px !important;
+          object-fit: contain !important;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+      }
+
       .seal-placeholder {
         width: 50px !important;
         height: 24px !important;
@@ -2688,7 +2763,7 @@ export class FeeCardComponent implements OnInit, AfterViewInit {
   private feesService = inject(FeesService);
   private schoolService = inject(SchoolService);
   private coachingService = inject(CoachingService);
-  private authService = inject(AuthService);
+  public authService = inject(AuthService);
   private confirmDialog = inject(ConfirmDialogService);
   private dialog = inject(MatDialog);
 
@@ -2696,6 +2771,14 @@ export class FeeCardComponent implements OnInit, AfterViewInit {
   readonly hasSchoolModule = this.authService.hasSchoolModule;
   readonly hasCoachingModule = this.authService.hasCoachingModule;
   activeStream: 'school' | 'coaching' = 'school';
+
+  get officialSealUrl(): string | null {
+    return this.authService.getOfficialSealUrl();
+  }
+
+  get digitalSignatureUrl(): string | null {
+    return this.authService.getDigitalSignatureUrl();
+  }
 
   // Filter State
   sessions: { year: number; label: string }[] = [];

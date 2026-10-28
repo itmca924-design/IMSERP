@@ -964,7 +964,9 @@ public record FeePaymentReceiptDto(
     string? AcademicSession = null,
     List<FeeReceiptArrearDto>? PendingArrears = null,
     decimal TotalDemandBeforePayment = 0,
-    string? FeePeriod = null
+    string? FeePeriod = null,
+    string? OfficialSealUrl = null,
+    string? DigitalSignatureUrl = null
 );
 
 public record StudentPendingFineItemDto(

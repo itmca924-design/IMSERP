@@ -6,6 +6,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { FeesService, FeePaymentReceipt } from '../../core/services/fees.service';
+import { AuthService } from '../../core/services/auth.service';
 import { UpiPaymentDialogComponent, UpiPaymentDialogData } from './upi-payment-dialog.component';
 
 @Component({
@@ -273,16 +274,20 @@ import { UpiPaymentDialogComponent, UpiPaymentDialogData } from './upi-payment-d
               <span class="sig-text">Student / Depositor Signature</span>
             </div>
             <div class="sig-col text-center">
-              <div class="digital-seal">
+              <img *ngIf="officialSealUrl" [src]="officialSealUrl" alt="Official Seal" class="uploaded-official-seal-img" />
+              <div *ngIf="!officialSealUrl" class="digital-seal">
                 <mat-icon>verified</mat-icon>
                 <span>ELECTRONICALLY AUDITED</span>
                 <small>{{ receipt.paymentDate | date:'dd-MMM-yyyy' }}</small>
               </div>
             </div>
             <div class="sig-col text-right">
+              <div class="digital-sign-wrapper" *ngIf="digitalSignatureUrl">
+                <img [src]="digitalSignatureUrl" alt="Authorized Signature" class="digital-sign-img" />
+              </div>
               <div class="sig-line"></div>
               <span class="sig-text">Accounts In-charge / Cashier</span>
-              <small class="auth-sub">{{ receipt.instituteName || 'Jnandeep Campus' }}</small>
+              <small class="auth-sub">{{ receipt.instituteName || authService.getInstituteName() || 'Institution' }}</small>
             </div>
           </div>
 
@@ -829,9 +834,43 @@ import { UpiPaymentDialogComponent, UpiPaymentDialogData } from './upi-payment-d
 
         .sig-col {
           width: 200px;
+          display: flex;
+          flex-direction: column;
           .sig-line { height: 1px; background: #475569; margin-bottom: 4px; }
           .sig-text { font-size: 0.76rem; font-weight: 700; color: #334155; display: block; }
           .auth-sub { font-size: 0.7rem; color: #64748b; display: block; }
+
+          .uploaded-official-seal-img {
+            max-width: 68px;
+            max-height: 68px;
+            object-fit: contain;
+            display: block;
+            margin: 0 auto;
+            opacity: 0.95;
+            filter: drop-shadow(0 1px 2px rgba(2, 132, 199, 0.25));
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+
+          .digital-sign-wrapper {
+            display: flex;
+            align-items: flex-end;
+            justify-content: flex-end;
+            height: 38px;
+            margin-bottom: 2px;
+            overflow: visible;
+
+            .digital-sign-img {
+              max-height: 38px;
+              max-width: 130px;
+              object-fit: contain;
+              display: block;
+              mix-blend-mode: multiply;
+              filter: contrast(1.15);
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+          }
         }
 
         .digital-seal {
@@ -906,8 +945,19 @@ export class PublicReceiptComponent implements OnInit {
   constructor(
     private route: ActivatedRoute,
     private feesService: FeesService,
-    private dialog: MatDialog
+    private dialog: MatDialog,
+    public authService: AuthService
   ) {}
+
+  get officialSealUrl(): string | null {
+    const raw = this.receipt?.officialSealUrl || this.authService.getOfficialSealUrl();
+    return this.authService.resolveLogoUrl(raw);
+  }
+
+  get digitalSignatureUrl(): string | null {
+    const raw = this.receipt?.digitalSignatureUrl || this.authService.getDigitalSignatureUrl();
+    return this.authService.resolveLogoUrl(raw);
+  }
 
   ngOnInit(): void {
     this.receiptNumber = this.route.snapshot.paramMap.get('receiptNumber') || '';

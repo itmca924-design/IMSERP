@@ -705,6 +705,41 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
             </button>
           </div>
 
+          <!-- Coaching Batch Scope Toggle (Single vs Multi-Class Combined vs All) -->
+          <div class="scope-filter-toolbar-row" *ngIf="hasCoaching && (selectedCategory === 'coaching' || selectedCategory === 'all')">
+            <div class="scope-filter-toggle">
+              <button type="button"
+                      class="scope-filter-btn"
+                      [class.active]="batchScopeFilter === 'all'"
+                      (click)="setBatchScopeFilter('all')">
+                <mat-icon>apps</mat-icon>
+                <span>All Batches (सभी बैच)</span>
+                <span class="scope-pill">{{ batches.length }}</span>
+              </button>
+              <button type="button"
+                      class="scope-filter-btn"
+                      [class.active]="batchScopeFilter === 'single'"
+                      (click)="setBatchScopeFilter('single')">
+                <mat-icon>school</mat-icon>
+                <span>Single Class (एकल कक्षा)</span>
+                <span class="scope-pill">{{ singleClassBatchCount }}</span>
+              </button>
+              <button type="button"
+                      class="scope-filter-btn"
+                      [class.active]="batchScopeFilter === 'combined'"
+                      (click)="setBatchScopeFilter('combined')">
+                <mat-icon>layers</mat-icon>
+                <span>Multi-Class Combined (संयुक्त कक्षा)</span>
+                <span class="scope-pill">{{ combinedBatchCount }}</span>
+              </button>
+            </div>
+
+            <div class="combined-info-chip" *ngIf="batchScopeFilter === 'combined'">
+              <mat-icon>info</mat-icon>
+              <span>Showing combined foundation batches covering multi-class groups</span>
+            </div>
+          </div>
+
           <div class="filters-input-row">
             <mat-form-field appearance="outline" class="search-field" subscriptSizing="dynamic">
               <mat-label>Search Tests / Subject / Title...</mat-label>
@@ -715,9 +750,9 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
               </button>
             </mat-form-field>
 
-            <!-- Class Filter (Visible across School, Coaching, and All) -->
-            <mat-form-field appearance="outline" class="filter-dropdown" subscriptSizing="dynamic">
-              <mat-label>{{ selectedCategory === 'coaching' ? 'Filter by Class' : 'Filter by School Class' }}</mat-label>
+            <!-- Class Filter (Visible across School, and Coaching Single/All mode) -->
+            <mat-form-field appearance="outline" class="filter-dropdown" subscriptSizing="dynamic" *ngIf="selectedCategory !== 'coaching' || batchScopeFilter !== 'combined'">
+              <mat-label>{{ selectedCategory === 'coaching' ? (batchScopeFilter === 'single' ? 'Academic Class (कक्षा चुनें) *' : 'Filter by Class') : 'Filter by School Class' }}</mat-label>
               <mat-select [(ngModel)]="selectedClassFilter" (selectionChange)="onClassFilterChange()">
                 <mat-option value="">All Classes</mat-option>
                 <mat-option *ngFor="let c of schoolClasses" [value]="c.id">{{ c.name }}</mat-option>
@@ -735,25 +770,14 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
               <mat-icon matSuffix>meeting_room</mat-icon>
             </mat-form-field>
 
-            <!-- Coaching Batch Scope Selector: Single / Combined / All -->
-            <mat-form-field appearance="outline" class="filter-dropdown scope-filter" subscriptSizing="dynamic" *ngIf="hasCoaching && (selectedCategory === 'coaching' || selectedCategory === 'all')">
-              <mat-label>Batch Scope</mat-label>
-              <mat-select [(ngModel)]="batchScopeFilter" (selectionChange)="onBatchScopeFilterChange()">
-                <mat-option value="all">All Batches (सभी बैच)</mat-option>
-                <mat-option value="single">Single Class (एकल)</mat-option>
-                <mat-option value="combined">Combined / Multi-Class (संयुक्त)</mat-option>
-              </mat-select>
-              <mat-icon matSuffix>layers</mat-icon>
-            </mat-form-field>
-
-            <!-- Coaching Batch Filter (Visible when category is 'all' or 'coaching', AND hasCoaching) -->
+            <!-- Coaching Batch Filter (Cascaded by Batch Scope: Single, Combined, or All) -->
             <mat-form-field appearance="outline" class="filter-dropdown batch-filter" subscriptSizing="dynamic" *ngIf="hasCoaching && (selectedCategory === 'coaching' || selectedCategory === 'all')">
-              <mat-label>Filter by Coaching Batch</mat-label>
+              <mat-label>{{ batchScopeFilter === 'combined' ? 'Filter by Combined Batch' : (batchScopeFilter === 'single' ? 'Filter by Single Batch' : 'Filter by Coaching Batch') }}</mat-label>
               <mat-select [(ngModel)]="selectedBatchFilter" (selectionChange)="onFilterChange()">
-                <mat-option value="">All Batches</mat-option>
+                <mat-option value="">{{ batchScopeFilter === 'combined' ? 'All Combined Batches' : 'All Batches' }}</mat-option>
                 <mat-option *ngFor="let b of getFilteredCoachingBatches(selectedBatchFilter)" [value]="b.id">{{ b.name }}</mat-option>
               </mat-select>
-              <mat-icon matSuffix>filter_list</mat-icon>
+              <mat-icon matSuffix>{{ batchScopeFilter === 'combined' ? 'layers' : 'filter_list' }}</mat-icon>
             </mat-form-field>
           </div>
         </div>
@@ -799,21 +823,29 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                   {{ isHybridInstitute ? 'Class / Batch' : (hasSchool ? 'Class & Section' : 'Coaching Batch') }}
                 </th>
                 <td mat-cell *matCellDef="let t">
-                  <!-- School Class Tag -->
-                  <span class="school-class-tag" *ngIf="t.className">
+                  <!-- Combined Multi-Class Coaching Batch -->
+                  <span class="multi-class-tag" *ngIf="t.batchId && isTestCombined(t)">
+                    <mat-icon class="group-icon">layers</mat-icon>
+                    <span>{{ t.batchName }}</span>
+                    <span class="combined-pill-badge">Combined</span>
+                  </span>
+
+                  <!-- Single Class Coaching Batch -->
+                  <span class="batch-name-tag" *ngIf="t.batchId && !isTestCombined(t)">
+                    <mat-icon class="group-icon">groups</mat-icon>
+                    <span>{{ t.batchName }}</span>
+                    <span class="class-sub-badge" *ngIf="t.className">({{ t.className }})</span>
+                  </span>
+
+                  <!-- School Class Exam -->
+                  <span class="school-class-tag" *ngIf="!t.batchId && t.className">
                     <mat-icon class="group-icon">school</mat-icon>
                     <strong>{{ t.className }}</strong>
                     <span class="sec-badge" *ngIf="t.sectionName">({{ t.sectionName }})</span>
                   </span>
 
-                  <!-- Coaching Batch Tag -->
-                  <span class="batch-name-tag" *ngIf="!t.className && t.batchName && t.batchName !== 'General'">
-                    <mat-icon class="group-icon">groups</mat-icon>
-                    <span>{{ t.batchName }}</span>
-                  </span>
-
                   <!-- General Tag if neither -->
-                  <span class="general-tag" *ngIf="!t.className && (!t.batchName || t.batchName === 'General')">
+                  <span class="general-tag" *ngIf="!t.batchId && !t.className">
                     General
                   </span>
                 </td>
@@ -2345,6 +2377,96 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
         }
       }
     }
+    .scope-filter-toolbar-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      padding-top: 2px;
+    }
+
+    .scope-filter-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: #f1f5f9;
+      border-radius: 10px;
+      padding: 3px;
+      border: 1px solid #e2e8f0;
+
+      .scope-filter-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 14px;
+        border: 1.5px solid transparent;
+        border-radius: 7px;
+        background: transparent;
+        cursor: pointer;
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: #64748b;
+        transition: all 0.15s ease;
+        white-space: nowrap;
+
+        mat-icon {
+          font-size: 16px;
+          width: 16px;
+          height: 16px;
+          color: #64748b;
+        }
+
+        .scope-pill {
+          background: #cbd5e1;
+          color: #475569;
+          padding: 1px 6px;
+          border-radius: 10px;
+          font-size: 0.7rem;
+          font-weight: 700;
+        }
+
+        &:hover {
+          background: #e2e8f0;
+          color: #334155;
+        }
+
+        &.active {
+          background: #ffffff;
+          border-color: #2563eb;
+          color: #1e40af;
+          box-shadow: 0 1px 3px rgba(37,99,235,0.15);
+
+          mat-icon { color: #2563eb; }
+
+          .scope-pill {
+            background: #dbeafe;
+            color: #1d4ed8;
+          }
+        }
+      }
+    }
+
+    .combined-info-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.78rem;
+      color: #047857;
+      background: #ecfdf5;
+      border: 1px solid #a7f3d0;
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-weight: 600;
+
+      mat-icon {
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+        color: #059669;
+      }
+    }
+
     .filters-input-row {
       display: flex;
       align-items: center;
@@ -2388,6 +2510,44 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
     }
     .pending-count {
       color: #d97706;
+    }
+    .multi-class-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #047857;
+      background: #ecfdf5;
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid #a7f3d0;
+
+      .group-icon {
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+        color: #059669;
+      }
+
+      .combined-pill-badge {
+        font-size: 0.68rem;
+        background: #059669;
+        color: #ffffff;
+        padding: 1px 6px;
+        border-radius: 10px;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+      }
+    }
+    .class-sub-badge {
+      font-size: 0.74rem;
+      background: #e0f2fe;
+      color: #0369a1;
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-weight: 600;
     }
     .batch-name-tag {
       display: inline-flex;
@@ -3432,6 +3592,25 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
       }
       .add-btn { width: 100% !important; }
 
+      .scope-filter-toolbar-row {
+        width: 100% !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 8px !important;
+      }
+      .scope-filter-toggle {
+        width: 100% !important;
+        display: flex !important;
+        box-sizing: border-box !important;
+        .scope-filter-btn {
+          flex: 1 1 0 !important;
+          justify-content: center !important;
+          padding: 6px 8px !important;
+          font-size: 0.74rem !important;
+          mat-icon { font-size: 15px !important; width: 15px !important; height: 15px !important; }
+        }
+      }
+
       /* Bulk planner mobile view */
       .planner-card {
         width: 100% !important;
@@ -4459,10 +4638,46 @@ export class TestsComponent implements OnInit {
     return (this.batches || []).filter(b => (b.classId || '').toLowerCase() === classId.toLowerCase());
   }
 
+  get singleClassBatchCount(): number {
+    return (this.batches || []).filter(b => !this.isCombinedBatch(b)).length;
+  }
+
+  get combinedBatchCount(): number {
+    return (this.batches || []).filter(b => this.isCombinedBatch(b)).length;
+  }
+
   isCombinedBatch(b: any): boolean {
     if (!b) return false;
     if (!b.classId) return true;
     return !!(b.name && (b.name.match(/class\s*\d+.*(?:to|-).*\d+/i) || b.name.toLowerCase().includes('combined') || b.name.toLowerCase().includes('foundation')));
+  }
+
+  isTestCombined(t: any): boolean {
+    if (!t) return false;
+    if (t.batchId) {
+      const b = (this.batches || []).find(x => (x.id || '').toLowerCase() === (t.batchId || '').toLowerCase());
+      if (b) return this.isCombinedBatch(b);
+      const bName = (t.batchName || '').toLowerCase();
+      return !!(bName.match(/class\s*\d+.*(?:to|-).*\d+/i) || bName.includes('combined') || bName.includes('foundation'));
+    }
+    return false;
+  }
+
+  setBatchScopeFilter(scope: 'single' | 'combined' | 'all'): void {
+    this.batchScopeFilter = scope;
+    if (scope === 'combined') {
+      this.selectedClassFilter = '';
+      this.selectedSectionFilter = '';
+      this.sectionsForFilterClass = [];
+    }
+    if (this.selectedBatchFilter) {
+      const stillValid = this.getFilteredCoachingBatches().some(b => (b.id || '').toLowerCase() === this.selectedBatchFilter.toLowerCase());
+      if (!stillValid) {
+        this.selectedBatchFilter = '';
+      }
+    }
+    this.pageIndex = 0;
+    this.loadTests();
   }
 
   batchBelongsToClass(b: any, c: any): boolean {
@@ -4853,9 +5068,20 @@ export class TestsComponent implements OnInit {
       this.sortDescending,
       this.selectedClassFilter || undefined,
       this.selectedSectionFilter || undefined,
-      this.selectedCategory
+      this.selectedCategory,
+      this.batchScopeFilter || undefined
     ).subscribe({
-      next: result => { this.tests = result.items; this.totalCount = result.totalCount; this.loading = false; },
+      next: result => {
+        let items = result.items || [];
+        if (this.batchScopeFilter === 'combined') {
+          items = items.filter((t: any) => this.isTestCombined(t));
+        } else if (this.batchScopeFilter === 'single' && (this.selectedCategory === 'coaching' || this.selectedCategory === 'all')) {
+          items = items.filter((t: any) => !this.isTestCombined(t));
+        }
+        this.tests = items;
+        this.totalCount = result.totalCount;
+        this.loading = false;
+      },
       error: () => { this.loading = false; }
     });
   }

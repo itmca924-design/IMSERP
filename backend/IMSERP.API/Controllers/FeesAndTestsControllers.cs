@@ -1397,7 +1397,9 @@ public class FeesController : ControllerBase
                 academicSession,
                 pendingArrears,
                 totalDemandBeforePayment,
-                feePeriod
+                feePeriod,
+                tenant?.OfficialSeal,
+                tenant?.DigitalSignature
             ));
         });
     }
@@ -1617,7 +1619,9 @@ public class FeesController : ControllerBase
             academicSession,
             pendingArrears,
             totalDemandBeforePayment,
-            feePeriodRec
+            feePeriodRec,
+            tenant?.OfficialSeal,
+            tenant?.DigitalSignature
         ));
     }
 
@@ -4029,7 +4033,13 @@ public class FeesController : ControllerBase
                 tenant?.ContactPhone,
                 tenant?.Address,
                 student?.Id ?? invoice.StudentId,
-                invoice.Id
+                invoice.Id,
+                null,
+                null,
+                0m,
+                null,
+                tenant?.OfficialSeal,
+                tenant?.DigitalSignature
             );
 
             var targetWhatsApp = !string.IsNullOrWhiteSpace(dto.PayerPhone)
@@ -4248,7 +4258,13 @@ public class FeesController : ControllerBase
                 tenant?.ContactPhone,
                 tenant?.Address,
                 student.Id,
-                allocatedInvoicesList.Count > 0 ? allocatedInvoicesList[0].Invoice.Id : (Guid?)null
+                allocatedInvoicesList.Count > 0 ? allocatedInvoicesList[0].Invoice.Id : (Guid?)null,
+                null,
+                null,
+                0m,
+                null,
+                tenant?.OfficialSeal,
+                tenant?.DigitalSignature
             );
 
             var targetWhatsAppFifo = !string.IsNullOrWhiteSpace(dto.PayerPhone)
@@ -4507,7 +4523,8 @@ public class TestsController : ControllerBase
         [FromQuery] Guid? batchId = null,
         [FromQuery] Guid? classId = null,
         [FromQuery] Guid? sectionId = null,
-        [FromQuery] string? category = null)
+        [FromQuery] string? category = null,
+        [FromQuery] string? batchScope = null)
     {
         var query = _dbContext.Tests.AsNoTracking()
             .Include(t => t.Batch)
@@ -4523,6 +4540,28 @@ public class TestsController : ControllerBase
         else if (category?.ToLower() == "coaching")
         {
             query = query.Where(t => t.BatchId.HasValue);
+        }
+
+        if (!string.IsNullOrWhiteSpace(batchScope) && !batchScope.Equals("all", StringComparison.OrdinalIgnoreCase))
+        {
+            if (batchScope.Equals("combined", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(t => t.BatchId.HasValue &&
+                    (t.Batch.ClassId == null ||
+                     t.Batch.Name.Contains("Combined") ||
+                     t.Batch.Name.Contains("To") ||
+                     t.Batch.Name.Contains("to") ||
+                     t.Batch.Name.Contains("Foundation")));
+            }
+            else if (batchScope.Equals("single", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(t => !t.BatchId.HasValue ||
+                    (t.Batch.ClassId != null &&
+                     !t.Batch.Name.Contains("Combined") &&
+                     !t.Batch.Name.Contains("To") &&
+                     !t.Batch.Name.Contains("to") &&
+                     !t.Batch.Name.Contains("Foundation")));
+            }
         }
 
         if (batchId.HasValue && batchId != Guid.Empty)
@@ -4640,6 +4679,7 @@ public class TestsController : ControllerBase
         [FromQuery] Guid? classId = null,
         [FromQuery] Guid? sectionId = null,
         [FromQuery] string? category = null, // "school", "coaching", or "all"
+        [FromQuery] string? batchScope = null, // "single", "combined", or "all"
         [FromQuery] string? sortBy = "testDate",
         [FromQuery] bool sortDescending = true)
     {
@@ -4657,6 +4697,28 @@ public class TestsController : ControllerBase
         else if (category?.ToLower() == "coaching")
         {
             query = query.Where(t => t.BatchId.HasValue);
+        }
+
+        if (!string.IsNullOrWhiteSpace(batchScope) && !batchScope.Equals("all", StringComparison.OrdinalIgnoreCase))
+        {
+            if (batchScope.Equals("combined", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(t => t.BatchId.HasValue &&
+                    (t.Batch.ClassId == null ||
+                     t.Batch.Name.Contains("Combined") ||
+                     t.Batch.Name.Contains("To") ||
+                     t.Batch.Name.Contains("to") ||
+                     t.Batch.Name.Contains("Foundation")));
+            }
+            else if (batchScope.Equals("single", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(t => !t.BatchId.HasValue ||
+                    (t.Batch.ClassId != null &&
+                     !t.Batch.Name.Contains("Combined") &&
+                     !t.Batch.Name.Contains("To") &&
+                     !t.Batch.Name.Contains("to") &&
+                     !t.Batch.Name.Contains("Foundation")));
+            }
         }
 
         if (batchId.HasValue && batchId != Guid.Empty)

@@ -295,16 +295,20 @@ export interface FeeDueReceiptDialogData {
             <small>Received copy of fee due demand</small>
           </div>
           <div class="sig-col text-center">
-            <div class="digital-seal">
+            <img *ngIf="officialSealUrl" [src]="officialSealUrl" alt="Official Seal" class="uploaded-official-seal-img" />
+            <div *ngIf="!officialSealUrl" class="digital-seal">
               <mat-icon>verified</mat-icon>
               <span>OFFICIALLY ISSUED</span>
               <small>{{ dueSlip.generatedDate | date:'dd-MMM-yyyy' }}</small>
             </div>
           </div>
           <div class="sig-col text-right">
+            <div class="digital-sign-wrapper" *ngIf="digitalSignatureUrl">
+              <img [src]="digitalSignatureUrl" alt="Authorized Signature" class="digital-sign-img" />
+            </div>
             <div class="sig-line"></div>
             <span class="sig-text">Accounts In-charge / Cashier</span>
-            <small class="auth-sub">{{ data.instituteName || 'Saraswati Coaching Classes' }}</small>
+            <small class="auth-sub">{{ data.instituteName || authService.currentUser()?.instituteName || authService.getInstituteName() || 'Institution' }}</small>
           </div>
         </div>
 
@@ -979,6 +983,38 @@ export interface FeeDueReceiptDialogData {
           color: #64748b;
         }
 
+        .uploaded-official-seal-img {
+          max-width: 68px;
+          max-height: 68px;
+          object-fit: contain;
+          display: block;
+          margin: 0 auto;
+          opacity: 0.95;
+          filter: drop-shadow(0 1px 2px rgba(220, 38, 38, 0.25));
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+
+        .digital-sign-wrapper {
+          display: flex;
+          align-items: flex-end;
+          justify-content: flex-end;
+          height: 38px;
+          margin-bottom: 2px;
+          overflow: visible;
+
+          .digital-sign-img {
+            max-height: 38px;
+            max-width: 130px;
+            object-fit: contain;
+            display: block;
+            mix-blend-mode: multiply;
+            filter: contrast(1.15);
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+        }
+
         .digital-seal {
           display: inline-flex;
           flex-direction: column;
@@ -1081,6 +1117,14 @@ export class FeeDueReceiptDialogComponent implements OnInit {
     const match = batch.match(/\(([^)]+)\)/);
     if (match) return match[1];
     return 'Main Branch';
+  }
+
+  get officialSealUrl(): string | null {
+    return this.authService.getOfficialSealUrl();
+  }
+
+  get digitalSignatureUrl(): string | null {
+    return this.authService.getDigitalSignatureUrl();
   }
 
   constructor(
