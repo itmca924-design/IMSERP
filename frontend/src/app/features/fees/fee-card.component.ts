@@ -992,49 +992,15 @@ import { environment } from '../../../environments/environment';
       overflow: hidden !important;
     }
 
-    .st-trigger-wrap,
-    .st-opt-item {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      width: 100%;
-      min-width: 0;
-      overflow: hidden;
-      white-space: nowrap;
-    }
-
-    .st-roll-badge {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 1px 6px;
-      background: #eff6ff;
-      border: 1px solid #bfdbfe;
-      border-radius: 4px;
-      color: #1e40af;
-      font-weight: 700;
-      font-size: 0.75rem;
-      flex-shrink: 0;
-      line-height: 1.4;
-    }
-
     .st-name-text {
-      font-weight: 600;
-      color: #0f172a;
+      font-weight: 500;
+      color: #1e293b;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      flex: 1;
-      min-width: 0;
-      font-size: 0.86rem;
-    }
-
-    .st-adm-tag {
-      color: #64748b;
-      font-size: 0.75rem;
-      flex-shrink: 0;
-      white-space: nowrap;
-      margin-left: auto;
+      width: 100%;
+      display: block;
+      font-size: 0.88rem;
     }
 
     ::ng-deep .student-select-panel {
