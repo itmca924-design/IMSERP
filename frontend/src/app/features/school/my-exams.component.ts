@@ -1919,27 +1919,60 @@ export class MyExamsComponent implements OnInit {
       return;
     }
 
-    if (this.myData?.consolidatedResult && this.myData.student.isSchoolStudent) {
-      this.dialog.open(SchoolReportCardDialogComponent, {
-        width: '96vw',
-        maxWidth: '1280px',
-        height: '92vh',
-        maxHeight: '94vh',
-        panelClass: 'custom-dialog-container',
-        data: {
-          mode: 'single',
-          initialView: 'admit_card',
-          className: this.myData.student.className,
-          academicYear: this.selectedSession,
-          examType: this.selectedExamType !== 'All' ? this.selectedExamType : 'Annual Exam',
-          student: this.myData.consolidatedResult,
-          subjects: this.myData.exams.map(e => e.subject),
-          exams: this.convertToSchoolExamDtos(this.myData.exams)
+    const studentInfo = this.myData.student;
+    const studentResult: ConsolidatedStudentResultDto = this.myData.consolidatedResult
+      ? {
+          ...this.myData.consolidatedResult,
+          photoUrl: this.myData.consolidatedResult.photoUrl || studentInfo.profilePhoto || null,
+          fatherName: this.myData.consolidatedResult.fatherName || studentInfo.fatherName || studentInfo.parentName || undefined,
+          motherName: this.myData.consolidatedResult.motherName || studentInfo.motherName || undefined,
+          sectionName: this.myData.consolidatedResult.sectionName || studentInfo.sectionName || undefined,
+          dateOfBirth: this.myData.consolidatedResult.dateOfBirth || (studentInfo.dateOfBirth ? new Date(studentInfo.dateOfBirth).toLocaleDateString('en-GB') : undefined)
         }
-      });
-    } else {
-      this.printAdmitCardElement();
-    }
+      : {
+          studentId: studentInfo.studentId,
+          studentName: studentInfo.studentName,
+          rollNumber: studentInfo.schoolRollNumber || studentInfo.rollNumber || '1',
+          admissionNumber: studentInfo.admissionNumber || 'ADM-2026-0001',
+          subjectMarks: {},
+          totalObtained: 0,
+          totalMax: 0,
+          overallPercentage: 0,
+          grade: '-',
+          resultStatus: 'Appeared',
+          rank: 0,
+          failedSubjectCount: 0,
+          promotionVerdict: '',
+          attendancePercentage: 100,
+          presentDays: 0,
+          totalAttendanceDays: 0,
+          fatherName: studentInfo.fatherName || studentInfo.parentName || undefined,
+          motherName: studentInfo.motherName || undefined,
+          dateOfBirth: studentInfo.dateOfBirth ? new Date(studentInfo.dateOfBirth).toLocaleDateString('en-GB') : undefined,
+          gender: studentInfo.gender || undefined,
+          parentWhatsAppPhone: studentInfo.parentWhatsAppPhone || undefined,
+          sectionName: studentInfo.sectionName || undefined,
+          subjectDetails: [],
+          photoUrl: studentInfo.profilePhoto || null
+        };
+
+    this.dialog.open(SchoolReportCardDialogComponent, {
+      width: '96vw',
+      maxWidth: '1280px',
+      height: '92vh',
+      maxHeight: '94vh',
+      panelClass: 'custom-dialog-container',
+      data: {
+        mode: 'single',
+        initialView: 'admit_card',
+        className: studentInfo.className,
+        academicYear: this.selectedSession,
+        examType: this.selectedExamType !== 'All' ? this.selectedExamType : 'Annual Exam',
+        student: studentResult,
+        subjects: this.myData.exams.map(e => e.subject),
+        exams: this.convertToSchoolExamDtos(this.myData.exams)
+      }
+    });
   }
 
   openReportCardDialog(): void {
@@ -1953,6 +1986,16 @@ export class MyExamsComponent implements OnInit {
     }
 
     if (this.myData?.consolidatedResult && this.myData.student.isSchoolStudent) {
+      const studentInfo = this.myData.student;
+      const studentResult: ConsolidatedStudentResultDto = {
+        ...this.myData.consolidatedResult,
+        photoUrl: this.myData.consolidatedResult.photoUrl || studentInfo.profilePhoto || null,
+        fatherName: this.myData.consolidatedResult.fatherName || studentInfo.fatherName || studentInfo.parentName || undefined,
+        motherName: this.myData.consolidatedResult.motherName || studentInfo.motherName || undefined,
+        sectionName: this.myData.consolidatedResult.sectionName || studentInfo.sectionName || undefined,
+        dateOfBirth: this.myData.consolidatedResult.dateOfBirth || (studentInfo.dateOfBirth ? new Date(studentInfo.dateOfBirth).toLocaleDateString('en-GB') : undefined)
+      };
+
       this.dialog.open(SchoolReportCardDialogComponent, {
         width: '96vw',
         maxWidth: '1280px',
@@ -1965,7 +2008,7 @@ export class MyExamsComponent implements OnInit {
           className: this.myData.student.className,
           academicYear: this.selectedSession,
           examType: this.selectedExamType !== 'All' ? this.selectedExamType : 'Annual Exam',
-          student: this.myData.consolidatedResult,
+          student: studentResult,
           subjects: this.myData.exams.map(e => e.subject),
           exams: this.convertToSchoolExamDtos(this.myData.exams)
         }

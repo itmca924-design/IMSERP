@@ -1,6 +1,10 @@
 -- Adds biometric mapping, capture metadata, and tenant-level attendance modes.
 -- Run once after the existing attendance tables have been created.
 
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
+GO
+
 IF COL_LENGTH('dbo.Students', 'BiometricUserId') IS NULL
     ALTER TABLE [dbo].[Students] ADD [BiometricUserId] NVARCHAR(100) NULL;
 
@@ -50,10 +54,12 @@ SELECT NEWID(), [Id], 'Both', 'Both'
 FROM [dbo].[Tenants] t
 WHERE NOT EXISTS (SELECT 1 FROM [dbo].[AttendanceSettings] s WHERE s.[TenantId] = t.[Id]);
 
-IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UX_Students_Tenant_BiometricUserId' AND object_id = OBJECT_ID(N'[dbo].[Students]'))
-    EXEC(N'CREATE UNIQUE INDEX [UX_Students_Tenant_BiometricUserId] ON [dbo].[Students] ([TenantId], [BiometricUserId]) WHERE [BiometricUserId] IS NOT NULL AND [BiometricUserId] <> ''''');
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UX_Students_Tenant_BiometricUserId' AND object_id = OBJECT_ID(N'[dbo].[Students]'))
+    DROP INDEX [UX_Students_Tenant_BiometricUserId] ON [dbo].[Students];
+EXEC(N'CREATE UNIQUE INDEX [UX_Students_Tenant_BiometricUserId] ON [dbo].[Students] ([TenantId], [BiometricUserId]) WHERE [BiometricUserId] IS NOT NULL AND [BiometricUserId] <> '''' AND [IsDeleted] = 0');
 
-IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UX_Teachers_Tenant_BiometricUserId' AND object_id = OBJECT_ID(N'[dbo].[Teachers]'))
-    EXEC(N'CREATE UNIQUE INDEX [UX_Teachers_Tenant_BiometricUserId] ON [dbo].[Teachers] ([TenantId], [BiometricUserId]) WHERE [BiometricUserId] IS NOT NULL AND [BiometricUserId] <> ''''');
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UX_Teachers_Tenant_BiometricUserId' AND object_id = OBJECT_ID(N'[dbo].[Teachers]'))
+    DROP INDEX [UX_Teachers_Tenant_BiometricUserId] ON [dbo].[Teachers];
+EXEC(N'CREATE UNIQUE INDEX [UX_Teachers_Tenant_BiometricUserId] ON [dbo].[Teachers] ([TenantId], [BiometricUserId]) WHERE [BiometricUserId] IS NOT NULL AND [BiometricUserId] <> '''' AND [IsActive] = 1');
 
 PRINT 'Biometric attendance schema is ready. Default mode is Both.';

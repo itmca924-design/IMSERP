@@ -85,8 +85,10 @@ export class BatchesService {
     return this.http.get<PagedResult<BatchDto>>(`${this.BASE_URL}/paged`, { params });
   }
 
-  getBatches(): Observable<BatchDto[]> {
-    return this.http.get<BatchDto[]>(this.BASE_URL);
+  getBatches(branchId?: string): Observable<BatchDto[]> {
+    let params = new HttpParams();
+    if (branchId) params = params.set('branchId', branchId);
+    return this.http.get<BatchDto[]>(this.BASE_URL, { params });
   }
 
   getBatchById(id: string): Observable<BatchDto> {

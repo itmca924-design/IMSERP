@@ -1127,6 +1127,14 @@ export class MonthlyPerformanceComponent implements OnInit {
     return this.students.find(s => s.classRank === 1);
   }
 
+  get officialSealUrl(): string | null {
+    return this.authService.getOfficialSealUrl();
+  }
+
+  get digitalSignatureUrl(): string | null {
+    return this.authService.getDigitalSignatureUrl();
+  }
+
   ngOnInit(): void {
     const now = new Date();
     const currentYear = now.getFullYear();
@@ -1713,7 +1721,7 @@ export class MonthlyPerformanceComponent implements OnInit {
               </div>
 
               <div class="sig-seal-center">
-                <div class="official-seal-circle">
+                <div class="official-seal-circle" *ngIf="!officialSealUrl">
                   <div class="seal-inner-circle">
                     <span class="seal-star">★</span>
                     <span class="seal-campus-name">{{ getShortInstituteName() }}</span>
@@ -1721,6 +1729,7 @@ export class MonthlyPerformanceComponent implements OnInit {
                     <span class="seal-star">★</span>
                   </div>
                 </div>
+                <img *ngIf="officialSealUrl" [src]="officialSealUrl" alt="Official Seal" class="uploaded-official-seal-img" />
                 <span class="seal-caption">Official Stamp</span>
               </div>
 
@@ -1732,7 +1741,9 @@ export class MonthlyPerformanceComponent implements OnInit {
               </div>
 
               <div class="sig-unit">
-                <div class="sig-space"></div>
+                <div class="sig-space sign-img-space">
+                  <img *ngIf="digitalSignatureUrl" [src]="digitalSignatureUrl" alt="Principal Signature" class="digital-sign-img" />
+                </div>
                 <div class="sig-line"></div>
                 <span class="sig-role">Principal / Head</span>
                 <span class="sig-title">Authorized Signatory</span>
@@ -2525,7 +2536,31 @@ export class MonthlyPerformanceComponent implements OnInit {
     }
 
     .sig-space {
-      height: 12px;
+      height: 24px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+
+      &.sign-img-space {
+        height: 28px;
+        min-height: 28px;
+      }
+    }
+
+    .digital-sign-img {
+      max-height: 26px;
+      max-width: 90px;
+      object-fit: contain;
+      display: block;
+      margin: 0 auto;
+    }
+
+    .uploaded-official-seal-img {
+      max-height: 44px;
+      max-width: 44px;
+      object-fit: contain;
+      display: block;
+      margin: 0 auto;
     }
 
     .sig-line {
@@ -2768,6 +2803,14 @@ export class MonthlyStudentScorecardDialogComponent {
     return `${environment.apiBaseUrl}${clean.startsWith('/') ? '' : '/'}${clean}`;
   }
 
+  get officialSealUrl(): string | null {
+    return this.authService.getOfficialSealUrl();
+  }
+
+  get digitalSignatureUrl(): string | null {
+    return this.authService.getDigitalSignatureUrl();
+  }
+
   constructor(
     public dialogRef: MatDialogRef<MonthlyStudentScorecardDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: any
@@ -2963,22 +3006,25 @@ export class MonthlyStudentScorecardDialogComponent {
             .sc-teacher-card { background: #f8fafc; border: 1px solid #cbd5e1; border-left: 3px solid #2563eb; border-radius: 5px; padding: 6px 10px; margin-bottom: 10px; }
             .tc-header { font-size: 9px; font-weight: 700; color: #1e3a8a; text-transform: uppercase; margin-bottom: 2px; }
             .quote-text { margin: 0; font-size: 10px; font-style: italic; color: #334155; }
-            .sc-signatures-block { display: flex; align-items: flex-end; justify-content: space-between; margin-top: 16px; padding: 0 8px; }
+            .sc-signatures-block { display: flex; align-items: flex-end; justify-content: space-between; margin-top: 14px; padding: 0 8px; }
             .sig-unit { display: flex; flex-direction: column; align-items: center; min-width: 100px; }
-            .sig-space { height: 26px; }
+            .sig-space { height: 26px; display: flex; align-items: flex-end; justify-content: center; }
+            .sign-img-space { height: 28px; min-height: 28px; }
+            .digital-sign-img { max-height: 28px; max-width: 95px; object-fit: contain; display: block; margin: 0 auto; }
+            .uploaded-official-seal-img { max-height: 48px; max-width: 48px; object-fit: contain; display: block; margin: 0 auto; }
             .sig-line { width: 110px; border-top: 1px solid #0f172a; margin-bottom: 3px; }
             .sig-role { font-size: 9px; font-weight: 700; color: #0f172a; }
             .sig-title { font-size: 8px; color: #64748b; }
             .sig-seal-center { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-            .official-seal-circle { width: 50px; height: 50px; border: 1.5px dashed #1e3a8a; border-radius: 50%; padding: 2px; display: flex; align-items: center; justify-content: center; background: #f8fafc; }
+            .official-seal-circle { width: 48px; height: 48px; border: 1.5px dashed #1e3a8a; border-radius: 50%; padding: 2px; display: flex; align-items: center; justify-content: center; background: #f8fafc; }
             .seal-inner-circle { width: 100%; height: 100%; border: 1px solid #2563eb; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; line-height: 1.1; }
             .seal-star { font-size: 6px; color: #d97706; }
             .seal-campus-name { font-size: 6.5px; font-weight: 800; color: #1e3a8a; text-transform: uppercase; }
             .seal-status { font-size: 5.5px; font-weight: 800; color: #15803d; }
             .seal-caption { font-size: 7.5px; font-weight: 600; color: #64748b; text-transform: uppercase; }
-            .sc-bottom-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding-top: 4px; border-top: 1px dashed #cbd5e1; font-size: 8px; color: #94a3b8; }
+            .sc-bottom-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; padding-top: 4px; border-top: 1px dashed #cbd5e1; font-size: 8px; color: #94a3b8; }
             mat-icon { display: none !important; }
-            @page { size: A4 portrait; margin: 6mm 8mm; }
+            @page { size: A4 portrait; margin: 5mm 8mm; }
           </style>
         </head>
         <body>

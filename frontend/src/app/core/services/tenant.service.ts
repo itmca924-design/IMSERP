@@ -25,6 +25,10 @@ export interface TenantDto {
   affiliationNumber?: string | null;
   establishedYear?: string | null;
   profilePhoto?: string | null;
+  officialSeal?: string | null;
+  digitalSignature?: string | null;
+  officialSealsJson?: string | null;
+  digitalSignaturesJson?: string | null;
   whatsAppPhoneId?: string | null;
   isActive: boolean;
   createdAt: string;
@@ -81,6 +85,8 @@ export interface CreateTenantDto {
   affiliationNumber?: string | null;
   establishedYear?: string | null;
   profilePhoto?: string | null;
+  officialSeal?: string | null;
+  digitalSignature?: string | null;
   whatsAppPhoneId?: string | null;
   whatsAppAccessToken?: string | null;
   adminUsername: string;
@@ -110,6 +116,10 @@ export interface UpdateTenantDto {
   affiliationNumber?: string | null;
   establishedYear?: string | null;
   profilePhoto?: string | null;
+  officialSeal?: string | null;
+  digitalSignature?: string | null;
+  officialSealsJson?: string | null;
+  digitalSignaturesJson?: string | null;
   whatsAppPhoneId?: string | null;
   whatsAppAccessToken?: string | null;
   hasSchoolModule?: boolean;
@@ -210,5 +220,17 @@ export class TenantService {
 
   toggleTenantStatus(id: string): Observable<any> {
     return this.http.patch(`${this.API_URL}/${id}/toggle-status`, {});
+  }
+
+  uploadTenantAsset(data: { assetType: 'seal' | 'signature'; imageData: string; title: string; signatoryName?: string; setAsDefault?: boolean }): Observable<any> {
+    return this.http.post<any>(`${this.API_URL}/assets/upload`, data);
+  }
+
+  setDefaultTenantAsset(assetType: 'seal' | 'signature', assetId: string): Observable<any> {
+    return this.http.post<any>(`${this.API_URL}/assets/set-default`, { assetType, assetId });
+  }
+
+  deleteTenantAsset(assetType: 'seal' | 'signature', assetId: string): Observable<any> {
+    return this.http.delete<any>(`${this.API_URL}/assets/${assetType}/${assetId}`);
   }
 }

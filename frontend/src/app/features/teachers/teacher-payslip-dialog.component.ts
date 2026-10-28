@@ -224,19 +224,23 @@ export interface PayslipDialogData {
             <span>Employee / Faculty Signature</span>
           </div>
           <div class="sig-box text-center">
-            <div class="stamp-placeholder">
+            <img *ngIf="officialSealUrl" [src]="officialSealUrl" alt="Official Seal" class="uploaded-official-seal-img" />
+            <div *ngIf="!officialSealUrl" class="stamp-placeholder">
               <mat-icon>verified</mat-icon>
-              <span>Verified & Audited</span>
+              <span>Verified &amp; Audited</span>
             </div>
           </div>
           <div class="sig-box text-right">
+            <div class="digital-sign-wrapper" *ngIf="digitalSignatureUrl">
+              <img [src]="digitalSignatureUrl" alt="Authorized Signature" class="digital-sign-img" />
+            </div>
             <div class="sig-line"></div>
             <span>Authorized Signatory / Director</span>
           </div>
         </div>
 
         <div class="paper-disclaimer">
-          <p>This is a computer-generated salary slip from {{ data.instituteName || 'Apex Coaching Academy' }} ERP. Valid without physical stamp if electronically audited.</p>
+          <p>This is a computer-generated salary slip from {{ data.instituteName || authService.currentUser()?.instituteName || authService.getInstituteName() || 'Institution' }} ERP. Valid without physical stamp if electronically audited.</p>
         </div>
       </div>
     </div>
@@ -431,6 +435,14 @@ export class TeacherPayslipDialogComponent {
   headerLogoFailed = false;
   sendingWhatsApp = false;
 
+  get officialSealUrl(): string | null {
+    return this.authService.getOfficialSealUrl();
+  }
+
+  get digitalSignatureUrl(): string | null {
+    return this.authService.getDigitalSignatureUrl();
+  }
+
   get effectiveBranchName(): string {
     if (this.data?.branchName) return this.data.branchName;
     const authBranch = this.authService.getCurrentBranchName();
@@ -529,11 +541,14 @@ export class TeacherPayslipDialogComponent {
             .sig-line { width: 140px; height: 1px; background: #94a3b8; margin-bottom: 4px; }
             .sig-center { align-items: center; }
             .sig-right { align-items: flex-end; }
+            .uploaded-official-seal-img { max-width: 68px; max-height: 68px; object-fit: contain; display: block; margin: 0 auto; }
+            .digital-sign-wrapper { display: flex; align-items: flex-end; justify-content: flex-end; height: 38px; margin-bottom: 2px; }
+            .digital-sign-img { max-height: 38px; max-width: 130px; object-fit: contain; display: block; mix-blend-mode: multiply; }
             .stamp-placeholder { display: flex; align-items: center; gap: 4px; border: 1.5px dashed #cbd5e1; padding: 4px 10px; border-radius: 20px; color: #94a3b8; font-size: 0.72rem; }
             .paper-disclaimer { margin-top: 24px; padding-top: 12px; border-top: 1px dashed #e2e8f0; text-align: center; font-size: 0.68rem; color: #94a3b8; }
             @media print {
               body { padding: 0; }
-              @page { margin: 15mm; size: A4; }
+              @page { margin: 8mm 10mm; size: A4 portrait; }
             }
           </style>
         </head>

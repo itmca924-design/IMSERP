@@ -1406,12 +1406,12 @@ import { LocalDatetimePipe } from '../../shared/pipes/local-datetime.pipe';
       }
 
       .kpi-grid {
-        grid-template-columns: 1fr;
-        gap: 12px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
       }
 
       .kpi-card {
-        padding: 14px 16px;
+        padding: 10px 10px;
       }
 
       .card-header-row {

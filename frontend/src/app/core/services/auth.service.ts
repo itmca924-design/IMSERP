@@ -21,6 +21,15 @@ export interface BranchInfo {
   createdAt: string;
 }
 
+export interface TenantAssetItem {
+  id: string;
+  title: string;
+  url: string;
+  isDefault: boolean;
+  name?: string;
+  createdAt?: string;
+}
+
 export interface LoginResponse {
   token: string;
   refreshToken: string;
@@ -32,6 +41,10 @@ export interface LoginResponse {
   instituteName: string;
   tenantCode: string;
   profilePhoto?: string | null;
+  officialSeal?: string | null;
+  digitalSignature?: string | null;
+  officialSealsJson?: string | null;
+  digitalSignaturesJson?: string | null;
   userProfilePhoto?: string | null;
   branchId?: string | null;
   branchName?: string | null;
@@ -280,6 +293,78 @@ export class AuthService {
     return this.resolveLogoUrl(photo);
   }
 
+  /**
+   * Retrieves the current logged-in tenant's dynamic official seal / rubber stamp URL.
+   */
+  getOfficialSealUrl(): string | null {
+    const seal = this.currentUser()?.officialSeal
+      || sessionStorage.getItem('officialSeal')
+      || localStorage.getItem('officialSeal');
+    return this.resolveLogoUrl(seal);
+  }
+
+  /**
+   * Retrieves the current logged-in tenant's dynamic authorized digital signature URL.
+   */
+  getDigitalSignatureUrl(): string | null {
+    const sig = this.currentUser()?.digitalSignature
+      || sessionStorage.getItem('digitalSignature')
+      || localStorage.getItem('digitalSignature');
+    return this.resolveLogoUrl(sig);
+  }
+
+  /**
+   * Retrieves all saved official seals from the library.
+   */
+  getOfficialSeals(): TenantAssetItem[] {
+    const raw = this.currentUser()?.officialSealsJson
+      || sessionStorage.getItem('officialSealsJson')
+      || localStorage.getItem('officialSealsJson');
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      return parsed
+        .map((x: any) => ({
+          id: x.id || x.Id || '',
+          title: x.title || x.Title || (x.name || x.Name || 'Official Seal'),
+          url: x.url || x.Url || '',
+          isDefault: !!(x.isDefault ?? x.IsDefault),
+          name: x.name || x.Name || '',
+          createdAt: x.createdAt || x.CreatedAt || ''
+        }))
+        .filter((item: TenantAssetItem) => !!item.url);
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Retrieves all saved digital signatures from the library.
+   */
+  getDigitalSignatures(): TenantAssetItem[] {
+    const raw = this.currentUser()?.digitalSignaturesJson
+      || sessionStorage.getItem('digitalSignaturesJson')
+      || localStorage.getItem('digitalSignaturesJson');
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      return parsed
+        .map((x: any) => ({
+          id: x.id || x.Id || '',
+          title: x.title || x.Title || (x.name || x.Name || 'Digital Signature'),
+          url: x.url || x.Url || '',
+          isDefault: !!(x.isDefault ?? x.IsDefault),
+          name: x.name || x.Name || '',
+          createdAt: x.createdAt || x.CreatedAt || ''
+        }))
+        .filter((item: TenantAssetItem) => !!item.url);
+    } catch {
+      return [];
+    }
+  }
+
   login(credentials: { tenantCode: string; username: string; password: string }, rememberMe: boolean = false): Observable<LoginResponse> {
     return this.http.post<LoginResponse>(`${this.API_URL}/login`, credentials).pipe(
       tap(res => {
@@ -362,6 +447,26 @@ export class AuthService {
       } else {
         storage.removeItem('profilePhoto');
       }
+      if (res.officialSeal) {
+        storage.setItem('officialSeal', res.officialSeal);
+      } else {
+        storage.removeItem('officialSeal');
+      }
+      if (res.digitalSignature) {
+        storage.setItem('digitalSignature', res.digitalSignature);
+      } else {
+        storage.removeItem('digitalSignature');
+      }
+      if (res.officialSealsJson) {
+        storage.setItem('officialSealsJson', res.officialSealsJson);
+      } else {
+        storage.removeItem('officialSealsJson');
+      }
+      if (res.digitalSignaturesJson) {
+        storage.setItem('digitalSignaturesJson', res.digitalSignaturesJson);
+      } else {
+        storage.removeItem('digitalSignaturesJson');
+      }
       storage.setItem('user_info', JSON.stringify(res));
     }
 
@@ -430,24 +535,40 @@ export class AuthService {
     return false;
   }
 
-  updateTenantProfile(profilePhoto?: string | null, instituteName?: string | null, tenantCode?: string | null): void {
+  updateTenantProfile(
+    profilePhoto?: string | null, 
+    instituteName?: string | null, 
+    tenantCode?: string | null,
+    officialSeal?: string | null,
+    digitalSignature?: string | null,
+    officialSealsJson?: string | null,
+    digitalSignaturesJson?: string | null
+  ): void {
     const current = this.currentUser();
     if (!current) return;
     const updated: LoginResponse = {
       ...current,
       profilePhoto: profilePhoto !== undefined ? profilePhoto : current.profilePhoto,
+      officialSeal: officialSeal !== undefined ? officialSeal : current.officialSeal,
+      digitalSignature: digitalSignature !== undefined ? digitalSignature : current.digitalSignature,
+      officialSealsJson: officialSealsJson !== undefined ? officialSealsJson : current.officialSealsJson,
+      digitalSignaturesJson: digitalSignaturesJson !== undefined ? digitalSignaturesJson : current.digitalSignaturesJson,
       instituteName: instituteName || current.instituteName,
       tenantCode: tenantCode || current.tenantCode
     };
     for (const storage of [sessionStorage, localStorage]) {
-      if (updated.profilePhoto) {
-        storage.setItem('profilePhoto', updated.profilePhoto);
-      } else {
-        storage.removeItem('profilePhoto');
-      }
-      if (updated.instituteName) {
-        storage.setItem('instituteName', updated.instituteName);
-      }
+      if (updated.profilePhoto) storage.setItem('profilePhoto', updated.profilePhoto);
+      else storage.removeItem('profilePhoto');
+      if (updated.officialSeal) storage.setItem('officialSeal', updated.officialSeal);
+      else storage.removeItem('officialSeal');
+      if (updated.digitalSignature) storage.setItem('digitalSignature', updated.digitalSignature);
+      else storage.removeItem('digitalSignature');
+      if (updated.officialSealsJson) storage.setItem('officialSealsJson', updated.officialSealsJson);
+      else storage.removeItem('officialSealsJson');
+      if (updated.digitalSignaturesJson) storage.setItem('digitalSignaturesJson', updated.digitalSignaturesJson);
+      else storage.removeItem('digitalSignaturesJson');
+      if (updated.instituteName) storage.setItem('instituteName', updated.instituteName);
+      if (updated.tenantCode) storage.setItem('tenantCode', updated.tenantCode);
       storage.setItem('user_info', JSON.stringify(updated));
     }
     this.currentUser.set(updated);
@@ -628,6 +749,18 @@ export class AuthService {
       }
       if (user && !user.profilePhoto) {
         user.profilePhoto = sessionStorage.getItem('profilePhoto') || localStorage.getItem('profilePhoto') || null;
+      }
+      if (user && !user.officialSeal) {
+        user.officialSeal = sessionStorage.getItem('officialSeal') || localStorage.getItem('officialSeal') || null;
+      }
+      if (user && !user.digitalSignature) {
+        user.digitalSignature = sessionStorage.getItem('digitalSignature') || localStorage.getItem('digitalSignature') || null;
+      }
+      if (user && !user.officialSealsJson) {
+        user.officialSealsJson = sessionStorage.getItem('officialSealsJson') || localStorage.getItem('officialSealsJson') || null;
+      }
+      if (user && !user.digitalSignaturesJson) {
+        user.digitalSignaturesJson = sessionStorage.getItem('digitalSignaturesJson') || localStorage.getItem('digitalSignaturesJson') || null;
       }
       return user;
     } catch {

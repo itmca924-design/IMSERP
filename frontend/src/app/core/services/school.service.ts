@@ -413,6 +413,8 @@ export interface ExamSettingDto {
   availableAcademicYears?: string;
   availableExamTypes?: string;
   evaluationDueDays?: number;
+  officialSealUrl?: string | null;
+  principalSignatureUrl?: string | null;
 }
 
 export interface UpdateExamSettingDto {
@@ -429,6 +431,8 @@ export interface UpdateExamSettingDto {
   availableAcademicYears?: string;
   availableExamTypes?: string;
   evaluationDueDays?: number;
+  officialSealUrl?: string | null;
+  principalSignatureUrl?: string | null;
 }
 
 export interface AcademicConfigDto {
@@ -475,6 +479,7 @@ export interface ConsolidatedStudentResultDto {
   sectionName?: string;
   subjectDetails: ConsolidatedSubjectDetailDto[];
   classTeacherName?: string;
+  photoUrl?: string | null;
 }
 
 export interface ConsolidatedClassResultDto {
@@ -980,6 +985,7 @@ export interface StudentMyInfoSummaryDto {
   dateOfBirth?: string | null;
   isSchoolStudent?: boolean;
   isCoachingStudent?: boolean;
+  profilePhoto?: string | null;
 }
 
 export interface StudentMyExamsDto {

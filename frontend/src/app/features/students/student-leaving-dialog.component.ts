@@ -480,7 +480,11 @@ export interface StudentLeavingDialogData {
                   </div>
                   <div class="sig-column seal-column">
                     <div class="sig-seal-box">
-                      <span>[ Official Seal ]</span>
+                      <img *ngIf="officialSealUrl" [src]="officialSealUrl" alt="Official Seal" class="uploaded-official-seal-img" />
+                      <span *ngIf="!officialSealUrl">[ Official Seal ]</span>
+                    </div>
+                    <div class="digital-sign-wrapper" *ngIf="digitalSignatureUrl">
+                      <img [src]="digitalSignatureUrl" alt="Principal Signature" class="digital-sign-img" />
                     </div>
                     <div class="sig-line"></div>
                     <div class="sig-title">Principal / Headmaster</div>
@@ -1061,16 +1065,41 @@ export interface StudentLeavingDialogData {
       align-items: center;
     }
     .sig-seal-box {
-      width: 80px;
-      height: 40px;
+      width: 70px;
+      height: 70px;
       border: 1px dashed #94a3b8;
-      border-radius: 4px;
+      border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 10px;
       color: #94a3b8;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
+      overflow: hidden;
+
+      .uploaded-official-seal-img {
+        max-width: 64px;
+        max-height: 64px;
+        object-fit: contain;
+        display: block;
+      }
+    }
+
+    .digital-sign-wrapper {
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      height: 38px;
+      margin-bottom: 2px;
+      overflow: visible;
+
+      .digital-sign-img {
+        max-height: 38px;
+        max-width: 130px;
+        object-fit: contain;
+        display: block;
+        mix-blend-mode: multiply;
+      }
     }
 
     /* Footer */
@@ -1394,7 +1423,15 @@ export class StudentLeavingDialogComponent implements OnInit {
   }
 
   get instituteName(): string {
-    return this.authService.currentUser()?.instituteName || 'Apex School Academy';
+    return this.authService.currentUser()?.instituteName || this.authService.getInstituteName() || 'Institution';
+  }
+
+  get officialSealUrl(): string | null {
+    return this.authService.getOfficialSealUrl();
+  }
+
+  get digitalSignatureUrl(): string | null {
+    return this.authService.getDigitalSignatureUrl();
   }
 
   printCertificate(): void {
@@ -1585,14 +1622,35 @@ export class StudentLeavingDialogComponent implements OnInit {
             .seal-column .sig-seal-box {
               border: 1px dashed #94a3b8;
               border-radius: 50%;
-              width: 60px;
-              height: 60px;
-              margin: 0 auto 8px auto;
+              width: 70px;
+              height: 70px;
+              margin: 0 auto 6px auto;
               display: flex;
               align-items: center;
               justify-content: center;
               font-size: 9px;
               color: #94a3b8;
+              overflow: hidden;
+            }
+            .uploaded-official-seal-img {
+              max-width: 64px;
+              max-height: 64px;
+              object-fit: contain;
+              display: block;
+            }
+            .digital-sign-wrapper {
+              display: flex;
+              align-items: flex-end;
+              justify-content: center;
+              height: 38px;
+              margin-bottom: 2px;
+            }
+            .digital-sign-img {
+              max-height: 38px;
+              max-width: 130px;
+              object-fit: contain;
+              display: block;
+              mix-blend-mode: multiply;
             }
           </style>
         </head>

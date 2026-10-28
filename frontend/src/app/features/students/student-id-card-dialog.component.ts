@@ -122,7 +122,10 @@ export interface StudentIdCardDialogData {
               <span class="qr-lbl">{{c.admissionNumber||'STU-ID'}}</span>
             </div>
             <div class="sign-box">
-              <div class="sign-line"></div>
+              <div class="id-digital-sign" *ngIf="digitalSignatureUrl">
+                <img [src]="digitalSignatureUrl" alt="Principal Signature" class="id-sign-img" />
+              </div>
+              <div class="sign-line" [class.has-sign]="digitalSignatureUrl"></div>
               <span class="sign-lbl">Principal / Auth.</span>
             </div>
           </div>
@@ -214,7 +217,10 @@ export interface StudentIdCardDialogData {
     .qr-ic{font-size:26px;width:26px;height:26px;line-height:26px;color:#1e3a8a}
     .qr-lbl{font-size:7.5px;font-weight:700;color:#64748b;letter-spacing:.3px;margin-top:1px}
     .sign-box{text-align:center;width:95px;display:flex;flex-direction:column;align-items:center}
+    .id-digital-sign{height:18px;display:flex;align-items:flex-end;justify-content:center;margin-bottom:1px}
+    .id-sign-img{max-height:18px;max-width:65px;object-fit:contain;display:block;mix-blend-mode:multiply}
     .sign-line{border-bottom:1.5px solid #475569;width:80px;height:14px;margin-bottom:3px}
+    .sign-line.has-sign{height:2px;margin-bottom:2px}
     .sign-lbl{font-size:8px;font-weight:700;color:#475569;white-space:nowrap;text-transform:uppercase;letter-spacing:.4px;display:block}
     .id-card-back{background:#fafafa}
     .back-hdr{background:#1e3a8a;color:#fff;padding:9px 10px;text-align:center;flex-shrink:0}
@@ -240,6 +246,10 @@ export class StudentIdCardDialogComponent implements OnInit {
 
   get logoUrl(): string | null {
     return this.authService.getInstituteLogoUrl();
+  }
+
+  get digitalSignatureUrl(): string | null {
+    return this.authService.getDigitalSignatureUrl();
   }
 
   constructor(

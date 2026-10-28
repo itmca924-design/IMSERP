@@ -1,7 +1,7 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { MatDialogRef, MatDialogModule } from '@angular/material/dialog';
+import { MatDialogRef, MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -18,6 +18,8 @@ import { SchoolService, SchoolClassDto } from '../../core/services/school.servic
 import { AuthService } from '../../core/services/auth.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { QuickSettingsService } from '../../core/services/quick-settings.service';
+import { FeeHeadsReportDialogComponent } from './fee-heads-report-dialog.component';
+import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-dialog.component';
 
 @Component({
   selector: 'app-fee-master-dialog',
@@ -252,13 +254,13 @@ import { QuickSettingsService } from '../../core/services/quick-settings.service
             </div>
 
             <!-- Existing Fee Heads Table -->
-            <div class="heads-table-wrapper">
+            <div class="heads-table-container">
               <div class="heads-toolbar-row">
                 <div class="heads-search-bar">
                   <mat-icon>search</mat-icon>
                   <input
                     type="text"
-                    placeholder="Search fee heads by name, code, category, frequency..."
+                    placeholder="Search fee heads by name, code, category..."
                     [(ngModel)]="headSearchQuery"
                     (input)="filterFeeHeadsMaster()"
                   />
@@ -266,17 +268,29 @@ import { QuickSettingsService } from '../../core/services/quick-settings.service
                     <mat-icon>close</mat-icon>
                   </button>
                 </div>
-                <div class="heads-meta-pill" *ngIf="feeHeads.length > 0">
-                  <span>{{ filteredFeeHeads.length }} of {{ feeHeads.length }} Fee Heads</span>
+                <div class="heads-meta-actions">
+                  <div class="heads-meta-pill" *ngIf="feeHeads.length > 0">
+                    <span>{{ filteredFeeHeads.length }} of {{ feeHeads.length }} Heads</span>
+                  </div>
+                  <button type="button" mat-stroked-button color="primary" class="tab-report-btn" (click)="openFeeHeadsReport()" matTooltip="Print or export official master fee heads catalog">
+                    <mat-icon>print</mat-icon>
+                    <span>Print Catalog</span>
+                  </button>
                 </div>
               </div>
 
-              <table class="styled-table">
-                <thead>
-                  <tr>
-                    <th>Code</th>
-                    <th>Fee Head Name</th>
-                    <th>Applicable To</th>
+              <div class="mobile-table-hint">
+                <mat-icon>swipe</mat-icon>
+                <span>Swipe sideways to view all columns &bull; तालिका दाएं-बाएं स्क्रॉल करें</span>
+              </div>
+
+              <div class="heads-table-wrapper">
+                <table class="styled-table">
+                  <thead>
+                    <tr>
+                      <th>Code</th>
+                      <th>Fee Head Name</th>
+                      <th>Applicable To</th>
                     <th>Category</th>
                     <th>Frequency</th>
                     <th>Description</th>
@@ -312,7 +326,8 @@ import { QuickSettingsService } from '../../core/services/quick-settings.service
               </table>
             </div>
           </div>
-        </mat-tab>
+        </div>
+      </mat-tab>
 
         <!-- TAB 2: Fee Structure Matrix (School Classes & Coaching Batches) -->
         <mat-tab>
@@ -356,6 +371,10 @@ import { QuickSettingsService } from '../../core/services/quick-settings.service
                     <span class="sum-label">Annual / One-Time Extras:</span>
                     <strong class="sum-val">₹{{ totalAnnualExtras | number:'1.2-2' }}</strong>
                   </div>
+                  <button type="button" mat-stroked-button color="primary" class="tab-matrix-report-btn" (click)="openClassFeeMatrixReport()" matTooltip="Print or export class-wise fee structure matrix">
+                    <mat-icon>print</mat-icon>
+                    <span>Class Fee Report</span>
+                  </button>
                 </div>
               </div>
 
@@ -447,8 +466,13 @@ import { QuickSettingsService } from '../../core/services/quick-settings.service
             </div>
 
             <!-- Structure Grid Table -->
-            <div class="matrix-table-wrapper" *ngIf="(targetType === 'class' && selectedClassId) || (targetType === 'batch' && selectedBatchId)">
-              <table class="styled-table matrix-table">
+            <div class="matrix-table-container" *ngIf="(targetType === 'class' && selectedClassId) || (targetType === 'batch' && selectedBatchId)">
+              <div class="mobile-table-hint">
+                <mat-icon>swipe</mat-icon>
+                <span>Swipe sideways to edit amounts &amp; months &bull; तालिका दाएं-बाएं स्क्रॉल करें</span>
+              </div>
+              <div class="matrix-table-wrapper">
+                <table class="styled-table matrix-table">
                 <thead>
                   <tr>
                     <th style="width: 40px;">Active</th>
@@ -500,6 +524,7 @@ import { QuickSettingsService } from '../../core/services/quick-settings.service
                   </tr>
                 </tbody>
               </table>
+            </div>
 
               <div class="matrix-save-bar">
                 <span class="save-hint">💡 Changes will apply to generated invoices for this {{ targetType === 'class' ? 'School Class' : 'Coaching Batch' }}.</span>
@@ -648,6 +673,13 @@ import { QuickSettingsService } from '../../core/services/quick-settings.service
       flex-direction: column;
       max-height: 90vh;
       min-width: min(1080px, 92vw);
+
+      @media (max-width: 640px) {
+        min-width: 100% !important;
+        max-width: 100vw !important;
+        max-height: 100vh !important;
+        height: 100vh;
+      }
     }
     ::ng-deep .fee-tabs {
       .mat-mdc-tab-header-pagination {
@@ -655,9 +687,20 @@ import { QuickSettingsService } from '../../core/services/quick-settings.service
       }
       .mat-mdc-tab-header {
         overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
       }
       .mat-mdc-tab-label-container {
         overflow: visible !important;
+      }
+      @media (max-width: 640px) {
+        .mdc-tab {
+          min-width: 0 !important;
+          padding: 0 10px !important;
+          .mdc-tab__text-label {
+            font-size: 0.78rem !important;
+            gap: 4px;
+          }
+        }
       }
     }
     .dialog-title-bar {
@@ -665,36 +708,85 @@ import { QuickSettingsService } from '../../core/services/quick-settings.service
       justify-content: space-between;
       align-items: center;
       padding: 16px 20px;
-      border-bottom: 1px solid #e2e8f0;
-      background: #f8fafc;
+      border-bottom: 1px solid #bfdbfe;
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+      position: sticky;
+      top: 0;
+      z-index: 20;
 
       .title-with-icon {
         display: flex;
         align-items: center;
         gap: 12px;
+        min-width: 0;
+        flex: 1;
 
         .icon-bubble {
-          width: 42px;
-          height: 42px;
+          width: 44px;
+          height: 44px;
           border-radius: 10px;
-          background: #eff6ff;
-          border: 1px solid #bfdbfe;
+          background: #2563eb;
+          color: #ffffff;
+          box-shadow: 0 4px 6px -1px rgba(37,99,235,0.25);
           display: flex;
           align-items: center;
           justify-content: center;
-          color: #2563eb;
+          flex-shrink: 0;
+          mat-icon { font-size: 24px; width: 24px; height: 24px; }
         }
 
         .main-title {
           margin: 0;
           font-size: 1.15rem;
           font-weight: 700;
-          color: #0f172a;
+          color: #1e3a8a;
+          line-height: 1.3;
         }
         .sub-title {
           margin: 2px 0 0;
           font-size: 0.78rem;
-          color: #64748b;
+          color: #3b82f6;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+      }
+
+      .close-btn {
+        color: #64748b;
+        &:hover { color: #1e293b; background: rgba(0,0,0,0.05); }
+      }
+
+      @media (max-width: 640px) {
+        padding: 12px 14px;
+        align-items: flex-start;
+
+        .title-with-icon {
+          gap: 10px;
+          align-items: flex-start;
+
+          .icon-bubble {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            mat-icon { font-size: 20px; width: 20px; height: 20px; }
+          }
+
+          .main-title {
+            font-size: 0.95rem;
+            line-height: 1.25;
+            word-break: break-word;
+          }
+          .sub-title {
+            font-size: 0.72rem;
+            line-height: 1.2;
+            white-space: normal;
+          }
+        }
+
+        .close-btn {
+          margin: -4px -6px 0 0;
+          flex-shrink: 0;
         }
       }
     }
@@ -718,11 +810,13 @@ import { QuickSettingsService } from '../../core/services/quick-settings.service
         display: flex;
         align-items: center;
         justify-content: space-between;
+        gap: 10px;
 
         strong {
           display: inline-flex;
           align-items: center;
           gap: 6px;
+          font-size: 0.92rem;
         }
 
         .preset-btn {
@@ -737,6 +831,25 @@ import { QuickSettingsService } from '../../core/services/quick-settings.service
             width: 16px;
             height: 16px;
             margin-right: 4px;
+          }
+        }
+
+        @media (max-width: 640px) {
+          flex-direction: column;
+          align-items: stretch;
+          gap: 10px;
+
+          strong {
+            font-size: 0.92rem;
+            justify-content: flex-start;
+          }
+
+          .preset-btn {
+            width: 100%;
+            justify-content: center;
+            height: 38px;
+            line-height: 38px;
+            font-size: 0.78rem;
           }
         }
       }
@@ -760,14 +873,39 @@ import { QuickSettingsService } from '../../core/services/quick-settings.service
           width: 100%;
           justify-content: flex-end;
         }
+
+        @media (max-width: 640px) {
+          gap: 8px;
+          .field-col {
+            flex: 1 1 100% !important;
+            min-width: 100% !important;
+            width: 100% !important;
+            margin-bottom: -0.5em;
+          }
+          .form-action-col {
+            flex-direction: column-reverse;
+            width: 100%;
+            gap: 8px;
+            button {
+              width: 100%;
+              height: 40px;
+              justify-content: center;
+            }
+          }
+        }
       }
     }
+    .heads-table-container {
+      margin-bottom: 16px;
+    }
+
     .heads-toolbar-row {
       display: flex;
       justify-content: space-between;
       align-items: center;
       margin-bottom: 12px;
       gap: 12px;
+      flex-wrap: wrap;
 
       .heads-search-bar {
         display: flex;
@@ -818,6 +956,12 @@ import { QuickSettingsService } from '../../core/services/quick-settings.service
         }
       }
 
+      .heads-meta-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
       .heads-meta-pill {
         font-size: 0.78rem;
         font-weight: 600;
@@ -826,6 +970,93 @@ import { QuickSettingsService } from '../../core/services/quick-settings.service
         padding: 4px 10px;
         border-radius: 20px;
         border: 1px solid #e2e8f0;
+        white-space: nowrap;
+      }
+
+      .tab-report-btn {
+        height: 34px;
+        line-height: 34px;
+        padding: 0 12px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        border-radius: 6px;
+        border-color: #cbd5e1;
+        color: #1e40af;
+        background: #ffffff;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        white-space: nowrap;
+        &:hover { background: #eff6ff; }
+      }
+
+      @media (max-width: 640px) {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+
+        .heads-search-bar {
+          width: 100% !important;
+        }
+
+        .heads-meta-actions {
+          width: 100%;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 8px;
+
+          .heads-meta-pill {
+            flex: 1;
+            text-align: center;
+            font-size: 0.72rem;
+            padding: 4px 6px;
+          }
+
+          .tab-report-btn {
+            flex: 1;
+            justify-content: center;
+            height: 36px;
+            font-size: 0.78rem;
+          }
+        }
+      }
+    }
+
+    .mobile-table-hint {
+      display: none;
+      @media (max-width: 768px) {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        background: #eff6ff;
+        color: #2563eb;
+        font-size: 0.72rem;
+        font-weight: 600;
+        padding: 5px 10px;
+        border-radius: 6px;
+        margin-bottom: 8px;
+        border: 1px dashed #bfdbfe;
+        mat-icon { font-size: 16px; width: 16px; height: 16px; }
+      }
+    }
+
+    .heads-table-wrapper,
+    .matrix-table-wrapper {
+      width: 100%;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      background: #ffffff;
+      margin-bottom: 12px;
+
+      .styled-table {
+        min-width: 720px;
+        th, td {
+          white-space: nowrap;
+        }
       }
     }
     .styled-table {
@@ -1009,6 +1240,22 @@ import { QuickSettingsService } from '../../core/services/quick-settings.service
               color: #a21caf;
             }
           }
+
+          .tab-matrix-report-btn {
+            height: 44px;
+            padding: 0 14px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            border-radius: 8px;
+            border-color: #bfdbfe;
+            color: #1d4ed8;
+            background: #eff6ff;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+            &:hover { background: #dbeafe; }
+          }
         }
       }
 
@@ -1182,10 +1429,23 @@ import { QuickSettingsService } from '../../core/services/quick-settings.service
 
           .summary-cards {
             width: 100%;
-            display: flex;
-            justify-content: space-between;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+
             .sum-card {
-              flex: 1;
+              min-width: 0;
+              padding: 6px 10px;
+              .sum-label { font-size: 0.68rem; }
+              .sum-val { font-size: 0.95rem; }
+            }
+
+            .tab-matrix-report-btn {
+              grid-column: span 2;
+              width: 100%;
+              height: 38px;
+              justify-content: center;
+              font-size: 0.8rem;
             }
           }
         }
@@ -1669,6 +1929,8 @@ export class FeeMasterDialogComponent implements OnInit {
   policyForm!: FormGroup;
   savingPolicy = false;
 
+  private dialog = inject(MatDialog);
+
   constructor(
     private fb: FormBuilder,
     private feesService: FeesService,
@@ -1678,6 +1940,30 @@ export class FeeMasterDialogComponent implements OnInit {
     public settingsService: QuickSettingsService,
     private dialogRef: MatDialogRef<FeeMasterDialogComponent>
   ) {}
+
+  openFeeHeadsReport(): void {
+    this.dialog.open(FeeHeadsReportDialogComponent, {
+      width: '1100px',
+      maxWidth: '96vw',
+      maxHeight: '94vh',
+      panelClass: 'responsive-report-dialog',
+      data: {}
+    });
+  }
+
+  openClassFeeMatrixReport(): void {
+    this.dialog.open(ClassFeeMatrixReportDialogComponent, {
+      width: '1300px',
+      maxWidth: '98vw',
+      maxHeight: '94vh',
+      panelClass: 'responsive-report-dialog',
+      data: {
+        initialTargetType: this.targetType,
+        initialClassId: this.selectedClassId,
+        initialBatchId: this.selectedBatchId
+      }
+    });
+  }
 
   ngOnInit(): void {
     this.initHeadForm();

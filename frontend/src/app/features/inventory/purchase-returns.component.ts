@@ -84,10 +84,10 @@ import {
           <mat-icon>inventory_2</mat-icon> Store &amp; Catalog
         </a>
         <a mat-button [routerLink]="['/inventory/purchase-returns']" class="nav-tab active-tab">
-          <mat-icon>assignment_return</mat-icon> Purchase Returns (PR)
+          <mat-icon>assignment_return</mat-icon> Purchase Returns
         </a>
         <a mat-button [routerLink]="['/inventory/sale-returns']" class="nav-tab">
-          <mat-icon>keyboard_return</mat-icon> Kit &amp; Sale Returns (SR)
+          <mat-icon>keyboard_return</mat-icon> Kit &amp; Sale Returns
         </a>
         <a mat-button [routerLink]="['/inventory/vendors']" class="nav-tab">
           <mat-icon>account_balance_wallet</mat-icon> Vendors &amp; Ledger
@@ -435,7 +435,13 @@ import {
       padding: 6px;
       border-radius: 10px;
       border: 1px solid #e2e8f0;
-      flex-wrap: wrap;
+      overflow-x: auto;
+      flex-wrap: nowrap;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      &::-webkit-scrollbar {
+        display: none;
+      }
     }
 
     .nav-tab {
@@ -447,6 +453,8 @@ import {
       display: inline-flex;
       align-items: center;
       gap: 6px;
+      white-space: nowrap;
+      flex-shrink: 0;
       transition: all 0.2s ease-in-out;
     }
 
@@ -875,7 +883,51 @@ import {
       .form-bottom-row { grid-template-columns: 1fr; }
     }
     @media (max-width: 640px) {
-      .kpi-grid { grid-template-columns: 1fr; }
+      .module-nav-bar {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+        padding: 6px;
+      }
+      .nav-tab {
+        width: 100%;
+        justify-content: center;
+        font-size: 0.76rem;
+        padding: 0 6px;
+        height: 36px;
+        gap: 4px;
+        white-space: nowrap;
+        mat-icon {
+          font-size: 18px;
+          width: 18px;
+          height: 18px;
+          margin-right: 2px;
+        }
+      }
+      .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+      .kpi-card { padding: 10px 10px; }
+      .kpi-label { font-size: 0.65rem; }
+      .kpi-value { font-size: 1.15rem; }
+      .kpi-icon-wrap { width: 30px; height: 30px; mat-icon { font-size: 18px; width: 18px; height: 18px; } }
+
+      .filter-card {
+        padding: 10px 12px;
+      }
+      .filter-deck {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        align-items: stretch;
+      }
+      .search-input, .vendor-select {
+        width: 100%;
+        min-width: 100%;
+        margin-bottom: 0;
+      }
+      .chip-total {
+        display: flex;
+        justify-content: flex-start;
+      }
     }
   `]
 })

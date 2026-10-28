@@ -653,12 +653,16 @@ import { AuthService } from '../../core/services/auth.service';
             <small>I hereby confirm receipt of full and final settlement and have no further claims against the institution.</small>
           </div>
           <div class="sig-box text-center">
-            <div class="stamp-box">
+            <img *ngIf="officialSealUrl" [src]="officialSealUrl" alt="Official Seal" class="uploaded-official-seal-img" />
+            <div class="stamp-box" *ngIf="!officialSealUrl">
               <mat-icon>verified</mat-icon>
               <span>AUDITED &amp; VERIFIED</span>
             </div>
           </div>
           <div class="sig-box text-right">
+            <div class="sig-space-img" *ngIf="digitalSignatureUrl">
+              <img [src]="digitalSignatureUrl" alt="Principal Signature" class="digital-sign-img" />
+            </div>
             <div class="sig-line"></div>
             <span>Authorized Signatory / Principal</span>
             <small>{{ instituteName }}</small>
@@ -738,12 +742,16 @@ import { AuthService } from '../../core/services/auth.service';
 
           <div class="cert-footer">
             <div class="seal-container">
-              <div class="gold-seal">
+              <img *ngIf="officialSealUrl" [src]="officialSealUrl" alt="Official Seal" class="uploaded-official-seal-img cert-seal" />
+              <div class="gold-seal" *ngIf="!officialSealUrl">
                 <mat-icon>verified</mat-icon>
                 <span>OFFICIAL SEAL</span>
               </div>
             </div>
             <div class="principal-sig">
+              <div class="sig-space-img" *ngIf="digitalSignatureUrl">
+                <img [src]="digitalSignatureUrl" alt="Principal Signature" class="digital-sign-img" />
+              </div>
               <div class="sig-line-gold"></div>
               <strong>Principal / Authorized Director</strong>
               <span>{{ instituteName }}</span>
@@ -1027,6 +1035,13 @@ import { AuthService } from '../../core/services/auth.service';
         .sig-line { width: 140px; height: 1px; background: #94a3b8; margin-bottom: 4px; }
         small { font-size: 0.68rem; color: #94a3b8; line-height: 1.2; }
       }
+      .sig-space-img {
+        display: flex; justify-content: flex-end; align-items: flex-end; min-height: 32px; margin-bottom: -4px;
+        .digital-sign-img { max-height: 32px; max-width: 110px; object-fit: contain; }
+      }
+      .uploaded-official-seal-img {
+        max-height: 54px; max-width: 54px; object-fit: contain; display: block; margin: 0 auto;
+      }
       .stamp-box {
         border: 1.5px dashed #cbd5e1; border-radius: 20px; padding: 4px 10px;
         display: inline-flex; align-items: center; gap: 4px; color: #94a3b8; font-size: 0.7rem; font-weight: 700;
@@ -1066,6 +1081,9 @@ import { AuthService } from '../../core/services/auth.service';
       }
       .cert-footer {
         display: flex; justify-content: space-between; align-items: flex-end; margin-top: 40px; padding-top: 10px;
+        .uploaded-official-seal-img.cert-seal {
+          max-height: 80px; max-width: 80px; object-fit: contain; display: block;
+        }
         .gold-seal {
           display: flex; flex-direction: column; align-items: center; gap: 4px;
           border: 2px dashed #b45309; border-radius: 50%; width: 90px; height: 90px;
@@ -1074,6 +1092,10 @@ import { AuthService } from '../../core/services/auth.service';
         }
         .principal-sig {
           text-align: right; display: flex; flex-direction: column; gap: 2px; font-family: sans-serif;
+          .sig-space-img {
+            display: flex; justify-content: flex-end; align-items: flex-end; min-height: 36px; margin-bottom: -4px;
+            .digital-sign-img { max-height: 36px; max-width: 120px; object-fit: contain; }
+          }
           .sig-line-gold { width: 170px; height: 1.5px; background: #1e3a8a; margin-bottom: 6px; margin-left: auto; }
           strong { font-size: 0.88rem; color: #0f172a; }
           span { font-size: 0.78rem; color: #64748b; }
@@ -1154,6 +1176,14 @@ export class TeacherFnFComponent implements OnInit {
   ) {
     const inst = this.authService.currentUser()?.instituteName;
     if (inst) this.instituteName = inst;
+  }
+
+  get officialSealUrl(): string | null {
+    return this.authService.getOfficialSealUrl();
+  }
+
+  get digitalSignatureUrl(): string | null {
+    return this.authService.getDigitalSignatureUrl();
   }
 
   ngOnInit(): void {
@@ -1854,6 +1884,10 @@ export class TeacherFnFComponent implements OnInit {
               font-size: 10.5px;
               color: #64748b;
             }
+            .uploaded-official-seal-img { max-height: 54px; max-width: 54px; object-fit: contain; display: block; margin: 0 auto; }
+            .uploaded-official-seal-img.cert-seal { max-height: 75px; max-width: 75px; }
+            .sig-space-img { display: flex; justify-content: flex-end; align-items: flex-end; min-height: 32px; margin-bottom: -3px; }
+            .digital-sign-img { max-height: 32px; max-width: 110px; object-fit: contain; display: block; }
           </style>
         </head>
         <body>

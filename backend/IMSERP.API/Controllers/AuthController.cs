@@ -182,7 +182,11 @@ public class AuthController : ControllerBase
             MaxBranchesLimit: tenant.MaxBranchesLimit,
             IsSubscriptionExpired: isExpired,
             UserProfilePhoto: user.ProfilePhoto,
-            SessionId: newSessionId
+            SessionId: newSessionId,
+            OfficialSeal: tenant.OfficialSeal,
+            DigitalSignature: tenant.DigitalSignature,
+            OfficialSealsJson: tenant.OfficialSealsJson,
+            DigitalSignaturesJson: tenant.DigitalSignaturesJson
         ));
     }
 
@@ -296,7 +300,11 @@ public class AuthController : ControllerBase
             MaxBranchesLimit: tenant?.MaxBranchesLimit ?? 2,
             IsSubscriptionExpired: isExpired,
             UserProfilePhoto: user.ProfilePhoto,
-            SessionId: user.ActiveSessionId
+            SessionId: user.ActiveSessionId,
+            OfficialSeal: tenant?.OfficialSeal,
+            DigitalSignature: tenant?.DigitalSignature,
+            OfficialSealsJson: tenant?.OfficialSealsJson,
+            DigitalSignaturesJson: tenant?.DigitalSignaturesJson
         ));
     }
 
@@ -716,7 +724,13 @@ public class AuthController : ControllerBase
             TrialDaysLeft: 14,
             MaxStudentsLimit: tenant.MaxStudentsLimit,
             MaxBranchesLimit: tenant.MaxBranchesLimit,
-            IsSubscriptionExpired: false
+            IsSubscriptionExpired: false,
+            UserProfilePhoto: null,
+            SessionId: null,
+            OfficialSeal: tenant.OfficialSeal,
+            DigitalSignature: tenant.DigitalSignature,
+            OfficialSealsJson: tenant.OfficialSealsJson,
+            DigitalSignaturesJson: tenant.DigitalSignaturesJson
         ));
     }
 

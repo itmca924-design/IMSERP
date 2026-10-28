@@ -267,14 +267,18 @@ interface MappingPerson {
         <p>Pre-calculated unique biometric device IDs for Hikvision DS-K1A802AEF enrollment and 125kHz RFID card assignment.</p>
       </div>
       <div class="toolbar-actions">
-        <button mat-flat-button color="accent" (click)="autoGenerateIds(false)" [disabled]="autoGenerating" matTooltip="Auto-generate and save unique device IDs in database for all unmapped people in this category">
+        <button mat-flat-button color="accent" class="toolbar-action-btn" (click)="autoGenerateIds(false)" [disabled]="autoGenerating" matTooltip="Auto-generate and save unique device IDs in database for all unmapped people in this category">
           <mat-icon>{{ autoGenerating ? 'hourglass_top' : 'auto_fix_high' }}</mat-icon>
           {{ autoGenerating ? 'Generating...' : '⚡ Auto-Generate All IDs' }}
         </button>
-        <button mat-stroked-button color="primary" (click)="printEnrollmentSheet()" matTooltip="Print physical checklist to carry to the biometric machine">
+        <button mat-stroked-button color="primary" class="toolbar-action-btn" (click)="printEnrollmentSheet()" matTooltip="Print physical checklist to carry to the biometric machine">
           <mat-icon>print</mat-icon> Print Enrollment Sheet
         </button>
       </div>
+    </div>
+
+    <div class="mobile-scroll-hint" *ngIf="filteredPeople.length">
+      <mat-icon>swipe</mat-icon> Scroll table horizontally to view all columns
     </div>
 
     <!-- Responsive Enrollment Table -->
@@ -843,16 +847,38 @@ interface MappingPerson {
   gap: 10px;
   flex-wrap: wrap;
 }
+.toolbar-action-btn {
+  white-space: nowrap;
+}
+.mobile-scroll-hint {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: #64748b;
+  margin-top: 12px;
+  margin-bottom: -4px;
+}
+.mobile-scroll-hint mat-icon {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+  color: #3b82f6;
+}
 .table-responsive {
   width: 100%;
+  max-width: 100%;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   margin-top: 14px;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
+  box-sizing: border-box;
+  display: block;
 }
 .enroll-table {
   width: 100%;
+  min-width: 680px;
   border-collapse: collapse;
   white-space: nowrap;
 }
@@ -1089,13 +1115,219 @@ interface MappingPerson {
     grid-template-columns: 1fr;
   }
   .page-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+  .page-header h1 {
+    font-size: 1.25rem;
+    line-height: 1.35;
+    flex-wrap: wrap;
+  }
+  .header-actions {
+    flex-direction: column;
+    width: 100%;
+    gap: 8px;
+  }
+  .header-actions button {
+    width: 100%;
+    min-height: 42px;
+    justify-content: center;
+  }
+  .banner-top {
+    flex-direction: column;
     align-items: flex-start;
     gap: 12px;
-    flex-direction: column;
+  }
+  .badge-title {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .badge-title h3 {
+    font-size: 1.05rem;
+    line-height: 1.35;
+  }
+  .protocol-chip {
+    align-self: flex-start;
+    font-size: 0.75rem;
+    padding: 4px 10px;
+    white-space: nowrap;
   }
   .webhook-code-row {
     flex-direction: column;
     align-items: stretch;
+    gap: 10px;
+  }
+  .webhook-code-row code {
+    font-size: 0.85rem;
+    padding: 10px;
+    word-break: break-all;
+  }
+  .webhook-code-row button {
+    width: 100%;
+    min-height: 40px;
+    justify-content: center;
+  }
+  .section-heading {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .section-heading > div {
+    width: 100%;
+  }
+  .section-heading h2 {
+    font-size: 1.05rem;
+    line-height: 1.35;
+  }
+  .section-heading > button {
+    width: 100%;
+    min-height: 40px;
+    justify-content: center;
+  }
+  .events-actions {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    gap: 8px;
+  }
+  .events-actions button {
+    width: 100%;
+    min-height: 40px;
+    justify-content: center;
+  }
+  .filter-deck {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .filter-field {
+    width: 100%;
+    min-width: 100%;
+  }
+  .toggle-edit-btn {
+    width: 100%;
+    margin-bottom: 4px;
+    height: 44px;
+    justify-content: center;
+  }
+  .manual-edit-panel {
+    padding: 12px 14px;
+    margin: 10px 0 16px;
+  }
+  .edit-panel-header {
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .panel-title-wrap {
+    flex: 1;
+    align-items: flex-start;
+  }
+  .edit-panel-body {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .edit-actions {
+    flex-direction: column;
+    height: auto;
+    width: 100%;
+    gap: 8px;
+    margin-top: 4px;
+  }
+  .edit-actions button {
+    width: 100%;
+    min-height: 42px;
+    justify-content: center;
+  }
+  .directory-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+    margin-top: 18px;
+    padding-top: 16px;
+  }
+  .toolbar-info h3 {
+    font-size: 1rem;
+    line-height: 1.35;
+  }
+  .toolbar-actions {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    gap: 8px;
+  }
+  .toolbar-actions button,
+  .toolbar-action-btn {
+    width: 100%;
+    min-height: 42px;
+    height: auto;
+    padding: 8px 16px;
+    justify-content: center;
+    white-space: normal;
+  }
+  .mobile-scroll-hint {
+    display: flex;
+  }
+  .device-heading {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .device-meta {
+    flex-direction: column;
+    gap: 6px;
+  }
+  .device-card .actions,
+  .simulation-card .actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .device-card .actions button,
+  .simulation-card .actions button {
+    width: 100%;
+    min-height: 42px;
+    justify-content: center;
+  }
+  .form-card-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .form-card-header button {
+    width: 100%;
+    min-height: 40px;
+    justify-content: center;
+  }
+  .actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .actions button {
+    width: 100%;
+    min-height: 42px;
+    justify-content: center;
+  }
+}
+@media (max-width: 640px) {
+  .form-card, .mapping-card, .simulation-card, .events-card, .hikvision-banner {
+    padding: 14px 12px;
+    border-radius: 10px;
+  }
+  .page-container {
+    gap: 14px;
+  }
+  .event-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  .event-status {
+    align-self: flex-start;
   }
 }
 `]

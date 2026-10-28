@@ -73,6 +73,22 @@ export class SchoolReportCardDialogComponent implements OnInit, OnDestroy {
     return this.authService.getInstituteLogoUrl();
   }
 
+  get officialSealUrl(): string | null {
+    const fromSettings = this.data.settings?.officialSealUrl;
+    if (fromSettings) return this.authService.resolveLogoUrl(fromSettings);
+    return this.authService.getOfficialSealUrl();
+  }
+
+  get principalSignatureUrl(): string | null {
+    const fromSettings = this.data.settings?.principalSignatureUrl;
+    if (fromSettings) return this.authService.resolveLogoUrl(fromSettings);
+    return this.authService.getDigitalSignatureUrl();
+  }
+
+  getPhotoUrl(photo?: string | null): string {
+    return this.authService.resolveLogoUrl(photo) || '';
+  }
+
   onLogoImgError(): void {
     this.logoImgFailed = true;
   }

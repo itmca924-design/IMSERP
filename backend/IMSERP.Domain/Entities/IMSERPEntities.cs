@@ -18,6 +18,10 @@ public class Tenant
     public string? AffiliationNumber { get; set; }
     public string? EstablishedYear { get; set; }
     public string? ProfilePhoto { get; set; }
+    public string? OfficialSeal { get; set; }
+    public string? DigitalSignature { get; set; }
+    public string? OfficialSealsJson { get; set; }
+    public string? DigitalSignaturesJson { get; set; }
     public string? WhatsAppPhoneId { get; set; }
     public string? WhatsAppAccessToken { get; set; }
     public bool HasSchoolModule { get; set; } = true;
@@ -430,6 +434,8 @@ public class ExamSetting
     public string PrincipalSignTitle { get; set; } = "Principal / Headmaster";
     public string ClassTeacherSignTitle { get; set; } = "Class Teacher";
     public string ResultDeclarationNote { get; set; } = "Continuous and Comprehensive Evaluation Scheme";
+    public string? OfficialSealUrl { get; set; }
+    public string? PrincipalSignatureUrl { get; set; }
 
     // Dynamic session defaults based on current date (Indian Academic Session: April to March)
     public string? ActiveAcademicYear { get; set; } = CalculateCurrentSession();

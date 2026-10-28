@@ -140,6 +140,16 @@ export const routes: Routes = [
         loadComponent: () => import('./features/school/monthly-performance.component').then(m => m.MonthlyPerformanceComponent)
       },
       {
+        path: 'monthly-performance',
+        redirectTo: 'school/monthly-performance',
+        pathMatch: 'full'
+      },
+      {
+        path: 'academic/monthly-performance',
+        redirectTo: 'school/monthly-performance',
+        pathMatch: 'full'
+      },
+      {
         path: 'school/notices',
         loadComponent: () => import('./features/school/school-notices.component').then(m => m.SchoolNoticesComponent)
       },

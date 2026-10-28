@@ -15,8 +15,10 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatSelectModule } from '@angular/material/select';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { TenantService, TenantDto, CreateTenantDto, UpdateTenantDto } from '../../core/services/tenant.service';
-import { AuthService } from '../../core/services/auth.service';
+import { AuthService, TenantAssetItem } from '../../core/services/auth.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
+import { StampMakerDialogComponent } from './stamp-maker-dialog.component';
+import { SignatureStudioDialogComponent } from './signature-studio-dialog.component';
 import { environment } from '../../../environments/environment';
 
 @Component({
@@ -400,22 +402,164 @@ import { environment } from '../../../environments/environment';
           <form [formGroup]="tenantForm" (ngSubmit)="saveTenant()" class="modal-body">
             <!-- TAB 1: Profile & Contact -->
             <div *ngIf="!isEditing || activeModalTab === 'profile'" class="tab-pane">
-              <!-- Profile Photo Upload -->
-              <div class="photo-upload-section">
-                <div class="avatar-preview">
-                  <img *ngIf="profilePhotoPreview" [src]="getPhotoUrl(profilePhotoPreview)" alt="Preview" class="preview-img">
-                  <mat-icon *ngIf="!profilePhotoPreview" class="avatar-placeholder">add_photo_alternate</mat-icon>
+              <!-- Branding & Official Assets Upload Deck (Logo, Official Seal & Digital Signature) -->
+              <div class="branding-assets-deck">
+                <!-- 1. Institute Logo / Emblem -->
+                <div class="asset-card">
+                  <div class="asset-header">
+                    <span class="asset-title">Institute Logo</span>
+                    <span class="asset-tag">Header &amp; ID</span>
+                  </div>
+                  <div class="asset-body">
+                    <div class="asset-preview-box">
+                      <img *ngIf="profilePhotoPreview" [src]="getPhotoUrl(profilePhotoPreview)" alt="Logo Preview" class="asset-img logo-img">
+                      <mat-icon *ngIf="!profilePhotoPreview" class="asset-placeholder-icon">school</mat-icon>
+                    </div>
+                    <div class="asset-actions">
+                      <label class="asset-upload-btn">
+                        <mat-icon>cloud_upload</mat-icon>
+                        <span>{{ profilePhotoPreview ? 'Change' : 'Upload' }}</span>
+                        <input type="file" accept="image/*" (change)="onFileSelected($event)" style="display:none;">
+                      </label>
+                      <button type="button" *ngIf="profilePhotoPreview" mat-button color="warn" class="remove-asset-btn" (click)="removePhoto()">
+                        <mat-icon>delete_outline</mat-icon>
+                        <span>Remove</span>
+                      </button>
+                    </div>
+                  </div>
+                  <span class="asset-hint">Square PNG/JPG • Header &amp; Cards</span>
                 </div>
-                <div class="upload-controls">
-                  <label class="upload-btn">
-                    <mat-icon>cloud_upload</mat-icon>
-                    <span>{{ profilePhotoPreview ? 'Change Logo / Photo' : 'Upload Logo / Photo' }}</span>
-                    <input type="file" accept="image/*" (change)="onFileSelected($event)" style="display:none;">
-                  </label>
-                  <button type="button" *ngIf="profilePhotoPreview" mat-button color="warn" class="remove-photo-btn" (click)="removePhoto()">
-                    Remove
-                  </button>
-                  <span class="upload-hint">Recommended: Square PNG/JPG up to 2MB</span>
+
+                <!-- 2. Official Seal / Rubber Stamp (मुहर) -->
+                <div class="asset-card seal-card">
+                  <div class="asset-header">
+                    <span class="asset-title">Official Seal (मुहर / Stamp)</span>
+                    <button type="button" class="library-toggle-pill seal-pill" (click)="showSealsLibrary = !showSealsLibrary" [matTooltip]="'View & Manage all saved seals (' + savedSeals.length + ')'">
+                      <mat-icon class="pill-icon">collections_bookmark</mat-icon>
+                      <span>Vault ({{ savedSeals.length }})</span>
+                      <mat-icon class="pill-arrow">{{ showSealsLibrary ? 'expand_less' : 'expand_more' }}</mat-icon>
+                    </button>
+                  </div>
+                  <div class="asset-body">
+                    <div class="asset-preview-box seal-preview-box">
+                      <img *ngIf="officialSealPreview" [src]="getPhotoUrl(officialSealPreview)" alt="Official Seal" class="asset-img seal-img">
+                      <mat-icon *ngIf="!officialSealPreview" class="asset-placeholder-icon seal-ph">verified</mat-icon>
+                    </div>
+                    <div class="asset-actions">
+                      <button type="button" mat-stroked-button color="primary" class="generator-btn seal-gen-btn" (click)="openStampMaker()" matTooltip="Create circular/oval digital rubber stamp in real-time">
+                        <mat-icon>auto_awesome</mat-icon>
+                        <span>Generate (मुहर बनाएं)</span>
+                      </button>
+                      <label class="asset-upload-btn seal-btn">
+                        <mat-icon>upload_file</mat-icon>
+                        <span>Upload File</span>
+                        <input type="file" accept="image/png,image/jpeg,image/webp" (change)="onSealSelected($event)" style="display:none;">
+                      </label>
+                      <button type="button" *ngIf="officialSealPreview" mat-button color="warn" class="remove-asset-btn" (click)="removeSeal()">
+                        <mat-icon>delete_outline</mat-icon>
+                        <span>Remove</span>
+                      </button>
+                    </div>
+                  </div>
+                  <span class="asset-hint">Transparent circular PNG • Crisp &amp; sharp on all prints</span>
+
+                  <!-- Multi-Seal Vault / Saved Presets Tray -->
+                  <div class="asset-vault-tray" *ngIf="showSealsLibrary">
+                    <div class="vault-tray-header">
+                      <span class="tray-title">Saved Seals Library (मुहरें):</span>
+                      <button type="button" mat-button class="tray-add-btn" (click)="openStampMaker()">
+                        <mat-icon>add</mat-icon> New Seal
+                      </button>
+                    </div>
+                    <div class="vault-items-grid" *ngIf="savedSeals.length > 0">
+                      <div
+                        *ngFor="let s of savedSeals"
+                        class="vault-item-card"
+                        [class.active-default]="s.isDefault || s.url === officialSealPreview"
+                        (click)="selectDefaultSeal(s)">
+                        <div class="vault-item-thumb">
+                          <img *ngIf="s.url" [src]="getPhotoUrl(s.url)" alt="{{ s.title }}" (error)="$any($event.target).style.display='none'" />
+                          <mat-icon *ngIf="!s.url" class="vault-fallback-icon">verified</mat-icon>
+                        </div>
+                        <div class="vault-item-info">
+                          <span class="vault-item-name" [matTooltip]="s.title">{{ s.title }}</span>
+                          <span class="vault-status-badge" [class.is-default]="s.isDefault || s.url === officialSealPreview">
+                            {{ (s.isDefault || s.url === officialSealPreview) ? '★ Default (लागू)' : 'Click to Apply' }}
+                          </span>
+                        </div>
+                        <button type="button" class="vault-del-btn" (click)="deleteSeal(s, $event)" matTooltip="Delete from library" aria-label="Delete">
+                          <mat-icon>close</mat-icon>
+                        </button>
+                      </div>
+                    </div>
+                    <p class="empty-tray-msg" *ngIf="savedSeals.length === 0">No additional seals saved yet. Click "+ New Seal" to generate one.</p>
+                  </div>
+                </div>
+
+                <!-- 3. Authority / Principal Digital Signature -->
+                <div class="asset-card sign-card">
+                  <div class="asset-header">
+                    <span class="asset-title">Principal / Controller Sign</span>
+                    <button type="button" class="library-toggle-pill sign-pill" (click)="showSignaturesLibrary = !showSignaturesLibrary" [matTooltip]="'View & Manage all saved signatures (' + savedSignatures.length + ')'">
+                      <mat-icon class="pill-icon">collections_bookmark</mat-icon>
+                      <span>Vault ({{ savedSignatures.length }})</span>
+                      <mat-icon class="pill-arrow">{{ showSignaturesLibrary ? 'expand_less' : 'expand_more' }}</mat-icon>
+                    </button>
+                  </div>
+                  <div class="asset-body">
+                    <div class="asset-preview-box sign-preview-box">
+                      <img *ngIf="digitalSignaturePreview" [src]="getPhotoUrl(digitalSignaturePreview)" alt="Digital Signature" class="asset-img sign-img">
+                      <mat-icon *ngIf="!digitalSignaturePreview" class="asset-placeholder-icon sign-ph">draw</mat-icon>
+                    </div>
+                    <div class="asset-actions">
+                      <button type="button" mat-stroked-button color="primary" class="generator-btn sign-gen-btn" (click)="openSignatureStudio()" matTooltip="Draw or generate cursive digital signature in real-time">
+                        <mat-icon>draw</mat-icon>
+                        <span>Create / Draw (साइन बनाएं)</span>
+                      </button>
+                      <label class="asset-upload-btn sign-btn">
+                        <mat-icon>upload_file</mat-icon>
+                        <span>Upload File</span>
+                        <input type="file" accept="image/png,image/jpeg,image/webp" (change)="onSignatureSelected($event)" style="display:none;">
+                      </label>
+                      <button type="button" *ngIf="digitalSignaturePreview" mat-button color="warn" class="remove-asset-btn" (click)="removeSignature()">
+                        <mat-icon>delete_outline</mat-icon>
+                        <span>Remove</span>
+                      </button>
+                    </div>
+                  </div>
+                  <span class="asset-hint">Transparent PNG sign • Marksheets, Admit Cards &amp; Certificates</span>
+
+                  <!-- Multi-Signature Vault / Saved Presets Tray -->
+                  <div class="asset-vault-tray" *ngIf="showSignaturesLibrary">
+                    <div class="vault-tray-header">
+                      <span class="tray-title">Saved Signatures Library (हस्ताक्षर):</span>
+                      <button type="button" mat-button class="tray-add-btn" (click)="openSignatureStudio()">
+                        <mat-icon>add</mat-icon> New Sign
+                      </button>
+                    </div>
+                    <div class="vault-items-grid" *ngIf="savedSignatures.length > 0">
+                      <div
+                        *ngFor="let sg of savedSignatures"
+                        class="vault-item-card"
+                        [class.active-default]="sg.isDefault || sg.url === digitalSignaturePreview"
+                        (click)="selectDefaultSignature(sg)">
+                        <div class="vault-item-thumb sign-thumb">
+                          <img *ngIf="sg.url" [src]="getPhotoUrl(sg.url)" alt="{{ sg.title }}" (error)="$any($event.target).style.display='none'" />
+                          <mat-icon *ngIf="!sg.url" class="vault-fallback-icon">draw</mat-icon>
+                        </div>
+                        <div class="vault-item-info">
+                          <span class="vault-item-name" [matTooltip]="sg.title">{{ sg.title }}</span>
+                          <span class="vault-status-badge" [class.is-default]="sg.isDefault || sg.url === digitalSignaturePreview">
+                            {{ (sg.isDefault || sg.url === digitalSignaturePreview) ? '★ Default (लागू)' : 'Click to Apply' }}
+                          </span>
+                        </div>
+                        <button type="button" class="vault-del-btn" (click)="deleteSignature(sg, $event)" matTooltip="Delete from library" aria-label="Delete">
+                          <mat-icon>close</mat-icon>
+                        </button>
+                      </div>
+                    </div>
+                    <p class="empty-tray-msg" *ngIf="savedSignatures.length === 0">No additional signatures saved yet. Click "+ New Sign" to draw or generate one.</p>
+                  </div>
                 </div>
               </div>
 
@@ -1980,6 +2124,382 @@ import { environment } from '../../../environments/environment';
       }
     }
 
+    .branding-assets-deck {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 6px;
+
+      @media (max-width: 900px) {
+        grid-template-columns: 1fr;
+      }
+
+      .asset-card {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        transition: all 0.2s ease;
+
+        &:hover {
+          border-color: #cbd5e1;
+          box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
+        }
+
+        &.seal-card {
+          background: #fef2f2;
+          border-color: #fecaca;
+        }
+
+        &.sign-card {
+          background: #f0fdf4;
+          border-color: #bbf7d0;
+        }
+
+        .asset-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 6px;
+
+          .asset-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #1e293b;
+          }
+
+          .asset-tag {
+            font-size: 0.65rem;
+            font-weight: 600;
+            color: #2563eb;
+            background: #eff6ff;
+            padding: 2px 6px;
+            border-radius: 6px;
+
+            &.seal-tag {
+              color: #dc2626;
+              background: #fee2e2;
+            }
+
+            &.sign-tag {
+              color: #16a34a;
+              background: #dcfce7;
+            }
+          }
+        }
+
+        .asset-body {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+
+          .asset-preview-box {
+            width: 60px;
+            height: 60px;
+            border-radius: 10px;
+            background: #ffffff;
+            border: 1px dashed #cbd5e1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            flex-shrink: 0;
+
+            &.seal-preview-box { border-color: #fca5a5; }
+            &.sign-preview-box { border-color: #86efac; }
+
+            .asset-img {
+              width: 100%;
+              height: 100%;
+              object-fit: contain;
+              padding: 2px;
+            }
+
+            .asset-placeholder-icon {
+              font-size: 26px;
+              width: 26px;
+              height: 26px;
+              color: #94a3b8;
+
+              &.seal-ph { color: #f87171; }
+              &.sign-ph { color: #4ade80; }
+            }
+          }
+
+          .asset-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            flex: 1;
+
+            .asset-upload-btn {
+              cursor: pointer;
+              display: inline-flex;
+              align-items: center;
+              gap: 5px;
+              background: #eff6ff;
+              color: #2563eb;
+              padding: 4px 8px;
+              border-radius: 6px;
+              font-size: 0.75rem;
+              font-weight: 600;
+              border: 1px solid #bfdbfe;
+              width: fit-content;
+              transition: all 0.15s ease;
+
+              &:hover { background: #dbeafe; }
+              mat-icon { font-size: 15px; width: 15px; height: 15px; }
+
+              &.seal-btn {
+                background: #fef2f2;
+                color: #dc2626;
+                border-color: #fecaca;
+                &:hover { background: #fee2e2; }
+              }
+
+              &.sign-btn {
+                background: #f0fdf4;
+                color: #16a34a;
+                border-color: #bbf7d0;
+                &:hover { background: #dcfce7; }
+              }
+            }
+
+            .remove-asset-btn {
+              font-size: 0.7rem;
+              height: 22px;
+              line-height: 22px;
+              padding: 0 4px;
+              width: fit-content;
+              mat-icon { font-size: 13px; width: 13px; height: 13px; margin-right: 2px; }
+            }
+          }
+        }
+
+        .asset-hint {
+          font-size: 0.67rem;
+          color: #64748b;
+          line-height: 1.25;
+        }
+
+        .library-toggle-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          padding: 2px 8px;
+          border-radius: 20px;
+          border: 1px solid #bfdbfe;
+          background: #eff6ff;
+          color: #2563eb;
+          font-size: 0.68rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.15s ease;
+
+          &:hover {
+            background: #dbeafe;
+          }
+
+          &.seal-pill {
+            border-color: #fecaca;
+            background: #fef2f2;
+            color: #dc2626;
+            &:hover { background: #fee2e2; }
+          }
+
+          &.sign-pill {
+            border-color: #bbf7d0;
+            background: #f0fdf4;
+            color: #16a34a;
+            &:hover { background: #dcfce7; }
+          }
+
+          .pill-icon { font-size: 13px; width: 13px; height: 13px; }
+          .pill-arrow { font-size: 15px; width: 15px; height: 15px; margin-left: -2px; }
+        }
+
+        .generator-btn {
+          font-size: 0.72rem;
+          height: 24px;
+          line-height: 24px;
+          padding: 0 8px;
+          border-radius: 6px;
+          font-weight: 600;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          width: fit-content;
+
+          mat-icon { font-size: 14px; width: 14px; height: 14px; }
+
+          &.seal-gen-btn {
+            border-color: #fca5a5;
+            color: #dc2626;
+            background: #ffffff;
+            &:hover { background: #fee2e2; }
+          }
+
+          &.sign-gen-btn {
+            border-color: #86efac;
+            color: #16a34a;
+            background: #ffffff;
+            &:hover { background: #dcfce7; }
+          }
+        }
+
+        .asset-vault-tray {
+          margin-top: 8px;
+          padding-top: 8px;
+          border-top: 1px dashed #cbd5e1;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+
+          .vault-tray-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+
+            .tray-title {
+              font-size: 0.72rem;
+              font-weight: 700;
+              color: #334155;
+            }
+
+            .tray-add-btn {
+              font-size: 0.7rem;
+              height: 20px;
+              line-height: 20px;
+              padding: 0 4px;
+              color: #2563eb;
+              mat-icon { font-size: 13px; width: 13px; height: 13px; margin-right: 2px; }
+            }
+          }
+
+          .vault-items-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            max-height: 160px;
+            overflow-y: auto;
+            padding-right: 2px;
+
+            .vault-item-card {
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              padding: 5px 8px;
+              background: #ffffff;
+              border: 1px solid #e2e8f0;
+              border-radius: 6px;
+              cursor: pointer;
+              transition: all 0.15s ease;
+
+              &:hover {
+                border-color: #2563eb;
+                background: #f8fafc;
+              }
+
+              &.active-default {
+                border-color: #2563eb;
+                background: #eff6ff;
+                box-shadow: 0 0 0 1px #2563eb;
+              }
+
+              .vault-item-thumb {
+                width: 32px;
+                height: 32px;
+                border-radius: 4px;
+                border: 1px solid #e2e8f0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                overflow: hidden;
+                background: #ffffff;
+                flex-shrink: 0;
+
+                img { width: 100%; height: 100%; object-fit: contain; }
+                &.sign-thumb { width: 44px; }
+              }
+
+              .vault-item-info {
+                display: flex;
+                flex-direction: column;
+                flex: 1;
+                min-width: 0;
+
+                .vault-item-name {
+                  font-size: 0.72rem;
+                  font-weight: 600;
+                  color: #0f172a;
+                  white-space: nowrap;
+                  overflow: hidden;
+                  text-overflow: ellipsis;
+                }
+
+                .vault-status-badge {
+                  font-size: 0.63rem;
+                  color: #64748b;
+                  &.is-default {
+                    color: #2563eb;
+                    font-weight: 700;
+                  }
+                }
+              }
+
+              .vault-del-btn {
+                width: 22px;
+                height: 22px;
+                min-width: 22px;
+                min-height: 22px;
+                padding: 0;
+                margin: 0 0 0 auto;
+                border: none;
+                border-radius: 50%;
+                background: transparent;
+                color: #ef4444;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                flex-shrink: 0;
+                transition: all 0.15s ease;
+
+                &:hover {
+                  background: #fee2e2;
+                  color: #dc2626;
+                  transform: scale(1.08);
+                }
+
+                mat-icon {
+                  font-size: 14px;
+                  width: 14px;
+                  height: 14px;
+                  line-height: 14px;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  margin: 0;
+                  padding: 0;
+                }
+              }
+            }
+          }
+
+          .empty-tray-msg {
+            font-size: 0.68rem;
+            color: #94a3b8;
+            font-style: italic;
+            margin: 0;
+            padding: 4px 0;
+          }
+        }
+      }
+    }
+
     .photo-upload-section {
       display: flex;
       align-items: center;
@@ -2388,6 +2908,13 @@ export class TenantsComponent implements OnInit {
   formSaving = false;
   formError = '';
   profilePhotoPreview: string | null = null;
+  officialSealPreview: string | null = null;
+  digitalSignaturePreview: string | null = null;
+
+  showSealsLibrary = false;
+  showSignaturesLibrary = false;
+  savedSeals: TenantAssetItem[] = [];
+  savedSignatures: TenantAssetItem[] = [];
 
   activeModalTab: 'profile' | 'upi' | 'whatsapp' | 'modules' = 'profile';
 
@@ -2431,6 +2958,7 @@ export class TenantsComponent implements OnInit {
     private tenantService: TenantService,
     private authService: AuthService,
     private confirmDialog: ConfirmDialogService,
+    private dialog: MatDialog,
     private fb: FormBuilder
   ) {
     this.tenantForm = this.fb.group({
@@ -2630,6 +3158,8 @@ export class TenantsComponent implements OnInit {
     this.editingId = undefined;
     this.formError = '';
     this.profilePhotoPreview = null;
+    this.officialSealPreview = null;
+    this.digitalSignaturePreview = null;
     this.tenantForm.reset({
       name: '',
       code: '',
@@ -2713,6 +3243,28 @@ export class TenantsComponent implements OnInit {
     this.activeModalTab = 'profile';
     this.formError = '';
     this.profilePhotoPreview = tenant.profilePhoto || null;
+    this.officialSealPreview = tenant.officialSeal || null;
+    this.digitalSignaturePreview = tenant.digitalSignature || null;
+    this.showSealsLibrary = false;
+    this.showSignaturesLibrary = false;
+    this.savedSeals = this.parseAssetsJson(tenant.officialSealsJson);
+    this.savedSignatures = this.parseAssetsJson(tenant.digitalSignaturesJson);
+    if (this.savedSeals.length === 0 && tenant.officialSeal) {
+      this.savedSeals = [{
+        id: 'default-seal',
+        title: 'Default Official Seal',
+        url: tenant.officialSeal,
+        isDefault: true
+      }];
+    }
+    if (this.savedSignatures.length === 0 && tenant.digitalSignature) {
+      this.savedSignatures = [{
+        id: 'default-sign',
+        title: 'Default Principal Sign',
+        url: tenant.digitalSignature,
+        isDefault: true
+      }];
+    }
     this.branchesFormArray.clear();
     this.tenantForm.patchValue({
       name: tenant.name,
@@ -2799,6 +3351,10 @@ export class TenantsComponent implements OnInit {
     this.formSaving = false;
     this.formError = '';
     this.profilePhotoPreview = null;
+    this.officialSealPreview = null;
+    this.digitalSignaturePreview = null;
+    this.showSealsLibrary = false;
+    this.showSignaturesLibrary = false;
   }
 
   onCodeInput(event: Event): void {
@@ -2860,8 +3416,14 @@ export class TenantsComponent implements OnInit {
             return;
           }
 
+          // Preserve PNG transparency; fall back to JPEG for opaque images
+          const isPng = file.type === 'image/png';
+          if (!isPng) {
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, width, height);
+          }
           ctx.drawImage(img, 0, 0, width, height);
-          resolve(canvas.toDataURL('image/jpeg', quality));
+          resolve(canvas.toDataURL(isPng ? 'image/png' : 'image/jpeg', isPng ? undefined : quality));
         };
         img.onerror = () => resolve(reader.result as string);
         img.src = e.target?.result as string;
@@ -2872,15 +3434,234 @@ export class TenantsComponent implements OnInit {
   }
 
   getPhotoUrl(photo?: string | null): string {
-    if (!photo) return '';
-    if (photo.startsWith('/uploads/')) {
-      return `${environment.apiBaseUrl}${photo}`;
-    }
-    return photo;
+    return this.authService.resolveLogoUrl(photo) || '';
   }
 
   removePhoto(): void {
     this.profilePhotoPreview = null;
+  }
+
+  // ── Official Seal (मुहर / Rubber Stamp) ──────────────────────────────────
+  async onSealSelected(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files[0]) {
+      const file = input.files[0];
+      try {
+        // Use large canvas so seal prints crisp and sharp; always PNG for transparency
+        this.officialSealPreview = await this.compressPng(file, 600, 600);
+      } catch {
+        const reader = new FileReader();
+        reader.onload = () => { this.officialSealPreview = reader.result as string; };
+        reader.readAsDataURL(file);
+      }
+    }
+  }
+
+  removeSeal(): void {
+    this.officialSealPreview = null;
+  }
+
+  // ── Principal / Controller Digital Signature ─────────────────────────────
+  async onSignatureSelected(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files[0]) {
+      const file = input.files[0];
+      try {
+        // Wide canvas so signature stays sharp; always preserve PNG transparency
+        this.digitalSignaturePreview = await this.compressPng(file, 800, 300);
+      } catch {
+        const reader = new FileReader();
+        reader.onload = () => { this.digitalSignaturePreview = reader.result as string; };
+        reader.readAsDataURL(file);
+      }
+    }
+  }
+
+  removeSignature(): void {
+    this.digitalSignaturePreview = null;
+  }
+
+  // ── Multi-Asset Library Helpers & Runtime Dialog Openers ───────────────────
+  parseAssetsJson(json?: string | null): TenantAssetItem[] {
+    if (!json) return [];
+    try {
+      const parsed = JSON.parse(json);
+      if (!Array.isArray(parsed)) return [];
+      return parsed
+        .map((x: any) => ({
+          id: x.id || x.Id || '',
+          title: x.title || x.Title || (x.name || x.Name || 'Saved Item'),
+          url: x.url || x.Url || '',
+          isDefault: !!(x.isDefault ?? x.IsDefault),
+          name: x.name || x.Name || '',
+          createdAt: x.createdAt || x.CreatedAt || ''
+        }))
+        .filter((item: TenantAssetItem) => !!item.url);
+    } catch {
+      return [];
+    }
+  }
+
+  openStampMaker(): void {
+    const dialogRef = this.dialog.open(StampMakerDialogComponent, {
+      width: '980px',
+      maxWidth: '96vw',
+      maxHeight: '92vh',
+      data: {
+        instituteName: this.tenantForm.get('name')?.value || this.authService.getInstituteName(),
+        city: this.tenantForm.get('city')?.value || '',
+        establishedYear: this.tenantForm.get('establishedYear')?.value || ''
+      }
+    });
+
+    dialogRef.afterClosed().subscribe((result) => {
+      if (result?.success) {
+        if (result.asset) {
+          if (result.asset.isDefault) {
+            this.officialSealPreview = result.asset.url;
+            this.savedSeals.forEach(s => s.isDefault = false);
+          }
+          this.savedSeals.push(result.asset);
+        } else if (result.fallbackDataUrl) {
+          this.officialSealPreview = result.fallbackDataUrl;
+        }
+        if (result.officialSealsJson) {
+          this.savedSeals = this.parseAssetsJson(result.officialSealsJson);
+        }
+        if (result.officialSeal) {
+          this.officialSealPreview = result.officialSeal;
+        }
+        this.showSealsLibrary = true;
+        this.authService.updateTenantProfile(undefined, undefined, undefined, this.officialSealPreview, undefined, JSON.stringify(this.savedSeals));
+        this.confirmDialog.alert('Official Seal Applied', 'New digital rubber stamp generated and saved to library successfully.', 'success');
+      }
+    });
+  }
+
+  openSignatureStudio(): void {
+    const dialogRef = this.dialog.open(SignatureStudioDialogComponent, {
+      width: '840px',
+      maxWidth: '96vw',
+      maxHeight: '92vh',
+      data: {
+        signatoryName: this.authService.currentUser()?.fullName || 'Principal / Controller',
+        designation: 'Principal / Controller'
+      }
+    });
+
+    dialogRef.afterClosed().subscribe((result) => {
+      if (result?.success) {
+        if (result.asset) {
+          if (result.asset.isDefault) {
+            this.digitalSignaturePreview = result.asset.url;
+            this.savedSignatures.forEach(s => s.isDefault = false);
+          }
+          this.savedSignatures.push(result.asset);
+        } else if (result.fallbackDataUrl) {
+          this.digitalSignaturePreview = result.fallbackDataUrl;
+        }
+        if (result.digitalSignaturesJson) {
+          this.savedSignatures = this.parseAssetsJson(result.digitalSignaturesJson);
+        }
+        if (result.digitalSignature) {
+          this.digitalSignaturePreview = result.digitalSignature;
+        }
+        this.showSignaturesLibrary = true;
+        this.authService.updateTenantProfile(undefined, undefined, undefined, undefined, this.digitalSignaturePreview, undefined, JSON.stringify(this.savedSignatures));
+        this.confirmDialog.alert('Digital Signature Applied', 'New digital signature generated and saved to library successfully.', 'success');
+      }
+    });
+  }
+
+  selectDefaultSeal(seal: TenantAssetItem): void {
+    this.officialSealPreview = seal.url;
+    this.savedSeals.forEach(s => s.isDefault = (s.id === seal.id));
+    this.tenantService.setDefaultTenantAsset('seal', seal.id).subscribe({
+      next: (res) => {
+        if (res.officialSealsJson) this.savedSeals = this.parseAssetsJson(res.officialSealsJson);
+        if (res.officialSeal) this.officialSealPreview = res.officialSeal;
+        this.authService.updateTenantProfile(undefined, undefined, undefined, this.officialSealPreview, undefined, JSON.stringify(this.savedSeals));
+      }
+    });
+  }
+
+  deleteSeal(seal: TenantAssetItem, event: MouseEvent): void {
+    event.stopPropagation();
+    this.confirmDialog.danger(
+      'Delete Official Seal',
+      `Are you sure you want to delete "${seal.title}" from library?`,
+      'Delete'
+    ).subscribe(ok => {
+      if (ok) {
+        this.tenantService.deleteTenantAsset('seal', seal.id).subscribe({
+          next: (res) => {
+            if (res.officialSealsJson) this.savedSeals = this.parseAssetsJson(res.officialSealsJson);
+            this.officialSealPreview = res.officialSeal || null;
+            this.authService.updateTenantProfile(undefined, undefined, undefined, this.officialSealPreview, undefined, JSON.stringify(this.savedSeals));
+          }
+        });
+      }
+    });
+  }
+
+  selectDefaultSignature(sig: TenantAssetItem): void {
+    this.digitalSignaturePreview = sig.url;
+    this.savedSignatures.forEach(s => s.isDefault = (s.id === sig.id));
+    this.tenantService.setDefaultTenantAsset('signature', sig.id).subscribe({
+      next: (res) => {
+        if (res.digitalSignaturesJson) this.savedSignatures = this.parseAssetsJson(res.digitalSignaturesJson);
+        if (res.digitalSignature) this.digitalSignaturePreview = res.digitalSignature;
+        this.authService.updateTenantProfile(undefined, undefined, undefined, undefined, this.digitalSignaturePreview, undefined, JSON.stringify(this.savedSignatures));
+      }
+    });
+  }
+
+  deleteSignature(sig: TenantAssetItem, event: MouseEvent): void {
+    event.stopPropagation();
+    this.confirmDialog.danger(
+      'Delete Signature',
+      `Are you sure you want to delete "${sig.title}" from library?`,
+      'Delete'
+    ).subscribe(ok => {
+      if (ok) {
+        this.tenantService.deleteTenantAsset('signature', sig.id).subscribe({
+          next: (res) => {
+            if (res.digitalSignaturesJson) this.savedSignatures = this.parseAssetsJson(res.digitalSignaturesJson);
+            this.digitalSignaturePreview = res.digitalSignature || null;
+            this.authService.updateTenantProfile(undefined, undefined, undefined, undefined, this.digitalSignaturePreview, undefined, JSON.stringify(this.savedSignatures));
+          }
+        });
+      }
+    });
+  }
+
+  /** Compress & resize while preserving PNG transparency (no opaque background). */
+  private compressPng(file: File, maxWidth: number, maxHeight: number): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        img.onload = () => {
+          let w = img.width;
+          let h = img.height;
+          const ratio = Math.min(maxWidth / w, maxHeight / h, 1);
+          w = Math.round(w * ratio);
+          h = Math.round(h * ratio);
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) { resolve(reader.result as string); return; }
+          // Do NOT fill background — keeps full transparency
+          ctx.drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL('image/png'));
+        };
+        img.onerror = () => resolve(reader.result as string);
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = (err) => reject(err);
+      reader.readAsDataURL(file);
+    });
   }
 
   saveTenant(): void {
@@ -2904,6 +3685,10 @@ export class TenantsComponent implements OnInit {
         affiliationNumber: val.affiliationNumber?.trim() || null,
         establishedYear: val.establishedYear?.trim() || null,
         profilePhoto: this.profilePhotoPreview,
+        officialSeal: this.officialSealPreview,
+        digitalSignature: this.digitalSignaturePreview,
+        officialSealsJson: JSON.stringify(this.savedSeals),
+        digitalSignaturesJson: JSON.stringify(this.savedSignatures),
         whatsAppPhoneId: val.whatsAppPhoneId?.trim() || null,
         whatsAppAccessToken: val.whatsAppAccessToken?.trim() || null,
         upiId: val.upiId?.trim() || null,
@@ -2929,7 +3714,7 @@ export class TenantsComponent implements OnInit {
       };
 
       // Realtime instantaneous reflection on the sidebar header right when clicking Save Changes!
-      this.authService.updateTenantProfile(this.profilePhotoPreview, updateDto.name);
+      this.authService.updateTenantProfile(this.profilePhotoPreview, updateDto.name, undefined, this.officialSealPreview, this.digitalSignaturePreview);
       if (this.authService.currentUser()?.tenantId === targetId) {
         this.authService.updateTenantModules({
           hasSchoolModule: val.hasSchoolModule,
@@ -2959,7 +3744,15 @@ export class TenantsComponent implements OnInit {
               profilePhoto: res?.profilePhoto || updateDto.profilePhoto
             };
           }
-          this.authService.updateTenantProfile(res?.profilePhoto || updateDto.profilePhoto, updateDto.name, res?.code);
+          this.authService.updateTenantProfile(
+            res?.profilePhoto || updateDto.profilePhoto,
+            updateDto.name,
+            res?.code,
+            res?.officialSeal || updateDto.officialSeal,
+            res?.digitalSignature || updateDto.digitalSignature,
+            res?.officialSealsJson || updateDto.officialSealsJson,
+            res?.digitalSignaturesJson || updateDto.digitalSignaturesJson
+          );
           this.closeModal();
           this.loadTenants();
           this.confirmDialog.alert(
@@ -3001,6 +3794,8 @@ export class TenantsComponent implements OnInit {
         affiliationNumber: val.affiliationNumber?.trim() || null,
         establishedYear: val.establishedYear?.trim() || null,
         profilePhoto: this.profilePhotoPreview,
+        officialSeal: this.officialSealPreview,
+        digitalSignature: this.digitalSignaturePreview,
         whatsAppPhoneId: val.whatsAppPhoneId?.trim() || null,
         whatsAppAccessToken: val.whatsAppAccessToken?.trim() || null,
         adminUsername: val.adminUsername.trim(),

@@ -217,6 +217,14 @@ using (var scope = app.Services.CreateScope())
                         ALTER TABLE Tenants ADD AffiliationNumber NVARCHAR(100) NULL;
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tenants') AND name = 'EstablishedYear')
                         ALTER TABLE Tenants ADD EstablishedYear NVARCHAR(20) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tenants') AND name = 'OfficialSeal')
+                        ALTER TABLE Tenants ADD OfficialSeal NVARCHAR(MAX) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tenants') AND name = 'DigitalSignature')
+                        ALTER TABLE Tenants ADD DigitalSignature NVARCHAR(MAX) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tenants') AND name = 'OfficialSealsJson')
+                        ALTER TABLE Tenants ADD OfficialSealsJson NVARCHAR(MAX) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tenants') AND name = 'DigitalSignaturesJson')
+                        ALTER TABLE Tenants ADD DigitalSignaturesJson NVARCHAR(MAX) NULL;
 
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Branches') AND name = 'UpiId')
                         ALTER TABLE Branches ADD UpiId NVARCHAR(150) NULL;
@@ -447,6 +455,10 @@ using (var scope = app.Services.CreateScope())
                             ALTER TABLE ExamSettings ADD AvailableExamTypes NVARCHAR(MAX) NOT NULL DEFAULT 'Unit Test 1,Unit Test 2,Quarterly Exam,Half Yearly Exam,Pre-Board Exam,Annual Exam';
                             ALTER TABLE ExamSettings ADD EvaluationDueDays INT NOT NULL DEFAULT 7;
                         END
+                        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('ExamSettings') AND name = 'OfficialSealUrl')
+                            ALTER TABLE ExamSettings ADD OfficialSealUrl NVARCHAR(MAX) NULL;
+                        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('ExamSettings') AND name = 'PrincipalSignatureUrl')
+                            ALTER TABLE ExamSettings ADD PrincipalSignatureUrl NVARCHAR(MAX) NULL;
                     END
 
                     IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'AutomationSettings')

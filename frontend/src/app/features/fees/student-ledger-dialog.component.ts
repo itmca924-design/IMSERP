@@ -138,12 +138,12 @@ import { MatSelectModule } from '@angular/material/select';
                     <tr *ngFor="let inv of ledger.invoices" [class.cancelled-row]="inv.status === 'Cancelled'">
                       <td class="nowrap-col"><strong>{{ inv.invoiceNumber }}</strong></td>
                       <td>
-                        <div class="billing-period-pill" [matTooltip]="getInvoiceBillingTooltip(inv)" matTooltipClass="multiline-tooltip">
+                        <div class="billing-period-pill">
                           <mat-icon class="cal-mini-icon">calendar_month</mat-icon>
                           <span class="period-title-text">{{ inv.title }}</span>
                           <span class="period-months-detail" *ngIf="getShortMonthsSummary(inv) as shortSummary">({{ shortSummary }})</span>
                         </div>
-                        <div *ngIf="inv.items && inv.items.length > 0" class="mini-heads-row" [matTooltip]="getInvoiceBillingTooltip(inv)" matTooltipClass="multiline-tooltip">
+                        <div *ngIf="inv.items && inv.items.length > 0" class="mini-heads-row">
                           <span *ngFor="let it of getSortedInvoiceItems(inv.items)" class="mini-head-chip" [class.tuition-head-chip]="isTuitionHead(it.headName)">
                             <span class="chip-head-name">{{ it.headName }}:</span>
                             <strong class="chip-head-amt">₹{{ it.amount | number:'1.0-0' }}</strong>
@@ -666,6 +666,25 @@ import { MatSelectModule } from '@angular/material/select';
       display: flex;
       flex-direction: column;
 
+      ::ng-deep .mat-mdc-tab-body-wrapper {
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden !important;
+      }
+
+      ::ng-deep .mat-mdc-tab-body {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow: hidden !important;
+      }
+
+      ::ng-deep .mat-mdc-tab-body-content {
+        height: 100% !important;
+        overflow: hidden !important;
+      }
+
       .tab-label-icon {
         font-size: 18px;
         width: 18px;
@@ -706,11 +725,11 @@ import { MatSelectModule } from '@angular/material/select';
 
     .tab-content {
       padding-top: 6px;
-      flex: 1;
-      min-height: 200px;
-      max-height: 52vh;
-      overflow-y: auto;
-      overflow-x: hidden;
+      padding-bottom: 12px;
+      flex: 1 1 auto;
+      max-height: 54vh;
+      overflow-y: auto !important;
+      overflow-x: hidden !important;
       -webkit-overflow-scrolling: touch;
       scroll-behavior: smooth;
 
@@ -735,14 +754,15 @@ import { MatSelectModule } from '@angular/material/select';
       }
 
       @media (max-width: 768px) {
-        max-height: none;
+        max-height: 50vh;
         padding-top: 4px;
       }
     }
 
     .table-responsive {
       width: 100%;
-      overflow-x: auto;
+      overflow-x: auto !important;
+      overflow-y: hidden !important;
       -webkit-overflow-scrolling: touch;
       border-radius: 6px;
       border: 1px solid #e2e8f0;
@@ -752,7 +772,6 @@ import { MatSelectModule } from '@angular/material/select';
       scrollbar-color: #cbd5e1 #f8fafc;
 
       &::-webkit-scrollbar {
-        width: 6px;
         height: 6px;
         display: block;
       }
@@ -799,7 +818,7 @@ import { MatSelectModule } from '@angular/material/select';
         font-size: 0.8rem;
         font-weight: 600;
         color: #1e293b;
-        cursor: help;
+        cursor: default;
         margin-bottom: 3px;
 
         .cal-mini-icon {
@@ -1324,6 +1343,32 @@ import { MatSelectModule } from '@angular/material/select';
       .reversal-reason-text {
         color: #475569;
         font-style: italic;
+      }
+    }
+
+    .dialog-actions {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 10px;
+      padding-top: 14px;
+      margin-top: 4px;
+      border-top: 1px solid #e2e8f0;
+      flex-shrink: 0;
+
+      .btn-due-slip {
+        .btn-text-full { display: inline; }
+        .btn-text-short { display: none; }
+      }
+
+      @media (max-width: 640px) {
+        gap: 6px;
+        padding-top: 10px;
+
+        .btn-due-slip {
+          .btn-text-full { display: none; }
+          .btn-text-short { display: inline; }
+        }
       }
     }
   `]

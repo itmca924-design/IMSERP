@@ -11,6 +11,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatRadioModule } from '@angular/material/radio';
 import { environment } from '../../../environments/environment';
+import { AuthService } from '../../core/services/auth.service';
 
 const API_BASE = environment.apiUrl;
 
@@ -311,9 +312,15 @@ export interface BonafideDialogData {
           <div class="sig-name">{{ cert.certificateType === 'NoDues' ? 'Accounts Officer / Bursar' : 'Class Teacher' }}</div>
         </div>
         <div class="sig-block center">
-          <div class="school-seal">[ Official Seal ]</div>
+          <div class="school-seal">
+            <img *ngIf="officialSealUrl" [src]="officialSealUrl" alt="Official Seal" class="uploaded-official-seal-img" />
+            <span *ngIf="!officialSealUrl">[ Official Seal ]</span>
+          </div>
         </div>
         <div class="sig-block">
+          <div class="digital-sign-wrapper" *ngIf="digitalSignatureUrl">
+            <img [src]="digitalSignatureUrl" alt="Principal Signature" class="digital-sign-img" />
+          </div>
           <div class="sig-line"></div>
           <div class="sig-name">{{cert.principalName || 'Principal / Head of Institution'}}</div>
           <div class="sig-desig">Principal</div>
@@ -418,7 +425,10 @@ export interface BonafideDialogData {
     .sig-line{border-bottom:1px solid #334155;height:40px;margin-bottom:6px}
     .sig-name{font-size:12px;font-weight:700;color:#1e293b}
     .sig-desig{font-size:11px;color:#475569}
-    .school-seal{width:90px;height:90px;border:2px dashed #94a3b8;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;color:#94a3b8;margin:0 auto;font-weight:600}
+    .school-seal{width:80px;height:80px;border:2px dashed #94a3b8;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;color:#94a3b8;margin:0 auto;font-weight:600;overflow:hidden}
+    .uploaded-official-seal-img{max-width:74px;max-height:74px;object-fit:contain;display:block}
+    .digital-sign-wrapper{display:flex;align-items:flex-end;justify-content:center;height:38px;margin-bottom:2px}
+    .digital-sign-img{max-height:38px;max-width:130px;object-fit:contain;display:block;mix-blend-mode:multiply}
     /* Bottom strip */
     .cert-bottom-strip{background:#1e3a8a;color:#fff;padding:8px 32px;font-size:11px;text-align:center;opacity:.9}
     @media print{body *{visibility:hidden!important}.print-area,.print-area *{visibility:visible!important}.print-area{position:absolute!important;left:0!important;top:0!important;width:100%!important;background:#fff!important;box-shadow:none!important;border:none!important}.no-print{display:none!important}.certificate{box-shadow:none!important;width:100%!important;min-height:auto!important}}
@@ -436,10 +446,25 @@ export class StudentBonafideDialogComponent implements OnInit {
     this.certPurpose = p;
   }
 
+  logoFailed = false;
+
+  get logoUrl(): string | null {
+    return this.authService.getInstituteLogoUrl();
+  }
+
+  get officialSealUrl(): string | null {
+    return this.authService.getOfficialSealUrl();
+  }
+
+  get digitalSignatureUrl(): string | null {
+    return this.authService.getDigitalSignatureUrl();
+  }
+
   constructor(
     public dialogRef: MatDialogRef<StudentBonafideDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: BonafideDialogData,
-    private http: HttpClient
+    private http: HttpClient,
+    public authService: AuthService
   ) {
     const now = new Date();
     this.currentAcadYear = `${now.getFullYear()}-${now.getFullYear()+1}`;

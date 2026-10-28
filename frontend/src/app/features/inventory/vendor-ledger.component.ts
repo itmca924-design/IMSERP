@@ -92,10 +92,10 @@ import {
           <mat-icon>inventory_2</mat-icon> Store &amp; Catalog
         </a>
         <a mat-button [routerLink]="['/inventory/purchase-returns']" class="nav-tab">
-          <mat-icon>assignment_return</mat-icon> Purchase Returns (PR)
+          <mat-icon>assignment_return</mat-icon> Purchase Returns
         </a>
         <a mat-button [routerLink]="['/inventory/sale-returns']" class="nav-tab">
-          <mat-icon>keyboard_return</mat-icon> Kit &amp; Sale Returns (SR)
+          <mat-icon>keyboard_return</mat-icon> Kit &amp; Sale Returns
         </a>
         <a mat-button [routerLink]="['/inventory/vendors']" class="nav-tab active-tab">
           <mat-icon>account_balance_wallet</mat-icon> Vendors &amp; Ledger
@@ -388,7 +388,7 @@ import {
                 <div class="filter-primary-row">
                   <mat-form-field appearance="outline" subscriptSizing="dynamic" class="filter-search-box">
                     <mat-icon matPrefix>search</mat-icon>
-                    <input matInput formControlName="search" placeholder="Search by voucher #, bill #, particulars, items...">
+                    <input matInput formControlName="search" placeholder="Search voucher #, bill #...">
                     <button mat-icon-button matSuffix *ngIf="dateFilterForm.get('search')?.value" (click)="clearSearch()" type="button" matTooltip="Clear Search">
                       <mat-icon class="icon-xs">close</mat-icon>
                     </button>
@@ -427,24 +427,28 @@ import {
                   </div>
 
                   <div class="date-controls-line">
-                    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="date-input-field">
-                      <mat-label>Start Date</mat-label>
-                      <input matInput type="date" formControlName="startDate" [max]="dateFilterForm.get('endDate')?.value || ''" (change)="activeDatePreset = 'CUSTOM'">
-                    </mat-form-field>
+                    <div class="date-inputs-pair">
+                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="date-input-field">
+                        <mat-label>Start Date</mat-label>
+                        <input matInput type="date" formControlName="startDate" [max]="dateFilterForm.get('endDate')?.value || ''" (change)="activeDatePreset = 'CUSTOM'">
+                      </mat-form-field>
 
-                    <span class="date-sep">to</span>
+                      <span class="date-sep">to</span>
 
-                    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="date-input-field" [class.field-has-error]="dateFilterForm.errors?.['dateRangeInvalid']">
-                      <mat-label>End Date</mat-label>
-                      <input matInput type="date" formControlName="endDate" [min]="dateFilterForm.get('startDate')?.value || ''" (change)="activeDatePreset = 'CUSTOM'">
-                    </mat-form-field>
+                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="date-input-field" [class.field-has-error]="dateFilterForm.errors?.['dateRangeInvalid']">
+                        <mat-label>End Date</mat-label>
+                        <input matInput type="date" formControlName="endDate" [min]="dateFilterForm.get('startDate')?.value || ''" (change)="activeDatePreset = 'CUSTOM'">
+                      </mat-form-field>
+                    </div>
 
-                    <button mat-flat-button color="primary" type="submit" class="filter-submit-btn" [disabled]="dateFilterForm.errors?.['dateRangeInvalid']">
-                      <mat-icon class="icon-sm">filter_list</mat-icon> Filter
-                    </button>
-                    <button mat-button type="button" (click)="resetDateFilter()" class="reset-filter-btn">
-                      Reset
-                    </button>
+                    <div class="date-action-btns">
+                      <button mat-flat-button color="primary" type="submit" class="filter-submit-btn" [disabled]="dateFilterForm.errors?.['dateRangeInvalid']">
+                        <mat-icon class="icon-sm">filter_list</mat-icon> Filter
+                      </button>
+                      <button mat-button type="button" (click)="resetDateFilter()" class="reset-filter-btn">
+                        Reset
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -1027,7 +1031,13 @@ import {
       padding: 6px;
       border-radius: 10px;
       border: 1px solid #e2e8f0;
-      flex-wrap: wrap;
+      overflow-x: auto;
+      flex-wrap: nowrap;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      &::-webkit-scrollbar {
+        display: none;
+      }
     }
 
     .nav-tab {
@@ -1039,6 +1049,8 @@ import {
       display: inline-flex;
       align-items: center;
       gap: 6px;
+      white-space: nowrap;
+      flex-shrink: 0;
       transition: all 0.2s ease-in-out;
     }
 
@@ -1073,8 +1085,243 @@ import {
     }
 
     @media (max-width: 640px) {
+      .page-header-row {
+        position: relative;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+      }
+      .title-meta-wrap {
+        padding-right: 44px;
+      }
+      .page-title {
+        font-size: 1.25rem;
+      }
+      .page-subtitle {
+        font-size: 0.8rem;
+      }
+      .action-btn-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+      }
+      .action-btn-group .erp-btn {
+        flex: 1;
+        justify-content: center;
+        font-size: 0.8rem;
+        height: 38px;
+      }
+      .action-btn-group .refresh-btn {
+        position: absolute;
+        top: 2px;
+        right: 0;
+        background: #f1f5f9;
+        border-radius: 8px;
+      }
+      .module-nav-bar {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+        padding: 6px;
+      }
+      .nav-tab {
+        width: 100%;
+        justify-content: center;
+        font-size: 0.76rem;
+        padding: 0 6px;
+        height: 36px;
+        gap: 4px;
+        white-space: nowrap;
+        mat-icon {
+          font-size: 18px;
+          width: 18px;
+          height: 18px;
+          margin-right: 2px;
+        }
+      }
       .kpi-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+      }
+      .kpi-card { padding: 10px 10px; }
+      .kpi-label { font-size: 0.65rem; }
+      .kpi-value { font-size: 1.15rem; }
+      .kpi-icon-wrap { width: 30px; height: 30px; mat-icon { font-size: 18px; width: 18px; height: 18px; } }
+
+      /* Filter Deck on Mobile */
+      .statement-filters-bar {
+        padding: 10px;
+      }
+      .statement-filter-deck {
+        gap: 10px;
+      }
+      .filter-primary-row {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .filter-search-box {
+        width: 100%;
+        min-width: 100%;
+      }
+      .filter-select-box {
+        width: 100%;
+        min-width: 100%;
+      }
+      .filter-secondary-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+      }
+      .preset-chips-deck {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 4px;
+        width: 100%;
+      }
+      .preset-btn {
+        padding: 0 4px !important;
+        font-size: 10px !important;
+        text-align: center;
+        justify-content: center;
+      }
+      .date-controls-line {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        width: 100%;
+      }
+      .date-inputs-pair {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+        gap: 6px;
+        width: 100%;
+      }
+      .date-input-field {
+        max-width: none !important;
+        width: 100%;
+      }
+      .date-action-btns {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+      }
+      .filter-submit-btn {
+        flex: 1;
+      }
+      .reset-filter-btn {
+        height: 38px;
+      }
+
+      /* Vendor Details & Statement Header Strip on Mobile */
+      .directory-card, .statement-card {
+        min-height: auto;
+      }
+      .vendors-scroll-list {
+        min-height: auto;
+        max-height: 220px;
+      }
+      .statement-content {
+        padding: 10px;
+        gap: 12px;
+      }
+      .statement-header-strip {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+        padding: 10px 12px;
+      }
+      .vendor-headline {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        width: 100%;
+      }
+      .avatar-box {
+        width: 38px;
+        height: 38px;
+        min-width: 38px;
+        border-radius: 8px;
+        mat-icon { font-size: 20px; width: 20px; height: 20px; }
+      }
+      .headline-info {
+        flex: 1;
+        min-width: 0;
+      }
+      .title-with-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+      }
+      .vendor-headline-name {
+        font-size: 14px;
+        font-weight: 700;
+        line-height: 1.3;
+        margin: 0;
+        word-break: break-word;
+      }
+      .edit-profile-btn {
+        flex-shrink: 0;
+        white-space: nowrap !important;
+        height: 26px !important;
+        line-height: 26px !important;
+        padding: 0 8px !important;
+        font-size: 11px !important;
+        span { white-space: nowrap; }
+      }
+      .vendor-chips-row {
+        gap: 4px;
+        margin-top: 4px;
+      }
+      .meta-tag {
+        font-size: 10px;
+        padding: 1px 6px;
+      }
+      .statement-balance-box {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 8px 10px;
+        gap: 2px;
+        width: 100%;
+        box-sizing: border-box;
+      }
+      .statement-lbl {
+        font-size: 10px;
+        color: #64748b;
+        text-transform: uppercase;
+        font-weight: 700;
+      }
+      .statement-amt {
+        font-size: 1.25rem;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      .statement-actions-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        margin-top: 6px;
+      }
+      .statement-actions-row .btn-action {
+        flex: 1;
+        justify-content: center;
+        height: 34px !important;
+        line-height: 34px !important;
+        font-size: 11px !important;
+        padding: 0 8px !important;
       }
     }
 
@@ -1919,6 +2166,18 @@ import {
       align-items: center;
       gap: 10px;
       flex-wrap: wrap;
+    }
+
+    .date-inputs-pair {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .date-action-btns {
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
 
     .date-input-field {

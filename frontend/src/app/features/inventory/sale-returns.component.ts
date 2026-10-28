@@ -58,7 +58,7 @@ import {
               <mat-icon>keyboard_return</mat-icon>
             </span>
             <div>
-              <h1 class="page-title">Kit &amp; Sale Returns (SR)</h1>
+              <h1 class="page-title">Kit &amp; Sale Returns</h1>
               <p class="page-subtitle">
                 Receive returned student uniform, books, and study kits back into warehouse inventory with live stock replenishment and fee billing adjustments
               </p>
@@ -73,7 +73,7 @@ import {
             (click)="toggleCreateForm()"
             class="erp-btn">
             <mat-icon>{{ showCreateForm ? 'close' : 'add' }}</mat-icon>
-            <span>{{ showCreateForm ? 'Close Return Form' : 'New Kit Return (SR)' }}</span>
+            <span>{{ showCreateForm ? 'Close Return Form' : 'New Kit Return' }}</span>
           </button>
           <button mat-icon-button (click)="loadAllData()" matTooltip="Refresh Data" class="refresh-btn">
             <mat-icon>refresh</mat-icon>
@@ -87,10 +87,10 @@ import {
           <mat-icon>inventory_2</mat-icon> Store &amp; Catalog
         </a>
         <a mat-button [routerLink]="['/inventory/purchase-returns']" class="nav-tab">
-          <mat-icon>assignment_return</mat-icon> Purchase Returns (PR)
+          <mat-icon>assignment_return</mat-icon> Purchase Returns
         </a>
         <a mat-button [routerLink]="['/inventory/sale-returns']" class="nav-tab active-tab">
-          <mat-icon>keyboard_return</mat-icon> Kit &amp; Sale Returns (SR)
+          <mat-icon>keyboard_return</mat-icon> Kit &amp; Sale Returns
         </a>
         <a mat-button [routerLink]="['/inventory/vendors']" class="nav-tab">
           <mat-icon>account_balance_wallet</mat-icon> Vendors &amp; Ledger
@@ -363,11 +363,11 @@ import {
       <mat-card class="filter-card mat-elevation-z1">
         <div class="filter-deck">
           <mat-form-field appearance="outline" subscriptSizing="dynamic" class="search-input">
-            <mat-label>Search Return # / Student / Class / Remarks</mat-label>
+            <mat-label>Search Return</mat-label>
             <input
               matInput
               [formControl]="filterSearchCtrl"
-              placeholder="Type return number, student name, or class..." />
+              placeholder="Return #, student..." />
             <mat-icon matPrefix class="prefix-icon">search</mat-icon>
             <button
               mat-icon-button
@@ -382,7 +382,7 @@ import {
           <div class="chip-total">
             <mat-chip-set>
               <mat-chip highlighted color="primary">
-                {{ totalCount }} Return(s) Logged
+                {{ totalCount }} Return(s)
               </mat-chip>
             </mat-chip-set>
           </div>
@@ -549,7 +549,13 @@ import {
       padding: 6px;
       border-radius: 10px;
       border: 1px solid #e2e8f0;
-      flex-wrap: wrap;
+      overflow-x: auto;
+      flex-wrap: nowrap;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      &::-webkit-scrollbar {
+        display: none;
+      }
     }
     .nav-tab {
       font-weight: 600;
@@ -560,6 +566,8 @@ import {
       display: inline-flex;
       align-items: center;
       gap: 6px;
+      white-space: nowrap;
+      flex-shrink: 0;
       transition: all 0.2s ease-in-out;
     }
     .nav-tab:hover {
@@ -889,7 +897,90 @@ import {
       .form-bottom-row { grid-template-columns: 1fr; }
     }
     @media (max-width: 640px) {
-      .kpi-grid { grid-template-columns: 1fr; }
+      .page-header-row {
+        position: relative;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+      }
+      .title-meta-wrap {
+        padding-right: 44px;
+      }
+      .page-title {
+        font-size: 1.25rem;
+      }
+      .page-subtitle {
+        font-size: 0.8rem;
+      }
+      .action-btn-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+      }
+      .action-btn-group .erp-btn {
+        flex: 1;
+        justify-content: center;
+        font-size: 0.8rem;
+        height: 38px;
+      }
+      .action-btn-group .refresh-btn {
+        position: absolute;
+        top: 2px;
+        right: 0;
+        background: #f1f5f9;
+        border-radius: 8px;
+      }
+      .module-nav-bar {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+        padding: 6px;
+      }
+      .nav-tab {
+        width: 100%;
+        justify-content: center;
+        font-size: 0.76rem;
+        padding: 0 6px;
+        height: 36px;
+        gap: 4px;
+        white-space: nowrap;
+        mat-icon {
+          font-size: 18px;
+          width: 18px;
+          height: 18px;
+          margin-right: 2px;
+        }
+      }
+      .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+      .kpi-card { padding: 10px 10px; }
+      .kpi-label { font-size: 0.65rem; }
+      .kpi-value { font-size: 1.15rem; }
+      .kpi-icon-wrap { width: 30px; height: 30px; mat-icon { font-size: 18px; width: 18px; height: 18px; } }
+
+      .filter-card {
+        padding: 8px 10px;
+      }
+      .filter-deck {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: nowrap;
+      }
+      .search-input {
+        flex: 1;
+        min-width: 0;
+        margin-bottom: 0;
+      }
+      .chip-total {
+        flex-shrink: 0;
+      }
+      .chip-total mat-chip {
+        font-size: 0.75rem;
+        min-height: 36px;
+        padding: 0 10px;
+        white-space: nowrap;
+      }
     }
   `]
 })

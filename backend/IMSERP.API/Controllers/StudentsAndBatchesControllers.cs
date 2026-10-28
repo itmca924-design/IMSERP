@@ -2098,6 +2098,7 @@ public class StudentsController : ControllerBase
         student.DeletedAt = DateTime.UtcNow;
         student.DeletedBy = _currentUser.UserId;
         student.LeavingDate = DateTime.UtcNow;
+        student.BiometricUserId = null; // Release biometric hardware mapping for other students
         if (string.IsNullOrWhiteSpace(student.LeavingReason))
         {
             student.LeavingReason = "Admission Cancelled / Deleted";
@@ -5022,14 +5023,26 @@ public class BatchesController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<BatchDto>>> GetBatches()
+    public async Task<ActionResult<IEnumerable<BatchDto>>> GetBatches([FromQuery] Guid? branchId = null)
     {
-        var list = await _dbContext.Batches
+        var query = _dbContext.Batches
             .AsNoTracking()
             .Include(b => b.Branch)
             .Include(b => b.Room)
             .Include(b => b.Class)
             .Include(b => b.MentorTeacher)
+            .AsQueryable();
+
+        if (branchId.HasValue && branchId.Value != Guid.Empty)
+        {
+            query = query.Where(b => b.BranchId == branchId.Value || b.BranchId == null);
+        }
+        else if (_currentUser.BranchId.HasValue && _currentUser.BranchId.Value != Guid.Empty)
+        {
+            query = query.Where(b => b.BranchId == _currentUser.BranchId.Value || b.BranchId == null);
+        }
+
+        var list = await query
             .Select(b => new BatchDto(
                 b.Id,
                 b.Name,

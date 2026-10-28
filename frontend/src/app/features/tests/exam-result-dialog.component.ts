@@ -1552,8 +1552,16 @@ export class ExamResultDialogComponent implements OnInit {
     return this.authService.getInstituteLogoUrl();
   }
 
+  get officialSealUrl(): string | null {
+    return this.authService.getOfficialSealUrl();
+  }
+
+  get digitalSignatureUrl(): string | null {
+    return this.authService.getDigitalSignatureUrl();
+  }
+
   get instituteName(): string {
-    return this.authService.currentUser()?.instituteName || 'Institute Examination Card';
+    return this.authService.currentUser()?.instituteName || this.authService.getInstituteName() || 'Institution';
   }
 
   private loadResults(): void {
@@ -1803,8 +1811,14 @@ export class ExamResultDialogComponent implements OnInit {
 
           <div class="signatures">
             <div class="sig-col"><div class="sig-line">Class Teacher</div></div>
-            <div class="sig-col"><div class="sig-line">Exam Coordinator</div></div>
-            <div class="sig-col"><div class="sig-line">Principal / Director</div></div>
+            <div class="sig-col">
+              ${this.officialSealUrl ? `<img src="${this.officialSealUrl}" alt="Seal" style="max-height:48px;max-width:48px;object-fit:contain;margin-bottom:2px;" />` : ''}
+              <div class="sig-line">Exam Coordinator</div>
+            </div>
+            <div class="sig-col">
+              ${this.digitalSignatureUrl ? `<img src="${this.digitalSignatureUrl}" alt="Signature" style="max-height:34px;max-width:110px;object-fit:contain;margin-bottom:2px;mix-blend-mode:multiply;" />` : ''}
+              <div class="sig-line">Principal / Director</div>
+            </div>
           </div>
         </div>
       </body>
@@ -1873,9 +1887,17 @@ export class ExamResultDialogComponent implements OnInit {
           </div>
           ${s.remarks ? `<div style="font-size:11.5px; color:#475569; margin-bottom:12px;"><strong>Remarks:</strong> ${s.remarks}</div>` : ''}
           <div class="signatures">
-            <div class="sig-line">Class Teacher</div>
-            <div class="sig-line">Controller of Exam</div>
-            <div class="sig-line">Principal / Director</div>
+            <div class="sig-col">
+              <div class="sig-line">Class Teacher</div>
+            </div>
+            <div class="sig-col">
+              ${this.officialSealUrl ? `<img src="${this.officialSealUrl}" alt="Seal" class="sig-seal-img" />` : ''}
+              <div class="sig-line">Controller of Exam</div>
+            </div>
+            <div class="sig-col">
+              ${this.digitalSignatureUrl ? `<img src="${this.digitalSignatureUrl}" alt="Signature" class="sig-sign-img" />` : ''}
+              <div class="sig-line">Principal / Director</div>
+            </div>
           </div>
         </div>
       </div>
@@ -1918,8 +1940,11 @@ export class ExamResultDialogComponent implements OnInit {
           .score-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; text-align: center; margin-bottom: 14px; }
           .score-lbl { font-size: 10.5px; text-transform: uppercase; color: #64748b; font-weight: 600; margin-bottom: 3px; }
           .score-val { font-size: 19px; font-weight: 800; color: #0f172a; }
-          .signatures { display: flex; justify-content: space-between; margin-top: 30px; padding-top: 8px; }
-          .sig-line { border-top: 1px solid #94a3b8; width: 135px; text-align: center; padding-top: 5px; font-size: 11px; font-weight: 600; }
+          .signatures { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 24px; padding-top: 8px; }
+          .sig-col { width: 140px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+          .sig-seal-img { max-height: 48px; max-width: 48px; object-fit: contain; margin-bottom: 2px; }
+          .sig-sign-img { max-height: 32px; max-width: 100px; object-fit: contain; margin-bottom: 2px; mix-blend-mode: multiply; }
+          .sig-line { border-top: 1px solid #94a3b8; width: 100%; text-align: center; padding-top: 5px; font-size: 11px; font-weight: 600; }
         </style>
       </head>
       <body>
@@ -2030,9 +2055,17 @@ export class ExamResultDialogComponent implements OnInit {
             </div>
             ${student.remarks ? `<div style="font-size:11.5px; color:#475569; margin-bottom:12px;"><strong>Remarks:</strong> ${student.remarks}</div>` : ''}
             <div class="signatures">
-              <div class="sig-line">Class Teacher</div>
-              <div class="sig-line">Controller of Exam</div>
-              <div class="sig-line">Principal / Director</div>
+              <div class="sig-col">
+                <div class="sig-line">Class Teacher</div>
+              </div>
+              <div class="sig-col">
+                ${this.officialSealUrl ? `<img src="${this.officialSealUrl}" alt="Seal" class="sig-seal-img" />` : ''}
+                <div class="sig-line">Controller of Exam</div>
+              </div>
+              <div class="sig-col">
+                ${this.digitalSignatureUrl ? `<img src="${this.digitalSignatureUrl}" alt="Signature" class="sig-sign-img" />` : ''}
+                <div class="sig-line">Principal / Director</div>
+              </div>
             </div>
           </div>
         </div>

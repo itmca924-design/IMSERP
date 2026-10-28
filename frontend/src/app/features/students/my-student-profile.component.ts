@@ -2872,7 +2872,9 @@ export class MyStudentProfileComponent implements OnInit {
     if (!this.activeCertificateModal) return;
     const ach = this.activeCertificateModal;
     const studentName = this.data360?.student?.studentName || 'Student';
-    const branchName = this.data360?.student?.branchName || 'INTERNATIONAL ACADEMY OF EXCELLENCE';
+    const branchName = this.data360?.student?.branchName || this.authService.currentUser()?.instituteName || this.authService.getInstituteName() || 'Institution';
+    const officialSeal = this.authService.getOfficialSealUrl();
+    const digitalSignature = this.authService.getDigitalSignatureUrl();
 
     const printWin = window.open('', '_blank', 'width=950,height=750');
     if (!printWin) {
@@ -3022,13 +3024,13 @@ export class MyStudentProfileComponent implements OnInit {
                 <span class="cert-sign-role">Class Teacher / Event Incharge</span>
               </div>
               <div class="cert-seal-stamp">
-                <div class="stamp-circle">
-                  <span>INSTITUTE SEAL</span>
-                  <small>${awardYear}</small>
-                </div>
+                ${officialSeal
+                  ? `<img src="${officialSeal}" alt="Seal" style="max-height:68px; max-width:68px; object-fit:contain; margin-bottom:2px;" />`
+                  : `<div class="stamp-circle"><span>INSTITUTE SEAL</span><small>${awardYear}</small></div>`}
                 ${awardDateFormatted ? `<div class="cert-date-text">Date: ${awardDateFormatted}</div>` : ''}
               </div>
               <div class="cert-sign-col">
+                ${digitalSignature ? `<div style="height:36px; display:flex; align-items:flex-end; justify-content:center; margin-bottom:2px;"><img src="${digitalSignature}" alt="Principal Signature" style="max-height:36px; max-width:130px; object-fit:contain; mix-blend-mode:multiply;" /></div>` : ''}
                 <div class="cert-sign-line"></div>
                 <span class="cert-sign-role">Principal / Director</span>
               </div>

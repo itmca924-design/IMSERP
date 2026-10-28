@@ -403,16 +403,20 @@ export interface FeeReceiptDialogData {
             <span class="sig-text">Student / Depositor Signature</span>
           </div>
           <div class="sig-col text-center">
-            <div class="digital-seal">
+            <img *ngIf="officialSealUrl" [src]="officialSealUrl" alt="Official Seal" class="uploaded-official-seal-img" />
+            <div *ngIf="!officialSealUrl" class="digital-seal">
               <mat-icon>verified</mat-icon>
               <span>ELECTRONICALLY AUDITED</span>
               <small>{{ data.receipt.paymentDate | date:'dd-MMM-yyyy' }}</small>
             </div>
           </div>
           <div class="sig-col text-right">
+            <div class="digital-sign-wrapper" *ngIf="digitalSignatureUrl">
+              <img [src]="digitalSignatureUrl" alt="Authorized Signature" class="digital-sign-img" />
+            </div>
             <div class="sig-line"></div>
             <span class="sig-text">Accounts In-charge / Cashier</span>
-            <small class="auth-sub">{{ data.instituteName || 'Saraswati Coaching Classes' }}</small>
+            <small class="auth-sub">{{ data.instituteName || authService.currentUser()?.instituteName || authService.getInstituteName() || 'Institution' }}</small>
           </div>
         </div>
 
@@ -1382,6 +1386,34 @@ export interface FeeReceiptDialogData {
           color: #64748b;
         }
 
+        .uploaded-official-seal-img {
+          max-width: 68px;
+          max-height: 68px;
+          object-fit: contain;
+          display: block;
+          margin: 0 auto;
+          opacity: 0.95;
+          filter: drop-shadow(0 1px 2px rgba(2, 132, 199, 0.25));
+        }
+
+        .digital-sign-wrapper {
+          display: flex;
+          align-items: flex-end;
+          justify-content: flex-end;
+          height: 38px;
+          margin-bottom: 2px;
+          overflow: visible;
+
+          .digital-sign-img {
+            max-height: 38px;
+            max-width: 130px;
+            object-fit: contain;
+            display: block;
+            mix-blend-mode: multiply;
+            filter: contrast(1.15);
+          }
+        }
+
         .digital-seal {
           display: inline-flex;
           flex-direction: column;
@@ -1685,6 +1717,14 @@ export class FeeReceiptDialogComponent implements OnInit {
     this.logoUrl = this.data?.logoUrl || this.authService.getInstituteLogoUrl();
   }
 
+  get officialSealUrl(): string | null {
+    return this.authService.getOfficialSealUrl();
+  }
+
+  get digitalSignatureUrl(): string | null {
+    return this.authService.getDigitalSignatureUrl();
+  }
+
   get totalArrearsAmount(): number {
     return this.data?.receipt?.pendingArrears
       ? this.data.receipt.pendingArrears.reduce((sum, a) => sum + a.dueAmount, 0)
@@ -1913,16 +1953,19 @@ export class FeeReceiptDialogComponent implements OnInit {
             .qr-verify-text p { margin: 2px 0 0; font-size: 0.7rem; color: #475569; }
             .receipt-terms { font-size: 0.72rem; color: #64748b; background: #f8fafc; padding: 6px 12px; border-radius: 6px; margin-bottom: 20px; }
             .receipt-terms ol { margin: 3px 0 0 14px; padding: 0; }
-            .signatures-row { display: flex; justify-content: space-between; align-items: flex-end; padding-top: 24px; margin-bottom: 12px; }
+            .signatures-row { display: flex; justify-content: space-between; align-items: flex-end; padding-top: 18px; margin-bottom: 8px; }
             .sig-col { width: 180px; }
             .sig-line { height: 1px; background: #475569; margin-bottom: 4px; }
             .sig-text { font-size: 0.75rem; font-weight: 700; color: #334155; display: block; }
             .auth-sub { font-size: 0.68rem; color: #64748b; display: block; }
+            .uploaded-official-seal-img { max-width: 68px; max-height: 68px; object-fit: contain; display: block; margin: 0 auto; }
+            .digital-sign-wrapper { display: flex; align-items: flex-end; justify-content: flex-end; height: 38px; margin-bottom: 2px; }
+            .digital-sign-img { max-height: 38px; max-width: 130px; object-fit: contain; display: block; mix-blend-mode: multiply; }
             .digital-seal { border: 1.5px dashed #0284c7; border-radius: 6px; padding: 4px 10px; background: #f0f9ff; color: #0284c7; font-size: 0.68rem; font-weight: 800; text-align: center; }
             .paper-footer { text-align: center; font-size: 0.66rem; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 6px; }
             .text-center { text-align: center; }
             .text-right { text-align: right; }
-            @page { margin: 10mm; size: A4 portrait; }
+            @page { margin: 6mm 8mm; size: A4 portrait; }
           </style>
         </head>
         <body>

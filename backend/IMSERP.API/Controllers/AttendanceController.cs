@@ -79,12 +79,31 @@ public class AttendanceController : ControllerBase
     {
         if (!await HasPermissionAsync(MappingRoute, PermissionAction.Edit)) return Forbid();
 
-        var rawStudents = await _db.Students.AsNoTracking().Where(s => s.IsActive)
+        var rawStudents = await _db.Students.AsNoTracking()
+            .Where(s => s.IsActive && !s.IsDeleted)
             .Include(s => s.Class)
             .Include(s => s.Section)
             .Include(s => s.Batch)
             .OrderBy(s => s.StudentName)
             .ToListAsync();
+
+        var rawTeachers = await _db.Teachers.AsNoTracking()
+            .Where(t => t.IsActive)
+            .OrderBy(t => t.EmployeeCode)
+            .ThenBy(t => t.FullName)
+            .ToListAsync();
+
+        var usedIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var s in rawStudents)
+        {
+            if (!string.IsNullOrWhiteSpace(s.BiometricUserId))
+                usedIds.Add(s.BiometricUserId.Trim());
+        }
+        foreach (var t in rawTeachers)
+        {
+            if (!string.IsNullOrWhiteSpace(t.BiometricUserId))
+                usedIds.Add(t.BiometricUserId.Trim());
+        }
 
         var batches = rawStudents.Where(s => s.BatchId != null)
             .Select(s => s.Batch!)
@@ -93,29 +112,50 @@ public class AttendanceController : ControllerBase
             .ToList();
         var batchIndexMap = batches.Select((b, idx) => new { b.Id, Index = idx + 1 }).ToDictionary(x => x.Id, x => x.Index);
 
-        var students = rawStudents.Select((s, idx) =>
+        var students = new List<BiometricMappingPersonDto>();
+        for (int idx = 0; idx < rawStudents.Count; idx++)
         {
+            var s = rawStudents[idx];
             var roll = s.IsSchoolStudent && !string.IsNullOrEmpty(s.SchoolRollNumber)
                 ? s.SchoolRollNumber
                 : (!string.IsNullOrEmpty(s.CoachingRollNumber) ? s.CoachingRollNumber : s.RollNumber);
             var stream = s.IsSchoolStudent && s.IsCoachingStudent ? "Both" : (s.IsSchoolStudent ? "School" : "Coaching");
 
             string suggested = "";
-            if (s.IsSchoolStudent)
+            if (string.IsNullOrWhiteSpace(s.BiometricUserId))
             {
-                int cCode = GetClassNumericCode(s.Class?.Name);
-                int rNum = ExtractNumericRoll(roll, idx + 1);
-                suggested = $"{cCode}{rNum:D2}";
-            }
-            else if (s.IsCoachingStudent || s.BatchId != null)
-            {
-                int bIdx = s.BatchId != null && batchIndexMap.TryGetValue(s.BatchId.Value, out int bi) ? bi : 1;
-                int bPrefix = 80 + (bIdx % 10);
-                int rNum = ExtractNumericRoll(roll, idx + 1);
-                suggested = $"{bPrefix}{rNum:D2}";
+                if (s.IsSchoolStudent)
+                {
+                    int cCode = GetClassNumericCode(s.Class?.Name);
+                    int rNum = ExtractNumericRoll(roll, idx + 1);
+                    string candidate = $"{cCode}{rNum:D2}";
+                    int offset = 1;
+                    while (usedIds.Contains(candidate))
+                    {
+                        candidate = $"{cCode}{(rNum + offset):D2}";
+                        offset++;
+                    }
+                    suggested = candidate;
+                    usedIds.Add(suggested);
+                }
+                else if (s.IsCoachingStudent || s.BatchId != null)
+                {
+                    int bIdx = s.BatchId != null && batchIndexMap.TryGetValue(s.BatchId.Value, out int bi) ? bi : 1;
+                    int bPrefix = 80 + (bIdx % 10);
+                    int rNum = ExtractNumericRoll(roll, idx + 1);
+                    string candidate = $"{bPrefix}{rNum:D2}";
+                    int offset = 1;
+                    while (usedIds.Contains(candidate))
+                    {
+                        candidate = $"{bPrefix}{(rNum + offset):D2}";
+                        offset++;
+                    }
+                    suggested = candidate;
+                    usedIds.Add(suggested);
+                }
             }
 
-            return new BiometricMappingPersonDto(
+            students.Add(new BiometricMappingPersonDto(
                 s.Id,
                 "Student",
                 s.StudentName,
@@ -126,19 +166,29 @@ public class AttendanceController : ControllerBase
                 s.Section?.Name,
                 stream,
                 suggested
-            );
-        }).ToList();
+            ));
+        }
 
-        var rawTeachers = await _db.Teachers.AsNoTracking().Where(t => t.IsActive)
-            .OrderBy(t => t.EmployeeCode)
-            .ThenBy(t => t.FullName)
-            .ToListAsync();
-
-        var teachers = rawTeachers.Select((t, idx) =>
+        var teachers = new List<BiometricMappingPersonDto>();
+        for (int idx = 0; idx < rawTeachers.Count; idx++)
         {
-            int empDigits = ExtractNumericRoll(t.EmployeeCode, idx + 1);
-            string suggested = (empDigits > 0 && empDigits < 1000) ? $"9{empDigits:D3}" : $"9{(idx + 1):D3}";
-            return new BiometricMappingPersonDto(
+            var t = rawTeachers[idx];
+            string suggested = "";
+            if (string.IsNullOrWhiteSpace(t.BiometricUserId))
+            {
+                int empDigits = ExtractNumericRoll(t.EmployeeCode, idx + 1);
+                string candidate = (empDigits > 0 && empDigits < 1000) ? $"9{empDigits:D3}" : $"9{(idx + 1):D3}";
+                int offset = 1;
+                while (usedIds.Contains(candidate))
+                {
+                    candidate = $"9{(idx + 1 + offset):D3}";
+                    offset++;
+                }
+                suggested = candidate;
+                usedIds.Add(suggested);
+            }
+
+            teachers.Add(new BiometricMappingPersonDto(
                 t.Id,
                 "Teacher",
                 t.FullName,
@@ -149,8 +199,8 @@ public class AttendanceController : ControllerBase
                 null,
                 null,
                 suggested
-            );
-        }).ToList();
+            ));
+        }
 
         return Ok(students.Concat(teachers).OrderBy(x => x.Name));
     }
@@ -464,30 +514,44 @@ public class AttendanceController : ControllerBase
         if (string.IsNullOrWhiteSpace(dto.BiometricUserId))
             return BadRequest(new { message = "BiometricUserId is required." });
 
+        var trimmedId = dto.BiometricUserId.Trim();
+
         if (personType.Equals("student", StringComparison.OrdinalIgnoreCase))
         {
-            var student = await _db.Students.FirstOrDefaultAsync(s => s.Id == personId);
+            var student = await _db.Students.FirstOrDefaultAsync(s => s.Id == personId && !s.IsDeleted);
             if (student == null) return NotFound(new { message = "Student not found." });
 
-            var trimmedId = dto.BiometricUserId.Trim();
-            var duplicate = await _db.Students.AnyAsync(s => s.Id != personId && s.BiometricUserId == trimmedId);
-            if (duplicate)
+            var duplicateStudent = await _db.Students.AnyAsync(s => s.Id != personId && !s.IsDeleted && s.BiometricUserId == trimmedId);
+            if (duplicateStudent)
             {
-                return BadRequest(new { message = $"Biometric ID '{trimmedId}' is already assigned to another student." });
+                return BadRequest(new { message = $"Biometric ID '{trimmedId}' is already assigned to another active student." });
             }
+
+            var duplicateTeacher = await _db.Teachers.AnyAsync(t => t.IsActive && t.BiometricUserId == trimmedId);
+            if (duplicateTeacher)
+            {
+                return BadRequest(new { message = $"Biometric ID '{trimmedId}' is already assigned to a staff/teacher member." });
+            }
+
             student.BiometricUserId = trimmedId;
         }
         else if (personType.Equals("teacher", StringComparison.OrdinalIgnoreCase))
         {
-            var teacher = await _db.Teachers.FirstOrDefaultAsync(t => t.Id == personId);
+            var teacher = await _db.Teachers.FirstOrDefaultAsync(t => t.Id == personId && t.IsActive);
             if (teacher == null) return NotFound(new { message = "Teacher not found." });
 
-            var trimmedId = dto.BiometricUserId.Trim();
-            var duplicate = await _db.Teachers.AnyAsync(t => t.Id != personId && t.BiometricUserId == trimmedId);
-            if (duplicate)
+            var duplicateTeacher = await _db.Teachers.AnyAsync(t => t.Id != personId && t.IsActive && t.BiometricUserId == trimmedId);
+            if (duplicateTeacher)
             {
                 return BadRequest(new { message = $"Biometric ID '{trimmedId}' is already assigned to another teacher." });
             }
+
+            var duplicateStudent = await _db.Students.AnyAsync(s => !s.IsDeleted && s.BiometricUserId == trimmedId);
+            if (duplicateStudent)
+            {
+                return BadRequest(new { message = $"Biometric ID '{trimmedId}' is already assigned to a student." });
+            }
+
             teacher.BiometricUserId = trimmedId;
         }
         else
@@ -511,15 +575,36 @@ public class AttendanceController : ControllerBase
         var overwrite = request?.OverwriteExisting ?? false;
         int updatedCount = 0;
 
-        // Track all used IDs in memory to guarantee 100% uniqueness across tenant
+        // Track all used IDs across both students and teachers (only active and non-deleted)
         var usedIds = await _db.Students
-            .Where(s => !string.IsNullOrEmpty(s.BiometricUserId))
+            .Where(s => !s.IsDeleted && !string.IsNullOrEmpty(s.BiometricUserId))
             .Select(s => s.BiometricUserId!)
             .ToHashSetAsync();
 
+        var teacherUsedIds = await _db.Teachers
+            .Where(t => t.IsActive && !string.IsNullOrEmpty(t.BiometricUserId))
+            .Select(t => t.BiometricUserId!)
+            .ToHashSetAsync();
+
+        foreach (var tid in teacherUsedIds)
+        {
+            usedIds.Add(tid);
+        }
+
         if (overwrite)
         {
-            usedIds.Clear();
+            if (category == "all")
+            {
+                usedIds.Clear();
+            }
+            else if (category == "teacher")
+            {
+                foreach (var tid in teacherUsedIds) usedIds.Remove(tid);
+            }
+            else
+            {
+                usedIds.RemoveWhere(id => !teacherUsedIds.Contains(id));
+            }
         }
 
         // 1. School Students
@@ -527,7 +612,7 @@ public class AttendanceController : ControllerBase
         {
             var schoolStudents = await _db.Students
                 .Include(s => s.Class)
-                .Where(s => s.IsActive && s.IsSchoolStudent && (overwrite || string.IsNullOrEmpty(s.BiometricUserId)))
+                .Where(s => !s.IsDeleted && s.IsActive && s.IsSchoolStudent && (overwrite || string.IsNullOrEmpty(s.BiometricUserId)))
                 .ToListAsync();
 
             foreach (var group in schoolStudents.GroupBy(s => s.ClassId))
@@ -557,7 +642,7 @@ public class AttendanceController : ControllerBase
         {
             var coachingStudents = await _db.Students
                 .Include(s => s.Batch)
-                .Where(s => s.IsActive && (s.IsCoachingStudent || s.BatchId != null) && (overwrite || string.IsNullOrEmpty(s.BiometricUserId)))
+                .Where(s => !s.IsDeleted && s.IsActive && (s.IsCoachingStudent || s.BatchId != null) && (overwrite || string.IsNullOrEmpty(s.BiometricUserId)))
                 .ToListAsync();
 
             var batches = coachingStudents.Where(s => s.BatchId != null)
@@ -592,13 +677,6 @@ public class AttendanceController : ControllerBase
         // 3. Teachers & Faculty
         if (category == "all" || category == "teacher")
         {
-            var teacherUsedIds = await _db.Teachers
-                .Where(t => !string.IsNullOrEmpty(t.BiometricUserId))
-                .Select(t => t.BiometricUserId!)
-                .ToHashSetAsync();
-
-            if (overwrite) teacherUsedIds.Clear();
-
             var teachers = await _db.Teachers
                 .Where(t => t.IsActive && (overwrite || string.IsNullOrEmpty(t.BiometricUserId)))
                 .OrderBy(t => t.EmployeeCode)
@@ -611,12 +689,12 @@ public class AttendanceController : ControllerBase
                 int empDigits = ExtractNumericRoll(teacher.EmployeeCode, tSeq);
                 string candidate = (empDigits > 0 && empDigits < 1000) ? $"9{empDigits:D3}" : $"9{tSeq:D3}";
                 int offset = 1;
-                while (teacherUsedIds.Contains(candidate))
+                while (usedIds.Contains(candidate))
                 {
                     candidate = $"9{(tSeq + offset):D3}";
                     offset++;
                 }
-                teacherUsedIds.Add(candidate);
+                usedIds.Add(candidate);
                 teacher.BiometricUserId = candidate;
                 tSeq++;
                 updatedCount++;

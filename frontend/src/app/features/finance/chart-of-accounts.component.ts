@@ -51,19 +51,19 @@ import { LedgerDialogComponent } from './ledger-dialog.component';
       <div class="header-icon-box">
         <mat-icon>account_tree</mat-icon>
       </div>
-      <div>
+      <div class="header-title-wrap">
         <h1 class="page-title">Chart of Accounts &amp; Asset Vault</h1>
         <p class="page-subtitle">खाता बही एवं परिसंपत्ति &bull; Server-Side Search, Filter, Sort &amp; Ledger Audit</p>
       </div>
     </div>
     <div class="header-actions">
-      <button mat-stroked-button color="primary" (click)="loadLedgers()" [disabled]="loading">
-        <mat-icon [class.spin-icon]="loading">refresh</mat-icon>
-        <span>Refresh</span>
-      </button>
       <button mat-raised-button color="primary" class="add-btn" (click)="openCreateDialog()">
         <mat-icon>add_circle</mat-icon>
         <span>Add Account Ledger</span>
+      </button>
+      <button mat-stroked-button color="primary" (click)="loadLedgers()" [disabled]="loading" class="refresh-btn">
+        <mat-icon [class.spin-icon]="loading">refresh</mat-icon>
+        <span>Refresh</span>
       </button>
     </div>
   </div>
@@ -658,6 +658,159 @@ import { LedgerDialogComponent } from './ledger-dialog.component';
     .paginator-wrapper {
       border-top: 1px solid #e2e8f0;
       background: #fafbfc;
+    }
+
+    @media (max-width: 1024px) {
+      .kpi-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .header-card {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+        padding: 14px 16px;
+        position: static;
+      }
+
+      .header-left {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        width: 100%;
+        box-sizing: border-box;
+      }
+
+      .header-title-wrap {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .header-icon-box {
+        width: 38px;
+        height: 38px;
+        min-width: 38px;
+        border-radius: 10px;
+        mat-icon { font-size: 20px; width: 20px; height: 20px; }
+      }
+
+      .page-title {
+        font-size: 1.15rem;
+        line-height: 1.25;
+        font-weight: 700;
+        margin: 0;
+        word-break: break-word;
+      }
+
+      .page-subtitle {
+        font-size: 0.72rem;
+        line-height: 1.25;
+        margin-top: 3px;
+      }
+
+      .header-actions {
+        width: 100%;
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .header-actions .add-btn {
+        flex: 1 1 auto;
+        width: auto !important;
+        justify-content: center;
+        font-size: 0.8rem;
+        height: 38px;
+        font-weight: 600;
+        border-radius: 8px;
+        padding: 0 12px;
+        mat-icon { font-size: 18px; width: 18px; height: 18px; margin-right: 4px; }
+        span { white-space: nowrap; }
+      }
+
+      .header-actions .refresh-btn {
+        position: static !important;
+        flex: 0 0 38px !important;
+        min-width: 38px !important;
+        width: 38px !important;
+        max-width: 38px !important;
+        height: 38px !important;
+        padding: 0 !important;
+        border-radius: 8px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        background: #f1f5f9 !important;
+        border: 1px solid #e2e8f0 !important;
+        span { display: none !important; }
+        mat-icon { margin: 0 !important; font-size: 20px !important; width: 20px !important; height: 20px !important; }
+      }
+
+      .kpi-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .kpi-card {
+        padding: 8px 10px;
+        gap: 8px;
+        border-radius: 10px;
+      }
+
+      .kpi-icon {
+        width: 32px;
+        height: 32px;
+        min-width: 32px;
+        border-radius: 8px;
+        mat-icon { font-size: 18px; width: 18px; height: 18px; }
+      }
+
+      .kpi-content {
+        min-width: 0;
+        flex: 1;
+      }
+
+      .kpi-label {
+        font-size: 0.62rem;
+        letter-spacing: 0.01em;
+        line-height: 1.2;
+      }
+
+      .kpi-value {
+        font-size: 1.15rem;
+        line-height: 1.2;
+        margin: 1px 0;
+      }
+
+      .kpi-sub {
+        font-size: 0.62rem;
+        line-height: 1.2;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .filter-card {
+        padding: 12px 12px 4px;
+      }
+
+      .filter-grid {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+      }
+
+      .filter-item, .search-field {
+        flex: none !important;
+        width: 100% !important;
+        min-width: 100% !important;
+        margin-bottom: -1.25em;
+      }
     }
   `]
 })

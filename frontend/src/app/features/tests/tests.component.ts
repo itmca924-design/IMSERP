@@ -133,10 +133,54 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
             </span>
           </div>
 
+          <!-- Coaching Batch Scope Selector: Single Class vs Combined Multi-Class -->
+          <div class="batch-scope-deck" *ngIf="plannerCategory === 'coaching'">
+            <div class="scope-toggle-pills">
+              <button
+                type="button"
+                class="scope-pill-btn"
+                [class.active]="plannerBatchScope === 'single'"
+                (click)="setPlannerBatchScope('single')"
+              >
+                <mat-icon>school</mat-icon>
+                <div class="pill-texts">
+                  <span class="pill-main">Single Class Batch (एकल कक्षा)</span>
+                  <span class="pill-sub">Specific Class (e.g. Class 5th Special)</span>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                class="scope-pill-btn"
+                [class.active]="plannerBatchScope === 'combined'"
+                (click)="setPlannerBatchScope('combined')"
+              >
+                <mat-icon>layers</mat-icon>
+                <div class="pill-texts">
+                  <span class="pill-main">Combined / Multi-Class (संयुक्त कक्षा)</span>
+                  <span class="pill-sub">Foundation (1st to 5th Combined)</span>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                class="scope-pill-btn"
+                [class.active]="plannerBatchScope === 'all'"
+                (click)="setPlannerBatchScope('all')"
+              >
+                <mat-icon>view_list</mat-icon>
+                <div class="pill-texts">
+                  <span class="pill-main">All Batches (सभी बैच)</span>
+                  <span class="pill-sub">Consolidated View</span>
+                </div>
+              </button>
+            </div>
+          </div>
+
           <!-- Quick apply Default Batch (Coaching Mode) -->
           <div class="shared-batch-row" *ngIf="plannerCategory === 'coaching'">
-            <mat-form-field appearance="outline" class="class-selector" subscriptSizing="dynamic">
-              <mat-label>Academic Class</mat-label>
+            <mat-form-field appearance="outline" class="class-selector" subscriptSizing="dynamic" *ngIf="plannerBatchScope === 'single' || plannerBatchScope === 'all'">
+              <mat-label>Academic Class {{ plannerBatchScope === 'single' ? '*' : '' }}</mat-label>
               <mat-select [(ngModel)]="plannerCoachingClassId" (selectionChange)="onPlannerCoachingClassChange()" panelClass="smart-batch-panel">
                 <mat-option value="">-- All Classes --</mat-option>
                 <mat-option *ngFor="let c of schoolClasses" [value]="c.id">{{ c.name }}</mat-option>
@@ -144,11 +188,17 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
               <mat-icon matSuffix>school</mat-icon>
             </mat-form-field>
 
+            <!-- Combined Info Pill -->
+            <div class="combined-info-pill" *ngIf="plannerBatchScope === 'combined'">
+              <mat-icon>info</mat-icon>
+              <span>Showing combined foundation batches covering multi-class groups</span>
+            </div>
+
             <mat-form-field appearance="outline" class="batch-selector" subscriptSizing="dynamic">
               <mat-label>Default Batch for All Rows</mat-label>
               <mat-select [(ngModel)]="sharedBatchId" (selectionChange)="applyBatchToAll()" panelClass="smart-batch-panel">
                 <mat-option value="">-- Choose Batch --</mat-option>
-                <mat-option *ngFor="let b of (plannerCoachingClassId ? getBatchesForClass(plannerCoachingClassId) : batches)" [value]="b.id">{{ b.name }}{{ b.className ? ' [' + b.className + ']' : '' }}</mat-option>
+                <mat-option *ngFor="let b of getPlannerBatches()" [value]="b.id">{{ b.name }}</mat-option>
               </mat-select>
               <mat-icon matSuffix>groups</mat-icon>
             </mat-form-field>
@@ -193,13 +243,21 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                    [ngClass]="plannerCategory === 'school' ? 'school-mode' : 'coaching-mode'"
                    [class.exam-row-error]="row.invalid && row.touched">
 
-                <!-- Row number -->
+                <!-- Row number & Mobile Card Header -->
                 <div class="cell-num">
-                  <span class="row-num">{{ i + 1 }}</span>
+                  <div class="mobile-row-badge">
+                    <span class="row-num">{{ i + 1 }}</span>
+                    <span class="mobile-row-title">Exam Plan #{{ i + 1 }}</span>
+                  </div>
+                  <button mat-icon-button color="warn" type="button" class="mobile-del-btn" (click)="removeRow(i)"
+                          [disabled]="examRows.length === 1" matTooltip="Remove row">
+                    <mat-icon>delete_outline</mat-icon>
+                  </button>
                 </div>
 
                 <!-- School Mode: Class -->
                 <div class="cell-class" *ngIf="plannerCategory === 'school'">
+                  <span class="mobile-input-label">Academic Class *</span>
                   <mat-form-field appearance="outline" class="field-compact" subscriptSizing="dynamic">
                     <mat-select formControlName="classId" placeholder="Select class..." panelClass="smart-batch-panel" (selectionChange)="onRowClassChange(i)">
                       <mat-option *ngFor="let c of schoolClasses" [value]="c.id">{{ c.name }}</mat-option>
@@ -210,6 +268,7 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
 
                 <!-- School Mode: Section -->
                 <div class="cell-section" *ngIf="plannerCategory === 'school'">
+                  <span class="mobile-input-label">Section</span>
                   <mat-form-field appearance="outline" class="field-compact" subscriptSizing="dynamic">
                     <mat-select formControlName="sectionId" placeholder="All Sections" panelClass="smart-batch-panel">
                       <mat-option value="">All</mat-option>
@@ -220,9 +279,10 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
 
                 <!-- Coaching Mode: Batch -->
                 <div class="cell-batch" *ngIf="plannerCategory === 'coaching'">
+                  <span class="mobile-input-label">Coaching Batch *</span>
                   <mat-form-field appearance="outline" class="field-compact" subscriptSizing="dynamic">
                     <mat-select formControlName="batchId" placeholder="Select batch..." panelClass="smart-batch-panel">
-                      <mat-option *ngFor="let b of (plannerCoachingClassId ? getBatchesForClass(plannerCoachingClassId) : batches)" [value]="b.id">{{ b.name }}{{ b.className ? ' [' + b.className + ']' : '' }}</mat-option>
+                      <mat-option *ngFor="let b of getPlannerBatches(row.get('batchId')?.value)" [value]="b.id">{{ b.name }}</mat-option>
                     </mat-select>
                     <mat-error *ngIf="row.get('batchId')?.invalid">Required</mat-error>
                   </mat-form-field>
@@ -230,6 +290,7 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
 
                 <!-- Subject -->
                 <div class="cell-subject">
+                  <span class="mobile-input-label">Subject *</span>
                   <mat-form-field appearance="outline" class="field-compact" subscriptSizing="dynamic">
                     <mat-select formControlName="subject" placeholder="Subject..." panelClass="smart-subject-panel"
                                 (openedChange)="onSubjectSelectOpened(i, $event)">
@@ -268,6 +329,7 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
 
                 <!-- Title -->
                 <div class="cell-title">
+                  <span class="mobile-input-label">Exam Title *</span>
                   <mat-form-field appearance="outline" class="field-compact" subscriptSizing="dynamic">
                     <input matInput formControlName="title" placeholder="e.g. Unit Test 3 - Electricity">
                     <mat-error *ngIf="row.get('title')?.invalid">Required</mat-error>
@@ -276,6 +338,7 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
 
                 <!-- Date -->
                 <div class="cell-date">
+                  <span class="mobile-input-label">Date *</span>
                   <mat-form-field appearance="outline" class="field-compact" subscriptSizing="dynamic">
                     <input matInput formControlName="examDate" type="date">
                     <mat-error *ngIf="row.get('examDate')?.invalid">Required</mat-error>
@@ -284,6 +347,7 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
 
                 <!-- Time -->
                 <div class="cell-time">
+                  <span class="mobile-input-label">Time</span>
                   <mat-form-field appearance="outline" class="field-compact" subscriptSizing="dynamic">
                     <input matInput formControlName="examTime" type="time">
                   </mat-form-field>
@@ -291,6 +355,7 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
 
                 <!-- Max Marks -->
                 <div class="cell-marks">
+                  <span class="mobile-input-label">Marks *</span>
                   <mat-form-field appearance="outline" class="field-compact" subscriptSizing="dynamic">
                     <input matInput formControlName="maxMarks" type="number" min="1" placeholder="50">
                     <mat-error *ngIf="row.get('maxMarks')?.invalid">Min 1</mat-error>
@@ -670,12 +735,23 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
               <mat-icon matSuffix>meeting_room</mat-icon>
             </mat-form-field>
 
+            <!-- Coaching Batch Scope Selector: Single / Combined / All -->
+            <mat-form-field appearance="outline" class="filter-dropdown scope-filter" subscriptSizing="dynamic" *ngIf="hasCoaching && (selectedCategory === 'coaching' || selectedCategory === 'all')">
+              <mat-label>Batch Scope</mat-label>
+              <mat-select [(ngModel)]="batchScopeFilter" (selectionChange)="onBatchScopeFilterChange()">
+                <mat-option value="all">All Batches (सभी बैच)</mat-option>
+                <mat-option value="single">Single Class (एकल)</mat-option>
+                <mat-option value="combined">Combined / Multi-Class (संयुक्त)</mat-option>
+              </mat-select>
+              <mat-icon matSuffix>layers</mat-icon>
+            </mat-form-field>
+
             <!-- Coaching Batch Filter (Visible when category is 'all' or 'coaching', AND hasCoaching) -->
             <mat-form-field appearance="outline" class="filter-dropdown batch-filter" subscriptSizing="dynamic" *ngIf="hasCoaching && (selectedCategory === 'coaching' || selectedCategory === 'all')">
               <mat-label>Filter by Coaching Batch</mat-label>
               <mat-select [(ngModel)]="selectedBatchFilter" (selectionChange)="onFilterChange()">
                 <mat-option value="">All Batches</mat-option>
-                <mat-option *ngFor="let b of (selectedClassFilter ? getBatchesForClass(selectedClassFilter) : batches)" [value]="b.id">{{ b.name }}{{ b.className ? ' [' + b.className + ']' : '' }}</mat-option>
+                <mat-option *ngFor="let b of getFilteredCoachingBatches(selectedBatchFilter)" [value]="b.id">{{ b.name }}</mat-option>
               </mat-select>
               <mat-icon matSuffix>filter_list</mat-icon>
             </mat-form-field>
@@ -846,9 +922,13 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
             <div class="sig-line">Exam Coordinator</div>
           </div>
           <div class="print-sig-col">
+            <img *ngIf="officialSealUrl" [src]="officialSealUrl" alt="Official Seal" class="uploaded-official-seal-img" />
             <div class="sig-line">Academic Head</div>
           </div>
           <div class="print-sig-col">
+            <div class="sig-space-img" *ngIf="digitalSignatureUrl">
+              <img [src]="digitalSignatureUrl" alt="Principal Signature" class="digital-sign-img" />
+            </div>
             <div class="sig-line">Principal / Director</div>
           </div>
         </div>
@@ -1221,12 +1301,16 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                   <span>Signature of Examiner (Teacher)</span>
                   <small>{{ awardSheetData?.evaluatorTeacherName || 'Name: ________________' }}</small>
                 </div>
-                <div class="foil-sig-box">
-                  <div class="sig-line-top"></div>
+                <div class="foil-sig-box text-center">
+                  <img *ngIf="officialSealUrl" [src]="officialSealUrl" alt="Official Seal" class="uploaded-official-seal-img" />
+                  <div class="sig-line-top" *ngIf="!officialSealUrl"></div>
                   <span>Exam Controller / Coordinator</span>
                   <small>Verified Copies Count</small>
                 </div>
                 <div class="foil-sig-box">
+                  <div class="sig-space-img" *ngIf="digitalSignatureUrl">
+                    <img [src]="digitalSignatureUrl" alt="Principal Signature" class="digital-sign-img" />
+                  </div>
                   <div class="sig-line-top"></div>
                   <span>Principal / Director</span>
                   <small>Official Seal &amp; Approval</small>
@@ -1385,6 +1469,102 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
         }
       }
     }
+    /* ── Batch Scope Selector Pills (Single vs Combined vs All) ── */
+    .batch-scope-deck {
+      margin-bottom: 16px;
+      width: 100%;
+    }
+
+    .scope-toggle-pills {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .scope-pill-btn {
+      width: 100%;
+      box-sizing: border-box;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      background: #ffffff;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 10px;
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.15s ease-in-out;
+      min-width: 0;
+
+      &:hover {
+        border-color: #3b82f6;
+        background: #eff6ff;
+      }
+
+      &.active {
+        background: #eff6ff;
+        border-color: #2563eb;
+        box-shadow: 0 0 0 1px #2563eb;
+      }
+
+      mat-icon {
+        color: #2563eb;
+        font-size: 22px;
+        width: 22px;
+        height: 22px;
+        flex-shrink: 0;
+      }
+    }
+
+    .pill-texts {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .pill-main {
+      font-size: 13px;
+      font-weight: 700;
+      color: #0f172a;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .pill-sub {
+      font-size: 11px;
+      color: #64748b;
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .combined-info-pill {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 8px;
+      padding: 10px 14px;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 12px;
+      color: #1e40af;
+      font-weight: 600;
+      box-sizing: border-box;
+
+      mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        color: #2563eb;
+        flex-shrink: 0;
+      }
+    }
+
     .shared-batch-row {
       display: flex;
       align-items: center;
@@ -1393,6 +1573,7 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
       flex-wrap: wrap;
       .batch-selector { flex: 0 0 340px; }
       .section-selector { flex: 0 0 220px; }
+      .class-selector { flex: 0 0 260px; }
       .batch-tip {
         display: flex;
         align-items: center;
@@ -1488,6 +1669,12 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
     .cell-date, .cell-time, .cell-marks, .cell-num, .cell-del {
       min-width: 0;
       box-sizing: border-box;
+    }
+
+    .mobile-row-title,
+    .mobile-del-btn,
+    .mobile-input-label {
+      display: none !important;
     }
 
     .field-compact {
@@ -3211,6 +3398,7 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
         grid-template-columns: 32px minmax(110px, 1.2fr) 75px minmax(110px, 1.2fr) minmax(130px, 1.5fr) 125px 85px 75px 38px;
         gap: 6px;
       }
+      .shared-batch-row .class-selector,
       .shared-batch-row .batch-selector,
       .shared-batch-row .section-selector {
         flex: 1 1 100%;
@@ -3224,45 +3412,260 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
 
     /* Mobile & Small Tablets (< 768px) */
     @media (max-width: 768px) {
-      .tests-wrapper { gap: 16px; }
+      .tests-wrapper {
+        gap: 14px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow-x: hidden !important;
+      }
 
       .header-actions {
-        flex-direction: column;
-        align-items: stretch;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 10px !important;
       }
-      .add-btn { width: 100%; }
+      .header-buttons-row {
+        flex-direction: column !important;
+        width: 100% !important;
+        gap: 8px !important;
+        button { width: 100% !important; }
+      }
+      .add-btn { width: 100% !important; }
 
       /* Bulk planner mobile view */
-      .planner-header { flex-direction: column; gap: 8px; }
+      .planner-card {
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        padding: 14px 12px !important;
+        border-radius: 12px !important;
+        overflow-x: hidden !important;
+      }
+
+      .planner-header {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 12px !important;
+        margin-bottom: 14px !important;
+        padding-bottom: 12px !important;
+      }
+
+      .planner-title-group {
+        display: flex !important;
+        align-items: flex-start !important;
+        gap: 10px !important;
+        .planner-icon {
+          font-size: 26px !important;
+          width: 26px !important;
+          height: 26px !important;
+        }
+        mat-card-title {
+          font-size: 1.05rem !important;
+          font-weight: 700 !important;
+        }
+        mat-card-subtitle {
+          font-size: 0.78rem !important;
+        }
+      }
+
+      .planner-header-actions {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 8px !important;
+        width: 100% !important;
+      }
+
+      .planner-type-switcher {
+        width: 100% !important;
+        display: flex !important;
+        box-sizing: border-box !important;
+
+        .type-pill-btn {
+          flex: 1 1 50% !important;
+          justify-content: center !important;
+          padding: 7px 6px !important;
+          font-size: 0.76rem !important;
+          white-space: nowrap !important;
+        }
+      }
+
+      .row-count-badge {
+        align-self: flex-start !important;
+        font-size: 0.78rem !important;
+        padding: 4px 12px !important;
+      }
+
+      .scope-toggle-pills {
+        grid-template-columns: 1fr !important;
+        gap: 8px !important;
+      }
+
+      .scope-pill-btn {
+        padding: 9px 12px !important;
+        gap: 10px !important;
+        border-radius: 8px !important;
+        mat-icon {
+          font-size: 20px !important;
+          width: 20px !important;
+          height: 20px !important;
+        }
+        .pill-main {
+          font-size: 12px !important;
+          white-space: normal !important;
+          line-height: 1.3 !important;
+        }
+        .pill-sub {
+          font-size: 10.5px !important;
+          white-space: normal !important;
+          line-height: 1.2 !important;
+        }
+      }
+
+      .shared-batch-row {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 10px !important;
+        margin-bottom: 14px !important;
+
+        .class-selector,
+        .batch-selector,
+        .section-selector {
+          flex: 1 1 100% !important;
+          width: 100% !important;
+          max-width: 100% !important;
+          margin: 0 !important;
+        }
+
+        .batch-tip {
+          font-size: 0.8rem !important;
+          margin-top: -2px !important;
+        }
+      }
+
+      .combined-info-pill {
+        width: 100% !important;
+        box-sizing: border-box !important;
+        padding: 8px 10px !important;
+        font-size: 11px !important;
+      }
+
+      .planner-grid-wrapper {
+        overflow-x: visible !important;
+        width: 100% !important;
+        padding: 0 !important;
+      }
+
       .row-labels { display: none !important; }
 
       .exam-row {
-        display: flex !important;
-        flex-direction: column !important;
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
         gap: 10px !important;
-        padding: 14px !important;
-        border: 1px solid #e2e8f0 !important;
-        border-radius: 8px !important;
-        margin-bottom: 12px !important;
-        background: #fdfdfd !important;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
+        padding: 14px 12px !important;
+        border: 1.5px solid #cbd5e1 !important;
+        border-radius: 12px !important;
+        margin-bottom: 14px !important;
+        background: #ffffff !important;
+        box-shadow: 0 2px 6px -1px rgba(0, 0, 0, 0.05) !important;
+        min-width: 0 !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+
+        .cell-num {
+          grid-column: span 2 !important;
+          display: flex !important;
+          justify-content: space-between !important;
+          align-items: center !important;
+          width: 100% !important;
+          height: auto !important;
+          padding-bottom: 8px !important;
+          border-bottom: 1px dashed #e2e8f0 !important;
+          margin-bottom: 2px !important;
+        }
+
+        .mobile-row-badge {
+          display: inline-flex !important;
+          align-items: center !important;
+          gap: 8px !important;
+        }
+
+        .mobile-row-title {
+          display: inline !important;
+          font-size: 13px !important;
+          font-weight: 700 !important;
+          color: #1e40af !important;
+        }
+
+        .mobile-del-btn {
+          display: inline-flex !important;
+          width: 32px !important;
+          height: 32px !important;
+          align-items: center !important;
+          justify-content: center !important;
+          color: #dc2626 !important;
+          background: #fef2f2 !important;
+          border-radius: 6px !important;
+          border: 1px solid #fee2e2 !important;
+          mat-icon {
+            font-size: 18px !important;
+            width: 18px !important;
+            height: 18px !important;
+          }
+        }
+
+        .mobile-input-label {
+          display: block !important;
+          font-size: 11px !important;
+          font-weight: 700 !important;
+          color: #475569 !important;
+          margin-bottom: 4px !important;
+          text-transform: uppercase !important;
+          letter-spacing: 0.03em !important;
+        }
+
+        .cell-class,
+        .cell-section,
+        .cell-batch,
+        .cell-subject,
+        .cell-title,
+        .cell-marks {
+          grid-column: span 2 !important;
+          width: 100% !important;
+        }
+
+        .cell-date {
+          grid-column: span 1 !important;
+          width: 100% !important;
+        }
+
+        .cell-time {
+          grid-column: span 1 !important;
+          width: 100% !important;
+        }
+
+        .cell-del {
+          display: none !important;
+        }
       }
-      .cell-num {
-        align-self: flex-start;
-      }
-      .mobile-only-label {
-        display: inline !important;
-      }
+
       .planner-footer {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 14px;
-        button { width: 100%; }
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 10px !important;
+        button {
+          width: 100% !important;
+          height: 44px !important;
+          font-weight: 600 !important;
+        }
       }
+
       .planner-actions {
-        flex-direction: column;
-        width: 100%;
-        button { width: 100%; }
+        flex-direction: column !important;
+        width: 100% !important;
+        button {
+          width: 100% !important;
+          height: 44px !important;
+        }
       }
 
       /* Marks Entry Mobile Switch: Hide table, Show responsive cards */
@@ -3396,6 +3799,7 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
           .search-field,
           .filter-dropdown,
           .section-filter,
+          .scope-filter,
           .batch-filter {
             width: 100% !important;
             min-width: 100% !important;
@@ -3411,6 +3815,14 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
       .marks-main-title { font-size: 1.05rem; }
       .marks-chips-bar { flex-direction: column; align-items: flex-start; }
       .whatsapp-label { align-items: flex-start; }
+
+      .planner-card {
+        padding: 10px 8px !important;
+      }
+      .exam-row {
+        padding: 10px 8px !important;
+        gap: 8px !important;
+      }
 
       .filter-toolbar {
         padding: 10px;
@@ -3673,6 +4085,28 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
         padding: 0 !important;
         width: 100% !important;
       }
+
+      .uploaded-official-seal-img {
+        max-height: 52px;
+        max-width: 52px;
+        object-fit: contain;
+        display: block;
+        margin: 0 auto;
+      }
+      .sig-space-img {
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        min-height: 30px;
+        margin-bottom: -3px;
+        .digital-sign-img {
+          max-height: 32px;
+          max-width: 105px;
+          object-fit: contain;
+          display: block;
+          margin: 0 auto;
+        }
+      }
     }
   `]
 })
@@ -3695,6 +4129,14 @@ export class TestsComponent implements OnInit {
     return this.hasSchool && this.hasCoaching;
   }
 
+  get officialSealUrl(): string | null {
+    return this.authService.getOfficialSealUrl();
+  }
+
+  get digitalSignatureUrl(): string | null {
+    return this.authService.getDigitalSignatureUrl();
+  }
+
   // Category filter: 'all' | 'school' | 'coaching'
   selectedCategory: 'all' | 'school' | 'coaching' = 'all';
 
@@ -3703,6 +4145,10 @@ export class TestsComponent implements OnInit {
   selectedClassFilter = '';
   selectedSectionFilter = '';
   sectionsForFilterClass: SchoolSectionDto[] = [];
+
+  // Batch Scope Filters: Single vs Combined vs All
+  plannerBatchScope: 'single' | 'combined' | 'all' = 'all';
+  batchScopeFilter: 'single' | 'combined' | 'all' = 'all';
 
   // Bulk planner category: 'school' | 'coaching'
   plannerCategory: 'school' | 'coaching' = 'school';
@@ -3996,7 +4442,7 @@ export class TestsComponent implements OnInit {
       const cls = this.schoolClasses.find(c => (c.id || '').toLowerCase() === this.selectedClassFilter.toLowerCase());
       this.sectionsForFilterClass = cls?.sections || [];
       if (this.selectedBatchFilter) {
-        const stillValid = this.getBatchesForClass(this.selectedClassFilter).some(b => (b.id || '').toLowerCase() === this.selectedBatchFilter.toLowerCase());
+        const stillValid = this.getFilteredCoachingBatches().some(b => (b.id || '').toLowerCase() === this.selectedBatchFilter.toLowerCase());
         if (!stillValid) {
           this.selectedBatchFilter = '';
         }
@@ -4011,6 +4457,127 @@ export class TestsComponent implements OnInit {
   getBatchesForClass(classId: string): any[] {
     if (!classId) return this.batches || [];
     return (this.batches || []).filter(b => (b.classId || '').toLowerCase() === classId.toLowerCase());
+  }
+
+  isCombinedBatch(b: any): boolean {
+    if (!b) return false;
+    if (!b.classId) return true;
+    return !!(b.name && (b.name.match(/class\s*\d+.*(?:to|-).*\d+/i) || b.name.toLowerCase().includes('combined') || b.name.toLowerCase().includes('foundation')));
+  }
+
+  batchBelongsToClass(b: any, c: any): boolean {
+    if (!b || !c) return false;
+    if (b.classId && c.id && b.classId.toLowerCase() === c.id.toLowerCase()) return true;
+    if (b.className && c.name && b.className.toLowerCase().trim() === c.name.toLowerCase().trim()) return true;
+
+    const cName = (c.name || '').toLowerCase().trim();
+    const bName = (b.name || '').toLowerCase().trim();
+    if (!cName || !bName) return false;
+
+    if (bName.includes(cName)) {
+      return true;
+    }
+
+    const match = cName.match(/(\d+(?:st|nd|rd|th)?|[ivx]+)/i);
+    if (match && match[1]) {
+      const numPattern = new RegExp(`\\bclass\\s*${match[1]}\\b`, 'i');
+      if (numPattern.test(bName)) return true;
+    }
+
+    return false;
+  }
+
+  setPlannerBatchScope(scope: 'single' | 'combined' | 'all'): void {
+    this.plannerBatchScope = scope;
+    if (scope === 'combined') {
+      this.plannerCoachingClassId = '';
+    }
+    const currentBatches = this.getPlannerBatches();
+    if (this.sharedBatchId && !currentBatches.some(b => (b.id || '').toLowerCase() === this.sharedBatchId.toLowerCase())) {
+      this.sharedBatchId = '';
+      this.applyBatchToAll();
+    }
+  }
+
+  getPlannerBatches(includeBatchId?: string): any[] {
+    const all = this.batches || [];
+    let filtered: any[] = [];
+    if (this.plannerBatchScope === 'combined') {
+      filtered = all.filter(b => this.isCombinedBatch(b));
+    } else if (this.plannerBatchScope === 'single') {
+      const singleBatches = all.filter(b => !this.isCombinedBatch(b));
+      if (!this.plannerCoachingClassId) {
+        filtered = singleBatches;
+      } else {
+        const selectedClass = this.schoolClasses.find(c => (c.id || '').toLowerCase() === this.plannerCoachingClassId.toLowerCase());
+        if (!selectedClass) {
+          filtered = singleBatches.filter(b => (b.classId || '').toLowerCase() === this.plannerCoachingClassId.toLowerCase());
+        } else {
+          filtered = singleBatches.filter(b => this.batchBelongsToClass(b, selectedClass));
+        }
+      }
+    } else {
+      // 'all' scope
+      if (!this.plannerCoachingClassId) {
+        filtered = all;
+      } else {
+        const selectedClass = this.schoolClasses.find(c => (c.id || '').toLowerCase() === this.plannerCoachingClassId.toLowerCase());
+        if (!selectedClass) {
+          filtered = all.filter(b => (b.classId || '').toLowerCase() === this.plannerCoachingClassId.toLowerCase());
+        } else {
+          filtered = all.filter(b => this.batchBelongsToClass(b, selectedClass));
+        }
+      }
+    }
+
+    if (includeBatchId && !filtered.some(b => (b.id || '').toLowerCase() === includeBatchId.toLowerCase())) {
+      const extra = all.find(b => (b.id || '').toLowerCase() === includeBatchId.toLowerCase());
+      if (extra) {
+        filtered = [extra, ...filtered];
+      }
+    }
+
+    return filtered;
+  }
+
+  getFilteredCoachingBatches(includeBatchId?: string): any[] {
+    const all = this.batches || [];
+    let list = all;
+
+    if (this.batchScopeFilter === 'combined') {
+      list = all.filter(b => this.isCombinedBatch(b));
+    } else if (this.batchScopeFilter === 'single') {
+      list = all.filter(b => !this.isCombinedBatch(b));
+    }
+
+    if (this.selectedClassFilter) {
+      const selectedClass = this.schoolClasses.find(c => (c.id || '').toLowerCase() === this.selectedClassFilter.toLowerCase());
+      if (selectedClass) {
+        list = list.filter(b => this.batchBelongsToClass(b, selectedClass));
+      } else {
+        list = list.filter(b => (b.classId || '').toLowerCase() === this.selectedClassFilter.toLowerCase());
+      }
+    }
+
+    if (includeBatchId && !list.some(b => (b.id || '').toLowerCase() === includeBatchId.toLowerCase())) {
+      const extra = all.find(b => (b.id || '').toLowerCase() === includeBatchId.toLowerCase());
+      if (extra) {
+        list = [extra, ...list];
+      }
+    }
+
+    return list;
+  }
+
+  onBatchScopeFilterChange(): void {
+    if (this.selectedBatchFilter) {
+      const stillValid = this.getFilteredCoachingBatches().some(b => (b.id || '').toLowerCase() === this.selectedBatchFilter.toLowerCase());
+      if (!stillValid) {
+        this.selectedBatchFilter = '';
+      }
+    }
+    this.pageIndex = 0;
+    this.loadTests();
   }
 
   onFilterChange(): void {
@@ -4048,6 +4615,7 @@ export class TestsComponent implements OnInit {
       this.filteredSubjectsPerRow = [];
       this.sharedBatchId = '';
       this.plannerCoachingClassId = '';
+      this.plannerBatchScope = 'all';
       this.sharedClassId = '';
       this.sharedSectionId = '';
       this.sectionsForSharedClass = [];
@@ -4057,7 +4625,7 @@ export class TestsComponent implements OnInit {
 
   onPlannerCoachingClassChange(): void {
     if (this.sharedBatchId) {
-      const valid = this.getBatchesForClass(this.plannerCoachingClassId).some(b => (b.id || '').toLowerCase() === this.sharedBatchId.toLowerCase());
+      const valid = this.getPlannerBatches().some(b => (b.id || '').toLowerCase() === this.sharedBatchId.toLowerCase());
       if (!valid) {
         this.sharedBatchId = '';
         this.applyBatchToAll();

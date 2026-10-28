@@ -766,12 +766,10 @@ export interface InventoryOutwardDialogData {
     .qty-field {
       flex: 1;
       min-width: 90px;
-      margin-bottom: -1.25em;
     }
     .rate-field {
       flex: 1;
       min-width: 90px;
-      margin-bottom: -1.25em;
     }
     .line-total-box {
       display: flex;
@@ -794,7 +792,7 @@ export interface InventoryOutwardDialogData {
       padding-top: 14px;
       align-items: flex-start;
     }
-    .remarks-field { width: 100%; margin-bottom: -1.25em; }
+    .remarks-field { width: 100%; }
     .totals-card {
       background: #f1f5f9;
       border-radius: 8px;
@@ -824,7 +822,7 @@ export interface InventoryOutwardDialogData {
       border-top: 1px solid #f1f5f9;
       gap: 8px;
     }
-    .w-full { width: 100%; margin-bottom: -1.25em; }
+    .w-full { width: 100%; }
     @media (max-width: 900px) {
       .student-picker-grid { grid-template-columns: 1fr; gap: 10px; }
       .class-student-pair { grid-template-columns: 1fr 1fr; }
@@ -833,7 +831,114 @@ export interface InventoryOutwardDialogData {
       .summary-section { grid-template-columns: 1fr; }
     }
     @media (max-width: 600px) {
-      .class-student-pair { grid-template-columns: 1fr; }
+      .dialog-header {
+        padding: 10px 14px;
+      }
+      .dialog-header-left {
+        gap: 8px;
+        min-width: 0;
+        flex: 1;
+      }
+      .header-icon-box {
+        width: 32px;
+        height: 32px;
+        min-width: 32px;
+        border-radius: 8px;
+        mat-icon { font-size: 18px; width: 18px; height: 18px; }
+      }
+      .header-title-wrap {
+        min-width: 0;
+        flex: 1;
+      }
+      .header-title-wrap h2 {
+        font-size: 0.92rem;
+        line-height: 1.25;
+      }
+      .header-title-wrap p {
+        font-size: 0.7rem;
+        line-height: 1.2;
+      }
+      .dialog-body {
+        padding: 10px 12px;
+        max-height: 72vh;
+      }
+      .mode-selector-wrap {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+        padding: 8px 10px;
+        margin-bottom: 10px;
+      }
+      .mode-radios {
+        flex-direction: column;
+        gap: 6px;
+        width: 100%;
+      }
+      .mode-radios mat-radio-button {
+        width: 100%;
+        font-size: 0.78rem;
+        line-height: 1.3;
+      }
+      .class-student-pair {
+        grid-template-columns: 1fr;
+        gap: 8px;
+      }
+      .student-picker-grid {
+        grid-template-columns: 1fr;
+        gap: 8px;
+      }
+      .top-grid, .meta-grid {
+        grid-template-columns: 1fr;
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+      .item-line-card {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        padding: 8px 10px;
+      }
+      .line-index-badge {
+        grid-column: span 2;
+        width: fit-content;
+        margin: 0;
+      }
+      .item-select-wrap {
+        grid-column: span 2;
+        width: 100%;
+        min-width: 100%;
+      }
+      .qty-field {
+        grid-column: 1;
+        min-width: 0;
+        width: 100%;
+      }
+      .rate-field {
+        grid-column: 2;
+        min-width: 0;
+        width: 100%;
+      }
+      .line-total-box {
+        grid-column: 1;
+        align-items: flex-start;
+        margin-top: 0;
+      }
+      .item-line-card > button {
+        grid-column: 2;
+        justify-self: flex-end;
+      }
+      .summary-section {
+        grid-template-columns: 1fr;
+        gap: 10px;
+      }
+      .dialog-actions {
+        padding: 10px 12px 14px;
+        gap: 8px;
+      }
+      .dialog-actions button {
+        font-size: 0.82rem;
+        height: 38px;
+      }
     }
   `]
 })

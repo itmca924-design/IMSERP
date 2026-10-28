@@ -19,6 +19,13 @@ public class TenantsController : ControllerBase
     private readonly ICurrentUserService _currentUser;
     private readonly IWebHostEnvironment _env;
 
+    private static readonly System.Text.Json.JsonSerializerOptions _assetJsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
+        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+    };
+
     public TenantsController(
         IIMSERPDbContext dbContext,
         IPasswordHasherService passwordHasher,
@@ -109,7 +116,11 @@ public class TenantsController : ControllerBase
                 t.Pincode,
                 t.Website,
                 t.AffiliationNumber,
-                t.EstablishedYear
+                t.EstablishedYear,
+                t.OfficialSeal,
+                t.DigitalSignature,
+                t.OfficialSealsJson,
+                t.DigitalSignaturesJson
             ));
         }
 
@@ -179,7 +190,11 @@ public class TenantsController : ControllerBase
             t.Pincode,
             t.Website,
             t.AffiliationNumber,
-            t.EstablishedYear
+            t.EstablishedYear,
+            t.OfficialSeal,
+            t.DigitalSignature,
+            t.OfficialSealsJson,
+            t.DigitalSignaturesJson
         ));
     }
 
@@ -234,7 +249,11 @@ public class TenantsController : ControllerBase
             t.Pincode,
             t.Website,
             t.AffiliationNumber,
-            t.EstablishedYear
+            t.EstablishedYear,
+            t.OfficialSeal,
+            t.DigitalSignature,
+            t.OfficialSealsJson,
+            t.DigitalSignaturesJson
         ));
     }
 
@@ -391,6 +410,8 @@ public class TenantsController : ControllerBase
 
         var tenantId = Guid.NewGuid();
         var savedPhotoPath = ImageStorageHelper.SaveBase64Image(dto.ProfilePhoto, "tenants", tenantId.ToString(), _env.ContentRootPath);
+        var savedSealPath = ImageStorageHelper.SaveBase64Image(dto.OfficialSeal, "seals", tenantId.ToString(), _env.ContentRootPath);
+        var savedSignaturePath = ImageStorageHelper.SaveBase64Image(dto.DigitalSignature, "signatures", tenantId.ToString(), _env.ContentRootPath);
 
         var tenant = new Tenant
         {
@@ -407,6 +428,8 @@ public class TenantsController : ControllerBase
             AffiliationNumber = dto.AffiliationNumber?.Trim(),
             EstablishedYear = dto.EstablishedYear?.Trim(),
             ProfilePhoto = savedPhotoPath,
+            OfficialSeal = savedSealPath,
+            DigitalSignature = savedSignaturePath,
             WhatsAppPhoneId = dto.WhatsAppPhoneId,
             WhatsAppAccessToken = dto.WhatsAppAccessToken,
             HasSchoolModule = dto.HasSchoolModule,
@@ -576,7 +599,9 @@ public class TenantsController : ControllerBase
             tenant.Pincode,
             tenant.Website,
             tenant.AffiliationNumber,
-            tenant.EstablishedYear
+            tenant.EstablishedYear,
+            tenant.OfficialSeal,
+            tenant.DigitalSignature
         ));
     }
 
@@ -605,6 +630,10 @@ public class TenantsController : ControllerBase
         if (dto.AffiliationNumber != null) tenant.AffiliationNumber = string.IsNullOrWhiteSpace(dto.AffiliationNumber) ? null : dto.AffiliationNumber.Trim();
         if (dto.EstablishedYear != null) tenant.EstablishedYear = string.IsNullOrWhiteSpace(dto.EstablishedYear) ? null : dto.EstablishedYear.Trim();
         tenant.ProfilePhoto = ImageStorageHelper.SaveBase64Image(dto.ProfilePhoto, "tenants", tenant.Id.ToString(), _env.ContentRootPath);
+        if (dto.OfficialSeal != null) tenant.OfficialSeal = ImageStorageHelper.SaveBase64Image(dto.OfficialSeal, "seals", tenant.Id.ToString(), _env.ContentRootPath);
+        if (dto.DigitalSignature != null) tenant.DigitalSignature = ImageStorageHelper.SaveBase64Image(dto.DigitalSignature, "signatures", tenant.Id.ToString(), _env.ContentRootPath);
+        if (dto.OfficialSealsJson != null) tenant.OfficialSealsJson = dto.OfficialSealsJson;
+        if (dto.DigitalSignaturesJson != null) tenant.DigitalSignaturesJson = dto.DigitalSignaturesJson;
         if (!string.IsNullOrWhiteSpace(dto.WhatsAppPhoneId)) tenant.WhatsAppPhoneId = dto.WhatsAppPhoneId;
         if (!string.IsNullOrWhiteSpace(dto.WhatsAppAccessToken)) tenant.WhatsAppAccessToken = dto.WhatsAppAccessToken;
 
@@ -694,6 +723,10 @@ public class TenantsController : ControllerBase
         return Ok(new { 
             message = "Institute details updated successfully.",
             profilePhoto = tenant.ProfilePhoto,
+            officialSeal = tenant.OfficialSeal,
+            digitalSignature = tenant.DigitalSignature,
+            officialSealsJson = tenant.OfficialSealsJson,
+            digitalSignaturesJson = tenant.DigitalSignaturesJson,
             name = tenant.Name,
             code = tenant.Code,
             email = tenant.Email,
@@ -817,5 +850,208 @@ public class TenantsController : ControllerBase
         await _dbContext.SaveChangesAsync();
 
         return Ok(new { message = $"Institute is now {(tenant.IsActive ? "Active" : "Inactive")}.", isActive = tenant.IsActive });
+    }
+
+    [HttpPost("assets/upload")]
+    public async Task<ActionResult> UploadTenantAsset([FromBody] UploadTenantAssetDto dto)
+    {
+        var targetTenantId = _currentUser.TenantId;
+        var tenant = await _dbContext.Tenants.FirstOrDefaultAsync(t => t.Id == targetTenantId);
+        if (tenant == null) return NotFound(new { message = "Institute not found." });
+
+        if (string.IsNullOrWhiteSpace(dto.ImageData))
+            return BadRequest(new { message = "Image data is required." });
+
+        var assetType = dto.AssetType?.ToLowerInvariant() == "signature" ? "signature" : "seal";
+        var subFolder = assetType == "signature" ? "signatures" : "seals";
+        var assetId = Guid.NewGuid().ToString("N");
+
+        // Save image to disk using distinct identifier so existing files are preserved
+        var savedPath = ImageStorageHelper.SaveBase64Image(dto.ImageData, subFolder, $"{tenant.Id}_{assetId}", _env.ContentRootPath);
+        if (string.IsNullOrWhiteSpace(savedPath))
+            return BadRequest(new { message = "Failed to process image data." });
+
+        var now = DateTime.UtcNow.ToString("O");
+        var newItem = new TenantAssetItemDto(
+            Id: assetId,
+            Title: string.IsNullOrWhiteSpace(dto.Title) ? (assetType == "signature" ? "Digital Signature" : "Official Seal") : dto.Title.Trim(),
+            Url: savedPath,
+            IsDefault: dto.SetAsDefault,
+            Name: string.IsNullOrWhiteSpace(dto.SignatoryName) ? null : dto.SignatoryName.Trim(),
+            CreatedAt: now
+        );
+
+        if (assetType == "seal")
+        {
+            var list = new List<TenantAssetItemDto>();
+            if (!string.IsNullOrWhiteSpace(tenant.OfficialSealsJson))
+            {
+                try {
+                    list = (System.Text.Json.JsonSerializer.Deserialize<List<TenantAssetItemDto>>(tenant.OfficialSealsJson, _assetJsonOptions) ?? new List<TenantAssetItemDto>())
+                        .Where(x => !string.IsNullOrWhiteSpace(x.Url))
+                        .ToList();
+                } catch { }
+            }
+            if (dto.SetAsDefault || list.Count == 0)
+            {
+                list = list.Select(x => x with { IsDefault = false }).ToList();
+                tenant.OfficialSeal = savedPath;
+            }
+            list.Add(newItem);
+            tenant.OfficialSealsJson = System.Text.Json.JsonSerializer.Serialize(list, _assetJsonOptions);
+        }
+        else
+        {
+            var list = new List<TenantAssetItemDto>();
+            if (!string.IsNullOrWhiteSpace(tenant.DigitalSignaturesJson))
+            {
+                try {
+                    list = (System.Text.Json.JsonSerializer.Deserialize<List<TenantAssetItemDto>>(tenant.DigitalSignaturesJson, _assetJsonOptions) ?? new List<TenantAssetItemDto>())
+                        .Where(x => !string.IsNullOrWhiteSpace(x.Url))
+                        .ToList();
+                } catch { }
+            }
+            if (dto.SetAsDefault || list.Count == 0)
+            {
+                list = list.Select(x => x with { IsDefault = false }).ToList();
+                tenant.DigitalSignature = savedPath;
+            }
+            list.Add(newItem);
+            tenant.DigitalSignaturesJson = System.Text.Json.JsonSerializer.Serialize(list, _assetJsonOptions);
+        }
+
+        await _dbContext.SaveChangesAsync();
+
+        return Ok(new
+        {
+            message = $"{newItem.Title} saved & applied successfully.",
+            asset = newItem,
+            officialSeal = tenant.OfficialSeal,
+            digitalSignature = tenant.DigitalSignature,
+            officialSealsJson = tenant.OfficialSealsJson,
+            digitalSignaturesJson = tenant.DigitalSignaturesJson
+        });
+    }
+
+    [HttpPost("assets/set-default")]
+    public async Task<ActionResult> SetDefaultTenantAsset([FromBody] SetDefaultTenantAssetDto dto)
+    {
+        var targetTenantId = _currentUser.TenantId;
+        var tenant = await _dbContext.Tenants.FirstOrDefaultAsync(t => t.Id == targetTenantId);
+        if (tenant == null) return NotFound(new { message = "Institute not found." });
+
+        var assetType = dto.AssetType?.ToLowerInvariant() == "signature" ? "signature" : "seal";
+
+        if (assetType == "seal")
+        {
+            if (string.IsNullOrWhiteSpace(tenant.OfficialSealsJson)) return NotFound(new { message = "No seals configured." });
+            var list = (System.Text.Json.JsonSerializer.Deserialize<List<TenantAssetItemDto>>(tenant.OfficialSealsJson, _assetJsonOptions) ?? new List<TenantAssetItemDto>())
+                .Where(x => !string.IsNullOrWhiteSpace(x.Url))
+                .ToList();
+            var target = list.FirstOrDefault(x => x.Id == dto.AssetId || x.Url == dto.AssetId);
+            if (target == null) return NotFound(new { message = "Seal not found." });
+
+            list = list.Select(x => x with { IsDefault = (x.Id == target.Id) }).ToList();
+            tenant.OfficialSeal = target.Url;
+            tenant.OfficialSealsJson = System.Text.Json.JsonSerializer.Serialize(list, _assetJsonOptions);
+        }
+        else
+        {
+            if (string.IsNullOrWhiteSpace(tenant.DigitalSignaturesJson)) return NotFound(new { message = "No signatures configured." });
+            var list = (System.Text.Json.JsonSerializer.Deserialize<List<TenantAssetItemDto>>(tenant.DigitalSignaturesJson, _assetJsonOptions) ?? new List<TenantAssetItemDto>())
+                .Where(x => !string.IsNullOrWhiteSpace(x.Url))
+                .ToList();
+            var target = list.FirstOrDefault(x => x.Id == dto.AssetId || x.Url == dto.AssetId);
+            if (target == null) return NotFound(new { message = "Signature not found." });
+
+            list = list.Select(x => x with { IsDefault = (x.Id == target.Id) }).ToList();
+            tenant.DigitalSignature = target.Url;
+            tenant.DigitalSignaturesJson = System.Text.Json.JsonSerializer.Serialize(list, _assetJsonOptions);
+        }
+
+        await _dbContext.SaveChangesAsync();
+
+        return Ok(new
+        {
+            message = "Default asset updated successfully.",
+            officialSeal = tenant.OfficialSeal,
+            digitalSignature = tenant.DigitalSignature,
+            officialSealsJson = tenant.OfficialSealsJson,
+            digitalSignaturesJson = tenant.DigitalSignaturesJson
+        });
+    }
+
+    [HttpDelete("assets/{assetType}/{assetId}")]
+    public async Task<ActionResult> DeleteTenantAsset(string assetType, string assetId)
+    {
+        var targetTenantId = _currentUser.TenantId;
+        var tenant = await _dbContext.Tenants.FirstOrDefaultAsync(t => t.Id == targetTenantId);
+        if (tenant == null) return NotFound(new { message = "Institute not found." });
+
+        var normalizedType = assetType?.ToLowerInvariant() == "signature" ? "signature" : "seal";
+
+        if (normalizedType == "seal")
+        {
+            if (string.IsNullOrWhiteSpace(tenant.OfficialSealsJson)) return NotFound(new { message = "No seals configured." });
+            var list = (System.Text.Json.JsonSerializer.Deserialize<List<TenantAssetItemDto>>(tenant.OfficialSealsJson, _assetJsonOptions) ?? new List<TenantAssetItemDto>())
+                .Where(x => !string.IsNullOrWhiteSpace(x.Url))
+                .ToList();
+            var itemToRemove = list.FirstOrDefault(x => x.Id == assetId || x.Url == assetId);
+            if (itemToRemove == null) return NotFound(new { message = "Seal not found." });
+
+            list.Remove(itemToRemove);
+
+            if (itemToRemove.IsDefault || tenant.OfficialSeal == itemToRemove.Url)
+            {
+                if (list.Count > 0)
+                {
+                    list[0] = list[0] with { IsDefault = true };
+                    tenant.OfficialSeal = list[0].Url;
+                }
+                else
+                {
+                    tenant.OfficialSeal = null;
+                }
+            }
+
+            tenant.OfficialSealsJson = System.Text.Json.JsonSerializer.Serialize(list, _assetJsonOptions);
+        }
+        else
+        {
+            if (string.IsNullOrWhiteSpace(tenant.DigitalSignaturesJson)) return NotFound(new { message = "No signatures configured." });
+            var list = (System.Text.Json.JsonSerializer.Deserialize<List<TenantAssetItemDto>>(tenant.DigitalSignaturesJson, _assetJsonOptions) ?? new List<TenantAssetItemDto>())
+                .Where(x => !string.IsNullOrWhiteSpace(x.Url))
+                .ToList();
+            var itemToRemove = list.FirstOrDefault(x => x.Id == assetId || x.Url == assetId);
+            if (itemToRemove == null) return NotFound(new { message = "Signature not found." });
+
+            list.Remove(itemToRemove);
+
+            if (itemToRemove.IsDefault || tenant.DigitalSignature == itemToRemove.Url)
+            {
+                if (list.Count > 0)
+                {
+                    list[0] = list[0] with { IsDefault = true };
+                    tenant.DigitalSignature = list[0].Url;
+                }
+                else
+                {
+                    tenant.DigitalSignature = null;
+                }
+            }
+
+            tenant.DigitalSignaturesJson = System.Text.Json.JsonSerializer.Serialize(list, _assetJsonOptions);
+        }
+
+        await _dbContext.SaveChangesAsync();
+
+        return Ok(new
+        {
+            message = "Asset deleted successfully.",
+            officialSeal = tenant.OfficialSeal,
+            digitalSignature = tenant.DigitalSignature,
+            officialSealsJson = tenant.OfficialSealsJson,
+            digitalSignaturesJson = tenant.DigitalSignaturesJson
+        });
     }
 }

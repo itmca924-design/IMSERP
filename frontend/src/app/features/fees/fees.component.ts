@@ -34,6 +34,7 @@ import { GenerateInvoicesDialogComponent } from './generate-invoices-dialog.comp
 import { CancelInvoiceDialogComponent } from './cancel-invoice-dialog.component';
 import { FeeMasterDialogComponent } from './fee-master-dialog.component';
 import { EditInvoiceDialogComponent } from './edit-invoice-dialog.component';
+import { FeeInvoiceBreakdownDialogComponent, BreakdownDialogResult } from './fee-invoice-breakdown-dialog.component';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { QuickSettingsService } from '../../core/services/quick-settings.service';
 
@@ -363,16 +364,25 @@ export interface UpcomingBillingCycleInfo {
                     </span>
                   </ng-container>
                   <div *ngIf="inv.items && inv.items.length > 0" class="mini-heads-row">
-                    <ng-container *ngFor="let it of getSortedInvoiceItems(inv.items); let i = index">
-                      <span *ngIf="i < 3" class="mini-head-chip" [class.tuition-head-chip]="isTuitionHead(it.headName)">
-                        <span class="chip-title-part">{{ it.headName }}:</span>
-                        <strong class="chip-amt-part">₹{{ it.amount | number:'1.0-0' }}</strong>
-                        <span class="chip-month-tag" *ngIf="getHeadMonthNote(it, inv) as note">({{ note }})</span>
-                      </span>
-                    </ng-container>
-                    <span *ngIf="inv.items.length > 3" class="mini-head-more" [matTooltip]="getInvoiceBillingTooltip(inv)" matTooltipClass="multiline-tooltip">
-                      +{{ inv.items.length - 3 }} more
+                    <span
+                      *ngFor="let it of getSortedInvoiceItems(inv.items)"
+                      class="mini-head-chip clickable-head-chip"
+                      [ngClass]="getHeadChipClass(it.headName)"
+                      (click)="openInvoiceBreakdown(inv)"
+                      [matTooltip]="'Click to view fee breakdown: ' + it.headName + ' • ₹' + (it.amount | number:'1.0-0')">
+                      <span class="chip-title-part">{{ it.headName }}:</span>
+                      <strong class="chip-amt-part">₹{{ it.amount | number:'1.0-0' }}</strong>
+                      <span class="chip-month-tag" *ngIf="getHeadMonthNote(it, inv) as note">({{ note }})</span>
                     </span>
+                    <button
+                      type="button"
+                      *ngIf="inv.items.length > 1"
+                      class="mini-head-breakdown-btn"
+                      (click)="openInvoiceBreakdown(inv); $event.stopPropagation()"
+                      matTooltip="Click to view full itemized breakdown ({{ inv.items.length }} fee heads)">
+                      <mat-icon class="more-ic">receipt_long</mat-icon>
+                      <span>Breakdown</span>
+                    </button>
                   </div>
                   <div *ngIf="inv.cancellationReason" class="inv-audit-pill" [matTooltip]="inv.cancellationReason">
                     <mat-icon class="audit-icon">info</mat-icon>
@@ -455,6 +465,14 @@ export interface UpcomingBillingCycleInfo {
 
                   <!-- 3-Dots Menu (Lazy rendered by Angular Material) -->
                   <mat-menu #actionMenu="matMenu" xPosition="before" class="smart-fees-menu">
+                    <!-- View Fee Heads Breakdown -->
+                    <button
+                      mat-menu-item
+                      (click)="openInvoiceBreakdown(inv)">
+                      <mat-icon class="menu-icon-blue">format_list_bulleted</mat-icon>
+                      <span>View Fee Heads Breakdown (फीस विवरण)</span>
+                    </button>
+
                     <!-- Collect Fee -->
                     <button
                       *ngIf="inv.dueAmount > 0 && inv.status !== 'Cancelled' && !isKitOrInventoryInvoice(inv)"
@@ -988,25 +1006,29 @@ export interface UpcomingBillingCycleInfo {
     .mini-heads-row {
       display: flex;
       flex-wrap: wrap;
+      align-items: center;
       gap: 4px;
-      margin-top: 2px;
+      margin-top: 4px;
+      max-width: 480px;
 
       .mini-head-chip {
-        font-size: 0.7rem;
-        background: #f0fdf4;
-        color: #15803d;
-        border: 1px solid #bbf7d0;
-        padding: 1px 6px;
-        border-radius: 8px;
+        font-size: 0.69rem;
+        background: #f8fafc;
+        color: #334155;
+        border: 1px solid #e2e8f0;
+        padding: 2px 7px;
+        border-radius: 6px;
         font-weight: 600;
         display: inline-flex;
         align-items: center;
         gap: 3px;
         white-space: nowrap;
         box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+        cursor: pointer;
+        transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
 
         .chip-title-part {
-          color: #334155;
+          color: #475569;
           font-weight: 600;
         }
 
@@ -1016,7 +1038,7 @@ export interface UpcomingBillingCycleInfo {
         }
 
         .chip-month-tag {
-          font-size: 0.65rem;
+          font-size: 0.62rem;
           color: #2563eb;
           font-weight: 600;
           background: #eff6ff;
@@ -1024,41 +1046,103 @@ export interface UpcomingBillingCycleInfo {
           border-radius: 4px;
         }
 
+        &:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 2px 4px rgba(37, 99, 235, 0.15);
+          border-color: #93c5fd;
+        }
+
         &.tuition-head-chip {
           background: #eff6ff;
           color: #1e40af;
           border-color: #bfdbfe;
-          font-weight: 700;
+          .chip-title-part { color: #1e3a8a; font-weight: 700; }
+          .chip-amt-part { color: #1e40af; font-weight: 800; }
+        }
 
-          .chip-title-part {
-            color: #1e3a8a;
-            font-weight: 700;
-          }
+        &.transport-head-chip {
+          background: #fffbeb;
+          color: #b45309;
+          border-color: #fde68a;
+          .chip-title-part { color: #92400e; font-weight: 600; }
+          .chip-amt-part { color: #b45309; font-weight: 800; }
+        }
 
-          .chip-amt-part {
-            color: #1e40af;
-            font-weight: 800;
-          }
+        &.coaching-head-chip {
+          background: #faf5ff;
+          color: #7e22ce;
+          border-color: #e9d5ff;
+          .chip-title-part { color: #6b21a8; font-weight: 600; }
+          .chip-amt-part { color: #7e22ce; font-weight: 800; }
+        }
 
-          .chip-month-tag {
-            background: #dbeafe;
-            color: #1d4ed8;
-          }
+        &.hostel-head-chip {
+          background: #ecfdf5;
+          color: #047857;
+          border-color: #a7f3d0;
+          .chip-title-part { color: #065f46; font-weight: 600; }
+          .chip-amt-part { color: #047857; font-weight: 800; }
+        }
+
+        &.exam-head-chip {
+          background: #f5f3ff;
+          color: #5b21b6;
+          border-color: #ddd6fe;
+          .chip-title-part { color: #4c1d95; font-weight: 600; }
+          .chip-amt-part { color: #5b21b6; font-weight: 800; }
+        }
+
+        &.annual-head-chip {
+          background: #f0fdfa;
+          color: #0f766e;
+          border-color: #99f6e4;
+          .chip-title-part { color: #115e59; font-weight: 600; }
+          .chip-amt-part { color: #0f766e; font-weight: 800; }
+        }
+
+        &.default-head-chip {
+          background: #f8fafc;
+          color: #334155;
+          border-color: #e2e8f0;
+          .chip-title-part { color: #475569; font-weight: 600; }
+          .chip-amt-part { color: #0f172a; font-weight: 700; }
         }
       }
 
-      .mini-head-more {
+      .mini-head-breakdown-btn {
         font-size: 0.68rem;
-        background: #eff6ff;
-        color: #1d4ed8;
-        border: 1px solid #bfdbfe;
-        padding: 1px 6px;
-        border-radius: 8px;
-        font-weight: 700;
-        cursor: help;
+        background: #f1f5f9;
+        color: #2563eb;
+        border: 1px dashed #cbd5e1;
+        padding: 2px 7px;
+        border-radius: 6px;
+        font-weight: 600;
+        cursor: pointer;
         display: inline-flex;
         align-items: center;
+        gap: 3px;
         white-space: nowrap;
+        transition: all 0.15s ease-in-out;
+
+        .more-ic {
+          font-size: 13px;
+          width: 13px;
+          height: 13px;
+          color: #2563eb;
+        }
+
+        &:hover {
+          background: #2563eb;
+          color: #ffffff;
+          border-color: #1d4ed8;
+          border-style: solid;
+          transform: translateY(-1px);
+          box-shadow: 0 2px 4px rgba(37, 99, 235, 0.25);
+
+          .more-ic {
+            color: #ffffff;
+          }
+        }
       }
     }
     .generate-btn {
@@ -1689,7 +1773,9 @@ export interface UpcomingBillingCycleInfo {
 
     .col-billing-head,
     .mat-column-title {
-      min-width: 140px;
+      min-width: 220px;
+      max-width: 480px;
+      white-space: normal !important;
     }
 
     .mat-column-totalAmount,
@@ -2883,8 +2969,7 @@ export class FeesComponent implements OnInit, OnDestroy {
     if (isKit) return 'One-time Kit';
 
     const months = this.getBilledMonthsList(inv);
-    if (!months || months.length === 0) return '';
-    if (months.length === 1) return months[0];
+    if (!months || months.length <= 1) return '';
 
     const shortNames = months.map(m => m.split(' ')[0].substring(0, 3)).join(', ');
     if (it.amount > 0 && Math.round(it.amount % months.length) === 0) {
@@ -2892,6 +2977,18 @@ export class FeesComponent implements OnInit, OnDestroy {
       return `${months.length} Mos: ${shortNames} @ ₹${perMo.toLocaleString('en-IN')}/mo`;
     }
     return `${months.length} Mos: ${shortNames}`;
+  }
+
+  getHeadChipClass(headName?: string): string {
+    if (!headName) return 'default-head-chip';
+    const n = headName.toLowerCase();
+    if (n.includes('tuition')) return 'tuition-head-chip';
+    if (n.includes('transport') || n.includes('bus') || n.includes('van')) return 'transport-head-chip';
+    if (n.includes('coaching')) return 'coaching-head-chip';
+    if (n.includes('hostel') || n.includes('mess')) return 'hostel-head-chip';
+    if (n.includes('exam') || n.includes('test')) return 'exam-head-chip';
+    if (n.includes('annual') || n.includes('development') || n.includes('admission') || n.includes('registration')) return 'annual-head-chip';
+    return 'default-head-chip';
   }
 
   getInvoiceBillingTooltip(inv: any): string {
@@ -3069,6 +3166,37 @@ export class FeesComponent implements OnInit, OnDestroy {
     this.pageIndex = event.pageIndex;
     this.pageSize = event.pageSize;
     this.loadInvoices();
+  }
+
+  openInvoiceBreakdown(inv: FeeInvoicePagedItem): void {
+    if (!inv) return;
+    const dialogRef = this.dialog.open(FeeInvoiceBreakdownDialogComponent, {
+      width: '720px',
+      maxWidth: '96vw',
+      panelClass: 'invoice-breakdown-dialog-panel',
+      data: {
+        invoice: inv,
+        instituteName: this.authService.getInstituteName() || this.authService.currentUser()?.instituteName || '',
+        branchName: inv.branchName || this.authService.getCurrentBranchName()
+      }
+    });
+
+    dialogRef.afterClosed().subscribe((res: BreakdownDialogResult | undefined) => {
+      if (!res || !res.action) return;
+      if (res.action === 'collect' && res.invoice) {
+        this.openCollectFeeModal(res.invoice);
+      } else if (res.action === 'upi' && res.invoice) {
+        this.openUpiPaymentModal(res.invoice);
+      } else if (res.action === 'receipt' && res.invoice) {
+        this.openReceiptForInvoice(res.invoice);
+      } else if (res.action === 'due-slip' && res.invoice) {
+        this.openDueReceiptModal(res.invoice);
+      } else if (res.action === 'ledger' && res.studentId) {
+        this.openStudentLedger(res.studentId);
+      } else if (res.action === 'whatsapp' && res.invoice) {
+        this.sendReminder(res.invoice);
+      }
+    });
   }
 
   openCollectFeeModal(inv: FeeInvoicePagedItem): void {
@@ -3351,6 +3479,7 @@ export class FeesComponent implements OnInit, OnDestroy {
     const dialogRef = this.dialog.open(FeeMasterDialogComponent, {
       width: '1150px',
       maxWidth: '96vw',
+      panelClass: 'responsive-fee-master-dialog',
       disableClose: false,
       autoFocus: false,
       restoreFocus: false

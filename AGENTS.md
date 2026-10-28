@@ -50,10 +50,18 @@
        - ALWAYS include `BranchId` (`public Guid? BranchId { get; set; }` with `[ForeignKey("BranchId")] public Branch? Branch { get; set; }`) in every new database table / entity created. In SQL scripts, always define `[BranchId] UNIQUEIDENTIFIER NULL`.
        - Every frontend module, list, transaction screen, and report MUST support branch-wise operation: auto-syncing with the globally active branch (`authService.selectedBranchId()`), providing branch filters (individual branch vs. 'All Campuses Consolidated'), and passing `branchId` to backend APIs.
        - Backend API endpoints must strictly filter by `BranchId` when a branch context is active or requested.
-- **Zero Hardcoding & Dynamic Context (Strict Rule)**:
-  - NEVER hardcode tenant names, institute names, campus names (e.g., 'Jnandeep Campus', 'Apex', etc.), academic years, financial years (e.g., '2026-2027'), dates, URLs, or IDs anywhere in frontend or backend code.
-  - ALWAYS fetch tenant / institute details dynamically via `AuthService` (`authService.getInstituteName()`, `currentUser()?.instituteName`, etc.) or backend tenant context (`_currentUser.TenantId`).
-  - ALL menu items, navigation links, and feature access permissions MUST be dynamically driven by the database `MenuItems` and `RolePermissions` architecture, never hardcoded in templates or client logic.
+- **Zero Hardcoding & 100% Multi-Tenant Dynamic Architecture (Permanent Core ERP Rule)**:
+  - This ERP is an enterprise multi-tenant SaaS platform: **ABSOLUTELY ZERO HARDCODED STRINGS, NAMES, ADDRESSES, OR IDENTIFIERS ARE PERMITTED ANYWHERE.**
+  - **Institute / Tenant Identity**: NEVER hardcode tenant names, institute names, campus names (e.g., 'Jnandeep Campus', 'Apex Academy', etc.), addresses (e.g., 'Anjani Parsa...'), contact numbers, emails, affiliation numbers, scope descriptions, or founder/director/signatory names (e.g., 'Pawan Rai') anywhere in frontend templates, TypeScript files, backend controllers, or SQL scripts.
+  - **Dynamic Resolution**:
+    - ALWAYS fetch institute details dynamically via `AuthService` (`authService.getInstituteName()`, `authService.currentUser()?.instituteName`) and backend `TenantService.getCurrentTenant()`.
+    - ALWAYS fetch campus crest logos, official rubber seals, and digital signatures dynamically via `AuthService` (`getInstituteLogoUrl()`, `getOfficialSealUrl()`, `getDigitalSignatureUrl()`, `resolveLogoUrl()`).
+    - ALWAYS bind director/authority signatories and designations dynamically from the authenticated user session (`currentUser()?.fullName`, role-based title), never static text.
+    - ALWAYS bind campus addresses dynamically from active branch context (`user.branches` matching `selectedBranchId()` or `user.branchId`) or tenant profile. If not configured, hide the container gracefully (`*ngIf="branchAddress"`).
+    - ALWAYS compute module scope tags dynamically from licensed tenant modules (`hasSchoolModule`, `hasCoachingModule`).
+    - ALWAYS fetch dates, academic sessions, and financial years dynamically from active session state and backend APIs.
+  - **Printables, Letterheads, WhatsApp & Circulars**: All official circulars, WhatsApp posters, WhatsApp share messages, fee cards, receipts, admit cards, report cards, ID cards, and vouchers MUST adapt 100% dynamically to the currently logged-in tenant.
+  - **Dynamic Menus & Permissions**: ALL navigation links, menu items, action buttons, and feature access permissions MUST be dynamically driven by database `MenuItems` and `RolePermissions` architecture, never hardcoded in client logic.
 - **No Snackbar Rule / Pure Angular Material Popup Standard (Strict UI Rule)**:
   - NEVER use `MatSnackBar`, toasts, or floating snackbar banners anywhere in the application.
   - ALWAYS use **Angular Material Dialogs / Popups (`ConfirmDialogService.alert()`, `ConfirmDialogService.confirm()`, or `MatDialog`)** for displaying all user messages, success feedback, error alerts, informational notices, and confirmations.

@@ -2957,6 +2957,42 @@ export class LayoutComponent implements OnInit {
             copy.children.push(studyMaterialsItemAcademic);
           }
         }
+        if (!copy.children.some(c => c.routeUrl === '/school/monthly-performance')) {
+          const smIdx = copy.children.findIndex(c => c.routeUrl === '/study-materials' || c.routeUrl === '/school/homework');
+          const perfItem = {
+            id: '13175614-6523-4db6-acae-184e3c3fc628',
+            title: 'Monthly Student Performance',
+            routeUrl: '/school/monthly-performance',
+            icon: 'insights',
+            sortOrder: 3.9,
+            module: 'Academic',
+            isActive: true,
+            children: []
+          };
+          if (smIdx >= 0) {
+            copy.children.splice(smIdx + 1, 0, perfItem);
+          } else {
+            copy.children.push(perfItem);
+          }
+        }
+        if (!copy.children.some(c => c.routeUrl === '/school/good-manners')) {
+          const perfIdx = copy.children.findIndex(c => c.routeUrl === '/school/monthly-performance');
+          const mannersItem = {
+            id: '512gm',
+            title: 'Good Manners & Behaviour',
+            routeUrl: '/school/good-manners',
+            icon: 'sentiment_very_satisfied',
+            sortOrder: 3.95,
+            module: 'Academic',
+            isActive: true,
+            children: []
+          };
+          if (perfIdx >= 0) {
+            copy.children.splice(perfIdx + 1, 0, mannersItem);
+          } else {
+            copy.children.push(mannersItem);
+          }
+        }
       }
 
       // 3. Inject into Master Management / Student Center
@@ -3180,6 +3216,8 @@ export class LayoutComponent implements OnInit {
           { id: '512', title: 'Homework & Daily Diary', routeUrl: '/school/homework', icon: 'menu_book', sortOrder: 3, module: 'Academic', isActive: true, children: [] },
           { id: '512tt', title: 'Class Timetable & Routine', routeUrl: '/students/timetable', icon: 'calendar_view_week', sortOrder: 3.5, module: 'Academic', isActive: true, children: [] },
           { id: '512sm', title: 'Study Material & PYQ Bank', routeUrl: '/study-materials', icon: 'auto_stories', sortOrder: 3.8, module: 'Academic', isActive: true, children: [] },
+          { id: '13175614-6523-4db6-acae-184e3c3fc628', title: 'Monthly Student Performance', routeUrl: '/school/monthly-performance', icon: 'insights', sortOrder: 3.9, module: 'Academic', isActive: true, children: [] },
+          { id: '512gm', title: 'Good Manners & Behaviour', routeUrl: '/school/good-manners', icon: 'sentiment_very_satisfied', sortOrder: 3.95, module: 'Academic', isActive: true, children: [] },
           ...(isStudentOrParent ? [
             { id: '52my', title: 'My Exams & Datesheet', routeUrl: '/my-exams', icon: 'event_available', sortOrder: 4, module: 'Academic', isActive: true, children: [] }
           ] : [

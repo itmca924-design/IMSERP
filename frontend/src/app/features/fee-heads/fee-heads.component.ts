@@ -13,10 +13,12 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
-import { MatDialogModule } from '@angular/material/dialog';
+import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { FeesService, FeeHead, CreateFeeHeadPayload, UpdateFeeHeadPayload } from '../../core/services/fees.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
+import { FeeHeadsReportDialogComponent } from '../fees/fee-heads-report-dialog.component';
+import { ClassFeeMatrixReportDialogComponent } from '../fees/class-fee-matrix-report-dialog.component';
 
 @Component({
   selector: 'app-fee-heads',
@@ -53,6 +55,14 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           </p>
         </div>
         <div class="header-actions">
+          <button mat-stroked-button class="report-btn catalog-btn" (click)="openFeeHeadsReport()" matTooltip="Print or export official master fee heads catalog">
+            <mat-icon>print</mat-icon>
+            <span>Master Catalog (कैटलॉग)</span>
+          </button>
+          <button mat-stroked-button class="report-btn matrix-btn" (click)="openClassFeeMatrixReport()" matTooltip="Print or export class-wise fee structure matrix">
+            <mat-icon>grid_view</mat-icon>
+            <span>Class Fee Matrix (कक्षा-वार फ़ीस)</span>
+          </button>
           <button mat-raised-button color="primary" class="add-head-btn" (click)="openAddHeadDrawer()">
             <mat-icon>add</mat-icon>
             <span>Create Fee Head</span>
@@ -242,6 +252,10 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
         </div>
 
         <!-- Responsive Grid Table -->
+        <div class="mobile-table-hint">
+          <mat-icon>swipe</mat-icon>
+          <span>Swipe sideways to view all columns &bull; तालिका दाएं-बाएं स्क्रॉल करें</span>
+        </div>
         <div class="table-container">
           <table mat-table [dataSource]="feeHeads" matSort (matSortChange)="onSortChange($event)" class="fee-heads-table">
             
@@ -357,10 +371,18 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
     </div>
   `,
   styles: [`
+    :host {
+      display: block;
+      width: 100%;
+    }
+
     .fee-heads-container {
       padding: 0 0 40px;
       width: 100%;
       box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
     }
 
     .page-header {
@@ -405,6 +427,36 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
       display: flex;
       align-items: center;
       gap: 12px;
+      flex-wrap: wrap;
+
+      .report-btn {
+        height: 44px;
+        border-radius: 8px;
+        font-weight: 600;
+        letter-spacing: 0.3px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background: #ffffff;
+        border-color: #cbd5e1;
+        color: #334155;
+        transition: all 0.15s ease;
+
+        &:hover {
+          background: #eff6ff;
+          border-color: #93c5fd;
+          color: #1d4ed8;
+        }
+
+        &.matrix-btn {
+          color: #1e40af;
+          border-color: #bfdbfe;
+          background: #f8fafc;
+          &:hover {
+            background: #dbeafe;
+          }
+        }
+      }
     }
 
     .add-head-btn {
@@ -420,26 +472,59 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
     /* KPI Stats Grid */
     .stats-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      grid-template-columns: repeat(4, 1fr);
       gap: 16px;
       margin-bottom: 24px;
+      width: 100%;
+      box-sizing: border-box;
+
+      @media (max-width: 1024px) {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 12px !important;
+      }
+
+      @media (max-width: 640px) {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 10px !important;
+        margin-bottom: 16px !important;
+      }
+
+      @media (max-width: 400px) {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 8px !important;
+      }
     }
 
     .stat-card {
       background: #ffffff;
       border-radius: 12px;
-      padding: 18px 20px;
+      padding: 16px 18px;
       display: flex;
       align-items: center;
-      gap: 16px;
+      gap: 14px;
       box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
       border-left: 4px solid transparent;
       transition: transform 0.15s ease, box-shadow 0.15s ease;
-    }
+      min-width: 0;
+      box-sizing: border-box;
 
-    .stat-card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 12px rgba(0,0,0,0.08);
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(0,0,0,0.08);
+      }
+
+      @media (max-width: 640px) {
+        padding: 10px 12px;
+        gap: 10px;
+        border-radius: 10px;
+        border-left-width: 3.5px;
+      }
+
+      @media (max-width: 400px) {
+        padding: 8px 10px;
+        gap: 8px;
+        border-left-width: 3px;
+      }
     }
 
     .stat-card.total { border-color: #3b82f6; }
@@ -455,23 +540,53 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
     .stat-card.categories .stat-icon { background: #fffbeb; color: #d97706; }
 
     .stat-icon {
-      width: 48px;
-      height: 48px;
+      width: 44px;
+      height: 44px;
+      min-width: 44px;
       border-radius: 10px;
       display: flex;
       align-items: center;
       justify-content: center;
-    }
+      flex-shrink: 0;
 
-    .stat-icon mat-icon {
-      font-size: 26px;
-      width: 26px;
-      height: 26px;
+      mat-icon {
+        font-size: 24px;
+        width: 24px;
+        height: 24px;
+      }
+
+      @media (max-width: 640px) {
+        width: 36px;
+        height: 36px;
+        min-width: 36px;
+        border-radius: 8px;
+
+        mat-icon {
+          font-size: 20px;
+          width: 20px;
+          height: 20px;
+        }
+      }
+
+      @media (max-width: 400px) {
+        width: 32px;
+        height: 32px;
+        min-width: 32px;
+        border-radius: 6px;
+
+        mat-icon {
+          font-size: 18px;
+          width: 18px;
+          height: 18px;
+        }
+      }
     }
 
     .stat-info {
       display: flex;
       flex-direction: column;
+      min-width: 0;
+      flex: 1;
     }
 
     .stat-val {
@@ -479,6 +594,14 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
       font-weight: 700;
       color: #0f172a;
       line-height: 1.1;
+
+      @media (max-width: 640px) {
+        font-size: 1.25rem;
+      }
+
+      @media (max-width: 400px) {
+        font-size: 1.15rem;
+      }
     }
 
     .stat-lbl {
@@ -486,6 +609,18 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
       color: #64748b;
       margin-top: 4px;
       font-weight: 500;
+      line-height: 1.25;
+      word-break: break-word;
+
+      @media (max-width: 640px) {
+        font-size: 0.7rem;
+        margin-top: 2px;
+      }
+
+      @media (max-width: 400px) {
+        font-size: 0.65rem;
+        line-height: 1.15;
+      }
     }
 
     /* Drawer Form */
@@ -590,12 +725,39 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
       margin-bottom: 16px;
     }
 
+    .mobile-table-hint {
+      display: none;
+      @media (max-width: 768px) {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        background: #eff6ff;
+        color: #2563eb;
+        font-size: 0.72rem;
+        font-weight: 600;
+        padding: 6px 10px;
+        border-radius: 6px;
+        margin: 10px 12px 6px;
+        border: 1px dashed #bfdbfe;
+        mat-icon { font-size: 16px; width: 16px; height: 16px; }
+      }
+    }
+
     .table-container {
+      width: 100%;
       overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      border-radius: 0 0 12px 12px;
     }
 
     .fee-heads-table {
       width: 100%;
+      min-width: 820px;
+
+      th, td {
+        white-space: nowrap;
+      }
     }
 
     .code-pill {
@@ -741,27 +903,173 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
     }
 
     /* Responsive adjustments */
-    @media (max-width: 768px) {
-      .fee-heads-container {
-        padding: 16px;
-      }
-
-      .filter-toolbar {
-        flex-direction: column;
-        align-items: stretch;
-      }
-
-      .search-field, .filter-select {
-        width: 100%;
-      }
-
+    @media (max-width: 1024px) {
       .page-header {
         flex-direction: column;
         align-items: stretch;
+        gap: 14px;
       }
 
       .header-actions {
-        justify-content: flex-start;
+        width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+      }
+
+      .filter-toolbar {
+        padding: 12px 14px 4px;
+        gap: 10px;
+
+        .search-field {
+          flex: 1 1 100% !important;
+          width: 100%;
+          min-width: 100%;
+        }
+        .filter-select {
+          flex: 1 1 calc(50% - 10px) !important;
+          min-width: 140px;
+        }
+        .toolbar-actions {
+          flex: 1 1 100%;
+          width: 100%;
+          justify-content: stretch;
+          button {
+            width: 100%;
+            justify-content: center;
+          }
+        }
+      }
+    }
+
+    @media (max-width: 640px) {
+      .fee-heads-container {
+        padding: 0 0 30px;
+        gap: 16px;
+      }
+
+      .page-header {
+        margin-bottom: 0;
+        gap: 12px;
+      }
+
+      .page-title {
+        font-size: 1.25rem;
+        gap: 8px;
+        .title-icon {
+          font-size: 24px;
+          width: 24px;
+          height: 24px;
+        }
+      }
+
+      .page-subtitle {
+        font-size: 0.8rem;
+        line-height: 1.35;
+      }
+
+      .header-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+
+        .catalog-btn,
+        .matrix-btn {
+          width: 100%;
+          font-size: 0.76rem;
+          height: 38px;
+          padding: 0 8px;
+          justify-content: center;
+          mat-icon { font-size: 16px; width: 16px; height: 16px; }
+        }
+
+        .add-head-btn {
+          grid-column: span 2;
+          width: 100%;
+          height: 42px;
+          justify-content: center;
+          font-size: 0.84rem;
+        }
+      }
+
+
+      .form-drawer {
+        padding: 14px 12px;
+        margin-bottom: 16px;
+
+        .drawer-header {
+          margin-bottom: 12px;
+          padding-bottom: 8px;
+          .drawer-title {
+            gap: 8px;
+            strong { font-size: 0.98rem; }
+            small { font-size: 0.72rem; }
+          }
+        }
+
+        .form-row {
+          gap: 10px;
+          .f-flex-1,
+          .f-flex-2 {
+            flex: 1 1 100% !important;
+            min-width: 100% !important;
+            width: 100% !important;
+            margin-bottom: -0.5em;
+          }
+        }
+
+        .drawer-footer {
+          flex-direction: column-reverse;
+          gap: 8px;
+          width: 100%;
+          margin-top: 4px;
+
+          button {
+            width: 100%;
+            height: 40px;
+            justify-content: center;
+          }
+        }
+      }
+
+      .filter-toolbar {
+        padding: 12px 12px 4px;
+        gap: 8px;
+
+        .search-field,
+        .filter-select {
+          flex: 1 1 100% !important;
+          width: 100% !important;
+          min-width: 100% !important;
+          margin-bottom: -0.5em;
+        }
+
+        .toolbar-actions {
+          width: 100%;
+          margin: 4px 0 10px 0;
+          button {
+            width: 100%;
+            height: 40px;
+            justify-content: center;
+          }
+        }
+      }
+    }
+
+    @media (max-width: 380px) {
+      .header-actions {
+        grid-template-columns: 1fr;
+        .catalog-btn,
+        .matrix-btn,
+        .add-head-btn {
+          grid-column: span 1;
+        }
       }
     }
   `]
@@ -798,6 +1106,8 @@ export class FeeHeadsComponent implements OnInit {
   saving = false;
 
   readonly authService = inject(AuthService);
+  private dialog = inject(MatDialog);
+
   get hasSchoolModule(): boolean { return this.authService.hasSchoolModule(); }
   get hasCoachingModule(): boolean { return this.authService.hasCoachingModule(); }
   get hasHostelModule(): boolean { return this.authService.hasHostelModule(); }
@@ -815,6 +1125,29 @@ export class FeeHeadsComponent implements OnInit {
     private feesService: FeesService,
     private confirmDialog: ConfirmDialogService
   ) {}
+
+  openFeeHeadsReport(): void {
+    this.dialog.open(FeeHeadsReportDialogComponent, {
+      width: '1100px',
+      maxWidth: '96vw',
+      maxHeight: '94vh',
+      panelClass: 'responsive-report-dialog',
+      data: {
+        initialCategory: this.selectedCategory !== 'All' ? this.selectedCategory : undefined,
+        initialFrequency: this.selectedFrequency !== 'All' ? this.selectedFrequency : undefined
+      }
+    });
+  }
+
+  openClassFeeMatrixReport(): void {
+    this.dialog.open(ClassFeeMatrixReportDialogComponent, {
+      width: '1300px',
+      maxWidth: '98vw',
+      maxHeight: '94vh',
+      panelClass: 'responsive-report-dialog',
+      data: {}
+    });
+  }
 
   ngOnInit(): void {
     this.initForm();

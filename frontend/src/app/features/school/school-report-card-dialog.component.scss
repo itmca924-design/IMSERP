@@ -318,6 +318,72 @@
   }
 }
 
+/* Dynamic Uploaded Seal & Signature Styling */
+.uploaded-official-seal-img {
+  width: 100%;
+  height: 100%;
+  max-width: 72px;
+  max-height: 72px;
+  object-fit: contain;
+  display: block;
+  opacity: 0.95;
+  transform: rotate(-5deg);
+  filter: drop-shadow(0 1px 2px rgba(30, 58, 138, 0.25));
+
+  &.cert-seal-uploaded {
+    max-width: 78px;
+    max-height: 78px;
+    filter: drop-shadow(0 1px 3px rgba(180, 83, 9, 0.3));
+  }
+}
+
+.digital-sign-wrapper {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  height: 38px;
+  margin-bottom: 2px;
+  overflow: visible;
+
+  .digital-sign-img {
+    max-height: 38px;
+    max-width: 130px;
+    object-fit: contain;
+    display: block;
+    mix-blend-mode: multiply;
+    filter: contrast(1.15);
+  }
+}
+
+.student-admit-photo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border-radius: 4px;
+}
+
+.photo-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: #f8fafc;
+}
+
+.res-seal-col {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  .res-seal-wrap {
+    width: 60px;
+    height: 60px;
+  }
+}
+
 /* ═════════════════════════════════════════════════════════════════════ */
 /* 1. BIHAR BOARD (BSEB) AUTHENTIC MARKSHEET STYLING                    */
 /* ═════════════════════════════════════════════════════════════════════ */
@@ -873,6 +939,25 @@
       display: flex;
       flex-direction: column;
       gap: 6px;
+
+      .photo-container {
+        height: 110px;
+        width: 100%;
+        border: 1.5px solid #94a3b8;
+        border-radius: 6px;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #f8fafc;
+
+        .student-admit-photo-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+        }
+      }
 
       .photo-placeholder {
         height: 110px;
@@ -1534,18 +1619,20 @@
 }
 
 /* ═════════════════════════════════════════════════════════════════════ */
-/* PRINT MEDIA QUERIES (A4 PRINT & BULK BREAKS)                          */
+/* PRINT MEDIA QUERIES (A4 PRINT & BULK BREAKS - STRICT SINGLE PAGE)     */
 /* ═════════════════════════════════════════════════════════════════════ */
 @media print {
   @page {
     size: A4 portrait;
-    margin: 8mm;
+    margin: 5mm 6mm;
   }
 
   body, html {
     background: #ffffff !important;
     margin: 0 !important;
     padding: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
   .no-print {
@@ -1582,8 +1669,96 @@
     width: 100% !important;
     max-width: 100% !important;
     margin: 0 auto !important;
-    padding: 6mm 8mm !important;
+    padding: 4mm 6mm !important;
     min-height: auto !important;
+    max-height: 285mm !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  /* Compact Print Tuning: BSEB Marksheet */
+  .bseb-marksheet-page {
+    padding: 4mm 6mm !important;
+    border-width: 3px !important;
+
+    .bseb-header {
+      margin-bottom: 4px !important;
+      .bseb-seal-col .bseb-seal-circle { width: 54px !important; height: 54px !important; }
+      .bseb-titles-col .bseb-board-en { font-size: 1.05rem !important; }
+      .bseb-titles-col .bseb-board-hi { font-size: 0.95rem !important; margin: 1px 0 3px 0 !important; }
+      .bseb-statement-badge { padding: 2px 12px !important; font-size: 0.75rem !important; margin-bottom: 2px !important; }
+    }
+
+    .bseb-sub-header { margin-bottom: 4px !important; }
+    .bseb-bio-grid { margin-bottom: 4px !important; gap: 2px !important; }
+    .bseb-table th, .bseb-table td { padding: 2px 4px !important; font-size: 0.7rem !important; }
+    .bseb-verdict-container { margin: 4px 0 !important; padding: 4px 8px !important; }
+    .bseb-footnote-bar { margin: 4px 0 !important; font-size: 0.65rem !important; }
+    .bseb-signatures-bar { margin-top: 8px !important; }
+  }
+
+  /* Compact Print Tuning: Admit Card */
+  .admit-card-page {
+    padding: 4mm 6mm !important;
+    border-width: 1.5px !important;
+
+    .admit-header {
+      margin-bottom: 4px !important;
+      .admit-logo-box { width: 44px !important; height: 44px !important; }
+      .admit-school-title { font-size: 1.1rem !important; }
+      .admit-school-sub { margin: 1px 0 3px 0 !important; font-size: 0.7rem !important; }
+      .admit-title-pill { padding: 2px 12px !important; font-size: 0.75rem !important; }
+      .admit-term-badge { padding: 4px 8px !important; }
+    }
+
+    .admit-divider { margin: 4px 0 !important; }
+    .admit-bio-section { margin-bottom: 4px !important; }
+    .admit-bio-table td { padding: 2px 4px !important; font-size: 0.75rem !important; }
+    .admit-photo-box {
+      width: 78px !important;
+      .photo-placeholder { height: 72px !important; font-size: 0.58rem !important; }
+      .student-admit-photo-img { height: 72px !important; width: 100% !important; }
+      .student-sign-box { height: 20px !important; font-size: 0.58rem !important; }
+    }
+
+    .admit-timetable-wrap { margin-bottom: 4px !important; }
+    .timetable-title { font-size: 0.75rem !important; margin-bottom: 2px !important; }
+    .admit-routine-table th, .admit-routine-table td { padding: 2.5px 5px !important; font-size: 0.7rem !important; }
+    
+    .admit-rules-card {
+      margin-top: 4px !important;
+      padding: 4px 8px !important;
+      .rules-header { font-size: 0.7rem !important; }
+      .rules-list { margin: 2px 0 0 16px !important; }
+      .rules-list li { font-size: 0.64rem !important; margin-bottom: 1px !important; }
+    }
+
+    .admit-signatures-row {
+      margin-top: 8px !important;
+      .a-sign-col { font-size: 0.7rem !important; }
+      .a-seal-circle { width: 56px !important; height: 56px !important; }
+    }
+  }
+
+  /* Compact Print Tuning: Result Card */
+  .result-card-page {
+    padding: 4mm 6mm !important;
+    .res-card-top-bar { margin-bottom: 4px !important; }
+    .res-marks-table th, .res-marks-table td { padding: 2.5px 4px !important; font-size: 0.72rem !important; }
+    .res-verdict-callout { margin: 4px 0 !important; padding: 4px 8px !important; }
+    .res-footer-signs { margin-top: 8px !important; }
+  }
+
+  /* Compact Print Tuning: Progress Report Card */
+  .report-card-page {
+    padding: 4mm 6mm !important;
+    .rc-header-section { margin-bottom: 4px !important; }
+    .rc-divider-double { margin: 4px 0 !important; }
+    .rc-student-grid { padding: 4px 8px !important; margin-bottom: 4px !important; }
+    .rc-marks-table th, .rc-marks-table td { padding: 2.5px 5px !important; font-size: 0.72rem !important; }
+    .rc-footer-signatures { margin-top: 8px !important; }
   }
 
   .certificate-page-wrapper {
@@ -1591,26 +1766,29 @@
     width: 100% !important;
     max-width: 100% !important;
     margin: 0 auto !important;
-    padding: 8mm 10mm !important;
+    padding: 6mm 8mm !important;
     min-height: auto !important;
+    max-height: 285mm !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
     break-inside: avoid !important;
     page-break-inside: avoid !important;
     -webkit-box-decoration-break: clone !important;
     box-decoration-break: clone !important;
 
     .certificate-inner-border {
-      border: 4px double #d97706 !important;
-      border-top: 4px double #d97706 !important;
-      border-bottom: 4px double #d97706 !important;
-      border-left: 4px double #d97706 !important;
-      border-right: 4px double #d97706 !important;
+      border: 3px double #d97706 !important;
+      padding: 14px 18px !important;
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
       break-inside: avoid !important;
       page-break-inside: avoid !important;
-      -webkit-box-decoration-break: clone !important;
-      box-decoration-break: clone !important;
     }
+
+    .cert-header { margin-bottom: 8px !important; }
+    .cert-body { margin: 8px 0 !important; }
+    .cert-highlights-grid { margin: 8px 0 !important; }
+    .cert-signatures { margin-top: 12px !important; }
   }
 
   .page-break-always {

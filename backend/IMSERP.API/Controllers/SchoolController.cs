@@ -6,6 +6,8 @@ using IMSERP.Application.Interfaces;
 using IMSERP.Domain.Entities;
 using IMSERP.Domain.Enums;
 
+using IMSERP.API.Helpers;
+
 namespace IMSERP.API.Controllers;
 
 [ApiController]
@@ -16,12 +18,14 @@ public class SchoolController : ControllerBase
     private readonly IIMSERPDbContext _db;
     private readonly ICurrentUserService _currentUser;
     private readonly IWhatsAppService _whatsAppService;
+    private readonly IWebHostEnvironment _env;
 
-    public SchoolController(IIMSERPDbContext db, ICurrentUserService currentUser, IWhatsAppService whatsAppService)
+    public SchoolController(IIMSERPDbContext db, ICurrentUserService currentUser, IWhatsAppService whatsAppService, IWebHostEnvironment env)
     {
         _db = db;
         _currentUser = currentUser;
         _whatsAppService = whatsAppService;
+        _env = env;
     }
 
     #region Classes Management
@@ -2202,7 +2206,8 @@ public class SchoolController : ControllerBase
             student.IsCoachingStudent,
             student.CoachingRollNumber,
             student.BatchId,
-            student.Batch?.Subject
+            student.Batch?.Subject,
+            student.ProfilePhoto
         );
 
         // Also build consolidated student result if school class is present and student is school student
@@ -2902,6 +2907,10 @@ public class SchoolController : ControllerBase
             await _db.SaveChangesAsync();
         }
 
+        var tenant = await _db.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.Id == _currentUser.TenantId);
+        var effectiveSeal = !string.IsNullOrWhiteSpace(setting.OfficialSealUrl) ? setting.OfficialSealUrl : tenant?.OfficialSeal;
+        var effectiveSign = !string.IsNullOrWhiteSpace(setting.PrincipalSignatureUrl) ? setting.PrincipalSignatureUrl : tenant?.DigitalSignature;
+
         return Ok(new ExamSettingDto(
             setting.Id,
             setting.PassingPercentage,
@@ -2916,7 +2925,9 @@ public class SchoolController : ControllerBase
             setting.NextAcademicYear ?? await GetNextAcademicYearAsync(),
             !string.IsNullOrWhiteSpace(setting.AvailableAcademicYears) ? setting.AvailableAcademicYears : GetDynamicRollingSessions(),
             !string.IsNullOrWhiteSpace(setting.AvailableExamTypes) ? setting.AvailableExamTypes : DefaultStandardExamTypes,
-            setting.EvaluationDueDays > 0 ? setting.EvaluationDueDays : 7
+            setting.EvaluationDueDays > 0 ? setting.EvaluationDueDays : 7,
+            effectiveSeal,
+            effectiveSign
         ));
     }
 
@@ -2954,6 +2965,25 @@ public class SchoolController : ControllerBase
         if (dto.EvaluationDueDays > 0)
             setting.EvaluationDueDays = dto.EvaluationDueDays;
 
+        if (dto.OfficialSealUrl != null)
+        {
+            var savedSeal = ImageStorageHelper.SaveBase64Image(dto.OfficialSealUrl, "seals", _currentUser.TenantId.ToString(), _env.ContentRootPath);
+            setting.OfficialSealUrl = savedSeal ?? dto.OfficialSealUrl;
+        }
+        if (dto.PrincipalSignatureUrl != null)
+        {
+            var savedSign = ImageStorageHelper.SaveBase64Image(dto.PrincipalSignatureUrl, "signatures", _currentUser.TenantId.ToString(), _env.ContentRootPath);
+            setting.PrincipalSignatureUrl = savedSign ?? dto.PrincipalSignatureUrl;
+        }
+
+        // Synchronize with tenant record
+        var currentTenant = await _db.Tenants.FirstOrDefaultAsync(t => t.Id == _currentUser.TenantId);
+        if (currentTenant != null)
+        {
+            if (setting.OfficialSealUrl != null) currentTenant.OfficialSeal = setting.OfficialSealUrl;
+            if (setting.PrincipalSignatureUrl != null) currentTenant.DigitalSignature = setting.PrincipalSignatureUrl;
+        }
+
         setting.UpdatedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync();
@@ -2972,7 +3002,9 @@ public class SchoolController : ControllerBase
             setting.NextAcademicYear,
             setting.AvailableAcademicYears,
             setting.AvailableExamTypes,
-            setting.EvaluationDueDays
+            setting.EvaluationDueDays,
+            setting.OfficialSealUrl ?? currentTenant?.OfficialSeal,
+            setting.PrincipalSignatureUrl ?? currentTenant?.DigitalSignature
         ));
     }
 
@@ -3330,9 +3362,14 @@ public class SchoolController : ControllerBase
                 item.Student.ParentWhatsAppPhone,
                 item.Student.Section?.Name,
                 item.SubjectDetails,
-                item.Student.Section?.ClassTeacher?.FullName
+                item.Student.Section?.ClassTeacher?.FullName,
+                item.Student.ProfilePhoto
             );
         }).ToList();
+
+        var tenantInst = await _db.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.Id == _currentUser.TenantId);
+        var effectiveSealCons = !string.IsNullOrWhiteSpace(setting.OfficialSealUrl) ? setting.OfficialSealUrl : tenantInst?.OfficialSeal;
+        var effectiveSignCons = !string.IsNullOrWhiteSpace(setting.PrincipalSignatureUrl) ? setting.PrincipalSignatureUrl : tenantInst?.DigitalSignature;
 
         var settingsDto = new ExamSettingDto(
             setting.Id,
@@ -3343,7 +3380,14 @@ public class SchoolController : ControllerBase
             setting.SchoolAffiliationNumber,
             setting.PrincipalSignTitle,
             setting.ClassTeacherSignTitle,
-            setting.ResultDeclarationNote
+            setting.ResultDeclarationNote,
+            setting.ActiveAcademicYear,
+            setting.NextAcademicYear,
+            setting.AvailableAcademicYears,
+            setting.AvailableExamTypes,
+            setting.EvaluationDueDays > 0 ? setting.EvaluationDueDays : 7,
+            effectiveSealCons,
+            effectiveSignCons
         );
 
         return Ok(new ConsolidatedClassResultDto(

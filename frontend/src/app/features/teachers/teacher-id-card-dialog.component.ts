@@ -122,7 +122,10 @@ export interface TeacherIdCardDialogData {
               <span class="qr-label">{{card.employeeCode}}</span>
             </div>
             <div class="signature-block">
-              <div class="sign-line"></div>
+              <div class="id-digital-sign" *ngIf="digitalSignatureUrl">
+                <img [src]="digitalSignatureUrl" alt="Authorized Signature" class="id-sign-img" />
+              </div>
+              <div class="sign-line" [class.has-sign]="digitalSignatureUrl"></div>
               <span class="sign-label">Authorized Signatory</span>
             </div>
           </div>
@@ -502,12 +505,37 @@ export interface TeacherIdCardDialogData {
     .signature-block {
       text-align: center;
       width: 104px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .id-digital-sign {
+      height: 18px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      margin-bottom: 1px;
+
+      .id-sign-img {
+        max-height: 18px;
+        max-width: 65px;
+        object-fit: contain;
+        display: block;
+        mix-blend-mode: multiply;
+      }
     }
 
     .sign-line {
       border-bottom: 1px solid #64748b;
+      width: 80px;
       height: 16px;
       margin-bottom: 3px;
+
+      &.has-sign {
+        height: 2px;
+        margin-bottom: 2px;
+      }
     }
 
     .sign-label {
@@ -638,6 +666,10 @@ export class TeacherIdCardDialogComponent implements OnInit {
   getCardLogo(card?: TeacherIdCardDto): string | null {
     const raw = card?.institutionLogo || this.authService.getInstituteLogoUrl();
     return this.authService.resolveLogoUrl(raw);
+  }
+
+  get digitalSignatureUrl(): string | null {
+    return this.authService.getDigitalSignatureUrl();
   }
 
   getPhotoUrl(photo?: string | null): string {

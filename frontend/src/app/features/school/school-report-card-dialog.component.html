@@ -291,7 +291,8 @@
 
           <div class="bseb-sign-col principal-col">
             <div class="bseb-official-seal-box dynamic-seal-wrap">
-              <svg viewBox="0 0 100 100" class="dynamic-rubber-seal-svg">
+              <img *ngIf="officialSealUrl" [src]="officialSealUrl" alt="Official Seal" class="uploaded-official-seal-img" />
+              <svg *ngIf="!officialSealUrl" viewBox="0 0 100 100" class="dynamic-rubber-seal-svg">
                 <circle cx="50" cy="50" r="48" class="seal-ring-solid" />
                 <circle cx="50" cy="50" r="44" class="seal-ring-dashed" />
                 <circle cx="50" cy="50" r="29" class="seal-ring-solid" />
@@ -319,8 +320,11 @@
                 </g>
               </svg>
             </div>
+            <div class="digital-sign-wrapper" *ngIf="principalSignatureUrl">
+              <img [src]="principalSignatureUrl" alt="Principal Signature" class="digital-sign-img" />
+            </div>
             <div class="sign-line"></div>
-            <span class="sign-designation">परीक्षा नियंत्रक / प्राचार्य<br><strong>Controller of Examinations</strong></span>
+            <span class="sign-designation">{{ data.settings?.principalSignTitle || 'परीक्षा नियंत्रक / प्राचार्य' }}<br><strong>Controller of Examinations</strong></span>
           </div>
         </div>
 
@@ -385,10 +389,15 @@
           </table>
 
           <div class="admit-photo-box">
-            <div class="photo-placeholder">
-              <mat-icon>account_box</mat-icon>
-              <span>AFFIX RECENT<br>PASSPORT PHOTO</span>
+            <div class="photo-container" *ngIf="st.photoUrl; else noPhotoTpl">
+              <img [src]="getPhotoUrl(st.photoUrl)" alt="Candidate Photo" class="student-admit-photo-img" />
             </div>
+            <ng-template #noPhotoTpl>
+              <div class="photo-placeholder">
+                <mat-icon>account_box</mat-icon>
+                <span>AFFIX RECENT<br>PASSPORT PHOTO</span>
+              </div>
+            </ng-template>
             <div class="student-sign-box">
               <span>Candidate's Signature</span>
             </div>
@@ -453,7 +462,8 @@
           </div>
           <div class="a-sign-col center-seal-col">
             <div class="a-seal-circle dynamic-seal-wrap">
-              <svg viewBox="0 0 100 100" class="dynamic-rubber-seal-svg">
+              <img *ngIf="officialSealUrl" [src]="officialSealUrl" alt="Official Seal" class="uploaded-official-seal-img" />
+              <svg *ngIf="!officialSealUrl" viewBox="0 0 100 100" class="dynamic-rubber-seal-svg">
                 <circle cx="50" cy="50" r="48" class="seal-ring-solid" />
                 <circle cx="50" cy="50" r="44" class="seal-ring-dashed" />
                 <circle cx="50" cy="50" r="29" class="seal-ring-solid" />
@@ -487,8 +497,11 @@
             <span>केन्द्राधीक्षक / परीक्षा नियंत्रक<br><strong>Center Superintendent</strong></span>
           </div>
           <div class="a-sign-col">
+            <div class="digital-sign-wrapper" *ngIf="principalSignatureUrl">
+              <img [src]="principalSignatureUrl" alt="Principal Signature" class="digital-sign-img" />
+            </div>
             <div class="a-sign-line"></div>
-            <span>प्राचार्य / प्रधानाध्यापक<br><strong>Principal / Headmaster</strong></span>
+            <span>प्राचार्य / प्रधानाध्यापक<br><strong>{{ data.settings?.principalSignTitle || 'Principal / Headmaster' }}</strong></span>
           </div>
         </div>
 
@@ -606,12 +619,44 @@
               <div class="line"></div>
               <span>Class Teacher</span>
             </div>
+            <div class="r-sign res-seal-col">
+              <div class="dynamic-seal-wrap res-seal-wrap">
+                <img *ngIf="officialSealUrl" [src]="officialSealUrl" alt="Official Seal" class="uploaded-official-seal-img" />
+                <svg *ngIf="!officialSealUrl" viewBox="0 0 100 100" class="dynamic-rubber-seal-svg">
+                  <circle cx="50" cy="50" r="48" class="seal-ring-solid" />
+                  <circle cx="50" cy="50" r="44" class="seal-ring-dashed" />
+                  <circle cx="50" cy="50" r="29" class="seal-ring-solid" />
+                  <defs>
+                    <path [attr.id]="'res-seal-top-' + sIdx" d="M 15,50 A 35,35 0 1,1 85,50" fill="none" />
+                    <path [attr.id]="'res-seal-bot-' + sIdx" d="M 85,50 A 35,35 0 0,1 15,50" fill="none" />
+                  </defs>
+                  <text class="seal-svg-text-top" [style.font-size]="getSealTopFontSize()">
+                    <textPath [attr.href]="'#res-seal-top-' + sIdx" startOffset="50%" text-anchor="middle">
+                      {{ getSealTopText() }}
+                    </textPath>
+                  </text>
+                  <text class="seal-svg-text-bot">
+                    <textPath [attr.href]="'#res-seal-bot-' + sIdx" startOffset="50%" text-anchor="middle">
+                      {{ getSealBottomText() }}
+                    </textPath>
+                  </text>
+                  <g class="seal-svg-center">
+                    <polygon points="50,27 51.5,31 56,31 52.5,34 54,38 50,35.5 46,38 47.5,34 44,31 48.5,31" class="seal-center-star" />
+                    <text x="50" y="48" class="seal-center-title" text-anchor="middle">OFFICIAL</text>
+                    <text x="50" y="57" class="seal-center-sub" text-anchor="middle">SEAL</text>
+                  </g>
+                </svg>
+              </div>
+            </div>
             <div class="r-sign date-sign">
               <span>Date: <strong>{{ todayDate }}</strong></span>
             </div>
             <div class="r-sign">
+              <div class="digital-sign-wrapper" *ngIf="principalSignatureUrl">
+                <img [src]="principalSignatureUrl" alt="Principal Signature" class="digital-sign-img" />
+              </div>
               <div class="line"></div>
-              <span>Principal / Headmaster</span>
+              <span>{{ data.settings?.principalSignTitle || 'Principal / Headmaster' }}</span>
             </div>
           </div>
         </div>
@@ -787,7 +832,8 @@
           </div>
           <div class="sign-block principal-seal-block">
             <div class="school-seal-placeholder dynamic-seal-wrap">
-              <svg viewBox="0 0 100 100" class="dynamic-rubber-seal-svg">
+              <img *ngIf="officialSealUrl" [src]="officialSealUrl" alt="Official Seal" class="uploaded-official-seal-img" />
+              <svg *ngIf="!officialSealUrl" viewBox="0 0 100 100" class="dynamic-rubber-seal-svg">
                 <circle cx="50" cy="50" r="48" class="seal-ring-solid" />
                 <circle cx="50" cy="50" r="44" class="seal-ring-dashed" />
                 <circle cx="50" cy="50" r="29" class="seal-ring-solid" />
@@ -814,6 +860,9 @@
                   <circle cx="56" cy="63" r="1.1" class="seal-center-dot" />
                 </g>
               </svg>
+            </div>
+            <div class="digital-sign-wrapper" *ngIf="principalSignatureUrl">
+              <img [src]="principalSignatureUrl" alt="Principal Signature" class="digital-sign-img" />
             </div>
             <div class="sign-line"></div>
             <span class="sign-title">{{ data.settings?.principalSignTitle || 'Principal / Headmaster' }}</span>
@@ -901,7 +950,8 @@
             </div>
             <div class="cert-seal-center">
               <div class="cert-gold-seal dynamic-seal-wrap">
-                <svg viewBox="0 0 100 100" class="dynamic-rubber-seal-svg cert-seal-svg">
+                <img *ngIf="officialSealUrl" [src]="officialSealUrl" alt="Official Seal" class="uploaded-official-seal-img cert-seal-uploaded" />
+                <svg *ngIf="!officialSealUrl" viewBox="0 0 100 100" class="dynamic-rubber-seal-svg cert-seal-svg">
                   <circle cx="50" cy="50" r="48" class="seal-ring-solid" />
                   <circle cx="50" cy="50" r="44" class="seal-ring-dashed" />
                   <circle cx="50" cy="50" r="29" class="seal-ring-solid" />
@@ -931,6 +981,9 @@
               </div>
             </div>
             <div class="cert-sign-col text-right">
+              <div class="digital-sign-wrapper" *ngIf="principalSignatureUrl">
+                <img [src]="principalSignatureUrl" alt="Principal Signature" class="digital-sign-img" />
+              </div>
               <div class="sign-line-gold"></div>
               <span class="sign-role">{{ data.settings?.principalSignTitle || 'Principal / Headmaster' }}</span>
               <span class="sign-sub">{{ instituteName }}</span>

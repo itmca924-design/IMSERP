@@ -31,7 +31,11 @@ public record LoginResponseDto(
     int MaxBranchesLimit = 2,
     bool IsSubscriptionExpired = false,
     string? UserProfilePhoto = null,
-    string? SessionId = null
+    string? SessionId = null,
+    string? OfficialSeal = null,
+    string? DigitalSignature = null,
+    string? OfficialSealsJson = null,
+    string? DigitalSignaturesJson = null
 );
 
 public record BranchDto(
@@ -158,7 +162,11 @@ public record TenantDto(
     string? Pincode = null,
     string? Website = null,
     string? AffiliationNumber = null,
-    string? EstablishedYear = null
+    string? EstablishedYear = null,
+    string? OfficialSeal = null,
+    string? DigitalSignature = null,
+    string? OfficialSealsJson = null,
+    string? DigitalSignaturesJson = null
 );
 
 public record CreateTenantDto(
@@ -187,7 +195,9 @@ public record CreateTenantDto(
     string? Pincode = null,
     string? Website = null,
     string? AffiliationNumber = null,
-    string? EstablishedYear = null
+    string? EstablishedYear = null,
+    string? OfficialSeal = null,
+    string? DigitalSignature = null
 );
 
 public record RegisterTrialTenantDto(
@@ -245,7 +255,33 @@ public record UpdateTenantDto(
     string? Pincode = null,
     string? Website = null,
     string? AffiliationNumber = null,
-    string? EstablishedYear = null
+    string? EstablishedYear = null,
+    string? OfficialSeal = null,
+    string? DigitalSignature = null,
+    string? OfficialSealsJson = null,
+    string? DigitalSignaturesJson = null
+);
+
+public record TenantAssetItemDto(
+    string Id,
+    string Title,
+    string Url,
+    bool IsDefault = false,
+    string? Name = null,
+    string? CreatedAt = null
+);
+
+public record UploadTenantAssetDto(
+    string AssetType, // "seal" | "signature"
+    string ImageData, // base64 string
+    string Title,
+    string? SignatoryName = null,
+    bool SetAsDefault = true
+);
+
+public record SetDefaultTenantAssetDto(
+    string AssetType, // "seal" | "signature"
+    string AssetId
 );
 
 public record ExtendSubscriptionDto(
@@ -3063,7 +3099,9 @@ public record ExamSettingDto(
     string? NextAcademicYear = null,
     string? AvailableAcademicYears = null,
     string? AvailableExamTypes = null,
-    int EvaluationDueDays = 7
+    int EvaluationDueDays = 7,
+    string? OfficialSealUrl = null,
+    string? PrincipalSignatureUrl = null
 );
 
 public record UpdateExamSettingDto(
@@ -3079,7 +3117,9 @@ public record UpdateExamSettingDto(
     string? NextAcademicYear = null,
     string? AvailableAcademicYears = null,
     string? AvailableExamTypes = null,
-    int EvaluationDueDays = 7
+    int EvaluationDueDays = 7,
+    string? OfficialSealUrl = null,
+    string? PrincipalSignatureUrl = null
 );
 
 public record ConsolidatedSubjectDetailDto(
@@ -3116,7 +3156,8 @@ public record ConsolidatedStudentResultDto(
     string? ParentWhatsAppPhone,
     string? SectionName,
     List<ConsolidatedSubjectDetailDto> SubjectDetails,
-    string? ClassTeacherName = null
+    string? ClassTeacherName = null,
+    string? PhotoUrl = null
 );
 
 public record ConsolidatedClassResultDto(
@@ -5846,7 +5887,8 @@ public record StudentMyInfoSummaryDto(
     bool IsCoachingStudent = false,
     string? CoachingRollNumber = null,
     Guid? BatchId = null,
-    string? BatchSubject = null
+    string? BatchSubject = null,
+    string? ProfilePhoto = null
 );
 
 public record StudentMyExamsDto(

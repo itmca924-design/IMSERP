@@ -1195,9 +1195,19 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
             if (entry.State == EntityState.Added || entry.State == EntityState.Modified)
             {
                 var bioProp = entry.Properties.FirstOrDefault(p => p.Metadata.Name == "BiometricUserId");
-                if (bioProp != null && bioProp.CurrentValue is string bioStr && string.IsNullOrWhiteSpace(bioStr))
+                if (bioProp != null)
                 {
-                    bioProp.CurrentValue = null;
+                    if (bioProp.CurrentValue is string bioStr && string.IsNullOrWhiteSpace(bioStr))
+                    {
+                        bioProp.CurrentValue = null;
+                    }
+
+                    // Automatically release biometric mapping if entity is soft-deleted
+                    var isDelProp = entry.Properties.FirstOrDefault(p => p.Metadata.Name == "IsDeleted");
+                    if (isDelProp != null && isDelProp.CurrentValue is bool isDel && isDel)
+                    {
+                        bioProp.CurrentValue = null;
+                    }
                 }
             }
         }

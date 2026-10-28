@@ -120,10 +120,10 @@ import { InventoryInwardReceiptDialogComponent } from './dialogs/inventory-inwar
           <mat-icon>inventory_2</mat-icon> Store &amp; Catalog
         </a>
         <a mat-button [routerLink]="['/inventory/purchase-returns']" class="nav-tab">
-          <mat-icon>assignment_return</mat-icon> Purchase Returns (PR)
+          <mat-icon>assignment_return</mat-icon> Purchase Returns
         </a>
         <a mat-button [routerLink]="['/inventory/sale-returns']" class="nav-tab">
-          <mat-icon>keyboard_return</mat-icon> Kit &amp; Sale Returns (SR)
+          <mat-icon>keyboard_return</mat-icon> Kit &amp; Sale Returns
         </a>
         <a mat-button [routerLink]="['/inventory/vendors']" class="nav-tab">
           <mat-icon>account_balance_wallet</mat-icon> Vendors &amp; Ledger
@@ -925,7 +925,13 @@ import { InventoryInwardReceiptDialogComponent } from './dialogs/inventory-inwar
       padding: 6px;
       border-radius: 10px;
       border: 1px solid #e2e8f0;
-      flex-wrap: wrap;
+      overflow-x: auto;
+      flex-wrap: nowrap;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      &::-webkit-scrollbar {
+        display: none;
+      }
     }
     .nav-tab {
       font-weight: 600;
@@ -936,6 +942,8 @@ import { InventoryInwardReceiptDialogComponent } from './dialogs/inventory-inwar
       display: inline-flex;
       align-items: center;
       gap: 6px;
+      white-space: nowrap;
+      flex-shrink: 0;
       transition: all 0.2s ease-in-out;
     }
     .nav-tab:hover {
@@ -1022,6 +1030,8 @@ import { InventoryInwardReceiptDialogComponent } from './dialogs/inventory-inwar
       display: flex;
       flex-direction: column;
       gap: 1px;
+      min-width: 0;
+      flex: 1;
     }
     .kpi-label {
       font-size: 0.72rem;
@@ -1467,14 +1477,116 @@ import { InventoryInwardReceiptDialogComponent } from './dialogs/inventory-inwar
 
     /* Responsive Breakpoints */
     @media (max-width: 1024px) {
-      .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+      .kpi-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
     }
     @media (max-width: 640px) {
-      .kpi-grid { grid-template-columns: 1fr; }
-      .page-header-row { flex-direction: column; align-items: flex-start; }
-      .action-btn-group { width: 100%; justify-content: flex-start; }
-      .filter-form-layout { flex-direction: column; align-items: stretch; }
-      .filter-field, .search-field, .branch-field { width: 100%; }
+      .page-header-row {
+        position: relative;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+      }
+      .title-meta-wrap {
+        padding-right: 44px;
+      }
+      .page-title {
+        font-size: 1.25rem;
+      }
+      .page-subtitle {
+        font-size: 0.8rem;
+      }
+      .action-btn-group {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        width: 100%;
+      }
+      .action-btn-group .erp-btn {
+        width: 100%;
+        justify-content: center;
+        font-size: 0.76rem;
+        padding: 0 6px;
+        height: 38px;
+        gap: 4px;
+        span {
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        mat-icon {
+          font-size: 18px;
+          width: 18px;
+          height: 18px;
+          margin-right: 2px;
+        }
+      }
+      .action-btn-group .refresh-btn {
+        position: absolute;
+        top: 2px;
+        right: 0;
+        background: #f1f5f9;
+        border-radius: 8px;
+      }
+      .module-nav-bar {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+        padding: 6px;
+      }
+      .nav-tab {
+        width: 100%;
+        justify-content: center;
+        font-size: 0.76rem;
+        padding: 0 6px;
+        height: 36px;
+        gap: 4px;
+        white-space: nowrap;
+        mat-icon {
+          font-size: 18px;
+          width: 18px;
+          height: 18px;
+          margin-right: 2px;
+        }
+      }
+      .kpi-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+      }
+      .kpi-card {
+        padding: 8px 10px;
+        min-height: auto;
+      }
+      .kpi-content {
+        gap: 6px;
+      }
+      .kpi-label {
+        font-size: 0.64rem;
+        letter-spacing: 0.01em;
+        line-height: 1.2;
+      }
+      .kpi-value {
+        font-size: 1.15rem;
+        line-height: 1.2;
+      }
+      .kpi-meta {
+        font-size: 0.65rem;
+        line-height: 1.2;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .kpi-icon-wrap {
+        width: 30px;
+        height: 30px;
+        border-radius: 6px;
+        flex-shrink: 0;
+        mat-icon { font-size: 17px; width: 17px; height: 17px; }
+      }
+      .filter-card {
+        padding: 12px 12px 4px;
+      }
+      .filter-form-layout { flex-direction: column; align-items: stretch; gap: 8px; }
+      .filter-field, .search-field, .branch-field { width: 100%; min-width: 100%; }
     }
   `]
 })

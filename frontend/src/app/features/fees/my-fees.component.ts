@@ -138,28 +138,29 @@ import { UpiPaymentDialogComponent } from './upi-payment-dialog.component';
               </ng-template>
 
               <div class="tab-body-wrap">
-                <div class="table-responsive">
+                <!-- Desktop / Tablet Table View -->
+                <div class="table-responsive desktop-table-wrap">
                   <table class="passbook-table">
                     <thead>
                       <tr>
-                        <th>Invoice No</th>
-                        <th>Month / Description</th>
-                        <th>Due Date (IST)</th>
-                        <th class="text-right">Total Billed</th>
-                        <th class="text-right">Amount Paid</th>
-                        <th class="text-right">Balance Due</th>
-                        <th class="text-center">Status</th>
-                        <th class="text-center">Action</th>
+                        <th class="col-inv">Invoice No</th>
+                        <th class="col-desc">Month / Description</th>
+                        <th class="col-date">Due Date (IST)</th>
+                        <th class="col-amt text-right">Total Billed</th>
+                        <th class="col-amt text-right">Amount Paid</th>
+                        <th class="col-amt text-right">Balance Due</th>
+                        <th class="col-status text-center">Status</th>
+                        <th class="col-action text-center">Action</th>
                       </tr>
                     </thead>
                     <tbody>
                       <tr *ngFor="let inv of ledger.invoices" [class.cancelled-row]="inv.status === 'Cancelled'">
-                        <td class="font-mono"><strong>{{ inv.invoiceNumber }}</strong></td>
-                        <td>
+                        <td class="font-mono nowrap"><strong>{{ inv.invoiceNumber }}</strong></td>
+                        <td class="col-desc-td">
                           <div class="inv-title">{{ inv.title }}</div>
                           <div class="heads-wrap" *ngIf="inv.items && inv.items.length > 0">
                             <span *ngFor="let it of inv.items" class="head-chip">
-                              {{ it.headName }}: ₹{{ it.amount | number:'1.0-0' }}
+                              {{ it.headName }}: <strong>₹{{ it.amount | number:'1.0-0' }}</strong>
                             </span>
                           </div>
                           <span *ngIf="inv.status === 'Cancelled'" class="cancelled-tag" [matTooltip]="'Cancelled: ' + (inv.cancellationReason || 'Admin Action')">
@@ -173,8 +174,8 @@ import { UpiPaymentDialogComponent } from './upi-payment-dialog.component';
                         <td class="text-right text-success nowrap">
                           {{ inv.status === 'Cancelled' ? '—' : ('₹' + (inv.paidAmount | number:'1.2-2')) }}
                         </td>
-                        <td class="text-right nowrap" [class.text-danger]="inv.dueAmount > 0 && inv.status !== 'Cancelled'">
-                          <strong>{{ inv.status === 'Cancelled' ? '—' : ('₹' + (inv.dueAmount | number:'1.2-2')) }}</strong>
+                        <td class="text-right nowrap font-bold" [class.text-danger]="inv.dueAmount > 0 && inv.status !== 'Cancelled'">
+                          {{ inv.status === 'Cancelled' ? '—' : ('₹' + (inv.dueAmount | number:'1.2-2')) }}
                         </td>
                         <td class="text-center nowrap">
                           <span class="status-pill" [ngClass]="inv.status.toLowerCase()">
@@ -198,13 +199,79 @@ import { UpiPaymentDialogComponent } from './upi-payment-dialog.component';
                         </td>
                       </tr>
                       <tr *ngIf="ledger.invoices.length === 0">
-                        <td colspan="7" class="empty-state-cell">
+                        <td colspan="8" class="empty-state-cell">
                           <mat-icon class="empty-icon">sentiment_satisfied_alt</mat-icon>
                           <p>No fee invoices billed for this student profile yet.</p>
                         </td>
                       </tr>
                     </tbody>
                   </table>
+                </div>
+
+                <!-- Mobile Invoices Card List (< 768px) -->
+                <div class="mobile-cards-wrap" *ngIf="ledger.invoices.length > 0">
+                  <div class="mobile-invoice-card" *ngFor="let inv of ledger.invoices" [class.cancelled-card]="inv.status === 'Cancelled'">
+                    <div class="m-card-header">
+                      <div class="m-inv-no">
+                        <mat-icon class="m-inv-icon">tag</mat-icon>
+                        <strong>{{ inv.invoiceNumber }}</strong>
+                      </div>
+                      <span class="status-pill" [ngClass]="inv.status.toLowerCase()">
+                        {{ inv.status }}
+                      </span>
+                    </div>
+
+                    <div class="m-card-body">
+                      <div class="m-inv-title">{{ inv.title }}</div>
+                      <div class="m-inv-due" *ngIf="inv.dueDate">
+                        <mat-icon class="m-meta-icon">event</mat-icon>
+                        <span>Due Date: <strong>{{ formatToIST(inv.dueDate, false) }}</strong></span>
+                      </div>
+
+                      <div class="m-heads-list" *ngIf="inv.items && inv.items.length > 0">
+                        <div class="m-heads-label">Fee Breakdown:</div>
+                        <div class="heads-wrap">
+                          <span *ngFor="let it of inv.items" class="head-chip">
+                            {{ it.headName }}: <strong>₹{{ it.amount | number:'1.0-0' }}</strong>
+                          </span>
+                        </div>
+                      </div>
+
+                      <span *ngIf="inv.status === 'Cancelled'" class="cancelled-tag">
+                        VOID / CANCELLED ({{ inv.cancellationReason || 'Admin Action' }})
+                      </span>
+
+                      <div class="m-amount-row">
+                        <div class="m-amt-box">
+                          <span class="m-amt-lbl">Total Billed</span>
+                          <span class="m-amt-val">{{ inv.status === 'Cancelled' ? '—' : ('₹' + (inv.totalAmount | number:'1.2-2')) }}</span>
+                        </div>
+                        <div class="m-amt-box text-success">
+                          <span class="m-amt-lbl">Amount Paid</span>
+                          <span class="m-amt-val">{{ inv.status === 'Cancelled' ? '—' : ('₹' + (inv.paidAmount | number:'1.2-2')) }}</span>
+                        </div>
+                        <div class="m-amt-box" [class.text-danger]="inv.dueAmount > 0 && inv.status !== 'Cancelled'">
+                          <span class="m-amt-lbl">Balance Due</span>
+                          <span class="m-amt-val font-bold">{{ inv.status === 'Cancelled' ? '—' : ('₹' + (inv.dueAmount | number:'1.2-2')) }}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="m-card-footer" *ngIf="inv.dueAmount > 0 && inv.status !== 'Cancelled'">
+                      <button mat-flat-button class="m-pay-btn" (click)="openUpiPaymentForInvoice(inv)">
+                        <mat-icon>qr_code_scanner</mat-icon>
+                        <span>Pay ₹{{ inv.dueAmount | number:'1.0-0' }} via UPI</span>
+                      </button>
+                    </div>
+                    <div class="m-card-footer settled" *ngIf="inv.dueAmount <= 0 && inv.status === 'Paid'">
+                      <span class="paid-tag"><mat-icon>check_circle</mat-icon> Fully Settled</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="empty-state-card" *ngIf="ledger.invoices.length === 0">
+                  <mat-icon class="empty-icon">sentiment_satisfied_alt</mat-icon>
+                  <p>No fee invoices billed for this student profile yet.</p>
                 </div>
               </div>
             </mat-tab>
@@ -217,7 +284,8 @@ import { UpiPaymentDialogComponent } from './upi-payment-dialog.component';
               </ng-template>
 
               <div class="tab-body-wrap">
-                <div class="table-responsive">
+                <!-- Desktop / Tablet Table View -->
+                <div class="table-responsive desktop-table-wrap">
                   <table class="passbook-table">
                     <thead>
                       <tr>
@@ -232,14 +300,14 @@ import { UpiPaymentDialogComponent } from './upi-payment-dialog.component';
                     </thead>
                     <tbody>
                       <tr *ngFor="let p of ledger.payments">
-                        <td class="font-mono"><strong class="receipt-no-tag">{{ p.receiptNumber }}</strong></td>
+                        <td class="font-mono nowrap"><strong class="receipt-no-tag">{{ p.receiptNumber }}</strong></td>
                         <td class="nowrap">{{ formatToIST(p.paymentDate, true) }}</td>
                         <td class="nowrap font-mono">{{ p.invoiceNumber || '—' }}</td>
                         <td class="nowrap">
                           <span class="mode-pill">{{ getPaymentModeName(p.mode) }}</span>
                         </td>
-                        <td class="text-right text-success nowrap">
-                          <strong>₹{{ p.amountPaid | number:'1.2-2' }}</strong>
+                        <td class="text-right text-success nowrap font-bold">
+                          ₹{{ p.amountPaid | number:'1.2-2' }}
                         </td>
                         <td class="remarks-col">
                           <span>{{ p.remarks || p.transactionRef || 'Institutional fee deposit' }}</span>
@@ -259,6 +327,51 @@ import { UpiPaymentDialogComponent } from './upi-payment-dialog.component';
                       </tr>
                     </tbody>
                   </table>
+                </div>
+
+                <!-- Mobile Receipts Card List (< 768px) -->
+                <div class="mobile-cards-wrap" *ngIf="ledger.payments.length > 0">
+                  <div class="mobile-receipt-card" *ngFor="let p of ledger.payments">
+                    <div class="m-card-header">
+                      <div class="m-receipt-no">
+                        <mat-icon class="m-inv-icon">receipt</mat-icon>
+                        <strong class="receipt-no-tag">{{ p.receiptNumber }}</strong>
+                      </div>
+                      <span class="mode-pill">{{ getPaymentModeName(p.mode) }}</span>
+                    </div>
+
+                    <div class="m-card-body">
+                      <div class="m-receipt-main">
+                        <div class="m-receipt-amt text-success">₹{{ p.amountPaid | number:'1.2-2' }}</div>
+                        <div class="m-receipt-date">
+                          <mat-icon class="m-meta-icon">schedule</mat-icon>
+                          <span>{{ formatToIST(p.paymentDate, true) }}</span>
+                        </div>
+                      </div>
+
+                      <div class="m-receipt-meta" *ngIf="p.invoiceNumber">
+                        <span class="m-meta-lbl">Invoice Ref:</span>
+                        <span class="font-mono"><strong>{{ p.invoiceNumber }}</strong></span>
+                      </div>
+
+                      <div class="m-receipt-remarks" *ngIf="p.remarks || p.transactionRef">
+                        <span class="m-meta-lbl">Ref / Remarks:</span>
+                        <span>{{ p.remarks || p.transactionRef }}</span>
+                      </div>
+                    </div>
+
+                    <div class="m-card-footer">
+                      <button mat-stroked-button class="view-receipt-btn m-receipt-btn" (click)="openPaymentReceipt(p)">
+                        <mat-icon>print</mat-icon>
+                        <span>View / Print Receipt</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="empty-state-card" *ngIf="ledger.payments.length === 0">
+                  <mat-icon class="empty-icon">receipt</mat-icon>
+                  <p>No fee payment receipts issued yet.</p>
                 </div>
               </div>
             </mat-tab>
@@ -607,6 +720,7 @@ import { UpiPaymentDialogComponent } from './upi-payment-dialog.component';
 
     .passbook-table {
       width: 100%;
+      min-width: 820px;
       border-collapse: collapse;
       font-size: 0.85rem;
 
@@ -620,6 +734,7 @@ import { UpiPaymentDialogComponent } from './upi-payment-dialog.component';
         padding: 10px 14px;
         border-bottom: 2px solid #e2e8f0;
         text-align: left;
+        white-space: nowrap;
       }
 
       tbody td {
@@ -632,6 +747,14 @@ import { UpiPaymentDialogComponent } from './upi-payment-dialog.component';
       tbody tr:hover {
         background: #f8fafc;
       }
+
+      .col-inv { min-width: 140px; white-space: nowrap; }
+      .col-desc { min-width: 260px; }
+      .col-desc-td { min-width: 260px; }
+      .col-date { min-width: 110px; white-space: nowrap; }
+      .col-amt { min-width: 105px; white-space: nowrap; }
+      .col-status { min-width: 95px; white-space: nowrap; }
+      .col-action { min-width: 130px; white-space: nowrap; }
 
       .font-mono {
         font-family: monospace;
@@ -664,9 +787,13 @@ import { UpiPaymentDialogComponent } from './upi-payment-dialog.component';
           background: #eff6ff;
           color: #1d4ed8;
           font-size: 0.7rem;
-          padding: 1px 6px;
-          border-radius: 4px;
+          padding: 2px 7px;
+          border-radius: 5px;
           border: 1px solid #dbeafe;
+          display: inline-flex;
+          align-items: center;
+          gap: 3px;
+          line-height: 1.25;
         }
       }
 
@@ -808,9 +935,309 @@ import { UpiPaymentDialogComponent } from './upi-payment-dialog.component';
       }
     }
 
+    .mobile-cards-wrap, .empty-state-card {
+      display: none;
+    }
+
+    /* Mobile Responsive Card Views (< 768px) */
+    @media (max-width: 768px) {
+      .desktop-table-wrap {
+        display: none !important;
+      }
+
+      .mobile-cards-wrap {
+        display: flex !important;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .empty-state-card {
+        display: flex !important;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 36px 16px;
+        text-align: center;
+        color: #94a3b8;
+
+        .empty-icon {
+          font-size: 40px;
+          width: 40px;
+          height: 40px;
+          margin-bottom: 6px;
+        }
+
+        p {
+          margin: 0;
+          font-size: 0.9rem;
+        }
+      }
+
+      .mobile-invoice-card, .mobile-receipt-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 14px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+
+        &.cancelled-card {
+          opacity: 0.6;
+          background: #f8fafc;
+          border-style: dashed;
+        }
+      }
+
+      .m-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #f1f5f9;
+      }
+
+      .m-inv-no, .m-receipt-no {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-family: monospace;
+        font-size: 0.9rem;
+        color: #1e40af;
+      }
+
+      .m-inv-icon {
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+        color: #3b82f6;
+      }
+
+      .m-card-body {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .m-inv-title {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: #0f172a;
+      }
+
+      .m-inv-due {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.78rem;
+        color: #64748b;
+      }
+
+      .m-meta-icon {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
+        color: #94a3b8;
+      }
+
+      .m-heads-list {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 8px 10px;
+
+        .m-heads-label {
+          font-size: 0.68rem;
+          font-weight: 700;
+          color: #64748b;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          margin-bottom: 6px;
+        }
+
+        .heads-wrap {
+          display: flex;
+          gap: 6px;
+          flex-wrap: wrap;
+
+          .head-chip {
+            background: #ffffff;
+            color: #1d4ed8;
+            font-size: 0.72rem;
+            padding: 3px 8px;
+            border-radius: 5px;
+            border: 1px solid #dbeafe;
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            line-height: 1.25;
+          }
+        }
+      }
+
+      .m-amount-row {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 6px;
+        background: #f1f5f9;
+        padding: 8px 10px;
+        border-radius: 8px;
+        text-align: center;
+
+        .m-amt-box {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+
+        .m-amt-lbl {
+          font-size: 0.65rem;
+          font-weight: 600;
+          color: #64748b;
+          text-transform: uppercase;
+        }
+
+        .m-amt-val {
+          font-size: 0.85rem;
+          font-weight: 700;
+          color: #0f172a;
+        }
+      }
+
+      .m-card-footer {
+        padding-top: 4px;
+
+        .m-pay-btn {
+          width: 100%;
+          background: #16a34a;
+          color: #ffffff;
+          font-weight: 700;
+          font-size: 0.85rem;
+          height: 38px;
+          border-radius: 8px;
+          box-shadow: 0 2px 6px rgba(22, 163, 74, 0.3);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+        }
+
+        &.settled {
+          display: flex;
+          justify-content: center;
+        }
+
+        .m-receipt-btn {
+          width: 100%;
+          justify-content: center;
+        }
+      }
+
+      .m-receipt-main {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+
+        .m-receipt-amt {
+          font-size: 1.25rem;
+          font-weight: 800;
+        }
+
+        .m-receipt-date {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          font-size: 0.76rem;
+          color: #64748b;
+        }
+      }
+
+      .m-receipt-meta, .m-receipt-remarks {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.8rem;
+        color: #334155;
+
+        .m-meta-lbl {
+          color: #64748b;
+          font-size: 0.72rem;
+          font-weight: 600;
+          text-transform: uppercase;
+        }
+      }
+    }
+
+    /* Mobile Screen Adjustments (< 640px) */
+    @media (max-width: 640px) {
+      .page-top-header {
+        padding: 12px 14px;
+        gap: 12px;
+        flex-direction: column;
+        align-items: flex-start;
+
+        .header-left {
+          width: 100%;
+        }
+
+        .header-action-buttons {
+          width: 100%;
+          flex-direction: column;
+          gap: 8px;
+
+          button {
+            width: 100%;
+            justify-content: center;
+          }
+        }
+      }
+
+      .student-kpi-card {
+        padding: 14px 12px;
+
+        .student-profile-summary {
+          gap: 12px;
+
+          .student-avatar-box {
+            width: 44px;
+            height: 44px;
+            min-width: 44px;
+            mat-icon { font-size: 24px; width: 24px; height: 24px; }
+          }
+        }
+
+        .financial-kpis-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+          gap: 8px;
+
+          .kpi-box {
+            padding: 10px 12px;
+
+            .kpi-label { font-size: 0.65rem; }
+            .kpi-value { font-size: 1.1rem; }
+            .kpi-sub { font-size: 0.65rem; }
+          }
+        }
+      }
+
+      .statement-tabs {
+        ::ng-deep .mat-mdc-tab-label {
+          padding: 0 10px;
+          font-size: 0.78rem;
+        }
+      }
+
+      .tab-body-wrap {
+        padding: 12px 6px !important;
+      }
+    }
+
     .text-success { color: #16a34a !important; }
     .text-danger { color: #dc2626 !important; }
     .text-warning { color: #d97706 !important; }
+    .font-bold { font-weight: 700; }
+    .font-semibold { font-weight: 600; }
 
     .empty-profile-box {
       text-align: center;

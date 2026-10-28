@@ -2138,11 +2138,13 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
 
     .matrix-table-wrap {
       overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
       background: #ffffff;
     }
 
     .routine-grid-table {
       width: 100%;
+      min-width: 920px;
       border-collapse: separate;
       border-spacing: 0;
       font-size: 12px;
@@ -2961,67 +2963,368 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
       margin: 0 0 16px 0;
     }
 
-    /* Responsive */
+    /* =========================================================================
+       📱 MOBILE & TABLET RESPONSIVE STYLES
+       ========================================================================= */
     @media (max-width: 768px) {
+      .portal-header-bar {
+        padding: 12px 14px;
+        gap: 12px;
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .header-left {
+        gap: 10px;
+        width: 100%;
+      }
+
+      .header-icon-box {
+        width: 38px;
+        height: 38px;
+        min-width: 38px;
+        border-radius: 8px;
+        mat-icon { font-size: 20px; width: 20px; height: 20px; }
+      }
+
+      .breadcrumb-row {
+        font-size: 11px;
+        gap: 4px;
+        margin-bottom: 2px;
+        flex-wrap: wrap;
+      }
+
+      .page-title {
+        font-size: 1.15rem;
+        line-height: 1.25;
+      }
+
+      .page-subtitle {
+        font-size: 0.72rem;
+        line-height: 1.25;
+        margin-top: 2px;
+      }
+
+      .header-actions {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .live-clock-badge {
+        grid-column: 1 / -1;
+        justify-content: center;
+        padding: 4px 10px;
+        gap: 6px;
+
+        .clock-label { font-size: 8px; }
+        .clock-time { font-size: 12px; }
+      }
+
+      .header-btn {
+        width: 100% !important;
+        height: 36px !important;
+        font-size: 0.76rem !important;
+        padding: 0 8px !important;
+        justify-content: center !important;
+        gap: 4px !important;
+
+        mat-icon { font-size: 16px; width: 16px; height: 16px; margin: 0; }
+      }
+
+      .primary-gradient-btn {
+        grid-column: 1 / -1;
+        width: 100% !important;
+        height: 38px !important;
+        font-size: 0.82rem !important;
+        justify-content: center !important;
+        gap: 4px !important;
+
+        mat-icon { font-size: 18px; width: 18px; height: 18px; margin: 0; }
+      }
+
       .scope-nav-container {
         flex-direction: column;
         align-items: stretch;
         gap: 8px;
       }
+
       .scope-pills {
         width: 100%;
         display: flex;
+        gap: 4px;
       }
+
       .scope-pill-btn {
         flex: 1;
         justify-content: center;
-        padding: 8px 10px;
-        font-size: 0.8rem;
+        padding: 7px 8px;
+        font-size: 0.78rem;
+        border-radius: 8px;
+        gap: 4px;
+
+        .pill-icon { font-size: 16px; width: 16px; height: 16px; }
       }
+
       .scope-meta-badge {
         align-self: flex-start;
+        font-size: 0.72rem;
+        padding: 4px 10px;
       }
+
       .admin-selector-bar {
         flex-direction: column;
         align-items: stretch;
-        gap: 12px;
+        gap: 10px;
         padding: 12px;
       }
+
       .selector-left {
         flex-direction: column;
         align-items: stretch;
-        gap: 10px;
+        gap: 8px;
         width: 100%;
       }
+
+      .selector-badge {
+        align-self: flex-start;
+        padding: 4px 10px;
+        font-size: 0.76rem;
+      }
+
       .select-group {
         flex-direction: column;
         align-items: stretch;
-        gap: 4px;
+        gap: 3px;
         width: 100%;
       }
+
+      .select-label {
+        font-size: 0.75rem;
+      }
+
       .header-select {
-        width: 100%;
-        min-width: unset !important;
+        width: 100% !important;
+        min-width: 100% !important;
         max-width: 100% !important;
+        height: 38px;
+        font-size: 0.82rem;
+        box-sizing: border-box;
       }
+
       .selector-right {
         width: 100%;
       }
+
       .setup-routine-btn {
         width: 100%;
+        height: 38px;
         justify-content: center;
+        font-size: 0.8rem;
       }
+
+      /* Student Identity Strip */
+      .student-identity-bar {
+        padding: 12px 14px;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+      }
+
+      .student-info-col {
+        gap: 10px;
+      }
+
+      .student-avatar-box {
+        width: 38px;
+        height: 38px;
+        min-width: 38px;
+        border-radius: 10px;
+        mat-icon { font-size: 20px; width: 20px; height: 20px; }
+      }
+
+      .student-name {
+        font-size: 1.05rem;
+        margin-bottom: 4px;
+      }
+
+      .student-pills {
+        gap: 6px;
+      }
+
+      .id-pill {
+        font-size: 0.7rem;
+        padding: 2px 7px;
+        border-radius: 6px;
+        mat-icon { font-size: 12px; width: 12px; height: 12px; }
+      }
+
+      .class-teacher-card {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 8px 12px;
+      }
+
+      /* Live Class Spotlight Banner */
+      .live-spotlight-banner {
+        padding: 14px 16px;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+
+      .live-subject {
+        font-size: 1.15rem;
+        margin-bottom: 6px;
+      }
+
+      .live-meta-row {
+        gap: 8px;
+        font-size: 11.5px;
+      }
+
+      .spotlight-sub-alert {
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+      }
+
+      /* Day Navigation Strip */
+      .day-navigation-strip {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+      }
+
+      .day-pills-row {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 6px;
+        gap: 6px;
+      }
+
+      .day-pill-btn {
+        padding: 6px 12px;
+        font-size: 0.78rem;
+        border-radius: 8px;
+        flex-shrink: 0;
+      }
+
+      .view-toggle-btns {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+      }
+
+      .mode-btn {
+        justify-content: center;
+        padding: 8px;
+        font-size: 0.78rem;
+      }
+
+      /* Timeline Day Header */
+      .timeline-day-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+      }
+
+      .current-day-title {
+        font-size: 1.1rem;
+      }
+
+      .timeline-legend {
+        gap: 10px;
+        flex-wrap: wrap;
+        font-size: 11px;
+      }
+
+      /* Period Card in Daily Flow */
       .period-card {
         grid-template-columns: 1fr;
+        padding: 12px 14px;
+        gap: 10px;
       }
+
       .period-time-col {
         border-right: none;
         border-bottom: 1px dashed #e2e8f0;
-        padding-bottom: 12px;
+        padding-bottom: 8px;
         padding-right: 0;
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
       }
+
+      .period-body-col {
+        padding: 0;
+      }
+
+      .subject-header-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+      }
+
       .period-action-col {
         justify-content: flex-start;
+        padding-top: 4px;
+        border-top: 1px dashed #f1f5f9;
+      }
+
+      /* Weekly Routine Matrix Table */
+      .matrix-header-bar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+      }
+
+      .matrix-actions {
+        width: 100%;
+
+        .matrix-print-btn {
+          width: 100%;
+          justify-content: center;
+        }
+      }
+
+      .matrix-table-wrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+      }
+
+      .routine-grid-table {
+        min-width: 900px;
+        font-size: 11px;
+      }
+
+      /* Faculty Modal */
+      .modal-card {
+        width: 95vw !important;
+        max-width: 95vw !important;
+        max-height: 90vh !important;
+        margin: 10px;
+      }
+
+      .modal-header {
+        padding: 14px 16px;
+      }
+
+      .modal-body {
+        padding: 14px;
+      }
+
+      .faculty-cards-grid {
+        grid-template-columns: 1fr !important;
+        gap: 12px;
       }
     }
   `]
