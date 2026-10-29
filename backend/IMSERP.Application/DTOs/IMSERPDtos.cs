@@ -6494,4 +6494,21 @@ public record FeePromiseItemDto(
     string DivisionTag = "Hybrid"
 );
 
+public record AiGenerateDailyDiaryRequestDto(
+    Guid? ClassId,
+    Guid? SectionId,
+    Guid? BatchId,
+    DateTime? Date,
+    List<string>? Subjects,
+    string? AcademicScope = "School"
+);
+
+public record AiGenerateDailyDiaryResultDto(
+    List<DailySubjectTaskItem> ClassWork,
+    List<DailySubjectTaskItem> HomeWork,
+    string ClassName,
+    string AiRationale,
+    DateTime GeneratedDate
+);
+
 

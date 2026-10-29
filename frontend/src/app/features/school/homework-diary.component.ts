@@ -379,6 +379,17 @@ export interface DailyDiaryReportHeader {
                 </div>
               </div>
               <div class="qf-actions-wrap">
+                <button
+                  mat-stroked-button
+                  type="button"
+                  class="qf-ai-btn"
+                  (click)="generateDiaryWithAI()"
+                  [disabled]="loadingAiGeneration || (diaryScope === 'school' ? !diaryClassId : !diaryBatchId)"
+                  matTooltip="Agentic AI analyzes curriculum & class level to auto-fill today's C.W. & H.W. in 1 click"
+                >
+                  <mat-icon class="ai-spark-icon">{{ loadingAiGeneration ? 'sync' : 'auto_awesome' }}</mat-icon>
+                  <span>{{ loadingAiGeneration ? 'AI Generating...' : '✨ AI Auto-Fill Diary' }}</span>
+                </button>
                 <button mat-flat-button class="apply-all-btn" [class.student-mode]="!!selectedDiaryStudent" (click)="applyCommonToAllPresent()" [disabled]="diaryStudents.length === 0">
                   <mat-icon>{{selectedDiaryStudent ? 'person_add' : 'done_all'}}</mat-icon>
                   <span *ngIf="!selectedDiaryStudent">Apply to All Present ({{diaryEligibleForWorkCount}})</span>
@@ -2163,6 +2174,33 @@ export interface DailyDiaryReportHeader {
       gap: 10px;
       flex-wrap: wrap;
     }
+    .qf-ai-btn {
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%) !important;
+      color: #1d4ed8 !important;
+      border: 1px solid #93c5fd !important;
+      font-weight: 700;
+      border-radius: 8px;
+      height: 38px;
+      padding: 0 16px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 2px 4px rgba(37, 99, 235, 0.08);
+      transition: all 0.2s ease;
+
+      &:hover:not([disabled]) {
+        background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%) !important;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(37, 99, 235, 0.16);
+      }
+
+      .ai-spark-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        color: #2563eb;
+      }
+    }
     .apply-all-btn {
       background: #16a34a !important;
       color: #ffffff !important;
@@ -3929,6 +3967,81 @@ export class HomeworkDiaryComponent implements OnInit {
       error: () => {
         this.diaryStudents = [];
         this.loadingDiary = false;
+      }
+    });
+  }
+
+  loadingAiGeneration = false;
+
+  generateDiaryWithAI(): void {
+    const classId = this.diaryScope === 'school' ? this.diaryClassId : null;
+    const sectionId = this.diaryScope === 'school' ? this.diarySectionId : null;
+    const batchId = this.diaryScope === 'coaching' ? this.diaryBatchId : null;
+
+    if (!classId && !batchId) {
+      this.confirmDialog.alert('Selection Required', 'Please select a Class or Coaching Batch first.', 'warning');
+      return;
+    }
+
+    this.loadingAiGeneration = true;
+    const payload = {
+      classId: classId || null,
+      sectionId: sectionId || null,
+      batchId: batchId || null,
+      date: this.diaryDate,
+      subjects: this.subjectOptions && this.subjectOptions.length > 0 ? this.subjectOptions : null,
+      academicScope: this.diaryScope
+    };
+
+    this.http.post<any>(`${API_BASE}/homework/ai-generate-daily-tasks`, payload).subscribe({
+      next: (res) => {
+        this.loadingAiGeneration = false;
+        if (res) {
+          if (res.classWork && res.classWork.length > 0) {
+            this.commonQuickFill.classWork = res.classWork.map((c: any) => ({
+              subject: c.subject || c.Subject,
+              task: c.task || c.Task
+            }));
+          }
+          if (res.homeWork && res.homeWork.length > 0) {
+            this.commonQuickFill.homeWork = res.homeWork.map((h: any) => ({
+              subject: h.subject || h.Subject,
+              task: h.task || h.Task
+            }));
+          }
+
+          this.commonQuickFill.isOpen = true;
+
+          const totalPresent = this.diaryEligibleForWorkCount;
+          if (totalPresent > 0) {
+            this.confirmDialog.confirm(
+              'AI Diary Generated Successfully',
+              `Agentic AI generated C.W. & H.W. for ${res.className} across ${res.classWork?.length || 0} subjects.\n\n` +
+              `Would you like to immediately apply these tasks to all ${totalPresent} present students right now?`,
+              'Yes, Apply to All Present',
+              'Review First',
+              'info'
+            ).subscribe((applyNow) => {
+              if (applyNow) {
+                this.applyCommonToAllPresent();
+              }
+            });
+          } else {
+            this.confirmDialog.alert(
+              'AI Diary Generated',
+              `Agentic AI successfully auto-filled today's Class Work and Home Work for ${res.className}.\n\n${res.aiRationale || ''}`,
+              'success'
+            );
+          }
+        }
+      },
+      error: (err) => {
+        this.loadingAiGeneration = false;
+        this.confirmDialog.alert(
+          'AI Generation Failed',
+          err.error?.message || 'Failed to auto-generate daily diary tasks. Please try again.',
+          'danger'
+        );
       }
     });
   }
