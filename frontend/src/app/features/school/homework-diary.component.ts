@@ -3225,32 +3225,79 @@ export interface DailyDiaryReportHeader {
         justify-content: center;
       }
 
-      /* Subtabs Navigation on Mobile */
+      /* Subtabs Navigation on Mobile: Clean Horizontal Scroll Strip */
       .diary-subtabs-nav {
-        flex-direction: column;
-        gap: 6px;
-        padding: 6px;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+        gap: 8px !important;
+        padding: 6px 8px !important;
+        border-radius: 12px;
+        position: static !important;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+
+        &::-webkit-scrollbar {
+          height: 3px;
+        }
+        &::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        &::-webkit-scrollbar-thumb {
+          background: #bfdbfe;
+          border-radius: 3px;
+        }
       }
       .subtab-pill {
-        flex: 1 1 100%;
-        min-width: 100%;
-        padding: 8px 12px;
-        gap: 10px;
+        flex: 0 0 auto !important;
+        min-width: auto !important;
+        width: auto !important;
+        padding: 8px 14px !important;
+        gap: 8px !important;
+        white-space: nowrap !important;
+        border-radius: 10px;
+
+        .subtab-icon-wrap {
+          width: 30px;
+          height: 30px;
+          border-radius: 8px;
+          flex-shrink: 0;
+
+          mat-icon {
+            font-size: 18px;
+            width: 18px;
+            height: 18px;
+          }
+        }
+        .pill-labels {
+          display: flex;
+          flex-direction: row;
+          align-items: center;
+          gap: 6px;
+
+          .pill-title {
+            font-size: 12.5px;
+            font-weight: 700;
+            white-space: nowrap;
+          }
+          .pill-desc {
+            display: none !important;
+          }
+        }
+        .pill-badge {
+          display: none !important;
+        }
       }
-      .subtab-pill mat-icon {
-        font-size: 22px;
-        width: 22px;
-        height: 22px;
-      }
-      .pill-title {
-        font-size: 13px;
-      }
-      .pill-desc {
-        display: none;
-      }
-      .pill-badge {
-        font-size: 10px;
-        padding: 2px 6px;
+      .qf-actions-wrap {
+        width: 100%;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+
+        button {
+          width: 100%;
+          justify-content: center;
+        }
       }
 
       /* Filter Card */
