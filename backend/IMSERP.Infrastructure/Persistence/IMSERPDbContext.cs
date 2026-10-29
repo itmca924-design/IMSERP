@@ -129,6 +129,8 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
     public DbSet<PtmBooking> PtmBookings => Set<PtmBooking>();
     public DbSet<GrievanceTicket> GrievanceTickets => Set<GrievanceTicket>();
     public DbSet<GrievanceComment> GrievanceComments => Set<GrievanceComment>();
+    public DbSet<FeeRecoveryPlan> FeeRecoveryPlans => Set<FeeRecoveryPlan>();
+    public DbSet<FeePromiseToPay> FeePromisesToPay => Set<FeePromiseToPay>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -476,6 +478,12 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
             (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<GrievanceComment>().HasQueryFilter(x =>
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<FeeRecoveryPlan>().HasQueryFilter(x =>
+            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<FeePromiseToPay>().HasQueryFilter(x =>
             (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
 

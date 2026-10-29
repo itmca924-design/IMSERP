@@ -37,6 +37,10 @@ export const routes: Routes = [
     loadComponent: () => import('./features/fees/public-receipt.component').then(m => m.PublicReceiptComponent)
   },
   {
+    path: 'pay/:invoiceId',
+    loadComponent: () => import('./features/fees/public-invoice-pay.component').then(m => m.PublicInvoicePayComponent)
+  },
+  {
     path: 'apply-online',
     loadComponent: () => import('./features/admissions/public-admission-portal.component').then(m => m.PublicAdmissionPortalComponent)
   },
@@ -308,6 +312,14 @@ export const routes: Routes = [
       {
         path: 'finance/chart-of-accounts',
         loadComponent: () => import('./features/finance/chart-of-accounts.component').then(m => m.ChartOfAccountsComponent)
+      },
+      {
+        path: 'finance/fee-recovery-agent',
+        loadComponent: () => import('./features/finance/fee-recovery-agent.component').then(m => m.FeeRecoveryAgentComponent)
+      },
+      {
+        path: 'fees/recovery-agent',
+        loadComponent: () => import('./features/finance/fee-recovery-agent.component').then(m => m.FeeRecoveryAgentComponent)
       },
       { path: 'finance', redirectTo: 'finance/profit-loss', pathMatch: 'full' },
 

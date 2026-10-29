@@ -144,3 +144,32 @@ public enum ExpensePaymentMode
     Card = 5
 }
 
+// ── Smart Fee Recovery AI Agent Enums ─────────────────────────────
+public enum RecoveryRiskLevel
+{
+    Low = 1,
+    Moderate = 2,
+    High = 3,
+    Critical = 4
+}
+
+public enum RecoveryPlanStatus
+{
+    Proposed = 1,
+    Dispatched = 2,
+    PromiseMade = 3,
+    PromiseKept = 4,
+    PromiseBroken = 5,
+    Resolved = 6,
+    Archived = 7
+}
+
+public enum RecoveryActionChannel
+{
+    WhatsApp = 1,
+    VoiceCall = 2,
+    InPersonPTM = 3,
+    FormalLetter = 4
+}
+
+

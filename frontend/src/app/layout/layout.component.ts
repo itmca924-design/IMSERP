@@ -3622,6 +3622,7 @@ export class LayoutComponent implements OnInit {
             { id: '51myfc', title: 'My Fee Card', routeUrl: '/fees/fee-card', icon: 'contact_page', sortOrder: 1.5, module: 'Academic', isActive: true, children: [] }
           ] : [
             { id: '51', title: 'Fee Collection', routeUrl: '/fees', icon: 'payments', sortOrder: 1, module: 'Academic', isActive: true, children: [] },
+            { id: '51ra', title: 'Fee Recovery AI Agent', routeUrl: '/finance/fee-recovery-agent', icon: 'psychology', sortOrder: 1.2, module: 'Academic', isActive: true, children: [] },
             { id: '51fc', title: 'Student Fee Card', routeUrl: '/fees/fee-card', icon: 'contact_page', sortOrder: 1.5, module: 'Academic', isActive: true, children: [] },
             { id: '511', title: 'Fee Heads Master', routeUrl: '/fee-heads', icon: 'account_tree', sortOrder: 2, module: 'Academic', isActive: true, children: [] }
           ]),
@@ -3659,7 +3660,8 @@ export class LayoutComponent implements OnInit {
           { id: '5f1', title: 'Profit & Loss', routeUrl: '/finance/profit-loss', icon: 'query_stats', sortOrder: 1, module: 'Finance', isActive: true, children: [] },
           { id: '5f2', title: 'Balance Sheet', routeUrl: '/finance/balance-sheet', icon: 'account_balance_wallet', sortOrder: 2, module: 'Finance', isActive: true, children: [] },
           { id: '5f3', title: 'Expense Vouchers', routeUrl: '/finance/expenses', icon: 'receipt_long', sortOrder: 3, module: 'Finance', isActive: true, children: [] },
-          { id: '5f4', title: 'Chart of Accounts', routeUrl: '/finance/chart-of-accounts', icon: 'account_tree', sortOrder: 4, module: 'Finance', isActive: true, children: [] }
+          { id: '5f4', title: 'Chart of Accounts', routeUrl: '/finance/chart-of-accounts', icon: 'account_tree', sortOrder: 4, module: 'Finance', isActive: true, children: [] },
+          { id: '5f5', title: 'Smart Fee Recovery Agent (AI)', routeUrl: '/finance/fee-recovery-agent', icon: 'psychology', sortOrder: 5, module: 'Finance', isActive: true, children: [] }
         ]
       }] : []),
       {

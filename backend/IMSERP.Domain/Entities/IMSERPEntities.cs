@@ -3210,5 +3210,76 @@ public class GrievanceComment
     public GrievanceTicket? Ticket { get; set; }
 }
 
+// ── Smart Fee Recovery AI Agent Entities ─────────────────────────────
+public class FeeRecoveryPlan
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid StudentId { get; set; }
+    public Guid? InvoiceId { get; set; }
+
+    public decimal TotalOverdueAmount { get; set; }
+    public int DaysOverdue { get; set; }
+    public RecoveryRiskLevel RiskLevel { get; set; } = RecoveryRiskLevel.Low;
+    public RecoveryPlanStatus Status { get; set; } = RecoveryPlanStatus.Proposed;
+    public RecoveryActionChannel RecommendedChannel { get; set; } = RecoveryActionChannel.WhatsApp;
+
+    public string RecommendedTone { get; set; } = "Gentle";
+    public string GeneratedMessage { get; set; } = string.Empty;
+    public string? AiRationale { get; set; }
+    public int FollowUpCount { get; set; } = 0;
+    public DateTime? LastFollowUpAt { get; set; }
+    public DateTime? NextFollowUpScheduledAt { get; set; }
+
+    public string? ResolutionNotes { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+    public Tenant? Tenant { get; set; }
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+    [ForeignKey("StudentId")]
+    public Student? Student { get; set; }
+    [ForeignKey("InvoiceId")]
+    public FeeInvoice? Invoice { get; set; }
+    public ICollection<FeePromiseToPay> PromisesToPay { get; set; } = new List<FeePromiseToPay>();
+}
+
+public class FeePromiseToPay
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid StudentId { get; set; }
+    public Guid? RecoveryPlanId { get; set; }
+    public Guid? InvoiceId { get; set; }
+
+    public decimal PromisedAmount { get; set; }
+    public DateTime PromisedDate { get; set; }
+    public string ContactPerson { get; set; } = string.Empty;
+    public string ContactPhone { get; set; } = string.Empty;
+    public string? Notes { get; set; }
+
+    public bool IsKept { get; set; } = false;
+    public bool IsBroken { get; set; } = false;
+    public DateTime? SettledAt { get; set; }
+    public decimal? SettledAmount { get; set; }
+
+    public string RecordedByName { get; set; } = "Accounts";
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    public Tenant? Tenant { get; set; }
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+    [ForeignKey("StudentId")]
+    public Student? Student { get; set; }
+    [ForeignKey("RecoveryPlanId")]
+    public FeeRecoveryPlan? RecoveryPlan { get; set; }
+    [ForeignKey("InvoiceId")]
+    public FeeInvoice? Invoice { get; set; }
+}
+
+
 
 

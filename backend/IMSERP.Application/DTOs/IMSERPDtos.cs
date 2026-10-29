@@ -6386,3 +6386,112 @@ public record GrievanceStatsDto(
     decimal ResolutionRatePercentage
 );
 
+// ── Smart Fee Recovery AI Agent DTOs ─────────────────────────────
+public record FeeRecoveryPlanItemDto(
+    Guid Id,
+    Guid StudentId,
+    string StudentName,
+    string? AdmissionNumber,
+    string? RollNumber,
+    string? ClassName,
+    string? SectionName,
+    string? BatchName,
+    string? ParentName,
+    string? ParentPhone,
+    string? ProfilePhoto,
+    Guid? InvoiceId,
+    string? InvoiceNumber,
+    decimal TotalOverdueAmount,
+    int DaysOverdue,
+    string RiskLevel,
+    string Status,
+    string RecommendedChannel,
+    string RecommendedTone,
+    string GeneratedMessage,
+    string? AiRationale,
+    int FollowUpCount,
+    DateTime? LastFollowUpAt,
+    DateTime? NextFollowUpScheduledAt,
+    DateTime? ActivePromiseDate,
+    decimal? ActivePromiseAmount,
+    string? ActivePromiseContact,
+    DateTime CreatedAt,
+    bool IsSchoolStudent = false,
+    bool IsCoachingStudent = false,
+    string DivisionTag = "Hybrid"
+);
+
+public record FeeRecoverySummaryKpiDto(
+    decimal TotalOverdueAmount,
+    int TotalDefaultersCount,
+    int CriticalCount,
+    int HighRiskCount,
+    int ModerateCount,
+    int LowRiskCount,
+    int ActivePromisesCount,
+    decimal ActivePromisesAmount,
+    int RecoveredCount,
+    decimal TotalRecoveredAmount,
+    DateTime? LastAnalysisRunAt
+);
+
+public record RunFeeRecoveryAnalysisRequestDto(
+    Guid? BranchId,
+    Guid? ClassId,
+    Guid? BatchId,
+    int MinDaysOverdue = 1,
+    string? AcademicScope = "All"
+);
+
+public record DispatchRecoveryNudgeRequestDto(
+    Guid PlanId,
+    string? CustomMessage,
+    string? OverrideChannel
+);
+
+public record BatchDispatchNudgesRequestDto(
+    List<Guid> PlanIds
+);
+
+public record RecordPromiseToPayDto(
+    Guid StudentId,
+    Guid? RecoveryPlanId,
+    Guid? InvoiceId,
+    decimal PromisedAmount,
+    DateTime PromisedDate,
+    string ContactPerson,
+    string ContactPhone,
+    string? Notes
+);
+
+public record UpdatePromiseStatusDto(
+    bool IsKept,
+    bool IsBroken,
+    decimal? SettledAmount,
+    string? Notes
+);
+
+public record FeePromiseItemDto(
+    Guid Id,
+    Guid StudentId,
+    string StudentName,
+    string? RollNumber,
+    string? ClassName,
+    string? BatchName,
+    decimal PromisedAmount,
+    DateTime PromisedDate,
+    string ContactPerson,
+    string ContactPhone,
+    string? Notes,
+    bool IsKept,
+    bool IsBroken,
+    DateTime? SettledAt,
+    decimal? SettledAmount,
+    string RecordedByName,
+    DateTime CreatedAt,
+    bool IsSchoolStudent = false,
+    bool IsCoachingStudent = false,
+    string DivisionTag = "Hybrid"
+);
+
+

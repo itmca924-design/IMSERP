@@ -128,7 +128,7 @@ public class MenuController : ControllerBase
 
             // Ensure Teacher / Faculty / Admin / Principal roles have access to Tests / Marks Entry and Exams
             var roleNameLower = userRoleInfo.RoleName?.ToLower() ?? "";
-            if (roleNameLower.Contains("teacher") || roleNameLower.Contains("faculty") || roleNameLower.Contains("admin") || roleNameLower.Contains("principal"))
+            if (roleNameLower.Contains("teacher") || roleNameLower.Contains("faculty") || roleNameLower.Contains("admin") || roleNameLower.Contains("principal") || roleNameLower.Contains("super") || roleNameLower.Contains("account"))
             {
                 var essentialRoutes = new HashSet<string>(StringComparer.OrdinalIgnoreCase) 
                 { 
@@ -139,6 +139,12 @@ public class MenuController : ControllerBase
                     "/school/good-manners",
                     "/school/monthly-performance"
                 };
+
+                if (roleNameLower.Contains("admin") || roleNameLower.Contains("super") || roleNameLower.Contains("principal") || roleNameLower.Contains("director") || roleNameLower.Contains("account"))
+                {
+                    essentialRoutes.Add("/finance/fee-recovery-agent");
+                }
+
                 var testMenuIds = allMenuItems
                     .Where(m => m.RouteUrl != null && essentialRoutes.Contains(m.RouteUrl))
                     .Select(m => m.Id);

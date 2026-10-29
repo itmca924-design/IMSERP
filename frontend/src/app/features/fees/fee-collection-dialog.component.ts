@@ -1815,7 +1815,7 @@ export class FeeCollectionDialogComponent implements OnInit {
     } else {
       this.baseTuitionAmount = this.data.initialAmount !== undefined
         ? this.data.initialAmount
-        : (invoiceDue > 0 ? invoiceDue : 3500);
+        : (invoiceDue > 0 ? invoiceDue : 0);
     }
 
     const defaultRemarks = this.data.selectedInvoicesCount && this.data.selectedInvoicesCount > 1

@@ -1,4 +1,5 @@
 using IMSERP.Domain.Entities;
+using IMSERP.Application.DTOs;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 
@@ -122,6 +123,8 @@ public interface IIMSERPDbContext
     DbSet<PtmBooking> PtmBookings { get; }
     DbSet<GrievanceTicket> GrievanceTickets { get; }
     DbSet<GrievanceComment> GrievanceComments { get; }
+    DbSet<FeeRecoveryPlan> FeeRecoveryPlans { get; }
+    DbSet<FeePromiseToPay> FeePromisesToPay { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
@@ -150,4 +153,16 @@ public interface ICurrentUserService
     Guid UserId { get; }
     string UserRole { get; }
     string? Username { get; }
+}
+
+public interface IFeeRecoveryAgentService
+{
+    Task<FeeRecoverySummaryKpiDto> GetSummaryKpisAsync(Guid tenantId, Guid? branchId, string? academicScope = "All");
+    Task<List<FeeRecoveryPlanItemDto>> GetPlansAsync(Guid tenantId, Guid? branchId, Guid? classId, Guid? batchId, string? riskLevel, string? status, string? academicScope = "All");
+    Task<List<FeeRecoveryPlanItemDto>> RunAnalysisAsync(Guid tenantId, Guid? branchId, RunFeeRecoveryAnalysisRequestDto request);
+    Task<bool> DispatchNudgeAsync(Guid tenantId, Guid? branchId, DispatchRecoveryNudgeRequestDto request);
+    Task<int> BatchDispatchNudgesAsync(Guid tenantId, Guid? branchId, BatchDispatchNudgesRequestDto request);
+    Task<FeePromiseItemDto> RecordPromiseAsync(Guid tenantId, Guid? branchId, RecordPromiseToPayDto request, string recordedByName);
+    Task<List<FeePromiseItemDto>> GetPromisesAsync(Guid tenantId, Guid? branchId, bool? pendingOnly, string? academicScope = "All");
+    Task<bool> UpdatePromiseStatusAsync(Guid tenantId, Guid promiseId, UpdatePromiseStatusDto request);
 }

@@ -79,6 +79,12 @@
   - ALWAYS bind **Academic Class (कक्षा)** first!
   - The coaching batches dropdown MUST cascade dynamically from the selected Academic Class (`b.classId === selectedClassId` or `All Classes`), and subsequent student dropdowns/rosters MUST bind to the selected batch.
   - In Promotion & Transition: Both **Source (Source Class ➔ Source Batch)** and **Destination (Target Class ➔ Target Batch)** must strictly follow this cascading hierarchy.
+- **Tri-Modal Division Architecture (School + Coaching Hybrid, School Only, Coaching Only - Permanent SaaS Rule)**:
+  - IMSERP is an enterprise multi-tenant education management platform natively supporting three operational division scopes across modules:
+    1. **Hybrid Consolidated (School + Coaching Combined / All Divisions)**: Consolidates both school and coaching operations, financials, receivables, attendance, and rosters under one unified umbrella.
+    2. **School Division Only**: Operates strictly on School students (`IsSchoolStudent = true`), academic classes (कक्षा), sections, and school-specific fee heads/dues.
+    3. **Coaching Division Only**: Operates strictly on Coaching students (`IsCoachingStudent = true`), adhering to the strict Academic Class ➔ Coaching Batches cascading hierarchy.
+  - All transaction modules, fee ledgers, recovery agents, reports, and analytical dashboards MUST cleanly provide this tri-modal division scope selector (`All/Hybrid`, `School`, `Coaching`) with user-friendly, responsive controls and dynamic tag indicators.
 
 
 

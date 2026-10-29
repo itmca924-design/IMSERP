@@ -15,6 +15,7 @@ builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IWhatsAppService, WhatsAppService>();
 builder.Services.AddScoped<IPasswordHasherService, PasswordHasherService>();
 builder.Services.AddScoped<IAutomationService, AutomationService>();
+builder.Services.AddScoped<IFeeRecoveryAgentService, FeeRecoveryAgentService>();
 builder.Services.AddHostedService<InstituteAutomationBackgroundService>();
 
 // 2. DbContext Configuration (SQL Server Database: IMSERP)
@@ -1442,6 +1443,58 @@ using (var scope = app.Services.CreateScope())
                         CREATE INDEX IX_ChatMessages_Conv_Created ON ChatMessages (TenantId, ConversationId, CreatedAt);
                     END
 
+                    IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'FeeRecoveryPlans')
+                    BEGIN
+                        CREATE TABLE FeeRecoveryPlans (
+                            Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
+                            TenantId UNIQUEIDENTIFIER NOT NULL,
+                            BranchId UNIQUEIDENTIFIER NULL,
+                            StudentId UNIQUEIDENTIFIER NOT NULL,
+                            InvoiceId UNIQUEIDENTIFIER NULL,
+                            TotalOverdueAmount DECIMAL(18, 2) NOT NULL DEFAULT 0,
+                            DaysOverdue INT NOT NULL DEFAULT 0,
+                            RiskLevel INT NOT NULL DEFAULT 1,
+                            Status INT NOT NULL DEFAULT 1,
+                            RecommendedChannel INT NOT NULL DEFAULT 1,
+                            RecommendedTone NVARCHAR(100) NOT NULL DEFAULT 'Gentle',
+                            GeneratedMessage NVARCHAR(MAX) NOT NULL DEFAULT '',
+                            AiRationale NVARCHAR(MAX) NULL,
+                            FollowUpCount INT NOT NULL DEFAULT 0,
+                            LastFollowUpAt DATETIME2 NULL,
+                            NextFollowUpScheduledAt DATETIME2 NULL,
+                            ResolutionNotes NVARCHAR(MAX) NULL,
+                            CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+                            UpdatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
+                        );
+                        CREATE INDEX IX_FeeRecoveryPlans_Tenant_Risk ON FeeRecoveryPlans (TenantId, RiskLevel, Status);
+                        CREATE INDEX IX_FeeRecoveryPlans_Student ON FeeRecoveryPlans (TenantId, StudentId);
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'FeePromisesToPay')
+                    BEGIN
+                        CREATE TABLE FeePromisesToPay (
+                            Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
+                            TenantId UNIQUEIDENTIFIER NOT NULL,
+                            BranchId UNIQUEIDENTIFIER NULL,
+                            StudentId UNIQUEIDENTIFIER NOT NULL,
+                            RecoveryPlanId UNIQUEIDENTIFIER NULL,
+                            InvoiceId UNIQUEIDENTIFIER NULL,
+                            PromisedAmount DECIMAL(18, 2) NOT NULL DEFAULT 0,
+                            PromisedDate DATETIME2 NOT NULL,
+                            ContactPerson NVARCHAR(200) NOT NULL DEFAULT '',
+                            ContactPhone NVARCHAR(50) NOT NULL DEFAULT '',
+                            Notes NVARCHAR(MAX) NULL,
+                            IsKept BIT NOT NULL DEFAULT 0,
+                            IsBroken BIT NOT NULL DEFAULT 0,
+                            SettledAt DATETIME2 NULL,
+                            SettledAmount DECIMAL(18, 2) NULL,
+                            RecordedByName NVARCHAR(150) NOT NULL DEFAULT 'Accounts',
+                            CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
+                        );
+                        CREATE INDEX IX_FeePromisesToPay_Tenant_Date ON FeePromisesToPay (TenantId, PromisedDate);
+                        CREATE INDEX IX_FeePromisesToPay_Student ON FeePromisesToPay (TenantId, StudentId);
+                    END
+
                     -- Seed 'Campus Chat' Menu Item & Role Permissions
                     IF NOT EXISTS (SELECT 1 FROM MenuItems WHERE RouteUrl = '/chat')
                     BEGIN
@@ -1454,6 +1507,28 @@ using (var scope = app.Services.CreateScope())
                             INSERT INTO RolePermissions (Id, RoleId, MenuItemId, CanView, CanCreate, CanEdit, CanDelete)
                             SELECT NEWID(), r.Id, @ChatMenuId, 1, 1, 1, 1
                             FROM Roles r;
+                        END
+                    END
+
+                    -- Seed 'Smart Fee Recovery Agent (AI)' Menu Item & Role Permissions under Finance
+                    IF NOT EXISTS (SELECT 1 FROM MenuItems WHERE RouteUrl = '/finance/fee-recovery-agent')
+                    BEGIN
+                        DECLARE @FinParentId UNIQUEIDENTIFIER = (
+                            SELECT TOP 1 Id FROM MenuItems 
+                            WHERE (Title = 'Finance & Accounts' OR Module = 'Finance') AND ParentId IS NULL
+                            ORDER BY SortOrder
+                        );
+                        DECLARE @RecoveryMenuId UNIQUEIDENTIFIER = NEWID();
+
+                        INSERT INTO MenuItems (Id, Title, RouteUrl, Icon, ParentId, SortOrder, Module, IsActive)
+                        VALUES (@RecoveryMenuId, 'Smart Fee Recovery Agent (AI)', '/finance/fee-recovery-agent', 'psychology', @FinParentId, 6, 'Finance', 1);
+
+                        IF EXISTS (SELECT 1 FROM Roles)
+                        BEGIN
+                            INSERT INTO RolePermissions (Id, RoleId, MenuItemId, CanView, CanCreate, CanEdit, CanDelete)
+                            SELECT NEWID(), r.Id, @RecoveryMenuId, 1, 1, 1, 1
+                            FROM Roles r
+                            WHERE r.Name LIKE '%Admin%' OR r.Name LIKE '%Super%' OR r.Name LIKE '%Accountant%' OR r.Name LIKE '%Manager%' OR r.Name LIKE '%Principal%' OR r.Name LIKE '%Director%';
                         END
                     END
 
@@ -2406,7 +2481,8 @@ using (var scope = app.Services.CreateScope())
             new { Title = "Balance Sheet", Route = "/finance/balance-sheet", Icon = "account_balance_wallet", Order = 2 },
             new { Title = "Day Book", Route = "/finance/day-book", Icon = "auto_stories", Order = 3 },
             new { Title = "Expense Vouchers", Route = "/finance/expenses", Icon = "receipt_long", Order = 4 },
-            new { Title = "Chart of Accounts", Route = "/finance/chart-of-accounts", Icon = "account_tree", Order = 5 }
+            new { Title = "Chart of Accounts", Route = "/finance/chart-of-accounts", Icon = "account_tree", Order = 5 },
+            new { Title = "Smart Fee Recovery Agent (AI)", Route = "/finance/fee-recovery-agent", Icon = "psychology", Order = 6 }
         };
 
         foreach (var sub in financeSubmenus)
