@@ -945,11 +945,10 @@ public class HomeworkController : ControllerBase
         }
 
         // Determine active subjects
-        var subjects = (dto.Subjects != null && dto.Subjects.Count > 0)
-            ? dto.Subjects.Where(s => !string.IsNullOrWhiteSpace(s)).Distinct(StringComparer.OrdinalIgnoreCase).ToList()
-            : new List<string>();
+        List<string> subjects = new List<string>();
 
-        if (subjects.Count == 0 && effectiveClassId.HasValue)
+        // 1. Authoritative: If classId is specified, fetch curriculum subjects mapped to this class in database
+        if (effectiveClassId.HasValue && effectiveClassId.Value != Guid.Empty)
         {
             var dbSubjects = await _db.ClassSubjects.AsNoTracking()
                 .Include(cs => cs.Subject)
@@ -957,26 +956,70 @@ public class HomeworkController : ControllerBase
                 .Select(cs => cs.Subject!.Name)
                 .ToListAsync();
 
-            if (dbSubjects.Count > 0) subjects = dbSubjects;
+            if (dbSubjects.Count > 0)
+            {
+                subjects = dbSubjects.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            }
         }
 
-        if (subjects.Count == 0)
+        // 2. If no class subjects mapped in DB, check dto.Subjects
+        if (subjects.Count == 0 && dto.Subjects != null && dto.Subjects.Count > 0)
         {
-            var tenantSubjects = await _db.Subjects.AsNoTracking()
-                .Where(s => s.TenantId == tenantId)
-                .Select(s => s.Name)
-                .Take(5)
-                .ToListAsync();
-            subjects = tenantSubjects.Count > 0 ? tenantSubjects : new List<string> { "English", "Mathematics", "Hindi" };
+            subjects = dto.Subjects.Where(s => !string.IsNullOrWhiteSpace(s)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         }
-
-        var classWorkList = new List<DailySubjectTaskItem>();
-        var homeWorkList = new List<DailySubjectTaskItem>();
 
         var cLower = className.ToLowerInvariant();
         bool isPrePrimary = cLower.Contains("play") || cLower.Contains("nursery") || cLower.Contains("lkg") || cLower.Contains("ukg") || cLower.Contains("balvatika") || cLower.Contains("kg");
         bool isPrimary = !isPrePrimary && (cLower.Contains("1st") || cLower.Contains("2nd") || cLower.Contains("3rd") || cLower.Contains("4th") || cLower.Contains("5th") || cLower.Contains("class 1") || cLower.Contains("class 2") || cLower.Contains("class 3") || cLower.Contains("class 4") || cLower.Contains("class 5"));
         bool isMiddle = !isPrePrimary && !isPrimary && (cLower.Contains("6th") || cLower.Contains("7th") || cLower.Contains("8th") || cLower.Contains("class 6") || cLower.Contains("class 7") || cLower.Contains("class 8"));
+
+        // 3. Fallback stage-based defaults if still empty
+        if (subjects.Count == 0)
+        {
+            if (isPrePrimary)
+            {
+                subjects = new List<string> { "Art & Craft / Drawing", "English", "Rhymes & Oral Play" };
+            }
+            else if (isPrimary)
+            {
+                subjects = new List<string> { "English", "Hindi", "Mathematics", "Environmental Studies (EVS)" };
+            }
+            else
+            {
+                var tenantSubjects = await _db.Subjects.AsNoTracking()
+                    .Where(s => s.TenantId == tenantId)
+                    .Select(s => s.Name)
+                    .Take(5)
+                    .ToListAsync();
+                subjects = tenantSubjects.Count > 0 ? tenantSubjects : new List<string> { "English", "Mathematics", "Hindi" };
+            }
+        }
+
+        // 4. Pre-Primary Guardrail: strictly filter out secondary/senior subjects (Computer, Science, Biology, Chemistry, etc.)
+        if (isPrePrimary)
+        {
+            var prePrimaryFriendly = subjects.Where(s =>
+            {
+                var sl = s.ToLowerInvariant();
+                return sl.Contains("art") || sl.Contains("craft") || sl.Contains("draw") ||
+                       sl.Contains("eng") || sl.Contains("rhyme") || sl.Contains("oral") ||
+                       sl.Contains("play") || sl.Contains("math") || sl.Contains("num") ||
+                       sl.Contains("count") || sl.Contains("hind") || sl.Contains("color") ||
+                       sl.Contains("shape") || sl.Contains("activ") || sl.Contains("bal");
+            }).ToList();
+
+            if (prePrimaryFriendly.Count > 0)
+            {
+                subjects = prePrimaryFriendly.Take(4).ToList();
+            }
+            else
+            {
+                subjects = new List<string> { "Art & Craft / Drawing", "English", "Rhymes & Oral Play" };
+            }
+        }
+
+        var classWorkList = new List<DailySubjectTaskItem>();
+        var homeWorkList = new List<DailySubjectTaskItem>();
 
         foreach (var sub in subjects)
         {

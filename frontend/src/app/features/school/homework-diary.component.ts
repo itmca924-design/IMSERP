@@ -3876,6 +3876,8 @@ export class HomeworkDiaryComponent implements OnInit {
   onDiaryClassChange(): void {
     this.diarySectionId = '';
     this.selectedDiaryStudentId = '';
+    this.commonQuickFill.classWork = [];
+    this.commonQuickFill.homeWork = [];
     const found = this.classes.find(c => c.id === this.diaryClassId);
     this.diarySections = found?.sections || [];
 
@@ -3945,16 +3947,14 @@ export class HomeworkDiaryComponent implements OnInit {
   updateDynamicSubjectOptions(): void {
     const set = new Set<string>();
 
-    // 1. Class allocated curriculum subjects (highest priority)
+    // 1. Class allocated curriculum subjects (highest priority - strictly mapped subjects)
     if (this.classAllocatedSubjects && this.classAllocatedSubjects.length > 0) {
       for (const cs of this.classAllocatedSubjects) {
         const name = cs.subjectName || cs.name;
         if (name && name.trim()) set.add(name.trim());
       }
-    }
-
-    // 2. All active subjects from API
-    if (this.subjects && this.subjects.length > 0) {
+    } else if (this.subjects && this.subjects.length > 0) {
+      // 2. Only if NO class-allocated subjects exist, fall back to tenant subjects
       for (const s of this.subjects) {
         const name = s.name || s.subjectName;
         if (name && name.trim()) set.add(name.trim());
@@ -4039,7 +4039,9 @@ export class HomeworkDiaryComponent implements OnInit {
       sectionId: sectionId || null,
       batchId: batchId || null,
       date: this.diaryDate,
-      subjects: this.subjectOptions && this.subjectOptions.length > 0 ? this.subjectOptions : null,
+      subjects: this.classAllocatedSubjects && this.classAllocatedSubjects.length > 0
+        ? this.classAllocatedSubjects.map(cs => cs.subjectName || cs.name).filter(Boolean)
+        : (this.subjectOptions && this.subjectOptions.length > 0 ? this.subjectOptions : null),
       academicScope: this.diaryScope
     };
 
