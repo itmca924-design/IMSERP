@@ -1445,10 +1445,18 @@ export class FeeRecoveryAgentComponent implements OnInit {
       pageNum,
       this.pageSize
     ).subscribe({
-      next: (res: PagedResult<FeeRecoveryPlanItemDto>) => {
-        this.plans = res.items || [];
+      next: (res: any) => {
+        if (Array.isArray(res)) {
+          this.plans = res;
+          this.totalCount = res.length;
+        } else if (res && res.items) {
+          this.plans = res.items || [];
+          this.totalCount = res.totalCount ?? this.plans.length;
+        } else {
+          this.plans = [];
+          this.totalCount = 0;
+        }
         this.filteredPlans = this.plans;
-        this.totalCount = res.totalCount || 0;
         this.loading = false;
       },
       error: (err) => {
@@ -1473,11 +1481,12 @@ export class FeeRecoveryAgentComponent implements OnInit {
     };
 
     this.agentService.runAnalysis(req).subscribe({
-      next: (res) => {
+      next: (res: any) => {
         this.loading = false;
+        const total = res?.totalCount ?? (Array.isArray(res) ? res.length : 0);
         this.confirmDialog.alert(
           'AI Analysis Completed',
-          `AI Recovery Agent analyzed all fee records and generated ${res.totalCount} tailored recovery plans.`,
+          `AI Recovery Agent analyzed all fee records and generated ${total} tailored recovery plans.`,
           'success'
         );
         this.refreshAll();

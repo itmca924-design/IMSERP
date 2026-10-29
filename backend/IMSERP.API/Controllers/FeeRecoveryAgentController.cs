@@ -32,7 +32,7 @@ public class FeeRecoveryAgentController : ControllerBase
     }
 
     [HttpGet("plans")]
-    public async Task<ActionResult<PagedResult<FeeRecoveryPlanItemDto>>> GetPlans(
+    public async Task<IActionResult> GetPlans(
         [FromQuery] Guid? branchId,
         [FromQuery] Guid? classId,
         [FromQuery] Guid? batchId,
@@ -42,13 +42,22 @@ public class FeeRecoveryAgentController : ControllerBase
         [FromQuery] string? search = null,
         [FromQuery] string? sortBy = "overdue",
         [FromQuery] string? sortDirection = "desc",
-        [FromQuery] int pageNumber = 1,
-        [FromQuery] int pageSize = 10)
+        [FromQuery] int? pageNumber = null,
+        [FromQuery] int? pageSize = null)
     {
         var targetBranch = branchId ?? _currentUser.BranchId;
+        var pNum = pageNumber ?? 1;
+        var pSize = pageSize ?? (pageNumber.HasValue ? 10 : 1000);
         var plans = await _agentService.GetPlansAsync(
             _currentUser.TenantId, targetBranch, classId, batchId, riskLevel, status,
-            academicScope, search, sortBy, sortDirection, pageNumber, pageSize);
+            academicScope, search, sortBy, sortDirection, pNum, pSize);
+
+        // Backward compatibility: If client did not send pageNumber (e.g. cached client expecting raw array), return Items directly
+        if (!pageNumber.HasValue)
+        {
+            return Ok(plans.Items);
+        }
+
         return Ok(plans);
     }
 
