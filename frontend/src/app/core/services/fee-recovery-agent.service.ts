@@ -3,6 +3,16 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
+export interface PagedResult<T> {
+  items: T[];
+  totalCount: number;
+  pageNumber: number;
+  pageSize: number;
+  totalPages: number;
+  hasPreviousPage: boolean;
+  hasNextPage: boolean;
+}
+
 export interface FeeRecoveryPlanItemDto {
   id: string;
   studentId: string;
@@ -113,8 +123,13 @@ export class FeeRecoveryAgentService {
     batchId?: string | null,
     riskLevel?: string | null,
     status?: string | null,
-    academicScope: string = 'All'
-  ): Observable<FeeRecoveryPlanItemDto[]> {
+    academicScope: string = 'All',
+    search?: string | null,
+    sortBy: string = 'overdue',
+    sortDirection: string = 'desc',
+    pageNumber: number = 1,
+    pageSize: number = 10
+  ): Observable<PagedResult<FeeRecoveryPlanItemDto>> {
     let params = new HttpParams();
     if (branchId) params = params.set('branchId', branchId);
     if (classId) params = params.set('classId', classId);
@@ -122,12 +137,17 @@ export class FeeRecoveryAgentService {
     if (riskLevel) params = params.set('riskLevel', riskLevel);
     if (status) params = params.set('status', status);
     if (academicScope) params = params.set('academicScope', academicScope);
+    if (search) params = params.set('search', search);
+    if (sortBy) params = params.set('sortBy', sortBy);
+    if (sortDirection) params = params.set('sortDirection', sortDirection);
+    params = params.set('pageNumber', pageNumber.toString());
+    params = params.set('pageSize', pageSize.toString());
 
-    return this.http.get<FeeRecoveryPlanItemDto[]>(`${this.baseUrl}/plans`, { params });
+    return this.http.get<PagedResult<FeeRecoveryPlanItemDto>>(`${this.baseUrl}/plans`, { params });
   }
 
-  runAnalysis(req: RunAnalysisRequest): Observable<FeeRecoveryPlanItemDto[]> {
-    return this.http.post<FeeRecoveryPlanItemDto[]>(`${this.baseUrl}/run-analysis`, req);
+  runAnalysis(req: RunAnalysisRequest): Observable<PagedResult<FeeRecoveryPlanItemDto>> {
+    return this.http.post<PagedResult<FeeRecoveryPlanItemDto>>(`${this.baseUrl}/run-analysis`, req);
   }
 
   dispatchNudge(planId: string, customMessage?: string, overrideChannel?: string): Observable<boolean> {

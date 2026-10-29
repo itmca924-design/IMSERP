@@ -46,9 +46,9 @@ public class FeeRecoveryAgentService : IFeeRecoveryAgentService
         if (!string.IsNullOrWhiteSpace(academicScope) && !academicScope.Equals("All", StringComparison.OrdinalIgnoreCase))
         {
             if (academicScope.Equals("School", StringComparison.OrdinalIgnoreCase))
-                plansQuery = plansQuery.Where(p => p.Student != null && p.Student.IsSchoolStudent);
+                plansQuery = plansQuery.Where(p => p.Student != null && (p.Student.IsSchoolStudent || (p.Student.ClassId != null && p.Student.BatchId == null)));
             else if (academicScope.Equals("Coaching", StringComparison.OrdinalIgnoreCase))
-                plansQuery = plansQuery.Where(p => p.Student != null && p.Student.IsCoachingStudent);
+                plansQuery = plansQuery.Where(p => p.Student != null && (p.Student.IsCoachingStudent || p.Student.BatchId != null));
         }
 
         var plans = await plansQuery.ToListAsync();
@@ -64,9 +64,9 @@ public class FeeRecoveryAgentService : IFeeRecoveryAgentService
         if (!string.IsNullOrWhiteSpace(academicScope) && !academicScope.Equals("All", StringComparison.OrdinalIgnoreCase))
         {
             if (academicScope.Equals("School", StringComparison.OrdinalIgnoreCase))
-                promisesQuery = promisesQuery.Where(p => p.Student != null && p.Student.IsSchoolStudent);
+                promisesQuery = promisesQuery.Where(p => p.Student != null && (p.Student.IsSchoolStudent || (p.Student.ClassId != null && p.Student.BatchId == null)));
             else if (academicScope.Equals("Coaching", StringComparison.OrdinalIgnoreCase))
-                promisesQuery = promisesQuery.Where(p => p.Student != null && p.Student.IsCoachingStudent);
+                promisesQuery = promisesQuery.Where(p => p.Student != null && (p.Student.IsCoachingStudent || p.Student.BatchId != null));
         }
 
         var promises = await promisesQuery.ToListAsync();
@@ -112,17 +112,25 @@ public class FeeRecoveryAgentService : IFeeRecoveryAgentService
         );
     }
 
-    public async Task<List<FeeRecoveryPlanItemDto>> GetPlansAsync(
+    public async Task<PagedResult<FeeRecoveryPlanItemDto>> GetPlansAsync(
         Guid tenantId,
         Guid? branchId,
         Guid? classId,
         Guid? batchId,
         string? riskLevel,
         string? status,
-        string? academicScope = "All")
+        string? academicScope = "All",
+        string? search = null,
+        string? sortBy = "overdue",
+        string? sortDirection = "desc",
+        int pageNumber = 1,
+        int pageSize = 10)
     {
         var query = _db.FeeRecoveryPlans
             .Include(p => p.Student)
+                .ThenInclude(s => s.Class)
+            .Include(p => p.Student)
+                .ThenInclude(s => s.Batch)
             .Include(p => p.Invoice)
             .Include(p => p.PromisesToPay)
             .AsNoTracking()
@@ -134,9 +142,9 @@ public class FeeRecoveryAgentService : IFeeRecoveryAgentService
         if (!string.IsNullOrWhiteSpace(academicScope) && !academicScope.Equals("All", StringComparison.OrdinalIgnoreCase))
         {
             if (academicScope.Equals("School", StringComparison.OrdinalIgnoreCase))
-                query = query.Where(p => p.Student != null && p.Student.IsSchoolStudent);
+                query = query.Where(p => p.Student != null && (p.Student.IsSchoolStudent || (p.Student.ClassId != null && p.Student.BatchId == null)));
             else if (academicScope.Equals("Coaching", StringComparison.OrdinalIgnoreCase))
-                query = query.Where(p => p.Student != null && p.Student.IsCoachingStudent);
+                query = query.Where(p => p.Student != null && (p.Student.IsCoachingStudent || p.Student.BatchId != null));
         }
 
         if (classId.HasValue && classId.Value != Guid.Empty)
@@ -145,21 +153,113 @@ public class FeeRecoveryAgentService : IFeeRecoveryAgentService
         if (batchId.HasValue && batchId.Value != Guid.Empty)
             query = query.Where(p => p.Student != null && p.Student.BatchId == batchId.Value);
 
-        if (!string.IsNullOrWhiteSpace(riskLevel) && Enum.TryParse<RecoveryRiskLevel>(riskLevel, true, out var rLevel))
-            query = query.Where(p => p.RiskLevel == rLevel);
+        if (!string.IsNullOrWhiteSpace(riskLevel))
+        {
+            if (riskLevel.Equals("CriticalOrHigh", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(p => p.RiskLevel == RecoveryRiskLevel.Critical || p.RiskLevel == RecoveryRiskLevel.High);
+            }
+            else if (Enum.TryParse<RecoveryRiskLevel>(riskLevel, true, out var rLevel))
+            {
+                query = query.Where(p => p.RiskLevel == rLevel);
+            }
+        }
 
         if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<RecoveryPlanStatus>(status, true, out var rStatus))
             query = query.Where(p => p.Status == rStatus);
 
-        var list = await query
-            .OrderByDescending(p => p.RiskLevel)
-            .ThenByDescending(p => p.TotalOverdueAmount)
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var s = search.Trim().ToLower();
+            query = query.Where(p =>
+                (p.Student != null && (
+                    p.Student.StudentName.ToLower().Contains(s) ||
+                    (p.Student.RollNumber != null && p.Student.RollNumber.ToLower().Contains(s)) ||
+                    (p.Student.AdmissionNumber != null && p.Student.AdmissionNumber.ToLower().Contains(s)) ||
+                    (p.Student.ParentName != null && p.Student.ParentName.ToLower().Contains(s)) ||
+                    (p.Student.ParentWhatsAppPhone != null && p.Student.ParentWhatsAppPhone.ToLower().Contains(s))
+                )) ||
+                (p.Invoice != null && p.Invoice.InvoiceNumber != null && p.Invoice.InvoiceNumber.ToLower().Contains(s))
+            );
+        }
+
+        var totalCount = await query.CountAsync();
+
+        bool isDesc = string.Equals(sortDirection, "desc", StringComparison.OrdinalIgnoreCase);
+
+        switch (sortBy?.ToLower())
+        {
+            case "student":
+            case "studentname":
+                query = isDesc
+                    ? query.OrderByDescending(p => p.Student != null ? p.Student.StudentName : "")
+                    : query.OrderBy(p => p.Student != null ? p.Student.StudentName : "");
+                break;
+
+            case "class":
+            case "classname":
+                query = isDesc
+                    ? query.OrderByDescending(p => p.Student != null && p.Student.Class != null ? p.Student.Class.Name : "")
+                    : query.OrderBy(p => p.Student != null && p.Student.Class != null ? p.Student.Class.Name : "");
+                break;
+
+            case "overdue":
+            case "amount":
+            case "totaloverdueamount":
+                query = isDesc
+                    ? query.OrderByDescending(p => p.TotalOverdueAmount)
+                    : query.OrderBy(p => p.TotalOverdueAmount);
+                break;
+
+            case "delay":
+            case "daysoverdue":
+                query = isDesc
+                    ? query.OrderByDescending(p => p.DaysOverdue)
+                    : query.OrderBy(p => p.DaysOverdue);
+                break;
+
+            case "risk":
+            case "risklevel":
+                query = isDesc
+                    ? query.OrderByDescending(p => p.RiskLevel)
+                    : query.OrderBy(p => p.RiskLevel);
+                break;
+
+            case "action":
+            case "recommendedaction":
+            case "channel":
+                query = isDesc
+                    ? query.OrderByDescending(p => p.RecommendedChannel)
+                    : query.OrderBy(p => p.RecommendedChannel);
+                break;
+
+            case "status":
+                query = isDesc
+                    ? query.OrderByDescending(p => p.Status)
+                    : query.OrderBy(p => p.Status);
+                break;
+
+            default:
+                query = isDesc
+                    ? query.OrderByDescending(p => p.RiskLevel).ThenByDescending(p => p.TotalOverdueAmount)
+                    : query.OrderBy(p => p.RiskLevel).ThenBy(p => p.TotalOverdueAmount);
+                break;
+        }
+
+        if (pageNumber < 1) pageNumber = 1;
+        if (pageSize < 1) pageSize = 10;
+        if (pageSize > 100) pageSize = 100;
+
+        var pagedList = await query
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
             .ToListAsync();
 
-        return list.Select(MapPlanToDto).ToList();
+        var dtos = pagedList.Select(MapPlanToDto).ToList();
+        return new PagedResult<FeeRecoveryPlanItemDto>(dtos, totalCount, pageNumber, pageSize);
     }
 
-    public async Task<List<FeeRecoveryPlanItemDto>> RunAnalysisAsync(
+    public async Task<PagedResult<FeeRecoveryPlanItemDto>> RunAnalysisAsync(
         Guid tenantId,
         Guid? branchId,
         RunFeeRecoveryAnalysisRequestDto request)
@@ -185,9 +285,9 @@ public class FeeRecoveryAgentService : IFeeRecoveryAgentService
         if (!string.IsNullOrWhiteSpace(request.AcademicScope) && !request.AcademicScope.Equals("All", StringComparison.OrdinalIgnoreCase))
         {
             if (request.AcademicScope.Equals("School", StringComparison.OrdinalIgnoreCase))
-                invQuery = invQuery.Where(i => i.Student != null && i.Student.IsSchoolStudent);
+                invQuery = invQuery.Where(i => i.Student != null && (i.Student.IsSchoolStudent || (i.Student.ClassId != null && i.Student.BatchId == null)));
             else if (request.AcademicScope.Equals("Coaching", StringComparison.OrdinalIgnoreCase))
-                invQuery = invQuery.Where(i => i.Student != null && i.Student.IsCoachingStudent);
+                invQuery = invQuery.Where(i => i.Student != null && (i.Student.IsCoachingStudent || i.Student.BatchId != null));
         }
 
         if (request.ClassId.HasValue && request.ClassId.Value != Guid.Empty)
@@ -391,7 +491,7 @@ public class FeeRecoveryAgentService : IFeeRecoveryAgentService
         await _db.SaveChangesAsync();
         _logger.LogInformation("[FeeRecoveryAgent] Analyzed {Count} defaulters for tenant {TenantId}", createdOrUpdatedPlans.Count, tenantId);
 
-        return await GetPlansAsync(tenantId, branchId, request.ClassId, request.BatchId, null, null, request.AcademicScope);
+        return await GetPlansAsync(tenantId, branchId, request.ClassId, request.BatchId, null, null, request.AcademicScope, null, "overdue", "desc", 1, 10);
     }
 
     public async Task<bool> DispatchNudgeAsync(Guid tenantId, Guid? branchId, DispatchRecoveryNudgeRequestDto request)

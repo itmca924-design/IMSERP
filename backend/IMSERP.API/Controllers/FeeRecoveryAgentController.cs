@@ -32,21 +32,28 @@ public class FeeRecoveryAgentController : ControllerBase
     }
 
     [HttpGet("plans")]
-    public async Task<ActionResult<List<FeeRecoveryPlanItemDto>>> GetPlans(
+    public async Task<ActionResult<PagedResult<FeeRecoveryPlanItemDto>>> GetPlans(
         [FromQuery] Guid? branchId,
         [FromQuery] Guid? classId,
         [FromQuery] Guid? batchId,
         [FromQuery] string? riskLevel,
         [FromQuery] string? status,
-        [FromQuery] string? academicScope = "All")
+        [FromQuery] string? academicScope = "All",
+        [FromQuery] string? search = null,
+        [FromQuery] string? sortBy = "overdue",
+        [FromQuery] string? sortDirection = "desc",
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10)
     {
         var targetBranch = branchId ?? _currentUser.BranchId;
-        var plans = await _agentService.GetPlansAsync(_currentUser.TenantId, targetBranch, classId, batchId, riskLevel, status, academicScope);
+        var plans = await _agentService.GetPlansAsync(
+            _currentUser.TenantId, targetBranch, classId, batchId, riskLevel, status,
+            academicScope, search, sortBy, sortDirection, pageNumber, pageSize);
         return Ok(plans);
     }
 
     [HttpPost("run-analysis")]
-    public async Task<ActionResult<List<FeeRecoveryPlanItemDto>>> RunAnalysis([FromBody] RunFeeRecoveryAnalysisRequestDto request)
+    public async Task<ActionResult<PagedResult<FeeRecoveryPlanItemDto>>> RunAnalysis([FromBody] RunFeeRecoveryAnalysisRequestDto request)
     {
         var targetBranch = request.BranchId ?? _currentUser.BranchId;
         var plans = await _agentService.RunAnalysisAsync(_currentUser.TenantId, targetBranch, request);

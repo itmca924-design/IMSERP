@@ -2,6 +2,7 @@ import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup } from '@angular/forms';
 import { RouterModule } from '@angular/router';
+import { debounceTime, distinctUntilChanged } from 'rxjs';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -15,6 +16,8 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatMenuModule } from '@angular/material/menu';
+import { MatSortModule, Sort } from '@angular/material/sort';
+import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 
 import { AuthService } from '../../core/services/auth.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
@@ -26,7 +29,8 @@ import {
   FeeRecoveryPlanItemDto,
   FeeRecoverySummaryKpiDto,
   FeePromiseItemDto,
-  RunAnalysisRequest
+  RunAnalysisRequest,
+  PagedResult
 } from '../../core/services/fee-recovery-agent.service';
 import { RecordPromiseDialogComponent } from './dialogs/record-promise-dialog.component';
 import { EditNudgeMessageDialogComponent } from './dialogs/edit-nudge-message-dialog.component';
@@ -51,7 +55,9 @@ import { FeeCollectionDialogComponent } from '../fees/fee-collection-dialog.comp
     MatProgressBarModule,
     MatTabsModule,
     MatCheckboxModule,
-    MatMenuModule
+    MatMenuModule,
+    MatSortModule,
+    MatPaginatorModule
   ],
   template: `
     <div class="page-container">
@@ -87,7 +93,7 @@ import { FeeCollectionDialogComponent } from '../fees/fee-collection-dialog.comp
 
       <!-- 4-Column Standard Executive KPI Deck -->
       <div class="kpi-grid">
-        <div class="kpi-card overdue-kpi">
+        <div class="kpi-card overdue-kpi" (click)="filterByRisk('')" matTooltip="Click to show all fee defaulters" style="cursor: pointer;">
           <div class="kpi-icon-box">
             <mat-icon>account_balance_wallet</mat-icon>
           </div>
@@ -98,7 +104,7 @@ import { FeeCollectionDialogComponent } from '../fees/fee-collection-dialog.comp
           </div>
         </div>
 
-        <div class="kpi-card critical-kpi">
+        <div class="kpi-card critical-kpi" (click)="filterByRisk('CriticalOrHigh')" matTooltip="Click to show Critical & High Risk defaulters" style="cursor: pointer;">
           <div class="kpi-icon-box">
             <mat-icon>warning</mat-icon>
           </div>
@@ -171,11 +177,12 @@ import { FeeCollectionDialogComponent } from '../fees/fee-collection-dialog.comp
           <mat-form-field appearance="outline" class="filter-field">
             <mat-label>Risk Category</mat-label>
             <mat-select formControlName="riskLevel" (selectionChange)="onFilterChanged()">
-              <mat-option value="">All Risk Profiles</mat-option>
-              <mat-option value="Critical">🔴 Critical Defaulters (&gt;45 days)</mat-option>
-              <mat-option value="High">🟠 High Risk (21 - 45 days)</mat-option>
-              <mat-option value="Moderate">🟡 Moderate Delay (8 - 20 days)</mat-option>
-              <mat-option value="Low">🟢 Low / Recent (1 - 7 days)</mat-option>
+              <mat-option value="">All Risk Profiles ({{ summary?.totalDefaultersCount || 0 }})</mat-option>
+              <mat-option value="CriticalOrHigh">🚨 Critical &amp; High Risk ({{ (summary?.criticalCount || 0) + (summary?.highRiskCount || 0) }})</mat-option>
+              <mat-option value="Critical">🔴 Critical Defaulters &gt;45d ({{ summary?.criticalCount || 0 }})</mat-option>
+              <mat-option value="High">🟠 High Risk 21-45d ({{ summary?.highRiskCount || 0 }})</mat-option>
+              <mat-option value="Moderate">🟡 Moderate Delay 8-20d ({{ summary?.moderateCount || 0 }})</mat-option>
+              <mat-option value="Low">🟢 Low / Recent 1-7d ({{ summary?.lowRiskCount || 0 }})</mat-option>
             </mat-select>
           </mat-form-field>
 
@@ -206,12 +213,12 @@ import { FeeCollectionDialogComponent } from '../fees/fee-collection-dialog.comp
           <ng-template mat-tab-label>
             <mat-icon class="tab-icon">psychology</mat-icon>
             <span>AI Recovery Action Plans</span>
-            <span class="tab-badge" *ngIf="filteredPlans.length > 0">{{ filteredPlans.length }}</span>
+            <span class="tab-badge" *ngIf="totalCount > 0">{{ totalCount }}</span>
           </ng-template>
 
           <div class="tab-body-container">
             <!-- Table Action Toolbar -->
-            <div class="table-toolbar" *ngIf="filteredPlans.length > 0">
+            <div class="table-toolbar" *ngIf="totalCount > 0">
               <div class="toolbar-left">
                 <mat-checkbox [checked]="isAllSelected()" [indeterminate]="isPartiallySelected()" (change)="toggleSelectAll($event.checked)">
                   Select All Defaulters ({{ selectedPlanIds.size }} selected)
@@ -227,17 +234,23 @@ import { FeeCollectionDialogComponent } from '../fees/fee-collection-dialog.comp
 
             <!-- Responsive Table Wrap -->
             <div class="table-responsive" *ngIf="!loading && filteredPlans.length > 0">
-              <table class="agent-table">
+              <table
+                class="agent-table"
+                matSort
+                (matSortChange)="onSortChange($event)"
+                [matSortActive]="sortBy"
+                [matSortDirection]="sortDirection"
+              >
                 <thead>
                   <tr>
                     <th class="cb-col"></th>
-                    <th>Student Details</th>
-                    <th>Class / Batch</th>
-                    <th class="text-right">Overdue Balance</th>
-                    <th>Delay</th>
-                    <th>AI Risk Assessment</th>
-                    <th>Action Plan &amp; Tone</th>
-                    <th>Status / Commitment</th>
+                    <th mat-sort-header="student" class="sortable-th">Student Details</th>
+                    <th mat-sort-header="class" class="sortable-th">Class / Batch</th>
+                    <th mat-sort-header="overdue" class="text-right sortable-th">Overdue Balance</th>
+                    <th mat-sort-header="delay" class="sortable-th">Delay</th>
+                    <th mat-sort-header="risk" class="sortable-th">AI Risk Assessment</th>
+                    <th mat-sort-header="action" class="sortable-th">Action Plan</th>
+                    <th mat-sort-header="status" class="sortable-th">Commitment</th>
                     <th class="text-center actions-th" matTooltip="Action Menu">
                       <mat-icon class="th-action-icon">settings</mat-icon>
                     </th>
@@ -258,7 +271,7 @@ import { FeeCollectionDialogComponent } from '../fees/fee-collection-dialog.comp
                         <div class="stu-details">
                           <span class="stu-name">{{ p.studentName }}</span>
                           <span class="stu-roll">Roll: {{ p.rollNumber || p.admissionNumber || 'N/A' }}</span>
-                          <span class="stu-parent" *ngIf="p.parentPhone">📱 {{ p.parentPhone }}</span>
+                          <span class="stu-parent" *ngIf="p.parentPhone"><span class="phone-icon">📱</span><span class="phone-num">{{ p.parentPhone }}</span></span>
                         </div>
                       </div>
                     </td>
@@ -332,17 +345,41 @@ import { FeeCollectionDialogComponent } from '../fees/fee-collection-dialog.comp
               </table>
             </div>
 
+            <!-- Server-Side Pagination -->
+            <mat-paginator
+              *ngIf="totalCount > 0"
+              [length]="totalCount"
+              [pageSize]="pageSize"
+              [pageSizeOptions]="[10, 25, 50, 100]"
+              [pageIndex]="pageIndex"
+              (page)="onPageChange($event)"
+              showFirstLastButtons
+              class="agent-paginator mat-elevation-z1"
+            >
+            </mat-paginator>
+
             <!-- Empty State -->
             <div class="empty-state" *ngIf="!loading && filteredPlans.length === 0">
               <div class="empty-icon-wrap">
-                <mat-icon>verified</mat-icon>
+                <mat-icon>{{ totalCount === 0 && (summary?.totalDefaultersCount || 0) > 0 ? 'filter_alt_off' : 'verified' }}</mat-icon>
               </div>
-              <h3>No Fee Overdues Found</h3>
-              <p>Either all student fees are settled, or click "Run AI Analysis" to scan active rosters.</p>
-              <button mat-flat-button color="primary" (click)="triggerAnalysis()">
-                <mat-icon>auto_awesome</mat-icon>
-                <span>Run Real-Time AI Analysis</span>
-              </button>
+              <h3>{{ totalCount === 0 && (summary?.totalDefaultersCount || 0) > 0 ? 'No Defaulters for Current Filter' : 'No Fee Overdues Found' }}</h3>
+              <p *ngIf="totalCount === 0 && (summary?.totalDefaultersCount || 0) > 0">
+                No fee records matched the selected Risk Profile. There are <strong>{{ summary?.totalDefaultersCount }}</strong> total overdue accounts in this division.
+              </p>
+              <p *ngIf="(summary?.totalDefaultersCount || 0) === 0">
+                Either all student fees are settled, or click "Run AI Analysis" to scan active rosters.
+              </p>
+              <div class="empty-actions" style="display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap; justify-content: center;">
+                <button mat-stroked-button color="primary" *ngIf="totalCount === 0 && (summary?.totalDefaultersCount || 0) > 0" (click)="filterByRisk('')">
+                  <mat-icon>clear_all</mat-icon>
+                  <span>Show All Defaulters ({{ summary?.totalDefaultersCount }})</span>
+                </button>
+                <button mat-flat-button color="primary" (click)="triggerAnalysis()">
+                  <mat-icon>auto_awesome</mat-icon>
+                  <span>Run Real-Time AI Analysis</span>
+                </button>
+              </div>
             </div>
           </div>
         </mat-tab>
@@ -799,6 +836,16 @@ import { FeeCollectionDialogComponent } from '../fees/fee-collection-dialog.comp
         padding: 12px 14px;
         border-bottom: 2px solid #e2e8f0;
         white-space: nowrap;
+
+        &.sortable-th {
+          cursor: pointer;
+          user-select: none;
+          transition: background 0.15s ease, color 0.15s ease;
+          &:hover {
+            background: #eff6ff;
+            color: #1d4ed8;
+          }
+        }
       }
 
       td {
@@ -863,9 +910,25 @@ import { FeeCollectionDialogComponent } from '../fees/fee-collection-dialog.comp
         }
 
         .stu-parent {
-          font-size: 0.74rem;
-          color: #16a34a;
+          font-size: 0.75rem;
+          color: #15803d;
           font-weight: 600;
+          white-space: nowrap !important;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          margin-top: 2px;
+
+          .phone-icon {
+            font-size: 0.8rem;
+            line-height: 1;
+            flex-shrink: 0;
+          }
+
+          .phone-num {
+            white-space: nowrap !important;
+            letter-spacing: 0.3px;
+          }
         }
       }
     }
@@ -1166,6 +1229,20 @@ import { FeeCollectionDialogComponent } from '../fees/fee-collection-dialog.comp
       &.pending { background: #fef9c3; color: #854d0e; }
     }
 
+    .agent-paginator {
+      margin-top: 14px;
+      border-radius: 10px;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      overflow: hidden;
+    }
+
+    ::ng-deep .mat-sort-header-container {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
     /* Empty State */
     .empty-state {
       padding: 48px 20px;
@@ -1233,6 +1310,12 @@ export class FeeRecoveryAgentComponent implements OnInit {
 
   selectedPlanIds = new Set<string>();
 
+  totalCount = 0;
+  pageIndex = 0;
+  pageSize = 10;
+  sortBy = 'overdue';
+  sortDirection: 'asc' | 'desc' = 'desc';
+
   ngOnInit(): void {
     this.branches = this.authService.currentUser()?.branches || [];
     const activeBranch = this.authService.selectedBranchId() || '';
@@ -1247,9 +1330,15 @@ export class FeeRecoveryAgentComponent implements OnInit {
       searchTerm: ['']
     });
 
-    this.filterForm.get('searchTerm')?.valueChanges.subscribe(() => {
-      this.applyClientSideFilters();
-    });
+    this.filterForm.get('searchTerm')?.valueChanges
+      .pipe(
+        debounceTime(350),
+        distinctUntilChanged()
+      )
+      .subscribe(() => {
+        this.pageIndex = 0;
+        this.loadPlans();
+      });
 
     this.loadMetadata();
     this.refreshAll();
@@ -1264,7 +1353,7 @@ export class FeeRecoveryAgentComponent implements OnInit {
     if (scope === 'School') {
       this.filterForm.patchValue({ batchId: '' }, { emitEvent: false });
     }
-    this.applyClientSideFilters();
+    this.pageIndex = 0;
     this.refreshAll();
   }
 
@@ -1291,36 +1380,40 @@ export class FeeRecoveryAgentComponent implements OnInit {
       this.filteredBatches = this.batches;
     }
     this.filterForm.patchValue({ batchId: '' });
-    this.applyClientSideFilters();
+    this.pageIndex = 0;
     this.refreshAll();
   }
 
   onFilterChanged(): void {
-    this.applyClientSideFilters();
+    this.pageIndex = 0;
     this.refreshAll();
   }
 
-  refreshAll(): void {
-    this.loading = true;
-    const { branchId, academicScope, classId, batchId, riskLevel, status } = this.filterForm.value;
+  filterByRisk(risk: string): void {
+    this.filterForm.patchValue({ riskLevel: risk });
+    this.pageIndex = 0;
+    this.loadPlans();
+  }
+
+  onSortChange(sort: Sort): void {
+    this.sortBy = sort.active || 'overdue';
+    this.sortDirection = (sort.direction as 'asc' | 'desc') || 'desc';
+    this.pageIndex = 0;
+    this.loadPlans();
+  }
+
+  onPageChange(event: PageEvent): void {
+    this.pageIndex = event.pageIndex;
+    this.pageSize = event.pageSize;
+    this.loadPlans();
+  }
+
+  refreshSummaryAndPromises(): void {
+    const { branchId, academicScope } = this.filterForm.value;
 
     this.agentService.getSummary(branchId, academicScope).subscribe({
       next: (sum) => (this.summary = sum),
       error: (err) => console.error('Summary error', err)
-    });
-
-    this.agentService.getPlans(branchId, classId, batchId, riskLevel, status, academicScope).subscribe({
-      next: (data) => {
-        this.plans = data;
-        this.applyClientSideFilters();
-        this.loading = false;
-      },
-      error: (err) => {
-        this.plans = [];
-        this.filteredPlans = [];
-        this.loading = false;
-        this.confirmDialog.alert('Fetch Error', err.error?.message || 'Could not load fee recovery plans.', 'danger');
-      }
     });
 
     this.agentService.getPromises(branchId, false, academicScope).subscribe({
@@ -1329,68 +1422,49 @@ export class FeeRecoveryAgentComponent implements OnInit {
     });
   }
 
-  applyClientSideFilters(): void {
-    const search = (this.filterForm.get('searchTerm')?.value || '').trim().toLowerCase();
-    const scope = this.selectedAcademicScope;
-    const classId = this.filterForm.get('classId')?.value;
-    const batchId = this.filterForm.get('batchId')?.value;
-    const risk = this.filterForm.get('riskLevel')?.value;
-    const status = this.filterForm.get('status')?.value;
+  refreshAll(): void {
+    this.refreshSummaryAndPromises();
+    this.loadPlans();
+  }
 
-    this.filteredPlans = this.plans.filter((p) => {
-      // 1. Division Scope Filter
-      const tag = this.getDivisionPillLabel(p).toLowerCase();
-      if (scope === 'School') {
-        if (tag === 'coaching') return false;
-      } else if (scope === 'Coaching') {
-        if (tag === 'school') return false;
+  loadPlans(): void {
+    this.loading = true;
+    const { branchId, academicScope, classId, batchId, riskLevel, status, searchTerm } = this.filterForm.value;
+    const pageNum = this.pageIndex + 1;
+
+    this.agentService.getPlans(
+      branchId,
+      classId,
+      batchId,
+      riskLevel,
+      status,
+      academicScope,
+      searchTerm?.trim() || null,
+      this.sortBy,
+      this.sortDirection,
+      pageNum,
+      this.pageSize
+    ).subscribe({
+      next: (res: PagedResult<FeeRecoveryPlanItemDto>) => {
+        this.plans = res.items || [];
+        this.filteredPlans = this.plans;
+        this.totalCount = res.totalCount || 0;
+        this.loading = false;
+      },
+      error: (err) => {
+        this.plans = [];
+        this.filteredPlans = [];
+        this.totalCount = 0;
+        this.loading = false;
+        this.confirmDialog.alert('Fetch Error', err.error?.message || 'Could not load fee recovery plans.', 'danger');
       }
-
-      // 2. Class Filter
-      if (classId) {
-        const selectedCls = this.classes.find((c) => c.id === classId);
-        if (selectedCls && p.className && p.className.toLowerCase() !== selectedCls.name.toLowerCase()) {
-          return false;
-        }
-      }
-
-      // 3. Batch Filter
-      if (batchId) {
-        const selectedB = this.batches.find((b) => b.id === batchId);
-        if (selectedB && p.batchName && p.batchName.toLowerCase() !== selectedB.name.toLowerCase()) {
-          return false;
-        }
-      }
-
-      // 4. Risk Category Filter
-      if (risk && p.riskLevel !== risk) {
-        return false;
-      }
-
-      // 5. Plan Status Filter
-      if (status && p.status !== status) {
-        return false;
-      }
-
-      // 6. Search Term Filter
-      if (search) {
-        const name = (p.studentName || '').toLowerCase();
-        const roll = (p.rollNumber || '').toLowerCase();
-        const adm = (p.admissionNumber || '').toLowerCase();
-        const parent = (p.parentName || '').toLowerCase();
-        if (!name.includes(search) && !roll.includes(search) && !adm.includes(search) && !parent.includes(search)) {
-          return false;
-        }
-      }
-
-      return true;
     });
   }
 
   triggerAnalysis(): void {
     this.loading = true;
     const { branchId, academicScope, classId, batchId } = this.filterForm.value;
-    const req: RunFeeRecoveryAnalysisRequestDto = {
+    const req: RunAnalysisRequest = {
       branchId: branchId || null,
       classId: classId || null,
       batchId: batchId || null,
@@ -1403,7 +1477,7 @@ export class FeeRecoveryAgentComponent implements OnInit {
         this.loading = false;
         this.confirmDialog.alert(
           'AI Analysis Completed',
-          `AI Recovery Agent analyzed all fee records and generated ${res.length} tailored recovery plans.`,
+          `AI Recovery Agent analyzed all fee records and generated ${res.totalCount} tailored recovery plans.`,
           'success'
         );
         this.refreshAll();

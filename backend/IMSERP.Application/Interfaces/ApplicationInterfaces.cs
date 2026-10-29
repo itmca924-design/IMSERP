@@ -158,8 +158,20 @@ public interface ICurrentUserService
 public interface IFeeRecoveryAgentService
 {
     Task<FeeRecoverySummaryKpiDto> GetSummaryKpisAsync(Guid tenantId, Guid? branchId, string? academicScope = "All");
-    Task<List<FeeRecoveryPlanItemDto>> GetPlansAsync(Guid tenantId, Guid? branchId, Guid? classId, Guid? batchId, string? riskLevel, string? status, string? academicScope = "All");
-    Task<List<FeeRecoveryPlanItemDto>> RunAnalysisAsync(Guid tenantId, Guid? branchId, RunFeeRecoveryAnalysisRequestDto request);
+    Task<PagedResult<FeeRecoveryPlanItemDto>> GetPlansAsync(
+        Guid tenantId,
+        Guid? branchId,
+        Guid? classId,
+        Guid? batchId,
+        string? riskLevel,
+        string? status,
+        string? academicScope = "All",
+        string? search = null,
+        string? sortBy = "overdue",
+        string? sortDirection = "desc",
+        int pageNumber = 1,
+        int pageSize = 10);
+    Task<PagedResult<FeeRecoveryPlanItemDto>> RunAnalysisAsync(Guid tenantId, Guid? branchId, RunFeeRecoveryAnalysisRequestDto request);
     Task<bool> DispatchNudgeAsync(Guid tenantId, Guid? branchId, DispatchRecoveryNudgeRequestDto request);
     Task<int> BatchDispatchNudgesAsync(Guid tenantId, Guid? branchId, BatchDispatchNudgesRequestDto request);
     Task<FeePromiseItemDto> RecordPromiseAsync(Guid tenantId, Guid? branchId, RecordPromiseToPayDto request, string recordedByName);
