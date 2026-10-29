@@ -6363,8 +6363,16 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
 
           <div class="report-legend">✔ Completed &nbsp;·&nbsp; ◐ Partial &nbsp;·&nbsp; ✘ Not Done &nbsp;·&nbsp; ⏳ Not checked yet</div>
           <div class="sign-row">
-            <div>Class Teacher: <strong>{{ reportHeader?.classTeacherName || '__________________' }}</strong></div>
-            <div>Parent's Signature: __________________</div>
+            <div class="teacher-sign-col">
+              <div class="digital-sign-wrapper" *ngIf="digitalSignatureUrl">
+                <img [src]="digitalSignatureUrl" alt="Authorized Signature" class="digital-sign-img" />
+              </div>
+              <div class="sign-label">Class Teacher: <strong>{{ reportHeader?.classTeacherName || '__________________' }}</strong></div>
+            </div>
+            <div class="parent-sign-col">
+              <div class="parent-sign-space"></div>
+              <div class="sign-label">Parent's Signature: __________________</div>
+            </div>
           </div>
 
           <!-- Bottom Navy Banner -->
@@ -7027,7 +7035,48 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
     .hw-tick.hw-pending { color: #94a3b8; font-size: 11px; }
     .hw-summary { margin-top: 3px; font-size: 10.5px; font-weight: 800; color: #1e3a8a; }
     .report-legend { margin-top: 6px; text-align: center; font-size: 11px; font-weight: 700; color: #475569; }
-    .sign-row { display: flex; justify-content: space-between; margin-top: 14px; font-size: 12px; font-weight: 700; color: #0f172a; }
+    .sign-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin-top: 14px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+    .teacher-sign-col {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 2px;
+    }
+    .parent-sign-col {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 2px;
+    }
+    .parent-sign-space {
+      height: 38px;
+    }
+    .digital-sign-wrapper {
+      height: 38px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: flex-start;
+      overflow: visible;
+
+      .digital-sign-img {
+        max-height: 36px;
+        max-width: 130px;
+        object-fit: contain;
+        display: block;
+        mix-blend-mode: multiply;
+        filter: contrast(1.15);
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+    }
     .no-tasks-text { color: #94a3b8; text-align: center; }
     
     .col-rem-data { text-align: center; vertical-align: middle !important; font-size: 11px; padding: 6px 6px !important; }
@@ -7243,6 +7292,10 @@ export class DailyDiaryReportDialogComponent implements OnInit {
 
   get logoUrl(): string | null {
     return this.authService.getInstituteLogoUrl();
+  }
+
+  get digitalSignatureUrl(): string | null {
+    return this.authService.getDigitalSignatureUrl();
   }
 
   get formattedDate(): string {
@@ -7663,7 +7716,41 @@ export class DailyDiaryReportDialogComponent implements OnInit {
           .hw-tick.hw-pending { color: #94a3b8 !important; font-size: 10px !important; }
           .hw-summary { margin-top: 2px !important; font-size: 9.5px !important; font-weight: 800 !important; color: #1e3a8a !important; }
           .report-legend { margin-top: 5px !important; text-align: center !important; font-size: 10px !important; font-weight: 700 !important; color: #475569 !important; }
-          .sign-row { display: flex !important; justify-content: space-between !important; margin-top: 10px !important; font-size: 11px !important; font-weight: 700 !important; color: #0f172a !important; }
+          .sign-row {
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: flex-end !important;
+            margin-top: 10px !important;
+            font-size: 11px !important;
+            font-weight: 700 !important;
+            color: #0f172a !important;
+          }
+          .teacher-sign-col {
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: flex-start !important;
+          }
+          .parent-sign-col {
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: flex-end !important;
+          }
+          .parent-sign-space {
+            height: 30px !important;
+          }
+          .digital-sign-wrapper {
+            height: 30px !important;
+            display: flex !important;
+            align-items: flex-end !important;
+
+            .digital-sign-img {
+              max-height: 28px !important;
+              max-width: 120px !important;
+              object-fit: contain !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+          }
           .prev-hw-section {
             margin-top: 12px;
             page-break-inside: avoid;
