@@ -11,8 +11,8 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { MatDialogModule, MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatChipsModule } from '@angular/material/chips';
+import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { AuthService } from '../../core/services/auth.service';
 import { environment } from '../../../environments/environment';
 
@@ -58,7 +58,6 @@ export interface StudentGatePassItem {
     MatSelectModule,
     MatDialogModule,
     MatTooltipModule,
-    MatSnackBarModule,
     MatChipsModule
   ],
   template: `
@@ -1661,7 +1660,7 @@ export interface StudentGatePassItem {
 export class StudentGatePassComponent implements OnInit {
   private http = inject(HttpClient);
   private dialog = inject(MatDialog);
-  private snack = inject(MatSnackBar);
+  private confirmDialog = inject(ConfirmDialogService);
   public authService = inject(AuthService);
 
   @ViewChild('requestDialogTpl') requestDialogTpl!: TemplateRef<any>;
@@ -1807,7 +1806,7 @@ export class StudentGatePassComponent implements OnInit {
       error: (err) => {
         this.gatePasses = [];
         this.loading = false;
-        this.snack.open('Failed to load gate passes: ' + (err.error?.message || err.message), 'Close', { duration: 4000 });
+        this.confirmDialog.alert('Gate Passes Error', 'Failed to load gate passes: ' + (err.error?.message || err.message), 'danger');
       }
     });
   }
@@ -1871,12 +1870,12 @@ export class StudentGatePassComponent implements OnInit {
 
   submitGatePass(dialogRef: MatDialogRef<any>): void {
     if (!this.requestForm.reason?.trim()) {
-      this.snack.open('Please provide a reason for the gate pass.', 'Close', { duration: 3000 });
+      this.confirmDialog.alert('Validation Error', 'Please provide a reason for the gate pass.', 'warning');
       return;
     }
 
     if (!this.isStudentOrParent && !this.requestForm.studentId) {
-      this.snack.open('Please select a student.', 'Close', { duration: 3000 });
+      this.confirmDialog.alert('Validation Error', 'Please select a student.', 'warning');
       return;
     }
 
@@ -1895,12 +1894,12 @@ export class StudentGatePassComponent implements OnInit {
       next: (created) => {
         this.submitting = false;
         dialogRef.close();
-        this.snack.open(`Gate pass ${created.gatePassNumber} requested successfully!`, 'Close', { duration: 4000 });
+        this.confirmDialog.alert('Gate Pass Submitted', `Gate pass ${created.gatePassNumber} requested successfully!`, 'success');
         this.loadGatePasses();
       },
       error: (err) => {
         this.submitting = false;
-        this.snack.open(err.error?.message || 'Failed to submit gate pass request.', 'Close', { duration: 4500 });
+        this.confirmDialog.alert('Submission Failed', err.error?.message || 'Failed to submit gate pass request.', 'danger');
       }
     });
   }
@@ -1917,16 +1916,24 @@ export class StudentGatePassComponent implements OnInit {
   }
 
   cancelPass(pass: StudentGatePassItem): void {
-    if (!confirm(`Are you sure you want to cancel your gate pass request (${pass.gatePassNumber})?`)) return;
+    this.confirmDialog.confirm(
+      'Cancel Gate Pass',
+      `Are you sure you want to cancel your gate pass request (${pass.gatePassNumber})?`,
+      'Yes, Cancel',
+      'No',
+      'danger'
+    ).subscribe(confirmed => {
+      if (!confirmed) return;
 
-    this.http.delete(`${API_BASE}/front-desk/gate-passes/${pass.id}`).subscribe({
-      next: () => {
-        this.snack.open('Gate pass request cancelled.', 'Close', { duration: 3000 });
-        this.loadGatePasses();
-      },
-      error: (err) => {
-        this.snack.open(err.error?.message || 'Could not cancel pass.', 'Close', { duration: 4000 });
-      }
+      this.http.delete(`${API_BASE}/front-desk/gate-passes/${pass.id}`).subscribe({
+        next: () => {
+          this.confirmDialog.alert('Cancelled', 'Gate pass request cancelled.', 'info');
+          this.loadGatePasses();
+        },
+        error: (err) => {
+          this.confirmDialog.alert('Error', err.error?.message || 'Could not cancel pass.', 'danger');
+        }
+      });
     });
   }
 
@@ -1954,41 +1961,54 @@ export class StudentGatePassComponent implements OnInit {
       next: () => {
         this.submitting = false;
         dialogRef.close();
-        this.snack.open(`Gate pass ${this.reviewAction.toLowerCase()}d successfully.`, 'Close', { duration: 3000 });
+        this.confirmDialog.alert('Review Complete', `Gate pass ${this.reviewAction.toLowerCase()}d successfully.`, 'success');
         this.loadGatePasses();
       },
       error: (err) => {
         this.submitting = false;
-        this.snack.open(err.error?.message || 'Review action failed.', 'Close', { duration: 4000 });
+        this.confirmDialog.alert('Review Failed', err.error?.message || 'Review action failed.', 'danger');
       }
     });
   }
 
   markStudentReturned(pass: StudentGatePassItem): void {
-    if (!confirm(`Mark student ${pass.studentName} as returned to campus?`)) return;
+    this.confirmDialog.confirm(
+      'Confirm Student Return',
+      `Mark student ${pass.studentName} as returned to campus?`,
+      'Yes, Returned',
+      'Cancel',
+      'info'
+    ).subscribe(confirmed => {
+      if (!confirmed) return;
 
-    this.http.put(`${API_BASE}/front-desk/gate-passes/${pass.id}/return`, {}).subscribe({
-      next: () => {
-        this.snack.open('Student marked as returned to campus.', 'Close', { duration: 3000 });
-        this.loadGatePasses();
-      },
-      error: (err) => {
-        this.snack.open(err.error?.message || 'Failed to mark return.', 'Close', { duration: 4000 });
-      }
+      this.http.put(`${API_BASE}/front-desk/gate-passes/${pass.id}/return`, {}).subscribe({
+        next: () => {
+          this.confirmDialog.alert('Student Returned', 'Student marked as returned to campus.', 'success');
+          this.loadGatePasses();
+        },
+        error: (err) => {
+          this.confirmDialog.alert('Error', err.error?.message || 'Failed to mark return.', 'danger');
+        }
+      });
     });
   }
 
   deletePass(pass: StudentGatePassItem): void {
-    if (!confirm(`Delete gate pass ${pass.gatePassNumber}?`)) return;
+    this.confirmDialog.danger(
+      'Delete Gate Pass',
+      `Are you sure you want to permanently delete gate pass ${pass.gatePassNumber}?`
+    ).subscribe(confirmed => {
+      if (!confirmed) return;
 
-    this.http.delete(`${API_BASE}/front-desk/gate-passes/${pass.id}`).subscribe({
-      next: () => {
-        this.snack.open('Gate pass deleted.', 'Close', { duration: 3000 });
-        this.loadGatePasses();
-      },
-      error: (err) => {
-        this.snack.open(err.error?.message || 'Failed to delete gate pass.', 'Close', { duration: 4000 });
-      }
+      this.http.delete(`${API_BASE}/front-desk/gate-passes/${pass.id}`).subscribe({
+        next: () => {
+          this.confirmDialog.alert('Deleted', 'Gate pass deleted.', 'info');
+          this.loadGatePasses();
+        },
+        error: (err) => {
+          this.confirmDialog.alert('Delete Failed', err.error?.message || 'Failed to delete gate pass.', 'danger');
+        }
+      });
     });
   }
 }

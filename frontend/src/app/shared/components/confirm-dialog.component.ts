@@ -501,6 +501,25 @@ export interface ConfirmDialogData {
         }
       }
     }
+
+    @media (max-width: 600px) {
+      .dialog-header {
+        padding: 10px 12px;
+      }
+      .dialog-content {
+        padding: 14px 16px;
+      }
+      .dialog-actions {
+        padding: 12px 16px;
+        flex-direction: column-reverse;
+        gap: 8px;
+
+        button {
+          width: 100%;
+          min-width: 0;
+        }
+      }
+    }
   `]
 })
 export class ConfirmDialogComponent implements OnInit {
