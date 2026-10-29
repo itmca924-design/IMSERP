@@ -4,12 +4,14 @@ import { Observable, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
 export type ErpThemeMode = 'light' | 'dark' | 'auto';
-export type ErpAccentColor = 'indigo' | 'emerald' | 'blue' | 'purple' | 'amber' | 'rose' | 'teal' | 'cyan' | 'orange' | 'lime' | 'crimson' | 'slate';
+export type ErpAccentColor = 'default' | 'indigo' | 'emerald' | 'blue' | 'purple' | 'amber' | 'rose' | 'teal' | 'cyan' | 'orange' | 'lime' | 'crimson' | 'slate';
 export type ErpDensity = 'comfortable' | 'compact';
+export type ErpHeaderTheme = 'accent' | 'light' | 'dark';
 
 export interface ErpSettingsState {
   theme: ErpThemeMode;
   accent: ErpAccentColor;
+  headerTheme: ErpHeaderTheme;
   academicSession: string;
   density: ErpDensity;
   whatsappFeeAlerts: boolean;
@@ -59,7 +61,8 @@ const STORAGE_KEY = 'imserp_quick_settings_v1';
 
 const DEFAULT_SETTINGS: ErpSettingsState = {
   theme: 'light',
-  accent: 'indigo',
+  accent: 'default',
+  headerTheme: 'accent',
   academicSession: '2026-2027',
   density: 'comfortable',
   whatsappFeeAlerts: true,
@@ -85,6 +88,7 @@ export class QuickSettingsService {
   // Settings signals
   readonly theme = signal<ErpThemeMode>(DEFAULT_SETTINGS.theme);
   readonly accent = signal<ErpAccentColor>(DEFAULT_SETTINGS.accent);
+  readonly headerTheme = signal<ErpHeaderTheme>(DEFAULT_SETTINGS.headerTheme);
   readonly academicSession = signal<string>(DEFAULT_SETTINGS.academicSession);
   readonly density = signal<ErpDensity>(DEFAULT_SETTINGS.density);
   readonly whatsappFeeAlerts = signal<boolean>(DEFAULT_SETTINGS.whatsappFeeAlerts);
@@ -111,6 +115,7 @@ export class QuickSettingsService {
       const state: ErpSettingsState = {
         theme: this.theme(),
         accent: this.accent(),
+        headerTheme: this.headerTheme(),
         academicSession: this.academicSession(),
         density: this.density(),
         whatsappFeeAlerts: this.whatsappFeeAlerts(),
@@ -246,7 +251,15 @@ export class QuickSettingsService {
 
   setAccent(color: ErpAccentColor): void {
     this.accent.set(color);
+    if (this.headerTheme() !== 'light') {
+      this.headerTheme.set('accent');
+    }
     if (this.soundEffects()) this.playChime(900, 0.06);
+  }
+
+  setHeaderTheme(theme: ErpHeaderTheme): void {
+    this.headerTheme.set(theme);
+    if (this.soundEffects()) this.playChime(850, 0.06);
   }
 
   setAcademicSession(session: string): void {
@@ -299,6 +312,7 @@ export class QuickSettingsService {
   resetToDefaults(): void {
     this.theme.set(DEFAULT_SETTINGS.theme);
     this.accent.set(DEFAULT_SETTINGS.accent);
+    this.headerTheme.set(DEFAULT_SETTINGS.headerTheme);
     this.academicSession.set(DEFAULT_SETTINGS.academicSession);
     this.density.set(DEFAULT_SETTINGS.density);
     this.whatsappFeeAlerts.set(DEFAULT_SETTINGS.whatsappFeeAlerts);
@@ -363,6 +377,7 @@ export class QuickSettingsService {
 
       if (parsed.theme) this.theme.set(parsed.theme);
       if (parsed.accent) this.accent.set(parsed.accent);
+      if (parsed.headerTheme) this.headerTheme.set(parsed.headerTheme);
       if (parsed.academicSession) this.academicSession.set(parsed.academicSession);
       if (parsed.density) this.density.set(parsed.density);
       if (typeof parsed.whatsappFeeAlerts === 'boolean') this.whatsappFeeAlerts.set(parsed.whatsappFeeAlerts);
@@ -408,10 +423,15 @@ export class QuickSettingsService {
 
     // Accent Palette — remove all, then apply selected
     const accents: ErpAccentColor[] = [
-      'indigo', 'emerald', 'blue', 'purple', 'amber',
+      'default', 'indigo', 'emerald', 'blue', 'purple', 'amber',
       'rose', 'teal', 'cyan', 'orange', 'lime', 'crimson', 'slate'
     ];
     accents.forEach(a => body.classList.remove(`theme-${a}`));
     body.classList.add(`theme-${state.accent}`);
+
+    // Header Theme class on body
+    const headerThemes: ErpHeaderTheme[] = ['accent', 'light', 'dark'];
+    headerThemes.forEach(ht => body.classList.remove(`header-theme-${ht}`));
+    body.classList.add(`header-theme-${state.headerTheme || 'accent'}`);
   }
 }

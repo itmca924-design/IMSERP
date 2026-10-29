@@ -3696,7 +3696,112 @@ public record BusBoardingManifestRowDto(
     string? PickupTime,
     string? ParentPhone,
     bool IsPresent = false,
-    bool IsBoarded = false
+    bool IsBoarded = false,
+    string Status = "Pending",
+    Guid? StudentId = null,
+    Guid? TeacherId = null,
+    DateTime? BoardedAt = null,
+    DateTime? DroppedAt = null,
+    string? LastUpdatedFormatted = null
+);
+
+public record TapBoardingRequestDto(
+    Guid RouteId,
+    string DepartureType, // "Morning" | "Evening"
+    string MemberType,    // "Student" | "Teacher"
+    Guid? StudentId,
+    Guid? TeacherId,
+    string PassengerName,
+    string? PassengerCode,
+    string StopName,
+    string Status,        // "Boarded" | "Dropped" | "Absent" | "Pending"
+    bool SendWhatsAppAlert = true,
+    string? Remarks = null
+);
+
+public record TapBoardingResponseDto(
+    bool Success,
+    string Status,
+    string DepartureType,
+    DateTime Timestamp,
+    string TimeFormatted,
+    string PassengerName,
+    string StopName,
+    bool WhatsAppSent,
+    string Message
+);
+
+public record LiveTransportFleetTrackerDto(
+    DateTime TrackerDate,
+    string DateFormatted,
+    int ActiveBusesCount,
+    int TotalCommutersToday,
+    int MorningBoardedCount,
+    int MorningAbsentCount,
+    int EveningBoardedCount,
+    int EveningDroppedCount,
+    int EveningAbsentCount,
+    List<LiveRouteProgressDto> Routes,
+    List<LiveBoardingFeedItemDto> RecentFeed
+);
+
+public record LiveRouteProgressDto(
+    Guid RouteId,
+    string RouteCode,
+    string RouteName,
+    string VehicleNumber,
+    string? DriverName,
+    string? DriverPhone,
+    string? ConductorName,
+    int TotalPassengers,
+    int MorningBoarded,
+    int MorningAbsent,
+    int EveningBoarded,
+    int EveningDropped,
+    int EveningAbsent,
+    string? LastActivityStop,
+    DateTime? LastActivityAt,
+    string? LastActivityTimeFormatted
+);
+
+public record LiveBoardingFeedItemDto(
+    Guid Id,
+    string PassengerName,
+    string? PassengerCode,
+    string? ClassOrBatch,
+    string RouteCode,
+    string StopName,
+    string Action,
+    string DepartureType,
+    DateTime Timestamp,
+    string TimeFormatted,
+    string? MarkedBy
+);
+
+public record StudentLiveTransportStatusDto(
+    bool HasTransport,
+    Guid? StudentId,
+    string? StudentName,
+    string? StudentCode,
+    string? ClassOrBatch,
+    Guid? RouteId,
+    string? RouteCode,
+    string? RouteName,
+    string? VehicleNumber,
+    string? DriverName,
+    string? DriverPhone,
+    string? ConductorName,
+    string? StopName,
+    string? ScheduledPickupTime,
+    string? ScheduledDropTime,
+    string MorningStatus, // "Pending" | "Boarded" | "Absent" | "NotEnrolled"
+    DateTime? MorningBoardedAt,
+    string? MorningBoardedAtFormatted,
+    string EveningStatus, // "Pending" | "Boarded" | "Dropped" | "Absent" | "NotEnrolled"
+    DateTime? EveningBoardedAt,
+    DateTime? EveningDroppedAt,
+    string? EveningTimeFormatted,
+    string? LastMarkedBy
 );
 
 public record SaveBoardingAttendanceDto(

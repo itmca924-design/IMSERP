@@ -737,6 +737,62 @@
             <span class="accent-name">{{ acc.name }}</span>
           </button>
         </div>
+
+        <!-- Default Color Featured Radio Button -->
+        <button
+          type="button"
+          class="default-color-featured-radio"
+          [class.active]="settingsService.accent() === 'default'"
+          (click)="setAccent('default')">
+          <div class="radio-content">
+            <span class="color-swatch-gradient">
+              <mat-icon *ngIf="settingsService.accent() === 'default'">check</mat-icon>
+            </span>
+            <div class="radio-labels">
+              <strong class="radio-title">Default ERP Theme</strong>
+              <span class="radio-desc">Official Signature Deep Navy &amp; Royal Enterprise Blue</span>
+            </div>
+          </div>
+          <mat-icon class="radio-indicator">{{ settingsService.accent() === 'default' ? 'radio_button_checked' : 'radio_button_unchecked' }}</mat-icon>
+        </button>
+      </section>
+
+      <!-- Header Toolbar Theme -->
+      <section class="settings-section">
+        <h4 class="section-title">Header Toolbar Theme</h4>
+        <p class="section-desc">Choose header styling: auto-sync with brand accent, crisp light, or dark slate</p>
+
+        <div class="theme-mode-selector">
+          <button
+            type="button"
+            class="mode-btn"
+            [class.active]="settingsService.headerTheme() === 'accent'"
+            (click)="setHeaderTheme('accent')">
+            <mat-icon>palette</mat-icon>
+            <span>Brand Accent</span>
+            <mat-icon class="mode-check" *ngIf="settingsService.headerTheme() === 'accent'">check_circle</mat-icon>
+          </button>
+
+          <button
+            type="button"
+            class="mode-btn"
+            [class.active]="settingsService.headerTheme() === 'light'"
+            (click)="setHeaderTheme('light')">
+            <mat-icon>light_mode</mat-icon>
+            <span>Crisp Light</span>
+            <mat-icon class="mode-check" *ngIf="settingsService.headerTheme() === 'light'">check_circle</mat-icon>
+          </button>
+
+          <button
+            type="button"
+            class="mode-btn"
+            [class.active]="settingsService.headerTheme() === 'dark'"
+            (click)="setHeaderTheme('dark')">
+            <mat-icon>dark_mode</mat-icon>
+            <span>Dark Slate</span>
+            <mat-icon class="mode-check" *ngIf="settingsService.headerTheme() === 'dark'">check_circle</mat-icon>
+          </button>
+        </div>
       </section>
 
       <!-- Layout Density -->

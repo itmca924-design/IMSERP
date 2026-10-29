@@ -4875,6 +4875,7 @@ public class TestsController : ControllerBase
             Title = dto.Title,
             Subject = dto.Subject,
             MaxMarks = dto.MaxMarks,
+            PassingMarks = dto.PassingMarks > 0 ? dto.PassingMarks : 33,
             TestDate = dto.TestDate
         };
 
@@ -4931,6 +4932,7 @@ public class TestsController : ControllerBase
                     Title = string.IsNullOrWhiteSpace(dto.Title) ? "Untitled Exam" : dto.Title.Trim(),
                     Subject = string.IsNullOrWhiteSpace(dto.Subject) ? "General" : dto.Subject.Trim(),
                     MaxMarks = dto.MaxMarks > 0 ? dto.MaxMarks : 100,
+                    PassingMarks = dto.PassingMarks > 0 ? dto.PassingMarks : 33,
                     TestDate = dto.TestDate != default ? dto.TestDate : DateTime.UtcNow,
                     EvaluationStatus = "Scheduled"
                 }).ToList();

@@ -1851,7 +1851,10 @@ public class TransportAttendance
     public DateTime AttendanceDate { get; set; }
     public string DepartureType { get; set; } = "Morning"; // Morning | Evening
     public bool IsBoarded { get; set; } = false;
+    public string Status { get; set; } = "Pending"; // Pending | Boarded | Dropped | Absent
     public DateTime? BoardedAt { get; set; }
+    public DateTime? DroppedAt { get; set; }
+    public string? Remarks { get; set; }
     public string? MarkedBy { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

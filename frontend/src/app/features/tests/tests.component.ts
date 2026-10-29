@@ -24,7 +24,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { CoachingService } from '../../core/services/coaching.service';
 import { SchoolService, SchoolClassDto, SchoolSectionDto, SectionPeriodRoutineDto } from '../../core/services/school.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
-import { SubjectsService, SubjectDto } from '../../core/services/subjects.service';
+import { SubjectsService, SubjectDto, ClassSubjectDto } from '../../core/services/subjects.service';
 import { LocalDatetimePipe } from '../../shared/pipes/local-datetime.pipe';
 import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.directive';
 import { AuthService } from '../../core/services/auth.service';
@@ -219,8 +219,9 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
               <span>Exam Title *</span>
               <span>Date *</span>
               <span>Time</span>
-              <span class="text-center lbl-marks">Marks *</span>
-              <span class="text-center">Action</span>
+              <span class="text-center lbl-marks">Max *</span>
+              <span class="text-center lbl-pass">Pass *</span>
+              <span class="text-center lbl-del" matTooltip="Action"><mat-icon>delete_outline</mat-icon></span>
             </div>
 
             <!-- Desktop / Tablet Column Header (Coaching Mode) -->
@@ -231,8 +232,9 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
               <span>Exam Title *</span>
               <span>Date *</span>
               <span>Time</span>
-              <span class="text-center lbl-marks">Marks *</span>
-              <span class="text-center">Action</span>
+              <span class="text-center lbl-marks">Max *</span>
+              <span class="text-center lbl-pass">Pass *</span>
+              <span class="text-center lbl-del" matTooltip="Action"><mat-icon>delete_outline</mat-icon></span>
             </div>
 
             <!-- Form rows -->
@@ -293,7 +295,8 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                   <span class="mobile-input-label">Subject *</span>
                   <mat-form-field appearance="outline" class="field-compact" subscriptSizing="dynamic">
                     <mat-select formControlName="subject" placeholder="Subject..." panelClass="smart-subject-panel"
-                                (openedChange)="onSubjectSelectOpened(i, $event)">
+                                (openedChange)="onSubjectSelectOpened(i, $event)"
+                                (selectionChange)="onRowSubjectChange(i, $event.value)">
                       <mat-select-trigger>{{ examRows[i].get('subject')?.value || '' }}</mat-select-trigger>
                       <mat-option disabled class="select-search-option">
                         <div class="select-search-wrap" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()">
@@ -355,10 +358,19 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
 
                 <!-- Max Marks -->
                 <div class="cell-marks">
-                  <span class="mobile-input-label">Marks *</span>
+                  <span class="mobile-input-label">Max Marks *</span>
                   <mat-form-field appearance="outline" class="field-compact" subscriptSizing="dynamic">
-                    <input matInput formControlName="maxMarks" type="number" min="1" placeholder="50">
+                    <input matInput formControlName="maxMarks" type="number" min="1" placeholder="100">
                     <mat-error *ngIf="row.get('maxMarks')?.invalid">Min 1</mat-error>
+                  </mat-form-field>
+                </div>
+
+                <!-- Pass Marks -->
+                <div class="cell-pass">
+                  <span class="mobile-input-label">Pass Marks *</span>
+                  <mat-form-field appearance="outline" class="field-compact" subscriptSizing="dynamic">
+                    <input matInput formControlName="passingMarks" type="number" min="0" placeholder="33">
+                    <mat-error *ngIf="row.get('passingMarks')?.invalid">Min 0</mat-error>
                   </mat-form-field>
                 </div>
 
@@ -1642,13 +1654,24 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
       min-width: 820px;
       width: 100%;
       .lbl-num { text-align: center; }
-      .lbl-marks { text-align: center; white-space: nowrap; }
+      .lbl-marks, .lbl-pass { text-align: center; white-space: nowrap; }
+      .lbl-del {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        mat-icon {
+          font-size: 17px;
+          width: 17px;
+          height: 17px;
+          color: #64748b;
+        }
+      }
 
       &.coaching-mode {
-        grid-template-columns: 32px minmax(130px, 1.3fr) minmax(110px, 1.2fr) minmax(140px, 1.6fr) 125px 85px 75px 38px;
+        grid-template-columns: 32px minmax(130px, 1.2fr) minmax(110px, 1.1fr) minmax(140px, 1.4fr) 120px 80px 65px 65px 38px;
       }
       &.school-mode {
-        grid-template-columns: 32px minmax(110px, 1.2fr) 75px minmax(110px, 1.2fr) minmax(130px, 1.5fr) 125px 85px 75px 38px;
+        grid-template-columns: 32px minmax(110px, 1.1fr) 75px minmax(110px, 1.1fr) minmax(130px, 1.3fr) 120px 80px 65px 65px 38px;
       }
     }
 
@@ -1669,10 +1692,10 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
       &:last-child { border-radius: 0 0 8px 8px; }
 
       &.coaching-mode {
-        grid-template-columns: 32px minmax(130px, 1.3fr) minmax(110px, 1.2fr) minmax(140px, 1.6fr) 125px 85px 75px 38px;
+        grid-template-columns: 32px minmax(130px, 1.2fr) minmax(110px, 1.1fr) minmax(140px, 1.4fr) 120px 80px 65px 65px 38px;
       }
       &.school-mode {
-        grid-template-columns: 32px minmax(110px, 1.2fr) 75px minmax(110px, 1.2fr) minmax(130px, 1.5fr) 125px 85px 75px 38px;
+        grid-template-columns: 32px minmax(110px, 1.1fr) 75px minmax(110px, 1.1fr) minmax(130px, 1.3fr) 120px 80px 65px 65px 38px;
       }
     }
 
@@ -1691,14 +1714,14 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
       justify-content: center !important;
       mat-icon { font-size: 20px; width: 20px; height: 20px; }
     }
-    .cell-marks {
+    .cell-marks, .cell-pass {
       input {
         text-align: center;
         font-weight: 700;
       }
     }
     .cell-class, .cell-section, .cell-batch, .cell-subject, .cell-title,
-    .cell-date, .cell-time, .cell-marks, .cell-num, .cell-del {
+    .cell-date, .cell-time, .cell-marks, .cell-pass, .cell-num, .cell-del {
       min-width: 0;
       box-sizing: border-box;
     }
@@ -3550,12 +3573,12 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
     @media (max-width: 1024px) {
       .row-labels.coaching-mode,
       .exam-row.coaching-mode {
-        grid-template-columns: 32px minmax(130px, 1.3fr) minmax(110px, 1.2fr) minmax(140px, 1.6fr) 125px 85px 75px 38px;
+        grid-template-columns: 32px minmax(130px, 1.2fr) minmax(110px, 1.1fr) minmax(140px, 1.4fr) 120px 80px 65px 65px 38px;
         gap: 6px;
       }
       .row-labels.school-mode,
       .exam-row.school-mode {
-        grid-template-columns: 32px minmax(110px, 1.2fr) 75px minmax(110px, 1.2fr) minmax(130px, 1.5fr) 125px 85px 75px 38px;
+        grid-template-columns: 32px minmax(110px, 1.1fr) 75px minmax(110px, 1.1fr) minmax(130px, 1.3fr) 120px 80px 65px 65px 38px;
         gap: 6px;
       }
       .shared-batch-row .class-selector,
@@ -3806,9 +3829,14 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
         .cell-section,
         .cell-batch,
         .cell-subject,
-        .cell-title,
-        .cell-marks {
+        .cell-title {
           grid-column: span 2 !important;
+          width: 100% !important;
+        }
+
+        .cell-marks,
+        .cell-pass {
+          grid-column: span 1 !important;
           width: 100% !important;
         }
 
@@ -4340,6 +4368,7 @@ export class TestsComponent implements OnInit {
 
   // Class-specific subject cache: classId -> SubjectDto[]
   classSubjectsCache = new Map<string, SubjectDto[]>();
+  classSubjectsDetailCache = new Map<string, ClassSubjectDto[]>();
 
   bulkForm: FormGroup;
   saving = false;
@@ -4542,7 +4571,8 @@ export class TestsComponent implements OnInit {
       title: ['', Validators.required],
       examDate: [today, Validators.required],
       examTime: ['09:00'],
-      maxMarks: [50, [Validators.required, Validators.min(1)]]
+      maxMarks: [100, [Validators.required, Validators.min(1)]],
+      passingMarks: [33, [Validators.required, Validators.min(0)]]
     });
   }
 
@@ -4916,18 +4946,21 @@ export class TestsComponent implements OnInit {
     } else {
       this.filteredSubjectsPerRow[i] = [...this.allSubjects];
     }
+    this.syncMarksForClassSubject(i, classId);
   }
 
   loadSubjectsForClassRow(i: number, classId: string): void {
     if (this.classSubjectsCache.has(classId)) {
       const cached = this.classSubjectsCache.get(classId)!;
       this.filteredSubjectsPerRow[i] = cached.length > 0 ? cached : [...this.allSubjects];
+      this.syncMarksForClassSubject(i, classId);
       return;
     }
 
     this.subjectsService.getClassSubjects(classId).subscribe({
       next: (classSubs) => {
         if (classSubs && classSubs.length > 0) {
+          this.classSubjectsDetailCache.set(classId, classSubs);
           const mapped: SubjectDto[] = classSubs.map(cs => ({
             id: cs.subjectId,
             name: cs.subjectName,
@@ -4938,14 +4971,61 @@ export class TestsComponent implements OnInit {
           this.classSubjectsCache.set(classId, mapped);
           this.filteredSubjectsPerRow[i] = mapped;
         } else {
+          this.classSubjectsDetailCache.set(classId, []);
           this.classSubjectsCache.set(classId, [...this.allSubjects]);
           this.filteredSubjectsPerRow[i] = [...this.allSubjects];
         }
+        this.syncMarksForClassSubject(i, classId);
       },
       error: () => {
         this.filteredSubjectsPerRow[i] = [...this.allSubjects];
       }
     });
+  }
+
+  syncMarksForClassSubject(i: number, classId?: string): void {
+    const row = this.examRows[i];
+    if (!row) return;
+    const targetClassId = classId || row.get('classId')?.value || (this.plannerCategory === 'school' ? this.sharedClassId : null);
+    const subjectName = row.get('subject')?.value;
+    if (!subjectName || !targetClassId) return;
+
+    const classSubs = this.classSubjectsDetailCache.get(targetClassId);
+    if (classSubs && classSubs.length > 0) {
+      const sName = subjectName.trim().toLowerCase();
+      const matched = classSubs.find(cs =>
+        (cs.subjectName && cs.subjectName.trim().toLowerCase() === sName) ||
+        (cs.subjectCode && cs.subjectCode.trim().toLowerCase() === sName)
+      );
+      if (matched) {
+        if (matched.totalMarks != null && matched.totalMarks > 0) {
+          row.get('maxMarks')?.setValue(matched.totalMarks);
+        }
+        if (matched.passingMarks != null && matched.passingMarks >= 0) {
+          row.get('passingMarks')?.setValue(matched.passingMarks);
+        }
+      }
+    }
+  }
+
+  onRowSubjectChange(i: number, subjectName: string): void {
+    const row = this.examRows[i];
+    if (!row) return;
+    const classId = row.get('classId')?.value || (this.plannerCategory === 'school' ? this.sharedClassId : null);
+    if (!classId) return;
+
+    if (this.classSubjectsDetailCache.has(classId)) {
+      this.syncMarksForClassSubject(i, classId);
+    } else {
+      this.subjectsService.getClassSubjects(classId).subscribe({
+        next: (classSubs) => {
+          if (classSubs && classSubs.length > 0) {
+            this.classSubjectsDetailCache.set(classId, classSubs);
+            this.syncMarksForClassSubject(i, classId);
+          }
+        }
+      });
+    }
   }
 
   filterSubjectsForRow(i: number, event: Event): void {
@@ -5021,6 +5101,7 @@ export class TestsComponent implements OnInit {
         subject: v.subject,
         title: v.title,
         maxMarks: Number(v.maxMarks),
+        passingMarks: Number(v.passingMarks != null ? v.passingMarks : 33),
         testDate: isoDate
       };
     });

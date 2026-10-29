@@ -1661,19 +1661,209 @@ body {
 // IMSERP - Theme Customizer Engine (Accents, Dark Mode & Density)
 // ============================================================================
 
+
+// ══════════════════════════════════════════════════════════════════════════
+// IMSERP - Dynamic Header & Brand Topbar Theme Customizer Engine
+// ══════════════════════════════════════════════════════════════════════════
+
+// 1. Crisp Light Header & Brand Section
+body.header-theme-light .header-toolbar,
+body.header-theme-light .brand-section {
+  background: #ffffff !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+  color: #1e293b !important;
+}
+
+// 2. Dark Slate Header & Brand Section
+body.erp-dark-theme .header-toolbar,
+body.erp-dark-theme .brand-section,
+body.header-theme-dark .header-toolbar,
+body.header-theme-dark .brand-section {
+  background: linear-gradient(90deg, #090e1a 0%, #0f172a 45%, #1e293b 100%) !important;
+  border-bottom: 1px solid #1e293b !important;
+  color: #ffffff !important;
+}
+
+// 3. Brand Accent Header & Brand Topbar Palette (Dynamic when theme accent is chosen)
+body.header-theme-accent:not(.erp-dark-theme) {
+  &.theme-default .header-toolbar,
+  &.theme-default .brand-section {
+    background: linear-gradient(90deg, #0b1329 0%, #1e3a8a 100%) !important;
+    border-bottom: 1px solid rgba(37, 99, 235, 0.45) !important;
+  }
+  &.theme-indigo .header-toolbar,
+  &.theme-indigo .brand-section {
+    background: linear-gradient(90deg, #1e1b4b 0%, #312e81 40%, #4338ca 100%) !important;
+    border-bottom: 1px solid rgba(99, 102, 241, 0.45) !important;
+  }
+  &.theme-emerald .header-toolbar,
+  &.theme-emerald .brand-section {
+    background: linear-gradient(90deg, #064e3b 0%, #065f46 40%, #047857 100%) !important;
+    border-bottom: 1px solid rgba(16, 185, 129, 0.45) !important;
+  }
+  &.theme-blue .header-toolbar,
+  &.theme-blue .brand-section {
+    background: linear-gradient(90deg, #082f49 0%, #0369a1 40%, #0284c7 100%) !important;
+    border-bottom: 1px solid rgba(14, 165, 233, 0.45) !important;
+  }
+  &.theme-purple .header-toolbar,
+  &.theme-purple .brand-section {
+    background: linear-gradient(90deg, #2e1065 0%, #581c87 40%, #7c3aed 100%) !important;
+    border-bottom: 1px solid rgba(168, 85, 247, 0.45) !important;
+  }
+  &.theme-amber .header-toolbar,
+  &.theme-amber .brand-section {
+    background: linear-gradient(90deg, #451a03 0%, #78350f 40%, #b45309 100%) !important;
+    border-bottom: 1px solid rgba(245, 158, 11, 0.45) !important;
+  }
+  &.theme-rose .header-toolbar,
+  &.theme-rose .brand-section {
+    background: linear-gradient(90deg, #4c0519 0%, #881337 40%, #be123c 100%) !important;
+    border-bottom: 1px solid rgba(244, 63, 94, 0.45) !important;
+  }
+  &.theme-teal .header-toolbar,
+  &.theme-teal .brand-section {
+    background: linear-gradient(90deg, #042f2e 0%, #134e4a 40%, #0f766e 100%) !important;
+    border-bottom: 1px solid rgba(20, 184, 166, 0.45) !important;
+  }
+  &.theme-cyan .header-toolbar,
+  &.theme-cyan .brand-section {
+    background: linear-gradient(90deg, #083344 0%, #164e63 40%, #0891b2 100%) !important;
+    border-bottom: 1px solid rgba(6, 182, 212, 0.45) !important;
+  }
+  &.theme-orange .header-toolbar,
+  &.theme-orange .brand-section {
+    background: linear-gradient(90deg, #431407 0%, #7c2d12 40%, #c2410c 100%) !important;
+    border-bottom: 1px solid rgba(249, 115, 22, 0.45) !important;
+  }
+  &.theme-lime .header-toolbar,
+  &.theme-lime .brand-section {
+    background: linear-gradient(90deg, #1a2e05 0%, #365314 40%, #4d7c0f 100%) !important;
+    border-bottom: 1px solid rgba(132, 204, 22, 0.45) !important;
+  }
+  &.theme-crimson .header-toolbar,
+  &.theme-crimson .brand-section {
+    background: linear-gradient(90deg, #450a0a 0%, #7f1d1d 40%, #b91c1c 100%) !important;
+    border-bottom: 1px solid rgba(239, 68, 68, 0.45) !important;
+  }
+  &.theme-slate .header-toolbar,
+  &.theme-slate .brand-section {
+    background: linear-gradient(90deg, #0f172a 0%, #1e293b 40%, #334155 100%) !important;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.45) !important;
+  }
+}
+
+// 4. Header & Brand Controls Styling on Colored / Dark Themes
+body:not(.header-theme-light) {
+  .header-toolbar {
+    color: #ffffff !important;
+
+    .menu-toggle-btn {
+      color: #ffffff !important;
+      &:hover { background: rgba(255, 255, 255, 0.15) !important; }
+    }
+
+    .header-search {
+      background: rgba(255, 255, 255, 0.12) !important;
+      border-color: rgba(255, 255, 255, 0.25) !important;
+      color: #ffffff !important;
+
+      .search-icon { color: rgba(255, 255, 255, 0.8) !important; }
+      input {
+        color: #ffffff !important;
+        &::placeholder { color: rgba(255, 255, 255, 0.65) !important; }
+      }
+      &:hover {
+        background: rgba(255, 255, 255, 0.18) !important;
+        border-color: rgba(255, 255, 255, 0.4) !important;
+      }
+      &.open {
+        background: #ffffff !important;
+        border-color: #3b82f6 !important;
+        color: #0f172a !important;
+        .search-icon { color: #64748b !important; }
+        input {
+          color: #0f172a !important;
+          &::placeholder { color: #94a3b8 !important; }
+        }
+      }
+    }
+
+    .header-tool-button {
+      color: #ffffff !important;
+      &:hover { background: rgba(255, 255, 255, 0.15) !important; }
+    }
+
+    .quick-actions-button {
+      background: rgba(255, 255, 255, 0.12) !important;
+      border-color: rgba(255, 255, 255, 0.3) !important;
+      color: #ffffff !important;
+      --mdc-outlined-button-label-text-color: #ffffff !important;
+      ::ng-deep .mdc-button__label { color: #ffffff !important; }
+      mat-icon { color: #fbbf24 !important; }
+      &:hover { background: rgba(255, 255, 255, 0.22) !important; }
+    }
+
+    .branch-selector-button {
+      background: rgba(255, 255, 255, 0.12) !important;
+      border: 1px solid rgba(255, 255, 255, 0.3) !important;
+      color: #ffffff !important;
+      --mdc-outlined-button-label-text-color: #ffffff !important;
+      ::ng-deep .mdc-button__label { color: #ffffff !important; }
+      .branch-btn-content { color: #ffffff !important; }
+      .branch-btn-icon { color: #93c5fd !important; }
+      .branch-name-full { color: #ffffff !important; }
+      &:hover {
+        background: rgba(255, 255, 255, 0.2) !important;
+        border-color: rgba(255, 255, 255, 0.45) !important;
+      }
+    }
+  }
+
+  // Sidebar Brand Header matching Theme Topbar
+  .brand-section {
+    .brand-name {
+      color: #ffffff !important;
+    }
+    .brand-sub {
+      color: rgba(255, 255, 255, 0.84) !important;
+    }
+    .brand-logo-img {
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+    }
+    .brand-fallback-icon {
+      background: rgba(255, 255, 255, 0.15) !important;
+      border: 1px solid rgba(255, 255, 255, 0.3) !important;
+      color: #ffffff !important;
+    }
+    .close-drawer-btn {
+      color: #ffffff !important;
+    }
+  }
+}
+
 // 1. Primary Accent Colors
+body.theme-default {
+  --erp-primary: #2563eb;
+  --erp-primary-hover: #1d4ed8;
+  --erp-primary-light: #eff6ff;
+  .btn-primary, button[color="primary"].mat-mdc-raised-button { background-color: #2563eb !important; }
+}
+
 body.theme-indigo {
   --erp-primary: #4f46e5;
   --erp-primary-hover: #4338ca;
   --erp-primary-light: #eff6ff;
-  .header-toolbar { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%) !important; }
+  &.erp-dark-theme .header-toolbar { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%) !important; }
 }
 
 body.theme-emerald {
   --erp-primary: #059669;
   --erp-primary-hover: #047857;
   --erp-primary-light: #ecfdf5;
-  .header-toolbar { background: linear-gradient(135deg, #064e3b 0%, #0f172a 100%) !important; }
+  &.erp-dark-theme .header-toolbar { background: linear-gradient(135deg, #064e3b 0%, #0f172a 100%) !important; }
   .btn-primary, button[color="primary"].mat-mdc-raised-button { background-color: #059669 !important; }
 }
 
@@ -1681,7 +1871,7 @@ body.theme-blue {
   --erp-primary: #0284c7;
   --erp-primary-hover: #0369a1;
   --erp-primary-light: #f0f9ff;
-  .header-toolbar { background: linear-gradient(135deg, #0c4a6e 0%, #0f172a 100%) !important; }
+  &.erp-dark-theme .header-toolbar { background: linear-gradient(135deg, #0c4a6e 0%, #0f172a 100%) !important; }
   .btn-primary, button[color="primary"].mat-mdc-raised-button { background-color: #0284c7 !important; }
 }
 
@@ -1689,7 +1879,7 @@ body.theme-purple {
   --erp-primary: #7c3aed;
   --erp-primary-hover: #6d28d9;
   --erp-primary-light: #f5f3ff;
-  .header-toolbar { background: linear-gradient(135deg, #4c1d95 0%, #0f172a 100%) !important; }
+  &.erp-dark-theme .header-toolbar { background: linear-gradient(135deg, #4c1d95 0%, #0f172a 100%) !important; }
   .btn-primary, button[color="primary"].mat-mdc-raised-button { background-color: #7c3aed !important; }
 }
 
@@ -1697,7 +1887,7 @@ body.theme-amber {
   --erp-primary: #d97706;
   --erp-primary-hover: #b45309;
   --erp-primary-light: #fffbeb;
-  .header-toolbar { background: linear-gradient(135deg, #78350f 0%, #0f172a 100%) !important; }
+  &.erp-dark-theme .header-toolbar { background: linear-gradient(135deg, #78350f 0%, #0f172a 100%) !important; }
   .btn-primary, button[color="primary"].mat-mdc-raised-button { background-color: #d97706 !important; }
 }
 
@@ -1705,7 +1895,7 @@ body.theme-rose {
   --erp-primary: #e11d48;
   --erp-primary-hover: #be123c;
   --erp-primary-light: #fff1f2;
-  .header-toolbar { background: linear-gradient(135deg, #881337 0%, #0f172a 100%) !important; }
+  &.erp-dark-theme .header-toolbar { background: linear-gradient(135deg, #881337 0%, #0f172a 100%) !important; }
   .btn-primary, button[color="primary"].mat-mdc-raised-button { background-color: #e11d48 !important; }
 }
 
@@ -1713,7 +1903,7 @@ body.theme-teal {
   --erp-primary: #0d9488;
   --erp-primary-hover: #0f766e;
   --erp-primary-light: #f0fdfa;
-  .header-toolbar { background: linear-gradient(135deg, #134e4a 0%, #0f172a 100%) !important; }
+  &.erp-dark-theme .header-toolbar { background: linear-gradient(135deg, #134e4a 0%, #0f172a 100%) !important; }
   .btn-primary, button[color="primary"].mat-mdc-raised-button { background-color: #0d9488 !important; }
 }
 
@@ -1721,7 +1911,7 @@ body.theme-cyan {
   --erp-primary: #0891b2;
   --erp-primary-hover: #0e7490;
   --erp-primary-light: #ecfeff;
-  .header-toolbar { background: linear-gradient(135deg, #164e63 0%, #0f172a 100%) !important; }
+  &.erp-dark-theme .header-toolbar { background: linear-gradient(135deg, #164e63 0%, #0f172a 100%) !important; }
   .btn-primary, button[color="primary"].mat-mdc-raised-button { background-color: #0891b2 !important; }
 }
 
@@ -1729,7 +1919,7 @@ body.theme-orange {
   --erp-primary: #ea580c;
   --erp-primary-hover: #c2410c;
   --erp-primary-light: #fff7ed;
-  .header-toolbar { background: linear-gradient(135deg, #7c2d12 0%, #0f172a 100%) !important; }
+  &.erp-dark-theme .header-toolbar { background: linear-gradient(135deg, #7c2d12 0%, #0f172a 100%) !important; }
   .btn-primary, button[color="primary"].mat-mdc-raised-button { background-color: #ea580c !important; }
 }
 
@@ -1737,7 +1927,7 @@ body.theme-lime {
   --erp-primary: #65a30d;
   --erp-primary-hover: #4d7c0f;
   --erp-primary-light: #f7fee7;
-  .header-toolbar { background: linear-gradient(135deg, #365314 0%, #0f172a 100%) !important; }
+  &.erp-dark-theme .header-toolbar { background: linear-gradient(135deg, #365314 0%, #0f172a 100%) !important; }
   .btn-primary, button[color="primary"].mat-mdc-raised-button { background-color: #65a30d !important; }
 }
 
@@ -1745,7 +1935,7 @@ body.theme-crimson {
   --erp-primary: #dc2626;
   --erp-primary-hover: #b91c1c;
   --erp-primary-light: #fef2f2;
-  .header-toolbar { background: linear-gradient(135deg, #7f1d1d 0%, #0f172a 100%) !important; }
+  &.erp-dark-theme .header-toolbar { background: linear-gradient(135deg, #7f1d1d 0%, #0f172a 100%) !important; }
   .btn-primary, button[color="primary"].mat-mdc-raised-button { background-color: #dc2626 !important; }
 }
 
@@ -1753,7 +1943,7 @@ body.theme-slate {
   --erp-primary: #475569;
   --erp-primary-hover: #334155;
   --erp-primary-light: #f8fafc;
-  .header-toolbar { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%) !important; }
+  &.erp-dark-theme .header-toolbar { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%) !important; }
   .btn-primary, button[color="primary"].mat-mdc-raised-button { background-color: #475569 !important; }
 }
 

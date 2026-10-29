@@ -60,7 +60,7 @@ import { environment } from '../../../environments/environment';
           <span *ngIf="batches.length > 0">&nbsp;• <strong>{{ batches.length }} Assigned {{ batches.length === 1 ? 'Batch' : 'Batches' }}</strong></span>
         </span>
       </div>
-      <h1 class="page-title">Study Material &amp; Question Bank Repository (डिजिटल नोट्स और PYQ)</h1>
+      <h1 class="page-title">Study Material &amp; Question Bank Repository</h1>
       <p class="page-subtitle">
         Centralized chapter-wise concept notes, previous year board &amp; entrance examination questions, question banks &amp; formula sheets.
       </p>
@@ -87,14 +87,14 @@ import { environment } from '../../../environments/environment';
       <div class="stat-icon-wrap notes"><mat-icon>menu_book</mat-icon></div>
       <div class="stat-info">
         <span class="stat-val">{{ stats.notesCount }}</span>
-        <span class="stat-label">Digital Notes (नोट्स)</span>
+        <span class="stat-label">Digital Notes</span>
       </div>
     </div>
     <div class="stat-card">
       <div class="stat-icon-wrap pyq"><mat-icon>history_edu</mat-icon></div>
       <div class="stat-info">
         <span class="stat-val">{{ stats.pyqCount }}</span>
-        <span class="stat-label">PYQ Papers (पिछले वर्ष के प्रश्न)</span>
+        <span class="stat-label">PYQ Papers</span>
       </div>
     </div>
     <div class="stat-card">
@@ -174,14 +174,14 @@ import { environment } from '../../../environments/environment';
         class="type-tab" 
         [class.active]="activeType === 'Notes'" 
         (click)="setType('Notes')">
-        📝 Concept Notes (नोट्स)
+        📝 Concept Notes
       </button>
       <button 
         type="button" 
         class="type-tab" 
         [class.active]="activeType === 'PYQ'" 
         (click)="setType('PYQ')">
-        🎯 PYQs (पिछले वर्ष के प्रश्न)
+        🎯 PYQs
       </button>
       <button 
         type="button" 
@@ -263,7 +263,7 @@ import { environment } from '../../../environments/environment';
         [class.active]="filterWithSolutions" 
         (click)="toggleSolutionsFilter()">
         <mat-icon>{{ filterWithSolutions ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
-        <span>With Solutions (हल सहित)</span>
+        <span>With Solutions</span>
       </button>
 
       <!-- Reset Filter Button -->
@@ -438,8 +438,9 @@ import { environment } from '../../../environments/environment';
       mat-icon { font-size: 15px; width: 15px; height: 15px; color: #2563eb; }
     }
     .page-title {
-      font-size: 1.45rem;
-      font-weight: 800;
+      font-size: 1.25rem;
+      font-weight: 700;
+      line-height: 1.3;
       color: #0f172a;
       margin: 0;
       letter-spacing: -0.02em;
@@ -979,7 +980,7 @@ import { environment } from '../../../environments/environment';
         font-size: 0.68rem !important;
         line-height: 1.2 !important;
       }
-      .page-title { font-size: 1.22rem; }
+      .page-title { font-size: 1.12rem; }
       .card-footer { flex-direction: column; align-items: stretch; gap: 8px; }
       .action-buttons { justify-content: flex-end; width: 100%; }
     }

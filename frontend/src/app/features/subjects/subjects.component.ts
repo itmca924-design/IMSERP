@@ -317,7 +317,7 @@ interface ClassSubjectRowState {
                       <tr>
                         <th style="width: 44px; text-align: center;">Active</th>
                         <th style="width: 28%;">Subject Name</th>
-                        <th style="width: 32%;">Assigned Subject Teacher (कक्षा विषय शिक्षक)</th>
+                        <th style="width: 32%;">Assigned Subject Teacher</th>
                         <th style="width: 16%;">Subject Type</th>
                         <th style="width: 12%;">Max Marks</th>
                         <th style="width: 12%;">Pass Marks</th>
@@ -925,7 +925,7 @@ export class SubjectsComponent implements OnInit, OnDestroy {
     private dialog: MatDialog,
     private http: HttpClient,
     private route: ActivatedRoute
-  ) {}
+  ) { }
 
   ngOnInit(): void {
     this.searchSub = this.searchSubject.pipe(

@@ -16,6 +16,7 @@ import {
 } from '../../core/services/coaching.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
+import { TransportService, StudentLiveTransportStatusDto } from '../../core/services/transport.service';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { ApplyStudentRegularizationDialogComponent, StudentAttendanceRegularizationDto } from './student-regularization-dialog.component';
 import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.directive';
@@ -806,6 +807,57 @@ const API_BASE = environment.apiBaseUrl;
                       <div class="fac-row">
                         <span class="lbl"><mat-icon>directions_bus</mat-icon> Transport:</span>
                         <span class="val">{{ data360.facilities.hasTransport ? ('Enrolled for Institute Bus Transport (' + (data360.facilities.routeName || 'Active Route') + ')') : 'Self Conveyance / Pedestrian' }}</span>
+                      </div>
+
+                      <!-- Live Bus Transit Card for Parent/Student -->
+                      <div class="live-transit-parent-box" *ngIf="data360.facilities.hasTransport && liveTransitStatus" style="margin-top: 14px; padding: 12px; background: #f8fafc; border: 1.5px solid #bfdbfe; border-radius: 10px;">
+                        <div class="lt-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                          <div class="lt-title" style="display: flex; align-items: center; gap: 6px; font-weight: 700; color: #1e40af; font-size: 0.82rem;">
+                            <mat-icon style="font-size: 18px; width: 18px; height: 18px; color: #2563eb;">sensors</mat-icon>
+                            <span>Today's Live Bus Boarding &amp; Transit Status</span>
+                          </div>
+                          <button type="button" mat-stroked-button color="primary" (click)="loadLiveTransitStatus()" [disabled]="loadingLiveTransit" style="height: 26px; line-height: 26px; font-size: 0.72rem; padding: 0 8px;">
+                            <mat-icon style="font-size: 14px; width: 14px; height: 14px; margin-right: 2px;">refresh</mat-icon> Refresh Live
+                          </button>
+                        </div>
+
+                        <div class="lt-runs-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.76rem;">
+                          <div class="lt-run" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px; display: flex; flex-direction: column; gap: 2px;">
+                            <span style="font-size: 0.7rem; color: #64748b; font-weight: 700;">🌅 Morning Pickup Run</span>
+                            <strong *ngIf="liveTransitStatus.morningStatus === 'Boarded'" style="color: #16a34a;">
+                              🟢 Boarded at {{ liveTransitStatus.morningBoardedAtFormatted || 'Morning' }}
+                            </strong>
+                            <strong *ngIf="liveTransitStatus.morningStatus === 'Absent'" style="color: #e11d48;">
+                              ❌ Marked Absent / Missed
+                            </strong>
+                            <strong *ngIf="liveTransitStatus.morningStatus !== 'Boarded' && liveTransitStatus.morningStatus !== 'Absent'" style="color: #d97706;">
+                              ⏳ Awaiting Morning Pickup
+                            </strong>
+                          </div>
+
+                          <div class="lt-run" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px; display: flex; flex-direction: column; gap: 2px;">
+                            <span style="font-size: 0.7rem; color: #64748b; font-weight: 700;">🌇 Evening Drop Run</span>
+                            <strong *ngIf="liveTransitStatus.eveningStatus === 'Dropped'" style="color: #2563eb;">
+                              🔵 Safely Dropped ({{ liveTransitStatus.eveningTimeFormatted || 'Done' }})
+                            </strong>
+                            <strong *ngIf="liveTransitStatus.eveningStatus === 'Boarded'" style="color: #16a34a;">
+                              🟡 On Board / Departing School
+                            </strong>
+                            <strong *ngIf="liveTransitStatus.eveningStatus === 'Absent'" style="color: #e11d48;">
+                              ❌ Marked Absent / Self Pickup
+                            </strong>
+                            <strong *ngIf="liveTransitStatus.eveningStatus !== 'Dropped' && liveTransitStatus.eveningStatus !== 'Boarded' && liveTransitStatus.eveningStatus !== 'Absent'" style="color: #d97706;">
+                              ⏳ Awaiting Evening Run
+                            </strong>
+                          </div>
+                        </div>
+
+                        <div class="lt-driver-footer" *ngIf="liveTransitStatus.driverName" style="margin-top: 8px; font-size: 0.72rem; color: #475569; display: flex; justify-content: space-between; align-items: center;">
+                          <span>Bus: <strong>{{ liveTransitStatus.vehicleNumber || 'Campus Bus' }}</strong> &bull; Driver: <strong>{{ liveTransitStatus.driverName }}</strong></span>
+                          <a *ngIf="liveTransitStatus.driverPhone" [href]="'tel:' + liveTransitStatus.driverPhone" style="color: #2563eb; text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 2px;">
+                            <mat-icon style="font-size: 13px; width: 13px; height: 13px;">call</mat-icon> Call Driver
+                          </a>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -2503,12 +2555,17 @@ export class MyStudentProfileComponent implements OnInit {
   myRegularizations: StudentAttendanceRegularizationDto[] = [];
   loadingRegularizations = false;
 
+  // Today's Live Transport Transit Status
+  liveTransitStatus: StudentLiveTransportStatusDto | null = null;
+  loadingLiveTransit = false;
+
   constructor(
     private coachingService: CoachingService,
     public authService: AuthService,
     private confirmDialog: ConfirmDialogService,
     private dialog: MatDialog,
-    private http: HttpClient
+    private http: HttpClient,
+    private transportService: TransportService
   ) { }
 
   ngOnInit(): void {
@@ -2532,10 +2589,28 @@ export class MyStudentProfileComponent implements OnInit {
       next: (res) => {
         this.data360 = res;
         this.loading = false;
+        if (res?.facilities?.hasTransport && res?.student?.id) {
+          this.loadLiveTransitStatus(res.student.id);
+        }
       },
       error: () => {
         this.loading = false;
         this.confirmDialog.alert('Error', 'Could not load your student 360 profile.', 'danger');
+      }
+    });
+  }
+
+  loadLiveTransitStatus(studentId?: string): void {
+    const sId = studentId || this.data360?.student?.id;
+    if (!sId) return;
+    this.loadingLiveTransit = true;
+    this.transportService.getStudentLiveStatus(sId).subscribe({
+      next: (res) => {
+        this.liveTransitStatus = res;
+        this.loadingLiveTransit = false;
+      },
+      error: () => {
+        this.loadingLiveTransit = false;
       }
     });
   }

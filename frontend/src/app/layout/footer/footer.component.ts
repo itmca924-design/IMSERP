@@ -183,7 +183,7 @@ import { AuthService } from '../../core/services/auth.service';
     }
 
     /* Responsive adjustments */
-    @media (max-width: 960px) {
+    @media (max-width: 960px) and (min-width: 641px) {
       .footer-container {
         flex-direction: column;
         align-items: flex-start;
@@ -202,6 +202,64 @@ import { AuthService } from '../../core/services/auth.service';
       .footer-right {
         width: 100%;
         justify-content: space-between;
+      }
+    }
+
+    /* Mobile Compact (<= 640px) - Option 1 Standard */
+    @media (max-width: 640px) {
+      .app-footer {
+        padding: 8px 12px !important;
+      }
+
+      .footer-container {
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 5px !important;
+        text-align: center !important;
+      }
+
+      .footer-left {
+        align-items: center !important;
+        text-align: center !important;
+
+        .brand-line {
+          justify-content: center !important;
+          font-size: 0.74rem !important;
+          flex-wrap: wrap !important;
+          gap: 4px !important;
+
+          .footer-brand-icon {
+            font-size: 14px !important;
+            width: 14px !important;
+            height: 14px !important;
+          }
+        }
+
+        .tagline {
+          display: none !important;
+        }
+      }
+
+      .footer-center {
+        display: none !important;
+      }
+
+      .footer-right {
+        width: auto !important;
+        justify-content: center !important;
+        align-items: center !important;
+        gap: 8px !important;
+
+        .status-indicator {
+          padding: 2px 8px !important;
+          font-size: 0.7rem !important;
+        }
+
+        .version-badge {
+          padding: 2px 7px !important;
+          font-size: 0.68rem !important;
+        }
       }
     }
   `]

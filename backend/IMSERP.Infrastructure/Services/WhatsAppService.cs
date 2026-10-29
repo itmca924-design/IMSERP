@@ -62,12 +62,35 @@ public class WhatsAppService : IWhatsAppService
         return await LogAndSend(tenantId, recipientPhone, teacherName, MessageType.SalarySlip, content);
     }
 
-    public async Task<bool> SendTransportBoardingAlertAsync(Guid tenantId, string recipientPhone, string studentName, string busNumber, string stopName, string timeStr, string departureType)
+    public async Task<bool> SendTransportBoardingAlertAsync(Guid tenantId, string recipientPhone, string studentName, string busNumber, string stopName, string timeStr, string departureType, string? instituteName = null)
     {
+        var instFooter = !string.IsNullOrWhiteSpace(instituteName) ? instituteName : "Campus Transportation & Mobility Desk";
         var content = $"*SAFE TRANSIT ALERT • {departureType.ToUpper()} BOARDING*\n" +
                       $"Dear Parent,\n" +
                       $"*{studentName}* has safely boarded Campus Bus *{busNumber}* at *{stopName}* at *{timeStr}*.\n" +
-                      $"Verified safe transit via Apex School & Coaching Mobility Hub.";
+                      $"Verified safe transit via {instFooter}.";
+
+        return await LogAndSend(tenantId, recipientPhone, studentName, MessageType.Announcement, content);
+    }
+
+    public async Task<bool> SendTransportDropAlertAsync(Guid tenantId, string recipientPhone, string studentName, string busNumber, string stopName, string timeStr, string? instituteName = null)
+    {
+        var instFooter = !string.IsNullOrWhiteSpace(instituteName) ? instituteName : "Campus Transportation & Mobility Desk";
+        var content = $"*SAFE TRANSIT ALERT • EVENING DROP COMPLETED*\n" +
+                      $"Dear Parent,\n" +
+                      $"Your ward *{studentName}* has been safely dropped off by Campus Bus *{busNumber}* at *{stopName}* at *{timeStr}*.\n" +
+                      $"Safe arrival verified via {instFooter}.";
+
+        return await LogAndSend(tenantId, recipientPhone, studentName, MessageType.Announcement, content);
+    }
+
+    public async Task<bool> SendTransportAbsentAlertAsync(Guid tenantId, string recipientPhone, string studentName, string busNumber, string stopName, string timeStr, string departureType, string? instituteName = null)
+    {
+        var instFooter = !string.IsNullOrWhiteSpace(instituteName) ? instituteName : "Campus Transportation & Mobility Desk";
+        var content = $"*TRANSIT NOTICE • COMMUTER NOT AT STOP*\n" +
+                      $"Dear Parent,\n" +
+                      $"Your ward *{studentName}* was marked *NOT AT STOP / MISSED* for Campus Bus *{busNumber}* at *{stopName}* ({timeStr}) during {departureType} run.\n" +
+                      $"If your ward is travelling via self-conveyance today, kindly acknowledge with {instFooter}.";
 
         return await LogAndSend(tenantId, recipientPhone, studentName, MessageType.Announcement, content);
     }

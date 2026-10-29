@@ -11,6 +11,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { AuthService } from '../../core/services/auth.service';
 import { environment } from '../../../environments/environment';
+import * as QRCode from 'qrcode';
 
 const API_BASE = environment.apiUrl;
 
@@ -118,7 +119,8 @@ export interface StudentIdCardDialogData {
           </div>
           <div class="card-foot">
             <div class="qr-box">
-              <mat-icon class="qr-ic">qr_code_2</mat-icon>
+              <img *ngIf="qrCodeUrls[c.id]" [src]="qrCodeUrls[c.id]" alt="QR Code" class="real-qr-img" />
+              <mat-icon *ngIf="!qrCodeUrls[c.id]" class="qr-ic">qr_code_2</mat-icon>
               <span class="qr-lbl">{{c.admissionNumber||'STU-ID'}}</span>
             </div>
             <div class="sign-box">
@@ -214,6 +216,7 @@ export interface StudentIdCardDialogData {
     .red{color:#dc2626}
     .card-foot{padding:6px 12px 8px;display:flex;align-items:center;justify-content:space-between;border-top:1px dashed #cbd5e1;background:#fff;flex-shrink:0;margin-top:auto}
     .qr-box{display:flex;flex-direction:column;align-items:center;justify-content:center}
+    .real-qr-img{width:32px;height:32px;object-fit:contain;image-rendering:pixelated;display:block;border-radius:2px;background:#fff}
     .qr-ic{font-size:26px;width:26px;height:26px;line-height:26px;color:#1e3a8a}
     .qr-lbl{font-size:7.5px;font-weight:700;color:#64748b;letter-spacing:.3px;margin-top:1px}
     .sign-box{text-align:center;width:95px;display:flex;flex-direction:column;align-items:center}
@@ -238,6 +241,7 @@ export interface StudentIdCardDialogData {
 })
 export class StudentIdCardDialogComponent implements OnInit {
   cards: StudentIdCardDto[] = [];
+  qrCodeUrls: { [id: string]: string } = {};
   loading = false;
   cardSide: 'both'|'front'|'back' = 'both';
   selectedClassId = '';
@@ -274,7 +278,39 @@ export class StudentIdCardDialogComponent implements OnInit {
     else if (this.data?.classId) params.push(`classId=${this.data.classId}`);
     else if (this.data?.batchId) params.push(`batchId=${this.data.batchId}`);
     if (params.length > 0) url += '?' + params.join('&');
-    this.http.get<StudentIdCardDto[]>(url).subscribe({ next: r => { this.cards=r; this.loading=false; }, error: () => { this.cards=[]; this.loading=false; } });
+    this.http.get<StudentIdCardDto[]>(url).subscribe({
+      next: async r => {
+        this.cards = r;
+        await this.generateQrCodes();
+        this.loading = false;
+      },
+      error: () => {
+        this.cards = [];
+        this.qrCodeUrls = {};
+        this.loading = false;
+      }
+    });
+  }
+
+  async generateQrCodes() {
+    this.qrCodeUrls = {};
+    for (const card of this.cards) {
+      try {
+        const payload = card.qrCodeData || `ADM:${card.admissionNumber || card.id}|NAME:${card.studentName}|CLASS:${card.className || ''}`;
+        const dataUrl = await QRCode.toDataURL(payload, {
+          width: 90,
+          margin: 1,
+          color: {
+            dark: '#0f172a',
+            light: '#ffffff'
+          },
+          errorCorrectionLevel: 'M'
+        });
+        this.qrCodeUrls[card.id] = dataUrl;
+      } catch (err) {
+        console.error('Failed to generate QR for card', card.id, err);
+      }
+    }
   }
 
   getInitials(name: string): string {

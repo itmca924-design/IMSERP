@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit, HostListener } from '@angular/core';
+﻿import { Component, Inject, OnInit, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule, MatDialog } from '@angular/material/dialog';
@@ -32,6 +32,7 @@ import {
 import { Router } from '@angular/router';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { AuthService } from '../../core/services/auth.service';
+import { TransportService, StudentLiveTransportStatusDto } from '../../core/services/transport.service';
 
 export interface StudentProfile360DialogData {
   studentId: string;
@@ -136,7 +137,7 @@ const API_BASE = environment.apiBaseUrl;
         <div class="metric-pill">
           <mat-icon class="icon-fee" [class.danger]="data360.feeSummary.totalPending > 0">account_balance_wallet</mat-icon>
           <span class="metric-val" [class.danger]="data360.feeSummary.totalPending > 0" [class.good]="data360.feeSummary.totalPending === 0">
-            ₹{{ data360.feeSummary.totalPending | number }}
+            Γé╣{{ data360.feeSummary.totalPending | number }}
           </span>
           <span class="metric-lbl">Due Balance</span>
         </div>
@@ -179,9 +180,9 @@ const API_BASE = environment.apiBaseUrl;
           </div>
           <div class="banner-content">
             <div class="banner-title-line">
-              <span class="banner-badge" *ngIf="alert.isStarPerformer">🌟 Star Scholar & High Achiever</span>
-              <span class="banner-badge risk" *ngIf="alert.hasAttendanceWarning || alert.hasExamWarning || alert.hasAttendanceRisk || alert.hasAcademicRisk">⚠️ Early Warning Alert</span>
-              <span class="banner-badge normal" *ngIf="!alert.isStarPerformer && !alert.hasAttendanceWarning && !alert.hasExamWarning && !alert.hasAttendanceRisk && !alert.hasAcademicRisk">📊 Performance Status</span>
+              <span class="banner-badge" *ngIf="alert.isStarPerformer">≡ƒîƒ Star Scholar & High Achiever</span>
+              <span class="banner-badge risk" *ngIf="alert.hasAttendanceWarning || alert.hasExamWarning || alert.hasAttendanceRisk || alert.hasAcademicRisk">ΓÜá∩╕Å Early Warning Alert</span>
+              <span class="banner-badge normal" *ngIf="!alert.isStarPerformer && !alert.hasAttendanceWarning && !alert.hasExamWarning && !alert.hasAttendanceRisk && !alert.hasAcademicRisk">≡ƒôè Performance Status</span>
               <span class="banner-summary-text">{{ alert.attendanceAlertMessage || alert.examAlertMessage || alert.performanceBadgeText || alert.alertMessage }}</span>
             </div>
             <!-- Strengths and Weaknesses Tags -->
@@ -444,17 +445,17 @@ const API_BASE = environment.apiBaseUrl;
               <div class="fee-kpi-row">
                 <div class="fee-kpi-card billed">
                   <span class="kpi-label">Total Invoiced</span>
-                  <span class="kpi-val">₹{{ data360.feeSummary.totalInvoiced | number }}</span>
+                  <span class="kpi-val">Γé╣{{ data360.feeSummary.totalInvoiced | number }}</span>
                   <span class="kpi-sub">{{ data360.feeSummary.totalInvoicesCount }} Total Invoices</span>
                 </div>
                 <div class="fee-kpi-card paid">
                   <span class="kpi-label">Total Received</span>
-                  <span class="kpi-val">₹{{ data360.feeSummary.totalPaid | number }}</span>
+                  <span class="kpi-val">Γé╣{{ data360.feeSummary.totalPaid | number }}</span>
                   <span class="kpi-sub">Cleared Payments</span>
                 </div>
                 <div class="fee-kpi-card due" [class.has-due]="data360.feeSummary.totalPending > 0">
                   <span class="kpi-label">Pending Dues</span>
-                  <span class="kpi-val">₹{{ data360.feeSummary.totalPending | number }}</span>
+                  <span class="kpi-val">Γé╣{{ data360.feeSummary.totalPending | number }}</span>
                   <span class="kpi-sub">{{ data360.feeSummary.unpaidInvoicesCount }} Unpaid / Partial</span>
                 </div>
               </div>
@@ -481,9 +482,9 @@ const API_BASE = environment.apiBaseUrl;
                       <td class="font-mono">{{ inv.invoiceNumber }}</td>
                       <td>{{ inv.title }}</td>
                       <td>{{ inv.dueDate | date:'dd MMM yyyy' }}</td>
-                      <td class="text-right font-semibold">₹{{ inv.totalAmount | number }}</td>
-                      <td class="text-right text-success">₹{{ inv.paidAmount | number }}</td>
-                      <td class="text-right" [class.text-danger]="inv.balanceAmount > 0">₹{{ inv.balanceAmount | number }}</td>
+                      <td class="text-right font-semibold">Γé╣{{ inv.totalAmount | number }}</td>
+                      <td class="text-right text-success">Γé╣{{ inv.paidAmount | number }}</td>
+                      <td class="text-right" [class.text-danger]="inv.balanceAmount > 0">Γé╣{{ inv.balanceAmount | number }}</td>
                       <td>
                         <span class="status-badge" [ngClass]="inv.status.toLowerCase()">
                           {{ inv.status }}
@@ -641,7 +642,7 @@ const API_BASE = environment.apiBaseUrl;
                     </div>
                     <div class="fac-row">
                       <span>Monthly Rent:</span>
-                      <strong>₹{{ data360.facilities.monthlyBedRent | number }}/mo</strong>
+                      <strong>Γé╣{{ data360.facilities.monthlyBedRent | number }}/mo</strong>
                     </div>
                   </div>
                 </div>
@@ -669,6 +670,53 @@ const API_BASE = environment.apiBaseUrl;
                     <div class="fac-row" *ngIf="data360.facilities.vehicleNumber">
                       <span>Bus Reg No:</span>
                       <strong>{{ data360.facilities.vehicleNumber }}</strong>
+                    </div>
+
+                    <!-- Live Boarding / Transit Radar Pill for Student 360 -->
+                    <div class="live-transit-box" *ngIf="liveTransitStatus" style="margin-top: 10px; padding: 10px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px;">
+                      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <span style="font-weight: 700; color: #1e40af; font-size: 0.76rem; display: flex; align-items: center; gap: 4px;">
+                          <mat-icon style="font-size: 16px; width: 16px; height: 16px; color: #2563eb;">sensors</mat-icon> Today's Live Transit Status
+                        </span>
+                        <button type="button" mat-icon-button (click)="loadLiveTransitStatus()" [disabled]="loadingLiveTransit" title="Refresh Live Status" style="width: 24px; height: 24px; line-height: 24px;">
+                          <mat-icon style="font-size: 16px; width: 16px; height: 16px; color: #3b82f6;">refresh</mat-icon>
+                        </button>
+                      </div>
+                      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 0.72rem;">
+                        <div style="background: #ffffff; padding: 6px 8px; border-radius: 6px; border: 1px solid #dbeafe;">
+                          <div style="color: #64748b; font-weight: 600;">Pickup (Morning)</div>
+                          <strong *ngIf="liveTransitStatus.morningStatus === 'Boarded'" style="color: #16a34a;">
+                            Boarded ({{ liveTransitStatus.morningBoardedAtFormatted || 'Done' }})
+                          </strong>
+                          <strong *ngIf="liveTransitStatus.morningStatus === 'Absent'" style="color: #dc2626;">
+                            Absent / Missed
+                          </strong>
+                          <strong *ngIf="liveTransitStatus.morningStatus !== 'Boarded' && liveTransitStatus.morningStatus !== 'Absent'" style="color: #d97706;">
+                            Awaiting Pickup
+                          </strong>
+                        </div>
+                        <div style="background: #ffffff; padding: 6px 8px; border-radius: 6px; border: 1px solid #dbeafe;">
+                          <div style="color: #64748b; font-weight: 600;">Drop (Evening)</div>
+                          <strong *ngIf="liveTransitStatus.eveningStatus === 'Dropped'" style="color: #2563eb;">
+                            Dropped ({{ liveTransitStatus.eveningTimeFormatted || 'Done' }})
+                          </strong>
+                          <strong *ngIf="liveTransitStatus.eveningStatus === 'Boarded'" style="color: #16a34a;">
+                            On Bus (Departed)
+                          </strong>
+                          <strong *ngIf="liveTransitStatus.eveningStatus === 'Absent'" style="color: #dc2626;">
+                            Absent / Self Pickup
+                          </strong>
+                          <strong *ngIf="liveTransitStatus.eveningStatus !== 'Dropped' && liveTransitStatus.eveningStatus !== 'Boarded' && liveTransitStatus.eveningStatus !== 'Absent'" style="color: #d97706;">
+                            Awaiting Run
+                          </strong>
+                        </div>
+                      </div>
+                      <div *ngIf="liveTransitStatus.driverName" style="margin-top: 6px; font-size: 0.7rem; color: #475569; display: flex; justify-content: space-between;">
+                        <span>Driver: <strong>{{ liveTransitStatus.driverName }}</strong></span>
+                        <a *ngIf="liveTransitStatus.driverPhone" [href]="'tel:' + liveTransitStatus.driverPhone" style="color: #2563eb; text-decoration: none; font-weight: 600;">
+                          Call Driver
+                        </a>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -813,8 +861,8 @@ const API_BASE = environment.apiBaseUrl;
                   <mat-form-field appearance="outline">
                     <mat-label>Document Type *</mat-label>
                     <mat-select [(ngModel)]="newDoc.documentType">
-                      <mat-option value="Aadhaar">Aadhaar Card (आधार कार्ड)</mat-option>
-                      <mat-option value="BirthCertificate">Birth Certificate (जन्म प्रमाण पत्र)</mat-option>
+                      <mat-option value="Aadhaar">Aadhaar Card (αñåαñºαñ╛αñ░ αñòαñ╛αñ░αÑìαñí)</mat-option>
+                      <mat-option value="BirthCertificate">Birth Certificate (αñ£αñ¿αÑìαñ« αñ¬αÑìαñ░αñ«αñ╛αñú αñ¬αññαÑìαñ░)</mat-option>
                       <mat-option value="TransferCertificate">Previous School TC / SLC</mat-option>
                       <mat-option value="Marksheet">Previous Class Marksheet</mat-option>
                       <mat-option value="CasteCertificate">Caste / Category Certificate</mat-option>
@@ -988,7 +1036,7 @@ const API_BASE = environment.apiBaseUrl;
                       <div class="honor-meta">
                         <span class="honor-category-tag" [ngClass]="(ach.category || 'other').toLowerCase()">{{ ach.category }}</span>
                         <span class="level-tag" *ngIf="ach.level || ach.awardLevel">{{ ach.level || ach.awardLevel }}</span>
-                        <span class="pos-tag" *ngIf="ach.position">🏆 {{ ach.position }}</span>
+                        <span class="pos-tag" *ngIf="ach.position">≡ƒÅå {{ ach.position }}</span>
                       </div>
                     </div>
                   </div>
@@ -1059,10 +1107,10 @@ const API_BASE = environment.apiBaseUrl;
                   <div class="form-field-wrap">
                     <label>Entry Type *</label>
                     <select class="custom-input" [(ngModel)]="newDiscipline.incidentType">
-                      <option value="PositiveCommendation">🌟 Positive Commendation (Honor)</option>
-                      <option value="MinorInfraction">⚠️ Minor Infraction (Warning)</option>
-                      <option value="ModerateMisconduct">🔶 Moderate Misconduct</option>
-                      <option value="SevereViolation">🚨 Severe Violation</option>
+                      <option value="PositiveCommendation">≡ƒîƒ Positive Commendation (Honor)</option>
+                      <option value="MinorInfraction">ΓÜá∩╕Å Minor Infraction (Warning)</option>
+                      <option value="ModerateMisconduct">≡ƒö╢ Moderate Misconduct</option>
+                      <option value="SevereViolation">≡ƒÜ¿ Severe Violation</option>
                     </select>
                   </div>
                   <div class="form-field-wrap">
@@ -1313,10 +1361,10 @@ const API_BASE = environment.apiBaseUrl;
                   <div class="form-field-wrap">
                     <label>Parent Satisfaction Level</label>
                     <select class="custom-input" [(ngModel)]="newPtm.satisfactionRating">
-                      <option value="HighlySatisfied">🟢 Highly Satisfied</option>
-                      <option value="Satisfied">🔵 Satisfied</option>
-                      <option value="NeedsImprovement">🟠 Needs Improvement</option>
-                      <option value="Dissatisfied">🔴 Dissatisfied / Escalated</option>
+                      <option value="HighlySatisfied">≡ƒƒó Highly Satisfied</option>
+                      <option value="Satisfied">≡ƒö╡ Satisfied</option>
+                      <option value="NeedsImprovement">≡ƒƒá Needs Improvement</option>
+                      <option value="Dissatisfied">≡ƒö┤ Dissatisfied / Escalated</option>
                     </select>
                   </div>
                   <div class="form-field-wrap full-col">
@@ -1604,7 +1652,7 @@ const API_BASE = environment.apiBaseUrl;
             <div class="tab-content-wrap">
               <div class="tab-action-header">
                 <div>
-                  <h4 class="tab-action-title">Linked Siblings &amp; Family Group (भाई-बहन मैपिंग)</h4>
+                  <h4 class="tab-action-title">Linked Siblings &amp; Family Group (αñ¡αñ╛αñê-αñ¼αñ╣αñ¿ αñ«αÑêαñ¬αñ┐αñéαñù)</h4>
                   <p class="tab-action-sub">Link brother/sister profiles, set sibling fee discount, and track family ledger</p>
                 </div>
                 <button mat-raised-button color="primary" class="primary-gradient-btn" *ngIf="!isReadOnly" (click)="showAddSiblingForm = !showAddSiblingForm">
@@ -1641,7 +1689,7 @@ const API_BASE = environment.apiBaseUrl;
                                <span *ngIf="c.className">Class {{ c.className }}</span>
                                <span *ngIf="c.batchName"><span *ngIf="c.className"> &bull; </span>Batch {{ c.batchName }}</span>
                               <span *ngIf="c.admissionNumber"> &bull; Adm: {{ c.admissionNumber }}</span>
-                              <span *ngIf="c.parentPhone"> &bull; 📞 {{ c.parentPhone }}</span>
+                              <span *ngIf="c.parentPhone"> &bull; ≡ƒô₧ {{ c.parentPhone }}</span>
                             </div>
                           </div>
                           <button type="button" class="cand-select-btn">Select</button>
@@ -1658,7 +1706,7 @@ const API_BASE = environment.apiBaseUrl;
                         <div>
                           <strong style="color: #15803d; font-size: 0.88rem;">{{ selectedSiblingCandidate.studentName }}</strong>
                           <span style="color:#475569; font-size:12px; margin-left:8px;">
-                            ({{ selectedSiblingCandidate.className ? 'Class ' + selectedSiblingCandidate.className : '' }}{{ selectedSiblingCandidate.className && selectedSiblingCandidate.batchName ? ' • ' : '' }}{{ selectedSiblingCandidate.batchName ? 'Batch ' + selectedSiblingCandidate.batchName : '' }}{{ !selectedSiblingCandidate.className && !selectedSiblingCandidate.batchName ? 'No class/batch' : '' }} &bull; Adm: {{ selectedSiblingCandidate.admissionNumber || 'N/A' }})
+                            ({{ selectedSiblingCandidate.className ? 'Class ' + selectedSiblingCandidate.className : '' }}{{ selectedSiblingCandidate.className && selectedSiblingCandidate.batchName ? ' ΓÇó ' : '' }}{{ selectedSiblingCandidate.batchName ? 'Batch ' + selectedSiblingCandidate.batchName : '' }}{{ !selectedSiblingCandidate.className && !selectedSiblingCandidate.batchName ? 'No class/batch' : '' }} &bull; Adm: {{ selectedSiblingCandidate.admissionNumber || 'N/A' }})
                           </span>
                         </div>
                       </div>
@@ -1669,12 +1717,12 @@ const API_BASE = environment.apiBaseUrl;
                   </div>
 
                   <div class="form-field-wrap">
-                    <label>Relationship (संबंध) *</label>
+                    <label>Relationship (αñ╕αñéαñ¼αñéαñº) *</label>
                     <select class="custom-input" [(ngModel)]="newSiblingRelationship">
-                      <option value="Brother">Brother (भाई)</option>
-                      <option value="Sister">Sister (बहन)</option>
-                      <option value="Twin">Twin (जुड़वां)</option>
-                      <option value="Cousin">Cousin (कज़िन)</option>
+                      <option value="Brother">Brother (αñ¡αñ╛αñê)</option>
+                      <option value="Sister">Sister (αñ¼αñ╣αñ¿)</option>
+                      <option value="Twin">Twin (αñ£αÑüαñíαñ╝αñ╡αñ╛αñé)</option>
+                      <option value="Cousin">Cousin (αñòαñ£αñ╝αñ┐αñ¿)</option>
                     </select>
                   </div>
 
@@ -1727,7 +1775,7 @@ const API_BASE = environment.apiBaseUrl;
                     </div>
                     <div class="sib-badge fee-badge" [class.has-due]="sib.outstandingDues > 0">
                       <mat-icon>{{ sib.outstandingDues > 0 ? 'account_balance_wallet' : 'verified' }}</mat-icon>
-                      {{ sib.outstandingDues > 0 ? ('Pending Due: ₹' + (sib.outstandingDues | number)) : 'Fee Cleared (₹0 Due)' }}
+                      {{ sib.outstandingDues > 0 ? ('Pending Due: Γé╣' + (sib.outstandingDues | number)) : 'Fee Cleared (Γé╣0 Due)' }}
                     </div>
                   </div>
 
@@ -1781,7 +1829,7 @@ const API_BASE = environment.apiBaseUrl;
                 </div>
                 <div class="kit-kpi-card">
                   <span class="kpi-label">Total Kit Value</span>
-                  <span class="kpi-val text-primary">₹{{ getTotalKitValue() | number:'1.2-2' }}</span>
+                  <span class="kpi-val text-primary">Γé╣{{ getTotalKitValue() | number:'1.2-2' }}</span>
                 </div>
               </div>
 
@@ -1807,7 +1855,7 @@ const API_BASE = environment.apiBaseUrl;
                         <span class="item-summary-pill">{{ kit.itemsSummary }}</span>
                       </td>
                       <td class="font-bold">{{ kit.totalQuantity }}</td>
-                      <td class="font-bold text-slate-800">₹{{ kit.totalAmount | number:'1.2-2' }}</td>
+                      <td class="font-bold text-slate-800">Γé╣{{ kit.totalAmount | number:'1.2-2' }}</td>
                       <td>
                         <span class="badge-status" [ngClass]="{
                           'status-paid': kit.paymentStatus === 'Paid',
@@ -1850,7 +1898,7 @@ const API_BASE = environment.apiBaseUrl;
         </div>
       </div>
 
-      <!-- 🏆 PRINTABLE MERIT CERTIFICATE MODAL OVERLAY (Feature 1) -->
+      <!-- ≡ƒÅå PRINTABLE MERIT CERTIFICATE MODAL OVERLAY (Feature 1) -->
       <div class="cert-modal-backdrop" *ngIf="activeCertificateModal" (click)="activeCertificateModal = null">
         <div class="cert-dialog-window" (click)="$event.stopPropagation()">
           <div class="cert-modal-top-bar">
@@ -1868,7 +1916,7 @@ const API_BASE = environment.apiBaseUrl;
           <div class="printable-certificate-sheet" id="printCertificateArea">
             <div class="cert-inner-border">
               <div class="cert-header">
-                <div class="cert-seal-icon">🏆</div>
+                <div class="cert-seal-icon">≡ƒÅå</div>
                 <h1 class="cert-school-name">{{ data360?.student?.branchName || 'INTERNATIONAL ACADEMY OF EXCELLENCE' }}</h1>
                 <h3 class="cert-heading">CERTIFICATE OF MERIT &amp; ACHIEVEMENT</h3>
                 <div class="cert-ribbon-sub">This accolade is proudly conferred upon</div>
@@ -1915,7 +1963,7 @@ const API_BASE = environment.apiBaseUrl;
         </div>
       </div>
 
-      <!-- 🩺 PRINTABLE POCKET EMERGENCY MEDICAL CARD MODAL (Feature 4) -->
+      <!-- ≡ƒ⌐║ PRINTABLE POCKET EMERGENCY MEDICAL CARD MODAL (Feature 4) -->
       <div class="cert-modal-backdrop" *ngIf="showPrintMedicalCard" (click)="showPrintMedicalCard = false">
         <div class="medical-dialog-window" (click)="$event.stopPropagation()">
           <div class="cert-modal-top-bar">
@@ -1998,7 +2046,7 @@ const API_BASE = environment.apiBaseUrl;
       font-family: inherit;
     }
 
-    /* ── STRICT AGENTS.md Compliant Light-Blue Gradient Header ── */
+    /* ΓöÇΓöÇ STRICT AGENTS.md Compliant Light-Blue Gradient Header ΓöÇΓöÇ */
     .modal-header {
       display: flex;
       align-items: center;
@@ -2139,7 +2187,7 @@ const API_BASE = environment.apiBaseUrl;
       &:hover { color: #1e293b; background: rgba(30, 41, 59, 0.05); }
     }
 
-    /* ── Metrics Ribbon ── */
+    /* ΓöÇΓöÇ Metrics Ribbon ΓöÇΓöÇ */
     .metrics-ribbon {
       display: flex;
       gap: 12px;
@@ -2190,7 +2238,7 @@ const API_BASE = environment.apiBaseUrl;
       color: #64748b;
     }
 
-    /* ── Body & Custom Tabs ── */
+    /* ΓöÇΓöÇ Body & Custom Tabs ΓöÇΓöÇ */
     .modal-body {
       flex: 1;
       overflow-y: auto;
@@ -2209,7 +2257,7 @@ const API_BASE = environment.apiBaseUrl;
       vertical-align: middle;
     }
 
-    /* ── Cards Grid ── */
+    /* ΓöÇΓöÇ Cards Grid ΓöÇΓöÇ */
     .dossier-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
@@ -2298,7 +2346,7 @@ const API_BASE = environment.apiBaseUrl;
       font-weight: 600;
     }
 
-    /* ── Siblings ── */
+    /* ΓöÇΓöÇ Siblings ΓöÇΓöÇ */
     .siblings-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -2378,7 +2426,7 @@ const API_BASE = environment.apiBaseUrl;
       color: #3b82f6;
     }
 
-    /* ── Fee KPIs ── */
+    /* ΓöÇΓöÇ Fee KPIs ΓöÇΓöÇ */
     .fee-kpi-row, .att-kpi-row {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -2423,7 +2471,7 @@ const API_BASE = environment.apiBaseUrl;
       .att-label { font-size: 0.7rem; color: #64748b; }
     }
 
-    /* ── Tables & Lists ── */
+    /* ΓöÇΓöÇ Tables & Lists ΓöÇΓöÇ */
     .section-title-wrap {
       margin-bottom: 12px;
       h4 { margin: 0; font-size: 0.95rem; font-weight: 700; color: #1e293b; }
@@ -2496,7 +2544,7 @@ const API_BASE = environment.apiBaseUrl;
       }
     }
 
-    /* ── Attendance Timeline ── */
+    /* ΓöÇΓöÇ Attendance Timeline ΓöÇΓöÇ */
     .att-timeline {
       display: flex;
       flex-direction: column;
@@ -2546,7 +2594,7 @@ const API_BASE = environment.apiBaseUrl;
       color: #475569;
     }
 
-    /* ── Facilities Grid ── */
+    /* ΓöÇΓöÇ Facilities Grid ΓöÇΓöÇ */
     .facilities-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
@@ -2619,7 +2667,7 @@ const API_BASE = environment.apiBaseUrl;
       font-style: italic;
     }
 
-    /* ── Leaves & Passes ── */
+    /* ΓöÇΓöÇ Leaves & Passes ΓöÇΓöÇ */
     .leaves-passes-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
@@ -2666,7 +2714,7 @@ const API_BASE = environment.apiBaseUrl;
       color: #64748b;
     }
 
-    /* ── Documents KYC ── */
+    /* ΓöÇΓöÇ Documents KYC ΓöÇΓöÇ */
     .doc-actions-row {
       display: flex;
       align-items: center;
@@ -2826,7 +2874,7 @@ const API_BASE = environment.apiBaseUrl;
       color: #2563eb;
     }
 
-    /* ── Empty State ── */
+    /* ΓöÇΓöÇ Empty State ΓöÇΓöÇ */
     .empty-state-box {
       display: flex;
       flex-direction: column;
@@ -2840,7 +2888,7 @@ const API_BASE = environment.apiBaseUrl;
       p { margin: 0 0 12px; font-size: 0.85rem; }
     }
 
-    /* ── Modal Footer ── */
+    /* ΓöÇΓöÇ Modal Footer ΓöÇΓöÇ */
     .modal-footer {
       display: flex;
       align-items: center;
@@ -2860,7 +2908,7 @@ const API_BASE = environment.apiBaseUrl;
       .inline-icon { font-size: 16px; width: 16px; height: 16px; }
     }
 
-    /* ── FEATURE 5: SMART EARLY-WARNING & PERFORMANCE RADAR ── */
+    /* ΓöÇΓöÇ FEATURE 5: SMART EARLY-WARNING & PERFORMANCE RADAR ΓöÇΓöÇ */
     .alert-radar-banner {
       display: flex;
       align-items: center;
@@ -3009,7 +3057,7 @@ const API_BASE = environment.apiBaseUrl;
       }
     }
 
-    /* ── COMMON HEADERS & FORMS IN TABS ── */
+    /* ΓöÇΓöÇ COMMON HEADERS & FORMS IN TABS ΓöÇΓöÇ */
     .tab-action-header {
       display: flex;
       align-items: center;
@@ -3257,7 +3305,7 @@ const API_BASE = environment.apiBaseUrl;
       }
     }
 
-    /* ── FEATURE 1: WALL OF FAME & MERIT CERTIFICATES ── */
+    /* ΓöÇΓöÇ FEATURE 1: WALL OF FAME & MERIT CERTIFICATES ΓöÇΓöÇ */
     .achievement-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -3387,7 +3435,7 @@ const API_BASE = environment.apiBaseUrl;
       }
     }
 
-    /* ── FEATURE 2: DISCIPLINARY & CONDUCT ── */
+    /* ΓöÇΓöÇ FEATURE 2: DISCIPLINARY & CONDUCT ΓöÇΓöÇ */
     .conduct-list {
       display: flex;
       flex-direction: column;
@@ -3495,7 +3543,7 @@ const API_BASE = environment.apiBaseUrl;
       color: #1e293b;
     }
 
-    /* ── FEATURE 3: PTM DESK ── */
+    /* ΓöÇΓöÇ FEATURE 3: PTM DESK ΓöÇΓöÇ */
     .ptm-timeline {
       display: flex;
       flex-direction: column;
@@ -3637,7 +3685,7 @@ const API_BASE = environment.apiBaseUrl;
       mat-icon { font-size: 16px; width: 16px; height: 16px; flex-shrink: 0; }
     }
 
-    /* ── FEATURE 4: HEALTH & MEDICAL PROFILE ── */
+    /* ΓöÇΓöÇ FEATURE 4: HEALTH & MEDICAL PROFILE ΓöÇΓöÇ */
     .health-dashboard-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -3821,7 +3869,7 @@ const API_BASE = environment.apiBaseUrl;
       }
     }
 
-    /* ── PRINT MODALS & CERTIFICATE ENGINE ── */
+    /* ΓöÇΓöÇ PRINT MODALS & CERTIFICATE ENGINE ΓöÇΓöÇ */
     .cert-modal-backdrop {
       position: fixed;
       top: 0;
@@ -4102,7 +4150,7 @@ const API_BASE = environment.apiBaseUrl;
       padding-top: 4px;
     }
 
-    /* ── TAB 12: SIBLINGS & FAMILY STYLES ── */
+    /* ΓöÇΓöÇ TAB 12: SIBLINGS & FAMILY STYLES ΓöÇΓöÇ */
     .badge-hint {
       display: inline-flex;
       align-items: center;
@@ -4381,7 +4429,7 @@ const API_BASE = environment.apiBaseUrl;
         }
       }
 
-      /* ── TAB 13: KITS & INVENTORY ASSETS STYLES ── */
+      /* ΓöÇΓöÇ TAB 13: KITS & INVENTORY ASSETS STYLES ΓöÇΓöÇ */
       .kit-kpi-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -4488,11 +4536,11 @@ export class StudentProfile360DialogComponent implements OnInit {
     remarks: ''
   };
 
-  // 🏆 Printable Modals Overlay State
+  // ≡ƒÅå Printable Modals Overlay State
   activeCertificateModal: StudentAchievementDto | null = null;
   showPrintMedicalCard = false;
 
-  // 🏆 Feature 1: Wall of Fame State
+  // ≡ƒÅå Feature 1: Wall of Fame State
   showAddAchievementForm = false;
   savingAchievement = false;
   newAchievement: CreateStudentAchievementDto = {
@@ -4506,7 +4554,7 @@ export class StudentProfile360DialogComponent implements OnInit {
     remarks: ''
   };
 
-  // ⚠️ Feature 2: Conduct & Discipline State
+  // ΓÜá∩╕Å Feature 2: Conduct & Discipline State
   showAddDisciplineForm = false;
   savingDiscipline = false;
   newDiscipline: CreateStudentDisciplinaryDto = {
@@ -4521,7 +4569,7 @@ export class StudentProfile360DialogComponent implements OnInit {
     status: 'Resolved'
   };
 
-  // 👨‍👩‍👧 Feature 3: PTM State
+  // ≡ƒæ¿ΓÇì≡ƒæ⌐ΓÇì≡ƒæº Feature 3: PTM State
   showAddPtmForm = false;
   savingPtm = false;
   newPtm: CreateStudentPtmDto = {
@@ -4535,7 +4583,7 @@ export class StudentProfile360DialogComponent implements OnInit {
     satisfactionRating: 'Satisfied'
   };
 
-  // 🩺 Feature 4: Health Profile State
+  // ≡ƒ⌐║ Feature 4: Health Profile State
   showEditHealthForm = false;
   savingHealth = false;
   healthForm: SaveStudentHealthDto = {
@@ -4553,7 +4601,11 @@ export class StudentProfile360DialogComponent implements OnInit {
     doctorNotes: ''
   };
 
-  // 👨‍👩‍👧 Feature 1: Sibling & Family State
+  // ≡ƒæ¿ΓÇì≡ƒæ⌐ΓÇì≡ƒæº Feature 1: Sibling & Family State
+  // Today's Live Transport Transit Status
+  liveTransitStatus: StudentLiveTransportStatusDto | null = null;
+  loadingLiveTransit = false;
+
   siblingsList: StudentSiblingDto[] = [];
   loadingSiblings = false;
   showAddSiblingForm = false;
@@ -4566,7 +4618,7 @@ export class StudentProfile360DialogComponent implements OnInit {
   newSiblingDiscount = 0;
   newSiblingNotes = '';
 
-  // 👨‍🏫 Faculty / Teachers List for Combobox
+  // ≡ƒæ¿ΓÇì≡ƒÅ½ Faculty / Teachers List for Combobox
   schoolTeachers: any[] = [];
   showDisciplineFacultyDropdown = false;
   showPtmFacultyDropdown = false;
@@ -4619,7 +4671,8 @@ export class StudentProfile360DialogComponent implements OnInit {
     private confirmDialog: ConfirmDialogService,
     public authService: AuthService,
     private dialog: MatDialog,
-    private router: Router
+    private router: Router,
+    private transportService: TransportService
   ) {}
 
   get isReadOnly(): boolean {
@@ -4648,6 +4701,9 @@ export class StudentProfile360DialogComponent implements OnInit {
         this.data360 = res;
         this.loading = false;
         this.syncFormsWithData();
+        if (res?.facilities?.hasTransport) {
+          this.loadLiveTransitStatus();
+        }
       },
       error: () => {
         this.loading = false;
@@ -4808,7 +4864,7 @@ export class StudentProfile360DialogComponent implements OnInit {
     return name.substring(0, 2).toUpperCase();
   }
 
-  // ── 🏆 Feature 1: Wall of Fame & Merit Certificate Methods ──────────────────
+  // ΓöÇΓöÇ ≡ƒÅå Feature 1: Wall of Fame & Merit Certificate Methods ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   saveAchievement(): void {
     if (!this.newAchievement.title || !this.newAchievement.awardedDate) {
       this.confirmDialog.alert('Validation Error', 'Achievement Title and Awarded Date are required.', 'warning');
@@ -4874,7 +4930,7 @@ export class StudentProfile360DialogComponent implements OnInit {
     }
   }
 
-  // ── ⚠️ Feature 2: Conduct & Disciplinary Methods ────────────────────────────
+  // ΓöÇΓöÇ ΓÜá∩╕Å Feature 2: Conduct & Disciplinary Methods ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   saveDiscipline(): void {
     if (!this.newDiscipline.title || !this.newDiscipline.description) {
       this.confirmDialog.alert('Validation Error', 'Entry Title and Description are required.', 'warning');
@@ -4926,7 +4982,7 @@ export class StudentProfile360DialogComponent implements OnInit {
     });
   }
 
-  // ── 👨‍👩‍👧 Feature 3: PTM Methods ──────────────────────────────────────────────
+  // ΓöÇΓöÇ ≡ƒæ¿ΓÇì≡ƒæ⌐ΓÇì≡ƒæº Feature 3: PTM Methods ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   savePtm(): void {
     if (!this.newPtm.attendedByParentName || !this.newPtm.meetingDate) {
       this.confirmDialog.alert('Validation Error', 'Parent Name and Meeting Date are required.', 'warning');
@@ -4979,17 +5035,17 @@ export class StudentProfile360DialogComponent implements OnInit {
   }
 
   formatRating(rating?: string): string {
-    if (!rating) return '🟢 Verified Interaction';
+    if (!rating) return '≡ƒƒó Verified Interaction';
     switch (rating) {
-      case 'HighlySatisfied': return '🟢 Highly Satisfied';
-      case 'Satisfied': return '🔵 Satisfied';
-      case 'NeedsImprovement': return '🟠 Needs Improvement';
-      case 'Dissatisfied': return '🔴 Dissatisfied';
+      case 'HighlySatisfied': return '≡ƒƒó Highly Satisfied';
+      case 'Satisfied': return '≡ƒö╡ Satisfied';
+      case 'NeedsImprovement': return '≡ƒƒá Needs Improvement';
+      case 'Dissatisfied': return '≡ƒö┤ Dissatisfied';
       default: return rating;
     }
   }
 
-  // ── 🩺 Feature 4: Health Tracker & Pocket Medical Card ──────────────────────
+  // ΓöÇΓöÇ ≡ƒ⌐║ Feature 4: Health Tracker & Pocket Medical Card ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   toggleEditHealth(): void {
     this.showEditHealthForm = !this.showEditHealthForm;
     if (this.showEditHealthForm) {
@@ -5020,7 +5076,21 @@ export class StudentProfile360DialogComponent implements OnInit {
     window.print();
   }
 
-  // ── 👨‍👩‍👧 Feature 1: Sibling & Family Linkage Methods ─────────────────────────
+  // ΓöÇΓöÇ ≡ƒæ¿ΓÇì≡ƒæ⌐ΓÇì≡ƒæº Feature 1: Sibling & Family Linkage Methods ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  loadLiveTransitStatus(): void {
+    if (!this.data?.studentId) return;
+    this.loadingLiveTransit = true;
+    this.transportService.getStudentLiveStatus(this.data.studentId).subscribe({
+      next: (res) => {
+        this.liveTransitStatus = res;
+        this.loadingLiveTransit = false;
+      },
+      error: () => {
+        this.loadingLiveTransit = false;
+      }
+    });
+  }
+
   loadSiblings(): void {
     if (!this.data.studentId) return;
     this.loadingSiblings = true;

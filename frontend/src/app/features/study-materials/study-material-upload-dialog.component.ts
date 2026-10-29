@@ -127,7 +127,7 @@ export interface StudyMaterialDialogData {
             <mat-form-field appearance="outline" class="col-span-2">
               <mat-label>Material Type *</mat-label>
               <mat-select [(ngModel)]="form.materialType" required>
-                <mat-option value="Notes">📝 Theory &amp; Concept Notes (डिजिटल नोट्स)</mat-option>
+                <mat-option value="Notes">📝 Theory &amp; Concept Notes</mat-option>
                 <mat-option value="PYQ">🎯 Previous Year Questions (PYQ Archive)</mat-option>
                 <mat-option value="QuestionBank">📚 Question Bank / DPPs</mat-option>
                 <mat-option value="FormulaSheet">⚡ Formula Sheet &amp; Mindmaps</mat-option>
@@ -249,7 +249,7 @@ export interface StudyMaterialDialogData {
           <!-- Solutions Toggle -->
           <div class="solutions-strip">
             <mat-checkbox [(ngModel)]="form.hasSolutions" color="primary">
-              <span class="cb-label">Includes Official Solutions / Answer Key (हल सहित)</span>
+              <span class="cb-label">Includes Official Solutions / Answer Key</span>
             </mat-checkbox>
           </div>
 

@@ -1,6 +1,8 @@
+import { Subscription } from 'rxjs';
+import { filter } from 'rxjs/operators';
 import { Component, OnInit, OnDestroy, signal, effect, ViewChild, ElementRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { RouterModule, Router, NavigationEnd } from '@angular/router';
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
 import { MatSidenav, MatSidenavModule } from '@angular/material/sidenav';
 import { MatToolbarModule } from '@angular/material/toolbar';
@@ -27,6 +29,12 @@ import { PresenceService } from '../core/services/presence.service';
 import { ChatService } from '../core/services/chat.service';
 import { ConfirmDialogService } from '../core/services/confirm-dialog.service';
 import { environment } from '../../environments/environment';
+
+export interface BreadcrumbItem {
+  label: string;
+  url?: string;
+  icon?: string;
+}
 
 @Component({
   selector: 'app-layout',
@@ -180,19 +188,19 @@ import { environment } from '../../environments/environment';
         </div>
 
         <!-- Sidebar Developer Team Action -->
-        <div class="sidebar-pwa-strip" style="margin-top: 6px; padding-top: 0;">
-          <a mat-button class="sidebar-pwa-btn" routerLink="/developer" (click)="onNavClick(drawer)" style="background: rgba(37, 99, 235, 0.15); border: 1px solid rgba(96, 165, 250, 0.3);">
-            <mat-icon style="color: #60a5fa;">engineering</mat-icon>
+        <div class="sidebar-pwa-strip sidebar-dev-strip">
+          <button mat-button class="sidebar-pwa-btn sidebar-dev-btn" routerLink="/developer" (click)="onNavClick(drawer)">
+            <mat-icon class="dev-icon">engineering</mat-icon>
             <div class="pwa-text-wrap">
-              <strong style="color: #93c5fd;">Developer Team</strong>
-              <small style="color: #bfdbfe;">Architecture &amp; Support</small>
+              <strong class="dev-title">Developer Team</strong>
+              <small class="dev-sub">Architecture &amp; Support</small>
             </div>
-          </a>
+          </button>
         </div>
       </mat-sidenav>
 
       <mat-sidenav-content>
-        <mat-toolbar color="primary" class="header-toolbar">
+        <mat-toolbar class="header-toolbar">
           <button type="button" mat-icon-button (click)="drawer.toggle()" class="menu-toggle-btn" aria-label="Toggle navigation">
             <mat-icon>menu</mat-icon>
           </button>
@@ -296,7 +304,7 @@ import { environment } from '../../environments/environment';
               <button mat-menu-item routerLink="/school/notices" *ngIf="isRoutePermitted('/school/notices')"><mat-icon color="primary">campaign</mat-icon><span>School Notices</span></button>
             </mat-menu>
 
-            <button mat-stroked-button [matMenuTriggerFor]="quickActionsMenu" class="quick-actions-button" matTooltip="Quick Actions">
+            <button mat-stroked-button [matMenuTriggerFor]="quickActionsMenu" class="quick-actions-button">
               <mat-icon>bolt</mat-icon><span>Quick Actions</span>
             </button>
             <mat-menu #quickActionsMenu="matMenu" xPosition="before" class="quick-actions-menu">
@@ -396,6 +404,27 @@ import { environment } from '../../environments/environment';
         </mat-toolbar>
 
         <main class="main-content">
+          <!-- Dynamic Enterprise Breadcrumb Strip -->
+          <nav class="enterprise-breadcrumb-bar" aria-label="Breadcrumb" *ngIf="breadcrumbs().length > 0">
+            <ol class="breadcrumb-list">
+              <li class="breadcrumb-item" *ngFor="let b of breadcrumbs(); let isLast = last">
+                <a *ngIf="!isLast && b.url" [routerLink]="b.url" class="breadcrumb-link" [title]="b.label">
+                  <mat-icon class="bc-icon" *ngIf="b.icon">{{ b.icon }}</mat-icon>
+                  <span>{{ b.label }}</span>
+                </a>
+                <span *ngIf="!isLast && !b.url" (click)="onParentCategoryClick(b)" class="breadcrumb-link parent-category" [title]="b.label">
+                  <mat-icon class="bc-icon" *ngIf="b.icon">{{ b.icon }}</mat-icon>
+                  <span>{{ b.label }}</span>
+                </span>
+                <span *ngIf="isLast" class="breadcrumb-current" aria-current="page">
+                  <mat-icon class="bc-icon" *ngIf="b.icon">{{ b.icon }}</mat-icon>
+                  <span>{{ b.label }}</span>
+                </span>
+                <mat-icon class="breadcrumb-separator" *ngIf="!isLast">chevron_right</mat-icon>
+              </li>
+            </ol>
+          </nav>
+
           <router-outlet></router-outlet>
         </main>
 
@@ -413,12 +442,13 @@ import { environment } from '../../environments/environment';
       height: 100dvh;
     }
     .sidenav {
-      width: 300px !important;
-      background-color: #0b1329 !important;
-      border-right: 1px solid #1e293b;
+      width: 280px !important;
+      max-width: 85vw !important;
+      background-color: #ffffff !important;
+      border-right: 1px solid #e2e8f0;
       display: flex;
       flex-direction: column;
-      box-shadow: 4px 0 24px rgba(0, 0, 0, 0.25);
+      box-shadow: 2px 0 16px rgba(15, 23, 42, 0.04);
 
       ::ng-deep .mat-drawer-inner-container {
         display: flex !important;
@@ -430,7 +460,7 @@ import { environment } from '../../environments/environment';
         -webkit-overflow-scrolling: touch !important;
 
         &::-webkit-scrollbar {
-          width: 6px !important;
+          width: 5px !important;
         }
         &::-webkit-scrollbar-track {
           background: transparent !important;
@@ -442,20 +472,20 @@ import { environment } from '../../environments/environment';
         }
         &::-webkit-scrollbar-thumb {
           background: transparent !important;
-          border-radius: 6px !important;
+          border-radius: 5px !important;
           transition: background-color 0.25s ease !important;
         }
       }
 
       &:hover {
         ::ng-deep .mat-drawer-inner-container {
-          scrollbar-color: rgba(148, 163, 184, 0.4) transparent !important;
+          scrollbar-color: rgba(148, 163, 184, 0.5) transparent !important;
 
           &::-webkit-scrollbar-thumb {
             background: rgba(148, 163, 184, 0.4) !important;
 
             &:hover {
-              background: rgba(148, 163, 184, 0.7) !important;
+              background: rgba(100, 116, 139, 0.6) !important;
             }
           }
         }
@@ -486,45 +516,56 @@ import { environment } from '../../environments/environment';
       }
     }
     .brand-section {
-      padding: 14px 14px;
+      height: 64px !important;
+      max-height: 64px !important;
+      min-height: 64px !important;
+      padding: 0 16px !important;
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 12px;
       position: relative;
-      background: #080d1a;
-      border-bottom: 1px solid #1e293b;
+      background: #ffffff;
+      border-bottom: 1px solid #e2e8f0;
       flex-shrink: 0;
+      box-sizing: border-box !important;
 
-      .brand-logo-img {
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        object-fit: contain;
-        border: none;
-        box-shadow: none;
-        flex-shrink: 0;
-        background: transparent !important;
-        filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.45));
+      @media (max-width: 599px) {
+        height: 56px !important;
+        max-height: 56px !important;
+        min-height: 56px !important;
+        padding: 0 12px !important;
       }
 
-      .brand-logo-badge {
+      .brand-logo-img {
         width: 38px;
         height: 38px;
-        border-radius: 9px;
-        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+        border-radius: 10px;
+        object-fit: contain;
+        border: none !important;
+        box-shadow: none !important;
+        flex-shrink: 0;
+        background: transparent !important;
+      }
+
+      .brand-fallback-icon {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        border: 1px solid #bfdbfe;
+        color: #2563eb;
         display: flex;
         align-items: center;
         justify-content: center;
-        box-shadow: 0 4px 14px rgba(37, 99, 235, 0.45);
         flex-shrink: 0;
 
-        .brand-icon {
+        mat-icon {
           font-size: 22px;
           width: 22px;
           height: 22px;
-          color: #ffffff;
         }
       }
+
       .brand-titles {
         display: flex;
         flex-direction: column;
@@ -535,8 +576,8 @@ import { environment } from '../../environments/environment';
 
         .brand-name {
           font-weight: 700;
-          font-size: 0.93rem;
-          color: #f8fafc;
+          font-size: 0.95rem;
+          color: #0f172a;
           white-space: nowrap !important;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -544,10 +585,10 @@ import { environment } from '../../environments/environment';
           line-height: 1.25;
         }
         .brand-sub {
-          font-size: 0.67rem;
-          color: #38bdf8;
-          font-weight: 600;
-          letter-spacing: 0.02em;
+          font-size: 0.68rem;
+          color: #2563eb;
+          font-weight: 700;
+          letter-spacing: 0.03em;
           text-transform: uppercase;
           white-space: nowrap !important;
           overflow: hidden;
@@ -558,8 +599,13 @@ import { environment } from '../../environments/environment';
       }
       .close-drawer-btn {
         margin-left: auto;
-        color: #94a3b8;
+        color: #64748b;
         flex-shrink: 0;
+
+        &:hover {
+          color: #0f172a;
+          background: #f1f5f9;
+        }
       }
     }
     .nav-container {
@@ -587,32 +633,32 @@ import { environment } from '../../environments/environment';
       ::ng-deep mat-expansion-panel {
         background: transparent !important;
         box-shadow: none !important;
-        margin: 0 0 4px 0 !important;
+        margin: 0 0 3px 0 !important;
         border-radius: 8px !important;
-        transition: background-color 180ms ease;
+        transition: background-color 150ms ease;
 
         &:hover {
-          background: rgba(255, 255, 255, 0.04) !important;
+          background: #f8fafc !important;
         }
 
         &.mat-expanded {
-          background: rgba(255, 255, 255, 0.02) !important;
+          background: #f8fafc !important;
         }
       }
 
       ::ng-deep mat-expansion-panel-header {
-        height: 44px !important;
-        padding: 0 12px !important;
+        height: 42px !important;
+        padding: 0 10px !important;
         border-radius: 8px !important;
         background: transparent !important;
-        transition: background-color 180ms ease;
+        transition: background-color 150ms ease;
 
         &:hover {
-          background: rgba(255, 255, 255, 0.06) !important;
+          background: #f1f5f9 !important;
         }
 
         .mat-expansion-indicator::after {
-          color: #94a3b8 !important;
+          color: #64748b !important;
         }
       }
 
@@ -621,11 +667,13 @@ import { environment } from '../../environments/environment';
         align-items: center;
         gap: 10px;
         font-weight: 600;
-        color: #e2e8f0;
-        font-size: 0.88rem;
+        color: #1e293b;
+        font-size: 0.86rem;
 
         .module-title {
-          letter-spacing: 0.01em;
+          letter-spacing: -0.01em;
+          font-weight: 600;
+          color: #334155;
         }
       }
     }
@@ -640,7 +688,7 @@ import { environment } from '../../environments/environment';
       flex-shrink: 0;
 
       background: linear-gradient(135deg, #06b6d4 0%, #0284c7 100%);
-      box-shadow: 0 2px 8px rgba(6, 182, 212, 0.35);
+      box-shadow: 0 2px 6px rgba(6, 182, 212, 0.25);
 
       .menu-icon, mat-icon {
         font-size: 17px;
@@ -651,34 +699,34 @@ import { environment } from '../../environments/environment';
 
       &.badge-main {
         background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-        box-shadow: 0 2px 8px rgba(59, 130, 246, 0.35);
+        box-shadow: 0 2px 6px rgba(59, 130, 246, 0.25);
       }
       &.badge-master {
         background: linear-gradient(135deg, #06b6d4 0%, #0284c7 100%);
-        box-shadow: 0 2px 8px rgba(6, 182, 212, 0.35);
+        box-shadow: 0 2px 6px rgba(6, 182, 212, 0.25);
       }
       &.badge-attendance {
         background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
-        box-shadow: 0 2px 8px rgba(244, 63, 94, 0.35);
+        box-shadow: 0 2px 6px rgba(244, 63, 94, 0.25);
       }
       &.badge-teachers {
         background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-        box-shadow: 0 2px 8px rgba(16, 185, 129, 0.35);
+        box-shadow: 0 2px 6px rgba(16, 185, 129, 0.25);
       }
       &.badge-academic {
         background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%);
-        box-shadow: 0 2px 8px rgba(168, 85, 247, 0.35);
+        box-shadow: 0 2px 6px rgba(168, 85, 247, 0.25);
       }
       &.badge-admin {
         background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-        box-shadow: 0 2px 8px rgba(245, 158, 11, 0.35);
+        box-shadow: 0 2px 6px rgba(245, 158, 11, 0.25);
       }
     }
 
     .sub-nav-wrapper {
       margin-left: 20px;
       padding-left: 10px;
-      border-left: 2px solid rgba(255, 255, 255, 0.08);
+      border-left: 2px solid #e2e8f0;
       margin-top: 2px;
       margin-bottom: 6px;
     }
@@ -687,99 +735,99 @@ import { environment } from '../../environments/environment';
       padding: 0;
 
       a[mat-list-item] {
-        height: 38px;
-        min-height: 38px;
+        height: 36px;
+        min-height: 36px;
         border-radius: 7px;
         margin: 2px 0;
         padding: 0 10px;
-        transition: all 180ms ease;
+        transition: all 150ms ease;
 
         .sub-icon {
-          font-size: 18px;
-          width: 18px;
-          height: 18px;
+          font-size: 17px;
+          width: 17px;
+          height: 17px;
           color: #64748b;
           margin-right: 10px;
-          transition: transform 180ms ease, color 180ms ease;
+          transition: transform 150ms ease, color 150ms ease;
         }
 
         .sub-title-text {
-          font-size: 0.84rem;
+          font-size: 0.83rem;
           font-weight: 500;
-          color: #cbd5e1;
-          letter-spacing: 0.01em;
+          color: #475569;
+          letter-spacing: -0.005em;
           white-space: nowrap !important;
           overflow: visible !important;
           text-overflow: clip !important;
         }
 
         &:hover {
-          background: rgba(255, 255, 255, 0.06);
-          transform: translateX(3px);
+          background: #f1f5f9;
+          transform: translateX(2px);
 
           .sub-title-text {
-            color: #ffffff;
+            color: #0f172a;
           }
           .sub-icon {
-            color: #38bdf8;
-            transform: scale(1.1);
+            color: #2563eb;
+            transform: scale(1.08);
           }
         }
 
         &.active-link {
-          background: linear-gradient(90deg, rgba(56, 189, 248, 0.18) 0%, rgba(56, 189, 248, 0.04) 100%) !important;
-          border-left: 3px solid #38bdf8;
+          background: #eff6ff !important;
+          border-left: 3px solid #2563eb;
           box-shadow: none;
 
           .sub-title-text {
-            color: #38bdf8 !important;
-            font-weight: 600;
+            color: #1d4ed8 !important;
+            font-weight: 700;
           }
           .sub-icon {
-            color: #38bdf8 !important;
+            color: #2563eb !important;
           }
         }
       }
     }
 
     .direct-nav-item {
-      margin: 0 0 4px 0;
+      margin: 0 0 3px 0;
 
       .direct-nav-link {
         display: flex;
         align-items: center;
         gap: 10px;
-        height: 44px;
-        padding: 0 12px;
+        height: 42px;
+        padding: 0 10px;
         border-radius: 8px;
         text-decoration: none;
         box-sizing: border-box;
         cursor: pointer;
-        transition: background-color 180ms ease, transform 180ms ease;
+        transition: background-color 150ms ease, transform 150ms ease;
 
         .direct-title-text {
-          font-size: 0.88rem;
+          font-size: 0.86rem;
           font-weight: 600;
-          color: #e2e8f0;
-          letter-spacing: 0.01em;
+          color: #334155;
+          letter-spacing: -0.01em;
           white-space: nowrap !important;
           overflow: visible !important;
           text-overflow: clip !important;
         }
 
         &:hover {
-          background: rgba(255, 255, 255, 0.06);
-          transform: translateX(3px);
-          .direct-title-text { color: #ffffff; }
+          background: #f8fafc;
+          transform: translateX(2px);
+          .direct-title-text { color: #0f172a; }
         }
 
         &.active-link {
-          background: linear-gradient(90deg, rgba(59, 130, 246, 0.22) 0%, rgba(59, 130, 246, 0.06) 100%) !important;
-          border-left: 3px solid #38bdf8;
-          padding-left: 9px;
+          background: #eff6ff !important;
+          border-left: 3px solid #2563eb;
+          padding-left: 8px;
 
           .direct-title-text {
-            color: #38bdf8 !important;
+            color: #1d4ed8 !important;
             font-weight: 700;
           }
         }
@@ -800,15 +848,15 @@ import { environment } from '../../environments/environment';
     }
 
     .sidebar-calendar {
-      border-top: 1px solid #1e293b;
+      border-top: 1px solid #e2e8f0;
       padding: 10px 14px;
-      background: #080d1a;
+      background: #f8fafc;
       flex-shrink: 0;
       transition: padding 0.25s ease;
 
       &.collapsed {
         padding: 8px 14px;
-        background: #060913;
+        background: #ffffff;
       }
 
       .calendar-title-row, .calendar-controls, .calendar-weekdays, .calendar-legend {
@@ -817,7 +865,7 @@ import { environment } from '../../environments/environment';
       }
       .calendar-title-row {
         justify-content: space-between;
-        color: #f1f5f9;
+        color: #1e293b;
         font-size: 0.78rem;
         margin-bottom: 0;
         cursor: pointer;
@@ -825,29 +873,29 @@ import { environment } from '../../environments/environment';
         padding: 2px 0;
         border-radius: 4px;
 
-        strong { display: flex; align-items: center; gap: 6px; font-weight: 600; }
-        mat-icon { color: #38bdf8; font-size: 17px; width: 17px; height: 17px; }
+        strong { display: flex; align-items: center; gap: 6px; font-weight: 700; color: #1e293b; }
+        mat-icon { color: #2563eb; font-size: 17px; width: 17px; height: 17px; }
         
         .calendar-header-actions {
           display: flex;
           align-items: center;
           gap: 6px;
 
-          span { color: #94a3b8; font-weight: 600; font-size: 0.76rem; }
+          span { color: #64748b; font-weight: 600; font-size: 0.76rem; }
 
           .calendar-collapse-btn {
             width: 24px;
             height: 24px;
             line-height: 24px;
             padding: 0;
-            color: #38bdf8;
-            background: rgba(56, 189, 248, 0.12);
+            color: #2563eb;
+            background: #eff6ff;
             border-radius: 4px;
             transition: all 0.2s ease;
 
             &:hover {
-              background: rgba(56, 189, 248, 0.25);
-              color: #ffffff;
+              background: #dbeafe;
+              color: #1d4ed8;
             }
 
             mat-icon {
@@ -879,11 +927,11 @@ import { environment } from '../../environments/environment';
 
       .calendar-controls {
         justify-content: space-between;
-        color: #cbd5e1;
+        color: #334155;
         font-size: 0.78rem;
         margin-bottom: 4px;
-        button { width: 24px; height: 24px; line-height: 24px; padding: 0; color: #94a3b8; }
-        button:hover { color: #ffffff; background: rgba(255, 255, 255, 0.08); }
+        button { width: 24px; height: 24px; line-height: 24px; padding: 0; color: #64748b; }
+        button:hover { color: #0f172a; background: #e2e8f0; }
         mat-icon { font-size: 18px; width: 18px; height: 18px; line-height: 18px; }
       }
       .calendar-weekdays, .calendar-grid {
@@ -901,25 +949,25 @@ import { environment } from '../../environments/environment';
       .calendar-day {
         min-width: 0;
         height: 25px;
-        border: 1px solid transparent;
+        border: 1px solid #e2e8f0;
         border-radius: 5px;
-        background: #111a2e;
-        color: #cbd5e1;
+        background: #ffffff;
+        color: #334155;
         font-size: 0.68rem;
         cursor: default;
         padding: 0;
         transition: background 0.15s ease;
 
-        &.today { border-color: #38bdf8; background: #0c4a6e; color: #38bdf8; font-weight: 800; }
-        &.holiday { background: #78350f; color: #fde68a; border-color: #f59e0b; font-weight: 700; }
-        &.sunday { background: #450a0a; color: #fca5a5; }
-        &.saturday { background: #1e1b4b; color: #c7d2fe; }
+        &.today { border-color: #3b82f6; background: #eff6ff; color: #1d4ed8; font-weight: 800; }
+        &.holiday { background: #fef3c7; color: #92400e; border-color: #fcd34d; font-weight: 700; }
+        &.sunday { background: #fef2f2; color: #991b1b; border-color: #fecaca; }
+        &.saturday { background: #f5f3ff; color: #5b21b6; border-color: #ddd6fe; }
         &.holiday.sunday, &.holiday.saturday { border-width: 2px; }
       }
       .calendar-legend {
         gap: 10px;
         margin-top: 8px;
-        color: #94a3b8;
+        color: #64748b;
         font-size: 0.62rem;
         span { display: inline-flex; align-items: center; gap: 4px; }
         i { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
@@ -930,59 +978,116 @@ import { environment } from '../../environments/environment';
     }
 
     .sidebar-pwa-strip {
-      padding: 10px 14px;
-      border-top: 1px solid #1e293b;
-      background: #080d1a;
+      padding: 8px 12px;
+      border-top: 1px solid #e2e8f0;
+      background: #ffffff;
       flex-shrink: 0;
 
       .sidebar-pwa-btn {
-        width: 100%;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 8px 10px;
+        width: 100% !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: flex-start !important;
+        gap: 10px !important;
+        padding: 8px 10px !important;
         border-radius: 8px;
-        background: rgba(37, 99, 235, 0.12);
-        border: 1px solid rgba(37, 99, 235, 0.35);
-        color: #93c5fd;
-        text-align: left;
+        background: #eff6ff;
+        border: 1px solid #bfdbfe;
+        color: #1e40af;
+        text-align: left !important;
         transition: all 180ms ease;
+        box-sizing: border-box !important;
 
-        mat-icon {
-          color: #38bdf8;
-          font-size: 22px;
-          width: 22px;
-          height: 22px;
-          flex-shrink: 0;
+        ::ng-deep .mdc-button__label {
+          display: flex !important;
+          align-items: center !important;
+          justify-content: flex-start !important;
+          width: 100% !important;
+          gap: 10px !important;
+          text-align: left !important;
+          padding: 0 !important;
+        }
+
+        mat-icon, .dev-icon {
+          color: #2563eb;
+          font-size: 22px !important;
+          width: 22px !important;
+          height: 22px !important;
+          margin: 0 !important;
+          flex-shrink: 0 !important;
         }
 
         .pwa-text-wrap {
           display: flex;
           flex-direction: column;
           line-height: 1.25;
+          text-align: left;
+          min-width: 0;
+          flex: 1;
 
           strong {
-            color: #ffffff;
+            color: #1e3a8a;
             font-size: 0.8rem;
-            font-weight: 600;
+            font-weight: 700;
+            white-space: nowrap;
           }
           small {
-            color: #94a3b8;
-            font-size: 0.68rem;
+            color: #3b82f6;
+            font-size: 0.67rem;
+            white-space: nowrap;
+            letter-spacing: -0.01em;
           }
         }
 
         &:hover {
-          background: rgba(37, 99, 235, 0.25);
-          border-color: #38bdf8;
+          background: #dbeafe;
+          border-color: #93c5fd;
+        }
+      }
+    }
+
+    .sidebar-dev-strip {
+      margin-top: 4px;
+      padding-top: 0 !important;
+      border-top: none !important;
+
+      .sidebar-dev-btn {
+        background: #f8fafc !important;
+        border: 1px solid #e2e8f0 !important;
+        color: #334155 !important;
+
+        .dev-icon {
+          color: #2563eb !important;
+        }
+
+        .pwa-text-wrap {
+          .dev-title {
+            color: #0f172a !important;
+            font-size: 0.8rem;
+            font-weight: 700;
+            white-space: nowrap;
+          }
+          .dev-sub {
+            color: #64748b !important;
+            font-size: 0.67rem;
+            white-space: nowrap;
+          }
+        }
+
+        &:hover {
+          background: #eff6ff !important;
+          border-color: #cbd5e1 !important;
         }
       }
     }
 
     .header-toolbar {
-      background: linear-gradient(90deg, #0b1329 0%, #1e3a8a 100%) !important;
-      border-bottom: 1px solid #1e293b;
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+      height: 64px !important;
+      max-height: 64px !important;
+      min-height: 64px !important;
+      background: #ffffff;
+      border-bottom: 1px solid #e2e8f0;
+      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.04);
       display: flex;
       align-items: center;
       gap: 6px;
@@ -992,8 +1097,15 @@ import { environment } from '../../environments/environment';
       overflow: visible !important;
       flex-wrap: nowrap;
       width: 100%;
-      box-sizing: border-box;
+      box-sizing: border-box !important;
       position: relative;
+      color: #1e293b;
+
+      @media (max-width: 599px) {
+        height: 56px !important;
+        max-height: 56px !important;
+        min-height: 56px !important;
+      }
 
       @media (max-width: 1440px) {
         gap: 5px;
@@ -1034,7 +1146,12 @@ import { environment } from '../../environments/environment';
 
       .menu-toggle-btn {
         flex-shrink: 0;
-        color: #ffffff;
+        color: #475569;
+
+        &:hover {
+          background: #f1f5f9;
+          color: #0f172a;
+        }
       }
     }
     .header-tools {
@@ -1050,23 +1167,25 @@ import { environment } from '../../environments/environment';
       }
 
       .install-pwa-btn {
-        height: 32px;
-        line-height: 32px;
-        padding: 0 10px;
-        border-radius: 16px;
-        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-        color: #ffffff;
+        height: 34px;
+        line-height: 34px;
+        padding: 0 12px;
+        border-radius: 17px;
+        background: #ecfdf5;
+        color: #059669;
         font-weight: 600;
         font-size: 0.78rem;
-        border: 1px solid rgba(255, 255, 255, 0.25);
+        border: 1px solid #a7f3d0;
         display: inline-flex;
         align-items: center;
         gap: 5px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
         transition: all 180ms ease;
 
         &:hover {
-          background: linear-gradient(135deg, #059669 0%, #047857 100%);
+          background: #d1fae5;
+          color: #047857;
+          border-color: #6ee7b7;
           transform: translateY(-1px);
         }
 
@@ -1074,6 +1193,7 @@ import { environment } from '../../environments/environment';
           font-size: 16px;
           width: 16px;
           height: 16px;
+          color: #059669;
         }
 
         @media (max-width: 1350px) {
@@ -1123,23 +1243,29 @@ import { environment } from '../../environments/environment';
       position: relative;
       display: flex;
       align-items: center;
-      width: 180px;
-      height: 34px;
+      width: 190px;
+      height: 36px;
       padding: 0 10px;
       gap: 7px;
-      border: 1px solid rgba(255,255,255,.35);
+      border: 1px solid #e2e8f0;
       border-radius: 18px;
-      background: rgba(255,255,255,.12);
-      transition: width 180ms ease, background 180ms ease;
+      background: #f8fafc;
+      transition: all 180ms ease;
       flex-shrink: 0;
       cursor: pointer;
+      color: #475569;
 
       .search-icon {
         font-size: 18px;
         width: 18px;
         height: 18px;
-        color: inherit;
+        color: #64748b;
         flex-shrink: 0;
+      }
+
+      &:hover {
+        background: #f1f5f9;
+        border-color: #cbd5e1;
       }
 
       @media (max-width: 1350px) {
@@ -1147,8 +1273,8 @@ import { environment } from '../../environments/environment';
       }
 
       @media (max-width: 800px) {
-        width: 34px;
-        height: 34px;
+        width: 36px;
+        height: 36px;
         padding: 0;
         justify-content: center;
         border-radius: 50%;
@@ -1160,7 +1286,9 @@ import { environment } from '../../environments/environment';
     .header-search.open {
       width: 260px;
       background: #ffffff;
-      color: #334155;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+      color: #0f172a;
       cursor: default;
 
       @media (max-width: 600px) {
@@ -1170,7 +1298,7 @@ import { environment } from '../../environments/environment';
         width: auto !important;
         z-index: 100;
         border-radius: 10px;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
         padding: 0 12px;
       }
       input {
@@ -1178,8 +1306,8 @@ import { environment } from '../../environments/environment';
         color: #0f172a;
       }
     }
-    .header-search input { width:100%; border:0; outline:0; background:transparent; color:inherit; font:inherit; font-size:.78rem; }
-    .header-search input::placeholder { color:rgba(255,255,255,.82); }
+    .header-search input { width:100%; border:0; outline:0; background:transparent; color:#0f172a; font:inherit; font-size:.82rem; }
+    .header-search input::placeholder { color:#94a3b8; }
     .header-search.open input::placeholder { color:#94a3b8; }
 
     .search-clear-btn {
@@ -1220,7 +1348,7 @@ import { environment } from '../../environments/environment';
       background: #ffffff;
       border: 1px solid #bfdbfe;
       border-radius: 8px;
-      box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.25), 0 8px 10px -6px rgba(15, 23, 42, 0.1);
+      box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.15), 0 8px 10px -6px rgba(15, 23, 42, 0.08);
       max-height: 340px;
       overflow-y: auto;
     }
@@ -1237,8 +1365,26 @@ import { environment } from '../../environments/environment';
     }
     .search-results a:hover { background:#eff6ff; color:#2563eb; }
     .search-results mat-icon { font-size:18px; width:18px; height:18px; color:#2563eb; flex-shrink: 0; }
-    .header-tool-button { position:relative; color:#fff; flex-shrink: 0; }
-    .notification-dot { position:absolute; top:9px; right:9px; width:6px; height:6px; border-radius:50%; background:#fbbf24; border:1px solid #3f51b5; }
+    .header-tool-button {
+      position: relative;
+      color: #475569;
+      flex-shrink: 0;
+
+      &:hover {
+        background: #f1f5f9;
+        color: #0f172a;
+      }
+    }
+    .notification-dot {
+      position: absolute;
+      top: 9px;
+      right: 9px;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #ef4444;
+      border: 1.5px solid #ffffff;
+    }
     .chat-unread-badge {
       position: absolute;
       top: 4px;
@@ -1254,16 +1400,32 @@ import { environment } from '../../environments/environment';
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.18);
       border: 1.5px solid #ffffff;
       line-height: 1;
     }
     .quick-actions-button {
-      height: 34px;
-      color: #fff;
-      border-color: rgba(255,255,255,.5);
-      font-size: .76rem;
+      --mdc-outlined-button-label-text-color: #334155 !important;
+      ::ng-deep .mdc-button__label {
+        color: #334155 !important;
+      }
+      height: 36px;
+      color: #334155;
+      border-color: #cbd5e1;
+      background: #ffffff;
+      font-size: .78rem;
+      font-weight: 600;
       flex-shrink: 0;
+
+      mat-icon {
+        color: #d97706;
+      }
+
+      &:hover {
+        background: #f8fafc;
+        border-color: #94a3b8;
+        color: #0f172a;
+      }
 
       @media (max-width: 1350px) {
         span { display: none; }
@@ -1281,10 +1443,10 @@ import { environment } from '../../environments/environment';
       gap: 6px;
       height: 34px !important;
       padding: 0 10px !important;
-      border-radius: 18px !important;
-      background: rgba(16, 185, 129, 0.16) !important;
-      border: 1px solid rgba(52, 211, 153, 0.45) !important;
-      color: #ffffff !important;
+      border-radius: 17px !important;
+      background: #f0fdf4 !important;
+      border: 1px solid #bbf7d0 !important;
+      color: #15803d !important;
       font-size: 0.8rem !important;
       font-weight: 600 !important;
       cursor: pointer;
@@ -1292,9 +1454,9 @@ import { environment } from '../../environments/environment';
       flex-shrink: 0;
 
       &:hover {
-        background: rgba(16, 185, 129, 0.28) !important;
-        border-color: rgba(52, 211, 153, 0.75) !important;
-        box-shadow: 0 0 12px rgba(16, 185, 129, 0.35) !important;
+        background: #dcfce7 !important;
+        border-color: #86efac !important;
+        box-shadow: 0 2px 6px rgba(16, 185, 129, 0.15) !important;
       }
 
       .active-pulse-dot {
@@ -1311,20 +1473,20 @@ import { environment } from '../../environments/environment';
         width: 16px !important;
         height: 16px !important;
         line-height: 16px !important;
-        color: #6ee7b7 !important;
+        color: #10b981 !important;
         margin: 0 !important;
       }
 
       .active-count {
         font-size: 0.84rem !important;
         font-weight: 700 !important;
-        color: #ffffff !important;
+        color: #166534 !important;
       }
 
       .active-text {
         font-size: 0.72rem !important;
-        font-weight: 500 !important;
-        color: #a7f3d0 !important;
+        font-weight: 600 !important;
+        color: #15803d !important;
       }
 
       @media (max-width: 1350px) {
@@ -1590,9 +1752,9 @@ import { environment } from '../../environments/environment';
       height: 32px;
       padding: 0 10px;
       border-radius: 16px;
-      background: rgba(255, 255, 255, 0.16);
-      border: 1px solid rgba(255, 255, 255, 0.35);
-      color: #ffffff;
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      color: #334155;
       font-size: 0.78rem;
       font-weight: 700;
       cursor: pointer;
@@ -1601,10 +1763,10 @@ import { environment } from '../../environments/environment';
       flex-shrink: 0;
 
       &:hover {
-        background: rgba(255, 255, 255, 0.28);
-        border-color: rgba(255, 255, 255, 0.65);
+        background: #e2e8f0;
+        border-color: #94a3b8;
         transform: translateY(-1px);
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
       }
 
       .lang-flag-badge {
@@ -1624,43 +1786,40 @@ import { environment } from '../../environments/environment';
       min-width: 8px;
     }
     .branch-selector-button {
-      height: 38px;
-      color: #ffffff;
-      border: 1px solid rgba(255, 255, 255, 0.4);
-      background: rgba(255, 255, 255, 0.14);
+      height: 36px;
+      color: #1e293b !important;
+      border: 1px solid #cbd5e1 !important;
+      background: #f8fafc !important;
       border-radius: 8px;
       padding: 0 10px !important;
-      margin-right: 8px;
+      margin-right: 6px;
       font-size: 0.84rem;
-      font-weight: 500;
+      font-weight: 600;
       cursor: pointer;
       transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
       flex-shrink: 0;
-
-      &:hover {
-        background: rgba(255, 255, 255, 0.24);
-        border-color: rgba(255, 255, 255, 0.75);
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-      }
+      --mdc-outlined-button-label-text-color: #1e293b !important;
 
       ::ng-deep .mdc-button__label {
         display: inline-flex !important;
         align-items: center !important;
         height: 100% !important;
         padding: 0 !important;
+        color: #1e293b !important;
       }
 
       .branch-btn-content {
         display: inline-flex;
         align-items: center;
         gap: 6px;
+        color: #1e293b !important;
       }
 
       .branch-btn-icon {
         font-size: 18px;
         width: 18px;
         height: 18px;
-        color: #93c5fd;
+        color: #2563eb !important;
         margin: 0 !important;
         flex-shrink: 0;
       }
@@ -1670,9 +1829,10 @@ import { environment } from '../../environments/environment';
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        font-weight: 500;
+        font-weight: 600;
         margin: 0;
         line-height: normal;
+        color: #1e293b !important;
 
         @media (max-width: 1440px) {
           max-width: 130px;
@@ -1687,11 +1847,12 @@ import { environment } from '../../environments/environment';
 
       .branch-name-short {
         display: none;
-        font-weight: 600;
+        font-weight: 700;
         font-size: 0.75rem;
         letter-spacing: 0.5px;
         margin: 0;
         line-height: normal;
+        color: #1e293b !important;
 
         @media (max-width: 1100px) {
           display: inline-block !important;
@@ -1705,9 +1866,35 @@ import { environment } from '../../environments/environment';
         font-size: 18px;
         width: 18px;
         height: 18px;
-        opacity: 0.85;
+        color: #64748b !important;
         margin: 0 !important;
         flex-shrink: 0;
+      }
+
+      &:hover {
+        background: #eff6ff !important;
+        border-color: #bfdbfe !important;
+        color: #1d4ed8 !important;
+        --mdc-outlined-button-label-text-color: #1d4ed8 !important;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+
+        ::ng-deep .mdc-button__label {
+          color: #1d4ed8 !important;
+        }
+
+        .branch-btn-content,
+        .branch-name-full,
+        .branch-name-short {
+          color: #1d4ed8 !important;
+        }
+
+        .branch-btn-icon {
+          color: #2563eb !important;
+        }
+
+        .dropdown-chevron {
+          color: #1d4ed8 !important;
+        }
       }
 
       @media (max-width: 680px) {
@@ -1734,14 +1921,14 @@ import { environment } from '../../environments/environment';
 
     .branch-locked-badge {
       height: 36px;
-      color: #ffffff;
-      border: 1px solid rgba(255, 255, 255, 0.25);
-      background: rgba(255, 255, 255, 0.1);
+      color: #334155 !important;
+      border: 1px solid #e2e8f0 !important;
+      background: #f8fafc !important;
       border-radius: 8px;
       padding: 0 12px;
-      margin-right: 8px;
+      margin-right: 6px;
       font-size: 0.84rem;
-      font-weight: 500;
+      font-weight: 600;
       display: inline-flex;
       align-items: center;
       gap: 6px;
@@ -1751,10 +1938,11 @@ import { environment } from '../../environments/environment';
         font-size: 18px;
         width: 18px;
         height: 18px;
-        color: #93c5fd;
+        color: #2563eb !important;
       }
 
       .branch-name-full {
+        color: #334155 !important;
         max-width: 200px;
         white-space: nowrap;
         overflow: hidden;
@@ -1765,6 +1953,7 @@ import { environment } from '../../environments/environment';
       }
 
       .branch-name-short {
+        color: #334155 !important;
         display: none;
         font-weight: 700;
         letter-spacing: 0.05em;
@@ -1776,8 +1965,7 @@ import { environment } from '../../environments/environment';
         font-size: 14px;
         width: 14px;
         height: 14px;
-        color: #e2e8f0;
-        opacity: 0.85;
+        color: #64748b !important;
       }
 
       @media (max-width: 480px) {
@@ -1795,7 +1983,7 @@ import { environment } from '../../environments/environment';
       min-width: 300px !important;
       max-width: 400px !important;
       border-radius: 10px !important;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25) !important;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15) !important;
 
       .mat-mdc-menu-item {
         font-size: 0.85rem !important;
@@ -1819,16 +2007,18 @@ import { environment } from '../../environments/environment';
       display: flex;
       align-items: center;
       gap: 6px;
-      background-color: rgba(255,255,255,0.2);
+      background-color: #f1f5f9;
+      border: 1px solid #e2e8f0;
       padding: 4px 10px;
       border-radius: 20px;
       font-size: 0.78rem;
+      color: #334155;
 
       .wa-icon {
         font-size: 16px;
         width: 16px;
         height: 16px;
-        color: #4ade80;
+        color: #16a34a;
       }
       .wa-text {
         @media (max-width: 680px) {
@@ -1837,18 +2027,18 @@ import { environment } from '../../environments/environment';
       }
     }
     .account-btn {
-      color: #ffffff;
+      color: #334155;
       margin-left: 6px;
       margin-right: 2px;
       padding: 0 !important;
       display: inline-flex !important;
       align-items: center !important;
       justify-content: center !important;
-      transition: transform 0.15s ease, background-color 0.15s ease;
+      transition: transform 0.15s ease;
       flex-shrink: 0 !important;
-      width: 40px;
-      height: 40px;
-      min-width: 40px;
+      width: 38px;
+      height: 38px;
+      min-width: 38px;
 
       @media (max-width: 1440px) {
         margin-left: 4px;
@@ -1876,14 +2066,14 @@ import { environment } from '../../environments/environment';
       }
 
       &:hover {
-        transform: scale(1.08);
-        background-color: rgba(255, 255, 255, 0.15);
+        transform: scale(1.06);
       }
 
       .account-icon {
         font-size: 28px;
         width: 28px;
         height: 28px;
+        color: #64748b;
       }
 
       .header-avatar-circle {
@@ -1894,8 +2084,8 @@ import { environment } from '../../environments/environment';
         display: flex;
         align-items: center;
         justify-content: center;
-        border: 2px solid rgba(255, 255, 255, 0.9);
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        border: 2px solid #e2e8f0;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
         background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
 
         .header-avatar-img {
@@ -1920,6 +2110,129 @@ import { environment } from '../../environments/environment';
       max-height: 100vh;
       overflow: hidden !important;
     }
+
+    .enterprise-breadcrumb-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+      padding: 0;
+      background: transparent;
+      border: none;
+      border-radius: 0;
+      box-shadow: none;
+
+      @media (max-width: 768px) {
+        margin-bottom: 10px;
+        padding: 0;
+      }
+
+      .breadcrumb-list {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 4px;
+        list-style: none;
+        margin: 0;
+        padding: 0;
+
+        .breadcrumb-item {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          font-size: 0.82rem;
+
+          .breadcrumb-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            color: #64748b;
+            text-decoration: none;
+            font-weight: 500;
+            padding: 3px 6px;
+            border-radius: 5px;
+            transition: all 0.15s ease;
+            cursor: pointer;
+
+            .bc-icon {
+              font-size: 16px;
+              width: 16px;
+              height: 16px;
+              line-height: 16px;
+              color: #94a3b8;
+            }
+
+            &:hover {
+              color: #2563eb;
+
+              .bc-icon {
+                color: #2563eb;
+              }
+            }
+          }
+
+          .breadcrumb-current {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            color: #0f172a;
+            font-weight: 700;
+            padding: 3px 6px;
+
+            .bc-icon {
+              font-size: 16px;
+              width: 16px;
+              height: 16px;
+              line-height: 16px;
+              color: #2563eb;
+            }
+          }
+
+          .breadcrumb-separator {
+            font-size: 15px;
+            width: 15px;
+            height: 15px;
+            line-height: 15px;
+            color: #cbd5e1;
+            margin: 0;
+            flex-shrink: 0;
+          }
+        }
+      }
+
+      .breadcrumb-meta {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+
+        .live-branch-chip {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          padding: 2px 8px;
+          border-radius: 6px;
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          font-size: 0.74rem;
+          font-weight: 600;
+          color: #475569;
+
+          mat-icon {
+            font-size: 14px;
+            width: 14px;
+            height: 14px;
+            color: #3b82f6;
+          }
+        }
+
+        @media (max-width: 600px) {
+          display: none;
+        }
+      }
+    }
+
     .main-content {
       padding: 24px;
       background-color: #f8fafc;
@@ -1935,9 +2248,14 @@ import { environment } from '../../environments/environment';
       flex-shrink: 0;
       z-index: 10;
     }
-  `]
+  `],
 })
 export class LayoutComponent implements OnInit {
+
+  readonly router = inject(Router);
+  private routerSub?: Subscription;
+  breadcrumbs = signal<Array<{ label: string; url?: string; icon?: string }>>([]);
+
   readonly translationService = inject(TranslationService);
   readonly presenceService = inject(PresenceService);
   readonly chatService = inject(ChatService);
@@ -2260,6 +2578,7 @@ export class LayoutComponent implements OnInit {
           filtered = this.adjustStudentMenu(filtered);
         }
         this.menuTree.set(filtered);
+          this.updateBreadcrumbs(this.router.url);
       }
     }, { allowSignalWrites: true });
   }
@@ -2408,6 +2727,10 @@ export class LayoutComponent implements OnInit {
       }
     }
 
+    this.updateBreadcrumbs(this.router.url);
+    this.routerSub = this.router.events.pipe(filter((e: any) => e instanceof NavigationEnd)).subscribe((e: any) => {
+      this.updateBreadcrumbs(e.urlAfterRedirects || e.url || this.router.url);
+    });
     this.loadCurrentTenant();
     this.loadUserProfile();
     this.loadHeaderBranches();
@@ -2549,6 +2872,7 @@ export class LayoutComponent implements OnInit {
   }
 
   ngOnDestroy(): void {
+    this.routerSub?.unsubscribe();
     this.idleTimeout.stopMonitoring();
     this.presenceService.stopConnection();
     this.chatService.stopHub();
@@ -2757,6 +3081,94 @@ export class LayoutComponent implements OnInit {
         }
         return item.children.length > 0;
       });
+  }
+
+  
+  updateBreadcrumbs(rawUrl: string): void {
+    const cleanUrl = (rawUrl || '/dashboard').split('?')[0].split('#')[0];
+    
+    if (cleanUrl === '/' || cleanUrl === '/dashboard') {
+      this.breadcrumbs.set([
+        { label: 'Home', url: '/dashboard', icon: 'home' },
+        { label: 'Executive Dashboard', icon: 'space_dashboard' }
+      ]);
+      return;
+    }
+
+    const items: Array<{ label: string; url?: string; icon?: string }> = [
+      { label: 'Home', url: '/dashboard', icon: 'home' }
+    ];
+
+    let matched = false;
+    const tree = this.menuTree();
+
+    // 1. Look for match in active dynamic menu tree (module -> sub-route)
+    for (const parent of tree) {
+      if (parent.children && parent.children.length > 0) {
+        const child = parent.children.find(c => 
+          c.routeUrl === cleanUrl || (c.routeUrl && cleanUrl.startsWith(c.routeUrl + '/'))
+        );
+        if (child) {
+          items.push({ label: parent.title, icon: parent.icon });
+          items.push({ label: child.title, url: child.routeUrl, icon: child.icon });
+          matched = true;
+          break;
+        }
+      } else if (parent.routeUrl === cleanUrl) {
+        items.push({ label: parent.title, url: parent.routeUrl, icon: parent.icon });
+        matched = true;
+        break;
+      }
+    }
+
+    // 2. If not directly in menu (e.g. sub-pages like reports, profiles, receipts, settings)
+    if (!matched) {
+      const page = this.searchablePages.find(p => p.route === cleanUrl || cleanUrl.startsWith(p.route + '/'));
+      if (page) {
+        const seg1 = cleanUrl.split('/')[1];
+        const categoryMap: Record<string, { label: string; icon: string }> = {
+          students: { label: 'Academic Operations', icon: 'school' },
+          school: { label: 'Academic Operations', icon: 'school' },
+          teachers: { label: 'HRMS & Staff', icon: 'badge' },
+          attendance: { label: 'Attendance Management', icon: 'event_available' },
+          finance: { label: 'Finance & Accounts', icon: 'account_balance' },
+          fees: { label: 'Finance & Accounts', icon: 'payments' },
+          inventory: { label: 'Stock & Inventory', icon: 'inventory_2' },
+          library: { label: 'Library Management', icon: 'local_library' },
+          hostel: { label: 'Hostel Management', icon: 'hotel' },
+          transport: { label: 'Transport & Fleet', icon: 'directions_bus' },
+          admin: { label: 'Admin Settings', icon: 'settings' },
+          roles: { label: 'Admin Settings', icon: 'admin_panel_settings' },
+          users: { label: 'Admin Settings', icon: 'manage_accounts' },
+          chat: { label: 'Campus Chat', icon: 'forum' },
+          developer: { label: 'Support & Help', icon: 'engineering' }
+        };
+        if (categoryMap[seg1]) {
+          items.push(categoryMap[seg1]);
+        }
+        items.push({ label: page.title, url: page.route, icon: page.icon });
+      } else {
+        // Fallback to URL path segments
+        const segs = cleanUrl.split('/').filter(s => s.length > 0);
+        segs.forEach((seg, i) => {
+          const label = seg.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+          const isLast = i === segs.length - 1;
+          items.push({
+            label,
+            url: isLast ? undefined : '/' + segs.slice(0, i + 1).join('/')
+          });
+        });
+      }
+    }
+
+    this.breadcrumbs.set(items);
+  }
+
+  onParentCategoryClick(b: { label: string; url?: string; icon?: string }): void {
+    const parent = this.menuTree().find(m => m.title === b.label);
+    if (parent && parent.children && parent.children.length > 0 && parent.children[0].routeUrl) {
+      this.router.navigate([parent.children[0].routeUrl]);
+    }
   }
 
   loadMenu(): void {

@@ -176,6 +176,17 @@ using (var scope = app.Services.CreateScope())
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tenants') AND name = 'HasTransportModule')
                         ALTER TABLE Tenants ADD HasTransportModule BIT NOT NULL DEFAULT 1;
 
+                    -- TransportAttendances Live Boarding & Tracking Columns
+                    IF OBJECT_ID('TransportAttendances') IS NOT NULL
+                    BEGIN
+                        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('TransportAttendances') AND name = 'Status')
+                            ALTER TABLE TransportAttendances ADD [Status] NVARCHAR(50) NOT NULL DEFAULT 'Pending';
+                        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('TransportAttendances') AND name = 'DroppedAt')
+                            ALTER TABLE TransportAttendances ADD [DroppedAt] DATETIME2 NULL;
+                        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('TransportAttendances') AND name = 'Remarks')
+                            ALTER TABLE TransportAttendances ADD [Remarks] NVARCHAR(255) NULL;
+                    END
+
                     -- UPI Dynamic QR & Online Fee Collection Columns
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tenants') AND name = 'UpiId')
                         ALTER TABLE Tenants ADD UpiId NVARCHAR(150) NULL;

@@ -243,6 +243,111 @@ export interface BusBoardingManifestRowDto {
   contactNumber?: string;
   isPresent?: boolean;
   isBoarded?: boolean;
+  status?: string;
+  studentId?: string;
+  teacherId?: string;
+  boardedAt?: string;
+  droppedAt?: string;
+  lastUpdatedFormatted?: string;
+}
+
+export interface TapBoardingRequestDto {
+  routeId: string;
+  departureType: 'Morning' | 'Evening';
+  memberType: 'Student' | 'Teacher';
+  studentId?: string;
+  teacherId?: string;
+  passengerName: string;
+  passengerCode?: string;
+  stopName: string;
+  status: 'Boarded' | 'Dropped' | 'Absent' | 'Pending';
+  sendWhatsAppAlert?: boolean;
+  remarks?: string;
+}
+
+export interface TapBoardingResponseDto {
+  success: boolean;
+  status: string;
+  departureType: string;
+  timestamp: string;
+  timeFormatted: string;
+  passengerName: string;
+  stopName: string;
+  whatsAppSent: boolean;
+  message: string;
+}
+
+export interface LiveTransportFleetTrackerDto {
+  trackerDate: string;
+  dateFormatted: string;
+  activeBusesCount: number;
+  totalCommutersToday: number;
+  morningBoardedCount: number;
+  morningAbsentCount: number;
+  eveningBoardedCount: number;
+  eveningDroppedCount: number;
+  eveningAbsentCount: number;
+  routes: LiveRouteProgressDto[];
+  recentFeed: LiveBoardingFeedItemDto[];
+}
+
+export interface LiveRouteProgressDto {
+  routeId: string;
+  routeCode: string;
+  routeName: string;
+  vehicleNumber: string;
+  driverName?: string;
+  driverPhone?: string;
+  conductorName?: string;
+  totalPassengers: number;
+  morningBoarded: number;
+  morningAbsent: number;
+  eveningBoarded: number;
+  eveningDropped: number;
+  eveningAbsent: number;
+  lastActivityStop?: string;
+  lastActivityAt?: string;
+  lastActivityTimeFormatted?: string;
+}
+
+export interface LiveBoardingFeedItemDto {
+  id: string;
+  passengerName: string;
+  passengerCode?: string;
+  classOrBatch?: string;
+  routeCode: string;
+  stopName: string;
+  action: string;
+  departureType: string;
+  timestamp: string;
+  timeFormatted: string;
+  markedBy?: string;
+}
+
+export interface StudentLiveTransportStatusDto {
+  hasTransport: boolean;
+  studentId?: string;
+  studentName?: string;
+  studentCode?: string;
+  classOrBatch?: string;
+  routeId?: string;
+  routeCode?: string;
+  routeName?: string;
+  vehicleNumber?: string;
+  driverName?: string;
+  driverPhone?: string;
+  conductorName?: string;
+  stopName?: string;
+  scheduledPickupTime?: string;
+  scheduledDropTime?: string;
+  morningStatus: 'Pending' | 'Boarded' | 'Absent' | 'NotEnrolled' | string;
+  morningBoardedAt?: string;
+  morningBoardedAtFormatted?: string;
+  eveningStatus: 'Pending' | 'Boarded' | 'Dropped' | 'Absent' | 'NotEnrolled' | string;
+  eveningBoardedAt?: string;
+  eveningDroppedAt?: string;
+  eveningTimeFormatted?: string;
+  lastMarkedBy?: string;
 }
 
 export interface BusBoardingManifestDto {
@@ -485,6 +590,18 @@ export class TransportService {
   }
 
   // Boarding Actions
+  tapBoarding(dto: TapBoardingRequestDto): Observable<TapBoardingResponseDto> {
+    return this.http.post<TapBoardingResponseDto>(`${API_BASE}/transport/tap-boarding`, dto);
+  }
+
+  getLiveTracker(): Observable<LiveTransportFleetTrackerDto> {
+    return this.http.get<LiveTransportFleetTrackerDto>(`${API_BASE}/transport/live-tracker`);
+  }
+
+  getStudentLiveStatus(studentId: string): Observable<StudentLiveTransportStatusDto> {
+    return this.http.get<StudentLiveTransportStatusDto>(`${API_BASE}/transport/student-live-status/${studentId}`);
+  }
+
   saveBoardingAttendance(routeId: string, payload: any): Observable<any> {
     return this.http.post<any>(`${API_BASE}/transport/routes/${routeId}/manifest/save-attendance`, payload);
   }

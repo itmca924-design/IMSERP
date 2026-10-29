@@ -133,7 +133,9 @@ public interface IWhatsAppService
     Task<bool> SendTestMarksReportAsync(Guid tenantId, string recipientPhone, string studentName, string testTitle, decimal marksObtained, decimal maxMarks, int rank);
     Task<bool> SendAnnualExamReportAsync(Guid tenantId, string recipientPhone, string studentName, string examTitle, string academicYear, decimal totalObtained, decimal totalMax, decimal percentage, string grade, string resultStatus, int? rank);
     Task<bool> SendTeacherSalarySlipAsync(Guid tenantId, string recipientPhone, string teacherName, string monthName, int year, decimal netPaid, string receiptNo);
-    Task<bool> SendTransportBoardingAlertAsync(Guid tenantId, string recipientPhone, string studentName, string busNumber, string stopName, string timeStr, string departureType);
+    Task<bool> SendTransportBoardingAlertAsync(Guid tenantId, string recipientPhone, string studentName, string busNumber, string stopName, string timeStr, string departureType, string? instituteName = null);
+    Task<bool> SendTransportDropAlertAsync(Guid tenantId, string recipientPhone, string studentName, string busNumber, string stopName, string timeStr, string? instituteName = null);
+    Task<bool> SendTransportAbsentAlertAsync(Guid tenantId, string recipientPhone, string studentName, string busNumber, string stopName, string timeStr, string departureType, string? instituteName = null);
     Task<bool> SendAbsenteeAlertAsync(Guid tenantId, string recipientPhone, string studentName, string rollNumber, string dateStr);
     Task<bool> SendLeaveStatusAlertAsync(Guid tenantId, string recipientPhone, string studentName, string status, DateTime fromDate, DateTime toDate, string? remarks, string reviewerName);
     Task<bool> SendTeacherLeaveDecisionAlertAsync(Guid tenantId, string recipientPhone, string teacherName, string leaveType, string status, DateTime fromDate, DateTime toDate, string? remarks, string reviewerName);

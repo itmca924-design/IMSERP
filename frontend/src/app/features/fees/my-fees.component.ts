@@ -53,7 +53,7 @@ import { UpiPaymentDialogComponent } from './upi-payment-dialog.component';
           </button>
           <button mat-stroked-button class="due-slip-btn" *ngIf="ledger.totalOutstandingDue > 0" (click)="openDueSlip()" matTooltip="Download / Print Official Due Slip">
             <mat-icon>receipt</mat-icon>
-            <span>Print Due Slip (बकाया पर्ची)</span>
+            <span>Print Due Slip</span>
           </button>
           <button mat-raised-button class="print-passbook-btn" (click)="printPassbook()" matTooltip="Print or save fee passbook as PDF">
             <mat-icon>print</mat-icon>
@@ -401,18 +401,24 @@ import { UpiPaymentDialogComponent } from './upi-payment-dialog.component';
       background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
       border: 1px solid #bfdbfe;
       border-radius: 14px;
-      padding: 16px 20px;
+      padding: 14px 20px;
       display: flex;
       justify-content: space-between;
       align-items: center;
       gap: 16px;
       box-shadow: 0 2px 8px -2px rgba(37, 99, 235, 0.1);
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
+
+      @media (max-width: 992px) {
+        flex-wrap: wrap;
+      }
 
       .header-left {
         display: flex;
         align-items: center;
         gap: 14px;
+        min-width: 0;
+        flex: 1 1 auto;
 
         .header-icon-box {
           background: #2563eb;
@@ -434,17 +440,25 @@ import { UpiPaymentDialogComponent } from './upi-payment-dialog.component';
         }
 
         .header-text-group {
+          min-width: 0;
+
           .main-title {
             color: #1e3a8a;
             font-weight: 700;
             font-size: 1.25rem;
             margin: 0 0 2px 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
           }
 
           .subtitle {
             color: #3b82f6;
             margin: 0;
             font-size: 0.85rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
 
             strong {
               color: #1e40af;
@@ -457,6 +471,12 @@ import { UpiPaymentDialogComponent } from './upi-payment-dialog.component';
         display: flex;
         align-items: center;
         gap: 10px;
+        flex-shrink: 0;
+        margin-left: auto;
+
+        button {
+          white-space: nowrap;
+        }
 
         .pay-upi-btn {
           background: #16a34a;
@@ -1179,6 +1199,12 @@ import { UpiPaymentDialogComponent } from './upi-payment-dialog.component';
 
         .header-left {
           width: 100%;
+
+          .header-text-group {
+            .main-title, .subtitle {
+              white-space: normal;
+            }
+          }
         }
 
         .header-action-buttons {

@@ -505,14 +505,34 @@ public class TransportController : ControllerBase
 
             string? phone = a.MemberType == "Student" ? s?.ParentWhatsAppPhone : t?.PhoneNumber;
 
-            bool isBoarded = todayAttendances.Any(att =>
-                att.MemberType == a.MemberType &&
-                ((a.StudentId.HasValue && att.StudentId == a.StudentId) ||
-                 (a.TeacherId.HasValue && att.TeacherId == a.TeacherId) ||
-                 att.PassengerName.ToLower() == name.ToLower()) &&
-                att.IsBoarded);
+            var att = todayAttendances.FirstOrDefault(at =>
+                at.MemberType == a.MemberType &&
+                ((a.StudentId.HasValue && at.StudentId == a.StudentId) ||
+                 (a.TeacherId.HasValue && at.TeacherId == a.TeacherId) ||
+                 at.PassengerName.ToLower() == name.ToLower()));
 
-            return new BusBoardingManifestRowDto(srNo++, a.MemberType, name, code, classInfo, stopName, scheduledTime, phone, isBoarded, isBoarded);
+            bool isBoarded = att?.IsBoarded ?? false;
+            string status = att != null && !string.IsNullOrWhiteSpace(att.Status) ? att.Status : (isBoarded ? "Boarded" : "Pending");
+            DateTime? boardedAt = att?.BoardedAt;
+            DateTime? droppedAt = att?.DroppedAt;
+            string? lastUpdatedFormatted = null;
+
+            var istTimeZone = TimeZoneInfo.FindSystemTimeZoneById("India Standard Time");
+            if (droppedAt.HasValue)
+            {
+                var istDrop = TimeZoneInfo.ConvertTimeFromUtc(droppedAt.Value, istTimeZone);
+                lastUpdatedFormatted = $"Dropped at {istDrop:hh:mm tt}";
+            }
+            else if (boardedAt.HasValue)
+            {
+                var istBoard = TimeZoneInfo.ConvertTimeFromUtc(boardedAt.Value, istTimeZone);
+                lastUpdatedFormatted = $"Boarded at {istBoard:hh:mm tt}";
+            }
+
+            return new BusBoardingManifestRowDto(
+                srNo++, a.MemberType, name, code, classInfo, stopName, scheduledTime, phone,
+                isBoarded, isBoarded, status, a.StudentId, a.TeacherId, boardedAt, droppedAt, lastUpdatedFormatted
+            );
         }).ToList();
 
         return Ok(new BusBoardingManifestDto(route.Id, route.RouteCode, route.RouteName, route.Vehicle?.VehicleNumber ?? "N/A", route.Vehicle?.Driver?.FullName, route.Vehicle?.Driver?.PhoneNumber, route.Vehicle?.ConductorName, DateTime.UtcNow.ToString("dd MMM yyyy"), departureType, passengers.Count, passengers));
@@ -640,6 +660,340 @@ public class TransportController : ControllerBase
             message = $"Safe transit WhatsApp alerts dispatched to parents of {sentCount} boarded commuter(s).",
             sentCount
         });
+    }
+
+    [HttpPost("tap-boarding")]
+    public async Task<ActionResult<TapBoardingResponseDto>> TapBoarding([FromBody] TapBoardingRequestDto dto)
+    {
+        var route = await _db.TransportRoutes.Include(r => r.Vehicle).FirstOrDefaultAsync(r => r.Id == dto.RouteId);
+        if (route == null) return NotFound(new { message = "Transport route not found." });
+
+        var today = DateTime.UtcNow.Date;
+        var existing = await _db.TransportAttendances.FirstOrDefaultAsync(t =>
+            t.RouteId == dto.RouteId &&
+            t.AttendanceDate == today &&
+            t.DepartureType == dto.DepartureType &&
+            t.MemberType == dto.MemberType &&
+            ((dto.StudentId.HasValue && t.StudentId == dto.StudentId) ||
+             (dto.TeacherId.HasValue && t.TeacherId == dto.TeacherId) ||
+             t.PassengerName.ToLower() == dto.PassengerName.ToLower()));
+
+        var nowUtc = DateTime.UtcNow;
+        var istTimeZone = TimeZoneInfo.FindSystemTimeZoneById("India Standard Time");
+        var nowIst = TimeZoneInfo.ConvertTimeFromUtc(nowUtc, istTimeZone);
+        var timeStr = nowIst.ToString("hh:mm tt");
+
+        bool isBoarded = dto.Status == "Boarded" || dto.Status == "Dropped";
+
+        if (existing == null)
+        {
+            existing = new TransportAttendance
+            {
+                TenantId = _currentUser.TenantId,
+                BranchId = _currentUser.BranchId,
+                RouteId = dto.RouteId,
+                MemberType = dto.MemberType,
+                StudentId = dto.StudentId,
+                TeacherId = dto.TeacherId,
+                PassengerName = dto.PassengerName.Trim(),
+                PassengerCode = dto.PassengerCode,
+                StopName = dto.StopName,
+                AttendanceDate = today,
+                DepartureType = dto.DepartureType,
+                IsBoarded = isBoarded,
+                Status = dto.Status,
+                BoardedAt = (dto.Status == "Boarded" || dto.Status == "Dropped") ? nowUtc : null,
+                DroppedAt = dto.Status == "Dropped" ? nowUtc : null,
+                Remarks = dto.Remarks,
+                MarkedBy = !string.IsNullOrWhiteSpace(_currentUser.Username) ? _currentUser.Username : _currentUser.UserId.ToString()
+            };
+            _db.TransportAttendances.Add(existing);
+        }
+        else
+        {
+            existing.Status = dto.Status;
+            existing.IsBoarded = isBoarded;
+            if (dto.Status == "Boarded")
+            {
+                existing.BoardedAt = existing.BoardedAt ?? nowUtc;
+            }
+            else if (dto.Status == "Dropped")
+            {
+                existing.BoardedAt = existing.BoardedAt ?? nowUtc;
+                existing.DroppedAt = nowUtc;
+            }
+            else if (dto.Status == "Absent" || dto.Status == "Pending")
+            {
+                existing.BoardedAt = null;
+                existing.DroppedAt = null;
+            }
+
+            if (!string.IsNullOrWhiteSpace(dto.StopName)) existing.StopName = dto.StopName;
+            if (!string.IsNullOrWhiteSpace(dto.Remarks)) existing.Remarks = dto.Remarks;
+            existing.MarkedBy = !string.IsNullOrWhiteSpace(_currentUser.Username) ? _currentUser.Username : _currentUser.UserId.ToString();
+        }
+
+        await _db.SaveChangesAsync();
+
+        bool whatsAppSent = false;
+        if (dto.SendWhatsAppAlert && dto.MemberType == "Student" && dto.StudentId.HasValue)
+        {
+            var student = await _db.Students.AsNoTracking().FirstOrDefaultAsync(s => s.Id == dto.StudentId.Value);
+            if (student != null && !string.IsNullOrWhiteSpace(student.ParentWhatsAppPhone))
+            {
+                var tenant = await _db.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.Id == _currentUser.TenantId);
+                var busNo = route.Vehicle?.VehicleNumber ?? route.RouteCode;
+
+                if (dto.Status == "Boarded")
+                {
+                    whatsAppSent = await _whatsAppService.SendTransportBoardingAlertAsync(
+                        _currentUser.TenantId,
+                        student.ParentWhatsAppPhone,
+                        student.StudentName,
+                        busNo,
+                        dto.StopName,
+                        timeStr,
+                        dto.DepartureType,
+                        tenant?.Name
+                    );
+                }
+                else if (dto.Status == "Dropped")
+                {
+                    whatsAppSent = await _whatsAppService.SendTransportDropAlertAsync(
+                        _currentUser.TenantId,
+                        student.ParentWhatsAppPhone,
+                        student.StudentName,
+                        busNo,
+                        dto.StopName,
+                        timeStr,
+                        tenant?.Name
+                    );
+                }
+                else if (dto.Status == "Absent")
+                {
+                    whatsAppSent = await _whatsAppService.SendTransportAbsentAlertAsync(
+                        _currentUser.TenantId,
+                        student.ParentWhatsAppPhone,
+                        student.StudentName,
+                        busNo,
+                        dto.StopName,
+                        timeStr,
+                        dto.DepartureType,
+                        tenant?.Name
+                    );
+                }
+            }
+        }
+
+        string msg = dto.Status switch
+        {
+            "Boarded" => $"{dto.PassengerName} marked BOARDED safely at {timeStr}.",
+            "Dropped" => $"{dto.PassengerName} marked DROPPED successfully at {timeStr}.",
+            "Absent" => $"{dto.PassengerName} marked ABSENT / MISSED for this run.",
+            _ => $"{dto.PassengerName} transit status updated to {dto.Status}."
+        };
+
+        return Ok(new TapBoardingResponseDto(
+            true,
+            dto.Status,
+            dto.DepartureType,
+            nowUtc,
+            timeStr,
+            dto.PassengerName,
+            dto.StopName,
+            whatsAppSent,
+            msg
+        ));
+    }
+
+    [HttpGet("live-tracker")]
+    public async Task<ActionResult<LiveTransportFleetTrackerDto>> GetLiveTracker()
+    {
+        var today = DateTime.UtcNow.Date;
+        var istTimeZone = TimeZoneInfo.FindSystemTimeZoneById("India Standard Time");
+        var nowIst = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, istTimeZone);
+
+        var routes = await _db.TransportRoutes.AsNoTracking()
+            .Include(r => r.Vehicle).ThenInclude(v => v!.Driver)
+            .Include(r => r.Allocations.Where(a => a.Status == "Active"))
+            .Where(r => r.IsActive)
+            .OrderBy(r => r.RouteCode)
+            .ToListAsync();
+
+        var todayAttendances = await _db.TransportAttendances.AsNoTracking()
+            .Where(t => t.AttendanceDate == today)
+            .OrderByDescending(t => t.DroppedAt ?? t.BoardedAt ?? t.CreatedAt)
+            .ToListAsync();
+
+        var routeProgressList = new List<LiveRouteProgressDto>();
+
+        foreach (var r in routes)
+        {
+            var totalPax = r.Allocations.Count;
+            var rAttMorning = todayAttendances.Where(t => t.RouteId == r.Id && t.DepartureType == "Morning").ToList();
+            var rAttEvening = todayAttendances.Where(t => t.RouteId == r.Id && t.DepartureType == "Evening").ToList();
+
+            int mBoarded = rAttMorning.Count(t => t.IsBoarded || t.Status == "Boarded");
+            int mAbsent = rAttMorning.Count(t => t.Status == "Absent");
+
+            int eBoarded = rAttEvening.Count(t => t.Status == "Boarded");
+            int eDropped = rAttEvening.Count(t => t.Status == "Dropped" || t.IsBoarded);
+            int eAbsent = rAttEvening.Count(t => t.Status == "Absent");
+
+            var lastAtt = todayAttendances.FirstOrDefault(t => t.RouteId == r.Id);
+            DateTime? lastAct = lastAtt?.DroppedAt ?? lastAtt?.BoardedAt ?? lastAtt?.CreatedAt;
+            string? lastActFormatted = lastAct.HasValue
+                ? TimeZoneInfo.ConvertTimeFromUtc(lastAct.Value, istTimeZone).ToString("hh:mm tt")
+                : null;
+
+            routeProgressList.Add(new LiveRouteProgressDto(
+                r.Id,
+                r.RouteCode,
+                r.RouteName,
+                r.Vehicle?.VehicleNumber ?? "Unassigned",
+                r.Vehicle?.Driver?.FullName,
+                r.Vehicle?.Driver?.PhoneNumber,
+                r.Vehicle?.ConductorName,
+                totalPax,
+                mBoarded,
+                mAbsent,
+                eBoarded,
+                eDropped,
+                eAbsent,
+                lastAtt?.StopName,
+                lastAct,
+                lastActFormatted
+            ));
+        }
+
+        var feedItems = todayAttendances.Take(40).Select(att =>
+        {
+            DateTime actTime = att.DroppedAt ?? att.BoardedAt ?? att.CreatedAt;
+            var actIst = TimeZoneInfo.ConvertTimeFromUtc(actTime, istTimeZone);
+            string actionText = !string.IsNullOrWhiteSpace(att.Status) ? att.Status : (att.IsBoarded ? "Boarded" : "Marked");
+
+            var matchedRoute = routes.FirstOrDefault(r => r.Id == att.RouteId);
+
+            return new LiveBoardingFeedItemDto(
+                att.Id,
+                att.PassengerName,
+                att.PassengerCode,
+                null,
+                matchedRoute?.RouteCode ?? "BUS",
+                att.StopName ?? "Stop",
+                actionText,
+                att.DepartureType,
+                actTime,
+                actIst.ToString("hh:mm:ss tt"),
+                att.MarkedBy
+            );
+        }).ToList();
+
+        int totalCommuters = routes.Sum(r => r.Allocations.Count);
+        int totMBoarded = todayAttendances.Count(t => t.DepartureType == "Morning" && (t.IsBoarded || t.Status == "Boarded"));
+        int totMAbsent = todayAttendances.Count(t => t.DepartureType == "Morning" && t.Status == "Absent");
+        int totEBoarded = todayAttendances.Count(t => t.DepartureType == "Evening" && t.Status == "Boarded");
+        int totEDropped = todayAttendances.Count(t => t.DepartureType == "Evening" && (t.Status == "Dropped" || t.IsBoarded));
+        int totEAbsent = todayAttendances.Count(t => t.DepartureType == "Evening" && t.Status == "Absent");
+
+        return Ok(new LiveTransportFleetTrackerDto(
+            today,
+            nowIst.ToString("dd MMM yyyy (ddd)"),
+            routes.Count(r => r.VehicleId.HasValue),
+            totalCommuters,
+            totMBoarded,
+            totMAbsent,
+            totEBoarded,
+            totEDropped,
+            totEAbsent,
+            routeProgressList,
+            feedItems
+        ));
+    }
+
+    [HttpGet("student-live-status/{studentId}")]
+    public async Task<ActionResult<StudentLiveTransportStatusDto>> GetStudentLiveStatus(Guid studentId)
+    {
+        var student = await _db.Students.AsNoTracking()
+            .Include(s => s.Class)
+            .Include(s => s.Section)
+            .Include(s => s.Batch)
+            .FirstOrDefaultAsync(s => s.Id == studentId);
+
+        if (student == null) return NotFound(new { message = "Student not found." });
+
+        var alloc = await _db.TransportAllocations.AsNoTracking()
+            .Include(a => a.Route)
+            .Include(a => a.Stop)
+            .Include(a => a.Vehicle).ThenInclude(v => v!.Driver)
+            .FirstOrDefaultAsync(a => a.StudentId == studentId && a.Status == "Active");
+
+        if (alloc == null)
+        {
+            return Ok(new StudentLiveTransportStatusDto(
+                false, student.Id, student.StudentName, GetStudentRollCode(student),
+                student.Class != null ? $"{student.Class.Name} - {student.Section?.Name}" : student.Batch?.Name,
+                null, null, null, null, null, null, null, null, null, null,
+                "NotEnrolled", null, null, "NotEnrolled", null, null, null, null
+            ));
+        }
+
+        var today = DateTime.UtcNow.Date;
+        var istTimeZone = TimeZoneInfo.FindSystemTimeZoneById("India Standard Time");
+
+        var morningAtt = await _db.TransportAttendances.AsNoTracking().FirstOrDefaultAsync(t =>
+            t.StudentId == studentId && t.AttendanceDate == today && t.DepartureType == "Morning");
+
+        var eveningAtt = await _db.TransportAttendances.AsNoTracking().FirstOrDefaultAsync(t =>
+            t.StudentId == studentId && t.AttendanceDate == today && t.DepartureType == "Evening");
+
+        string morningStatus = morningAtt != null && !string.IsNullOrWhiteSpace(morningAtt.Status)
+            ? morningAtt.Status
+            : (morningAtt != null && morningAtt.IsBoarded ? "Boarded" : "Pending");
+
+        string eveningStatus = eveningAtt != null && !string.IsNullOrWhiteSpace(eveningAtt.Status)
+            ? eveningAtt.Status
+            : (eveningAtt != null && eveningAtt.IsBoarded ? "Dropped" : "Pending");
+
+        string? mFormatted = morningAtt?.BoardedAt.HasValue == true
+            ? TimeZoneInfo.ConvertTimeFromUtc(morningAtt.BoardedAt.Value, istTimeZone).ToString("hh:mm tt")
+            : null;
+
+        string? eFormatted = null;
+        if (eveningAtt?.DroppedAt.HasValue == true)
+            eFormatted = $"Dropped at {TimeZoneInfo.ConvertTimeFromUtc(eveningAtt.DroppedAt.Value, istTimeZone):hh:mm tt}";
+        else if (eveningAtt?.BoardedAt.HasValue == true)
+            eFormatted = $"Boarded at {TimeZoneInfo.ConvertTimeFromUtc(eveningAtt.BoardedAt.Value, istTimeZone):hh:mm tt}";
+
+        string? classBatch = student.Class != null
+            ? (student.Section != null ? $"{student.Class.Name} - {student.Section.Name}" : student.Class.Name)
+            : student.Batch?.Name;
+
+        return Ok(new StudentLiveTransportStatusDto(
+            true,
+            student.Id,
+            student.StudentName,
+            GetStudentRollCode(student),
+            classBatch,
+            alloc.RouteId,
+            alloc.Route?.RouteCode,
+            alloc.Route?.RouteName,
+            alloc.Vehicle?.VehicleNumber,
+            alloc.Vehicle?.Driver?.FullName,
+            alloc.Vehicle?.Driver?.PhoneNumber,
+            alloc.Vehicle?.ConductorName,
+            alloc.Stop?.StopName,
+            alloc.Stop?.PickupTime,
+            alloc.Stop?.DropTime,
+            morningStatus,
+            morningAtt?.BoardedAt,
+            mFormatted,
+            eveningStatus,
+            eveningAtt?.BoardedAt,
+            eveningAtt?.DroppedAt,
+            eFormatted,
+            eveningAtt?.MarkedBy ?? morningAtt?.MarkedBy
+        ));
     }
 
     [HttpPost("verify-pass-qr")]

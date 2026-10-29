@@ -18,6 +18,7 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatDialogModule } from '@angular/material/dialog';
 import { MatTableModule } from '@angular/material/table';
 import { MatMenuModule } from '@angular/material/menu';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { SchoolService, SchoolClassDto } from '../../core/services/school.service';
 import { CoachingService } from '../../core/services/coaching.service';
@@ -36,6 +37,10 @@ import {
   CreateTransportAllocationDto,
   TransportBusPassDto,
   BusBoardingManifestDto,
+  BusBoardingManifestRowDto,
+  TapBoardingRequestDto,
+  LiveTransportFleetTrackerDto,
+  StudentLiveTransportStatusDto,
   CampusGatePassDto,
   CreateCampusGatePassDto
 } from '../../core/services/transport.service';
@@ -59,6 +64,7 @@ import {
     MatTooltipModule,
     MatChipsModule,
     MatCheckboxModule,
+    MatSlideToggleModule,
     MatDialogModule,
     MatTableModule,
     MatMenuModule
@@ -152,6 +158,19 @@ export class TransportManagementComponent implements OnInit {
   qrScanError = '';
   isSavingBoarding = false;
   isNotifyingParents = false;
+
+  // Real-Time School Bus Boarding Tracker & Driver Console
+  manifestViewMode: 'driver' | 'admin' = 'driver';
+  autoSendWhatsAppOnTap = true;
+  manifestSelectedStop = 'ALL';
+  manifestSearchTerm = '';
+  manifestStatusFilter: 'ALL' | 'Pending' | 'Boarded' | 'Dropped' | 'Absent' = 'ALL';
+  tappingPassengerId: string | null = null;
+  liveTracker: LiveTransportFleetTrackerDto | null = null;
+  isLoadingLiveTracker = false;
+  lookupStudentQuery = '';
+  searchedStudentLiveStatus: StudentLiveTransportStatusDto | null = null;
+  isSearchingStudentStatus = false;
 
   constructor(
     private transportService: TransportService,
@@ -852,6 +871,11 @@ export class TransportManagementComponent implements OnInit {
       this.activeTopAction = 'student';
     } else if (tabIndex === 5) {
       this.activeTopAction = 'faculty';
+    } else if (tabIndex === 6) {
+      if (this.manifestRouteId && !this.manifest) {
+        this.loadManifest();
+      }
+      this.loadLiveTracker();
     } else if (tabIndex === 7) {
       this.activeTopAction = 'gatePass';
     }
@@ -1328,7 +1352,178 @@ export class TransportManagementComponent implements OnInit {
   }
 
   getBoardedCount(): number {
-    return (this.manifest?.passengers || []).filter(p => p.isBoarded).length;
+    return (this.manifest?.passengers || []).filter(p => p.isBoarded || p.status === 'Boarded').length;
+  }
+
+  getDroppedCount(): number {
+    return (this.manifest?.passengers || []).filter(p => p.status === 'Dropped').length;
+  }
+
+  getAbsentCount(): number {
+    return (this.manifest?.passengers || []).filter(p => p.status === 'Absent').length;
+  }
+
+  getPendingCount(): number {
+    return (this.manifest?.passengers || []).filter(p => {
+      const s = p.status || (p.isBoarded ? 'Boarded' : 'Pending');
+      return s === 'Pending';
+    }).length;
+  }
+
+  getFilteredPassengers(): BusBoardingManifestRowDto[] {
+    if (!this.manifest?.passengers) return [];
+    return this.manifest.passengers.filter(p => {
+      if (this.manifestSelectedStop !== 'ALL' && p.stopName !== this.manifestSelectedStop) {
+        return false;
+      }
+      const currentStatus = p.status || (p.isBoarded ? 'Boarded' : 'Pending');
+      if (this.manifestStatusFilter !== 'ALL' && currentStatus !== this.manifestStatusFilter) {
+        return false;
+      }
+      if (this.manifestSearchTerm.trim()) {
+        const term = this.manifestSearchTerm.toLowerCase();
+        const name = (p.name || p.memberName || '').toLowerCase();
+        const code = (p.code || p.rollOrEmpCode || '').toLowerCase();
+        const stop = (p.stopName || '').toLowerCase();
+        const cls = (p.className || '').toLowerCase();
+        if (!name.includes(term) && !code.includes(term) && !stop.includes(term) && !cls.includes(term)) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }
+
+  getUniqueManifestStops(): { name: string; count: number }[] {
+    if (!this.manifest?.passengers) return [];
+    const map = new Map<string, number>();
+    this.manifest.passengers.forEach(p => {
+      const stop = p.stopName || 'Campus Stop';
+      map.set(stop, (map.get(stop) || 0) + 1);
+    });
+    return Array.from(map.entries()).map(([name, count]) => ({ name, count }));
+  }
+
+  tapPassenger(p: BusBoardingManifestRowDto, targetStatus: 'Boarded' | 'Dropped' | 'Absent' | 'Pending'): void {
+    if (!this.manifestRouteId) {
+      this.confirmDialog.alert('Select Route', 'Please select a route to tap transit status.', 'warning');
+      return;
+    }
+
+    const prevStatus = p.status || (p.isBoarded ? 'Boarded' : 'Pending');
+    const prevBoarded = p.isBoarded;
+
+    p.status = targetStatus;
+    p.isBoarded = targetStatus === 'Boarded' || targetStatus === 'Dropped';
+    this.tappingPassengerId = p.code || p.name || `${p.srNo}`;
+
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+    p.lastUpdatedFormatted = targetStatus === 'Dropped' 
+      ? `Dropped at ${timeStr}` 
+      : (targetStatus === 'Boarded' ? `Boarded at ${timeStr}` : `${targetStatus} at ${timeStr}`);
+
+    const payload: TapBoardingRequestDto = {
+      routeId: this.manifestRouteId,
+      departureType: this.manifestDeparture as 'Morning' | 'Evening',
+      memberType: p.memberType as 'Student' | 'Teacher',
+      studentId: p.studentId,
+      teacherId: p.teacherId,
+      passengerName: p.name || p.memberName || '',
+      passengerCode: p.code || p.rollOrEmpCode,
+      stopName: p.stopName,
+      status: targetStatus,
+      sendWhatsAppAlert: this.autoSendWhatsAppOnTap,
+      remarks: undefined
+    };
+
+    this.transportService.tapBoarding(payload).subscribe({
+      next: (res) => {
+        this.tappingPassengerId = null;
+        if (res.success) {
+          p.status = res.status;
+          p.lastUpdatedFormatted = res.status === 'Dropped'
+            ? `Dropped at ${res.timeFormatted}`
+            : (res.status === 'Boarded' ? `Boarded at ${res.timeFormatted}` : `${res.status} at ${res.timeFormatted}`);
+        }
+      },
+      error: () => {
+        this.tappingPassengerId = null;
+        p.status = prevStatus;
+        p.isBoarded = prevBoarded;
+        this.confirmDialog.alert('Tap Action Failed', 'Could not record transit tap to database. Please try again.', 'danger');
+      }
+    });
+  }
+
+  loadLiveTracker(): void {
+    this.isLoadingLiveTracker = true;
+    this.transportService.getLiveTracker().subscribe({
+      next: (res) => {
+        this.liveTracker = res;
+        this.isLoadingLiveTracker = false;
+      },
+      error: (err) => {
+        console.error('Failed to load live tracker', err);
+        this.isLoadingLiveTracker = false;
+      }
+    });
+  }
+
+  searchStudentTransitLive(): void {
+    if (!this.lookupStudentQuery.trim()) return;
+    const q = this.lookupStudentQuery.trim().toLowerCase();
+    this.isSearchingStudentStatus = true;
+    this.searchedStudentLiveStatus = null;
+
+    const matched = this.studentsList.find(s =>
+      (s.studentName && s.studentName.toLowerCase().includes(q)) ||
+      (s.schoolRollNumber && s.schoolRollNumber.toLowerCase().includes(q)) ||
+      (s.coachingRollNumber && s.coachingRollNumber.toLowerCase().includes(q)) ||
+      (s.rollNumber && s.rollNumber.toLowerCase().includes(q)) ||
+      (s.admissionNumber && s.admissionNumber.toLowerCase().includes(q))
+    );
+
+    if (matched && matched.id) {
+      this.transportService.getStudentLiveStatus(matched.id).subscribe({
+        next: (res) => {
+          this.searchedStudentLiveStatus = res;
+          this.isSearchingStudentStatus = false;
+        },
+        error: () => {
+          this.isSearchingStudentStatus = false;
+          this.confirmDialog.alert('Transit Lookup', 'Student transit status could not be retrieved.', 'warning');
+        }
+      });
+    } else {
+      const matchedAlloc = this.allActiveStudentAllocations.find(a =>
+        (a.studentName && a.studentName.toLowerCase().includes(q)) ||
+        (a.studentRollNumber && a.studentRollNumber.toLowerCase().includes(q)) ||
+        (a.admissionNumber && a.admissionNumber.toLowerCase().includes(q))
+      );
+
+      if (matchedAlloc && matchedAlloc.studentId) {
+        this.transportService.getStudentLiveStatus(matchedAlloc.studentId).subscribe({
+          next: (res) => {
+            this.searchedStudentLiveStatus = res;
+            this.isSearchingStudentStatus = false;
+          },
+          error: () => {
+            this.isSearchingStudentStatus = false;
+            this.confirmDialog.alert('Transit Lookup', 'Student transit status could not be retrieved.', 'warning');
+          }
+        });
+      } else {
+        this.isSearchingStudentStatus = false;
+        this.confirmDialog.alert('Student Not Found', `No active student found matching "${this.lookupStudentQuery}". Please search with Student Name, Roll Number, or Admission Number.`, 'warning');
+      }
+    }
+  }
+
+  quickSwitchRouteFromLiveTracker(routeId: string): void {
+    this.manifestRouteId = routeId;
+    this.manifestViewMode = 'driver';
+    this.loadManifest();
   }
 
   toggleAllBoarded(markAll: boolean): void {
@@ -1352,7 +1547,6 @@ export class TransportManagementComponent implements OnInit {
     this.qrScanError = '';
     this.qrScanSuccessMsg = '';
 
-    // Check if matching commuter in currently loaded manifest
     if (this.manifest?.passengers?.length) {
       const match = this.manifest.passengers.find(p => {
         const code = (p.code || p.rollOrEmpCode || '').toLowerCase();
@@ -1362,7 +1556,7 @@ export class TransportManagementComponent implements OnInit {
       });
 
       if (match) {
-        match.isBoarded = true;
+        this.tapPassenger(match, 'Boarded');
         const displayName = match.name || match.memberName;
         this.qrScanSuccessMsg = `Verified & Boarded: ${displayName} (${match.code || match.rollOrEmpCode}) at ${match.stopName}!`;
         this.confirmDialog.alert('Commuter Boarded', `Verified & Boarded: ${displayName} at ${match.stopName}.`, 'success');
@@ -1371,13 +1565,12 @@ export class TransportManagementComponent implements OnInit {
       }
     }
 
-    // Call backend to verify QR
     this.transportService.verifyPassQr(query).subscribe({
       next: (res) => {
         if (res.success) {
           const p = this.manifest?.passengers?.find(pass => pass.code === res.code || (res.name && (pass.name === res.name || pass.memberName === res.name)));
           if (p) {
-            p.isBoarded = true;
+            this.tapPassenger(p, 'Boarded');
           }
           this.qrScanSuccessMsg = `Verified: ${res.name} (ID: ${res.code || 'N/A'}) • Stop: ${res.stopName || 'N/A'} • Route: ${res.routeCode || 'N/A'}`;
           this.confirmDialog.alert('Pass Verified & Boarded', `Verified & Boarded: ${res.name} (Route: ${res.routeCode || 'N/A'}, Stop: ${res.stopName || 'N/A'})`, 'success');

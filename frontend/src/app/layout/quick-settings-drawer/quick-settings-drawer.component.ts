@@ -4,7 +4,7 @@ import { RouterModule, Router } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { QuickSettingsService, ErpThemeMode, ErpAccentColor, ErpDensity } from '../../core/services/quick-settings.service';
+import { QuickSettingsService, ErpThemeMode, ErpAccentColor, ErpDensity, ErpHeaderTheme } from '../../core/services/quick-settings.service';
 import { AuthService } from '../../core/services/auth.service';
 import { TenantService } from '../../core/services/tenant.service';
 import { TranslationService } from '../../core/services/translation.service';
@@ -245,10 +245,18 @@ export class QuickSettingsDrawerComponent implements OnInit {
 
   setTheme(theme: ErpThemeMode): void {
     this.settingsService.setTheme(theme);
+    if (theme === 'dark') {
+      this.settingsService.setHeaderTheme('dark');
+    }
   }
 
   setAccent(accent: ErpAccentColor): void {
     this.settingsService.setAccent(accent);
+    this.settingsService.setHeaderTheme('accent');
+  }
+
+  setHeaderTheme(headerTheme: ErpHeaderTheme): void {
+    this.settingsService.setHeaderTheme(headerTheme);
   }
 
   setDensity(density: ErpDensity): void {

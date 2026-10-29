@@ -79,7 +79,7 @@
       </button>
       <button class="tab-btn" [class.active]="activeTab === 6" (click)="selectTab(6)">
         <mat-icon>fact_check</mat-icon>
-        <span>Daily Manifest</span>
+        <span>Live Boarding Tracker</span>
       </button>
       <button class="tab-btn" [class.active]="activeTab === 7" (click)="selectTab(7)">
         <mat-icon>meeting_room</mat-icon>
@@ -520,7 +520,7 @@
       </div>
     </div>
 
-    <div class="table-card mat-elevation-z1 table-relative-container">
+    <div class="table-card mat-elevation-z1 table-relative-container pass-table-card">
       <div class="grid-loading-overlay" *ngIf="isStudentPassesLoading">
         <div class="grid-loading-content">
           <div class="spinner-circle"></div>
@@ -646,6 +646,88 @@
         </table>
       </div>
 
+      <!-- MOBILE VIEW: RESPONSIVE COMMUTER PASS CARDS DECK (Hidden on Desktop, Visible on Mobile <= 768px) -->
+      <div class="mobile-pass-cards-deck" *ngIf="!isStudentPassesLoading && studentAllocations.length > 0">
+        <div class="mobile-pass-card" *ngFor="let a of studentAllocations">
+          <!-- Card Header: Student Avatar, Name, Roll, Class, and Status Pill -->
+          <div class="mpc-header">
+            <div class="mpc-user">
+              <div class="mpc-avatar"><mat-icon>person</mat-icon></div>
+              <div class="mpc-user-info">
+                <h4 class="mpc-name">{{ a.studentName }}</h4>
+                <div class="mpc-badges">
+                  <ng-container *ngIf="a.studentRollNumber && a.studentRollNumber.includes(' • ')">
+                    <span 
+                      *ngFor="let seg of getRollSegments(a.studentRollNumber)" 
+                      class="mpc-pill"
+                      [class.sch-pill]="seg.startsWith('Sch:')"
+                      [class.cch-pill]="seg.startsWith('Cch:')">
+                      {{ seg }}
+                    </span>
+                  </ng-container>
+                  <span class="mpc-pill" *ngIf="!a.studentRollNumber || !a.studentRollNumber.includes(' • ')">
+                    Roll: {{ a.studentRollNumber || a.rollNumber || 'N/A' }}
+                  </span>
+                  <span class="mpc-class" *ngIf="a.studentClass || a.className">
+                    <mat-icon>school</mat-icon> {{ a.studentClass || a.className }}
+                  </span>
+                  <span class="mpc-batch" *ngIf="a.studentBatch || a.batchName">
+                    <mat-icon>groups</mat-icon> {{ a.studentBatch || a.batchName }}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <span class="status-pill active">{{ a.status }}</span>
+          </div>
+
+          <!-- Card Details Grid: Route, Stop, Timings, Fee -->
+          <div class="mpc-body">
+            <div class="mpc-row">
+              <div class="mpc-col">
+                <span class="mpc-lbl"><mat-icon>alt_route</mat-icon> Route</span>
+                <div class="mpc-val">
+                  <span class="route-tag">{{ a.routeCode }}</span>
+                  <span class="route-name-sub">{{ a.routeName }}</span>
+                </div>
+              </div>
+              <div class="mpc-col">
+                <span class="mpc-lbl"><mat-icon>location_on</mat-icon> Boarding Stop</span>
+                <strong class="mpc-val-stop">{{ a.stopName }}</strong>
+              </div>
+            </div>
+
+            <div class="mpc-row">
+              <div class="mpc-col">
+                <span class="mpc-lbl"><mat-icon>schedule</mat-icon> Timings</span>
+                <div class="mpc-timings">
+                  <span class="timing-badge am" *ngIf="a.pickupTime"><mat-icon>wb_sunny</mat-icon> {{ a.pickupTime }}</span>
+                  <span class="timing-badge pm" *ngIf="a.dropTime"><mat-icon>nights_stay</mat-icon> {{ a.dropTime }}</span>
+                  <span *ngIf="!a.pickupTime && !a.dropTime" class="text-muted">—</span>
+                </div>
+              </div>
+              <div class="mpc-col">
+                <span class="mpc-lbl"><mat-icon>payments</mat-icon> Monthly Fee</span>
+                <strong *ngIf="!a.isFreeAllocation" class="fare-highlight">₹{{ a.monthlyFare | number }}<span class="per-mo">/mo</span></strong>
+                <span *ngIf="a.isFreeAllocation" class="free-badge">FREE PASS</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card Footer Actions: 3 Clean Tap Buttons -->
+          <div class="mpc-actions">
+            <button type="button" class="mpc-btn mpc-btn-pass" (click)="viewBusPass(a.id)">
+              <mat-icon>badge</mat-icon> <span>Bus Pass</span>
+            </button>
+            <button type="button" class="mpc-btn mpc-btn-edit" (click)="openEditAllocation(a)">
+              <mat-icon>edit</mat-icon> <span>Edit</span>
+            </button>
+            <button type="button" class="mpc-btn mpc-btn-remove" (click)="discontinueAllocation(a)">
+              <mat-icon>person_remove</mat-icon> <span>Discontinue</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- Server-Side Pagination Bar -->
       <div class="erp-pagination-bar" *ngIf="studentPassTotalCount > 0">
         <div class="pagination-info">
@@ -698,7 +780,7 @@
       </button>
     </div>
 
-    <div class="table-card mat-elevation-z1">
+    <div class="table-card mat-elevation-z1 pass-table-card">
       <div class="table-scroll-container">
         <table class="erp-table">
           <thead>
@@ -753,160 +835,670 @@
           </tbody>
         </table>
       </div>
+
+      <!-- MOBILE VIEW: RESPONSIVE FACULTY PASS CARDS DECK (Hidden on Desktop, Visible on Mobile <= 768px) -->
+      <div class="mobile-pass-cards-deck" *ngIf="teacherAllocations.length > 0">
+        <div class="mobile-pass-card" *ngFor="let a of teacherAllocations">
+          <!-- Card Header: Teacher Avatar, Name, Employee Code, and Status Pill -->
+          <div class="mpc-header">
+            <div class="mpc-user">
+              <div class="mpc-avatar teacher"><mat-icon>school</mat-icon></div>
+              <div class="mpc-user-info">
+                <h4 class="mpc-name">{{ a.teacherName }}</h4>
+                <div class="mpc-badges">
+                  <span class="mpc-pill">Emp: {{ a.employeeCode || 'TCH' }}</span>
+                </div>
+              </div>
+            </div>
+            <span class="status-pill active">{{ a.status }}</span>
+          </div>
+
+          <!-- Card Details Grid: Route, Stop, Timings, Trip Type -->
+          <div class="mpc-body">
+            <div class="mpc-row">
+              <div class="mpc-col">
+                <span class="mpc-lbl"><mat-icon>alt_route</mat-icon> Route</span>
+                <div class="mpc-val">
+                  <span class="route-tag">{{ a.routeCode }}</span>
+                  <span class="route-name-sub">{{ a.routeName }}</span>
+                </div>
+              </div>
+              <div class="mpc-col">
+                <span class="mpc-lbl"><mat-icon>location_on</mat-icon> Boarding Stop</span>
+                <strong class="mpc-val-stop">{{ a.stopName }}</strong>
+              </div>
+            </div>
+
+            <div class="mpc-row">
+              <div class="mpc-col">
+                <span class="mpc-lbl"><mat-icon>schedule</mat-icon> Timings</span>
+                <div class="mpc-timings">
+                  <span class="timing-badge am" *ngIf="a.pickupTime"><mat-icon>wb_sunny</mat-icon> {{ a.pickupTime }}</span>
+                  <span class="timing-badge pm" *ngIf="a.dropTime"><mat-icon>nights_stay</mat-icon> {{ a.dropTime }}</span>
+                  <span *ngIf="!a.pickupTime && !a.dropTime" class="text-muted">—</span>
+                </div>
+              </div>
+              <div class="mpc-col">
+                <span class="mpc-lbl"><mat-icon>directions_bus</mat-icon> Trip Type</span>
+                <span class="trip-pill">{{ a.pickupDropType }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card Footer Actions: 3 Clean Tap Buttons -->
+          <div class="mpc-actions">
+            <button type="button" class="mpc-btn mpc-btn-pass" (click)="viewBusPass(a.id)">
+              <mat-icon>badge</mat-icon> <span>Faculty Pass</span>
+            </button>
+            <button type="button" class="mpc-btn mpc-btn-edit" (click)="openEditAllocation(a)">
+              <mat-icon>edit</mat-icon> <span>Edit</span>
+            </button>
+            <button type="button" class="mpc-btn mpc-btn-remove" (click)="discontinueAllocation(a)">
+              <mat-icon>person_remove</mat-icon> <span>Discontinue</span>
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
-  <!-- TAB 6: DAILY MANIFEST -->
+  <!-- TAB 6: SCHOOL BUS BOARDING TRACKER & MANIFEST -->
   <div class="tab-content" *ngIf="activeTab === 6">
     <div class="section-toolbar">
       <div class="toolbar-title">
-        <h3>Driver's Daily Boarding Manifest</h3>
-        <p>Printable passenger checklist for morning pickups and evening school departures</p>
+        <div class="title-with-badge">
+          <h3>School Bus Boarding Tracker &amp; Fleet Radar</h3>
+          <span class="live-pulse-badge"><span class="pulse-dot"></span> LIVE TRANSIT</span>
+        </div>
+        <p>Driver one-tap boarding console for morning pickups &amp; evening drops with real-time parent &amp; admin monitoring</p>
       </div>
 
-      <div class="manifest-selectors">
-        <mat-form-field appearance="outline" class="selector-field">
-          <mat-label>Select Route</mat-label>
-          <mat-select [(ngModel)]="manifestRouteId" (selectionChange)="loadManifest()">
-            <mat-option *ngFor="let r of routes" [value]="r.id">
-              {{ r.routeCode }} &bull; {{ r.routeName }}
-            </mat-option>
-          </mat-select>
-        </mat-form-field>
-
-        <mat-form-field appearance="outline" class="selector-field">
-          <mat-label>Departure</mat-label>
-          <mat-select [(ngModel)]="manifestDeparture" (selectionChange)="loadManifest()">
-            <mat-option value="Morning">Morning Pickup</mat-option>
-            <mat-option value="Evening">Evening Drop</mat-option>
-          </mat-select>
-        </mat-form-field>
-
-        <div class="manifest-action-btns">
-          <button mat-flat-button class="btn-scan-qr" (click)="openQrScanModal()">
-            <mat-icon>qr_code_scanner</mat-icon> Scan QR Pass
+      <!-- Mode Switcher & Controls -->
+      <div class="manifest-toolbar-actions">
+        <div class="mode-toggle-group">
+          <button 
+            type="button" 
+            class="mode-btn" 
+            [class.active]="manifestViewMode === 'driver'"
+            (click)="manifestViewMode = 'driver'">
+            <mat-icon>touch_app</mat-icon>
+            <span>Driver / Tap Console</span>
           </button>
-
-          <button mat-flat-button class="btn-save-boarding" [disabled]="isSavingBoarding || !manifest" (click)="saveBoardingRun()">
-            <mat-icon>save</mat-icon> {{ isSavingBoarding ? 'Saving...' : 'Save / Submit Boarding' }}
+          <button 
+            type="button" 
+            class="mode-btn" 
+            [class.active]="manifestViewMode === 'admin'"
+            (click)="manifestViewMode = 'admin'; loadLiveTracker()">
+            <mat-icon>radar</mat-icon>
+            <span>Admin Fleet Radar</span>
           </button>
+        </div>
 
-          <button mat-stroked-button class="btn-notify-parents" [disabled]="isNotifyingParents || !manifest" (click)="notifyBoardedParents()">
-            <mat-icon>sms</mat-icon> {{ isNotifyingParents ? 'Sending...' : 'Notify Parents' }}
-          </button>
-
-          <button mat-stroked-button color="primary" class="btn-print" (click)="printManifest()">
-            <mat-icon>print</mat-icon> Print Sheet
-          </button>
+        <div class="whatsapp-toggle-wrap">
+          <mat-slide-toggle [(ngModel)]="autoSendWhatsAppOnTap" color="primary">
+            <span class="toggle-label"><mat-icon class="wa-ico">sms</mat-icon> WhatsApp Alerts on Tap</span>
+          </mat-slide-toggle>
         </div>
       </div>
     </div>
 
-    <div class="manifest-sheet mat-elevation-z1" id="printable-manifest" *ngIf="manifest">
-      <!-- Live Boarding Run Status Strip -->
-      <div class="manifest-stats-strip no-print">
-        <div class="stat-items">
-          <span class="stat-badge total">
-            <mat-icon>groups</mat-icon> Total Allocated: <strong>{{ manifest.passengers.length }}</strong>
-          </span>
-          <span class="stat-badge success">
-            <mat-icon>check_circle</mat-icon> Boarded: <strong>{{ getBoardedCount() }}</strong>
-          </span>
-          <span class="stat-badge pending">
-            <mat-icon>pending</mat-icon> Pending / Absent: <strong>{{ manifest.passengers.length - getBoardedCount() }}</strong>
-          </span>
-        </div>
-        <div class="quick-actions">
-          <button mat-stroked-button color="primary" class="btn-sm" (click)="toggleAllBoarded(true)">
-            <mat-icon>done_all</mat-icon> Mark All Boarded
-          </button>
-          <button mat-button color="warn" class="btn-sm" (click)="toggleAllBoarded(false)">
-            <mat-icon>clear_all</mat-icon> Clear All
-          </button>
-        </div>
-      </div>
+    <!-- ========================================================================= -->
+    <!-- VIEW A: DRIVER / ATTENDANT TAP CONSOLE (Mobile/Touch Optimized)           -->
+    <!-- ========================================================================= -->
+    <div class="driver-console-view" *ngIf="manifestViewMode === 'driver'">
+      <!-- Route & Run Selectors -->
+      <div class="console-selector-card mat-elevation-z1">
+        <div class="selector-row">
+          <mat-form-field appearance="outline" class="selector-field flex-2">
+            <mat-label>Select Bus Route</mat-label>
+            <mat-select [(ngModel)]="manifestRouteId" (selectionChange)="loadManifest()">
+              <mat-option *ngFor="let r of routes" [value]="r.id">
+                <strong>{{ r.routeCode }}</strong> &bull; {{ r.routeName }} ({{ r.vehicleNumber || 'Bus' }})
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
 
-      <div class="manifest-header-print">
-        <div class="mh-top">
-          <div class="mh-title-block">
-            <h2>CAMPUS TRANSPORTATION &bull; BOARDING MANIFEST</h2>
-            <span class="mh-inst-subtitle">Official Dispatch Checklist &amp; Student Attendance Sheet</span>
+          <mat-form-field appearance="outline" class="selector-field flex-1">
+            <mat-label>Transit Run</mat-label>
+            <mat-select [(ngModel)]="manifestDeparture" (selectionChange)="loadManifest()">
+              <mat-option value="Morning">🌅 Morning Pickup Run</mat-option>
+              <mat-option value="Evening">🌇 Evening Drop Run</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="selector-field flex-2">
+            <mat-label>Quick Search Commuter</mat-label>
+            <input matInput [(ngModel)]="manifestSearchTerm" placeholder="Student name, roll no, stop..." />
+            <mat-icon matSuffix *ngIf="!manifestSearchTerm">search</mat-icon>
+            <button mat-icon-button matSuffix *ngIf="manifestSearchTerm" (click)="manifestSearchTerm = ''">
+              <mat-icon>close</mat-icon>
+            </button>
+          </mat-form-field>
+
+          <div class="console-top-actions">
+            <button mat-flat-button class="btn-scan-qr" (click)="openQrScanModal()">
+              <mat-icon>qr_code_scanner</mat-icon> <span>Scan QR</span>
+            </button>
+
+            <button mat-stroked-button class="btn-notify-parents" [disabled]="isNotifyingParents || !manifest" (click)="notifyBoardedParents()">
+              <mat-icon>sms</mat-icon> <span>Notify All</span>
+            </button>
+
+            <button mat-stroked-button color="primary" class="btn-print" (click)="printManifest()">
+              <mat-icon>print</mat-icon> <span>Print Sheet</span>
+            </button>
           </div>
-          <span class="manifest-date">{{ manifest.manifestDate }} &bull; {{ manifest.departureType }} Run</span>
         </div>
-        <div class="mh-meta-grid">
-          <div><strong>Route:</strong> {{ manifest.routeCode }} - {{ manifest.routeName }}</div>
-          <div><strong>Bus Number:</strong> {{ manifest.vehicleNumber }}</div>
-          <div><strong>Driver:</strong> {{ manifest.driverName || 'Assigned' }} ({{ manifest.driverPhone || '—' }})</div>
-          <div><strong>Total Commuters:</strong> {{ manifest.totalPassengers }} Allocated</div>
+
+        <!-- Bus Details Strip -->
+        <div class="bus-meta-strip" *ngIf="manifest">
+          <div class="bus-meta-item">
+            <mat-icon>directions_bus</mat-icon>
+            <span>Bus: <strong>{{ manifest.vehicleNumber || 'Assigned' }}</strong></span>
+          </div>
+          <div class="bus-meta-item" *ngIf="manifest.driverName">
+            <mat-icon>airline_seat_recline_normal</mat-icon>
+            <span>Driver: <strong>{{ manifest.driverName }}</strong> ({{ manifest.driverPhone || 'N/A' }})</span>
+          </div>
+          <div class="bus-meta-item" *ngIf="manifest.conductorName">
+            <mat-icon>badge</mat-icon>
+            <span>Conductor: <strong>{{ manifest.conductorName }}</strong></span>
+          </div>
+          <div class="bus-meta-item date-item">
+            <mat-icon>calendar_today</mat-icon>
+            <span>{{ manifest.manifestDate }} &bull; {{ manifest.departureType }}</span>
+          </div>
+        </div>
+
+        <!-- Live Status Metric Counters -->
+        <div class="console-metrics-strip" *ngIf="manifest">
+          <div class="c-metric total" (click)="manifestStatusFilter = 'ALL'" [class.active]="manifestStatusFilter === 'ALL'">
+            <span class="m-val">{{ manifest.passengers.length }}</span>
+            <span class="m-lbl">Total Allocated</span>
+          </div>
+          <div class="c-metric boarded" (click)="manifestStatusFilter = 'Boarded'" [class.active]="manifestStatusFilter === 'Boarded'">
+            <span class="m-val">{{ getBoardedCount() }}</span>
+            <span class="m-lbl">Boarded</span>
+          </div>
+          <div class="c-metric dropped" *ngIf="manifestDeparture === 'Evening'" (click)="manifestStatusFilter = 'Dropped'" [class.active]="manifestStatusFilter === 'Dropped'">
+            <span class="m-val">{{ getDroppedCount() }}</span>
+            <span class="m-lbl">Dropped</span>
+          </div>
+          <div class="c-metric absent" (click)="manifestStatusFilter = 'Absent'" [class.active]="manifestStatusFilter === 'Absent'">
+            <span class="m-val">{{ getAbsentCount() }}</span>
+            <span class="m-lbl">Absent / Missed</span>
+          </div>
+          <div class="c-metric pending" (click)="manifestStatusFilter = 'Pending'" [class.active]="manifestStatusFilter === 'Pending'">
+            <span class="m-val">{{ getPendingCount() }}</span>
+            <span class="m-lbl">Pending Tap</span>
+          </div>
+        </div>
+
+        <!-- Stop Filter Chips -->
+        <div class="stop-chips-row" *ngIf="manifest && getUniqueManifestStops().length > 1">
+          <span class="chips-title"><mat-icon>alt_route</mat-icon> Filter by Stop:</span>
+          <div class="chips-list">
+            <button 
+              type="button" 
+              class="stop-chip" 
+              [class.active]="manifestSelectedStop === 'ALL'"
+              (click)="manifestSelectedStop = 'ALL'">
+              All Stops ({{ manifest.passengers.length }})
+            </button>
+            <button 
+              type="button" 
+              class="stop-chip" 
+              *ngFor="let s of getUniqueManifestStops()"
+              [class.active]="manifestSelectedStop === s.name"
+              (click)="manifestSelectedStop = s.name">
+              {{ s.name }} ({{ s.count }})
+            </button>
+          </div>
         </div>
       </div>
 
-      <div class="table-scroll-container">
-        <table class="manifest-table">
-          <thead>
-            <tr>
-              <th style="width: 45px;">Sr.</th>
-              <th style="width: 80px;">Type</th>
-              <th>Commuter Name</th>
-              <th>Roll / Emp ID</th>
-              <th>Class / Batch</th>
-              <th>Boarding Stop</th>
-              <th>Scheduled Time</th>
-              <th>Emergency Phone</th>
-              <th style="width: 80px; text-align: center;">Boarded</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let p of manifest.passengers">
-              <td>{{ p.srNo }}</td>
-              <td><span class="member-tag" [class.tch]="p.memberType === 'Teacher'">{{ p.memberType }}</span></td>
-              <td>
-                <strong class="commuter-name">{{ p.name || p.memberName || 'N/A' }}</strong>
-              </td>
-              <td>
+      <!-- No Route Selected Placeholder -->
+      <div class="empty-console-state" *ngIf="!manifest && !manifestRouteId">
+        <mat-icon class="empty-icon">directions_bus</mat-icon>
+        <h3>Please Select a Bus Route Above</h3>
+        <p>Choose an active bus route and transit run (Morning Pickup or Evening Drop) to launch the tap console.</p>
+      </div>
+
+      <!-- Interactive Tap Cards Grid -->
+      <div class="commuters-tap-grid" *ngIf="manifest">
+        <div 
+          class="commuter-tap-card mat-elevation-z1" 
+          *ngFor="let p of getFilteredPassengers()"
+          [class.status-boarded]="p.status === 'Boarded' || (p.isBoarded && p.status !== 'Dropped')"
+          [class.status-dropped]="p.status === 'Dropped'"
+          [class.status-absent]="p.status === 'Absent'">
+          
+          <div class="card-top-row">
+            <div class="commuter-avatar" [class.teacher-av]="p.memberType === 'Teacher'">
+              <mat-icon>{{ p.memberType === 'Teacher' ? 'school' : 'person' }}</mat-icon>
+            </div>
+            <div class="commuter-info">
+              <div class="name-line">
+                <span class="c-name">{{ p.name || p.memberName }}</span>
+                <span class="member-tag" [class.tch]="p.memberType === 'Teacher'">{{ p.memberType }}</span>
+              </div>
+              <div class="meta-line">
                 <div class="roll-badge-box" *ngIf="p.code">
-                  <span 
-                    *ngFor="let seg of getRollSegments(p.code)" 
-                    class="roll-code-pill"
-                    [class.sch-pill]="seg.startsWith('Sch:')"
-                    [class.cch-pill]="seg.startsWith('Cch:')">
-                    {{ seg }}
+                  <span *ngFor="let seg of getRollSegments(p.code)" class="roll-code-pill">{{ seg }}</span>
+                </div>
+                <span class="class-text" *ngIf="p.className">{{ p.className }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-stop-row">
+            <div class="stop-pill">
+              <mat-icon>location_on</mat-icon>
+              <span>{{ p.stopName }}</span>
+            </div>
+            <div class="time-pill" *ngIf="p.pickupTime || p.scheduledTime">
+              <mat-icon>schedule</mat-icon>
+              <span>{{ p.pickupTime || p.scheduledTime }}</span>
+            </div>
+            <div class="phone-link" *ngIf="p.parentPhone || p.contactNumber">
+              <a [href]="'tel:' + (p.parentPhone || p.contactNumber)" title="Call Emergency Contact">
+                <mat-icon>call</mat-icon> {{ p.parentPhone || p.contactNumber }}
+              </a>
+            </div>
+          </div>
+
+          <!-- Status Indicator Pill -->
+          <div class="card-status-strip">
+            <div class="status-indicator-badge" [ngSwitch]="p.status || (p.isBoarded ? 'Boarded' : 'Pending')">
+              <span *ngSwitchCase="'Boarded'" class="badge-boarded">
+                <mat-icon>check_circle</mat-icon> 🟢 BOARDED {{ p.lastUpdatedFormatted ? '(' + p.lastUpdatedFormatted + ')' : '' }}
+              </span>
+              <span *ngSwitchCase="'Dropped'" class="badge-dropped">
+                <mat-icon>task_alt</mat-icon> 🔵 DROPPED {{ p.lastUpdatedFormatted ? '(' + p.lastUpdatedFormatted + ')' : '' }}
+              </span>
+              <span *ngSwitchCase="'Absent'" class="badge-absent">
+                <mat-icon>cancel</mat-icon> ❌ ABSENT / MISSED
+              </span>
+              <span *ngSwitchDefault class="badge-pending">
+                <mat-icon>hourglass_empty</mat-icon> ⏳ Awaiting Transit Tap
+              </span>
+            </div>
+          </div>
+
+          <!-- One-Tap Action Buttons -->
+          <div class="card-tap-actions">
+            <!-- Morning Actions -->
+            <ng-container *ngIf="manifestDeparture === 'Morning'">
+              <button 
+                type="button" 
+                class="tap-btn tap-board"
+                [class.active]="p.status === 'Boarded' || p.isBoarded"
+                (click)="tapPassenger(p, 'Boarded')">
+                <mat-icon>done</mat-icon>
+                <span>Tap to Board</span>
+              </button>
+              <button 
+                type="button" 
+                class="tap-btn tap-absent"
+                [class.active]="p.status === 'Absent'"
+                (click)="tapPassenger(p, 'Absent')">
+                <mat-icon>close</mat-icon>
+                <span>Absent</span>
+              </button>
+              <button 
+                type="button" 
+                class="tap-btn tap-reset" 
+                title="Reset to Pending"
+                *ngIf="p.status && p.status !== 'Pending'"
+                (click)="tapPassenger(p, 'Pending')">
+                <mat-icon>undo</mat-icon>
+              </button>
+            </ng-container>
+
+            <!-- Evening Actions -->
+            <ng-container *ngIf="manifestDeparture === 'Evening'">
+              <button 
+                type="button" 
+                class="tap-btn tap-board"
+                [class.active]="p.status === 'Boarded'"
+                (click)="tapPassenger(p, 'Boarded')">
+                <mat-icon>login</mat-icon>
+                <span>Board at Campus</span>
+              </button>
+              <button 
+                type="button" 
+                class="tap-btn tap-drop"
+                [class.active]="p.status === 'Dropped'"
+                (click)="tapPassenger(p, 'Dropped')">
+                <mat-icon>check_circle</mat-icon>
+                <span>Safely Dropped</span>
+              </button>
+              <button 
+                type="button" 
+                class="tap-btn tap-absent"
+                [class.active]="p.status === 'Absent'"
+                (click)="tapPassenger(p, 'Absent')">
+                <mat-icon>close</mat-icon>
+                <span>Absent</span>
+              </button>
+              <button 
+                type="button" 
+                class="tap-btn tap-reset" 
+                title="Reset to Pending"
+                *ngIf="p.status && p.status !== 'Pending'"
+                (click)="tapPassenger(p, 'Pending')">
+                <mat-icon>undo</mat-icon>
+              </button>
+            </ng-container>
+          </div>
+        </div>
+
+        <div class="empty-filter-state" *ngIf="getFilteredPassengers().length === 0">
+          <mat-icon>filter_alt_off</mat-icon>
+          <p>No commuters match the selected stop or search filter.</p>
+        </div>
+      </div>
+
+      <!-- Printable Table View (Only when printing clipboard sheet) -->
+      <div class="manifest-sheet print-only" id="printable-manifest" *ngIf="manifest">
+        <div class="manifest-header-print">
+          <div class="mh-top">
+            <div class="mh-title-block">
+              <h2>CAMPUS TRANSPORTATION &bull; BOARDING MANIFEST</h2>
+              <span class="mh-inst-subtitle">Official Dispatch Checklist &amp; Student Attendance Sheet</span>
+            </div>
+            <span class="manifest-date">{{ manifest.manifestDate }} &bull; {{ manifest.departureType }} Run</span>
+          </div>
+          <div class="mh-meta-grid">
+            <div><strong>Route:</strong> {{ manifest.routeCode }} - {{ manifest.routeName }}</div>
+            <div><strong>Bus Number:</strong> {{ manifest.vehicleNumber }}</div>
+            <div><strong>Driver:</strong> {{ manifest.driverName || 'Assigned' }} ({{ manifest.driverPhone || '—' }})</div>
+            <div><strong>Total Commuters:</strong> {{ manifest.totalPassengers }} Allocated</div>
+          </div>
+        </div>
+
+        <div class="table-scroll-container">
+          <table class="manifest-table">
+            <thead>
+              <tr>
+                <th style="width: 45px;">Sr.</th>
+                <th style="width: 80px;">Type</th>
+                <th>Commuter Name</th>
+                <th>Roll / Emp ID</th>
+                <th>Class / Batch</th>
+                <th>Boarding Stop</th>
+                <th>Scheduled Time</th>
+                <th>Emergency Phone</th>
+                <th style="width: 100px; text-align: center;">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let p of manifest.passengers">
+                <td>{{ p.srNo }}</td>
+                <td><span class="member-tag" [class.tch]="p.memberType === 'Teacher'">{{ p.memberType }}</span></td>
+                <td><strong class="commuter-name">{{ p.name || p.memberName || 'N/A' }}</strong></td>
+                <td><code>{{ p.code || p.rollOrEmpCode || '—' }}</code></td>
+                <td>{{ p.className || '—' }}</td>
+                <td><strong>{{ p.stopName }}</strong></td>
+                <td>{{ p.pickupTime || p.scheduledTime || '—' }}</td>
+                <td>{{ p.parentPhone || p.contactNumber || '—' }}</td>
+                <td style="text-align: center;"><strong>{{ p.status || (p.isBoarded ? 'Boarded' : 'Pending') }}</strong></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="manifest-print-footer">
+          <div class="sig-box"><div class="sig-line"></div><span>Driver Signature</span></div>
+          <div class="sig-box"><div class="sig-line"></div><span>Conductor Signature</span></div>
+          <div class="sig-box"><div class="sig-line"></div><span>Transport Supervisor</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- VIEW B: ADMIN LIVE FLEET RADAR & COMMUTER LOOKUP DESK                     -->
+    <!-- ========================================================================= -->
+    <div class="admin-radar-view" *ngIf="manifestViewMode === 'admin'">
+      <!-- Fleet KPI Deck -->
+      <div class="radar-kpi-grid">
+        <div class="radar-card kpi-active-buses">
+          <div class="kpi-icon-wrap"><mat-icon>directions_bus</mat-icon></div>
+          <div class="kpi-details">
+            <span class="kpi-val">{{ liveTracker?.activeBusesCount || 0 }}</span>
+            <span class="kpi-lbl">Active Fleet Running</span>
+            <span class="kpi-sub">{{ liveTracker?.dateFormatted || 'Today' }}</span>
+          </div>
+        </div>
+
+        <div class="radar-card kpi-commuters">
+          <div class="kpi-icon-wrap"><mat-icon>groups</mat-icon></div>
+          <div class="kpi-details">
+            <span class="kpi-val">{{ liveTracker?.totalCommutersToday || 0 }}</span>
+            <span class="kpi-lbl">Total Commuters</span>
+            <span class="kpi-sub">Allocated for transport</span>
+          </div>
+        </div>
+
+        <div class="radar-card kpi-morning">
+          <div class="kpi-icon-wrap"><mat-icon>wb_sunny</mat-icon></div>
+          <div class="kpi-details">
+            <div class="kpi-split">
+              <span class="kpi-val text-success">{{ liveTracker?.morningBoardedCount || 0 }}</span>
+              <span class="kpi-divider">/</span>
+              <span class="kpi-sub-val">{{ liveTracker?.totalCommutersToday || 0 }}</span>
+            </div>
+            <span class="kpi-lbl">Morning Boarded</span>
+            <span class="kpi-sub">{{ liveTracker?.morningAbsentCount || 0 }} Marked Absent</span>
+          </div>
+        </div>
+
+        <div class="radar-card kpi-evening">
+          <div class="kpi-icon-wrap"><mat-icon>bedtime</mat-icon></div>
+          <div class="kpi-details">
+            <div class="kpi-split">
+              <span class="kpi-val text-primary">{{ liveTracker?.eveningDroppedCount || 0 }}</span>
+              <span class="kpi-divider">/</span>
+              <span class="kpi-sub-val">{{ liveTracker?.eveningBoardedCount || (liveTracker?.totalCommutersToday || 0) }}</span>
+            </div>
+            <span class="kpi-lbl">Evening Dropped</span>
+            <span class="kpi-sub">{{ liveTracker?.eveningAbsentCount || 0 }} Absent/Skipped</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Active Buses Progress Deck -->
+      <div class="fleet-routes-deck mat-elevation-z1">
+        <div class="deck-header">
+          <div class="deck-title">
+            <mat-icon>alt_route</mat-icon>
+            <h4>Active Fleet Routes &amp; Live Trip Progress</h4>
+          </div>
+          <button mat-stroked-button color="primary" class="btn-sm" (click)="loadLiveTracker()">
+            <mat-icon>refresh</mat-icon> Refresh Radar
+          </button>
+        </div>
+
+        <div class="routes-progress-grid" *ngIf="liveTracker?.routes && liveTracker!.routes.length > 0">
+          <div class="route-progress-card" *ngFor="let r of liveTracker!.routes">
+            <div class="rpc-head">
+              <div class="rpc-route-name">
+                <span class="route-code-badge">{{ r.routeCode }}</span>
+                <strong>{{ r.routeName }}</strong>
+              </div>
+              <span class="bus-num-badge"><mat-icon>directions_bus</mat-icon> {{ r.vehicleNumber }}</span>
+            </div>
+
+            <div class="rpc-driver">
+              <span>Driver: <strong>{{ r.driverName || 'Assigned' }}</strong> ({{ r.driverPhone || 'N/A' }})</span>
+              <span *ngIf="r.conductorName" class="cond-text"> &bull; Cond: {{ r.conductorName }}</span>
+            </div>
+
+            <!-- Morning Progress Bar -->
+            <div class="trip-prog-wrap">
+              <div class="prog-meta">
+                <span>🌅 Morning Pickup</span>
+                <strong>{{ r.morningBoarded }} / {{ r.totalPassengers }} Boarded</strong>
+              </div>
+              <div class="prog-track">
+                <div 
+                  class="prog-fill morning-fill" 
+                  [style.width.%]="r.totalPassengers ? (r.morningBoarded / r.totalPassengers) * 100 : 0">
+                </div>
+              </div>
+            </div>
+
+            <!-- Evening Progress Bar -->
+            <div class="trip-prog-wrap">
+              <div class="prog-meta">
+                <span>🌇 Evening Drop</span>
+                <strong>{{ r.eveningDropped }} / {{ r.totalPassengers }} Dropped</strong>
+              </div>
+              <div class="prog-track">
+                <div 
+                  class="prog-fill evening-fill" 
+                  [style.width.%]="r.totalPassengers ? (r.eveningDropped / r.totalPassengers) * 100 : 0">
+                </div>
+              </div>
+            </div>
+
+            <div class="rpc-footer">
+              <div class="last-tap-info">
+                <mat-icon>pin_drop</mat-icon>
+                <span *ngIf="r.lastActivityStop">Last Stop: <strong>{{ r.lastActivityStop }}</strong> ({{ r.lastActivityTimeFormatted }})</span>
+                <span *ngIf="!r.lastActivityStop" class="text-muted">No taps recorded yet today</span>
+              </div>
+              <button mat-button color="primary" class="btn-open-console" (click)="quickSwitchRouteFromLiveTracker(r.routeId)">
+                <mat-icon>touch_app</mat-icon> Open Tap Console
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="empty-state-wrap" *ngIf="!liveTracker?.routes || liveTracker!.routes.length === 0">
+          <mat-icon>directions_bus</mat-icon>
+          <p>No active transport routes with passenger allocations found for today.</p>
+        </div>
+      </div>
+
+      <!-- Split Deck: Live Feed + Student Transit Quick Lookup -->
+      <div class="radar-split-deck">
+        <!-- Live Activity Stream (Feed) -->
+        <div class="split-col feed-col mat-elevation-z1">
+          <div class="col-header">
+            <div class="col-title">
+              <mat-icon class="pulse-icon">sensors</mat-icon>
+              <h4>Live Boarding Stream &amp; Tap Ticker</h4>
+            </div>
+            <button mat-icon-button (click)="loadLiveTracker()" title="Refresh Feed">
+              <mat-icon>refresh</mat-icon>
+            </button>
+          </div>
+
+          <div class="feed-list" *ngIf="liveTracker?.recentFeed && liveTracker!.recentFeed.length > 0">
+            <div class="feed-item" *ngFor="let item of liveTracker!.recentFeed" [class.feed-drop]="item.action === 'Dropped'" [class.feed-absent]="item.action === 'Absent'">
+              <div class="feed-time-badge">
+                <span>{{ item.timeFormatted }}</span>
+              </div>
+              <div class="feed-body">
+                <div class="feed-line-1">
+                  <strong>{{ item.passengerName }}</strong>
+                  <span class="feed-action-pill" [ngClass]="item.action.toLowerCase()">
+                    {{ item.action }}
                   </span>
                 </div>
-                <code *ngIf="!p.code">{{ p.rollOrEmpCode || '—' }}</code>
-              </td>
-              <td>
-                <span class="manifest-class" *ngIf="p.className">{{ p.className }}</span>
-                <span *ngIf="!p.className" class="text-muted">—</span>
-              </td>
-              <td><strong>{{ p.stopName }}</strong></td>
-              <td><span class="time-pill">{{ p.pickupTime || p.scheduledTime || '—' }}</span></td>
-              <td>{{ p.parentPhone || p.contactNumber || '—' }}</td>
-              <td style="text-align: center;">
-                <mat-checkbox [(ngModel)]="p.isBoarded"></mat-checkbox>
-              </td>
-            </tr>
-            <tr *ngIf="manifest.passengers.length === 0">
-              <td colspan="9" class="empty-row">No commuters allocated for this route and departure window.</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+                <div class="feed-line-2">
+                  <span><mat-icon>directions_bus</mat-icon> Route {{ item.routeCode }}</span>
+                  <span><mat-icon>pin_drop</mat-icon> Stop: {{ item.stopName }}</span>
+                  <span class="run-tag">{{ item.departureType }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
 
-      <!-- Official Print Footer (Shown when printing clipboard sheet) -->
-      <div class="manifest-print-footer">
-        <div class="sig-box">
-          <div class="sig-line"></div>
-          <span>Driver Signature</span>
+          <div class="empty-feed" *ngIf="!liveTracker?.recentFeed || liveTracker!.recentFeed.length === 0">
+            <mat-icon>hourglass_empty</mat-icon>
+            <p>No transit taps recorded yet today. When drivers tap commuters, live feed will stream here.</p>
+          </div>
         </div>
-        <div class="sig-box">
-          <div class="sig-line"></div>
-          <span>Conductor Signature</span>
-        </div>
-        <div class="sig-box">
-          <div class="sig-line"></div>
-          <span>Transport Supervisor</span>
+
+        <!-- Student Transit Live Lookup Desk -->
+        <div class="split-col lookup-col mat-elevation-z1">
+          <div class="col-header">
+            <div class="col-title">
+              <mat-icon>person_search</mat-icon>
+              <h4>Student Live Transit Lookup (Parent Query Desk)</h4>
+            </div>
+          </div>
+
+          <div class="lookup-search-bar">
+            <mat-form-field appearance="outline" class="w-100">
+              <mat-label>Search Student (Name, Roll No, Admission No)</mat-label>
+              <input matInput [(ngModel)]="lookupStudentQuery" (keyup.enter)="searchStudentTransitLive()" placeholder="Type student name or roll..." />
+              <button mat-flat-button color="primary" matSuffix (click)="searchStudentTransitLive()" [disabled]="isSearchingStudentStatus || !lookupStudentQuery.trim()">
+                <mat-icon>search</mat-icon> Search
+              </button>
+            </mat-form-field>
+          </div>
+
+          <!-- Student Live Transit Status Card -->
+          <div class="student-transit-card" *ngIf="searchedStudentLiveStatus && searchedStudentLiveStatus.hasTransport">
+            <div class="st-head">
+              <div class="st-avatar"><mat-icon>school</mat-icon></div>
+              <div class="st-info">
+                <h4>{{ searchedStudentLiveStatus.studentName }}</h4>
+                <span class="st-code">{{ searchedStudentLiveStatus.studentCode || 'Student' }} &bull; {{ searchedStudentLiveStatus.classOrBatch || 'Enrolled' }}</span>
+              </div>
+              <span class="bus-pass-active-badge"><mat-icon>verified</mat-icon> Active Pass</span>
+            </div>
+
+            <div class="st-bus-details">
+              <div><strong>Route:</strong> {{ searchedStudentLiveStatus.routeCode }} - {{ searchedStudentLiveStatus.routeName }}</div>
+              <div><strong>Bus Reg:</strong> {{ searchedStudentLiveStatus.vehicleNumber || 'Assigned' }}</div>
+              <div>
+                <strong>Driver:</strong> {{ searchedStudentLiveStatus.driverName || 'Assigned' }} 
+                <a *ngIf="searchedStudentLiveStatus.driverPhone" [href]="'tel:' + searchedStudentLiveStatus.driverPhone" class="driver-call-link">
+                  <mat-icon>call</mat-icon> {{ searchedStudentLiveStatus.driverPhone }}
+                </a>
+              </div>
+              <div><strong>Boarding Stop:</strong> {{ searchedStudentLiveStatus.stopName }}</div>
+            </div>
+
+            <!-- Transit Run Status Radar -->
+            <div class="st-status-radar">
+              <!-- Morning Run -->
+              <div class="radar-run-box" [class.boarded-box]="searchedStudentLiveStatus.morningStatus === 'Boarded'">
+                <div class="r-title">🌅 Morning Pickup</div>
+                <div class="r-val" [ngSwitch]="searchedStudentLiveStatus.morningStatus">
+                  <span *ngSwitchCase="'Boarded'" class="val-boarded">🟢 Boarded at {{ searchedStudentLiveStatus.morningBoardedAtFormatted || 'Morning' }}</span>
+                  <span *ngSwitchCase="'Absent'" class="val-absent">❌ Marked Absent / Missed</span>
+                  <span *ngSwitchDefault class="val-pending">⏳ Awaiting Pickup</span>
+                </div>
+              </div>
+
+              <!-- Evening Run -->
+              <div class="radar-run-box" [class.dropped-box]="searchedStudentLiveStatus.eveningStatus === 'Dropped'">
+                <div class="r-title">🌇 Evening Drop</div>
+                <div class="r-val" [ngSwitch]="searchedStudentLiveStatus.eveningStatus">
+                  <span *ngSwitchCase="'Dropped'" class="val-dropped">🔵 Safely Dropped ({{ searchedStudentLiveStatus.eveningTimeFormatted || 'Done' }})</span>
+                  <span *ngSwitchCase="'Boarded'" class="val-boarded">🟡 On Board / Departing School</span>
+                  <span *ngSwitchCase="'Absent'" class="val-absent">❌ Marked Absent / Self Pickup</span>
+                  <span *ngSwitchDefault class="val-pending">⏳ Awaiting Evening Run</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="not-enrolled-state" *ngIf="searchedStudentLiveStatus && !searchedStudentLiveStatus.hasTransport">
+            <mat-icon>directions_walk</mat-icon>
+            <h4>Self Conveyance / Pedestrian</h4>
+            <p><strong>{{ searchedStudentLiveStatus.studentName }}</strong> does not have an active bus transport pass allocated.</p>
+          </div>
+
+          <div class="lookup-help-state" *ngIf="!searchedStudentLiveStatus">
+            <mat-icon>help_outline</mat-icon>
+            <p>When parents call the institute asking about their child's bus transit status, search their name or roll above to see live pickup &amp; drop timestamps instantly.</p>
+          </div>
         </div>
       </div>
     </div>
@@ -1721,16 +2313,16 @@
         <!-- Pass Category Quick Selector -->
         <div class="pass-category-switcher">
           <button type="button" class="category-pill-btn" [class.selected]="gatePassForm.get('passType')?.value === 'StudentEarlyExit'" (click)="gatePassForm.patchValue({passType: 'StudentEarlyExit'})">
-            <mat-icon>school</mat-icon> Student Early Exit
+            <mat-icon>school</mat-icon> <span>Student Early Exit</span>
           </button>
           <button type="button" class="category-pill-btn" [class.selected]="gatePassForm.get('passType')?.value === 'BusDeparture'" (click)="gatePassForm.patchValue({passType: 'BusDeparture'})">
-            <mat-icon>directions_bus</mat-icon> Bus Departure
+            <mat-icon>directions_bus</mat-icon> <span>Bus Departure</span>
           </button>
           <button type="button" class="category-pill-btn" [class.selected]="gatePassForm.get('passType')?.value === 'TeacherMovement'" (click)="gatePassForm.patchValue({passType: 'TeacherMovement'})">
-            <mat-icon>co_present</mat-icon> Faculty Movement
+            <mat-icon>co_present</mat-icon> <span>Faculty Movement</span>
           </button>
           <button type="button" class="category-pill-btn" [class.selected]="gatePassForm.get('passType')?.value === 'Visitor'" (click)="gatePassForm.patchValue({passType: 'Visitor'})">
-            <mat-icon>person_pin</mat-icon> Visitor / Vendor
+            <mat-icon>person_pin</mat-icon> <span>Visitor / Vendor</span>
           </button>
         </div>
 

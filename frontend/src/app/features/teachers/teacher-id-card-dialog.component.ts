@@ -12,6 +12,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { API_BASE, TeacherIdCardDto } from './teacher.models';
 import { AuthService } from '../../core/services/auth.service';
 import { environment } from '../../../environments/environment';
+import * as QRCode from 'qrcode';
 
 export interface TeacherIdCardDialogData {
   teacherId?: string;
@@ -118,7 +119,8 @@ export interface TeacherIdCardDialogData {
           <!-- Card Footer & QR -->
           <div class="card-footer">
             <div class="qr-mock-box">
-              <mat-icon class="qr-icon">qr_code_2</mat-icon>
+              <img *ngIf="qrCodeUrls[card.id]" [src]="qrCodeUrls[card.id]" alt="QR Code" class="real-qr-img" />
+              <mat-icon *ngIf="!qrCodeUrls[card.id]" class="qr-icon">qr_code_2</mat-icon>
               <span class="qr-label">{{card.employeeCode}}</span>
             </div>
             <div class="signature-block">
@@ -486,6 +488,16 @@ export interface TeacherIdCardDialogData {
       display: flex;
       flex-direction: column;
       align-items: center;
+
+      .real-qr-img {
+        width: 32px;
+        height: 32px;
+        object-fit: contain;
+        image-rendering: pixelated;
+        display: block;
+        border-radius: 2px;
+        background: #fff;
+      }
     }
 
     .qr-icon {
@@ -652,6 +664,7 @@ export interface TeacherIdCardDialogData {
 })
 export class TeacherIdCardDialogComponent implements OnInit {
   cards: TeacherIdCardDto[] = [];
+  qrCodeUrls: { [id: string]: string } = {};
   loading = false;
   cardSide: 'both' | 'front' | 'back' = 'both';
   logoFailed = false;
@@ -688,15 +701,38 @@ export class TeacherIdCardDialogComponent implements OnInit {
     }
 
     this.http.get<TeacherIdCardDto[]>(url).subscribe({
-      next: res => {
+      next: async res => {
         this.cards = res;
+        await this.generateQrCodes();
         this.loading = false;
       },
       error: () => {
         this.cards = [];
+        this.qrCodeUrls = {};
         this.loading = false;
       }
     });
+  }
+
+  async generateQrCodes() {
+    this.qrCodeUrls = {};
+    for (const card of this.cards) {
+      try {
+        const payload = card.qrCodeData || `EMP:${card.employeeCode || card.id}|NAME:${card.fullName}|DESIG:${card.designation || 'Staff'}`;
+        const dataUrl = await QRCode.toDataURL(payload, {
+          width: 90,
+          margin: 1,
+          color: {
+            dark: '#0f172a',
+            light: '#ffffff'
+          },
+          errorCorrectionLevel: 'M'
+        });
+        this.qrCodeUrls[card.id] = dataUrl;
+      } catch (err) {
+        console.error('Failed to generate QR for staff card', card.id, err);
+      }
+    }
   }
 
   getInitials(name: string): string {
