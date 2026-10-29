@@ -2043,7 +2043,7 @@ export interface DailyDiaryReportHeader {
     .dd-section-field { min-width: 130px; flex: 0 0 auto; }
     .dd-batch-field { min-width: 230px; flex: 0 0 auto; }
     .dd-student-field {
-      flex: 1 1 340px;
+      flex: 1 1 auto;
       min-width: 280px;
       max-width: 100%;
     }
@@ -3312,9 +3312,12 @@ export interface DailyDiaryReportHeader {
       .dd-date-field,
       .dd-class-field,
       .dd-section-field,
+      .dd-batch-field,
       .dd-student-field {
         width: 100%;
         min-width: 0;
+        flex: 0 0 auto !important;
+        height: auto !important;
       }
       .dd-action-buttons {
         width: 100%;
